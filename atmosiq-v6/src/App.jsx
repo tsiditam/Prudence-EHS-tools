@@ -1,3 +1,15 @@
+/**
+ * Prudence Safety & Environmental Consulting, LLC
+ * Copyright (c) 2026 Prudence Safety & Environmental Consulting, LLC
+ * All rights reserved.
+ *
+ * This software is the proprietary information of Prudence Safety
+ * & Environmental Consulting, LLC. Unauthorized copying, modification,
+ * distribution, or use is strictly prohibited.
+ *
+ * Contact: tsidi@prudenceehs.com
+ */
+
 // ─── App.jsx — AtmosIQ v6 Main Component ───────────────────────────────────
 // All engines, constants, and components are imported below.
 // Paste the full App() function body from the Claude artifact (atmosiq-v6 artifact).

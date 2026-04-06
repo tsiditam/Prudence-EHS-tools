@@ -1,3 +1,15 @@
+/**
+ * Prudence Safety & Environmental Consulting, LLC
+ * Copyright (c) 2026 Prudence Safety & Environmental Consulting, LLC
+ * All rights reserved.
+ *
+ * This software is the proprietary information of Prudence Safety
+ * & Environmental Consulting, LLC. Unauthorized copying, modification,
+ * distribution, or use is strictly prohibited.
+ *
+ * Contact: tsidi@prudenceehs.com
+ */
+
 export const Q_PRESURVEY = [
   // Assessor
   { id:'ps_assessor',            sec:'Assessor',      q:'Assessor name and credentials',        t:'text', req:1, ic:'👤', ph:'e.g. J. Smith, CIH, CSP' },

@@ -1,3 +1,15 @@
+/**
+ * Prudence Safety & Environmental Consulting, LLC
+ * Copyright (c) 2026 Prudence Safety & Environmental Consulting, LLC
+ * All rights reserved.
+ *
+ * This software is the proprietary information of Prudence Safety
+ * & Environmental Consulting, LLC. Unauthorized copying, modification,
+ * distribution, or use is strictly prohibited.
+ *
+ * Contact: tsidi@prudenceehs.com
+ */
+
 import { useRef } from 'react'
 export default function PhotoCapture({ photos, onAdd, onRemove }) {
   const fileRef = useRef(null)

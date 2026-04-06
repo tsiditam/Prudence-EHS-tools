@@ -1,3 +1,15 @@
+/**
+ * Prudence Safety & Environmental Consulting, LLC
+ * Copyright (c) 2026 Prudence Safety & Environmental Consulting, LLC
+ * All rights reserved.
+ *
+ * This software is the proprietary information of Prudence Safety
+ * & Environmental Consulting, LLC. Unauthorized copying, modification,
+ * distribution, or use is strictly prohibited.
+ *
+ * Contact: tsidi@prudenceehs.com
+ */
+
 export const I = ({ n, s=18, c='currentColor', w=1.8 }) => {
   const p = { width:s, height:s, viewBox:'0 0 24 24', fill:'none', stroke:c, strokeWidth:w, strokeLinecap:'round', strokeLinejoin:'round' }
   const icons = {
