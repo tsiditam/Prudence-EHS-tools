@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0A0D14"/>
+      <stop offset="100%" style="stop-color:#050507"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#22D3EE"/>
+      <stop offset="50%" style="stop-color:#06B6D4"/>
+      <stop offset="100%" style="stop-color:#8B5CF6"/>
+    </linearGradient>
+  </defs>
+  <rect width="192" height="192" rx="42.24" fill="url(#bg)"/>
+  <rect x="8.639999999999999" y="8.639999999999999" width="174.72" height="174.72" rx="35.904" fill="none" stroke="url(#accent)" stroke-width="0.96" opacity="0.3"/>
+  <text x="53.760000000000005" y="107.52000000000001" font-family="Arial, Helvetica, sans-serif" font-weight="800" font-size="53.760000000000005" fill="#F0F4F8" letter-spacing="-1.92">a</text>
+  <text x="84.48" y="107.52000000000001" font-family="Arial, Helvetica, sans-serif" font-weight="800" font-size="53.760000000000005" fill="#22D3EE" letter-spacing="-1.92">IQ</text>
+  <text x="96" y="142.07999999999998" font-family="Arial, Helvetica, sans-serif" font-weight="400" font-size="12.48" fill="#606070" text-anchor="middle" letter-spacing="1.92">PRUDENCE EHS</text>
+</svg>
