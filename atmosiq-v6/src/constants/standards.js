@@ -42,7 +42,7 @@ export const STD = {
   },
 }
 
-export const VER = '6.0.0'
+export const VER = '6.0.0-beta'
 
 export const PLAT_MODULES = [
   { id: 'atmosiq',    n: 'AtmosIQ',            i: '🌬️', on: true },

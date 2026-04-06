@@ -1,6 +1,6 @@
 {
-  "name": "AtmosIQ — Indoor Air Quality Intelligence",
-  "short_name": "AtmosIQ",
+  "name": "AtmosIQ Beta — Indoor Air Quality Intelligence",
+  "short_name": "AtmosIQ Beta",
   "description": "Field-grade IAQ assessment platform by Prudence EHS. Real-time scoring, causal analysis, and defensible reports.",
   "start_url": "/",
   "display": "standalone",
