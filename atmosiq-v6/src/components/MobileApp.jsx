@@ -537,7 +537,7 @@ export default function MobileApp() {
         {view==='dash'&&<div style={{paddingTop:32,paddingBottom:100}}>
           <div style={{animation:'fadeUp .5s ease'}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:20}}>
-              <div><div style={{fontSize:11,fontWeight:600,color:ACCENT,textTransform:'uppercase',letterSpacing:3,fontFamily:"'DM Mono'",marginBottom:12}}>Air Quality Intelligence</div><h1 style={{fontSize:36,fontWeight:800,lineHeight:1.1,margin:0,letterSpacing:'-1px'}}>atmos<span style={{color:ACCENT}}>IQ</span></h1></div>
+              <div><div style={{fontSize:11,fontWeight:600,color:ACCENT,textTransform:'uppercase',letterSpacing:3,fontFamily:"'DM Mono'",marginBottom:12}}>Indoor Air Quality Intelligence</div><h1 style={{fontSize:36,fontWeight:800,lineHeight:1.1,margin:0,letterSpacing:'-1px'}}>atmos<span style={{color:ACCENT}}>IQ</span></h1></div>
               {profile&&<button onClick={handleLogout} style={{display:'flex',alignItems:'center',gap:8,padding:'10px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>
                 <div style={{width:28,height:28,borderRadius:8,background:`${ACCENT}15`,display:'flex',alignItems:'center',justifyContent:'center'}}><I n="user" s={14} c={ACCENT} /></div>
                 <div style={{fontSize:13,fontWeight:600,color:TEXT,maxWidth:100,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{profile.name?.split(',')[0]||'User'}</div>
