@@ -93,18 +93,18 @@ function Counter({ target, suffix = '', dk }) {
 }
 
 const features = [
-  { icon: 'wind', color: C.cyan, title: 'Ventilation Intelligence', desc: 'CO2 differential analysis against ASHRAE 62.1-2025. Automatic outdoor air rate calculations. Real-time scoring — not post-processing.' },
-  { icon: 'shield', color: C.gold, title: 'OSHA Defensibility', desc: 'Your field data cross-referenced against 29 CFR 1910 in real time. Citation risks flagged before they become problems. Gap analysis included.' },
-  { icon: 'chain', color: C.violet, title: 'Causal Intelligence', desc: 'Connects ventilation deficiencies, moisture pathways, chemical exposure, and symptoms into evidence-weighted root cause chains.' },
-  { icon: 'flask', color: C.emerald, title: 'Smart Sampling Plans', desc: 'Hypothesis-driven lab sampling recommendations. AIHA, EPA Compendium, NIOSH methods — generated from your observations, not templates.' },
-  { icon: 'pulse', color: C.rose, title: 'Composite Scoring', desc: 'Weighted 100-point scale across five categories. Worst-zone weighting prevents false confidence. Every score is traceable to a standard.' },
-  { icon: 'send', color: C.indigo, title: 'AI Narratives', desc: 'CIH-quality findings narratives from your data. Professional language referencing zones, measurements, and applicable standards.' },
+  { icon: 'wind', color: C.cyan, title: 'Ventilation Scoring', desc: 'CO2 differential against ASHRAE 62.1-2025. Outdoor air rate calculations per occupant load and space use. Flags inadequate ventilation before you leave the building.' },
+  { icon: 'shield', color: C.gold, title: 'OSHA Defensibility Analysis', desc: 'Field data cross-referenced against 29 CFR 1910 in real time. Citation risks flagged with confidence levels. When data is missing, confidence degrades — so you always know how strong your documentation is.' },
+  { icon: 'chain', color: C.violet, title: 'Root Cause Chains', desc: 'Damper closed → inadequate OA → elevated CO2 → occupant symptoms. The engine connects related findings into evidence-weighted causal chains instead of listing them as separate items.' },
+  { icon: 'flask', color: C.emerald, title: 'Hypothesis-Driven Sampling', desc: 'Sampling recommendations generated only when walkthrough findings indicate a specific concern. AIHA, EPA Compendium, NIOSH methods — with required controls and outdoor baselines flagged automatically.' },
+  { icon: 'pulse', color: C.rose, title: '100-Point Scoring', desc: 'Five categories. Worst-zone weighting so one bad area can\'t hide behind good averages. Every deduction traces to a measurement, a standard, and a threshold.' },
+  { icon: 'send', color: C.indigo, title: 'AI Narratives (You Review)', desc: 'Professional findings text generated from deterministic output. The AI describes only what the engine found — never invents findings. Labeled "IH Review Required." The CIH signs the report, not the AI.' },
 ]
 
 const steps = [
-  { num: '01', title: 'Survey', desc: 'Walk the building. Guided questions. Instrument readings. Photo documentation.', color: C.cyan },
-  { num: '02', title: 'Analyze', desc: 'Scores calculate. Causal chains form. Sampling needs surface. All instant.', color: C.gold },
-  { num: '03', title: 'Report', desc: 'Narrative, recommendations, defensibility analysis — ready for your client.', color: C.violet },
+  { num: '01', title: 'Walk the Building', desc: 'One question at a time. Instrument readings. Photo documentation. Auto-saves as you go.', color: C.cyan },
+  { num: '02', title: 'Scores Calculate', desc: 'Causal chains form. OSHA flags surface. Sampling needs identified. Data gaps flagged. All instant.', color: C.gold },
+  { num: '03', title: 'Defensible Report', desc: 'Findings narrative, tiered recommendations, ventilation calcs, and sampling plan — traceable to published standards.', color: C.violet },
 ]
 
 export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
@@ -173,7 +173,7 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
             marginBottom: dk ? 44 : 28,
           }}>
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: C.gold, animation: 'pulse 2s ease-in-out infinite' }} />
-            Prudence EHS — Professional IAQ Tools
+            Built by a Practicing EHS Professional
           </div>
 
           {/* Headline */}
@@ -183,19 +183,19 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
             lineHeight: 1.02, letterSpacing: '-0.045em',
             margin: 0, marginBottom: dk ? 28 : 20,
           }}>
-            Redefining{dk ? <br /> : ' '}
-            <span style={heroGradient}>Air Quality</span>
-            {dk ? <br /> : ' '}Assessment
+            The{dk ? <br /> : ' '}
+            <span style={heroGradient}>Field Tool</span>
+            {dk ? <br /> : ' '}IH Professionals{dk ? <br /> : ' '}Wish They Had
           </h1>
 
           {/* Sub */}
           <p style={{
             fontSize: dk ? 19 : 15, fontWeight: 400, color: C.sub,
-            maxWidth: 520, margin: '0 auto', lineHeight: 1.75,
+            maxWidth: 560, margin: '0 auto', lineHeight: 1.75,
             marginBottom: dk ? 52 : 36,
             letterSpacing: '0.005em',
           }}>
-            Field-grade intelligence for industrial hygienists. Scoring, causal analysis, and defensible reports — all in one platform.
+            Walk in. Walk out. Report done. Deterministic scoring against ASHRAE, OSHA, NIOSH, and EPA standards — every deduction traceable to a measurement and a threshold. Free during beta.
           </p>
 
           {/* CTAs */}
@@ -278,7 +278,7 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
       {/* ── The Problem ── */}
       <Section style={{
         padding: dk ? '180px 56px' : '100px 24px',
-        textAlign: 'center', maxWidth: 850, margin: '0 auto',
+        textAlign: 'center', maxWidth: 900, margin: '0 auto',
       }}>
         {(inView) => (
           <>
@@ -289,7 +289,7 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
               letterSpacing: '-0.02em', color: C.sub,
               marginBottom: dk ? 40 : 24,
             }}>
-              Spreadsheets. Subjective judgment.{dk ? <br /> : ' '}Fragmented data. Missed connections.
+              You forgot outdoor CO2. The delta is useless.{dk ? <br /> : ' '}The report takes 6 hours. The spreadsheet missed a causal link.
             </p>
             <p style={{
               ...reveal(inView, 0.35),
@@ -298,9 +298,53 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
               letterSpacing: '-0.035em',
               margin: 0,
             }}>
-              There's a <span style={warmGradient}>better way</span> to assess{dk ? <br /> : ' '}indoor air quality.
+              AtmosIQ <span style={warmGradient}>catches what spreadsheets miss</span>{dk ? <br /> : ' '}and does it while you're still on site.
             </p>
           </>
+        )}
+      </Section>
+
+      {/* ── Who Built This ── */}
+      <Section style={{
+        padding: dk ? '80px 56px' : '48px 20px',
+        maxWidth: 900, margin: '0 auto',
+      }}>
+        {(inView) => (
+          <div style={{
+            ...reveal(inView),
+            display: 'flex', flexDirection: dk ? 'row' : 'column',
+            alignItems: 'center', gap: dk ? 48 : 24,
+            background: `linear-gradient(135deg, ${C.card}, ${C.surface})`,
+            border: `1px solid ${C.border}`, borderRadius: dk ? 24 : 18,
+            padding: dk ? '48px 52px' : '32px 24px',
+            position: 'relative', overflow: 'hidden',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
+          }}>
+            <div style={{ position: 'absolute', top: -40, left: -40, width: 250, height: 250, borderRadius: '50%', background: 'radial-gradient(circle, rgba(245,197,66,0.04) 0%, transparent 70%)', pointerEvents: 'none' }} />
+            <div style={{
+              ...reveal(inView, 0.15), flexShrink: 0,
+              width: dk ? 100 : 72, height: dk ? 100 : 72, borderRadius: '50%',
+              background: `linear-gradient(135deg, ${C.gold}15, ${C.gold}08)`,
+              border: `2px solid ${C.gold}25`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <I n="user" s={dk ? 40 : 28} c={C.gold} w={1.4} />
+            </div>
+            <div style={{ ...reveal(inView, 0.25), flex: 1, textAlign: dk ? 'left' : 'center' }}>
+              <div style={{ fontSize: 10, color: C.gold, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 10, fontWeight: 600 }}>Built by a Practitioner</div>
+              <div style={{ ...display, fontSize: dk ? 24 : 19, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 10 }}>
+                Designed by Tsidi Tamakloe, CSP
+              </div>
+              <div style={{ fontSize: 14, color: C.sub, lineHeight: 1.75, maxWidth: 520 }}>
+                AtmosIQ was built by a practicing EHS professional who has conducted IAQ assessments, not by a software team guessing what field work looks like. Every question, every threshold, every scoring decision reflects how investigations actually work — from pre-survey intake through defensible deliverables.
+              </div>
+              <div style={{ display: 'flex', gap: 12, marginTop: 16, flexWrap: 'wrap', justifyContent: dk ? 'flex-start' : 'center' }}>
+                {['CSP', 'OSHA 30-Hour', 'HAZWOPER 40-Hour', 'Field-Tested'].map(t => (
+                  <span key={t} style={{ padding: '4px 12px', background: `${C.gold}08`, border: `1px solid ${C.gold}15`, borderRadius: 16, fontSize: 11, ...mono, color: C.gold }}>{t}</span>
+                ))}
+              </div>
+            </div>
+          </div>
         )}
       </Section>
 
@@ -327,11 +371,11 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
                 <ScoreRing value={inView ? 62 : 0} color="#FB923C" size={dk ? 190 : 130} />
               </div>
               <div style={{ ...reveal(inView, 0.4), textAlign: dk ? 'left' : 'center', maxWidth: 420 }}>
-                <div style={{ fontSize: 10, color: C.gold, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 10, fontWeight: 600 }}>Live Assessment Preview</div>
-                <div style={{ ...display, fontSize: dk ? 30 : 22, fontWeight: 700, color: '#FB923C', marginBottom: 8, letterSpacing: '-0.02em' }}>High Risk Detected</div>
-                <div style={{ fontSize: 14, color: C.sub, ...mono, marginBottom: 16 }}>Composite: 62/100 — 2 Zones</div>
+                <div style={{ fontSize: 10, color: C.gold, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 10, fontWeight: 600 }}>Meridian Business Park — 3 Zones</div>
+                <div style={{ ...display, fontSize: dk ? 30 : 22, fontWeight: 700, color: '#FB923C', marginBottom: 8, letterSpacing: '-0.02em' }}>High Risk — OSHA Flagged</div>
+                <div style={{ fontSize: 14, color: C.sub, ...mono, marginBottom: 16 }}>Composite: 62/100 · 3 citation risks · Sampling needed</div>
                 <div style={{ fontSize: 15, color: C.sub, lineHeight: 1.75, marginBottom: 24 }}>
-                  Ventilation deficiency with CO2 at 1,180 ppm. Active moisture intrusion. OSHA defensibility flagged with 3 citation risks.
+                  CO2 at 1,180 ppm with damper closed. Moisture intrusion with visible mold. 6-10 occupants with building-related symptoms. See exactly how AtmosIQ scores it, builds causal chains, and generates the sampling plan.
                 </div>
                 <button onClick={onStartDemo} style={{
                   padding: '13px 30px',
@@ -355,9 +399,9 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
         <Section style={{ textAlign: 'center', marginBottom: dk ? 80 : 48 }}>
           {(inView) => (
             <>
-              <div style={{ ...reveal(inView), fontSize: 10, color: C.gold, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 16, fontWeight: 600 }}>Capabilities</div>
+              <div style={{ ...reveal(inView), fontSize: 10, color: C.gold, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 16, fontWeight: 600 }}>What It Does</div>
               <h2 style={{ ...reveal(inView, 0.1), ...display, fontSize: dk ? 52 : 30, fontWeight: 700, letterSpacing: '-0.04em', lineHeight: 1.08, margin: 0 }}>
-                Everything you need.{dk ? <br /> : ' '}<span style={{ color: C.dim }}>Nothing you don't.</span>
+                Every finding traceable.{dk ? <br /> : ' '}<span style={{ color: C.dim }}>Every score defensible.</span>
               </h2>
             </>
           )}
@@ -408,9 +452,9 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
       }}>
         {(inView) => (
           <>
-            <div style={{ ...reveal(inView), fontSize: 10, color: C.violet, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 16, fontWeight: 600 }}>Process</div>
+            <div style={{ ...reveal(inView), fontSize: 10, color: C.violet, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 16, fontWeight: 600 }}>How It Works</div>
             <h2 style={{ ...reveal(inView, 0.1), ...display, fontSize: dk ? 52 : 30, fontWeight: 700, letterSpacing: '-0.04em', marginBottom: dk ? 80 : 48 }}>
-              Three steps.{dk ? ' ' : <br />}<span style={{ color: C.dim }}>Zero friction.</span>
+              Built for the way{dk ? ' ' : <br />}<span style={{ color: C.dim }}>you already work.</span>
             </h2>
             <div style={{ display: 'flex', flexDirection: dk ? 'row' : 'column', alignItems: dk ? 'flex-start' : 'center', justifyContent: 'center', gap: dk ? 0 : 48, maxWidth: 960, margin: '0 auto' }}>
               {steps.map((s, i) => (
@@ -533,16 +577,16 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
         <Section style={{ marginBottom: dk ? 72 : 44 }}>
           {(inView) => (
             <h2 style={{ ...reveal(inView), ...display, fontSize: dk ? 52 : 30, fontWeight: 700, letterSpacing: '-0.04em', margin: 0 }}>
-              The platform{dk ? ' ' : <br />}<span style={coolGradient}>in numbers.</span>
+              Your time{dk ? ' ' : <br />}<span style={coolGradient}>back.</span>
             </h2>
           )}
         </Section>
         <div style={{ display: 'flex', justifyContent: 'center', gap: dk ? 80 : 20, flexWrap: 'wrap', maxWidth: 1000, margin: '0 auto' }}>
           {[
-            { target: 5, label: 'Scoring Categories', suffix: '', color: C.cyan },
-            { target: 12, label: 'Sensor Parameters', suffix: '', color: C.gold },
-            { target: 100, label: 'Point Scale', suffix: 'pt', color: C.violet },
-            { target: 6, label: 'Standards Built-In', suffix: '+', color: C.emerald },
+            { target: 6, label: 'Standards Built-In', suffix: '+', color: C.cyan },
+            { target: 12, label: 'Sensor Fields per Zone', suffix: '', color: C.gold },
+            { target: 100, label: 'Point Defensible Scale', suffix: 'pt', color: C.violet },
+            { target: 0, label: 'Cost During Beta', suffix: '$', color: C.emerald },
           ].map((s, i) => (
             <Section key={i} style={{ textAlign: 'center', minWidth: dk ? 170 : 120 }}>
               {(inView) => (
@@ -641,10 +685,10 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
 
             <div style={{ position: 'relative' }}>
               <h2 style={{ ...display, fontSize: dk ? 40 : 26, fontWeight: 700, letterSpacing: '-0.035em', margin: 0, marginBottom: 14, lineHeight: 1.15 }}>
-                Ready to elevate your{dk ? <br /> : ' '}assessments?
+                Spend less time on reports.{dk ? <br /> : ' '}More time on solutions.
               </h2>
-              <p style={{ fontSize: 16, color: C.sub, marginBottom: 36, maxWidth: 440, margin: '0 auto 36px', lineHeight: 1.7 }}>
-                Join the next generation of indoor air quality professionals.
+              <p style={{ fontSize: 16, color: C.sub, marginBottom: 36, maxWidth: 480, margin: '0 auto 36px', lineHeight: 1.7 }}>
+                Free during beta. No credit card. No app store. Just open it and start your next assessment.
               </p>
               <div style={{ display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap' }}>
                 <button onClick={onStartNew} style={{
@@ -684,11 +728,17 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
         flexWrap: 'wrap', gap: 16,
       }}>
         <div>
-          <div style={{ ...display, fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em' }}>atmos<span style={{ color: C.cyan }}>IQ</span></div>
+          <div style={{ ...display, fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em' }}>atmos<span style={{ color: C.cyan }}>IQ</span> <span style={{ fontSize: 10, color: C.dim, ...mono }}>beta</span></div>
           <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>Prudence Safety & Environmental Consulting, LLC</div>
         </div>
-        <div style={{ fontSize: 11, color: C.muted }}>
-          © 2026 All rights reserved. | tsidi@prudenceehs.com
+        <div style={{ textAlign: dk ? 'right' : 'left' }}>
+          <div style={{ fontSize: 11, color: C.sub, marginBottom: 4 }}>
+            <a href="mailto:tsidi@prudenceehs.com" style={{ color: C.cyan, textDecoration: 'none' }}>tsidi@prudenceehs.com</a>
+          </div>
+          <div style={{ fontSize: 11, color: C.muted }}>
+            Questions about methodology? Interested in team pricing? Get in touch.
+          </div>
+          <div style={{ fontSize: 10, color: C.muted, marginTop: 6 }}>© 2026 All rights reserved.</div>
         </div>
       </footer>
 
