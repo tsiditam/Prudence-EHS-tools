@@ -145,7 +145,7 @@ export default function App() {
           )
         })()}
         {q.t === 'text' && (
-          <input type="text" value={val} onChange={e => update(e.target.value)} placeholder={q.ph || ''}
+          <input type="text" autoComplete={q.ac||'off'} value={val} onChange={e => update(e.target.value)} placeholder={q.ph || ''}
             style={inputStyle} {...inputFocusHandlers} />
         )}
         {q.t === 'num' && (
