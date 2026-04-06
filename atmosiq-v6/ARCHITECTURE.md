@@ -596,6 +596,75 @@ Every new Prudence EHS module MUST include:
 6. **Web Share API** — native share sheet on mobile, clipboard fallback on desktop
 7. **Settings screen** — profile management, backup/import, storage health check, sign out
 8. **Import from backup** — restore reports, drafts, and profile from exported JSON file
+
+---
+
+## Monetization Plan (Stripe — Post-Beta)
+
+### Status: PLANNED — Do not implement until 10-20 active beta users
+
+### Pricing Tiers
+
+| Tier | Price | Gate | Trigger |
+|---|---|---|---|
+| Free | $0 | 3 assessments/month, local only, no PDF | Default on signup |
+| Pro | $29/mo or $249/yr | Unlimited, cloud sync, PDF, AI narratives | User hits free limit |
+| Team | $49/user/mo | Pro + shared reports, firm branding, admin | Firm inquiry |
+| Enterprise | Custom | SSO, API, custom integrations | Sales conversation |
+
+### Technical Architecture
+
+```
+Stripe Checkout (hosted) — we never touch card data
+Stripe Customer Portal (hosted) — users self-manage subscriptions
+Stripe Webhooks → Supabase Edge Function → subscriptions table
+App reads tier from subscriptions table → feature gating
+```
+
+### Database Addition (when ready)
+
+```sql
+create table subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  stripe_customer_id text unique,
+  stripe_subscription_id text unique,
+  tier text not null default 'free' check (tier in ('free','pro','team','enterprise')),
+  status text not null default 'active' check (status in ('active','past_due','canceled','trialing')),
+  current_period_end timestamptz,
+  created_at timestamptz default now()
+);
+
+alter table subscriptions enable row level security;
+create policy "Users read own subscription"
+  on subscriptions for select using (auth.uid() = user_id);
+```
+
+### Files to Create (when implementing)
+
+| File | Purpose |
+|---|---|
+| `src/utils/subscription.js` | Feature gate utility: `canExportPDF()`, `canUseAI()`, `assessmentLimit()` |
+| `api/stripe-webhook.js` | Vercel serverless: receives Stripe events, updates Supabase |
+| `src/components/PricingScreen.jsx` | In-app pricing + Stripe Checkout redirect |
+| `src/components/UpgradePrompt.jsx` | Shown when user hits a free tier limit |
+
+### Implementation Sequence
+
+1. Create Stripe account + products/prices
+2. Add `subscriptions` table to Supabase
+3. Build webhook handler (Vercel serverless)
+4. Build feature gate utility
+5. Add upgrade prompts at limit points
+6. Add pricing page to Settings
+7. Add Stripe Customer Portal link for subscription management
+
+### Conversion Strategy
+
+- Free tier limits should feel natural, not punishing
+- Show what Pro unlocks at the moment of friction (not before)
+- "Your 3 free assessments this month are used" → show PDF + cloud + AI as unlock
+- Annual pricing shown first (anchoring: $249/yr looks better than $29/mo × 12)
 5. **Offline-first writes** — localStorage first, cloud sync second
 6. **Health check** for storage integrity
 7. **Auto-save** during active data entry (1-2 second debounce)
