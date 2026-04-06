@@ -32,6 +32,7 @@ import { DEMO_PRESURVEY, DEMO_BUILDING, DEMO_ZONES } from './constants/demoData'
 import DesktopSidebar from './components/DesktopSidebar'
 import HistoryView from './components/HistoryView'
 import ReportView from './components/ReportView'
+import MobileApp from './components/MobileApp'
 import {
   CSS, SP, mono, btn, cardStyle, cardHoverHandlers,
   inputStyle, inputFocusHandlers, btnPressHandlers,
@@ -45,6 +46,9 @@ const STEP_LABELS = ['Pre-Survey', 'Building', 'Zones', 'Review']
 export default function App() {
   const { isDesktop, isStandalone } = useMediaQuery()
   const dk = isDesktop
+
+  // Mobile users get the v5-style one-question-at-a-time experience
+  if (!dk) return <MobileApp />
   const [loading, setLoading] = useState(true)
   const [visited, setVisited] = useState(false)
   const [step, setStep] = useState(0)
