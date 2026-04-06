@@ -458,7 +458,7 @@ export default function App() {
   // ── History View ──
   if (showHistory) {
     return (
-      <div style={{ minHeight: '100vh', background: CSS.bg, color: CSS.text, fontFamily: 'Outfit, sans-serif' }}>
+      <div style={{ minHeight: '100vh', background: CSS.bg, color: CSS.text, fontFamily: 'Inter, sans-serif' }}>
         {dk && <DesktopSidebar step={step} setStep={setStep} saveDraft={saveDraft} setShowHistory={setShowHistory} onHome={() => setShowLanding(true)} />}
         <div style={{ ...(dk ? { marginLeft: 320, padding: '40px 48px', maxWidth: 900 } : { maxWidth: 600, margin: '0 auto', padding: 20 }) }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
@@ -504,7 +504,7 @@ export default function App() {
   if (step === 4 && report) {
     const { comp, zoneScores, oshaEvals, recs, ventCalcs, samplingPlan, causalChains, narrative } = report
     return (
-      <div style={{ minHeight: '100vh', background: CSS.bg, color: CSS.text, fontFamily: 'Outfit, sans-serif' }}>
+      <div style={{ minHeight: '100vh', background: CSS.bg, color: CSS.text, fontFamily: 'Inter, sans-serif' }}>
         {dk && <DesktopSidebar step={step} setStep={setStep} saveDraft={saveDraft} setShowHistory={setShowHistory} onHome={() => setShowLanding(true)} />}
         <div style={{ ...(dk ? { marginLeft: 320, padding: '40px 48px', maxWidth: 1100 } : { maxWidth: 700, margin: '0 auto', padding: 20 }) }}>
           {/* Header */}
@@ -676,7 +676,7 @@ export default function App() {
 
   // ── Main Wizard ──
   return (
-    <div style={{ minHeight: '100vh', background: CSS.bg, color: CSS.text, fontFamily: 'Outfit, sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: CSS.bg, color: CSS.text, fontFamily: 'Inter, sans-serif' }}>
       {/* Desktop Sidebar */}
       {dk && <DesktopSidebar step={step} setStep={setStep} saveDraft={saveDraft} setShowHistory={setShowHistory} onHome={() => setShowLanding(true)} />}
 

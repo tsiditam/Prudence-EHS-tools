@@ -10,297 +10,449 @@
  * Contact: tsidi@prudenceehs.com
  */
 
-import { useState } from 'react'
 import Particles from './Particles'
 import { I } from './Icons'
 import ScoreRing from './ScoreRing'
+import { useInView } from '../hooks/useInView'
+import { useCounter } from '../hooks/useCounter'
 
-const CSS = {
-  bg: '#080A0E',
-  card: '#0C1017',
-  border: '#1A2030',
+const C = {
+  bg: '#060809',
+  surface: '#0B0D12',
+  border: '#151A24',
   accent: '#22D3EE',
-  accentDim: '#22D3EE20',
+  accentSoft: 'rgba(34,211,238,0.08)',
   text: '#F0F4F8',
-  muted: '#5E6578',
+  dim: '#7A8494',
+  muted: '#454D5E',
+}
+
+const ease = 'all 0.8s cubic-bezier(0.16, 1, 0.3, 1)'
+
+const reveal = (inView, delay = 0) => ({
+  opacity: inView ? 1 : 0,
+  transform: inView ? 'translateY(0)' : 'translateY(40px)',
+  transition: ease,
+  transitionDelay: delay + 's',
+})
+
+const revealX = (inView, fromLeft, delay = 0) => ({
+  opacity: inView ? 1 : 0,
+  transform: inView ? 'translateX(0)' : `translateX(${fromLeft ? '-60px' : '60px'})`,
+  transition: ease,
+  transitionDelay: delay + 's',
+})
+
+const gradient = {
+  background: 'linear-gradient(135deg, #22D3EE, #06B6D4, #8B5CF6)',
+  WebkitBackgroundClip: 'text',
+  WebkitTextFillColor: 'transparent',
+  backgroundClip: 'text',
+}
+
+const mono = { fontFamily: 'DM Mono, monospace' }
+
+function Section({ children, style, ...props }) {
+  const [ref, inView] = useInView()
+  return <section ref={ref} style={style} {...props}>{typeof children === 'function' ? children(inView) : children}</section>
+}
+
+function Counter({ target, suffix = '', dk }) {
+  const [ref, value] = useCounter(target)
+  return <span ref={ref} style={{ fontSize: dk ? 64 : 40, fontWeight: 800, ...mono, color: C.accent, lineHeight: 1 }}>{value}{suffix}</span>
 }
 
 const features = [
-  { icon: 'wind', title: 'Real-Time IAQ Scoring', desc: 'ASHRAE 62.1, ASHRAE 55, EPA, OSHA, NIOSH — all built in. Every reading is scored against current standards automatically.' },
-  { icon: 'shield', title: 'OSHA Defensibility', desc: 'Know exactly where you stand. Automated compliance evaluation flags gaps before they become citations.' },
-  { icon: 'chain', title: 'Causal Chain Analysis', desc: 'AI-powered root cause identification connects ventilation, moisture, chemical, and cross-contamination evidence into defensible narratives.' },
-  { icon: 'flask', title: 'Sampling Plans', desc: 'Hypothesis-driven sampling recommendations with methods, controls, and standards — generated from your field data.' },
-  { icon: 'pulse', title: 'Composite Risk Scoring', desc: 'Multi-zone weighted scoring with 100-point scale. Ventilation, contaminants, HVAC, complaints, and environment — all quantified.' },
-  { icon: 'send', title: 'AI Narrative Generation', desc: 'Professional CIH-quality findings narratives generated from your data. Reference-grade language ready for your report.' },
+  { icon: 'wind', title: 'Real-Time Ventilation Scoring', desc: 'CO2 differential analysis against ASHRAE 62.1-2025. Automatic outdoor air rate calculations per zone. No spreadsheets, no guesswork — just defensible data.' },
+  { icon: 'shield', title: 'OSHA Defensibility Engine', desc: 'Automated compliance evaluation cross-references your field data against 29 CFR 1910. Flags citation risks before they become problems. Confidence scoring with gap analysis.' },
+  { icon: 'chain', title: 'Causal Chain Intelligence', desc: 'Connects the dots between ventilation deficiencies, moisture intrusion, chemical exposure, and occupant symptoms. Evidence-weighted root cause analysis with confidence ratings.' },
+  { icon: 'flask', title: 'Hypothesis-Driven Sampling', desc: 'Generates laboratory sampling plans from your field observations. Methods, controls, and standards — AIHA, EPA Compendium, NIOSH — all referenced automatically.' },
+  { icon: 'pulse', title: 'Multi-Zone Composite Scoring', desc: 'Weighted 100-point scoring across ventilation, contaminants, HVAC condition, occupant complaints, and environmental factors. Worst-zone weighting prevents false confidence.' },
+  { icon: 'send', title: 'AI Narrative Generation', desc: 'CIH-quality findings narratives generated from your data. Professional third-person language referencing zone names, specific measurements, and applicable standards.' },
 ]
 
-const stats = [
-  { value: '5', label: 'Scoring Categories' },
-  { value: '12', label: 'Sensor Parameters' },
-  { value: '6+', label: 'Standards Built-In' },
-  { value: '100', label: 'Point Scale' },
+const steps = [
+  { num: '01', title: 'Survey', desc: 'Walk the building. Answer guided questions. Capture instrument readings and photos.' },
+  { num: '02', title: 'Analyze', desc: 'Scores calculate instantly. Causal chains form. Sampling needs surface automatically.' },
+  { num: '03', title: 'Report', desc: 'Professional narrative, recommendations, and defensibility analysis — ready for your client.' },
 ]
 
 export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
   const dk = isDesktop
 
   return (
-    <div style={{ minHeight: '100vh', background: CSS.bg, color: CSS.text, fontFamily: 'Outfit, sans-serif', overflow: 'hidden' }}>
-      {/* Nav */}
+    <div style={{ minHeight: '100vh', background: C.bg, color: C.text, fontFamily: 'Inter, sans-serif', overflowX: 'hidden' }}>
+
+      {/* ── Nav ── */}
       <nav style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: dk ? '20px 48px' : '16px 20px',
-        borderBottom: `1px solid ${CSS.border}`,
-        position: 'sticky', top: 0, background: 'rgba(8,10,14,0.9)',
-        backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-        zIndex: 100,
+        padding: dk ? '18px 56px' : '14px 20px',
+        position: 'fixed', top: 0, left: 0, right: 0,
+        background: 'rgba(6,8,9,0.8)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
+        borderBottom: `1px solid ${C.border}`, zIndex: 200,
       }}>
-        <div style={{ fontSize: dk ? 24 : 20, fontWeight: 800, letterSpacing: '-0.02em' }}>
-          atmos<span style={{ color: CSS.accent }}>IQ</span>
+        <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.03em' }}>
+          atmos<span style={{ color: C.accent }}>IQ</span>
+          <span style={{ fontSize: 10, color: C.muted, marginLeft: 8, fontWeight: 400, ...mono }}>v6</span>
         </div>
-        <div style={{ display: 'flex', gap: 12 }}>
+        <div style={{ display: 'flex', gap: 10 }}>
           <button onClick={onStartDemo} style={{
-            padding: dk ? '10px 24px' : '8px 16px', background: 'transparent',
-            border: `1px solid ${CSS.border}`, borderRadius: 10,
-            color: CSS.text, fontSize: 14, fontWeight: 500, cursor: 'pointer',
+            padding: '9px 22px', background: 'transparent',
+            border: `1px solid ${C.border}`, borderRadius: 8,
+            color: C.dim, fontSize: 14, fontWeight: 500, cursor: 'pointer',
             transition: 'all 0.2s',
-          }}>Try Demo</button>
+          }}>Demo</button>
           <button onClick={onStartNew} style={{
-            padding: dk ? '10px 24px' : '8px 16px', background: CSS.accent,
-            border: 'none', borderRadius: 10,
-            color: '#080A0E', fontSize: 14, fontWeight: 600, cursor: 'pointer',
+            padding: '9px 22px', background: C.accent,
+            border: 'none', borderRadius: 8,
+            color: '#060809', fontSize: 14, fontWeight: 600, cursor: 'pointer',
             transition: 'all 0.2s',
-          }}>Start Assessment</button>
+          }}>Get Started</button>
         </div>
       </nav>
 
-      {/* Hero */}
+      {/* ── Hero ── */}
       <section style={{
-        position: 'relative',
-        padding: dk ? '120px 48px 100px' : '60px 20px 50px',
-        textAlign: 'center',
-        maxWidth: 900, margin: '0 auto',
+        position: 'relative', minHeight: '100vh',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        textAlign: 'center', padding: dk ? '0 56px' : '0 24px',
       }}>
-        <Particles />
-        <div style={{ position: 'relative', zIndex: 1 }}>
+        <div style={{ position: 'absolute', inset: 0, opacity: 0.4 }}><Particles /></div>
+        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 50% 30%, rgba(34,211,238,0.06) 0%, transparent 60%)', pointerEvents: 'none' }} />
+
+        <div style={{ position: 'relative', zIndex: 1, maxWidth: 900 }}>
+          {/* Badge */}
           <div style={{
-            display: 'inline-block', padding: '6px 16px', borderRadius: 20,
-            background: CSS.accentDim, border: `1px solid ${CSS.accent}30`,
-            fontSize: 12, fontWeight: 600, color: CSS.accent,
-            marginBottom: dk ? 32 : 20, letterSpacing: '0.05em',
+            display: 'inline-flex', alignItems: 'center', gap: 8,
+            padding: '8px 20px', borderRadius: 100,
+            background: C.accentSoft, border: `1px solid rgba(34,211,238,0.15)`,
+            fontSize: 12, fontWeight: 600, color: C.accent,
+            letterSpacing: '0.08em', textTransform: 'uppercase',
+            marginBottom: dk ? 40 : 24,
+            animation: 'shimmer 3s ease-in-out infinite',
           }}>
-            PRUDENCE EHS — PROFESSIONAL IAQ TOOLS
+            <div style={{ width: 6, height: 6, borderRadius: '50%', background: C.accent, animation: 'pulse 2s ease-in-out infinite' }} />
+            Prudence EHS
           </div>
+
+          {/* Headline */}
           <h1 style={{
-            fontSize: dk ? 56 : 32, fontWeight: 800,
-            lineHeight: 1.1, letterSpacing: '-0.03em',
-            margin: 0, marginBottom: dk ? 24 : 16,
+            fontSize: dk ? 72 : 40, fontWeight: 800,
+            lineHeight: 1.05, letterSpacing: '-0.04em',
+            margin: 0, marginBottom: dk ? 28 : 20,
           }}>
-            Indoor Air Quality<br />
-            <span style={{ color: CSS.accent }}>Intelligence Platform</span>
+            The Future of{dk ? <br /> : ' '}
+            <span style={gradient}>Air Quality</span>
+            {dk ? <br /> : ' '}Assessment
           </h1>
+
+          {/* Sub */}
           <p style={{
-            fontSize: dk ? 18 : 15, color: CSS.muted,
-            maxWidth: 600, margin: '0 auto', lineHeight: 1.7,
-            marginBottom: dk ? 40 : 28,
+            fontSize: dk ? 20 : 16, fontWeight: 400, color: C.dim,
+            maxWidth: 560, margin: '0 auto', lineHeight: 1.7,
+            marginBottom: dk ? 48 : 32,
           }}>
-            Field-grade IAQ assessment with real-time scoring against ASHRAE, OSHA, EPA, and NIOSH standards.
-            Causal chain analysis, sampling plans, and AI-powered narratives — built for CIHs and EHS professionals.
+            Field-grade IAQ intelligence for industrial hygienists. Real-time scoring. Causal analysis. Defensible reports.
           </p>
-          <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
+
+          {/* CTAs */}
+          <div style={{ display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap' }}>
             <button onClick={onStartNew} style={{
-              padding: '16px 36px', background: CSS.accent,
-              border: 'none', borderRadius: 14,
-              color: '#080A0E', fontSize: 17, fontWeight: 700, cursor: 'pointer',
-              boxShadow: '0 0 30px rgba(34,211,238,0.2)',
-              transition: 'all 0.2s',
-              animation: 'glowPulse 2s ease-in-out infinite',
+              padding: '16px 40px', background: C.accent, border: 'none', borderRadius: 12,
+              color: '#060809', fontSize: 17, fontWeight: 700, cursor: 'pointer',
+              boxShadow: '0 0 40px rgba(34,211,238,0.25)', transition: 'all 0.2s',
+              animation: 'glowPulse 2.5s ease-in-out infinite',
             }}
-              onMouseDown={e => { e.target.style.transform = 'scale(0.97)' }}
-              onMouseUp={e => { e.target.style.transform = 'scale(1)' }}>
-              Start Assessment →
+              onMouseDown={e => e.target.style.transform = 'scale(0.96)'}
+              onMouseUp={e => e.target.style.transform = 'scale(1)'}>
+              Start Assessment
             </button>
             <button onClick={onStartDemo} style={{
-              padding: '16px 36px', background: 'transparent',
-              border: `1px solid ${CSS.border}`, borderRadius: 14,
-              color: CSS.text, fontSize: 17, fontWeight: 600, cursor: 'pointer',
-              transition: 'all 0.2s',
+              padding: '16px 40px', background: 'rgba(255,255,255,0.04)', border: `1px solid ${C.border}`, borderRadius: 12,
+              color: C.text, fontSize: 17, fontWeight: 500, cursor: 'pointer', transition: 'all 0.2s',
             }}
-              onMouseDown={e => { e.target.style.transform = 'scale(0.97)' }}
-              onMouseUp={e => { e.target.style.transform = 'scale(1)' }}>
-              Try Interactive Demo
+              onMouseEnter={e => e.target.style.borderColor = 'rgba(34,211,238,0.3)'}
+              onMouseLeave={e => e.target.style.borderColor = C.border}
+              onMouseDown={e => e.target.style.transform = 'scale(0.96)'}
+              onMouseUp={e => e.target.style.transform = 'scale(1)'}>
+              Interactive Demo
             </button>
           </div>
         </div>
-      </section>
 
-      {/* Stats Bar */}
-      <section style={{
-        display: 'flex', justifyContent: 'center', gap: dk ? 64 : 24,
-        padding: dk ? '48px 48px' : '32px 20px',
-        borderTop: `1px solid ${CSS.border}`,
-        borderBottom: `1px solid ${CSS.border}`,
-        flexWrap: 'wrap',
-      }}>
-        {stats.map((s, i) => (
-          <div key={i} style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: dk ? 36 : 28, fontWeight: 800, color: CSS.accent, fontFamily: 'DM Mono, monospace' }}>{s.value}</div>
-            <div style={{ fontSize: 12, color: CSS.muted, marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{s.label}</div>
-          </div>
-        ))}
-      </section>
-
-      {/* Demo Preview */}
-      <section style={{
-        padding: dk ? '80px 48px' : '48px 20px',
-        maxWidth: 1000, margin: '0 auto', textAlign: 'center',
-      }}>
-        <h2 style={{ fontSize: dk ? 36 : 24, fontWeight: 800, letterSpacing: '-0.02em', marginBottom: 8 }}>
-          See It In Action
-        </h2>
-        <p style={{ fontSize: 15, color: CSS.muted, marginBottom: dk ? 40 : 24, maxWidth: 500, margin: '0 auto 40px' }}>
-          Pre-loaded with a real-world commercial office IAQ assessment — explore the full scoring engine.
-        </p>
+        {/* Scroll indicator */}
         <div style={{
-          background: CSS.card, border: `1px solid ${CSS.border}`, borderRadius: 20,
-          padding: dk ? 40 : 24, position: 'relative', overflow: 'hidden',
-          boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
+          position: 'absolute', bottom: dk ? 40 : 24,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+          animation: 'float 2.5s ease-in-out infinite',
         }}>
-          <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 50% 30%, rgba(34,211,238,0.04) 0%, transparent 60%)', pointerEvents: 'none' }} />
-          <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: dk ? 48 : 24, flexWrap: 'wrap' }}>
-            <ScoreRing value={62} color="#FB923C" size={dk ? 160 : 120} />
-            <div style={{ textAlign: 'left' }}>
-              <div style={{ fontSize: dk ? 22 : 18, fontWeight: 700, color: '#FB923C', marginBottom: 8 }}>High Risk</div>
-              <div style={{ fontSize: 14, color: CSS.muted, marginBottom: 4, fontFamily: 'DM Mono, monospace' }}>Composite Score: 62/100</div>
-              <div style={{ fontSize: 13, color: '#C8D0DC', maxWidth: 320, lineHeight: 1.6 }}>
-                Ventilation deficiency detected. CO2 at 1180 ppm with active occupant complaints. Moisture intrusion in Conference Room B.
-              </div>
-              <button onClick={onStartDemo} style={{
-                marginTop: 16, padding: '10px 24px', background: CSS.accentDim,
-                border: `1px solid ${CSS.accent}40`, borderRadius: 10,
-                color: CSS.accent, fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                transition: 'all 0.2s',
-              }}>
-                Explore Full Report →
-              </button>
-            </div>
-          </div>
+          <span style={{ fontSize: 11, color: C.muted, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Scroll</span>
+          <div style={{ width: 1, height: 32, background: `linear-gradient(to bottom, ${C.muted}, transparent)` }} />
         </div>
       </section>
 
-      {/* Features */}
-      <section style={{
-        padding: dk ? '80px 48px' : '48px 20px',
-        maxWidth: 1200, margin: '0 auto',
-      }}>
-        <div style={{ textAlign: 'center', marginBottom: dk ? 56 : 32 }}>
-          <h2 style={{ fontSize: dk ? 36 : 24, fontWeight: 800, letterSpacing: '-0.02em', marginBottom: 8 }}>
-            Built for EHS Professionals
-          </h2>
-          <p style={{ fontSize: 15, color: CSS.muted, maxWidth: 500, margin: '0 auto' }}>
-            Every feature designed by industrial hygienists, for industrial hygienists.
-          </p>
-        </div>
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: dk ? 'repeat(3, 1fr)' : 'repeat(auto-fill, minmax(280px, 1fr))',
-          gap: dk ? 24 : 16,
-        }}>
-          {features.map((f, i) => (
-            <div key={i} style={{
-              background: CSS.card, border: `1px solid ${CSS.border}`,
-              borderRadius: 16, padding: dk ? 28 : 20,
-              transition: 'all 0.25s cubic-bezier(0.4,0,0.2,1)',
-            }}
-              onMouseEnter={e => { if (dk) { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.3)'; e.currentTarget.style.borderColor = 'rgba(34,211,238,0.15)' } }}
-              onMouseLeave={e => { if (dk) { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = CSS.border } }}>
-              <div style={{
-                width: 44, height: 44, borderRadius: 12,
-                background: CSS.accentDim, display: 'flex',
-                alignItems: 'center', justifyContent: 'center', marginBottom: 16,
-              }}>
-                <I n={f.icon} s={20} c={CSS.accent} />
-              </div>
-              <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>{f.title}</div>
-              <div style={{ fontSize: 13, color: CSS.muted, lineHeight: 1.7 }}>{f.desc}</div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Standards */}
-      <section style={{
-        padding: dk ? '64px 48px' : '40px 20px',
-        borderTop: `1px solid ${CSS.border}`,
+      {/* ── Standards Bar ── */}
+      <Section style={{
+        padding: dk ? '56px 56px' : '36px 20px',
+        borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`,
         textAlign: 'center',
       }}>
-        <div style={{ fontSize: 12, color: CSS.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 20 }}>
-          Standards & References
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'center', gap: dk ? 40 : 20, flexWrap: 'wrap', opacity: 0.5 }}>
-          {['ASHRAE 62.1-2025', 'ASHRAE 55-2023', 'OSHA 29 CFR 1910', 'EPA Guidelines', 'NIOSH RELs', 'AIHA / ACGIH'].map((s, i) => (
-            <div key={i} style={{ fontSize: 13, color: CSS.muted, fontFamily: 'DM Mono, monospace', whiteSpace: 'nowrap' }}>{s}</div>
-          ))}
-        </div>
-      </section>
+        {(inView) => (
+          <div style={reveal(inView)}>
+            <div style={{ fontSize: 11, color: C.muted, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 20 }}>
+              Built on the standards that matter
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: dk ? 48 : 20, flexWrap: 'wrap' }}>
+              {['ASHRAE 62.1', 'ASHRAE 55', 'OSHA 29 CFR 1910', 'EPA Guidelines', 'NIOSH RELs', 'AIHA / ACGIH'].map((s, i) => (
+                <div key={i} style={{ ...reveal(inView, 0.05 * i), fontSize: dk ? 14 : 12, color: C.dim, ...mono, whiteSpace: 'nowrap' }}>{s}</div>
+              ))}
+            </div>
+          </div>
+        )}
+      </Section>
 
-      {/* CTA */}
-      <section style={{
-        padding: dk ? '80px 48px' : '48px 20px',
-        textAlign: 'center',
-        position: 'relative',
+      {/* ── The Problem ── */}
+      <Section style={{
+        padding: dk ? '160px 56px' : '80px 24px',
+        textAlign: 'center', maxWidth: 800, margin: '0 auto',
       }}>
-        <div style={{
-          maxWidth: 700, margin: '0 auto',
-          background: CSS.card, border: `1px solid ${CSS.border}`,
-          borderRadius: 20, padding: dk ? '56px 48px' : '36px 24px',
-          position: 'relative', overflow: 'hidden',
-        }}>
-          <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 50% 0%, rgba(34,211,238,0.06) 0%, transparent 60%)', pointerEvents: 'none' }} />
-          <div style={{ position: 'relative' }}>
-            <h2 style={{ fontSize: dk ? 30 : 22, fontWeight: 800, letterSpacing: '-0.02em', marginBottom: 12 }}>
-              Ready to Elevate Your Assessments?
-            </h2>
-            <p style={{ fontSize: 15, color: CSS.muted, marginBottom: 28, maxWidth: 450, margin: '0 auto 28px' }}>
-              Start a new inspection or explore the interactive demo.
+        {(inView) => (
+          <>
+            <p style={{
+              ...reveal(inView, 0),
+              fontSize: dk ? 36 : 22, fontWeight: 600, lineHeight: 1.4,
+              letterSpacing: '-0.02em', color: C.dim,
+              marginBottom: dk ? 32 : 20,
+            }}>
+              Traditional IAQ assessments rely on spreadsheets, subjective judgment, and fragmented data.
             </p>
-            <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-              <button onClick={onStartNew} style={{
-                padding: '14px 32px', background: CSS.accent,
-                border: 'none', borderRadius: 12,
-                color: '#080A0E', fontSize: 16, fontWeight: 700, cursor: 'pointer',
-                transition: 'all 0.2s',
-              }}>Start Assessment</button>
-              <button onClick={onStartDemo} style={{
-                padding: '14px 32px', background: 'transparent',
-                border: `1px solid ${CSS.border}`, borderRadius: 12,
-                color: CSS.text, fontSize: 16, fontWeight: 600, cursor: 'pointer',
-                transition: 'all 0.2s',
-              }}>Try Demo</button>
+            <p style={{
+              ...reveal(inView, 0.3),
+              fontSize: dk ? 42 : 26, fontWeight: 800, lineHeight: 1.2,
+              letterSpacing: '-0.03em',
+              margin: 0,
+            }}>
+              We built <span style={gradient}>something better.</span>
+            </p>
+          </>
+        )}
+      </Section>
+
+      {/* ── Demo Preview ── */}
+      <Section style={{
+        padding: dk ? '80px 56px 120px' : '48px 20px 60px',
+        maxWidth: 1000, margin: '0 auto',
+      }}>
+        {(inView) => (
+          <div style={{
+            ...reveal(inView),
+            background: C.surface, border: `1px solid ${C.border}`, borderRadius: 24,
+            padding: dk ? 56 : 28, position: 'relative', overflow: 'hidden',
+            boxShadow: '0 24px 80px rgba(0,0,0,0.5)',
+          }}>
+            <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 30% 20%, rgba(34,211,238,0.05) 0%, transparent 50%)', pointerEvents: 'none' }} />
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: dk ? 56 : 24, flexWrap: 'wrap' }}>
+              <div style={reveal(inView, 0.2)}>
+                <ScoreRing value={inView ? 62 : 0} color="#FB923C" size={dk ? 180 : 130} />
+              </div>
+              <div style={{ ...reveal(inView, 0.4), textAlign: dk ? 'left' : 'center', maxWidth: 400 }}>
+                <div style={{ fontSize: 11, color: C.muted, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8 }}>Live Assessment Preview</div>
+                <div style={{ fontSize: dk ? 28 : 20, fontWeight: 800, color: '#FB923C', marginBottom: 8, letterSpacing: '-0.02em' }}>High Risk</div>
+                <div style={{ fontSize: 14, color: C.dim, ...mono, marginBottom: 12 }}>Composite: 62/100 — 2 Zones Assessed</div>
+                <div style={{ fontSize: 15, color: '#9CA3AF', lineHeight: 1.7, marginBottom: 20 }}>
+                  Ventilation deficiency with CO2 at 1180 ppm. Active moisture intrusion in Conference Room B. OSHA defensibility flagged.
+                </div>
+                <button onClick={onStartDemo} style={{
+                  padding: '12px 28px', background: C.accentSoft, border: `1px solid rgba(34,211,238,0.2)`,
+                  borderRadius: 10, color: C.accent, fontSize: 14, fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s',
+                }}
+                  onMouseEnter={e => e.target.style.background = 'rgba(34,211,238,0.15)'}
+                  onMouseLeave={e => e.target.style.background = C.accentSoft}>
+                  Explore Full Report →
+                </button>
+              </div>
             </div>
           </div>
+        )}
+      </Section>
+
+      {/* ── Features ── */}
+      <section style={{ padding: dk ? '80px 56px 100px' : '48px 20px 60px', maxWidth: 1200, margin: '0 auto' }}>
+        <Section style={{ textAlign: 'center', marginBottom: dk ? 72 : 40 }}>
+          {(inView) => (
+            <>
+              <div style={{ ...reveal(inView), fontSize: 11, color: C.accent, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 16, fontWeight: 600 }}>Capabilities</div>
+              <h2 style={{ ...reveal(inView, 0.1), fontSize: dk ? 48 : 28, fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.1, margin: 0 }}>
+                Everything you need.<br /><span style={{ color: C.dim }}>Nothing you don't.</span>
+              </h2>
+            </>
+          )}
+        </Section>
+
+        {features.map((f, i) => {
+          const isEven = i % 2 === 0
+          return (
+            <Section key={i} style={{ marginBottom: dk ? 40 : 20 }}>
+              {(inView) => (
+                <div style={{
+                  display: 'flex', flexDirection: dk ? (isEven ? 'row' : 'row-reverse') : 'column',
+                  alignItems: 'center', gap: dk ? 48 : 20,
+                  ...reveal(inView, 0.1),
+                }}>
+                  {/* Icon side */}
+                  <div style={{
+                    ...revealX(inView, isEven, 0.2),
+                    width: dk ? 120 : 72, height: dk ? 120 : 72, flexShrink: 0,
+                    borderRadius: dk ? 28 : 20,
+                    background: `linear-gradient(135deg, ${C.surface}, ${C.accentSoft})`,
+                    border: `1px solid ${C.border}`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <I n={f.icon} s={dk ? 40 : 28} c={C.accent} w={1.5} />
+                  </div>
+                  {/* Text side */}
+                  <div style={{ ...revealX(inView, !isEven, 0.3), flex: 1, textAlign: dk ? 'left' : 'center' }}>
+                    <div style={{ fontSize: dk ? 24 : 18, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 8 }}>{f.title}</div>
+                    <div style={{ fontSize: dk ? 16 : 14, color: C.dim, lineHeight: 1.8, maxWidth: 520 }}>{f.desc}</div>
+                  </div>
+                </div>
+              )}
+            </Section>
+          )
+        })}
+      </section>
+
+      {/* ── How It Works ── */}
+      <Section style={{
+        padding: dk ? '100px 56px' : '60px 20px',
+        borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`,
+        textAlign: 'center',
+      }}>
+        {(inView) => (
+          <>
+            <div style={{ ...reveal(inView), fontSize: 11, color: C.accent, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 16, fontWeight: 600 }}>Process</div>
+            <h2 style={{ ...reveal(inView, 0.1), fontSize: dk ? 48 : 28, fontWeight: 800, letterSpacing: '-0.03em', marginBottom: dk ? 72 : 40 }}>
+              Three steps. <span style={{ color: C.dim }}>Zero friction.</span>
+            </h2>
+            <div style={{ display: 'flex', flexDirection: dk ? 'row' : 'column', alignItems: dk ? 'flex-start' : 'center', justifyContent: 'center', gap: dk ? 0 : 40, maxWidth: 900, margin: '0 auto' }}>
+              {steps.map((s, i) => (
+                <div key={i} style={{ ...reveal(inView, 0.15 + i * 0.15), flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
+                  <div style={{
+                    width: dk ? 72 : 56, height: dk ? 72 : 56, borderRadius: '50%',
+                    background: i === 1 ? C.accent : C.surface, border: `2px solid ${i === 1 ? C.accent : C.border}`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    marginBottom: 20,
+                    boxShadow: i === 1 ? '0 0 40px rgba(34,211,238,0.2)' : 'none',
+                  }}>
+                    <span style={{ fontSize: dk ? 20 : 16, fontWeight: 800, ...mono, color: i === 1 ? '#060809' : C.dim }}>{s.num}</span>
+                  </div>
+                  <div style={{ fontSize: dk ? 22 : 18, fontWeight: 700, letterSpacing: '-0.01em', marginBottom: 8 }}>{s.title}</div>
+                  <div style={{ fontSize: 14, color: C.dim, lineHeight: 1.7, maxWidth: 250, textAlign: 'center' }}>{s.desc}</div>
+                  {dk && i < steps.length - 1 && (
+                    <div style={{ position: 'absolute', top: 36, left: '60%', width: '80%', height: 2, background: `linear-gradient(90deg, ${C.border}, ${i === 0 ? C.accent : C.border}, ${C.border})` }} />
+                  )}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </Section>
+
+      {/* ── Numbers ── */}
+      <section style={{
+        padding: dk ? '100px 56px' : '60px 20px',
+        textAlign: 'center',
+      }}>
+        <Section style={{ marginBottom: dk ? 64 : 40 }}>
+          {(inView) => (
+            <h2 style={{ ...reveal(inView), fontSize: dk ? 48 : 28, fontWeight: 800, letterSpacing: '-0.03em', margin: 0 }}>
+              The technology <span style={gradient}>in numbers.</span>
+            </h2>
+          )}
+        </Section>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: dk ? 80 : 24, flexWrap: 'wrap', maxWidth: 900, margin: '0 auto' }}>
+          {[
+            { target: 5, label: 'Scoring Categories', suffix: '' },
+            { target: 12, label: 'Sensor Parameters', suffix: '' },
+            { target: 100, label: 'Point Scale', suffix: 'pt' },
+            { target: 6, label: 'Standards Built-In', suffix: '+' },
+          ].map((s, i) => (
+            <div key={i} style={{ textAlign: 'center', minWidth: dk ? 160 : 100 }}>
+              <Counter target={s.target} suffix={s.suffix} dk={dk} />
+              <div style={{ fontSize: 12, color: C.dim, marginTop: 8, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{s.label}</div>
+            </div>
+          ))}
         </div>
       </section>
 
-      {/* Footer */}
+      {/* ── CTA ── */}
+      <Section style={{
+        padding: dk ? '80px 56px 100px' : '48px 20px 60px',
+        textAlign: 'center',
+      }}>
+        {(inView) => (
+          <div style={{
+            ...reveal(inView),
+            maxWidth: 700, margin: '0 auto',
+            background: C.surface, border: `1px solid ${C.border}`,
+            borderRadius: 24, padding: dk ? '64px 56px' : '40px 24px',
+            position: 'relative', overflow: 'hidden',
+          }}>
+            <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 50% -20%, rgba(34,211,238,0.08) 0%, transparent 60%)', pointerEvents: 'none' }} />
+            <div style={{ position: 'relative' }}>
+              <h2 style={{ fontSize: dk ? 36 : 24, fontWeight: 800, letterSpacing: '-0.03em', margin: 0, marginBottom: 12 }}>
+                Ready to elevate your assessments?
+              </h2>
+              <p style={{ fontSize: 16, color: C.dim, marginBottom: 32, maxWidth: 420, margin: '0 auto 32px', lineHeight: 1.7 }}>
+                Join the next generation of indoor air quality professionals.
+              </p>
+              <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+                <button onClick={onStartNew} style={{
+                  padding: '14px 36px', background: C.accent, border: 'none', borderRadius: 12,
+                  color: '#060809', fontSize: 16, fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s',
+                  boxShadow: '0 0 30px rgba(34,211,238,0.2)',
+                }}
+                  onMouseDown={e => e.target.style.transform = 'scale(0.96)'}
+                  onMouseUp={e => e.target.style.transform = 'scale(1)'}>
+                  Start Assessment
+                </button>
+                <button onClick={onStartDemo} style={{
+                  padding: '14px 36px', background: 'transparent', border: `1px solid ${C.border}`, borderRadius: 12,
+                  color: C.text, fontSize: 16, fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s',
+                }}>
+                  Try Demo
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </Section>
+
+      {/* ── Footer ── */}
       <footer style={{
-        padding: dk ? '40px 48px' : '32px 20px',
-        borderTop: `1px solid ${CSS.border}`,
+        padding: dk ? '40px 56px' : '32px 20px',
+        borderTop: `1px solid ${C.border}`,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         flexWrap: 'wrap', gap: 16,
       }}>
         <div>
-          <div style={{ fontSize: 16, fontWeight: 700 }}>atmos<span style={{ color: CSS.accent }}>IQ</span></div>
-          <div style={{ fontSize: 11, color: CSS.muted, marginTop: 2 }}>by Prudence Safety & Environmental Consulting, LLC</div>
+          <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.02em' }}>atmos<span style={{ color: C.accent }}>IQ</span></div>
+          <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>Prudence Safety & Environmental Consulting, LLC</div>
         </div>
-        <div style={{ fontSize: 11, color: CSS.muted }}>
-          © 2026 Prudence Safety & Environmental Consulting, LLC. All rights reserved.
+        <div style={{ fontSize: 11, color: C.muted }}>
+          © 2026 All rights reserved. | tsidi@prudenceehs.com
         </div>
       </footer>
 
-      {/* Keyframes */}
+      {/* ── Keyframes ── */}
       <style>{`
-        @keyframes glowPulse { 0%,100% { box-shadow: 0 0 20px rgba(34,211,238,0.15); } 50% { box-shadow: 0 0 35px rgba(34,211,238,0.3); } }
+        @keyframes glowPulse { 0%,100% { box-shadow: 0 0 30px rgba(34,211,238,0.15); } 50% { box-shadow: 0 0 50px rgba(34,211,238,0.3); } }
+        @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(8px); } }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+        @keyframes shimmer { 0%,100% { opacity: 1; } 50% { opacity: 0.7; } }
+        html { scroll-behavior: smooth; }
+        body { margin: 0; background: #060809; }
+        * { box-sizing: border-box; }
       `}</style>
     </div>
   )
