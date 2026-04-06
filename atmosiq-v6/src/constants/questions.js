@@ -57,6 +57,58 @@ export const Q_PRESURVEY = [
   { id:'ps_affected_areas',      sec:'Occupant Data',  q:'Most affected areas?',                 t:'ta',   sk:1,  ic:'📍', ph:'Floor numbers, rooms, departments' },
 ]
 
+// ── MOBILE: Quick Start (get to zones in under 60 seconds) ──
+// Assessor + instrument data auto-filled from profile
+export const Q_QUICKSTART = [
+  { id:'ps_reason',  sec:'Trigger',  q:'What triggered this investigation?', t:'ch', req:1, ic:'🎯', opts:['Occupant complaint(s)','Routine / scheduled assessment','Post-renovation / construction','Water intrusion event','Odor event','Regulatory requirement','Due diligence / pre-lease','Insurance / litigation','Other'] },
+  { id:'ps_complaint_severity', sec:'Trigger', q:'Severity?', t:'ch', ic:'⚡', cond:{f:'ps_reason',eq:'Occupant complaint(s)'}, opts:['Minor — comfort concern only','Moderate — symptoms reported','Significant — multiple occupants affected','Severe — medical attention sought','Critical — evacuation or work stoppage'] },
+  { id:'ps_water_event_type', sec:'Trigger', q:'Type of water event?', t:'ch', ic:'🌊', cond:{f:'ps_reason',eq:'Water intrusion event'}, opts:['Roof leak','Pipe burst / plumbing failure','Flooding (weather)','HVAC condensate overflow','Fire suppression discharge','Foundation / below-grade seepage','Unknown source'] },
+  { id:'ps_odor_pattern', sec:'Trigger', q:'Odor pattern?', t:'ch', ic:'🕐', cond:{f:'ps_reason',eq:'Odor event'}, opts:['Constant — always present','Intermittent — comes and goes','Time-of-day pattern','Weather-dependent','HVAC-correlated','New — appeared suddenly'] },
+  { id:'ps_reno_completion', sec:'Trigger', q:'Renovation completed?', t:'ch', ic:'📅', cond:{f:'ps_reason',eq:'Post-renovation / construction'}, opts:['Still in progress','Within 1 week','1-4 weeks ago','1-3 months ago','Over 3 months ago'] },
+  { id:'fn',  sec:'Building', q:'Facility name?',    t:'text', req:1, ic:'🏢', ph:'e.g. One Liberty Plaza' },
+  { id:'fl',  sec:'Building', q:'Facility address?',  t:'text', req:1, ic:'📍', ph:'Street address or campus ID' },
+  { id:'ft',  sec:'Building', q:'Facility type?',     t:'ch',   req:1, ic:'🏗️', opts:['Commercial Office','School / University','Healthcare','Industrial / Manufacturing','Retail','Government','Data Center','Laboratory','Warehouse','Mixed Use'] },
+  { id:'ht',  sec:'HVAC',    q:'HVAC system type?',   t:'ch',   req:1, ic:'❄️', opts:['Central AHU — VAV','Central AHU — CAV','Packaged Rooftop','Split System','Fan Coil Units','PTAC / PTHP','DOAS + Radiant','Natural Ventilation','Unknown'] },
+  { id:'sa',  sec:'HVAC',    q:'Supply air delivery?', t:'ch',  req:1, ic:'💨', opts:['Normal airflow','Weak / reduced','No airflow detected','Not assessed'] },
+]
+
+// ── MOBILE: Assessment Details (fill before or after walkthrough) ──
+export const Q_DETAILS = [
+  // Building details
+  { id:'ba',  sec:'Building Details',  q:'Year built?',                t:'num', sk:1, ic:'📅', ph:'e.g. 1994' },
+  { id:'rn',  sec:'Building Details',  q:'Recent renovation?',         t:'ch',  sk:1, ic:'🔨', opts:['No','Within 30 days','Within 6 months','Within 1 year'] },
+  { id:'hm',  sec:'HVAC Details',      q:'Last HVAC service?',         t:'ch',  sk:1, ic:'🔧', opts:['Within 6 months','6-12 months ago','Over 12 months','Unknown'] },
+  { id:'fm',  sec:'HVAC Details',      q:'Filter rating?',             t:'ch',  sk:1, ic:'🫧', opts:['MERV 8 or lower','MERV 11','MERV 13','MERV 14+','HEPA','Unknown','No filter'] },
+  { id:'fc',  sec:'HVAC Details',      q:'Filter condition?',          t:'ch',  sk:1, ic:'🔍', opts:['Clean / Recent','Moderately loaded','Heavily loaded','Damaged / Bypass','Not accessible'] },
+  { id:'od',  sec:'HVAC Details',      q:'Outdoor air damper?',        t:'ch',  sk:1, ic:'🚪', opts:['Open — proper','Closed / minimum','Stuck / inoperable','Not accessible','Unknown'] },
+  { id:'dp',  sec:'HVAC Details',      q:'Condensate drain pan?',      t:'ch',  sk:1, ic:'🪣', opts:['Clean — draining','Standing water','Bio growth observed','Not accessible'], photo:1 },
+  // Airflow
+  { id:'bld_pressure',        sec:'Airflow Paths', q:'Building pressurization?',        t:'ch',   sk:1, ic:'🌀', opts:['Positive (air pushes out)','Negative (air pulls in)','Neutral','Variable / unknown','Not assessed'] },
+  { id:'bld_exhaust',         sec:'Airflow Paths', q:'Exhaust systems present?',        t:'multi',sk:1, ic:'🔃', opts:['Restroom exhaust','Kitchen / break room hood','Lab fume hoods','Server room exhaust','Parking garage exhaust','Loading dock exhaust','Janitor closet exhaust','None identified'] },
+  { id:'bld_intake_proximity',sec:'Airflow Paths', q:'OA intake proximity to sources?', t:'multi',sk:1, ic:'⚠️', opts:['Near loading dock','Near parking garage','Near exhaust outlet','Near dumpster / waste','Near cooling tower','Near traffic / roadway','Clear of sources','Not assessed'] },
+  // Weather
+  { id:'wx_temp',   sec:'Outdoor Conditions', q:'Outdoor temperature?',       t:'num', sk:1, ic:'🌡️', u:'°F' },
+  { id:'wx_rh',     sec:'Outdoor Conditions', q:'Outdoor relative humidity?', t:'num', sk:1, ic:'💧', u:'%' },
+  { id:'wx_sky',    sec:'Outdoor Conditions', q:'Sky / weather?',             t:'ch',  sk:1, ic:'☀️', opts:['Clear / Sunny','Partly cloudy','Overcast','Light rain','Heavy rain','Snow','Fog','Windy (>15 mph)'] },
+  { id:'wx_precip', sec:'Outdoor Conditions', q:'Recent precipitation?',      t:'ch',  sk:1, ic:'🌧️', opts:['None in past 48 hours','Light rain within 24 hours','Heavy rain within 24 hours','Rain within past week','Flooding event recent','Snow / ice'] },
+  // Pre-survey details
+  { id:'ps_complaint_narrative', sec:'Complaint Details', q:'Describe the complaint(s)',     t:'ta',   sk:1, ic:'📝', cond:{f:'ps_reason',eq:'Occupant complaint(s)'}, ph:'Who reported, symptoms, when, where' },
+  { id:'ps_complaint_formal',    sec:'Complaint Details', q:'Formal written complaints?',    t:'ch',   sk:1, ic:'📄', cond:{f:'ps_reason',eq:'Occupant complaint(s)'}, opts:['No — verbal only','Yes — internal complaint form','Yes — to management / HR','Yes — to OSHA or regulatory agency','Yes — legal / attorney involved'] },
+  { id:'ps_complaint_count',     sec:'Complaint Details', q:'Total documented complaints?',  t:'num',  sk:1, ic:'📊', ph:'Number' },
+  { id:'ps_complaint_timeline',  sec:'Complaint Details', q:'When did complaints begin?',    t:'ch',   sk:1, ic:'📅', opts:['Within 1 week','Within 1 month','1-6 months ago','Over 6 months ago','Intermittent / recurring','Unknown'] },
+  { id:'ps_affected_areas',      sec:'Complaint Details', q:'Most affected areas?',          t:'ta',   sk:1, ic:'📍', ph:'Floor numbers, rooms, departments' },
+  // History
+  { id:'ps_prior',          sec:'Prior History',  q:'Prior IAQ investigations?',       t:'ch',  sk:1, ic:'📁', opts:['No — first assessment','Yes — with findings','Yes — no significant findings','Unknown'] },
+  { id:'ps_prior_notes',    sec:'Prior History',  q:'Prior investigation summary',     t:'ta',  sk:1, ic:'📋', cond:{f:'ps_prior',eq:'Yes — with findings'}, ph:'Findings, dates, actions taken' },
+  { id:'ps_blueprints',     sec:'Design Review',  q:'Mechanical drawings available?',  t:'ch',  sk:1, ic:'📐', opts:['Yes — reviewed','Available but not reviewed','Not available'] },
+  { id:'ps_bms',            sec:'Design Review',  q:'BMS / BAS data available?',       t:'ch',  sk:1, ic:'🖥️', opts:['Yes — trending data reviewed','Yes — not reviewed','No BMS','Unknown'] },
+  // Maintenance
+  { id:'ps_filter_schedule', sec:'Maintenance', q:'Filter change schedule?',        t:'ch',  sk:1, ic:'🔄', opts:['Quarterly','Semi-annual','Annual','As-needed','No schedule','Unknown'] },
+  { id:'ps_water_history',   sec:'Maintenance', q:'History of water intrusion?',    t:'ch',  sk:1, ic:'🌊', opts:['No known history','Yes — resolved','Yes — recurring','Unknown'] },
+  { id:'ps_water_detail',    sec:'Maintenance', q:'Water intrusion history details',t:'ta',  sk:1, ic:'💧', cond:{f:'ps_water_history',ne:'No known history'}, ph:'Dates, locations, remediation' },
+  { id:'ps_pest',            sec:'Maintenance', q:'Recent pesticide / chemical apps?',t:'ch',sk:1, ic:'🧴', opts:['None recent','Within 30 days','Within 90 days','Unknown'] },
+]
+
 export const Q_BUILDING = [
   { id:'fn',  sec:'Building',         q:'Facility name?',                           t:'text', req:1, ic:'🏢', ph:'e.g. One Liberty Plaza' },
   { id:'fl',  sec:'Building',         q:'Facility address?',                        t:'text', req:1, ic:'📍', ph:'Street address or campus ID' },

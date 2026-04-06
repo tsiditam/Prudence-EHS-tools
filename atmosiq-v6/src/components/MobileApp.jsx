@@ -3,14 +3,15 @@
  * Copyright (c) 2026 Prudence Safety & Environmental Consulting, LLC
  * All rights reserved.
  *
- * MobileApp — v5-style one-question-at-a-time field experience
- * UX: Apple/Google HIG compliant touch targets, safe areas, bottom nav
+ * MobileApp — v5-style field experience with profile login + three-tier questions
+ * Flow: Profile → Dashboard → Quick Start → Zone Walkthrough → Details (optional) → Results
  */
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import STO from '../utils/storage'
-import { VER, PLAT_MODULES } from '../constants/standards'
-import { Q_PRESURVEY, Q_BUILDING, Q_ZONE, SENSOR_FIELDS } from '../constants/questions'
+import Profiles from '../utils/profiles'
+import { VER } from '../constants/standards'
+import { Q_PRESURVEY, Q_BUILDING, Q_ZONE, Q_QUICKSTART, Q_DETAILS, SENSOR_FIELDS } from '../constants/questions'
 import { scoreZone, compositeScore, evalOSHA, calcVent, genRecs } from '../engines/scoring'
 import { generateSamplingPlan } from '../engines/sampling'
 import { buildCausalChains } from '../engines/causalChains'
@@ -21,6 +22,7 @@ import Loading from './Loading'
 import ScoreRing from './ScoreRing'
 import PhotoCapture from './PhotoCapture'
 import SensorScreen from './SensorScreen'
+import ProfileScreen from './ProfileScreen'
 import { DEMO_PRESURVEY, DEMO_BUILDING, DEMO_ZONES } from '../constants/demoData'
 
 const haptic = (type) => { try { if (navigator.vibrate) navigator.vibrate(type === 'heavy' ? [30,20,30] : type === 'success' ? [10,30,10,30,10] : 12) } catch {} }
@@ -28,29 +30,31 @@ const fD = ts => ts ? new Date(ts).toLocaleDateString('en-US',{month:'short',day
 const sv = sev => ({critical:{c:'#EF4444',bg:'#EF444418',l:'CRITICAL'},high:{c:'#FB923C',bg:'#FB923C18',l:'HIGH'},medium:{c:'#FBBF24',bg:'#FBBF2418',l:'MEDIUM'},low:{c:'#22D3EE',bg:'#22D3EE15',l:'LOW'},pass:{c:'#22C55E',bg:'#22C55E15',l:'PASS'},info:{c:'#94A3B8',bg:'#94A3B815',l:'INFO'}}[sev]||{c:'#94A3B8',bg:'#94A3B815',l:''})
 const badge = (risk,rc) => <span style={{padding:'6px 16px',background:`${rc}18`,border:`1px solid ${rc}35`,borderRadius:20,fontSize:13,fontWeight:700,color:rc}}>{risk}</span>
 
-// ── Color system (improved contrast for field use) ──
 const BG = '#060609'
 const SURFACE = '#0C0C14'
 const CARD = '#101018'
 const BORDER = '#1E1E2E'
 const ACCENT = '#22D3EE'
 const TEXT = '#F0F2F5'
-const SUB = '#9BA4B5'   // 5.5:1 on BG — passes AA
-const DIM = '#6B7280'   // 4.6:1 on BG — passes AA
-const PLACEHOLDER = '#525A6A' // 3.5:1 — acceptable for placeholder
+const SUB = '#9BA4B5'
+const DIM = '#6B7280'
 
 export default function MobileApp() {
   const [loading, setLoading] = useState(true)
   const [isReturning, setIsReturning] = useState(false)
+  const [profile, setProfile] = useState(null)
+  const [profileChecked, setProfileChecked] = useState(false)
+  // views: dash|quickstart|zone|details|results|history|drafts|report
   const [view, setView] = useState('dash')
   const [milestone, setMilestone] = useState(null)
   const [clock, setClock] = useState(new Date())
 
   const [draftId, setDraftId] = useState(null)
+  // Combined data store: quick start + details merged into presurvey + bldg
   const [presurvey, setPresurvey] = useState({})
-  const [psqi, setPsqi] = useState(0)
   const [bldg, setBldg] = useState({})
-  const [bqi, setBqi] = useState(0)
+  const [qsqi, setQsqi] = useState(0) // quick start question index
+  const [dqi, setDqi] = useState(0)   // details question index
   const [zones, setZones] = useState([{}])
   const [curZone, setCurZone] = useState(0)
   const [zqi, setZqi] = useState(0)
@@ -75,30 +79,55 @@ export default function MobileApp() {
   const [hSort, setHSort] = useState('newest')
 
   useEffect(() => { const t = setInterval(() => setClock(new Date()), 30000); return () => clearInterval(t) }, [])
-  useEffect(() => { (async () => { const v = await STO.hasVisited(); setIsReturning(!!v); const idx = await STO.getIndex(); setIndex(idx); await STO.markVisited() })() }, [])
+
+  // Check for existing profile on load
+  useEffect(() => {
+    (async () => {
+      const v = await STO.hasVisited()
+      setIsReturning(!!v)
+      const idx = await STO.getIndex()
+      setIndex(idx)
+      await STO.markVisited()
+      const activeProfile = await Profiles.getActiveProfile()
+      if (activeProfile) setProfile(activeProfile)
+      setProfileChecked(true)
+    })()
+  }, [])
 
   const refreshIndex = async () => { setIndex(await STO.getIndex()) }
 
+  const handleLogin = (p) => { setProfile(p) }
+  const handleLogout = async () => { setProfile(null); setView('dash') }
+
+  // Auto-save draft
   const saveRef = useRef(null)
   useEffect(() => {
-    if (!['presurvey','bldg','zone'].includes(view) || !draftId) return
+    if (!['quickstart','zone','details'].includes(view) || !draftId) return
     if (saveRef.current) clearTimeout(saveRef.current)
     saveRef.current = setTimeout(async () => {
-      const draft = { id:draftId, presurvey, bldg, zones, photos, psqi, bqi, curZone, zqi, ua:new Date().toISOString() }
+      const draft = { id:draftId, presurvey, bldg, zones, photos, qsqi, dqi, curZone, zqi, ua:new Date().toISOString() }
       await STO.set(draftId, draft)
       await STO.addDraftToIndex({ id:draftId, facility:bldg.fn||'Untitled', ua:draft.ua })
       await refreshIndex()
     }, 1200)
     return () => { if (saveRef.current) clearTimeout(saveRef.current) }
-  }, [presurvey, bldg, zones, photos, psqi, bqi, curZone, zqi, view, draftId])
+  }, [presurvey, bldg, zones, photos, qsqi, dqi, curZone, zqi, view, draftId])
 
-  const psVis = useMemo(() => Q_PRESURVEY.filter(q => { if (!q.cond) return true; if (q.cond.eq && presurvey[q.cond.f] !== q.cond.eq) return false; if (q.cond.ne && presurvey[q.cond.f] === q.cond.ne) return false; return true }), [presurvey])
-  const bVis = useMemo(() => Q_BUILDING.filter(q => { if (!q.cond) return true; if (q.cond.eq && bldg[q.cond.f] !== q.cond.eq) return false; if (q.cond.ne && bldg[q.cond.f] === q.cond.ne) return false; return true }), [bldg])
+  // Merge quick start data into both presurvey and bldg depending on field prefix
+  const mergedData = useMemo(() => ({ ...presurvey, ...bldg }), [presurvey, bldg])
+  const setQSField = useCallback((id, v) => {
+    // Building fields go to bldg, pre-survey fields go to presurvey
+    if (['fn','fl','ft','ht','sa','ba','rn','hm','fm','fc','od','dp','bld_pressure','bld_exhaust','bld_intake_proximity','wx_temp','wx_rh','wx_sky','wx_precip','wx_wind','wx_notes'].includes(id)) {
+      setBldg(p => ({...p, [id]: v}))
+    } else {
+      setPresurvey(p => ({...p, [id]: v}))
+    }
+  }, [])
+
+  const qsVis = useMemo(() => Q_QUICKSTART.filter(q => { if (!q.cond) return true; if (q.cond.eq && mergedData[q.cond.f] !== q.cond.eq) return false; if (q.cond.ne && mergedData[q.cond.f] === q.cond.ne) return false; return true }), [mergedData])
+  const dtVis = useMemo(() => Q_DETAILS.filter(q => { if (!q.cond) return true; if (q.cond.eq && mergedData[q.cond.f] !== q.cond.eq) return false; if (q.cond.ne && mergedData[q.cond.f] === q.cond.ne) return false; return true }), [mergedData])
   const zData = zones[curZone] || {}
   const zVis = useMemo(() => Q_ZONE.filter(q => { if (!q.cond) return true; if (q.cond.eq && zData[q.cond.f] !== q.cond.eq) return false; if (q.cond.ne && zData[q.cond.f] === q.cond.ne) return false; return true }), [zData])
-
-  const setBF = useCallback((id,v) => setBldg(p=>({...p,[id]:v})), [])
-  const setPSF = useCallback((id,v) => setPresurvey(p=>({...p,[id]:v})), [])
   const setZF = useCallback((id,v) => { setZones(prev => { const next = [...prev]; next[curZone] = {...(next[curZone]||{}), [id]:v}; return next }) }, [curZone])
 
   const showMilestone = (icon, title, sub, nextFn) => {
@@ -108,9 +137,13 @@ export default function MobileApp() {
 
   const startNew = () => {
     const id = 'draft-' + Date.now()
-    setDraftId(id); setPresurvey({}); setPsqi(0); setBldg({}); setBqi(0); setZones([{}]); setCurZone(0); setZqi(0); setPhotos({})
+    setDraftId(id)
+    // Auto-fill from profile
+    const psFill = profile ? Profiles.toPresurvey(profile) : {}
+    setPresurvey(psFill); setBldg({}); setQsqi(0); setDqi(0)
+    setZones([{}]); setCurZone(0); setZqi(0); setPhotos({})
     setZoneScores([]); setComp(null); setOshaResult(null); setRecs(null); setNarrative(null); setSamplingPlan(null); setCausalChains([])
-    setView('presurvey')
+    setView('quickstart')
   }
 
   const runDemo = () => {
@@ -130,14 +163,17 @@ export default function MobileApp() {
     const d = await STO.get(id)
     if (!d) return
     setDraftId(d.id); setPresurvey(d.presurvey||{}); setBldg(d.bldg||d.building||{}); setZones(d.zones||[{}]); setPhotos(d.photos||{})
-    setPsqi(d.psqi||0); setBqi(d.bqi||0); setCurZone(d.curZone||0); setZqi(d.zqi||0)
-    if ((d.psqi||0) < Q_PRESURVEY.length && !(d.bldg||d.building)?.fn) setView('presurvey')
-    else if ((d.bqi||0) < Q_BUILDING.length) setView('bldg')
-    else setView('zone')
+    setQsqi(d.qsqi||0); setDqi(d.dqi||0); setCurZone(d.curZone||0); setZqi(d.zqi||0)
+    // Resume at the right phase
+    if (!d.bldg?.fn && !d.building?.fn) setView('quickstart')
+    else if (d.zones?.length > 0 && d.zones[0]?.zn) setView('zone')
+    else setView('quickstart')
   }
 
-  const finishPresurvey = () => { showMilestone('check', 'Pre-Survey Complete', 'Starting on-site assessment', () => { setBqi(0); setView('bldg') }) }
-  const finishBuilding = () => { if (zones.length === 0) setZones([{}]); showMilestone('bldg', 'Building Assessment Complete', 'Starting zone walkthrough', () => { setCurZone(0); setZqi(0); setView('zone') }) }
+  const finishQuickStart = () => {
+    if (zones.length === 0) setZones([{}])
+    showMilestone('check', 'Quick Start Complete', 'Starting zone walkthrough', () => { setCurZone(0); setZqi(0); setView('zone') })
+  }
 
   const finishAssessment = async () => {
     const zScores = zones.map(z => scoreZone(z, bldg))
@@ -158,6 +194,10 @@ export default function MobileApp() {
     await STO.addReportToIndex({ id:rid, ts:report.ts, facility:bldg.fn, score:composite?.tot })
     if (draftId) { await STO.del(draftId) }
     await refreshIndex()
+  }
+
+  const finishDetails = () => {
+    showMilestone('check', 'Details Complete', 'Assessment data updated', () => { setView('results') })
   }
 
   const requestNarrative = async () => {
@@ -195,14 +235,15 @@ export default function MobileApp() {
     return l
   }, [index.reports, hSearch, hSort])
 
-  const psSecs = [...new Set(psVis.map(q=>q.sec))]
-  const bSecs = [...new Set(bVis.map(q=>q.sec))]
+  const qsSecs = [...new Set(qsVis.map(q=>q.sec))]
+  const dtSecs = [...new Set(dtVis.map(q=>q.sec))]
   const zSecs = [...new Set(zVis.map(q=>q.sec))]
 
   if (loading) return <Loading fast={isReturning} onDone={() => setLoading(false)} />
+  if (profileChecked && !profile) return <ProfileScreen onLogin={handleLogin} />
 
 
-  // ── Question renderer (one at a time) — 44pt min touch targets ──
+  // ── Question renderer (shared across quick start, zone, details) ──
   const renderQuestion = (q, data, setField, qIdx, visQs, goNext, goPrev, onFinish, finishLabel, secs) => {
     const progress = Math.round(((qIdx + 1) / visQs.length) * 100)
     const secIdx = secs.indexOf(q.sec)
@@ -227,11 +268,12 @@ export default function MobileApp() {
           {!q.ref&&<div style={{height:16}} />}
 
           {q.t==='text'&&<input type="text" value={data[q.id]||''} onChange={e=>setField(q.id,e.target.value)} placeholder={q.ph||'Type...'} autoFocus onKeyDown={e=>{if(e.key==='Enter'&&data[q.id])goNext()}} style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:17,fontFamily:"'Outfit'",fontWeight:500,outline:'none',boxSizing:'border-box'}} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />}
-          {q.t==='num'&&<div style={{position:'relative'}}><input type="number" value={data[q.id]||''} onChange={e=>setField(q.id,e.target.value)} placeholder={q.ph||'Enter...'} autoFocus onKeyDown={e=>{if(e.key==='Enter'&&data[q.id])goNext()}} style={{width:'100%',padding:'18px 20px',paddingRight:q.u?70:20,background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:17,fontFamily:"'Outfit'",fontWeight:500,outline:'none',boxSizing:'border-box'}} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />{q.u&&<span style={{position:'absolute',right:18,top:'50%',transform:'translateY(-50%)',color:DIM,fontSize:14,fontFamily:"'DM Mono'"}}>{q.u}</span>}</div>}
-          {q.t==='ta'&&<textarea value={data[q.id]||''} onChange={e=>setField(q.id,e.target.value)} placeholder="Notes..." rows={3} style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:"'Outfit'",outline:'none',resize:'vertical',boxSizing:'border-box'}} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />}
+          {q.t==='num'&&<div style={{position:'relative'}}><input type="number" inputMode="decimal" value={data[q.id]||''} onChange={e=>setField(q.id,e.target.value)} placeholder={q.ph||'Enter...'} autoFocus onKeyDown={e=>{if(e.key==='Enter'&&data[q.id])goNext()}} style={{width:'100%',padding:'18px 20px',paddingRight:q.u?70:20,background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:17,fontFamily:"'Outfit'",fontWeight:500,outline:'none',boxSizing:'border-box'}} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />{q.u&&<span style={{position:'absolute',right:18,top:'50%',transform:'translateY(-50%)',color:DIM,fontSize:14,fontFamily:"'DM Mono'"}}>{q.u}</span>}</div>}
+          {q.t==='date'&&<input type="date" value={data[q.id]||''} onChange={e=>setField(q.id,e.target.value)} style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:17,fontFamily:"'Outfit'",outline:'none',boxSizing:'border-box',colorScheme:'dark'}} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />}
+          {q.t==='ta'&&<textarea value={data[q.id]||''} onChange={e=>setField(q.id,e.target.value)} placeholder={q.ph||'Notes...'} rows={3} style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:"'Outfit'",outline:'none',resize:'vertical',boxSizing:'border-box'}} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />}
           {q.t==='ch'&&q.opts&&<div style={{display:'flex',flexDirection:'column',gap:8}}>{q.opts.map((o,i)=>{const sel=data[q.id]===o;return(<button key={o} onClick={()=>{haptic('light');setField(q.id,o);setTimeout(goNext,250)}} style={{padding:'16px 20px',textAlign:'left',background:sel?`${ACCENT}12`:CARD,border:`1.5px solid ${sel?ACCENT:BORDER}`,borderRadius:14,color:sel?ACCENT:'#E2E8F0',fontSize:16,fontFamily:"'Outfit'",fontWeight:500,cursor:'pointer',display:'flex',alignItems:'center',gap:14,minHeight:54,animation:`fadeUp .3s ${i*.04}s cubic-bezier(.22,1,.36,1) both`}}><div style={{width:24,height:24,borderRadius:'50%',border:`2px solid ${sel?ACCENT:'#2A3040'}`,background:sel?ACCENT:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{sel&&<I n="check" s={12} c={BG} />}</div>{o}</button>)})}</div>}
           {q.t==='multi'&&q.opts&&<div style={{display:'flex',flexWrap:'wrap',gap:8}}>{q.opts.map((o,i)=>{const arr=data[q.id]||[],sel=arr.includes(o);return(<button key={o} onClick={()=>setField(q.id,sel?arr.filter(x=>x!==o):[...arr,o])} style={{padding:'12px 18px',borderRadius:24,background:sel?`${ACCENT}15`:CARD,border:`1.5px solid ${sel?ACCENT:BORDER}`,color:sel?ACCENT:'#C8D0DC',fontSize:14,fontFamily:"'Outfit'",fontWeight:500,cursor:'pointer',minHeight:44,animation:`fadeUp .25s ${i*.03}s cubic-bezier(.22,1,.36,1) both`}}>{sel?'✓ ':''}{o}</button>)})}</div>}
-          {q.t==='combo'&&q.opts&&(()=>{const otherOpts=q.opts.filter(o=>o!=='Other');const isOther=(data[q.id]||'')==='__other__'||((data[q.id]||'')&&!otherOpts.includes(data[q.id]));return(<div><select value={isOther?'__other__':(data[q.id]||'')} onChange={e=>setField(q.id,e.target.value)} style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:"'Outfit'",outline:'none',boxSizing:'border-box',appearance:'auto'}}><option value="">Select...</option>{otherOpts.map(o=><option key={o} value={o}>{o}</option>)}<option value="__other__">Other</option></select>{isOther&&<input type="text" value={data[q.id]==='__other__'?'':data[q.id]} onChange={e=>setField(q.id,e.target.value||'__other__')} placeholder="Type here..." autoFocus style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${ACCENT}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:"'Outfit'",outline:'none',boxSizing:'border-box',marginTop:8}} />}</div>)})()}
+          {q.t==='combo'&&q.opts&&(()=>{const otherOpts=q.opts.filter(o=>o!=='Other');const isOther=(data[q.id]||'')==='__other__'||((data[q.id]||'')&&!otherOpts.includes(data[q.id]));return(<div><select value={isOther?'__other__':(data[q.id]||'')} onChange={e=>setField(q.id,e.target.value)} style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:"'Outfit'",outline:'none',boxSizing:'border-box',appearance:'auto'}}><option value="">Select or skip...</option>{otherOpts.map(o=><option key={o} value={o}>{o}</option>)}<option value="__other__">Other</option></select>{isOther&&<input type="text" value={data[q.id]==='__other__'?'':data[q.id]} onChange={e=>setField(q.id,e.target.value||'__other__')} placeholder="Type here..." autoFocus style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${ACCENT}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:"'Outfit'",outline:'none',boxSizing:'border-box',marginTop:8}} />}</div>)})()}
           {q.t==='sensors'&&<SensorScreen data={data} onChange={setField} isDesktop={false} />}
           {q.photo&&<PhotoCapture photos={photos[`z${curZone}-${q.id}`]||[]} onAdd={p=>setPhotos(prev=>({...prev,[`z${curZone}-${q.id}`]:[...(prev[`z${curZone}-${q.id}`]||[]),p]}))} onRemove={i=>setPhotos(prev=>({...prev,[`z${curZone}-${q.id}`]:(prev[`z${curZone}-${q.id}`]||[]).filter((_,j)=>j!==i)}))} />}
         </div>
@@ -253,16 +295,28 @@ export default function MobileApp() {
   const renderResults = (archived) => {
     if (!comp || !zoneScores.length) return null
     const zs = zoneScores[selZone]
+    // Count how many detail fields are filled
+    const detailsFilled = Q_DETAILS.filter(q => mergedData[q.id]).length
+    const detailsTotal = Q_DETAILS.length
     return (
       <div style={{paddingTop:28,paddingBottom:120}}>
         <div style={{padding:'16px 18px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:14,marginBottom:14}}>
           <div style={{fontSize:16,fontWeight:700,marginBottom:4,color:TEXT}}>{bldg.fn||'Assessment'}</div>
           <div style={{fontSize:13,color:SUB,marginBottom:8}}>{bldg.fl}</div>
           <div style={{display:'flex',flexWrap:'wrap',gap:12,fontSize:12,color:DIM,fontFamily:"'DM Mono'"}}>
-            {presurvey.ps_assessor&&<span>👤 {presurvey.ps_assessor}</span>}
+            {profile&&<span>👤 {profile.name}</span>}
             <span>📅 {clock.toLocaleDateString([],{weekday:'short',month:'short',day:'numeric'})}</span>
           </div>
         </div>
+
+        {/* Assessment Details prompt */}
+        {!archived && detailsFilled < 5 && (
+          <button onClick={()=>{setDqi(0);setView('details')}} style={{width:'100%',padding:'14px 18px',background:'#FBBF2410',border:`1px solid #FBBF2428`,borderRadius:14,marginBottom:14,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,fontFamily:'inherit',minHeight:56}}>
+            <div style={{width:40,height:40,borderRadius:10,background:'#FBBF2415',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><I n="clip" s={20} c="#FBBF24" /></div>
+            <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600,color:'#FBBF24'}}>Add Assessment Details</div><div style={{fontSize:12,color:SUB,marginTop:2}}>HVAC details, weather, history — strengthens defensibility</div></div>
+            <div style={{fontSize:16,color:'#FBBF24'}}>→</div>
+          </button>
+        )}
 
         <div style={{textAlign:'center',padding:'36px 20px 28px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:20,position:'relative',overflow:'hidden',marginBottom:14}}>
           <div style={{position:'absolute',inset:0,opacity:.25}}><Particles /></div>
@@ -311,7 +365,7 @@ export default function MobileApp() {
         </div>}
 
         {rTab==='rootcause'&&<div style={{display:'flex',flexDirection:'column',gap:14}}>
-          {causalChains.length===0?<div style={{padding:36,textAlign:'center',background:CARD,borderRadius:16,border:`1px solid ${BORDER}`}}><div style={{fontSize:28,marginBottom:12}}>🔗</div><div style={{fontSize:16,fontWeight:600,marginBottom:6,color:TEXT}}>No Causal Chains Identified</div><div style={{fontSize:14,color:SUB,lineHeight:1.6}}>The walkthrough data did not produce correlated multi-factor findings.</div></div>
+          {causalChains.length===0?<div style={{padding:36,textAlign:'center',background:CARD,borderRadius:16,border:`1px solid ${BORDER}`}}><div style={{fontSize:28,marginBottom:12}}>🔗</div><div style={{fontSize:16,fontWeight:600,marginBottom:6,color:TEXT}}>No Causal Chains</div><div style={{fontSize:14,color:SUB,lineHeight:1.6}}>No correlated multi-factor findings.</div></div>
           :causalChains.map((ch,i)=>{const cc=ch.confidence==='Strong'?'#22C55E':ch.confidence==='Moderate'?'#FBBF24':SUB;return(
             <div key={i} style={{padding:18,background:CARD,border:`1px solid ${BORDER}`,borderRadius:16}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
@@ -326,7 +380,7 @@ export default function MobileApp() {
         </div>}
 
         {rTab==='sampling'&&<div style={{display:'flex',flexDirection:'column',gap:14}}>
-          {(!samplingPlan||samplingPlan.plan.length===0)?<div style={{padding:36,textAlign:'center',background:CARD,borderRadius:16,border:`1px solid ${BORDER}`}}><div style={{fontSize:28,marginBottom:12}}>🧪</div><div style={{fontSize:16,fontWeight:600,marginBottom:6,color:TEXT}}>No Sampling Indicated</div><div style={{fontSize:14,color:SUB,lineHeight:1.6}}>Walkthrough findings did not generate hypotheses requiring confirmatory sampling.</div></div>
+          {(!samplingPlan||samplingPlan.plan.length===0)?<div style={{padding:36,textAlign:'center',background:CARD,borderRadius:16,border:`1px solid ${BORDER}`}}><div style={{fontSize:28,marginBottom:12}}>🧪</div><div style={{fontSize:16,fontWeight:600,marginBottom:6,color:TEXT}}>No Sampling Indicated</div><div style={{fontSize:14,color:SUB,lineHeight:1.6}}>No hypotheses requiring confirmatory sampling.</div></div>
           :<>{samplingPlan.plan.map((p,i)=>{const pc=p.priority==='critical'?'#EF4444':p.priority==='high'?'#FB923C':'#FBBF24';return(
             <div key={i} style={{padding:18,background:CARD,border:`1px solid ${BORDER}`,borderRadius:16}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
@@ -334,9 +388,7 @@ export default function MobileApp() {
                 <span style={{padding:'4px 12px',background:`${pc}18`,border:`1px solid ${pc}35`,borderRadius:16,fontSize:11,fontWeight:700,color:pc}}>{p.priority.toUpperCase()}</span>
               </div>
               <div style={{fontSize:13,color:ACCENT,fontFamily:"'DM Mono'",marginBottom:10}}>{p.zone}</div>
-              <div style={{marginBottom:10}}><div style={{fontSize:12,fontWeight:600,color:SUB,marginBottom:4}}>Hypothesis</div><div style={{fontSize:14,color:'#D1D5DB',lineHeight:1.6}}>{p.hypothesis}</div></div>
-              <div style={{marginBottom:10}}><div style={{fontSize:12,fontWeight:600,color:SUB,marginBottom:4}}>Method</div><div style={{fontSize:14,color:'#D1D5DB',lineHeight:1.6}}>{p.method}</div></div>
-              <div style={{marginBottom:10}}><div style={{fontSize:12,fontWeight:600,color:SUB,marginBottom:4}}>Controls</div><div style={{fontSize:14,color:'#D1D5DB',lineHeight:1.6}}>{p.controls}</div></div>
+              {[{l:'Hypothesis',v:p.hypothesis},{l:'Method',v:p.method},{l:'Controls',v:p.controls}].map(x=><div key={x.l} style={{marginBottom:10}}><div style={{fontSize:12,fontWeight:600,color:SUB,marginBottom:4}}>{x.l}</div><div style={{fontSize:14,color:'#D1D5DB',lineHeight:1.6}}>{x.v}</div></div>)}
               <div style={{fontSize:12,color:DIM,fontFamily:"'DM Mono'"}}>{p.standard}</div>
             </div>
           )})}{samplingPlan.outdoorGaps?.length>0&&<div style={{padding:16,background:'#FBBF2410',border:`1px solid #FBBF2428`,borderRadius:14}}><div style={{fontSize:13,fontWeight:700,color:'#FBBF24',marginBottom:10}}>⚠ Outdoor Control Gaps</div>{samplingPlan.outdoorGaps.map((g,i)=><div key={i} style={{fontSize:14,color:'#D1D5DB',lineHeight:1.6,marginBottom:6}}>• {g}</div>)}</div>}</>}
@@ -346,7 +398,7 @@ export default function MobileApp() {
           {!narrative&&!narrativeLoading&&<div style={{padding:36,textAlign:'center',background:CARD,border:`1px solid ${BORDER}`,borderRadius:16}}>
             <div style={{fontSize:28,marginBottom:14}}>🤖</div>
             <div style={{fontSize:16,fontWeight:600,marginBottom:6,color:TEXT}}>AI Findings Narrative</div>
-            <div style={{fontSize:13,color:SUB,lineHeight:1.6,marginBottom:20}}>Generates a professional IH narrative from the deterministic scoring output.</div>
+            <div style={{fontSize:13,color:SUB,lineHeight:1.6,marginBottom:20}}>Professional narrative from deterministic output. You review before delivery.</div>
             <button onClick={requestNarrative} style={{padding:'14px 28px',background:`linear-gradient(135deg,#0891B2,${ACCENT})`,border:'none',borderRadius:12,color:'#fff',fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>Generate Narrative</button>
           </div>}
           {narrativeLoading&&<div style={{padding:44,textAlign:'center',background:CARD,border:`1px solid ${BORDER}`,borderRadius:16}}><div style={{width:44,height:44,margin:'0 auto 16px',borderRadius:'50%',border:'2px solid transparent',borderTopColor:ACCENT,animation:'spin 1s linear infinite'}} /><div style={{fontSize:13,color:SUB}}>Generating narrative...</div></div>}
@@ -370,14 +422,13 @@ export default function MobileApp() {
 
 
   // ── Main render ──
-  const pscq = psVis[psqi]
-  const bcq = bVis[bqi]
+  const qscq = qsVis[qsqi]
+  const dtcq = dtVis[dqi]
   const zcq = zVis[zqi]
-  const isAssessing = ['presurvey','bldg','zone'].includes(view)
+  const isAssessing = ['quickstart','zone','details'].includes(view)
 
   return (
     <div style={{minHeight:'100vh',background:BG,color:TEXT,fontFamily:"'Outfit', system-ui, sans-serif"}}>
-      {/* ── Header — compact, safe-area aware ── */}
       <header style={{position:'sticky',top:0,zIndex:100,background:`${BG}E8`,backdropFilter:'blur(20px)',WebkitBackdropFilter:'blur(20px)',borderBottom:`1px solid ${BORDER}`,padding:`env(safe-area-inset-top, 0px) 16px 0`,display:'flex',alignItems:'center',justifyContent:'space-between',height:56}}>
         <div style={{display:'flex',alignItems:'center',gap:10}}>
           <div style={{width:34,height:34,borderRadius:10,background:`linear-gradient(135deg,${ACCENT},#0891B2)`,display:'flex',alignItems:'center',justifyContent:'center'}}><I n="home" s={16} c="#fff" /></div>
@@ -389,32 +440,35 @@ export default function MobileApp() {
         </div>
       </header>
 
-      {/* ── Milestone overlay ── */}
       {milestone&&<div style={{position:'fixed',inset:0,background:`${BG}F0`,zIndex:300,display:'flex',alignItems:'center',justifyContent:'center',padding:'0 32px'}}><div style={{textAlign:'center',animation:'milestoneIn .5s cubic-bezier(.22,1,.36,1)'}}><div style={{marginBottom:20,display:'flex',justifyContent:'center'}}><div style={{width:80,height:80,borderRadius:22,background:`${ACCENT}12`,border:`1.5px solid ${ACCENT}30`,display:'flex',alignItems:'center',justifyContent:'center'}}><I n={milestone.icon} s={40} c={ACCENT} w={2} /></div></div><div style={{fontSize:26,fontWeight:800,letterSpacing:'-0.5px',color:TEXT}}>{milestone.title}</div><div style={{fontSize:15,color:ACCENT,fontFamily:"'DM Mono'",marginTop:10}}>{milestone.sub}</div></div></div>}
 
-      {/* ── Zone complete prompt (replaces confirm()) ── */}
       {zonePrompt&&<div style={{position:'fixed',inset:0,background:'#000000CC',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',padding:24}}><div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:18,padding:28,maxWidth:340,width:'100%',animation:'fadeUp .3s ease'}}><div style={{fontSize:18,fontWeight:700,marginBottom:8,color:TEXT}}>Zone Complete</div><div style={{fontSize:14,color:SUB,marginBottom:24,lineHeight:1.6}}>Add another zone to this assessment?</div><div style={{display:'flex',flexDirection:'column',gap:10}}><button onClick={()=>{setZonePrompt(false);setZones(p=>[...p,{}]);setCurZone(zones.length);setZqi(0)}} style={{padding:'16px 0',background:`${ACCENT}12`,border:`1px solid ${ACCENT}30`,borderRadius:12,color:ACCENT,fontSize:16,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:52}}>+ Add Another Zone</button><button onClick={()=>{setZonePrompt(false);finishAssessment()}} style={{padding:'16px 0',background:'linear-gradient(135deg,#059669,#22C55E)',border:'none',borderRadius:12,color:'#fff',fontSize:16,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:52}}>Finish Assessment ✓</button></div></div></div>}
 
-      {/* ── Delete confirm ── */}
-      {delConf&&<div style={{position:'fixed',inset:0,background:'#000000CC',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',padding:24}}><div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:18,padding:28,maxWidth:340,width:'100%',animation:'fadeUp .3s ease'}}><div style={{fontSize:18,fontWeight:700,marginBottom:8,color:TEXT}}>Delete?</div><div style={{fontSize:14,color:SUB,marginBottom:24,lineHeight:1.6}}>This will be permanently removed.</div><div style={{display:'flex',gap:10}}><button onClick={()=>setDelConf(null)} style={{flex:1,padding:'14px 0',background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:10,color:SUB,fontSize:14,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>Cancel</button><button onClick={()=>deleteItem(delConf.id,delConf.type)} style={{flex:1,padding:'14px 0',background:'#EF444420',border:'1px solid #EF444440',borderRadius:10,color:'#EF4444',fontSize:14,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>Delete</button></div></div></div>}
+      {delConf&&<div style={{position:'fixed',inset:0,background:'#000000CC',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',padding:24}}><div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:18,padding:28,maxWidth:340,width:'100%',animation:'fadeUp .3s ease'}}><div style={{fontSize:18,fontWeight:700,marginBottom:8,color:TEXT}}>Delete?</div><div style={{fontSize:14,color:SUB,marginBottom:24,lineHeight:1.6}}>Permanently removed.</div><div style={{display:'flex',gap:10}}><button onClick={()=>setDelConf(null)} style={{flex:1,padding:'14px 0',background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:10,color:SUB,fontSize:14,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>Cancel</button><button onClick={()=>deleteItem(delConf.id,delConf.type)} style={{flex:1,padding:'14px 0',background:'#EF444420',border:'1px solid #EF444440',borderRadius:10,color:'#EF4444',fontSize:14,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>Delete</button></div></div></div>}
 
       <div style={{maxWidth:620,margin:'0 auto',padding:'0 20px',position:'relative',zIndex:1}}>
 
-        {/* ═══ DASHBOARD ═══ */}
         {view==='dash'&&<div style={{paddingTop:32,paddingBottom:100}}>
-          <div style={{animation:'fadeUp .5s ease'}}><div style={{fontSize:11,fontWeight:600,color:ACCENT,textTransform:'uppercase',letterSpacing:3,fontFamily:"'DM Mono'",marginBottom:12}}>Air Quality Intelligence</div><h1 style={{fontSize:36,fontWeight:800,lineHeight:1.1,margin:0,letterSpacing:'-1px'}}>atmos<span style={{color:ACCENT}}>IQ</span></h1><p style={{fontSize:15,color:SUB,lineHeight:1.7,marginTop:14,maxWidth:420}}>Multi-zone assessments. Photo evidence. Deterministic scoring. OSHA defensibility.</p></div>
-          <div style={{display:'flex',flexWrap:'wrap',gap:6,margin:'24px 0'}}>{['ASHRAE 62.1','ASHRAE 55','OSHA PELs','NIOSH','EPA','WHO'].map(s=><span key={s} style={{padding:'5px 12px',background:`${ACCENT}08`,border:`1px solid ${ACCENT}20`,borderRadius:20,fontSize:12,fontFamily:"'DM Mono'",color:ACCENT}}>{s}</span>)}</div>
-          <button onClick={startNew} style={{width:'100%',padding:'22px 24px',marginTop:8,background:`linear-gradient(135deg,#0E7490,${ACCENT}20)`,border:`1.5px solid ${ACCENT}40`,borderRadius:16,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:16,position:'relative',overflow:'hidden',minHeight:80}}><div style={{position:'absolute',inset:0,opacity:.12}}><Particles /></div><div style={{width:52,height:52,borderRadius:14,background:`${ACCENT}20`,display:'flex',alignItems:'center',justifyContent:'center',position:'relative',zIndex:1}}><I n="wind" s={26} c={ACCENT} /></div><div style={{position:'relative',zIndex:1,flex:1}}><div style={{fontSize:17,fontWeight:700,color:TEXT}}>New Assessment</div><div style={{fontSize:13,color:SUB,marginTop:3}}>Multi-zone · Photo capture · AI report</div></div><div style={{fontSize:20,color:ACCENT,position:'relative',zIndex:1}}>→</div></button>
-          <button onClick={runDemo} style={{width:'100%',padding:'18px 22px',marginTop:10,background:CARD,border:`1.5px solid #8B5CF630`,borderRadius:16,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:16,minHeight:72}}><div style={{width:48,height:48,borderRadius:12,background:'#8B5CF615',display:'flex',alignItems:'center',justifyContent:'center'}}><I n="bldg" s={24} c="#8B5CF6" /></div><div style={{flex:1}}><div style={{fontSize:16,fontWeight:700,color:TEXT}}>Run Demo</div><div style={{fontSize:13,color:SUB,marginTop:3}}>Meridian Business Park — 3 zones</div></div><div style={{fontSize:20,color:'#8B5CF6'}}>→</div></button>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginTop:12}}>
-            {[{l:'Drafts',n:(index.drafts||[]).length,v:'drafts',ic:'clip'},{l:'History',n:(index.reports||[]).length,v:'history',ic:'clock'}].map(c=><button key={c.l} onClick={()=>{if(c.n)setView(c.v)}} style={{padding:'20px 16px',background:CARD,border:`1px solid ${c.n?`${ACCENT}25`:BORDER}`,borderRadius:14,opacity:c.n?1:.4,cursor:c.n?'pointer':'default',textAlign:'left',minHeight:80}}><div style={{marginBottom:10}}><I n={c.ic} s={24} c={c.n?ACCENT:DIM} /></div><div style={{fontSize:14,fontWeight:600,color:TEXT}}>{c.l}</div><div style={{fontSize:15,color:c.n?ACCENT:DIM,fontFamily:"'DM Mono'",marginTop:3,fontWeight:700}}>{c.n}</div></button>)}
+          <div style={{animation:'fadeUp .5s ease'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:20}}>
+              <div><div style={{fontSize:11,fontWeight:600,color:ACCENT,textTransform:'uppercase',letterSpacing:3,fontFamily:"'DM Mono'",marginBottom:12}}>Air Quality Intelligence</div><h1 style={{fontSize:36,fontWeight:800,lineHeight:1.1,margin:0,letterSpacing:'-1px'}}>atmos<span style={{color:ACCENT}}>IQ</span></h1></div>
+              {profile&&<button onClick={handleLogout} style={{display:'flex',alignItems:'center',gap:8,padding:'10px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>
+                <div style={{width:28,height:28,borderRadius:8,background:`${ACCENT}15`,display:'flex',alignItems:'center',justifyContent:'center'}}><I n="user" s={14} c={ACCENT} /></div>
+                <div style={{fontSize:13,fontWeight:600,color:TEXT,maxWidth:100,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{profile.name?.split(',')[0]||'User'}</div>
+              </button>}
+            </div>
+            <p style={{fontSize:15,color:SUB,lineHeight:1.7,maxWidth:420}}>Multi-zone assessments. Deterministic scoring. OSHA defensibility.</p>
           </div>
-          {(index.reports||[]).length>0&&<div style={{marginTop:24}}><div style={{fontSize:12,fontWeight:600,color:SUB,textTransform:'uppercase',letterSpacing:1.5,marginBottom:12}}>Recent</div>{(index.reports||[]).slice(0,3).map(r=><button key={r.id} onClick={()=>openReport(r)} style={{width:'100%',padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,marginBottom:8,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,minHeight:64}}><div style={{width:40,height:40,borderRadius:10,background:`${ACCENT}12`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,fontWeight:800,fontFamily:"'DM Mono'",color:ACCENT}}>{r.score||'?'}</div><div style={{flex:1,minWidth:0}}><div style={{fontSize:14,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:TEXT}}>{r.facility||'?'}</div><div style={{fontSize:12,color:DIM,fontFamily:"'DM Mono'",marginTop:3}}>{fD(r.ts)}</div></div></button>)}</div>}
+          <button onClick={startNew} style={{width:'100%',padding:'22px 24px',marginTop:20,background:`linear-gradient(135deg,#0E7490,${ACCENT}20)`,border:`1.5px solid ${ACCENT}40`,borderRadius:16,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:16,position:'relative',overflow:'hidden',minHeight:80,fontFamily:'inherit'}}><div style={{position:'absolute',inset:0,opacity:.12}}><Particles /></div><div style={{width:52,height:52,borderRadius:14,background:`${ACCENT}20`,display:'flex',alignItems:'center',justifyContent:'center',position:'relative',zIndex:1}}><I n="wind" s={26} c={ACCENT} /></div><div style={{position:'relative',zIndex:1,flex:1}}><div style={{fontSize:17,fontWeight:700,color:TEXT}}>New Assessment</div><div style={{fontSize:13,color:SUB,marginTop:3}}>Quick start · {profile?.name?.split(',')[0]||'Profile'} auto-filled</div></div><div style={{fontSize:20,color:ACCENT,position:'relative',zIndex:1}}>→</div></button>
+          <button onClick={runDemo} style={{width:'100%',padding:'18px 22px',marginTop:10,background:CARD,border:`1.5px solid #8B5CF630`,borderRadius:16,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:16,minHeight:72,fontFamily:'inherit'}}><div style={{width:48,height:48,borderRadius:12,background:'#8B5CF615',display:'flex',alignItems:'center',justifyContent:'center'}}><I n="bldg" s={24} c="#8B5CF6" /></div><div style={{flex:1}}><div style={{fontSize:16,fontWeight:700,color:TEXT}}>Run Demo</div><div style={{fontSize:13,color:SUB,marginTop:3}}>Meridian Business Park — 3 zones</div></div><div style={{fontSize:20,color:'#8B5CF6'}}>→</div></button>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginTop:12}}>
+            {[{l:'Drafts',n:(index.drafts||[]).length,v:'drafts',ic:'clip'},{l:'History',n:(index.reports||[]).length,v:'history',ic:'clock'}].map(c=><button key={c.l} onClick={()=>{if(c.n)setView(c.v)}} style={{padding:'20px 16px',background:CARD,border:`1px solid ${c.n?`${ACCENT}25`:BORDER}`,borderRadius:14,opacity:c.n?1:.4,cursor:c.n?'pointer':'default',textAlign:'left',minHeight:80,fontFamily:'inherit'}}><div style={{marginBottom:10}}><I n={c.ic} s={24} c={c.n?ACCENT:DIM} /></div><div style={{fontSize:14,fontWeight:600,color:TEXT}}>{c.l}</div><div style={{fontSize:15,color:c.n?ACCENT:DIM,fontFamily:"'DM Mono'",marginTop:3,fontWeight:700}}>{c.n}</div></button>)}
+          </div>
+          {(index.reports||[]).length>0&&<div style={{marginTop:24}}><div style={{fontSize:12,fontWeight:600,color:SUB,textTransform:'uppercase',letterSpacing:1.5,marginBottom:12}}>Recent</div>{(index.reports||[]).slice(0,3).map(r=><button key={r.id} onClick={()=>openReport(r)} style={{width:'100%',padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,marginBottom:8,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,minHeight:64,fontFamily:'inherit'}}><div style={{width:40,height:40,borderRadius:10,background:`${ACCENT}12`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,fontWeight:800,fontFamily:"'DM Mono'",color:ACCENT}}>{r.score||'?'}</div><div style={{flex:1,minWidth:0}}><div style={{fontSize:14,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:TEXT}}>{r.facility||'?'}</div><div style={{fontSize:12,color:DIM,fontFamily:"'DM Mono'",marginTop:3}}>{fD(r.ts)}</div></div></button>)}</div>}
         </div>}
 
-        {/* ═══ QUESTIONS ═══ */}
-        {view==='presurvey'&&pscq&&renderQuestion(pscq,presurvey,setPSF,psqi,psVis,()=>{if(psqi<psVis.length-1)setPsqi(psqi+1)},()=>{if(psqi>0)setPsqi(psqi-1)},finishPresurvey,'→ On-Site Assessment',psSecs)}
-        {view==='bldg'&&bcq&&renderQuestion(bcq,bldg,setBF,bqi,bVis,()=>{if(bqi<bVis.length-1)setBqi(bqi+1)},()=>{if(bqi>0)setBqi(bqi-1)},finishBuilding,'→ Start Zones',bSecs)}
+        {view==='quickstart'&&qscq&&renderQuestion(qscq,mergedData,setQSField,qsqi,qsVis,()=>{if(qsqi<qsVis.length-1)setQsqi(qsqi+1)},()=>{if(qsqi>0)setQsqi(qsqi-1)},finishQuickStart,'→ Start Zones',qsSecs)}
+
         {view==='zone'&&zcq&&<div>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',paddingTop:16,marginBottom:-8}}>
             <div style={{fontSize:12,fontWeight:600,color:ACCENT,fontFamily:"'DM Mono'"}}>Zone {curZone+1}: {zData.zn||'New Zone'}</div>
@@ -426,13 +480,13 @@ export default function MobileApp() {
           {renderQuestion(zcq,zData,setZF,zqi,zVis,()=>{if(zqi<zVis.length-1)setZqi(zqi+1)},()=>{if(zqi>0)setZqi(zqi-1)},()=>{setZonePrompt(true)},'Complete Zone ✓',zSecs)}
         </div>}
 
+        {view==='details'&&dtcq&&renderQuestion(dtcq,mergedData,setQSField,dqi,dtVis,()=>{if(dqi<dtVis.length-1)setDqi(dqi+1)},()=>{if(dqi>0)setDqi(dqi-1)},finishDetails,'Done ✓',dtSecs)}
+
         {(view==='results'||view==='report')&&renderResults(view==='report')}
 
-        {/* ═══ DRAFTS ═══ */}
         {view==='drafts'&&<div style={{paddingTop:28,paddingBottom:100}}><h2 style={{fontSize:22,fontWeight:700,marginBottom:20,color:TEXT}}>Drafts</h2>{(index.drafts||[]).length===0?<div style={{padding:36,textAlign:'center',background:CARD,borderRadius:14,border:`1px solid ${BORDER}`,color:SUB,fontSize:14}}>No drafts</div>:(index.drafts||[]).map(d=><div key={d.id} style={{padding:'16px 18px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:14,marginBottom:8,display:'flex',alignItems:'center',gap:14}}><div style={{flex:1}}><div style={{fontSize:15,fontWeight:600,color:TEXT}}>{d.facility||'Untitled'}</div><div style={{fontSize:13,color:DIM,fontFamily:"'DM Mono'",marginTop:4}}>{fD(d.ua||d.ts)}</div></div><button onClick={()=>resumeDraft(d.id)} style={{padding:'10px 18px',background:`${ACCENT}15`,border:`1px solid ${ACCENT}30`,borderRadius:10,color:ACCENT,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>Resume</button><button onClick={()=>setDelConf({id:d.id,type:'dft'})} style={{padding:'10px 14px',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:10,color:DIM,fontSize:13,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>✕</button></div>)}</div>}
 
-        {/* ═══ HISTORY ═══ */}
-        {view==='history'&&<div style={{paddingTop:28,paddingBottom:100}}><h2 style={{fontSize:22,fontWeight:700,marginBottom:16,color:TEXT}}>History</h2><div style={{display:'flex',gap:8,marginBottom:14}}><input type="text" value={hSearch} onChange={e=>setHSearch(e.target.value)} placeholder="Search..." style={{flex:1,padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,color:TEXT,fontSize:16,fontFamily:'inherit',outline:'none',boxSizing:'border-box',minHeight:48}} /><select value={hSort} onChange={e=>setHSort(e.target.value)} style={{padding:'14px 12px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,color:SUB,fontSize:13,fontFamily:'inherit',outline:'none',minHeight:48}}><option value="newest">Newest</option><option value="oldest">Oldest</option><option value="score-low">Score ↑</option><option value="score-high">Score ↓</option></select></div>{fReports.length===0?<div style={{padding:36,textAlign:'center',background:CARD,borderRadius:14,border:`1px solid ${BORDER}`,color:SUB,fontSize:14}}>{hSearch?'No matches':'No reports yet'}</div>:fReports.map(r=><button key={r.id} onClick={()=>openReport(r)} style={{width:'100%',padding:'16px 18px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:14,marginBottom:8,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,minHeight:64}}><div style={{width:44,height:44,borderRadius:12,background:`${ACCENT}12`,display:'flex',alignItems:'center',justifyContent:'center'}}><span style={{fontSize:17,fontWeight:800,fontFamily:"'DM Mono'",color:ACCENT}}>{r.score||'?'}</span></div><div style={{flex:1,minWidth:0}}><div style={{fontSize:15,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:TEXT}}>{r.facility||'?'}</div><div style={{fontSize:13,color:DIM,fontFamily:"'DM Mono'",marginTop:4}}>{fD(r.ts)}</div></div><button onClick={e=>{e.stopPropagation();setDelConf({id:r.id,type:'rpt'})}} style={{padding:'8px 12px',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:8,color:DIM,fontSize:12,cursor:'pointer',fontFamily:'inherit',minHeight:40}}>🗑</button></button>)}</div>}
+        {view==='history'&&<div style={{paddingTop:28,paddingBottom:100}}><h2 style={{fontSize:22,fontWeight:700,marginBottom:16,color:TEXT}}>History</h2><div style={{display:'flex',gap:8,marginBottom:14}}><input type="text" value={hSearch} onChange={e=>setHSearch(e.target.value)} placeholder="Search..." style={{flex:1,padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,color:TEXT,fontSize:16,fontFamily:'inherit',outline:'none',boxSizing:'border-box',minHeight:48}} /><select value={hSort} onChange={e=>setHSort(e.target.value)} style={{padding:'14px 12px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,color:SUB,fontSize:13,fontFamily:'inherit',outline:'none',minHeight:48}}><option value="newest">Newest</option><option value="oldest">Oldest</option><option value="score-low">Score ↑</option><option value="score-high">Score ↓</option></select></div>{fReports.length===0?<div style={{padding:36,textAlign:'center',background:CARD,borderRadius:14,border:`1px solid ${BORDER}`,color:SUB,fontSize:14}}>{hSearch?'No matches':'No reports yet'}</div>:fReports.map(r=><button key={r.id} onClick={()=>openReport(r)} style={{width:'100%',padding:'16px 18px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:14,marginBottom:8,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,minHeight:64,fontFamily:'inherit'}}><div style={{width:44,height:44,borderRadius:12,background:`${ACCENT}12`,display:'flex',alignItems:'center',justifyContent:'center'}}><span style={{fontSize:17,fontWeight:800,fontFamily:"'DM Mono'",color:ACCENT}}>{r.score||'?'}</span></div><div style={{flex:1,minWidth:0}}><div style={{fontSize:15,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:TEXT}}>{r.facility||'?'}</div><div style={{fontSize:13,color:DIM,fontFamily:"'DM Mono'",marginTop:4}}>{fD(r.ts)}</div></div><button onClick={e=>{e.stopPropagation();setDelConf({id:r.id,type:'rpt'})}} style={{padding:'8px 12px',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:8,color:DIM,fontSize:12,cursor:'pointer',fontFamily:'inherit',minHeight:40}}>🗑</button></button>)}</div>}
       </div>
 
       <style>{`
@@ -442,7 +496,7 @@ export default function MobileApp() {
         @keyframes milestoneIn{from{opacity:0;transform:scale(.85) translateY(20px);}to{opacity:1;transform:scale(1) translateY(0);}}
         *{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent;}
         button{font-family:inherit;-webkit-tap-highlight-color:transparent;}
-        input::placeholder,textarea::placeholder{color:${PLACEHOLDER};}
+        input::placeholder,textarea::placeholder{color:#525A6A;}
         input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appearance:none;}
         input[type=number]{-moz-appearance:textfield;}
         select option{background:${CARD};color:${SUB};}
