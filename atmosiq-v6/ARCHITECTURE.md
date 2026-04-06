@@ -665,6 +665,163 @@ create policy "Users read own subscription"
 - Show what Pro unlocks at the moment of friction (not before)
 - "Your 3 free assessments this month are used" → show PDF + cloud + AI as unlock
 - Annual pricing shown first (anchoring: $249/yr looks better than $29/mo × 12)
+
+---
+
+## Custom Report Templates (Post-Beta — Pro Feature)
+
+### Status: PLANNED — Build alongside Stripe (Pro tier justification)
+
+### Concept
+
+IH firms have their own Word report templates with logos, boilerplate, table formats, and signature blocks. AtmosIQ auto-populates their template with assessment data. Eliminates 1-2 hours of manual formatting per report.
+
+### Libraries
+
+```
+docxtemplater  — template engine for .docx placeholder replacement
+pizzip         — .docx file handler (zip archive manipulation)
+```
+
+### User Flow
+
+```
+ONE-TIME SETUP (Settings):
+  IH uploads their firm's .docx report template
+  Template uses {placeholder} syntax for dynamic fields
+  Stored in Supabase Storage or localStorage
+
+EVERY REPORT:
+  Assessment completes → IH taps "Generate Report"
+  → App loads template from storage
+  → docxtemplater fills all placeholders with assessment data
+  → Populated .docx downloads to device
+  → IH opens in Word/Google Docs, reviews, signs, sends to client
+```
+
+### Template Placeholder Syntax
+
+IH types these directly in their Word document:
+
+```
+Simple fields:
+  {facility_name}  {facility_address}  {facility_type}
+  {hvac_type}  {assessment_date}  {report_date}
+  {assessor_name}  {assessor_certs}
+  {composite_score}  {composite_risk}  {zone_count}
+  {avg_score}  {worst_score}
+  {osha_confidence}  {ai_narrative}
+
+Loops (repeat per zone):
+  {#zones}
+    Zone: {name} — Score: {score}/100 ({risk})
+    {#findings}
+      [{severity}] {text} ({standard})
+    {/findings}
+  {/zones}
+
+Conditionals (only if data exists):
+  {#osha_flagged}
+    OSHA DEFENSIBILITY FLAGS:
+    {#osha_flags}⚠ {.}{/osha_flags}
+  {/osha_flagged}
+
+Grouped recommendations:
+  {#recommendations_immediate}• {.}{/recommendations_immediate}
+  {#recommendations_engineering}• {.}{/recommendations_engineering}
+  {#recommendations_administrative}• {.}{/recommendations_administrative}
+
+Sampling plan (loop):
+  {#sampling_plan}
+    {type} — {zone} — Priority: {priority}
+    Hypothesis: {hypothesis}
+    Method: {method}
+    Controls: {controls}
+    Standard: {standard}
+  {/sampling_plan}
+
+Causal chains (loop):
+  {#causal_chains}
+    {type} — {zone} — Confidence: {confidence}
+    Root Cause: {root_cause}
+    {#evidence}→ {.}{/evidence}
+  {/causal_chains}
+```
+
+### Data Mapping (templateEngine.js)
+
+```js
+function mapAssessmentToTemplate(data) {
+  const { building, presurvey, zones, zoneScores, comp, 
+          oshaResult, recs, samplingPlan, causalChains, 
+          narrative, profile } = data
+  return {
+    facility_name: building.fn,
+    facility_address: building.fl,
+    facility_type: building.ft,
+    hvac_type: building.ht,
+    assessment_date: new Date().toLocaleDateString('en-US', 
+      { month:'long', day:'numeric', year:'numeric' }),
+    assessor_name: profile?.name || presurvey?.ps_assessor,
+    assessor_certs: (profile?.certs || []).join(', '),
+    composite_score: comp?.tot,
+    composite_risk: comp?.risk,
+    zone_count: zoneScores?.length,
+    avg_score: comp?.avg,
+    worst_score: comp?.worst,
+    osha_confidence: oshaResult?.conf,
+    osha_flagged: oshaResult?.flag,
+    osha_flags: oshaResult?.fl || [],
+    ai_narrative: narrative || '',
+    zones: zoneScores.map(zs => ({
+      name: zs.zoneName,
+      score: zs.tot,
+      risk: zs.risk,
+      findings: zs.cats.flatMap(c => 
+        c.r.filter(r => r.sev !== 'pass' && r.sev !== 'info')
+           .map(r => ({ severity: r.sev, text: r.t, standard: r.std || '' }))
+      ),
+    })),
+    recommendations_immediate: recs?.imm || [],
+    recommendations_engineering: recs?.eng || [],
+    recommendations_administrative: recs?.adm || [],
+    recommendations_monitoring: recs?.mon || [],
+    sampling_plan: (samplingPlan?.plan || []).map(p => ({
+      type: p.type, zone: p.zone, priority: p.priority,
+      hypothesis: p.hypothesis, method: p.method,
+      controls: p.controls, standard: p.standard,
+    })),
+    causal_chains: (causalChains || []).map(ch => ({
+      type: ch.type, zone: ch.zone, confidence: ch.confidence,
+      root_cause: ch.rootCause, evidence: ch.evidence,
+    })),
+  }
+}
+```
+
+### Files to Create (when implementing)
+
+| File | Purpose |
+|---|---|
+| `src/utils/templateEngine.js` | Data mapping + docxtemplater wrapper |
+| `src/components/TemplateManager.jsx` | Upload, preview placeholders, delete template |
+| Update `SettingsScreen.jsx` | Add "Report Template" section |
+| Update `MobileApp.jsx` | Add "Generate Report" button on Actions tab |
+
+### Implementation Sequence
+
+1. `npm install docxtemplater pizzip`
+2. Create `templateEngine.js` with `mapAssessmentToTemplate()` and `generateReport()`
+3. Create `TemplateManager.jsx` — upload .docx, store in Supabase Storage or localStorage
+4. Add template section to Settings
+5. Add "Generate Report" button to results Actions tab (next to PDF/Share)
+6. Provide a sample template .docx in the repo for IHs to start from
+
+### Business Value
+
+- IH billing at $150-200/hr saves 1-2 hours of formatting per report
+- At 4 reports/month: $600-1,600/month saved → justifies $29/mo Pro tier easily
+- Strongest single feature for Pro tier conversion
 5. **Offline-first writes** — localStorage first, cloud sync second
 6. **Health check** for storage integrity
 7. **Auto-save** during active data entry (1-2 second debounce)
