@@ -18,7 +18,7 @@ const TEXT = '#F0F2F5'
 const SUB = '#9BA4B5'
 const DIM = '#6B7280'
 
-const CERT_OPTS = ['CIH','CSP','CHMM','QEP','PE','NYSDOL Mold Assessor','NYSDOL Asbestos Inspector','AHERA Inspector','State IH License','OSHA 30-Hour','HAZWOPER 40-Hour','Other']
+const CERT_OPTS = ['CIH','CIH-in-Training','CSP','CHMM','ACAC CIEC','ACAC CMC','ACAC CMI','NYSDOL Mold Assessor','State IH License','OSHA 30-Hour','Other']
 const EXP_OPTS = ['1-3 years','3-5 years','5-10 years','10-20 years','20+ years']
 const IAQ_OPTS = ['TSI Q-Trak 7575','TSI Q-Trak 7515','TSI IAQ-Calc 7545','Graywolf AdvancedSense Pro','Graywolf IQ-610','Testo 400','Testo 440','Kanomax IAQ-2000','Other']
 const PID_OPTS = ['RAE Systems MiniRAE 3000','RAE Systems ppbRAE 3000','Ion Science Tiger','Ion Science Cub','Honeywell ToxiRAE Pro PID','Other']

@@ -13,7 +13,7 @@
 export const Q_PRESURVEY = [
   // Assessor
   { id:'ps_assessor',            sec:'Assessor',      q:'Assessor name and credentials',        t:'text', req:1, ic:'👤', ph:'e.g. J. Smith, CIH, CSP' },
-  { id:'ps_assessor_certs',      sec:'Assessor',      q:'Certifications and licenses held',     t:'multi',       ic:'🎓', opts:['CIH','CSP','CHMM','QEP','PE','NYSDOL Mold Assessor','NYSDOL Asbestos Inspector','AHERA Inspector','State IH License','OSHA 30-Hour','HAZWOPER 40-Hour','Other'] },
+  { id:'ps_assessor_certs',      sec:'Assessor',      q:'Certifications and licenses held',     t:'multi',       ic:'🎓', opts:['CIH','CIH-in-Training','CSP','CHMM','ACAC CIEC','ACAC CMC','ACAC CMI','NYSDOL Mold Assessor','State IH License','OSHA 30-Hour','Other'] },
   { id:'ps_assessor_exp',        sec:'Assessor',      q:'Years of IH/EHS experience',           t:'ch',          ic:'📅', opts:['1-3 years','3-5 years','5-10 years','10-20 years','20+ years'] },
   // Instruments
   { id:'ps_inst_iaq',            sec:'Instruments',   q:'Primary IAQ meter make/model?',        t:'combo',       ic:'📏', ph:'Or type your own...', opts:['TSI Q-Trak 7575','TSI Q-Trak 7515','TSI IAQ-Calc 7545','TSI VelociCalc 9565','Graywolf AdvancedSense Pro','Graywolf IQ-610','Graywolf PC-3016A','FLIR CM174','Kanomax 2211','Kanomax IAQ-2000','E Instruments AQ Pro','Testo 400','Testo 440','Bacharach Monoxor III','Aeroqual Series 500','HAL Technology HFX205','PPM Technology formaldemeter htV-m','CEM DT-9881','Extech SD800','Fieldpiece SDP2','Other'] },
