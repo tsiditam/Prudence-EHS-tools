@@ -8,11 +8,11 @@ import { useState } from 'react'
 import DesktopSidebar from './DesktopSidebar'
 import { I } from './Icons'
 import ScoreRing from './ScoreRing'
-import { CSS, mono, btn, cardStyle, cardHoverHandlers, btnPressHandlers } from '../styles/tokens'
+import { CSS, mono, btn, cardStyle, cardHoverHandlers, btnPressHandlers, FONT_DESKTOP, FONT_MOBILE } from '../styles/tokens'
 
-const SevBadge = ({ sev }) => {
+const SevBadge = ({ sev, dk }) => {
   const colors = { critical: '#EF4444', high: '#FB923C', medium: '#FBBF24', low: '#22D3EE', pass: '#22C55E', info: '#8B5CF6' }
-  return <span style={{ padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600, background: (colors[sev] || '#5E6578') + '20', color: colors[sev] || '#5E6578', ...mono }}>{sev}</span>
+  return <span style={{ padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600, background: (colors[sev] || '#5E6578') + '20', color: colors[sev] || '#5E6578', ...(dk ? mono : {}) }}>{sev}</span>
 }
 
 export default function ReportView({
@@ -27,7 +27,7 @@ export default function ReportView({
   const { comp, zoneScores, oshaEvals, recs, ventCalcs, samplingPlan, causalChains, narrative } = report
 
   return (
-    <div style={{ minHeight: '100vh', background: CSS.bg, color: CSS.text, fontFamily: 'Inter, sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: CSS.bg, color: CSS.text, fontFamily: dk ? FONT_DESKTOP : FONT_MOBILE }}>
       {dk && <DesktopSidebar step={step} setStep={setStep} saveDraft={saveDraft} setShowHistory={setShowHistory} onHome={() => setShowLanding(true)} version={version} />}
       <div style={{ ...(dk ? { marginLeft: 320, padding: '40px 48px', maxWidth: 1100 } : { maxWidth: 700, margin: '0 auto', padding: 20 }) }}>
         {/* Header */}
@@ -47,7 +47,7 @@ export default function ReportView({
               <ScoreRing value={comp.tot} color={comp.rc} size={dk ? 200 : 160} />
             </div>
             <div style={{ fontSize: dk ? 22 : 18, fontWeight: 700, color: comp.rc, position: 'relative' }}>{comp.risk}</div>
-            <div style={{ fontSize: 13, color: CSS.muted, marginTop: 4, ...mono, position: 'relative' }}>
+            <div style={{ fontSize: 13, color: CSS.muted, marginTop: 4, ...(dk ? mono : {}), position: 'relative' }}>
               Avg: {comp.avg} | Worst: {comp.worst} | Zones: {comp.count}
             </div>
           </div>
@@ -79,19 +79,33 @@ export default function ReportView({
                   <div onClick={() => setExpandedCats(prev => ({ ...prev, [`${zi}-${ci}`]: !prev[`${zi}-${ci}`] }))}
                     style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: CSS.bg, borderRadius: 8, cursor: 'pointer', transition: 'background 0.15s' }}>
                     <span style={{ fontSize: 14, fontWeight: 500 }}>{c.l}</span>
-                    <span style={{ fontSize: 13, color: CSS.muted, ...mono }}>{c.s}/{c.mx}</span>
+                    <span style={{ fontSize: 13, color: CSS.muted, ...(dk ? mono : {}) }}>{c.s}/{c.mx}</span>
                   </div>
-                  <div style={{ overflow: 'hidden', maxHeight: expandedCats[`${zi}-${ci}`] ? 1000 : 0, opacity: expandedCats[`${zi}-${ci}`] ? 1 : 0, transition: 'max-height 0.3s ease, opacity 0.2s ease 0.1s' }}>
-                    <div style={{ padding: '8px 12px' }}>
-                      {c.r.map((r, ri) => (
-                        <div key={ri} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', fontSize: 13 }}>
-                          <SevBadge sev={r.sev} />
-                          <span style={{ color: '#C8D0DC' }}>{r.t}</span>
-                          {r.std && <span style={{ fontSize: 11, color: CSS.muted }}>({r.std})</span>}
-                        </div>
-                      ))}
+                  {dk ? (
+                    <div style={{ overflow: 'hidden', maxHeight: expandedCats[`${zi}-${ci}`] ? 1000 : 0, opacity: expandedCats[`${zi}-${ci}`] ? 1 : 0, transition: 'max-height 0.3s ease, opacity 0.2s ease 0.1s' }}>
+                      <div style={{ padding: '8px 12px' }}>
+                        {c.r.map((r, ri) => (
+                          <div key={ri} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', fontSize: 13 }}>
+                            <SevBadge sev={r.sev} dk={dk} />
+                            <span style={{ color: '#C8D0DC' }}>{r.t}</span>
+                            {r.std && <span style={{ fontSize: 11, color: CSS.muted }}>({r.std})</span>}
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    expandedCats[`${zi}-${ci}`] && (
+                      <div style={{ padding: '8px 12px' }}>
+                        {c.r.map((r, ri) => (
+                          <div key={ri} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', fontSize: 13 }}>
+                            <SevBadge sev={r.sev} dk={dk} />
+                            <span style={{ color: '#C8D0DC' }}>{r.t}</span>
+                            {r.std && <span style={{ fontSize: 11, color: CSS.muted }}>({r.std})</span>}
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  )}
                 </div>
               ))}
               {oshaEvals?.[zi] && (
@@ -106,7 +120,7 @@ export default function ReportView({
               {ventCalcs?.[zi] && (
                 <div style={{ marginTop: 8, padding: '10px 12px', background: CSS.bg, borderRadius: 8, fontSize: 13 }}>
                   <div style={{ fontWeight: 600, color: CSS.accent, marginBottom: 4 }}>Ventilation Requirement ({ventCalcs[zi].ref})</div>
-                  <div style={{ color: '#C8D0DC', ...mono, fontSize: 12 }}>
+                  <div style={{ color: '#C8D0DC', ...(dk ? mono : {}), fontSize: 12 }}>
                     People OA: {ventCalcs[zi].pOA.toFixed(1)} CFM | Area OA: {ventCalcs[zi].aOA.toFixed(1)} CFM | Total: {ventCalcs[zi].tot.toFixed(1)} CFM ({ventCalcs[zi].pp.toFixed(1)} CFM/person)
                   </div>
                 </div>
@@ -125,7 +139,7 @@ export default function ReportView({
               {causalChains.map((ch, i) => (
                 <div key={i} style={{ marginBottom: dk ? 0 : 12, padding: 12, background: CSS.bg, borderRadius: 8 }}>
                   <div style={{ fontWeight: 600, fontSize: 14 }}>{ch.zone}: {ch.type}</div>
-                  <div style={{ fontSize: 13, color: CSS.warn, marginTop: 4, ...mono }}>Confidence: {ch.confidence}</div>
+                  <div style={{ fontSize: 13, color: CSS.warn, marginTop: 4 }}>Confidence: {ch.confidence}</div>
                   <div style={{ fontSize: 13, color: '#C8D0DC', marginTop: 4 }}>Root cause: {ch.rootCause}</div>
                   <div style={{ marginTop: 4 }}>
                     {ch.evidence.map((e, ei) => <div key={ei} style={{ fontSize: 12, color: CSS.muted }}>&bull; {e}</div>)}
@@ -147,12 +161,12 @@ export default function ReportView({
                 <div key={i} style={{ marginBottom: dk ? 0 : 12, padding: 12, background: CSS.bg, borderRadius: 8 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                     <span style={{ fontWeight: 600, fontSize: 14 }}>{p.zone}: {p.type}</span>
-                    <SevBadge sev={p.priority} />
+                    <SevBadge sev={p.priority} dk={dk} />
                   </div>
                   <div style={{ fontSize: 13, color: '#C8D0DC' }}>{p.hypothesis}</div>
                   <div style={{ fontSize: 12, color: CSS.muted, marginTop: 4 }}>Method: {p.method}</div>
                   <div style={{ fontSize: 12, color: CSS.muted }}>Controls: {p.controls}</div>
-                  <div style={{ fontSize: 11, color: CSS.accent, marginTop: 2, ...mono }}>{p.standard}</div>
+                  <div style={{ fontSize: 11, color: CSS.accent, marginTop: 2, ...(dk ? mono : {}) }}>{p.standard}</div>
                 </div>
               ))}
             </div>

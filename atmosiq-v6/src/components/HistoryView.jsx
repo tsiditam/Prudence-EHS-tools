@@ -5,7 +5,7 @@
  */
 
 import DesktopSidebar from './DesktopSidebar'
-import { CSS, btn, cardStyle, cardHoverHandlers } from '../styles/tokens'
+import { CSS, btn, cardStyle, cardHoverHandlers, FONT_DESKTOP, FONT_MOBILE } from '../styles/tokens'
 
 export default function HistoryView({
   dk, step, setStep, saveDraft, setShowHistory, setShowLanding,
@@ -14,7 +14,7 @@ export default function HistoryView({
   const crd = cardStyle(dk)
   const cardHover = cardHoverHandlers(dk)
   return (
-    <div style={{ minHeight: '100vh', background: CSS.bg, color: CSS.text, fontFamily: 'Inter, sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: CSS.bg, color: CSS.text, fontFamily: dk ? FONT_DESKTOP : FONT_MOBILE }}>
       {dk && <DesktopSidebar step={step} setStep={setStep} saveDraft={saveDraft} setShowHistory={setShowHistory} onHome={() => setShowLanding(true)} version={version} />}
       <div style={{ ...(dk ? { marginLeft: 320, padding: '40px 48px', maxWidth: 900 } : { maxWidth: 600, margin: '0 auto', padding: 20 }) }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>

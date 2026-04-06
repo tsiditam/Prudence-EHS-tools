@@ -28,29 +28,52 @@ export const SP = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32, xxl: 48 }
 
 export const mono = { fontFamily: 'DM Mono, monospace' }
 
-export const btn = (primary, dk) => ({
-  padding: dk ? '14px 32px' : '14px 28px',
+// ── Font families ──
+export const FONT_DESKTOP = 'Inter, sans-serif'
+export const FONT_MOBILE = 'Outfit, sans-serif'
+
+// ── Desktop: polished with glow/glass effects ──
+// ── Mobile:  original flat field-tool style ──
+
+export const btn = (primary, dk) => dk ? ({
+  padding: '14px 32px',
   background: primary ? CSS.accent : 'transparent',
   color: primary ? '#080A0E' : CSS.text,
   border: primary ? 'none' : `1px solid ${CSS.border}`,
-  borderRadius: dk ? 14 : 12,
+  borderRadius: 14,
   fontSize: 16,
   fontWeight: 600,
   cursor: 'pointer',
   transition: 'all .2s cubic-bezier(0.4,0,0.2,1)',
-  boxShadow: primary && dk ? CSS.glowAccent : 'none',
+  boxShadow: primary ? CSS.glowAccent : 'none',
+}) : ({
+  padding: '14px 28px',
+  background: primary ? CSS.accent : 'transparent',
+  color: primary ? '#080A0E' : CSS.text,
+  border: primary ? 'none' : `1px solid ${CSS.border}`,
+  borderRadius: 12,
+  fontSize: 16,
+  fontWeight: 600,
+  cursor: 'pointer',
+  transition: 'all .2s',
 })
 
-export const cardStyle = (dk) => ({
-  background: dk ? CSS.cardGlass : CSS.card,
-  backdropFilter: dk ? 'blur(16px)' : 'none',
-  WebkitBackdropFilter: dk ? 'blur(16px)' : 'none',
-  border: `1px solid ${dk ? CSS.cardGlassBorder : CSS.border}`,
-  borderRadius: dk ? 16 : 14,
-  padding: dk ? 24 : 20,
-  marginBottom: dk ? 20 : 16,
+export const cardStyle = (dk) => dk ? ({
+  background: CSS.cardGlass,
+  backdropFilter: 'blur(16px)',
+  WebkitBackdropFilter: 'blur(16px)',
+  border: `1px solid ${CSS.cardGlassBorder}`,
+  borderRadius: 16,
+  padding: 24,
+  marginBottom: 20,
   transition: 'all 0.25s cubic-bezier(0.4,0,0.2,1)',
-  boxShadow: dk ? CSS.shadow1 : 'none',
+  boxShadow: CSS.shadow1,
+}) : ({
+  background: CSS.card,
+  border: `1px solid ${CSS.border}`,
+  borderRadius: 14,
+  padding: 20,
+  marginBottom: 16,
 })
 
 export const cardHoverHandlers = (dk) => dk ? {
@@ -62,22 +85,15 @@ export const inputStyle = {
   width: '100%', padding: '12px 14px', background: CSS.bg,
   border: `1px solid ${CSS.border}`, borderRadius: 8, color: CSS.text,
   fontSize: 15, outline: 'none', boxSizing: 'border-box',
-  transition: 'all 0.2s ease',
 }
 
-export const inputFocusHandlers = {
-  onFocus: (e) => { e.target.style.borderColor = CSS.accent; e.target.style.boxShadow = CSS.glowAccent },
-  onBlur: (e) => { e.target.style.borderColor = CSS.border; e.target.style.boxShadow = 'none' },
-}
+export const inputFocusHandlers = {}
 
-export const btnPressHandlers = {
-  onMouseDown: (e) => { e.currentTarget.style.transform = 'scale(0.97)' },
-  onMouseUp: (e) => { e.currentTarget.style.transform = 'scale(1)' },
-}
+export const btnPressHandlers = {}
 
 export const sevBadge = (sev) => {
   const colors = { critical: '#EF4444', high: '#FB923C', medium: '#FBBF24', low: '#22D3EE', pass: '#22C55E', info: '#8B5CF6' }
-  return { padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600, background: (colors[sev] || '#5E6578') + '20', color: colors[sev] || '#5E6578', ...mono }
+  return { padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600, background: (colors[sev] || '#5E6578') + '20', color: colors[sev] || '#5E6578' }
 }
 
 export const sectionHeaderStyle = (dk) => ({

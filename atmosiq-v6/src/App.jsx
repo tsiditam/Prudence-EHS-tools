@@ -35,7 +35,7 @@ import ReportView from './components/ReportView'
 import {
   CSS, SP, mono, btn, cardStyle, cardHoverHandlers,
   inputStyle, inputFocusHandlers, btnPressHandlers,
-  sectionHeaderStyle,
+  sectionHeaderStyle, FONT_DESKTOP, FONT_MOBILE,
 } from './styles/tokens'
 
 const STEPS = ['presurvey', 'building', 'zones', 'review', 'report']
@@ -43,7 +43,7 @@ const STEP_LABELS = ['Pre-Survey', 'Building', 'Zones', 'Review']
 
 // ── Main App ───────────────────────────────────────────────────────────────
 export default function App() {
-  const { isDesktop } = useMediaQuery()
+  const { isDesktop, isStandalone } = useMediaQuery()
   const dk = isDesktop
   const [loading, setLoading] = useState(true)
   const [visited, setVisited] = useState(false)
@@ -60,7 +60,8 @@ export default function App() {
   const [showHistory, setShowHistory] = useState(false)
   const [viewReport, setViewReport] = useState(null)
   const [animKey, setAnimKey] = useState(0)
-  const [showLanding, setShowLanding] = useState(true)
+  // PWA standalone → skip landing page, go straight to the wizard
+  const [showLanding, setShowLanding] = useState(!isStandalone)
   const [isDemo, setIsDemo] = useState(false)
 
   useEffect(() => {
@@ -146,8 +147,8 @@ export default function App() {
         {q.t === 'num' && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <input type="number" value={val} onChange={e => update(e.target.value)} placeholder={q.ph || ''}
-              style={{ ...inputStyle, flex: 1, ...mono }} {...inputFocusHandlers} />
-            {q.u && <span style={{ fontSize: 13, color: CSS.muted, ...mono }}>{q.u}</span>}
+              style={{ ...inputStyle, flex: 1, ...(dk ? mono : {}) }} {...inputFocusHandlers} />
+            {q.u && <span style={{ fontSize: 13, color: CSS.muted, ...(dk ? mono : {}) }}>{q.u}</span>}
           </div>
         )}
         {q.t === 'date' && (
@@ -317,13 +318,13 @@ export default function App() {
 
   // ── Main Wizard ──
   return (
-    <div style={{ minHeight: '100vh', background: CSS.bg, color: CSS.text, fontFamily: 'Inter, sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: CSS.bg, color: CSS.text, fontFamily: dk ? FONT_DESKTOP : FONT_MOBILE }}>
       {dk && <DesktopSidebar step={step} setStep={setStep} saveDraft={saveDraft} setShowHistory={setShowHistory} onHome={() => setShowLanding(true)} version={VER} />}
 
       {/* Mobile Header */}
       {!dk && (
         <div style={{ padding: '16px 20px', borderBottom: `1px solid ${CSS.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, background: CSS.bg, zIndex: 100 }}>
-          <div onClick={() => setShowLanding(true)} style={{ fontSize: 20, fontWeight: 700, cursor: 'pointer' }}>
+          <div style={{ fontSize: 20, fontWeight: 700 }}>
             atmos<span style={{ color: CSS.accent }}>IQ</span>
             <span style={{ fontSize: 10, color: CSS.muted, marginLeft: 8 }}>v{VER}</span>
           </div>
