@@ -145,6 +145,14 @@ export default function ProfileScreen({ onLogin }) {
               )})}
             </div>
           </div>
+          <div>
+            <span style={label}>Firm / company name</span>
+            <input type="text" value={form.firm||''} onChange={e=>setF('firm',e.target.value)} placeholder="e.g. Prudence EHS, or Independent" style={inp} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />
+          </div>
+          <button onClick={()=>setF('marketing_consent',!form.marketing_consent)} style={{display:'flex',alignItems:'flex-start',gap:14,padding:'16px 18px',background:form.marketing_consent?`${ACCENT}08`:CARD,border:`1.5px solid ${form.marketing_consent?ACCENT:BORDER}`,borderRadius:14,cursor:'pointer',textAlign:'left',fontFamily:'inherit',minHeight:56}}>
+            <div style={{width:24,height:24,borderRadius:6,border:`2px solid ${form.marketing_consent?ACCENT:'#2A3040'}`,background:form.marketing_consent?ACCENT:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginTop:2}}>{form.marketing_consent&&<span style={{color:BG,fontSize:14,fontWeight:700}}>✓</span>}</div>
+            <div><div style={{fontSize:14,fontWeight:600,color:form.marketing_consent?ACCENT:TEXT}}>Keep me updated</div><div style={{fontSize:12,color:DIM,marginTop:3,lineHeight:1.5}}>Product updates, new features, and IH field tips. No spam. Unsubscribe anytime.</div></div>
+          </button>
           <button onClick={() => setStep(1)} disabled={!form.name} style={{padding:'16px 0',background:`linear-gradient(135deg,#0891B2,${ACCENT})`,border:'none',borderRadius:12,color:'#fff',fontSize:16,fontWeight:600,cursor:'pointer',fontFamily:'inherit',opacity:form.name?1:.3,minHeight:52,marginTop:8}}>Continue → Instruments</button>
         </div>}
 

@@ -113,6 +113,8 @@ const SupaStorage = {
             pid_meter: profile.pid_meter,
             pid_cal_status: profile.pid_cal_status,
             other_instruments: profile.other_instruments,
+            firm: profile.firm,
+            marketing_consent: profile.marketing_consent || false,
           })
         }
       } catch {

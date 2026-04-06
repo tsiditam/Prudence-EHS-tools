@@ -17,6 +17,8 @@ create table if not exists profiles (
   pid_meter text,
   pid_cal_status text,
   other_instruments text,
+  firm text,
+  marketing_consent boolean default false,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
