@@ -27,6 +27,8 @@ import PhotoCapture from './PhotoCapture'
 import SensorScreen from './SensorScreen'
 import ProfileScreen from './ProfileScreen'
 import AuthScreen from './AuthScreen'
+import SettingsScreen from './SettingsScreen'
+import { printReport } from './PrintReport'
 import { DEMO_PRESURVEY, DEMO_BUILDING, DEMO_ZONES } from '../constants/demoData'
 
 const haptic = (type) => { try { if (navigator.vibrate) navigator.vibrate(type === 'heavy' ? [30,20,30] : type === 'success' ? [10,30,10,30,10] : 12) } catch {} }
@@ -243,6 +245,20 @@ export default function MobileApp() {
     setNarrative(text); setNarrativeLoading(false)
   }
 
+  const handleExportPDF = () => {
+    printReport({ building: bldg, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, version: VER })
+  }
+
+  const handleShare = async () => {
+    const title = `AtmosIQ Report — ${bldg.fn || 'Assessment'}`
+    const text = `${bldg.fn || 'Facility'}\nComposite Score: ${comp?.tot || '?'}/100 — ${comp?.risk || '?'}\n${zoneScores?.length || 0} zones assessed\n${oshaResult?.flag ? '⚠ OSHA flags identified' : '✓ No OSHA flags'}`
+    if (navigator.share) {
+      try { await navigator.share({ title, text }) } catch {}
+    } else {
+      try { await navigator.clipboard.writeText(`${title}\n\n${text}`); alert('Report summary copied to clipboard') } catch {}
+    }
+  }
+
   const openReport = async (meta) => {
     const rpt = await STO.get(meta.id)
     if (!rpt) return
@@ -457,7 +473,11 @@ export default function MobileApp() {
 
         {rTab==='actions'&&recs&&<div style={{display:'flex',flexDirection:'column',gap:12}}>
           {[{k:'imm',l:'Immediate',c:'#EF4444'},{k:'eng',l:'Engineering',c:ACCENT},{k:'adm',l:'Administrative',c:'#FBBF24'},{k:'mon',l:'Monitoring',c:SUB}].map(cat=>{if(!recs[cat.k]?.length)return null;return(<div key={cat.k} style={{padding:16,background:CARD,border:`1px solid ${BORDER}`,borderRadius:14}}><div style={{fontSize:15,fontWeight:700,color:cat.c,marginBottom:10}}>{cat.l}</div>{recs[cat.k].map((r,i)=><div key={i} style={{fontSize:14,color:'#D1D5DB',lineHeight:1.7,marginBottom:8,paddingLeft:14,borderLeft:`2px solid ${cat.c}30`}}>{r}</div>)}</div>)})}
-          {!archived&&<button onClick={startNew} style={{padding:'14px 20px',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:12,color:SUB,fontSize:15,cursor:'pointer',fontFamily:'inherit',marginTop:8,minHeight:48}}>New Assessment</button>}
+          <div style={{display:'flex',gap:10,marginTop:8}}>
+            <button onClick={handleExportPDF} style={{flex:1,padding:'14px 20px',background:`${ACCENT}12`,border:`1px solid ${ACCENT}30`,borderRadius:12,color:ACCENT,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:48,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="download" s={16} c={ACCENT} /> PDF</button>
+            <button onClick={handleShare} style={{flex:1,padding:'14px 20px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,color:SUB,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:48,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="send" s={16} c={SUB} /> Share</button>
+          </div>
+          {!archived&&<button onClick={startNew} style={{padding:'14px 20px',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:12,color:SUB,fontSize:15,cursor:'pointer',fontFamily:'inherit',marginTop:8,minHeight:48,width:'100%'}}>New Assessment</button>}
         </div>}
       </div>
     )
@@ -539,6 +559,7 @@ export default function MobileApp() {
           <div style={{display:'flex',gap:8,marginTop:10}}>
             <button onClick={()=>Backup.downloadBackup()} style={{flex:1,padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,cursor:'pointer',textAlign:'center',fontFamily:'inherit',minHeight:48,fontSize:13,fontWeight:600,color:SUB,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="download" s={16} c={DIM} /> Backup</button>
             <button onClick={()=>setView('trash')} style={{flex:1,padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,cursor:'pointer',textAlign:'center',fontFamily:'inherit',minHeight:48,fontSize:13,fontWeight:600,color:SUB,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="clock" s={16} c={DIM} /> Trash</button>
+            <button onClick={()=>setView('settings')} style={{flex:1,padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,cursor:'pointer',textAlign:'center',fontFamily:'inherit',minHeight:48,fontSize:13,fontWeight:600,color:SUB,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="clip" s={16} c={DIM} /> Settings</button>
           </div>
           {(index.reports||[]).length>0&&<div style={{marginTop:24}}><div style={{fontSize:12,fontWeight:600,color:SUB,textTransform:'uppercase',letterSpacing:1.5,marginBottom:12}}>Recent</div>{(index.reports||[]).slice(0,3).map(r=><button key={r.id} onClick={()=>openReport(r)} style={{width:'100%',padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,marginBottom:8,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,minHeight:64,fontFamily:'inherit'}}><div style={{width:40,height:40,borderRadius:10,background:`${ACCENT}12`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,fontWeight:800,fontFamily:"'DM Mono'",color:ACCENT}}>{r.score||'?'}</div><div style={{flex:1,minWidth:0}}><div style={{fontSize:14,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:TEXT}}>{r.facility||'?'}</div><div style={{fontSize:12,color:DIM,fontFamily:"'DM Mono'",marginTop:3}}>{fD(r.ts)}</div></div></button>)}</div>}
         </div>}
@@ -564,6 +585,7 @@ export default function MobileApp() {
 
         {view==='history'&&<div style={{paddingTop:28,paddingBottom:100}}><h2 style={{fontSize:22,fontWeight:700,marginBottom:16,color:TEXT}}>History</h2><div style={{display:'flex',gap:8,marginBottom:14}}><input type="text" value={hSearch} onChange={e=>setHSearch(e.target.value)} placeholder="Search..." style={{flex:1,padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,color:TEXT,fontSize:16,fontFamily:'inherit',outline:'none',boxSizing:'border-box',minHeight:48}} /><select value={hSort} onChange={e=>setHSort(e.target.value)} style={{padding:'14px 12px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,color:SUB,fontSize:13,fontFamily:'inherit',outline:'none',minHeight:48}}><option value="newest">Newest</option><option value="oldest">Oldest</option><option value="score-low">Score ↑</option><option value="score-high">Score ↓</option></select></div>{fReports.length===0?<div style={{padding:36,textAlign:'center',background:CARD,borderRadius:14,border:`1px solid ${BORDER}`,color:SUB,fontSize:14}}>{hSearch?'No matches':'No reports yet'}</div>:fReports.map(r=><button key={r.id} onClick={()=>openReport(r)} style={{width:'100%',padding:'16px 18px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:14,marginBottom:8,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,minHeight:64,fontFamily:'inherit'}}><div style={{width:44,height:44,borderRadius:12,background:`${ACCENT}12`,display:'flex',alignItems:'center',justifyContent:'center'}}><span style={{fontSize:17,fontWeight:800,fontFamily:"'DM Mono'",color:ACCENT}}>{r.score||'?'}</span></div><div style={{flex:1,minWidth:0}}><div style={{fontSize:15,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:TEXT}}>{r.facility||'?'}</div><div style={{fontSize:13,color:DIM,fontFamily:"'DM Mono'",marginTop:4}}>{fD(r.ts)}</div></div><button onClick={e=>{e.stopPropagation();setDelConf({id:r.id,name:r.facility,type:'rpt'})}} style={{padding:'8px 12px',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:8,color:DIM,fontSize:12,cursor:'pointer',fontFamily:'inherit',minHeight:40}}>🗑</button></button>)}</div>}
         {view==='trash'&&<TrashView onRecover={async(id)=>{await Backup.recover(id);await refreshIndex()}} onDelete={async(id)=>{await Backup.permanentDelete(id)}} />}
+        {view==='settings'&&<SettingsScreen profile={profile} onEditProfile={()=>{setProfile({...profile,isNew:true});setView('dash')}} onLogout={handleLogout} onClose={()=>setView('dash')} />}
       </div>
 
       <style>{`

@@ -592,6 +592,10 @@ Every new Prudence EHS module MUST include:
 2. **Backup.exportAll()** / **Backup.downloadBackup()** on dashboard
 3. **Soft delete** instead of permanent delete for user-facing data
 4. **Sync status indicator** if using Supabase
+5. **PDF export** via `PrintReport.jsx` — print-optimized HTML rendered in hidden iframe, user gets native Save as PDF
+6. **Web Share API** — native share sheet on mobile, clipboard fallback on desktop
+7. **Settings screen** — profile management, backup/import, storage health check, sign out
+8. **Import from backup** — restore reports, drafts, and profile from exported JSON file
 5. **Offline-first writes** — localStorage first, cloud sync second
 6. **Health check** for storage integrity
 7. **Auto-save** during active data entry (1-2 second debounce)
