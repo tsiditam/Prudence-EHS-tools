@@ -25,6 +25,8 @@ import ScoreRing from './components/ScoreRing'
 import PhotoCapture from './components/PhotoCapture'
 import SensorScreen from './components/SensorScreen'
 import { useMediaQuery } from './hooks/useMediaQuery'
+import LandingPage from './components/LandingPage'
+import { DEMO_PRESURVEY, DEMO_BUILDING, DEMO_ZONES } from './constants/demoData'
 
 // ── Design Tokens ──────────────────────────────────────────────────────────
 const CSS = {
@@ -81,7 +83,7 @@ const STEP_LABELS = ['Pre-Survey', 'Building', 'Zones', 'Review']
 const STEP_ICONS = ['clip', 'bldg', 'search', 'findings']
 
 // ── Sidebar ────────────────────────────────────────────────────────────────
-function DesktopSidebar({ step, setStep, saveDraft, setShowHistory }) {
+function DesktopSidebar({ step, setStep, saveDraft, setShowHistory, onHome }) {
   return (
     <div style={{
       position: 'fixed', left: 0, top: 0, bottom: 0, width: 280,
@@ -96,7 +98,7 @@ function DesktopSidebar({ step, setStep, saveDraft, setShowHistory }) {
 
       {/* Brand */}
       <div style={{ padding: '32px 28px 24px', borderBottom: `1px solid ${CSS.border}` }}>
-        <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.02em' }}>
+        <div onClick={onHome} style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.02em', cursor: 'pointer' }}>
           atmos<span style={{ color: CSS.accent }}>IQ</span>
         </div>
         <div style={{ fontSize: 11, color: CSS.muted, marginTop: 4, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
@@ -195,6 +197,8 @@ export default function App() {
   const [viewReport, setViewReport] = useState(null)
   const [expandedCats, setExpandedCats] = useState({})
   const [animKey, setAnimKey] = useState(0)
+  const [showLanding, setShowLanding] = useState(true)
+  const [isDemo, setIsDemo] = useState(false)
 
   useEffect(() => {
     (async () => {
@@ -211,6 +215,18 @@ export default function App() {
   const handleLoadingDone = useCallback(() => {
     setLoading(false)
     STO.markVisited()
+  }, [])
+
+  const startNew = useCallback(() => {
+    setPresurvey({}); setBuilding({}); setZones([{}]); setPhotos({})
+    setStep(0); setCurZone(0); setReport(null); setIsDemo(false)
+    setShowLanding(false)
+  }, [])
+
+  const startDemo = useCallback(() => {
+    setPresurvey(DEMO_PRESURVEY); setBuilding(DEMO_BUILDING); setZones(DEMO_ZONES); setPhotos({})
+    setStep(3); setCurZone(0); setReport(null); setIsDemo(true)
+    setShowLanding(false)
   }, [])
 
   const crd = cardStyle(dk)
@@ -437,11 +453,13 @@ export default function App() {
 
   if (loading) return <Loading onDone={handleLoadingDone} fast={visited} />
 
+  if (showLanding) return <LandingPage onStartNew={startNew} onStartDemo={startDemo} isDesktop={dk} />
+
   // ── History View ──
   if (showHistory) {
     return (
       <div style={{ minHeight: '100vh', background: CSS.bg, color: CSS.text, fontFamily: 'Outfit, sans-serif' }}>
-        {dk && <DesktopSidebar step={step} setStep={setStep} saveDraft={saveDraft} setShowHistory={setShowHistory} />}
+        {dk && <DesktopSidebar step={step} setStep={setStep} saveDraft={saveDraft} setShowHistory={setShowHistory} onHome={() => setShowLanding(true)} />}
         <div style={{ ...(dk ? { marginLeft: 320, padding: '40px 48px', maxWidth: 900 } : { maxWidth: 600, margin: '0 auto', padding: 20 }) }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
             <button onClick={() => setShowHistory(false)} style={{ ...btn(false, dk), padding: '8px 16px' }}>← Back</button>
@@ -487,7 +505,7 @@ export default function App() {
     const { comp, zoneScores, oshaEvals, recs, ventCalcs, samplingPlan, causalChains, narrative } = report
     return (
       <div style={{ minHeight: '100vh', background: CSS.bg, color: CSS.text, fontFamily: 'Outfit, sans-serif' }}>
-        {dk && <DesktopSidebar step={step} setStep={setStep} saveDraft={saveDraft} setShowHistory={setShowHistory} />}
+        {dk && <DesktopSidebar step={step} setStep={setStep} saveDraft={saveDraft} setShowHistory={setShowHistory} onHome={() => setShowLanding(true)} />}
         <div style={{ ...(dk ? { marginLeft: 320, padding: '40px 48px', maxWidth: 1100 } : { maxWidth: 700, margin: '0 auto', padding: 20 }) }}>
           {/* Header */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: dk ? 36 : 24, paddingBottom: dk ? 24 : 0, borderBottom: dk ? `1px solid ${CSS.border}` : 'none' }}>
@@ -495,7 +513,7 @@ export default function App() {
               <div style={{ fontSize: dk ? 28 : 22, fontWeight: 800, letterSpacing: '-0.02em' }}>atmos<span style={{ color: CSS.accent }}>IQ</span> Report</div>
               <div style={{ fontSize: 12, color: CSS.muted, marginTop: 4 }}>{building.fn} — {new Date(report.ts).toLocaleString()}</div>
             </div>
-            <button onClick={() => { setStep(0); setReport(null) }} style={{ ...btn(false, dk), padding: '8px 16px' }} {...btnPress}>New Assessment</button>
+            <button onClick={() => { setStep(0); setReport(null); setIsDemo(false) }} style={{ ...btn(false, dk), padding: '8px 16px' }} {...btnPress}>New Assessment</button>
           </div>
 
           {/* Composite Score */}
@@ -660,12 +678,12 @@ export default function App() {
   return (
     <div style={{ minHeight: '100vh', background: CSS.bg, color: CSS.text, fontFamily: 'Outfit, sans-serif' }}>
       {/* Desktop Sidebar */}
-      {dk && <DesktopSidebar step={step} setStep={setStep} saveDraft={saveDraft} setShowHistory={setShowHistory} />}
+      {dk && <DesktopSidebar step={step} setStep={setStep} saveDraft={saveDraft} setShowHistory={setShowHistory} onHome={() => setShowLanding(true)} />}
 
       {/* Mobile Header */}
       {!dk && (
         <div style={{ padding: '16px 20px', borderBottom: `1px solid ${CSS.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, background: CSS.bg, zIndex: 100 }}>
-          <div style={{ fontSize: 20, fontWeight: 700 }}>
+          <div onClick={() => setShowLanding(true)} style={{ fontSize: 20, fontWeight: 700, cursor: 'pointer' }}>
             atmos<span style={{ color: CSS.accent }}>IQ</span>
             <span style={{ fontSize: 10, color: CSS.muted, marginLeft: 8 }}>v{VER}</span>
           </div>
