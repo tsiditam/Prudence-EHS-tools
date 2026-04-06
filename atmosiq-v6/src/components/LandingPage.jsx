@@ -472,6 +472,70 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
         </div>
       </section>
 
+      {/* ── White Paper ── */}
+      <Section style={{
+        padding: dk ? '100px 56px' : '60px 20px',
+        borderTop: `1px solid ${C.border}`,
+        textAlign: 'center',
+      }}>
+        {(inView) => (
+          <div style={{
+            ...reveal(inView),
+            maxWidth: 800, margin: '0 auto',
+            display: 'flex', flexDirection: dk ? 'row' : 'column',
+            alignItems: 'center', gap: dk ? 56 : 32,
+            background: `linear-gradient(135deg, ${C.card}, ${C.surface})`,
+            border: `1px solid ${C.border}`, borderRadius: dk ? 24 : 18,
+            padding: dk ? '48px 52px' : '32px 24px',
+            position: 'relative', overflow: 'hidden',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
+          }}>
+            {/* Ambient glow */}
+            <div style={{ position: 'absolute', top: -40, right: -40, width: 250, height: 250, borderRadius: '50%', background: 'radial-gradient(circle, rgba(245,197,66,0.05) 0%, transparent 70%)', pointerEvents: 'none' }} />
+
+            {/* PDF Icon */}
+            <div style={{
+              ...reveal(inView, 0.15), flexShrink: 0,
+              width: dk ? 140 : 100, height: dk ? 180 : 130,
+              background: `linear-gradient(135deg, ${C.gold}12, ${C.gold}06)`,
+              border: `1px solid ${C.gold}20`,
+              borderRadius: 16, display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'center', gap: 8,
+              boxShadow: `0 8px 32px ${C.gold}08`,
+            }}>
+              <div style={{ fontSize: dk ? 40 : 28 }}>📄</div>
+              <div style={{ ...mono, fontSize: 10, color: C.gold, fontWeight: 600, letterSpacing: '0.05em' }}>PDF</div>
+              <div style={{ ...mono, fontSize: 9, color: C.dim }}>22 KB</div>
+            </div>
+
+            {/* Text */}
+            <div style={{ ...reveal(inView, 0.25), textAlign: dk ? 'left' : 'center', flex: 1 }}>
+              <div style={{ fontSize: 10, color: C.gold, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 12, fontWeight: 600 }}>Technical White Paper</div>
+              <div style={{ ...display, fontSize: dk ? 28 : 22, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 12, lineHeight: 1.2 }}>
+                The Science Behind{dk ? <br /> : ' '}AtmosIQ's Scoring Engine
+              </div>
+              <div style={{ fontSize: 14, color: C.sub, lineHeight: 1.7, marginBottom: 20, maxWidth: 420 }}>
+                Methodology, algorithms, causal chain intelligence, and the standards framework — detailed for industrial hygienists and EHS professionals.
+              </div>
+              <a href="/AtmosIQ-Technical-White-Paper.pdf" download
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 10,
+                  padding: '13px 30px',
+                  background: `linear-gradient(135deg, ${C.gold}15, ${C.gold}08)`,
+                  border: `1px solid ${C.gold}25`,
+                  borderRadius: 10, color: C.gold, fontSize: 14, fontWeight: 600,
+                  cursor: 'pointer', transition: 'all 0.25s', textDecoration: 'none',
+                  ...display,
+                }}
+                onMouseEnter={e => e.target.style.background = `linear-gradient(135deg, ${C.gold}25, ${C.gold}15)`}
+                onMouseLeave={e => e.target.style.background = `linear-gradient(135deg, ${C.gold}15, ${C.gold}08)`}>
+                <I n="download" s={16} c={C.gold} /> Download White Paper
+              </a>
+            </div>
+          </div>
+        )}
+      </Section>
+
       {/* ── CTA ── */}
       <Section style={{
         padding: dk ? '60px 56px 120px' : '40px 20px 70px',
