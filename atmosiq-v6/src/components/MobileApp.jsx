@@ -12,6 +12,7 @@ import STO from '../utils/storage'
 import Profiles from '../utils/profiles'
 import SupaStorage from '../utils/supabaseStorage'
 import { supabase } from '../utils/supabaseClient'
+import Backup from '../utils/backup'
 import { VER } from '../constants/standards'
 import { Q_PRESURVEY, Q_BUILDING, Q_ZONE, Q_QUICKSTART, Q_DETAILS, SENSOR_FIELDS } from '../constants/questions'
 import { scoreZone, compositeScore, evalOSHA, calcVent, genRecs } from '../engines/scoring'
@@ -252,12 +253,12 @@ export default function MobileApp() {
     setSelZone(0); setRTab('overview'); setNarrative(rpt.narrative||null); setView('report')
   }
 
-  const deleteItem = async (id, type) => {
-    await STO.del(id)
-    const idx = await STO.getIndex()
-    if (type === 'rpt') idx.reports = (idx.reports||[]).filter(r => r.id !== id)
-    else idx.drafts = (idx.drafts||[]).filter(d => d.id !== id)
-    await STO.set('atmosiq-idx', idx)
+  const deleteItem = async (id, name, type) => {
+    // Soft delete — recoverable for 30 days
+    await Backup.softDelete(id, name, type)
+    if (isOnline() && supabase) {
+      try { await supabase.from('assessments').delete().eq('id', id) } catch {}
+    }
     await refreshIndex(); setDelConf(null)
   }
 
@@ -463,6 +464,29 @@ export default function MobileApp() {
   }
 
 
+  // ── Trash view (inline component) ──
+  const TrashView = ({ onRecover, onDelete }) => {
+    const [items, setItems] = useState([])
+    useEffect(() => { Backup.listTrash().then(setItems) }, [])
+    return (
+      <div style={{paddingTop:28,paddingBottom:100}}>
+        <h2 style={{fontSize:22,fontWeight:700,marginBottom:8,color:TEXT}}>Trash</h2>
+        <div style={{fontSize:13,color:SUB,marginBottom:20,lineHeight:1.6}}>Deleted items are kept for 30 days, then permanently removed.</div>
+        {items.length===0?<div style={{padding:36,textAlign:'center',background:CARD,borderRadius:14,border:`1px solid ${BORDER}`,color:SUB,fontSize:14}}>Trash is empty</div>
+        :items.map(t=>(
+          <div key={t.id} style={{padding:'16px 18px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:14,marginBottom:8,display:'flex',alignItems:'center',gap:14}}>
+            <div style={{flex:1}}>
+              <div style={{fontSize:15,fontWeight:600,color:TEXT}}>{t.name||'Untitled'}</div>
+              <div style={{fontSize:12,color:DIM,fontFamily:"'DM Mono'",marginTop:4}}>Deleted {fD(t.deletedAt)} · Expires {fD(t.expiresAt)}</div>
+            </div>
+            <button onClick={async()=>{await onRecover(t.id);setItems(await Backup.listTrash())}} style={{padding:'10px 16px',background:`${ACCENT}15`,border:`1px solid ${ACCENT}30`,borderRadius:10,color:ACCENT,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>Recover</button>
+            <button onClick={async()=>{await onDelete(t.id);setItems(await Backup.listTrash())}} style={{padding:'10px 14px',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:10,color:DIM,fontSize:13,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>✕</button>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
   // ── Main render ──
   const qscq = qsVis[qsqi]
   const dtcq = dtVis[dqi]
@@ -486,7 +510,7 @@ export default function MobileApp() {
 
       {zonePrompt&&<div style={{position:'fixed',inset:0,background:'#000000CC',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',padding:24}}><div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:18,padding:28,maxWidth:340,width:'100%',animation:'fadeUp .3s ease'}}><div style={{fontSize:18,fontWeight:700,marginBottom:8,color:TEXT}}>Zone Complete</div><div style={{fontSize:14,color:SUB,marginBottom:24,lineHeight:1.6}}>Add another zone to this assessment?</div><div style={{display:'flex',flexDirection:'column',gap:10}}><button onClick={()=>{setZonePrompt(false);setZones(p=>[...p,{}]);setCurZone(zones.length);setZqi(0)}} style={{padding:'16px 0',background:`${ACCENT}12`,border:`1px solid ${ACCENT}30`,borderRadius:12,color:ACCENT,fontSize:16,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:52}}>+ Add Another Zone</button><button onClick={()=>{setZonePrompt(false);finishAssessment()}} style={{padding:'16px 0',background:'linear-gradient(135deg,#059669,#22C55E)',border:'none',borderRadius:12,color:'#fff',fontSize:16,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:52}}>Finish Assessment ✓</button></div></div></div>}
 
-      {delConf&&<div style={{position:'fixed',inset:0,background:'#000000CC',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',padding:24}}><div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:18,padding:28,maxWidth:340,width:'100%',animation:'fadeUp .3s ease'}}><div style={{fontSize:18,fontWeight:700,marginBottom:8,color:TEXT}}>Delete?</div><div style={{fontSize:14,color:SUB,marginBottom:24,lineHeight:1.6}}>Permanently removed.</div><div style={{display:'flex',gap:10}}><button onClick={()=>setDelConf(null)} style={{flex:1,padding:'14px 0',background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:10,color:SUB,fontSize:14,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>Cancel</button><button onClick={()=>deleteItem(delConf.id,delConf.type)} style={{flex:1,padding:'14px 0',background:'#EF444420',border:'1px solid #EF444440',borderRadius:10,color:'#EF4444',fontSize:14,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>Delete</button></div></div></div>}
+      {delConf&&<div style={{position:'fixed',inset:0,background:'#000000CC',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',padding:24}}><div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:18,padding:28,maxWidth:340,width:'100%',animation:'fadeUp .3s ease'}}><div style={{fontSize:18,fontWeight:700,marginBottom:8,color:TEXT}}>Move to Trash?</div><div style={{fontSize:14,color:SUB,marginBottom:12,lineHeight:1.6}}>You can recover this for 30 days.</div><div style={{fontSize:12,color:DIM,marginBottom:24,background:SURFACE,padding:'10px 14px',borderRadius:8}}>Recoverable from Dashboard → Trash</div><div style={{display:'flex',gap:10}}><button onClick={()=>setDelConf(null)} style={{flex:1,padding:'14px 0',background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:10,color:SUB,fontSize:14,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>Cancel</button><button onClick={()=>deleteItem(delConf.id,delConf.name,delConf.type)} style={{flex:1,padding:'14px 0',background:'#EF444420',border:'1px solid #EF444440',borderRadius:10,color:'#EF4444',fontSize:14,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>Delete</button></div></div></div>}
 
       <div style={{maxWidth:620,margin:'0 auto',padding:'0 20px',position:'relative',zIndex:1}}>
 
@@ -503,8 +527,18 @@ export default function MobileApp() {
           </div>
           <button onClick={startNew} style={{width:'100%',padding:'22px 24px',marginTop:20,background:`linear-gradient(135deg,#0E7490,${ACCENT}20)`,border:`1.5px solid ${ACCENT}40`,borderRadius:16,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:16,position:'relative',overflow:'hidden',minHeight:80,fontFamily:'inherit'}}><div style={{position:'absolute',inset:0,opacity:.12}}><Particles /></div><div style={{width:52,height:52,borderRadius:14,background:`${ACCENT}20`,display:'flex',alignItems:'center',justifyContent:'center',position:'relative',zIndex:1}}><I n="wind" s={26} c={ACCENT} /></div><div style={{position:'relative',zIndex:1,flex:1}}><div style={{fontSize:17,fontWeight:700,color:TEXT}}>New Assessment</div><div style={{fontSize:13,color:SUB,marginTop:3}}>Quick start · {profile?.name?.split(',')[0]||'Profile'} auto-filled</div></div><div style={{fontSize:20,color:ACCENT,position:'relative',zIndex:1}}>→</div></button>
           <button onClick={runDemo} style={{width:'100%',padding:'18px 22px',marginTop:10,background:CARD,border:`1.5px solid #8B5CF630`,borderRadius:16,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:16,minHeight:72,fontFamily:'inherit'}}><div style={{width:48,height:48,borderRadius:12,background:'#8B5CF615',display:'flex',alignItems:'center',justifyContent:'center'}}><I n="bldg" s={24} c="#8B5CF6" /></div><div style={{flex:1}}><div style={{fontSize:16,fontWeight:700,color:TEXT}}>Run Demo</div><div style={{fontSize:13,color:SUB,marginTop:3}}>Meridian Business Park — 3 zones</div></div><div style={{fontSize:20,color:'#8B5CF6'}}>→</div></button>
+          {/* Sync status */}
+          <div style={{display:'flex',alignItems:'center',gap:8,marginTop:16,padding:'10px 14px',background:CARD,borderRadius:10,border:`1px solid ${BORDER}`}}>
+            <div style={{width:8,height:8,borderRadius:'50%',background:navigator.onLine&&supabase?'#22C55E':supabase?'#FBBF24':'#6B7280'}} />
+            <span style={{fontSize:12,color:SUB}}>{navigator.onLine&&supabase?'Synced to cloud':supabase?'Offline — will sync when connected':'Local storage only'}</span>
+          </div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginTop:12}}>
             {[{l:'Drafts',n:(index.drafts||[]).length,v:'drafts',ic:'clip'},{l:'History',n:(index.reports||[]).length,v:'history',ic:'clock'}].map(c=><button key={c.l} onClick={()=>{if(c.n)setView(c.v)}} style={{padding:'20px 16px',background:CARD,border:`1px solid ${c.n?`${ACCENT}25`:BORDER}`,borderRadius:14,opacity:c.n?1:.4,cursor:c.n?'pointer':'default',textAlign:'left',minHeight:80,fontFamily:'inherit'}}><div style={{marginBottom:10}}><I n={c.ic} s={24} c={c.n?ACCENT:DIM} /></div><div style={{fontSize:14,fontWeight:600,color:TEXT}}>{c.l}</div><div style={{fontSize:15,color:c.n?ACCENT:DIM,fontFamily:"'DM Mono'",marginTop:3,fontWeight:700}}>{c.n}</div></button>)}
+          </div>
+          {/* Backup + Trash */}
+          <div style={{display:'flex',gap:8,marginTop:10}}>
+            <button onClick={()=>Backup.downloadBackup()} style={{flex:1,padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,cursor:'pointer',textAlign:'center',fontFamily:'inherit',minHeight:48,fontSize:13,fontWeight:600,color:SUB,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="download" s={16} c={DIM} /> Backup</button>
+            <button onClick={()=>setView('trash')} style={{flex:1,padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,cursor:'pointer',textAlign:'center',fontFamily:'inherit',minHeight:48,fontSize:13,fontWeight:600,color:SUB,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="clock" s={16} c={DIM} /> Trash</button>
           </div>
           {(index.reports||[]).length>0&&<div style={{marginTop:24}}><div style={{fontSize:12,fontWeight:600,color:SUB,textTransform:'uppercase',letterSpacing:1.5,marginBottom:12}}>Recent</div>{(index.reports||[]).slice(0,3).map(r=><button key={r.id} onClick={()=>openReport(r)} style={{width:'100%',padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,marginBottom:8,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,minHeight:64,fontFamily:'inherit'}}><div style={{width:40,height:40,borderRadius:10,background:`${ACCENT}12`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,fontWeight:800,fontFamily:"'DM Mono'",color:ACCENT}}>{r.score||'?'}</div><div style={{flex:1,minWidth:0}}><div style={{fontSize:14,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:TEXT}}>{r.facility||'?'}</div><div style={{fontSize:12,color:DIM,fontFamily:"'DM Mono'",marginTop:3}}>{fD(r.ts)}</div></div></button>)}</div>}
         </div>}
@@ -526,9 +560,10 @@ export default function MobileApp() {
 
         {(view==='results'||view==='report')&&renderResults(view==='report')}
 
-        {view==='drafts'&&<div style={{paddingTop:28,paddingBottom:100}}><h2 style={{fontSize:22,fontWeight:700,marginBottom:20,color:TEXT}}>Drafts</h2>{(index.drafts||[]).length===0?<div style={{padding:36,textAlign:'center',background:CARD,borderRadius:14,border:`1px solid ${BORDER}`,color:SUB,fontSize:14}}>No drafts</div>:(index.drafts||[]).map(d=><div key={d.id} style={{padding:'16px 18px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:14,marginBottom:8,display:'flex',alignItems:'center',gap:14}}><div style={{flex:1}}><div style={{fontSize:15,fontWeight:600,color:TEXT}}>{d.facility||'Untitled'}</div><div style={{fontSize:13,color:DIM,fontFamily:"'DM Mono'",marginTop:4}}>{fD(d.ua||d.ts)}</div></div><button onClick={()=>resumeDraft(d.id)} style={{padding:'10px 18px',background:`${ACCENT}15`,border:`1px solid ${ACCENT}30`,borderRadius:10,color:ACCENT,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>Resume</button><button onClick={()=>setDelConf({id:d.id,type:'dft'})} style={{padding:'10px 14px',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:10,color:DIM,fontSize:13,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>✕</button></div>)}</div>}
+        {view==='drafts'&&<div style={{paddingTop:28,paddingBottom:100}}><h2 style={{fontSize:22,fontWeight:700,marginBottom:20,color:TEXT}}>Drafts</h2>{(index.drafts||[]).length===0?<div style={{padding:36,textAlign:'center',background:CARD,borderRadius:14,border:`1px solid ${BORDER}`,color:SUB,fontSize:14}}>No drafts</div>:(index.drafts||[]).map(d=><div key={d.id} style={{padding:'16px 18px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:14,marginBottom:8,display:'flex',alignItems:'center',gap:14}}><div style={{flex:1}}><div style={{fontSize:15,fontWeight:600,color:TEXT}}>{d.facility||'Untitled'}</div><div style={{fontSize:13,color:DIM,fontFamily:"'DM Mono'",marginTop:4}}>{fD(d.ua||d.ts)}</div></div><button onClick={()=>resumeDraft(d.id)} style={{padding:'10px 18px',background:`${ACCENT}15`,border:`1px solid ${ACCENT}30`,borderRadius:10,color:ACCENT,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>Resume</button><button onClick={()=>setDelConf({id:d.id,name:d.facility,type:'dft'})} style={{padding:'10px 14px',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:10,color:DIM,fontSize:13,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>✕</button></div>)}</div>}
 
-        {view==='history'&&<div style={{paddingTop:28,paddingBottom:100}}><h2 style={{fontSize:22,fontWeight:700,marginBottom:16,color:TEXT}}>History</h2><div style={{display:'flex',gap:8,marginBottom:14}}><input type="text" value={hSearch} onChange={e=>setHSearch(e.target.value)} placeholder="Search..." style={{flex:1,padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,color:TEXT,fontSize:16,fontFamily:'inherit',outline:'none',boxSizing:'border-box',minHeight:48}} /><select value={hSort} onChange={e=>setHSort(e.target.value)} style={{padding:'14px 12px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,color:SUB,fontSize:13,fontFamily:'inherit',outline:'none',minHeight:48}}><option value="newest">Newest</option><option value="oldest">Oldest</option><option value="score-low">Score ↑</option><option value="score-high">Score ↓</option></select></div>{fReports.length===0?<div style={{padding:36,textAlign:'center',background:CARD,borderRadius:14,border:`1px solid ${BORDER}`,color:SUB,fontSize:14}}>{hSearch?'No matches':'No reports yet'}</div>:fReports.map(r=><button key={r.id} onClick={()=>openReport(r)} style={{width:'100%',padding:'16px 18px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:14,marginBottom:8,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,minHeight:64,fontFamily:'inherit'}}><div style={{width:44,height:44,borderRadius:12,background:`${ACCENT}12`,display:'flex',alignItems:'center',justifyContent:'center'}}><span style={{fontSize:17,fontWeight:800,fontFamily:"'DM Mono'",color:ACCENT}}>{r.score||'?'}</span></div><div style={{flex:1,minWidth:0}}><div style={{fontSize:15,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:TEXT}}>{r.facility||'?'}</div><div style={{fontSize:13,color:DIM,fontFamily:"'DM Mono'",marginTop:4}}>{fD(r.ts)}</div></div><button onClick={e=>{e.stopPropagation();setDelConf({id:r.id,type:'rpt'})}} style={{padding:'8px 12px',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:8,color:DIM,fontSize:12,cursor:'pointer',fontFamily:'inherit',minHeight:40}}>🗑</button></button>)}</div>}
+        {view==='history'&&<div style={{paddingTop:28,paddingBottom:100}}><h2 style={{fontSize:22,fontWeight:700,marginBottom:16,color:TEXT}}>History</h2><div style={{display:'flex',gap:8,marginBottom:14}}><input type="text" value={hSearch} onChange={e=>setHSearch(e.target.value)} placeholder="Search..." style={{flex:1,padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,color:TEXT,fontSize:16,fontFamily:'inherit',outline:'none',boxSizing:'border-box',minHeight:48}} /><select value={hSort} onChange={e=>setHSort(e.target.value)} style={{padding:'14px 12px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,color:SUB,fontSize:13,fontFamily:'inherit',outline:'none',minHeight:48}}><option value="newest">Newest</option><option value="oldest">Oldest</option><option value="score-low">Score ↑</option><option value="score-high">Score ↓</option></select></div>{fReports.length===0?<div style={{padding:36,textAlign:'center',background:CARD,borderRadius:14,border:`1px solid ${BORDER}`,color:SUB,fontSize:14}}>{hSearch?'No matches':'No reports yet'}</div>:fReports.map(r=><button key={r.id} onClick={()=>openReport(r)} style={{width:'100%',padding:'16px 18px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:14,marginBottom:8,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,minHeight:64,fontFamily:'inherit'}}><div style={{width:44,height:44,borderRadius:12,background:`${ACCENT}12`,display:'flex',alignItems:'center',justifyContent:'center'}}><span style={{fontSize:17,fontWeight:800,fontFamily:"'DM Mono'",color:ACCENT}}>{r.score||'?'}</span></div><div style={{flex:1,minWidth:0}}><div style={{fontSize:15,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:TEXT}}>{r.facility||'?'}</div><div style={{fontSize:13,color:DIM,fontFamily:"'DM Mono'",marginTop:4}}>{fD(r.ts)}</div></div><button onClick={e=>{e.stopPropagation();setDelConf({id:r.id,name:r.facility,type:'rpt'})}} style={{padding:'8px 12px',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:8,color:DIM,fontSize:12,cursor:'pointer',fontFamily:'inherit',minHeight:40}}>🗑</button></button>)}</div>}
+        {view==='trash'&&<TrashView onRecover={async(id)=>{await Backup.recover(id);await refreshIndex()}} onDelete={async(id)=>{await Backup.permanentDelete(id)}} />}
       </div>
 
       <style>{`

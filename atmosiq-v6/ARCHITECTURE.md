@@ -524,3 +524,75 @@ npm run test:watch  # Watch mode
 | HazCom Pro | Planned |
 
 Each module follows the same pattern: questions → engines → scoring → reporting.
+
+---
+
+## Data Protection & Contingencies
+
+### Contingency Matrix
+
+| Risk | Protection | Implementation |
+|---|---|---|
+| App crash (white screen) | Error Boundary | `ErrorBoundary.jsx` wraps entire app. Shows recovery UI + emergency backup download. Data in localStorage is unaffected by render errors. |
+| Accidental deletion | Soft delete (30-day trash) | `Backup.softDelete()` moves to trash with expiration. `Backup.recover()` restores. Trash auto-purges after 30 days. |
+| Phone loss / device failure | Supabase cloud sync | All data syncs to Supabase when online. New device → login → full sync. |
+| No internet (field work) | Offline-first localStorage | All writes go to localStorage first. Supabase is sync layer, not dependency. Sync queue processes when connection returns. |
+| localStorage cleared | Manual backup export | Dashboard "Backup" button downloads full JSON. Error Boundary also offers emergency backup. |
+| localStorage corruption | Health check | `Backup.checkHealth()` validates index integrity and flags orphaned entries. |
+| Supabase outage | localStorage continues | App works identically without cloud. Sync resumes when service returns. |
+| Storage limit (~5MB) | Health check + warning | `Backup.checkHealth()` warns at 3MB, critical at 4MB. Recommends exporting old reports. |
+| Sync conflict | Last-write-wins + queue | Offline changes queued with timestamps. When online, queue processes in order. |
+
+### Error Boundary (`ErrorBoundary.jsx`)
+
+Wraps the entire app at `main.jsx` level. On React render crash:
+1. Shows "Something went wrong" with reassurance that data is safe
+2. Offers "Reload App" button
+3. Offers "Download Emergency Backup" — exports all localStorage data as JSON
+4. Shows error details for debugging
+
+### Backup System (`utils/backup.js`)
+
+```js
+// Export everything
+await Backup.downloadBackup()    // Downloads JSON file
+
+// Import from backup
+await Backup.importBackup(json)  // Restores reports, drafts, profile
+
+// Soft delete (30-day recovery)
+await Backup.softDelete(id, name, type)
+await Backup.recover(id)
+await Backup.permanentDelete(id)
+
+// Storage health
+const { healthy, issues } = await Backup.checkHealth()
+```
+
+### Sync Status Indicator
+
+Dashboard shows real-time sync status:
+- Green dot: "Synced to cloud"
+- Yellow dot: "Offline — will sync when connected"
+- Gray dot: "Local storage only" (no Supabase configured)
+
+### Trash System
+
+- Deleted items recoverable for 30 days
+- Accessible from Dashboard → Trash
+- Shows deletion date and expiration date
+- Auto-purges expired items on list load
+- Permanent delete option available
+
+### Replication Checklist for New Modules
+
+Every new Prudence EHS module MUST include:
+
+1. **ErrorBoundary** wrapping the root component
+2. **Backup.exportAll()** / **Backup.downloadBackup()** on dashboard
+3. **Soft delete** instead of permanent delete for user-facing data
+4. **Sync status indicator** if using Supabase
+5. **Offline-first writes** — localStorage first, cloud sync second
+6. **Health check** for storage integrity
+7. **Auto-save** during active data entry (1-2 second debounce)
+8. **Trash view** with recovery and permanent delete options
