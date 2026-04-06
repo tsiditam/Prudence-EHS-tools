@@ -442,7 +442,7 @@ export default function App() {
     return (
       <div style={{ minHeight: '100vh', background: CSS.bg, color: CSS.text, fontFamily: 'Outfit, sans-serif' }}>
         {dk && <DesktopSidebar step={step} setStep={setStep} saveDraft={saveDraft} setShowHistory={setShowHistory} />}
-        <div style={{ marginLeft: dk ? 280 : 0, padding: dk ? '40px 48px' : 20, maxWidth: dk ? 900 : 600, margin: dk ? undefined : '0 auto' }}>
+        <div style={{ ...(dk ? { marginLeft: 320, padding: '40px 48px', maxWidth: 900 } : { maxWidth: 600, margin: '0 auto', padding: 20 }) }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
             <button onClick={() => setShowHistory(false)} style={{ ...btn(false, dk), padding: '8px 16px' }}>← Back</button>
             <h2 style={{ margin: 0, fontSize: dk ? 24 : 20, fontWeight: 700, letterSpacing: '-0.02em' }}>History</h2>
@@ -488,7 +488,7 @@ export default function App() {
     return (
       <div style={{ minHeight: '100vh', background: CSS.bg, color: CSS.text, fontFamily: 'Outfit, sans-serif' }}>
         {dk && <DesktopSidebar step={step} setStep={setStep} saveDraft={saveDraft} setShowHistory={setShowHistory} />}
-        <div style={{ marginLeft: dk ? 280 : 0, padding: dk ? '40px 48px' : 20, maxWidth: dk ? 1100 : 700, margin: dk ? undefined : '0 auto' }}>
+        <div style={{ ...(dk ? { marginLeft: 320, padding: '40px 48px', maxWidth: 1100 } : { maxWidth: 700, margin: '0 auto', padding: 20 }) }}>
           {/* Header */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: dk ? 36 : 24, paddingBottom: dk ? 24 : 0, borderBottom: dk ? `1px solid ${CSS.border}` : 'none' }}>
             <div>
@@ -691,7 +691,7 @@ export default function App() {
       )}
 
       {/* Content */}
-      <div style={{ marginLeft: dk ? 280 : 0, padding: dk ? '40px 48px' : 20, maxWidth: dk ? 800 : 600, margin: dk ? undefined : '0 auto' }}>
+      <div style={{ ...(dk ? { marginLeft: 320, padding: '40px 48px', maxWidth: 800 } : { maxWidth: 600, margin: '0 auto', padding: 20 }) }}>
         {/* Desktop top accent line */}
         {dk && <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(34,211,238,0.12), transparent)', marginBottom: 32 }} />}
 
