@@ -10,6 +10,8 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import STO from '../utils/storage'
 import Profiles from '../utils/profiles'
+import SupaStorage from '../utils/supabaseStorage'
+import { supabase } from '../utils/supabaseClient'
 import { VER } from '../constants/standards'
 import { Q_PRESURVEY, Q_BUILDING, Q_ZONE, Q_QUICKSTART, Q_DETAILS, SENSOR_FIELDS } from '../constants/questions'
 import { scoreZone, compositeScore, evalOSHA, calcVent, genRecs } from '../engines/scoring'
@@ -23,6 +25,7 @@ import ScoreRing from './ScoreRing'
 import PhotoCapture from './PhotoCapture'
 import SensorScreen from './SensorScreen'
 import ProfileScreen from './ProfileScreen'
+import AuthScreen from './AuthScreen'
 import { DEMO_PRESURVEY, DEMO_BUILDING, DEMO_ZONES } from '../constants/demoData'
 
 const haptic = (type) => { try { if (navigator.vibrate) navigator.vibrate(type === 'heavy' ? [30,20,30] : type === 'success' ? [10,30,10,30,10] : 12) } catch {} }
@@ -80,7 +83,7 @@ export default function MobileApp() {
 
   useEffect(() => { const t = setInterval(() => setClock(new Date()), 30000); return () => clearInterval(t) }, [])
 
-  // Check for existing profile on load
+  // Check for existing auth on load
   useEffect(() => {
     (async () => {
       const v = await STO.hasVisited()
@@ -88,16 +91,49 @@ export default function MobileApp() {
       const idx = await STO.getIndex()
       setIndex(idx)
       await STO.markVisited()
-      const activeProfile = await Profiles.getActiveProfile()
-      if (activeProfile) setProfile(activeProfile)
+      // Try Supabase auth first, fall back to local profiles
+      if (supabase) {
+        const user = await SupaStorage.getUser()
+        if (user) {
+          const p = await SupaStorage.getProfile()
+          if (p) setProfile(p)
+          else setProfile({ id: user.id, name: user.email, isNew: true })
+          // Sync offline changes
+          SupaStorage.processSyncQueue()
+        }
+      } else {
+        const activeProfile = await Profiles.getActiveProfile()
+        if (activeProfile) setProfile(activeProfile)
+      }
       setProfileChecked(true)
     })()
   }, [])
 
+  // Listen for Supabase auth changes
+  useEffect(() => {
+    return SupaStorage.onAuthChange((event, session) => {
+      if (event === 'SIGNED_OUT') { setProfile(null); setView('dash') }
+    })
+  }, [])
+
   const refreshIndex = async () => { setIndex(await STO.getIndex()) }
 
-  const handleLogin = (p) => { setProfile(p) }
-  const handleLogout = async () => { setProfile(null); setView('dash') }
+  const handleLogin = async (userOrProfile) => {
+    // From Supabase AuthScreen
+    if (userOrProfile?.email && supabase) {
+      const p = await SupaStorage.getProfile()
+      if (p) setProfile(p)
+      else setProfile({ id: userOrProfile.id, name: userOrProfile.email, isNew: true })
+      SupaStorage.fullSync()
+    } else {
+      // From local ProfileScreen
+      setProfile(userOrProfile)
+    }
+  }
+  const handleLogout = async () => {
+    if (supabase) await SupaStorage.signOut()
+    setProfile(null); setView('dash')
+  }
 
   // Auto-save draft
   const saveRef = useRef(null)
@@ -240,7 +276,13 @@ export default function MobileApp() {
   const zSecs = [...new Set(zVis.map(q=>q.sec))]
 
   if (loading) return <Loading fast={isReturning} onDone={() => setLoading(false)} />
-  if (profileChecked && !profile) return <ProfileScreen onLogin={handleLogin} />
+  // Auth gate: Supabase login when configured, local profiles when not
+  if (profileChecked && !profile) {
+    if (supabase) return <AuthScreen onAuth={handleLogin} />
+    return <ProfileScreen onLogin={handleLogin} />
+  }
+  // New Supabase user needs to set up profile
+  if (profile?.isNew && view === 'dash') return <ProfileScreen onLogin={async (p) => { if (supabase) await SupaStorage.saveProfile(p); setProfile(p) }} />
 
 
   // ── Question renderer (shared across quick start, zone, details) ──
