@@ -16,11 +16,11 @@ export const Q_PRESURVEY = [
   { id:'ps_assessor_certs',      sec:'Assessor',      q:'Certifications and licenses held',     t:'multi',       ic:'🎓', opts:['CIH','CSP','CHMM','QEP','PE','NYSDOL Mold Assessor','NYSDOL Asbestos Inspector','AHERA Inspector','State IH License','OSHA 30-Hour','HAZWOPER 40-Hour','Other'] },
   { id:'ps_assessor_exp',        sec:'Assessor',      q:'Years of IH/EHS experience',           t:'ch',          ic:'📅', opts:['1-3 years','3-5 years','5-10 years','10-20 years','20+ years'] },
   // Instruments
-  { id:'ps_inst_iaq',            sec:'Instruments',   q:'Primary IAQ meter make/model?',        t:'text',        ic:'📏', ph:'e.g. TSI Q-Trak 7575' },
+  { id:'ps_inst_iaq',            sec:'Instruments',   q:'Primary IAQ meter make/model?',        t:'combo',       ic:'📏', ph:'Or type your own...', opts:['TSI Q-Trak 7575','TSI Q-Trak 7515','TSI IAQ-Calc 7545','TSI VelociCalc 9565','Graywolf AdvancedSense Pro','Graywolf IQ-610','Graywolf PC-3016A','FLIR CM174','Kanomax 2211','Kanomax IAQ-2000','E Instruments AQ Pro','Testo 400','Testo 440','Bacharach Monoxor III','Aeroqual Series 500','HAL Technology HFX205','PPM Technology formaldemeter htV-m','CEM DT-9881','Extech SD800','Fieldpiece SDP2','Other'] },
   { id:'ps_inst_iaq_serial',     sec:'Instruments',   q:'Serial number?',                       t:'text', sk:1,  ic:'🔢', ph:'Instrument serial number' },
-  { id:'ps_inst_iaq_cal',        sec:'Instruments',   q:'Last factory/field calibration date?', t:'text',        ic:'🔧', ph:'e.g. 2026-02-15' },
+  { id:'ps_inst_iaq_cal',        sec:'Instruments',   q:'Last factory/field calibration date?', t:'date',        ic:'🔧' },
   { id:'ps_inst_iaq_cal_status', sec:'Instruments',   q:'Calibration status',                   t:'ch',          ic:'✅', opts:['Calibrated within manufacturer spec','Calibrated — overdue for recertification','Field-zeroed only','Not calibrated','Unknown'] },
-  { id:'ps_inst_pid',            sec:'Instruments',   q:'PID / VOC meter (if used)?',           t:'text', sk:1,  ic:'🧪', ph:'e.g. RAE MiniRAE 3000' },
+  { id:'ps_inst_pid',            sec:'Instruments',   q:'PID / VOC meter (if used)?',           t:'combo', sk:1, ic:'🧪', ph:'Or type your own...', opts:['RAE Systems MiniRAE 3000','RAE Systems ppbRAE 3000','RAE Systems MultiRAE','Ion Science Tiger','Ion Science Tiger XT','Ion Science Cub','Honeywell ToxiRAE Pro PID','RKI Instruments Eagle 2','MSA Altair 5X PID','Dräger X-am 8000','Baseline piD-TECH eVx','Mocon Baseline VOC-TRAQ II','Other'] },
   { id:'ps_inst_pid_cal',        sec:'Instruments',   q:'PID calibration status?',              t:'ch',   sk:1,  ic:'✅', opts:['Bump-tested and calibrated','Bump-tested only','Not calibrated','N/A'] },
   { id:'ps_inst_other',          sec:'Instruments',   q:'Other instruments used?',              t:'ta',   sk:1,  ic:'🛠️', ph:'Moisture meter, thermal camera, smoke pencil, etc.' },
   // Trigger

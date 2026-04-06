@@ -36,13 +36,10 @@ export async function generateNarrative(bldg, zones, zoneScores, comp, osha, rec
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514', max_tokens: 1000, system: sys,
-        messages: [{ role:'user', content:'Based ONLY on this data, write a professional IAQ findings narrative:
-
-'+JSON.stringify(payload,null,2) }],
+        messages: [{ role:'user', content:`Based ONLY on this data, write a professional IAQ findings narrative:\n\n${JSON.stringify(payload,null,2)}` }],
       }),
     })
     const data = await res.json()
-    return data.content?.map(b=>b.type==='text'?b.text:'').filter(Boolean).join('
-') || null
+    return data.content?.map(b=>b.type==='text'?b.text:'').filter(Boolean).join('\n') || null
   } catch(e) { console.error('AI narrative error:', e); return null }
 }
