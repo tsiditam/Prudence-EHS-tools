@@ -15,6 +15,11 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 )
 
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(() => {}) })
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').then((reg) => {
+      // Check for SW updates every 30 minutes
+      setInterval(() => reg.update(), 30 * 60 * 1000)
+    }).catch(() => {})
+  })
 }
 window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); window._pwaPrompt = e })

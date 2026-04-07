@@ -2161,6 +2161,69 @@ export default function RegLensApp() {
   }, [showSplash]);
 
   // Onboarding — progressive disclosure system
+
+  // ─── Online/Offline state ───
+  const [isOnline, setIsOnline] = useState(() => typeof navigator !== "undefined" ? navigator.onLine : true);
+  const [showOfflineBanner, setShowOfflineBanner] = useState(false);
+  const [syncPending, setSyncPending] = useState(false);
+
+  useEffect(() => {
+    const goOnline = () => {
+      setIsOnline(true);
+      setShowOfflineBanner(false);
+      // Flush sync queue when back online
+      flushSyncQueue();
+    };
+    const goOffline = () => {
+      setIsOnline(false);
+      setShowOfflineBanner(true);
+    };
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
+
+    // Listen for SW sync requests
+    if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.addEventListener("message", (e) => {
+        if (e.data?.type === "SYNC_REQUESTED") flushSyncQueue();
+      });
+    }
+
+    return () => {
+      window.removeEventListener("online", goOnline);
+      window.removeEventListener("offline", goOffline);
+    };
+  }, []);
+
+  // Sync queue — queues Supabase writes made while offline
+  function getSyncQueue() {
+    try { return JSON.parse(localStorage.getItem("rl_sync_queue")) || []; } catch { return []; }
+  }
+  function addToSyncQueue(action) {
+    const queue = getSyncQueue();
+    queue.push({ ...action, queuedAt: new Date().toISOString() });
+    localStorage.setItem("rl_sync_queue", JSON.stringify(queue));
+    setSyncPending(true);
+  }
+  async function flushSyncQueue() {
+    if (!supabase.isConfigured) return;
+    const queue = getSyncQueue();
+    if (queue.length === 0) return;
+    setSyncPending(true);
+    const failed = [];
+    for (const item of queue) {
+      try {
+        if (item.action === "createReview") await supabase.createReview(item.data);
+        else if (item.action === "createAudit") await supabase.createAudit(item.data);
+        else if (item.action === "createClient") await supabase.createClient(item.data);
+      } catch {
+        failed.push(item);
+      }
+    }
+    localStorage.setItem("rl_sync_queue", JSON.stringify(failed));
+    setSyncPending(failed.length > 0);
+  }
+
+  // Onboarding — progressive disclosure system (continued)
   const [onboarding, setOnboarding] = useState(() => {
     try { return JSON.parse(localStorage.getItem("rl_onboarding")) || {}; } catch { return {}; }
   });
@@ -2499,7 +2562,7 @@ export default function RegLensApp() {
     // Consume review credit
     consumeReviewCredit();
 
-    // Persist to Supabase
+    // Persist to Supabase (or queue for sync if offline)
     if (supabase.isConfigured) {
       const dbRow = {
         review_ref: refId,
@@ -2517,10 +2580,14 @@ export default function RegLensApp() {
         source: parsed._source || "api",
         status: "pending",
       };
-      const result = await supabase.createReview(dbRow);
-      if (result?.[0]?.id) {
-        sub.dbId = result[0].id;
-        setSubmissions((prev) => prev.map(s => s.id === refId ? { ...s, dbId: result[0].id } : s));
+      if (navigator.onLine) {
+        const result = await supabase.createReview(dbRow);
+        if (result?.[0]?.id) {
+          sub.dbId = result[0].id;
+          setSubmissions((prev) => prev.map(s => s.id === refId ? { ...s, dbId: result[0].id } : s));
+        }
+      } else {
+        addToSyncQueue({ action: "createReview", data: dbRow });
       }
     }
   }
@@ -2780,6 +2847,12 @@ export default function RegLensApp() {
           to { opacity: 1; transform: translateY(0); }
         }
 
+        /* Offline pulse dot */
+        @keyframes rl-pulse-dot {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.3; }
+        }
+
         /* Staggered fade for lists */
         .rl-stagger > * {
           animation: rlFadeIn 0.3s ease-out both;
@@ -2996,6 +3069,39 @@ export default function RegLensApp() {
           </div>
         )}
       </div>
+
+      {/* ══════ OFFLINE BANNER ══════ */}
+      {!isOnline && (
+        <div style={{
+          display: "flex", alignItems: "center", gap: "8px",
+          padding: "8px 16px", margin: "0 16px 8px",
+          borderRadius: "10px",
+          background: theme === "dark" ? "#2A1F00" : "#FEF3C7",
+          border: `1px solid ${theme === "dark" ? "#F59E0B30" : "#FDE68A"}`,
+          animation: "rl-fade-in 0.3s ease-out",
+        }}>
+          <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#F59E0B", flexShrink: 0, animation: "rl-pulse-dot 2s ease-in-out infinite" }} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: "12px", fontWeight: 600, color: theme === "dark" ? "#FCD34D" : "#92400E" }}>You're offline</div>
+            <div style={{ fontSize: "10px", color: theme === "dark" ? "#F59E0B" : "#B45309", lineHeight: 1.4 }}>
+              Readiness checks, reports, and saved data still work. Reviews and syncing need a connection.
+            </div>
+          </div>
+          <button onClick={() => setShowOfflineBanner(false)} style={{ background: "none", border: "none", color: theme === "dark" ? "#F59E0B" : "#92400E", fontSize: "14px", cursor: "pointer", padding: "4px", flexShrink: 0 }}>✕</button>
+        </div>
+      )}
+      {syncPending && isOnline && (
+        <div style={{
+          display: "flex", alignItems: "center", gap: "8px",
+          padding: "8px 16px", margin: "0 16px 8px",
+          borderRadius: "10px",
+          background: theme === "dark" ? "#0D1F12" : "#F0FDF4",
+          border: `1px solid ${theme === "dark" ? "#34C75930" : "#bbf7d0"}`,
+        }}>
+          <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: t.green, flexShrink: 0 }} />
+          <div style={{ fontSize: "11px", color: t.green }}>Syncing offline changes...</div>
+        </div>
+      )}
 
       {/* ══════ AUTH SCREENS ══════ */}
       {authScreen && (
@@ -5538,7 +5644,7 @@ export default function RegLensApp() {
 
                   // Consume readiness credit
 
-                  // Persist to Supabase
+                  // Persist to Supabase (or queue for sync if offline)
                   if (supabase.isConfigured) {
                     (async () => {
                       const dbRow = {
@@ -5553,6 +5659,10 @@ export default function RegLensApp() {
                         responses: auditResponses,
                         findings_count: result.findings.length,
                       };
+                      if (!navigator.onLine) {
+                        addToSyncQueue({ action: "createAudit", data: dbRow });
+                        return;
+                      }
                       const auditRows = await supabase.createAudit(dbRow);
                       const auditDbId = auditRows?.[0]?.id;
 
