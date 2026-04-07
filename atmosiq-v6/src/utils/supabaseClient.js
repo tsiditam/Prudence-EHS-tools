@@ -24,3 +24,20 @@ export const supabase = supabaseUrl && supabaseAnonKey
       },
     })
   : null
+
+/** Analytics — fire-and-forget, never blocks UI */
+export function trackEvent(eventType, eventData = {}) {
+  if (!supabase) return
+  try {
+    const sessionId = sessionStorage.getItem('aiq_sid') || (() => {
+      const id = crypto.randomUUID()
+      sessionStorage.setItem('aiq_sid', id)
+      return id
+    })()
+    supabase.from('analytics_events').insert({
+      session_id: sessionId,
+      event_type: eventType,
+      event_data: eventData,
+    }).then(() => {}).catch(() => {})
+  } catch {}
+}

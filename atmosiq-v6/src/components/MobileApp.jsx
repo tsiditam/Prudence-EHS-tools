@@ -11,7 +11,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import STO from '../utils/storage'
 import Profiles from '../utils/profiles'
 import SupaStorage from '../utils/supabaseStorage'
-import { supabase } from '../utils/supabaseClient'
+import { supabase, trackEvent } from '../utils/supabaseClient'
 import Backup from '../utils/backup'
 import { VER } from '../constants/standards'
 import { Q_PRESURVEY, Q_BUILDING, Q_ZONE, Q_QUICKSTART, Q_DETAILS, SENSOR_FIELDS } from '../constants/questions'
@@ -27,6 +27,7 @@ import PhotoCapture from './PhotoCapture'
 import SensorScreen from './SensorScreen'
 import ProfileScreen from './ProfileScreen'
 import AuthScreen from './AuthScreen'
+import { TermsOfService, PrivacyPolicy } from './LegalScreens'
 import SettingsScreen from './SettingsScreen'
 import { printReport } from './PrintReport'
 import { DEMO_PRESURVEY, DEMO_BUILDING, DEMO_ZONES } from '../constants/demoData'
@@ -124,6 +125,7 @@ export default function MobileApp() {
   const handleLogin = async (userOrProfile) => {
     // From Supabase AuthScreen
     if (userOrProfile?.email && supabase) {
+      trackEvent('login_completed', {})
       const p = await SupaStorage.getProfile()
       if (p) setProfile(p)
       else setProfile({ id: userOrProfile.id, name: userOrProfile.email, isNew: true })
@@ -175,6 +177,7 @@ export default function MobileApp() {
   }
 
   const startNew = () => {
+    trackEvent('assessment_started', {})
     const id = 'draft-' + Date.now()
     setDraftId(id)
     // Auto-fill from profile
@@ -224,6 +227,7 @@ export default function MobileApp() {
     const cc = buildCausalChains(zones, bldg, zScores)
     setZoneScores(zScores); setComp(composite); setOshaResult(osha); setRecs(recommendations)
     setSamplingPlan(sp); setCausalChains(cc); setSelZone(0); setNarrative(null)
+    trackEvent('assessment_completed', { zones: zones.length, score: composite?.tot, facility: bldg.fn || 'unknown' })
     haptic('success')
     setMilestone({icon:'chart',title:'Assessment Complete',sub:`Scoring ${zones.length} zone${zones.length>1?'s':''}...`})
     setTimeout(() => { setMilestone(null); setRTab('overview'); setView('results') }, 1600)
@@ -585,7 +589,9 @@ export default function MobileApp() {
 
         {view==='history'&&<div style={{paddingTop:28,paddingBottom:100}}><h2 style={{fontSize:22,fontWeight:700,marginBottom:16,color:TEXT}}>History</h2><div style={{display:'flex',gap:8,marginBottom:14}}><input type="text" value={hSearch} onChange={e=>setHSearch(e.target.value)} placeholder="Search..." style={{flex:1,padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,color:TEXT,fontSize:16,fontFamily:'inherit',outline:'none',boxSizing:'border-box',minHeight:48}} /><select value={hSort} onChange={e=>setHSort(e.target.value)} style={{padding:'14px 12px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,color:SUB,fontSize:13,fontFamily:'inherit',outline:'none',minHeight:48}}><option value="newest">Newest</option><option value="oldest">Oldest</option><option value="score-low">Score ↑</option><option value="score-high">Score ↓</option></select></div>{fReports.length===0?<div style={{padding:36,textAlign:'center',background:CARD,borderRadius:14,border:`1px solid ${BORDER}`,color:SUB,fontSize:14}}>{hSearch?'No matches':'No reports yet'}</div>:fReports.map(r=><button key={r.id} onClick={()=>openReport(r)} style={{width:'100%',padding:'16px 18px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:14,marginBottom:8,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,minHeight:64,fontFamily:'inherit'}}><div style={{width:44,height:44,borderRadius:12,background:`${ACCENT}12`,display:'flex',alignItems:'center',justifyContent:'center'}}><span style={{fontSize:17,fontWeight:800,fontFamily:"'DM Mono'",color:ACCENT}}>{r.score||'?'}</span></div><div style={{flex:1,minWidth:0}}><div style={{fontSize:15,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:TEXT}}>{r.facility||'?'}</div><div style={{fontSize:13,color:DIM,fontFamily:"'DM Mono'",marginTop:4}}>{fD(r.ts)}</div></div><button onClick={e=>{e.stopPropagation();setDelConf({id:r.id,name:r.facility,type:'rpt'})}} style={{padding:'8px 12px',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:8,color:DIM,fontSize:12,cursor:'pointer',fontFamily:'inherit',minHeight:40}}>🗑</button></button>)}</div>}
         {view==='trash'&&<TrashView onRecover={async(id)=>{await Backup.recover(id);await refreshIndex()}} onDelete={async(id)=>{await Backup.permanentDelete(id)}} />}
-        {view==='settings'&&<SettingsScreen profile={profile} onEditProfile={()=>{setProfile({...profile,isNew:true});setView('dash')}} onLogout={handleLogout} onClose={()=>setView('dash')} />}
+        {view==='settings'&&<SettingsScreen profile={profile} onEditProfile={()=>{setProfile({...profile,isNew:true});setView('dash')}} onLogout={handleLogout} onClose={()=>setView('dash')} onNavigate={setView} />}
+        {view==='tos'&&<TermsOfService onBack={()=>setView('settings')} />}
+        {view==='privacy'&&<PrivacyPolicy onBack={()=>setView('settings')} />}
       </div>
 
       <style>{`

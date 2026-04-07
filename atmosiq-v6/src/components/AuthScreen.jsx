@@ -29,6 +29,7 @@ export default function AuthScreen({ onAuth }) {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
+  const [tosAccepted, setTosAccepted] = useState(false)
 
   const handleLogin = async () => {
     if (!email || !password) { setError('Email and password required'); return }
@@ -43,6 +44,7 @@ export default function AuthScreen({ onAuth }) {
     if (!email || !password) { setError('Email and password required'); return }
     if (password.length < 8) { setError('Password must be at least 8 characters'); return }
     if (password !== confirmPw) { setError('Passwords do not match'); return }
+    if (!tosAccepted) { setError('Please accept the Terms of Service and Privacy Policy'); return }
     setLoading(true); setError('')
     const { data, error: err } = await SupaStorage.signUp(email, password)
     setLoading(false)
@@ -88,6 +90,13 @@ export default function AuthScreen({ onAuth }) {
           {mode !== 'forgot' && <input type="password" value={password} onChange={e=>{setPassword(e.target.value);setError('')}} placeholder="Password" autoComplete={mode==='register'?'new-password':'current-password'} style={inp} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} onKeyDown={e=>{if(e.key==='Enter'&&mode==='login')handleLogin()}} />}
 
           {mode === 'register' && <input type="password" value={confirmPw} onChange={e=>{setConfirmPw(e.target.value);setError('')}} placeholder="Confirm password" autoComplete="new-password" style={inp} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />}
+
+          {mode === 'register' && (
+            <label style={{display:'flex',alignItems:'flex-start',gap:10,fontSize:12,color:SUB,lineHeight:1.5,cursor:'pointer',padding:'4px 0'}}>
+              <input type="checkbox" checked={tosAccepted} onChange={e=>setTosAccepted(e.target.checked)} style={{marginTop:3,accentColor:ACCENT,flexShrink:0}} />
+              <span>I agree to the Terms of Service and Privacy Policy</span>
+            </label>
+          )}
 
           {/* Primary action */}
           {mode === 'login' && <button onClick={handleLogin} disabled={loading} style={{padding:'16px 0',background:`linear-gradient(135deg,#0891B2,${ACCENT})`,border:'none',borderRadius:14,color:'#fff',fontSize:17,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:54,opacity:loading?.6:1}}>{loading ? 'Signing in...' : 'Sign In'}</button>}
