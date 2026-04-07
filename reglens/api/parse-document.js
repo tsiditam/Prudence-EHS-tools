@@ -6,12 +6,11 @@
  * Copyright (c) 2026 All rights reserved.
  */
 
-import { IncomingForm } from "formidable";
-import fs from "fs";
-import pdf from "pdf-parse/lib/pdf-parse.js";
-import mammoth from "mammoth";
+const { IncomingForm } = require("formidable");
+const fs = require("fs");
+const mammoth = require("mammoth");
 
-export const config = {
+module.exports.config = {
   api: { bodyParser: false },
 };
 
@@ -37,7 +36,7 @@ function parseForm(req) {
   });
 }
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -56,6 +55,8 @@ export default async function handler(req, res) {
     let rawText = "";
 
     if (fileName.endsWith(".pdf")) {
+      // Dynamic import for pdf-parse (avoids CJS/ESM issues)
+      const pdf = require("pdf-parse/lib/pdf-parse.js");
       const data = await pdf(buffer);
       rawText = data.text || "";
     } else if (fileName.endsWith(".docx")) {
@@ -82,4 +83,4 @@ export default async function handler(req, res) {
     console.error("parse-document error:", err);
     return res.status(500).json({ error: "Failed to parse document. Please try a .txt version." });
   }
-}
+};
