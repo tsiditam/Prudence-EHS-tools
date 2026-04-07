@@ -1,4 +1,4 @@
-const CACHE_NAME = 'atmosiq-v6-cache';
+const CACHE_NAME = 'reglens-v1-cache';
 const PRECACHE = [
   '/',
   '/manifest.json',

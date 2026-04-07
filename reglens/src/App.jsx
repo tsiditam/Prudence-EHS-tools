@@ -15,9 +15,9 @@ import { useMediaQuery } from './hooks/useMediaQuery'
 import LandingPage from './components/LandingPage'
 
 // ─── Supabase Client ───
-// CONFIGURE: Replace these with your Supabase project values
-const SUPABASE_URL = "YOUR_SUPABASE_URL"; // e.g. https://xxxxx.supabase.co
-const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
+// Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.local or Vercel env vars
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "YOUR_SUPABASE_URL";
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "YOUR_SUPABASE_ANON_KEY";
 
 const supabase = (() => {
   const headers = { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}`, "Content-Type": "application/json", Prefer: "return=representation" };
