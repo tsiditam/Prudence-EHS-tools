@@ -2125,27 +2125,26 @@ export default function RegLensApp() {
 
   const [tab, setTab] = useState("dashboard");
 
-  // Theme — persists in localStorage
-  const [theme, setTheme] = useState(() => {
-    try { return localStorage.getItem("rl_theme") || "dark"; } catch { return "dark"; }
-  });
-  const toggleTheme = () => {
-    const next = theme === "dark" ? "light" : "dark";
-    setTheme(next);
-    try { localStorage.setItem("rl_theme", next); } catch {}
-  };
-  const t = theme === "light" ? {
-    bg: "#F5F5F7", card: "#FFFFFF", cardFlat: "#FFFFFF", text: "#1a1a1a", textSecondary: "#6b7280", textTertiary: "#9ca3af",
+  // Theme — enterprise light theme (audit-ready, print-friendly)
+  const [theme, setTheme] = useState("light");
+  const toggleTheme = () => {};
+  const t = {
+    // Layout
+    bg: "#F8FAFC", card: "#FFFFFF", cardFlat: "#FFFFFF", text: "#1F2937", textSecondary: "#6B7280", textTertiary: "#9CA3AF",
     border: "#E5E7EB", borderSubtle: "#F3F4F6", inputBg: "#F9FAFB", inputBorder: "#D1D5DB",
-    navBg: "#FFFFFF", navBorder: "#E5E7EB", green: "#16a34a", greenBg: "#f0fdf4", greenBorder: "#bbf7d0",
-    overlay: "rgba(0,0,0,0.5)", modalBg: "#FFFFFF", shimmer1: "#F3F4F6", shimmer2: "#E5E7EB",
-    scoreBg: "linear-gradient(160deg, #FFFFFF, #F9FAFB)", headerBg: "#FFFFFF",
-  } : {
-    bg: "#000", card: "#1C1C1E", cardFlat: "#1C1C1E", text: "#fff", textSecondary: "#8E8E93", textTertiary: "#555",
-    border: "#2A2A2E", borderSubtle: "#222", inputBg: "#111", inputBorder: "#2A2A2E",
-    navBg: "#1C1C1E", navBorder: "#2A2A2E", green: "#34C759", greenBg: "#34C75915", greenBorder: "#34C75930",
-    overlay: "rgba(0,0,0,0.85)", modalBg: "#1C1C1E", shimmer1: "#1C1C1E", shimmer2: "#2A2A2E",
-    scoreBg: "linear-gradient(160deg, #1C1C1E, #222)", headerBg: "transparent",
+    navBg: "#FFFFFF", navBorder: "#E5E7EB",
+    overlay: "rgba(15,23,42,0.5)", modalBg: "#FFFFFF", shimmer1: "#F3F4F6", shimmer2: "#E5E7EB",
+    scoreBg: "#FFFFFF", headerBg: "#FFFFFF",
+    // Semantic — actions
+    primary: "#1E3A5F", primaryAction: "#2563EB", primaryActionHover: "#1D4ED8",
+    // Semantic — status (ONLY use for actual compliance/risk status)
+    critical: "#DC2626", criticalBg: "#FEF2F2", criticalBorder: "#FECACA",
+    warning: "#F59E0B", warningBg: "#FFFBEB", warningBorder: "#FDE68A",
+    compliant: "#16A34A", compliantBg: "#F0FDF4", compliantBorder: "#BBF7D0",
+    info: "#2563EB", infoBg: "#EFF6FF", infoBorder: "#BFDBFE",
+    neutral: "#6B7280", neutralBg: "#F9FAFB", neutralBorder: "#E5E7EB",
+    // Legacy compat (mapped to new tokens)
+    green: "#16A34A", greenBg: "#F0FDF4", greenBorder: "#BBF7D0",
   };
   const [selectedType, setSelectedType] = useState(null);
   const [selectedIndustry, setSelectedIndustry] = useState(null);
@@ -2701,10 +2700,10 @@ export default function RegLensApp() {
   }
 
   const renderIcon = (icon, size = 28) => <span style={{ fontSize: `${size}px`, lineHeight: 1 }}>{icon}</span>;
-  const sevColor = { Critical: "#EF4444", Major: "#F59E0B", Minor: "#3B82F6" };
-  const sevBg = { Critical: theme === "dark" ? "#2A1215" : "#FEF2F2", Major: theme === "dark" ? "#2A2010" : "#FFFBEB", Minor: theme === "dark" ? "#101C2E" : "#EFF6FF" };
-  const card = { background: t.card, borderRadius: "16px", padding: "16px", marginBottom: "12px" };
-  const cardFlat = { background: t.cardFlat, borderRadius: "14px", padding: "14px 16px", marginBottom: "4px" };
+  const sevColor = { Critical: t.critical, Major: t.warning, Minor: t.info };
+  const sevBg = { Critical: t.criticalBg, Major: t.warningBg, Minor: t.infoBg };
+  const card = { background: t.card, borderRadius: "10px", padding: "16px", marginBottom: "10px", border: `1px solid ${t.border}` };
+  const cardFlat = { background: t.card, borderRadius: "8px", padding: "12px 14px", marginBottom: "4px", border: `1px solid ${t.border}` };
 
   // ─── Score Ring Component ───
   function ScoreRing({ score, band, size = 120 }) {
@@ -2789,7 +2788,7 @@ export default function RegLensApp() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: t.bg, color: t.text, fontFamily: "-apple-system, 'SF Pro Display', 'Helvetica Neue', sans-serif", paddingBottom: "calc(100px + env(safe-area-inset-bottom, 0px))" }}>
+    <div style={{ minHeight: "100vh", background: t.bg, color: t.text, fontFamily: "'Inter', -apple-system, 'SF Pro Display', 'Helvetica Neue', sans-serif", paddingBottom: "calc(80px + env(safe-area-inset-bottom, 0px))" }}>
 
       {/* Responsive + PWA styles */}
       <style>{`
@@ -2933,14 +2932,13 @@ export default function RegLensApp() {
         .rl-nav-item { transition: transform 0.15s ease; }
         .rl-nav-item:active { transform: scale(0.9) translateY(-2px); }
 
-        /* Green glow on primary buttons */
+        /* Subtle hover elevation for interactive elements */
         .rl-glow {
-          box-shadow: 0 0 0 0 rgba(52, 199, 89, 0.3);
           transition: box-shadow 0.2s ease;
         }
         @media (hover: hover) {
           .rl-glow:hover {
-            box-shadow: 0 4px 20px rgba(52, 199, 89, 0.25);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
           }
         }
 
@@ -3057,42 +3055,40 @@ export default function RegLensApp() {
       )}
 
       {/* ══════ TOP BAR ══════ */}
-      <header style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 100, background: theme === "dark" ? "rgba(0,0,0,0.88)" : "rgba(245,245,247,0.88)", backdropFilter: "blur(20px) saturate(1.8)", WebkitBackdropFilter: "blur(20px) saturate(1.8)", borderBottom: `1px solid ${t.border}`, paddingTop: "env(safe-area-inset-top, 0px)" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", height: 50, padding: "0 16px", maxWidth: 430, margin: "0 auto" }}>
-          <button className="rl-tap" onClick={() => setTab("dashboard")} style={{ display: "flex", alignItems: "center", gap: "8px", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
-            <svg width="26" height="26" viewBox="0 0 120 120" style={{ flexShrink: 0 }}>
-              <circle cx="52" cy="52" r="34" fill="none" stroke={t.green} strokeWidth="4"/>
-              <line x1="36" y1="40" x2="62" y2="40" stroke={t.green} strokeWidth="3" strokeLinecap="round" opacity="0.7"/>
-              <line x1="36" y1="50" x2="68" y2="50" stroke={t.green} strokeWidth="3" strokeLinecap="round" opacity="0.5"/>
-              <line x1="36" y1="60" x2="56" y2="60" stroke={t.green} strokeWidth="3" strokeLinecap="round" opacity="0.3"/>
-              <polyline points="64,48 67,52 74,42" fill="none" stroke={t.green} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
-              <line x1="76" y1="76" x2="106" y2="106" stroke={t.green} strokeWidth="6" strokeLinecap="round"/>
-            </svg>
+      <header style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 100, background: "rgba(255,255,255,0.95)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", borderBottom: `1px solid ${t.border}`, paddingTop: "env(safe-area-inset-top, 0px)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", height: 48, padding: "0 16px", maxWidth: 430, margin: "0 auto" }}>
+          <button onClick={() => setTab("dashboard")} style={{ display: "flex", alignItems: "center", gap: "8px", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+            <div style={{ width: 28, height: 28, borderRadius: 7, background: t.primary, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <svg width="16" height="16" viewBox="0 0 120 120" style={{ flexShrink: 0 }}>
+                <circle cx="52" cy="52" r="34" fill="none" stroke="#fff" strokeWidth="5"/>
+                <line x1="76" y1="76" x2="106" y2="106" stroke="#fff" strokeWidth="7" strokeLinecap="round"/>
+              </svg>
+            </div>
             <div>
-              <div style={{ fontSize: "17px", fontWeight: 700, color: t.text, letterSpacing: "-0.3px", lineHeight: 1.1 }}>
-                Reg<span style={{ color: t.green }}>Lens</span>
-                {adminMode && <span style={{ fontSize: "7px", fontWeight: 700, color: "#F59E0B", marginLeft: "5px", padding: "1px 4px", borderRadius: "3px", background: "#F59E0B15", border: "1px solid #F59E0B30", verticalAlign: "middle" }}>ADMIN</span>}
+              <div style={{ fontSize: "15px", fontWeight: 700, color: t.primary, letterSpacing: "-0.3px", lineHeight: 1.1 }}>
+                RegLens
+                {adminMode && <span style={{ fontSize: "7px", fontWeight: 700, color: t.warning, marginLeft: "5px", padding: "1px 4px", borderRadius: "3px", background: t.warningBg, border: `1px solid ${t.warningBorder}`, verticalAlign: "middle" }}>ADMIN</span>}
               </div>
-              <div style={{ fontSize: "9px", color: t.textSecondary, cursor: "default" }} onClick={(e) => {
+              <div style={{ fontSize: "9px", color: t.textTertiary, cursor: "default" }} onClick={(e) => {
                 e.stopPropagation();
                 const next = adminTaps + 1;
                 setAdminTaps(next);
                 if (next >= 5 && !adminMode) { activateAdmin(); setAdminTaps(0); }
                 setTimeout(() => setAdminTaps(0), 3000);
-              }}>by Prudence EHS</div>
+              }}>Regulatory Intelligence</div>
             </div>
           </button>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             {user ? (
               <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <div style={{ width: 30, height: 30, borderRadius: "50%", background: `${t.green}20`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: 700, color: t.green }}>{(user.full_name || user.email || "U").charAt(0).toUpperCase()}</div>
+                <div style={{ width: 28, height: 28, borderRadius: "50%", background: t.infoBg, border: `1px solid ${t.infoBorder}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "11px", fontWeight: 700, color: t.primaryAction }}>{(user.full_name || user.email || "U").charAt(0).toUpperCase()}</div>
                 <div style={{ textAlign: "right" }}>
                   <div style={{ fontSize: "11px", color: t.text, fontWeight: 600, maxWidth: 90, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.full_name?.split(" ")[0] || "User"}</div>
-                  <div style={{ fontSize: "8px", color: t.textSecondary }}>{user.review_credits || 0} credits</div>
+                  <div style={{ fontSize: "8px", color: t.textTertiary }}>{user.review_credits || 0} credits</div>
                 </div>
               </div>
             ) : (
-              <button onClick={() => setAuthScreen("login")} style={{ padding: "6px 12px", borderRadius: "8px", border: `1px solid ${t.green}40`, background: "transparent", color: t.green, fontSize: "12px", fontWeight: 600, cursor: "pointer" }}>Sign in</button>
+              <button onClick={() => setAuthScreen("login")} style={{ padding: "6px 12px", borderRadius: "6px", border: `1px solid ${t.primaryAction}`, background: "transparent", color: t.primaryAction, fontSize: "12px", fontWeight: 600, cursor: "pointer" }}>Sign in</button>
             )}
           </div>
         </div>
@@ -3422,47 +3418,49 @@ export default function RegLensApp() {
       {tab === "dashboard" && (
         <div style={{ padding: "0 16px" }} className="rl-fade-in">
 
-          {/* ── Personalized Greeting ── */}
-          {(() => {
-            const hour = new Date().getHours();
-            const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
-            const name = user?.full_name?.split(" ")[0];
-            // Score trends
-            const lastReviewScore = submissions.length > 0 ? submissions[0].score : null;
-            const prevReviewScore = submissions.length > 1 ? submissions[1].score : null;
-            const lastAuditScore = auditSubmissions.length > 0 ? auditSubmissions[0].score : null;
-            const prevAuditScore = auditSubmissions.length > 1 ? auditSubmissions[1].score : null;
-            const hasHistory = submissions.length > 0 || auditSubmissions.length > 0;
+          {/* ── Context Header ── */}
+          <div style={{ marginBottom: "16px" }}>
+            <div style={{ fontSize: "18px", fontWeight: 700, color: t.primary, letterSpacing: "-0.3px" }}>Compliance Dashboard</div>
+            <div style={{ fontSize: "12px", color: t.textSecondary, marginTop: "2px" }}>
+              {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
+              {user && <span> · {user.full_name || user.email}</span>}
+            </div>
+          </div>
 
+          {/* ── Priority Panel — urgent items first ── */}
+          {(() => {
+            const criticalFindings = submissions.flatMap(s => (s.result?.findings || []).filter(f => f.severity === "Critical")).length;
+            const pendingReviews = submissions.filter(s => s.status === "queued" || s.status === "pending").length;
+            const lowScores = submissions.filter(s => s.score !== null && s.score < 70).length;
+            const hasUrgent = criticalFindings > 0 || pendingReviews > 0 || lowScores > 0;
+            if (!hasUrgent && submissions.length === 0) return null;
             return (
-              <div style={{ marginBottom: "14px", padding: "0 2px" }}>
-                <div style={{ fontSize: "22px", fontWeight: 700, color: t.text, lineHeight: 1.2 }}>
-                  {greeting}{name ? `, ${name}` : ""} 👋
+              <div style={{ ...card, background: hasUrgent ? t.criticalBg : t.infoBg, border: `1px solid ${hasUrgent ? t.criticalBorder : t.infoBorder}`, padding: "14px" }}>
+                <div style={{ fontSize: "11px", fontWeight: 700, color: hasUrgent ? t.critical : t.primaryAction, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "10px" }}>
+                  {hasUrgent ? "Requires Attention" : "Status Overview"}
                 </div>
-                {hasHistory && (
-                  <div style={{ display: "flex", gap: "12px", marginTop: "8px", flexWrap: "wrap" }}>
-                    {lastReviewScore !== null && (
-                      <div style={{ fontSize: "12px", color: t.textSecondary }}>
-                        Last review: <span style={{ fontWeight: 700, color: RegLensScoring.getBandColor(RegLensScoring.getBand(lastReviewScore)) }}>{lastReviewScore}</span>
-                        {prevReviewScore !== null && (() => {
-                          const delta = lastReviewScore - prevReviewScore;
-                          if (delta === 0) return null;
-                          return <span style={{ marginLeft: "4px", fontSize: "11px", fontWeight: 700, color: delta > 0 ? "#22c55e" : "#EF4444" }}>{delta > 0 ? "↑" : "↓"}{Math.abs(delta)}</span>;
-                        })()}
-                      </div>
-                    )}
-                    {lastAuditScore !== null && (
-                      <div style={{ fontSize: "12px", color: t.textSecondary }}>
-                        Readiness: <span style={{ fontWeight: 700, color: RegLensScoring.getBandColor(RegLensScoring.getBand(lastAuditScore)) }}>{lastAuditScore}</span>
-                        {prevAuditScore !== null && (() => {
-                          const delta = lastAuditScore - prevAuditScore;
-                          if (delta === 0) return null;
-                          return <span style={{ marginLeft: "4px", fontSize: "11px", fontWeight: 700, color: delta > 0 ? "#22c55e" : "#EF4444" }}>{delta > 0 ? "↑" : "↓"}{Math.abs(delta)}</span>;
-                        })()}
-                      </div>
-                    )}
-                  </div>
-                )}
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                  {criticalFindings > 0 && (
+                    <div style={{ padding: "6px 10px", borderRadius: "6px", background: "#fff", border: `1px solid ${t.criticalBorder}`, fontSize: "11px", fontWeight: 600, color: t.critical }}>
+                      {criticalFindings} Critical Finding{criticalFindings !== 1 ? "s" : ""}
+                    </div>
+                  )}
+                  {lowScores > 0 && (
+                    <div style={{ padding: "6px 10px", borderRadius: "6px", background: "#fff", border: `1px solid ${t.warningBorder}`, fontSize: "11px", fontWeight: 600, color: t.warning }}>
+                      {lowScores} Below Threshold (&lt;70)
+                    </div>
+                  )}
+                  {pendingReviews > 0 && (
+                    <div style={{ padding: "6px 10px", borderRadius: "6px", background: "#fff", border: `1px solid ${t.warningBorder}`, fontSize: "11px", fontWeight: 600, color: t.warning }}>
+                      {pendingReviews} Pending Review{pendingReviews !== 1 ? "s" : ""}
+                    </div>
+                  )}
+                  {!hasUrgent && submissions.length > 0 && (
+                    <div style={{ padding: "6px 10px", borderRadius: "6px", background: "#fff", border: `1px solid ${t.compliantBorder}`, fontSize: "11px", fontWeight: 600, color: t.compliant }}>
+                      {submissions.filter(s => s.score !== null && s.score >= 70).length} of {submissions.length} programs compliant
+                    </div>
+                  )}
+                </div>
               </div>
             );
           })()}
@@ -3501,62 +3499,50 @@ export default function RegLensApp() {
             );
           })()}
 
-          {/* ── Primary Actions — clear hierarchy ── */}
-          <button className="rl-tap rl-glow" onClick={() => { setSelectedType(null); setTab("upload"); }} style={{ width: "100%", padding: "20px 16px", borderRadius: "16px", background: theme === "dark" ? "linear-gradient(145deg, #1A2A1A, #1C1C1E)" : "linear-gradient(145deg, #F0FDF4, #FFFFFF)", border: `1.5px solid ${theme === "dark" ? "#34C75940" : "#bbf7d0"}`, cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: "14px", marginBottom: "10px" }}>
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
-              <rect x="4" y="2" width="12" height="16" rx="2" stroke={t.green} strokeWidth="1.5" opacity="0.5"/>
-              <rect x="8" y="6" width="12" height="16" rx="2" stroke={t.green} strokeWidth="1.5"/>
-              <path d="M12 12h4M12 15h3" stroke={t.green} strokeWidth="1.5" strokeLinecap="round"/>
-              <circle cx="18" cy="8" r="3" fill={t.green} opacity="0.8"/><path d="M16.5 8l1 1 2-2" stroke={theme === "dark" ? "#000" : "#fff"} strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+          {/* ── Action Bar ── */}
+          <div style={{ fontSize: "11px", fontWeight: 700, color: t.textSecondary, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "8px" }}>Actions</div>
+          <button onClick={() => { setSelectedType(null); setTab("upload"); }} style={{ width: "100%", padding: "14px 16px", borderRadius: "8px", background: t.primaryAction, border: "none", cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px", color: "#fff" }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+              <rect x="4" y="2" width="12" height="16" rx="2" stroke="#fff" strokeWidth="1.5" opacity="0.6"/>
+              <rect x="8" y="6" width="12" height="16" rx="2" stroke="#fff" strokeWidth="1.5"/>
+              <path d="M12 12h4M12 15h3" stroke="#fff" strokeWidth="1.5" strokeLinecap="round"/>
             </svg>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: "16px", fontWeight: 700, color: t.text }}>Run Compliance Review</div>
-              <div style={{ fontSize: "11px", color: t.textSecondary, marginTop: "2px" }}>Upload a safety program for AI-powered gap analysis</div>
+              <div style={{ fontSize: "14px", fontWeight: 700 }}>Start Compliance Review</div>
+              <div style={{ fontSize: "10px", opacity: 0.8, marginTop: "1px" }}>Upload safety program for gap analysis</div>
             </div>
-            <span style={{ color: t.green, fontSize: "18px" }}>›</span>
+            <span style={{ fontSize: "16px", opacity: 0.6 }}>&#8250;</span>
           </button>
 
-          <button className="rl-tap" onClick={() => setTab("audit")} style={{ width: "100%", padding: "14px 16px", borderRadius: "14px", background: theme === "dark" ? "linear-gradient(145deg, #101C2E, #1C1C1E)" : "linear-gradient(145deg, #EFF6FF, #FFFFFF)", border: `1px solid ${theme === "dark" ? "#3B82F630" : "#BFDBFE"}`, cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: "12px", marginBottom: "16px" }}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
-              <rect x="4" y="3" width="16" height="18" rx="2" stroke="#3B82F6" strokeWidth="1.5"/>
-              <path d="M9 9h6M9 13h4" stroke="#3B82F6" strokeWidth="1.5" strokeLinecap="round" opacity="0.4"/>
-              <rect x="8" y="8" width="2" height="2" rx="0.5" fill="#3B82F6"/><rect x="8" y="12" width="2" height="2" rx="0.5" fill="#3B82F6" opacity="0.6"/>
+          <button onClick={() => setTab("audit")} style={{ width: "100%", padding: "12px 16px", borderRadius: "8px", background: t.card, border: `1px solid ${t.border}`, cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: "12px", marginBottom: "16px" }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+              <rect x="4" y="3" width="16" height="18" rx="2" stroke={t.primaryAction} strokeWidth="1.5"/>
+              <path d="M9 9h6M9 13h4" stroke={t.primaryAction} strokeWidth="1.5" strokeLinecap="round" opacity="0.4"/>
+              <rect x="8" y="8" width="2" height="2" rx="0.5" fill={t.primaryAction}/><rect x="8" y="12" width="2" height="2" rx="0.5" fill={t.primaryAction} opacity="0.6"/>
             </svg>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: "14px", fontWeight: 700, color: t.text }}>Start Readiness Check</div>
-              <div style={{ fontSize: "10px", color: t.textSecondary }}>Guided facility checklist with photos</div>
+              <div style={{ fontSize: "13px", fontWeight: 600, color: t.text }}>Start Readiness Check</div>
+              <div style={{ fontSize: "10px", color: t.textSecondary }}>Guided facility checklist</div>
             </div>
-            <span style={{ color: "#3B82F6", fontSize: "16px" }}>›</span>
+            <span style={{ color: t.textTertiary, fontSize: "14px" }}>&#8250;</span>
           </button>
 
-          {/* ── Latest Scores (most recent review + audit side by side) ── */}
+          {/* ── Metrics Overview ── */}
           {(submissions.length > 0 || auditSubmissions.length > 0) && (
             <div style={{ marginBottom: "16px" }}>
-              <div style={{ fontSize: "12px", fontWeight: 600, color: t.textSecondary, letterSpacing: "0.5px", textTransform: "uppercase", marginBottom: "8px", padding: "0 4px" }}>Latest Scores</div>
-              <div style={{ display: "flex", gap: "10px" }}>
-                {submissions.length > 0 && (() => {
-                  const latest = (clientFilter === "all" ? submissions : submissions.filter(s => s.clientId === clientFilter))[0];
-                  if (!latest) return null;
-                  return (
-                    <button key="lr" className="rl-card-interactive" onClick={() => { setResult(latest.result); setScoreResult(latest.scoreResult); setViewingSub(latest); setTab("report"); }} style={{ flex: 1, ...card, marginBottom: 0, border: `1px solid ${t.border}`, cursor: "pointer", textAlign: "center", padding: "16px 12px" }}>
-                      <div style={{ fontSize: "32px", fontWeight: 700, color: RegLensScoring.getBandColor(latest.band) }} className="rl-score-num">{latest.score}</div>
-                      <div style={{ fontSize: "10px", color: RegLensScoring.getBandColor(latest.band), fontWeight: 600, marginBottom: "6px" }}>{latest.band}</div>
-                      <div style={{ fontSize: "11px", color: t.textSecondary, fontWeight: 500 }}>{latest.label}</div>
-                      <div style={{ fontSize: "9px", color: t.textTertiary, marginTop: "2px" }}>{latest.date}</div>
-                    </button>
-                  );
-                })()}
-                {auditSubmissions.length > 0 && (() => {
-                  const latest = auditSubmissions[0];
-                  return (
-                    <div key="la" style={{ flex: 1, ...card, marginBottom: 0, border: `1px solid ${t.border}`, textAlign: "center", padding: "16px 12px" }}>
-                      <div style={{ fontSize: "32px", fontWeight: 700, color: RegLensScoring.getBandColor(latest.band) }} className="rl-score-num">{latest.score}</div>
-                      <div style={{ fontSize: "10px", color: RegLensScoring.getBandColor(latest.band), fontWeight: 600, marginBottom: "6px" }}>{latest.band}</div>
-                      <div style={{ fontSize: "11px", color: t.textSecondary, fontWeight: 500 }}>Readiness Check</div>
-                      <div style={{ fontSize: "9px", color: t.textTertiary, marginTop: "2px" }}>{latest.industryLabel} · {latest.date}</div>
-                    </div>
-                  );
-                })()}
+              <div style={{ fontSize: "11px", fontWeight: 700, color: t.textSecondary, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "8px" }}>Metrics</div>
+              <div style={{ display: "flex", gap: "8px" }}>
+                {[
+                  { label: "Reviews", value: submissions.length, sub: submissions.length === 1 ? "completed" : "completed" },
+                  { label: "Avg Score", value: (() => { const real = submissions.filter(s => s.score !== null); return real.length > 0 ? Math.round(real.reduce((a, s) => a + s.score, 0) / real.length) : "—"; })(), sub: (() => { const real = submissions.filter(s => s.score !== null); if (real.length === 0) return "no data"; const avg = Math.round(real.reduce((a, s) => a + s.score, 0) / real.length); return RegLensScoring.getBand(avg); })() },
+                  { label: "Checks", value: auditSubmissions.length, sub: "readiness" },
+                ].map((m, i) => (
+                  <div key={i} style={{ flex: 1, padding: "12px 8px", borderRadius: "8px", background: t.card, border: `1px solid ${t.border}`, textAlign: "center" }}>
+                    <div style={{ fontSize: "20px", fontWeight: 700, color: t.primary }}>{m.value}</div>
+                    <div style={{ fontSize: "9px", color: t.textSecondary, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.3px" }}>{m.label}</div>
+                    <div style={{ fontSize: "8px", color: t.textTertiary, marginTop: "1px" }}>{m.sub}</div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
@@ -3603,21 +3589,7 @@ export default function RegLensApp() {
             </div>
           )}
 
-          {/* ── Inline Metrics (from Analytics) ── */}
-          {(submissions.length > 0 || auditSubmissions.length > 0) && (
-            <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
-              {[
-                { label: "Reviews", value: submissions.length, color: t.green },
-                { label: "Avg Score", value: (() => { const real = submissions.filter(s => s.score !== null); return real.length > 0 ? Math.round(real.reduce((a, s) => a + s.score, 0) / real.length) : "—"; })(), color: (() => { const real = submissions.filter(s => s.score !== null); if (real.length === 0) return t.textTertiary; const avg = Math.round(real.reduce((a, s) => a + s.score, 0) / real.length); return RegLensScoring.getBandColor(RegLensScoring.getBand(avg)); })() },
-                { label: "Checks", value: auditSubmissions.length, color: "#3B82F6" },
-              ].map((m, i) => (
-                <div key={i} style={{ flex: 1, padding: "10px 8px", borderRadius: "12px", background: t.card, border: `1px solid ${t.border}`, textAlign: "center" }}>
-                  <div style={{ fontSize: "22px", fontWeight: 700, color: m.color }}>{m.value}</div>
-                  <div style={{ fontSize: "9px", color: t.textSecondary, fontWeight: 500, textTransform: "uppercase" }}>{m.label}</div>
-                </div>
-              ))}
-            </div>
-          )}
+          {/* Inline metrics moved to Metrics Overview above */}
 
           {/* ── Recent Activity ── */}
           <div style={{ marginBottom: "20px" }}>
@@ -6261,11 +6233,11 @@ export default function RegLensApp() {
       </div>{/* end rl-container */}
 
       {/* BOTTOM NAV */}
-      <div className="rl-bottom-nav" style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", display: "flex", justifyContent: "space-around", alignItems: "center", padding: "10px 0", paddingBottom: "calc(12px + env(safe-area-inset-bottom, 16px))", background: t.navBg, borderTop: `1px solid ${t.navBorder}`, zIndex: 100 }}>
-        {[{ id: "dashboard", label: "Home", icon: "⊞" }, { id: "upload", label: "Review", icon: "⊕", action: () => { setSelectedType(null); setTab("upload"); } }, { id: "audit", label: "Readiness", icon: "☷" }, { id: "tools", label: "Tools", icon: "☰" }].map((item) => (
-          <button key={item.id} className="rl-nav-item" onClick={() => { supabase.trackEvent("page_view", { tab: item.id }); item.action ? item.action() : setTab(item.id); }} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", color: tab === item.id ? t.green : t.textSecondary, minWidth: "56px" }}>
-            <span style={{ fontSize: "22px", lineHeight: 1 }}>{item.icon}</span>
-            <span style={{ fontSize: "10px", fontWeight: 500 }}>{item.label}</span>
+      <div className="rl-bottom-nav" style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", display: "flex", justifyContent: "space-around", alignItems: "center", padding: "8px 0", paddingBottom: "calc(10px + env(safe-area-inset-bottom, 16px))", background: "#FFFFFF", borderTop: `1px solid ${t.border}`, zIndex: 100 }}>
+        {[{ id: "dashboard", label: "Dashboard", icon: "⊞" }, { id: "upload", label: "Reviews", icon: "⊕", action: () => { setSelectedType(null); setTab("upload"); } }, { id: "audit", label: "Readiness", icon: "☷" }, { id: "tools", label: "Settings", icon: "☰" }].map((item) => (
+          <button key={item.id} className="rl-nav-item" onClick={() => { supabase.trackEvent("page_view", { tab: item.id }); item.action ? item.action() : setTab(item.id); }} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", color: tab === item.id ? t.primaryAction : t.textTertiary, minWidth: "56px", fontWeight: tab === item.id ? 700 : 500 }}>
+            <span style={{ fontSize: "20px", lineHeight: 1 }}>{item.icon}</span>
+            <span style={{ fontSize: "9px" }}>{item.label}</span>
           </button>
         ))}
       </div>
