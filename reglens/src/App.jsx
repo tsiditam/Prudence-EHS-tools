@@ -2233,12 +2233,9 @@ export default function RegLensApp() {
   // Guided tour
   const [tourStep, setTourStep] = useState(-1); // -1 = not active
   const TOUR_STEPS = [
-    { title: "Compliance Review", desc: "Upload your safety program and get an AI-powered gap analysis scored against OSHA/EPA standards. Your first review is free.", target: "primary-actions" },
-    { title: "Readiness Check", desc: "Walk through a guided facility checklist with photos, notes, and instant scoring. Always free, unlimited use.", target: "primary-actions" },
-    { title: "Citation Response", desc: "Paste an OSHA or EPA citation and get a draft abatement plan with specific corrective steps, timelines, and costs.", target: "citation-card" },
-    { title: "Secondary Tools", desc: "Job Hazard Analysis, Incident Reports, and Safety Meeting Logs — all free, all exportable, all audit-ready.", target: "secondary-tools" },
-    { title: "Score Trends", desc: "As you run more reviews, your dashboard shows score trends over time so you can track improvement.", target: "score-trends" },
-    { title: "Your Reports", desc: "Every review, readiness check, and report is saved here. Export, email, or revisit anytime.", target: "recent-activity" },
+    { title: "Run Your First Review", desc: "Upload any safety program and get a scored gap analysis against OSHA/EPA standards in minutes. Your first 3 reviews are free.", target: "primary-actions" },
+    { title: "Readiness Checks & Field Tools", desc: "Walk through facility checklists with photos, generate corrective action plans, respond to citations — all free, unlimited.", target: "primary-actions" },
+    { title: "Track & Export Everything", desc: "Every review, score trend, and report is saved here. Export PDFs, email results, or book an expert consultation.", target: "recent-activity" },
   ];
   const startTour = () => { setTab("dashboard"); setTourStep(0); };
   const nextTour = () => { if (tourStep < TOUR_STEPS.length - 1) setTourStep(tourStep + 1); else setTourStep(-1); };
@@ -2291,8 +2288,8 @@ export default function RegLensApp() {
   const saveMeetings = (logs) => { setMeetingLogs(logs); try { localStorage.setItem("rl_meetings", JSON.stringify(logs)); } catch {} };
   const [meetingDraft, setMeetingDraft] = useState(null);
 
-  // Free tier tracking — 1 free compliance review, readiness checks are always free
-  const FREE_REVIEW_LIMIT = 1;
+  // Free tier tracking — 3 free compliance reviews, readiness checks are always free
+  const FREE_REVIEW_LIMIT = 3;
   const getFreeUsage = () => {
     try { return JSON.parse(localStorage.getItem("rl_free_usage")) || { reviews: 0 }; }
     catch { return { reviews: 0 }; }
@@ -3080,7 +3077,7 @@ export default function RegLensApp() {
 
           <div style={{ textAlign: "center", marginTop: "12px" }}>
             <button onClick={() => setAuthScreen(null)} style={{ background: "none", border: "none", color: t.textTertiary, fontSize: "13px", cursor: "pointer" }}>
-              Continue without account
+              Continue without saving — your reviews won't be stored
             </button>
           </div>
         </div>
@@ -3216,7 +3213,13 @@ export default function RegLensApp() {
               <div style={{ fontSize: "20px", fontWeight: 700 }}>Compliance Reviews</div>
               <button onClick={() => setShowPricing(false)} style={{ width: "28px", height: "28px", borderRadius: "50%", background: t.card, border: "none", color: t.textSecondary, fontSize: "14px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
             </div>
-            <div style={{ fontSize: "13px", color: t.textSecondary, marginBottom: "16px" }}>AI-powered document analysis. Credits never expire.</div>
+            <div style={{ fontSize: "13px", color: t.textSecondary, marginBottom: "10px" }}>AI-powered document analysis. Credits never expire.</div>
+            <div style={{ padding: "10px 14px", borderRadius: "10px", marginBottom: "16px", background: theme === "dark" ? "#1C1215" : "#FEF2F2", border: `1px solid ${theme === "dark" ? "#EF444420" : "#FECACA"}`, display: "flex", alignItems: "center", gap: "10px" }}>
+              <span style={{ fontSize: "18px", flexShrink: 0 }}>⚠️</span>
+              <div style={{ fontSize: "11px", color: theme === "dark" ? "#FCA5A5" : "#DC2626", lineHeight: 1.5 }}>
+                The average OSHA serious violation penalty is <strong>$16,131</strong>. One review could catch the gap that saves you 300x the cost.
+              </div>
+            </div>
 
             {[
               { tier: 1, name: "Single Review", price: "$49", reviews: 1, perReview: "$49", desc: "Try one compliance review on your document", savings: null },
@@ -3608,8 +3611,8 @@ export default function RegLensApp() {
           {/* ── Soft upgrade CTA (only shows after user has used free tier) ── */}
           {submissions.length >= 1 && !user && (
             <div style={{ ...card, border: "1px solid #34C75920", background: theme === "dark" ? "linear-gradient(145deg, #1A2A1A08, #1C1C1E)" : "linear-gradient(145deg, #F0FDF408, #FFFFFF)", marginTop: "8px", textAlign: "center", padding: "20px 16px" }}>
-              <div style={{ fontSize: "14px", fontWeight: 600, color: t.text, marginBottom: "4px" }}>You've used your free review</div>
-              <div style={{ fontSize: "12px", color: t.textSecondary, lineHeight: 1.5, marginBottom: "14px" }}>Create an account to save your results and get more reviews.</div>
+              <div style={{ fontSize: "14px", fontWeight: 600, color: t.text, marginBottom: "4px" }}>Save your review results</div>
+              <div style={{ fontSize: "12px", color: t.textSecondary, lineHeight: 1.5, marginBottom: "14px" }}>Create a free account to save reports, track score trends, and access your reviews across devices.</div>
               <button className="rl-tap rl-glow" onClick={() => setAuthScreen("signup")} style={{ width: "100%", padding: "13px", borderRadius: "12px", border: "none", background: t.green, color: theme === "dark" ? "#000" : "#fff", fontSize: "14px", fontWeight: 700, cursor: "pointer" }}>Create Free Account</button>
             </div>
           )}
@@ -3735,9 +3738,9 @@ export default function RegLensApp() {
               ) : (
                 <div style={{ ...card, border: "1px solid #F59E0B25", textAlign: "center", padding: "20px 16px" }}>
                   <div style={{ fontSize: "24px", marginBottom: "8px" }}>📄</div>
-                  <div style={{ fontSize: "15px", fontWeight: 600, marginBottom: "4px" }}>Free review used</div>
+                  <div style={{ fontSize: "15px", fontWeight: 600, marginBottom: "4px" }}>Free reviews used</div>
                   <div style={{ fontSize: "12px", color: t.textSecondary, lineHeight: 1.5, marginBottom: "14px" }}>
-                    {!user ? "Create an account and purchase credits to run more compliance reviews." : "Purchase credits to continue reviewing EHS programs."}
+                    {!user ? "Create an account and purchase credits to keep reviewing your EHS programs." : "Purchase credits to continue reviewing EHS programs."}
                   </div>
                   <button className="rl-tap rl-glow" onClick={() => !user ? setAuthScreen("signup") : setShowPricing(true)} style={{ width: "100%", padding: "13px", borderRadius: "12px", border: "none", background: t.green, color: theme === "dark" ? "#000" : "#fff", fontSize: "14px", fontWeight: 700, cursor: "pointer" }}>
                     {!user ? "Create Free Account" : "View Plans"}
@@ -3939,39 +3942,47 @@ export default function RegLensApp() {
             })}
           </div>
 
-          {/* ── Expert Consultation CTA (score < 70) ── */}
-          {result.score < 70 && result._source !== "error" && (
+          {/* ── Expert Consultation CTA — shown on all review results ── */}
+          {result._source !== "error" && (() => {
+            const isUrgent = result.score < 70;
+            const critCount = (result.findings || []).filter(f => f.severity === "Critical").length;
+            const majorCount = (result.findings || []).filter(f => f.severity === "Major").length;
+            return (
             <div style={{
               ...card,
-              background: theme === "dark" ? "linear-gradient(135deg, #1a0a0a, #2A1215)" : "linear-gradient(135deg, #FEF2F2, #FFF1F2)",
-              border: "1px solid #EF444435",
+              background: isUrgent
+                ? (theme === "dark" ? "linear-gradient(135deg, #1a0a0a, #2A1215)" : "linear-gradient(135deg, #FEF2F2, #FFF1F2)")
+                : (theme === "dark" ? "linear-gradient(135deg, #0a1a14, #122A1E)" : "linear-gradient(135deg, #F0FDF4, #ECFDF5)"),
+              border: isUrgent ? "1px solid #EF444435" : `1px solid ${t.green}25`,
               padding: "20px",
               position: "relative",
               overflow: "hidden",
             }}>
-              {/* Subtle glow accent */}
-              <div style={{ position: "absolute", top: "-30px", right: "-30px", width: "100px", height: "100px", borderRadius: "50%", background: "radial-gradient(circle, #EF444415, transparent)", pointerEvents: "none" }} />
-              
+              <div style={{ position: "absolute", top: "-30px", right: "-30px", width: "100px", height: "100px", borderRadius: "50%", background: isUrgent ? "radial-gradient(circle, #EF444415, transparent)" : `radial-gradient(circle, ${t.green}15, transparent)`, pointerEvents: "none" }} />
+
               <div style={{ display: "flex", alignItems: "flex-start", gap: "14px", position: "relative", zIndex: 1 }}>
                 <div style={{
                   width: "48px", height: "48px", borderRadius: "14px",
-                  background: "linear-gradient(135deg, #EF444420, #F59E0B15)",
-                  border: `1px solid ${theme === "dark" ? "#EF444430" : "#FECACA"}`,
+                  background: isUrgent ? "linear-gradient(135deg, #EF444420, #F59E0B15)" : `linear-gradient(135deg, ${t.green}20, #3B82F615)`,
+                  border: `1px solid ${isUrgent ? (theme === "dark" ? "#EF444430" : "#FECACA") : t.green + "30"}`,
                   display: "flex", alignItems: "center", justifyContent: "center",
                   fontSize: "22px", flexShrink: 0,
-                }}>🛡️</div>
+                }}>{isUrgent ? "🛡️" : "💬"}</div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: "16px", fontWeight: 700, color: t.text, marginBottom: "4px" }}>
-                    This document needs attention
+                    {isUrgent ? "This document needs attention" : "Need help with these findings?"}
                   </div>
                   <div style={{ fontSize: "13px", color: t.textSecondary, lineHeight: 1.5, marginBottom: "4px" }}>
-                    Your score of <span style={{ color: "#EF4444", fontWeight: 700 }}>{result.score}</span> indicates 
-                    {result.score < 60 ? " significant compliance risk. " : " gaps that could surface in an audit. "}
-                    An EHS expert can help you build a prioritized remediation plan.
+                    {isUrgent
+                      ? <>Your score of <span style={{ color: "#EF4444", fontWeight: 700 }}>{result.score}</span> indicates {result.score < 60 ? " significant compliance risk. " : " gaps that could surface in an audit. "}An EHS expert can help you build a prioritized remediation plan.</>
+                      : <>A CSP-certified expert can walk you through your {critCount + majorCount > 0 ? `${critCount + majorCount} findings` : "results"} and help you build a remediation roadmap.</>
+                    }
                   </div>
-                  <div style={{ fontSize: "11px", color: t.textSecondary, marginBottom: "14px" }}>
-                    {(result.findings || []).filter(f => f.severity === "Critical").length} critical + {(result.findings || []).filter(f => f.severity === "Major").length} major findings require expert guidance
-                  </div>
+                  {(critCount + majorCount) > 0 && (
+                    <div style={{ fontSize: "11px", color: t.textSecondary, marginBottom: "14px" }}>
+                      {critCount} critical + {majorCount} major findings
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -3980,7 +3991,7 @@ export default function RegLensApp() {
                 style={{
                   width: "100%", padding: "14px", borderRadius: "12px",
                   border: "none", cursor: "pointer",
-                  background: "linear-gradient(135deg, #EF4444, #DC2626)",
+                  background: isUrgent ? "linear-gradient(135deg, #EF4444, #DC2626)" : `linear-gradient(135deg, ${t.green}, #15803d)`,
                   color: "#fff", fontSize: "15px", fontWeight: 700,
                   display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
                   position: "relative", zIndex: 1,
@@ -3996,7 +4007,8 @@ export default function RegLensApp() {
                 <span style={{ fontSize: "9px", color: t.textSecondary }}>CSP-certified · 13+ years federal & private sector EHS experience</span>
               </div>
             </div>
-          )}
+            );
+          })()}
 
           {/* Findings */}
           <div style={{ padding: "0 4px", marginBottom: "8px", marginTop: "16px" }}><span style={{ fontSize: "22px", fontWeight: 700 }}>Findings</span></div>

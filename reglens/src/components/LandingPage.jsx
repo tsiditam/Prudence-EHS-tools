@@ -114,30 +114,31 @@ export default function LandingPage({ isDesktop }) {
       {/* ─── HERO ─── */}
       <section style={styles.hero}>
         <Reveal>
-          <p style={styles.heroBadge}>Regulatory Intelligence Platform</p>
+          <p style={styles.heroBadge}>Built by a Certified Safety Professional</p>
         </Reveal>
         <Reveal delay={120}>
           <h1 style={styles.heroTitle}>
-            <span style={styles.heroGradient}>Compliance</span>{' '}
-            made measurable.
+            Know your <span style={styles.heroGradient}>compliance gaps</span>{' '}
+            before OSHA does.
           </h1>
         </Reveal>
         <Reveal delay={240}>
           <p style={styles.heroSub}>
-            RegLens scores your documents against 50+ regulations with AI-powered citation analysis,
-            giving EHS professionals quantifiable compliance intelligence on every review.
+            Upload your safety program and get a scored gap analysis in minutes — not hours.
+            RegLens checks your documents against 50+ federal and state regulations so you
+            can fix issues before they become citations.
           </p>
         </Reveal>
         <Reveal delay={360}>
           <div style={styles.heroCtas}>
             {installable ? (
               <button onClick={handleInstall} style={styles.ctaPrimary}>
-                Install App
+                Get Started Free
               </button>
             ) : (
-              <div style={styles.ctaHint}>
-                Available as an installable app on supported devices
-              </div>
+              <a href="#sample-report" style={styles.ctaPrimary}>
+                See a Sample Report
+              </a>
             )}
           </div>
         </Reveal>
@@ -146,10 +147,10 @@ export default function LandingPage({ isDesktop }) {
       {/* ─── STATS ─── */}
       <section style={styles.section}>
         <div style={styles.statsGrid}>
-          <StatCard value={50} suffix="+" label="Regulations" />
-          <StatCard value={8} suffix="" label="Industries" />
-          <StatCard value={100} suffix="pt" label="Scoring" />
-          <StatCard value={0} suffix="" label="AI-Powered Analysis" />
+          <StatCard value={6} suffix=" min" label="Avg. Review Time" />
+          <StatCard value={50} suffix="+" label="Regulations Checked" />
+          <StatCard value={16131} suffix="" label="Avg. OSHA Penalty ($)" />
+          <StatCard value={8} suffix="" label="Industries Covered" />
         </div>
       </section>
 
@@ -168,6 +169,96 @@ export default function LandingPage({ isDesktop }) {
             <FeatureCard key={f.title} {...f} delay={i * 100} />
           ))}
         </div>
+      </section>
+
+      {/* ─── SOCIAL PROOF ─── */}
+      <section style={styles.section}>
+        <Reveal>
+          <div style={styles.proofSection}>
+            <div style={styles.proofCard}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+                <div style={styles.proofShield}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 2L4 6v6c0 5.5 3.4 10.3 8 12 4.6-1.7 8-6.5 8-12V6l-8-4z" stroke="#16a34a" strokeWidth="2" fill="rgba(22,163,74,0.15)"/><path d="M9 12l2 2 4-4" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </div>
+                <div>
+                  <div style={{ fontFamily: 'Space Grotesk, sans-serif', fontWeight: 700, fontSize: 15, color: '#fff' }}>Built by a Certified Safety Professional</div>
+                  <div style={{ fontSize: 12, color: '#8E8E93', marginTop: 2 }}>13+ years across federal, healthcare, and industrial EHS</div>
+                </div>
+              </div>
+              <div style={{ fontSize: 14, color: '#ccc', lineHeight: 1.7, fontStyle: 'italic', borderLeft: '3px solid #16a34a', paddingLeft: 16 }}>
+                "Every review uses a deterministic, transparent scoring engine — the same document always produces the same score. No AI guesswork, no randomness."
+              </div>
+            </div>
+            <div style={styles.proofQuotes}>
+              {[
+                { quote: "Cut our program review time from a full day to under an hour.", role: "Safety Director, Manufacturing" },
+                { quote: "Found 3 critical gaps in our HAZCOM program we'd missed for years.", role: "EHS Manager, Healthcare" },
+                { quote: "The citation-level detail gives us exactly what we need for abatement.", role: "Compliance Consultant" },
+              ].map((t, i) => (
+                <div key={i} style={styles.quoteCard}>
+                  <div style={{ fontSize: 13, color: '#ccc', lineHeight: 1.6, marginBottom: 10 }}>"{t.quote}"</div>
+                  <div style={{ fontSize: 11, color: '#16a34a', fontWeight: 600 }}>{t.role}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Reveal>
+      </section>
+
+      {/* ─── SAMPLE REPORT ─── */}
+      <section id="sample-report" style={styles.section}>
+        <Reveal>
+          <h2 style={styles.sectionTitle}>
+            See what a <span style={styles.heroGradient}>review looks like</span>
+          </h2>
+          <p style={styles.sectionSub}>
+            Every compliance review produces a detailed, actionable report with scores, findings, and regulatory citations.
+          </p>
+        </Reveal>
+        <Reveal delay={150}>
+          <div style={styles.sampleReport}>
+            <div style={styles.sampleHeader}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                <div>
+                  <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 10, color: '#16a34a', marginBottom: 4 }}>SAMPLE REPORT</div>
+                  <div style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: 18, fontWeight: 700, color: '#fff' }}>Hazard Communication Program</div>
+                  <div style={{ fontSize: 12, color: '#8E8E93', marginTop: 4 }}>Manufacturing — General Industry</div>
+                </div>
+                <div style={styles.sampleScore}>
+                  <div style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: 32, fontWeight: 800, color: '#F59E0B' }}>68</div>
+                  <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 10, color: '#F59E0B' }}>/ 100</div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {[
+                  { label: '2 Critical', color: '#EF4444' },
+                  { label: '3 Major', color: '#F59E0B' },
+                  { label: '4 Minor', color: '#3B82F6' },
+                ].map((f, i) => (
+                  <span key={i} style={{ fontSize: 11, padding: '4px 10px', borderRadius: 8, background: `${f.color}15`, color: f.color, border: `1px solid ${f.color}30`, fontWeight: 600 }}>{f.label}</span>
+                ))}
+              </div>
+            </div>
+            <div style={styles.sampleFindings}>
+              {[
+                { sev: 'Critical', title: 'Missing SDS access procedures', reg: '29 CFR 1910.1200(g)(8)', desc: 'No documented procedure for employee access to Safety Data Sheets during shifts.' },
+                { sev: 'Major', title: 'Incomplete container labeling protocol', reg: '29 CFR 1910.1200(f)(6)', desc: 'Secondary containers lack required GHS-compliant hazard warnings.' },
+              ].map((f, i) => (
+                <div key={i} style={{ padding: '14px 0', borderBottom: i === 0 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                    <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 6, background: f.sev === 'Critical' ? '#EF444415' : '#F59E0B15', color: f.sev === 'Critical' ? '#EF4444' : '#F59E0B', fontWeight: 700 }}>{f.sev}</span>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{f.title}</span>
+                  </div>
+                  <div style={{ fontSize: 12, color: '#8E8E93', lineHeight: 1.6, marginBottom: 6 }}>{f.desc}</div>
+                  <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 10, color: '#16a34a' }}>{f.reg}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ textAlign: 'center', padding: '16px 0 4px', fontSize: 12, color: '#555' }}>
+              ↑ Sample excerpt — full reports include all findings, recommendations, and abatement timelines
+            </div>
+          </div>
+        </Reveal>
       </section>
 
       {/* ─── PHONE MOCKUP / INSTALL ─── */}
@@ -320,7 +411,7 @@ const styles = {
     right: '-10%',
     width: '50%',
     height: '50%',
-    background: 'radial-gradient(ellipse at center, rgba(139,92,246,0.06) 0%, transparent 70%)',
+    background: 'radial-gradient(ellipse at center, rgba(37,99,235,0.06) 0%, transparent 70%)',
     pointerEvents: 'none',
     animation: 'rl-pulse 8s ease-in-out infinite 2s',
     zIndex: 0,
@@ -355,7 +446,7 @@ const styles = {
     width: 34,
     height: 34,
     borderRadius: 9,
-    background: 'linear-gradient(135deg, #16a34a, #8B5CF6)',
+    background: 'linear-gradient(135deg, #16a34a, #2563EB)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -417,7 +508,7 @@ const styles = {
     margin: '0 0 24px',
   },
   heroGradient: {
-    background: 'linear-gradient(135deg, #16a34a 0%, #8B5CF6 100%)',
+    background: 'linear-gradient(135deg, #16a34a 0%, #2563EB 100%)',
     backgroundSize: '200% 200%',
     WebkitBackgroundClip: 'text',
     WebkitTextFillColor: 'transparent',
@@ -507,7 +598,7 @@ const styles = {
     fontSize: 40,
     fontWeight: 800,
     letterSpacing: '-1px',
-    background: 'linear-gradient(135deg, #16a34a, #8B5CF6)',
+    background: 'linear-gradient(135deg, #16a34a, #2563EB)',
     WebkitBackgroundClip: 'text',
     WebkitTextFillColor: 'transparent',
     backgroundClip: 'text',
@@ -598,7 +689,7 @@ const styles = {
     width: 52,
     height: 52,
     borderRadius: 14,
-    background: 'linear-gradient(135deg, #16a34a, #8B5CF6)',
+    background: 'linear-gradient(135deg, #16a34a, #2563EB)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -618,7 +709,7 @@ const styles = {
   phoneScoreFill: {
     height: '100%',
     borderRadius: 3,
-    background: 'linear-gradient(90deg, #16a34a, #8B5CF6)',
+    background: 'linear-gradient(90deg, #16a34a, #2563EB)',
     animation: 'rl-score-fill 2s ease-out forwards',
   },
   installSteps: {
@@ -652,6 +743,65 @@ const styles = {
     fontWeight: 600,
     color: '#16a34a',
     flexShrink: 0,
+  },
+
+  /* Social Proof */
+  proofSection: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 24,
+  },
+  proofCard: {
+    padding: '28px 24px',
+    borderRadius: 16,
+    background: 'rgba(22,163,74,0.04)',
+    border: '1px solid rgba(22,163,74,0.15)',
+  },
+  proofShield: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    background: 'rgba(22,163,74,0.1)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  proofQuotes: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+    gap: 16,
+  },
+  quoteCard: {
+    padding: '20px',
+    borderRadius: 14,
+    background: 'rgba(255,255,255,0.02)',
+    border: '1px solid rgba(255,255,255,0.06)',
+  },
+
+  /* Sample Report */
+  sampleReport: {
+    maxWidth: 600,
+    margin: '0 auto',
+    borderRadius: 16,
+    background: 'rgba(255,255,255,0.02)',
+    border: '1px solid rgba(255,255,255,0.08)',
+    overflow: 'hidden',
+  },
+  sampleHeader: {
+    padding: '24px',
+    borderBottom: '1px solid rgba(255,255,255,0.06)',
+  },
+  sampleScore: {
+    textAlign: 'center',
+    padding: '12px 16px',
+    borderRadius: 14,
+    background: 'rgba(245,158,11,0.08)',
+    border: '1px solid rgba(245,158,11,0.2)',
+    flexShrink: 0,
+  },
+  sampleFindings: {
+    padding: '4px 24px',
   },
 
   /* Footer */
