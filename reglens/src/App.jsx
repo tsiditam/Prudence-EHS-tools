@@ -2569,6 +2569,7 @@ export default function RegLensApp() {
     };
     setSubmissions((prev) => [sub, ...prev]);
     setProcessing(false);
+    setTab("report");
 
     supabase.trackEvent("review_completed", { program_type: type, industry: selectedIndustry, score: sr.score, band: sr.band, findings_count: (parsed.findings || []).length });
 
