@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="108" fill="#080A0E"/>
+  <circle cx="256" cy="230" r="128" fill="none" stroke="#DC2626" stroke-width="8" opacity="0.3"/>
+  <circle cx="256" cy="230" r="72" fill="#DC2626" opacity="0.15"/>
+  <text x="256" y="262" text-anchor="middle" font-family="system-ui, sans-serif" font-weight="800" font-size="148" fill="#FFFFFF">OR</text>
+  <text x="256" y="420" text-anchor="middle" font-family="system-ui, sans-serif" font-weight="600" font-size="42" fill="rgba(255,255,255,0.4)" letter-spacing="8">OSHAREADY</text>
+</svg>

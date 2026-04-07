@@ -11,6 +11,8 @@
  */
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useMediaQuery } from './hooks/useMediaQuery'
+import LandingPage from './components/LandingPage'
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // HydroScan — Drinking Water Quality Intelligence
@@ -618,6 +620,9 @@ function AboutPanel({open,onClose}){const[v,setV]=useState(false);const[s,setS]=
 /* MAIN COMPONENT                                                      */
 /* ═══════════════════════════════════════════════════════════════════ */
 export default function HydroScan() {
+  const { isDesktop, isStandalone } = useMediaQuery()
+  if (isDesktop && !isStandalone) return <LandingPage isDesktop={true} />
+
   const [isReturning, setIsReturning] = useState(false);
   const [view, setView] = useState("dash");
   const [navOpen, setNavOpen] = useState(false);

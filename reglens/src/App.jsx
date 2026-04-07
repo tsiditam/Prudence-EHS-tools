@@ -11,6 +11,8 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useMediaQuery } from './hooks/useMediaQuery'
+import LandingPage from './components/LandingPage'
 
 // ─── Supabase Client ───
 // CONFIGURE: Replace these with your Supabase project values
@@ -2102,6 +2104,9 @@ function localValidate(text, type) {
 
 // ─── App ───
 export default function RegLensApp() {
+  const { isDesktop, isStandalone } = useMediaQuery()
+  if (isDesktop && !isStandalone) return <LandingPage isDesktop={true} />
+
   const [tab, setTab] = useState("dashboard");
 
   // Theme — persists in localStorage
