@@ -4542,7 +4542,6 @@ export default function RegLensApp() {
 
                 <button
                   className="rl-tap rl-glow"
-                  disabled={citationLoading}
                   onClick={async () => {
                     setCitationLoading(true);
                     try {
