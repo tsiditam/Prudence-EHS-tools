@@ -75,7 +75,7 @@ const I = ({n, s=18, c="currentColor", w=1.8}) => {
   return d[n] || null;
 };
 
-const VER = "1.0.0";
+const VER = "1.0.0-beta";
 const PLAT_MODULES = [
   { id:"atmosiq", n:"AtmosIQ", i:"🌬️" },
   { id:"hydroscan", n:"HydroScan", i:"💧", on:true },

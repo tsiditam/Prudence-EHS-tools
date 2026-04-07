@@ -13,7 +13,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useMediaQuery } from './hooks/useMediaQuery'
 import LandingPage from './components/LandingPage'
-const VER = "1.0.0";
+const VER = "1.0.0-beta";
 const PLAT = [{id:"atmosiq",n:"AtmosIQ",i:"🌬️"},{id:"hydroscan",n:"HydroScan",i:"💧"},{id:"safestep",n:"SafeStep",i:"🛡️"},{id:"oshaready",n:"OSHAready",i:"🔴",on:true}];
 
 const SITES=[{id:"s1",name:"Main Plant",type:"Manufacturing",emp:145,risk:"high"},{id:"s2",name:"Warehouse",type:"Distribution",emp:62,risk:"medium"},{id:"s3",name:"Corporate Office",type:"Office",emp:38,risk:"low"}];
