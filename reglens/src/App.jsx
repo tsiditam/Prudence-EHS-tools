@@ -2827,7 +2827,7 @@ export default function RegLensApp() {
         }
         
         @media (display-mode: standalone) {
-          body { padding-top: env(safe-area-inset-top, 0px); }
+          body { padding-top: 0; }
         }
         
         html { scroll-behavior: smooth; }
@@ -3050,44 +3050,50 @@ export default function RegLensApp() {
         </div>
       )}
 
-      <div className="rl-container">
-
-      {/* HEADER */}
-      <div style={{ padding: "16px 20px 12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <button className="rl-tap" onClick={() => setTab("dashboard")} style={{ display: "flex", alignItems: "center", gap: "10px", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
-          <svg width="32" height="32" viewBox="0 0 120 120" style={{ flexShrink: 0 }} className="rl-logo-scan">
-            <circle cx="52" cy="52" r="34" fill="none" stroke="#34C759" strokeWidth="4"/>
-            <line x1="36" y1="40" x2="62" y2="40" stroke="#34C759" strokeWidth="3" strokeLinecap="round" opacity="0.7"/>
-            <line x1="36" y1="50" x2="68" y2="50" stroke="#34C759" strokeWidth="3" strokeLinecap="round" opacity="0.5"/>
-            <line x1="36" y1="60" x2="56" y2="60" stroke="#34C759" strokeWidth="3" strokeLinecap="round" opacity="0.3"/>
-            <polyline points="64,48 67,52 74,42" fill="none" stroke="#34C759" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
-            <line x1="76" y1="76" x2="106" y2="106" stroke="#34C759" strokeWidth="6" strokeLinecap="round"/>
-          </svg>
-          <div style={{ textAlign: "left" }}>
-            <div style={{ fontSize: "20px", fontWeight: 700, color: t.text, letterSpacing: "-0.3px" }}>
-              Reg<span style={{ color: t.green }}>Lens</span>
-              {adminMode && <span style={{ fontSize: "8px", fontWeight: 700, color: "#F59E0B", marginLeft: "6px", padding: "1px 5px", borderRadius: "4px", background: "#F59E0B15", border: "1px solid #F59E0B30", verticalAlign: "middle" }}>ADMIN</span>}
+      {/* ══════ TOP BAR ══════ */}
+      <header style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 100, background: theme === "dark" ? "rgba(0,0,0,0.88)" : "rgba(245,245,247,0.88)", backdropFilter: "blur(20px) saturate(1.8)", WebkitBackdropFilter: "blur(20px) saturate(1.8)", borderBottom: `1px solid ${t.border}`, paddingTop: "env(safe-area-inset-top, 0px)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", height: 50, padding: "0 16px", maxWidth: 430, margin: "0 auto" }}>
+          <button className="rl-tap" onClick={() => setTab("dashboard")} style={{ display: "flex", alignItems: "center", gap: "8px", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+            <svg width="26" height="26" viewBox="0 0 120 120" style={{ flexShrink: 0 }}>
+              <circle cx="52" cy="52" r="34" fill="none" stroke={t.green} strokeWidth="4"/>
+              <line x1="36" y1="40" x2="62" y2="40" stroke={t.green} strokeWidth="3" strokeLinecap="round" opacity="0.7"/>
+              <line x1="36" y1="50" x2="68" y2="50" stroke={t.green} strokeWidth="3" strokeLinecap="round" opacity="0.5"/>
+              <line x1="36" y1="60" x2="56" y2="60" stroke={t.green} strokeWidth="3" strokeLinecap="round" opacity="0.3"/>
+              <polyline points="64,48 67,52 74,42" fill="none" stroke={t.green} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+              <line x1="76" y1="76" x2="106" y2="106" stroke={t.green} strokeWidth="6" strokeLinecap="round"/>
+            </svg>
+            <div>
+              <div style={{ fontSize: "17px", fontWeight: 700, color: t.text, letterSpacing: "-0.3px", lineHeight: 1.1 }}>
+                Reg<span style={{ color: t.green }}>Lens</span>
+                {adminMode && <span style={{ fontSize: "7px", fontWeight: 700, color: "#F59E0B", marginLeft: "5px", padding: "1px 4px", borderRadius: "3px", background: "#F59E0B15", border: "1px solid #F59E0B30", verticalAlign: "middle" }}>ADMIN</span>}
+              </div>
+              <div style={{ fontSize: "9px", color: t.textSecondary, cursor: "default" }} onClick={(e) => {
+                e.stopPropagation();
+                const next = adminTaps + 1;
+                setAdminTaps(next);
+                if (next >= 5 && !adminMode) { activateAdmin(); setAdminTaps(0); }
+                setTimeout(() => setAdminTaps(0), 3000);
+              }}>by Prudence EHS</div>
             </div>
-            <div style={{ fontSize: "10px", color: t.textSecondary, cursor: "default" }} onClick={(e) => {
-              e.stopPropagation();
-              const next = adminTaps + 1;
-              setAdminTaps(next);
-              if (next >= 5 && !adminMode) { activateAdmin(); setAdminTaps(0); }
-              setTimeout(() => setAdminTaps(0), 3000);
-            }}>by Prudence EHS</div>
-            <div style={{ fontSize: "7px", color: t.textTertiary, letterSpacing: "0.3px" }}>Built by a Certified Safety Professional</div>
-          </div>
-        </button>
-        {user && (
+          </button>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <div style={{ textAlign: "right" }}>
-              <div style={{ fontSize: "11px", color: t.text, fontWeight: 600 }}>{user.full_name}</div>
-              <div style={{ fontSize: "9px", color: t.textSecondary }}>{user.review_credits || 0} review credits</div>
-            </div>
-            <button onClick={() => { supabase.signOut(); setUser(null); setTab("dashboard"); }} style={{ background: t.card, border: "none", color: t.textSecondary, fontSize: "10px", padding: "4px 8px", borderRadius: "6px", cursor: "pointer" }}>Log out</button>
+            {user ? (
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <div style={{ width: 30, height: 30, borderRadius: "50%", background: `${t.green}20`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: 700, color: t.green }}>{(user.full_name || user.email || "U").charAt(0).toUpperCase()}</div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: "11px", color: t.text, fontWeight: 600, maxWidth: 90, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.full_name?.split(" ")[0] || "User"}</div>
+                  <div style={{ fontSize: "8px", color: t.textSecondary }}>{user.review_credits || 0} credits</div>
+                </div>
+              </div>
+            ) : (
+              <button onClick={() => setAuthScreen("login")} style={{ padding: "6px 12px", borderRadius: "8px", border: `1px solid ${t.green}40`, background: "transparent", color: t.green, fontSize: "12px", fontWeight: 600, cursor: "pointer" }}>Sign in</button>
+            )}
           </div>
-        )}
-      </div>
+        </div>
+      </header>
+      <div style={{ height: "calc(50px + env(safe-area-inset-top, 0px))" }} />{/* header spacer */}
+
+      <div className="rl-container">
 
       {/* ══════ OFFLINE BANNER ══════ */}
       {!isOnline && (
