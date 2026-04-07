@@ -125,24 +125,14 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
           atmos<span style={{ color: C.cyan }}>IQ</span>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          <button onClick={onStartDemo} style={{
-            padding: '8px 20px', background: 'transparent',
-            border: `1px solid ${C.border}`, borderRadius: 8,
-            color: C.sub, fontSize: 13, fontWeight: 500, cursor: 'pointer',
-            transition: 'all 0.25s',
-          }}
-            onMouseEnter={e => { e.target.style.borderColor = C.dim; e.target.style.color = C.text }}
-            onMouseLeave={e => { e.target.style.borderColor = C.border; e.target.style.color = C.sub }}>
-            Demo
-          </button>
-          <button onClick={onStartNew} style={{
+          <button onClick={() => { const el = document.getElementById('install-section'); if (el) el.scrollIntoView({ behavior: 'smooth' }) }} style={{
             padding: '8px 20px',
             background: 'linear-gradient(135deg, #F5C542, #F59E0B)',
             border: 'none', borderRadius: 8,
             color: '#0A0A10', fontSize: 13, fontWeight: 700, cursor: 'pointer',
             transition: 'all 0.25s',
           }}>
-            Get Started
+            Get the App
           </button>
         </div>
       </nav>
@@ -200,7 +190,7 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
 
           {/* CTAs */}
           <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <button onClick={onStartNew} style={{
+            <button onClick={() => { if (window._pwaPrompt) { window._pwaPrompt.prompt(); window._pwaPrompt.userChoice.then(() => { window._pwaPrompt = null }) } else { const el = document.getElementById('install-section'); if (el) el.scrollIntoView({ behavior: 'smooth' }) } }} style={{
               padding: '17px 44px',
               background: 'linear-gradient(135deg, #F5C542, #F59E0B)',
               border: 'none', borderRadius: 14,
@@ -212,9 +202,9 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
             }}
               onMouseDown={e => e.target.style.transform = 'scale(0.96)'}
               onMouseUp={e => e.target.style.transform = 'scale(1)'}>
-              Start Assessment
+              Download the App
             </button>
-            <button onClick={onStartDemo} style={{
+            <button onClick={() => { const el = document.getElementById('install-section'); if (el) el.scrollIntoView({ behavior: 'smooth' }) }} style={{
               padding: '17px 44px',
               background: 'rgba(255,255,255,0.03)',
               border: `1px solid ${C.border}`, borderRadius: 14,
@@ -225,7 +215,7 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
               onMouseLeave={e => { e.target.style.borderColor = C.border; e.target.style.background = 'rgba(255,255,255,0.03)' }}
               onMouseDown={e => e.target.style.transform = 'scale(0.96)'}
               onMouseUp={e => e.target.style.transform = 'scale(1)'}>
-              Interactive Demo
+              How It Works
             </button>
           </div>
         </div>
@@ -377,7 +367,7 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
                 <div style={{ fontSize: 15, color: C.sub, lineHeight: 1.75, marginBottom: 24 }}>
                   CO2 at 1,180 ppm with damper closed. Moisture intrusion with visible mold. 6-10 occupants with building-related symptoms. See exactly how AtmosIQ scores it, builds causal chains, and generates the sampling plan.
                 </div>
-                <button onClick={onStartDemo} style={{
+                <button onClick={() => { const el = document.getElementById('install-section'); if (el) el.scrollIntoView({ behavior: 'smooth' }) }} style={{
                   padding: '13px 30px',
                   background: 'linear-gradient(135deg, rgba(139,92,246,0.1), rgba(34,211,238,0.1))',
                   border: `1px solid rgba(139,92,246,0.25)`,
@@ -386,7 +376,7 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
                 }}
                   onMouseEnter={e => e.target.style.background = 'linear-gradient(135deg, rgba(139,92,246,0.18), rgba(34,211,238,0.18))'}
                   onMouseLeave={e => e.target.style.background = 'linear-gradient(135deg, rgba(139,92,246,0.1), rgba(34,211,238,0.1))'}>
-                  Explore Full Report →
+                  Get the App →
                 </button>
               </div>
             </div>
@@ -569,6 +559,69 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
         )}
       </Section>
 
+      {/* ── Get the App ── */}
+      <Section style={{ padding: dk ? '100px 56px' : '60px 20px', textAlign: 'center' }}>
+        {(inView) => (
+          <div id="install-section" style={{
+            ...reveal(inView),
+            maxWidth: 900, margin: '0 auto',
+            display: 'flex', flexDirection: dk ? 'row' : 'column',
+            alignItems: 'center', gap: dk ? 64 : 32,
+            background: `linear-gradient(135deg, ${C.card}, rgba(245,197,66,0.03))`,
+            border: `1px solid ${C.border}`, borderRadius: dk ? 28 : 20,
+            padding: dk ? '56px 60px' : '36px 24px',
+            position: 'relative', overflow: 'hidden',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
+          }}>
+            <div style={{ position: 'absolute', bottom: -60, left: -60, width: 300, height: 300, borderRadius: '50%', background: 'radial-gradient(circle, rgba(245,197,66,0.05) 0%, transparent 70%)', pointerEvents: 'none' }} />
+            <div style={{ position: 'absolute', top: -40, right: -40, width: 200, height: 200, borderRadius: '50%', background: 'radial-gradient(circle, rgba(139,92,246,0.04) 0%, transparent 70%)', pointerEvents: 'none' }} />
+            {/* Phone mockup */}
+            <div style={{
+              ...reveal(inView, 0.15), flexShrink: 0,
+              width: dk ? 160 : 120, height: dk ? 280 : 210,
+              background: C.surface, borderRadius: dk ? 28 : 20,
+              border: `2px solid ${C.border}`,
+              display: 'flex', flexDirection: 'column', alignItems: 'center',
+              justifyContent: 'center', gap: 8, position: 'relative',
+              boxShadow: '0 16px 48px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.03) inset',
+            }}>
+              <div style={{ position: 'absolute', top: 10, width: 40, height: 4, borderRadius: 2, background: C.border }} />
+              <div style={{ ...display, fontSize: dk ? 22 : 16, fontWeight: 700 }}>a<span style={{ color: C.cyan }}>IQ</span></div>
+              <div style={{ width: '60%', height: 3, borderRadius: 2, background: `linear-gradient(90deg, ${C.gold}, ${C.violet})`, opacity: 0.5 }} />
+              <div style={{ position: 'absolute', bottom: 8, width: 32, height: 3, borderRadius: 2, background: C.border }} />
+            </div>
+            {/* Text */}
+            <div style={{ ...reveal(inView, 0.25), textAlign: dk ? 'left' : 'center', flex: 1 }}>
+              <div style={{ fontSize: 10, color: C.gold, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 12, fontWeight: 600 }}>Mobile App</div>
+              <div style={{ ...display, fontSize: dk ? 30 : 22, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 12, lineHeight: 1.2 }}>
+                Take AtmosIQ{dk ? <br /> : ' '}Into the Field
+              </div>
+              <div style={{ fontSize: 14, color: C.sub, lineHeight: 1.7, marginBottom: 24, maxWidth: 400 }}>
+                Install AtmosIQ directly to your phone. No app store needed — works offline, feels native, and stays up to date automatically.
+              </div>
+              <button onClick={() => { if (window._pwaPrompt) { window._pwaPrompt.prompt(); window._pwaPrompt.userChoice.then(() => { window._pwaPrompt = null }) } else { alert("To install: tap your browser's Share button (iOS) or Menu → 'Add to Home Screen' (Android/Desktop)") } }} style={{
+                padding: '13px 30px',
+                background: `linear-gradient(135deg, ${C.gold}, #F59E0B)`,
+                border: 'none', borderRadius: 10,
+                color: '#050507', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                transition: 'all 0.25s', ...display,
+                display: 'inline-flex', alignItems: 'center', gap: 8,
+                boxShadow: '0 0 24px rgba(245,197,66,0.2)',
+              }}
+                onMouseDown={e => e.target.style.transform = 'scale(0.96)'}
+                onMouseUp={e => e.target.style.transform = 'scale(1)'}>
+                Install App
+              </button>
+              <div style={{ display: 'flex', gap: 16, marginTop: 16, justifyContent: dk ? 'flex-start' : 'center', flexWrap: 'wrap' }}>
+                {['Works Offline', 'Auto Updates', 'No Store Needed'].map((t, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: C.dim }}>✓ {t}</div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </Section>
+
       {/* ── Numbers ── */}
       <section style={{
         padding: dk ? '120px 56px' : '70px 20px',
@@ -688,10 +741,10 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
                 Spend less time on reports.{dk ? <br /> : ' '}More time on solutions.
               </h2>
               <p style={{ fontSize: 16, color: C.sub, marginBottom: 36, maxWidth: 480, margin: '0 auto 36px', lineHeight: 1.7 }}>
-                Free during beta. No credit card. No app store. Just open it and start your next assessment.
+                Install the app on your phone. No app store needed — works offline, auto-updates.
               </p>
               <div style={{ display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap' }}>
-                <button onClick={onStartNew} style={{
+                <button onClick={() => { if (window._pwaPrompt) { window._pwaPrompt.prompt() } else { const el = document.getElementById('install-section'); if (el) el.scrollIntoView({ behavior: 'smooth' }) } }} style={{
                   padding: '15px 40px',
                   background: 'linear-gradient(135deg, #F5C542, #F59E0B)',
                   border: 'none', borderRadius: 12,
@@ -702,17 +755,7 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
                 }}
                   onMouseDown={e => e.target.style.transform = 'scale(0.96)'}
                   onMouseUp={e => e.target.style.transform = 'scale(1)'}>
-                  Start Assessment
-                </button>
-                <button onClick={onStartDemo} style={{
-                  padding: '15px 40px', background: 'transparent',
-                  border: `1px solid ${C.border}`, borderRadius: 12,
-                  color: C.text, fontSize: 16, fontWeight: 600, cursor: 'pointer',
-                  transition: 'all 0.25s', ...display,
-                }}
-                  onMouseEnter={e => e.target.style.borderColor = C.dim}
-                  onMouseLeave={e => e.target.style.borderColor = C.border}>
-                  Try Demo
+                  Download the App
                 </button>
               </div>
             </div>

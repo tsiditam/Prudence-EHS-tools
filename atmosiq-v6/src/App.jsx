@@ -47,6 +47,9 @@ export default function App() {
   const { isDesktop, isStandalone } = useMediaQuery()
   const dk = isDesktop
 
+  // Desktop browsers → marketing landing page only (no app access)
+  if (dk && !isStandalone) return <LandingPage onStartNew={() => {}} onStartDemo={() => {}} isDesktop={true} />
+
   // Mobile users get the v5-style one-question-at-a-time experience
   if (!dk) return <MobileApp />
   const [loading, setLoading] = useState(true)
