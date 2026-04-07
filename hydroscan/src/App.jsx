@@ -13,6 +13,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useMediaQuery } from './hooks/useMediaQuery'
 import LandingPage from './components/LandingPage'
+import { trackEvent } from './utils/supabaseClient'
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // HydroScan — Drinking Water Quality Intelligence
@@ -714,6 +715,7 @@ export default function HydroScan() {
 
   // Save evaluation to history for trending
   const saveToHistory = async (ev, src) => {
+    trackEvent('assessment_completed', { tier: ev.tier, param_count: ev.findings.length, violations: ev.findings.filter(f=>f.violations.length>0).length });
     const entry = { ts: new Date().toISOString(), sourceId: `${src.src_type||"unknown"}-${src.b_type||""}`, tier: ev.tier, paramCount: ev.findings.length, violations: ev.findings.filter(f=>f.violations.length>0).map(f=>({id:f.param.id,name:f.param.name,value:f.value,unit:f.param.unit})), results: labResults.filter(r=>r.value||r.qualifier).map(r=>({id:r.id,value:r.value,qualifier:r.qualifier})) };
     const updated = [...history, entry].slice(-50);
     setHistory(updated);
@@ -757,9 +759,9 @@ export default function HydroScan() {
   const [smart, setSmart] = useState({source:"",building:"",trigger:"",concerns:[]});
   const [showDeepen, setShowDeepen] = useState(false);
 
-  const startSmart = () => { if(!tosAccepted){setShowTos(true);return;} setSmart({source:"",building:"",trigger:"",concerns:[]}); setSamplingPlan([]); setShowDeepen(false); setView("smart"); };
-  const startField = () => { if(!tosAccepted){setShowTos(true);return;} setMode("field"); setAssessor({}); setAqi(0); setSource({}); setSqi(0); setBuilding({}); setBqi(0); setPhotos({}); setLabResults([]); setEvaluation(null); setChains([]); setSamplingPlan([]); setRecs(null); setView("assessor"); };
-  const startLab = () => { if(!tosAccepted){setShowTos(true);return;} setMode("lab"); setLabResults([]); setSource({}); setBuilding({}); setEvaluation(null); setChains([]); setRecs(null); setView("labentry"); };
+  const startSmart = () => { if(!tosAccepted){setShowTos(true);return;} trackEvent('assessment_started',{type:'quick'}); setSmart({source:"",building:"",trigger:"",concerns:[]}); setSamplingPlan([]); setShowDeepen(false); setView("smart"); };
+  const startField = () => { if(!tosAccepted){setShowTos(true);return;} trackEvent('assessment_started',{type:'field'}); setMode("field"); setAssessor({}); setAqi(0); setSource({}); setSqi(0); setBuilding({}); setBqi(0); setPhotos({}); setLabResults([]); setEvaluation(null); setChains([]); setSamplingPlan([]); setRecs(null); setView("assessor"); };
+  const startLab = () => { if(!tosAccepted){setShowTos(true);return;} trackEvent('assessment_started',{type:'lab'}); setMode("lab"); setLabResults([]); setSource({}); setBuilding({}); setEvaluation(null); setChains([]); setRecs(null); setView("labentry"); };
 
   // Smart sampling plan — generates from just 4 answers
   const generateSmartPlan = () => {
