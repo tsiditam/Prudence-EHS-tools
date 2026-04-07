@@ -15,9 +15,9 @@ import { useMediaQuery } from './hooks/useMediaQuery'
 import LandingPage from './components/LandingPage'
 
 // ─── Supabase Client ───
-// CONFIGURE: Replace these with your Supabase project values
-const SUPABASE_URL = "YOUR_SUPABASE_URL"; // e.g. https://xxxxx.supabase.co
-const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
+// Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.local or Vercel env vars
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "YOUR_SUPABASE_URL";
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "YOUR_SUPABASE_ANON_KEY";
 
 const supabase = (() => {
   const headers = { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}`, "Content-Type": "application/json", Prefer: "return=representation" };
@@ -135,6 +135,22 @@ const supabase = (() => {
     uploadPhoto,
     createPhotoRecord: (data) => query("audit_photos", "POST", data),
     getAuditPhotos: (auditId) => query("audit_photos", "GET", null, `?audit_id=eq.${auditId}`),
+    // Analytics — fire-and-forget, never blocks UI
+    trackEvent: (eventType, eventData = {}) => {
+      if (!isConfigured) return;
+      try {
+        const sessionId = sessionStorage.getItem("rl_sid") || (() => {
+          const id = crypto.randomUUID();
+          sessionStorage.setItem("rl_sid", id);
+          return id;
+        })();
+        query("analytics_events", "POST", {
+          session_id: sessionId,
+          event_type: eventType,
+          event_data: eventData,
+        }).catch(() => {});
+      } catch {}
+    },
   };
 })();
 // Set self-reference for internal calls
@@ -2161,6 +2177,69 @@ export default function RegLensApp() {
   }, [showSplash]);
 
   // Onboarding — progressive disclosure system
+
+  // ─── Online/Offline state ───
+  const [isOnline, setIsOnline] = useState(() => typeof navigator !== "undefined" ? navigator.onLine : true);
+  const [showOfflineBanner, setShowOfflineBanner] = useState(false);
+  const [syncPending, setSyncPending] = useState(false);
+
+  useEffect(() => {
+    const goOnline = () => {
+      setIsOnline(true);
+      setShowOfflineBanner(false);
+      // Flush sync queue when back online
+      flushSyncQueue();
+    };
+    const goOffline = () => {
+      setIsOnline(false);
+      setShowOfflineBanner(true);
+    };
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
+
+    // Listen for SW sync requests
+    if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.addEventListener("message", (e) => {
+        if (e.data?.type === "SYNC_REQUESTED") flushSyncQueue();
+      });
+    }
+
+    return () => {
+      window.removeEventListener("online", goOnline);
+      window.removeEventListener("offline", goOffline);
+    };
+  }, []);
+
+  // Sync queue — queues Supabase writes made while offline
+  function getSyncQueue() {
+    try { return JSON.parse(localStorage.getItem("rl_sync_queue")) || []; } catch { return []; }
+  }
+  function addToSyncQueue(action) {
+    const queue = getSyncQueue();
+    queue.push({ ...action, queuedAt: new Date().toISOString() });
+    localStorage.setItem("rl_sync_queue", JSON.stringify(queue));
+    setSyncPending(true);
+  }
+  async function flushSyncQueue() {
+    if (!supabase.isConfigured) return;
+    const queue = getSyncQueue();
+    if (queue.length === 0) return;
+    setSyncPending(true);
+    const failed = [];
+    for (const item of queue) {
+      try {
+        if (item.action === "createReview") await supabase.createReview(item.data);
+        else if (item.action === "createAudit") await supabase.createAudit(item.data);
+        else if (item.action === "createClient") await supabase.createClient(item.data);
+      } catch {
+        failed.push(item);
+      }
+    }
+    localStorage.setItem("rl_sync_queue", JSON.stringify(failed));
+    setSyncPending(failed.length > 0);
+  }
+
+  // Onboarding — progressive disclosure system (continued)
   const [onboarding, setOnboarding] = useState(() => {
     try { return JSON.parse(localStorage.getItem("rl_onboarding")) || {}; } catch { return {}; }
   });
@@ -2233,12 +2312,9 @@ export default function RegLensApp() {
   // Guided tour
   const [tourStep, setTourStep] = useState(-1); // -1 = not active
   const TOUR_STEPS = [
-    { title: "Compliance Review", desc: "Upload your safety program and get an AI-powered gap analysis scored against OSHA/EPA standards. Your first review is free.", target: "primary-actions" },
-    { title: "Readiness Check", desc: "Walk through a guided facility checklist with photos, notes, and instant scoring. Always free, unlimited use.", target: "primary-actions" },
-    { title: "Citation Response", desc: "Paste an OSHA or EPA citation and get a draft abatement plan with specific corrective steps, timelines, and costs.", target: "citation-card" },
-    { title: "Secondary Tools", desc: "Job Hazard Analysis, Incident Reports, and Safety Meeting Logs — all free, all exportable, all audit-ready.", target: "secondary-tools" },
-    { title: "Score Trends", desc: "As you run more reviews, your dashboard shows score trends over time so you can track improvement.", target: "score-trends" },
-    { title: "Your Reports", desc: "Every review, readiness check, and report is saved here. Export, email, or revisit anytime.", target: "recent-activity" },
+    { title: "Run Your First Review", desc: "Upload any safety program and get a scored gap analysis against OSHA/EPA standards in minutes. Your first 3 reviews are free.", target: "primary-actions" },
+    { title: "Readiness Checks & Field Tools", desc: "Walk through facility checklists with photos, generate corrective action plans, respond to citations — all free, unlimited.", target: "primary-actions" },
+    { title: "Track & Export Everything", desc: "Every review, score trend, and report is saved here. Export PDFs, email results, or book an expert consultation.", target: "recent-activity" },
   ];
   const startTour = () => { setTab("dashboard"); setTourStep(0); };
   const nextTour = () => { if (tourStep < TOUR_STEPS.length - 1) setTourStep(tourStep + 1); else setTourStep(-1); };
@@ -2291,8 +2367,8 @@ export default function RegLensApp() {
   const saveMeetings = (logs) => { setMeetingLogs(logs); try { localStorage.setItem("rl_meetings", JSON.stringify(logs)); } catch {} };
   const [meetingDraft, setMeetingDraft] = useState(null);
 
-  // Free tier tracking — 1 free compliance review, readiness checks are always free
-  const FREE_REVIEW_LIMIT = 1;
+  // Free tier tracking — 3 free compliance reviews, readiness checks are always free
+  const FREE_REVIEW_LIMIT = 3;
   const getFreeUsage = () => {
     try { return JSON.parse(localStorage.getItem("rl_free_usage")) || { reviews: 0 }; }
     catch { return { reviews: 0 }; }
@@ -2430,6 +2506,7 @@ export default function RegLensApp() {
   }
 
   async function runReview(text, type) {
+    supabase.trackEvent("review_started", { program_type: type, industry: selectedIndustry });
     setProcessing(true);
     setValidation(null);
     setParseWarnings([]);
@@ -2492,6 +2569,9 @@ export default function RegLensApp() {
     };
     setSubmissions((prev) => [sub, ...prev]);
     setProcessing(false);
+    setTab("report");
+
+    supabase.trackEvent("review_completed", { program_type: type, industry: selectedIndustry, score: sr.score, band: sr.band, findings_count: (parsed.findings || []).length });
 
     // Achievement — first compliance review
     if (!hasSeen("ach_review")) {
@@ -2502,7 +2582,7 @@ export default function RegLensApp() {
     // Consume review credit
     consumeReviewCredit();
 
-    // Persist to Supabase
+    // Persist to Supabase (or queue for sync if offline)
     if (supabase.isConfigured) {
       const dbRow = {
         review_ref: refId,
@@ -2520,10 +2600,14 @@ export default function RegLensApp() {
         source: parsed._source || "api",
         status: "pending",
       };
-      const result = await supabase.createReview(dbRow);
-      if (result?.[0]?.id) {
-        sub.dbId = result[0].id;
-        setSubmissions((prev) => prev.map(s => s.id === refId ? { ...s, dbId: result[0].id } : s));
+      if (navigator.onLine) {
+        const result = await supabase.createReview(dbRow);
+        if (result?.[0]?.id) {
+          sub.dbId = result[0].id;
+          setSubmissions((prev) => prev.map(s => s.id === refId ? { ...s, dbId: result[0].id } : s));
+        }
+      } else {
+        addToSyncQueue({ action: "createReview", data: dbRow });
       }
     }
   }
@@ -2744,7 +2828,7 @@ export default function RegLensApp() {
         }
         
         @media (display-mode: standalone) {
-          body { padding-top: env(safe-area-inset-top, 0px); }
+          body { padding-top: 0; }
         }
         
         html { scroll-behavior: smooth; }
@@ -2781,6 +2865,12 @@ export default function RegLensApp() {
         @keyframes rlFadeIn {
           from { opacity: 0; transform: translateY(10px); }
           to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Offline pulse dot */
+        @keyframes rl-pulse-dot {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.3; }
         }
 
         /* Staggered fade for lists */
@@ -2961,44 +3051,83 @@ export default function RegLensApp() {
         </div>
       )}
 
+      {/* ══════ TOP BAR ══════ */}
+      <header style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 100, background: theme === "dark" ? "rgba(0,0,0,0.88)" : "rgba(245,245,247,0.88)", backdropFilter: "blur(20px) saturate(1.8)", WebkitBackdropFilter: "blur(20px) saturate(1.8)", borderBottom: `1px solid ${t.border}`, paddingTop: "env(safe-area-inset-top, 0px)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", height: 50, padding: "0 16px", maxWidth: 430, margin: "0 auto" }}>
+          <button className="rl-tap" onClick={() => setTab("dashboard")} style={{ display: "flex", alignItems: "center", gap: "8px", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+            <svg width="26" height="26" viewBox="0 0 120 120" style={{ flexShrink: 0 }}>
+              <circle cx="52" cy="52" r="34" fill="none" stroke={t.green} strokeWidth="4"/>
+              <line x1="36" y1="40" x2="62" y2="40" stroke={t.green} strokeWidth="3" strokeLinecap="round" opacity="0.7"/>
+              <line x1="36" y1="50" x2="68" y2="50" stroke={t.green} strokeWidth="3" strokeLinecap="round" opacity="0.5"/>
+              <line x1="36" y1="60" x2="56" y2="60" stroke={t.green} strokeWidth="3" strokeLinecap="round" opacity="0.3"/>
+              <polyline points="64,48 67,52 74,42" fill="none" stroke={t.green} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+              <line x1="76" y1="76" x2="106" y2="106" stroke={t.green} strokeWidth="6" strokeLinecap="round"/>
+            </svg>
+            <div>
+              <div style={{ fontSize: "17px", fontWeight: 700, color: t.text, letterSpacing: "-0.3px", lineHeight: 1.1 }}>
+                Reg<span style={{ color: t.green }}>Lens</span>
+                {adminMode && <span style={{ fontSize: "7px", fontWeight: 700, color: "#F59E0B", marginLeft: "5px", padding: "1px 4px", borderRadius: "3px", background: "#F59E0B15", border: "1px solid #F59E0B30", verticalAlign: "middle" }}>ADMIN</span>}
+              </div>
+              <div style={{ fontSize: "9px", color: t.textSecondary, cursor: "default" }} onClick={(e) => {
+                e.stopPropagation();
+                const next = adminTaps + 1;
+                setAdminTaps(next);
+                if (next >= 5 && !adminMode) { activateAdmin(); setAdminTaps(0); }
+                setTimeout(() => setAdminTaps(0), 3000);
+              }}>by Prudence EHS</div>
+            </div>
+          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            {user ? (
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <div style={{ width: 30, height: 30, borderRadius: "50%", background: `${t.green}20`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: 700, color: t.green }}>{(user.full_name || user.email || "U").charAt(0).toUpperCase()}</div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: "11px", color: t.text, fontWeight: 600, maxWidth: 90, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.full_name?.split(" ")[0] || "User"}</div>
+                  <div style={{ fontSize: "8px", color: t.textSecondary }}>{user.review_credits || 0} credits</div>
+                </div>
+              </div>
+            ) : (
+              <button onClick={() => setAuthScreen("login")} style={{ padding: "6px 12px", borderRadius: "8px", border: `1px solid ${t.green}40`, background: "transparent", color: t.green, fontSize: "12px", fontWeight: 600, cursor: "pointer" }}>Sign in</button>
+            )}
+          </div>
+        </div>
+      </header>
+      <div style={{ height: "calc(50px + env(safe-area-inset-top, 0px))" }} />{/* header spacer */}
+
       <div className="rl-container">
 
-      {/* HEADER */}
-      <div style={{ padding: "16px 20px 12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <button className="rl-tap" onClick={() => setTab("dashboard")} style={{ display: "flex", alignItems: "center", gap: "10px", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
-          <svg width="32" height="32" viewBox="0 0 120 120" style={{ flexShrink: 0 }} className="rl-logo-scan">
-            <circle cx="52" cy="52" r="34" fill="none" stroke="#34C759" strokeWidth="4"/>
-            <line x1="36" y1="40" x2="62" y2="40" stroke="#34C759" strokeWidth="3" strokeLinecap="round" opacity="0.7"/>
-            <line x1="36" y1="50" x2="68" y2="50" stroke="#34C759" strokeWidth="3" strokeLinecap="round" opacity="0.5"/>
-            <line x1="36" y1="60" x2="56" y2="60" stroke="#34C759" strokeWidth="3" strokeLinecap="round" opacity="0.3"/>
-            <polyline points="64,48 67,52 74,42" fill="none" stroke="#34C759" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
-            <line x1="76" y1="76" x2="106" y2="106" stroke="#34C759" strokeWidth="6" strokeLinecap="round"/>
-          </svg>
-          <div style={{ textAlign: "left" }}>
-            <div style={{ fontSize: "20px", fontWeight: 700, color: t.text, letterSpacing: "-0.3px" }}>
-              Reg<span style={{ color: t.green }}>Lens</span>
-              {adminMode && <span style={{ fontSize: "8px", fontWeight: 700, color: "#F59E0B", marginLeft: "6px", padding: "1px 5px", borderRadius: "4px", background: "#F59E0B15", border: "1px solid #F59E0B30", verticalAlign: "middle" }}>ADMIN</span>}
+      {/* ══════ OFFLINE BANNER ══════ */}
+      {!isOnline && (
+        <div style={{
+          display: "flex", alignItems: "center", gap: "8px",
+          padding: "8px 16px", margin: "0 16px 8px",
+          borderRadius: "10px",
+          background: theme === "dark" ? "#2A1F00" : "#FEF3C7",
+          border: `1px solid ${theme === "dark" ? "#F59E0B30" : "#FDE68A"}`,
+          animation: "rl-fade-in 0.3s ease-out",
+        }}>
+          <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#F59E0B", flexShrink: 0, animation: "rl-pulse-dot 2s ease-in-out infinite" }} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: "12px", fontWeight: 600, color: theme === "dark" ? "#FCD34D" : "#92400E" }}>You're offline</div>
+            <div style={{ fontSize: "10px", color: theme === "dark" ? "#F59E0B" : "#B45309", lineHeight: 1.4 }}>
+              Readiness checks, reports, and saved data still work. Reviews and syncing need a connection.
             </div>
-            <div style={{ fontSize: "10px", color: t.textSecondary, cursor: "default" }} onClick={(e) => {
-              e.stopPropagation();
-              const next = adminTaps + 1;
-              setAdminTaps(next);
-              if (next >= 5 && !adminMode) { activateAdmin(); setAdminTaps(0); }
-              setTimeout(() => setAdminTaps(0), 3000);
-            }}>by Prudence EHS</div>
-            <div style={{ fontSize: "7px", color: t.textTertiary, letterSpacing: "0.3px" }}>Built by a Certified Safety Professional</div>
           </div>
-        </button>
-        {user && (
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <div style={{ textAlign: "right" }}>
-              <div style={{ fontSize: "11px", color: t.text, fontWeight: 600 }}>{user.full_name}</div>
-              <div style={{ fontSize: "9px", color: t.textSecondary }}>{user.review_credits || 0} review credits</div>
-            </div>
-            <button onClick={() => { supabase.signOut(); setUser(null); setTab("dashboard"); }} style={{ background: t.card, border: "none", color: t.textSecondary, fontSize: "10px", padding: "4px 8px", borderRadius: "6px", cursor: "pointer" }}>Log out</button>
-          </div>
-        )}
-      </div>
+          <button onClick={() => setShowOfflineBanner(false)} style={{ background: "none", border: "none", color: theme === "dark" ? "#F59E0B" : "#92400E", fontSize: "14px", cursor: "pointer", padding: "4px", flexShrink: 0 }}>✕</button>
+        </div>
+      )}
+      {syncPending && isOnline && (
+        <div style={{
+          display: "flex", alignItems: "center", gap: "8px",
+          padding: "8px 16px", margin: "0 16px 8px",
+          borderRadius: "10px",
+          background: theme === "dark" ? "#0D1F12" : "#F0FDF4",
+          border: `1px solid ${theme === "dark" ? "#34C75930" : "#bbf7d0"}`,
+        }}>
+          <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: t.green, flexShrink: 0 }} />
+          <div style={{ fontSize: "11px", color: t.green }}>Syncing offline changes...</div>
+        </div>
+      )}
 
       {/* ══════ AUTH SCREENS ══════ */}
       {authScreen && (
@@ -3038,6 +3167,7 @@ export default function RegLensApp() {
                 supabase.setSession(res.session);
                 const profile = await supabase.getProfile(res.session.access_token);
                 setUser({ ...profile, access_token: res.session.access_token });
+                supabase.trackEvent("signup_completed", {});
                 setAuthScreen(null);
               } else {
                 setAuthError("Check your email to confirm your account, then log in.");
@@ -3049,6 +3179,7 @@ export default function RegLensApp() {
               supabase.setSession(res.session);
               const profile = await supabase.getProfile(res.session.access_token);
               setUser({ ...profile, access_token: res.session.access_token });
+              supabase.trackEvent("login_completed", {});
               setAuthScreen(null);
             }
             setAuthLoading(false);
@@ -3061,6 +3192,12 @@ export default function RegLensApp() {
             )}
             <input name="email" type="email" placeholder="Email" required style={{ padding: "14px 16px", borderRadius: "12px", background: t.card, border: `1px solid ${t.border}`, color: t.text, fontSize: "15px", outline: "none" }} />
             <input name="password" type="password" placeholder="Password" required minLength={8} style={{ padding: "14px 16px", borderRadius: "12px", background: t.card, border: `1px solid ${t.border}`, color: t.text, fontSize: "15px", outline: "none" }} />
+            {authScreen === "signup" && (
+              <label style={{ display: "flex", alignItems: "flex-start", gap: "10px", fontSize: "12px", color: t.textSecondary, lineHeight: 1.5, cursor: "pointer", padding: "4px 0" }}>
+                <input type="checkbox" name="tosAccepted" required style={{ marginTop: "3px", accentColor: t.green, flexShrink: 0 }} />
+                <span>I agree to the <span onClick={(e) => { e.preventDefault(); setAuthScreen(null); setTab("tos"); }} style={{ color: t.green, textDecoration: "underline", cursor: "pointer" }}>Terms of Service</span> and <span onClick={(e) => { e.preventDefault(); setAuthScreen(null); setTab("privacy"); }} style={{ color: t.green, textDecoration: "underline", cursor: "pointer" }}>Privacy Policy</span></span>
+              </label>
+            )}
             <button type="submit" disabled={authLoading} style={{ padding: "15px", borderRadius: "12px", border: "none", background: authLoading ? "#2C2C2E" : "#34C759", color: authLoading ? "#555" : "#000", fontSize: "16px", fontWeight: 700, cursor: authLoading ? "wait" : "pointer" }}>
               {authLoading ? "Please wait…" : authScreen === "login" ? "Sign In" : "Create Account"}
             </button>
@@ -3080,7 +3217,7 @@ export default function RegLensApp() {
 
           <div style={{ textAlign: "center", marginTop: "12px" }}>
             <button onClick={() => setAuthScreen(null)} style={{ background: "none", border: "none", color: t.textTertiary, fontSize: "13px", cursor: "pointer" }}>
-              Continue without account
+              Continue without saving — your reviews won't be stored
             </button>
           </div>
         </div>
@@ -3216,7 +3353,13 @@ export default function RegLensApp() {
               <div style={{ fontSize: "20px", fontWeight: 700 }}>Compliance Reviews</div>
               <button onClick={() => setShowPricing(false)} style={{ width: "28px", height: "28px", borderRadius: "50%", background: t.card, border: "none", color: t.textSecondary, fontSize: "14px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
             </div>
-            <div style={{ fontSize: "13px", color: t.textSecondary, marginBottom: "16px" }}>AI-powered document analysis. Credits never expire.</div>
+            <div style={{ fontSize: "13px", color: t.textSecondary, marginBottom: "10px" }}>AI-powered document analysis. Credits never expire.</div>
+            <div style={{ padding: "10px 14px", borderRadius: "10px", marginBottom: "16px", background: theme === "dark" ? "#1C1215" : "#FEF2F2", border: `1px solid ${theme === "dark" ? "#EF444420" : "#FECACA"}`, display: "flex", alignItems: "center", gap: "10px" }}>
+              <span style={{ fontSize: "18px", flexShrink: 0 }}>⚠️</span>
+              <div style={{ fontSize: "11px", color: theme === "dark" ? "#FCA5A5" : "#DC2626", lineHeight: 1.5 }}>
+                The average OSHA serious violation penalty is <strong>$16,131</strong>. One review could catch the gap that saves you 300x the cost.
+              </div>
+            </div>
 
             {[
               { tier: 1, name: "Single Review", price: "$49", reviews: 1, perReview: "$49", desc: "Try one compliance review on your document", savings: null },
@@ -3225,6 +3368,7 @@ export default function RegLensApp() {
             ].map((plan) => (
               <button key={plan.tier} className="rl-card-interactive" onClick={async () => {
                 if (!user) { setShowPricing(false); setAuthScreen("signup"); return; }
+                supabase.trackEvent("checkout_started", { tier: plan.tier, plan: plan.name });
                 try {
                   const res = await fetch("/api/checkout", {
                     method: "POST", headers: { "Content-Type": "application/json" },
@@ -3352,100 +3496,33 @@ export default function RegLensApp() {
             );
           })()}
 
-          {/* ── Welcome Card (first-time users only) ── */}
-          {!hasSeen("welcome") && submissions.length === 0 && auditSubmissions.length === 0 && (
-            <div style={{ ...card, border: `1px solid ${theme === "dark" ? "#34C75930" : "#bbf7d0"}`, background: theme === "dark" ? "linear-gradient(145deg, #1A2A1A08, #1C1C1E)" : "linear-gradient(145deg, #F0FDF408, #FFFFFF)", position: "relative", overflow: "hidden" }} className="rl-fade-in">
-              <button onClick={() => markSeen("welcome")} style={{ position: "absolute", top: "10px", right: "10px", background: "none", border: "none", color: t.textTertiary, fontSize: "14px", cursor: "pointer" }}>✕</button>
-              <div style={{ fontSize: "15px", fontWeight: 700, color: t.text, marginBottom: "6px" }}>Welcome to RegLens 👋</div>
-              <div style={{ fontSize: "12px", color: t.textSecondary, lineHeight: 1.6, marginBottom: "8px" }}>
-                Here are three ways to get started — pick whichever fits your needs right now:
-              </div>
-              <button onClick={() => { markSeen("welcome"); startTour(); }} style={{ width: "100%", padding: "8px", borderRadius: "8px", background: `${t.green}10`, border: `1px solid ${t.green}25`, color: t.green, fontSize: "11px", fontWeight: 600, cursor: "pointer", marginBottom: "10px" }}>
-                👀 Take a quick tour of RegLens
-              </button>
-              {[
-                { icon: "review", title: "Run a Compliance Review", desc: "Upload a safety program and get an AI-powered gap analysis with citations", action: () => { markSeen("welcome"); setSelectedType(null); setTab("upload"); }, tag: "1 free review" },
-                { icon: "readiness", title: "Take a Readiness Check", desc: "Walk through a guided facility checklist — photos, notes, instant score", action: () => { markSeen("welcome"); setTab("audit"); }, tag: "Always free" },
-                { icon: "jha", title: "Start a Job Hazard Analysis", desc: "Identify task hazards, assess risk with a 5×5 matrix, document controls", action: () => { markSeen("welcome"); setTab("risk"); }, tag: "Always free" },
-              ].map((item, i) => (
-                <button key={i} className="rl-card-interactive" onClick={item.action} style={{ width: "100%", display: "flex", alignItems: "center", gap: "12px", padding: "10px 12px", borderRadius: "10px", background: t.inputBg, border: `1px solid ${t.border}`, cursor: "pointer", textAlign: "left", marginBottom: "6px" }}>
-                  {item.icon === "review" ? <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}><rect x="4" y="2" width="12" height="16" rx="2" stroke={t.green} strokeWidth="1.5" opacity="0.5"/><rect x="8" y="6" width="12" height="16" rx="2" stroke={t.green} strokeWidth="1.5"/><path d="M12 12h4M12 15h3" stroke={t.green} strokeWidth="1.5" strokeLinecap="round"/></svg> : item.icon === "readiness" ? <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}><rect x="4" y="3" width="16" height="18" rx="2" stroke="#3B82F6" strokeWidth="1.5"/><rect x="8" y="8" width="2" height="2" rx="0.5" fill="#3B82F6"/><rect x="8" y="12" width="2" height="2" rx="0.5" fill="#3B82F6" opacity="0.6"/><path d="M12 9h4M12 13h3" stroke="#3B82F6" strokeWidth="1.2" strokeLinecap="round" opacity="0.5"/></svg> : item.icon === "jha" ? <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}><path d="M12 2L2 22h20L12 2z" stroke="#F59E0B" strokeWidth="1.5" fill="#F59E0B10"/><path d="M12 10v4M12 17h.01" stroke="#F59E0B" strokeWidth="1.8" strokeLinecap="round"/></svg> : <span style={{ fontSize: "20px", flexShrink: 0 }}>{item.icon}</span>}
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: "12px", fontWeight: 700, color: t.text }}>{item.title}</div>
-                    <div style={{ fontSize: "10px", color: t.textSecondary, lineHeight: 1.4 }}>{item.desc}</div>
-                  </div>
-                  <span style={{ fontSize: "8px", fontWeight: 700, color: t.green, padding: "2px 6px", borderRadius: "4px", background: `${t.green}10`, border: `1px solid ${t.green}20`, whiteSpace: "nowrap" }}>{item.tag}</span>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* ── Primary Actions — SVG icons, clear hierarchy ── */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "10px" }}>
-            <button className="rl-tap rl-glow" onClick={() => { setSelectedType(null); setTab("upload"); }} style={{ padding: "18px 14px", borderRadius: "16px", background: theme === "dark" ? "linear-gradient(145deg, #1A2A1A, #1C1C1E)" : "linear-gradient(145deg, #F0FDF4, #FFFFFF)", border: `1px solid ${theme === "dark" ? "#34C75930" : "#bbf7d0"}`, cursor: "pointer", textAlign: "left" }}>
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" style={{ marginBottom: "8px" }}>
-                <rect x="4" y="2" width="12" height="16" rx="2" stroke={t.green} strokeWidth="1.5" opacity="0.5"/>
-                <rect x="8" y="6" width="12" height="16" rx="2" stroke={t.green} strokeWidth="1.5"/>
-                <path d="M12 12h4M12 15h3" stroke={t.green} strokeWidth="1.5" strokeLinecap="round"/>
-                <circle cx="18" cy="8" r="3" fill={t.green} opacity="0.8"/><path d="M16.5 8l1 1 2-2" stroke={theme === "dark" ? "#000" : "#fff"} strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              <div style={{ fontSize: "14px", fontWeight: 700, color: t.text, marginBottom: "2px" }}>Compliance Review</div>
-              <div style={{ fontSize: "10px", color: t.textSecondary }}>AI-powered gap analysis</div>
-            </button>
-            <button className="rl-tap" onClick={() => setTab("audit")} style={{ padding: "18px 14px", borderRadius: "16px", background: theme === "dark" ? "linear-gradient(145deg, #101C2E, #1C1C1E)" : "linear-gradient(145deg, #EFF6FF, #FFFFFF)", border: `1px solid ${theme === "dark" ? "#3B82F630" : "#BFDBFE"}`, cursor: "pointer", textAlign: "left" }}>
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" style={{ marginBottom: "8px" }}>
-                <rect x="4" y="3" width="16" height="18" rx="2" stroke="#3B82F6" strokeWidth="1.5"/>
-                <path d="M9 9h6M9 13h4" stroke="#3B82F6" strokeWidth="1.5" strokeLinecap="round" opacity="0.4"/>
-                <rect x="8" y="8" width="2" height="2" rx="0.5" fill="#3B82F6"/><rect x="8" y="12" width="2" height="2" rx="0.5" fill="#3B82F6" opacity="0.6"/>
-              </svg>
-              <div style={{ fontSize: "14px", fontWeight: 700, color: t.text, marginBottom: "2px" }}>Readiness Check</div>
-              <div style={{ fontSize: "10px", color: t.textSecondary }}>Guided facility checklist</div>
-            </button>
-          </div>
-
-          {/* Citation Response */}
-          <button className="rl-tap rl-card-interactive" onClick={() => setTab("citation")} style={{ width: "100%", padding: "14px", borderRadius: "14px", background: theme === "dark" ? "linear-gradient(145deg, #2A1215, #1C1C1E)" : "linear-gradient(145deg, #FEF2F2, #FFFFFF)", border: `1px solid ${theme === "dark" ? "#EF444430" : "#FECACA"}`, cursor: "pointer", textAlign: "left", marginBottom: "10px", display: "flex", alignItems: "center", gap: "12px" }}>
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
-              <path d="M12 2L4 6v6c0 5.5 3.4 10.3 8 12 4.6-1.7 8-6.5 8-12V6l-8-4z" stroke="#EF4444" strokeWidth="1.5" fill="#EF444410"/>
-              <path d="M9 12l2 2 4-4" stroke="#EF4444" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+          {/* ── Primary Actions — clear hierarchy ── */}
+          <button className="rl-tap rl-glow" onClick={() => { setSelectedType(null); setTab("upload"); }} style={{ width: "100%", padding: "20px 16px", borderRadius: "16px", background: theme === "dark" ? "linear-gradient(145deg, #1A2A1A, #1C1C1E)" : "linear-gradient(145deg, #F0FDF4, #FFFFFF)", border: `1.5px solid ${theme === "dark" ? "#34C75940" : "#bbf7d0"}`, cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: "14px", marginBottom: "10px" }}>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+              <rect x="4" y="2" width="12" height="16" rx="2" stroke={t.green} strokeWidth="1.5" opacity="0.5"/>
+              <rect x="8" y="6" width="12" height="16" rx="2" stroke={t.green} strokeWidth="1.5"/>
+              <path d="M12 12h4M12 15h3" stroke={t.green} strokeWidth="1.5" strokeLinecap="round"/>
+              <circle cx="18" cy="8" r="3" fill={t.green} opacity="0.8"/><path d="M16.5 8l1 1 2-2" stroke={theme === "dark" ? "#000" : "#fff"} strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: "13px", fontWeight: 700, color: t.text }}>Citation Response</div>
-              <div style={{ fontSize: "10px", color: t.textSecondary }}>OSHA/EPA citation → abatement plan</div>
+              <div style={{ fontSize: "16px", fontWeight: 700, color: t.text }}>Run Compliance Review</div>
+              <div style={{ fontSize: "11px", color: t.textSecondary, marginTop: "2px" }}>Upload a safety program for AI-powered gap analysis</div>
             </div>
-            <div style={{ padding: "3px 8px", borderRadius: "6px", background: "#EF444415", border: "1px solid #EF444425", fontSize: "10px", fontWeight: 700, color: "#EF4444" }}>$149</div>
+            <span style={{ color: t.green, fontSize: "18px" }}>›</span>
           </button>
 
-          {/* ── Secondary Tools — compact 3-column grid ── */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px", marginBottom: "16px" }}>
-            <button className="rl-tap" onClick={() => setTab("risk")} style={{ padding: "12px 8px", borderRadius: "12px", background: t.card, border: `1px solid ${t.border}`, cursor: "pointer", textAlign: "center" }}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{ margin: "0 auto 4px", display: "block" }}>
-                <path d="M12 2L2 22h20L12 2z" stroke="#F59E0B" strokeWidth="1.5" fill="#F59E0B10"/>
-                <path d="M12 10v4M12 17h.01" stroke="#F59E0B" strokeWidth="1.8" strokeLinecap="round"/>
-              </svg>
-              <div style={{ fontSize: "10px", fontWeight: 700, color: t.text }}>JHA</div>
-              <div style={{ fontSize: "8px", color: t.textSecondary }}>Hazard analysis</div>
-            </button>
-            <button className="rl-tap" onClick={() => { setIncidentDraft({ id: `IR-${Date.now().toString(36).toUpperCase().slice(-6)}`, date: new Date().toISOString().split("T")[0], time: "", location: "", department: "", employeeName: "", jobTitle: "", severity: "First Aid", injuryType: "", bodyPart: "", description: "", activity: "", witnesses: "", whys: ["", "", "", "", ""], immediateActions: "", preventiveActions: "", oshaRecordable: false }); setTab("incident"); }} style={{ padding: "12px 8px", borderRadius: "12px", background: t.card, border: `1px solid ${t.border}`, cursor: "pointer", textAlign: "center" }}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{ margin: "0 auto 4px", display: "block" }}>
-                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" stroke="#ea580c" strokeWidth="1.5" fill="#ea580c08"/>
-                <path d="M14 2v6h6" stroke="#ea580c" strokeWidth="1.5" strokeLinecap="round"/><path d="M9 15h6M9 18h4" stroke="#ea580c" strokeWidth="1.2" strokeLinecap="round" opacity="0.6"/>
-              </svg>
-              <div style={{ fontSize: "10px", fontWeight: 700, color: t.text }}>Incident</div>
-              <div style={{ fontSize: "8px", color: t.textSecondary }}>Report form</div>
-              {incidentReports.length > 0 && <div style={{ fontSize: "7px", color: t.textTertiary, marginTop: "2px" }}>{incidentReports.length} filed</div>}
-            </button>
-            <button className="rl-tap" onClick={() => { setMeetingDraft({ date: new Date().toISOString().split("T")[0], topic: "", presenter: "", location: "", duration: "", points: "", attendees: [], actionItems: [] }); setTab("meeting"); }} style={{ padding: "12px 8px", borderRadius: "12px", background: t.card, border: `1px solid ${t.border}`, cursor: "pointer", textAlign: "center" }}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{ margin: "0 auto 4px", display: "block" }}>
-                <circle cx="9" cy="7" r="3" stroke="#0EA5E9" strokeWidth="1.5" fill="#0EA5E910"/>
-                <circle cx="16" cy="9" r="2.5" stroke="#0EA5E9" strokeWidth="1.2" opacity="0.5"/>
-                <path d="M2 21v-1a5 5 0 015-5h4a5 5 0 015 5v1" stroke="#0EA5E9" strokeWidth="1.5" strokeLinecap="round"/>
-              </svg>
-              <div style={{ fontSize: "10px", fontWeight: 700, color: t.text }}>Meeting</div>
-              <div style={{ fontSize: "8px", color: t.textSecondary }}>Toolbox talk</div>
-              {meetingLogs.length > 0 && <div style={{ fontSize: "7px", color: t.textTertiary, marginTop: "2px" }}>{meetingLogs.length} logged</div>}
-            </button>
-          </div>
+          <button className="rl-tap" onClick={() => setTab("audit")} style={{ width: "100%", padding: "14px 16px", borderRadius: "14px", background: theme === "dark" ? "linear-gradient(145deg, #101C2E, #1C1C1E)" : "linear-gradient(145deg, #EFF6FF, #FFFFFF)", border: `1px solid ${theme === "dark" ? "#3B82F630" : "#BFDBFE"}`, cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: "12px", marginBottom: "16px" }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+              <rect x="4" y="3" width="16" height="18" rx="2" stroke="#3B82F6" strokeWidth="1.5"/>
+              <path d="M9 9h6M9 13h4" stroke="#3B82F6" strokeWidth="1.5" strokeLinecap="round" opacity="0.4"/>
+              <rect x="8" y="8" width="2" height="2" rx="0.5" fill="#3B82F6"/><rect x="8" y="12" width="2" height="2" rx="0.5" fill="#3B82F6" opacity="0.6"/>
+            </svg>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: "14px", fontWeight: 700, color: t.text }}>Start Readiness Check</div>
+              <div style={{ fontSize: "10px", color: t.textSecondary }}>Guided facility checklist with photos</div>
+            </div>
+            <span style={{ color: "#3B82F6", fontSize: "16px" }}>›</span>
+          </button>
 
           {/* ── Latest Scores (most recent review + audit side by side) ── */}
           {(submissions.length > 0 || auditSubmissions.length > 0) && (
@@ -3521,11 +3598,26 @@ export default function RegLensApp() {
             </div>
           )}
 
+          {/* ── Inline Metrics (from Analytics) ── */}
+          {(submissions.length > 0 || auditSubmissions.length > 0) && (
+            <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
+              {[
+                { label: "Reviews", value: submissions.length, color: t.green },
+                { label: "Avg Score", value: submissions.length > 0 ? Math.round(submissions.reduce((a, s) => a + s.score, 0) / submissions.length) : "—", color: submissions.length > 0 ? (() => { const avg = Math.round(submissions.reduce((a, s) => a + s.score, 0) / submissions.length); return RegLensScoring.getBandColor(RegLensScoring.getBand(avg)); })() : t.textTertiary },
+                { label: "Checks", value: auditSubmissions.length, color: "#3B82F6" },
+              ].map((m, i) => (
+                <div key={i} style={{ flex: 1, padding: "10px 8px", borderRadius: "12px", background: t.card, border: `1px solid ${t.border}`, textAlign: "center" }}>
+                  <div style={{ fontSize: "22px", fontWeight: 700, color: m.color }}>{m.value}</div>
+                  <div style={{ fontSize: "9px", color: t.textSecondary, fontWeight: 500, textTransform: "uppercase" }}>{m.label}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* ── Recent Activity ── */}
           <div style={{ marginBottom: "20px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px", padding: "0 4px" }}>
               <span style={{ fontSize: "18px", fontWeight: 700 }}>Recent Activity</span>
-              {submissions.length > 0 && <span onClick={() => setTab("documents")} style={{ fontSize: "13px", color: t.green, fontWeight: 600, cursor: "pointer" }}>See all →</span>}
             </div>
             {submissions.length === 0 && auditSubmissions.length === 0 ? (
               <div style={{ ...card, textAlign: "center", padding: "28px 16px", border: `1px solid ${t.border}` }}>
@@ -3608,8 +3700,8 @@ export default function RegLensApp() {
           {/* ── Soft upgrade CTA (only shows after user has used free tier) ── */}
           {submissions.length >= 1 && !user && (
             <div style={{ ...card, border: "1px solid #34C75920", background: theme === "dark" ? "linear-gradient(145deg, #1A2A1A08, #1C1C1E)" : "linear-gradient(145deg, #F0FDF408, #FFFFFF)", marginTop: "8px", textAlign: "center", padding: "20px 16px" }}>
-              <div style={{ fontSize: "14px", fontWeight: 600, color: t.text, marginBottom: "4px" }}>You've used your free review</div>
-              <div style={{ fontSize: "12px", color: t.textSecondary, lineHeight: 1.5, marginBottom: "14px" }}>Create an account to save your results and get more reviews.</div>
+              <div style={{ fontSize: "14px", fontWeight: 600, color: t.text, marginBottom: "4px" }}>Save your review results</div>
+              <div style={{ fontSize: "12px", color: t.textSecondary, lineHeight: 1.5, marginBottom: "14px" }}>Create a free account to save reports, track score trends, and access your reviews across devices.</div>
               <button className="rl-tap rl-glow" onClick={() => setAuthScreen("signup")} style={{ width: "100%", padding: "13px", borderRadius: "12px", border: "none", background: t.green, color: theme === "dark" ? "#000" : "#fff", fontSize: "14px", fontWeight: 700, cursor: "pointer" }}>Create Free Account</button>
             </div>
           )}
@@ -3735,9 +3827,9 @@ export default function RegLensApp() {
               ) : (
                 <div style={{ ...card, border: "1px solid #F59E0B25", textAlign: "center", padding: "20px 16px" }}>
                   <div style={{ fontSize: "24px", marginBottom: "8px" }}>📄</div>
-                  <div style={{ fontSize: "15px", fontWeight: 600, marginBottom: "4px" }}>Free review used</div>
+                  <div style={{ fontSize: "15px", fontWeight: 600, marginBottom: "4px" }}>Free reviews used</div>
                   <div style={{ fontSize: "12px", color: t.textSecondary, lineHeight: 1.5, marginBottom: "14px" }}>
-                    {!user ? "Create an account and purchase credits to run more compliance reviews." : "Purchase credits to continue reviewing EHS programs."}
+                    {!user ? "Create an account and purchase credits to keep reviewing your EHS programs." : "Purchase credits to continue reviewing EHS programs."}
                   </div>
                   <button className="rl-tap rl-glow" onClick={() => !user ? setAuthScreen("signup") : setShowPricing(true)} style={{ width: "100%", padding: "13px", borderRadius: "12px", border: "none", background: t.green, color: theme === "dark" ? "#000" : "#fff", fontSize: "14px", fontWeight: 700, cursor: "pointer" }}>
                     {!user ? "Create Free Account" : "View Plans"}
@@ -3939,39 +4031,47 @@ export default function RegLensApp() {
             })}
           </div>
 
-          {/* ── Expert Consultation CTA (score < 70) ── */}
-          {result.score < 70 && result._source !== "error" && (
+          {/* ── Expert Consultation CTA — shown on all review results ── */}
+          {result._source !== "error" && (() => {
+            const isUrgent = result.score < 70;
+            const critCount = (result.findings || []).filter(f => f.severity === "Critical").length;
+            const majorCount = (result.findings || []).filter(f => f.severity === "Major").length;
+            return (
             <div style={{
               ...card,
-              background: theme === "dark" ? "linear-gradient(135deg, #1a0a0a, #2A1215)" : "linear-gradient(135deg, #FEF2F2, #FFF1F2)",
-              border: "1px solid #EF444435",
+              background: isUrgent
+                ? (theme === "dark" ? "linear-gradient(135deg, #1a0a0a, #2A1215)" : "linear-gradient(135deg, #FEF2F2, #FFF1F2)")
+                : (theme === "dark" ? "linear-gradient(135deg, #0a1a14, #122A1E)" : "linear-gradient(135deg, #F0FDF4, #ECFDF5)"),
+              border: isUrgent ? "1px solid #EF444435" : `1px solid ${t.green}25`,
               padding: "20px",
               position: "relative",
               overflow: "hidden",
             }}>
-              {/* Subtle glow accent */}
-              <div style={{ position: "absolute", top: "-30px", right: "-30px", width: "100px", height: "100px", borderRadius: "50%", background: "radial-gradient(circle, #EF444415, transparent)", pointerEvents: "none" }} />
-              
+              <div style={{ position: "absolute", top: "-30px", right: "-30px", width: "100px", height: "100px", borderRadius: "50%", background: isUrgent ? "radial-gradient(circle, #EF444415, transparent)" : `radial-gradient(circle, ${t.green}15, transparent)`, pointerEvents: "none" }} />
+
               <div style={{ display: "flex", alignItems: "flex-start", gap: "14px", position: "relative", zIndex: 1 }}>
                 <div style={{
                   width: "48px", height: "48px", borderRadius: "14px",
-                  background: "linear-gradient(135deg, #EF444420, #F59E0B15)",
-                  border: `1px solid ${theme === "dark" ? "#EF444430" : "#FECACA"}`,
+                  background: isUrgent ? "linear-gradient(135deg, #EF444420, #F59E0B15)" : `linear-gradient(135deg, ${t.green}20, #3B82F615)`,
+                  border: `1px solid ${isUrgent ? (theme === "dark" ? "#EF444430" : "#FECACA") : t.green + "30"}`,
                   display: "flex", alignItems: "center", justifyContent: "center",
                   fontSize: "22px", flexShrink: 0,
-                }}>🛡️</div>
+                }}>{isUrgent ? "🛡️" : "💬"}</div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: "16px", fontWeight: 700, color: t.text, marginBottom: "4px" }}>
-                    This document needs attention
+                    {isUrgent ? "This document needs attention" : "Need help with these findings?"}
                   </div>
                   <div style={{ fontSize: "13px", color: t.textSecondary, lineHeight: 1.5, marginBottom: "4px" }}>
-                    Your score of <span style={{ color: "#EF4444", fontWeight: 700 }}>{result.score}</span> indicates 
-                    {result.score < 60 ? " significant compliance risk. " : " gaps that could surface in an audit. "}
-                    An EHS expert can help you build a prioritized remediation plan.
+                    {isUrgent
+                      ? <>Your score of <span style={{ color: "#EF4444", fontWeight: 700 }}>{result.score}</span> indicates {result.score < 60 ? " significant compliance risk. " : " gaps that could surface in an audit. "}An EHS expert can help you build a prioritized remediation plan.</>
+                      : <>A CSP-certified expert can walk you through your {critCount + majorCount > 0 ? `${critCount + majorCount} findings` : "results"} and help you build a remediation roadmap.</>
+                    }
                   </div>
-                  <div style={{ fontSize: "11px", color: t.textSecondary, marginBottom: "14px" }}>
-                    {(result.findings || []).filter(f => f.severity === "Critical").length} critical + {(result.findings || []).filter(f => f.severity === "Major").length} major findings require expert guidance
-                  </div>
+                  {(critCount + majorCount) > 0 && (
+                    <div style={{ fontSize: "11px", color: t.textSecondary, marginBottom: "14px" }}>
+                      {critCount} critical + {majorCount} major findings
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -3980,7 +4080,7 @@ export default function RegLensApp() {
                 style={{
                   width: "100%", padding: "14px", borderRadius: "12px",
                   border: "none", cursor: "pointer",
-                  background: "linear-gradient(135deg, #EF4444, #DC2626)",
+                  background: isUrgent ? "linear-gradient(135deg, #EF4444, #DC2626)" : `linear-gradient(135deg, ${t.green}, #15803d)`,
                   color: "#fff", fontSize: "15px", fontWeight: 700,
                   display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
                   position: "relative", zIndex: 1,
@@ -3996,7 +4096,8 @@ export default function RegLensApp() {
                 <span style={{ fontSize: "9px", color: t.textSecondary }}>CSP-certified · 13+ years federal & private sector EHS experience</span>
               </div>
             </div>
-          )}
+            );
+          })()}
 
           {/* Findings */}
           <div style={{ padding: "0 4px", marginBottom: "8px", marginTop: "16px" }}><span style={{ fontSize: "22px", fontWeight: 700 }}>Findings</span></div>
@@ -4066,161 +4167,60 @@ export default function RegLensApp() {
         </div>
       )}
 
-      {/* ══════ DOCUMENTS ══════ */}
-      {tab === "documents" && (
+      {/* Documents tab removed — content folded into dashboard Recent Activity */}
+
+      {/* Admin tab removed — content folded into Tools tab */}
+
+      {/* Analytics tab removed — metrics folded into dashboard */}
+
+      {/* ══════ TOOLS ══════ */}
+      {tab === "tools" && (
         <div style={{ padding: "0 16px" }}>
-          <div style={{ padding: "0 4px", marginBottom: "16px" }}><span style={{ fontSize: "28px", fontWeight: 700 }}>Documents</span></div>
-          {submissions.length === 0 ? (
-            <div style={{ ...card, textAlign: "center", padding: "48px 16px" }}>
-              <div style={{ fontSize: "36px", marginBottom: "10px", opacity: 0.4 }}>📭</div>
-              <div style={{ fontSize: "15px", color: t.textSecondary }}>No documents yet</div>
-            </div>
-          ) : submissions.map((sub) => (
-            <button key={sub.id} onClick={() => { setResult(sub.result); setScoreResult(sub.scoreResult); setViewingSub(sub); setTab("report"); }} style={{ ...cardFlat, width: "100%", border: `1px solid ${t.border}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", textAlign: "left" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                <div style={{ width: "48px", height: "48px", borderRadius: "12px", background: t.card, display: "flex", alignItems: "center", justifyContent: "center" }}>{renderIcon(sub.icon, 22)}</div>
-                <div>
-                  <div style={{ fontSize: "15px", fontWeight: 600, color: t.text }}>{sub.label}</div>
-                  <div style={{ fontSize: "12px", color: t.textSecondary }}>{sub.id}</div>
-                  <div style={{ fontSize: "12px", color: sub.status === "approved" ? "#34C759" : "#F59E0B", fontWeight: 500 }}>{sub.status === "approved" ? "Approved" : "Pending review"}</div>
-                </div>
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <div style={{ fontSize: "24px", fontWeight: 700, color: RegLensScoring.getBandColor(sub.band) }}>{sub.score}</div>
-                <div style={{ fontSize: "11px", color: t.textSecondary }}>{sub.band}</div>
-              </div>
+          <div style={{ padding: "0 4px", marginBottom: "16px" }}><span style={{ fontSize: "28px", fontWeight: 700, color: t.text }}>Tools</span></div>
+
+          {/* ── Field Tools Grid ── */}
+          <div style={{ fontSize: "11px", fontWeight: 600, color: t.textSecondary, letterSpacing: "0.5px", textTransform: "uppercase", marginBottom: "10px", padding: "0 4px" }}>Field Tools</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "20px" }}>
+            <button className="rl-tap rl-card-interactive" onClick={() => setTab("citation")} style={{ padding: "16px 14px", borderRadius: "14px", background: theme === "dark" ? "linear-gradient(145deg, #2A1215, #1C1C1E)" : "linear-gradient(145deg, #FEF2F2, #FFFFFF)", border: `1px solid ${theme === "dark" ? "#EF444430" : "#FECACA"}`, cursor: "pointer", textAlign: "left" }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style={{ marginBottom: "8px" }}>
+                <path d="M12 2L4 6v6c0 5.5 3.4 10.3 8 12 4.6-1.7 8-6.5 8-12V6l-8-4z" stroke="#EF4444" strokeWidth="1.5" fill="#EF444410"/>
+                <path d="M9 12l2 2 4-4" stroke="#EF4444" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              <div style={{ fontSize: "13px", fontWeight: 700, color: t.text, marginBottom: "2px" }}>Citation Response</div>
+              <div style={{ fontSize: "9px", color: t.textSecondary }}>OSHA/EPA abatement plan</div>
+              <div style={{ marginTop: "6px", padding: "2px 6px", borderRadius: "4px", background: "#EF444415", border: "1px solid #EF444425", fontSize: "9px", fontWeight: 700, color: "#EF4444", display: "inline-block" }}>$149</div>
             </button>
-          ))}
-        </div>
-      )}
-
-      {/* ══════ COMPLIANCE / ADMIN ══════ */}
-      {tab === "compliance" && (
-        <div style={{ padding: "0 16px" }}>
-          <div style={{ padding: "0 4px", marginBottom: "16px" }}>
-            <span style={{ fontSize: "28px", fontWeight: 700 }}>Admin Queue</span>
-            <div style={{ fontSize: "14px", color: t.textSecondary, marginTop: "2px" }}>Review and approve AI findings</div>
+            <button className="rl-tap" onClick={() => setTab("risk")} style={{ padding: "16px 14px", borderRadius: "14px", background: t.card, border: `1px solid ${t.border}`, cursor: "pointer", textAlign: "left" }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style={{ marginBottom: "8px" }}>
+                <path d="M12 2L2 22h20L12 2z" stroke="#F59E0B" strokeWidth="1.5" fill="#F59E0B10"/>
+                <path d="M12 10v4M12 17h.01" stroke="#F59E0B" strokeWidth="1.8" strokeLinecap="round"/>
+              </svg>
+              <div style={{ fontSize: "13px", fontWeight: 700, color: t.text, marginBottom: "2px" }}>Job Hazard Analysis</div>
+              <div style={{ fontSize: "9px", color: t.textSecondary }}>5x5 risk matrix</div>
+              <div style={{ marginTop: "6px", padding: "2px 6px", borderRadius: "4px", background: `${t.green}10`, border: `1px solid ${t.green}20`, fontSize: "9px", fontWeight: 600, color: t.green, display: "inline-block" }}>Free</div>
+            </button>
+            <button className="rl-tap" onClick={() => { setIncidentDraft({ id: `IR-${Date.now().toString(36).toUpperCase().slice(-6)}`, date: new Date().toISOString().split("T")[0], time: "", location: "", department: "", employeeName: "", jobTitle: "", severity: "First Aid", injuryType: "", bodyPart: "", description: "", activity: "", witnesses: "", whys: ["", "", "", "", ""], immediateActions: "", preventiveActions: "", oshaRecordable: false }); setTab("incident"); }} style={{ padding: "16px 14px", borderRadius: "14px", background: t.card, border: `1px solid ${t.border}`, cursor: "pointer", textAlign: "left" }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style={{ marginBottom: "8px" }}>
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" stroke="#ea580c" strokeWidth="1.5" fill="#ea580c08"/>
+                <path d="M14 2v6h6" stroke="#ea580c" strokeWidth="1.5" strokeLinecap="round"/><path d="M9 15h6M9 18h4" stroke="#ea580c" strokeWidth="1.2" strokeLinecap="round" opacity="0.6"/>
+              </svg>
+              <div style={{ fontSize: "13px", fontWeight: 700, color: t.text, marginBottom: "2px" }}>Incident Report</div>
+              <div style={{ fontSize: "9px", color: t.textSecondary }}>OSHA 301-aligned</div>
+              {incidentReports.length > 0 && <div style={{ fontSize: "8px", color: t.textTertiary, marginTop: "4px" }}>{incidentReports.length} filed</div>}
+            </button>
+            <button className="rl-tap" onClick={() => { setMeetingDraft({ date: new Date().toISOString().split("T")[0], topic: "", presenter: "", location: "", duration: "", points: "", attendees: [], actionItems: [] }); setTab("meeting"); }} style={{ padding: "16px 14px", borderRadius: "14px", background: t.card, border: `1px solid ${t.border}`, cursor: "pointer", textAlign: "left" }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style={{ marginBottom: "8px" }}>
+                <circle cx="9" cy="7" r="3" stroke="#0EA5E9" strokeWidth="1.5" fill="#0EA5E910"/>
+                <circle cx="16" cy="9" r="2.5" stroke="#0EA5E9" strokeWidth="1.2" opacity="0.5"/>
+                <path d="M2 21v-1a5 5 0 015-5h4a5 5 0 015 5v1" stroke="#0EA5E9" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+              <div style={{ fontSize: "13px", fontWeight: 700, color: t.text, marginBottom: "2px" }}>Meeting Log</div>
+              <div style={{ fontSize: "9px", color: t.textSecondary }}>Toolbox talks</div>
+              {meetingLogs.length > 0 && <div style={{ fontSize: "8px", color: t.textTertiary, marginTop: "4px" }}>{meetingLogs.length} logged</div>}
+            </button>
           </div>
-          {submissions.filter(s => s.status === "pending").length === 0 ? (
-            <div style={{ ...card, textAlign: "center", padding: "48px 16px" }}>
-              <div style={{ fontSize: "36px", marginBottom: "10px", opacity: 0.4 }}>✅</div>
-              <div style={{ fontSize: "15px", color: t.textSecondary }}>All caught up</div>
-            </div>
-          ) : submissions.filter(s => s.status === "pending").map((sub) => (
-            <div key={sub.id} style={{ ...card, border: `1px solid ${t.border}` }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                  <span>{renderIcon(sub.icon, 22)}</span>
-                  <div>
-                    <div style={{ fontSize: "15px", fontWeight: 600 }}>{sub.label}</div>
-                    <div style={{ fontSize: "12px", color: t.textSecondary }}>{sub.id} · {sub.industryLabel} · {sub.date}</div>
-                  </div>
-                </div>
-                <div style={{ fontSize: "22px", fontWeight: 700, color: RegLensScoring.getBandColor(sub.band) }}>{sub.score}</div>
-              </div>
-              <div style={{ marginBottom: "12px" }}>
-                {sub.result.findings.slice(0, 3).map((f, i) => (
-                  <div key={i} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "6px 0", borderBottom: i < 2 ? "1px solid #222" : "none" }}>
-                    <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: sevColor[f.severity], flexShrink: 0 }} />
-                    <span style={{ fontSize: "13px", color: t.textSecondary }}>{f.title}</span>
-                    <span style={{ fontSize: "9px", color: (f.requirement_type || "").includes("Regulatory") ? "#34C759" : "#60A5FA", marginLeft: "auto" }}>{(f.requirement_type || "").includes("Regulatory") ? "REG" : "BP"}</span>
-                  </div>
-                ))}
-              </div>
-              <textarea placeholder="Add expert notes..." value={adminNotes} onChange={(e) => setAdminNotes(e.target.value)} rows={2} style={{ width: "100%", padding: "10px 12px", borderRadius: "10px", background: t.inputBg, border: `1px solid ${t.border}`, color: t.text, fontSize: "13px", resize: "none", fontFamily: "inherit", marginBottom: "10px", boxSizing: "border-box" }} />
-              <div style={{ display: "flex", gap: "8px" }}>
-                <button onClick={() => { setResult(sub.result); setScoreResult(sub.scoreResult); setViewingSub(sub); setTab("report"); }} style={{ flex: 1, padding: "12px", borderRadius: "10px", background: t.card, border: "none", color: t.text, fontSize: "14px", fontWeight: 600, cursor: "pointer" }}>View Full Report</button>
-                <button onClick={() => { setSubmissions((prev) => prev.map((s) => s.id === sub.id ? { ...s, status: "approved" } : s)); setAdminNotes(""); }} style={{ flex: 1, padding: "12px", borderRadius: "10px", background: t.green, border: "none", color: theme === "dark" ? "#000" : "#fff", fontSize: "14px", fontWeight: 700, cursor: "pointer" }}>✓ Approve</button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
 
-      {/* ══════ ANALYTICS ══════ */}
-      {tab === "analytics" && (
-        <div style={{ padding: "0 16px" }}>
-          <div style={{ padding: "0 4px", marginBottom: "16px" }}>
-            <span style={{ fontSize: "28px", fontWeight: 700 }}>Analytics</span>
-          </div>
-          {submissions.length === 0 ? (
-            <div style={{ ...card, textAlign: "center", padding: "48px 16px" }}>
-              <div style={{ fontSize: "36px", marginBottom: "10px", opacity: 0.4 }}>📊</div>
-              <div style={{ fontSize: "15px", color: t.textSecondary }}>No data yet</div>
-            </div>
-          ) : (
-            <>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px", marginBottom: "12px" }}>
-                {[
-                  { label: "Total", value: submissions.length, color: "#34C759" },
-                  { label: "Avg Score", value: Math.round(submissions.reduce((a, s) => a + s.score, 0) / submissions.length), color: (() => { const avg = Math.round(submissions.reduce((a, s) => a + s.score, 0) / submissions.length); return RegLensScoring.getBandColor(RegLensScoring.getBand(avg)); })() },
-                  { label: "Industries", value: [...new Set(submissions.map(s => s.industry).filter(Boolean))].length, color: "#3B82F6" },
-                ].map((m, i) => (
-                  <div key={i} style={{ ...card, textAlign: "center", marginBottom: 0, border: `1px solid ${t.border}` }}>
-                    <div style={{ fontSize: "28px", fontWeight: 700, color: m.color }}>{m.value}</div>
-                    <div style={{ fontSize: "10px", color: t.textSecondary, fontWeight: 500, textTransform: "uppercase" }}>{m.label}</div>
-                  </div>
-                ))}
-              </div>
-              <div style={{ ...card, border: `1px solid ${t.border}` }}>
-                <div style={{ fontSize: "12px", fontWeight: 600, color: t.textSecondary, letterSpacing: "0.5px", textTransform: "uppercase", marginBottom: "14px" }}>Score Distribution</div>
-                {[{ label: "Excellent (90–100)", min: 90, max: 100, color: "#34C759" }, { label: "Strong (80–89)", min: 80, max: 89, color: "#65a30d" }, { label: "Functional (70–79)", min: 70, max: 79, color: "#F59E0B" }, { label: "Weak (60–69)", min: 60, max: 69, color: "#ea580c" }, { label: "High Risk (<60)", min: 0, max: 59, color: "#EF4444" }].map((r, i) => {
-                  const count = submissions.filter(s => s.score >= r.min && s.score <= r.max).length;
-                  const maxC = Math.max(...submissions.map(() => 1), 1);
-                  return (
-                    <div key={i} style={{ marginBottom: "8px" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "3px" }}>
-                        <span style={{ fontSize: "11px", color: t.textSecondary }}>{r.label}</span>
-                        <span style={{ fontSize: "11px", fontWeight: 600, color: r.color }}>{count}</span>
-                      </div>
-                      <div style={{ height: "6px", borderRadius: "3px", background: "#222" }}>
-                        <div style={{ height: "100%", borderRadius: "3px", background: r.color, width: `${Math.max((count / submissions.length) * 100, count > 0 ? 8 : 0)}%`, transition: "width 0.5s" }} />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              <div style={{ ...card, border: `1px solid ${t.border}` }}>
-                <div style={{ fontSize: "12px", fontWeight: 600, color: t.textSecondary, letterSpacing: "0.5px", textTransform: "uppercase", marginBottom: "14px" }}>Total Findings by Severity</div>
-                {(() => {
-                  const sevTotals = { Critical: 0, Major: 0, Minor: 0 };
-                  submissions.forEach(s => (s.result?.findings || []).forEach(f => { if (sevTotals[f.severity] !== undefined) sevTotals[f.severity]++; }));
-                  const total = Object.values(sevTotals).reduce((a, b) => a + b, 0) || 1;
-                  const regCount = submissions.reduce((a, s) => a + (s.result?.findings || []).filter(f => (f.requirement_type || "").includes("Regulatory")).length, 0);
-                  const bpCount = submissions.reduce((a, s) => a + (s.result?.findings || []).filter(f => !(f.requirement_type || "").includes("Regulatory")).length, 0);
-                  return (
-                    <>
-                      <div style={{ display: "flex", gap: "8px", marginBottom: "10px" }}>
-                        {Object.entries(sevTotals).map(([sev, count]) => (
-                          <div key={sev} style={{ flex: 1, textAlign: "center", padding: "10px 8px", borderRadius: "10px", background: sevBg[sev], border: `1px solid ${sevColor[sev]}20` }}>
-                            <div style={{ fontSize: "22px", fontWeight: 700, color: sevColor[sev] }}>{count}</div>
-                            <div style={{ fontSize: "10px", color: sevColor[sev], opacity: 0.8, fontWeight: 500 }}>{sev}</div>
-                          </div>
-                        ))}
-                      </div>
-                      <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
-                        <div style={{ flex: 1, textAlign: "center", padding: "8px", borderRadius: "8px", background: "#34C75910", border: "1px solid #34C75920" }}>
-                          <div style={{ fontSize: "18px", fontWeight: 700, color: t.green }}>{regCount}</div>
-                          <div style={{ fontSize: "9px", color: t.green, fontWeight: 600, textTransform: "uppercase" }}>Regulatory</div>
-                        </div>
-                        <div style={{ flex: 1, textAlign: "center", padding: "8px", borderRadius: "8px", background: "#3B82F610", border: "1px solid #3B82F620" }}>
-                          <div style={{ fontSize: "18px", fontWeight: 700, color: "#60A5FA" }}>{bpCount}</div>
-                          <div style={{ fontSize: "9px", color: "#60A5FA", fontWeight: 600, textTransform: "uppercase" }}>Best Practice</div>
-                        </div>
-                      </div>
-                    </>
-                  );
-                })()}
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* ══════ MENU ══════ */}
-      {tab === "menu" && (
-        <div style={{ padding: "0 16px" }}>
-          <div style={{ padding: "0 4px", marginBottom: "16px" }}><span style={{ fontSize: "28px", fontWeight: 700, color: t.text }}>Menu</span></div>
+          {/* ── Account ── */}
           {user ? (
             <div style={{ ...card, display: "flex", alignItems: "center", gap: "14px", border: `1px solid ${t.border}` }}>
               <div style={{ width: "48px", height: "48px", borderRadius: "50%", background: "#34C75920", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px", fontWeight: 700, color: t.green }}>
@@ -4243,28 +4243,66 @@ export default function RegLensApp() {
               </div>
             </button>
           )}
+
+          {/* ── Settings ── */}
+          <div style={{ fontSize: "11px", fontWeight: 600, color: t.textSecondary, letterSpacing: "0.5px", textTransform: "uppercase", marginTop: "20px", marginBottom: "10px", padding: "0 4px" }}>Settings</div>
           {[
             { icon: "📖", label: "How to Use RegLens", action: () => setTab("guide") },
             { icon: "👀", label: "Take a Tour", action: () => startTour() },
-            { icon: "▤", label: "Documents", action: () => setTab("documents") },
-            { icon: "📅", label: "Book Expert Consultation", action: () => setShowBooking(true) },
             { icon: theme === "dark" ? "☀️" : "🌙", label: theme === "dark" ? "Light Mode" : "Dark Mode", action: toggleTheme },
-            ...(adminMode ? [{ icon: "🔓", label: "Deactivate Admin Mode", action: deactivateAdmin }] : [{ icon: "🔐", label: "Admin Mode", action: activateAdmin }]),
             { icon: "💳", label: "Buy Review Credits", action: () => setShowPricing(true) },
-            { icon: "📧", label: "Support" },
-            { icon: "📄", label: "Terms of Service", action: () => setTab("tos") },
-            { icon: "🔒", label: "Privacy Policy" },
-            ...(user ? [{ icon: "🚪", label: "Sign Out", action: () => { supabase.signOut(); setUser(null); setTab("dashboard"); }, danger: true }] : []),
+            { icon: "📅", label: "Book Expert Consultation", action: () => setShowBooking(true) },
           ].map((item, i) => (
-            <div key={i} className="rl-card-interactive" onClick={item.action || undefined} style={{ ...cardFlat, display: "flex", alignItems: "center", justifyContent: "space-between", border: `1px solid ${t.border}`, cursor: item.action ? "pointer" : "default" }}>
+            <div key={i} className="rl-card-interactive" onClick={item.action} style={{ ...cardFlat, display: "flex", alignItems: "center", justifyContent: "space-between", border: `1px solid ${t.border}`, cursor: "pointer" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                 <span style={{ fontSize: "18px" }}>{item.icon}</span>
-                <span style={{ fontSize: "15px", fontWeight: 500, color: item.danger ? "#EF4444" : "#fff" }}>{item.label}</span>
+                <span style={{ fontSize: "15px", fontWeight: 500, color: t.text }}>{item.label}</span>
               </div>
               <span style={{ color: t.textTertiary, fontSize: "16px" }}>›</span>
             </div>
           ))}
-          <div style={{ textAlign: "center", marginTop: "20px" }}>
+
+          {/* ── Admin (conditional) ── */}
+          {adminMode && (
+            <>
+              <div style={{ fontSize: "11px", fontWeight: 600, color: t.textSecondary, letterSpacing: "0.5px", textTransform: "uppercase", marginTop: "20px", marginBottom: "10px", padding: "0 4px" }}>Admin Queue</div>
+              {submissions.filter(s => s.status !== "approved").length === 0 ? (
+                <div style={{ ...card, textAlign: "center", padding: "24px 16px", border: `1px solid ${t.border}` }}>
+                  <div style={{ fontSize: "13px", color: t.textSecondary }}>No pending reviews</div>
+                </div>
+              ) : submissions.filter(s => s.status !== "approved").map((sub) => (
+                <div key={sub.id} style={{ ...card, border: `1px solid ${t.border}`, marginBottom: "8px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                    <div style={{ fontSize: "14px", fontWeight: 600 }}>{sub.label}</div>
+                    <div style={{ fontSize: "18px", fontWeight: 700, color: RegLensScoring.getBandColor(sub.band) }}>{sub.score}</div>
+                  </div>
+                  <div style={{ fontSize: "11px", color: t.textSecondary, marginBottom: "8px" }}>{sub.industryLabel} · {sub.date} · {sub.id}</div>
+                  <button onClick={() => { setResult(sub.result); setScoreResult(sub.scoreResult); setViewingSub(sub); setTab("report"); }} style={{ padding: "8px 14px", borderRadius: "8px", border: `1px solid ${t.border}`, background: "transparent", color: t.textSecondary, fontSize: "12px", cursor: "pointer", marginRight: "8px" }}>View Report</button>
+                  <button onClick={() => setSubmissions(prev => prev.map(s => s.id === sub.id ? { ...s, status: "approved" } : s))} style={{ padding: "8px 14px", borderRadius: "8px", border: "none", background: t.green, color: theme === "dark" ? "#000" : "#fff", fontSize: "12px", fontWeight: 600, cursor: "pointer" }}>Approve</button>
+                </div>
+              ))}
+            </>
+          )}
+
+          {/* ── Footer ── */}
+          <div style={{ marginTop: "20px" }}>
+            {[
+              ...(adminMode ? [{ icon: "🔓", label: "Deactivate Admin Mode", action: deactivateAdmin }] : [{ icon: "🔐", label: "Admin Mode", action: activateAdmin }]),
+              { icon: "📄", label: "Terms of Service", action: () => setTab("tos") },
+              { icon: "📧", label: "Support" },
+              { icon: "🔒", label: "Privacy Policy", action: () => setTab("privacy") },
+              ...(user ? [{ icon: "🚪", label: "Sign Out", action: () => { supabase.signOut(); setUser(null); setTab("dashboard"); }, danger: true }] : []),
+            ].map((item, i) => (
+              <div key={i} className="rl-card-interactive" onClick={item.action || undefined} style={{ ...cardFlat, display: "flex", alignItems: "center", justifyContent: "space-between", border: `1px solid ${t.border}`, cursor: item.action ? "pointer" : "default" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <span style={{ fontSize: "18px" }}>{item.icon}</span>
+                  <span style={{ fontSize: "15px", fontWeight: 500, color: item.danger ? "#EF4444" : t.text }}>{item.label}</span>
+                </div>
+                <span style={{ color: t.textTertiary, fontSize: "16px" }}>›</span>
+              </div>
+            ))}
+          </div>
+          <div style={{ textAlign: "center", marginTop: "20px", paddingBottom: "20px" }}>
             <div style={{ fontSize: "12px", color: t.textTertiary, cursor: "default" }} onClick={() => {
               const next = adminTaps + 1;
               setAdminTaps(next);
@@ -4368,7 +4406,7 @@ export default function RegLensApp() {
 
         return (
           <div style={{ padding: "0 16px" }}>
-            <button onClick={() => setTab("menu")} style={{ background: "none", border: "none", color: t.green, fontSize: "15px", fontWeight: 500, cursor: "pointer", padding: "0 4px", marginBottom: "16px" }}>‹ Menu</button>
+            <button onClick={() => setTab("tools")} style={{ background: "none", border: "none", color: t.green, fontSize: "15px", fontWeight: 500, cursor: "pointer", padding: "0 4px", marginBottom: "16px" }}>‹ Tools</button>
 
             <div style={{ textAlign: "center", marginBottom: "24px" }}>
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" style={{ marginBottom: "8px" }}><path d="M2 4h6a4 4 0 014 4v12a3 3 0 00-3-3H2V4z" stroke={t.green} strokeWidth="1.5" fill={`${t.green}10`}/><path d="M22 4h-6a4 4 0 00-4 4v12a3 3 0 013-3h7V4z" stroke={t.green} strokeWidth="1.5" fill={`${t.green}08`}/></svg>
@@ -5169,7 +5207,7 @@ export default function RegLensApp() {
       {/* ══════ TERMS OF SERVICE ══════ */}
       {tab === "tos" && (
         <div style={{ padding: "0 16px" }} className="rl-fade-in">
-          <button onClick={() => setTab("menu")} style={{ background: "none", border: "none", color: t.green, fontSize: "15px", fontWeight: 500, cursor: "pointer", padding: "0 4px", marginBottom: "16px" }}>‹ Menu</button>
+          <button onClick={() => setTab("tools")} style={{ background: "none", border: "none", color: t.green, fontSize: "15px", fontWeight: 500, cursor: "pointer", padding: "0 4px", marginBottom: "16px" }}>‹ Tools</button>
           <div style={{ textAlign: "center", marginBottom: "20px" }}>
             <div style={{ fontSize: "12px", fontWeight: 700, color: t.green, letterSpacing: "1px", textTransform: "uppercase", marginBottom: "4px" }}>RegLens by Prudence EHS</div>
             <h2 style={{ fontSize: "24px", fontWeight: 700, color: t.text, margin: "0 0 4px" }}>Terms of Service</h2>
@@ -5197,6 +5235,41 @@ export default function RegLensApp() {
             <div key={i} style={{ ...card, border: section.important ? `1px solid #F59E0B30` : `1px solid ${t.border}`, background: section.important ? (theme === "dark" ? "#2A201008" : "#FFFBEB08") : t.card }}>
               <div style={{ fontSize: "13px", fontWeight: 700, color: t.text, marginBottom: "6px" }}>{section.title}</div>
               <div style={{ fontSize: "11px", color: t.textSecondary, lineHeight: 1.7 }}>{section.body}</div>
+            </div>
+          ))}
+
+          <div style={{ textAlign: "center", padding: "16px 0 24px" }}>
+            <div style={{ fontSize: "10px", color: t.textTertiary }}>© 2026 Prudence Safety & Environmental Consulting, LLC</div>
+            <div style={{ fontSize: "10px", color: t.textTertiary, marginTop: "2px" }}>All rights reserved.</div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════ PRIVACY POLICY ══════ */}
+      {tab === "privacy" && (
+        <div style={{ padding: "0 16px" }} className="rl-fade-in">
+          <button onClick={() => setTab("tools")} style={{ background: "none", border: "none", color: t.green, fontSize: "15px", fontWeight: 500, cursor: "pointer", padding: "0 4px", marginBottom: "16px" }}>‹ Tools</button>
+          <div style={{ textAlign: "center", marginBottom: "20px" }}>
+            <div style={{ fontSize: "12px", fontWeight: 700, color: t.green, letterSpacing: "1px", textTransform: "uppercase", marginBottom: "4px" }}>RegLens by Prudence EHS</div>
+            <h2 style={{ fontSize: "24px", fontWeight: 700, color: t.text, margin: "0 0 4px" }}>Privacy Policy</h2>
+            <p style={{ fontSize: "12px", color: t.textSecondary, margin: 0 }}>Effective Date: April 7, 2026</p>
+          </div>
+
+          {[
+            { title: "1. Information We Collect", body: "Account Information: When you create an account, we collect your full name, email address, and optionally your company name. These are used to identify your account and deliver services.\n\nCompliance Data: When you run reviews or readiness checks, we store the analysis results (scores, findings, summaries) in your account. Uploaded documents are processed in memory and are NOT stored on our servers — only the analysis output is retained.\n\nUsage Data: We collect anonymous usage events (such as which features you use, scores generated, and industry selections) to improve RegLens. No personally identifiable information is included in usage events." },
+            { title: "2. How We Use Your Data", body: "We use your data to:\n• Deliver compliance review results and readiness check scores\n• Save your review history and reports for your reference\n• Process payments for review credits and consultations\n• Improve the platform based on anonymous usage patterns\n• Communicate important service updates" },
+            { title: "3. Analytics", body: "RegLens uses lightweight, first-party analytics stored in our own database. We do NOT use Google Analytics, tracking pixels, cookies, browser fingerprinting, or any third-party analytics service.\n\nWhat we track: Feature usage (which tools are used), review completion rates, score distributions by industry, and conversion events. All analytics events are anonymous — they include a random session ID that resets when you close the app, not your personal identity.\n\nYou can request that we stop collecting usage data for your account by emailing info@prudencesafety.com." },
+            { title: "4. Third-Party Services", body: "RegLens integrates with the following services, each with their own privacy policies:\n\n• Anthropic (Claude API): Your document text is sent to Anthropic's commercial API for AI analysis. Anthropic's commercial API does not use your data for model training.\n• Stripe: Payment processing. We do not store your credit card details — Stripe handles this securely.\n• Supabase: Our database and authentication provider. Data is stored with row-level security.\n• Calendly: Used for booking expert consultations. Only accessed when you choose to book." },
+            { title: "5. Data Retention & Deletion", body: "Your account data, review results, and readiness check history are retained until you request deletion. Analytics events are stored indefinitely in anonymized form (no PII).\n\nTo request deletion of your account and all associated data, email info@prudencesafety.com. We will process deletion requests within 30 days." },
+            { title: "6. Your Rights", body: "You have the right to:\n• Request a copy of all data associated with your account\n• Request deletion of your account and all stored data\n• Opt out of anonymous usage analytics\n• Update or correct your account information\n\nFor any of these requests, contact info@prudencesafety.com." },
+            { title: "7. Data Security", body: "We protect your data using:\n• Row-level security in our database (users can only access their own data)\n• Encrypted connections (HTTPS/TLS) for all data transmission\n• Bearer token authentication for API requests\n• No local storage of sensitive credentials beyond session tokens" },
+            { title: "8. Children's Privacy", body: "RegLens is designed for EHS professionals and is not intended for use by individuals under 18 years of age. We do not knowingly collect data from children." },
+            { title: "9. Changes to This Policy", body: "We may update this Privacy Policy from time to time. Material changes will be communicated through the Platform or by email. Continued use of RegLens after changes constitutes acceptance of the updated policy." },
+            { title: "10. Contact", body: "Prudence Safety & Environmental Consulting, LLC\nGermantown, MD\ninfo@prudencesafety.com\nprudencesafety.com" },
+          ].map((section, i) => (
+            <div key={i} style={{ ...card, border: `1px solid ${t.border}` }}>
+              <div style={{ fontSize: "13px", fontWeight: 700, color: t.text, marginBottom: "6px" }}>{section.title}</div>
+              <div style={{ fontSize: "11px", color: t.textSecondary, lineHeight: 1.7, whiteSpace: "pre-line" }}>{section.body}</div>
             </div>
           ))}
 
@@ -5518,6 +5591,8 @@ export default function RegLensApp() {
                   };
                   setAuditSubmissions(prev => [sub, ...prev]);
 
+                  supabase.trackEvent("readiness_completed", { industry: auditIndustry, score: result.score, band: result.band, findings_count: result.findings.length });
+
                   // Achievement — first readiness check
                   if (!hasSeen("ach_readiness")) {
                     markSeen("ach_readiness");
@@ -5526,7 +5601,7 @@ export default function RegLensApp() {
 
                   // Consume readiness credit
 
-                  // Persist to Supabase
+                  // Persist to Supabase (or queue for sync if offline)
                   if (supabase.isConfigured) {
                     (async () => {
                       const dbRow = {
@@ -5541,6 +5616,10 @@ export default function RegLensApp() {
                         responses: auditResponses,
                         findings_count: result.findings.length,
                       };
+                      if (!navigator.onLine) {
+                        addToSyncQueue({ action: "createAudit", data: dbRow });
+                        return;
+                      }
                       const auditRows = await supabase.createAudit(dbRow);
                       const auditDbId = auditRows?.[0]?.id;
 
@@ -6143,8 +6222,8 @@ export default function RegLensApp() {
 
       {/* BOTTOM NAV */}
       <div className="rl-bottom-nav" style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", display: "flex", justifyContent: "space-around", alignItems: "center", padding: "10px 0", paddingBottom: "calc(12px + env(safe-area-inset-bottom, 16px))", background: t.navBg, borderTop: `1px solid ${t.navBorder}`, zIndex: 100 }}>
-        {[{ id: "dashboard", label: "Dashboard", icon: "⊞" }, { id: "upload", label: "Comply", icon: "⊕", action: () => { setSelectedType(null); setTab("upload"); } }, { id: "audit", label: "Readiness", icon: "☷" }, { id: "compliance", label: "Admin", icon: "☑" }, { id: "menu", label: "Menu", icon: "☰" }].map((item) => (
-          <button key={item.id} className="rl-nav-item" onClick={() => item.action ? item.action() : setTab(item.id)} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", color: tab === item.id ? t.green : t.textSecondary, minWidth: "56px" }}>
+        {[{ id: "dashboard", label: "Home", icon: "⊞" }, { id: "upload", label: "Review", icon: "⊕", action: () => { setSelectedType(null); setTab("upload"); } }, { id: "audit", label: "Readiness", icon: "☷" }, { id: "tools", label: "Tools", icon: "☰" }].map((item) => (
+          <button key={item.id} className="rl-nav-item" onClick={() => { supabase.trackEvent("page_view", { tab: item.id }); item.action ? item.action() : setTab(item.id); }} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", color: tab === item.id ? t.green : t.textSecondary, minWidth: "56px" }}>
             <span style={{ fontSize: "22px", lineHeight: 1 }}>{item.icon}</span>
             <span style={{ fontSize: "10px", fontWeight: 500 }}>{item.label}</span>
           </button>

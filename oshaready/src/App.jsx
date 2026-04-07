@@ -13,6 +13,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useMediaQuery } from './hooks/useMediaQuery'
 import LandingPage from './components/LandingPage'
+import { trackEvent } from './utils/supabaseClient'
 const VER = "1.0.0-beta";
 const PLAT = [{id:"atmosiq",n:"AtmosIQ",i:"🌬️"},{id:"hydroscan",n:"HydroScan",i:"💧"},{id:"safestep",n:"SafeStep",i:"🛡️"},{id:"oshaready",n:"OSHAready",i:"🔴",on:true}];
 
@@ -537,6 +538,7 @@ RULES:
           if(authMode==="signup"&&(!authForm.name||!authForm.company))return;
           const u={name:authForm.name||authForm.email.split("@")[0],email:authForm.email,company:authForm.company||"My Company",role:authForm.role,avatar:null,joined:new Date().toISOString().slice(0,10)};
           setUser(u);STO.set("or-user",u);setAuthScreen(null);
+          trackEvent(authMode==="signup"?"signup_completed":"login_completed",{});
           notify(authMode==="signup"?"Account created — welcome!":"Welcome back!");
           audit(authMode==="signup"?"Account Created":"Login",authForm.email);
         }} style={{width:"100%",padding:16,background:"linear-gradient(135deg,#991B1B,"+pri+")",border:"none",borderRadius:12,color:"#fff",fontSize:16,fontWeight:700,cursor:"pointer",fontFamily:"inherit",marginTop:16}}>

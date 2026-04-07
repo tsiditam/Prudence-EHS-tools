@@ -11,7 +11,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import STO from '../utils/storage'
 import Profiles from '../utils/profiles'
 import SupaStorage from '../utils/supabaseStorage'
-import { supabase } from '../utils/supabaseClient'
+import { supabase, trackEvent } from '../utils/supabaseClient'
 import Backup from '../utils/backup'
 import { VER } from '../constants/standards'
 import { Q_PRESURVEY, Q_BUILDING, Q_ZONE, Q_QUICKSTART, Q_DETAILS, SENSOR_FIELDS } from '../constants/questions'
@@ -27,6 +27,7 @@ import PhotoCapture from './PhotoCapture'
 import SensorScreen from './SensorScreen'
 import ProfileScreen from './ProfileScreen'
 import AuthScreen from './AuthScreen'
+import { TermsOfService, PrivacyPolicy } from './LegalScreens'
 import SettingsScreen from './SettingsScreen'
 import { printReport } from './PrintReport'
 import { DEMO_PRESURVEY, DEMO_BUILDING, DEMO_ZONES } from '../constants/demoData'
@@ -124,6 +125,7 @@ export default function MobileApp() {
   const handleLogin = async (userOrProfile) => {
     // From Supabase AuthScreen
     if (userOrProfile?.email && supabase) {
+      trackEvent('login_completed', {})
       const p = await SupaStorage.getProfile()
       if (p) setProfile(p)
       else setProfile({ id: userOrProfile.id, name: userOrProfile.email, isNew: true })
@@ -175,6 +177,7 @@ export default function MobileApp() {
   }
 
   const startNew = () => {
+    trackEvent('assessment_started', {})
     const id = 'draft-' + Date.now()
     setDraftId(id)
     // Auto-fill from profile
@@ -224,6 +227,7 @@ export default function MobileApp() {
     const cc = buildCausalChains(zones, bldg, zScores)
     setZoneScores(zScores); setComp(composite); setOshaResult(osha); setRecs(recommendations)
     setSamplingPlan(sp); setCausalChains(cc); setSelZone(0); setNarrative(null)
+    trackEvent('assessment_completed', { zones: zones.length, score: composite?.tot, facility: bldg.fn || 'unknown' })
     haptic('success')
     setMilestone({icon:'chart',title:'Assessment Complete',sub:`Scoring ${zones.length} zone${zones.length>1?'s':''}...`})
     setTimeout(() => { setMilestone(null); setRTab('overview'); setView('results') }, 1600)
@@ -515,16 +519,19 @@ export default function MobileApp() {
 
   return (
     <div style={{minHeight:'100vh',background:BG,color:TEXT,fontFamily:"'Outfit', system-ui, sans-serif"}}>
-      <header style={{position:'sticky',top:0,zIndex:100,background:`${BG}E8`,backdropFilter:'blur(20px)',WebkitBackdropFilter:'blur(20px)',borderBottom:`1px solid ${BORDER}`,padding:`env(safe-area-inset-top, 0px) 16px 0`,display:'flex',alignItems:'center',justifyContent:'space-between',height:56}}>
-        <div style={{display:'flex',alignItems:'center',gap:10}}>
-          <div style={{width:34,height:34,borderRadius:10,background:`linear-gradient(135deg,${ACCENT},#0891B2)`,display:'flex',alignItems:'center',justifyContent:'center'}}><I n="home" s={16} c="#fff" /></div>
-          <div><div style={{fontSize:16,fontWeight:700,lineHeight:1.1}}>atmos<span style={{color:ACCENT,fontWeight:800}}>IQ</span></div><div style={{fontSize:10,color:DIM,fontFamily:"'DM Mono'"}}>v{VER}</div></div>
-        </div>
-        <div style={{display:'flex',alignItems:'center',gap:8}}>
-          {isAssessing&&<span style={{fontSize:10,color:`${ACCENT}80`,fontFamily:"'DM Mono'",background:`${ACCENT}08`,padding:'4px 10px',borderRadius:6}}>AUTO-SAVE</span>}
-          {view!=='dash'&&<button onClick={()=>{setView('dash');setViewRpt(null)}} style={{background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:10,color:TEXT,fontSize:14,fontWeight:600,padding:'10px 18px',cursor:'pointer',fontFamily:'inherit',minHeight:44}}>← Home</button>}
+      <header style={{position:'fixed',top:0,left:0,right:0,zIndex:100,background:`${BG}E8`,backdropFilter:'blur(20px)',WebkitBackdropFilter:'blur(20px)',borderBottom:`1px solid ${BORDER}`,paddingTop:'env(safe-area-inset-top, 0px)'}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',height:52,padding:'0 16px',maxWidth:620,margin:'0 auto'}}>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <div style={{width:32,height:32,borderRadius:9,background:`linear-gradient(135deg,${ACCENT},#0891B2)`,display:'flex',alignItems:'center',justifyContent:'center'}}><I n="home" s={14} c="#fff" /></div>
+            <div><div style={{fontSize:15,fontWeight:700,lineHeight:1.1}}>atmos<span style={{color:ACCENT,fontWeight:800}}>IQ</span></div></div>
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:8}}>
+            {isAssessing&&<span style={{fontSize:10,color:`${ACCENT}80`,fontFamily:"'DM Mono'",background:`${ACCENT}08`,padding:'4px 10px',borderRadius:6}}>AUTO-SAVE</span>}
+            {view!=='dash'&&view!=='drafts'&&view!=='history'&&view!=='settings'&&view!=='trash'&&view!=='tos'&&view!=='privacy'&&<button onClick={()=>{setView('dash');setViewRpt(null)}} style={{background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:10,color:TEXT,fontSize:13,fontWeight:600,padding:'8px 14px',cursor:'pointer',fontFamily:'inherit',minHeight:40}}>← Home</button>}
+          </div>
         </div>
       </header>
+      <div style={{height:'calc(52px + env(safe-area-inset-top, 0px))'}} />{/* header spacer */}
 
       {milestone&&<div style={{position:'fixed',inset:0,background:`${BG}F0`,zIndex:300,display:'flex',alignItems:'center',justifyContent:'center',padding:'0 32px'}}><div style={{textAlign:'center',animation:'milestoneIn .5s cubic-bezier(.22,1,.36,1)'}}><div style={{marginBottom:20,display:'flex',justifyContent:'center'}}><div style={{width:80,height:80,borderRadius:22,background:`${ACCENT}12`,border:`1.5px solid ${ACCENT}30`,display:'flex',alignItems:'center',justifyContent:'center'}}><I n={milestone.icon} s={40} c={ACCENT} w={2} /></div></div><div style={{fontSize:26,fontWeight:800,letterSpacing:'-0.5px',color:TEXT}}>{milestone.title}</div><div style={{fontSize:15,color:ACCENT,fontFamily:"'DM Mono'",marginTop:10}}>{milestone.sub}</div></div></div>}
 
@@ -555,12 +562,7 @@ export default function MobileApp() {
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginTop:12}}>
             {[{l:'Drafts',n:(index.drafts||[]).length,v:'drafts',ic:'clip'},{l:'History',n:(index.reports||[]).length,v:'history',ic:'clock'}].map(c=><button key={c.l} onClick={()=>{if(c.n)setView(c.v)}} style={{padding:'20px 16px',background:CARD,border:`1px solid ${c.n?`${ACCENT}25`:BORDER}`,borderRadius:14,opacity:c.n?1:.4,cursor:c.n?'pointer':'default',textAlign:'left',minHeight:80,fontFamily:'inherit'}}><div style={{marginBottom:10}}><I n={c.ic} s={24} c={c.n?ACCENT:DIM} /></div><div style={{fontSize:14,fontWeight:600,color:TEXT}}>{c.l}</div><div style={{fontSize:15,color:c.n?ACCENT:DIM,fontFamily:"'DM Mono'",marginTop:3,fontWeight:700}}>{c.n}</div></button>)}
           </div>
-          {/* Backup + Trash */}
-          <div style={{display:'flex',gap:8,marginTop:10}}>
-            <button onClick={()=>Backup.downloadBackup()} style={{flex:1,padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,cursor:'pointer',textAlign:'center',fontFamily:'inherit',minHeight:48,fontSize:13,fontWeight:600,color:SUB,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="download" s={16} c={DIM} /> Backup</button>
-            <button onClick={()=>setView('trash')} style={{flex:1,padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,cursor:'pointer',textAlign:'center',fontFamily:'inherit',minHeight:48,fontSize:13,fontWeight:600,color:SUB,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="clock" s={16} c={DIM} /> Trash</button>
-            <button onClick={()=>setView('settings')} style={{flex:1,padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,cursor:'pointer',textAlign:'center',fontFamily:'inherit',minHeight:48,fontSize:13,fontWeight:600,color:SUB,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="clip" s={16} c={DIM} /> Settings</button>
-          </div>
+          {/* Backup/Trash/Settings moved to bottom tab bar */}
           {(index.reports||[]).length>0&&<div style={{marginTop:24}}><div style={{fontSize:12,fontWeight:600,color:SUB,textTransform:'uppercase',letterSpacing:1.5,marginBottom:12}}>Recent</div>{(index.reports||[]).slice(0,3).map(r=><button key={r.id} onClick={()=>openReport(r)} style={{width:'100%',padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,marginBottom:8,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,minHeight:64,fontFamily:'inherit'}}><div style={{width:40,height:40,borderRadius:10,background:`${ACCENT}12`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,fontWeight:800,fontFamily:"'DM Mono'",color:ACCENT}}>{r.score||'?'}</div><div style={{flex:1,minWidth:0}}><div style={{fontSize:14,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:TEXT}}>{r.facility||'?'}</div><div style={{fontSize:12,color:DIM,fontFamily:"'DM Mono'",marginTop:3}}>{fD(r.ts)}</div></div></button>)}</div>}
         </div>}
 
@@ -585,8 +587,32 @@ export default function MobileApp() {
 
         {view==='history'&&<div style={{paddingTop:28,paddingBottom:100}}><h2 style={{fontSize:22,fontWeight:700,marginBottom:16,color:TEXT}}>History</h2><div style={{display:'flex',gap:8,marginBottom:14}}><input type="text" value={hSearch} onChange={e=>setHSearch(e.target.value)} placeholder="Search..." style={{flex:1,padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,color:TEXT,fontSize:16,fontFamily:'inherit',outline:'none',boxSizing:'border-box',minHeight:48}} /><select value={hSort} onChange={e=>setHSort(e.target.value)} style={{padding:'14px 12px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,color:SUB,fontSize:13,fontFamily:'inherit',outline:'none',minHeight:48}}><option value="newest">Newest</option><option value="oldest">Oldest</option><option value="score-low">Score ↑</option><option value="score-high">Score ↓</option></select></div>{fReports.length===0?<div style={{padding:36,textAlign:'center',background:CARD,borderRadius:14,border:`1px solid ${BORDER}`,color:SUB,fontSize:14}}>{hSearch?'No matches':'No reports yet'}</div>:fReports.map(r=><button key={r.id} onClick={()=>openReport(r)} style={{width:'100%',padding:'16px 18px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:14,marginBottom:8,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,minHeight:64,fontFamily:'inherit'}}><div style={{width:44,height:44,borderRadius:12,background:`${ACCENT}12`,display:'flex',alignItems:'center',justifyContent:'center'}}><span style={{fontSize:17,fontWeight:800,fontFamily:"'DM Mono'",color:ACCENT}}>{r.score||'?'}</span></div><div style={{flex:1,minWidth:0}}><div style={{fontSize:15,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:TEXT}}>{r.facility||'?'}</div><div style={{fontSize:13,color:DIM,fontFamily:"'DM Mono'",marginTop:4}}>{fD(r.ts)}</div></div><button onClick={e=>{e.stopPropagation();setDelConf({id:r.id,name:r.facility,type:'rpt'})}} style={{padding:'8px 12px',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:8,color:DIM,fontSize:12,cursor:'pointer',fontFamily:'inherit',minHeight:40}}>🗑</button></button>)}</div>}
         {view==='trash'&&<TrashView onRecover={async(id)=>{await Backup.recover(id);await refreshIndex()}} onDelete={async(id)=>{await Backup.permanentDelete(id)}} />}
-        {view==='settings'&&<SettingsScreen profile={profile} onEditProfile={()=>{setProfile({...profile,isNew:true});setView('dash')}} onLogout={handleLogout} onClose={()=>setView('dash')} />}
+        {view==='settings'&&<SettingsScreen profile={profile} onEditProfile={()=>{setProfile({...profile,isNew:true});setView('dash')}} onLogout={handleLogout} onClose={()=>setView('dash')} onNavigate={setView} />}
+        {view==='tos'&&<TermsOfService onBack={()=>setView('settings')} />}
+        {view==='privacy'&&<PrivacyPolicy onBack={()=>setView('settings')} />}
       </div>
+
+      {/* ── Bottom Tab Bar ── */}
+      {!isAssessing && !milestone && (
+        <nav style={{position:'fixed',bottom:0,left:0,right:0,zIndex:100,background:`${BG}F0`,backdropFilter:'blur(20px)',WebkitBackdropFilter:'blur(20px)',borderTop:`1px solid ${BORDER}`,paddingBottom:'env(safe-area-inset-bottom, 0px)'}}>
+          <div style={{display:'flex',justifyContent:'space-around',alignItems:'center',height:56,maxWidth:620,margin:'0 auto'}}>
+            {[
+              {id:'dash',label:'Home',icon:'home'},
+              {id:'drafts',label:'Drafts',icon:'clip',badge:(index.drafts||[]).length||null},
+              {id:'history',label:'History',icon:'clock',badge:(index.reports||[]).length||null},
+              {id:'settings',label:'Settings',icon:'user'},
+            ].map(t=>(
+              <button key={t.id} onClick={()=>{setView(t.id);if(t.id==='dash')setViewRpt(null);}} style={{background:'none',border:'none',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:3,padding:'6px 12px',minWidth:56,fontFamily:'inherit',position:'relative',WebkitTapHighlightColor:'transparent'}}>
+                <div style={{position:'relative'}}>
+                  <I n={t.icon} s={22} c={view===t.id?ACCENT:DIM} w={view===t.id?2.2:1.6} />
+                  {t.badge&&<div style={{position:'absolute',top:-4,right:-8,minWidth:16,height:16,borderRadius:8,background:ACCENT,display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,fontWeight:700,color:BG,fontFamily:"'DM Mono'",padding:'0 4px'}}>{t.badge}</div>}
+                </div>
+                <span style={{fontSize:10,fontWeight:view===t.id?600:500,color:view===t.id?ACCENT:DIM}}>{t.label}</span>
+              </button>
+            ))}
+          </div>
+        </nav>
+      )}
 
       <style>{`
         @keyframes fadeUp{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}

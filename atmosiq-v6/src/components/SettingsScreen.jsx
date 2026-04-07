@@ -19,7 +19,7 @@ const TEXT = '#F0F2F5'
 const SUB = '#9BA4B5'
 const DIM = '#6B7280'
 
-export default function SettingsScreen({ profile, onEditProfile, onLogout, onClose }) {
+export default function SettingsScreen({ profile, onEditProfile, onLogout, onClose, onNavigate }) {
   const [health, setHealth] = useState(null)
   const [importMsg, setImportMsg] = useState('')
 
@@ -96,6 +96,11 @@ export default function SettingsScreen({ profile, onEditProfile, onLogout, onClo
       {/* Account */}
       <div style={{fontSize:12,fontWeight:600,color:SUB,textTransform:'uppercase',letterSpacing:1.5,marginBottom:10,marginTop:24}}>Account</div>
       {row('user', 'Sign Out', 'Switch profile or sign out', onLogout, '#EF4444')}
+
+      {/* Legal */}
+      <div style={{fontSize:12,fontWeight:600,color:SUB,textTransform:'uppercase',letterSpacing:1.5,marginBottom:10,marginTop:24}}>Legal</div>
+      {row('clip', 'Terms of Service', 'Usage terms and disclaimers', () => onNavigate?.('tos'))}
+      {row('clip', 'Privacy Policy', 'How we handle your data', () => onNavigate?.('privacy'))}
 
       {/* About */}
       <div style={{fontSize:12,fontWeight:600,color:SUB,textTransform:'uppercase',letterSpacing:1.5,marginBottom:10,marginTop:24}}>About</div>

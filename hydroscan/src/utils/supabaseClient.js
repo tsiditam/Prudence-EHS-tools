@@ -1,7 +1,6 @@
 /**
  * Prudence Safety & Environmental Consulting, LLC
- * Copyright (c) 2026 Prudence Safety & Environmental Consulting, LLC
- * All rights reserved.
+ * Copyright (c) 2026 All rights reserved.
  *
  * Supabase client — single instance shared across the app
  */
@@ -29,9 +28,9 @@ export const supabase = supabaseUrl && supabaseAnonKey
 export function trackEvent(eventType, eventData = {}) {
   if (!supabase) return
   try {
-    const sessionId = sessionStorage.getItem('aiq_sid') || (() => {
+    const sessionId = sessionStorage.getItem('hs_sid') || (() => {
       const id = crypto.randomUUID()
-      sessionStorage.setItem('aiq_sid', id)
+      sessionStorage.setItem('hs_sid', id)
       return id
     })()
     supabase.from('analytics_events').insert({
