@@ -1,13 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
-  <rect width="192" height="192" rx="40" fill="#0A0A10"/>
-  <!-- Magnifying glass with green lens -->
-  <circle cx="80" cy="72" r="28" fill="#16a34a" fill-opacity="0.12"/>
-  <circle cx="80" cy="72" r="28" fill="none" stroke="#16a34a" stroke-width="4"/>
-  <line x1="100" y1="92" x2="120" y2="112" stroke="#16a34a" stroke-width="5" stroke-linecap="round"/>
-  <!-- Check mark inside lens -->
-  <polyline points="68,72 76,80 92,64" fill="none" stroke="#16a34a" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
-  <!-- Reg -->
-  <text x="30" y="152" font-family="system-ui, sans-serif" font-weight="800" font-size="38" fill="#F0F4F8" letter-spacing="-1">Reg</text>
-  <!-- Lens in green -->
-  <text x="103" y="152" font-family="system-ui, sans-serif" font-weight="800" font-size="38" fill="#16a34a" letter-spacing="-1">Lens</text>
+  <rect width="192" height="192" rx="42" fill="#0A0A10"/>
+  <!-- Magnifying glass — matches in-app Logo: circle with doc lines, check, handle -->
+  <circle cx="78" cy="70" r="30" fill="none" stroke="#34C759" stroke-width="3.5"/>
+  <!-- Document lines inside lens -->
+  <line x1="62" y1="60" x2="84" y2="60" stroke="#34C759" stroke-width="2.5" stroke-linecap="round" opacity="0.7"/>
+  <line x1="62" y1="70" x2="90" y2="70" stroke="#34C759" stroke-width="2.5" stroke-linecap="round" opacity="0.5"/>
+  <line x1="62" y1="80" x2="80" y2="80" stroke="#34C759" stroke-width="2.5" stroke-linecap="round" opacity="0.3"/>
+  <!-- Checkmark -->
+  <polyline points="86,68 89,72 96,62" fill="none" stroke="#34C759" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Handle -->
+  <line x1="100" y1="92" x2="124" y2="116" stroke="#34C759" stroke-width="5" stroke-linecap="round"/>
+  <!-- Brand text -->
+  <text x="32" y="160" font-family="system-ui, sans-serif" font-weight="700" font-size="34" fill="#E2E8F0">Reg</text>
+  <text x="98" y="160" font-family="system-ui, sans-serif" font-weight="700" font-size="34" fill="#34C759">Lens</text>
 </svg>

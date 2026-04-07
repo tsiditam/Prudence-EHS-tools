@@ -1,7 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
-  <rect width="192" height="192" rx="40" fill="#080A0E"/>
-  <circle cx="96" cy="88" r="48" fill="none" stroke="#DC2626" stroke-width="4" opacity="0.3"/>
-  <circle cx="96" cy="88" r="28" fill="#DC2626" opacity="0.15"/>
-  <text x="96" y="100" text-anchor="middle" font-family="system-ui, sans-serif" font-weight="800" font-size="56" fill="#FFFFFF">OR</text>
-  <text x="96" y="158" text-anchor="middle" font-family="system-ui, sans-serif" font-weight="600" font-size="16" fill="rgba(255,255,255,0.4)" letter-spacing="3">OSHAREADY</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
+  <rect width="192" height="192" rx="42" fill="#080A0E"/>
+  <!-- Circle arc — matches in-app Logo: partial circle with gap -->
+  <path d="M136 86 A42 42 0 1 1 118 58" stroke="#E2E8F0" stroke-width="11" stroke-linecap="round" fill="none"/>
+  <!-- Red checkmark — matches in-app Logo -->
+  <polyline points="68,88 84,104 118,62" fill="none" stroke="#DC2626" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Brand text -->
+  <text x="52" y="162" font-family="system-ui, sans-serif" font-weight="700" font-size="22" fill="#E2E8F0">OSHA</text>
+  <text x="118" y="162" font-family="system-ui, sans-serif" font-weight="700" font-size="22" fill="#DC2626">ready</text>
 </svg>

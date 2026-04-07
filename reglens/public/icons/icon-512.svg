@@ -1,13 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
   <rect width="512" height="512" rx="108" fill="#0A0A10"/>
-  <!-- Magnifying glass with green lens -->
-  <circle cx="215" cy="190" r="75" fill="#16a34a" fill-opacity="0.12"/>
-  <circle cx="215" cy="190" r="75" fill="none" stroke="#16a34a" stroke-width="10"/>
-  <line x1="268" y1="243" x2="320" y2="295" stroke="#16a34a" stroke-width="13" stroke-linecap="round"/>
-  <!-- Check mark inside lens -->
-  <polyline points="183,190 203,210 247,166" fill="none" stroke="#16a34a" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
-  <!-- Reg -->
-  <text x="78" y="405" font-family="system-ui, sans-serif" font-weight="800" font-size="102" fill="#F0F4F8" letter-spacing="-3">Reg</text>
-  <!-- Lens in green -->
-  <text x="275" y="405" font-family="system-ui, sans-serif" font-weight="800" font-size="102" fill="#16a34a" letter-spacing="-3">Lens</text>
+  <!-- Magnifying glass — matches in-app Logo -->
+  <circle cx="206" cy="185" r="80" fill="none" stroke="#34C759" stroke-width="9"/>
+  <!-- Document lines inside lens -->
+  <line x1="164" y1="158" x2="224" y2="158" stroke="#34C759" stroke-width="7" stroke-linecap="round" opacity="0.7"/>
+  <line x1="164" y1="185" x2="240" y2="185" stroke="#34C759" stroke-width="7" stroke-linecap="round" opacity="0.5"/>
+  <line x1="164" y1="212" x2="212" y2="212" stroke="#34C759" stroke-width="7" stroke-linecap="round" opacity="0.3"/>
+  <!-- Checkmark -->
+  <polyline points="230,180 238,190 256,168" fill="none" stroke="#34C759" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Handle -->
+  <line x1="266" y1="245" x2="332" y2="311" stroke="#34C759" stroke-width="14" stroke-linecap="round"/>
+  <!-- Brand text -->
+  <text x="80" y="425" font-family="system-ui, sans-serif" font-weight="700" font-size="92" fill="#E2E8F0">Reg</text>
+  <text x="262" y="425" font-family="system-ui, sans-serif" font-weight="700" font-size="92" fill="#34C759">Lens</text>
 </svg>

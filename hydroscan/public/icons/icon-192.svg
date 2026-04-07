@@ -1,15 +1,25 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
-  <rect width="192" height="192" rx="40" fill="#080A0E"/>
+  <rect width="192" height="192" rx="42" fill="#080A0E"/>
   <defs>
-    <linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%">
+    <linearGradient id="hs-g" x1="0%" y1="0%" x2="100%" y2="0%">
       <stop offset="0%" stop-color="#0D9488"/>
-      <stop offset="100%" stop-color="#22D3EE"/>
+      <stop offset="50%" stop-color="#14B8A6"/>
+      <stop offset="100%" stop-color="#5EEAD4"/>
     </linearGradient>
+    <clipPath id="hs-c"><path d="M96 24C96 24,134 62,134 80A38 38 0 1 1 58 80C58 62,96 24,96 24Z"/></clipPath>
   </defs>
-  <!-- Water drop -->
-  <path d="M96 32C96 32,136 72,136 92A40 40 0 1 1 56 92C56 72,96 32,96 32Z" stroke="url(#g1)" stroke-width="5" fill="none" stroke-linejoin="round"/>
-  <!-- HS text -->
-  <text x="96" y="102" text-anchor="middle" font-family="sans-serif" font-weight="800" font-size="32" fill="url(#g1)">HS</text>
-  <!-- Pulse line below -->
-  <polyline points="48,148 68,148 78,136 88,158 98,130 108,152 118,144 144,144" stroke="url(#g1)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- Water drop outline — matches in-app Logo -->
+  <path d="M96 24C96 24,134 62,134 80A38 38 0 1 1 58 80C58 62,96 24,96 24Z" stroke="#0D9488" stroke-width="4" fill="none" stroke-linejoin="round"/>
+  <!-- Grid inside drop -->
+  <g clip-path="url(#hs-c)" opacity="0.12" stroke="#14B8A6" stroke-width="0.8">
+    <line x1="60" y1="68" x2="132" y2="68"/><line x1="60" y1="80" x2="132" y2="80"/><line x1="60" y1="92" x2="132" y2="92"/>
+    <line x1="78" y1="50" x2="78" y2="108"/><line x1="96" y1="50" x2="96" y2="108"/><line x1="114" y1="50" x2="114" y2="108"/>
+  </g>
+  <!-- Pulse line inside drop -->
+  <polyline points="64,80 76,80 82,66 90,92 98,58 106,84 114,76 130,76" stroke="url(#hs-g)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- Start node -->
+  <circle cx="64" cy="80" r="3" fill="#0D9488" stroke="#080A0E" stroke-width="1.5"/>
+  <!-- Brand text -->
+  <text x="24" y="158" font-family="system-ui, sans-serif" font-weight="700" font-size="24" fill="#E2E8F0">Hydro</text>
+  <text x="108" y="158" font-family="system-ui, sans-serif" font-weight="700" font-size="24" fill="#14B8A6">Scan</text>
 </svg>

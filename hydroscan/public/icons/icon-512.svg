@@ -1,15 +1,25 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="96" fill="#080A0E"/>
+  <rect width="512" height="512" rx="108" fill="#080A0E"/>
   <defs>
-    <linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%">
+    <linearGradient id="hs-g" x1="0%" y1="0%" x2="100%" y2="0%">
       <stop offset="0%" stop-color="#0D9488"/>
-      <stop offset="100%" stop-color="#22D3EE"/>
+      <stop offset="50%" stop-color="#14B8A6"/>
+      <stop offset="100%" stop-color="#5EEAD4"/>
     </linearGradient>
+    <clipPath id="hs-c"><path d="M256 60C256 60,358 166,358 212A102 102 0 1 1 154 212C154 166,256 60,256 60Z"/></clipPath>
   </defs>
-  <!-- Water drop -->
-  <path d="M256 80C256 80,368 192,368 248A112 112 0 1 1 144 248C144 192,256 80,256 80Z" stroke="url(#g1)" stroke-width="12" fill="none" stroke-linejoin="round"/>
-  <!-- HS text -->
-  <text x="256" y="272" text-anchor="middle" font-family="sans-serif" font-weight="800" font-size="88" fill="url(#g1)">HS</text>
-  <!-- Pulse line below -->
-  <polyline points="120,400 172,400 200,368 232,428 264,348 296,412 320,388 392,388" stroke="url(#g1)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- Water drop outline -->
+  <path d="M256 60C256 60,358 166,358 212A102 102 0 1 1 154 212C154 166,256 60,256 60Z" stroke="#0D9488" stroke-width="10" fill="none" stroke-linejoin="round"/>
+  <!-- Grid inside drop -->
+  <g clip-path="url(#hs-c)" opacity="0.12" stroke="#14B8A6" stroke-width="2">
+    <line x1="160" y1="180" x2="352" y2="180"/><line x1="160" y1="212" x2="352" y2="212"/><line x1="160" y1="244" x2="352" y2="244"/>
+    <line x1="208" y1="130" x2="208" y2="290"/><line x1="256" y1="130" x2="256" y2="290"/><line x1="304" y1="130" x2="304" y2="290"/>
+  </g>
+  <!-- Pulse line -->
+  <polyline points="170,212 200,212 218,176 242,246 266,152 290,224 310,200 350,200" stroke="url(#hs-g)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- Start node -->
+  <circle cx="170" cy="212" r="8" fill="#0D9488" stroke="#080A0E" stroke-width="3"/>
+  <!-- Brand text -->
+  <text x="62" y="420" font-family="system-ui, sans-serif" font-weight="700" font-size="64" fill="#E2E8F0">Hydro</text>
+  <text x="290" y="420" font-family="system-ui, sans-serif" font-weight="700" font-size="64" fill="#14B8A6">Scan</text>
 </svg>
