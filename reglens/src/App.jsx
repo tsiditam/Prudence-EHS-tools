@@ -10,7 +10,7 @@
  * Contact: tsidi@prudenceehs.com
  */
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 
 // ─── Supabase Client ───
 // CONFIGURE: Replace these with your Supabase project values
