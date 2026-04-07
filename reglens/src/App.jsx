@@ -3461,100 +3461,33 @@ export default function RegLensApp() {
             );
           })()}
 
-          {/* ── Welcome Card (first-time users only) ── */}
-          {!hasSeen("welcome") && submissions.length === 0 && auditSubmissions.length === 0 && (
-            <div style={{ ...card, border: `1px solid ${theme === "dark" ? "#34C75930" : "#bbf7d0"}`, background: theme === "dark" ? "linear-gradient(145deg, #1A2A1A08, #1C1C1E)" : "linear-gradient(145deg, #F0FDF408, #FFFFFF)", position: "relative", overflow: "hidden" }} className="rl-fade-in">
-              <button onClick={() => markSeen("welcome")} style={{ position: "absolute", top: "10px", right: "10px", background: "none", border: "none", color: t.textTertiary, fontSize: "14px", cursor: "pointer" }}>✕</button>
-              <div style={{ fontSize: "15px", fontWeight: 700, color: t.text, marginBottom: "6px" }}>Welcome to RegLens 👋</div>
-              <div style={{ fontSize: "12px", color: t.textSecondary, lineHeight: 1.6, marginBottom: "8px" }}>
-                Here are three ways to get started — pick whichever fits your needs right now:
-              </div>
-              <button onClick={() => { markSeen("welcome"); startTour(); }} style={{ width: "100%", padding: "8px", borderRadius: "8px", background: `${t.green}10`, border: `1px solid ${t.green}25`, color: t.green, fontSize: "11px", fontWeight: 600, cursor: "pointer", marginBottom: "10px" }}>
-                👀 Take a quick tour of RegLens
-              </button>
-              {[
-                { icon: "review", title: "Run a Compliance Review", desc: "Upload a safety program and get an AI-powered gap analysis with citations", action: () => { markSeen("welcome"); setSelectedType(null); setTab("upload"); }, tag: "1 free review" },
-                { icon: "readiness", title: "Take a Readiness Check", desc: "Walk through a guided facility checklist — photos, notes, instant score", action: () => { markSeen("welcome"); setTab("audit"); }, tag: "Always free" },
-                { icon: "jha", title: "Start a Job Hazard Analysis", desc: "Identify task hazards, assess risk with a 5×5 matrix, document controls", action: () => { markSeen("welcome"); setTab("risk"); }, tag: "Always free" },
-              ].map((item, i) => (
-                <button key={i} className="rl-card-interactive" onClick={item.action} style={{ width: "100%", display: "flex", alignItems: "center", gap: "12px", padding: "10px 12px", borderRadius: "10px", background: t.inputBg, border: `1px solid ${t.border}`, cursor: "pointer", textAlign: "left", marginBottom: "6px" }}>
-                  {item.icon === "review" ? <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}><rect x="4" y="2" width="12" height="16" rx="2" stroke={t.green} strokeWidth="1.5" opacity="0.5"/><rect x="8" y="6" width="12" height="16" rx="2" stroke={t.green} strokeWidth="1.5"/><path d="M12 12h4M12 15h3" stroke={t.green} strokeWidth="1.5" strokeLinecap="round"/></svg> : item.icon === "readiness" ? <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}><rect x="4" y="3" width="16" height="18" rx="2" stroke="#3B82F6" strokeWidth="1.5"/><rect x="8" y="8" width="2" height="2" rx="0.5" fill="#3B82F6"/><rect x="8" y="12" width="2" height="2" rx="0.5" fill="#3B82F6" opacity="0.6"/><path d="M12 9h4M12 13h3" stroke="#3B82F6" strokeWidth="1.2" strokeLinecap="round" opacity="0.5"/></svg> : item.icon === "jha" ? <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}><path d="M12 2L2 22h20L12 2z" stroke="#F59E0B" strokeWidth="1.5" fill="#F59E0B10"/><path d="M12 10v4M12 17h.01" stroke="#F59E0B" strokeWidth="1.8" strokeLinecap="round"/></svg> : <span style={{ fontSize: "20px", flexShrink: 0 }}>{item.icon}</span>}
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: "12px", fontWeight: 700, color: t.text }}>{item.title}</div>
-                    <div style={{ fontSize: "10px", color: t.textSecondary, lineHeight: 1.4 }}>{item.desc}</div>
-                  </div>
-                  <span style={{ fontSize: "8px", fontWeight: 700, color: t.green, padding: "2px 6px", borderRadius: "4px", background: `${t.green}10`, border: `1px solid ${t.green}20`, whiteSpace: "nowrap" }}>{item.tag}</span>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* ── Primary Actions — SVG icons, clear hierarchy ── */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "10px" }}>
-            <button className="rl-tap rl-glow" onClick={() => { setSelectedType(null); setTab("upload"); }} style={{ padding: "18px 14px", borderRadius: "16px", background: theme === "dark" ? "linear-gradient(145deg, #1A2A1A, #1C1C1E)" : "linear-gradient(145deg, #F0FDF4, #FFFFFF)", border: `1px solid ${theme === "dark" ? "#34C75930" : "#bbf7d0"}`, cursor: "pointer", textAlign: "left" }}>
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" style={{ marginBottom: "8px" }}>
-                <rect x="4" y="2" width="12" height="16" rx="2" stroke={t.green} strokeWidth="1.5" opacity="0.5"/>
-                <rect x="8" y="6" width="12" height="16" rx="2" stroke={t.green} strokeWidth="1.5"/>
-                <path d="M12 12h4M12 15h3" stroke={t.green} strokeWidth="1.5" strokeLinecap="round"/>
-                <circle cx="18" cy="8" r="3" fill={t.green} opacity="0.8"/><path d="M16.5 8l1 1 2-2" stroke={theme === "dark" ? "#000" : "#fff"} strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              <div style={{ fontSize: "14px", fontWeight: 700, color: t.text, marginBottom: "2px" }}>Compliance Review</div>
-              <div style={{ fontSize: "10px", color: t.textSecondary }}>AI-powered gap analysis</div>
-            </button>
-            <button className="rl-tap" onClick={() => setTab("audit")} style={{ padding: "18px 14px", borderRadius: "16px", background: theme === "dark" ? "linear-gradient(145deg, #101C2E, #1C1C1E)" : "linear-gradient(145deg, #EFF6FF, #FFFFFF)", border: `1px solid ${theme === "dark" ? "#3B82F630" : "#BFDBFE"}`, cursor: "pointer", textAlign: "left" }}>
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" style={{ marginBottom: "8px" }}>
-                <rect x="4" y="3" width="16" height="18" rx="2" stroke="#3B82F6" strokeWidth="1.5"/>
-                <path d="M9 9h6M9 13h4" stroke="#3B82F6" strokeWidth="1.5" strokeLinecap="round" opacity="0.4"/>
-                <rect x="8" y="8" width="2" height="2" rx="0.5" fill="#3B82F6"/><rect x="8" y="12" width="2" height="2" rx="0.5" fill="#3B82F6" opacity="0.6"/>
-              </svg>
-              <div style={{ fontSize: "14px", fontWeight: 700, color: t.text, marginBottom: "2px" }}>Readiness Check</div>
-              <div style={{ fontSize: "10px", color: t.textSecondary }}>Guided facility checklist</div>
-            </button>
-          </div>
-
-          {/* Citation Response */}
-          <button className="rl-tap rl-card-interactive" onClick={() => setTab("citation")} style={{ width: "100%", padding: "14px", borderRadius: "14px", background: theme === "dark" ? "linear-gradient(145deg, #2A1215, #1C1C1E)" : "linear-gradient(145deg, #FEF2F2, #FFFFFF)", border: `1px solid ${theme === "dark" ? "#EF444430" : "#FECACA"}`, cursor: "pointer", textAlign: "left", marginBottom: "10px", display: "flex", alignItems: "center", gap: "12px" }}>
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
-              <path d="M12 2L4 6v6c0 5.5 3.4 10.3 8 12 4.6-1.7 8-6.5 8-12V6l-8-4z" stroke="#EF4444" strokeWidth="1.5" fill="#EF444410"/>
-              <path d="M9 12l2 2 4-4" stroke="#EF4444" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+          {/* ── Primary Actions — clear hierarchy ── */}
+          <button className="rl-tap rl-glow" onClick={() => { setSelectedType(null); setTab("upload"); }} style={{ width: "100%", padding: "20px 16px", borderRadius: "16px", background: theme === "dark" ? "linear-gradient(145deg, #1A2A1A, #1C1C1E)" : "linear-gradient(145deg, #F0FDF4, #FFFFFF)", border: `1.5px solid ${theme === "dark" ? "#34C75940" : "#bbf7d0"}`, cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: "14px", marginBottom: "10px" }}>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+              <rect x="4" y="2" width="12" height="16" rx="2" stroke={t.green} strokeWidth="1.5" opacity="0.5"/>
+              <rect x="8" y="6" width="12" height="16" rx="2" stroke={t.green} strokeWidth="1.5"/>
+              <path d="M12 12h4M12 15h3" stroke={t.green} strokeWidth="1.5" strokeLinecap="round"/>
+              <circle cx="18" cy="8" r="3" fill={t.green} opacity="0.8"/><path d="M16.5 8l1 1 2-2" stroke={theme === "dark" ? "#000" : "#fff"} strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: "13px", fontWeight: 700, color: t.text }}>Citation Response</div>
-              <div style={{ fontSize: "10px", color: t.textSecondary }}>OSHA/EPA citation → abatement plan</div>
+              <div style={{ fontSize: "16px", fontWeight: 700, color: t.text }}>Run Compliance Review</div>
+              <div style={{ fontSize: "11px", color: t.textSecondary, marginTop: "2px" }}>Upload a safety program for AI-powered gap analysis</div>
             </div>
-            <div style={{ padding: "3px 8px", borderRadius: "6px", background: "#EF444415", border: "1px solid #EF444425", fontSize: "10px", fontWeight: 700, color: "#EF4444" }}>$149</div>
+            <span style={{ color: t.green, fontSize: "18px" }}>›</span>
           </button>
 
-          {/* ── Secondary Tools — compact 3-column grid ── */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px", marginBottom: "16px" }}>
-            <button className="rl-tap" onClick={() => setTab("risk")} style={{ padding: "12px 8px", borderRadius: "12px", background: t.card, border: `1px solid ${t.border}`, cursor: "pointer", textAlign: "center" }}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{ margin: "0 auto 4px", display: "block" }}>
-                <path d="M12 2L2 22h20L12 2z" stroke="#F59E0B" strokeWidth="1.5" fill="#F59E0B10"/>
-                <path d="M12 10v4M12 17h.01" stroke="#F59E0B" strokeWidth="1.8" strokeLinecap="round"/>
-              </svg>
-              <div style={{ fontSize: "10px", fontWeight: 700, color: t.text }}>JHA</div>
-              <div style={{ fontSize: "8px", color: t.textSecondary }}>Hazard analysis</div>
-            </button>
-            <button className="rl-tap" onClick={() => { setIncidentDraft({ id: `IR-${Date.now().toString(36).toUpperCase().slice(-6)}`, date: new Date().toISOString().split("T")[0], time: "", location: "", department: "", employeeName: "", jobTitle: "", severity: "First Aid", injuryType: "", bodyPart: "", description: "", activity: "", witnesses: "", whys: ["", "", "", "", ""], immediateActions: "", preventiveActions: "", oshaRecordable: false }); setTab("incident"); }} style={{ padding: "12px 8px", borderRadius: "12px", background: t.card, border: `1px solid ${t.border}`, cursor: "pointer", textAlign: "center" }}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{ margin: "0 auto 4px", display: "block" }}>
-                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" stroke="#ea580c" strokeWidth="1.5" fill="#ea580c08"/>
-                <path d="M14 2v6h6" stroke="#ea580c" strokeWidth="1.5" strokeLinecap="round"/><path d="M9 15h6M9 18h4" stroke="#ea580c" strokeWidth="1.2" strokeLinecap="round" opacity="0.6"/>
-              </svg>
-              <div style={{ fontSize: "10px", fontWeight: 700, color: t.text }}>Incident</div>
-              <div style={{ fontSize: "8px", color: t.textSecondary }}>Report form</div>
-              {incidentReports.length > 0 && <div style={{ fontSize: "7px", color: t.textTertiary, marginTop: "2px" }}>{incidentReports.length} filed</div>}
-            </button>
-            <button className="rl-tap" onClick={() => { setMeetingDraft({ date: new Date().toISOString().split("T")[0], topic: "", presenter: "", location: "", duration: "", points: "", attendees: [], actionItems: [] }); setTab("meeting"); }} style={{ padding: "12px 8px", borderRadius: "12px", background: t.card, border: `1px solid ${t.border}`, cursor: "pointer", textAlign: "center" }}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{ margin: "0 auto 4px", display: "block" }}>
-                <circle cx="9" cy="7" r="3" stroke="#0EA5E9" strokeWidth="1.5" fill="#0EA5E910"/>
-                <circle cx="16" cy="9" r="2.5" stroke="#0EA5E9" strokeWidth="1.2" opacity="0.5"/>
-                <path d="M2 21v-1a5 5 0 015-5h4a5 5 0 015 5v1" stroke="#0EA5E9" strokeWidth="1.5" strokeLinecap="round"/>
-              </svg>
-              <div style={{ fontSize: "10px", fontWeight: 700, color: t.text }}>Meeting</div>
-              <div style={{ fontSize: "8px", color: t.textSecondary }}>Toolbox talk</div>
-              {meetingLogs.length > 0 && <div style={{ fontSize: "7px", color: t.textTertiary, marginTop: "2px" }}>{meetingLogs.length} logged</div>}
-            </button>
-          </div>
+          <button className="rl-tap" onClick={() => setTab("audit")} style={{ width: "100%", padding: "14px 16px", borderRadius: "14px", background: theme === "dark" ? "linear-gradient(145deg, #101C2E, #1C1C1E)" : "linear-gradient(145deg, #EFF6FF, #FFFFFF)", border: `1px solid ${theme === "dark" ? "#3B82F630" : "#BFDBFE"}`, cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: "12px", marginBottom: "16px" }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+              <rect x="4" y="3" width="16" height="18" rx="2" stroke="#3B82F6" strokeWidth="1.5"/>
+              <path d="M9 9h6M9 13h4" stroke="#3B82F6" strokeWidth="1.5" strokeLinecap="round" opacity="0.4"/>
+              <rect x="8" y="8" width="2" height="2" rx="0.5" fill="#3B82F6"/><rect x="8" y="12" width="2" height="2" rx="0.5" fill="#3B82F6" opacity="0.6"/>
+            </svg>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: "14px", fontWeight: 700, color: t.text }}>Start Readiness Check</div>
+              <div style={{ fontSize: "10px", color: t.textSecondary }}>Guided facility checklist with photos</div>
+            </div>
+            <span style={{ color: "#3B82F6", fontSize: "16px" }}>›</span>
+          </button>
 
           {/* ── Latest Scores (most recent review + audit side by side) ── */}
           {(submissions.length > 0 || auditSubmissions.length > 0) && (
@@ -3630,11 +3563,26 @@ export default function RegLensApp() {
             </div>
           )}
 
+          {/* ── Inline Metrics (from Analytics) ── */}
+          {(submissions.length > 0 || auditSubmissions.length > 0) && (
+            <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
+              {[
+                { label: "Reviews", value: submissions.length, color: t.green },
+                { label: "Avg Score", value: submissions.length > 0 ? Math.round(submissions.reduce((a, s) => a + s.score, 0) / submissions.length) : "—", color: submissions.length > 0 ? (() => { const avg = Math.round(submissions.reduce((a, s) => a + s.score, 0) / submissions.length); return RegLensScoring.getBandColor(RegLensScoring.getBand(avg)); })() : t.textTertiary },
+                { label: "Checks", value: auditSubmissions.length, color: "#3B82F6" },
+              ].map((m, i) => (
+                <div key={i} style={{ flex: 1, padding: "10px 8px", borderRadius: "12px", background: t.card, border: `1px solid ${t.border}`, textAlign: "center" }}>
+                  <div style={{ fontSize: "22px", fontWeight: 700, color: m.color }}>{m.value}</div>
+                  <div style={{ fontSize: "9px", color: t.textSecondary, fontWeight: 500, textTransform: "uppercase" }}>{m.label}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* ── Recent Activity ── */}
           <div style={{ marginBottom: "20px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px", padding: "0 4px" }}>
               <span style={{ fontSize: "18px", fontWeight: 700 }}>Recent Activity</span>
-              {submissions.length > 0 && <span onClick={() => setTab("documents")} style={{ fontSize: "13px", color: t.green, fontWeight: 600, cursor: "pointer" }}>See all →</span>}
             </div>
             {submissions.length === 0 && auditSubmissions.length === 0 ? (
               <div style={{ ...card, textAlign: "center", padding: "28px 16px", border: `1px solid ${t.border}` }}>
@@ -4184,161 +4132,60 @@ export default function RegLensApp() {
         </div>
       )}
 
-      {/* ══════ DOCUMENTS ══════ */}
-      {tab === "documents" && (
+      {/* Documents tab removed — content folded into dashboard Recent Activity */}
+
+      {/* Admin tab removed — content folded into Tools tab */}
+
+      {/* Analytics tab removed — metrics folded into dashboard */}
+
+      {/* ══════ TOOLS ══════ */}
+      {tab === "tools" && (
         <div style={{ padding: "0 16px" }}>
-          <div style={{ padding: "0 4px", marginBottom: "16px" }}><span style={{ fontSize: "28px", fontWeight: 700 }}>Documents</span></div>
-          {submissions.length === 0 ? (
-            <div style={{ ...card, textAlign: "center", padding: "48px 16px" }}>
-              <div style={{ fontSize: "36px", marginBottom: "10px", opacity: 0.4 }}>📭</div>
-              <div style={{ fontSize: "15px", color: t.textSecondary }}>No documents yet</div>
-            </div>
-          ) : submissions.map((sub) => (
-            <button key={sub.id} onClick={() => { setResult(sub.result); setScoreResult(sub.scoreResult); setViewingSub(sub); setTab("report"); }} style={{ ...cardFlat, width: "100%", border: `1px solid ${t.border}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", textAlign: "left" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                <div style={{ width: "48px", height: "48px", borderRadius: "12px", background: t.card, display: "flex", alignItems: "center", justifyContent: "center" }}>{renderIcon(sub.icon, 22)}</div>
-                <div>
-                  <div style={{ fontSize: "15px", fontWeight: 600, color: t.text }}>{sub.label}</div>
-                  <div style={{ fontSize: "12px", color: t.textSecondary }}>{sub.id}</div>
-                  <div style={{ fontSize: "12px", color: sub.status === "approved" ? "#34C759" : "#F59E0B", fontWeight: 500 }}>{sub.status === "approved" ? "Approved" : "Pending review"}</div>
-                </div>
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <div style={{ fontSize: "24px", fontWeight: 700, color: RegLensScoring.getBandColor(sub.band) }}>{sub.score}</div>
-                <div style={{ fontSize: "11px", color: t.textSecondary }}>{sub.band}</div>
-              </div>
+          <div style={{ padding: "0 4px", marginBottom: "16px" }}><span style={{ fontSize: "28px", fontWeight: 700, color: t.text }}>Tools</span></div>
+
+          {/* ── Field Tools Grid ── */}
+          <div style={{ fontSize: "11px", fontWeight: 600, color: t.textSecondary, letterSpacing: "0.5px", textTransform: "uppercase", marginBottom: "10px", padding: "0 4px" }}>Field Tools</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "20px" }}>
+            <button className="rl-tap rl-card-interactive" onClick={() => setTab("citation")} style={{ padding: "16px 14px", borderRadius: "14px", background: theme === "dark" ? "linear-gradient(145deg, #2A1215, #1C1C1E)" : "linear-gradient(145deg, #FEF2F2, #FFFFFF)", border: `1px solid ${theme === "dark" ? "#EF444430" : "#FECACA"}`, cursor: "pointer", textAlign: "left" }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style={{ marginBottom: "8px" }}>
+                <path d="M12 2L4 6v6c0 5.5 3.4 10.3 8 12 4.6-1.7 8-6.5 8-12V6l-8-4z" stroke="#EF4444" strokeWidth="1.5" fill="#EF444410"/>
+                <path d="M9 12l2 2 4-4" stroke="#EF4444" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              <div style={{ fontSize: "13px", fontWeight: 700, color: t.text, marginBottom: "2px" }}>Citation Response</div>
+              <div style={{ fontSize: "9px", color: t.textSecondary }}>OSHA/EPA abatement plan</div>
+              <div style={{ marginTop: "6px", padding: "2px 6px", borderRadius: "4px", background: "#EF444415", border: "1px solid #EF444425", fontSize: "9px", fontWeight: 700, color: "#EF4444", display: "inline-block" }}>$149</div>
             </button>
-          ))}
-        </div>
-      )}
-
-      {/* ══════ COMPLIANCE / ADMIN ══════ */}
-      {tab === "compliance" && (
-        <div style={{ padding: "0 16px" }}>
-          <div style={{ padding: "0 4px", marginBottom: "16px" }}>
-            <span style={{ fontSize: "28px", fontWeight: 700 }}>Admin Queue</span>
-            <div style={{ fontSize: "14px", color: t.textSecondary, marginTop: "2px" }}>Review and approve AI findings</div>
+            <button className="rl-tap" onClick={() => setTab("risk")} style={{ padding: "16px 14px", borderRadius: "14px", background: t.card, border: `1px solid ${t.border}`, cursor: "pointer", textAlign: "left" }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style={{ marginBottom: "8px" }}>
+                <path d="M12 2L2 22h20L12 2z" stroke="#F59E0B" strokeWidth="1.5" fill="#F59E0B10"/>
+                <path d="M12 10v4M12 17h.01" stroke="#F59E0B" strokeWidth="1.8" strokeLinecap="round"/>
+              </svg>
+              <div style={{ fontSize: "13px", fontWeight: 700, color: t.text, marginBottom: "2px" }}>Job Hazard Analysis</div>
+              <div style={{ fontSize: "9px", color: t.textSecondary }}>5x5 risk matrix</div>
+              <div style={{ marginTop: "6px", padding: "2px 6px", borderRadius: "4px", background: `${t.green}10`, border: `1px solid ${t.green}20`, fontSize: "9px", fontWeight: 600, color: t.green, display: "inline-block" }}>Free</div>
+            </button>
+            <button className="rl-tap" onClick={() => { setIncidentDraft({ id: `IR-${Date.now().toString(36).toUpperCase().slice(-6)}`, date: new Date().toISOString().split("T")[0], time: "", location: "", department: "", employeeName: "", jobTitle: "", severity: "First Aid", injuryType: "", bodyPart: "", description: "", activity: "", witnesses: "", whys: ["", "", "", "", ""], immediateActions: "", preventiveActions: "", oshaRecordable: false }); setTab("incident"); }} style={{ padding: "16px 14px", borderRadius: "14px", background: t.card, border: `1px solid ${t.border}`, cursor: "pointer", textAlign: "left" }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style={{ marginBottom: "8px" }}>
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" stroke="#ea580c" strokeWidth="1.5" fill="#ea580c08"/>
+                <path d="M14 2v6h6" stroke="#ea580c" strokeWidth="1.5" strokeLinecap="round"/><path d="M9 15h6M9 18h4" stroke="#ea580c" strokeWidth="1.2" strokeLinecap="round" opacity="0.6"/>
+              </svg>
+              <div style={{ fontSize: "13px", fontWeight: 700, color: t.text, marginBottom: "2px" }}>Incident Report</div>
+              <div style={{ fontSize: "9px", color: t.textSecondary }}>OSHA 301-aligned</div>
+              {incidentReports.length > 0 && <div style={{ fontSize: "8px", color: t.textTertiary, marginTop: "4px" }}>{incidentReports.length} filed</div>}
+            </button>
+            <button className="rl-tap" onClick={() => { setMeetingDraft({ date: new Date().toISOString().split("T")[0], topic: "", presenter: "", location: "", duration: "", points: "", attendees: [], actionItems: [] }); setTab("meeting"); }} style={{ padding: "16px 14px", borderRadius: "14px", background: t.card, border: `1px solid ${t.border}`, cursor: "pointer", textAlign: "left" }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style={{ marginBottom: "8px" }}>
+                <circle cx="9" cy="7" r="3" stroke="#0EA5E9" strokeWidth="1.5" fill="#0EA5E910"/>
+                <circle cx="16" cy="9" r="2.5" stroke="#0EA5E9" strokeWidth="1.2" opacity="0.5"/>
+                <path d="M2 21v-1a5 5 0 015-5h4a5 5 0 015 5v1" stroke="#0EA5E9" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+              <div style={{ fontSize: "13px", fontWeight: 700, color: t.text, marginBottom: "2px" }}>Meeting Log</div>
+              <div style={{ fontSize: "9px", color: t.textSecondary }}>Toolbox talks</div>
+              {meetingLogs.length > 0 && <div style={{ fontSize: "8px", color: t.textTertiary, marginTop: "4px" }}>{meetingLogs.length} logged</div>}
+            </button>
           </div>
-          {submissions.filter(s => s.status === "pending").length === 0 ? (
-            <div style={{ ...card, textAlign: "center", padding: "48px 16px" }}>
-              <div style={{ fontSize: "36px", marginBottom: "10px", opacity: 0.4 }}>✅</div>
-              <div style={{ fontSize: "15px", color: t.textSecondary }}>All caught up</div>
-            </div>
-          ) : submissions.filter(s => s.status === "pending").map((sub) => (
-            <div key={sub.id} style={{ ...card, border: `1px solid ${t.border}` }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                  <span>{renderIcon(sub.icon, 22)}</span>
-                  <div>
-                    <div style={{ fontSize: "15px", fontWeight: 600 }}>{sub.label}</div>
-                    <div style={{ fontSize: "12px", color: t.textSecondary }}>{sub.id} · {sub.industryLabel} · {sub.date}</div>
-                  </div>
-                </div>
-                <div style={{ fontSize: "22px", fontWeight: 700, color: RegLensScoring.getBandColor(sub.band) }}>{sub.score}</div>
-              </div>
-              <div style={{ marginBottom: "12px" }}>
-                {sub.result.findings.slice(0, 3).map((f, i) => (
-                  <div key={i} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "6px 0", borderBottom: i < 2 ? "1px solid #222" : "none" }}>
-                    <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: sevColor[f.severity], flexShrink: 0 }} />
-                    <span style={{ fontSize: "13px", color: t.textSecondary }}>{f.title}</span>
-                    <span style={{ fontSize: "9px", color: (f.requirement_type || "").includes("Regulatory") ? "#34C759" : "#60A5FA", marginLeft: "auto" }}>{(f.requirement_type || "").includes("Regulatory") ? "REG" : "BP"}</span>
-                  </div>
-                ))}
-              </div>
-              <textarea placeholder="Add expert notes..." value={adminNotes} onChange={(e) => setAdminNotes(e.target.value)} rows={2} style={{ width: "100%", padding: "10px 12px", borderRadius: "10px", background: t.inputBg, border: `1px solid ${t.border}`, color: t.text, fontSize: "13px", resize: "none", fontFamily: "inherit", marginBottom: "10px", boxSizing: "border-box" }} />
-              <div style={{ display: "flex", gap: "8px" }}>
-                <button onClick={() => { setResult(sub.result); setScoreResult(sub.scoreResult); setViewingSub(sub); setTab("report"); }} style={{ flex: 1, padding: "12px", borderRadius: "10px", background: t.card, border: "none", color: t.text, fontSize: "14px", fontWeight: 600, cursor: "pointer" }}>View Full Report</button>
-                <button onClick={() => { setSubmissions((prev) => prev.map((s) => s.id === sub.id ? { ...s, status: "approved" } : s)); setAdminNotes(""); }} style={{ flex: 1, padding: "12px", borderRadius: "10px", background: t.green, border: "none", color: theme === "dark" ? "#000" : "#fff", fontSize: "14px", fontWeight: 700, cursor: "pointer" }}>✓ Approve</button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
 
-      {/* ══════ ANALYTICS ══════ */}
-      {tab === "analytics" && (
-        <div style={{ padding: "0 16px" }}>
-          <div style={{ padding: "0 4px", marginBottom: "16px" }}>
-            <span style={{ fontSize: "28px", fontWeight: 700 }}>Analytics</span>
-          </div>
-          {submissions.length === 0 ? (
-            <div style={{ ...card, textAlign: "center", padding: "48px 16px" }}>
-              <div style={{ fontSize: "36px", marginBottom: "10px", opacity: 0.4 }}>📊</div>
-              <div style={{ fontSize: "15px", color: t.textSecondary }}>No data yet</div>
-            </div>
-          ) : (
-            <>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px", marginBottom: "12px" }}>
-                {[
-                  { label: "Total", value: submissions.length, color: "#34C759" },
-                  { label: "Avg Score", value: Math.round(submissions.reduce((a, s) => a + s.score, 0) / submissions.length), color: (() => { const avg = Math.round(submissions.reduce((a, s) => a + s.score, 0) / submissions.length); return RegLensScoring.getBandColor(RegLensScoring.getBand(avg)); })() },
-                  { label: "Industries", value: [...new Set(submissions.map(s => s.industry).filter(Boolean))].length, color: "#3B82F6" },
-                ].map((m, i) => (
-                  <div key={i} style={{ ...card, textAlign: "center", marginBottom: 0, border: `1px solid ${t.border}` }}>
-                    <div style={{ fontSize: "28px", fontWeight: 700, color: m.color }}>{m.value}</div>
-                    <div style={{ fontSize: "10px", color: t.textSecondary, fontWeight: 500, textTransform: "uppercase" }}>{m.label}</div>
-                  </div>
-                ))}
-              </div>
-              <div style={{ ...card, border: `1px solid ${t.border}` }}>
-                <div style={{ fontSize: "12px", fontWeight: 600, color: t.textSecondary, letterSpacing: "0.5px", textTransform: "uppercase", marginBottom: "14px" }}>Score Distribution</div>
-                {[{ label: "Excellent (90–100)", min: 90, max: 100, color: "#34C759" }, { label: "Strong (80–89)", min: 80, max: 89, color: "#65a30d" }, { label: "Functional (70–79)", min: 70, max: 79, color: "#F59E0B" }, { label: "Weak (60–69)", min: 60, max: 69, color: "#ea580c" }, { label: "High Risk (<60)", min: 0, max: 59, color: "#EF4444" }].map((r, i) => {
-                  const count = submissions.filter(s => s.score >= r.min && s.score <= r.max).length;
-                  const maxC = Math.max(...submissions.map(() => 1), 1);
-                  return (
-                    <div key={i} style={{ marginBottom: "8px" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "3px" }}>
-                        <span style={{ fontSize: "11px", color: t.textSecondary }}>{r.label}</span>
-                        <span style={{ fontSize: "11px", fontWeight: 600, color: r.color }}>{count}</span>
-                      </div>
-                      <div style={{ height: "6px", borderRadius: "3px", background: "#222" }}>
-                        <div style={{ height: "100%", borderRadius: "3px", background: r.color, width: `${Math.max((count / submissions.length) * 100, count > 0 ? 8 : 0)}%`, transition: "width 0.5s" }} />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              <div style={{ ...card, border: `1px solid ${t.border}` }}>
-                <div style={{ fontSize: "12px", fontWeight: 600, color: t.textSecondary, letterSpacing: "0.5px", textTransform: "uppercase", marginBottom: "14px" }}>Total Findings by Severity</div>
-                {(() => {
-                  const sevTotals = { Critical: 0, Major: 0, Minor: 0 };
-                  submissions.forEach(s => (s.result?.findings || []).forEach(f => { if (sevTotals[f.severity] !== undefined) sevTotals[f.severity]++; }));
-                  const total = Object.values(sevTotals).reduce((a, b) => a + b, 0) || 1;
-                  const regCount = submissions.reduce((a, s) => a + (s.result?.findings || []).filter(f => (f.requirement_type || "").includes("Regulatory")).length, 0);
-                  const bpCount = submissions.reduce((a, s) => a + (s.result?.findings || []).filter(f => !(f.requirement_type || "").includes("Regulatory")).length, 0);
-                  return (
-                    <>
-                      <div style={{ display: "flex", gap: "8px", marginBottom: "10px" }}>
-                        {Object.entries(sevTotals).map(([sev, count]) => (
-                          <div key={sev} style={{ flex: 1, textAlign: "center", padding: "10px 8px", borderRadius: "10px", background: sevBg[sev], border: `1px solid ${sevColor[sev]}20` }}>
-                            <div style={{ fontSize: "22px", fontWeight: 700, color: sevColor[sev] }}>{count}</div>
-                            <div style={{ fontSize: "10px", color: sevColor[sev], opacity: 0.8, fontWeight: 500 }}>{sev}</div>
-                          </div>
-                        ))}
-                      </div>
-                      <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
-                        <div style={{ flex: 1, textAlign: "center", padding: "8px", borderRadius: "8px", background: "#34C75910", border: "1px solid #34C75920" }}>
-                          <div style={{ fontSize: "18px", fontWeight: 700, color: t.green }}>{regCount}</div>
-                          <div style={{ fontSize: "9px", color: t.green, fontWeight: 600, textTransform: "uppercase" }}>Regulatory</div>
-                        </div>
-                        <div style={{ flex: 1, textAlign: "center", padding: "8px", borderRadius: "8px", background: "#3B82F610", border: "1px solid #3B82F620" }}>
-                          <div style={{ fontSize: "18px", fontWeight: 700, color: "#60A5FA" }}>{bpCount}</div>
-                          <div style={{ fontSize: "9px", color: "#60A5FA", fontWeight: 600, textTransform: "uppercase" }}>Best Practice</div>
-                        </div>
-                      </div>
-                    </>
-                  );
-                })()}
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* ══════ MENU ══════ */}
-      {tab === "menu" && (
-        <div style={{ padding: "0 16px" }}>
-          <div style={{ padding: "0 4px", marginBottom: "16px" }}><span style={{ fontSize: "28px", fontWeight: 700, color: t.text }}>Menu</span></div>
+          {/* ── Account ── */}
           {user ? (
             <div style={{ ...card, display: "flex", alignItems: "center", gap: "14px", border: `1px solid ${t.border}` }}>
               <div style={{ width: "48px", height: "48px", borderRadius: "50%", background: "#34C75920", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px", fontWeight: 700, color: t.green }}>
@@ -4361,28 +4208,66 @@ export default function RegLensApp() {
               </div>
             </button>
           )}
+
+          {/* ── Settings ── */}
+          <div style={{ fontSize: "11px", fontWeight: 600, color: t.textSecondary, letterSpacing: "0.5px", textTransform: "uppercase", marginTop: "20px", marginBottom: "10px", padding: "0 4px" }}>Settings</div>
           {[
             { icon: "📖", label: "How to Use RegLens", action: () => setTab("guide") },
             { icon: "👀", label: "Take a Tour", action: () => startTour() },
-            { icon: "▤", label: "Documents", action: () => setTab("documents") },
-            { icon: "📅", label: "Book Expert Consultation", action: () => setShowBooking(true) },
             { icon: theme === "dark" ? "☀️" : "🌙", label: theme === "dark" ? "Light Mode" : "Dark Mode", action: toggleTheme },
-            ...(adminMode ? [{ icon: "🔓", label: "Deactivate Admin Mode", action: deactivateAdmin }] : [{ icon: "🔐", label: "Admin Mode", action: activateAdmin }]),
             { icon: "💳", label: "Buy Review Credits", action: () => setShowPricing(true) },
-            { icon: "📧", label: "Support" },
-            { icon: "📄", label: "Terms of Service", action: () => setTab("tos") },
-            { icon: "🔒", label: "Privacy Policy" },
-            ...(user ? [{ icon: "🚪", label: "Sign Out", action: () => { supabase.signOut(); setUser(null); setTab("dashboard"); }, danger: true }] : []),
+            { icon: "📅", label: "Book Expert Consultation", action: () => setShowBooking(true) },
           ].map((item, i) => (
-            <div key={i} className="rl-card-interactive" onClick={item.action || undefined} style={{ ...cardFlat, display: "flex", alignItems: "center", justifyContent: "space-between", border: `1px solid ${t.border}`, cursor: item.action ? "pointer" : "default" }}>
+            <div key={i} className="rl-card-interactive" onClick={item.action} style={{ ...cardFlat, display: "flex", alignItems: "center", justifyContent: "space-between", border: `1px solid ${t.border}`, cursor: "pointer" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                 <span style={{ fontSize: "18px" }}>{item.icon}</span>
-                <span style={{ fontSize: "15px", fontWeight: 500, color: item.danger ? "#EF4444" : "#fff" }}>{item.label}</span>
+                <span style={{ fontSize: "15px", fontWeight: 500, color: t.text }}>{item.label}</span>
               </div>
               <span style={{ color: t.textTertiary, fontSize: "16px" }}>›</span>
             </div>
           ))}
-          <div style={{ textAlign: "center", marginTop: "20px" }}>
+
+          {/* ── Admin (conditional) ── */}
+          {adminMode && (
+            <>
+              <div style={{ fontSize: "11px", fontWeight: 600, color: t.textSecondary, letterSpacing: "0.5px", textTransform: "uppercase", marginTop: "20px", marginBottom: "10px", padding: "0 4px" }}>Admin Queue</div>
+              {submissions.filter(s => s.status !== "approved").length === 0 ? (
+                <div style={{ ...card, textAlign: "center", padding: "24px 16px", border: `1px solid ${t.border}` }}>
+                  <div style={{ fontSize: "13px", color: t.textSecondary }}>No pending reviews</div>
+                </div>
+              ) : submissions.filter(s => s.status !== "approved").map((sub) => (
+                <div key={sub.id} style={{ ...card, border: `1px solid ${t.border}`, marginBottom: "8px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                    <div style={{ fontSize: "14px", fontWeight: 600 }}>{sub.label}</div>
+                    <div style={{ fontSize: "18px", fontWeight: 700, color: RegLensScoring.getBandColor(sub.band) }}>{sub.score}</div>
+                  </div>
+                  <div style={{ fontSize: "11px", color: t.textSecondary, marginBottom: "8px" }}>{sub.industryLabel} · {sub.date} · {sub.id}</div>
+                  <button onClick={() => { setResult(sub.result); setScoreResult(sub.scoreResult); setViewingSub(sub); setTab("report"); }} style={{ padding: "8px 14px", borderRadius: "8px", border: `1px solid ${t.border}`, background: "transparent", color: t.textSecondary, fontSize: "12px", cursor: "pointer", marginRight: "8px" }}>View Report</button>
+                  <button onClick={() => setSubmissions(prev => prev.map(s => s.id === sub.id ? { ...s, status: "approved" } : s))} style={{ padding: "8px 14px", borderRadius: "8px", border: "none", background: t.green, color: theme === "dark" ? "#000" : "#fff", fontSize: "12px", fontWeight: 600, cursor: "pointer" }}>Approve</button>
+                </div>
+              ))}
+            </>
+          )}
+
+          {/* ── Footer ── */}
+          <div style={{ marginTop: "20px" }}>
+            {[
+              ...(adminMode ? [{ icon: "🔓", label: "Deactivate Admin Mode", action: deactivateAdmin }] : [{ icon: "🔐", label: "Admin Mode", action: activateAdmin }]),
+              { icon: "📄", label: "Terms of Service", action: () => setTab("tos") },
+              { icon: "📧", label: "Support" },
+              { icon: "🔒", label: "Privacy Policy" },
+              ...(user ? [{ icon: "🚪", label: "Sign Out", action: () => { supabase.signOut(); setUser(null); setTab("dashboard"); }, danger: true }] : []),
+            ].map((item, i) => (
+              <div key={i} className="rl-card-interactive" onClick={item.action || undefined} style={{ ...cardFlat, display: "flex", alignItems: "center", justifyContent: "space-between", border: `1px solid ${t.border}`, cursor: item.action ? "pointer" : "default" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <span style={{ fontSize: "18px" }}>{item.icon}</span>
+                  <span style={{ fontSize: "15px", fontWeight: 500, color: item.danger ? "#EF4444" : t.text }}>{item.label}</span>
+                </div>
+                <span style={{ color: t.textTertiary, fontSize: "16px" }}>›</span>
+              </div>
+            ))}
+          </div>
+          <div style={{ textAlign: "center", marginTop: "20px", paddingBottom: "20px" }}>
             <div style={{ fontSize: "12px", color: t.textTertiary, cursor: "default" }} onClick={() => {
               const next = adminTaps + 1;
               setAdminTaps(next);
@@ -4486,7 +4371,7 @@ export default function RegLensApp() {
 
         return (
           <div style={{ padding: "0 16px" }}>
-            <button onClick={() => setTab("menu")} style={{ background: "none", border: "none", color: t.green, fontSize: "15px", fontWeight: 500, cursor: "pointer", padding: "0 4px", marginBottom: "16px" }}>‹ Menu</button>
+            <button onClick={() => setTab("tools")} style={{ background: "none", border: "none", color: t.green, fontSize: "15px", fontWeight: 500, cursor: "pointer", padding: "0 4px", marginBottom: "16px" }}>‹ Tools</button>
 
             <div style={{ textAlign: "center", marginBottom: "24px" }}>
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" style={{ marginBottom: "8px" }}><path d="M2 4h6a4 4 0 014 4v12a3 3 0 00-3-3H2V4z" stroke={t.green} strokeWidth="1.5" fill={`${t.green}10`}/><path d="M22 4h-6a4 4 0 00-4 4v12a3 3 0 013-3h7V4z" stroke={t.green} strokeWidth="1.5" fill={`${t.green}08`}/></svg>
@@ -5287,7 +5172,7 @@ export default function RegLensApp() {
       {/* ══════ TERMS OF SERVICE ══════ */}
       {tab === "tos" && (
         <div style={{ padding: "0 16px" }} className="rl-fade-in">
-          <button onClick={() => setTab("menu")} style={{ background: "none", border: "none", color: t.green, fontSize: "15px", fontWeight: 500, cursor: "pointer", padding: "0 4px", marginBottom: "16px" }}>‹ Menu</button>
+          <button onClick={() => setTab("tools")} style={{ background: "none", border: "none", color: t.green, fontSize: "15px", fontWeight: 500, cursor: "pointer", padding: "0 4px", marginBottom: "16px" }}>‹ Tools</button>
           <div style={{ textAlign: "center", marginBottom: "20px" }}>
             <div style={{ fontSize: "12px", fontWeight: 700, color: t.green, letterSpacing: "1px", textTransform: "uppercase", marginBottom: "4px" }}>RegLens by Prudence EHS</div>
             <h2 style={{ fontSize: "24px", fontWeight: 700, color: t.text, margin: "0 0 4px" }}>Terms of Service</h2>
@@ -6265,7 +6150,7 @@ export default function RegLensApp() {
 
       {/* BOTTOM NAV */}
       <div className="rl-bottom-nav" style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", display: "flex", justifyContent: "space-around", alignItems: "center", padding: "10px 0", paddingBottom: "calc(12px + env(safe-area-inset-bottom, 16px))", background: t.navBg, borderTop: `1px solid ${t.navBorder}`, zIndex: 100 }}>
-        {[{ id: "dashboard", label: "Dashboard", icon: "⊞" }, { id: "upload", label: "Comply", icon: "⊕", action: () => { setSelectedType(null); setTab("upload"); } }, { id: "audit", label: "Readiness", icon: "☷" }, { id: "compliance", label: "Admin", icon: "☑" }, { id: "menu", label: "Menu", icon: "☰" }].map((item) => (
+        {[{ id: "dashboard", label: "Home", icon: "⊞" }, { id: "upload", label: "Review", icon: "⊕", action: () => { setSelectedType(null); setTab("upload"); } }, { id: "audit", label: "Readiness", icon: "☷" }, { id: "tools", label: "Tools", icon: "☰" }].map((item) => (
           <button key={item.id} className="rl-nav-item" onClick={() => item.action ? item.action() : setTab(item.id)} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", color: tab === item.id ? t.green : t.textSecondary, minWidth: "56px" }}>
             <span style={{ fontSize: "22px", lineHeight: 1 }}>{item.icon}</span>
             <span style={{ fontSize: "10px", fontWeight: 500 }}>{item.label}</span>
