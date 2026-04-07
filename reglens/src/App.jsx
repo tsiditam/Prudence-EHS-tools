@@ -2554,7 +2554,10 @@ export default function RegLensApp() {
   }
 
   async function finishReview(parsed, type) {
-    const sr = RegLensScoring.computeScore(parsed.findings || []);
+    const isFallback = parsed._source === "fallback" || parsed._source === "error";
+    const sr = isFallback
+      ? { score: null, band: "Pending", breakdown: {} }
+      : RegLensScoring.computeScore(parsed.findings || []);
     setScoreResult(sr);
     setResult({ ...parsed, score: sr.score });
     const refId = `PR-${Date.now().toString(36).toUpperCase().slice(-6)}`;
@@ -2564,23 +2567,25 @@ export default function RegLensApp() {
       industry: selectedIndustry, industryLabel: INDUSTRIES[selectedIndustry]?.label || "General",
       date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }),
       score: sr.score, band: sr.band, findingsCount: (parsed.findings || []).length,
-      status: "pending", result: { ...parsed, score: sr.score }, scoreResult: sr,
+      status: isFallback ? "queued" : "pending", result: { ...parsed, score: sr.score }, scoreResult: sr,
       clientId: selectedClient?.id || null,
     };
     setSubmissions((prev) => [sub, ...prev]);
     setProcessing(false);
     setTab("report");
 
-    supabase.trackEvent("review_completed", { program_type: type, industry: selectedIndustry, score: sr.score, band: sr.band, findings_count: (parsed.findings || []).length });
+    if (!isFallback) {
+      supabase.trackEvent("review_completed", { program_type: type, industry: selectedIndustry, score: sr.score, band: sr.band, findings_count: (parsed.findings || []).length });
+    }
 
-    // Achievement — first compliance review
-    if (!hasSeen("ach_review")) {
+    // Achievement — first compliance review (only for real results)
+    if (!isFallback && !hasSeen("ach_review")) {
       markSeen("ach_review");
       setTimeout(() => showAchievement("First Review Complete!", "Download the PDF or email it to your team. Your score breakdown shows exactly how to improve."), 800);
     }
 
-    // Consume review credit
-    consumeReviewCredit();
+    // Consume review credit (only for real results)
+    if (!isFallback) consumeReviewCredit();
 
     // Persist to Supabase (or queue for sync if offline)
     if (supabase.isConfigured) {
@@ -2598,7 +2603,7 @@ export default function RegLensApp() {
         strengths: parsed.strengths || [],
         score_result: sr,
         source: parsed._source || "api",
-        status: "pending",
+        status: isFallback ? "queued" : "pending",
       };
       if (navigator.onLine) {
         const result = await supabase.createReview(dbRow);
@@ -3603,7 +3608,7 @@ export default function RegLensApp() {
             <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
               {[
                 { label: "Reviews", value: submissions.length, color: t.green },
-                { label: "Avg Score", value: submissions.length > 0 ? Math.round(submissions.reduce((a, s) => a + s.score, 0) / submissions.length) : "—", color: submissions.length > 0 ? (() => { const avg = Math.round(submissions.reduce((a, s) => a + s.score, 0) / submissions.length); return RegLensScoring.getBandColor(RegLensScoring.getBand(avg)); })() : t.textTertiary },
+                { label: "Avg Score", value: (() => { const real = submissions.filter(s => s.score !== null); return real.length > 0 ? Math.round(real.reduce((a, s) => a + s.score, 0) / real.length) : "—"; })(), color: (() => { const real = submissions.filter(s => s.score !== null); if (real.length === 0) return t.textTertiary; const avg = Math.round(real.reduce((a, s) => a + s.score, 0) / real.length); return RegLensScoring.getBandColor(RegLensScoring.getBand(avg)); })() },
                 { label: "Checks", value: auditSubmissions.length, color: "#3B82F6" },
               ].map((m, i) => (
                 <div key={i} style={{ flex: 1, padding: "10px 8px", borderRadius: "12px", background: t.card, border: `1px solid ${t.border}`, textAlign: "center" }}>
@@ -3637,8 +3642,14 @@ export default function RegLensApp() {
                       </div>
                     </div>
                     <div style={{ textAlign: "right" }}>
-                      <div style={{ fontSize: "20px", fontWeight: 700, color: RegLensScoring.getBandColor(sub.band) }}>{sub.score}</div>
-                      <div style={{ fontSize: "9px", color: t.textSecondary }}>{sub.band}</div>
+                      {sub.score !== null ? (
+                        <>
+                          <div style={{ fontSize: "20px", fontWeight: 700, color: RegLensScoring.getBandColor(sub.band) }}>{sub.score}</div>
+                          <div style={{ fontSize: "9px", color: t.textSecondary }}>{sub.band}</div>
+                        </>
+                      ) : (
+                        <div style={{ fontSize: "10px", fontWeight: 600, color: "#F59E0B", padding: "4px 8px", borderRadius: "6px", background: "#F59E0B15", border: "1px solid #F59E0B25" }}>Queued</div>
+                      )}
                     </div>
                   </button>
                 ))}
@@ -3979,6 +3990,34 @@ export default function RegLensApp() {
           </div>
 
           {/* Score card with deterministic scoring */}
+          {(result._source === "fallback" || result._source === "error") ? (
+            <div style={{ ...card, textAlign: "center", background: t.card, border: `1px solid ${t.border}`, padding: "32px 20px" }}>
+              <div style={{ fontSize: "12px", color: t.textSecondary, fontWeight: 500, letterSpacing: "0.5px", textTransform: "uppercase", marginBottom: "16px" }}>Compliance Score</div>
+              <div style={{ width: 120, height: 120, borderRadius: "50%", border: `4px solid ${t.border}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
+                <div style={{ fontSize: "36px", fontWeight: 700, color: t.textTertiary }}>—</div>
+              </div>
+              <div style={{ fontSize: "16px", fontWeight: 700, color: "#F59E0B", marginBottom: "4px" }}>Awaiting Review</div>
+              <div style={{ fontSize: "12px", color: t.textSecondary, lineHeight: 1.5 }}>
+                {result._source === "fallback"
+                  ? "Your document has been queued. The score below shows sample findings — not your actual document."
+                  : "The review could not be completed. No score was generated."}
+              </div>
+              {result._queued && (
+                <button className="rl-tap rl-glow" onClick={async () => {
+                  const queue = getReviewQueue();
+                  if (queue.length > 0) {
+                    const latest = queue[queue.length - 1];
+                    setSelectedType(latest.type);
+                    if (latest.industry) setSelectedIndustry(latest.industry);
+                    removeFromReviewQueue(latest.queuedAt);
+                    runReview(latest.text, latest.type);
+                  }
+                }} style={{ marginTop: "16px", padding: "14px 28px", borderRadius: "12px", border: "none", background: t.green, color: theme === "dark" ? "#000" : "#fff", fontSize: "15px", fontWeight: 700, cursor: "pointer" }}>
+                  Retry Review Now
+                </button>
+              )}
+            </div>
+          ) : (
           <div style={{ ...card, textAlign: "center", background: t.scoreBg }}>
             <div style={{ fontSize: "12px", color: t.textSecondary, fontWeight: 500, letterSpacing: "0.5px", textTransform: "uppercase", marginBottom: "10px" }}>Compliance Score</div>
             <ScoreRing score={result.score} band={scoreResult?.band} size={120} />
@@ -4017,6 +4056,7 @@ export default function RegLensApp() {
               </div>
             )}
           </div>
+          )}
 
           {/* Severity counts */}
           <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
