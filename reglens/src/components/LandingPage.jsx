@@ -351,7 +351,7 @@ export default function LandingPage({ isDesktop }) {
           <p style={styles.footerCopy}>
             &copy; {new Date().getFullYear()} Prudence Safety &amp; Environmental Consulting, LLC
           </p>
-          <p style={styles.footerSub}>All rights reserved.</p>
+          <p style={styles.footerSub}>All rights reserved. · Privacy Policy & Terms available in app.</p>
         </div>
       </footer>
 

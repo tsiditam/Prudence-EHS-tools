@@ -135,6 +135,22 @@ const supabase = (() => {
     uploadPhoto,
     createPhotoRecord: (data) => query("audit_photos", "POST", data),
     getAuditPhotos: (auditId) => query("audit_photos", "GET", null, `?audit_id=eq.${auditId}`),
+    // Analytics — fire-and-forget, never blocks UI
+    trackEvent: (eventType, eventData = {}) => {
+      if (!isConfigured) return;
+      try {
+        const sessionId = sessionStorage.getItem("rl_sid") || (() => {
+          const id = crypto.randomUUID();
+          sessionStorage.setItem("rl_sid", id);
+          return id;
+        })();
+        query("analytics_events", "POST", {
+          session_id: sessionId,
+          event_type: eventType,
+          event_data: eventData,
+        }).catch(() => {});
+      } catch {}
+    },
   };
 })();
 // Set self-reference for internal calls
@@ -2490,6 +2506,7 @@ export default function RegLensApp() {
   }
 
   async function runReview(text, type) {
+    supabase.trackEvent("review_started", { program_type: type, industry: selectedIndustry });
     setProcessing(true);
     setValidation(null);
     setParseWarnings([]);
@@ -2552,6 +2569,8 @@ export default function RegLensApp() {
     };
     setSubmissions((prev) => [sub, ...prev]);
     setProcessing(false);
+
+    supabase.trackEvent("review_completed", { program_type: type, industry: selectedIndustry, score: sr.score, band: sr.band, findings_count: (parsed.findings || []).length });
 
     // Achievement — first compliance review
     if (!hasSeen("ach_review")) {
@@ -3141,6 +3160,7 @@ export default function RegLensApp() {
                 supabase.setSession(res.session);
                 const profile = await supabase.getProfile(res.session.access_token);
                 setUser({ ...profile, access_token: res.session.access_token });
+                supabase.trackEvent("signup_completed", {});
                 setAuthScreen(null);
               } else {
                 setAuthError("Check your email to confirm your account, then log in.");
@@ -3152,6 +3172,7 @@ export default function RegLensApp() {
               supabase.setSession(res.session);
               const profile = await supabase.getProfile(res.session.access_token);
               setUser({ ...profile, access_token: res.session.access_token });
+              supabase.trackEvent("login_completed", {});
               setAuthScreen(null);
             }
             setAuthLoading(false);
@@ -3164,6 +3185,12 @@ export default function RegLensApp() {
             )}
             <input name="email" type="email" placeholder="Email" required style={{ padding: "14px 16px", borderRadius: "12px", background: t.card, border: `1px solid ${t.border}`, color: t.text, fontSize: "15px", outline: "none" }} />
             <input name="password" type="password" placeholder="Password" required minLength={8} style={{ padding: "14px 16px", borderRadius: "12px", background: t.card, border: `1px solid ${t.border}`, color: t.text, fontSize: "15px", outline: "none" }} />
+            {authScreen === "signup" && (
+              <label style={{ display: "flex", alignItems: "flex-start", gap: "10px", fontSize: "12px", color: t.textSecondary, lineHeight: 1.5, cursor: "pointer", padding: "4px 0" }}>
+                <input type="checkbox" name="tosAccepted" required style={{ marginTop: "3px", accentColor: t.green, flexShrink: 0 }} />
+                <span>I agree to the <span onClick={(e) => { e.preventDefault(); setAuthScreen(null); setTab("tos"); }} style={{ color: t.green, textDecoration: "underline", cursor: "pointer" }}>Terms of Service</span> and <span onClick={(e) => { e.preventDefault(); setAuthScreen(null); setTab("privacy"); }} style={{ color: t.green, textDecoration: "underline", cursor: "pointer" }}>Privacy Policy</span></span>
+              </label>
+            )}
             <button type="submit" disabled={authLoading} style={{ padding: "15px", borderRadius: "12px", border: "none", background: authLoading ? "#2C2C2E" : "#34C759", color: authLoading ? "#555" : "#000", fontSize: "16px", fontWeight: 700, cursor: authLoading ? "wait" : "pointer" }}>
               {authLoading ? "Please wait…" : authScreen === "login" ? "Sign In" : "Create Account"}
             </button>
@@ -3334,6 +3361,7 @@ export default function RegLensApp() {
             ].map((plan) => (
               <button key={plan.tier} className="rl-card-interactive" onClick={async () => {
                 if (!user) { setShowPricing(false); setAuthScreen("signup"); return; }
+                supabase.trackEvent("checkout_started", { tier: plan.tier, plan: plan.name });
                 try {
                   const res = await fetch("/api/checkout", {
                     method: "POST", headers: { "Content-Type": "application/json" },
@@ -4255,7 +4283,7 @@ export default function RegLensApp() {
               ...(adminMode ? [{ icon: "🔓", label: "Deactivate Admin Mode", action: deactivateAdmin }] : [{ icon: "🔐", label: "Admin Mode", action: activateAdmin }]),
               { icon: "📄", label: "Terms of Service", action: () => setTab("tos") },
               { icon: "📧", label: "Support" },
-              { icon: "🔒", label: "Privacy Policy" },
+              { icon: "🔒", label: "Privacy Policy", action: () => setTab("privacy") },
               ...(user ? [{ icon: "🚪", label: "Sign Out", action: () => { supabase.signOut(); setUser(null); setTab("dashboard"); }, danger: true }] : []),
             ].map((item, i) => (
               <div key={i} className="rl-card-interactive" onClick={item.action || undefined} style={{ ...cardFlat, display: "flex", alignItems: "center", justifyContent: "space-between", border: `1px solid ${t.border}`, cursor: item.action ? "pointer" : "default" }}>
@@ -5210,6 +5238,41 @@ export default function RegLensApp() {
         </div>
       )}
 
+      {/* ══════ PRIVACY POLICY ══════ */}
+      {tab === "privacy" && (
+        <div style={{ padding: "0 16px" }} className="rl-fade-in">
+          <button onClick={() => setTab("tools")} style={{ background: "none", border: "none", color: t.green, fontSize: "15px", fontWeight: 500, cursor: "pointer", padding: "0 4px", marginBottom: "16px" }}>‹ Tools</button>
+          <div style={{ textAlign: "center", marginBottom: "20px" }}>
+            <div style={{ fontSize: "12px", fontWeight: 700, color: t.green, letterSpacing: "1px", textTransform: "uppercase", marginBottom: "4px" }}>RegLens by Prudence EHS</div>
+            <h2 style={{ fontSize: "24px", fontWeight: 700, color: t.text, margin: "0 0 4px" }}>Privacy Policy</h2>
+            <p style={{ fontSize: "12px", color: t.textSecondary, margin: 0 }}>Effective Date: April 7, 2026</p>
+          </div>
+
+          {[
+            { title: "1. Information We Collect", body: "Account Information: When you create an account, we collect your full name, email address, and optionally your company name. These are used to identify your account and deliver services.\n\nCompliance Data: When you run reviews or readiness checks, we store the analysis results (scores, findings, summaries) in your account. Uploaded documents are processed in memory and are NOT stored on our servers — only the analysis output is retained.\n\nUsage Data: We collect anonymous usage events (such as which features you use, scores generated, and industry selections) to improve RegLens. No personally identifiable information is included in usage events." },
+            { title: "2. How We Use Your Data", body: "We use your data to:\n• Deliver compliance review results and readiness check scores\n• Save your review history and reports for your reference\n• Process payments for review credits and consultations\n• Improve the platform based on anonymous usage patterns\n• Communicate important service updates" },
+            { title: "3. Analytics", body: "RegLens uses lightweight, first-party analytics stored in our own database. We do NOT use Google Analytics, tracking pixels, cookies, browser fingerprinting, or any third-party analytics service.\n\nWhat we track: Feature usage (which tools are used), review completion rates, score distributions by industry, and conversion events. All analytics events are anonymous — they include a random session ID that resets when you close the app, not your personal identity.\n\nYou can request that we stop collecting usage data for your account by emailing info@prudencesafety.com." },
+            { title: "4. Third-Party Services", body: "RegLens integrates with the following services, each with their own privacy policies:\n\n• Anthropic (Claude API): Your document text is sent to Anthropic's commercial API for AI analysis. Anthropic's commercial API does not use your data for model training.\n• Stripe: Payment processing. We do not store your credit card details — Stripe handles this securely.\n• Supabase: Our database and authentication provider. Data is stored with row-level security.\n• Calendly: Used for booking expert consultations. Only accessed when you choose to book." },
+            { title: "5. Data Retention & Deletion", body: "Your account data, review results, and readiness check history are retained until you request deletion. Analytics events are stored indefinitely in anonymized form (no PII).\n\nTo request deletion of your account and all associated data, email info@prudencesafety.com. We will process deletion requests within 30 days." },
+            { title: "6. Your Rights", body: "You have the right to:\n• Request a copy of all data associated with your account\n• Request deletion of your account and all stored data\n• Opt out of anonymous usage analytics\n• Update or correct your account information\n\nFor any of these requests, contact info@prudencesafety.com." },
+            { title: "7. Data Security", body: "We protect your data using:\n• Row-level security in our database (users can only access their own data)\n• Encrypted connections (HTTPS/TLS) for all data transmission\n• Bearer token authentication for API requests\n• No local storage of sensitive credentials beyond session tokens" },
+            { title: "8. Children's Privacy", body: "RegLens is designed for EHS professionals and is not intended for use by individuals under 18 years of age. We do not knowingly collect data from children." },
+            { title: "9. Changes to This Policy", body: "We may update this Privacy Policy from time to time. Material changes will be communicated through the Platform or by email. Continued use of RegLens after changes constitutes acceptance of the updated policy." },
+            { title: "10. Contact", body: "Prudence Safety & Environmental Consulting, LLC\nGermantown, MD\ninfo@prudencesafety.com\nprudencesafety.com" },
+          ].map((section, i) => (
+            <div key={i} style={{ ...card, border: `1px solid ${t.border}` }}>
+              <div style={{ fontSize: "13px", fontWeight: 700, color: t.text, marginBottom: "6px" }}>{section.title}</div>
+              <div style={{ fontSize: "11px", color: t.textSecondary, lineHeight: 1.7, whiteSpace: "pre-line" }}>{section.body}</div>
+            </div>
+          ))}
+
+          <div style={{ textAlign: "center", padding: "16px 0 24px" }}>
+            <div style={{ fontSize: "10px", color: t.textTertiary }}>© 2026 Prudence Safety & Environmental Consulting, LLC</div>
+            <div style={{ fontSize: "10px", color: t.textTertiary, marginTop: "2px" }}>All rights reserved.</div>
+          </div>
+        </div>
+      )}
+
       {/* ══════ EHS READINESS CHECK ══════ */}
       {tab === "audit" && !auditResult && !auditIndustry && (
         <div style={{ padding: "0 16px" }}>
@@ -5520,6 +5583,8 @@ export default function RegLensApp() {
                     clientId: selectedClient?.id || null,
                   };
                   setAuditSubmissions(prev => [sub, ...prev]);
+
+                  supabase.trackEvent("readiness_completed", { industry: auditIndustry, score: result.score, band: result.band, findings_count: result.findings.length });
 
                   // Achievement — first readiness check
                   if (!hasSeen("ach_readiness")) {
@@ -6151,7 +6216,7 @@ export default function RegLensApp() {
       {/* BOTTOM NAV */}
       <div className="rl-bottom-nav" style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", display: "flex", justifyContent: "space-around", alignItems: "center", padding: "10px 0", paddingBottom: "calc(12px + env(safe-area-inset-bottom, 16px))", background: t.navBg, borderTop: `1px solid ${t.navBorder}`, zIndex: 100 }}>
         {[{ id: "dashboard", label: "Home", icon: "⊞" }, { id: "upload", label: "Review", icon: "⊕", action: () => { setSelectedType(null); setTab("upload"); } }, { id: "audit", label: "Readiness", icon: "☷" }, { id: "tools", label: "Tools", icon: "☰" }].map((item) => (
-          <button key={item.id} className="rl-nav-item" onClick={() => item.action ? item.action() : setTab(item.id)} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", color: tab === item.id ? t.green : t.textSecondary, minWidth: "56px" }}>
+          <button key={item.id} className="rl-nav-item" onClick={() => { supabase.trackEvent("page_view", { tab: item.id }); item.action ? item.action() : setTab(item.id); }} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", color: tab === item.id ? t.green : t.textSecondary, minWidth: "56px" }}>
             <span style={{ fontSize: "22px", lineHeight: 1 }}>{item.icon}</span>
             <span style={{ fontSize: "10px", fontWeight: 500 }}>{item.label}</span>
           </button>
