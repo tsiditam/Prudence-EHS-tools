@@ -102,9 +102,9 @@ const features = [
 ]
 
 const steps = [
-  { num: '01', title: 'Walk the Building', desc: 'One question at a time. Instrument readings. Photo documentation. Auto-saves as you go.', color: C.cyan },
-  { num: '02', title: 'Scores Calculate', desc: 'Causal chains form. OSHA flags surface. Sampling needs identified. Data gaps flagged. All instant.', color: C.gold },
-  { num: '03', title: 'Defensible Report', desc: 'Findings narrative, tiered recommendations, ventilation calcs, and sampling plan — traceable to published standards.', color: C.violet },
+  { num: '01', title: 'Guided Walkthrough', desc: 'One question at a time. Instrument readings, photos, and observations captured zone by zone. Auto-saves continuously.', color: C.cyan },
+  { num: '02', title: 'Instant Analysis', desc: 'Deterministic scoring across 5 categories. Causal chains connect findings. Data gaps flagged. OSHA risks surfaced.', color: C.gold },
+  { num: '03', title: 'Report-Ready Output', desc: 'Structured findings, tiered recommendations, sampling plan, and ventilation analysis — all traceable to published standards.', color: C.violet },
 ]
 
 export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
@@ -293,8 +293,13 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
       }}>
         {(inView) => (
           <>
+            <div style={{ ...reveal(inView, 0), display: 'flex', justifyContent: 'center', gap: dk ? 20 : 10, marginBottom: dk ? 40 : 24, flexWrap: 'wrap' }}>
+              {['CIHs', 'IH Consultants', 'CSPs', 'EHS Managers', 'IAQ Investigators'].map((r, i) => (
+                <span key={i} style={{ fontSize: 11, color: C.dim, ...mono, padding: '5px 12px', borderRadius: 4, background: `${C.text}04`, border: `1px solid ${C.border}` }}>{r}</span>
+              ))}
+            </div>
             <p style={{
-              ...reveal(inView, 0),
+              ...reveal(inView, 0.1),
               ...display,
               fontSize: dk ? 38 : 24, fontWeight: 500, lineHeight: 1.4,
               letterSpacing: '-0.02em', color: C.sub,
@@ -405,7 +410,7 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
         <Section style={{ textAlign: 'center', marginBottom: dk ? 80 : 48 }}>
           {(inView) => (
             <>
-              <div style={{ ...reveal(inView), fontSize: 10, color: C.gold, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 16, fontWeight: 600 }}>How It Works</div>
+              <div style={{ ...reveal(inView), fontSize: 10, color: C.gold, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 16, fontWeight: 600 }}>What It Does</div>
               <h2 style={{ ...reveal(inView, 0.1), ...display, fontSize: dk ? 52 : 30, fontWeight: 700, letterSpacing: '-0.04em', lineHeight: 1.08, margin: 0 }}>
                 Faster reporting.{dk ? <br /> : ' '}<span style={{ color: C.dim }}>Stronger documentation.</span>
               </h2>
@@ -500,16 +505,16 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
         <Section style={{ marginBottom: dk ? 72 : 44 }}>
           {(inView) => (
             <h2 style={{ ...reveal(inView), ...display, fontSize: dk ? 52 : 30, fontWeight: 700, letterSpacing: '-0.04em', margin: 0 }}>
-              Your time{dk ? ' ' : <br />}<span style={coolGradient}>back.</span>
+              Built for{dk ? ' ' : <br />}<span style={coolGradient}>serious work.</span>
             </h2>
           )}
         </Section>
         <div style={{ display: 'flex', justifyContent: 'center', gap: dk ? 80 : 20, flexWrap: 'wrap', maxWidth: 1000, margin: '0 auto' }}>
           {[
-            { target: 6, label: 'Standards Built-In', suffix: '+', color: C.cyan },
-            { target: 12, label: 'Sensor Fields per Zone', suffix: '', color: C.gold },
-            { target: 100, label: 'Point Defensible Scale', suffix: 'pt', color: C.violet },
-            { target: 0, label: 'Cost During Beta', suffix: '$', color: C.emerald },
+            { target: 6, label: 'Published Standards', suffix: '+', color: C.cyan },
+            { target: 5, label: 'Scoring Categories', suffix: '', color: C.gold },
+            { target: 100, label: 'Point Scale', suffix: 'pt', color: C.violet },
+            { target: 10, label: 'Min to Report', suffix: '<', color: C.emerald },
           ].map((s, i) => (
             <Section key={i} style={{ textAlign: 'center', minWidth: dk ? 170 : 120 }}>
               {(inView) => (
