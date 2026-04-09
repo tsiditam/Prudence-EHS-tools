@@ -117,7 +117,7 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
       {/* ── Nav ── */}
       <nav style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: dk ? '16px 56px' : '12px 20px',
+        padding: dk ? '10px 56px' : '8px 20px',
         position: 'fixed', top: 0, left: 0, right: 0,
         background: 'rgba(5,5,7,0.75)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)',
         borderBottom: `1px solid ${C.border}`, zIndex: 200,
@@ -159,14 +159,14 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: 10,
             padding: '8px 22px', borderRadius: 100,
-            background: 'linear-gradient(135deg, rgba(245,197,66,0.08), rgba(139,92,246,0.08))',
-            border: '1px solid rgba(245,197,66,0.15)',
-            fontSize: 11, fontWeight: 600, color: C.gold,
+            background: 'rgba(34,211,238,0.06)',
+            border: '1px solid rgba(34,211,238,0.15)',
+            fontSize: 11, fontWeight: 600, color: C.cyan,
             letterSpacing: '0.1em', textTransform: 'uppercase',
             marginBottom: dk ? 44 : 28,
           }}>
-            <div style={{ width: 6, height: 6, borderRadius: '50%', background: C.gold, animation: 'pulse 2s ease-in-out infinite' }} />
-            Built by a Practicing EHS Professional
+            <div style={{ width: 6, height: 6, borderRadius: '50%', background: C.cyan, animation: 'pulse 2s ease-in-out infinite' }} />
+            Engineered by EHS Professionals for EHS Professionals
           </div>
 
           {/* Headline */}
