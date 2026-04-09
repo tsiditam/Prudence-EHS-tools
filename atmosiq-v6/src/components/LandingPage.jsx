@@ -150,7 +150,7 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
         textAlign: 'center', padding: dk ? '0 56px' : '0 24px',
       }}>
         {/* HVAC blueprint texture — corners and edges only */}
-        <BlueprintBG opacity={dk ? 0.04 : 0.03} />
+        <BlueprintBG opacity={dk ? 0.14 : 0.10} />
         {/* Airflow motion — drifting gradient haze */}
         <AirflowMotion />
 
