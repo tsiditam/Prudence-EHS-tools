@@ -8,6 +8,7 @@
 
 import { useState } from 'react'
 import SupaStorage from '../utils/supabaseStorage'
+import { trackEvent } from '../utils/supabaseClient'
 import { I } from './Icons'
 
 const BG = '#07080C'
@@ -45,11 +46,13 @@ export default function AuthScreen({ onAuth }) {
     if (password.length < 8) { setError('Password must be at least 8 characters'); return }
     if (password !== confirmPw) { setError('Passwords do not match'); return }
     if (!tosAccepted) { setError('Please accept the Terms of Service and Privacy Policy'); return }
+    trackEvent('signup_started', { method: 'email' })
     setLoading(true); setError('')
     const { data, error: err } = await SupaStorage.signUp(email, password)
     setLoading(false)
     if (err) { setError(err.message || 'Registration failed'); return }
     if (data?.user) {
+      trackEvent('signup_completed', { method: 'email' })
       setMessage('Check your email for a confirmation link.')
       setMode('login')
     }

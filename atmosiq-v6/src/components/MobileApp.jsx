@@ -8,6 +8,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useMediaQuery } from '../hooks/useMediaQuery'
 import STO from '../utils/storage'
 import Profiles from '../utils/profiles'
 import SupaStorage from '../utils/supabaseStorage'
@@ -52,6 +53,9 @@ const WARN = '#FBBF24'
 const DANGER = '#EF4444'
 
 export default function MobileApp() {
+  const { isTablet } = useMediaQuery()
+  // Responsive layout: phone=620, tablet portrait=860, tablet landscape=1060
+  const contentMax = isTablet ? 860 : 620
   const [loading, setLoading] = useState(true)
   const [isReturning, setIsReturning] = useState(false)
   const [profile, setProfile] = useState(null)
@@ -155,6 +159,7 @@ export default function MobileApp() {
       await STO.set(draftId, draft)
       await STO.addDraftToIndex({ id:draftId, facility:bldg.fn||'Untitled', ua:draft.ua })
       await refreshIndex()
+      trackEvent('draft_saved', { draft_id: draftId, phase: view, zones: (zones||[]).length })
     }, 1200)
     return () => { if (saveRef.current) clearTimeout(saveRef.current) }
   }, [presurvey, bldg, zones, photos, qsqi, dqi, curZone, zqi, view, draftId])
@@ -182,7 +187,8 @@ export default function MobileApp() {
   }
 
   const startNew = () => {
-    trackEvent('assessment_started', {})
+    trackEvent('assessment_mode_selected', { mode: 'new' })
+    trackEvent('assessment_created', {})
     const id = 'draft-' + Date.now()
     setDraftId(id)
     // Auto-fill from profile
@@ -194,6 +200,7 @@ export default function MobileApp() {
   }
 
   const runDemo = () => {
+    trackEvent('assessment_mode_selected', { mode: 'demo' })
     setBldg(DEMO_BUILDING); setZones(DEMO_ZONES); setPresurvey(DEMO_PRESURVEY); setPhotos({})
     const zScores = DEMO_ZONES.map(z => scoreZone(z, DEMO_BUILDING))
     const composite = compositeScore(zScores)
@@ -209,6 +216,7 @@ export default function MobileApp() {
   const resumeDraft = async (id) => {
     const d = await STO.get(id)
     if (!d) return
+    trackEvent('draft_resumed', { draft_id: id, facility: d.bldg?.fn || d.building?.fn || '' })
     setDraftId(d.id); setPresurvey(d.presurvey||{}); setBldg(d.bldg||d.building||{}); setZones(d.zones||[{}]); setPhotos(d.photos||{})
     setQsqi(d.qsqi||0); setDqi(d.dqi||0); setCurZone(d.curZone||0); setZqi(d.zqi||0)
     // Resume at the right phase
@@ -218,6 +226,7 @@ export default function MobileApp() {
   }
 
   const finishQuickStart = () => {
+    trackEvent('quickstart_completed', { facility: bldg.fn || '', building_type: bldg.ft || '' })
     if (zones.length === 0) setZones([{}])
     showMilestone('check', 'Quick Start Complete', 'Starting zone walkthrough', () => { setCurZone(0); setZqi(0); setView('zone') })
   }
@@ -232,7 +241,8 @@ export default function MobileApp() {
     const cc = buildCausalChains(zones, bldg, zScores)
     setZoneScores(zScores); setComp(composite); setOshaResult(osha); setRecs(recommendations)
     setSamplingPlan(sp); setCausalChains(cc); setSelZone(0); setNarrative(null)
-    trackEvent('assessment_completed', { zones: zones.length, score: composite?.tot, facility: bldg.fn || 'unknown' })
+    trackEvent('score_generated', { composite: composite?.tot, avg: composite?.avg, worst: composite?.worst, risk: composite?.risk, osha_flag: !!osha?.flag, confidence: osha?.conf || 'unknown', data_gaps: (osha?.gaps||[]).length })
+    trackEvent('assessment_completed', { zones: zones.length, score: composite?.tot, facility: bldg.fn || 'unknown', has_causal_chains: cc.length > 0, sampling_recommendations: sp?.plan?.length || 0 })
     haptic('success')
     setMilestone({icon:'chart',title:'Assessment Complete',sub:`Scoring ${zones.length} zone${zones.length>1?'s':''}...`})
     setTimeout(() => { setMilestone(null); setRTab('overview'); setView('results') }, 1600)
@@ -245,16 +255,20 @@ export default function MobileApp() {
   }
 
   const finishDetails = () => {
+    trackEvent('details_completed', { facility: bldg.fn || '' })
     showMilestone('check', 'Details Complete', 'Assessment data updated', () => { setView('results') })
   }
 
   const requestNarrative = async () => {
+    trackEvent('narrative_requested', { facility: bldg.fn || '', score: comp?.tot })
     setNarrativeLoading(true)
     const text = await generateNarrative(bldg, zones, zoneScores, comp, oshaResult, recs)
     setNarrative(text); setNarrativeLoading(false)
+    if (text) trackEvent('narrative_generated', { word_count: text.split(/\s+/).length })
   }
 
   const handleExportPDF = () => {
+    trackEvent('report_exported', { facility: bldg.fn || '', score: comp?.tot, zones: zones.length, has_narrative: !!narrative })
     printReport({ building: bldg, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, version: VER })
   }
 
@@ -271,6 +285,7 @@ export default function MobileApp() {
   const openReport = async (meta) => {
     const rpt = await STO.get(meta.id)
     if (!rpt) return
+    trackEvent('report_viewed', { report_id: meta.id, facility: meta.facility || '', score: meta.score })
     setViewRpt(rpt); setPresurvey(rpt.presurvey||{}); setBldg(rpt.building||rpt.bldg||{}); setZones(rpt.zones||[])
     setPhotos(rpt.photos||{}); setZoneScores(rpt.zoneScores||[]); setComp(rpt.comp||rpt.composite)
     setOshaResult(rpt.oshaEvals?.[0]||rpt.osha||null); setRecs(rpt.recs||null)
@@ -406,7 +421,7 @@ export default function MobileApp() {
           {[['overview','findings','Findings'],['rootcause','chain','Root Cause'],['sampling','flask','Sampling'],['narrative','pulse','AI Report'],['actions','bolt','Actions']].map(([k,ic,l])=><button key={k} onClick={()=>{setRTab(k);haptic('light')}} style={{flex:'0 0 auto',padding:'12px 16px',borderRadius:8,border:'none',background:rTab===k?`${ACCENT}15`:'transparent',color:rTab===k?ACCENT:DIM,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:6,minHeight:44}}><I n={ic} s={16} c={rTab===k?ACCENT:DIM} />{l}</button>)}
         </div>
 
-        {rTab==='overview' && zs && <div style={{display:'flex',flexDirection:'column',gap:12}}>
+        {rTab==='overview' && zs && <div style={{display:isTablet?'grid':'flex',gridTemplateColumns:isTablet?'1fr 1fr':'none',flexDirection:'column',gap:12}}>
           <div style={{textAlign:'center',marginBottom:4}}>
             <div style={{fontSize:12,fontWeight:600,color:zs.rc}}>{zs.zoneName}</div>
             <div style={{fontSize:30,fontWeight:800,fontFamily:"'DM Mono'",color:zs.rc}}>{zs.tot}<span style={{fontSize:14,color:DIM}}>/100</span></div>
@@ -525,7 +540,7 @@ export default function MobileApp() {
   return (
     <div style={{minHeight:'100vh',background:BG,color:TEXT,fontFamily:"'Outfit', system-ui, sans-serif"}}>
       <header style={{position:'fixed',top:0,left:0,right:0,zIndex:100,background:`${BG}F2`,backdropFilter:'blur(24px) saturate(1.4)',WebkitBackdropFilter:'blur(24px) saturate(1.4)',borderBottom:`1px solid ${BORDER}`,paddingTop:'env(safe-area-inset-top, 0px)'}}>
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',height:48,padding:'0 20px',maxWidth:620,margin:'0 auto'}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',height:48,padding:'0 20px',maxWidth:contentMax,margin:'0 auto'}}>
           <div style={{display:'flex',alignItems:'center',gap:10}}>
             <div style={{width:28,height:28,borderRadius:7,background:ACCENT,display:'flex',alignItems:'center',justifyContent:'center'}}><I n="wind" s={14} c={BG} w={2.2} /></div>
             <span style={{fontSize:15,fontWeight:700,letterSpacing:'-0.3px',color:TEXT}}>atmos<span style={{color:ACCENT}}>IQ</span></span>
@@ -540,11 +555,11 @@ export default function MobileApp() {
 
       {milestone&&<div style={{position:'fixed',inset:0,background:`${BG}F0`,zIndex:300,display:'flex',alignItems:'center',justifyContent:'center',padding:'0 32px'}}><div style={{textAlign:'center',animation:'milestoneIn .5s cubic-bezier(.22,1,.36,1)'}}><div style={{marginBottom:20,display:'flex',justifyContent:'center'}}><div style={{width:80,height:80,borderRadius:22,background:`${ACCENT}12`,border:`1.5px solid ${ACCENT}30`,display:'flex',alignItems:'center',justifyContent:'center'}}><I n={milestone.icon} s={40} c={ACCENT} w={2} /></div></div><div style={{fontSize:26,fontWeight:800,letterSpacing:'-0.5px',color:TEXT}}>{milestone.title}</div><div style={{fontSize:15,color:ACCENT,fontFamily:"'DM Mono'",marginTop:10}}>{milestone.sub}</div></div></div>}
 
-      {zonePrompt&&<div style={{position:'fixed',inset:0,background:'#000000CC',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',padding:24}}><div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:18,padding:28,maxWidth:340,width:'100%',animation:'fadeUp .3s ease'}}><div style={{fontSize:18,fontWeight:700,marginBottom:8,color:TEXT}}>Zone Complete</div><div style={{fontSize:14,color:SUB,marginBottom:24,lineHeight:1.6}}>Add another zone to this assessment?</div><div style={{display:'flex',flexDirection:'column',gap:10}}><button onClick={()=>{setZonePrompt(false);setZones(p=>[...p,{}]);setCurZone(zones.length);setZqi(0)}} style={{padding:'16px 0',background:`${ACCENT}12`,border:`1px solid ${ACCENT}30`,borderRadius:12,color:ACCENT,fontSize:16,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:52}}>+ Add Another Zone</button><button onClick={()=>{setZonePrompt(false);finishAssessment()}} style={{padding:'16px 0',background:'linear-gradient(135deg,#059669,#22C55E)',border:'none',borderRadius:12,color:'#fff',fontSize:16,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:52}}>Finish Assessment ✓</button></div></div></div>}
+      {zonePrompt&&<div style={{position:'fixed',inset:0,background:'#000000CC',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',padding:24}}><div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:18,padding:28,maxWidth:340,width:'100%',animation:'fadeUp .3s ease'}}><div style={{fontSize:18,fontWeight:700,marginBottom:8,color:TEXT}}>Zone Complete</div><div style={{fontSize:14,color:SUB,marginBottom:24,lineHeight:1.6}}>Add another zone to this assessment?</div><div style={{display:'flex',flexDirection:'column',gap:10}}><button onClick={()=>{trackEvent('zone_added',{zone_index:zones.length});setZonePrompt(false);setZones(p=>[...p,{}]);setCurZone(zones.length);setZqi(0)}} style={{padding:'16px 0',background:`${ACCENT}12`,border:`1px solid ${ACCENT}30`,borderRadius:12,color:ACCENT,fontSize:16,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:52}}>+ Add Another Zone</button><button onClick={()=>{setZonePrompt(false);finishAssessment()}} style={{padding:'16px 0',background:'linear-gradient(135deg,#059669,#22C55E)',border:'none',borderRadius:12,color:'#fff',fontSize:16,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:52}}>Finish Assessment ✓</button></div></div></div>}
 
       {delConf&&<div style={{position:'fixed',inset:0,background:'#000000CC',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',padding:24}}><div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:18,padding:28,maxWidth:340,width:'100%',animation:'fadeUp .3s ease'}}><div style={{fontSize:18,fontWeight:700,marginBottom:8,color:TEXT}}>Move to Trash?</div><div style={{fontSize:14,color:SUB,marginBottom:12,lineHeight:1.6}}>You can recover this for 30 days.</div><div style={{fontSize:12,color:DIM,marginBottom:24,background:SURFACE,padding:'10px 14px',borderRadius:8}}>Recoverable from Dashboard → Trash</div><div style={{display:'flex',gap:10}}><button onClick={()=>setDelConf(null)} style={{flex:1,padding:'14px 0',background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:10,color:SUB,fontSize:14,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>Cancel</button><button onClick={()=>deleteItem(delConf.id,delConf.name,delConf.type)} style={{flex:1,padding:'14px 0',background:'#EF444420',border:'1px solid #EF444440',borderRadius:10,color:'#EF4444',fontSize:14,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>Delete</button></div></div></div>}
 
-      <div style={{maxWidth:620,margin:'0 auto',padding:'0 20px',position:'relative',zIndex:1}}>
+      <div style={{maxWidth:contentMax,margin:'0 auto',padding:'0 20px',position:'relative',zIndex:1}}>
 
         {view==='dash'&&<div style={{paddingTop:28,paddingBottom:100}}>
 
@@ -659,7 +674,7 @@ export default function MobileApp() {
       {/* ── Bottom Tab Bar ── */}
       {!isAssessing && !milestone && (
         <nav style={{position:'fixed',bottom:0,left:0,right:0,zIndex:100,background:`${BG}F5`,backdropFilter:'blur(24px) saturate(1.3)',WebkitBackdropFilter:'blur(24px) saturate(1.3)',borderTop:`1px solid ${BORDER}`,paddingBottom:'env(safe-area-inset-bottom, 0px)'}}>
-          <div style={{display:'flex',justifyContent:'space-around',alignItems:'center',height:52,maxWidth:620,margin:'0 auto'}}>
+          <div style={{display:'flex',justifyContent:'space-around',alignItems:'center',height:52,maxWidth:contentMax,margin:'0 auto'}}>
             {[
               {id:'dash',label:'Home',icon:'home'},
               {id:'drafts',label:'Drafts',icon:'clip',badge:(index.drafts||[]).length||null},
