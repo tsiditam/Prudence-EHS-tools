@@ -122,8 +122,13 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
         background: 'rgba(5,5,7,0.75)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)',
         borderBottom: `1px solid ${C.border}`, zIndex: 200,
       }}>
-        <div style={{ ...display, fontSize: 22, fontWeight: 700, letterSpacing: '-0.03em' }}>
-          atmos<span style={{ color: C.cyan }}>IQ</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ width: 28, height: 28, borderRadius: 7, background: C.cyan, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <I n="wind" s={14} c={C.bg} w={2.2} />
+          </div>
+          <span style={{ ...display, fontSize: 22, fontWeight: 700, letterSpacing: '-0.03em' }}>
+            atmos<span style={{ color: C.cyan }}>IQ</span>
+          </span>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <button onClick={() => { const el = document.getElementById('install-section'); if (el) el.scrollIntoView({ behavior: 'smooth' }) }} style={{
@@ -646,7 +651,12 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
         flexWrap: 'wrap', gap: 16,
       }}>
         <div>
-          <div style={{ ...display, fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em' }}>atmos<span style={{ color: C.cyan }}>IQ</span> <span style={{ fontSize: 10, color: C.dim, ...mono }}>beta</span></div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ width: 22, height: 22, borderRadius: 6, background: C.cyan, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <I n="wind" s={11} c={C.bg} w={2.2} />
+            </div>
+            <span style={{ ...display, fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em' }}>atmos<span style={{ color: C.cyan }}>IQ</span></span>
+          </div>
           <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>Prudence Safety & Environmental Consulting, LLC</div>
         </div>
         <div style={{ textAlign: dk ? 'right' : 'left' }}>
