@@ -37,14 +37,19 @@ const fD = ts => ts ? new Date(ts).toLocaleDateString('en-US',{month:'short',day
 const sv = sev => ({critical:{c:'#EF4444',bg:'#EF444418',l:'CRITICAL'},high:{c:'#FB923C',bg:'#FB923C18',l:'HIGH'},medium:{c:'#FBBF24',bg:'#FBBF2418',l:'MEDIUM'},low:{c:'#22D3EE',bg:'#22D3EE15',l:'LOW'},pass:{c:'#22C55E',bg:'#22C55E15',l:'PASS'},info:{c:'#94A3B8',bg:'#94A3B815',l:'INFO'}}[sev]||{c:'#94A3B8',bg:'#94A3B815',l:''})
 const badge = (risk,rc) => <span style={{padding:'6px 16px',background:`${rc}18`,border:`1px solid ${rc}35`,borderRadius:20,fontSize:13,fontWeight:700,color:rc}}>{risk}</span>
 
-const BG = '#060609'
-const SURFACE = '#0C0C14'
-const CARD = '#101018'
-const BORDER = '#1E1E2E'
+// ─── Design Tokens ───
+const BG = '#07080C'
+const SURFACE = '#0D0E14'
+const CARD = '#111318'
+const BORDER = '#1C1E26'
 const ACCENT = '#22D3EE'
-const TEXT = '#F0F2F5'
-const SUB = '#9BA4B5'
-const DIM = '#6B7280'
+const ACCENT_DIM = '#1A8FA0'
+const TEXT = '#ECEEF2'
+const SUB = '#8B93A5'
+const DIM = '#565D6E'
+const SUCCESS = '#22C55E'
+const WARN = '#FBBF24'
+const DANGER = '#EF4444'
 
 export default function MobileApp() {
   const [loading, setLoading] = useState(true)
@@ -519,19 +524,19 @@ export default function MobileApp() {
 
   return (
     <div style={{minHeight:'100vh',background:BG,color:TEXT,fontFamily:"'Outfit', system-ui, sans-serif"}}>
-      <header style={{position:'fixed',top:0,left:0,right:0,zIndex:100,background:`${BG}E8`,backdropFilter:'blur(20px)',WebkitBackdropFilter:'blur(20px)',borderBottom:`1px solid ${BORDER}`,paddingTop:'env(safe-area-inset-top, 0px)'}}>
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',height:52,padding:'0 16px',maxWidth:620,margin:'0 auto'}}>
+      <header style={{position:'fixed',top:0,left:0,right:0,zIndex:100,background:`${BG}F2`,backdropFilter:'blur(24px) saturate(1.4)',WebkitBackdropFilter:'blur(24px) saturate(1.4)',borderBottom:`1px solid ${BORDER}`,paddingTop:'env(safe-area-inset-top, 0px)'}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',height:48,padding:'0 20px',maxWidth:620,margin:'0 auto'}}>
           <div style={{display:'flex',alignItems:'center',gap:10}}>
-            <div style={{width:32,height:32,borderRadius:9,background:`linear-gradient(135deg,${ACCENT},#0891B2)`,display:'flex',alignItems:'center',justifyContent:'center'}}><I n="home" s={14} c="#fff" /></div>
-            <div><div style={{fontSize:15,fontWeight:700,lineHeight:1.1}}>atmos<span style={{color:ACCENT,fontWeight:800}}>IQ</span></div></div>
+            <div style={{width:28,height:28,borderRadius:7,background:ACCENT,display:'flex',alignItems:'center',justifyContent:'center'}}><I n="wind" s={14} c={BG} w={2.2} /></div>
+            <span style={{fontSize:15,fontWeight:700,letterSpacing:'-0.3px',color:TEXT}}>atmos<span style={{color:ACCENT}}>IQ</span></span>
           </div>
           <div style={{display:'flex',alignItems:'center',gap:8}}>
-            {isAssessing&&<span style={{fontSize:10,color:`${ACCENT}80`,fontFamily:"'DM Mono'",background:`${ACCENT}08`,padding:'4px 10px',borderRadius:6}}>AUTO-SAVE</span>}
-            {view!=='dash'&&view!=='drafts'&&view!=='history'&&view!=='settings'&&view!=='trash'&&view!=='tos'&&view!=='privacy'&&<button onClick={()=>{setView('dash');setViewRpt(null)}} style={{background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:10,color:TEXT,fontSize:13,fontWeight:600,padding:'8px 14px',cursor:'pointer',fontFamily:'inherit',minHeight:40}}>← Home</button>}
+            {isAssessing&&<span style={{fontSize:10,color:ACCENT,fontFamily:"'DM Mono'",background:`${ACCENT}0A`,padding:'3px 10px',borderRadius:4,border:`1px solid ${ACCENT}20`,letterSpacing:'0.5px'}}>SAVING</span>}
+            {view!=='dash'&&view!=='drafts'&&view!=='history'&&view!=='settings'&&view!=='trash'&&view!=='tos'&&view!=='privacy'&&<button onClick={()=>{setView('dash');setViewRpt(null)}} style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:8,color:SUB,fontSize:13,fontWeight:600,padding:'7px 14px',cursor:'pointer',fontFamily:'inherit',minHeight:36,transition:'color 0.15s'}}>← Home</button>}
           </div>
         </div>
       </header>
-      <div style={{height:'calc(52px + env(safe-area-inset-top, 0px))'}} />{/* header spacer */}
+      <div style={{height:'calc(48px + env(safe-area-inset-top, 0px))'}} />
 
       {milestone&&<div style={{position:'fixed',inset:0,background:`${BG}F0`,zIndex:300,display:'flex',alignItems:'center',justifyContent:'center',padding:'0 32px'}}><div style={{textAlign:'center',animation:'milestoneIn .5s cubic-bezier(.22,1,.36,1)'}}><div style={{marginBottom:20,display:'flex',justifyContent:'center'}}><div style={{width:80,height:80,borderRadius:22,background:`${ACCENT}12`,border:`1.5px solid ${ACCENT}30`,display:'flex',alignItems:'center',justifyContent:'center'}}><I n={milestone.icon} s={40} c={ACCENT} w={2} /></div></div><div style={{fontSize:26,fontWeight:800,letterSpacing:'-0.5px',color:TEXT}}>{milestone.title}</div><div style={{fontSize:15,color:ACCENT,fontFamily:"'DM Mono'",marginTop:10}}>{milestone.sub}</div></div></div>}
 
@@ -541,29 +546,88 @@ export default function MobileApp() {
 
       <div style={{maxWidth:620,margin:'0 auto',padding:'0 20px',position:'relative',zIndex:1}}>
 
-        {view==='dash'&&<div style={{paddingTop:32,paddingBottom:100}}>
-          <div style={{animation:'fadeUp .5s ease'}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:20}}>
-              <div><div style={{fontSize:11,fontWeight:600,color:ACCENT,textTransform:'uppercase',letterSpacing:3,fontFamily:"'DM Mono'",marginBottom:12}}>Indoor Air Quality Intelligence</div><h1 style={{fontSize:36,fontWeight:800,lineHeight:1.1,margin:0,letterSpacing:'-1px'}}>atmos<span style={{color:ACCENT}}>IQ</span></h1></div>
-              {profile&&<button onClick={handleLogout} style={{display:'flex',alignItems:'center',gap:8,padding:'10px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>
-                <div style={{width:28,height:28,borderRadius:8,background:`${ACCENT}15`,display:'flex',alignItems:'center',justifyContent:'center'}}><I n="user" s={14} c={ACCENT} /></div>
-                <div style={{fontSize:13,fontWeight:600,color:TEXT,maxWidth:100,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{profile.name?.split(',')[0]||'User'}</div>
-              </button>}
+        {view==='dash'&&<div style={{paddingTop:28,paddingBottom:100}}>
+
+          {/* ── Context Header ── */}
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24,animation:'fadeUp .4s ease'}}>
+            <div>
+              <div style={{fontSize:13,fontWeight:600,color:SUB,marginBottom:4}}>{profile?.name?.split(',')[0]||'Assessor'}</div>
+              <div style={{fontSize:11,fontFamily:"'DM Mono'",color:DIM}}>{new Date().toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'})}</div>
             </div>
-            <p style={{fontSize:15,color:SUB,lineHeight:1.7,maxWidth:420}}>Multi-zone assessments. Deterministic scoring. OSHA defensibility.</p>
+            {profile&&<button onClick={()=>setView('settings')} style={{width:36,height:36,borderRadius:10,background:CARD,border:`1px solid ${BORDER}`,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',transition:'border-color 0.15s'}}>
+              <I n="user" s={16} c={SUB} />
+            </button>}
           </div>
-          <button onClick={startNew} style={{width:'100%',padding:'22px 24px',marginTop:20,background:`linear-gradient(135deg,#0E7490,${ACCENT}20)`,border:`1.5px solid ${ACCENT}40`,borderRadius:16,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:16,position:'relative',overflow:'hidden',minHeight:80,fontFamily:'inherit'}}><div style={{position:'absolute',inset:0,opacity:.12}}><Particles /></div><div style={{width:52,height:52,borderRadius:14,background:`${ACCENT}20`,display:'flex',alignItems:'center',justifyContent:'center',position:'relative',zIndex:1}}><I n="wind" s={26} c={ACCENT} /></div><div style={{position:'relative',zIndex:1,flex:1}}><div style={{fontSize:17,fontWeight:700,color:TEXT}}>New Assessment</div><div style={{fontSize:13,color:SUB,marginTop:3}}>Quick start · {profile?.name?.split(',')[0]||'Profile'} auto-filled</div></div><div style={{fontSize:20,color:ACCENT,position:'relative',zIndex:1}}>→</div></button>
-          <button onClick={runDemo} style={{width:'100%',padding:'18px 22px',marginTop:10,background:CARD,border:`1.5px solid #8B5CF630`,borderRadius:16,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:16,minHeight:72,fontFamily:'inherit'}}><div style={{width:48,height:48,borderRadius:12,background:'#8B5CF615',display:'flex',alignItems:'center',justifyContent:'center'}}><I n="bldg" s={24} c="#8B5CF6" /></div><div style={{flex:1}}><div style={{fontSize:16,fontWeight:700,color:TEXT}}>Run Demo</div><div style={{fontSize:13,color:SUB,marginTop:3}}>Meridian Business Park — 3 zones</div></div><div style={{fontSize:20,color:'#8B5CF6'}}>→</div></button>
-          {/* Sync status */}
-          <div style={{display:'flex',alignItems:'center',gap:8,marginTop:16,padding:'10px 14px',background:CARD,borderRadius:10,border:`1px solid ${BORDER}`}}>
-            <div style={{width:8,height:8,borderRadius:'50%',background:navigator.onLine&&supabase?'#22C55E':supabase?'#FBBF24':'#6B7280'}} />
-            <span style={{fontSize:12,color:SUB}}>{navigator.onLine&&supabase?'Synced to cloud':supabase?'Offline — will sync when connected':'Local storage only'}</span>
+
+          {/* ── Primary Action ── */}
+          <button onClick={startNew} style={{width:'100%',padding:'20px',marginBottom:12,background:CARD,border:`1px solid ${ACCENT}25`,borderRadius:12,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:16,fontFamily:'inherit',transition:'border-color 0.2s,background 0.2s',position:'relative',overflow:'hidden'}}>
+            <div style={{width:48,height:48,borderRadius:12,background:`${ACCENT}12`,border:`1px solid ${ACCENT}20`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+              <I n="wind" s={22} c={ACCENT} w={2} />
+            </div>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:16,fontWeight:700,color:TEXT,letterSpacing:'-0.2px'}}>New Assessment</div>
+              <div style={{fontSize:12,color:SUB,marginTop:3}}>Multi-zone IAQ · {profile?.name?.split(',')[0]||'Profile'} auto-filled</div>
+            </div>
+            <div style={{width:32,height:32,borderRadius:8,background:`${ACCENT}10`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+              <span style={{fontSize:14,color:ACCENT}}>→</span>
+            </div>
+          </button>
+
+          {/* ── Secondary: Demo ── */}
+          <button onClick={runDemo} style={{width:'100%',padding:'14px 20px',marginBottom:20,background:'transparent',border:`1px solid ${BORDER}`,borderRadius:10,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,fontFamily:'inherit',transition:'border-color 0.15s'}}>
+            <I n="bldg" s={18} c={DIM} />
+            <div style={{flex:1}}>
+              <span style={{fontSize:13,fontWeight:600,color:SUB}}>View sample assessment</span>
+              <span style={{fontSize:11,color:DIM,marginLeft:8}}>Meridian Business Park</span>
+            </div>
+            <span style={{fontSize:13,color:DIM}}>→</span>
+          </button>
+
+          {/* ── Status Bar ── */}
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 16px',background:SURFACE,borderRadius:8,border:`1px solid ${BORDER}`,marginBottom:20}}>
+            <div style={{display:'flex',alignItems:'center',gap:8}}>
+              <div style={{width:6,height:6,borderRadius:'50%',background:navigator.onLine&&supabase?SUCCESS:supabase?WARN:DIM}} />
+              <span style={{fontSize:11,color:DIM,fontFamily:"'DM Mono'"}}>{navigator.onLine&&supabase?'Cloud synced':supabase?'Offline mode':'Device storage'}</span>
+            </div>
+            <span style={{fontSize:10,color:DIM,fontFamily:"'DM Mono'"}}>v{VER}</span>
           </div>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginTop:12}}>
-            {[{l:'Drafts',n:(index.drafts||[]).length,v:'drafts',ic:'clip'},{l:'History',n:(index.reports||[]).length,v:'history',ic:'clock'}].map(c=><button key={c.l} onClick={()=>{if(c.n)setView(c.v)}} style={{padding:'20px 16px',background:CARD,border:`1px solid ${c.n?`${ACCENT}25`:BORDER}`,borderRadius:14,opacity:c.n?1:.4,cursor:c.n?'pointer':'default',textAlign:'left',minHeight:80,fontFamily:'inherit'}}><div style={{marginBottom:10}}><I n={c.ic} s={24} c={c.n?ACCENT:DIM} /></div><div style={{fontSize:14,fontWeight:600,color:TEXT}}>{c.l}</div><div style={{fontSize:15,color:c.n?ACCENT:DIM,fontFamily:"'DM Mono'",marginTop:3,fontWeight:700}}>{c.n}</div></button>)}
+
+          {/* ── Workspace Cards ── */}
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:20}}>
+            {[
+              {l:'Drafts',n:(index.drafts||[]).length,v:'drafts',ic:'clip',sub:'In progress'},
+              {l:'Reports',n:(index.reports||[]).length,v:'history',ic:'findings',sub:'Completed'}
+            ].map(c=>(
+              <button key={c.l} onClick={()=>{if(c.n)setView(c.v)}} style={{padding:'16px',background:CARD,border:`1px solid ${c.n?`${ACCENT}18`:BORDER}`,borderRadius:10,cursor:c.n?'pointer':'default',textAlign:'left',fontFamily:'inherit',opacity:c.n?1:0.5,transition:'border-color 0.15s'}}>
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
+                  <I n={c.ic} s={18} c={c.n?ACCENT:DIM} w={1.8} />
+                  <span style={{fontSize:20,fontWeight:700,fontFamily:"'DM Mono'",color:c.n?TEXT:DIM}}>{c.n}</span>
+                </div>
+                <div style={{fontSize:13,fontWeight:600,color:c.n?TEXT:DIM}}>{c.l}</div>
+                <div style={{fontSize:10,color:DIM,marginTop:2}}>{c.sub}</div>
+              </button>
+            ))}
           </div>
-          {/* Backup/Trash/Settings moved to bottom tab bar */}
-          {(index.reports||[]).length>0&&<div style={{marginTop:24}}><div style={{fontSize:12,fontWeight:600,color:SUB,textTransform:'uppercase',letterSpacing:1.5,marginBottom:12}}>Recent</div>{(index.reports||[]).slice(0,3).map(r=><button key={r.id} onClick={()=>openReport(r)} style={{width:'100%',padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,marginBottom:8,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,minHeight:64,fontFamily:'inherit'}}><div style={{width:40,height:40,borderRadius:10,background:`${ACCENT}12`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,fontWeight:800,fontFamily:"'DM Mono'",color:ACCENT}}>{r.score||'?'}</div><div style={{flex:1,minWidth:0}}><div style={{fontSize:14,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:TEXT}}>{r.facility||'?'}</div><div style={{fontSize:12,color:DIM,fontFamily:"'DM Mono'",marginTop:3}}>{fD(r.ts)}</div></div></button>)}</div>}
+
+          {/* ── Recent Assessments ── */}
+          {(index.reports||[]).length>0&&<div>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+              <span style={{fontSize:12,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'1px'}}>Recent</span>
+              {(index.reports||[]).length>3&&<button onClick={()=>setView('history')} style={{background:'none',border:'none',color:ACCENT,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',padding:'4px 0'}}>View all</button>}
+            </div>
+            {(index.reports||[]).slice(0,3).map(r=>(
+              <button key={r.id} onClick={()=>openReport(r)} style={{width:'100%',padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,marginBottom:6,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit',transition:'border-color 0.15s'}}>
+                <div style={{width:38,height:38,borderRadius:8,background:r.score>=70?`${SUCCESS}10`:r.score>=50?`${WARN}10`:`${DANGER}10`,border:`1px solid ${r.score>=70?`${SUCCESS}20`:r.score>=50?`${WARN}20`:`${DANGER}20`}`,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                  <span style={{fontSize:14,fontWeight:800,fontFamily:"'DM Mono'",color:r.score>=70?SUCCESS:r.score>=50?WARN:DANGER}}>{r.score||'—'}</span>
+                </div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:13,fontWeight:600,color:TEXT,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.facility||'Untitled'}</div>
+                  <div style={{fontSize:11,color:DIM,fontFamily:"'DM Mono'",marginTop:2}}>{fD(r.ts)}</div>
+                </div>
+                <span style={{fontSize:12,color:DIM}}>→</span>
+              </button>
+            ))}
+          </div>}
         </div>}
 
         {view==='quickstart'&&qscq&&renderQuestion(qscq,mergedData,setQSField,qsqi,qsVis,()=>{if(qsqi<qsVis.length-1)setQsqi(qsqi+1)},()=>{if(qsqi>0)setQsqi(qsqi-1)},finishQuickStart,'→ Start Zones',qsSecs)}
@@ -594,20 +658,20 @@ export default function MobileApp() {
 
       {/* ── Bottom Tab Bar ── */}
       {!isAssessing && !milestone && (
-        <nav style={{position:'fixed',bottom:0,left:0,right:0,zIndex:100,background:`${BG}F0`,backdropFilter:'blur(20px)',WebkitBackdropFilter:'blur(20px)',borderTop:`1px solid ${BORDER}`,paddingBottom:'env(safe-area-inset-bottom, 0px)'}}>
-          <div style={{display:'flex',justifyContent:'space-around',alignItems:'center',height:56,maxWidth:620,margin:'0 auto'}}>
+        <nav style={{position:'fixed',bottom:0,left:0,right:0,zIndex:100,background:`${BG}F5`,backdropFilter:'blur(24px) saturate(1.3)',WebkitBackdropFilter:'blur(24px) saturate(1.3)',borderTop:`1px solid ${BORDER}`,paddingBottom:'env(safe-area-inset-bottom, 0px)'}}>
+          <div style={{display:'flex',justifyContent:'space-around',alignItems:'center',height:52,maxWidth:620,margin:'0 auto'}}>
             {[
               {id:'dash',label:'Home',icon:'home'},
               {id:'drafts',label:'Drafts',icon:'clip',badge:(index.drafts||[]).length||null},
-              {id:'history',label:'History',icon:'clock',badge:(index.reports||[]).length||null},
+              {id:'history',label:'Reports',icon:'findings',badge:(index.reports||[]).length||null},
               {id:'settings',label:'Settings',icon:'user'},
             ].map(t=>(
-              <button key={t.id} onClick={()=>{setView(t.id);if(t.id==='dash')setViewRpt(null);}} style={{background:'none',border:'none',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:3,padding:'6px 12px',minWidth:56,fontFamily:'inherit',position:'relative',WebkitTapHighlightColor:'transparent'}}>
+              <button key={t.id} onClick={()=>{ supabase&&trackEvent('page_view',{tab:t.id}); setView(t.id); if(t.id==='dash')setViewRpt(null); }} style={{background:'none',border:'none',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:2,padding:'6px 16px',minWidth:56,fontFamily:'inherit',position:'relative',WebkitTapHighlightColor:'transparent',transition:'opacity 0.15s'}}>
                 <div style={{position:'relative'}}>
-                  <I n={t.icon} s={22} c={view===t.id?ACCENT:DIM} w={view===t.id?2.2:1.6} />
-                  {t.badge&&<div style={{position:'absolute',top:-4,right:-8,minWidth:16,height:16,borderRadius:8,background:ACCENT,display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,fontWeight:700,color:BG,fontFamily:"'DM Mono'",padding:'0 4px'}}>{t.badge}</div>}
+                  <I n={t.icon} s={20} c={view===t.id?ACCENT:DIM} w={view===t.id?2:1.6} />
+                  {t.badge>0&&<div style={{position:'absolute',top:-3,right:-7,minWidth:14,height:14,borderRadius:7,background:ACCENT,display:'flex',alignItems:'center',justifyContent:'center',fontSize:8,fontWeight:700,color:BG,fontFamily:"'DM Mono'",padding:'0 3px'}}>{t.badge}</div>}
                 </div>
-                <span style={{fontSize:10,fontWeight:view===t.id?600:500,color:view===t.id?ACCENT:DIM}}>{t.label}</span>
+                <span style={{fontSize:9,fontWeight:view===t.id?600:500,color:view===t.id?ACCENT:DIM,letterSpacing:'0.2px'}}>{t.label}</span>
               </button>
             ))}
           </div>

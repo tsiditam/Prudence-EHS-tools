@@ -11,13 +11,13 @@ import Backup from '../utils/backup'
 import { VER } from '../constants/standards'
 import { I } from './Icons'
 
-const BG = '#060609'
-const CARD = '#101018'
-const BORDER = '#1E1E2E'
+const BG = '#07080C'
+const CARD = '#111318'
+const BORDER = '#1C1E26'
 const ACCENT = '#22D3EE'
-const TEXT = '#F0F2F5'
-const SUB = '#9BA4B5'
-const DIM = '#6B7280'
+const TEXT = '#ECEEF2'
+const SUB = '#8B93A5'
+const DIM = '#565D6E'
 
 export default function SettingsScreen({ profile, onEditProfile, onLogout, onClose, onNavigate }) {
   const [health, setHealth] = useState(null)
