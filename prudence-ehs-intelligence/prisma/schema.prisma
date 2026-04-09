@@ -1,0 +1,363 @@
+// Prudence EHS Intelligence Engine - Database Schema
+// PostgreSQL via Prisma ORM
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────
+
+enum UserRole {
+  ADMIN
+  REVIEWER
+  VIEWER
+}
+
+enum AuthorityType {
+  REGULATORY
+  CONSENSUS_STANDARD
+  GUIDANCE
+  INTERNAL_MEMO
+}
+
+enum ReferenceStatus {
+  ACTIVE
+  SUPERSEDED
+  DRAFT
+}
+
+enum FindingClassification {
+  REGULATORY_DEFICIENCY
+  TECHNICAL_BENCHMARK_GAP
+  BEST_PRACTICE_IMPROVEMENT
+  UNABLE_TO_DETERMINE
+  EXPERT_REVIEW_REQUIRED
+}
+
+enum FindingSeverity {
+  CRITICAL
+  HIGH
+  MODERATE
+  LOW
+  INFORMATIONAL
+}
+
+enum FactStatus {
+  CONFIRMED
+  INFERRED
+  NOT_FOUND
+  CONTRADICTED
+}
+
+enum ReviewStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  ERROR
+}
+
+enum EscalationStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  DISMISSED
+}
+
+// ─────────────────────────────────────────────
+// Models
+// ─────────────────────────────────────────────
+
+model User {
+  id             String              @id @default(cuid())
+  email          String              @unique
+  name           String
+  role           UserRole            @default(VIEWER)
+  organizationId String
+  organization   OrganizationProfile @relation(fields: [organizationId], references: [id])
+  auditLogs      AuditLog[]
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@index([organizationId])
+  @@index([email])
+}
+
+model OrganizationProfile {
+  id                  String            @id @default(cuid())
+  name                String
+  industry            String
+  siteCount           Int               @default(1)
+  defaultReadingLevel String            @default("professional")
+  enabledRulePacks    String[]
+  enabledAuthorities  String[]
+  users               User[]
+  buildings           BuildingProfile[]
+  documentReviews     DocumentReview[]
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  @@index([name])
+}
+
+model BuildingProfile {
+  id              String              @id @default(cuid())
+  name            String
+  address         String
+  buildingType    String
+  occupancyType   String
+  yearBuilt       Int?
+  squareFootage   Float?
+  hvacType        String?
+  organizationId  String
+  organization    OrganizationProfile @relation(fields: [organizationId], references: [id])
+  documentReviews DocumentReview[]
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@index([organizationId])
+}
+
+model Reference {
+  id                   String          @id @default(cuid())
+  referenceId          String          @unique
+  authorityName        String
+  authorityType        AuthorityType
+  domain               String
+  jurisdiction         String?
+  citationText         String
+  title                String
+  sectionNumber        String?
+  effectiveDate        DateTime?
+  status               ReferenceStatus @default(ACTIVE)
+  officialSourceUrl    String?
+  plainLanguageSummary String?
+  applicabilityTags    String[]
+  triggerTags          String[]
+  requiredElements     Json?
+  exceptions           String[]
+  definitions          Json?
+  crossReferences      String[]
+  enforceabilityLevel  String?
+  reviewedBy           String?
+  reviewDate           DateTime?
+  fragments            ReferenceFragment[]
+  citationLinks        CitationLink[]
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+
+  @@index([authorityType])
+  @@index([domain])
+  @@index([status])
+  @@index([referenceId])
+}
+
+model ReferenceFragment {
+  id            String    @id @default(cuid())
+  referenceId   String
+  reference     Reference @relation(fields: [referenceId], references: [id], onDelete: Cascade)
+  fragmentKey   String
+  fragmentText  String
+  pageOrSection String?
+  createdAt     DateTime  @default(now())
+
+  @@index([referenceId])
+}
+
+model RulePack {
+  id          String   @id @default(cuid())
+  packId      String   @unique
+  name        String
+  topic       String
+  domain      String
+  version     String   @default("1.0.0")
+  description String?
+  isEnabled   Boolean  @default(true)
+  rules       Rule[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([domain])
+  @@index([isEnabled])
+}
+
+model Rule {
+  id                    String                @id @default(cuid())
+  ruleCode              String                @unique
+  rulePackId            String
+  rulePack              RulePack              @relation(fields: [rulePackId], references: [id], onDelete: Cascade)
+  topic                 String
+  description           String
+  triggerConditions     Json
+  requiredEvidence      String[]
+  comparisonLogic       Json?
+  findingTitle          String
+  findingClassification FindingClassification
+  defaultSeverity       FindingSeverity
+  citationBundle        String[]
+  outputTemplate        String?
+  escalationThreshold   Float?
+  isEnabled             Boolean               @default(true)
+  requiredElements      RequiredElement[]
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+
+  @@index([rulePackId])
+  @@index([findingClassification])
+  @@index([defaultSeverity])
+  @@index([isEnabled])
+}
+
+model RequiredElement {
+  id              String  @id @default(cuid())
+  ruleId          String
+  rule            Rule    @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  elementKey      String
+  label           String
+  description     String?
+  isCritical      Boolean @default(false)
+  sourceReference String?
+
+  @@index([ruleId])
+}
+
+model DocumentReview {
+  id                  String              @id @default(cuid())
+  fileName            String
+  fileType            String
+  fileSize            Int
+  documentType        String
+  standardTrack       String?
+  applicableRulePacks String[]
+  status              ReviewStatus        @default(PENDING)
+  organizationId      String?
+  organization        OrganizationProfile? @relation(fields: [organizationId], references: [id])
+  buildingId          String?
+  building            BuildingProfile?    @relation(fields: [buildingId], references: [id])
+  requestedOutputMode String?
+  requestedReadingLevel String?
+  overallScore        Int?
+  expertReviewFlag    Boolean             @default(false)
+  extractedFacts      ExtractedFact[]
+  findings            Finding[]
+  expertReviewItems   ExpertReviewQueue[]
+  reviewCompletedAt   DateTime?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  @@index([status])
+  @@index([organizationId])
+  @@index([buildingId])
+  @@index([documentType])
+}
+
+model ExtractedFact {
+  id            String       @id @default(cuid())
+  reviewId      String
+  review        DocumentReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  factKey       String
+  factValue     String
+  factStatus    FactStatus
+  sourceExcerpt String?
+  sourcePage    String?
+  confidence    Float        @default(0)
+  createdAt     DateTime     @default(now())
+
+  @@index([reviewId])
+  @@index([factStatus])
+}
+
+model Finding {
+  id                 String                @id @default(cuid())
+  reviewId           String
+  review             DocumentReview        @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  findingCode        String
+  classification     FindingClassification
+  topic              String
+  title              String
+  status             String                @default("OPEN")
+  severity           FindingSeverity
+  evidenceBasis      String
+  whyItMatters       String?
+  recommendedAction  String?
+  confidence         Float                 @default(0)
+  escalation         Boolean               @default(false)
+  escalationReason   String?
+  redlineSuggestion  String?
+  citationLinks      CitationLink[]
+  expertReviewItems  ExpertReviewQueue[]
+  createdAt          DateTime              @default(now())
+
+  @@index([reviewId])
+  @@index([classification])
+  @@index([severity])
+  @@index([status])
+}
+
+model CitationLink {
+  id                String    @id @default(cuid())
+  findingId         String
+  finding           Finding   @relation(fields: [findingId], references: [id], onDelete: Cascade)
+  referenceId       String
+  reference         Reference @relation(fields: [referenceId], references: [id])
+  shortCitation     String
+  supportingExcerpt String?
+  createdAt         DateTime  @default(now())
+
+  @@index([findingId])
+  @@index([referenceId])
+}
+
+model ReadingLevelTemplate {
+  id                String   @id @default(cuid())
+  levelKey          String   @unique
+  label             String
+  description       String?
+  gradeLevel        Int?
+  promptInstructions String
+  createdAt         DateTime @default(now())
+}
+
+model ExpertReviewQueue {
+  id                       String           @id @default(cuid())
+  reviewId                 String
+  review                   DocumentReview   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  findingId                String?
+  finding                  Finding?         @relation(fields: [findingId], references: [id])
+  reason                   String
+  confidenceLevel          Float?
+  unresolvedContradictions String[]
+  reviewerNotes            String?
+  status                   EscalationStatus @default(OPEN)
+  assignedTo               String?
+  resolvedAt               DateTime?
+  createdAt                DateTime         @default(now())
+  updatedAt                DateTime         @updatedAt
+
+  @@index([reviewId])
+  @@index([findingId])
+  @@index([status])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  action     String
+  entityType String
+  entityId   String
+  details    Json?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([action])
+  @@index([createdAt])
+}
