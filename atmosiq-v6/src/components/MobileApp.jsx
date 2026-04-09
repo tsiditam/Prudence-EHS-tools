@@ -20,7 +20,7 @@ import { scoreZone, compositeScore, evalOSHA, calcVent, genRecs } from '../engin
 import { generateSamplingPlan } from '../engines/sampling'
 import { buildCausalChains } from '../engines/causalChains'
 import { generateNarrative } from '../engines/narrative'
-import { I } from './Icons'
+import { I, emojiToIcon } from './Icons'
 import Particles from './Particles'
 import Loading from './Loading'
 import ScoreRing from './ScoreRing'
@@ -346,7 +346,7 @@ export default function MobileApp() {
           {secs.map((s,i)=><span key={s} style={{padding:'8px 16px',borderRadius:20,fontSize:12,fontWeight:600,fontFamily:"'DM Mono'",minHeight:36,display:'inline-flex',alignItems:'center',background:i===secIdx?`${ACCENT}15`:'transparent',color:i===secIdx?ACCENT:i<secIdx?SUB:DIM,border:`1px solid ${i===secIdx?ACCENT+'30':'transparent'}`}}>{s}</span>)}
         </div>
         <div key={q.id+'-'+curZone} style={{animation:'fadeUp .4s cubic-bezier(.22,1,.36,1)'}}>
-          <div style={{width:56,height:56,borderRadius:16,background:`${ACCENT}10`,border:`1px solid ${ACCENT}20`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:28,marginBottom:20}}>{q.ic}</div>
+          <div style={{width:48,height:48,borderRadius:12,background:`${ACCENT}08`,border:`1px solid ${ACCENT}15`,display:'flex',alignItems:'center',justifyContent:'center',marginBottom:16}}>{emojiToIcon[q.ic] ? <I n={emojiToIcon[q.ic]} s={22} c={ACCENT} w={1.6} /> : <span style={{fontSize:22}}>{q.ic}</span>}</div>
           <h2 style={{fontSize:26,fontWeight:700,lineHeight:1.3,margin:0,marginBottom:10,letterSpacing:'-0.3px',color:TEXT}}>{q.q}</h2>
           {q.ref&&<div style={{display:'inline-flex',gap:7,padding:'8px 14px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,marginBottom:20,marginTop:6}}><span style={{fontSize:13,color:SUB,fontFamily:"'DM Mono'",lineHeight:1.4}}>{q.ref}</span></div>}
           {!q.ref&&<div style={{height:16}} />}
