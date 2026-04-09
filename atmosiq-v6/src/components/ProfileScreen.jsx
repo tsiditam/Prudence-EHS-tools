@@ -7,7 +7,9 @@
  */
 
 import { useState, useEffect } from 'react'
+import { useMediaQuery } from '../hooks/useMediaQuery'
 import Profiles from '../utils/profiles'
+import { trackEvent } from '../utils/supabaseClient'
 import { I } from './Icons'
 
 // ─── Design Tokens (aligned with MobileApp) ───
@@ -52,6 +54,8 @@ function RadioOption({ selected, label: text, onClick, compact }) {
 }
 
 export default function ProfileScreen({ onLogin }) {
+  const { isTablet } = useMediaQuery()
+  const maxW = isTablet ? 640 : 480
   const [profiles, setProfiles] = useState([])
   const [mode, setMode] = useState('select')
   const [editId, setEditId] = useState(null)
@@ -71,6 +75,20 @@ export default function ProfileScreen({ onLogin }) {
     await Profiles.save({ ...form, id })
     await Profiles.setActive(id)
     const profile = await Profiles.get(id)
+    trackEvent(editId ? 'profile_updated' : 'profile_created', {
+      has_certs: (form.certs||[]).length > 0,
+      cert_count: (form.certs||[]).length,
+      has_experience: !!form.experience,
+      has_firm: !!form.firm,
+      has_iaq_meter: !!form.iaq_meter,
+      has_pid_meter: !!form.pid_meter,
+    })
+    if (form.iaq_cal_date || form.iaq_cal_status) {
+      trackEvent('calibration_date_entered', { instrument: 'iaq', meter: form.iaq_meter || '', status: form.iaq_cal_status || '' })
+    }
+    if (form.pid_cal_status) {
+      trackEvent('calibration_date_entered', { instrument: 'pid', meter: form.pid_meter || '', status: form.pid_cal_status || '' })
+    }
     onLogin(profile)
   }
 
@@ -97,7 +115,7 @@ export default function ProfileScreen({ onLogin }) {
   if (mode === 'select' && profiles.length > 0) {
     return (
       <div style={{minHeight:'100vh',background:BG,color:TEXT,fontFamily:"'Outfit', system-ui",padding:'0 20px',paddingTop:'env(safe-area-inset-top, 20px)'}}>
-        <div style={{maxWidth:480,margin:'0 auto',paddingTop:48,paddingBottom:100}}>
+        <div style={{maxWidth:maxW,margin:'0 auto',paddingTop:48,paddingBottom:100}}>
           <div style={{marginBottom:32}}>
             <div style={{fontSize:22,fontWeight:700,letterSpacing:'-0.3px',marginBottom:4}}>atmos<span style={{color:ACCENT}}>IQ</span></div>
             <div style={{fontSize:13,color:SUB}}>Select assessor profile</div>
@@ -131,7 +149,7 @@ export default function ProfileScreen({ onLogin }) {
   // ── Create / Edit ──
   return (
     <div style={{minHeight:'100vh',background:BG,color:TEXT,fontFamily:"'Outfit', system-ui",padding:'0 20px',paddingTop:'env(safe-area-inset-top, 20px)'}}>
-      <div style={{maxWidth:480,margin:'0 auto',paddingTop:32,paddingBottom:100}}>
+      <div style={{maxWidth:maxW,margin:'0 auto',paddingTop:32,paddingBottom:100}}>
 
         {/* Header */}
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:24}}>
