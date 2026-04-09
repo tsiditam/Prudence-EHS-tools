@@ -12,155 +12,293 @@ export function generatePrintHTML(data) {
   const { building, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile } = data
   const bldg = building || {}
   const now = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+  const assessDate = data.ts ? new Date(data.ts).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : now
+  const reportId = data.id || `AIQ-${Date.now().toString(36).toUpperCase().slice(-6)}`
+  const assessor = profile?.name || presurvey?.ps_assessor || 'Assessor'
+  const ver = data.version || '6.0.0'
 
-  const sevColor = (sev) => ({ critical:'#DC2626', high:'#EA580C', medium:'#D97706', low:'#0891B2', pass:'#16A34A', info:'#64748B' }[sev] || '#64748B')
+  const sevColor = (sev) => ({ critical:'#B91C1C', high:'#C2410C', medium:'#A16207', low:'#0E7490', pass:'#15803D', info:'#475569' }[sev] || '#475569')
+  const scoreColor = (s) => s >= 70 ? '#15803D' : s >= 50 ? '#A16207' : '#B91C1C'
+  const riskLabel = (s) => s >= 80 ? 'Low Risk' : s >= 60 ? 'Moderate' : s >= 40 ? 'High Risk' : 'Critical'
+  const confLabel = oshaResult?.conf || 'Not evaluated'
 
   const catRows = (cats) => cats.map(cat => {
     const pct = Math.round((cat.s / cat.mx) * 100)
     return `
-      <div style="margin-bottom:16px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-          <strong style="font-size:14px;">${cat.l}</strong>
-          <span style="font-family:monospace;font-weight:700;font-size:14px;">${cat.s}/${cat.mx}</span>
-        </div>
-        <div style="height:4px;background:#E5E7EB;border-radius:2px;overflow:hidden;margin-bottom:8px;">
-          <div style="height:100%;width:${pct}%;background:${pct>=80?'#16A34A':pct>=60?'#D97706':pct>=40?'#EA580C':'#DC2626'};border-radius:2px;"></div>
-        </div>
-        ${cat.r.map(r => `
-          <div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:4px;font-size:12px;line-height:1.5;">
-            <span style="padding:1px 6px;border-radius:3px;font-size:9px;font-weight:700;font-family:monospace;background:${sevColor(r.sev)}15;color:${sevColor(r.sev)};white-space:nowrap;">${r.sev.toUpperCase()}</span>
-            <span>${r.t}${r.std ? ` <span style="color:#9CA3AF;">(${r.std})</span>` : ''}</span>
-          </div>
-        `).join('')}
-      </div>
-    `
+      <tr>
+        <td style="padding:8px 12px;font-weight:600;font-size:12px;border-bottom:1px solid #F1F5F9;">${cat.l}</td>
+        <td style="padding:8px 12px;font-family:monospace;font-size:12px;text-align:center;border-bottom:1px solid #F1F5F9;">${cat.s}/${cat.mx}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #F1F5F9;"><div style="height:6px;background:#F1F5F9;border-radius:3px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:${pct>=70?'#15803D':pct>=50?'#A16207':'#B91C1C'};border-radius:3px;"></div></div></td>
+        <td style="padding:8px 12px;font-family:monospace;font-size:11px;color:${scoreColor(pct)};text-align:right;border-bottom:1px solid #F1F5F9;">${pct}%</td>
+      </tr>`
   }).join('')
 
+  const findingRows = (cats) => cats.flatMap(cat => cat.r.map(r => `
+    <tr style="font-size:11px;">
+      <td style="padding:6px 10px;border-bottom:1px solid #F1F5F9;"><span style="padding:2px 6px;border-radius:3px;font-size:9px;font-weight:700;font-family:monospace;background:${sevColor(r.sev)}12;color:${sevColor(r.sev)};text-transform:uppercase;">${r.sev}</span></td>
+      <td style="padding:6px 10px;border-bottom:1px solid #F1F5F9;font-weight:500;">${cat.l}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid #F1F5F9;">${r.t}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid #F1F5F9;color:#64748B;font-family:monospace;font-size:10px;">${r.std || '—'}</td>
+    </tr>
+  `)).join('')
+
+  const completeness = Math.round(((zones||[]).filter(z => z.zn).length / Math.max((zones||[]).length, 1)) * 100)
+
   return `<!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>AtmosIQ Report — ${bldg.fn || 'Assessment'}</title>
+  <title>IAQ Assessment Report — ${bldg.fn || 'Assessment'}</title>
   <style>
     * { box-sizing: border-box; margin: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; color: #1F2937; line-height: 1.6; padding: 40px; max-width: 800px; margin: 0 auto; }
-    h1 { font-size: 22px; font-weight: 800; margin-bottom: 4px; }
-    h2 { font-size: 16px; font-weight: 700; margin: 24px 0 12px; padding-bottom: 6px; border-bottom: 2px solid #E5E7EB; }
-    h3 { font-size: 14px; font-weight: 600; margin: 16px 0 8px; }
-    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 3px solid #0891B2; }
-    .meta { font-size: 11px; color: #6B7280; font-family: monospace; }
-    .score-box { text-align: center; padding: 24px; border: 2px solid #E5E7EB; border-radius: 12px; margin-bottom: 20px; }
-    .score-num { font-size: 48px; font-weight: 800; font-family: monospace; }
-    .risk-badge { display: inline-block; padding: 4px 16px; border-radius: 20px; font-size: 13px; font-weight: 700; }
-    .zone-card { border: 1px solid #E5E7EB; border-radius: 10px; padding: 16px; margin-bottom: 16px; page-break-inside: avoid; }
-    .flag-box { padding: 12px; border-radius: 8px; margin-bottom: 12px; font-size: 12px; }
-    .chain-card { padding: 14px; border: 1px solid #E5E7EB; border-radius: 8px; margin-bottom: 12px; page-break-inside: avoid; }
-    .sampling-card { padding: 14px; border: 1px solid #E5E7EB; border-radius: 8px; margin-bottom: 12px; page-break-inside: avoid; }
-    .rec-section { margin-bottom: 12px; }
-    .rec-item { padding: 3px 0; padding-left: 12px; border-left: 2px solid #E5E7EB; font-size: 12px; margin-bottom: 4px; }
-    .narrative { font-size: 13px; line-height: 1.8; white-space: pre-wrap; padding: 16px; background: #F9FAFB; border-radius: 8px; border: 1px solid #E5E7EB; }
-    .footer { margin-top: 32px; padding-top: 16px; border-top: 1px solid #E5E7EB; font-size: 10px; color: #9CA3AF; text-align: center; }
-    .disclaimer { font-size: 10px; color: #9CA3AF; padding: 10px; background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 6px; margin-top: 16px; }
-    @media print { body { padding: 20px; } .no-print { display: none; } }
+    body { font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif; font-size: 12px; color: #1E293B; line-height: 1.6; padding: 48px 56px; max-width: 820px; margin: 0 auto; background: #fff; }
+    h1 { font-size: 20px; font-weight: 700; color: #0F172A; margin-bottom: 2px; letter-spacing: -0.3px; }
+    h2 { font-size: 13px; font-weight: 700; color: #0F172A; margin: 28px 0 10px; padding-bottom: 6px; border-bottom: 1px solid #E2E8F0; text-transform: uppercase; letter-spacing: 0.8px; }
+    h3 { font-size: 12px; font-weight: 700; color: #334155; margin: 14px 0 6px; }
+    p { margin-bottom: 8px; line-height: 1.7; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; padding: 8px 10px; background: #F8FAFC; font-size: 10px; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #E2E8F0; }
+    td { padding: 8px 10px; border-bottom: 1px solid #F1F5F9; font-size: 11px; vertical-align: top; }
+    .accent { color: #0E7490; }
+    .cover { text-align: center; padding: 80px 0 60px; border-bottom: 2px solid #0E7490; margin-bottom: 32px; }
+    .cover-logo { font-size: 28px; font-weight: 800; color: #0F172A; letter-spacing: -0.5px; margin-bottom: 24px; }
+    .cover-title { font-size: 18px; font-weight: 300; color: #334155; margin-bottom: 4px; letter-spacing: 0.5px; }
+    .cover-sub { font-size: 11px; color: #64748B; margin-bottom: 32px; }
+    .cover-meta { font-size: 11px; color: #475569; line-height: 2; }
+    .cover-meta strong { color: #0F172A; font-weight: 600; }
+    .def-panel { padding: 14px 18px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; margin-bottom: 20px; font-size: 10px; color: #64748B; }
+    .def-panel td { padding: 3px 0; border: none; font-size: 10px; }
+    .score-box { text-align: center; padding: 20px; border: 1px solid #E2E8F0; border-radius: 6px; margin-bottom: 16px; }
+    .score-num { font-size: 42px; font-weight: 800; font-family: monospace; letter-spacing: -2px; }
+    .risk-badge { display: inline-block; padding: 3px 12px; border-radius: 3px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+    .zone-card { border: 1px solid #E2E8F0; border-radius: 6px; padding: 18px; margin-bottom: 14px; page-break-inside: avoid; }
+    .chain-card { padding: 14px 18px; border: 1px solid #E2E8F0; border-radius: 6px; margin-bottom: 10px; page-break-inside: avoid; }
+    .evidence-item { font-size: 11px; padding: 3px 0 3px 14px; border-left: 2px solid #CBD5E1; margin-bottom: 3px; color: #475569; }
+    .rec-row td { font-size: 11px; }
+    .narrative { font-size: 12px; line-height: 1.8; padding: 16px 20px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; border-left: 3px solid #0E7490; }
+    .note { font-size: 10px; color: #94A3B8; font-style: italic; padding: 8px 12px; background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 4px; margin: 12px 0; }
+    .footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #E2E8F0; font-size: 9px; color: #94A3B8; text-align: center; line-height: 1.8; }
+    .pg-break { page-break-before: always; }
+    @media print { body { padding: 24px 32px; font-size: 11px; } h2 { page-break-after: avoid; } .zone-card, .chain-card { page-break-inside: avoid; } }
   </style>
 </head>
 <body>
-  <div class="header">
-    <div>
-      <h1>atmos<span style="color:#0891B2;">IQ</span> Assessment Report</h1>
-      <div style="font-size:12px;color:#6B7280;margin-top:4px;">${bldg.fn || 'Facility'} — ${bldg.fl || ''}</div>
+  <!-- ═══ COVER PAGE ═══ -->
+  <div class="cover">
+    <div class="cover-logo">atmos<span class="accent">IQ</span></div>
+    <div class="cover-title">Indoor Air Quality Assessment Report</div>
+    <div class="cover-sub">Standards-Driven Multi-Zone Assessment</div>
+    <div style="width:40px;height:2px;background:#0E7490;margin:24px auto;"></div>
+    <div class="cover-meta">
+      <strong>Site:</strong> ${bldg.fn || 'Facility'}<br>
+      <strong>Location:</strong> ${bldg.fl || '—'}<br>
+      <strong>Assessment Date:</strong> ${assessDate}<br>
+      <strong>Report Date:</strong> ${now}<br>
+      <strong>Assessor:</strong> ${assessor}<br>
+      <strong>Report ID:</strong> ${reportId}<br>
+      <strong>Version:</strong> 1.0 &nbsp;|&nbsp; <strong>Status:</strong> Draft — Pending Professional Review
     </div>
-    <div style="text-align:right;">
-      <div class="meta">${now}</div>
-      <div class="meta">${profile?.name || presurvey?.ps_assessor || 'Assessor'}</div>
-      <div class="meta">v${data.version || '6.0.0-beta'}</div>
-    </div>
+    <div style="margin-top:32px;font-size:10px;color:#94A3B8;">Prepared by atmosIQ v${ver} — Prudence Safety &amp; Environmental Consulting, LLC</div>
   </div>
 
-  ${comp ? `
-  <div class="score-box">
-    <div class="score-num" style="color:${comp.rc};">${comp.tot}</div>
-    <div class="risk-badge" style="background:${comp.rc}18;color:${comp.rc};border:1px solid ${comp.rc}35;">${comp.risk}</div>
-    <div class="meta" style="margin-top:8px;">Avg: ${comp.avg} | Worst: ${comp.worst} | ${comp.count} zone${comp.count > 1 ? 's' : ''}</div>
+  <!-- ═══ DEFENSIBILITY PANEL ═══ -->
+  <div class="def-panel">
+    <div style="font-size:10px;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Report Defensibility</div>
+    <table style="width:auto;"><tbody>
+      <tr><td style="color:#64748B;padding-right:16px;">Workflow version</td><td style="color:#334155;font-weight:600;">atmosIQ v${ver}</td></tr>
+      <tr><td style="color:#64748B;padding-right:16px;">Standards referenced</td><td style="color:#334155;font-weight:600;">ASHRAE 62.1-2025, ASHRAE 55-2023, OSHA PELs, EPA NAAQS, WHO guidelines</td></tr>
+      <tr><td style="color:#64748B;padding-right:16px;">Calibration recorded</td><td style="color:#334155;font-weight:600;">${presurvey?.ps_inst_iaq_cal_status || 'Not recorded'}</td></tr>
+      <tr><td style="color:#64748B;padding-right:16px;">Professional review</td><td style="color:#334155;font-weight:600;">Draft — requires IH review before distribution</td></tr>
+      <tr><td style="color:#64748B;padding-right:16px;">Confidence level</td><td style="color:#334155;font-weight:600;">${confLabel}</td></tr>
+      <tr><td style="color:#64748B;padding-right:16px;">Completeness</td><td style="color:#334155;font-weight:600;">${completeness}% — ${(zones||[]).length} zone${(zones||[]).length !== 1 ? 's' : ''} assessed</td></tr>
+    </tbody></table>
   </div>
-  ` : ''}
+
+  <!-- ═══ EXECUTIVE SUMMARY ═══ -->
+  <h2>Executive Summary</h2>
+  ${comp ? `
+  <div style="display:flex;gap:20px;margin-bottom:16px;">
+    <div class="score-box" style="flex:0 0 140px;">
+      <div class="score-num" style="color:${scoreColor(comp.tot)};">${comp.tot}</div>
+      <div class="risk-badge" style="background:${scoreColor(comp.tot)}12;color:${scoreColor(comp.tot)};">${comp.risk || riskLabel(comp.tot)}</div>
+    </div>
+    <div style="flex:1;font-size:11px;color:#475569;">
+      <table style="width:100%;"><tbody>
+        <tr><td style="padding:3px 0;border:none;color:#64748B;">Composite score</td><td style="padding:3px 0;border:none;font-weight:700;color:#0F172A;">${comp.tot}/100</td></tr>
+        <tr><td style="padding:3px 0;border:none;color:#64748B;">Average zone score</td><td style="padding:3px 0;border:none;font-weight:600;">${comp.avg}/100</td></tr>
+        <tr><td style="padding:3px 0;border:none;color:#64748B;">Worst zone score</td><td style="padding:3px 0;border:none;font-weight:600;color:${scoreColor(comp.worst)};">${comp.worst}/100</td></tr>
+        <tr><td style="padding:3px 0;border:none;color:#64748B;">Zones assessed</td><td style="padding:3px 0;border:none;font-weight:600;">${comp.count}</td></tr>
+        <tr><td style="padding:3px 0;border:none;color:#64748B;">Confidence</td><td style="padding:3px 0;border:none;font-weight:600;">${confLabel}</td></tr>
+      </tbody></table>
+    </div>
+  </div>` : ''}
 
   ${narrative ? `
-  <h2>Findings Narrative</h2>
   <div class="narrative">${narrative}</div>
-  <div class="disclaimer">⚠ AI-generated from deterministic scoring output. IH review required before client delivery.</div>
-  ` : ''}
-
-  <h2>Zone Findings</h2>
-  ${(zoneScores || []).map((zs, zi) => `
-    <div class="zone-card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-        <strong style="font-size:15px;">${zs.zoneName}</strong>
-        <span style="font-family:monospace;font-size:20px;font-weight:800;color:${zs.rc};">${zs.tot}/100 <span style="font-size:12px;">${zs.risk}</span></span>
-      </div>
-      ${catRows(zs.cats)}
-      ${oshaResult?.flag ? `
-        <div class="flag-box" style="background:#FEF2F2;border:1px solid #FECACA;">
-          <strong style="color:#DC2626;">⚠ OSHA Defensibility: ${oshaResult.conf}</strong>
-          ${(oshaResult.fl || []).map(f => `<div style="color:#DC2626;margin-top:4px;">• ${f}</div>`).join('')}
-          ${(oshaResult.gaps || []).map(g => `<div style="color:#D97706;margin-top:4px;">Gap: ${g}</div>`).join('')}
-        </div>
-      ` : ''}
-    </div>
-  `).join('')}
-
-  ${(causalChains || []).length > 0 ? `
-  <h2>Causal Chains</h2>
-  ${causalChains.map(ch => `
-    <div class="chain-card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-        <strong>${ch.type}</strong>
-        <span style="font-size:11px;font-weight:700;color:${ch.confidence === 'Strong' ? '#16A34A' : ch.confidence === 'Moderate' ? '#D97706' : '#9CA3AF'};">${ch.confidence}</span>
-      </div>
-      <div style="font-size:11px;color:#0891B2;font-family:monospace;">${ch.zone}</div>
-      <div style="margin:8px 0;padding:8px 12px;background:#F9FAFB;border-radius:6px;border-left:3px solid #0891B2;font-size:12px;">${ch.rootCause}</div>
-      ${ch.evidence.map(e => `<div style="font-size:11px;margin-bottom:3px;">→ ${e}</div>`).join('')}
-    </div>
-  `).join('')}
-  ` : ''}
-
-  ${samplingPlan?.plan?.length > 0 ? `
-  <h2>Recommended Sampling Plan</h2>
-  ${samplingPlan.plan.map(p => `
-    <div class="sampling-card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-        <strong>${p.type}</strong>
-        <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:${p.priority === 'critical' ? '#FEF2F2' : p.priority === 'high' ? '#FFF7ED' : '#FFFBEB'};color:${p.priority === 'critical' ? '#DC2626' : p.priority === 'high' ? '#EA580C' : '#D97706'};">${p.priority.toUpperCase()}</span>
-      </div>
-      <div style="font-size:11px;color:#0891B2;font-family:monospace;margin-bottom:6px;">${p.zone}</div>
-      <div style="font-size:12px;margin-bottom:4px;"><strong>Hypothesis:</strong> ${p.hypothesis}</div>
-      <div style="font-size:12px;margin-bottom:4px;"><strong>Method:</strong> ${p.method}</div>
-      <div style="font-size:12px;margin-bottom:4px;"><strong>Controls:</strong> ${p.controls}</div>
-      <div style="font-size:10px;color:#9CA3AF;font-family:monospace;">${p.standard}</div>
-    </div>
-  `).join('')}
-  ${samplingPlan.outdoorGaps?.length > 0 ? `
-    <div class="flag-box" style="background:#FFFBEB;border:1px solid #FDE68A;">
-      <strong style="color:#D97706;">⚠ Outdoor Control Gaps</strong>
-      ${samplingPlan.outdoorGaps.map(g => `<div style="margin-top:4px;">• ${g}</div>`).join('')}
-    </div>
-  ` : ''}
-  ` : ''}
+  <div class="note">This narrative was generated from deterministic scoring output and requires professional review before client distribution.</div>
+  ` : `<p style="color:#64748B;">Available evidence supports that indoor air quality conditions at this facility ${comp?.tot >= 70 ? 'are broadly consistent with acceptable occupancy standards, with targeted improvements recommended as noted below.' : comp?.tot >= 50 ? 'present conditions that warrant further investigation and corrective action in the areas identified below.' : 'present significant concerns requiring prompt remediation as detailed in this report.'}</p>`}
 
   ${recs ? `
-  <h2>Recommendations</h2>
-  ${[{k:'imm',l:'Immediate Actions',c:'#DC2626'},{k:'eng',l:'Engineering Controls',c:'#0891B2'},{k:'adm',l:'Administrative Controls',c:'#D97706'},{k:'mon',l:'Monitoring',c:'#9CA3AF'}].map(cat => (recs[cat.k]?.length > 0) ? `
-    <div class="rec-section">
-      <h3 style="color:${cat.c};">${cat.l}</h3>
-      ${recs[cat.k].map(r => `<div class="rec-item" style="border-left-color:${cat.c};">${r}</div>`).join('')}
-    </div>
-  ` : '').join('')}
+  <h3>Priority Actions</h3>
+  <table><thead><tr><th>Priority</th><th>Action</th></tr></thead><tbody>
+  ${(recs.imm||[]).map(r => `<tr><td style="font-size:10px;font-weight:700;color:#B91C1C;">IMMEDIATE</td><td style="font-size:11px;">${r}</td></tr>`).join('')}
+  ${(recs.eng||[]).slice(0,3).map(r => `<tr><td style="font-size:10px;font-weight:700;color:#0E7490;">ENGINEERING</td><td style="font-size:11px;">${r}</td></tr>`).join('')}
+  ${(recs.adm||[]).slice(0,2).map(r => `<tr><td style="font-size:10px;font-weight:700;color:#A16207;">ADMINISTRATIVE</td><td style="font-size:11px;">${r}</td></tr>`).join('')}
+  </tbody></table>` : ''}
+
+  <!-- ═══ SCOPE AND METHODOLOGY ═══ -->
+  <h2>Scope and Methodology</h2>
+  <p><strong>Purpose:</strong> This assessment was conducted to evaluate indoor air quality conditions${presurvey?.ps_reason ? ` in response to ${presurvey.ps_reason.toLowerCase()}` : ''} at ${bldg.fn || 'the subject facility'}.</p>
+  <p><strong>Areas assessed:</strong> ${(zones||[]).map(z => z.zn || 'Unnamed zone').join(', ') || 'See zone findings below'}.</p>
+  <p><strong>Assessment activities:</strong> Visual inspection, real-time direct-reading instrument measurements, occupant complaint documentation, HVAC system evaluation, and moisture/mold screening.</p>
+  <h3>Instrumentation</h3>
+  <table><thead><tr><th>Instrument</th><th>Identifier</th><th>Calibration</th></tr></thead><tbody>
+    <tr><td>${presurvey?.ps_inst_iaq || 'IAQ meter'}</td><td style="font-family:monospace;font-size:10px;">${presurvey?.ps_inst_iaq_serial || '—'}</td><td>${presurvey?.ps_inst_iaq_cal_status || '—'}${presurvey?.ps_inst_iaq_cal ? ` (${presurvey.ps_inst_iaq_cal})` : ''}</td></tr>
+    ${presurvey?.ps_inst_pid ? `<tr><td>${presurvey.ps_inst_pid}</td><td style="font-family:monospace;font-size:10px;">—</td><td>${presurvey.ps_inst_pid_cal || '—'}</td></tr>` : ''}
+  </tbody></table>
+  <h3>Standards and References</h3>
+  <p style="font-size:11px;color:#475569;">ASHRAE Standard 62.1-2025 (Ventilation for Acceptable IAQ), ASHRAE Standard 55-2023 (Thermal Environmental Conditions), OSHA Permissible Exposure Limits (29 CFR 1910.1000), EPA National Ambient Air Quality Standards, WHO Air Quality Guidelines.</p>
+  <h3>Limitations</h3>
+  <p style="font-size:11px;color:#475569;">This assessment represents conditions observed at the time of the site visit and may not reflect all temporal, seasonal, or operational variations. Findings are based on direct-reading instrumentation and visual observations. Laboratory analysis was not performed unless specifically noted.</p>
+
+  <!-- ═══ BUILDING CONTEXT ═══ -->
+  <h2>Building and Complaint Context</h2>
+  <table><tbody>
+    <tr><td style="color:#64748B;width:160px;">Building type</td><td>${bldg.ft || '—'}</td></tr>
+    <tr><td style="color:#64748B;">Year built / renovated</td><td>${bldg.ba || '—'}${bldg.rn ? ` (last renovated: ${bldg.rn})` : ''}</td></tr>
+    <tr><td style="color:#64748B;">HVAC system</td><td>${bldg.ht || '—'}</td></tr>
+    <tr><td style="color:#64748B;">Last HVAC maintenance</td><td>${bldg.hm || '—'}</td></tr>
+    <tr><td style="color:#64748B;">Filter type / condition</td><td>${bldg.fm || '—'} / ${bldg.fc || '—'}</td></tr>
+    <tr><td style="color:#64748B;">Outside air damper</td><td>${bldg.od || '—'}</td></tr>
+    <tr><td style="color:#64748B;">Supply airflow</td><td>${bldg.sa || '—'}</td></tr>
+    <tr><td style="color:#64748B;">Building pressure</td><td>${bldg.bld_pressure || '—'}</td></tr>
+    ${presurvey?.ps_complaint_narrative ? `<tr><td style="color:#64748B;">Reported concerns</td><td>${presurvey.ps_complaint_narrative}</td></tr>` : ''}
+    ${presurvey?.ps_water_history === 'Yes — recurring' ? `<tr><td style="color:#64748B;">Water/moisture history</td><td>${presurvey.ps_water_detail || 'Recurring water intrusion reported'}</td></tr>` : ''}
+  </tbody></table>
+
+  <!-- ═══ OVERALL FINDINGS ═══ -->
+  <h2 class="pg-break">Overall Findings Dashboard</h2>
+  ${comp ? `
+  <div style="display:flex;gap:12px;margin-bottom:16px;">
+    ${[{l:'Composite',v:comp.tot},{l:'Average',v:comp.avg},{l:'Worst Zone',v:comp.worst}].map(m => `
+    <div style="flex:1;text-align:center;padding:12px;border:1px solid #E2E8F0;border-radius:6px;">
+      <div style="font-size:24px;font-weight:800;font-family:monospace;color:${scoreColor(m.v)};">${m.v}</div>
+      <div style="font-size:9px;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;margin-top:2px;">${m.l}</div>
+    </div>`).join('')}
+  </div>
+  <p style="font-size:11px;color:#475569;margin-bottom:16px;">Conditions observed suggest ${comp.tot >= 70 ? 'overall acceptable indoor air quality with localized areas warranting targeted follow-up.' : comp.tot >= 50 ? 'moderate indoor air quality concerns. Targeted investigation and corrective action are recommended.' : 'significant indoor air quality deficiencies requiring prompt corrective action.'} The composite score of <strong>${comp.tot}/100</strong> reflects a weighted assessment across ventilation, contaminant levels, HVAC conditions, occupant complaints, and environmental factors.</p>
   ` : ''}
 
+  <!-- ═══ ZONE-BY-ZONE FINDINGS ═══ -->
+  <h2>Zone-by-Zone Findings</h2>
+  ${(zoneScores || []).map((zs, zi) => {
+    const z = (zones||[])[zi] || {}
+    return `
+    <div class="zone-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <div>
+          <strong style="font-size:14px;color:#0F172A;">${zs.zoneName || 'Zone ' + (zi+1)}</strong>
+          <div style="font-size:10px;color:#64748B;margin-top:2px;">${z.zt || ''} ${z.zo ? `· ${z.zo} occupants` : ''} ${z.za ? `· ${z.za} sq ft` : ''}</div>
+        </div>
+        <div style="text-align:right;">
+          <span style="font-family:monospace;font-size:22px;font-weight:800;color:${scoreColor(zs.tot)};">${zs.tot}</span>
+          <span style="font-size:10px;color:#64748B;">/100</span>
+          <div style="font-size:9px;color:${scoreColor(zs.tot)};font-weight:700;">${zs.risk}</div>
+        </div>
+      </div>
+      <table style="margin-bottom:12px;"><thead><tr><th>Category</th><th style="text-align:center;">Score</th><th>Performance</th><th style="text-align:right;">%</th></tr></thead><tbody>${catRows(zs.cats)}</tbody></table>
+      <h3 style="margin-top:16px;">Findings Detail</h3>
+      <table><thead><tr><th>Severity</th><th>Category</th><th>Finding</th><th>Reference</th></tr></thead><tbody>${findingRows(zs.cats)}</tbody></table>
+      ${oshaResult?.flag ? `
+      <div style="margin-top:12px;padding:10px 14px;background:#FEF2F2;border:1px solid #FECACA;border-radius:4px;font-size:10px;">
+        <strong style="color:#B91C1C;">Defensibility Note:</strong> ${confLabel} confidence.
+        ${(oshaResult.fl || []).map(f => `<span style="color:#B91C1C;"> ${f}.</span>`).join('')}
+        ${(oshaResult.gaps || []).length > 0 ? `<br><span style="color:#A16207;">Data gaps: ${oshaResult.gaps.join(', ')}</span>` : ''}
+      </div>` : ''}
+    </div>`
+  }).join('')}
+
+  <!-- ═══ CAUSAL CHAIN ANALYSIS ═══ -->
+  ${(causalChains || []).length > 0 ? `
+  <h2 class="pg-break">Causal Chain Analysis</h2>
+  <p style="font-size:11px;color:#475569;margin-bottom:12px;">The following evidence chains were identified through correlation of field observations, measurements, and occupant reports. Confidence levels reflect the strength of supporting evidence.</p>
+  ${causalChains.map(ch => `
+    <div class="chain-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <strong style="font-size:12px;">${ch.type}</strong>
+        <span style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;text-transform:uppercase;letter-spacing:0.3px;background:${ch.confidence === 'Strong' ? '#F0FDF4' : ch.confidence === 'Moderate' ? '#FFFBEB' : '#F8FAFC'};color:${ch.confidence === 'Strong' ? '#15803D' : ch.confidence === 'Moderate' ? '#A16207' : '#64748B'};">${ch.confidence}</span>
+      </div>
+      <div style="font-size:10px;color:#0E7490;font-family:monospace;margin-bottom:8px;">${ch.zone}</div>
+      <div style="padding:8px 14px;background:#F8FAFC;border-left:2px solid #0E7490;border-radius:0 4px 4px 0;font-size:11px;color:#334155;margin-bottom:8px;">${ch.rootCause}</div>
+      <div style="font-size:10px;font-weight:600;color:#64748B;margin-bottom:4px;">Supporting evidence:</div>
+      ${ch.evidence.map(e => `<div class="evidence-item">${e}</div>`).join('')}
+    </div>
+  `).join('')}` : ''}
+
+  <!-- ═══ RECOMMENDATIONS REGISTER ═══ -->
+  ${recs ? `
+  <h2 class="pg-break">Recommendations Register</h2>
+  <table>
+    <thead><tr><th style="width:30px;">#</th><th style="width:70px;">Priority</th><th style="width:90px;">Category</th><th>Recommendation</th><th style="width:70px;">Timing</th></tr></thead>
+    <tbody>
+    ${[
+      ...(recs.imm||[]).map((r,i) => ({id:`R-${String(i+1).padStart(2,'0')}`,p:'Immediate',c:'Emergency',r,t:'0–48 hrs',pc:'#B91C1C'})),
+      ...(recs.eng||[]).map((r,i) => ({id:`R-${String(i+1+(recs.imm||[]).length).padStart(2,'0')}`,p:'High',c:'Engineering',r,t:'1–4 weeks',pc:'#0E7490'})),
+      ...(recs.adm||[]).map((r,i) => ({id:`R-${String(i+1+(recs.imm||[]).length+(recs.eng||[]).length).padStart(2,'0')}`,p:'Medium',c:'Administrative',r,t:'1–3 months',pc:'#A16207'})),
+      ...(recs.mon||[]).map((r,i) => ({id:`R-${String(i+1+(recs.imm||[]).length+(recs.eng||[]).length+(recs.adm||[]).length).padStart(2,'0')}`,p:'Low',c:'Monitoring',r,t:'Ongoing',pc:'#475569'})),
+    ].map(row => `
+      <tr class="rec-row">
+        <td style="font-family:monospace;font-size:10px;color:#64748B;">${row.id}</td>
+        <td><span style="font-size:9px;font-weight:700;color:${row.pc};">${row.p.toUpperCase()}</span></td>
+        <td style="font-size:10px;color:#475569;">${row.c}</td>
+        <td style="font-size:11px;">${row.r}</td>
+        <td style="font-size:10px;color:#64748B;font-family:monospace;">${row.t}</td>
+      </tr>
+    `).join('')}
+    </tbody>
+  </table>` : ''}
+
+  <!-- ═══ SAMPLING PLAN ═══ -->
+  ${samplingPlan?.plan?.length > 0 ? `
+  <h2>Recommended Sampling Plan</h2>
+  <table>
+    <thead><tr><th>Type</th><th>Zone</th><th>Priority</th><th>Method</th><th>Reference</th></tr></thead>
+    <tbody>
+    ${samplingPlan.plan.map(p => `
+      <tr>
+        <td style="font-weight:600;font-size:11px;">${p.type}</td>
+        <td style="font-size:10px;font-family:monospace;color:#0E7490;">${p.zone}</td>
+        <td><span style="font-size:9px;font-weight:700;text-transform:uppercase;color:${p.priority === 'critical' ? '#B91C1C' : p.priority === 'high' ? '#C2410C' : '#A16207'};">${p.priority}</span></td>
+        <td style="font-size:10px;">${p.method}</td>
+        <td style="font-size:9px;font-family:monospace;color:#64748B;">${p.standard}</td>
+      </tr>
+    `).join('')}
+    </tbody>
+  </table>
+  ${samplingPlan.outdoorGaps?.length > 0 ? `
+    <div class="note" style="background:#FEF2F2;border-color:#FECACA;">
+      <strong style="color:#B91C1C;">Outdoor control gaps identified:</strong> ${samplingPlan.outdoorGaps.join('; ')}. Outdoor baseline samples are recommended to establish indoor/outdoor ratios for defensible interpretation.
+    </div>` : ''}
+  ` : ''}
+
+  <!-- ═══ LIMITATIONS ═══ -->
+  <h2>Limitations and Professional Judgment</h2>
+  <p style="font-size:11px;color:#475569;line-height:1.8;">This report represents conditions observed during a single assessment event and may not reflect all temporal, seasonal, or operational variations in indoor air quality. The following limitations should be considered when interpreting findings:</p>
+  <ul style="font-size:11px;color:#475569;line-height:2;padding-left:20px;margin:8px 0;">
+    <li>Measurements were obtained using direct-reading instruments and represent point-in-time conditions at the locations sampled.</li>
+    <li>Areas not accessible during the assessment may present additional conditions not reflected in this report.</li>
+    <li>HVAC system performance may vary with occupancy, weather, and operational changes.</li>
+    <li>Deterministic scoring is applied against published standards; professional judgment should be exercised in interpretation.</li>
+    ${oshaResult?.gaps?.length > 0 ? `<li>Data gaps identified: ${oshaResult.gaps.join(', ')}. These gaps may affect the confidence of certain findings.</li>` : ''}
+  </ul>
+  <p style="font-size:11px;color:#475569;">Targeted follow-up assessment is recommended to confirm findings and evaluate the effectiveness of any corrective actions implemented.</p>
+
+  <!-- ═══ FOOTER ═══ -->
   <div class="footer">
-    <div>AtmosIQ v6.0.0-beta — Prudence Safety & Environmental Consulting, LLC</div>
-    <div>© 2026 All rights reserved. This report was generated by deterministic scoring against published standards.</div>
-    <div style="margin-top:4px;">Assessor: ${profile?.name || presurvey?.ps_assessor || '—'} | Generated: ${now}</div>
+    <div>atmosIQ v${ver} — Prudence Safety &amp; Environmental Consulting, LLC — Germantown, MD</div>
+    <div>&copy; 2026 All rights reserved. Scoring methodology applies deterministic rules against published ASHRAE, OSHA, and EPA standards.</div>
+    <div style="margin-top:4px;">Assessor: ${assessor} &nbsp;|&nbsp; Report ID: ${reportId} &nbsp;|&nbsp; Generated: ${now}</div>
+    <div style="margin-top:6px;font-size:8px;">This report is intended for the client identified above and should not be distributed to third parties without authorization.</div>
   </div>
 </body>
 </html>`
