@@ -132,7 +132,7 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
             color: '#0A0A10', fontSize: 13, fontWeight: 700, cursor: 'pointer',
             transition: 'all 0.25s',
           }}>
-            Get the App
+            Start Free
           </button>
         </div>
       </nav>
@@ -173,19 +173,19 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
             lineHeight: 1.02, letterSpacing: '-0.045em',
             margin: 0, marginBottom: dk ? 28 : 20,
           }}>
-            The{dk ? <br /> : ' '}
-            <span style={heroGradient}>Field Tool</span>
-            {dk ? <br /> : ' '}IH Professionals{dk ? <br /> : ' '}Wish They Had
+            Walk in.{dk ? <br /> : ' '}
+            <span style={heroGradient}>Assess.</span>
+            {dk ? <br /> : ' '}Report done.
           </h1>
 
           {/* Sub */}
           <p style={{
             fontSize: dk ? 19 : 15, fontWeight: 400, color: C.sub,
-            maxWidth: 560, margin: '0 auto', lineHeight: 1.75,
+            maxWidth: 580, margin: '0 auto', lineHeight: 1.75,
             marginBottom: dk ? 52 : 36,
             letterSpacing: '0.005em',
           }}>
-            Walk in. Walk out. Report done. Deterministic scoring against ASHRAE, OSHA, NIOSH, and EPA standards — every deduction traceable to a measurement and a threshold. Free during beta.
+            Structured IAQ assessments with deterministic scoring against ASHRAE, OSHA, and EPA standards. Every finding traceable. Every deduction documented. Reports your firm can stand behind.
           </p>
 
           {/* CTAs */}
@@ -202,7 +202,7 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
             }}
               onMouseDown={e => e.target.style.transform = 'scale(0.96)'}
               onMouseUp={e => e.target.style.transform = 'scale(1)'}>
-              Download the App
+              Start Free Assessment
             </button>
             <button onClick={() => { const el = document.getElementById('install-section'); if (el) el.scrollIntoView({ behavior: 'smooth' }) }} style={{
               padding: '17px 44px',
@@ -215,7 +215,7 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
               onMouseLeave={e => { e.target.style.borderColor = C.border; e.target.style.background = 'rgba(255,255,255,0.03)' }}
               onMouseDown={e => e.target.style.transform = 'scale(0.96)'}
               onMouseUp={e => e.target.style.transform = 'scale(1)'}>
-              How It Works
+              See How It Works
             </button>
           </div>
         </div>
@@ -279,7 +279,7 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
               letterSpacing: '-0.02em', color: C.sub,
               marginBottom: dk ? 40 : 24,
             }}>
-              You forgot outdoor CO2. The delta is useless.{dk ? <br /> : ' '}The report takes 6 hours. The spreadsheet missed a causal link.
+              Spreadsheets lose causal links. Field notes miss outdoor baselines.{dk ? <br /> : ' '}Reports take 6 hours. And the data gaps don't surface until the review.
             </p>
             <p style={{
               ...reveal(inView, 0.35),
@@ -288,7 +288,7 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
               letterSpacing: '-0.035em',
               margin: 0,
             }}>
-              AtmosIQ <span style={warmGradient}>catches what spreadsheets miss</span>{dk ? <br /> : ' '}and does it while you're still on site.
+              AtmosIQ <span style={warmGradient}>structures your workflow</span>{dk ? <br /> : ' '}so the report writes itself while you're still on site.
             </p>
           </>
         )}
@@ -376,7 +376,7 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
                 }}
                   onMouseEnter={e => e.target.style.background = 'linear-gradient(135deg, rgba(139,92,246,0.18), rgba(34,211,238,0.18))'}
                   onMouseLeave={e => e.target.style.background = 'linear-gradient(135deg, rgba(139,92,246,0.1), rgba(34,211,238,0.1))'}>
-                  Get the App →
+                  Start Free →
                 </button>
               </div>
             </div>
@@ -389,9 +389,9 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
         <Section style={{ textAlign: 'center', marginBottom: dk ? 80 : 48 }}>
           {(inView) => (
             <>
-              <div style={{ ...reveal(inView), fontSize: 10, color: C.gold, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 16, fontWeight: 600 }}>What It Does</div>
+              <div style={{ ...reveal(inView), fontSize: 10, color: C.gold, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 16, fontWeight: 600 }}>How It Works</div>
               <h2 style={{ ...reveal(inView, 0.1), ...display, fontSize: dk ? 52 : 30, fontWeight: 700, letterSpacing: '-0.04em', lineHeight: 1.08, margin: 0 }}>
-                Every finding traceable.{dk ? <br /> : ' '}<span style={{ color: C.dim }}>Every score defensible.</span>
+                Faster reporting.{dk ? <br /> : ' '}<span style={{ color: C.dim }}>Stronger documentation.</span>
               </h2>
             </>
           )}
@@ -475,7 +475,7 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
         )}
       </Section>
 
-      {/* ── Get the App ── */}
+      {/* ── Start Free ── */}
       <Section style={{
         padding: dk ? '100px 56px' : '60px 20px',
         textAlign: 'center',
@@ -559,7 +559,7 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
         )}
       </Section>
 
-      {/* ── Get the App ── */}
+      {/* ── Start Free ── */}
       <Section style={{ padding: dk ? '100px 56px' : '60px 20px', textAlign: 'center' }}>
         {(inView) => (
           <div id="install-section" style={{
@@ -738,10 +738,10 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
 
             <div style={{ position: 'relative' }}>
               <h2 style={{ ...display, fontSize: dk ? 40 : 26, fontWeight: 700, letterSpacing: '-0.035em', margin: 0, marginBottom: 14, lineHeight: 1.15 }}>
-                Spend less time on reports.{dk ? <br /> : ' '}More time on solutions.
+                Your next assessment,{dk ? <br /> : ' '}structured from the start.
               </h2>
               <p style={{ fontSize: 16, color: C.sub, marginBottom: 36, maxWidth: 480, margin: '0 auto 36px', lineHeight: 1.7 }}>
-                Install the app on your phone. No app store needed — works offline, auto-updates.
+                Install on your phone — no app store needed. Works offline. Guided workflow, deterministic scoring, and a report ready for review by the time you leave the building. Free during beta.
               </p>
               <div style={{ display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap' }}>
                 <button onClick={() => { if (window._pwaPrompt) { window._pwaPrompt.prompt() } else { const el = document.getElementById('install-section'); if (el) el.scrollIntoView({ behavior: 'smooth' }) } }} style={{
@@ -755,7 +755,7 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
                 }}
                   onMouseDown={e => e.target.style.transform = 'scale(0.96)'}
                   onMouseUp={e => e.target.style.transform = 'scale(1)'}>
-                  Download the App
+                  Start Free Assessment
                 </button>
               </div>
             </div>
