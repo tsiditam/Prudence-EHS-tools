@@ -53,9 +53,10 @@ const WARN = '#FBBF24'
 const DANGER = '#EF4444'
 
 export default function MobileApp() {
-  const { isTablet } = useMediaQuery()
-  // Responsive layout: phone=620, tablet portrait=860, tablet landscape=1060
-  const contentMax = isTablet ? 860 : 620
+  const { isTablet, isTabletLand } = useMediaQuery()
+  // Responsive layout: phone=620, tablet portrait=860, tablet landscape=1080
+  const contentMax = isTabletLand ? 1080 : isTablet ? 860 : 620
+  const padX = isTablet ? 28 : 20
   const [loading, setLoading] = useState(true)
   const [isReturning, setIsReturning] = useState(false)
   const [profile, setProfile] = useState(null)
@@ -540,7 +541,7 @@ export default function MobileApp() {
   return (
     <div style={{minHeight:'100vh',background:BG,color:TEXT,fontFamily:"'Outfit', system-ui, sans-serif"}}>
       <header style={{position:'fixed',top:0,left:0,right:0,zIndex:100,background:`${BG}F2`,backdropFilter:'blur(24px) saturate(1.4)',WebkitBackdropFilter:'blur(24px) saturate(1.4)',borderBottom:`1px solid ${BORDER}`,paddingTop:'env(safe-area-inset-top, 0px)'}}>
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',height:48,padding:'0 20px',maxWidth:contentMax,margin:'0 auto'}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',height:48,padding:`0 ${padX}px`,maxWidth:contentMax,margin:'0 auto'}}>
           <div style={{display:'flex',alignItems:'center',gap:10}}>
             <div style={{width:28,height:28,borderRadius:7,background:ACCENT,display:'flex',alignItems:'center',justifyContent:'center'}}><I n="wind" s={14} c={BG} w={2.2} /></div>
             <span style={{fontSize:15,fontWeight:700,letterSpacing:'-0.3px',color:TEXT}}>atmos<span style={{color:ACCENT}}>IQ</span></span>
@@ -559,7 +560,7 @@ export default function MobileApp() {
 
       {delConf&&<div style={{position:'fixed',inset:0,background:'#000000CC',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',padding:24}}><div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:18,padding:28,maxWidth:340,width:'100%',animation:'fadeUp .3s ease'}}><div style={{fontSize:18,fontWeight:700,marginBottom:8,color:TEXT}}>Move to Trash?</div><div style={{fontSize:14,color:SUB,marginBottom:12,lineHeight:1.6}}>You can recover this for 30 days.</div><div style={{fontSize:12,color:DIM,marginBottom:24,background:SURFACE,padding:'10px 14px',borderRadius:8}}>Recoverable from Dashboard → Trash</div><div style={{display:'flex',gap:10}}><button onClick={()=>setDelConf(null)} style={{flex:1,padding:'14px 0',background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:10,color:SUB,fontSize:14,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>Cancel</button><button onClick={()=>deleteItem(delConf.id,delConf.name,delConf.type)} style={{flex:1,padding:'14px 0',background:'#EF444420',border:'1px solid #EF444440',borderRadius:10,color:'#EF4444',fontSize:14,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>Delete</button></div></div></div>}
 
-      <div style={{maxWidth:contentMax,margin:'0 auto',padding:'0 20px',position:'relative',zIndex:1}}>
+      <div style={{maxWidth:contentMax,margin:'0 auto',padding:`0 ${padX}px`,position:'relative',zIndex:1}}>
 
         {view==='dash'&&<div style={{paddingTop:28,paddingBottom:100}}>
 
@@ -574,13 +575,18 @@ export default function MobileApp() {
             </button>}
           </div>
 
+          {/* ── Dashboard Content — adaptive layout ── */}
+          <div style={{display:isTabletLand?'grid':'block',gridTemplateColumns:isTabletLand?'1fr 1fr':'none',gap:isTabletLand?24:0,alignItems:'start'}}>
+
+          {/* Left column (or full width on portrait/phone) */}
+          <div>
           {/* ── Primary Action ── */}
-          <button onClick={startNew} style={{width:'100%',padding:'20px',marginBottom:12,background:CARD,border:`1px solid ${ACCENT}25`,borderRadius:12,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:16,fontFamily:'inherit',transition:'border-color 0.2s,background 0.2s',position:'relative',overflow:'hidden'}}>
+          <button onClick={startNew} style={{width:'100%',padding:isTablet?'22px 24px':'20px',marginBottom:12,background:CARD,border:`1px solid ${ACCENT}25`,borderRadius:12,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:16,fontFamily:'inherit',transition:'border-color 0.2s,background 0.2s',position:'relative',overflow:'hidden'}}>
             <div style={{width:48,height:48,borderRadius:12,background:`${ACCENT}12`,border:`1px solid ${ACCENT}20`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
               <I n="wind" s={22} c={ACCENT} w={2} />
             </div>
             <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:16,fontWeight:700,color:TEXT,letterSpacing:'-0.2px'}}>New Assessment</div>
+              <div style={{fontSize:isTablet?17:16,fontWeight:700,color:TEXT,letterSpacing:'-0.2px'}}>New Assessment</div>
               <div style={{fontSize:12,color:SUB,marginTop:3}}>Multi-zone IAQ · {profile?.name?.split(',')[0]||'Profile'} auto-filled</div>
             </div>
             <div style={{width:32,height:32,borderRadius:8,background:`${ACCENT}10`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
@@ -589,7 +595,7 @@ export default function MobileApp() {
           </button>
 
           {/* ── Secondary: Demo ── */}
-          <button onClick={runDemo} style={{width:'100%',padding:'14px 20px',marginBottom:20,background:'transparent',border:`1px solid ${BORDER}`,borderRadius:10,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,fontFamily:'inherit',transition:'border-color 0.15s'}}>
+          <button onClick={runDemo} style={{width:'100%',padding:'14px 20px',marginBottom:16,background:'transparent',border:`1px solid ${BORDER}`,borderRadius:10,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,fontFamily:'inherit',transition:'border-color 0.15s'}}>
             <I n="bldg" s={18} c={DIM} />
             <div style={{flex:1}}>
               <span style={{fontSize:13,fontWeight:600,color:SUB}}>View sample assessment</span>
@@ -598,17 +604,8 @@ export default function MobileApp() {
             <span style={{fontSize:13,color:DIM}}>→</span>
           </button>
 
-          {/* ── Status Bar ── */}
-          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 16px',background:SURFACE,borderRadius:8,border:`1px solid ${BORDER}`,marginBottom:20}}>
-            <div style={{display:'flex',alignItems:'center',gap:8}}>
-              <div style={{width:6,height:6,borderRadius:'50%',background:navigator.onLine&&supabase?SUCCESS:supabase?WARN:DIM}} />
-              <span style={{fontSize:11,color:DIM,fontFamily:"'DM Mono'"}}>{navigator.onLine&&supabase?'Cloud synced':supabase?'Offline mode':'Device storage'}</span>
-            </div>
-            <span style={{fontSize:10,color:DIM,fontFamily:"'DM Mono'"}}>v{VER}</span>
-          </div>
-
           {/* ── Workspace Cards ── */}
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:20}}>
+          <div style={{display:'grid',gridTemplateColumns:isTabletLand?'1fr':'1fr 1fr',gap:10,marginBottom:isTabletLand?12:20}}>
             {[
               {l:'Drafts',n:(index.drafts||[]).length,v:'drafts',ic:'clip',sub:'In progress'},
               {l:'Reports',n:(index.reports||[]).length,v:'history',ic:'findings',sub:'Completed'}
@@ -624,6 +621,18 @@ export default function MobileApp() {
             ))}
           </div>
 
+          {/* ── Status Bar ── */}
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 16px',background:SURFACE,borderRadius:8,border:`1px solid ${BORDER}`,marginBottom:isTabletLand?0:20}}>
+            <div style={{display:'flex',alignItems:'center',gap:8}}>
+              <div style={{width:6,height:6,borderRadius:'50%',background:navigator.onLine&&supabase?SUCCESS:supabase?WARN:DIM}} />
+              <span style={{fontSize:11,color:DIM,fontFamily:"'DM Mono'"}}>{navigator.onLine&&supabase?'Cloud synced':supabase?'Offline mode':'Device storage'}</span>
+            </div>
+            <span style={{fontSize:10,color:DIM,fontFamily:"'DM Mono'"}}>v{VER}</span>
+          </div>
+          </div>{/* end left column */}
+
+          {/* Right column (recent assessments — side panel in landscape, below in portrait) */}
+          <div>
           {/* ── Recent Assessments ── */}
           {(index.reports||[]).length>0&&<div>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
@@ -643,6 +652,8 @@ export default function MobileApp() {
               </button>
             ))}
           </div>}
+          </div>{/* end right column */}
+          </div>{/* end adaptive grid */}
         </div>}
 
         {view==='quickstart'&&qscq&&renderQuestion(qscq,mergedData,setQSField,qsqi,qsVis,()=>{if(qsqi<qsVis.length-1)setQsqi(qsqi+1)},()=>{if(qsqi>0)setQsqi(qsqi-1)},finishQuickStart,'→ Start Zones',qsSecs)}

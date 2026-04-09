@@ -54,8 +54,8 @@ function RadioOption({ selected, label: text, onClick, compact }) {
 }
 
 export default function ProfileScreen({ onLogin }) {
-  const { isTablet } = useMediaQuery()
-  const maxW = isTablet ? 640 : 480
+  const { isTablet, isTabletLand } = useMediaQuery()
+  const maxW = isTabletLand ? 720 : isTablet ? 640 : 480
   const [profiles, setProfiles] = useState([])
   const [mode, setMode] = useState('select')
   const [editId, setEditId] = useState(null)

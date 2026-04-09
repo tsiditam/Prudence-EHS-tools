@@ -14,12 +14,14 @@ import { useState, useEffect } from 'react'
 
 export function useMediaQuery() {
   const [state, setState] = useState(() => {
-    if (typeof window === 'undefined') return { isDesktop: false, isTablet: false, isMobile: true, isStandalone: false }
+    if (typeof window === 'undefined') return { isDesktop: false, isTablet: false, isTabletLand: false, isMobile: true, isStandalone: false }
     const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true
     const w = window.innerWidth
+    const h = window.innerHeight
     return {
-      isDesktop: w >= 1024,
-      isTablet: w >= 768 && w < 1024,
+      isDesktop: w >= 1024 && !standalone,
+      isTablet: w >= 768,
+      isTabletLand: w >= 768 && w > h,
       isMobile: w < 768,
       isStandalone: standalone,
     }
@@ -28,24 +30,25 @@ export function useMediaQuery() {
   useEffect(() => {
     const standaloneQuery = window.matchMedia('(display-mode: standalone)')
     const isStandalone = standaloneQuery.matches || window.navigator.standalone === true
-    const desktop = window.matchMedia('(min-width: 1024px)')
-    const tablet = window.matchMedia('(min-width: 768px) and (max-width: 1023px)')
 
     const update = () => {
+      const w = window.innerWidth
+      const h = window.innerHeight
       setState({
-        isDesktop: desktop.matches,
-        isTablet: tablet.matches,
-        isMobile: !desktop.matches && !tablet.matches,
+        isDesktop: w >= 1024 && !isStandalone,
+        isTablet: w >= 768,
+        isTabletLand: w >= 768 && w > h,
+        isMobile: w < 768,
         isStandalone,
       })
     }
 
     update()
-    desktop.addEventListener('change', update)
-    tablet.addEventListener('change', update)
+    window.addEventListener('resize', update)
+    window.addEventListener('orientationchange', () => setTimeout(update, 100))
     return () => {
-      desktop.removeEventListener('change', update)
-      tablet.removeEventListener('change', update)
+      window.removeEventListener('resize', update)
+      window.removeEventListener('orientationchange', () => {})
     }
   }, [])
 
