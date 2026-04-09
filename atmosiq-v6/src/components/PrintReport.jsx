@@ -103,7 +103,7 @@ export function generatePrintHTML(data) {
 
   <!-- ═══ DEFENSIBILITY PANEL ═══ -->
   <div class="def-panel">
-    <div style="font-size:10px;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Report Defensibility</div>
+    <div style="font-size:10px;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Assessment Transparency</div>
     <table style="width:auto;"><tbody>
       <tr><td style="color:#64748B;padding-right:16px;">Workflow version</td><td style="color:#334155;font-weight:600;">atmosIQ v${ver}</td></tr>
       <tr><td style="color:#64748B;padding-right:16px;">Standards referenced</td><td style="color:#334155;font-weight:600;">ASHRAE 62.1-2025, ASHRAE 55-2023, OSHA PELs, EPA NAAQS, WHO guidelines</td></tr>
@@ -136,7 +136,7 @@ export function generatePrintHTML(data) {
   ${narrative ? `
   <div class="narrative">${narrative}</div>
   <div class="note">This narrative was generated from deterministic scoring output and requires professional review before client distribution.</div>
-  ` : `<p style="color:#64748B;">Available evidence supports that indoor air quality conditions at this facility ${comp?.tot >= 70 ? 'are broadly consistent with acceptable occupancy standards, with targeted improvements recommended as noted below.' : comp?.tot >= 50 ? 'present conditions that warrant further investigation and corrective action in the areas identified below.' : 'present significant concerns requiring prompt remediation as detailed in this report.'}</p>`}
+  ` : `<p style="font-size:11px;color:#475569;line-height:1.8;">An indoor air quality assessment was conducted at ${bldg.fn || 'the subject facility'} on ${assessDate}, encompassing ${(zones||[]).length} zone${(zones||[]).length !== 1 ? 's' : ''}. ${comp?.tot >= 70 ? 'Available evidence supports that conditions observed during the assessment window are broadly consistent with applicable occupancy standards, with localized areas warranting targeted follow-up as noted below.' : comp?.tot >= 50 ? 'Conditions observed during the assessment window suggest moderate indoor air quality concerns across one or more zones. Targeted investigation and corrective action are recommended in the areas identified below.' : 'Conditions observed during the assessment window suggest significant indoor air quality concerns that would warrant prioritized remediation. The findings and recommendations in this report are intended to support a structured corrective action process.'} The composite score of ${comp?.tot || '—'}/100 reflects a weighted evaluation across ventilation, contaminant levels, HVAC system conditions, occupant complaints, and environmental factors, applied against published ASHRAE, OSHA, and EPA standards.</p>`}
 
   ${recs ? `
   <h3>Priority Actions</h3>
@@ -163,6 +163,7 @@ export function generatePrintHTML(data) {
 
   <!-- ═══ BUILDING CONTEXT ═══ -->
   <h2>Building and Complaint Context</h2>
+  <p style="font-size:11px;color:#475569;line-height:1.8;margin-bottom:12px;">${bldg.fn || 'The subject facility'} is a ${(bldg.ft || 'commercial').toLowerCase()} facility${bldg.ba ? ` constructed in approximately ${bldg.ba}` : ''}${bldg.rn ? `, with renovations reported ${bldg.rn.toLowerCase()}` : ''}. The building is served by ${bldg.ht ? `a ${bldg.ht.toLowerCase()} system` : 'mechanical ventilation'}${bldg.hm ? `, with last reported HVAC maintenance ${bldg.hm.toLowerCase()}` : ''}. ${presurvey?.ps_complaint_narrative ? 'Occupant concerns were reported prior to this assessment, as summarized below.' : 'No formal occupant complaints were reported prior to this assessment.'}${presurvey?.ps_water_history === 'Yes — recurring' ? ' A history of recurring water intrusion was noted.' : ''}</p>
   <table><tbody>
     <tr><td style="color:#64748B;width:160px;">Building type</td><td>${bldg.ft || '—'}</td></tr>
     <tr><td style="color:#64748B;">Year built / renovated</td><td>${bldg.ba || '—'}${bldg.rn ? ` (last renovated: ${bldg.rn})` : ''}</td></tr>
@@ -186,7 +187,7 @@ export function generatePrintHTML(data) {
       <div style="font-size:9px;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;margin-top:2px;">${m.l}</div>
     </div>`).join('')}
   </div>
-  <p style="font-size:11px;color:#475569;margin-bottom:16px;">Conditions observed suggest ${comp.tot >= 70 ? 'overall acceptable indoor air quality with localized areas warranting targeted follow-up.' : comp.tot >= 50 ? 'moderate indoor air quality concerns. Targeted investigation and corrective action are recommended.' : 'significant indoor air quality deficiencies requiring prompt corrective action.'} The composite score of <strong>${comp.tot}/100</strong> reflects a weighted assessment across ventilation, contaminant levels, HVAC conditions, occupant complaints, and environmental factors.</p>
+  <p style="font-size:11px;color:#475569;margin-bottom:16px;">Conditions observed during the assessment window suggest ${comp.tot >= 70 ? 'overall acceptable indoor air quality, with localized areas that may warrant targeted follow-up as detailed in the zone sections below.' : comp.tot >= 50 ? 'moderate indoor air quality concerns across one or more zones. Targeted investigation and corrective action would be warranted in the areas identified below.' : 'significant indoor air quality concerns that would warrant prioritized remediation as detailed in the zone sections and recommendations register below.'} The composite score of <strong>${comp.tot}/100</strong> reflects a weighted evaluation across ventilation, contaminant levels, HVAC system conditions, occupant complaints, and environmental factors.</p>
   ` : ''}
 
   <!-- ═══ ZONE-BY-ZONE FINDINGS ═══ -->
@@ -206,22 +207,75 @@ export function generatePrintHTML(data) {
           <div style="font-size:9px;color:${scoreColor(zs.tot)};font-weight:700;">${zs.risk}</div>
         </div>
       </div>
+      ${/* Observations */(() => {
+        const obs = []
+        if (z.zc === 'Yes') obs.push(`Occupant complaints reported${z.zca ? ` (${z.zca} affected)` : ''}${z.zcs ? `: ${Array.isArray(z.zcs) ? z.zcs.join(', ') : z.zcs}` : ''}`)
+        if (z.wd && z.wd !== 'None observed') obs.push(`Water damage observed: ${z.wd}${z.wdl ? ` (${z.wdl})` : ''}`)
+        if (z.mi && z.mi !== 'None observed') obs.push(`Mold indicators: ${z.mi}${z.mie ? ` — ${z.mie}` : ''}`)
+        if (z.od && z.od !== 'None') obs.push(`Odor noted: ${z.od}${z.odi ? ` (${z.odi})` : ''}`)
+        if (z.src_int) obs.push(`Interior sources identified: ${Array.isArray(z.src_int) ? z.src_int.join(', ') : z.src_int}`)
+        return obs.length > 0 ? `
+          <h3>Observations</h3>
+          <ul style="font-size:11px;color:#475569;line-height:1.8;padding-left:18px;margin:4px 0 12px;">
+            ${obs.map(o => `<li>${o}</li>`).join('')}
+          </ul>` : ''
+      })()}
+
+      ${/* Parameter Results */(() => {
+        const hasData = z.co2 || z.tf || z.rh || z.pm || z.co || z.tv || z.hc
+        return hasData ? `
+          <h3>Parameter Results</h3>
+          <table style="margin-bottom:12px;"><thead><tr><th>Parameter</th><th style="text-align:center;">Indoor</th><th style="text-align:center;">Outdoor</th><th>Reference</th></tr></thead><tbody>
+            ${z.co2 ? `<tr><td>CO₂</td><td style="text-align:center;font-family:monospace;">${z.co2} ppm</td><td style="text-align:center;font-family:monospace;color:#64748B;">${z.co2o || '—'} ppm</td><td style="font-size:10px;color:#64748B;">Δ700 ppm (ASHRAE 62.1)</td></tr>` : ''}
+            ${z.tf ? `<tr><td>Temperature</td><td style="text-align:center;font-family:monospace;">${z.tf}°F</td><td style="text-align:center;font-family:monospace;color:#64748B;">${z.tfo || '—'}°F</td><td style="font-size:10px;color:#64748B;">68–79°F (ASHRAE 55)</td></tr>` : ''}
+            ${z.rh ? `<tr><td>Relative Humidity</td><td style="text-align:center;font-family:monospace;">${z.rh}%</td><td style="text-align:center;font-family:monospace;color:#64748B;">${z.rho || '—'}%</td><td style="font-size:10px;color:#64748B;">30–60%</td></tr>` : ''}
+            ${z.pm ? `<tr><td>PM2.5</td><td style="text-align:center;font-family:monospace;">${z.pm} µg/m³</td><td style="text-align:center;font-family:monospace;color:#64748B;">${z.pmo || '—'} µg/m³</td><td style="font-size:10px;color:#64748B;"><35 µg/m³ (EPA 24-hr)</td></tr>` : ''}
+            ${z.co ? `<tr><td>Carbon Monoxide</td><td style="text-align:center;font-family:monospace;">${z.co} ppm</td><td style="text-align:center;font-family:monospace;color:#64748B;">—</td><td style="font-size:10px;color:#64748B;"><35 ppm (NIOSH REL)</td></tr>` : ''}
+            ${z.tv ? `<tr><td>Total VOCs</td><td style="text-align:center;font-family:monospace;">${z.tv} µg/m³</td><td style="text-align:center;font-family:monospace;color:#64748B;">${z.tvo || '—'} µg/m³</td><td style="font-size:10px;color:#64748B;"><500 µg/m³ (concern)</td></tr>` : ''}
+            ${z.hc ? `<tr><td>Formaldehyde</td><td style="text-align:center;font-family:monospace;">${z.hc} ppm</td><td style="text-align:center;font-family:monospace;color:#64748B;">—</td><td style="font-size:10px;color:#64748B;"><0.016 ppm (NIOSH REL)</td></tr>` : ''}
+          </tbody></table>` : ''
+      })()}
+
+      <h3>Category Assessment</h3>
       <table style="margin-bottom:12px;"><thead><tr><th>Category</th><th style="text-align:center;">Score</th><th>Performance</th><th style="text-align:right;">%</th></tr></thead><tbody>${catRows(zs.cats)}</tbody></table>
-      <h3 style="margin-top:16px;">Findings Detail</h3>
+
+      ${/* Interpretation */(() => {
+        const worst = zs.cats.reduce((a, b) => ((a.s/a.mx) < (b.s/b.mx) ? a : b))
+        const worstPct = Math.round((worst.s / worst.mx) * 100)
+        return `
+          <h3>Interpretation</h3>
+          <p style="font-size:11px;color:#475569;line-height:1.8;">Conditions observed in this zone are consistent with a ${zs.risk.toLowerCase()} assessment (${zs.tot}/100). The primary contributing category is ${worst.l} (${worst.s}/${worst.mx}, ${worstPct}%), which ${worstPct < 50 ? 'represents a significant concern and would warrant prioritized attention' : worstPct < 70 ? 'suggests conditions that may benefit from targeted corrective action' : 'is performing within an acceptable range'}. ${zs.cats.filter(c => (c.s/c.mx) < 0.5).length > 1 ? 'Multiple categories scored below 50%, suggesting interrelated contributing factors.' : ''}</p>`
+      })()}
+
+      ${/* Contributing Factors */(() => {
+        const factors = zs.cats.filter(c => c.r.filter(r => r.sev === 'critical' || r.sev === 'high').length > 0)
+          .flatMap(c => c.r.filter(r => r.sev === 'critical' || r.sev === 'high').map(r => r.t))
+        return factors.length > 0 ? `
+          <h3>Likely Contributing Factors</h3>
+          <ol style="font-size:11px;color:#475569;line-height:1.8;padding-left:18px;margin:4px 0 12px;">
+            ${factors.map(f => `<li>${f}</li>`).join('')}
+          </ol>` : ''
+      })()}
+
+      <h3>Findings Detail</h3>
       <table><thead><tr><th>Severity</th><th>Category</th><th>Finding</th><th>Reference</th></tr></thead><tbody>${findingRows(zs.cats)}</tbody></table>
-      ${oshaResult?.flag ? `
-      <div style="margin-top:12px;padding:10px 14px;background:#FEF2F2;border:1px solid #FECACA;border-radius:4px;font-size:10px;">
-        <strong style="color:#B91C1C;">Defensibility Note:</strong> ${confLabel} confidence.
-        ${(oshaResult.fl || []).map(f => `<span style="color:#B91C1C;"> ${f}.</span>`).join('')}
-        ${(oshaResult.gaps || []).length > 0 ? `<br><span style="color:#A16207;">Data gaps: ${oshaResult.gaps.join(', ')}</span>` : ''}
-      </div>` : ''}
+
+      ${/* Confidence and Missing Data */`
+      <div style="margin-top:12px;display:flex;gap:12px;">
+        <div style="flex:1;padding:8px 12px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:4px;font-size:10px;">
+          <strong style="color:#334155;">Confidence:</strong> <span style="color:#475569;">${confLabel}${zs.tot < 40 ? ' — findings are directional pending follow-up' : ''}</span>
+        </div>
+        <div style="flex:1;padding:8px 12px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:4px;font-size:10px;">
+          <strong style="color:#334155;">Missing data:</strong> <span style="color:#475569;">${(oshaResult?.gaps||[]).length > 0 ? oshaResult.gaps.join(', ') : 'No significant data gaps identified for this zone'}</span>
+        </div>
+      </div>`}
     </div>`
   }).join('')}
 
   <!-- ═══ CAUSAL CHAIN ANALYSIS ═══ -->
   ${(causalChains || []).length > 0 ? `
   <h2 class="pg-break">Causal Chain Analysis</h2>
-  <p style="font-size:11px;color:#475569;margin-bottom:12px;">The following evidence chains were identified through correlation of field observations, measurements, and occupant reports. Confidence levels reflect the strength of supporting evidence.</p>
+  <p style="font-size:11px;color:#475569;margin-bottom:12px;">The following concern pathways were identified through correlation of field observations, instrument measurements, and occupant reports. These are presented as structured evidence chains rather than confirmed root-cause determinations. Confidence levels reflect the strength and consistency of supporting evidence.</p>
   ${causalChains.map(ch => `
     <div class="chain-card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
@@ -232,8 +286,33 @@ export function generatePrintHTML(data) {
       <div style="padding:8px 14px;background:#F8FAFC;border-left:2px solid #0E7490;border-radius:0 4px 4px 0;font-size:11px;color:#334155;margin-bottom:8px;">${ch.rootCause}</div>
       <div style="font-size:10px;font-weight:600;color:#64748B;margin-bottom:4px;">Supporting evidence:</div>
       ${ch.evidence.map(e => `<div class="evidence-item">${e}</div>`).join('')}
+      <div style="font-size:10px;color:#64748B;margin-top:6px;font-style:italic;">This pathway would warrant targeted follow-up to confirm contributing conditions.</div>
     </div>
   `).join('')}` : ''}
+
+  <!-- ═══ SAMPLING PLAN ═══ -->
+  ${samplingPlan?.plan?.length > 0 ? `
+  <h2>Recommended Sampling Plan</h2>
+  <p style="font-size:11px;color:#475569;margin-bottom:10px;">The following sampling recommendations are based on field observations and direct-reading instrument data obtained during this assessment. They are intended to support further investigation where indicated and should be reviewed by a qualified professional prior to implementation.</p>
+  <table>
+    <thead><tr><th>Type</th><th>Zone</th><th>Priority</th><th>Method</th><th>Reference</th></tr></thead>
+    <tbody>
+    ${samplingPlan.plan.map(p => `
+      <tr>
+        <td style="font-weight:600;font-size:11px;">${p.type}</td>
+        <td style="font-size:10px;font-family:monospace;color:#0E7490;">${p.zone}</td>
+        <td><span style="font-size:9px;font-weight:700;text-transform:uppercase;color:${p.priority === 'critical' ? '#B91C1C' : p.priority === 'high' ? '#C2410C' : '#A16207'};">${p.priority}</span></td>
+        <td style="font-size:10px;">${p.method}</td>
+        <td style="font-size:9px;font-family:monospace;color:#64748B;">${p.standard}</td>
+      </tr>
+    `).join('')}
+    </tbody>
+  </table>
+  ${samplingPlan.outdoorGaps?.length > 0 ? `
+    <div class="note" style="background:#FEF2F2;border-color:#FECACA;">
+      <strong style="color:#B91C1C;">Outdoor control gaps identified:</strong> ${samplingPlan.outdoorGaps.join('; ')}. Outdoor baseline samples are recommended to establish indoor/outdoor ratios for defensible interpretation.
+    </div>` : ''}
+  ` : ''}
 
   <!-- ═══ RECOMMENDATIONS REGISTER ═══ -->
   ${recs ? `
@@ -257,29 +336,6 @@ export function generatePrintHTML(data) {
     `).join('')}
     </tbody>
   </table>` : ''}
-
-  <!-- ═══ SAMPLING PLAN ═══ -->
-  ${samplingPlan?.plan?.length > 0 ? `
-  <h2>Recommended Sampling Plan</h2>
-  <table>
-    <thead><tr><th>Type</th><th>Zone</th><th>Priority</th><th>Method</th><th>Reference</th></tr></thead>
-    <tbody>
-    ${samplingPlan.plan.map(p => `
-      <tr>
-        <td style="font-weight:600;font-size:11px;">${p.type}</td>
-        <td style="font-size:10px;font-family:monospace;color:#0E7490;">${p.zone}</td>
-        <td><span style="font-size:9px;font-weight:700;text-transform:uppercase;color:${p.priority === 'critical' ? '#B91C1C' : p.priority === 'high' ? '#C2410C' : '#A16207'};">${p.priority}</span></td>
-        <td style="font-size:10px;">${p.method}</td>
-        <td style="font-size:9px;font-family:monospace;color:#64748B;">${p.standard}</td>
-      </tr>
-    `).join('')}
-    </tbody>
-  </table>
-  ${samplingPlan.outdoorGaps?.length > 0 ? `
-    <div class="note" style="background:#FEF2F2;border-color:#FECACA;">
-      <strong style="color:#B91C1C;">Outdoor control gaps identified:</strong> ${samplingPlan.outdoorGaps.join('; ')}. Outdoor baseline samples are recommended to establish indoor/outdoor ratios for defensible interpretation.
-    </div>` : ''}
-  ` : ''}
 
   <!-- ═══ LIMITATIONS ═══ -->
   <h2>Limitations and Professional Judgment</h2>
