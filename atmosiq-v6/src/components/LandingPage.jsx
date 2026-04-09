@@ -10,7 +10,8 @@
  * Contact: tsidi@prudenceehs.com
  */
 
-import Particles from './Particles'
+import BlueprintBG from './BlueprintBG'
+import AirflowMotion from './AirflowMotion'
 import { I } from './Icons'
 import ScoreRing from './ScoreRing'
 import { useInView } from '../hooks/useInView'
@@ -143,13 +144,10 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
         textAlign: 'center', padding: dk ? '0 56px' : '0 24px',
       }}>
-        {/* Multi-color ambient glow */}
-        <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
-          <div style={{ position: 'absolute', top: '10%', left: '20%', width: dk ? 500 : 250, height: dk ? 500 : 250, borderRadius: '50%', background: 'radial-gradient(circle, rgba(245,197,66,0.07) 0%, transparent 70%)', filter: 'blur(80px)' }} />
-          <div style={{ position: 'absolute', top: '20%', right: '15%', width: dk ? 400 : 200, height: dk ? 400 : 200, borderRadius: '50%', background: 'radial-gradient(circle, rgba(139,92,246,0.08) 0%, transparent 70%)', filter: 'blur(80px)' }} />
-          <div style={{ position: 'absolute', bottom: '20%', left: '40%', width: dk ? 450 : 220, height: dk ? 450 : 220, borderRadius: '50%', background: 'radial-gradient(circle, rgba(34,211,238,0.06) 0%, transparent 70%)', filter: 'blur(80px)' }} />
-        </div>
-        <div style={{ position: 'absolute', inset: 0, opacity: 0.25 }}><Particles /></div>
+        {/* HVAC blueprint texture — corners and edges only */}
+        <BlueprintBG opacity={dk ? 0.04 : 0.03} />
+        {/* Airflow motion — drifting gradient haze */}
+        <AirflowMotion />
 
         <div style={{ position: 'relative', zIndex: 1, maxWidth: 950 }}>
           {/* Badge */}
