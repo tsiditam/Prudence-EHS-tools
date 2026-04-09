@@ -7,14 +7,15 @@
  * Feels like premium texture, not illustration.
  */
 
-export default function BlueprintBG({ opacity = 0.25 }) {
+export default function BlueprintBG({ opacity = 0.35 }) {
   const stroke = `rgba(34,211,238,${opacity})`
   const strokeFaint = `rgba(34,211,238,${opacity * 0.6})`
+  const glow = `drop-shadow(0 0 3px rgba(34,211,238,${opacity * 0.4}))`
 
   return (
     <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
       {/* Top-right corner — AHU schematic fragment */}
-      <svg width="420" height="320" viewBox="0 0 420 320" fill="none" style={{ position: 'absolute', top: '-20px', right: '-40px' }}>
+      <svg width="420" height="320" viewBox="0 0 420 320" fill="none" style={{ position: 'absolute', top: '-20px', right: '-40px', filter: glow }}>
         {/* Main duct run */}
         <line x1="40" y1="80" x2="380" y2="80" stroke={stroke} strokeWidth="1.5" />
         <line x1="40" y1="86" x2="380" y2="86" stroke={strokeFaint} strokeWidth="0.8" strokeDasharray="4 8" />
@@ -42,7 +43,7 @@ export default function BlueprintBG({ opacity = 0.25 }) {
       </svg>
 
       {/* Bottom-left corner — section cut fragment */}
-      <svg width="360" height="280" viewBox="0 0 360 280" fill="none" style={{ position: 'absolute', bottom: '-30px', left: '-30px' }}>
+      <svg width="360" height="280" viewBox="0 0 360 280" fill="none" style={{ position: 'absolute', bottom: '-30px', left: '-30px', filter: glow }}>
         {/* Ceiling plenum */}
         <line x1="20" y1="60" x2="340" y2="60" stroke={strokeFaint} strokeWidth="1" />
         <line x1="20" y1="100" x2="340" y2="100" stroke={stroke} strokeWidth="0.8" strokeDasharray="8 4" />
@@ -64,7 +65,7 @@ export default function BlueprintBG({ opacity = 0.25 }) {
       </svg>
 
       {/* Center-right — faint pressure diagram */}
-      <svg width="240" height="240" viewBox="0 0 240 240" fill="none" style={{ position: 'absolute', top: '50%', right: '3%', transform: 'translateY(-50%)' }}>
+      <svg width="240" height="240" viewBox="0 0 240 240" fill="none" style={{ position: 'absolute', top: '50%', right: '3%', transform: 'translateY(-50%)', filter: glow }}>
         {/* Pressure contour lines */}
         <circle cx="120" cy="120" r="35" stroke={strokeFaint} strokeWidth="0.7" fill="none" />
         <circle cx="120" cy="120" r="65" stroke={strokeFaint} strokeWidth="0.5" fill="none" strokeDasharray="3 5" />
