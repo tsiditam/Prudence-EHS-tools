@@ -7,7 +7,7 @@
  * Feels like premium texture, not illustration.
  */
 
-export default function BlueprintBG({ opacity = 0.12 }) {
+export default function BlueprintBG({ opacity = 0.25 }) {
   const stroke = `rgba(34,211,238,${opacity})`
   const strokeFaint = `rgba(34,211,238,${opacity * 0.6})`
 
