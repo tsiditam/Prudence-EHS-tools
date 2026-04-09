@@ -285,13 +285,77 @@ export function generatePrintHTML(data) {
   <h2>Limitations and Professional Judgment</h2>
   <p style="font-size:11px;color:#475569;line-height:1.8;">This report represents conditions observed during a single assessment event and may not reflect all temporal, seasonal, or operational variations in indoor air quality. The following limitations should be considered when interpreting findings:</p>
   <ul style="font-size:11px;color:#475569;line-height:2;padding-left:20px;margin:8px 0;">
-    <li>Measurements were obtained using direct-reading instruments and represent point-in-time conditions at the locations sampled.</li>
+    <li>Measurements were obtained using direct-reading instruments and represent point-in-time conditions at the locations sampled. Results are directional and may not represent worst-case or typical conditions.</li>
     <li>Areas not accessible during the assessment may present additional conditions not reflected in this report.</li>
-    <li>HVAC system performance may vary with occupancy, weather, and operational changes.</li>
-    <li>Deterministic scoring is applied against published standards; professional judgment should be exercised in interpretation.</li>
-    ${oshaResult?.gaps?.length > 0 ? `<li>Data gaps identified: ${oshaResult.gaps.join(', ')}. These gaps may affect the confidence of certain findings.</li>` : ''}
+    <li>HVAC system performance may vary with occupancy load, weather conditions, and operational changes. Ventilation adequacy should be confirmed under peak-occupancy conditions.</li>
+    <li>Deterministic scoring is applied against published standards; professional judgment should be exercised in interpretation. Scores reflect a structured snapshot, not a comprehensive compliance determination.</li>
+    <li>Causal pathways identified in this report are based on correlation of observed conditions and available evidence. They do not constitute confirmed root-cause determinations and would warrant targeted follow-up investigation where noted.</li>
+    ${oshaResult?.gaps?.length > 0 ? `<li>Data gaps identified: ${oshaResult.gaps.join(', ')}. These gaps may affect the confidence of certain findings and should be addressed in follow-up assessment activities.</li>` : ''}
   </ul>
-  <p style="font-size:11px;color:#475569;">Targeted follow-up assessment is recommended to confirm findings and evaluate the effectiveness of any corrective actions implemented.</p>
+  <p style="font-size:11px;color:#475569;">Targeted follow-up assessment is recommended to confirm findings, evaluate the effectiveness of any corrective actions implemented, and address identified data gaps. This report is intended to support — not replace — professional judgment by a qualified industrial hygienist or EHS professional.</p>
+
+  <!-- ═══ APPENDIX A — RAW MEASUREMENT SNAPSHOT ═══ -->
+  <h2 class="pg-break">Appendix A — Raw Measurement Snapshot</h2>
+  <p style="font-size:10px;color:#64748B;margin-bottom:12px;">The following table presents direct-reading instrument measurements obtained during the assessment. Values represent point-in-time readings at the locations indicated and should be interpreted in context with building conditions, occupancy, and weather at the time of assessment.</p>
+  <table>
+    <thead><tr><th>Zone</th><th>CO₂ (ppm)</th><th>Temp (°F)</th><th>RH (%)</th><th>PM2.5 (µg/m³)</th><th>CO (ppm)</th><th>TVOCs (µg/m³)</th><th>HCHO (ppm)</th></tr></thead>
+    <tbody>
+    ${(zones||[]).map((z, zi) => `
+      <tr>
+        <td style="font-weight:600;">${z.zn || 'Zone ' + (zi+1)}</td>
+        <td style="font-family:monospace;text-align:center;">${z.co2 || '—'}${z.co2o ? ` <span style="color:#94A3B8;font-size:9px;">(out: ${z.co2o})</span>` : ''}</td>
+        <td style="font-family:monospace;text-align:center;">${z.tf || '—'}${z.tfo ? ` <span style="color:#94A3B8;font-size:9px;">(out: ${z.tfo})</span>` : ''}</td>
+        <td style="font-family:monospace;text-align:center;">${z.rh || '—'}${z.rho ? ` <span style="color:#94A3B8;font-size:9px;">(out: ${z.rho})</span>` : ''}</td>
+        <td style="font-family:monospace;text-align:center;">${z.pm || '—'}${z.pmo ? ` <span style="color:#94A3B8;font-size:9px;">(out: ${z.pmo})</span>` : ''}</td>
+        <td style="font-family:monospace;text-align:center;">${z.co || '—'}</td>
+        <td style="font-family:monospace;text-align:center;">${z.tv || '—'}${z.tvo ? ` <span style="color:#94A3B8;font-size:9px;">(out: ${z.tvo})</span>` : ''}</td>
+        <td style="font-family:monospace;text-align:center;">${z.hc || '—'}</td>
+      </tr>
+    `).join('')}
+    </tbody>
+  </table>
+  <div style="margin-top:8px;font-size:9px;color:#94A3B8;">
+    <strong>Reference thresholds:</strong> CO₂ differential >700 ppm above outdoor (ASHRAE 62.1) · Temp 68–79°F (ASHRAE 55) · RH 30–60% · PM2.5 &lt;35 µg/m³ (EPA 24-hr) · CO &lt;35 ppm (NIOSH REL) · TVOCs &lt;500 µg/m³ (concern) · HCHO &lt;0.016 ppm (NIOSH REL)
+  </div>
+
+  <!-- ═══ APPENDIX B — TRANSPARENT SCORING SUMMARY ═══ -->
+  <h2 class="pg-break">Appendix B — Transparent Scoring Summary</h2>
+  <p style="font-size:10px;color:#64748B;margin-bottom:12px;">atmosIQ applies a deterministic scoring methodology against published occupational and environmental health standards. The composite score is calculated as: (zone average × 0.6) + (worst zone × 0.4). This weighting ensures that a single underperforming zone cannot be masked by otherwise acceptable conditions. All category weights and thresholds are fixed and published — no AI judgment is applied in scoring.</p>
+  <table>
+    <thead><tr><th>Category</th><th style="text-align:center;">Max Points</th><th>Evaluation Basis</th></tr></thead>
+    <tbody>
+      <tr><td style="font-weight:600;">Ventilation</td><td style="text-align:center;font-family:monospace;">25</td><td style="font-size:10px;color:#475569;">CO₂ differential vs ASHRAE 62.1, outdoor air damper status, supply airflow adequacy, complaint correlation</td></tr>
+      <tr><td style="font-weight:600;">Contaminants</td><td style="text-align:center;font-family:monospace;">25</td><td style="font-size:10px;color:#475569;">PM2.5 (EPA/WHO), CO (OSHA/NIOSH), HCHO (OSHA/NIOSH), TVOCs, visible mold, odors, visible dust</td></tr>
+      <tr><td style="font-weight:600;">HVAC</td><td style="text-align:center;font-family:monospace;">20</td><td style="font-size:10px;color:#475569;">Maintenance recency, filter condition/type, airflow adequacy, drain pan condition</td></tr>
+      <tr><td style="font-weight:600;">Complaints</td><td style="text-align:center;font-family:monospace;">15</td><td style="font-size:10px;color:#475569;">Complaint presence, affected occupant count, symptom pattern clarity, clustering, symptom types</td></tr>
+      <tr><td style="font-weight:600;">Environment</td><td style="text-align:center;font-family:monospace;">15</td><td style="font-size:10px;color:#475569;">Temperature (ASHRAE 55 summer/winter), relative humidity, water damage indicators, mold indicators</td></tr>
+    </tbody>
+  </table>
+
+  <h3 style="margin-top:16px;">Zone Score Summary</h3>
+  <table>
+    <thead><tr><th>Zone</th><th style="text-align:center;">Score</th><th style="text-align:center;">Ventilation</th><th style="text-align:center;">Contaminants</th><th style="text-align:center;">HVAC</th><th style="text-align:center;">Complaints</th><th style="text-align:center;">Environment</th><th>Risk Level</th></tr></thead>
+    <tbody>
+    ${(zoneScores||[]).map(zs => `
+      <tr>
+        <td style="font-weight:600;">${zs.zoneName}</td>
+        <td style="text-align:center;font-family:monospace;font-weight:700;color:${scoreColor(zs.tot)};">${zs.tot}</td>
+        ${zs.cats.map(c => `<td style="text-align:center;font-family:monospace;font-size:10px;">${c.s}/${c.mx}</td>`).join('')}
+        <td style="font-size:10px;font-weight:600;color:${scoreColor(zs.tot)};">${zs.risk}</td>
+      </tr>
+    `).join('')}
+    ${comp ? `
+    <tr style="background:#F8FAFC;font-weight:700;">
+      <td>Composite</td>
+      <td style="text-align:center;font-family:monospace;color:${scoreColor(comp.tot)};">${comp.tot}</td>
+      <td colspan="5" style="text-align:center;font-size:10px;color:#64748B;">Avg: ${comp.avg} · Worst: ${comp.worst} · Weight: (avg × 0.6) + (worst × 0.4)</td>
+      <td style="font-size:10px;color:${scoreColor(comp.tot)};">${comp.risk || riskLabel(comp.tot)}</td>
+    </tr>` : ''}
+    </tbody>
+  </table>
+  <div style="margin-top:8px;font-size:9px;color:#94A3B8;">
+    <strong>Score bands:</strong> 80–100 Low Risk · 60–79 Moderate · 40–59 High Risk · 0–39 Critical
+  </div>
 
   <!-- ═══ FOOTER ═══ -->
   <div class="footer">
