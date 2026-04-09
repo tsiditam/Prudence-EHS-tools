@@ -281,7 +281,7 @@ export default function MobileApp() {
   const deleteItem = async (id, name, type) => {
     // Soft delete — recoverable for 30 days
     await Backup.softDelete(id, name, type)
-    if (isOnline() && supabase) {
+    if (navigator.onLine && supabase) {
       try { await supabase.from('assessments').delete().eq('id', id) } catch {}
     }
     await refreshIndex(); setDelConf(null)
