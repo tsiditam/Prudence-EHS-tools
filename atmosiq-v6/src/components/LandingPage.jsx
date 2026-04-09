@@ -523,13 +523,76 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
         </div>
       </section>
 
+      {/* ── Install ── */}
+      <Section style={{ padding: dk ? '100px 56px' : '60px 20px', textAlign: 'center' }}>
+        {(inView) => (
+          <div id="install-section" style={{
+            ...reveal(inView),
+            maxWidth: 900, margin: '0 auto',
+            display: 'flex', flexDirection: dk ? 'row' : 'column',
+            alignItems: 'center', gap: dk ? 64 : 32,
+            background: `linear-gradient(135deg, ${C.card}, rgba(245,197,66,0.03))`,
+            border: `1px solid ${C.border}`, borderRadius: dk ? 28 : 20,
+            padding: dk ? '56px 60px' : '36px 24px',
+            position: 'relative', overflow: 'hidden',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
+          }}>
+            <div style={{ position: 'absolute', bottom: -60, left: -60, width: 300, height: 300, borderRadius: '50%', background: 'radial-gradient(circle, rgba(245,197,66,0.05) 0%, transparent 70%)', pointerEvents: 'none' }} />
+            <div style={{ position: 'absolute', top: -40, right: -40, width: 200, height: 200, borderRadius: '50%', background: 'radial-gradient(circle, rgba(139,92,246,0.04) 0%, transparent 70%)', pointerEvents: 'none' }} />
+            <div style={{
+              ...reveal(inView, 0.15), flexShrink: 0,
+              width: dk ? 160 : 120, height: dk ? 280 : 210,
+              background: C.surface, borderRadius: dk ? 28 : 20,
+              border: `2px solid ${C.border}`,
+              display: 'flex', flexDirection: 'column', alignItems: 'center',
+              justifyContent: 'center', gap: 8, position: 'relative',
+              boxShadow: '0 16px 48px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.03) inset',
+            }}>
+              <div style={{ position: 'absolute', top: 10, width: 40, height: 4, borderRadius: 2, background: C.border }} />
+              <div style={{ ...display, fontSize: dk ? 22 : 16, fontWeight: 700 }}>a<span style={{ color: C.cyan }}>IQ</span></div>
+              <div style={{ width: '60%', height: 3, borderRadius: 2, background: `linear-gradient(90deg, ${C.gold}, ${C.violet})`, opacity: 0.5 }} />
+              <div style={{ position: 'absolute', bottom: 8, width: 32, height: 3, borderRadius: 2, background: C.border }} />
+            </div>
+            <div style={{ ...reveal(inView, 0.25), textAlign: dk ? 'left' : 'center', flex: 1 }}>
+              <div style={{ fontSize: 10, color: C.gold, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 12, fontWeight: 600 }}>Mobile App</div>
+              <div style={{ ...display, fontSize: dk ? 30 : 22, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 12, lineHeight: 1.2 }}>
+                Take AtmosIQ{dk ? <br /> : ' '}Into the Field
+              </div>
+              <div style={{ fontSize: 14, color: C.sub, lineHeight: 1.7, marginBottom: 24, maxWidth: 400 }}>
+                Install AtmosIQ directly to your phone. No app store needed — works offline, feels native, and stays up to date automatically.
+              </div>
+              <button onClick={() => { if (window._pwaPrompt) { window._pwaPrompt.prompt(); window._pwaPrompt.userChoice.then(() => { window._pwaPrompt = null }) } else { alert("To install: tap your browser's Share button (iOS) or Menu → 'Add to Home Screen' (Android/Desktop)") } }} style={{
+                padding: '13px 30px',
+                background: `linear-gradient(135deg, ${C.gold}, #F59E0B)`,
+                border: 'none', borderRadius: 10,
+                color: '#050507', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                transition: 'all 0.25s', ...display,
+                display: 'inline-flex', alignItems: 'center', gap: 8,
+                boxShadow: '0 0 24px rgba(245,197,66,0.2)',
+              }}
+                onMouseDown={e => e.target.style.transform = 'scale(0.96)'}
+                onMouseUp={e => e.target.style.transform = 'scale(1)'}>
+                <I n="download" s={16} c="#050507" /> Install App
+              </button>
+              <div style={{ display: 'flex', gap: 16, marginTop: 16, justifyContent: dk ? 'flex-start' : 'center', flexWrap: 'wrap' }}>
+                {['Works Offline', 'Auto Updates', 'No Store Needed'].map((t, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: C.dim }}>
+                    <I n="check" s={12} c={C.emerald} /> {t}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </Section>
+
       {/* ── CTA ── */}
       <Section style={{
         padding: dk ? '60px 56px 120px' : '40px 20px 70px',
         textAlign: 'center',
       }}>
         {(inView) => (
-          <div id="install-section" style={{
+          <div style={{
             ...reveal(inView),
             maxWidth: 740, margin: '0 auto',
             background: `linear-gradient(135deg, ${C.card}, ${C.surface})`,
