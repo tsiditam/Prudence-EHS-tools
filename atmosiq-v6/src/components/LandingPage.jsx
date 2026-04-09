@@ -181,12 +181,19 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
           {/* Sub */}
           <p style={{
             fontSize: dk ? 19 : 15, fontWeight: 400, color: C.sub,
-            maxWidth: 580, margin: '0 auto', lineHeight: 1.75,
-            marginBottom: dk ? 52 : 36,
+            maxWidth: 540, margin: '0 auto', lineHeight: 1.75,
+            marginBottom: dk ? 36 : 24,
             letterSpacing: '0.005em',
           }}>
-            Structured IAQ assessments with deterministic scoring against ASHRAE, OSHA, and EPA standards. Every finding traceable. Every deduction documented. Reports your firm can stand behind.
+            The IAQ assessment platform that turns your field walkthrough into a structured, scored, report-ready deliverable — before you leave the building.
           </p>
+
+          {/* Trust line */}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: dk ? 24 : 14, marginBottom: dk ? 48 : 32, flexWrap: 'wrap' }}>
+            {['ASHRAE 62.1 · OSHA · EPA · NIOSH', 'Deterministic scoring', 'Free during beta'].map((t, i) => (
+              <span key={i} style={{ fontSize: 11, color: C.dim, ...mono, letterSpacing: '0.02em' }}>{i > 0 && <span style={{marginRight: dk ? 24 : 14}}>·</span>}{t}</span>
+            ))}
+          </div>
 
           {/* CTAs */}
           <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -220,14 +227,28 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
           </div>
         </div>
 
+        {/* Proof line below CTAs */}
+        <div style={{ position: 'relative', zIndex: 1, display: 'flex', justifyContent: 'center', gap: dk ? 36 : 16, marginTop: dk ? 56 : 36, flexWrap: 'wrap' }}>
+          {[
+            { value: '100pt', label: 'Scoring Scale' },
+            { value: '5', label: 'Category Analysis' },
+            { value: '6+', label: 'Standards Built In' },
+            { value: '<10min', label: 'Field to Report' },
+          ].map((m, i) => (
+            <div key={i} style={{ textAlign: 'center', minWidth: dk ? 100 : 70 }}>
+              <div style={{ fontSize: dk ? 22 : 16, fontWeight: 700, color: C.text, ...display, letterSpacing: '-0.02em' }}>{m.value}</div>
+              <div style={{ fontSize: 9, color: C.dim, marginTop: 3, letterSpacing: '0.08em', textTransform: 'uppercase' }}>{m.label}</div>
+            </div>
+          ))}
+        </div>
+
         {/* Scroll indicator */}
         <div style={{
-          position: 'absolute', bottom: dk ? 40 : 24,
-          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+          position: 'absolute', bottom: dk ? 32 : 20,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
           animation: 'float 3s ease-in-out infinite',
         }}>
-          <span style={{ fontSize: 10, color: C.dim, letterSpacing: '0.15em', textTransform: 'uppercase' }}>Discover</span>
-          <div style={{ width: 1, height: 36, background: `linear-gradient(to bottom, ${C.dim}, transparent)` }} />
+          <div style={{ width: 1, height: 28, background: `linear-gradient(to bottom, ${C.dim}, transparent)` }} />
         </div>
       </section>
 
@@ -279,7 +300,7 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
               letterSpacing: '-0.02em', color: C.sub,
               marginBottom: dk ? 40 : 24,
             }}>
-              Spreadsheets lose causal links. Field notes miss outdoor baselines.{dk ? <br /> : ' '}Reports take 6 hours. And the data gaps don't surface until the review.
+              You already know what to look for.{dk ? <br /> : ' '}The problem is the workflow between your field notes and the final report.
             </p>
             <p style={{
               ...reveal(inView, 0.35),
@@ -288,7 +309,7 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
               letterSpacing: '-0.035em',
               margin: 0,
             }}>
-              AtmosIQ <span style={warmGradient}>structures your workflow</span>{dk ? <br /> : ' '}so the report writes itself while you're still on site.
+              AtmosIQ <span style={warmGradient}>closes that gap</span> —{dk ? <br /> : ' '}structured assessment, scored findings, report-ready output.
             </p>
           </>
         )}
@@ -326,7 +347,7 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
                 Designed by Tsidi Tamakloe, CSP
               </div>
               <div style={{ fontSize: 14, color: C.sub, lineHeight: 1.75, maxWidth: 520 }}>
-                AtmosIQ was built by a practicing EHS professional who has conducted IAQ assessments, not by a software team guessing what field work looks like. Every question, every threshold, every scoring decision reflects how investigations actually work — from pre-survey intake through defensible deliverables.
+                Not built by a software team guessing what field work looks like. Every question, threshold, and scoring rule reflects how investigations actually work — from pre-survey intake through structured deliverables.
               </div>
               <div style={{ display: 'flex', gap: 12, marginTop: 16, flexWrap: 'wrap', justifyContent: dk ? 'flex-start' : 'center' }}>
                 {['CSP', 'OSHA 30-Hour', 'HAZWOPER 40-Hour', 'Field-Tested'].map(t => (
@@ -364,8 +385,8 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
                 <div style={{ fontSize: 10, color: C.gold, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 10, fontWeight: 600 }}>Meridian Business Park — 3 Zones</div>
                 <div style={{ ...display, fontSize: dk ? 30 : 22, fontWeight: 700, color: '#FB923C', marginBottom: 8, letterSpacing: '-0.02em' }}>High Risk — OSHA Flagged</div>
                 <div style={{ fontSize: 14, color: C.sub, ...mono, marginBottom: 16 }}>Composite: 62/100 · 3 citation risks · Sampling needed</div>
-                <div style={{ fontSize: 15, color: C.sub, lineHeight: 1.75, marginBottom: 24 }}>
-                  CO2 at 1,180 ppm with damper closed. Moisture intrusion with visible mold. 6-10 occupants with building-related symptoms. See exactly how AtmosIQ scores it, builds causal chains, and generates the sampling plan.
+                <div style={{ fontSize: 14, color: C.sub, lineHeight: 1.75, marginBottom: 24 }}>
+                  Elevated CO₂ with closed dampers. Active moisture intrusion. Multiple symptomatic occupants. See how the platform scores, links causes, and generates the sampling plan — all from field data.
                 </div>
                 <button onClick={() => { const el = document.getElementById('install-section'); if (el) el.scrollIntoView({ behavior: 'smooth' }) }} style={{
                   padding: '13px 30px',
@@ -696,7 +717,7 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
                 The Science Behind{dk ? <br /> : ' '}AtmosIQ's Scoring Engine
               </div>
               <div style={{ fontSize: 14, color: C.sub, lineHeight: 1.7, marginBottom: 20, maxWidth: 420 }}>
-                Methodology, algorithms, causal chain intelligence, and the standards framework — detailed for industrial hygienists and EHS professionals.
+                Scoring methodology, category weights, causal pathway logic, and the full standards framework — written for IH professionals who want to understand the engine before they use it.
               </div>
               <a href="/AtmosIQ-Technical-White-Paper.pdf" download
                 style={{
@@ -738,10 +759,13 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
 
             <div style={{ position: 'relative' }}>
               <h2 style={{ ...display, fontSize: dk ? 40 : 26, fontWeight: 700, letterSpacing: '-0.035em', margin: 0, marginBottom: 14, lineHeight: 1.15 }}>
-                Your next assessment,{dk ? <br /> : ' '}structured from the start.
+                Ready to see{dk ? <br /> : ' '}what structured looks like?
               </h2>
-              <p style={{ fontSize: 16, color: C.sub, marginBottom: 36, maxWidth: 480, margin: '0 auto 36px', lineHeight: 1.7 }}>
-                Install on your phone — no app store needed. Works offline. Guided workflow, deterministic scoring, and a report ready for review by the time you leave the building. Free during beta.
+              <p style={{ fontSize: 15, color: C.sub, marginBottom: 24, maxWidth: 460, margin: '0 auto 24px', lineHeight: 1.7 }}>
+                Run a full assessment on your next site visit. Guided workflow, scored findings, and a report ready for review — all from your phone.
+              </p>
+              <p style={{ fontSize: 12, color: C.dim, marginBottom: 32, ...mono }}>
+                Free during beta · No app store · Works offline
               </p>
               <div style={{ display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap' }}>
                 <button onClick={() => { if (window._pwaPrompt) { window._pwaPrompt.prompt() } else { const el = document.getElementById('install-section'); if (el) el.scrollIntoView({ behavior: 'smooth' }) } }} style={{
