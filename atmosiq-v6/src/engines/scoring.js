@@ -170,23 +170,23 @@ export function genRecs(zoneScores, bldg) {
   zoneScores.forEach(zs => {
     zs.cats.forEach(c => c.r.forEach(r => {
       if (r.sev === 'critical') {
-        if (r.t.includes('CO '))   R.imm.push(zs.zoneName+': Evacuate. Investigate combustion source.')
-        if (r.t.includes('HCHO'))  R.imm.push(zs.zoneName+': Exposure controls + medical surveillance.')
-        if (r.t.toLowerCase().includes('mold') && r.t.includes('xtensive')) R.imm.push(zs.zoneName+': Remediation per EPA/IICRC S520.')
-        if (r.t.includes('No airflow')) R.imm.push('Emergency HVAC service.')
-        if (r.t.includes('water'))      R.imm.push(zs.zoneName+': Address water intrusion.')
+        if (r.t.includes('CO '))   R.imm.push(zs.zoneName+': Immediately evacuate affected area and investigate potential combustion source. Ventilate space before reoccupancy.')
+        if (r.t.includes('ormaldehyde'))  R.imm.push(zs.zoneName+': Implement exposure controls and initiate medical surveillance per 29 CFR 1910.1048 requirements.')
+        if (r.t.toLowerCase().includes('mold') && r.t.includes('xtensive')) R.imm.push(zs.zoneName+': Engage qualified remediation contractor. Remediate per EPA Mold Remediation in Schools guidance and IICRC S520.')
+        if (r.t.includes('No supply airflow')) R.imm.push('Request emergency HVAC service to restore supply airflow to affected zones.')
+        if (r.t.includes('water'))      R.imm.push(zs.zoneName+': Identify and arrest active water intrusion. Assess affected materials for moisture damage within 48 hours.')
       }
       if (r.sev === 'high') {
-        if (r.t.includes('CO2') || r.t.includes('ventilation')) R.eng.push(zs.zoneName+': Evaluate OA delivery. Verify damper.')
-        if (r.t.includes('PM'))         R.eng.push('Upgrade filtration to MERV 13+.')
-        if (r.t.includes('aintenance')) R.eng.push('Schedule HVAC inspection.')
-        if (r.t.includes('mold'))       R.eng.push(zs.zoneName+': Mold assessment per AIHA.')
-        if (r.t.includes('affect'))     R.adm.push(zs.zoneName+': Document occupants. Symptom survey.')
+        if (r.t.includes('CO₂') || r.t.includes('ventilation')) R.eng.push(zs.zoneName+': Evaluate outdoor air delivery rate and verify OA damper position. Measure supply and return airflow balance.')
+        if (r.t.includes('PM'))         R.eng.push('Upgrade air filtration to MERV 13 or higher. Evaluate filter housing for bypass.')
+        if (r.t.includes('maintenance')) R.eng.push('Schedule comprehensive HVAC system inspection including coil cleaning, belt check, and controls verification.')
+        if (r.t.includes('mold'))       R.eng.push(zs.zoneName+': Conduct mold assessment per AIHA Recognition, Evaluation, and Control of Indoor Mold guidelines.')
+        if (r.t.includes('occupants'))  R.adm.push(zs.zoneName+': Document affected occupant count and symptom patterns. Consider administering standardized symptom survey (e.g., EPA BASE protocol).')
       }
     }))
   })
-  if (bldg.hm === 'Unknown') R.adm.push('Establish HVAC PM schedule.')
-  R.mon.push('Periodic reassessment recommended.')
+  if (bldg.hm === 'Unknown') R.adm.push('Establish preventive HVAC maintenance schedule with documented service records.')
+  R.mon.push('Conduct periodic reassessment to verify corrective action effectiveness and track IAQ trend data.')
   Object.keys(R).forEach(k => { R[k] = [...new Set(R[k])] })
   return R
 }

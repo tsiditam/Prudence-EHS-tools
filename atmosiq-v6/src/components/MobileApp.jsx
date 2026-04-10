@@ -462,7 +462,7 @@ export default function MobileApp() {
             }
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginTop:12,fontSize:12}}>
               {recs?.imm?.[0] && <div><div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Next action</div><div style={{color:ACCENT,lineHeight:1.4}}>{recs.imm[0].length > 70 ? recs.imm[0].slice(0,67)+'...' : recs.imm[0]}</div></div>}
-              <div><div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Sampling</div><div style={{color:TEXT,lineHeight:1.4}}>{samplingPlan?.plan?.length > 0 ? `${samplingPlan.plan.length} method${samplingPlan.plan.length>1?'s':''} advised` : 'Not indicated'}</div></div>
+              <div><div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Sampling</div><div style={{color:TEXT,lineHeight:1.4}}>{samplingPlan?.plan?.length > 0 ? `Targeted confirmatory sampling recommended (${samplingPlan.plan.length} analytical method${samplingPlan.plan.length>1?'s':''})` : 'No confirmatory sampling indicated at this time'}</div></div>
             </div>
           </div>
         )}
@@ -542,17 +542,19 @@ export default function MobileApp() {
           {oshaResult?.gaps?.length>0&&<div style={{padding:16,background:'#FBBF2410',border:`1px solid #FBBF2428`,borderRadius:14}}><div style={{fontSize:13,fontWeight:700,color:'#FBBF24',marginBottom:8}}>Data Gaps</div>{oshaResult.gaps.map((g,i)=><div key={i} style={{fontSize:14,color:'#D1D5DB',marginBottom:6}}>• {g}</div>)}</div>}
         </div>}
 
-        {rTab==='rootcause'&&<div style={{display:'flex',flexDirection:'column',gap:14}}>
-          {causalChains.length===0?<div style={{padding:36,textAlign:'center',background:CARD,borderRadius:16,border:`1px solid ${BORDER}`}}><div style={{fontSize:28,marginBottom:12}}>🔗</div><div style={{fontSize:16,fontWeight:600,marginBottom:6,color:TEXT}}>No Causal Chains</div><div style={{fontSize:14,color:SUB,lineHeight:1.6}}>No correlated multi-factor findings.</div></div>
-          :causalChains.map((ch,i)=>{const cc=ch.confidence==='Strong'?'#22C55E':ch.confidence==='Moderate'?'#FBBF24':SUB;return(
-            <div key={i} style={{padding:18,background:CARD,border:`1px solid ${BORDER}`,borderRadius:16}}>
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
-                <div style={{fontSize:15,fontWeight:700,color:TEXT}}>🔗 {ch.type}</div>
-                <span style={{padding:'4px 12px',background:`${cc}18`,border:`1px solid ${cc}35`,borderRadius:16,fontSize:11,fontWeight:700,color:cc}}>{ch.confidence}</span>
+        {rTab==='rootcause'&&<div style={{display:'flex',flexDirection:'column',gap:12}}>
+          <div style={{fontSize:11,color:DIM,lineHeight:1.5,marginBottom:4}}>Concern pathways are based on correlation of field observations, measurements, and occupant reports. They support — but do not confirm — root-cause determination.</div>
+          {causalChains.length===0?<div style={{padding:36,textAlign:'center',background:CARD,borderRadius:10,border:`1px solid ${BORDER}`}}><I n="chain" s={24} c={DIM} w={1.4} /><div style={{fontSize:14,fontWeight:600,marginTop:12,marginBottom:4,color:SUB}}>No concern pathways identified</div><div style={{fontSize:12,color:DIM,lineHeight:1.5}}>No correlated multi-factor findings in this assessment.</div></div>
+          :causalChains.map((ch,i)=>{const confLabel=ch.confidence==='Strong'?'High confidence':ch.confidence==='Moderate'?'Moderate confidence':'Possible';const cc=ch.confidence==='Strong'?'#22C55E':ch.confidence==='Moderate'?'#FBBF24':SUB;return(
+            <div key={i} style={{padding:16,background:CARD,border:`1px solid ${BORDER}`,borderRadius:10}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+                <div style={{fontSize:14,fontWeight:700,color:TEXT}}>{ch.type}</div>
+                <span style={{padding:'3px 10px',background:`${cc}12`,border:`1px solid ${cc}25`,borderRadius:4,fontSize:9,fontWeight:700,color:cc,letterSpacing:'0.3px'}}>{confLabel}</span>
               </div>
-              <div style={{fontSize:13,color:ACCENT,fontFamily:"'DM Mono'",marginBottom:8}}>{ch.zone}</div>
-              <div style={{fontSize:14,color:'#D1D5DB',lineHeight:1.7,marginBottom:14,padding:'12px 16px',background:SURFACE,borderRadius:10,borderLeft:`3px solid ${ACCENT}`}}>{ch.rootCause}</div>
-              {ch.evidence.map((e,j)=><div key={j} style={{display:'flex',gap:10,alignItems:'flex-start',marginBottom:6}}><span style={{color:ACCENT,fontSize:14,marginTop:1}}>→</span><span style={{fontSize:14,color:'#D1D5DB',lineHeight:1.6}}>{e}</span></div>)}
+              <div style={{fontSize:11,color:ACCENT,fontFamily:"'DM Mono'",marginBottom:8}}>{ch.zone}</div>
+              <div style={{fontSize:13,color:SUB,lineHeight:1.7,marginBottom:12,padding:'10px 14px',background:SURFACE,borderRadius:8,borderLeft:`2px solid ${ACCENT}`}}>{ch.rootCause}</div>
+              <div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:6}}>Supporting evidence</div>
+              {ch.evidence.map((e,j)=><div key={j} style={{display:'flex',gap:8,alignItems:'flex-start',marginBottom:5}}><span style={{color:ACCENT,fontSize:12,marginTop:1,flexShrink:0}}>→</span><span style={{fontSize:12,color:SUB,lineHeight:1.6}}>{e}</span></div>)}
             </div>
           )})}
         </div>}
@@ -573,25 +575,37 @@ export default function MobileApp() {
         </div>}
 
         {rTab==='narrative'&&<div>
-          {!narrative&&!narrativeLoading&&<div style={{padding:36,textAlign:'center',background:CARD,border:`1px solid ${BORDER}`,borderRadius:16}}>
-            <div style={{fontSize:28,marginBottom:14}}>🤖</div>
-            <div style={{fontSize:16,fontWeight:600,marginBottom:6,color:TEXT}}>AI Findings Narrative</div>
-            <div style={{fontSize:13,color:SUB,lineHeight:1.6,marginBottom:20}}>Professional narrative from deterministic output. You review before delivery.</div>
-            <button onClick={requestNarrative} style={{padding:'14px 28px',background:`linear-gradient(135deg,#0891B2,${ACCENT})`,border:'none',borderRadius:12,color:'#fff',fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>Generate Narrative</button>
+          {!narrative&&!narrativeLoading&&<div style={{padding:32,textAlign:'center',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10}}>
+            <I n="report" s={28} c={DIM} w={1.4} />
+            <div style={{fontSize:15,fontWeight:600,marginTop:14,marginBottom:4,color:TEXT}}>Findings Narrative</div>
+            <div style={{fontSize:12,color:SUB,lineHeight:1.6,marginBottom:6}}>Generate a professional findings narrative from your assessment data.</div>
+            <div style={{fontSize:10,color:DIM,lineHeight:1.5,marginBottom:20}}>Output is generated from deterministic scoring results — not from raw AI interpretation. You review and approve before delivery.</div>
+            <button onClick={requestNarrative} style={{padding:'12px 28px',background:ACCENT,border:'none',borderRadius:8,color:BG,fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>Generate Narrative</button>
+            <div style={{fontSize:9,color:DIM,marginTop:10}}>Costs 3 credits</div>
           </div>}
-          {narrativeLoading&&<div style={{padding:44,textAlign:'center',background:CARD,border:`1px solid ${BORDER}`,borderRadius:16}}><div style={{width:44,height:44,margin:'0 auto 16px',borderRadius:'50%',border:'2px solid transparent',borderTopColor:ACCENT,animation:'spin 1s linear infinite'}} /><div style={{fontSize:13,color:SUB}}>Generating narrative...</div></div>}
-          {narrative&&<div style={{padding:20,background:CARD,border:`1px solid ${BORDER}`,borderRadius:16}}>
-            <div style={{fontSize:12,fontWeight:600,color:ACCENT,marginBottom:14}}>AI-Generated Narrative</div>
-            <div style={{fontSize:14,color:'#D1D5DB',lineHeight:1.8,whiteSpace:'pre-wrap'}}>{narrative}</div>
-            <div style={{marginTop:16,padding:'12px 14px',background:'#FBBF2412',border:`1px solid #FBBF2420`,borderRadius:10}}>
-              <div style={{fontSize:11,color:'#FBBF24',fontWeight:600}}>⚠ IH Review Required</div>
-              <div style={{fontSize:11,color:SUB,marginTop:3,lineHeight:1.5}}>Review and modify before including in any client deliverable.</div>
+          {narrativeLoading&&<div style={{padding:44,textAlign:'center',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10}}><div style={{width:36,height:36,margin:'0 auto 14px',borderRadius:'50%',border:'2px solid transparent',borderTopColor:ACCENT,animation:'spin 1s linear infinite'}} /><div style={{fontSize:12,color:SUB}}>Generating narrative from assessment data...</div></div>}
+          {narrative&&<div style={{padding:18,background:CARD,border:`1px solid ${BORDER}`,borderRadius:10}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
+              <div style={{fontSize:12,fontWeight:600,color:TEXT}}>Findings Narrative</div>
+              <span style={{fontSize:9,color:DIM,fontFamily:"'DM Mono'"}}>AI-generated · Review required</span>
+            </div>
+            <div style={{fontSize:13,color:SUB,lineHeight:1.8,whiteSpace:'pre-wrap'}}>{narrative}</div>
+            <div style={{marginTop:14,padding:'10px 12px',background:`${WARN}08`,border:`1px solid ${WARN}18`,borderRadius:8}}>
+              <div style={{fontSize:10,color:WARN,fontWeight:600}}>Professional review required</div>
+              <div style={{fontSize:10,color:DIM,marginTop:3,lineHeight:1.5}}>This narrative was generated from deterministic scoring output. Review, edit, and approve before including in any client deliverable or report.</div>
             </div>
           </div>}
         </div>}
 
-        {rTab==='actions'&&recs&&<div style={{display:'flex',flexDirection:'column',gap:12}}>
-          {[{k:'imm',l:'Immediate',c:'#EF4444'},{k:'eng',l:'Engineering',c:ACCENT},{k:'adm',l:'Administrative',c:'#FBBF24'},{k:'mon',l:'Monitoring',c:SUB}].map(cat=>{if(!recs[cat.k]?.length)return null;return(<div key={cat.k} style={{padding:16,background:CARD,border:`1px solid ${BORDER}`,borderRadius:14}}><div style={{fontSize:15,fontWeight:700,color:cat.c,marginBottom:10}}>{cat.l}</div>{recs[cat.k].map((r,i)=><div key={i} style={{fontSize:14,color:'#D1D5DB',lineHeight:1.7,marginBottom:8,paddingLeft:14,borderLeft:`2px solid ${cat.c}30`}}>{r}</div>)}</div>)})}
+        {rTab==='actions'&&recs&&<div style={{display:'flex',flexDirection:'column',gap:10}}>
+          <div style={{fontSize:11,color:DIM,lineHeight:1.5,marginBottom:2}}>Recommendations are tiered by urgency and type. Review and adapt for site-specific conditions before implementation.</div>
+          {[{k:'imm',l:'Immediate Actions',s:'Address within 48 hours',c:'#EF4444'},{k:'eng',l:'Engineering Controls',s:'1–4 weeks',c:ACCENT},{k:'adm',l:'Administrative Controls',s:'1–3 months',c:'#FBBF24'},{k:'mon',l:'Ongoing Monitoring',s:'Continuous',c:SUB}].map(cat=>{if(!recs[cat.k]?.length)return null;return(<div key={cat.k} style={{padding:14,background:CARD,border:`1px solid ${BORDER}`,borderRadius:10}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+              <div style={{fontSize:13,fontWeight:700,color:cat.c}}>{cat.l}</div>
+              <span style={{fontSize:9,color:DIM,fontFamily:"'DM Mono'"}}>{cat.s}</span>
+            </div>
+            {recs[cat.k].map((r,i)=><div key={i} style={{fontSize:12,color:SUB,lineHeight:1.7,marginBottom:6,paddingLeft:12,borderLeft:`2px solid ${cat.c}25`}}>{r}</div>)}
+          </div>)})}
           <div style={{display:'flex',gap:10,marginTop:8}}>
             <button onClick={handleExportPDF} style={{flex:1,padding:'14px 20px',background:`${ACCENT}12`,border:`1px solid ${ACCENT}30`,borderRadius:12,color:ACCENT,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:48,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="download" s={16} c={ACCENT} /> PDF</button>
             <button onClick={handleShare} style={{flex:1,padding:'14px 20px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,color:SUB,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:48,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="send" s={16} c={SUB} /> Share</button>
