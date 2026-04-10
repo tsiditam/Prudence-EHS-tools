@@ -17,7 +17,7 @@ const BORDER = '#1C1E26'
 const ACCENT = '#22D3EE'
 const TEXT = '#ECEEF2'
 const SUB = '#8B93A5'
-const DIM = '#565D6E'
+const DIM = '#6B7380'
 const ERR = '#EF4444'
 
 const inp = {width:'100%',padding:'18px 20px',background:BG,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:17,fontFamily:"'Outfit'",fontWeight:500,outline:'none',boxSizing:'border-box'}

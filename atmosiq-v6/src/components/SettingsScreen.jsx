@@ -19,7 +19,7 @@ const BORDER = '#1C1E26'
 const ACCENT = '#22D3EE'
 const TEXT = '#ECEEF2'
 const SUB = '#8B93A5'
-const DIM = '#565D6E'
+const DIM = '#6B7380'
 const SUCCESS = '#22C55E'
 const WARN = '#FBBF24'
 const DANGER = '#EF4444'
@@ -100,7 +100,7 @@ export default function SettingsScreen({ profile, onEditProfile, onLogout, onClo
           </div>
           <div style={{flex:1,minWidth:0}}>
             <div style={{fontSize:15,fontWeight:700,color:TEXT,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{profile.name||'Assessor'}</div>
-            <div style={{fontSize:10,color:DIM,fontFamily:"'DM Mono'",marginTop:2}}>{(profile.certs||[]).slice(0,4).join(' · ')||'No certifications on file'}</div>
+            <div style={{fontSize:10,color:DIM,fontFamily:"'DM Mono'",marginTop:2}}>{(profile.certs||[]).length > 3 ? `${(profile.certs||[]).slice(0,3).join(' · ')} +${(profile.certs||[]).length-3}` : (profile.certs||[]).join(' · ')||'No certifications on file'}</div>
           </div>
           <button onClick={onEditProfile} style={{padding:'6px 12px',borderRadius:6,background:'transparent',border:`1px solid ${BORDER}`,color:SUB,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',transition:'border-color 0.15s'}}>Edit</button>
         </div>
@@ -168,12 +168,13 @@ export default function SettingsScreen({ profile, onEditProfile, onLogout, onClo
             </div>
           )}
         </div>
-        <div style={{display:'flex',gap:16,fontSize:11,color:DIM,fontFamily:"'DM Mono'"}}>
+        <div style={{display:'flex',gap:16,fontSize:11,color:DIM,fontFamily:"'DM Mono'",flexWrap:'wrap'}}>
           <span>{index.reports?.length || 0} reports</span>
           <span>{index.drafts?.length || 0} drafts</span>
           {trashCount > 0 && <span>{trashCount} in trash</span>}
           <span>{storageUsed} used</span>
         </div>
+        <div style={{fontSize:10,color:DIM,fontFamily:"'DM Mono'",marginTop:6}}>Last export: not yet · Local data {health?.healthy ? 'healthy' : 'check required'}</div>
         {health && !health.healthy && (
           <div style={{marginTop:8}}>
             {health.issues.map((issue, i) => (
