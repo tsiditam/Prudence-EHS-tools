@@ -20,7 +20,7 @@ const BORDER = '#1C1E26'
 const ACCENT = '#22D3EE'
 const TEXT = '#ECEEF2'
 const SUB = '#8B93A5'
-const DIM = '#565D6E'
+const DIM = '#6B7380'
 const DANGER = '#EF4444'
 
 const CERT_OPTS = ['CIH','CIH-in-Training','CSP','CHMM','ACAC CIEC','ACAC CMC','ACAC CMI','NYSDOL Mold Assessor','State IH License','OSHA 30-Hour','Other']

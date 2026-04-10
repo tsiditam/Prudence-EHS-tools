@@ -47,7 +47,7 @@ const ACCENT = '#22D3EE'
 const ACCENT_DIM = '#1A8FA0'
 const TEXT = '#ECEEF2'
 const SUB = '#8B93A5'
-const DIM = '#565D6E'
+const DIM = '#6B7380'
 const SUCCESS = '#22C55E'
 const WARN = '#FBBF24'
 const DANGER = '#EF4444'
@@ -602,8 +602,8 @@ export default function MobileApp() {
           <button onClick={runDemo} style={{width:'100%',padding:'14px 20px',marginBottom:16,background:'transparent',border:`1px solid ${BORDER}`,borderRadius:10,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,fontFamily:'inherit',transition:'border-color 0.15s'}}>
             <I n="bldg" s={18} c={DIM} />
             <div style={{flex:1}}>
-              <span style={{fontSize:13,fontWeight:600,color:SUB}}>View sample assessment</span>
-              <span style={{fontSize:11,color:DIM,marginLeft:8}}>Meridian Business Park</span>
+              <div style={{fontSize:13,fontWeight:600,color:SUB}}>Open sample project</div>
+              <div style={{fontSize:10,color:DIM,marginTop:2}}>Meridian Business Park · 3 zones</div>
             </div>
             <span style={{fontSize:13,color:DIM}}>→</span>
           </button>
@@ -615,25 +615,29 @@ export default function MobileApp() {
               {l:'Reports',n:(index.reports||[]).length,v:'history',ic:'findings',sub:((index.reports||[]).length>0?'Finalized':'No finalized reports')}
             ].map(c=>(
               <button key={c.l} onClick={()=>{if(c.n)setView(c.v)}} style={{padding:'16px',background:CARD,border:`1px solid ${c.n?`${ACCENT}18`:BORDER}`,borderRadius:10,cursor:c.n?'pointer':'default',textAlign:'left',fontFamily:'inherit',transition:'border-color 0.15s'}}>
-                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
-                  <I n={c.ic} s={18} c={c.n?ACCENT:DIM} w={1.8} />
-                  <span style={{fontSize:20,fontWeight:700,fontFamily:"'DM Mono'",color:c.n?TEXT:DIM}}>{c.n}</span>
-                </div>
-                <div style={{fontSize:13,fontWeight:600,color:c.n?TEXT:DIM}}>{c.l}</div>
-                <div style={{fontSize:10,color:DIM,marginTop:2}}>{c.sub}</div>
+                <div style={{fontSize:22,fontWeight:700,fontFamily:"'DM Mono'",color:c.n?TEXT:DIM,marginBottom:8}}>{c.n}</div>
+                <div style={{fontSize:13,fontWeight:600,color:c.n?TEXT:SUB}}>{c.l}</div>
+                <div style={{fontSize:10,color:SUB,marginTop:3}}>{c.sub}</div>
               </button>
             ))}
           </div>
 
-          {/* ── Attention Strip ── */}
+          {/* ── Attention Strip — rotates based on state ── */}
           {(() => {
             const draftCount = (index.drafts||[]).length
             const reportCount = (index.reports||[]).length
-            const msg = draftCount > 0 ? `${draftCount} draft${draftCount>1?'s':''} need${draftCount===1?'s':''} completion` : reportCount === 0 ? 'No reports ready for export' : `${reportCount} report${reportCount>1?'s':''} available`
+            const calDue = profile?.iaq_meter && !profile?.iaq_cal_status?.includes('within manufacturer')
+            const lastReport = (index.reports||[])[0]
+            let msg, icon, color
+            if (calDue) { msg = 'Meter calibration may be due — check before next assessment'; icon = 'alert'; color = WARN }
+            else if (draftCount > 0) { msg = `${draftCount} draft${draftCount>1?'s':''} in progress — resume to finalize`; icon = 'draft'; color = SUB }
+            else if (reportCount === 0) { msg = 'No reports ready for export'; icon = 'guidance'; color = DIM }
+            else if (lastReport) { msg = `Last report: ${lastReport.facility || 'Assessment'} · ${fD(lastReport.ts)}`; icon = 'findings'; color = DIM }
+            else { msg = 'System ready'; icon = 'check'; color = DIM }
             return (
               <div style={{padding:'8px 14px',background:SURFACE,borderRadius:8,border:`1px solid ${BORDER}`,marginBottom:12,display:'flex',alignItems:'center',gap:8}}>
-                <I n={draftCount>0?'alert':'guidance'} s={13} c={draftCount>0?WARN:DIM} w={1.6} />
-                <span style={{fontSize:10,color:draftCount>0?SUB:DIM,fontFamily:"'DM Mono'"}}>{msg}</span>
+                <I n={icon} s={13} c={color} w={1.6} />
+                <span style={{fontSize:10,color:color===WARN?SUB:DIM,fontFamily:"'DM Mono'"}}>{msg}</span>
               </div>
             )
           })()}
@@ -669,6 +673,19 @@ export default function MobileApp() {
               </button>
             ))}
           </div>}
+
+          {/* ── System Summary (when no recent reports) ── */}
+          {(index.reports||[]).length===0&&(
+            <div style={{padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,marginTop:12}}>
+              <div style={{fontSize:11,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:8}}>System Summary</div>
+              <div style={{display:'flex',flexDirection:'column',gap:4,fontSize:11,color:SUB,fontFamily:"'DM Mono'"}}>
+                <div style={{display:'flex',justifyContent:'space-between'}}><span>Assessor</span><span style={{color:TEXT}}>{profile?.name?.split(',')[0]||'Not set'}</span></div>
+                <div style={{display:'flex',justifyContent:'space-between'}}><span>Primary meter</span><span style={{color:profile?.iaq_meter?TEXT:DIM}}>{profile?.iaq_meter||'Not configured'}</span></div>
+                <div style={{display:'flex',justifyContent:'space-between'}}><span>Standards</span><span style={{color:TEXT}}>ASHRAE · OSHA · EPA</span></div>
+                <div style={{display:'flex',justifyContent:'space-between'}}><span>Storage</span><span style={{color:TEXT}}>{(index.drafts||[]).length} drafts · {(index.reports||[]).length} reports</span></div>
+              </div>
+            </div>
+          )}
           </div>{/* end right column */}
           </div>{/* end adaptive grid */}
         </div>}
@@ -698,14 +715,15 @@ export default function MobileApp() {
               <I n="draft" s={28} c={DIM} w={1.4} />
               <div style={{fontSize:15,fontWeight:600,color:SUB,marginTop:16}}>No drafts in progress</div>
               <div style={{fontSize:12,color:DIM,marginTop:6,lineHeight:1.5}}>Start a new assessment to begin capturing field data.</div>
-              <button onClick={startNew} style={{marginTop:20,padding:'10px 24px',background:`${ACCENT}12`,border:`1px solid ${ACCENT}25`,borderRadius:8,color:ACCENT,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>New Assessment</button>
+              <button onClick={startNew} style={{marginTop:16,padding:'10px 24px',background:`${ACCENT}12`,border:`1px solid ${ACCENT}25`,borderRadius:8,color:ACCENT,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>New Assessment</button>
+              <div style={{marginTop:10}}><button onClick={runDemo} style={{background:'none',border:'none',color:DIM,fontSize:11,cursor:'pointer',fontFamily:'inherit'}}>or open sample project →</button></div>
             </div>
           ):(index.drafts||[]).map(d=>(
             <div key={d.id} style={{padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,marginBottom:6,display:'flex',alignItems:'center',gap:12}}>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontSize:14,fontWeight:600,color:TEXT,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{d.facility||'Untitled Assessment'}</div>
                 <div style={{fontSize:11,color:DIM,fontFamily:"'DM Mono'",marginTop:3}}>{fD(d.ua||d.ts)}</div>
-                <div style={{fontSize:10,color:SUB,marginTop:3}}>Walkthrough in progress</div>
+                <div style={{fontSize:10,color:ACCENT,marginTop:3}}>In progress</div>
               </div>
               <button onClick={()=>resumeDraft(d.id)} style={{padding:'8px 16px',background:`${ACCENT}12`,border:`1px solid ${ACCENT}25`,borderRadius:8,color:ACCENT,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:38}}>Resume</button>
               <button onClick={()=>setDelConf({id:d.id,name:d.facility,type:'dft'})} style={{width:36,height:36,background:'transparent',border:`1px solid ${BORDER}`,borderRadius:8,color:DIM,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'inherit',flexShrink:0}}>
@@ -728,8 +746,11 @@ export default function MobileApp() {
             <div style={{padding:'48px 24px',textAlign:'center',background:CARD,borderRadius:10,border:`1px solid ${BORDER}`}}>
               <I n="report" s={28} c={DIM} w={1.4} />
               <div style={{fontSize:15,fontWeight:600,color:SUB,marginTop:16}}>No reports generated yet</div>
-              <div style={{fontSize:12,color:DIM,marginTop:6,lineHeight:1.5}}>{hSearch?'No reports match your search.':'Complete and finalize an assessment to create your first report.'}</div>
-              {!hSearch&&<button onClick={startNew} style={{marginTop:20,padding:'10px 24px',background:`${ACCENT}12`,border:`1px solid ${ACCENT}25`,borderRadius:8,color:ACCENT,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Start Assessment</button>}
+              <div style={{fontSize:12,color:DIM,marginTop:6,lineHeight:1.5}}>{hSearch?'No reports match your search.':'Complete and finalize an assessment to generate your first report.'}</div>
+              {!hSearch&&<>
+                <button onClick={startNew} style={{marginTop:16,padding:'10px 24px',background:`${ACCENT}12`,border:`1px solid ${ACCENT}25`,borderRadius:8,color:ACCENT,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Start Assessment</button>
+                <div style={{marginTop:10}}><button onClick={runDemo} style={{background:'none',border:'none',color:DIM,fontSize:11,cursor:'pointer',fontFamily:'inherit'}}>or view sample report →</button></div>
+              </>}
             </div>
           ):fReports.map(r=>(
             <div key={r.id} onClick={()=>openReport(r)} style={{width:'100%',padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,marginBottom:6,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit',transition:'border-color 0.15s'}}>
