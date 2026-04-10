@@ -401,7 +401,7 @@ export default function MobileApp() {
     const actionLabel = comp.tot < 30 ? 'Immediate corrective action recommended' : comp.tot < 50 ? 'Targeted investigation and corrective action warranted' : comp.tot < 70 ? 'Targeted improvements recommended' : 'Continue routine monitoring'
     // Expert summary — IH-grade reasoning (complaints are pattern, not driver)
     const driverMap = {Ventilation:'Ventilation inadequacy',Contaminants:'Elevated contaminant exposure',HVAC:'HVAC system deficiency',Environment:'Environmental condition exceedance'}
-    const causeMap = {Ventilation:'Insufficient outdoor air delivery or poor air distribution',Contaminants:'Proximity to emission sources with inadequate dilution ventilation',HVAC:'Deferred maintenance or mechanical system degradation',Environment:'Thermal or moisture conditions outside ASHRAE 55 comfort range'}
+    const causeMap = {Ventilation:'Insufficient outdoor air delivery or poor air distribution',Contaminants:'Proximity to emission sources with inadequate dilution ventilation',HVAC:'Deferred maintenance or mechanical system degradation',Environment:'Thermal or moisture conditions outside recognized comfort standards'}
     const expertDriver = driverCat ? (driverMap[driverCat.l] || driverCat.l + ' deficiency') : null
     const expertComplaint = hasComplaints ? 'Building-related symptom cluster reported' : null
     const expertCause = causalChains[0] ? causalChains[0].rootCause : (driverCat ? (causeMap[driverCat.l] || 'Contributing factors require further investigation') : null)

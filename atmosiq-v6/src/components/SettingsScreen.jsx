@@ -144,13 +144,13 @@ export default function SettingsScreen({ profile, onEditProfile, onLogout, onClo
       <Section title="Reports & Methodology" />
 
       <div style={{padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,marginBottom:6}}>
-        <div style={{fontSize:12,fontWeight:600,color:SUB,marginBottom:8}}>Active standards</div>
+        <div style={{fontSize:12,fontWeight:600,color:SUB,marginBottom:8}}>Reference standards</div>
         <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
           {['ASHRAE 62.1-2025','ASHRAE 55-2023','OSHA PELs','EPA NAAQS','WHO AQG'].map(s => (
             <span key={s} style={{padding:'4px 8px',borderRadius:4,background:`${ACCENT}08`,border:`1px solid ${ACCENT}12`,fontSize:9,fontWeight:600,color:ACCENT,fontFamily:"'DM Mono'",letterSpacing:'0.2px'}}>{s}</span>
           ))}
         </div>
-        <div style={{fontSize:10,color:DIM,marginTop:8,lineHeight:1.5}}>Scoring applies deterministic rules against published thresholds. Standards update with each app release.</div>
+        <div style={{fontSize:10,color:DIM,marginTop:8,lineHeight:1.5}}>Scoring informed by, not certified by, these standards. Thresholds update with each app release.</div>
       </div>
 
       <Row icon="pulse" label="Scoring Model" sub="5 categories · Worst-zone weighted · Thresholds update with releases" color={DIM} />

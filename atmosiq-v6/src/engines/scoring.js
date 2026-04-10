@@ -42,7 +42,7 @@ function scoreVent(d) {
   if (d.co2) {
     const v = +d.co2, o = d.co2o ? +d.co2o : STD.v.co2.base, df = v - o
     if (v > STD.v.co2.act)                              { s = 0;  r.push({ t: 'CO₂ ' + v + ' ppm — severely elevated, indicates critically inadequate ventilation', std: STD.v.ref, sev: 'critical' }) }
-    else if (df > STD.v.co2.diff || v > STD.v.co2.con) { s = 10; r.push({ t: 'CO₂ ' + v + ' ppm — exceeds ASHRAE ventilation threshold (Δ' + df + ' ppm above outdoor)', std: STD.v.ref, sev: 'high' }) }
+    else if (df > STD.v.co2.diff || v > STD.v.co2.con) { s = 10; r.push({ t: 'CO₂ ' + v + ' ppm — exceeds recognized ventilation adequacy threshold (Δ' + df + ' ppm above outdoor)', std: STD.v.ref, sev: 'high' }) }
     else if (v > 800)                                   { s = 20; r.push({ t: 'CO₂ ' + v + ' ppm — approaching ventilation concern level', std: STD.v.ref, sev: 'medium' }) }
     else r.push({ t: 'CO₂ ' + v + ' ppm — within acceptable ventilation range', std: STD.v.ref, sev: 'pass' })
   } else {
@@ -128,8 +128,8 @@ function scoreEnv(d) {
   const ssn = new Date().getMonth() >= 4 && new Date().getMonth() <= 9 ? 'summer' : 'winter'
   if (d.tf) {
     const t = +d.tf, rng = STD.t.temp[ssn]
-    if (t < rng.min || t > rng.max)        { dd += 5; r.push({ t:'Temperature '+t+'°F — outside ASHRAE 55 acceptable range', std:STD.t.ref, sev:'high' }) }
-    else if (t < rng.oMin || t > rng.oMax) { dd += 2; r.push({ t:'Temperature '+t+'°F — outside ASHRAE 55 optimal range', std:STD.t.ref, sev:'low' }) }
+    if (t < rng.min || t > rng.max)        { dd += 5; r.push({ t:'Temperature '+t+'°F — outside recognized thermal comfort range (per ASHRAE 55)', std:STD.t.ref, sev:'high' }) }
+    else if (t < rng.oMin || t > rng.oMax) { dd += 2; r.push({ t:'Temperature '+t+'°F — outside optimal comfort conditions (per ASHRAE 55)', std:STD.t.ref, sev:'low' }) }
   } else if (d.tc === 'Too hot' || d.tc === 'Too cold') { dd += 4; r.push({ t:'Occupant-reported thermal discomfort: '+d.tc.toLowerCase(), sev:'medium' }) }
   if (d.rh) {
     const v = +d.rh

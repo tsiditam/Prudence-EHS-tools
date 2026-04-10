@@ -416,7 +416,7 @@ export function generatePrintHTML(data) {
   <!-- ═══ FOOTER ═══ -->
   <div class="footer">
     <div>atmosIQ v${ver} — Prudence Safety &amp; Environmental Consulting, LLC — Germantown, MD</div>
-    <div>&copy; 2026 All rights reserved. Scoring methodology applies deterministic rules against published ASHRAE, OSHA, and EPA standards.</div>
+    <div>&copy; 2026 All rights reserved. Scoring methodology applies deterministic rules informed by published ventilation, exposure, and environmental health standards.</div>
     <div style="margin-top:4px;">Assessor: ${assessor} &nbsp;|&nbsp; Report ID: ${reportId} &nbsp;|&nbsp; Generated: ${now}</div>
     <div style="margin-top:6px;font-size:8px;">This report is intended for the client identified above and should not be distributed to third parties without authorization.</div>
   </div>

@@ -94,7 +94,7 @@ function Counter({ target, suffix = '', dk }) {
 }
 
 const features = [
-  { icon: 'wind', color: C.cyan, title: 'Ventilation Scoring', desc: 'CO2 differential against ASHRAE 62.1-2025. Outdoor air rate calculations per occupant load and space use. Flags inadequate ventilation before you leave the building.' },
+  { icon: 'wind', color: C.cyan, title: 'Ventilation Scoring', desc: 'CO₂ differential evaluated against recognized ventilation standards. Outdoor air rate calculations per occupant load and space use. Flags inadequate ventilation before you leave the building.' },
   { icon: 'shield', color: C.gold, title: 'OSHA Defensibility Analysis', desc: 'Field data cross-referenced against 29 CFR 1910 in real time. Citation risks flagged with confidence levels. When data is missing, confidence degrades — so you always know how strong your documentation is.' },
   { icon: 'chain', color: C.violet, title: 'Root Cause Chains', desc: 'Damper closed → inadequate OA → elevated CO2 → occupant symptoms. The engine connects related findings into evidence-weighted causal chains instead of listing them as separate items.' },
   { icon: 'flask', color: C.emerald, title: 'Hypothesis-Driven Sampling', desc: 'Sampling recommendations generated only when walkthrough findings indicate a specific concern. AIHA, EPA Compendium, NIOSH methods — with required controls and outdoor baselines flagged automatically.' },
