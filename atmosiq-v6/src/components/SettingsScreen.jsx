@@ -24,11 +24,15 @@ const SUCCESS = '#22C55E'
 const WARN = '#FBBF24'
 const DANGER = '#EF4444'
 
-export default function SettingsScreen({ profile, onEditProfile, onLogout, onClose, onNavigate }) {
+export default function SettingsScreen({ profile, onEditProfile, onLogout, onClose, onNavigate, onActivateAdmin, adminActive }) {
   const [health, setHealth] = useState(null)
   const [importMsg, setImportMsg] = useState('')
   const [index, setIndex] = useState({ reports: [], drafts: [] })
   const [trashCount, setTrashCount] = useState(0)
+  const [adminTaps, setAdminTaps] = useState(0)
+  const [showAdminInput, setShowAdminInput] = useState(false)
+  const [adminCode, setAdminCode] = useState('')
+  const [deleteConfirm, setDeleteConfirm] = useState(false)
 
   useEffect(() => {
     Backup.checkHealth().then(setHealth)
@@ -196,7 +200,30 @@ export default function SettingsScreen({ profile, onEditProfile, onLogout, onClo
       <Section title="Account" />
 
       <Row icon="bolt" label="Buy Credits" sub="Assessment and narrative credits" action={() => onNavigate?.('pricing')} />
+      {adminActive && <Row icon="chart" label="Admin Dashboard" sub="Users, revenue, and platform metrics" action={() => onNavigate?.('admin')} />}
       <Row icon="user" label="Sign Out" sub="Switch assessor profile" action={onLogout} color={DANGER} />
+
+      {/* Delete account — hidden behind confirmation */}
+      {!deleteConfirm ? (
+        <button onClick={() => setDeleteConfirm(true)} style={{width:'100%',padding:'10px',marginTop:8,background:'transparent',border:'none',color:DIM,fontSize:10,cursor:'pointer',fontFamily:'inherit',textAlign:'center'}}>Delete account</button>
+      ) : (
+        <div style={{padding:'14px 16px',background:`${DANGER}08`,border:`1px solid ${DANGER}20`,borderRadius:10,marginTop:8}}>
+          <div style={{fontSize:12,fontWeight:600,color:DANGER,marginBottom:6}}>Permanently delete your account?</div>
+          <div style={{fontSize:10,color:DIM,marginBottom:12,lineHeight:1.5}}>This removes all assessments, reports, credits, and profile data. This cannot be undone.</div>
+          <div style={{display:'flex',gap:8}}>
+            <button onClick={() => setDeleteConfirm(false)} style={{flex:1,padding:'8px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:8,color:SUB,fontSize:11,cursor:'pointer',fontFamily:'inherit'}}>Cancel</button>
+            <button onClick={async () => {
+              try {
+                const session = await (await import('../utils/supabaseStorage')).default.getSession()
+                if (session?.access_token) {
+                  await fetch('/api/delete-account', { method: 'POST', headers: { 'Authorization': `Bearer ${session.access_token}` } })
+                }
+              } catch {}
+              onLogout()
+            }} style={{flex:1,padding:'8px',background:`${DANGER}15`,border:`1px solid ${DANGER}30`,borderRadius:8,color:DANGER,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Delete Everything</button>
+          </div>
+        </div>
+      )}
 
       {/* ═══ LEGAL & SUPPORT ═══ */}
       <Section title="Legal" />
@@ -210,7 +237,12 @@ export default function SettingsScreen({ profile, onEditProfile, onLogout, onClo
       <div style={{padding:'16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10}}>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
           <div style={{fontSize:15,fontWeight:700,color:TEXT}}>atmos<span style={{color:ACCENT}}>IQ</span></div>
-          <span style={{fontSize:10,color:DIM,fontFamily:"'DM Mono'",padding:'2px 8px',borderRadius:4,background:SURFACE,border:`1px solid ${BORDER}`}}>v{VER}</span>
+          <span onClick={() => {
+            const next = adminTaps + 1
+            setAdminTaps(next)
+            if (next >= 5 && !adminActive) setShowAdminInput(true)
+            setTimeout(() => setAdminTaps(0), 3000)
+          }} style={{fontSize:10,color:DIM,fontFamily:"'DM Mono'",padding:'2px 8px',borderRadius:4,background:SURFACE,border:`1px solid ${BORDER}`,cursor:'default'}}>v{VER}</span>
         </div>
         <div style={{fontSize:12,color:SUB,lineHeight:1.6,marginBottom:10}}>Standards-driven indoor air quality assessment platform for industrial hygienists and EHS professionals.</div>
         <div style={{display:'flex',flexDirection:'column',gap:2,fontSize:10,color:DIM,fontFamily:"'DM Mono'"}}>
@@ -219,6 +251,17 @@ export default function SettingsScreen({ profile, onEditProfile, onLogout, onClo
           <span>Scoring: deterministic · Standards: ASHRAE / OSHA / EPA / WHO</span>
         </div>
       </div>
+
+      {/* Admin activation modal */}
+      {showAdminInput && (
+        <div style={{padding:'14px 16px',background:CARD,border:`1px solid ${WARN}25`,borderRadius:10,marginTop:12}}>
+          <div style={{fontSize:12,fontWeight:600,color:WARN,marginBottom:8}}>Admin Access</div>
+          <div style={{display:'flex',gap:8}}>
+            <input value={adminCode} onChange={e=>setAdminCode(e.target.value)} placeholder="Enter admin secret" type="password" style={{flex:1,padding:'10px 14px',background:BG,border:`1px solid ${BORDER}`,borderRadius:8,color:TEXT,fontSize:13,fontFamily:'inherit',outline:'none'}} />
+            <button onClick={() => { if (adminCode) { onActivateAdmin?.(adminCode); setShowAdminInput(false); setAdminCode('') } }} style={{padding:'10px 16px',background:`${WARN}15`,border:`1px solid ${WARN}30`,borderRadius:8,color:WARN,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Activate</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
