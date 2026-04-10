@@ -393,34 +393,36 @@ export default function MobileApp() {
     const zs = zoneScores[selZone]
     const detailsFilled = Q_DETAILS.filter(q => mergedData[q.id]).length
     const worstCat = zs?.cats?.reduce((a, b) => ((a.s/a.mx) < (b.s/b.mx) ? a : b)) || null
-    const riskLabel = comp.tot < 30 ? 'Critical IAQ concern' : comp.tot < 50 ? 'Significant IAQ concern' : comp.tot < 70 ? 'Moderate IAQ concern' : 'Acceptable conditions'
-    const actionLabel = comp.tot < 30 ? 'Immediate corrective action recommended' : comp.tot < 50 ? 'Targeted investigation and corrective action warranted' : comp.tot < 70 ? 'Targeted improvements recommended' : 'Continue monitoring'
+    const riskLabel = comp.tot < 30 ? 'Critical indoor air quality concern' : comp.tot < 50 ? 'Significant indoor air quality concern' : comp.tot < 70 ? 'Moderate indoor air quality concern' : 'Conditions within acceptable range'
+    const actionLabel = comp.tot < 30 ? 'Immediate corrective action recommended' : comp.tot < 50 ? 'Targeted investigation and corrective action warranted' : comp.tot < 70 ? 'Targeted improvements recommended' : 'Continue routine monitoring'
+    // Expert summary — consultant-grade language
+    const expertDriver = worstCat ? ({Ventilation:'Ventilation inadequacy',Contaminants:'Elevated contaminant levels',HVAC:'HVAC system deficiency',Complaints:'Building-related symptom cluster',Environment:'Environmental condition concern'}[worstCat.l] || worstCat.l + ' deficiency') : null
+    const expertCause = causalChains[0] ? causalChains[0].rootCause : (worstCat ? ({Ventilation:'Low outdoor air delivery or poor air distribution',Contaminants:'Source proximity or inadequate dilution ventilation',HVAC:'Deferred maintenance or system degradation',Complaints:'Multi-occupant symptom pattern consistent with IAQ source',Environment:'Thermal or moisture conditions outside acceptable range'}[worstCat.l] || 'Requires further investigation') : null)
 
     return (
       <div style={{paddingTop:20,paddingBottom:120}}>
 
-        {/* ── Building Header (compact) ── */}
-        <div style={{marginBottom:16}}>
-          <div style={{fontSize:17,fontWeight:700,color:TEXT,letterSpacing:'-0.2px'}}>{bldg.fn||'Assessment'}</div>
-          <div style={{fontSize:11,color:DIM,marginTop:3,fontFamily:"'DM Mono'"}}>{bldg.fl}</div>
-          <div style={{display:'flex',gap:12,marginTop:6,fontSize:10,color:DIM,fontFamily:"'DM Mono'"}}>
-            {profile&&<span>{profile.name}</span>}
-            <span>{clock.toLocaleDateString([],{weekday:'short',month:'short',day:'numeric'})}</span>
+        {/* ── Building Header ── */}
+        <div style={{marginBottom:14}}>
+          <div style={{fontSize:18,fontWeight:700,color:TEXT,letterSpacing:'-0.3px'}}>{bldg.fn||'Assessment'}</div>
+          {bldg.fl && <div style={{fontSize:11,color:SUB,marginTop:3}}>{bldg.fl}</div>}
+          <div style={{display:'flex',alignItems:'center',gap:8,marginTop:6}}>
+            {profile && <><I n="user" s={11} c={DIM} w={1.4} /><span style={{fontSize:10,color:DIM}}>{profile.name}</span></>}
+            {profile && <span style={{color:BORDER}}>·</span>}
+            <span style={{fontSize:10,color:DIM}}>{clock.toLocaleDateString([],{weekday:'short',month:'short',day:'numeric'})}</span>
           </div>
         </div>
 
         {/* ── Composite Score Card ── */}
-        <div style={{padding:'20px',background:CARD,border:`1px solid ${comp.tot<30?'#EF444430':comp.tot<50?'#FB923C30':BORDER}`,borderRadius:14,marginBottom:12}}>
+        <div style={{padding:'20px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,marginBottom:12,borderLeft:`3px solid ${comp.rc}`}}>
           <div style={{display:'flex',alignItems:'center',gap:20}}>
             <div style={{flexShrink:0}}>
-              <ScoreRing value={comp.tot} color={comp.rc} size={100} />
+              <ScoreRing value={comp.tot} color={comp.rc} size={96} />
             </div>
             <div style={{flex:1,minWidth:0}}>
-              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
-                <span style={{padding:'3px 10px',borderRadius:4,fontSize:10,fontWeight:700,background:`${comp.rc}18`,color:comp.rc,textTransform:'uppercase',fontFamily:"'DM Mono'",letterSpacing:'0.5px'}}>{comp.risk}</span>
-              </div>
-              <div style={{fontSize:13,fontWeight:600,color:TEXT,marginBottom:4}}>{riskLabel}</div>
-              <div style={{fontSize:11,color:SUB,lineHeight:1.5}}>{actionLabel}</div>
+              <span style={{padding:'3px 8px',borderRadius:4,fontSize:9,fontWeight:700,background:`${comp.rc}15`,color:comp.rc,textTransform:'uppercase',letterSpacing:'0.5px'}}>{comp.risk}</span>
+              <div style={{fontSize:13,fontWeight:600,color:TEXT,marginTop:6,lineHeight:1.4}}>{riskLabel}</div>
+              <div style={{fontSize:11,color:SUB,marginTop:3,lineHeight:1.4}}>{actionLabel}</div>
             </div>
           </div>
           <div style={{display:'flex',gap:1,marginTop:16,background:SURFACE,borderRadius:8,overflow:'hidden'}}>
@@ -431,7 +433,7 @@ export default function MobileApp() {
             ].map((m,i)=>(
               <div key={i} style={{flex:1,padding:'10px 8px',textAlign:'center',borderRight:i<2?`1px solid ${BORDER}`:'none'}}>
                 <div style={{fontSize:16,fontWeight:700,color:TEXT,fontFamily:"'DM Mono'"}}>{m.v}</div>
-                <div style={{fontSize:8,color:DIM,marginTop:2,textTransform:'uppercase',letterSpacing:'0.5px'}}>{m.l}</div>
+                <div style={{fontSize:8,color:SUB,marginTop:2,textTransform:'uppercase',letterSpacing:'0.3px'}}>{m.l}</div>
               </div>
             ))}
           </div>
@@ -440,12 +442,12 @@ export default function MobileApp() {
         {/* ── Expert Summary Card ── */}
         {(causalChains.length > 0 || worstCat) && (
           <div style={{padding:'14px 16px',background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:10,marginBottom:12}}>
-            <div style={{fontSize:10,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:10}}>Expert Summary</div>
-            <div style={{display:'flex',flexDirection:'column',gap:6,fontSize:12,color:SUB}}>
-              {worstCat && <div style={{display:'flex',gap:8}}><span style={{color:DIM,flexShrink:0,width:100}}>Primary driver</span><span style={{color:TEXT,fontWeight:600}}>{worstCat.l}</span></div>}
-              {causalChains[0] && <div style={{display:'flex',gap:8}}><span style={{color:DIM,flexShrink:0,width:100}}>Likely cause</span><span style={{color:TEXT}}>{causalChains[0].type}</span></div>}
-              {recs?.imm?.[0] && <div style={{display:'flex',gap:8}}><span style={{color:DIM,flexShrink:0,width:100}}>Next action</span><span style={{color:ACCENT}}>{recs.imm[0].length > 80 ? recs.imm[0].slice(0,77)+'...' : recs.imm[0]}</span></div>}
-              <div style={{display:'flex',gap:8}}><span style={{color:DIM,flexShrink:0,width:100}}>Sampling</span><span style={{color:TEXT}}>{samplingPlan?.plan?.length > 0 ? `${samplingPlan.plan.length} recommendation${samplingPlan.plan.length>1?'s':''}` : 'Not indicated'}</span></div>
+            <div style={{fontSize:10,fontWeight:600,color:SUB,textTransform:'uppercase',letterSpacing:'0.6px',marginBottom:10}}>Expert Summary</div>
+            <div style={{display:'flex',flexDirection:'column',gap:8,fontSize:12}}>
+              {expertDriver && <div><div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:2}}>Primary driver</div><div style={{color:TEXT,fontWeight:600}}>{expertDriver}</div></div>}
+              {expertCause && <div><div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:2}}>Likely contributing cause</div><div style={{color:SUB,lineHeight:1.5}}>{expertCause.length > 100 ? expertCause.slice(0,97)+'...' : expertCause}</div></div>}
+              {recs?.imm?.[0] && <div><div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:2}}>Recommended next action</div><div style={{color:ACCENT,lineHeight:1.5}}>{recs.imm[0].length > 90 ? recs.imm[0].slice(0,87)+'...' : recs.imm[0]}</div></div>}
+              <div><div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:2}}>Sampling recommendation</div><div style={{color:TEXT}}>{samplingPlan?.plan?.length > 0 ? `Targeted confirmatory sampling advised (${samplingPlan.plan.length} method${samplingPlan.plan.length>1?'s':''})` : 'No confirmatory sampling indicated at this time'}</div></div>
             </div>
           </div>
         )}
@@ -474,18 +476,18 @@ export default function MobileApp() {
         {/* ── Zone Selector ── */}
         {zoneScores.length > 1 && <div style={{display:'flex',gap:4,padding:3,background:CARD,borderRadius:10,border:`1px solid ${BORDER}`,marginBottom:12,overflowX:'auto',WebkitOverflowScrolling:'touch',scrollbarWidth:'none'}}>
           {zoneScores.map((z,i) => (
-            <button key={i} onClick={()=>setSelZone(i)} style={{padding:'8px 14px',borderRadius:7,border:'none',background:selZone===i?`${z.rc}15`:'transparent',color:selZone===i?z.rc:DIM,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap',flexShrink:0,minHeight:38,display:'flex',alignItems:'center',gap:6}}>
-              {z.zoneName}
-              <span style={{fontFamily:"'DM Mono'",fontWeight:800,fontSize:12}}>{z.tot}</span>
+            <button key={i} onClick={()=>setSelZone(i)} style={{padding:'8px 12px',borderRadius:7,border:'none',background:selZone===i?`${z.rc}12`:'transparent',color:selZone===i?TEXT:DIM,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap',flexShrink:0,minHeight:36,display:'flex',alignItems:'center',gap:8}}>
+              <span>{z.zoneName}</span>
+              <span style={{padding:'2px 6px',borderRadius:4,fontSize:10,fontWeight:700,fontFamily:"'DM Mono'",background:selZone===i?`${z.rc}20`:`${DIM}15`,color:selZone===i?z.rc:DIM}}>{z.tot}</span>
             </button>
           ))}
         </div>}
 
         {/* ── Content Tabs ── */}
-        <div style={{display:'flex',gap:3,padding:3,background:CARD,borderRadius:10,border:`1px solid ${BORDER}`,marginBottom:14,overflowX:'auto',scrollbarWidth:'none',WebkitOverflowScrolling:'touch'}}>
-          {[['overview','findings','Findings'],['rootcause','chain','Root Cause'],['sampling','flask','Sampling'],['narrative','pulse','AI Report'],['actions','bolt','Actions']].map(([k,ic,l])=>(
-            <button key={k} onClick={()=>{setRTab(k);haptic('light')}} style={{flex:'0 0 auto',padding:'9px 14px',borderRadius:7,border:'none',background:rTab===k?`${ACCENT}12`:'transparent',color:rTab===k?ACCENT:DIM,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:5,minHeight:36}}>
-              <I n={ic} s={14} c={rTab===k?ACCENT:DIM} w={1.6} />{l}
+        <div style={{display:'flex',gap:2,padding:2,background:CARD,borderRadius:10,border:`1px solid ${BORDER}`,marginBottom:14,overflowX:'auto',scrollbarWidth:'none',WebkitOverflowScrolling:'touch'}}>
+          {[['overview','findings','Findings'],['rootcause','chain','Pathways'],['sampling','flask','Sampling'],['narrative','pulse','Narrative'],['actions','bolt','Actions']].map(([k,ic,l])=>(
+            <button key={k} onClick={()=>{setRTab(k);haptic('light')}} style={{flex:'0 0 auto',padding:'8px 12px',borderRadius:8,border:'none',background:rTab===k?`${ACCENT}10`:'transparent',color:rTab===k?ACCENT:DIM,fontSize:11,fontWeight:rTab===k?600:500,cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap',minHeight:34,transition:'color 0.15s'}}>
+              {l}
             </button>
           ))}
         </div>
