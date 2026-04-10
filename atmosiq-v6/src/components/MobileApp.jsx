@@ -65,6 +65,8 @@ export default function MobileApp() {
   const [view, setView] = useState('dash')
   const [milestone, setMilestone] = useState(null)
   const [clock, setClock] = useState(new Date())
+  const [credits, setCredits] = useState(5) // default free tier
+  const [showPricing, setShowPricing] = useState(false)
 
   const [draftId, setDraftId] = useState(null)
   // Combined data store: quick start + details merged into presurvey + bldg
@@ -187,7 +189,14 @@ export default function MobileApp() {
     setTimeout(() => { setMilestone(null); nextFn() }, 1400)
   }
 
+  const consumeCredit = (amount, reason, refId) => {
+    setCredits(prev => Math.max(0, prev - amount))
+    trackEvent('credit_consumed', { amount, reason, balance: credits - amount })
+  }
+
   const startNew = () => {
+    if (credits < 1) { setShowPricing(true); return }
+    consumeCredit(1, 'assessment')
     trackEvent('assessment_mode_selected', { mode: 'new' })
     trackEvent('assessment_created', {})
     const id = 'draft-' + Date.now()
@@ -261,6 +270,8 @@ export default function MobileApp() {
   }
 
   const requestNarrative = async () => {
+    if (credits < 3) { setShowPricing(true); return }
+    consumeCredit(3, 'narrative')
     trackEvent('narrative_requested', { facility: bldg.fn || '', score: comp?.tot })
     setNarrativeLoading(true)
     const text = await generateNarrative(bldg, zones, zoneScores, comp, oshaResult, recs)
@@ -558,6 +569,40 @@ export default function MobileApp() {
 
       {zonePrompt&&<div style={{position:'fixed',inset:0,background:'#000000CC',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',padding:24}}><div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:18,padding:28,maxWidth:340,width:'100%',animation:'fadeUp .3s ease'}}><div style={{fontSize:18,fontWeight:700,marginBottom:8,color:TEXT}}>Zone Complete</div><div style={{fontSize:14,color:SUB,marginBottom:24,lineHeight:1.6}}>Add another zone to this assessment?</div><div style={{display:'flex',flexDirection:'column',gap:10}}><button onClick={()=>{trackEvent('zone_added',{zone_index:zones.length});setZonePrompt(false);setZones(p=>[...p,{}]);setCurZone(zones.length);setZqi(0)}} style={{padding:'16px 0',background:`${ACCENT}12`,border:`1px solid ${ACCENT}30`,borderRadius:12,color:ACCENT,fontSize:16,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:52}}>+ Add Another Zone</button><button onClick={()=>{setZonePrompt(false);finishAssessment()}} style={{padding:'16px 0',background:'linear-gradient(135deg,#059669,#22C55E)',border:'none',borderRadius:12,color:'#fff',fontSize:16,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:52}}>Finish Assessment ✓</button></div></div></div>}
 
+      {/* ── Pricing Modal ── */}
+      {showPricing&&<div style={{position:'fixed',inset:0,background:'#000000DD',zIndex:250,display:'flex',alignItems:'flex-end',justifyContent:'center'}} onClick={e=>{if(e.target===e.currentTarget)setShowPricing(false)}}>
+        <div style={{width:'100%',maxWidth:contentMax,background:CARD,border:`1px solid ${BORDER}`,borderRadius:'20px 20px 0 0',padding:'24px 20px',paddingBottom:'calc(32px + env(safe-area-inset-bottom, 0px))',animation:'fadeUp .3s ease'}}>
+          <div style={{width:36,height:4,borderRadius:2,background:BORDER,margin:'0 auto 16px'}} />
+          <div style={{fontSize:18,fontWeight:700,color:TEXT,marginBottom:4}}>Assessment Credits</div>
+          <div style={{fontSize:12,color:SUB,marginBottom:4}}>Credits power assessments and AI narrative generation.</div>
+          <div style={{fontSize:11,color:DIM,marginBottom:20,fontFamily:"'DM Mono'"}}>Current balance: {credits} credit{credits!==1?'s':''}</div>
+          {[
+            {id:'starter',name:'Starter',credits:25,price:'$9',per:'$0.36/ea',desc:'For individual assessors'},
+            {id:'pro',name:'Pro',credits:100,price:'$29',per:'$0.29/ea',desc:'For active consultants',popular:true},
+            {id:'team',name:'Team',credits:500,price:'$99',per:'$0.20/ea',desc:'For firms and teams'},
+          ].map(p=>(
+            <button key={p.id} onClick={async()=>{
+              try{
+                const res=await fetch('/api/checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({plan:p.id,userId:profile?.id,userEmail:profile?.email})})
+                const data=await res.json()
+                if(data.url)window.location.href=data.url
+              }catch{alert('Payment setup failed. Please try again.')}
+            }} style={{width:'100%',padding:'16px 18px',background:p.popular?`${ACCENT}08`:SURFACE,border:`1px solid ${p.popular?ACCENT+'30':BORDER}`,borderRadius:12,marginBottom:8,cursor:'pointer',textAlign:'left',fontFamily:'inherit',position:'relative',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+              {p.popular&&<div style={{position:'absolute',top:-8,right:16,padding:'2px 10px',borderRadius:6,background:ACCENT,color:BG,fontSize:9,fontWeight:700}}>BEST VALUE</div>}
+              <div>
+                <div style={{fontSize:15,fontWeight:700,color:TEXT}}>{p.name} <span style={{fontWeight:500,color:SUB}}>— {p.credits} credits</span></div>
+                <div style={{fontSize:11,color:DIM,marginTop:2}}>{p.desc}</div>
+              </div>
+              <div style={{textAlign:'right',flexShrink:0}}>
+                <div style={{fontSize:18,fontWeight:700,color:ACCENT}}>{p.price}</div>
+                <div style={{fontSize:9,color:DIM,fontFamily:"'DM Mono'"}}>{p.per}</div>
+              </div>
+            </button>
+          ))}
+          <div style={{textAlign:'center',marginTop:12,fontSize:10,color:DIM}}>Secure payments by Stripe · Credits never expire</div>
+        </div>
+      </div>}
+
       {delConf&&<div style={{position:'fixed',inset:0,background:'#000000CC',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',padding:24}}><div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:18,padding:28,maxWidth:340,width:'100%',animation:'fadeUp .3s ease'}}><div style={{fontSize:18,fontWeight:700,marginBottom:8,color:TEXT}}>Move to Trash?</div><div style={{fontSize:14,color:SUB,marginBottom:12,lineHeight:1.6}}>You can recover this for 30 days.</div><div style={{fontSize:12,color:DIM,marginBottom:24,background:SURFACE,padding:'10px 14px',borderRadius:8}}>Recoverable from Dashboard → Trash</div><div style={{display:'flex',gap:10}}><button onClick={()=>setDelConf(null)} style={{flex:1,padding:'14px 0',background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:10,color:SUB,fontSize:14,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>Cancel</button><button onClick={()=>deleteItem(delConf.id,delConf.name,delConf.type)} style={{flex:1,padding:'14px 0',background:'#EF444420',border:'1px solid #EF444440',borderRadius:10,color:'#EF4444',fontSize:14,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>Delete</button></div></div></div>}
 
       <div style={{maxWidth:contentMax,margin:'0 auto',padding:`0 ${padX}px`,position:'relative',zIndex:1}}>
@@ -574,9 +619,15 @@ export default function MobileApp() {
                 <span>Standards loaded</span>
               </div>
             </div>
-            {profile&&<button onClick={()=>setView('settings')} style={{width:36,height:36,borderRadius:10,background:CARD,border:`1px solid ${BORDER}`,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',transition:'border-color 0.15s'}}>
-              <I n="user" s={16} c={SUB} />
-            </button>}
+            <div style={{display:'flex',alignItems:'center',gap:8}}>
+              <button onClick={()=>setShowPricing(true)} style={{padding:'4px 10px',borderRadius:6,background:`${ACCENT}10`,border:`1px solid ${ACCENT}18`,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:4}}>
+                <span style={{fontSize:12,fontWeight:700,color:ACCENT,fontFamily:"'DM Mono'"}}>{credits}</span>
+                <span style={{fontSize:9,color:SUB}}>credits</span>
+              </button>
+              {profile&&<button onClick={()=>setView('settings')} style={{width:36,height:36,borderRadius:10,background:CARD,border:`1px solid ${BORDER}`,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',transition:'border-color 0.15s'}}>
+                <I n="user" s={16} c={SUB} />
+              </button>}
+            </div>
           </div>
 
           {/* ── Dashboard Content — adaptive layout ── */}

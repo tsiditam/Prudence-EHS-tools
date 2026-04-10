@@ -195,6 +195,7 @@ export default function SettingsScreen({ profile, onEditProfile, onLogout, onClo
       {/* ═══ ACCOUNT ═══ */}
       <Section title="Account" />
 
+      <Row icon="bolt" label="Buy Credits" sub="Assessment and narrative credits" action={() => onNavigate?.('pricing')} />
       <Row icon="user" label="Sign Out" sub="Switch assessor profile" action={onLogout} color={DANGER} />
 
       {/* ═══ LEGAL & SUPPORT ═══ */}
