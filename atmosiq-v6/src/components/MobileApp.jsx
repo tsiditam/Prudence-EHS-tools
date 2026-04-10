@@ -21,7 +21,6 @@ import { generateSamplingPlan } from '../engines/sampling'
 import { buildCausalChains } from '../engines/causalChains'
 import { generateNarrative } from '../engines/narrative'
 import { I, emojiToIcon } from './Icons'
-import Particles from './Particles'
 import Loading from './Loading'
 import ScoreRing from './ScoreRing'
 import PhotoCapture from './PhotoCapture'
@@ -392,47 +391,103 @@ export default function MobileApp() {
   const renderResults = (archived) => {
     if (!comp || !zoneScores.length) return null
     const zs = zoneScores[selZone]
-    // Count how many detail fields are filled
     const detailsFilled = Q_DETAILS.filter(q => mergedData[q.id]).length
-    const detailsTotal = Q_DETAILS.length
+    const worstCat = zs?.cats?.reduce((a, b) => ((a.s/a.mx) < (b.s/b.mx) ? a : b)) || null
+    const riskLabel = comp.tot < 30 ? 'Critical IAQ concern' : comp.tot < 50 ? 'Significant IAQ concern' : comp.tot < 70 ? 'Moderate IAQ concern' : 'Acceptable conditions'
+    const actionLabel = comp.tot < 30 ? 'Immediate corrective action recommended' : comp.tot < 50 ? 'Targeted investigation and corrective action warranted' : comp.tot < 70 ? 'Targeted improvements recommended' : 'Continue monitoring'
+
     return (
-      <div style={{paddingTop:28,paddingBottom:120}}>
-        <div style={{padding:'16px 18px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:14,marginBottom:14}}>
-          <div style={{fontSize:16,fontWeight:700,marginBottom:4,color:TEXT}}>{bldg.fn||'Assessment'}</div>
-          <div style={{fontSize:13,color:SUB,marginBottom:8}}>{bldg.fl}</div>
-          <div style={{display:'flex',flexWrap:'wrap',gap:12,fontSize:12,color:DIM,fontFamily:"'DM Mono'"}}>
-            {profile&&<span>👤 {profile.name}</span>}
-            <span>📅 {clock.toLocaleDateString([],{weekday:'short',month:'short',day:'numeric'})}</span>
+      <div style={{paddingTop:20,paddingBottom:120}}>
+
+        {/* ── Building Header (compact) ── */}
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:17,fontWeight:700,color:TEXT,letterSpacing:'-0.2px'}}>{bldg.fn||'Assessment'}</div>
+          <div style={{fontSize:11,color:DIM,marginTop:3,fontFamily:"'DM Mono'"}}>{bldg.fl}</div>
+          <div style={{display:'flex',gap:12,marginTop:6,fontSize:10,color:DIM,fontFamily:"'DM Mono'"}}>
+            {profile&&<span>{profile.name}</span>}
+            <span>{clock.toLocaleDateString([],{weekday:'short',month:'short',day:'numeric'})}</span>
           </div>
         </div>
 
-        {/* Assessment Details prompt */}
+        {/* ── Composite Score Card ── */}
+        <div style={{padding:'20px',background:CARD,border:`1px solid ${comp.tot<30?'#EF444430':comp.tot<50?'#FB923C30':BORDER}`,borderRadius:14,marginBottom:12}}>
+          <div style={{display:'flex',alignItems:'center',gap:20}}>
+            <div style={{flexShrink:0}}>
+              <ScoreRing value={comp.tot} color={comp.rc} size={100} />
+            </div>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+                <span style={{padding:'3px 10px',borderRadius:4,fontSize:10,fontWeight:700,background:`${comp.rc}18`,color:comp.rc,textTransform:'uppercase',fontFamily:"'DM Mono'",letterSpacing:'0.5px'}}>{comp.risk}</span>
+              </div>
+              <div style={{fontSize:13,fontWeight:600,color:TEXT,marginBottom:4}}>{riskLabel}</div>
+              <div style={{fontSize:11,color:SUB,lineHeight:1.5}}>{actionLabel}</div>
+            </div>
+          </div>
+          <div style={{display:'flex',gap:1,marginTop:16,background:SURFACE,borderRadius:8,overflow:'hidden'}}>
+            {[
+              {l:'Zone average',v:comp.avg},
+              {l:'Lowest zone',v:comp.worst},
+              {l:'Zones assessed',v:comp.count},
+            ].map((m,i)=>(
+              <div key={i} style={{flex:1,padding:'10px 8px',textAlign:'center',borderRight:i<2?`1px solid ${BORDER}`:'none'}}>
+                <div style={{fontSize:16,fontWeight:700,color:TEXT,fontFamily:"'DM Mono'"}}>{m.v}</div>
+                <div style={{fontSize:8,color:DIM,marginTop:2,textTransform:'uppercase',letterSpacing:'0.5px'}}>{m.l}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Expert Summary Card ── */}
+        {(causalChains.length > 0 || worstCat) && (
+          <div style={{padding:'14px 16px',background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:10,marginBottom:12}}>
+            <div style={{fontSize:10,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:10}}>Expert Summary</div>
+            <div style={{display:'flex',flexDirection:'column',gap:6,fontSize:12,color:SUB}}>
+              {worstCat && <div style={{display:'flex',gap:8}}><span style={{color:DIM,flexShrink:0,width:100}}>Primary driver</span><span style={{color:TEXT,fontWeight:600}}>{worstCat.l}</span></div>}
+              {causalChains[0] && <div style={{display:'flex',gap:8}}><span style={{color:DIM,flexShrink:0,width:100}}>Likely cause</span><span style={{color:TEXT}}>{causalChains[0].type}</span></div>}
+              {recs?.imm?.[0] && <div style={{display:'flex',gap:8}}><span style={{color:DIM,flexShrink:0,width:100}}>Next action</span><span style={{color:ACCENT}}>{recs.imm[0].length > 80 ? recs.imm[0].slice(0,77)+'...' : recs.imm[0]}</span></div>}
+              <div style={{display:'flex',gap:8}}><span style={{color:DIM,flexShrink:0,width:100}}>Sampling</span><span style={{color:TEXT}}>{samplingPlan?.plan?.length > 0 ? `${samplingPlan.plan.length} recommendation${samplingPlan.plan.length>1?'s':''}` : 'Not indicated'}</span></div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Assessment Details prompt ── */}
         {!archived && detailsFilled < 5 && (
-          <button onClick={()=>{setDqi(0);setView('details')}} style={{width:'100%',padding:'14px 18px',background:'#FBBF2410',border:`1px solid #FBBF2428`,borderRadius:14,marginBottom:14,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,fontFamily:'inherit',minHeight:56}}>
-            <div style={{width:40,height:40,borderRadius:10,background:'#FBBF2415',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><I n="clip" s={20} c="#FBBF24" /></div>
-            <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600,color:'#FBBF24'}}>Add Assessment Details</div><div style={{fontSize:12,color:SUB,marginTop:2}}>HVAC details, weather, history — strengthens defensibility</div></div>
-            <div style={{fontSize:16,color:'#FBBF24'}}>→</div>
+          <button onClick={()=>{setDqi(0);setView('details')}} style={{width:'100%',padding:'12px 16px',background:`${WARN}08`,border:`1px solid ${WARN}20`,borderRadius:10,marginBottom:12,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit'}}>
+            <I n="clip" s={16} c={WARN} />
+            <div style={{flex:1}}><span style={{fontSize:12,fontWeight:600,color:WARN}}>Add assessment details</span><span style={{fontSize:10,color:DIM,marginLeft:8}}>Strengthens defensibility</span></div>
+            <span style={{fontSize:13,color:WARN}}>→</span>
           </button>
         )}
 
-        <div style={{textAlign:'center',padding:'36px 20px 28px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:20,position:'relative',overflow:'hidden',marginBottom:14}}>
-          <div style={{position:'absolute',inset:0,opacity:.25}}><Particles /></div>
-          <div style={{position:'relative',zIndex:1}}>
-            <div style={{fontSize:12,color:SUB,textTransform:'uppercase',fontFamily:"'DM Mono'",letterSpacing:2,marginBottom:14}}>Building Composite</div>
-            <ScoreRing value={comp.tot} color={comp.rc} size={140} />
-            <div style={{marginTop:12}}>{badge(comp.risk,comp.rc)}</div>
-            <div style={{display:'flex',justifyContent:'center',gap:24,marginTop:16,fontSize:11,color:DIM,fontFamily:"'DM Mono'"}}>
-              <span>Avg: {comp.avg}</span><span>Worst: {comp.worst}</span><span>{comp.count} zone{comp.count>1?'s':''}</span>
-            </div>
+        {/* ── Report Status Strip ── */}
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 14px',background:SURFACE,borderRadius:8,border:`1px solid ${BORDER}`,marginBottom:16}}>
+          <div style={{display:'flex',alignItems:'center',gap:6}}>
+            <div style={{width:6,height:6,borderRadius:'50%',background:archived?SUCCESS:narrative?WARN:DIM}} />
+            <span style={{fontSize:10,color:SUB,fontFamily:"'DM Mono'"}}>{archived?'Final':narrative?'Ready for review':'Draft'}</span>
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:10,fontSize:9,color:DIM,fontFamily:"'DM Mono'"}}>
+            <span>{zoneScores.reduce((a,z)=>a+z.cats.reduce((b,c)=>b+c.r.length,0),0)} findings</span>
+            <span>{Object.keys(photos||{}).length} photos</span>
           </div>
         </div>
 
-        {zoneScores.length > 1 && <div style={{display:'flex',gap:4,padding:4,background:CARD,borderRadius:12,border:`1px solid ${BORDER}`,marginBottom:14,overflowX:'auto',WebkitOverflowScrolling:'touch'}}>
-          {zoneScores.map((z,i) => <button key={i} onClick={()=>setSelZone(i)} style={{padding:'10px 14px',borderRadius:8,border:'none',background:selZone===i?`${z.rc}18`:'transparent',color:selZone===i?z.rc:DIM,fontSize:14,fontWeight:600,cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap',flexShrink:0,minHeight:44}}>{z.zoneName} <span style={{fontFamily:"'DM Mono'",fontWeight:800}}>{z.tot}</span></button>)}
+        {/* ── Zone Selector ── */}
+        {zoneScores.length > 1 && <div style={{display:'flex',gap:4,padding:3,background:CARD,borderRadius:10,border:`1px solid ${BORDER}`,marginBottom:12,overflowX:'auto',WebkitOverflowScrolling:'touch',scrollbarWidth:'none'}}>
+          {zoneScores.map((z,i) => (
+            <button key={i} onClick={()=>setSelZone(i)} style={{padding:'8px 14px',borderRadius:7,border:'none',background:selZone===i?`${z.rc}15`:'transparent',color:selZone===i?z.rc:DIM,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap',flexShrink:0,minHeight:38,display:'flex',alignItems:'center',gap:6}}>
+              {z.zoneName}
+              <span style={{fontFamily:"'DM Mono'",fontWeight:800,fontSize:12}}>{z.tot}</span>
+            </button>
+          ))}
         </div>}
 
-        <div style={{display:'flex',gap:4,padding:4,background:CARD,borderRadius:12,border:`1px solid ${BORDER}`,marginBottom:16,overflowX:'auto',scrollbarWidth:'none',WebkitOverflowScrolling:'touch'}}>
-          {[['overview','findings','Findings'],['rootcause','chain','Root Cause'],['sampling','flask','Sampling'],['narrative','pulse','AI Report'],['actions','bolt','Actions']].map(([k,ic,l])=><button key={k} onClick={()=>{setRTab(k);haptic('light')}} style={{flex:'0 0 auto',padding:'12px 16px',borderRadius:8,border:'none',background:rTab===k?`${ACCENT}15`:'transparent',color:rTab===k?ACCENT:DIM,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:6,minHeight:44}}><I n={ic} s={16} c={rTab===k?ACCENT:DIM} />{l}</button>)}
+        {/* ── Content Tabs ── */}
+        <div style={{display:'flex',gap:3,padding:3,background:CARD,borderRadius:10,border:`1px solid ${BORDER}`,marginBottom:14,overflowX:'auto',scrollbarWidth:'none',WebkitOverflowScrolling:'touch'}}>
+          {[['overview','findings','Findings'],['rootcause','chain','Root Cause'],['sampling','flask','Sampling'],['narrative','pulse','AI Report'],['actions','bolt','Actions']].map(([k,ic,l])=>(
+            <button key={k} onClick={()=>{setRTab(k);haptic('light')}} style={{flex:'0 0 auto',padding:'9px 14px',borderRadius:7,border:'none',background:rTab===k?`${ACCENT}12`:'transparent',color:rTab===k?ACCENT:DIM,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:5,minHeight:36}}>
+              <I n={ic} s={14} c={rTab===k?ACCENT:DIM} w={1.6} />{l}
+            </button>
+          ))}
         </div>
 
         {rTab==='overview' && zs && <div style={{display:isTablet?'grid':'flex',gridTemplateColumns:isTablet?'1fr 1fr':'none',flexDirection:'column',gap:12}}>
