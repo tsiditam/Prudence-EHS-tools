@@ -41,20 +41,20 @@ function scoreVent(d) {
   let s = 25, r = []
   if (d.co2) {
     const v = +d.co2, o = d.co2o ? +d.co2o : STD.v.co2.base, df = v - o
-    if (v > STD.v.co2.act)                              { s = 0;  r.push({ t: 'CO2 ' + v + ' ppm — severely inadequate', std: STD.v.ref, sev: 'critical' }) }
-    else if (df > STD.v.co2.diff || v > STD.v.co2.con) { s = 10; r.push({ t: 'CO2 ' + v + ' ppm — below standard', std: STD.v.ref, sev: 'high' }) }
-    else if (v > 800)                                   { s = 20; r.push({ t: 'CO2 ' + v + ' ppm — approaching concern', std: STD.v.ref, sev: 'medium' }) }
-    else r.push({ t: 'CO2 ' + v + ' ppm — good', std: STD.v.ref, sev: 'pass' })
+    if (v > STD.v.co2.act)                              { s = 0;  r.push({ t: 'CO₂ ' + v + ' ppm — severely elevated, indicates critically inadequate ventilation', std: STD.v.ref, sev: 'critical' }) }
+    else if (df > STD.v.co2.diff || v > STD.v.co2.con) { s = 10; r.push({ t: 'CO₂ ' + v + ' ppm — exceeds ASHRAE ventilation threshold (Δ' + df + ' ppm above outdoor)', std: STD.v.ref, sev: 'high' }) }
+    else if (v > 800)                                   { s = 20; r.push({ t: 'CO₂ ' + v + ' ppm — approaching ventilation concern level', std: STD.v.ref, sev: 'medium' }) }
+    else r.push({ t: 'CO₂ ' + v + ' ppm — within acceptable ventilation range', std: STD.v.ref, sev: 'pass' })
   } else {
     let f = 0
     if (d.sa === 'No airflow detected') f += 3
     else if (d.sa === 'Weak / reduced') f += 2
     if (d.od === 'Closed / minimum' || d.od === 'Stuck / inoperable') f += 2
     if (d.cx === 'Yes — complaints reported' && (d.sy || []).some(s => ['Headache','Fatigue','Concentration issues'].includes(s))) f += 1
-    if (f >= 4)      { s = 5;  r.push({ t: 'No CO2 — poor ventilation inferred', sev: 'high' }) }
-    else if (f >= 2) { s = 12; r.push({ t: 'No CO2 — concern from indicators', sev: 'medium' }) }
-    else if (f >= 1) { s = 18; r.push({ t: 'No CO2 — minor indicators', sev: 'low' }) }
-    else r.push({ t: 'No CO2 — no concerns', sev: 'pass' })
+    if (f >= 4)      { s = 5;  r.push({ t: 'No CO₂ data — ventilation inadequacy inferred from multiple field indicators', sev: 'high' }) }
+    else if (f >= 2) { s = 12; r.push({ t: 'No CO₂ data — ventilation concern supported by field observations', sev: 'medium' }) }
+    else if (f >= 1) { s = 18; r.push({ t: 'No CO₂ data — minor ventilation indicators observed', sev: 'low' }) }
+    else r.push({ t: 'No CO₂ data — no ventilation concerns from field indicators', sev: 'pass' })
   }
   return { s, mx: 25, l: 'Ventilation', r }
 }
@@ -63,8 +63,8 @@ function scoreCont(d) {
   let dd = 0, r = []
   if (d.pm) {
     const v = +d.pm, ho = !!d.pmo
-    if (v > STD.c.pm25.epa)      { dd += ho ? 12 : 8; r.push({ t: 'PM2.5 ' + v + ' — exceeds EPA' + (ho?'':' (no outdoor baseline)'), std:'EPA', sev:'high' }) }
-    else if (v > STD.c.pm25.who) { dd += ho ? 6  : 4; r.push({ t: 'PM2.5 ' + v + ' — exceeds WHO' + (ho?'':' (no outdoor baseline)'), std:'WHO', sev:'medium' }) }
+    if (v > STD.c.pm25.epa)      { dd += ho ? 12 : 8; r.push({ t: 'PM2.5 ' + v + ' µg/m³ — exceeds EPA 24-hr standard' + (ho?'':' (outdoor baseline not recorded)'), std:'EPA NAAQS', sev:'high' }) }
+    else if (v > STD.c.pm25.who) { dd += ho ? 6  : 4; r.push({ t: 'PM2.5 ' + v + ' µg/m³ — exceeds WHO guideline' + (ho?'':' (outdoor baseline not recorded)'), std:'WHO AQG', sev:'medium' }) }
   }
   if (d.co) {
     const v = +d.co
@@ -73,9 +73,9 @@ function scoreCont(d) {
   }
   if (d.hc) {
     const v = +d.hc
-    if (v > STD.c.hcho.osha)       { dd += 25; r.push({ t: 'HCHO ' + v + ' — EXCEEDS OSHA PEL', std:'OSHA', sev:'critical' }) }
-    else if (v > STD.c.hcho.al)    { dd += 12; r.push({ t: 'HCHO ' + v + ' — above Action Level', std:'OSHA', sev:'high' }) }
-    else if (v > STD.c.hcho.niosh) { dd += 6;  r.push({ t: 'HCHO ' + v + ' — above NIOSH REL', std:'NIOSH', sev:'medium' }) }
+    if (v > STD.c.hcho.osha)       { dd += 25; r.push({ t: 'Formaldehyde ' + v + ' ppm — exceeds OSHA permissible exposure limit', std:'29 CFR 1910.1048', sev:'critical' }) }
+    else if (v > STD.c.hcho.al)    { dd += 12; r.push({ t: 'Formaldehyde ' + v + ' ppm — exceeds OSHA action level', std:'29 CFR 1910.1048', sev:'high' }) }
+    else if (v > STD.c.hcho.niosh) { dd += 6;  r.push({ t: 'Formaldehyde ' + v + ' ppm — exceeds NIOSH recommended exposure limit', std:'NIOSH REL', sev:'medium' }) }
   }
   if (d.tv) {
     const v = +d.tv, ho = !!d.tvo
@@ -98,28 +98,28 @@ function scoreCont(d) {
 
 function scoreHVAC(d) {
   let s = 20, r = []
-  if (d.hm === 'Within 6 months')     r.push({ t:'Maintained <6 mo', sev:'pass' })
-  else if (d.hm === '6-12 months ago'){ s -= 5;  r.push({ t:'Maintenance 6-12 mo', sev:'low' }) }
-  else if (d.hm === 'Over 12 months') { s -= 15; r.push({ t:'Maintenance >12 mo', sev:'high' }) }
-  else if (d.hm === 'Unknown')        { s -= 20; r.push({ t:'Maintenance unknown', sev:'high' }) }
-  if (d.fc === 'Heavily loaded' || d.fc === 'Damaged / Bypass') { s -= 5; r.push({ t:'Filter: '+d.fc, sev:'medium' }) }
-  if (d.fm === 'No filter')           { s -= 8;  r.push({ t:'No filter', sev:'high' }) }
-  if (d.sa === 'No airflow detected') { s -= 8;  r.push({ t:'No airflow', sev:'critical' }) }
-  if (d.dp === 'Standing water' || d.dp === 'Bio growth observed') { s -= 5; r.push({ t:'Drain pan: '+d.dp, sev:'medium' }) }
+  if (d.hm === 'Within 6 months')     r.push({ t:'HVAC maintenance current (within 6 months)', sev:'pass' })
+  else if (d.hm === '6-12 months ago'){ s -= 5;  r.push({ t:'HVAC maintenance 6–12 months ago', sev:'low' }) }
+  else if (d.hm === 'Over 12 months') { s -= 15; r.push({ t:'HVAC maintenance overdue (>12 months)', sev:'high' }) }
+  else if (d.hm === 'Unknown')        { s -= 20; r.push({ t:'HVAC maintenance history unknown', sev:'high' }) }
+  if (d.fc === 'Heavily loaded' || d.fc === 'Damaged / Bypass') { s -= 5; r.push({ t:'Filter condition: '+d.fc.toLowerCase(), sev:'medium' }) }
+  if (d.fm === 'No filter')           { s -= 8;  r.push({ t:'No filtration installed', sev:'high' }) }
+  if (d.sa === 'No airflow detected') { s -= 8;  r.push({ t:'No supply airflow detected at diffuser', sev:'critical' }) }
+  if (d.dp === 'Standing water' || d.dp === 'Bio growth observed') { s -= 5; r.push({ t:'Condensate drain pan: '+d.dp.toLowerCase(), sev:'medium' }) }
   s = Math.max(0, s)
-  if (!r.length) r = [{ t:'HVAC acceptable', sev:'pass' }]
+  if (!r.length) r = [{ t:'HVAC system conditions acceptable', sev:'pass' }]
   return { s, mx: 20, l: 'HVAC', r }
 }
 
 function scoreComp(d) {
   let s = 15, r = []
   if (d.cx !== 'Yes — complaints reported') { r.push({ t:'No complaints', sev:'pass' }); return { s, mx:15, l:'Complaints', r } }
-  if (d.ac === 'More than 10' || d.ac === '6-10') { s = 0;  r.push({ t:d.ac+' affected', sev:'critical' }) }
-  else if (d.ac === '3-5')                        { s = 5;  r.push({ t:'3-5 affected', sev:'high' }) }
-  else                                            { s = 10; r.push({ t:'1-2 affected', sev:'medium' }) }
-  if (d.sr === 'Yes — clear pattern') { s = Math.max(0, s-3); r.push({ t:'Resolves away from building', sev:'high' }) }
-  if (d.cc === 'Yes — this zone') r.push({ t:'Clustered in this zone', sev:'medium' })
-  if ((d.sy||[]).length) r.push({ t:'Symptoms: '+d.sy.join(', '), sev:'info' })
+  if (d.ac === 'More than 10' || d.ac === '6-10') { s = 0;  r.push({ t:d.ac+' occupants reporting symptoms', sev:'critical' }) }
+  else if (d.ac === '3-5')                        { s = 5;  r.push({ t:'3–5 occupants reporting symptoms', sev:'high' }) }
+  else                                            { s = 10; r.push({ t:'1–2 occupants reporting symptoms', sev:'medium' }) }
+  if (d.sr === 'Yes — clear pattern') { s = Math.max(0, s-3); r.push({ t:'Symptoms resolve when away from building', sev:'high' }) }
+  if (d.cc === 'Yes — this zone') r.push({ t:'Symptom clustering observed in this zone', sev:'medium' })
+  if ((d.sy||[]).length) r.push({ t:'Reported symptoms: '+d.sy.join(', ').toLowerCase(), sev:'info' })
   return { s, mx: 15, l: 'Complaints', r }
 }
 
@@ -128,17 +128,17 @@ function scoreEnv(d) {
   const ssn = new Date().getMonth() >= 4 && new Date().getMonth() <= 9 ? 'summer' : 'winter'
   if (d.tf) {
     const t = +d.tf, rng = STD.t.temp[ssn]
-    if (t < rng.min || t > rng.max)        { dd += 5; r.push({ t:'Temp '+t+'°F — outside ASHRAE 55', std:STD.t.ref, sev:'high' }) }
-    else if (t < rng.oMin || t > rng.oMax) { dd += 2; r.push({ t:'Temp '+t+'°F — outside optimal', std:STD.t.ref, sev:'low' }) }
-  } else if (d.tc === 'Too hot' || d.tc === 'Too cold') { dd += 4; r.push({ t:'Occupants: '+d.tc, sev:'medium' }) }
+    if (t < rng.min || t > rng.max)        { dd += 5; r.push({ t:'Temperature '+t+'°F — outside ASHRAE 55 acceptable range', std:STD.t.ref, sev:'high' }) }
+    else if (t < rng.oMin || t > rng.oMax) { dd += 2; r.push({ t:'Temperature '+t+'°F — outside ASHRAE 55 optimal range', std:STD.t.ref, sev:'low' }) }
+  } else if (d.tc === 'Too hot' || d.tc === 'Too cold') { dd += 4; r.push({ t:'Occupant-reported thermal discomfort: '+d.tc.toLowerCase(), sev:'medium' }) }
   if (d.rh) {
     const v = +d.rh
-    if (v < STD.t.rh.min || v > STD.t.rh.max) { dd += 4; r.push({ t:'RH '+v+'% — outside range', std:STD.t.ref, sev:v>70||v<20?'high':'medium' }) }
-  } else if (d.hp === 'Too humid / stuffy' || d.hp === 'Too dry') { dd += 3; r.push({ t:'Humidity: '+d.hp, sev:'medium' }) }
-  if (d.wd === 'Extensive damage')  { dd += 15; r.push({ t:'Extensive water damage', sev:'critical' }) }
-  else if (d.wd === 'Active leak')  { dd += 10; r.push({ t:'Active water intrusion', sev:'high' }) }
-  else if (d.wd === 'Old staining') { dd += 3;  r.push({ t:'Historical staining', sev:'low' }) }
-  if (!r.length) r.push({ t:'Environment OK', sev:'pass' })
+    if (v < STD.t.rh.min || v > STD.t.rh.max) { dd += 4; r.push({ t:'Relative humidity '+v+'% — outside recommended range (30–60%)', std:STD.t.ref, sev:v>70||v<20?'high':'medium' }) }
+  } else if (d.hp === 'Too humid / stuffy' || d.hp === 'Too dry') { dd += 3; r.push({ t:'Occupant-reported humidity concern: '+d.hp.toLowerCase(), sev:'medium' }) }
+  if (d.wd === 'Extensive damage')  { dd += 15; r.push({ t:'Extensive water damage observed', sev:'critical' }) }
+  else if (d.wd === 'Active leak')  { dd += 10; r.push({ t:'Active water intrusion observed', sev:'high' }) }
+  else if (d.wd === 'Old staining') { dd += 3;  r.push({ t:'Historical water staining observed', sev:'low' }) }
+  if (!r.length) r.push({ t:'Environmental conditions within acceptable range', sev:'pass' })
   return { s: Math.max(0, 15-dd), mx: 15, l: 'Environment', r }
 }
 
