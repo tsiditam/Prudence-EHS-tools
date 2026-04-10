@@ -577,9 +577,9 @@ export default function MobileApp() {
           <div style={{fontSize:12,color:SUB,marginBottom:4}}>Credits power assessments and AI narrative generation.</div>
           <div style={{fontSize:11,color:DIM,marginBottom:20,fontFamily:"'DM Mono'"}}>Current balance: {credits} credit{credits!==1?'s':''}</div>
           {[
-            {id:'starter',name:'Starter',credits:25,price:'$9',per:'$0.36/ea',desc:'For individual assessors'},
-            {id:'pro',name:'Pro',credits:100,price:'$29',per:'$0.29/ea',desc:'For active consultants',popular:true},
-            {id:'team',name:'Team',credits:500,price:'$99',per:'$0.20/ea',desc:'For firms and teams'},
+            {id:'solo',name:'Solo',credits:50,price:'$149',per:'/month',desc:'For independent assessors'},
+            {id:'pro',name:'Pro',credits:200,price:'$349',per:'/month',desc:'For active consulting firms',popular:true},
+            {id:'team',name:'Team',credits:500,price:'$799',per:'/month',desc:'For teams and enterprise'},
           ].map(p=>(
             <button key={p.id} onClick={async()=>{
               try{

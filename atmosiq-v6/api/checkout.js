@@ -6,9 +6,9 @@
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
 
 const PLANS = {
-  starter: { credits: 25, price: 900, name: 'Starter — 25 credits' },
-  pro: { credits: 100, price: 2900, name: 'Pro — 100 credits' },
-  team: { credits: 500, price: 9900, name: 'Team — 500 credits' },
+  solo: { credits: 50, price: 14900, name: 'Solo — $149/mo', desc: 'For independent assessors' },
+  pro: { credits: 200, price: 34900, name: 'Pro — $349/mo', desc: 'For active consulting firms' },
+  team: { credits: 500, price: 79900, name: 'Team — $799/mo', desc: 'For teams and enterprise' },
 }
 
 module.exports = async function handler(req, res) {
