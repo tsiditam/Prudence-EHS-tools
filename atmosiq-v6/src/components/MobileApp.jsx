@@ -565,10 +565,14 @@ export default function MobileApp() {
         {view==='dash'&&<div style={{paddingTop:28,paddingBottom:100}}>
 
           {/* ── Context Header ── */}
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24,animation:'fadeUp .4s ease'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20,animation:'fadeUp .4s ease'}}>
             <div>
-              <div style={{fontSize:13,fontWeight:600,color:SUB,marginBottom:4}}>{profile?.name?.split(',')[0]||'Assessor'}</div>
-              <div style={{fontSize:11,fontFamily:"'DM Mono'",color:DIM}}>{new Date().toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'})}</div>
+              <div style={{fontSize:14,fontWeight:600,color:TEXT,marginBottom:2}}>{profile?.name||'Assessor'}</div>
+              <div style={{fontSize:11,fontFamily:"'DM Mono'",color:SUB}}>{new Date().toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'})}</div>
+              <div style={{fontSize:10,color:DIM,marginTop:4,display:'flex',alignItems:'center',gap:6}}>
+                {profile?.iaq_meter && <><div style={{width:5,height:5,borderRadius:'50%',background:profile.iaq_cal_status?.includes('within manufacturer')?SUCCESS:WARN}} /><span>{profile.iaq_cal_status?.includes('within manufacturer')?'Meter calibrated':'Check calibration'}</span><span style={{color:BORDER}}>·</span></>}
+                <span>Standards loaded</span>
+              </div>
             </div>
             {profile&&<button onClick={()=>setView('settings')} style={{width:36,height:36,borderRadius:10,background:CARD,border:`1px solid ${BORDER}`,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',transition:'border-color 0.15s'}}>
               <I n="user" s={16} c={SUB} />
@@ -607,10 +611,10 @@ export default function MobileApp() {
           {/* ── Workspace Cards ── */}
           <div style={{display:'grid',gridTemplateColumns:isTabletLand?'1fr':'1fr 1fr',gap:10,marginBottom:isTabletLand?12:20}}>
             {[
-              {l:'Drafts',n:(index.drafts||[]).length,v:'drafts',ic:'clip',sub:'In progress'},
-              {l:'Reports',n:(index.reports||[]).length,v:'history',ic:'findings',sub:'Completed'}
+              {l:'Drafts',n:(index.drafts||[]).length,v:'drafts',ic:'clip',sub:((index.drafts||[]).length>0?'In progress':'No active drafts')},
+              {l:'Reports',n:(index.reports||[]).length,v:'history',ic:'findings',sub:((index.reports||[]).length>0?'Finalized':'No finalized reports')}
             ].map(c=>(
-              <button key={c.l} onClick={()=>{if(c.n)setView(c.v)}} style={{padding:'16px',background:CARD,border:`1px solid ${c.n?`${ACCENT}18`:BORDER}`,borderRadius:10,cursor:c.n?'pointer':'default',textAlign:'left',fontFamily:'inherit',opacity:c.n?1:0.5,transition:'border-color 0.15s'}}>
+              <button key={c.l} onClick={()=>{if(c.n)setView(c.v)}} style={{padding:'16px',background:CARD,border:`1px solid ${c.n?`${ACCENT}18`:BORDER}`,borderRadius:10,cursor:c.n?'pointer':'default',textAlign:'left',fontFamily:'inherit',transition:'border-color 0.15s'}}>
                 <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
                   <I n={c.ic} s={18} c={c.n?ACCENT:DIM} w={1.8} />
                   <span style={{fontSize:20,fontWeight:700,fontFamily:"'DM Mono'",color:c.n?TEXT:DIM}}>{c.n}</span>
@@ -621,13 +625,26 @@ export default function MobileApp() {
             ))}
           </div>
 
+          {/* ── Attention Strip ── */}
+          {(() => {
+            const draftCount = (index.drafts||[]).length
+            const reportCount = (index.reports||[]).length
+            const msg = draftCount > 0 ? `${draftCount} draft${draftCount>1?'s':''} need${draftCount===1?'s':''} completion` : reportCount === 0 ? 'No reports ready for export' : `${reportCount} report${reportCount>1?'s':''} available`
+            return (
+              <div style={{padding:'8px 14px',background:SURFACE,borderRadius:8,border:`1px solid ${BORDER}`,marginBottom:12,display:'flex',alignItems:'center',gap:8}}>
+                <I n={draftCount>0?'alert':'guidance'} s={13} c={draftCount>0?WARN:DIM} w={1.6} />
+                <span style={{fontSize:10,color:draftCount>0?SUB:DIM,fontFamily:"'DM Mono'"}}>{msg}</span>
+              </div>
+            )
+          })()}
+
           {/* ── Status Bar ── */}
-          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 16px',background:SURFACE,borderRadius:8,border:`1px solid ${BORDER}`,marginBottom:isTabletLand?0:20}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 14px',background:SURFACE,borderRadius:8,border:`1px solid ${BORDER}`,marginBottom:isTabletLand?0:20}}>
             <div style={{display:'flex',alignItems:'center',gap:8}}>
-              <div style={{width:6,height:6,borderRadius:'50%',background:navigator.onLine&&supabase?SUCCESS:supabase?WARN:DIM}} />
-              <span style={{fontSize:11,color:DIM,fontFamily:"'DM Mono'"}}>{navigator.onLine&&supabase?'Cloud synced':supabase?'Offline mode':'Device storage'}</span>
+              <div style={{width:5,height:5,borderRadius:'50%',background:navigator.onLine&&supabase?SUCCESS:supabase?WARN:DIM}} />
+              <span style={{fontSize:10,color:DIM,fontFamily:"'DM Mono'"}}>{navigator.onLine&&supabase?'Cloud synced':supabase?'Offline mode':'Stored on device'}</span>
             </div>
-            <span style={{fontSize:10,color:DIM,fontFamily:"'DM Mono'"}}>v{VER}</span>
+            <span style={{fontSize:9,color:DIM,fontFamily:"'DM Mono'"}}>v{VER}</span>
           </div>
           </div>{/* end left column */}
 
@@ -673,9 +690,62 @@ export default function MobileApp() {
 
         {(view==='results'||view==='report')&&renderResults(view==='report')}
 
-        {view==='drafts'&&<div style={{paddingTop:28,paddingBottom:100}}><h2 style={{fontSize:22,fontWeight:700,marginBottom:20,color:TEXT}}>Drafts</h2>{(index.drafts||[]).length===0?<div style={{padding:36,textAlign:'center',background:CARD,borderRadius:14,border:`1px solid ${BORDER}`,color:SUB,fontSize:14}}>No drafts</div>:(index.drafts||[]).map(d=><div key={d.id} style={{padding:'16px 18px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:14,marginBottom:8,display:'flex',alignItems:'center',gap:14}}><div style={{flex:1}}><div style={{fontSize:15,fontWeight:600,color:TEXT}}>{d.facility||'Untitled'}</div><div style={{fontSize:13,color:DIM,fontFamily:"'DM Mono'",marginTop:4}}>{fD(d.ua||d.ts)}</div></div><button onClick={()=>resumeDraft(d.id)} style={{padding:'10px 18px',background:`${ACCENT}15`,border:`1px solid ${ACCENT}30`,borderRadius:10,color:ACCENT,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>Resume</button><button onClick={()=>setDelConf({id:d.id,name:d.facility,type:'dft'})} style={{padding:'10px 14px',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:10,color:DIM,fontSize:13,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>✕</button></div>)}</div>}
+        {view==='drafts'&&<div style={{paddingTop:28,paddingBottom:100}}>
+          <h2 style={{fontSize:20,fontWeight:700,marginBottom:4,color:TEXT}}>Drafts</h2>
+          <div style={{fontSize:11,color:DIM,marginBottom:20}}>Assessments in progress</div>
+          {(index.drafts||[]).length===0?(
+            <div style={{padding:'48px 24px',textAlign:'center',background:CARD,borderRadius:10,border:`1px solid ${BORDER}`}}>
+              <I n="draft" s={28} c={DIM} w={1.4} />
+              <div style={{fontSize:15,fontWeight:600,color:SUB,marginTop:16}}>No drafts in progress</div>
+              <div style={{fontSize:12,color:DIM,marginTop:6,lineHeight:1.5}}>Start a new assessment to begin capturing field data.</div>
+              <button onClick={startNew} style={{marginTop:20,padding:'10px 24px',background:`${ACCENT}12`,border:`1px solid ${ACCENT}25`,borderRadius:8,color:ACCENT,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>New Assessment</button>
+            </div>
+          ):(index.drafts||[]).map(d=>(
+            <div key={d.id} style={{padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,marginBottom:6,display:'flex',alignItems:'center',gap:12}}>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:14,fontWeight:600,color:TEXT,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{d.facility||'Untitled Assessment'}</div>
+                <div style={{fontSize:11,color:DIM,fontFamily:"'DM Mono'",marginTop:3}}>{fD(d.ua||d.ts)}</div>
+                <div style={{fontSize:10,color:SUB,marginTop:3}}>Walkthrough in progress</div>
+              </div>
+              <button onClick={()=>resumeDraft(d.id)} style={{padding:'8px 16px',background:`${ACCENT}12`,border:`1px solid ${ACCENT}25`,borderRadius:8,color:ACCENT,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:38}}>Resume</button>
+              <button onClick={()=>setDelConf({id:d.id,name:d.facility,type:'dft'})} style={{width:36,height:36,background:'transparent',border:`1px solid ${BORDER}`,borderRadius:8,color:DIM,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'inherit',flexShrink:0}}>
+                <I n="alert" s={14} c={DIM} w={1.4} />
+              </button>
+            </div>
+          ))}
+        </div>}
 
-        {view==='history'&&<div style={{paddingTop:28,paddingBottom:100}}><h2 style={{fontSize:22,fontWeight:700,marginBottom:16,color:TEXT}}>History</h2><div style={{display:'flex',gap:8,marginBottom:14}}><input type="text" value={hSearch} onChange={e=>setHSearch(e.target.value)} placeholder="Search..." style={{flex:1,padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,color:TEXT,fontSize:16,fontFamily:'inherit',outline:'none',boxSizing:'border-box',minHeight:48}} /><select value={hSort} onChange={e=>setHSort(e.target.value)} style={{padding:'14px 12px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,color:SUB,fontSize:13,fontFamily:'inherit',outline:'none',minHeight:48}}><option value="newest">Newest</option><option value="oldest">Oldest</option><option value="score-low">Score ↑</option><option value="score-high">Score ↓</option></select></div>{fReports.length===0?<div style={{padding:36,textAlign:'center',background:CARD,borderRadius:14,border:`1px solid ${BORDER}`,color:SUB,fontSize:14}}>{hSearch?'No matches':'No reports yet'}</div>:fReports.map(r=><div key={r.id} onClick={()=>openReport(r)} style={{width:'100%',padding:'16px 18px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:14,marginBottom:8,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,minHeight:64,fontFamily:'inherit'}}><div style={{width:44,height:44,borderRadius:12,background:`${ACCENT}12`,display:'flex',alignItems:'center',justifyContent:'center'}}><span style={{fontSize:17,fontWeight:800,fontFamily:"'DM Mono'",color:ACCENT}}>{r.score||'?'}</span></div><div style={{flex:1,minWidth:0}}><div style={{fontSize:15,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:TEXT}}>{r.facility||'?'}</div><div style={{fontSize:13,color:DIM,fontFamily:"'DM Mono'",marginTop:4}}>{fD(r.ts)}</div></div><button onClick={e=>{e.stopPropagation();setDelConf({id:r.id,name:r.facility,type:'rpt'})}} style={{padding:'8px 12px',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:8,color:DIM,fontSize:12,cursor:'pointer',fontFamily:'inherit',minHeight:40}}>🗑</button></div>)}</div>}
+        {view==='history'&&<div style={{paddingTop:28,paddingBottom:100}}>
+          <h2 style={{fontSize:20,fontWeight:700,marginBottom:4,color:TEXT}}>Reports</h2>
+          <div style={{fontSize:11,color:DIM,marginBottom:16}}>Finalized assessment deliverables</div>
+          <div style={{display:'flex',gap:8,marginBottom:14}}>
+            <input type="text" value={hSearch} onChange={e=>setHSearch(e.target.value)} placeholder="Search reports..." style={{flex:1,padding:'12px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,color:TEXT,fontSize:15,fontFamily:'inherit',outline:'none',boxSizing:'border-box',minHeight:44}} />
+            <select value={hSort} onChange={e=>setHSort(e.target.value)} style={{padding:'12px 12px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,color:SUB,fontSize:12,fontFamily:'inherit',outline:'none',minHeight:44}}>
+              <option value="newest">Newest</option><option value="oldest">Oldest</option><option value="score-low">Score ↑</option><option value="score-high">Score ↓</option>
+            </select>
+          </div>
+          {fReports.length===0?(
+            <div style={{padding:'48px 24px',textAlign:'center',background:CARD,borderRadius:10,border:`1px solid ${BORDER}`}}>
+              <I n="report" s={28} c={DIM} w={1.4} />
+              <div style={{fontSize:15,fontWeight:600,color:SUB,marginTop:16}}>No reports generated yet</div>
+              <div style={{fontSize:12,color:DIM,marginTop:6,lineHeight:1.5}}>{hSearch?'No reports match your search.':'Complete and finalize an assessment to create your first report.'}</div>
+              {!hSearch&&<button onClick={startNew} style={{marginTop:20,padding:'10px 24px',background:`${ACCENT}12`,border:`1px solid ${ACCENT}25`,borderRadius:8,color:ACCENT,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Start Assessment</button>}
+            </div>
+          ):fReports.map(r=>(
+            <div key={r.id} onClick={()=>openReport(r)} style={{width:'100%',padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,marginBottom:6,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit',transition:'border-color 0.15s'}}>
+              <div style={{width:40,height:40,borderRadius:8,background:r.score>=70?`${SUCCESS}10`:r.score>=50?`${WARN}10`:`${DANGER}10`,border:`1px solid ${r.score>=70?`${SUCCESS}20`:r.score>=50?`${WARN}20`:`${DANGER}20`}`,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                <span style={{fontSize:15,fontWeight:800,fontFamily:"'DM Mono'",color:r.score>=70?SUCCESS:r.score>=50?WARN:DANGER}}>{r.score||'—'}</span>
+              </div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:14,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:TEXT}}>{r.facility||'Untitled'}</div>
+                <div style={{fontSize:10,color:DIM,fontFamily:"'DM Mono'",marginTop:3}}>{fD(r.ts)} · Final</div>
+              </div>
+              <button onClick={e=>{e.stopPropagation();setDelConf({id:r.id,name:r.facility,type:'rpt'})}} style={{width:36,height:36,background:'transparent',border:`1px solid ${BORDER}`,borderRadius:8,color:DIM,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'inherit',flexShrink:0}}>
+                <I n="alert" s={14} c={DIM} w={1.4} />
+              </button>
+            </div>
+          ))}
+        </div>}
         {view==='trash'&&<TrashView onRecover={async(id)=>{await Backup.recover(id);await refreshIndex()}} onDelete={async(id)=>{await Backup.permanentDelete(id)}} />}
         {view==='settings'&&<SettingsScreen profile={profile} onEditProfile={()=>{setProfile({...profile,isNew:true});setView('dash')}} onLogout={handleLogout} onClose={()=>setView('dash')} onNavigate={setView} />}
         {view==='tos'&&<TermsOfService onBack={()=>setView('settings')} />}

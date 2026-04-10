@@ -149,21 +149,10 @@ export default function SettingsScreen({ profile, onEditProfile, onLogout, onClo
         <div style={{fontSize:10,color:DIM,marginTop:8,lineHeight:1.5}}>Scoring applies deterministic rules against published thresholds. Standards update with each app release.</div>
       </div>
 
-      <div style={{padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,marginBottom:6}}>
-        <div style={{fontSize:12,fontWeight:600,color:SUB,marginBottom:6}}>Scoring methodology</div>
-        <div style={{fontSize:11,color:DIM,lineHeight:1.6}}>
-          Composite = (zone avg × 0.6) + (worst zone × 0.4). Categories: Ventilation (25), Contaminants (25), HVAC (20), Complaints (15), Environment (15). All thresholds are fixed and published — no AI judgment in scoring.
-        </div>
-      </div>
-
-      <div style={{padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,marginBottom:6}}>
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4}}>
-          <div style={{fontSize:12,fontWeight:600,color:SUB}}>Report defaults</div>
-        </div>
-        <div style={{fontSize:11,color:DIM,lineHeight:1.6}}>
-          Reports include cover page, executive summary, zone findings, causal chains, sampling plan, and recommendations register. Assessor name and instrument details are auto-populated from your profile.
-        </div>
-      </div>
+      <Row icon="pulse" label="Scoring Model" sub="5 categories · Worst-zone weighted · Thresholds update with releases" color={DIM} />
+      <Row icon="report" label="Report Defaults" sub="Cover, summary, zones, causal chains, sampling, recommendations" color={DIM} />
+      <Row icon="user" label="Report Signature & Credentials" sub="Assessor name, credentials, and report footer" color={DIM} />
+      <Row icon="shield" label="Defensibility Controls" sub="Warnings, completeness checks, and finalization rules" color={DIM} />
 
       {/* ═══ DATA & BACKUP ═══ */}
       <Section title="Data & Backup" />
