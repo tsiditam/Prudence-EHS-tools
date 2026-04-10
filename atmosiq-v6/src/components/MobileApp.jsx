@@ -446,6 +446,7 @@ export default function MobileApp() {
               </div>
             ))}
           </div>
+          <div style={{textAlign:'center',marginTop:10,fontSize:9,color:DIM,fontFamily:"'DM Mono'"}}>Lower score = greater concern · 100 = no findings</div>
         </div>
 
         {/* ── Expert Summary Card ── */}
