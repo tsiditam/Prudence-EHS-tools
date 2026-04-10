@@ -29,6 +29,7 @@ import SensorScreen from './SensorScreen'
 import ProfileScreen from './ProfileScreen'
 import AuthScreen from './AuthScreen'
 import { TermsOfService, PrivacyPolicy } from './LegalScreens'
+import AdminDashboard from './AdminDashboard'
 import SettingsScreen from './SettingsScreen'
 import { printReport } from './PrintReport'
 import { DEMO_PRESURVEY, DEMO_BUILDING, DEMO_ZONES } from '../constants/demoData'
@@ -67,6 +68,7 @@ export default function MobileApp() {
   const [clock, setClock] = useState(new Date())
   const [credits, setCredits] = useState(5) // default free tier
   const [showPricing, setShowPricing] = useState(false)
+  const [adminSecret, setAdminSecret] = useState(null)
 
   const [draftId, setDraftId] = useState(null)
   // Combined data store: quick start + details merged into presurvey + bldg
@@ -819,9 +821,10 @@ export default function MobileApp() {
           ))}
         </div>}
         {view==='trash'&&<TrashView onRecover={async(id)=>{await Backup.recover(id);await refreshIndex()}} onDelete={async(id)=>{await Backup.permanentDelete(id)}} />}
-        {view==='settings'&&<SettingsScreen profile={profile} onEditProfile={()=>{setProfile({...profile,isNew:true});setView('dash')}} onLogout={handleLogout} onClose={()=>setView('dash')} onNavigate={setView} />}
+        {view==='settings'&&<SettingsScreen profile={profile} onEditProfile={()=>{setProfile({...profile,isNew:true});setView('dash')}} onLogout={handleLogout} onClose={()=>setView('dash')} onNavigate={(v)=>{if(v==='pricing'){setShowPricing(true)}else{setView(v)}}} adminActive={!!adminSecret} onActivateAdmin={(secret)=>{setAdminSecret(secret);setView('admin')}} />}
         {view==='tos'&&<TermsOfService onBack={()=>setView('settings')} />}
         {view==='privacy'&&<PrivacyPolicy onBack={()=>setView('settings')} />}
+        {view==='admin'&&adminSecret&&<AdminDashboard onBack={()=>setView('settings')} adminSecret={adminSecret} />}
       </div>
 
       {/* ── Bottom Tab Bar ── */}
