@@ -393,11 +393,18 @@ export default function MobileApp() {
     const zs = zoneScores[selZone]
     const detailsFilled = Q_DETAILS.filter(q => mergedData[q.id]).length
     const worstCat = zs?.cats?.reduce((a, b) => ((a.s/a.mx) < (b.s/b.mx) ? a : b)) || null
+    const complaintCat = zs?.cats?.find(c => c.l === 'Complaints')
+    const hasComplaints = complaintCat && complaintCat.r.some(r => r.sev === 'critical' || r.sev === 'high')
+    // Primary driver is the worst NON-complaints category (complaints are a symptom, not a driver)
+    const driverCat = zs?.cats?.filter(c => c.l !== 'Complaints').reduce((a, b) => ((a.s/a.mx) < (b.s/b.mx) ? a : b), zs.cats[0]) || worstCat
     const riskLabel = comp.tot < 30 ? 'Critical indoor air quality concern' : comp.tot < 50 ? 'Significant indoor air quality concern' : comp.tot < 70 ? 'Moderate indoor air quality concern' : 'Conditions within acceptable range'
     const actionLabel = comp.tot < 30 ? 'Immediate corrective action recommended' : comp.tot < 50 ? 'Targeted investigation and corrective action warranted' : comp.tot < 70 ? 'Targeted improvements recommended' : 'Continue routine monitoring'
-    // Expert summary — consultant-grade language
-    const expertDriver = worstCat ? ({Ventilation:'Ventilation inadequacy',Contaminants:'Elevated contaminant levels',HVAC:'HVAC system deficiency',Complaints:'Building-related symptom cluster',Environment:'Environmental condition concern'}[worstCat.l] || worstCat.l + ' deficiency') : null
-    const expertCause = causalChains[0] ? causalChains[0].rootCause : (worstCat ? ({Ventilation:'Low outdoor air delivery or poor air distribution',Contaminants:'Source proximity or inadequate dilution ventilation',HVAC:'Deferred maintenance or system degradation',Complaints:'Multi-occupant symptom pattern consistent with IAQ source',Environment:'Thermal or moisture conditions outside acceptable range'}[worstCat.l] || 'Requires further investigation') : null)
+    // Expert summary — IH-grade reasoning (complaints are pattern, not driver)
+    const driverMap = {Ventilation:'Ventilation inadequacy',Contaminants:'Elevated contaminant exposure',HVAC:'HVAC system deficiency',Environment:'Environmental condition exceedance'}
+    const causeMap = {Ventilation:'Insufficient outdoor air delivery or poor air distribution',Contaminants:'Proximity to emission sources with inadequate dilution ventilation',HVAC:'Deferred maintenance or mechanical system degradation',Environment:'Thermal or moisture conditions outside ASHRAE 55 comfort range'}
+    const expertDriver = driverCat ? (driverMap[driverCat.l] || driverCat.l + ' deficiency') : null
+    const expertComplaint = hasComplaints ? 'Building-related symptom cluster reported' : null
+    const expertCause = causalChains[0] ? causalChains[0].rootCause : (driverCat ? (causeMap[driverCat.l] || 'Contributing factors require further investigation') : null)
 
     return (
       <div style={{paddingTop:20,paddingBottom:120}}>
@@ -414,25 +421,27 @@ export default function MobileApp() {
         </div>
 
         {/* ── Composite Score Card ── */}
-        <div style={{padding:'20px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,marginBottom:12,borderLeft:`3px solid ${comp.rc}`}}>
-          <div style={{display:'flex',alignItems:'center',gap:20}}>
+        <div style={{padding:'20px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,marginBottom:12,position:'relative',overflow:'hidden'}}>
+          {/* Severity accent — top edge gradient */}
+          <div style={{position:'absolute',top:0,left:0,right:0,height:3,background:`linear-gradient(90deg, ${comp.rc}, ${comp.rc}40)`}} />
+          <div style={{display:'flex',alignItems:'center',gap:20,marginTop:2}}>
             <div style={{flexShrink:0}}>
               <ScoreRing value={comp.tot} color={comp.rc} size={96} />
             </div>
             <div style={{flex:1,minWidth:0}}>
-              <span style={{padding:'3px 8px',borderRadius:4,fontSize:9,fontWeight:700,background:`${comp.rc}15`,color:comp.rc,textTransform:'uppercase',letterSpacing:'0.5px'}}>{comp.risk}</span>
+              <span style={{padding:'3px 8px',borderRadius:4,fontSize:9,fontWeight:700,background:`${comp.rc}12`,color:comp.rc,textTransform:'uppercase',letterSpacing:'0.5px'}}>{comp.risk}</span>
               <div style={{fontSize:13,fontWeight:600,color:TEXT,marginTop:6,lineHeight:1.4}}>{riskLabel}</div>
               <div style={{fontSize:11,color:SUB,marginTop:3,lineHeight:1.4}}>{actionLabel}</div>
             </div>
           </div>
           <div style={{display:'flex',gap:1,marginTop:16,background:SURFACE,borderRadius:8,overflow:'hidden'}}>
             {[
-              {l:'Zone average',v:comp.avg},
-              {l:'Lowest zone',v:comp.worst},
-              {l:'Zones assessed',v:comp.count},
+              {l:'Zone average',v:comp.avg,s:'/100'},
+              {l:'Lowest zone',v:comp.worst,s:'/100'},
+              {l:'Zones assessed',v:comp.count,s:''},
             ].map((m,i)=>(
               <div key={i} style={{flex:1,padding:'10px 8px',textAlign:'center',borderRight:i<2?`1px solid ${BORDER}`:'none'}}>
-                <div style={{fontSize:16,fontWeight:700,color:TEXT,fontFamily:"'DM Mono'"}}>{m.v}</div>
+                <div style={{fontSize:16,fontWeight:700,color:TEXT,fontFamily:"'DM Mono'"}}>{m.v}<span style={{fontSize:9,color:DIM,fontWeight:500}}>{m.s}</span></div>
                 <div style={{fontSize:8,color:SUB,marginTop:2,textTransform:'uppercase',letterSpacing:'0.3px'}}>{m.l}</div>
               </div>
             ))}
@@ -440,14 +449,19 @@ export default function MobileApp() {
         </div>
 
         {/* ── Expert Summary Card ── */}
-        {(causalChains.length > 0 || worstCat) && (
-          <div style={{padding:'14px 16px',background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:10,marginBottom:12}}>
-            <div style={{fontSize:10,fontWeight:600,color:SUB,textTransform:'uppercase',letterSpacing:'0.6px',marginBottom:10}}>Expert Summary</div>
-            <div style={{display:'flex',flexDirection:'column',gap:8,fontSize:12}}>
-              {expertDriver && <div><div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:2}}>Primary driver</div><div style={{color:TEXT,fontWeight:600}}>{expertDriver}</div></div>}
-              {expertCause && <div><div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:2}}>Likely contributing cause</div><div style={{color:SUB,lineHeight:1.5}}>{expertCause.length > 100 ? expertCause.slice(0,97)+'...' : expertCause}</div></div>}
-              {recs?.imm?.[0] && <div><div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:2}}>Recommended next action</div><div style={{color:ACCENT,lineHeight:1.5}}>{recs.imm[0].length > 90 ? recs.imm[0].slice(0,87)+'...' : recs.imm[0]}</div></div>}
-              <div><div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:2}}>Sampling recommendation</div><div style={{color:TEXT}}>{samplingPlan?.plan?.length > 0 ? `Targeted confirmatory sampling advised (${samplingPlan.plan.length} method${samplingPlan.plan.length>1?'s':''})` : 'No confirmatory sampling indicated at this time'}</div></div>
+        {(causalChains.length > 0 || driverCat) && (
+          <div style={{padding:'16px 18px',background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:10,marginBottom:12}}>
+            <div style={{fontSize:10,fontWeight:600,color:SUB,textTransform:'uppercase',letterSpacing:'0.6px',marginBottom:12}}>Expert Summary</div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,fontSize:12}}>
+              {expertDriver && <div><div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Primary driver</div><div style={{color:TEXT,fontWeight:600,lineHeight:1.4}}>{expertDriver}</div></div>}
+              {expertComplaint && <div><div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Complaint pattern</div><div style={{color:WARN,fontWeight:500,lineHeight:1.4}}>{expertComplaint}</div></div>}
+              {!expertComplaint && expertCause && <div><div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Contributing cause</div><div style={{color:SUB,lineHeight:1.4}}>{expertCause.length > 80 ? expertCause.slice(0,77)+'...' : expertCause}</div></div>}
+            </div>
+            {expertComplaint && expertCause && <div style={{marginTop:12}}><div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Likely contributing cause</div><div style={{fontSize:12,color:SUB,lineHeight:1.5}}>{expertCause.length > 120 ? expertCause.slice(0,117)+'...' : expertCause}</div></div>
+            }
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginTop:12,fontSize:12}}>
+              {recs?.imm?.[0] && <div><div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Next action</div><div style={{color:ACCENT,lineHeight:1.4}}>{recs.imm[0].length > 70 ? recs.imm[0].slice(0,67)+'...' : recs.imm[0]}</div></div>}
+              <div><div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Sampling</div><div style={{color:TEXT,lineHeight:1.4}}>{samplingPlan?.plan?.length > 0 ? `${samplingPlan.plan.length} method${samplingPlan.plan.length>1?'s':''} advised` : 'Not indicated'}</div></div>
             </div>
           </div>
         )}
@@ -492,24 +506,33 @@ export default function MobileApp() {
           ))}
         </div>
 
-        {rTab==='overview' && zs && <div style={{display:isTablet?'grid':'flex',gridTemplateColumns:isTablet?'1fr 1fr':'none',flexDirection:'column',gap:12}}>
-          <div style={{textAlign:'center',marginBottom:4}}>
-            <div style={{fontSize:12,fontWeight:600,color:zs.rc}}>{zs.zoneName}</div>
-            <div style={{fontSize:30,fontWeight:800,fontFamily:"'DM Mono'",color:zs.rc}}>{zs.tot}<span style={{fontSize:14,color:DIM}}>/100</span></div>
+        {rTab==='overview' && zs && <div style={{display:isTablet?'grid':'flex',gridTemplateColumns:isTablet?'1fr 1fr':'none',flexDirection:'column',gap:10}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10}}>
+            <div style={{fontSize:14,fontWeight:600,color:TEXT}}>{zs.zoneName}</div>
+            <div style={{display:'flex',alignItems:'baseline',gap:2}}>
+              <span style={{fontSize:22,fontWeight:800,fontFamily:"'DM Mono'",color:zs.rc}}>{zs.tot}</span>
+              <span style={{fontSize:11,color:DIM,fontFamily:"'DM Mono'"}}>/100</span>
+            </div>
           </div>
-          {zs.cats.map((cat,ci)=>{const pct=(cat.s/cat.mx)*100;const bc=pct>=80?'#22C55E':pct>=60?'#FBBF24':pct>=40?'#FB923C':'#EF4444';return(
-            <div key={cat.l} style={{padding:'16px 18px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:14}}>
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
-                <span style={{fontSize:16,fontWeight:600,color:TEXT}}>{cat.l}</span>
-                <span style={{fontSize:18,fontWeight:800,fontFamily:"'DM Mono'",color:bc}}>{cat.s}/{cat.mx}</span>
+          {zs.cats.map((cat,ci)=>{const pct=Math.round((cat.s/cat.mx)*100);const bc=pct>=80?'#22C55E':pct>=60?'#FBBF24':pct>=40?'#FB923C':'#EF4444';const pctLabel=pct>=80?'Within range':pct>=60?'Moderate concern':pct>=40?'Significant concern':'Critical concern';return(
+            <div key={cat.l} style={{padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
+                <span style={{fontSize:14,fontWeight:600,color:TEXT}}>{cat.l}</span>
+                <div style={{display:'flex',alignItems:'baseline',gap:2}}>
+                  <span style={{fontSize:16,fontWeight:800,fontFamily:"'DM Mono'",color:bc}}>{cat.s}</span>
+                  <span style={{fontSize:10,color:DIM,fontFamily:"'DM Mono'"}}>/{cat.mx}</span>
+                </div>
               </div>
-              <div style={{height:4,background:BORDER,borderRadius:2,overflow:'hidden',marginBottom:12}}>
-                <div style={{height:'100%',width:`${pct}%`,background:bc,borderRadius:2,transition:'width .8s ease'}} />
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
+                <div style={{flex:1,height:3,background:BORDER,borderRadius:2,overflow:'hidden'}}>
+                  <div style={{height:'100%',width:`${pct}%`,background:bc,borderRadius:2,transition:'width .8s ease'}} />
+                </div>
+                <span style={{fontSize:9,color:bc,fontWeight:600,flexShrink:0}}>{pctLabel}</span>
               </div>
               {cat.r.map((r,i)=>{const s=sv(r.sev);return(
-                <div key={i} style={{display:'flex',gap:10,alignItems:'flex-start',marginBottom:8,fontSize:14,lineHeight:1.6}}>
-                  <span style={{padding:'3px 10px',borderRadius:6,fontSize:10,fontWeight:700,fontFamily:"'DM Mono'",background:s.bg,color:s.c,flexShrink:0,marginTop:3}}>{s.l}</span>
-                  <span style={{color:'#D1D5DB'}}>{r.t}{r.std?<span style={{color:DIM}}> ({r.std})</span>:null}</span>
+                <div key={i} style={{display:'flex',gap:8,alignItems:'flex-start',marginBottom:6,fontSize:13,lineHeight:1.6}}>
+                  <span style={{padding:'2px 8px',borderRadius:4,fontSize:9,fontWeight:700,fontFamily:"'DM Mono'",background:s.bg,color:s.c,flexShrink:0,marginTop:3}}>{s.l}</span>
+                  <span style={{color:SUB}}>{r.t}{r.std?<span style={{color:DIM,fontSize:11}}> ({r.std})</span>:null}</span>
                 </div>
               )})}
             </div>
