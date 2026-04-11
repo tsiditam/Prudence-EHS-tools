@@ -303,7 +303,7 @@ export default function MobileApp() {
   }
 
   const handleShare = async () => {
-    const title = `Atmosflow Report — ${bldg.fn || 'Assessment'}`
+    const title = `AtmosFlow Report — ${bldg.fn || 'Assessment'}`
     const text = `${bldg.fn || 'Facility'}\nComposite Score: ${comp?.tot || '?'}/100 — ${comp?.risk || '?'}\n${zoneScores?.length || 0} zones assessed\n${oshaResult?.flag ? '⚠ OSHA flags identified' : '✓ No OSHA flags'}`
     if (navigator.share) {
       try { await navigator.share({ title, text }) } catch {}

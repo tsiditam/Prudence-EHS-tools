@@ -1,6 +1,6 @@
 {
-  "name": "Atmosflow — Indoor Air Quality Intelligence",
-  "short_name": "Atmosflow",
+  "name": "AtmosFlow — Indoor Air Quality Intelligence",
+  "short_name": "AtmosFlow",
   "description": "Standards-driven IAQ assessment platform for industrial hygienists and EHS professionals. Guided field workflow, deterministic scoring, and report-ready output.",
   "start_url": "/",
   "display": "standalone",

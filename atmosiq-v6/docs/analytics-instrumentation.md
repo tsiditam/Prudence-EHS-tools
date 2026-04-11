@@ -1,4 +1,4 @@
-# Atmosflow Analytics Instrumentation Plan
+# AtmosFlow Analytics Instrumentation Plan
 
 **Version:** 1.0
 **Date:** April 2026

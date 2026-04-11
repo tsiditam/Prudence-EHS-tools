@@ -1,6 +1,6 @@
 # Enterprise Implementation Blueprint
 ## Prudence Safety & Environmental Consulting, LLC
-## Atmosflow · OSHAReady · HydroScan
+## AtmosFlow · OSHAReady · HydroScan
 
 **Version:** 1.0 | **Date:** April 11, 2026
 
@@ -293,7 +293,7 @@ invoices {
 
 ### Status Page (Phase 2)
 - Public page at status.prudenceehs.com
-- Components: Atmosflow App, Atmosflow API, Supabase, Anthropic
+- Components: AtmosFlow App, AtmosFlow API, Supabase, Anthropic
 - Maintenance windows: announced 48hrs in advance
 
 ---
@@ -360,7 +360,7 @@ invoices {
 - [ ] E-sign integration for MSA/Order Forms (DocuSign/PandaDoc)
 - [ ] SOC 2 Type II preparation
 - [ ] Custom SLA tiers per customer
-- [ ] Multi-product licensing (Atmosflow + OSHAReady bundle)
+- [ ] Multi-product licensing (AtmosFlow + OSHAReady bundle)
 - [ ] White-label report templates
 - [ ] API access for enterprise integrations
 - [ ] Audit log viewer for compliance officers

@@ -1,5 +1,5 @@
 /**
- * Atmosflow Technical Report Authoring Engine
+ * AtmosFlow Technical Report Authoring Engine
  * Locked Template Render System — Component Map
  *
  * CRITICAL: This is a DETERMINISTIC renderer.

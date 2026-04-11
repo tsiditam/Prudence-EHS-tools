@@ -1,4 +1,4 @@
-# Atmosflow Technical Report Authoring Engine
+# AtmosFlow Technical Report Authoring Engine
 
 ## Architecture
 

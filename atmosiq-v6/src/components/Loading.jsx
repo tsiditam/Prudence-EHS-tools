@@ -2,7 +2,7 @@
  * Prudence Safety & Environmental Consulting, LLC
  * Copyright (c) 2026 All rights reserved.
  *
- * Loading — minimal premium splash with Atmosflow wind mark
+ * Loading — minimal premium splash with AtmosFlow wind mark
  */
 
 import { useEffect } from 'react'
