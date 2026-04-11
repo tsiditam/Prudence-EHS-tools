@@ -65,7 +65,7 @@ const Backup = {
   // ── Import from backup file ──
   async importBackup(jsonData) {
     if (!jsonData?.platform || jsonData.platform !== 'atmosiq') {
-      throw new Error('Invalid backup file — not an AtmosIQ export')
+      throw new Error('Invalid backup file — not an Atmosflow export')
     }
 
     let imported = { reports: 0, drafts: 0 }

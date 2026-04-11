@@ -127,7 +127,7 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
             <I n="wind" s={14} c={C.bg} w={2.2} />
           </div>
           <span style={{ ...display, fontSize: 22, fontWeight: 700, letterSpacing: '-0.03em' }}>
-            atmos<span style={{ color: C.cyan }}>IQ</span>
+            atmos<span style={{ color: C.cyan }}>flow</span>
           </span>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
@@ -317,7 +317,7 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
               letterSpacing: '-0.035em',
               margin: 0,
             }}>
-              AtmosIQ <span style={warmGradient}>closes that gap</span> —{dk ? <br /> : ' '}structured assessment, scored findings, report-ready output.
+              Atmosflow <span style={warmGradient}>closes that gap</span> —{dk ? <br /> : ' '}structured assessment, scored findings, report-ready output.
             </p>
           </>
         )}
@@ -557,17 +557,17 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
               boxShadow: '0 16px 48px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.03) inset',
             }}>
               <div style={{ position: 'absolute', top: 10, width: 40, height: 4, borderRadius: 2, background: C.border }} />
-              <div style={{ ...display, fontSize: dk ? 22 : 16, fontWeight: 700 }}>a<span style={{ color: C.cyan }}>IQ</span></div>
+              <div style={{ ...display, fontSize: dk ? 22 : 16, fontWeight: 700 }}>a<span style={{ color: C.cyan }}>flow</span></div>
               <div style={{ width: '60%', height: 3, borderRadius: 2, background: `linear-gradient(90deg, ${C.gold}, ${C.violet})`, opacity: 0.5 }} />
               <div style={{ position: 'absolute', bottom: 8, width: 32, height: 3, borderRadius: 2, background: C.border }} />
             </div>
             <div style={{ ...reveal(inView, 0.25), textAlign: dk ? 'left' : 'center', flex: 1 }}>
               <div style={{ fontSize: 10, color: C.gold, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 12, fontWeight: 600 }}>Mobile App</div>
               <div style={{ ...display, fontSize: dk ? 30 : 22, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 12, lineHeight: 1.2 }}>
-                Take AtmosIQ{dk ? <br /> : ' '}Into the Field
+                Take Atmosflow{dk ? <br /> : ' '}Into the Field
               </div>
               <div style={{ fontSize: 14, color: C.sub, lineHeight: 1.7, marginBottom: 24, maxWidth: 400 }}>
-                Install AtmosIQ directly to your phone. No app store needed — works offline, feels native, and stays up to date automatically.
+                Install Atmosflow directly to your phone. No app store needed — works offline, feels native, and stays up to date automatically.
               </div>
               <button onClick={() => { if (window._pwaPrompt) { window._pwaPrompt.prompt(); window._pwaPrompt.userChoice.then(() => { window._pwaPrompt = null }) } else { alert("To install: tap your browser's Share button (iOS) or Menu → 'Add to Home Screen' (Android/Desktop)") } }} style={{
                 padding: '13px 30px',
@@ -655,7 +655,7 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
             <div style={{ width: 22, height: 22, borderRadius: 6, background: C.cyan, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <I n="wind" s={11} c={C.bg} w={2.2} />
             </div>
-            <span style={{ ...display, fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em' }}>atmos<span style={{ color: C.cyan }}>IQ</span></span>
+            <span style={{ ...display, fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em' }}>atmos<span style={{ color: C.cyan }}>flow</span></span>
           </div>
           <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>Prudence Safety & Environmental Consulting, LLC</div>
         </div>

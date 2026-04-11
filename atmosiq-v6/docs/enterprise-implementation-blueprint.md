@@ -1,6 +1,6 @@
 # Enterprise Implementation Blueprint
 ## Prudence Safety & Environmental Consulting, LLC
-## AtmosIQ · OSHAReady · HydroScan
+## Atmosflow · OSHAReady · HydroScan
 
 **Version:** 1.0 | **Date:** April 11, 2026
 
@@ -233,7 +233,7 @@ invoices {
 
 ### In-App Display (Settings → Data & Privacy)
 - "Your assessment data belongs to you. Export it anytime."
-- "atmosIQ's scoring methodology and algorithms are proprietary."
+- "atmosflow's scoring methodology and algorithms are proprietary."
 - "Anonymous usage analytics help us improve the platform."
 
 ---
@@ -293,7 +293,7 @@ invoices {
 
 ### Status Page (Phase 2)
 - Public page at status.prudenceehs.com
-- Components: AtmosIQ App, AtmosIQ API, Supabase, Anthropic
+- Components: Atmosflow App, Atmosflow API, Supabase, Anthropic
 - Maintenance windows: announced 48hrs in advance
 
 ---
@@ -320,7 +320,7 @@ invoices {
 - Beta features: "This feature is in preview. Your feedback helps improve it."
 
 ### Microcopy
-- "Feedback you share may be used to improve atmosIQ. We never share your assessment data."
+- "Feedback you share may be used to improve atmosflow. We never share your assessment data."
 
 ---
 
@@ -360,7 +360,7 @@ invoices {
 - [ ] E-sign integration for MSA/Order Forms (DocuSign/PandaDoc)
 - [ ] SOC 2 Type II preparation
 - [ ] Custom SLA tiers per customer
-- [ ] Multi-product licensing (AtmosIQ + OSHAReady bundle)
+- [ ] Multi-product licensing (Atmosflow + OSHAReady bundle)
 - [ ] White-label report templates
 - [ ] API access for enterprise integrations
 - [ ] Audit log viewer for compliance officers

@@ -29,7 +29,7 @@ module.exports = async function handler(req, res) {
         price_data: {
           currency: 'usd',
           unit_amount: tier.price,
-          product_data: { name: tier.name, description: `${tier.credits} assessment credits for atmosIQ` },
+          product_data: { name: tier.name, description: `${tier.credits} assessment credits for atmosflow` },
         },
         quantity: 1,
       }],

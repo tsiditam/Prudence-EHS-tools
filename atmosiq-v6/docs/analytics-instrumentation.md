@@ -1,4 +1,4 @@
-# AtmosIQ Analytics Instrumentation Plan
+# Atmosflow Analytics Instrumentation Plan
 
 **Version:** 1.0
 **Date:** April 2026

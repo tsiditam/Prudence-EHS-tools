@@ -117,7 +117,7 @@ export default function ProfileScreen({ onLogin }) {
       <div style={{minHeight:'100vh',background:BG,color:TEXT,fontFamily:"'Outfit', system-ui",padding:'0 20px',paddingTop:'env(safe-area-inset-top, 20px)'}}>
         <div style={{maxWidth:maxW,margin:'0 auto',paddingTop:48,paddingBottom:100}}>
           <div style={{marginBottom:32}}>
-            <div style={{fontSize:22,fontWeight:700,letterSpacing:'-0.3px',marginBottom:4}}>atmos<span style={{color:ACCENT}}>IQ</span></div>
+            <div style={{fontSize:22,fontWeight:700,letterSpacing:'-0.3px',marginBottom:4}}>atmos<span style={{color:ACCENT}}>flow</span></div>
             <div style={{fontSize:13,color:SUB}}>Select assessor profile</div>
           </div>
 
