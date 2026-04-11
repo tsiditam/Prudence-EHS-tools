@@ -800,28 +800,26 @@ export default function MobileApp() {
 
           {/* Left column (or full width on portrait/phone) */}
           <div>
-          {/* ── Primary Action ── */}
-          <button onClick={startNew} style={{width:'100%',padding:isTablet?'22px 24px':'20px',marginBottom:12,background:CARD,border:`1px solid ${ACCENT}25`,borderRadius:12,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:16,fontFamily:'inherit',transition:'border-color 0.2s,background 0.2s',position:'relative',overflow:'hidden'}}>
-            <div style={{width:48,height:48,borderRadius:12,background:`${ACCENT}12`,border:`1px solid ${ACCENT}20`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-              <I n="wind" s={22} c={ACCENT} w={2} />
+          {/* ── New Assessment (secondary) ── */}
+          <button onClick={startNew} style={{width:'100%',padding:'14px 20px',marginBottom:10,background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,fontFamily:'inherit',transition:'border-color 0.15s'}}>
+            <div style={{width:40,height:40,borderRadius:10,background:SURFACE,border:`1px solid ${BORDER}`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+              <I n="wind" s={18} c={SUB} w={1.8} />
             </div>
             <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:isTablet?17:16,fontWeight:700,color:TEXT,letterSpacing:'-0.2px'}}>New Assessment</div>
-              <div style={{fontSize:12,color:SUB,marginTop:3}}>Multi-zone IAQ · {profile?.name?.split(',')[0]||'Profile'} auto-filled</div>
-            </div>
-            <div style={{width:32,height:32,borderRadius:8,background:`${ACCENT}10`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-              <span style={{fontSize:14,color:ACCENT}}>→</span>
-            </div>
-          </button>
-
-          {/* ── Secondary: Demo ── */}
-          <button onClick={runDemo} style={{width:'100%',padding:'14px 20px',marginBottom:16,background:'transparent',border:`1px solid ${BORDER}`,borderRadius:10,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,fontFamily:'inherit',transition:'border-color 0.15s'}}>
-            <I n="bldg" s={18} c={DIM} />
-            <div style={{flex:1}}>
-              <div style={{fontSize:13,fontWeight:600,color:SUB}}>Open sample project</div>
-              <div style={{fontSize:10,color:DIM,marginTop:2}}>Meridian Business Park · 3 zones</div>
+              <div style={{fontSize:15,fontWeight:700,color:TEXT}}>New Assessment</div>
+              <div style={{fontSize:11,color:DIM,marginTop:2}}>Guided IAQ walkthrough</div>
             </div>
             <span style={{fontSize:13,color:DIM}}>→</span>
+          </button>
+
+          {/* ── Open Demo (primary — solid cyan, one per screen) ── */}
+          <button onClick={runDemo} style={{width:'100%',padding:'14px 20px',marginBottom:16,background:ACCENT,border:'none',borderRadius:10,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,fontFamily:'inherit',transition:'opacity 0.15s'}}>
+            <I n="bldg" s={18} c="#fff" w={1.8} />
+            <div style={{flex:1}}>
+              <div style={{fontSize:14,fontWeight:700,color:'#fff'}}>Open Demo Assessment</div>
+              <div style={{fontSize:10,color:'rgba(255,255,255,0.6)',marginTop:2}}>Meridian Business Park · 3 zones</div>
+            </div>
+            <span style={{fontSize:13,color:'rgba(255,255,255,0.7)'}}>→</span>
           </button>
 
           {/* ── Workspace Cards ── */}
@@ -931,7 +929,7 @@ export default function MobileApp() {
               <I n="draft" s={28} c={DIM} w={1.4} />
               <div style={{fontSize:15,fontWeight:600,color:SUB,marginTop:16}}>No drafts in progress</div>
               <div style={{fontSize:12,color:DIM,marginTop:6,lineHeight:1.5}}>Start a new assessment to begin capturing field data.</div>
-              <button onClick={startNew} style={{marginTop:16,padding:'10px 24px',background:`${ACCENT}12`,border:`1px solid ${ACCENT}25`,borderRadius:8,color:ACCENT,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>New Assessment</button>
+              <button onClick={startNew} style={{marginTop:16,padding:'10px 24px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:8,color:SUB,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>New Assessment</button>
               <div style={{marginTop:10}}><button onClick={runDemo} style={{background:'none',border:'none',color:DIM,fontSize:11,cursor:'pointer',fontFamily:'inherit'}}>or open sample project →</button></div>
             </div>
           ):(index.drafts||[]).map(d=>(
@@ -964,7 +962,7 @@ export default function MobileApp() {
               <div style={{fontSize:15,fontWeight:600,color:SUB,marginTop:16}}>No reports generated yet</div>
               <div style={{fontSize:12,color:DIM,marginTop:6,lineHeight:1.5}}>{hSearch?'No reports match your search.':'Complete and finalize an assessment to generate your first report.'}</div>
               {!hSearch&&<>
-                <button onClick={startNew} style={{marginTop:16,padding:'10px 24px',background:`${ACCENT}12`,border:`1px solid ${ACCENT}25`,borderRadius:8,color:ACCENT,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Start Assessment</button>
+                <button onClick={startNew} style={{marginTop:16,padding:'10px 24px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:8,color:SUB,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Start Assessment</button>
                 <div style={{marginTop:10}}><button onClick={runDemo} style={{background:'none',border:'none',color:DIM,fontSize:11,cursor:'pointer',fontFamily:'inherit'}}>or view sample report →</button></div>
               </>}
             </div>
