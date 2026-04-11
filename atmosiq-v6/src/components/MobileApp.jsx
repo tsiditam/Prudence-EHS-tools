@@ -785,9 +785,9 @@ export default function MobileApp() {
               </div>
             </div>
             <div style={{display:'flex',alignItems:'center',gap:8}}>
-              <button onClick={()=>setShowPricing(true)} style={{padding:'4px 10px',borderRadius:6,background:`${ACCENT}10`,border:`1px solid ${ACCENT}18`,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:4}}>
+              <button onClick={()=>setShowPricing(true)} style={{padding:'4px 10px',borderRadius:6,background:CARD,border:`1px solid ${BORDER}`,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:4}}>
                 <span style={{fontSize:12,fontWeight:700,color:ACCENT,fontFamily:"'DM Mono'"}}>{credits}</span>
-                <span style={{fontSize:9,color:SUB}}>credits</span>
+                <span style={{fontSize:9,color:DIM}}>credits</span>
               </button>
               {profile&&<button onClick={()=>setView('settings')} style={{width:36,height:36,borderRadius:10,background:CARD,border:`1px solid ${BORDER}`,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',transition:'border-color 0.15s'}}>
                 <I n="user" s={16} c={SUB} />
@@ -817,7 +817,7 @@ export default function MobileApp() {
             <I n="bldg" s={18} c="#fff" w={1.8} />
             <div style={{flex:1}}>
               <div style={{fontSize:14,fontWeight:700,color:'#fff'}}>Open Demo Assessment</div>
-              <div style={{fontSize:10,color:'rgba(255,255,255,0.6)',marginTop:2}}>Meridian Business Park · 3 zones</div>
+              <div style={{fontSize:10,color:'rgba(255,255,255,0.85)',marginTop:2}}>Meridian Business Park · 3 zones</div>
             </div>
             <span style={{fontSize:13,color:'rgba(255,255,255,0.7)'}}>→</span>
           </button>
@@ -826,7 +826,7 @@ export default function MobileApp() {
           <div style={{display:'grid',gridTemplateColumns:isTabletLand?'1fr':'1fr 1fr',gap:10,marginBottom:isTabletLand?12:20}}>
             {[
               {l:'Drafts',n:(index.drafts||[]).length,v:'drafts',ic:'clip',sub:((index.drafts||[]).length>0?'In progress':'No active drafts')},
-              {l:'Reports',n:(index.reports||[]).length,v:'history',ic:'findings',sub:((index.reports||[]).length>0?'Finalized':'No finalized reports')}
+              {l:'Reports',n:(index.reports||[]).length,v:'history',ic:'findings',sub:((index.reports||[]).length>0?'Finalized':'Complete an assessment to generate')}
             ].map(c=>(
               <button key={c.l} onClick={()=>{if(c.n)setView(c.v)}} style={{padding:'16px',background:CARD,border:`1px solid ${c.n?`${ACCENT}18`:BORDER}`,borderRadius:10,cursor:c.n?'pointer':'default',textAlign:'left',fontFamily:'inherit',transition:'border-color 0.15s'}}>
                 <div style={{fontSize:22,fontWeight:700,fontFamily:"'DM Mono'",color:c.n?TEXT:DIM,marginBottom:8}}>{c.n}</div>
@@ -851,7 +851,7 @@ export default function MobileApp() {
             return (
               <div style={{padding:'8px 14px',background:SURFACE,borderRadius:8,border:`1px solid ${BORDER}`,marginBottom:12,display:'flex',alignItems:'center',gap:8}}>
                 <I n={icon} s={13} c={color} w={1.6} />
-                <span style={{fontSize:10,color:color===WARN?SUB:DIM,fontFamily:"'DM Mono'"}}>{msg}</span>
+                <span style={{fontSize:10,color:color===WARN?SUB:SUB}}>{msg}</span>
               </div>
             )
           })()}
