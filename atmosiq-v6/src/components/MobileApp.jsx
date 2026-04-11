@@ -968,7 +968,7 @@ export default function MobileApp() {
               <div style={{fontSize:15,fontWeight:600,color:SUB,marginTop:16}}>No reports generated yet</div>
               <div style={{fontSize:12,color:DIM,marginTop:6,lineHeight:1.5}}>{hSearch?'No reports match your search.':'Complete and finalize an assessment to generate your first report.'}</div>
               {!hSearch&&<>
-                <button onClick={startNew} style={{marginTop:16,padding:'10px 24px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:8,color:SUB,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Start Assessment</button>
+                <button onClick={startNew} style={{marginTop:16,padding:'10px 24px',background:ACCENT,border:'none',borderRadius:8,color:'#000',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Start Assessment</button>
                 <div style={{marginTop:10}}><button onClick={runDemo} style={{background:'none',border:'none',color:DIM,fontSize:11,cursor:'pointer',fontFamily:'inherit'}}>or view sample report →</button></div>
               </>}
             </div>
