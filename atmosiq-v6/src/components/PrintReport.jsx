@@ -85,7 +85,7 @@ export function generatePrintHTML(data) {
 <body>
   <!-- ═══ COVER PAGE ═══ -->
   <div class="cover">
-    <div class="cover-logo">atmos<span class="accent">flow</span></div>
+    <div class="cover-logo">Atmos<span class="accent">flow</span></div>
     <div class="cover-title">Indoor Air Quality Assessment Report</div>
     <div class="cover-sub">Standards-Driven Multi-Zone Assessment</div>
     <div style="width:40px;height:2px;background:#0E7490;margin:24px auto;"></div>
@@ -98,14 +98,14 @@ export function generatePrintHTML(data) {
       <strong>Report ID:</strong> ${reportId}<br>
       <strong>Version:</strong> 1.0 &nbsp;|&nbsp; <strong>Status:</strong> Draft — Pending Professional Review
     </div>
-    <div style="margin-top:32px;font-size:10px;color:#94A3B8;">Prepared by atmosflow v${ver} — Prudence Safety &amp; Environmental Consulting, LLC</div>
+    <div style="margin-top:32px;font-size:10px;color:#94A3B8;">Prepared by Atmosflow v${ver} — Prudence Safety &amp; Environmental Consulting, LLC</div>
   </div>
 
   <!-- ═══ DEFENSIBILITY PANEL ═══ -->
   <div class="def-panel">
     <div style="font-size:10px;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Assessment Transparency</div>
     <table style="width:auto;"><tbody>
-      <tr><td style="color:#64748B;padding-right:16px;">Workflow version</td><td style="color:#334155;font-weight:600;">atmosflow v${ver}</td></tr>
+      <tr><td style="color:#64748B;padding-right:16px;">Workflow version</td><td style="color:#334155;font-weight:600;">Atmosflow v${ver}</td></tr>
       <tr><td style="color:#64748B;padding-right:16px;">Standards referenced</td><td style="color:#334155;font-weight:600;">ASHRAE 62.1-2025, ASHRAE 55-2023, OSHA PELs, EPA NAAQS, WHO guidelines</td></tr>
       <tr><td style="color:#64748B;padding-right:16px;">Calibration recorded</td><td style="color:#334155;font-weight:600;">${presurvey?.ps_inst_iaq_cal_status || 'Not recorded'}</td></tr>
       <tr><td style="color:#64748B;padding-right:16px;">Professional review</td><td style="color:#334155;font-weight:600;">Draft — requires IH review before distribution</td></tr>
@@ -376,7 +376,7 @@ export function generatePrintHTML(data) {
 
   <!-- ═══ APPENDIX B — TRANSPARENT SCORING SUMMARY ═══ -->
   <h2 class="pg-break">Appendix B — Transparent Scoring Summary</h2>
-  <p style="font-size:10px;color:#64748B;margin-bottom:12px;">atmosflow applies a deterministic scoring methodology against published occupational and environmental health standards. The composite score is calculated as: (zone average × 0.6) + (worst zone × 0.4). This weighting ensures that a single underperforming zone cannot be masked by otherwise acceptable conditions. All category weights and thresholds are fixed and published — no AI judgment is applied in scoring.</p>
+  <p style="font-size:10px;color:#64748B;margin-bottom:12px;">Atmosflow applies a deterministic scoring methodology against published occupational and environmental health standards. The composite score is calculated as: (zone average × 0.6) + (worst zone × 0.4). This weighting ensures that a single underperforming zone cannot be masked by otherwise acceptable conditions. All category weights and thresholds are fixed and published — no AI judgment is applied in scoring.</p>
   <table>
     <thead><tr><th>Category</th><th style="text-align:center;">Max Points</th><th>Evaluation Basis</th></tr></thead>
     <tbody>
@@ -415,7 +415,7 @@ export function generatePrintHTML(data) {
 
   <!-- ═══ FOOTER ═══ -->
   <div class="footer">
-    <div>atmosflow v${ver} — Prudence Safety &amp; Environmental Consulting, LLC — Germantown, MD</div>
+    <div>Atmosflow v${ver} — Prudence Safety &amp; Environmental Consulting, LLC — Germantown, MD</div>
     <div>&copy; 2026 All rights reserved. Scoring methodology applies deterministic rules informed by published ventilation, exposure, and environmental health standards.</div>
     <div style="margin-top:4px;">Assessor: ${assessor} &nbsp;|&nbsp; Report ID: ${reportId} &nbsp;|&nbsp; Generated: ${now}</div>
     <div style="margin-top:6px;font-size:8px;">This report is intended for the client identified above and should not be distributed to third parties without authorization.</div>

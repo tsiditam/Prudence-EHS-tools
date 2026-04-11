@@ -673,7 +673,7 @@ export default function MobileApp() {
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',height:48,padding:`0 ${padX}px`,maxWidth:contentMax,margin:'0 auto'}}>
           <div style={{display:'flex',alignItems:'center',gap:10}}>
             <div style={{width:28,height:28,borderRadius:7,background:ACCENT,display:'flex',alignItems:'center',justifyContent:'center'}}><I n="wind" s={14} c={BG} w={2.2} /></div>
-            <span style={{fontSize:15,fontWeight:700,letterSpacing:'-0.3px',color:TEXT}}>atmos<span style={{color:ACCENT}}>flow</span></span>
+            <span style={{fontSize:15,fontWeight:700,letterSpacing:'-0.3px',color:TEXT}}>Atmos<span style={{color:ACCENT}}>flow</span></span>
           </div>
           <div style={{display:'flex',alignItems:'center',gap:8}}>
             {isAssessing&&<span style={{fontSize:10,color:ACCENT,fontFamily:"'DM Mono'",background:`${ACCENT}0A`,padding:'3px 10px',borderRadius:4,border:`1px solid ${ACCENT}20`,letterSpacing:'0.5px'}}>SAVING</span>}
