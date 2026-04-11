@@ -1,5 +1,5 @@
 /**
- * Atmosflow Technical Report Authoring Engine
+ * AtmosFlow Technical Report Authoring Engine
  * Type Definitions — Canonical Report Payload
  *
  * This is the ONLY input to the report-writing system.

@@ -1,5 +1,5 @@
 /**
- * Atmosflow Technical Report Authoring Engine
+ * AtmosFlow Technical Report Authoring Engine
  * Section-Writing Module Specifications
  *
  * Each module defines: purpose, inputs, allowed/prohibited claims,

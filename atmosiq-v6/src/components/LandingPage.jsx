@@ -317,7 +317,7 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
               letterSpacing: '-0.035em',
               margin: 0,
             }}>
-              Atmosflow <span style={warmGradient}>closes that gap</span> —{dk ? <br /> : ' '}structured assessment, scored findings, report-ready output.
+              AtmosFlow <span style={warmGradient}>closes that gap</span> —{dk ? <br /> : ' '}structured assessment, scored findings, report-ready output.
             </p>
           </>
         )}
@@ -564,10 +564,10 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
             <div style={{ ...reveal(inView, 0.25), textAlign: dk ? 'left' : 'center', flex: 1 }}>
               <div style={{ fontSize: 10, color: C.gold, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 12, fontWeight: 600 }}>Mobile App</div>
               <div style={{ ...display, fontSize: dk ? 30 : 22, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 12, lineHeight: 1.2 }}>
-                Take Atmosflow{dk ? <br /> : ' '}Into the Field
+                Take AtmosFlow{dk ? <br /> : ' '}Into the Field
               </div>
               <div style={{ fontSize: 14, color: C.sub, lineHeight: 1.7, marginBottom: 24, maxWidth: 400 }}>
-                Install Atmosflow directly to your phone. No app store needed — works offline, feels native, and stays up to date automatically.
+                Install AtmosFlow directly to your phone. No app store needed — works offline, feels native, and stays up to date automatically.
               </div>
               <button onClick={() => { if (window._pwaPrompt) { window._pwaPrompt.prompt(); window._pwaPrompt.userChoice.then(() => { window._pwaPrompt = null }) } else { alert("To install: tap your browser's Share button (iOS) or Menu → 'Add to Home Screen' (Android/Desktop)") } }} style={{
                 padding: '13px 30px',

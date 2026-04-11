@@ -21,7 +21,7 @@ export default class ErrorBoundary extends Component {
   }
 
   componentDidCatch(error, info) {
-    console.error('Atmosflow Error Boundary caught:', error, info)
+    console.error('AtmosFlow Error Boundary caught:', error, info)
   }
 
   render() {

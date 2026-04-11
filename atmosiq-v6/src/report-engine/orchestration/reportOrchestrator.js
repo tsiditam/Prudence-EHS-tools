@@ -1,5 +1,5 @@
 /**
- * Atmosflow Technical Report Authoring Engine
+ * AtmosFlow Technical Report Authoring Engine
  * Report Orchestrator — orchestrates the full report generation pipeline
  *
  * Flow:

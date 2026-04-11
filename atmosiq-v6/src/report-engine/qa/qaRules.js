@@ -1,5 +1,5 @@
 /**
- * Atmosflow Technical Report Authoring Engine
+ * AtmosFlow Technical Report Authoring Engine
  * QA Rule Definitions — validates every section before render
  *
  * Each rule returns { pass: boolean, issue?: string, severity: 'error' | 'warning' }
