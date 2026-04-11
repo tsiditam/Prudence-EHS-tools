@@ -3,9 +3,9 @@
  * Copyright (c) 2026 Prudence Safety & Environmental Consulting, LLC
  * All rights reserved.
  *
- * PrintReport — print-optimized report for PDF export via window.print()
- * Hidden on screen. Rendered into a hidden iframe, then printed.
- * User gets native iOS/Android "Save as PDF" option.
+ * PrintReport — print-optimized report opened in new tab
+ * User can print or save as PDF from the browser.
+ * No automatic print dialogs — Safari-safe.
  */
 
 export function generatePrintHTML(data) {
@@ -426,18 +426,18 @@ export function generatePrintHTML(data) {
 
 export function printReport(data) {
   const html = generatePrintHTML(data)
-  const iframe = document.createElement('iframe')
-  iframe.style.position = 'fixed'
-  iframe.style.top = '-10000px'
-  iframe.style.left = '-10000px'
-  iframe.style.width = '800px'
-  iframe.style.height = '600px'
-  document.body.appendChild(iframe)
-  iframe.contentDocument.open()
-  iframe.contentDocument.write(html)
-  iframe.contentDocument.close()
-  setTimeout(() => {
-    iframe.contentWindow.print()
-    setTimeout(() => document.body.removeChild(iframe), 1000)
-  }, 500)
+  // Open report in a new tab — user can then print/save from there
+  // This avoids Safari's automatic print dialog blocking
+  const blob = new Blob([html], { type: 'text/html' })
+  const url = URL.createObjectURL(blob)
+  const win = window.open(url, '_blank')
+  if (!win) {
+    // Popup blocked — fallback to download
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `Atmosflow-Report-${data.building?.fn || 'Assessment'}.html`
+    a.click()
+  }
+  // Clean up blob URL after a delay
+  setTimeout(() => URL.revokeObjectURL(url), 60000)
 }
