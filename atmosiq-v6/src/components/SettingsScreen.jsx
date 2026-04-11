@@ -33,6 +33,10 @@ export default function SettingsScreen({ profile, onEditProfile, onLogout, onClo
   const [showAdminInput, setShowAdminInput] = useState(false)
   const [adminCode, setAdminCode] = useState('')
   const [deleteConfirm, setDeleteConfirm] = useState(false)
+  const [showPasswordChange, setShowPasswordChange] = useState(false)
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [passwordMsg, setPasswordMsg] = useState('')
 
   useEffect(() => {
     Backup.checkHealth().then(setHealth)
@@ -200,6 +204,30 @@ export default function SettingsScreen({ profile, onEditProfile, onLogout, onClo
       <Section title="Account" />
 
       <Row icon="bolt" label="Buy Credits" sub="Assessment and narrative credits" action={() => onNavigate?.('pricing')} />
+
+      {/* Change Password */}
+      {!showPasswordChange ? (
+        <Row icon="shield" label="Change Password" sub="Update your account password" action={() => setShowPasswordChange(true)} />
+      ) : (
+        <div style={{padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,marginBottom:6}}>
+          <div style={{fontSize:12,fontWeight:600,color:TEXT,marginBottom:10}}>Change Password</div>
+          <input type="password" value={newPassword} onChange={e=>setNewPassword(e.target.value)} placeholder="New password (min 8 characters)" style={{width:'100%',padding:'10px 14px',background:BG,border:`1px solid ${BORDER}`,borderRadius:8,color:TEXT,fontSize:13,fontFamily:'inherit',outline:'none',boxSizing:'border-box',marginBottom:8}} />
+          <input type="password" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} placeholder="Confirm new password" style={{width:'100%',padding:'10px 14px',background:BG,border:`1px solid ${BORDER}`,borderRadius:8,color:TEXT,fontSize:13,fontFamily:'inherit',outline:'none',boxSizing:'border-box',marginBottom:8}} />
+          {passwordMsg && <div style={{fontSize:11,color:passwordMsg.includes('success')?SUCCESS:DANGER,marginBottom:8}}>{passwordMsg}</div>}
+          <div style={{display:'flex',gap:8}}>
+            <button onClick={()=>{setShowPasswordChange(false);setNewPassword('');setConfirmPassword('');setPasswordMsg('')}} style={{flex:0,padding:'8px 16px',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:8,color:SUB,fontSize:11,cursor:'pointer',fontFamily:'inherit'}}>Cancel</button>
+            <button onClick={async()=>{
+              if(newPassword.length<8){setPasswordMsg('Password must be at least 8 characters');return}
+              if(newPassword!==confirmPassword){setPasswordMsg('Passwords do not match');return}
+              try{
+                const{supabase:sb}=await import('../utils/supabaseClient')
+                if(sb){const{error}=await sb.auth.updateUser({password:newPassword});if(error){setPasswordMsg(error.message)}else{setPasswordMsg('Password updated successfully');setNewPassword('');setConfirmPassword('');setTimeout(()=>{setShowPasswordChange(false);setPasswordMsg('')},2000)}}
+              }catch{setPasswordMsg('Failed to update password')}
+            }} style={{flex:1,padding:'8px 16px',background:ACCENT,border:'none',borderRadius:8,color:BG,fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>Update Password</button>
+          </div>
+        </div>
+      )}
+
       {adminActive && <Row icon="chart" label="Admin Dashboard" sub="Users, revenue, and platform metrics" action={() => onNavigate?.('admin')} />}
       <Row icon="user" label="Sign Out" sub="Switch assessor profile" action={onLogout} color={DANGER} />
 
