@@ -33,7 +33,7 @@ export default function ReportView({
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: dk ? 36 : 24, paddingBottom: dk ? 24 : 0, borderBottom: dk ? `1px solid ${CSS.border}` : 'none' }}>
           <div>
-            <div style={{ fontSize: dk ? 28 : 22, fontWeight: 800, letterSpacing: '-0.02em' }}>Atmos<span style={{ color: CSS.accent }}>flow</span> Report</div>
+            <div style={{ fontSize: dk ? 28 : 22, fontWeight: 800, letterSpacing: '-0.02em' }}>Atmos<span style={{ color: CSS.accent }}>Flow</span> Report</div>
             <div style={{ fontSize: 12, color: CSS.muted, marginTop: 4 }}>{building.fn} &mdash; {new Date(report.ts).toLocaleString()}</div>
           </div>
           <button onClick={() => { setStep(0); setReport(null); setIsDemo(false) }} style={{ ...btn(false, dk), padding: '8px 16px' }} {...btnPress}>New Assessment</button>
