@@ -100,6 +100,8 @@ export default function MobileApp() {
   const [narrativeLoading, setNarrativeLoading] = useState(false)
   const [samplingPlan, setSamplingPlan] = useState(null)
   const [causalChains, setCausalChains] = useState([])
+  const [showPhotoSelect, setShowPhotoSelect] = useState(false)
+  const [selectedPhotos, setSelectedPhotos] = useState({})
   const [rTab, setRTab] = useState('overview')
   const [selZone, setSelZone] = useState(0)
 
@@ -298,8 +300,29 @@ export default function MobileApp() {
   }
 
   const handleExportPDF = () => {
-    trackEvent('report_exported', { facility: bldg.fn || '', score: comp?.tot, zones: zones.length, has_narrative: !!narrative })
-    printReport({ building: bldg, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, version: VER })
+    const hasPhotos = photos && Object.values(photos).some(arr => arr && arr.length > 0)
+    if (hasPhotos) {
+      // Pre-select all photos, then show picker
+      const sel = {}
+      Object.keys(photos).forEach(k => { (photos[k]||[]).forEach((_, i) => { sel[`${k}::${i}`] = true }) })
+      setSelectedPhotos(sel)
+      setShowPhotoSelect(true)
+    } else {
+      trackEvent('report_exported', { facility: bldg.fn || '', score: comp?.tot, zones: zones.length, has_narrative: !!narrative })
+      printReport({ building: bldg, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: {}, version: VER })
+    }
+  }
+
+  const confirmExportWithPhotos = () => {
+    // Filter photos to only selected ones
+    const filtered = {}
+    Object.keys(photos).forEach(k => {
+      const kept = (photos[k]||[]).filter((_, i) => selectedPhotos[`${k}::${i}`])
+      if (kept.length > 0) filtered[k] = kept
+    })
+    setShowPhotoSelect(false)
+    trackEvent('report_exported', { facility: bldg.fn || '', score: comp?.tot, zones: zones.length, has_narrative: !!narrative, photos: Object.values(filtered).flat().length })
+    printReport({ building: bldg, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filtered, version: VER })
   }
 
   const handleShare = async () => {
@@ -768,6 +791,37 @@ export default function MobileApp() {
             </button>
           ))}
           <div style={{textAlign:'center',marginTop:14,fontSize:10,color:DIM,lineHeight:1.6}}>Unused credits roll over monthly while your plan is active<br/>Secure checkout powered by Stripe</div>
+        </div>
+      </div>}
+
+      {/* ── Photo Selection Modal ── */}
+      {showPhotoSelect&&<div style={{position:'fixed',inset:0,background:'#000000DD',zIndex:260,display:'flex',alignItems:'flex-end',justifyContent:'center'}} onClick={e=>{if(e.target===e.currentTarget)setShowPhotoSelect(false)}}>
+        <div style={{width:'100%',maxWidth:contentMax,background:CARD,border:`1px solid ${BORDER}`,borderRadius:'20px 20px 0 0',padding:'24px 20px',paddingBottom:'calc(32px + env(safe-area-inset-bottom, 0px))',animation:'fadeUp .3s ease',maxHeight:'80vh',overflowY:'auto'}}>
+          <div style={{width:36,height:4,borderRadius:2,background:BORDER,margin:'0 auto 16px'}} />
+          <div style={{fontSize:18,fontWeight:700,color:TEXT,marginBottom:4}}>Include Photos</div>
+          <div style={{fontSize:12,color:SUB,marginBottom:16}}>Select which photos to include in the report.</div>
+          {Object.keys(photos).filter(k=>(photos[k]||[]).length>0).map(k=>{
+            const zi=parseInt(k.match(/^z(\d+)-/)?.[1]??'-1')
+            const fieldId=k.replace(/^z\d+-/,'')
+            const fieldLabels={dp:'Condensate drain pan',wd:'Water damage',mi:'Mold indicators'}
+            const zoneName=zones[zi]?.zn||`Zone ${zi+1}`
+            return (photos[k]||[]).map((p,i)=>(
+              <button key={`${k}::${i}`} onClick={()=>setSelectedPhotos(prev=>({...prev,[`${k}::${i}`]:!prev[`${k}::${i}`]}))} style={{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'10px 12px',background:selectedPhotos[`${k}::${i}`]?`${ACCENT}08`:SURFACE,border:`1px solid ${selectedPhotos[`${k}::${i}`]?ACCENT+'30':BORDER}`,borderRadius:10,marginBottom:6,cursor:'pointer',fontFamily:'inherit',textAlign:'left'}}>
+                <div style={{width:20,height:20,borderRadius:5,border:`2px solid ${selectedPhotos[`${k}::${i}`]?ACCENT:DIM}`,background:selectedPhotos[`${k}::${i}`]?ACCENT:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                  {selectedPhotos[`${k}::${i}`]&&<span style={{color:'#000',fontSize:12,fontWeight:700}}>✓</span>}
+                </div>
+                {p.src&&<img src={p.src} alt="" style={{width:48,height:48,objectFit:'cover',borderRadius:6,flexShrink:0}} />}
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:12,fontWeight:600,color:TEXT}}>{fieldLabels[fieldId]||fieldId}</div>
+                  <div style={{fontSize:10,color:DIM,marginTop:1}}>{zoneName}{p.ts?` · ${new Date(p.ts).toLocaleTimeString()}`:''}</div>
+                </div>
+              </button>
+            ))
+          })}
+          <div style={{display:'flex',gap:10,marginTop:16}}>
+            <button onClick={()=>{setSelectedPhotos({});confirmExportWithPhotos()}} style={{flex:1,padding:'14px 0',background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:10,color:SUB,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>Skip Photos</button>
+            <button onClick={confirmExportWithPhotos} style={{flex:1,padding:'14px 0',background:ACCENT,border:'none',borderRadius:10,color:'#000',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>Export with {Object.values(selectedPhotos).filter(Boolean).length} Photo{Object.values(selectedPhotos).filter(Boolean).length!==1?'s':''}</button>
+          </div>
         </div>
       </div>}
 

@@ -9,7 +9,7 @@
  */
 
 export function generatePrintHTML(data) {
-  const { building, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile } = data
+  const { building, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos } = data
   const bldg = building || {}
   const now = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
   const assessDate = data.ts ? new Date(data.ts).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : now
@@ -219,6 +219,30 @@ export function generatePrintHTML(data) {
           <ul style="font-size:11px;color:#475569;line-height:1.8;padding-left:18px;margin:4px 0 12px;">
             ${obs.map(o => `<li>${o}</li>`).join('')}
           </ul>` : ''
+      })()}
+
+      ${/* Zone Photos */(() => {
+        const zonePhotos = []
+        if (photos) {
+          Object.keys(photos).forEach(key => {
+            if (key.startsWith(`z${zi}-`)) {
+              const fieldId = key.replace(`z${zi}-`, '')
+              const fieldLabels = { dp: 'Condensate drain pan', wd: 'Water damage', mi: 'Mold indicators' }
+              ;(photos[key] || []).forEach(p => {
+                if (p && p.src) zonePhotos.push({ src: p.src, label: fieldLabels[fieldId] || fieldId, ts: p.ts })
+              })
+            }
+          })
+        }
+        return zonePhotos.length > 0 ? `
+          <h3>Photo Documentation</h3>
+          <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+            ${zonePhotos.map(p => `
+              <div style="width:180px;">
+                <img src="${p.src}" alt="${p.label}" style="width:100%;height:130px;object-fit:cover;border-radius:4px;border:1px solid #E2E8F0;" />
+                <div style="font-size:9px;color:#64748B;margin-top:3px;">${p.label}${p.ts ? ` · ${new Date(p.ts).toLocaleTimeString()}` : ''}</div>
+              </div>`).join('')}
+          </div>` : ''
       })()}
 
       ${/* Parameter Results */(() => {
