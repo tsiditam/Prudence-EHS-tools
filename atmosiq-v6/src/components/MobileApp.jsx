@@ -756,7 +756,7 @@ export default function MobileApp() {
                 if(data.url)window.location.href=data.url
               }catch{alert('Payment setup failed. Please try again.')}
             }} style={{width:'100%',padding:'16px 18px',background:p.popular?`${ACCENT}08`:SURFACE,border:`1px solid ${p.popular?ACCENT+'30':BORDER}`,borderRadius:12,marginBottom:8,cursor:'pointer',textAlign:'left',fontFamily:'inherit',position:'relative',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-              {p.popular&&<div style={{position:'absolute',top:-8,right:16,padding:'2px 10px',borderRadius:6,background:ACCENT,color:BG,fontSize:9,fontWeight:700}}>MOST POPULAR</div>}
+              {p.popular&&<div style={{position:'absolute',top:-8,right:16,padding:'2px 10px',borderRadius:6,background:'#F97316',color:'#000',fontSize:9,fontWeight:700}}>MOST POPULAR</div>}
               <div>
                 <div style={{fontSize:15,fontWeight:700,color:TEXT}}>{p.name} <span style={{fontWeight:500,color:SUB}}>— {p.credits} credits/mo</span></div>
                 <div style={{fontSize:11,color:DIM,marginTop:2}}>{p.desc}</div>
