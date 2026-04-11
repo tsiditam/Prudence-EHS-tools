@@ -50,7 +50,16 @@ export const SECTION_SPECS = {
       'Use "would warrant targeted follow-up" not "must be fixed immediately"',
       'Write in third person, past tense for observations',
     ],
-    promptTemplate: `You are a senior certified industrial hygienist writing the executive summary for a technical IAQ assessment report.
+    /**
+     * Builds the prompt at runtime from the payload.
+     * CRITICAL: This function receives a FROZEN payload — it cannot mutate data.
+     * Template variables are resolved here, not by string interpolation.
+     */
+    buildPrompt: (payload) => {
+      const c = payload.scoring.composite
+      const o = payload.scoring.osha
+      const r = payload.analysis.recommendations
+      return `You are a senior certified industrial hygienist writing the executive summary for a technical IAQ assessment report.
 
 RULES:
 - Write 3-4 paragraphs summarizing scope, key findings, and recommended next steps.
@@ -62,20 +71,22 @@ RULES:
 - Close with priority recommended actions.
 - Do NOT claim compliance or non-compliance with any regulation.
 - Do NOT use the word "proves", "confirms", "guarantees", or "unsafe".
+- Do NOT reference yourself as AI or mention being a language model.
 
 DATA:
-Facility: {facility.name}
-Location: {facility.address}
-Assessment date: {meta.assessmentDate}
-Composite score: {scoring.composite.tot}/100 ({scoring.composite.risk})
-Zone average: {scoring.composite.avg}, Worst zone: {scoring.composite.worst}
-Zones assessed: {scoring.composite.count}
-Confidence: {scoring.osha.conf}
-OSHA flags: {scoring.osha.fl.length > 0 ? scoring.osha.fl.join('; ') : 'None'}
-Top recommendations: {analysis.recommendations.imm.slice(0,2).join('; ')}
-Assessment reason: {context.reason}
+Facility: ${payload.facility.name}
+Location: ${payload.facility.address}
+Assessment date: ${payload.meta.assessmentDate}
+Composite score: ${c.tot}/100 (${c.risk})
+Zone average: ${c.avg}, Worst zone: ${c.worst}
+Zones assessed: ${c.count}
+Confidence: ${o.conf}
+OSHA flags: ${o.fl.length > 0 ? o.fl.join('; ') : 'None'}
+Top recommendations: ${(r.imm || []).slice(0, 2).join('; ') || 'None immediate'}
+Assessment reason: ${payload.context.reason}
 
-Write the executive summary now.`,
+Write the executive summary now.`
+    },
   },
 
   scopeMethodology: {

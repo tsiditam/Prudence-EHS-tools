@@ -45,16 +45,21 @@ export const QA_RULES = [
     severity: 'error',
     description: 'Section must not reference standards not in payload.standards',
     check: (section, payload) => {
-      const inventedPatterns = [
-        /\d+ CFR \d+/g,
-        /ASHRAE \d+/g,
-        /NIOSH \w+/g,
-        /EPA \w+/g,
+      const allowed = (payload.standards || []).map(s => s.toLowerCase())
+      // Extract all standard-like references from content
+      const stdPatterns = [
+        ...section.content.matchAll(/ASHRAE\s+[\d.]+[-\d]*/gi),
+        ...section.content.matchAll(/\d+\s+CFR\s+\d+[.\d]*/gi),
+        ...section.content.matchAll(/NIOSH\s+\w+/gi),
+        ...section.content.matchAll(/NFPA\s+\d+/gi),
+        ...section.content.matchAll(/ANSI\s+\w+/gi),
       ]
-      // This is a simplified check — production would need more nuance
-      const content = section.content
-      const hasUnsupported = content.includes('ASHRAE 90.1') || content.includes('ASHRAE 189')
-      return { pass: !hasUnsupported, issue: hasUnsupported ? 'References standard not in payload' : undefined }
+      const found = [...stdPatterns].map(m => m[0])
+      const unrecognized = found.filter(f => !allowed.some(a => a.includes(f.toLowerCase().split(' ')[0])))
+      return {
+        pass: unrecognized.length === 0,
+        issue: unrecognized.length > 0 ? `Unrecognized standard references: ${unrecognized.join(', ')}. Allowed: ${payload.standards.join(', ')}` : undefined
+      }
     }
   },
 
@@ -147,6 +152,69 @@ export const QA_RULES = [
       const weak = ['it is important to note that', 'it should be noted that', 'in conclusion', 'as mentioned above', 'needless to say']
       const found = weak.filter(w => section.content.toLowerCase().includes(w))
       return { pass: found.length === 0, issue: found.length > 0 ? `Weak language: ${found.join(', ')}` : undefined }
+    }
+  },
+
+  // ─── Payload Immutability ───
+  {
+    id: 'no-score-override',
+    severity: 'error',
+    description: 'Section must not contain scores that contradict the payload',
+    check: (section, payload) => {
+      // Check for risk level mismatches
+      const riskLevels = ['Critical', 'High Risk', 'Moderate', 'Low Risk']
+      const payloadRisk = payload.scoring?.composite?.risk
+      if (!payloadRisk) return { pass: true }
+      // If section mentions a different risk level than the payload
+      const otherRisks = riskLevels.filter(r => r !== payloadRisk)
+      const contradicts = otherRisks.some(r =>
+        section.content.includes(`composite`) && section.content.includes(r) && !section.content.includes(payloadRisk)
+      )
+      return { pass: !contradicts, issue: contradicts ? `Section may contradict payload risk level (${payloadRisk})` : undefined }
+    }
+  },
+
+  // ─── Section Boundary ───
+  {
+    id: 'no-section-bleed',
+    severity: 'warning',
+    description: 'Section should stay within its designated scope',
+    check: (section) => {
+      // Executive summary should not contain detailed zone measurements
+      if (section.sectionId === 'exec-summary') {
+        const hasDetailedMeasurements = (section.content.match(/\d+\.?\d*\s*(ppm|µg\/m³)/g) || []).length > 3
+        return { pass: !hasDetailedMeasurements, issue: hasDetailedMeasurements ? 'Executive summary contains too many detailed measurements — belongs in zone sections' : undefined }
+      }
+      // Limitations section should not contain recommendations
+      if (section.sectionId === 'limitations') {
+        const hasRecs = section.content.toLowerCase().includes('recommend') && section.content.toLowerCase().includes('should')
+        return { pass: !hasRecs, issue: hasRecs ? 'Limitations section appears to contain recommendations — belongs in recommendations register' : undefined }
+      }
+      return { pass: true }
+    }
+  },
+
+  // ─── AI Attribution ───
+  {
+    id: 'no-ai-self-reference',
+    severity: 'error',
+    description: 'AI-written sections must not reference themselves as AI',
+    check: (section) => {
+      const selfRef = ['as an AI', 'as a language model', 'I cannot', 'I don\'t have access', 'based on my training']
+      const found = selfRef.filter(s => section.content.toLowerCase().includes(s.toLowerCase()))
+      return { pass: found.length === 0, issue: found.length > 0 ? `AI self-reference detected: ${found.join(', ')}` : undefined }
+    }
+  },
+
+  // ─── Maximum Length Enforcement ───
+  {
+    id: 'max-length-check',
+    severity: 'warning',
+    description: 'AI-written sections must not exceed specified max length',
+    check: (section) => {
+      if (!section.maxLength) return { pass: true }
+      const words = section.content.split(/\s+/).length
+      return { pass: words <= section.maxLength * 1.2, issue: words > section.maxLength * 1.2 ? `Section is ${words} words, max is ${section.maxLength} — may need trimming` : undefined }
     }
   },
 ]

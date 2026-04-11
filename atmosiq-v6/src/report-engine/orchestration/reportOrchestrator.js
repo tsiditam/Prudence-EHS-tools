@@ -36,7 +36,8 @@ import { runQA } from '../qa/qaRunner'
  */
 export async function generateReport(assessmentData, engineOutputs) {
   // Step 1: Build canonical payload (single source of truth)
-  const payload = buildReportPayload(assessmentData, engineOutputs)
+  // CRITICAL: Freeze the payload so no section module can mutate it
+  const payload = Object.freeze(buildReportPayload(assessmentData, engineOutputs))
 
   // Step 2: Run section-writing modules (deterministic first, AI-assisted second)
   const sections = []
@@ -49,13 +50,37 @@ export async function generateReport(assessmentData, engineOutputs) {
   sections.push(formatAppendices(payload))
 
   // AI-assisted sections (use prompts constrained by payload)
-  sections.push(await writeExecutiveSummary(payload))
-  for (let i = 0; i < payload.scoring.zones.length; i++) {
-    sections.push(await writeZoneInterpretation(payload, i))
+  // Each wrapped in error boundary — AI failure must not crash report generation
+  const aiSections = [
+    { fn: () => writeExecutiveSummary(payload), id: 'exec-summary', fallback: 'Executive summary generation failed. Manual review required.' },
+    ...payload.scoring.zones.map((_, i) => ({
+      fn: () => writeZoneInterpretation(payload, i),
+      id: `zone-${i}`,
+      fallback: `Zone interpretation for ${payload.scoring.zones[i]?.zoneName || 'zone'} generation failed.`
+    })),
+    { fn: () => writeCausalAnalysis(payload), id: 'causal-analysis', fallback: 'Causal analysis generation failed.' },
+  ]
+
+  for (const ai of aiSections) {
+    try {
+      sections.push(await ai.fn())
+    } catch (err) {
+      console.error(`Report section ${ai.id} failed:`, err)
+      sections.push({
+        sectionId: ai.id,
+        title: ai.id,
+        content: ai.fallback,
+        status: 'qa_failed',
+        qaScore: 0,
+        qaIssues: [`Generation error: ${err.message}`],
+        wordCount: 0,
+      })
+    }
   }
-  sections.push(await writeCausalAnalysis(payload))
-  sections.push(await writeRecommendations(payload))
-  sections.push(await writeSamplingPlan(payload))
+
+  // Deterministic sections that don't need AI
+  sections.push(writeRecommendations(payload))
+  sections.push(writeSamplingPlan(payload))
   sections.push(writeLimitations(payload))
 
   // Step 3: Run QA on every section
