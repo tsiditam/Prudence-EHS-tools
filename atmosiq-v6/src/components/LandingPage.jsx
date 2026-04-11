@@ -127,7 +127,7 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
             <I n="wind" s={14} c={C.bg} w={2.2} />
           </div>
           <span style={{ ...display, fontSize: 22, fontWeight: 700, letterSpacing: '-0.03em' }}>
-            atmos<span style={{ color: C.cyan }}>flow</span>
+            Atmos<span style={{ color: C.cyan }}>flow</span>
           </span>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
@@ -655,7 +655,7 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
             <div style={{ width: 22, height: 22, borderRadius: 6, background: C.cyan, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <I n="wind" s={11} c={C.bg} w={2.2} />
             </div>
-            <span style={{ ...display, fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em' }}>atmos<span style={{ color: C.cyan }}>flow</span></span>
+            <span style={{ ...display, fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em' }}>Atmos<span style={{ color: C.cyan }}>flow</span></span>
           </div>
           <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>Prudence Safety & Environmental Consulting, LLC</div>
         </div>

@@ -23,7 +23,7 @@ export default function DesktopSidebar({ step, setStep, saveDraft, setShowHistor
 
       <div style={{ padding: '32px 28px 24px', borderBottom: `1px solid ${CSS.border}` }}>
         <div onClick={onHome} style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.02em', cursor: 'pointer' }}>
-          atmos<span style={{ color: CSS.accent }}>flow</span>
+          Atmos<span style={{ color: CSS.accent }}>flow</span>
         </div>
         <div style={{ fontSize: 11, color: CSS.muted, marginTop: 4, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
           Indoor Air Quality Intelligence

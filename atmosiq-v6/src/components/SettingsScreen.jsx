@@ -264,7 +264,7 @@ export default function SettingsScreen({ profile, onEditProfile, onLogout, onClo
 
       <div style={{padding:'16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10}}>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
-          <div style={{fontSize:15,fontWeight:700,color:TEXT}}>atmos<span style={{color:ACCENT}}>flow</span></div>
+          <div style={{fontSize:15,fontWeight:700,color:TEXT}}>Atmos<span style={{color:ACCENT}}>flow</span></div>
           <span onClick={() => {
             const next = adminTaps + 1
             setAdminTaps(next)

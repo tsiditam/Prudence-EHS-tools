@@ -332,7 +332,7 @@ export default function App() {
       {!dk && (
         <div style={{ padding: '16px 20px', borderBottom: `1px solid ${CSS.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, background: CSS.bg, zIndex: 100 }}>
           <div style={{ fontSize: 20, fontWeight: 700 }}>
-            atmos<span style={{ color: CSS.accent }}>flow</span>
+            Atmos<span style={{ color: CSS.accent }}>flow</span>
             <span style={{ fontSize: 10, color: CSS.muted, marginLeft: 8 }}>v{VER}</span>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
