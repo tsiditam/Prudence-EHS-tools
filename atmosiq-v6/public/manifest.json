@@ -1,16 +1,15 @@
 {
-  "name": "AtmosIQ Beta — Indoor Air Quality Intelligence",
-  "short_name": "AtmosIQ Beta",
-  "description": "Field-grade IAQ assessment platform by Prudence EHS. Real-time scoring, causal analysis, and defensible reports.",
+  "name": "AtmosIQ — Indoor Air Quality Intelligence",
+  "short_name": "AtmosIQ",
+  "description": "Standards-driven IAQ assessment platform for industrial hygienists and EHS professionals. Guided field workflow, deterministic scoring, and report-ready output.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#050507",
+  "background_color": "#07080C",
   "theme_color": "#22D3EE",
   "orientation": "portrait-primary",
   "categories": [
     "business",
-    "productivity",
-    "utilities"
+    "productivity"
   ],
   "icons": [
     {
@@ -25,8 +24,5 @@
       "type": "image/png",
       "purpose": "any maskable"
     }
-  ],
-  "screenshots": [],
-  "related_applications": [],
-  "prefer_related_applications": false
+  ]
 }
