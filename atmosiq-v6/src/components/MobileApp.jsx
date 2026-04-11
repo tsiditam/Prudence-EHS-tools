@@ -800,28 +800,26 @@ export default function MobileApp() {
 
           {/* Left column (or full width on portrait/phone) */}
           <div>
-          {/* ── Primary Action ── */}
-          <button onClick={startNew} style={{width:'100%',padding:isTablet?'18px 24px':'16px 20px',marginBottom:12,background:ACCENT,borderRadius:12,border:'none',cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:16,fontFamily:'inherit',transition:'opacity 0.15s'}}>
-            <div style={{width:44,height:44,borderRadius:11,background:'rgba(0,0,0,0.15)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-              <I n="wind" s={22} c={BG} w={2} />
+          {/* ── New Assessment (secondary) ── */}
+          <button onClick={startNew} style={{width:'100%',padding:'14px 20px',marginBottom:10,background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,fontFamily:'inherit',transition:'border-color 0.15s'}}>
+            <div style={{width:40,height:40,borderRadius:10,background:SURFACE,border:`1px solid ${BORDER}`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+              <I n="wind" s={18} c={SUB} w={1.8} />
             </div>
             <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:isTablet?17:16,fontWeight:700,color:BG,letterSpacing:'-0.2px'}}>New Assessment</div>
-              <div style={{fontSize:12,color:'rgba(0,0,0,0.5)',marginTop:2}}>Guided IAQ walkthrough</div>
-            </div>
-            <div style={{width:28,height:28,borderRadius:7,background:'rgba(0,0,0,0.1)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-              <span style={{fontSize:14,color:BG}}>→</span>
-            </div>
-          </button>
-
-          {/* ── Secondary: Demo ── */}
-          <button onClick={runDemo} style={{width:'100%',padding:'14px 20px',marginBottom:16,background:'transparent',border:`1px solid ${BORDER}`,borderRadius:10,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,fontFamily:'inherit',transition:'border-color 0.15s'}}>
-            <I n="bldg" s={18} c={DIM} />
-            <div style={{flex:1}}>
-              <div style={{fontSize:13,fontWeight:600,color:SUB}}>Open sample project</div>
-              <div style={{fontSize:10,color:DIM,marginTop:2}}>Meridian Business Park · 3 zones</div>
+              <div style={{fontSize:15,fontWeight:700,color:TEXT}}>New Assessment</div>
+              <div style={{fontSize:11,color:DIM,marginTop:2}}>Guided IAQ walkthrough</div>
             </div>
             <span style={{fontSize:13,color:DIM}}>→</span>
+          </button>
+
+          {/* ── Open Demo (primary — solid cyan, one per screen) ── */}
+          <button onClick={runDemo} style={{width:'100%',padding:'14px 20px',marginBottom:16,background:ACCENT,border:'none',borderRadius:10,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,fontFamily:'inherit',transition:'opacity 0.15s'}}>
+            <I n="bldg" s={18} c="#fff" w={1.8} />
+            <div style={{flex:1}}>
+              <div style={{fontSize:14,fontWeight:700,color:'#fff'}}>Open Demo Assessment</div>
+              <div style={{fontSize:10,color:'rgba(255,255,255,0.6)',marginTop:2}}>Meridian Business Park · 3 zones</div>
+            </div>
+            <span style={{fontSize:13,color:'rgba(255,255,255,0.7)'}}>→</span>
           </button>
 
           {/* ── Workspace Cards ── */}
