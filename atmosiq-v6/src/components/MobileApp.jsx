@@ -785,9 +785,9 @@ export default function MobileApp() {
               </div>
             </div>
             <div style={{display:'flex',alignItems:'center',gap:8}}>
-              <button onClick={()=>setShowPricing(true)} style={{padding:'4px 10px',borderRadius:6,background:CARD,border:`1px solid ${BORDER}`,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:4}}>
+              <button onClick={()=>setShowPricing(true)} style={{padding:'4px 10px',borderRadius:6,background:SURFACE,border:`1px solid ${BORDER}`,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:5}}>
                 <span style={{fontSize:12,fontWeight:700,color:ACCENT,fontFamily:"'DM Mono'"}}>{credits}</span>
-                <span style={{fontSize:9,color:DIM}}>credits</span>
+                <span style={{fontSize:9,color:SUB,fontWeight:500}}>credits</span>
               </button>
               {profile&&<button onClick={()=>setView('settings')} style={{width:36,height:36,borderRadius:10,background:CARD,border:`1px solid ${BORDER}`,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',transition:'border-color 0.15s'}}>
                 <I n="user" s={16} c={SUB} />
@@ -826,7 +826,7 @@ export default function MobileApp() {
           <div style={{display:'grid',gridTemplateColumns:isTabletLand?'1fr':'1fr 1fr',gap:10,marginBottom:isTabletLand?12:20}}>
             {[
               {l:'Drafts',n:(index.drafts||[]).length,v:'drafts',ic:'clip',sub:((index.drafts||[]).length>0?'In progress':'No active drafts')},
-              {l:'Reports',n:(index.reports||[]).length,v:'history',ic:'findings',sub:((index.reports||[]).length>0?'Finalized':'Complete an assessment to generate')}
+              {l:'Reports',n:(index.reports||[]).length,v:'history',ic:'findings',sub:((index.reports||[]).length>0?'Finalized':'Ready after assessment')}
             ].map(c=>(
               <button key={c.l} onClick={()=>{if(c.n)setView(c.v)}} style={{padding:'16px',background:CARD,border:`1px solid ${c.n?`${ACCENT}18`:BORDER}`,borderRadius:10,cursor:c.n?'pointer':'default',textAlign:'left',fontFamily:'inherit',transition:'border-color 0.15s'}}>
                 <div style={{fontSize:22,fontWeight:700,fontFamily:"'DM Mono'",color:c.n?TEXT:DIM,marginBottom:8}}>{c.n}</div>
@@ -844,7 +844,7 @@ export default function MobileApp() {
             const lastReport = (index.reports||[])[0]
             let msg, icon, color
             if (calDue) { msg = 'Meter calibration may be due — check before next assessment'; icon = 'alert'; color = WARN }
-            else if (draftCount > 0) { msg = `${draftCount} draft${draftCount>1?'s':''} in progress — resume to finalize`; icon = 'draft'; color = SUB }
+            else if (draftCount > 0) { msg = `${draftCount} draft${draftCount>1?'s':''} in progress — tap to resume`; icon = 'draft'; color = SUB }
             else if (reportCount === 0) { msg = 'No reports ready for export'; icon = 'guidance'; color = DIM }
             else if (lastReport) { msg = `Last report: ${lastReport.facility || 'Assessment'} · ${fD(lastReport.ts)}`; icon = 'findings'; color = DIM }
             else { msg = 'System ready'; icon = 'check'; color = DIM }
@@ -891,12 +891,12 @@ export default function MobileApp() {
           {/* ── System Summary (when no recent reports) ── */}
           {(index.reports||[]).length===0&&(
             <div style={{padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,marginTop:12}}>
-              <div style={{fontSize:11,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:8}}>System Summary</div>
-              <div style={{display:'flex',flexDirection:'column',gap:4,fontSize:11,color:SUB,fontFamily:"'DM Mono'"}}>
-                <div style={{display:'flex',justifyContent:'space-between'}}><span>Assessor</span><span style={{color:TEXT}}>{profile?.name?.split(',')[0]||'Not set'}</span></div>
-                <div style={{display:'flex',justifyContent:'space-between'}}><span>Primary meter</span><span style={{color:profile?.iaq_meter?TEXT:DIM}}>{profile?.iaq_meter||'Not configured'}</span></div>
-                <div style={{display:'flex',justifyContent:'space-between'}}><span>Standards</span><span style={{color:TEXT}}>ASHRAE · OSHA · EPA</span></div>
-                <div style={{display:'flex',justifyContent:'space-between'}}><span>Storage</span><span style={{color:TEXT}}>{(index.drafts||[]).length} drafts · {(index.reports||[]).length} reports</span></div>
+              <div style={{fontSize:11,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:10}}>Configuration</div>
+              <div style={{display:'flex',flexDirection:'column',gap:6,fontSize:11}}>
+                <div style={{display:'flex',justifyContent:'space-between'}}><span style={{color:SUB}}>Assessor</span><span style={{color:TEXT,fontWeight:500}}>{profile?.name?.split(',')[0]||'Not set'}</span></div>
+                <div style={{display:'flex',justifyContent:'space-between'}}><span style={{color:SUB}}>Instrument</span><span style={{color:profile?.iaq_meter?TEXT:DIM,fontFamily:profile?.iaq_meter?"'DM Mono'":'inherit',fontWeight:500}}>{profile?.iaq_meter||'No meter connected'}</span></div>
+                <div style={{display:'flex',justifyContent:'space-between'}}><span style={{color:SUB}}>Reference standards</span><span style={{color:TEXT,fontWeight:500}}>ASHRAE · OSHA · EPA</span></div>
+                <div style={{display:'flex',justifyContent:'space-between'}}><span style={{color:SUB}}>Local storage</span><span style={{color:TEXT,fontFamily:"'DM Mono'",fontWeight:500}}>{(index.drafts||[]).length} drafts · {(index.reports||[]).length} reports</span></div>
               </div>
             </div>
           )}
