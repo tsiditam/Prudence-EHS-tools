@@ -814,12 +814,12 @@ export default function MobileApp() {
 
           {/* ── Open Demo (primary — solid cyan, one per screen) ── */}
           <button onClick={runDemo} style={{width:'100%',padding:'14px 20px',marginBottom:16,background:ACCENT,border:'none',borderRadius:10,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,fontFamily:'inherit',transition:'opacity 0.15s'}}>
-            <I n="bldg" s={18} c="#fff" w={1.8} />
+            <I n="bldg" s={18} c="#000" w={1.8} />
             <div style={{flex:1}}>
-              <div style={{fontSize:14,fontWeight:700,color:'#fff'}}>Open Demo Assessment</div>
-              <div style={{fontSize:10,color:'rgba(255,255,255,0.85)',marginTop:2}}>Meridian Business Park · 3 zones</div>
+              <div style={{fontSize:14,fontWeight:700,color:'#000'}}>Open Demo Assessment</div>
+              <div style={{fontSize:10,color:'rgba(0,0,0,0.6)',marginTop:2}}>Meridian Business Park · 3 zones</div>
             </div>
-            <span style={{fontSize:13,color:'rgba(255,255,255,0.7)'}}>→</span>
+            <span style={{fontSize:13,color:'rgba(0,0,0,0.5)'}}>→</span>
           </button>
 
           {/* ── Workspace Cards ── */}
