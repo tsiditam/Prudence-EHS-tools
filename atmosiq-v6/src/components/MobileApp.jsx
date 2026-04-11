@@ -798,6 +798,9 @@ export default function MobileApp() {
             </div>
           </div>
 
+          {/* ── Product descriptor ── */}
+          <div style={{fontSize:12,color:SUB,marginBottom:18,lineHeight:1.4}}>Guided IAQ assessments with report-ready findings and narratives.</div>
+
           {/* ── Dashboard Content — adaptive layout ── */}
           <div style={{display:isTabletLand?'grid':'block',gridTemplateColumns:isTabletLand?'1fr 1fr':'none',gap:isTabletLand?24:0,alignItems:'start'}}>
 
