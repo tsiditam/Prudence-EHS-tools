@@ -45,7 +45,7 @@ export const STD = {
 export const VER = '6.0.0-beta'
 
 export const PLAT_MODULES = [
-  { id: 'atmosiq',    n: 'AtmosIQ',            i: '🌬️', on: true },
+  { id: 'atmosiq',    n: 'Atmosflow',            i: '🌬️', on: true },
   { id: 'ieq-report', n: 'IEQ Report Gen',      i: '📊' },
   { id: 'asbestos',   n: 'Asbestos Inspection', i: '🔬' },
   { id: 'osha',       n: 'OSHA Inspection',     i: '🛡️' },
