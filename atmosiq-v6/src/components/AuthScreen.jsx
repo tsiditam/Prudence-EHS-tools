@@ -76,7 +76,7 @@ export default function AuthScreen({ onAuth }) {
       <div style={{maxWidth:400,width:'100%',animation:'fadeUp .5s ease'}}>
         {/* Brand */}
         <div style={{textAlign:'center',marginBottom:40}}>
-          <div style={{fontSize:36,fontWeight:800,marginBottom:8}}>Atmos<span style={{color:ACCENT}}>flow</span></div>
+          <div style={{fontSize:36,fontWeight:800,marginBottom:8}}>Atmos<span style={{color:ACCENT}}>Flow</span></div>
           <div style={{fontSize:14,color:SUB}}>
             {mode === 'login' ? 'Sign in to your account' : mode === 'register' ? 'Create your account' : 'Reset your password'}
           </div>

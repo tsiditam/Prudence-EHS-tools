@@ -557,7 +557,7 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
               boxShadow: '0 16px 48px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.03) inset',
             }}>
               <div style={{ position: 'absolute', top: 10, width: 40, height: 4, borderRadius: 2, background: C.border }} />
-              <div style={{ ...display, fontSize: dk ? 22 : 16, fontWeight: 700 }}>a<span style={{ color: C.cyan }}>flow</span></div>
+              <div style={{ ...display, fontSize: dk ? 22 : 16, fontWeight: 700 }}>a<span style={{ color: C.cyan }}>Flow</span></div>
               <div style={{ width: '60%', height: 3, borderRadius: 2, background: `linear-gradient(90deg, ${C.gold}, ${C.violet})`, opacity: 0.5 }} />
               <div style={{ position: 'absolute', bottom: 8, width: 32, height: 3, borderRadius: 2, background: C.border }} />
             </div>

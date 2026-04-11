@@ -85,7 +85,7 @@ export function generatePrintHTML(data) {
 <body>
   <!-- ═══ COVER PAGE ═══ -->
   <div class="cover">
-    <div class="cover-logo">Atmos<span class="accent">flow</span></div>
+    <div class="cover-logo">Atmos<span class="accent">Flow</span></div>
     <div class="cover-title">Indoor Air Quality Assessment Report</div>
     <div class="cover-sub">Standards-Driven Multi-Zone Assessment</div>
     <div style="width:40px;height:2px;background:#0E7490;margin:24px auto;"></div>

@@ -3,7 +3,7 @@
  * Copyright (c) 2026 All rights reserved.
  *
  * WelcomeScreen — first-time user onboarding
- * Shows once before profile setup, explains what atmosflow does.
+ * Shows once before profile setup, explains what AtmosFlow does.
  */
 
 import { useState } from 'react'
@@ -53,7 +53,7 @@ export default function WelcomeScreen({ onComplete }) {
             <div style={{width:32,height:32,borderRadius:8,background:ACCENT,display:'flex',alignItems:'center',justifyContent:'center'}}>
               <I n="wind" s={16} c={BG} w={2.2} />
             </div>
-            <span style={{fontSize:22,fontWeight:700,letterSpacing:'-0.3px'}}>Atmos<span style={{color:ACCENT}}>flow</span></span>
+            <span style={{fontSize:22,fontWeight:700,letterSpacing:'-0.3px'}}>Atmos<span style={{color:ACCENT}}>Flow</span></span>
           </div>
         </div>
 
