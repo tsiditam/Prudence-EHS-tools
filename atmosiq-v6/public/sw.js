@@ -1,4 +1,5 @@
-const CACHE_NAME = 'atmosiq-v6-cache';
+const CACHE_VERSION = '2';
+const CACHE_NAME = `atmosflow-cache-v${CACHE_VERSION}`;
 const PRECACHE = [
   '/',
   '/manifest.json',
