@@ -738,13 +738,16 @@ export default function MobileApp() {
       {showPricing&&<div style={{position:'fixed',inset:0,background:'#000000DD',zIndex:250,display:'flex',alignItems:'flex-end',justifyContent:'center'}} onClick={e=>{if(e.target===e.currentTarget)setShowPricing(false)}}>
         <div style={{width:'100%',maxWidth:contentMax,background:CARD,border:`1px solid ${BORDER}`,borderRadius:'20px 20px 0 0',padding:'24px 20px',paddingBottom:'calc(32px + env(safe-area-inset-bottom, 0px))',animation:'fadeUp .3s ease'}}>
           <div style={{width:36,height:4,borderRadius:2,background:BORDER,margin:'0 auto 16px'}} />
-          <div style={{fontSize:18,fontWeight:700,color:TEXT,marginBottom:4}}>Assessment Credits</div>
-          <div style={{fontSize:12,color:SUB,marginBottom:4}}>Credits power assessments and AI narrative generation.</div>
-          <div style={{fontSize:11,color:DIM,marginBottom:20,fontFamily:"'DM Mono'"}}>Current balance: {credits} credit{credits!==1?'s':''}</div>
+          <div style={{fontSize:18,fontWeight:700,color:TEXT,marginBottom:4}}>Choose Your Plan</div>
+          <div style={{fontSize:12,color:SUB,marginBottom:16,lineHeight:1.5}}>Each plan includes monthly assessment credits. Credits are consumed when you finalize an assessment or generate an AI narrative. Drafts, review, and navigation are always free.</div>
+          <div style={{padding:'8px 14px',background:SURFACE,borderRadius:8,border:`1px solid ${BORDER}`,marginBottom:16,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+            <span style={{fontSize:11,color:SUB}}>Your balance</span>
+            <span style={{fontSize:13,fontWeight:700,color:ACCENT,fontFamily:"'DM Mono'"}}>{credits} credit{credits!==1?'s':''}</span>
+          </div>
           {[
-            {id:'solo',name:'Solo',credits:50,price:'$149',per:'/month',desc:'For independent assessors'},
-            {id:'pro',name:'Pro',credits:200,price:'$349',per:'/month',desc:'For active consulting firms',popular:true},
-            {id:'team',name:'Team',credits:500,price:'$799',per:'/month',desc:'For teams and enterprise'},
+            {id:'solo',name:'Solo',credits:50,price:'$149',per:'/month',desc:'Independent assessors'},
+            {id:'pro',name:'Pro',credits:200,price:'$349',per:'/month',desc:'Active consulting firms',popular:true},
+            {id:'team',name:'Team',credits:500,price:'$799',per:'/month',desc:'Multi-seat teams and enterprise'},
           ].map(p=>(
             <button key={p.id} onClick={async()=>{
               try{
@@ -753,9 +756,9 @@ export default function MobileApp() {
                 if(data.url)window.location.href=data.url
               }catch{alert('Payment setup failed. Please try again.')}
             }} style={{width:'100%',padding:'16px 18px',background:p.popular?`${ACCENT}08`:SURFACE,border:`1px solid ${p.popular?ACCENT+'30':BORDER}`,borderRadius:12,marginBottom:8,cursor:'pointer',textAlign:'left',fontFamily:'inherit',position:'relative',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-              {p.popular&&<div style={{position:'absolute',top:-8,right:16,padding:'2px 10px',borderRadius:6,background:ACCENT,color:BG,fontSize:9,fontWeight:700}}>BEST VALUE</div>}
+              {p.popular&&<div style={{position:'absolute',top:-8,right:16,padding:'2px 10px',borderRadius:6,background:ACCENT,color:BG,fontSize:9,fontWeight:700}}>MOST POPULAR</div>}
               <div>
-                <div style={{fontSize:15,fontWeight:700,color:TEXT}}>{p.name} <span style={{fontWeight:500,color:SUB}}>— {p.credits} credits</span></div>
+                <div style={{fontSize:15,fontWeight:700,color:TEXT}}>{p.name} <span style={{fontWeight:500,color:SUB}}>— {p.credits} credits/mo</span></div>
                 <div style={{fontSize:11,color:DIM,marginTop:2}}>{p.desc}</div>
               </div>
               <div style={{textAlign:'right',flexShrink:0}}>
@@ -764,7 +767,7 @@ export default function MobileApp() {
               </div>
             </button>
           ))}
-          <div style={{textAlign:'center',marginTop:12,fontSize:10,color:DIM}}>Secure payments by Stripe · Credits never expire</div>
+          <div style={{textAlign:'center',marginTop:14,fontSize:10,color:DIM,lineHeight:1.6}}>Unused credits roll over monthly while your plan is active<br/>Secure checkout powered by Stripe</div>
         </div>
       </div>}
 
