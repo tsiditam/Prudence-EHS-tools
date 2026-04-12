@@ -450,18 +450,11 @@ export function generatePrintHTML(data) {
 
 export function printReport(data) {
   const html = generatePrintHTML(data)
-  // Open report in a new tab — user can then print/save from there
-  // This avoids Safari's automatic print dialog blocking
   const blob = new Blob([html], { type: 'text/html' })
   const url = URL.createObjectURL(blob)
-  const win = window.open(url, '_blank')
-  if (!win) {
-    // Popup blocked — fallback to download
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `AtmosFlow-Report-${data.building?.fn || 'Assessment'}.html`
-    a.click()
-  }
-  // Clean up blob URL after a delay
-  setTimeout(() => URL.revokeObjectURL(url), 60000)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `AtmosFlow-Report-${data.building?.fn || 'Assessment'}.html`
+  a.click()
+  setTimeout(() => URL.revokeObjectURL(url), 5000)
 }
