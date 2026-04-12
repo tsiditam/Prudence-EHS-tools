@@ -111,7 +111,7 @@ export default function ReportView({
               {oshaEvals?.[zi] && (
                 <div style={{ marginTop: 8, padding: '10px 12px', background: oshaEvals[zi].flag ? '#EF444415' : '#22C55E15', borderRadius: 8, fontSize: 13 }}>
                   <div style={{ fontWeight: 600, color: oshaEvals[zi].flag ? CSS.danger : CSS.success }}>
-                    <I n="shield" s={14} c={oshaEvals[zi].flag ? CSS.danger : CSS.success} /> OSHA Defensibility: {oshaEvals[zi].conf}
+                    <I n="shield" s={14} c={oshaEvals[zi].flag ? CSS.danger : CSS.success} /> OSHA Readiness: {oshaEvals[zi].conf}
                   </div>
                   {oshaEvals[zi].fl.map((f, fi) => <div key={fi} style={{ color: CSS.danger, marginTop: 2 }}>&excl; {f}</div>)}
                   {oshaEvals[zi].gaps.map((g, gi) => <div key={gi} style={{ color: CSS.warn, marginTop: 2 }}>Gap: {g}</div>)}
