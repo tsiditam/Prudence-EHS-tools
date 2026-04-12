@@ -95,7 +95,7 @@ function Counter({ target, suffix = '', dk }) {
 
 const features = [
   { icon: 'wind', color: C.cyan, title: 'Ventilation Scoring', desc: 'CO₂ differential evaluated against recognized ventilation standards. Outdoor air rate calculations per occupant load and space use. Flags inadequate ventilation before you leave the building.' },
-  { icon: 'shield', color: C.gold, title: 'OSHA Defensibility Analysis', desc: 'Field data cross-referenced against 29 CFR 1910 in real time. Citation risks flagged with confidence levels. When data is missing, confidence degrades — so you always know how strong your documentation is.' },
+  { icon: 'shield', color: C.gold, title: 'OSHA-Readiness Review', desc: 'Field data cross-referenced against 29 CFR 1910 in real time. Conditions warranting regulatory attention are surfaced with confidence levels. When data is missing, confidence degrades — so you always know how strong your documentation is.' },
   { icon: 'chain', color: C.violet, title: 'Root Cause Chains', desc: 'Damper closed → inadequate OA → elevated CO2 → occupant symptoms. The engine connects related findings into evidence-weighted causal chains instead of listing them as separate items.' },
   { icon: 'flask', color: C.emerald, title: 'Hypothesis-Driven Sampling', desc: 'Sampling recommendations generated only when walkthrough findings indicate a specific concern. AIHA, EPA Compendium, NIOSH methods — with required controls and outdoor baselines flagged automatically.' },
   { icon: 'pulse', color: C.rose, title: '100-Point Scoring', desc: 'Five categories. Worst-zone weighting so one bad area can\'t hide behind good averages. Every deduction traces to a measurement, a standard, and a threshold.' },
@@ -104,7 +104,7 @@ const features = [
 
 const steps = [
   { num: '01', title: 'Guided Walkthrough', desc: 'One question at a time. Instrument readings, photos, and observations captured zone by zone. Auto-saves continuously.', color: C.cyan },
-  { num: '02', title: 'Instant Analysis', desc: 'Deterministic scoring across 5 categories. Causal chains connect findings. Data gaps flagged. OSHA risks surfaced.', color: C.gold },
+  { num: '02', title: 'Instant Analysis', desc: 'Deterministic scoring across 5 categories. Causal chains connect findings. Data gaps flagged. OSHA-relevant conditions surfaced.', color: C.gold },
   { num: '03', title: 'Report-Ready Output', desc: 'Structured findings, tiered recommendations, sampling plan, and ventilation analysis — all traceable to published standards.', color: C.violet },
 ]
 
@@ -386,8 +386,8 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
               </div>
               <div style={{ ...reveal(inView, 0.4), textAlign: dk ? 'left' : 'center', maxWidth: 420 }}>
                 <div style={{ fontSize: 10, color: C.gold, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 10, fontWeight: 600 }}>Meridian Business Park — 3 Zones</div>
-                <div style={{ ...display, fontSize: dk ? 30 : 22, fontWeight: 700, color: '#FB923C', marginBottom: 8, letterSpacing: '-0.02em' }}>High Risk — OSHA Flagged</div>
-                <div style={{ fontSize: 14, color: C.sub, ...mono, marginBottom: 16 }}>Composite: 62/100 · 3 citation risks · Sampling needed</div>
+                <div style={{ ...display, fontSize: dk ? 30 : 22, fontWeight: 700, color: '#FB923C', marginBottom: 8, letterSpacing: '-0.02em' }}>High Risk — Review Recommended</div>
+                <div style={{ fontSize: 14, color: C.sub, ...mono, marginBottom: 16 }}>Composite: 62/100 · 3 conditions noted · Sampling needed</div>
                 <div style={{ fontSize: 14, color: C.sub, lineHeight: 1.75, marginBottom: 24 }}>
                   Elevated CO₂ with closed dampers. Active moisture intrusion. Multiple symptomatic occupants. See how the platform scores, links causes, and generates the sampling plan — all from field data.
                 </div>

@@ -327,7 +327,7 @@ export default function MobileApp() {
 
   const handleShare = async () => {
     const title = `AtmosFlow Report — ${bldg.fn || 'Assessment'}`
-    const text = `${bldg.fn || 'Facility'}\nComposite Score: ${comp?.tot || '?'}/100 — ${comp?.risk || '?'}\n${zoneScores?.length || 0} zones assessed\n${oshaResult?.flag ? '⚠ OSHA flags identified' : '✓ No OSHA flags'}`
+    const text = `${bldg.fn || 'Facility'}\nComposite Score: ${comp?.tot || '?'}/100 — ${comp?.risk || '?'}\n${zoneScores?.length || 0} zones assessed\n${oshaResult?.flag ? '⚠ OSHA-relevant conditions noted' : '✓ No OSHA-relevant conditions'}`
     if (navigator.share) {
       try { await navigator.share({ title, text }) } catch {}
     } else {
@@ -582,7 +582,7 @@ export default function MobileApp() {
               )})}
             </div>
           )})}
-          {oshaResult?.flag&&<div style={{padding:16,background:'#EF444412',border:`1px solid #EF444428`,borderRadius:14}}><div style={{fontSize:13,fontWeight:700,color:'#EF4444',marginBottom:10}}>⚠ OSHA Flags</div>{oshaResult.fl.map((f,i)=><div key={i} style={{fontSize:14,color:'#E2E8F0',lineHeight:1.6,paddingLeft:12,borderLeft:'2px solid #EF444435',marginBottom:6}}>{f}</div>)}</div>}
+          {oshaResult?.flag&&<div style={{padding:16,background:'#EF444412',border:`1px solid #EF444428`,borderRadius:14}}><div style={{display:'flex',alignItems:'center',gap:6,marginBottom:4}}><div style={{fontSize:13,fontWeight:700,color:'#EF4444'}}>⚠ OSHA-Relevant Conditions</div></div><div style={{fontSize:10,color:DIM,marginBottom:10,lineHeight:1.5}}>These items may warrant OSHA-related review and are not a determination of citation or violation.</div>{oshaResult.fl.map((f,i)=><div key={i} style={{fontSize:14,color:'#E2E8F0',lineHeight:1.6,paddingLeft:12,borderLeft:'2px solid #EF444435',marginBottom:6}}>{f}</div>)}</div>}
           {oshaResult?.gaps?.length>0&&<div style={{padding:16,background:'#FBBF2410',border:`1px solid #FBBF2428`,borderRadius:14}}><div style={{fontSize:13,fontWeight:700,color:'#FBBF24',marginBottom:8}}>Data Gaps</div>{oshaResult.gaps.map((g,i)=><div key={i} style={{fontSize:14,color:'#D1D5DB',marginBottom:6}}>• {g}</div>)}</div>}
         </div>}
 

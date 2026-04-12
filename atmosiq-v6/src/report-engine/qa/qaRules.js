@@ -69,7 +69,7 @@ export const QA_RULES = [
     severity: 'error',
     description: 'Must not use definitive causation language',
     check: (section) => {
-      const forbidden = ['proves', 'confirms root cause', 'definitively caused', 'guarantees', 'bulletproof', 'OSHA violation']
+      const forbidden = ['proves', 'confirms root cause', 'definitively caused', 'guarantees', 'bulletproof', 'OSHA violation', 'OSHA citation', 'noncompliant', 'regulatory breach', 'likely citation']
       const found = forbidden.filter(f => section.content.toLowerCase().includes(f.toLowerCase()))
       return { pass: found.length === 0, issue: found.length > 0 ? `Forbidden language found: ${found.join(', ')}` : undefined }
     }

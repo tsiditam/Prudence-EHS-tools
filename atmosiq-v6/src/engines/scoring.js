@@ -144,12 +144,12 @@ function scoreEnv(d) {
 
 export function evalOSHA(d, tot) {
   const fl = []
-  if (d.cx === 'Yes — complaints reported' && tot < 70) fl.push('Documented complaints + hazard indicators')
-  if (d.co2 && +d.co2 > STD.v.co2.con)  fl.push('Ventilation deficiency')
-  if (d.wd === 'Active leak' || d.wd === 'Extensive damage' || (d.mi && !['None','Suspected discoloration'].includes(d.mi))) fl.push('Water/mold indicators')
-  if (d.sr === 'Yes — clear pattern' && (d.ac === 'More than 10' || d.ac === '6-10')) fl.push('Building-related symptoms — widespread')
-  if (d.co && +d.co > STD.c.co.osha)   fl.push('CO exceeds OSHA PEL')
-  if (d.hc && +d.hc > STD.c.hcho.osha) fl.push('HCHO exceeds OSHA PEL')
+  if (d.cx === 'Yes — complaints reported' && tot < 70) fl.push('Documented complaint pattern with concurrent hazard indicators')
+  if (d.co2 && +d.co2 > STD.v.co2.con)  fl.push('Ventilation-related concern pattern')
+  if (d.wd === 'Active leak' || d.wd === 'Extensive damage' || (d.mi && !['None','Suspected discoloration'].includes(d.mi))) fl.push('Water/mold indicators present')
+  if (d.sr === 'Yes — clear pattern' && (d.ac === 'More than 10' || d.ac === '6-10')) fl.push('Building-related symptom pattern — widespread')
+  if (d.co && +d.co > STD.c.co.osha)   fl.push('CO measurement above OSHA PEL threshold')
+  if (d.hc && +d.hc > STD.c.hcho.osha) fl.push('Formaldehyde measurement above OSHA PEL threshold')
   const hs = !!d.co2 || !!d.tf, hc = d.cx === 'Yes — complaints reported', hk = d.hm !== 'Unknown'
   const conf = (hs&&hc&&hk)?'High':[hs,hc,hk].filter(Boolean).length>=2?'Medium':'Limited'
   const gaps = []

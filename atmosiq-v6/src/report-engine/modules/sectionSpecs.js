@@ -81,7 +81,7 @@ Composite score: ${c.tot}/100 (${c.risk})
 Zone average: ${c.avg}, Worst zone: ${c.worst}
 Zones assessed: ${c.count}
 Confidence: ${o.conf}
-OSHA flags: ${o.fl.length > 0 ? o.fl.join('; ') : 'None'}
+OSHA-relevant conditions: ${o.fl.length > 0 ? o.fl.join('; ') : 'None identified'}
 Top recommendations: ${(r.imm || []).slice(0, 2).join('; ') || 'None immediate'}
 Assessment reason: ${payload.context.reason}
 
@@ -170,7 +170,7 @@ Use phrases like "conditions observed are consistent with..." and "findings supp
     outputFormat: 'prose',
     prohibitedClaims: [
       'State "proves" or "confirms" root cause',
-      'Use "OSHA violation" language',
+      'Use "OSHA violation", "citation", or definitive compliance language',
       'Assign liability or fault',
     ],
     promptTemplate: `Write a professional interpretation of this concern pathway for a technical IAQ report.
