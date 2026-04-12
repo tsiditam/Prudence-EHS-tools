@@ -387,7 +387,7 @@ export default function MobileApp() {
   // New user — show welcome then profile setup
   if (profile?.isNew && view === 'dash') {
     const hasSeenWelcome = sessionStorage.getItem('aiq_welcomed')
-    if (!hasSeenWelcome) return <WelcomeScreen onComplete={() => sessionStorage.setItem('aiq_welcomed', '1')} />
+    if (!hasSeenWelcome) return <WelcomeScreen onComplete={() => { sessionStorage.setItem('aiq_welcomed', '1'); setView('dash') }} />
     return <ProfileScreen onLogin={async (p) => { if (supabase) await SupaStorage.saveProfile(p); setProfile(p) }} />
   }
 

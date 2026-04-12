@@ -76,11 +76,15 @@ export default function WelcomeScreen({ onComplete }) {
         {/* Actions */}
         {step < slides.length - 1 ? (
           <div style={{display:'flex',gap:10}}>
-            <button onClick={onComplete} style={{flex:0,padding:'12px 20px',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:8,color:DIM,fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>Skip</button>
-            <button onClick={()=>setStep(step+1)} style={{flex:1,padding:'12px 20px',background:ACCENT,border:'none',borderRadius:8,color:BG,fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>Next</button>
+            {step > 0 && <button onClick={()=>setStep(step-1)} style={{flex:0,padding:'12px 20px',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:8,color:SUB,fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>Back</button>}
+            {step === 0 && <button onClick={onComplete} style={{flex:0,padding:'12px 20px',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:8,color:DIM,fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>Skip</button>}
+            <button onClick={()=>setStep(step+1)} style={{flex:1,padding:'12px 20px',background:ACCENT,border:'none',borderRadius:8,color:'#000',fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>Next</button>
           </div>
         ) : (
-          <button onClick={onComplete} style={{width:'100%',padding:'14px 20px',background:ACCENT,border:'none',borderRadius:8,color:BG,fontSize:15,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>Get Started</button>
+          <div style={{display:'flex',gap:10}}>
+            <button onClick={()=>setStep(step-1)} style={{flex:0,padding:'14px 20px',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:8,color:SUB,fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>Back</button>
+            <button onClick={onComplete} style={{flex:1,padding:'14px 20px',background:ACCENT,border:'none',borderRadius:8,color:'#000',fontSize:15,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>Get Started</button>
+          </div>
         )}
 
         <div style={{marginTop:20,fontSize:10,color:DIM}}>Standards-driven IAQ assessment platform</div>
