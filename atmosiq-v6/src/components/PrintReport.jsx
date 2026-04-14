@@ -54,7 +54,7 @@ export function generatePrintHTML(data) {
     body { font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif; font-size: 12px; color: #1E293B; line-height: 1.6; padding: 48px 56px; max-width: 820px; margin: 0 auto; background: #fff; }
     h1 { font-size: 20px; font-weight: 700; color: #0F172A; margin-bottom: 2px; letter-spacing: -0.3px; }
     h2 { font-size: 13px; font-weight: 700; color: #0F172A; margin: 28px 0 10px; padding-bottom: 6px; border-bottom: 1px solid #E2E8F0; text-transform: uppercase; letter-spacing: 0.8px; }
-    h3 { font-size: 12px; font-weight: 700; color: #334155; margin: 14px 0 6px; }
+    h3 { font-size: 12px; font-weight: 700; color: #334155; margin: 20px 0 8px; }
     p { margin-bottom: 8px; line-height: 1.7; }
     table { width: 100%; border-collapse: collapse; }
     th { text-align: left; padding: 8px 10px; background: #F8FAFC; font-size: 10px; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #E2E8F0; }
@@ -71,7 +71,7 @@ export function generatePrintHTML(data) {
     .score-box { text-align: center; padding: 20px; border: 1px solid #E2E8F0; border-radius: 6px; margin-bottom: 16px; }
     .score-num { font-size: 42px; font-weight: 800; font-family: monospace; letter-spacing: -2px; }
     .risk-badge { display: inline-block; padding: 3px 12px; border-radius: 3px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
-    .zone-card { border: 1px solid #E2E8F0; border-radius: 6px; padding: 18px; margin-bottom: 14px; page-break-inside: avoid; }
+    .zone-card { border: 1px solid #E2E8F0; border-radius: 6px; padding: 20px; margin-bottom: 24px; page-break-inside: avoid; }
     .chain-card { padding: 14px 18px; border: 1px solid #E2E8F0; border-radius: 6px; margin-bottom: 10px; page-break-inside: avoid; }
     .evidence-item { font-size: 11px; padding: 3px 0 3px 14px; border-left: 2px solid #CBD5E1; margin-bottom: 3px; color: #475569; }
     .rec-row td { font-size: 11px; }
@@ -79,16 +79,18 @@ export function generatePrintHTML(data) {
     .note { font-size: 10px; color: #94A3B8; font-style: italic; padding: 8px 12px; background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 4px; margin: 12px 0; }
     .footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #E2E8F0; font-size: 9px; color: #94A3B8; text-align: center; line-height: 1.8; }
     .pg-break { page-break-before: always; }
-    @media print { body { padding: 24px 32px; font-size: 11px; } h2 { page-break-after: avoid; } .zone-card, .chain-card { page-break-inside: avoid; } }
+    @page { margin: 1in; }
+    @media print { body { padding: 0; font-size: 11px; } h2 { page-break-after: avoid; } .zone-card, .chain-card { page-break-inside: avoid; } }
   </style>
 </head>
 <body>
   <!-- ═══ COVER PAGE ═══ -->
   <div class="cover">
+    <div style="font-size:11px;color:#64748B;letter-spacing:0.8px;text-transform:uppercase;margin-bottom:16px;">Prudence Safety &amp; Environmental Consulting, LLC</div>
     <div class="cover-logo">Atmos<span class="accent">Flow</span></div>
     <div class="cover-title">Indoor Air Quality Assessment Report</div>
     <div class="cover-sub">Standards-Driven Multi-Zone Assessment</div>
-    <div style="width:40px;height:2px;background:#0E7490;margin:24px auto;"></div>
+    <div style="width:40px;height:2px;background:#0E7490;margin:28px auto;"></div>
     <div class="cover-meta">
       <strong>Site:</strong> ${bldg.fn || 'Facility'}<br>
       <strong>Location:</strong> ${bldg.fl || '—'}<br>
@@ -96,9 +98,9 @@ export function generatePrintHTML(data) {
       <strong>Report Date:</strong> ${now}<br>
       <strong>Assessor:</strong> ${assessor}<br>
       <strong>Report ID:</strong> ${reportId}<br>
-      <strong>Version:</strong> 1.0 &nbsp;|&nbsp; <strong>Status:</strong> Draft — Pending Professional Review
+      <strong>Status:</strong> Draft — Pending Professional Review
     </div>
-    <div style="margin-top:32px;font-size:10px;color:#94A3B8;">Prepared by AtmosFlow v${ver} — Prudence Safety &amp; Environmental Consulting, LLC</div>
+    <div style="margin-top:40px;font-size:9px;color:#94A3B8;letter-spacing:0.3px;">CONFIDENTIAL — FOR CLIENT USE ONLY</div>
   </div>
 
   <!-- ═══ DEFENSIBILITY PANEL ═══ -->
@@ -136,7 +138,21 @@ export function generatePrintHTML(data) {
   ${narrative ? `
   <div class="narrative">${narrative}</div>
   <div class="note">This narrative was generated from deterministic scoring output and requires professional review before client distribution.</div>
-  ` : `<p style="font-size:11px;color:#475569;line-height:1.8;">An indoor air quality assessment was conducted at ${bldg.fn || 'the subject facility'} on ${assessDate}, encompassing ${(zones||[]).length} zone${(zones||[]).length !== 1 ? 's' : ''}. ${comp?.tot >= 70 ? 'Available evidence supports that conditions observed during the assessment window are broadly consistent with applicable occupancy standards, with localized areas warranting targeted follow-up as noted below.' : comp?.tot >= 50 ? 'Conditions observed during the assessment window suggest moderate indoor air quality concerns across one or more zones. Targeted investigation and corrective action are recommended in the areas identified below.' : 'Conditions observed during the assessment window suggest significant indoor air quality concerns that would warrant prioritized remediation. The findings and recommendations in this report are intended to support a structured corrective action process.'} The composite score of ${comp?.tot || '—'}/100 reflects a weighted evaluation across ventilation, contaminant levels, HVAC system conditions, occupant complaints, and environmental factors, applied against published ASHRAE, OSHA, and EPA standards.</p>`}
+  ` : (() => {
+    const worstZone = zoneScores?.reduce((a, b) => a.tot < b.tot ? a : b, zoneScores[0])
+    const worstCat = worstZone?.cats?.reduce((a, b) => (a.s/a.mx) < (b.s/b.mx) ? a : b)
+    const p1 = `An indoor air quality assessment was conducted at ${bldg.fn || 'the subject facility'} on ${assessDate}, encompassing ${(zones||[]).length} zone${(zones||[]).length !== 1 ? 's' : ''}${presurvey?.ps_reason ? ` in response to ${presurvey.ps_reason.toLowerCase()}` : ''}. The assessment included direct-reading instrument measurements, visual inspection, HVAC system evaluation, and occupant complaint documentation.`
+    const p2 = comp?.tot >= 70
+      ? `Available evidence supports that conditions observed during the assessment window are broadly consistent with applicable occupancy standards. The composite score of ${comp.tot}/100 reflects acceptable conditions across the majority of evaluated zones, with localized areas warranting targeted follow-up as detailed in the zone findings below.`
+      : comp?.tot >= 50
+        ? `Conditions observed during the assessment window suggest moderate indoor air quality concerns. The composite score of ${comp.tot}/100 reflects a weighted evaluation across five categories, with ${worstCat ? `${worstCat.l} (${worstCat.s}/${worstCat.mx}) identified as the primary area of concern` : 'multiple categories showing room for improvement'}. Targeted investigation is recommended in the areas identified below.`
+        : `Conditions observed during the assessment window indicate significant indoor air quality concerns that would warrant prioritized remediation. The composite score of ${comp?.tot || '—'}/100 reflects deficiencies across multiple evaluation categories${worstCat ? `, with ${worstCat.l} (${worstCat.s}/${worstCat.mx}) representing the most acute concern` : ''}. The findings and recommendations in this report are intended to support a structured corrective action process.`
+    const immRecs = recs?.imm || []
+    const p3 = immRecs.length > 0
+      ? `Priority actions include: ${immRecs.slice(0, 3).join('; ')}. Additional engineering and administrative recommendations are detailed in the Recommendations Register.`
+      : 'Recommended next steps are detailed in the Recommendations Register and Sampling Plan sections of this report.'
+    return `<p style="font-size:11px;color:#475569;line-height:1.8;">${p1}</p><p style="font-size:11px;color:#475569;line-height:1.8;">${p2}</p><p style="font-size:11px;color:#475569;line-height:1.8;">${p3}</p>`
+  })()}
 
   ${recs ? `
   <h3>Priority Actions</h3>
@@ -266,9 +282,24 @@ export function generatePrintHTML(data) {
       ${/* Interpretation */(() => {
         const worst = zs.cats.reduce((a, b) => ((a.s/a.mx) < (b.s/b.mx) ? a : b))
         const worstPct = Math.round((worst.s / worst.mx) * 100)
+        const openers = [
+          `Conditions observed in this zone are consistent with a ${zs.risk.toLowerCase()} assessment (${zs.tot}/100).`,
+          `Assessment of this zone indicates a ${zs.risk.toLowerCase()} condition, with a composite zone score of ${zs.tot}/100.`,
+          `Field observations and measurements in this zone reflect ${zs.risk.toLowerCase()} indoor air quality conditions (${zs.tot}/100).`,
+          `The evaluation of this zone yields a score of ${zs.tot}/100, characteristic of ${zs.risk.toLowerCase()} conditions.`,
+          `Conditions documented during the walkthrough of this zone are consistent with a ${zs.risk.toLowerCase()} classification (${zs.tot}/100).`,
+        ]
+        const contribs = [
+          `The primary contributing category is ${worst.l} (${worst.s}/${worst.mx}, ${worstPct}%),`,
+          `${worst.l} (${worst.s}/${worst.mx}, ${worstPct}%) is the most significant contributing factor,`,
+          `The category of greatest concern is ${worst.l}, scoring ${worst.s}/${worst.mx} (${worstPct}%),`,
+          `${worst.l} represents the primary area of concern at ${worst.s}/${worst.mx} (${worstPct}%),`,
+        ]
+        const qualifier = worstPct < 50 ? ' which represents a significant concern and would warrant prioritized attention.' : worstPct < 70 ? ' which suggests conditions that may benefit from targeted corrective action.' : ' which is performing within an acceptable range.'
+        const multiLow = zs.cats.filter(c => (c.s/c.mx) < 0.5).length > 1 ? ' Multiple categories scored below 50%, suggesting interrelated contributing factors.' : ''
         return `
           <h3>Interpretation</h3>
-          <p style="font-size:11px;color:#475569;line-height:1.8;">Conditions observed in this zone are consistent with a ${zs.risk.toLowerCase()} assessment (${zs.tot}/100). The primary contributing category is ${worst.l} (${worst.s}/${worst.mx}, ${worstPct}%), which ${worstPct < 50 ? 'represents a significant concern and would warrant prioritized attention' : worstPct < 70 ? 'suggests conditions that may benefit from targeted corrective action' : 'is performing within an acceptable range'}. ${zs.cats.filter(c => (c.s/c.mx) < 0.5).length > 1 ? 'Multiple categories scored below 50%, suggesting interrelated contributing factors.' : ''}</p>`
+          <p style="font-size:11px;color:#475569;line-height:1.8;">${openers[zi % openers.length]} ${contribs[zi % contribs.length]}${qualifier}${multiLow}</p>`
       })()}
 
       ${/* Contributing Factors */(() => {
@@ -439,10 +470,8 @@ export function generatePrintHTML(data) {
 
   <!-- ═══ FOOTER ═══ -->
   <div class="footer">
-    <div>AtmosFlow v${ver} — Prudence Safety &amp; Environmental Consulting, LLC — Germantown, MD</div>
-    <div>&copy; 2026 All rights reserved. Scoring methodology applies deterministic rules informed by published ventilation, exposure, and environmental health standards.</div>
-    <div style="margin-top:4px;">Assessor: ${assessor} &nbsp;|&nbsp; Report ID: ${reportId} &nbsp;|&nbsp; Generated: ${now}</div>
-    <div style="margin-top:6px;font-size:8px;">This report is intended for the client identified above and should not be distributed to third parties without authorization.</div>
+    <div>Prudence Safety &amp; Environmental Consulting, LLC &nbsp;|&nbsp; Report ID: ${reportId} &nbsp;|&nbsp; ${now}</div>
+    <div style="margin-top:4px;font-size:8px;">Confidential — This report is intended for the client identified above and should not be distributed to third parties without authorization.</div>
   </div>
 </body>
 </html>`
@@ -450,18 +479,11 @@ export function generatePrintHTML(data) {
 
 export function printReport(data) {
   const html = generatePrintHTML(data)
-  // Open report in a new tab — user can then print/save from there
-  // This avoids Safari's automatic print dialog blocking
   const blob = new Blob([html], { type: 'text/html' })
   const url = URL.createObjectURL(blob)
-  const win = window.open(url, '_blank')
-  if (!win) {
-    // Popup blocked — fallback to download
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `AtmosFlow-Report-${data.building?.fn || 'Assessment'}.html`
-    a.click()
-  }
-  // Clean up blob URL after a delay
-  setTimeout(() => URL.revokeObjectURL(url), 60000)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `AtmosFlow-Report-${data.building?.fn || 'Assessment'}.html`
+  a.click()
+  setTimeout(() => URL.revokeObjectURL(url), 5000)
 }
