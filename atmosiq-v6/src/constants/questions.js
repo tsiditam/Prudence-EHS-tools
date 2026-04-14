@@ -135,7 +135,7 @@ export const Q_BUILDING = [
 
 export const Q_ZONE = [
   { id:'zn', sec:'Zone',        q:'Zone / Room name?',                    t:'text', req:1, ic:'📍', ph:'e.g. 3rd Floor Conf Room B' },
-  { id:'su', sec:'Zone',        q:'Space use?',                           t:'ch',   req:1, ic:'🪑', opts:['office','classroom','retail','healthcare','lab','warehouse','manufacturing','conference','data_center'] },
+  { id:'su', sec:'Zone',        q:'Space use?',                           t:'ch',   req:1, ic:'🪑', opts:['office','classroom','retail','healthcare','lab','warehouse','manufacturing','conference','data_center','restaurant / kitchen','hotel / hospitality','gym / fitness','residential','library','auditorium / theater','daycare / childcare','church / worship','parking garage','mechanical room','server / telecom room','Other'], other:1 },
   { id:'sf', sec:'Zone',        q:'Zone area?',                           t:'num',  req:1, ic:'📐', u:'sq ft' },
   { id:'oc', sec:'Zone',        q:'Occupant count?',                      t:'num',  req:1, ic:'👥' },
   { id:'cx', sec:'Complaints',  q:'Complaints in this zone?',             t:'ch',   req:1, ic:'🗣️', opts:['No complaints','Yes — complaints reported'], br:1 },
