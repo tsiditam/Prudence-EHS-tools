@@ -645,23 +645,38 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
 
       {/* ── Footer ── */}
       <footer style={{
-        padding: dk ? '36px 56px' : '28px 20px',
+        padding: dk ? '40px 56px' : '32px 20px',
         borderTop: `1px solid ${C.border}`,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        flexWrap: 'wrap', gap: 16,
       }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ width: 22, height: 22, borderRadius: 6, background: C.cyan, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <I n="wind" s={11} c={C.bg} w={2.2} />
+        {/* Top row: brand + contact */}
+        <div style={{ display: 'flex', alignItems: dk ? 'center' : 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 20, marginBottom: 20 }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ width: 22, height: 22, borderRadius: 6, background: C.cyan, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <I n="wind" s={11} c={C.bg} w={2.2} />
+              </div>
+              <span style={{ ...display, fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em' }}>Atmos<span style={{ color: C.cyan }}>Flow</span></span>
             </div>
-            <span style={{ ...display, fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em' }}>Atmos<span style={{ color: C.cyan }}>Flow</span></span>
+            <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>Prudence Safety & Environmental Consulting, LLC</div>
           </div>
-          <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>Prudence Safety & Environmental Consulting, LLC</div>
+          <div style={{ textAlign: dk ? 'right' : 'left', fontSize: 12, color: C.sub, lineHeight: 1.8 }}>
+            <div><a href="mailto:support@prudenceehs.com" style={{ color: C.sub, textDecoration: 'none' }}>support@prudenceehs.com</a></div>
+            <div><a href="tel:+13015418362" style={{ color: C.sub, textDecoration: 'none' }}>1-(301)-541-8362</a></div>
+          </div>
         </div>
-        <div style={{ textAlign: dk ? 'right' : 'left' }}>
-          <div style={{ fontSize: 10, color: C.muted }}>© 2026 All rights reserved.</div>
+
+        {/* Links row */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: dk ? 24 : 16, marginBottom: 16 }}>
+          {[
+            { label: 'Terms of Service', action: () => window.dispatchEvent(new CustomEvent('atmosflow-nav', { detail: 'tos' })) },
+            { label: 'Privacy Policy', action: () => window.dispatchEvent(new CustomEvent('atmosflow-nav', { detail: 'privacy' })) },
+          ].map(link => (
+            <button key={link.label} onClick={link.action} style={{ background: 'none', border: 'none', color: C.muted, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', padding: 0, textDecoration: 'underline', textUnderlineOffset: '3px' }}>{link.label}</button>
+          ))}
         </div>
+
+        {/* Copyright */}
+        <div style={{ fontSize: 10, color: C.muted }}>© 2026 Prudence Safety & Environmental Consulting, LLC. All rights reserved.</div>
       </footer>
 
       {/* ── Keyframes ── */}
