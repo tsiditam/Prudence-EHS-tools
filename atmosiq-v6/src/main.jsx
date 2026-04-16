@@ -14,11 +14,14 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import ErrorBoundary from './components/ErrorBoundary'
+import EarlyAccessPage from './components/EarlyAccessPage'
+
+const isEarlyAccess = window.location.pathname === '/early-access'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <ErrorBoundary>
-      <App />
+      {isEarlyAccess ? <EarlyAccessPage /> : <App />}
     </ErrorBoundary>
   </React.StrictMode>
 )
