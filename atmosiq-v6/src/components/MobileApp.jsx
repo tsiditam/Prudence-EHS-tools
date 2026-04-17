@@ -504,7 +504,9 @@ export default function MobileApp() {
               </div>
             ))}
           </div>
-          <div style={{textAlign:'center',marginTop:10,fontSize:9,color:DIM,fontFamily:"'DM Mono'"}}>Lower score = greater concern · 100 = no findings</div>
+          <div style={{textAlign:'center',marginTop:10,fontSize:9,color:DIM,fontFamily:"'DM Mono'"}}>
+            {comp.logic==='worst-zone-override'?'Composite = worst zone (Critical zone override)':'Composite = zone average (no Critical zones)'}
+          </div>
         </div>
 
         {/* ── Expert Summary Card ── */}
