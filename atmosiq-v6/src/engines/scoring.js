@@ -90,13 +90,8 @@ function scoreCont(d) {
     if (v > STD.c.tvoc.act)      { dd += ho?15:10; r.push({ t:'TVOCs '+v+' — significantly elevated'+(ho?'':' (no outdoor baseline)'), sev:'high' }) }
     else if (v > STD.c.tvoc.con) { dd += ho?7:5;   r.push({ t:'TVOCs '+v+' — elevated'+(ho?'':' (no outdoor baseline)'), sev:'medium' }) }
   }
-  if (d.mi && d.mi !== 'None') {
-    const uc = ' ⚠ UNCONFIRMED — visual only, pending sampling'
-    if (d.mi.includes('Extensive'))     { dd += 25; r.push({ t:'Extensive visible mold'+uc, std:'EPA/IICRC', sev:'critical' }) }
-    else if (d.mi.includes('Moderate')) { dd += 15; r.push({ t:'Moderate visible mold'+uc, std:'EPA', sev:'high' }) }
-    else if (d.mi.includes('Small'))    { dd += 8;  r.push({ t:'Small mold area'+uc, sev:'medium' }) }
-    else                                { dd += 3;  r.push({ t:'Suspected discoloration'+uc, sev:'low' }) }
-  }
+  // Mold separated per AIHA 2020 guidance; drives IICRC S520 Conditions, not composite.
+  // Mold findings are reported via evalMold() as a parallel panel.
   if (d.op === 'Strong / overpowering')    { dd += 10; r.push({ t:'Strong odor: '+((d.ot||[]).join(', ')||'?'), sev:'high' }) }
   else if (d.op === 'Moderate persistent') { dd += 5;  r.push({ t:'Moderate odor', sev:'medium' }) }
   if (d.vd === 'Airborne haze' || d.vd === 'Heavy accumulation') { dd += 5; r.push({ t:d.vd, sev:'medium' }) }
@@ -197,4 +192,22 @@ export function genRecs(zoneScores, bldg) {
   R.mon.push('Conduct periodic reassessment to verify corrective action effectiveness and track IAQ trend data.')
   Object.keys(R).forEach(k => { R[k] = [...new Set(R[k])] })
   return R
+}
+
+// Mold separated per AIHA 2020; drives IICRC S520 Conditions, not composite.
+export function evalMold(d) {
+  if (!d.mi || d.mi === 'None') return null
+  let condition, sqft = d.mia ? +d.mia : null, triggered = false
+  if (d.mi.includes('Extensive'))          { condition = 3; triggered = true }
+  else if (d.mi.includes('Moderate'))      { condition = (sqft && sqft >= 10) ? 3 : 2; triggered = condition >= 2 }
+  else if (d.mi.includes('Small'))         { condition = (sqft && sqft >= 10) ? 2 : 1; triggered = condition >= 2 }
+  else                                     { condition = 1; triggered = false }
+  return {
+    condition,
+    label: `IICRC S520 Condition ${condition}`,
+    sqft,
+    investigationTriggered: triggered,
+    visual: d.mi,
+    caveat: 'Visual observation only — not confirmed by sampling',
+  }
 }
