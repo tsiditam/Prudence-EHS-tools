@@ -218,6 +218,30 @@ export function genRecs(zoneScores, bldg) {
   return R
 }
 
+// Measurement confidence per AIHA exposure assessment strategy (Bullock & Ignacio, 2015).
+// Does NOT modify composite score — purely a transparency signal.
+export function evalMeasurementConfidence(zones) {
+  const zoneConfs = zones.map(z => {
+    let measurements = 0
+    if (z.co2) measurements++
+    if (z.tf) measurements++
+    if (z.rh) measurements++
+    if (z.pm) measurements++
+    if (z.co) measurements++
+    if (z.tv) measurements++
+    if (z.hc) measurements++
+    if (z.cfm_person) measurements++
+    if (z.ach) measurements++
+    const hasDuration = z.meas_duration && z.meas_duration !== 'Spot check (instantaneous)'
+    const hasOccContext = z.meas_occ && z.meas_occ !== 'Unknown'
+    if (measurements >= 3 || hasDuration) return 'High'
+    if (measurements >= 2 || (measurements >= 1 && hasOccContext)) return 'Moderate'
+    return 'Low'
+  })
+  const worst = zoneConfs.includes('Low') ? 'Low' : zoneConfs.includes('Moderate') ? 'Moderate' : 'High'
+  return { overall: worst, zones: zoneConfs }
+}
+
 // Mold separated per AIHA 2020; drives IICRC S520 Conditions, not composite.
 export function evalMold(d) {
   if (!d.mi || d.mi === 'None') return null
