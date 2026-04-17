@@ -109,10 +109,14 @@ function scoreCont(d) {
     else if (v > STD.c.hcho.al)    { dd += 12; r.push({ t: 'Formaldehyde ' + v + ' ppm — exceeds OSHA action level', std:'29 CFR 1910.1048', sev:'high' }) }
     else if (v > STD.c.hcho.niosh) { dd += 6;  r.push({ t: 'Formaldehyde ' + v + ' ppm — exceeds NIOSH recommended exposure limit', std:'NIOSH REL', sev:'medium' }) }
   }
+  // TVOC discipline per NIOSH Method 2549; PID interpretation requires instrument context.
   if (d.tv) {
     const v = +d.tv, ho = !!d.tvo
-    if (v > STD.c.tvoc.act)      { dd += ho?15:10; r.push({ t:'TVOCs '+v+' — significantly elevated'+(ho?'':' (no outdoor baseline)'), sev:'high' }) }
-    else if (v > STD.c.tvoc.con) { dd += ho?7:5;   r.push({ t:'TVOCs '+v+' — elevated'+(ho?'':' (no outdoor baseline)'), sev:'medium' }) }
+    const tvocCaveat = ' TVOC is a screening indicator only. No EPA, NIOSH, or OSHA regulatory limit exists for total VOCs. For compound identification, sorbent tube sampling per NIOSH Method 2549 is required.'
+    const hasPidContext = d.pid_lamp && d.pid_lamp !== 'No PID used'
+    if (v > STD.c.tvoc.act)      { dd += ho?15:10; r.push({ t:'TVOCs '+v+' µg/m³ — significantly elevated (screening).'+(ho?'':' No outdoor baseline.')+tvocCaveat, sev:'high' }) }
+    else if (v > STD.c.tvoc.con) { dd += ho?7:5;   r.push({ t:'TVOCs '+v+' µg/m³ — elevated (screening).'+(ho?'':' No outdoor baseline.')+tvocCaveat, sev:'medium' }) }
+    if (!hasPidContext && v > 0) r.push({ t:'TVOC recorded without PID instrument context — interpretation limited', sev:'info' })
   }
   // Mold separated per AIHA 2020 guidance; drives IICRC S520 Conditions, not composite.
   // Mold findings are reported via evalMold() as a parallel panel.

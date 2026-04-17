@@ -55,7 +55,7 @@ export const STD = {
   },
 }
 
-export const VER = '6.0.0-beta'
+export const VER = '6.0.0-beta (Engine v2.0)'
 
 export const PLAT_MODULES = [
   { id: 'atmosiq',    n: 'AtmosFlow',            i: '🌬️', on: true },
