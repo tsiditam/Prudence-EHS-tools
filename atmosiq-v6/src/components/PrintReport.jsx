@@ -9,7 +9,7 @@
  */
 
 export function generatePrintHTML(data) {
-  const { building, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos, standardsManifest } = data
+  const { building, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos } = data
   const bldg = building || {}
   const now = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
   const assessDate = data.ts ? new Date(data.ts).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : now
@@ -467,13 +467,6 @@ export function generatePrintHTML(data) {
   <div style="margin-top:8px;font-size:9px;color:#94A3B8;">
     <strong>Score bands:</strong> 80–100 Low Risk · 60–79 Moderate · 40–59 High Risk · 0–39 Critical
   </div>
-
-  <!-- ═══ STANDARDS REFERENCE ═══ -->
-  ${standardsManifest ? `
-  <div style="margin-top:24px;padding:12px 16px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:4px;font-size:9px;color:#64748B;">
-    <div style="font-weight:700;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;">Standards Reference — Engine v${standardsManifest.engineVersion || '1.x'}</div>
-    ${Object.entries(standardsManifest).filter(([k]) => k !== 'engineVersion' && k !== 'manifestUpdated').map(([k, v]) => `<span>${k}: ${v}</span>`).join(' · ')}
-  </div>` : ''}
 
   <!-- ═══ FOOTER ═══ -->
   <div class="footer">
