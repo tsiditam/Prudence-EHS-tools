@@ -16,7 +16,7 @@ import { supabase, trackEvent } from '../utils/supabaseClient'
 import Backup from '../utils/backup'
 import { VER, STANDARDS_MANIFEST } from '../constants/standards'
 import { Q_PRESURVEY, Q_BUILDING, Q_ZONE, Q_QUICKSTART, Q_DETAILS, SENSOR_FIELDS } from '../constants/questions'
-import { scoreZone, compositeScore, evalOSHA, calcVent, genRecs, evalMold } from '../engines/scoring'
+import { scoreZone, compositeScore, evalOSHA, calcVent, genRecs } from '../engines/scoring'
 import { generateSamplingPlan } from '../engines/sampling'
 import { buildCausalChains } from '../engines/causalChains'
 import { generateNarrative } from '../engines/narrative'
@@ -100,7 +100,6 @@ export default function MobileApp() {
   const [narrativeLoading, setNarrativeLoading] = useState(false)
   const [samplingPlan, setSamplingPlan] = useState(null)
   const [causalChains, setCausalChains] = useState([])
-  const [moldResults, setMoldResults] = useState([])
   const [showPhotoSelect, setShowPhotoSelect] = useState(false)
   const [selectedPhotos, setSelectedPhotos] = useState({})
   const [exportFormat, setExportFormat] = useState(null)
@@ -241,9 +240,8 @@ export default function MobileApp() {
     const recommendations = genRecs(zScores, DEMO_BUILDING)
     const sp = generateSamplingPlan(DEMO_ZONES, DEMO_BUILDING)
     const cc = buildCausalChains(DEMO_ZONES, DEMO_BUILDING, zScores)
-    const mold = DEMO_ZONES.map(z => evalMold(z)).filter(Boolean)
     setZoneScores(zScores); setComp(composite); setOshaResult(osha); setRecs(recommendations)
-    setSamplingPlan(sp); setCausalChains(cc); setMoldResults(mold); setSelZone(0); setRTab('overview'); setNarrative(null); setView('results')
+    setSamplingPlan(sp); setCausalChains(cc); setSelZone(0); setRTab('overview'); setNarrative(null); setView('results')
   }
 
   const resumeDraft = async (id) => {
@@ -272,9 +270,8 @@ export default function MobileApp() {
     const recommendations = genRecs(zScores, bldg)
     const sp = generateSamplingPlan(zones, bldg)
     const cc = buildCausalChains(zones, bldg, zScores)
-    const mold = zones.map(z => evalMold(z)).filter(Boolean)
     setZoneScores(zScores); setComp(composite); setOshaResult(osha); setRecs(recommendations)
-    setSamplingPlan(sp); setCausalChains(cc); setMoldResults(mold); setSelZone(0); setNarrative(null)
+    setSamplingPlan(sp); setCausalChains(cc); setSelZone(0); setNarrative(null)
     trackEvent('score_generated', { composite: composite?.tot, avg: composite?.avg, worst: composite?.worst, risk: composite?.risk, osha_flag: !!osha?.flag, confidence: osha?.conf || 'unknown', data_gaps: (osha?.gaps||[]).length })
     trackEvent('assessment_completed', { zones: zones.length, score: composite?.tot, facility: bldg.fn || 'unknown', has_causal_chains: cc.length > 0, sampling_recommendations: sp?.plan?.length || 0 })
     haptic('success')
@@ -603,16 +600,6 @@ export default function MobileApp() {
           )})}
           {oshaResult?.flag&&<div style={{padding:16,background:'#EF444412',border:`1px solid #EF444428`,borderRadius:14}}><div style={{display:'flex',alignItems:'center',gap:6,marginBottom:4}}><div style={{fontSize:13,fontWeight:700,color:'#EF4444'}}>⚠ OSHA-Relevant Conditions</div></div><div style={{fontSize:10,color:DIM,marginBottom:10,lineHeight:1.5}}>These items may warrant OSHA-related review and are not a determination of citation or violation.</div>{oshaResult.fl.map((f,i)=><div key={i} style={{fontSize:14,color:'#E2E8F0',lineHeight:1.6,paddingLeft:12,borderLeft:'2px solid #EF444435',marginBottom:6}}>{f}</div>)}</div>}
           {oshaResult?.gaps?.length>0&&<div style={{padding:16,background:'#FBBF2410',border:`1px solid #FBBF2428`,borderRadius:14}}><div style={{fontSize:13,fontWeight:700,color:'#FBBF24',marginBottom:8}}>Data Gaps</div>{oshaResult.gaps.map((g,i)=><div key={i} style={{fontSize:14,color:'#D1D5DB',marginBottom:6}}>• {g}</div>)}</div>}
-          {/* Mold Findings — parallel panel, not in composite */}
-          {moldResults.length>0&&<div style={{padding:16,background:`${ACCENT}06`,border:`1px solid ${ACCENT}18`,borderLeft:`3px solid ${ACCENT}40`,borderRadius:14,marginTop:10}}>
-            <div style={{fontSize:11,fontWeight:700,color:TEXT,marginBottom:2}}>Mold Findings — Parallel Assessment</div>
-            <div style={{fontSize:9,color:DIM,marginBottom:10}}>Not included in composite score. Drives IICRC S520 Conditions assessment.</div>
-            {moldResults.map((m,i)=><div key={i} style={{fontSize:12,color:SUB,marginBottom:6,paddingLeft:10,borderLeft:`2px solid ${m.condition>=3?DANGER:m.condition>=2?WARN:DIM}30`}}>
-              <span style={{fontWeight:600,color:m.condition>=3?DANGER:m.condition>=2?WARN:SUB}}>{m.label}</span>
-              <span style={{color:DIM}}> — {m.visual}</span>
-              {m.investigationTriggered&&<span style={{fontSize:9,color:WARN,marginLeft:6}}>Investigation triggered</span>}
-            </div>)}
-          </div>}
           {/* Standards Used — collapsible */}
           {(() => {
             const manifest = viewRpt?.standardsManifest || STANDARDS_MANIFEST
