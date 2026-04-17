@@ -45,48 +45,24 @@ export function compositeScore(zoneScores) {
   return { tot: comp, avg, worst, risk, rc, count: zoneScores.length, logic, rationale }
 }
 
-// Ventilation hierarchy per ASHRAE 62.1-2022 Table 6.2.2.1; Persily 2022 caveat applied.
-// Priority: cfm/person > ACH > CO₂ (confirmatory only when cfm/ACH available)
 function scoreVent(d) {
   let s = 25, r = []
-  const co2Caveat = 'CO₂ is a ventilation effectiveness indicator, not a standalone air quality metric per ASHRAE 62.1-2022.'
-
-  if (d.cfm_person) {
-    // Primary: outdoor air delivery vs ASHRAE 62.1-2022 Table 6.2.2.1
-    const cfm = +d.cfm_person
-    const req = STD.v.oa[d.su]?.pp || 5
-    if (cfm < req * 0.5)       { s = 0;  r.push({ t: `OA delivery ${cfm} cfm/person — critically below ASHRAE 62.1 minimum (${req} cfm/person)`, std: 'ASHRAE 62.1-2022', sev: 'critical' }) }
-    else if (cfm < req)        { s = 10; r.push({ t: `OA delivery ${cfm} cfm/person — below ASHRAE 62.1 minimum (${req} cfm/person)`, std: 'ASHRAE 62.1-2022', sev: 'high' }) }
-    else if (cfm < req * 1.2)  { s = 20; r.push({ t: `OA delivery ${cfm} cfm/person — marginally above minimum (${req} cfm/person)`, std: 'ASHRAE 62.1-2022', sev: 'medium' }) }
-    else                       { r.push({ t: `OA delivery ${cfm} cfm/person — meets ASHRAE 62.1 minimum (${req} cfm/person)`, std: 'ASHRAE 62.1-2022', sev: 'pass' }) }
-    // CO₂ as confirmatory only
-    if (d.co2) r.push({ t: `CO₂ ${d.co2} ppm (confirmatory). ${co2Caveat}`, std: STD.v.ref, sev: 'info' })
-  } else if (d.ach) {
-    // Secondary: air changes per hour
-    const ach = +d.ach
-    const achMin = (d.su === 'healthcare' || d.su === 'lab') ? 6 : 4
-    if (ach < achMin * 0.5)    { s = 5;  r.push({ t: `ACH ${ach} — critically below minimum (${achMin} ACH)`, std: 'CDC/ASHRAE 170', sev: 'critical' }) }
-    else if (ach < achMin)     { s = 12; r.push({ t: `ACH ${ach} — below recommended minimum (${achMin} ACH)`, std: 'CDC/ASHRAE 170', sev: 'high' }) }
-    else                       { r.push({ t: `ACH ${ach} — meets or exceeds minimum (${achMin} ACH)`, std: 'CDC/ASHRAE 170', sev: 'pass' }) }
-    if (d.co2) r.push({ t: `CO₂ ${d.co2} ppm (confirmatory). ${co2Caveat}`, std: STD.v.ref, sev: 'info' })
-  } else if (d.co2) {
-    // Tertiary: CO₂ with Limited Confidence badge
+  if (d.co2) {
     const v = +d.co2, o = d.co2o ? +d.co2o : STD.v.co2.base, df = v - o
-    if (v > STD.v.co2.act)                              { s = 0;  r.push({ t: 'CO₂ ' + v + ' ppm — severely elevated. ' + co2Caveat, std: STD.v.ref, sev: 'critical' }) }
-    else if (df > STD.v.co2.diff || v > STD.v.co2.con) { s = 10; r.push({ t: 'CO₂ ' + v + ' ppm — exceeds ventilation screening threshold (Δ' + df + ' ppm). ' + co2Caveat, std: STD.v.ref, sev: 'high' }) }
-    else if (v > 800)                                   { s = 20; r.push({ t: 'CO₂ ' + v + ' ppm — approaching concern level. ' + co2Caveat, std: STD.v.ref, sev: 'medium' }) }
-    else r.push({ t: 'CO₂ ' + v + ' ppm — within screening range. ' + co2Caveat, std: STD.v.ref, sev: 'pass' })
-    r.push({ t: 'Ventilation scored from CO₂ only — Limited Confidence. Where possible, evaluate cfm/person directly.', sev: 'info' })
+    if (v > STD.v.co2.act)                              { s = 0;  r.push({ t: 'CO₂ ' + v + ' ppm — severely elevated, indicates critically inadequate ventilation', std: STD.v.ref, sev: 'critical' }) }
+    else if (df > STD.v.co2.diff || v > STD.v.co2.con) { s = 10; r.push({ t: 'CO₂ ' + v + ' ppm — exceeds recognized ventilation adequacy threshold (Δ' + df + ' ppm above outdoor)', std: STD.v.ref, sev: 'high' }) }
+    else if (v > 800)                                   { s = 20; r.push({ t: 'CO₂ ' + v + ' ppm — approaching ventilation concern level', std: STD.v.ref, sev: 'medium' }) }
+    else r.push({ t: 'CO₂ ' + v + ' ppm — within acceptable ventilation range', std: STD.v.ref, sev: 'pass' })
   } else {
     let f = 0
     if (d.sa === 'No airflow detected') f += 3
     else if (d.sa === 'Weak / reduced') f += 2
     if (d.od === 'Closed / minimum' || d.od === 'Stuck / inoperable') f += 2
     if (d.cx === 'Yes — complaints reported' && (d.sy || []).some(s => ['Headache','Fatigue','Concentration issues'].includes(s))) f += 1
-    if (f >= 4)      { s = 5;  r.push({ t: 'No airflow data — ventilation inadequacy inferred from field indicators', sev: 'high' }) }
-    else if (f >= 2) { s = 12; r.push({ t: 'No airflow data — ventilation concern from field observations', sev: 'medium' }) }
-    else if (f >= 1) { s = 18; r.push({ t: 'No airflow data — minor ventilation indicators observed', sev: 'low' }) }
-    else r.push({ t: 'No airflow data — no ventilation concerns from field indicators', sev: 'pass' })
+    if (f >= 4)      { s = 5;  r.push({ t: 'No CO₂ data — ventilation inadequacy inferred from multiple field indicators', sev: 'high' }) }
+    else if (f >= 2) { s = 12; r.push({ t: 'No CO₂ data — ventilation concern supported by field observations', sev: 'medium' }) }
+    else if (f >= 1) { s = 18; r.push({ t: 'No CO₂ data — minor ventilation indicators observed', sev: 'low' }) }
+    else r.push({ t: 'No CO₂ data — no ventilation concerns from field indicators', sev: 'pass' })
   }
   return { s, mx: 25, l: 'Ventilation', r }
 }
