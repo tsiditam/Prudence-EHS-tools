@@ -162,10 +162,6 @@ export const Q_ZONE = [
   { id:'meas_occ',          sec:'Measurements',q:'Occupancy at time of measurement?',t:'ch',sk:1,ic:'👥', opts:['Typical occupancy','Above typical (meeting/event)','Below typical','Unoccupied','Unknown'] },
   { id:'meas_duration',     sec:'Measurements',q:'Measurement type?',            t:'ch',   sk:1, ic:'⏱️', opts:['Spot check (instantaneous)','5-minute average','15-minute average','1-hour average','Continuous logging'] },
   { id:'meas_conditions',   sec:'Measurements',q:'Conditions typical during readings?',t:'ch',sk:1,ic:'📋', opts:['Yes — normal operations','No — unusual activity','No — HVAC off/abnormal','No — doors/windows open','Unknown'] },
-  { id:'pid_lamp',          sec:'Measurements',q:'PID lamp energy?',                t:'ch',   sk:1, ic:'🔬', opts:['10.6 eV','11.7 eV','9.8 eV','Other','No PID used'] },
-  { id:'pid_cal_gas',       sec:'Measurements',q:'PID calibration gas reference?',  t:'text', sk:1, ic:'⚗️', cond:{f:'pid_lamp',ne:'No PID used'}, ph:'e.g. Isobutylene 100 ppm' },
-  { id:'pid_rf',            sec:'Measurements',q:'Response factor applied?',        t:'num',  sk:1, ic:'📊', cond:{f:'pid_lamp',ne:'No PID used'}, ph:'1.0 = isobutylene-equivalent' },
-  { id:'tvoc_source_class', sec:'Measurements',q:'Dominant VOC source class (if known)?', t:'ch', sk:1, ic:'🧪', cond:{f:'pid_lamp',ne:'No PID used'}, opts:['Paint solvents','Cleaning agents','Off-gassing materials','Combustion byproducts','Unknown'] },
   { id:'_sensors',          sec:'Measurements',q:'Instrument readings for this zone',t:'sensors',sk:1,ic:'📏' },
   { id:'znt',               sec:'Zone Notes',  q:'Zone observations / notes?',   t:'ta',   sk:1, ic:'📝' },
 ]
