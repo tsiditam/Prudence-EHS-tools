@@ -24,25 +24,17 @@ export function scoreZone(z, bldg) {
   return { tot, risk, rc, cats, zoneName: z.zn || 'Zone' }
 }
 
-// Composite per AIHA exposure assessment strategy (Bullock & Ignacio, 2015):
-// worst-case zone drives composite when any zone is Critical.
 export function compositeScore(zoneScores) {
   if (!zoneScores.length) return null
   const avg   = Math.round(zoneScores.reduce((a, z) => a + z.tot, 0) / zoneScores.length)
   const worst = Math.min(...zoneScores.map(z => z.tot))
-  const tiers = zoneScores.map(z => z.risk)
-  const hasCritical = tiers.some(t => t === 'Critical')
-  const comp = hasCritical ? worst : avg
-  const logic = hasCritical ? 'worst-zone-override' : 'mean-of-zones'
-  const rationale = hasCritical
-    ? 'AIHA exposure assessment strategy (Bullock & Ignacio, 2015): worst-case zone drives composite when any zone is Critical.'
-    : 'No Critical zones present; composite reflects arithmetic mean of per-zone scores.'
+  const comp  = Math.round(avg * 0.6 + worst * 0.4)
   let risk, rc
   if (comp >= 85)      { risk = 'Low Risk';  rc = '#22D3EE' }
   else if (comp >= 70) { risk = 'Moderate';  rc = '#FBBF24' }
   else if (comp >= 50) { risk = 'High Risk'; rc = '#FB923C' }
   else                 { risk = 'Critical';  rc = '#EF4444' }
-  return { tot: comp, avg, worst, risk, rc, count: zoneScores.length, logic, rationale }
+  return { tot: comp, avg, worst, risk, rc, count: zoneScores.length }
 }
 
 function scoreVent(d) {
