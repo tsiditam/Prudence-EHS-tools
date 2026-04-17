@@ -16,7 +16,7 @@ import { supabase, trackEvent } from '../utils/supabaseClient'
 import Backup from '../utils/backup'
 import { VER, STANDARDS_MANIFEST } from '../constants/standards'
 import { Q_PRESURVEY, Q_BUILDING, Q_ZONE, Q_QUICKSTART, Q_DETAILS, SENSOR_FIELDS } from '../constants/questions'
-import { scoreZone, compositeScore, evalOSHA, calcVent, genRecs, evalMold } from '../engines/scoring'
+import { scoreZone, compositeScore, evalOSHA, calcVent, genRecs, evalMold, evalMeasurementConfidence } from '../engines/scoring'
 import { generateSamplingPlan } from '../engines/sampling'
 import { buildCausalChains } from '../engines/causalChains'
 import { generateNarrative } from '../engines/narrative'
@@ -101,6 +101,7 @@ export default function MobileApp() {
   const [samplingPlan, setSamplingPlan] = useState(null)
   const [causalChains, setCausalChains] = useState([])
   const [moldResults, setMoldResults] = useState([])
+  const [measConf, setMeasConf] = useState(null)
   const [showPhotoSelect, setShowPhotoSelect] = useState(false)
   const [selectedPhotos, setSelectedPhotos] = useState({})
   const [exportFormat, setExportFormat] = useState(null)
@@ -242,8 +243,9 @@ export default function MobileApp() {
     const sp = generateSamplingPlan(DEMO_ZONES, DEMO_BUILDING)
     const cc = buildCausalChains(DEMO_ZONES, DEMO_BUILDING, zScores)
     const mold = DEMO_ZONES.map(z => evalMold(z)).filter(Boolean)
+    const mc = evalMeasurementConfidence(DEMO_ZONES)
     setZoneScores(zScores); setComp(composite); setOshaResult(osha); setRecs(recommendations)
-    setSamplingPlan(sp); setCausalChains(cc); setMoldResults(mold); setSelZone(0); setRTab('overview'); setNarrative(null); setView('results')
+    setSamplingPlan(sp); setCausalChains(cc); setMoldResults(mold); setMeasConf(mc); setSelZone(0); setRTab('overview'); setNarrative(null); setView('results')
   }
 
   const resumeDraft = async (id) => {
@@ -273,8 +275,9 @@ export default function MobileApp() {
     const sp = generateSamplingPlan(zones, bldg)
     const cc = buildCausalChains(zones, bldg, zScores)
     const mold = zones.map(z => evalMold(z)).filter(Boolean)
+    const mc = evalMeasurementConfidence(zones)
     setZoneScores(zScores); setComp(composite); setOshaResult(osha); setRecs(recommendations)
-    setSamplingPlan(sp); setCausalChains(cc); setMoldResults(mold); setSelZone(0); setNarrative(null)
+    setSamplingPlan(sp); setCausalChains(cc); setMoldResults(mold); setMeasConf(mc); setSelZone(0); setNarrative(null)
     trackEvent('score_generated', { composite: composite?.tot, avg: composite?.avg, worst: composite?.worst, risk: composite?.risk, osha_flag: !!osha?.flag, confidence: osha?.conf || 'unknown', data_gaps: (osha?.gaps||[]).length })
     trackEvent('assessment_completed', { zones: zones.length, score: composite?.tot, facility: bldg.fn || 'unknown', has_causal_chains: cc.length > 0, sampling_recommendations: sp?.plan?.length || 0 })
     haptic('success')
@@ -491,6 +494,7 @@ export default function MobileApp() {
             </div>
             <div style={{flex:1,minWidth:0}}>
               <span style={{padding:'3px 8px',borderRadius:4,fontSize:9,fontWeight:700,background:`${comp.rc}12`,color:comp.rc,textTransform:'uppercase',letterSpacing:'0.5px'}}>{comp.risk}</span>
+              {measConf&&<span style={{padding:'3px 8px',borderRadius:4,fontSize:9,fontWeight:600,background:measConf.overall==='High'?`${SUCCESS}12`:measConf.overall==='Low'?`${WARN}12`:`${DIM}15`,color:measConf.overall==='High'?SUCCESS:measConf.overall==='Low'?WARN:SUB,marginLeft:6,letterSpacing:'0.3px'}}>{measConf.overall} Confidence</span>}
               <div style={{fontSize:13,fontWeight:600,color:TEXT,marginTop:6,lineHeight:1.4}}>{riskLabel}</div>
               <div style={{fontSize:11,color:SUB,marginTop:3,lineHeight:1.4}}>{actionLabel}</div>
             </div>
@@ -510,6 +514,7 @@ export default function MobileApp() {
           <div style={{textAlign:'center',marginTop:10,fontSize:9,color:DIM,fontFamily:"'DM Mono'"}}>
             {comp.logic==='worst-zone-override'?'Composite = worst zone (Critical zone override)':'Composite = zone average (no Critical zones)'}
           </div>
+          {measConf?.overall==='Low'&&<div style={{textAlign:'center',marginTop:6,fontSize:9,color:WARN,lineHeight:1.5}}>Single-point measurement. Consider time-weighted sampling per AIHA strategy before drawing conclusions.</div>}
         </div>
 
         {/* ── Expert Summary Card ── */}
