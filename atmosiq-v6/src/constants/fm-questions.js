@@ -6,6 +6,52 @@
 
 import { DEVICE_TIERS } from './terminology'
 
+export const BUILDING_ACTIVITIES = [
+  { id: 'normal_occupancy', label: 'Normal occupancy — no special activity' },
+  { id: 'construction_or_renovation', label: 'Active construction or renovation' },
+  { id: 'recent_renovation_past_90_days', label: 'Recent renovation (past 90 days)' },
+  { id: 'water_damage_event_past_180_days', label: 'Water damage event (past 180 days)' },
+  { id: 'pest_remediation_past_90_days', label: 'Pest remediation (past 90 days)' },
+  { id: 'chemical_spill_past_180_days', label: 'Chemical spill (past 180 days)' },
+  { id: 'hvac_service_past_30_days', label: 'HVAC service (past 30 days)' },
+  { id: 'other', label: 'Other' },
+]
+
+export const CONSTRUCTION_SUBTYPES = [
+  'Concrete cutting', 'Masonry work', 'Drywall demolition', 'Paint disturbance',
+  'Flooring replacement', 'Ceiling tile disturbance', 'HVAC modification',
+  'Plumbing', 'Electrical', 'Other',
+]
+
+export const Q_FM_BUILDING_ACTIVITY = [
+  { id: 'fm_activity', sec: 'Activity', q: 'Current building activity?', t: 'ch', req: 1, ic: '🏗️',
+    opts: BUILDING_ACTIVITIES.map(a => a.label) },
+  { id: 'fm_construction_year', sec: 'Activity', q: 'Building construction year?', t: 'num', sk: 1, ic: '📅',
+    cond: { f: 'fm_activity', in: ['Active construction or renovation', 'Recent renovation (past 90 days)'] },
+    ph: 'e.g. 1975' },
+  { id: 'fm_activity_subtype', sec: 'Activity', q: 'Type of construction activity?', t: 'multi', sk: 1, ic: '🔨',
+    cond: { f: 'fm_activity', in: ['Active construction or renovation', 'Recent renovation (past 90 days)'] },
+    opts: CONSTRUCTION_SUBTYPES },
+  { id: 'fm_activity_status', sec: 'Activity', q: 'Is the activity ongoing or completed?', t: 'ch', sk: 1, ic: '📋',
+    cond: { f: 'fm_activity', in: ['Active construction or renovation', 'Recent renovation (past 90 days)'] },
+    opts: ['Currently ongoing', 'Completed'] },
+  { id: 'fm_abatement_plan', sec: 'Activity', q: 'Contractor provided silica/asbestos/lead abatement plan?', t: 'ch', sk: 1, ic: '🛡️',
+    cond: { f: 'fm_activity', in: ['Active construction or renovation', 'Recent renovation (past 90 days)'] },
+    opts: ['Yes', 'No', 'Unknown'] },
+  { id: 'fm_water_event_date', sec: 'Activity', q: 'Date of water event?', t: 'date', sk: 1, ic: '📅',
+    cond: { f: 'fm_activity', eq: 'Water damage event (past 180 days)' } },
+  { id: 'fm_water_sqft', sec: 'Activity', q: 'Affected area (sq ft)?', t: 'num', sk: 1, ic: '📐',
+    cond: { f: 'fm_activity', eq: 'Water damage event (past 180 days)' } },
+  { id: 'fm_dryout_documented', sec: 'Activity', q: 'Documented dry-out within 48-72 hours?', t: 'ch', sk: 1, ic: '✅',
+    cond: { f: 'fm_activity', eq: 'Water damage event (past 180 days)' },
+    opts: ['Yes', 'No', 'Unknown'] },
+  { id: 'fm_spill_substance', sec: 'Activity', q: 'What substance was spilled?', t: 'text', sk: 1, ic: '⚗️',
+    cond: { f: 'fm_activity', eq: 'Chemical spill (past 180 days)' } },
+  { id: 'fm_spill_cleanup', sec: 'Activity', q: 'Cleanup method documented?', t: 'ch', sk: 1, ic: '📋',
+    cond: { f: 'fm_activity', eq: 'Chemical spill (past 180 days)' },
+    opts: ['Yes', 'No', 'Unknown'] },
+]
+
 export const Q_FM_DEVICE_TIER = [
   { id: 'fm_device_tier', sec: 'Device', q: 'What are you using to measure the air?', t: 'ch', req: 1, ic: '📱',
     opts: DEVICE_TIERS.map(d => d.label) },
@@ -74,6 +120,22 @@ export const Q_FM_ZONE = [
   // Measurements (only if device tier supports it — gated in FM flow)
   { id: '_sensors', sec: 'Readings', q: 'Enter your device readings', t: 'sensors', sk: 1, ic: '📏' },
 ]
+
+export const Q_FM_MEASUREMENT_INTENT = [
+  { id: 'fm_intent', sec: 'Method', q: 'How would you like to document this area?', t: 'ch', req: 1, ic: '📋',
+    opts: [
+      'Observation only — document what you see, feel, and smell',
+      'Observation + measurements — document AND enter readings',
+      'Measurements only — enter readings from your device',
+    ] },
+]
+
+export function getMeasurementIntent(val) {
+  if (!val) return null
+  if (val.startsWith('Observation only')) return 'observation_only'
+  if (val.startsWith('Observation + ')) return 'mixed'
+  return 'measurements_only'
+}
 
 export function getDeviceTierCeiling(tierLabel) {
   const tier = DEVICE_TIERS.find(d => d.label === tierLabel)
