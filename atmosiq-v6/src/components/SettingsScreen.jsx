@@ -24,7 +24,7 @@ const SUCCESS = '#22C55E'
 const WARN = '#FBBF24'
 const DANGER = '#EF4444'
 
-export default function SettingsScreen({ profile, onEditProfile, onLogout, onClose, onNavigate, onActivateAdmin, adminActive }) {
+export default function SettingsScreen({ profile, onEditProfile, onLogout, onClose, onNavigate, onActivateAdmin, adminActive, userMode, onModeSwitch }) {
   const [health, setHealth] = useState(null)
   const [importMsg, setImportMsg] = useState('')
   const [index, setIndex] = useState({ reports: [], drafts: [] })
@@ -203,6 +203,7 @@ export default function SettingsScreen({ profile, onEditProfile, onLogout, onClo
       {/* ═══ ACCOUNT ═══ */}
       <Section title="Account" />
 
+      <Row icon="wind" label={userMode === 'fm' ? 'Switch to IH Mode' : 'Switch to FM Mode'} sub={userMode === 'fm' ? 'Full instrument discipline and expert reports' : 'Building management, complaints, and interventions'} action={() => onModeSwitch?.(userMode === 'fm' ? 'ih' : 'fm')} color={ACCENT} />
       <Row icon="bolt" label="Buy Credits" sub="Assessment and narrative credits" action={() => onNavigate?.('pricing')} />
 
       {/* Change Password */}

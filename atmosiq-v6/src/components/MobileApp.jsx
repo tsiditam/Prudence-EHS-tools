@@ -1110,7 +1110,7 @@ export default function MobileApp() {
           ))}
         </div>}
         {view==='trash'&&<TrashView onRecover={async(id)=>{await Backup.recover(id);await refreshIndex()}} onDelete={async(id)=>{await Backup.permanentDelete(id)}} />}
-        {view==='settings'&&<SettingsScreen profile={profile} onEditProfile={()=>{setProfile({...profile,isNew:true});setView('dash')}} onLogout={handleLogout} onClose={()=>setView('dash')} onNavigate={(v)=>{if(v==='pricing'){setShowPricing(true)}else{setView(v)}}} adminActive={!!adminSecret} onActivateAdmin={(secret)=>{setAdminSecret(secret);setView('admin')}} />}
+        {view==='settings'&&<SettingsScreen profile={profile} onEditProfile={()=>{setProfile({...profile,isNew:true});setView('dash')}} onLogout={handleLogout} onClose={()=>setView('dash')} onNavigate={(v)=>{if(v==='pricing'){setShowPricing(true)}else{setView(v)}}} adminActive={!!adminSecret} onActivateAdmin={(secret)=>{setAdminSecret(secret);setView('admin')}} userMode={userMode} onModeSwitch={handleModeSwitch} />}
         {view==='tos'&&<TermsOfService onBack={()=>setView('settings')} />}
         {view==='privacy'&&<PrivacyPolicy onBack={()=>setView('settings')} />}
         {view==='admin'&&adminSecret&&<AdminDashboard onBack={()=>setView('settings')} adminSecret={adminSecret} />}
