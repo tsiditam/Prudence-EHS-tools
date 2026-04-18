@@ -9,7 +9,7 @@
  */
 
 export function generatePrintHTML(data) {
-  const { building, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos, standardsManifest } = data
+  const { building, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos, standardsManifest, userMode, escalationTriggers } = data
   const bldg = building || {}
   const now = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
   const assessDate = data.ts ? new Date(data.ts).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : now
@@ -102,6 +102,28 @@ export function generatePrintHTML(data) {
     </div>
     <div style="margin-top:40px;font-size:9px;color:#94A3B8;letter-spacing:0.3px;">CONFIDENTIAL — FOR CLIENT USE ONLY</div>
   </div>
+
+  ${userMode === 'fm' && comp ? `
+  <!-- ═══ FM SUMMARY LAYER ═══ -->
+  <div style="text-align:center;padding:40px 0 30px;border-bottom:1px solid #E2E8F0;margin-bottom:24px;">
+    <div style="width:80px;height:80px;border-radius:50%;background:${comp.tot >= 70 ? '#22C55E15' : comp.tot >= 50 ? '#FBBF2415' : comp.tot >= 40 ? '#FB923C15' : '#EF444415'};border:3px solid ${scoreColor(comp.tot)};display:inline-flex;align-items:center;justify-content:center;margin-bottom:16px;">
+      <span style="font-size:28px;font-weight:800;font-family:monospace;color:${scoreColor(comp.tot)};">${comp.tot}</span>
+    </div>
+    <div style="font-size:22px;font-weight:700;color:${scoreColor(comp.tot)};">${comp.tot >= 70 ? 'Healthy' : comp.tot >= 50 ? 'Watch' : comp.tot >= 40 ? 'Action Required' : 'Critical'}</div>
+    <p style="font-size:13px;color:#475569;max-width:500px;margin:12px auto;line-height:1.7;">${comp.tot >= 70 ? 'The air quality in this building appears to be within acceptable ranges based on the measurements taken.' : comp.tot >= 50 ? 'Some air quality concerns were identified that may benefit from attention. See recommended actions below.' : 'Significant air quality concerns were identified. Corrective action is recommended.'}</p>
+    ${(escalationTriggers || []).length > 0 ? `
+    <div style="background:#FEF2F2;border:2px solid #FECACA;border-radius:8px;padding:14px 20px;margin:16px auto;max-width:460px;text-align:left;">
+      <div style="font-size:13px;font-weight:700;color:#B91C1C;margin-bottom:6px;">⚠ Professional Evaluation Required</div>
+      ${escalationTriggers.map(t => `<div style="font-size:11px;color:#7F1D1D;margin-bottom:4px;">• ${t.rationale}</div>`).join('')}
+    </div>` : ''}
+    <h3 style="margin-top:24px;">What You Should Do Next</h3>
+    <div style="text-align:left;max-width:460px;margin:0 auto;">
+    ${(recs?.imm || []).slice(0, 3).map((r, i) => `<div style="font-size:12px;color:#1E293B;margin-bottom:8px;padding-left:16px;border-left:2px solid #B91C1C;">${r}</div>`).join('')}
+    ${(recs?.eng || []).slice(0, 2).map((r, i) => `<div style="font-size:12px;color:#1E293B;margin-bottom:8px;padding-left:16px;border-left:2px solid #0E7490;">${r}</div>`).join('')}
+    ${(!recs?.imm?.length && !recs?.eng?.length) ? '<div style="font-size:12px;color:#475569;">Continue routine monitoring. No immediate actions required.</div>' : ''}
+    </div>
+  </div>
+  ` : ''}
 
   <!-- ═══ DEFENSIBILITY PANEL ═══ -->
   <div class="def-panel">
