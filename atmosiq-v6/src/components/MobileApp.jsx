@@ -33,6 +33,13 @@ import WelcomeScreen from './WelcomeScreen'
 import SettingsScreen from './SettingsScreen'
 import { printReport } from './PrintReport'
 import { DEMO_PRESURVEY, DEMO_BUILDING, DEMO_ZONES } from '../constants/demoData'
+import { getMode, setMode as persistMode, isFM, t } from '../constants/terminology'
+import { evaluateEscalation, hasActiveEscalation } from '../engines/escalation'
+import ModeSelector from './ModeSelector'
+import ComplaintLog from './ComplaintLog'
+import InterventionTracker from './InterventionTracker'
+import IHDirectory from './IHDirectory'
+import PropertyDashboard from './PropertyDashboard'
 
 const haptic = (type) => { try { if (navigator.vibrate) navigator.vibrate(type === 'heavy' ? [30,20,30] : type === 'success' ? [10,30,10,30,10] : 12) } catch {} }
 const fD = ts => ts ? new Date(ts).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : ''
@@ -60,6 +67,8 @@ export default function MobileApp() {
   const padX = isTablet ? 28 : 20
   const [loading, setLoading] = useState(true)
   const [isReturning, setIsReturning] = useState(false)
+  const [userMode, setUserMode] = useState(getMode())
+  const [needsModeSelect, setNeedsModeSelect] = useState(false)
   const [profile, setProfile] = useState(null)
   const [profileChecked, setProfileChecked] = useState(false)
   // views: dash|quickstart|zone|details|results|history|drafts|report
@@ -330,7 +339,8 @@ export default function MobileApp() {
   }
 
   const executeExport = async (format, filteredPhotos) => {
-    const reportData = { building: bldg, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST }
+    const esc = evaluateEscalation({ zones, comp, moldResults }, [], [])
+    const reportData = { building: bldg, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, escalationTriggers: esc }
     trackEvent('report_exported', { format, facility: bldg.fn || '', score: comp?.tot, zones: zones.length, has_narrative: !!narrative, photos: Object.values(filteredPhotos).flat().length })
     if (format === 'docx') {
       const { generateDocx } = await import('./DocxReport')
@@ -394,8 +404,12 @@ export default function MobileApp() {
   if (profile?.isNew && view === 'dash') {
     const hasSeenWelcome = sessionStorage.getItem('aiq_welcomed')
     if (!hasSeenWelcome) return <WelcomeScreen onComplete={() => { sessionStorage.setItem('aiq_welcomed', '1'); setView('dash') }} />
+    const hasModeSet = localStorage.getItem('atmosflow:userMode')
+    if (!hasModeSet) return <ModeSelector onSelect={(m) => { persistMode(m); setUserMode(m); setView('dash') }} />
     return <ProfileScreen onLogin={async (p) => { if (supabase) await SupaStorage.saveProfile(p); setProfile(p) }} />
   }
+
+  const handleModeSwitch = (m) => { persistMode(m); setUserMode(m) }
 
 
   // ── Question renderer (shared across quick start, zone, details) ──
@@ -1100,18 +1114,27 @@ export default function MobileApp() {
         {view==='tos'&&<TermsOfService onBack={()=>setView('settings')} />}
         {view==='privacy'&&<PrivacyPolicy onBack={()=>setView('settings')} />}
         {view==='admin'&&adminSecret&&<AdminDashboard onBack={()=>setView('settings')} adminSecret={adminSecret} />}
+        {view==='complaints'&&<ComplaintLog buildingId={bldg?.fn||'default'} onBack={()=>setView('dash')} />}
+        {view==='interventions'&&<InterventionTracker buildingId={bldg?.fn||'default'} onBack={()=>setView('dash')} assessments={index.reports} />}
+        {view==='directory'&&<IHDirectory onBack={()=>setView('dash')} />}
+        {view==='properties'&&<PropertyDashboard onBack={()=>setView('dash')} onNavigate={(v)=>setView(v)} assessmentIndex={index} />}
       </div>
 
       {/* ── Bottom Tab Bar ── */}
       {!isAssessing && !milestone && (
         <nav style={{position:'fixed',bottom:0,left:0,right:0,zIndex:100,background:`${BG}F5`,backdropFilter:'blur(24px) saturate(1.3)',WebkitBackdropFilter:'blur(24px) saturate(1.3)',borderTop:`1px solid ${BORDER}`,paddingBottom:'env(safe-area-inset-bottom, 0px)'}}>
           <div style={{display:'flex',justifyContent:'space-around',alignItems:'center',height:52,maxWidth:contentMax,margin:'0 auto'}}>
-            {[
+            {(userMode === 'fm' ? [
+              {id:'dash',label:'Home',icon:'home'},
+              {id:'properties',label:'Buildings',icon:'bldg'},
+              {id:'complaints',label:'Complaints',icon:'alert'},
+              {id:'settings',label:'Settings',icon:'user'},
+            ] : [
               {id:'dash',label:'Home',icon:'home'},
               {id:'drafts',label:'Drafts',icon:'clip',badge:(index.drafts||[]).length||null},
               {id:'history',label:'Reports',icon:'findings',badge:(index.reports||[]).length||null},
               {id:'settings',label:'Settings',icon:'user'},
-            ].map(t=>(
+            ]).map(t=>(
               <button key={t.id} onClick={()=>{ supabase&&trackEvent('page_view',{tab:t.id}); setView(t.id); if(t.id==='dash')setViewRpt(null); }} style={{background:'none',border:'none',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:2,padding:'6px 16px',minWidth:56,fontFamily:'inherit',position:'relative',WebkitTapHighlightColor:'transparent',transition:'opacity 0.15s'}}>
                 <div style={{position:'relative'}}>
                   <I n={t.icon} s={20} c={view===t.id?ACCENT:DIM} w={view===t.id?2:1.6} />
