@@ -400,12 +400,15 @@ export default function MobileApp() {
     if (supabase) return <AuthScreen onAuth={handleLogin} />
     return <ProfileScreen onLogin={handleLogin} />
   }
+  // Mode selection — show for ALL users who haven't chosen yet
+  const hasModeSet = localStorage.getItem('atmosflow:userMode')
+  if (profile && !hasModeSet) {
+    return <ModeSelector onSelect={(m) => { persistMode(m); setUserMode(m) }} />
+  }
   // New user — show welcome then profile setup
   if (profile?.isNew && view === 'dash') {
     const hasSeenWelcome = sessionStorage.getItem('aiq_welcomed')
     if (!hasSeenWelcome) return <WelcomeScreen onComplete={() => { sessionStorage.setItem('aiq_welcomed', '1'); setView('dash') }} />
-    const hasModeSet = localStorage.getItem('atmosflow:userMode')
-    if (!hasModeSet) return <ModeSelector onSelect={(m) => { persistMode(m); setUserMode(m); setView('dash') }} />
     return <ProfileScreen onLogin={async (p) => { if (supabase) await SupaStorage.saveProfile(p); setProfile(p) }} />
   }
 
