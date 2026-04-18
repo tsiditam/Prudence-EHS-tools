@@ -10,6 +10,19 @@
  * Contact: tsidi@prudenceehs.com
  */
 
+export const STANDARDS_MANIFEST = {
+  'ASHRAE 62.1': '2022',
+  'ASHRAE 55': '2023',
+  'OSHA Z-1 PELs': '29 CFR 1910.1000 (current)',
+  'WHO Air Quality Guidelines': '2021',
+  'IICRC S520': '2024',
+  'NIOSH Pocket Guide RELs': 'current',
+  'EPA NAAQS': '2024',
+  'Molhave TVOC tiers': '1991 (advisory only)',
+  engineVersion: '2.0',
+  manifestUpdated: '2026-04-17',
+}
+
 export const STD = {
   t: {
     ref: 'ASHRAE 55-2023',
@@ -42,7 +55,7 @@ export const STD = {
   },
 }
 
-export const VER = '6.0.0-beta'
+export const VER = '6.0.0-beta (Engine v2.0)'
 
 export const PLAT_MODULES = [
   { id: 'atmosiq',    n: 'AtmosFlow',            i: '🌬️', on: true },

@@ -14,9 +14,9 @@ import Profiles from '../utils/profiles'
 import SupaStorage from '../utils/supabaseStorage'
 import { supabase, trackEvent } from '../utils/supabaseClient'
 import Backup from '../utils/backup'
-import { VER } from '../constants/standards'
+import { VER, STANDARDS_MANIFEST } from '../constants/standards'
 import { Q_PRESURVEY, Q_BUILDING, Q_ZONE, Q_QUICKSTART, Q_DETAILS, SENSOR_FIELDS } from '../constants/questions'
-import { scoreZone, compositeScore, evalOSHA, calcVent, genRecs } from '../engines/scoring'
+import { scoreZone, compositeScore, evalOSHA, calcVent, genRecs, evalMold, evalMeasurementConfidence } from '../engines/scoring'
 import { generateSamplingPlan } from '../engines/sampling'
 import { buildCausalChains } from '../engines/causalChains'
 import { generateNarrative } from '../engines/narrative'
@@ -100,6 +100,8 @@ export default function MobileApp() {
   const [narrativeLoading, setNarrativeLoading] = useState(false)
   const [samplingPlan, setSamplingPlan] = useState(null)
   const [causalChains, setCausalChains] = useState([])
+  const [moldResults, setMoldResults] = useState([])
+  const [measConf, setMeasConf] = useState(null)
   const [showPhotoSelect, setShowPhotoSelect] = useState(false)
   const [selectedPhotos, setSelectedPhotos] = useState({})
   const [exportFormat, setExportFormat] = useState(null)
@@ -174,7 +176,7 @@ export default function MobileApp() {
     if (!['quickstart','zone','details'].includes(view) || !draftId) return
     if (saveRef.current) clearTimeout(saveRef.current)
     saveRef.current = setTimeout(async () => {
-      const draft = { id:draftId, presurvey, bldg, zones, photos, qsqi, dqi, curZone, zqi, ua:new Date().toISOString() }
+      const draft = { id:draftId, presurvey, bldg, zones, photos, qsqi, dqi, curZone, zqi, ua:new Date().toISOString(), standardsManifest:STANDARDS_MANIFEST }
       await STO.set(draftId, draft)
       await STO.addDraftToIndex({ id:draftId, facility:bldg.fn||'Untitled', ua:draft.ua })
       await refreshIndex()
@@ -240,8 +242,10 @@ export default function MobileApp() {
     const recommendations = genRecs(zScores, DEMO_BUILDING)
     const sp = generateSamplingPlan(DEMO_ZONES, DEMO_BUILDING)
     const cc = buildCausalChains(DEMO_ZONES, DEMO_BUILDING, zScores)
+    const mold = DEMO_ZONES.map(z => evalMold(z)).filter(Boolean)
+    const mc = evalMeasurementConfidence(DEMO_ZONES)
     setZoneScores(zScores); setComp(composite); setOshaResult(osha); setRecs(recommendations)
-    setSamplingPlan(sp); setCausalChains(cc); setSelZone(0); setRTab('overview'); setNarrative(null); setView('results')
+    setSamplingPlan(sp); setCausalChains(cc); setMoldResults(mold); setMeasConf(mc); setSelZone(0); setRTab('overview'); setNarrative(null); setView('results')
   }
 
   const resumeDraft = async (id) => {
@@ -270,15 +274,17 @@ export default function MobileApp() {
     const recommendations = genRecs(zScores, bldg)
     const sp = generateSamplingPlan(zones, bldg)
     const cc = buildCausalChains(zones, bldg, zScores)
+    const mold = zones.map(z => evalMold(z)).filter(Boolean)
+    const mc = evalMeasurementConfidence(zones)
     setZoneScores(zScores); setComp(composite); setOshaResult(osha); setRecs(recommendations)
-    setSamplingPlan(sp); setCausalChains(cc); setSelZone(0); setNarrative(null)
+    setSamplingPlan(sp); setCausalChains(cc); setMoldResults(mold); setMeasConf(mc); setSelZone(0); setNarrative(null)
     trackEvent('score_generated', { composite: composite?.tot, avg: composite?.avg, worst: composite?.worst, risk: composite?.risk, osha_flag: !!osha?.flag, confidence: osha?.conf || 'unknown', data_gaps: (osha?.gaps||[]).length })
     trackEvent('assessment_completed', { zones: zones.length, score: composite?.tot, facility: bldg.fn || 'unknown', has_causal_chains: cc.length > 0, sampling_recommendations: sp?.plan?.length || 0 })
     haptic('success')
     setMilestone({icon:'chart',title:'Assessment Complete',sub:`Scoring ${zones.length} zone${zones.length>1?'s':''}...`})
     setTimeout(() => { setMilestone(null); setRTab('overview'); setView('results') }, 1600)
     const rid = 'rpt-' + Date.now()
-    const report = { id:rid, ts:new Date().toISOString(), ver:VER, presurvey, building:bldg, zones, photos, zoneScores:zScores, comp:composite, oshaEvals:[osha], recs:recommendations, samplingPlan:sp, causalChains:cc }
+    const report = { id:rid, ts:new Date().toISOString(), ver:VER, presurvey, building:bldg, zones, photos, zoneScores:zScores, comp:composite, oshaEvals:[osha], recs:recommendations, samplingPlan:sp, causalChains:cc, standardsManifest:STANDARDS_MANIFEST }
     await STO.set(rid, report)
     await STO.addReportToIndex({ id:rid, ts:report.ts, facility:bldg.fn, score:composite?.tot })
     if (draftId) { await STO.del(draftId) }
@@ -324,7 +330,7 @@ export default function MobileApp() {
   }
 
   const executeExport = async (format, filteredPhotos) => {
-    const reportData = { building: bldg, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, version: VER }
+    const reportData = { building: bldg, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST }
     trackEvent('report_exported', { format, facility: bldg.fn || '', score: comp?.tot, zones: zones.length, has_narrative: !!narrative, photos: Object.values(filteredPhotos).flat().length })
     if (format === 'docx') {
       const { generateDocx } = await import('./DocxReport')
@@ -475,6 +481,9 @@ export default function MobileApp() {
           </div>
         </div>
 
+        {/* ── Legacy / Standards Badge ── */}
+        {viewRpt && !viewRpt.standardsManifest && <div style={{padding:'8px 14px',background:'#FBBF2410',border:`1px solid #FBBF2428`,borderRadius:8,marginBottom:10,fontSize:10,color:WARN}}>Legacy v1.x scoring — standards manifest not embedded</div>}
+
         {/* ── Composite Score Card ── */}
         <div style={{padding:'20px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,marginBottom:12,position:'relative',overflow:'hidden'}}>
           {/* Severity accent — top edge gradient */}
@@ -485,6 +494,7 @@ export default function MobileApp() {
             </div>
             <div style={{flex:1,minWidth:0}}>
               <span style={{padding:'3px 8px',borderRadius:4,fontSize:9,fontWeight:700,background:`${comp.rc}12`,color:comp.rc,textTransform:'uppercase',letterSpacing:'0.5px'}}>{comp.risk}</span>
+              {measConf&&<span style={{padding:'3px 8px',borderRadius:4,fontSize:9,fontWeight:600,background:measConf.overall==='High'?`${SUCCESS}12`:measConf.overall==='Low'?`${WARN}12`:`${DIM}15`,color:measConf.overall==='High'?SUCCESS:measConf.overall==='Low'?WARN:SUB,marginLeft:6,letterSpacing:'0.3px'}}>{measConf.overall} Confidence</span>}
               <div style={{fontSize:13,fontWeight:600,color:TEXT,marginTop:6,lineHeight:1.4}}>{riskLabel}</div>
               <div style={{fontSize:11,color:SUB,marginTop:3,lineHeight:1.4}}>{actionLabel}</div>
             </div>
@@ -501,7 +511,10 @@ export default function MobileApp() {
               </div>
             ))}
           </div>
-          <div style={{textAlign:'center',marginTop:10,fontSize:9,color:DIM,fontFamily:"'DM Mono'"}}>Lower score = greater concern · 100 = no findings</div>
+          <div style={{textAlign:'center',marginTop:10,fontSize:9,color:DIM,fontFamily:"'DM Mono'"}}>
+            {comp.logic==='worst-zone-override'?'Composite = worst zone (Critical zone override)':'Composite = zone average (no Critical zones)'}
+          </div>
+          {measConf?.overall==='Low'&&<div style={{textAlign:'center',marginTop:6,fontSize:9,color:WARN,lineHeight:1.5}}>Single-point measurement. Consider time-weighted sampling per AIHA strategy before drawing conclusions.</div>}
         </div>
 
         {/* ── Expert Summary Card ── */}
@@ -595,6 +608,35 @@ export default function MobileApp() {
           )})}
           {oshaResult?.flag&&<div style={{padding:16,background:'#EF444412',border:`1px solid #EF444428`,borderRadius:14}}><div style={{display:'flex',alignItems:'center',gap:6,marginBottom:4}}><div style={{fontSize:13,fontWeight:700,color:'#EF4444'}}>⚠ OSHA-Relevant Conditions</div></div><div style={{fontSize:10,color:DIM,marginBottom:10,lineHeight:1.5}}>These items may warrant OSHA-related review and are not a determination of citation or violation.</div>{oshaResult.fl.map((f,i)=><div key={i} style={{fontSize:14,color:'#E2E8F0',lineHeight:1.6,paddingLeft:12,borderLeft:'2px solid #EF444435',marginBottom:6}}>{f}</div>)}</div>}
           {oshaResult?.gaps?.length>0&&<div style={{padding:16,background:'#FBBF2410',border:`1px solid #FBBF2428`,borderRadius:14}}><div style={{fontSize:13,fontWeight:700,color:'#FBBF24',marginBottom:8}}>Data Gaps</div>{oshaResult.gaps.map((g,i)=><div key={i} style={{fontSize:14,color:'#D1D5DB',marginBottom:6}}>• {g}</div>)}</div>}
+          {/* Mold Findings — parallel panel, not in composite */}
+          {moldResults.length>0&&<div style={{padding:16,background:`${ACCENT}06`,border:`1px solid ${ACCENT}18`,borderLeft:`3px solid ${ACCENT}40`,borderRadius:14,marginTop:10}}>
+            <div style={{fontSize:11,fontWeight:700,color:TEXT,marginBottom:2}}>Mold Findings — Parallel Assessment</div>
+            <div style={{fontSize:9,color:DIM,marginBottom:10}}>Not included in composite score. Drives IICRC S520 Conditions assessment.</div>
+            {moldResults.map((m,i)=><div key={i} style={{fontSize:12,color:SUB,marginBottom:6,paddingLeft:10,borderLeft:`2px solid ${m.condition>=3?DANGER:m.condition>=2?WARN:DIM}30`}}>
+              <span style={{fontWeight:600,color:m.condition>=3?DANGER:m.condition>=2?WARN:SUB}}>{m.label}</span>
+              <span style={{color:DIM}}> — {m.visual}</span>
+              {m.investigationTriggered&&<span style={{fontSize:9,color:WARN,marginLeft:6}}>Investigation triggered</span>}
+            </div>)}
+          </div>}
+          {/* Standards Used — collapsible */}
+          {(() => {
+            const manifest = viewRpt?.standardsManifest || STANDARDS_MANIFEST
+            return (
+              <details style={{marginTop:10}}>
+                <summary style={{fontSize:11,fontWeight:600,color:DIM,cursor:'pointer',padding:'10px 0',listStyle:'none',display:'flex',alignItems:'center',gap:6}}>
+                  <span style={{fontSize:8,color:DIM}}>▶</span> Standards Reference · Engine v{manifest.engineVersion || '1.x'}
+                </summary>
+                <div style={{padding:12,background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:10,marginTop:4}}>
+                  {Object.entries(manifest).filter(([k]) => k !== 'engineVersion' && k !== 'manifestUpdated').map(([k, v]) => (
+                    <div key={k} style={{display:'flex',justifyContent:'space-between',fontSize:10,color:SUB,marginBottom:4}}>
+                      <span>{k}</span><span style={{color:TEXT,fontFamily:"'DM Mono'"}}>{v}</span>
+                    </div>
+                  ))}
+                  <div style={{fontSize:9,color:DIM,marginTop:6,borderTop:`1px solid ${BORDER}`,paddingTop:6}}>Manifest updated: {manifest.manifestUpdated || 'N/A'}</div>
+                </div>
+              </details>
+            )
+          })()}
         </div>}
 
         {rTab==='rootcause'&&<div style={{display:'flex',flexDirection:'column',gap:12}}>
