@@ -67,6 +67,7 @@ export const TERMINOLOGY = {
     confidenceHigh: 'High Confidence',
     confidenceModerate: 'Moderate Confidence',
     confidenceLow: 'Low Confidence',
+    noScoreExplainer: 'AtmosFlow does not generate scores from observational data alone. When you measure, we score. When you observe, we document and flag. This is a deliberate design choice to ensure every AtmosFlow score is defensible.',
     meterPrompt: 'What are you using to measure the air?',
     deviceLabel: 'Device',
     calibrationLabel: 'Device Status',

@@ -8,8 +8,19 @@
  * No automatic print dialogs — Safari-safe.
  */
 
+export function selectReportTemplate(data) {
+  const zones = data.zones || []
+  const hasNumeric = zones.some(z => z.co2 || z.tf || z.rh || z.pm || z.co || z.tv || z.hc || z.cfm_person || z.ach)
+  const hasObservations = zones.some(z => z.observations && Object.keys(z.observations).length > 0)
+  if (hasNumeric && !hasObservations) return 'fully_scored'
+  if (hasNumeric && hasObservations) return 'partial_score'
+  if (!hasNumeric && hasObservations) return 'observational_only'
+  return 'insufficient_data'
+}
+
 export function generatePrintHTML(data) {
   const { building, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos, standardsManifest, userMode, escalationTriggers } = data
+  const reportTemplate = selectReportTemplate(data)
   const bldg = building || {}
   const now = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
   const assessDate = data.ts ? new Date(data.ts).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : now
@@ -103,7 +114,22 @@ export function generatePrintHTML(data) {
     <div style="margin-top:40px;font-size:9px;color:#94A3B8;letter-spacing:0.3px;">CONFIDENTIAL — FOR CLIENT USE ONLY</div>
   </div>
 
-  ${userMode === 'fm' && comp ? `
+  ${userMode === 'fm' && reportTemplate === 'observational_only' ? `
+  <!-- ═══ FM OBSERVATIONAL-ONLY HEADER ═══ -->
+  <div style="text-align:center;padding:40px 0 30px;border-bottom:1px solid #E2E8F0;margin-bottom:24px;">
+    <div style="font-size:22px;font-weight:700;color:#0F172A;">Observational Assessment — No Score Generated</div>
+    <p style="font-size:12px;color:#475569;max-width:500px;margin:12px auto;line-height:1.7;">This assessment documents observed conditions and occupant reports. It does not produce a numeric air quality score. Where conditions warrant, professional evaluation is recommended below.</p>
+    <p style="font-size:10px;color:#94A3B8;max-width:460px;margin:8px auto;line-height:1.6;font-style:italic;">AtmosFlow does not generate scores from observational data alone. When you measure, we score. When you observe, we document and flag.</p>
+    ${(escalationTriggers || []).length > 0 ? `
+    <div style="background:#FEF2F2;border:2px solid #FECACA;border-radius:8px;padding:14px 20px;margin:16px auto;max-width:460px;text-align:left;">
+      <div style="font-size:13px;font-weight:700;color:#B91C1C;margin-bottom:6px;">⚠ Professional Evaluation Required</div>
+      ${escalationTriggers.map(t => `<div style="font-size:11px;color:#7F1D1D;margin-bottom:4px;">• ${t.rationale}</div>`).join('')}
+    </div>` : ''}
+    <p style="font-size:10px;color:#94A3B8;margin-top:20px;">For quantitative air quality measurement, contact a credentialed industrial hygiene professional or consider adding instrumentation to your assessment protocol.</p>
+  </div>
+  ` : ''}
+
+  ${userMode === 'fm' && comp && reportTemplate !== 'observational_only' ? `
   <!-- ═══ FM SUMMARY LAYER ═══ -->
   <div style="text-align:center;padding:40px 0 30px;border-bottom:1px solid #E2E8F0;margin-bottom:24px;">
     <div style="width:80px;height:80px;border-radius:50%;background:${comp.tot >= 70 ? '#22C55E15' : comp.tot >= 50 ? '#FBBF2415' : comp.tot >= 40 ? '#FB923C15' : '#EF444415'};border:3px solid ${scoreColor(comp.tot)};display:inline-flex;align-items:center;justify-content:center;margin-bottom:16px;">

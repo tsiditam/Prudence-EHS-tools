@@ -19,8 +19,8 @@ export const STANDARDS_MANIFEST = {
   'NIOSH Pocket Guide RELs': 'current',
   'EPA NAAQS': '2024',
   'Molhave TVOC tiers': '1991 (advisory only)',
-  engineVersion: '2.0',
-  manifestUpdated: '2026-04-17',
+  engineVersion: '2.2',
+  manifestUpdated: '2026-04-18',
 }
 
 export const STD = {
