@@ -60,7 +60,7 @@ export const TERMINOLOGY = {
     buildingContext: 'Building Information',
     scopeMethods: 'What Was Checked',
     limitations: 'Important Notes',
-    riskLow: 'Healthy',
+    riskLow: 'Low Risk',
     riskModerate: 'Watch',
     riskHigh: 'Action Required',
     riskCritical: 'Critical',
@@ -75,7 +75,7 @@ export const TERMINOLOGY = {
 }
 
 export const FM_TRAFFIC_LIGHT = {
-  'Low Risk': { color: '#22C55E', label: 'Healthy', bg: '#22C55E15' },
+  'Low Risk': { color: '#22C55E', label: 'Low Risk', bg: '#22C55E15' },
   'Moderate': { color: '#FBBF24', label: 'Watch', bg: '#FBBF2415' },
   'High Risk': { color: '#FB923C', label: 'Action Required', bg: '#FB923C15' },
   'Critical': { color: '#EF4444', label: 'Critical', bg: '#EF444415' },
