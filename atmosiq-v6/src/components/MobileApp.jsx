@@ -942,8 +942,8 @@ export default function MobileApp() {
               <I n="wind" s={18} c={SUB} w={1.8} />
             </div>
             <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:15,fontWeight:700,color:TEXT}}>New Assessment</div>
-              <div style={{fontSize:11,color:DIM,marginTop:2}}>Guided IAQ walkthrough</div>
+              <div style={{fontSize:15,fontWeight:700,color:TEXT}}>{userMode === 'fm' ? 'New Air Quality Check' : 'New Assessment'}</div>
+              <div style={{fontSize:11,color:DIM,marginTop:2}}>{userMode === 'fm' ? 'Guided building walkthrough' : 'Guided IAQ walkthrough'}</div>
             </div>
             <span style={{fontSize:13,color:DIM}}>→</span>
           </button>
@@ -961,7 +961,7 @@ export default function MobileApp() {
           {/* ── Workspace Cards ── */}
           <div style={{display:'grid',gridTemplateColumns:isTabletLand?'1fr':'1fr 1fr',gap:10,marginBottom:isTabletLand?12:20}}>
             {[
-              {l:'Drafts',n:(index.drafts||[]).length,v:'drafts',ic:'clip',sub:((index.drafts||[]).length>0?'In progress':'No active drafts')},
+              {l:userMode==='fm'?'In Progress':'Drafts',n:(index.drafts||[]).length,v:'drafts',ic:'clip',sub:((index.drafts||[]).length>0?'In progress':userMode==='fm'?'No active checks':'No active drafts')},
               {l:'Reports',n:(index.reports||[]).length,v:'history',ic:'findings',sub:((index.reports||[]).length>0?'Finalized':'Ready after assessment')}
             ].map(c=>(
               <button key={c.l} onClick={()=>{if(c.n)setView(c.v)}} style={{padding:'16px',background:CARD,border:`1px solid ${c.n?`${ACCENT}18`:BORDER}`,borderRadius:10,cursor:c.n?'pointer':'default',textAlign:'left',fontFamily:'inherit',transition:'border-color 0.15s'}}>
@@ -1058,8 +1058,8 @@ export default function MobileApp() {
         {(view==='results'||view==='report')&&renderResults(view==='report')}
 
         {view==='drafts'&&<div style={{paddingTop:28,paddingBottom:100}}>
-          <h2 style={{fontSize:20,fontWeight:700,marginBottom:4,color:TEXT}}>Drafts</h2>
-          <div style={{fontSize:11,color:DIM,marginBottom:20}}>Assessments in progress</div>
+          <h2 style={{fontSize:20,fontWeight:700,marginBottom:4,color:TEXT}}>{userMode === 'fm' ? 'In Progress' : 'Drafts'}</h2>
+          <div style={{fontSize:11,color:DIM,marginBottom:20}}>{userMode === 'fm' ? 'Air quality checks in progress' : 'Assessments in progress'}</div>
           {(index.drafts||[]).length===0?(
             <div style={{padding:'48px 24px',textAlign:'center',background:CARD,borderRadius:10,border:`1px solid ${BORDER}`}}>
               <I n="draft" s={28} c={DIM} w={1.4} />
