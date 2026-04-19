@@ -33,6 +33,7 @@ import WelcomeScreen from './WelcomeScreen'
 import SettingsScreen from './SettingsScreen'
 import { printReport } from './PrintReport'
 import { DEMO_PRESURVEY, DEMO_BUILDING, DEMO_ZONES } from '../constants/demoData'
+import { DEMO_FM_PRESURVEY, DEMO_FM_BUILDING, DEMO_FM_ZONES } from '../constants/demoDataFM'
 import { getMode, setMode as persistMode, isFM, t } from '../constants/terminology'
 import { evaluateEscalation, hasActiveEscalation } from '../engines/escalation'
 import ModeSelector from './ModeSelector'
@@ -242,17 +243,21 @@ export default function MobileApp() {
   }
 
   const runDemo = () => {
-    trackEvent('assessment_mode_selected', { mode: 'demo' })
-    setBldg(DEMO_BUILDING); setZones(DEMO_ZONES); setPresurvey(DEMO_PRESURVEY); setPhotos({})
-    const zScores = DEMO_ZONES.map(z => scoreZone(z, DEMO_BUILDING))
+    const isFmMode = userMode === 'fm'
+    const demoBldg = isFmMode ? DEMO_FM_BUILDING : DEMO_BUILDING
+    const demoZones = isFmMode ? DEMO_FM_ZONES : DEMO_ZONES
+    const demoPre = isFmMode ? DEMO_FM_PRESURVEY : DEMO_PRESURVEY
+    trackEvent('assessment_mode_selected', { mode: 'demo', userMode })
+    setBldg(demoBldg); setZones(demoZones); setPresurvey(demoPre); setPhotos({})
+    const zScores = demoZones.map(z => scoreZone(z, demoBldg))
     const composite = compositeScore(zScores)
-    const worst = DEMO_ZONES.reduce((w, z) => (!w || scoreZone(z, DEMO_BUILDING).tot < scoreZone(w, DEMO_BUILDING).tot) ? z : w, DEMO_ZONES[0])
-    const osha = evalOSHA({...DEMO_BUILDING, ...worst}, composite?.tot || 0)
-    const recommendations = genRecs(zScores, DEMO_BUILDING)
-    const sp = generateSamplingPlan(DEMO_ZONES, DEMO_BUILDING)
-    const cc = buildCausalChains(DEMO_ZONES, DEMO_BUILDING, zScores)
-    const mold = DEMO_ZONES.map(z => evalMold(z)).filter(Boolean)
-    const mc = evalMeasurementConfidence(DEMO_ZONES)
+    const worst = demoZones.reduce((w, z) => (!w || scoreZone(z, demoBldg).tot < scoreZone(w, demoBldg).tot) ? z : w, demoZones[0])
+    const osha = evalOSHA({...demoBldg, ...worst}, composite?.tot || 0)
+    const recommendations = genRecs(zScores, demoBldg)
+    const sp = generateSamplingPlan(demoZones, demoBldg)
+    const cc = buildCausalChains(demoZones, demoBldg, zScores)
+    const mold = demoZones.map(z => evalMold(z)).filter(Boolean)
+    const mc = evalMeasurementConfidence(demoZones)
     setZoneScores(zScores); setComp(composite); setOshaResult(osha); setRecs(recommendations)
     setSamplingPlan(sp); setCausalChains(cc); setMoldResults(mold); setMeasConf(mc); setSelZone(0); setRTab('overview'); setNarrative(null); setView('results')
   }
@@ -947,8 +952,8 @@ export default function MobileApp() {
           <button onClick={runDemo} style={{width:'100%',padding:'14px 20px',marginBottom:16,background:ACCENT,border:'none',borderRadius:10,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,fontFamily:'inherit',transition:'opacity 0.15s'}}>
             <I n="bldg" s={18} c="#000" w={1.8} />
             <div style={{flex:1}}>
-              <div style={{fontSize:14,fontWeight:700,color:'#000'}}>Open Demo Assessment</div>
-              <div style={{fontSize:10,color:'rgba(0,0,0,0.6)',marginTop:2}}>Meridian Business Park · 3 zones</div>
+              <div style={{fontSize:14,fontWeight:700,color:'#000'}}>{userMode === 'fm' ? 'Try Sample Air Quality Check' : 'Open Demo Assessment'}</div>
+              <div style={{fontSize:10,color:'rgba(0,0,0,0.6)',marginTop:2}}>{userMode === 'fm' ? 'Greenfield Office Park · 2 areas' : 'Meridian Business Park · 3 zones'}</div>
             </div>
             <span style={{fontSize:13,color:'rgba(0,0,0,0.5)'}}>→</span>
           </button>

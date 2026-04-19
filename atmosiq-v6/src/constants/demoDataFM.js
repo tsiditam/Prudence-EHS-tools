@@ -1,0 +1,79 @@
+/**
+ * AtmosFlow FM Demo Data
+ * Showcases the facility manager experience: consumer device,
+ * complaint tracking, simplified walkthrough, traffic light results.
+ */
+
+export const DEMO_FM_PRESURVEY = {
+  ps_assessor: 'Maria Chen',
+  ps_assessor_certs: [],
+  ps_assessor_exp: '3-5 years',
+  ps_inst_iaq: 'Temtop M2000',
+  ps_inst_iaq_serial: '',
+  ps_inst_iaq_cal_status: '',
+  ps_reason: 'Occupant complaint(s)',
+  ps_complaint_narrative: 'Three tenants on the 2nd floor have reported stuffy air and headaches over the past two weeks. One tenant mentioned symptoms improve over the weekend.',
+  ps_complaint_severity: 'Moderate — symptoms reported',
+  ps_water_history: 'Yes — recurring',
+  ps_water_detail: 'Leak above breakroom ceiling tile noticed last month. Maintenance patched it but staining remains.',
+}
+
+export const DEMO_FM_BUILDING = {
+  fn: 'Greenfield Office Park — Building C',
+  fl: '2200 Greenfield Dr, Suite 100, Germantown, MD 20874',
+  ft: 'Office',
+  ba: '2005',
+  ht: 'Package rooftop unit',
+  hm: 'Unknown',
+  fm: 'Unknown',
+  fc: 'Unknown',
+  sa: 'Weak / reduced',
+  od: 'Unknown',
+  fm_activity: 'Normal occupancy — no special activity',
+  fm_device_tier: 'Prosumer monitor (Temtop, Aeroqual 200, IQAir AirVisual Pro)',
+  fm_device_model: 'Temtop M2000',
+}
+
+export const DEMO_FM_ZONES = [
+  {
+    zn: '2nd Floor Open Office',
+    su: 'office',
+    za: '2800',
+    zo: '18',
+    cx: 'Yes — complaints reported',
+    sy: ['Headache', 'Fatigue', 'Concentration issues'],
+    sr: 'Yes — clear pattern',
+    ac: '3-5',
+    cc: 'Yes — this zone',
+    tc: 'Too hot',
+    hp: 'Too humid / stuffy',
+    vd: 'Light surface dust',
+    wd: 'Old staining',
+    mi: 'Suspected discoloration',
+    od: 'Musty / moldy',
+    co2: '1180',
+    tf: '78',
+    rh: '64',
+    pm: '22',
+  },
+  {
+    zn: 'Break Room / Kitchen',
+    su: 'restaurant / kitchen',
+    za: '400',
+    zo: '6',
+    cx: 'Yes — complaints reported',
+    sy: ['Headache', 'Nausea'],
+    sr: 'No — symptoms persistent',
+    ac: '1-2',
+    tc: 'Too hot',
+    hp: 'Too humid / stuffy',
+    vd: 'None',
+    wd: 'Active leak',
+    mi: 'Small (< 10 sq ft)',
+    od: 'Musty / moldy',
+    co2: '980',
+    tf: '80',
+    rh: '68',
+    pm: '18',
+  },
+]
