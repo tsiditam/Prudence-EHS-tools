@@ -135,7 +135,7 @@ export function generatePrintHTML(data) {
     <div style="width:80px;height:80px;border-radius:50%;background:${comp.tot >= 70 ? '#22C55E15' : comp.tot >= 50 ? '#FBBF2415' : comp.tot >= 40 ? '#FB923C15' : '#EF444415'};border:3px solid ${scoreColor(comp.tot)};display:inline-flex;align-items:center;justify-content:center;margin-bottom:16px;">
       <span style="font-size:28px;font-weight:800;font-family:monospace;color:${scoreColor(comp.tot)};">${comp.tot}</span>
     </div>
-    <div style="font-size:22px;font-weight:700;color:${scoreColor(comp.tot)};">${comp.tot >= 70 ? 'Healthy' : comp.tot >= 50 ? 'Watch' : comp.tot >= 40 ? 'Action Required' : 'Critical'}</div>
+    <div style="font-size:22px;font-weight:700;color:${scoreColor(comp.tot)};">${comp.tot >= 80 ? 'Low Risk' : comp.tot >= 60 ? 'Moderate' : comp.tot >= 40 ? 'High Risk' : 'Critical'}</div>
     <p style="font-size:13px;color:#475569;max-width:500px;margin:12px auto;line-height:1.7;">${comp.tot >= 70 ? 'The air quality in this building appears to be within acceptable ranges based on the measurements taken.' : comp.tot >= 50 ? 'Some air quality concerns were identified that may benefit from attention. See recommended actions below.' : 'Significant air quality concerns were identified. Corrective action is recommended.'}</p>
     ${(escalationTriggers || []).length > 0 ? `
     <div style="background:#FEF2F2;border:2px solid #FECACA;border-radius:8px;padding:14px 20px;margin:16px auto;max-width:460px;text-align:left;">

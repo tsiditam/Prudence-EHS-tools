@@ -19,8 +19,8 @@ export const STANDARDS_MANIFEST = {
   'NIOSH Pocket Guide RELs': 'current',
   'EPA NAAQS': '2024',
   'Molhave TVOC tiers': '1991 (advisory only)',
-  engineVersion: '2.2',
-  manifestUpdated: '2026-04-18',
+  engineVersion: '2.3',
+  manifestUpdated: '2026-04-19',
 }
 
 export const STD = {
@@ -55,7 +55,7 @@ export const STD = {
   },
 }
 
-export const VER = '6.0.0-beta (Engine v2.2)'
+export const VER = '6.0.0-beta (Engine v2.3)'
 
 export const PLAT_MODULES = [
   { id: 'atmosiq',    n: 'AtmosFlow',            i: '🌬️', on: true },
