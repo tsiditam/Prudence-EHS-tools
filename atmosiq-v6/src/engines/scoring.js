@@ -6,11 +6,19 @@
 import { STD } from '../constants/standards'
 import { evaluateCategorySufficiency, evaluateAllSufficiency } from './sufficiency'
 import { getRiskBand, getConfidenceLevel } from './riskBands'
+import { getBuildingProfile, getRHOverride, getProfileContextFindings } from './buildingProfiles'
 
 export function scoreZone(z, bldg) {
   const d = { ...bldg, ...z }
   const suff = evaluateAllSufficiency(d)
-  const rawCats = [scoreVent(d), scoreCont(d), scoreHVAC(d), scoreComp(d), scoreEnv(d)]
+  const profile = getBuildingProfile(d.ft)
+  const rhOvr = profile ? getRHOverride(profile, d.zone_subtype) : null
+  const rawCats = [scoreVent(d), scoreCont(d), scoreHVAC(d), scoreComp(d), scoreEnv(d, rhOvr)]
+  // Append building-profile context findings to the appropriate category
+  if (profile) {
+    const ctxFindings = getProfileContextFindings(profile, d)
+    ctxFindings.forEach(f => { const cat = rawCats.find(c => c.l === 'Environment') || rawCats[4]; cat.r.push(f) })
+  }
   const cats = rawCats.map(c => {
     const cs = suff[c.l]
     if (cs && cs.isInsufficient) {
@@ -145,7 +153,7 @@ function scoreComp(d) {
   return { s, mx: 15, l: 'Complaints', r }
 }
 
-function scoreEnv(d) {
+function scoreEnv(d, rhOverride) {
   let dd = 0, r = []
   const ssn = new Date().getMonth() >= 4 && new Date().getMonth() <= 9 ? 'summer' : 'winter'
   if (d.tf) {
@@ -153,9 +161,13 @@ function scoreEnv(d) {
     if (t < rng.min || t > rng.max)        { dd += 5; r.push({ t:'Temperature '+t+'°F — outside comfort range (per ASHRAE 55)', std:STD.t.ref, sev:'high' }) }
     else if (t < rng.oMin || t > rng.oMax) { dd += 2; r.push({ t:'Temperature '+t+'°F — outside optimal (per ASHRAE 55)', std:STD.t.ref, sev:'low' }) }
   } else if (d.tc === 'Too hot' || d.tc === 'Too cold') { dd += 4; r.push({ t:'Thermal discomfort: '+d.tc.toLowerCase(), sev:'medium' }) }
+  // RH scoring with building-profile override (e.g., data_hall: 20-60%)
+  const rhMin = rhOverride?.min ?? STD.t.rh.min
+  const rhMax = rhOverride?.max ?? STD.t.rh.max
+  const rhLabel = rhOverride?.label || 'recommended range'
   if (d.rh) {
     const v = +d.rh
-    if (v < STD.t.rh.min || v > STD.t.rh.max) { dd += 4; r.push({ t:'RH '+v+'% — outside 30–60% range', std:STD.t.ref, sev:v>70||v<20?'high':'medium' }) }
+    if (v < rhMin || v > rhMax) { dd += 4; r.push({ t:'RH '+v+'% — outside '+rhMin+'–'+rhMax+'% '+rhLabel, std: rhOverride ? rhOverride.label : STD.t.ref, sev:v>70||v<20?'high':'medium' }) }
   } else if (d.hp === 'Too humid / stuffy' || d.hp === 'Too dry') { dd += 3; r.push({ t:'Humidity concern: '+d.hp.toLowerCase(), sev:'medium' }) }
   if (d.wd === 'Extensive damage')  { dd += 15; r.push({ t:'Extensive water damage', sev:'critical' }) }
   else if (d.wd === 'Active leak')  { dd += 10; r.push({ t:'Active water intrusion', sev:'high' }) }
