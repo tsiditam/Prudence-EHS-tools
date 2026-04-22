@@ -628,7 +628,7 @@ export default function MobileApp() {
                 </div>
                 <span style={{fontSize:9,color:bc,fontWeight:600,flexShrink:0}}>{pctLabel}</span>
               </div>
-              {cat.r.map((r,i)=>{const s=sv(r.sev);return(
+              {cat.r.filter(r => !(r.sev === 'pass' && pct < 70)).map((r,i)=>{const s=sv(r.sev);return(
                 <div key={i} style={{display:'flex',gap:8,alignItems:'flex-start',marginBottom:6,fontSize:13,lineHeight:1.6}}>
                   <span style={{padding:'2px 8px',borderRadius:4,fontSize:9,fontWeight:700,fontFamily:"'DM Mono'",background:s.bg,color:s.c,flexShrink:0,marginTop:3}}>{s.l}</span>
                   <span style={{color:SUB}}>{r.t}{r.std?<span style={{color:DIM,fontSize:11}}> ({r.std})</span>:null}</span>
