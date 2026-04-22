@@ -6,41 +6,96 @@
 import { STD } from '../constants/standards'
 import { evaluateCategorySufficiency, evaluateAllSufficiency } from './sufficiency'
 import { getRiskBand, getConfidenceLevel } from './riskBands'
+import { getBuildingProfile, getRHOverride, getProfileContextFindings } from './buildingProfiles'
+
+// Zone-specific weights: data_hall uses equipment-focused weighting
+const ZONE_WEIGHTS = {
+  data_hall: { Ventilation: 15, Contaminants: 40, HVAC: 30, Complaints: 0, Environment: 15 },
+  default:   { Ventilation: 25, Contaminants: 25, HVAC: 20, Complaints: 15, Environment: 15 },
+}
+
+function getZoneWeights(zoneSubtype) {
+  return ZONE_WEIGHTS[zoneSubtype] || ZONE_WEIGHTS.default
+}
 
 export function scoreZone(z, bldg) {
   const d = { ...bldg, ...z }
   const suff = evaluateAllSufficiency(d)
-  const rawCats = [scoreVent(d), scoreCont(d), scoreHVAC(d), scoreComp(d), scoreEnv(d)]
+  const profile = getBuildingProfile(d.ft)
+  const rhOvr = profile ? getRHOverride(profile, d.zone_subtype) : null
+  const weights = getZoneWeights(d.zone_subtype)
+  const rawCats = [scoreVent(d), scoreCont(d), scoreHVAC(d), scoreComp(d), scoreEnv(d, rhOvr)]
+  // Apply zone-specific weights
+  rawCats.forEach(c => { c.mx = weights[c.l] ?? c.mx; if (weights[c.l] === 0) { c.s = 0; c.suppressed = true } })
+  // Rescale scores to new max when weights differ from default
+  rawCats.forEach(c => {
+    if (!c.suppressed && c.mx !== ZONE_WEIGHTS.default[c.l]) {
+      const defaultMax = ZONE_WEIGHTS.default[c.l]
+      c.s = defaultMax > 0 ? Math.round((c.s / defaultMax) * c.mx) : 0
+    }
+  })
+  // Append building-profile context findings
+  if (profile) {
+    const ctxFindings = getProfileContextFindings(profile, d)
+    ctxFindings.forEach(f => { const cat = rawCats.find(c => c.l === 'Environment') || rawCats[4]; cat.r.push(f) })
+  }
   const cats = rawCats.map(c => {
+    if (c.suppressed) return { ...c, status: 'SUPPRESSED' }
     const cs = suff[c.l]
-    if (cs && cs.isInsufficient) {
-      return { ...c, s: null, status: 'INSUFFICIENT', reason: cs.reason, sufficiency: cs }
-    }
-    if (cs && cs.maxAwardable < c.mx) {
-      return { ...c, s: Math.min(c.s, cs.maxAwardable), sufficiency: cs, capped: true }
-    }
+    if (cs && cs.isInsufficient) return { ...c, s: null, status: 'INSUFFICIENT', reason: cs.reason, sufficiency: cs }
+    if (cs && cs.maxAwardable < c.mx) return { ...c, s: Math.min(c.s, cs.maxAwardable), sufficiency: cs, capped: true }
     return { ...c, sufficiency: cs }
   })
-  const scorable = cats.filter(c => c.s !== null)
-  const tot = scorable.length > 0 ? scorable.reduce((a, c) => a + c.s, 0) : null
+  const scorable = cats.filter(c => c.s !== null && c.status !== 'SUPPRESSED')
+  let tot = scorable.length > 0 ? scorable.reduce((a, c) => a + c.s, 0) : null
+  // Critical Concern Override: G3/GX corrosion or ISO Class 8 failure forces score < 50
+  if (d.zone_subtype === 'data_hall') {
+    if (d.gaseous_corrosion && (d.gaseous_corrosion.includes('G3') || d.gaseous_corrosion.includes('GX'))) {
+      tot = tot !== null ? Math.min(tot, 39) : 39
+      cats.find(c => c.l === 'Contaminants')?.r.push({ t: `Gaseous corrosion ${d.gaseous_corrosion} — Critical Concern Override applied per ISA-71.04`, std: 'ANSI/ISA 71.04-2013', sev: 'critical' })
+    }
+    if (d.iso_class === 'ISO Class 8') {
+      tot = tot !== null ? Math.min(tot, 39) : 39
+      cats.find(c => c.l === 'Contaminants')?.r.push({ t: 'ISO 14644-1 Class 8 particle limit exceeded — Critical Concern Override applied', std: 'ISO 14644-1:2015', sev: 'critical' })
+    }
+  }
   const band = getRiskBand(tot)
   const confidence = getConfidenceLevel(suff._overall || 0)
-  return { tot, risk: band.label, rc: band.color, cats, zoneName: z.zn || 'Zone', partialScore: cats.some(c => c.status === 'INSUFFICIENT'), confidence, sufficiency: suff }
+  return { tot, risk: band.label, rc: band.color, cats, zoneName: z.zn || 'Zone', partialScore: cats.some(c => c.status === 'INSUFFICIENT'), confidence, sufficiency: suff, zoneSubtype: d.zone_subtype, weights }
+}
+
+// Zone-type priority weights for composite calculation
+// Mission-critical zones carry more weight than support spaces
+const ZONE_PRIORITY_WEIGHTS = {
+  data_hall: 1.5,
+  battery_room: 1.3,
+  noc_office: 1.0,
+  mechanical: 0.8,
+  office: 0.8,
+  default: 1.0,
 }
 
 // Composite per AIHA exposure assessment strategy (Bullock & Ignacio, 2015)
+// with zone-type priority weighting for mixed-use buildings
 export function compositeScore(zoneScores) {
   if (!zoneScores.length) return null
   const scorable = zoneScores.filter(z => z.tot !== null)
   if (!scorable.length) return { tot: null, avg: null, worst: null, risk: 'Insufficient Data', rc: '#6B7380', count: zoneScores.length, logic: 'no-scorable-zones', rationale: 'No zones have sufficient data for scoring.', partialComposite: true }
-  const avg = Math.round(scorable.reduce((a, z) => a + z.tot, 0) / scorable.length)
+  // Weighted average: mission-critical zones count more
+  let totalWeight = 0, weightedSum = 0
+  scorable.forEach(z => {
+    const w = ZONE_PRIORITY_WEIGHTS[z.zoneSubtype] || ZONE_PRIORITY_WEIGHTS.default
+    totalWeight += w
+    weightedSum += z.tot * w
+  })
+  const avg = Math.round(weightedSum / totalWeight)
   const worst = Math.min(...scorable.map(z => z.tot))
   const hasCritical = scorable.some(z => getRiskBand(z.tot).id === 'CRITICAL')
   const comp = hasCritical ? worst : avg
-  const logic = hasCritical ? 'worst-zone-override' : 'mean-of-zones'
+  const logic = hasCritical ? 'worst-zone-override' : 'weighted-mean-of-zones'
   const rationale = hasCritical
     ? 'AIHA exposure assessment strategy: worst-case zone drives composite when any zone is Critical.'
-    : 'No Critical zones present; composite reflects arithmetic mean of per-zone scores.'
+    : 'No Critical zones; composite reflects priority-weighted mean (mission-critical zones weighted 1.5x).'
   const band = getRiskBand(comp)
   const partialComposite = scorable.length < zoneScores.length
   return { tot: comp, avg, worst, risk: band.label, rc: band.color, count: zoneScores.length, logic, rationale, partialComposite }
@@ -145,7 +200,7 @@ function scoreComp(d) {
   return { s, mx: 15, l: 'Complaints', r }
 }
 
-function scoreEnv(d) {
+function scoreEnv(d, rhOverride) {
   let dd = 0, r = []
   const ssn = new Date().getMonth() >= 4 && new Date().getMonth() <= 9 ? 'summer' : 'winter'
   if (d.tf) {
@@ -153,9 +208,13 @@ function scoreEnv(d) {
     if (t < rng.min || t > rng.max)        { dd += 5; r.push({ t:'Temperature '+t+'°F — outside comfort range (per ASHRAE 55)', std:STD.t.ref, sev:'high' }) }
     else if (t < rng.oMin || t > rng.oMax) { dd += 2; r.push({ t:'Temperature '+t+'°F — outside optimal (per ASHRAE 55)', std:STD.t.ref, sev:'low' }) }
   } else if (d.tc === 'Too hot' || d.tc === 'Too cold') { dd += 4; r.push({ t:'Thermal discomfort: '+d.tc.toLowerCase(), sev:'medium' }) }
+  // RH scoring with building-profile override (e.g., data_hall: 20-60%)
+  const rhMin = rhOverride?.min ?? STD.t.rh.min
+  const rhMax = rhOverride?.max ?? STD.t.rh.max
+  const rhLabel = rhOverride?.label || 'recommended range'
   if (d.rh) {
     const v = +d.rh
-    if (v < STD.t.rh.min || v > STD.t.rh.max) { dd += 4; r.push({ t:'RH '+v+'% — outside 30–60% range', std:STD.t.ref, sev:v>70||v<20?'high':'medium' }) }
+    if (v < rhMin || v > rhMax) { dd += 4; r.push({ t:'RH '+v+'% — outside '+rhMin+'–'+rhMax+'% '+rhLabel, std: rhOverride ? rhOverride.label : STD.t.ref, sev:v>70||v<20?'high':'medium' }) }
   } else if (d.hp === 'Too humid / stuffy' || d.hp === 'Too dry') { dd += 3; r.push({ t:'Humidity concern: '+d.hp.toLowerCase(), sev:'medium' }) }
   if (d.wd === 'Extensive damage')  { dd += 15; r.push({ t:'Extensive water damage', sev:'critical' }) }
   else if (d.wd === 'Active leak')  { dd += 10; r.push({ t:'Active water intrusion', sev:'high' }) }
