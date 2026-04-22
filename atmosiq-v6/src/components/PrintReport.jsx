@@ -529,6 +529,39 @@ export function generatePrintHTML(data) {
     <strong>Score bands:</strong> 80–100 Low Risk · 60–79 Moderate · 40–59 High Risk · 0–39 Critical
   </div>
 
+  ${/* Spatial Risk Summary — only if zones have map coordinates */(() => {
+    const mappedZones = (zones||[]).filter(z => z.mapX != null && z.mapY != null)
+    if (!mappedZones.length || !data.floorPlan) return ''
+    return `
+    <h2 class="pg-break">Spatial Risk Summary</h2>
+    <p style="font-size:11px;color:#475569;margin-bottom:12px;">The following floor plan overlay illustrates zone-level risk distribution across the assessed facility. Pin colors reflect AIHA worst-case risk thresholds.</p>
+    <div style="position:relative;margin-bottom:16px;border:1px solid #E2E8F0;border-radius:6px;overflow:hidden;">
+      <img src="${data.floorPlan}" alt="Floor plan" style="width:100%;display:block;opacity:0.9;" />
+      ${mappedZones.map((z, i) => {
+        const zi = (zones||[]).indexOf(z)
+        const score = (zoneScores||[])[zi]?.tot
+        const color = score === null ? '#6B7380' : score < 50 ? '#B91C1C' : score < 80 ? '#A16207' : '#15803D'
+        return `<div style="position:absolute;left:${z.mapX}%;top:${z.mapY}%;transform:translate(-50%,-100%);">
+          <div style="width:20px;height:20px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 2px 6px ${color}80;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#fff;font-family:monospace;">${score ?? '?'}</div>
+        </div>`
+      }).join('')}
+    </div>
+    <div style="display:flex;gap:16px;font-size:9px;color:#64748B;margin-bottom:12px;">
+      <span>● <span style="color:#15803D;">Low Risk (80–100)</span></span>
+      <span>● <span style="color:#A16207;">Moderate (50–79)</span></span>
+      <span>● <span style="color:#B91C1C;">Critical (&lt;50)</span></span>
+    </div>
+    <table><thead><tr><th>Zone</th><th style="text-align:center;">Score</th><th>Risk Level</th><th>Primary Concern</th></tr></thead><tbody>
+    ${mappedZones.map((z, i) => {
+      const zi = (zones||[]).indexOf(z)
+      const zs = (zoneScores||[])[zi]
+      const worst = zs?.cats?.reduce((a, b) => ((a.s/a.mx) < (b.s/b.mx) ? a : b))
+      return `<tr><td style="font-weight:600;">${z.zn || 'Zone'}</td><td style="text-align:center;font-family:monospace;font-weight:700;color:${scoreColor(zs?.tot)};">${zs?.tot ?? '—'}</td><td style="font-size:10px;color:${scoreColor(zs?.tot)};">${zs?.risk || '—'}</td><td style="font-size:10px;color:#475569;">${worst?.l || '—'} (${worst?.s ?? '—'}/${worst?.mx ?? '—'})</td></tr>`
+    }).join('')}
+    </tbody></table>
+    <p style="font-size:9px;color:#94A3B8;margin-top:8px;">Risk thresholds per AIHA exposure assessment strategy. Building composite reflects worst-zone override when any zone is Critical.</p>`
+  })()}
+
   <!-- ═══ STANDARDS REFERENCE ═══ -->
   ${standardsManifest ? `
   <div style="margin-top:24px;padding:12px 16px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:4px;font-size:9px;color:#64748B;">

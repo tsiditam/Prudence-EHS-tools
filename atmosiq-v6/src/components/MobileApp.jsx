@@ -43,6 +43,7 @@ import ComplaintLog from './ComplaintLog'
 import InterventionTracker from './InterventionTracker'
 import IHDirectory from './IHDirectory'
 import PropertyDashboard from './PropertyDashboard'
+import SpatialMap from './SpatialMap'
 
 const haptic = (type) => { try { if (navigator.vibrate) navigator.vibrate(type === 'heavy' ? [30,20,30] : type === 'success' ? [10,30,10,30,10] : 12) } catch {} }
 const BETA_MODE = true // Set to false when ready to go live — re-enables all premium gates
@@ -116,6 +117,7 @@ export default function MobileApp() {
   const [samplingPlan, setSamplingPlan] = useState(null)
   const [causalChains, setCausalChains] = useState([])
   const [moldResults, setMoldResults] = useState([])
+  const [floorPlan, setFloorPlan] = useState(null)
   const [measConf, setMeasConf] = useState(null)
   const [showPhotoSelect, setShowPhotoSelect] = useState(false)
   const [showPremiumGate, setShowPremiumGate] = useState(false)
@@ -358,7 +360,7 @@ export default function MobileApp() {
 
   const executeExport = async (format, filteredPhotos) => {
     const esc = evaluateEscalation({ zones, comp, moldResults }, [], [])
-    const reportData = { building: bldg, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, escalationTriggers: esc }
+    const reportData = { building: bldg, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, escalationTriggers: esc, floorPlan }
     trackEvent('report_exported', { format, facility: bldg.fn || '', score: comp?.tot, zones: zones.length, has_narrative: !!narrative, photos: Object.values(filteredPhotos).flat().length })
     if (format === 'docx') {
       const { generateDocx } = await import('./DocxReport')
@@ -743,6 +745,7 @@ export default function MobileApp() {
             <button onClick={()=>handleExport('docx')} style={{flex:1,padding:'14px 20px',background:`${ACCENT}12`,border:`1px solid ${ACCENT}30`,borderRadius:12,color:ACCENT,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:48,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="notes" s={16} c={ACCENT} /> Word</button>
             <button onClick={handleShare} style={{flex:1,padding:'14px 20px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,color:SUB,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:48,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="send" s={16} c={SUB} /> Share</button>
           </div>
+          <button onClick={()=>setView('spatial')} style={{padding:'14px 20px',background:`${ACCENT}06`,border:`1px solid ${ACCENT}18`,borderRadius:12,color:ACCENT,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit',marginTop:8,minHeight:48,width:'100%',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="bldg" s={16} c={ACCENT} /> Map Zones on Floor Plan</button>
           {!archived&&<button onClick={startNew} style={{padding:'14px 20px',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:12,color:SUB,fontSize:15,cursor:'pointer',fontFamily:'inherit',marginTop:8,minHeight:48,width:'100%'}}>New Assessment</button>}
         </div>}
       </div>
@@ -1168,6 +1171,7 @@ export default function MobileApp() {
         {view==='interventions'&&<InterventionTracker buildingId={bldg?.fn||'default'} onBack={()=>setView('dash')} assessments={index.reports} />}
         {view==='directory'&&<IHDirectory onBack={()=>setView('dash')} />}
         {view==='properties'&&<PropertyDashboard onBack={()=>setView('dash')} onNavigate={(v)=>setView(v)} assessmentIndex={index} />}
+        {view==='spatial'&&<SpatialMap zones={zones} zoneScores={zoneScores} floorPlan={floorPlan} onUploadFloorPlan={setFloorPlan} onUpdateZone={(zi, update)=>{const z=[...zones];z[zi]={...z[zi],...update};setZones(z)}} onClose={()=>setView('results')} />}
       </div>
 
       {/* ── Bottom Tab Bar ── */}
