@@ -43,6 +43,8 @@ import IHDirectory from './IHDirectory'
 import PropertyDashboard from './PropertyDashboard'
 
 const haptic = (type) => { try { if (navigator.vibrate) navigator.vibrate(type === 'heavy' ? [30,20,30] : type === 'success' ? [10,30,10,30,10] : 12) } catch {} }
+const isEnterprise = (profile) => profile?.plan === 'team' || profile?.plan === 'enterprise'
+const isPremiumOpt = (q, opt) => q.premiumOpts && q.premiumOpts.includes(opt)
 const fD = ts => ts ? new Date(ts).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : ''
 const sv = sev => ({critical:{c:'#EF4444',bg:'#EF444418',l:'CRITICAL'},high:{c:'#FB923C',bg:'#FB923C18',l:'HIGH'},medium:{c:'#FBBF24',bg:'#FBBF2418',l:'MEDIUM'},low:{c:'#22D3EE',bg:'#22D3EE15',l:'LOW'},pass:{c:'#22C55E',bg:'#22C55E15',l:'PASS'},info:{c:'#94A3B8',bg:'#94A3B815',l:'INFO'}}[sev]||{c:'#94A3B8',bg:'#94A3B815',l:''})
 const badge = (risk,rc) => <span style={{padding:'6px 16px',background:`${rc}18`,border:`1px solid ${rc}35`,borderRadius:20,fontSize:13,fontWeight:700,color:rc}}>{risk}</span>
@@ -113,6 +115,7 @@ export default function MobileApp() {
   const [moldResults, setMoldResults] = useState([])
   const [measConf, setMeasConf] = useState(null)
   const [showPhotoSelect, setShowPhotoSelect] = useState(false)
+  const [showPremiumGate, setShowPremiumGate] = useState(false)
   const [selectedPhotos, setSelectedPhotos] = useState({})
   const [exportFormat, setExportFormat] = useState(null)
   const [rTab, setRTab] = useState('overview')
@@ -281,6 +284,10 @@ export default function MobileApp() {
   }
 
   const finishAssessment = async () => {
+    // Backend validation: prevent Data Center save without Enterprise tier
+    if (bldg.ft === 'Data Center' && !isEnterprise(profile)) {
+      setShowPremiumGate(true); return
+    }
     const zScores = zones.map(z => scoreZone(z, bldg))
     const composite = compositeScore(zScores)
     const worst = zones.reduce((w, z) => (!w || scoreZone(z, bldg).tot < scoreZone(w, bldg).tot) ? z : w, zones[0])
@@ -448,7 +455,7 @@ export default function MobileApp() {
           {q.t==='num'&&<div style={{position:'relative'}}><input type="number" inputMode="decimal" value={data[q.id]||''} onChange={e=>setField(q.id,e.target.value)} placeholder={q.ph||'Enter...'} autoFocus onKeyDown={e=>{if(e.key==='Enter'&&data[q.id])goNext()}} style={{width:'100%',padding:'18px 20px',paddingRight:q.u?70:20,background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:17,fontFamily:"'Outfit'",fontWeight:500,outline:'none',boxSizing:'border-box'}} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />{q.u&&<span style={{position:'absolute',right:18,top:'50%',transform:'translateY(-50%)',color:DIM,fontSize:14,fontFamily:"'DM Mono'"}}>{q.u}</span>}</div>}
           {q.t==='date'&&<input type="date" value={data[q.id]||''} onChange={e=>setField(q.id,e.target.value)} style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:17,fontFamily:"'Outfit'",outline:'none',boxSizing:'border-box',colorScheme:'dark'}} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />}
           {q.t==='ta'&&<textarea value={data[q.id]||''} onChange={e=>setField(q.id,e.target.value)} placeholder={q.ph||'Notes...'} rows={3} style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:"'Outfit'",outline:'none',resize:'vertical',boxSizing:'border-box'}} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />}
-          {q.t==='ch'&&q.opts&&<div style={{display:'flex',flexDirection:'column',gap:8}}>{q.opts.map((o,i)=>{const sel=data[q.id]===o||(o==='Other'&&data[q.id]&&!q.opts.slice(0,-1).includes(data[q.id]));return(<button key={o} onClick={()=>{haptic('light');if(o==='Other'){setField(q.id,'Other')}else{setField(q.id,o);setTimeout(goNext,250)}}} style={{padding:'16px 20px',textAlign:'left',background:sel?`${ACCENT}12`:CARD,border:`1.5px solid ${sel?ACCENT:BORDER}`,borderRadius:14,color:sel?ACCENT:'#E2E8F0',fontSize:16,fontFamily:"'Outfit'",fontWeight:500,cursor:'pointer',display:'flex',alignItems:'center',gap:14,minHeight:54,animation:`fadeUp .3s ${i*.04}s cubic-bezier(.22,1,.36,1) both`}}><div style={{width:24,height:24,borderRadius:'50%',border:`2px solid ${sel?ACCENT:'#2A3040'}`,background:sel?ACCENT:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{sel&&<I n="check" s={12} c={BG} />}</div>{o}</button>)})}
+          {q.t==='ch'&&q.opts&&<div style={{display:'flex',flexDirection:'column',gap:8}}>{q.opts.map((o,i)=>{const sel=data[q.id]===o||(o==='Other'&&data[q.id]&&!q.opts.slice(0,-1).includes(data[q.id]));const locked=isPremiumOpt(q,o)&&!isEnterprise(profile);return(<button key={o} onClick={()=>{if(locked){haptic('light');setShowPremiumGate(true);return}haptic('light');if(o==='Other'){setField(q.id,'Other')}else{setField(q.id,o);setTimeout(goNext,250)}}} style={{padding:'16px 20px',textAlign:'left',background:sel?`${ACCENT}12`:locked?`${CARD}`:`${CARD}`,border:`1.5px solid ${sel?ACCENT:BORDER}`,borderRadius:14,color:sel?ACCENT:locked?DIM:'#E2E8F0',fontSize:16,fontFamily:"'Outfit'",fontWeight:500,cursor:'pointer',display:'flex',alignItems:'center',gap:14,minHeight:54,animation:`fadeUp .3s ${i*.04}s cubic-bezier(.22,1,.36,1) both`}}><div style={{width:24,height:24,borderRadius:'50%',border:`2px solid ${sel?ACCENT:'#2A3040'}`,background:sel?ACCENT:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{sel&&<I n="check" s={12} c={BG} />}</div><span style={{flex:1}}>{o}</span>{locked&&<span style={{fontSize:9,fontWeight:700,padding:'2px 8px',borderRadius:4,background:'#F9731615',color:'#F97316',letterSpacing:'0.3px'}}>PREMIUM</span>}</button>)})}
             {q.other&&data[q.id]&&(data[q.id]==='Other'||!q.opts.slice(0,-1).includes(data[q.id]))&&<input type="text" value={data[q.id]==='Other'?'':data[q.id]} onChange={e=>setField(q.id,e.target.value||'Other')} placeholder="Describe space use..." autoFocus style={{width:'100%',padding:'16px 20px',background:CARD,border:`1.5px solid ${ACCENT}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:"'Outfit'",outline:'none',boxSizing:'border-box',marginTop:4}} />}
           </div>}
           {q.t==='multi'&&q.opts&&<div style={{display:'flex',flexWrap:'wrap',gap:8}}>{q.opts.map((o,i)=>{const arr=data[q.id]||[],sel=arr.includes(o);return(<button key={o} onClick={()=>setField(q.id,sel?arr.filter(x=>x!==o):[...arr,o])} style={{padding:'12px 18px',borderRadius:24,background:sel?`${ACCENT}15`:CARD,border:`1.5px solid ${sel?ACCENT:BORDER}`,color:sel?ACCENT:'#C8D0DC',fontSize:14,fontFamily:"'Outfit'",fontWeight:500,cursor:'pointer',minHeight:44,animation:`fadeUp .25s ${i*.03}s cubic-bezier(.22,1,.36,1) both`}}>{sel?'✓ ':''}{o}</button>)})}</div>}
@@ -897,6 +904,27 @@ export default function MobileApp() {
           <div style={{display:'flex',gap:10,marginTop:16}}>
             <button onClick={()=>{setSelectedPhotos({});confirmExportWithPhotos()}} style={{flex:1,padding:'14px 0',background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:10,color:SUB,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>Skip Photos</button>
             <button onClick={confirmExportWithPhotos} style={{flex:1,padding:'14px 0',background:ACCENT,border:'none',borderRadius:10,color:'#000',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>Export with {Object.values(selectedPhotos).filter(Boolean).length} Photo{Object.values(selectedPhotos).filter(Boolean).length!==1?'s':''}</button>
+          </div>
+        </div>
+      </div>}
+
+      {/* ── Premium Gate Modal ── */}
+      {showPremiumGate&&<div style={{position:'fixed',inset:0,background:'#000000DD',zIndex:270,display:'flex',alignItems:'center',justifyContent:'center',padding:24}} onClick={e=>{if(e.target===e.currentTarget)setShowPremiumGate(false)}}>
+        <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:18,padding:28,maxWidth:380,width:'100%',animation:'fadeUp .3s ease'}}>
+          <div style={{fontSize:20,fontWeight:700,color:TEXT,marginBottom:6}}>Unlock Mission-Critical IAQ Features</div>
+          <div style={{fontSize:13,color:SUB,lineHeight:1.7,marginBottom:16}}>The Data Center module activates specialized analytical logic for ASHRAE TC 9.9 thermal ranges and ANSI/ISA-71.04 corrosion tracking. This is required for documenting compliance in facilities with high-value hardware and mission-critical uptime requirements.</div>
+          <div style={{padding:12,background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:10,marginBottom:16}}>
+            <div style={{display:'flex',flexDirection:'column',gap:6,fontSize:11,color:SUB}}>
+              <div style={{display:'flex',alignItems:'center',gap:6}}><span style={{color:ACCENT}}>✓</span> ISA-71.04 gaseous corrosion classification</div>
+              <div style={{display:'flex',alignItems:'center',gap:6}}><span style={{color:ACCENT}}>✓</span> ISO 14644-1 particle count tracking</div>
+              <div style={{display:'flex',alignItems:'center',gap:6}}><span style={{color:ACCENT}}>✓</span> ASHRAE TC 9.9 thermal envelope scoring</div>
+              <div style={{display:'flex',alignItems:'center',gap:6}}><span style={{color:ACCENT}}>✓</span> Creep corrosion risk pattern analysis</div>
+              <div style={{display:'flex',alignItems:'center',gap:6}}><span style={{color:ACCENT}}>✓</span> Zone-specific equipment-focused weighting</div>
+            </div>
+          </div>
+          <div style={{display:'flex',gap:10}}>
+            <button onClick={()=>setShowPremiumGate(false)} style={{flex:1,padding:'14px 0',background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:10,color:SUB,fontSize:13,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>Back</button>
+            <a href="mailto:support@prudenceehs.com?subject=Data Center Module — Enterprise Inquiry" style={{flex:1,padding:'14px 0',background:'#F97316',border:'none',borderRadius:10,color:'#000',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:44,textDecoration:'none',display:'flex',alignItems:'center',justifyContent:'center'}}>Contact Sales</a>
           </div>
         </div>
       </div>}

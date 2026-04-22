@@ -67,7 +67,7 @@ export const Q_QUICKSTART = [
   { id:'ps_reno_completion', sec:'Trigger', q:'Renovation completed?', t:'ch', ic:'📅', cond:{f:'ps_reason',eq:'Post-renovation / construction'}, opts:['Still in progress','Within 1 week','1-4 weeks ago','1-3 months ago','Over 3 months ago'] },
   { id:'fn',  sec:'Building', q:'Facility name?',    t:'text', req:1, ic:'🏢', ph:'e.g. One Liberty Plaza' },
   { id:'fl',  sec:'Building', q:'Facility address?',  t:'text', req:1, ic:'📍', ph:'Street address or campus ID', ac:'street-address' },
-  { id:'ft',  sec:'Building', q:'Facility type?',     t:'ch',   req:1, ic:'🏗️', opts:['Commercial Office','School / University','Healthcare','Industrial / Manufacturing','Retail','Government','Data Center','Laboratory','Warehouse','Mixed Use'] },
+  { id:'ft',  sec:'Building', q:'Facility type?',     t:'ch',   req:1, ic:'🏗️', opts:['Commercial Office','School / University','Healthcare','Industrial / Manufacturing','Retail','Government','Data Center','Laboratory','Warehouse','Mixed Use'], premiumOpts:['Data Center'] },
   { id:'ht',  sec:'HVAC',    q:'HVAC system type?',   t:'ch',   req:1, ic:'❄️', opts:['Central AHU — VAV','Central AHU — CAV','Packaged Rooftop','Split System','Fan Coil Units','PTAC / PTHP','DOAS + Radiant','Natural Ventilation','Unknown'] },
   { id:'sa',  sec:'HVAC',    q:'Supply air delivery?', t:'ch',  req:1, ic:'💨', opts:['Normal airflow','Weak / reduced','No airflow detected','Not assessed'] },
 ]
@@ -112,7 +112,7 @@ export const Q_DETAILS = [
 export const Q_BUILDING = [
   { id:'fn',  sec:'Building',         q:'Facility name?',                           t:'text', req:1, ic:'🏢', ph:'e.g. One Liberty Plaza' },
   { id:'fl',  sec:'Building',         q:'Facility address?',                        t:'text', req:1, ic:'📍', ph:'Street address or campus ID', ac:'street-address' },
-  { id:'ft',  sec:'Building',         q:'Facility type?',                           t:'ch',   req:1, ic:'🏗️', opts:['Commercial Office','School / University','Healthcare','Industrial / Manufacturing','Retail','Government','Data Center','Laboratory','Warehouse','Mixed Use'] },
+  { id:'ft',  sec:'Building',         q:'Facility type?',                           t:'ch',   req:1, ic:'🏗️', opts:['Commercial Office','School / University','Healthcare','Industrial / Manufacturing','Retail','Government','Data Center','Laboratory','Warehouse','Mixed Use'], premiumOpts:['Data Center'] },
   { id:'ba',  sec:'Building',         q:'Year built?',                              t:'num',  sk:1,  ic:'📅', ph:'e.g. 1994' },
   { id:'rn',  sec:'Building',         q:'Recent renovation?',                       t:'ch',          ic:'🔨', opts:['No','Within 30 days','Within 6 months','Within 1 year'] },
   { id:'ht',  sec:'HVAC',            q:'HVAC system type?',                        t:'ch',   req:1, ic:'❄️', opts:['Central AHU — VAV','Central AHU — CAV','Packaged Rooftop','Split System','Fan Coil Units','PTAC / PTHP','DOAS + Radiant','Natural Ventilation','Unknown'] },
