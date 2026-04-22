@@ -29,11 +29,12 @@ const CATEGORY_REQUIREMENTS = {
     required: { cx: 'Complaint status' },
     optional: { ac: 'Affected occupant count', sr: 'Symptom resolution pattern', cc: 'Clustering', sy: 'Symptom list' },
     minSufficiencyForScoring: 1.0,
+    skipOptionalWhen: { cx: ['No complaints'] },
   },
   Environment: {
     maxPoints: 15,
     required: { tf: 'Temperature', rh: 'Relative humidity' },
-    optional: { wd: 'Water damage', mi: 'Mold indicators' },
+    optional: {},
     minSufficiencyForScoring: 1.0,
   },
 }
@@ -50,10 +51,20 @@ export function evaluateCategorySufficiency(categoryName, zoneData) {
   if (!spec) return { sufficiency: 1, present: [], missing: [], isInsufficient: false }
 
   const reqKeys = Object.keys(spec.required)
-  const optKeys = Object.keys(spec.optional || {})
   const altKeys = Object.keys(spec.altRequired || {})
   const present = []
   const missing = []
+
+  // Skip optional fields when condition is met (e.g., no complaints → don't penalize for missing symptom details)
+  let skipOptionals = false
+  if (spec.skipOptionalWhen) {
+    for (const [field, values] of Object.entries(spec.skipOptionalWhen)) {
+      const v = zoneData[field] || ''
+      if (!v || values.some(val => v === val || v.includes(val))) skipOptionals = true
+    }
+  }
+
+  const optKeys = skipOptionals ? [] : Object.keys(spec.optional || {})
 
   let reqMet = 0
   for (const k of reqKeys) {
