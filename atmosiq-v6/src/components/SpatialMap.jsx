@@ -27,10 +27,14 @@ export default function SpatialMap({ zones, zoneScores, floorPlan, onUpdateZone,
   const unmapped = zones.filter(z => z.mapX == null || z.mapY == null)
 
   const handleMapClick = (e) => {
-    if (!dragging) return
+    if (dragging === null) return
+    e.preventDefault()
+    e.stopPropagation()
     const rect = mapRef.current.getBoundingClientRect()
-    const x = ((e.clientX - rect.left) / rect.width) * 100
-    const y = ((e.clientY - rect.top) / rect.height) * 100
+    const clientX = e.touches ? e.touches[0].clientX : (e.changedTouches ? e.changedTouches[0].clientX : e.clientX)
+    const clientY = e.touches ? e.touches[0].clientY : (e.changedTouches ? e.changedTouches[0].clientY : e.clientY)
+    const x = ((clientX - rect.left) / rect.width) * 100
+    const y = ((clientY - rect.top) / rect.height) * 100
     onUpdateZone(dragging, { mapX: Math.round(x * 10) / 10, mapY: Math.round(y * 10) / 10 })
     setDragging(null)
   }
@@ -81,7 +85,8 @@ export default function SpatialMap({ zones, zoneScores, floorPlan, onUpdateZone,
           <div
             ref={mapRef}
             onClick={handleMapClick}
-            style={{ position: 'relative', width: '100%', borderRadius: 10, overflow: 'hidden', border: `1px solid ${BORDER}`, cursor: dragging ? 'crosshair' : 'default' }}
+            onTouchEnd={handleMapClick}
+            style={{ position: 'relative', width: '100%', borderRadius: 10, overflow: 'hidden', border: `1px solid ${BORDER}`, cursor: dragging !== null ? 'crosshair' : 'default', touchAction: 'none' }}
           >
             <img src={floorPlan} alt="Floor plan" style={{ width: '100%', display: 'block', opacity: 0.85 }} />
 
