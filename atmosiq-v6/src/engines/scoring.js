@@ -98,7 +98,10 @@ export function compositeScore(zoneScores) {
     : 'No Critical zones; composite reflects priority-weighted mean (mission-critical zones weighted 1.5x).'
   const band = getRiskBand(comp)
   const partialComposite = scorable.length < zoneScores.length
-  return { tot: comp, avg, worst, risk: band.label, rc: band.color, count: zoneScores.length, logic, rationale, partialComposite }
+  // Building confidence = lowest zone confidence (cannot claim High if riskiest zone wasn't fully tested)
+  const confOrder = { 'Insufficient': 0, 'Low': 1, 'Medium': 2, 'High': 3 }
+  const worstConfidence = scorable.reduce((w, z) => (confOrder[z.confidence] || 0) < (confOrder[w] || 0) ? z.confidence : w, 'High')
+  return { tot: comp, avg, worst, risk: band.label, rc: band.color, count: zoneScores.length, logic, rationale, partialComposite, confidence: worstConfidence }
 }
 
 // Ventilation hierarchy per ASHRAE 62.1-2022; Persily 2022 caveat
