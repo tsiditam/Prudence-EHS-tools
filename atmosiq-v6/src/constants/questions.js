@@ -51,10 +51,10 @@ export const Q_PRESURVEY = [
   { id:'ps_water_detail',        sec:'Maintenance',    q:'Water intrusion history details',      t:'ta',   sk:1,  ic:'💧', cond:{f:'ps_water_history',ne:'No known history'}, ph:'Dates, locations, remediation' },
   { id:'ps_pest',                sec:'Maintenance',    q:'Recent pesticide / chemical apps?',    t:'ch',   sk:1,  ic:'🧴', opts:['None recent','Within 30 days','Within 90 days','Unknown'] },
   { id:'ps_reno_detail',         sec:'Maintenance',    q:'Other renovation / maintenance notes', t:'ta',   sk:1,  ic:'📝', ph:'Any relevant building history' },
-  // Occupant Data
-  { id:'ps_complaint_count',     sec:'Occupant Data',  q:'Total documented complaints?',         t:'num',  sk:1,  ic:'📊', ph:'Number of formal complaints' },
-  { id:'ps_complaint_timeline',  sec:'Occupant Data',  q:'When did complaints begin?',           t:'ch',   sk:1,  ic:'📅', opts:['Within 1 week','Within 1 month','1-6 months ago','Over 6 months ago','Intermittent / recurring','Unknown'] },
-  { id:'ps_affected_areas',      sec:'Occupant Data',  q:'Most affected areas?',                 t:'ta',   sk:1,  ic:'📍', ph:'Floor numbers, rooms, departments' },
+  // Occupant Data — only show when triggered by complaints
+  { id:'ps_complaint_count',     sec:'Occupant Data',  q:'Total documented complaints?',         t:'num',  sk:1,  ic:'📊', ph:'Number of formal complaints', cond:{f:'ps_reason',eq:'Occupant complaint(s)'} },
+  { id:'ps_complaint_timeline',  sec:'Occupant Data',  q:'When did complaints begin?',           t:'ch',   sk:1,  ic:'📅', opts:['Within 1 week','Within 1 month','1-6 months ago','Over 6 months ago','Intermittent / recurring','Unknown'], cond:{f:'ps_reason',eq:'Occupant complaint(s)'} },
+  { id:'ps_affected_areas',      sec:'Occupant Data',  q:'Most affected areas?',                 t:'ta',   sk:1,  ic:'📍', ph:'Floor numbers, rooms, departments', cond:{f:'ps_reason',eq:'Occupant complaint(s)'} },
 ]
 
 // ── MOBILE: Quick Start (get to zones in under 60 seconds) ──
@@ -94,9 +94,9 @@ export const Q_DETAILS = [
   // Pre-survey details
   { id:'ps_complaint_narrative', sec:'Complaint Details', q:'Describe the complaint(s)',     t:'ta',   sk:1, ic:'📝', cond:{f:'ps_reason',eq:'Occupant complaint(s)'}, ph:'Who reported, symptoms, when, where' },
   { id:'ps_complaint_formal',    sec:'Complaint Details', q:'Formal written complaints?',    t:'ch',   sk:1, ic:'📄', cond:{f:'ps_reason',eq:'Occupant complaint(s)'}, opts:['No — verbal only','Yes — internal complaint form','Yes — to management / HR','Yes — to OSHA or regulatory agency','Yes — legal / attorney involved'] },
-  { id:'ps_complaint_count',     sec:'Complaint Details', q:'Total documented complaints?',  t:'num',  sk:1, ic:'📊', ph:'Number' },
-  { id:'ps_complaint_timeline',  sec:'Complaint Details', q:'When did complaints begin?',    t:'ch',   sk:1, ic:'📅', opts:['Within 1 week','Within 1 month','1-6 months ago','Over 6 months ago','Intermittent / recurring','Unknown'] },
-  { id:'ps_affected_areas',      sec:'Complaint Details', q:'Most affected areas?',          t:'ta',   sk:1, ic:'📍', ph:'Floor numbers, rooms, departments' },
+  { id:'ps_complaint_count',     sec:'Complaint Details', q:'Total documented complaints?',  t:'num',  sk:1, ic:'📊', ph:'Number', cond:{f:'ps_reason',eq:'Occupant complaint(s)'} },
+  { id:'ps_complaint_timeline',  sec:'Complaint Details', q:'When did complaints begin?',    t:'ch',   sk:1, ic:'📅', opts:['Within 1 week','Within 1 month','1-6 months ago','Over 6 months ago','Intermittent / recurring','Unknown'], cond:{f:'ps_reason',eq:'Occupant complaint(s)'} },
+  { id:'ps_affected_areas',      sec:'Complaint Details', q:'Most affected areas?',          t:'ta',   sk:1, ic:'📍', ph:'Floor numbers, rooms, departments', cond:{f:'ps_reason',eq:'Occupant complaint(s)'} },
   // History
   { id:'ps_prior',          sec:'Prior History',  q:'Prior IAQ investigations?',       t:'ch',  sk:1, ic:'📁', opts:['No — first assessment','Yes — with findings','Yes — no significant findings','Unknown'] },
   { id:'ps_prior_notes',    sec:'Prior History',  q:'Prior investigation summary',     t:'ta',  sk:1, ic:'📋', cond:{f:'ps_prior',eq:'Yes — with findings'}, ph:'Findings, dates, actions taken' },

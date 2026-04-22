@@ -36,6 +36,7 @@ import { DEMO_PRESURVEY, DEMO_BUILDING, DEMO_ZONES } from '../constants/demoData
 import { DEMO_FM_PRESURVEY, DEMO_FM_BUILDING, DEMO_FM_ZONES } from '../constants/demoDataFM'
 import { getMode, setMode as persistMode, isFM, t } from '../constants/terminology'
 import { evaluateEscalation, hasActiveEscalation } from '../engines/escalation'
+import { getBuildingProfile } from '../engines/buildingProfiles'
 import ModeSelector from './ModeSelector'
 import ComplaintLog from './ComplaintLog'
 import InterventionTracker from './InterventionTracker'
@@ -213,7 +214,7 @@ export default function MobileApp() {
   const qsVis = useMemo(() => Q_QUICKSTART.filter(q => { if (!q.cond) return true; if (q.cond.eq && mergedData[q.cond.f] !== q.cond.eq) return false; if (q.cond.ne && mergedData[q.cond.f] === q.cond.ne) return false; return true }), [mergedData])
   const dtVis = useMemo(() => Q_DETAILS.filter(q => { if (!q.cond) return true; if (q.cond.eq && mergedData[q.cond.f] !== q.cond.eq) return false; if (q.cond.ne && mergedData[q.cond.f] === q.cond.ne) return false; return true }), [mergedData])
   const zData = zones[curZone] || {}
-  const zVis = useMemo(() => Q_ZONE.filter(q => { if (!q.cond) return true; if (q.cond.eq && zData[q.cond.f] !== q.cond.eq) return false; if (q.cond.ne && zData[q.cond.f] === q.cond.ne) return false; return true }), [zData])
+  const zVis = useMemo(() => Q_ZONE.filter(q => { if (q.profileDynamic) { const p = getBuildingProfile(bldg.ft); if (!p || !p.zoneSubtypes?.length) return false } if (!q.cond) return true; if (q.cond.eq && zData[q.cond.f] !== q.cond.eq) return false; if (q.cond.ne && zData[q.cond.f] === q.cond.ne) return false; return true }), [zData, bldg.ft])
   const setZF = useCallback((id,v) => { setZones(prev => { const next = [...prev]; next[curZone] = {...(next[curZone]||{}), [id]:v}; return next }) }, [curZone])
 
   const showMilestone = (icon, title, sub, nextFn) => {
@@ -628,7 +629,7 @@ export default function MobileApp() {
                 </div>
                 <span style={{fontSize:9,color:bc,fontWeight:600,flexShrink:0}}>{pctLabel}</span>
               </div>
-              {cat.r.map((r,i)=>{const s=sv(r.sev);return(
+              {cat.r.filter(r => !(r.sev === 'pass' && pct < 70)).map((r,i)=>{const s=sv(r.sev);return(
                 <div key={i} style={{display:'flex',gap:8,alignItems:'flex-start',marginBottom:6,fontSize:13,lineHeight:1.6}}>
                   <span style={{padding:'2px 8px',borderRadius:4,fontSize:9,fontWeight:700,fontFamily:"'DM Mono'",background:s.bg,color:s.c,flexShrink:0,marginTop:3}}>{s.l}</span>
                   <span style={{color:SUB}}>{r.t}{r.std?<span style={{color:DIM,fontSize:11}}> ({r.std})</span>:null}</span>
