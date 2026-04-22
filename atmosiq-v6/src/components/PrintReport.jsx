@@ -263,7 +263,7 @@ export function generatePrintHTML(data) {
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
         <div>
           <strong style="font-size:14px;color:#0F172A;">${zs.zoneName || 'Zone ' + (zi+1)}</strong>
-          <div style="font-size:10px;color:#64748B;margin-top:2px;">${z.zt || ''} ${z.zo ? `· ${z.zo} occupants` : ''} ${z.za ? `· ${z.za} sq ft` : ''}</div>
+          <div style="font-size:10px;color:#64748B;margin-top:2px;">${z.zt || ''} ${z.zo ? `· ${z.zo} occupants` : ''} ${z.za ? `· ${z.za} sq ft` : ''}${z.meas_time ? ` · Assessed at ${z.meas_time}` : ''}</div>
         </div>
         <div style="text-align:right;">
           <span style="font-family:monospace;font-size:22px;font-weight:800;color:${scoreColor(zs.tot)};">${zs.tot}</span>
@@ -362,6 +362,19 @@ export function generatePrintHTML(data) {
 
       <h3>Findings Detail</h3>
       <table><thead><tr><th>Severity</th><th>Category</th><th>Finding</th><th>Reference</th></tr></thead><tbody>${findingRows(zs.cats)}</tbody></table>
+
+      ${/* Zone Priority Actions */(() => {
+        const zoneActions = []
+        zs.cats.forEach(c => c.r.forEach(r => {
+          if (r.sev === 'critical') zoneActions.push({ p: 'IMMEDIATE', c: '#B91C1C', a: r.t })
+          else if (r.sev === 'high') zoneActions.push({ p: 'HIGH', c: '#C2410C', a: r.t })
+        }))
+        return zoneActions.length > 0 ? `
+          <h3>Zone Priority Actions</h3>
+          <table style="margin-bottom:12px;"><thead><tr><th style="width:80px;">Priority</th><th>Action Required</th></tr></thead><tbody>
+          ${zoneActions.map(a => `<tr><td><span style="font-size:9px;font-weight:700;color:${a.c};text-transform:uppercase;">${a.p}</span></td><td style="font-size:11px;">${a.a}</td></tr>`).join('')}
+          </tbody></table>` : ''
+      })()}
 
       ${/* Confidence and Missing Data */`
       <div style="margin-top:12px;display:flex;gap:12px;">
