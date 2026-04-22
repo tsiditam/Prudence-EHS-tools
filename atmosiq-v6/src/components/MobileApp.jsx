@@ -34,6 +34,7 @@ import SettingsScreen from './SettingsScreen'
 import { printReport } from './PrintReport'
 import { DEMO_PRESURVEY, DEMO_BUILDING, DEMO_ZONES } from '../constants/demoData'
 import { DEMO_FM_PRESURVEY, DEMO_FM_BUILDING, DEMO_FM_ZONES } from '../constants/demoDataFM'
+import { DEMO_DC_PRESURVEY, DEMO_DC_BUILDING, DEMO_DC_ZONES } from '../constants/demoDataDC'
 import { getMode, setMode as persistMode, isFM, t } from '../constants/terminology'
 import { evaluateEscalation, hasActiveEscalation } from '../engines/escalation'
 import { getBuildingProfile } from '../engines/buildingProfiles'
@@ -247,12 +248,15 @@ export default function MobileApp() {
     setView('quickstart')
   }
 
-  const runDemo = () => {
-    const isFmMode = userMode === 'fm'
-    const demoBldg = isFmMode ? DEMO_FM_BUILDING : DEMO_BUILDING
-    const demoZones = isFmMode ? DEMO_FM_ZONES : DEMO_ZONES
-    const demoPre = isFmMode ? DEMO_FM_PRESURVEY : DEMO_PRESURVEY
-    trackEvent('assessment_mode_selected', { mode: 'demo', userMode })
+  const runDemo = (type) => {
+    const demos = {
+      ih: { bldg: DEMO_BUILDING, zones: DEMO_ZONES, pre: DEMO_PRESURVEY },
+      fm: { bldg: DEMO_FM_BUILDING, zones: DEMO_FM_ZONES, pre: DEMO_FM_PRESURVEY },
+      dc: { bldg: DEMO_DC_BUILDING, zones: DEMO_DC_ZONES, pre: DEMO_DC_PRESURVEY },
+    }
+    const pick = type || (userMode === 'fm' ? 'fm' : 'ih')
+    const { bldg: demoBldg, zones: demoZones, pre: demoPre } = demos[pick]
+    trackEvent('assessment_mode_selected', { mode: 'demo', demoType: pick, userMode })
     setBldg(demoBldg); setZones(demoZones); setPresurvey(demoPre); setPhotos({})
     const zScores = demoZones.map(z => scoreZone(z, demoBldg))
     const composite = compositeScore(zScores)
@@ -979,14 +983,22 @@ export default function MobileApp() {
           </button>
 
           {/* ── Open Demo (primary — solid cyan, one per screen) ── */}
-          <button onClick={runDemo} style={{width:'100%',padding:'14px 20px',marginBottom:16,background:ACCENT,border:'none',borderRadius:10,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,fontFamily:'inherit',transition:'opacity 0.15s'}}>
+          <button onClick={()=>runDemo()} style={{width:'100%',padding:'14px 20px',marginBottom:8,background:ACCENT,border:'none',borderRadius:10,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,fontFamily:'inherit',transition:'opacity 0.15s'}}>
             <I n="bldg" s={18} c="#000" w={1.8} />
             <div style={{flex:1}}>
               <div style={{fontSize:14,fontWeight:700,color:'#000'}}>{userMode === 'fm' ? 'Try Sample Air Quality Check' : 'Open Demo Assessment'}</div>
-              <div style={{fontSize:10,color:'rgba(0,0,0,0.6)',marginTop:2}}>{userMode === 'fm' ? 'Greenfield Office Park · 2 areas' : 'Meridian Business Park · 3 zones'}</div>
+              <div style={{fontSize:10,color:'rgba(0,0,0,0.6)',marginTop:2}}>{userMode === 'fm' ? 'Greenfield Office Park · 2 areas' : 'Meridian Commerce Tower · 3 zones'}</div>
             </div>
             <span style={{fontSize:13,color:'rgba(0,0,0,0.5)'}}>→</span>
           </button>
+          {userMode !== 'fm' && <button onClick={()=>runDemo('dc')} style={{width:'100%',padding:'12px 20px',marginBottom:16,background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,fontFamily:'inherit',transition:'border-color 0.15s'}}>
+            <I n="pulse" s={16} c={SUB} w={1.6} />
+            <div style={{flex:1}}>
+              <div style={{fontSize:13,fontWeight:600,color:TEXT}}>Data Center Demo</div>
+              <div style={{fontSize:10,color:DIM,marginTop:2}}>Hizinburg DC · 3 zones · ISA-71.04 + ISO 14644</div>
+            </div>
+            <span style={{fontSize:12,color:DIM}}>→</span>
+          </button>}
 
           {/* ── Workspace Cards ── */}
           <div style={{display:'grid',gridTemplateColumns:isTabletLand?'1fr':'1fr 1fr',gap:10,marginBottom:isTabletLand?12:20}}>
