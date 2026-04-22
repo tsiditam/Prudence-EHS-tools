@@ -20,9 +20,9 @@ const CATEGORY_REQUIREMENTS = {
   },
   HVAC: {
     maxPoints: 20,
-    required: { hm: 'Last HVAC maintenance', fc: 'Filter condition', sa: 'Supply airflow' },
-    optional: { dp: 'Drain pan condition', fm: 'Filter type', od: 'Damper status' },
-    minSufficiencyForScoring: 0.66,
+    required: { hm: 'Last HVAC maintenance' },
+    optional: { fc: 'Filter condition', sa: 'Supply airflow', dp: 'Drain pan condition', fm: 'Filter type', od: 'Damper status' },
+    minSufficiencyForScoring: 1.0,
   },
   Complaints: {
     maxPoints: 15,
