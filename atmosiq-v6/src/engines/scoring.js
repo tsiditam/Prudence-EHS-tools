@@ -8,32 +8,60 @@ import { evaluateCategorySufficiency, evaluateAllSufficiency } from './sufficien
 import { getRiskBand, getConfidenceLevel } from './riskBands'
 import { getBuildingProfile, getRHOverride, getProfileContextFindings } from './buildingProfiles'
 
+// Zone-specific weights: data_hall uses equipment-focused weighting
+const ZONE_WEIGHTS = {
+  data_hall: { Ventilation: 15, Contaminants: 40, HVAC: 30, Complaints: 0, Environment: 15 },
+  default:   { Ventilation: 25, Contaminants: 25, HVAC: 20, Complaints: 15, Environment: 15 },
+}
+
+function getZoneWeights(zoneSubtype) {
+  return ZONE_WEIGHTS[zoneSubtype] || ZONE_WEIGHTS.default
+}
+
 export function scoreZone(z, bldg) {
   const d = { ...bldg, ...z }
   const suff = evaluateAllSufficiency(d)
   const profile = getBuildingProfile(d.ft)
   const rhOvr = profile ? getRHOverride(profile, d.zone_subtype) : null
+  const weights = getZoneWeights(d.zone_subtype)
   const rawCats = [scoreVent(d), scoreCont(d), scoreHVAC(d), scoreComp(d), scoreEnv(d, rhOvr)]
-  // Append building-profile context findings to the appropriate category
+  // Apply zone-specific weights
+  rawCats.forEach(c => { c.mx = weights[c.l] ?? c.mx; if (weights[c.l] === 0) { c.s = 0; c.suppressed = true } })
+  // Rescale scores to new max when weights differ from default
+  rawCats.forEach(c => {
+    if (!c.suppressed && c.mx !== ZONE_WEIGHTS.default[c.l]) {
+      const defaultMax = ZONE_WEIGHTS.default[c.l]
+      c.s = defaultMax > 0 ? Math.round((c.s / defaultMax) * c.mx) : 0
+    }
+  })
+  // Append building-profile context findings
   if (profile) {
     const ctxFindings = getProfileContextFindings(profile, d)
     ctxFindings.forEach(f => { const cat = rawCats.find(c => c.l === 'Environment') || rawCats[4]; cat.r.push(f) })
   }
   const cats = rawCats.map(c => {
+    if (c.suppressed) return { ...c, status: 'SUPPRESSED' }
     const cs = suff[c.l]
-    if (cs && cs.isInsufficient) {
-      return { ...c, s: null, status: 'INSUFFICIENT', reason: cs.reason, sufficiency: cs }
-    }
-    if (cs && cs.maxAwardable < c.mx) {
-      return { ...c, s: Math.min(c.s, cs.maxAwardable), sufficiency: cs, capped: true }
-    }
+    if (cs && cs.isInsufficient) return { ...c, s: null, status: 'INSUFFICIENT', reason: cs.reason, sufficiency: cs }
+    if (cs && cs.maxAwardable < c.mx) return { ...c, s: Math.min(c.s, cs.maxAwardable), sufficiency: cs, capped: true }
     return { ...c, sufficiency: cs }
   })
-  const scorable = cats.filter(c => c.s !== null)
-  const tot = scorable.length > 0 ? scorable.reduce((a, c) => a + c.s, 0) : null
+  const scorable = cats.filter(c => c.s !== null && c.status !== 'SUPPRESSED')
+  let tot = scorable.length > 0 ? scorable.reduce((a, c) => a + c.s, 0) : null
+  // Critical Concern Override: G3/GX corrosion or ISO Class 8 failure forces score < 50
+  if (d.zone_subtype === 'data_hall') {
+    if (d.gaseous_corrosion && (d.gaseous_corrosion.includes('G3') || d.gaseous_corrosion.includes('GX'))) {
+      tot = tot !== null ? Math.min(tot, 39) : 39
+      cats.find(c => c.l === 'Contaminants')?.r.push({ t: `Gaseous corrosion ${d.gaseous_corrosion} — Critical Concern Override applied per ISA-71.04`, std: 'ANSI/ISA 71.04-2013', sev: 'critical' })
+    }
+    if (d.iso_class === 'ISO Class 8') {
+      tot = tot !== null ? Math.min(tot, 39) : 39
+      cats.find(c => c.l === 'Contaminants')?.r.push({ t: 'ISO 14644-1 Class 8 particle limit exceeded — Critical Concern Override applied', std: 'ISO 14644-1:2015', sev: 'critical' })
+    }
+  }
   const band = getRiskBand(tot)
   const confidence = getConfidenceLevel(suff._overall || 0)
-  return { tot, risk: band.label, rc: band.color, cats, zoneName: z.zn || 'Zone', partialScore: cats.some(c => c.status === 'INSUFFICIENT'), confidence, sufficiency: suff }
+  return { tot, risk: band.label, rc: band.color, cats, zoneName: z.zn || 'Zone', partialScore: cats.some(c => c.status === 'INSUFFICIENT'), confidence, sufficiency: suff, zoneSubtype: d.zone_subtype, weights }
 }
 
 // Composite per AIHA exposure assessment strategy (Bullock & Ignacio, 2015)

@@ -86,6 +86,19 @@ export function buildCausalChains(zones, bldg, zoneScores) {
       if (d.path_pressure === 'Negative (draws in)') ev.push('Zone under negative pressure')
       chains.push({ zone: zName, type: 'Cross-Contamination Pathway', rootCause: 'Air pathway allowing contaminant migration from adjacent source', evidence: ev, confidence: ev.length >= 2 ? 'Moderate' : 'Possible' })
     }
+    // Data center: Creep Corrosion Risk pattern
+    if (d.zone_subtype === 'data_hall') {
+      const hasCorrosion = d.gaseous_corrosion && (d.gaseous_corrosion.includes('G2') || d.gaseous_corrosion.includes('G3') || d.gaseous_corrosion.includes('GX'))
+      const hasHighRH = d.rh && +d.rh > 60
+      if (hasCorrosion && hasHighRH) {
+        const ev = [`Gaseous corrosion classification: ${d.gaseous_corrosion}`, `Relative humidity: ${d.rh}% (exceeds 60% static control threshold)`]
+        if (d.dp_temp) ev.push(`Dew point: ${d.dp_temp}°F`)
+        chains.push({ zone: zName, type: 'Creep Corrosion Risk', rootCause: 'Elevated humidity combined with gaseous contamination creates conditions for accelerated creep corrosion on circuit board surfaces. Equipment failure risk is significant.', evidence: ev, confidence: 'Strong', std: 'ANSI/ISA 71.04-2013 + ASHRAE TC 9.9' })
+      }
+      if (hasCorrosion && !hasHighRH) {
+        chains.push({ zone: zName, type: 'Gaseous Contamination Concern', rootCause: 'Gaseous corrosion classification exceeds G1 (mild). Source investigation recommended to prevent progression.', evidence: [`Gaseous corrosion: ${d.gaseous_corrosion}`, 'RH currently within control range'], confidence: 'Moderate', std: 'ANSI/ISA 71.04-2013' })
+      }
+    }
   })
   return chains
 }
