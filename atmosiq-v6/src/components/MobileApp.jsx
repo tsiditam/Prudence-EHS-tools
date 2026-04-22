@@ -36,6 +36,7 @@ import { DEMO_PRESURVEY, DEMO_BUILDING, DEMO_ZONES } from '../constants/demoData
 import { DEMO_FM_PRESURVEY, DEMO_FM_BUILDING, DEMO_FM_ZONES } from '../constants/demoDataFM'
 import { getMode, setMode as persistMode, isFM, t } from '../constants/terminology'
 import { evaluateEscalation, hasActiveEscalation } from '../engines/escalation'
+import { getBuildingProfile } from '../engines/buildingProfiles'
 import ModeSelector from './ModeSelector'
 import ComplaintLog from './ComplaintLog'
 import InterventionTracker from './InterventionTracker'
@@ -213,7 +214,7 @@ export default function MobileApp() {
   const qsVis = useMemo(() => Q_QUICKSTART.filter(q => { if (!q.cond) return true; if (q.cond.eq && mergedData[q.cond.f] !== q.cond.eq) return false; if (q.cond.ne && mergedData[q.cond.f] === q.cond.ne) return false; return true }), [mergedData])
   const dtVis = useMemo(() => Q_DETAILS.filter(q => { if (!q.cond) return true; if (q.cond.eq && mergedData[q.cond.f] !== q.cond.eq) return false; if (q.cond.ne && mergedData[q.cond.f] === q.cond.ne) return false; return true }), [mergedData])
   const zData = zones[curZone] || {}
-  const zVis = useMemo(() => Q_ZONE.filter(q => { if (!q.cond) return true; if (q.cond.eq && zData[q.cond.f] !== q.cond.eq) return false; if (q.cond.ne && zData[q.cond.f] === q.cond.ne) return false; return true }), [zData])
+  const zVis = useMemo(() => Q_ZONE.filter(q => { if (q.profileDynamic) { const p = getBuildingProfile(bldg.ft); if (!p || !p.zoneSubtypes?.length) return false } if (!q.cond) return true; if (q.cond.eq && zData[q.cond.f] !== q.cond.eq) return false; if (q.cond.ne && zData[q.cond.f] === q.cond.ne) return false; return true }), [zData, bldg.ft])
   const setZF = useCallback((id,v) => { setZones(prev => { const next = [...prev]; next[curZone] = {...(next[curZone]||{}), [id]:v}; return next }) }, [curZone])
 
   const showMilestone = (icon, title, sub, nextFn) => {
