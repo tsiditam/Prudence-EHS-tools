@@ -44,6 +44,7 @@ import InterventionTracker from './InterventionTracker'
 import IHDirectory from './IHDirectory'
 import PropertyDashboard from './PropertyDashboard'
 import SpatialMap from './SpatialMap'
+import InstrumentManager from './InstrumentManager'
 
 const haptic = (type) => { try { if (navigator.vibrate) navigator.vibrate(type === 'heavy' ? [30,20,30] : type === 'success' ? [10,30,10,30,10] : 12) } catch {} }
 const BETA_MODE = true // Set to false when ready to go live — re-enables all premium gates
@@ -1172,6 +1173,7 @@ export default function MobileApp() {
         {view==='directory'&&<IHDirectory onBack={()=>setView('dash')} />}
         {view==='properties'&&<PropertyDashboard onBack={()=>setView('dash')} onNavigate={(v)=>setView(v)} assessmentIndex={index} />}
         {view==='spatial'&&<SpatialMap zones={zones} zoneScores={zoneScores} floorPlan={floorPlan} onUploadFloorPlan={setFloorPlan} onUpdateZone={(zi, update)=>{const z=[...zones];z[zi]={...z[zi],...update};setZones(z)}} onClose={()=>setView('results')} />}
+        {view==='instruments'&&<InstrumentManager onBack={()=>setView('settings')} />}
       </div>
 
       {/* ── Bottom Tab Bar ── */}

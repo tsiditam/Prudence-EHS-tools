@@ -529,6 +529,28 @@ export function generatePrintHTML(data) {
     <strong>Score bands:</strong> 80–100 Low Risk · 60–79 Moderate · 40–59 High Risk · 0–39 Critical
   </div>
 
+  ${/* Equipment & Calibration Log */(() => {
+    const calLog = data.calibrationLog || []
+    if (!calLog.length) return ''
+    const hasOutOfCal = calLog.some(c => c.outOfCal)
+    return `
+    <h2 class="pg-break">Equipment &amp; Calibration Log</h2>
+    <p style="font-size:11px;color:#475569;margin-bottom:12px;">The following instruments were used during this assessment. Calibration status reflects conditions at the time of the survey.</p>
+    <table>
+      <thead><tr><th>Instrument</th><th>Serial</th><th>Sensor Type</th><th>Last Cal</th><th>Status</th></tr></thead>
+      <tbody>
+      ${calLog.map(c => `<tr>
+        <td style="font-weight:600;">${c.nickname || c.make}</td>
+        <td style="font-family:monospace;font-size:10px;">${c.serial || '—'}</td>
+        <td style="font-size:10px;">${c.sensorType}</td>
+        <td style="font-family:monospace;font-size:10px;">${c.lastCalDate || 'Not recorded'}</td>
+        <td style="font-size:10px;font-weight:600;color:${c.outOfCal ? '#B91C1C' : '#15803D'};">${c.outOfCal ? 'OUT OF CAL' : 'Current'}</td>
+      </tr>`).join('')}
+      </tbody>
+    </table>
+    ${hasOutOfCal ? `<div class="note" style="background:#FEF2F2;border-color:#FECACA;margin-top:12px;"><strong style="color:#B91C1C;">Limitations of Data:</strong> One or more instruments used in this assessment were beyond their manufacturer-recommended calibration interval. Readings from out-of-calibration instruments are considered directional only and may not meet defensibility requirements for regulatory or litigation purposes.</div>` : ''}`
+  })()}
+
   ${/* Spatial Risk Summary — only if zones have map coordinates */(() => {
     const mappedZones = (zones||[]).filter(z => z.mapX != null && z.mapY != null)
     if (!mappedZones.length || !data.floorPlan) return ''
