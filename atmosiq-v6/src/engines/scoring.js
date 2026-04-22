@@ -64,19 +64,38 @@ export function scoreZone(z, bldg) {
   return { tot, risk: band.label, rc: band.color, cats, zoneName: z.zn || 'Zone', partialScore: cats.some(c => c.status === 'INSUFFICIENT'), confidence, sufficiency: suff, zoneSubtype: d.zone_subtype, weights }
 }
 
+// Zone-type priority weights for composite calculation
+// Mission-critical zones carry more weight than support spaces
+const ZONE_PRIORITY_WEIGHTS = {
+  data_hall: 1.5,
+  battery_room: 1.3,
+  noc_office: 1.0,
+  mechanical: 0.8,
+  office: 0.8,
+  default: 1.0,
+}
+
 // Composite per AIHA exposure assessment strategy (Bullock & Ignacio, 2015)
+// with zone-type priority weighting for mixed-use buildings
 export function compositeScore(zoneScores) {
   if (!zoneScores.length) return null
   const scorable = zoneScores.filter(z => z.tot !== null)
   if (!scorable.length) return { tot: null, avg: null, worst: null, risk: 'Insufficient Data', rc: '#6B7380', count: zoneScores.length, logic: 'no-scorable-zones', rationale: 'No zones have sufficient data for scoring.', partialComposite: true }
-  const avg = Math.round(scorable.reduce((a, z) => a + z.tot, 0) / scorable.length)
+  // Weighted average: mission-critical zones count more
+  let totalWeight = 0, weightedSum = 0
+  scorable.forEach(z => {
+    const w = ZONE_PRIORITY_WEIGHTS[z.zoneSubtype] || ZONE_PRIORITY_WEIGHTS.default
+    totalWeight += w
+    weightedSum += z.tot * w
+  })
+  const avg = Math.round(weightedSum / totalWeight)
   const worst = Math.min(...scorable.map(z => z.tot))
   const hasCritical = scorable.some(z => getRiskBand(z.tot).id === 'CRITICAL')
   const comp = hasCritical ? worst : avg
-  const logic = hasCritical ? 'worst-zone-override' : 'mean-of-zones'
+  const logic = hasCritical ? 'worst-zone-override' : 'weighted-mean-of-zones'
   const rationale = hasCritical
     ? 'AIHA exposure assessment strategy: worst-case zone drives composite when any zone is Critical.'
-    : 'No Critical zones present; composite reflects arithmetic mean of per-zone scores.'
+    : 'No Critical zones; composite reflects priority-weighted mean (mission-critical zones weighted 1.5x).'
   const band = getRiskBand(comp)
   const partialComposite = scorable.length < zoneScores.length
   return { tot: comp, avg, worst, risk: band.label, rc: band.color, count: zoneScores.length, logic, rationale, partialComposite }
