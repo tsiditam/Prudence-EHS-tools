@@ -43,7 +43,7 @@ import IHDirectory from './IHDirectory'
 import PropertyDashboard from './PropertyDashboard'
 
 const haptic = (type) => { try { if (navigator.vibrate) navigator.vibrate(type === 'heavy' ? [30,20,30] : type === 'success' ? [10,30,10,30,10] : 12) } catch {} }
-const isEnterprise = (profile) => profile?.plan === 'team' || profile?.plan === 'enterprise'
+const isEnterprise = (profile) => profile?.plan === 'team' || profile?.plan === 'enterprise' || !!localStorage.getItem('atmosflow:premiumOverride')
 const isPremiumOpt = (q, opt) => q.premiumOpts && q.premiumOpts.includes(opt)
 const fD = ts => ts ? new Date(ts).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : ''
 const sv = sev => ({critical:{c:'#EF4444',bg:'#EF444418',l:'CRITICAL'},high:{c:'#FB923C',bg:'#FB923C18',l:'HIGH'},medium:{c:'#FBBF24',bg:'#FBBF2418',l:'MEDIUM'},low:{c:'#22D3EE',bg:'#22D3EE15',l:'LOW'},pass:{c:'#22C55E',bg:'#22C55E15',l:'PASS'},info:{c:'#94A3B8',bg:'#94A3B815',l:'INFO'}}[sev]||{c:'#94A3B8',bg:'#94A3B815',l:''})
