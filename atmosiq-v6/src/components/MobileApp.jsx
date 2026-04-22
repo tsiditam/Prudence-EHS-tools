@@ -34,6 +34,7 @@ import SettingsScreen from './SettingsScreen'
 import { printReport } from './PrintReport'
 import { DEMO_PRESURVEY, DEMO_BUILDING, DEMO_ZONES } from '../constants/demoData'
 import { DEMO_FM_PRESURVEY, DEMO_FM_BUILDING, DEMO_FM_ZONES } from '../constants/demoDataFM'
+import { DEMO_DC_PRESURVEY, DEMO_DC_BUILDING, DEMO_DC_ZONES } from '../constants/demoDataDC'
 import { getMode, setMode as persistMode, isFM, t } from '../constants/terminology'
 import { evaluateEscalation, hasActiveEscalation } from '../engines/escalation'
 import { getBuildingProfile } from '../engines/buildingProfiles'
@@ -42,6 +43,8 @@ import ComplaintLog from './ComplaintLog'
 import InterventionTracker from './InterventionTracker'
 import IHDirectory from './IHDirectory'
 import PropertyDashboard from './PropertyDashboard'
+import SpatialMap from './SpatialMap'
+import InstrumentManager from './InstrumentManager'
 
 const haptic = (type) => { try { if (navigator.vibrate) navigator.vibrate(type === 'heavy' ? [30,20,30] : type === 'success' ? [10,30,10,30,10] : 12) } catch {} }
 const BETA_MODE = true // Set to false when ready to go live — re-enables all premium gates
@@ -115,6 +118,7 @@ export default function MobileApp() {
   const [samplingPlan, setSamplingPlan] = useState(null)
   const [causalChains, setCausalChains] = useState([])
   const [moldResults, setMoldResults] = useState([])
+  const [floorPlan, setFloorPlan] = useState(null)
   const [measConf, setMeasConf] = useState(null)
   const [showPhotoSelect, setShowPhotoSelect] = useState(false)
   const [showPremiumGate, setShowPremiumGate] = useState(false)
@@ -247,12 +251,15 @@ export default function MobileApp() {
     setView('quickstart')
   }
 
-  const runDemo = () => {
-    const isFmMode = userMode === 'fm'
-    const demoBldg = isFmMode ? DEMO_FM_BUILDING : DEMO_BUILDING
-    const demoZones = isFmMode ? DEMO_FM_ZONES : DEMO_ZONES
-    const demoPre = isFmMode ? DEMO_FM_PRESURVEY : DEMO_PRESURVEY
-    trackEvent('assessment_mode_selected', { mode: 'demo', userMode })
+  const runDemo = (type) => {
+    const demos = {
+      ih: { bldg: DEMO_BUILDING, zones: DEMO_ZONES, pre: DEMO_PRESURVEY },
+      fm: { bldg: DEMO_FM_BUILDING, zones: DEMO_FM_ZONES, pre: DEMO_FM_PRESURVEY },
+      dc: { bldg: DEMO_DC_BUILDING, zones: DEMO_DC_ZONES, pre: DEMO_DC_PRESURVEY },
+    }
+    const pick = type || (userMode === 'fm' ? 'fm' : 'ih')
+    const { bldg: demoBldg, zones: demoZones, pre: demoPre } = demos[pick]
+    trackEvent('assessment_mode_selected', { mode: 'demo', demoType: pick, userMode })
     setBldg(demoBldg); setZones(demoZones); setPresurvey(demoPre); setPhotos({})
     const zScores = demoZones.map(z => scoreZone(z, demoBldg))
     const composite = compositeScore(zScores)
@@ -354,7 +361,7 @@ export default function MobileApp() {
 
   const executeExport = async (format, filteredPhotos) => {
     const esc = evaluateEscalation({ zones, comp, moldResults }, [], [])
-    const reportData = { building: bldg, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, escalationTriggers: esc }
+    const reportData = { building: bldg, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, escalationTriggers: esc, floorPlan }
     trackEvent('report_exported', { format, facility: bldg.fn || '', score: comp?.tot, zones: zones.length, has_narrative: !!narrative, photos: Object.values(filteredPhotos).flat().length })
     if (format === 'docx') {
       const { generateDocx } = await import('./DocxReport')
@@ -739,6 +746,7 @@ export default function MobileApp() {
             <button onClick={()=>handleExport('docx')} style={{flex:1,padding:'14px 20px',background:`${ACCENT}12`,border:`1px solid ${ACCENT}30`,borderRadius:12,color:ACCENT,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:48,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="notes" s={16} c={ACCENT} /> Word</button>
             <button onClick={handleShare} style={{flex:1,padding:'14px 20px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,color:SUB,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:48,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="send" s={16} c={SUB} /> Share</button>
           </div>
+          <button onClick={()=>setView('spatial')} style={{padding:'14px 20px',background:`${ACCENT}06`,border:`1px solid ${ACCENT}18`,borderRadius:12,color:ACCENT,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit',marginTop:8,minHeight:48,width:'100%',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="bldg" s={16} c={ACCENT} /> Map Zones on Floor Plan</button>
           {!archived&&<button onClick={startNew} style={{padding:'14px 20px',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:12,color:SUB,fontSize:15,cursor:'pointer',fontFamily:'inherit',marginTop:8,minHeight:48,width:'100%'}}>New Assessment</button>}
         </div>}
       </div>
@@ -979,14 +987,22 @@ export default function MobileApp() {
           </button>
 
           {/* ── Open Demo (primary — solid cyan, one per screen) ── */}
-          <button onClick={runDemo} style={{width:'100%',padding:'14px 20px',marginBottom:16,background:ACCENT,border:'none',borderRadius:10,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,fontFamily:'inherit',transition:'opacity 0.15s'}}>
+          <button onClick={()=>runDemo()} style={{width:'100%',padding:'14px 20px',marginBottom:8,background:ACCENT,border:'none',borderRadius:10,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,fontFamily:'inherit',transition:'opacity 0.15s'}}>
             <I n="bldg" s={18} c="#000" w={1.8} />
             <div style={{flex:1}}>
               <div style={{fontSize:14,fontWeight:700,color:'#000'}}>{userMode === 'fm' ? 'Try Sample Air Quality Check' : 'Open Demo Assessment'}</div>
-              <div style={{fontSize:10,color:'rgba(0,0,0,0.6)',marginTop:2}}>{userMode === 'fm' ? 'Greenfield Office Park · 2 areas' : 'Meridian Business Park · 3 zones'}</div>
+              <div style={{fontSize:10,color:'rgba(0,0,0,0.6)',marginTop:2}}>{userMode === 'fm' ? 'Greenfield Office Park · 2 areas' : 'Meridian Commerce Tower · 3 zones'}</div>
             </div>
             <span style={{fontSize:13,color:'rgba(0,0,0,0.5)'}}>→</span>
           </button>
+          {userMode !== 'fm' && <button onClick={()=>runDemo('dc')} style={{width:'100%',padding:'12px 20px',marginBottom:16,background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,fontFamily:'inherit',transition:'border-color 0.15s'}}>
+            <I n="pulse" s={16} c={SUB} w={1.6} />
+            <div style={{flex:1}}>
+              <div style={{fontSize:13,fontWeight:600,color:TEXT}}>Data Center Demo</div>
+              <div style={{fontSize:10,color:DIM,marginTop:2}}>Hizinburg DC · 3 zones · ISA-71.04 + ISO 14644</div>
+            </div>
+            <span style={{fontSize:12,color:DIM}}>→</span>
+          </button>}
 
           {/* ── Workspace Cards ── */}
           <div style={{display:'grid',gridTemplateColumns:isTabletLand?'1fr':'1fr 1fr',gap:10,marginBottom:isTabletLand?12:20}}>
@@ -1156,6 +1172,8 @@ export default function MobileApp() {
         {view==='interventions'&&<InterventionTracker buildingId={bldg?.fn||'default'} onBack={()=>setView('dash')} assessments={index.reports} />}
         {view==='directory'&&<IHDirectory onBack={()=>setView('dash')} />}
         {view==='properties'&&<PropertyDashboard onBack={()=>setView('dash')} onNavigate={(v)=>setView(v)} assessmentIndex={index} />}
+        {view==='spatial'&&<SpatialMap zones={zones} zoneScores={zoneScores} floorPlan={floorPlan} onUploadFloorPlan={setFloorPlan} onUpdateZone={(zi, update)=>{const z=[...zones];z[zi]={...z[zi],...update};setZones(z)}} onClose={()=>setView('results')} />}
+        {view==='instruments'&&<InstrumentManager onBack={()=>setView('settings')} />}
       </div>
 
       {/* ── Bottom Tab Bar ── */}

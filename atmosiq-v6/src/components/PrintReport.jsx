@@ -492,7 +492,7 @@ export function generatePrintHTML(data) {
 
   <!-- ═══ APPENDIX B — TRANSPARENT SCORING SUMMARY ═══ -->
   <h2 class="pg-break">Appendix B — Transparent Scoring Summary</h2>
-  <p style="font-size:10px;color:#64748B;margin-bottom:12px;">AtmosFlow applies a deterministic scoring methodology against published occupational and environmental health standards. The composite score is calculated as: (zone average × 0.6) + (worst zone × 0.4). This weighting ensures that a single underperforming zone cannot be masked by otherwise acceptable conditions. All category weights and thresholds are fixed and published — no AI judgment is applied in scoring.</p>
+  <p style="font-size:10px;color:#64748B;margin-bottom:12px;">AtmosFlow applies a deterministic scoring methodology against published occupational and environmental health standards. The composite score follows the AIHA exposure assessment strategy (Bullock &amp; Ignacio, 2015): if any zone scores Critical (&lt;40), the composite equals the worst zone score — ensuring a single failing area cannot be masked by otherwise acceptable conditions. When no zones are Critical, the composite reflects a priority-weighted mean where mission-critical zones (e.g., data halls) carry 1.5× weight. The building confidence rating reflects the lowest-confidence zone assessed. All category weights, thresholds, and overrides are fixed and published — no AI judgment is applied in scoring.</p>
   <table>
     <thead><tr><th>Category</th><th style="text-align:center;">Max Points</th><th>Evaluation Basis</th></tr></thead>
     <tbody>
@@ -528,6 +528,61 @@ export function generatePrintHTML(data) {
   <div style="margin-top:8px;font-size:9px;color:#94A3B8;">
     <strong>Score bands:</strong> 80–100 Low Risk · 60–79 Moderate · 40–59 High Risk · 0–39 Critical
   </div>
+
+  ${/* Equipment & Calibration Log */(() => {
+    const calLog = data.calibrationLog || []
+    if (!calLog.length) return ''
+    const hasOutOfCal = calLog.some(c => c.outOfCal)
+    return `
+    <h2 class="pg-break">Equipment &amp; Calibration Log</h2>
+    <p style="font-size:11px;color:#475569;margin-bottom:12px;">The following instruments were used during this assessment. Calibration status reflects conditions at the time of the survey.</p>
+    <table>
+      <thead><tr><th>Instrument</th><th>Serial</th><th>Sensor Type</th><th>Last Cal</th><th>Status</th></tr></thead>
+      <tbody>
+      ${calLog.map(c => `<tr>
+        <td style="font-weight:600;">${c.nickname || c.make}</td>
+        <td style="font-family:monospace;font-size:10px;">${c.serial || '—'}</td>
+        <td style="font-size:10px;">${c.sensorType}</td>
+        <td style="font-family:monospace;font-size:10px;">${c.lastCalDate || 'Not recorded'}</td>
+        <td style="font-size:10px;font-weight:600;color:${c.outOfCal ? '#B91C1C' : '#15803D'};">${c.outOfCal ? 'OUT OF CAL' : 'Current'}</td>
+      </tr>`).join('')}
+      </tbody>
+    </table>
+    ${hasOutOfCal ? `<div class="note" style="background:#FEF2F2;border-color:#FECACA;margin-top:12px;"><strong style="color:#B91C1C;">Limitations of Data:</strong> One or more instruments used in this assessment were beyond their manufacturer-recommended calibration interval. Readings from out-of-calibration instruments are considered directional only and may not meet defensibility requirements for regulatory or litigation purposes.</div>` : ''}`
+  })()}
+
+  ${/* Spatial Risk Summary — only if zones have map coordinates */(() => {
+    const mappedZones = (zones||[]).filter(z => z.mapX != null && z.mapY != null)
+    if (!mappedZones.length || !data.floorPlan) return ''
+    return `
+    <h2 class="pg-break">Spatial Risk Summary</h2>
+    <p style="font-size:11px;color:#475569;margin-bottom:12px;">The following floor plan overlay illustrates zone-level risk distribution across the assessed facility. Pin colors reflect AIHA worst-case risk thresholds.</p>
+    <div style="position:relative;margin-bottom:16px;border:1px solid #E2E8F0;border-radius:6px;overflow:hidden;">
+      <img src="${data.floorPlan}" alt="Floor plan" style="width:100%;display:block;opacity:0.9;" />
+      ${mappedZones.map((z, i) => {
+        const zi = (zones||[]).indexOf(z)
+        const score = (zoneScores||[])[zi]?.tot
+        const color = score === null ? '#6B7380' : score < 50 ? '#B91C1C' : score < 80 ? '#A16207' : '#15803D'
+        return `<div style="position:absolute;left:${z.mapX}%;top:${z.mapY}%;transform:translate(-50%,-100%);">
+          <div style="width:20px;height:20px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 2px 6px ${color}80;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#fff;font-family:monospace;">${score ?? '?'}</div>
+        </div>`
+      }).join('')}
+    </div>
+    <div style="display:flex;gap:16px;font-size:9px;color:#64748B;margin-bottom:12px;">
+      <span>● <span style="color:#15803D;">Low Risk (80–100)</span></span>
+      <span>● <span style="color:#A16207;">Moderate (50–79)</span></span>
+      <span>● <span style="color:#B91C1C;">Critical (&lt;50)</span></span>
+    </div>
+    <table><thead><tr><th>Zone</th><th style="text-align:center;">Score</th><th>Risk Level</th><th>Primary Concern</th></tr></thead><tbody>
+    ${mappedZones.map((z, i) => {
+      const zi = (zones||[]).indexOf(z)
+      const zs = (zoneScores||[])[zi]
+      const worst = zs?.cats?.reduce((a, b) => ((a.s/a.mx) < (b.s/b.mx) ? a : b))
+      return `<tr><td style="font-weight:600;">${z.zn || 'Zone'}</td><td style="text-align:center;font-family:monospace;font-weight:700;color:${scoreColor(zs?.tot)};">${zs?.tot ?? '—'}</td><td style="font-size:10px;color:${scoreColor(zs?.tot)};">${zs?.risk || '—'}</td><td style="font-size:10px;color:#475569;">${worst?.l || '—'} (${worst?.s ?? '—'}/${worst?.mx ?? '—'})</td></tr>`
+    }).join('')}
+    </tbody></table>
+    <p style="font-size:9px;color:#94A3B8;margin-top:8px;">Risk thresholds per AIHA exposure assessment strategy. Building composite reflects worst-zone override when any zone is Critical.</p>`
+  })()}
 
   <!-- ═══ STANDARDS REFERENCE ═══ -->
   ${standardsManifest ? `
