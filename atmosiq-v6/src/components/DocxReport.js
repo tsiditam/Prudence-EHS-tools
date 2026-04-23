@@ -24,7 +24,7 @@ function buildContext(data) {
     assessDate,
     reportDate: now,
     assessor: profile?.name || presurvey?.ps_assessor || 'Assessor',
-    reportId: data.id || `PSEC-IAQ-${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}-${Date.now().toString(36).toUpperCase().slice(-3)}`,
+    reportId: data.id || (() => { const chars = '23456789ABCDEFGHJKMNPQRSTUVWXYZ'; let s = ''; for (let i = 0; i < 3; i++) s += chars[Math.floor(Math.random() * chars.length)]; return `PSEC-IAQ-${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}-${s}` })(),
     version: version || '6.0.0',
     building: bldg,
     presurvey: presurvey || {},
