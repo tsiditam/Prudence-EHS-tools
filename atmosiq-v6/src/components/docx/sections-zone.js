@@ -105,7 +105,7 @@ export function buildZoneSection(ctx, zi) {
   }
 
   // Parameter results
-  const hasData = z.co2 || z.tf || z.rh || z.pm || z.co || z.tv || z.hc
+  const hasData = z.co2 || z.tf || z.rh || z.pm || z.co || z.tv || z.hc || z.gaseous_corrosion || z.dp_temp || z.iso_class || z.h2_monitoring || z.exhaust_cfm_sqft
   if (hasData) {
     children.push(p('Parameter Results', { heading: HeadingLevel.HEADING_3 }))
     const paramRows = []
@@ -116,6 +116,12 @@ export function buildZoneSection(ctx, zi) {
     if (z.co) paramRows.push(['Carbon Monoxide', { text: `${z.co} ppm`, mono: true }, { text: '—', mono: true, color: COLORS.muted }, '<35 ppm (NIOSH REL)'])
     if (z.tv) paramRows.push(['Total VOCs', { text: `${z.tv} µg/m³`, mono: true }, { text: `${z.tvo || '—'} µg/m³`, mono: true, color: COLORS.muted }, '<500 µg/m³ (concern)'])
     if (z.hc) paramRows.push(['Formaldehyde', { text: `${z.hc} ppm`, mono: true }, { text: '—', mono: true, color: COLORS.muted }, '<0.016 ppm (NIOSH REL)'])
+    // Data center additional fields
+    if (z.gaseous_corrosion) paramRows.push(['Gaseous Corrosion (ANSI/ISA 71.04-2013)', { text: z.gaseous_corrosion, mono: true }, { text: '—', color: COLORS.muted }, 'G1 Mild → GX Severe'])
+    if (z.dp_temp) paramRows.push(['Dew Point', { text: `${z.dp_temp} °F`, mono: true }, { text: '—', color: COLORS.muted }, '41.9–59°F (ASHRAE TC 9.9)'])
+    if (z.iso_class) paramRows.push(['Cleanliness Class (ISO 14644-1)', { text: z.iso_class, mono: true }, { text: '—', color: COLORS.muted }, 'ISO 14644-1:2015'])
+    if (z.h2_monitoring) paramRows.push(['Hydrogen Monitoring', { text: z.h2_monitoring, mono: true }, { text: '—', color: COLORS.muted }, 'NFPA 1'])
+    if (z.exhaust_cfm_sqft) paramRows.push(['Battery Room Exhaust', { text: `${z.exhaust_cfm_sqft} cfm/sq ft`, mono: true }, { text: '—', color: COLORS.muted }, '≥1 cfm/sq ft (NFPA 1)'])
 
     children.push(buildTable(
       [{ text: 'Parameter', width: 25 }, { text: 'Indoor', width: 20, align: AlignmentType.CENTER }, { text: 'Outdoor', width: 20, align: AlignmentType.CENTER }, { text: 'Reference', width: 35 }],
