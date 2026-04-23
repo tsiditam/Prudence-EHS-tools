@@ -52,7 +52,7 @@ export function buildZoneSection(ctx, zi) {
   children.push(new Paragraph({
     children: [
       new TextRun({ text: zs.zoneName || `Zone ${zi + 1}`, font: FONTS.body, size: 28, bold: true, color: COLORS.text }),
-      new TextRun({ text: `    ${zs.tot}/100 — ${zs.risk}`, font: FONTS.mono, size: 22, bold: true, color: scoreColor(zs.tot) }),
+      new TextRun({ text: zs.tot !== null ? `    ${zs.tot}/100 — ${zs.risk}` : '    Not scored — insufficient data', font: FONTS.mono, size: 22, bold: true, color: zs.tot !== null ? scoreColor(zs.tot) : COLORS.muted }),
     ],
     spacing: { before: 300, after: 60 },
   }))
@@ -125,14 +125,23 @@ export function buildZoneSection(ctx, zi) {
 
   // Category assessment
   children.push(p('Category Assessment', { heading: HeadingLevel.HEADING_3 }))
-  const catRows = zs.cats.map(cat => {
-    const pct = Math.round((cat.s / cat.mx) * 100)
+  const catRows = zs.cats.filter(cat => cat.s !== null && cat.s !== undefined && cat.status !== 'SUPPRESSED').map(cat => {
+    const pct = cat.mx > 0 ? Math.round((cat.s / cat.mx) * 100) : 0
     return [
       { text: cat.l, bold: true },
       { text: `${cat.s}/${cat.mx}`, mono: true, align: AlignmentType.CENTER },
       { text: pct >= 70 ? 'Within range' : pct >= 50 ? 'Moderate concern' : 'Critical concern', color: scoreColor(pct >= 70 ? 70 : pct >= 50 ? 55 : 30), size: 18 },
       { text: `${pct}%`, mono: true, align: AlignmentType.RIGHT },
     ]
+  })
+  // Categories with no data
+  zs.cats.filter(cat => cat.s === null || cat.status === 'INSUFFICIENT' || cat.status === 'SUPPRESSED').forEach(cat => {
+    catRows.push([
+      { text: cat.l, bold: true },
+      { text: 'Not assessed', italics: true, color: COLORS.muted, align: AlignmentType.CENTER },
+      { text: cat.status === 'SUPPRESSED' ? 'Suppressed for zone type' : 'Insufficient data', italics: true, color: COLORS.muted, size: 18 },
+      { text: '—', color: COLORS.muted, align: AlignmentType.RIGHT },
+    ])
   })
   children.push(buildTable(
     [{ text: 'Category', width: 30 }, { text: 'Score', width: 15, align: AlignmentType.CENTER }, { text: 'Performance', width: 35 }, { text: '%', width: 20, align: AlignmentType.RIGHT }],
@@ -169,12 +178,12 @@ export function buildZoneSection(ctx, zi) {
     })))
   }
 
-  // Findings detail
+  // Findings detail — exclude pass, show message if only INFO remains
   children.push(p('Findings Detail', { heading: HeadingLevel.HEADING_3 }))
   const findingRows = []
   zs.cats.forEach(cat => {
     cat.r.forEach(r => {
-      if (r.sev !== 'pass') {
+      if (r.sev !== 'pass' && r.sev !== 'info') {
         findingRows.push([
           { text: r.sev.toUpperCase(), bold: true, color: SEV_COLORS[r.sev] || COLORS.sub, size: 16 },
           cat.l,
@@ -190,7 +199,7 @@ export function buildZoneSection(ctx, zi) {
       findingRows
     ))
   } else {
-    children.push(p('No findings above pass threshold for this zone.', { size: 20, color: COLORS.muted, italics: true }))
+    children.push(p('No findings of medium or higher severity were identified during this assessment.', { size: 20, color: COLORS.muted, italics: true }))
   }
 
   // Confidence and missing data

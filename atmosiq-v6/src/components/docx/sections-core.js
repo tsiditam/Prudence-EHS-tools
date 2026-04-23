@@ -111,14 +111,14 @@ export function buildExecutiveSummary(ctx) {
     children.push(p(p3, { size: 22, color: COLORS.sub }))
   }
 
-  // Priority actions
+  // Priority actions — omit header entirely if no actions
   if (ctx.recs) {
-    children.push(p('Priority Actions', { heading: HeadingLevel.HEADING_3 }))
     const rows = []
     ;(ctx.recs.imm || []).forEach(r => rows.push([{ text: 'IMMEDIATE', bold: true, color: SEV_COLORS.critical, size: 18 }, r]))
     ;(ctx.recs.eng || []).slice(0, 3).forEach(r => rows.push([{ text: 'ENGINEERING', bold: true, color: COLORS.accent, size: 18 }, r]))
     ;(ctx.recs.adm || []).slice(0, 2).forEach(r => rows.push([{ text: 'ADMINISTRATIVE', bold: true, color: SEV_COLORS.medium, size: 18 }, r]))
     if (rows.length > 0) {
+      children.push(p('Priority Actions', { heading: HeadingLevel.HEADING_3 }))
       children.push(buildTable([{ text: 'Priority', width: 20 }, { text: 'Action', width: 80 }], rows))
     }
   }
@@ -157,7 +157,7 @@ export function buildBuildingContext(ctx) {
   const pre = ctx.presurvey
   const children = [
     p('Building and Complaint Context', { heading: HeadingLevel.HEADING_2 }),
-    p(`${ctx.facilityName} is a ${(bldg.ft || 'commercial').toLowerCase()} facility${bldg.ba ? ` constructed in approximately ${bldg.ba}` : ''}${bldg.rn ? `, with renovations reported ${bldg.rn.toLowerCase()}` : ''}. The building is served by ${bldg.ht ? `a ${bldg.ht.toLowerCase()} system` : 'mechanical ventilation'}${bldg.hm ? `, with last reported HVAC maintenance ${bldg.hm.toLowerCase()}` : ''}. ${pre?.ps_complaint_narrative ? 'Occupant concerns were reported prior to this assessment, as summarized below.' : 'No formal occupant complaints were reported prior to this assessment.'}`, { size: 22, color: COLORS.sub }),
+    p(`${ctx.reason ? `Assessment triggered by ${ctx.reason.toLowerCase()}. ` : ''}${ctx.facilityName} is a ${(bldg.ft || 'commercial').toLowerCase()} facility${bldg.ba ? ` constructed in approximately ${bldg.ba}` : ''}${bldg.rn ? `, with renovations reported ${bldg.rn.toLowerCase()}` : ''}. The building is served by ${bldg.ht ? `a ${bldg.ht.toLowerCase()} system` : 'mechanical ventilation'}${bldg.hm ? `, with last reported HVAC maintenance ${bldg.hm.toLowerCase()}` : ''}. ${pre?.ps_complaint_narrative ? 'Occupant concerns were reported prior to this assessment, as summarized below.' : 'No formal occupant complaints were reported prior to this assessment.'}`, { size: 22, color: COLORS.sub }),
   ]
 
   const pairs = [
@@ -205,21 +205,30 @@ export function buildFindingsDashboard(ctx) {
 }
 
 export function buildTransmittalLetter(ctx) {
+  const recipient = ctx.client?.contact_name || 'Property Management'
+  const org = ctx.client?.organization || ctx.facilityName
+  const trigger = ctx.reason ? ` in response to ${ctx.reason.toLowerCase()}` : ''
+  const scorePreview = ctx.comp ? ` The composite assessment score of ${ctx.comp.tot}/100 (${ctx.comp.risk}) reflects conditions observed across ${ctx.zoneCount} assessed zone${ctx.zoneCount !== 1 ? 's' : ''}.` : ''
   return [
     p(ctx.reportDate, { size: 22, color: COLORS.body, after: 200 }),
-    p(ctx.facilityName, { size: 22, bold: true, color: COLORS.text, after: 40 }),
+    p(recipient, { size: 22, bold: true, color: COLORS.text, after: 40 }),
+    p(org, { size: 22, color: COLORS.body, after: 40 }),
     p(ctx.address, { size: 22, color: COLORS.body, after: 200 }),
     p('Re: Indoor Air Quality Assessment Report', { size: 22, bold: true, color: COLORS.text, after: 200 }),
-    p(`Prudence Safety & Environmental Consulting, LLC ("PSEC") was retained to conduct an indoor air quality assessment at ${ctx.facilityName}. This report presents the findings, analysis, and recommendations resulting from our assessment conducted on ${ctx.assessDate}.`, { size: 22, color: COLORS.body }),
-    p('The assessment was performed using direct-reading instrumentation, visual inspection, and structured data collection following our deterministic scoring methodology. Findings are referenced against published ASHRAE, OSHA, NIOSH, EPA, and WHO standards as applicable.', { size: 22, color: COLORS.body }),
-    p('This report is intended for the sole use of the addressee and should not be distributed to third parties without written authorization from PSEC. The conclusions and recommendations contained herein are based on conditions observed at the time of assessment and should be interpreted in context with professional judgment.', { size: 22, color: COLORS.body }),
-    p('Please do not hesitate to contact our office should you have questions regarding this report or require additional consultation.', { size: 22, color: COLORS.body, after: 300 }),
+    // P1: Introduction with trigger
+    p(`Prudence Safety & Environmental Consulting, LLC ("PSEC") was retained to conduct an indoor air quality assessment at ${ctx.facilityName}${trigger}. This report presents the findings, analysis, and recommendations resulting from our assessment conducted on ${ctx.assessDate}.`, { size: 22, color: COLORS.body }),
+    // P2: Scope summary
+    p(`The assessment encompassed ${ctx.zoneCount} zone${ctx.zoneCount !== 1 ? 's' : ''} and included direct-reading instrumentation, visual inspection, HVAC system evaluation, and occupant complaint documentation. Findings are referenced against published ASHRAE, OSHA, NIOSH, EPA, and WHO standards as identified in the attached standards manifest.`, { size: 22, color: COLORS.body }),
+    // P3: Findings preview
+    p(`Detailed findings, scored evaluations, and tiered recommendations are presented in the body of this report.${scorePreview} Priority corrective actions, where applicable, are summarized in the Executive Summary.`, { size: 22, color: COLORS.body }),
+    // P4: Limitations and continued service
+    p('This report is intended for the sole use of the addressee and should not be distributed without written authorization from PSEC. The conclusions herein are based on conditions observed at the time of assessment and should be interpreted in context with professional judgment. We remain available for follow-up consultation, additional sampling, or clarification of any findings.', { size: 22, color: COLORS.body, after: 300 }),
     p('Respectfully submitted,', { size: 22, color: COLORS.body, after: 200 }),
     p('Tsidi Tamakloe, CSP', { size: 22, bold: true, color: COLORS.text, after: 40 }),
     p('BCSP #38426', { size: 20, color: COLORS.sub, after: 40 }),
     p('NYSDOL Mold Assessor | NYSDOL Asbestos Inspector', { size: 20, color: COLORS.sub, after: 40 }),
     p('Prudence Safety & Environmental Consulting, LLC', { size: 20, color: COLORS.sub, after: 40 }),
-    p('support@prudenceehs.com | 1-(301)-541-8362', { size: 20, color: COLORS.sub }),
+    p('support@prudenceehs.com | (301) 541-8362', { size: 20, color: COLORS.sub }),
   ]
 }
 
@@ -233,8 +242,10 @@ export function buildTableOfContents(ctx) {
   ]
   if (ctx.causalChains?.length > 0) sections.push('Causal Chain Analysis')
   if (ctx.samplingPlan?.plan?.length > 0) sections.push('Recommended Sampling Plan')
-  sections.push('Recommendations Register')
+  if (ctx.recs && ((ctx.recs.imm||[]).length || (ctx.recs.eng||[]).length || (ctx.recs.adm||[]).length || (ctx.recs.mon||[]).length)) sections.push('Recommendations Register')
   sections.push('Limitations and Professional Judgment')
+  if (ctx.calibrationLog?.length > 0) sections.push('Equipment & Calibration Log')
+  if (ctx.zones?.some(z => z.mapX != null) && ctx.floorPlan) sections.push('Spatial Risk Summary')
   sections.push('Appendix A — Raw Measurement Snapshot')
   sections.push('Appendix B — Transparent Scoring Summary')
 
