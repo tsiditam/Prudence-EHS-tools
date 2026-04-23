@@ -5,7 +5,7 @@
 
 import { Document, Packer, SectionType } from 'docx'
 import { DOCX_STYLES } from './docx/styles'
-import { buildCoverPage, buildTransparencyPanel, buildExecutiveSummary, buildScopeMethodology, buildBuildingContext, buildFindingsDashboard } from './docx/sections-core'
+import { buildCoverPage, buildTransmittalLetter, buildTableOfContents, buildTransparencyPanel, buildExecutiveSummary, buildScopeMethodology, buildBuildingContext, buildFindingsDashboard } from './docx/sections-core'
 import { buildZoneHeader, buildZoneSection } from './docx/sections-zone'
 import { buildCausalChainAnalysis } from './docx/sections-causal'
 import { buildSamplingPlan, buildRecommendations, buildLimitations } from './docx/sections-recommendations'
@@ -13,7 +13,7 @@ import { buildAppendixA, buildAppendixB, buildFooter } from './docx/sections-app
 import { buildEquipmentLog, buildSpatialRiskSummary, buildFMSummaryLayer } from './docx/sections-extras'
 
 function buildContext(data) {
-  const { building, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos, version } = data
+  const { building, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos, version, standardsManifest } = data
   const bldg = building || {}
   const now = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
   const assessDate = data.ts ? new Date(data.ts).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : now
@@ -24,7 +24,7 @@ function buildContext(data) {
     assessDate,
     reportDate: now,
     assessor: profile?.name || presurvey?.ps_assessor || 'Assessor',
-    reportId: data.id || `AIQ-${Date.now().toString(36).toUpperCase().slice(-6)}`,
+    reportId: data.id || `PSEC-IAQ-${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}-${Date.now().toString(36).toUpperCase().slice(-3)}`,
     version: version || '6.0.0',
     building: bldg,
     presurvey: presurvey || {},
@@ -47,6 +47,7 @@ function buildContext(data) {
     calibration: presurvey?.ps_inst_iaq_cal_status || 'Not recorded',
     pidMeter: presurvey?.ps_inst_pid || '',
     pidCal: presurvey?.ps_inst_pid_cal || '',
+    standardsManifest: standardsManifest || null,
   }
 }
 
@@ -55,6 +56,8 @@ export async function generateDocx(data) {
 
   // Build all content sections
   const mainChildren = [
+    ...buildTransmittalLetter(ctx),
+    ...buildTableOfContents(ctx),
     ...buildTransparencyPanel(ctx),
     ...buildExecutiveSummary(ctx),
     ...buildScopeMethodology(ctx),
