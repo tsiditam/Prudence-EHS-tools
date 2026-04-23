@@ -96,7 +96,11 @@ export function buildExecutiveSummary(ctx) {
     const worst = ctx.zoneScores?.reduce((a, b) => a.tot < b.tot ? a : b, ctx.zoneScores[0])
     const worstCat = worst?.cats?.reduce((a, b) => (a.s / a.mx) < (b.s / b.mx) ? a : b)
 
-    const p1 = `An indoor air quality assessment was conducted at ${ctx.facilityName} on ${ctx.assessDate}, encompassing ${ctx.zoneCount} zone${ctx.zoneCount !== 1 ? 's' : ''}${ctx.reason ? ` in response to ${ctx.reason.toLowerCase()}` : ''}. The assessment included direct-reading instrument measurements, visual inspection, HVAC system evaluation, and occupant complaint documentation.`
+    const hasGate5 = ctx.zoneScores?.some(zs => zs.cats?.some(c => c.gate5))
+    const hasSynergistic = ctx.zoneScores?.some(zs => zs.cats?.some(c => c.synergistic))
+    const criticalPrefix = hasGate5 ? 'CRITICAL SYSTEM FAILURE: Active moisture/filtration breach detected in HVAC system. ' : hasSynergistic ? 'CRITICAL TOXICITY ALERT: Multiple Tier 1 contaminants exceed OSHA Permissible Exposure Limits. ' : ''
+
+    const p1 = `${criticalPrefix}An indoor air quality assessment was conducted at ${ctx.facilityName} on ${ctx.assessDate}, encompassing ${ctx.zoneCount} zone${ctx.zoneCount !== 1 ? 's' : ''}${ctx.reason ? ` in response to ${ctx.reason.toLowerCase()}` : ''}. The assessment included direct-reading instrument measurements, visual inspection, HVAC system evaluation, and occupant complaint documentation.`
 
     const riskDesc = ctx.comp.tot >= 70
       ? 'Available evidence supports that conditions observed during the assessment window are broadly consistent with applicable occupancy standards, with localized areas warranting targeted follow-up as noted in the zone findings below.'

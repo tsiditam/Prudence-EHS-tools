@@ -10,6 +10,7 @@ import { buildZoneHeader, buildZoneSection } from './docx/sections-zone'
 import { buildCausalChainAnalysis } from './docx/sections-causal'
 import { buildSamplingPlan, buildRecommendations, buildLimitations } from './docx/sections-recommendations'
 import { buildAppendixA, buildAppendixB, buildFooter } from './docx/sections-appendix'
+import { buildEquipmentLog, buildSpatialRiskSummary, buildFMSummaryLayer } from './docx/sections-extras'
 
 function buildContext(data) {
   const { building, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos, version } = data
