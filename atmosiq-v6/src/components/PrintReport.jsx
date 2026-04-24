@@ -199,52 +199,99 @@ export function generatePrintHTML(data) {
 
   <!-- ═══ EXECUTIVE SUMMARY ═══ -->
   <h2>Executive Summary</h2>
-  ${comp ? `
-  <div style="display:flex;gap:20px;margin-bottom:16px;">
-    <div class="score-box" style="flex:0 0 140px;">
-      <div class="score-num" style="color:${scoreColor(comp.tot)};">${comp.tot}</div>
-      <div class="risk-badge" style="background:${scoreColor(comp.tot)}12;color:${scoreColor(comp.tot)};">${comp.risk || riskLabel(comp.tot)}</div>
+
+  ${comp ? (() => {
+    const worstZone = zoneScores?.reduce((a, b) => a.tot < b.tot ? a : b, zoneScores[0])
+    const worstCat = worstZone?.cats?.reduce((a, b) => (a.s/a.mx) < (b.s/b.mx) ? a : b)
+    const hasGate5 = zoneScores?.some(zs => zs.cats?.some(c => c.gate5))
+    const hasSynergistic = zoneScores?.some(zs => zs.cats?.some(c => c.synergistic))
+    const allFindings = (zoneScores||[]).flatMap(zs => zs.cats.flatMap(c => c.r.filter(r => r.sev !== 'pass' && r.sev !== 'info').map(r => ({ ...r, zone: zs.zoneName, cat: c.l }))))
+    const critFindings = allFindings.filter(f => f.sev === 'critical' || f.sev === 'high').slice(0, 5)
+    const allRecs = [...(recs?.imm||[]).map(r => ({ p: 'Immediate', t: '0–7 days', r })), ...(recs?.eng||[]).map(r => ({ p: 'High', t: '7–30 days', r })), ...(recs?.adm||[]).map(r => ({ p: 'Medium', t: '30–90 days', r }))]
+
+    return `
+    <!-- Executive Summary Dashboard -->
+    <div style="display:flex;gap:16px;margin-bottom:20px;">
+      <div style="flex:0 0 120px;text-align:center;padding:20px 16px;border:1px solid #D1D5DB;border-radius:6px;">
+        <div style="font-size:36px;font-weight:800;font-family:monospace;color:${scoreColor(comp.tot)};letter-spacing:-2px;">${comp.tot}</div>
+        <div style="font-size:9px;color:#5C6F7E;margin-top:2px;">out of 100</div>
+        <div style="display:inline-block;padding:3px 10px;border-radius:3px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;background:${scoreColor(comp.tot)}12;color:${scoreColor(comp.tot)};margin-top:8px;">${comp.risk || riskLabel(comp.tot)}</div>
+      </div>
+      <div style="flex:1;">
+        <table style="width:100%;margin-bottom:8px;"><tbody>
+          <tr><td style="padding:4px 0;border:none;font-size:11px;color:#5C6F7E;width:140px;">Composite score</td><td style="padding:4px 0;border:none;font-size:11px;font-weight:700;color:#1B2A41;">${comp.tot}/100 (${comp.risk})</td></tr>
+          <tr><td style="padding:4px 0;border:none;font-size:11px;color:#5C6F7E;">Zone average</td><td style="padding:4px 0;border:none;font-size:11px;font-weight:600;">${comp.avg}/100</td></tr>
+          <tr><td style="padding:4px 0;border:none;font-size:11px;color:#5C6F7E;">Worst zone</td><td style="padding:4px 0;border:none;font-size:11px;font-weight:600;color:${scoreColor(comp.worst)};">${worstZone?.zoneName || '—'} (${comp.worst}/100)</td></tr>
+          <tr><td style="padding:4px 0;border:none;font-size:11px;color:#5C6F7E;">Zones assessed</td><td style="padding:4px 0;border:none;font-size:11px;font-weight:600;">${comp.count}</td></tr>
+          <tr><td style="padding:4px 0;border:none;font-size:11px;color:#5C6F7E;">Measurement confidence</td><td style="padding:4px 0;border:none;font-size:11px;font-weight:600;">${comp.confidence || confLabel}</td></tr>
+          <tr><td style="padding:4px 0;border:none;font-size:11px;color:#5C6F7E;">Composite logic</td><td style="padding:4px 0;border:none;font-size:11px;font-weight:500;color:#5C6F7E;">${comp.logic === 'worst-zone-override' ? 'AIHA worst-zone override (Critical zone present)' : 'Priority-weighted mean of zones'}</td></tr>
+        </tbody></table>
+      </div>
     </div>
-    <div style="flex:1;font-size:11px;color:#475569;">
-      <table style="width:100%;"><tbody>
-        <tr><td style="padding:3px 0;border:none;color:#64748B;">Composite score</td><td style="padding:3px 0;border:none;font-weight:700;color:#0F172A;">${comp.tot}/100</td></tr>
-        <tr><td style="padding:3px 0;border:none;color:#64748B;">Average zone score</td><td style="padding:3px 0;border:none;font-weight:600;">${comp.avg}/100</td></tr>
-        <tr><td style="padding:3px 0;border:none;color:#64748B;">Worst zone score</td><td style="padding:3px 0;border:none;font-weight:600;color:${scoreColor(comp.worst)};">${comp.worst}/100</td></tr>
-        <tr><td style="padding:3px 0;border:none;color:#64748B;">Zones assessed</td><td style="padding:3px 0;border:none;font-weight:600;">${comp.count}</td></tr>
-        <tr><td style="padding:3px 0;border:none;color:#64748B;">Confidence</td><td style="padding:3px 0;border:none;font-weight:600;">${confLabel}</td></tr>
-      </tbody></table>
+
+    <!-- Composite Score Explanation -->
+    <div style="padding:10px 14px;background:#F3F4F6;border:1px solid #D1D5DB;border-radius:4px;margin-bottom:16px;font-size:10px;color:#5C6F7E;line-height:1.6;">
+      <strong style="color:#1B2A41;">Composite Score Explanation:</strong>
+      ${comp.logic === 'worst-zone-override'
+        ? `The composite score of ${comp.tot}/100 reflects the worst-zone override per AIHA exposure assessment strategy (Ignacio &amp; Bullock, 2015). Because ${worstZone?.zoneName || 'one zone'} scored in the Critical range (${comp.worst}/100), the composite equals the worst zone score rather than the average. This ensures a single area of significant concern cannot be masked by otherwise acceptable conditions elsewhere in the facility.`
+        : `The composite score of ${comp.tot}/100 reflects a priority-weighted mean across ${comp.count} assessed zones. Mission-critical zones (if present) carry additional weight in the calculation. No zones scored in the Critical range, so the AIHA worst-zone override was not applied. The score represents a structured prioritization tool — not a compliance determination.`
+      }
     </div>
-  </div>` : ''}
+
+    ${hasGate5 ? '<div style="padding:10px 14px;background:#FEF2F2;border:1px solid #FECACA;border-radius:4px;margin-bottom:16px;font-size:11px;color:#7F1D1D;font-weight:600;">⚠ CRITICAL SYSTEM FAILURE: Active moisture/filtration breach detected in HVAC system.</div>' : ''}
+    ${hasSynergistic ? '<div style="padding:10px 14px;background:#FEF2F2;border:1px solid #FECACA;border-radius:4px;margin-bottom:16px;font-size:11px;color:#7F1D1D;font-weight:600;">⚠ CRITICAL TOXICITY ALERT: Multiple Tier 1 contaminants exceed OSHA Permissible Exposure Limits.</div>' : ''}
+    `
+  })() : ''}
 
   ${narrative ? `
   <div class="narrative">${narrative}</div>
   <div class="note">This narrative was generated from deterministic scoring output and requires professional review before client distribution.</div>
   ` : (() => {
-    const worstZone = zoneScores?.reduce((a, b) => a.tot < b.tot ? a : b, zoneScores[0])
-    const worstCat = worstZone?.cats?.reduce((a, b) => (a.s/a.mx) < (b.s/b.mx) ? a : b)
-    const hasGate5 = zoneScores?.some(zs => zs.cats?.some(c => c.gate5))
-    const hasSynergistic = zoneScores?.some(zs => zs.cats?.some(c => c.synergistic))
-    const criticalPrefix = hasGate5 ? 'CRITICAL SYSTEM FAILURE: Active moisture/filtration breach detected in HVAC system. ' : hasSynergistic ? 'CRITICAL TOXICITY ALERT: Multiple Tier 1 contaminants exceed OSHA Permissible Exposure Limits. ' : ''
-    const p1 = `${criticalPrefix}An indoor air quality assessment was conducted at ${bldg.fn || 'the subject facility'} on ${assessDate}, encompassing ${(zones||[]).length} zone${(zones||[]).length !== 1 ? 's' : ''}${presurvey?.ps_reason ? ` in response to ${presurvey.ps_reason.toLowerCase()}` : ''}. The assessment included direct-reading instrument measurements, visual inspection, HVAC system evaluation, and occupant complaint documentation.`
+    const worstZone2 = zoneScores?.reduce((a, b) => a.tot < b.tot ? a : b, zoneScores[0])
+    const worstCat2 = worstZone2?.cats?.reduce((a, b) => (a.s/a.mx) < (b.s/b.mx) ? a : b)
+    const p1 = `An indoor air quality assessment was conducted at ${bldg.fn || 'the subject facility'} on ${assessDate}, encompassing ${(zones||[]).length} zone${(zones||[]).length !== 1 ? 's' : ''}${presurvey?.ps_reason ? ` in response to ${presurvey.ps_reason.toLowerCase()}` : ''}. The assessment included direct-reading instrument measurements, visual inspection, HVAC system evaluation, and occupant complaint documentation.`
     const p2 = comp?.tot >= 70
       ? `Available evidence supports that conditions observed during the assessment window are broadly consistent with applicable occupancy standards. The composite score of ${comp.tot}/100 reflects acceptable conditions across the majority of evaluated zones, with localized areas warranting targeted follow-up as detailed in the zone findings below.`
       : comp?.tot >= 50
-        ? `Conditions observed during the assessment window suggest moderate indoor air quality concerns. The composite score of ${comp.tot}/100 reflects a weighted evaluation across five categories, with ${worstCat ? `${worstCat.l} (${worstCat.s}/${worstCat.mx}) identified as the primary area of concern` : 'multiple categories showing room for improvement'}. Targeted investigation is recommended in the areas identified below.`
-        : `Conditions observed during the assessment window indicate significant indoor air quality concerns that would warrant prioritized remediation. The composite score of ${comp?.tot || '—'}/100 reflects deficiencies across multiple evaluation categories${worstCat ? `, with ${worstCat.l} (${worstCat.s}/${worstCat.mx}) representing the most acute concern` : ''}. The findings and recommendations in this report are intended to support a structured corrective action process.`
-    const immRecs = recs?.imm || []
-    const p3 = immRecs.length > 0
-      ? `Priority actions include: ${immRecs.slice(0, 3).join('; ')}. Additional engineering and administrative recommendations are detailed in the Recommendations Register.`
-      : 'Recommended next steps are detailed in the Recommendations Register and Sampling Plan sections of this report.'
-    return `<p style="font-size:11px;color:#475569;line-height:1.8;">${p1}</p><p style="font-size:11px;color:#475569;line-height:1.8;">${p2}</p><p style="font-size:11px;color:#475569;line-height:1.8;">${p3}</p>`
+        ? `Conditions observed during the assessment window suggest moderate indoor air quality concerns. The composite score of ${comp.tot}/100 reflects a weighted evaluation across five categories, with ${worstCat2 ? `${worstCat2.l} (${worstCat2.s}/${worstCat2.mx}) identified as the primary area of concern` : 'multiple categories showing room for improvement'}. Targeted investigation is recommended in the areas identified below.`
+        : `Conditions observed during the assessment window indicate significant indoor air quality concerns that would warrant prioritized remediation. The composite score of ${comp?.tot || '—'}/100 reflects deficiencies across multiple evaluation categories${worstCat2 ? `, with ${worstCat2.l} (${worstCat2.s}/${worstCat2.mx}) representing the most acute concern` : ''}. The findings and recommendations in this report are intended to support a structured corrective action process.`
+    return `<p style="font-size:11px;color:#5C6F7E;line-height:1.8;">${p1}</p><p style="font-size:11px;color:#5C6F7E;line-height:1.8;">${p2}</p>`
   })()}
 
-  ${recs ? `
-  <h3>Priority Actions</h3>
-  <table><thead><tr><th>Priority</th><th>Action</th></tr></thead><tbody>
-  ${(recs.imm||[]).map(r => `<tr><td style="font-size:10px;font-weight:700;color:#B91C1C;">IMMEDIATE</td><td style="font-size:11px;">${r}</td></tr>`).join('')}
-  ${(recs.eng||[]).slice(0,3).map(r => `<tr><td style="font-size:10px;font-weight:700;color:#1B2A41;">ENGINEERING</td><td style="font-size:11px;">${r}</td></tr>`).join('')}
-  ${(recs.adm||[]).slice(0,2).map(r => `<tr><td style="font-size:10px;font-weight:700;color:#A16207;">ADMINISTRATIVE</td><td style="font-size:11px;">${r}</td></tr>`).join('')}
-  </tbody></table>` : ''}
+  ${/* Key Findings Summary Table */(() => {
+    const findings = (zoneScores||[]).flatMap(zs => zs.cats.flatMap(c => c.r.filter(r => r.sev === 'critical' || r.sev === 'high').map(r => ({ sev: r.sev, zone: zs.zoneName, cat: c.l, finding: r.t, std: r.std }))))
+    if (!findings.length) return ''
+    return `
+    <h3>Key Findings Summary</h3>
+    <table><thead><tr><th style="width:60px;">Severity</th><th style="width:100px;">Zone</th><th style="width:80px;">Category</th><th>Finding</th><th style="width:80px;">Reference</th></tr></thead><tbody>
+    ${findings.slice(0, 8).map(f => `<tr>
+      <td><span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:${sevColor(f.sev)}12;color:${sevColor(f.sev)};text-transform:uppercase;">${f.sev}</span></td>
+      <td style="font-size:10px;">${f.zone}</td>
+      <td style="font-size:10px;">${f.cat}</td>
+      <td style="font-size:10px;">${f.finding.length > 120 ? f.finding.substring(0, 120) + '...' : f.finding}</td>
+      <td style="font-size:9px;color:#5C6F7E;font-family:monospace;">${f.std || '—'}</td>
+    </tr>`).join('')}
+    </tbody></table>
+    ${findings.length > 8 ? `<p style="font-size:9px;color:#7A8A97;margin-top:4px;">${findings.length - 8} additional finding${findings.length - 8 !== 1 ? 's' : ''} detailed in zone sections below.</p>` : ''}`
+  })()}
+
+  ${/* Priority Recommendations Table */(() => {
+    const allRecs = [
+      ...(recs?.imm||[]).map(r => ({ priority: 'Immediate', timing: '0–7 days', color: '#B91C1C', action: r })),
+      ...(recs?.eng||[]).map(r => ({ priority: 'High', timing: '7–30 days', color: '#1B2A41', action: r })),
+      ...(recs?.adm||[]).slice(0, 3).map(r => ({ priority: 'Medium', timing: '30–90 days', color: '#A16207', action: r })),
+    ]
+    if (!allRecs.length) return '<p style="font-size:11px;color:#5C6F7E;">No immediate or high-priority corrective actions are indicated at this time. Recommended next steps are detailed in the Recommendations Register.</p>'
+    return `
+    <h3>Priority Recommendations</h3>
+    <table><thead><tr><th style="width:70px;">Priority</th><th style="width:70px;">Timing</th><th>Recommended Action</th></tr></thead><tbody>
+    ${allRecs.map(r => `<tr>
+      <td><span style="font-size:9px;font-weight:700;color:${r.color};text-transform:uppercase;">${r.priority}</span></td>
+      <td style="font-size:10px;color:#5C6F7E;font-family:monospace;">${r.timing}</td>
+      <td style="font-size:10px;">${r.action}</td>
+    </tr>`).join('')}
+    </tbody></table>`
+  })()}
 
   <!-- ═══ SCOPE AND METHODOLOGY ═══ -->
   <h2>Scope and Methodology</h2>
