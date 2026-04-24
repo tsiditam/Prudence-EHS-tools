@@ -112,7 +112,7 @@ function deriveAction(finding, zone, severity) {
   if (t.includes('co ') && t.includes('osha')) return `${zone}: Immediately evacuate and investigate combustion source. Ventilate before reoccupancy.`
   if (t.includes('formaldehyde') && t.includes('osha')) return `${zone}: Implement exposure controls per 29 CFR 1910.1048.`
   if (t.includes('mold') && t.includes('extensive')) return `${zone}: Engage qualified remediation contractor per IICRC S520.`
-  if (t.includes('no supply airflow')) return `${zone}: Request emergency HVAC service to restore airflow.`
+  if (t.includes('no supply airflow')) return `${zone}: Request immediate HVAC service to restore airflow.`
   if (t.includes('water') || t.includes('leak')) return `${zone}: Arrest water intrusion. Assess materials within 48 hours.`
   if (t.includes('co₂') || t.includes('ventilation')) return `${zone}: Evaluate outdoor air delivery rate. Verify OA damper position.`
   if (t.includes('pm2.5') || t.includes('pm')) return `Upgrade filtration to MERV 13+. Evaluate filter housing for bypass.`

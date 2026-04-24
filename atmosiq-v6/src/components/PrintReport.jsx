@@ -27,29 +27,51 @@ export function generatePrintHTML(data) {
   const reportId = data.id || `AIQ-${Date.now().toString(36).toUpperCase().slice(-6)}`
   const assessor = profile?.name || presurvey?.ps_assessor || 'Assessor'
   const ver = data.version || '6.0.0'
+  const firmName = profile?.firm || 'Prudence Safety &amp; Environmental Consulting, LLC'
+  const firmAddress = profile?.firm_address || 'Germantown, Maryland'
+  const firmPhone = profile?.firm_phone || '(301) 541-8362'
+  const firmEmail = profile?.email || 'support@prudenceehs.com'
 
-  const sevColor = (sev) => ({ critical:'#B91C1C', high:'#C2410C', medium:'#A16207', low:'#0E7490', pass:'#15803D', info:'#475569' }[sev] || '#475569')
+  const sevColor = (sev) => ({ critical:'#B91C1C', high:'#C2410C', medium:'#A16207', low:'#1B2A41', pass:'#15803D', info:'#475569' }[sev] || '#475569')
   const scoreColor = (s) => s >= 70 ? '#15803D' : s >= 50 ? '#A16207' : '#B91C1C'
   const riskLabel = (s) => s >= 80 ? 'Low Risk' : s >= 60 ? 'Moderate' : s >= 40 ? 'High Risk' : 'Critical'
   const confLabel = oshaResult?.conf || 'Not evaluated'
 
   const catRows = (cats) => cats.map(cat => {
+    if (cat.s === null || cat.status === 'INSUFFICIENT' || cat.status === 'DATA_GAP') {
+      return `
+      <tr>
+        <td style="padding:8px 12px;font-weight:600;font-size:12px;border-bottom:1px solid #F1F5F9;">${cat.l}</td>
+        <td style="padding:8px 12px;font-family:Cambria,serif;font-size:11px;text-align:center;border-bottom:1px solid #F1F5F9;color:#94A3B8;font-style:italic;">Not scored</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #F1F5F9;font-size:10px;color:#94A3B8;font-style:italic;">Data gap — documentation unavailable</td>
+        <td style="padding:8px 12px;font-family:Cambria,serif;font-size:11px;color:#94A3B8;text-align:right;border-bottom:1px solid #F1F5F9;">—</td>
+      </tr>`
+    }
+    if (cat.status === 'SUPPRESSED') {
+      return `
+      <tr>
+        <td style="padding:8px 12px;font-weight:600;font-size:12px;border-bottom:1px solid #F1F5F9;">${cat.l}</td>
+        <td style="padding:8px 12px;font-family:Cambria,serif;font-size:11px;text-align:center;border-bottom:1px solid #F1F5F9;color:#94A3B8;font-style:italic;">N/A</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #F1F5F9;font-size:10px;color:#94A3B8;font-style:italic;">Suppressed for zone type</td>
+        <td style="padding:8px 12px;font-family:Cambria,serif;font-size:11px;color:#94A3B8;text-align:right;border-bottom:1px solid #F1F5F9;">—</td>
+      </tr>`
+    }
     const pct = Math.round((cat.s / cat.mx) * 100)
     return `
       <tr>
         <td style="padding:8px 12px;font-weight:600;font-size:12px;border-bottom:1px solid #F1F5F9;">${cat.l}</td>
-        <td style="padding:8px 12px;font-family:monospace;font-size:12px;text-align:center;border-bottom:1px solid #F1F5F9;">${cat.s}/${cat.mx}</td>
+        <td style="padding:8px 12px;font-family:Cambria,serif;font-size:12px;text-align:center;border-bottom:1px solid #F1F5F9;">${cat.s}/${cat.mx}</td>
         <td style="padding:8px 12px;border-bottom:1px solid #F1F5F9;"><div style="height:6px;background:#F1F5F9;border-radius:3px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:${pct>=70?'#15803D':pct>=50?'#A16207':'#B91C1C'};border-radius:3px;"></div></div></td>
-        <td style="padding:8px 12px;font-family:monospace;font-size:11px;color:${scoreColor(pct)};text-align:right;border-bottom:1px solid #F1F5F9;">${pct}%</td>
+        <td style="padding:8px 12px;font-family:Cambria,serif;font-size:11px;color:${scoreColor(pct)};text-align:right;border-bottom:1px solid #F1F5F9;">${pct}%</td>
       </tr>`
   }).join('')
 
   const findingRows = (cats) => cats.flatMap(cat => cat.r.map(r => `
     <tr style="font-size:11px;">
-      <td style="padding:6px 10px;border-bottom:1px solid #F1F5F9;"><span style="padding:2px 6px;border-radius:3px;font-size:9px;font-weight:700;font-family:monospace;background:${sevColor(r.sev)}12;color:${sevColor(r.sev)};text-transform:uppercase;">${r.sev}</span></td>
+      <td style="padding:6px 10px;border-bottom:1px solid #F1F5F9;"><span style="padding:2px 6px;border-radius:3px;font-size:9px;font-weight:700;font-family:Cambria,serif;background:${sevColor(r.sev)}12;color:${sevColor(r.sev)};text-transform:uppercase;">${r.sev}</span></td>
       <td style="padding:6px 10px;border-bottom:1px solid #F1F5F9;font-weight:500;">${cat.l}</td>
       <td style="padding:6px 10px;border-bottom:1px solid #F1F5F9;">${r.t}</td>
-      <td style="padding:6px 10px;border-bottom:1px solid #F1F5F9;color:#64748B;font-family:monospace;font-size:10px;">${r.std || '—'}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid #F1F5F9;color:#64748B;font-family:Cambria,serif;font-size:10px;">${r.std || '—'}</td>
     </tr>
   `)).join('')
 
@@ -62,31 +84,31 @@ export function generatePrintHTML(data) {
   <title>IAQ Assessment Report — ${bldg.fn || 'Assessment'}</title>
   <style>
     * { box-sizing: border-box; margin: 0; }
-    body { font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif; font-size: 12px; color: #1E293B; line-height: 1.6; padding: 48px 56px; max-width: 820px; margin: 0 auto; background: #fff; }
-    h1 { font-size: 20px; font-weight: 700; color: #0F172A; margin-bottom: 2px; letter-spacing: -0.3px; }
-    h2 { font-size: 13px; font-weight: 700; color: #0F172A; margin: 28px 0 10px; padding-bottom: 6px; border-bottom: 1px solid #E2E8F0; text-transform: uppercase; letter-spacing: 0.8px; }
-    h3 { font-size: 12px; font-weight: 700; color: #334155; margin: 20px 0 8px; }
+    body { font-family: Cambria, 'Times New Roman', serif; font-size: 12px; color: #2D3A4A; line-height: 1.6; padding: 48px 56px; max-width: 820px; margin: 0 auto; background: #fff; }
+    h1 { font-size: 20px; font-weight: 700; color: #1B2A41; margin-bottom: 2px; letter-spacing: -0.3px; }
+    h2 { font-size: 13px; font-weight: 700; color: #1B2A41; margin: 28px 0 10px; padding-bottom: 6px; border-bottom: 1px solid #D1D5DB; text-transform: uppercase; letter-spacing: 0.8px; }
+    h3 { font-size: 12px; font-weight: 700; color: #2D3A4A; margin: 20px 0 8px; }
     p { margin-bottom: 8px; line-height: 1.7; }
-    table { width: 100%; border-collapse: collapse; }
-    th { text-align: left; padding: 8px 10px; background: #F8FAFC; font-size: 10px; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #E2E8F0; }
-    td { padding: 8px 10px; border-bottom: 1px solid #F1F5F9; font-size: 11px; vertical-align: top; }
-    .accent { color: #0E7490; }
-    .cover { text-align: center; padding: 80px 0 60px; border-bottom: 2px solid #0E7490; margin-bottom: 32px; }
-    .cover-logo { font-size: 28px; font-weight: 800; color: #0F172A; letter-spacing: -0.5px; margin-bottom: 24px; }
-    .cover-title { font-size: 18px; font-weight: 300; color: #334155; margin-bottom: 4px; letter-spacing: 0.5px; }
-    .cover-sub { font-size: 11px; color: #64748B; margin-bottom: 32px; }
-    .cover-meta { font-size: 11px; color: #475569; line-height: 2; }
-    .cover-meta strong { color: #0F172A; font-weight: 600; }
+    table { width: 100%; border-collapse: collapse; font-family: Cambria, 'Times New Roman', serif; }
+    th { text-align: left; padding: 8px 10px; background: #F3F4F6; font-size: 10px; font-weight: 700; color: #5C6F7E; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #D1D5DB; font-family: Cambria, serif; }
+    td { padding: 8px 10px; border-bottom: 1px solid #E5E7EB; font-size: 11px; vertical-align: top; font-family: Cambria, serif; }
+    .accent { color: #1B2A41; }
+    .cover { text-align: center; padding: 80px 0 60px; border-bottom: 2px solid #1B2A41; margin-bottom: 32px; }
+    .cover-firm { font-size: 14px; font-weight: 700; color: #1B2A41; letter-spacing: 0.5px; margin-bottom: 8px; }
+    .cover-title { font-size: 24px; font-weight: 700; color: #1B2A41; margin-bottom: 4px; letter-spacing: 0.3px; }
+    .cover-sub { font-size: 11px; color: #5C6F7E; margin-bottom: 32px; }
+    .cover-meta { font-size: 11px; color: #5C6F7E; line-height: 2; }
+    .cover-meta strong { color: #1B2A41; font-weight: 600; }
     .def-panel { padding: 14px 18px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; margin-bottom: 20px; font-size: 10px; color: #64748B; }
     .def-panel td { padding: 3px 0; border: none; font-size: 10px; }
     .score-box { text-align: center; padding: 20px; border: 1px solid #E2E8F0; border-radius: 6px; margin-bottom: 16px; }
-    .score-num { font-size: 42px; font-weight: 800; font-family: monospace; letter-spacing: -2px; }
+    .score-num { font-size: 42px; font-weight: 800; letter-spacing: -2px; }
     .risk-badge { display: inline-block; padding: 3px 12px; border-radius: 3px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
     .zone-card { border: 1px solid #E2E8F0; border-radius: 6px; padding: 20px; margin-bottom: 24px; page-break-inside: avoid; }
     .chain-card { padding: 14px 18px; border: 1px solid #E2E8F0; border-radius: 6px; margin-bottom: 10px; page-break-inside: avoid; }
     .evidence-item { font-size: 11px; padding: 3px 0 3px 14px; border-left: 2px solid #CBD5E1; margin-bottom: 3px; color: #475569; }
     .rec-row td { font-size: 11px; }
-    .narrative { font-size: 12px; line-height: 1.8; padding: 16px 20px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; border-left: 3px solid #0E7490; }
+    .narrative { font-size: 12px; line-height: 1.8; padding: 16px 20px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; border-left: 3px solid #1B2A41; }
     .note { font-size: 10px; color: #94A3B8; font-style: italic; padding: 8px 12px; background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 4px; margin: 12px 0; }
     .footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #E2E8F0; font-size: 9px; color: #94A3B8; text-align: center; line-height: 1.8; }
     .pg-break { page-break-before: always; }
@@ -97,11 +119,12 @@ export function generatePrintHTML(data) {
 <body>
   <!-- ═══ COVER PAGE ═══ -->
   <div class="cover">
-    <div style="font-size:11px;color:#64748B;letter-spacing:0.8px;text-transform:uppercase;margin-bottom:16px;">Prudence Safety &amp; Environmental Consulting, LLC</div>
-    <div class="cover-logo">Atmos<span class="accent">Flow</span></div>
-    <div class="cover-title">Indoor Air Quality Assessment Report</div>
-    <div class="cover-sub">Standards-Driven Multi-Zone Assessment</div>
-    <div style="width:40px;height:2px;background:#0E7490;margin:28px auto;"></div>
+    <div class="cover-firm">${firmName}</div>
+    <div style="font-size:11px;color:#5C6F7E;margin-bottom:32px;">${firmAddress}</div>
+    <div class="cover-title">Indoor Air Quality</div>
+    <div class="cover-title" style="margin-bottom:8px;">Assessment Report</div>
+    <div class="cover-sub"></div>
+    <div style="width:40px;height:2px;background:#1B2A41;margin:28px auto;"></div>
     <div class="cover-meta">
       <strong>Site:</strong> ${bldg.fn || 'Facility'}<br>
       <strong>Location:</strong> ${bldg.fl || '—'}<br>
@@ -111,7 +134,35 @@ export function generatePrintHTML(data) {
       <strong>Report ID:</strong> ${reportId}<br>
       <strong>Status:</strong> Draft — Pending Professional Review
     </div>
-    <div style="margin-top:40px;font-size:9px;color:#94A3B8;letter-spacing:0.3px;">CONFIDENTIAL — FOR CLIENT USE ONLY</div>
+    <div style="margin-top:40px;font-size:9px;color:#7A8A97;letter-spacing:0.3px;">CONFIDENTIAL — FOR CLIENT USE ONLY</div>
+  </div>
+
+  <!-- ═══ TRANSMITTAL LETTER ═══ -->
+  <div class="pg-break" style="margin-bottom:32px;">
+    <p>${now}</p>
+    <p><strong>${bldg.fn || 'Facility'}</strong><br>${bldg.fl || ''}</p>
+    <p><strong>Re: Indoor Air Quality Assessment Report</strong></p>
+    <p>${firmName} was retained to conduct an indoor air quality assessment at ${bldg.fn || 'the subject facility'}${presurvey?.ps_reason ? ` in response to ${presurvey.ps_reason.toLowerCase()}` : ''}. This report presents the findings, analysis, and recommendations resulting from our assessment conducted on ${assessDate}.</p>
+    <p>The assessment encompassed ${(zones||[]).length} zone${(zones||[]).length !== 1 ? 's' : ''} and included direct-reading instrumentation, visual inspection, HVAC system evaluation, and occupant complaint documentation. Findings are referenced against published ASHRAE, OSHA, NIOSH, EPA, and WHO standards as identified in the attached standards manifest.</p>
+    <p>Detailed findings, scored evaluations, and tiered recommendations are presented in the body of this report.${comp ? ` The composite assessment score of ${comp.tot}/100 (${comp.risk}) reflects conditions observed across ${(zones||[]).length} assessed zone${(zones||[]).length !== 1 ? 's' : ''}.` : ''} Priority corrective actions, where applicable, are summarized in the Executive Summary.</p>
+    <p>This report is intended for the sole use of the addressee and should not be distributed without written authorization from PSEC. The conclusions herein are based on conditions observed at the time of assessment and should be interpreted in context with professional judgment. We remain available for follow-up consultation, additional sampling, or clarification of any findings.</p>
+    <p style="margin-top:24px;">Respectfully submitted,</p>
+    <p style="margin-top:16px;"><strong>${assessor}</strong><br>${(profile?.certs||[]).join(', ') || ''}<br>${firmName}<br>${firmEmail} | ${firmPhone}</p>
+  </div>
+
+  <!-- ═══ TABLE OF CONTENTS ═══ -->
+  <div style="margin-bottom:32px;">
+    <h2>Table of Contents</h2>
+    ${(() => {
+      const toc = ['Executive Summary','Scope and Methodology','Building and Complaint Context','Overall Findings Dashboard','Zone-by-Zone Findings']
+      if ((causalChains||[]).length > 0) toc.push('Causal Chain Analysis')
+      if (samplingPlan?.plan?.length > 0) toc.push('Recommended Sampling Plan')
+      if (recs && ((recs.imm||[]).length || (recs.eng||[]).length || (recs.adm||[]).length || (recs.mon||[]).length)) toc.push('Recommendations Register')
+      toc.push('Limitations and Professional Judgment')
+      toc.push('Appendix A — Raw Measurement Snapshot')
+      toc.push('Appendix B — Transparent Scoring Summary')
+      return toc.map((s,i) => `<p style="font-size:12px;color:#2D3A4A;margin-bottom:4px;">${i+1}. ${s}</p>`).join('')
+    })()}
   </div>
 
   ${userMode === 'fm' && reportTemplate === 'observational_only' ? `
@@ -133,7 +184,7 @@ export function generatePrintHTML(data) {
   <!-- ═══ FM SUMMARY LAYER ═══ -->
   <div style="text-align:center;padding:40px 0 30px;border-bottom:1px solid #E2E8F0;margin-bottom:24px;">
     <div style="width:80px;height:80px;border-radius:50%;background:${comp.tot >= 70 ? '#22C55E15' : comp.tot >= 50 ? '#FBBF2415' : comp.tot >= 40 ? '#FB923C15' : '#EF444415'};border:3px solid ${scoreColor(comp.tot)};display:inline-flex;align-items:center;justify-content:center;margin-bottom:16px;">
-      <span style="font-size:28px;font-weight:800;font-family:monospace;color:${scoreColor(comp.tot)};">${comp.tot}</span>
+      <span style="font-size:28px;font-weight:800;font-family:Cambria,serif;color:${scoreColor(comp.tot)};">${comp.tot}</span>
     </div>
     <div style="font-size:22px;font-weight:700;color:${scoreColor(comp.tot)};">${comp.tot >= 80 ? 'Low Risk' : comp.tot >= 60 ? 'Moderate' : comp.tot >= 40 ? 'High Risk' : 'Critical'}</div>
     <p style="font-size:13px;color:#475569;max-width:500px;margin:12px auto;line-height:1.7;">${comp.tot >= 70 ? 'The air quality in this building appears to be within acceptable ranges based on the measurements taken.' : comp.tot >= 50 ? 'Some air quality concerns were identified that may benefit from attention. See recommended actions below.' : 'Significant air quality concerns were identified. Corrective action is recommended.'}</p>
@@ -145,7 +196,7 @@ export function generatePrintHTML(data) {
     <h3 style="margin-top:24px;">What You Should Do Next</h3>
     <div style="text-align:left;max-width:460px;margin:0 auto;">
     ${(recs?.imm || []).slice(0, 3).map((r, i) => `<div style="font-size:12px;color:#1E293B;margin-bottom:8px;padding-left:16px;border-left:2px solid #B91C1C;">${r}</div>`).join('')}
-    ${(recs?.eng || []).slice(0, 2).map((r, i) => `<div style="font-size:12px;color:#1E293B;margin-bottom:8px;padding-left:16px;border-left:2px solid #0E7490;">${r}</div>`).join('')}
+    ${(recs?.eng || []).slice(0, 2).map((r, i) => `<div style="font-size:12px;color:#1E293B;margin-bottom:8px;padding-left:16px;border-left:2px solid #1B2A41;">${r}</div>`).join('')}
     ${(!recs?.imm?.length && !recs?.eng?.length) ? '<div style="font-size:12px;color:#475569;">Continue routine monitoring. No immediate actions required.</div>' : ''}
     </div>
   </div>
@@ -156,7 +207,7 @@ export function generatePrintHTML(data) {
     <div style="font-size:10px;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Assessment Transparency</div>
     <table style="width:auto;"><tbody>
       <tr><td style="color:#64748B;padding-right:16px;">Workflow version</td><td style="color:#334155;font-weight:600;">AtmosFlow v${ver}</td></tr>
-      <tr><td style="color:#64748B;padding-right:16px;">Standards referenced</td><td style="color:#334155;font-weight:600;">ASHRAE 62.1-2025, ASHRAE 55-2023, OSHA PELs, EPA NAAQS, WHO guidelines</td></tr>
+      <tr><td style="color:#64748B;padding-right:16px;">Standards referenced</td><td style="color:#334155;font-weight:600;">${standardsManifest ? Object.entries(standardsManifest).filter(([k]) => k !== 'engineVersion' && k !== 'manifestUpdated').map(([k, v]) => `${k} (${v})`).join(', ') : 'See Standards and Guidance Manifest'}</td></tr>
       <tr><td style="color:#64748B;padding-right:16px;">Calibration recorded</td><td style="color:#334155;font-weight:600;">${presurvey?.ps_inst_iaq_cal_status || 'Not recorded'}</td></tr>
       <tr><td style="color:#64748B;padding-right:16px;">Professional review</td><td style="color:#334155;font-weight:600;">Draft — requires IH review before distribution</td></tr>
       <tr><td style="color:#64748B;padding-right:16px;">Confidence level</td><td style="color:#334155;font-weight:600;">${confLabel}</td></tr>
@@ -166,49 +217,103 @@ export function generatePrintHTML(data) {
 
   <!-- ═══ EXECUTIVE SUMMARY ═══ -->
   <h2>Executive Summary</h2>
-  ${comp ? `
-  <div style="display:flex;gap:20px;margin-bottom:16px;">
-    <div class="score-box" style="flex:0 0 140px;">
-      <div class="score-num" style="color:${scoreColor(comp.tot)};">${comp.tot}</div>
-      <div class="risk-badge" style="background:${scoreColor(comp.tot)}12;color:${scoreColor(comp.tot)};">${comp.risk || riskLabel(comp.tot)}</div>
+
+  ${comp ? (() => {
+    const worstZone = zoneScores?.reduce((a, b) => a.tot < b.tot ? a : b, zoneScores[0])
+    const scoredCatsWZ = worstZone?.cats?.filter(c => c.s !== null && c.status !== 'SUPPRESSED') || []
+    const worstCat = scoredCatsWZ.length > 0 ? scoredCatsWZ.reduce((a, b) => (a.s/a.mx) < (b.s/b.mx) ? a : b) : null
+    const hasGate5 = zoneScores?.some(zs => zs.cats?.some(c => c.gate5))
+    const hasSynergistic = zoneScores?.some(zs => zs.cats?.some(c => c.synergistic))
+    const allFindings = (zoneScores||[]).flatMap(zs => zs.cats.flatMap(c => c.r.filter(r => r.sev !== 'pass' && r.sev !== 'info').map(r => ({ ...r, zone: zs.zoneName, cat: c.l }))))
+    const critFindings = allFindings.filter(f => f.sev === 'critical' || f.sev === 'high').slice(0, 5)
+    const allRecs = [...(recs?.imm||[]).map(r => ({ p: 'Immediate', t: '0–7 days', r })), ...(recs?.eng||[]).map(r => ({ p: 'High', t: '7–30 days', r })), ...(recs?.adm||[]).map(r => ({ p: 'Medium', t: '30–90 days', r }))]
+
+    return `
+    <!-- Executive Summary Dashboard -->
+    <div style="display:flex;gap:16px;margin-bottom:20px;">
+      <div style="flex:0 0 120px;text-align:center;padding:20px 16px;border:1px solid #D1D5DB;border-radius:6px;">
+        <div style="font-size:36px;font-weight:800;font-family:Cambria,serif;color:${scoreColor(comp.tot)};letter-spacing:-2px;">${comp.tot}</div>
+        <div style="font-size:9px;color:#5C6F7E;margin-top:2px;">out of 100</div>
+        <div style="display:inline-block;padding:3px 10px;border-radius:3px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;background:${scoreColor(comp.tot)}12;color:${scoreColor(comp.tot)};margin-top:8px;">${comp.risk || riskLabel(comp.tot)}</div>
+      </div>
+      <div style="flex:1;">
+        <table style="width:100%;margin-bottom:8px;"><tbody>
+          <tr><td style="padding:4px 0;border:none;font-size:11px;color:#5C6F7E;width:140px;">Composite score</td><td style="padding:4px 0;border:none;font-size:11px;font-weight:700;color:#1B2A41;">${comp.tot}/100 (${comp.risk})</td></tr>
+          <tr><td style="padding:4px 0;border:none;font-size:11px;color:#5C6F7E;">Zone average</td><td style="padding:4px 0;border:none;font-size:11px;font-weight:600;">${comp.avg}/100</td></tr>
+          <tr><td style="padding:4px 0;border:none;font-size:11px;color:#5C6F7E;">Worst zone</td><td style="padding:4px 0;border:none;font-size:11px;font-weight:600;color:${scoreColor(comp.worst)};">${worstZone?.zoneName || '—'} (${comp.worst}/100)</td></tr>
+          <tr><td style="padding:4px 0;border:none;font-size:11px;color:#5C6F7E;">Zones assessed</td><td style="padding:4px 0;border:none;font-size:11px;font-weight:600;">${comp.count}</td></tr>
+          <tr><td style="padding:4px 0;border:none;font-size:11px;color:#5C6F7E;">Measurement confidence</td><td style="padding:4px 0;border:none;font-size:11px;font-weight:600;">${comp.confidence || confLabel}</td></tr>
+          <tr><td style="padding:4px 0;border:none;font-size:11px;color:#5C6F7E;">Composite logic</td><td style="padding:4px 0;border:none;font-size:11px;font-weight:500;color:#5C6F7E;">${comp.logic === 'worst-zone-override' ? 'AIHA worst-zone override (Critical zone present)' : 'Priority-weighted mean of zones'}</td></tr>
+        </tbody></table>
+      </div>
     </div>
-    <div style="flex:1;font-size:11px;color:#475569;">
-      <table style="width:100%;"><tbody>
-        <tr><td style="padding:3px 0;border:none;color:#64748B;">Composite score</td><td style="padding:3px 0;border:none;font-weight:700;color:#0F172A;">${comp.tot}/100</td></tr>
-        <tr><td style="padding:3px 0;border:none;color:#64748B;">Average zone score</td><td style="padding:3px 0;border:none;font-weight:600;">${comp.avg}/100</td></tr>
-        <tr><td style="padding:3px 0;border:none;color:#64748B;">Worst zone score</td><td style="padding:3px 0;border:none;font-weight:600;color:${scoreColor(comp.worst)};">${comp.worst}/100</td></tr>
-        <tr><td style="padding:3px 0;border:none;color:#64748B;">Zones assessed</td><td style="padding:3px 0;border:none;font-weight:600;">${comp.count}</td></tr>
-        <tr><td style="padding:3px 0;border:none;color:#64748B;">Confidence</td><td style="padding:3px 0;border:none;font-weight:600;">${confLabel}</td></tr>
-      </tbody></table>
+
+    <!-- Composite Score Explanation -->
+    <div style="padding:10px 14px;background:#F3F4F6;border:1px solid #D1D5DB;border-radius:4px;margin-bottom:16px;font-size:10px;color:#5C6F7E;line-height:1.6;">
+      <strong style="color:#1B2A41;">Composite Score Explanation:</strong>
+      ${comp.logic === 'worst-zone-override'
+        ? `The composite score of ${comp.tot}/100 reflects the worst-zone override per AIHA exposure assessment strategy (Ignacio &amp; Bullock, 2015). Because ${worstZone?.zoneName || 'one zone'} scored in the Critical range (${comp.worst}/100), the composite equals the worst zone score rather than the average. This ensures a single area of significant concern cannot be masked by otherwise acceptable conditions elsewhere in the facility.`
+        : `The composite score of ${comp.tot}/100 reflects a priority-weighted mean across ${comp.count} assessed zones. Mission-critical zones (if present) carry additional weight in the calculation. No zones scored in the Critical range, so the AIHA worst-zone override was not applied. The score represents a structured prioritization tool — not a compliance determination.`
+      }
     </div>
-  </div>` : ''}
+
+    ${hasGate5 ? '<div style="padding:10px 14px;background:#FEF2F2;border:1px solid #FECACA;border-radius:4px;margin-bottom:16px;font-size:11px;color:#7F1D1D;font-weight:600;">⚠ Critical HVAC Condition Identified: Active moisture or filtration deficiency detected in HVAC system.</div>' : ''}
+    ${hasSynergistic ? '<div style="padding:10px 14px;background:#FEF2F2;border:1px solid #FECACA;border-radius:4px;margin-bottom:16px;font-size:11px;color:#7F1D1D;font-weight:600;">⚠ Multiple Contaminant Exceedance: More than one Tier 1 contaminant exceeds OSHA Permissible Exposure Limits. Immediate follow-up sampling required.</div>' : ''}
+    `
+  })() : ''}
 
   ${narrative ? `
   <div class="narrative">${narrative}</div>
   <div class="note">This narrative was generated from deterministic scoring output and requires professional review before client distribution.</div>
   ` : (() => {
-    const worstZone = zoneScores?.reduce((a, b) => a.tot < b.tot ? a : b, zoneScores[0])
-    const worstCat = worstZone?.cats?.reduce((a, b) => (a.s/a.mx) < (b.s/b.mx) ? a : b)
+    const worstZone2 = zoneScores?.reduce((a, b) => a.tot < b.tot ? a : b, zoneScores[0])
+    const scoredCatsWZ2 = worstZone2?.cats?.filter(c => c.s !== null && c.status !== 'SUPPRESSED') || []
+    const worstCat2 = scoredCatsWZ2.length > 0 ? scoredCatsWZ2.reduce((a, b) => (a.s/a.mx) < (b.s/b.mx) ? a : b) : null
     const p1 = `An indoor air quality assessment was conducted at ${bldg.fn || 'the subject facility'} on ${assessDate}, encompassing ${(zones||[]).length} zone${(zones||[]).length !== 1 ? 's' : ''}${presurvey?.ps_reason ? ` in response to ${presurvey.ps_reason.toLowerCase()}` : ''}. The assessment included direct-reading instrument measurements, visual inspection, HVAC system evaluation, and occupant complaint documentation.`
     const p2 = comp?.tot >= 70
       ? `Available evidence supports that conditions observed during the assessment window are broadly consistent with applicable occupancy standards. The composite score of ${comp.tot}/100 reflects acceptable conditions across the majority of evaluated zones, with localized areas warranting targeted follow-up as detailed in the zone findings below.`
       : comp?.tot >= 50
-        ? `Conditions observed during the assessment window suggest moderate indoor air quality concerns. The composite score of ${comp.tot}/100 reflects a weighted evaluation across five categories, with ${worstCat ? `${worstCat.l} (${worstCat.s}/${worstCat.mx}) identified as the primary area of concern` : 'multiple categories showing room for improvement'}. Targeted investigation is recommended in the areas identified below.`
-        : `Conditions observed during the assessment window indicate significant indoor air quality concerns that would warrant prioritized remediation. The composite score of ${comp?.tot || '—'}/100 reflects deficiencies across multiple evaluation categories${worstCat ? `, with ${worstCat.l} (${worstCat.s}/${worstCat.mx}) representing the most acute concern` : ''}. The findings and recommendations in this report are intended to support a structured corrective action process.`
-    const immRecs = recs?.imm || []
-    const p3 = immRecs.length > 0
-      ? `Priority actions include: ${immRecs.slice(0, 3).join('; ')}. Additional engineering and administrative recommendations are detailed in the Recommendations Register.`
-      : 'Recommended next steps are detailed in the Recommendations Register and Sampling Plan sections of this report.'
-    return `<p style="font-size:11px;color:#475569;line-height:1.8;">${p1}</p><p style="font-size:11px;color:#475569;line-height:1.8;">${p2}</p><p style="font-size:11px;color:#475569;line-height:1.8;">${p3}</p>`
+        ? `Conditions observed during the assessment window suggest moderate indoor air quality concerns. The composite score of ${comp.tot}/100 reflects a weighted evaluation across five categories, with ${worstCat2 ? `${worstCat2.l} (${worstCat2.s}/${worstCat2.mx}) identified as the primary area of concern` : 'multiple categories showing room for improvement'}. Targeted investigation is recommended in the areas identified below.`
+        : `Conditions observed during the assessment window indicate significant indoor air quality concerns that would warrant prioritized remediation. The composite score of ${comp?.tot || '—'}/100 reflects deficiencies across multiple evaluation categories${worstCat2 ? `, with ${worstCat2.l} (${worstCat2.s}/${worstCat2.mx}) representing the most acute concern` : ''}. The findings and recommendations in this report are intended to support a structured corrective action process.`
+    const hasDataGaps = (zoneScores||[]).some(zs => zs.partialScore)
+    const p3 = hasDataGaps ? ' Note: One or more scoring categories could not be fully evaluated due to unavailable documentation. The composite score reflects measured parameters only; confidence has been reduced accordingly. Categories marked as data gaps are not converted into risk findings.' : ''
+    return `<p style="font-size:11px;color:#5C6F7E;line-height:1.8;">${p1}</p><p style="font-size:11px;color:#5C6F7E;line-height:1.8;">${p2}${p3}</p>`
   })()}
 
-  ${recs ? `
-  <h3>Priority Actions</h3>
-  <table><thead><tr><th>Priority</th><th>Action</th></tr></thead><tbody>
-  ${(recs.imm||[]).map(r => `<tr><td style="font-size:10px;font-weight:700;color:#B91C1C;">IMMEDIATE</td><td style="font-size:11px;">${r}</td></tr>`).join('')}
-  ${(recs.eng||[]).slice(0,3).map(r => `<tr><td style="font-size:10px;font-weight:700;color:#0E7490;">ENGINEERING</td><td style="font-size:11px;">${r}</td></tr>`).join('')}
-  ${(recs.adm||[]).slice(0,2).map(r => `<tr><td style="font-size:10px;font-weight:700;color:#A16207;">ADMINISTRATIVE</td><td style="font-size:11px;">${r}</td></tr>`).join('')}
-  </tbody></table>` : ''}
+  ${/* Key Findings Summary Table */(() => {
+    const findings = (zoneScores||[]).flatMap(zs => zs.cats.flatMap(c => c.r.filter(r => r.sev === 'critical' || r.sev === 'high').map(r => ({ sev: r.sev, zone: zs.zoneName, cat: c.l, finding: r.t, std: r.std }))))
+    if (!findings.length) return ''
+    return `
+    <h3>Key Findings Summary</h3>
+    <table><thead><tr><th style="width:60px;">Severity</th><th style="width:100px;">Zone</th><th style="width:80px;">Category</th><th>Finding</th><th style="width:80px;">Reference</th></tr></thead><tbody>
+    ${findings.slice(0, 8).map(f => `<tr>
+      <td><span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:${sevColor(f.sev)}12;color:${sevColor(f.sev)};text-transform:uppercase;">${f.sev}</span></td>
+      <td style="font-size:10px;">${f.zone}</td>
+      <td style="font-size:10px;">${f.cat}</td>
+      <td style="font-size:10px;">${f.finding.length > 120 ? f.finding.substring(0, 120) + '...' : f.finding}</td>
+      <td style="font-size:9px;color:#5C6F7E;font-family:Cambria,serif;">${f.std || '—'}</td>
+    </tr>`).join('')}
+    </tbody></table>
+    ${findings.length > 8 ? `<p style="font-size:9px;color:#7A8A97;margin-top:4px;">${findings.length - 8} additional finding${findings.length - 8 !== 1 ? 's' : ''} detailed in zone sections below.</p>` : ''}`
+  })()}
+
+  ${/* Priority Recommendations Table */(() => {
+    const allRecs = [
+      ...(recs?.imm||[]).map(r => ({ priority: 'Immediate', timing: '0–7 days', color: '#B91C1C', action: r })),
+      ...(recs?.eng||[]).map(r => ({ priority: 'High', timing: '7–30 days', color: '#1B2A41', action: r })),
+      ...(recs?.adm||[]).slice(0, 3).map(r => ({ priority: 'Medium', timing: '30–90 days', color: '#A16207', action: r })),
+    ]
+    if (!allRecs.length) return '<p style="font-size:11px;color:#5C6F7E;">No immediate or high-priority corrective actions are indicated at this time. Recommended next steps are detailed in the Recommendations Register.</p>'
+    return `
+    <h3>Priority Recommendations</h3>
+    <table><thead><tr><th style="width:70px;">Priority</th><th style="width:70px;">Timing</th><th>Recommended Action</th></tr></thead><tbody>
+    ${allRecs.map(r => `<tr>
+      <td><span style="font-size:9px;font-weight:700;color:${r.color};text-transform:uppercase;">${r.priority}</span></td>
+      <td style="font-size:10px;color:#5C6F7E;font-family:Cambria,serif;">${r.timing}</td>
+      <td style="font-size:10px;">${r.action}</td>
+    </tr>`).join('')}
+    </tbody></table>`
+  })()}
 
   <!-- ═══ SCOPE AND METHODOLOGY ═══ -->
   <h2>Scope and Methodology</h2>
@@ -217,11 +322,36 @@ export function generatePrintHTML(data) {
   <p><strong>Assessment activities:</strong> Visual inspection, real-time direct-reading instrument measurements, occupant complaint documentation, HVAC system evaluation, and moisture/mold screening.</p>
   <h3>Instrumentation</h3>
   <table><thead><tr><th>Instrument</th><th>Identifier</th><th>Calibration</th></tr></thead><tbody>
-    <tr><td>${presurvey?.ps_inst_iaq || 'IAQ meter'}</td><td style="font-family:monospace;font-size:10px;">${presurvey?.ps_inst_iaq_serial || '—'}</td><td>${presurvey?.ps_inst_iaq_cal_status || '—'}${presurvey?.ps_inst_iaq_cal ? ` (${presurvey.ps_inst_iaq_cal})` : ''}</td></tr>
-    ${presurvey?.ps_inst_pid ? `<tr><td>${presurvey.ps_inst_pid}</td><td style="font-family:monospace;font-size:10px;">—</td><td>${presurvey.ps_inst_pid_cal || '—'}</td></tr>` : ''}
+    <tr><td>${presurvey?.ps_inst_iaq || 'IAQ meter'}</td><td style="font-family:Cambria,serif;font-size:10px;">${presurvey?.ps_inst_iaq_serial || '—'}</td><td>${presurvey?.ps_inst_iaq_cal_status || '—'}${presurvey?.ps_inst_iaq_cal ? ` (${presurvey.ps_inst_iaq_cal})` : ''}</td></tr>
+    ${presurvey?.ps_inst_pid ? `<tr><td>${presurvey.ps_inst_pid}</td><td style="font-family:Cambria,serif;font-size:10px;">—</td><td>${presurvey.ps_inst_pid_cal || '—'}</td></tr>` : ''}
   </tbody></table>
-  <h3>Standards and References</h3>
-  <p style="font-size:11px;color:#475569;">ASHRAE Standard 62.1-2025 (Ventilation for Acceptable IAQ), ASHRAE Standard 55-2023 (Thermal Environmental Conditions), OSHA Permissible Exposure Limits (29 CFR 1910.1000), EPA National Ambient Air Quality Standards, WHO Air Quality Guidelines.</p>
+  <h3>Standards and Guidance Manifest</h3>
+  <p style="font-size:10px;color:#5C6F7E;margin-bottom:10px;">The following standards, guidelines, and benchmarks are referenced in this assessment. Each is classified by its regulatory or advisory status. Advisory benchmarks should not be interpreted as regulatory limits.</p>
+
+  <table style="margin-bottom:6px;"><thead><tr><th style="width:35%;">Standard / Guideline</th><th style="width:30%;">Classification</th><th style="width:35%;">Application in This Report</th></tr></thead><tbody>
+  <tr><td colspan="3" style="font-size:9px;font-weight:700;color:#1B2A41;background:#F3F4F6;padding:6px 10px;text-transform:uppercase;letter-spacing:0.5px;">Regulatory Limits</td></tr>
+  <tr><td style="font-size:10px;">OSHA PELs (29 CFR 1910.1000)</td><td style="font-size:10px;color:#5C6F7E;">Enforceable occupational exposure limit</td><td style="font-size:10px;">CO (50 ppm TWA), Formaldehyde (0.75 ppm TWA)</td></tr>
+  <tr><td style="font-size:10px;">OSHA Action Levels (29 CFR 1910.1048)</td><td style="font-size:10px;color:#5C6F7E;">Enforceable trigger for medical surveillance</td><td style="font-size:10px;">Formaldehyde (0.5 ppm)</td></tr>
+
+  <tr><td colspan="3" style="font-size:9px;font-weight:700;color:#1B2A41;background:#F3F4F6;padding:6px 10px;text-transform:uppercase;letter-spacing:0.5px;">Occupational Exposure Guidelines</td></tr>
+  <tr><td style="font-size:10px;">NIOSH RELs (Pocket Guide)</td><td style="font-size:10px;color:#5C6F7E;">Recommended exposure limit — advisory</td><td style="font-size:10px;">CO (35 ppm TWA), Formaldehyde (0.016 ppm)</td></tr>
+
+  <tr><td colspan="3" style="font-size:9px;font-weight:700;color:#1B2A41;background:#F3F4F6;padding:6px 10px;text-transform:uppercase;letter-spacing:0.5px;">Consensus Standards</td></tr>
+  <tr><td style="font-size:10px;">ASHRAE 62.1-2022</td><td style="font-size:10px;color:#5C6F7E;">Ventilation consensus standard</td><td style="font-size:10px;">Outdoor air rates (Table 6.2.2.1), CO₂ as ventilation screening indicator</td></tr>
+  <tr><td style="font-size:10px;">ASHRAE 55-2023</td><td style="font-size:10px;color:#5C6F7E;">Thermal comfort consensus standard</td><td style="font-size:10px;">Temperature and humidity comfort ranges</td></tr>
+  ${bldg.ft?.includes('Data Center') ? '<tr><td style="font-size:10px;">ANSI/ISA 71.04-2013</td><td style="font-size:10px;color:#5C6F7E;">Gaseous corrosion consensus standard</td><td style="font-size:10px;">G1/G2/G3/GX classification for electronic equipment environments</td></tr><tr><td style="font-size:10px;">ISO 14644-1:2015</td><td style="font-size:10px;color:#5C6F7E;">Cleanroom particle classification</td><td style="font-size:10px;">ISO Class 5–8 particle count limits</td></tr>' : ''}
+
+  <tr><td colspan="3" style="font-size:9px;font-weight:700;color:#1B2A41;background:#F3F4F6;padding:6px 10px;text-transform:uppercase;letter-spacing:0.5px;">Public Health Guidelines</td></tr>
+  <tr><td style="font-size:10px;">EPA NAAQS (2024)</td><td style="font-size:10px;color:#5C6F7E;">Ambient air quality guideline — not an occupational limit</td><td style="font-size:10px;">PM2.5 (35 µg/m³, 24-hr)</td></tr>
+  <tr><td style="font-size:10px;">WHO Air Quality Guidelines (2021)</td><td style="font-size:10px;color:#5C6F7E;">Population health guideline — advisory</td><td style="font-size:10px;">PM2.5 (15 µg/m³)</td></tr>
+
+  <tr><td colspan="3" style="font-size:9px;font-weight:700;color:#1B2A41;background:#F3F4F6;padding:6px 10px;text-transform:uppercase;letter-spacing:0.5px;">Advisory Screening Benchmarks</td></tr>
+  <tr><td style="font-size:10px;">CO₂ differential (700 ppm)</td><td style="font-size:10px;color:#5C6F7E;">Ventilation screening benchmark — not a regulatory limit</td><td style="font-size:10px;">Industry-accepted indicator of outdoor air adequacy per ASHRAE 62.1</td></tr>
+  <tr><td style="font-size:10px;">TVOC concern (500 µg/m³)</td><td style="font-size:10px;color:#5C6F7E;">Internal concern threshold — no regulatory limit exists for total VOCs</td><td style="font-size:10px;">Screening trigger for source investigation; Mølhave (1991) advisory</td></tr>
+  <tr><td style="font-size:10px;">RH 30–60%</td><td style="font-size:10px;color:#5C6F7E;">Comfort and moisture-control benchmark</td><td style="font-size:10px;">Comfort evaluation and mold risk screening per ASHRAE 55</td></tr>
+  </tbody></table>
+
+  <p style="font-size:9px;color:#7A8A97;margin-bottom:8px;">Classifications carry different legal and technical weight. Regulatory limits are enforceable workplace standards. Consensus standards represent professional best practice. Public health guidelines are population-level recommendations. Advisory benchmarks are investigative triggers used for prioritization, not compliance determination.</p>
   <h3>Limitations</h3>
   <p style="font-size:11px;color:#475569;">This assessment represents conditions observed at the time of the site visit and may not reflect all temporal, seasonal, or operational variations. Findings are based on direct-reading instrumentation and visual observations. Laboratory analysis was not performed unless specifically noted.</p>
 
@@ -247,7 +377,7 @@ export function generatePrintHTML(data) {
   <div style="display:flex;gap:12px;margin-bottom:16px;">
     ${[{l:'Composite',v:comp.tot},{l:'Average',v:comp.avg},{l:'Worst Zone',v:comp.worst}].map(m => `
     <div style="flex:1;text-align:center;padding:12px;border:1px solid #E2E8F0;border-radius:6px;">
-      <div style="font-size:24px;font-weight:800;font-family:monospace;color:${scoreColor(m.v)};">${m.v}</div>
+      <div style="font-size:24px;font-weight:800;font-family:Cambria,serif;color:${scoreColor(m.v)};">${m.v}</div>
       <div style="font-size:9px;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;margin-top:2px;">${m.l}</div>
     </div>`).join('')}
   </div>
@@ -266,7 +396,7 @@ export function generatePrintHTML(data) {
           <div style="font-size:10px;color:#64748B;margin-top:2px;">${z.zt || ''} ${z.zo ? `· ${z.zo} occupants` : ''} ${z.za ? `· ${z.za} sq ft` : ''}${z.meas_time ? ` · Assessed at ${z.meas_time}` : ''}</div>
         </div>
         <div style="text-align:right;">
-          <span style="font-family:monospace;font-size:22px;font-weight:800;color:${scoreColor(zs.tot)};">${zs.tot}</span>
+          <span style="font-family:Cambria,serif;font-size:22px;font-weight:800;color:${scoreColor(zs.tot)};">${zs.tot}</span>
           <span style="font-size:10px;color:#64748B;">/100</span>
           <div style="font-size:9px;color:${scoreColor(zs.tot)};font-weight:700;">${zs.risk}</div>
         </div>
@@ -278,11 +408,17 @@ export function generatePrintHTML(data) {
         if (z.mi && z.mi !== 'None observed') obs.push(`Mold indicators: ${z.mi}${z.mie ? ` — ${z.mie}` : ''}`)
         if (z.od && z.od !== 'None') obs.push(`Odor noted: ${z.od}${z.odi ? ` (${z.odi})` : ''}`)
         if (z.src_int) obs.push(`Interior sources identified: ${Array.isArray(z.src_int) ? z.src_int.join(', ') : z.src_int}`)
-        return obs.length > 0 ? `
+        // Water intrusion complaint with no visible damage
+        const reasonMentionsWater = (presurvey?.ps_reason || '').toLowerCase().match(/water|leak|flood|intrusion|moisture/)
+        const noVisibleDamage = (!z.wd || z.wd === 'None observed' || z.wd === 'None') && (!z.mi || z.mi === 'None observed' || z.mi === 'None')
+        const waterNote = reasonMentionsWater && noVisibleDamage
+          ? '<div style="font-size:10px;color:#64748B;line-height:1.7;padding:8px 12px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:4px;margin:8px 0 12px;font-style:italic;">The assessment was conducted following a reported water intrusion event. No visible water staining, active moisture, or mold-like growth was observed at the time of assessment. Because concealed moisture may not be visible during a limited inspection, follow-up moisture verification may be appropriate if affected assemblies were not fully accessible.</div>'
+          : ''
+        return (obs.length > 0 ? `
           <h3>Observations</h3>
           <ul style="font-size:11px;color:#475569;line-height:1.8;padding-left:18px;margin:4px 0 12px;">
             ${obs.map(o => `<li>${o}</li>`).join('')}
-          </ul>` : ''
+          </ul>` : '') + waterNote
       })()}
 
       ${/* Zone Photos */(() => {
@@ -314,13 +450,13 @@ export function generatePrintHTML(data) {
         return hasData ? `
           <h3>Parameter Results</h3>
           <table style="margin-bottom:12px;"><thead><tr><th>Parameter</th><th style="text-align:center;">Indoor</th><th style="text-align:center;">Outdoor</th><th>Reference</th></tr></thead><tbody>
-            ${z.co2 ? `<tr><td>CO₂</td><td style="text-align:center;font-family:monospace;">${z.co2} ppm</td><td style="text-align:center;font-family:monospace;color:#64748B;">${z.co2o || '—'} ppm</td><td style="font-size:10px;color:#64748B;">Δ700 ppm (ASHRAE 62.1)</td></tr>` : ''}
-            ${z.tf ? `<tr><td>Temperature</td><td style="text-align:center;font-family:monospace;">${z.tf}°F</td><td style="text-align:center;font-family:monospace;color:#64748B;">${z.tfo || '—'}°F</td><td style="font-size:10px;color:#64748B;">68–79°F (ASHRAE 55)</td></tr>` : ''}
-            ${z.rh ? `<tr><td>Relative Humidity</td><td style="text-align:center;font-family:monospace;">${z.rh}%</td><td style="text-align:center;font-family:monospace;color:#64748B;">${z.rho || '—'}%</td><td style="font-size:10px;color:#64748B;">30–60%</td></tr>` : ''}
-            ${z.pm ? `<tr><td>PM2.5</td><td style="text-align:center;font-family:monospace;">${z.pm} µg/m³</td><td style="text-align:center;font-family:monospace;color:#64748B;">${z.pmo || '—'} µg/m³</td><td style="font-size:10px;color:#64748B;"><35 µg/m³ (EPA 24-hr)</td></tr>` : ''}
-            ${z.co ? `<tr><td>Carbon Monoxide</td><td style="text-align:center;font-family:monospace;">${z.co} ppm</td><td style="text-align:center;font-family:monospace;color:#64748B;">—</td><td style="font-size:10px;color:#64748B;"><35 ppm (NIOSH REL)</td></tr>` : ''}
-            ${z.tv ? `<tr><td>Total VOCs</td><td style="text-align:center;font-family:monospace;">${z.tv} µg/m³</td><td style="text-align:center;font-family:monospace;color:#64748B;">${z.tvo || '—'} µg/m³</td><td style="font-size:10px;color:#64748B;"><500 µg/m³ (concern)</td></tr>` : ''}
-            ${z.hc ? `<tr><td>Formaldehyde</td><td style="text-align:center;font-family:monospace;">${z.hc} ppm</td><td style="text-align:center;font-family:monospace;color:#64748B;">—</td><td style="font-size:10px;color:#64748B;"><0.016 ppm (NIOSH REL)</td></tr>` : ''}
+            ${z.co2 ? `<tr><td>CO₂</td><td style="text-align:center;font-family:Cambria,serif;">${z.co2} ppm</td><td style="text-align:center;font-family:Cambria,serif;color:#64748B;">${z.co2o || '—'} ppm</td><td style="font-size:10px;color:#64748B;">Δ700 ppm (ASHRAE 62.1)</td></tr>` : ''}
+            ${z.tf ? `<tr><td>Temperature</td><td style="text-align:center;font-family:Cambria,serif;">${z.tf}°F</td><td style="text-align:center;font-family:Cambria,serif;color:#64748B;">${z.tfo || '—'}°F</td><td style="font-size:10px;color:#64748B;">68–79°F (ASHRAE 55)</td></tr>` : ''}
+            ${z.rh ? `<tr><td>Relative Humidity</td><td style="text-align:center;font-family:Cambria,serif;">${z.rh}%</td><td style="text-align:center;font-family:Cambria,serif;color:#64748B;">${z.rho || '—'}%</td><td style="font-size:10px;color:#64748B;">30–60%</td></tr>` : ''}
+            ${z.pm ? `<tr><td>PM2.5</td><td style="text-align:center;font-family:Cambria,serif;">${z.pm} µg/m³</td><td style="text-align:center;font-family:Cambria,serif;color:#64748B;">${z.pmo || '—'} µg/m³</td><td style="font-size:10px;color:#64748B;"><35 µg/m³ (EPA 24-hr)</td></tr>` : ''}
+            ${z.co ? `<tr><td>Carbon Monoxide</td><td style="text-align:center;font-family:Cambria,serif;">${z.co} ppm</td><td style="text-align:center;font-family:Cambria,serif;color:#64748B;">—</td><td style="font-size:10px;color:#64748B;"><35 ppm (NIOSH REL)</td></tr>` : ''}
+            ${z.tv ? `<tr><td>Total VOCs</td><td style="text-align:center;font-family:Cambria,serif;">${z.tv} µg/m³</td><td style="text-align:center;font-family:Cambria,serif;color:#64748B;">${z.tvo || '—'} µg/m³</td><td style="font-size:10px;color:#64748B;"><500 µg/m³ (concern)</td></tr>` : ''}
+            ${z.hc ? `<tr><td>Formaldehyde</td><td style="text-align:center;font-family:Cambria,serif;">${z.hc} ppm</td><td style="text-align:center;font-family:Cambria,serif;color:#64748B;">—</td><td style="font-size:10px;color:#64748B;"><0.016 ppm (NIOSH REL)</td></tr>` : ''}
           </tbody></table>` : ''
       })()}
 
@@ -328,7 +464,9 @@ export function generatePrintHTML(data) {
       <table style="margin-bottom:12px;"><thead><tr><th>Category</th><th style="text-align:center;">Score</th><th>Performance</th><th style="text-align:right;">%</th></tr></thead><tbody>${catRows(zs.cats)}</tbody></table>
 
       ${/* Interpretation */(() => {
-        const worst = zs.cats.reduce((a, b) => ((a.s/a.mx) < (b.s/b.mx) ? a : b))
+        const scored = zs.cats.filter(c => c.s !== null && c.status !== 'SUPPRESSED')
+        if (!scored.length) return '<h3>Interpretation</h3><p style="font-size:11px;color:#94A3B8;font-style:italic;line-height:1.8;">Insufficient data for interpretation. Additional measurements are recommended.</p>'
+        const worst = scored.reduce((a, b) => ((a.s/a.mx) < (b.s/b.mx) ? a : b))
         const worstPct = Math.round((worst.s / worst.mx) * 100)
         const openers = [
           `Conditions observed in this zone are consistent with a ${zs.risk.toLowerCase()} assessment (${zs.tot}/100).`,
@@ -344,10 +482,12 @@ export function generatePrintHTML(data) {
           `${worst.l} represents the primary area of concern at ${worst.s}/${worst.mx} (${worstPct}%),`,
         ]
         const qualifier = worstPct < 50 ? ' which represents a significant concern and would warrant prioritized attention.' : worstPct < 70 ? ' which suggests conditions that may benefit from targeted corrective action.' : ' which is performing within an acceptable range.'
-        const multiLow = zs.cats.filter(c => (c.s/c.mx) < 0.5).length > 1 ? ' Multiple categories scored below 50%, suggesting interrelated contributing factors.' : ''
+        const multiLow = scored.filter(c => (c.s/c.mx) < 0.5).length > 1 ? ' Multiple categories scored below 50%, suggesting interrelated contributing factors.' : ''
+        const dataGapNote = zs.insufficientCats?.length ? ` Note: ${zs.insufficientCats.join(', ')} ${zs.insufficientCats.length === 1 ? 'was' : 'were'} not scored due to insufficient data; confidence is reduced accordingly.` : ''
+        const hvacAdminNote = zs.hvacAdminGap ? ' HVAC maintenance history was not available; this reduces assessment confidence but is not scored as a physical deficiency.' : ''
         return `
           <h3>Interpretation</h3>
-          <p style="font-size:11px;color:#475569;line-height:1.8;">${openers[zi % openers.length]} ${contribs[zi % contribs.length]}${qualifier}${multiLow}</p>`
+          <p style="font-size:11px;color:#475569;line-height:1.8;">${openers[zi % openers.length]} ${contribs[zi % contribs.length]}${qualifier}${multiLow}${dataGapNote}${hvacAdminNote}</p>`
       })()}
 
       ${/* Contributing Factors */(() => {
@@ -376,15 +516,24 @@ export function generatePrintHTML(data) {
           </tbody></table>` : ''
       })()}
 
-      ${/* Confidence and Missing Data */`
+      ${/* Confidence and Missing Data */(() => {
+        const zoneConf = zs.confidence || confLabel
+        const confExplain = zoneConf === 'Low' || zoneConf === 'Insufficient'
+          ? (zs.insufficientCats?.length ? ` — ${zs.insufficientCats.join(', ')} data not available; score reflects measured parameters only` : ' — limited data available; findings are directional pending follow-up')
+          : zs.tot < 40 ? ' — findings are directional pending follow-up' : ''
+        const gaps = oshaResult?.gaps || []
+        const insuffGaps = (zs.insufficientCats || []).filter(c => !gaps.some(g => g.toLowerCase().includes(c.toLowerCase())))
+        const allGaps = [...gaps, ...insuffGaps.map(c => c + ' documentation unavailable')]
+        return `
       <div style="margin-top:12px;display:flex;gap:12px;">
         <div style="flex:1;padding:8px 12px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:4px;font-size:10px;">
-          <strong style="color:#334155;">Confidence:</strong> <span style="color:#475569;">${confLabel}${zs.tot < 40 ? ' — findings are directional pending follow-up' : ''}</span>
+          <strong style="color:#334155;">Confidence:</strong> <span style="color:#475569;">${zoneConf}${confExplain}</span>
         </div>
         <div style="flex:1;padding:8px 12px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:4px;font-size:10px;">
-          <strong style="color:#334155;">Missing data:</strong> <span style="color:#475569;">${(oshaResult?.gaps||[]).length > 0 ? oshaResult.gaps.join(', ') : 'No significant data gaps identified for this zone'}</span>
+          <strong style="color:#334155;">Missing data:</strong> <span style="color:#475569;">${allGaps.length > 0 ? allGaps.join(', ') : 'No significant data gaps identified for this zone'}</span>
         </div>
-      </div>`}
+      </div>`
+      })()}
     </div>`
   }).join('')}
 
@@ -398,8 +547,8 @@ export function generatePrintHTML(data) {
         <strong style="font-size:12px;">${ch.type}</strong>
         <span style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;text-transform:uppercase;letter-spacing:0.3px;background:${ch.confidence === 'Strong' ? '#F0FDF4' : ch.confidence === 'Moderate' ? '#FFFBEB' : '#F8FAFC'};color:${ch.confidence === 'Strong' ? '#15803D' : ch.confidence === 'Moderate' ? '#A16207' : '#64748B'};">${ch.confidence}</span>
       </div>
-      <div style="font-size:10px;color:#0E7490;font-family:monospace;margin-bottom:8px;">${ch.zone}</div>
-      <div style="padding:8px 14px;background:#F8FAFC;border-left:2px solid #0E7490;border-radius:0 4px 4px 0;font-size:11px;color:#334155;margin-bottom:8px;">${ch.rootCause}</div>
+      <div style="font-size:10px;color:#1B2A41;font-family:Cambria,serif;margin-bottom:8px;">${ch.zone}</div>
+      <div style="padding:8px 14px;background:#F8FAFC;border-left:2px solid #1B2A41;border-radius:0 4px 4px 0;font-size:11px;color:#334155;margin-bottom:8px;">${ch.rootCause}</div>
       <div style="font-size:10px;font-weight:600;color:#64748B;margin-bottom:4px;">Supporting evidence:</div>
       ${ch.evidence.map(e => `<div class="evidence-item">${e}</div>`).join('')}
       <div style="font-size:10px;color:#64748B;margin-top:6px;font-style:italic;">This pathway would warrant targeted follow-up to confirm contributing conditions.</div>
@@ -416,10 +565,10 @@ export function generatePrintHTML(data) {
     ${samplingPlan.plan.map(p => `
       <tr>
         <td style="font-weight:600;font-size:11px;">${p.type}</td>
-        <td style="font-size:10px;font-family:monospace;color:#0E7490;">${p.zone}</td>
+        <td style="font-size:10px;font-family:Cambria,serif;color:#1B2A41;">${p.zone}</td>
         <td><span style="font-size:9px;font-weight:700;text-transform:uppercase;color:${p.priority === 'critical' ? '#B91C1C' : p.priority === 'high' ? '#C2410C' : '#A16207'};">${p.priority}</span></td>
         <td style="font-size:10px;">${p.method}</td>
-        <td style="font-size:9px;font-family:monospace;color:#64748B;">${p.standard}</td>
+        <td style="font-size:9px;font-family:Cambria,serif;color:#64748B;">${p.standard}</td>
       </tr>
     `).join('')}
     </tbody>
@@ -431,27 +580,54 @@ export function generatePrintHTML(data) {
   ` : ''}
 
   <!-- ═══ RECOMMENDATIONS REGISTER ═══ -->
-  ${recs ? `
+  ${recs ? (() => {
+    const allFindings = (zoneScores||[]).flatMap(zs => zs.cats.flatMap(c => c.r.filter(r => r.sev === 'critical' || r.sev === 'high').map(r => ({ zone: zs.zoneName, finding: r.t, sev: r.sev, cat: c.l }))))
+
+    const matchEvidence = (recText) => {
+      const rt = recText.toLowerCase()
+      const zoneMatch = recText.match(/^([^:]+):/)?.[1]?.trim() || null
+      if (rt.includes('co ') || rt.includes('combustion')) return { zone: zoneMatch, evidence: 'CO measurement exceeding exposure threshold', party: 'Facility management + qualified IH', verify: 'Post-ventilation air monitoring' }
+      if (rt.includes('formaldehyde') || rt.includes('1910.1048')) return { zone: zoneMatch, evidence: 'Formaldehyde measurement exceeding OSHA PEL/AL', party: 'Qualified IH professional', verify: 'Validated TWA sampling per NIOSH 2016' }
+      if (rt.includes('mold') || rt.includes('remediation')) return { zone: zoneMatch, evidence: 'Visible mold indicators observed', party: 'Qualified remediation contractor', verify: 'Post-remediation verification per IICRC S520' }
+      if (rt.includes('airflow') || rt.includes('hvac service')) return { zone: zoneMatch, evidence: 'Supply airflow deficiency or HVAC failure', party: 'Qualified HVAC contractor', verify: 'Airflow measurement at diffusers post-repair' }
+      if (rt.includes('water') || rt.includes('intrusion') || rt.includes('leak')) return { zone: zoneMatch, evidence: 'Active water intrusion observed', party: 'Facility maintenance', verify: 'Visual inspection + moisture meter verification' }
+      if (rt.includes('outdoor air') || rt.includes('oa damper') || rt.includes('ventilation')) return { zone: zoneMatch, evidence: 'Ventilation inadequacy identified', party: 'Qualified HVAC contractor', verify: 'OA delivery measurement (cfm/person)' }
+      if (rt.includes('filtration') || rt.includes('merv')) return { zone: zoneMatch, evidence: 'Filter deficiency identified', party: 'Facility maintenance', verify: 'Filter inspection post-replacement' }
+      if (rt.includes('maintenance') || rt.includes('inspection')) return { zone: zoneMatch, evidence: 'Deferred HVAC maintenance', party: 'Qualified HVAC contractor', verify: 'Documented service report' }
+      if (rt.includes('symptom') || rt.includes('occupant') || rt.includes('complaint')) return { zone: zoneMatch, evidence: 'Occupant symptom pattern documented', party: 'EHS/safety coordinator', verify: 'Follow-up symptom survey' }
+      return { zone: zoneMatch || 'All zones', evidence: 'Assessment findings', party: 'Facility management', verify: 'Reassessment' }
+    }
+
+    let idx = 0
+    const rows = [
+      ...(recs.imm||[]).map(r => { idx++; const e = matchEvidence(r); return { id: `R-${String(idx).padStart(2,'0')}`, p: 'Immediate', t: '0–48 hours', pc: '#B91C1C', r, ...e } }),
+      ...(recs.eng||[]).map(r => { idx++; const e = matchEvidence(r); return { id: `R-${String(idx).padStart(2,'0')}`, p: 'Short Term', t: '1–4 weeks', pc: '#1B2A41', r, ...e } }),
+      ...(recs.adm||[]).map(r => { idx++; const e = matchEvidence(r); return { id: `R-${String(idx).padStart(2,'0')}`, p: 'Medium Term', t: '1–3 months', pc: '#A16207', r, ...e } }),
+      ...(recs.mon||[]).map(r => { idx++; const e = matchEvidence(r); return { id: `R-${String(idx).padStart(2,'0')}`, p: 'Long Term', t: '3–12 months', pc: '#5C6F7E', r, ...e } }),
+    ]
+
+    return `
   <h2 class="pg-break">Recommendations Register</h2>
+  <p style="font-size:10px;color:#5C6F7E;margin-bottom:10px;">Recommendations are derived from assessment findings and tiered by urgency. Each recommendation is linked to triggering evidence and includes a responsible party and verification method. Timeframes are suggested starting points and should be adapted to site-specific conditions and operational constraints.</p>
   <table>
-    <thead><tr><th style="width:30px;">#</th><th style="width:70px;">Priority</th><th style="width:90px;">Category</th><th>Recommendation</th><th style="width:70px;">Timing</th></tr></thead>
+    <thead><tr><th style="width:35px;">ID</th><th style="width:55px;">Priority</th><th style="width:65px;">Zone</th><th style="width:100px;">Triggering Evidence</th><th>Recommended Action</th><th style="width:85px;">Responsible Party</th><th style="width:80px;">Verification</th><th style="width:55px;">Timeframe</th></tr></thead>
     <tbody>
-    ${[
-      ...(recs.imm||[]).map((r,i) => ({id:`R-${String(i+1).padStart(2,'0')}`,p:'Immediate',c:'Emergency',r,t:'0–48 hrs',pc:'#B91C1C'})),
-      ...(recs.eng||[]).map((r,i) => ({id:`R-${String(i+1+(recs.imm||[]).length).padStart(2,'0')}`,p:'High',c:'Engineering',r,t:'1–4 weeks',pc:'#0E7490'})),
-      ...(recs.adm||[]).map((r,i) => ({id:`R-${String(i+1+(recs.imm||[]).length+(recs.eng||[]).length).padStart(2,'0')}`,p:'Medium',c:'Administrative',r,t:'1–3 months',pc:'#A16207'})),
-      ...(recs.mon||[]).map((r,i) => ({id:`R-${String(i+1+(recs.imm||[]).length+(recs.eng||[]).length+(recs.adm||[]).length).padStart(2,'0')}`,p:'Low',c:'Monitoring',r,t:'Ongoing',pc:'#475569'})),
-    ].map(row => `
-      <tr class="rec-row">
-        <td style="font-family:monospace;font-size:10px;color:#64748B;">${row.id}</td>
-        <td><span style="font-size:9px;font-weight:700;color:${row.pc};">${row.p.toUpperCase()}</span></td>
-        <td style="font-size:10px;color:#475569;">${row.c}</td>
-        <td style="font-size:11px;">${row.r}</td>
-        <td style="font-size:10px;color:#64748B;font-family:monospace;">${row.t}</td>
+    ${rows.map(row => `
+      <tr>
+        <td style="font-family:Cambria,serif;font-size:9px;color:#5C6F7E;">${row.id}</td>
+        <td><span style="font-size:10px;font-weight:700;color:${row.pc};text-transform:uppercase;">${row.p}</span></td>
+        <td style="font-size:10px;color:#2D3A4A;">${row.zone || '—'}</td>
+        <td style="font-size:9px;color:#5C6F7E;">${row.evidence}</td>
+        <td style="font-size:10px;">${row.r}</td>
+        <td style="font-size:9px;color:#5C6F7E;">${row.party}</td>
+        <td style="font-size:9px;color:#5C6F7E;">${row.verify}</td>
+        <td style="font-size:9px;font-family:Cambria,serif;color:#5C6F7E;">${row.t}</td>
       </tr>
     `).join('')}
     </tbody>
-  </table>` : ''}
+  </table>
+  <p style="font-size:9px;color:#7A8A97;margin-top:6px;">Timeframe legend: Immediate (0–48 hours) · Short Term (1–4 weeks) · Medium Term (1–3 months) · Long Term (3–12 months). Recommendations are intended to support — not replace — professional judgment.</p>`
+  })() : ''}
 
   <!-- ═══ LIMITATIONS ═══ -->
   <h2>Limitations and Professional Judgment</h2>
@@ -475,13 +651,13 @@ export function generatePrintHTML(data) {
     ${(zones||[]).map((z, zi) => `
       <tr>
         <td style="font-weight:600;">${z.zn || 'Zone ' + (zi+1)}</td>
-        <td style="font-family:monospace;text-align:center;">${z.co2 || '—'}${z.co2o ? ` <span style="color:#94A3B8;font-size:9px;">(out: ${z.co2o})</span>` : ''}</td>
-        <td style="font-family:monospace;text-align:center;">${z.tf || '—'}${z.tfo ? ` <span style="color:#94A3B8;font-size:9px;">(out: ${z.tfo})</span>` : ''}</td>
-        <td style="font-family:monospace;text-align:center;">${z.rh || '—'}${z.rho ? ` <span style="color:#94A3B8;font-size:9px;">(out: ${z.rho})</span>` : ''}</td>
-        <td style="font-family:monospace;text-align:center;">${z.pm || '—'}${z.pmo ? ` <span style="color:#94A3B8;font-size:9px;">(out: ${z.pmo})</span>` : ''}</td>
-        <td style="font-family:monospace;text-align:center;">${z.co || '—'}</td>
-        <td style="font-family:monospace;text-align:center;">${z.tv || '—'}${z.tvo ? ` <span style="color:#94A3B8;font-size:9px;">(out: ${z.tvo})</span>` : ''}</td>
-        <td style="font-family:monospace;text-align:center;">${z.hc || '—'}</td>
+        <td style="font-family:Cambria,serif;text-align:center;">${z.co2 || '—'}${z.co2o ? ` <span style="color:#94A3B8;font-size:9px;">(out: ${z.co2o})</span>` : ''}</td>
+        <td style="font-family:Cambria,serif;text-align:center;">${z.tf || '—'}${z.tfo ? ` <span style="color:#94A3B8;font-size:9px;">(out: ${z.tfo})</span>` : ''}</td>
+        <td style="font-family:Cambria,serif;text-align:center;">${z.rh || '—'}${z.rho ? ` <span style="color:#94A3B8;font-size:9px;">(out: ${z.rho})</span>` : ''}</td>
+        <td style="font-family:Cambria,serif;text-align:center;">${z.pm || '—'}${z.pmo ? ` <span style="color:#94A3B8;font-size:9px;">(out: ${z.pmo})</span>` : ''}</td>
+        <td style="font-family:Cambria,serif;text-align:center;">${z.co || '—'}</td>
+        <td style="font-family:Cambria,serif;text-align:center;">${z.tv || '—'}${z.tvo ? ` <span style="color:#94A3B8;font-size:9px;">(out: ${z.tvo})</span>` : ''}</td>
+        <td style="font-family:Cambria,serif;text-align:center;">${z.hc || '—'}</td>
       </tr>
     `).join('')}
     </tbody>
@@ -492,15 +668,15 @@ export function generatePrintHTML(data) {
 
   <!-- ═══ APPENDIX B — TRANSPARENT SCORING SUMMARY ═══ -->
   <h2 class="pg-break">Appendix B — Transparent Scoring Summary</h2>
-  <p style="font-size:10px;color:#64748B;margin-bottom:12px;">AtmosFlow applies a deterministic scoring methodology against published occupational and environmental health standards. The composite score is calculated as: (zone average × 0.6) + (worst zone × 0.4). This weighting ensures that a single underperforming zone cannot be masked by otherwise acceptable conditions. All category weights and thresholds are fixed and published — no AI judgment is applied in scoring.</p>
+  <p style="font-size:10px;color:#64748B;margin-bottom:12px;">AtmosFlow applies a deterministic scoring methodology against published occupational and environmental health standards. The composite score follows the AIHA exposure assessment strategy (Bullock &amp; Ignacio, 2015): if any zone scores Critical (&lt;40), the composite equals the worst zone score — ensuring a single failing area cannot be masked by otherwise acceptable conditions. When no zones are Critical, the composite reflects a priority-weighted mean where mission-critical zones (e.g., data halls) carry 1.5× weight. The building confidence rating reflects the lowest-confidence zone assessed. All category weights, thresholds, and overrides are fixed and published — no AI judgment is applied in scoring.</p>
   <table>
     <thead><tr><th>Category</th><th style="text-align:center;">Max Points</th><th>Evaluation Basis</th></tr></thead>
     <tbody>
-      <tr><td style="font-weight:600;">Ventilation</td><td style="text-align:center;font-family:monospace;">25</td><td style="font-size:10px;color:#475569;">CO₂ differential vs ASHRAE 62.1, outdoor air damper status, supply airflow adequacy, complaint correlation</td></tr>
-      <tr><td style="font-weight:600;">Contaminants</td><td style="text-align:center;font-family:monospace;">25</td><td style="font-size:10px;color:#475569;">PM2.5 (EPA/WHO), CO (OSHA/NIOSH), HCHO (OSHA/NIOSH), TVOCs, visible mold, odors, visible dust</td></tr>
-      <tr><td style="font-weight:600;">HVAC</td><td style="text-align:center;font-family:monospace;">20</td><td style="font-size:10px;color:#475569;">Maintenance recency, filter condition/type, airflow adequacy, drain pan condition</td></tr>
-      <tr><td style="font-weight:600;">Complaints</td><td style="text-align:center;font-family:monospace;">15</td><td style="font-size:10px;color:#475569;">Complaint presence, affected occupant count, symptom pattern clarity, clustering, symptom types</td></tr>
-      <tr><td style="font-weight:600;">Environment</td><td style="text-align:center;font-family:monospace;">15</td><td style="font-size:10px;color:#475569;">Temperature (ASHRAE 55 summer/winter), relative humidity, water damage indicators, mold indicators</td></tr>
+      <tr><td style="font-weight:600;">Ventilation</td><td style="text-align:center;font-family:Cambria,serif;">25</td><td style="font-size:10px;color:#475569;">CO₂ differential vs ASHRAE 62.1, outdoor air damper status, supply airflow adequacy, complaint correlation</td></tr>
+      <tr><td style="font-weight:600;">Contaminants</td><td style="text-align:center;font-family:Cambria,serif;">25</td><td style="font-size:10px;color:#475569;">PM2.5 (EPA/WHO), CO (OSHA/NIOSH), HCHO (OSHA/NIOSH), TVOCs, visible mold, odors, visible dust</td></tr>
+      <tr><td style="font-weight:600;">HVAC</td><td style="text-align:center;font-family:Cambria,serif;">20</td><td style="font-size:10px;color:#475569;">Maintenance recency, filter condition/type, airflow adequacy, drain pan condition</td></tr>
+      <tr><td style="font-weight:600;">Complaints</td><td style="text-align:center;font-family:Cambria,serif;">15</td><td style="font-size:10px;color:#475569;">Complaint presence, affected occupant count, symptom pattern clarity, clustering, symptom types</td></tr>
+      <tr><td style="font-weight:600;">Environment</td><td style="text-align:center;font-family:Cambria,serif;">15</td><td style="font-size:10px;color:#475569;">Temperature (ASHRAE 55 summer/winter), relative humidity, water damage indicators, mold indicators</td></tr>
     </tbody>
   </table>
 
@@ -511,16 +687,16 @@ export function generatePrintHTML(data) {
     ${(zoneScores||[]).map(zs => `
       <tr>
         <td style="font-weight:600;">${zs.zoneName}</td>
-        <td style="text-align:center;font-family:monospace;font-weight:700;color:${scoreColor(zs.tot)};">${zs.tot}</td>
-        ${zs.cats.map(c => `<td style="text-align:center;font-family:monospace;font-size:10px;">${c.s}/${c.mx}</td>`).join('')}
+        <td style="text-align:center;font-family:Cambria,serif;font-weight:700;color:${scoreColor(zs.tot)};">${zs.tot}</td>
+        ${zs.cats.map(c => `<td style="text-align:center;font-family:Cambria,serif;font-size:10px;${c.s === null ? 'color:#94A3B8;font-style:italic;' : ''}">${c.s !== null ? c.s + '/' + c.mx : '—'}</td>`).join('')}
         <td style="font-size:10px;font-weight:600;color:${scoreColor(zs.tot)};">${zs.risk}</td>
       </tr>
     `).join('')}
     ${comp ? `
     <tr style="background:#F8FAFC;font-weight:700;">
       <td>Composite</td>
-      <td style="text-align:center;font-family:monospace;color:${scoreColor(comp.tot)};">${comp.tot}</td>
-      <td colspan="5" style="text-align:center;font-size:10px;color:#64748B;">Avg: ${comp.avg} · Worst: ${comp.worst} · Weight: (avg × 0.6) + (worst × 0.4)</td>
+      <td style="text-align:center;font-family:Cambria,serif;color:${scoreColor(comp.tot)};">${comp.tot}</td>
+      <td colspan="5" style="text-align:center;font-size:10px;color:#64748B;">Avg: ${comp.avg} · Worst: ${comp.worst} · ${comp.logic === 'worst-zone-override' ? 'AIHA worst-zone override (Critical zone present)' : 'Priority-weighted mean (no Critical zones)'}</td>
       <td style="font-size:10px;color:${scoreColor(comp.tot)};">${comp.risk || riskLabel(comp.tot)}</td>
     </tr>` : ''}
     </tbody>
@@ -528,6 +704,61 @@ export function generatePrintHTML(data) {
   <div style="margin-top:8px;font-size:9px;color:#94A3B8;">
     <strong>Score bands:</strong> 80–100 Low Risk · 60–79 Moderate · 40–59 High Risk · 0–39 Critical
   </div>
+
+  ${/* Equipment & Calibration Log */(() => {
+    const calLog = data.calibrationLog || []
+    if (!calLog.length) return ''
+    const hasOutOfCal = calLog.some(c => c.outOfCal)
+    return `
+    <h2 class="pg-break">Equipment &amp; Calibration Log</h2>
+    <p style="font-size:11px;color:#475569;margin-bottom:12px;">The following instruments were used during this assessment. Calibration status reflects conditions at the time of the survey.</p>
+    <table>
+      <thead><tr><th>Instrument</th><th>Serial</th><th>Sensor Type</th><th>Last Cal</th><th>Status</th></tr></thead>
+      <tbody>
+      ${calLog.map(c => `<tr>
+        <td style="font-weight:600;">${c.nickname || c.make}</td>
+        <td style="font-family:Cambria,serif;font-size:10px;">${c.serial || '—'}</td>
+        <td style="font-size:10px;">${c.sensorType}</td>
+        <td style="font-family:Cambria,serif;font-size:10px;">${c.lastCalDate || 'Not recorded'}</td>
+        <td style="font-size:10px;font-weight:600;color:${c.outOfCal ? '#B91C1C' : '#15803D'};">${c.outOfCal ? 'OUT OF CAL' : 'Current'}</td>
+      </tr>`).join('')}
+      </tbody>
+    </table>
+    ${hasOutOfCal ? `<div class="note" style="background:#FEF2F2;border-color:#FECACA;margin-top:12px;"><strong style="color:#B91C1C;">Limitations of Data:</strong> One or more instruments used in this assessment were beyond their manufacturer-recommended calibration interval. Readings from out-of-calibration instruments are considered directional only and may not meet defensibility requirements for regulatory or litigation purposes.</div>` : ''}`
+  })()}
+
+  ${/* Spatial Risk Summary — only if zones have map coordinates */(() => {
+    const mappedZones = (zones||[]).filter(z => z.mapX != null && z.mapY != null)
+    if (!mappedZones.length || !data.floorPlan) return ''
+    return `
+    <h2 class="pg-break">Spatial Risk Summary</h2>
+    <p style="font-size:11px;color:#475569;margin-bottom:12px;">The following floor plan overlay illustrates zone-level risk distribution across the assessed facility. Pin colors reflect AIHA worst-case risk thresholds.</p>
+    <div style="position:relative;margin-bottom:16px;border:1px solid #E2E8F0;border-radius:6px;overflow:hidden;">
+      <img src="${data.floorPlan}" alt="Floor plan" style="width:100%;display:block;opacity:0.9;" />
+      ${mappedZones.map((z, i) => {
+        const zi = (zones||[]).indexOf(z)
+        const score = (zoneScores||[])[zi]?.tot
+        const color = score === null ? '#6B7380' : score < 50 ? '#B91C1C' : score < 80 ? '#A16207' : '#15803D'
+        return `<div style="position:absolute;left:${z.mapX}%;top:${z.mapY}%;transform:translate(-50%,-100%);">
+          <div style="width:20px;height:20px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 2px 6px ${color}80;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;font-family:Cambria,serif;">${score ?? '?'}</div>
+        </div>`
+      }).join('')}
+    </div>
+    <div style="display:flex;gap:16px;font-size:9px;color:#64748B;margin-bottom:12px;">
+      <span>● <span style="color:#15803D;">Low Risk (80–100)</span></span>
+      <span>● <span style="color:#A16207;">Moderate (50–79)</span></span>
+      <span>● <span style="color:#B91C1C;">Critical (&lt;50)</span></span>
+    </div>
+    <table><thead><tr><th>Zone</th><th style="text-align:center;">Score</th><th>Risk Level</th><th>Primary Concern</th></tr></thead><tbody>
+    ${mappedZones.map((z, i) => {
+      const zi = (zones||[]).indexOf(z)
+      const zs = (zoneScores||[])[zi]
+      const worst = zs?.cats?.reduce((a, b) => ((a.s/a.mx) < (b.s/b.mx) ? a : b))
+      return `<tr><td style="font-weight:600;">${z.zn || 'Zone'}</td><td style="text-align:center;font-family:Cambria,serif;font-weight:700;color:${scoreColor(zs?.tot)};">${zs?.tot ?? '—'}</td><td style="font-size:10px;color:${scoreColor(zs?.tot)};">${zs?.risk || '—'}</td><td style="font-size:10px;color:#475569;">${worst?.l || '—'} (${worst?.s ?? '—'}/${worst?.mx ?? '—'})</td></tr>`
+    }).join('')}
+    </tbody></table>
+    <p style="font-size:9px;color:#94A3B8;margin-top:8px;">Risk thresholds per AIHA exposure assessment strategy. Building composite reflects worst-zone override when any zone is Critical.</p>`
+  })()}
 
   <!-- ═══ STANDARDS REFERENCE ═══ -->
   ${standardsManifest ? `
@@ -538,8 +769,8 @@ export function generatePrintHTML(data) {
 
   <!-- ═══ FOOTER ═══ -->
   <div class="footer">
-    <div>Prudence Safety &amp; Environmental Consulting, LLC &nbsp;|&nbsp; Report ID: ${reportId} &nbsp;|&nbsp; ${now}</div>
-    <div style="margin-top:4px;font-size:8px;">Confidential — This report is intended for the client identified above and should not be distributed to third parties without authorization.</div>
+    <div>${firmName} &nbsp;|&nbsp; Report ID: ${reportId} &nbsp;|&nbsp; ${now}</div>
+    <div style="margin-top:4px;font-size:10px;">Confidential — This report is intended for the client identified above and should not be distributed to third parties without authorization.</div>
   </div>
 </body>
 </html>`

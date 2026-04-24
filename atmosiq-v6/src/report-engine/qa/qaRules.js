@@ -80,7 +80,7 @@ export const QA_RULES = [
     severity: 'warning',
     description: 'Should use restrained consulting language',
     check: (section) => {
-      const aggressive = ['unsafe', 'dangerous', 'lethal', 'illegal', 'must be fixed immediately', 'unacceptable']
+      const aggressive = ['unsafe', 'dangerous', 'lethal', 'illegal', 'must be fixed immediately', 'unacceptable', 'system failure', 'toxicity']
       const found = aggressive.filter(f => section.content.toLowerCase().includes(f.toLowerCase()))
       return { pass: found.length === 0, issue: found.length > 0 ? `Consider softer language for: ${found.join(', ')}` : undefined }
     }

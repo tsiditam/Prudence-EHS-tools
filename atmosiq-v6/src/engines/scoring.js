@@ -25,8 +25,8 @@ export function scoreZone(z, bldg) {
   const rhOvr = profile ? getRHOverride(profile, d.zone_subtype) : null
   const weights = getZoneWeights(d.zone_subtype)
   const rawCats = [scoreVent(d), scoreCont(d), scoreHVAC(d), scoreComp(d), scoreEnv(d, rhOvr)]
-  // Apply zone-specific weights
-  rawCats.forEach(c => { c.mx = weights[c.l] ?? c.mx; if (weights[c.l] === 0) { c.s = 0; c.suppressed = true } })
+  // Apply zone-specific weights (preserve original max for sufficiency scaling)
+  rawCats.forEach(c => { c.origMx = c.mx; c.mx = weights[c.l] ?? c.mx; if (weights[c.l] === 0) { c.s = 0; c.suppressed = true } })
   // Rescale scores to new max when weights differ from default
   rawCats.forEach(c => {
     if (!c.suppressed && c.mx !== ZONE_WEIGHTS.default[c.l]) {
@@ -43,11 +43,24 @@ export function scoreZone(z, bldg) {
     if (c.suppressed) return { ...c, status: 'SUPPRESSED' }
     const cs = suff[c.l]
     if (cs && cs.isInsufficient) return { ...c, s: null, status: 'INSUFFICIENT', reason: cs.reason, sufficiency: cs }
-    if (cs && cs.maxAwardable < c.mx) return { ...c, s: Math.min(c.s, cs.maxAwardable), sufficiency: cs, capped: true }
+    if (cs && cs.maxAwardable === 0) {
+      if (c.gate5 || c.r.some(r => r.sev === 'critical')) return { ...c, s: 0, sufficiency: cs, capped: true }
+      return { ...c, s: null, status: 'DATA_GAP', reason: 'No category data collected', sufficiency: cs }
+    }
+    const scaledMaxAw = (c.origMx && c.origMx !== c.mx) ? Math.round((cs.maxAwardable / c.origMx) * c.mx) : cs.maxAwardable
+    if (cs && scaledMaxAw < c.mx) return { ...c, s: Math.min(c.s, scaledMaxAw), sufficiency: cs, capped: true }
     return { ...c, sufficiency: cs }
   })
   const scorable = cats.filter(c => c.s !== null && c.status !== 'SUPPRESSED')
   let tot = scorable.length > 0 ? scorable.reduce((a, c) => a + c.s, 0) : null
+  // Normalize against available max when categories have insufficient data
+  // Missing data reduces confidence, not inflates risk
+  const availableMax = scorable.reduce((a, c) => a + c.mx, 0)
+  let normalizedFrom = null
+  if (availableMax > 0 && availableMax < 100 && tot !== null) {
+    normalizedFrom = tot
+    tot = Math.round((tot / availableMax) * 100)
+  }
   // Critical Concern Override: G3/GX corrosion or ISO Class 8 failure forces score < 50
   if (d.zone_subtype === 'data_hall') {
     if (d.gaseous_corrosion && (d.gaseous_corrosion.includes('G3') || d.gaseous_corrosion.includes('GX'))) {
@@ -59,9 +72,26 @@ export function scoreZone(z, bldg) {
       cats.find(c => c.l === 'Contaminants')?.r.push({ t: 'ISO 14644-1 Class 8 particle limit exceeded — Critical Concern Override applied', std: 'ISO 14644-1:2015', sev: 'critical' })
     }
   }
+  // Category lookups for overrides
+  const contCat = cats.find(c => c.l === 'Contaminants')
+  const hvacCat = cats.find(c => c.l === 'HVAC')
+  const ventCat = cats.find(c => c.l === 'Ventilation')
+  // Multiple Contaminant Exceedance Rule: multiple Tier 1 PEL exceedances → force Critical
+  if (contCat?.synergistic && tot !== null) tot = Math.min(tot, 39)
+  // Critical HVAC Condition Override → force zone below 50
+  if (hvacCat?.gate5 && tot !== null) tot = Math.min(tot, 40)
   const band = getRiskBand(tot)
-  const confidence = getConfidenceLevel(suff._overall || 0)
-  return { tot, risk: band.label, rc: band.color, cats, zoneName: z.zn || 'Zone', partialScore: cats.some(c => c.status === 'INSUFFICIENT'), confidence, sufficiency: suff, zoneSubtype: d.zone_subtype, weights }
+  let confidence = getConfidenceLevel(suff._overall || 0)
+  // Ventilation Confidence Cap: CO2/field-indicator-only caps at Moderate
+  if (ventCat && !d.cfm_person && !d.ach && confidence === 'High') confidence = 'Medium'
+  // Critical HVAC Condition caps confidence
+  if (hvacCat?.gate5 && (confidence === 'High')) confidence = 'Medium'
+  // HVAC admin gap (unknown maintenance) reduces confidence
+  if (hvacCat?.adminGap && confidence === 'High') confidence = 'Medium'
+  // Data gaps reduce confidence, not risk
+  if (normalizedFrom !== null && confidence === 'High') confidence = 'Medium'
+  const insufficientCats = cats.filter(c => c.status === 'INSUFFICIENT' || c.status === 'DATA_GAP').map(c => c.l)
+  return { tot, risk: band.label, rc: band.color, cats, zoneName: z.zn || 'Zone', partialScore: cats.some(c => c.status === 'INSUFFICIENT' || c.status === 'DATA_GAP'), confidence, sufficiency: suff, zoneSubtype: d.zone_subtype, weights, normalizedFrom, availableMax, insufficientCats, hvacAdminGap: hvacCat?.adminGap || false }
 }
 
 // Zone-type priority weights for composite calculation
@@ -98,7 +128,10 @@ export function compositeScore(zoneScores) {
     : 'No Critical zones; composite reflects priority-weighted mean (mission-critical zones weighted 1.5x).'
   const band = getRiskBand(comp)
   const partialComposite = scorable.length < zoneScores.length
-  return { tot: comp, avg, worst, risk: band.label, rc: band.color, count: zoneScores.length, logic, rationale, partialComposite }
+  // Building confidence = lowest zone confidence (cannot claim High if riskiest zone wasn't fully tested)
+  const confOrder = { 'Insufficient': 0, 'Low': 1, 'Medium': 2, 'High': 3 }
+  const worstConfidence = scorable.reduce((w, z) => (confOrder[z.confidence] || 0) < (confOrder[w] || 0) ? z.confidence : w, 'High')
+  return { tot: comp, avg, worst, risk: band.label, rc: band.color, count: zoneScores.length, logic, rationale, partialComposite, confidence: worstConfidence }
 }
 
 // Ventilation hierarchy per ASHRAE 62.1-2022; Persily 2022 caveat
@@ -169,23 +202,37 @@ function scoreCont(d) {
   if (d.op === 'Strong / overpowering')    { dd += 10; r.push({ t:'Strong odor: '+((d.ot||[]).join(', ')||'?'), sev:'high' }) }
   else if (d.op === 'Moderate persistent') { dd += 5;  r.push({ t:'Moderate odor', sev:'medium' }) }
   if (d.vd === 'Airborne haze' || d.vd === 'Heavy accumulation') { dd += 5; r.push({ t:d.vd, sev:'medium' }) }
+  // Multiple Contaminant Exceedance: multiple Tier 1 contaminants exceeding OSHA PEL
+  let tier1Count = 0
+  if (d.co && +d.co > STD.c.co.osha) tier1Count++
+  if (d.hc && +d.hc > STD.c.hcho.osha) tier1Count++
+  const synergistic = tier1Count >= 2
+  if (synergistic) { dd = 25; r.push({ t:'Multiple Contaminant Exceedance: More than one Tier 1 contaminant exceeds OSHA PELs — Immediate Follow-Up Sampling Required', sev:'critical' }) }
   if (!r.length) r.push({ t:'No contaminant concerns', sev:'pass' })
-  return { s: Math.max(0, 25 - dd), mx: 25, l: 'Contaminants', r }
+  return { s: Math.max(0, 25 - dd), mx: 25, l: 'Contaminants', r, synergistic }
 }
 
+// HVAC scoring: physical hygiene > administrative history (EPA BAQ, CIH best practice)
 function scoreHVAC(d) {
-  let s = 20, r = []
+  let s = 20, r = [], gate5 = false, adminGap = false
+  // Administrative (lower impact — documentation gaps reduce confidence, not score)
   if (d.hm === 'Within 6 months')     r.push({ t:'HVAC maintenance current', sev:'pass' })
-  else if (d.hm === '6-12 months ago'){ s -= 5;  r.push({ t:'HVAC maintenance 6–12 months ago', sev:'low' }) }
-  else if (d.hm === 'Over 12 months') { s -= 15; r.push({ t:'HVAC maintenance overdue (>12 months)', sev:'high' }) }
-  else if (d.hm === 'Unknown')        { s -= 20; r.push({ t:'HVAC maintenance history unknown', sev:'high' }) }
-  if (d.fc === 'Heavily loaded' || d.fc === 'Damaged / Bypass') { s -= 5; r.push({ t:'Filter condition: '+d.fc.toLowerCase(), sev:'medium' }) }
-  if (d.fm === 'No filter')           { s -= 8;  r.push({ t:'No filtration installed', sev:'high' }) }
-  if (d.sa === 'No airflow detected') { s -= 8;  r.push({ t:'No supply airflow detected', sev:'critical' }) }
-  if (d.dp === 'Standing water' || d.dp === 'Bio growth observed') { s -= 5; r.push({ t:'Drain pan: '+d.dp.toLowerCase(), sev:'medium' }) }
+  else if (d.hm === '6-12 months ago'){ s -= 3;  r.push({ t:'HVAC maintenance 6–12 months ago', sev:'low' }) }
+  else if (d.hm === 'Over 12 months') { s -= 5;  r.push({ t:'HVAC maintenance overdue (>12 months)', sev:'medium' }) }
+  else if (d.hm === 'Unknown')        { adminGap = true; r.push({ t:'HVAC maintenance history unknown — Data Gap (confidence reduced, not scored as deficiency)', sev:'info' }) }
+  // Physical/Hygiene (high impact)
+  if (d.fc === 'Heavily loaded' || d.fc === 'Damaged / Bypass') { s -= 10; r.push({ t:'Filter condition: '+d.fc.toLowerCase()+' — degraded filtration performance', sev:'high' }) }
+  if (d.fm === 'No filter')           { s -= 15; gate5 = true; r.push({ t:'No filtration installed — Major HVAC Deficiency', sev:'critical' }) }
+  if (d.sa === 'No airflow detected') { s -= 20; gate5 = true; r.push({ t:'No supply airflow detected — Critical HVAC Condition Identified', sev:'critical' }) }
+  if (d.dp === 'Standing water' || d.dp === 'Bio growth observed') { s -= 15; gate5 = true; r.push({ t:'Drain pan: '+d.dp.toLowerCase()+' — Critical Moisture/Hygiene Deficiency', sev:'critical' }) }
+  // Critical HVAC Condition Override — cap at 30% of max
+  if (gate5) { s = Math.min(s, Math.round(20 * 0.3)); r.push({ t:'Critical HVAC Condition Identified: active physical deficiency caps category at 30%', sev:'critical' }) }
   s = Math.max(0, s)
-  if (!r.length) r = [{ t:'HVAC system conditions acceptable', sev:'pass' }]
-  return { s, mx: 20, l: 'HVAC', r }
+  if (!r.length) {
+    const hasAnyData = d.hm || d.fc || d.sa || d.dp || d.fm
+    r = [{ t: hasAnyData ? 'HVAC system conditions acceptable' : 'No HVAC system data collected', sev: hasAnyData ? 'pass' : 'info' }]
+  }
+  return { s, mx: 20, l: 'HVAC', r, gate5, adminGap }
 }
 
 function scoreComp(d) {

@@ -31,17 +31,10 @@ export function buildCoverPage(ctx) {
     properties: { page: { margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 } } },
     children: [
       p('', { after: 2400 }),
-      p('Prudence Safety & Environmental Consulting, LLC', { align: AlignmentType.CENTER, size: 20, color: COLORS.muted, after: 200 }),
-      new Paragraph({
-        children: [
-          new TextRun({ text: 'Atmos', font: FONTS.body, size: 56, bold: true, color: COLORS.text }),
-          new TextRun({ text: 'Flow', font: FONTS.body, size: 56, bold: true, color: COLORS.accent }),
-        ],
-        alignment: AlignmentType.CENTER,
-        spacing: { after: 200 },
-      }),
-      p('Indoor Air Quality Assessment Report', { align: AlignmentType.CENTER, size: 36, color: '334155', after: 80 }),
-      p('Standards-Driven Multi-Zone Assessment', { align: AlignmentType.CENTER, size: 22, color: COLORS.muted, after: 600 }),
+      p(ctx.firmName, { align: AlignmentType.CENTER, size: 24, bold: true, color: COLORS.text, after: 120 }),
+      p(ctx.firmAddress, { align: AlignmentType.CENTER, size: 20, color: COLORS.sub, after: 400 }),
+      p('Indoor Air Quality', { align: AlignmentType.CENTER, size: 44, bold: true, color: COLORS.text, after: 40 }),
+      p('Assessment Report', { align: AlignmentType.CENTER, size: 44, bold: true, color: COLORS.text, after: 400 }),
       p(`Site: ${ctx.facilityName}`, { align: AlignmentType.CENTER, size: 22, color: COLORS.sub, after: 60 }),
       p(`Location: ${ctx.address}`, { align: AlignmentType.CENTER, size: 22, color: COLORS.sub, after: 60 }),
       p(`Assessment Date: ${ctx.assessDate}`, { align: AlignmentType.CENTER, size: 22, color: COLORS.sub, after: 60 }),
@@ -59,7 +52,7 @@ export function buildTransparencyPanel(ctx) {
     p('Assessment Transparency', { bold: true, size: 20, color: '334155', after: 80 }),
     kvTable([
       ['Workflow version', `AtmosFlow v${ctx.version}`],
-      ['Standards referenced', 'ASHRAE 62.1-2025, ASHRAE 55-2023, OSHA PELs, EPA NAAQS, WHO guidelines'],
+      ['Standards referenced', ctx.standardsManifest ? Object.entries(ctx.standardsManifest).filter(([k]) => k !== 'engineVersion' && k !== 'manifestUpdated').map(([k, v]) => `${k} ${v}`).join(', ') : 'See standards manifest'],
       ['Calibration recorded', ctx.calibration],
       ['Professional review', 'Draft — requires IH review before distribution'],
       ['Confidence level', ctx.confidence],
@@ -96,7 +89,11 @@ export function buildExecutiveSummary(ctx) {
     const worst = ctx.zoneScores?.reduce((a, b) => a.tot < b.tot ? a : b, ctx.zoneScores[0])
     const worstCat = worst?.cats?.reduce((a, b) => (a.s / a.mx) < (b.s / b.mx) ? a : b)
 
-    const p1 = `An indoor air quality assessment was conducted at ${ctx.facilityName} on ${ctx.assessDate}, encompassing ${ctx.zoneCount} zone${ctx.zoneCount !== 1 ? 's' : ''}${ctx.reason ? ` in response to ${ctx.reason.toLowerCase()}` : ''}. The assessment included direct-reading instrument measurements, visual inspection, HVAC system evaluation, and occupant complaint documentation.`
+    const hasGate5 = ctx.zoneScores?.some(zs => zs.cats?.some(c => c.gate5))
+    const hasSynergistic = ctx.zoneScores?.some(zs => zs.cats?.some(c => c.synergistic))
+    const criticalPrefix = hasGate5 ? 'Critical HVAC Condition Identified: Active moisture or filtration deficiency detected in HVAC system. ' : hasSynergistic ? 'Multiple Contaminant Exceedance: More than one Tier 1 contaminant exceeds OSHA Permissible Exposure Limits. Immediate follow-up sampling required. ' : ''
+
+    const p1 = `${criticalPrefix}An indoor air quality assessment was conducted at ${ctx.facilityName} on ${ctx.assessDate}, encompassing ${ctx.zoneCount} zone${ctx.zoneCount !== 1 ? 's' : ''}${ctx.reason ? ` in response to ${ctx.reason.toLowerCase()}` : ''}. The assessment included direct-reading instrument measurements, visual inspection, HVAC system evaluation, and occupant complaint documentation.`
 
     const riskDesc = ctx.comp.tot >= 70
       ? 'Available evidence supports that conditions observed during the assessment window are broadly consistent with applicable occupancy standards, with localized areas warranting targeted follow-up as noted in the zone findings below.'
@@ -114,14 +111,14 @@ export function buildExecutiveSummary(ctx) {
     children.push(p(p3, { size: 22, color: COLORS.sub }))
   }
 
-  // Priority actions
+  // Priority actions — omit header entirely if no actions
   if (ctx.recs) {
-    children.push(p('Priority Actions', { heading: HeadingLevel.HEADING_3 }))
     const rows = []
     ;(ctx.recs.imm || []).forEach(r => rows.push([{ text: 'IMMEDIATE', bold: true, color: SEV_COLORS.critical, size: 18 }, r]))
     ;(ctx.recs.eng || []).slice(0, 3).forEach(r => rows.push([{ text: 'ENGINEERING', bold: true, color: COLORS.accent, size: 18 }, r]))
     ;(ctx.recs.adm || []).slice(0, 2).forEach(r => rows.push([{ text: 'ADMINISTRATIVE', bold: true, color: SEV_COLORS.medium, size: 18 }, r]))
     if (rows.length > 0) {
+      children.push(p('Priority Actions', { heading: HeadingLevel.HEADING_3 }))
       children.push(buildTable([{ text: 'Priority', width: 20 }, { text: 'Action', width: 80 }], rows))
     }
   }
@@ -146,7 +143,8 @@ export function buildScopeMethodology(ctx) {
   ))
 
   children.push(p('Standards and References', { heading: HeadingLevel.HEADING_3 }))
-  children.push(p('ASHRAE Standard 62.1-2025 (Ventilation for Acceptable IAQ), ASHRAE Standard 55-2023 (Thermal Environmental Conditions), OSHA Permissible Exposure Limits (29 CFR 1910.1000), EPA National Ambient Air Quality Standards, WHO Air Quality Guidelines.', { size: 20, color: COLORS.sub }))
+  const stdsText = ctx.standardsManifest ? Object.entries(ctx.standardsManifest).filter(([k]) => k !== 'engineVersion' && k !== 'manifestUpdated').map(([k, v]) => `${k} (${v})`).join(', ') : 'ASHRAE 62.1, ASHRAE 55, OSHA PELs, EPA NAAQS, WHO Air Quality Guidelines'
+  children.push(p(stdsText + '.', { size: 20, color: COLORS.sub }))
 
   children.push(p('Limitations', { heading: HeadingLevel.HEADING_3 }))
   children.push(p('This assessment represents conditions observed at the time of the site visit and may not reflect all temporal, seasonal, or operational variations. Findings are based on direct-reading instrumentation and visual observations. Laboratory analysis was not performed unless specifically noted.', { size: 20, color: COLORS.sub }))
@@ -159,7 +157,7 @@ export function buildBuildingContext(ctx) {
   const pre = ctx.presurvey
   const children = [
     p('Building and Complaint Context', { heading: HeadingLevel.HEADING_2 }),
-    p(`${ctx.facilityName} is a ${(bldg.ft || 'commercial').toLowerCase()} facility${bldg.ba ? ` constructed in approximately ${bldg.ba}` : ''}${bldg.rn ? `, with renovations reported ${bldg.rn.toLowerCase()}` : ''}. The building is served by ${bldg.ht ? `a ${bldg.ht.toLowerCase()} system` : 'mechanical ventilation'}${bldg.hm ? `, with last reported HVAC maintenance ${bldg.hm.toLowerCase()}` : ''}. ${pre?.ps_complaint_narrative ? 'Occupant concerns were reported prior to this assessment, as summarized below.' : 'No formal occupant complaints were reported prior to this assessment.'}`, { size: 22, color: COLORS.sub }),
+    p(`${ctx.reason ? `Assessment triggered by ${ctx.reason.toLowerCase()}. ` : ''}${ctx.facilityName} is a ${(bldg.ft || 'commercial').toLowerCase()} facility${bldg.ba ? ` constructed in approximately ${bldg.ba}` : ''}${bldg.rn ? `, with renovations reported ${bldg.rn.toLowerCase()}` : ''}. The building is served by ${bldg.ht ? `a ${bldg.ht.toLowerCase()} system` : 'mechanical ventilation'}${bldg.hm ? `, with last reported HVAC maintenance ${bldg.hm.toLowerCase()}` : ''}. ${pre?.ps_complaint_narrative ? 'Occupant concerns were reported prior to this assessment, as summarized below.' : 'No formal occupant complaints were reported prior to this assessment.'}`, { size: 22, color: COLORS.sub }),
   ]
 
   const pairs = [
@@ -203,5 +201,58 @@ export function buildFindingsDashboard(ctx) {
 
   children.push(p(`Conditions observed during the assessment window suggest ${desc} The composite score of ${ctx.comp.tot}/100 reflects a weighted evaluation across ventilation, contaminant levels, HVAC system conditions, occupant complaints, and environmental factors.`, { size: 22, color: COLORS.sub }))
 
+  return children
+}
+
+export function buildTransmittalLetter(ctx) {
+  const recipient = ctx.client?.contact_name || 'Property Management'
+  const org = ctx.client?.organization || ctx.facilityName
+  const trigger = ctx.reason ? ` in response to ${ctx.reason.toLowerCase()}` : ''
+  const scorePreview = ctx.comp ? ` The composite assessment score of ${ctx.comp.tot}/100 (${ctx.comp.risk}) reflects conditions observed across ${ctx.zoneCount} assessed zone${ctx.zoneCount !== 1 ? 's' : ''}.` : ''
+  return [
+    p(ctx.reportDate, { size: 22, color: COLORS.body, after: 200 }),
+    p(recipient, { size: 22, bold: true, color: COLORS.text, after: 40 }),
+    p(org, { size: 22, color: COLORS.body, after: 40 }),
+    p(ctx.address, { size: 22, color: COLORS.body, after: 200 }),
+    p('Re: Indoor Air Quality Assessment Report', { size: 22, bold: true, color: COLORS.text, after: 200 }),
+    // P1: Introduction with trigger
+    p(`${ctx.firmName} was retained to conduct an indoor air quality assessment at ${ctx.facilityName}${trigger}. This report presents the findings, analysis, and recommendations resulting from our assessment conducted on ${ctx.assessDate}.`, { size: 22, color: COLORS.body }),
+    // P2: Scope summary
+    p(`The assessment encompassed ${ctx.zoneCount} zone${ctx.zoneCount !== 1 ? 's' : ''} and included direct-reading instrumentation, visual inspection, HVAC system evaluation, and occupant complaint documentation. Findings are referenced against published ASHRAE, OSHA, NIOSH, EPA, and WHO standards as identified in the attached standards manifest.`, { size: 22, color: COLORS.body }),
+    // P3: Findings preview
+    p(`Detailed findings, scored evaluations, and tiered recommendations are presented in the body of this report.${scorePreview} Priority corrective actions, where applicable, are summarized in the Executive Summary.`, { size: 22, color: COLORS.body }),
+    // P4: Limitations and continued service
+    p('This report is intended for the sole use of the addressee and should not be distributed without written authorization from PSEC. The conclusions herein are based on conditions observed at the time of assessment and should be interpreted in context with professional judgment. We remain available for follow-up consultation, additional sampling, or clarification of any findings.', { size: 22, color: COLORS.body, after: 300 }),
+    p('Respectfully submitted,', { size: 22, color: COLORS.body, after: 200 }),
+    p(ctx.assessor, { size: 22, bold: true, color: COLORS.text, after: 40 }),
+    ...(ctx.assessorCerts?.length > 0 ? [p(ctx.assessorCerts.join(', '), { size: 20, color: COLORS.sub, after: 40 })] : []),
+    p(ctx.firmName, { size: 20, color: COLORS.sub, after: 40 }),
+    p(`${ctx.firmEmail} | ${ctx.firmPhone}`, { size: 20, color: COLORS.sub }),
+  ]
+}
+
+export function buildTableOfContents(ctx) {
+  const sections = [
+    'Executive Summary',
+    'Scope and Methodology',
+    'Building and Complaint Context',
+    'Overall Findings Dashboard',
+    'Zone-by-Zone Findings',
+  ]
+  if (ctx.causalChains?.length > 0) sections.push('Causal Chain Analysis')
+  if (ctx.samplingPlan?.plan?.length > 0) sections.push('Recommended Sampling Plan')
+  if (ctx.recs && ((ctx.recs.imm||[]).length || (ctx.recs.eng||[]).length || (ctx.recs.adm||[]).length || (ctx.recs.mon||[]).length)) sections.push('Recommendations Register')
+  sections.push('Limitations and Professional Judgment')
+  if (ctx.calibrationLog?.length > 0) sections.push('Equipment & Calibration Log')
+  if (ctx.zones?.some(z => z.mapX != null) && ctx.floorPlan) sections.push('Spatial Risk Summary')
+  sections.push('Appendix A — Raw Measurement Snapshot')
+  sections.push('Appendix B — Transparent Scoring Summary')
+
+  const children = [
+    p('Table of Contents', { heading: HeadingLevel.HEADING_2 }),
+  ]
+  sections.forEach((s, i) => {
+    children.push(p(`${i + 1}.  ${s}`, { size: 22, color: COLORS.body, after: 60 }))
+  })
   return children
 }

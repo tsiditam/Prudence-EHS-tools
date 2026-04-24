@@ -55,6 +55,9 @@ export const DEMO_FM_ZONES = [
     tf: '78',
     rh: '64',
     pm: '22',
+    meas_time: '2:00 PM',
+    meas_occ: 'Typical occupancy',
+    meas_duration: 'Spot check (instantaneous)',
   },
   {
     zn: 'Break Room / Kitchen',
@@ -75,5 +78,8 @@ export const DEMO_FM_ZONES = [
     tf: '80',
     rh: '68',
     pm: '18',
+    meas_time: '2:20 PM',
+    meas_occ: 'Typical occupancy',
+    meas_duration: 'Spot check (instantaneous)',
   },
 ]

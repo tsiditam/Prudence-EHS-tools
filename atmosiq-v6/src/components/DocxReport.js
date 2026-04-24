@@ -5,14 +5,15 @@
 
 import { Document, Packer, SectionType } from 'docx'
 import { DOCX_STYLES } from './docx/styles'
-import { buildCoverPage, buildTransparencyPanel, buildExecutiveSummary, buildScopeMethodology, buildBuildingContext, buildFindingsDashboard } from './docx/sections-core'
+import { buildCoverPage, buildTransmittalLetter, buildTableOfContents, buildTransparencyPanel, buildExecutiveSummary, buildScopeMethodology, buildBuildingContext, buildFindingsDashboard } from './docx/sections-core'
 import { buildZoneHeader, buildZoneSection } from './docx/sections-zone'
 import { buildCausalChainAnalysis } from './docx/sections-causal'
 import { buildSamplingPlan, buildRecommendations, buildLimitations } from './docx/sections-recommendations'
 import { buildAppendixA, buildAppendixB, buildFooter } from './docx/sections-appendix'
+import { buildEquipmentLog, buildSpatialRiskSummary, buildFMSummaryLayer } from './docx/sections-extras'
 
 function buildContext(data) {
-  const { building, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos, version } = data
+  const { building, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos, version, standardsManifest } = data
   const bldg = building || {}
   const now = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
   const assessDate = data.ts ? new Date(data.ts).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : now
@@ -23,7 +24,7 @@ function buildContext(data) {
     assessDate,
     reportDate: now,
     assessor: profile?.name || presurvey?.ps_assessor || 'Assessor',
-    reportId: data.id || `AIQ-${Date.now().toString(36).toUpperCase().slice(-6)}`,
+    reportId: data.id || (() => { const chars = '23456789ABCDEFGHJKMNPQRSTUVWXYZ'; let s = ''; for (let i = 0; i < 3; i++) s += chars[Math.floor(Math.random() * chars.length)]; return `PSEC-IAQ-${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}-${s}` })(),
     version: version || '6.0.0',
     building: bldg,
     presurvey: presurvey || {},
@@ -46,6 +47,12 @@ function buildContext(data) {
     calibration: presurvey?.ps_inst_iaq_cal_status || 'Not recorded',
     pidMeter: presurvey?.ps_inst_pid || '',
     pidCal: presurvey?.ps_inst_pid_cal || '',
+    standardsManifest: standardsManifest || null,
+    firmName: profile?.firm || 'Prudence Safety & Environmental Consulting, LLC',
+    firmAddress: profile?.firm_address || 'Germantown, Maryland',
+    firmPhone: profile?.firm_phone || '(301) 541-8362',
+    firmEmail: profile?.email || 'support@prudenceehs.com',
+    assessorCerts: profile?.certs || [],
   }
 }
 
@@ -54,6 +61,8 @@ export async function generateDocx(data) {
 
   // Build all content sections
   const mainChildren = [
+    ...buildTransmittalLetter(ctx),
+    ...buildTableOfContents(ctx),
     ...buildTransparencyPanel(ctx),
     ...buildExecutiveSummary(ctx),
     ...buildScopeMethodology(ctx),

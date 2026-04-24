@@ -52,7 +52,7 @@ export function buildZoneSection(ctx, zi) {
   children.push(new Paragraph({
     children: [
       new TextRun({ text: zs.zoneName || `Zone ${zi + 1}`, font: FONTS.body, size: 28, bold: true, color: COLORS.text }),
-      new TextRun({ text: `    ${zs.tot}/100 — ${zs.risk}`, font: FONTS.mono, size: 22, bold: true, color: scoreColor(zs.tot) }),
+      new TextRun({ text: zs.tot !== null ? `    ${zs.tot}/100 — ${zs.risk}` : '    Not scored — insufficient data', font: FONTS.body, size: 22, bold: true, color: zs.tot !== null ? scoreColor(zs.tot) : COLORS.muted }),
     ],
     spacing: { before: 300, after: 60 },
   }))
@@ -105,7 +105,7 @@ export function buildZoneSection(ctx, zi) {
   }
 
   // Parameter results
-  const hasData = z.co2 || z.tf || z.rh || z.pm || z.co || z.tv || z.hc
+  const hasData = z.co2 || z.tf || z.rh || z.pm || z.co || z.tv || z.hc || z.gaseous_corrosion || z.dp_temp || z.iso_class || z.h2_monitoring || z.exhaust_cfm_sqft
   if (hasData) {
     children.push(p('Parameter Results', { heading: HeadingLevel.HEADING_3 }))
     const paramRows = []
@@ -116,6 +116,12 @@ export function buildZoneSection(ctx, zi) {
     if (z.co) paramRows.push(['Carbon Monoxide', { text: `${z.co} ppm`, mono: true }, { text: '—', mono: true, color: COLORS.muted }, '<35 ppm (NIOSH REL)'])
     if (z.tv) paramRows.push(['Total VOCs', { text: `${z.tv} µg/m³`, mono: true }, { text: `${z.tvo || '—'} µg/m³`, mono: true, color: COLORS.muted }, '<500 µg/m³ (concern)'])
     if (z.hc) paramRows.push(['Formaldehyde', { text: `${z.hc} ppm`, mono: true }, { text: '—', mono: true, color: COLORS.muted }, '<0.016 ppm (NIOSH REL)'])
+    // Data center additional fields
+    if (z.gaseous_corrosion) paramRows.push(['Gaseous Corrosion (ANSI/ISA 71.04-2013)', { text: z.gaseous_corrosion, mono: true }, { text: '—', color: COLORS.muted }, 'G1 Mild → GX Severe'])
+    if (z.dp_temp) paramRows.push(['Dew Point', { text: `${z.dp_temp} °F`, mono: true }, { text: '—', color: COLORS.muted }, '41.9–59°F (ASHRAE TC 9.9)'])
+    if (z.iso_class) paramRows.push(['Cleanliness Class (ISO 14644-1)', { text: z.iso_class, mono: true }, { text: '—', color: COLORS.muted }, 'ISO 14644-1:2015'])
+    if (z.h2_monitoring) paramRows.push(['Hydrogen Monitoring', { text: z.h2_monitoring, mono: true }, { text: '—', color: COLORS.muted }, 'NFPA 1'])
+    if (z.exhaust_cfm_sqft) paramRows.push(['Battery Room Exhaust', { text: `${z.exhaust_cfm_sqft} cfm/sq ft`, mono: true }, { text: '—', color: COLORS.muted }, '≥1 cfm/sq ft (NFPA 1)'])
 
     children.push(buildTable(
       [{ text: 'Parameter', width: 25 }, { text: 'Indoor', width: 20, align: AlignmentType.CENTER }, { text: 'Outdoor', width: 20, align: AlignmentType.CENTER }, { text: 'Reference', width: 35 }],
@@ -125,8 +131,8 @@ export function buildZoneSection(ctx, zi) {
 
   // Category assessment
   children.push(p('Category Assessment', { heading: HeadingLevel.HEADING_3 }))
-  const catRows = zs.cats.map(cat => {
-    const pct = Math.round((cat.s / cat.mx) * 100)
+  const catRows = zs.cats.filter(cat => cat.s !== null && cat.s !== undefined && cat.status !== 'SUPPRESSED').map(cat => {
+    const pct = cat.mx > 0 ? Math.round((cat.s / cat.mx) * 100) : 0
     return [
       { text: cat.l, bold: true },
       { text: `${cat.s}/${cat.mx}`, mono: true, align: AlignmentType.CENTER },
@@ -134,27 +140,43 @@ export function buildZoneSection(ctx, zi) {
       { text: `${pct}%`, mono: true, align: AlignmentType.RIGHT },
     ]
   })
+  // Categories with no data
+  zs.cats.filter(cat => cat.s === null || cat.status === 'INSUFFICIENT' || cat.status === 'DATA_GAP' || cat.status === 'SUPPRESSED').forEach(cat => {
+    catRows.push([
+      { text: cat.l, bold: true },
+      { text: 'Not assessed', italics: true, color: COLORS.muted, align: AlignmentType.CENTER },
+      { text: cat.status === 'SUPPRESSED' ? 'Suppressed for zone type' : cat.status === 'DATA_GAP' ? 'No data collected' : 'Insufficient data', italics: true, color: COLORS.muted, size: 18 },
+      { text: '—', color: COLORS.muted, align: AlignmentType.RIGHT },
+    ])
+  })
   children.push(buildTable(
     [{ text: 'Category', width: 30 }, { text: 'Score', width: 15, align: AlignmentType.CENTER }, { text: 'Performance', width: 35 }, { text: '%', width: 20, align: AlignmentType.RIGHT }],
     catRows
   ))
 
-  // Interpretation — varied language
-  const worst = zs.cats.reduce((a, b) => ((a.s / a.mx) < (b.s / b.mx) ? a : b))
-  const worstPct = Math.round((worst.s / worst.mx) * 100)
-  const opener = INTERP_OPENERS[zi % INTERP_OPENERS.length](zs.risk, zs.tot)
-  const contrib = CONTRIB_PHRASES[zi % CONTRIB_PHRASES.length](worst.l, worst.s, worst.mx, worstPct)
-  const qualifier = worstPct < 50
-    ? ' which represents a significant concern and would warrant prioritized attention.'
-    : worstPct < 70
-      ? ' which suggests conditions that may benefit from targeted corrective action.'
-      : ' which is performing within an acceptable range.'
-  const multiLow = zs.cats.filter(c => (c.s / c.mx) < 0.5).length > 1
-    ? ' Multiple categories scored below 50%, suggesting interrelated contributing factors.'
-    : ''
-
+  // Interpretation — varied language (guard against null categories)
+  const scored = zs.cats.filter(c => c.s !== null && c.status !== 'SUPPRESSED')
   children.push(p('Interpretation', { heading: HeadingLevel.HEADING_3 }))
-  children.push(p(`${opener} ${contrib}${qualifier}${multiLow}`, { size: 22, color: COLORS.sub }))
+  if (!scored.length) {
+    children.push(p('Insufficient data for interpretation. Additional measurements are recommended.', { size: 22, color: COLORS.muted, italics: true }))
+  } else {
+    const worst = scored.reduce((a, b) => ((a.s / a.mx) < (b.s / b.mx) ? a : b))
+    const worstPct = Math.round((worst.s / worst.mx) * 100)
+    const opener = INTERP_OPENERS[zi % INTERP_OPENERS.length](zs.risk, zs.tot)
+    const contrib = CONTRIB_PHRASES[zi % CONTRIB_PHRASES.length](worst.l, worst.s, worst.mx, worstPct)
+    const qualifier = worstPct < 50
+      ? ' which represents a significant concern and would warrant prioritized attention.'
+      : worstPct < 70
+        ? ' which suggests conditions that may benefit from targeted corrective action.'
+        : ' which is performing within an acceptable range.'
+    const multiLow = scored.filter(c => (c.s / c.mx) < 0.5).length > 1
+      ? ' Multiple categories scored below 50%, suggesting interrelated contributing factors.'
+      : ''
+    const dataGapNote = (zs.insufficientCats?.length)
+      ? ` Note: ${zs.insufficientCats.join(', ')} ${zs.insufficientCats.length === 1 ? 'was' : 'were'} not scored due to insufficient data; confidence is reduced accordingly.`
+      : ''
+    children.push(p(`${opener} ${contrib}${qualifier}${multiLow}${dataGapNote}`, { size: 22, color: COLORS.sub }))
+  }
 
   // Contributing factors
   const factors = zs.cats
@@ -169,12 +191,12 @@ export function buildZoneSection(ctx, zi) {
     })))
   }
 
-  // Findings detail
+  // Findings detail — exclude pass, show message if only INFO remains
   children.push(p('Findings Detail', { heading: HeadingLevel.HEADING_3 }))
   const findingRows = []
   zs.cats.forEach(cat => {
     cat.r.forEach(r => {
-      if (r.sev !== 'pass') {
+      if (r.sev !== 'pass' && r.sev !== 'info') {
         findingRows.push([
           { text: r.sev.toUpperCase(), bold: true, color: SEV_COLORS[r.sev] || COLORS.sub, size: 16 },
           cat.l,
@@ -190,7 +212,7 @@ export function buildZoneSection(ctx, zi) {
       findingRows
     ))
   } else {
-    children.push(p('No findings above pass threshold for this zone.', { size: 20, color: COLORS.muted, italics: true }))
+    children.push(p('No findings of medium or higher severity were identified during this assessment.', { size: 20, color: COLORS.muted, italics: true }))
   }
 
   // Confidence and missing data

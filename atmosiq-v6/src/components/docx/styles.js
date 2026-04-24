@@ -4,22 +4,20 @@
  */
 
 export const FONTS = {
-  body: 'Calibri',
-  mono: 'Consolas',
+  body: 'Cambria',
 }
 
 export const COLORS = {
-  text: '0F172A',
-  body: '1E293B',
-  sub: '475569',
-  muted: '64748B',
+  text: '1B2A41',
+  body: '2D3A4A',
+  sub: '5C6F7E',
+  muted: '7A8A97',
   light: '94A3B8',
-  border: 'E2E8F0',
-  bgLight: 'F8FAFC',
-  bgMed: 'F1F5F9',
-  accent: '0E7490',
-  accentDark: '0C4A6E',
-  brand: '22D3EE',
+  border: 'D1D5DB',
+  bgLight: 'F3F4F6',
+  bgMed: 'E5E7EB',
+  accent: '1B2A41',
+  accentDark: '0F1A2A',
   white: 'FFFFFF',
   black: '000000',
 }
