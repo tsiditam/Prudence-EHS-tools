@@ -201,9 +201,17 @@ export default function ProfileScreen({ onLogin }) {
           </div>
 
           <SectionLabel>Organization</SectionLabel>
-          <div style={{marginBottom:20}}>
+          <div style={{marginBottom:12}}>
             <span style={label}>Firm / company <span style={{color:DIM,fontWeight:400,fontSize:11}}>(optional)</span></span>
             <input type="text" value={form.firm||''} onChange={e=>setF('firm',e.target.value)} placeholder="e.g. Prudence EHS, or Independent" style={inp} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />
+          </div>
+          <div style={{marginBottom:12}}>
+            <span style={label}>Firm address <span style={{color:DIM,fontWeight:400,fontSize:11}}>(appears on reports)</span></span>
+            <input type="text" value={form.firm_address||''} onChange={e=>setF('firm_address',e.target.value)} placeholder="e.g. Germantown, Maryland" style={inp} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />
+          </div>
+          <div style={{marginBottom:20}}>
+            <span style={label}>Firm phone <span style={{color:DIM,fontWeight:400,fontSize:11}}>(appears on reports)</span></span>
+            <input type="text" value={form.firm_phone||''} onChange={e=>setF('firm_phone',e.target.value)} placeholder="e.g. (301) 541-8362" style={inp} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />
           </div>
 
           <button onClick={()=>setF('marketing_consent',!form.marketing_consent)} style={{display:'flex',alignItems:'center',gap:12,padding:'12px 14px',background:'transparent',border:`1px solid ${form.marketing_consent?`${ACCENT}30`:BORDER}`,borderRadius:8,cursor:'pointer',textAlign:'left',fontFamily:'inherit',marginBottom:24,width:'100%',transition:'border-color 0.15s'}}>

@@ -101,7 +101,7 @@ export function buildFooter(ctx) {
   return [
     new Paragraph({
       children: [
-        new TextRun({ text: `AtmosFlow v${ctx.version} — Prudence Safety & Environmental Consulting, LLC — Germantown, MD`, font: FONTS.body, size: 16, color: COLORS.light }),
+        new TextRun({ text: `${ctx.firmName} — ${ctx.firmAddress}`, font: FONTS.body, size: 16, color: COLORS.light }),
       ],
       alignment: AlignmentType.CENTER,
       spacing: { before: 400, after: 40 },
