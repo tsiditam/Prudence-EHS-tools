@@ -52,7 +52,7 @@ export function buildZoneSection(ctx, zi) {
   children.push(new Paragraph({
     children: [
       new TextRun({ text: zs.zoneName || `Zone ${zi + 1}`, font: FONTS.body, size: 28, bold: true, color: COLORS.text }),
-      new TextRun({ text: zs.tot !== null ? `    ${zs.tot}/100 — ${zs.risk}` : '    Not scored — insufficient data', font: FONTS.mono, size: 22, bold: true, color: zs.tot !== null ? scoreColor(zs.tot) : COLORS.muted }),
+      new TextRun({ text: zs.tot !== null ? `    ${zs.tot}/100 — ${zs.risk}` : '    Not scored — insufficient data', font: FONTS.body, size: 22, bold: true, color: zs.tot !== null ? scoreColor(zs.tot) : COLORS.muted }),
     ],
     spacing: { before: 300, after: 60 },
   }))

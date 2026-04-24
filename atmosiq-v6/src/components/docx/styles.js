@@ -5,7 +5,6 @@
 
 export const FONTS = {
   body: 'Cambria',
-  mono: 'Consolas',
 }
 
 export const COLORS = {
