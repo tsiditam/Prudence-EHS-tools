@@ -189,7 +189,7 @@ export function generatePrintHTML(data) {
     <div style="font-size:10px;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Assessment Transparency</div>
     <table style="width:auto;"><tbody>
       <tr><td style="color:#64748B;padding-right:16px;">Workflow version</td><td style="color:#334155;font-weight:600;">AtmosFlow v${ver}</td></tr>
-      <tr><td style="color:#64748B;padding-right:16px;">Standards referenced</td><td style="color:#334155;font-weight:600;">ASHRAE 62.1-2025, ASHRAE 55-2023, OSHA PELs, EPA NAAQS, WHO guidelines</td></tr>
+      <tr><td style="color:#64748B;padding-right:16px;">Standards referenced</td><td style="color:#334155;font-weight:600;">${standardsManifest ? Object.entries(standardsManifest).filter(([k]) => k !== 'engineVersion' && k !== 'manifestUpdated').map(([k, v]) => `${k} (${v})`).join(', ') : 'See Standards and Guidance Manifest'}</td></tr>
       <tr><td style="color:#64748B;padding-right:16px;">Calibration recorded</td><td style="color:#334155;font-weight:600;">${presurvey?.ps_inst_iaq_cal_status || 'Not recorded'}</td></tr>
       <tr><td style="color:#64748B;padding-right:16px;">Professional review</td><td style="color:#334155;font-weight:600;">Draft — requires IH review before distribution</td></tr>
       <tr><td style="color:#64748B;padding-right:16px;">Confidence level</td><td style="color:#334155;font-weight:600;">${confLabel}</td></tr>
@@ -303,8 +303,33 @@ export function generatePrintHTML(data) {
     <tr><td>${presurvey?.ps_inst_iaq || 'IAQ meter'}</td><td style="font-family:monospace;font-size:10px;">${presurvey?.ps_inst_iaq_serial || '—'}</td><td>${presurvey?.ps_inst_iaq_cal_status || '—'}${presurvey?.ps_inst_iaq_cal ? ` (${presurvey.ps_inst_iaq_cal})` : ''}</td></tr>
     ${presurvey?.ps_inst_pid ? `<tr><td>${presurvey.ps_inst_pid}</td><td style="font-family:monospace;font-size:10px;">—</td><td>${presurvey.ps_inst_pid_cal || '—'}</td></tr>` : ''}
   </tbody></table>
-  <h3>Standards and References</h3>
-  <p style="font-size:11px;color:#475569;">ASHRAE Standard 62.1-2025 (Ventilation for Acceptable IAQ), ASHRAE Standard 55-2023 (Thermal Environmental Conditions), OSHA Permissible Exposure Limits (29 CFR 1910.1000), EPA National Ambient Air Quality Standards, WHO Air Quality Guidelines.</p>
+  <h3>Standards and Guidance Manifest</h3>
+  <p style="font-size:10px;color:#5C6F7E;margin-bottom:10px;">The following standards, guidelines, and benchmarks are referenced in this assessment. Each is classified by its regulatory or advisory status. Advisory benchmarks should not be interpreted as regulatory limits.</p>
+
+  <table style="margin-bottom:6px;"><thead><tr><th style="width:35%;">Standard / Guideline</th><th style="width:30%;">Classification</th><th style="width:35%;">Application in This Report</th></tr></thead><tbody>
+  <tr><td colspan="3" style="font-size:9px;font-weight:700;color:#1B2A41;background:#F3F4F6;padding:6px 10px;text-transform:uppercase;letter-spacing:0.5px;">Regulatory Limits</td></tr>
+  <tr><td style="font-size:10px;">OSHA PELs (29 CFR 1910.1000)</td><td style="font-size:10px;color:#5C6F7E;">Enforceable occupational exposure limit</td><td style="font-size:10px;">CO (50 ppm TWA), Formaldehyde (0.75 ppm TWA)</td></tr>
+  <tr><td style="font-size:10px;">OSHA Action Levels (29 CFR 1910.1048)</td><td style="font-size:10px;color:#5C6F7E;">Enforceable trigger for medical surveillance</td><td style="font-size:10px;">Formaldehyde (0.5 ppm)</td></tr>
+
+  <tr><td colspan="3" style="font-size:9px;font-weight:700;color:#1B2A41;background:#F3F4F6;padding:6px 10px;text-transform:uppercase;letter-spacing:0.5px;">Occupational Exposure Guidelines</td></tr>
+  <tr><td style="font-size:10px;">NIOSH RELs (Pocket Guide)</td><td style="font-size:10px;color:#5C6F7E;">Recommended exposure limit — advisory</td><td style="font-size:10px;">CO (35 ppm TWA), Formaldehyde (0.016 ppm)</td></tr>
+
+  <tr><td colspan="3" style="font-size:9px;font-weight:700;color:#1B2A41;background:#F3F4F6;padding:6px 10px;text-transform:uppercase;letter-spacing:0.5px;">Consensus Standards</td></tr>
+  <tr><td style="font-size:10px;">ASHRAE 62.1-2022</td><td style="font-size:10px;color:#5C6F7E;">Ventilation consensus standard</td><td style="font-size:10px;">Outdoor air rates (Table 6.2.2.1), CO₂ as ventilation screening indicator</td></tr>
+  <tr><td style="font-size:10px;">ASHRAE 55-2023</td><td style="font-size:10px;color:#5C6F7E;">Thermal comfort consensus standard</td><td style="font-size:10px;">Temperature and humidity comfort ranges</td></tr>
+  ${bldg.ft?.includes('Data Center') ? '<tr><td style="font-size:10px;">ANSI/ISA 71.04-2013</td><td style="font-size:10px;color:#5C6F7E;">Gaseous corrosion consensus standard</td><td style="font-size:10px;">G1/G2/G3/GX classification for electronic equipment environments</td></tr><tr><td style="font-size:10px;">ISO 14644-1:2015</td><td style="font-size:10px;color:#5C6F7E;">Cleanroom particle classification</td><td style="font-size:10px;">ISO Class 5–8 particle count limits</td></tr>' : ''}
+
+  <tr><td colspan="3" style="font-size:9px;font-weight:700;color:#1B2A41;background:#F3F4F6;padding:6px 10px;text-transform:uppercase;letter-spacing:0.5px;">Public Health Guidelines</td></tr>
+  <tr><td style="font-size:10px;">EPA NAAQS (2024)</td><td style="font-size:10px;color:#5C6F7E;">Ambient air quality guideline — not an occupational limit</td><td style="font-size:10px;">PM2.5 (35 µg/m³, 24-hr)</td></tr>
+  <tr><td style="font-size:10px;">WHO Air Quality Guidelines (2021)</td><td style="font-size:10px;color:#5C6F7E;">Population health guideline — advisory</td><td style="font-size:10px;">PM2.5 (15 µg/m³)</td></tr>
+
+  <tr><td colspan="3" style="font-size:9px;font-weight:700;color:#1B2A41;background:#F3F4F6;padding:6px 10px;text-transform:uppercase;letter-spacing:0.5px;">Advisory Screening Benchmarks</td></tr>
+  <tr><td style="font-size:10px;">CO₂ differential (700 ppm)</td><td style="font-size:10px;color:#5C6F7E;">Ventilation screening benchmark — not a regulatory limit</td><td style="font-size:10px;">Industry-accepted indicator of outdoor air adequacy per ASHRAE 62.1</td></tr>
+  <tr><td style="font-size:10px;">TVOC concern (500 µg/m³)</td><td style="font-size:10px;color:#5C6F7E;">Internal concern threshold — no regulatory limit exists for total VOCs</td><td style="font-size:10px;">Screening trigger for source investigation; Mølhave (1991) advisory</td></tr>
+  <tr><td style="font-size:10px;">RH 30–60%</td><td style="font-size:10px;color:#5C6F7E;">Comfort and moisture-control benchmark</td><td style="font-size:10px;">Comfort evaluation and mold risk screening per ASHRAE 55</td></tr>
+  </tbody></table>
+
+  <p style="font-size:9px;color:#7A8A97;margin-bottom:8px;">Classifications carry different legal and technical weight. Regulatory limits are enforceable workplace standards. Consensus standards represent professional best practice. Public health guidelines are population-level recommendations. Advisory benchmarks are investigative triggers used for prioritization, not compliance determination.</p>
   <h3>Limitations</h3>
   <p style="font-size:11px;color:#475569;">This assessment represents conditions observed at the time of the site visit and may not reflect all temporal, seasonal, or operational variations. Findings are based on direct-reading instrumentation and visual observations. Laboratory analysis was not performed unless specifically noted.</p>
 
