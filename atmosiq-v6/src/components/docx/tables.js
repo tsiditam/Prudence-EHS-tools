@@ -29,7 +29,7 @@ export function dataCell(text, opts = {}) {
   if (typeof text === 'string' || typeof text === 'number') {
     runs.push(new TextRun({
       text: String(text),
-      font: opts.mono ? FONTS.mono : FONTS.body,
+      font: FONTS.body,
       size: opts.size || 20,
       bold: opts.bold || false,
       color: opts.color || COLORS.body,
