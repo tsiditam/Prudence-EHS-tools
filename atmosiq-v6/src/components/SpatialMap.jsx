@@ -26,17 +26,37 @@ export default function SpatialMap({ zones, zoneScores, floorPlan, onUpdateZone,
   const mapped = zones.filter(z => z.mapX != null && z.mapY != null)
   const unmapped = zones.filter(z => z.mapX == null || z.mapY == null)
 
-  const handleMapClick = (e) => {
-    if (dragging === null) return
-    e.preventDefault()
-    e.stopPropagation()
+  const [lastTouch, setLastTouch] = useState(null)
+
+  const placePin = (clientX, clientY) => {
+    if (dragging === null || !mapRef.current) return
     const rect = mapRef.current.getBoundingClientRect()
-    const clientX = e.touches ? e.touches[0].clientX : (e.changedTouches ? e.changedTouches[0].clientX : e.clientX)
-    const clientY = e.touches ? e.touches[0].clientY : (e.changedTouches ? e.changedTouches[0].clientY : e.clientY)
     const x = ((clientX - rect.left) / rect.width) * 100
     const y = ((clientY - rect.top) / rect.height) * 100
+    if (x < 0 || x > 100 || y < 0 || y > 100) return
     onUpdateZone(dragging, { mapX: Math.round(x * 10) / 10, mapY: Math.round(y * 10) / 10 })
     setDragging(null)
+    setLastTouch(null)
+  }
+
+  const handleMapTouchStart = (e) => {
+    if (dragging === null) return
+    const t = e.touches[0]
+    if (t) setLastTouch({ x: t.clientX, y: t.clientY })
+  }
+
+  const handleMapTouchEnd = (e) => {
+    if (dragging === null) return
+    e.preventDefault()
+    const t = e.changedTouches?.[0]
+    if (t) { placePin(t.clientX, t.clientY); return }
+    if (lastTouch) { placePin(lastTouch.x, lastTouch.y) }
+  }
+
+  const handleMapClick = (e) => {
+    if (dragging === null) return
+    if (e.type === 'click' && lastTouch) return // skip click if touch already handled
+    placePin(e.clientX, e.clientY)
   }
 
   const handleFileUpload = (e) => {
@@ -92,8 +112,9 @@ export default function SpatialMap({ zones, zoneScores, floorPlan, onUpdateZone,
           <div
             ref={mapRef}
             onClick={handleMapClick}
-            onTouchEnd={handleMapClick}
-            style={{ position: 'relative', width: '100%', borderRadius: 10, overflow: 'hidden', border: `1px solid ${BORDER}`, cursor: dragging !== null ? 'crosshair' : 'default', touchAction: 'none' }}
+            onTouchStart={handleMapTouchStart}
+            onTouchEnd={handleMapTouchEnd}
+            style={{ position: 'relative', width: '100%', borderRadius: 10, overflow: 'hidden', border: `2px solid ${dragging !== null ? ACCENT : BORDER}`, cursor: dragging !== null ? 'crosshair' : 'default', WebkitUserSelect: 'none', userSelect: 'none' }}
           >
             <img src={floorPlan} alt="Floor plan" style={{ width: '100%', display: 'block', opacity: 0.85 }} />
 
