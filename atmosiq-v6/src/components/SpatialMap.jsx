@@ -131,7 +131,10 @@ export default function SpatialMap({ zones, zoneScores, floorPlan, onUpdateZone,
             <div key={i} style={{ fontSize: 11, color: SUB, marginBottom: 4, paddingLeft: 10, borderLeft: `2px solid ${pinColor(f.sev === 'critical' ? 0 : f.sev === 'high' ? 50 : 80)}` }}>{f.t}</div>
           ))}
           {getTopFindings(selectedPin).length === 0 && <div style={{ fontSize: 11, color: DIM, fontStyle: 'italic' }}>No significant findings</div>}
-          <button onClick={() => setSelectedPin(null)} style={{ marginTop: 8, background: 'none', border: 'none', color: ACCENT, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>Close</button>
+          <div style={{ display: 'flex', gap: 12, marginTop: 10 }}>
+            <button onClick={() => { onUpdateZone(selectedPin, { mapX: null, mapY: null }); setSelectedPin(null) }} style={{ background: 'none', border: 'none', color: '#EF4444', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>Unpin & Reposition</button>
+            <button onClick={() => setSelectedPin(null)} style={{ background: 'none', border: 'none', color: ACCENT, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>Close</button>
+          </div>
         </div>
       )}
 
