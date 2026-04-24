@@ -218,7 +218,32 @@ export default function MobileApp() {
   const qsVis = useMemo(() => Q_QUICKSTART.filter(q => { if (!q.cond) return true; if (q.cond.eq && mergedData[q.cond.f] !== q.cond.eq) return false; if (q.cond.ne && mergedData[q.cond.f] === q.cond.ne) return false; return true }), [mergedData])
   const dtVis = useMemo(() => Q_DETAILS.filter(q => { if (!q.cond) return true; if (q.cond.eq && mergedData[q.cond.f] !== q.cond.eq) return false; if (q.cond.ne && mergedData[q.cond.f] === q.cond.ne) return false; return true }), [mergedData])
   const zData = zones[curZone] || {}
-  const zVis = useMemo(() => Q_ZONE.filter(q => { if (q.profileDynamic) { const p = getBuildingProfile(bldg.ft); if (!p || !p.zoneSubtypes?.length) return false } if (!q.cond) return true; if (q.cond.eq && zData[q.cond.f] !== q.cond.eq) return false; if (q.cond.ne && zData[q.cond.f] === q.cond.ne) return false; return true }), [zData, bldg.ft])
+  const dcProfile = useMemo(() => getBuildingProfile(bldg.ft), [bldg.ft])
+  const zoneSubtype = zData.zone_subtype || null
+  const suppressedIds = useMemo(() => dcProfile?.suppressFields?.[zoneSubtype] || [], [dcProfile, zoneSubtype])
+  const additionalQs = useMemo(() => dcProfile?.additionalFields?.[zoneSubtype] || [], [dcProfile, zoneSubtype])
+  const zVis = useMemo(() => {
+    // Build base question list: standard zone questions + profile additional fields
+    let qs = Q_ZONE.map(q => {
+      // Populate zone_subtype options from building profile
+      if (q.profileDynamic && q.id === 'zone_subtype' && dcProfile?.zoneSubtypes?.length) {
+        return { ...q, opts: dcProfile.zoneSubtypes.map(st => st.label), _subtypeMap: dcProfile.zoneSubtypes }
+      }
+      return q
+    })
+    // Filter: hide profileDynamic questions when no profile, apply conditional logic, suppress fields
+    qs = qs.filter(q => {
+      if (q.profileDynamic && (!dcProfile || !dcProfile.zoneSubtypes?.length)) return false
+      if (suppressedIds.includes(q.id)) return false
+      if (!q.cond) return true
+      if (q.cond.eq && zData[q.cond.f] !== q.cond.eq) return false
+      if (q.cond.ne && zData[q.cond.f] === q.cond.ne) return false
+      return true
+    })
+    // Inject additional fields from profile at end
+    if (additionalQs.length > 0) qs = [...qs, ...additionalQs]
+    return qs
+  }, [zData, bldg.ft, dcProfile, suppressedIds, additionalQs])
   const setZF = useCallback((id,v) => { setZones(prev => { const next = [...prev]; next[curZone] = {...(next[curZone]||{}), [id]:v}; return next }) }, [curZone])
 
   const showMilestone = (icon, title, sub, nextFn) => {
@@ -464,7 +489,7 @@ export default function MobileApp() {
           {q.t==='num'&&<div style={{position:'relative'}}><input type="number" inputMode="decimal" value={data[q.id]||''} onChange={e=>setField(q.id,e.target.value)} placeholder={q.ph||'Enter...'} autoFocus onKeyDown={e=>{if(e.key==='Enter'&&data[q.id])goNext()}} style={{width:'100%',padding:'18px 20px',paddingRight:q.u?70:20,background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:17,fontFamily:"'Outfit'",fontWeight:500,outline:'none',boxSizing:'border-box'}} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />{q.u&&<span style={{position:'absolute',right:18,top:'50%',transform:'translateY(-50%)',color:DIM,fontSize:14,fontFamily:"'DM Mono'"}}>{q.u}</span>}</div>}
           {q.t==='date'&&<input type="date" value={data[q.id]||''} onChange={e=>setField(q.id,e.target.value)} style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:17,fontFamily:"'Outfit'",outline:'none',boxSizing:'border-box',colorScheme:'dark'}} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />}
           {q.t==='ta'&&<textarea value={data[q.id]||''} onChange={e=>setField(q.id,e.target.value)} placeholder={q.ph||'Notes...'} rows={3} style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:"'Outfit'",outline:'none',resize:'vertical',boxSizing:'border-box'}} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />}
-          {q.t==='ch'&&q.opts&&<div style={{display:'flex',flexDirection:'column',gap:8}}>{q.opts.map((o,i)=>{const sel=data[q.id]===o||(o==='Other'&&data[q.id]&&!q.opts.slice(0,-1).includes(data[q.id]));const locked=isPremiumOpt(q,o)&&!isEnterprise(profile);return(<button key={o} onClick={()=>{if(locked){haptic('light');setShowPremiumGate(true);return}haptic('light');if(o==='Other'){setField(q.id,'Other')}else{setField(q.id,o);setTimeout(goNext,250)}}} style={{padding:'16px 20px',textAlign:'left',background:sel?`${ACCENT}12`:locked?`${CARD}`:`${CARD}`,border:`1.5px solid ${sel?ACCENT:BORDER}`,borderRadius:14,color:sel?ACCENT:locked?DIM:'#E2E8F0',fontSize:16,fontFamily:"'Outfit'",fontWeight:500,cursor:'pointer',display:'flex',alignItems:'center',gap:14,minHeight:54,animation:`fadeUp .3s ${i*.04}s cubic-bezier(.22,1,.36,1) both`}}><div style={{width:24,height:24,borderRadius:'50%',border:`2px solid ${sel?ACCENT:'#2A3040'}`,background:sel?ACCENT:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{sel&&<I n="check" s={12} c={BG} />}</div><span style={{flex:1}}>{o}</span>{locked&&<span style={{fontSize:9,fontWeight:700,padding:'2px 8px',borderRadius:4,background:'#F9731615',color:'#F97316',letterSpacing:'0.3px'}}>PREMIUM</span>}</button>)})}
+          {q.t==='ch'&&q.opts&&<div style={{display:'flex',flexDirection:'column',gap:8}}>{q.opts.map((o,i)=>{const stMap=q._subtypeMap;const storedVal=stMap?stMap.find(st=>st.label===o)?.id||o:o;const sel=stMap?(data[q.id]===storedVal):(data[q.id]===o||(o==='Other'&&data[q.id]&&!q.opts.slice(0,-1).includes(data[q.id])));const locked=isPremiumOpt(q,o)&&!isEnterprise(profile);return(<button key={o} onClick={()=>{if(locked){haptic('light');setShowPremiumGate(true);return}haptic('light');if(o==='Other'){setField(q.id,'Other')}else{setField(q.id,storedVal);setTimeout(goNext,250)}}} style={{padding:'16px 20px',textAlign:'left',background:sel?`${ACCENT}12`:locked?`${CARD}`:`${CARD}`,border:`1.5px solid ${sel?ACCENT:BORDER}`,borderRadius:14,color:sel?ACCENT:locked?DIM:'#E2E8F0',fontSize:16,fontFamily:"'Outfit'",fontWeight:500,cursor:'pointer',display:'flex',alignItems:'center',gap:14,minHeight:54,animation:`fadeUp .3s ${i*.04}s cubic-bezier(.22,1,.36,1) both`}}><div style={{width:24,height:24,borderRadius:'50%',border:`2px solid ${sel?ACCENT:'#2A3040'}`,background:sel?ACCENT:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{sel&&<I n="check" s={12} c={BG} />}</div><span style={{flex:1}}>{o}</span>{locked&&<span style={{fontSize:9,fontWeight:700,padding:'2px 8px',borderRadius:4,background:'#F9731615',color:'#F97316',letterSpacing:'0.3px'}}>PREMIUM</span>}</button>)})}
             {q.other&&data[q.id]&&(data[q.id]==='Other'||!q.opts.slice(0,-1).includes(data[q.id]))&&<input type="text" value={data[q.id]==='Other'?'':data[q.id]} onChange={e=>setField(q.id,e.target.value||'Other')} placeholder="Describe space use..." autoFocus style={{width:'100%',padding:'16px 20px',background:CARD,border:`1.5px solid ${ACCENT}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:"'Outfit'",outline:'none',boxSizing:'border-box',marginTop:4}} />}
           </div>}
           {q.t==='multi'&&q.opts&&<div style={{display:'flex',flexWrap:'wrap',gap:8}}>{q.opts.map((o,i)=>{const arr=data[q.id]||[],sel=arr.includes(o);return(<button key={o} onClick={()=>setField(q.id,sel?arr.filter(x=>x!==o):[...arr,o])} style={{padding:'12px 18px',borderRadius:24,background:sel?`${ACCENT}15`:CARD,border:`1.5px solid ${sel?ACCENT:BORDER}`,color:sel?ACCENT:'#C8D0DC',fontSize:14,fontFamily:"'Outfit'",fontWeight:500,cursor:'pointer',minHeight:44,animation:`fadeUp .25s ${i*.03}s cubic-bezier(.22,1,.36,1) both`}}>{sel?'✓ ':''}{o}</button>)})}</div>}
