@@ -257,8 +257,8 @@ export function generatePrintHTML(data) {
       }
     </div>
 
-    ${hasGate5 ? '<div style="padding:10px 14px;background:#FEF2F2;border:1px solid #FECACA;border-radius:4px;margin-bottom:16px;font-size:11px;color:#7F1D1D;font-weight:600;">⚠ CRITICAL SYSTEM FAILURE: Active moisture/filtration breach detected in HVAC system.</div>' : ''}
-    ${hasSynergistic ? '<div style="padding:10px 14px;background:#FEF2F2;border:1px solid #FECACA;border-radius:4px;margin-bottom:16px;font-size:11px;color:#7F1D1D;font-weight:600;">⚠ CRITICAL TOXICITY ALERT: Multiple Tier 1 contaminants exceed OSHA Permissible Exposure Limits.</div>' : ''}
+    ${hasGate5 ? '<div style="padding:10px 14px;background:#FEF2F2;border:1px solid #FECACA;border-radius:4px;margin-bottom:16px;font-size:11px;color:#7F1D1D;font-weight:600;">⚠ Critical HVAC Condition Identified: Active moisture or filtration deficiency detected in HVAC system.</div>' : ''}
+    ${hasSynergistic ? '<div style="padding:10px 14px;background:#FEF2F2;border:1px solid #FECACA;border-radius:4px;margin-bottom:16px;font-size:11px;color:#7F1D1D;font-weight:600;">⚠ Multiple Contaminant Exceedance: More than one Tier 1 contaminant exceeds OSHA Permissible Exposure Limits. Immediate follow-up sampling required.</div>' : ''}
     `
   })() : ''}
 
@@ -484,9 +484,10 @@ export function generatePrintHTML(data) {
         const qualifier = worstPct < 50 ? ' which represents a significant concern and would warrant prioritized attention.' : worstPct < 70 ? ' which suggests conditions that may benefit from targeted corrective action.' : ' which is performing within an acceptable range.'
         const multiLow = scored.filter(c => (c.s/c.mx) < 0.5).length > 1 ? ' Multiple categories scored below 50%, suggesting interrelated contributing factors.' : ''
         const dataGapNote = zs.insufficientCats?.length ? ` Note: ${zs.insufficientCats.join(', ')} ${zs.insufficientCats.length === 1 ? 'was' : 'were'} not scored due to insufficient data; confidence is reduced accordingly.` : ''
+        const hvacAdminNote = zs.hvacAdminGap ? ' HVAC maintenance history was not available; this reduces assessment confidence but is not scored as a physical deficiency.' : ''
         return `
           <h3>Interpretation</h3>
-          <p style="font-size:11px;color:#475569;line-height:1.8;">${openers[zi % openers.length]} ${contribs[zi % contribs.length]}${qualifier}${multiLow}${dataGapNote}</p>`
+          <p style="font-size:11px;color:#475569;line-height:1.8;">${openers[zi % openers.length]} ${contribs[zi % contribs.length]}${qualifier}${multiLow}${dataGapNote}${hvacAdminNote}</p>`
       })()}
 
       ${/* Contributing Factors */(() => {
