@@ -154,22 +154,29 @@ export function buildZoneSection(ctx, zi) {
     catRows
   ))
 
-  // Interpretation — varied language
-  const worst = zs.cats.reduce((a, b) => ((a.s / a.mx) < (b.s / b.mx) ? a : b))
-  const worstPct = Math.round((worst.s / worst.mx) * 100)
-  const opener = INTERP_OPENERS[zi % INTERP_OPENERS.length](zs.risk, zs.tot)
-  const contrib = CONTRIB_PHRASES[zi % CONTRIB_PHRASES.length](worst.l, worst.s, worst.mx, worstPct)
-  const qualifier = worstPct < 50
-    ? ' which represents a significant concern and would warrant prioritized attention.'
-    : worstPct < 70
-      ? ' which suggests conditions that may benefit from targeted corrective action.'
-      : ' which is performing within an acceptable range.'
-  const multiLow = zs.cats.filter(c => (c.s / c.mx) < 0.5).length > 1
-    ? ' Multiple categories scored below 50%, suggesting interrelated contributing factors.'
-    : ''
-
+  // Interpretation — varied language (guard against null categories)
+  const scored = zs.cats.filter(c => c.s !== null && c.status !== 'SUPPRESSED')
   children.push(p('Interpretation', { heading: HeadingLevel.HEADING_3 }))
-  children.push(p(`${opener} ${contrib}${qualifier}${multiLow}`, { size: 22, color: COLORS.sub }))
+  if (!scored.length) {
+    children.push(p('Insufficient data for interpretation. Additional measurements are recommended.', { size: 22, color: COLORS.muted, italics: true }))
+  } else {
+    const worst = scored.reduce((a, b) => ((a.s / a.mx) < (b.s / b.mx) ? a : b))
+    const worstPct = Math.round((worst.s / worst.mx) * 100)
+    const opener = INTERP_OPENERS[zi % INTERP_OPENERS.length](zs.risk, zs.tot)
+    const contrib = CONTRIB_PHRASES[zi % CONTRIB_PHRASES.length](worst.l, worst.s, worst.mx, worstPct)
+    const qualifier = worstPct < 50
+      ? ' which represents a significant concern and would warrant prioritized attention.'
+      : worstPct < 70
+        ? ' which suggests conditions that may benefit from targeted corrective action.'
+        : ' which is performing within an acceptable range.'
+    const multiLow = scored.filter(c => (c.s / c.mx) < 0.5).length > 1
+      ? ' Multiple categories scored below 50%, suggesting interrelated contributing factors.'
+      : ''
+    const dataGapNote = (zs.insufficientCats?.length)
+      ? ` Note: ${zs.insufficientCats.join(', ')} ${zs.insufficientCats.length === 1 ? 'was' : 'were'} not scored due to insufficient data; confidence is reduced accordingly.`
+      : ''
+    children.push(p(`${opener} ${contrib}${qualifier}${multiLow}${dataGapNote}`, { size: 22, color: COLORS.sub }))
+  }
 
   // Contributing factors
   const factors = zs.cats

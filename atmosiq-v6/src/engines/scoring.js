@@ -48,6 +48,14 @@ export function scoreZone(z, bldg) {
   })
   const scorable = cats.filter(c => c.s !== null && c.status !== 'SUPPRESSED')
   let tot = scorable.length > 0 ? scorable.reduce((a, c) => a + c.s, 0) : null
+  // Normalize against available max when categories have insufficient data
+  // Missing data reduces confidence, not inflates risk
+  const availableMax = scorable.reduce((a, c) => a + c.mx, 0)
+  let normalizedFrom = null
+  if (availableMax > 0 && availableMax < 100 && tot !== null) {
+    normalizedFrom = tot
+    tot = Math.round((tot / availableMax) * 100)
+  }
   // Critical Concern Override: G3/GX corrosion or ISO Class 8 failure forces score < 50
   if (d.zone_subtype === 'data_hall') {
     if (d.gaseous_corrosion && (d.gaseous_corrosion.includes('G3') || d.gaseous_corrosion.includes('GX'))) {
@@ -73,7 +81,10 @@ export function scoreZone(z, bldg) {
   if (ventCat && !d.cfm_person && !d.ach && confidence === 'High') confidence = 'Medium'
   // Gate 5: HVAC system failure caps confidence
   if (hvacCat?.gate5 && (confidence === 'High')) confidence = 'Medium'
-  return { tot, risk: band.label, rc: band.color, cats, zoneName: z.zn || 'Zone', partialScore: cats.some(c => c.status === 'INSUFFICIENT'), confidence, sufficiency: suff, zoneSubtype: d.zone_subtype, weights }
+  // Data gaps reduce confidence, not risk
+  if (normalizedFrom !== null && confidence === 'High') confidence = 'Medium'
+  const insufficientCats = cats.filter(c => c.status === 'INSUFFICIENT').map(c => c.l)
+  return { tot, risk: band.label, rc: band.color, cats, zoneName: z.zn || 'Zone', partialScore: cats.some(c => c.status === 'INSUFFICIENT'), confidence, sufficiency: suff, zoneSubtype: d.zone_subtype, weights, normalizedFrom, availableMax, insufficientCats }
 }
 
 // Zone-type priority weights for composite calculation

@@ -39,6 +39,8 @@ export function genRecs(zoneScores, bldg) {
         if (r.t.includes('CO ')) R.imm.push(zs.zoneName+': Immediately evacuate and investigate combustion source.')
         if (r.t.includes('ormaldehyde')) R.imm.push(zs.zoneName+': Implement exposure controls per 29 CFR 1910.1048.')
         if (r.t.includes('No supply airflow')) R.imm.push('Request emergency HVAC service to restore airflow.')
+        if (r.t.includes('No filtration') || r.t.includes('no filter')) R.imm.push('Request emergency HVAC service — no filtration installed.')
+        if (r.t.includes('Drain pan')) R.imm.push(zs.zoneName+': Address drain pan condition immediately. Evaluate for microbial growth.')
         if (r.t.includes('water') || r.t.includes('leak')) R.imm.push(zs.zoneName+': Arrest water intrusion. Assess materials within 48 hours.')
         if (r.t.toLowerCase().includes('occupant') && r.t.includes('symptom')) R.imm.push(zs.zoneName+': Document symptom patterns. Consider EPA BASE survey. Evaluate ventilation immediately.')
       }
@@ -46,6 +48,8 @@ export function genRecs(zoneScores, bldg) {
         if (r.t.includes('CO₂') || r.t.includes('ventilation') || r.t.includes('OA delivery')) R.eng.push(zs.zoneName+': Evaluate outdoor air delivery rate and verify OA damper position.')
         if (r.t.includes('PM')) R.eng.push('Upgrade filtration to MERV 13+. Evaluate filter housing for bypass.')
         if (r.t.includes('maintenance')) R.eng.push('Schedule comprehensive HVAC inspection.')
+        if (r.t.includes('ilter condition') || r.t.includes('filtration')) R.eng.push(zs.zoneName+': Replace or service air filters. Inspect filter housing for bypass or damage.')
+        if (r.t.includes('Temperature') || r.t.includes('comfort range')) R.eng.push(zs.zoneName+': Evaluate thermostat settings and HVAC zoning for thermal comfort.')
         if (r.t.includes('occupant') || r.t.includes('symptom')) R.adm.push(zs.zoneName+': Document affected occupants. Consider EPA BASE survey.')
         if (r.t.includes('resolve')) R.adm.push(zs.zoneName+': Building-related symptom pattern — investigate ventilation and source pathways.')
       }
