@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react'
 
 export default function Loading({ onDone, fast }) {
   const [fadeOut, setFadeOut] = useState(false)
-  const duration = fast ? 400 : 5000
+  const duration = fast ? 400 : 1800
 
   useEffect(() => {
     const fadeTimer = setTimeout(() => setFadeOut(true), duration - 600)
