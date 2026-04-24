@@ -75,6 +75,7 @@ export default function MobileApp() {
   const padX = isTablet ? 28 : 20
   const [loading, setLoading] = useState(true)
   const [isReturning, setIsReturning] = useState(false)
+  const [welcomeDone, setWelcomeDone] = useState(!!sessionStorage.getItem('aiq_welcomed'))
   const [userMode, setUserMode] = useState(getMode())
   const [needsModeSelect, setNeedsModeSelect] = useState(false)
   const [profile, setProfile] = useState(null)
@@ -460,8 +461,7 @@ export default function MobileApp() {
   }
   // New user — show welcome then profile setup
   if (profile?.isNew && view === 'dash') {
-    const hasSeenWelcome = sessionStorage.getItem('aiq_welcomed')
-    if (!hasSeenWelcome) return <WelcomeScreen onComplete={() => { sessionStorage.setItem('aiq_welcomed', '1'); setView('dash') }} />
+    if (!welcomeDone) return <WelcomeScreen onComplete={() => { sessionStorage.setItem('aiq_welcomed', '1'); setWelcomeDone(true) }} />
     return <ProfileScreen onLogin={async (p) => { if (supabase) await SupaStorage.saveProfile(p); setProfile(p) }} />
   }
 
