@@ -38,6 +38,24 @@ export function generatePrintHTML(data) {
   const confLabel = oshaResult?.conf || 'Not evaluated'
 
   const catRows = (cats) => cats.map(cat => {
+    if (cat.s === null || cat.status === 'INSUFFICIENT' || cat.status === 'DATA_GAP') {
+      return `
+      <tr>
+        <td style="padding:8px 12px;font-weight:600;font-size:12px;border-bottom:1px solid #F1F5F9;">${cat.l}</td>
+        <td style="padding:8px 12px;font-family:Cambria,serif;font-size:11px;text-align:center;border-bottom:1px solid #F1F5F9;color:#94A3B8;font-style:italic;">Not scored</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #F1F5F9;font-size:10px;color:#94A3B8;font-style:italic;">Data gap — documentation unavailable</td>
+        <td style="padding:8px 12px;font-family:Cambria,serif;font-size:11px;color:#94A3B8;text-align:right;border-bottom:1px solid #F1F5F9;">—</td>
+      </tr>`
+    }
+    if (cat.status === 'SUPPRESSED') {
+      return `
+      <tr>
+        <td style="padding:8px 12px;font-weight:600;font-size:12px;border-bottom:1px solid #F1F5F9;">${cat.l}</td>
+        <td style="padding:8px 12px;font-family:Cambria,serif;font-size:11px;text-align:center;border-bottom:1px solid #F1F5F9;color:#94A3B8;font-style:italic;">N/A</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #F1F5F9;font-size:10px;color:#94A3B8;font-style:italic;">Suppressed for zone type</td>
+        <td style="padding:8px 12px;font-family:Cambria,serif;font-size:11px;color:#94A3B8;text-align:right;border-bottom:1px solid #F1F5F9;">—</td>
+      </tr>`
+    }
     const pct = Math.round((cat.s / cat.mx) * 100)
     return `
       <tr>
@@ -202,7 +220,8 @@ export function generatePrintHTML(data) {
 
   ${comp ? (() => {
     const worstZone = zoneScores?.reduce((a, b) => a.tot < b.tot ? a : b, zoneScores[0])
-    const worstCat = worstZone?.cats?.reduce((a, b) => (a.s/a.mx) < (b.s/b.mx) ? a : b)
+    const scoredCatsWZ = worstZone?.cats?.filter(c => c.s !== null && c.status !== 'SUPPRESSED') || []
+    const worstCat = scoredCatsWZ.length > 0 ? scoredCatsWZ.reduce((a, b) => (a.s/a.mx) < (b.s/b.mx) ? a : b) : null
     const hasGate5 = zoneScores?.some(zs => zs.cats?.some(c => c.gate5))
     const hasSynergistic = zoneScores?.some(zs => zs.cats?.some(c => c.synergistic))
     const allFindings = (zoneScores||[]).flatMap(zs => zs.cats.flatMap(c => c.r.filter(r => r.sev !== 'pass' && r.sev !== 'info').map(r => ({ ...r, zone: zs.zoneName, cat: c.l }))))
@@ -238,8 +257,8 @@ export function generatePrintHTML(data) {
       }
     </div>
 
-    ${hasGate5 ? '<div style="padding:10px 14px;background:#FEF2F2;border:1px solid #FECACA;border-radius:4px;margin-bottom:16px;font-size:11px;color:#7F1D1D;font-weight:600;">⚠ CRITICAL SYSTEM FAILURE: Active moisture/filtration breach detected in HVAC system.</div>' : ''}
-    ${hasSynergistic ? '<div style="padding:10px 14px;background:#FEF2F2;border:1px solid #FECACA;border-radius:4px;margin-bottom:16px;font-size:11px;color:#7F1D1D;font-weight:600;">⚠ CRITICAL TOXICITY ALERT: Multiple Tier 1 contaminants exceed OSHA Permissible Exposure Limits.</div>' : ''}
+    ${hasGate5 ? '<div style="padding:10px 14px;background:#FEF2F2;border:1px solid #FECACA;border-radius:4px;margin-bottom:16px;font-size:11px;color:#7F1D1D;font-weight:600;">⚠ Critical HVAC Condition Identified: Active moisture or filtration deficiency detected in HVAC system.</div>' : ''}
+    ${hasSynergistic ? '<div style="padding:10px 14px;background:#FEF2F2;border:1px solid #FECACA;border-radius:4px;margin-bottom:16px;font-size:11px;color:#7F1D1D;font-weight:600;">⚠ Multiple Contaminant Exceedance: More than one Tier 1 contaminant exceeds OSHA Permissible Exposure Limits. Immediate follow-up sampling required.</div>' : ''}
     `
   })() : ''}
 
@@ -248,14 +267,17 @@ export function generatePrintHTML(data) {
   <div class="note">This narrative was generated from deterministic scoring output and requires professional review before client distribution.</div>
   ` : (() => {
     const worstZone2 = zoneScores?.reduce((a, b) => a.tot < b.tot ? a : b, zoneScores[0])
-    const worstCat2 = worstZone2?.cats?.reduce((a, b) => (a.s/a.mx) < (b.s/b.mx) ? a : b)
+    const scoredCatsWZ2 = worstZone2?.cats?.filter(c => c.s !== null && c.status !== 'SUPPRESSED') || []
+    const worstCat2 = scoredCatsWZ2.length > 0 ? scoredCatsWZ2.reduce((a, b) => (a.s/a.mx) < (b.s/b.mx) ? a : b) : null
     const p1 = `An indoor air quality assessment was conducted at ${bldg.fn || 'the subject facility'} on ${assessDate}, encompassing ${(zones||[]).length} zone${(zones||[]).length !== 1 ? 's' : ''}${presurvey?.ps_reason ? ` in response to ${presurvey.ps_reason.toLowerCase()}` : ''}. The assessment included direct-reading instrument measurements, visual inspection, HVAC system evaluation, and occupant complaint documentation.`
     const p2 = comp?.tot >= 70
       ? `Available evidence supports that conditions observed during the assessment window are broadly consistent with applicable occupancy standards. The composite score of ${comp.tot}/100 reflects acceptable conditions across the majority of evaluated zones, with localized areas warranting targeted follow-up as detailed in the zone findings below.`
       : comp?.tot >= 50
         ? `Conditions observed during the assessment window suggest moderate indoor air quality concerns. The composite score of ${comp.tot}/100 reflects a weighted evaluation across five categories, with ${worstCat2 ? `${worstCat2.l} (${worstCat2.s}/${worstCat2.mx}) identified as the primary area of concern` : 'multiple categories showing room for improvement'}. Targeted investigation is recommended in the areas identified below.`
         : `Conditions observed during the assessment window indicate significant indoor air quality concerns that would warrant prioritized remediation. The composite score of ${comp?.tot || '—'}/100 reflects deficiencies across multiple evaluation categories${worstCat2 ? `, with ${worstCat2.l} (${worstCat2.s}/${worstCat2.mx}) representing the most acute concern` : ''}. The findings and recommendations in this report are intended to support a structured corrective action process.`
-    return `<p style="font-size:11px;color:#5C6F7E;line-height:1.8;">${p1}</p><p style="font-size:11px;color:#5C6F7E;line-height:1.8;">${p2}</p>`
+    const hasDataGaps = (zoneScores||[]).some(zs => zs.partialScore)
+    const p3 = hasDataGaps ? ' Note: One or more scoring categories could not be fully evaluated due to unavailable documentation. The composite score reflects measured parameters only; confidence has been reduced accordingly. Categories marked as data gaps are not converted into risk findings.' : ''
+    return `<p style="font-size:11px;color:#5C6F7E;line-height:1.8;">${p1}</p><p style="font-size:11px;color:#5C6F7E;line-height:1.8;">${p2}${p3}</p>`
   })()}
 
   ${/* Key Findings Summary Table */(() => {
@@ -386,11 +408,17 @@ export function generatePrintHTML(data) {
         if (z.mi && z.mi !== 'None observed') obs.push(`Mold indicators: ${z.mi}${z.mie ? ` — ${z.mie}` : ''}`)
         if (z.od && z.od !== 'None') obs.push(`Odor noted: ${z.od}${z.odi ? ` (${z.odi})` : ''}`)
         if (z.src_int) obs.push(`Interior sources identified: ${Array.isArray(z.src_int) ? z.src_int.join(', ') : z.src_int}`)
-        return obs.length > 0 ? `
+        // Water intrusion complaint with no visible damage
+        const reasonMentionsWater = (presurvey?.ps_reason || '').toLowerCase().match(/water|leak|flood|intrusion|moisture/)
+        const noVisibleDamage = (!z.wd || z.wd === 'None observed' || z.wd === 'None') && (!z.mi || z.mi === 'None observed' || z.mi === 'None')
+        const waterNote = reasonMentionsWater && noVisibleDamage
+          ? '<div style="font-size:10px;color:#64748B;line-height:1.7;padding:8px 12px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:4px;margin:8px 0 12px;font-style:italic;">The assessment was conducted following a reported water intrusion event. No visible water staining, active moisture, or mold-like growth was observed at the time of assessment. Because concealed moisture may not be visible during a limited inspection, follow-up moisture verification may be appropriate if affected assemblies were not fully accessible.</div>'
+          : ''
+        return (obs.length > 0 ? `
           <h3>Observations</h3>
           <ul style="font-size:11px;color:#475569;line-height:1.8;padding-left:18px;margin:4px 0 12px;">
             ${obs.map(o => `<li>${o}</li>`).join('')}
-          </ul>` : ''
+          </ul>` : '') + waterNote
       })()}
 
       ${/* Zone Photos */(() => {
@@ -436,7 +464,9 @@ export function generatePrintHTML(data) {
       <table style="margin-bottom:12px;"><thead><tr><th>Category</th><th style="text-align:center;">Score</th><th>Performance</th><th style="text-align:right;">%</th></tr></thead><tbody>${catRows(zs.cats)}</tbody></table>
 
       ${/* Interpretation */(() => {
-        const worst = zs.cats.reduce((a, b) => ((a.s/a.mx) < (b.s/b.mx) ? a : b))
+        const scored = zs.cats.filter(c => c.s !== null && c.status !== 'SUPPRESSED')
+        if (!scored.length) return '<h3>Interpretation</h3><p style="font-size:11px;color:#94A3B8;font-style:italic;line-height:1.8;">Insufficient data for interpretation. Additional measurements are recommended.</p>'
+        const worst = scored.reduce((a, b) => ((a.s/a.mx) < (b.s/b.mx) ? a : b))
         const worstPct = Math.round((worst.s / worst.mx) * 100)
         const openers = [
           `Conditions observed in this zone are consistent with a ${zs.risk.toLowerCase()} assessment (${zs.tot}/100).`,
@@ -452,10 +482,12 @@ export function generatePrintHTML(data) {
           `${worst.l} represents the primary area of concern at ${worst.s}/${worst.mx} (${worstPct}%),`,
         ]
         const qualifier = worstPct < 50 ? ' which represents a significant concern and would warrant prioritized attention.' : worstPct < 70 ? ' which suggests conditions that may benefit from targeted corrective action.' : ' which is performing within an acceptable range.'
-        const multiLow = zs.cats.filter(c => (c.s/c.mx) < 0.5).length > 1 ? ' Multiple categories scored below 50%, suggesting interrelated contributing factors.' : ''
+        const multiLow = scored.filter(c => (c.s/c.mx) < 0.5).length > 1 ? ' Multiple categories scored below 50%, suggesting interrelated contributing factors.' : ''
+        const dataGapNote = zs.insufficientCats?.length ? ` Note: ${zs.insufficientCats.join(', ')} ${zs.insufficientCats.length === 1 ? 'was' : 'were'} not scored due to insufficient data; confidence is reduced accordingly.` : ''
+        const hvacAdminNote = zs.hvacAdminGap ? ' HVAC maintenance history was not available; this reduces assessment confidence but is not scored as a physical deficiency.' : ''
         return `
           <h3>Interpretation</h3>
-          <p style="font-size:11px;color:#475569;line-height:1.8;">${openers[zi % openers.length]} ${contribs[zi % contribs.length]}${qualifier}${multiLow}</p>`
+          <p style="font-size:11px;color:#475569;line-height:1.8;">${openers[zi % openers.length]} ${contribs[zi % contribs.length]}${qualifier}${multiLow}${dataGapNote}${hvacAdminNote}</p>`
       })()}
 
       ${/* Contributing Factors */(() => {
@@ -484,15 +516,24 @@ export function generatePrintHTML(data) {
           </tbody></table>` : ''
       })()}
 
-      ${/* Confidence and Missing Data */`
+      ${/* Confidence and Missing Data */(() => {
+        const zoneConf = zs.confidence || confLabel
+        const confExplain = zoneConf === 'Low' || zoneConf === 'Insufficient'
+          ? (zs.insufficientCats?.length ? ` — ${zs.insufficientCats.join(', ')} data not available; score reflects measured parameters only` : ' — limited data available; findings are directional pending follow-up')
+          : zs.tot < 40 ? ' — findings are directional pending follow-up' : ''
+        const gaps = oshaResult?.gaps || []
+        const insuffGaps = (zs.insufficientCats || []).filter(c => !gaps.some(g => g.toLowerCase().includes(c.toLowerCase())))
+        const allGaps = [...gaps, ...insuffGaps.map(c => c + ' documentation unavailable')]
+        return `
       <div style="margin-top:12px;display:flex;gap:12px;">
         <div style="flex:1;padding:8px 12px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:4px;font-size:10px;">
-          <strong style="color:#334155;">Confidence:</strong> <span style="color:#475569;">${confLabel}${zs.tot < 40 ? ' — findings are directional pending follow-up' : ''}</span>
+          <strong style="color:#334155;">Confidence:</strong> <span style="color:#475569;">${zoneConf}${confExplain}</span>
         </div>
         <div style="flex:1;padding:8px 12px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:4px;font-size:10px;">
-          <strong style="color:#334155;">Missing data:</strong> <span style="color:#475569;">${(oshaResult?.gaps||[]).length > 0 ? oshaResult.gaps.join(', ') : 'No significant data gaps identified for this zone'}</span>
+          <strong style="color:#334155;">Missing data:</strong> <span style="color:#475569;">${allGaps.length > 0 ? allGaps.join(', ') : 'No significant data gaps identified for this zone'}</span>
         </div>
-      </div>`}
+      </div>`
+      })()}
     </div>`
   }).join('')}
 
@@ -647,7 +688,7 @@ export function generatePrintHTML(data) {
       <tr>
         <td style="font-weight:600;">${zs.zoneName}</td>
         <td style="text-align:center;font-family:Cambria,serif;font-weight:700;color:${scoreColor(zs.tot)};">${zs.tot}</td>
-        ${zs.cats.map(c => `<td style="text-align:center;font-family:Cambria,serif;font-size:10px;">${c.s}/${c.mx}</td>`).join('')}
+        ${zs.cats.map(c => `<td style="text-align:center;font-family:Cambria,serif;font-size:10px;${c.s === null ? 'color:#94A3B8;font-style:italic;' : ''}">${c.s !== null ? c.s + '/' + c.mx : '—'}</td>`).join('')}
         <td style="font-size:10px;font-weight:600;color:${scoreColor(zs.tot)};">${zs.risk}</td>
       </tr>
     `).join('')}

@@ -40,8 +40,30 @@ describe('scoreZone', () => {
     const bldg = { hm: 'Over 12 months' }
     const result = scoreZone(zone, bldg)
     const hvacCat = result.cats.find(c => c.l === 'HVAC')
-    expect(hvacCat.s).toBeLessThanOrEqual(5) // 20 - 15 = 5
-    expect(hvacCat.r[0].sev).toBe('high')
+    expect(hvacCat.s).toBeLessThanOrEqual(15) // 20 - 5 = 15, then capped by sufficiency
+    expect(hvacCat.r[0].sev).toBe('medium')
+  })
+
+  it('treats unknown HVAC maintenance as data gap, not deficiency', () => {
+    const zone = { zn: 'Lobby', co2: '450', tf: '72', rh: '45' }
+    const bldg = { hm: 'Unknown' }
+    const result = scoreZone(zone, bldg)
+    const hvacCat = result.cats.find(c => c.l === 'HVAC')
+    const finding = hvacCat.r.find(r => r.t.includes('Data Gap'))
+    expect(finding).toBeDefined()
+    expect(finding.sev).toBe('info')
+    expect(hvacCat.adminGap).toBe(true)
+    expect(result.hvacAdminGap).toBe(true)
+  })
+
+  it('uses professional language for gate 5 HVAC findings', () => {
+    const zone = { zn: 'Mech Room', sa: 'No airflow detected' }
+    const bldg = { hm: 'Within 6 months' }
+    const result = scoreZone(zone, bldg)
+    const hvacCat = result.cats.find(c => c.l === 'HVAC')
+    const gate5Finding = hvacCat.r.find(r => r.t.includes('Critical HVAC Condition Identified'))
+    expect(gate5Finding).toBeDefined()
+    expect(hvacCat.r.every(r => !r.t.includes('SYSTEM FAILURE'))).toBe(true)
   })
 
   it('scores complaints with affected occupants', () => {

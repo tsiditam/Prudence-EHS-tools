@@ -91,7 +91,7 @@ export function buildExecutiveSummary(ctx) {
 
     const hasGate5 = ctx.zoneScores?.some(zs => zs.cats?.some(c => c.gate5))
     const hasSynergistic = ctx.zoneScores?.some(zs => zs.cats?.some(c => c.synergistic))
-    const criticalPrefix = hasGate5 ? 'CRITICAL SYSTEM FAILURE: Active moisture/filtration breach detected in HVAC system. ' : hasSynergistic ? 'CRITICAL TOXICITY ALERT: Multiple Tier 1 contaminants exceed OSHA Permissible Exposure Limits. ' : ''
+    const criticalPrefix = hasGate5 ? 'Critical HVAC Condition Identified: Active moisture or filtration deficiency detected in HVAC system. ' : hasSynergistic ? 'Multiple Contaminant Exceedance: More than one Tier 1 contaminant exceeds OSHA Permissible Exposure Limits. Immediate follow-up sampling required. ' : ''
 
     const p1 = `${criticalPrefix}An indoor air quality assessment was conducted at ${ctx.facilityName} on ${ctx.assessDate}, encompassing ${ctx.zoneCount} zone${ctx.zoneCount !== 1 ? 's' : ''}${ctx.reason ? ` in response to ${ctx.reason.toLowerCase()}` : ''}. The assessment included direct-reading instrument measurements, visual inspection, HVAC system evaluation, and occupant complaint documentation.`
 
