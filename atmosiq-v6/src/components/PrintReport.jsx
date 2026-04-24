@@ -42,18 +42,18 @@ export function generatePrintHTML(data) {
     return `
       <tr>
         <td style="padding:8px 12px;font-weight:600;font-size:12px;border-bottom:1px solid #F1F5F9;">${cat.l}</td>
-        <td style="padding:8px 12px;font-family:inherit;font-size:12px;text-align:center;border-bottom:1px solid #F1F5F9;">${cat.s}/${cat.mx}</td>
+        <td style="padding:8px 12px;font-family:Cambria,serif;font-size:12px;text-align:center;border-bottom:1px solid #F1F5F9;">${cat.s}/${cat.mx}</td>
         <td style="padding:8px 12px;border-bottom:1px solid #F1F5F9;"><div style="height:6px;background:#F1F5F9;border-radius:3px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:${pct>=70?'#15803D':pct>=50?'#A16207':'#B91C1C'};border-radius:3px;"></div></div></td>
-        <td style="padding:8px 12px;font-family:inherit;font-size:11px;color:${scoreColor(pct)};text-align:right;border-bottom:1px solid #F1F5F9;">${pct}%</td>
+        <td style="padding:8px 12px;font-family:Cambria,serif;font-size:11px;color:${scoreColor(pct)};text-align:right;border-bottom:1px solid #F1F5F9;">${pct}%</td>
       </tr>`
   }).join('')
 
   const findingRows = (cats) => cats.flatMap(cat => cat.r.map(r => `
     <tr style="font-size:11px;">
-      <td style="padding:6px 10px;border-bottom:1px solid #F1F5F9;"><span style="padding:2px 6px;border-radius:3px;font-size:9px;font-weight:700;font-family:inherit;background:${sevColor(r.sev)}12;color:${sevColor(r.sev)};text-transform:uppercase;">${r.sev}</span></td>
+      <td style="padding:6px 10px;border-bottom:1px solid #F1F5F9;"><span style="padding:2px 6px;border-radius:3px;font-size:9px;font-weight:700;font-family:Cambria,serif;background:${sevColor(r.sev)}12;color:${sevColor(r.sev)};text-transform:uppercase;">${r.sev}</span></td>
       <td style="padding:6px 10px;border-bottom:1px solid #F1F5F9;font-weight:500;">${cat.l}</td>
       <td style="padding:6px 10px;border-bottom:1px solid #F1F5F9;">${r.t}</td>
-      <td style="padding:6px 10px;border-bottom:1px solid #F1F5F9;color:#64748B;font-family:inherit;font-size:10px;">${r.std || '—'}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid #F1F5F9;color:#64748B;font-family:Cambria,serif;font-size:10px;">${r.std || '—'}</td>
     </tr>
   `)).join('')
 
@@ -71,9 +71,9 @@ export function generatePrintHTML(data) {
     h2 { font-size: 13px; font-weight: 700; color: #1B2A41; margin: 28px 0 10px; padding-bottom: 6px; border-bottom: 1px solid #D1D5DB; text-transform: uppercase; letter-spacing: 0.8px; }
     h3 { font-size: 12px; font-weight: 700; color: #2D3A4A; margin: 20px 0 8px; }
     p { margin-bottom: 8px; line-height: 1.7; }
-    table { width: 100%; border-collapse: collapse; }
-    th { text-align: left; padding: 8px 10px; background: #F3F4F6; font-size: 10px; font-weight: 700; color: #5C6F7E; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #D1D5DB; }
-    td { padding: 8px 10px; border-bottom: 1px solid #E5E7EB; font-size: 11px; vertical-align: top; }
+    table { width: 100%; border-collapse: collapse; font-family: Cambria, 'Times New Roman', serif; }
+    th { text-align: left; padding: 8px 10px; background: #F3F4F6; font-size: 10px; font-weight: 700; color: #5C6F7E; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #D1D5DB; font-family: Cambria, serif; }
+    td { padding: 8px 10px; border-bottom: 1px solid #E5E7EB; font-size: 11px; vertical-align: top; font-family: Cambria, serif; }
     .accent { color: #1B2A41; }
     .cover { text-align: center; padding: 80px 0 60px; border-bottom: 2px solid #1B2A41; margin-bottom: 32px; }
     .cover-firm { font-size: 14px; font-weight: 700; color: #1B2A41; letter-spacing: 0.5px; margin-bottom: 8px; }
@@ -166,7 +166,7 @@ export function generatePrintHTML(data) {
   <!-- ═══ FM SUMMARY LAYER ═══ -->
   <div style="text-align:center;padding:40px 0 30px;border-bottom:1px solid #E2E8F0;margin-bottom:24px;">
     <div style="width:80px;height:80px;border-radius:50%;background:${comp.tot >= 70 ? '#22C55E15' : comp.tot >= 50 ? '#FBBF2415' : comp.tot >= 40 ? '#FB923C15' : '#EF444415'};border:3px solid ${scoreColor(comp.tot)};display:inline-flex;align-items:center;justify-content:center;margin-bottom:16px;">
-      <span style="font-size:28px;font-weight:800;font-family:inherit;color:${scoreColor(comp.tot)};">${comp.tot}</span>
+      <span style="font-size:28px;font-weight:800;font-family:Cambria,serif;color:${scoreColor(comp.tot)};">${comp.tot}</span>
     </div>
     <div style="font-size:22px;font-weight:700;color:${scoreColor(comp.tot)};">${comp.tot >= 80 ? 'Low Risk' : comp.tot >= 60 ? 'Moderate' : comp.tot >= 40 ? 'High Risk' : 'Critical'}</div>
     <p style="font-size:13px;color:#475569;max-width:500px;margin:12px auto;line-height:1.7;">${comp.tot >= 70 ? 'The air quality in this building appears to be within acceptable ranges based on the measurements taken.' : comp.tot >= 50 ? 'Some air quality concerns were identified that may benefit from attention. See recommended actions below.' : 'Significant air quality concerns were identified. Corrective action is recommended.'}</p>
@@ -213,7 +213,7 @@ export function generatePrintHTML(data) {
     <!-- Executive Summary Dashboard -->
     <div style="display:flex;gap:16px;margin-bottom:20px;">
       <div style="flex:0 0 120px;text-align:center;padding:20px 16px;border:1px solid #D1D5DB;border-radius:6px;">
-        <div style="font-size:36px;font-weight:800;font-family:inherit;color:${scoreColor(comp.tot)};letter-spacing:-2px;">${comp.tot}</div>
+        <div style="font-size:36px;font-weight:800;font-family:Cambria,serif;color:${scoreColor(comp.tot)};letter-spacing:-2px;">${comp.tot}</div>
         <div style="font-size:9px;color:#5C6F7E;margin-top:2px;">out of 100</div>
         <div style="display:inline-block;padding:3px 10px;border-radius:3px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;background:${scoreColor(comp.tot)}12;color:${scoreColor(comp.tot)};margin-top:8px;">${comp.risk || riskLabel(comp.tot)}</div>
       </div>
@@ -269,7 +269,7 @@ export function generatePrintHTML(data) {
       <td style="font-size:10px;">${f.zone}</td>
       <td style="font-size:10px;">${f.cat}</td>
       <td style="font-size:10px;">${f.finding.length > 120 ? f.finding.substring(0, 120) + '...' : f.finding}</td>
-      <td style="font-size:9px;color:#5C6F7E;font-family:inherit;">${f.std || '—'}</td>
+      <td style="font-size:9px;color:#5C6F7E;font-family:Cambria,serif;">${f.std || '—'}</td>
     </tr>`).join('')}
     </tbody></table>
     ${findings.length > 8 ? `<p style="font-size:9px;color:#7A8A97;margin-top:4px;">${findings.length - 8} additional finding${findings.length - 8 !== 1 ? 's' : ''} detailed in zone sections below.</p>` : ''}`
@@ -287,7 +287,7 @@ export function generatePrintHTML(data) {
     <table><thead><tr><th style="width:70px;">Priority</th><th style="width:70px;">Timing</th><th>Recommended Action</th></tr></thead><tbody>
     ${allRecs.map(r => `<tr>
       <td><span style="font-size:9px;font-weight:700;color:${r.color};text-transform:uppercase;">${r.priority}</span></td>
-      <td style="font-size:10px;color:#5C6F7E;font-family:inherit;">${r.timing}</td>
+      <td style="font-size:10px;color:#5C6F7E;font-family:Cambria,serif;">${r.timing}</td>
       <td style="font-size:10px;">${r.action}</td>
     </tr>`).join('')}
     </tbody></table>`
@@ -300,8 +300,8 @@ export function generatePrintHTML(data) {
   <p><strong>Assessment activities:</strong> Visual inspection, real-time direct-reading instrument measurements, occupant complaint documentation, HVAC system evaluation, and moisture/mold screening.</p>
   <h3>Instrumentation</h3>
   <table><thead><tr><th>Instrument</th><th>Identifier</th><th>Calibration</th></tr></thead><tbody>
-    <tr><td>${presurvey?.ps_inst_iaq || 'IAQ meter'}</td><td style="font-family:inherit;font-size:10px;">${presurvey?.ps_inst_iaq_serial || '—'}</td><td>${presurvey?.ps_inst_iaq_cal_status || '—'}${presurvey?.ps_inst_iaq_cal ? ` (${presurvey.ps_inst_iaq_cal})` : ''}</td></tr>
-    ${presurvey?.ps_inst_pid ? `<tr><td>${presurvey.ps_inst_pid}</td><td style="font-family:inherit;font-size:10px;">—</td><td>${presurvey.ps_inst_pid_cal || '—'}</td></tr>` : ''}
+    <tr><td>${presurvey?.ps_inst_iaq || 'IAQ meter'}</td><td style="font-family:Cambria,serif;font-size:10px;">${presurvey?.ps_inst_iaq_serial || '—'}</td><td>${presurvey?.ps_inst_iaq_cal_status || '—'}${presurvey?.ps_inst_iaq_cal ? ` (${presurvey.ps_inst_iaq_cal})` : ''}</td></tr>
+    ${presurvey?.ps_inst_pid ? `<tr><td>${presurvey.ps_inst_pid}</td><td style="font-family:Cambria,serif;font-size:10px;">—</td><td>${presurvey.ps_inst_pid_cal || '—'}</td></tr>` : ''}
   </tbody></table>
   <h3>Standards and Guidance Manifest</h3>
   <p style="font-size:10px;color:#5C6F7E;margin-bottom:10px;">The following standards, guidelines, and benchmarks are referenced in this assessment. Each is classified by its regulatory or advisory status. Advisory benchmarks should not be interpreted as regulatory limits.</p>
@@ -355,7 +355,7 @@ export function generatePrintHTML(data) {
   <div style="display:flex;gap:12px;margin-bottom:16px;">
     ${[{l:'Composite',v:comp.tot},{l:'Average',v:comp.avg},{l:'Worst Zone',v:comp.worst}].map(m => `
     <div style="flex:1;text-align:center;padding:12px;border:1px solid #E2E8F0;border-radius:6px;">
-      <div style="font-size:24px;font-weight:800;font-family:inherit;color:${scoreColor(m.v)};">${m.v}</div>
+      <div style="font-size:24px;font-weight:800;font-family:Cambria,serif;color:${scoreColor(m.v)};">${m.v}</div>
       <div style="font-size:9px;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;margin-top:2px;">${m.l}</div>
     </div>`).join('')}
   </div>
@@ -374,7 +374,7 @@ export function generatePrintHTML(data) {
           <div style="font-size:10px;color:#64748B;margin-top:2px;">${z.zt || ''} ${z.zo ? `· ${z.zo} occupants` : ''} ${z.za ? `· ${z.za} sq ft` : ''}${z.meas_time ? ` · Assessed at ${z.meas_time}` : ''}</div>
         </div>
         <div style="text-align:right;">
-          <span style="font-family:inherit;font-size:22px;font-weight:800;color:${scoreColor(zs.tot)};">${zs.tot}</span>
+          <span style="font-family:Cambria,serif;font-size:22px;font-weight:800;color:${scoreColor(zs.tot)};">${zs.tot}</span>
           <span style="font-size:10px;color:#64748B;">/100</span>
           <div style="font-size:9px;color:${scoreColor(zs.tot)};font-weight:700;">${zs.risk}</div>
         </div>
@@ -422,13 +422,13 @@ export function generatePrintHTML(data) {
         return hasData ? `
           <h3>Parameter Results</h3>
           <table style="margin-bottom:12px;"><thead><tr><th>Parameter</th><th style="text-align:center;">Indoor</th><th style="text-align:center;">Outdoor</th><th>Reference</th></tr></thead><tbody>
-            ${z.co2 ? `<tr><td>CO₂</td><td style="text-align:center;font-family:inherit;">${z.co2} ppm</td><td style="text-align:center;font-family:inherit;color:#64748B;">${z.co2o || '—'} ppm</td><td style="font-size:10px;color:#64748B;">Δ700 ppm (ASHRAE 62.1)</td></tr>` : ''}
-            ${z.tf ? `<tr><td>Temperature</td><td style="text-align:center;font-family:inherit;">${z.tf}°F</td><td style="text-align:center;font-family:inherit;color:#64748B;">${z.tfo || '—'}°F</td><td style="font-size:10px;color:#64748B;">68–79°F (ASHRAE 55)</td></tr>` : ''}
-            ${z.rh ? `<tr><td>Relative Humidity</td><td style="text-align:center;font-family:inherit;">${z.rh}%</td><td style="text-align:center;font-family:inherit;color:#64748B;">${z.rho || '—'}%</td><td style="font-size:10px;color:#64748B;">30–60%</td></tr>` : ''}
-            ${z.pm ? `<tr><td>PM2.5</td><td style="text-align:center;font-family:inherit;">${z.pm} µg/m³</td><td style="text-align:center;font-family:inherit;color:#64748B;">${z.pmo || '—'} µg/m³</td><td style="font-size:10px;color:#64748B;"><35 µg/m³ (EPA 24-hr)</td></tr>` : ''}
-            ${z.co ? `<tr><td>Carbon Monoxide</td><td style="text-align:center;font-family:inherit;">${z.co} ppm</td><td style="text-align:center;font-family:inherit;color:#64748B;">—</td><td style="font-size:10px;color:#64748B;"><35 ppm (NIOSH REL)</td></tr>` : ''}
-            ${z.tv ? `<tr><td>Total VOCs</td><td style="text-align:center;font-family:inherit;">${z.tv} µg/m³</td><td style="text-align:center;font-family:inherit;color:#64748B;">${z.tvo || '—'} µg/m³</td><td style="font-size:10px;color:#64748B;"><500 µg/m³ (concern)</td></tr>` : ''}
-            ${z.hc ? `<tr><td>Formaldehyde</td><td style="text-align:center;font-family:inherit;">${z.hc} ppm</td><td style="text-align:center;font-family:inherit;color:#64748B;">—</td><td style="font-size:10px;color:#64748B;"><0.016 ppm (NIOSH REL)</td></tr>` : ''}
+            ${z.co2 ? `<tr><td>CO₂</td><td style="text-align:center;font-family:Cambria,serif;">${z.co2} ppm</td><td style="text-align:center;font-family:Cambria,serif;color:#64748B;">${z.co2o || '—'} ppm</td><td style="font-size:10px;color:#64748B;">Δ700 ppm (ASHRAE 62.1)</td></tr>` : ''}
+            ${z.tf ? `<tr><td>Temperature</td><td style="text-align:center;font-family:Cambria,serif;">${z.tf}°F</td><td style="text-align:center;font-family:Cambria,serif;color:#64748B;">${z.tfo || '—'}°F</td><td style="font-size:10px;color:#64748B;">68–79°F (ASHRAE 55)</td></tr>` : ''}
+            ${z.rh ? `<tr><td>Relative Humidity</td><td style="text-align:center;font-family:Cambria,serif;">${z.rh}%</td><td style="text-align:center;font-family:Cambria,serif;color:#64748B;">${z.rho || '—'}%</td><td style="font-size:10px;color:#64748B;">30–60%</td></tr>` : ''}
+            ${z.pm ? `<tr><td>PM2.5</td><td style="text-align:center;font-family:Cambria,serif;">${z.pm} µg/m³</td><td style="text-align:center;font-family:Cambria,serif;color:#64748B;">${z.pmo || '—'} µg/m³</td><td style="font-size:10px;color:#64748B;"><35 µg/m³ (EPA 24-hr)</td></tr>` : ''}
+            ${z.co ? `<tr><td>Carbon Monoxide</td><td style="text-align:center;font-family:Cambria,serif;">${z.co} ppm</td><td style="text-align:center;font-family:Cambria,serif;color:#64748B;">—</td><td style="font-size:10px;color:#64748B;"><35 ppm (NIOSH REL)</td></tr>` : ''}
+            ${z.tv ? `<tr><td>Total VOCs</td><td style="text-align:center;font-family:Cambria,serif;">${z.tv} µg/m³</td><td style="text-align:center;font-family:Cambria,serif;color:#64748B;">${z.tvo || '—'} µg/m³</td><td style="font-size:10px;color:#64748B;"><500 µg/m³ (concern)</td></tr>` : ''}
+            ${z.hc ? `<tr><td>Formaldehyde</td><td style="text-align:center;font-family:Cambria,serif;">${z.hc} ppm</td><td style="text-align:center;font-family:Cambria,serif;color:#64748B;">—</td><td style="font-size:10px;color:#64748B;"><0.016 ppm (NIOSH REL)</td></tr>` : ''}
           </tbody></table>` : ''
       })()}
 
@@ -506,7 +506,7 @@ export function generatePrintHTML(data) {
         <strong style="font-size:12px;">${ch.type}</strong>
         <span style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;text-transform:uppercase;letter-spacing:0.3px;background:${ch.confidence === 'Strong' ? '#F0FDF4' : ch.confidence === 'Moderate' ? '#FFFBEB' : '#F8FAFC'};color:${ch.confidence === 'Strong' ? '#15803D' : ch.confidence === 'Moderate' ? '#A16207' : '#64748B'};">${ch.confidence}</span>
       </div>
-      <div style="font-size:10px;color:#1B2A41;font-family:inherit;margin-bottom:8px;">${ch.zone}</div>
+      <div style="font-size:10px;color:#1B2A41;font-family:Cambria,serif;margin-bottom:8px;">${ch.zone}</div>
       <div style="padding:8px 14px;background:#F8FAFC;border-left:2px solid #1B2A41;border-radius:0 4px 4px 0;font-size:11px;color:#334155;margin-bottom:8px;">${ch.rootCause}</div>
       <div style="font-size:10px;font-weight:600;color:#64748B;margin-bottom:4px;">Supporting evidence:</div>
       ${ch.evidence.map(e => `<div class="evidence-item">${e}</div>`).join('')}
@@ -524,10 +524,10 @@ export function generatePrintHTML(data) {
     ${samplingPlan.plan.map(p => `
       <tr>
         <td style="font-weight:600;font-size:11px;">${p.type}</td>
-        <td style="font-size:10px;font-family:inherit;color:#1B2A41;">${p.zone}</td>
+        <td style="font-size:10px;font-family:Cambria,serif;color:#1B2A41;">${p.zone}</td>
         <td><span style="font-size:9px;font-weight:700;text-transform:uppercase;color:${p.priority === 'critical' ? '#B91C1C' : p.priority === 'high' ? '#C2410C' : '#A16207'};">${p.priority}</span></td>
         <td style="font-size:10px;">${p.method}</td>
-        <td style="font-size:9px;font-family:inherit;color:#64748B;">${p.standard}</td>
+        <td style="font-size:9px;font-family:Cambria,serif;color:#64748B;">${p.standard}</td>
       </tr>
     `).join('')}
     </tbody>
@@ -573,14 +573,14 @@ export function generatePrintHTML(data) {
     <tbody>
     ${rows.map(row => `
       <tr>
-        <td style="font-family:inherit;font-size:9px;color:#5C6F7E;">${row.id}</td>
+        <td style="font-family:Cambria,serif;font-size:9px;color:#5C6F7E;">${row.id}</td>
         <td><span style="font-size:10px;font-weight:700;color:${row.pc};text-transform:uppercase;">${row.p}</span></td>
         <td style="font-size:10px;color:#2D3A4A;">${row.zone || '—'}</td>
         <td style="font-size:9px;color:#5C6F7E;">${row.evidence}</td>
         <td style="font-size:10px;">${row.r}</td>
         <td style="font-size:9px;color:#5C6F7E;">${row.party}</td>
         <td style="font-size:9px;color:#5C6F7E;">${row.verify}</td>
-        <td style="font-size:9px;font-family:inherit;color:#5C6F7E;">${row.t}</td>
+        <td style="font-size:9px;font-family:Cambria,serif;color:#5C6F7E;">${row.t}</td>
       </tr>
     `).join('')}
     </tbody>
@@ -610,13 +610,13 @@ export function generatePrintHTML(data) {
     ${(zones||[]).map((z, zi) => `
       <tr>
         <td style="font-weight:600;">${z.zn || 'Zone ' + (zi+1)}</td>
-        <td style="font-family:inherit;text-align:center;">${z.co2 || '—'}${z.co2o ? ` <span style="color:#94A3B8;font-size:9px;">(out: ${z.co2o})</span>` : ''}</td>
-        <td style="font-family:inherit;text-align:center;">${z.tf || '—'}${z.tfo ? ` <span style="color:#94A3B8;font-size:9px;">(out: ${z.tfo})</span>` : ''}</td>
-        <td style="font-family:inherit;text-align:center;">${z.rh || '—'}${z.rho ? ` <span style="color:#94A3B8;font-size:9px;">(out: ${z.rho})</span>` : ''}</td>
-        <td style="font-family:inherit;text-align:center;">${z.pm || '—'}${z.pmo ? ` <span style="color:#94A3B8;font-size:9px;">(out: ${z.pmo})</span>` : ''}</td>
-        <td style="font-family:inherit;text-align:center;">${z.co || '—'}</td>
-        <td style="font-family:inherit;text-align:center;">${z.tv || '—'}${z.tvo ? ` <span style="color:#94A3B8;font-size:9px;">(out: ${z.tvo})</span>` : ''}</td>
-        <td style="font-family:inherit;text-align:center;">${z.hc || '—'}</td>
+        <td style="font-family:Cambria,serif;text-align:center;">${z.co2 || '—'}${z.co2o ? ` <span style="color:#94A3B8;font-size:9px;">(out: ${z.co2o})</span>` : ''}</td>
+        <td style="font-family:Cambria,serif;text-align:center;">${z.tf || '—'}${z.tfo ? ` <span style="color:#94A3B8;font-size:9px;">(out: ${z.tfo})</span>` : ''}</td>
+        <td style="font-family:Cambria,serif;text-align:center;">${z.rh || '—'}${z.rho ? ` <span style="color:#94A3B8;font-size:9px;">(out: ${z.rho})</span>` : ''}</td>
+        <td style="font-family:Cambria,serif;text-align:center;">${z.pm || '—'}${z.pmo ? ` <span style="color:#94A3B8;font-size:9px;">(out: ${z.pmo})</span>` : ''}</td>
+        <td style="font-family:Cambria,serif;text-align:center;">${z.co || '—'}</td>
+        <td style="font-family:Cambria,serif;text-align:center;">${z.tv || '—'}${z.tvo ? ` <span style="color:#94A3B8;font-size:9px;">(out: ${z.tvo})</span>` : ''}</td>
+        <td style="font-family:Cambria,serif;text-align:center;">${z.hc || '—'}</td>
       </tr>
     `).join('')}
     </tbody>
@@ -631,11 +631,11 @@ export function generatePrintHTML(data) {
   <table>
     <thead><tr><th>Category</th><th style="text-align:center;">Max Points</th><th>Evaluation Basis</th></tr></thead>
     <tbody>
-      <tr><td style="font-weight:600;">Ventilation</td><td style="text-align:center;font-family:inherit;">25</td><td style="font-size:10px;color:#475569;">CO₂ differential vs ASHRAE 62.1, outdoor air damper status, supply airflow adequacy, complaint correlation</td></tr>
-      <tr><td style="font-weight:600;">Contaminants</td><td style="text-align:center;font-family:inherit;">25</td><td style="font-size:10px;color:#475569;">PM2.5 (EPA/WHO), CO (OSHA/NIOSH), HCHO (OSHA/NIOSH), TVOCs, visible mold, odors, visible dust</td></tr>
-      <tr><td style="font-weight:600;">HVAC</td><td style="text-align:center;font-family:inherit;">20</td><td style="font-size:10px;color:#475569;">Maintenance recency, filter condition/type, airflow adequacy, drain pan condition</td></tr>
-      <tr><td style="font-weight:600;">Complaints</td><td style="text-align:center;font-family:inherit;">15</td><td style="font-size:10px;color:#475569;">Complaint presence, affected occupant count, symptom pattern clarity, clustering, symptom types</td></tr>
-      <tr><td style="font-weight:600;">Environment</td><td style="text-align:center;font-family:inherit;">15</td><td style="font-size:10px;color:#475569;">Temperature (ASHRAE 55 summer/winter), relative humidity, water damage indicators, mold indicators</td></tr>
+      <tr><td style="font-weight:600;">Ventilation</td><td style="text-align:center;font-family:Cambria,serif;">25</td><td style="font-size:10px;color:#475569;">CO₂ differential vs ASHRAE 62.1, outdoor air damper status, supply airflow adequacy, complaint correlation</td></tr>
+      <tr><td style="font-weight:600;">Contaminants</td><td style="text-align:center;font-family:Cambria,serif;">25</td><td style="font-size:10px;color:#475569;">PM2.5 (EPA/WHO), CO (OSHA/NIOSH), HCHO (OSHA/NIOSH), TVOCs, visible mold, odors, visible dust</td></tr>
+      <tr><td style="font-weight:600;">HVAC</td><td style="text-align:center;font-family:Cambria,serif;">20</td><td style="font-size:10px;color:#475569;">Maintenance recency, filter condition/type, airflow adequacy, drain pan condition</td></tr>
+      <tr><td style="font-weight:600;">Complaints</td><td style="text-align:center;font-family:Cambria,serif;">15</td><td style="font-size:10px;color:#475569;">Complaint presence, affected occupant count, symptom pattern clarity, clustering, symptom types</td></tr>
+      <tr><td style="font-weight:600;">Environment</td><td style="text-align:center;font-family:Cambria,serif;">15</td><td style="font-size:10px;color:#475569;">Temperature (ASHRAE 55 summer/winter), relative humidity, water damage indicators, mold indicators</td></tr>
     </tbody>
   </table>
 
@@ -646,15 +646,15 @@ export function generatePrintHTML(data) {
     ${(zoneScores||[]).map(zs => `
       <tr>
         <td style="font-weight:600;">${zs.zoneName}</td>
-        <td style="text-align:center;font-family:inherit;font-weight:700;color:${scoreColor(zs.tot)};">${zs.tot}</td>
-        ${zs.cats.map(c => `<td style="text-align:center;font-family:inherit;font-size:10px;">${c.s}/${c.mx}</td>`).join('')}
+        <td style="text-align:center;font-family:Cambria,serif;font-weight:700;color:${scoreColor(zs.tot)};">${zs.tot}</td>
+        ${zs.cats.map(c => `<td style="text-align:center;font-family:Cambria,serif;font-size:10px;">${c.s}/${c.mx}</td>`).join('')}
         <td style="font-size:10px;font-weight:600;color:${scoreColor(zs.tot)};">${zs.risk}</td>
       </tr>
     `).join('')}
     ${comp ? `
     <tr style="background:#F8FAFC;font-weight:700;">
       <td>Composite</td>
-      <td style="text-align:center;font-family:inherit;color:${scoreColor(comp.tot)};">${comp.tot}</td>
+      <td style="text-align:center;font-family:Cambria,serif;color:${scoreColor(comp.tot)};">${comp.tot}</td>
       <td colspan="5" style="text-align:center;font-size:10px;color:#64748B;">Avg: ${comp.avg} · Worst: ${comp.worst} · Weight: (avg × 0.6) + (worst × 0.4)</td>
       <td style="font-size:10px;color:${scoreColor(comp.tot)};">${comp.risk || riskLabel(comp.tot)}</td>
     </tr>` : ''}
@@ -676,9 +676,9 @@ export function generatePrintHTML(data) {
       <tbody>
       ${calLog.map(c => `<tr>
         <td style="font-weight:600;">${c.nickname || c.make}</td>
-        <td style="font-family:inherit;font-size:10px;">${c.serial || '—'}</td>
+        <td style="font-family:Cambria,serif;font-size:10px;">${c.serial || '—'}</td>
         <td style="font-size:10px;">${c.sensorType}</td>
-        <td style="font-family:inherit;font-size:10px;">${c.lastCalDate || 'Not recorded'}</td>
+        <td style="font-family:Cambria,serif;font-size:10px;">${c.lastCalDate || 'Not recorded'}</td>
         <td style="font-size:10px;font-weight:600;color:${c.outOfCal ? '#B91C1C' : '#15803D'};">${c.outOfCal ? 'OUT OF CAL' : 'Current'}</td>
       </tr>`).join('')}
       </tbody>
@@ -699,7 +699,7 @@ export function generatePrintHTML(data) {
         const score = (zoneScores||[])[zi]?.tot
         const color = score === null ? '#6B7380' : score < 50 ? '#B91C1C' : score < 80 ? '#A16207' : '#15803D'
         return `<div style="position:absolute;left:${z.mapX}%;top:${z.mapY}%;transform:translate(-50%,-100%);">
-          <div style="width:20px;height:20px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 2px 6px ${color}80;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;font-family:inherit;">${score ?? '?'}</div>
+          <div style="width:20px;height:20px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 2px 6px ${color}80;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;font-family:Cambria,serif;">${score ?? '?'}</div>
         </div>`
       }).join('')}
     </div>
@@ -713,7 +713,7 @@ export function generatePrintHTML(data) {
       const zi = (zones||[]).indexOf(z)
       const zs = (zoneScores||[])[zi]
       const worst = zs?.cats?.reduce((a, b) => ((a.s/a.mx) < (b.s/b.mx) ? a : b))
-      return `<tr><td style="font-weight:600;">${z.zn || 'Zone'}</td><td style="text-align:center;font-family:inherit;font-weight:700;color:${scoreColor(zs?.tot)};">${zs?.tot ?? '—'}</td><td style="font-size:10px;color:${scoreColor(zs?.tot)};">${zs?.risk || '—'}</td><td style="font-size:10px;color:#475569;">${worst?.l || '—'} (${worst?.s ?? '—'}/${worst?.mx ?? '—'})</td></tr>`
+      return `<tr><td style="font-weight:600;">${z.zn || 'Zone'}</td><td style="text-align:center;font-family:Cambria,serif;font-weight:700;color:${scoreColor(zs?.tot)};">${zs?.tot ?? '—'}</td><td style="font-size:10px;color:${scoreColor(zs?.tot)};">${zs?.risk || '—'}</td><td style="font-size:10px;color:#475569;">${worst?.l || '—'} (${worst?.s ?? '—'}/${worst?.mx ?? '—'})</td></tr>`
     }).join('')}
     </tbody></table>
     <p style="font-size:9px;color:#94A3B8;margin-top:8px;">Risk thresholds per AIHA exposure assessment strategy. Building composite reflects worst-zone override when any zone is Critical.</p>`
