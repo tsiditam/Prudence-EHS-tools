@@ -27,6 +27,10 @@ export function generatePrintHTML(data) {
   const reportId = data.id || `AIQ-${Date.now().toString(36).toUpperCase().slice(-6)}`
   const assessor = profile?.name || presurvey?.ps_assessor || 'Assessor'
   const ver = data.version || '6.0.0'
+  const firmName = profile?.firm || 'Prudence Safety &amp; Environmental Consulting, LLC'
+  const firmAddress = profile?.firm_address || 'Germantown, Maryland'
+  const firmPhone = profile?.firm_phone || '(301) 541-8362'
+  const firmEmail = profile?.email || 'support@prudenceehs.com'
 
   const sevColor = (sev) => ({ critical:'#B91C1C', high:'#C2410C', medium:'#A16207', low:'#1B2A41', pass:'#15803D', info:'#475569' }[sev] || '#475569')
   const scoreColor = (s) => s >= 70 ? '#15803D' : s >= 50 ? '#A16207' : '#B91C1C'
@@ -97,8 +101,8 @@ export function generatePrintHTML(data) {
 <body>
   <!-- ═══ COVER PAGE ═══ -->
   <div class="cover">
-    <div class="cover-firm">Prudence Safety &amp; Environmental Consulting, LLC</div>
-    <div style="font-size:11px;color:#5C6F7E;margin-bottom:32px;">Germantown, Maryland</div>
+    <div class="cover-firm">${firmName}</div>
+    <div style="font-size:11px;color:#5C6F7E;margin-bottom:32px;">${firmAddress}</div>
     <div class="cover-title">Indoor Air Quality</div>
     <div class="cover-title" style="margin-bottom:8px;">Assessment Report</div>
     <div class="cover-sub"></div>
@@ -120,12 +124,12 @@ export function generatePrintHTML(data) {
     <p>${now}</p>
     <p><strong>${bldg.fn || 'Facility'}</strong><br>${bldg.fl || ''}</p>
     <p><strong>Re: Indoor Air Quality Assessment Report</strong></p>
-    <p>Prudence Safety &amp; Environmental Consulting, LLC (&ldquo;PSEC&rdquo;) was retained to conduct an indoor air quality assessment at ${bldg.fn || 'the subject facility'}${presurvey?.ps_reason ? ` in response to ${presurvey.ps_reason.toLowerCase()}` : ''}. This report presents the findings, analysis, and recommendations resulting from our assessment conducted on ${assessDate}.</p>
+    <p>${firmName} was retained to conduct an indoor air quality assessment at ${bldg.fn || 'the subject facility'}${presurvey?.ps_reason ? ` in response to ${presurvey.ps_reason.toLowerCase()}` : ''}. This report presents the findings, analysis, and recommendations resulting from our assessment conducted on ${assessDate}.</p>
     <p>The assessment encompassed ${(zones||[]).length} zone${(zones||[]).length !== 1 ? 's' : ''} and included direct-reading instrumentation, visual inspection, HVAC system evaluation, and occupant complaint documentation. Findings are referenced against published ASHRAE, OSHA, NIOSH, EPA, and WHO standards as identified in the attached standards manifest.</p>
     <p>Detailed findings, scored evaluations, and tiered recommendations are presented in the body of this report.${comp ? ` The composite assessment score of ${comp.tot}/100 (${comp.risk}) reflects conditions observed across ${(zones||[]).length} assessed zone${(zones||[]).length !== 1 ? 's' : ''}.` : ''} Priority corrective actions, where applicable, are summarized in the Executive Summary.</p>
     <p>This report is intended for the sole use of the addressee and should not be distributed without written authorization from PSEC. The conclusions herein are based on conditions observed at the time of assessment and should be interpreted in context with professional judgment. We remain available for follow-up consultation, additional sampling, or clarification of any findings.</p>
     <p style="margin-top:24px;">Respectfully submitted,</p>
-    <p style="margin-top:16px;"><strong>Tsidi Tamakloe, CSP</strong><br>BCSP #38426<br>NYSDOL Mold Assessor | NYSDOL Asbestos Inspector<br>Prudence Safety &amp; Environmental Consulting, LLC<br>support@prudenceehs.com | (301) 541-8362</p>
+    <p style="margin-top:16px;"><strong>${assessor}</strong><br>${(profile?.certs||[]).join(', ') || ''}<br>${firmName}<br>${firmEmail} | ${firmPhone}</p>
   </div>
 
   <!-- ═══ TABLE OF CONTENTS ═══ -->
@@ -625,7 +629,7 @@ export function generatePrintHTML(data) {
 
   <!-- ═══ FOOTER ═══ -->
   <div class="footer">
-    <div>Prudence Safety &amp; Environmental Consulting, LLC &nbsp;|&nbsp; Report ID: ${reportId} &nbsp;|&nbsp; ${now}</div>
+    <div>${firmName} &nbsp;|&nbsp; Report ID: ${reportId} &nbsp;|&nbsp; ${now}</div>
     <div style="margin-top:4px;font-size:8px;">Confidential — This report is intended for the client identified above and should not be distributed to third parties without authorization.</div>
   </div>
 </body>

@@ -31,8 +31,8 @@ export function buildCoverPage(ctx) {
     properties: { page: { margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 } } },
     children: [
       p('', { after: 2400 }),
-      p('Prudence Safety & Environmental Consulting, LLC', { align: AlignmentType.CENTER, size: 24, bold: true, color: COLORS.text, after: 120 }),
-      p('Germantown, Maryland', { align: AlignmentType.CENTER, size: 20, color: COLORS.sub, after: 400 }),
+      p(ctx.firmName, { align: AlignmentType.CENTER, size: 24, bold: true, color: COLORS.text, after: 120 }),
+      p(ctx.firmAddress, { align: AlignmentType.CENTER, size: 20, color: COLORS.sub, after: 400 }),
       p('Indoor Air Quality', { align: AlignmentType.CENTER, size: 44, bold: true, color: COLORS.text, after: 40 }),
       p('Assessment Report', { align: AlignmentType.CENTER, size: 44, bold: true, color: COLORS.text, after: 400 }),
       p(`Site: ${ctx.facilityName}`, { align: AlignmentType.CENTER, size: 22, color: COLORS.sub, after: 60 }),
@@ -216,7 +216,7 @@ export function buildTransmittalLetter(ctx) {
     p(ctx.address, { size: 22, color: COLORS.body, after: 200 }),
     p('Re: Indoor Air Quality Assessment Report', { size: 22, bold: true, color: COLORS.text, after: 200 }),
     // P1: Introduction with trigger
-    p(`Prudence Safety & Environmental Consulting, LLC ("PSEC") was retained to conduct an indoor air quality assessment at ${ctx.facilityName}${trigger}. This report presents the findings, analysis, and recommendations resulting from our assessment conducted on ${ctx.assessDate}.`, { size: 22, color: COLORS.body }),
+    p(`${ctx.firmName} was retained to conduct an indoor air quality assessment at ${ctx.facilityName}${trigger}. This report presents the findings, analysis, and recommendations resulting from our assessment conducted on ${ctx.assessDate}.`, { size: 22, color: COLORS.body }),
     // P2: Scope summary
     p(`The assessment encompassed ${ctx.zoneCount} zone${ctx.zoneCount !== 1 ? 's' : ''} and included direct-reading instrumentation, visual inspection, HVAC system evaluation, and occupant complaint documentation. Findings are referenced against published ASHRAE, OSHA, NIOSH, EPA, and WHO standards as identified in the attached standards manifest.`, { size: 22, color: COLORS.body }),
     // P3: Findings preview
@@ -224,11 +224,10 @@ export function buildTransmittalLetter(ctx) {
     // P4: Limitations and continued service
     p('This report is intended for the sole use of the addressee and should not be distributed without written authorization from PSEC. The conclusions herein are based on conditions observed at the time of assessment and should be interpreted in context with professional judgment. We remain available for follow-up consultation, additional sampling, or clarification of any findings.', { size: 22, color: COLORS.body, after: 300 }),
     p('Respectfully submitted,', { size: 22, color: COLORS.body, after: 200 }),
-    p('Tsidi Tamakloe, CSP', { size: 22, bold: true, color: COLORS.text, after: 40 }),
-    p('BCSP #38426', { size: 20, color: COLORS.sub, after: 40 }),
-    p('NYSDOL Mold Assessor | NYSDOL Asbestos Inspector', { size: 20, color: COLORS.sub, after: 40 }),
-    p('Prudence Safety & Environmental Consulting, LLC', { size: 20, color: COLORS.sub, after: 40 }),
-    p('support@prudenceehs.com | (301) 541-8362', { size: 20, color: COLORS.sub }),
+    p(ctx.assessor, { size: 22, bold: true, color: COLORS.text, after: 40 }),
+    ...(ctx.assessorCerts?.length > 0 ? [p(ctx.assessorCerts.join(', '), { size: 20, color: COLORS.sub, after: 40 })] : []),
+    p(ctx.firmName, { size: 20, color: COLORS.sub, after: 40 }),
+    p(`${ctx.firmEmail} | ${ctx.firmPhone}`, { size: 20, color: COLORS.sub }),
   ]
 }
 
