@@ -31,7 +31,7 @@ import { TermsOfService, PrivacyPolicy } from './LegalScreens'
 import AdminDashboard from './AdminDashboard'
 import WelcomeScreen from './WelcomeScreen'
 import SettingsScreen from './SettingsScreen'
-import { printReport } from './PrintReport'
+import { printReport, generatePrintHTML } from './PrintReport'
 import { DEMO_PRESURVEY, DEMO_BUILDING, DEMO_ZONES } from '../constants/demoData'
 import { DEMO_FM_PRESURVEY, DEMO_FM_BUILDING, DEMO_FM_ZONES } from '../constants/demoDataFM'
 import { DEMO_DC_PRESURVEY, DEMO_DC_BUILDING, DEMO_DC_ZONES } from '../constants/demoDataDC'
@@ -397,12 +397,19 @@ export default function MobileApp() {
   }
 
   const handleShare = async () => {
-    const title = `AtmosFlow Report — ${bldg.fn || 'Assessment'}`
-    const text = `${bldg.fn || 'Facility'}\nComposite Score: ${comp?.tot || '?'}/100 — ${comp?.risk || '?'}\n${zoneScores?.length || 0} zones assessed\n${oshaResult?.flag ? '⚠ OSHA-relevant conditions noted' : '✓ No OSHA-relevant conditions'}`
-    if (navigator.share) {
+    const title = `IAQ Assessment Report — ${bldg.fn || 'Assessment'}`
+    const html = generatePrintHTML({ building: bldg, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: {}, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode })
+    const blob = new Blob([html], { type: 'text/html' })
+    const file = new File([blob], `${bldg.fn || 'Assessment'}-Report.html`, { type: 'text/html' })
+    if (navigator.share && navigator.canShare?.({ files: [file] })) {
+      try { await navigator.share({ title, files: [file] }) } catch {}
+    } else if (navigator.share) {
+      const text = `${bldg.fn || 'Facility'}\nComposite Score: ${comp?.tot || '?'}/100 — ${comp?.risk || '?'}\n${zoneScores?.length || 0} zones assessed`
       try { await navigator.share({ title, text }) } catch {}
     } else {
-      try { await navigator.clipboard.writeText(`${title}\n\n${text}`); alert('Report summary copied to clipboard') } catch {}
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a'); a.href = url; a.download = file.name; a.click()
+      setTimeout(() => URL.revokeObjectURL(url), 5000)
     }
   }
 
