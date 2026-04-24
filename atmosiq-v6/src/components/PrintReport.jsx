@@ -655,7 +655,7 @@ export function generatePrintHTML(data) {
     <tr style="background:#F8FAFC;font-weight:700;">
       <td>Composite</td>
       <td style="text-align:center;font-family:Cambria,serif;color:${scoreColor(comp.tot)};">${comp.tot}</td>
-      <td colspan="5" style="text-align:center;font-size:10px;color:#64748B;">Avg: ${comp.avg} · Worst: ${comp.worst} · Weight: (avg × 0.6) + (worst × 0.4)</td>
+      <td colspan="5" style="text-align:center;font-size:10px;color:#64748B;">Avg: ${comp.avg} · Worst: ${comp.worst} · ${comp.logic === 'worst-zone-override' ? 'AIHA worst-zone override (Critical zone present)' : 'Priority-weighted mean (no Critical zones)'}</td>
       <td style="font-size:10px;color:${scoreColor(comp.tot)};">${comp.risk || riskLabel(comp.tot)}</td>
     </tr>` : ''}
     </tbody>
