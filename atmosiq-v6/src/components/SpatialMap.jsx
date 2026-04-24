@@ -82,6 +82,13 @@ export default function SpatialMap({ zones, zoneScores, floorPlan, onUpdateZone,
       {/* Map Area */}
       {floorPlan && (
         <div style={{ position: 'relative', marginBottom: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 8 }}>
+            <label style={{ padding: '4px 12px', background: CARD, border: `1px solid ${BORDER}`, borderRadius: 6, color: SUB, fontSize: 10, cursor: 'pointer', fontFamily: 'inherit' }}>
+              Replace
+              <input type="file" accept="image/*" onChange={handleFileUpload} style={{ display: 'none' }} />
+            </label>
+            <button onClick={() => { onUploadFloorPlan(null); zones.forEach((z, i) => { if (z.mapX != null) onUpdateZone(i, { mapX: null, mapY: null }) }) }} style={{ padding: '4px 12px', background: '#EF444410', border: '1px solid #EF444425', borderRadius: 6, color: '#EF4444', fontSize: 10, cursor: 'pointer', fontFamily: 'inherit' }}>Remove</button>
+          </div>
           <div
             ref={mapRef}
             onClick={handleMapClick}
