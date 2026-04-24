@@ -38,7 +38,7 @@ export function generatePrintHTML(data) {
   const confLabel = oshaResult?.conf || 'Not evaluated'
 
   const catRows = (cats) => cats.map(cat => {
-    if (cat.s === null || cat.status === 'INSUFFICIENT') {
+    if (cat.s === null || cat.status === 'INSUFFICIENT' || cat.status === 'DATA_GAP') {
       return `
       <tr>
         <td style="padding:8px 12px;font-weight:600;font-size:12px;border-bottom:1px solid #F1F5F9;">${cat.l}</td>

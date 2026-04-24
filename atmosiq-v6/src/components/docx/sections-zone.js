@@ -141,11 +141,11 @@ export function buildZoneSection(ctx, zi) {
     ]
   })
   // Categories with no data
-  zs.cats.filter(cat => cat.s === null || cat.status === 'INSUFFICIENT' || cat.status === 'SUPPRESSED').forEach(cat => {
+  zs.cats.filter(cat => cat.s === null || cat.status === 'INSUFFICIENT' || cat.status === 'DATA_GAP' || cat.status === 'SUPPRESSED').forEach(cat => {
     catRows.push([
       { text: cat.l, bold: true },
       { text: 'Not assessed', italics: true, color: COLORS.muted, align: AlignmentType.CENTER },
-      { text: cat.status === 'SUPPRESSED' ? 'Suppressed for zone type' : 'Insufficient data', italics: true, color: COLORS.muted, size: 18 },
+      { text: cat.status === 'SUPPRESSED' ? 'Suppressed for zone type' : cat.status === 'DATA_GAP' ? 'No data collected' : 'Insufficient data', italics: true, color: COLORS.muted, size: 18 },
       { text: '—', color: COLORS.muted, align: AlignmentType.RIGHT },
     ])
   })

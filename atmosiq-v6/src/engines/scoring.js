@@ -43,6 +43,7 @@ export function scoreZone(z, bldg) {
     if (c.suppressed) return { ...c, status: 'SUPPRESSED' }
     const cs = suff[c.l]
     if (cs && cs.isInsufficient) return { ...c, s: null, status: 'INSUFFICIENT', reason: cs.reason, sufficiency: cs }
+    if (cs && cs.maxAwardable === 0) return { ...c, s: null, status: 'DATA_GAP', reason: 'No category data collected', sufficiency: cs }
     if (cs && cs.maxAwardable < c.mx) return { ...c, s: Math.min(c.s, cs.maxAwardable), sufficiency: cs, capped: true }
     return { ...c, sufficiency: cs }
   })
@@ -85,8 +86,8 @@ export function scoreZone(z, bldg) {
   if (hvacCat?.adminGap && confidence === 'High') confidence = 'Medium'
   // Data gaps reduce confidence, not risk
   if (normalizedFrom !== null && confidence === 'High') confidence = 'Medium'
-  const insufficientCats = cats.filter(c => c.status === 'INSUFFICIENT').map(c => c.l)
-  return { tot, risk: band.label, rc: band.color, cats, zoneName: z.zn || 'Zone', partialScore: cats.some(c => c.status === 'INSUFFICIENT'), confidence, sufficiency: suff, zoneSubtype: d.zone_subtype, weights, normalizedFrom, availableMax, insufficientCats, hvacAdminGap: hvacCat?.adminGap || false }
+  const insufficientCats = cats.filter(c => c.status === 'INSUFFICIENT' || c.status === 'DATA_GAP').map(c => c.l)
+  return { tot, risk: band.label, rc: band.color, cats, zoneName: z.zn || 'Zone', partialScore: cats.some(c => c.status === 'INSUFFICIENT' || c.status === 'DATA_GAP'), confidence, sufficiency: suff, zoneSubtype: d.zone_subtype, weights, normalizedFrom, availableMax, insufficientCats, hvacAdminGap: hvacCat?.adminGap || false }
 }
 
 // Zone-type priority weights for composite calculation
@@ -223,7 +224,10 @@ function scoreHVAC(d) {
   // Critical HVAC Condition Override — cap at 30% of max
   if (gate5) { s = Math.min(s, Math.round(20 * 0.3)); r.push({ t:'Critical HVAC Condition Identified: active physical deficiency caps category at 30%', sev:'critical' }) }
   s = Math.max(0, s)
-  if (!r.length) r = [{ t:'HVAC system conditions acceptable', sev:'pass' }]
+  if (!r.length) {
+    const hasAnyData = d.hm || d.fc || d.sa || d.dp || d.fm
+    r = [{ t: hasAnyData ? 'HVAC system conditions acceptable' : 'No HVAC system data collected', sev: hasAnyData ? 'pass' : 'info' }]
+  }
   return { s, mx: 20, l: 'HVAC', r, gate5, adminGap }
 }
 

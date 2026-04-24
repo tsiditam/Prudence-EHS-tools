@@ -44,6 +44,9 @@ export function genRecs(zoneScores, bldg) {
         if (r.t.includes('water') || r.t.includes('leak')) R.imm.push(zs.zoneName+': Arrest water intrusion. Assess materials within 48 hours.')
         if (r.t.toLowerCase().includes('occupant') && r.t.includes('symptom')) R.imm.push(zs.zoneName+': Document symptom patterns. Consider EPA BASE survey. Evaluate ventilation immediately.')
       }
+      if (r.sev === 'high' || r.sev === 'medium') {
+        if (r.t.includes('maintenance') && r.t.includes('overdue')) R.eng.push('Schedule comprehensive HVAC inspection.')
+      }
       if (r.sev === 'high') {
         if (r.t.includes('CO₂') || r.t.includes('ventilation') || r.t.includes('OA delivery')) R.eng.push(zs.zoneName+': Evaluate outdoor air delivery rate and verify OA damper position.')
         if (r.t.includes('PM')) R.eng.push('Upgrade filtration to MERV 13+. Evaluate filter housing for bypass.')
@@ -56,7 +59,7 @@ export function genRecs(zoneScores, bldg) {
     }))
     // Data-gap-driven recommendations: when a category is INSUFFICIENT or severely capped, advise assessment
     zs.cats.forEach(c => {
-      if (c.status === 'INSUFFICIENT' || (c.capped && c.sufficiency?.sufficiency < 0.4)) {
+      if (c.status === 'INSUFFICIENT' || c.status === 'DATA_GAP' || (c.capped && c.sufficiency?.sufficiency < 0.4)) {
         if (c.l === 'HVAC') R.eng.push(zs.zoneName+': Conduct comprehensive HVAC system assessment — inspect filter condition, measure supply airflow, and evaluate drain pan and condensate management.')
         if (c.l === 'Ventilation') R.eng.push(zs.zoneName+': Obtain ventilation measurements (CO₂ differential, outdoor air delivery rate) to complete the assessment.')
         if (c.l === 'Contaminants') R.eng.push(zs.zoneName+': Collect air quality measurements (PM2.5, CO) to establish contaminant baseline.')
