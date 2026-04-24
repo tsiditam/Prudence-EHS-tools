@@ -50,6 +50,15 @@ export function genRecs(zoneScores, bldg) {
         if (r.t.includes('resolve')) R.adm.push(zs.zoneName+': Building-related symptom pattern — investigate ventilation and source pathways.')
       }
     }))
+    // Data-gap-driven recommendations: when a category is INSUFFICIENT or severely capped, advise assessment
+    zs.cats.forEach(c => {
+      if (c.status === 'INSUFFICIENT' || (c.capped && c.sufficiency?.sufficiency < 0.4)) {
+        if (c.l === 'HVAC') R.eng.push(zs.zoneName+': Conduct comprehensive HVAC system assessment — inspect filter condition, measure supply airflow, and evaluate drain pan and condensate management.')
+        if (c.l === 'Ventilation') R.eng.push(zs.zoneName+': Obtain ventilation measurements (CO₂ differential, outdoor air delivery rate) to complete the assessment.')
+        if (c.l === 'Contaminants') R.eng.push(zs.zoneName+': Collect air quality measurements (PM2.5, CO) to establish contaminant baseline.')
+        if (c.l === 'Environment') R.eng.push(zs.zoneName+': Measure temperature and relative humidity to evaluate thermal comfort conditions.')
+      }
+    })
   })
   if (bldg.hm === 'Unknown') R.adm.push('Establish preventive HVAC maintenance schedule.')
   R.mon.push('Conduct periodic reassessment to verify corrective action effectiveness.')
