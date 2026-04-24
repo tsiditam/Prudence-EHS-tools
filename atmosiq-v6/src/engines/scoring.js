@@ -43,7 +43,10 @@ export function scoreZone(z, bldg) {
     if (c.suppressed) return { ...c, status: 'SUPPRESSED' }
     const cs = suff[c.l]
     if (cs && cs.isInsufficient) return { ...c, s: null, status: 'INSUFFICIENT', reason: cs.reason, sufficiency: cs }
-    if (cs && cs.maxAwardable === 0) return { ...c, s: null, status: 'DATA_GAP', reason: 'No category data collected', sufficiency: cs }
+    if (cs && cs.maxAwardable === 0) {
+      if (c.gate5 || c.r.some(r => r.sev === 'critical')) return { ...c, s: 0, sufficiency: cs, capped: true }
+      return { ...c, s: null, status: 'DATA_GAP', reason: 'No category data collected', sufficiency: cs }
+    }
     if (cs && cs.maxAwardable < c.mx) return { ...c, s: Math.min(c.s, cs.maxAwardable), sufficiency: cs, capped: true }
     return { ...c, sufficiency: cs }
   })
