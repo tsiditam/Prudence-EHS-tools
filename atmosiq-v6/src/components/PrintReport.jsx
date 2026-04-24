@@ -72,8 +72,8 @@ export function generatePrintHTML(data) {
     h3 { font-size: 12px; font-weight: 700; color: #2D3A4A; margin: 20px 0 8px; }
     p { margin-bottom: 8px; line-height: 1.7; }
     table { width: 100%; border-collapse: collapse; }
-    th { text-align: left; padding: 8px 10px; background: #F8FAFC; font-size: 10px; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #E2E8F0; }
-    td { padding: 8px 10px; border-bottom: 1px solid #F1F5F9; font-size: 11px; vertical-align: top; }
+    th { text-align: left; padding: 8px 10px; background: #F3F4F6; font-size: 10px; font-weight: 700; color: #5C6F7E; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #D1D5DB; }
+    td { padding: 8px 10px; border-bottom: 1px solid #E5E7EB; font-size: 11px; vertical-align: top; }
     .accent { color: #1B2A41; }
     .cover { text-align: center; padding: 80px 0 60px; border-bottom: 2px solid #1B2A41; margin-bottom: 32px; }
     .cover-firm { font-size: 14px; font-weight: 700; color: #1B2A41; letter-spacing: 0.5px; margin-bottom: 8px; }
@@ -84,7 +84,7 @@ export function generatePrintHTML(data) {
     .def-panel { padding: 14px 18px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; margin-bottom: 20px; font-size: 10px; color: #64748B; }
     .def-panel td { padding: 3px 0; border: none; font-size: 10px; }
     .score-box { text-align: center; padding: 20px; border: 1px solid #E2E8F0; border-radius: 6px; margin-bottom: 16px; }
-    .score-num { font-size: 42px; font-weight: 800; font-family: monospace; letter-spacing: -2px; }
+    .score-num { font-size: 42px; font-weight: 800; letter-spacing: -2px; }
     .risk-badge { display: inline-block; padding: 3px 12px; border-radius: 3px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
     .zone-card { border: 1px solid #E2E8F0; border-radius: 6px; padding: 20px; margin-bottom: 24px; page-break-inside: avoid; }
     .chain-card { padding: 14px 18px; border: 1px solid #E2E8F0; border-radius: 6px; margin-bottom: 10px; page-break-inside: avoid; }
@@ -574,10 +574,10 @@ export function generatePrintHTML(data) {
     ${rows.map(row => `
       <tr>
         <td style="font-family:inherit;font-size:9px;color:#5C6F7E;">${row.id}</td>
-        <td><span style="font-size:8px;font-weight:700;color:${row.pc};text-transform:uppercase;">${row.p}</span></td>
-        <td style="font-size:9px;color:#2D3A4A;">${row.zone || '—'}</td>
+        <td><span style="font-size:10px;font-weight:700;color:${row.pc};text-transform:uppercase;">${row.p}</span></td>
+        <td style="font-size:10px;color:#2D3A4A;">${row.zone || '—'}</td>
         <td style="font-size:9px;color:#5C6F7E;">${row.evidence}</td>
-        <td style="font-size:9px;">${row.r}</td>
+        <td style="font-size:10px;">${row.r}</td>
         <td style="font-size:9px;color:#5C6F7E;">${row.party}</td>
         <td style="font-size:9px;color:#5C6F7E;">${row.verify}</td>
         <td style="font-size:9px;font-family:inherit;color:#5C6F7E;">${row.t}</td>
@@ -699,7 +699,7 @@ export function generatePrintHTML(data) {
         const score = (zoneScores||[])[zi]?.tot
         const color = score === null ? '#6B7380' : score < 50 ? '#B91C1C' : score < 80 ? '#A16207' : '#15803D'
         return `<div style="position:absolute;left:${z.mapX}%;top:${z.mapY}%;transform:translate(-50%,-100%);">
-          <div style="width:20px;height:20px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 2px 6px ${color}80;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#fff;font-family:inherit;">${score ?? '?'}</div>
+          <div style="width:20px;height:20px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 2px 6px ${color}80;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;font-family:inherit;">${score ?? '?'}</div>
         </div>`
       }).join('')}
     </div>
@@ -729,7 +729,7 @@ export function generatePrintHTML(data) {
   <!-- ═══ FOOTER ═══ -->
   <div class="footer">
     <div>${firmName} &nbsp;|&nbsp; Report ID: ${reportId} &nbsp;|&nbsp; ${now}</div>
-    <div style="margin-top:4px;font-size:8px;">Confidential — This report is intended for the client identified above and should not be distributed to third parties without authorization.</div>
+    <div style="margin-top:4px;font-size:10px;">Confidential — This report is intended for the client identified above and should not be distributed to third parties without authorization.</div>
   </div>
 </body>
 </html>`
