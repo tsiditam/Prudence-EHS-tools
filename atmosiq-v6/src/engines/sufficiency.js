@@ -21,7 +21,7 @@ const CATEGORY_REQUIREMENTS = {
   HVAC: {
     maxPoints: 20,
     required: {},
-    optional: { hm: 'Last HVAC maintenance', fc: 'Filter condition', sa: 'Supply airflow', dp: 'Drain pan condition', fm: 'Filter type', od: 'Damper status' },
+    optional: { hm: 'Last HVAC maintenance', fc: 'Filter condition' },
     minSufficiencyForScoring: 0,
   },
   Complaints: {

@@ -40,7 +40,7 @@ describe('scoreZone', () => {
     const bldg = { hm: 'Over 12 months' }
     const result = scoreZone(zone, bldg)
     const hvacCat = result.cats.find(c => c.l === 'HVAC')
-    expect(hvacCat.s).toBeLessThanOrEqual(15) // 20 - 5 = 15, then capped by sufficiency
+    expect(hvacCat.s).toBeLessThanOrEqual(15) // 20 - 5 = 15, capped to min(15, maxAwardable=10) = 10
     expect(hvacCat.r[0].sev).toBe('medium')
   })
 
