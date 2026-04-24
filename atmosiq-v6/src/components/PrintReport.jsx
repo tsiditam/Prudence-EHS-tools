@@ -539,27 +539,54 @@ export function generatePrintHTML(data) {
   ` : ''}
 
   <!-- ═══ RECOMMENDATIONS REGISTER ═══ -->
-  ${recs ? `
+  ${recs ? (() => {
+    const allFindings = (zoneScores||[]).flatMap(zs => zs.cats.flatMap(c => c.r.filter(r => r.sev === 'critical' || r.sev === 'high').map(r => ({ zone: zs.zoneName, finding: r.t, sev: r.sev, cat: c.l }))))
+
+    const matchEvidence = (recText) => {
+      const rt = recText.toLowerCase()
+      const zoneMatch = recText.match(/^([^:]+):/)?.[1]?.trim() || null
+      if (rt.includes('co ') || rt.includes('combustion')) return { zone: zoneMatch, evidence: 'CO measurement exceeding exposure threshold', party: 'Facility management + qualified IH', verify: 'Post-ventilation air monitoring' }
+      if (rt.includes('formaldehyde') || rt.includes('1910.1048')) return { zone: zoneMatch, evidence: 'Formaldehyde measurement exceeding OSHA PEL/AL', party: 'Qualified IH professional', verify: 'Validated TWA sampling per NIOSH 2016' }
+      if (rt.includes('mold') || rt.includes('remediation')) return { zone: zoneMatch, evidence: 'Visible mold indicators observed', party: 'Qualified remediation contractor', verify: 'Post-remediation verification per IICRC S520' }
+      if (rt.includes('airflow') || rt.includes('hvac service')) return { zone: zoneMatch, evidence: 'Supply airflow deficiency or HVAC failure', party: 'Qualified HVAC contractor', verify: 'Airflow measurement at diffusers post-repair' }
+      if (rt.includes('water') || rt.includes('intrusion') || rt.includes('leak')) return { zone: zoneMatch, evidence: 'Active water intrusion observed', party: 'Facility maintenance', verify: 'Visual inspection + moisture meter verification' }
+      if (rt.includes('outdoor air') || rt.includes('oa damper') || rt.includes('ventilation')) return { zone: zoneMatch, evidence: 'Ventilation inadequacy identified', party: 'Qualified HVAC contractor', verify: 'OA delivery measurement (cfm/person)' }
+      if (rt.includes('filtration') || rt.includes('merv')) return { zone: zoneMatch, evidence: 'Filter deficiency identified', party: 'Facility maintenance', verify: 'Filter inspection post-replacement' }
+      if (rt.includes('maintenance') || rt.includes('inspection')) return { zone: zoneMatch, evidence: 'Deferred HVAC maintenance', party: 'Qualified HVAC contractor', verify: 'Documented service report' }
+      if (rt.includes('symptom') || rt.includes('occupant') || rt.includes('complaint')) return { zone: zoneMatch, evidence: 'Occupant symptom pattern documented', party: 'EHS/safety coordinator', verify: 'Follow-up symptom survey' }
+      return { zone: zoneMatch || 'All zones', evidence: 'Assessment findings', party: 'Facility management', verify: 'Reassessment' }
+    }
+
+    let idx = 0
+    const rows = [
+      ...(recs.imm||[]).map(r => { idx++; const e = matchEvidence(r); return { id: `R-${String(idx).padStart(2,'0')}`, p: 'Immediate', t: '0–48 hours', pc: '#B91C1C', r, ...e } }),
+      ...(recs.eng||[]).map(r => { idx++; const e = matchEvidence(r); return { id: `R-${String(idx).padStart(2,'0')}`, p: 'Short Term', t: '1–4 weeks', pc: '#1B2A41', r, ...e } }),
+      ...(recs.adm||[]).map(r => { idx++; const e = matchEvidence(r); return { id: `R-${String(idx).padStart(2,'0')}`, p: 'Medium Term', t: '1–3 months', pc: '#A16207', r, ...e } }),
+      ...(recs.mon||[]).map(r => { idx++; const e = matchEvidence(r); return { id: `R-${String(idx).padStart(2,'0')}`, p: 'Long Term', t: '3–12 months', pc: '#5C6F7E', r, ...e } }),
+    ]
+
+    return `
   <h2 class="pg-break">Recommendations Register</h2>
+  <p style="font-size:10px;color:#5C6F7E;margin-bottom:10px;">Recommendations are derived from assessment findings and tiered by urgency. Each recommendation is linked to triggering evidence and includes a responsible party and verification method. Timeframes are suggested starting points and should be adapted to site-specific conditions and operational constraints.</p>
   <table>
-    <thead><tr><th style="width:30px;">#</th><th style="width:70px;">Priority</th><th style="width:90px;">Category</th><th>Recommendation</th><th style="width:70px;">Timing</th></tr></thead>
+    <thead><tr><th style="width:35px;">ID</th><th style="width:55px;">Priority</th><th style="width:65px;">Zone</th><th style="width:100px;">Triggering Evidence</th><th>Recommended Action</th><th style="width:85px;">Responsible Party</th><th style="width:80px;">Verification</th><th style="width:55px;">Timeframe</th></tr></thead>
     <tbody>
-    ${[
-      ...(recs.imm||[]).map((r,i) => ({id:`R-${String(i+1).padStart(2,'0')}`,p:'Immediate',c:'Emergency',r,t:'0–48 hrs',pc:'#B91C1C'})),
-      ...(recs.eng||[]).map((r,i) => ({id:`R-${String(i+1+(recs.imm||[]).length).padStart(2,'0')}`,p:'High',c:'Engineering',r,t:'1–4 weeks',pc:'#1B2A41'})),
-      ...(recs.adm||[]).map((r,i) => ({id:`R-${String(i+1+(recs.imm||[]).length+(recs.eng||[]).length).padStart(2,'0')}`,p:'Medium',c:'Administrative',r,t:'1–3 months',pc:'#A16207'})),
-      ...(recs.mon||[]).map((r,i) => ({id:`R-${String(i+1+(recs.imm||[]).length+(recs.eng||[]).length+(recs.adm||[]).length).padStart(2,'0')}`,p:'Low',c:'Monitoring',r,t:'Ongoing',pc:'#475569'})),
-    ].map(row => `
-      <tr class="rec-row">
-        <td style="font-family:monospace;font-size:10px;color:#64748B;">${row.id}</td>
-        <td><span style="font-size:9px;font-weight:700;color:${row.pc};">${row.p.toUpperCase()}</span></td>
-        <td style="font-size:10px;color:#475569;">${row.c}</td>
-        <td style="font-size:11px;">${row.r}</td>
-        <td style="font-size:10px;color:#64748B;font-family:monospace;">${row.t}</td>
+    ${rows.map(row => `
+      <tr>
+        <td style="font-family:monospace;font-size:9px;color:#5C6F7E;">${row.id}</td>
+        <td><span style="font-size:8px;font-weight:700;color:${row.pc};text-transform:uppercase;">${row.p}</span></td>
+        <td style="font-size:9px;color:#2D3A4A;">${row.zone || '—'}</td>
+        <td style="font-size:9px;color:#5C6F7E;">${row.evidence}</td>
+        <td style="font-size:9px;">${row.r}</td>
+        <td style="font-size:9px;color:#5C6F7E;">${row.party}</td>
+        <td style="font-size:9px;color:#5C6F7E;">${row.verify}</td>
+        <td style="font-size:9px;font-family:monospace;color:#5C6F7E;">${row.t}</td>
       </tr>
     `).join('')}
     </tbody>
-  </table>` : ''}
+  </table>
+  <p style="font-size:9px;color:#7A8A97;margin-top:6px;">Timeframe legend: Immediate (0–48 hours) · Short Term (1–4 weeks) · Medium Term (1–3 months) · Long Term (3–12 months). Recommendations are intended to support — not replace — professional judgment.</p>`
+  })() : ''}
 
   <!-- ═══ LIMITATIONS ═══ -->
   <h2>Limitations and Professional Judgment</h2>
