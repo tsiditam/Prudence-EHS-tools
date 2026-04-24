@@ -28,7 +28,7 @@ export function generatePrintHTML(data) {
   const assessor = profile?.name || presurvey?.ps_assessor || 'Assessor'
   const ver = data.version || '6.0.0'
 
-  const sevColor = (sev) => ({ critical:'#B91C1C', high:'#C2410C', medium:'#A16207', low:'#0E7490', pass:'#15803D', info:'#475569' }[sev] || '#475569')
+  const sevColor = (sev) => ({ critical:'#B91C1C', high:'#C2410C', medium:'#A16207', low:'#1B2A41', pass:'#15803D', info:'#475569' }[sev] || '#475569')
   const scoreColor = (s) => s >= 70 ? '#15803D' : s >= 50 ? '#A16207' : '#B91C1C'
   const riskLabel = (s) => s >= 80 ? 'Low Risk' : s >= 60 ? 'Moderate' : s >= 40 ? 'High Risk' : 'Critical'
   const confLabel = oshaResult?.conf || 'Not evaluated'
@@ -62,21 +62,21 @@ export function generatePrintHTML(data) {
   <title>IAQ Assessment Report — ${bldg.fn || 'Assessment'}</title>
   <style>
     * { box-sizing: border-box; margin: 0; }
-    body { font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif; font-size: 12px; color: #1E293B; line-height: 1.6; padding: 48px 56px; max-width: 820px; margin: 0 auto; background: #fff; }
-    h1 { font-size: 20px; font-weight: 700; color: #0F172A; margin-bottom: 2px; letter-spacing: -0.3px; }
-    h2 { font-size: 13px; font-weight: 700; color: #0F172A; margin: 28px 0 10px; padding-bottom: 6px; border-bottom: 1px solid #E2E8F0; text-transform: uppercase; letter-spacing: 0.8px; }
-    h3 { font-size: 12px; font-weight: 700; color: #334155; margin: 20px 0 8px; }
+    body { font-family: Cambria, 'Times New Roman', serif; font-size: 12px; color: #2D3A4A; line-height: 1.6; padding: 48px 56px; max-width: 820px; margin: 0 auto; background: #fff; }
+    h1 { font-size: 20px; font-weight: 700; color: #1B2A41; margin-bottom: 2px; letter-spacing: -0.3px; }
+    h2 { font-size: 13px; font-weight: 700; color: #1B2A41; margin: 28px 0 10px; padding-bottom: 6px; border-bottom: 1px solid #D1D5DB; text-transform: uppercase; letter-spacing: 0.8px; }
+    h3 { font-size: 12px; font-weight: 700; color: #2D3A4A; margin: 20px 0 8px; }
     p { margin-bottom: 8px; line-height: 1.7; }
     table { width: 100%; border-collapse: collapse; }
     th { text-align: left; padding: 8px 10px; background: #F8FAFC; font-size: 10px; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #E2E8F0; }
     td { padding: 8px 10px; border-bottom: 1px solid #F1F5F9; font-size: 11px; vertical-align: top; }
-    .accent { color: #0E7490; }
-    .cover { text-align: center; padding: 80px 0 60px; border-bottom: 2px solid #0E7490; margin-bottom: 32px; }
-    .cover-logo { font-size: 28px; font-weight: 800; color: #0F172A; letter-spacing: -0.5px; margin-bottom: 24px; }
-    .cover-title { font-size: 18px; font-weight: 300; color: #334155; margin-bottom: 4px; letter-spacing: 0.5px; }
-    .cover-sub { font-size: 11px; color: #64748B; margin-bottom: 32px; }
-    .cover-meta { font-size: 11px; color: #475569; line-height: 2; }
-    .cover-meta strong { color: #0F172A; font-weight: 600; }
+    .accent { color: #1B2A41; }
+    .cover { text-align: center; padding: 80px 0 60px; border-bottom: 2px solid #1B2A41; margin-bottom: 32px; }
+    .cover-firm { font-size: 14px; font-weight: 700; color: #1B2A41; letter-spacing: 0.5px; margin-bottom: 8px; }
+    .cover-title { font-size: 24px; font-weight: 700; color: #1B2A41; margin-bottom: 4px; letter-spacing: 0.3px; }
+    .cover-sub { font-size: 11px; color: #5C6F7E; margin-bottom: 32px; }
+    .cover-meta { font-size: 11px; color: #5C6F7E; line-height: 2; }
+    .cover-meta strong { color: #1B2A41; font-weight: 600; }
     .def-panel { padding: 14px 18px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; margin-bottom: 20px; font-size: 10px; color: #64748B; }
     .def-panel td { padding: 3px 0; border: none; font-size: 10px; }
     .score-box { text-align: center; padding: 20px; border: 1px solid #E2E8F0; border-radius: 6px; margin-bottom: 16px; }
@@ -86,7 +86,7 @@ export function generatePrintHTML(data) {
     .chain-card { padding: 14px 18px; border: 1px solid #E2E8F0; border-radius: 6px; margin-bottom: 10px; page-break-inside: avoid; }
     .evidence-item { font-size: 11px; padding: 3px 0 3px 14px; border-left: 2px solid #CBD5E1; margin-bottom: 3px; color: #475569; }
     .rec-row td { font-size: 11px; }
-    .narrative { font-size: 12px; line-height: 1.8; padding: 16px 20px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; border-left: 3px solid #0E7490; }
+    .narrative { font-size: 12px; line-height: 1.8; padding: 16px 20px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; border-left: 3px solid #1B2A41; }
     .note { font-size: 10px; color: #94A3B8; font-style: italic; padding: 8px 12px; background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 4px; margin: 12px 0; }
     .footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #E2E8F0; font-size: 9px; color: #94A3B8; text-align: center; line-height: 1.8; }
     .pg-break { page-break-before: always; }
@@ -97,11 +97,12 @@ export function generatePrintHTML(data) {
 <body>
   <!-- ═══ COVER PAGE ═══ -->
   <div class="cover">
-    <div style="font-size:11px;color:#64748B;letter-spacing:0.8px;text-transform:uppercase;margin-bottom:16px;">Prudence Safety &amp; Environmental Consulting, LLC</div>
-    <div class="cover-logo">Atmos<span class="accent">Flow</span></div>
-    <div class="cover-title">Indoor Air Quality Assessment Report</div>
-    <div class="cover-sub">Standards-Driven Multi-Zone Assessment</div>
-    <div style="width:40px;height:2px;background:#0E7490;margin:28px auto;"></div>
+    <div class="cover-firm">Prudence Safety &amp; Environmental Consulting, LLC</div>
+    <div style="font-size:11px;color:#5C6F7E;margin-bottom:32px;">Germantown, Maryland</div>
+    <div class="cover-title">Indoor Air Quality</div>
+    <div class="cover-title" style="margin-bottom:8px;">Assessment Report</div>
+    <div class="cover-sub"></div>
+    <div style="width:40px;height:2px;background:#1B2A41;margin:28px auto;"></div>
     <div class="cover-meta">
       <strong>Site:</strong> ${bldg.fn || 'Facility'}<br>
       <strong>Location:</strong> ${bldg.fl || '—'}<br>
@@ -111,7 +112,35 @@ export function generatePrintHTML(data) {
       <strong>Report ID:</strong> ${reportId}<br>
       <strong>Status:</strong> Draft — Pending Professional Review
     </div>
-    <div style="margin-top:40px;font-size:9px;color:#94A3B8;letter-spacing:0.3px;">CONFIDENTIAL — FOR CLIENT USE ONLY</div>
+    <div style="margin-top:40px;font-size:9px;color:#7A8A97;letter-spacing:0.3px;">CONFIDENTIAL — FOR CLIENT USE ONLY</div>
+  </div>
+
+  <!-- ═══ TRANSMITTAL LETTER ═══ -->
+  <div class="pg-break" style="margin-bottom:32px;">
+    <p>${now}</p>
+    <p><strong>${bldg.fn || 'Facility'}</strong><br>${bldg.fl || ''}</p>
+    <p><strong>Re: Indoor Air Quality Assessment Report</strong></p>
+    <p>Prudence Safety &amp; Environmental Consulting, LLC (&ldquo;PSEC&rdquo;) was retained to conduct an indoor air quality assessment at ${bldg.fn || 'the subject facility'}${presurvey?.ps_reason ? ` in response to ${presurvey.ps_reason.toLowerCase()}` : ''}. This report presents the findings, analysis, and recommendations resulting from our assessment conducted on ${assessDate}.</p>
+    <p>The assessment encompassed ${(zones||[]).length} zone${(zones||[]).length !== 1 ? 's' : ''} and included direct-reading instrumentation, visual inspection, HVAC system evaluation, and occupant complaint documentation. Findings are referenced against published ASHRAE, OSHA, NIOSH, EPA, and WHO standards as identified in the attached standards manifest.</p>
+    <p>Detailed findings, scored evaluations, and tiered recommendations are presented in the body of this report.${comp ? ` The composite assessment score of ${comp.tot}/100 (${comp.risk}) reflects conditions observed across ${(zones||[]).length} assessed zone${(zones||[]).length !== 1 ? 's' : ''}.` : ''} Priority corrective actions, where applicable, are summarized in the Executive Summary.</p>
+    <p>This report is intended for the sole use of the addressee and should not be distributed without written authorization from PSEC. The conclusions herein are based on conditions observed at the time of assessment and should be interpreted in context with professional judgment. We remain available for follow-up consultation, additional sampling, or clarification of any findings.</p>
+    <p style="margin-top:24px;">Respectfully submitted,</p>
+    <p style="margin-top:16px;"><strong>Tsidi Tamakloe, CSP</strong><br>BCSP #38426<br>NYSDOL Mold Assessor | NYSDOL Asbestos Inspector<br>Prudence Safety &amp; Environmental Consulting, LLC<br>support@prudenceehs.com | (301) 541-8362</p>
+  </div>
+
+  <!-- ═══ TABLE OF CONTENTS ═══ -->
+  <div style="margin-bottom:32px;">
+    <h2>Table of Contents</h2>
+    ${(() => {
+      const toc = ['Executive Summary','Scope and Methodology','Building and Complaint Context','Overall Findings Dashboard','Zone-by-Zone Findings']
+      if ((causalChains||[]).length > 0) toc.push('Causal Chain Analysis')
+      if (samplingPlan?.plan?.length > 0) toc.push('Recommended Sampling Plan')
+      if (recs && ((recs.imm||[]).length || (recs.eng||[]).length || (recs.adm||[]).length || (recs.mon||[]).length)) toc.push('Recommendations Register')
+      toc.push('Limitations and Professional Judgment')
+      toc.push('Appendix A — Raw Measurement Snapshot')
+      toc.push('Appendix B — Transparent Scoring Summary')
+      return toc.map((s,i) => `<p style="font-size:12px;color:#2D3A4A;margin-bottom:4px;">${i+1}. ${s}</p>`).join('')
+    })()}
   </div>
 
   ${userMode === 'fm' && reportTemplate === 'observational_only' ? `
@@ -145,7 +174,7 @@ export function generatePrintHTML(data) {
     <h3 style="margin-top:24px;">What You Should Do Next</h3>
     <div style="text-align:left;max-width:460px;margin:0 auto;">
     ${(recs?.imm || []).slice(0, 3).map((r, i) => `<div style="font-size:12px;color:#1E293B;margin-bottom:8px;padding-left:16px;border-left:2px solid #B91C1C;">${r}</div>`).join('')}
-    ${(recs?.eng || []).slice(0, 2).map((r, i) => `<div style="font-size:12px;color:#1E293B;margin-bottom:8px;padding-left:16px;border-left:2px solid #0E7490;">${r}</div>`).join('')}
+    ${(recs?.eng || []).slice(0, 2).map((r, i) => `<div style="font-size:12px;color:#1E293B;margin-bottom:8px;padding-left:16px;border-left:2px solid #1B2A41;">${r}</div>`).join('')}
     ${(!recs?.imm?.length && !recs?.eng?.length) ? '<div style="font-size:12px;color:#475569;">Continue routine monitoring. No immediate actions required.</div>' : ''}
     </div>
   </div>
@@ -209,7 +238,7 @@ export function generatePrintHTML(data) {
   <h3>Priority Actions</h3>
   <table><thead><tr><th>Priority</th><th>Action</th></tr></thead><tbody>
   ${(recs.imm||[]).map(r => `<tr><td style="font-size:10px;font-weight:700;color:#B91C1C;">IMMEDIATE</td><td style="font-size:11px;">${r}</td></tr>`).join('')}
-  ${(recs.eng||[]).slice(0,3).map(r => `<tr><td style="font-size:10px;font-weight:700;color:#0E7490;">ENGINEERING</td><td style="font-size:11px;">${r}</td></tr>`).join('')}
+  ${(recs.eng||[]).slice(0,3).map(r => `<tr><td style="font-size:10px;font-weight:700;color:#1B2A41;">ENGINEERING</td><td style="font-size:11px;">${r}</td></tr>`).join('')}
   ${(recs.adm||[]).slice(0,2).map(r => `<tr><td style="font-size:10px;font-weight:700;color:#A16207;">ADMINISTRATIVE</td><td style="font-size:11px;">${r}</td></tr>`).join('')}
   </tbody></table>` : ''}
 
@@ -401,8 +430,8 @@ export function generatePrintHTML(data) {
         <strong style="font-size:12px;">${ch.type}</strong>
         <span style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;text-transform:uppercase;letter-spacing:0.3px;background:${ch.confidence === 'Strong' ? '#F0FDF4' : ch.confidence === 'Moderate' ? '#FFFBEB' : '#F8FAFC'};color:${ch.confidence === 'Strong' ? '#15803D' : ch.confidence === 'Moderate' ? '#A16207' : '#64748B'};">${ch.confidence}</span>
       </div>
-      <div style="font-size:10px;color:#0E7490;font-family:monospace;margin-bottom:8px;">${ch.zone}</div>
-      <div style="padding:8px 14px;background:#F8FAFC;border-left:2px solid #0E7490;border-radius:0 4px 4px 0;font-size:11px;color:#334155;margin-bottom:8px;">${ch.rootCause}</div>
+      <div style="font-size:10px;color:#1B2A41;font-family:monospace;margin-bottom:8px;">${ch.zone}</div>
+      <div style="padding:8px 14px;background:#F8FAFC;border-left:2px solid #1B2A41;border-radius:0 4px 4px 0;font-size:11px;color:#334155;margin-bottom:8px;">${ch.rootCause}</div>
       <div style="font-size:10px;font-weight:600;color:#64748B;margin-bottom:4px;">Supporting evidence:</div>
       ${ch.evidence.map(e => `<div class="evidence-item">${e}</div>`).join('')}
       <div style="font-size:10px;color:#64748B;margin-top:6px;font-style:italic;">This pathway would warrant targeted follow-up to confirm contributing conditions.</div>
@@ -419,7 +448,7 @@ export function generatePrintHTML(data) {
     ${samplingPlan.plan.map(p => `
       <tr>
         <td style="font-weight:600;font-size:11px;">${p.type}</td>
-        <td style="font-size:10px;font-family:monospace;color:#0E7490;">${p.zone}</td>
+        <td style="font-size:10px;font-family:monospace;color:#1B2A41;">${p.zone}</td>
         <td><span style="font-size:9px;font-weight:700;text-transform:uppercase;color:${p.priority === 'critical' ? '#B91C1C' : p.priority === 'high' ? '#C2410C' : '#A16207'};">${p.priority}</span></td>
         <td style="font-size:10px;">${p.method}</td>
         <td style="font-size:9px;font-family:monospace;color:#64748B;">${p.standard}</td>
@@ -441,7 +470,7 @@ export function generatePrintHTML(data) {
     <tbody>
     ${[
       ...(recs.imm||[]).map((r,i) => ({id:`R-${String(i+1).padStart(2,'0')}`,p:'Immediate',c:'Emergency',r,t:'0–48 hrs',pc:'#B91C1C'})),
-      ...(recs.eng||[]).map((r,i) => ({id:`R-${String(i+1+(recs.imm||[]).length).padStart(2,'0')}`,p:'High',c:'Engineering',r,t:'1–4 weeks',pc:'#0E7490'})),
+      ...(recs.eng||[]).map((r,i) => ({id:`R-${String(i+1+(recs.imm||[]).length).padStart(2,'0')}`,p:'High',c:'Engineering',r,t:'1–4 weeks',pc:'#1B2A41'})),
       ...(recs.adm||[]).map((r,i) => ({id:`R-${String(i+1+(recs.imm||[]).length+(recs.eng||[]).length).padStart(2,'0')}`,p:'Medium',c:'Administrative',r,t:'1–3 months',pc:'#A16207'})),
       ...(recs.mon||[]).map((r,i) => ({id:`R-${String(i+1+(recs.imm||[]).length+(recs.eng||[]).length+(recs.adm||[]).length).padStart(2,'0')}`,p:'Low',c:'Monitoring',r,t:'Ongoing',pc:'#475569'})),
     ].map(row => `
