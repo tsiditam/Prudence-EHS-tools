@@ -1155,7 +1155,7 @@ export default function MobileApp() {
               </div>
               <button onClick={()=>resumeDraft(d.id)} style={{padding:'8px 16px',background:`${ACCENT}12`,border:`1px solid ${ACCENT}25`,borderRadius:8,color:ACCENT,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:38}}>Resume</button>
               <button onClick={(e)=>{e.stopPropagation();setDelConf({id:d.id,name:d.facility,type:'dft'})}} style={{width:44,height:44,background:'#EF444410',border:`1px solid #EF444425`,borderRadius:8,color:'#EF4444',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'inherit',flexShrink:0,WebkitTapHighlightColor:'transparent'}}>
-                <I n="alert" s={14} c={DIM} w={1.4} />
+                <I n="trash" s={14} c="#EF4444" w={1.4} />
               </button>
             </div>
           ))}
@@ -1190,7 +1190,7 @@ export default function MobileApp() {
                 <div style={{fontSize:10,color:DIM,fontFamily:"'DM Mono'",marginTop:3}}>{fD(r.ts)} · Final</div>
               </div>
               <button onClick={e=>{e.stopPropagation();setDelConf({id:r.id,name:r.facility,type:'rpt'})}} style={{width:36,height:36,background:'transparent',border:`1px solid ${BORDER}`,borderRadius:8,color:DIM,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'inherit',flexShrink:0}}>
-                <I n="alert" s={14} c={DIM} w={1.4} />
+                <I n="trash" s={14} c={DIM} w={1.4} />
               </button>
             </div>
           ))}
