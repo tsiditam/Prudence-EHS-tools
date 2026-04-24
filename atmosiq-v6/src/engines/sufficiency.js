@@ -8,14 +8,14 @@ const CATEGORY_REQUIREMENTS = {
   Ventilation: {
     maxPoints: 25,
     required: { co2: 'CO₂ reading', cfm_person: 'OA cfm/person or damper status' },
-    optional: { ach: 'Air changes per hour', bld_pressure: 'Building pressure', sa: 'Supply airflow' },
+    optional: { ach: 'Air changes per hour', sa: 'Supply airflow' },
     minSufficiencyForScoring: 0.5,
     altRequired: { od: 'OA damper status' },
   },
   Contaminants: {
     maxPoints: 25,
     required: { pm: 'PM2.5 reading', co: 'CO reading' },
-    optional: { tv: 'TVOC reading', hc: 'Formaldehyde reading', mi: 'Mold indicators', od_smell: 'Odor assessment', vd: 'Visible dust' },
+    optional: { tv: 'TVOC reading', hc: 'Formaldehyde reading', vd: 'Visible dust' },
     minSufficiencyForScoring: 0.5,
   },
   HVAC: {

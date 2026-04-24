@@ -40,18 +40,62 @@ describe('HVAC sufficiency after refactor', () => {
     expect(withoutGate5.maxAwardable).toBe(withGate5.maxAwardable)
   })
 
-  it('overall sufficiency unchanged for non-HVAC categories', () => {
-    // Ventilation still requires co2 + cfm_person (or alt)
-    const ventR = evaluateCategorySufficiency('Ventilation', {})
-    expect(ventR.isInsufficient).toBe(true)
+  it('non-HVAC categories still require their required fields', () => {
+    expect(evaluateCategorySufficiency('Ventilation', {}).isInsufficient).toBe(true)
+    expect(evaluateCategorySufficiency('Environment', {}).isInsufficient).toBe(true)
+    expect(evaluateCategorySufficiency('Complaints', {}).isInsufficient).toBe(true)
+  })
+})
 
-    // Environment still requires tf + rh
-    const envR = evaluateCategorySufficiency('Environment', {})
-    expect(envR.isInsufficient).toBe(true)
+// ── Ventilation & Contaminants sufficiency — non-scoring fields removed ───
 
-    // Complaints still requires cx
-    const compR = evaluateCategorySufficiency('Complaints', {})
-    expect(compR.isInsufficient).toBe(true)
+describe('Ventilation sufficiency', () => {
+  it('bld_pressure does not affect sufficiency (not used by scoreVent)', () => {
+    const without = evaluateCategorySufficiency('Ventilation', { co2: '500', cfm_person: '15' })
+    const withBP = evaluateCategorySufficiency('Ventilation', { co2: '500', cfm_person: '15', bld_pressure: '0.02' })
+    expect(without.sufficiency).toBe(withBP.sufficiency)
+    expect(without.maxAwardable).toBe(withBP.maxAwardable)
+  })
+
+  it('co2 only → maxAwardable=6 (not 5 with old 5-field denominator)', () => {
+    // co2 meets 1 of 2 required, reqSufficiency=0.5 → not insufficient
+    // sufficiency = 1/4 = 0.25, maxAwardable = round(0.25 * 25) = 6
+    const r = evaluateCategorySufficiency('Ventilation', { co2: '500' })
+    expect(r.isInsufficient).toBe(false)
+    expect(r.maxAwardable).toBe(6)
+  })
+
+  it('co2 + cfm_person → maxAwardable=13 (2 of 4)', () => {
+    const r = evaluateCategorySufficiency('Ventilation', { co2: '500', cfm_person: '15' })
+    expect(r.maxAwardable).toBe(13)
+  })
+
+  it('all scoring fields → maxAwardable=25', () => {
+    const r = evaluateCategorySufficiency('Ventilation', { co2: '500', cfm_person: '15', ach: '6', sa: 'Normal' })
+    expect(r.sufficiency).toBe(1)
+    expect(r.maxAwardable).toBe(25)
+  })
+})
+
+describe('Contaminants sufficiency', () => {
+  it('mi and od_smell do not affect sufficiency (not used by scoreCont)', () => {
+    const without = evaluateCategorySufficiency('Contaminants', { pm: '5', co: '2' })
+    const withExtra = evaluateCategorySufficiency('Contaminants', { pm: '5', co: '2', mi: 'None', od_smell: 'None' })
+    expect(without.sufficiency).toBe(withExtra.sufficiency)
+    expect(without.maxAwardable).toBe(withExtra.maxAwardable)
+  })
+
+  it('pm + co only → maxAwardable=10 (not 7 with old 7-field denominator)', () => {
+    const r = evaluateCategorySufficiency('Contaminants', { pm: '5', co: '2' })
+    expect(r.isInsufficient).toBe(false)
+    // 2 req of 2 + 0 opt of 3 = 2/5 = 0.4, maxAwardable = round(0.4 * 25) = 10
+    expect(r.maxAwardable).toBe(10)
+  })
+
+  it('pm + co + tv + hc + vd → maxAwardable=25 (full credit)', () => {
+    const r = evaluateCategorySufficiency('Contaminants', { pm: '5', co: '2', tv: '100', hc: '0.01', vd: 'None' })
+    expect(r.sufficiency).toBe(1)
+    expect(r.maxAwardable).toBe(25)
   })
 })
 
