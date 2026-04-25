@@ -241,7 +241,7 @@ export default function App() {
       const samplingPlan = generateSamplingPlan(zones, building)
       const causalChains = buildCausalChains(zones, building, zoneScores)
       let narrative = null
-      try { narrative = await generateNarrative(building, zones, zoneScores, comp?.tot, oshaEvals, recs) }
+      try { narrative = await generateNarrative(building, zones, zoneScores, comp, oshaEvals, recs) }
       catch (e) { console.warn('Narrative generation skipped:', e) }
       const rpt = {
         id: 'rpt-' + Date.now(), ts: new Date().toISOString(), ver: VER,

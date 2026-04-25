@@ -9,48 +9,93 @@ describe('HVAC sufficiency after refactor', () => {
     const r = evaluateCategorySufficiency('HVAC', {})
     expect(r.isInsufficient).toBe(false)       // never insufficient (minSufficiency=0)
     expect(r.reqSufficiency).toBe(1)            // no required fields → 1
-    expect(r.sufficiency).toBe(0)               // 0 of 6 optional met
+    expect(r.sufficiency).toBe(0)               // 0 of 2 optional met
     expect(r.maxAwardable).toBe(0)              // round(0 * 20) = 0
     expect(r.missing).toHaveLength(0)           // nothing is "missing" (all optional)
   })
 
-  it('HVAC with only hm=Unknown → sufficiency=1/6, maxAwardable=3', () => {
+  it('HVAC with only hm=Unknown → sufficiency=1/2, maxAwardable=10', () => {
     const r = evaluateCategorySufficiency('HVAC', { hm: 'Unknown' })
     expect(r.isInsufficient).toBe(false)
-    expect(r.sufficiency).toBeCloseTo(1/6, 4)
-    expect(r.maxAwardable).toBe(3)              // round(0.167 * 20) = 3
-  })
-
-  it('HVAC with only hm=Within 6 months → sufficiency=1/6, maxAwardable=3', () => {
-    const r = evaluateCategorySufficiency('HVAC', { hm: 'Within 6 months' })
-    expect(r.isInsufficient).toBe(false)
-    expect(r.maxAwardable).toBe(3)
-  })
-
-  it('HVAC with 3 of 6 fields → maxAwardable=10', () => {
-    const r = evaluateCategorySufficiency('HVAC', { hm: 'Within 6 months', fc: 'Clean', sa: 'Normal' })
-    expect(r.sufficiency).toBeCloseTo(3/6, 4)
+    expect(r.sufficiency).toBeCloseTo(1/2, 4)
     expect(r.maxAwardable).toBe(10)             // round(0.5 * 20) = 10
   })
 
-  it('HVAC with all 6 fields → maxAwardable=20 (full credit possible)', () => {
-    const r = evaluateCategorySufficiency('HVAC', { hm: 'Within 6 months', fc: 'Clean', sa: 'Normal', dp: 'Dry', fm: 'MERV 13', od: 'Open' })
+  it('HVAC with only hm=Within 6 months → sufficiency=1/2, maxAwardable=10', () => {
+    const r = evaluateCategorySufficiency('HVAC', { hm: 'Within 6 months' })
+    expect(r.isInsufficient).toBe(false)
+    expect(r.maxAwardable).toBe(10)
+  })
+
+  it('HVAC with hm + fc → sufficiency=1.0, maxAwardable=20 (full credit)', () => {
+    const r = evaluateCategorySufficiency('HVAC', { hm: 'Within 6 months', fc: 'Clean' })
     expect(r.sufficiency).toBe(1)
     expect(r.maxAwardable).toBe(20)
   })
 
-  it('overall sufficiency unchanged for non-HVAC categories', () => {
-    // Ventilation still requires co2 + cfm_person (or alt)
-    const ventR = evaluateCategorySufficiency('Ventilation', {})
-    expect(ventR.isInsufficient).toBe(true)
+  it('gate5 fields (sa, dp, fm, od) do not affect HVAC sufficiency', () => {
+    const withoutGate5 = evaluateCategorySufficiency('HVAC', { hm: 'Within 6 months' })
+    const withGate5 = evaluateCategorySufficiency('HVAC', { hm: 'Within 6 months', sa: 'Normal', dp: 'Dry', fm: 'MERV 13', od: 'Open' })
+    expect(withoutGate5.sufficiency).toBe(withGate5.sufficiency)
+    expect(withoutGate5.maxAwardable).toBe(withGate5.maxAwardable)
+  })
 
-    // Environment still requires tf + rh
-    const envR = evaluateCategorySufficiency('Environment', {})
-    expect(envR.isInsufficient).toBe(true)
+  it('non-HVAC categories still require their required fields', () => {
+    expect(evaluateCategorySufficiency('Ventilation', {}).isInsufficient).toBe(true)
+    expect(evaluateCategorySufficiency('Environment', {}).isInsufficient).toBe(true)
+    expect(evaluateCategorySufficiency('Complaints', {}).isInsufficient).toBe(true)
+  })
+})
 
-    // Complaints still requires cx
-    const compR = evaluateCategorySufficiency('Complaints', {})
-    expect(compR.isInsufficient).toBe(true)
+// ── Ventilation & Contaminants sufficiency — non-scoring fields removed ───
+
+describe('Ventilation sufficiency', () => {
+  it('bld_pressure does not affect sufficiency (not used by scoreVent)', () => {
+    const without = evaluateCategorySufficiency('Ventilation', { co2: '500', cfm_person: '15' })
+    const withBP = evaluateCategorySufficiency('Ventilation', { co2: '500', cfm_person: '15', bld_pressure: '0.02' })
+    expect(without.sufficiency).toBe(withBP.sufficiency)
+    expect(without.maxAwardable).toBe(withBP.maxAwardable)
+  })
+
+  it('co2 only → maxAwardable=6 (not 5 with old 5-field denominator)', () => {
+    // co2 meets 1 of 2 required, reqSufficiency=0.5 → not insufficient
+    // sufficiency = 1/4 = 0.25, maxAwardable = round(0.25 * 25) = 6
+    const r = evaluateCategorySufficiency('Ventilation', { co2: '500' })
+    expect(r.isInsufficient).toBe(false)
+    expect(r.maxAwardable).toBe(6)
+  })
+
+  it('co2 + cfm_person → maxAwardable=13 (2 of 4)', () => {
+    const r = evaluateCategorySufficiency('Ventilation', { co2: '500', cfm_person: '15' })
+    expect(r.maxAwardable).toBe(13)
+  })
+
+  it('all scoring fields → maxAwardable=25', () => {
+    const r = evaluateCategorySufficiency('Ventilation', { co2: '500', cfm_person: '15', ach: '6', sa: 'Normal' })
+    expect(r.sufficiency).toBe(1)
+    expect(r.maxAwardable).toBe(25)
+  })
+})
+
+describe('Contaminants sufficiency', () => {
+  it('mi and od_smell do not affect sufficiency (not used by scoreCont)', () => {
+    const without = evaluateCategorySufficiency('Contaminants', { pm: '5', co: '2' })
+    const withExtra = evaluateCategorySufficiency('Contaminants', { pm: '5', co: '2', mi: 'None', od_smell: 'None' })
+    expect(without.sufficiency).toBe(withExtra.sufficiency)
+    expect(without.maxAwardable).toBe(withExtra.maxAwardable)
+  })
+
+  it('pm + co only → maxAwardable=10 (not 7 with old 7-field denominator)', () => {
+    const r = evaluateCategorySufficiency('Contaminants', { pm: '5', co: '2' })
+    expect(r.isInsufficient).toBe(false)
+    // 2 req of 2 + 0 opt of 3 = 2/5 = 0.4, maxAwardable = round(0.4 * 25) = 10
+    expect(r.maxAwardable).toBe(10)
+  })
+
+  it('pm + co + tv + hc + vd → maxAwardable=25 (full credit)', () => {
+    const r = evaluateCategorySufficiency('Contaminants', { pm: '5', co: '2', tv: '100', hc: '0.01', vd: 'None' })
+    expect(r.sufficiency).toBe(1)
+    expect(r.maxAwardable).toBe(25)
   })
 })
 
@@ -65,7 +110,7 @@ describe('scoreHVAC scoring paths', () => {
 
   it('Within 6 months → no deduction, pass finding', () => {
     const { cat } = hvac({}, { hm: 'Within 6 months' })
-    // Raw s=20. With sufficiency 1/6 → capped to 3
+    // Raw s=20. With sufficiency 1/2 → capped to 10
     expect(cat.r[0].t).toBe('HVAC maintenance current')
     expect(cat.r[0].sev).toBe('pass')
     expect(cat.adminGap).toBeFalsy()
@@ -235,6 +280,28 @@ describe('scoreZone HVAC integration', () => {
     expect(result.risk).not.toBe('Critical')
     expect(result.availableMax).toBe(80) // HVAC excluded
   })
+
+  it('hm=Unknown scores HVAC at 10/20 (not 3/20), total stays Moderate', () => {
+    // User's live scenario: good readings everywhere, HVAC maintenance = Unknown
+    const zone = { zn: 'Daycare', co2: '500', tf: '73', rh: '42', pm: '4', co: '1', cx: 'No complaints' }
+    const bldg = { hm: 'Unknown' }
+    const result = scoreZone(zone, bldg)
+    const hvac = result.cats.find(c => c.l === 'HVAC')
+    // With 2-field sufficiency model: hm=1/2 → maxAwardable=10, raw=20, capped to 10
+    expect(hvac.s).toBe(10)
+    expect(hvac.adminGap).toBe(true)
+    // Total should be reasonable, not dragged down to High Risk
+    expect(result.risk).not.toBe('Critical')
+  })
+
+  it('hm + fc gives full HVAC credit when no deficiencies', () => {
+    const zone = { zn: 'Z1', co2: '500', tf: '73', rh: '42', pm: '4', co: '1', cx: 'No complaints' }
+    const bldg = { hm: 'Within 6 months', fc: 'Clean' }
+    const result = scoreZone(zone, bldg)
+    const hvac = result.cats.find(c => c.l === 'HVAC')
+    // hm + fc = 2/2 sufficiency → maxAwardable=20, no deductions → score=20
+    expect(hvac.s).toBe(20)
+  })
 })
 
 // ── genRecs — recommendation generation ───────────────────────────────────
@@ -311,7 +378,7 @@ describe('genRecs with refactored HVAC', () => {
         l: 'HVAC',
         r: [{ t: 'HVAC system conditions acceptable', sev: 'pass' }],
         capped: true,
-        sufficiency: { sufficiency: 0.17 },  // 1/6
+        sufficiency: { sufficiency: 0.17 },  // simulates low sufficiency
       }],
     }]
     const recs = genRecs(zoneScores, {})

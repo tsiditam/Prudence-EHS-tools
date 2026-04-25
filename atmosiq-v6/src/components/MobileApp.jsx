@@ -75,6 +75,7 @@ export default function MobileApp() {
   const padX = isTablet ? 28 : 20
   const [loading, setLoading] = useState(true)
   const [isReturning, setIsReturning] = useState(false)
+  const [welcomeDone, setWelcomeDone] = useState(!!sessionStorage.getItem('aiq_welcomed'))
   const [userMode, setUserMode] = useState(getMode())
   const [needsModeSelect, setNeedsModeSelect] = useState(false)
   const [profile, setProfile] = useState(null)
@@ -460,8 +461,7 @@ export default function MobileApp() {
   }
   // New user — show welcome then profile setup
   if (profile?.isNew && view === 'dash') {
-    const hasSeenWelcome = sessionStorage.getItem('aiq_welcomed')
-    if (!hasSeenWelcome) return <WelcomeScreen onComplete={() => { sessionStorage.setItem('aiq_welcomed', '1'); setView('dash') }} />
+    if (!welcomeDone) return <WelcomeScreen onComplete={() => { sessionStorage.setItem('aiq_welcomed', '1'); setWelcomeDone(true) }} />
     return <ProfileScreen onLogin={async (p) => { if (supabase) await SupaStorage.saveProfile(p); setProfile(p) }} />
   }
 
@@ -559,9 +559,12 @@ export default function MobileApp() {
           {/* Severity accent — top edge gradient */}
           <div style={{position:'absolute',top:0,left:0,right:0,height:3,background:`linear-gradient(90deg, ${comp.rc}, ${comp.rc}40)`}} />
           <div style={{display:'flex',alignItems:'center',gap:20,marginTop:2}}>
-            <div style={{flexShrink:0}}>
+            {userMode !== 'fm' && <div style={{flexShrink:0}}>
               <ScoreRing value={comp.tot} color={comp.rc} size={96} />
-            </div>
+            </div>}
+            {userMode === 'fm' && <div style={{flexShrink:0,width:64,height:64,borderRadius:16,background:`${comp.rc}15`,border:`2px solid ${comp.rc}40`,display:'flex',alignItems:'center',justifyContent:'center'}}>
+              <I n={comp.tot>=70?'check':comp.tot>=40?'alert':'alert'} s={28} c={comp.rc} w={2} />
+            </div>}
             <div style={{flex:1,minWidth:0}}>
               <span style={{padding:'3px 8px',borderRadius:4,fontSize:9,fontWeight:700,background:`${comp.rc}12`,color:comp.rc,textTransform:'uppercase',letterSpacing:'0.5px'}}>{comp.risk}</span>
               {measConf&&<span style={{padding:'3px 8px',borderRadius:4,fontSize:9,fontWeight:600,background:measConf.overall==='High'?`${SUCCESS}12`:measConf.overall==='Low'?`${WARN}12`:`${DIM}15`,color:measConf.overall==='High'?SUCCESS:measConf.overall==='Low'?WARN:SUB,marginLeft:6,letterSpacing:'0.3px'}}>{measConf.overall} Confidence</span>}
@@ -569,6 +572,7 @@ export default function MobileApp() {
               <div style={{fontSize:11,color:SUB,marginTop:3,lineHeight:1.4}}>{actionLabel}</div>
             </div>
           </div>
+          {userMode !== 'fm' && <>
           <div style={{display:'flex',gap:1,marginTop:16,background:SURFACE,borderRadius:8,overflow:'hidden'}}>
             {[
               {l:'Zone average',v:comp.avg,s:'/100'},
@@ -584,6 +588,8 @@ export default function MobileApp() {
           <div style={{textAlign:'center',marginTop:10,fontSize:9,color:DIM,fontFamily:"'DM Mono'"}}>
             {comp.logic==='worst-zone-override'?'Composite = worst zone (Critical zone override)':'Composite = zone average (no Critical zones)'}
           </div>
+          </>}
+          {userMode === 'fm' && <div style={{textAlign:'center',marginTop:12,fontSize:10,color:DIM}}>{comp.count} area{comp.count!==1?'s':''} assessed</div>}
           {measConf?.overall==='Low'&&<div style={{textAlign:'center',marginTop:6,fontSize:9,color:WARN,lineHeight:1.5}}>Single-point measurement. Consider time-weighted sampling per AIHA strategy before drawing conclusions.</div>}
         </div>
 
@@ -638,7 +644,10 @@ export default function MobileApp() {
 
         {/* ── Content Tabs ── */}
         <div style={{display:'flex',gap:2,padding:2,background:CARD,borderRadius:10,border:`1px solid ${BORDER}`,marginBottom:14,overflowX:'auto',scrollbarWidth:'none',WebkitOverflowScrolling:'touch'}}>
-          {[['overview','findings','Findings'],['rootcause','chain','Pathways'],['sampling','flask','Sampling'],['narrative','pulse','Narrative'],['actions','bolt','Actions']].map(([k,ic,l])=>(
+          {(userMode === 'fm'
+            ? [['overview','findings','Findings'],['narrative','pulse','Narrative'],['actions','bolt','Actions']]
+            : [['overview','findings','Findings'],['rootcause','chain','Pathways'],['sampling','flask','Sampling'],['narrative','pulse','Narrative'],['actions','bolt','Actions']]
+          ).map(([k,ic,l])=>(
             <button key={k} onClick={()=>{setRTab(k);haptic('light')}} style={{flex:'0 0 auto',padding:'8px 12px',borderRadius:8,border:'none',background:rTab===k?`${ACCENT}10`:'transparent',color:rTab===k?ACCENT:DIM,fontSize:11,fontWeight:rTab===k?600:500,cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap',minHeight:34,transition:'color 0.15s'}}>
               {l}
             </button>
@@ -648,26 +657,34 @@ export default function MobileApp() {
         {rTab==='overview' && zs && <div style={{display:isTablet?'grid':'flex',gridTemplateColumns:isTablet?'1fr 1fr':'none',flexDirection:'column',gap:10}}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10}}>
             <div style={{fontSize:14,fontWeight:600,color:TEXT}}>{zs.zoneName}</div>
-            <div style={{display:'flex',alignItems:'baseline',gap:2}}>
-              <span style={{fontSize:22,fontWeight:800,fontFamily:"'DM Mono'",color:zs.rc}}>{zs.tot}</span>
-              <span style={{fontSize:11,color:DIM,fontFamily:"'DM Mono'"}}>/100</span>
-            </div>
+            {userMode === 'fm' ? (
+              <span style={{padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:700,background:`${zs.rc}15`,color:zs.rc}}>{zs.risk}</span>
+            ) : (
+              <div style={{display:'flex',alignItems:'baseline',gap:2}}>
+                <span style={{fontSize:22,fontWeight:800,fontFamily:"'DM Mono'",color:zs.rc}}>{zs.tot}</span>
+                <span style={{fontSize:11,color:DIM,fontFamily:"'DM Mono'"}}>/100</span>
+              </div>
+            )}
           </div>
-          {zs.cats.map((cat,ci)=>{const pct=Math.round((cat.s/cat.mx)*100);const bc=pct>=80?'#22C55E':pct>=60?'#FBBF24':pct>=40?'#FB923C':'#EF4444';const pctLabel=pct>=80?'Within range':pct>=60?'Moderate concern':pct>=40?'Significant concern':'Critical concern';return(
+          {zs.cats.map((cat,ci)=>{const pct=cat.s!==null?Math.round((cat.s/cat.mx)*100):0;const bc=pct>=80?'#22C55E':pct>=60?'#FBBF24':pct>=40?'#FB923C':'#EF4444';const pctLabel=pct>=80?'Within range':pct>=60?'Moderate concern':pct>=40?'Significant concern':'Critical concern';const fmLabel=pct>=70?'Pass':pct>=40?'Needs attention':'Action needed';const fmColor=pct>=70?'#22C55E':pct>=40?'#FBBF24':'#EF4444';return(
             <div key={cat.l} style={{padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
                 <span style={{fontSize:14,fontWeight:600,color:TEXT}}>{cat.l}</span>
-                <div style={{display:'flex',alignItems:'baseline',gap:2}}>
-                  <span style={{fontSize:16,fontWeight:800,fontFamily:"'DM Mono'",color:bc}}>{cat.s}</span>
-                  <span style={{fontSize:10,color:DIM,fontFamily:"'DM Mono'"}}>/{cat.mx}</span>
-                </div>
+                {userMode === 'fm' ? (
+                  <span style={{padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:700,background:`${fmColor}15`,color:fmColor}}>{cat.s===null?'No data':fmLabel}</span>
+                ) : (
+                  <div style={{display:'flex',alignItems:'baseline',gap:2}}>
+                    <span style={{fontSize:16,fontWeight:800,fontFamily:"'DM Mono'",color:bc}}>{cat.s}</span>
+                    <span style={{fontSize:10,color:DIM,fontFamily:"'DM Mono'"}}>/{cat.mx}</span>
+                  </div>
+                )}
               </div>
-              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
+              {userMode !== 'fm' && <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
                 <div style={{flex:1,height:3,background:BORDER,borderRadius:2,overflow:'hidden'}}>
                   <div style={{height:'100%',width:`${pct}%`,background:bc,borderRadius:2,transition:'width .8s ease'}} />
                 </div>
                 <span style={{fontSize:9,color:bc,fontWeight:600,flexShrink:0}}>{pctLabel}</span>
-              </div>
+              </div>}
               {cat.r.filter(r => !(r.sev === 'pass' && pct < 70)).map((r,i)=>{const s=sv(r.sev);return(
                 <div key={i} style={{display:'flex',gap:8,alignItems:'flex-start',marginBottom:6,fontSize:13,lineHeight:1.6}}>
                   <span style={{padding:'2px 8px',borderRadius:4,fontSize:9,fontWeight:700,fontFamily:"'DM Mono'",background:s.bg,color:s.c,flexShrink:0,marginTop:3}}>{s.l}</span>
@@ -676,7 +693,7 @@ export default function MobileApp() {
               )})}
             </div>
           )})}
-          {oshaResult?.flag&&<div style={{padding:16,background:'#EF444412',border:`1px solid #EF444428`,borderRadius:14}}><div style={{display:'flex',alignItems:'center',gap:6,marginBottom:4}}><div style={{fontSize:13,fontWeight:700,color:'#EF4444'}}>⚠ OSHA-Relevant Conditions</div></div><div style={{fontSize:10,color:DIM,marginBottom:10,lineHeight:1.5}}>These items may warrant OSHA-related review and are not a determination of citation or violation.</div>{oshaResult.fl.map((f,i)=><div key={i} style={{fontSize:14,color:'#E2E8F0',lineHeight:1.6,paddingLeft:12,borderLeft:'2px solid #EF444435',marginBottom:6}}>{f}</div>)}</div>}
+          {userMode !== 'fm' && oshaResult?.flag&&<div style={{padding:16,background:'#EF444412',border:`1px solid #EF444428`,borderRadius:14}}><div style={{display:'flex',alignItems:'center',gap:6,marginBottom:4}}><div style={{fontSize:13,fontWeight:700,color:'#EF4444'}}>⚠ OSHA-Relevant Conditions</div></div><div style={{fontSize:10,color:DIM,marginBottom:10,lineHeight:1.5}}>These items may warrant OSHA-related review and are not a determination of citation or violation.</div>{oshaResult.fl.map((f,i)=><div key={i} style={{fontSize:14,color:'#E2E8F0',lineHeight:1.6,paddingLeft:12,borderLeft:'2px solid #EF444435',marginBottom:6}}>{f}</div>)}</div>}
           {oshaResult?.gaps?.length>0&&<div style={{padding:16,background:'#FBBF2410',border:`1px solid #FBBF2428`,borderRadius:14}}><div style={{fontSize:13,fontWeight:700,color:'#FBBF24',marginBottom:8}}>Data Gaps</div>{oshaResult.gaps.map((g,i)=><div key={i} style={{fontSize:14,color:'#D1D5DB',marginBottom:6}}>• {g}</div>)}</div>}
           {/* Mold Findings — parallel panel, not in composite */}
           {moldResults.length>0&&<div style={{padding:16,background:`${ACCENT}06`,border:`1px solid ${ACCENT}18`,borderLeft:`3px solid ${ACCENT}40`,borderRadius:14,marginTop:10}}>
@@ -1155,7 +1172,7 @@ export default function MobileApp() {
               </div>
               <button onClick={()=>resumeDraft(d.id)} style={{padding:'8px 16px',background:`${ACCENT}12`,border:`1px solid ${ACCENT}25`,borderRadius:8,color:ACCENT,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:38}}>Resume</button>
               <button onClick={(e)=>{e.stopPropagation();setDelConf({id:d.id,name:d.facility,type:'dft'})}} style={{width:44,height:44,background:'#EF444410',border:`1px solid #EF444425`,borderRadius:8,color:'#EF4444',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'inherit',flexShrink:0,WebkitTapHighlightColor:'transparent'}}>
-                <I n="alert" s={14} c={DIM} w={1.4} />
+                <I n="trash" s={14} c="#EF4444" w={1.4} />
               </button>
             </div>
           ))}
@@ -1190,7 +1207,7 @@ export default function MobileApp() {
                 <div style={{fontSize:10,color:DIM,fontFamily:"'DM Mono'",marginTop:3}}>{fD(r.ts)} · Final</div>
               </div>
               <button onClick={e=>{e.stopPropagation();setDelConf({id:r.id,name:r.facility,type:'rpt'})}} style={{width:36,height:36,background:'transparent',border:`1px solid ${BORDER}`,borderRadius:8,color:DIM,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'inherit',flexShrink:0}}>
-                <I n="alert" s={14} c={DIM} w={1.4} />
+                <I n="trash" s={14} c={DIM} w={1.4} />
               </button>
             </div>
           ))}

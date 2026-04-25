@@ -25,8 +25,8 @@ export function scoreZone(z, bldg) {
   const rhOvr = profile ? getRHOverride(profile, d.zone_subtype) : null
   const weights = getZoneWeights(d.zone_subtype)
   const rawCats = [scoreVent(d), scoreCont(d), scoreHVAC(d), scoreComp(d), scoreEnv(d, rhOvr)]
-  // Apply zone-specific weights
-  rawCats.forEach(c => { c.mx = weights[c.l] ?? c.mx; if (weights[c.l] === 0) { c.s = 0; c.suppressed = true } })
+  // Apply zone-specific weights (preserve original max for sufficiency scaling)
+  rawCats.forEach(c => { c.origMx = c.mx; c.mx = weights[c.l] ?? c.mx; if (weights[c.l] === 0) { c.s = 0; c.suppressed = true } })
   // Rescale scores to new max when weights differ from default
   rawCats.forEach(c => {
     if (!c.suppressed && c.mx !== ZONE_WEIGHTS.default[c.l]) {
@@ -43,8 +43,12 @@ export function scoreZone(z, bldg) {
     if (c.suppressed) return { ...c, status: 'SUPPRESSED' }
     const cs = suff[c.l]
     if (cs && cs.isInsufficient) return { ...c, s: null, status: 'INSUFFICIENT', reason: cs.reason, sufficiency: cs }
-    if (cs && cs.maxAwardable === 0) return { ...c, s: null, status: 'DATA_GAP', reason: 'No category data collected', sufficiency: cs }
-    if (cs && cs.maxAwardable < c.mx) return { ...c, s: Math.min(c.s, cs.maxAwardable), sufficiency: cs, capped: true }
+    if (cs && cs.maxAwardable === 0) {
+      if (c.gate5 || c.r.some(r => r.sev === 'critical')) return { ...c, s: 0, sufficiency: cs, capped: true }
+      return { ...c, s: null, status: 'DATA_GAP', reason: 'No category data collected', sufficiency: cs }
+    }
+    const scaledMaxAw = (c.origMx && c.origMx !== c.mx) ? Math.round((cs.maxAwardable / c.origMx) * c.mx) : cs.maxAwardable
+    if (cs && scaledMaxAw < c.mx) return { ...c, s: Math.min(c.s, scaledMaxAw), sufficiency: cs, capped: true }
     return { ...c, sufficiency: cs }
   })
   const scorable = cats.filter(c => c.s !== null && c.status !== 'SUPPRESSED')

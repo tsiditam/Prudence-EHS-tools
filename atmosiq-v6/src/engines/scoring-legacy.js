@@ -38,7 +38,7 @@ export function genRecs(zoneScores, bldg) {
       if (r.sev === 'critical') {
         if (r.t.includes('CO ')) R.imm.push(zs.zoneName+': Immediately evacuate and investigate combustion source.')
         if (r.t.includes('ormaldehyde')) R.imm.push(zs.zoneName+': Implement exposure controls per 29 CFR 1910.1048.')
-        if (r.t.includes('No supply airflow')) R.imm.push('Request emergency HVAC service to restore airflow.')
+        if (r.t.includes('No supply airflow')) R.imm.push('Request immediate HVAC service to restore airflow.')
         if (r.t.includes('No filtration') || r.t.includes('no filter')) R.imm.push('Request immediate HVAC service — no filtration installed.')
         if (r.t.includes('Drain pan')) R.imm.push(zs.zoneName+': Address drain pan condition immediately. Evaluate for microbial growth.')
         if (r.t.includes('water') || r.t.includes('leak')) R.imm.push(zs.zoneName+': Arrest water intrusion. Assess materials within 48 hours.')
