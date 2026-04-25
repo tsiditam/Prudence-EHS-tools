@@ -117,7 +117,7 @@ function deriveAction(finding, zone, severity) {
   if (t.includes('co₂') || t.includes('ventilation')) return `${zone}: Evaluate outdoor air delivery rate. Verify OA damper position.`
   if (t.includes('pm2.5') || t.includes('pm')) return `Upgrade filtration to MERV 13+. Evaluate filter housing for bypass.`
   if (t.includes('maintenance')) return `Schedule comprehensive HVAC inspection including coil cleaning and controls verification.`
-  if (t.includes('occupant') || t.includes('symptom')) return `${zone}: Document affected occupants and symptom patterns. Consider EPA BASE survey.`
+  if (t.includes('occupant') || t.includes('symptom')) return `${zone}: Document affected occupants and symptom patterns using NIOSH IEQ questionnaire or equivalent structured instrument.`
   if (t.includes('temperature') || t.includes('thermal')) return `${zone}: Verify thermostat setpoints and HVAC zoning for this area.`
   if (t.includes('humidity')) return `${zone}: Evaluate humidity control. Check for moisture sources.`
   return `${zone}: Address ${severity} finding — ${finding.t.slice(0, 80)}.`

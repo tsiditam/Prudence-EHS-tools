@@ -93,7 +93,7 @@ describe('DC Demo — Hizinburg Data Center', () => {
   })
 
   it('no forbidden language in any finding', () => {
-    const forbidden = ['SYSTEM FAILURE', 'SYNERGISTIC', 'TOXICITY', 'System Integrity Override', 'emergency']
+    const forbidden = ['SYSTEM FAILURE', 'SYNERGISTIC', 'TOXICITY', 'System Integrity Override', 'emergency', 'Critical Concern Override', 'Class 8 exceeded', 'EPA BASE']
     scores.forEach(zs => zs.cats.forEach(c => c.r.forEach(r => {
       forbidden.forEach(f => expect(r.t).not.toContain(f))
     })))
@@ -108,13 +108,25 @@ describe('DC Demo — Hizinburg Data Center', () => {
     })
   })
 
-  it('G3 corrosion triggers Critical override on Data Hall B', () => {
+  it('G3 corrosion produces screening finding (not Critical Override) on Data Hall B', () => {
     const hallB = scores.find(zs => zs.zoneName === 'Data Hall B — Expansion')
-    expect(hallB.tot).toBeLessThanOrEqual(39)
-    expect(hallB.risk).toBe('Critical')
+    const contCat = hallB.cats.find(c => c.l === 'Contaminants')
+    const screeningFinding = contCat.r.find(r => r.t.includes('Screening indicators'))
+    expect(screeningFinding).toBeDefined()
+    expect(screeningFinding.sev).toBe('high') // not critical — screening mode
+    expect(screeningFinding.std).toContain('(screening)')
+    // Critical Override does NOT fire on screening data
+    expect(contCat.r.every(r => !r.t.includes('Critical Concern Override'))).toBe(true)
   })
 
-  it('composite uses worst-zone override (Critical zone present)', () => {
-    expect(comp.logic).toBe('worst-zone-override')
+  it('no definitive G-class or ISO Class assertions in any finding', () => {
+    const banned = ['G3 — Harsh', 'GX — Severe', 'Class 8 exceeded', 'Critical Concern Override']
+    scores.forEach(zs => zs.cats.forEach(c => c.r.forEach(r => {
+      banned.forEach(b => expect(r.t).not.toContain(b))
+    })))
+  })
+
+  it('composite uses weighted mean (no Critical Override in screening mode)', () => {
+    expect(comp.logic).toBe('weighted-mean-of-zones')
   })
 })
