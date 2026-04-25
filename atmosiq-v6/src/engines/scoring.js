@@ -61,15 +61,13 @@ export function scoreZone(z, bldg) {
     normalizedFrom = tot
     tot = Math.round((tot / availableMax) * 100)
   }
-  // Critical Concern Override: G3/GX corrosion or ISO Class 8 failure forces score < 50
+  // Data hall screening findings — walkthrough indicators, not definitive classifications
   if (d.zone_subtype === 'data_hall') {
     if (d.gaseous_corrosion && (d.gaseous_corrosion.includes('G3') || d.gaseous_corrosion.includes('GX'))) {
-      tot = tot !== null ? Math.min(tot, 39) : 39
-      cats.find(c => c.l === 'Contaminants')?.r.push({ t: `Gaseous corrosion ${d.gaseous_corrosion} — Critical Concern Override applied per ISA-71.04`, std: 'ANSI/ISA 71.04-2013', sev: 'critical' })
+      cats.find(c => c.l === 'Contaminants')?.r.push({ t: 'Screening indicators consistent with elevated risk of G2 or worse environment per ANSI/ISA 71.04-2013 methodology. Definitive classification requires 30-day passive copper+silver reactivity coupon deployment per the standard.', std: 'ANSI/ISA 71.04-2013 (screening)', sev: 'high' })
     }
     if (d.iso_class === 'ISO Class 8') {
-      tot = tot !== null ? Math.min(tot, 39) : 39
-      cats.find(c => c.l === 'Contaminants')?.r.push({ t: 'ISO 14644-1 Class 8 particle limit exceeded — Critical Concern Override applied', std: 'ISO 14644-1:2015', sev: 'critical' })
+      cats.find(c => c.l === 'Contaminants')?.r.push({ t: 'Particle conditions observed during walkthrough may indicate elevated particulate levels. ISO Class cannot be determined from walkthrough data alone. Definitive classification per ISO 14644-1:2015 requires particle counter deployment at standard size thresholds (≥0.5 µm, ≥1 µm, ≥5 µm).', std: 'ISO 14644-1:2015 (screening)', sev: 'high' })
     }
   }
   // Category lookups for overrides
@@ -177,10 +175,15 @@ function scoreVent(d) {
 
 function scoreCont(d) {
   let dd = 0, r = []
+  const isDataHall = d.zone_subtype === 'data_hall'
   if (d.pm) {
     const v = +d.pm, ho = !!d.pmo
-    if (v > STD.c.pm25.epa)      { dd += ho ? 12 : 8; r.push({ t: 'PM2.5 ' + v + ' µg/m³ — exceeds EPA 24-hr standard' + (ho?'':' (no outdoor baseline)'), std:'EPA NAAQS', sev:'high' }) }
-    else if (v > STD.c.pm25.who) { dd += ho ? 6  : 4; r.push({ t: 'PM2.5 ' + v + ' µg/m³ — exceeds WHO guideline' + (ho?'':' (no outdoor baseline)'), std:'WHO AQG', sev:'medium' }) }
+    if (isDataHall) {
+      if (v > 10) { dd += ho ? 6 : 4; r.push({ t: 'Indoor PM2.5 mass concentration of ' + v + ' µg/m³ measured during walkthrough. Elevated relative to typical data hall MERV-filtered conditions (<10 µg/m³). Particle count data at ISO 14644-1 size thresholds not captured; ISO Class cannot be determined from mass measurement alone.', std:'ISO 14644-1:2015 (screening)', sev:'medium' }) }
+    } else {
+      if (v > STD.c.pm25.epa)      { dd += ho ? 12 : 8; r.push({ t: 'PM2.5 ' + v + ' µg/m³ — exceeds EPA 24-hr standard' + (ho?'':' (no outdoor baseline)'), std:'EPA NAAQS', sev:'high' }) }
+      else if (v > STD.c.pm25.who) { dd += ho ? 6  : 4; r.push({ t: 'PM2.5 ' + v + ' µg/m³ — exceeds WHO guideline' + (ho?'':' (no outdoor baseline)'), std:'WHO AQG', sev:'medium' }) }
+    }
   }
   if (d.co) {
     const v = +d.co

@@ -11,7 +11,7 @@
  */
 
 export const STANDARDS_MANIFEST = {
-  'ASHRAE 62.1': '2022',
+  'ASHRAE 62.1': '2025',
   'ASHRAE 55': '2023',
   'OSHA Z-1 PELs': '29 CFR 1910.1000 (current)',
   'WHO Air Quality Guidelines': '2021',
@@ -19,8 +19,13 @@ export const STANDARDS_MANIFEST = {
   'NIOSH Pocket Guide RELs': 'current',
   'EPA NAAQS': '2024',
   'Molhave TVOC tiers': '1991 (advisory only)',
+  'ANSI/ISA 71.04': '2013',
+  'ISO 14644-1': '2015',
+  'ASHRAE TC 9.9': '2011',
+  'IEEE 1635 / ASHRAE Guideline 21': 'current',
+  'NFPA 855': '2026',
   engineVersion: '2.3',
-  manifestUpdated: '2026-04-19',
+  manifestUpdated: '2026-04-25',
 }
 
 export const STD = {

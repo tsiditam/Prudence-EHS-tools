@@ -86,17 +86,18 @@ export function buildCausalChains(zones, bldg, zoneScores) {
       if (d.path_pressure === 'Negative (draws in)') ev.push('Zone under negative pressure')
       chains.push({ zone: zName, type: 'Cross-Contamination Pathway', rootCause: 'Air pathway allowing contaminant migration from adjacent source', evidence: ev, confidence: ev.length >= 2 ? 'Moderate' : 'Possible' })
     }
-    // Data center: Creep Corrosion Risk pattern
+    // Data center: Gaseous Corrosion Risk (screening hypothesis)
     if (d.zone_subtype === 'data_hall') {
       const hasCorrosion = d.gaseous_corrosion && (d.gaseous_corrosion.includes('G2') || d.gaseous_corrosion.includes('G3') || d.gaseous_corrosion.includes('GX'))
       const hasHighRH = d.rh && +d.rh > 60
       if (hasCorrosion && hasHighRH) {
-        const ev = [`Gaseous corrosion classification: ${d.gaseous_corrosion}`, `Relative humidity: ${d.rh}% (exceeds 60% static control threshold)`]
+        const ev = [`Screening indicators consistent with elevated gaseous corrosion risk (assessor-selected: ${d.gaseous_corrosion})`, `Relative humidity: ${d.rh}% (exceeds ASHRAE TC 9.9 A1/A2 upper bound of 60%)`]
         if (d.dp_temp) ev.push(`Dew point: ${d.dp_temp}°F`)
-        chains.push({ zone: zName, type: 'Creep Corrosion Risk', rootCause: 'Elevated humidity combined with gaseous contamination creates conditions for accelerated creep corrosion on circuit board surfaces. Equipment failure risk is significant.', evidence: ev, confidence: 'Strong', std: 'ANSI/ISA 71.04-2013 + ASHRAE TC 9.9' })
+        if (d.pm) ev.push(`PM2.5 mass: ${d.pm} µg/m³ (elevated if >10 for MERV-filtered data hall)`)
+        chains.push({ zone: zName, type: 'Gaseous Corrosion Risk (Screening)', rootCause: 'Elevated humidity combined with screening indicators of gaseous contamination creates conditions consistent with accelerated creep corrosion risk on circuit board surfaces. Definitive G-class determination requires 30-day passive copper+silver reactivity coupon deployment per ANSI/ISA 71.04-2013.', evidence: ev, confidence: 'Low (screening-only data)', refutableBy: 'Coupon results returning G1 (<300 Å Cu, <200 Å Ag per month). Particle count data showing ISO Class within target. Outdoor air screening showing no upwind sulfur sources.', std: 'ANSI/ISA 71.04-2013 (screening); ASHRAE TC 9.9' })
       }
       if (hasCorrosion && !hasHighRH) {
-        chains.push({ zone: zName, type: 'Gaseous Contamination Concern', rootCause: 'Gaseous corrosion classification exceeds G1 (mild). Source investigation recommended to prevent progression.', evidence: [`Gaseous corrosion: ${d.gaseous_corrosion}`, 'RH currently within control range'], confidence: 'Moderate', std: 'ANSI/ISA 71.04-2013' })
+        chains.push({ zone: zName, type: 'Gaseous Contamination Concern (Screening)', rootCause: 'Screening indicators suggest gaseous corrosion environment may exceed G1 (mild). Source investigation recommended — evaluate outdoor air ingress, gas-phase filter media condition, and adjacent-space process changes.', evidence: [`Screening indicator: ${d.gaseous_corrosion} (assessor-selected, not coupon-measured)`, 'RH currently within ASHRAE TC 9.9 control range'], confidence: 'Low (screening-only data)', refutableBy: 'Coupon results returning G1 (<300 Å Cu, <200 Å Ag per month).', std: 'ANSI/ISA 71.04-2013 (screening)' })
       }
     }
   })
