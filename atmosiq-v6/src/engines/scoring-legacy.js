@@ -42,7 +42,7 @@ export function genRecs(zoneScores, bldg) {
         if (r.t.includes('No filtration') || r.t.includes('no filter')) R.imm.push('Request immediate HVAC service — no filtration installed.')
         if (r.t.includes('Drain pan')) R.imm.push(zs.zoneName+': Address drain pan condition immediately. Evaluate for microbial growth.')
         if (r.t.includes('water') || r.t.includes('leak')) R.imm.push(zs.zoneName+': Arrest water intrusion. Assess materials within 48 hours.')
-        if (r.t.toLowerCase().includes('occupant') && r.t.includes('symptom')) R.imm.push(zs.zoneName+': Document symptom patterns. Consider EPA BASE survey. Evaluate ventilation immediately.')
+        if (r.t.toLowerCase().includes('occupant') && r.t.includes('symptom')) R.imm.push(zs.zoneName+': Document symptom patterns using NIOSH IEQ questionnaire or equivalent structured instrument. Evaluate ventilation immediately.')
       }
       if (r.sev === 'high' || r.sev === 'medium') {
         if (r.t.includes('maintenance') && r.t.includes('overdue')) R.eng.push('Schedule comprehensive HVAC inspection.')
@@ -53,10 +53,29 @@ export function genRecs(zoneScores, bldg) {
         if (r.t.includes('maintenance')) R.eng.push('Schedule comprehensive HVAC inspection.')
         if (r.t.includes('ilter condition') || r.t.includes('filtration')) R.eng.push(zs.zoneName+': Replace or service air filters. Inspect filter housing for bypass or damage.')
         if (r.t.includes('Temperature') || r.t.includes('comfort range')) R.eng.push(zs.zoneName+': Evaluate thermostat settings and HVAC zoning for thermal comfort.')
-        if (r.t.includes('occupant') || r.t.includes('symptom')) R.adm.push(zs.zoneName+': Document affected occupants. Consider EPA BASE survey.')
+        if (r.t.includes('occupant') || r.t.includes('symptom')) R.adm.push(zs.zoneName+': Document affected occupants using NIOSH IEQ questionnaire or equivalent structured symptom instrument.')
         if (r.t.includes('resolve')) R.adm.push(zs.zoneName+': Building-related symptom pattern — investigate ventilation and source pathways.')
       }
     }))
+    // Data center–specific recommendations matched to screening findings
+    if (zs.zoneSubtype === 'data_hall') {
+      const hasCorrosionRisk = zs.cats.some(c => c.r.some(r => r.t.includes('corrosion risk') || r.t.includes('71.04')))
+      const hasParticleRisk = zs.cats.some(c => c.r.some(r => r.t.includes('ISO 14644') || r.t.includes('ISO Class')))
+      if (hasCorrosionRisk || hasParticleRisk) {
+        R.imm.push(zs.zoneName+': Notify facility engineering and equipment owners of elevated environmental risk per screening assessment. Suspend new equipment installations pending definitive assessment.')
+        R.imm.push(zs.zoneName+': Visually inspect installed equipment for surface corrosion indicators (silver tarnish, copper discoloration, creep corrosion on PCBs). Photograph and document findings.')
+        R.imm.push(zs.zoneName+': Verify outdoor air damper position and operation. Confirm gas-phase filter media is within service life per manufacturer specification.')
+      }
+      if (hasCorrosionRisk) {
+        R.eng.push(zs.zoneName+': Deploy ANSI/ISA 71.04-compliant copper+silver reactivity coupons for 30-day passive exposure. Minimum 3 locations: hot-aisle return, cold-aisle supply, intake plenum near OA damper.')
+      }
+      if (hasParticleRisk) {
+        R.eng.push(zs.zoneName+': Deploy calibrated particle counter at ISO 14644-1 size thresholds (≥0.5 µm, ≥1 µm, ≥5 µm). Sampling per ISO 14644-1:2015 §B.')
+      }
+      if (hasCorrosionRisk || hasParticleRisk) {
+        R.eng.push(zs.zoneName+': Conduct outdoor air quality screening at OA intake. Document upwind contamination sources within 1 mile and coordinate with prevailing wind direction.')
+      }
+    }
     // Data-gap-driven recommendations: when a category is INSUFFICIENT or severely capped, advise assessment
     zs.cats.forEach(c => {
       if (c.status === 'INSUFFICIENT' || c.status === 'DATA_GAP' || (c.capped && c.sufficiency?.sufficiency < 0.4)) {
