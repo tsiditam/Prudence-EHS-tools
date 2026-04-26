@@ -132,6 +132,7 @@ export default function MobileApp() {
   const [viewRpt, setViewRpt] = useState(null)
   const [delConf, setDelConf] = useState(null)
   const [zonePrompt, setZonePrompt] = useState(false)
+  const [calWarning, setCalWarning] = useState(null)
   const [hSearch, setHSearch] = useState('')
   const [hSort, setHSort] = useState('newest')
 
@@ -318,11 +319,25 @@ export default function MobileApp() {
     showMilestone('check', 'Quick Start Complete', 'Starting zone walkthrough', () => { setCurZone(0); setZqi(0); setView('zone') })
   }
 
-  const finishAssessment = async () => {
+  const finishAssessment = async (bypassCalWarning) => {
     // Backend validation: prevent Data Center save without Enterprise tier
     if (bldg.ft === 'Data Center' && !isEnterprise(profile)) {
       setShowPremiumGate(true); return
     }
+    // Instrument metadata check — warn if missing
+    if (!bypassCalWarning) {
+      const missing = []
+      if (!presurvey.ps_inst_iaq) missing.push('Instrument make/model')
+      if (!presurvey.ps_inst_iaq_serial) missing.push('Instrument serial number')
+      if (!presurvey.ps_inst_iaq_cal) missing.push('Last calibration date')
+      if (!presurvey.ps_inst_iaq_cal_status || presurvey.ps_inst_iaq_cal_status === 'Unknown') missing.push('Calibration status')
+      if (presurvey.ps_inst_iaq_cal) {
+        const daysSinceCal = (Date.now() - new Date(presurvey.ps_inst_iaq_cal).getTime()) / 86400000
+        if (daysSinceCal > 365) missing.push('Calibration expired (' + Math.round(daysSinceCal) + ' days since last calibration)')
+      }
+      if (missing.length > 0) { setCalWarning(missing); return }
+    }
+    setCalWarning(null)
     const zScores = zones.map(z => scoreZone(z, bldg))
     const composite = compositeScore(zScores)
     const worst = zones.reduce((w, z) => (!w || scoreZone(z, bldg).tot < scoreZone(w, bldg).tot) ? z : w, zones[0])
@@ -454,10 +469,11 @@ export default function MobileApp() {
     if (supabase) return <AuthScreen onAuth={handleLogin} />
     return <ProfileScreen onLogin={handleLogin} />
   }
-  // Mode selection — show for ALL users who haven't chosen yet
+  // Mode selection — FM mode paused; auto-select IH for all users
   const hasModeSet = localStorage.getItem('atmosflow:userMode')
-  if (profile && !hasModeSet) {
-    return <ModeSelector onSelect={(m) => { persistMode(m); setUserMode(m) }} />
+  if (profile && (!hasModeSet || hasModeSet === 'fm')) {
+    persistMode('ih')
+    setUserMode('ih')
   }
   // New user — show welcome then profile setup
   if (profile?.isNew && view === 'dash') {
@@ -609,6 +625,15 @@ export default function MobileApp() {
               <div><div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Sampling</div><div style={{color:TEXT,lineHeight:1.4}}>{samplingPlan?.plan?.length > 0 ? `Targeted confirmatory sampling recommended (${samplingPlan.plan.length} analytical method${samplingPlan.plan.length>1?'s':''})` : 'No confirmatory sampling indicated at this time'}</div></div>
             </div>
           </div>
+        )}
+
+        {/* ── Instrument Data prompt ── */}
+        {!archived && (!presurvey.ps_inst_iaq || !presurvey.ps_inst_iaq_serial || !presurvey.ps_inst_iaq_cal) && (
+          <button onClick={()=>{setView('quickstart');setQsqi(Q_QUICKSTART.findIndex(q=>q.id==='ps_inst_iaq')||0)}} style={{width:'100%',padding:'12px 16px',background:`${WARN}08`,border:`1px solid ${WARN}20`,borderRadius:10,marginBottom:8,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit'}}>
+            <I n="alert" s={16} c={WARN} />
+            <div style={{flex:1}}><span style={{fontSize:12,fontWeight:600,color:WARN}}>Add instrument data</span><span style={{fontSize:10,color:DIM,marginLeft:8}}>Required for defensible reports</span></div>
+            <span style={{fontSize:13,color:WARN}}>→</span>
+          </button>
         )}
 
         {/* ── Assessment Details prompt ── */}
@@ -989,6 +1014,25 @@ export default function MobileApp() {
       </div>}
 
       {delConf&&<div style={{position:'fixed',inset:0,background:'#000000CC',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',padding:24}}><div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:18,padding:28,maxWidth:340,width:'100%',animation:'fadeUp .3s ease'}}><div style={{fontSize:18,fontWeight:700,marginBottom:8,color:TEXT}}>Move to Trash?</div><div style={{fontSize:14,color:SUB,marginBottom:12,lineHeight:1.6}}>You can recover this for 30 days.</div><div style={{fontSize:12,color:DIM,marginBottom:24,background:SURFACE,padding:'10px 14px',borderRadius:8}}>Recoverable from Dashboard → Trash</div><div style={{display:'flex',gap:10}}><button onClick={()=>setDelConf(null)} style={{flex:1,padding:'14px 0',background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:10,color:SUB,fontSize:14,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>Cancel</button><button onClick={()=>deleteItem(delConf.id,delConf.name,delConf.type)} style={{flex:1,padding:'14px 0',background:'#EF444420',border:'1px solid #EF444440',borderRadius:10,color:'#EF4444',fontSize:14,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>Delete</button></div></div></div>}
+
+      {/* ── Calibration Warning Modal ── */}
+      {calWarning&&<div style={{position:'fixed',inset:0,background:'#000000CC',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',padding:24}}>
+        <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:18,padding:28,maxWidth:400,width:'100%',animation:'fadeUp .3s ease'}}>
+          <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12}}>
+            <div style={{width:36,height:36,borderRadius:10,background:`${WARN}15`,border:`1px solid ${WARN}30`,display:'flex',alignItems:'center',justifyContent:'center'}}><I n="alert" s={18} c={WARN} w={2} /></div>
+            <div style={{fontSize:18,fontWeight:700,color:TEXT}}>Instrument Data Missing</div>
+          </div>
+          <div style={{fontSize:13,color:SUB,lineHeight:1.7,marginBottom:16}}>Reports generated without instrument identification and calibration records have reduced defensibility. The following information was not provided:</div>
+          <div style={{background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:10,padding:14,marginBottom:20}}>
+            {calWarning.map((m,i)=><div key={i} style={{fontSize:12,color:WARN,lineHeight:1.8,paddingLeft:12,borderLeft:`2px solid ${WARN}30`,marginBottom:i<calWarning.length-1?6:0}}>• {m}</div>)}
+          </div>
+          <div style={{display:'flex',gap:10}}>
+            <button onClick={()=>{setCalWarning(null);setView('quickstart');setQsqi(Q_QUICKSTART.findIndex(q=>q.id==='ps_inst_iaq')||0)}} style={{flex:1,padding:'14px 0',background:ACCENT,border:'none',borderRadius:10,color:'#000',fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>Add instrument data</button>
+            <button onClick={()=>{setCalWarning(null);finishAssessment(true)}} style={{flex:1,padding:'14px 0',background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:10,color:SUB,fontSize:13,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>Continue without</button>
+          </div>
+          <div style={{textAlign:'center',marginTop:10,fontSize:9,color:DIM,lineHeight:1.5}}>Instrument metadata strengthens OSHA defensibility and professional credibility of assessment findings.</div>
+        </div>
+      </div>}
 
       <div style={{maxWidth:contentMax,margin:'0 auto',padding:`0 ${padX}px`,position:'relative',zIndex:1}}>
 
