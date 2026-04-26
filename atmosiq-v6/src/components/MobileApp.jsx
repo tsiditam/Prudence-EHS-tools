@@ -454,10 +454,11 @@ export default function MobileApp() {
     if (supabase) return <AuthScreen onAuth={handleLogin} />
     return <ProfileScreen onLogin={handleLogin} />
   }
-  // Mode selection — show for ALL users who haven't chosen yet
+  // Mode selection — FM mode paused; auto-select IH for all users
   const hasModeSet = localStorage.getItem('atmosflow:userMode')
-  if (profile && !hasModeSet) {
-    return <ModeSelector onSelect={(m) => { persistMode(m); setUserMode(m) }} />
+  if (profile && (!hasModeSet || hasModeSet === 'fm')) {
+    persistMode('ih')
+    setUserMode('ih')
   }
   // New user — show welcome then profile setup
   if (profile?.isNew && view === 'dash') {
