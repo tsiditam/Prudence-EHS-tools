@@ -274,7 +274,9 @@ export function generatePrintHTML(data) {
     const worstZone2 = zoneScores?.reduce((a, b) => a.tot < b.tot ? a : b, zoneScores[0])
     const scoredCatsWZ2 = worstZone2?.cats?.filter(c => c.s !== null && c.status !== 'SUPPRESSED') || []
     const worstCat2 = scoredCatsWZ2.length > 0 ? scoredCatsWZ2.reduce((a, b) => (a.s/a.mx) < (b.s/b.mx) ? a : b) : null
-    const p1 = `An indoor air quality assessment was conducted at ${esc(bldg.fn) || 'the subject facility'} on ${assessDate}, encompassing ${(zones||[]).length} zone${(zones||[]).length !== 1 ? 's' : ''}${presurvey?.ps_reason ? ` in response to ${presurvey.ps_reason.toLowerCase()}` : ''}. The assessment included direct-reading instrument measurements, visual inspection, HVAC system evaluation, and occupant complaint documentation.`
+    const hasZoneComplaints = (zoneScores||[]).some(zs => zs.cats.some(c => c.l === 'Complaints' && c.r.some(r => r.sev === 'critical' || r.sev === 'high' || r.sev === 'medium')))
+    const complaintNote = hasZoneComplaints ? ' Note: While no formal complaints were filed prior to this assessment, occupant symptom reports were documented during the site walkthrough. See zone findings for details.' : ''
+    const p1 = `An indoor air quality assessment was conducted at ${esc(bldg.fn) || 'the subject facility'} on ${assessDate}, encompassing ${(zones||[]).length} zone${(zones||[]).length !== 1 ? 's' : ''}${presurvey?.ps_reason ? ` in response to ${presurvey.ps_reason.toLowerCase()}` : ''}. The assessment included direct-reading instrument measurements, visual inspection, HVAC system evaluation, and occupant complaint documentation.${complaintNote}`
     const p2 = comp?.tot >= 70
       ? `Available evidence supports that conditions observed during the assessment window are broadly consistent with applicable occupancy standards. The composite score of ${comp.tot}/100 reflects acceptable conditions across the majority of evaluated zones, with localized areas warranting targeted follow-up as detailed in the zone findings below.`
       : comp?.tot >= 50
