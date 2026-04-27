@@ -51,6 +51,7 @@ export function dataCell(text, opts = {}) {
 }
 
 export function buildTable(headers, rows, opts = {}) {
+  const colWidths = headers ? headers.map(h => h.width || 0) : []
   const tableRows = []
   if (headers && headers.length > 0) {
     tableRows.push(new TableRow({
@@ -62,7 +63,8 @@ export function buildTable(headers, rows, opts = {}) {
     tableRows.push(new TableRow({
       children: row.map((cell, i) => {
         if (cell instanceof TableCell) return cell
-        return dataCell(cell.text !== undefined ? cell.text : cell, cell)
+        const w = colWidths[i] || cell.width
+        return dataCell(cell.text !== undefined ? cell.text : cell, { ...cell, width: w || cell.width })
       }),
     }))
   }
@@ -78,8 +80,8 @@ export function buildTable(headers, rows, opts = {}) {
 
 export function kvTable(pairs) {
   const rows = pairs.map(([label, value]) => [
-    { text: label, color: COLORS.muted, size: 20 },
-    { text: value || '—', bold: true, size: 20 },
+    { text: label, color: COLORS.muted, size: 20, width: 35 },
+    { text: value || '—', bold: true, size: 20, width: 65 },
   ])
   return buildTable(null, rows)
 }
