@@ -148,12 +148,22 @@ export default function SettingsScreen({ profile, onEditProfile, onLogout, onClo
       <Section title="Reports & Methodology" />
 
       <div style={{padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,marginBottom:6}}>
-        <div style={{fontSize:12,fontWeight:600,color:SUB,marginBottom:8}}>Reference standards</div>
+        <div style={{fontSize:12,fontWeight:600,color:SUB,marginBottom:8}}>Core IAQ Standards</div>
         <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
-          {['ASHRAE 62.1-2025','ASHRAE 55-2023','OSHA PELs','EPA NAAQS','WHO AQG'].map(s => (
+          {['ASHRAE 62.1-2025','ASHRAE 55-2023','OSHA PELs','NIOSH RELs','EPA NAAQS','WHO AQG'].map(s => (
             <span key={s} style={{padding:'4px 8px',borderRadius:4,background:`${ACCENT}08`,border:`1px solid ${ACCENT}12`,fontSize:9,fontWeight:600,color:ACCENT,fontFamily:"'DM Mono'",letterSpacing:'0.2px'}}>{s}</span>
           ))}
         </div>
+        <details style={{marginTop:10}}>
+          <summary style={{fontSize:10,fontWeight:600,color:DIM,cursor:'pointer',listStyle:'none',display:'flex',alignItems:'center',gap:4}}>
+            <span style={{fontSize:8}}>▶</span> Data Center Standards
+          </summary>
+          <div style={{display:'flex',flexWrap:'wrap',gap:4,marginTop:6}}>
+            {['ANSI/ISA 71.04-2013','ISO 14644-1:2015','ASHRAE TC 9.9','IEEE 1635','NFPA 855'].map(s => (
+              <span key={s} style={{padding:'4px 8px',borderRadius:4,background:`${DIM}10`,border:`1px solid ${DIM}20`,fontSize:9,fontWeight:600,color:DIM,fontFamily:"'DM Mono'",letterSpacing:'0.2px'}}>{s}</span>
+            ))}
+          </div>
+        </details>
         <div style={{fontSize:10,color:DIM,marginTop:8,lineHeight:1.5}}>Scoring informed by, not certified by, these standards. Thresholds update with each app release.</div>
       </div>
 
