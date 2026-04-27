@@ -321,15 +321,25 @@ export default function MobileApp() {
   }
 
   const runScoring = () => {
-    const zScores = zones.map(z => scoreZone(z, bldg))
+    // Propagate outdoor baselines — one outdoor reading per parameter applies to all zones
+    const outdoorFields = ['co2o', 'tfo', 'rho', 'pmo', 'tvo']
+    const outdoorValues = {}
+    outdoorFields.forEach(f => { const z = zones.find(z => z[f]); if (z) outdoorValues[f] = z[f] })
+    const zonesWithOutdoor = zones.map(z => {
+      const fill = {}
+      outdoorFields.forEach(f => { if (!z[f] && outdoorValues[f]) fill[f] = outdoorValues[f] })
+      return Object.keys(fill).length > 0 ? { ...z, ...fill } : z
+    })
+    const zScores = zonesWithOutdoor.map(z => scoreZone(z, bldg))
     const composite = compositeScore(zScores)
-    const worst = zones.reduce((w, z) => (!w || scoreZone(z, bldg).tot < scoreZone(w, bldg).tot) ? z : w, zones[0])
+    const worst = zonesWithOutdoor.reduce((w, z) => (!w || scoreZone(z, bldg).tot < scoreZone(w, bldg).tot) ? z : w, zonesWithOutdoor[0])
     const osha = evalOSHA({...bldg, ...worst}, composite?.tot || 0)
     const recommendations = genRecs(zScores, bldg)
-    const sp = generateSamplingPlan(zones, bldg)
-    const cc = buildCausalChains(zones, bldg, zScores)
-    const mold = zones.map(z => evalMold(z)).filter(Boolean)
-    const mc = evalMeasurementConfidence(zones)
+    const sp = generateSamplingPlan(zonesWithOutdoor, bldg)
+    const cc = buildCausalChains(zonesWithOutdoor, bldg, zScores)
+    const mold = zonesWithOutdoor.map(z => evalMold(z)).filter(Boolean)
+    const mc = evalMeasurementConfidence(zonesWithOutdoor)
+    setZones(zonesWithOutdoor)
     setZoneScores(zScores); setComp(composite); setOshaResult(osha); setRecs(recommendations)
     setSamplingPlan(sp); setCausalChains(cc); setMoldResults(mold); setMeasConf(mc)
     return { zScores, composite, osha, recommendations, sp, cc, mold, mc }
