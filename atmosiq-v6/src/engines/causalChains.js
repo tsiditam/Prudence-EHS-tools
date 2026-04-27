@@ -64,7 +64,8 @@ export function buildCausalChains(zones, bldg, zoneScores) {
       if (hasMusty) ev.push('Musty/earthy odor')
       if (hasResp) ev.push('Respiratory symptoms reported')
       if (d.rh && +d.rh > 60) ev.push('Indoor RH at ' + d.rh + '%')
-      chains.push({ zone: zName, type: 'Moisture / Biological', rootCause: hasWater ? 'Active water intrusion supporting microbial amplification' : 'Chronic moisture condition with biological growth indicators', evidence: ev, confidence: ev.length >= 3 ? 'Strong' : 'Moderate' })
+      const hasQuantitative = hasWater || hasMold || (d.rh && +d.rh > 65)
+      chains.push({ zone: zName, type: 'Moisture / Biological', rootCause: hasWater ? 'Active water intrusion supporting microbial amplification' : 'Chronic moisture condition with biological growth indicators', evidence: ev, confidence: ev.length >= 4 && hasQuantitative ? 'Strong' : ev.length >= 2 ? 'Moderate' : 'Possible' })
     }
     // Chemical chain
     const hasSrc = (d.src_internal||[]).length > 0 || (d.src_adjacent||[]).length > 0

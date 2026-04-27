@@ -52,7 +52,7 @@ export function buildSpatialRiskSummary(ctx) {
 
   const children = [
     p('Spatial Risk Summary', { heading: HeadingLevel.HEADING_2 }),
-    p('The following floor plan overlay illustrates zone-level risk distribution across the assessed facility. Pin colors reflect AIHA worst-case risk thresholds.', { size: 20, color: COLORS.sub, after: 160 }),
+    p('The following floor plan overlay illustrates zone-level risk distribution across the assessed facility. Pin colors reflect AtmosFlow risk thresholds.', { size: 20, color: COLORS.sub, after: 160 }),
   ]
 
   // Floor plan image
@@ -94,7 +94,7 @@ export function buildSpatialRiskSummary(ctx) {
     rows
   ))
 
-  children.push(p('Risk thresholds per AIHA exposure assessment strategy. Building composite reflects worst-zone override when any zone is Critical.', { size: 16, color: COLORS.light, after: 200 }))
+  children.push(p('Risk thresholds per AtmosFlow scoring methodology. Building composite reflects worst-zone override when any zone is Critical (<40).', { size: 16, color: COLORS.light, after: 200 }))
 
   return children
 }

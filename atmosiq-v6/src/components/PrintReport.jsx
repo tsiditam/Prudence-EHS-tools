@@ -26,6 +26,14 @@ function esc(str) {
 export function generatePrintHTML(data) {
   const { building, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos, standardsManifest, userMode, escalationTriggers } = data
   const reportTemplate = selectReportTemplate(data)
+  // Collect standards actually cited in findings for filtered manifest
+  const citedStds = new Set()
+  ;(zoneScores||[]).forEach(zs => zs.cats?.forEach(c => c.r?.forEach(r => { if (r.std) citedStds.add(r.std) })))
+  const filteredManifest = standardsManifest ? Object.fromEntries(Object.entries(standardsManifest).filter(([k]) => {
+    if (k === 'engineVersion' || k === 'manifestUpdated') return true
+    return [...citedStds].some(s => s.toLowerCase().includes(k.toLowerCase().split(' ')[0]))
+      || k === 'ASHRAE 62.1' || k === 'ASHRAE 55' || k === 'OSHA Z-1 PELs' || k === 'NIOSH Pocket Guide RELs'
+  })) : null
   const bldg = building || {}
   const now = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
   const assessDate = data.ts ? new Date(data.ts).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : now
@@ -212,7 +220,7 @@ export function generatePrintHTML(data) {
     <div style="font-size:10px;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Assessment Transparency</div>
     <table style="width:auto;"><tbody>
       <tr><td style="color:#64748B;padding-right:16px;">Workflow version</td><td style="color:#334155;font-weight:600;">AtmosFlow v${ver}</td></tr>
-      <tr><td style="color:#64748B;padding-right:16px;">Standards referenced</td><td style="color:#334155;font-weight:600;">${standardsManifest ? Object.entries(standardsManifest).filter(([k]) => k !== 'engineVersion' && k !== 'manifestUpdated').map(([k, v]) => `${k} (${v})`).join(', ') : 'See Standards and Guidance Manifest'}</td></tr>
+      <tr><td style="color:#64748B;padding-right:16px;">Standards referenced</td><td style="color:#334155;font-weight:600;">${filteredManifest ? Object.entries(filteredManifest).filter(([k]) => k !== 'engineVersion' && k !== 'manifestUpdated').map(([k, v]) => `${k} (${v})`).join(', ') : 'See Standards and Guidance Manifest'}</td></tr>
       <tr><td style="color:#64748B;padding-right:16px;">Calibration recorded</td><td style="color:#334155;font-weight:600;">${presurvey?.ps_inst_iaq_cal_status || 'Not recorded'}</td></tr>
       <tr><td style="color:#64748B;padding-right:16px;">Professional review</td><td style="color:#334155;font-weight:600;">Draft — requires IH review before distribution</td></tr>
       <tr><td style="color:#64748B;padding-right:16px;">Confidence level</td><td style="color:#334155;font-weight:600;">${confLabel}</td></tr>
@@ -248,7 +256,7 @@ export function generatePrintHTML(data) {
           <tr><td style="padding:4px 0;border:none;font-size:11px;color:#5C6F7E;">Worst zone</td><td style="padding:4px 0;border:none;font-size:11px;font-weight:600;color:${scoreColor(comp.worst)};">${worstZone?.zoneName || '—'} (${comp.worst}/100)</td></tr>
           <tr><td style="padding:4px 0;border:none;font-size:11px;color:#5C6F7E;">Zones assessed</td><td style="padding:4px 0;border:none;font-size:11px;font-weight:600;">${comp.count}</td></tr>
           <tr><td style="padding:4px 0;border:none;font-size:11px;color:#5C6F7E;">Measurement confidence</td><td style="padding:4px 0;border:none;font-size:11px;font-weight:600;">${comp.confidence || confLabel}</td></tr>
-          <tr><td style="padding:4px 0;border:none;font-size:11px;color:#5C6F7E;">Composite logic</td><td style="padding:4px 0;border:none;font-size:11px;font-weight:500;color:#5C6F7E;">${comp.logic === 'worst-zone-override' ? 'AIHA worst-zone override (Critical zone present)' : 'Priority-weighted mean of zones'}</td></tr>
+          <tr><td style="padding:4px 0;border:none;font-size:11px;color:#5C6F7E;">Composite logic</td><td style="padding:4px 0;border:none;font-size:11px;font-weight:500;color:#5C6F7E;">${comp.logic === 'worst-zone-override' ? 'worst-zone Critical override (Critical zone present)' : 'Priority-weighted mean of zones'}</td></tr>
         </tbody></table>
       </div>
     </div>
@@ -257,8 +265,8 @@ export function generatePrintHTML(data) {
     <div style="padding:10px 14px;background:#F3F4F6;border:1px solid #D1D5DB;border-radius:4px;margin-bottom:16px;font-size:10px;color:#5C6F7E;line-height:1.6;">
       <strong style="color:#1B2A41;">Composite Score Explanation:</strong>
       ${comp.logic === 'worst-zone-override'
-        ? `The composite score of ${comp.tot}/100 reflects the worst-zone override per AIHA exposure assessment strategy (Ignacio &amp; Bullock, 2015). Because ${worstZone?.zoneName || 'one zone'} scored in the Critical range (${comp.worst}/100), the composite equals the worst zone score rather than the average. This ensures a single area of significant concern cannot be masked by otherwise acceptable conditions elsewhere in the facility.`
-        : `The composite score of ${comp.tot}/100 reflects a priority-weighted mean across ${comp.count} assessed zones. Mission-critical zones (if present) carry additional weight in the calculation. No zones scored in the Critical range, so the AIHA worst-zone override was not applied. The score represents a structured prioritization tool — not a compliance determination.`
+        ? `The composite score of ${comp.tot}/100 reflects the worst-zone override per AtmosFlow deterministic scoring methodology. Because ${worstZone?.zoneName || 'one zone'} scored in the Critical range (${comp.worst}/100), the composite equals the worst zone score rather than the average. This ensures a single area of significant concern cannot be masked by otherwise acceptable conditions elsewhere in the facility.`
+        : `The composite score of ${comp.tot}/100 reflects a priority-weighted mean across ${comp.count} assessed zones. Mission-critical zones (if present) carry additional weight in the calculation. No zones scored in the Critical range, so the worst-zone Critical override was not applied. The score represents a structured prioritization tool — not a compliance determination.`
       }
     </div>
 
@@ -354,7 +362,7 @@ export function generatePrintHTML(data) {
   <tr><td style="font-size:10px;">WHO Air Quality Guidelines (2021)</td><td style="font-size:10px;color:#5C6F7E;">Population health guideline — advisory</td><td style="font-size:10px;">PM2.5 (15 µg/m³)</td></tr>
 
   <tr><td colspan="3" style="font-size:9px;font-weight:700;color:#1B2A41;background:#F3F4F6;padding:6px 10px;text-transform:uppercase;letter-spacing:0.5px;">Advisory Screening Benchmarks</td></tr>
-  <tr><td style="font-size:10px;">CO₂ differential (700 ppm)</td><td style="font-size:10px;color:#5C6F7E;">Ventilation screening benchmark — not a regulatory limit</td><td style="font-size:10px;">Industry-accepted indicator of outdoor air adequacy per ASHRAE 62.1</td></tr>
+  <tr><td style="font-size:10px;">CO₂ differential (700 ppm)</td><td style="font-size:10px;color:#5C6F7E;">Ventilation screening benchmark — not a regulatory limit</td><td style="font-size:10px;">Sedentary-office bioeffluent perception threshold per ASHRAE Position Document on Indoor CO₂ (2022). CO₂ is a ventilation indicator, not an IAQ contaminant.</td></tr>
   <tr><td style="font-size:10px;">TVOC concern (500 µg/m³)</td><td style="font-size:10px;color:#5C6F7E;">Internal concern threshold — no regulatory limit exists for total VOCs</td><td style="font-size:10px;">Screening trigger for source investigation; Mølhave (1991) advisory</td></tr>
   <tr><td style="font-size:10px;">RH 30–60%</td><td style="font-size:10px;color:#5C6F7E;">Comfort and moisture-control benchmark</td><td style="font-size:10px;">Comfort evaluation and mold risk screening per ASHRAE 55</td></tr>
   </tbody></table>
@@ -677,7 +685,7 @@ export function generatePrintHTML(data) {
 
   <!-- ═══ APPENDIX B — TRANSPARENT SCORING SUMMARY ═══ -->
   <h2 class="pg-break">Appendix B — Transparent Scoring Summary</h2>
-  <p style="font-size:10px;color:#64748B;margin-bottom:12px;">AtmosFlow applies a deterministic scoring methodology against published occupational and environmental health standards. The composite score follows the AIHA exposure assessment strategy (Bullock &amp; Ignacio, 2015): if any zone scores Critical (&lt;40), the composite equals the worst zone score — ensuring a single failing area cannot be masked by otherwise acceptable conditions. When no zones are Critical, the composite reflects a priority-weighted mean where mission-critical zones (e.g., data halls) carry 1.5× weight. The building confidence rating reflects the lowest-confidence zone assessed. All category weights, thresholds, and overrides are fixed and published — no AI judgment is applied in scoring.</p>
+  <p style="font-size:10px;color:#64748B;margin-bottom:12px;">AtmosFlow applies a deterministic scoring methodology against published occupational and environmental health standards. The composite score follows the AtmosFlow deterministic scoring methodology: if any zone scores Critical (&lt;40), the composite equals the worst zone score — ensuring a single failing area cannot be masked by otherwise acceptable conditions. When no zones are Critical, the composite reflects a priority-weighted mean where mission-critical zones (e.g., data halls) carry 1.5× weight. The building confidence rating reflects the lowest-confidence zone assessed. All category weights, thresholds, and overrides are fixed and published — no AI judgment is applied in scoring.</p>
   <table>
     <thead><tr><th>Category</th><th style="text-align:center;">Max Points</th><th>Evaluation Basis</th></tr></thead>
     <tbody>
@@ -705,7 +713,7 @@ export function generatePrintHTML(data) {
     <tr style="background:#F8FAFC;font-weight:700;">
       <td>Composite</td>
       <td style="text-align:center;font-family:Cambria,serif;color:${scoreColor(comp.tot)};">${comp.tot}</td>
-      <td colspan="5" style="text-align:center;font-size:10px;color:#64748B;">Avg: ${comp.avg} · Worst: ${comp.worst} · ${comp.logic === 'worst-zone-override' ? 'AIHA worst-zone override (Critical zone present)' : 'Priority-weighted mean (no Critical zones)'}</td>
+      <td colspan="5" style="text-align:center;font-size:10px;color:#64748B;">Avg: ${comp.avg} · Worst: ${comp.worst} · ${comp.logic === 'worst-zone-override' ? 'worst-zone Critical override (Critical zone present)' : 'Priority-weighted mean (no Critical zones)'}</td>
       <td style="font-size:10px;color:${scoreColor(comp.tot)};">${comp.risk || riskLabel(comp.tot)}</td>
     </tr>` : ''}
     </tbody>
@@ -741,7 +749,7 @@ export function generatePrintHTML(data) {
     if (!mappedZones.length || !data.floorPlan) return ''
     return `
     <h2 class="pg-break">Spatial Risk Summary</h2>
-    <p style="font-size:11px;color:#475569;margin-bottom:12px;">The following floor plan overlay illustrates zone-level risk distribution across the assessed facility. Pin colors reflect AIHA worst-case risk thresholds.</p>
+    <p style="font-size:11px;color:#475569;margin-bottom:12px;">The following floor plan overlay illustrates zone-level risk distribution across the assessed facility. Pin colors reflect AtmosFlow risk thresholds.</p>
     <div style="position:relative;margin-bottom:16px;border:1px solid #E2E8F0;border-radius:6px;overflow:hidden;">
       <img src="${data.floorPlan}" alt="Floor plan" style="width:100%;display:block;opacity:0.9;" />
       ${mappedZones.map((z, i) => {
@@ -766,14 +774,14 @@ export function generatePrintHTML(data) {
       return `<tr><td style="font-weight:600;">${esc(z.zn) || 'Zone'}</td><td style="text-align:center;font-family:Cambria,serif;font-weight:700;color:${scoreColor(zs?.tot)};">${zs?.tot ?? '—'}</td><td style="font-size:10px;color:${scoreColor(zs?.tot)};">${zs?.risk || '—'}</td><td style="font-size:10px;color:#475569;">${worst?.l || '—'} (${worst?.s ?? '—'}/${worst?.mx ?? '—'})</td></tr>`
     }).join('')}
     </tbody></table>
-    <p style="font-size:9px;color:#94A3B8;margin-top:8px;">Risk thresholds per AIHA exposure assessment strategy. Building composite reflects worst-zone override when any zone is Critical.</p>`
+    <p style="font-size:9px;color:#94A3B8;margin-top:8px;">Risk thresholds per AtmosFlow scoring methodology. Building composite reflects worst-zone override when any zone is Critical.</p>`
   })()}
 
   <!-- ═══ STANDARDS REFERENCE ═══ -->
-  ${standardsManifest ? `
+  ${filteredManifest ? `
   <div style="margin-top:24px;padding:12px 16px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:4px;font-size:9px;color:#64748B;">
-    <div style="font-weight:700;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;">Standards Reference — Engine v${standardsManifest.engineVersion || '1.x'}</div>
-    ${Object.entries(standardsManifest).filter(([k]) => k !== 'engineVersion' && k !== 'manifestUpdated').map(([k, v]) => `<span>${k}: ${v}</span>`).join(' · ')}
+    <div style="font-weight:700;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;">Standards Reference — Engine v${filteredManifest.engineVersion || '1.x'}</div>
+    ${Object.entries(filteredManifest).filter(([k]) => k !== 'engineVersion' && k !== 'manifestUpdated').map(([k, v]) => `<span>${k}: ${v}</span>`).join(' · ')}
   </div>` : ''}
 
   <!-- ═══ FOOTER ═══ -->

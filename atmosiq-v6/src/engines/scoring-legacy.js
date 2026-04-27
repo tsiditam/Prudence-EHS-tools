@@ -45,10 +45,10 @@ export function genRecs(zoneScores, bldg) {
         if (r.t.toLowerCase().includes('occupant') && r.t.includes('symptom')) R.imm.push(zs.zoneName+': Document symptom patterns using NIOSH IEQ questionnaire or equivalent structured instrument. Evaluate ventilation immediately.')
       }
       if (r.sev === 'high' || r.sev === 'medium') {
-        if (r.t.includes('maintenance') && r.t.includes('overdue')) R.eng.push('Schedule comprehensive HVAC inspection.')
+        if (r.t.includes('maintenance') && r.t.includes('overdue')) R.eng.push('Schedule comprehensive HVAC inspection within 24–72 hours when occupant symptoms are active.')
       }
       if (r.sev === 'high') {
-        if (r.t.includes('CO₂') || r.t.includes('ventilation') || r.t.includes('OA delivery')) R.eng.push(zs.zoneName+': Evaluate outdoor air delivery rate and verify OA damper position.')
+        if (r.t.includes('CO₂') || r.t.includes('ventilation') || r.t.includes('OA delivery')) R.eng.push(zs.zoneName+': Evaluate outdoor air delivery rate and verify OA damper position within 24–72 hours.')
         if (r.t.includes('PM')) R.eng.push('Upgrade filtration to MERV 13+. Evaluate filter housing for bypass.')
         if (r.t.includes('maintenance')) R.eng.push('Schedule comprehensive HVAC inspection.')
         if (r.t.includes('ilter condition') || r.t.includes('filtration')) R.eng.push(zs.zoneName+': Replace or service air filters. Inspect filter housing for bypass or damage.')
@@ -57,6 +57,33 @@ export function genRecs(zoneScores, bldg) {
         if (r.t.includes('resolve')) R.adm.push(zs.zoneName+': Building-related symptom pattern — investigate ventilation and source pathways.')
       }
     }))
+    // Water intrusion / mold / drain pan expanded recommendations
+    const hasWater = zs.cats.some(c => c.r.some(r => r.t.includes('water') || r.t.includes('leak') || r.t.includes('Water')))
+    const hasMold = zs.cats.some(c => c.r.some(r => r.t.toLowerCase().includes('mold')))
+    const hasDrainPan = zs.cats.some(c => c.r.some(r => r.t.includes('Drain pan')))
+    const hasSymptomCluster = zs.cats.some(c => c.l === 'Complaints' && c.r.some(r => r.sev === 'critical' || r.sev === 'high'))
+    const hasFilterIssue = zs.cats.some(c => c.r.some(r => r.t.toLowerCase().includes('filter') && (r.sev === 'high' || r.sev === 'critical')))
+    const hasNegPressure = zs.cats.some(c => c.r.some(r => r.t.includes('Negative') || r.t.includes('negative')))
+    if (hasWater) R.imm.push(zs.zoneName+': Repair water intrusion source. Assess affected materials within 48 hours per IICRC S500.')
+    if (hasMold) {
+      R.eng.push(zs.zoneName+': Remediate visible mold per IICRC S520 / EPA Mold Remediation in Schools and Commercial Buildings. For areas <10 sq ft (Level I), trained maintenance staff with PPE (N95, gloves, eye protection) may perform cleanup.')
+      R.eng.push(zs.zoneName+': Post-remediation verification per IICRC S520 — visual clearance and clearance air sampling before reoccupancy.')
+    }
+    if (hasDrainPan) {
+      R.imm.push(zs.zoneName+': Clean drain pan, treat with EPA-registered biocide, and verify proper slope and condensate disposal.')
+      R.eng.push(zs.zoneName+': Evaluate drain pan for Legionella risk per ASHRAE Standard 188. If building lacks a Water Management Program, consider Legionella sampling given active occupant respiratory symptoms.')
+    }
+    if (hasFilterIssue) R.imm.push(zs.zoneName+': Replace air filters immediately. Inspect filter housing for bypass or damage.')
+    if (hasNegPressure) R.eng.push(zs.zoneName+': Correct building pressurization. Negative pressure draws contaminants from adjacent spaces and outdoor sources. Evaluate exhaust/supply balance.')
+    if (hasSymptomCluster) {
+      R.imm.push(zs.zoneName+': Deploy portable HEPA filtration units in affected occupied areas as interim measure.')
+      R.adm.push(zs.zoneName+': Implement occupant risk communication plan per ATSDR guidance. Notify affected occupants of assessment findings and planned corrective actions.')
+      R.adm.push(zs.zoneName+': Evaluate feasibility of temporary relocation for symptomatic occupants until corrective actions are verified effective.')
+    }
+    if (hasMold || hasWater) {
+      R.adm.push(zs.zoneName+': Document loss and remediation scope for insurance notification.')
+      R.mon.push(zs.zoneName+': Establish re-occupancy and clearance criteria. Post-remediation verification required before returning to normal operations.')
+    }
     // Data center–specific recommendations matched to screening findings
     if (zs.zoneSubtype === 'data_hall') {
       const hasCorrosionRisk = zs.cats.some(c => c.r.some(r => r.t.includes('corrosion risk') || r.t.includes('71.04')))

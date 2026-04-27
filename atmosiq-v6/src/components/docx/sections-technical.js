@@ -122,7 +122,7 @@ export function buildCategoryScoresSummary(ctx) {
   ))
 
   if (ctx.comp) {
-    children.push(p(`Composite: ${ctx.comp.tot}/100 (${ctx.comp.risk}) — ${ctx.comp.logic === 'worst-zone-override' ? 'worst-zone override (AIHA)' : 'priority-weighted mean'}. Confidence: ${ctx.confidence}.`, { size: 18, color: COLORS.muted, after: 60 }))
+    children.push(p(`Composite: ${ctx.comp.tot}/100 (${ctx.comp.risk}) — ${ctx.comp.logic === 'worst-zone-override' ? 'worst-zone Critical override (worst zone drives composite)' : 'priority-weighted mean'}. Confidence: ${ctx.confidence}.`, { size: 18, color: COLORS.muted, after: 60 }))
   }
 
   return children
