@@ -43,6 +43,9 @@ export const BUILDING_PROFILES = {
       data_hall: { min: 20, max: 60, label: 'Static control range (ASHRAE TC 9.9)' },
       default: { min: 30, max: 60, label: 'ASHRAE 55 comfort range' },
     },
+    tempOverrides: {
+      data_hall: { min: 64.4, max: 80.6, oMin: 64.4, oMax: 80.6, label: 'ASHRAE TC 9.9 A1 envelope' },
+    },
     contextFindings: [
       { condition: (z) => z.zone_subtype === 'noc_office' || z.zone_subtype === 'office',
         text: 'Verify NOC/office zones have dedicated outdoor air, not return from data hall.',
@@ -124,4 +127,9 @@ export function getProfileContextFindings(profile, zoneData) {
 export function getRHOverride(profile, zoneSubtype) {
   if (!profile?.rhOverrides) return null
   return profile.rhOverrides[zoneSubtype] || profile.rhOverrides.default || null
+}
+
+export function getTempOverride(profile, zoneSubtype) {
+  if (!profile?.tempOverrides) return null
+  return profile.tempOverrides[zoneSubtype] || profile.tempOverrides.default || null
 }

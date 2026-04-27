@@ -6,7 +6,7 @@
 import { STD } from '../constants/standards'
 import { evaluateCategorySufficiency, evaluateAllSufficiency } from './sufficiency'
 import { getRiskBand, getConfidenceLevel } from './riskBands'
-import { getBuildingProfile, getRHOverride, getProfileContextFindings } from './buildingProfiles'
+import { getBuildingProfile, getRHOverride, getTempOverride, getProfileContextFindings } from './buildingProfiles'
 
 // Zone-specific weights: data_hall uses equipment-focused weighting
 const ZONE_WEIGHTS = {
@@ -23,8 +23,9 @@ export function scoreZone(z, bldg) {
   const suff = evaluateAllSufficiency(d)
   const profile = getBuildingProfile(d.ft)
   const rhOvr = profile ? getRHOverride(profile, d.zone_subtype) : null
+  const tempOvr = profile ? getTempOverride(profile, d.zone_subtype) : null
   const weights = getZoneWeights(d.zone_subtype)
-  const rawCats = [scoreVent(d), scoreCont(d), scoreHVAC(d), scoreComp(d), scoreEnv(d, rhOvr)]
+  const rawCats = [scoreVent(d), scoreCont(d), scoreHVAC(d), scoreComp(d), scoreEnv(d, rhOvr, tempOvr)]
   // Apply zone-specific weights (preserve original max for sufficiency scaling)
   rawCats.forEach(c => { c.origMx = c.mx; c.mx = weights[c.l] ?? c.mx; if (weights[c.l] === 0) { c.s = 0; c.suppressed = true } })
   // Rescale scores to new max when weights differ from default
@@ -250,13 +251,19 @@ function scoreComp(d) {
   return { s, mx: 15, l: 'Complaints', r }
 }
 
-function scoreEnv(d, rhOverride) {
+function scoreEnv(d, rhOverride, tempOverride) {
   let dd = 0, r = []
   const ssn = new Date().getMonth() >= 4 && new Date().getMonth() <= 9 ? 'summer' : 'winter'
   if (d.tf) {
-    const t = +d.tf, rng = STD.t.temp[ssn]
-    if (t < rng.min || t > rng.max)        { dd += 5; r.push({ t:'Temperature '+t+'°F — outside comfort range (per ASHRAE 55)', std:STD.t.ref, sev:'high' }) }
-    else if (t < rng.oMin || t > rng.oMax) { dd += 2; r.push({ t:'Temperature '+t+'°F — outside optimal (per ASHRAE 55)', std:STD.t.ref, sev:'low' }) }
+    const t = +d.tf
+    const tMin = tempOverride?.min ?? STD.t.temp[ssn].min
+    const tMax = tempOverride?.max ?? STD.t.temp[ssn].max
+    const tOMin = tempOverride?.oMin ?? STD.t.temp[ssn].oMin
+    const tOMax = tempOverride?.oMax ?? STD.t.temp[ssn].oMax
+    const tLabel = tempOverride?.label || 'ASHRAE 55'
+    const tStd = tempOverride ? tempOverride.label : STD.t.ref
+    if (t < tMin || t > tMax)        { dd += 5; r.push({ t:'Temperature '+t+'°F — outside '+tMin+'–'+tMax+'°F range (per '+tLabel+')', std:tStd, sev:'high' }) }
+    else if (t < tOMin || t > tOMax) { dd += 2; r.push({ t:'Temperature '+t+'°F — outside optimal '+tOMin+'–'+tOMax+'°F (per '+tLabel+')', std:tStd, sev:'low' }) }
   } else if (d.tc === 'Too hot' || d.tc === 'Too cold') { dd += 4; r.push({ t:'Thermal discomfort: '+d.tc.toLowerCase(), sev:'medium' }) }
   // RH scoring with building-profile override (e.g., data_hall: 20-60%)
   const rhMin = rhOverride?.min ?? STD.t.rh.min
