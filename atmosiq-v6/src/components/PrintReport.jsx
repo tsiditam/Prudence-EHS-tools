@@ -18,6 +18,11 @@ export function selectReportTemplate(data) {
   return 'insufficient_data'
 }
 
+function esc(str) {
+  if (str === null || str === undefined) return ''
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+}
+
 export function generatePrintHTML(data) {
   const { building, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos, standardsManifest, userMode, escalationTriggers } = data
   const reportTemplate = selectReportTemplate(data)
@@ -81,7 +86,7 @@ export function generatePrintHTML(data) {
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>IAQ Assessment Report — ${bldg.fn || 'Assessment'}</title>
+  <title>IAQ Assessment Report — ${esc(bldg.fn) || 'Assessment'}</title>
   <style>
     * { box-sizing: border-box; margin: 0; }
     body { font-family: Cambria, 'Times New Roman', serif; font-size: 12px; color: #2D3A4A; line-height: 1.6; padding: 48px 56px; max-width: 820px; margin: 0 auto; background: #fff; }
@@ -119,18 +124,18 @@ export function generatePrintHTML(data) {
 <body>
   <!-- ═══ COVER PAGE ═══ -->
   <div class="cover">
-    <div class="cover-firm">${firmName}</div>
+    <div class="cover-firm">${esc(firmName)}</div>
     <div style="font-size:11px;color:#5C6F7E;margin-bottom:32px;">${firmAddress}</div>
     <div class="cover-title">Indoor Air Quality</div>
     <div class="cover-title" style="margin-bottom:8px;">Assessment Report</div>
     <div class="cover-sub"></div>
     <div style="width:40px;height:2px;background:#1B2A41;margin:28px auto;"></div>
     <div class="cover-meta">
-      <strong>Site:</strong> ${bldg.fn || 'Facility'}<br>
-      <strong>Location:</strong> ${bldg.fl || '—'}<br>
+      <strong>Site:</strong> ${esc(bldg.fn) || 'Facility'}<br>
+      <strong>Location:</strong> ${esc(bldg.fl) || '—'}<br>
       <strong>Assessment Date:</strong> ${assessDate}<br>
       <strong>Report Date:</strong> ${now}<br>
-      <strong>Assessor:</strong> ${assessor}<br>
+      <strong>Assessor:</strong> ${esc(assessor)}<br>
       <strong>Report ID:</strong> ${reportId}<br>
       <strong>Status:</strong> Draft — Pending Professional Review
     </div>
@@ -140,14 +145,14 @@ export function generatePrintHTML(data) {
   <!-- ═══ TRANSMITTAL LETTER ═══ -->
   <div class="pg-break" style="margin-bottom:32px;">
     <p>${now}</p>
-    <p><strong>${bldg.fn || 'Facility'}</strong><br>${bldg.fl || ''}</p>
+    <p><strong>${esc(bldg.fn) || 'Facility'}</strong><br>${esc(bldg.fl) || ''}</p>
     <p><strong>Re: Indoor Air Quality Assessment Report</strong></p>
-    <p>${firmName} was retained to conduct an indoor air quality assessment at ${bldg.fn || 'the subject facility'}${presurvey?.ps_reason ? ` in response to ${presurvey.ps_reason.toLowerCase()}` : ''}. This report presents the findings, analysis, and recommendations resulting from our assessment conducted on ${assessDate}.</p>
+    <p>${esc(firmName)} was retained to conduct an indoor air quality assessment at ${esc(bldg.fn) || 'the subject facility'}${presurvey?.ps_reason ? ` in response to ${presurvey.ps_reason.toLowerCase()}` : ''}. This report presents the findings, analysis, and recommendations resulting from our assessment conducted on ${assessDate}.</p>
     <p>The assessment encompassed ${(zones||[]).length} zone${(zones||[]).length !== 1 ? 's' : ''} and included direct-reading instrumentation, visual inspection, HVAC system evaluation, and occupant complaint documentation. Findings are referenced against published ASHRAE, OSHA, NIOSH, EPA, and WHO standards as identified in the attached standards manifest.</p>
     <p>Detailed findings, scored evaluations, and tiered recommendations are presented in the body of this report.${comp ? ` The composite assessment score of ${comp.tot}/100 (${comp.risk}) reflects conditions observed across ${(zones||[]).length} assessed zone${(zones||[]).length !== 1 ? 's' : ''}.` : ''} Priority corrective actions, where applicable, are summarized in the Executive Summary.</p>
     <p>This report is intended for the sole use of the addressee and should not be distributed without written authorization from PSEC. The conclusions herein are based on conditions observed at the time of assessment and should be interpreted in context with professional judgment. We remain available for follow-up consultation, additional sampling, or clarification of any findings.</p>
     <p style="margin-top:24px;">Respectfully submitted,</p>
-    <p style="margin-top:16px;"><strong>${assessor}</strong><br>${(profile?.certs||[]).join(', ') || ''}<br>${firmName}<br>${firmEmail} | ${firmPhone}</p>
+    <p style="margin-top:16px;"><strong>${esc(assessor)}</strong><br>${(profile?.certs||[]).join(', ') || ''}<br>${esc(firmName)}<br>${esc(firmEmail)} | ${esc(firmPhone)}</p>
   </div>
 
   <!-- ═══ TABLE OF CONTENTS ═══ -->
@@ -269,7 +274,7 @@ export function generatePrintHTML(data) {
     const worstZone2 = zoneScores?.reduce((a, b) => a.tot < b.tot ? a : b, zoneScores[0])
     const scoredCatsWZ2 = worstZone2?.cats?.filter(c => c.s !== null && c.status !== 'SUPPRESSED') || []
     const worstCat2 = scoredCatsWZ2.length > 0 ? scoredCatsWZ2.reduce((a, b) => (a.s/a.mx) < (b.s/b.mx) ? a : b) : null
-    const p1 = `An indoor air quality assessment was conducted at ${bldg.fn || 'the subject facility'} on ${assessDate}, encompassing ${(zones||[]).length} zone${(zones||[]).length !== 1 ? 's' : ''}${presurvey?.ps_reason ? ` in response to ${presurvey.ps_reason.toLowerCase()}` : ''}. The assessment included direct-reading instrument measurements, visual inspection, HVAC system evaluation, and occupant complaint documentation.`
+    const p1 = `An indoor air quality assessment was conducted at ${esc(bldg.fn) || 'the subject facility'} on ${assessDate}, encompassing ${(zones||[]).length} zone${(zones||[]).length !== 1 ? 's' : ''}${presurvey?.ps_reason ? ` in response to ${presurvey.ps_reason.toLowerCase()}` : ''}. The assessment included direct-reading instrument measurements, visual inspection, HVAC system evaluation, and occupant complaint documentation.`
     const p2 = comp?.tot >= 70
       ? `Available evidence supports that conditions observed during the assessment window are broadly consistent with applicable occupancy standards. The composite score of ${comp.tot}/100 reflects acceptable conditions across the majority of evaluated zones, with localized areas warranting targeted follow-up as detailed in the zone findings below.`
       : comp?.tot >= 50
@@ -318,7 +323,7 @@ export function generatePrintHTML(data) {
 
   <!-- ═══ SCOPE AND METHODOLOGY ═══ -->
   <h2>Scope and Methodology</h2>
-  <p><strong>Purpose:</strong> This assessment was conducted to evaluate indoor air quality conditions${presurvey?.ps_reason ? ` in response to ${presurvey.ps_reason.toLowerCase()}` : ''} at ${bldg.fn || 'the subject facility'}.</p>
+  <p><strong>Purpose:</strong> This assessment was conducted to evaluate indoor air quality conditions${presurvey?.ps_reason ? ` in response to ${presurvey.ps_reason.toLowerCase()}` : ''} at ${esc(bldg.fn) || 'the subject facility'}.</p>
   <p><strong>Areas assessed:</strong> ${(zones||[]).map(z => z.zn || 'Unnamed zone').join(', ') || 'See zone findings below'}.</p>
   <p><strong>Assessment activities:</strong> Visual inspection, real-time direct-reading instrument measurements, occupant complaint documentation, HVAC system evaluation, and moisture/mold screening.</p>
   <h3>Instrumentation</h3>
@@ -338,7 +343,7 @@ export function generatePrintHTML(data) {
   <tr><td style="font-size:10px;">NIOSH RELs (Pocket Guide)</td><td style="font-size:10px;color:#5C6F7E;">Recommended exposure limit — advisory</td><td style="font-size:10px;">CO (35 ppm TWA), Formaldehyde (0.016 ppm)</td></tr>
 
   <tr><td colspan="3" style="font-size:9px;font-weight:700;color:#1B2A41;background:#F3F4F6;padding:6px 10px;text-transform:uppercase;letter-spacing:0.5px;">Consensus Standards</td></tr>
-  <tr><td style="font-size:10px;">ASHRAE 62.1-2022</td><td style="font-size:10px;color:#5C6F7E;">Ventilation consensus standard</td><td style="font-size:10px;">Outdoor air rates (Table 6.2.2.1), CO₂ as ventilation screening indicator</td></tr>
+  <tr><td style="font-size:10px;">ASHRAE 62.1-2025</td><td style="font-size:10px;color:#5C6F7E;">Ventilation consensus standard</td><td style="font-size:10px;">Outdoor air rates (Table 6.2.2.1), CO₂ as ventilation screening indicator</td></tr>
   <tr><td style="font-size:10px;">ASHRAE 55-2023</td><td style="font-size:10px;color:#5C6F7E;">Thermal comfort consensus standard</td><td style="font-size:10px;">Temperature and humidity comfort ranges</td></tr>
   ${bldg.ft?.includes('Data Center') ? '<tr><td style="font-size:10px;">ANSI/ISA 71.04-2013</td><td style="font-size:10px;color:#5C6F7E;">Gaseous corrosion consensus standard</td><td style="font-size:10px;">G1/G2/G3/GX classification for electronic equipment environments</td></tr><tr><td style="font-size:10px;">ISO 14644-1:2015</td><td style="font-size:10px;color:#5C6F7E;">Cleanroom particle classification</td><td style="font-size:10px;">ISO Class 5–8 particle count limits</td></tr>' : ''}
 
@@ -652,7 +657,7 @@ export function generatePrintHTML(data) {
     <tbody>
     ${(zones||[]).map((z, zi) => `
       <tr>
-        <td style="font-weight:600;">${z.zn || 'Zone ' + (zi+1)}</td>
+        <td style="font-weight:600;">${esc(z.zn) || 'Zone ' + (zi+1)}</td>
         <td style="font-family:Cambria,serif;text-align:center;">${z.co2 || '—'}${z.co2o ? ` <span style="color:#94A3B8;font-size:9px;">(out: ${z.co2o})</span>` : ''}</td>
         <td style="font-family:Cambria,serif;text-align:center;">${z.tf || '—'}${z.tfo ? ` <span style="color:#94A3B8;font-size:9px;">(out: ${z.tfo})</span>` : ''}</td>
         <td style="font-family:Cambria,serif;text-align:center;">${z.rh || '—'}${z.rho ? ` <span style="color:#94A3B8;font-size:9px;">(out: ${z.rho})</span>` : ''}</td>
@@ -688,7 +693,7 @@ export function generatePrintHTML(data) {
     <tbody>
     ${(zoneScores||[]).map(zs => `
       <tr>
-        <td style="font-weight:600;">${zs.zoneName}</td>
+        <td style="font-weight:600;">${esc(zs.zoneName)}</td>
         <td style="text-align:center;font-family:Cambria,serif;font-weight:700;color:${scoreColor(zs.tot)};">${zs.tot}</td>
         ${zs.cats.map(c => `<td style="text-align:center;font-family:Cambria,serif;font-size:10px;${c.s === null ? 'color:#94A3B8;font-style:italic;' : ''}">${c.s !== null ? c.s + '/' + c.mx : '—'}</td>`).join('')}
         <td style="font-size:10px;font-weight:600;color:${scoreColor(zs.tot)};">${zs.risk}</td>
@@ -756,7 +761,7 @@ export function generatePrintHTML(data) {
       const zi = (zones||[]).indexOf(z)
       const zs = (zoneScores||[])[zi]
       const worst = zs?.cats?.reduce((a, b) => ((a.s/a.mx) < (b.s/b.mx) ? a : b))
-      return `<tr><td style="font-weight:600;">${z.zn || 'Zone'}</td><td style="text-align:center;font-family:Cambria,serif;font-weight:700;color:${scoreColor(zs?.tot)};">${zs?.tot ?? '—'}</td><td style="font-size:10px;color:${scoreColor(zs?.tot)};">${zs?.risk || '—'}</td><td style="font-size:10px;color:#475569;">${worst?.l || '—'} (${worst?.s ?? '—'}/${worst?.mx ?? '—'})</td></tr>`
+      return `<tr><td style="font-weight:600;">${esc(z.zn) || 'Zone'}</td><td style="text-align:center;font-family:Cambria,serif;font-weight:700;color:${scoreColor(zs?.tot)};">${zs?.tot ?? '—'}</td><td style="font-size:10px;color:${scoreColor(zs?.tot)};">${zs?.risk || '—'}</td><td style="font-size:10px;color:#475569;">${worst?.l || '—'} (${worst?.s ?? '—'}/${worst?.mx ?? '—'})</td></tr>`
     }).join('')}
     </tbody></table>
     <p style="font-size:9px;color:#94A3B8;margin-top:8px;">Risk thresholds per AIHA exposure assessment strategy. Building composite reflects worst-zone override when any zone is Critical.</p>`
@@ -771,7 +776,7 @@ export function generatePrintHTML(data) {
 
   <!-- ═══ FOOTER ═══ -->
   <div class="footer">
-    <div>${firmName} &nbsp;|&nbsp; Report ID: ${reportId} &nbsp;|&nbsp; ${now}</div>
+    <div>${esc(firmName)} &nbsp;|&nbsp; Report ID: ${reportId} &nbsp;|&nbsp; ${now}</div>
     <div style="margin-top:4px;font-size:10px;">Confidential — This report is intended for the client identified above and should not be distributed to third parties without authorization.</div>
   </div>
 </body>

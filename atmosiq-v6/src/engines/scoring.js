@@ -133,18 +133,18 @@ export function compositeScore(zoneScores) {
   return { tot: comp, avg, worst, risk: band.label, rc: band.color, count: zoneScores.length, logic, rationale, partialComposite, confidence: worstConfidence }
 }
 
-// Ventilation hierarchy per ASHRAE 62.1-2022; Persily 2022 caveat
+// Ventilation hierarchy per ASHRAE 62.1-2025; Persily 2022 caveat
 function scoreVent(d) {
   let s = 25, r = []
-  const co2Caveat = 'CO₂ is a ventilation effectiveness indicator, not a standalone air quality metric per ASHRAE 62.1-2022.'
+  const co2Caveat = 'CO₂ is a ventilation effectiveness indicator, not a standalone air quality metric per ASHRAE 62.1-2025.'
   if (d.cfm_person) {
     const cfm = +d.cfm_person, req = STD.v.oa[d.su]?.pp || 5
     // Gap 11: value equal to minimum = "at minimum", not "marginally above"
-    if (cfm < req * 0.5)      { s = 0;  r.push({ t: `OA delivery ${cfm} cfm/person — critically below ASHRAE 62.1 minimum (${req})`, std: 'ASHRAE 62.1-2022', sev: 'critical' }) }
-    else if (cfm < req)       { s = 10; r.push({ t: `OA delivery ${cfm} cfm/person — below ASHRAE 62.1 minimum (${req})`, std: 'ASHRAE 62.1-2022', sev: 'high' }) }
-    else if (cfm === req)     { s = 20; r.push({ t: `OA delivery ${cfm} cfm/person — at ASHRAE 62.1 minimum (${req}). Area component (Ra×Az) not captured — ventilation calc incomplete.`, std: 'ASHRAE 62.1-2022', sev: 'medium' }) }
-    else if (cfm < req * 1.2) { s = 20; r.push({ t: `OA delivery ${cfm} cfm/person — marginally above minimum (${req})`, std: 'ASHRAE 62.1-2022', sev: 'medium' }) }
-    else                      { r.push({ t: `OA delivery ${cfm} cfm/person — exceeds ASHRAE 62.1 minimum (${req})`, std: 'ASHRAE 62.1-2022', sev: 'pass' }) }
+    if (cfm < req * 0.5)      { s = 0;  r.push({ t: `OA delivery ${cfm} cfm/person — critically below ASHRAE 62.1 minimum (${req})`, std: 'ASHRAE 62.1-2025', sev: 'critical' }) }
+    else if (cfm < req)       { s = 10; r.push({ t: `OA delivery ${cfm} cfm/person — below ASHRAE 62.1 minimum (${req})`, std: 'ASHRAE 62.1-2025', sev: 'high' }) }
+    else if (cfm === req)     { s = 20; r.push({ t: `OA delivery ${cfm} cfm/person — at ASHRAE 62.1 minimum (${req}). Area component (Ra×Az) not captured — ventilation calc incomplete.`, std: 'ASHRAE 62.1-2025', sev: 'medium' }) }
+    else if (cfm < req * 1.2) { s = 20; r.push({ t: `OA delivery ${cfm} cfm/person — marginally above minimum (${req})`, std: 'ASHRAE 62.1-2025', sev: 'medium' }) }
+    else                      { r.push({ t: `OA delivery ${cfm} cfm/person — exceeds ASHRAE 62.1 minimum (${req})`, std: 'ASHRAE 62.1-2025', sev: 'pass' }) }
     if (d.co2) r.push({ t: `CO₂ ${d.co2} ppm (confirmatory). ${co2Caveat}`, std: STD.v.ref, sev: 'info' })
   } else if (d.ach) {
     const ach = +d.ach, achMin = (d.su === 'healthcare' || d.su === 'lab') ? 6 : 4
@@ -206,6 +206,12 @@ function scoreCont(d) {
   if (d.op === 'Strong / overpowering')    { dd += 10; r.push({ t:'Strong odor: '+((d.ot||[]).join(', ')||'?'), sev:'high' }) }
   else if (d.op === 'Moderate persistent') { dd += 5;  r.push({ t:'Moderate odor', sev:'medium' }) }
   if (d.vd === 'Airborne haze' || d.vd === 'Heavy accumulation') { dd += 5; r.push({ t:d.vd, sev:'medium' }) }
+  // Mold indicators
+  if (d.mi && d.mi !== 'None' && d.mi !== 'Suspected discoloration') {
+    if (d.mi.includes('Extensive')) { dd += 15; r.push({ t:'Extensive visible mold ('+d.mi+') — IICRC S520 Condition 3 likely', std:'IICRC S520', sev:'critical' }) }
+    else if (d.mi.includes('Moderate')) { dd += 10; r.push({ t:'Moderate visible mold ('+d.mi+')', std:'IICRC S520', sev:'high' }) }
+    else if (d.mi.includes('Small')) { dd += 5; r.push({ t:'Small area mold ('+d.mi+')', std:'IICRC S520', sev:'medium' }) }
+  }
   // Multiple Contaminant Exceedance: multiple Tier 1 contaminants exceeding OSHA PEL
   let tier1Count = 0
   if (d.co && +d.co > STD.c.co.osha) tier1Count++
