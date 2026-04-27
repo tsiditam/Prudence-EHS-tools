@@ -62,9 +62,10 @@ export function genRecs(zoneScores, bldg) {
       const hasCorrosionRisk = zs.cats.some(c => c.r.some(r => r.t.includes('corrosion risk') || r.t.includes('71.04')))
       const hasParticleRisk = zs.cats.some(c => c.r.some(r => r.t.includes('ISO 14644') || r.t.includes('ISO Class')))
       if (hasCorrosionRisk || hasParticleRisk) {
-        R.imm.push(zs.zoneName+': Notify facility engineering and equipment owners of elevated environmental risk per screening assessment. Suspend new equipment installations pending definitive assessment.')
+        R.imm.push(zs.zoneName+': Notify facility engineering and equipment owners of elevated environmental risk per screening assessment.')
         R.imm.push(zs.zoneName+': Visually inspect installed equipment for surface corrosion indicators (silver tarnish, copper discoloration, creep corrosion on PCBs). Photograph and document findings.')
-        R.imm.push(zs.zoneName+': Verify outdoor air damper position and operation. Confirm gas-phase filter media is within service life per manufacturer specification.')
+        R.eng.push(zs.zoneName+': Verify outdoor air damper position and operation. Confirm gas-phase filter media is within service life per manufacturer specification.')
+        R.eng.push(zs.zoneName+': Consider suspending new equipment installations in affected zone if visual corrosion indicators are confirmed during inspection.')
       }
       if (hasCorrosionRisk) {
         R.eng.push(zs.zoneName+': Deploy ANSI/ISA 71.04-compliant copper+silver reactivity coupons for 30-day passive exposure. Minimum 3 locations: hot-aisle return, cold-aisle supply, intake plenum near OA damper.')

@@ -113,7 +113,7 @@ describe('DC Demo — Hizinburg Data Center', () => {
     const contCat = hallB.cats.find(c => c.l === 'Contaminants')
     const screeningFinding = contCat.r.find(r => r.t.includes('Screening indicators'))
     expect(screeningFinding).toBeDefined()
-    expect(screeningFinding.sev).toBe('high') // not critical — screening mode
+    expect(screeningFinding.sev).toBe('medium') // screening data = medium, not high or critical
     expect(screeningFinding.std).toContain('(screening)')
     // Critical Override does NOT fire on screening data
     expect(contCat.r.every(r => !r.t.includes('Critical Concern Override'))).toBe(true)
