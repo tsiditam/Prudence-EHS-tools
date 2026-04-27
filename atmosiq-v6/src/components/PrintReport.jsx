@@ -696,6 +696,16 @@ export function generatePrintHTML(data) {
       <tr><td style="font-weight:600;">Environment</td><td style="text-align:center;font-family:Cambria,serif;">15</td><td style="font-size:10px;color:#475569;">Temperature (ASHRAE 55 summer/winter), relative humidity, water damage indicators, mold indicators</td></tr>
     </tbody>
   </table>
+  <h3>Finding Severity Rubric</h3>
+  <p style="font-size:10px;color:#64748B;margin-bottom:8px;">Each finding is assigned a severity level based on the following deterministic criteria. Severity drives recommendation priority and timing.</p>
+  <table style="margin-bottom:12px;"><thead><tr><th style="width:15%;">Severity</th><th style="width:85%;">Definition</th></tr></thead><tbody>
+    <tr><td style="font-weight:700;color:#B91C1C;">Critical</td><td style="font-size:10px;">Measurement exceeds a regulatory occupational exposure limit (OSHA PEL), immediate health/safety hazard identified, or system failure creating imminent risk. Requires immediate corrective action (0–48 hours).</td></tr>
+    <tr><td style="font-weight:700;color:#C2410C;">High</td><td style="font-size:10px;">Measurement exceeds a recommended exposure limit (NIOSH REL) or consensus standard threshold, or physical condition creates significant risk of adverse outcome. Requires short-term corrective action (1–4 weeks).</td></tr>
+    <tr><td style="font-weight:700;color:#A16207;">Medium</td><td style="font-size:10px;">Measurement approaches a concern threshold or screening indicator is elevated. Condition warrants investigation and targeted improvement. Requires medium-term action (1–3 months).</td></tr>
+    <tr><td style="font-weight:700;color:#0E7490;">Low</td><td style="font-size:10px;">Minor observation or measurement near boundary of acceptable range. No immediate action required; include in routine monitoring.</td></tr>
+    <tr><td style="font-weight:700;color:#15803D;">Pass</td><td style="font-size:10px;">Parameter within acceptable range per applicable standard. No action required.</td></tr>
+    <tr><td style="font-weight:700;color:#475569;">Info</td><td style="font-size:10px;">Contextual information, data gap notation, or supplementary observation. Not a scored finding.</td></tr>
+  </tbody></table>
 
   <h3 style="margin-top:16px;">Zone Score Summary</h3>
   <table>

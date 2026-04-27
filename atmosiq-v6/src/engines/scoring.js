@@ -206,22 +206,23 @@ function scoreCont(d) {
     const v = +d.hc
     if (v > STD.c.hcho.osha)       { dd += 25; r.push({ t: 'Formaldehyde ' + v + ' ppm — exceeds OSHA PEL', std:'29 CFR 1910.1048', sev:'critical' }) }
     else if (v > STD.c.hcho.al)    { dd += 12; r.push({ t: 'Formaldehyde ' + v + ' ppm — exceeds OSHA action level', std:'29 CFR 1910.1048', sev:'high' }) }
-    else if (v > STD.c.hcho.niosh) { dd += 6;  r.push({ t: 'Formaldehyde ' + v + ' ppm — exceeds NIOSH REL', std:'NIOSH REL', sev:'medium' }) }
+    else if (v > STD.c.hcho.niosh) { dd += 6;  r.push({ t: 'Formaldehyde ' + v + ' ppm — exceeds NIOSH REL Ceiling (' + STD.c.hcho.niosh + ' ppm, health-protective recommendation) but below OSHA Action Level (' + STD.c.hcho.al + ' ppm) and PEL (' + STD.c.hcho.osha + ' ppm TWA). This is not a regulatory violation.', std:'NIOSH REL; 29 CFR 1910.1048', sev:'medium' }) }
   }
   if (d.tv) {
     const v = +d.tv, ho = !!d.tvo
-    const tvocCaveat = ' TVOC is a screening indicator only. No regulatory limit exists for total VOCs.'
-    if (v > STD.c.tvoc.act)      { dd += ho?15:10; r.push({ t:'TVOCs '+v+' µg/m³ — significantly elevated.'+tvocCaveat, sev:'high' }) }
-    else if (v > STD.c.tvoc.con) { dd += ho?7:5;   r.push({ t:'TVOCs '+v+' µg/m³ — elevated.'+tvocCaveat, sev:'medium' }) }
+    const tvocCaveat = ' TVOC is a screening indicator only — no regulatory limit exists for total VOCs and TVOC measurement does not identify individual compounds that drive toxicological assessment. TO-17 speciation (thermal desorption GC/MS) is the appropriate analytical method for compound identification. Mølhave (1991) tiers are advisory.'
+    if (v > STD.c.tvoc.act)      { dd += ho?15:10; r.push({ t:'TVOCs '+v+' µg/m³ — significantly elevated. TO-17 speciation recommended to identify individual compounds.'+tvocCaveat, sev:'high' }) }
+    else if (v > STD.c.tvoc.con) { dd += ho?7:5;   r.push({ t:'TVOCs '+v+' µg/m³ — elevated. Consider TO-17 speciation if source investigation warranted.'+tvocCaveat, sev:'medium' }) }
   }
   if (d.op === 'Strong / overpowering')    { dd += 10; r.push({ t:'Strong odor: '+((d.ot||[]).join(', ')||'?'), sev:'high' }) }
   else if (d.op === 'Moderate persistent') { dd += 5;  r.push({ t:'Moderate odor', sev:'medium' }) }
   if (d.vd === 'Airborne haze' || d.vd === 'Heavy accumulation') { dd += 5; r.push({ t:d.vd, sev:'medium' }) }
   // Mold indicators
   if (d.mi && d.mi !== 'None' && d.mi !== 'Suspected discoloration') {
-    if (d.mi.includes('Extensive')) { dd += 15; r.push({ t:'Extensive visible mold ('+d.mi+') — IICRC S520 Condition 3 likely. EPA Mold Remediation Level III or higher. Professional remediation contractor required.', std:'IICRC S520; EPA Mold Remediation', sev:'critical' }) }
-    else if (d.mi.includes('Moderate')) { dd += 10; r.push({ t:'Moderate visible mold ('+d.mi+') — IICRC S520 Condition 2 likely. EPA Level II (10–30 sq ft). Trained personnel with PPE (N95, gloves, eye protection) required.', std:'IICRC S520; EPA Mold Remediation', sev:'high' }) }
-    else if (d.mi.includes('Small')) { dd += 5; r.push({ t:'Small area mold ('+d.mi+') — IICRC S520 Condition 1 or 2. EPA Level I (<10 sq ft). Trained maintenance staff with PPE may perform cleanup.', std:'IICRC S520; EPA Mold Remediation', sev:'medium' }) }
+    const moldJurisdiction = ' Consult applicable state and local regulations for jurisdiction-specific mold remediation requirements.'
+    if (d.mi.includes('Extensive')) { dd += 15; r.push({ t:'Extensive visible mold ('+d.mi+') — IICRC S520 Condition 3 likely. EPA Mold Remediation Level III or higher. Professional remediation contractor required.'+moldJurisdiction, std:'IICRC S520; EPA Mold Remediation', sev:'critical' }) }
+    else if (d.mi.includes('Moderate')) { dd += 10; r.push({ t:'Moderate visible mold ('+d.mi+') — IICRC S520 Condition 2 likely. EPA Level II (10–30 sq ft). Trained personnel with PPE (N95, gloves, eye protection) required.'+moldJurisdiction, std:'IICRC S520; EPA Mold Remediation', sev:'high' }) }
+    else if (d.mi.includes('Small')) { dd += 5; r.push({ t:'Small area mold ('+d.mi+') — IICRC S520 Condition 1 or 2. EPA Level I (<10 sq ft). Trained maintenance staff with PPE may perform cleanup.'+moldJurisdiction, std:'IICRC S520; EPA Mold Remediation', sev:'medium' }) }
   }
   // Battery room H₂ hazard-atmosphere assessment (parallel to IAQ scoring)
   if (d.zone_subtype === 'battery_room' && d.h2_ppm) {

@@ -20,8 +20,8 @@ export function generateSamplingPlan(zones, bldg) {
     if (d.mi && d.mi !== 'None') {
       plan.push({ zone:zName, type:'Bioaerosol', priority:d.mi.includes('Extensive')?'critical':'high',
         hypothesis:'Visible mold indicators ('+d.mi+') suggest fungal amplification',
-        method:'Culturable air samples (Andersen impactor) + surface tape/swab at growth locations',
-        controls:'Outdoor control sample REQUIRED for species comparison. Unaffected indoor control recommended.',
+        method:'Non-culturable spore trap air sampling (Air-O-Cell or equivalent) as primary screening — captures both viable and non-viable spores. Surface tape/swab at growth locations. Follow with culturable sampling (Andersen impactor) if genus/species identification is needed for remediation protocol.',
+        controls:'Outdoor control sample REQUIRED for comparison. Minimum one unaffected indoor control recommended.',
         standard:'AIHA Field Guide for Bioaerosol Assessment · ACGIH Bioaerosols Guidelines' })
     }
     if (d.wd === 'Active leak' || d.wd === 'Extensive damage') {
@@ -34,7 +34,7 @@ export function generateSamplingPlan(zones, bldg) {
     if ((d.ot||[]).includes('Musty / Earthy') && (!d.mi || d.mi === 'None')) {
       plan.push({ zone:zName, type:'Hidden Bioaerosol', priority:'medium',
         hypothesis:'Musty odor without visible mold suggests hidden fungal growth (wall cavities, above ceiling)',
-        method:'Wall cavity sampling via bore hole or spore trap. Ceiling tile lift inspection with air sampling.',
+        method:'Non-culturable spore trap air sampling at suspected locations. Wall cavity sampling via bore hole. Ceiling tile lift inspection with air sampling above ceiling.',
         controls:'Outdoor and unaffected indoor control samples.',
         standard:'AIHA Recognition, Evaluation, and Control of Indoor Mold' })
     }
