@@ -785,6 +785,9 @@ export function printReport(data) {
   const a = document.createElement('a')
   a.href = url
   a.download = `AtmosFlow-Report-${data.building?.fn || 'Assessment'}.html`
+  a.style.display = 'none'
+  document.body.appendChild(a)
   a.click()
-  setTimeout(() => URL.revokeObjectURL(url), 5000)
+  document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(url), 10000)
 }
