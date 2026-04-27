@@ -691,7 +691,19 @@ export default function MobileApp() {
               </div>
             )}
           </div>
-          {zs.cats.map((cat,ci)=>{const pct=cat.s!==null?Math.round((cat.s/cat.mx)*100):0;const bc=pct>=80?'#22C55E':pct>=60?'#FBBF24':pct>=40?'#FB923C':'#EF4444';const pctLabel=pct>=80?'Within range':pct>=60?'Moderate concern':pct>=40?'Significant concern':'Critical concern';const fmLabel=pct>=70?'Pass':pct>=40?'Needs attention':'Action needed';const fmColor=pct>=70?'#22C55E':pct>=40?'#FBBF24':'#EF4444';return(
+          {zs.cats.map((cat,ci)=>{
+            if (cat.s === null || cat.status === 'DATA_GAP' || cat.status === 'INSUFFICIENT') {
+              return(
+                <div key={cat.l} style={{padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10}}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                    <span style={{fontSize:14,fontWeight:600,color:TEXT}}>{cat.l}</span>
+                    <span style={{fontSize:11,color:DIM,fontStyle:'italic'}}>Not scored</span>
+                  </div>
+                  <div style={{fontSize:11,color:DIM,marginTop:6,lineHeight:1.5}}>Data gap — documentation not provided for this category</div>
+                </div>
+              )
+            }
+            const pct=Math.round((cat.s/cat.mx)*100);const bc=pct>=80?'#22C55E':pct>=60?'#FBBF24':pct>=40?'#FB923C':'#EF4444';const pctLabel=pct>=80?'Within range':pct>=60?'Moderate concern':pct>=40?'Significant concern':'Critical concern';const fmLabel=pct>=70?'Pass':pct>=40?'Needs attention':'Action needed';const fmColor=pct>=70?'#22C55E':pct>=40?'#FBBF24':'#EF4444';return(
             <div key={cat.l} style={{padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
                 <span style={{fontSize:14,fontWeight:600,color:TEXT}}>{cat.l}</span>
