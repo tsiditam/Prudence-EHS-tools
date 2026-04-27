@@ -6,7 +6,7 @@
 import { STD } from '../constants/standards'
 import { evaluateCategorySufficiency, evaluateAllSufficiency } from './sufficiency'
 import { getRiskBand, getConfidenceLevel } from './riskBands'
-import { getBuildingProfile, getRHOverride, getTempOverride, getProfileContextFindings } from './buildingProfiles'
+import { getBuildingProfile, getRHOverride, getTempOverride, getACHOverride, getProfileContextFindings } from './buildingProfiles'
 
 // Zone-specific weights: data_hall uses equipment-focused weighting
 const ZONE_WEIGHTS = {
@@ -25,7 +25,8 @@ export function scoreZone(z, bldg) {
   const rhOvr = profile ? getRHOverride(profile, d.zone_subtype) : null
   const tempOvr = profile ? getTempOverride(profile, d.zone_subtype) : null
   const weights = getZoneWeights(d.zone_subtype)
-  const rawCats = [scoreVent(d), scoreCont(d), scoreHVAC(d), scoreComp(d), scoreEnv(d, rhOvr, tempOvr)]
+  const achOvr = profile ? getACHOverride(profile, d.zone_subtype) : null
+  const rawCats = [scoreVent(d, achOvr), scoreCont(d), scoreHVAC(d), scoreComp(d), scoreEnv(d, rhOvr, tempOvr)]
   // Apply zone-specific weights (preserve original max for sufficiency scaling)
   rawCats.forEach(c => { c.origMx = c.mx; c.mx = weights[c.l] ?? c.mx; if (weights[c.l] === 0) { c.s = 0; c.suppressed = true } })
   // Rescale scores to new max when weights differ from default
@@ -134,7 +135,7 @@ export function compositeScore(zoneScores) {
 }
 
 // Ventilation hierarchy per ASHRAE 62.1-2025; Persily 2022 caveat
-function scoreVent(d) {
+function scoreVent(d, achOverride) {
   let s = 25, r = []
   const co2Caveat = 'CO₂ is a ventilation effectiveness indicator, not a standalone air quality metric per ASHRAE 62.1-2025.'
   if (d.cfm_person) {
@@ -147,11 +148,12 @@ function scoreVent(d) {
     else                      { r.push({ t: `OA delivery ${cfm} cfm/person — exceeds ASHRAE 62.1 minimum (${req})`, std: 'ASHRAE 62.1-2025', sev: 'pass' }) }
     if (d.co2) r.push({ t: `CO₂ ${d.co2} ppm (confirmatory). ${co2Caveat}`, std: STD.v.ref, sev: 'info' })
   } else if (d.ach) {
-    const ach = +d.ach, achMin = (d.su === 'healthcare' || d.su === 'lab') ? 6 : 4
-    if (ach < achMin * 0.5) { s = 5;  r.push({ t: `ACH ${ach} — critically below minimum (${achMin})`, std: 'CDC/ASHRAE 170', sev: 'critical' }) }
-    else if (ach < achMin)  { s = 12; r.push({ t: `ACH ${ach} — below minimum (${achMin})`, std: 'CDC/ASHRAE 170', sev: 'high' }) }
-    else if (ach === achMin){ s = 20; r.push({ t: `ACH ${ach} — at minimum (${achMin})`, std: 'CDC/ASHRAE 170', sev: 'medium' }) }
-    else                    { r.push({ t: `ACH ${ach} — meets or exceeds minimum (${achMin})`, std: 'CDC/ASHRAE 170', sev: 'pass' }) }
+    const ach = +d.ach, achMin = achOverride?.min || ((d.su === 'healthcare' || d.su === 'lab') ? 6 : 4)
+    const achStd = achOverride?.label || 'CDC/ASHRAE 170'
+    if (ach < achMin * 0.5) { s = 5;  r.push({ t: `ACH ${ach} — critically below minimum (${achMin})`, std: achStd, sev: 'critical' }) }
+    else if (ach < achMin)  { s = 12; r.push({ t: `ACH ${ach} — below minimum (${achMin})`, std: achStd, sev: 'high' }) }
+    else if (ach === achMin){ s = 20; r.push({ t: `ACH ${ach} — at minimum (${achMin})`, std: achStd, sev: 'medium' }) }
+    else                    { r.push({ t: `ACH ${ach} — meets or exceeds minimum (${achMin})`, std: achStd, sev: 'pass' }) }
     if (d.co2) r.push({ t: `CO₂ ${d.co2} ppm (confirmatory). ${co2Caveat}`, std: STD.v.ref, sev: 'info' })
   } else if (d.co2) {
     const v = +d.co2, o = d.co2o ? +d.co2o : STD.v.co2.base, df = v - o
@@ -211,6 +213,14 @@ function scoreCont(d) {
     if (d.mi.includes('Extensive')) { dd += 15; r.push({ t:'Extensive visible mold ('+d.mi+') — IICRC S520 Condition 3 likely', std:'IICRC S520', sev:'critical' }) }
     else if (d.mi.includes('Moderate')) { dd += 10; r.push({ t:'Moderate visible mold ('+d.mi+')', std:'IICRC S520', sev:'high' }) }
     else if (d.mi.includes('Small')) { dd += 5; r.push({ t:'Small area mold ('+d.mi+')', std:'IICRC S520', sev:'medium' }) }
+  }
+  // Battery room H₂ hazard-atmosphere assessment (parallel to IAQ scoring)
+  if (d.zone_subtype === 'battery_room' && d.h2_ppm) {
+    const h2 = +d.h2_ppm
+    if (h2 >= 20000)      { dd += 25; r.push({ t:'H₂ '+h2+' ppm — exceeds IEEE 1635 absolute ceiling (2% / 20,000 ppm). Immediate evacuation and ventilation required.', std:'IEEE 1635; NFPA 855', sev:'critical' }) }
+    else if (h2 >= 10000) { dd += 20; r.push({ t:'H₂ '+h2+' ppm — exceeds 25% LEL (10,000 ppm). Evacuate and investigate ventilation failure.', std:'IEEE 1635; NFPA 855', sev:'critical' }) }
+    else if (h2 >= 4000)  { dd += 12; r.push({ t:'H₂ '+h2+' ppm — exceeds 10% LEL (4,000 ppm). Enhanced monitoring and ventilation controls required.', std:'IEEE 1635; NFPA 855', sev:'high' }) }
+    else if (h2 > 0)      { dd += 3;  r.push({ t:'H₂ '+h2+' ppm — detectable but below 10% LEL. Continue monitoring.', std:'IEEE 1635', sev:'low' }) }
   }
   // Multiple Contaminant Exceedance: multiple Tier 1 contaminants exceeding OSHA PEL
   let tier1Count = 0

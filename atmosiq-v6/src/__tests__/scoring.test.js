@@ -231,11 +231,12 @@ describe('calcVent', () => {
     expect(result.pp).toBe(8)
   })
 
-  it('calculates classroom ventilation', () => {
+  it('calculates classroom ventilation (EPA TfS 15 cfm/person)', () => {
+    // classroom: pp=15, ps=0.12
     const result = calcVent('classroom', 800, 30)
-    expect(result.pOA).toBe(300)
-    expect(result.aOA).toBeCloseTo(96, 1)
-    expect(result.tot).toBeCloseTo(396, 1)
+    expect(result.pOA).toBe(450) // 15 * 30
+    expect(result.aOA).toBeCloseTo(96, 1) // 0.12 * 800
+    expect(result.tot).toBeCloseTo(546, 1)
   })
 })
 
