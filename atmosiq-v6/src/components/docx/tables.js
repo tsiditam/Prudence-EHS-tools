@@ -71,6 +71,9 @@ function computeColumnWidths(headers, rows) {
       widths.push(cell?.width ? pctToDxa(cell.width) : Math.round(CONTENT_WIDTH_DXA / colCount))
     }
   }
+  if (widths.length === 0) {
+    widths.push(Math.round(CONTENT_WIDTH_DXA / 2), Math.round(CONTENT_WIDTH_DXA / 2))
+  }
   return widths
 }
 
@@ -93,15 +96,13 @@ export function buildTable(headers, rows, opts = {}) {
       }),
     }))
   }
-  return new Table({
+  const tableOpts = {
     rows: tableRows,
     width: { size: CONTENT_WIDTH_DXA, type: WidthType.DXA },
-    columnWidths: columnWidthsDxa,
-    borders: opts.borderless ? {
-      top: noBorder, bottom: noBorder, left: noBorder, right: noBorder,
-      insideHorizontal: noBorder, insideVertical: noBorder,
-    } : undefined,
-  })
+  }
+  if (columnWidthsDxa.length > 0) tableOpts.columnWidths = columnWidthsDxa
+  if (opts.borderless) tableOpts.borders = { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder, insideHorizontal: noBorder, insideVertical: noBorder }
+  return new Table(tableOpts)
 }
 
 export function kvTable(pairs) {
