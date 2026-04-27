@@ -13,7 +13,7 @@ import { buildAppendixA, buildAppendixB, buildFooter } from './docx/sections-app
 import { buildEquipmentLog, buildSpatialRiskSummary, buildFMSummaryLayer } from './docx/sections-extras'
 
 function buildContext(data) {
-  const { building, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos, version, standardsManifest } = data
+  const { building, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos, floorPlan, version, standardsManifest } = data
   const bldg = building || {}
   const now = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
   const assessDate = data.ts ? new Date(data.ts).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : now
@@ -41,6 +41,7 @@ function buildContext(data) {
     causalChains: causalChains || [],
     narrative: narrative || null,
     photos: photos || {},
+    floorPlan: floorPlan || null,
     reason: presurvey?.ps_reason || '',
     instrument: presurvey?.ps_inst_iaq || '',
     instrumentSerial: presurvey?.ps_inst_iaq_serial || '',
@@ -78,6 +79,9 @@ export async function generateDocx(data) {
 
   // Causal chains
   mainChildren.push(...buildCausalChainAnalysis(ctx))
+
+  // Spatial risk summary (floor plan with zone overlay)
+  mainChildren.push(...buildSpatialRiskSummary(ctx))
 
   // Sampling plan (before recommendations)
   mainChildren.push(...buildSamplingPlan(ctx))
