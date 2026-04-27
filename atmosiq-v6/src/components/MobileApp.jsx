@@ -424,13 +424,18 @@ export default function MobileApp() {
     const esc = evaluateEscalation({ zones, comp, moldResults }, [], [])
     const reportData = { building: bldg, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, escalationTriggers: esc, floorPlan }
     trackEvent('report_exported', { format: docxType || format, facility: bldg.fn || '', score: comp?.tot, zones: zones.length, has_narrative: !!narrative, photos: Object.values(filteredPhotos).flat().length })
-    if (format === 'docx') {
-      const { generateDocx, generateConsultantOnly, generateTechnicalOnly } = await import('./DocxReport')
-      if (docxType === 'consultant') await generateConsultantOnly(reportData)
-      else if (docxType === 'technical') await generateTechnicalOnly(reportData)
-      else await generateDocx(reportData)
-    } else {
-      printReport(reportData)
+    try {
+      if (format === 'docx') {
+        const { generateDocx, generateConsultantOnly, generateTechnicalOnly } = await import('./DocxReport')
+        if (docxType === 'consultant') await generateConsultantOnly(reportData)
+        else if (docxType === 'technical') await generateTechnicalOnly(reportData)
+        else await generateDocx(reportData)
+      } else {
+        printReport(reportData)
+      }
+    } catch (e) {
+      console.error('Export failed:', e)
+      alert('Report export failed: ' + (e.message || 'Unknown error') + '. Please try again.')
     }
   }
 
