@@ -121,8 +121,11 @@ async function generateConsultantDocx(ctx) {
   const a = document.createElement('a')
   a.href = url
   a.download = `AtmosFlow-Report-${ctx.facilityName}.docx`
+  a.style.display = 'none'
+  document.body.appendChild(a)
   a.click()
-  setTimeout(() => URL.revokeObjectURL(url), 5000)
+  document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(url), 10000)
 }
 
 async function generateTechnicalDocx(ctx) {
@@ -161,7 +164,10 @@ async function generateTechnicalDocx(ctx) {
   const a = document.createElement('a')
   a.href = url
   a.download = `AtmosFlow-Technical-${ctx.facilityName}.docx`
+  a.style.display = 'none'
+  document.body.appendChild(a)
   a.click()
+  document.body.removeChild(a)
   setTimeout(() => URL.revokeObjectURL(url), 5000)
 }
 
