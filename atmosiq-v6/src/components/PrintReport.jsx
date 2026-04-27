@@ -277,7 +277,8 @@ export function generatePrintHTML(data) {
         : `Conditions observed during the assessment window indicate significant indoor air quality concerns that would warrant prioritized remediation. The composite score of ${comp?.tot || '—'}/100 reflects deficiencies across multiple evaluation categories${worstCat2 ? `, with ${worstCat2.l} (${worstCat2.s}/${worstCat2.mx}) representing the most acute concern` : ''}. The findings and recommendations in this report are intended to support a structured corrective action process.`
     const hasDataGaps = (zoneScores||[]).some(zs => zs.partialScore)
     const p3 = hasDataGaps ? ' Note: One or more scoring categories could not be fully evaluated due to unavailable documentation. The composite score reflects measured parameters only; confidence has been reduced accordingly. Categories marked as data gaps are not converted into risk findings.' : ''
-    return `<p style="font-size:11px;color:#5C6F7E;line-height:1.8;">${p1}</p><p style="font-size:11px;color:#5C6F7E;line-height:1.8;">${p2}${p3}</p>`
+    const p4 = samplingPlan?.outdoorGaps?.length > 0 ? ' Outdoor baseline measurements were not obtained for all parameters, limiting source attribution for certain findings. See Limitations section for details.' : ''
+    return `<p style="font-size:11px;color:#5C6F7E;line-height:1.8;">${p1}</p><p style="font-size:11px;color:#5C6F7E;line-height:1.8;">${p2}${p3}${p4}</p>`
   })()}
 
   ${/* Key Findings Summary Table */(() => {
@@ -639,6 +640,7 @@ export function generatePrintHTML(data) {
     <li>Deterministic scoring is applied against published standards; professional judgment should be exercised in interpretation. Scores reflect a structured snapshot, not a comprehensive compliance determination.</li>
     <li>Causal pathways identified in this report are based on correlation of observed conditions and available evidence. They do not constitute confirmed root-cause determinations and would warrant targeted follow-up investigation where noted.</li>
     ${oshaResult?.gaps?.length > 0 ? `<li>Data gaps identified: ${oshaResult.gaps.join(', ')}. These gaps may affect the confidence of certain findings and should be addressed in follow-up assessment activities.</li>` : ''}
+    ${samplingPlan?.outdoorGaps?.length > 0 ? `<li>Outdoor baseline measurements were not obtained for all parameters (${samplingPlan.outdoorGaps.join('; ')}). Indoor/outdoor ratios cannot be established for affected parameters, which limits the ability to distinguish building-related contributions from ambient conditions.</li>` : ''}
   </ul>
   <p style="font-size:11px;color:#475569;">Targeted follow-up assessment is recommended to confirm findings, evaluate the effectiveness of any corrective actions implemented, and address identified data gaps. This report is intended to support — not replace — professional judgment by a qualified industrial hygienist or EHS professional.</p>
 

@@ -73,6 +73,22 @@ export function generateSamplingPlan(zones, bldg) {
         controls:'Map odor intensity from suspected entry points.',
         standard:'OSHA H2S PEL: 20 ppm ceiling · NIOSH REL: 10 ppm (10 min)' })
     }
+    // Data center: gaseous corrosion screening → coupon deployment
+    if (d.zone_subtype === 'data_hall' && d.gaseous_corrosion && (d.gaseous_corrosion.includes('G2') || d.gaseous_corrosion.includes('G3') || d.gaseous_corrosion.includes('GX'))) {
+      plan.push({ zone:zName, type:'Reactivity Coupon Deployment', priority:d.gaseous_corrosion.includes('G3')||d.gaseous_corrosion.includes('GX')?'critical':'high',
+        hypothesis:'Screening indicators consistent with elevated gaseous corrosion risk — definitive G-class requires coupon data',
+        method:'ANSI/ISA 71.04 copper + silver reactivity coupons. 30-day passive exposure. Minimum 3 locations: hot-aisle return, cold-aisle supply, intake plenum near OA damper.',
+        controls:'Outdoor control coupon at OA intake. Document HVAC filter type and service date.',
+        standard:'ANSI/ISA 71.04-2013 §5 · ASHRAE TC 9.9 Datacom Series Book 8' })
+    }
+    // Data center: elevated PM in data hall → particle counter deployment
+    if (d.zone_subtype === 'data_hall' && d.pm && +d.pm > 10) {
+      plan.push({ zone:zName, type:'ISO 14644-1 Particle Count', priority:'high',
+        hypothesis:'PM2.5 mass ('+d.pm+' µg/m³) elevated vs typical MERV-filtered data hall (<10 µg/m³). ISO Class requires particle count data.',
+        method:'Calibrated laser particle counter at ISO 14644-1 size thresholds (≥0.5 µm, ≥1 µm, ≥5 µm). Sampling locations and statistical handling per ISO 14644-1:2015 Annex B.',
+        controls:'Minimum sample locations per ISO 14644-1 Table B.1. Document HVAC operating state during sampling.',
+        standard:'ISO 14644-1:2015 · ASHRAE TC 9.9' })
+    }
   })
   const outdoorGaps = []
   if (zones.some(z=>z.mi&&z.mi!=='None') && !plan.some(p=>p.controls?.includes('Outdoor control')))
