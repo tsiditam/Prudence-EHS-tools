@@ -133,6 +133,7 @@ export default function MobileApp() {
   const [delConf, setDelConf] = useState(null)
   const [zonePrompt, setZonePrompt] = useState(false)
   const [calWarning, setCalWarning] = useState(null)
+  const [docxPicker, setDocxPicker] = useState(false)
   const [hSearch, setHSearch] = useState('')
   const [hSort, setHSort] = useState('newest')
 
@@ -384,8 +385,10 @@ export default function MobileApp() {
     if (text) trackEvent('narrative_generated', { word_count: text.split(/\s+/).length })
   }
 
-  const handleExport = (format) => {
+  const [docxTypeChoice, setDocxTypeChoice] = useState(null)
+  const handleExport = (format, docxType) => {
     setExportFormat(format)
+    setDocxTypeChoice(docxType || null)
     const hasPhotos = photos && Object.values(photos).some(arr => arr && arr.length > 0)
     if (hasPhotos) {
       const sel = {}
@@ -393,7 +396,7 @@ export default function MobileApp() {
       setSelectedPhotos(sel)
       setShowPhotoSelect(true)
     } else {
-      executeExport(format, {})
+      executeExport(format, {}, docxType)
     }
   }
 
@@ -404,16 +407,18 @@ export default function MobileApp() {
       if (kept.length > 0) filtered[k] = kept
     })
     setShowPhotoSelect(false)
-    executeExport(exportFormat, filtered)
+    executeExport(exportFormat, filtered, docxTypeChoice)
   }
 
-  const executeExport = async (format, filteredPhotos) => {
+  const executeExport = async (format, filteredPhotos, docxType) => {
     const esc = evaluateEscalation({ zones, comp, moldResults }, [], [])
     const reportData = { building: bldg, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, escalationTriggers: esc, floorPlan }
-    trackEvent('report_exported', { format, facility: bldg.fn || '', score: comp?.tot, zones: zones.length, has_narrative: !!narrative, photos: Object.values(filteredPhotos).flat().length })
+    trackEvent('report_exported', { format: docxType || format, facility: bldg.fn || '', score: comp?.tot, zones: zones.length, has_narrative: !!narrative, photos: Object.values(filteredPhotos).flat().length })
     if (format === 'docx') {
-      const { generateDocx } = await import('./DocxReport')
-      await generateDocx(reportData)
+      const { generateDocx, generateConsultantOnly, generateTechnicalOnly } = await import('./DocxReport')
+      if (docxType === 'consultant') await generateConsultantOnly(reportData)
+      else if (docxType === 'technical') await generateTechnicalOnly(reportData)
+      else await generateDocx(reportData)
     } else {
       printReport(reportData)
     }
@@ -836,7 +841,7 @@ export default function MobileApp() {
           </div>)})}
           <div style={{display:'flex',gap:10,marginTop:8}}>
             <button onClick={()=>handleExport('pdf')} style={{flex:1,padding:'14px 20px',background:`${ACCENT}12`,border:`1px solid ${ACCENT}30`,borderRadius:12,color:ACCENT,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:48,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="download" s={16} c={ACCENT} /> PDF</button>
-            <button onClick={()=>handleExport('docx')} style={{flex:1,padding:'14px 20px',background:`${ACCENT}12`,border:`1px solid ${ACCENT}30`,borderRadius:12,color:ACCENT,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:48,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="notes" s={16} c={ACCENT} /> Word</button>
+            <button onClick={()=>setDocxPicker(true)} style={{flex:1,padding:'14px 20px',background:`${ACCENT}12`,border:`1px solid ${ACCENT}30`,borderRadius:12,color:ACCENT,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:48,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="notes" s={16} c={ACCENT} /> Word</button>
             <button onClick={handleShare} style={{flex:1,padding:'14px 20px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,color:SUB,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:48,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="send" s={16} c={SUB} /> Share</button>
           </div>
           <button onClick={()=>setView('spatial')} style={{padding:'14px 20px',background:`${ACCENT}06`,border:`1px solid ${ACCENT}18`,borderRadius:12,color:ACCENT,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit',marginTop:8,minHeight:48,width:'100%',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="bldg" s={16} c={ACCENT} /> Map Zones on Floor Plan</button>
@@ -1050,6 +1055,29 @@ export default function MobileApp() {
             <button onClick={()=>{setCalWarning(null);finishAssessment(true)}} style={{flex:1,padding:'14px 0',background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:10,color:SUB,fontSize:13,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>Continue without</button>
           </div>
           <div style={{textAlign:'center',marginTop:10,fontSize:9,color:DIM,lineHeight:1.5}}>Instrument metadata strengthens OSHA defensibility and professional credibility of assessment findings.</div>
+        </div>
+      </div>}
+
+      {/* ── DOCX Report Type Picker ── */}
+      {docxPicker&&<div style={{position:'fixed',inset:0,background:'#000000CC',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',padding:24}}>
+        <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:18,padding:28,maxWidth:380,width:'100%',animation:'fadeUp .3s ease'}}>
+          <div style={{fontSize:18,fontWeight:700,color:TEXT,marginBottom:4}}>Export Word Report</div>
+          <div style={{fontSize:12,color:SUB,marginBottom:20,lineHeight:1.5}}>Choose which report format to generate.</div>
+          <div style={{display:'flex',flexDirection:'column',gap:8}}>
+            <button onClick={()=>{setDocxPicker(false);handleExport('docx','consultant')}} style={{padding:'16px',background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:12,cursor:'pointer',textAlign:'left',fontFamily:'inherit',transition:'border-color 0.15s'}}>
+              <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:2}}>Consultant Report</div>
+              <div style={{fontSize:11,color:SUB,lineHeight:1.5}}>Narrative format with executive summary, interpretation, and recommendations. For client delivery.</div>
+            </button>
+            <button onClick={()=>{setDocxPicker(false);handleExport('docx','technical')}} style={{padding:'16px',background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:12,cursor:'pointer',textAlign:'left',fontFamily:'inherit',transition:'border-color 0.15s'}}>
+              <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:2}}>Technical Report</div>
+              <div style={{fontSize:11,color:SUB,lineHeight:1.5}}>Structured findings register, score matrix, instrument log, and data gaps. For peer review and engineering.</div>
+            </button>
+            <button onClick={()=>{setDocxPicker(false);handleExport('docx','both')}} style={{padding:'16px',background:`${ACCENT}08`,border:`1px solid ${ACCENT}20`,borderRadius:12,cursor:'pointer',textAlign:'left',fontFamily:'inherit',transition:'border-color 0.15s'}}>
+              <div style={{fontSize:14,fontWeight:700,color:ACCENT,marginBottom:2}}>Both Reports</div>
+              <div style={{fontSize:11,color:SUB,lineHeight:1.5}}>Downloads both files — consultant report + technical report.</div>
+            </button>
+          </div>
+          <button onClick={()=>setDocxPicker(false)} style={{width:'100%',padding:'12px 0',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:10,color:DIM,fontSize:13,cursor:'pointer',fontFamily:'inherit',marginTop:12,minHeight:44}}>Cancel</button>
         </div>
       </div>}
 

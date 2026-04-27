@@ -170,3 +170,13 @@ export async function generateDocx(data) {
   await generateConsultantDocx(ctx)
   await generateTechnicalDocx(ctx)
 }
+
+export async function generateConsultantOnly(data) {
+  const ctx = buildContext(data)
+  await generateConsultantDocx(ctx)
+}
+
+export async function generateTechnicalOnly(data) {
+  const ctx = buildContext(data)
+  await generateTechnicalDocx(ctx)
+}
