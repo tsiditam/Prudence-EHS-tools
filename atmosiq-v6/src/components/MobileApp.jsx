@@ -364,7 +364,19 @@ export default function MobileApp() {
 
   const finishDetails = () => {
     trackEvent('details_completed', { facility: bldg.fn || '' })
-    showMilestone('check', 'Details Complete', 'Assessment data updated', () => { setView('results') })
+    // Re-score with updated data (HVAC fields, instrument data, etc.)
+    const zScores = zones.map(z => scoreZone(z, bldg))
+    const composite = compositeScore(zScores)
+    const worst = zones.reduce((w, z) => (!w || scoreZone(z, bldg).tot < scoreZone(w, bldg).tot) ? z : w, zones[0])
+    const osha = evalOSHA({...bldg, ...worst}, composite?.tot || 0)
+    const recommendations = genRecs(zScores, bldg)
+    const sp = generateSamplingPlan(zones, bldg)
+    const cc = buildCausalChains(zones, bldg, zScores)
+    const mold = zones.map(z => evalMold(z)).filter(Boolean)
+    const mc = evalMeasurementConfidence(zones)
+    setZoneScores(zScores); setComp(composite); setOshaResult(osha); setRecs(recommendations)
+    setSamplingPlan(sp); setCausalChains(cc); setMoldResults(mold); setMeasConf(mc)
+    showMilestone('check', 'Details Complete', 'Assessment rescored with updated data', () => { setView('results') })
   }
 
   const requestNarrative = async () => {
