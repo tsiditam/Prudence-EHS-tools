@@ -42,7 +42,7 @@ export const STD = {
     co2: { base: 420, diff: 700, con: 1000, act: 1500 },
     oa: {
       office:        { pp: 5,   ps: 0.06 },
-      classroom:     { pp: 10,  ps: 0.12 },
+      classroom:     { pp: 15,  ps: 0.12 },
       retail:        { pp: 7.5, ps: 0.12 },
       healthcare:    { pp: 5,   ps: 0.06 },
       lab:           { pp: 10,  ps: 0.18 },
@@ -50,6 +50,13 @@ export const STD = {
       manufacturing: { pp: 10,  ps: 0.18 },
       conference:    { pp: 5,   ps: 0.06 },
       data_center:   { pp: 5,   ps: 0.06 },
+      restaurant:    { pp: 7.5, ps: 0.18 },
+      gymnasium:     { pp: 20,  ps: 0.06 },
+      auditorium:    { pp: 5,   ps: 0.06 },
+      library:       { pp: 5,   ps: 0.12 },
+      cafeteria:     { pp: 7.5, ps: 0.18 },
+      lobby:         { pp: 5,   ps: 0.06 },
+      parking:       { pp: 0,   ps: 0.75 },
     },
   },
   c: {
