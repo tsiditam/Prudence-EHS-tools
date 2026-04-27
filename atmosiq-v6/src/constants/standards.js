@@ -38,7 +38,7 @@ export const STD = {
     rh: { min: 30, max: 60 },
   },
   v: {
-    ref: 'ASHRAE 62.1-2022',
+    ref: 'ASHRAE 62.1-2025',
     co2: { base: 420, diff: 700, con: 1000, act: 1500 },
     oa: {
       office:        { pp: 5,   ps: 0.06 },

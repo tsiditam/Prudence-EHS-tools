@@ -20,7 +20,7 @@ export function buildCausalChains(zones, bldg, zoneScores) {
 
     // Gap 3: SBS pattern fires causal chains from complaints alone
     const sbsDetected = detectSBSPattern(d)
-    if (sbsDetected && !chains.some(c => c.zone === zName && c.type === 'Ventilation Deficiency')) {
+    if (sbsDetected && !chains.some(c => c.zone === zName && c.type.includes('Ventilation'))) {
       const ev = []
       if (d.ac) ev.push((d.ac) + ' occupants with symptoms')
       if (d.sr === 'Yes — clear pattern') ev.push('Symptoms resolve when away from building')
@@ -49,7 +49,7 @@ export function buildCausalChains(zones, bldg, zoneScores) {
       if (hasDamperIssue) ev.push('OA damper: ' + d.od)
       if (hasWeakFlow) ev.push('Supply airflow: ' + d.sa)
       if (hasSymptomsRelated) ev.push((d.ac||'Multiple') + ' occupants with building-related symptoms')
-      if (!chains.some(c => c.zone === zName && c.type.includes('Ventilation')))
+      if (!chains.some(c => c.zone === zName && c.type === 'Ventilation Deficiency'))
         chains.push({ zone: zName, type: 'Ventilation Deficiency', rootCause: hasDamperIssue ? 'Outdoor air damper restriction limiting fresh air delivery' : 'Inadequate ventilation rate for occupant load', evidence: ev, confidence: ev.length >= 3 ? 'Strong' : ev.length >= 2 ? 'Moderate' : 'Possible' })
     }
     // Moisture chain
