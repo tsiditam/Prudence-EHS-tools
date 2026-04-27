@@ -629,7 +629,7 @@ export default function MobileApp() {
 
         {/* ── Instrument Data prompt ── */}
         {!archived && (!presurvey.ps_inst_iaq || !presurvey.ps_inst_iaq_serial || !presurvey.ps_inst_iaq_cal) && (
-          <button onClick={()=>{setView('quickstart');setQsqi(Q_QUICKSTART.findIndex(q=>q.id==='ps_inst_iaq')||0)}} style={{width:'100%',padding:'12px 16px',background:`${WARN}08`,border:`1px solid ${WARN}20`,borderRadius:10,marginBottom:8,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit'}}>
+          <button onClick={()=>{setDqi(Q_DETAILS.findIndex(q=>q.id==='ps_inst_iaq'));setView('details')}} style={{width:'100%',padding:'12px 16px',background:`${WARN}08`,border:`1px solid ${WARN}20`,borderRadius:10,marginBottom:8,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit'}}>
             <I n="alert" s={16} c={WARN} />
             <div style={{flex:1}}><span style={{fontSize:12,fontWeight:600,color:WARN}}>Add instrument data</span><span style={{fontSize:10,color:DIM,marginLeft:8}}>Required for defensible reports</span></div>
             <span style={{fontSize:13,color:WARN}}>→</span>
@@ -1027,7 +1027,7 @@ export default function MobileApp() {
             {calWarning.map((m,i)=><div key={i} style={{fontSize:12,color:WARN,lineHeight:1.8,paddingLeft:12,borderLeft:`2px solid ${WARN}30`,marginBottom:i<calWarning.length-1?6:0}}>• {m}</div>)}
           </div>
           <div style={{display:'flex',gap:10}}>
-            <button onClick={()=>{setCalWarning(null);setView('quickstart');setQsqi(Q_QUICKSTART.findIndex(q=>q.id==='ps_inst_iaq')||0)}} style={{flex:1,padding:'14px 0',background:ACCENT,border:'none',borderRadius:10,color:'#000',fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>Add instrument data</button>
+            <button onClick={()=>{setCalWarning(null);setDqi(Q_DETAILS.findIndex(q=>q.id==='ps_inst_iaq'));setView('details')}} style={{flex:1,padding:'14px 0',background:ACCENT,border:'none',borderRadius:10,color:'#000',fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>Add instrument data</button>
             <button onClick={()=>{setCalWarning(null);finishAssessment(true)}} style={{flex:1,padding:'14px 0',background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:10,color:SUB,fontSize:13,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>Continue without</button>
           </div>
           <div style={{textAlign:'center',marginTop:10,fontSize:9,color:DIM,lineHeight:1.5}}>Instrument metadata strengthens OSHA defensibility and professional credibility of assessment findings.</div>
