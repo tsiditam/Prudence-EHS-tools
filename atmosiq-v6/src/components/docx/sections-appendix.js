@@ -49,7 +49,7 @@ export function buildAppendixA(ctx) {
 export function buildAppendixB(ctx) {
   const children = [
     p('Appendix B — Transparent Scoring Summary', { heading: HeadingLevel.HEADING_2 }),
-    p('This report applies a deterministic scoring methodology against published occupational and environmental health standards. The composite score follows the AIHA exposure assessment strategy (Ignacio & Bullock, 2015): if any zone scores Critical (<40), the composite equals the worst zone score — ensuring a single failing area cannot be masked by otherwise acceptable conditions. When no zones are Critical, the composite reflects a priority-weighted mean where mission-critical zones carry additional weight. The building confidence rating reflects the lowest-confidence zone assessed. All category weights, thresholds, and overrides are fixed and published — no AI judgment is applied in scoring.', { size: 18, color: COLORS.muted, after: 160 }),
+    p('This report applies a deterministic scoring methodology against published occupational and environmental health standards. The composite score uses a priority-weighted mean across assessed zones, with mission-critical zones carrying additional weight. If any zone scores Critical (<40), the composite equals the worst zone score — ensuring a single failing area cannot be masked by otherwise acceptable conditions. The building confidence rating reflects the lowest-confidence zone assessed. All category weights, thresholds, and overrides are fixed and published — no AI judgment is applied in scoring.', { size: 18, color: COLORS.muted, after: 160 }),
   ]
 
   // Scoring methodology table
@@ -80,7 +80,7 @@ export function buildAppendixB(ctx) {
       zoneRows.push([
         { text: 'Composite', bold: true },
         { text: `${ctx.comp.tot}`, mono: true, bold: true, color: scoreColor(ctx.comp.tot), align: AlignmentType.CENTER },
-        { text: `Avg: ${ctx.comp.avg} · Worst: ${ctx.comp.worst} · AIHA worst-zone override when Critical`, size: 16, color: COLORS.muted },
+        { text: `Avg: ${ctx.comp.avg} · Worst: ${ctx.comp.worst} · Worst-zone override when Critical (<40)`, size: 16, color: COLORS.muted },
         '', '', '', // fill remaining cat columns
         { text: ctx.comp.risk || '', bold: true, color: scoreColor(ctx.comp.tot), size: 18 },
       ])
