@@ -1,8 +1,8 @@
 /**
  * AtmosFlow DOCX Report — Table Utilities
  * Reusable table builders for consistent formatting
- * Uses DXA (absolute twips) for column widths — percentage widths
- * are not rendered correctly by iPad/iOS DOCX viewers.
+ * Uses DXA (absolute twips) with table-level columnWidths for iOS compatibility.
+ * iOS Quick Look ignores cell-level width attributes — only columnWidths works.
  */
 
 import { Table, TableRow, TableCell, Paragraph, TextRun, WidthType, BorderStyle, AlignmentType, ShadingType } from 'docx'
@@ -58,8 +58,25 @@ export function dataCell(text, opts = {}) {
   })
 }
 
+function computeColumnWidths(headers, rows) {
+  const colCount = headers ? headers.length : (rows[0]?.length || 2)
+  const widths = []
+  if (headers) {
+    for (let i = 0; i < colCount; i++) {
+      widths.push(headers[i]?.width ? pctToDxa(headers[i].width) : Math.round(CONTENT_WIDTH_DXA / colCount))
+    }
+  } else if (rows.length > 0) {
+    for (let i = 0; i < colCount; i++) {
+      const cell = rows[0][i]
+      widths.push(cell?.width ? pctToDxa(cell.width) : Math.round(CONTENT_WIDTH_DXA / colCount))
+    }
+  }
+  return widths
+}
+
 export function buildTable(headers, rows, opts = {}) {
   const colWidths = headers ? headers.map(h => h.width || 0) : []
+  const columnWidthsDxa = computeColumnWidths(headers, rows)
   const tableRows = []
   if (headers && headers.length > 0) {
     tableRows.push(new TableRow({
@@ -79,6 +96,7 @@ export function buildTable(headers, rows, opts = {}) {
   return new Table({
     rows: tableRows,
     width: { size: CONTENT_WIDTH_DXA, type: WidthType.DXA },
+    columnWidths: columnWidthsDxa,
     borders: opts.borderless ? {
       top: noBorder, bottom: noBorder, left: noBorder, right: noBorder,
       insideHorizontal: noBorder, insideVertical: noBorder,
@@ -96,6 +114,7 @@ export function kvTable(pairs) {
 
 export function borderlessLayoutTable(cells) {
   const cellWidth = Math.floor(100 / cells.length)
+  const columnWidthsDxa = cells.map(() => pctToDxa(cellWidth))
   return new Table({
     rows: [new TableRow({
       children: cells.map(c => new TableCell({
@@ -105,6 +124,7 @@ export function borderlessLayoutTable(cells) {
       })),
     })],
     width: { size: CONTENT_WIDTH_DXA, type: WidthType.DXA },
+    columnWidths: columnWidthsDxa,
     borders: { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder, insideHorizontal: noBorder, insideVertical: noBorder },
   })
 }
