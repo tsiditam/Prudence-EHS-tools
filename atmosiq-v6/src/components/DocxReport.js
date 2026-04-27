@@ -1,6 +1,8 @@
 /**
  * AtmosFlow DOCX Report — Entry Point
- * Builds a Word document from assessment data and triggers download.
+ * Builds two Word documents from assessment data:
+ * 1. Consultant report (narrative, executive summary, interpretation)
+ * 2. Technical report (structured findings, score matrix, data gaps)
  */
 
 import { Document, Packer, SectionType } from 'docx'
@@ -11,6 +13,7 @@ import { buildCausalChainAnalysis } from './docx/sections-causal'
 import { buildSamplingPlan, buildRecommendations, buildLimitations } from './docx/sections-recommendations'
 import { buildAppendixA, buildAppendixB, buildFooter } from './docx/sections-appendix'
 import { buildEquipmentLog, buildSpatialRiskSummary, buildFMSummaryLayer } from './docx/sections-extras'
+import { buildTechnicalMetadata, buildFindingsRegister, buildCategoryScoresSummary, buildDataGapRegister, buildInstrumentLog, buildOutdoorBaseline } from './docx/sections-technical'
 
 function buildContext(data) {
   const { building, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos, floorPlan, version, standardsManifest } = data
@@ -57,10 +60,7 @@ function buildContext(data) {
   }
 }
 
-export async function generateDocx(data) {
-  const ctx = buildContext(data)
-
-  // Build all content sections
+async function generateConsultantDocx(ctx) {
   const mainChildren = [
     ...buildTransmittalLetter(ctx),
     ...buildTableOfContents(ctx),
@@ -123,4 +123,50 @@ export async function generateDocx(data) {
   a.download = `AtmosFlow-Report-${ctx.facilityName}.docx`
   a.click()
   setTimeout(() => URL.revokeObjectURL(url), 5000)
+}
+
+async function generateTechnicalDocx(ctx) {
+  const mainChildren = [
+    ...buildTechnicalMetadata(ctx),
+    ...buildFindingsRegister(ctx),
+    ...buildCategoryScoresSummary(ctx),
+    ...buildDataGapRegister(ctx),
+    ...buildInstrumentLog(ctx),
+    ...buildOutdoorBaseline(ctx),
+    ...buildSamplingPlan(ctx),
+    ...buildRecommendations(ctx),
+    ...buildAppendixB(ctx),
+    ...buildFooter(ctx),
+  ]
+
+  const doc = new Document({
+    creator: 'AtmosFlow — Prudence Safety & Environmental Consulting, LLC',
+    title: `IAQ Technical Report — ${ctx.facilityName}`,
+    description: 'Indoor Air Quality Technical Assessment Report — Structured Findings',
+    styles: DOCX_STYLES,
+    sections: [
+      buildCoverPage(ctx),
+      {
+        properties: {
+          type: SectionType.NEXT_PAGE,
+          page: { margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 } },
+        },
+        children: mainChildren,
+      },
+    ],
+  })
+
+  const blob = await Packer.toBlob(doc)
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `AtmosFlow-Technical-${ctx.facilityName}.docx`
+  a.click()
+  setTimeout(() => URL.revokeObjectURL(url), 5000)
+}
+
+export async function generateDocx(data) {
+  const ctx = buildContext(data)
+  await generateConsultantDocx(ctx)
+  await generateTechnicalDocx(ctx)
 }
