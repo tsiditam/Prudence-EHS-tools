@@ -107,6 +107,11 @@ export const Q_DETAILS = [
   { id:'ps_water_history',   sec:'Maintenance', q:'History of water intrusion?',    t:'ch',  sk:1, ic:'🌊', opts:['No known history','Yes — resolved','Yes — recurring','Unknown'] },
   { id:'ps_water_detail',    sec:'Maintenance', q:'Water intrusion history details',t:'ta',  sk:1, ic:'💧', cond:{f:'ps_water_history',ne:'No known history'}, ph:'Dates, locations, remediation' },
   { id:'ps_pest',            sec:'Maintenance', q:'Recent pesticide / chemical apps?',t:'ch',sk:1, ic:'🧴', opts:['None recent','Within 30 days','Within 90 days','Unknown'] },
+  // Instruments (also in Q_PRESURVEY — duplicated here so assessors can add post-assessment)
+  { id:'ps_inst_iaq',            sec:'Instruments',   q:'Primary IAQ meter make/model?',        t:'combo', sk:1, ic:'📏', ph:'Or type your own...', opts:['TSI Q-Trak 7575','TSI Q-Trak 7515','TSI IAQ-Calc 7545','TSI VelociCalc 9565','Graywolf AdvancedSense Pro','Graywolf IQ-610','Graywolf PC-3016A','FLIR CM174','Kanomax 2211','Kanomax IAQ-2000','E Instruments AQ Pro','Testo 400','Testo 440','Bacharach Monoxor III','Aeroqual Series 500','HAL Technology HFX205','PPM Technology formaldemeter htV-m','CEM DT-9881','Extech SD800','Fieldpiece SDP2','Other'] },
+  { id:'ps_inst_iaq_serial',     sec:'Instruments',   q:'Serial number?',                       t:'text', sk:1,  ic:'🔢', ph:'Instrument serial number' },
+  { id:'ps_inst_iaq_cal',        sec:'Instruments',   q:'Last factory/field calibration date?', t:'date', sk:1,  ic:'🔧' },
+  { id:'ps_inst_iaq_cal_status', sec:'Instruments',   q:'Calibration status',                   t:'ch',   sk:1,  ic:'✅', opts:['Calibrated within manufacturer spec','Calibrated — overdue for recertification','Field-zeroed only','Not calibrated','Unknown'] },
 ]
 
 export const Q_BUILDING = [
