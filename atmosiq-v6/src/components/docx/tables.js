@@ -1,6 +1,8 @@
 /**
  * AtmosFlow DOCX Report — Table Utilities
  * Reusable table builders for consistent formatting
+ * Uses DXA (absolute twips) for column widths — percentage widths
+ * are not rendered correctly by iPad/iOS DOCX viewers.
  */
 
 import { Table, TableRow, TableCell, Paragraph, TextRun, WidthType, BorderStyle, AlignmentType, ShadingType } from 'docx'
@@ -10,6 +12,12 @@ const noBorder = { style: BorderStyle.NONE, size: 0, color: COLORS.white }
 const noBorders = { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder }
 const thinBorder = { style: BorderStyle.SINGLE, size: 1, color: COLORS.bgMed }
 
+const CONTENT_WIDTH_DXA = 9360
+
+function pctToDxa(pct) {
+  return Math.round((pct / 100) * CONTENT_WIDTH_DXA)
+}
+
 export function headerCell(text, opts = {}) {
   return new TableCell({
     children: [new Paragraph({
@@ -18,7 +26,7 @@ export function headerCell(text, opts = {}) {
       spacing: { after: 0 },
     })],
     shading: { type: ShadingType.CLEAR, fill: COLORS.bgLight },
-    width: opts.width ? { size: opts.width, type: WidthType.PERCENTAGE } : undefined,
+    width: opts.width ? { size: pctToDxa(opts.width), type: WidthType.DXA } : undefined,
     borders: { top: thinBorder, bottom: thinBorder, left: noBorder, right: noBorder },
     margins: { top: 60, bottom: 60, left: 100, right: 100 },
   })
@@ -43,7 +51,7 @@ export function dataCell(text, opts = {}) {
       alignment: opts.align || AlignmentType.LEFT,
       spacing: { after: 0 },
     })],
-    width: opts.width ? { size: opts.width, type: WidthType.PERCENTAGE } : undefined,
+    width: opts.width ? { size: pctToDxa(opts.width), type: WidthType.DXA } : undefined,
     borders: { top: noBorder, bottom: thinBorder, left: noBorder, right: noBorder },
     margins: { top: 50, bottom: 50, left: 100, right: 100 },
     shading: opts.shading ? { type: ShadingType.CLEAR, fill: opts.shading } : undefined,
@@ -70,7 +78,7 @@ export function buildTable(headers, rows, opts = {}) {
   }
   return new Table({
     rows: tableRows,
-    width: { size: 100, type: WidthType.PERCENTAGE },
+    width: { size: CONTENT_WIDTH_DXA, type: WidthType.DXA },
     borders: opts.borderless ? {
       top: noBorder, bottom: noBorder, left: noBorder, right: noBorder,
       insideHorizontal: noBorder, insideVertical: noBorder,
@@ -87,15 +95,16 @@ export function kvTable(pairs) {
 }
 
 export function borderlessLayoutTable(cells) {
+  const cellWidth = Math.floor(100 / cells.length)
   return new Table({
     rows: [new TableRow({
       children: cells.map(c => new TableCell({
         children: Array.isArray(c) ? c : [c],
         borders: noBorders,
-        width: { size: Math.floor(100 / cells.length), type: WidthType.PERCENTAGE },
+        width: { size: pctToDxa(cellWidth), type: WidthType.DXA },
       })),
     })],
-    width: { size: 100, type: WidthType.PERCENTAGE },
+    width: { size: CONTENT_WIDTH_DXA, type: WidthType.DXA },
     borders: { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder, insideHorizontal: noBorder, insideVertical: noBorder },
   })
 }
