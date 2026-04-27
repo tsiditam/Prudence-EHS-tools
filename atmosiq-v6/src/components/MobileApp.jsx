@@ -319,6 +319,21 @@ export default function MobileApp() {
     showMilestone('check', 'Quick Start Complete', 'Starting zone walkthrough', () => { setCurZone(0); setZqi(0); setView('zone') })
   }
 
+  const runScoring = () => {
+    const zScores = zones.map(z => scoreZone(z, bldg))
+    const composite = compositeScore(zScores)
+    const worst = zones.reduce((w, z) => (!w || scoreZone(z, bldg).tot < scoreZone(w, bldg).tot) ? z : w, zones[0])
+    const osha = evalOSHA({...bldg, ...worst}, composite?.tot || 0)
+    const recommendations = genRecs(zScores, bldg)
+    const sp = generateSamplingPlan(zones, bldg)
+    const cc = buildCausalChains(zones, bldg, zScores)
+    const mold = zones.map(z => evalMold(z)).filter(Boolean)
+    const mc = evalMeasurementConfidence(zones)
+    setZoneScores(zScores); setComp(composite); setOshaResult(osha); setRecs(recommendations)
+    setSamplingPlan(sp); setCausalChains(cc); setMoldResults(mold); setMeasConf(mc)
+    return { zScores, composite, osha, recommendations, sp, cc, mold, mc }
+  }
+
   const finishAssessment = async (bypassCalWarning) => {
     // Backend validation: prevent Data Center save without Enterprise tier
     if (bldg.ft === 'Data Center' && !isEnterprise(profile)) {
@@ -338,17 +353,8 @@ export default function MobileApp() {
       if (missing.length > 0) { setCalWarning(missing); return }
     }
     setCalWarning(null)
-    const zScores = zones.map(z => scoreZone(z, bldg))
-    const composite = compositeScore(zScores)
-    const worst = zones.reduce((w, z) => (!w || scoreZone(z, bldg).tot < scoreZone(w, bldg).tot) ? z : w, zones[0])
-    const osha = evalOSHA({...bldg, ...worst}, composite?.tot || 0)
-    const recommendations = genRecs(zScores, bldg)
-    const sp = generateSamplingPlan(zones, bldg)
-    const cc = buildCausalChains(zones, bldg, zScores)
-    const mold = zones.map(z => evalMold(z)).filter(Boolean)
-    const mc = evalMeasurementConfidence(zones)
-    setZoneScores(zScores); setComp(composite); setOshaResult(osha); setRecs(recommendations)
-    setSamplingPlan(sp); setCausalChains(cc); setMoldResults(mold); setMeasConf(mc); setSelZone(0); setNarrative(null)
+    const { zScores, composite, osha, recommendations, sp, cc } = runScoring()
+    setSelZone(0); setNarrative(null)
     trackEvent('score_generated', { composite: composite?.tot, avg: composite?.avg, worst: composite?.worst, risk: composite?.risk, osha_flag: !!osha?.flag, confidence: osha?.conf || 'unknown', data_gaps: (osha?.gaps||[]).length })
     trackEvent('assessment_completed', { zones: zones.length, score: composite?.tot, facility: bldg.fn || 'unknown', has_causal_chains: cc.length > 0, sampling_recommendations: sp?.plan?.length || 0 })
     haptic('success')
@@ -364,18 +370,7 @@ export default function MobileApp() {
 
   const finishDetails = () => {
     trackEvent('details_completed', { facility: bldg.fn || '' })
-    // Re-score with updated data (HVAC fields, instrument data, etc.)
-    const zScores = zones.map(z => scoreZone(z, bldg))
-    const composite = compositeScore(zScores)
-    const worst = zones.reduce((w, z) => (!w || scoreZone(z, bldg).tot < scoreZone(w, bldg).tot) ? z : w, zones[0])
-    const osha = evalOSHA({...bldg, ...worst}, composite?.tot || 0)
-    const recommendations = genRecs(zScores, bldg)
-    const sp = generateSamplingPlan(zones, bldg)
-    const cc = buildCausalChains(zones, bldg, zScores)
-    const mold = zones.map(z => evalMold(z)).filter(Boolean)
-    const mc = evalMeasurementConfidence(zones)
-    setZoneScores(zScores); setComp(composite); setOshaResult(osha); setRecs(recommendations)
-    setSamplingPlan(sp); setCausalChains(cc); setMoldResults(mold); setMeasConf(mc)
+    runScoring()
     showMilestone('check', 'Details Complete', 'Assessment rescored with updated data', () => { setView('results') })
   }
 
@@ -1289,7 +1284,7 @@ export default function MobileApp() {
         {view==='interventions'&&<InterventionTracker buildingId={bldg?.fn||'default'} onBack={()=>setView('dash')} assessments={index.reports} />}
         {view==='directory'&&<IHDirectory onBack={()=>setView('dash')} />}
         {view==='properties'&&<PropertyDashboard onBack={()=>setView('dash')} onNavigate={(v)=>setView(v)} assessmentIndex={index} />}
-        {view==='spatial'&&<SpatialMap zones={zones} zoneScores={zoneScores} floorPlan={floorPlan} onUploadFloorPlan={setFloorPlan} onUpdateZone={(zi, update)=>{const z=[...zones];z[zi]={...z[zi],...update};setZones(z)}} onClose={()=>setView('results')} />}
+        {view==='spatial'&&<SpatialMap zones={zones} zoneScores={zoneScores} floorPlan={floorPlan} onUploadFloorPlan={setFloorPlan} onUpdateZone={(zi, update)=>{const z=[...zones];z[zi]={...z[zi],...update};setZones(z)}} onClose={()=>{runScoring();setView('results')}} />}
         {view==='instruments'&&<InstrumentManager onBack={()=>setView('settings')} />}
       </div>
 
