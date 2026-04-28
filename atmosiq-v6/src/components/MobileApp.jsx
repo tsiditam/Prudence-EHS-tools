@@ -46,6 +46,9 @@ import PropertyDashboard from './PropertyDashboard'
 import SpatialMap from './SpatialMap'
 import InstrumentManager from './InstrumentManager'
 import V21InternalPanel from './V21InternalPanel'
+import { useAssessment } from '../contexts/AssessmentContext.jsx'
+import { useAuth } from '../contexts/AuthContext.jsx'
+import { useStorage } from '../contexts/StorageContext.jsx'
 
 const haptic = (type) => { try { if (navigator.vibrate) navigator.vibrate(type === 'heavy' ? [30,20,30] : type === 'success' ? [10,30,10,30,10] : 12) } catch {} }
 const BETA_MODE = true // Set to false when ready to go live — re-enables all premium gates
@@ -74,20 +77,52 @@ export default function MobileApp() {
   // Responsive layout: phone=620, tablet portrait=860, tablet landscape=1080
   const contentMax = isTabletLand ? 1080 : isTablet ? 860 : 620
   const padX = isTablet ? 28 : 20
+
+  // ── Shared state from context providers ──
+  // Auth: profile/credits/admin live in AuthContext so other route components
+  // (split out in Phase 5) can read them without prop drilling.
+  const {
+    profile, setProfile,
+    credits, setCredits,
+    adminSecret, setAdminSecret,
+  } = useAuth()
+  // Storage: index of saved drafts/reports lives in StorageContext.
+  const { index, refreshIndex } = useStorage()
+  // Assessment: every field representing the assessment-in-progress lives in
+  // AssessmentContext. Local handleLogin/Logout/runScoring/setZF below still
+  // own the operations; they read/write context state via these setters.
+  const {
+    draftId, setDraftId,
+    presurvey, setPresurvey,
+    bldg, setBldg,
+    qsqi, setQsqi, dqi, setDqi, zqi, setZqi,
+    zones, setZones, curZone, setCurZone,
+    photos, setPhotos,
+    zoneScores, setZoneScores,
+    comp, setComp,
+    oshaResult, setOshaResult,
+    recs, setRecs,
+    narrative, setNarrative,
+    narrativeLoading, setNarrativeLoading,
+    samplingPlan, setSamplingPlan,
+    causalChains, setCausalChains,
+    moldResults, setMoldResults,
+    floorPlan, setFloorPlan,
+    measConf, setMeasConf,
+  } = useAssessment()
+
+  // ── Local UI state (truly component-local; not shared) ──
   const [loading, setLoading] = useState(true)
   const [isReturning, setIsReturning] = useState(false)
   const [welcomeDone, setWelcomeDone] = useState(!!sessionStorage.getItem('aiq_welcomed'))
   const [userMode, setUserMode] = useState(getMode())
   const [needsModeSelect, setNeedsModeSelect] = useState(false)
-  const [profile, setProfile] = useState(null)
   const [profileChecked, setProfileChecked] = useState(false)
   // views: dash|quickstart|zone|details|results|history|drafts|report
   const [view, setView] = useState('dash')
   const [milestone, setMilestone] = useState(null)
   const [clock, setClock] = useState(new Date())
-  const [credits, setCredits] = useState(5) // default free tier
   const [showPricing, setShowPricing] = useState(false)
-  const [adminSecret, setAdminSecret] = useState(null)
   const [showDisclaimer, setShowDisclaimer] = useState(false)
   const [connectionToast, setConnectionToast] = useState(null)
 
@@ -100,28 +135,6 @@ export default function MobileApp() {
     return () => { window.removeEventListener('offline', goOffline); window.removeEventListener('online', goOnline) }
   }, [])
 
-  const [draftId, setDraftId] = useState(null)
-  // Combined data store: quick start + details merged into presurvey + bldg
-  const [presurvey, setPresurvey] = useState({})
-  const [bldg, setBldg] = useState({})
-  const [qsqi, setQsqi] = useState(0) // quick start question index
-  const [dqi, setDqi] = useState(0)   // details question index
-  const [zones, setZones] = useState([{}])
-  const [curZone, setCurZone] = useState(0)
-  const [zqi, setZqi] = useState(0)
-  const [photos, setPhotos] = useState({})
-
-  const [zoneScores, setZoneScores] = useState([])
-  const [comp, setComp] = useState(null)
-  const [oshaResult, setOshaResult] = useState(null)
-  const [recs, setRecs] = useState(null)
-  const [narrative, setNarrative] = useState(null)
-  const [narrativeLoading, setNarrativeLoading] = useState(false)
-  const [samplingPlan, setSamplingPlan] = useState(null)
-  const [causalChains, setCausalChains] = useState([])
-  const [moldResults, setMoldResults] = useState([])
-  const [floorPlan, setFloorPlan] = useState(null)
-  const [measConf, setMeasConf] = useState(null)
   const [showPhotoSelect, setShowPhotoSelect] = useState(false)
   const [showPremiumGate, setShowPremiumGate] = useState(false)
   const [selectedPhotos, setSelectedPhotos] = useState({})
@@ -129,7 +142,6 @@ export default function MobileApp() {
   const [rTab, setRTab] = useState('overview')
   const [selZone, setSelZone] = useState(0)
 
-  const [index, setIndex] = useState({reports:[],drafts:[]})
   const [viewRpt, setViewRpt] = useState(null)
   const [delConf, setDelConf] = useState(null)
   const [zonePrompt, setZonePrompt] = useState(false)
@@ -145,8 +157,7 @@ export default function MobileApp() {
     (async () => {
       const v = await STO.hasVisited()
       setIsReturning(!!v)
-      const idx = await STO.getIndex()
-      setIndex(idx)
+      await refreshIndex()
       await STO.markVisited()
       // Try Supabase auth first, fall back to local profiles
       if (supabase) {
@@ -179,8 +190,6 @@ export default function MobileApp() {
       if (event === 'SIGNED_OUT') { setProfile(null); setView('dash') }
     })
   }, [])
-
-  const refreshIndex = async () => { setIndex(await STO.getIndex()) }
 
   const handleLogin = async (userOrProfile) => {
     if (userOrProfile?.email && supabase) {

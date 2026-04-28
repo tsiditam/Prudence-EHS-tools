@@ -33,6 +33,9 @@ import DesktopSidebar from './components/DesktopSidebar'
 import HistoryView from './components/HistoryView'
 import ReportView from './components/ReportView'
 import MobileApp from './components/MobileApp'
+import { AssessmentProvider } from './contexts/AssessmentContext.jsx'
+import { AuthProvider } from './contexts/AuthContext.jsx'
+import { StorageProvider } from './contexts/StorageContext.jsx'
 import {
   CSS, SP, mono, btn, cardStyle, cardHoverHandlers,
   inputStyle, inputFocusHandlers, btnPressHandlers,
@@ -51,7 +54,15 @@ export default function App() {
   if (dk && !isStandalone) return <LandingPage onStartNew={() => {}} onStartDemo={() => {}} isDesktop={true} />
 
   // Mobile users get the v5-style one-question-at-a-time experience
-  if (!dk) return <MobileApp />
+  if (!dk) return (
+    <AuthProvider>
+      <StorageProvider>
+        <AssessmentProvider>
+          <MobileApp />
+        </AssessmentProvider>
+      </StorageProvider>
+    </AuthProvider>
+  )
   const [loading, setLoading] = useState(true)
   const [visited, setVisited] = useState(false)
   const [step, setStep] = useState(0)
