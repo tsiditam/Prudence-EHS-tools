@@ -1,19 +1,26 @@
 /**
  * AtmosFlow DOCX Report — Entry Point
+ *
  * Builds two Word documents from assessment data:
- * 1. Consultant report (narrative, executive summary, interpretation)
- * 2. Technical report (structured findings, score matrix, data gaps)
+ * 1. Consultant report (CIH-defensible client deliverable; v2.1 engine path)
+ * 2. Technical report (structured findings, score matrix, data gaps; legacy
+ *    operator-facing path)
+ *
+ * Phase 3: the consultant path was switched from the legacy section
+ * builders to a v2.1 ClientReport pipeline (bridge → renderClientReport →
+ * sections-v21client). Technical DOCX intentionally remains on the legacy
+ * path because it is operator-facing, not client-facing.
  */
 
 import { Document, Packer, SectionType } from 'docx'
 import { DOCX_STYLES } from './docx/styles'
-import { buildCoverPage, buildTransmittalLetter, buildTableOfContents, buildTransparencyPanel, buildExecutiveSummary, buildScopeMethodology, buildBuildingContext, buildFindingsDashboard } from './docx/sections-core'
-import { buildZoneHeader, buildZoneSection } from './docx/sections-zone'
-import { buildCausalChainAnalysis } from './docx/sections-causal'
-import { buildSamplingPlan, buildRecommendations, buildLimitations } from './docx/sections-recommendations'
-import { buildAppendixA, buildAppendixB, buildFooter } from './docx/sections-appendix'
-import { buildEquipmentLog, buildSpatialRiskSummary, buildFMSummaryLayer } from './docx/sections-extras'
+import { buildCoverPage } from './docx/sections-core'
+import { buildSamplingPlan, buildRecommendations } from './docx/sections-recommendations'
+import { buildAppendixB, buildFooter } from './docx/sections-appendix'
 import { buildTechnicalMetadata, buildFindingsRegister, buildCategoryScoresSummary, buildDataGapRegister, buildInstrumentLog, buildOutdoorBaseline } from './docx/sections-technical'
+import { buildClientDocx } from './docx/sections-v21client'
+import { legacyToAssessmentScore, deriveAssessmentMeta } from '../engine/bridge'
+import { renderClientReport } from '../engine/report/client'
 
 function buildContext(data) {
   const { building, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos, floorPlan, version, standardsManifest } = data
@@ -60,44 +67,25 @@ function buildContext(data) {
   }
 }
 
-async function generateConsultantDocx(ctx) {
-  const mainChildren = [
-    ...buildTransmittalLetter(ctx),
-    ...buildTableOfContents(ctx),
-    ...buildTransparencyPanel(ctx),
-    ...buildExecutiveSummary(ctx),
-    ...buildScopeMethodology(ctx),
-    ...buildBuildingContext(ctx),
-    ...buildFindingsDashboard(ctx),
-    ...buildZoneHeader(ctx),
-  ]
-
-  // Zone sections
-  for (let i = 0; i < ctx.zoneScores.length; i++) {
-    mainChildren.push(...buildZoneSection(ctx, i))
-  }
-
-  // Causal chains
-  mainChildren.push(...buildCausalChainAnalysis(ctx))
-
-  // Spatial risk summary (floor plan with zone overlay)
-  mainChildren.push(...buildSpatialRiskSummary(ctx))
-
-  // Sampling plan (before recommendations)
-  mainChildren.push(...buildSamplingPlan(ctx))
-
-  // Recommendations
-  mainChildren.push(...buildRecommendations(ctx))
-
-  // Limitations
-  mainChildren.push(...buildLimitations(ctx))
-
-  // Appendices
-  mainChildren.push(...buildAppendixA(ctx))
-  mainChildren.push(...buildAppendixB(ctx))
-
-  // Footer
-  mainChildren.push(...buildFooter(ctx))
+async function generateConsultantDocx(ctx, data) {
+  // v2.1 path: bridge legacy scoring data → AssessmentScore → ClientReport
+  // → docx. CIH-defensible deliverable.
+  const meta = deriveAssessmentMeta({
+    profile: data.profile,
+    presurvey: data.presurvey,
+    building: data.building,
+    assessmentDate: data.ts ? data.ts.slice(0, 10) : undefined,
+  })
+  const score = legacyToAssessmentScore(
+    data.zoneScores || [],
+    data.comp || null,
+    data.zones || [],
+    { meta, presurvey: data.presurvey, building: data.building },
+  )
+  const result = renderClientReport(score, {
+    includeAssessmentIndexAppendix: !!data.includeAssessmentIndexAppendix,
+  })
+  const { cover, main } = buildClientDocx(result)
 
   const doc = new Document({
     creator: 'AtmosFlow — Prudence Safety & Environmental Consulting, LLC',
@@ -105,13 +93,13 @@ async function generateConsultantDocx(ctx) {
     description: 'Indoor Air Quality Assessment Report',
     styles: DOCX_STYLES,
     sections: [
-      buildCoverPage(ctx),
+      cover,
       {
         properties: {
           type: SectionType.NEXT_PAGE,
           page: { margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 } },
         },
-        children: mainChildren,
+        children: main,
       },
     ],
   })
@@ -173,13 +161,13 @@ async function generateTechnicalDocx(ctx) {
 
 export async function generateDocx(data) {
   const ctx = buildContext(data)
-  await generateConsultantDocx(ctx)
+  await generateConsultantDocx(ctx, data)
   await generateTechnicalDocx(ctx)
 }
 
 export async function generateConsultantOnly(data) {
   const ctx = buildContext(data)
-  await generateConsultantDocx(ctx)
+  await generateConsultantDocx(ctx, data)
 }
 
 export async function generateTechnicalOnly(data) {

@@ -6,7 +6,17 @@
  * PrintReport — print-optimized report opened in new tab
  * User can print or save as PDF from the browser.
  * No automatic print dialogs — Safari-safe.
+ *
+ * Phase 3: generatePrintHTML now bridges the legacy scoring data to a
+ * v2.1 AssessmentScore, runs renderClientReport, and renders the
+ * resulting CIH-defensible ClientReport (or refusal-to-issue memo) to
+ * HTML. The legacy template generator remains available as
+ * generateLegacyPrintHTML for diff comparison and fallback.
  */
+
+import { legacyToAssessmentScore, deriveAssessmentMeta } from '../engine/bridge'
+import { renderClientReport } from '../engine/report/client'
+import { generateClientReportHTML } from './print/client-html'
 
 export function selectReportTemplate(data) {
   const zones = data.zones || []
@@ -23,7 +33,33 @@ function esc(str) {
   return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
 }
 
+/**
+ * v2.1 client deliverable (CIH-defensible). Removes scores, severity
+ * labels, and internal fields from the client-facing HTML; surfaces the
+ * approved professional-opinion language and per-finding intent
+ * templates from the phrase library.
+ */
 export function generatePrintHTML(data) {
+  const { building, presurvey, zones, zoneScores, comp, profile } = data
+  const meta = deriveAssessmentMeta({
+    profile,
+    presurvey,
+    building,
+    assessmentDate: data.ts ? data.ts.slice(0, 10) : undefined,
+  })
+  const score = legacyToAssessmentScore(
+    zoneScores || [],
+    comp || null,
+    zones || [],
+    { meta, presurvey, building },
+  )
+  const result = renderClientReport(score, {
+    includeAssessmentIndexAppendix: !!data.includeAssessmentIndexAppendix,
+  })
+  return generateClientReportHTML(result)
+}
+
+export function generateLegacyPrintHTML(data) {
   const { building, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos, standardsManifest, userMode, escalationTriggers } = data
   const reportTemplate = selectReportTemplate(data)
   // Collect standards actually cited in findings for filtered manifest
