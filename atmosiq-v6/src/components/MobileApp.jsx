@@ -45,6 +45,7 @@ import IHDirectory from './IHDirectory'
 import PropertyDashboard from './PropertyDashboard'
 import SpatialMap from './SpatialMap'
 import InstrumentManager from './InstrumentManager'
+import V21InternalPanel from './V21InternalPanel'
 
 const haptic = (type) => { try { if (navigator.vibrate) navigator.vibrate(type === 'heavy' ? [30,20,30] : type === 'success' ? [10,30,10,30,10] : 12) } catch {} }
 const BETA_MODE = true // Set to false when ready to go live — re-enables all premium gates
@@ -662,6 +663,17 @@ export default function MobileApp() {
           {userMode === 'fm' && <div style={{textAlign:'center',marginTop:12,fontSize:10,color:DIM}}>{comp.count} area{comp.count!==1?'s':''} assessed</div>}
           {measConf?.overall==='Low'&&<div style={{textAlign:'center',marginTop:6,fontSize:9,color:WARN,lineHeight:1.5}}>Single-point measurement. Consider time-weighted sampling per AIHA strategy before drawing conclusions.</div>}
         </div>
+
+        {/* ── v2.1 Engine InternalReport (operator dashboard) ── */}
+        <V21InternalPanel
+          zoneScores={zoneScores}
+          comp={comp}
+          zones={zones}
+          profile={profile}
+          presurvey={presurvey}
+          bldg={bldg}
+          assessmentDate={viewRpt?.ts ? viewRpt.ts.slice(0,10) : undefined}
+        />
 
         {/* ── Expert Summary Card ── */}
         {(causalChains.length > 0 || driverCat) && (
