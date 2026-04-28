@@ -154,8 +154,15 @@ export default function MobileApp() {
           const p = await SupaStorage.getProfile()
           if (p) setProfile(p)
           else setProfile({ id: user.id, name: user.email, isNew: true })
-          // Sync offline changes
           SupaStorage.processSyncQueue()
+          // Fetch credits from server
+          try {
+            const session = await SupaStorage.getSession()
+            if (session?.access_token) {
+              const res = await fetch('/api/credits', { headers: { 'Authorization': 'Bearer ' + session.access_token } })
+              if (res.ok) { const data = await res.json(); setCredits(data.credits ?? 5) }
+            }
+          } catch {}
         }
       } else {
         const activeProfile = await Profiles.getActiveProfile()
@@ -175,15 +182,21 @@ export default function MobileApp() {
   const refreshIndex = async () => { setIndex(await STO.getIndex()) }
 
   const handleLogin = async (userOrProfile) => {
-    // From Supabase AuthScreen
     if (userOrProfile?.email && supabase) {
       trackEvent('login_completed', {})
       const p = await SupaStorage.getProfile()
       if (p) setProfile(p)
       else setProfile({ id: userOrProfile.id, name: userOrProfile.email, isNew: true })
       SupaStorage.fullSync()
+      // Fetch credits from server
+      try {
+        const session = await SupaStorage.getSession()
+        if (session?.access_token) {
+          const res = await fetch('/api/credits', { headers: { 'Authorization': 'Bearer ' + session.access_token } })
+          if (res.ok) { const data = await res.json(); setCredits(data.credits ?? 5) }
+        }
+      } catch {}
     } else {
-      // From local ProfileScreen
       setProfile(userOrProfile)
     }
   }
@@ -254,9 +267,18 @@ export default function MobileApp() {
     setTimeout(() => { setMilestone(null); nextFn() }, 1400)
   }
 
-  const consumeCredit = (amount, reason, refId) => {
+  const consumeCredit = async (amount, reason, refId) => {
     setCredits(prev => Math.max(0, prev - amount))
     trackEvent('credit_consumed', { amount, reason, balance: credits - amount })
+    if (supabase) {
+      try {
+        const session = await SupaStorage.getSession()
+        if (session?.access_token) {
+          const res = await fetch('/api/credits', { method: 'POST', headers: { 'Authorization': 'Bearer ' + session.access_token, 'Content-Type': 'application/json' }, body: JSON.stringify({ amount, reason, reference_id: refId || '' }) })
+          if (res.ok) { const data = await res.json(); setCredits(data.credits) }
+        }
+      } catch {}
+    }
   }
 
   const startNew = () => {
@@ -377,6 +399,11 @@ export default function MobileApp() {
     await STO.addReportToIndex({ id:rid, ts:report.ts, facility:bldg.fn, score:composite?.tot })
     if (draftId) { await STO.del(draftId) }
     await refreshIndex()
+    // Sync to cloud
+    if (supabase) {
+      try { await SupaStorage.saveAssessment({ ...report, status: 'complete', facility_name: bldg.fn, score: composite?.tot, risk: composite?.risk }) }
+      catch (e) { console.warn('Cloud sync deferred:', e.message) }
+    }
   }
 
   const finishDetails = () => {
