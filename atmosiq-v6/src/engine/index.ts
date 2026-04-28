@@ -28,3 +28,12 @@ export type {
 
 export * from './report/index'
 export * from './instruments/index'
+
+// Public API
+import { renderInternalReport } from './report/internal'
+import { renderClientReport } from './report/client'
+
+export const report = {
+  internal: renderInternalReport,
+  client: renderClientReport,
+} as const
