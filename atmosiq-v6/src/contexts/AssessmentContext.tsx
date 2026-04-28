@@ -4,7 +4,8 @@
  * Replaces 25+ useState hooks scattered in MobileApp.jsx.
  */
 
-import { createContext, useContext, useState, useCallback, useMemo, useRef, useEffect } from 'react'
+import { createContext, useContext, useState, useCallback, useMemo, useRef, useEffect, type ReactNode } from 'react'
+import type { ZoneData, BuildingData, PresurveyData, ZoneScore, CompositeScore, OSHAResult, Recommendations, SamplingPlan, CausalChain, MoldResult, MeasurementConfidence, PhotoEntry } from '../types/assessment'
 import STO from '../utils/storage'
 import { scoreZone, compositeScore, evalOSHA, genRecs, evalMeasurementConfidence, evalMold } from '../engines/scoring'
 import { generateSamplingPlan } from '../engines/sampling'
@@ -12,34 +13,34 @@ import { buildCausalChains } from '../engines/causalChains'
 import { STANDARDS_MANIFEST } from '../constants/standards'
 import { Q_QUICKSTART, Q_BUILDING, Q_ZONE, Q_DETAILS } from '../constants/questions'
 
-const AssessmentContext = createContext(null)
+const AssessmentContext = createContext<any>(null)
 
-export function AssessmentProvider({ children }) {
+export function AssessmentProvider({ children }: { children: ReactNode }) {
   // ── Assessment Data ──
-  const [draftId, setDraftId] = useState(null)
-  const [presurvey, setPresurvey] = useState({})
-  const [bldg, setBldg] = useState({})
-  const [zones, setZones] = useState([{}])
-  const [curZone, setCurZone] = useState(0)
-  const [photos, setPhotos] = useState({})
-  const [floorPlan, setFloorPlan] = useState(null)
+  const [draftId, setDraftId] = useState<string | null>(null)
+  const [presurvey, setPresurvey] = useState<PresurveyData>({})
+  const [bldg, setBldg] = useState<BuildingData>({})
+  const [zones, setZones] = useState<ZoneData[]>([{}])
+  const [curZone, setCurZone] = useState<number>(0)
+  const [photos, setPhotos] = useState<Record<string, PhotoEntry[]>>({})
+  const [floorPlan, setFloorPlan] = useState<string | null>(null)
 
   // ── Question Navigation ──
-  const [qsqi, setQsqi] = useState(0)
-  const [dqi, setDqi] = useState(0)
-  const [zqi, setZqi] = useState(0)
+  const [qsqi, setQsqi] = useState<number>(0)
+  const [dqi, setDqi] = useState<number>(0)
+  const [zqi, setZqi] = useState<number>(0)
 
   // ── Computed Results ──
-  const [zoneScores, setZoneScores] = useState([])
-  const [comp, setComp] = useState(null)
-  const [oshaResult, setOshaResult] = useState(null)
-  const [recs, setRecs] = useState(null)
-  const [narrative, setNarrative] = useState(null)
-  const [narrativeLoading, setNarrativeLoading] = useState(false)
-  const [samplingPlan, setSamplingPlan] = useState(null)
-  const [causalChains, setCausalChains] = useState([])
-  const [moldResults, setMoldResults] = useState([])
-  const [measConf, setMeasConf] = useState(null)
+  const [zoneScores, setZoneScores] = useState<ZoneScore[]>([])
+  const [comp, setComp] = useState<CompositeScore | null>(null)
+  const [oshaResult, setOshaResult] = useState<OSHAResult | null>(null)
+  const [recs, setRecs] = useState<Recommendations | null>(null)
+  const [narrative, setNarrative] = useState<string | null>(null)
+  const [narrativeLoading, setNarrativeLoading] = useState<boolean>(false)
+  const [samplingPlan, setSamplingPlan] = useState<SamplingPlan | null>(null)
+  const [causalChains, setCausalChains] = useState<CausalChain[]>([])
+  const [moldResults, setMoldResults] = useState<MoldResult[]>([])
+  const [measConf, setMeasConf] = useState<MeasurementConfidence | null>(null)
 
   // ── Merged Data (presurvey + building) ──
   const mergedData = useMemo(() => ({ ...presurvey, ...bldg }), [presurvey, bldg])
