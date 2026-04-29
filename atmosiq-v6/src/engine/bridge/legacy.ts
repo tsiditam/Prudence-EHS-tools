@@ -245,6 +245,19 @@ function mapFinding(
 
   const observed = extractObserved(legacyF, conditionType, zoneData)
 
+  // Pass/info findings represent parameters that were measured and
+  // came back within applicable benchmarks. They carry no observed
+  // condition (filtered out of zone display) and therefore should not
+  // contribute follow-up recommendations either — otherwise a zone
+  // with "No significant conditions identified" still renders 4–6
+  // recommended actions, which is internally contradictory.
+  // Phrase-library default actions only fire when severity is
+  // significant.
+  const isSignificant = cappedSeverity !== 'pass' && cappedSeverity !== 'info'
+  const recommendedActions: ReadonlyArray<RecommendedAction> = isSignificant
+    ? (phrase.defaultRecommendedActions as ReadonlyArray<RecommendedAction>)
+    : []
+
   const draft: Finding = {
     id,
     category,
@@ -264,7 +277,7 @@ function mapFinding(
     samplingAdequacy,
     instrumentAccuracyConsidered,
     limitations: phrase.defaultLimitations,
-    recommendedActions: phrase.defaultRecommendedActions as ReadonlyArray<RecommendedAction>,
+    recommendedActions,
     thresholdSource: legacyF.std ?? deriveThresholdSourceFromPhrase(phrase.defaultRecommendedActions),
     observedValue: observed.value,
     thresholdValue: observed.threshold,
