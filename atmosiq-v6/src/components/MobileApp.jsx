@@ -1380,8 +1380,11 @@ export default function MobileApp() {
       </div>
 
       {/* ── Bottom Tab Bar ── */}
+      {/* iOS Safari defensives: solid background (no scroll-bleed during URL-bar transitions),
+          isolation:isolate for a clean stacking context, transform:translateZ(0) to force a
+          compositor layer so position:fixed cannot be reinterpreted relative to an ancestor. */}
       {!isAssessing && !milestone && (
-        <nav style={{position:'fixed',bottom:0,left:0,right:0,zIndex:100,background:`${BG}F5`,backdropFilter:'blur(24px) saturate(1.3)',WebkitBackdropFilter:'blur(24px) saturate(1.3)',borderTop:`1px solid ${BORDER}`,paddingBottom:'env(safe-area-inset-bottom, 0px)'}}>
+        <nav style={{position:'fixed',bottom:0,left:0,right:0,zIndex:100,background:BG,borderTop:`1px solid ${BORDER}`,paddingBottom:'env(safe-area-inset-bottom, 0px)',isolation:'isolate',transform:'translateZ(0)',WebkitTransform:'translateZ(0)'}}>
           <div style={{display:'flex',justifyContent:'space-around',alignItems:'center',height:52,maxWidth:contentMax,margin:'0 auto'}}>
             {(userMode === 'fm' ? [
               {id:'dash',label:'Home',icon:'home'},
