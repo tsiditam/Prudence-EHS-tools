@@ -192,6 +192,20 @@ export interface AssessmentScore {
   readonly confidenceBand: CIHConfidenceTier
   readonly defensibilityFlags: DefensibilityFlags
   readonly meta: AssessmentMeta
+  /**
+   * v2.4 §2 — opaque, structurally-typed map of per-parameter
+   * range/average/elevated-zone summaries computed from legacy
+   * zone-data. Consumed by the report renderer's Results section.
+   * Type is `unknown` here to avoid coupling the engine domain to the
+   * report layer; the bridge populates it with a `ParameterRangeSet`
+   * (see src/engine/report/parameter-ranges.ts).
+   */
+  readonly parameterRanges?: unknown
+  /**
+   * v2.4 §2 — original legacy zone-data slice retained for the report
+   * renderer's Appendix A per-zone tabulation. Same opacity rationale.
+   */
+  readonly legacyZonesData?: unknown
 }
 
 export interface DefensibilityFlags {

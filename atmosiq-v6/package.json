@@ -7,7 +7,13 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "echo \"lint: no-op (eslint config not present)\"",
+    "render:acceptance:v2.3": "VITEST_RENDER_FIXTURES=1 vitest run scripts/acceptance/render-acceptance-fixture.test.ts",
+    "accept:v2.3": "node scripts/acceptance/run-v23.mjs",
+    "render:acceptance": "VITEST_RENDER_FIXTURES=1 vitest run scripts/render-acceptance-fixture.test.ts",
+    "accept:v2.4": "npm run render:acceptance && node scripts/acceptance-check.mjs --config scripts/acceptance/v2.4.json"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.101.1",
@@ -22,6 +28,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^4.3.0",
+    "tsx": "^4.21.0",
     "typescript": "^6.0.3",
     "vite": "^5.4.0",
     "vitest": "^4.1.2"

@@ -96,3 +96,202 @@ Zone-level opinion follows first-match rules. Site-level = worst zone.
 | 4 | 2+ provisional at high/medium | further_investigation |
 | 5 | qualitative_only + medium | monitoring |
 | 7 | all pass/info | no_significant_concerns |
+
+---
+
+## v2.3 — Limitations attached to findings, not to sections
+
+The v2.3 release reworks how limitations and the Building and System Conditions section render in client deliverables. Two specific defects from the Hizinburg Data Center rendering motivated the change:
+
+1. The Building and System Conditions section was rendering as an empty section header followed by an aggregated dump of every limitation in the assessment (sixteen orphaned bullet points), even when no building-scoped findings existed.
+2. Finding-level limitations were being aggregated into a section-level "Data Limitations" list rather than attached inline with the findings they qualify.
+
+### Decision rule for limitations placement
+
+Limitations render in exactly **two** places in the final report:
+
+| Surface | Content |
+|---|---|
+| Inline beneath each finding | `RenderedFinding.limitations` — the phrase library's `defaultLimitations` for the finding's `ConditionType`, deduplicated within the zone |
+| Terminal "Limitations and Professional Judgment" paragraph | The verbatim engine paragraph at `templates.ts: LIMITATIONS_PARAGRAPH` |
+
+The "Methodology Disclosure" verbatim paragraph at the top of the report is a **methodology-level** limitation framing (how the assessment was conducted), not a data-limitations dump, and stays as-is.
+
+There is **no** standalone "Data Limitations" section anywhere. The validator in `cih-validation.ts` blocks any reintroduction.
+
+### Conditional rendering of the Building and System Conditions section
+
+The section renders **only when at least one finding has scope `building` or `hvac_system`**. When no such findings exist:
+
+- The section header is omitted entirely from the report body.
+- The section is omitted from the Table of Contents.
+- The Results narrative does not name the section.
+- Exactly this sentence is appended to the **Scope of Work** narrative:
+
+  > Building system condition was not within the scope of this assessment beyond the observations documented in the zone-by-zone findings.
+
+The previous wording "No visible building or system deficiencies were identified during the walkthrough" is **banned** in v2.3 because it makes an unsupported affirmative claim. Absence of in-scope assessment is not equivalent to absence of deficiency.
+
+### `RenderedFinding` shape
+
+Each finding renders as a self-contained block:
+
+```ts
+export interface RenderedFinding {
+  readonly findingId: FindingId
+  readonly conditionType: ConditionType
+  readonly narrative: string                              // approvedNarrativeIntent
+  readonly observedValue?: string
+  readonly limitations: ReadonlyArray<string>             // pulled from finding.limitations
+  readonly recommendedActions: ReadonlyArray<RecommendedAction>
+  readonly confidenceTierLanguage: string                 // CONFIDENCE_TIER_LANGUAGE[finding.confidenceTier]
+}
+```
+
+The renderer (HTML and DOCX) emits each `RenderedFinding` as:
+
+```
+[narrative paragraph]
+
+[if observedValue present:]
+Observed: [observedValue]
+
+[if limitations.length > 0:]
+Limitations of this finding:
+- [limitation 1]
+- [limitation 2]
+
+[if recommendedActions.length > 0:]
+Recommended actions:
+- [priority] ([timeframe]): [action] — [standardReference if present]
+```
+
+### Empty-zone single-sentence rule
+
+A zone with zero significant findings renders exactly **one sentence** under the zone heading:
+
+> No conditions warranting elevated concern were identified in this zone within the stated limitations.
+
+The renderer does not emit an empty `observedConditions` list, an empty `recommendedActions` list, or any "no significant conditions identified" placeholder.
+
+### Per-zone limitations dedup
+
+Within a single zone, when the same limitation string appears on multiple findings, it renders **once** beneath the first finding it appears on. Subsequent findings in the same zone omit the duplicate. Implementation in `src/engine/report/client.ts` as `dedupZoneLimitations`.
+
+**Cross-zone dedup is NOT applied.** A limitation may legitimately reappear in a different zone if the same finding type fires there — each zone is its own context for the reader.
+
+### Acceptance runner
+
+`npm run accept:v2.3` mechanically enforces every requirement above. Internally it:
+
+1. Runs `vitest run scripts/acceptance/render-acceptance-fixture.test.ts` with `VITEST_RENDER_FIXTURES=1` to produce two `.docx` fixtures and their extracted `.txt` representations:
+   - `/tmp/acceptance-report.docx` — canonical multi-zone fixture with HVAC findings + an empty zone
+   - `/tmp/acceptance-report-no-building.docx` — fixture with zone findings but ZERO building-scoped findings
+2. Reads `scripts/acceptance/v2.3.json` and runs each criterion's checks (`rendered_contains` / `rendered_excludes` / `engine_version_equals` / `vitest_passes`).
+3. Exits 0 iff every criterion passes; 1 with detailed reasons otherwise.
+
+The runner is the canonical gate for v2.3 completion — any change that breaks one of the eight criteria fails the build.
+
+## v2.4 — Consolidated Completion
+
+Engine version: `atmosflow-engine-2.4.0`. v2.4 closes the v2.2/v2.3 misses
+that earlier acceptance prose claimed but didn't actually deliver. The
+acceptance runner was rebuilt for v2.4 — see [`docs/ACCEPTANCE.md`](./ACCEPTANCE.md).
+
+### §2 Per-parameter Results subsections
+
+Between **Sampling Methodology** and **Building and System Context**, the
+report now renders a structured **Results** section with one subsection
+per measured parameter (Carbon Dioxide, Carbon Monoxide, Formaldehyde,
+Total VOCs, PM2.5/PM10, Temperature, Relative Humidity). Each
+subsection emits two paragraphs:
+
+1. The standards background prose from `src/engine/report/parameter-prose/<param>.ts`,
+   citing the applicable ASHRAE / OSHA / EPA / NIOSH / peer-reviewed
+   reference for that parameter.
+2. A measurement summary built from the `ParameterRange` computed in
+   `src/engine/report/parameter-ranges.ts` ("CO₂ concentrations
+   recorded during the survey ranged from 550 to 1180 ppm, averaging
+   876.67 ppm…"). Subsections are emitted only when at least one
+   valid measurement exists for that parameter.
+
+### §3 Six structured appendices (A–F)
+
+`ClientReportAppendix` carries six new structured appendix shapes:
+
+| Appendix | Type | Content |
+| --- | --- | --- |
+| A | `AppendixA` | Per-zone × parameter measurement tabulation |
+| B | `AppendixB` | Sampling locations and methodology detail (instruments + zones) |
+| C | `AppendixC` | Photo documentation (optional; empty when no photos) |
+| D | `AppendixD` | Standards & citations + the **single** engine-version line |
+| E | `AppendixE` | Quality assurance & instrument calibration records |
+| F | `AppendixF` | Glossary of terms and abbreviations |
+
+Renderers live in `src/components/docx/sections-v21client.js`
+(`buildAppendices`) and `src/components/print/client-html.js`
+(`renderAppendices`). Both anchor the appendices with stable
+`appendix-{a..f}` ids so the TOC links work in the HTML viewer.
+
+### §4 Per-zone synthesis module
+
+`src/engine/report/synthesis.ts` exports `synthesizeZone(zone)` which
+replaces the v2.3 confidence-tier boilerplate ("Findings are
+preliminary and based on screening-level data…") with a pattern-aware
+zone interpretation. Eight templates evaluated in priority order:
+
+1. `sick-building` — symptom cluster + symptoms-resolve-away + at least one
+   ventilation/contaminant/moisture signal
+2. `moisture-driven` — water damage / drain pan / amplification-range RH /
+   visible microbial growth
+3. `symptom-cluster-no-resolution` — cluster present, resolves-away absent
+4. `ventilation-deficit` — CO₂ surrogate / inadequate-OA without contaminants
+5. `particulate-amplification` — PM elevated + indoor > outdoor
+6. `thermal-humidity-comfort` — comfort excursions only
+7. `no-findings` — empty zone (single sentence)
+8. `default-fallback` — confidence-tier language
+
+### §5 Finding-level dedup within zones
+
+`dedupZoneFindings` keys on `(conditionType + observedValue)`. Earlier
+the legacy classifier could emit the same condition twice in one zone
+(e.g. `occupant_cluster_anecdotal` from both the `cc` field and the
+`sy` symptoms field). The first occurrence wins.
+
+The Executive Summary's `findingsByGroup` now uses a
+`SHORT_STATEMENT_BY_CONDITION` map (see `finding-groups.ts`) instead of
+the verbatim approved narrative. The lead term still bolds; the short
+statement is a single ~10–18 word abstracted consequence so the reader
+doesn't see the same sentence twice (once in summary, once in zone).
+
+### §6 Recommendations rendering rule
+
+The **Recommendations Register** is the authoritative list of all
+deduped actions, grouped by priority (Immediate / Short term / Further
+evaluation / Long term). The Register is the canonical place a reader
+goes to plan the response. Per-finding action blocks are still rendered
+inline with each finding for context, but no action appears more than
+twice across the entire report (`RENDER-NO-ACTION-TRIPLE-DUP`).
+
+### §7 Footer migration
+
+The repeated body footer (`Generated by AtmosFlow Engine X.Y.Z…`) is
+removed from both the print and DOCX renderers. The engine version
+line lives **only** in Appendix D (`AppendixD.engineVersionLine`).
+Acceptance enforces both `RENDER-NO-FOOTER-LEAK` and
+`RENDER-ENGINE-VERSION-IN-APPENDIX-D-ONLY`.
+
+### §8 Recipient salutation fallback
+
+When `transmittalRecipient.fullName` is empty, the salutation now
+addresses **"Dear Building Operations Team,"** rather than the
+boilerplate "To whom it may concern,". Implementation in
+`buildTransmittalSalutation` in `src/engine/report/templates.ts`.
+
+### §9 No mid-word truncation
+
+`firstSentence(text)` in `src/engine/report/finding-groups.ts` no
+longer truncates with an ellipsis when no sentence-ending punctuation
+is found within 120 characters. The renderer wraps visually instead.
+Acceptance enforces `RENDER-NO-TRUNCATION` (no `screening-l…` mid-word
+chops).

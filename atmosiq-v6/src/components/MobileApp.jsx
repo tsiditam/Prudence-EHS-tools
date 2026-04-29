@@ -118,6 +118,11 @@ export default function MobileApp() {
   const [userMode, setUserMode] = useState(getMode())
   const [needsModeSelect, setNeedsModeSelect] = useState(false)
   const [profileChecked, setProfileChecked] = useState(false)
+  // Paywall pause — set to false to re-enable the credits gate.
+  // When true: startNew + requestNarrative skip the credits check, and
+  // consumeCredit no-ops so we don't spam analytics or hit /api/credits
+  // 402s. The pricing modal is still reachable from the credits chip.
+  const PAYWALL_DISABLED = true
   // views: dash|quickstart|zone|details|results|history|drafts|report
   const [view, setView] = useState('dash')
   const [milestone, setMilestone] = useState(null)
@@ -278,6 +283,7 @@ export default function MobileApp() {
   }
 
   const consumeCredit = async (amount, reason, refId) => {
+    if (PAYWALL_DISABLED) return
     setCredits(prev => Math.max(0, prev - amount))
     trackEvent('credit_consumed', { amount, reason, balance: credits - amount })
     if (supabase) {
@@ -292,7 +298,7 @@ export default function MobileApp() {
   }
 
   const startNew = () => {
-    if (credits < 1) { setShowPricing(true); return }
+    if (!PAYWALL_DISABLED && credits < 1) { setShowPricing(true); return }
     setShowDisclaimer(true)
   }
 
@@ -423,7 +429,7 @@ export default function MobileApp() {
   }
 
   const requestNarrative = async () => {
-    if (credits < 3) { setShowPricing(true); return }
+    if (!PAYWALL_DISABLED && credits < 3) { setShowPricing(true); return }
     consumeCredit(3, 'narrative')
     trackEvent('narrative_requested', { facility: bldg.fn || '', score: comp?.tot })
     setNarrativeLoading(true)

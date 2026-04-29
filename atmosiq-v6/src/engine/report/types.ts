@@ -5,7 +5,7 @@
 
 import type {
   FindingId, ZoneId, CategoryName, Tier, Severity,
-  CIHConfidenceTier, ProfessionalOpinionTier,
+  CIHConfidenceTier, ProfessionalOpinionTier, ConditionType,
   Finding, CategoryScore, ZoneScore, AssessmentScore, AssessmentMeta,
   RecommendedAction, DefensibilityFlags, ReviewStatus,
   TransmittalLetter,
@@ -57,11 +57,18 @@ export interface ClientReport {
   // AssessmentMeta.instrumentsUsed).
   readonly samplingMethodology: SamplingMethodologySection
   readonly buildingAndSystemContext: string
+  // v2.4 §2 — per-parameter Results subsections (Carbon Dioxide,
+  // Carbon Monoxide, Formaldehyde, Total VOCs, PM2.5/PM10,
+  // Temperature, Relative Humidity). Each subsection carries the
+  // standards background prose and a per-parameter measurement
+  // summary derived from the legacy zone-data.
+  readonly resultsSection?: ResultsSection
   readonly observedConditionsTable: ReadonlyArray<ObservedConditionRow>
-  // v2.2 §1b/§12 — building-scoped findings (HVAC, water management)
-  // render once at building level rather than be exploded across every
-  // zone the system serves.
-  readonly buildingAndSystemConditions: BuildingConditionsSection
+  // v2.3 §2 — building-scoped findings (HVAC, water management)
+  // render once at building level when at least one such finding
+  // exists. The section is OPTIONAL and OMITTED entirely (header +
+  // TOC entry) when no building-scoped findings are produced.
+  readonly buildingAndSystemConditions?: BuildingAndSystemConditionsSection
   readonly zoneSections: ReadonlyArray<ZoneSection>
   readonly potentialContributingFactors: ReadonlyArray<ContributingFactor>
   readonly recommendationsRegister: RecommendationsRegister
@@ -147,24 +154,97 @@ export interface ExecutiveSummary {
   readonly priorityActions: ReadonlyArray<RecommendedAction>
 }
 
+/**
+ * v2.3 §3 — RenderedFinding is the self-contained unit consumed by
+ * the renderer. Each finding carries its narrative, observed value,
+ * inline limitations, recommended actions, and confidence-tier
+ * language as a single block — no aggregation into section-level
+ * "Data Limitations" dumps.
+ */
+export interface RenderedFinding {
+  readonly findingId: FindingId
+  readonly conditionType: ConditionType
+  /** Engine-approved narrative intent (what the renderer prints first). */
+  readonly narrative: string
+  /** Optional measured/observed value display string (e.g. "45 ppm"). */
+  readonly observedValue?: string
+  /** Limitations attached to this finding only. */
+  readonly limitations: ReadonlyArray<string>
+  /** Recommended actions tied to this finding only. */
+  readonly recommendedActions: ReadonlyArray<RecommendedAction>
+  /** CONFIDENCE_TIER_LANGUAGE[finding.confidenceTier] for sub-label use. */
+  readonly confidenceTierLanguage: string
+}
+
+/**
+ * v2.3 §5 — ZoneSection rework. observedConditions: string[] is
+ * removed in favour of findings: RenderedFinding[]. dataLimitations
+ * is removed entirely; limitations attach to each finding.
+ */
 export interface ZoneSection {
   readonly zoneId: string
   readonly zoneName: string
-  readonly observedConditions: ReadonlyArray<string>
+  /**
+   * Optional zone description (floor area, occupancy, space use,
+   * sample locations). Populated when zone-data carries enough
+   * detail; renderer omits the line when empty.
+   */
+  readonly zoneDescription: string
+  /** Optional sampling-summary line (e.g., "4 sample points"). */
+  readonly samplingSummary: string
+  /**
+   * Findings rendered as self-contained blocks (narrative +
+   * observed value + inline limitations + recommended actions).
+   * When empty, the renderer prints the prescribed single-sentence
+   * empty-zone notice.
+   */
+  readonly findings: ReadonlyArray<RenderedFinding>
   readonly interpretation: string
-  readonly dataLimitations: ReadonlyArray<string>
+  /**
+   * Zone-level recommended actions roll-up. v2.3 prefers per-finding
+   * actions inside RenderedFinding, but this list still aggregates
+   * them for downstream consumers (e.g., legacy dashboards).
+   */
   readonly recommendedActions: ReadonlyArray<RecommendedAction>
   readonly professionalOpinion: ProfessionalOpinionTier
+  readonly professionalOpinionLanguage: string
 }
 
-// v2.2 §12 — Building and System Conditions section. Renders building-
-// scoped findings (HVAC system maintenance/condition, drain pan, OA
-// damper, water management) ONCE rather than repeated in every zone
-// the system serves.
-export interface BuildingConditionsSection {
-  readonly observedConditions: ReadonlyArray<string>
-  readonly dataLimitations: ReadonlyArray<string>
-  readonly recommendedActions: ReadonlyArray<RecommendedAction>
+/**
+ * v2.3 §2 — Building and System Conditions section.
+ * - rendered=false signals the renderer to OMIT the section header,
+ *   the TOC entry, and any "no findings" placeholder text. The
+ *   omittedReason is appended to Scope of Work.
+ * - rendered=true emits findings[] as a list of RenderedFinding
+ *   blocks (one per building-scoped finding) with inline
+ *   limitations and recommended actions.
+ *
+ * Renamed from BuildingConditionsSection (v2.2). The old name
+ * remains as a type alias below for backward compat.
+ */
+export interface BuildingAndSystemConditionsSection {
+  readonly rendered: boolean
+  readonly findings: ReadonlyArray<RenderedFinding>
+  /** Set when rendered=false; null/undefined when rendered=true. */
+  readonly omittedReason?: string
+}
+
+/** Backward-compat alias for v2.2 callers. */
+export type BuildingConditionsSection = BuildingAndSystemConditionsSection
+
+/**
+ * v2.4 §2 — Results section, rendered between Sampling Methodology
+ * and Building and System Context. Each parameter subsection is
+ * emitted only when at least one valid measurement was recorded.
+ */
+export interface ResultsSection {
+  readonly title: string
+  readonly subsections: ReadonlyArray<ParameterSubsection>
+}
+export interface ParameterSubsection {
+  readonly heading: string
+  readonly standardsBackground: string
+  readonly measurementSummary: string
 }
 
 export interface ObservedConditionRow {
@@ -201,6 +281,114 @@ export interface ClientReportAppendix {
   readonly rawMeasurementSnapshot?: ReadonlyArray<MeasurementRow>
   readonly standardsManifest: ReadonlyArray<Citation>
   readonly assessmentIndexInformationalOnly?: AssessmentIndexAppendix
+  // v2.4 §3 — six structured appendices
+  readonly appendixA?: AppendixA
+  readonly appendixB?: AppendixB
+  readonly appendixC?: AppendixC
+  readonly appendixD?: AppendixD
+  readonly appendixE?: AppendixE
+  readonly appendixF?: AppendixF
+}
+
+/**
+ * v2.4 §3 — Appendix A: Per-zone tabulated measurements
+ * One row per zone × parameter combination, including outdoor reference.
+ */
+export interface AppendixA {
+  readonly title: string
+  readonly description: string
+  readonly rows: ReadonlyArray<AppendixAMeasurementRow>
+}
+export interface AppendixAMeasurementRow {
+  readonly zoneName: string
+  readonly parameter: string
+  readonly value: string
+  readonly unit: string
+  readonly outdoorReference: string
+  readonly notes: string
+}
+
+/**
+ * v2.4 §3 — Appendix B: Sampling locations and methodology details
+ * Per-instrument and per-zone documentation supporting reproducibility.
+ */
+export interface AppendixB {
+  readonly title: string
+  readonly description: string
+  readonly instrumentRows: ReadonlyArray<AppendixBInstrumentRow>
+  readonly zoneRows: ReadonlyArray<AppendixBZoneRow>
+}
+export interface AppendixBInstrumentRow {
+  readonly model: string
+  readonly serial: string
+  readonly lastCalibration: string
+  readonly calibrationStatus: string
+  readonly parametersMeasured: ReadonlyArray<string>
+}
+export interface AppendixBZoneRow {
+  readonly zoneName: string
+  readonly samplingDuration: string
+  readonly sampleLocations: string
+  readonly outdoorReferenceTaken: boolean
+}
+
+/**
+ * v2.4 §3 — Appendix C: Photo documentation
+ * Optional. When zone-level photo references exist, they're enumerated.
+ */
+export interface AppendixC {
+  readonly title: string
+  readonly description: string
+  readonly photos: ReadonlyArray<AppendixCPhoto>
+}
+export interface AppendixCPhoto {
+  readonly caption: string
+  readonly zoneName: string
+  readonly relativePath: string
+}
+
+/**
+ * v2.4 §3 — Appendix D: Standards and citations
+ * Authoritative list of regulatory, consensus-standard, and peer-reviewed
+ * citations actually invoked in this report. Engine version line is
+ * recorded here (and ONLY here) per §7.
+ */
+export interface AppendixD {
+  readonly title: string
+  readonly description: string
+  readonly citations: ReadonlyArray<Citation>
+  readonly engineVersionLine: string
+}
+
+/**
+ * v2.4 §3 — Appendix E: Quality assurance and instrument calibration
+ * Calibration records, QA notes, and limitations of the QA program.
+ */
+export interface AppendixE {
+  readonly title: string
+  readonly description: string
+  readonly calibrationRecords: ReadonlyArray<AppendixECalibrationRow>
+  readonly qaNotes: ReadonlyArray<string>
+}
+export interface AppendixECalibrationRow {
+  readonly instrumentModel: string
+  readonly serial: string
+  readonly lastCalibration: string
+  readonly status: string
+}
+
+/**
+ * v2.4 §3 — Appendix F: Glossary of terms and abbreviations
+ * Reader-facing glossary entries.
+ */
+export interface AppendixF {
+  readonly title: string
+  readonly description: string
+  readonly entries: ReadonlyArray<AppendixFGlossaryEntry>
+}
+export interface AppendixFGlossaryEntry {
+  readonly term: string
+  readonly definition: string
 }
 
 export interface MeasurementRow {
