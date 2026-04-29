@@ -36,62 +36,171 @@ const REVIEW_STATUS_LABEL = {
 }
 
 const PAGE_STYLES = `
-  * { box-sizing: border-box; margin: 0; }
-  body { font-family: Cambria, 'Times New Roman', serif; font-size: 12px; color: #2D3A4A; line-height: 1.7; padding: 48px 56px; max-width: 820px; margin: 0 auto; background: #fff; }
-  h1 { font-size: 22px; font-weight: 700; color: #1B2A41; margin-bottom: 4px; letter-spacing: -0.3px; }
-  h2 { font-size: 13px; font-weight: 700; color: #1B2A41; margin: 30px 0 12px; padding-bottom: 6px; border-bottom: 1px solid #D1D5DB; text-transform: uppercase; letter-spacing: 0.8px; }
-  h3 { font-size: 12px; font-weight: 700; color: #2D3A4A; margin: 22px 0 8px; }
-  p { margin-bottom: 10px; line-height: 1.75; }
-  ul, ol { margin: 8px 0 12px 24px; }
-  li { margin-bottom: 4px; line-height: 1.7; }
-  table { width: 100%; border-collapse: collapse; font-family: Cambria, 'Times New Roman', serif; margin-bottom: 16px; }
-  th { text-align: left; padding: 8px 10px; background: #F3F4F6; font-size: 10px; font-weight: 700; color: #5C6F7E; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #D1D5DB; }
-  td { padding: 8px 10px; border-bottom: 1px solid #E5E7EB; font-size: 11px; vertical-align: top; }
-  .cover { text-align: center; padding: 100px 0 60px; border-bottom: 2px solid #1B2A41; margin-bottom: 36px; }
-  .cover-firm { font-size: 14px; font-weight: 700; color: #1B2A41; letter-spacing: 0.5px; margin-bottom: 6px; }
-  .cover-firm-sub { font-size: 11px; color: #5C6F7E; margin-bottom: 36px; }
-  .cover-title { font-size: 26px; font-weight: 700; color: #1B2A41; margin-bottom: 6px; letter-spacing: 0.3px; }
-  .cover-rule { width: 44px; height: 2px; background: #1B2A41; margin: 30px auto; }
-  .cover-meta { font-size: 11px; color: #5C6F7E; line-height: 2; }
-  .cover-meta strong { color: #1B2A41; font-weight: 600; }
-  .cover-status { display: inline-block; padding: 4px 12px; border: 1px solid #1B2A41; border-radius: 3px; font-size: 10px; font-weight: 700; color: #1B2A41; margin-top: 12px; letter-spacing: 0.5px; text-transform: uppercase; }
-  .cover-methodology { font-size: 10px; color: #94A3B8; margin-top: 28px; font-style: italic; }
-  .draft-notice { padding: 12px 16px; background: #FFFBEB; border: 1px solid #FBBF24; border-radius: 4px; font-size: 11px; color: #92400E; margin-top: 20px; line-height: 1.6; }
-  .draft-watermark { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-30deg); font-size: 90px; color: #FBBF2418; font-weight: 800; pointer-events: none; z-index: 0; letter-spacing: 4px; }
-  .verbatim { padding: 14px 18px; background: #F8FAFC; border-left: 3px solid #1B2A41; margin-bottom: 16px; font-size: 12px; line-height: 1.8; }
-  .exec-meta-table { margin: 12px 0 18px; }
-  .exec-meta-table td { font-size: 11px; padding: 6px 12px; border: 1px solid #E2E8F0; }
-  .letter { margin: 28px 0; padding: 0 8px; }
-  .letter-date { margin-bottom: 16px; font-size: 12px; }
-  .letter-recipient { margin-bottom: 16px; font-size: 12px; line-height: 1.5; }
-  .letter-project { margin-bottom: 8px; font-size: 12px; }
-  .letter-subject { margin-bottom: 18px; font-size: 12px; text-transform: uppercase; }
-  .letter-salutation { margin-bottom: 14px; font-size: 12px; }
-  .letter-body { margin-bottom: 12px; font-size: 12px; line-height: 1.7; }
-  .letter-closing { margin: 22px 0 8px; font-size: 12px; }
-  .letter-firm { margin-bottom: 28px; font-size: 12px; font-weight: 700; letter-spacing: 0.5px; }
-  .letter-signatories { display: flex; gap: 36px; flex-wrap: wrap; }
-  .signature-line { flex: 1; min-width: 220px; margin-bottom: 16px; }
-  .signature-rule { margin-bottom: 4px; font-family: 'Courier New', monospace; }
-  .signature-name { font-size: 12px; font-weight: 700; color: #1B2A41; }
-  .signature-title { font-size: 11px; color: #5C6F7E; }
-  .signature-meta { font-size: 10px; color: #94A3B8; }
-  .opinion-card { padding: 18px 20px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; margin-bottom: 18px; page-break-inside: avoid; }
-  .opinion-tier { font-size: 11px; font-weight: 700; color: #1B2A41; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
-  .opinion-text { font-size: 12px; line-height: 1.7; color: #2D3A4A; }
-  .zone-card { border: 1px solid #E2E8F0; border-radius: 6px; padding: 22px; margin-bottom: 24px; page-break-inside: avoid; }
-  .zone-name { font-size: 13px; font-weight: 700; color: #1B2A41; margin-bottom: 10px; }
-  .label { font-size: 10px; font-weight: 700; color: #5C6F7E; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 14px; margin-bottom: 6px; }
-  .signatory { padding: 22px 24px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; margin-top: 24px; page-break-inside: avoid; }
-  .signatory-row { display: flex; gap: 28px; margin-bottom: 16px; }
+  /* v2.2 visual upgrade — CTSI-format polish using PSEC navy palette.
+     Section bands, black-band table headers, justified body, formal
+     letter typography. */
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: Cambria, 'Times New Roman', serif;
+    font-size: 12pt; color: #1f2937; line-height: 1.55;
+    padding: 0.85in 0.95in; max-width: 8.5in; margin: 0 auto; background: #fff;
+  }
+  h1 { font-size: 22pt; font-weight: 700; color: #0F1A2A; margin-bottom: 4px; letter-spacing: -0.3px; }
+  h2 {
+    /* v2.2 — section band: full-width PSEC-navy fill, white text. CTSI's
+       sage-green section dividers; navy here aligns with PSEC brand. */
+    font-size: 13pt; font-weight: 700; color: #fff;
+    background: #1B2A41; padding: 8px 14px;
+    margin: 28px 0 16px; letter-spacing: 0.5px;
+    page-break-after: avoid;
+  }
+  h3 { font-size: 12pt; font-weight: 700; color: #1B2A41; margin: 20px 0 8px; letter-spacing: 0.2px; }
+  p { margin-bottom: 11px; line-height: 1.7; text-align: justify; hyphens: auto; }
+  ul, ol { margin: 8px 0 14px 28px; }
+  li { margin-bottom: 5px; line-height: 1.65; text-align: justify; }
+  strong { color: #0F1A2A; }
+
+  table { width: 100%; border-collapse: collapse; font-family: Cambria, 'Times New Roman', serif; margin: 8px 0 18px; }
+  /* v2.2 — major data tables use black-band headers (CTSI Table I style). */
+  table.data-table th {
+    background: #0F1A2A; color: #fff; text-transform: uppercase; letter-spacing: 0.6px;
+    font-size: 10pt; font-weight: 700; padding: 9px 10px; text-align: left; border: 1px solid #0F1A2A;
+  }
+  table.data-table td { padding: 8px 10px; border: 1px solid #cbd5e1; font-size: 10.5pt; vertical-align: top; }
+  table.data-table tbody tr:nth-child(even) td { background: #F8FAFC; }
+  th { text-align: left; padding: 8px 10px; background: #F3F4F6; font-size: 10pt; font-weight: 700; color: #5C6F7E; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #D1D5DB; }
+  td { padding: 8px 10px; border-bottom: 1px solid #E5E7EB; font-size: 11pt; vertical-align: top; }
+
+  /* ── Cover page ── */
+  .cover {
+    text-align: center; padding: 1.4in 0 0.8in; border-bottom: 3px double #1B2A41;
+    margin-bottom: 0.5in; page-break-after: always;
+  }
+  .cover-firm { font-size: 14pt; font-weight: 700; color: #1B2A41; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .cover-firm-sub { font-size: 11pt; color: #5C6F7E; margin-bottom: 36px; }
+  .cover-title {
+    font-size: 28pt; font-weight: 700; color: #0F1A2A;
+    margin: 0.4in 0 8px; letter-spacing: 0.4px;
+  }
+  .cover-rule { width: 60px; height: 3px; background: #1B2A41; margin: 32px auto; }
+  .cover-meta { font-size: 11pt; color: #2D3A4A; line-height: 2; }
+  .cover-meta strong { color: #0F1A2A; font-weight: 700; }
+  .cover-status {
+    display: inline-block; padding: 6px 16px; background: #1B2A41; color: #fff;
+    border-radius: 2px; font-size: 10pt; font-weight: 700;
+    margin-top: 18px; letter-spacing: 0.7px; text-transform: uppercase;
+  }
+  .cover-methodology { font-size: 10pt; color: #5C6F7E; margin-top: 0.4in; font-style: italic; }
+  .draft-notice { padding: 12px 16px; background: #FFFBEB; border: 1px solid #FBBF24; border-radius: 4px; font-size: 11pt; color: #92400E; margin-top: 20px; line-height: 1.6; }
+  .draft-watermark { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-30deg); font-size: 96pt; color: rgba(251, 191, 36, 0.10); font-weight: 800; pointer-events: none; z-index: 0; letter-spacing: 6px; }
+
+  /* ── Verbatim engine paragraph (Methodology Disclosure) ── */
+  .verbatim {
+    padding: 14px 20px; background: #F8FAFC; border-left: 4px solid #1B2A41;
+    margin-bottom: 18px; font-size: 12pt; line-height: 1.75; font-style: italic;
+  }
+
+  /* ── Executive Summary metadata table (CTSI 4-row) ── */
+  .exec-meta-table { margin: 14px 0 22px; border: 1px solid #1B2A41; }
+  .exec-meta-table td {
+    font-size: 11pt; padding: 9px 14px; border: 1px solid #B8C4D6;
+    line-height: 1.45;
+  }
+  /* Label cells (1st and 3rd column) get the navy band fill */
+  .exec-meta-table td.label {
+    background: #1B2A41; color: #fff; font-weight: 700;
+    text-transform: none; letter-spacing: 0.3px; width: 18%;
+  }
+  .exec-meta-table td.value { width: 32%; color: #1f2937; }
+
+  /* ── Executive Summary narrative blocks (Scope/Results/Obs/Recs) ── */
+  .exec-block { margin-bottom: 22px; border: 1px solid #B8C4D6; }
+  .exec-block-header {
+    background: #1B2A41; color: #fff; font-weight: 700;
+    font-size: 12pt; padding: 9px 14px; letter-spacing: 0.4px;
+  }
+  .exec-block-body { padding: 14px 18px; background: #fff; }
+  .exec-block-body ul { margin-left: 24px; }
+
+  /* ── Letter-format transmittal ── */
+  .letter { margin: 0 0.1in 32px; }
+  .letter-date { margin-bottom: 22px; font-size: 12pt; }
+  .letter-recipient { margin-bottom: 22px; font-size: 12pt; line-height: 1.55; }
+  .letter-recipient .org { font-weight: 700; }
+  .letter-re-block { margin-bottom: 22px; font-size: 12pt; line-height: 1.7; }
+  .letter-re-block .re-label { font-weight: 700; display: inline-block; min-width: 50px; }
+  .letter-re-block .re-text { font-weight: 700; text-transform: uppercase; }
+  .letter-project-line { margin-top: 6px; font-weight: 700; }
+  .letter-salutation { margin: 22px 0 14px; font-size: 12pt; }
+  .letter-body { margin-bottom: 14px; font-size: 12pt; line-height: 1.7; text-align: justify; hyphens: auto; }
+  .letter-closing { margin: 28px 0 6px; font-size: 12pt; }
+  .letter-firm {
+    margin-bottom: 0.6in; font-size: 12pt; font-weight: 700;
+    font-style: italic; letter-spacing: 0.5px;
+  }
+  .letter-signatories { display: flex; gap: 0.4in; flex-wrap: wrap; }
+  .signature-line { flex: 1; min-width: 240px; margin-bottom: 18px; }
+  .signature-image-area { height: 0.5in; margin-bottom: 4px; }
+  .signature-rule {
+    margin-bottom: 5px; border-bottom: 1px solid #1B2A41; height: 1px; width: 80%;
+  }
+  .signature-name { font-size: 12pt; font-weight: 700; color: #0F1A2A; }
+  .signature-title { font-size: 11pt; color: #2D3A4A; }
+  .signature-meta { font-size: 10pt; color: #5C6F7E; margin-top: 2px; }
+
+  /* ── Professional opinion call-out (Executive Summary) ── */
+  .opinion-card {
+    padding: 18px 22px; background: #F8FAFC; border: 1px solid #B8C4D6;
+    border-left: 4px solid #1B2A41; margin: 0 0 22px; page-break-inside: avoid;
+  }
+  .opinion-tier {
+    font-size: 10pt; font-weight: 700; color: #1B2A41;
+    text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px;
+  }
+  .opinion-text { font-size: 12pt; line-height: 1.7; color: #1f2937; font-weight: 600; }
+
+  /* ── Zone cards ── */
+  .zone-card {
+    border: 1px solid #B8C4D6; border-top: 3px solid #1B2A41;
+    padding: 22px 24px; margin-bottom: 22px; page-break-inside: avoid;
+  }
+  .zone-name { font-size: 14pt; font-weight: 700; color: #0F1A2A; margin-bottom: 12px; }
+  .label {
+    font-size: 10pt; font-weight: 700; color: #1B2A41;
+    text-transform: uppercase; letter-spacing: 0.6px;
+    margin: 16px 0 6px; padding-bottom: 3px; border-bottom: 1px solid #B8C4D6;
+  }
+
+  /* ── Signatory block (separate from letter format) ── */
+  .signatory {
+    padding: 24px 26px; background: #F8FAFC; border: 1px solid #B8C4D6;
+    border-top: 3px solid #1B2A41; margin-top: 30px; page-break-inside: avoid;
+  }
+  .signatory-row { display: flex; gap: 0.4in; margin-bottom: 14px; }
   .signatory-block { flex: 1; }
-  .signatory-name { font-size: 13px; font-weight: 700; color: #1B2A41; margin-bottom: 2px; }
-  .signatory-creds { font-size: 11px; color: #5C6F7E; margin-bottom: 4px; }
-  .signatory-meta { font-size: 10px; color: #94A3B8; line-height: 1.6; }
-  .footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #E2E8F0; font-size: 9px; color: #94A3B8; text-align: center; line-height: 1.8; }
+  .signatory-name { font-size: 13pt; font-weight: 700; color: #0F1A2A; margin-bottom: 3px; }
+  .signatory-creds { font-size: 11pt; color: #2D3A4A; margin-bottom: 6px; }
+  .signatory-meta { font-size: 10pt; color: #5C6F7E; line-height: 1.6; }
+
+  /* ── Methodology / Sampling section ── */
+  .methodology-instrument { margin-bottom: 12px; }
+
+  .footer {
+    margin-top: 0.4in; padding-top: 14px; border-top: 1px solid #B8C4D6;
+    font-size: 9pt; color: #5C6F7E; text-align: center; line-height: 1.8;
+  }
   .pg-break { page-break-before: always; }
-  @page { margin: 1in; }
-  @media print { body { padding: 0; font-size: 11px; } h2 { page-break-after: avoid; } .zone-card, .signatory, .opinion-card { page-break-inside: avoid; } .draft-watermark { position: fixed; } }
+
+  @page {
+    margin: 0.85in 0.95in;
+    @bottom-center { content: "Indoor Air Quality Evaluation — PSEC Project " counter(page) " of " counter(pages); font-family: Cambria, serif; font-size: 9pt; color: #5C6F7E; }
+  }
+  @media print {
+    body { padding: 0; font-size: 11pt; }
+    h2 { page-break-after: avoid; }
+    .zone-card, .signatory, .opinion-card, .exec-block, .letter { page-break-inside: avoid; }
+    .draft-watermark { position: fixed; }
+  }
 `
 
 export function generateClientReportHTML(result, options = {}) {
@@ -122,7 +231,7 @@ function generateFullClientHTML(report, options) {
 <body>
   ${showWatermark ? '<div class="draft-watermark">DRAFT</div>' : ''}
 
-  ${renderCover(cover, report.reviewStatus)}
+  ${renderCover(cover, report.reviewStatus, report.transmittalLetter?.projectNumber || report.meta?.projectNumber)}
 
   ${report.transmittalLetter ? renderTransmittalLetter(report.transmittalLetter) : `<h2>Transmittal</h2><div class="verbatim">${esc(report.transmittal)}</div>`}
 
@@ -160,15 +269,23 @@ function generateFullClientHTML(report, options) {
 </html>`
 }
 
-function renderCover(cover, reviewStatus) {
+function renderCover(cover, reviewStatus, projectNumber) {
+  // v2.2 §4 sneak peek — formal cover page mirroring CTSI layout.
+  // Larger title, double rule, project number prominently displayed,
+  // status pill in PSEC navy.
   return `<div class="cover">
     <div class="cover-firm">${esc(cover.preparedBy)}</div>
-    <div class="cover-title">${esc(cover.title)}</div>
+    <div class="cover-title">INDOOR AIR QUALITY</div>
+    <div class="cover-title" style="margin-top:0;">EVALUATION</div>
     <div class="cover-rule"></div>
     <div class="cover-meta">
-      <strong>Site:</strong> ${esc(cover.facility)}<br>
-      <strong>Location:</strong> ${esc(cover.location) || '—'}<br>
-      <strong>Assessment Date:</strong> ${esc(cover.date)}<br>
+      <div style="text-transform:uppercase; letter-spacing:0.6px; font-size:9pt; color:#5C6F7E; margin-bottom:6px;">Performed at</div>
+      <div style="font-size:13pt; font-weight:700; color:#0F1A2A; margin-bottom:6px;">${esc(cover.facility)}</div>
+      <div style="font-size:11pt; color:#2D3A4A; margin-bottom:24px;">${esc(cover.location) || ''}</div>
+      <div style="text-transform:uppercase; letter-spacing:0.6px; font-size:9pt; color:#5C6F7E; margin-bottom:6px;">Assessment Date</div>
+      <div style="font-size:11pt; color:#0F1A2A; margin-bottom:20px;">${esc(cover.date)}</div>
+      ${projectNumber ? `<div style="text-transform:uppercase; letter-spacing:0.6px; font-size:9pt; color:#5C6F7E; margin-bottom:6px;">PSEC Project Number</div>
+      <div style="font-size:11pt; color:#0F1A2A; font-weight:600; margin-bottom:0;">${esc(projectNumber)}</div>` : ''}
     </div>
     <div class="cover-status">${esc(REVIEW_STATUS_LABEL[reviewStatus] || cover.status)}</div>
     <div class="cover-methodology">${esc(cover.methodologyLine)}</div>
@@ -177,52 +294,80 @@ function renderCover(cover, reviewStatus) {
 }
 
 function renderExecSummary(summary) {
-  // v2.2 §6 — CTSI-format Executive Summary: 4-row metadata table +
-  // four narrative blocks (Scope of Work / Results / Observations /
-  // Recommendations). The 29-bullet "summaryOfFindings" exhaust dump
-  // is removed from rendered output.
+  // v2.2 §6 — CTSI-format Executive Summary: 4-row metadata table with
+  // navy label cells, four narrative blocks each in their own framed
+  // section with PSEC-navy header bands (mirrors CTSI sage bands).
   const md = summary.metadataTable
   const metadataTable = md ? `
     <table class="exec-meta-table">
-      <tr><td><strong>Client Name:</strong> ${esc(md.clientName)}</td><td><strong>Report Date:</strong> ${esc(md.reportDate)}</td></tr>
-      <tr><td><strong>Project Number:</strong> ${esc(md.projectNumber)}</td><td><strong>Survey Date:</strong> ${esc(md.surveyDate)}</td></tr>
-      <tr><td><strong>Project Address:</strong> ${esc(md.projectAddress)}</td><td><strong>Survey Area:</strong> ${esc(md.surveyArea)}</td></tr>
-      <tr><td><strong>Requested By:</strong> ${esc(md.requestedBy)}</td><td><strong>Site Contact:</strong> ${esc(md.siteContact)}</td></tr>
+      <tr>
+        <td class="label">Client Name</td><td class="value">${esc(md.clientName)}</td>
+        <td class="label">Report Date</td><td class="value">${esc(md.reportDate)}</td>
+      </tr>
+      <tr>
+        <td class="label">Project Number</td><td class="value">${esc(md.projectNumber)}</td>
+        <td class="label">Survey Date(s)</td><td class="value">${esc(md.surveyDate)}</td>
+      </tr>
+      <tr>
+        <td class="label">Project Address</td><td class="value">${esc(md.projectAddress)}</td>
+        <td class="label">Survey Area</td><td class="value">${esc(md.surveyArea)}</td>
+      </tr>
+      <tr>
+        <td class="label">Requested By</td><td class="value">${esc(md.requestedBy)}</td>
+        <td class="label">Site Contact</td><td class="value">${esc(md.siteContact)}</td>
+      </tr>
     </table>` : ''
 
-  const obsBlock = summary.observations && summary.observations.length > 0
-    ? `<h3>Observations</h3><ul>${summary.observations.map(o => `<li>${esc(o)}</li>`).join('')}</ul>`
-    : ''
-  const recBlock = summary.recommendations && summary.recommendations.length > 0
-    ? `<h3>Recommendations</h3><ul>${summary.recommendations.map(a => `<li><strong>${esc(PRIORITY_LABEL[a.priority] || a.priority)}</strong> (${esc(a.timeframe)}): ${esc(a.action)}${a.standardReference ? ` <em>— ${esc(a.standardReference)}</em>` : ''}</li>`).join('')}</ul>`
-    : ''
-
-  return `${metadataTable}
+  const opinionCard = `
     <div class="opinion-card">
       <div class="opinion-tier">Overall Professional Opinion</div>
       <div class="opinion-text">${esc(summary.overallProfessionalOpinionLanguage)}</div>
-    </div>
-    ${summary.scopeOfWork ? `<h3>Scope of Work</h3><p>${esc(summary.scopeOfWork)}</p>` : ''}
-    ${summary.resultsNarrative ? `<h3>Results</h3><p>${esc(summary.resultsNarrative)}</p>` : ''}
-    ${obsBlock}
-    ${recBlock}`
+    </div>`
+
+  const block = (title, body) => `
+    <div class="exec-block">
+      <div class="exec-block-header">${esc(title)}</div>
+      <div class="exec-block-body">${body}</div>
+    </div>`
+
+  const scopeBlock = summary.scopeOfWork
+    ? block('Scope of Work', `<p>${esc(summary.scopeOfWork)}</p>`)
+    : ''
+  const resultsBlock = summary.resultsNarrative
+    ? block('Results', `<p>${esc(summary.resultsNarrative)}</p>`)
+    : ''
+  const obsBlock = summary.observations && summary.observations.length > 0
+    ? block('Observations', `<ul>${summary.observations.map(o => `<li>${esc(o)}</li>`).join('')}</ul>`)
+    : ''
+  const recBlock = summary.recommendations && summary.recommendations.length > 0
+    ? block('Recommendations', `<ul>${summary.recommendations.map(a => `<li><strong>${esc(PRIORITY_LABEL[a.priority] || a.priority)}</strong> (${esc(a.timeframe)}): ${esc(a.action)}${a.standardReference ? ` <em>— ${esc(a.standardReference)}</em>` : ''}</li>`).join('')}</ul>`)
+    : ''
+
+  return `${metadataTable}${opinionCard}${scopeBlock}${resultsBlock}${obsBlock}${recBlock}`
 }
 
 function renderTransmittalLetter(letter) {
-  // v2.2 §3 — letter-format transmittal: date, recipient block,
-  // subject, salutation, body paragraphs, closing, signatory block.
+  // v2.2 §3 — letter-format transmittal in CTSI style: date, recipient
+  // block (organization in bold), RE: subject in ALL CAPS BOLD,
+  // PROJECT # line in BOLD, salutation, justified body, italicized
+  // firm name in caps, two-column signature lines with space for wet
+  // signatures.
   const r = letter.recipient
+  const subjectClean = letter.subjectLine
+    .replace(/^INDOOR AIR QUALITY EVALUATION PERFORMED AT:\s*/i, '')
+    .trim()
   const recipientBlock = `
     <div class="letter-recipient">
-      ${r.fullName ? `<div>${esc(r.fullName)}${r.title ? `, ${esc(r.title)}` : ''}</div>` : ''}
-      ${r.organization ? `<div>${esc(r.organization)}</div>` : ''}
+      ${r.fullName ? `<div>${esc(r.fullName)}${r.title ? `<br>${esc(r.title)}` : ''}</div>` : ''}
+      ${r.organization ? `<div class="org">${esc(r.organization)}</div>` : ''}
       ${r.addressLine1 ? `<div>${esc(r.addressLine1)}</div>` : ''}
       ${r.addressLine2 ? `<div>${esc(r.addressLine2)}</div>` : ''}
       ${r.city || r.state || r.zip ? `<div>${esc([r.city, r.state, r.zip].filter(Boolean).join(', '))}</div>` : ''}
     </div>`
   const sigLines = letter.preparedBy.map(s => `
     <div class="signature-line">
-      <div class="signature-rule">________________________________</div>
+      <div class="signature-image-area"></div>
+      <div class="signature-rule"></div>
       <div class="signature-name">${esc(s.fullName)}${s.credentials.length > 0 ? `, ${esc(s.credentials.join(', '))}` : ''}</div>
       <div class="signature-title">${esc(s.title)}</div>
       ${s.licenseNumbers && s.licenseNumbers.length > 0 ? `<div class="signature-meta">License: ${esc(s.licenseNumbers.join(', '))}</div>` : ''}
@@ -231,8 +376,10 @@ function renderTransmittalLetter(letter) {
     <div class="letter">
       <div class="letter-date">${esc(letter.date)}</div>
       ${recipientBlock}
-      <div class="letter-project"><strong>Project:</strong> ${esc(letter.projectNumber)}</div>
-      <div class="letter-subject"><strong>${esc(letter.subjectLine)}</strong></div>
+      <div class="letter-re-block">
+        <span class="re-label">RE:</span> <span class="re-text">${esc(subjectClean || letter.subjectLine)}</span>
+        <div class="letter-project-line">PROJECT # ${esc(letter.projectNumber)}</div>
+      </div>
       <div class="letter-salutation">${esc(letter.salutation)}</div>
       ${letter.bodyParagraphs.map(p => `<p class="letter-body">${esc(p)}</p>`).join('')}
       <p class="letter-closing">${esc(letter.closing)}</p>
