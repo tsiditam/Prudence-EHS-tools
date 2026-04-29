@@ -206,6 +206,21 @@ export interface AssessmentScore {
    * renderer's Appendix A per-zone tabulation. Same opacity rationale.
    */
   readonly legacyZonesData?: unknown
+  /**
+   * v2.5 §5 — optional photo set documented during the assessment.
+   * Consumed by the Appendix C builder. Type opaque to avoid
+   * coupling the engine domain to the report layer; the bridge or
+   * caller populates it with `ReadonlyArray<AssessmentPhoto>` (see
+   * src/engine/report/appendix-c.ts).
+   */
+  readonly photos?: unknown
+  /**
+   * v2.5 §7 — optional map keyed by instrument model with the
+   * count of readings tied to each. When present, instruments with
+   * zero readings are filtered from Sampling Methodology and
+   * Appendix B.
+   */
+  readonly readingsByInstrument?: Readonly<Record<string, number>>
 }
 
 export interface DefensibilityFlags {

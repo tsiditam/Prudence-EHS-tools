@@ -12,7 +12,8 @@
  * path because it is operator-facing, not client-facing.
  */
 
-import { Document, Packer, SectionType } from 'docx'
+import { Document, Packer } from 'docx'
+import { BODY_SECTION_PROPERTIES } from './docx/page-setup'
 import { DOCX_STYLES } from './docx/styles'
 import { buildCoverPage } from './docx/sections-core'
 import { buildSamplingPlan, buildRecommendations } from './docx/sections-recommendations'
@@ -95,10 +96,9 @@ async function generateConsultantDocx(ctx, data) {
     sections: [
       cover,
       {
-        properties: {
-          type: SectionType.NEXT_PAGE,
-          page: { margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 } },
-        },
+        // v2.5.1 — explicit Letter portrait + 1-inch margins so the
+        // body fills the 6.5-inch content area on US Letter paper.
+        properties: BODY_SECTION_PROPERTIES,
         children: main,
       },
     ],
@@ -138,10 +138,8 @@ async function generateTechnicalDocx(ctx) {
     sections: [
       buildCoverPage(ctx),
       {
-        properties: {
-          type: SectionType.NEXT_PAGE,
-          page: { margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 } },
-        },
+        // v2.5.1 — explicit Letter portrait + 1-inch margins.
+        properties: BODY_SECTION_PROPERTIES,
         children: mainChildren,
       },
     ],

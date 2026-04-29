@@ -28,11 +28,34 @@ import {
   COVER_METHODOLOGY_LINE, METHODOLOGY_DISCLOSURE_PARAGRAPH,
   buildTransmittalBody, buildTransmittalSubject, buildTransmittalSalutation,
 } from './templates'
-import { buildSamplingMethodology } from './methodology-narrative'
+import {
+  buildSamplingMethodology,
+  filterInstrumentsWithReadings,
+} from './methodology-narrative'
 import { groupFindingsByDomain, getShortStatement } from './finding-groups'
 import { synthesizeZone } from './synthesis'
 import { validateReportContent } from './cih-validation'
+import { buildAppendixC, type AssessmentPhoto } from './appendix-c'
+import {
+  collectCitations,
+  formatCitation,
+  ENGINE_VERSION_FOOTER,
+} from './appendix-d'
+import {
+  consolidateExecutiveSummaryFindings,
+  renderExecSummaryEntry,
+  type ExecSummaryFindingEntry,
+} from './exec-summary-findings'
+import { lookupParameterProse as lookupParameterProseForCitations } from './parameter-prose'
 import type { TransmittalLetter, SignatoryLine } from '../types/domain'
+
+const NOT_SPECIFIED = 'Not Specified'
+
+function fallbackOrNotSpecified(value: string | undefined | null): string {
+  if (value === undefined || value === null) return NOT_SPECIFIED
+  const v = String(value).trim()
+  return v.length > 0 ? v : NOT_SPECIFIED
+}
 
 export function renderClientReport(
   score: AssessmentScore,
@@ -105,8 +128,19 @@ export function renderClientReport(
     preparedBy: reviewerSignatory ? [preparingSignatory, reviewerSignatory] : [preparingSignatory],
   }
 
-  // v2.2 §7 — Sampling Methodology section
-  const samplingMethodology = buildSamplingMethodology(meta.instrumentsUsed)
+  // v2.2 §7 / v2.5 §7 — Sampling Methodology section. When the
+  // upstream caller provides a readingsByInstrument map (count of
+  // readings tied to each instrument), instruments with zero readings
+  // are filtered out and a warning is surfaced. Filtered list is
+  // reused for Appendix B so both stay aligned.
+  const readingsByInstrument = score.readingsByInstrument ?? {}
+  const samplingMethodology = buildSamplingMethodology(meta.instrumentsUsed, {
+    readingsByInstrument,
+  })
+  const filteredInstruments = filterInstrumentsWithReadings(
+    meta.instrumentsUsed,
+    Object.keys(readingsByInstrument).length > 0 ? readingsByInstrument : undefined,
+  )
 
   // v2.2 §1b — partition findings by scope before rendering. Building-
   // scoped findings (HVAC, water management) render once in the
@@ -205,15 +239,19 @@ export function renderClientReport(
   const surveyArea = score.zones.length > 0
     ? score.zones.map(z => z.zoneName).join(', ')
     : 'Not specified'
+  // v2.5 §1 — required recipient fields render as "Not Specified"
+  // (literal text, not an em-dash) when the underlying value is
+  // empty. Em-dashes are reserved for optional cells (e.g. the
+  // Recommendations Register reference column).
   const metadataTable: ExecSummaryMetadata = {
-    clientName: meta.transmittalRecipient.fullName,
+    clientName: fallbackOrNotSpecified(meta.transmittalRecipient.fullName),
     reportDate: reportDateFormatted,
-    projectNumber: meta.projectNumber,
-    surveyDate: meta.assessmentDate,
-    projectAddress: meta.siteAddress,
-    surveyArea,
-    requestedBy: meta.transmittalRecipient.organization,
-    siteContact: meta.transmittalRecipient.fullName,
+    projectNumber: fallbackOrNotSpecified(meta.projectNumber),
+    surveyDate: fallbackOrNotSpecified(meta.assessmentDate),
+    projectAddress: fallbackOrNotSpecified(meta.siteAddress),
+    surveyArea: fallbackOrNotSpecified(surveyArea),
+    requestedBy: fallbackOrNotSpecified(meta.transmittalRecipient.organization),
+    siteContact: fallbackOrNotSpecified(meta.transmittalRecipient.fullName),
   }
 
   // v2.3 §2 — when the Building and System Conditions section is
@@ -275,6 +313,15 @@ export function renderClientReport(
   // friendly domain. Empty groups are omitted.
   const findingsByGroup = groupFindingsByDomain(significantFindings)
 
+  // v2.5 §6 — consolidate findings across zones into <=6 entries
+  // sorted by severity → confidence → coverage. Each entry carries
+  // an "Observed in: <zone list>" suffix when zone-scoped.
+  const consolidatedFindings: ReadonlyArray<ExecSummaryFindingEntry> =
+    consolidateExecutiveSummaryFindings(score.zones, buildingActiveFindings)
+  const summaryOfFindings: ReadonlyArray<string> = consolidatedFindings.map(
+    renderExecSummaryEntry,
+  )
+
   const executiveSummary: ExecutiveSummary = {
     metadataTable,
     scopeOfWork,
@@ -284,9 +331,12 @@ export function renderClientReport(
     recommendations: execRecommendations,
     overallProfessionalOpinion: siteOpinion,
     overallProfessionalOpinionLanguage: OPINION_TIER_LANGUAGE[siteOpinion],
-    // Backward-compat fields preserved on the type.
+    // v2.5 §6 — overview / summaryOfFindings / priorityActions remain
+    // for back-compat consumers, but summaryOfFindings now carries
+    // the consolidated cross-zone Exec Summary entries (max 6 + an
+    // optional truncation note).
     overview,
-    summaryOfFindings: significantFindings.map(f => f.approvedNarrativeIntent),
+    summaryOfFindings,
     priorityActions: immediateActions,
   }
 
@@ -344,11 +394,19 @@ export function renderClientReport(
   // unconditionally so the deliverable always has a tabular evidence
   // trail; Appendix F (glossary) renders unconditionally as well.
   const legacyZonesData = (score.legacyZonesData ?? []) as ReadonlyArray<{ [k: string]: unknown }>
+  // v2.5 §7 — Appendix B aligned with the filtered instrument set.
+  const metaForAppendixB: typeof meta = {
+    ...meta,
+    instrumentsUsed: filteredInstruments,
+  }
   const appendixA = buildAppendixA(legacyZonesData, parameterRanges)
-  const appendixB = buildAppendixB(meta, score.zones, legacyZonesData)
-  const appendixC = buildAppendixC()
-  const appendixD = buildAppendixD()
-  const appendixE = buildAppendixE(meta)
+  const appendixB = buildAppendixB(metaForAppendixB, score.zones, legacyZonesData)
+  // v2.5 §5 — Appendix C deterministic logic. Empty photos array
+  // produces a single deterministic sentence; non-empty input
+  // produces a captioned list with stable sort.
+  const photoSet = (score.photos ?? []) as ReadonlyArray<AssessmentPhoto>
+  const appendixC = buildAppendixC(photoSet)
+  const appendixE = buildAppendixE(metaForAppendixB)
   const appendixF = buildAppendixF()
 
   // Appendix — full structured shape built below in §3 wiring.
@@ -366,13 +424,26 @@ export function renderClientReport(
         })),
       }
     : undefined
+  // v2.5 §2 — Appendix D citation walker runs after the rest of the
+  // report skeleton is composed so it can scan every Citation
+  // attached to parameter prose, instrument specs, finding
+  // limitations, and recommended-action standardReferences. We
+  // build a preliminary report with a stub Appendix D, run the
+  // walker, then replace Appendix D with the populated version.
+  const appendixDStub: AppendixD = {
+    title: 'APPENDIX D — Standards and Citations',
+    description: '',
+    citations: [],
+    displayLines: [],
+    engineVersionLine: '',
+  }
   const appendix: ClientReportAppendix = {
     standardsManifest: [],
     ...(legacyAppendixIndex ? { assessmentIndexInformationalOnly: legacyAppendixIndex } : {}),
     appendixA,
     appendixB,
     appendixC,
-    appendixD,
+    appendixD: appendixDStub,
     appendixE,
     appendixF,
   }
@@ -418,7 +489,7 @@ export function renderClientReport(
     entries: tocEntries,
   }
 
-  const report: ClientReport = {
+  const reportSkeleton: ClientReport = {
     engineVersion: ENGINE_VERSION,
     generatedAt: Date.now(),
     meta,
@@ -446,6 +517,35 @@ export function renderClientReport(
     appendix,
   }
 
+  // v2.5 §2 — Walk the report skeleton (plus parameter-prose
+  // applicableStandards arrays) and pull every Citation + every
+  // RecommendedAction standardReference into a deduped, sorted
+  // list. This produces the actual Appendix D body.
+  const proseCitations = collectProseCitations(parameterRanges)
+  const collectedCitations = collectCitations({
+    skeleton: reportSkeleton,
+    proseCitations,
+  })
+  const appendixD: AppendixD = {
+    title: 'APPENDIX D — Standards and Citations',
+    description:
+      'Authoritative regulatory, consensus-standard, peer-reviewed, and manufacturer references invoked in this report. Each entry below is the canonical bibliographic reference for an in-text citation appearing in Results subsections, findings, or recommended actions. The engine-version footer at the bottom of this appendix is the single canonical record of the platform build that produced this report.',
+    citations: collectedCitations.map(c => ({
+      source: c.source,
+      authority: c.authority,
+      edition: c.edition,
+      section: c.section,
+      url: c.url,
+      organization: c.organization,
+    })),
+    displayLines: collectedCitations.map(formatCitation),
+    engineVersionLine: ENGINE_VERSION_FOOTER,
+  }
+  const report: ClientReport = {
+    ...reportSkeleton,
+    appendix: { ...appendix, appendixD },
+  }
+
   // CIH defensibility §12 — run the validation layer over the
   // assembled report. The validation result is attached to the
   // result envelope so downstream renderers (PrintReport, DocxReport)
@@ -454,6 +554,26 @@ export function renderClientReport(
   const validation = validateReportContent(report)
 
   return { kind: 'report', report, validation }
+}
+
+/**
+ * v2.5 §2 — gather Citations from the parameter prose modules used by
+ * the Results section. The walker still discovers the inline
+ * Citations attached to standardReference strings on
+ * RecommendedActions, but parameter prose `applicableStandards` are
+ * the canonical bibliography for the standards-background sections.
+ */
+function collectProseCitations(
+  ranges: ParameterRangeSet,
+): ReadonlyArray<unknown> {
+  const out: unknown[] = []
+  for (const key of PARAMETER_ORDER) {
+    const range = ranges[key]
+    if (!range || range.count === 0) continue
+    const prose = lookupParameterProseForCitations(key)
+    for (const c of prose.applicableStandards) out.push(c)
+  }
+  return out
 }
 
 // ── v2.2 §6 — first-sentence helper for CTSI-style observations ──
@@ -660,25 +780,6 @@ function buildAppendixB(
       'Per-instrument and per-zone documentation supporting reproducibility of the field measurements summarized in the Results section. Sample locations within each zone were selected to be representative of the occupied space.',
     instrumentRows,
     zoneRows,
-  }
-}
-
-function buildAppendixC(): AppendixC {
-  return {
-    title: 'APPENDIX C — Photo Documentation',
-    description:
-      'Photographs documenting field observations are referenced inline within the relevant zone-by-zone or building-and-system findings where available. No additional photo documentation is included with this report.',
-    photos: [],
-  }
-}
-
-function buildAppendixD(): AppendixD {
-  return {
-    title: 'APPENDIX D — Standards and Citations',
-    description:
-      'Authoritative regulatory, consensus-standard, and peer-reviewed references invoked in this report. Specific citations are also embedded inline within the relevant Results subsections, findings, and recommended actions.',
-    citations: [],
-    engineVersionLine: `This report was generated using ${ENGINE_VERSION}.`,
   }
 }
 
