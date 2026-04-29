@@ -45,6 +45,10 @@ import IHDirectory from './IHDirectory'
 import PropertyDashboard from './PropertyDashboard'
 import SpatialMap from './SpatialMap'
 import InstrumentManager from './InstrumentManager'
+import V21InternalPanel from './V21InternalPanel'
+import { useAssessment } from '../contexts/AssessmentContext.jsx'
+import { useAuth } from '../contexts/AuthContext.jsx'
+import { useStorage } from '../contexts/StorageContext.jsx'
 
 const haptic = (type) => { try { if (navigator.vibrate) navigator.vibrate(type === 'heavy' ? [30,20,30] : type === 'success' ? [10,30,10,30,10] : 12) } catch {} }
 const BETA_MODE = true // Set to false when ready to go live — re-enables all premium gates
@@ -73,20 +77,52 @@ export default function MobileApp() {
   // Responsive layout: phone=620, tablet portrait=860, tablet landscape=1080
   const contentMax = isTabletLand ? 1080 : isTablet ? 860 : 620
   const padX = isTablet ? 28 : 20
+
+  // ── Shared state from context providers ──
+  // Auth: profile/credits/admin live in AuthContext so other route components
+  // (split out in Phase 5) can read them without prop drilling.
+  const {
+    profile, setProfile,
+    credits, setCredits,
+    adminSecret, setAdminSecret,
+  } = useAuth()
+  // Storage: index of saved drafts/reports lives in StorageContext.
+  const { index, refreshIndex } = useStorage()
+  // Assessment: every field representing the assessment-in-progress lives in
+  // AssessmentContext. Local handleLogin/Logout/runScoring/setZF below still
+  // own the operations; they read/write context state via these setters.
+  const {
+    draftId, setDraftId,
+    presurvey, setPresurvey,
+    bldg, setBldg,
+    qsqi, setQsqi, dqi, setDqi, zqi, setZqi,
+    zones, setZones, curZone, setCurZone,
+    photos, setPhotos,
+    zoneScores, setZoneScores,
+    comp, setComp,
+    oshaResult, setOshaResult,
+    recs, setRecs,
+    narrative, setNarrative,
+    narrativeLoading, setNarrativeLoading,
+    samplingPlan, setSamplingPlan,
+    causalChains, setCausalChains,
+    moldResults, setMoldResults,
+    floorPlan, setFloorPlan,
+    measConf, setMeasConf,
+  } = useAssessment()
+
+  // ── Local UI state (truly component-local; not shared) ──
   const [loading, setLoading] = useState(true)
   const [isReturning, setIsReturning] = useState(false)
   const [welcomeDone, setWelcomeDone] = useState(!!sessionStorage.getItem('aiq_welcomed'))
   const [userMode, setUserMode] = useState(getMode())
   const [needsModeSelect, setNeedsModeSelect] = useState(false)
-  const [profile, setProfile] = useState(null)
   const [profileChecked, setProfileChecked] = useState(false)
   // views: dash|quickstart|zone|details|results|history|drafts|report
   const [view, setView] = useState('dash')
   const [milestone, setMilestone] = useState(null)
   const [clock, setClock] = useState(new Date())
-  const [credits, setCredits] = useState(5) // default free tier
   const [showPricing, setShowPricing] = useState(false)
-  const [adminSecret, setAdminSecret] = useState(null)
   const [showDisclaimer, setShowDisclaimer] = useState(false)
   const [connectionToast, setConnectionToast] = useState(null)
 
@@ -99,28 +135,6 @@ export default function MobileApp() {
     return () => { window.removeEventListener('offline', goOffline); window.removeEventListener('online', goOnline) }
   }, [])
 
-  const [draftId, setDraftId] = useState(null)
-  // Combined data store: quick start + details merged into presurvey + bldg
-  const [presurvey, setPresurvey] = useState({})
-  const [bldg, setBldg] = useState({})
-  const [qsqi, setQsqi] = useState(0) // quick start question index
-  const [dqi, setDqi] = useState(0)   // details question index
-  const [zones, setZones] = useState([{}])
-  const [curZone, setCurZone] = useState(0)
-  const [zqi, setZqi] = useState(0)
-  const [photos, setPhotos] = useState({})
-
-  const [zoneScores, setZoneScores] = useState([])
-  const [comp, setComp] = useState(null)
-  const [oshaResult, setOshaResult] = useState(null)
-  const [recs, setRecs] = useState(null)
-  const [narrative, setNarrative] = useState(null)
-  const [narrativeLoading, setNarrativeLoading] = useState(false)
-  const [samplingPlan, setSamplingPlan] = useState(null)
-  const [causalChains, setCausalChains] = useState([])
-  const [moldResults, setMoldResults] = useState([])
-  const [floorPlan, setFloorPlan] = useState(null)
-  const [measConf, setMeasConf] = useState(null)
   const [showPhotoSelect, setShowPhotoSelect] = useState(false)
   const [showPremiumGate, setShowPremiumGate] = useState(false)
   const [selectedPhotos, setSelectedPhotos] = useState({})
@@ -128,7 +142,6 @@ export default function MobileApp() {
   const [rTab, setRTab] = useState('overview')
   const [selZone, setSelZone] = useState(0)
 
-  const [index, setIndex] = useState({reports:[],drafts:[]})
   const [viewRpt, setViewRpt] = useState(null)
   const [delConf, setDelConf] = useState(null)
   const [zonePrompt, setZonePrompt] = useState(false)
@@ -144,8 +157,7 @@ export default function MobileApp() {
     (async () => {
       const v = await STO.hasVisited()
       setIsReturning(!!v)
-      const idx = await STO.getIndex()
-      setIndex(idx)
+      await refreshIndex()
       await STO.markVisited()
       // Try Supabase auth first, fall back to local profiles
       if (supabase) {
@@ -178,8 +190,6 @@ export default function MobileApp() {
       if (event === 'SIGNED_OUT') { setProfile(null); setView('dash') }
     })
   }, [])
-
-  const refreshIndex = async () => { setIndex(await STO.getIndex()) }
 
   const handleLogin = async (userOrProfile) => {
     if (userOrProfile?.email && supabase) {
@@ -662,6 +672,17 @@ export default function MobileApp() {
           {userMode === 'fm' && <div style={{textAlign:'center',marginTop:12,fontSize:10,color:DIM}}>{comp.count} area{comp.count!==1?'s':''} assessed</div>}
           {measConf?.overall==='Low'&&<div style={{textAlign:'center',marginTop:6,fontSize:9,color:WARN,lineHeight:1.5}}>Single-point measurement. Consider time-weighted sampling per AIHA strategy before drawing conclusions.</div>}
         </div>
+
+        {/* ── v2.1 Engine InternalReport (operator dashboard) ── */}
+        <V21InternalPanel
+          zoneScores={zoneScores}
+          comp={comp}
+          zones={zones}
+          profile={profile}
+          presurvey={presurvey}
+          bldg={bldg}
+          assessmentDate={viewRpt?.ts ? viewRpt.ts.slice(0,10) : undefined}
+        />
 
         {/* ── Expert Summary Card ── */}
         {(causalChains.length > 0 || driverCat) && (
@@ -1359,8 +1380,11 @@ export default function MobileApp() {
       </div>
 
       {/* ── Bottom Tab Bar ── */}
+      {/* iOS Safari defensives: solid background (no scroll-bleed during URL-bar transitions),
+          isolation:isolate for a clean stacking context, transform:translateZ(0) to force a
+          compositor layer so position:fixed cannot be reinterpreted relative to an ancestor. */}
       {!isAssessing && !milestone && (
-        <nav style={{position:'fixed',bottom:0,left:0,right:0,zIndex:100,background:`${BG}F5`,backdropFilter:'blur(24px) saturate(1.3)',WebkitBackdropFilter:'blur(24px) saturate(1.3)',borderTop:`1px solid ${BORDER}`,paddingBottom:'env(safe-area-inset-bottom, 0px)'}}>
+        <nav style={{position:'fixed',bottom:0,left:0,right:0,zIndex:100,background:BG,borderTop:`1px solid ${BORDER}`,paddingBottom:'env(safe-area-inset-bottom, 0px)',isolation:'isolate',transform:'translateZ(0)',WebkitTransform:'translateZ(0)'}}>
           <div style={{display:'flex',justifyContent:'space-around',alignItems:'center',height:52,maxWidth:contentMax,margin:'0 auto'}}>
             {(userMode === 'fm' ? [
               {id:'dash',label:'Home',icon:'home'},

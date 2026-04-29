@@ -24,6 +24,8 @@ function makeMinimalScore(overrides: Partial<AssessmentScore> = {}): AssessmentS
       preparingAssessor: { fullName: 'Test Assessor', credentials: ['CSP'] },
       reviewStatus: 'draft_pending_professional_review',
       issuingFirm: { name: 'Test Firm' },
+      projectNumber: 'PSEC-TEST-0001',
+      transmittalRecipient: { fullName: 'Test Recipient', organization: 'Test Org' },
     },
     ...overrides,
   }

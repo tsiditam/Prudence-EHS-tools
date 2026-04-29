@@ -28,6 +28,10 @@ export type {
 
 export * from './report/index'
 export * from './instruments/index'
+export { legacyToAssessmentScore } from './bridge/legacy'
+export type { BridgeContext, BridgeOptions } from './bridge/legacy'
+export { deriveAssessmentMeta } from './bridge/meta'
+export type { MetaInput } from './bridge/meta'
 
 // Public API
 import { renderInternalReport } from './report/internal'

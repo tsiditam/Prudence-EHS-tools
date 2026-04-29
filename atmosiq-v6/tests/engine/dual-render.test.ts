@@ -8,6 +8,7 @@ import type { AssessmentScore, Finding, FindingId, ZoneId, CategoryScore, ZoneSc
 function makeFinding(overrides: Partial<Finding> = {}): Finding {
   return {
     id: 'F-01' as FindingId, category: 'Contaminants', zoneId: 'Z-01' as ZoneId,
+    scope: 'zone',
     severityInternal: 'high', titleInternal: 'CO screening elevated',
     observationInternal: 'CO at 45 ppm via grab sample', deductionInternal: 12,
     conditionType: 'co_screening_elevated', confidenceTier: 'provisional_screening_level',
@@ -44,6 +45,8 @@ function makeScore(): AssessmentScore {
       preparingAssessor: { fullName: 'Tsidi Tamakloe', credentials: ['CSP'] },
       reviewStatus: 'draft_pending_professional_review',
       issuingFirm: { name: 'Prudence Safety & Environmental Consulting, LLC', contact: { email: 'tsidi@prudenceehs.com', phone: '301-541-8362' } },
+      projectNumber: 'PSEC-TEST-0001',
+      transmittalRecipient: { fullName: 'Test Recipient', organization: 'Test Client Org' },
     },
   }
 }

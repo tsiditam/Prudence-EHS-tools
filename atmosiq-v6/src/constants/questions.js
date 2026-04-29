@@ -15,6 +15,16 @@ export const Q_PRESURVEY = [
   { id:'ps_assessor',            sec:'Assessor',      q:'Assessor name and credentials',        t:'text', req:1, ic:'👤', ph:'e.g. J. Smith, CIH, CSP' },
   { id:'ps_assessor_certs',      sec:'Assessor',      q:'Certifications and licenses held',     t:'multi',       ic:'🎓', opts:['CIH','CIH-in-Training','CSP','CHMM','ACAC CIEC','ACAC CMC','ACAC CMI','NYSDOL Mold Assessor','State IH License','OSHA 30-Hour','Other'] },
   { id:'ps_assessor_exp',        sec:'Assessor',      q:'Years of IH/EHS experience',           t:'ch',          ic:'📅', opts:['1-3 years','3-5 years','5-10 years','10-20 years','20+ years'] },
+  // Client / Recipient — drives the transmittal letter and exec summary metadata table
+  { id:'ps_project_number',      sec:'Client',        q:'PSEC project number',                  t:'text', sk:1,  ic:'🏷️', ph:'e.g. PSEC-2026-0042' },
+  { id:'ps_recipient_name',      sec:'Client',        q:'Recipient name',                       t:'text', sk:1,  ic:'👤', ph:'e.g. Sean Navins' },
+  { id:'ps_recipient_title',     sec:'Client',        q:'Recipient title',                      t:'text', sk:1,  ic:'💼', ph:'e.g. Chief Engineer or Mr.' },
+  { id:'ps_recipient_organization', sec:'Client',     q:'Recipient organization',               t:'text', sk:1,  ic:'🏢', ph:'e.g. Sage Realty' },
+  { id:'ps_recipient_address1',  sec:'Client',        q:'Recipient street address',             t:'text', sk:1,  ic:'📮', ph:'e.g. 777 Third Avenue' },
+  { id:'ps_recipient_address2',  sec:'Client',        q:'Address line 2 (suite/floor)',         t:'text', sk:1,  ic:'📮', ph:'e.g. Suite 1500' },
+  { id:'ps_recipient_city',      sec:'Client',        q:'City',                                 t:'text', sk:1,  ic:'🏙️', ph:'e.g. New York' },
+  { id:'ps_recipient_state',     sec:'Client',        q:'State',                                t:'text', sk:1,  ic:'🗺️', ph:'e.g. NY' },
+  { id:'ps_recipient_zip',       sec:'Client',        q:'ZIP',                                  t:'text', sk:1,  ic:'🔢', ph:'e.g. 10017' },
   // Instruments
   { id:'ps_inst_iaq',            sec:'Instruments',   q:'Primary IAQ meter make/model?',        t:'combo',       ic:'📏', ph:'Or type your own...', opts:['TSI Q-Trak 7575','TSI Q-Trak 7515','TSI IAQ-Calc 7545','TSI VelociCalc 9565','Graywolf AdvancedSense Pro','Graywolf IQ-610','Graywolf PC-3016A','FLIR CM174','Kanomax 2211','Kanomax IAQ-2000','E Instruments AQ Pro','Testo 400','Testo 440','Bacharach Monoxor III','Aeroqual Series 500','HAL Technology HFX205','PPM Technology formaldemeter htV-m','CEM DT-9881','Extech SD800','Fieldpiece SDP2','Other'] },
   { id:'ps_inst_iaq_serial',     sec:'Instruments',   q:'Serial number?',                       t:'text', sk:1,  ic:'🔢', ph:'Instrument serial number' },
@@ -74,6 +84,18 @@ export const Q_QUICKSTART = [
 
 // ── MOBILE: Assessment Details (fill before or after walkthrough) ──
 export const Q_DETAILS = [
+  // Client / Recipient — drives the consultant deliverable letter and
+  // exec summary metadata table. All optional; gracefully degrades to
+  // a generic addressee if not supplied.
+  { id:'ps_project_number',         sec:'Client / Recipient', q:'PSEC project number',          t:'text', sk:1, ic:'🏷️', ph:'e.g. PSEC-2026-0042' },
+  { id:'ps_recipient_name',         sec:'Client / Recipient', q:'Recipient name',               t:'text', sk:1, ic:'👤', ph:'e.g. Sean Navins' },
+  { id:'ps_recipient_title',        sec:'Client / Recipient', q:'Recipient title',              t:'text', sk:1, ic:'💼', ph:'e.g. Chief Engineer or Mr.' },
+  { id:'ps_recipient_organization', sec:'Client / Recipient', q:'Recipient organization',       t:'text', sk:1, ic:'🏢', ph:'e.g. Sage Realty' },
+  { id:'ps_recipient_address1',    sec:'Client / Recipient', q:'Recipient street address',     t:'text', sk:1, ic:'📮', ph:'e.g. 777 Third Avenue' },
+  { id:'ps_recipient_address2',    sec:'Client / Recipient', q:'Address line 2 (suite/floor)', t:'text', sk:1, ic:'📮', ph:'e.g. Suite 1500' },
+  { id:'ps_recipient_city',        sec:'Client / Recipient', q:'City',                          t:'text', sk:1, ic:'🏙️', ph:'e.g. New York' },
+  { id:'ps_recipient_state',       sec:'Client / Recipient', q:'State',                         t:'text', sk:1, ic:'🗺️', ph:'e.g. NY' },
+  { id:'ps_recipient_zip',         sec:'Client / Recipient', q:'ZIP',                           t:'text', sk:1, ic:'🔢', ph:'e.g. 10017' },
   // Building details
   { id:'ba',  sec:'Building Details',  q:'Year built?',                t:'num', sk:1, ic:'📅', ph:'e.g. 1994' },
   { id:'rn',  sec:'Building Details',  q:'Recent renovation?',         t:'ch',  sk:1, ic:'🔨', opts:['No','Within 30 days','Within 6 months','Within 1 year'] },

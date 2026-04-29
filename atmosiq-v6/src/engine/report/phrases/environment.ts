@@ -4,8 +4,8 @@ export const ENVIRONMENT_PHRASES: Partial<Record<ConditionType, PhraseLibraryEnt
   temperature_outside_comfort: {
     conditionType: 'temperature_outside_comfort',
     intentTemplate:
-      'Measured temperature was outside the ASHRAE 55 thermal comfort range for the applicable season and clothing assumptions. Occupant thermal discomfort may affect perceived air quality.',
-    bannedAlternatives: ['unsafe temperature', 'hazardous thermal condition', 'noncompliant temperature'],
+      'Measured temperature was outside typical comfort ranges defined by ASHRAE 55. Comfort interpretation depends on activity level, clothing, and individual physiology, and ASHRAE 55 is a comfort consensus standard rather than a health-based or regulatory limit.',
+    bannedAlternatives: ['unsafe temperature', 'hazardous thermal condition', 'noncompliant temperature', 'high-risk thermal condition', 'critical risk'],
     definitiveConclusionRequires: [],
     causationSupportRequires: [],
     regulatoryConclusionRequires: [],
@@ -21,7 +21,7 @@ export const ENVIRONMENT_PHRASES: Partial<Record<ConditionType, PhraseLibraryEnt
   temperature_low_data_center: {
     conditionType: 'temperature_low_data_center',
     intentTemplate:
-      'Measured temperature was at the lower end of typical comfort expectations. Data center operational requirements (ASHRAE TC 9.9 thermal guidelines) may justify temperature ranges outside ASHRAE 55 occupant comfort zones.',
+      'Measured temperature was outside typical comfort ranges defined by ASHRAE 55; however, data center operational requirements (ASHRAE TC 9.9 thermal guidelines) may justify temperature ranges outside ASHRAE 55 occupant comfort zones.',
     bannedAlternatives: ['outside ASHRAE 55', 'high-risk thermal condition', 'noncompliant temperature'],
     definitiveConclusionRequires: [],
     causationSupportRequires: [],
