@@ -14,7 +14,8 @@
     "accept:v2.3": "node scripts/acceptance/run-v23.mjs",
     "render:acceptance": "VITEST_RENDER_FIXTURES=1 vitest run scripts/render-acceptance-fixture.test.ts",
     "accept:v2.4": "npm run render:acceptance && node scripts/acceptance-check.mjs --config scripts/acceptance/v2.4.json",
-    "accept:v2.5": "npm run render:acceptance && node scripts/acceptance-check.mjs --config scripts/acceptance/v2.5.json"
+    "accept:v2.5": "npm run render:acceptance && node scripts/acceptance-check.mjs --config scripts/acceptance/v2.5.json",
+    "accept:v2.6": "npm run render:acceptance && node scripts/acceptance-check.mjs --config scripts/acceptance/v2.6.json"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.101.1",

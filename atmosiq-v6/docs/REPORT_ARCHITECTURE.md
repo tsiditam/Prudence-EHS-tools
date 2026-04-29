@@ -488,3 +488,150 @@ qualitative-only consequence:
 
 The runner is the gate. `npm run accept:v2.5` exits 0 only when
 every criterion passes.
+
+## v2.6 — Hypothesis and causal chain engines restored
+
+Engine version: `atmosflow-engine-2.6.0`. v2.6 restores two
+foundational reasoning modules that the v2.0 → v2.5 TS rewrite had
+left as stub fields (`AssessmentScore.causalChains` and
+`AssessmentScore.hypotheses` populated as `[]`). Both engines are
+now first-class TypeScript modules under `src/engine/`, wired into
+the bridge AND the new public `score()` entry point in
+`src/engine/index.ts`. Run `npm run accept:v2.6` to enforce.
+
+### What each engine produces
+
+| Engine | Module | Output | Purpose |
+| --- | --- | --- | --- |
+| Causal chains | `src/engine/causal-chains.ts` | `CausalChain[]` | Synthesizes findings into reasoned root-cause statements |
+| Hypotheses   | `src/engine/hypotheses.ts`    | `Hypothesis[]`  | Suggests sampling methodology to confirm/refute walkthrough patterns |
+
+The two engines are complementary:
+
+- **Causal chains** look at the *findings* the bridge produced and
+  ask "what root cause synthesizes this set?" They emit a
+  `rootCause` statement, contributing zone IDs, related finding
+  IDs, a citation, and a `causationSupported` flag the renderer
+  uses to choose between supportive vs. hypothesis closing
+  language.
+- **Hypotheses** look at the *walkthrough observations* directly
+  (legacy zone-data + building-data) and ask "what should be
+  measured next?" They emit a list of `SamplingRecommendation`
+  entries (parameter / method / rationale), a confidence tier
+  derived from the indicator count, and the related finding IDs
+  for cross-reference. Hypotheses can fire on a walkthrough alone
+  — no measurements required.
+
+### Causal chain rules (six rules; each is a pure function of `(zones, findings)`)
+
+| Rule id | Trigger | Citation |
+| --- | --- | --- |
+| `chain_inadequate_outdoor_air` | ventilation finding + HVAC airflow finding + complaint finding | ASHRAE 62.1-2022 §6.2 + ASHRAE/ACCA 180-2018 |
+| `chain_moisture_microbial` | (mold OR water damage) + amplification-range humidity, OR drain-pan reservoir | ASHRAE Position Document on Mold and Dampness + EPA Mold Remediation |
+| `chain_filter_particulate` | filter loading or under-spec class + any indoor PM elevation | ASHRAE 62.1-2022 §6.2.1.4 + ASHRAE Position Document on Filtration |
+| `chain_sick_building` | symptoms-resolve-away + at least one high/critical severity finding | NIOSH HHE Program — Building-Related Illness Methodology |
+| `chain_data_center_corrosion` | data-center zone + (PM elevation OR corrosive environment) | ISO 14644-1:2015 + ANSI/ISA 71.04-2013 + ASHRAE TC 9.9 |
+| `chain_thermal_comfort` | ≥2 thermal/humidity excursions + at least one complaint | ASHRAE 55-2020 §5.3 + AABC/NEBB Total System Balance |
+
+`causationSupported` is set per rule:
+
+- **Rule 1**: true only when at least one related finding has `definitiveConclusionAllowed = true`.
+- **Rule 2**: false unless an `evidenceBasis.kind === 'laboratory_speciation'` finding exists in the chain.
+- **Rule 3**: true only when `pm_above_naaqs_documented` is present and definitive.
+- **Rule 4**: always false — the resolution-away pattern is suggestive, not confirmatory.
+- **Rule 5**: always false — the chain points to confirmatory sampling paths, not established conclusions.
+- **Rule 6**: always false.
+
+### Hypothesis rules (six rules; each emits a `SamplingRecommendation[]`)
+
+| Hypothesis | Trigger | Sampling recommendations |
+| --- | --- | --- |
+| Inadequate outdoor-air ventilation | weak supply airflow OR neurological symptoms OR damper compromised | CO₂ peak-occupancy, supply-airflow CFM, OA fraction at AHU |
+| Bioaerosol amplification | visible mold OR water damage OR respiratory symptoms OR drain-pan biological growth | Andersen N6 + NIOSH 0800, ASTM D7338 tape lift, qPCR/ERMI bulk |
+| VOC source or off-gassing | objectionable odor present + intensity ≥ 3 (or odor without intensity) | EPA TO-17 sorbent tube, NIOSH 2016 DNPH cartridge |
+| Particulate amplification or filter failure | visible dust OR HVAC filter loaded | optical PM (DustTrak), ISO 14644-1 particle counts |
+| Combustion source / CO infiltration | neurological symptom pattern | continuous CO data-logger (1-min resolution) |
+| Atmospheric corrosion (data-center) | data-center zone + corrosion indicator | ANSI/ISA 71.04-2013 Cu+Ag coupons, gaseous contaminant speciation |
+
+Confidence tiering is indicator-count based: 1 indicator →
+`qualitative_only`; 2+ independent indicators →
+`provisional_screening_level`; 0 indicators → hypothesis is not
+emitted at all.
+
+### Wiring — `score()` is the public entry point
+
+`src/engine/index.ts` exports `score(input: AssessmentInput): AssessmentScore`
+which:
+
+1. Runs the legacy per-zone scorer (`scoreZone`) and composite
+   (`compositeScore`).
+2. Maps the legacy shape to an `AssessmentScore` via the bridge
+   (`legacyToAssessmentScore`). The bridge invokes both derivers
+   internally so direct-bridge callers also get populated arrays.
+3. Re-derives causal chains and hypotheses at the public API. The
+   recomputation is idempotent (same input → same output); it
+   exists so the orchestration is explicit at the engine entry
+   point and so callers using a bridge-bypassing path still see
+   populated arrays.
+
+### Conditional rendering rule (client report)
+
+The client report renders two new sections between **Zone Findings**
+and **Recommendations Register**:
+
+1. **Potential Contributing Factors** — derived from
+   `score.causalChains`. Section is omitted entirely (no header,
+   no TOC entry) when `causalChains.length === 0`. Each block:
+   - Bold chain name
+   - Justified description (the synthesized `rootCause`)
+   - Bulleted `Related findings:` list using the lead-term + short-
+     statement format (NOT the verbatim approved-narrative — that
+     would repeat content the reader already saw in Zone Findings)
+   - `Affected zones: …` line listing contributing zone names
+   - `Source: …` italicized citation source
+   - Closing line keyed on `causationSupported`:
+     - `true` → "This relationship is supported by direct
+       measurement and structured observation."
+     - `false` → "This relationship is suggested by the pattern
+       of observations and is offered as a hypothesis for further
+       investigation."
+2. **Recommended Sampling Plan** — derived from `score.hypotheses`.
+   Section is omitted entirely when no hypothesis fired. Each
+   block:
+   - Bold hypothesis name + parenthesized confidence tier in
+     italic body voice
+   - Bulleted `Basis:` list of the indicator strings that
+     triggered the hypothesis
+   - Bulleted `Suggested sampling:` list — one bullet per
+     `SamplingRecommendation` formatted as
+     `<parameter> — <method>. <rationale>`
+
+The section name is **"Potential Contributing Factors"** by
+deliberate choice — the working v2.4 placeholder name "Causal
+Chain Analysis" was banned because it implies causal language
+unconditionally. Acceptance enforces the correct title.
+
+### Internal report — full detail
+
+`InternalReport.hypotheses: Hypothesis[]` (not `ContributingFactor[]`)
+and `InternalReport.causalChains: CausalChain[]` carry the
+unredacted engine output for the operator dashboard. Confidence
+tiers, related finding ids, contributing zone ids, citations, and
+the `causationSupported` flag are all surfaced. The internal
+report is for operator dashboards; it is never shown to clients.
+
+### Adding a new chain or hypothesis rule
+
+1. Add the rule function to `causal-chains.ts` or `hypotheses.ts`.
+   It must be a pure function returning either the matched chain /
+   hypothesis or `null`.
+2. Append the function reference to the `RULES` array at the
+   bottom of the module.
+3. Add a dedicated unit test in
+   `tests/engine/causal-chains.test.ts` or
+   `tests/engine/hypotheses.test.ts` covering: trigger pattern,
+   non-trigger pattern, `causationSupported` boundary (chains),
+   confidence tier boundary (hypotheses).
+4. If the rule introduces new condition types or new walkthrough
+   fields, document them and update the integration test fixture.
+5. Run `npm run accept:v2.6` to confirm no regression.

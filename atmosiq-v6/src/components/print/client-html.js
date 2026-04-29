@@ -407,6 +407,9 @@ function generateFullClientHTML(report, options) {
   <h2 id="zone-findings">Zone Findings</h2>
   ${report.zoneSections.map(renderZoneSection).join('')}
 
+  ${renderPotentialContributingFactors(report.potentialContributingFactors)}
+  ${renderRecommendedSamplingPlan(report.recommendedSamplingPlan)}
+
   ${renderRecommendationsRegister(report.recommendationsRegister)}
 
   <h2 id="limitations-and-professional-judgment">Limitations and Professional Judgment</h2>
@@ -764,6 +767,68 @@ function renderInlineFinding(rf) {
     ${limitations}
     ${actions}
   </div>`
+}
+
+/**
+ * v2.6 §5 — Potential Contributing Factors HTML section.
+ * Omitted entirely when no chains exist.
+ */
+function renderPotentialContributingFactors(factors) {
+  if (!Array.isArray(factors) || factors.length === 0) return ''
+  const blocks = factors.map(f => {
+    const closing = f.causationSupported
+      ? 'This relationship is supported by direct measurement and structured observation.'
+      : 'This relationship is suggested by the pattern of observations and is offered as a hypothesis for further investigation.'
+    const related = Array.isArray(f.relatedFindings) && f.relatedFindings.length > 0
+      ? `<div class="contributing-related"><strong>Related findings:</strong><ul>${f.relatedFindings.map(rf => `<li>${esc(rf)}</li>`).join('')}</ul></div>`
+      : ''
+    const zones = Array.isArray(f.affectedZones) && f.affectedZones.length > 0
+      ? `<div class="contributing-zones"><strong>Affected zones:</strong> ${esc(f.affectedZones.join(', '))}</div>`
+      : ''
+    const source = f.citationSource
+      ? `<div class="contributing-source"><strong>Source:</strong> <em>${esc(f.citationSource)}</em></div>`
+      : ''
+    return `<article class="contributing-factor">
+      <h3>${esc(f.name)}</h3>
+      <p>${esc(f.description)}</p>
+      ${related}
+      ${zones}
+      ${source}
+      <p class="contributing-closing"><em>${esc(closing)}</em></p>
+    </article>`
+  }).join('')
+  return `<h2 id="potential-contributing-factors">Potential Contributing Factors</h2>${blocks}`
+}
+
+/**
+ * v2.6 §5 — Recommended Sampling Plan HTML section.
+ * Omitted entirely when no hypothesis fired.
+ */
+function renderRecommendedSamplingPlan(plan) {
+  if (!Array.isArray(plan) || plan.length === 0) return ''
+  const tier = (t) => {
+    switch (t) {
+      case 'validated_defensible': return 'validated, defensible'
+      case 'provisional_screening_level': return 'provisional, screening-level'
+      case 'qualitative_only': return 'qualitative only'
+      case 'insufficient_data': return 'insufficient data'
+      default: return t || ''
+    }
+  }
+  const blocks = plan.map(h => {
+    const basis = Array.isArray(h.basis) && h.basis.length > 0
+      ? `<div class="hypothesis-basis"><strong>Basis:</strong><ul>${h.basis.map(b => `<li>${esc(b)}</li>`).join('')}</ul></div>`
+      : ''
+    const sampling = Array.isArray(h.suggestedSampling) && h.suggestedSampling.length > 0
+      ? `<div class="hypothesis-sampling"><strong>Suggested sampling:</strong><ul>${h.suggestedSampling.map(s => `<li><strong>${esc(s.parameter)}</strong> — ${esc(s.method)}. <em>${esc(s.rationale)}</em></li>`).join('')}</ul></div>`
+      : ''
+    return `<article class="hypothesis">
+      <h3>${esc(h.name)} <span class="confidence">(${esc(tier(h.cihConfidenceTier))})</span></h3>
+      ${basis}
+      ${sampling}
+    </article>`
+  }).join('')
+  return `<h2 id="recommended-sampling-plan">Recommended Sampling Plan</h2>${blocks}`
 }
 
 function renderRecommendationsRegister(reg) {

@@ -236,6 +236,34 @@ function buildNoBuildingScore() {
   }
 }
 
+// v2.6 §8 — no-chains fixture. A clean assessment that produces
+// either zero findings or only isolated single findings, so neither
+// the causal-chain engine nor the hypothesis engine fires. Used to
+// verify that the Potential Contributing Factors and Recommended
+// Sampling Plan section headers are omitted entirely (no empty
+// header artifacts) when the underlying data is clean.
+function buildNoChainsScore() {
+  const zones = [
+    {
+      zn: 'Clean Office',
+      su: 'office',
+      co2: '450', co2o: '420',
+      tf: '72', rh: '45',
+      pm: '4',
+    },
+  ]
+  const bldg = {}
+  const lzs = zones.map(z => scoreZone(z, bldg))
+  const cs = compositeScore(lzs)
+  const base = legacyToAssessmentScore(
+    lzs as any,
+    cs as any,
+    zones.map(z => ({ ...z, ...bldg })) as any,
+    { meta: META, presurvey: PRESURVEY },
+  )
+  return base
+}
+
 describe.runIf(process.env.VITEST_RENDER_FIXTURES === '1')('render v2.5 acceptance fixtures', () => {
   it('canonical Meridian fixture (3 zones, HVAC findings, sick-building pattern, photos, zero-reading instrument)', async () => {
     mkdirSync('/tmp', { recursive: true })
@@ -250,6 +278,14 @@ describe.runIf(process.env.VITEST_RENDER_FIXTURES === '1')('render v2.5 acceptan
     const buf = await renderToDocx(buildNoBuildingScore())
     writeFileSync('/tmp/acceptance-report-no-building.docx', buf)
     writeFileSync('/tmp/acceptance-report-no-building.docx.txt', await docxBufferToText(buf as Buffer))
+    expect(buf.byteLength).toBeGreaterThan(2000)
+  })
+
+  it('v2.6 no-chains fixture (clean assessment — no chains, no hypotheses)', async () => {
+    mkdirSync('/tmp', { recursive: true })
+    const buf = await renderToDocx(buildNoChainsScore())
+    writeFileSync('/tmp/acceptance-report-no-chains.docx', buf)
+    writeFileSync('/tmp/acceptance-report-no-chains.docx.txt', await docxBufferToText(buf as Buffer))
     expect(buf.byteLength).toBeGreaterThan(2000)
   })
 })

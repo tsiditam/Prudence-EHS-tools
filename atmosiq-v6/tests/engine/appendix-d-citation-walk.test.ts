@@ -7,7 +7,7 @@
  *   2. Duplicate Citations across zones / findings dedupe.
  *   3. Output is alphabetized by organization-display, then by source.
  *   4. Authority codes are expanded per the §2 lookup table.
- *   5. The engine version footer references atmosflow-engine-2.5.0.
+ *   5. The engine version footer references atmosflow-engine-2.6.0.
  */
 
 import { describe, it, expect } from 'vitest'
@@ -127,7 +127,7 @@ describe('v2.5 §2 — Appendix D citation walker', () => {
     expect(formatted).toContain('Occupational Safety and Health Administration')
   })
 
-  it('engine version footer references atmosflow-engine-2.5.0', () => {
-    expect(ENGINE_VERSION_FOOTER).toContain('atmosflow-engine-2.5.0')
+  it('engine version footer references atmosflow-engine-2.6.0', () => {
+    expect(ENGINE_VERSION_FOOTER).toContain('atmosflow-engine-2.6.0')
   })
 })

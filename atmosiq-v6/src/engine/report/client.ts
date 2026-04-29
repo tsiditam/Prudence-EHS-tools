@@ -32,7 +32,7 @@ import {
   buildSamplingMethodology,
   filterInstrumentsWithReadings,
 } from './methodology-narrative'
-import { groupFindingsByDomain, getShortStatement } from './finding-groups'
+import { groupFindingsByDomain, getShortStatement, getLeadTerm } from './finding-groups'
 import { synthesizeZone } from './synthesis'
 import { validateReportContent } from './cih-validation'
 import { buildAppendixC, type AssessmentPhoto } from './appendix-c'
@@ -340,8 +340,57 @@ export function renderClientReport(
     priorityActions: immediateActions,
   }
 
-  // Contributing factors (from causal chains — use contributory language unless causation supported)
-  const potentialContributingFactors: ContributingFactor[] = []
+  // v2.6 §5 — Potential Contributing Factors are projected from
+  // score.causalChains. Each chain becomes a ContributingFactor
+  // with related-finding narratives, contributing zone names,
+  // citation source, and the causationSupported flag (which the
+  // renderer uses to choose between supportive vs. hypothesis
+  // closing language).
+  const findingById = new Map<string, Finding>()
+  for (const f of allFindings) findingById.set(f.id as unknown as string, f)
+  const zoneNameById = new Map<string, string>()
+  for (const z of score.zones) zoneNameById.set(z.zoneId as unknown as string, z.zoneName)
+  const potentialContributingFactors: ContributingFactor[] = (score.causalChains ?? []).map(chain => {
+    // v2.6 §5 — dedupe relatedFindings by conditionType when
+    // projecting. A chain that includes the same cluster across
+    // three zones should list the cluster narrative once. The
+    // affectedZones suffix already conveys the per-zone scope.
+    // Use lead term + short statement (same format the Exec
+    // Summary findingsByGroup uses) so the chain block doesn't
+    // repeat the verbatim approved-narrative the reader already
+    // saw in the per-zone Zone Findings section.
+    const seenConditionTypes = new Set<string>()
+    const relatedNarratives: string[] = []
+    for (const id of chain.relatedFindingIds) {
+      const fnd = findingById.get(id as unknown as string)
+      if (!fnd) continue
+      if (seenConditionTypes.has(fnd.conditionType)) continue
+      seenConditionTypes.add(fnd.conditionType)
+      const lead = getLeadTerm(fnd.conditionType)
+      const short = getShortStatement(fnd.conditionType)
+      const summary = short ? `${lead}: ${short}` : lead
+      if (summary) relatedNarratives.push(summary)
+    }
+    const affectedZoneNames = chain.contributingZones
+      .map(zid => zoneNameById.get(zid as unknown as string))
+      .filter((n): n is string => typeof n === 'string' && n.length > 0)
+    return {
+      name: chain.name,
+      description: chain.rootCause,
+      relatedFindings: relatedNarratives,
+      causationSupported: chain.causationSupported,
+      relatedFindingIds: chain.relatedFindingIds.map(id => id as unknown as string),
+      citationSource: chain.citation.source,
+      affectedZones: affectedZoneNames,
+    }
+  })
+
+  // v2.6 §5 — Recommended Sampling Plan is the hypothesis array
+  // pass-through; the renderer reads it directly. Undefined when
+  // no hypothesis fired so the section header is omitted.
+  const recommendedSamplingPlan = (score.hypotheses ?? []).length > 0
+    ? score.hypotheses
+    : undefined
 
   const recommendationsRegister: RecommendationsRegister = {
     immediate: allActions.filter(a => a.priority === 'immediate'),
@@ -468,6 +517,15 @@ export function renderClientReport(
       ? [{ anchorId: 'building-and-system-conditions', title: 'Building and System Conditions', level: 1 as const }]
       : []),
     { anchorId: 'zone-findings', title: 'Zone Findings', level: 1 },
+    // v2.6 §5 — Potential Contributing Factors and Recommended
+    // Sampling Plan are conditional. Both omit from the TOC when
+    // their underlying engine pass produced no output.
+    ...(potentialContributingFactors.length > 0
+      ? [{ anchorId: 'potential-contributing-factors', title: 'Potential Contributing Factors', level: 1 as const }]
+      : []),
+    ...(recommendedSamplingPlan && recommendedSamplingPlan.length > 0
+      ? [{ anchorId: 'recommended-sampling-plan', title: 'Recommended Sampling Plan', level: 1 as const }]
+      : []),
     { anchorId: 'recommendations-register', title: 'Recommendations Register', level: 1 },
     { anchorId: 'limitations-and-professional-judgment', title: 'Limitations and Professional Judgment', level: 1 },
     { anchorId: 'appendix-a', title: 'Appendix A — Per-Zone Measurement Tabulation', level: 1 },
@@ -511,6 +569,7 @@ export function renderClientReport(
     buildingAndSystemConditions: buildingSectionRendered ? buildingConditions : undefined,
     zoneSections,
     potentialContributingFactors,
+    recommendedSamplingPlan,
     recommendationsRegister,
     limitationsAndProfessionalJudgment: limitationsText,
     signatoryBlock,
