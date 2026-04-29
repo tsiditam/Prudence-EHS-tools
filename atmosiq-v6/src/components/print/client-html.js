@@ -467,22 +467,30 @@ function renderAppendices(ap) {
   if (ap.appendixC) {
     out.push(`<h2 id="appendix-c">${esc(ap.appendixC.title)}</h2>`)
     if (ap.appendixC.description) out.push(`<p>${esc(ap.appendixC.description)}</p>`)
+    // v2.5 §5 — photo.caption is already formatted as
+    // "Photo N: <zone or Building> — <text>". The relativePath is
+    // an italic cross-reference line.
     if (Array.isArray(ap.appendixC.photos) && ap.appendixC.photos.length > 0) {
-      out.push('<ul>')
+      out.push('<ol class="photo-list">')
       for (const photo of ap.appendixC.photos) {
-        out.push(`<li>${esc(photo.caption)} (${esc(photo.zoneName)}) — ${esc(photo.relativePath)}</li>`)
+        out.push(`<li>${esc(photo.caption)}${photo.relativePath ? ` <em class="photo-ref">(image: ${esc(photo.relativePath)})</em>` : ''}</li>`)
       }
-      out.push('</ul>')
+      out.push('</ol>')
     }
   }
   if (ap.appendixD) {
     out.push(`<h2 id="appendix-d">${esc(ap.appendixD.title)}</h2>`)
     if (ap.appendixD.description) out.push(`<p>${esc(ap.appendixD.description)}</p>`)
-    if (Array.isArray(ap.appendixD.citations) && ap.appendixD.citations.length > 0) {
-      out.push('<ul>')
-      for (const c of ap.appendixD.citations) {
-        out.push(`<li>${esc(c.source)}${c.edition ? ` (${esc(c.edition)})` : ''}${c.authority ? ` — ${esc(c.authority)}` : ''}</li>`)
-      }
+    // v2.5 §2 — prefer pre-formatted displayLines. Fall back to the
+    // legacy citation list for backward compat.
+    const lines = Array.isArray(ap.appendixD.displayLines) && ap.appendixD.displayLines.length > 0
+      ? ap.appendixD.displayLines
+      : (ap.appendixD.citations || []).map(c =>
+          `${c.source}${c.edition && c.edition !== 'current' ? ` (${c.edition})` : ''}${c.authority ? ` — ${c.authority}` : ''}`,
+        )
+    if (lines.length > 0) {
+      out.push('<ul class="citations">')
+      for (const line of lines) out.push(`<li>${esc(line)}</li>`)
       out.push('</ul>')
     }
     if (ap.appendixD.engineVersionLine) {
@@ -595,20 +603,34 @@ function renderExecSummary(summary) {
     ? block('Results', `<p>${esc(summary.resultsNarrative)}</p>`)
     : ''
 
-  // v2.2 — grouped findings render. Falls back to flat observations
-  // list if findingsByGroup is absent (e.g., older ClientReport
-  // shapes or no significant findings).
-  const findingsBlock = summary.findingsByGroup && summary.findingsByGroup.length > 0
-    ? block('Summary of Findings', summary.findingsByGroup.map(g => `
+  // v2.5 §6 — Summary of Findings cell carries the consolidated
+  // cross-zone entries with "Observed in: <zones>" suffixes (max 6
+  // + optional truncation note). Falls back to v2.4 findingsByGroup
+  // grouping, then to v2.2 flat observations list.
+  const findingsBlock = summary.summaryOfFindings && summary.summaryOfFindings.length > 0
+    ? block('Summary of Findings', `<ul class="findings-consolidated">${summary.summaryOfFindings.map(line => {
+        const colonIdx = line.indexOf(': ')
+        if (colonIdx < 0) {
+          return `<li class="truncation-note"><em>${esc(line)}</em></li>`
+        }
+        const label = line.slice(0, colonIdx + 1)
+        const rest = line.slice(colonIdx + 1).trimStart()
+        const observedMatch = / Observed (?:in|at): .+\.?$/.exec(rest)
+        const summaryPart = observedMatch ? rest.slice(0, observedMatch.index) : rest
+        const observedPart = observedMatch ? observedMatch[0].trim() : ''
+        return `<li><strong>${esc(label)}</strong> ${esc(summaryPart)}${observedPart ? ` <em>${esc(observedPart)}</em>` : ''}</li>`
+      }).join('')}</ul>`)
+    : (summary.findingsByGroup && summary.findingsByGroup.length > 0
+        ? block('Summary of Findings', summary.findingsByGroup.map(g => `
         <div class="finding-group">
           <div class="finding-group-name">${esc(g.groupName)}</div>
           <ul class="finding-group-list">
             ${g.observations.map(o => `<li><span class="lead-term">${esc(o.leadTerm)}:</span> ${esc(o.statement)}</li>`).join('')}
           </ul>
         </div>`).join(''))
-    : (summary.observations && summary.observations.length > 0
-        ? block('Summary of Findings', `<ul>${summary.observations.map(o => `<li>${esc(o)}</li>`).join('')}</ul>`)
-        : '')
+        : (summary.observations && summary.observations.length > 0
+            ? block('Summary of Findings', `<ul>${summary.observations.map(o => `<li>${esc(o)}</li>`).join('')}</ul>`)
+            : ''))
 
   const recBlock = summary.recommendations && summary.recommendations.length > 0
     ? block('Recommendations', `<ul>${summary.recommendations.map(a => `<li><strong>${esc(PRIORITY_LABEL[a.priority] || a.priority)}</strong> (${esc(a.timeframe)}): ${esc(a.action)}${a.standardReference ? ` <em>— ${esc(a.standardReference)}</em>` : ''}</li>`).join('')}</ul>`)

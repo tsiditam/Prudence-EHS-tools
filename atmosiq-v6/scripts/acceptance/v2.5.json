@@ -1,0 +1,206 @@
+{
+  "feature": "AtmosFlow v2.5 — Residual Defect Cleanup",
+  "criteria": [
+    { "id": "BUILD-01", "label": "TypeScript typecheck passes", "checks": [{ "type": "npm_script_passes", "script": "typecheck" }] },
+    { "id": "BUILD-02", "label": "Test suite passes", "checks": [{ "type": "npm_script_passes", "script": "test" }] },
+    { "id": "BUILD-03", "label": "Lint passes with zero warnings", "checks": [{ "type": "npm_script_passes", "script": "lint" }] },
+    { "id": "VERSION", "label": "Engine version is atmosflow-engine-2.5.0", "checks": [{ "type": "constant_equals", "path": "src/engine/types/citation.ts", "name": "ENGINE_VERSION", "value": "atmosflow-engine-2.5.0" }] },
+
+    { "id": "PARAM-PROSE-FILES", "label": "All six parameter prose files exist with substantial content", "checks": [
+      { "type": "file_min_size", "path": "src/engine/report/parameter-prose/particulates.ts", "minBytes": 1500 },
+      { "type": "file_min_size", "path": "src/engine/report/parameter-prose/thermal.ts", "minBytes": 1500 },
+      { "type": "file_min_size", "path": "src/engine/report/parameter-prose/gases-co2.ts", "minBytes": 1500 },
+      { "type": "file_min_size", "path": "src/engine/report/parameter-prose/gases-co.ts", "minBytes": 1500 },
+      { "type": "file_min_size", "path": "src/engine/report/parameter-prose/gases-hcho.ts", "minBytes": 1500 },
+      { "type": "file_min_size", "path": "src/engine/report/parameter-prose/gases-tvoc.ts", "minBytes": 1500 },
+      { "type": "file_exists", "path": "src/engine/report/parameter-prose/index.ts" }
+    ]},
+    { "id": "PARAM-PROSE-CITATIONS", "label": "Parameter prose cites required standards", "checks": [
+      { "type": "grep_matches", "pattern": "ASHRAE 62\\.1", "paths": ["src/engine/report/parameter-prose/gases-co2.ts"] },
+      { "type": "grep_matches", "pattern": "1910\\.1048", "paths": ["src/engine/report/parameter-prose/gases-hcho.ts"] },
+      { "type": "grep_matches", "pattern": "ASHRAE 55", "paths": ["src/engine/report/parameter-prose/thermal.ts"] }
+    ]},
+    { "id": "PARAM-RANGES", "label": "Parameter ranges helper exists", "checks": [
+      { "type": "file_min_size", "path": "src/engine/report/parameter-ranges.ts", "minBytes": 800 },
+      { "type": "grep_matches", "pattern": "computeParameterRanges", "paths": ["src/engine/report/parameter-ranges.ts"] }
+    ]},
+
+    { "id": "APPENDIX-TYPES", "label": "All six appendix types defined", "checks": [
+      { "type": "grep_matches", "pattern": "interface AppendixA\\b", "paths": ["src/engine/report/types.ts"] },
+      { "type": "grep_matches", "pattern": "interface AppendixB\\b", "paths": ["src/engine/report/types.ts"] },
+      { "type": "grep_matches", "pattern": "interface AppendixC\\b", "paths": ["src/engine/report/types.ts"] },
+      { "type": "grep_matches", "pattern": "interface AppendixD\\b", "paths": ["src/engine/report/types.ts"] },
+      { "type": "grep_matches", "pattern": "interface AppendixE\\b", "paths": ["src/engine/report/types.ts"] },
+      { "type": "grep_matches", "pattern": "interface AppendixF\\b", "paths": ["src/engine/report/types.ts"] }
+    ]},
+
+    { "id": "SYNTHESIS-MODULE", "label": "Synthesis module exists with all templates", "checks": [
+      { "type": "file_min_size", "path": "src/engine/report/synthesis.ts", "minBytes": 1500 },
+      { "type": "grep_matches", "pattern": "synthesizeZone", "paths": ["src/engine/report/synthesis.ts"] },
+      { "type": "grep_matches", "pattern": "(sick.building|sickBuilding)", "paths": ["src/engine/report/synthesis.ts"] },
+      { "type": "grep_matches", "pattern": "(moisture.driven|moistureDriven)", "paths": ["src/engine/report/synthesis.ts"] }
+    ]},
+
+    { "id": "APPENDIX-D-MODULE", "label": "v2.5 Appendix D citation walker module exists", "checks": [
+      { "type": "file_min_size", "path": "src/engine/report/appendix-d.ts", "minBytes": 1500 },
+      { "type": "grep_matches", "pattern": "collectCitations", "paths": ["src/engine/report/appendix-d.ts"] },
+      { "type": "grep_matches", "pattern": "formatCitation", "paths": ["src/engine/report/appendix-d.ts"] },
+      { "type": "grep_matches", "pattern": "ORGANIZATION_DISPLAY", "paths": ["src/engine/report/appendix-d.ts"] }
+    ]},
+    { "id": "APPENDIX-C-MODULE", "label": "v2.5 Appendix C deterministic builder module exists", "checks": [
+      { "type": "file_min_size", "path": "src/engine/report/appendix-c.ts", "minBytes": 800 },
+      { "type": "grep_matches", "pattern": "buildAppendixC", "paths": ["src/engine/report/appendix-c.ts"] },
+      { "type": "grep_matches", "pattern": "AssessmentPhoto", "paths": ["src/engine/report/appendix-c.ts"] }
+    ]},
+    { "id": "EXEC-SUMMARY-CONSOLIDATION-MODULE", "label": "v2.5 Exec Summary consolidation module exists", "checks": [
+      { "type": "file_min_size", "path": "src/engine/report/exec-summary-findings.ts", "minBytes": 1000 },
+      { "type": "grep_matches", "pattern": "consolidateExecutiveSummaryFindings", "paths": ["src/engine/report/exec-summary-findings.ts"] }
+    ]},
+
+    { "id": "RENDER-EXISTS", "label": "Acceptance fixture rendered to /tmp/acceptance-report.docx.txt", "checks": [
+      { "type": "file_exists", "path": "/tmp/acceptance-report.docx.txt" }
+    ]},
+    { "id": "RENDER-NO-BUILDING-EXISTS", "label": "No-building fixture rendered to /tmp/acceptance-report-no-building.docx.txt", "checks": [
+      { "type": "file_exists", "path": "/tmp/acceptance-report-no-building.docx.txt" }
+    ]},
+
+    { "id": "RENDER-COVER", "label": "Cover page elements present", "checks": [
+      { "type": "rendered_contains", "reportPath": "/tmp/acceptance-report.docx.txt", "needle": "INDOOR AIR QUALITY EVALUATION" },
+      { "type": "rendered_contains", "reportPath": "/tmp/acceptance-report.docx.txt", "needle": "PSEC PROJECT NUMBER" }
+    ]},
+
+    { "id": "RENDER-RECIPIENT-POPULATED", "label": "Transmittal addresses a named recipient (no 'To whom it may concern')", "checks": [
+      { "type": "rendered_excludes", "reportPath": "/tmp/acceptance-report.docx.txt", "needle": "To whom it may concern" }
+    ]},
+    { "id": "RENDER-EXEC-SUMMARY-RECIPIENT-POPULATED", "label": "Executive Summary Client Name and Site Contact populated (no em-dash)", "checks": [
+      { "type": "rendered_excludes", "reportPath": "/tmp/acceptance-report.docx.txt", "needle": "Client Name: —" },
+      { "type": "rendered_excludes", "reportPath": "/tmp/acceptance-report.docx.txt", "needle": "Site Contact: —" }
+    ]},
+    { "id": "RENDER-NOT-SPECIFIED-VS-EM-DASH", "label": "Required-but-empty recipient fields say 'Not Specified' not em-dash", "checks": [
+      { "type": "rendered_regex_count", "reportPath": "/tmp/acceptance-report.docx.txt", "regex": "(Client Name|Site Contact|Requested By): —", "max": 0 }
+    ]},
+
+    { "id": "RENDER-NO-NUMERIC-SCORES", "label": "Rendered report contains no numeric site/zone composite scores or letter tiers in body", "checks": [
+      { "type": "rendered_excludes", "reportPath": "/tmp/acceptance-report.docx.txt", "needle": "Site Score:" },
+      { "type": "rendered_excludes", "reportPath": "/tmp/acceptance-report.docx.txt", "needle": "Composite Score" }
+    ]},
+
+    { "id": "RENDER-MEASUREMENT-VALUES", "label": "Rendered report contains actual measurement values with units", "checks": [
+      { "type": "rendered_regex_count", "reportPath": "/tmp/acceptance-report.docx.txt", "regex": "\\d+(\\.\\d+)?\\s*(ppm|µg/m³|mg/m³|°F|°C)", "min": 5 }
+    ]},
+    { "id": "RENDER-RANGE-SUMMARIES", "label": "Per-parameter range/average summaries appear", "checks": [
+      { "type": "rendered_regex_count", "reportPath": "/tmp/acceptance-report.docx.txt", "regex": "ranged from .* to .*, averaging", "min": 2 }
+    ]},
+    { "id": "RENDER-PARAMETER-SUBSECTIONS", "label": "Results section contains per-parameter subsection headers", "checks": [
+      { "type": "rendered_contains", "reportPath": "/tmp/acceptance-report.docx.txt", "needle": "Carbon Dioxide" },
+      { "type": "rendered_contains", "reportPath": "/tmp/acceptance-report.docx.txt", "needle": "Temperature" },
+      { "type": "rendered_contains", "reportPath": "/tmp/acceptance-report.docx.txt", "needle": "Relative Humidity" }
+    ]},
+
+    { "id": "RENDER-APPENDICES-PRESENT", "label": "All five required appendices appear in rendered output", "checks": [
+      { "type": "rendered_contains", "reportPath": "/tmp/acceptance-report.docx.txt", "needle": "APPENDIX A" },
+      { "type": "rendered_contains", "reportPath": "/tmp/acceptance-report.docx.txt", "needle": "APPENDIX B" },
+      { "type": "rendered_contains", "reportPath": "/tmp/acceptance-report.docx.txt", "needle": "APPENDIX C" },
+      { "type": "rendered_contains", "reportPath": "/tmp/acceptance-report.docx.txt", "needle": "APPENDIX D" },
+      { "type": "rendered_contains", "reportPath": "/tmp/acceptance-report.docx.txt", "needle": "APPENDIX E" }
+    ]},
+
+    { "id": "RENDER-APPENDIX-D-CITATIONS-NONEMPTY", "label": "Appendix D contains a meaningful citation list", "checks": [
+      { "type": "rendered_regex_count", "reportPath": "/tmp/acceptance-report.docx.txt", "regex": "(ASHRAE Standard|29 CFR 1910|NIOSH Method|EPA Method|EPA NAAQS|EPA TO|IICRC|ASTM D|Persily|Mølhave|WHO Global|ACGIH|TSI )", "min": 8 }
+    ]},
+    { "id": "RENDER-APPENDIX-D-AUTHORITIES-EXPANDED", "label": "Appendix D expands authority abbreviations", "checks": [
+      { "type": "rendered_contains", "reportPath": "/tmp/acceptance-report.docx.txt", "needle": "Occupational Safety and Health Administration" },
+      { "type": "rendered_contains", "reportPath": "/tmp/acceptance-report.docx.txt", "needle": "National Institute for Occupational Safety and Health" }
+    ]},
+    { "id": "RENDER-APPENDIX-D-ENGINE-VERSION-LAST", "label": "Engine version line is the final line of Appendix D and references 2.5.0", "checks": [
+      { "type": "rendered_contains", "reportPath": "/tmp/acceptance-report.docx.txt", "needle": "Report generated using AtmosFlow assessment platform, engine version atmosflow-engine-2.5.0." }
+    ]},
+
+    { "id": "RENDER-ENGINE-VERSION-IN-APPENDIX-D-ONLY", "label": "Engine version 2.5.0 string appears at most once and within Appendix D context", "checks": [
+      { "type": "rendered_regex_count", "reportPath": "/tmp/acceptance-report.docx.txt", "regex": "atmosflow-engine-2\\.5\\.0", "max": 2 }
+    ]},
+    { "id": "RENDER-NO-FOOTER-LEAK", "label": "Engine version not in repeated body footer", "checks": [
+      { "type": "rendered_excludes", "reportPath": "/tmp/acceptance-report.docx.txt", "needle": "Generated by AtmosFlow Engine atmosflow-engine-2.5.0 on" }
+    ]},
+
+    { "id": "RENDER-NO-FORBIDDEN-LANGUAGE", "label": "No forbidden absolute language without permission", "checks": [
+      { "type": "rendered_excludes", "reportPath": "/tmp/acceptance-report.docx.txt", "needle": "confirmed mold" },
+      { "type": "rendered_excludes", "reportPath": "/tmp/acceptance-report.docx.txt", "needle": "toxic mold" },
+      { "type": "rendered_excludes", "reportPath": "/tmp/acceptance-report.docx.txt", "needle": "elevated health risk" },
+      { "type": "rendered_excludes", "reportPath": "/tmp/acceptance-report.docx.txt", "needle": "unsafe condition" }
+    ]},
+
+    { "id": "RENDER-NO-SYMPTOM-CLUSTER-VERBATIM-DUP", "label": "Symptom cluster narrative does not appear more than its zone count", "checks": [
+      { "type": "rendered_regex_count", "reportPath": "/tmp/acceptance-report.docx.txt", "regex": "Multiple occupants in the same area reported similar symptoms, suggesting a potential spatial cluster", "max": 3 }
+    ]},
+    { "id": "RENDER-NO-DUPLICATE-TEMP-FINDINGS", "label": "Temperature finding for same value not duplicated within a zone", "checks": [
+      { "type": "rendered_regex_count", "reportPath": "/tmp/acceptance-report.docx.txt", "regex": "Measured temperature was outside typical comfort ranges defined by ASHRAE 55", "max": 5 }
+    ]},
+
+    { "id": "RENDER-NO-DATA-LIMITATIONS-SUBSECTION", "label": "No 'Data limitations' subsection appears anywhere", "checks": [
+      { "type": "rendered_excludes", "reportPath": "/tmp/acceptance-report.docx.txt", "needle": "Data limitations\n" },
+      { "type": "rendered_excludes", "reportPath": "/tmp/acceptance-report.docx.txt", "needle": "Data Limitations" }
+    ]},
+    { "id": "RENDER-INLINE-LIMITATIONS", "label": "Limitations render inline with findings", "checks": [
+      { "type": "rendered_contains", "reportPath": "/tmp/acceptance-report.docx.txt", "needle": "Limitations of this finding" }
+    ]},
+    { "id": "RENDER-BUILDING-SECTION-INLINE-LIMITATIONS", "label": "Building and System Conditions findings have inline limitations", "checks": [
+      { "type": "rendered_contains", "reportPath": "/tmp/acceptance-report.docx.txt", "needle": "Limitations of this finding" }
+    ]},
+
+    { "id": "RENDER-CONDITIONAL-BUILDING-SECTION", "label": "Building Conditions absent when no building findings exist", "checks": [
+      { "type": "rendered_excludes", "reportPath": "/tmp/acceptance-report-no-building.docx.txt", "needle": "Building and System Conditions" }
+    ]},
+    { "id": "RENDER-OMITTED-REASON", "label": "Scope of Work contains omitted reason sentence when building section omitted", "checks": [
+      { "type": "rendered_contains", "reportPath": "/tmp/acceptance-report-no-building.docx.txt", "needle": "Building system condition was not within the scope of this assessment" }
+    ]},
+    { "id": "RENDER-NO-AFFIRMATIVE-CLAIM-WHEN-OMITTED", "label": "No 'No visible building deficiencies' affirmative claim", "checks": [
+      { "type": "rendered_excludes", "reportPath": "/tmp/acceptance-report-no-building.docx.txt", "needle": "No visible building or system deficiencies" }
+    ]},
+    { "id": "RENDER-EMPTY-ZONE-SENTENCE", "label": "Empty zones render the prescribed single sentence", "checks": [
+      { "type": "rendered_contains", "reportPath": "/tmp/acceptance-report.docx.txt", "needle": "No conditions warranting elevated concern were identified in this zone within the stated limitations" }
+    ]},
+
+    { "id": "RENDER-VERBATIM-METHODOLOGY", "label": "Verbatim methodology paragraph present", "checks": [
+      { "type": "rendered_contains", "reportPath": "/tmp/acceptance-report.docx.txt", "needle": "This evaluation was conducted using a combination of visual inspection" }
+    ]},
+    { "id": "RENDER-VERBATIM-SCOPE", "label": "Verbatim scope paragraph present", "checks": [
+      { "type": "rendered_contains", "reportPath": "/tmp/acceptance-report.docx.txt", "needle": "This evaluation utilized screening-level instruments and observational methods" }
+    ]},
+    { "id": "RENDER-VERBATIM-LIMITATIONS", "label": "Verbatim terminal limitations paragraph present", "checks": [
+      { "type": "rendered_contains", "reportPath": "/tmp/acceptance-report.docx.txt", "needle": "This report is based on conditions observed during a single site visit" }
+    ]},
+    { "id": "RENDER-METHODOLOGY-INSTRUMENTS", "label": "Sampling methodology names instruments and accuracies", "checks": [
+      { "type": "rendered_contains", "reportPath": "/tmp/acceptance-report.docx.txt", "needle": "Q-Trak" },
+      { "type": "rendered_regex_count", "reportPath": "/tmp/acceptance-report.docx.txt", "regex": "(±|accuracy)\\s*\\d", "min": 3 }
+    ]},
+    { "id": "RENDER-INSTRUMENT-FILTERING", "label": "Instruments with zero readings do not appear in methodology or Appendix B", "checks": [
+      { "type": "rendered_excludes", "reportPath": "/tmp/acceptance-report.docx.txt", "needle": "Manufacturer accuracy specifications could not be cited because the model is not in the AtmosFlow accuracy database. Calibration date not recorded." }
+    ]},
+
+    { "id": "RENDER-NO-TRUNCATION", "label": "Executive Summary does not truncate finding text mid-word", "checks": [
+      { "type": "rendered_excludes", "reportPath": "/tmp/acceptance-report.docx.txt", "needle": "screening-l…" },
+      { "type": "rendered_regex_count", "reportPath": "/tmp/acceptance-report.docx.txt", "regex": "[a-z]…", "max": 0 }
+    ]},
+
+    { "id": "RENDER-SYNTHESIS-NOT-BOILERPLATE", "label": "Zone interpretations are not the confidence-tier boilerplate fallback for sick-building zone", "checks": [
+      { "type": "rendered_contains", "reportPath": "/tmp/acceptance-report.docx.txt", "needle": "consistent with a building-related contributor" }
+    ]},
+
+    { "id": "RENDER-RECOMMENDATIONS-REGISTER", "label": "Recommendations Register present with grouped priorities", "checks": [
+      { "type": "rendered_contains", "reportPath": "/tmp/acceptance-report.docx.txt", "needle": "Recommendations Register" },
+      { "type": "rendered_contains", "reportPath": "/tmp/acceptance-report.docx.txt", "needle": "SHORT TERM" }
+    ]},
+    { "id": "RENDER-NO-ACTION-TRIPLE-DUP", "label": "No recommended action appears more than twice in rendered report", "checks": [
+      { "type": "rendered_regex_count", "reportPath": "/tmp/acceptance-report.docx.txt", "regex": "Evaluate thermostat settings, HVAC zoning, and airflow distribution", "max": 2 }
+    ]},
+
+    { "id": "RENDER-EXEC-SUMMARY-FINDINGS-LIMIT", "label": "Executive Summary Summary of Findings carries Observed-in cross-zone consolidation", "checks": [
+      { "type": "rendered_regex_count", "reportPath": "/tmp/acceptance-report.docx.txt", "regex": "Observed (?:in|at):", "min": 1 }
+    ]},
+    { "id": "RENDER-APPENDIX-C-DETERMINISTIC", "label": "Appendix C uses deterministic language (not the hedging both-ways language)", "checks": [
+      { "type": "rendered_excludes", "reportPath": "/tmp/acceptance-report.docx.txt", "needle": "Photographs documenting field observations are referenced inline within the relevant zone-by-zone or building-and-system findings where available. No additional photo documentation is included with this report." },
+      { "type": "rendered_regex_count", "reportPath": "/tmp/acceptance-report.docx.txt", "regex": "Photo \\d+: (Building|.+) — ", "min": 3 }
+    ]}
+  ]
+}

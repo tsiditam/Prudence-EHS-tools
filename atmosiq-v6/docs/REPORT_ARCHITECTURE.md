@@ -295,3 +295,196 @@ longer truncates with an ellipsis when no sentence-ending punctuation
 is found within 120 characters. The renderer wraps visually instead.
 Acceptance enforces `RENDER-NO-TRUNCATION` (no `screening-l…` mid-word
 chops).
+
+## v2.5 — Residual Defect Cleanup
+
+Engine version: `atmosflow-engine-2.5.0`. v2.5 closes six small but
+defensibility-relevant defects that survived the v2.4 acceptance gate.
+The acceptance runner gains nine new criteria; total criteria = 49.
+Run `npm run accept:v2.5` to enforce.
+
+### §1 "Not Specified" vs. em-dash for required recipient fields
+
+The Executive Summary metadata table renders **`Not Specified`** in
+required cells (Client Name, Site Contact, Requested By, Project
+Number, Survey Date, Project Address, Survey Area) when the
+underlying field is empty or absent. Em-dashes (`—`) remain
+acceptable as placeholders in **optional** cells — most notably the
+Recommendations Register `Reference` column. Implementation is
+centralized in `fallbackOrNotSpecified()` in
+`src/engine/report/client.ts`; the rule applies before the metadata
+object is constructed, so both DOCX and HTML renderers stay free of
+display-layer fallback logic.
+
+### §2 Appendix D citation walker
+
+`src/engine/report/appendix-d.ts` exports `collectCitations`,
+`formatCitation`, and `ORGANIZATION_DISPLAY`. The walker recursively
+traverses the entire `ClientReport` tree (plus the parameter-prose
+`applicableStandards` arrays) and pulls every Citation-shaped value
+plus every `RecommendedAction.standardReference` string into a
+single deduped, sorted list.
+
+#### Authority abbreviation expansion
+
+Citations in the engine carry an `authority` enum
+(`regulatory` / `consensus` / `advisory` / …). For Appendix D
+display we additionally infer an **organization** code (OSHA,
+NIOSH, ACGIH, EPA, ASHRAE, WHO, ISO, ANSI, AIHA, ABIH, FDA, IICRC,
+ASTM, NYC_DOHMH, AABC_NEBB, PEER_REVIEWED, MANUFACTURER, OTHER) and
+expand it to the full body name in the rendered bibliography.
+
+| Code | Display |
+| --- | --- |
+| `OSHA` | Occupational Safety and Health Administration |
+| `NIOSH` | National Institute for Occupational Safety and Health |
+| `ACGIH` | American Conference of Governmental Industrial Hygienists |
+| `EPA` | U.S. Environmental Protection Agency |
+| `ASHRAE` | ASHRAE |
+| `WHO` | World Health Organization |
+| `ISO` | International Organization for Standardization |
+| `ANSI` | American National Standards Institute |
+| `AIHA` | American Industrial Hygiene Association |
+| `ABIH` | American Board of Industrial Hygiene |
+| `FDA` | U.S. Food and Drug Administration |
+| `IICRC` | Institute of Inspection, Cleaning and Restoration Certification |
+| `ASTM` | ASTM International |
+| `NYC_DOHMH` | New York City Department of Health and Mental Hygiene |
+| `AABC_NEBB` | AABC / NEBB |
+| `PEER_REVIEWED` | Peer-reviewed literature |
+| `MANUFACTURER` | Manufacturer |
+| `OTHER` | (use the source field; no expansion) |
+
+When a Citation does not carry an explicit `organization` field the
+walker calls `inferOrganization(source)` to derive it from the
+source string heuristically (e.g. `29 CFR 1910.1000` → OSHA,
+`NIOSH Method 2016` → NIOSH).
+
+After the citation list, the appendix closes with the engine
+version line:
+
+> *Report generated using AtmosFlow assessment platform, engine version atmosflow-engine-2.5.0.*
+
+This is the only rendered location of the engine-version string per
+v2.4 §7. Acceptance enforces both the presence of the line and the
+absence of the engine-version string in any other body footer.
+
+### §3 Building Conditions limitations-inline rule
+
+The Building and System Conditions section uses the same
+`RenderedFinding` block layout as zone findings:
+
+```
+[narrative paragraph for building finding]
+
+[if observedValue present:]
+Observed: <value>
+
+Limitations of this finding:
+- <limitation 1>
+- <limitation 2>
+
+Recommended actions:
+- <priority> (<timeframe>): <action> — <standardReference>
+```
+
+There is no section-level "Data limitations" subsection and no
+section-level "Recommended actions" rolling block. The canonical
+Recommendations Register at the end of the report is the only place
+recommendations aggregate.
+
+Per-section limitations dedup applies: when two building findings
+carry the same limitation string, it renders only beneath the first.
+This mirrors the v2.3 per-zone limitations dedup rule.
+
+### §4 Cross-zone finding consolidation in Executive Summary
+
+A finding with `scope: 'zone'` legitimately appears in each zone
+where it was observed. The Executive Summary **Summary of Findings**
+cell, however, consolidates same-`conditionType` findings across
+zones into a single entry naming all zones in the suffix:
+
+> **Symptom cluster pattern:** A spatial cluster of similar occupant symptoms was reported in a localized area. *Observed in: 3rd Floor Open Office, Conference Room B.*
+
+Per-zone Zone Findings sections continue to render the finding
+under each zone where it occurred. The Recommendations Register
+also continues to dedupe recommended actions across zones.
+
+### §5 Appendix C deterministic logic
+
+`src/engine/report/appendix-c.ts` exports `buildAppendixC(photos)`.
+Empty photo arrays produce a single deterministic narrative
+sentence:
+
+> No photo documentation was collected during this assessment.
+> Where photographs would have informed an observation, the
+> corresponding finding includes a textual description …
+
+Non-empty photo arrays produce a captioned list. Photos sort by:
+
+1. Building-level (`zoneName === null`) photos first.
+2. Then by zone name alphabetically.
+3. Then by `capturedAt` for stable order within a zone.
+
+Each entry renders as `Photo N: <Building or zoneName> — <caption>`.
+A separate italic line lists the relative path or filename so a
+reader can cross-reference the field photo set delivered separately
+when image embedding is not available.
+
+### §6 Executive Summary findings consolidation rule
+
+`src/engine/report/exec-summary-findings.ts` exports
+`consolidateExecutiveSummaryFindings()`. Findings are grouped by
+`conditionType` and sorted by:
+
+1. Worst severity (critical > high > medium > low)
+2. Best confidence (validated_defensible > provisional > qualitative > insufficient)
+3. Number of zones affected (descending)
+
+Output is capped at six entries; if more than six finding groups
+exist, a final "Additional findings of lower priority …" truncation
+note is appended. Zone Findings and Building and System Conditions
+sections continue to render every finding in full detail.
+
+### §7 Instrument zero-readings filtering
+
+`src/engine/report/methodology-narrative.ts` accepts an optional
+`readingsByInstrument` map keyed by instrument model (case-
+insensitive contains-match). When provided, instruments with zero
+readings tied to them are filtered from Sampling Methodology and
+Appendix B and a warning is surfaced via the configurable `warn`
+sink (defaults to `console.warn`). This is treated as an upstream
+data-integrity issue, not a renderer concern.
+
+When an instrument **is** used and readings exist but the model
+is not in the AtmosFlow accuracy database, the methodology
+paragraph explicitly ties the missing accuracy spec to the
+qualitative-only consequence:
+
+> Manufacturer accuracy specifications for this model are not in
+> the AtmosFlow accuracy database; findings derived from this
+> instrument are presented as qualitative only and should be
+> confirmed with calibrated reference instrumentation if
+> quantitative determination is required.
+
+### §8 v2.5 acceptance criteria added
+
+| Criterion | What it enforces |
+| --- | --- |
+| `APPENDIX-D-MODULE` | The citation walker module exists |
+| `APPENDIX-C-MODULE` | The deterministic Appendix C builder exists |
+| `EXEC-SUMMARY-CONSOLIDATION-MODULE` | Cross-zone consolidator exists |
+| `RENDER-EXEC-SUMMARY-RECIPIENT-POPULATED` | No em-dash in Client Name / Site Contact |
+| `RENDER-NOT-SPECIFIED-VS-EM-DASH` | "Not Specified" replaces em-dash in all required cells |
+| `RENDER-APPENDIX-D-CITATIONS-NONEMPTY` | At least eight distinct citations rendered |
+| `RENDER-APPENDIX-D-AUTHORITIES-EXPANDED` | OSHA / NIOSH full names appear |
+| `RENDER-APPENDIX-D-ENGINE-VERSION-LAST` | Engine-version line is the final Appendix D entry, references 2.5.0 |
+| `RENDER-NO-DATA-LIMITATIONS-SUBSECTION` | No "Data limitations" / "Data Limitations" section heading anywhere |
+| `RENDER-BUILDING-SECTION-INLINE-LIMITATIONS` | Building Conditions findings carry inline "Limitations of this finding" |
+| `RENDER-EXEC-SUMMARY-FINDINGS-LIMIT` | Cross-zone "Observed in:" suffix appears at least once |
+| `RENDER-NO-SYMPTOM-CLUSTER-VERBATIM-DUP` | Symptom-cluster narrative ≤ 3 occurrences |
+| `RENDER-INSTRUMENT-FILTERING` | Zero-reading instruments filtered |
+| `RENDER-APPENDIX-C-DETERMINISTIC` | Hedging both-ways language gone; "Photo N:" pattern emitted |
+
+The runner is the gate. `npm run accept:v2.5` exits 0 only when
+every criterion passes.

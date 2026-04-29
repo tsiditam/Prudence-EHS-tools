@@ -61,8 +61,8 @@ function buildScore() {
 }
 
 describe('v2.2 acceptance — structural assertions', () => {
-  it('Engine version is atmosflow-engine-2.4.0', () => {
-    expect(ENGINE_VERSION).toBe('atmosflow-engine-2.4.0')
+  it('Engine version is atmosflow-engine-2.5.0', () => {
+    expect(ENGINE_VERSION).toBe('atmosflow-engine-2.5.0')
   })
 
   it('ClientReport.transmittalLetter is structured', () => {

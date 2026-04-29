@@ -348,8 +348,18 @@ function buildExecutiveSummary(report) {
   if (summary.resultsNarrative) {
     out.push(buildExecBlock('Results', [p(summary.resultsNarrative, { align: AlignmentType.JUSTIFIED })]))
   }
-  // Findings — grouped by domain when findingsByGroup is populated.
-  if (summary.findingsByGroup && summary.findingsByGroup.length > 0) {
+  // v2.5 §6 — Summary of Findings cell carries the consolidated
+  // cross-zone entries with "Observed in: <zones>" suffixes (max 6
+  // + optional truncation note). When summaryOfFindings is empty
+  // (no findings at all), the v2.4 findingsByGroup grouping is the
+  // fallback; if neither is populated, the v2.2 observations list
+  // is the final fallback.
+  if (summary.summaryOfFindings && summary.summaryOfFindings.length > 0) {
+    out.push(buildExecBlock(
+      'Summary of Findings',
+      summary.summaryOfFindings.map(line => buildSummaryFindingBullet(line)),
+    ))
+  } else if (summary.findingsByGroup && summary.findingsByGroup.length > 0) {
     const groupChildren = []
     for (const g of summary.findingsByGroup) {
       groupChildren.push(p(g.groupName, { bold: true, size: 22, color: SLATE, after: 60 }))
@@ -366,6 +376,42 @@ function buildExecutiveSummary(report) {
     out.push(buildExecBlock('Recommendations', summary.recommendations.map(a => bullet(actionLine(a)))))
   }
   return out
+}
+
+/**
+ * v2.5 §6 — render a consolidated Exec Summary entry. The line is
+ * formatted "[label]: [summary]. Observed in: [zones]." with the
+ * label boldened up to the first colon and the rest in body weight.
+ * Truncation-note lines have no colon and render in italics.
+ */
+function buildSummaryFindingBullet(line) {
+  const colonIdx = line.indexOf(': ')
+  if (colonIdx < 0) {
+    // truncation note or back-compat plain string
+    return new Paragraph({
+      children: [new TextRun({ text: line, font: FONTS.body, size: 20, italics: true, color: SLATE_BODY })],
+      bullet: { level: 0 },
+      indent: { left: 360 },
+      spacing: { after: 60 },
+    })
+  }
+  const label = line.slice(0, colonIdx + 1)
+  const rest = line.slice(colonIdx + 1).trimStart()
+  const observedMatch = / Observed (?:in|at): .+\.?$/.exec(rest)
+  const summaryPart = observedMatch ? rest.slice(0, observedMatch.index) : rest
+  const observedPart = observedMatch ? observedMatch[0].trimStart() : ''
+  return new Paragraph({
+    children: [
+      new TextRun({ text: `${label} `, font: FONTS.body, size: 20, bold: true, color: SLATE }),
+      new TextRun({ text: summaryPart, font: FONTS.body, size: 20, color: SLATE_BODY }),
+      ...(observedPart
+        ? [new TextRun({ text: ` ${observedPart}`, font: FONTS.body, size: 20, italics: true, color: SLATE_BODY })]
+        : []),
+    ],
+    bullet: { level: 0 },
+    indent: { left: 360 },
+    spacing: { after: 60 },
+  })
 }
 
 /**
@@ -582,19 +628,36 @@ function buildAppendices(report) {
   if (ap.appendixC) {
     out.push(...heading2(ap.appendixC.title))
     if (ap.appendixC.description) out.push(p(ap.appendixC.description, { align: AlignmentType.JUSTIFIED }))
+    // v2.5 §5 — photo.caption is already formatted as
+    // "Photo N: <zone or Building> — <text>" by the engine. The
+    // relativePath is a placeholder cross-reference for the
+    // separately-delivered field photo set when image embedding
+    // is not available.
     if (Array.isArray(ap.appendixC.photos) && ap.appendixC.photos.length > 0) {
       for (const photo of ap.appendixC.photos) {
-        out.push(bullet(`${photo.caption} (${photo.zoneName}) — ${photo.relativePath}`))
+        out.push(bullet(photo.caption))
+        if (photo.relativePath) {
+          out.push(p(`(image: ${photo.relativePath})`, {
+            italics: true, size: 16, color: COLORS.sub, indent: { left: 720 }, after: 80,
+          }))
+        }
       }
     }
   }
   if (ap.appendixD) {
     out.push(...heading2(ap.appendixD.title))
     if (ap.appendixD.description) out.push(p(ap.appendixD.description, { align: AlignmentType.JUSTIFIED }))
-    if (Array.isArray(ap.appendixD.citations) && ap.appendixD.citations.length > 0) {
-      for (const c of ap.appendixD.citations) {
-        out.push(bullet(`${c.source}${c.edition ? ` (${c.edition})` : ''}${c.authority ? ` — ${c.authority}` : ''}`))
-      }
+    // v2.5 §2 — prefer pre-formatted displayLines (organization
+    // abbreviations expanded, sorted, deduped). Fall back to legacy
+    // citations array for backward compat with consumers that still
+    // synthesize Citations directly.
+    const lines = Array.isArray(ap.appendixD.displayLines) && ap.appendixD.displayLines.length > 0
+      ? ap.appendixD.displayLines
+      : (ap.appendixD.citations || []).map(c =>
+          `${c.source}${c.edition && c.edition !== 'current' ? ` (${c.edition})` : ''}${c.authority ? ` — ${c.authority}` : ''}`,
+        )
+    for (const line of lines) {
+      out.push(bullet(line))
     }
     if (ap.appendixD.engineVersionLine) {
       out.push(p(ap.appendixD.engineVersionLine, { italics: true, size: 18, color: COLORS.light, before: 200 }))

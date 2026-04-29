@@ -357,6 +357,14 @@ export interface AppendixD {
   readonly title: string
   readonly description: string
   readonly citations: ReadonlyArray<Citation>
+  /**
+   * v2.5 §2 — pre-formatted bibliography lines, one per citation,
+   * already sorted and with authority abbreviations expanded to the
+   * full organization name. The renderer iterates this array
+   * directly so it doesn't have to re-implement the formatting and
+   * organization-expansion logic from the citation walker.
+   */
+  readonly displayLines: ReadonlyArray<string>
   readonly engineVersionLine: string
 }
 
