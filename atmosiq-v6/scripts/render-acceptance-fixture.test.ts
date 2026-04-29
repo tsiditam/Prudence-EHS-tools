@@ -23,7 +23,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { writeFileSync, mkdirSync } from 'node:fs'
-import { Document, Packer, SectionType } from 'docx'
+import { Document, Packer } from 'docx'
 import JSZip from 'jszip'
 
 import { renderClientReport } from '../src/engine/report/client'
@@ -31,6 +31,7 @@ import { legacyToAssessmentScore } from '../src/engine/bridge/legacy'
 import { scoreZone, compositeScore } from '../src/engines/scoring'
 import { buildClientDocx } from '../src/components/docx/sections-v21client.js'
 import { DOCX_STYLES } from '../src/components/docx/styles.js'
+import { BODY_SECTION_PROPERTIES } from '../src/components/docx/page-setup.js'
 import type { AssessmentMeta } from '../src/engine/types/domain'
 import type { AssessmentPhoto } from '../src/engine/report/appendix-c'
 
@@ -123,7 +124,9 @@ async function renderToDocx(score: any, opts: { includeAssessmentIndexAppendix?:
     sections: [
       built.cover,
       {
-        properties: { type: SectionType.NEXT_PAGE, page: { margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 } } },
+        // v2.5.1 — explicit Letter portrait so content fills the
+        // 6.5-inch printable area rather than rendering at A4 width.
+        properties: BODY_SECTION_PROPERTIES,
         children: built.main,
       },
     ],

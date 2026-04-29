@@ -13,6 +13,7 @@
 import { Paragraph, TextRun, HeadingLevel, AlignmentType, SectionType, PageBreak, Table, TableRow, TableCell, WidthType, ShadingType, BorderStyle } from 'docx'
 import { FONTS, COLORS } from './styles'
 import { borderlessLayoutTable } from './tables'
+import { LETTER_COVER_PAGE, BODY_SECTION_PROPERTIES, CONTENT_WIDTH_DXA } from './page-setup'
 
 // v2.2 visual palette — slate/blue per consultant-report design
 // guidance. PRIMARY (slate-900) for headings + dark text. ACCENT
@@ -44,7 +45,10 @@ const cyanBorder = blackBorder
 const lightBorder = blackBorder
 const navyBorder = blackBorder
 
-const TOTAL_WIDTH_DXA = 9360 // standard 6.5in content width
+// v2.5.1 — single source of truth for the 6.5-inch Letter content
+// width is in page-setup.js. Re-export here as TOTAL_WIDTH_DXA for
+// back-compat with the dozens of existing references in this file.
+const TOTAL_WIDTH_DXA = CONTENT_WIDTH_DXA
 
 const PRIORITY_LABEL = {
   immediate: 'Immediate',
@@ -133,9 +137,11 @@ function buildCoverPage(cover, reviewStatus, projectNumber) {
     bold: opts.bold !== false, after: opts.after !== undefined ? opts.after : 200,
   })
   return {
+    // v2.5.1 — explicit Letter portrait + 1-inch L/R margins so the
+    // cover page renders at the same content width as the body.
     properties: {
       type: SectionType.NEXT_PAGE,
-      page: { margin: { top: 2160, right: 1440, bottom: 1440, left: 1440 } },
+      page: LETTER_COVER_PAGE,
     },
     children: [
       // Firm name
@@ -604,6 +610,9 @@ function buildAppendices(report) {
       out.push(buildSimpleTable(
         ['Zone', 'Parameter', 'Value', 'Unit', 'Outdoor Ref.'],
         ap.appendixA.rows.map(r => [r.zoneName, r.parameter, r.value, r.unit, r.outdoorReference]),
+        // v2.5.1 — fill 9360 TWIPs: zone + parameter wide, narrow
+        // unit column, modest outdoor-ref column.
+        { columnWidths: [2400, 2400, 1440, 1200, 1920] },
       ))
     }
   }
@@ -615,6 +624,9 @@ function buildAppendices(report) {
       out.push(buildSimpleTable(
         ['Model', 'Serial', 'Last Calibration', 'Status'],
         ap.appendixB.instrumentRows.map(r => [r.model, r.serial || '—', r.lastCalibration || '—', r.calibrationStatus || '—']),
+        // v2.5.1 — model column gets the most room; remaining
+        // columns split the rest.
+        { columnWidths: [2880, 2160, 2160, 2160] },
       ))
     }
     if (Array.isArray(ap.appendixB.zoneRows) && ap.appendixB.zoneRows.length > 0) {
@@ -622,6 +634,9 @@ function buildAppendices(report) {
       out.push(buildSimpleTable(
         ['Zone', 'Sampling Duration', 'Sample Locations', 'Outdoor Ref.'],
         ap.appendixB.zoneRows.map(r => [r.zoneName, r.samplingDuration, r.sampleLocations, r.outdoorReferenceTaken ? 'Yes' : 'No']),
+        // v2.5.1 — sample locations is the longest column; zone +
+        // sampling duration moderate; outdoor ref narrow.
+        { columnWidths: [2160, 2160, 3600, 1440] },
       ))
     }
   }
@@ -670,6 +685,9 @@ function buildAppendices(report) {
       out.push(buildSimpleTable(
         ['Instrument', 'Serial', 'Last Calibration', 'Status'],
         ap.appendixE.calibrationRecords.map(r => [r.instrumentModel, r.serial || '—', r.lastCalibration || '—', r.status || '—']),
+        // v2.5.1 — instrument column gets the most room; matches
+        // Appendix B layout for visual consistency.
+        { columnWidths: [2880, 2160, 2160, 2160] },
       ))
     }
     if (Array.isArray(ap.appendixE.qaNotes) && ap.appendixE.qaNotes.length > 0) {
@@ -696,10 +714,15 @@ function buildAppendices(report) {
   return out
 }
 
-function buildSimpleTable(headers, rows) {
+function buildSimpleTable(headers, rows, opts = {}) {
+  // v2.5.1 — accept explicit columnWidths summing to TOTAL_WIDTH_DXA.
+  // When omitted (back-compat), fall back to even distribution.
+  const widths = (opts.columnWidths && opts.columnWidths.length === headers.length)
+    ? opts.columnWidths
+    : headers.map(() => Math.floor(TOTAL_WIDTH_DXA / headers.length))
   const headerRow = new TableRow({
-    children: headers.map(h => new TableCell({
-      width: { size: Math.floor(TOTAL_WIDTH_DXA / headers.length), type: WidthType.DXA },
+    children: headers.map((h, i) => new TableCell({
+      width: { size: widths[i], type: WidthType.DXA },
       margins: { top: 100, bottom: 100, left: 120, right: 120 },
       shading: { fill: SLATE_FILL, type: ShadingType.CLEAR, color: 'auto' },
       children: [new Paragraph({
@@ -710,8 +733,8 @@ function buildSimpleTable(headers, rows) {
     tableHeader: true,
   })
   const bodyRows = rows.map(cells => new TableRow({
-    children: cells.map(cell => new TableCell({
-      width: { size: Math.floor(TOTAL_WIDTH_DXA / cells.length), type: WidthType.DXA },
+    children: cells.map((cell, i) => new TableCell({
+      width: { size: widths[i] || Math.floor(TOTAL_WIDTH_DXA / cells.length), type: WidthType.DXA },
       margins: { top: 80, bottom: 80, left: 120, right: 120 },
       children: [new Paragraph({
         children: [new TextRun({ text: String(cell || ''), font: FONTS.body, size: 20, color: SLATE_BODY })],
@@ -722,7 +745,7 @@ function buildSimpleTable(headers, rows) {
   return new Table({
     rows: [headerRow, ...bodyRows],
     width: { size: TOTAL_WIDTH_DXA, type: WidthType.DXA },
-    columnWidths: headers.map(() => Math.floor(TOTAL_WIDTH_DXA / headers.length)),
+    columnWidths: widths,
     borders: { top: blackBorder, bottom: blackBorder, left: blackBorder, right: blackBorder, insideHorizontal: blackBorder, insideVertical: blackBorder },
   })
 }
@@ -842,11 +865,13 @@ function buildRecommendationsRegister(report) {
 }
 
 function buildRecommendationsTable(groups) {
-  // Column widths roughly: Priority 16% / Timeframe 14% / Action 50% / Ref 20%
-  const COL_PRIORITY = Math.round(TOTAL_WIDTH_DXA * 0.16)
-  const COL_TIMEFRAME = Math.round(TOTAL_WIDTH_DXA * 0.14)
-  const COL_ACTION = Math.round(TOTAL_WIDTH_DXA * 0.50)
-  const COL_REF = Math.round(TOTAL_WIDTH_DXA * 0.20)
+  // v2.5.1 — explicit column widths summing to TOTAL_WIDTH_DXA so
+  // the table fills the 6.5-inch Letter content area. Action gets
+  // the lion's share since action text is the longest column.
+  const COL_PRIORITY = 1500
+  const COL_TIMEFRAME = 1500
+  const COL_ACTION = 5160
+  const COL_REF = 1200
 
   // Header row — cyan band, white text
   const headerCell = (text, width) => new TableCell({
