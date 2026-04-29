@@ -107,7 +107,11 @@ export function renderClientReport(
     allFindingsRaw.filter(f => f.scope === 'building' || f.scope === 'hvac_system'),
   )
 
-  // Build zone sections (zone-scoped findings only)
+  // Build zone sections (zone-scoped findings only). Data limitations
+  // are NOT rendered per-zone — they consolidate up to the building
+  // level so the same screening-methodology caveat doesn't repeat for
+  // every zone (per user direction). Zone sections still carry the
+  // dataLimitations field on the type contract but it is left empty.
   const zoneSections: ZoneSection[] = score.zones.map(z => {
     const findings = z.categories
       .flatMap(c => c.findings)
@@ -115,7 +119,6 @@ export function renderClientReport(
     const conditions = findings
       .filter(f => f.severityInternal !== 'pass' && f.severityInternal !== 'info')
       .map(f => f.approvedNarrativeIntent)
-    const limitations = findings.flatMap(f => f.limitations)
     const actions = dedupActions(findings.flatMap(f => f.recommendedActions))
     const interpretation = CONFIDENCE_TIER_LANGUAGE[z.confidence]
 
@@ -124,21 +127,28 @@ export function renderClientReport(
       zoneName: z.zoneName,
       observedConditions: conditions.length > 0 ? conditions : ['No significant conditions identified within the stated limitations.'],
       interpretation,
-      dataLimitations: [...new Set(limitations)],
+      dataLimitations: [], // consolidated to building-level (see buildingConditions below)
       recommendedActions: actions,
       professionalOpinion: z.professionalOpinion,
     }
   })
 
-  // v2.2 §12 — Building and System Conditions section
+  // v2.2 §12 — Building and System Conditions section. Data limitations
+  // consolidate from EVERY finding (zone-scoped + building-scoped) into
+  // a single deduplicated list so the report has one canonical
+  // "Limitations" voice instead of repeating per zone.
   const buildingActiveFindings = buildingScopedFindings.filter(
     f => f.severityInternal !== 'pass' && f.severityInternal !== 'info',
   )
+  const allLimitations = [
+    ...allFindingsRaw.filter(f => f.scope === 'zone').flatMap(f => f.limitations),
+    ...buildingScopedFindings.flatMap(f => f.limitations),
+  ]
   const buildingConditions = {
     observedConditions: buildingActiveFindings.length > 0
       ? buildingActiveFindings.map(f => f.approvedNarrativeIntent)
       : ['No building or system conditions identified within the stated limitations.'],
-    dataLimitations: [...new Set(buildingScopedFindings.flatMap(f => f.limitations))],
+    dataLimitations: [...new Set(allLimitations)],
     recommendedActions: dedupActions(buildingScopedFindings.flatMap(f => f.recommendedActions)),
   }
 

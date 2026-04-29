@@ -14,13 +14,25 @@ import { Paragraph, TextRun, HeadingLevel, AlignmentType, SectionType, PageBreak
 import { FONTS, COLORS } from './styles'
 import { borderlessLayoutTable } from './tables'
 
-const NAVY = '1B2A41'
-const NAVY_DARK = '0F1A2A'
-const NAVY_LIGHT = 'B8C4D6'
+// v2.2 visual palette — cyan family (matches in-app accent).
+// CYAN = primary cyan-600 used for borders + label cells + accent
+// CYAN_DARK = cyan-800 used for h2 text and dark-on-white
+// CYAN_LIGHT = cyan-200 used for soft borders
+// CYAN_FILL = cyan-50 used for soft backgrounds
+const CYAN = '0891B2'
+const CYAN_DARK = '155E75'
+const CYAN_LIGHT = 'A5F3FC'
+const CYAN_FILL = 'ECFEFF'
+// Backward-compat aliases for any helpers still using the old names
+const NAVY = CYAN
+const NAVY_DARK = CYAN_DARK
+const NAVY_LIGHT = CYAN_LIGHT
 
 const noBorder = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' }
-const navyBorder = { style: BorderStyle.SINGLE, size: 4, color: NAVY }
-const lightBorder = { style: BorderStyle.SINGLE, size: 4, color: NAVY_LIGHT }
+const cyanBorder = { style: BorderStyle.SINGLE, size: 4, color: CYAN }
+const lightBorder = { style: BorderStyle.SINGLE, size: 4, color: CYAN_LIGHT }
+// Backward-compat alias
+const navyBorder = cyanBorder
 
 const TOTAL_WIDTH_DXA = 9360 // standard 6.5in content width
 
@@ -51,44 +63,29 @@ const bullet = (text, opts = {}) => new Paragraph({
 })
 
 /**
- * v2.2 — section band heading: full-width navy fill with white text,
- * followed by a small spacer paragraph to restore vertical rhythm.
- * Mirrors the CTSI sage-band section dividers.
+ * v2.2 — lightweight CTSI-style section heading: cyan-colored bold
+ * text with a cyan rule below. No box fill (per user preference).
  *
- * Returns an array [Table, Paragraph] — callers spread it into the
- * section children list.
+ * Returns an array of [Paragraph] — callers spread it into the
+ * section children list. The single-element array preserves the same
+ * call-site shape the v2.2.0a banded version used.
  */
 function heading2(text) {
-  const cell = new TableCell({
-    children: [new Paragraph({
+  return [
+    new Paragraph({
       children: [new TextRun({
-        text: text || '', font: FONTS.body, size: 26, bold: true, color: 'FFFFFF',
+        text: text || '', font: FONTS.body, size: 28, bold: true, color: CYAN_DARK,
       })],
-      spacing: { before: 0, after: 0 },
-      alignment: AlignmentType.LEFT,
-    })],
-    shading: { type: ShadingType.CLEAR, fill: NAVY },
-    margins: { top: 140, bottom: 140, left: 220, right: 220 },
-    borders: { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder },
-    width: { size: TOTAL_WIDTH_DXA, type: WidthType.DXA },
-  })
-  const band = new Table({
-    rows: [new TableRow({ children: [cell] })],
-    width: { size: TOTAL_WIDTH_DXA, type: WidthType.DXA },
-    columnWidths: [TOTAL_WIDTH_DXA],
-    borders: { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder, insideHorizontal: noBorder, insideVertical: noBorder },
-  })
-  // Spacer paragraph — gives breathing room before the next section
-  // body paragraph and ensures docx renders a proper paragraph break
-  // between Table and following content.
-  const spacer = new Paragraph({
-    children: [new TextRun({ text: '' })],
-    spacing: { before: 0, after: 140 },
-  })
-  return [band, spacer]
+      heading: HeadingLevel.HEADING_2,
+      spacing: { before: 360, after: 160 },
+      border: {
+        bottom: { style: BorderStyle.SINGLE, size: 12, color: CYAN, space: 4 },
+      },
+    }),
+  ]
 }
 
-const heading3 = (text) => p(text, { heading: HeadingLevel.HEADING_3, bold: true, size: 24, color: NAVY, after: 100 })
+const heading3 = (text) => p(text, { heading: HeadingLevel.HEADING_3, bold: true, size: 24, color: CYAN_DARK, after: 100 })
 
 function actionLine(action) {
   const priority = PRIORITY_LABEL[action.priority] || action.priority
@@ -104,10 +101,10 @@ function buildCoverPage(cover, reviewStatus, projectNumber) {
   // with section labels in small caps, project number prominently
   // displayed.
   const labelLine = (text) => p(text, {
-    align: AlignmentType.CENTER, bold: true, size: 16, color: COLORS.sub, after: 60,
+    align: AlignmentType.CENTER, bold: true, size: 16, color: CYAN_DARK, after: 60,
   })
   const valueLine = (text, opts = {}) => p(text, {
-    align: AlignmentType.CENTER, size: opts.size || 22, color: opts.color || COLORS.text,
+    align: AlignmentType.CENTER, size: opts.size || 22, color: opts.color || '0F172A',
     bold: opts.bold !== false, after: opts.after !== undefined ? opts.after : 200,
   })
   return {
@@ -117,27 +114,27 @@ function buildCoverPage(cover, reviewStatus, projectNumber) {
     },
     children: [
       // Firm name
-      p(cover.preparedBy, { align: AlignmentType.CENTER, bold: true, size: 24, color: COLORS.text, after: 80 }),
+      p(cover.preparedBy, { align: AlignmentType.CENTER, bold: true, size: 24, color: CYAN_DARK, after: 80 }),
       p('', { after: 800 }),
-      // Title — two lines, all caps
-      p('INDOOR AIR QUALITY', { align: AlignmentType.CENTER, bold: true, size: 56, color: COLORS.text, after: 100 }),
-      p('EVALUATION', { align: AlignmentType.CENTER, bold: true, size: 56, color: COLORS.text, after: 400 }),
-      // Centered navy rule (single dash run for visual)
-      p('—', { align: AlignmentType.CENTER, size: 32, color: NAVY, bold: true, after: 400 }),
+      // Title — two lines, all caps (slate-900)
+      p('INDOOR AIR QUALITY', { align: AlignmentType.CENTER, bold: true, size: 56, color: '0F172A', after: 100 }),
+      p('EVALUATION', { align: AlignmentType.CENTER, bold: true, size: 56, color: '0F172A', after: 400 }),
+      // Centered cyan rule (single dash run for visual)
+      p('—', { align: AlignmentType.CENTER, size: 32, color: CYAN, bold: true, after: 400 }),
       // Site block
       labelLine('PERFORMED AT'),
-      valueLine(cover.facility, { size: 26, after: 80 }),
+      valueLine(cover.facility, { size: 26, after: 80, color: '0F172A' }),
       valueLine(cover.location || '', { size: 22, color: COLORS.sub, bold: false, after: 240 }),
       // Date block
       labelLine('ASSESSMENT DATE'),
-      valueLine(cover.date, { size: 22, color: COLORS.text, bold: false, after: 240 }),
+      valueLine(cover.date, { size: 22, color: '0F172A', bold: false, after: 240 }),
       // Project number block (if present)
       ...(projectNumber ? [
         labelLine('PSEC PROJECT NUMBER'),
-        valueLine(projectNumber, { size: 22, color: COLORS.text, after: 320 }),
+        valueLine(projectNumber, { size: 22, color: '0F172A', after: 320 }),
       ] : [p('', { after: 320 })]),
-      // Status pill (bold caps)
-      p(REVIEW_STATUS_LABEL[reviewStatus] || cover.status, { align: AlignmentType.CENTER, bold: true, size: 22, color: COLORS.text, after: 200 }),
+      // Status pill (bold caps, cyan-dark)
+      p(REVIEW_STATUS_LABEL[reviewStatus] || cover.status, { align: AlignmentType.CENTER, bold: true, size: 22, color: CYAN_DARK, after: 200 }),
       // Methodology line italic
       p(cover.methodologyLine, { align: AlignmentType.CENTER, italics: true, size: 18, color: COLORS.muted, after: 400 }),
       ...(cover.draftNotice ? [p(cover.draftNotice, { align: AlignmentType.CENTER, italics: true, size: 20, color: 'C2410C' })] : []),
@@ -385,7 +382,7 @@ function buildOpinionCard(opinionLanguage) {
         spacing: { after: 0 },
       }),
     ],
-    shading: { type: ShadingType.CLEAR, fill: 'F8FAFC' },
+    shading: { type: ShadingType.CLEAR, fill: CYAN_FILL },
     margins: { top: 200, bottom: 200, left: 240, right: 240 },
     width: { size: TOTAL_WIDTH_DXA, type: WidthType.DXA },
     borders: {
@@ -461,6 +458,9 @@ function buildZoneSections(report) {
 }
 
 function buildRecommendationsRegister(report) {
+  // v2.2 visual upgrade — table form with Priority / Timeframe /
+  // Action / Reference columns. Priority group rows separate the
+  // priority tiers (cyan-tinted band rows within the table).
   const reg = report.recommendationsRegister
   const groups = [
     ['Immediate', reg.immediate],
@@ -469,15 +469,91 @@ function buildRecommendationsRegister(report) {
     ['Long term (optional)', reg.longTermOptional],
   ].filter(([, list]) => list.length > 0)
   if (groups.length === 0) return []
-  const out = [...heading2('Recommendations Register')]
+
+  return [...heading2('Recommendations Register'), buildRecommendationsTable(groups)]
+}
+
+function buildRecommendationsTable(groups) {
+  // Column widths roughly: Priority 16% / Timeframe 14% / Action 50% / Ref 20%
+  const COL_PRIORITY = Math.round(TOTAL_WIDTH_DXA * 0.16)
+  const COL_TIMEFRAME = Math.round(TOTAL_WIDTH_DXA * 0.14)
+  const COL_ACTION = Math.round(TOTAL_WIDTH_DXA * 0.50)
+  const COL_REF = Math.round(TOTAL_WIDTH_DXA * 0.20)
+
+  // Header row — cyan band, white text
+  const headerCell = (text, width) => new TableCell({
+    children: [new Paragraph({
+      children: [new TextRun({ text, font: FONTS.body, size: 18, bold: true, color: 'FFFFFF' })],
+      spacing: { after: 0 },
+    })],
+    shading: { type: ShadingType.CLEAR, fill: CYAN },
+    margins: { top: 100, bottom: 100, left: 140, right: 140 },
+    width: { size: width, type: WidthType.DXA },
+    borders: { top: cyanBorder, bottom: cyanBorder, left: cyanBorder, right: cyanBorder },
+  })
+
+  // Priority group divider row — cyan-tinted, single cell spanning all columns
+  const groupRow = (title) => new TableRow({
+    children: [new TableCell({
+      children: [new Paragraph({
+        children: [new TextRun({ text: title.toUpperCase(), font: FONTS.body, size: 18, bold: true, color: CYAN_DARK })],
+        spacing: { after: 0 },
+      })],
+      shading: { type: ShadingType.CLEAR, fill: CYAN_FILL },
+      margins: { top: 80, bottom: 80, left: 140, right: 140 },
+      columnSpan: 4,
+      width: { size: TOTAL_WIDTH_DXA, type: WidthType.DXA },
+      borders: { top: cyanBorder, bottom: cyanBorder, left: cyanBorder, right: cyanBorder },
+    })],
+  })
+
+  // Body row
+  const bodyCell = (text, width, opts = {}) => new TableCell({
+    children: [new Paragraph({
+      children: [new TextRun({
+        text: text || '—', font: FONTS.body, size: 18,
+        color: opts.color || COLORS.body,
+        bold: opts.bold || false, italics: opts.italics || false,
+      })],
+      spacing: { after: 0 },
+    })],
+    margins: { top: 90, bottom: 90, left: 140, right: 140 },
+    width: { size: width, type: WidthType.DXA },
+    borders: { top: lightBorder, bottom: lightBorder, left: lightBorder, right: lightBorder },
+  })
+
+  const rows = [
+    new TableRow({
+      tableHeader: true,
+      children: [
+        headerCell('Priority', COL_PRIORITY),
+        headerCell('Timeframe', COL_TIMEFRAME),
+        headerCell('Action', COL_ACTION),
+        headerCell('Reference', COL_REF),
+      ],
+    }),
+  ]
+
   for (const [title, list] of groups) {
-    out.push(heading3(title))
-    list.forEach(a => {
-      const std = a.standardReference ? ` — ${a.standardReference}` : ''
-      out.push(bullet(`${a.timeframe}: ${a.action}${std}`))
-    })
+    rows.push(groupRow(title))
+    for (const a of list) {
+      rows.push(new TableRow({
+        children: [
+          bodyCell(PRIORITY_LABEL[a.priority] || a.priority, COL_PRIORITY, { bold: true, color: CYAN_DARK }),
+          bodyCell(a.timeframe, COL_TIMEFRAME),
+          bodyCell(a.action, COL_ACTION),
+          bodyCell(a.standardReference || '—', COL_REF, { italics: true, color: COLORS.sub }),
+        ],
+      }))
+    }
   }
-  return out
+
+  return new Table({
+    rows,
+    width: { size: TOTAL_WIDTH_DXA, type: WidthType.DXA },
+    columnWidths: [COL_PRIORITY, COL_TIMEFRAME, COL_ACTION, COL_REF],
+    borders: { top: cyanBorder, bottom: cyanBorder, left: cyanBorder, right: cyanBorder, insideHorizontal: lightBorder, insideVertical: lightBorder },
+  })
 }
 
 function buildLimitations(report) {

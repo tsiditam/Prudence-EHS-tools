@@ -36,57 +36,63 @@ const REVIEW_STATUS_LABEL = {
 }
 
 const PAGE_STYLES = `
-  /* v2.2 visual upgrade — CTSI-format polish using PSEC navy palette.
-     Section bands, black-band table headers, justified body, formal
-     letter typography. */
+  /* v2.2 visual upgrade — CTSI-format polish using PSEC cyan palette
+     (matches in-app accent #22D3EE). Lightweight h2 headings with a
+     cyan rule (no heavy band fill). Section bands retained ONLY for
+     the executive-summary sub-blocks (Scope of Work / Results /
+     Observations / Recommendations) since those define the CTSI
+     exec-summary card pattern. Recommendations register renders as
+     a table. */
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
     font-family: Cambria, 'Times New Roman', serif;
     font-size: 12pt; color: #1f2937; line-height: 1.55;
     padding: 0.85in 0.95in; max-width: 8.5in; margin: 0 auto; background: #fff;
   }
-  h1 { font-size: 22pt; font-weight: 700; color: #0F1A2A; margin-bottom: 4px; letter-spacing: -0.3px; }
+  h1 { font-size: 22pt; font-weight: 700; color: #155E75; margin-bottom: 4px; letter-spacing: -0.3px; }
   h2 {
-    /* v2.2 — section band: full-width PSEC-navy fill, white text. CTSI's
-       sage-green section dividers; navy here aligns with PSEC brand. */
-    font-size: 13pt; font-weight: 700; color: #fff;
-    background: #1B2A41; padding: 8px 14px;
-    margin: 28px 0 16px; letter-spacing: 0.5px;
+    /* Lightweight CTSI-style heading: cyan text + cyan rule below.
+       No box fill. */
+    font-size: 14pt; font-weight: 700; color: #155E75;
+    margin: 28px 0 14px; letter-spacing: 0.4px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid #0891B2;
     page-break-after: avoid;
   }
-  h3 { font-size: 12pt; font-weight: 700; color: #1B2A41; margin: 20px 0 8px; letter-spacing: 0.2px; }
+  h3 { font-size: 12pt; font-weight: 700; color: #155E75; margin: 20px 0 8px; letter-spacing: 0.2px; }
   p { margin-bottom: 11px; line-height: 1.7; text-align: justify; hyphens: auto; }
   ul, ol { margin: 8px 0 14px 28px; }
   li { margin-bottom: 5px; line-height: 1.65; text-align: justify; }
-  strong { color: #0F1A2A; }
+  strong { color: #0F172A; }
 
   table { width: 100%; border-collapse: collapse; font-family: Cambria, 'Times New Roman', serif; margin: 8px 0 18px; }
-  /* v2.2 — major data tables use black-band headers (CTSI Table I style). */
+  /* Major data tables — cyan band headers with white text. */
   table.data-table th {
-    background: #0F1A2A; color: #fff; text-transform: uppercase; letter-spacing: 0.6px;
-    font-size: 10pt; font-weight: 700; padding: 9px 10px; text-align: left; border: 1px solid #0F1A2A;
+    background: #0891B2; color: #fff; text-transform: uppercase; letter-spacing: 0.6px;
+    font-size: 10pt; font-weight: 700; padding: 9px 10px; text-align: left; border: 1px solid #0E7490;
   }
-  table.data-table td { padding: 8px 10px; border: 1px solid #cbd5e1; font-size: 10.5pt; vertical-align: top; }
-  table.data-table tbody tr:nth-child(even) td { background: #F8FAFC; }
-  th { text-align: left; padding: 8px 10px; background: #F3F4F6; font-size: 10pt; font-weight: 700; color: #5C6F7E; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #D1D5DB; }
-  td { padding: 8px 10px; border-bottom: 1px solid #E5E7EB; font-size: 11pt; vertical-align: top; }
+  table.data-table td { padding: 8px 10px; border: 1px solid #A5F3FC; font-size: 10.5pt; vertical-align: top; }
+  table.data-table tbody tr:nth-child(even) td { background: #ECFEFF; }
+  th { text-align: left; padding: 8px 10px; background: #ECFEFF; font-size: 10pt; font-weight: 700; color: #155E75; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #A5F3FC; }
+  td { padding: 8px 10px; border-bottom: 1px solid #E0F2FE; font-size: 11pt; vertical-align: top; }
 
   /* ── Cover page ── */
   .cover {
-    text-align: center; padding: 1.4in 0 0.8in; border-bottom: 3px double #1B2A41;
+    text-align: center; padding: 1.4in 0 0.8in; border-bottom: 3px double #0891B2;
     margin-bottom: 0.5in; page-break-after: always;
   }
-  .cover-firm { font-size: 14pt; font-weight: 700; color: #1B2A41; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .cover-firm { font-size: 14pt; font-weight: 700; color: #155E75; letter-spacing: 0.5px; margin-bottom: 6px; }
   .cover-firm-sub { font-size: 11pt; color: #5C6F7E; margin-bottom: 36px; }
   .cover-title {
-    font-size: 28pt; font-weight: 700; color: #0F1A2A;
+    font-size: 28pt; font-weight: 700; color: #0F172A;
     margin: 0.4in 0 8px; letter-spacing: 0.4px;
   }
-  .cover-rule { width: 60px; height: 3px; background: #1B2A41; margin: 32px auto; }
+  .cover-rule { width: 60px; height: 3px; background: #0891B2; margin: 32px auto; }
   .cover-meta { font-size: 11pt; color: #2D3A4A; line-height: 2; }
-  .cover-meta strong { color: #0F1A2A; font-weight: 700; }
+  .cover-meta strong { color: #0F172A; font-weight: 700; }
   .cover-status {
-    display: inline-block; padding: 6px 16px; background: #1B2A41; color: #fff;
+    display: inline-block; padding: 6px 16px; background: #E0F2FE; color: #155E75;
+    border: 1px solid #0891B2;
     border-radius: 2px; font-size: 10pt; font-weight: 700;
     margin-top: 18px; letter-spacing: 0.7px; text-transform: uppercase;
   }
@@ -96,27 +102,31 @@ const PAGE_STYLES = `
 
   /* ── Verbatim engine paragraph (Methodology Disclosure) ── */
   .verbatim {
-    padding: 14px 20px; background: #F8FAFC; border-left: 4px solid #1B2A41;
+    padding: 14px 20px; background: #ECFEFF; border-left: 4px solid #0891B2;
     margin-bottom: 18px; font-size: 12pt; line-height: 1.75; font-style: italic;
   }
 
   /* ── Executive Summary metadata table (CTSI 4-row) ── */
-  .exec-meta-table { margin: 14px 0 22px; border: 1px solid #1B2A41; }
+  .exec-meta-table { margin: 14px 0 22px; border: 1px solid #0891B2; }
   .exec-meta-table td {
-    font-size: 11pt; padding: 9px 14px; border: 1px solid #B8C4D6;
+    font-size: 11pt; padding: 9px 14px; border: 1px solid #A5F3FC;
     line-height: 1.45;
   }
-  /* Label cells (1st and 3rd column) get the navy band fill */
+  /* Label cells (1st and 3rd column) get the cyan band fill */
   .exec-meta-table td.label {
-    background: #1B2A41; color: #fff; font-weight: 700;
+    background: #0891B2; color: #fff; font-weight: 700;
     text-transform: none; letter-spacing: 0.3px; width: 18%;
   }
   .exec-meta-table td.value { width: 32%; color: #1f2937; }
 
   /* ── Executive Summary narrative blocks (Scope/Results/Obs/Recs) ── */
-  .exec-block { margin-bottom: 22px; border: 1px solid #B8C4D6; }
+  /* These ARE bands by design — they're sub-sections WITHIN the
+     executive summary, the CTSI "card" pattern. The user-listed
+     top-level h2 sections (Methodology Disclosure, Scope and
+     Methodology, Sampling Methodology, etc.) are plain headings. */
+  .exec-block { margin-bottom: 22px; border: 1px solid #A5F3FC; }
   .exec-block-header {
-    background: #1B2A41; color: #fff; font-weight: 700;
+    background: #0891B2; color: #fff; font-weight: 700;
     font-size: 12pt; padding: 9px 14px; letter-spacing: 0.4px;
   }
   .exec-block-body { padding: 14px 18px; background: #fff; }
@@ -142,51 +152,69 @@ const PAGE_STYLES = `
   .signature-line { flex: 1; min-width: 240px; margin-bottom: 18px; }
   .signature-image-area { height: 0.5in; margin-bottom: 4px; }
   .signature-rule {
-    margin-bottom: 5px; border-bottom: 1px solid #1B2A41; height: 1px; width: 80%;
+    margin-bottom: 5px; border-bottom: 1px solid #155E75; height: 1px; width: 80%;
   }
-  .signature-name { font-size: 12pt; font-weight: 700; color: #0F1A2A; }
+  .signature-name { font-size: 12pt; font-weight: 700; color: #0F172A; }
   .signature-title { font-size: 11pt; color: #2D3A4A; }
   .signature-meta { font-size: 10pt; color: #5C6F7E; margin-top: 2px; }
 
   /* ── Professional opinion call-out (Executive Summary) ── */
   .opinion-card {
-    padding: 18px 22px; background: #F8FAFC; border: 1px solid #B8C4D6;
-    border-left: 4px solid #1B2A41; margin: 0 0 22px; page-break-inside: avoid;
+    padding: 18px 22px; background: #ECFEFF; border: 1px solid #A5F3FC;
+    border-left: 4px solid #0891B2; margin: 0 0 22px; page-break-inside: avoid;
   }
   .opinion-tier {
-    font-size: 10pt; font-weight: 700; color: #1B2A41;
+    font-size: 10pt; font-weight: 700; color: #155E75;
     text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px;
   }
   .opinion-text { font-size: 12pt; line-height: 1.7; color: #1f2937; font-weight: 600; }
 
   /* ── Zone cards ── */
   .zone-card {
-    border: 1px solid #B8C4D6; border-top: 3px solid #1B2A41;
+    border: 1px solid #A5F3FC; border-top: 3px solid #0891B2;
     padding: 22px 24px; margin-bottom: 22px; page-break-inside: avoid;
   }
-  .zone-name { font-size: 14pt; font-weight: 700; color: #0F1A2A; margin-bottom: 12px; }
+  .zone-name { font-size: 14pt; font-weight: 700; color: #0F172A; margin-bottom: 12px; }
   .label {
-    font-size: 10pt; font-weight: 700; color: #1B2A41;
+    font-size: 10pt; font-weight: 700; color: #155E75;
     text-transform: uppercase; letter-spacing: 0.6px;
-    margin: 16px 0 6px; padding-bottom: 3px; border-bottom: 1px solid #B8C4D6;
+    margin: 16px 0 6px; padding-bottom: 3px; border-bottom: 1px solid #A5F3FC;
   }
 
-  /* ── Signatory block (separate from letter format) ── */
+  /* ── Signatory block ── */
   .signatory {
-    padding: 24px 26px; background: #F8FAFC; border: 1px solid #B8C4D6;
-    border-top: 3px solid #1B2A41; margin-top: 30px; page-break-inside: avoid;
+    padding: 24px 26px; background: #ECFEFF; border: 1px solid #A5F3FC;
+    border-top: 3px solid #0891B2; margin-top: 30px; page-break-inside: avoid;
   }
   .signatory-row { display: flex; gap: 0.4in; margin-bottom: 14px; }
   .signatory-block { flex: 1; }
-  .signatory-name { font-size: 13pt; font-weight: 700; color: #0F1A2A; margin-bottom: 3px; }
+  .signatory-name { font-size: 13pt; font-weight: 700; color: #0F172A; margin-bottom: 3px; }
   .signatory-creds { font-size: 11pt; color: #2D3A4A; margin-bottom: 6px; }
   .signatory-meta { font-size: 10pt; color: #5C6F7E; line-height: 1.6; }
 
   /* ── Methodology / Sampling section ── */
   .methodology-instrument { margin-bottom: 12px; }
 
+  /* ── Recommendations Register table ── */
+  .rec-table { width: 100%; border-collapse: collapse; margin: 6px 0 18px; }
+  .rec-table th {
+    background: #0891B2; color: #fff; text-align: left;
+    font-size: 10pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+    padding: 9px 12px; border: 1px solid #0E7490;
+  }
+  .rec-table td { padding: 9px 12px; border: 1px solid #A5F3FC; font-size: 10.5pt; vertical-align: top; line-height: 1.5; }
+  .rec-table tr.priority-row td {
+    background: #ECFEFF; font-weight: 700; color: #155E75;
+    text-transform: uppercase; letter-spacing: 0.5px; font-size: 10pt;
+    padding: 7px 12px;
+  }
+  .rec-table .col-priority { width: 16%; font-weight: 700; color: #155E75; }
+  .rec-table .col-timeframe { width: 14%; color: #2D3A4A; }
+  .rec-table .col-action { width: 50%; }
+  .rec-table .col-ref { width: 20%; font-style: italic; color: #5C6F7E; font-size: 10pt; }
+
   .footer {
-    margin-top: 0.4in; padding-top: 14px; border-top: 1px solid #B8C4D6;
+    margin-top: 0.4in; padding-top: 14px; border-top: 1px solid #A5F3FC;
     font-size: 9pt; color: #5C6F7E; text-align: center; line-height: 1.8;
   }
   .pg-break { page-break-before: always; }
@@ -198,7 +226,7 @@ const PAGE_STYLES = `
   @media print {
     body { padding: 0; font-size: 11pt; }
     h2 { page-break-after: avoid; }
-    .zone-card, .signatory, .opinion-card, .exec-block, .letter { page-break-inside: avoid; }
+    .zone-card, .signatory, .opinion-card, .exec-block, .letter, .rec-table { page-break-inside: avoid; }
     .draft-watermark { position: fixed; }
   }
 `
@@ -280,12 +308,12 @@ function renderCover(cover, reviewStatus, projectNumber) {
     <div class="cover-rule"></div>
     <div class="cover-meta">
       <div style="text-transform:uppercase; letter-spacing:0.6px; font-size:9pt; color:#5C6F7E; margin-bottom:6px;">Performed at</div>
-      <div style="font-size:13pt; font-weight:700; color:#0F1A2A; margin-bottom:6px;">${esc(cover.facility)}</div>
+      <div style="font-size:13pt; font-weight:700; color:#0F172A; margin-bottom:6px;">${esc(cover.facility)}</div>
       <div style="font-size:11pt; color:#2D3A4A; margin-bottom:24px;">${esc(cover.location) || ''}</div>
       <div style="text-transform:uppercase; letter-spacing:0.6px; font-size:9pt; color:#5C6F7E; margin-bottom:6px;">Assessment Date</div>
-      <div style="font-size:11pt; color:#0F1A2A; margin-bottom:20px;">${esc(cover.date)}</div>
+      <div style="font-size:11pt; color:#0F172A; margin-bottom:20px;">${esc(cover.date)}</div>
       ${projectNumber ? `<div style="text-transform:uppercase; letter-spacing:0.6px; font-size:9pt; color:#5C6F7E; margin-bottom:6px;">PSEC Project Number</div>
-      <div style="font-size:11pt; color:#0F1A2A; font-weight:600; margin-bottom:0;">${esc(projectNumber)}</div>` : ''}
+      <div style="font-size:11pt; color:#0F172A; font-weight:600; margin-bottom:0;">${esc(projectNumber)}</div>` : ''}
     </div>
     <div class="cover-status">${esc(REVIEW_STATUS_LABEL[reviewStatus] || cover.status)}</div>
     <div class="cover-methodology">${esc(cover.methodologyLine)}</div>
@@ -439,18 +467,40 @@ function renderZoneSection(zone) {
 }
 
 function renderRecommendationsRegister(reg) {
-  const sections = [
+  // v2.2 visual upgrade — Recommendations Register as a single table
+  // with Priority / Timeframe / Action / Reference columns. Priority
+  // group rows separate the priority tiers within the table.
+  const groups = [
     ['Immediate', reg.immediate],
     ['Short term', reg.shortTerm],
     ['Further evaluation', reg.furtherEvaluation],
     ['Long term (optional)', reg.longTermOptional],
   ].filter(([, list]) => list.length > 0)
-  if (sections.length === 0) return ''
+  if (groups.length === 0) return ''
+
+  const rows = groups.flatMap(([title, list]) => [
+    `<tr class="priority-row"><td colspan="4">${esc(title)}</td></tr>`,
+    ...list.map(a => `
+      <tr>
+        <td class="col-priority">${esc(PRIORITY_LABEL[a.priority] || a.priority)}</td>
+        <td class="col-timeframe">${esc(a.timeframe)}</td>
+        <td class="col-action">${esc(a.action)}</td>
+        <td class="col-ref">${a.standardReference ? esc(a.standardReference) : '—'}</td>
+      </tr>`),
+  ])
+
   return `<h2>Recommendations Register</h2>
-    ${sections.map(([title, list]) => `
-      <h3>${esc(title)}</h3>
-      <ul>${list.map(a => `<li><strong>${esc(a.timeframe)}:</strong> ${esc(a.action)}${a.standardReference ? ` <em>— ${esc(a.standardReference)}</em>` : ''}</li>`).join('')}</ul>
-    `).join('')}`
+    <table class="rec-table">
+      <thead>
+        <tr>
+          <th class="col-priority">Priority</th>
+          <th class="col-timeframe">Timeframe</th>
+          <th class="col-action">Action</th>
+          <th class="col-ref">Reference</th>
+        </tr>
+      </thead>
+      <tbody>${rows.join('')}</tbody>
+    </table>`
 }
 
 function renderSignatoryBlock(sig) {
