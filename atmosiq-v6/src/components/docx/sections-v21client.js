@@ -524,48 +524,101 @@ function buildBuildingContext(report) {
   ]
 }
 
+// v2.3 §2 — Building and System Conditions section is omitted entirely
+// (no header, no body, no TOC entry) when the engine signals
+// rendered=false. The omittedReason was already appended to Scope of
+// Work in client.ts. We render nothing here.
 function buildBuildingConditionsSection(report) {
   const section = report.buildingAndSystemConditions
-  if (!section) return []
+  if (!section || !section.rendered) return []
   const out = [...heading2('Building and System Conditions')]
-  out.push(p('Observed conditions', { bold: true, size: 20, color: COLORS.sub, after: 60 }))
-  if (section.observedConditions.length > 0) {
-    section.observedConditions.forEach(c => out.push(bullet(c)))
-  } else {
-    out.push(p('No building or system conditions identified within the stated limitations.', { italics: true, color: COLORS.sub }))
-  }
-  if (section.dataLimitations.length > 0) {
-    out.push(p('Data limitations', { bold: true, size: 20, color: COLORS.sub, after: 60 }))
-    section.dataLimitations.forEach(l => out.push(bullet(l)))
-  }
-  if (section.recommendedActions.length > 0) {
-    out.push(p('Recommended actions', { bold: true, size: 20, color: COLORS.sub, after: 60 }))
-    section.recommendedActions.forEach(a => out.push(bullet(actionLine(a))))
+  for (const f of (section.findings || [])) {
+    out.push(...buildInlineFindingDocx(f))
   }
   return out
 }
 
+// v2.3 §5 — Zone section. Findings render as RenderedFinding blocks.
+// Empty zones render exactly the prescribed single sentence.
 function buildZoneSections(report) {
   const out = [...heading2('Zone Findings')]
   for (const zone of report.zoneSections) {
     out.push(heading3(zone.zoneName))
-    out.push(p('Observed conditions', { bold: true, size: 20, color: COLORS.sub, after: 60 }))
-    if (zone.observedConditions.length > 0) {
-      zone.observedConditions.forEach(c => out.push(bullet(c)))
-    } else {
-      out.push(p('No significant conditions identified within the stated limitations.', { italics: true, color: COLORS.sub }))
+    if (zone.zoneDescription) {
+      out.push(p(zone.zoneDescription, { size: 22, color: COLORS.body }))
     }
-    out.push(p('Interpretation', { bold: true, size: 20, color: COLORS.sub, after: 60 }))
-    out.push(p(zone.interpretation))
-    if (zone.dataLimitations.length > 0) {
-      out.push(p('Data limitations', { bold: true, size: 20, color: COLORS.sub, after: 60 }))
-      zone.dataLimitations.forEach(l => out.push(bullet(l)))
+    if (zone.samplingSummary) {
+      out.push(p(zone.samplingSummary, { size: 20, color: COLORS.sub, italics: true }))
     }
-    if (zone.recommendedActions.length > 0) {
-      out.push(p('Recommended actions', { bold: true, size: 20, color: COLORS.sub, after: 60 }))
-      zone.recommendedActions.forEach(a => out.push(bullet(actionLine(a))))
+    const findings = zone.findings || []
+    if (findings.length === 0) {
+      out.push(p(
+        'No conditions warranting elevated concern were identified in this zone within the stated limitations.',
+        { size: 22, color: COLORS.body },
+      ))
+      continue
+    }
+    for (const f of findings) {
+      out.push(...buildInlineFindingDocx(f))
+    }
+    if (zone.interpretation) {
+      out.push(p('Interpretation', { bold: true, size: 20, color: COLORS.sub, after: 60 }))
+      out.push(p(zone.interpretation))
     }
   }
+  return out
+}
+
+/**
+ * v2.3 §3 / §7 — render a self-contained RenderedFinding block as a
+ * sequence of docx Paragraphs. Narrative → optional Observed line →
+ * inline Limitations sublist (italic, indented) → Recommended
+ * actions sublist. 12pt below the block before the next finding.
+ */
+function buildInlineFindingDocx(rf) {
+  if (!rf) return []
+  const out = []
+  out.push(p(rf.narrative || '', { align: AlignmentType.JUSTIFIED, after: 80 }))
+  if (rf.observedValue) {
+    out.push(new Paragraph({
+      children: [
+        new TextRun({ text: 'Observed: ', font: FONTS.body, size: 20, bold: true, color: SLATE }),
+        new TextRun({ text: rf.observedValue, font: FONTS.body, size: 20, color: SLATE_BODY }),
+      ],
+      spacing: { after: 80 },
+    }))
+  }
+  if (rf.limitations && rf.limitations.length > 0) {
+    out.push(p('Limitations of this finding:', {
+      italics: true, bold: true, size: 18, color: SLATE, after: 40,
+    }))
+    for (const l of rf.limitations) {
+      out.push(new Paragraph({
+        children: [new TextRun({
+          text: l, font: FONTS.body, size: 18, italics: true, color: COLORS.sub,
+        })],
+        bullet: { level: 0 },
+        indent: { left: 360 },
+        spacing: { after: 40 },
+      }))
+    }
+  }
+  if (rf.recommendedActions && rf.recommendedActions.length > 0) {
+    out.push(p('Recommended actions:', {
+      bold: true, size: 18, color: SLATE, after: 40,
+    }))
+    for (const a of rf.recommendedActions) {
+      out.push(new Paragraph({
+        children: [new TextRun({
+          text: actionLine(a), font: FONTS.body, size: 20, color: COLORS.body,
+        })],
+        bullet: { level: 0 },
+        indent: { left: 360 },
+        spacing: { after: 40 },
+      }))
+    }
+  }
+  out.push(p('', { after: 240 })) // 12pt block-spacer
   return out
 }
 

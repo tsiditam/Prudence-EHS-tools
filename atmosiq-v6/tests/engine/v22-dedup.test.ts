@@ -59,21 +59,25 @@ describe('v2.2 §1b — building-scoped HVAC findings render once', () => {
   if (result.kind !== 'report') throw new Error('Expected report')
   const report = result.report
 
-  it('zone sections do NOT contain HVAC observed-conditions narrative', () => {
+  it('zone sections do NOT contain HVAC narrative', () => {
     for (const zoneSection of report.zoneSections) {
-      const text = zoneSection.observedConditions.join(' ')
+      // v2.3 — zone findings are RenderedFinding[], not observedConditions[]
+      const text = (zoneSection.findings || []).map(f => f.narrative).join(' ')
       expect(text).not.toMatch(/HVAC maintenance/i)
       expect(text).not.toMatch(/Air filters were observed/i)
     }
   })
 
   it('Building and System Conditions section contains the HVAC findings exactly once each', () => {
-    const conditions = report.buildingAndSystemConditions.observedConditions
-    const maintCount = conditions.filter(c => /HVAC maintenance|deferred maintenance/i.test(c)).length
-    const filterCount = conditions.filter(c => /heavily loaded|filter.*loaded|filtration efficiency/i.test(c)).length
+    // v2.3 §2 — section is rendered iff at least one building finding exists.
+    const bs = report.buildingAndSystemConditions
+    expect(bs).toBeDefined()
+    expect(bs!.rendered).toBe(true)
+    const narratives = bs!.findings.map(f => f.narrative)
+    const maintCount = narratives.filter(n => /HVAC maintenance|deferred maintenance/i.test(n)).length
+    const filterCount = narratives.filter(n => /heavily loaded|filter.*loaded|filtration efficiency/i.test(n)).length
     expect(maintCount).toBeLessThanOrEqual(1)
     expect(filterCount).toBeLessThanOrEqual(1)
-    // At least one HVAC condition is reported (we know we set both)
     expect(maintCount + filterCount).toBeGreaterThan(0)
   })
 })

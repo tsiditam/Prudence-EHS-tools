@@ -122,7 +122,8 @@ describe('Dual Render — Client Report', () => {
   it('zone sections use approved narrative intent, not internal titles', () => {
     if (result.kind === 'report') {
       const zoneSection = result.report.zoneSections[0]
-      expect(zoneSection.observedConditions.some(c => c.includes('warrant further investigation'))).toBe(true)
+      // v2.3 — findings render as RenderedFinding[], not observedConditions[]
+      expect(zoneSection.findings.some(f => f.narrative.includes('warrant further investigation'))).toBe(true)
       const fullJson = JSON.stringify(result.report)
       expect(fullJson).not.toContain('CO screening elevated')
       expect(fullJson).not.toContain('deductionInternal')

@@ -215,25 +215,56 @@ function checkQuantifiedCounts(report: ClientReport, issues: ValidationIssue[]):
 }
 
 function checkBuildingContradiction(report: ClientReport, issues: ValidationIssue[]): void {
+  // v2.3 §2 — the building/system contradiction is now structurally
+  // impossible because the section is omitted entirely when no
+  // building-scoped findings exist. The remaining check enforces:
+  //   1. When the section is rendered, it carries at least one
+  //      finding (otherwise rendered should be false).
+  //   2. When the section is omitted, the omittedReason sentence
+  //      must appear in scopeOfWork.
+  //   3. NO affirmative "no visible building or system deficiencies"
+  //      claim appears in any prose surface — that wording was
+  //      retired in v2.3 because absence of in-scope assessment is
+  //      not equivalent to absence of deficiency.
   const bs = report.buildingAndSystemConditions
-  if (!bs) return
-  const hasNoFindingsLanguage = bs.observedConditions.some(c =>
-    /no building or system conditions identified/i.test(c) &&
-    !/HVAC system performance was not independently verified/i.test(c),
-  )
-  const hasHvacRecommendation =
-    bs.recommendedActions.length > 0 ||
-    bs.dataLimitations.some(l => /HVAC|airflow|outdoor air/i.test(l))
-  if (hasNoFindingsLanguage && hasHvacRecommendation) {
+  if (bs && bs.rendered && (!bs.findings || bs.findings.length === 0)) {
     issues.push({
-      category: '§5 Building/system contradiction',
+      category: '§5 Building section rendered without findings',
       severity: 'blocking',
-      location: 'buildingAndSystemConditions.observedConditions',
-      message:
-        'Section says "No building or system conditions identified" but also lists HVAC recommendations or limitations.',
-      recommendedFix:
-        'Use the qualified wording: "No visible building or system deficiencies were identified during the walkthrough; however, HVAC system performance was not independently verified."',
+      location: 'buildingAndSystemConditions',
+      message: 'Building and System Conditions section marked rendered=true but findings array is empty.',
+      recommendedFix: 'Set rendered=false and supply omittedReason instead.',
     })
+  }
+  if (bs && !bs.rendered) {
+    const scope = report.executiveSummary?.scopeOfWork || ''
+    if (!/Building system condition was not within the scope of this assessment/i.test(scope)) {
+      issues.push({
+        category: '§2/§5 Omitted reason missing from Scope of Work',
+        severity: 'blocking',
+        location: 'executiveSummary.scopeOfWork',
+        message:
+          'Building and System Conditions section is omitted but Scope of Work does not contain the prescribed omittedReason sentence.',
+        recommendedFix:
+          'Append "Building system condition was not within the scope of this assessment beyond the observations documented in the zone-by-zone findings." to scopeOfWork.',
+      })
+    }
+  }
+  // §2/§5 — the affirmative-claim string is banned everywhere.
+  const surfaces = collectAllProseSurfaces(report)
+  for (const { field, text } of surfaces) {
+    if (/No visible building or system deficiencies were identified/i.test(text)) {
+      issues.push({
+        category: '§5 Banned affirmative building claim',
+        severity: 'blocking',
+        location: field,
+        message:
+          '"No visible building or system deficiencies were identified" is banned in v2.3.',
+        recommendedFix:
+          'Omit the section and rely on the Scope of Work omittedReason sentence instead.',
+      })
+      break
+    }
   }
 }
 
@@ -411,10 +442,13 @@ function checkDuplicateFindings(
   checkList('executiveSummary.observations', report.executiveSummary.observations || [])
   for (let i = 0; i < (report.zoneSections || []).length; i++) {
     const z = report.zoneSections[i]
-    checkList(`zoneSections[${i}].observedConditions`, z.observedConditions || [])
+    // v2.3 — zone observed conditions are findings[].narrative.
+    const narratives = (z.findings || []).map(f => f.narrative)
+    checkList(`zoneSections[${i}].findings[*].narrative`, narratives)
   }
-  checkList('buildingAndSystemConditions.observedConditions',
-    report.buildingAndSystemConditions?.observedConditions || [])
+  // v2.3 — building section conditions are findings[].narrative.
+  const bsNarratives = (report.buildingAndSystemConditions?.findings || []).map(f => f.narrative)
+  checkList('buildingAndSystemConditions.findings[*].narrative', bsNarratives)
 }
 
 // ── Helpers ──
@@ -447,27 +481,34 @@ function collectAllProseSurfaces(report: ClientReport): ProseSurface[] {
   out.push({ field: 'buildingAndSystemContext', text: report.buildingAndSystemContext })
   out.push({ field: 'limitationsAndProfessionalJudgment', text: report.limitationsAndProfessionalJudgment })
 
-  for (let i = 0; i < (report.buildingAndSystemConditions?.observedConditions || []).length; i++) {
-    out.push({
-      field: `buildingAndSystemConditions.observedConditions[${i}]`,
-      text: report.buildingAndSystemConditions.observedConditions[i],
-    })
-  }
-  for (let i = 0; i < (report.buildingAndSystemConditions?.dataLimitations || []).length; i++) {
-    out.push({
-      field: `buildingAndSystemConditions.dataLimitations[${i}]`,
-      text: report.buildingAndSystemConditions.dataLimitations[i],
-    })
+  // v2.3 — Building section narratives + inline limitations live on
+  // findings[]; the section is omitted entirely when no findings.
+  const bs = report.buildingAndSystemConditions
+  if (bs && bs.findings) {
+    for (let i = 0; i < bs.findings.length; i++) {
+      const f = bs.findings[i]
+      out.push({ field: `buildingAndSystemConditions.findings[${i}].narrative`, text: f.narrative })
+      for (let j = 0; j < (f.limitations || []).length; j++) {
+        out.push({
+          field: `buildingAndSystemConditions.findings[${i}].limitations[${j}]`,
+          text: f.limitations[j],
+        })
+      }
+    }
   }
 
   for (let i = 0; i < (report.zoneSections || []).length; i++) {
     const z = report.zoneSections[i]
     out.push({ field: `zoneSections[${i}].interpretation`, text: z.interpretation })
-    for (let j = 0; j < (z.observedConditions || []).length; j++) {
-      out.push({ field: `zoneSections[${i}].observedConditions[${j}]`, text: z.observedConditions[j] })
-    }
-    for (let j = 0; j < (z.dataLimitations || []).length; j++) {
-      out.push({ field: `zoneSections[${i}].dataLimitations[${j}]`, text: z.dataLimitations[j] })
+    for (let j = 0; j < (z.findings || []).length; j++) {
+      const f = z.findings[j]
+      out.push({ field: `zoneSections[${i}].findings[${j}].narrative`, text: f.narrative })
+      for (let k = 0; k < (f.limitations || []).length; k++) {
+        out.push({
+          field: `zoneSections[${i}].findings[${j}].limitations[${k}]`,
+          text: f.limitations[k],
+        })
+      }
     }
   }
 

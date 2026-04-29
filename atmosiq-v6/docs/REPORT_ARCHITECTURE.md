@@ -96,3 +96,98 @@ Zone-level opinion follows first-match rules. Site-level = worst zone.
 | 4 | 2+ provisional at high/medium | further_investigation |
 | 5 | qualitative_only + medium | monitoring |
 | 7 | all pass/info | no_significant_concerns |
+
+---
+
+## v2.3 — Limitations attached to findings, not to sections
+
+The v2.3 release reworks how limitations and the Building and System Conditions section render in client deliverables. Two specific defects from the Hizinburg Data Center rendering motivated the change:
+
+1. The Building and System Conditions section was rendering as an empty section header followed by an aggregated dump of every limitation in the assessment (sixteen orphaned bullet points), even when no building-scoped findings existed.
+2. Finding-level limitations were being aggregated into a section-level "Data Limitations" list rather than attached inline with the findings they qualify.
+
+### Decision rule for limitations placement
+
+Limitations render in exactly **two** places in the final report:
+
+| Surface | Content |
+|---|---|
+| Inline beneath each finding | `RenderedFinding.limitations` — the phrase library's `defaultLimitations` for the finding's `ConditionType`, deduplicated within the zone |
+| Terminal "Limitations and Professional Judgment" paragraph | The verbatim engine paragraph at `templates.ts: LIMITATIONS_PARAGRAPH` |
+
+The "Methodology Disclosure" verbatim paragraph at the top of the report is a **methodology-level** limitation framing (how the assessment was conducted), not a data-limitations dump, and stays as-is.
+
+There is **no** standalone "Data Limitations" section anywhere. The validator in `cih-validation.ts` blocks any reintroduction.
+
+### Conditional rendering of the Building and System Conditions section
+
+The section renders **only when at least one finding has scope `building` or `hvac_system`**. When no such findings exist:
+
+- The section header is omitted entirely from the report body.
+- The section is omitted from the Table of Contents.
+- The Results narrative does not name the section.
+- Exactly this sentence is appended to the **Scope of Work** narrative:
+
+  > Building system condition was not within the scope of this assessment beyond the observations documented in the zone-by-zone findings.
+
+The previous wording "No visible building or system deficiencies were identified during the walkthrough" is **banned** in v2.3 because it makes an unsupported affirmative claim. Absence of in-scope assessment is not equivalent to absence of deficiency.
+
+### `RenderedFinding` shape
+
+Each finding renders as a self-contained block:
+
+```ts
+export interface RenderedFinding {
+  readonly findingId: FindingId
+  readonly conditionType: ConditionType
+  readonly narrative: string                              // approvedNarrativeIntent
+  readonly observedValue?: string
+  readonly limitations: ReadonlyArray<string>             // pulled from finding.limitations
+  readonly recommendedActions: ReadonlyArray<RecommendedAction>
+  readonly confidenceTierLanguage: string                 // CONFIDENCE_TIER_LANGUAGE[finding.confidenceTier]
+}
+```
+
+The renderer (HTML and DOCX) emits each `RenderedFinding` as:
+
+```
+[narrative paragraph]
+
+[if observedValue present:]
+Observed: [observedValue]
+
+[if limitations.length > 0:]
+Limitations of this finding:
+- [limitation 1]
+- [limitation 2]
+
+[if recommendedActions.length > 0:]
+Recommended actions:
+- [priority] ([timeframe]): [action] — [standardReference if present]
+```
+
+### Empty-zone single-sentence rule
+
+A zone with zero significant findings renders exactly **one sentence** under the zone heading:
+
+> No conditions warranting elevated concern were identified in this zone within the stated limitations.
+
+The renderer does not emit an empty `observedConditions` list, an empty `recommendedActions` list, or any "no significant conditions identified" placeholder.
+
+### Per-zone limitations dedup
+
+Within a single zone, when the same limitation string appears on multiple findings, it renders **once** beneath the first finding it appears on. Subsequent findings in the same zone omit the duplicate. Implementation in `src/engine/report/client.ts` as `dedupZoneLimitations`.
+
+**Cross-zone dedup is NOT applied.** A limitation may legitimately reappear in a different zone if the same finding type fires there — each zone is its own context for the reader.
+
+### Acceptance runner
+
+`npm run accept:v2.3` mechanically enforces every requirement above. Internally it:
+
+1. Runs `vitest run scripts/acceptance/render-acceptance-fixture.test.ts` with `VITEST_RENDER_FIXTURES=1` to produce two `.docx` fixtures and their extracted `.txt` representations:
+   - `/tmp/acceptance-report.docx` — canonical multi-zone fixture with HVAC findings + an empty zone
+   - `/tmp/acceptance-report-no-building.docx` — fixture with zone findings but ZERO building-scoped findings
+2. Reads `scripts/acceptance/v2.3.json` and runs each criterion's checks (`rendered_contains` / `rendered_excludes` / `engine_version_equals` / `vitest_passes`).
+3. Exits 0 iff every criterion passes; 1 with detailed reasons otherwise.
+
+The runner is the canonical gate for v2.3 completion — any change that breaks one of the eight criteria fails the build.

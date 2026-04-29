@@ -10,6 +10,7 @@ import type {
   CoverPage, ExecutiveSummary, ExecSummaryMetadata, ZoneSection, ContributingFactor,
   RecommendationsRegister, SignatoryBlock, ClientReportAppendix,
   ObservedConditionRow, TableOfContents, TocEntry,
+  RenderedFinding, BuildingAndSystemConditionsSection,
 } from './types'
 import { ENGINE_VERSION } from '../types/citation'
 import { evaluateSiteOpinion, OPINION_TIER_LANGUAGE, CONFIDENCE_TIER_LANGUAGE } from './professional-opinion'
@@ -109,54 +110,58 @@ export function renderClientReport(
     allFindingsRaw.filter(f => f.scope === 'building' || f.scope === 'hvac_system'),
   )
 
-  // Build zone sections (zone-scoped findings only). Data limitations
-  // are NOT rendered per-zone — they consolidate up to the building
-  // level so the same screening-methodology caveat doesn't repeat for
-  // every zone (per user direction). Zone sections still carry the
-  // dataLimitations field on the type contract but it is left empty.
+  // v2.3 §5 — Build zone sections. Each zone's findings render as
+  // self-contained RenderedFinding blocks (narrative + observed
+  // value + inline limitations + recommended actions). Per-zone
+  // dedup of inline limitations runs after construction.
   const zoneSections: ZoneSection[] = score.zones.map(z => {
-    const findings = z.categories
+    const zoneFindings = z.categories
       .flatMap(c => c.findings)
       .filter(f => f.scope === 'zone')
-    const conditions = findings
-      .filter(f => f.severityInternal !== 'pass' && f.severityInternal !== 'info')
-      .map(f => f.approvedNarrativeIntent)
-    const actions = dedupActions(findings.flatMap(f => f.recommendedActions))
+    const significantZoneFindings = zoneFindings.filter(
+      f => f.severityInternal !== 'pass' && f.severityInternal !== 'info',
+    )
+    const renderedFindings = dedupZoneLimitations(
+      significantZoneFindings.map(toRenderedFinding),
+    )
+    const actions = dedupActions(zoneFindings.flatMap(f => f.recommendedActions))
     const interpretation = CONFIDENCE_TIER_LANGUAGE[z.confidence]
+    const opinionLanguage = OPINION_TIER_LANGUAGE[z.professionalOpinion]
 
     return {
       zoneId: z.zoneId,
       zoneName: z.zoneName,
-      observedConditions: conditions.length > 0 ? conditions : ['No significant conditions identified within the stated limitations.'],
+      zoneDescription: '', // optional; renderer omits when empty
+      samplingSummary: '', // optional; renderer omits when empty
+      findings: renderedFindings,
       interpretation,
-      dataLimitations: [], // consolidated to building-level (see buildingConditions below)
       recommendedActions: actions,
       professionalOpinion: z.professionalOpinion,
+      professionalOpinionLanguage: opinionLanguage,
     }
   })
 
-  // v2.2 §12 — Building and System Conditions section. Data limitations
-  // consolidate from EVERY finding (zone-scoped + building-scoped) into
-  // a single deduplicated list so the report has one canonical
-  // "Limitations" voice instead of repeating per zone.
+  // v2.3 §2 — Building and System Conditions section is OMITTED
+  // entirely (header + TOC entry) when no building-scoped findings
+  // exist. We do NOT render an affirmative "no deficiencies"
+  // placeholder — absence of in-scope assessment is not equivalent
+  // to absence of deficiency. The omittedReason is appended to
+  // Scope of Work instead.
   const buildingActiveFindings = buildingScopedFindings.filter(
     f => f.severityInternal !== 'pass' && f.severityInternal !== 'info',
   )
-  const allLimitations = [
-    ...allFindingsRaw.filter(f => f.scope === 'zone').flatMap(f => f.limitations),
-    ...buildingScopedFindings.flatMap(f => f.limitations),
-  ]
-  // CIH defensibility §5 — when no building/system findings, the
-  // text must qualify the conclusion: deficiencies could exist but
-  // HVAC performance wasn't independently verified during this
-  // visit.
-  const buildingConditions = {
-    observedConditions: buildingActiveFindings.length > 0
-      ? buildingActiveFindings.map(f => f.approvedNarrativeIntent)
-      : ['No visible building or system deficiencies were identified during the walkthrough; however, HVAC system performance was not independently verified.'],
-    dataLimitations: [...new Set(allLimitations)],
-    recommendedActions: dedupActions(buildingScopedFindings.flatMap(f => f.recommendedActions)),
-  }
+  const buildingConditions: BuildingAndSystemConditionsSection =
+    buildingActiveFindings.length > 0
+      ? {
+          rendered: true,
+          findings: buildingActiveFindings.map(toRenderedFinding),
+        }
+      : {
+          rendered: false,
+          findings: [],
+          omittedReason: 'no building-scoped findings produced by this assessment',
+        }
+  const buildingSectionRendered = buildingConditions.rendered
 
   // Executive summary
   // Building-scoped findings already deduplicated; merge with zone-scoped
@@ -199,15 +204,28 @@ export function renderClientReport(
     siteContact: meta.transmittalRecipient.fullName,
   }
 
-  const scopeOfWork =
+  // v2.3 §2 — when the Building and System Conditions section is
+  // omitted (no building-scoped findings), the Scope of Work
+  // narrative gains an explicit sentence acknowledging that
+  // building system condition was not within the assessment scope
+  // beyond what was documented in zone-by-zone findings.
+  const scopeOfWorkBase =
     `${meta.issuingFirm.name} performed an indoor air quality evaluation at ${meta.siteName} on ${meta.assessmentDate}. The assessment covered ${score.zones.length} zone${score.zones.length !== 1 ? 's' : ''} (${surveyArea}). Direct-reading instruments were used to measure indoor environmental parameters; observed building and system conditions were documented per generally accepted industrial hygiene practices. Detailed measurement ranges and per-zone results are presented in the Results section and supporting tables.`
+  const scopeOfWork = buildingActiveFindings.length === 0
+    ? `${scopeOfWorkBase} Building system condition was not within the scope of this assessment beyond the observations documented in the zone-by-zone findings.`
+    : scopeOfWorkBase
 
   // CIH defensibility §6 — Results must NOT just repeat the Overall
   // Professional Opinion (which is rendered immediately above as a
   // call-out). Reference the per-zone and Recommendations Register
   // sections instead. Also no quantified counts here per §1.
+  // v2.3 §2 — only mention the Building and System Conditions section
+  // when it actually renders; otherwise the no-building fixture's
+  // narrative would name a section it doesn't have.
   const resultsNarrative = significantFindings.length > 0
-    ? `Screening-level observations identified conditions that warrant further evaluation. Detailed findings are presented in the zone-specific sections and the Recommendations Register. Per-parameter measurement ranges and comparisons against applicable regulatory standards and industry guidelines are summarized in the Results section. Building-level conditions affecting the HVAC system are summarized in the Building and System Conditions section.`
+    ? (buildingActiveFindings.length > 0
+        ? `Screening-level observations identified conditions that warrant further evaluation. Detailed findings are presented in the zone-specific sections and the Recommendations Register. Per-parameter measurement ranges and comparisons against applicable regulatory standards and industry guidelines are summarized in the Results section. Building-level conditions affecting the HVAC system are summarized in the Building and System Conditions section.`
+        : `Screening-level observations identified conditions that warrant further evaluation. Detailed findings are presented in the zone-specific sections and the Recommendations Register. Per-parameter measurement ranges and comparisons against applicable regulatory standards and industry guidelines are summarized in the Results section.`)
     : `Screening-level observations did not identify conditions warranting further evaluation within the stated limitations. Per-parameter measurement ranges are summarized in the Results section.`
 
   // Observations: dedup the top significant findings to 3-6 entries by
@@ -324,13 +342,17 @@ export function renderClientReport(
   // Per-zone entries are NOT individually enumerated — the parent
   // "Zone Findings" section covers them; otherwise a 12-zone
   // assessment would produce a 24-line TOC.
+  // v2.3 §2 — Building and System Conditions TOC entry is omitted
+  // when no building-scoped findings exist (matches body rendering).
   const tocEntries: TocEntry[] = [
     { anchorId: 'methodology-disclosure', title: 'Methodology Disclosure', level: 1 },
     { anchorId: 'executive-summary', title: 'Executive Summary', level: 1 },
     { anchorId: 'scope-and-methodology', title: 'Scope and Methodology', level: 1 },
     { anchorId: 'sampling-methodology', title: 'Sampling Methodology', level: 1 },
     { anchorId: 'building-and-system-context', title: 'Building and System Context', level: 1 },
-    { anchorId: 'building-and-system-conditions', title: 'Building and System Conditions', level: 1 },
+    ...(buildingSectionRendered
+      ? [{ anchorId: 'building-and-system-conditions', title: 'Building and System Conditions', level: 1 as const }]
+      : []),
     { anchorId: 'zone-findings', title: 'Zone Findings', level: 1 },
     { anchorId: 'recommendations-register', title: 'Recommendations Register', level: 1 },
     { anchorId: 'limitations-and-professional-judgment', title: 'Limitations and Professional Judgment', level: 1 },
@@ -362,7 +384,10 @@ export function renderClientReport(
     samplingMethodology,
     buildingAndSystemContext: buildingContext,
     observedConditionsTable: [],
-    buildingAndSystemConditions: buildingConditions,
+    // v2.3 §2 — buildingAndSystemConditions is undefined when there are
+    // no building-scoped findings; the section header and TOC entry are
+    // suppressed downstream.
+    buildingAndSystemConditions: buildingSectionRendered ? buildingConditions : undefined,
     zoneSections,
     potentialContributingFactors,
     recommendationsRegister,
@@ -423,4 +448,42 @@ function dedupActions(actions: ReadonlyArray<RecommendedAction>): ReadonlyArray<
     out.push(a)
   }
   return out
+}
+
+// ── v2.3 §3 / §6 — RenderedFinding + per-zone limitations dedup ──
+
+/**
+ * Transform an engine Finding into a self-contained RenderedFinding
+ * for the renderer. The narrative comes from the engine-approved
+ * intent template; observed value, limitations, and recommended
+ * actions are pulled directly off the Finding.
+ */
+function toRenderedFinding(f: Finding): RenderedFinding {
+  return {
+    findingId: f.id,
+    conditionType: f.conditionType,
+    narrative: f.approvedNarrativeIntent,
+    observedValue: f.observedValue,
+    limitations: f.limitations,
+    recommendedActions: f.recommendedActions,
+    confidenceTierLanguage: CONFIDENCE_TIER_LANGUAGE[f.confidenceTier],
+  }
+}
+
+/**
+ * v2.3 §6 — Per-zone dedup of inline limitations. When the same
+ * limitation string appears on multiple findings in the same zone,
+ * it renders only beneath the first finding it appears on. Cross-
+ * zone dedup is NOT applied.
+ */
+function dedupZoneLimitations(findings: ReadonlyArray<RenderedFinding>): ReadonlyArray<RenderedFinding> {
+  const seen = new Set<string>()
+  return findings.map(f => ({
+    ...f,
+    limitations: f.limitations.filter(l => {
+      if (seen.has(l)) return false
+      seen.add(l)
+      return true
+    }),
+  }))
 }

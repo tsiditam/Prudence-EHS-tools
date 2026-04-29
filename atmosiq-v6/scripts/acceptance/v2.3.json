@@ -1,0 +1,73 @@
+{
+  "version": "atmosflow-engine-2.3.0",
+  "fixtures": [
+    {
+      "id": "canonical",
+      "docxPath": "/tmp/acceptance-report.docx",
+      "txtPath": "/tmp/acceptance-report.docx.txt"
+    },
+    {
+      "id": "no-building",
+      "docxPath": "/tmp/acceptance-report-no-building.docx",
+      "txtPath": "/tmp/acceptance-report-no-building.docx.txt"
+    }
+  ],
+  "criteria": [
+    {
+      "id": "RENDER-NO-DATA-LIMITATIONS-SECTION",
+      "label": "Rendered report does not contain a 'Data Limitations' section heading",
+      "checks": [
+        { "type": "rendered_excludes", "reportPath": "/tmp/acceptance-report.docx.txt", "needle": "Data Limitations" }
+      ]
+    },
+    {
+      "id": "RENDER-CONDITIONAL-BUILDING-SECTION",
+      "label": "Building and System Conditions section absent when no building findings exist",
+      "checks": [
+        { "type": "rendered_excludes", "reportPath": "/tmp/acceptance-report-no-building.docx.txt", "needle": "Building and System Conditions" }
+      ]
+    },
+    {
+      "id": "RENDER-OMITTED-REASON-SENTENCE",
+      "label": "Scope of Work contains the omitted reason sentence when building section omitted",
+      "checks": [
+        { "type": "rendered_contains", "reportPath": "/tmp/acceptance-report-no-building.docx.txt", "needle": "Building system condition was not within the scope of this assessment" }
+      ]
+    },
+    {
+      "id": "RENDER-INLINE-LIMITATIONS",
+      "label": "Limitations render inline with findings (label 'Limitations of this finding')",
+      "checks": [
+        { "type": "rendered_contains", "reportPath": "/tmp/acceptance-report.docx.txt", "needle": "Limitations of this finding" }
+      ]
+    },
+    {
+      "id": "RENDER-NO-AFFIRMATIVE-CLAIM-WHEN-OMITTED",
+      "label": "Rendered report does not contain 'No visible building or system deficiencies'",
+      "checks": [
+        { "type": "rendered_excludes", "reportPath": "/tmp/acceptance-report-no-building.docx.txt", "needle": "No visible building or system deficiencies" }
+      ]
+    },
+    {
+      "id": "RENDER-EMPTY-ZONE-SENTENCE",
+      "label": "Empty zones render the prescribed single sentence",
+      "checks": [
+        { "type": "rendered_contains", "reportPath": "/tmp/acceptance-report.docx.txt", "needle": "No conditions warranting elevated concern were identified in this zone within the stated limitations" }
+      ]
+    },
+    {
+      "id": "ENGINE-VERSION",
+      "label": "Engine version is atmosflow-engine-2.3.0",
+      "checks": [
+        { "type": "engine_version_equals", "expected": "atmosflow-engine-2.3.0" }
+      ]
+    },
+    {
+      "id": "TESTS-PASS",
+      "label": "Vitest suite passes",
+      "checks": [
+        { "type": "vitest_passes" }
+      ]
+    }
+  ]
+}

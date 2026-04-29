@@ -56,6 +56,10 @@ describe('v2.2 §5 — Table of Contents on ClientReport', () => {
   })
 
   it('Enumerates the expected body sections in rendered order', () => {
+    // v2.3 §2 — Building and System Conditions entry is conditional:
+    // present iff at least one building-scoped finding exists. The
+    // fixture used by buildScore() has no HVAC fields populated, so
+    // the entry is omitted.
     const result = buildScore()
     if (result.kind !== 'report') throw new Error('Expected report')
     const titles = result.report.tableOfContents.entries.map(e => e.title)
@@ -65,7 +69,6 @@ describe('v2.2 §5 — Table of Contents on ClientReport', () => {
       'Scope and Methodology',
       'Sampling Methodology',
       'Building and System Context',
-      'Building and System Conditions',
       'Zone Findings',
       'Recommendations Register',
       'Limitations and Professional Judgment',

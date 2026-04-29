@@ -1,9 +1,9 @@
 /**
- * AtmosFlow Engine v2.2 — Citation Types
+ * AtmosFlow Engine v2.3 — Citation Types
  * Every threshold, standard, and regulatory reference carries a Citation.
  */
 
-export const ENGINE_VERSION = 'atmosflow-engine-2.2.0' as const
+export const ENGINE_VERSION = 'atmosflow-engine-2.3.0' as const
 
 export interface Citation {
   readonly source: string

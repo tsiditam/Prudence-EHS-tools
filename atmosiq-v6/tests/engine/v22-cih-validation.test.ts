@@ -94,27 +94,43 @@ describe('CIH validation — §1 quantified counts', () => {
   })
 })
 
-describe('CIH validation — §5 building contradiction', () => {
-  it('Flags "no conditions identified" with HVAC recommendations present', () => {
+describe('CIH validation — §5 building section integrity (v2.3)', () => {
+  it('Flags rendered=true with empty findings array', () => {
     const report = buildReport()
     const tampered: ClientReport = {
       ...report,
-      buildingAndSystemConditions: {
-        observedConditions: ['No building or system conditions identified within the stated limitations.'],
-        dataLimitations: ['HVAC system performance was not independently verified.'],
-        recommendedActions: [
-          { priority: 'short_term', timeframe: '7–30 days', action: 'Verify outdoor air damper position.' },
-        ],
-      },
+      buildingAndSystemConditions: { rendered: true, findings: [] },
     }
     const v = validateReportContent(tampered)
     expect(v.blockingIssues.some(s => s.includes('§5'))).toBe(true)
   })
 
-  it('Allows the qualified wording when no findings present', () => {
+  it('Flags banned affirmative claim "No visible building or system deficiencies"', () => {
     const report = buildReport()
-    // The current renderer produces this wording by default — verify
-    // the validator does NOT flag it.
+    const tampered: ClientReport = {
+      ...report,
+      buildingAndSystemContext: 'No visible building or system deficiencies were identified during the walkthrough.',
+    }
+    const v = validateReportContent(tampered)
+    expect(v.blockingIssues.some(s => s.includes('§5'))).toBe(true)
+  })
+
+  it('Flags omitted section without omittedReason in scopeOfWork', () => {
+    const report = buildReport()
+    const tampered: ClientReport = {
+      ...report,
+      buildingAndSystemConditions: { rendered: false, findings: [], omittedReason: 'no building findings' },
+      executiveSummary: {
+        ...report.executiveSummary,
+        scopeOfWork: 'Some unrelated scope text without the prescribed sentence.',
+      },
+    }
+    const v = validateReportContent(tampered)
+    expect(v.blockingIssues.some(s => s.includes('§2/§5') || s.includes('§5'))).toBe(true)
+  })
+
+  it('Default render passes the §5 check (section omitted, omittedReason in scopeOfWork)', () => {
+    const report = buildReport()
     const v = validateReportContent(report)
     expect(v.blockingIssues.some(s => s.includes('§5'))).toBe(false)
   })
@@ -138,15 +154,37 @@ describe('CIH validation — §6 results redundancy', () => {
 
 describe('CIH validation — §8 corrosion language', () => {
   it('Detects the legacy "professional judgment based on visual/olfactory" phrase', () => {
+    // v2.3 — limitations now attach inline to findings via
+    // RenderedFinding.limitations. Inject the banned phrase into
+    // a zone finding's inline limitations to verify the validator
+    // sweeps that surface.
     const report = buildReport()
     const tampered: ClientReport = {
       ...report,
-      buildingAndSystemConditions: {
-        ...report.buildingAndSystemConditions,
-        dataLimitations: [
-          'Gaseous corrosion severity is professional judgment based on visual/olfactory indicators — not instrument measurement.',
-        ],
-      },
+      zoneSections: report.zoneSections.map((z, i) => i === 0
+        ? {
+            ...z,
+            findings: z.findings.length > 0
+              ? z.findings.map((f, j) => j === 0
+                  ? {
+                      ...f,
+                      limitations: [
+                        'Gaseous corrosion severity is professional judgment based on visual/olfactory indicators — not instrument measurement.',
+                      ],
+                    }
+                  : f)
+              : [{
+                  findingId: 'F-INJECT' as any,
+                  conditionType: 'possible_corrosive_environment' as any,
+                  narrative: 'Synthetic finding for test',
+                  limitations: [
+                    'Gaseous corrosion severity is professional judgment based on visual/olfactory indicators — not instrument measurement.',
+                  ],
+                  recommendedActions: [],
+                  confidenceTierLanguage: 'qualitative',
+                }],
+          }
+        : z),
     }
     const v = validateReportContent(tampered)
     expect(v.passed).toBe(false)
@@ -194,12 +232,21 @@ describe('CIH validation — §9 recommendation cap', () => {
 
 describe('CIH validation — §10 tone bans', () => {
   it('Detects banned terms in zone-section observed conditions', () => {
+    // v2.3 — banned terms detected on findings[].narrative
     const report = buildReport()
+    const tamperedFinding = {
+      findingId: 'F-BAN' as any,
+      conditionType: 'co_above_pel_documented' as any,
+      narrative: 'CO levels are unsafe and confirmed above health risk threshold.',
+      limitations: [],
+      recommendedActions: [],
+      confidenceTierLanguage: 'qualitative',
+    }
     const tampered: ClientReport = {
       ...report,
       zoneSections: report.zoneSections.map((z, i) => i === 0 ? {
         ...z,
-        observedConditions: ['CO levels are unsafe and confirmed above health risk threshold.'],
+        findings: [tamperedFinding],
       } : z),
     }
     const v = validateReportContent(tampered)
@@ -251,16 +298,24 @@ describe('CIH validation — §11 required statements', () => {
 })
 
 describe('CIH validation — §2 duplicate findings', () => {
-  it('Warns when zone observedConditions contain identical entries', () => {
+  it('Warns when zone findings contain identical narrative entries', () => {
+    // v2.3 — zone findings render as RenderedFinding[]; duplicates
+    // are detected on findings[].narrative
     const report = buildReport()
+    const dupeNarrative = 'Multiple occupants in the same area reported similar symptoms.'
+    const dupeFinding = {
+      findingId: 'F-DUP' as any,
+      conditionType: 'occupant_cluster_anecdotal' as any,
+      narrative: dupeNarrative,
+      limitations: [],
+      recommendedActions: [],
+      confidenceTierLanguage: 'qualitative',
+    }
     const tampered: ClientReport = {
       ...report,
       zoneSections: report.zoneSections.map((z, i) => i === 0 ? {
         ...z,
-        observedConditions: [
-          'Multiple occupants in the same area reported similar symptoms.',
-          'Multiple occupants in the same area reported similar symptoms.',
-        ],
+        findings: [dupeFinding, { ...dupeFinding, findingId: 'F-DUP-2' as any }],
       } : z),
     }
     const v = validateReportContent(tampered)
@@ -301,16 +356,19 @@ describe('CIH validation — integration', () => {
     expect(ov).not.toMatch(/\b\d+\s+findings?\s+identified/i)
   })
 
-  it('Default-rendered report uses qualified building/system wording', () => {
+  it('v2.3 — Building section is omitted when no building findings exist; scope of work carries the omittedReason sentence', () => {
     const zone = { zn: 'Z1', su: 'office', co2: '600', co2o: '420', tf: '72', rh: '45', pm: '5' }
     const lz = scoreZone(zone, {})
     const cs = compositeScore([lz])
     const score = legacyToAssessmentScore([lz] as any, cs as any, [zone] as any, { meta: META, presurvey: PRESURVEY })
     const result = renderClientReport(score)
     if (result.kind !== 'report') return
-    const conditions = result.report.buildingAndSystemConditions.observedConditions
-    // Default text should include the qualifying clause about HVAC
-    // performance not independently verified.
-    expect(conditions.some(c => /not independently verified/i.test(c))).toBe(true)
+    const bs = result.report.buildingAndSystemConditions
+    // No HVAC fields populated; section omitted entirely
+    expect(bs).toBeUndefined()
+    // Scope of Work carries the omittedReason sentence
+    expect(result.report.executiveSummary.scopeOfWork).toMatch(
+      /Building system condition was not within the scope of this assessment/,
+    )
   })
 })

@@ -5,7 +5,7 @@
 
 import type {
   FindingId, ZoneId, CategoryName, Tier, Severity,
-  CIHConfidenceTier, ProfessionalOpinionTier,
+  CIHConfidenceTier, ProfessionalOpinionTier, ConditionType,
   Finding, CategoryScore, ZoneScore, AssessmentScore, AssessmentMeta,
   RecommendedAction, DefensibilityFlags, ReviewStatus,
   TransmittalLetter,
@@ -58,10 +58,11 @@ export interface ClientReport {
   readonly samplingMethodology: SamplingMethodologySection
   readonly buildingAndSystemContext: string
   readonly observedConditionsTable: ReadonlyArray<ObservedConditionRow>
-  // v2.2 §1b/§12 — building-scoped findings (HVAC, water management)
-  // render once at building level rather than be exploded across every
-  // zone the system serves.
-  readonly buildingAndSystemConditions: BuildingConditionsSection
+  // v2.3 §2 — building-scoped findings (HVAC, water management)
+  // render once at building level when at least one such finding
+  // exists. The section is OPTIONAL and OMITTED entirely (header +
+  // TOC entry) when no building-scoped findings are produced.
+  readonly buildingAndSystemConditions?: BuildingAndSystemConditionsSection
   readonly zoneSections: ReadonlyArray<ZoneSection>
   readonly potentialContributingFactors: ReadonlyArray<ContributingFactor>
   readonly recommendationsRegister: RecommendationsRegister
@@ -147,25 +148,83 @@ export interface ExecutiveSummary {
   readonly priorityActions: ReadonlyArray<RecommendedAction>
 }
 
+/**
+ * v2.3 §3 — RenderedFinding is the self-contained unit consumed by
+ * the renderer. Each finding carries its narrative, observed value,
+ * inline limitations, recommended actions, and confidence-tier
+ * language as a single block — no aggregation into section-level
+ * "Data Limitations" dumps.
+ */
+export interface RenderedFinding {
+  readonly findingId: FindingId
+  readonly conditionType: ConditionType
+  /** Engine-approved narrative intent (what the renderer prints first). */
+  readonly narrative: string
+  /** Optional measured/observed value display string (e.g. "45 ppm"). */
+  readonly observedValue?: string
+  /** Limitations attached to this finding only. */
+  readonly limitations: ReadonlyArray<string>
+  /** Recommended actions tied to this finding only. */
+  readonly recommendedActions: ReadonlyArray<RecommendedAction>
+  /** CONFIDENCE_TIER_LANGUAGE[finding.confidenceTier] for sub-label use. */
+  readonly confidenceTierLanguage: string
+}
+
+/**
+ * v2.3 §5 — ZoneSection rework. observedConditions: string[] is
+ * removed in favour of findings: RenderedFinding[]. dataLimitations
+ * is removed entirely; limitations attach to each finding.
+ */
 export interface ZoneSection {
   readonly zoneId: string
   readonly zoneName: string
-  readonly observedConditions: ReadonlyArray<string>
+  /**
+   * Optional zone description (floor area, occupancy, space use,
+   * sample locations). Populated when zone-data carries enough
+   * detail; renderer omits the line when empty.
+   */
+  readonly zoneDescription: string
+  /** Optional sampling-summary line (e.g., "4 sample points"). */
+  readonly samplingSummary: string
+  /**
+   * Findings rendered as self-contained blocks (narrative +
+   * observed value + inline limitations + recommended actions).
+   * When empty, the renderer prints the prescribed single-sentence
+   * empty-zone notice.
+   */
+  readonly findings: ReadonlyArray<RenderedFinding>
   readonly interpretation: string
-  readonly dataLimitations: ReadonlyArray<string>
+  /**
+   * Zone-level recommended actions roll-up. v2.3 prefers per-finding
+   * actions inside RenderedFinding, but this list still aggregates
+   * them for downstream consumers (e.g., legacy dashboards).
+   */
   readonly recommendedActions: ReadonlyArray<RecommendedAction>
   readonly professionalOpinion: ProfessionalOpinionTier
+  readonly professionalOpinionLanguage: string
 }
 
-// v2.2 §12 — Building and System Conditions section. Renders building-
-// scoped findings (HVAC system maintenance/condition, drain pan, OA
-// damper, water management) ONCE rather than repeated in every zone
-// the system serves.
-export interface BuildingConditionsSection {
-  readonly observedConditions: ReadonlyArray<string>
-  readonly dataLimitations: ReadonlyArray<string>
-  readonly recommendedActions: ReadonlyArray<RecommendedAction>
+/**
+ * v2.3 §2 — Building and System Conditions section.
+ * - rendered=false signals the renderer to OMIT the section header,
+ *   the TOC entry, and any "no findings" placeholder text. The
+ *   omittedReason is appended to Scope of Work.
+ * - rendered=true emits findings[] as a list of RenderedFinding
+ *   blocks (one per building-scoped finding) with inline
+ *   limitations and recommended actions.
+ *
+ * Renamed from BuildingConditionsSection (v2.2). The old name
+ * remains as a type alias below for backward compat.
+ */
+export interface BuildingAndSystemConditionsSection {
+  readonly rendered: boolean
+  readonly findings: ReadonlyArray<RenderedFinding>
+  /** Set when rendered=false; null/undefined when rendered=true. */
+  readonly omittedReason?: string
 }
+
+/** Backward-compat alias for v2.2 callers. */
+export type BuildingConditionsSection = BuildingAndSystemConditionsSection
 
 export interface ObservedConditionRow {
   readonly zone: string
