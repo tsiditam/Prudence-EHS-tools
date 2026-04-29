@@ -109,12 +109,20 @@ export function deriveAssessmentMeta(input: MetaInput): AssessmentMeta {
     || `PSEC-${new Date().getFullYear()}-0001`
 
   // v2.2 §3 — transmittal recipient. Caller override > presurvey
-  // ps_recipient_* fields > placeholder using siteName as organization.
+  // ps_recipient_* fields > derived placeholder.
+  // When no recipient is supplied, the renderer should NOT make up a
+  // fake "Site Contact" name. The fallback below carries empty
+  // strings for fullName/title so the renderer's per-line check
+  // skips them — the resulting letter has no addressee block, which
+  // is the correct visual cue that recipient data needs to be added
+  // before the report goes to a client. Only the organization is
+  // populated (from siteName) to give the engine a non-empty value
+  // for the subject line and refusal-to-issue checks.
   const transmittalRecipient: Recipient = input.transmittalRecipient
     ?? buildRecipientFromPresurvey(presurvey)
     ?? {
-      fullName: 'Site Contact',
-      organization: building?.fn || 'Client Organization',
+      fullName: '',
+      organization: building?.fn || '',
     }
 
   // v2.2 §7 — instrumentsUsed. Caller override > presurvey instrument

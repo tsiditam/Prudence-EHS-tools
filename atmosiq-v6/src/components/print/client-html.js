@@ -29,6 +29,23 @@ const PRIORITY_LABEL = {
   long_term: 'Long term',
 }
 
+/**
+ * Format an ISO date string (YYYY-MM-DD) as long-form English
+ * (e.g. "April 29, 2026"). Returns the input unchanged if it doesn't
+ * parse cleanly so callers don't get surprised by silent fallback.
+ */
+function formatLongDate(iso) {
+  if (!iso || typeof iso !== 'string') return iso || ''
+  // Strict ISO parse — avoid Date(string) timezone surprises by
+  // splitting and constructing locally.
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso)
+  if (!m) return iso
+  const [_, y, mo, d] = m
+  const date = new Date(Number(y), Number(mo) - 1, Number(d))
+  if (isNaN(date.getTime())) return iso
+  return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+}
+
 const REVIEW_STATUS_LABEL = {
   draft_pending_professional_review: 'Draft — Pending Professional Review',
   reviewed_by_qualified_professional: 'Reviewed by Qualified Professional',
@@ -66,15 +83,15 @@ const PAGE_STYLES = `
   strong { color: #0F172A; }
 
   table { width: 100%; border-collapse: collapse; font-family: Cambria, 'Times New Roman', serif; margin: 8px 0 18px; }
-  /* Major data tables — cyan band headers with white text. */
+  /* Major data tables — cyan band headers, BLACK cell borders (CTSI). */
   table.data-table th {
     background: #0891B2; color: #fff; text-transform: uppercase; letter-spacing: 0.6px;
-    font-size: 10pt; font-weight: 700; padding: 9px 10px; text-align: left; border: 1px solid #0E7490;
+    font-size: 10pt; font-weight: 700; padding: 9px 10px; text-align: left; border: 1px solid #000;
   }
-  table.data-table td { padding: 8px 10px; border: 1px solid #A5F3FC; font-size: 10.5pt; vertical-align: top; }
+  table.data-table td { padding: 8px 10px; border: 1px solid #000; font-size: 10.5pt; vertical-align: top; }
   table.data-table tbody tr:nth-child(even) td { background: #ECFEFF; }
-  th { text-align: left; padding: 8px 10px; background: #ECFEFF; font-size: 10pt; font-weight: 700; color: #155E75; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #A5F3FC; }
-  td { padding: 8px 10px; border-bottom: 1px solid #E0F2FE; font-size: 11pt; vertical-align: top; }
+  th { text-align: left; padding: 8px 10px; background: #ECFEFF; font-size: 10pt; font-weight: 700; color: #155E75; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #000; }
+  td { padding: 8px 10px; border-bottom: 1px solid #000; font-size: 11pt; vertical-align: top; }
 
   /* ── Cover page ── */
   .cover {
@@ -107,9 +124,9 @@ const PAGE_STYLES = `
   }
 
   /* ── Executive Summary metadata table (CTSI 4-row) ── */
-  .exec-meta-table { margin: 14px 0 22px; border: 1px solid #0891B2; }
+  .exec-meta-table { margin: 14px 0 22px; border: 1px solid #000; }
   .exec-meta-table td {
-    font-size: 11pt; padding: 9px 14px; border: 1px solid #A5F3FC;
+    font-size: 11pt; padding: 9px 14px; border: 1px solid #000;
     line-height: 1.45;
   }
   /* Label cells (1st and 3rd column) get the cyan band fill */
@@ -124,7 +141,7 @@ const PAGE_STYLES = `
      executive summary, the CTSI "card" pattern. The user-listed
      top-level h2 sections (Methodology Disclosure, Scope and
      Methodology, Sampling Methodology, etc.) are plain headings. */
-  .exec-block { margin-bottom: 22px; border: 1px solid #A5F3FC; }
+  .exec-block { margin-bottom: 22px; border: 1px solid #000; }
   .exec-block-header {
     background: #0891B2; color: #fff; font-weight: 700;
     font-size: 12pt; padding: 9px 14px; letter-spacing: 0.4px;
@@ -196,13 +213,13 @@ const PAGE_STYLES = `
   .methodology-instrument { margin-bottom: 12px; }
 
   /* ── Recommendations Register table ── */
-  .rec-table { width: 100%; border-collapse: collapse; margin: 6px 0 18px; }
+  .rec-table { width: 100%; border-collapse: collapse; margin: 6px 0 18px; border: 1px solid #000; }
   .rec-table th {
     background: #0891B2; color: #fff; text-align: left;
     font-size: 10pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
-    padding: 9px 12px; border: 1px solid #0E7490;
+    padding: 9px 12px; border: 1px solid #000;
   }
-  .rec-table td { padding: 9px 12px; border: 1px solid #A5F3FC; font-size: 10.5pt; vertical-align: top; line-height: 1.5; }
+  .rec-table td { padding: 9px 12px; border: 1px solid #000; font-size: 10.5pt; vertical-align: top; line-height: 1.5; }
   .rec-table tr.priority-row td {
     background: #ECFEFF; font-weight: 700; color: #155E75;
     text-transform: uppercase; letter-spacing: 0.5px; font-size: 10pt;
@@ -311,7 +328,7 @@ function renderCover(cover, reviewStatus, projectNumber) {
       <div style="font-size:13pt; font-weight:700; color:#0F172A; margin-bottom:6px;">${esc(cover.facility)}</div>
       <div style="font-size:11pt; color:#2D3A4A; margin-bottom:24px;">${esc(cover.location) || ''}</div>
       <div style="text-transform:uppercase; letter-spacing:0.6px; font-size:9pt; color:#5C6F7E; margin-bottom:6px;">Assessment Date</div>
-      <div style="font-size:11pt; color:#0F172A; margin-bottom:20px;">${esc(cover.date)}</div>
+      <div style="font-size:11pt; color:#0F172A; margin-bottom:20px;">${esc(formatLongDate(cover.date))}</div>
       ${projectNumber ? `<div style="text-transform:uppercase; letter-spacing:0.6px; font-size:9pt; color:#5C6F7E; margin-bottom:6px;">PSEC Project Number</div>
       <div style="font-size:11pt; color:#0F172A; font-weight:600; margin-bottom:0;">${esc(projectNumber)}</div>` : ''}
     </div>
@@ -384,14 +401,21 @@ function renderTransmittalLetter(letter) {
   const subjectClean = letter.subjectLine
     .replace(/^INDOOR AIR QUALITY EVALUATION PERFORMED AT:\s*/i, '')
     .trim()
-  const recipientBlock = `
-    <div class="letter-recipient">
-      ${r.fullName ? `<div>${esc(r.fullName)}${r.title ? `<br>${esc(r.title)}` : ''}</div>` : ''}
-      ${r.organization ? `<div class="org">${esc(r.organization)}</div>` : ''}
-      ${r.addressLine1 ? `<div>${esc(r.addressLine1)}</div>` : ''}
-      ${r.addressLine2 ? `<div>${esc(r.addressLine2)}</div>` : ''}
-      ${r.city || r.state || r.zip ? `<div>${esc([r.city, r.state, r.zip].filter(Boolean).join(', '))}</div>` : ''}
-    </div>`
+  // Recipient block — only render lines we actually have. Avoids the
+  // stray empty <div> that produces a visible box in some PDF
+  // viewers when a field is missing. Each populated field is its own
+  // line; organization is bold per CTSI letter convention.
+  const recipientLines = []
+  if (r.fullName) recipientLines.push(`<div>${esc(r.fullName)}</div>`)
+  if (r.title) recipientLines.push(`<div>${esc(r.title)}</div>`)
+  if (r.organization) recipientLines.push(`<div class="org">${esc(r.organization)}</div>`)
+  if (r.addressLine1) recipientLines.push(`<div>${esc(r.addressLine1)}</div>`)
+  if (r.addressLine2) recipientLines.push(`<div>${esc(r.addressLine2)}</div>`)
+  const cityStateZip = [r.city, r.state, r.zip].filter(Boolean).join(', ')
+  if (cityStateZip) recipientLines.push(`<div>${esc(cityStateZip)}</div>`)
+  const recipientBlock = recipientLines.length > 0
+    ? `<div class="letter-recipient">${recipientLines.join('')}</div>`
+    : ''
   const sigLines = letter.preparedBy.map(s => `
     <div class="signature-line">
       <div class="signature-image-area"></div>
@@ -402,7 +426,7 @@ function renderTransmittalLetter(letter) {
     </div>`).join('')
   return `
     <div class="letter">
-      <div class="letter-date">${esc(letter.date)}</div>
+      <div class="letter-date">${esc(formatLongDate(letter.date))}</div>
       ${recipientBlock}
       <div class="letter-re-block">
         <span class="re-label">RE:</span> <span class="re-text">${esc(subjectClean || letter.subjectLine)}</span>

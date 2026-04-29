@@ -88,14 +88,19 @@ export function buildTransmittalSubject(meta: AssessmentMeta): string {
 /**
  * Builds the salutation. Uses recipient.title if provided ("Dear Mr.
  * Smith,"), otherwise falls back to the full name ("Dear J. Smith,").
+ * Returns "To whom it may concern," when no recipient name is on
+ * file — happens when the user has not yet captured recipient data
+ * via the presurvey questionnaire.
  */
 export function buildTransmittalSalutation(recipient: Recipient): string {
+  const name = (recipient.fullName || '').trim()
+  if (!name) return 'To whom it may concern,'
   if (recipient.title) {
     const honorific = pickHonorific(recipient.title)
-    const surname = lastWordOf(recipient.fullName)
+    const surname = lastWordOf(name)
     if (honorific && surname) return `Dear ${honorific} ${surname},`
   }
-  return `Dear ${recipient.fullName},`
+  return `Dear ${name},`
 }
 
 /**

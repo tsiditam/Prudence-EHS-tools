@@ -29,10 +29,15 @@ const NAVY_DARK = CYAN_DARK
 const NAVY_LIGHT = CYAN_LIGHT
 
 const noBorder = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' }
-const cyanBorder = { style: BorderStyle.SINGLE, size: 4, color: CYAN }
-const lightBorder = { style: BorderStyle.SINGLE, size: 4, color: CYAN_LIGHT }
-// Backward-compat alias
-const navyBorder = cyanBorder
+// Per user direction — table outlines render in BLACK (CTSI style)
+// while the FILLS (label cells, header bands) stay cyan. The
+// previously-named cyanBorder/lightBorder constants are kept as
+// aliases pointing to the same black border to minimize churn at
+// every call site.
+const blackBorder = { style: BorderStyle.SINGLE, size: 6, color: '000000' }
+const cyanBorder = blackBorder
+const lightBorder = blackBorder
+const navyBorder = blackBorder
 
 const TOTAL_WIDTH_DXA = 9360 // standard 6.5in content width
 
@@ -41,6 +46,21 @@ const PRIORITY_LABEL = {
   short_term: 'Short term',
   further_evaluation: 'Further evaluation',
   long_term: 'Long term',
+}
+
+/**
+ * Format an ISO date string (YYYY-MM-DD) as long-form English
+ * (e.g. "April 29, 2026"). Returns the input unchanged if it doesn't
+ * parse cleanly.
+ */
+function formatLongDate(iso) {
+  if (!iso || typeof iso !== 'string') return iso || ''
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso)
+  if (!m) return iso
+  const [, y, mo, d] = m
+  const date = new Date(Number(y), Number(mo) - 1, Number(d))
+  if (isNaN(date.getTime())) return iso
+  return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
 }
 
 const REVIEW_STATUS_LABEL = {
@@ -127,7 +147,7 @@ function buildCoverPage(cover, reviewStatus, projectNumber) {
       valueLine(cover.location || '', { size: 22, color: COLORS.sub, bold: false, after: 240 }),
       // Date block
       labelLine('ASSESSMENT DATE'),
-      valueLine(cover.date, { size: 22, color: '0F172A', bold: false, after: 240 }),
+      valueLine(formatLongDate(cover.date), { size: 22, color: '0F172A', bold: false, after: 240 }),
       // Project number block (if present)
       ...(projectNumber ? [
         labelLine('PSEC PROJECT NUMBER'),
@@ -152,7 +172,7 @@ function buildTransmittal(report) {
   }
   const letter = report.transmittalLetter
   const out = [
-    p(letter.date, { after: 280 }),
+    p(formatLongDate(letter.date), { after: 280 }),
   ]
 
   // Recipient block — name on first line, title on second, organization
