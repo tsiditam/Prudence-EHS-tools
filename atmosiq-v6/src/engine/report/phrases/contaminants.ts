@@ -194,7 +194,7 @@ export const CONTAMINANTS_PHRASES: Partial<Record<ConditionType, PhraseLibraryEn
       'No gas-phase contaminant measurements were collected.',
       'No copper/silver reactivity coupons were deployed.',
       'No laboratory analysis was performed.',
-      'Gaseous corrosion severity is professional judgment based on visual/olfactory indicators — not instrument measurement.',
+      'Gaseous corrosion potential was evaluated qualitatively based on visual and contextual indicators. Confirmatory testing is required for classification under ANSI/ISA 71.04.',
     ],
     defaultRecommendedActions: [
       { priority: 'short_term', timeframe: '7–30 days', action: 'Deploy ANSI/ISA 71.04-compliant copper and silver reactivity coupons for 30-day passive exposure.', standardReference: 'ANSI/ISA 71.04-2013' },

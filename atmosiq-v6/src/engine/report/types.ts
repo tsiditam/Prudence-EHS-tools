@@ -12,6 +12,7 @@ import type {
 } from '../types/domain'
 import type { Citation } from '../types/citation'
 import type { FindingGroup } from './finding-groups'
+import type { ReportValidation } from './cih-validation'
 
 export type { FindingGroup, FindingObservation, FindingGroupName } from './finding-groups'
 
@@ -23,8 +24,10 @@ export interface ClientRenderOptions {
 }
 
 export type ClientReportResult =
-  | { kind: 'report'; report: ClientReport }
+  | { kind: 'report'; report: ClientReport; validation: ReportValidation }
   | { kind: 'pre_assessment_memo'; memo: PreAssessmentMemo; reasons: ReadonlyArray<string> }
+
+export type { ReportValidation, ValidationIssue, ValidationSeverity, BlockedTermHit } from './cih-validation'
 
 export interface ClientReport {
   readonly engineVersion: string

@@ -23,6 +23,7 @@ import {
 } from './templates'
 import { buildSamplingMethodology } from './methodology-narrative'
 import { groupFindingsByDomain } from './finding-groups'
+import { validateReportContent } from './cih-validation'
 import type { TransmittalLetter, SignatoryLine } from '../types/domain'
 
 export function renderClientReport(
@@ -145,10 +146,14 @@ export function renderClientReport(
     ...allFindingsRaw.filter(f => f.scope === 'zone').flatMap(f => f.limitations),
     ...buildingScopedFindings.flatMap(f => f.limitations),
   ]
+  // CIH defensibility §5 — when no building/system findings, the
+  // text must qualify the conclusion: deficiencies could exist but
+  // HVAC performance wasn't independently verified during this
+  // visit.
   const buildingConditions = {
     observedConditions: buildingActiveFindings.length > 0
       ? buildingActiveFindings.map(f => f.approvedNarrativeIntent)
-      : ['No building or system conditions identified within the stated limitations.'],
+      : ['No visible building or system deficiencies were identified during the walkthrough; however, HVAC system performance was not independently verified.'],
     dataLimitations: [...new Set(allLimitations)],
     recommendedActions: dedupActions(buildingScopedFindings.flatMap(f => f.recommendedActions)),
   }
@@ -167,8 +172,12 @@ export function renderClientReport(
   // the executive summary can reference the same deduped list.
   const allActions = dedupActions(allFindings.flatMap(f => f.recommendedActions))
 
+  // CIH defensibility §1 — overview MUST NOT include quantified
+  // condition counts. "11 conditions warranting attention" reads as
+  // a dashboard, not a consultant report. Use qualitative language
+  // and let the per-finding sections carry the detail.
   const overview = significantFindings.length > 0
-    ? `An indoor air quality evaluation was conducted at ${meta.siteName} on ${meta.assessmentDate}. ${significantFindings.length} condition${significantFindings.length !== 1 ? 's' : ''} warranting attention ${significantFindings.length !== 1 ? 'were' : 'was'} identified across ${score.zones.length} assessed zone${score.zones.length !== 1 ? 's' : ''}.`
+    ? `An indoor air quality evaluation was conducted at ${meta.siteName} on ${meta.assessmentDate}. Multiple conditions were identified that warrant attention; per-zone detail and recommendations follow.`
     : `An indoor air quality evaluation was conducted at ${meta.siteName} on ${meta.assessmentDate}. No significant conditions were identified within the stated limitations.`
 
   // v2.2 §6 — Executive Summary restructure: 4-row metadata table +
@@ -193,22 +202,28 @@ export function renderClientReport(
   const scopeOfWork =
     `${meta.issuingFirm.name} performed an indoor air quality evaluation at ${meta.siteName} on ${meta.assessmentDate}. The assessment covered ${score.zones.length} zone${score.zones.length !== 1 ? 's' : ''} (${surveyArea}). Direct-reading instruments were used to measure indoor environmental parameters; observed building and system conditions were documented per generally accepted industrial hygiene practices. Detailed measurement ranges and per-zone results are presented in the Results section and supporting tables.`
 
+  // CIH defensibility §6 — Results must NOT just repeat the Overall
+  // Professional Opinion (which is rendered immediately above as a
+  // call-out). Reference the per-zone and Recommendations Register
+  // sections instead. Also no quantified counts here per §1.
   const resultsNarrative = significantFindings.length > 0
-    ? `${OPINION_TIER_LANGUAGE[siteOpinion]} ${significantFindings.length} condition${significantFindings.length !== 1 ? 's' : ''} warrant${significantFindings.length !== 1 ? '' : 's'} attention across the assessed zones. Per-parameter results, including measurement ranges and comparisons against applicable regulatory standards and industry guidelines, are summarized in the Results section. Building-level conditions affecting the HVAC system are summarized in the Building and System Conditions section.`
-    : `${OPINION_TIER_LANGUAGE[siteOpinion]} Per-parameter results indicating measurement ranges and comparisons against applicable regulatory standards and industry guidelines are summarized in the Results section.`
+    ? `Screening-level observations identified conditions that warrant further evaluation. Detailed findings are presented in the zone-specific sections and the Recommendations Register. Per-parameter measurement ranges and comparisons against applicable regulatory standards and industry guidelines are summarized in the Results section. Building-level conditions affecting the HVAC system are summarized in the Building and System Conditions section.`
+    : `Screening-level observations did not identify conditions warranting further evaluation within the stated limitations. Per-parameter measurement ranges are summarized in the Results section.`
 
   // Observations: dedup the top significant findings to 3-6 entries by
   // distinct conditionType. Preserve order by first appearance. Uses
   // the engine-approved narrative intent (NOT titleInternal, which is
   // internal-only) truncated to the first sentence so the CTSI-style
   // observations list stays terse.
+  // CIH defensibility §9 — cap observations at 5 distinct
+  // ConditionTypes; the full list lives in the per-zone sections.
   const observationConditionTypes = new Set<string>()
   const observations: string[] = []
   for (const f of significantFindings) {
     if (observationConditionTypes.has(f.conditionType)) continue
     observationConditionTypes.add(f.conditionType)
     observations.push(firstSentence(f.approvedNarrativeIntent))
-    if (observations.length >= 6) break
+    if (observations.length >= 5) break
   }
 
   // Recommendations: top 3-6 from the deduped allActions, prioritized
@@ -219,7 +234,10 @@ export function renderClientReport(
   const sortedActions = [...allActions].sort(
     (a, b) => (priorityOrder[a.priority] ?? 99) - (priorityOrder[b.priority] ?? 99),
   )
-  const execRecommendations = sortedActions.slice(0, 6)
+  // CIH defensibility §9 — Executive Summary recommendations capped
+  // at 5 priority items. The full deduped list lives in the
+  // Recommendations Register.
+  const execRecommendations = sortedActions.slice(0, 5)
 
   // v2.2 visual upgrade — group significant findings by reader-
   // friendly domain. Empty groups are omitted.
@@ -324,7 +342,14 @@ export function renderClientReport(
     appendix,
   }
 
-  return { kind: 'report', report }
+  // CIH defensibility §12 — run the validation layer over the
+  // assembled report. The validation result is attached to the
+  // result envelope so downstream renderers (PrintReport, DocxReport)
+  // can choose to block client-facing rendering when
+  // clientFacingSafe is false.
+  const validation = validateReportContent(report)
+
+  return { kind: 'report', report, validation }
 }
 
 // ── v2.2 §6 — first-sentence helper for CTSI-style observations ──
