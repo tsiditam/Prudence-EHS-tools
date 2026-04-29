@@ -4,10 +4,10 @@
  * no internal fields. Professional opinion backed by phrase library.
  */
 
-import type { AssessmentScore, RecommendedAction } from '../types/domain'
+import type { AssessmentScore, Finding, RecommendedAction } from '../types/domain'
 import type {
   ClientReportResult, ClientReport, ClientRenderOptions,
-  CoverPage, ExecutiveSummary, ZoneSection, ContributingFactor,
+  CoverPage, ExecutiveSummary, ExecSummaryMetadata, ZoneSection, ContributingFactor,
   RecommendationsRegister, SignatoryBlock, ClientReportAppendix,
   ObservedConditionRow,
 } from './types'
@@ -18,8 +18,11 @@ import {
   TRANSMITTAL_PARAGRAPH, SCOPE_PARAGRAPH, LIMITATIONS_PARAGRAPH,
   DATA_CENTER_CONTEXT_PARAGRAPH, ASSESSMENT_INDEX_DISCLAIMER,
   CIH_REQUIRED_LIMITATION, DRAFT_WATERMARK, DRAFT_COVER_NOTICE,
-  COVER_METHODOLOGY_LINE,
+  COVER_METHODOLOGY_LINE, METHODOLOGY_DISCLOSURE_PARAGRAPH,
+  buildTransmittalBody, buildTransmittalSubject, buildTransmittalSalutation,
 } from './templates'
+import { buildSamplingMethodology } from './methodology-narrative'
+import type { TransmittalLetter, SignatoryLine } from '../types/domain'
 
 export function renderClientReport(
   score: AssessmentScore,
@@ -66,14 +69,54 @@ export function renderClientReport(
     draftNotice: showWatermark ? DRAFT_COVER_NOTICE : undefined,
   }
 
-  // Build zone sections
+  // v2.2 §3 — letter-format transmittal
+  const preparingSignatory: SignatoryLine = {
+    fullName: meta.preparingAssessor.fullName,
+    credentials: meta.preparingAssessor.credentials,
+    title: 'Preparing Assessor',
+  }
+  const reviewerSignatory: SignatoryLine | undefined = meta.reviewingProfessional
+    ? {
+        fullName: meta.reviewingProfessional.fullName,
+        credentials: meta.reviewingProfessional.credentials.slice(),
+        title: 'Reviewing Qualified Professional',
+        licenseNumbers: meta.reviewingProfessional.licenseNumbers,
+      }
+    : undefined
+  const transmittalLetter: TransmittalLetter = {
+    date: meta.assessmentDate,
+    recipient: meta.transmittalRecipient,
+    projectNumber: meta.projectNumber,
+    subjectLine: buildTransmittalSubject(meta),
+    salutation: buildTransmittalSalutation(meta.transmittalRecipient),
+    bodyParagraphs: buildTransmittalBody({ meta }),
+    closing: 'Sincerely,',
+    signatoryFirm: meta.issuingFirm.name.toUpperCase(),
+    preparedBy: reviewerSignatory ? [preparingSignatory, reviewerSignatory] : [preparingSignatory],
+  }
+
+  // v2.2 §7 — Sampling Methodology section
+  const samplingMethodology = buildSamplingMethodology(meta.instrumentsUsed)
+
+  // v2.2 §1b — partition findings by scope before rendering. Building-
+  // scoped findings (HVAC, water management) render once in the
+  // dedicated Building and System Conditions section. Zone-scoped
+  // findings render per-zone.
+  const allFindingsRaw = score.zones.flatMap(z => z.categories.flatMap(c => c.findings))
+  const buildingScopedFindings = dedupBuildingFindings(
+    allFindingsRaw.filter(f => f.scope === 'building' || f.scope === 'hvac_system'),
+  )
+
+  // Build zone sections (zone-scoped findings only)
   const zoneSections: ZoneSection[] = score.zones.map(z => {
-    const findings = z.categories.flatMap(c => c.findings)
+    const findings = z.categories
+      .flatMap(c => c.findings)
+      .filter(f => f.scope === 'zone')
     const conditions = findings
       .filter(f => f.severityInternal !== 'pass' && f.severityInternal !== 'info')
       .map(f => f.approvedNarrativeIntent)
     const limitations = findings.flatMap(f => f.limitations)
-    const actions = findings.flatMap(f => f.recommendedActions)
+    const actions = dedupActions(findings.flatMap(f => f.recommendedActions))
     const interpretation = CONFIDENCE_TIER_LANGUAGE[z.confidence]
 
     return {
@@ -87,28 +130,103 @@ export function renderClientReport(
     }
   })
 
+  // v2.2 §12 — Building and System Conditions section
+  const buildingActiveFindings = buildingScopedFindings.filter(
+    f => f.severityInternal !== 'pass' && f.severityInternal !== 'info',
+  )
+  const buildingConditions = {
+    observedConditions: buildingActiveFindings.length > 0
+      ? buildingActiveFindings.map(f => f.approvedNarrativeIntent)
+      : ['No building or system conditions identified within the stated limitations.'],
+    dataLimitations: [...new Set(buildingScopedFindings.flatMap(f => f.limitations))],
+    recommendedActions: dedupActions(buildingScopedFindings.flatMap(f => f.recommendedActions)),
+  }
+
   // Executive summary
-  const allFindings = score.zones.flatMap(z => z.categories.flatMap(c => c.findings))
+  // Building-scoped findings already deduplicated; merge with zone-scoped
+  // for site-level summary aggregations.
+  const zoneScopedFindings = allFindingsRaw.filter(f => f.scope === 'zone')
+  const allFindings = [...zoneScopedFindings, ...buildingScopedFindings]
   const significantFindings = allFindings.filter(f => f.severityInternal !== 'pass' && f.severityInternal !== 'info')
-  const immediateActions = allFindings.flatMap(f => f.recommendedActions.filter(a => a.priority === 'immediate'))
+  const immediateActions = dedupActions(
+    allFindings.flatMap(f => f.recommendedActions.filter(a => a.priority === 'immediate')),
+  )
+  // v2.2 §1c — Recommendations register deduplicated by (action+ref)
+  // tuple. Preserves order by first appearance. Computed up here so
+  // the executive summary can reference the same deduped list.
+  const allActions = dedupActions(allFindings.flatMap(f => f.recommendedActions))
 
   const overview = significantFindings.length > 0
     ? `An indoor air quality evaluation was conducted at ${meta.siteName} on ${meta.assessmentDate}. ${significantFindings.length} condition${significantFindings.length !== 1 ? 's' : ''} warranting attention ${significantFindings.length !== 1 ? 'were' : 'was'} identified across ${score.zones.length} assessed zone${score.zones.length !== 1 ? 's' : ''}.`
     : `An indoor air quality evaluation was conducted at ${meta.siteName} on ${meta.assessmentDate}. No significant conditions were identified within the stated limitations.`
 
+  // v2.2 §6 — Executive Summary restructure: 4-row metadata table +
+  // four narrative blocks. The 29-bullet "summaryOfFindings" exhaust
+  // dump from v2.1 is removed from rendered exec summary content but
+  // preserved on the type for backward compat.
+  const reportDateFormatted = new Date().toISOString().slice(0, 10)
+  const surveyArea = score.zones.length > 0
+    ? score.zones.map(z => z.zoneName).join(', ')
+    : 'Not specified'
+  const metadataTable: ExecSummaryMetadata = {
+    clientName: meta.transmittalRecipient.fullName,
+    reportDate: reportDateFormatted,
+    projectNumber: meta.projectNumber,
+    surveyDate: meta.assessmentDate,
+    projectAddress: meta.siteAddress,
+    surveyArea,
+    requestedBy: meta.transmittalRecipient.organization,
+    siteContact: meta.transmittalRecipient.fullName,
+  }
+
+  const scopeOfWork =
+    `${meta.issuingFirm.name} performed an indoor air quality evaluation at ${meta.siteName} on ${meta.assessmentDate}. The assessment covered ${score.zones.length} zone${score.zones.length !== 1 ? 's' : ''} (${surveyArea}). Direct-reading instruments were used to measure indoor environmental parameters; observed building and system conditions were documented per generally accepted industrial hygiene practices. Detailed measurement ranges and per-zone results are presented in the Results section and supporting tables.`
+
+  const resultsNarrative = significantFindings.length > 0
+    ? `${OPINION_TIER_LANGUAGE[siteOpinion]} ${significantFindings.length} condition${significantFindings.length !== 1 ? 's' : ''} warrant${significantFindings.length !== 1 ? '' : 's'} attention across the assessed zones. Per-parameter results, including measurement ranges and comparisons against applicable regulatory standards and industry guidelines, are summarized in the Results section. Building-level conditions affecting the HVAC system are summarized in the Building and System Conditions section.`
+    : `${OPINION_TIER_LANGUAGE[siteOpinion]} Per-parameter results indicating measurement ranges and comparisons against applicable regulatory standards and industry guidelines are summarized in the Results section.`
+
+  // Observations: dedup the top significant findings to 3-6 entries by
+  // distinct conditionType. Preserve order by first appearance. Uses
+  // the engine-approved narrative intent (NOT titleInternal, which is
+  // internal-only) truncated to the first sentence so the CTSI-style
+  // observations list stays terse.
+  const observationConditionTypes = new Set<string>()
+  const observations: string[] = []
+  for (const f of significantFindings) {
+    if (observationConditionTypes.has(f.conditionType)) continue
+    observationConditionTypes.add(f.conditionType)
+    observations.push(firstSentence(f.approvedNarrativeIntent))
+    if (observations.length >= 6) break
+  }
+
+  // Recommendations: top 3-6 from the deduped allActions, prioritized
+  // immediate > short_term > further_evaluation > long_term.
+  const priorityOrder: Record<string, number> = {
+    immediate: 0, short_term: 1, further_evaluation: 2, long_term: 3,
+  }
+  const sortedActions = [...allActions].sort(
+    (a, b) => (priorityOrder[a.priority] ?? 99) - (priorityOrder[b.priority] ?? 99),
+  )
+  const execRecommendations = sortedActions.slice(0, 6)
+
   const executiveSummary: ExecutiveSummary = {
-    overview,
-    summaryOfFindings: significantFindings.map(f => f.approvedNarrativeIntent),
+    metadataTable,
+    scopeOfWork,
+    resultsNarrative,
+    observations,
+    recommendations: execRecommendations,
     overallProfessionalOpinion: siteOpinion,
     overallProfessionalOpinionLanguage: OPINION_TIER_LANGUAGE[siteOpinion],
+    // Backward-compat fields preserved on the type.
+    overview,
+    summaryOfFindings: significantFindings.map(f => f.approvedNarrativeIntent),
     priorityActions: immediateActions,
   }
 
   // Contributing factors (from causal chains — use contributory language unless causation supported)
   const potentialContributingFactors: ContributingFactor[] = []
 
-  // Recommendations register
-  const allActions = allFindings.flatMap(f => f.recommendedActions)
   const recommendationsRegister: RecommendationsRegister = {
     immediate: allActions.filter(a => a.priority === 'immediate'),
     shortTerm: allActions.filter(a => a.priority === 'short_term'),
@@ -174,10 +292,14 @@ export function renderClientReport(
     reviewStatus: meta.reviewStatus,
     cover,
     transmittal: TRANSMITTAL_PARAGRAPH,
+    transmittalLetter,
+    methodologyDisclosure: METHODOLOGY_DISCLOSURE_PARAGRAPH,
     executiveSummary,
     scopeAndMethodology: SCOPE_PARAGRAPH,
+    samplingMethodology,
     buildingAndSystemContext: buildingContext,
     observedConditionsTable: [],
+    buildingAndSystemConditions: buildingConditions,
     zoneSections,
     potentialContributingFactors,
     recommendationsRegister,
@@ -187,4 +309,48 @@ export function renderClientReport(
   }
 
   return { kind: 'report', report }
+}
+
+// ── v2.2 §6 — first-sentence helper for CTSI-style observations ──
+
+function firstSentence(text: string): string {
+  // Match first sentence ending in . ! ? followed by space or end.
+  const m = /^[^.!?]*[.!?](?=\s|$)/.exec(text)
+  if (m) return m[0].trim()
+  return text.length <= 120 ? text : text.slice(0, 117).trimEnd() + '…'
+}
+
+// ── v2.2 §1b/§1c — dedup helpers ──
+
+/**
+ * Dedup building-scoped findings by conditionType. Different zones may
+ * produce findings with the same conditionType (e.g., the legacy
+ * scoreZone(zone, bldg) reads HVAC fields off the building data on
+ * every per-zone call). The first appearance wins to preserve order.
+ */
+function dedupBuildingFindings(findings: ReadonlyArray<Finding>): ReadonlyArray<Finding> {
+  const seen = new Set<string>()
+  const out: Finding[] = []
+  for (const f of findings) {
+    if (seen.has(f.conditionType)) continue
+    seen.add(f.conditionType)
+    out.push(f)
+  }
+  return out
+}
+
+/**
+ * Dedup recommended actions by (action text + standardReference) tuple.
+ * Preserves order by first appearance.
+ */
+function dedupActions(actions: ReadonlyArray<RecommendedAction>): ReadonlyArray<RecommendedAction> {
+  const seen = new Set<string>()
+  const out: RecommendedAction[] = []
+  for (const a of actions) {
+    const key = `${a.action} ${a.standardReference ?? ''}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(a)
+  }
+  return out
 }

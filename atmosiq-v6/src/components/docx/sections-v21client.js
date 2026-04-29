@@ -74,27 +74,89 @@ function buildCoverPage(cover, reviewStatus) {
 // ── Sections ──
 
 function buildTransmittal(report) {
-  return [
-    heading2('Transmittal'),
-    p(report.transmittal),
+  // v2.2 §3 — letter-format transmittal. Falls back to the v2.1
+  // single-paragraph form if transmittalLetter is absent.
+  if (!report.transmittalLetter) {
+    return [heading2('Transmittal'), p(report.transmittal)]
+  }
+  const letter = report.transmittalLetter
+  const out = [
+    p(letter.date, { after: 200 }),
   ]
+  // Recipient block
+  const r = letter.recipient
+  if (r.fullName) out.push(p(`${r.fullName}${r.title ? `, ${r.title}` : ''}`, { after: 60 }))
+  if (r.organization) out.push(p(r.organization, { after: 60 }))
+  if (r.addressLine1) out.push(p(r.addressLine1, { after: 60 }))
+  if (r.addressLine2) out.push(p(r.addressLine2, { after: 60 }))
+  const cityLine = [r.city, r.state, r.zip].filter(Boolean).join(', ')
+  if (cityLine) out.push(p(cityLine, { after: 200 }))
+  out.push(p(`Project: ${letter.projectNumber}`, { after: 100 }))
+  out.push(p(letter.subjectLine, { bold: true, after: 220 }))
+  out.push(p(letter.salutation, { after: 140 }))
+  for (const para of letter.bodyParagraphs) {
+    out.push(p(para, { after: 160 }))
+  }
+  out.push(p(letter.closing, { after: 280 }))
+  out.push(p(letter.signatoryFirm, { bold: true, after: 320 }))
+  for (const s of letter.preparedBy) {
+    out.push(p('________________________________', { size: 22, after: 60 }))
+    const credentials = s.credentials.length > 0 ? `, ${s.credentials.join(', ')}` : ''
+    out.push(p(`${s.fullName}${credentials}`, { bold: true, size: 22, after: 40 }))
+    out.push(p(s.title, { size: 20, color: COLORS.sub, after: 40 }))
+    if (s.licenseNumbers && s.licenseNumbers.length > 0) {
+      out.push(p(`License: ${s.licenseNumbers.join(', ')}`, { size: 18, color: COLORS.muted, after: 40 }))
+    }
+    out.push(p('', { after: 160 }))
+  }
+  return out
+}
+
+function buildMethodologyDisclosure(report) {
+  if (!report.methodologyDisclosure) return []
+  return [heading2('Methodology Disclosure'), p(report.methodologyDisclosure)]
+}
+
+function buildSamplingMethodologyDocx(report) {
+  if (!report.samplingMethodology) return []
+  const out = [heading2('Sampling Methodology')]
+  for (const para of report.samplingMethodology.instrumentParagraphs) {
+    out.push(p(para))
+  }
+  out.push(p(report.samplingMethodology.overallParagraph))
+  return out
 }
 
 function buildExecutiveSummary(report) {
+  // v2.2 §6 — CTSI-format Executive Summary: 4-row metadata table +
+  // narrative blocks (Scope of Work / Results / Observations /
+  // Recommendations). The 29-bullet exhaust dump is removed.
   const summary = report.executiveSummary
-  const out = [
-    heading2('Executive Summary'),
-    p(summary.overview),
-  ]
-  if (summary.summaryOfFindings.length > 0) {
-    out.push(heading3('Summary of Conditions Identified'))
-    summary.summaryOfFindings.forEach(f => out.push(bullet(f)))
+  const out = [heading2('Executive Summary')]
+  const md = summary.metadataTable
+  if (md) {
+    out.push(p(`Client Name: ${md.clientName}    |    Report Date: ${md.reportDate}`, { size: 20, after: 60 }))
+    out.push(p(`Project Number: ${md.projectNumber}    |    Survey Date: ${md.surveyDate}`, { size: 20, after: 60 }))
+    out.push(p(`Project Address: ${md.projectAddress}    |    Survey Area: ${md.surveyArea}`, { size: 20, after: 60 }))
+    out.push(p(`Requested By: ${md.requestedBy}    |    Site Contact: ${md.siteContact}`, { size: 20, after: 200 }))
   }
   out.push(heading3('Overall Professional Opinion'))
   out.push(p(summary.overallProfessionalOpinionLanguage))
-  if (summary.priorityActions.length > 0) {
-    out.push(heading3('Priority Actions'))
-    summary.priorityActions.forEach(a => out.push(bullet(actionLine(a))))
+  if (summary.scopeOfWork) {
+    out.push(heading3('Scope of Work'))
+    out.push(p(summary.scopeOfWork))
+  }
+  if (summary.resultsNarrative) {
+    out.push(heading3('Results'))
+    out.push(p(summary.resultsNarrative))
+  }
+  if (summary.observations && summary.observations.length > 0) {
+    out.push(heading3('Observations'))
+    summary.observations.forEach(o => out.push(bullet(o)))
+  }
+  if (summary.recommendations && summary.recommendations.length > 0) {
+    out.push(heading3('Recommendations'))
+    summary.recommendations.forEach(a => out.push(bullet(actionLine(a))))
   }
   return out
 }
@@ -111,6 +173,27 @@ function buildBuildingContext(report) {
     heading2('Building and System Context'),
     p(report.buildingAndSystemContext),
   ]
+}
+
+function buildBuildingConditionsSection(report) {
+  const section = report.buildingAndSystemConditions
+  if (!section) return []
+  const out = [heading2('Building and System Conditions')]
+  out.push(p('Observed conditions', { bold: true, size: 20, color: COLORS.sub, after: 60 }))
+  if (section.observedConditions.length > 0) {
+    section.observedConditions.forEach(c => out.push(bullet(c)))
+  } else {
+    out.push(p('No building or system conditions identified within the stated limitations.', { italics: true, color: COLORS.sub }))
+  }
+  if (section.dataLimitations.length > 0) {
+    out.push(p('Data limitations', { bold: true, size: 20, color: COLORS.sub, after: 60 }))
+    section.dataLimitations.forEach(l => out.push(bullet(l)))
+  }
+  if (section.recommendedActions.length > 0) {
+    out.push(p('Recommended actions', { bold: true, size: 20, color: COLORS.sub, after: 60 }))
+    section.recommendedActions.forEach(a => out.push(bullet(actionLine(a))))
+  }
+  return out
 }
 
 function buildZoneSections(report) {
@@ -227,9 +310,12 @@ export function buildClientDocx(result) {
   const cover = buildCoverPage(report.cover, report.reviewStatus)
   const main = [
     ...buildTransmittal(report),
+    ...buildMethodologyDisclosure(report),
     ...buildExecutiveSummary(report),
     ...buildScope(report),
+    ...buildSamplingMethodologyDocx(report),
     ...buildBuildingContext(report),
+    ...buildBuildingConditionsSection(report),
     ...buildZoneSections(report),
     ...buildRecommendationsRegister(report),
     ...buildLimitations(report),

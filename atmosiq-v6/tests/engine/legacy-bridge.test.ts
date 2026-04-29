@@ -15,6 +15,12 @@ const META: AssessmentMeta = {
   preparingAssessor: { fullName: 'J. Smith', credentials: ['CIH', 'CSP'] },
   reviewStatus: 'draft_pending_professional_review',
   issuingFirm: { name: 'Prudence Safety & Environmental Consulting, LLC' },
+  // v2.2 §2/§3 — required project number and transmittal recipient.
+  projectNumber: 'PSEC-TEST-0001',
+  transmittalRecipient: {
+    fullName: 'Test Recipient',
+    organization: 'Test Client Org',
+  },
 }
 
 const META_NO_CIH: AssessmentMeta = {
@@ -301,7 +307,14 @@ describe('legacyToAssessmentScore — Finding shape', () => {
     for (const f of findings) {
       expect(f.id).toMatch(/^F-\d{4}$/)
       expect(typeof f.category).toBe('string')
-      expect(f.zoneId).toMatch(/^Z-\d{3}$/)
+      // v2.2 §1b — building-scoped findings (HVAC) carry zoneId=null;
+      // zone-scoped findings carry a Z-### ID. Both shapes are valid.
+      expect(['zone', 'building', 'hvac_system']).toContain(f.scope)
+      if (f.scope === 'zone') {
+        expect(f.zoneId).toMatch(/^Z-\d{3}$/)
+      } else {
+        expect(f.zoneId).toBeNull()
+      }
       expect(typeof f.severityInternal).toBe('string')
       expect(typeof f.titleInternal).toBe('string')
       expect(typeof f.observationInternal).toBe('string')

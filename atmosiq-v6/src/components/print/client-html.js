@@ -59,6 +59,23 @@ const PAGE_STYLES = `
   .draft-notice { padding: 12px 16px; background: #FFFBEB; border: 1px solid #FBBF24; border-radius: 4px; font-size: 11px; color: #92400E; margin-top: 20px; line-height: 1.6; }
   .draft-watermark { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-30deg); font-size: 90px; color: #FBBF2418; font-weight: 800; pointer-events: none; z-index: 0; letter-spacing: 4px; }
   .verbatim { padding: 14px 18px; background: #F8FAFC; border-left: 3px solid #1B2A41; margin-bottom: 16px; font-size: 12px; line-height: 1.8; }
+  .exec-meta-table { margin: 12px 0 18px; }
+  .exec-meta-table td { font-size: 11px; padding: 6px 12px; border: 1px solid #E2E8F0; }
+  .letter { margin: 28px 0; padding: 0 8px; }
+  .letter-date { margin-bottom: 16px; font-size: 12px; }
+  .letter-recipient { margin-bottom: 16px; font-size: 12px; line-height: 1.5; }
+  .letter-project { margin-bottom: 8px; font-size: 12px; }
+  .letter-subject { margin-bottom: 18px; font-size: 12px; text-transform: uppercase; }
+  .letter-salutation { margin-bottom: 14px; font-size: 12px; }
+  .letter-body { margin-bottom: 12px; font-size: 12px; line-height: 1.7; }
+  .letter-closing { margin: 22px 0 8px; font-size: 12px; }
+  .letter-firm { margin-bottom: 28px; font-size: 12px; font-weight: 700; letter-spacing: 0.5px; }
+  .letter-signatories { display: flex; gap: 36px; flex-wrap: wrap; }
+  .signature-line { flex: 1; min-width: 220px; margin-bottom: 16px; }
+  .signature-rule { margin-bottom: 4px; font-family: 'Courier New', monospace; }
+  .signature-name { font-size: 12px; font-weight: 700; color: #1B2A41; }
+  .signature-title { font-size: 11px; color: #5C6F7E; }
+  .signature-meta { font-size: 10px; color: #94A3B8; }
   .opinion-card { padding: 18px 20px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; margin-bottom: 18px; page-break-inside: avoid; }
   .opinion-tier { font-size: 11px; font-weight: 700; color: #1B2A41; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
   .opinion-text { font-size: 12px; line-height: 1.7; color: #2D3A4A; }
@@ -107,18 +124,22 @@ function generateFullClientHTML(report, options) {
 
   ${renderCover(cover, report.reviewStatus)}
 
-  <h2>Transmittal</h2>
-  <div class="verbatim">${esc(report.transmittal)}</div>
+  ${report.transmittalLetter ? renderTransmittalLetter(report.transmittalLetter) : `<h2>Transmittal</h2><div class="verbatim">${esc(report.transmittal)}</div>`}
+
+  ${report.methodologyDisclosure ? `<h2>Methodology Disclosure</h2><div class="verbatim">${esc(report.methodologyDisclosure)}</div>` : ''}
 
   <h2>Executive Summary</h2>
-  <p>${esc(report.executiveSummary.overview)}</p>
   ${renderExecSummary(report.executiveSummary)}
 
   <h2>Scope and Methodology</h2>
   <div class="verbatim">${esc(report.scopeAndMethodology)}</div>
 
+  ${report.samplingMethodology ? renderSamplingMethodology(report.samplingMethodology) : ''}
+
   <h2>Building and System Context</h2>
   <p>${esc(report.buildingAndSystemContext)}</p>
+
+  ${renderBuildingConditions(report.buildingAndSystemConditions)}
 
   <h2>Zone Findings</h2>
   ${report.zoneSections.map(renderZoneSection).join('')}
@@ -156,18 +177,97 @@ function renderCover(cover, reviewStatus) {
 }
 
 function renderExecSummary(summary) {
-  const findings = summary.summaryOfFindings.length > 0
-    ? `<h3>Summary of Conditions Identified</h3><ul>${summary.summaryOfFindings.map(f => `<li>${esc(f)}</li>`).join('')}</ul>`
+  // v2.2 §6 — CTSI-format Executive Summary: 4-row metadata table +
+  // four narrative blocks (Scope of Work / Results / Observations /
+  // Recommendations). The 29-bullet "summaryOfFindings" exhaust dump
+  // is removed from rendered output.
+  const md = summary.metadataTable
+  const metadataTable = md ? `
+    <table class="exec-meta-table">
+      <tr><td><strong>Client Name:</strong> ${esc(md.clientName)}</td><td><strong>Report Date:</strong> ${esc(md.reportDate)}</td></tr>
+      <tr><td><strong>Project Number:</strong> ${esc(md.projectNumber)}</td><td><strong>Survey Date:</strong> ${esc(md.surveyDate)}</td></tr>
+      <tr><td><strong>Project Address:</strong> ${esc(md.projectAddress)}</td><td><strong>Survey Area:</strong> ${esc(md.surveyArea)}</td></tr>
+      <tr><td><strong>Requested By:</strong> ${esc(md.requestedBy)}</td><td><strong>Site Contact:</strong> ${esc(md.siteContact)}</td></tr>
+    </table>` : ''
+
+  const obsBlock = summary.observations && summary.observations.length > 0
+    ? `<h3>Observations</h3><ul>${summary.observations.map(o => `<li>${esc(o)}</li>`).join('')}</ul>`
     : ''
-  const priorityActions = summary.priorityActions.length > 0
-    ? `<h3>Priority Actions</h3><ul>${summary.priorityActions.map(a => `<li><strong>${esc(PRIORITY_LABEL[a.priority] || a.priority)}</strong> (${esc(a.timeframe)}): ${esc(a.action)}${a.standardReference ? ` <em>— ${esc(a.standardReference)}</em>` : ''}</li>`).join('')}</ul>`
+  const recBlock = summary.recommendations && summary.recommendations.length > 0
+    ? `<h3>Recommendations</h3><ul>${summary.recommendations.map(a => `<li><strong>${esc(PRIORITY_LABEL[a.priority] || a.priority)}</strong> (${esc(a.timeframe)}): ${esc(a.action)}${a.standardReference ? ` <em>— ${esc(a.standardReference)}</em>` : ''}</li>`).join('')}</ul>`
     : ''
-  return `${findings}
+
+  return `${metadataTable}
     <div class="opinion-card">
       <div class="opinion-tier">Overall Professional Opinion</div>
       <div class="opinion-text">${esc(summary.overallProfessionalOpinionLanguage)}</div>
     </div>
-    ${priorityActions}`
+    ${summary.scopeOfWork ? `<h3>Scope of Work</h3><p>${esc(summary.scopeOfWork)}</p>` : ''}
+    ${summary.resultsNarrative ? `<h3>Results</h3><p>${esc(summary.resultsNarrative)}</p>` : ''}
+    ${obsBlock}
+    ${recBlock}`
+}
+
+function renderTransmittalLetter(letter) {
+  // v2.2 §3 — letter-format transmittal: date, recipient block,
+  // subject, salutation, body paragraphs, closing, signatory block.
+  const r = letter.recipient
+  const recipientBlock = `
+    <div class="letter-recipient">
+      ${r.fullName ? `<div>${esc(r.fullName)}${r.title ? `, ${esc(r.title)}` : ''}</div>` : ''}
+      ${r.organization ? `<div>${esc(r.organization)}</div>` : ''}
+      ${r.addressLine1 ? `<div>${esc(r.addressLine1)}</div>` : ''}
+      ${r.addressLine2 ? `<div>${esc(r.addressLine2)}</div>` : ''}
+      ${r.city || r.state || r.zip ? `<div>${esc([r.city, r.state, r.zip].filter(Boolean).join(', '))}</div>` : ''}
+    </div>`
+  const sigLines = letter.preparedBy.map(s => `
+    <div class="signature-line">
+      <div class="signature-rule">________________________________</div>
+      <div class="signature-name">${esc(s.fullName)}${s.credentials.length > 0 ? `, ${esc(s.credentials.join(', '))}` : ''}</div>
+      <div class="signature-title">${esc(s.title)}</div>
+      ${s.licenseNumbers && s.licenseNumbers.length > 0 ? `<div class="signature-meta">License: ${esc(s.licenseNumbers.join(', '))}</div>` : ''}
+    </div>`).join('')
+  return `
+    <div class="letter">
+      <div class="letter-date">${esc(letter.date)}</div>
+      ${recipientBlock}
+      <div class="letter-project"><strong>Project:</strong> ${esc(letter.projectNumber)}</div>
+      <div class="letter-subject"><strong>${esc(letter.subjectLine)}</strong></div>
+      <div class="letter-salutation">${esc(letter.salutation)}</div>
+      ${letter.bodyParagraphs.map(p => `<p class="letter-body">${esc(p)}</p>`).join('')}
+      <p class="letter-closing">${esc(letter.closing)}</p>
+      <div class="letter-firm">${esc(letter.signatoryFirm)}</div>
+      <div class="letter-signatories">${sigLines}</div>
+    </div>`
+}
+
+function renderSamplingMethodology(section) {
+  // v2.2 §7 — Sampling Methodology section (auto-generated from
+  // AssessmentMeta.instrumentsUsed).
+  const instruments = section.instrumentParagraphs.map(p => `<p>${esc(p)}</p>`).join('')
+  return `<h2>Sampling Methodology</h2>
+    ${instruments}
+    <p>${esc(section.overallParagraph)}</p>`
+}
+
+function renderBuildingConditions(section) {
+  if (!section) return ''
+  const conds = section.observedConditions.length > 0
+    ? `<ul>${section.observedConditions.map(c => `<li>${esc(c)}</li>`).join('')}</ul>`
+    : ''
+  const limitations = section.dataLimitations.length > 0
+    ? `<div class="label">Data limitations</div><ul>${section.dataLimitations.map(l => `<li>${esc(l)}</li>`).join('')}</ul>`
+    : ''
+  const actions = section.recommendedActions.length > 0
+    ? `<div class="label">Recommended actions</div><ul>${section.recommendedActions.map(a => `<li><strong>${esc(PRIORITY_LABEL[a.priority] || a.priority)}</strong> (${esc(a.timeframe)}): ${esc(a.action)}${a.standardReference ? ` <em>— ${esc(a.standardReference)}</em>` : ''}</li>`).join('')}</ul>`
+    : ''
+  return `<h2>Building and System Conditions</h2>
+    <div class="zone-card">
+      <div class="label" style="margin-top:0;">Observed conditions</div>
+      ${conds}
+      ${limitations}
+      ${actions}
+    </div>`
 }
 
 function renderZoneSection(zone) {

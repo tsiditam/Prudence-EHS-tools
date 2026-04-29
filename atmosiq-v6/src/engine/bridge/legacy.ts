@@ -167,6 +167,54 @@ const SEVERITY_DEDUCTION: Record<Severity, number> = {
   info: 0,
 }
 
+// v2.2 §1a — observational ConditionTypes whose `severityInternal` MUST be
+// capped at 'high'. Critical is reserved for measured exceedances of
+// regulatory limits with documented evidence basis. Visual / olfactory /
+// occupant-report findings cannot reach 'critical' because the rollup in
+// professional-opinion.ts treats severity=critical as sufficient by itself
+// to land at conditions_warrant_corrective_action — a tier that should
+// require documented measurement, not observation.
+const OBSERVATIONAL_CONDITION_TYPES: ReadonlySet<string> = new Set([
+  'apparent_microbial_growth',
+  'objectionable_odor',
+  'possible_corrosive_environment',
+  'particle_screening_only',
+  'hvac_maintenance_overdue',
+  'hvac_filter_loaded',
+  'hvac_filter_below_recommended_class',
+  'hvac_outdoor_air_damper_compromised',
+  'hvac_drain_pan_microbial_reservoir',
+  'occupant_symptoms_anecdotal',
+  'occupant_cluster_anecdotal',
+  'symptoms_resolve_away_from_building',
+  'active_or_historical_water_damage',
+  'ventilation_observational_only',
+])
+
+// v2.2 §1b — building-scoped ConditionTypes that describe building-level
+// conditions (HVAC system, water management) and should render once at
+// the building level rather than be exploded across every zone the
+// system serves.
+const BUILDING_SCOPED_CONDITION_TYPES: ReadonlySet<string> = new Set([
+  'hvac_maintenance_overdue',
+  'hvac_filter_loaded',
+  'hvac_filter_below_recommended_class',
+  'hvac_outdoor_air_damper_compromised',
+  'hvac_drain_pan_microbial_reservoir',
+])
+
+function capObservationalSeverity(conditionType: string, sev: Severity): Severity {
+  if (sev === 'critical' && OBSERVATIONAL_CONDITION_TYPES.has(conditionType)) {
+    return 'high'
+  }
+  return sev
+}
+
+function deriveScope(conditionType: string): Finding['scope'] {
+  if (BUILDING_SCOPED_CONDITION_TYPES.has(conditionType)) return 'hvac_system'
+  return 'zone'
+}
+
 function mapFinding(
   legacyF: LegacyFinding,
   category: CategoryName,
@@ -181,7 +229,13 @@ function mapFinding(
   const samplingAdequacy = inferSamplingAdequacy(conditionType, evidenceBasis.kind)
   const instrumentAccuracyConsidered = makeInstrumentAccuracyOutcome()
 
-  const confidenceTier = inferFindingConfidence(conditionType, legacyF, evidenceBasis.kind, samplingAdequacy)
+  // v2.2 §1a — cap observational severity before any downstream consumer
+  // (deduction, confidence inference, rollup) sees a 'critical' that
+  // shouldn't exist for visual/olfactory/occupant-report findings.
+  const cappedSeverity = capObservationalSeverity(conditionType, legacyF.sev)
+  const scope = deriveScope(conditionType)
+
+  const confidenceTier = inferFindingConfidence(conditionType, { ...legacyF, sev: cappedSeverity }, evidenceBasis.kind, samplingAdequacy)
 
   // Build a draft finding with input claims; then run evaluatePermissions to harden.
   const claimsCausation = phrase.causationSupportRequires.length === 0 ||
@@ -194,15 +248,16 @@ function mapFinding(
   const draft: Finding = {
     id,
     category,
-    zoneId,
-    severityInternal: legacyF.sev,
+    zoneId: scope === 'hvac_system' ? null : zoneId,
+    scope,
+    severityInternal: cappedSeverity,
     titleInternal: deriveTitle(legacyF, conditionType),
     observationInternal: legacyF.t,
-    deductionInternal: SEVERITY_DEDUCTION[legacyF.sev],
+    deductionInternal: SEVERITY_DEDUCTION[cappedSeverity],
     conditionType,
     confidenceTier,
     definitiveConclusionAllowed: false,
-    causationSupported: claimsCausation && legacyF.sev !== 'pass' && legacyF.sev !== 'info',
+    causationSupported: claimsCausation && cappedSeverity !== 'pass' && cappedSeverity !== 'info',
     regulatoryConclusionAllowed: claimsRegulatory,
     approvedNarrativeIntent: phrase.intentTemplate,
     evidenceBasis,

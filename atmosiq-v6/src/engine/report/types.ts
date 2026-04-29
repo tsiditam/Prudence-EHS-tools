@@ -8,6 +8,7 @@ import type {
   CIHConfidenceTier, ProfessionalOpinionTier,
   Finding, CategoryScore, ZoneScore, AssessmentScore, AssessmentMeta,
   RecommendedAction, DefensibilityFlags, ReviewStatus,
+  TransmittalLetter,
 } from '../types/domain'
 import type { Citation } from '../types/citation'
 
@@ -28,17 +29,44 @@ export interface ClientReport {
   readonly meta: AssessmentMeta
   readonly reviewStatus: ReviewStatus
   readonly cover: CoverPage
+  // v2.1: single verbatim screening-level disclosure paragraph.
+  // v2.2: kept for backward compatibility but the structural transmittal
+  // is now in transmittalLetter; the verbatim screening paragraph moved
+  // to methodologyDisclosure.
   readonly transmittal: string
+  // v2.2 §3 — letter-format transmittal (date, recipient, subject,
+  // salutation, body, closing, signatories).
+  readonly transmittalLetter: TransmittalLetter
+  // v2.2 §3 — Methodology Disclosure section content (between cover
+  // and Executive Summary).
+  readonly methodologyDisclosure: string
   readonly executiveSummary: ExecutiveSummary
   readonly scopeAndMethodology: string
+  // v2.2 §7 — Sampling Methodology section (auto-generated from
+  // AssessmentMeta.instrumentsUsed).
+  readonly samplingMethodology: SamplingMethodologySection
   readonly buildingAndSystemContext: string
   readonly observedConditionsTable: ReadonlyArray<ObservedConditionRow>
+  // v2.2 §1b/§12 — building-scoped findings (HVAC, water management)
+  // render once at building level rather than be exploded across every
+  // zone the system serves.
+  readonly buildingAndSystemConditions: BuildingConditionsSection
   readonly zoneSections: ReadonlyArray<ZoneSection>
   readonly potentialContributingFactors: ReadonlyArray<ContributingFactor>
   readonly recommendationsRegister: RecommendationsRegister
   readonly limitationsAndProfessionalJudgment: string
   readonly signatoryBlock: SignatoryBlock
   readonly appendix: ClientReportAppendix
+}
+
+// v2.2 §7 — Sampling Methodology section
+export interface SamplingMethodologySection {
+  // Per-instrument paragraphs, one per InstrumentRef in
+  // AssessmentMeta.instrumentsUsed.
+  readonly instrumentParagraphs: ReadonlyArray<string>
+  // Overall methodology paragraph covering sample-location selection,
+  // outdoor-air comparison sampling, and reference to Appendix B.
+  readonly overallParagraph: string
 }
 
 export interface CoverPage {
@@ -52,11 +80,37 @@ export interface CoverPage {
   readonly draftNotice?: string
 }
 
+// v2.2 §6 — Executive Summary opens with a 4-row metadata table
+// (CTSI format), followed by four narrative blocks. The 29-bullet
+// "summary of findings" exhaust dump is removed; the per-finding list
+// belongs in Zone-by-Zone Findings, not Executive Summary.
+export interface ExecSummaryMetadata {
+  readonly clientName: string
+  readonly reportDate: string
+  readonly projectNumber: string
+  readonly surveyDate: string
+  readonly projectAddress: string
+  readonly surveyArea: string
+  readonly requestedBy: string
+  readonly siteContact: string
+}
+
 export interface ExecutiveSummary {
-  readonly overview: string
-  readonly summaryOfFindings: ReadonlyArray<string>
+  readonly metadataTable: ExecSummaryMetadata
+  // CTSI-style narrative blocks. Each block is a single multi-sentence
+  // paragraph (or list, in the case of observations and
+  // recommendations). No numeric scores, no severity tiers.
+  readonly scopeOfWork: string
+  readonly resultsNarrative: string
+  readonly observations: ReadonlyArray<string>
+  readonly recommendations: ReadonlyArray<RecommendedAction>
   readonly overallProfessionalOpinion: ProfessionalOpinionTier
   readonly overallProfessionalOpinionLanguage: string
+  // v2.1 fields kept for backward compat with consumers that walked
+  // overview / summaryOfFindings / priorityActions. These are derived
+  // values; new consumers should read the structured fields above.
+  readonly overview: string
+  readonly summaryOfFindings: ReadonlyArray<string>
   readonly priorityActions: ReadonlyArray<RecommendedAction>
 }
 
@@ -68,6 +122,16 @@ export interface ZoneSection {
   readonly dataLimitations: ReadonlyArray<string>
   readonly recommendedActions: ReadonlyArray<RecommendedAction>
   readonly professionalOpinion: ProfessionalOpinionTier
+}
+
+// v2.2 §12 — Building and System Conditions section. Renders building-
+// scoped findings (HVAC system maintenance/condition, drain pan, OA
+// damper, water management) ONCE rather than repeated in every zone
+// the system serves.
+export interface BuildingConditionsSection {
+  readonly observedConditions: ReadonlyArray<string>
+  readonly dataLimitations: ReadonlyArray<string>
+  readonly recommendedActions: ReadonlyArray<RecommendedAction>
 }
 
 export interface ObservedConditionRow {

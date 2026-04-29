@@ -4,7 +4,7 @@
  */
 
 import type { Citation } from './citation'
-import type { SamplingContext } from './reading'
+import type { SamplingContext, InstrumentRef } from './reading'
 
 // ── Identity Types ──
 
@@ -123,10 +123,16 @@ export interface PhraseLibraryEntry {
 
 // ── Finding ──
 
+// v2.2 §1b — building-scoped findings (HVAC, water management) render
+// once at the building level rather than be exploded across every zone
+// the system serves. Zone-scoped findings continue to render per zone.
+export type FindingScope = 'zone' | 'building' | 'hvac_system'
+
 export interface Finding {
   readonly id: FindingId
   readonly category: CategoryName
   readonly zoneId: ZoneId | null
+  readonly scope: FindingScope
 
   // INTERNAL ONLY — never rendered to client
   readonly severityInternal: Severity
@@ -224,6 +230,41 @@ export interface IssuingFirm {
   readonly contact?: { email?: string; phone?: string; website?: string }
 }
 
+// v2.2 §3 — letter-format transmittal recipient model
+export interface Recipient {
+  readonly fullName: string
+  readonly title?: string
+  readonly organization: string
+  readonly addressLine1?: string
+  readonly addressLine2?: string
+  readonly city?: string
+  readonly state?: string
+  readonly zip?: string
+}
+
+// v2.2 §3 — structured signatory line for letter-format transmittal
+export interface SignatoryLine {
+  readonly fullName: string
+  readonly credentials: ReadonlyArray<string>
+  readonly title: string
+  readonly licenseNumbers?: ReadonlyArray<string>
+}
+
+// v2.2 §3 — letter-format transmittal replaces the v2.1 single
+// verbatim paragraph. The body paragraphs are templated and include
+// site, recipient, and date references.
+export interface TransmittalLetter {
+  readonly date: string
+  readonly recipient: Recipient
+  readonly projectNumber: string
+  readonly subjectLine: string
+  readonly salutation: string
+  readonly bodyParagraphs: ReadonlyArray<string>
+  readonly closing: string
+  readonly signatoryFirm: string
+  readonly preparedBy: ReadonlyArray<SignatoryLine>
+}
+
 export interface AssessmentMeta {
   readonly siteName: string
   readonly siteAddress: string
@@ -232,4 +273,11 @@ export interface AssessmentMeta {
   readonly reviewingProfessional?: QualifiedProfessional
   readonly reviewStatus: ReviewStatus
   readonly issuingFirm: IssuingFirm
+  // v2.2 §2 — project number rendered on cover, transmittal, and footer
+  readonly projectNumber: string
+  // v2.2 §3 — letter-format transmittal recipient
+  readonly transmittalRecipient: Recipient
+  // v2.2 §7 — instruments used during assessment, drives Sampling
+  // Methodology section narrative auto-generation
+  readonly instrumentsUsed?: ReadonlyArray<InstrumentRef>
 }
