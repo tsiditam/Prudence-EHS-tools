@@ -137,6 +137,28 @@ const PAGE_STYLES = `
   .draft-notice { padding: 12px 16px; background: #FFFBEB; border: 1px solid #FBBF24; border-radius: 4px; font-size: 11pt; color: #92400E; margin-top: 20px; line-height: 1.6; }
   .draft-watermark { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-30deg); font-size: 96pt; color: rgba(251, 191, 36, 0.10); font-weight: 800; pointer-events: none; z-index: 0; letter-spacing: 6px; }
 
+  /* ── Table of Contents ── */
+  .toc {
+    margin: 18px 0 28px; padding: 18px 22px;
+    background: #F8FAFC; border: 1px solid #E2E8F0;
+    page-break-after: avoid;
+  }
+  .toc-title {
+    font-family: 'Source Serif 4', Cambria, Georgia, serif;
+    font-size: 14pt; font-weight: 700; color: #1E293B;
+    margin-bottom: 10px; letter-spacing: 0.3px;
+    padding-bottom: 6px; border-bottom: 1px solid #E2E8F0;
+  }
+  .toc-list { list-style: none; margin: 0; padding: 0; }
+  .toc-list li {
+    padding: 4px 0; line-height: 1.5; font-size: 11.5pt;
+    border-bottom: 1px dotted #E2E8F0;
+  }
+  .toc-list li:last-child { border-bottom: none; }
+  .toc-list li.level-2 { padding-left: 24px; font-size: 11pt; color: #5C6F7E; }
+  .toc-list a { color: #1E293B; text-decoration: none; }
+  .toc-list a:hover { color: #2563EB; }
+
   /* ── Verbatim engine paragraph (Methodology Disclosure) ── */
   .verbatim {
     padding: 14px 20px; background: #F8FAFC; border-left: 4px solid #2563EB;
@@ -320,27 +342,29 @@ function generateFullClientHTML(report, options) {
 
   ${report.transmittalLetter ? renderTransmittalLetter(report.transmittalLetter) : `<h2>Transmittal</h2><div class="verbatim">${esc(report.transmittal)}</div>`}
 
-  ${report.methodologyDisclosure ? `<h2>Methodology Disclosure</h2><div class="verbatim">${esc(report.methodologyDisclosure)}</div>` : ''}
+  ${report.tableOfContents ? renderTableOfContents(report.tableOfContents) : ''}
 
-  <h2>Executive Summary</h2>
+  ${report.methodologyDisclosure ? `<h2 id="methodology-disclosure">Methodology Disclosure</h2><div class="verbatim">${esc(report.methodologyDisclosure)}</div>` : ''}
+
+  <h2 id="executive-summary">Executive Summary</h2>
   ${renderExecSummary(report.executiveSummary)}
 
-  <h2>Scope and Methodology</h2>
+  <h2 id="scope-and-methodology">Scope and Methodology</h2>
   <div class="verbatim">${esc(report.scopeAndMethodology)}</div>
 
   ${report.samplingMethodology ? renderSamplingMethodology(report.samplingMethodology) : ''}
 
-  <h2>Building and System Context</h2>
+  <h2 id="building-and-system-context">Building and System Context</h2>
   <p>${esc(report.buildingAndSystemContext)}</p>
 
   ${renderBuildingConditions(report.buildingAndSystemConditions)}
 
-  <h2>Zone Findings</h2>
+  <h2 id="zone-findings">Zone Findings</h2>
   ${report.zoneSections.map(renderZoneSection).join('')}
 
   ${renderRecommendationsRegister(report.recommendationsRegister)}
 
-  <h2>Limitations and Professional Judgment</h2>
+  <h2 id="limitations-and-professional-judgment">Limitations and Professional Judgment</h2>
   <p>${esc(report.limitationsAndProfessionalJudgment)}</p>
 
   ${renderSignatoryBlock(report.signatoryBlock)}
@@ -352,6 +376,16 @@ function generateFullClientHTML(report, options) {
   </div>
 </body>
 </html>`
+}
+
+function renderTableOfContents(toc) {
+  if (!toc || !toc.entries || toc.entries.length === 0) return ''
+  return `<nav class="toc" aria-label="Table of Contents">
+    <div class="toc-title">${esc(toc.title || 'Table of Contents')}</div>
+    <ol class="toc-list">
+      ${toc.entries.map(e => `<li class="level-${e.level}"><a href="#${esc(e.anchorId)}">${esc(e.title)}</a></li>`).join('')}
+    </ol>
+  </nav>`
 }
 
 function renderCover(cover, reviewStatus, projectNumber) {
@@ -490,7 +524,7 @@ function renderSamplingMethodology(section) {
   // v2.2 §7 — Sampling Methodology section (auto-generated from
   // AssessmentMeta.instrumentsUsed).
   const instruments = section.instrumentParagraphs.map(p => `<p>${esc(p)}</p>`).join('')
-  return `<h2>Sampling Methodology</h2>
+  return `<h2 id="sampling-methodology">Sampling Methodology</h2>
     ${instruments}
     <p>${esc(section.overallParagraph)}</p>`
 }
@@ -506,7 +540,7 @@ function renderBuildingConditions(section) {
   const actions = section.recommendedActions.length > 0
     ? `<div class="label">Recommended actions</div><ul>${section.recommendedActions.map(a => `<li><strong>${esc(PRIORITY_LABEL[a.priority] || a.priority)}</strong> (${esc(a.timeframe)}): ${esc(a.action)}${a.standardReference ? ` <em>— ${esc(a.standardReference)}</em>` : ''}</li>`).join('')}</ul>`
     : ''
-  return `<h2>Building and System Conditions</h2>
+  return `<h2 id="building-and-system-conditions">Building and System Conditions</h2>
     <div class="zone-card">
       <div class="label" style="margin-top:0;">Observed conditions</div>
       ${conds}
@@ -559,7 +593,7 @@ function renderRecommendationsRegister(reg) {
       </tr>`),
   ])
 
-  return `<h2>Recommendations Register</h2>
+  return `<h2 id="recommendations-register">Recommendations Register</h2>
     <table class="rec-table">
       <thead>
         <tr>
@@ -597,7 +631,7 @@ function renderSignatoryBlock(sig) {
 
 function renderAssessmentIndexAppendix(idx) {
   return `<div class="pg-break"></div>
-    <h2>Appendix — Assessment Index (Informational Only)</h2>
+    <h2 id="appendix-assessment-index">Appendix — Assessment Index (Informational Only)</h2>
     <p><em>${esc(idx.disclaimer)}</em></p>
     <table>
       <tr><th>Zone</th><th>Index</th><th>Tier</th></tr>

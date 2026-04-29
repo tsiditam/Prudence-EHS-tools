@@ -277,6 +277,42 @@ function buildMethodologyDisclosure(report) {
   return [...heading2('Methodology Disclosure'), p(report.methodologyDisclosure)]
 }
 
+/**
+ * v2.2 §5 — Table of Contents.
+ *
+ * Renders a static text TOC matching the rendered section order.
+ * Page numbers are not embedded — Word users can replace this
+ * section with Insert > Table of Contents to get an auto-numbered
+ * TOC that keys off the heading styles used elsewhere in the doc.
+ *
+ * Static rendering avoids a Word-only field that fails silently in
+ * non-Word renderers (LibreOffice, Google Docs upload, web preview).
+ */
+function buildTableOfContents(report) {
+  const toc = report.tableOfContents
+  if (!toc || !toc.entries || toc.entries.length === 0) return []
+  const out = [...heading2(toc.title || 'Table of Contents')]
+  for (const entry of toc.entries) {
+    const indent = entry.level === 2 ? 360 : 0
+    out.push(new Paragraph({
+      children: [new TextRun({
+        text: entry.title,
+        font: FONTS.body,
+        size: entry.level === 2 ? 20 : 22,
+        color: SLATE,
+        bold: entry.level === 1,
+      })],
+      indent: { left: indent },
+      spacing: { after: 80 },
+      border: {
+        bottom: { style: BorderStyle.DOTTED, size: 4, color: SLATE_SOFT, space: 2 },
+      },
+    }))
+  }
+  out.push(p('', { after: 200 }))
+  return out
+}
+
 function buildSamplingMethodologyDocx(report) {
   if (!report.samplingMethodology) return []
   const out = [...heading2('Sampling Methodology')]
@@ -702,6 +738,7 @@ export function buildClientDocx(result) {
   const cover = buildCoverPage(report.cover, report.reviewStatus, report.transmittalLetter?.projectNumber || report.meta?.projectNumber)
   const main = [
     ...buildTransmittal(report),
+    ...buildTableOfContents(report),
     ...buildMethodologyDisclosure(report),
     ...buildExecutiveSummary(report),
     ...buildScope(report),

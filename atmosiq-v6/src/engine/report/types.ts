@@ -46,6 +46,11 @@ export interface ClientReport {
   // v2.2 §3 — Methodology Disclosure section content (between cover
   // and Executive Summary).
   readonly methodologyDisclosure: string
+  // v2.2 §5 — Table of Contents enumerating every body section that
+  // was rendered. Computed at render time based on which sections are
+  // populated. HTML uses anchor links; DOCX uses Word's native TOC
+  // field via heading styles.
+  readonly tableOfContents: TableOfContents
   readonly executiveSummary: ExecutiveSummary
   readonly scopeAndMethodology: string
   // v2.2 §7 — Sampling Methodology section (auto-generated from
@@ -63,6 +68,21 @@ export interface ClientReport {
   readonly limitationsAndProfessionalJudgment: string
   readonly signatoryBlock: SignatoryBlock
   readonly appendix: ClientReportAppendix
+}
+
+// v2.2 §5 — Table of Contents
+export interface TocEntry {
+  /** Stable anchor id used for HTML href targets and aria-labelledby. */
+  readonly anchorId: string
+  /** Display title rendered in the TOC and as the section heading. */
+  readonly title: string
+  /** Heading level — 1 for top-level sections, 2 for sub-sections. */
+  readonly level: 1 | 2
+}
+
+export interface TableOfContents {
+  readonly title: string
+  readonly entries: ReadonlyArray<TocEntry>
 }
 
 // v2.2 §7 — Sampling Methodology section
