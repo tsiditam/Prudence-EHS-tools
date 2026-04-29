@@ -10,9 +10,19 @@ import type { SamplingContext, InstrumentRef } from './reading'
 
 export type FindingId = string & { readonly __brand: 'FindingId' }
 export type ZoneId = string & { readonly __brand: 'ZoneId' }
+export type HypothesisId = string & { readonly __brand: 'HypothesisId' }
 export type CategoryName = 'Ventilation' | 'Contaminants' | 'HVAC' | 'Complaints' | 'Environment'
 export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'pass' | 'info'
 export type Tier = 'Critical' | 'High Risk' | 'Moderate' | 'Low Risk'
+
+/**
+ * v2.6 §3 — generate a stable, low-collision Hypothesis id. Caller
+ * may supply a deterministic id via the engine's id generator or
+ * accept this random one. Test fixtures should pin ids so snapshot
+ * comparisons stay stable.
+ */
+export const newHypothesisId = (): HypothesisId =>
+  `hyp_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36).slice(-4)}` as HypothesisId
 
 // ── Condition Types ──
 
@@ -182,6 +192,82 @@ export interface ZoneScore {
   readonly professionalOpinion: ProfessionalOpinionTier
 }
 
+// ── Hypothesis Engine (v2.6 §3) ──
+
+/**
+ * A sampling/diagnostic recommendation attached to a Hypothesis.
+ * Tells the inspector what to measure to confirm or refute.
+ */
+export interface SamplingRecommendation {
+  /** What to sample, e.g. "Total culturable fungi (indoor + outdoor paired)". */
+  readonly parameter: string
+  /** How to sample it, e.g. "Andersen N6 single-stage impactor; NIOSH 0800". */
+  readonly method: string
+  /** Why this method — what it would establish or refute. */
+  readonly rationale: string
+}
+
+/**
+ * v2.6 §3 — Hypothesis fires on observation patterns BEFORE
+ * measurements confirm them. Each hypothesis carries the
+ * suggested sampling methodology so the deliverable tells the
+ * inspector what to do next, not just what was observed.
+ */
+export interface Hypothesis {
+  readonly id: HypothesisId
+  /** Reader-friendly label, e.g. "Bioaerosol amplification". */
+  readonly name: string
+  /**
+   * Free-form observations / findings that triggered this
+   * hypothesis (e.g. "Visible mold at southwest wall",
+   * "Respiratory symptoms reported by 4 occupants").
+   */
+  readonly basis: ReadonlyArray<string>
+  readonly relatedFindingIds: ReadonlyArray<FindingId>
+  readonly suggestedSampling: ReadonlyArray<SamplingRecommendation>
+  /** Confidence in the hypothesis itself (not in any finding). */
+  readonly cihConfidenceTier: CIHConfidenceTier
+}
+
+// ── Causal Chain Engine (v2.6 §2) ──
+
+/**
+ * v2.6 §2 — A reasoned link across findings into a synthesized
+ * root cause. Fires deterministically when its trigger pattern
+ * matches the finding set. `causationSupported` controls whether
+ * the renderer is permitted to use causal language for this chain.
+ */
+export interface CausalChain {
+  /** Stable per-rule id — keeps reports reproducible across runs. */
+  readonly id: string
+  /** Reader-friendly label, e.g. "Moisture-driven microbial amplification". */
+  readonly name: string
+  readonly relatedFindingIds: ReadonlyArray<FindingId>
+  readonly rootCause: string
+  readonly causationSupported: boolean
+  readonly contributingZones: ReadonlyArray<ZoneId>
+  readonly citation: Citation
+}
+
+// ── Assessment Input (v2.6 §3 / §4) ──
+
+/**
+ * v2.6 §4 — orchestration input for the public `score()` entry
+ * point. Wraps the legacy zone-data shape the bridge consumes,
+ * preserved as `unknown[]` here to avoid coupling the engine
+ * domain to the legacy column-letter field names.
+ */
+export interface AssessmentInput {
+  readonly meta: AssessmentMeta
+  /** Legacy zone-data records, one per zone (zn, su, co2, tf, …). */
+  readonly zonesData: ReadonlyArray<Readonly<Record<string, unknown>>>
+  /** Building-level walkthrough fields (hm, fc, dp, …). */
+  readonly buildingData?: Readonly<Record<string, unknown>>
+  readonly presurvey?: Readonly<Record<string, unknown>>
+  readonly photos?: ReadonlyArray<unknown>
+  readonly readingsByInstrument?: Readonly<Record<string, number>>
+}
+
 // ── Assessment Score ──
 
 export interface AssessmentScore {
@@ -192,6 +278,16 @@ export interface AssessmentScore {
   readonly confidenceBand: CIHConfidenceTier
   readonly defensibilityFlags: DefensibilityFlags
   readonly meta: AssessmentMeta
+  /**
+   * v2.6 §2 — synthesized causal chains tying multiple findings
+   * back to a common root cause. Empty when no chain rule fires.
+   */
+  readonly causalChains: ReadonlyArray<CausalChain>
+  /**
+   * v2.6 §3 — diagnostic hypotheses with suggested sampling
+   * methodology. Empty when no hypothesis trigger fires.
+   */
+  readonly hypotheses: ReadonlyArray<Hypothesis>
   /**
    * v2.4 §2 — opaque, structurally-typed map of per-parameter
    * range/average/elevated-zone summaries computed from legacy

@@ -9,6 +9,9 @@ import type { InternalReport, InternalZoneReport, InternalCategoryReport, Intern
 import { ENGINE_VERSION } from '../types/citation'
 import { evaluatePermissions } from './permissions'
 
+// v2.6 §6 — types referenced via re-export for downstream tooling.
+export type { Hypothesis, CausalChain, SamplingRecommendation } from '../types/domain'
+
 export function renderInternalReport(score: AssessmentScore): InternalReport {
   const zones: InternalZoneReport[] = score.zones.map(z => ({
     zoneId: z.zoneId,
@@ -90,7 +93,14 @@ export function renderInternalReport(score: AssessmentScore): InternalReport {
     confidenceBand: score.confidenceBand,
     defensibilityFlags: score.defensibilityFlags,
     zones,
-    hypotheses: [],
+    // v2.6 §6 — surface the full hypothesis + causal-chain detail
+    // for the operator dashboard. The internal report shows
+    // everything: confidence tiers, related finding ids, contributing
+    // zones, citation, and the causationSupported flag. Distinct
+    // from the client report's `potentialContributingFactors` which
+    // is a CIH-safe projection of the chains.
+    hypotheses: score.hypotheses,
+    causalChains: score.causalChains,
     samplingRecommendations,
     prioritizationQueue,
     missingDataFlags,

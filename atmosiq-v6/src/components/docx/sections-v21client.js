@@ -848,6 +848,135 @@ function buildInlineFindingDocx(rf) {
   return out
 }
 
+/**
+ * v2.6 §5 — Potential Contributing Factors section.
+ *
+ * Renders one block per CausalChain (already projected as
+ * ContributingFactor by client.ts). Each block contains the
+ * synthesized root-cause description, related findings, affected
+ * zones, citation source, and a closing line keyed on
+ * `causationSupported` so the renderer never accidentally promotes
+ * a hypothesis chain to causal language.
+ *
+ * Section is omitted entirely when the engine produced zero
+ * chains — no empty header, no TOC entry, no boilerplate.
+ */
+function buildPotentialContributingFactors(report) {
+  const factors = report.potentialContributingFactors || []
+  if (factors.length === 0) return []
+  const out = [...heading2('Potential Contributing Factors')]
+  for (const f of factors) {
+    out.push(p(f.name, { bold: true, size: 22, color: SLATE, after: 80 }))
+    if (f.description) {
+      out.push(p(f.description, { align: AlignmentType.JUSTIFIED, after: 100 }))
+    }
+    if (Array.isArray(f.relatedFindings) && f.relatedFindings.length > 0) {
+      out.push(p('Related findings:', { italics: true, bold: true, size: 18, color: SLATE, after: 40 }))
+      for (const rf of f.relatedFindings) {
+        out.push(new Paragraph({
+          children: [new TextRun({
+            text: rf, font: FONTS.body, size: 18, italics: true, color: COLORS.sub,
+          })],
+          bullet: { level: 0 },
+          indent: { left: 360 },
+          spacing: { after: 40 },
+        }))
+      }
+    }
+    if (Array.isArray(f.affectedZones) && f.affectedZones.length > 0) {
+      out.push(new Paragraph({
+        children: [
+          new TextRun({ text: 'Affected zones: ', font: FONTS.body, size: 18, bold: true, color: SLATE }),
+          new TextRun({ text: f.affectedZones.join(', '), font: FONTS.body, size: 18, color: SLATE_BODY }),
+        ],
+        spacing: { after: 40 },
+      }))
+    }
+    if (f.citationSource) {
+      out.push(new Paragraph({
+        children: [
+          new TextRun({ text: 'Source: ', font: FONTS.body, size: 18, bold: true, color: SLATE }),
+          new TextRun({ text: f.citationSource, font: FONTS.body, size: 18, italics: true, color: SLATE_BODY }),
+        ],
+        spacing: { after: 80 },
+      }))
+    }
+    const closingLine = f.causationSupported
+      ? 'This relationship is supported by direct measurement and structured observation.'
+      : 'This relationship is suggested by the pattern of observations and is offered as a hypothesis for further investigation.'
+    out.push(p(closingLine, { italics: true, size: 18, color: COLORS.sub, after: 200 }))
+  }
+  return out
+}
+
+/**
+ * v2.6 §5 — Recommended Sampling Plan section.
+ *
+ * Renders one block per Hypothesis. Each block contains the
+ * confidence-tier language, the basis (free-form observation
+ * strings that triggered the hypothesis), and the suggested
+ * sampling parameter / method / rationale list.
+ *
+ * Section is omitted entirely when no hypothesis fired.
+ */
+function buildRecommendedSamplingPlan(report) {
+  const plan = report.recommendedSamplingPlan || []
+  if (plan.length === 0) return []
+  const out = [...heading2('Recommended Sampling Plan')]
+  for (const h of plan) {
+    out.push(new Paragraph({
+      children: [
+        new TextRun({ text: h.name, font: FONTS.body, size: 22, bold: true, color: SLATE }),
+        new TextRun({
+          text: `   (${tierLabel(h.cihConfidenceTier)})`,
+          font: FONTS.body, size: 18, italics: true, color: COLORS.sub,
+        }),
+      ],
+      spacing: { after: 80 },
+    }))
+    if (Array.isArray(h.basis) && h.basis.length > 0) {
+      out.push(p('Basis:', { italics: true, bold: true, size: 18, color: SLATE, after: 40 }))
+      for (const b of h.basis) {
+        out.push(new Paragraph({
+          children: [new TextRun({
+            text: b, font: FONTS.body, size: 18, italics: true, color: COLORS.sub,
+          })],
+          bullet: { level: 0 },
+          indent: { left: 360 },
+          spacing: { after: 40 },
+        }))
+      }
+    }
+    if (Array.isArray(h.suggestedSampling) && h.suggestedSampling.length > 0) {
+      out.push(p('Suggested sampling:', { bold: true, size: 18, color: SLATE, after: 40 }))
+      for (const s of h.suggestedSampling) {
+        out.push(new Paragraph({
+          children: [
+            new TextRun({ text: `${s.parameter} — `, font: FONTS.body, size: 18, bold: true, color: SLATE }),
+            new TextRun({ text: s.method, font: FONTS.body, size: 18, color: COLORS.body }),
+            new TextRun({ text: `. ${s.rationale}`, font: FONTS.body, size: 18, italics: true, color: SLATE_BODY }),
+          ],
+          bullet: { level: 0 },
+          indent: { left: 360 },
+          spacing: { after: 60 },
+        }))
+      }
+    }
+    out.push(p('', { after: 160 }))
+  }
+  return out
+}
+
+function tierLabel(tier) {
+  switch (tier) {
+    case 'validated_defensible': return 'validated, defensible'
+    case 'provisional_screening_level': return 'provisional, screening-level'
+    case 'qualitative_only': return 'qualitative only'
+    case 'insufficient_data': return 'insufficient data'
+    default: return tier || ''
+  }
+}
+
 function buildRecommendationsRegister(report) {
   // v2.2 visual upgrade — table form with Priority / Timeframe /
   // Action / Reference columns. Priority group rows separate the
@@ -1027,6 +1156,12 @@ export function buildClientDocx(result) {
     ...buildBuildingContext(report),
     ...buildBuildingConditionsSection(report),
     ...buildZoneSections(report),
+    // v2.6 §5 — Potential Contributing Factors and Recommended
+    // Sampling Plan slot in between Zone Findings and the
+    // Recommendations Register. Each is a no-op when the
+    // corresponding engine pass produced no output.
+    ...buildPotentialContributingFactors(report),
+    ...buildRecommendedSamplingPlan(report),
     ...buildRecommendationsRegister(report),
     ...buildLimitations(report),
     ...buildSignatory(report),

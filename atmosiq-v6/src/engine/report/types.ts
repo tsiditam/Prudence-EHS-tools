@@ -8,7 +8,7 @@ import type {
   CIHConfidenceTier, ProfessionalOpinionTier, ConditionType,
   Finding, CategoryScore, ZoneScore, AssessmentScore, AssessmentMeta,
   RecommendedAction, DefensibilityFlags, ReviewStatus,
-  TransmittalLetter,
+  TransmittalLetter, Hypothesis, CausalChain,
 } from '../types/domain'
 import type { Citation } from '../types/citation'
 import type { FindingGroup } from './finding-groups'
@@ -70,7 +70,22 @@ export interface ClientReport {
   // TOC entry) when no building-scoped findings are produced.
   readonly buildingAndSystemConditions?: BuildingAndSystemConditionsSection
   readonly zoneSections: ReadonlyArray<ZoneSection>
+  /**
+   * v2.6 §5 — synthesized causal chains projected as the
+   * client-safe Contributing Factor shape. Renders as the
+   * "Potential Contributing Factors" section between Zone
+   * Findings and Recommendations Register. Empty array → section
+   * is omitted entirely.
+   */
   readonly potentialContributingFactors: ReadonlyArray<ContributingFactor>
+  /**
+   * v2.6 §5 — diagnostic hypotheses with suggested sampling
+   * methodology. Renders as the "Recommended Sampling Plan"
+   * section between Potential Contributing Factors and the
+   * Recommendations Register. Undefined or empty → section is
+   * omitted entirely.
+   */
+  readonly recommendedSamplingPlan?: ReadonlyArray<Hypothesis>
   readonly recommendationsRegister: RecommendationsRegister
   readonly limitationsAndProfessionalJudgment: string
   readonly signatoryBlock: SignatoryBlock
@@ -261,6 +276,25 @@ export interface ContributingFactor {
   readonly relatedFindings: ReadonlyArray<string>
   readonly description: string
   readonly causationSupported: boolean
+  /**
+   * v2.6 §5 — opaque list of FindingId strings tying this
+   * Contributing Factor back to the originating findings. Distinct
+   * from `relatedFindings` (which is human-readable descriptions);
+   * this list lets downstream tooling cross-reference rendered
+   * findings.
+   */
+  readonly relatedFindingIds?: ReadonlyArray<string>
+  /**
+   * v2.6 §5 — citation source for the synthesized chain (e.g.
+   * "ASHRAE 62.1-2022 §6.2"). Surfaces in the rendered Potential
+   * Contributing Factors section as a "Source:" line.
+   */
+  readonly citationSource?: string
+  /**
+   * v2.6 §5 — zone IDs whose findings contribute to this chain.
+   * Surfaces as the "Affected zones:" line.
+   */
+  readonly affectedZones?: ReadonlyArray<string>
 }
 
 export interface RecommendationsRegister {
@@ -441,7 +475,18 @@ export interface InternalReport {
   readonly confidenceBand: CIHConfidenceTier
   readonly defensibilityFlags: DefensibilityFlags
   readonly zones: ReadonlyArray<InternalZoneReport>
-  readonly hypotheses: ReadonlyArray<ContributingFactor>
+  /**
+   * v2.6 §6 — full hypothesis detail (including suggested sampling
+   * methods) for the operator dashboard. Distinct from the v2.1
+   * `ContributingFactor` shape used by the client report.
+   */
+  readonly hypotheses: ReadonlyArray<Hypothesis>
+  /**
+   * v2.6 §6 — full causal chain detail for the operator dashboard.
+   * Each chain shows root cause, related finding ids, contributing
+   * zones, citation, and the causationSupported flag.
+   */
+  readonly causalChains: ReadonlyArray<CausalChain>
   readonly samplingRecommendations: ReadonlyArray<RecommendedAction>
   readonly prioritizationQueue: ReadonlyArray<PrioritizationEntry>
   readonly missingDataFlags: ReadonlyArray<string>
