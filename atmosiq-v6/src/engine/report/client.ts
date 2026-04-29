@@ -22,6 +22,7 @@ import {
   buildTransmittalBody, buildTransmittalSubject, buildTransmittalSalutation,
 } from './templates'
 import { buildSamplingMethodology } from './methodology-narrative'
+import { groupFindingsByDomain } from './finding-groups'
 import type { TransmittalLetter, SignatoryLine } from '../types/domain'
 
 export function renderClientReport(
@@ -220,11 +221,16 @@ export function renderClientReport(
   )
   const execRecommendations = sortedActions.slice(0, 6)
 
+  // v2.2 visual upgrade — group significant findings by reader-
+  // friendly domain. Empty groups are omitted.
+  const findingsByGroup = groupFindingsByDomain(significantFindings)
+
   const executiveSummary: ExecutiveSummary = {
     metadataTable,
     scopeOfWork,
     resultsNarrative,
     observations,
+    findingsByGroup,
     recommendations: execRecommendations,
     overallProfessionalOpinion: siteOpinion,
     overallProfessionalOpinionLanguage: OPINION_TIER_LANGUAGE[siteOpinion],

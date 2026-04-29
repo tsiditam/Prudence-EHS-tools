@@ -11,6 +11,9 @@ import type {
   TransmittalLetter,
 } from '../types/domain'
 import type { Citation } from '../types/citation'
+import type { FindingGroup } from './finding-groups'
+
+export type { FindingGroup, FindingObservation, FindingGroupName } from './finding-groups'
 
 // ── Client Report ──
 
@@ -103,6 +106,13 @@ export interface ExecutiveSummary {
   readonly scopeOfWork: string
   readonly resultsNarrative: string
   readonly observations: ReadonlyArray<string>
+  // v2.2 — findings grouped by reader-friendly domain (Air Quality
+  // Indicators / Corrosion Indicators / HVAC System / Environmental
+  // Conditions / Occupant Feedback). Each group carries
+  // observations with a bold lead term + short statement. Empty
+  // groups are not included; an office assessment without corrosion
+  // findings simply won't have a "Corrosion Indicators" group.
+  readonly findingsByGroup: ReadonlyArray<FindingGroup>
   readonly recommendations: ReadonlyArray<RecommendedAction>
   readonly overallProfessionalOpinion: ProfessionalOpinionTier
   readonly overallProfessionalOpinionLanguage: string

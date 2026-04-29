@@ -14,19 +14,24 @@ import { Paragraph, TextRun, HeadingLevel, AlignmentType, SectionType, PageBreak
 import { FONTS, COLORS } from './styles'
 import { borderlessLayoutTable } from './tables'
 
-// v2.2 visual palette — cyan family (matches in-app accent).
-// CYAN = primary cyan-600 used for borders + label cells + accent
-// CYAN_DARK = cyan-800 used for h2 text and dark-on-white
-// CYAN_LIGHT = cyan-200 used for soft borders
-// CYAN_FILL = cyan-50 used for soft backgrounds
-const CYAN = '0891B2'
-const CYAN_DARK = '155E75'
-const CYAN_LIGHT = 'A5F3FC'
-const CYAN_FILL = 'ECFEFF'
+// v2.2 visual palette — slate/blue per consultant-report design
+// guidance. PRIMARY (slate-900) for headings + dark text. ACCENT
+// (blue-600) for accent cells + rules. FILL (slate-50) for soft
+// backgrounds. SOFT_BORDER (slate-200) for hairline rules.
+// Outlines render in BLACK throughout (set via blackBorder below).
+const SLATE = '1E293B'
+const ACCENT_BLUE = '2563EB'
+const SLATE_FILL = 'F8FAFC'
+const SLATE_SOFT = 'E2E8F0'
+const SLATE_BODY = '334155'
 // Backward-compat aliases for any helpers still using the old names
-const NAVY = CYAN
-const NAVY_DARK = CYAN_DARK
-const NAVY_LIGHT = CYAN_LIGHT
+const CYAN = ACCENT_BLUE
+const CYAN_DARK = SLATE
+const CYAN_LIGHT = SLATE_SOFT
+const CYAN_FILL = SLATE_FILL
+const NAVY = ACCENT_BLUE
+const NAVY_DARK = SLATE
+const NAVY_LIGHT = SLATE_SOFT
 
 const noBorder = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' }
 // Per user direction — table outlines render in BLACK (CTSI style)
@@ -283,35 +288,86 @@ function buildSamplingMethodologyDocx(report) {
 }
 
 function buildExecutiveSummary(report) {
-  // v2.2 §6 — CTSI-format Executive Summary: 4-row metadata table
-  // (label cells navy-banded with white text, value cells white with
-  // navy border) + narrative blocks each in their own framed section
-  // with a navy header band (mirroring CTSI sage bands).
+  // v2.2 visual upgrade — Label:Value metadata list (no banded grid),
+  // opinion call-out, narrative blocks. The Findings block renders
+  // findings grouped by domain with bold lead terms; empty groups
+  // are omitted.
   const summary = report.executiveSummary
   const out = [...heading2('Executive Summary')]
   const md = summary.metadataTable
   if (md) {
-    out.push(buildExecMetadataTable(md))
-    out.push(p('', { after: 200 }))
+    out.push(...buildExecMetadataList(md))
+    out.push(p('', { after: 160 }))
   }
 
-  // Overall opinion call-out — bordered card with navy left rule.
+  // Overall opinion call-out — bordered card with accent left rule.
   out.push(buildOpinionCard(summary.overallProfessionalOpinionLanguage))
 
-  // Four narrative blocks each in a navy-banded framed section.
+  // Narrative blocks each in an accent-banded framed section.
   if (summary.scopeOfWork) {
     out.push(buildExecBlock('Scope of Work', [p(summary.scopeOfWork, { align: AlignmentType.JUSTIFIED })]))
   }
   if (summary.resultsNarrative) {
     out.push(buildExecBlock('Results', [p(summary.resultsNarrative, { align: AlignmentType.JUSTIFIED })]))
   }
-  if (summary.observations && summary.observations.length > 0) {
-    out.push(buildExecBlock('Observations', summary.observations.map(o => bullet(o))))
+  // Findings — grouped by domain when findingsByGroup is populated.
+  if (summary.findingsByGroup && summary.findingsByGroup.length > 0) {
+    const groupChildren = []
+    for (const g of summary.findingsByGroup) {
+      groupChildren.push(p(g.groupName, { bold: true, size: 22, color: SLATE, after: 60 }))
+      for (const obs of g.observations) {
+        groupChildren.push(buildLeadTermBullet(obs.leadTerm, obs.statement))
+      }
+      groupChildren.push(p('', { after: 80 }))
+    }
+    out.push(buildExecBlock('Summary of Findings', groupChildren))
+  } else if (summary.observations && summary.observations.length > 0) {
+    out.push(buildExecBlock('Summary of Findings', summary.observations.map(o => bullet(o))))
   }
   if (summary.recommendations && summary.recommendations.length > 0) {
     out.push(buildExecBlock('Recommendations', summary.recommendations.map(a => bullet(actionLine(a)))))
   }
   return out
+}
+
+/**
+ * v2.2 — render a finding observation as a bullet with a bold lead
+ * term followed by the statement. "PM2.5 (screening-level): Elevated..."
+ */
+function buildLeadTermBullet(leadTerm, statement) {
+  return new Paragraph({
+    children: [
+      new TextRun({ text: `${leadTerm}: `, font: FONTS.body, size: 20, bold: true, color: SLATE }),
+      new TextRun({ text: statement || '', font: FONTS.body, size: 20, color: SLATE_BODY }),
+    ],
+    bullet: { level: 0 },
+    spacing: { after: 60 },
+  })
+}
+
+/**
+ * v2.2 — render the executive summary metadata as a sequence of
+ * "Label: Value" Paragraphs instead of a 4×4 banded table. Reads
+ * cleanly without visual noise.
+ */
+function buildExecMetadataList(md) {
+  const row = (label, value) => new Paragraph({
+    children: [
+      new TextRun({ text: `${label}: `, font: FONTS.body, size: 22, bold: true, color: SLATE }),
+      new TextRun({ text: value || '—', font: FONTS.body, size: 22, color: SLATE_BODY }),
+    ],
+    spacing: { after: 80 },
+  })
+  return [
+    row('Client Name', md.clientName),
+    row('Project Number', md.projectNumber),
+    row('Project Address', md.projectAddress),
+    row('Survey Area', md.surveyArea),
+    row('Report Date', md.reportDate),
+    row('Survey Date(s)', md.surveyDate),
+    row('Requested By', md.requestedBy),
+    row('Site Contact', md.siteContact),
+  ]
 }
 
 /**

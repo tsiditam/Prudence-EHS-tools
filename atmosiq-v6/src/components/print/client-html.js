@@ -53,63 +53,83 @@ const REVIEW_STATUS_LABEL = {
 }
 
 const PAGE_STYLES = `
-  /* v2.2 visual upgrade — CTSI-format polish using PSEC cyan palette
-     (matches in-app accent #22D3EE). Lightweight h2 headings with a
-     cyan rule (no heavy band fill). Section bands retained ONLY for
-     the executive-summary sub-blocks (Scope of Work / Results /
-     Observations / Recommendations) since those define the CTSI
-     exec-summary card pattern. Recommendations register renders as
-     a table. */
+  /* v2.2 visual upgrade — slate/blue palette per consultant-report
+     design guidance. Source Serif 4 body (Google Fonts) with
+     Cambria fallback. Section + divider + callout pattern.
+     Recommendations register stays as a table for column-level
+     defensibility (Priority / Timeframe / Action / Reference). */
+  /* Source Serif 4 import — Google Fonts. Cambria fallback for offline
+     rendering / print drivers without network access. */
+  @import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700&display=swap');
+
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
-    font-family: Cambria, 'Times New Roman', serif;
-    font-size: 12pt; color: #1f2937; line-height: 1.55;
+    font-family: 'Source Serif 4', Cambria, Georgia, 'Times New Roman', serif;
+    font-size: 12pt; color: #334155; line-height: 1.7;
     padding: 0.85in 0.95in; max-width: 8.5in; margin: 0 auto; background: #fff;
+    font-feature-settings: 'liga' on, 'kern' on;
   }
-  h1 { font-size: 22pt; font-weight: 700; color: #155E75; margin-bottom: 4px; letter-spacing: -0.3px; }
+  h1 {
+    font-family: 'Source Serif 4', Cambria, Georgia, serif;
+    font-size: 24pt; font-weight: 700; color: #1E293B;
+    margin-bottom: 4px; letter-spacing: -0.3px;
+  }
   h2 {
-    /* Lightweight CTSI-style heading: cyan text + cyan rule below.
-       No box fill. */
-    font-size: 14pt; font-weight: 700; color: #155E75;
-    margin: 28px 0 14px; letter-spacing: 0.4px;
-    padding-bottom: 6px;
-    border-bottom: 2px solid #0891B2;
+    /* Section heading: slate text, no box fill, thin slate rule below. */
+    font-family: 'Source Serif 4', Cambria, Georgia, serif;
+    font-size: 16pt; font-weight: 700; color: #1E293B;
+    margin: 32px 0 16px; letter-spacing: 0.2px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #1E293B;
     page-break-after: avoid;
   }
-  h3 { font-size: 12pt; font-weight: 700; color: #155E75; margin: 20px 0 8px; letter-spacing: 0.2px; }
+  h3 {
+    font-family: 'Source Serif 4', Cambria, Georgia, serif;
+    font-size: 13pt; font-weight: 600; color: #1E293B;
+    margin: 22px 0 10px; letter-spacing: 0.1px;
+  }
   p { margin-bottom: 11px; line-height: 1.7; text-align: justify; hyphens: auto; }
   ul, ol { margin: 8px 0 14px 28px; }
-  li { margin-bottom: 5px; line-height: 1.65; text-align: justify; }
-  strong { color: #0F172A; }
+  li { margin-bottom: 6px; line-height: 1.65; text-align: justify; }
+  strong { color: #1E293B; }
+  a { color: #2563EB; }
+
+  /* Section + divider + callout patterns */
+  .section { margin-bottom: 28px; }
+  .divider { border-bottom: 1px solid #E2E8F0; margin: 16px 0; }
+  .callout {
+    background: #F8FAFC; border-left: 3px solid #2563EB;
+    padding: 16px 20px; margin: 14px 0;
+  }
 
   table { width: 100%; border-collapse: collapse; font-family: Cambria, 'Times New Roman', serif; margin: 8px 0 18px; }
   /* Major data tables — cyan band headers, BLACK cell borders (CTSI). */
   table.data-table th {
-    background: #0891B2; color: #fff; text-transform: uppercase; letter-spacing: 0.6px;
+    background: #2563EB; color: #fff; text-transform: uppercase; letter-spacing: 0.6px;
     font-size: 10pt; font-weight: 700; padding: 9px 10px; text-align: left; border: 1px solid #000;
   }
   table.data-table td { padding: 8px 10px; border: 1px solid #000; font-size: 10.5pt; vertical-align: top; }
-  table.data-table tbody tr:nth-child(even) td { background: #ECFEFF; }
-  th { text-align: left; padding: 8px 10px; background: #ECFEFF; font-size: 10pt; font-weight: 700; color: #155E75; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #000; }
+  table.data-table tbody tr:nth-child(even) td { background: #F8FAFC; }
+  th { text-align: left; padding: 8px 10px; background: #F8FAFC; font-size: 10pt; font-weight: 700; color: #1E293B; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #000; }
   td { padding: 8px 10px; border-bottom: 1px solid #000; font-size: 11pt; vertical-align: top; }
 
   /* ── Cover page ── */
   .cover {
-    text-align: center; padding: 1.4in 0 0.8in; border-bottom: 3px double #0891B2;
+    text-align: center; padding: 1.4in 0 0.8in; border-bottom: 3px double #2563EB;
     margin-bottom: 0.5in; page-break-after: always;
   }
-  .cover-firm { font-size: 14pt; font-weight: 700; color: #155E75; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .cover-firm { font-size: 14pt; font-weight: 700; color: #1E293B; letter-spacing: 0.5px; margin-bottom: 6px; }
   .cover-firm-sub { font-size: 11pt; color: #5C6F7E; margin-bottom: 36px; }
   .cover-title {
     font-size: 28pt; font-weight: 700; color: #0F172A;
     margin: 0.4in 0 8px; letter-spacing: 0.4px;
   }
-  .cover-rule { width: 60px; height: 3px; background: #0891B2; margin: 32px auto; }
+  .cover-rule { width: 60px; height: 3px; background: #2563EB; margin: 32px auto; }
   .cover-meta { font-size: 11pt; color: #2D3A4A; line-height: 2; }
   .cover-meta strong { color: #0F172A; font-weight: 700; }
   .cover-status {
-    display: inline-block; padding: 6px 16px; background: #E0F2FE; color: #155E75;
-    border: 1px solid #0891B2;
+    display: inline-block; padding: 6px 16px; background: #F8FAFC; color: #1E293B;
+    border: 1px solid #2563EB;
     border-radius: 2px; font-size: 10pt; font-weight: 700;
     margin-top: 18px; letter-spacing: 0.7px; text-transform: uppercase;
   }
@@ -119,22 +139,42 @@ const PAGE_STYLES = `
 
   /* ── Verbatim engine paragraph (Methodology Disclosure) ── */
   .verbatim {
-    padding: 14px 20px; background: #ECFEFF; border-left: 4px solid #0891B2;
+    padding: 14px 20px; background: #F8FAFC; border-left: 4px solid #2563EB;
     margin-bottom: 18px; font-size: 12pt; line-height: 1.75; font-style: italic;
   }
 
-  /* ── Executive Summary metadata table (CTSI 4-row) ── */
-  .exec-meta-table { margin: 14px 0 22px; border: 1px solid #000; }
-  .exec-meta-table td {
-    font-size: 11pt; padding: 9px 14px; border: 1px solid #000;
-    line-height: 1.45;
+  /* ── Executive Summary metadata — simple Label:Value list ── */
+  /* Per design guidance, replaces the 4×4 banded table with a
+     vertical list. Reads cleanly without visual noise. */
+  .exec-meta-list { margin: 8px 0 22px; padding: 0; list-style: none; }
+  .exec-meta-list li {
+    display: flex; gap: 12px; padding: 5px 0; line-height: 1.6;
+    border-bottom: 1px solid #E2E8F0;
   }
-  /* Label cells (1st and 3rd column) get the cyan band fill */
-  .exec-meta-table td.label {
-    background: #0891B2; color: #fff; font-weight: 700;
-    text-transform: none; letter-spacing: 0.3px; width: 18%;
+  .exec-meta-list li:last-child { border-bottom: none; }
+  .exec-meta-list .label {
+    font-weight: 700; color: #1E293B; min-width: 160px;
+    text-transform: none; letter-spacing: 0;
+    border-bottom: none; padding: 0; margin: 0;
   }
-  .exec-meta-table td.value { width: 32%; color: #1f2937; }
+  .exec-meta-list .value { color: #334155; flex: 1; }
+
+  /* ── Findings grouped by domain (Air Quality / HVAC / etc.) ── */
+  .finding-group { margin: 14px 0 18px; }
+  .finding-group-name {
+    font-weight: 700; color: #1E293B; font-size: 12pt;
+    margin-bottom: 8px; letter-spacing: 0.2px;
+  }
+  .finding-group-list {
+    margin: 0 0 0 20px; padding: 0; list-style: disc;
+  }
+  .finding-group-list li {
+    margin-bottom: 5px; line-height: 1.65;
+    text-align: left;
+  }
+  .finding-group-list .lead-term {
+    font-weight: 700; color: #1E293B;
+  }
 
   /* ── Executive Summary narrative blocks (Scope/Results/Obs/Recs) ── */
   /* These ARE bands by design — they're sub-sections WITHIN the
@@ -143,7 +183,7 @@ const PAGE_STYLES = `
      Methodology, Sampling Methodology, etc.) are plain headings. */
   .exec-block { margin-bottom: 22px; border: 1px solid #000; }
   .exec-block-header {
-    background: #0891B2; color: #fff; font-weight: 700;
+    background: #2563EB; color: #fff; font-weight: 700;
     font-size: 12pt; padding: 9px 14px; letter-spacing: 0.4px;
   }
   .exec-block-body { padding: 14px 18px; background: #fff; }
@@ -169,7 +209,7 @@ const PAGE_STYLES = `
   .signature-line { flex: 1; min-width: 240px; margin-bottom: 18px; }
   .signature-image-area { height: 0.5in; margin-bottom: 4px; }
   .signature-rule {
-    margin-bottom: 5px; border-bottom: 1px solid #155E75; height: 1px; width: 80%;
+    margin-bottom: 5px; border-bottom: 1px solid #1E293B; height: 1px; width: 80%;
   }
   .signature-name { font-size: 12pt; font-weight: 700; color: #0F172A; }
   .signature-title { font-size: 11pt; color: #2D3A4A; }
@@ -177,31 +217,31 @@ const PAGE_STYLES = `
 
   /* ── Professional opinion call-out (Executive Summary) ── */
   .opinion-card {
-    padding: 18px 22px; background: #ECFEFF; border: 1px solid #A5F3FC;
-    border-left: 4px solid #0891B2; margin: 0 0 22px; page-break-inside: avoid;
+    padding: 18px 22px; background: #F8FAFC; border: 1px solid #E2E8F0;
+    border-left: 4px solid #2563EB; margin: 0 0 22px; page-break-inside: avoid;
   }
   .opinion-tier {
-    font-size: 10pt; font-weight: 700; color: #155E75;
+    font-size: 10pt; font-weight: 700; color: #1E293B;
     text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px;
   }
   .opinion-text { font-size: 12pt; line-height: 1.7; color: #1f2937; font-weight: 600; }
 
   /* ── Zone cards ── */
   .zone-card {
-    border: 1px solid #A5F3FC; border-top: 3px solid #0891B2;
+    border: 1px solid #E2E8F0; border-top: 3px solid #2563EB;
     padding: 22px 24px; margin-bottom: 22px; page-break-inside: avoid;
   }
   .zone-name { font-size: 14pt; font-weight: 700; color: #0F172A; margin-bottom: 12px; }
   .label {
-    font-size: 10pt; font-weight: 700; color: #155E75;
+    font-size: 10pt; font-weight: 700; color: #1E293B;
     text-transform: uppercase; letter-spacing: 0.6px;
-    margin: 16px 0 6px; padding-bottom: 3px; border-bottom: 1px solid #A5F3FC;
+    margin: 16px 0 6px; padding-bottom: 3px; border-bottom: 1px solid #E2E8F0;
   }
 
   /* ── Signatory block ── */
   .signatory {
-    padding: 24px 26px; background: #ECFEFF; border: 1px solid #A5F3FC;
-    border-top: 3px solid #0891B2; margin-top: 30px; page-break-inside: avoid;
+    padding: 24px 26px; background: #F8FAFC; border: 1px solid #E2E8F0;
+    border-top: 3px solid #2563EB; margin-top: 30px; page-break-inside: avoid;
   }
   .signatory-row { display: flex; gap: 0.4in; margin-bottom: 14px; }
   .signatory-block { flex: 1; }
@@ -215,23 +255,23 @@ const PAGE_STYLES = `
   /* ── Recommendations Register table ── */
   .rec-table { width: 100%; border-collapse: collapse; margin: 6px 0 18px; border: 1px solid #000; }
   .rec-table th {
-    background: #0891B2; color: #fff; text-align: left;
+    background: #2563EB; color: #fff; text-align: left;
     font-size: 10pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
     padding: 9px 12px; border: 1px solid #000;
   }
   .rec-table td { padding: 9px 12px; border: 1px solid #000; font-size: 10.5pt; vertical-align: top; line-height: 1.5; }
   .rec-table tr.priority-row td {
-    background: #ECFEFF; font-weight: 700; color: #155E75;
+    background: #F8FAFC; font-weight: 700; color: #1E293B;
     text-transform: uppercase; letter-spacing: 0.5px; font-size: 10pt;
     padding: 7px 12px;
   }
-  .rec-table .col-priority { width: 16%; font-weight: 700; color: #155E75; }
+  .rec-table .col-priority { width: 16%; font-weight: 700; color: #1E293B; }
   .rec-table .col-timeframe { width: 14%; color: #2D3A4A; }
   .rec-table .col-action { width: 50%; }
   .rec-table .col-ref { width: 20%; font-style: italic; color: #5C6F7E; font-size: 10pt; }
 
   .footer {
-    margin-top: 0.4in; padding-top: 14px; border-top: 1px solid #A5F3FC;
+    margin-top: 0.4in; padding-top: 14px; border-top: 1px solid #E2E8F0;
     font-size: 9pt; color: #5C6F7E; text-align: center; line-height: 1.8;
   }
   .pg-break { page-break-before: always; }
@@ -339,29 +379,22 @@ function renderCover(cover, reviewStatus, projectNumber) {
 }
 
 function renderExecSummary(summary) {
-  // v2.2 §6 — CTSI-format Executive Summary: 4-row metadata table with
-  // navy label cells, four narrative blocks each in their own framed
-  // section with PSEC-navy header bands (mirrors CTSI sage bands).
+  // v2.2 visual upgrade — Label:Value list metadata, opinion call-out,
+  // four narrative blocks. The Findings block (formerly "Observations")
+  // renders findings grouped by domain with bold lead terms;
+  // empty groups are omitted.
   const md = summary.metadataTable
-  const metadataTable = md ? `
-    <table class="exec-meta-table">
-      <tr>
-        <td class="label">Client Name</td><td class="value">${esc(md.clientName)}</td>
-        <td class="label">Report Date</td><td class="value">${esc(md.reportDate)}</td>
-      </tr>
-      <tr>
-        <td class="label">Project Number</td><td class="value">${esc(md.projectNumber)}</td>
-        <td class="label">Survey Date(s)</td><td class="value">${esc(md.surveyDate)}</td>
-      </tr>
-      <tr>
-        <td class="label">Project Address</td><td class="value">${esc(md.projectAddress)}</td>
-        <td class="label">Survey Area</td><td class="value">${esc(md.surveyArea)}</td>
-      </tr>
-      <tr>
-        <td class="label">Requested By</td><td class="value">${esc(md.requestedBy)}</td>
-        <td class="label">Site Contact</td><td class="value">${esc(md.siteContact)}</td>
-      </tr>
-    </table>` : ''
+  const metadataList = md ? `
+    <ul class="exec-meta-list">
+      <li><span class="label">Client Name:</span><span class="value">${esc(md.clientName)}</span></li>
+      <li><span class="label">Project Number:</span><span class="value">${esc(md.projectNumber)}</span></li>
+      <li><span class="label">Project Address:</span><span class="value">${esc(md.projectAddress)}</span></li>
+      <li><span class="label">Survey Area:</span><span class="value">${esc(md.surveyArea)}</span></li>
+      <li><span class="label">Report Date:</span><span class="value">${esc(md.reportDate)}</span></li>
+      <li><span class="label">Survey Date(s):</span><span class="value">${esc(md.surveyDate)}</span></li>
+      <li><span class="label">Requested By:</span><span class="value">${esc(md.requestedBy)}</span></li>
+      <li><span class="label">Site Contact:</span><span class="value">${esc(md.siteContact)}</span></li>
+    </ul>` : ''
 
   const opinionCard = `
     <div class="opinion-card">
@@ -381,14 +414,27 @@ function renderExecSummary(summary) {
   const resultsBlock = summary.resultsNarrative
     ? block('Results', `<p>${esc(summary.resultsNarrative)}</p>`)
     : ''
-  const obsBlock = summary.observations && summary.observations.length > 0
-    ? block('Observations', `<ul>${summary.observations.map(o => `<li>${esc(o)}</li>`).join('')}</ul>`)
-    : ''
+
+  // v2.2 — grouped findings render. Falls back to flat observations
+  // list if findingsByGroup is absent (e.g., older ClientReport
+  // shapes or no significant findings).
+  const findingsBlock = summary.findingsByGroup && summary.findingsByGroup.length > 0
+    ? block('Summary of Findings', summary.findingsByGroup.map(g => `
+        <div class="finding-group">
+          <div class="finding-group-name">${esc(g.groupName)}</div>
+          <ul class="finding-group-list">
+            ${g.observations.map(o => `<li><span class="lead-term">${esc(o.leadTerm)}:</span> ${esc(o.statement)}</li>`).join('')}
+          </ul>
+        </div>`).join(''))
+    : (summary.observations && summary.observations.length > 0
+        ? block('Summary of Findings', `<ul>${summary.observations.map(o => `<li>${esc(o)}</li>`).join('')}</ul>`)
+        : '')
+
   const recBlock = summary.recommendations && summary.recommendations.length > 0
     ? block('Recommendations', `<ul>${summary.recommendations.map(a => `<li><strong>${esc(PRIORITY_LABEL[a.priority] || a.priority)}</strong> (${esc(a.timeframe)}): ${esc(a.action)}${a.standardReference ? ` <em>— ${esc(a.standardReference)}</em>` : ''}</li>`).join('')}</ul>`)
     : ''
 
-  return `${metadataTable}${opinionCard}${scopeBlock}${resultsBlock}${obsBlock}${recBlock}`
+  return `${metadataList}${opinionCard}${scopeBlock}${resultsBlock}${findingsBlock}${recBlock}`
 }
 
 function renderTransmittalLetter(letter) {
