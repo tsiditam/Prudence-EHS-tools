@@ -9,7 +9,7 @@ import type {
   ClientReportResult, ClientReport, ClientRenderOptions,
   CoverPage, ExecutiveSummary, ExecSummaryMetadata, ZoneSection, ContributingFactor,
   RecommendationsRegister, SignatoryBlock, ClientReportAppendix,
-  ObservedConditionRow,
+  ObservedConditionRow, TableOfContents, TocEntry,
 } from './types'
 import { ENGINE_VERSION } from '../types/citation'
 import { evaluateSiteOpinion, OPINION_TIER_LANGUAGE, CONFIDENCE_TIER_LANGUAGE } from './professional-opinion'
@@ -319,6 +319,34 @@ export function renderClientReport(
     }
   }
 
+  // v2.2 §5 — Table of Contents enumerating every body section that
+  // will render. Order matches the rendered HTML/DOCX output.
+  // Per-zone entries are NOT individually enumerated — the parent
+  // "Zone Findings" section covers them; otherwise a 12-zone
+  // assessment would produce a 24-line TOC.
+  const tocEntries: TocEntry[] = [
+    { anchorId: 'methodology-disclosure', title: 'Methodology Disclosure', level: 1 },
+    { anchorId: 'executive-summary', title: 'Executive Summary', level: 1 },
+    { anchorId: 'scope-and-methodology', title: 'Scope and Methodology', level: 1 },
+    { anchorId: 'sampling-methodology', title: 'Sampling Methodology', level: 1 },
+    { anchorId: 'building-and-system-context', title: 'Building and System Context', level: 1 },
+    { anchorId: 'building-and-system-conditions', title: 'Building and System Conditions', level: 1 },
+    { anchorId: 'zone-findings', title: 'Zone Findings', level: 1 },
+    { anchorId: 'recommendations-register', title: 'Recommendations Register', level: 1 },
+    { anchorId: 'limitations-and-professional-judgment', title: 'Limitations and Professional Judgment', level: 1 },
+  ]
+  if (options.includeAssessmentIndexAppendix) {
+    tocEntries.push({
+      anchorId: 'appendix-assessment-index',
+      title: 'Appendix — Assessment Index (Informational Only)',
+      level: 1,
+    })
+  }
+  const tableOfContents: TableOfContents = {
+    title: 'Table of Contents',
+    entries: tocEntries,
+  }
+
   const report: ClientReport = {
     engineVersion: ENGINE_VERSION,
     generatedAt: Date.now(),
@@ -328,6 +356,7 @@ export function renderClientReport(
     transmittal: TRANSMITTAL_PARAGRAPH,
     transmittalLetter,
     methodologyDisclosure: METHODOLOGY_DISCLOSURE_PARAGRAPH,
+    tableOfContents,
     executiveSummary,
     scopeAndMethodology: SCOPE_PARAGRAPH,
     samplingMethodology,
