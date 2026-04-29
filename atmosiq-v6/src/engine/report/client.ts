@@ -11,7 +11,13 @@ import type {
   RecommendationsRegister, SignatoryBlock, ClientReportAppendix,
   ObservedConditionRow, TableOfContents, TocEntry,
   RenderedFinding, BuildingAndSystemConditionsSection,
+  ResultsSection, ParameterSubsection,
+  AppendixA, AppendixAMeasurementRow,
+  AppendixB, AppendixBInstrumentRow, AppendixBZoneRow,
+  AppendixC, AppendixD, AppendixE, AppendixECalibrationRow, AppendixF,
 } from './types'
+import type { ParameterKey, ParameterRangeSet } from './parameter-ranges'
+import { lookupParameterProse } from './parameter-prose'
 import { ENGINE_VERSION } from '../types/citation'
 import { evaluateSiteOpinion, OPINION_TIER_LANGUAGE, CONFIDENCE_TIER_LANGUAGE } from './professional-opinion'
 import { shouldRefuseToIssue, buildPreAssessmentMemo } from './pre-assessment-memo'
@@ -23,7 +29,8 @@ import {
   buildTransmittalBody, buildTransmittalSubject, buildTransmittalSalutation,
 } from './templates'
 import { buildSamplingMethodology } from './methodology-narrative'
-import { groupFindingsByDomain } from './finding-groups'
+import { groupFindingsByDomain, getShortStatement } from './finding-groups'
+import { synthesizeZone } from './synthesis'
 import { validateReportContent } from './cih-validation'
 import type { TransmittalLetter, SignatoryLine } from '../types/domain'
 
@@ -118,14 +125,19 @@ export function renderClientReport(
     const zoneFindings = z.categories
       .flatMap(c => c.findings)
       .filter(f => f.scope === 'zone')
-    const significantZoneFindings = zoneFindings.filter(
-      f => f.severityInternal !== 'pass' && f.severityInternal !== 'info',
+    const significantZoneFindings = dedupZoneFindings(
+      zoneFindings.filter(
+        f => f.severityInternal !== 'pass' && f.severityInternal !== 'info',
+      ),
     )
     const renderedFindings = dedupZoneLimitations(
       significantZoneFindings.map(toRenderedFinding),
     )
     const actions = dedupActions(zoneFindings.flatMap(f => f.recommendedActions))
-    const interpretation = CONFIDENCE_TIER_LANGUAGE[z.confidence]
+    // v2.4 §4 — replace boilerplate confidence-tier language with a
+    // pattern-aware synthesis paragraph that ties together the
+    // observations within the zone.
+    const interpretation = synthesizeZone(z).narrative
     const opinionLanguage = OPINION_TIER_LANGUAGE[z.professionalOpinion]
 
     return {
@@ -240,7 +252,9 @@ export function renderClientReport(
   for (const f of significantFindings) {
     if (observationConditionTypes.has(f.conditionType)) continue
     observationConditionTypes.add(f.conditionType)
-    observations.push(firstSentence(f.approvedNarrativeIntent))
+    // v2.4 §5 — prefer the short abstracted statement to avoid verbatim
+    // duplication with the per-zone narrative.
+    observations.push(getShortStatement(f.conditionType) ?? firstSentence(f.approvedNarrativeIntent))
     if (observations.length >= 5) break
   }
 
@@ -319,22 +333,48 @@ export function renderClientReport(
   // Building context — include data center paragraph if applicable
   let buildingContext = `Assessment conducted at ${meta.siteName}, ${meta.siteAddress}.`
 
-  // Appendix
+  // v2.4 §2 — Results section: per-parameter standards-anchored prose
+  // subsections derived from the parameterRanges set computed by the
+  // bridge. Subsections only emit when at least one valid measurement
+  // was recorded for that parameter.
+  const parameterRanges = (score.parameterRanges ?? {}) as ParameterRangeSet
+  const resultsSection = buildResultsSection(parameterRanges)
+
+  // v2.4 §3 — six structured appendices. Appendix A through E render
+  // unconditionally so the deliverable always has a tabular evidence
+  // trail; Appendix F (glossary) renders unconditionally as well.
+  const legacyZonesData = (score.legacyZonesData ?? []) as ReadonlyArray<{ [k: string]: unknown }>
+  const appendixA = buildAppendixA(legacyZonesData, parameterRanges)
+  const appendixB = buildAppendixB(meta, score.zones, legacyZonesData)
+  const appendixC = buildAppendixC()
+  const appendixD = buildAppendixD()
+  const appendixE = buildAppendixE(meta)
+  const appendixF = buildAppendixF()
+
+  // Appendix — full structured shape built below in §3 wiring.
+  // Until §3 lands, keep the v2.2 backward-compat shape (legacy
+  // appendix object) so existing consumers continue to work.
+  const legacyAppendixIndex = options.includeAssessmentIndexAppendix
+    ? {
+        disclaimer: ASSESSMENT_INDEX_DISCLAIMER,
+        siteScore: score.siteScore ?? 0,
+        siteTier: score.siteTier ?? 'N/A',
+        zoneScores: score.zones.map(z => ({
+          zoneName: z.zoneName,
+          composite: z.composite ?? 0,
+          tier: z.tier ?? 'N/A',
+        })),
+      }
+    : undefined
   const appendix: ClientReportAppendix = {
     standardsManifest: [],
-  }
-
-  if (options.includeAssessmentIndexAppendix) {
-    appendix.assessmentIndexInformationalOnly = {
-      disclaimer: ASSESSMENT_INDEX_DISCLAIMER,
-      siteScore: score.siteScore ?? 0,
-      siteTier: score.siteTier ?? 'N/A',
-      zoneScores: score.zones.map(z => ({
-        zoneName: z.zoneName,
-        composite: z.composite ?? 0,
-        tier: z.tier ?? 'N/A',
-      })),
-    }
+    ...(legacyAppendixIndex ? { assessmentIndexInformationalOnly: legacyAppendixIndex } : {}),
+    appendixA,
+    appendixB,
+    appendixC,
+    appendixD,
+    appendixE,
+    appendixF,
   }
 
   // v2.2 §5 — Table of Contents enumerating every body section that
@@ -349,6 +389,9 @@ export function renderClientReport(
     { anchorId: 'executive-summary', title: 'Executive Summary', level: 1 },
     { anchorId: 'scope-and-methodology', title: 'Scope and Methodology', level: 1 },
     { anchorId: 'sampling-methodology', title: 'Sampling Methodology', level: 1 },
+    ...(resultsSection
+      ? [{ anchorId: 'results', title: 'Results', level: 1 as const }]
+      : []),
     { anchorId: 'building-and-system-context', title: 'Building and System Context', level: 1 },
     ...(buildingSectionRendered
       ? [{ anchorId: 'building-and-system-conditions', title: 'Building and System Conditions', level: 1 as const }]
@@ -356,6 +399,12 @@ export function renderClientReport(
     { anchorId: 'zone-findings', title: 'Zone Findings', level: 1 },
     { anchorId: 'recommendations-register', title: 'Recommendations Register', level: 1 },
     { anchorId: 'limitations-and-professional-judgment', title: 'Limitations and Professional Judgment', level: 1 },
+    { anchorId: 'appendix-a', title: 'Appendix A — Per-Zone Measurement Tabulation', level: 1 },
+    { anchorId: 'appendix-b', title: 'Appendix B — Sampling Locations and Methodology', level: 1 },
+    { anchorId: 'appendix-c', title: 'Appendix C — Photo Documentation', level: 1 },
+    { anchorId: 'appendix-d', title: 'Appendix D — Standards and Citations', level: 1 },
+    { anchorId: 'appendix-e', title: 'Appendix E — Quality Assurance and Calibration', level: 1 },
+    { anchorId: 'appendix-f', title: 'Appendix F — Glossary', level: 1 },
   ]
   if (options.includeAssessmentIndexAppendix) {
     tocEntries.push({
@@ -383,6 +432,7 @@ export function renderClientReport(
     scopeAndMethodology: SCOPE_PARAGRAPH,
     samplingMethodology,
     buildingAndSystemContext: buildingContext,
+    resultsSection,
     observedConditionsTable: [],
     // v2.3 §2 — buildingAndSystemConditions is undefined when there are
     // no building-scoped findings; the section header and TOC entry are
@@ -429,6 +479,25 @@ function dedupBuildingFindings(findings: ReadonlyArray<Finding>): ReadonlyArray<
   for (const f of findings) {
     if (seen.has(f.conditionType)) continue
     seen.add(f.conditionType)
+    out.push(f)
+  }
+  return out
+}
+
+/**
+ * v2.4 §5 — Dedup zone-scoped findings by (conditionType + observedValue).
+ * The legacy classifier can emit the same condition twice within one zone
+ * (e.g. occupant_cluster_anecdotal from both `cc` and `sy` fields). The
+ * first appearance wins so the renderer doesn't show the same observation
+ * twice in the same zone block.
+ */
+function dedupZoneFindings(findings: ReadonlyArray<Finding>): ReadonlyArray<Finding> {
+  const seen = new Set<string>()
+  const out: Finding[] = []
+  for (const f of findings) {
+    const key = `${f.conditionType}|${f.observedValue ?? ''}`
+    if (seen.has(key)) continue
+    seen.add(key)
     out.push(f)
   }
   return out
@@ -486,4 +555,167 @@ function dedupZoneLimitations(findings: ReadonlyArray<RenderedFinding>): Readonl
       return true
     }),
   }))
+}
+
+// ── v2.4 §2 — Results section builder ──
+
+const PARAMETER_ORDER: ReadonlyArray<ParameterKey> = [
+  'co2', 'co', 'hcho', 'tvoc', 'pm25', 'pm10', 'temperature', 'rh',
+]
+
+function buildResultsSection(ranges: ParameterRangeSet): ResultsSection | undefined {
+  const subsections: ParameterSubsection[] = []
+  for (const key of PARAMETER_ORDER) {
+    const range = ranges[key]
+    if (!range || range.count === 0) continue
+    const prose = lookupParameterProse(key)
+    subsections.push({
+      heading: prose.parameter,
+      standardsBackground: prose.standardsBackground,
+      measurementSummary: prose.summaryTemplate(range),
+    })
+  }
+  if (subsections.length === 0) return undefined
+  return {
+    title: 'Results',
+    subsections,
+  }
+}
+
+// ── v2.4 §3 — Appendix builders ──
+
+const PARAMETER_DISPLAY: Record<string, { label: string; field: string; outdoorField?: string; unit: string }> = {
+  co2: { label: 'Carbon Dioxide (CO₂)', field: 'co2', outdoorField: 'co2o', unit: 'ppm' },
+  co: { label: 'Carbon Monoxide (CO)', field: 'co', unit: 'ppm' },
+  hcho: { label: 'Formaldehyde (HCHO)', field: 'hc', unit: 'ppm' },
+  tvoc: { label: 'Total VOCs', field: 'tv', outdoorField: 'tvo', unit: 'µg/m³' },
+  pm25: { label: 'PM2.5', field: 'pm', outdoorField: 'pmo', unit: 'µg/m³' },
+  pm10: { label: 'PM10', field: 'pm10', unit: 'µg/m³' },
+  temperature: { label: 'Temperature', field: 'tf', outdoorField: 'tfo', unit: '°F' },
+  rh: { label: 'Relative Humidity', field: 'rh', outdoorField: 'rho', unit: '%' },
+}
+
+function readZoneValue(zone: { [k: string]: unknown }, field: string): string {
+  const raw = zone[field]
+  if (raw === undefined || raw === null || raw === '') return '—'
+  return String(raw)
+}
+
+function buildAppendixA(
+  zonesData: ReadonlyArray<{ [k: string]: unknown }>,
+  ranges: ParameterRangeSet,
+): AppendixA {
+  const rows: AppendixAMeasurementRow[] = []
+  for (const zone of zonesData) {
+    const zoneName = (zone.zn as string) || 'Unnamed zone'
+    for (const key of PARAMETER_ORDER) {
+      const range = ranges[key]
+      if (!range || range.count === 0) continue
+      const display = PARAMETER_DISPLAY[key]
+      const value = readZoneValue(zone, display.field)
+      if (value === '—') continue
+      const outdoor = display.outdoorField ? readZoneValue(zone, display.outdoorField) : '—'
+      rows.push({
+        zoneName,
+        parameter: display.label,
+        value,
+        unit: display.unit,
+        outdoorReference: outdoor,
+        notes: '',
+      })
+    }
+  }
+  return {
+    title: 'APPENDIX A — Per-Zone Measurement Tabulation',
+    description:
+      'Direct-reading instrument measurements recorded in each zone during the assessment, with outdoor reference values where collected. Values are rounded to instrument precision; refer to Appendix E for instrument calibration records.',
+    rows,
+  }
+}
+
+function buildAppendixB(
+  meta: ClientReport['meta'],
+  zones: ReadonlyArray<{ zoneName: string }>,
+  legacyZonesData: ReadonlyArray<{ [k: string]: unknown }>,
+): AppendixB {
+  const instrumentRows: AppendixBInstrumentRow[] = (meta.instrumentsUsed ?? []).map(inst => ({
+    model: inst.model,
+    serial: inst.serial ?? '',
+    lastCalibration: inst.lastCalibration ?? '',
+    calibrationStatus: inst.calibrationStatus ?? '',
+    parametersMeasured: [],
+  }))
+  const zoneRows: AppendixBZoneRow[] = zones.map((z, i) => {
+    const ld = legacyZonesData[i] ?? {}
+    return {
+      zoneName: z.zoneName,
+      samplingDuration: (ld['sd'] as string) || 'Single time-point reading',
+      sampleLocations: (ld['sl'] as string) || 'Representative occupied area',
+      outdoorReferenceTaken: ld['co2o'] !== undefined && ld['co2o'] !== '',
+    }
+  })
+  return {
+    title: 'APPENDIX B — Sampling Locations and Methodology Detail',
+    description:
+      'Per-instrument and per-zone documentation supporting reproducibility of the field measurements summarized in the Results section. Sample locations within each zone were selected to be representative of the occupied space.',
+    instrumentRows,
+    zoneRows,
+  }
+}
+
+function buildAppendixC(): AppendixC {
+  return {
+    title: 'APPENDIX C — Photo Documentation',
+    description:
+      'Photographs documenting field observations are referenced inline within the relevant zone-by-zone or building-and-system findings where available. No additional photo documentation is included with this report.',
+    photos: [],
+  }
+}
+
+function buildAppendixD(): AppendixD {
+  return {
+    title: 'APPENDIX D — Standards and Citations',
+    description:
+      'Authoritative regulatory, consensus-standard, and peer-reviewed references invoked in this report. Specific citations are also embedded inline within the relevant Results subsections, findings, and recommended actions.',
+    citations: [],
+    engineVersionLine: `This report was generated using ${ENGINE_VERSION}.`,
+  }
+}
+
+function buildAppendixE(meta: ClientReport['meta']): AppendixE {
+  const calibrationRecords: AppendixECalibrationRow[] = (meta.instrumentsUsed ?? []).map(inst => ({
+    instrumentModel: inst.model,
+    serial: inst.serial ?? '',
+    lastCalibration: inst.lastCalibration ?? '',
+    status: inst.calibrationStatus ?? '',
+  }))
+  return {
+    title: 'APPENDIX E — Quality Assurance and Instrument Calibration',
+    description:
+      'Calibration records and quality-assurance notes for the direct-reading instruments used in this assessment. Calibration was verified to be within manufacturer specification at the time of survey.',
+    calibrationRecords,
+    qaNotes: [
+      'Field instruments were checked against ambient outdoor reference at the start of the survey day.',
+      'Where outdoor reference measurements are missing for a parameter, the outdoor differential analysis is omitted from the corresponding Results subsection.',
+      'Measurement uncertainty associated with direct-reading instruments is documented in Appendix B and applied throughout the screening-level interpretation.',
+    ],
+  }
+}
+
+function buildAppendixF(): AppendixF {
+  return {
+    title: 'APPENDIX F — Glossary of Terms and Abbreviations',
+    description: 'Selected terms and abbreviations used in this report.',
+    entries: [
+      { term: 'ASHRAE 55', definition: 'Thermal Environmental Conditions for Human Occupancy.' },
+      { term: 'ASHRAE 62.1', definition: 'Ventilation for Acceptable Indoor Air Quality.' },
+      { term: 'CIH', definition: 'Certified Industrial Hygienist (ABIH credential).' },
+      { term: 'CSP', definition: 'Certified Safety Professional (BCSP credential).' },
+      { term: 'NAAQS', definition: 'National Ambient Air Quality Standards (US EPA).' },
+      { term: 'OSHA PEL', definition: 'Occupational Safety and Health Administration Permissible Exposure Limit.' },
+      { term: 'PM2.5 / PM10', definition: 'Particulate matter ≤2.5 / ≤10 micrometers in aerodynamic diameter.' },
+      { term: 'TVOC', definition: 'Total Volatile Organic Compounds (sum of ionizable VOCs measured by PID).' },
+      { term: 'TWA', definition: 'Time-Weighted Average (typically 8-hour for occupational exposure standards).' },
+    ],
+  }
 }

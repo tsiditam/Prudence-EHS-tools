@@ -11,7 +11,9 @@
     "typecheck": "tsc --noEmit",
     "lint": "echo \"lint: no-op (eslint config not present)\"",
     "render:acceptance:v2.3": "VITEST_RENDER_FIXTURES=1 vitest run scripts/acceptance/render-acceptance-fixture.test.ts",
-    "accept:v2.3": "node scripts/acceptance/run-v23.mjs"
+    "accept:v2.3": "node scripts/acceptance/run-v23.mjs",
+    "render:acceptance": "VITEST_RENDER_FIXTURES=1 vitest run scripts/render-acceptance-fixture.test.ts",
+    "accept:v2.4": "npm run render:acceptance && node scripts/acceptance-check.mjs --config scripts/acceptance/v2.4.json"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.101.1",

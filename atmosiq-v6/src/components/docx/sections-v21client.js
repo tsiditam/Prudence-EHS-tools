@@ -142,8 +142,10 @@ function buildCoverPage(cover, reviewStatus, projectNumber) {
       p(cover.preparedBy, { align: AlignmentType.CENTER, bold: true, size: 24, color: CYAN_DARK, after: 80 }),
       p('', { after: 800 }),
       // Title — two lines, all caps (slate-900)
-      p('INDOOR AIR QUALITY', { align: AlignmentType.CENTER, bold: true, size: 56, color: '0F172A', after: 100 }),
-      p('EVALUATION', { align: AlignmentType.CENTER, bold: true, size: 56, color: '0F172A', after: 400 }),
+      // v2.4 — cover title rendered as a single paragraph so .docx →
+      // .txt extraction produces one contiguous "INDOOR AIR QUALITY
+      // EVALUATION" line for acceptance runner needle matching.
+      p('INDOOR AIR QUALITY EVALUATION', { align: AlignmentType.CENTER, bold: true, size: 48, color: '0F172A', after: 400 }),
       // Centered cyan rule (single dash run for visual)
       p('—', { align: AlignmentType.CENTER, size: 32, color: CYAN, bold: true, after: 400 }),
       // Site block
@@ -524,6 +526,144 @@ function buildBuildingContext(report) {
   ]
 }
 
+// v2.4 §2 — Results section: per-parameter standards-anchored prose
+// subsections. Renders between Sampling Methodology and Building and
+// System Context.
+function buildResultsSection(report) {
+  const r = report.resultsSection
+  if (!r || !Array.isArray(r.subsections) || r.subsections.length === 0) return []
+  const out = [...heading2(r.title || 'Results')]
+  for (const sub of r.subsections) {
+    out.push(heading3(sub.heading))
+    if (sub.standardsBackground) {
+      out.push(p(sub.standardsBackground, { align: AlignmentType.JUSTIFIED }))
+    }
+    if (sub.measurementSummary) {
+      out.push(p(sub.measurementSummary, { align: AlignmentType.JUSTIFIED }))
+    }
+  }
+  return out
+}
+
+// v2.4 §3 — Six structured appendices. Each renders a heading,
+// description, and any tabular content. Engine version line lives
+// only in Appendix D.
+function buildAppendices(report) {
+  const ap = report.appendix || {}
+  const out = []
+  if (ap.appendixA) {
+    out.push(...heading2(ap.appendixA.title))
+    if (ap.appendixA.description) out.push(p(ap.appendixA.description, { align: AlignmentType.JUSTIFIED }))
+    if (Array.isArray(ap.appendixA.rows) && ap.appendixA.rows.length > 0) {
+      out.push(buildSimpleTable(
+        ['Zone', 'Parameter', 'Value', 'Unit', 'Outdoor Ref.'],
+        ap.appendixA.rows.map(r => [r.zoneName, r.parameter, r.value, r.unit, r.outdoorReference]),
+      ))
+    }
+  }
+  if (ap.appendixB) {
+    out.push(...heading2(ap.appendixB.title))
+    if (ap.appendixB.description) out.push(p(ap.appendixB.description, { align: AlignmentType.JUSTIFIED }))
+    if (Array.isArray(ap.appendixB.instrumentRows) && ap.appendixB.instrumentRows.length > 0) {
+      out.push(p('Instruments used:', { bold: true, after: 60 }))
+      out.push(buildSimpleTable(
+        ['Model', 'Serial', 'Last Calibration', 'Status'],
+        ap.appendixB.instrumentRows.map(r => [r.model, r.serial || '—', r.lastCalibration || '—', r.calibrationStatus || '—']),
+      ))
+    }
+    if (Array.isArray(ap.appendixB.zoneRows) && ap.appendixB.zoneRows.length > 0) {
+      out.push(p('Per-zone sampling detail:', { bold: true, before: 120, after: 60 }))
+      out.push(buildSimpleTable(
+        ['Zone', 'Sampling Duration', 'Sample Locations', 'Outdoor Ref.'],
+        ap.appendixB.zoneRows.map(r => [r.zoneName, r.samplingDuration, r.sampleLocations, r.outdoorReferenceTaken ? 'Yes' : 'No']),
+      ))
+    }
+  }
+  if (ap.appendixC) {
+    out.push(...heading2(ap.appendixC.title))
+    if (ap.appendixC.description) out.push(p(ap.appendixC.description, { align: AlignmentType.JUSTIFIED }))
+    if (Array.isArray(ap.appendixC.photos) && ap.appendixC.photos.length > 0) {
+      for (const photo of ap.appendixC.photos) {
+        out.push(bullet(`${photo.caption} (${photo.zoneName}) — ${photo.relativePath}`))
+      }
+    }
+  }
+  if (ap.appendixD) {
+    out.push(...heading2(ap.appendixD.title))
+    if (ap.appendixD.description) out.push(p(ap.appendixD.description, { align: AlignmentType.JUSTIFIED }))
+    if (Array.isArray(ap.appendixD.citations) && ap.appendixD.citations.length > 0) {
+      for (const c of ap.appendixD.citations) {
+        out.push(bullet(`${c.source}${c.edition ? ` (${c.edition})` : ''}${c.authority ? ` — ${c.authority}` : ''}`))
+      }
+    }
+    if (ap.appendixD.engineVersionLine) {
+      out.push(p(ap.appendixD.engineVersionLine, { italics: true, size: 18, color: COLORS.light, before: 200 }))
+    }
+  }
+  if (ap.appendixE) {
+    out.push(...heading2(ap.appendixE.title))
+    if (ap.appendixE.description) out.push(p(ap.appendixE.description, { align: AlignmentType.JUSTIFIED }))
+    if (Array.isArray(ap.appendixE.calibrationRecords) && ap.appendixE.calibrationRecords.length > 0) {
+      out.push(buildSimpleTable(
+        ['Instrument', 'Serial', 'Last Calibration', 'Status'],
+        ap.appendixE.calibrationRecords.map(r => [r.instrumentModel, r.serial || '—', r.lastCalibration || '—', r.status || '—']),
+      ))
+    }
+    if (Array.isArray(ap.appendixE.qaNotes) && ap.appendixE.qaNotes.length > 0) {
+      for (const note of ap.appendixE.qaNotes) {
+        out.push(bullet(note))
+      }
+    }
+  }
+  if (ap.appendixF) {
+    out.push(...heading2(ap.appendixF.title))
+    if (ap.appendixF.description) out.push(p(ap.appendixF.description, { align: AlignmentType.JUSTIFIED }))
+    if (Array.isArray(ap.appendixF.entries) && ap.appendixF.entries.length > 0) {
+      for (const e of ap.appendixF.entries) {
+        out.push(new Paragraph({
+          children: [
+            new TextRun({ text: `${e.term}: `, bold: true, font: FONTS.body, size: 22, color: SLATE }),
+            new TextRun({ text: e.definition, font: FONTS.body, size: 22, color: SLATE_BODY }),
+          ],
+          spacing: { after: 80 },
+        }))
+      }
+    }
+  }
+  return out
+}
+
+function buildSimpleTable(headers, rows) {
+  const headerRow = new TableRow({
+    children: headers.map(h => new TableCell({
+      width: { size: Math.floor(TOTAL_WIDTH_DXA / headers.length), type: WidthType.DXA },
+      margins: { top: 100, bottom: 100, left: 120, right: 120 },
+      shading: { fill: SLATE_FILL, type: ShadingType.CLEAR, color: 'auto' },
+      children: [new Paragraph({
+        children: [new TextRun({ text: h, bold: true, font: FONTS.body, size: 20, color: SLATE })],
+      })],
+      borders: { top: blackBorder, bottom: blackBorder, left: blackBorder, right: blackBorder },
+    })),
+    tableHeader: true,
+  })
+  const bodyRows = rows.map(cells => new TableRow({
+    children: cells.map(cell => new TableCell({
+      width: { size: Math.floor(TOTAL_WIDTH_DXA / cells.length), type: WidthType.DXA },
+      margins: { top: 80, bottom: 80, left: 120, right: 120 },
+      children: [new Paragraph({
+        children: [new TextRun({ text: String(cell || ''), font: FONTS.body, size: 20, color: SLATE_BODY })],
+      })],
+      borders: { top: blackBorder, bottom: blackBorder, left: blackBorder, right: blackBorder },
+    })),
+  }))
+  return new Table({
+    rows: [headerRow, ...bodyRows],
+    width: { size: TOTAL_WIDTH_DXA, type: WidthType.DXA },
+    columnWidths: headers.map(() => Math.floor(TOTAL_WIDTH_DXA / headers.length)),
+    borders: { top: blackBorder, bottom: blackBorder, left: blackBorder, right: blackBorder, insideHorizontal: blackBorder, insideVertical: blackBorder },
+  })
+}
+
 // v2.3 §2 — Building and System Conditions section is omitted entirely
 // (no header, no body, no TOC entry) when the engine signals
 // rendered=false. The omittedReason was already appended to Scope of
@@ -767,13 +907,12 @@ function buildAssessmentIndexAppendix(idx) {
   return out
 }
 
+// v2.4 §7 — engine version line moved to Appendix D (last line).
+// The body footer is now empty; page footers in the docx section
+// properties carry "Indoor Air Quality Evaluation — PSEC Project
+// [n] — Page X of Y" instead.
 function buildFooter(report) {
-  return [
-    new Paragraph({ children: [new PageBreak()] }),
-    p(`Generated by AtmosFlow Engine ${report.engineVersion} on ${new Date(report.generatedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`, {
-      align: AlignmentType.CENTER, italics: true, size: 16, color: COLORS.light,
-    }),
-  ]
+  return []
 }
 
 // ── Public ──
@@ -796,12 +935,14 @@ export function buildClientDocx(result) {
     ...buildExecutiveSummary(report),
     ...buildScope(report),
     ...buildSamplingMethodologyDocx(report),
+    ...buildResultsSection(report),
     ...buildBuildingContext(report),
     ...buildBuildingConditionsSection(report),
     ...buildZoneSections(report),
     ...buildRecommendationsRegister(report),
     ...buildLimitations(report),
     ...buildSignatory(report),
+    ...buildAppendices(report),
     ...(report.appendix.assessmentIndexInformationalOnly
       ? buildAssessmentIndexAppendix(report.appendix.assessmentIndexInformationalOnly)
       : []),
@@ -825,7 +966,7 @@ function buildMemoDocx(memo, reasons) {
     ...memo.recommendedFollowUp.map(r => bullet(r)),
     ...buildSignatory({ signatoryBlock: memo.signatoryBlock }),
     new Paragraph({ children: [new PageBreak()] }),
-    p(`Generated by AtmosFlow Engine ${memo.engineVersion} on ${new Date(memo.generatedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`, {
+    p(`Engine version: ${memo.engineVersion}.`, {
       align: AlignmentType.CENTER, italics: true, size: 16, color: COLORS.light,
     }),
   ]

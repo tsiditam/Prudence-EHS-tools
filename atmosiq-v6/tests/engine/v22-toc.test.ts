@@ -63,15 +63,25 @@ describe('v2.2 §5 — Table of Contents on ClientReport', () => {
     const result = buildScore()
     if (result.kind !== 'report') throw new Error('Expected report')
     const titles = result.report.tableOfContents.entries.map(e => e.title)
+    // v2.4 §2 + §3 — Results subsection (when at least one parameter
+    // was measured) and the six structured appendices (A–F) always
+    // appear in the canonical deliverable.
     expect(titles).toEqual([
       'Methodology Disclosure',
       'Executive Summary',
       'Scope and Methodology',
       'Sampling Methodology',
+      'Results',
       'Building and System Context',
       'Zone Findings',
       'Recommendations Register',
       'Limitations and Professional Judgment',
+      'Appendix A — Per-Zone Measurement Tabulation',
+      'Appendix B — Sampling Locations and Methodology',
+      'Appendix C — Photo Documentation',
+      'Appendix D — Standards and Citations',
+      'Appendix E — Quality Assurance and Calibration',
+      'Appendix F — Glossary',
     ])
   })
 
@@ -85,16 +95,21 @@ describe('v2.2 §5 — Table of Contents on ClientReport', () => {
     }
   })
 
-  it('Appendix entry appears only when includeAssessmentIndexAppendix=true', () => {
+  it('Six structured appendices (A–F) always appear in TOC; legacy Assessment Index is gated', () => {
+    // v2.4 §3 — Appendix A through F render unconditionally as part of
+    // the canonical deliverable. The legacy "Assessment Index" (raw
+    // scores) appendix is gated behind includeAssessmentIndexAppendix.
     const r1 = buildScore({ includeAppendix: false })
     if (r1.kind === 'report') {
       const titles1 = r1.report.tableOfContents.entries.map(e => e.title)
-      expect(titles1.some(t => t.includes('Appendix'))).toBe(false)
+      expect(titles1.some(t => t.includes('Appendix A'))).toBe(true)
+      expect(titles1.some(t => t.includes('Appendix F'))).toBe(true)
+      expect(titles1.some(t => t.includes('Assessment Index'))).toBe(false)
     }
     const r2 = buildScore({ includeAppendix: true })
     if (r2.kind === 'report') {
       const titles2 = r2.report.tableOfContents.entries.map(e => e.title)
-      expect(titles2.some(t => t.includes('Appendix'))).toBe(true)
+      expect(titles2.some(t => t.includes('Assessment Index'))).toBe(true)
     }
   })
 })

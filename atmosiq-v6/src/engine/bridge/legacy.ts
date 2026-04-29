@@ -36,6 +36,7 @@ import { lookupPhrase } from '../report/phrases/index'
 import { evaluatePermissions } from '../report/permissions'
 import { evaluateZoneOpinion } from '../report/professional-opinion'
 import { classifyCondition } from './classify'
+import { computeParameterRanges, type LegacyZone } from '../report/parameter-ranges'
 
 // ── Public API ──
 
@@ -72,6 +73,11 @@ export function legacyToAssessmentScore(
   const confidenceValue = mapConfidenceValue(confidenceBand)
   const defensibilityFlags = computeDefensibilityFlags(zones, zonesData, ctx)
 
+  // v2.4 §2 — compute per-parameter range/average summaries from the
+  // legacy zone-data so the renderer's Results section can emit
+  // standards-anchored prose without re-walking the raw fields.
+  const parameterRanges = computeParameterRanges(zonesData as unknown as ReadonlyArray<LegacyZone>)
+
   return {
     siteScore,
     siteTier,
@@ -80,6 +86,8 @@ export function legacyToAssessmentScore(
     confidenceBand,
     defensibilityFlags,
     meta: ctx.meta,
+    parameterRanges,
+    legacyZonesData: zonesData,
   }
 }
 

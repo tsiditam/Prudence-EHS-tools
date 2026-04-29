@@ -57,6 +57,12 @@ export interface ClientReport {
   // AssessmentMeta.instrumentsUsed).
   readonly samplingMethodology: SamplingMethodologySection
   readonly buildingAndSystemContext: string
+  // v2.4 §2 — per-parameter Results subsections (Carbon Dioxide,
+  // Carbon Monoxide, Formaldehyde, Total VOCs, PM2.5/PM10,
+  // Temperature, Relative Humidity). Each subsection carries the
+  // standards background prose and a per-parameter measurement
+  // summary derived from the legacy zone-data.
+  readonly resultsSection?: ResultsSection
   readonly observedConditionsTable: ReadonlyArray<ObservedConditionRow>
   // v2.3 §2 — building-scoped findings (HVAC, water management)
   // render once at building level when at least one such finding
@@ -226,6 +232,21 @@ export interface BuildingAndSystemConditionsSection {
 /** Backward-compat alias for v2.2 callers. */
 export type BuildingConditionsSection = BuildingAndSystemConditionsSection
 
+/**
+ * v2.4 §2 — Results section, rendered between Sampling Methodology
+ * and Building and System Context. Each parameter subsection is
+ * emitted only when at least one valid measurement was recorded.
+ */
+export interface ResultsSection {
+  readonly title: string
+  readonly subsections: ReadonlyArray<ParameterSubsection>
+}
+export interface ParameterSubsection {
+  readonly heading: string
+  readonly standardsBackground: string
+  readonly measurementSummary: string
+}
+
 export interface ObservedConditionRow {
   readonly zone: string
   readonly parameter: string
@@ -260,6 +281,114 @@ export interface ClientReportAppendix {
   readonly rawMeasurementSnapshot?: ReadonlyArray<MeasurementRow>
   readonly standardsManifest: ReadonlyArray<Citation>
   readonly assessmentIndexInformationalOnly?: AssessmentIndexAppendix
+  // v2.4 §3 — six structured appendices
+  readonly appendixA?: AppendixA
+  readonly appendixB?: AppendixB
+  readonly appendixC?: AppendixC
+  readonly appendixD?: AppendixD
+  readonly appendixE?: AppendixE
+  readonly appendixF?: AppendixF
+}
+
+/**
+ * v2.4 §3 — Appendix A: Per-zone tabulated measurements
+ * One row per zone × parameter combination, including outdoor reference.
+ */
+export interface AppendixA {
+  readonly title: string
+  readonly description: string
+  readonly rows: ReadonlyArray<AppendixAMeasurementRow>
+}
+export interface AppendixAMeasurementRow {
+  readonly zoneName: string
+  readonly parameter: string
+  readonly value: string
+  readonly unit: string
+  readonly outdoorReference: string
+  readonly notes: string
+}
+
+/**
+ * v2.4 §3 — Appendix B: Sampling locations and methodology details
+ * Per-instrument and per-zone documentation supporting reproducibility.
+ */
+export interface AppendixB {
+  readonly title: string
+  readonly description: string
+  readonly instrumentRows: ReadonlyArray<AppendixBInstrumentRow>
+  readonly zoneRows: ReadonlyArray<AppendixBZoneRow>
+}
+export interface AppendixBInstrumentRow {
+  readonly model: string
+  readonly serial: string
+  readonly lastCalibration: string
+  readonly calibrationStatus: string
+  readonly parametersMeasured: ReadonlyArray<string>
+}
+export interface AppendixBZoneRow {
+  readonly zoneName: string
+  readonly samplingDuration: string
+  readonly sampleLocations: string
+  readonly outdoorReferenceTaken: boolean
+}
+
+/**
+ * v2.4 §3 — Appendix C: Photo documentation
+ * Optional. When zone-level photo references exist, they're enumerated.
+ */
+export interface AppendixC {
+  readonly title: string
+  readonly description: string
+  readonly photos: ReadonlyArray<AppendixCPhoto>
+}
+export interface AppendixCPhoto {
+  readonly caption: string
+  readonly zoneName: string
+  readonly relativePath: string
+}
+
+/**
+ * v2.4 §3 — Appendix D: Standards and citations
+ * Authoritative list of regulatory, consensus-standard, and peer-reviewed
+ * citations actually invoked in this report. Engine version line is
+ * recorded here (and ONLY here) per §7.
+ */
+export interface AppendixD {
+  readonly title: string
+  readonly description: string
+  readonly citations: ReadonlyArray<Citation>
+  readonly engineVersionLine: string
+}
+
+/**
+ * v2.4 §3 — Appendix E: Quality assurance and instrument calibration
+ * Calibration records, QA notes, and limitations of the QA program.
+ */
+export interface AppendixE {
+  readonly title: string
+  readonly description: string
+  readonly calibrationRecords: ReadonlyArray<AppendixECalibrationRow>
+  readonly qaNotes: ReadonlyArray<string>
+}
+export interface AppendixECalibrationRow {
+  readonly instrumentModel: string
+  readonly serial: string
+  readonly lastCalibration: string
+  readonly status: string
+}
+
+/**
+ * v2.4 §3 — Appendix F: Glossary of terms and abbreviations
+ * Reader-facing glossary entries.
+ */
+export interface AppendixF {
+  readonly title: string
+  readonly description: string
+  readonly entries: ReadonlyArray<AppendixFGlossaryEntry>
+}
+export interface AppendixFGlossaryEntry {
+  readonly term: string
+  readonly definition: string
 }
 
 export interface MeasurementRow {
