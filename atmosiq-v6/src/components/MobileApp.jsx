@@ -32,6 +32,13 @@ import AdminDashboard from './AdminDashboard'
 import WelcomeScreen from './WelcomeScreen'
 import SettingsScreen from './SettingsScreen'
 import { printReport, generatePrintHTML } from './PrintReport'
+// v2.6.1 — DocxReport is a static import. Earlier `await import('./DocxReport')`
+// triggered "'text/html' is not a valid JavaScript MIME type" errors when a
+// user's cached index.html referenced a chunk hash that no longer existed
+// after redeploy (the missing-chunk request returned the SPA HTML fallback).
+// Bundling the docx renderer into the main chunk eliminates that failure
+// mode for the most common user action — exporting a report.
+import { generateDocx, generateConsultantOnly, generateTechnicalOnly } from './DocxReport'
 import { DEMO_PRESURVEY, DEMO_BUILDING, DEMO_ZONES } from '../constants/demoData'
 import { DEMO_FM_PRESURVEY, DEMO_FM_BUILDING, DEMO_FM_ZONES } from '../constants/demoDataFM'
 import { DEMO_DC_PRESURVEY, DEMO_DC_BUILDING, DEMO_DC_ZONES } from '../constants/demoDataDC'
@@ -469,7 +476,6 @@ export default function MobileApp() {
     trackEvent('report_exported', { format: docxType || format, facility: bldg.fn || '', score: comp?.tot, zones: zones.length, has_narrative: !!narrative, photos: Object.values(filteredPhotos).flat().length })
     try {
       if (format === 'docx') {
-        const { generateDocx, generateConsultantOnly, generateTechnicalOnly } = await import('./DocxReport')
         if (docxType === 'consultant') await generateConsultantOnly(reportData)
         else if (docxType === 'technical') await generateTechnicalOnly(reportData)
         else await generateDocx(reportData)
@@ -478,7 +484,19 @@ export default function MobileApp() {
       }
     } catch (e) {
       console.error('Export failed:', e)
-      alert('Report export failed: ' + (e.message || 'Unknown error') + '. Please try again.')
+      // v2.6.1 — detect the stale-chunk MIME error and offer a hard
+      // reload instead of the generic "Please try again" message.
+      // The error fires when index.html references a chunk hash the
+      // server no longer has (post-redeploy without cache bust).
+      const msg = (e && e.message) || ''
+      if (/is not a valid JavaScript MIME type|Failed to fetch dynamically imported module|Importing a module script failed/i.test(msg)) {
+        const reload = window.confirm(
+          'This page is out of date and the export cannot run with the cached version. Reload to update?'
+        )
+        if (reload) window.location.reload()
+        return
+      }
+      alert('Report export failed: ' + (msg || 'Unknown error') + '. Please try again.')
     }
   }
 
