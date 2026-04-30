@@ -200,6 +200,28 @@ reconciliation?" without modifying any state.
 - Output is the input to deciding "merge sequentially in 30 minutes"
   vs "this needs reconciliation work first."
 
+**Important — what the diagnostic does NOT do, by design.**
+The script reports whether each branch contains a `scripts/acceptance/v2.X.json`
+config but does **not** execute it. Running acceptance against a detached
+HEAD with stashed working-tree state is exactly the failure mode that
+caused earlier "shipped in name only" merges, so the diagnostic
+deliberately stops at presence-check.
+
+**Run acceptance in the merge session, not in the diagnostic.** When you
+do `git checkout claude/v2X-…` to merge a branch, the working tree is
+clean and the branch is properly checked out — that's the right moment
+to run `npm run accept:v2.X` and require exit 0 before the merge commit.
+The merge prompt should make this step explicit. The diagnostic exists
+to surface state; the merge session changes state. Keep the
+responsibilities separate.
+
+The `--with-tests` flag opts into running each branch's test suite, but
+this is off by default because it mutates `node_modules` (via `npm ci`
+on the foreign branch's lockfile) and is the step most likely to leave
+the user confused if the script is interrupted. For pre-merge
+verification, run tests in the merge session against the cleanly
+checked-out branch — same rationale as acceptance.
+
 ---
 
 ## How to add new criteria

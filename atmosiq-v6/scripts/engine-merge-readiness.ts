@@ -95,22 +95,22 @@ function rateComplexity(report: BranchReport): BranchReport['complexity'] {
 
 function runTestsOnBranch(branch: string): { result: BranchReport['testResult']; output: string } {
   // Checkout the branch in a detached state, npm install, npm test, then
-  // detach back to the original HEAD. We DO NOT alter any branch state.
+  // restore the original branch. We DO NOT alter any branch state.
+  // Capture the named branch (not just the SHA) so the restore step ends
+  // up on a named ref, not a detached HEAD.
+  const originalBranch = git(['rev-parse', '--abbrev-ref', 'HEAD']).stdout.trim()
   const originalHead = git(['rev-parse', 'HEAD']).stdout.trim()
-  const dirty = git(['status', '--porcelain']).stdout.trim().length > 0
-  if (dirty) git(['stash', 'push', '-u', '-m', 'engine-merge-readiness-test-temp'])
+  const startedDetached = originalBranch === 'HEAD'
 
   try {
     const checkout = git(['checkout', '--detach', branch], { allowFail: true })
     if (checkout.code !== 0) return { result: 'skipped', output: checkout.stderr }
 
-    // Find a package.json (likely under atmosiq-v6/ in this repo, but
-    // some engine branches may have it at the root).
     const candidates = ['atmosiq-v6/package.json', 'package.json']
     const pkgPath = candidates.find(p => fs.existsSync(path.join(REPO_ROOT, p)))
     if (!pkgPath) return { result: 'no_script', output: 'no package.json found' }
 
-    let pkg: any
+    let pkg: { scripts?: Record<string, string> }
     try { pkg = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, pkgPath), 'utf8')) } catch (err) {
       return { result: 'no_script', output: String(err) }
     }
@@ -125,9 +125,13 @@ function runTestsOnBranch(branch: string): { result: BranchReport['testResult'];
     const output = ((t.stdout || '') + (t.stderr || '')).slice(-2000)
     return { result: t.status === 0 ? 'pass' : 'fail', output }
   } finally {
-    git(['checkout', '--detach', originalHead], { allowFail: true })
-    git(['checkout', '-'], { allowFail: true }) // restore named branch when possible
-    if (dirty) git(['stash', 'pop'], { allowFail: true })
+    // Restore: if we started on a named branch, switch back to it by name.
+    // Otherwise stay on the original detached SHA.
+    if (startedDetached) {
+      git(['checkout', '--detach', originalHead], { allowFail: true })
+    } else {
+      git(['checkout', originalBranch], { allowFail: true })
+    }
   }
 }
 
@@ -214,6 +218,12 @@ export async function main(): Promise<number> {
     return 2
   }
 
+  // Tests-on-branch is opt-in. The dry-run merge step is the safe core
+  // of the diagnostic; running tests requires a branch checkout + npm ci
+  // which mutates node_modules and is the part most likely to leave the
+  // user in a confusing state if the script is interrupted.
+  const withTests = process.argv.includes('--with-tests')
+
   const branches = discoverBranches()
   const reports: BranchReport[] = []
 
@@ -246,14 +256,19 @@ export async function main(): Promise<number> {
       report.notes.push(`merge dry-run failed: ${err instanceof Error ? err.message : String(err)}`)
     }
 
-    // Tests are expensive; only run if the branch isn't a duplicate of another we've tested.
-    try {
-      const t = runTestsOnBranch(branch)
-      report.testResult = t.result
-      report.testOutput = t.output
-      console.log(`    tests:     ${t.result}`)
-    } catch (err) {
-      report.notes.push(`test run failed: ${err instanceof Error ? err.message : String(err)}`)
+    // Tests are expensive and mutate node_modules; opt-in only.
+    if (withTests) {
+      try {
+        const t = runTestsOnBranch(branch)
+        report.testResult = t.result
+        report.testOutput = t.output
+        console.log(`    tests:     ${t.result}`)
+      } catch (err) {
+        report.notes.push(`test run failed: ${err instanceof Error ? err.message : String(err)}`)
+      }
+    } else {
+      report.testResult = 'skipped'
+      report.notes.push('test step skipped (default). Re-run with --with-tests to opt in; expect node_modules to change.')
     }
 
     report.acceptance = runAcceptanceOnBranch(branch)
