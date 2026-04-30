@@ -22,6 +22,7 @@ import { buildTechnicalMetadata, buildFindingsRegister, buildCategoryScoresSumma
 import { buildClientDocx } from './docx/sections-v21client'
 import { legacyToAssessmentScore, deriveAssessmentMeta } from '../engine/bridge'
 import { renderClientReport } from '../engine/report/client'
+import { watermarkSectionAttachments, buildCoverNoticeParagraph } from './docx/watermark'
 
 function buildContext(data) {
   const { building, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos, floorPlan, version, standardsManifest } = data
@@ -88,18 +89,30 @@ async function generateConsultantDocx(ctx, data) {
   })
   const { cover, main } = buildClientDocx(result)
 
+  // Free-tier watermark: pass watermarkConfig from caller (e.g. resolved
+  // from the user's profile.plan upstream). When tier === 'free', adds
+  // header on every page, footer on every page, and a notice on the
+  // cover. Paid tier gets no header/footer/notice.
+  const watermarkConfig = data.watermarkConfig || null
+  const sectionWatermark = watermarkSectionAttachments(watermarkConfig)
+  const coverNotice = buildCoverNoticeParagraph(watermarkConfig)
+  const coverChildren = coverNotice
+    ? [...(cover.children || []), coverNotice]
+    : cover.children
+
   const doc = new Document({
     creator: 'AtmosFlow — Prudence Safety & Environmental Consulting, LLC',
     title: `IAQ Assessment Report — ${ctx.facilityName}`,
     description: 'Indoor Air Quality Assessment Report',
     styles: DOCX_STYLES,
     sections: [
-      cover,
+      { ...cover, children: coverChildren, ...sectionWatermark },
       {
         // v2.5.1 — explicit Letter portrait + 1-inch margins so the
         // body fills the 6.5-inch content area on US Letter paper.
         properties: BODY_SECTION_PROPERTIES,
         children: main,
+        ...sectionWatermark,
       },
     ],
   })

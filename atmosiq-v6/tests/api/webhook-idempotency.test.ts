@@ -175,7 +175,7 @@ describe('POST /api/webhook idempotency', () => {
     expect(r2._body.status).toBe('already_processed')
 
     expect(creditsLedger.length).toBe(1)
-    expect(creditsLedger[0]).toMatchObject({ user_id: 'u_1', amount: 50, reason: 'purchase' })
+    expect(creditsLedger[0]).toMatchObject({ user_id: 'u_1', amount: 50, reason: 'subscription_grant' })
     expect(purchases.length).toBe(1)
   })
 

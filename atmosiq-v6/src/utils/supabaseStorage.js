@@ -23,7 +23,32 @@ const SupaStorage = {
   // ── Auth ──
   async signUp(email, password) {
     if (!supabase) return { error: { message: 'Not configured' } }
-    return await supabase.auth.signUp({ email, password })
+    const result = await supabase.auth.signUp({ email, password })
+    // Bootstrap a free-tier profile row immediately so the user can
+    // try AtmosFlow with 1 credit before any payment step.
+    if (result.data && result.data.user && result.data.user.id) {
+      try {
+        const userId = result.data.user.id
+        const { data: existing } = await supabase.from('profiles').select('id').eq('id', userId).maybeSingle()
+        if (!existing) {
+          await supabase.from('profiles').insert({
+            id: userId,
+            plan: 'free',
+            credits_remaining: 1,
+            subscription_status: 'free',
+            stripe_customer_id: null,
+            billing_period: 'monthly',
+            free_tier_signup_at: new Date().toISOString(),
+          })
+        }
+      } catch (err) {
+        // Profile row creation may fail if the user has to confirm email
+        // first (RLS sees auth.uid() as null). The post-confirmation flow
+        // also bootstraps; this best-effort attempt is fine to swallow.
+        console.warn('[signUp] free-tier profile bootstrap deferred:', err && err.message)
+      }
+    }
+    return result
   },
 
   async signIn(email, password) {

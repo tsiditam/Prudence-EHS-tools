@@ -1,0 +1,75 @@
+{
+  "feature": "AtmosFlow Pricing Rollout (Group B)",
+  "criteria": [
+    { "id": "BUILD-01", "label": "TypeScript typecheck passes", "checks": [{ "type": "npm_script_passes", "script": "typecheck" }] },
+    { "id": "BUILD-02", "label": "Test suite passes", "checks": [{ "type": "npm_script_passes", "script": "test" }] },
+    { "id": "BUILD-03", "label": "Lint passes with zero warnings", "checks": [{ "type": "npm_script_passes", "script": "lint" }] },
+
+    { "id": "STRIPE-PRICES-FILE", "label": "stripe-prices.ts exports all six paid price IDs", "checks": [
+      { "type": "grep_matches", "pattern": "solo_monthly", "paths": ["lib/stripe-prices.ts"] },
+      { "type": "grep_matches", "pattern": "solo_annual", "paths": ["lib/stripe-prices.ts"] },
+      { "type": "grep_matches", "pattern": "pro_monthly", "paths": ["lib/stripe-prices.ts"] },
+      { "type": "grep_matches", "pattern": "pro_annual", "paths": ["lib/stripe-prices.ts"] },
+      { "type": "grep_matches", "pattern": "practice_monthly", "paths": ["lib/stripe-prices.ts"] },
+      { "type": "grep_matches", "pattern": "practice_annual", "paths": ["lib/stripe-prices.ts"] }
+    ]},
+    { "id": "STRIPE-SETUP-SCRIPT", "label": "Stripe products setup script exists", "checks": [
+      { "type": "file_exists", "path": "scripts/setup-stripe-products.ts" }
+    ]},
+
+    { "id": "PROFILES-SCHEMA-COLUMNS", "label": "profiles table has billing_period, annual_renewal_at, free_tier_signup_at", "checks": [
+      { "type": "grep_matches", "pattern": "billing_period", "paths": ["supabase/migrations/", "migrations/"] },
+      { "type": "grep_matches", "pattern": "annual_renewal_at", "paths": ["supabase/migrations/", "migrations/"] },
+      { "type": "grep_matches", "pattern": "free_tier_signup_at", "paths": ["supabase/migrations/", "migrations/"] }
+    ]},
+
+    { "id": "FREE-TIER-CRON", "label": "Free tier monthly reset cron exists", "checks": [
+      { "type": "file_exists", "path": "scripts/cron-free-tier-reset.ts" }
+    ]},
+    { "id": "FREE-TIER-SIGNUP-TEST", "label": "Free tier signup test exists", "checks": [
+      { "type": "file_exists", "path": "tests/api/free-tier-signup.test.ts" }
+    ]},
+
+    { "id": "ANNUAL-PREPAY-TEST", "label": "Annual prepay test exists", "checks": [
+      { "type": "file_exists", "path": "tests/api/annual-prepay.test.ts" }
+    ]},
+    { "id": "MONTHLY-GRANT-CRON", "label": "Monthly credit grant cron for annual subscribers exists", "checks": [
+      { "type": "file_exists", "path": "scripts/cron-monthly-credit-grant.ts" }
+    ]},
+    { "id": "VERCEL-CRON-CONFIG", "label": "Vercel cron config includes free-tier-reset and monthly-credit-grant", "checks": [
+      { "type": "grep_matches", "pattern": "cron-free-tier-reset", "paths": ["vercel.json"] },
+      { "type": "grep_matches", "pattern": "cron-monthly-credit-grant", "paths": ["vercel.json"] }
+    ]},
+
+    { "id": "WATERMARK-CONFIG-INTERFACE", "label": "WatermarkConfig interface exists", "checks": [
+      { "type": "grep_matches", "pattern": "interface WatermarkConfig", "paths": ["src/engine/report/"] }
+    ]},
+    { "id": "WATERMARK-TEST", "label": "Watermark test exists", "checks": [
+      { "type": "file_exists", "path": "tests/engine/watermark.test.ts" }
+    ]},
+
+    { "id": "CUSTOMER-PORTAL-API", "label": "Customer portal API endpoint exists", "checks": [
+      { "type": "file_exists", "path": "api/customer-portal.ts" }
+    ]},
+    { "id": "CUSTOMER-PORTAL-TEST", "label": "Customer portal test exists", "checks": [
+      { "type": "file_exists", "path": "tests/api/customer-portal.test.ts" }
+    ]},
+
+    { "id": "PRICING-UI-FOUR-TIERS", "label": "Pricing UI references all four tiers", "checks": [
+      { "type": "grep_matches", "pattern": "(Free|free)", "paths": ["components/pricing/", "src/components/pricing/"] },
+      { "type": "grep_matches", "pattern": "Solo", "paths": ["components/pricing/", "src/components/pricing/"] },
+      { "type": "grep_matches", "pattern": "Pro", "paths": ["components/pricing/", "src/components/pricing/"] },
+      { "type": "grep_matches", "pattern": "Practice", "paths": ["components/pricing/", "src/components/pricing/"] }
+    ]},
+    { "id": "PRICING-UI-NO-TEAM-ENTERPRISE", "label": "Pricing UI does NOT reference Team or Enterprise tiers", "checks": [
+      { "type": "grep_excludes", "pattern": "(Team|Enterprise) — \\d", "paths": ["components/pricing/", "src/components/pricing/"] }
+    ]},
+    { "id": "PRICING-UI-ANNUAL-TOGGLE", "label": "Pricing UI has annual toggle", "checks": [
+      { "type": "grep_matches", "pattern": "(annual|Annual|yearly|Yearly)", "paths": ["components/pricing/", "src/components/pricing/"] }
+    ]},
+
+    { "id": "DOCS-PRICING", "label": "Pricing documentation exists", "checks": [
+      { "type": "file_exists", "path": "docs/PRICING.md" }
+    ]}
+  ]
+}
