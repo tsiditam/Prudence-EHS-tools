@@ -11,6 +11,22 @@ import Profiles from '../utils/profiles'
 
 const AuthContext = createContext(null)
 
+async function sendAuditBeacon(action, details) {
+  if (!supabase) return
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.access_token) return
+    await fetch('/api/audit', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ action, details: details || {} }),
+    })
+  } catch {}
+}
+
 export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null)
   const [profileChecked, setProfileChecked] = useState(false)
@@ -45,6 +61,7 @@ export function AuthProvider({ children }) {
   const handleLogin = useCallback(async (userOrProfile) => {
     if (userOrProfile?.email && supabase) {
       trackEvent('login_completed', {})
+      sendAuditBeacon('user.signin').catch(() => {})
       const p = await SupaStorage.getProfile()
       if (p) setProfile(p)
       else setProfile({ id: userOrProfile.id, name: userOrProfile.email, isNew: true })
@@ -56,7 +73,11 @@ export function AuthProvider({ children }) {
   }, [fetchCredits])
 
   const handleLogout = useCallback(async () => {
-    if (supabase) await SupaStorage.signOut()
+    if (supabase) {
+      // Send audit beacon BEFORE signOut clears the session.
+      await sendAuditBeacon('user.signout').catch(() => {})
+      await SupaStorage.signOut()
+    }
     setProfile(null)
   }, [])
 

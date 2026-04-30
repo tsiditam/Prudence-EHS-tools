@@ -5,6 +5,7 @@
  */
 
 const { createClient } = require('@supabase/supabase-js')
+const { auditLog } = require('./_audit')
 
 module.exports = async function handler(req, res) {
   const adminSecret = process.env.ADMIN_SECRET
@@ -17,6 +18,15 @@ module.exports = async function handler(req, res) {
   if (!supabaseUrl || !serviceKey) return res.status(500).json({ error: 'Server not configured' })
 
   const supabase = createClient(supabaseUrl, serviceKey)
+
+  await auditLog({
+    action: 'admin.access',
+    actor_email: 'admin',
+    target_type: 'endpoint',
+    target_id: 'admin',
+    details: { method: req.method, body_action: (req.body && req.body.action) || null },
+    req,
+  })
 
   try {
     // Users
@@ -55,18 +65,35 @@ module.exports = async function handler(req, res) {
       const { userId, amount, reason } = req.body
       const { data: profile } = await supabase.from('profiles').select('credits_remaining').eq('id', userId).single()
       const newBalance = (profile?.credits_remaining || 0) + amount
-      await supabase.from('profiles').update({ credits_remaining: Math.max(0, newBalance) }).eq('id', userId)
+      const finalBalance = Math.max(0, newBalance)
+      await supabase.from('profiles').update({ credits_remaining: finalBalance }).eq('id', userId)
       await supabase.from('credits_ledger').insert({
         user_id: userId, amount, reason: reason || 'admin',
-        reference_id: 'admin-adjustment', balance_after: Math.max(0, newBalance),
+        reference_id: 'admin-adjustment', balance_after: finalBalance,
       })
-      return res.status(200).json({ success: true, newBalance: Math.max(0, newBalance) })
+      await auditLog({
+        action: 'credits.adjust',
+        actor_email: 'admin',
+        target_type: 'user',
+        target_id: userId,
+        details: { amount, reason: reason || 'admin', new_balance: finalBalance },
+        req,
+      })
+      return res.status(200).json({ success: true, newBalance: finalBalance })
     }
 
     // Suspend/activate user
     if (req.method === 'POST' && req.body?.action === 'set_status') {
       const { userId, status } = req.body
       await supabase.from('profiles').update({ subscription_status: status }).eq('id', userId)
+      await auditLog({
+        action: status === 'suspended' ? 'user.suspend' : 'user.activate',
+        actor_email: 'admin',
+        target_type: 'user',
+        target_id: userId,
+        details: { status },
+        req,
+      })
       return res.status(200).json({ success: true })
     }
 

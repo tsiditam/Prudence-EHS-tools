@@ -7,6 +7,10 @@
  * The API key stays server-side; the browser never sees it.
  */
 
+import { createRequire } from 'module'
+const require = createRequire(import.meta.url)
+const { auditLog } = require('./_audit.js')
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
@@ -51,6 +55,17 @@ export default async function handler(req, res) {
       ?.map(b => b.type === 'text' ? b.text : '')
       .filter(Boolean)
       .join('\n') || null
+
+    await auditLog({
+      action: 'narrative.generate',
+      target_type: 'narrative',
+      details: {
+        model: 'claude-sonnet-4-6',
+        prompt_chars: typeof system === 'string' ? system.length : null,
+        response_chars: typeof text === 'string' ? text.length : null,
+      },
+      req,
+    })
 
     return res.status(200).json({ narrative: text })
   } catch (e) {
