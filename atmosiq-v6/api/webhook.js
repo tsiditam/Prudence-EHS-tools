@@ -6,6 +6,7 @@
 
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
 const { createClient } = require('@supabase/supabase-js')
+const { auditLog } = require('./_audit')
 
 module.exports.config = { api: { bodyParser: false } }
 
@@ -83,6 +84,21 @@ module.exports = async function handler(req, res) {
       })
 
       console.log(`Credits added: ${credits} to user ${userId} (new balance: ${newBalance})`)
+
+      await auditLog({
+        action: 'credits.grant',
+        actor_id: userId,
+        target_type: 'user',
+        target_id: userId,
+        details: {
+          amount: credits,
+          plan,
+          payment_intent: session.payment_intent,
+          amount_cents: session.amount_total,
+          new_balance: newBalance,
+        },
+        req,
+      })
     } catch (dbErr) {
       console.error('Database error during credit fulfillment:', dbErr)
       return res.status(500).json({ error: 'Credit fulfillment failed' })

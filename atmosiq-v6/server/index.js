@@ -51,6 +51,7 @@ async function start() {
 
   const routes = [
     ['/api/admin', '../api/admin.js'],
+    ['/api/audit', '../api/audit.js'],
     ['/api/checkout', '../api/checkout.js'],
     ['/api/credits', '../api/credits.js'],
     ['/api/delete-account', '../api/delete-account.js'],

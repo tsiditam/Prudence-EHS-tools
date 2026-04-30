@@ -5,6 +5,7 @@
  */
 
 const { createClient } = require('@supabase/supabase-js')
+const { auditLog } = require('./_audit')
 
 module.exports = async function handler(req, res) {
   const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
@@ -49,6 +50,16 @@ module.exports = async function handler(req, res) {
       reason,
       reference_id: reference_id || null,
       balance_after: newBalance,
+    })
+
+    await auditLog({
+      action: 'credits.consume',
+      actor_id: user.id,
+      actor_email: user.email,
+      target_type: 'user',
+      target_id: user.id,
+      details: { amount, reason, reference_id: reference_id || null, new_balance: newBalance },
+      req,
     })
 
     return res.status(200).json({ credits: newBalance, debited: amount })
