@@ -11,7 +11,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import STO from '../utils/storage'
 import Profiles from '../utils/profiles'
-import SupaStorage from '../utils/supabaseStorage'
+import Storage from '../utils/cloudStorage'
 import { supabase, trackEvent } from '../utils/supabaseClient'
 import Backup from '../utils/backup'
 import { VER, STANDARDS_MANIFEST } from '../constants/standards'
@@ -173,15 +173,15 @@ export default function MobileApp() {
       await STO.markVisited()
       // Try Supabase auth first, fall back to local profiles
       if (supabase) {
-        const user = await SupaStorage.getUser()
+        const user = await Storage.getUser()
         if (user) {
-          const p = await SupaStorage.getProfile()
+          const p = await Storage.getProfile()
           if (p) setProfile(p)
           else setProfile({ id: user.id, name: user.email, isNew: true })
-          SupaStorage.processSyncQueue()
+          Storage.processSyncQueue()
           // Fetch credits from server
           try {
-            const session = await SupaStorage.getSession()
+            const session = await Storage.getSession()
             if (session?.access_token) {
               const res = await fetch('/api/credits', { headers: { 'Authorization': 'Bearer ' + session.access_token } })
               if (res.ok) { const data = await res.json(); setCredits(data.credits ?? 5) }
@@ -198,7 +198,7 @@ export default function MobileApp() {
 
   // Listen for Supabase auth changes
   useEffect(() => {
-    return SupaStorage.onAuthChange((event, session) => {
+    return Storage.onAuthChange((event, session) => {
       if (event === 'SIGNED_OUT') { setProfile(null); setView('dash') }
     })
   }, [])
@@ -206,13 +206,13 @@ export default function MobileApp() {
   const handleLogin = async (userOrProfile) => {
     if (userOrProfile?.email && supabase) {
       trackEvent('login_completed', {})
-      const p = await SupaStorage.getProfile()
+      const p = await Storage.getProfile()
       if (p) setProfile(p)
       else setProfile({ id: userOrProfile.id, name: userOrProfile.email, isNew: true })
-      SupaStorage.fullSync()
+      Storage.fullSync()
       // Fetch credits from server
       try {
-        const session = await SupaStorage.getSession()
+        const session = await Storage.getSession()
         if (session?.access_token) {
           const res = await fetch('/api/credits', { headers: { 'Authorization': 'Bearer ' + session.access_token } })
           if (res.ok) { const data = await res.json(); setCredits(data.credits ?? 5) }
@@ -223,7 +223,7 @@ export default function MobileApp() {
     }
   }
   const handleLogout = async () => {
-    if (supabase) await SupaStorage.signOut()
+    if (supabase) await Storage.signOut()
     setProfile(null); setView('dash')
   }
 
@@ -295,7 +295,7 @@ export default function MobileApp() {
     trackEvent('credit_consumed', { amount, reason, balance: credits - amount })
     if (supabase) {
       try {
-        const session = await SupaStorage.getSession()
+        const session = await Storage.getSession()
         if (session?.access_token) {
           const res = await fetch('/api/credits', { method: 'POST', headers: { 'Authorization': 'Bearer ' + session.access_token, 'Content-Type': 'application/json' }, body: JSON.stringify({ amount, reason, reference_id: refId || '' }) })
           if (res.ok) { const data = await res.json(); setCredits(data.credits) }
@@ -424,7 +424,7 @@ export default function MobileApp() {
     await refreshIndex()
     // Sync to cloud
     if (supabase) {
-      try { await SupaStorage.saveAssessment({ ...report, status: 'complete', facility_name: bldg.fn, score: composite?.tot, risk: composite?.risk }) }
+      try { await Storage.saveAssessment({ ...report, status: 'complete', facility_name: bldg.fn, score: composite?.tot, risk: composite?.risk }) }
       catch (e) { console.warn('Cloud sync deferred:', e.message) }
     }
   }
@@ -566,7 +566,7 @@ export default function MobileApp() {
   // New user — show welcome then profile setup
   if (profile?.isNew && view === 'dash') {
     if (!welcomeDone) return <WelcomeScreen onComplete={() => { sessionStorage.setItem('aiq_welcomed', '1'); setWelcomeDone(true) }} />
-    return <ProfileScreen onLogin={async (p) => { if (supabase) await SupaStorage.saveProfile(p); setProfile(p) }} />
+    return <ProfileScreen onLogin={async (p) => { if (supabase) await Storage.saveProfile(p); setProfile(p) }} />
   }
 
   const handleModeSwitch = (m) => { persistMode(m); setUserMode(m) }

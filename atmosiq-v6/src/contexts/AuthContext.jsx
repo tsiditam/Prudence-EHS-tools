@@ -5,7 +5,7 @@
 
 import { createContext, useContext, useState, useCallback, useMemo, useEffect } from 'react'
 import STO from '../utils/storage'
-import SupaStorage from '../utils/supabaseStorage'
+import Storage from '../utils/cloudStorage'
 import { supabase, trackEvent } from '../utils/supabaseClient'
 import Profiles from '../utils/profiles'
 
@@ -36,7 +36,7 @@ export function AuthProvider({ children }) {
   const fetchCredits = useCallback(async () => {
     if (!supabase) return
     try {
-      const session = await SupaStorage.getSession()
+      const session = await Storage.getSession()
       if (session?.access_token) {
         const res = await fetch('/api/credits', { headers: { 'Authorization': 'Bearer ' + session.access_token } })
         if (res.ok) { const data = await res.json(); setCredits(data.credits ?? 5) }
@@ -49,7 +49,7 @@ export function AuthProvider({ children }) {
     trackEvent('credit_consumed', { amount, reason, balance: credits - amount })
     if (supabase) {
       try {
-        const session = await SupaStorage.getSession()
+        const session = await Storage.getSession()
         if (session?.access_token) {
           const res = await fetch('/api/credits', { method: 'POST', headers: { 'Authorization': 'Bearer ' + session.access_token, 'Content-Type': 'application/json' }, body: JSON.stringify({ amount, reason, reference_id: refId || '' }) })
           if (res.ok) { const data = await res.json(); setCredits(data.credits) }
@@ -62,10 +62,10 @@ export function AuthProvider({ children }) {
     if (userOrProfile?.email && supabase) {
       trackEvent('login_completed', {})
       sendAuditBeacon('user.signin').catch(() => {})
-      const p = await SupaStorage.getProfile()
+      const p = await Storage.getProfile()
       if (p) setProfile(p)
       else setProfile({ id: userOrProfile.id, name: userOrProfile.email, isNew: true })
-      SupaStorage.fullSync()
+      Storage.fullSync()
       await fetchCredits()
     } else {
       setProfile(userOrProfile)
@@ -76,7 +76,7 @@ export function AuthProvider({ children }) {
     if (supabase) {
       // Send audit beacon BEFORE signOut clears the session.
       await sendAuditBeacon('user.signout').catch(() => {})
-      await SupaStorage.signOut()
+      await Storage.signOut()
     }
     setProfile(null)
   }, [])
@@ -85,12 +85,12 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     (async () => {
       if (supabase) {
-        const user = await SupaStorage.getUser()
+        const user = await Storage.getUser()
         if (user) {
-          const p = await SupaStorage.getProfile()
+          const p = await Storage.getProfile()
           if (p) setProfile(p)
           else setProfile({ id: user.id, name: user.email, isNew: true })
-          SupaStorage.processSyncQueue()
+          Storage.processSyncQueue()
           await fetchCredits()
         }
       } else {
@@ -103,7 +103,7 @@ export function AuthProvider({ children }) {
 
   // Listen for auth changes
   useEffect(() => {
-    return SupaStorage.onAuthChange((event) => {
+    return Storage.onAuthChange((event) => {
       if (event === 'SIGNED_OUT') { setProfile(null) }
     })
   }, [])
