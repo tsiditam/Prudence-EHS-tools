@@ -252,7 +252,7 @@ export default function SettingsScreen({ profile, onEditProfile, onLogout, onClo
             <button onClick={() => setDeleteConfirm(false)} style={{flex:1,padding:'8px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:8,color:SUB,fontSize:11,cursor:'pointer',fontFamily:'inherit'}}>Cancel</button>
             <button onClick={async () => {
               try {
-                const session = await (await import('../utils/supabaseStorage')).default.getSession()
+                const session = await (await import('../utils/cloudStorage')).default.getSession()
                 if (session?.access_token) {
                   await fetch('/api/delete-account', { method: 'POST', headers: { 'Authorization': `Bearer ${session.access_token}` } })
                 }
