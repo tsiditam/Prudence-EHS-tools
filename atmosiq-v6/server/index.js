@@ -14,6 +14,13 @@ const { pathToFileURL } = require('url')
 const { Readable } = require('stream')
 const express = require('express')
 
+try {
+  const { initSentryServer } = require('../lib/sentry')
+  initSentryServer()
+} catch (err) {
+  console.warn('[sentry] init skipped:', err && err.message)
+}
+
 const app = express()
 const PORT = process.env.PORT || 8080
 
