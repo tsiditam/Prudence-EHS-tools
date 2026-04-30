@@ -11,6 +11,7 @@
   ],
   "crons": [
     { "path": "/api/cron-free-tier-reset",     "schedule": "0 0 * * *" },
-    { "path": "/api/cron-monthly-credit-grant", "schedule": "0 0 1 * *" }
+    { "path": "/api/cron-monthly-credit-grant", "schedule": "0 0 1 * *" },
+    { "path": "/api/cron-email-queue-processor", "schedule": "*/15 * * * *" }
   ]
 }
