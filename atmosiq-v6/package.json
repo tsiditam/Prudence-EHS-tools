@@ -9,16 +9,13 @@
     "start": "node server/index.js",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit",
-    "lint": "echo \"lint: no-op (eslint config not present)\"",
-    "render:acceptance:v2.3": "VITEST_RENDER_FIXTURES=1 vitest run scripts/acceptance/render-acceptance-fixture.test.ts",
-    "accept:v2.3": "node scripts/acceptance/run-v23.mjs",
-    "render:acceptance": "VITEST_RENDER_FIXTURES=1 vitest run scripts/render-acceptance-fixture.test.ts",
-    "accept:v2.4": "npm run render:acceptance && node scripts/acceptance-check.mjs --config scripts/acceptance/v2.4.json",
-    "accept:v2.5": "npm run render:acceptance && node scripts/acceptance-check.mjs --config scripts/acceptance/v2.5.json",
-    "accept:v2.6": "npm run render:acceptance && node scripts/acceptance-check.mjs --config scripts/acceptance/v2.6.json"
+    "typecheck": "tsc --noEmit -p tsconfig.check.json",
+    "lint": "eslint --max-warnings=0 \"scripts/**/*.{js,mjs,ts}\" \"tests/api/**/*.ts\" \"tests/scripts/**/*.ts\" \"lib/**/*.ts\"",
+    "accept:prod-ready": "node scripts/acceptance-check.mjs --config scripts/acceptance/prod-ready.json"
   },
   "dependencies": {
+    "@sentry/node": "^8.55.0",
+    "@sentry/react": "^8.55.0",
     "@supabase/supabase-js": "^2.101.1",
     "cheerio": "^1.2.0",
     "docx": "^9.6.1",
@@ -29,9 +26,13 @@
     "stripe": "^17.5.0"
   },
   "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.14.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "@typescript-eslint/parser": "^8.20.0",
     "@vitejs/plugin-react": "^4.3.0",
+    "eslint": "^9.18.0",
     "tsx": "^4.21.0",
     "typescript": "^6.0.3",
     "vite": "^5.4.0",

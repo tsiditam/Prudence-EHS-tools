@@ -1,0 +1,79 @@
+{
+  "feature": "AtmosFlow Production Readiness (Group A)",
+  "criteria": [
+    { "id": "BUILD-01", "label": "TypeScript typecheck passes", "checks": [{ "type": "npm_script_passes", "script": "typecheck" }] },
+    { "id": "BUILD-02", "label": "Test suite passes", "checks": [{ "type": "npm_script_passes", "script": "test" }] },
+    { "id": "BUILD-03", "label": "Lint passes with zero warnings", "checks": [{ "type": "npm_script_passes", "script": "lint" }] },
+
+    { "id": "WEBHOOK-IDEMPOTENCY-TABLE", "label": "stripe_webhook_events table migration exists", "checks": [
+      { "type": "grep_matches", "pattern": "CREATE TABLE.*stripe_webhook_events", "paths": ["supabase/migrations/", "migrations/", "db/"] }
+    ]},
+    { "id": "WEBHOOK-IDEMPOTENCY-CHECK", "label": "Webhook handler checks for already-processed event", "checks": [
+      { "type": "grep_matches", "pattern": "stripe_webhook_events", "paths": ["api/webhook.ts", "api/webhook.js", "pages/api/webhook.ts"] }
+    ]},
+    { "id": "WEBHOOK-IDEMPOTENCY-TEST", "label": "Webhook idempotency test exists", "checks": [
+      { "type": "file_exists", "path": "tests/api/webhook-idempotency.test.ts" }
+    ]},
+
+    { "id": "DELETE-ACCOUNT-PURGES-PII", "label": "Account deletion calls purge across all PII tables", "checks": [
+      { "type": "grep_matches", "pattern": "analytics_events", "paths": ["api/delete-account.ts", "api/delete-account.js"] },
+      { "type": "grep_matches", "pattern": "credits_ledger", "paths": ["api/delete-account.ts", "api/delete-account.js"] },
+      { "type": "grep_matches", "pattern": "purchases", "paths": ["api/delete-account.ts", "api/delete-account.js"] },
+      { "type": "grep_matches", "pattern": "deleteUser", "paths": ["api/delete-account.ts", "api/delete-account.js"] }
+    ]},
+    { "id": "DELETION-AUDIT-TABLE", "label": "deletion_audit table migration exists", "checks": [
+      { "type": "grep_matches", "pattern": "CREATE TABLE.*deletion_audit", "paths": ["supabase/migrations/", "migrations/", "db/"] }
+    ]},
+    { "id": "DELETE-ACCOUNT-TEST", "label": "Account deletion test exists", "checks": [
+      { "type": "file_exists", "path": "tests/api/delete-account.test.ts" }
+    ]},
+
+    { "id": "PASSWORD-RESET-VERIFY-SCRIPT", "label": "Password reset verification script exists", "checks": [
+      { "type": "file_exists", "path": "scripts/verify-password-reset.ts" }
+    ]},
+    { "id": "PASSWORD-RESET-TEST", "label": "Password reset test exists", "checks": [
+      { "type": "file_exists", "path": "tests/api/password-reset.test.ts" }
+    ]},
+
+    { "id": "NARRATIVE-RATE-LIMIT-TABLE", "label": "narrative_generations tracking table exists", "checks": [
+      { "type": "grep_matches", "pattern": "CREATE TABLE.*narrative_generations", "paths": ["supabase/migrations/", "migrations/", "db/"] }
+    ]},
+    { "id": "NARRATIVE-RATE-LIMIT-CODE", "label": "Narrative endpoint enforces rate limit", "checks": [
+      { "type": "grep_matches", "pattern": "(rate_limit|rateLimit|429)", "paths": ["api/narrative.ts", "api/narrative.js"] }
+    ]},
+    { "id": "NARRATIVE-RATE-LIMIT-TEST", "label": "Narrative rate limit test exists", "checks": [
+      { "type": "file_exists", "path": "tests/api/narrative-rate-limit.test.ts" }
+    ]},
+
+    { "id": "SENTRY-PACKAGE", "label": "Sentry package installed", "checks": [
+      { "type": "grep_matches", "pattern": "@sentry/", "paths": ["package.json"] }
+    ]},
+    { "id": "SENTRY-INIT-CALLED", "label": "Sentry.init is called in code", "checks": [
+      { "type": "grep_matches", "pattern": "Sentry\\.init", "paths": ["src/", "api/", "lib/"] }
+    ]},
+    { "id": "SENTRY-PII-SCRUB", "label": "beforeSend hook scrubs PII", "checks": [
+      { "type": "grep_matches", "pattern": "beforeSend", "paths": ["src/", "lib/"] }
+    ]},
+    { "id": "SENTRY-DOCS", "label": "Sentry documentation exists", "checks": [
+      { "type": "file_exists", "path": "docs/SENTRY.md" }
+    ]},
+
+    { "id": "SMOKE-TEST-SCRIPT", "label": "Production smoke test script exists", "checks": [
+      { "type": "file_min_size", "path": "scripts/smoke-test-production.ts", "minBytes": 2000 }
+    ]},
+    { "id": "SMOKE-TEST-CI", "label": "Smoke test CI workflow exists", "checks": [
+      { "type": "file_exists", "path": ".github/workflows/smoke-test.yml" }
+    ]},
+    { "id": "SMOKE-TEST-USES-STRIPE-TEST-MODE", "label": "Smoke test uses Stripe test mode (never production)", "checks": [
+      { "type": "grep_matches", "pattern": "STRIPE_TEST_SECRET_KEY", "paths": ["scripts/smoke-test-production.ts", ".github/workflows/smoke-test.yml"] }
+    ]},
+
+    { "id": "ENGINE-MERGE-READINESS-SCRIPT", "label": "Engine merge readiness diagnostic script exists", "checks": [
+      { "type": "file_exists", "path": "scripts/engine-merge-readiness.ts" }
+    ]},
+
+    { "id": "DOCS-PROD-READY", "label": "Production readiness documentation exists", "checks": [
+      { "type": "file_exists", "path": "docs/PRODUCTION_READINESS.md" }
+    ]}
+  ]
+}

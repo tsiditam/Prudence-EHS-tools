@@ -11,6 +11,7 @@
  */
 
 import { SENSOR_FIELDS } from '../constants/questions'
+import { supabase } from '../utils/supabaseClient'
 
 /**
  * Generates an AI narrative via the serverless proxy at /api/narrative.
@@ -29,13 +30,24 @@ export async function generateNarrative(bldg, zones, zoneScores, comp, osha, rec
     recommendations: recs,
   }
   try {
+    const headers = { 'Content-Type': 'application/json' }
+    if (supabase) {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session && session.access_token) headers.Authorization = `Bearer ${session.access_token}`
+      } catch {}
+    }
     const res = await fetch('/api/narrative', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ system, payload }),
     })
     const data = await res.json()
-    if (!res.ok) { console.error('Narrative proxy error:', data.error); return null }
+    if (!res.ok) {
+      if (res.status === 429) console.warn('Narrative rate limit hit:', data.scope, 'retry in', data.retry_after_seconds, 's')
+      else console.error('Narrative proxy error:', data.error)
+      return null
+    }
     return data.narrative || null
   } catch(e) { console.error('AI narrative error:', e); return null }
 }
