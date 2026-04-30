@@ -2,13 +2,20 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "noEmit": true,
-    "types": ["node"]
+    "types": ["node"],
+    "jsx": "react-jsx"
   },
   "include": [
     "tests/api/**/*.ts",
+    "tests/scripts/**/*.ts",
+    "tests/lib/**/*.ts",
+    "tests/components/**/*.{ts,tsx}",
+    "tests/pages/**/*.{ts,tsx}",
     "scripts/**/*.ts",
     "api/**/*.ts",
-    "lib/**/*.ts"
+    "lib/**/*.ts",
+    "components/**/*.{ts,tsx}",
+    "pages/**/*.{ts,tsx}"
   ],
   "exclude": ["node_modules", "dist", "src"]
 }

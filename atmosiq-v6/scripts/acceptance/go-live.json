@@ -1,0 +1,69 @@
+{
+  "feature": "AtmosFlow Go-Live Experience (Group C)",
+  "criteria": [
+    { "id": "BUILD-01", "label": "TypeScript typecheck passes", "checks": [{ "type": "npm_script_passes", "script": "typecheck" }] },
+    { "id": "BUILD-02", "label": "Test suite passes", "checks": [{ "type": "npm_script_passes", "script": "test" }] },
+    { "id": "BUILD-03", "label": "Lint passes with zero warnings", "checks": [{ "type": "npm_script_passes", "script": "lint" }] },
+
+    { "id": "ONBOARDING-COMPONENT", "label": "FirstAssessmentTour component exists", "checks": [
+      { "type": "file_min_size", "path": "components/onboarding/FirstAssessmentTour.tsx", "minBytes": 2000 }
+    ]},
+    { "id": "ONBOARDING-PROFILE-COLUMNS", "label": "profiles has has_completed_first_assessment column", "checks": [
+      { "type": "grep_matches", "pattern": "has_completed_first_assessment", "paths": ["supabase/migrations/", "migrations/"] }
+    ]},
+    { "id": "ONBOARDING-API", "label": "Mark-onboarded API endpoint exists", "checks": [
+      { "type": "file_exists", "path": "api/profile/mark-onboarded.ts" }
+    ]},
+    { "id": "ONBOARDING-TEST", "label": "Onboarding tour test exists", "checks": [
+      { "type": "file_exists", "path": "tests/components/onboarding-tour.test.tsx" }
+    ]},
+
+    { "id": "LANDING-PAGE", "label": "Landing page exists with substantial content", "checks": [
+      { "type": "file_min_size", "path": "pages/index.tsx", "minBytes": 4000 }
+    ]},
+    { "id": "LANDING-PAGE-SECTIONS", "label": "Landing page contains all required section headings", "checks": [
+      { "type": "grep_matches", "pattern": "(WHY ATMOSFLOW|Why AtmosFlow)", "paths": ["pages/index.tsx", "app/page.tsx"] },
+      { "type": "grep_matches", "pattern": "(BUILT FOR|Built for)", "paths": ["pages/index.tsx", "app/page.tsx"] },
+      { "type": "grep_matches", "pattern": "(EARLY ACCESS|Early Access)", "paths": ["pages/index.tsx", "app/page.tsx"] }
+    ]},
+    { "id": "LANDING-PAGE-CTA", "label": "Landing page has signup CTA", "checks": [
+      { "type": "grep_matches", "pattern": "(Start free|Get started)", "paths": ["pages/index.tsx", "app/page.tsx"] }
+    ]},
+    { "id": "LANDING-PAGE-TEST", "label": "Landing page test exists", "checks": [
+      { "type": "file_exists", "path": "tests/pages/landing.test.tsx" }
+    ]},
+    { "id": "SAMPLE-REPORT-PDF", "label": "Sample report PDF available in public assets", "checks": [
+      { "type": "file_exists", "path": "public/sample-report.pdf" }
+    ]},
+
+    { "id": "EMAIL-SEQUENCES-MODULE", "label": "Email sequences module exists", "checks": [
+      { "type": "file_min_size", "path": "lib/email-sequences.ts", "minBytes": 2000 }
+    ]},
+    { "id": "EMAIL-TRIGGERS-MODULE", "label": "Email triggers module exists", "checks": [
+      { "type": "file_exists", "path": "lib/email-triggers.ts" }
+    ]},
+    { "id": "EMAIL-QUEUE-TABLE", "label": "email_queue table migration exists", "checks": [
+      { "type": "grep_matches", "pattern": "CREATE TABLE.*email_queue", "paths": ["supabase/migrations/", "migrations/"] }
+    ]},
+    { "id": "EMAIL-QUEUE-CRON", "label": "Email queue processor cron exists", "checks": [
+      { "type": "file_exists", "path": "scripts/cron-email-queue-processor.ts" }
+    ]},
+    { "id": "VERCEL-CRON-EMAIL", "label": "Vercel cron config includes email-queue-processor", "checks": [
+      { "type": "grep_matches", "pattern": "cron-email-queue-processor", "paths": ["vercel.json"] }
+    ]},
+    { "id": "EMAIL-SEQUENCES-TEST", "label": "Email sequences test exists", "checks": [
+      { "type": "file_exists", "path": "tests/lib/email-sequences.test.ts" }
+    ]},
+
+    { "id": "ACCOUNT-SETTINGS-COMPONENT", "label": "Account settings component exists", "checks": [
+      { "type": "file_min_size", "path": "components/account/AccountSettings.tsx", "minBytes": 1500 }
+    ]},
+    { "id": "ACCOUNT-SETTINGS-TEST", "label": "Account settings test exists", "checks": [
+      { "type": "file_exists", "path": "tests/components/account-settings.test.tsx" }
+    ]},
+
+    { "id": "DOCS-GO-LIVE", "label": "Go-live documentation exists", "checks": [
+      { "type": "file_exists", "path": "docs/GO_LIVE.md" }
+    ]}
+  ]
+}
