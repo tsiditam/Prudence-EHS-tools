@@ -1,21 +1,28 @@
 /**
  * Vercel Serverless Function — /api/webhook
- * Handles Stripe webhook events for payment confirmation.
+ * Handles Stripe webhook events for subscription lifecycle.
  *
- * Idempotency: Stripe retries delivery on non-2xx responses, network
- * failures, and its own internal retry policy. Without an idempotency
- * gate, the same event_id can be processed 2-5 times and a single
- * checkout could grant 2-5x credits. The claim_stripe_event() RPC
- * (migration 006) atomically inserts an event_id row; the first caller
- * wins and processes business logic, subsequent callers see the row
- * already exists and return 200 already_processed.
+ * Idempotency (migration 006): Stripe retries delivery 2-5x. Without
+ * the claim_stripe_event RPC, the same event_id processed multiple
+ * times multi-grants credits. We claim atomically before business
+ * logic; on failure, the claim row is deleted so a retry can re-process.
  *
- * On business logic failure, the claim row is deleted so a retry can
- * re-attempt — partial state is impossible.
+ * Pricing rollout (migration 009):
+ *   • checkout.session.completed (mode=subscription): set plan,
+ *     billing_period, annual_renewal_at; grant TIER_CREDITS[plan]
+ *   • customer.subscription.updated (cancel_at_period_end=true):
+ *     set subscription_status='canceling'; do NOT downgrade plan
+ *   • customer.subscription.deleted: revert to free tier, 1 credit
+ *
+ * For annual subscribers, monthly credit grants come from
+ * scripts/cron-monthly-credit-grant.ts (Stripe only fires invoice.paid
+ * once per year for annual subs).
  */
 
 const { createClient } = require('@supabase/supabase-js')
 const { auditLog } = require('./_audit')
+
+const TIER_CREDITS = { solo: 50, pro: 200, practice: 500 }
 
 let _stripeClient = null
 function getStripe() {
@@ -63,10 +70,7 @@ async function releaseClaim(supabase, eventId) {
 
 async function recordResult(supabase, eventId, result) {
   try {
-    await supabase
-      .from('stripe_webhook_events')
-      .update({ result })
-      .eq('event_id', eventId)
+    await supabase.from('stripe_webhook_events').update({ result }).eq('event_id', eventId)
   } catch (err) {
     console.error('[webhook] failed to record result for event', eventId, err && err.message)
   }
@@ -75,21 +79,27 @@ async function recordResult(supabase, eventId, result) {
 async function processCheckoutCompleted(supabase, event, req) {
   const session = event.data.object
   const userId = session.metadata?.user_id
-  const credits = parseInt(session.metadata?.credits || '0', 10)
-  const plan = session.metadata?.plan || 'unknown'
+  const plan = session.metadata?.plan
+  const billingPeriod = session.metadata?.billing_period || 'monthly'
 
-  if (!userId || !credits) {
-    console.error('Missing metadata:', session.metadata)
-    return { status: 'skipped', reason: 'missing metadata' }
+  if (!userId || !plan || !TIER_CREDITS[plan]) {
+    console.error('[webhook] checkout.session.completed missing metadata:', session.metadata)
+    return { status: 'skipped', reason: 'missing or invalid metadata' }
   }
 
+  const credits = TIER_CREDITS[plan]
+  const annualRenewalAt = billingPeriod === 'annual'
+    ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
+    : null
+
   const { data: profile } = await supabase.from('profiles').select('credits_remaining').eq('id', userId).single()
-  const currentCredits = profile?.credits_remaining || 0
-  const newBalance = currentCredits + credits
+  const newBalance = (profile?.credits_remaining || 0) + credits
 
   await supabase.from('profiles').update({
     credits_remaining: newBalance,
-    plan: plan === 'team' ? 'team' : plan === 'pro' ? 'pro' : 'starter',
+    plan,
+    billing_period: billingPeriod,
+    annual_renewal_at: annualRenewalAt,
     stripe_customer_id: session.customer || null,
     subscription_status: 'active',
   }).eq('id', userId)
@@ -97,14 +107,14 @@ async function processCheckoutCompleted(supabase, event, req) {
   await supabase.from('credits_ledger').insert({
     user_id: userId,
     amount: credits,
-    reason: 'purchase',
-    reference_id: session.payment_intent,
+    reason: 'subscription_grant',
+    reference_id: session.subscription || session.payment_intent || session.id,
     balance_after: newBalance,
   })
 
   await supabase.from('purchases').insert({
     user_id: userId,
-    stripe_payment_intent: session.payment_intent,
+    stripe_payment_intent: session.payment_intent || null,
     stripe_session_id: session.id,
     amount_cents: session.amount_total,
     credits,
@@ -112,7 +122,7 @@ async function processCheckoutCompleted(supabase, event, req) {
     status: 'completed',
   })
 
-  console.log(`Credits added: ${credits} to user ${userId} (new balance: ${newBalance})`)
+  console.log(`[webhook] activated ${plan}/${billingPeriod} for user ${userId} (+${credits} credits)`)
 
   await auditLog({
     action: 'credits.grant',
@@ -120,30 +130,61 @@ async function processCheckoutCompleted(supabase, event, req) {
     target_type: 'user',
     target_id: userId,
     details: {
-      amount: credits,
-      plan,
-      payment_intent: session.payment_intent,
-      amount_cents: session.amount_total,
-      new_balance: newBalance,
+      amount: credits, plan, billing_period: billingPeriod,
+      payment_intent: session.payment_intent, amount_cents: session.amount_total,
+      new_balance: newBalance, annual_renewal_at: annualRenewalAt,
     },
     req,
   })
 
-  return { status: 'success', credits, plan, new_balance: newBalance }
+  return { status: 'success', plan, billing_period: billingPeriod, credits, new_balance: newBalance }
 }
 
 async function processSubscriptionUpdated(supabase, event /* , req */) {
   const sub = event.data.object
   const customerId = sub.customer
-  const status = sub.status
-  if (!customerId || !status) return { status: 'skipped', reason: 'missing fields' }
+  if (!customerId) return { status: 'skipped', reason: 'missing customer' }
 
-  await supabase
-    .from('profiles')
-    .update({ subscription_status: status })
-    .eq('stripe_customer_id', customerId)
+  // Cancel-at-period-end: customer hit "Cancel" in the portal but the
+  // current paid period still runs. Mark canceling, keep plan + credits.
+  if (sub.cancel_at_period_end) {
+    await supabase.from('profiles').update({ subscription_status: 'canceling' }).eq('stripe_customer_id', customerId)
+    return { status: 'success', customer: customerId, action: 'canceling_at_period_end' }
+  }
 
-  return { status: 'success', customer: customerId, subscription_status: status }
+  // Plain status update — propagate.
+  if (sub.status) {
+    await supabase
+      .from('profiles')
+      .update({ subscription_status: sub.status })
+      .eq('stripe_customer_id', customerId)
+    return { status: 'success', customer: customerId, subscription_status: sub.status }
+  }
+
+  return { status: 'skipped', reason: 'no actionable change' }
+}
+
+async function processSubscriptionDeleted(supabase, event, req) {
+  const sub = event.data.object
+  const customerId = sub.customer
+  if (!customerId) return { status: 'skipped', reason: 'missing customer' }
+
+  await supabase.from('profiles').update({
+    plan: 'free',
+    subscription_status: 'free',
+    credits_remaining: 1,
+    billing_period: 'monthly',
+    annual_renewal_at: null,
+  }).eq('stripe_customer_id', customerId)
+
+  await auditLog({
+    action: 'subscription.terminated',
+    target_type: 'subscription',
+    details: { customer: customerId, reverted_to: 'free' },
+    req,
+  })
+
+  return { status: 'success', customer: customerId, action: 'reverted_to_free' }
 }
 
 async function handler(req, res) {
@@ -178,8 +219,10 @@ async function handler(req, res) {
   try {
     if (event.type === 'checkout.session.completed') {
       result = await processCheckoutCompleted(supabase, event, req)
-    } else if (event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.deleted') {
+    } else if (event.type === 'customer.subscription.updated') {
       result = await processSubscriptionUpdated(supabase, event, req)
+    } else if (event.type === 'customer.subscription.deleted') {
+      result = await processSubscriptionDeleted(supabase, event, req)
     } else {
       result = { status: 'ignored', event_type: event.type }
     }
@@ -196,11 +239,13 @@ async function handler(req, res) {
 module.exports = handler
 module.exports.config = { api: { bodyParser: false } }
 module.exports.__test = {
+  TIER_CREDITS,
   claimEvent,
   releaseClaim,
   recordResult,
   processCheckoutCompleted,
   processSubscriptionUpdated,
+  processSubscriptionDeleted,
   setStripe(mock) { _stripeClient = mock },
   setSupabase(mock) { _supabaseClient = mock },
   resetStripe() { _stripeClient = null },

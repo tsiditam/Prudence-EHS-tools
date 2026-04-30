@@ -11,7 +11,8 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit -p tsconfig.check.json",
     "lint": "eslint --max-warnings=0 \"scripts/**/*.{js,mjs,ts}\" \"tests/api/**/*.ts\" \"tests/scripts/**/*.ts\" \"lib/**/*.ts\"",
-    "accept:prod-ready": "node scripts/acceptance-check.mjs --config scripts/acceptance/prod-ready.json"
+    "accept:prod-ready": "node scripts/acceptance-check.mjs --config scripts/acceptance/prod-ready.json",
+    "accept:pricing-rollout": "node scripts/acceptance-check.mjs --config scripts/acceptance/pricing-rollout.json"
   },
   "dependencies": {
     "@sentry/node": "^8.55.0",
@@ -20,6 +21,7 @@
     "cheerio": "^1.2.0",
     "docx": "^9.6.1",
     "express": "^4.21.2",
+    "jszip": "^3.10.1",
     "pdfkit": "^0.18.0",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",

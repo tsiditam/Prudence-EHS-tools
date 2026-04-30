@@ -8,5 +8,9 @@
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/(.*)", "destination": "/" }
+  ],
+  "crons": [
+    { "path": "/api/cron-free-tier-reset",     "schedule": "0 0 * * *" },
+    { "path": "/api/cron-monthly-credit-grant", "schedule": "0 0 1 * *" }
   ]
 }
