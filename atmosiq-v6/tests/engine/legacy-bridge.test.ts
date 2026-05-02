@@ -465,7 +465,7 @@ describe('legacyToAssessmentScore — edge cases', () => {
   })
 
   it('zone with all-pass findings → non-empty findings, severities all pass/info', () => {
-    const zone = { zn: 'Z1', su: 'office', co2: '650', co2o: '420', tf: '72', rh: '45', pm: '8' }
+    const zone = { zn: 'Z1', su: 'office', co2: '650', co2o: '420', tf: '73', rh: '45', pm: '8' }
     const lz = scoreZone(zone, {})
     const cs = compositeScore([lz])
     const score = legacyToAssessmentScore([lz], cs, [zone as any], { meta: META })
@@ -477,7 +477,7 @@ describe('legacyToAssessmentScore — edge cases', () => {
   })
 
   it('all-pass zone yields professionalOpinion = no_significant_concerns_identified', () => {
-    const zone = { zn: 'Z1', su: 'office', co2: '650', co2o: '420', tf: '72', rh: '45', pm: '8' }
+    const zone = { zn: 'Z1', su: 'office', co2: '650', co2o: '420', tf: '73', rh: '45', pm: '8' }
     const lz = scoreZone(zone, {})
     const cs = compositeScore([lz])
     const score = legacyToAssessmentScore([lz], cs, [zone as any], { meta: META })

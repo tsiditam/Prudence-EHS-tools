@@ -743,16 +743,25 @@ export default function MobileApp() {
           ))}
         </div>}
 
-        {/* ── Content Tabs ── */}
-        <div style={{display:'flex',gap:2,padding:2,background:CARD,borderRadius:10,border:`1px solid ${BORDER}`,marginBottom:14,overflowX:'auto',scrollbarWidth:'none',WebkitOverflowScrolling:'touch'}}>
+        {/* ── Content Tabs ──
+            Tab visual language (UI upgrade): underline-on-active segmented
+            control, ~44px tap target, icon stacked above label, transition
+            on color/border. Container is a single bottom rule (no card-on-
+            card nesting). Inactive uses SUB (raised from DIM for legibility).
+        */}
+        <div style={{display:'flex',gap:0,marginBottom:14,borderBottom:`1px solid ${BORDER}`,overflowX:'auto',scrollbarWidth:'none',WebkitOverflowScrolling:'touch'}}>
           {(userMode === 'fm'
             ? [['overview','findings','Findings'],['narrative','pulse','Narrative'],['actions','bolt','Actions']]
             : [['overview','findings','Findings'],['rootcause','chain','Pathways'],['sampling','flask','Sampling'],['narrative','pulse','Narrative'],['actions','bolt','Actions']]
-          ).map(([k,ic,l])=>(
-            <button key={k} onClick={()=>{setRTab(k);haptic('light')}} style={{flex:'0 0 auto',padding:'8px 12px',borderRadius:8,border:'none',background:rTab===k?`${ACCENT}10`:'transparent',color:rTab===k?ACCENT:DIM,fontSize:11,fontWeight:rTab===k?600:500,cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap',minHeight:34,transition:'color 0.15s'}}>
-              {l}
-            </button>
-          ))}
+          ).map(([k,ic,l])=>{
+            const isActive = rTab===k
+            return (
+              <button key={k} onClick={()=>{setRTab(k);haptic('light')}} style={{flex:'1 1 auto',minWidth:64,padding:'10px 10px 12px',background:'transparent',border:'none',borderBottom:`2px solid ${isActive?ACCENT:'transparent'}`,marginBottom:-1,color:isActive?ACCENT:SUB,fontSize:12,fontWeight:isActive?600:500,cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap',display:'flex',flexDirection:'column',alignItems:'center',gap:4,transition:'color 160ms ease, border-color 160ms ease',WebkitTapHighlightColor:'transparent'}}>
+                <I n={ic} s={14} c={isActive?ACCENT:SUB} w={isActive?2:1.6} />
+                {l}
+              </button>
+            )
+          })}
         </div>
 
         {rTab==='overview' && zs && <div style={{display:isTablet?'grid':'flex',gridTemplateColumns:isTablet?'1fr 1fr':'none',flexDirection:'column',gap:10}}>
@@ -1163,22 +1172,34 @@ export default function MobileApp() {
             <span style={{fontSize:13,color:DIM}}>→</span>
           </button>
 
-          {/* ── Open Demo (primary — solid cyan, one per screen) ── */}
-          <button onClick={()=>runDemo()} style={{width:'100%',padding:'14px 20px',marginBottom:8,background:ACCENT,border:'none',borderRadius:10,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,fontFamily:'inherit',transition:'opacity 0.15s'}}>
-            <I n="bldg" s={18} c="#000" w={1.8} />
-            <div style={{flex:1}}>
-              <div style={{fontSize:14,fontWeight:700,color:'#000'}}>{userMode === 'fm' ? 'Try Sample Air Quality Check' : 'Open Demo Assessment'}</div>
-              <div style={{fontSize:10,color:'rgba(0,0,0,0.6)',marginTop:2}}>{userMode === 'fm' ? 'Greenfield Office Park · 2 areas' : 'Meridian Commerce Tower · 3 zones'}</div>
+          {/* ── Sample-data demo launchers (UI upgrade) ──
+              Both demos render with equal visual weight: bordered card +
+              accent-circle icon + facility metadata + "~10 min" pill.
+              The previous primary/secondary asymmetry implied a hierarchy
+              that doesn't actually exist — both are demos.
+          */}
+          <div style={{fontSize:11,color:DIM,textTransform:'uppercase',letterSpacing:'0.6px',marginBottom:8,marginTop:4,fontWeight:600}}>
+            Try it with sample data
+          </div>
+          <button onClick={()=>runDemo()} style={{width:'100%',padding:'14px 16px',marginBottom:8,background:'transparent',border:`1px solid ${BORDER}`,borderRadius:12,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,fontFamily:'inherit',transition:'border-color 160ms ease, transform 160ms ease',WebkitTapHighlightColor:'transparent'}}>
+            <div style={{width:40,height:40,borderRadius:10,background:`${ACCENT}10`,border:`1px solid ${ACCENT}30`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+              <I n="bldg" s={18} c={ACCENT} w={1.8} />
             </div>
-            <span style={{fontSize:13,color:'rgba(0,0,0,0.5)'}}>→</span>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:14,fontWeight:700,color:TEXT}}>{userMode === 'fm' ? 'Sample Air Quality Check' : 'Office Building Demo'}</div>
+              <div style={{fontSize:11,color:SUB,marginTop:2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{userMode === 'fm' ? 'Greenfield Office Park · 2 areas' : 'Meridian Commerce Tower · 3 zones'}</div>
+            </div>
+            <span style={{fontSize:10,color:SUB,fontFamily:"'DM Mono'",padding:'4px 8px',borderRadius:6,background:`${SUB}10`,whiteSpace:'nowrap',flexShrink:0}}>~10 min</span>
           </button>
-          {userMode !== 'fm' && <button onClick={()=>runDemo('dc')} style={{width:'100%',padding:'12px 20px',marginBottom:16,background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,fontFamily:'inherit',transition:'border-color 0.15s'}}>
-            <I n="pulse" s={16} c={SUB} w={1.6} />
-            <div style={{flex:1}}>
-              <div style={{fontSize:13,fontWeight:600,color:TEXT}}>Data Center Demo</div>
-              <div style={{fontSize:10,color:DIM,marginTop:2}}>Hizinburg DC · 3 zones · ISA-71.04 + ISO 14644</div>
+          {userMode !== 'fm' && <button onClick={()=>runDemo('dc')} style={{width:'100%',padding:'14px 16px',marginBottom:16,background:'transparent',border:`1px solid ${BORDER}`,borderRadius:12,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,fontFamily:'inherit',transition:'border-color 160ms ease, transform 160ms ease',WebkitTapHighlightColor:'transparent'}}>
+            <div style={{width:40,height:40,borderRadius:10,background:`${ACCENT}10`,border:`1px solid ${ACCENT}30`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+              <I n="pulse" s={18} c={ACCENT} w={1.8} />
             </div>
-            <span style={{fontSize:12,color:DIM}}>→</span>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:14,fontWeight:700,color:TEXT}}>Data Center Demo</div>
+              <div style={{fontSize:11,color:SUB,marginTop:2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>Hizinburg DC · 3 zones · ISA-71.04 + ISO 14644</div>
+            </div>
+            <span style={{fontSize:10,color:SUB,fontFamily:"'DM Mono'",padding:'4px 8px',borderRadius:6,background:`${SUB}10`,whiteSpace:'nowrap',flexShrink:0}}>~10 min</span>
           </button>}
 
           {/* ── Workspace Cards ── */}
@@ -1372,11 +1393,13 @@ export default function MobileApp() {
               {id:'settings',label:'Settings',icon:'user'},
             ]).map(t=>(
               <button key={t.id} onClick={()=>{ supabase&&trackEvent('page_view',{tab:t.id}); setView(t.id); if(t.id==='dash')setViewRpt(null); }} style={{background:'none',border:'none',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:2,padding:'6px 16px',minWidth:56,fontFamily:'inherit',position:'relative',WebkitTapHighlightColor:'transparent',transition:'opacity 0.15s'}}>
-                <div style={{position:'relative'}}>
+                {/* Active "lift": icon scale 1.06× + smooth transition. Color
+                    change on icon and label provides the secondary signal. */}
+                <div style={{position:'relative',transform:view===t.id?'scale(1.06)':'scale(1)',transition:'transform 160ms ease'}}>
                   <I n={t.icon} s={20} c={view===t.id?ACCENT:DIM} w={view===t.id?2:1.6} />
                   {t.badge>0&&<div style={{position:'absolute',top:-3,right:-7,minWidth:14,height:14,borderRadius:7,background:ACCENT,display:'flex',alignItems:'center',justifyContent:'center',fontSize:8,fontWeight:700,color:BG,fontFamily:"'DM Mono'",padding:'0 3px'}}>{t.badge}</div>}
                 </div>
-                <span style={{fontSize:9,fontWeight:view===t.id?600:500,color:view===t.id?ACCENT:DIM,letterSpacing:'0.2px'}}>{t.label}</span>
+                <span style={{fontSize:9,fontWeight:view===t.id?600:500,color:view===t.id?ACCENT:DIM,letterSpacing:'0.2px',transition:'color 160ms ease'}}>{t.label}</span>
               </button>
             ))}
           </div>

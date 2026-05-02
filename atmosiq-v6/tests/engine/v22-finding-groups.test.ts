@@ -184,7 +184,7 @@ describe('v2.2 finding-groups — end-to-end through ClientReport', () => {
   it('All-pass assessment produces empty findingsByGroup', () => {
     const zone = {
       zn: 'Quiet', su: 'office',
-      co2: '600', co2o: '420', tf: '72', rh: '45', pm: '5',
+      co2: '600', co2o: '420', tf: '73', rh: '45', pm: '5',
     }
     const lz = scoreZone(zone, {})
     const cs = compositeScore([lz])
