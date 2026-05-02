@@ -49,10 +49,14 @@ Read these directories first when investigating any task:
 - `src/components/docx/` — DOCX section builders
   (sections-core, sections-v21client, sections-recommendations, etc.).
 - `src/components/pricing/` — Pricing UI: `PricingSheet.jsx`, `tiers.js`.
-- `src/components/onboarding/` — first-assessment guided tour (the .tsx
-  one lives at the repo root: `components/onboarding/FirstAssessmentTour.tsx`).
-- `src/components/account/` — account settings (mirror at
-  `components/account/AccountSettings.tsx`).
+- `components/onboarding/FirstAssessmentTour.tsx` (root, not under src/)
+  — first-assessment guided tour. The TSX components for onboarding,
+  account, and pricing-related UI live at the repo root rather than
+  under `src/components/` because the acceptance gates assert their
+  paths there. The SPA imports them via relative paths.
+- `components/account/AccountSettings.tsx` (root, not under src/) —
+  self-serve account settings (Manage Subscription, profile edit,
+  two-step delete).
 - `src/engine/` — TypeScript engine: scoring contracts, ClientReport
   rendering, CIH-validation layer, professional-opinion logic, citation
   templates, finding groups, watermark interface.
@@ -82,9 +86,10 @@ Read these directories first when investigating any task:
   `sentry.ts` / `sentry-client.ts`, `email-sequences.ts` /
   `email-triggers.ts`, `password-reset.ts`, `free-tier.ts`,
   `stripe-prices.ts`.
-- `components/` (root, not under src/) — `onboarding/`, `account/`,
-  `pricing/` — TSX components reachable from both the SPA and the
-  acceptance gates.
+- `components/` (root, not under src/) — contains `onboarding/` and
+  `account/` (TSX components asserted by the acceptance gates and
+  imported by the SPA via relative paths). Pricing UI is under
+  `src/components/pricing/`, not here.
 - `pages/index.tsx` — public marketing landing page. Self-contained
   TSX; not yet wired into the SPA's actual route shell (the live root
   currently renders `src/components/LandingPage.jsx`).
@@ -188,10 +193,51 @@ Three feature-level acceptance configs gate completion claims:
 | Pricing rollout (Group B) | `npm run accept:pricing-rollout` | 19 |
 | Go-live experience (Group C) | `npm run accept:go-live` | 21 |
 
-When you believe you are done with work that touches a feature, run the
-relevant gate. Do not self-grade against prose; the runner exits 0 only
-when every criterion passes. The runner itself lives at
+**Tasks are not complete until the relevant acceptance group passes.**
+Run `npm run accept:prod-ready` (or `accept:pricing-rollout` /
+`accept:go-live`, depending on the feature area) as the final
+verification step before reporting completion. If the script exits
+non-zero, the task is not done — investigate before declaring success.
+Do not self-grade against prose; the runner exits 0 only when every
+criterion passes. The runner itself lives at
 `scripts/acceptance-check.mjs`.
+
+## Session-learned pitfalls
+
+Patterns where Claude Code has gone down the wrong path during sessions
+on this codebase. Watch for them.
+
+1. **Working directory matters for `npm install`.** This is a monorepo
+   (`Prudence-EHS-tools/{atmosiq-v6, hydroscan, oshaready, reglens}`).
+   The atmosiq-v6/ workspace has its own `package.json` and
+   `node_modules/`. Running `npm install` from the repo root creates a
+   stray top-level `package.json` / `node_modules` that breaks
+   transitive dependency resolution (e.g. wrong React version pulled
+   in for tests, then test failures appear in unrelated files).
+   Always `cd atmosiq-v6/` before any `npm` command.
+
+2. **API handlers are CommonJS; `vi.mock` doesn't reliably intercept
+   `require()` calls.** Tests for `api/*.js` files cannot mock
+   `stripe` or `@supabase/supabase-js` via `vi.mock` alone — the
+   require resolves before the mock takes effect. Established pattern:
+   each handler exports `module.exports.__test = { setStripe(mock),
+   setSupabase(mock), reset...() }` and tests inject mocks via those
+   hooks instead of `vi.mock`. See `api/webhook.js`,
+   `api/delete-account.js`, `api/narrative.js`, `api/customer-portal.ts`
+   for the established shape. New API tests should follow the same
+   pattern, not reinvent the mocking strategy.
+
+3. **Engine season detection is calendar-based and date-fragile.**
+   `src/engines/scoring.js:282` uses `new Date().getMonth()` to choose
+   summer (May–October: optimal 73–79°F) vs winter (November–April:
+   optimal 68.5–74°F). Test inputs on the boundary (e.g. `tf: '72'`)
+   produce different findings depending on the day the test runs:
+   `'pass'` / `'info'` in the winter branch, `'low'` in the summer
+   branch. Use date-stable inputs that satisfy BOTH ranges
+   (e.g. `tf: '73'` is inside summer's 73–79 AND winter's 68.5–74).
+   The seasonality heuristic itself is imprecise — May is spring, not
+   summer — but fixing it is engine-scope and off-limits per the
+   "engine is sacred" rule.
 
 ## Out of scope unless explicitly requested
 
