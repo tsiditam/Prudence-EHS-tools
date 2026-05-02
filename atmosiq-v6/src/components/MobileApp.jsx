@@ -886,14 +886,32 @@ export default function MobileApp() {
           {causalChains.length===0?<div style={{padding:36,textAlign:'center',background:CARD,borderRadius:10,border:`1px solid ${BORDER}`}}><I n="chain" s={24} c={DIM} w={1.4} /><div style={{fontSize:14,fontWeight:600,marginTop:12,marginBottom:4,color:SUB}}>No concern pathways identified</div><div style={{fontSize:12,color:DIM,lineHeight:1.5}}>No correlated multi-factor findings in this assessment.</div></div>
           :causalChains.map((ch,i)=>{const confLabel=ch.confidence==='Strong'?'High confidence':ch.confidence==='Moderate'?'Moderate confidence':'Possible';const cc=ch.confidence==='Strong'?'#22C55E':ch.confidence==='Moderate'?'#FBBF24':SUB;return(
             <div key={i} style={{padding:16,background:CARD,border:`1px solid ${BORDER}`,borderRadius:10}}>
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
-                <div style={{fontSize:14,fontWeight:700,color:TEXT}}>{ch.type}</div>
-                <span style={{padding:'3px 10px',background:`${cc}12`,border:`1px solid ${cc}25`,borderRadius:4,fontSize:9,fontWeight:700,color:cc,letterSpacing:'0.3px'}}>{confLabel}</span>
+              {/* ── Canonical two-up: PATHWAY + CONFIDENCE ── */}
+              <div style={{display:'grid',gridTemplateColumns:'1fr auto',gap:12,marginBottom:12,alignItems:'flex-start'}}>
+                <div>
+                  <div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Pathway</div>
+                  <div style={{color:TEXT,fontWeight:600,fontSize:14,lineHeight:1.4}}>{ch.type}</div>
+                </div>
+                <div>
+                  <div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Confidence</div>
+                  <span style={{padding:'3px 10px',background:`${cc}12`,border:`1px solid ${cc}25`,borderRadius:4,fontSize:11,fontWeight:700,color:cc,letterSpacing:'0.3px'}}>{confLabel}</span>
+                </div>
               </div>
-              <div style={{fontSize:11,color:ACCENT,fontFamily:"'DM Mono'",marginBottom:8}}>{ch.zone}</div>
-              <div style={{fontSize:13,color:SUB,lineHeight:1.7,marginBottom:12,padding:'10px 14px',background:SURFACE,borderRadius:8,borderLeft:`2px solid ${ACCENT}`}}>{ch.rootCause}</div>
-              <div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:6}}>Supporting evidence</div>
-              {ch.evidence.map((e,j)=><div key={j} style={{display:'flex',gap:8,alignItems:'flex-start',marginBottom:5}}><span style={{color:ACCENT,fontSize:12,marginTop:1,flexShrink:0}}>→</span><span style={{fontSize:12,color:SUB,lineHeight:1.6}}>{e}</span></div>)}
+              {/* ── ZONE — plain bold white, not cyan/monospace ── */}
+              <div style={{marginBottom:12}}>
+                <div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Zone</div>
+                <div style={{color:TEXT,fontWeight:600,fontSize:13,lineHeight:1.4}}>{ch.zone}</div>
+              </div>
+              {/* ── HYPOTHESIS — flat label/value, no border, no quote framing ── */}
+              <div style={{marginBottom:12}}>
+                <div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Hypothesis</div>
+                <div style={{color:SUB,fontSize:13,lineHeight:1.6}}>{ch.rootCause}</div>
+              </div>
+              {/* ── SUPPORTING EVIDENCE — flat list, no leading arrows ── */}
+              <div>
+                <div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Supporting evidence</div>
+                {ch.evidence.map((e,j)=><div key={j} style={{fontSize:13,color:SUB,lineHeight:1.6,marginBottom:j<ch.evidence.length-1?2:0}}>{e}</div>)}
+              </div>
             </div>
           )})}
         </div>}
