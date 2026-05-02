@@ -34,7 +34,11 @@ describe('v2.3 §5 — empty zone single sentence', () => {
   // A zone with all parameters reading pass-level. CO2 well below
   // screening threshold, temperature within ASHRAE 55, low PM, low
   // VOC — should produce zero significant findings.
-  const zone = { zn: 'Quiet', su: 'office', co2: '550', co2o: '420', tf: '72', rh: '45', pm: '5', tv: '50' }
+  // tf:'73' is inside both summer (73-79) and winter (68.5-74) optimal
+  // ranges per the date-fragile season heuristic in scoring.js (see
+  // CLAUDE.md pitfall #3). tf:'72' triggered a "low temp" finding when
+  // the test ran in May (summer branch).
+  const zone = { zn: 'Quiet', su: 'office', co2: '550', co2o: '420', tf: '73', rh: '45', pm: '5', tv: '50' }
   const lz = scoreZone(zone, {})
   const cs = compositeScore([lz])
   const score = legacyToAssessmentScore([lz] as any, cs as any, [zone] as any, { meta: META, presurvey: PRESURVEY })

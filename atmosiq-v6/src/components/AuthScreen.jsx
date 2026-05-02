@@ -7,7 +7,7 @@
  */
 
 import { useState } from 'react'
-import SupaStorage from '../utils/supabaseStorage'
+import Storage from '../utils/cloudStorage'
 import { trackEvent } from '../utils/supabaseClient'
 import { I } from './Icons'
 
@@ -35,7 +35,7 @@ export default function AuthScreen({ onAuth }) {
   const handleLogin = async () => {
     if (!email || !password) { setError('Email and password required'); return }
     setLoading(true); setError('')
-    const { data, error: err } = await SupaStorage.signIn(email, password)
+    const { data, error: err } = await Storage.signIn(email, password)
     setLoading(false)
     if (err) { setError(err.message || 'Login failed'); return }
     if (data?.user) onAuth(data.user)
@@ -48,7 +48,7 @@ export default function AuthScreen({ onAuth }) {
     if (!tosAccepted) { setError('Please accept the Terms of Service and Privacy Policy'); return }
     trackEvent('signup_started', { method: 'email' })
     setLoading(true); setError('')
-    const { data, error: err } = await SupaStorage.signUp(email, password)
+    const { data, error: err } = await Storage.signUp(email, password)
     setLoading(false)
     if (err) { setError(err.message || 'Registration failed'); return }
     if (data?.user) {

@@ -6,6 +6,7 @@
  */
 
 const { createClient } = require('@supabase/supabase-js')
+const { auditLog } = require('./_audit')
 
 module.exports = async function handler(req, res) {
   // Protect with a secret key
@@ -44,6 +45,14 @@ module.exports = async function handler(req, res) {
         reason: 'monthly_reset',
         reference_id: `reset-${new Date().toISOString().slice(0, 7)}`,
         balance_after: newCredits,
+      })
+
+      await auditLog({
+        action: 'credits.reset',
+        target_type: 'user',
+        target_id: p.id,
+        details: { plan: p.plan, new_credits: newCredits, prev_credits: p.credits_remaining },
+        req,
       })
       resetCount++
     }

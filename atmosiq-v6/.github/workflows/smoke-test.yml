@@ -1,0 +1,39 @@
+name: Production Smoke Test
+
+on:
+  schedule:
+    # 06:00 UTC daily — well outside any plausible business deploy window.
+    - cron: '0 6 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: atmosiq-v6/package-lock.json
+
+      - name: Install dependencies
+        working-directory: atmosiq-v6
+        run: npm ci
+
+      - name: Run production smoke test
+        working-directory: atmosiq-v6
+        run: npx tsx scripts/smoke-test-production.ts
+        env:
+          SMOKE_TEST_BASE_URL: ${{ secrets.SMOKE_TEST_BASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          STRIPE_TEST_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
+          SMOKE_TEST_ALERT_EMAIL: ${{ secrets.SMOKE_TEST_ALERT_EMAIL }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}

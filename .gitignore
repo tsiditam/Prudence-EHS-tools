@@ -1,1 +1,26 @@
-node_modules
+# ─── Dependencies ─────────────────────────────────────────────────────
+node_modules/
+
+# ─── Build output ─────────────────────────────────────────────────────
+dist/
+build/
+.next/
+
+# ─── Test / coverage ──────────────────────────────────────────────────
+coverage/
+
+# ─── Logs ─────────────────────────────────────────────────────────────
+*.log
+
+# ─── Environment files (any name, anywhere) ───────────────────────────
+.env*
+
+# ─── Lockfiles ────────────────────────────────────────────────────────
+# Mirrored in .claude/settings.json deny rules so Claude doesn't
+# read them either (large + noisy). Note: atmosiq-v6/package-lock.json
+# is currently tracked in git history — this pattern only stops FUTURE
+# tracking. To untrack: `git rm --cached atmosiq-v6/package-lock.json`
+# and discuss reproducible-install implications before doing so.
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
