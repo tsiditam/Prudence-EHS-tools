@@ -186,7 +186,7 @@ export const Q_ZONE = [
   { id:'path_pressure',     sec:'Airflow',     q:'Zone pressure vs adjacent?',    t:'ch',   sk:1, ic:'🌀', opts:['Positive (pushes out)','Negative (draws in)','Neutral','Not assessed'], ref:'Use smoke pencil at doorways/gaps' },
   { id:'path_crosstalk',    sec:'Airflow',     q:'Cross-contamination evidence?', t:'ch',   sk:1, ic:'🔄', opts:['None observed','Odors migrating from adjacent space','Visible air movement at gaps / penetrations','Duct cross-talk suspected','Stack effect pulling from below','Not assessed'] },
   { id:'path_crosstalk_source',sec:'Airflow',  q:'Cross-contamination source?',  t:'ta',   sk:1, ic:'📝', cond:{f:'path_crosstalk',ne:'None observed'} },
-  { id:'meas_time',         sec:'Measurements',q:'Time of readings?',            t:'text', sk:1, ic:'🕐', ph:'e.g. 2:15 PM' },
+  { id:'meas_time',         sec:'Measurements',q:'Time of readings?',            t:'time', sk:1, ic:'🕐', ph:'Select time…' },
   { id:'meas_occ',          sec:'Measurements',q:'Occupancy at time of measurement?',t:'ch',sk:1,ic:'👥', opts:['Typical occupancy','Above typical (meeting/event)','Below typical','Unoccupied','Unknown'] },
   { id:'meas_duration',     sec:'Measurements',q:'Measurement type?',            t:'ch',   sk:1, ic:'⏱️', opts:['Spot check (instantaneous)','5-minute average','15-minute average','1-hour average','Continuous logging'] },
   { id:'meas_conditions',   sec:'Measurements',q:'Conditions typical during readings?',t:'ch',sk:1,ic:'📋', opts:['Yes — normal operations','No — unusual activity','No — HVAC off/abnormal','No — doors/windows open','Unknown'] },
