@@ -917,18 +917,37 @@ export default function MobileApp() {
         </div>}
 
         {rTab==='sampling'&&<div style={{display:'flex',flexDirection:'column',gap:14}}>
-          {(!samplingPlan||samplingPlan.plan.length===0)?<div style={{padding:36,textAlign:'center',background:CARD,borderRadius:16,border:`1px solid ${BORDER}`}}><div style={{fontSize:28,marginBottom:12}}>🧪</div><div style={{fontSize:16,fontWeight:600,marginBottom:6,color:TEXT}}>No Sampling Indicated</div><div style={{fontSize:14,color:SUB,lineHeight:1.6}}>No hypotheses requiring confirmatory sampling.</div></div>
-          :<>{samplingPlan.plan.map((p,i)=>{const pc=p.priority==='critical'?'#EF4444':p.priority==='high'?'#FB923C':'#FBBF24';return(
-            <div key={i} style={{padding:18,background:CARD,border:`1px solid ${BORDER}`,borderRadius:16}}>
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
-                <div style={{fontSize:15,fontWeight:700,color:TEXT}}>🧪 {p.type}</div>
-                <span style={{padding:'4px 12px',background:`${pc}18`,border:`1px solid ${pc}35`,borderRadius:16,fontSize:11,fontWeight:700,color:pc}}>{p.priority.toUpperCase()}</span>
+          {(!samplingPlan||samplingPlan.plan.length===0)?<div style={{padding:36,textAlign:'center',background:CARD,borderRadius:10,border:`1px solid ${BORDER}`}}><I n="flask" s={24} c={DIM} w={1.4} /><div style={{fontSize:14,fontWeight:600,marginTop:12,marginBottom:4,color:SUB}}>No sampling indicated</div><div style={{fontSize:12,color:DIM,lineHeight:1.5}}>No hypotheses requiring confirmatory sampling.</div></div>
+          :<>{samplingPlan.plan.map((p,i)=>{const pc=p.priority==='critical'?'#EF4444':p.priority==='high'?'#FB923C':'#FBBF24';const priLabel=p.priority.charAt(0).toUpperCase()+p.priority.slice(1);return(
+            <div key={i} style={{padding:18,background:CARD,border:`1px solid ${BORDER}`,borderRadius:10}}>
+              {/* ── Canonical two-up: SAMPLE TYPE + PRIORITY ── */}
+              <div style={{display:'grid',gridTemplateColumns:'1fr auto',gap:12,marginBottom:12,alignItems:'flex-start'}}>
+                <div>
+                  <div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Sample type</div>
+                  <div style={{color:TEXT,fontWeight:600,fontSize:14,lineHeight:1.4}}>{p.type}</div>
+                </div>
+                <div>
+                  <div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Priority</div>
+                  <span style={{padding:'3px 10px',background:`${pc}12`,border:`1px solid ${pc}25`,borderRadius:4,fontSize:11,fontWeight:700,color:pc,letterSpacing:'0.3px'}}>{priLabel}</span>
+                </div>
               </div>
-              <div style={{fontSize:13,color:ACCENT,fontFamily:"'DM Mono'",marginBottom:10}}>{p.zone}</div>
-              {[{l:'Hypothesis',v:p.hypothesis},{l:'Method',v:p.method},{l:'Controls',v:p.controls}].map(x=><div key={x.l} style={{marginBottom:10}}><div style={{fontSize:12,fontWeight:600,color:SUB,marginBottom:4}}>{x.l}</div><div style={{fontSize:14,color:'#D1D5DB',lineHeight:1.6}}>{x.v}</div></div>)}
-              <div style={{fontSize:12,color:DIM,fontFamily:"'DM Mono'"}}>{p.standard}</div>
+              {/* ── ZONE — plain bold white ── */}
+              <div style={{marginBottom:12}}>
+                <div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Zone</div>
+                <div style={{color:TEXT,fontWeight:600,fontSize:13,lineHeight:1.4}}>{p.zone}</div>
+              </div>
+              {/* ── HYPOTHESIS / METHOD / CONTROLS — flat label/value pairs ── */}
+              {[{l:'Hypothesis',v:p.hypothesis},{l:'Method',v:p.method},{l:'Controls',v:p.controls}].filter(x=>x.v).map(x=><div key={x.l} style={{marginBottom:12}}>
+                <div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>{x.l}</div>
+                <div style={{color:SUB,fontSize:13,lineHeight:1.6}}>{x.v}</div>
+              </div>)}
+              {/* ── REFERENCE — sentence case, no monospace ── */}
+              {p.standard && <div>
+                <div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Reference</div>
+                <div style={{color:DIM,fontSize:12,lineHeight:1.5}}>{p.standard}</div>
+              </div>}
             </div>
-          )})}{samplingPlan.outdoorGaps?.length>0&&<div style={{padding:16,background:'#FBBF2410',border:`1px solid #FBBF2428`,borderRadius:14}}><div style={{fontSize:13,fontWeight:700,color:'#FBBF24',marginBottom:10}}>⚠ Outdoor Control Gaps</div>{samplingPlan.outdoorGaps.map((g,i)=><div key={i} style={{fontSize:14,color:'#D1D5DB',lineHeight:1.6,marginBottom:6}}>• {g}</div>)}</div>}</>}
+          )})}{samplingPlan.outdoorGaps?.length>0&&<div style={{padding:16,background:'#FBBF2410',border:`1px solid #FBBF2428`,borderRadius:10}}><div style={{fontSize:13,fontWeight:700,color:'#FBBF24',marginBottom:10}}>Outdoor Control Gaps</div>{samplingPlan.outdoorGaps.map((g,i)=><div key={i} style={{fontSize:14,color:'#D1D5DB',lineHeight:1.6,marginBottom:6}}>• {g}</div>)}</div>}</>}
         </div>}
 
         {rTab==='narrative'&&<div>
