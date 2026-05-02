@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "deny": [
+      "Read(./package-lock.json)",
+      "Read(./yarn.lock)",
+      "Read(./pnpm-lock.yaml)",
+      "Read(./**/*.min.js)",
+      "Read(./**/*.min.css)",
+      "Read(./**/*.map)",
+      "Read(./.next/**)",
+      "Read(./out/**)",
+      "Read(./build/**)",
+      "Read(./dist/**)",
+      "Read(./coverage/**)",
+      "Read(./node_modules/**)",
+      "Read(./.vercel/**)",
+      "Read(./generated-reports/**)",
+      "Read(./sample-reports/**)",
+      "Read(./public/sample-reports/**)",
+      "Read(./test-fixtures/golden-outputs/**)",
+      "Read(./**/*.docx)",
+      "Read(./**/*.pdf)",
+      "Read(./**/*.xlsx)",
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./**/.env)",
+      "Read(./**/.env.*)",
+      "Bash(rm -rf:*)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(npm publish:*)",
+      "Bash(vercel --prod:*)",
+      "Bash(vercel deploy --prod:*)"
+    ],
+    "allow": [
+      "Read(./generated-reports/CLAUDE-REVIEW-*.docx)",
+      "Read(./sample-reports/CLAUDE-REVIEW-*.docx)"
+    ]
+  }
+}
