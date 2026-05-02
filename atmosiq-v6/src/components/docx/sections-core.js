@@ -7,6 +7,7 @@ import { Paragraph, TextRun, HeadingLevel, AlignmentType, SectionType, PageBreak
 import { FONTS, COLORS, SEV_COLORS, scoreColor, riskLabel } from './styles'
 import { buildTable, kvTable, borderlessLayoutTable, dataCell, headerCell } from './tables'
 import { base64ToUint8Array } from './images'
+import { inferCitationsFromContext, filterManifestByRegistration } from '../../engine/report/citation-tracker'
 
 const p = (text, opts = {}) => new Paragraph({
   children: [new TextRun({ text, font: FONTS.body, size: opts.size || 22, color: opts.color || COLORS.body, bold: opts.bold, italics: opts.italics })],
@@ -143,8 +144,33 @@ export function buildScopeMethodology(ctx) {
   ))
 
   children.push(p('Standards and References', { heading: HeadingLevel.HEADING_3 }))
-  const stdsText = ctx.standardsManifest ? Object.entries(ctx.standardsManifest).filter(([k]) => k !== 'engineVersion' && k !== 'manifestUpdated').map(([k, v]) => `${k} (${v})`).join(', ') : 'ASHRAE 62.1, ASHRAE 55, OSHA PELs, EPA NAAQS, WHO Air Quality Guidelines'
-  children.push(p(stdsText + '.', { size: 20, color: COLORS.sub }))
+  // v2.7 Fix 1: filter the bibliography by what is actually cited in
+  // body text. The CitationTracker (src/engine/report/citation-tracker.ts)
+  // walks ctx, infers which standards are referenced, and partitions
+  // the manifest into in-body vs future-method-only (sampling plan).
+  if (ctx.standardsManifest) {
+    const registration = inferCitationsFromContext(ctx)
+    const { bodyManifest, futureMethodManifest } = filterManifestByRegistration(ctx.standardsManifest, registration)
+    const bodyEntries = Object.entries(bodyManifest)
+    if (bodyEntries.length > 0) {
+      const bodyText = bodyEntries.map(([k, v]) => `${k} (${v})`).join(', ')
+      children.push(p(bodyText + '.', { size: 20, color: COLORS.sub }))
+    } else {
+      // Defensive fallback — should not occur in practice. If it does,
+      // we surface a transparent note rather than dumping every
+      // standard in the database.
+      children.push(p('No standards were referenced in the body of this report.', { size: 20, color: COLORS.sub, italics: true }))
+    }
+    const futureEntries = Object.entries(futureMethodManifest)
+    if (futureEntries.length > 0) {
+      children.push(p('Future-method references (sampling plan recommendations only)', { heading: HeadingLevel.HEADING_3 }))
+      children.push(p('The following standards are referenced in recommended future sampling work and are listed for the recipient\'s convenience. They were not invoked in the body findings of this report.', { size: 18, color: COLORS.muted, italics: true, after: 80 }))
+      const futureText = futureEntries.map(([k, v]) => `${k} (${v})`).join(', ')
+      children.push(p(futureText + '.', { size: 20, color: COLORS.sub }))
+    }
+  } else {
+    children.push(p('ASHRAE 62.1, ASHRAE 55, OSHA PELs, EPA NAAQS, WHO Air Quality Guidelines.', { size: 20, color: COLORS.sub }))
+  }
 
   children.push(p('Limitations', { heading: HeadingLevel.HEADING_3 }))
   children.push(p('This assessment represents conditions observed at the time of the site visit and may not reflect all temporal, seasonal, or operational variations. Findings are based on direct-reading instrumentation and visual observations. Laboratory analysis was not performed unless specifically noted.', { size: 20, color: COLORS.sub }))

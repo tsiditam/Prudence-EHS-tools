@@ -60,10 +60,13 @@ function buildContext(data) {
     pidMeter: presurvey?.ps_inst_pid || '',
     pidCal: presurvey?.ps_inst_pid_cal || '',
     standardsManifest: standardsManifest || null,
-    firmName: profile?.firm || 'Prudence Safety & Environmental Consulting, LLC',
-    firmAddress: profile?.firm_address || 'Germantown, Maryland',
-    firmPhone: profile?.firm_phone || '(301) 541-8362',
-    firmEmail: profile?.email || 'support@prudenceehs.com',
+    // v2.7 Fix 8: trim company-name input as belt-and-suspenders
+    // against a historical trailing-space concat bug in the firm
+    // string. Regression guard: tests/engine/company-name-no-trailing-space.test.ts
+    firmName: (profile?.firm || 'Prudence Safety & Environmental Consulting, LLC').trim(),
+    firmAddress: (profile?.firm_address || 'Germantown, Maryland').trim(),
+    firmPhone: (profile?.firm_phone || '(301) 541-8362').trim(),
+    firmEmail: (profile?.email || 'support@prudenceehs.com').trim(),
     assessorCerts: profile?.certs || [],
   }
 }

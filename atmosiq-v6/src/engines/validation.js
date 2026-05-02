@@ -1,18 +1,74 @@
 /**
- * AtmosFlow Assessment Validation — v2.3
- * Pre-finalize gate. Blockers prevent report rendering.
- * Priority Actions derived from findings — cannot be empty when findings exist.
+ * AtmosFlow Assessment Validation — pre-finalize gate.
+ * Blockers prevent report rendering. Priority Actions derived from
+ * findings — cannot be empty when findings exist.
+ *
+ * Engine v2.7 Fix 4 — extended evidentiary completeness checks beyond
+ * instrument calibration. Reports finalized today with placeholder
+ * data ("Not Specified" client, no occupant denominator, no photos
+ * for Critical findings) created defensibility liability; the calibration
+ * gate proved the pattern works, so we extend it with six more checks:
+ *   1. client name populated and non-placeholder
+ *   2. site contact name + role both populated (people request reports,
+ *      buildings don't)
+ *   3. requested_by is a person, not a bare facility name
+ *   4. Critical/High findings each have at least one photo, OR an
+ *      explicit "photo capture not feasible" override with justification
+ *   5. zones with reported occupant symptoms have an occupant denominator
+ *   6. assessor name does not match placeholder patterns
+ *
+ * The gate returns { canFinalize, blockers, warnings, mode } — callers
+ * surface `blockers` as a structured list per severity, NOT as a generic
+ * error.
  */
 
 import { ASSESSMENT_MODES } from './riskBands'
 import { evaluateAllSufficiency } from './sufficiency'
+
+const NOT_SPECIFIED_PATTERNS = /^(not specified|n\/a|na|none|tbd|todo)$/i
+const ASSESSOR_PLACEHOLDER_PATTERNS = /\b(hobo lobo|lorem|ipsum|test user|placeholder|example name|john doe|jane doe)\b/i
+
+function isMissingOrPlaceholder(value) {
+  if (value == null) return true
+  const s = String(value).trim()
+  if (s.length === 0) return true
+  if (NOT_SPECIFIED_PATTERNS.test(s)) return true
+  return false
+}
+
+function zoneHasSymptomFindings(zoneScore) {
+  if (!zoneScore || !zoneScore.cats) return false
+  return zoneScore.cats.some(c => (c.r || []).some(r =>
+    typeof r.t === 'string' && /symptom|occupant|complaint|headache|irritation|fatigue/i.test(r.t)
+  ))
+}
+
+function zoneHasOccupantDenominator(zone) {
+  if (!zone) return false
+  const total = zone.total_count ?? zone.totalOccupants ?? zone.occupant_total
+  const affected = zone.affected_count ?? zone.affectedOccupants ?? zone.occupant_affected
+  return total != null && affected != null
+}
+
+function zoneHasPhotos(photos, zoneName) {
+  if (!photos || typeof photos !== 'object') return false
+  const list = photos[zoneName]
+  return Array.isArray(list) && list.length > 0
+}
+
+function zoneHasPhotoOverride(overrides, zoneName) {
+  if (!overrides || typeof overrides !== 'object') return false
+  const entry = overrides[zoneName]
+  return entry && typeof entry.reason === 'string' && entry.reason.trim().length > 0
+}
 
 export function validateAssessment(assessment) {
   const blockers = []
   const warnings = []
   const mode = ASSESSMENT_MODES[assessment.assessmentMode] || ASSESSMENT_MODES.FULL_ASSESSMENT
   const zones = assessment.zones || []
-  const allFindings = (assessment.zoneScores || []).flatMap(zs => zs.cats.flatMap(c => c.r))
+  const zoneScores = assessment.zoneScores || []
+  const allFindings = zoneScores.flatMap(zs => zs.cats.flatMap(c => c.r))
   const criticalFindings = allFindings.filter(f => f.sev === 'critical')
   const highFindings = allFindings.filter(f => f.sev === 'high')
   const recs = assessment.recs || {}
@@ -31,6 +87,67 @@ export function validateAssessment(assessment) {
       blockers.push('Instrument calibration not confirmed. Required for FULL_ASSESSMENT mode.')
     }
   }
+
+  // ─── v2.7 Fix 4: evidentiary completeness ──────────────────────────
+  const client = assessment.client || {}
+  const building = assessment.building || {}
+
+  // 1. Client name populated and non-placeholder
+  const clientName = client.name || client.organization || building.client_name
+  if (isMissingOrPlaceholder(clientName)) {
+    blockers.push('Client name is empty or "Not Specified". A real client name is required for report finalization.')
+  }
+
+  // 2. Site contact — both name AND role required
+  if (isMissingOrPlaceholder(client.contact_name)) {
+    blockers.push('Site contact name is missing. Reports are addressed to a person, not a building.')
+  }
+  if (isMissingOrPlaceholder(client.contact_role)) {
+    blockers.push('Site contact role is missing (e.g. Facility Manager, Building Owner, EHS Director).')
+  }
+
+  // 3. Requested-by must be a person, not the facility name itself
+  const requestedBy = client.requested_by || client.requestedBy
+  if (requestedBy != null && requestedBy !== '') {
+    const facilityName = building.fn || building.name || ''
+    if (facilityName && String(requestedBy).trim() === String(facilityName).trim()) {
+      blockers.push('Requested-by is set to the facility name with no person attached. Buildings do not request reports — capture the requester\'s name.')
+    }
+  }
+
+  // 4. Critical/High findings need photo evidence (or explicit override)
+  const photos = assessment.photos || {}
+  const overrides = assessment.photoOverrides || {}
+  const photoBlockedZones = new Set()
+  for (const zs of zoneScores) {
+    const zoneName = zs.zoneName || ''
+    if (!zoneName) continue
+    const zoneFindings = (zs.cats || []).flatMap(c => c.r || [])
+    const hasCriticalOrHigh = zoneFindings.some(f => f.sev === 'critical' || f.sev === 'high')
+    if (!hasCriticalOrHigh) continue
+    if (zoneHasPhotos(photos, zoneName)) continue
+    if (zoneHasPhotoOverride(overrides, zoneName)) continue
+    photoBlockedZones.add(zoneName)
+  }
+  for (const zoneName of photoBlockedZones) {
+    blockers.push(`Zone "${zoneName}" has Critical or High findings but no photo evidence and no "photo capture not feasible" override with justification.`)
+  }
+
+  // 5. Zones with reported occupant symptoms must have an occupant denominator
+  for (let i = 0; i < zones.length; i++) {
+    const zoneScore = zoneScores[i]
+    if (!zoneHasSymptomFindings(zoneScore)) continue
+    if (zoneHasOccupantDenominator(zones[i])) continue
+    const zoneName = zoneScore?.zoneName || zones[i]?.zn || `zone ${i + 1}`
+    blockers.push(`Zone "${zoneName}" reports occupant symptoms but no occupant denominator (affected_count of total_count) was recorded.`)
+  }
+
+  // 6. Assessor name must not match placeholder patterns
+  const assessorName = assessment.presurvey?.ps_assessor || assessment.profile?.name
+  if (assessorName && ASSESSOR_PLACEHOLDER_PATTERNS.test(String(assessorName))) {
+    blockers.push(`Assessor name "${assessorName}" matches a placeholder pattern. Replace with the actual licensed professional's name before finalizing.`)
+  }
+  // ─── end Fix 4 ──────────────────────────────────────────────────────
 
   // Sufficiency check per zone
   zones.forEach((z, i) => {

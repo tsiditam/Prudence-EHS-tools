@@ -17,7 +17,7 @@ export const PARTICULATES_PROSE: ParameterProse = {
     { source: 'EPA NAAQS — PM10 24-hour 150 µg/m³', authority: 'regulatory', edition: 'current' },
     { source: 'EPA NAAQS — PM2.5 24-hour 35 µg/m³ / annual 9 µg/m³ (May 2024 final rule)', authority: 'regulatory', edition: '2024' },
     { source: 'WHO Global Air Quality Guidelines', authority: 'consensus', edition: '2021' },
-    { source: 'Chen & Zhao (2011) — Indoor/Outdoor PM2.5 Ratio Methodology', authority: 'peer_reviewed', edition: 'Atmospheric Environment' },
+    { source: 'Chen, C. and Zhao, B. (2011). "Review of relationship between indoor and outdoor particles: I/O ratio, infiltration factor and penetration factor." Atmospheric Environment 45(2): 275–288.', authority: 'peer_reviewed', edition: '2011' },
   ],
   summaryTemplate(range) {
     if (range.count === 0) {

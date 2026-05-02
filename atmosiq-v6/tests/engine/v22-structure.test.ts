@@ -1,8 +1,12 @@
 /**
- * v2.2 acceptance — top-level ClientReport structure.
+ * v2.2 structural acceptance — top-level ClientReport structure.
+ *
+ * The engine-version assertion was bumped from 2.2.0 → 2.7.0 in the
+ * v2.7 defensibility-fix PR. The structural assertions (2-7) still
+ * apply across versions; only the version pin moves with the engine.
  *
  * Validates:
- *   1. Engine version is 2.2.0.
+ *   1. Engine version matches the canonical version module.
  *   2. ClientReport.transmittalLetter is structured (not a single string).
  *   3. ClientReport.cover carries projectNumber via meta.
  *   4. ClientReport.executiveSummary.metadataTable carries all 8 fields.
@@ -61,8 +65,8 @@ function buildScore() {
 }
 
 describe('v2.2 acceptance — structural assertions', () => {
-  it('Engine version is atmosflow-engine-2.2.0', () => {
-    expect(ENGINE_VERSION).toBe('atmosflow-engine-2.2.0')
+  it('Engine version matches the canonical version module', () => {
+    expect(ENGINE_VERSION).toBe('atmosflow-engine-2.7.0')
   })
 
   it('ClientReport.transmittalLetter is structured', () => {

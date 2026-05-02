@@ -210,6 +210,66 @@ function capObservationalSeverity(conditionType: string, sev: Severity): Severit
   return sev
 }
 
+// ─── Qualitative-only flag propagation (Fix 5 / engine v2.7) ────────
+// Findings derived from instruments not in the manufacturer-certified
+// accuracy database carry confidenceTier === 'qualitative_only'. The
+// flag is set upstream in src/engine/instruments/accuracy.ts; here we
+// surface it at the rendering boundary by:
+//   1. Appending a "(qualitative — not for regulatory comparison)"
+//      qualifier after the first numeric+unit token in the narrative
+//      intent.
+//   2. Prepending a canonical limitation bullet so the per-finding
+//      Limitations list explicitly states the qualitative status.
+//
+// The site-level range summary (parameter-prose summaryTemplate) is
+// a multi-zone aggregation and is NOT augmented here — when the same
+// parameter is qualitative in some zones and quantitative in others,
+// a blanket flag at the site-level would be misleading. That case
+// remains a TODO for v2.7.1.
+const QUALITATIVE_QUALIFIER = ' (qualitative — not for regulatory comparison)'
+const NUM_UNIT_REGEX = /\d+(?:\.\d+)?\s*(?:µg\/m³|mg\/m³|ppm|ppb|°F|°C|%)/
+const QUALITATIVE_LIMITATION =
+  'Finding derived from instrument(s) not in the manufacturer-certified accuracy database; values are qualitative screening only and not suitable for regulatory exposure comparison or compliance determination.'
+
+function appendQualitativeQualifier(text: string): string {
+  if (text.includes('(qualitative —')) return text
+  const match = NUM_UNIT_REGEX.exec(text)
+  if (!match) return text
+  const insertAt = match.index + match[0].length
+  return text.slice(0, insertAt) + QUALITATIVE_QUALIFIER + text.slice(insertAt)
+}
+
+/**
+ * Build a rich narrative for PM2.5 indoor-amplification findings that
+ * states absolute indoor and outdoor values, the computed I/O ratio,
+ * the tier interpretation, and the Chen & Zhao 2011 citation inline.
+ *
+ * Returns null when zone data lacks the indoor or outdoor PM2.5
+ * measurement, so callers fall back to the static phrase template.
+ *
+ * Tier interpretation thresholds:
+ *   I/O ≤ 1.0       — no indoor source
+ *   1.0 < I/O ≤ 2.0 — indoor source likely, monitoring recommended
+ *   I/O > 2.0       — significant indoor source, investigation warranted
+ */
+function derivePmIORatioNarrative(zone: ZoneData): string | null {
+  const indoor = zone.pm != null && zone.pm !== '' ? Number(zone.pm) : NaN
+  const outdoor = zone.pmo != null && zone.pmo !== '' ? Number(zone.pmo) : NaN
+  if (!Number.isFinite(indoor) || !Number.isFinite(outdoor) || outdoor <= 0) {
+    return null
+  }
+  const ratio = Math.round((indoor / outdoor) * 100) / 100
+  let interpretation: string
+  if (ratio <= 1.0) {
+    interpretation = 'The I/O ratio is at or below 1.0, consistent with no significant indoor particulate source (Chen & Zhao 2011).'
+  } else if (ratio <= 2.0) {
+    interpretation = `The I/O ratio is between 1.0 and 2.0, indicating indoor contribution above the outdoor baseline; continued monitoring is recommended (Chen & Zhao 2011).`
+  } else {
+    interpretation = 'The I/O ratio exceeds the 2.0 threshold commonly cited for significant indoor source contribution (Chen & Zhao 2011).'
+  }
+  return `Indoor PM2.5 ${indoor} µg/m³ vs. outdoor reference ${outdoor} µg/m³, indoor/outdoor ratio ${ratio.toFixed(2)}. ${interpretation}`
+}
+
 function deriveScope(conditionType: string): Finding['scope'] {
   if (BUILDING_SCOPED_CONDITION_TYPES.has(conditionType)) return 'hvac_system'
   return 'zone'
@@ -254,9 +314,40 @@ function mapFinding(
   // Phrase-library default actions only fire when severity is
   // significant.
   const isSignificant = cappedSeverity !== 'pass' && cappedSeverity !== 'info'
+  // Propagate the parent finding's zoneId into each recommendation's
+  // location. Building-scoped findings (e.g. hvac_system) populate
+  // `system` instead of `zone_id`. The phrase library's default
+  // actions are untouched; we wrap them with location data here.
+  const actionLocation = scope === 'hvac_system'
+    ? { system: 'HVAC system', zone_id: null, surface_or_asset: null, free_text: null }
+    : { zone_id: zoneId as string, system: null, surface_or_asset: null, free_text: null }
   const recommendedActions: ReadonlyArray<RecommendedAction> = isSignificant
-    ? (phrase.defaultRecommendedActions as ReadonlyArray<RecommendedAction>)
+    ? (phrase.defaultRecommendedActions as ReadonlyArray<RecommendedAction>).map(a => ({
+        ...a,
+        location: a.location ?? actionLocation,
+      }))
     : []
+
+  // Build base narrative — PM I/O findings get rich numeric narrative,
+  // others use the static phrase template.
+  const baseNarrative = conditionType === 'pm_indoor_amplification_screening'
+    ? (derivePmIORatioNarrative(zoneData) ?? phrase.intentTemplate)
+    : phrase.intentTemplate
+
+  // Qualitative-only propagation: when an instrument lacks accuracy
+  // database coverage, every derived finding inherits the flag. The
+  // rendered narrative gets an inline qualifier at the first numeric
+  // value + unit pair; a canonical qualitative-only limitation is
+  // prepended to the per-finding Limitations list.
+  const isQualitativeFinding = confidenceTier === 'qualitative_only'
+  const narrativeIntent = isQualitativeFinding
+    ? appendQualitativeQualifier(baseNarrative)
+    : baseNarrative
+  const baseLimitations = phrase.defaultLimitations
+  const limitations = isQualitativeFinding
+    && !baseLimitations.some(l => l.startsWith('Finding derived from instrument(s) not in the manufacturer-certified'))
+    ? [QUALITATIVE_LIMITATION, ...baseLimitations]
+    : baseLimitations
 
   const draft: Finding = {
     id,
@@ -272,11 +363,11 @@ function mapFinding(
     definitiveConclusionAllowed: false,
     causationSupported: claimsCausation && cappedSeverity !== 'pass' && cappedSeverity !== 'info',
     regulatoryConclusionAllowed: claimsRegulatory,
-    approvedNarrativeIntent: phrase.intentTemplate,
+    approvedNarrativeIntent: narrativeIntent,
     evidenceBasis,
     samplingAdequacy,
     instrumentAccuracyConsidered,
-    limitations: phrase.defaultLimitations,
+    limitations,
     recommendedActions,
     thresholdSource: legacyF.std ?? deriveThresholdSourceFromPhrase(phrase.defaultRecommendedActions),
     observedValue: observed.value,
