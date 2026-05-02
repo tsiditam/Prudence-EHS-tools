@@ -89,7 +89,7 @@ async function generateConsultantDocx(ctx, data) {
   const result = renderClientReport(score, {
     includeAssessmentIndexAppendix: !!data.includeAssessmentIndexAppendix,
   })
-  const { cover, main } = buildClientDocx(result)
+  const { cover, main } = buildClientDocx(result, { photos: data.photos || ctx.photos || {} })
 
   // Free-tier watermark: pass watermarkConfig from caller (e.g. resolved
   // from the user's profile.plan upstream). When tier === 'free', adds

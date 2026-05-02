@@ -10,9 +10,10 @@
  * Word output. Used by DocxReport.generateConsultantDocx.
  */
 
-import { Paragraph, TextRun, HeadingLevel, AlignmentType, SectionType, PageBreak, Table, TableRow, TableCell, WidthType, ShadingType, BorderStyle } from 'docx'
+import { Paragraph, TextRun, HeadingLevel, AlignmentType, SectionType, PageBreak, Table, TableRow, TableCell, WidthType, ShadingType, BorderStyle, ImageRun } from 'docx'
 import { FONTS, COLORS } from './styles'
 import { borderlessLayoutTable } from './tables'
+import { base64ToUint8Array } from './images'
 
 // v2.2 visual palette — slate/blue per consultant-report design
 // guidance. PRIMARY (slate-900) for headings + dark text. ACCENT
@@ -694,11 +695,12 @@ function buildFooter(report) {
  * from a ClientReportResult. Caller wraps the result in a Document
  * with the two sections.
  */
-export function buildClientDocx(result) {
+export function buildClientDocx(result, options = {}) {
   if (result.kind === 'pre_assessment_memo') {
     return buildMemoDocx(result.memo, result.reasons || [])
   }
   const report = result.report
+  const photos = options.photos || {}
   const cover = buildCoverPage(report.cover, report.reviewStatus, report.transmittalLetter?.projectNumber || report.meta?.projectNumber)
   const main = [
     ...buildTransmittal(report),
@@ -715,9 +717,74 @@ export function buildClientDocx(result) {
     ...(report.appendix.assessmentIndexInformationalOnly
       ? buildAssessmentIndexAppendix(report.appendix.assessmentIndexInformationalOnly)
       : []),
+    ...buildClientPhotosAppendix(report, photos),
     ...buildFooter(report),
   ]
   return { cover, main }
+}
+
+/**
+ * v2.7.1 fix — restore photo rendering in the consultant DOCX path.
+ *
+ * Photos exist on ctx.photos keyed `z{zoneIndex}-{fieldId}` (e.g.
+ * "z0-dp" for Zone 0 condensate drain pan). The legacy
+ * sections-zone.js renderer rendered them; the v2.1 ClientReport
+ * pipeline did not port that over. This appendix renders them under
+ * canonical zone names from report.zoneSections.
+ *
+ * Output: empty array when photos object is empty or none of the
+ * keys map to a known zone — the appendix simply does not appear.
+ */
+function buildClientPhotosAppendix(report, photos) {
+  if (!photos || typeof photos !== 'object') return []
+  const zoneSections = report.zoneSections || []
+  if (zoneSections.length === 0) return []
+
+  const fieldLabels = { dp: 'Condensate drain pan', wd: 'Water damage', mi: 'Mold indicators' }
+  const zonePhotoGroups = zoneSections.map((zone, zi) => {
+    const matches = []
+    Object.keys(photos).forEach(key => {
+      if (!key.startsWith(`z${zi}-`)) return
+      const fieldId = key.replace(`z${zi}-`, '')
+      ;(photos[key] || []).forEach(ph => {
+        if (ph && ph.src) matches.push({ src: ph.src, label: fieldLabels[fieldId] || fieldId, ts: ph.ts })
+      })
+    })
+    return { zoneName: zone.zoneName, photos: matches }
+  }).filter(g => g.photos.length > 0)
+
+  if (zonePhotoGroups.length === 0) return []
+
+  const out = []
+  out.push(...heading2('Appendix C — Photographic Documentation'))
+  out.push(p(
+    'Photographs captured during the on-site assessment, organized by zone. Images are presented at reduced resolution for report layout; original-resolution files are retained in the project record.',
+    { size: 20, color: COLORS.sub, after: 200 },
+  ))
+
+  for (const group of zonePhotoGroups) {
+    out.push(heading3(group.zoneName))
+    for (const ph of group.photos) {
+      try {
+        const imgData = base64ToUint8Array(ph.src)
+        out.push(new Paragraph({
+          children: [new ImageRun({ data: imgData, transformation: { width: 240, height: 180 }, type: 'jpg' })],
+          spacing: { after: 40 },
+        }))
+        const caption = ph.ts
+          ? `${ph.label} · ${new Date(ph.ts).toLocaleTimeString()}`
+          : ph.label
+        out.push(p(caption, { size: 16, color: COLORS.muted, after: 160 }))
+      } catch (_err) {
+        // Image decode failure shouldn't abort the whole report —
+        // surface a placeholder line so the recipient sees something
+        // was here, then continue.
+        out.push(p(`[Photo: ${ph.label}]`, { size: 18, color: COLORS.muted, italics: true, after: 120 }))
+      }
+    }
+  }
+
+  return out
 }
 
 function buildMemoDocx(memo, reasons) {
