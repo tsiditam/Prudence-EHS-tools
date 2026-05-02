@@ -951,12 +951,25 @@ export default function MobileApp() {
 
         {rTab==='actions'&&recs&&<div style={{display:'flex',flexDirection:'column',gap:10}}>
           <div style={{fontSize:11,color:DIM,lineHeight:1.5,marginBottom:2}}>Recommendations are tiered by urgency and type. Review and adapt for site-specific conditions before implementation.</div>
-          {[{k:'imm',l:'Immediate Actions',s:'Address within 48 hours',c:'#EF4444'},{k:'eng',l:'Engineering Controls',s:'1–4 weeks',c:ACCENT},{k:'adm',l:'Administrative Controls',s:'1–3 months',c:'#FBBF24'},{k:'mon',l:'Ongoing Monitoring',s:'Continuous',c:SUB}].map(cat=>{if(!recs[cat.k]?.length)return null;return(<div key={cat.k} style={{padding:14,background:CARD,border:`1px solid ${BORDER}`,borderRadius:10}}>
-            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
-              <div style={{fontSize:13,fontWeight:700,color:cat.c}}>{cat.l}</div>
-              <span style={{fontSize:9,color:DIM,fontFamily:"'DM Mono'"}}>{cat.s}</span>
+          {[{k:'imm',l:'Immediate Actions',s:'Address within 48 hours',c:'#EF4444'},{k:'eng',l:'Engineering Controls',s:'1–4 weeks',c:ACCENT},{k:'adm',l:'Administrative Controls',s:'1–3 months',c:'#FBBF24'},{k:'mon',l:'Ongoing Monitoring',s:'Continuous',c:SUB}].map(cat=>{if(!recs[cat.k]?.length)return null;const knownZones=(zones||[]).map(z=>z.zn).filter(Boolean);return(<div key={cat.k} style={{padding:14,background:CARD,border:`1px solid ${BORDER}`,borderRadius:10}}>
+            {/* ── Canonical two-up: TIER + TIMEFRAME ── */}
+            <div style={{display:'grid',gridTemplateColumns:'1fr auto',gap:12,marginBottom:14,alignItems:'flex-start'}}>
+              <div>
+                <div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Tier</div>
+                <div style={{color:cat.c,fontWeight:600,fontSize:14,lineHeight:1.4}}>{cat.l}</div>
+              </div>
+              <div>
+                <div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Timeframe</div>
+                <div style={{color:SUB,fontWeight:500,fontSize:13,lineHeight:1.4}}>{cat.s}</div>
+              </div>
             </div>
-            {recs[cat.k].map((r,i)=><div key={i} style={{fontSize:12,color:SUB,lineHeight:1.7,marginBottom:6,paddingLeft:12,borderLeft:`2px solid ${cat.c}25`}}>{r}</div>)}
+            {/* ── Per-rec: optional zone (plain bold white) + body (SUB regular) ── */}
+            {recs[cat.k].map((r,i)=>{const colonIdx=r.indexOf(': ');const zone=(colonIdx>0&&knownZones.includes(r.slice(0,colonIdx)))?r.slice(0,colonIdx):null;const body=zone?r.slice(colonIdx+2):r;return(
+              <div key={i} style={{marginBottom: i < recs[cat.k].length - 1 ? 12 : 0}}>
+                {zone && <div style={{color:TEXT,fontWeight:600,fontSize:13,lineHeight:1.4,marginBottom:3}}>{zone}</div>}
+                <div style={{color:SUB,fontSize:13,lineHeight:1.6}}>{body}</div>
+              </div>
+            )})}
           </div>)})}
           <div style={{display:'flex',gap:10,marginTop:8}}>
             <button onClick={()=>handleExport('pdf')} style={{flex:1,padding:'14px 20px',background:`${ACCENT}12`,border:`1px solid ${ACCENT}30`,borderRadius:12,color:ACCENT,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:48,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="download" s={16} c={ACCENT} /> PDF</button>
