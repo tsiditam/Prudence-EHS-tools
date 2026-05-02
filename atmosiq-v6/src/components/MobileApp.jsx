@@ -824,17 +824,28 @@ export default function MobileApp() {
               )})}
             </div>
           )})}
-          {userMode !== 'fm' && oshaResult?.flag&&<div style={{padding:16,background:'#EF444412',border:`1px solid #EF444428`,borderRadius:14}}><div style={{display:'flex',alignItems:'center',gap:6,marginBottom:4}}><div style={{fontSize:13,fontWeight:700,color:'#EF4444'}}>⚠ OSHA-Relevant Conditions</div></div><div style={{fontSize:10,color:DIM,marginBottom:10,lineHeight:1.5}}>These items may warrant OSHA-related review and are not a determination of citation or violation.</div>{oshaResult.fl.map((f,i)=><div key={i} style={{fontSize:14,color:'#E2E8F0',lineHeight:1.6,paddingLeft:12,borderLeft:'2px solid #EF444435',marginBottom:6}}>{f}</div>)}</div>}
-          {oshaResult?.gaps?.length>0&&<div style={{padding:16,background:'#FBBF2410',border:`1px solid #FBBF2428`,borderRadius:14}}><div style={{fontSize:13,fontWeight:700,color:'#FBBF24',marginBottom:8}}>Data Gaps</div>{oshaResult.gaps.map((g,i)=><div key={i} style={{fontSize:14,color:'#D1D5DB',marginBottom:6}}>• {g}</div>)}</div>}
+          {userMode !== 'fm' && oshaResult?.flag&&<div style={{padding:16,background:'#EF444412',border:`1px solid #EF444428`,borderRadius:10}}>
+            <div style={{fontSize:13,fontWeight:700,color:'#EF4444',marginBottom:6}}>OSHA-Relevant Conditions</div>
+            <div style={{fontSize:11,color:DIM,marginBottom:12,lineHeight:1.5}}>These items may warrant OSHA-related review and are not a determination of citation or violation.</div>
+            {oshaResult.fl.map((f,i)=><div key={i} style={{fontSize:13,color:SUB,lineHeight:1.6,marginBottom:i<oshaResult.fl.length-1?6:0}}>{f}</div>)}
+          </div>}
+          {oshaResult?.gaps?.length>0&&<div style={{padding:16,background:'#FBBF2410',border:`1px solid #FBBF2428`,borderRadius:10}}>
+            <div style={{fontSize:13,fontWeight:700,color:'#FBBF24',marginBottom:10}}>Data Gaps</div>
+            {oshaResult.gaps.map((g,i)=><div key={i} style={{fontSize:13,color:SUB,lineHeight:1.6,marginBottom:i<oshaResult.gaps.length-1?6:0}}>{g}</div>)}
+          </div>}
           {/* Mold Findings — parallel panel, not in composite */}
-          {moldResults.length>0&&<div style={{padding:16,background:`${ACCENT}06`,border:`1px solid ${ACCENT}18`,borderLeft:`3px solid ${ACCENT}40`,borderRadius:14,marginTop:10}}>
-            <div style={{fontSize:11,fontWeight:700,color:TEXT,marginBottom:2}}>Mold Findings — Parallel Assessment</div>
-            <div style={{fontSize:9,color:DIM,marginBottom:10}}>Not included in composite score. Drives IICRC S520 Conditions assessment.</div>
-            {moldResults.map((m,i)=><div key={i} style={{fontSize:12,color:SUB,marginBottom:6,paddingLeft:10,borderLeft:`2px solid ${m.condition>=3?DANGER:m.condition>=2?WARN:DIM}30`}}>
-              <span style={{fontWeight:600,color:m.condition>=3?DANGER:m.condition>=2?WARN:SUB}}>{m.label}</span>
-              <span style={{color:DIM}}> — {m.visual}</span>
-              {m.investigationTriggered&&<span style={{fontSize:9,color:WARN,marginLeft:6}}>Investigation triggered</span>}
-            </div>)}
+          {moldResults.length>0&&<div style={{padding:16,background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,marginTop:10}}>
+            <div style={{fontSize:14,fontWeight:600,color:TEXT,marginBottom:3}}>Mold Findings</div>
+            <div style={{fontSize:11,color:DIM,marginBottom:12,lineHeight:1.5}}>Parallel assessment — not included in composite score. Drives IICRC S520 Conditions assessment.</div>
+            {moldResults.map((m,i)=>{const moldColor=m.condition>=3?DANGER:m.condition>=2?WARN:SUB;return(
+              <div key={i} style={{marginBottom:i<moldResults.length-1?12:0}}>
+                <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:3,flexWrap:'wrap'}}>
+                  <div style={{color:moldColor,fontWeight:700,fontSize:13,lineHeight:1.4}}>{m.label}</div>
+                  {m.investigationTriggered&&<span style={{padding:'2px 8px',background:`${WARN}15`,border:`1px solid ${WARN}30`,borderRadius:4,fontSize:10,fontWeight:700,color:WARN,letterSpacing:'0.3px'}}>Investigation triggered</span>}
+                </div>
+                <div style={{color:SUB,fontSize:13,lineHeight:1.6}}>{m.visual}</div>
+              </div>
+            )})}
           </div>}
           {/* Standards Used — collapsible */}
           {(() => {
@@ -842,15 +853,15 @@ export default function MobileApp() {
             return (
               <details style={{marginTop:10}}>
                 <summary style={{fontSize:11,fontWeight:600,color:DIM,cursor:'pointer',padding:'10px 0',listStyle:'none',display:'flex',alignItems:'center',gap:6}}>
-                  <span style={{fontSize:8,color:DIM}}>▶</span> Standards Reference · Engine v{manifest.engineVersion || '1.x'}
+                  <span style={{fontSize:8,color:DIM}}>▶</span> Standards reference · Engine v{manifest.engineVersion || '1.x'}
                 </summary>
                 <div style={{padding:12,background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:10,marginTop:4}}>
                   {Object.entries(manifest).filter(([k]) => k !== 'engineVersion' && k !== 'manifestUpdated').map(([k, v]) => (
-                    <div key={k} style={{display:'flex',justifyContent:'space-between',fontSize:10,color:SUB,marginBottom:4}}>
-                      <span>{k}</span><span style={{color:TEXT,fontFamily:"'DM Mono'"}}>{v}</span>
+                    <div key={k} style={{display:'flex',justifyContent:'space-between',fontSize:11,color:SUB,marginBottom:4,gap:12}}>
+                      <span style={{color:DIM}}>{k}</span><span style={{color:SUB,fontWeight:500}}>{v}</span>
                     </div>
                   ))}
-                  <div style={{fontSize:9,color:DIM,marginTop:6,borderTop:`1px solid ${BORDER}`,paddingTop:6}}>Manifest updated: {manifest.manifestUpdated || 'N/A'}</div>
+                  <div style={{fontSize:10,color:DIM,marginTop:6,borderTop:`1px solid ${BORDER}`,paddingTop:6}}>Manifest updated: {manifest.manifestUpdated || 'N/A'}</div>
                 </div>
               </details>
             )
@@ -923,7 +934,7 @@ export default function MobileApp() {
                 <div style={{color:DIM,fontSize:12,lineHeight:1.5}}>{p.standard}</div>
               </div>}
             </div>
-          )})}{samplingPlan.outdoorGaps?.length>0&&<div style={{padding:16,background:'#FBBF2410',border:`1px solid #FBBF2428`,borderRadius:10}}><div style={{fontSize:13,fontWeight:700,color:'#FBBF24',marginBottom:10}}>Outdoor Control Gaps</div>{samplingPlan.outdoorGaps.map((g,i)=><div key={i} style={{fontSize:14,color:'#D1D5DB',lineHeight:1.6,marginBottom:6}}>• {g}</div>)}</div>}</>}
+          )})}{samplingPlan.outdoorGaps?.length>0&&<div style={{padding:16,background:'#FBBF2410',border:`1px solid #FBBF2428`,borderRadius:10}}><div style={{fontSize:13,fontWeight:700,color:'#FBBF24',marginBottom:10}}>Outdoor Control Gaps</div>{samplingPlan.outdoorGaps.map((g,i)=><div key={i} style={{fontSize:13,color:SUB,lineHeight:1.6,marginBottom:i<samplingPlan.outdoorGaps.length-1?6:0}}>{g}</div>)}</div>}</>}
         </div>}
 
         {rTab==='narrative'&&<div>
@@ -937,14 +948,14 @@ export default function MobileApp() {
           </div>}
           {narrativeLoading&&<div style={{padding:44,textAlign:'center',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10}}><div style={{width:36,height:36,margin:'0 auto 14px',borderRadius:'50%',border:'2px solid transparent',borderTopColor:ACCENT,animation:'spin 1s linear infinite'}} /><div style={{fontSize:12,color:SUB}}>Generating narrative from assessment data...</div></div>}
           {narrative&&<div style={{padding:18,background:CARD,border:`1px solid ${BORDER}`,borderRadius:10}}>
-            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
-              <div style={{fontSize:12,fontWeight:600,color:TEXT}}>Findings Narrative</div>
-              <span style={{fontSize:9,color:DIM,fontFamily:"'DM Mono'"}}>AI-generated · Review required</span>
+            <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',gap:12,marginBottom:12,flexWrap:'wrap'}}>
+              <div style={{fontSize:14,fontWeight:600,color:TEXT}}>Findings Narrative</div>
+              <span style={{fontSize:11,color:DIM,fontWeight:500}}>AI-generated · Review required</span>
             </div>
             <div style={{fontSize:13,color:SUB,lineHeight:1.8,whiteSpace:'pre-wrap'}}>{narrative}</div>
-            <div style={{marginTop:14,padding:'10px 12px',background:`${WARN}08`,border:`1px solid ${WARN}18`,borderRadius:8}}>
-              <div style={{fontSize:10,color:WARN,fontWeight:600}}>Professional review required</div>
-              <div style={{fontSize:10,color:DIM,marginTop:3,lineHeight:1.5}}>This narrative was generated from deterministic scoring output. Review, edit, and approve before including in any client deliverable or report.</div>
+            <div style={{marginTop:14,padding:'10px 12px',background:`${WARN}08`,border:`1px solid ${WARN}18`,borderRadius:10}}>
+              <div style={{fontSize:11,color:WARN,fontWeight:600,marginBottom:3}}>Professional review required</div>
+              <div style={{fontSize:11,color:DIM,lineHeight:1.5}}>This narrative was generated from deterministic scoring output. Review, edit, and approve before including in any client deliverable or report.</div>
             </div>
           </div>}
         </div>}
