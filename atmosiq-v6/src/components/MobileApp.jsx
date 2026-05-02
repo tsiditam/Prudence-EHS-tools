@@ -791,29 +791,35 @@ export default function MobileApp() {
                 </div>
               )
             }
-            const pct=Math.round((cat.s/cat.mx)*100);const bc=pct>=80?'#22C55E':pct>=60?'#FBBF24':pct>=40?'#FB923C':'#EF4444';const pctLabel=pct>=80?'Within range':pct>=60?'Moderate concern':pct>=40?'Significant concern':'Critical concern';const fmLabel=pct>=70?'Pass':pct>=40?'Needs attention':'Action needed';const fmColor=pct>=70?'#22C55E':pct>=40?'#FBBF24':'#EF4444';return(
+            const pct=Math.round((cat.s/cat.mx)*100);const bc=pct>=80?'#22C55E':pct>=60?'#FBBF24':pct>=40?'#FB923C':'#EF4444';const pctLabel=pct>=80?'Within range':pct>=60?'Moderate concern':pct>=40?'Significant concern':'Critical concern';const fmLabel=pct>=70?'Pass':pct>=40?'Needs attention':'Action needed';const fmColor=pct>=70?'#22C55E':pct>=40?'#FBBF24':'#EF4444';const findings=cat.r.filter(r => !(r.sev === 'pass' && pct < 70));return(
             <div key={cat.l} style={{padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10}}>
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
-                <span style={{fontSize:14,fontWeight:600,color:TEXT}}>{cat.l}</span>
-                {userMode === 'fm' ? (
-                  <span style={{padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:700,background:`${fmColor}15`,color:fmColor}}>{cat.s===null?'No data':fmLabel}</span>
-                ) : (
-                  <div style={{display:'flex',alignItems:'baseline',gap:2}}>
-                    <span style={{fontSize:16,fontWeight:800,fontFamily:"'DM Mono'",color:bc}}>{cat.s}</span>
-                    <span style={{fontSize:10,color:DIM,fontFamily:"'DM Mono'"}}>/{cat.mx}</span>
-                  </div>
-                )}
-              </div>
-              {userMode !== 'fm' && <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
-                <div style={{flex:1,height:3,background:BORDER,borderRadius:2,overflow:'hidden'}}>
-                  <div style={{height:'100%',width:`${pct}%`,background:bc,borderRadius:2,transition:'width .8s ease'}} />
+              {/* ── Canonical two-up label/value header (matches Expert Summary grammar) ── */}
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:userMode==='fm'?12:10}}>
+                <div>
+                  <div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Category</div>
+                  <div style={{color:TEXT,fontWeight:600,fontSize:14,lineHeight:1.4}}>{cat.l}</div>
                 </div>
-                <span style={{fontSize:9,color:bc,fontWeight:600,flexShrink:0}}>{pctLabel}</span>
+                <div>
+                  <div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Score</div>
+                  {userMode === 'fm' ? (
+                    <span style={{padding:'3px 10px',borderRadius:6,fontSize:11,fontWeight:700,background:`${fmColor}15`,color:fmColor}}>{cat.s===null?'No data':fmLabel}</span>
+                  ) : (
+                    <div style={{lineHeight:1.4,fontSize:13}}>
+                      <span style={{color:bc,fontWeight:700}}>{cat.s}/{cat.mx}</span>
+                      <span style={{color:DIM,fontWeight:500}}> · {pctLabel}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+              {userMode !== 'fm' && <div style={{height:3,background:BORDER,borderRadius:2,overflow:'hidden',marginBottom:14}}>
+                <div style={{height:'100%',width:`${pct}%`,background:bc,borderRadius:2,transition:'width .8s ease'}} />
               </div>}
-              {cat.r.filter(r => !(r.sev === 'pass' && pct < 70)).map((r,i)=>{const s=sv(r.sev);return(
-                <div key={i} style={{display:'flex',gap:8,alignItems:'flex-start',marginBottom:6,fontSize:13,lineHeight:1.6}}>
-                  <span style={{padding:'2px 8px',borderRadius:4,fontSize:9,fontWeight:700,fontFamily:"'DM Mono'",background:s.bg,color:s.c,flexShrink:0,marginTop:3}}>{s.l}</span>
-                  <span style={{color:SUB}}>{r.t}{r.std?<span style={{color:DIM,fontSize:11}}> ({r.std})</span>:null}</span>
+              {findings.map((r,i)=>{const s=sv(r.sev);const sevLabel=r.sev.charAt(0).toUpperCase()+r.sev.slice(1);return(
+                <div key={i} style={{marginBottom: i < findings.length - 1 ? 14 : 0}}>
+                  <div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Severity</div>
+                  <div style={{color:s.c,fontWeight:700,fontSize:13,lineHeight:1.4,marginBottom:6}}>{sevLabel}</div>
+                  <div style={{color:SUB,fontSize:13,lineHeight:1.6}}>{r.t}</div>
+                  {r.std && <div style={{color:DIM,fontSize:12,marginTop:4,lineHeight:1.5}}>{r.std}</div>}
                 </div>
               )})}
             </div>
