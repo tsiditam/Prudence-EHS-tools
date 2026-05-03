@@ -54,7 +54,14 @@ export function evaluateRefusalTriggers(score: AssessmentScore): RefusalTrigger[
   // 4. Calibration-absence trigger
   triggers.push({
     id: 'calibration_absence',
-    description: 'No referenced instrument has a documented calibration record.',
+    // Description doubles as the "Identified Data Gaps" line and the
+    // "Reasons for Memo" line in the rendered memo. Append the fix
+    // location so an assessor reading either surface knows exactly
+    // where to enter the missing record. The gate (legacy.ts:654)
+    // reads ps_inst_iaq_cal / ps_inst_iaq_cal_status from the
+    // assessment's presurvey snapshot — not the live profile —
+    // because that snapshot is what gets archived with the report.
+    description: 'No referenced instrument has a documented calibration record. Add it to this assessment under Pre-Survey → Instruments → "Last factory/field calibration date" or "Calibration status." Updates to your profile only flow into new assessments started after the change.',
     fired: !score.defensibilityFlags.hasCalibrationRecords,
   })
 
