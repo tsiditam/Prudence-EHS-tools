@@ -7,6 +7,7 @@
  */
 
 import STO from './storage'
+import { APP_VERSION } from '../version'
 
 const TRASH_KEY = 'atmosiq-trash'
 const TRASH_TTL_DAYS = 30
@@ -17,7 +18,7 @@ const Backup = {
   async exportAll() {
     const data = {
       exportedAt: new Date().toISOString(),
-      version: '6.0.0-beta',
+      version: APP_VERSION,
       platform: 'atmosiq',
     }
 

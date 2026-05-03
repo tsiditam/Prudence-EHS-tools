@@ -6,6 +6,15 @@
 // ── Zone & Measurement Data ──
 
 export interface ZoneData {
+  // Stable per-assessment identifier. Auto-assigned on first save when
+  // absent so HvacEquipment.servedZoneIds can reference zones across
+  // renames. Existing drafts are migrated lazily (see migrateZoneIds).
+  zid?: string
+  // IDs of HvacEquipment units serving this zone. Empty array (or
+  // missing) means equipment is unmapped — the engine emits a
+  // building-scoped fallback action prefixed "HVAC equipment not yet
+  // identified —" rather than a duplicated per-zone action.
+  servingEquipmentIds?: string[]
   zn?: string
   su?: string
   sf?: string
@@ -169,14 +178,54 @@ export interface SufficiencyResult {
   reason: string | null
 }
 
-// ── Report Types ──
+// ── HVAC Equipment ──
+
+export type HvacEquipmentType =
+  | 'AHU' | 'RTU' | 'FCU' | 'VRF_INDOOR' | 'ERV' | 'MAU' | 'DOAS' | 'OTHER'
+
+export interface HvacEquipment {
+  id: string
+  label: string
+  type: HvacEquipmentType
+  servedZoneIds: string[]
+  location?: string
+  lastServiceDate?: string
+  filterClass?: string
+  notes?: string
+}
+
+// ── Recommendations / Actions ──
+
+export type ActionScope = 'zone' | 'equipment' | 'building'
+
+export interface RecommendationAction {
+  // Scope is declared on the rule, not inferred at runtime. Engine is
+  // deterministic — a rule that emits an equipment-scoped action will
+  // always emit equipment-scoped (or fall back to building-scoped if
+  // the zone has no equipment mapped).
+  scope: ActionScope
+  text: string
+  affectedZoneIds: string[]
+  // Display-only zone labels resolved at scoring time so renderers
+  // never have to re-resolve from the zones array.
+  affectedZoneNames?: string[]
+  // Required when scope === 'equipment'.
+  equipmentId?: string
+  equipmentLabel?: string
+  // Set for scope === 'zone'; redundant with affectedZoneIds[0] but
+  // explicit for renderers.
+  zoneId?: string
+  zoneName?: string
+}
 
 export interface Recommendations {
-  imm: string[]
-  eng: string[]
-  adm: string[]
-  mon: string[]
+  imm: RecommendationAction[]
+  eng: RecommendationAction[]
+  adm: RecommendationAction[]
+  mon: RecommendationAction[]
 }
+
+// ── Report Types ──
 
 export interface SamplingPlanEntry {
   zone: string
@@ -231,6 +280,10 @@ export interface Report {
   presurvey: PresurveyData
   building: BuildingData
   zones: ZoneData[]
+  // HVAC equipment captured during the walkthrough. Empty when an
+  // assessment was completed before equipment capture existed —
+  // renderers must handle the empty case (legacy reports).
+  equipment?: HvacEquipment[]
   photos: Record<string, PhotoEntry[]>
   floorPlan?: string | null
   zoneScores: ZoneScore[]

@@ -1,10 +1,17 @@
 /**
  * AtmosFlow DOCX Report — Sampling Plan, Recommendations, Limitations
+ *
+ * Engine v2.8.0 — recs are now RecommendationAction[] objects per
+ * bucket (with scope/equipmentId/affectedZoneIds metadata). Legacy
+ * reports stored pre-2.8 still hold string[] in localStorage; the
+ * normalizeAction helper coerces both to a uniform shape so the
+ * Recommendations Register table can be built without branching.
  */
 
 import { Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx'
 import { FONTS, COLORS, SEV_COLORS } from './styles'
 import { buildTable } from './tables'
+import { normalizeAction, actionLocationLabel } from '../../utils/recFormatting'
 
 const p = (text, opts = {}) => new Paragraph({
   children: [new TextRun({ text, font: FONTS.body, size: opts.size || 22, color: opts.color || COLORS.body, bold: opts.bold, italics: opts.italics })],
@@ -55,6 +62,44 @@ export function buildSamplingPlan(ctx) {
   return children
 }
 
+/**
+ * Parse a legacy genRecs() string into a structured location +
+ * action pair. genRecs prefixes most zone-scoped recommendations
+ * with "ZoneName: action text"; building-scoped recs (HVAC requests)
+ * have no prefix. Returns { location, action } for the renderer.
+ *
+ * Engine v2.7 Fix 3 — location field on Recommendation. Every
+ * Immediate-priority recommendation must populate at least one of
+ * zone / system / surface_or_asset / free_text. The legacy renderer
+ * derives location by parsing the prefixed string; the v2.x bridge
+ * (src/engine/bridge/legacy.ts) propagates location structurally
+ * onto RecommendedAction objects.
+ */
+export function parseRecLocation(text) {
+  if (!text || typeof text !== 'string') return { location: 'Building-wide', action: text || '' }
+  const m = text.match(/^([^:]{2,80}):\s+(.+)$/s)
+  if (m) {
+    const zone = m[1].trim()
+    // Skip the prefix-extraction when the colon is part of an
+    // abbreviation rather than a zone label (e.g. "29 CFR 1910.1048:
+    // implement controls"). Citation-shaped pattern is "digits +
+    // whitespace + uppercase abbrev" (matches "29 CFR", rejects
+    // "3rd Floor East" because there's no whitespace after the digit).
+    // All-caps prefix (≥3 chars) is also treated as a citation.
+    const looksLikeCitation = /^\d+\s+[A-Z]{2,}/.test(zone) || /^[A-Z0-9 ]{3,}$/.test(zone)
+    if (looksLikeCitation) {
+      return { location: 'Building-wide', action: text }
+    }
+    return { location: zone, action: m[2].trim() }
+  }
+  // Building-scoped recommendation (no zone prefix). HVAC service
+  // requests and similar fall here.
+  if (/HVAC|filtration|ventilation|outdoor air|damper/i.test(text)) {
+    return { location: 'HVAC system', action: text }
+  }
+  return { location: 'Building-wide', action: text }
+}
+
 export function buildRecommendations(ctx) {
   if (!ctx.recs) return []
 
@@ -62,17 +107,35 @@ export function buildRecommendations(ctx) {
     p('Recommendations Register', { heading: HeadingLevel.HEADING_2 }),
   ]
 
+  // v2.8.0 — derive zone names from the assessment so that legacy
+  // string-shaped recs only treat known prefixes as zone labels.
+  const knownZoneNames = (ctx.zones || []).map(z => z?.zn).filter(Boolean)
   const allRecs = []
   let idx = 0
   const add = (list, priority, category, timing, color) => {
     ;(list || []).forEach(r => {
       idx++
+      const a = normalizeAction(r, knownZoneNames)
+      const location = actionLocationLabel(a)
+      // For equipment-scoped actions, append the affected-zone list
+      // to the action text so a flat-table renderer still surfaces
+      // the cross-zone scope without losing the metadata.
+      const actionText = a.scope === 'equipment' && a.affectedZoneNames?.length
+        ? `${a.text} (Affects: ${a.affectedZoneNames.join(', ')})`
+        : a.text
       allRecs.push([
         { text: `R-${String(idx).padStart(2, '0')}`, mono: true, size: 18, color: COLORS.muted },
         { text: priority.toUpperCase(), bold: true, color, size: 16 },
         { text: category, size: 18, color: COLORS.sub },
-        r,
+        actionText,
+        { text: location, size: 18, color: COLORS.sub, italics: true },
         { text: timing, mono: true, size: 18, color: COLORS.muted },
+        // Owner / Due / Completion intentionally empty —
+        // recipients fill them in. Column structure preserved in
+        // both DOCX and PDF outputs.
+        { text: '', size: 18, color: COLORS.muted },
+        { text: '', size: 18, color: COLORS.muted },
+        { text: '', size: 18, color: COLORS.muted },
       ])
     })
   }
@@ -84,7 +147,17 @@ export function buildRecommendations(ctx) {
 
   if (allRecs.length > 0) {
     children.push(buildTable(
-      [{ text: '#', width: 8 }, { text: 'Priority', width: 12 }, { text: 'Category', width: 14 }, { text: 'Recommendation', width: 48 }, { text: 'Timing', width: 18 }],
+      [
+        { text: '#', width: 5 },
+        { text: 'Priority', width: 9 },
+        { text: 'Category', width: 11 },
+        { text: 'Recommendation', width: 26 },
+        { text: 'Location', width: 14 },
+        { text: 'Timing', width: 11 },
+        { text: 'Owner', width: 8 },
+        { text: 'Due', width: 8 },
+        { text: 'Completion', width: 8 },
+      ],
       allRecs
     ))
   }

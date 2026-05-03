@@ -111,11 +111,34 @@ export interface InstrumentAccuracyOutcome {
 
 // ── Recommended Actions ──
 
+/**
+ * Location of a recommended action — at least one of these fields
+ * must be populated for any Immediate-priority recommendation. A
+ * property manager handed an Immediate action must be able to
+ * dispatch a contractor without rereading the body of the report;
+ * "Arrest active water intrusion" is an instruction, "Conference
+ * Room B — ceiling NE corner (suspected roof or above-ceiling source)"
+ * is a work order.
+ */
+export interface RecommendationLocation {
+  readonly zone_id?: string | null
+  readonly system?: string | null
+  readonly surface_or_asset?: string | null
+  readonly free_text?: string | null
+}
+
 export interface RecommendedAction {
   readonly priority: 'immediate' | 'short_term' | 'further_evaluation' | 'long_term'
   readonly timeframe: string
   readonly action: string
   readonly standardReference?: string
+  /**
+   * Where the work happens. Inherited from the parent finding's
+   * zoneId by the bridge in legacy.ts. For Immediate-priority
+   * recommendations this MUST have at least one populated field —
+   * see tests/engine/recommendation-location.test.ts.
+   */
+  readonly location?: RecommendationLocation
 }
 
 // ── Phrase Library ──

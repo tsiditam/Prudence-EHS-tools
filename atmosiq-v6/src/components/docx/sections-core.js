@@ -7,6 +7,7 @@ import { Paragraph, TextRun, HeadingLevel, AlignmentType, SectionType, PageBreak
 import { FONTS, COLORS, SEV_COLORS, scoreColor, riskLabel } from './styles'
 import { buildTable, kvTable, borderlessLayoutTable, dataCell, headerCell } from './tables'
 import { base64ToUint8Array } from './images'
+import { inferCitationsFromContext, filterManifestByRegistration } from '../../engine/report/citation-tracker'
 import { LETTER_BODY_PAGE } from './page-setup'
 
 const p = (text, opts = {}) => new Paragraph({
@@ -105,8 +106,9 @@ export function buildExecutiveSummary(ctx) {
         : `Conditions observed during the assessment window indicate significant indoor air quality concerns that would warrant prioritized remediation. The composite score of ${ctx.comp.tot}/100 reflects deficiencies across multiple evaluation categories${worstCat ? `, with ${worstCat.l} (${worstCat.s}/${worstCat.mx}) representing the most acute concern` : ''}.`
 
     const immRecs = ctx.recs?.imm || []
+    const immText = (r) => (typeof r === 'string') ? r : (r?.text || '')
     const p3 = immRecs.length > 0
-      ? `Priority actions include: ${immRecs.slice(0, 3).join('; ')}. Additional engineering and administrative recommendations are detailed in the Recommendations Register.`
+      ? `Priority actions include: ${immRecs.slice(0, 3).map(immText).join('; ')}. Additional engineering and administrative recommendations are detailed in the Recommendations Register.`
       : 'Recommended next steps are detailed in the Recommendations Register and Sampling Plan sections of this report.'
 
     children.push(p(p1, { size: 22, color: COLORS.sub }))
@@ -114,12 +116,25 @@ export function buildExecutiveSummary(ctx) {
     children.push(p(p3, { size: 22, color: COLORS.sub }))
   }
 
-  // Priority actions — omit header entirely if no actions
+  // Priority actions — omit header entirely if no actions.
+  // v2.8.0 — recs are RecommendationAction objects; render the
+  // equipment label or zone name inline so the executive summary
+  // table doesn't lose location context when scope is equipment.
   if (ctx.recs) {
     const rows = []
-    ;(ctx.recs.imm || []).forEach(r => rows.push([{ text: 'IMMEDIATE', bold: true, color: SEV_COLORS.critical, size: 18 }, r]))
-    ;(ctx.recs.eng || []).slice(0, 3).forEach(r => rows.push([{ text: 'ENGINEERING', bold: true, color: COLORS.accent, size: 18 }, r]))
-    ;(ctx.recs.adm || []).slice(0, 2).forEach(r => rows.push([{ text: 'ADMINISTRATIVE', bold: true, color: SEV_COLORS.medium, size: 18 }, r]))
+    const renderActionCell = (r) => {
+      if (typeof r === 'string') return r
+      if (!r) return ''
+      if (r.scope === 'equipment') {
+        const affects = r.affectedZoneNames?.length ? ` (Affects: ${r.affectedZoneNames.join(', ')})` : ''
+        return `${r.equipmentLabel || r.equipmentId || 'Equipment'}: ${r.text}${affects}`
+      }
+      if (r.scope === 'zone') return `${r.zoneName || r.zoneId || ''}: ${r.text}`
+      return r.text || ''
+    }
+    ;(ctx.recs.imm || []).forEach(r => rows.push([{ text: 'IMMEDIATE', bold: true, color: SEV_COLORS.critical, size: 18 }, renderActionCell(r)]))
+    ;(ctx.recs.eng || []).slice(0, 3).forEach(r => rows.push([{ text: 'ENGINEERING', bold: true, color: COLORS.accent, size: 18 }, renderActionCell(r)]))
+    ;(ctx.recs.adm || []).slice(0, 2).forEach(r => rows.push([{ text: 'ADMINISTRATIVE', bold: true, color: SEV_COLORS.medium, size: 18 }, renderActionCell(r)]))
     if (rows.length > 0) {
       children.push(p('Priority Actions', { heading: HeadingLevel.HEADING_3 }))
       children.push(buildTable([{ text: 'Priority', width: 20 }, { text: 'Action', width: 80 }], rows))
@@ -146,8 +161,33 @@ export function buildScopeMethodology(ctx) {
   ))
 
   children.push(p('Standards and References', { heading: HeadingLevel.HEADING_3 }))
-  const stdsText = ctx.standardsManifest ? Object.entries(ctx.standardsManifest).filter(([k]) => k !== 'engineVersion' && k !== 'manifestUpdated').map(([k, v]) => `${k} (${v})`).join(', ') : 'ASHRAE 62.1, ASHRAE 55, OSHA PELs, EPA NAAQS, WHO Air Quality Guidelines'
-  children.push(p(stdsText + '.', { size: 20, color: COLORS.sub }))
+  // v2.7 Fix 1: filter the bibliography by what is actually cited in
+  // body text. The CitationTracker (src/engine/report/citation-tracker.ts)
+  // walks ctx, infers which standards are referenced, and partitions
+  // the manifest into in-body vs future-method-only (sampling plan).
+  if (ctx.standardsManifest) {
+    const registration = inferCitationsFromContext(ctx)
+    const { bodyManifest, futureMethodManifest } = filterManifestByRegistration(ctx.standardsManifest, registration)
+    const bodyEntries = Object.entries(bodyManifest)
+    if (bodyEntries.length > 0) {
+      const bodyText = bodyEntries.map(([k, v]) => `${k} (${v})`).join(', ')
+      children.push(p(bodyText + '.', { size: 20, color: COLORS.sub }))
+    } else {
+      // Defensive fallback — should not occur in practice. If it does,
+      // we surface a transparent note rather than dumping every
+      // standard in the database.
+      children.push(p('No standards were referenced in the body of this report.', { size: 20, color: COLORS.sub, italics: true }))
+    }
+    const futureEntries = Object.entries(futureMethodManifest)
+    if (futureEntries.length > 0) {
+      children.push(p('Future-method references (sampling plan recommendations only)', { heading: HeadingLevel.HEADING_3 }))
+      children.push(p('The following standards are referenced in recommended future sampling work and are listed for the recipient\'s convenience. They were not invoked in the body findings of this report.', { size: 18, color: COLORS.muted, italics: true, after: 80 }))
+      const futureText = futureEntries.map(([k, v]) => `${k} (${v})`).join(', ')
+      children.push(p(futureText + '.', { size: 20, color: COLORS.sub }))
+    }
+  } else {
+    children.push(p('ASHRAE 62.1, ASHRAE 55, OSHA PELs, EPA NAAQS, WHO Air Quality Guidelines.', { size: 20, color: COLORS.sub }))
+  }
 
   children.push(p('Limitations', { heading: HeadingLevel.HEADING_3 }))
   children.push(p('This assessment represents conditions observed at the time of the site visit and may not reflect all temporal, seasonal, or operational variations. Findings are based on direct-reading instrumentation and visual observations. Laboratory analysis was not performed unless specifically noted.', { size: 20, color: COLORS.sub }))

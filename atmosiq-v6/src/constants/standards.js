@@ -10,6 +10,28 @@
  * Contact: tsidi@prudenceehs.com
  */
 
+import { ENGINE_VERSION, STANDARDS_MANIFEST_DATE } from '../version'
+
+// ─── Citation verification policy ────────────────────────────────────
+// Journal entries must be verified against primary sources before
+// adding. Required fields: author(s), year, exact title, journal,
+// volume, issue, page range. If any field cannot be verified from a
+// primary source, flag with a TODO comment in the parameter-prose
+// file and exclude from generated reports until corrected. Standards
+// documents (ASHRAE, OSHA, EPA, WHO, ISO, IEEE, NFPA, NIOSH) follow
+// looser citation conventions: source name + edition/year is
+// sufficient since the documents are cataloged by issuing body.
+//
+// Specific points of confusion to avoid:
+//   • Persily 2021 ASHRAE Journal article ("Don't Blame Standard 62.1
+//     for 1000 ppm CO₂", 63(2): 74–75) is a DIFFERENT document from
+//     the 2022 ASHRAE Position Document on Indoor Carbon Dioxide.
+//     Cite separately if both are referenced.
+//   • Mølhave 1991 paper title is "Volatile organic compounds, indoor
+//     air quality and health" (lowercase per Indoor Air style).
+//   • Chen & Zhao 2011 paper is in Atmospheric Environment, not
+//     Building and Environment.
+
 export const STANDARDS_MANIFEST = {
   'ASHRAE 62.1': '2025',
   'ASHRAE 55': '2023',
@@ -24,8 +46,8 @@ export const STANDARDS_MANIFEST = {
   'ASHRAE TC 9.9': '2011',
   'IEEE 1635 / ASHRAE Guideline 21': 'current',
   'NFPA 855': '2026',
-  engineVersion: '2.3',
-  manifestUpdated: '2026-04-25',
+  engineVersion: ENGINE_VERSION,
+  manifestUpdated: STANDARDS_MANIFEST_DATE,
 }
 
 export const STD = {
@@ -67,7 +89,7 @@ export const STD = {
   },
 }
 
-export const VER = '6.0.0-beta (Engine v2.3)'
+export { VER } from '../version'
 
 export const PLAT_MODULES = [
   { id: 'atmosiq',    n: 'AtmosFlow',            i: '🌬️', on: true },

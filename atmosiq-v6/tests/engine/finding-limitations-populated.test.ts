@@ -59,8 +59,12 @@ describe('v2.3 §1 — Finding.limitations populated from phrase library', () =>
         // findings render.
         if (f.severityInternal !== 'pass' && f.severityInternal !== 'info') {
           expect(f.limitations.length).toBeGreaterThan(0)
-          // Sanity: the limitations come from the phrase library
+          // Sanity: the limitations come from the phrase library, plus
+          // the canonical QUALITATIVE_LIMITATION sentinel that the
+          // bridge prepends when confidenceTier === 'qualitative_only'
+          // (see src/engine/bridge/legacy.ts:374-377).
           for (const lim of f.limitations) {
+            if (lim.startsWith('Finding derived from instrument(s) not in the manufacturer-certified')) continue
             expect(phrase.defaultLimitations).toContain(lim)
           }
           coveredAtLeastOne = true

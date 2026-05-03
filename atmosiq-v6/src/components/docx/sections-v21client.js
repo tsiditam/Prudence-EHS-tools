@@ -1151,6 +1151,7 @@ export function buildClientDocx(result, options = {}) {
     return buildMemoDocx(result.memo, result.reasons || [])
   }
   const report = result.report
+  const photos = options.photos || {}
   const cover = buildCoverPage(report.cover, report.reviewStatus, report.transmittalLetter?.projectNumber || report.meta?.projectNumber)
   const main = [
     ...buildTransmittal(report),
@@ -1192,6 +1193,12 @@ export function buildClientDocx(result, options = {}) {
 // One bad image won't abort the whole report — decode failures fall
 // back to a placeholder line so the recipient still sees that a
 // photo was here.
+//
+// v2.8.0 merge note — main's photo-rendering approach (this function,
+// called inline within buildAppendices at the prior Appendix C site)
+// supersedes the parallel buildClientPhotosAppendix that lived on the
+// equipment-dedup branch. Keeping main's path avoids double-rendering
+// and a duplicate "Appendix C" heading.
 function hasCapturedPhotos(photos) {
   if (!photos || typeof photos !== 'object') return false
   for (const k of Object.keys(photos)) {

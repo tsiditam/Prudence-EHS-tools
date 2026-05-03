@@ -15,6 +15,7 @@
 import { useMemo, useState } from 'react'
 import { legacyToAssessmentScore, deriveAssessmentMeta } from '../engine/bridge'
 import { renderInternalReport } from '../engine/report/internal'
+import { ENGINE_VERSION } from '../version'
 
 const SURFACE = '#0D0E14'
 const CARD = '#111318'
@@ -97,7 +98,7 @@ export default function V21InternalPanel({
       <span style={{
         padding: '2px 7px', borderRadius: 4, fontSize: 9, fontWeight: 700,
         background: `${ACCENT}15`, color: ACCENT, letterSpacing: '0.4px',
-      }}>v2.1 ENGINE</span>
+      }}>v{ENGINE_VERSION} ENGINE</span>
       <span style={{ fontSize: 11, color: TEXT, fontWeight: 600 }}>
         Internal report (operator dashboard)
       </span>

@@ -1,9 +1,13 @@
 /**
- * AtmosFlow Engine v2.6 — Citation Types
+ * AtmosFlow Engine — Citation Types
  * Every threshold, standard, and regulatory reference carries a Citation.
+ *
+ * ENGINE_VERSION is the tagged form (e.g. "atmosflow-engine-2.8.0") used
+ * by report metadata. It is sourced from src/version.js, the canonical
+ * version module — do not duplicate the version string here.
  */
 
-export const ENGINE_VERSION = 'atmosflow-engine-2.6.0' as const
+export { ENGINE_VERSION_TAG as ENGINE_VERSION } from '../../version.js'
 
 export interface Citation {
   readonly source: string

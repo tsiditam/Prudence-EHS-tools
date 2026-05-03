@@ -62,7 +62,9 @@ export const DEMO_BUILDING = {
 
 export const DEMO_ZONES = [
   {
+    zid: 'zone-3f-open',
     zn: '3rd Floor Open Office',
+    servingEquipmentIds: ['eq-ahu-1'],
     su: 'office',
     sf: '4200',
     oc: '35',
@@ -103,7 +105,9 @@ export const DEMO_ZONES = [
     znt: 'Ceiling tiles show water staining in NE quadrant. Musty odor intensifies near exterior wall. Supply diffusers producing weak airflow. Occupants report symptoms worse after lunch.',
   },
   {
+    zid: 'zone-conf-b',
     zn: 'Conference Room B',
+    servingEquipmentIds: ['eq-ahu-1'],
     su: 'conference',
     sf: '480',
     oc: '12',
@@ -137,5 +141,23 @@ export const DEMO_ZONES = [
     meas_duration: '15-minute average',
     meas_conditions: 'No — doors/windows open',
     znt: 'Active water intrusion from roof leak visible in NE corner. Small area of mold growth on ceiling tile and upper wall. CO2 elevated significantly during occupied meeting — room lacks dedicated OA supply.',
+  },
+]
+
+// HVAC equipment captured at the Meridian Commerce Tower walkthrough.
+// Both 3rd-floor zones in DEMO_ZONES are served by the same AHU, so
+// equipment-scoped recommendations (drain pan, filter replace, OA
+// damper, ASHRAE 188 Legionella, comprehensive HVAC inspection) emit
+// a single action labeled "AHU-1" with both zones listed under
+// "Affects:" — instead of duplicating per zone as they did pre-2.8.0.
+export const DEMO_EQUIPMENT = [
+  {
+    id: 'eq-ahu-1',
+    label: 'AHU-1',
+    type: 'AHU',
+    location: '3rd-floor mechanical room',
+    servedZoneIds: ['zone-3f-open', 'zone-conf-b'],
+    filterClass: 'MERV 11',
+    lastServiceDate: '2025-02-14',
   },
 ]
