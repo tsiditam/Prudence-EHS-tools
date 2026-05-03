@@ -18,6 +18,7 @@ export const I = ({ n, s=18, c='currentColor', w=1.8 }) => {
     flask:    <svg {...p}><path d="M9 3v6l-2 4v5a2 2 0 002 2h6a2 2 0 002-2v-5l-2-4V3"/><path d="M9 3h6"/><path d="M7 13h10"/></svg>,
     pulse:    <svg {...p}><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 12h3l1.5-3 2 6 1.5-3H19" strokeWidth="2"/></svg>,
     bolt:     <svg {...p}><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" fill={c} fillOpacity=".12"/><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>,
+    play:     <svg {...p}><path d="M8 5v14l11-7z" fill={c} fillOpacity=".15"/><path d="M8 5v14l11-7z" strokeLinejoin="round"/></svg>,
     check:    <svg {...p}><path d="M20 6L9 17l-5-5" strokeWidth="2.5"/></svg>,
     bldg:     <svg {...p}><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22V12h6v10"/><line x1="8" y1="6" x2="8" y2="6.01" strokeWidth="2.5"/></svg>,
     chart:    <svg {...p}><path d="M18 20V10M12 20V4M6 20v-6"/></svg>,
