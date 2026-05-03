@@ -166,6 +166,10 @@ export default function MobileApp() {
   const [docxPicker, setDocxPicker] = useState(false)
   const [hSearch, setHSearch] = useState('')
   const [hSort, setHSort] = useState('newest')
+  // v2.8 UI pass — Notion-style 3-dot home menu. Replaces the standalone
+  // gear icon in the Home header; Settings is now one entry inside the
+  // dropdown alongside Upgrade plan / Reports / Trash / Help & Support.
+  const [showHomeMenu, setShowHomeMenu] = useState(false)
 
   useEffect(() => { const t = setInterval(() => setClock(new Date()), 30000); return () => clearInterval(t) }, [])
 
@@ -1298,20 +1302,60 @@ export default function MobileApp() {
 
         {view==='dash'&&<div style={{paddingTop:24,paddingBottom:100,maxWidth:contentMax,margin:'0 auto'}}>
 
-          {/* ── Header: name, date, exception-only status, credits, settings ── */}
+          {/* ── Header: name, date, credits, kebab menu ── */}
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24,animation:'fadeUp .4s ease'}}>
             <div>
               <div style={{fontSize:14,fontWeight:600,color:TEXT,fontFamily:'inherit',letterSpacing:'-0.2px'}}>{profile?.name || 'Assessor'}</div>
               <div style={{fontSize:11,fontFamily:"var(--font-mono)",color:DIM,marginTop:2}}>{new Date().toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'})}</div>
             </div>
-            <div style={{display:'flex',alignItems:'center',gap:8}}>
+            <div style={{position:'relative',display:'flex',alignItems:'center',gap:8}}>
               <button onClick={()=>setShowPricing(true)} style={{padding:'6px 12px',borderRadius:8,background:SURFACE,border:`1px solid ${BORDER}`,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'baseline',gap:6,minHeight:36}}>
                 <span style={{fontSize:13,fontWeight:700,color:ACCENT,fontFamily:"var(--font-mono)"}}>{credits}</span>
                 <span style={{fontSize:10,color:SUB}}>credits</span>
               </button>
-              {profile&&<button onClick={()=>setView('settings')} style={{width:36,height:36,borderRadius:10,background:SURFACE,border:`1px solid ${BORDER}`,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                <I n="user" s={16} c={SUB} />
-              </button>}
+              {profile && (
+                <button
+                  onClick={()=>setShowHomeMenu(v=>!v)}
+                  aria-label="Open menu"
+                  aria-haspopup="menu"
+                  aria-expanded={showHomeMenu}
+                  style={{width:36,height:36,borderRadius:10,background:showHomeMenu ? CARD : SURFACE,border:`1px solid ${BORDER}`,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                  <I n="dots" s={18} c={SUB} />
+                </button>
+              )}
+              {showHomeMenu && (
+                <>
+                  {/* Backdrop catches outside clicks. Transparent so it
+                      doesn't darken the screen — matches Notion's
+                      lightweight popover model. */}
+                  <div onClick={()=>setShowHomeMenu(false)} style={{position:'fixed',inset:0,zIndex:90,background:'transparent'}} />
+                  <div role="menu" style={{position:'absolute',top:'calc(100% + 8px)',right:0,minWidth:240,background:CARD,border:`1px solid ${BORDER}`,borderRadius:14,padding:6,zIndex:100,boxShadow:'0 12px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.02) inset',animation:'fadeUp .15s ease'}}>
+                    {[
+                      { label: 'Upgrade plan', icon: 'bolt',   onClick: () => setShowPricing(true) },
+                      { label: 'Settings',     icon: 'gear',   onClick: () => setView('settings') },
+                      { label: 'Reports',      icon: 'report', onClick: () => setView('history') },
+                      { label: 'Trash',        icon: 'trash',  onClick: () => setView('trash') },
+                      { label: 'Help & Support', icon: 'help', onClick: () => { window.location.href = 'mailto:support@prudenceehs.com?subject=AtmosFlow%20support' } },
+                    ].map(item => (
+                      <button
+                        key={item.label}
+                        role="menuitem"
+                        onClick={() => { setShowHomeMenu(false); item.onClick() }}
+                        style={{
+                          width:'100%',padding:'12px 14px',background:'transparent',border:'none',borderRadius:10,
+                          cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,
+                          fontFamily:'inherit',color:TEXT,fontSize:14,fontWeight:500,minHeight:44,
+                          transition:'background 0.12s',
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = SURFACE }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}>
+                        <I n={item.icon} s={18} c={SUB} w={1.6} />
+                        <span>{item.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
