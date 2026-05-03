@@ -66,7 +66,7 @@ function buildScore() {
 
 describe('v2.2 acceptance — structural assertions', () => {
   it('Engine version matches the canonical version module', () => {
-    expect(ENGINE_VERSION).toBe('atmosflow-engine-2.7.1')
+    expect(ENGINE_VERSION).toBe('atmosflow-engine-2.8.0')
   })
 
   it('ClientReport.transmittalLetter is structured', () => {

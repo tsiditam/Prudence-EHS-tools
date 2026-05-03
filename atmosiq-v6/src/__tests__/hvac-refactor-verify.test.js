@@ -2,6 +2,9 @@ import { describe, it, expect } from 'vitest'
 import { scoreZone, compositeScore, genRecs } from '../engines/scoring'
 import { evaluateCategorySufficiency, evaluateAllSufficiency } from '../engines/sufficiency'
 
+// Engine v2.8.0 — coerce action objects | legacy strings to plain text.
+const txt = (r) => typeof r === 'string' ? r : (r?.text || '')
+
 // ── Sufficiency Engine — HVAC category ────────────────────────────────────
 
 describe('HVAC sufficiency after refactor', () => {
@@ -316,10 +319,12 @@ describe('genRecs with refactored HVAC', () => {
       }],
     }]
     const recs = genRecs(zoneScores, {})
-    expect(recs.imm.some(r => r.includes('no filtration'))).toBe(true)
+    // Engine v2.8.0 — recs are RecommendationAction objects with
+    // .text. txt() coerces both legacy strings and new objects.
+    expect(recs.imm.some(r => txt(r).includes('no filtration'))).toBe(true)
     // Should say "immediate" not "emergency"
-    expect(recs.imm.some(r => r.includes('immediate'))).toBe(true)
-    expect(recs.imm.every(r => !r.includes('emergency'))).toBe(true)
+    expect(recs.imm.some(r => txt(r).includes('immediate'))).toBe(true)
+    expect(recs.imm.every(r => !txt(r).includes('emergency'))).toBe(true)
   })
 
   it('No airflow finding still triggers immediate recommendation', () => {
@@ -331,7 +336,7 @@ describe('genRecs with refactored HVAC', () => {
       }],
     }]
     const recs = genRecs(zoneScores, {})
-    expect(recs.imm.some(r => r.includes('airflow'))).toBe(true)
+    expect(recs.imm.some(r => txt(r).includes('airflow'))).toBe(true)
   })
 
   it('Drain pan finding still triggers immediate recommendation', () => {
@@ -343,7 +348,7 @@ describe('genRecs with refactored HVAC', () => {
       }],
     }]
     const recs = genRecs(zoneScores, {})
-    expect(recs.imm.some(r => r.includes('Drain pan') || r.includes('drain pan'))).toBe(true)
+    expect(recs.imm.some(r => txt(r).includes('Drain pan') || txt(r).includes('drain pan'))).toBe(true)
   })
 
   it('Over 12 months (sev=medium) still generates HVAC inspection recommendation', () => {
@@ -358,7 +363,7 @@ describe('genRecs with refactored HVAC', () => {
     // Must still generate either the direct "Schedule comprehensive HVAC inspection"
     // OR the data-gap driven "Conduct comprehensive HVAC system assessment"
     const hasHVACRec = recs.eng.some(r =>
-      r.includes('HVAC') && (r.includes('inspection') || r.includes('assessment'))
+      txt(r).includes('HVAC') && (txt(r).includes('inspection') || txt(r).includes('assessment'))
     )
     expect(hasHVACRec).toBe(true)
   })
@@ -368,7 +373,7 @@ describe('genRecs with refactored HVAC', () => {
       zoneName: 'Z1',
       cats: [{ l: 'HVAC', r: [{ t: 'HVAC maintenance history unknown — Data Gap', sev: 'info' }] }],
     }], { hm: 'Unknown' })
-    expect(recs.adm.some(r => r.includes('HVAC maintenance') || r.includes('preventive'))).toBe(true)
+    expect(recs.adm.some(r => txt(r).includes('HVAC maintenance') || txt(r).includes('preventive'))).toBe(true)
   })
 
   it('data-gap rec fires when HVAC category is capped with low sufficiency', () => {
@@ -382,7 +387,7 @@ describe('genRecs with refactored HVAC', () => {
       }],
     }]
     const recs = genRecs(zoneScores, {})
-    expect(recs.eng.some(r => r.includes('HVAC system assessment'))).toBe(true)
+    expect(recs.eng.some(r => txt(r).includes('HVAC system assessment'))).toBe(true)
   })
 })
 

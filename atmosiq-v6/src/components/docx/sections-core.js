@@ -103,8 +103,9 @@ export function buildExecutiveSummary(ctx) {
         : `Conditions observed during the assessment window indicate significant indoor air quality concerns that would warrant prioritized remediation. The composite score of ${ctx.comp.tot}/100 reflects deficiencies across multiple evaluation categories${worstCat ? `, with ${worstCat.l} (${worstCat.s}/${worstCat.mx}) representing the most acute concern` : ''}.`
 
     const immRecs = ctx.recs?.imm || []
+    const immText = (r) => (typeof r === 'string') ? r : (r?.text || '')
     const p3 = immRecs.length > 0
-      ? `Priority actions include: ${immRecs.slice(0, 3).join('; ')}. Additional engineering and administrative recommendations are detailed in the Recommendations Register.`
+      ? `Priority actions include: ${immRecs.slice(0, 3).map(immText).join('; ')}. Additional engineering and administrative recommendations are detailed in the Recommendations Register.`
       : 'Recommended next steps are detailed in the Recommendations Register and Sampling Plan sections of this report.'
 
     children.push(p(p1, { size: 22, color: COLORS.sub }))
@@ -112,12 +113,25 @@ export function buildExecutiveSummary(ctx) {
     children.push(p(p3, { size: 22, color: COLORS.sub }))
   }
 
-  // Priority actions — omit header entirely if no actions
+  // Priority actions — omit header entirely if no actions.
+  // v2.8.0 — recs are RecommendationAction objects; render the
+  // equipment label or zone name inline so the executive summary
+  // table doesn't lose location context when scope is equipment.
   if (ctx.recs) {
     const rows = []
-    ;(ctx.recs.imm || []).forEach(r => rows.push([{ text: 'IMMEDIATE', bold: true, color: SEV_COLORS.critical, size: 18 }, r]))
-    ;(ctx.recs.eng || []).slice(0, 3).forEach(r => rows.push([{ text: 'ENGINEERING', bold: true, color: COLORS.accent, size: 18 }, r]))
-    ;(ctx.recs.adm || []).slice(0, 2).forEach(r => rows.push([{ text: 'ADMINISTRATIVE', bold: true, color: SEV_COLORS.medium, size: 18 }, r]))
+    const renderActionCell = (r) => {
+      if (typeof r === 'string') return r
+      if (!r) return ''
+      if (r.scope === 'equipment') {
+        const affects = r.affectedZoneNames?.length ? ` (Affects: ${r.affectedZoneNames.join(', ')})` : ''
+        return `${r.equipmentLabel || r.equipmentId || 'Equipment'}: ${r.text}${affects}`
+      }
+      if (r.scope === 'zone') return `${r.zoneName || r.zoneId || ''}: ${r.text}`
+      return r.text || ''
+    }
+    ;(ctx.recs.imm || []).forEach(r => rows.push([{ text: 'IMMEDIATE', bold: true, color: SEV_COLORS.critical, size: 18 }, renderActionCell(r)]))
+    ;(ctx.recs.eng || []).slice(0, 3).forEach(r => rows.push([{ text: 'ENGINEERING', bold: true, color: COLORS.accent, size: 18 }, renderActionCell(r)]))
+    ;(ctx.recs.adm || []).slice(0, 2).forEach(r => rows.push([{ text: 'ADMINISTRATIVE', bold: true, color: SEV_COLORS.medium, size: 18 }, renderActionCell(r)]))
     if (rows.length > 0) {
       children.push(p('Priority Actions', { heading: HeadingLevel.HEADING_3 }))
       children.push(buildTable([{ text: 'Priority', width: 20 }, { text: 'Action', width: 80 }], rows))

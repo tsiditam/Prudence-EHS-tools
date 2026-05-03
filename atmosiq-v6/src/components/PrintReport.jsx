@@ -17,6 +17,7 @@
 import { legacyToAssessmentScore, deriveAssessmentMeta } from '../engine/bridge'
 import { renderClientReport } from '../engine/report/client'
 import { generateClientReportHTML } from './print/client-html'
+import { actionLine } from '../utils/recFormatting'
 
 export function selectReportTemplate(data) {
   const zones = data.zones || []
@@ -60,7 +61,18 @@ export function generatePrintHTML(data) {
 }
 
 export function generateLegacyPrintHTML(data) {
-  const { building, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos, standardsManifest, userMode, escalationTriggers } = data
+  const { building, presurvey, zones, zoneScores, comp, oshaResult, recs: rawRecs, samplingPlan, causalChains, narrative, profile, photos, standardsManifest, userMode, escalationTriggers } = data
+  // Engine v2.8.0 — recs are now RecommendationAction objects. The
+  // legacy print template expects flat strings, so flatten upfront so
+  // the rest of the function (which is multi-hundred-line legacy HTML
+  // template literal) keeps working without touching its many string
+  // interpolation sites.
+  const recs = rawRecs ? {
+    imm: (rawRecs.imm || []).map(r => typeof r === 'string' ? r : actionLine(r)),
+    eng: (rawRecs.eng || []).map(r => typeof r === 'string' ? r : actionLine(r)),
+    adm: (rawRecs.adm || []).map(r => typeof r === 'string' ? r : actionLine(r)),
+    mon: (rawRecs.mon || []).map(r => typeof r === 'string' ? r : actionLine(r)),
+  } : rawRecs
   const reportTemplate = selectReportTemplate(data)
   // Collect standards actually cited in findings for filtered manifest
   const citedStds = new Set()

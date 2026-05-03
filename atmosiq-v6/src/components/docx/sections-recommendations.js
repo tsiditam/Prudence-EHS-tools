@@ -1,10 +1,17 @@
 /**
  * AtmosFlow DOCX Report — Sampling Plan, Recommendations, Limitations
+ *
+ * Engine v2.8.0 — recs are now RecommendationAction[] objects per
+ * bucket (with scope/equipmentId/affectedZoneIds metadata). Legacy
+ * reports stored pre-2.8 still hold string[] in localStorage; the
+ * normalizeAction helper coerces both to a uniform shape so the
+ * Recommendations Register table can be built without branching.
  */
 
 import { Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx'
 import { FONTS, COLORS, SEV_COLORS } from './styles'
 import { buildTable } from './tables'
+import { normalizeAction, actionLocationLabel } from '../../utils/recFormatting'
 
 const p = (text, opts = {}) => new Paragraph({
   children: [new TextRun({ text, font: FONTS.body, size: opts.size || 22, color: opts.color || COLORS.body, bold: opts.bold, italics: opts.italics })],
@@ -100,18 +107,28 @@ export function buildRecommendations(ctx) {
     p('Recommendations Register', { heading: HeadingLevel.HEADING_2 }),
   ]
 
+  // v2.8.0 — derive zone names from the assessment so that legacy
+  // string-shaped recs only treat known prefixes as zone labels.
+  const knownZoneNames = (ctx.zones || []).map(z => z?.zn).filter(Boolean)
   const allRecs = []
   let idx = 0
   const add = (list, priority, category, timing, color) => {
     ;(list || []).forEach(r => {
       idx++
-      const parsed = parseRecLocation(r)
+      const a = normalizeAction(r, knownZoneNames)
+      const location = actionLocationLabel(a)
+      // For equipment-scoped actions, append the affected-zone list
+      // to the action text so a flat-table renderer still surfaces
+      // the cross-zone scope without losing the metadata.
+      const actionText = a.scope === 'equipment' && a.affectedZoneNames?.length
+        ? `${a.text} (Affects: ${a.affectedZoneNames.join(', ')})`
+        : a.text
       allRecs.push([
         { text: `R-${String(idx).padStart(2, '0')}`, mono: true, size: 18, color: COLORS.muted },
         { text: priority.toUpperCase(), bold: true, color, size: 16 },
         { text: category, size: 18, color: COLORS.sub },
-        parsed.action,
-        { text: parsed.location, size: 18, color: COLORS.sub, italics: true },
+        actionText,
+        { text: location, size: 18, color: COLORS.sub, italics: true },
         { text: timing, mono: true, size: 18, color: COLORS.muted },
         // Owner / Due / Completion intentionally empty —
         // recipients fill them in. Column structure preserved in

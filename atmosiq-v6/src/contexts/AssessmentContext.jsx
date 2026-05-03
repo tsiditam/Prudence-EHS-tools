@@ -23,6 +23,11 @@ export function AssessmentProvider({ children }) {
   const [curZone, setCurZone] = useState(0)
   const [photos, setPhotos] = useState({})
   const [floorPlan, setFloorPlan] = useState(null)
+  // HvacEquipment[] captured during the walkthrough. Drives
+  // equipment-scoped recommendation grouping in genRecs (v2.8.0+).
+  // Drafts that pre-date equipment capture load with [] and trigger
+  // the unmapped-equipment fallback path on next engine run.
+  const [equipment, setEquipment] = useState([])
 
   // ── Question Navigation ──
   const [qsqi, setQsqi] = useState(0)
@@ -76,7 +81,7 @@ export function AssessmentProvider({ children }) {
     const composite = compositeScore(zScores)
     const worst = zonesWithOutdoor.reduce((w, z) => (!w || scoreZone(z, bldg).tot < scoreZone(w, bldg).tot) ? z : w, zonesWithOutdoor[0])
     const osha = evalOSHA({...bldg, ...worst}, composite?.tot || 0)
-    const recommendations = genRecs(zScores, bldg)
+    const recommendations = genRecs(zScores, bldg, { zones: zonesWithOutdoor, equipment })
     const sp = generateSamplingPlan(zonesWithOutdoor, bldg)
     const cc = buildCausalChains(zonesWithOutdoor, bldg, zScores)
     const mold = zonesWithOutdoor.map(z => evalMold(z)).filter(Boolean)
@@ -85,11 +90,11 @@ export function AssessmentProvider({ children }) {
     setZoneScores(zScores); setComp(composite); setOshaResult(osha); setRecs(recommendations)
     setSamplingPlan(sp); setCausalChains(cc); setMoldResults(mold); setMeasConf(mc)
     return { zScores, composite, osha, recommendations, sp, cc, mold, mc }
-  }, [zones, bldg])
+  }, [zones, bldg, equipment])
 
   // ── Reset Assessment ──
   const resetAssessment = useCallback(() => {
-    setDraftId(null); setPresurvey({}); setBldg({}); setZones([{}])
+    setDraftId(null); setPresurvey({}); setBldg({}); setZones([{}]); setEquipment([])
     setCurZone(0); setPhotos({}); setFloorPlan(null)
     setQsqi(0); setDqi(0); setZqi(0)
     setZoneScores([]); setComp(null); setOshaResult(null); setRecs(null)
@@ -105,6 +110,7 @@ export function AssessmentProvider({ children }) {
     setPresurvey(d.presurvey || {})
     setBldg(d.bldg || d.building || {})
     setZones(d.zones || [{}])
+    setEquipment(d.equipment || [])
     setPhotos(d.photos || {})
     setFloorPlan(d.floorPlan || null)
     setQsqi(d.qsqi || 0)
@@ -121,6 +127,7 @@ export function AssessmentProvider({ children }) {
     setPresurvey(rpt.presurvey || {})
     setBldg(rpt.building || rpt.bldg || {})
     setZones(rpt.zones || [])
+    setEquipment(rpt.equipment || [])
     setPhotos(rpt.photos || {})
     setFloorPlan(rpt.floorPlan || null)
     setZoneScores(rpt.zoneScores || [])
@@ -138,6 +145,7 @@ export function AssessmentProvider({ children }) {
     draftId, setDraftId, presurvey, setPresurvey, bldg, setBldg,
     zones, setZones, curZone, setCurZone, photos, setPhotos,
     floorPlan, setFloorPlan, mergedData, zData,
+    equipment, setEquipment,
     // Question navigation
     qsqi, setQsqi, dqi, setDqi, zqi, setZqi,
     // Field setters
@@ -150,7 +158,7 @@ export function AssessmentProvider({ children }) {
     // Operations
     runScoring, resetAssessment, loadDraft, loadReport,
   }), [
-    draftId, presurvey, bldg, zones, curZone, photos, floorPlan, mergedData, zData,
+    draftId, presurvey, bldg, zones, curZone, photos, floorPlan, mergedData, zData, equipment,
     qsqi, dqi, zqi, setQSField, setZF,
     zoneScores, comp, oshaResult, recs, narrative, narrativeLoading,
     samplingPlan, causalChains, moldResults, measConf,

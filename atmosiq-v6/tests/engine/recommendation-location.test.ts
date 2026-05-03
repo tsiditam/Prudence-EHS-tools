@@ -58,14 +58,27 @@ describe('genRecs on Meridian demo — every Immediate rec has location', () => 
   it('all Immediate recommendations parse to a non-empty location', () => {
     const zoneScores = (DEMO_ZONES as any[]).map((z: any) => scoreZone(z, DEMO_BUILDING))
     compositeScore(zoneScores) // side-effect-free composite call
-    const recs = genRecs(zoneScores, DEMO_BUILDING) as { imm: string[] }
-    // Demo may produce zero or more Immediate recs depending on
-    // demo data severity. We assert ONLY that any produced have
-    // non-empty location after parsing.
-    for (const text of recs.imm || []) {
-      const parsed = parseRecLocation(text)
-      expect(parsed.location).toBeTruthy()
-      expect(parsed.location.length).toBeGreaterThan(0)
+    // v2.8.0 — genRecs returns RecommendationAction[] objects per
+    // bucket. The legacy parseRecLocation helper is retained for
+    // back-compat of pre-2.8 stored reports, but new actions carry
+    // location explicitly via scope/equipmentLabel/zoneName fields.
+    const recs = genRecs(zoneScores, DEMO_BUILDING) as { imm: any[] }
+    for (const action of recs.imm || []) {
+      // Either a legacy string (older reports) or an action object
+      // (engine v2.8.0+). Both must surface a non-empty location.
+      if (typeof action === 'string') {
+        const parsed = parseRecLocation(action)
+        expect(parsed.location).toBeTruthy()
+        expect(parsed.location.length).toBeGreaterThan(0)
+      } else {
+        // Equipment | zone | building scopes all yield a label.
+        const label =
+          action.scope === 'equipment' ? (action.equipmentLabel || action.equipmentId)
+          : action.scope === 'zone' ? (action.zoneName || action.zoneId)
+          : 'Building-wide'
+        expect(label).toBeTruthy()
+        expect(String(label).length).toBeGreaterThan(0)
+      }
     }
   })
 })

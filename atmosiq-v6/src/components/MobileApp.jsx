@@ -14,6 +14,7 @@ import Profiles from '../utils/profiles'
 import Storage from '../utils/cloudStorage'
 import { supabase, trackEvent } from '../utils/supabaseClient'
 import Backup from '../utils/backup'
+import { groupActions } from '../utils/recFormatting'
 import { VER, STANDARDS_MANIFEST } from '../constants/standards'
 import { Q_PRESURVEY, Q_BUILDING, Q_ZONE, Q_QUICKSTART, Q_DETAILS, SENSOR_FIELDS } from '../constants/questions'
 import { scoreZone, compositeScore, evalOSHA, calcVent, genRecs, evalMold, evalMeasurementConfidence } from '../engines/scoring'
@@ -35,7 +36,7 @@ import AdminDashboard from './AdminDashboard'
 import WelcomeScreen from './WelcomeScreen'
 import SettingsScreen from './SettingsScreen'
 import { printReport, generatePrintHTML } from './PrintReport'
-import { DEMO_PRESURVEY, DEMO_BUILDING, DEMO_ZONES } from '../constants/demoData'
+import { DEMO_PRESURVEY, DEMO_BUILDING, DEMO_ZONES, DEMO_EQUIPMENT } from '../constants/demoData'
 import { DEMO_FM_PRESURVEY, DEMO_FM_BUILDING, DEMO_FM_ZONES } from '../constants/demoDataFM'
 import { DEMO_DC_PRESURVEY, DEMO_DC_BUILDING, DEMO_DC_ZONES } from '../constants/demoDataDC'
 import { getMode, setMode as persistMode, isFM, t } from '../constants/terminology'
@@ -112,6 +113,7 @@ export default function MobileApp() {
     moldResults, setMoldResults,
     floorPlan, setFloorPlan,
     measConf, setMeasConf,
+    equipment, setEquipment,
   } = useAssessment()
 
   // ── Local UI state (truly component-local; not shared) ──
@@ -224,14 +226,14 @@ export default function MobileApp() {
     if (!['quickstart','zone','details'].includes(view) || !draftId) return
     if (saveRef.current) clearTimeout(saveRef.current)
     saveRef.current = setTimeout(async () => {
-      const draft = { id:draftId, presurvey, bldg, zones, photos, floorPlan, qsqi, dqi, curZone, zqi, ua:new Date().toISOString(), standardsManifest:STANDARDS_MANIFEST }
+      const draft = { id:draftId, presurvey, bldg, zones, equipment, photos, floorPlan, qsqi, dqi, curZone, zqi, ua:new Date().toISOString(), standardsManifest:STANDARDS_MANIFEST }
       await STO.set(draftId, draft)
       await STO.addDraftToIndex({ id:draftId, facility:bldg.fn||'Untitled', ua:draft.ua })
       await refreshIndex()
       trackEvent('draft_saved', { draft_id: draftId, phase: view, zones: (zones||[]).length })
     }, 1200)
     return () => { if (saveRef.current) clearTimeout(saveRef.current) }
-  }, [presurvey, bldg, zones, photos, qsqi, dqi, curZone, zqi, view, draftId])
+  }, [presurvey, bldg, zones, equipment, photos, qsqi, dqi, curZone, zqi, view, draftId])
 
   // Merge quick start data into both presurvey and bldg depending on field prefix
   const mergedData = useMemo(() => ({ ...presurvey, ...bldg }), [presurvey, bldg])
@@ -309,26 +311,26 @@ export default function MobileApp() {
     // Auto-fill from profile
     const psFill = profile ? Profiles.toPresurvey(profile) : {}
     setPresurvey(psFill); setBldg({}); setQsqi(0); setDqi(0)
-    setZones([{}]); setCurZone(0); setZqi(0); setPhotos({})
+    setZones([{}]); setCurZone(0); setZqi(0); setPhotos({}); setEquipment([])
     setZoneScores([]); setComp(null); setOshaResult(null); setRecs(null); setNarrative(null); setSamplingPlan(null); setCausalChains([])
     setView('quickstart')
   }
 
   const runDemo = (type) => {
     const demos = {
-      ih: { bldg: DEMO_BUILDING, zones: DEMO_ZONES, pre: DEMO_PRESURVEY },
-      fm: { bldg: DEMO_FM_BUILDING, zones: DEMO_FM_ZONES, pre: DEMO_FM_PRESURVEY },
-      dc: { bldg: DEMO_DC_BUILDING, zones: DEMO_DC_ZONES, pre: DEMO_DC_PRESURVEY },
+      ih: { bldg: DEMO_BUILDING, zones: DEMO_ZONES, pre: DEMO_PRESURVEY, equipment: DEMO_EQUIPMENT },
+      fm: { bldg: DEMO_FM_BUILDING, zones: DEMO_FM_ZONES, pre: DEMO_FM_PRESURVEY, equipment: [] },
+      dc: { bldg: DEMO_DC_BUILDING, zones: DEMO_DC_ZONES, pre: DEMO_DC_PRESURVEY, equipment: [] },
     }
     const pick = type || (userMode === 'fm' ? 'fm' : 'ih')
-    const { bldg: demoBldg, zones: demoZones, pre: demoPre } = demos[pick]
+    const { bldg: demoBldg, zones: demoZones, pre: demoPre, equipment: demoEq } = demos[pick]
     trackEvent('assessment_mode_selected', { mode: 'demo', demoType: pick, userMode })
-    setBldg(demoBldg); setZones(demoZones); setPresurvey(demoPre); setPhotos({})
+    setBldg(demoBldg); setZones(demoZones); setPresurvey(demoPre); setPhotos({}); setEquipment(demoEq || [])
     const zScores = demoZones.map(z => scoreZone(z, demoBldg))
     const composite = compositeScore(zScores)
     const worst = demoZones.reduce((w, z) => (!w || scoreZone(z, demoBldg).tot < scoreZone(w, demoBldg).tot) ? z : w, demoZones[0])
     const osha = evalOSHA({...demoBldg, ...worst}, composite?.tot || 0)
-    const recommendations = genRecs(zScores, demoBldg)
+    const recommendations = genRecs(zScores, demoBldg, { zones: demoZones, equipment: demoEq || [] })
     const sp = generateSamplingPlan(demoZones, demoBldg)
     const cc = buildCausalChains(demoZones, demoBldg, zScores)
     const mold = demoZones.map(z => evalMold(z)).filter(Boolean)
@@ -341,7 +343,7 @@ export default function MobileApp() {
     const d = await STO.get(id)
     if (!d) return
     trackEvent('draft_resumed', { draft_id: id, facility: d.bldg?.fn || d.building?.fn || '' })
-    setDraftId(d.id); setPresurvey(d.presurvey||{}); setBldg(d.bldg||d.building||{}); setZones(d.zones||[{}]); setPhotos(d.photos||{}); setFloorPlan(d.floorPlan||null)
+    setDraftId(d.id); setPresurvey(d.presurvey||{}); setBldg(d.bldg||d.building||{}); setZones(d.zones||[{}]); setEquipment(d.equipment||[]); setPhotos(d.photos||{}); setFloorPlan(d.floorPlan||null)
     setQsqi(d.qsqi||0); setDqi(d.dqi||0); setCurZone(d.curZone||0); setZqi(d.zqi||0)
     // Resume at the right phase
     if (!d.bldg?.fn && !d.building?.fn) setView('quickstart')
@@ -352,7 +354,51 @@ export default function MobileApp() {
   const finishQuickStart = () => {
     trackEvent('quickstart_completed', { facility: bldg.fn || '', building_type: bldg.ft || '' })
     if (zones.length === 0) setZones([{}])
-    showMilestone('check', 'Quick Start Complete', 'Starting zone walkthrough', () => { setCurZone(0); setZqi(0); setView('zone') })
+    // v2.8.0 — capture HVAC equipment before zones so each zone can
+    // be mapped to the units serving it. Equipment-scoped recs
+    // (drain pan, filters, OA damper, ASHRAE 188, comprehensive
+    // HVAC inspection) emit one action per equipment unit instead
+    // of duplicating per zone.
+    showMilestone('check', 'Quick Start Complete', 'Capture HVAC equipment next', () => { setView('equipment') })
+  }
+
+  const finishEquipment = () => {
+    trackEvent('equipment_capture_completed', {
+      facility: bldg.fn || '',
+      equipment_count: (equipment || []).length,
+      types: [...new Set((equipment || []).map(e => e.type))].join(','),
+    })
+    showMilestone('check', 'Equipment Captured', 'Starting zone walkthrough', () => { setCurZone(0); setZqi(0); setView('zone') })
+  }
+
+  // Zone-equipment mapping helpers. The engine consumes
+  // zone.servingEquipmentIds; an empty array means "unmapped" and
+  // triggers the building-scoped fallback in genRecs.
+  const ensureZoneId = (idx) => {
+    const z = zones[idx]
+    if (z?.zid) return z.zid
+    const zid = 'z-' + Date.now().toString(36) + '-' + idx
+    setZones(prev => { const next = [...prev]; next[idx] = { ...(next[idx] || {}), zid }; return next })
+    return zid
+  }
+  const toggleZoneEquipment = (zoneIdx, eqId) => {
+    const zid = ensureZoneId(zoneIdx)
+    setZones(prev => {
+      const next = [...prev]
+      const z = { ...(next[zoneIdx] || {}) }
+      const cur = Array.isArray(z.servingEquipmentIds) ? z.servingEquipmentIds : []
+      z.servingEquipmentIds = cur.includes(eqId) ? cur.filter(x => x !== eqId) : [...cur, eqId]
+      next[zoneIdx] = z
+      return next
+    })
+    // Mirror the inverse mapping on the equipment side so that
+    // either direction stays referentially intact.
+    setEquipment(prev => prev.map(e => {
+      if (e.id !== eqId) return e
+      const served = Array.isArray(e.servedZoneIds) ? e.servedZoneIds : []
+      const exists = served.includes(zid)
+      return { ...e, servedZoneIds: exists ? served.filter(x => x !== zid) : [...served, zid] }
+    }))
   }
 
   const runScoring = () => {
@@ -369,7 +415,7 @@ export default function MobileApp() {
     const composite = compositeScore(zScores)
     const worst = zonesWithOutdoor.reduce((w, z) => (!w || scoreZone(z, bldg).tot < scoreZone(w, bldg).tot) ? z : w, zonesWithOutdoor[0])
     const osha = evalOSHA({...bldg, ...worst}, composite?.tot || 0)
-    const recommendations = genRecs(zScores, bldg)
+    const recommendations = genRecs(zScores, bldg, { zones: zonesWithOutdoor, equipment })
     const sp = generateSamplingPlan(zonesWithOutdoor, bldg)
     const cc = buildCausalChains(zonesWithOutdoor, bldg, zScores)
     const mold = zonesWithOutdoor.map(z => evalMold(z)).filter(Boolean)
@@ -407,7 +453,7 @@ export default function MobileApp() {
     setMilestone({icon:'chart',title:'Assessment Complete',sub:`Scoring ${zones.length} zone${zones.length>1?'s':''}...`})
     setTimeout(() => { setMilestone(null); setRTab('overview'); setView('results') }, 1600)
     const rid = 'rpt-' + Date.now()
-    const report = { id:rid, ts:new Date().toISOString(), ver:VER, presurvey, building:bldg, zones, photos, floorPlan, zoneScores:zScores, comp:composite, oshaEvals:[osha], recs:recommendations, samplingPlan:sp, causalChains:cc, standardsManifest:STANDARDS_MANIFEST }
+    const report = { id:rid, ts:new Date().toISOString(), ver:VER, presurvey, building:bldg, zones, equipment, photos, floorPlan, zoneScores:zScores, comp:composite, oshaEvals:[osha], recs:recommendations, samplingPlan:sp, causalChains:cc, standardsManifest:STANDARDS_MANIFEST }
     await STO.set(rid, report)
     await STO.addReportToIndex({ id:rid, ts:report.ts, facility:bldg.fn, score:composite?.tot })
     if (draftId) { await STO.del(draftId) }
@@ -435,6 +481,11 @@ export default function MobileApp() {
     if (text) trackEvent('narrative_generated', { word_count: text.split(/\s+/).length })
   }
 
+  // Equipment-capture working state (the equipment array itself
+  // lives in AssessmentContext). editingEqId === '__new' means a
+  // brand-new unit being added; any other value is editing in place.
+  const [editingEqId, setEditingEqId] = useState(null)
+  const [eqForm, setEqForm] = useState({})
   const [docxTypeChoice, setDocxTypeChoice] = useState(null)
   const handleExport = (format, docxType) => {
     setExportFormat(format)
@@ -462,7 +513,7 @@ export default function MobileApp() {
 
   const executeExport = async (format, filteredPhotos, docxType) => {
     const esc = evaluateEscalation({ zones, comp, moldResults }, [], [])
-    const reportData = { building: bldg, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, escalationTriggers: esc, floorPlan }
+    const reportData = { building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, escalationTriggers: esc, floorPlan }
     trackEvent('report_exported', { format: docxType || format, facility: bldg.fn || '', score: comp?.tot, zones: zones.length, has_narrative: !!narrative, photos: Object.values(filteredPhotos).flat().length })
     try {
       if (format === 'docx') {
@@ -481,7 +532,7 @@ export default function MobileApp() {
 
   const handleShare = async () => {
     const title = `IAQ Assessment Report — ${bldg.fn || 'Assessment'}`
-    const html = generatePrintHTML({ building: bldg, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: {}, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode })
+    const html = generatePrintHTML({ building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: {}, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode })
     const blob = new Blob([html], { type: 'text/html' })
     const file = new File([blob], `${bldg.fn || 'Assessment'}-Report.html`, { type: 'text/html' })
     if (navigator.share && navigator.canShare?.({ files: [file] })) {
@@ -500,7 +551,7 @@ export default function MobileApp() {
     const rpt = await STO.get(meta.id)
     if (!rpt) return
     trackEvent('report_viewed', { report_id: meta.id, facility: meta.facility || '', score: meta.score })
-    setViewRpt(rpt); setPresurvey(rpt.presurvey||{}); setBldg(rpt.building||rpt.bldg||{}); setZones(rpt.zones||[])
+    setViewRpt(rpt); setPresurvey(rpt.presurvey||{}); setBldg(rpt.building||rpt.bldg||{}); setZones(rpt.zones||[]); setEquipment(rpt.equipment||[])
     setPhotos(rpt.photos||{}); setFloorPlan(rpt.floorPlan||null); setZoneScores(rpt.zoneScores||[]); setComp(rpt.comp||rpt.composite)
     setOshaResult(rpt.oshaEvals?.[0]||rpt.osha||null); setRecs(rpt.recs||null)
     setSamplingPlan(rpt.samplingPlan||null); setCausalChains(rpt.causalChains||[])
@@ -700,7 +751,7 @@ export default function MobileApp() {
             {expertComplaint && expertCause && <div style={{marginTop:12}}><div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Likely contributing cause</div><div style={{fontSize:12,color:SUB,lineHeight:1.5}}>{expertCause.length > 120 ? expertCause.slice(0,117)+'...' : expertCause}</div></div>
             }
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginTop:12,fontSize:12}}>
-              {recs?.imm?.[0] && <div><div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Next action</div><div style={{color:ACCENT,lineHeight:1.4}}>{recs.imm[0].length > 70 ? recs.imm[0].slice(0,67)+'...' : recs.imm[0]}</div></div>}
+              {recs?.imm?.[0] && (() => { const first = recs.imm[0]; const text = (typeof first === 'string') ? first : (first?.text || ''); return (<div><div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Next action</div><div style={{color:ACCENT,lineHeight:1.4}}>{text.length > 70 ? text.slice(0,67)+'...' : text}</div></div>) })()}
               <div><div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Sampling</div><div style={{color:TEXT,lineHeight:1.4}}>{samplingPlan?.plan?.length > 0 ? `Targeted confirmatory sampling recommended (${samplingPlan.plan.length} analytical method${samplingPlan.plan.length>1?'s':''})` : 'No confirmatory sampling indicated at this time'}</div></div>
             </div>
           </div>
@@ -962,7 +1013,16 @@ export default function MobileApp() {
 
         {rTab==='actions'&&recs&&<div style={{display:'flex',flexDirection:'column',gap:10}}>
           <div style={{fontSize:11,color:DIM,lineHeight:1.5,marginBottom:2}}>Recommendations are tiered by urgency and type. Review and adapt for site-specific conditions before implementation.</div>
-          {[{k:'imm',l:'Immediate Actions',s:'Address within 48 hours',c:'#EF4444'},{k:'eng',l:'Engineering Controls',s:'1–4 weeks',c:ACCENT},{k:'adm',l:'Administrative Controls',s:'1–3 months',c:'#FBBF24'},{k:'mon',l:'Ongoing Monitoring',s:'Continuous',c:SUB}].map(cat=>{if(!recs[cat.k]?.length)return null;const knownZones=(zones||[]).map(z=>z.zn).filter(Boolean);return(<div key={cat.k} style={{padding:14,background:CARD,border:`1px solid ${BORDER}`,borderRadius:10}}>
+          {[{k:'imm',l:'Immediate Actions',s:'Address within 48 hours',c:'#EF4444'},{k:'eng',l:'Engineering Controls',s:'1–4 weeks',c:ACCENT},{k:'adm',l:'Administrative Controls',s:'1–3 months',c:'#FBBF24'},{k:'mon',l:'Ongoing Monitoring',s:'Continuous',c:SUB}].map(cat=>{
+            if(!recs[cat.k]?.length)return null
+            const knownZones=(zones||[]).map(z=>z.zn).filter(Boolean)
+            // Engine v2.8+ emits RecommendationAction[] objects; reports
+            // finalized pre-v2.8 stored string[] — groupActions normalizes
+            // both shapes and groups by zone / equipment / building so each
+            // location header renders once with its actions as bullets
+            // (instead of repeating the location label per rule).
+            const groups = groupActions(recs[cat.k], knownZones)
+            return(<div key={cat.k} style={{padding:14,background:CARD,border:`1px solid ${BORDER}`,borderRadius:10}}>
             {/* ── Canonical two-up: TIER + TIMEFRAME ── */}
             <div style={{display:'grid',gridTemplateColumns:'1fr auto',gap:12,marginBottom:14,alignItems:'flex-start'}}>
               <div>
@@ -974,13 +1034,26 @@ export default function MobileApp() {
                 <div style={{color:SUB,fontWeight:500,fontSize:13,lineHeight:1.4}}>{cat.s}</div>
               </div>
             </div>
-            {/* ── Per-rec: optional zone (plain bold white) + body (SUB regular) ── */}
-            {recs[cat.k].map((r,i)=>{const colonIdx=r.indexOf(': ');const zone=(colonIdx>0&&knownZones.includes(r.slice(0,colonIdx)))?r.slice(0,colonIdx):null;const body=zone?r.slice(colonIdx+2):r;return(
-              <div key={i} style={{marginBottom: i < recs[cat.k].length - 1 ? 12 : 0}}>
-                {zone && <div style={{color:TEXT,fontWeight:600,fontSize:13,lineHeight:1.4,marginBottom:3}}>{zone}</div>}
-                <div style={{color:SUB,fontSize:13,lineHeight:1.6}}>{body}</div>
-              </div>
-            )})}
+            {/* ── Group header (zone / equipment / building-wide) + bulleted action list ── */}
+            {groups.map((g, gi) => {
+              const isEquipment = g.scope === 'equipment'
+              const headerColor = isEquipment ? ACCENT : TEXT
+              return (
+                <div key={g.key} style={{marginBottom: gi < groups.length - 1 ? 14 : 0}}>
+                  <div style={{color:headerColor,fontWeight:600,fontSize:13,lineHeight:1.4,marginBottom:6,display:'flex',alignItems:'baseline',gap:6}}>
+                    <span>{g.label}</span>
+                  </div>
+                  <ul style={{margin:0,padding:'0 0 0 18px',listStyle:'disc',color:SUB}}>
+                    {g.actions.map((a, ai) => (
+                      <li key={ai} style={{color:SUB,fontSize:13,lineHeight:1.6,marginBottom:4}}>{a.text}</li>
+                    ))}
+                  </ul>
+                  {isEquipment && g.affectedZoneNames && g.affectedZoneNames.length > 0 && (
+                    <div style={{color:DIM,fontSize:11,fontStyle:'italic',marginTop:4,marginLeft:18}}>Affects: {g.affectedZoneNames.join(', ')}</div>
+                  )}
+                </div>
+              )
+            })}
           </div>)})}
           <div style={{display:'flex',gap:10,marginTop:8}}>
             <button onClick={()=>handleExport('pdf')} style={{flex:1,padding:'14px 20px',background:`${ACCENT}12`,border:`1px solid ${ACCENT}30`,borderRadius:12,color:ACCENT,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:48,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="download" s={16} c={ACCENT} /> PDF</button>
@@ -1354,7 +1427,85 @@ export default function MobileApp() {
           </div>{/* end adaptive grid */}
         </div>}
 
-        {view==='quickstart'&&qscq&&renderQuestion(qscq,mergedData,setQSField,qsqi,qsVis,()=>{if(qsqi<qsVis.length-1)setQsqi(qsqi+1)},()=>{if(qsqi>0)setQsqi(qsqi-1)},finishQuickStart,'→ Start Zones',qsSecs)}
+        {view==='quickstart'&&qscq&&renderQuestion(qscq,mergedData,setQSField,qsqi,qsVis,()=>{if(qsqi<qsVis.length-1)setQsqi(qsqi+1)},()=>{if(qsqi>0)setQsqi(qsqi-1)},finishQuickStart,'→ HVAC Equipment',qsSecs)}
+
+        {view==='equipment'&&<div style={{paddingTop:20,paddingBottom:120,maxWidth:contentMax,margin:'0 auto'}}>
+          <div style={{marginBottom:18}}>
+            <div style={{fontSize:11,fontWeight:600,color:ACCENT,fontFamily:"'DM Mono'",letterSpacing:'0.5px',marginBottom:6}}>STEP 2 OF 3 · HVAC EQUIPMENT</div>
+            <div style={{fontSize:22,fontWeight:700,color:TEXT,letterSpacing:'-0.4px',marginBottom:6}}>Capture HVAC equipment</div>
+            <div style={{fontSize:13,color:SUB,lineHeight:1.5}}>List the HVAC units serving the assessed area (AHU, RTU, FCU, ERV, etc.). Each captured unit becomes selectable when you map zones in the next step. <strong style={{color:TEXT,fontWeight:600}}>You can skip this step</strong> — equipment-scoped recommendations will surface as building-wide actions until equipment is identified.</div>
+          </div>
+
+          {/* Equipment list */}
+          {(equipment||[]).length > 0 && (
+            <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:14}}>
+              {equipment.map(e => (
+                <div key={e.id} style={{padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,display:'flex',alignItems:'center',gap:12}}>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:14,fontWeight:600,color:TEXT}}>{e.label} <span style={{fontSize:11,color:DIM,fontFamily:"'DM Mono'",fontWeight:500,marginLeft:6}}>{e.type}</span></div>
+                    {e.location && <div style={{fontSize:12,color:SUB,marginTop:2}}>{e.location}</div>}
+                  </div>
+                  <button onClick={()=>{setEditingEqId(e.id); setEqForm(e)}} style={{padding:'8px 12px',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:8,color:SUB,fontSize:12,cursor:'pointer',fontFamily:'inherit',minHeight:36}}>Edit</button>
+                  <button onClick={()=>{setEquipment(prev=>prev.filter(x=>x.id!==e.id)); setZones(prev=>prev.map(z=>({...z,servingEquipmentIds:(z.servingEquipmentIds||[]).filter(id=>id!==e.id)})))}} style={{padding:'8px 12px',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:8,color:'#EF4444',fontSize:12,cursor:'pointer',fontFamily:'inherit',minHeight:36}}>Remove</button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Add / edit form */}
+          {editingEqId ? (
+            <div style={{padding:18,background:CARD,border:`1px solid ${ACCENT}30`,borderRadius:12,marginBottom:14}}>
+              <div style={{fontSize:11,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'0.6px',marginBottom:14}}>{editingEqId === '__new' ? 'New equipment unit' : 'Edit equipment'}</div>
+              <div style={{marginBottom:12}}>
+                <div style={{fontSize:12,fontWeight:600,color:SUB,marginBottom:6}}>Label *</div>
+                <input type="text" value={eqForm.label||''} onChange={e=>setEqForm(p=>({...p,label:e.target.value}))} placeholder="e.g. AHU-1, RTU-3, FCU-3F-Open" style={{width:'100%',padding:'12px 14px',background:BG,border:`1px solid ${BORDER}`,borderRadius:8,color:TEXT,fontSize:14,fontFamily:'inherit',boxSizing:'border-box'}} />
+              </div>
+              <div style={{marginBottom:12}}>
+                <div style={{fontSize:12,fontWeight:600,color:SUB,marginBottom:6}}>Type *</div>
+                <select value={eqForm.type||''} onChange={e=>setEqForm(p=>({...p,type:e.target.value}))} style={{width:'100%',padding:'12px 14px',background:BG,border:`1px solid ${BORDER}`,borderRadius:8,color:TEXT,fontSize:14,fontFamily:'inherit',boxSizing:'border-box'}}>
+                  <option value="">Select type…</option>
+                  <option value="AHU">AHU — Air Handling Unit</option>
+                  <option value="RTU">RTU — Rooftop Unit</option>
+                  <option value="FCU">FCU — Fan Coil Unit</option>
+                  <option value="VRF_INDOOR">VRF Indoor Unit</option>
+                  <option value="ERV">ERV — Energy Recovery Ventilator</option>
+                  <option value="MAU">MAU — Makeup Air Unit</option>
+                  <option value="DOAS">DOAS — Dedicated Outdoor Air System</option>
+                  <option value="OTHER">Other</option>
+                </select>
+              </div>
+              <div style={{marginBottom:12}}>
+                <div style={{fontSize:12,fontWeight:600,color:SUB,marginBottom:6}}>Location <span style={{color:DIM,fontWeight:400}}>(optional)</span></div>
+                <input type="text" value={eqForm.location||''} onChange={e=>setEqForm(p=>({...p,location:e.target.value}))} placeholder="e.g. 3rd-floor mechanical room, rooftop" style={{width:'100%',padding:'12px 14px',background:BG,border:`1px solid ${BORDER}`,borderRadius:8,color:TEXT,fontSize:14,fontFamily:'inherit',boxSizing:'border-box'}} />
+              </div>
+              <div style={{marginBottom:12}}>
+                <div style={{fontSize:12,fontWeight:600,color:SUB,marginBottom:6}}>Filter class <span style={{color:DIM,fontWeight:400}}>(optional)</span></div>
+                <input type="text" value={eqForm.filterClass||''} onChange={e=>setEqForm(p=>({...p,filterClass:e.target.value}))} placeholder="e.g. MERV 13" style={{width:'100%',padding:'12px 14px',background:BG,border:`1px solid ${BORDER}`,borderRadius:8,color:TEXT,fontSize:14,fontFamily:'inherit',boxSizing:'border-box'}} />
+              </div>
+              <div style={{marginBottom:14}}>
+                <div style={{fontSize:12,fontWeight:600,color:SUB,marginBottom:6}}>Notes <span style={{color:DIM,fontWeight:400}}>(optional)</span></div>
+                <textarea value={eqForm.notes||''} onChange={e=>setEqForm(p=>({...p,notes:e.target.value}))} rows={2} style={{width:'100%',padding:'12px 14px',background:BG,border:`1px solid ${BORDER}`,borderRadius:8,color:TEXT,fontSize:14,fontFamily:'inherit',boxSizing:'border-box',resize:'vertical'}} />
+              </div>
+              <div style={{display:'flex',gap:8}}>
+                <button onClick={()=>{setEditingEqId(null); setEqForm({})}} style={{flex:0,padding:'12px 18px',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:8,color:SUB,fontSize:13,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>Cancel</button>
+                <button disabled={!eqForm.label || !eqForm.type} onClick={()=>{
+                  const id = editingEqId === '__new' ? ('eq-' + Date.now().toString(36)) : editingEqId
+                  const next = { id, label: eqForm.label.trim(), type: eqForm.type, location: eqForm.location?.trim() || '', filterClass: eqForm.filterClass?.trim() || '', notes: eqForm.notes?.trim() || '', servedZoneIds: editingEqId === '__new' ? [] : (equipment.find(x=>x.id===editingEqId)?.servedZoneIds || []) }
+                  setEquipment(prev => editingEqId === '__new' ? [...prev, next] : prev.map(x => x.id === editingEqId ? next : x))
+                  setEditingEqId(null); setEqForm({})
+                }} style={{flex:1,padding:'12px 18px',background:ACCENT,border:'none',borderRadius:8,color:BG,fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:44,opacity:(!eqForm.label || !eqForm.type) ? 0.4 : 1}}>{editingEqId === '__new' ? 'Add Equipment' : 'Save'}</button>
+              </div>
+            </div>
+          ) : (
+            <button onClick={()=>{setEditingEqId('__new'); setEqForm({})}} style={{width:'100%',padding:'14px 0',background:`${ACCENT}10`,border:`1px dashed ${ACCENT}40`,borderRadius:10,color:ACCENT,fontSize:14,fontWeight:600,cursor:'pointer',fontFamily:'inherit',marginBottom:14,minHeight:48}}>+ Add HVAC Equipment</button>
+          )}
+
+          {/* Continue / Skip */}
+          <div style={{display:'flex',gap:10,marginTop:18}}>
+            <button onClick={()=>{setView('quickstart'); setQsqi(qsVis.length-1)}} style={{flex:0,padding:'14px 22px',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:10,color:SUB,fontSize:14,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>← Back</button>
+            <button onClick={finishEquipment} style={{flex:1,padding:'14px 22px',background:ACCENT,border:'none',borderRadius:10,color:BG,fontSize:15,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>{(equipment||[]).length === 0 ? 'Skip — Continue to Zones →' : 'Continue to Zones →'}</button>
+          </div>
+        </div>}
 
         {view==='zone'&&zcq&&<div>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',paddingTop:16,marginBottom:-8}}>
@@ -1364,6 +1515,40 @@ export default function MobileApp() {
               {curZone<zones.length-1&&<button onClick={()=>{setCurZone(curZone+1);setZqi(0)}} style={{fontSize:14,color:SUB,background:'none',border:'none',cursor:'pointer',fontFamily:'inherit',padding:'8px 12px',minHeight:44}}>Next ›</button>}
             </div>
           </div>
+          {/* Zone-equipment mapping (v2.8.0). Equipment-scoped recs
+              group by these IDs at scoring time. Empty selection
+              triggers the building-scoped fallback in genRecs. */}
+          {zqi === 0 && (() => {
+            const sel = Array.isArray(zData.servingEquipmentIds) ? zData.servingEquipmentIds : []
+            return (
+              <div style={{marginTop:12,padding:'12px 14px',background:`${ACCENT}06`,border:`1px solid ${ACCENT}20`,borderRadius:10}}>
+                <div style={{fontSize:11,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'0.6px',marginBottom:8}}>Served by HVAC equipment</div>
+                {(equipment||[]).length === 0 ? (
+                  <div style={{fontSize:12,color:SUB,lineHeight:1.5}}>No equipment captured. Recommendations for this zone will surface as building-wide actions until equipment is identified. <button onClick={()=>setView('equipment')} style={{background:'none',border:'none',color:ACCENT,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',padding:0,textDecoration:'underline'}}>Add equipment →</button></div>
+                ) : (
+                  <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+                    {equipment.map(e => {
+                      const on = sel.includes(e.id)
+                      return (
+                        <button key={e.id} onClick={()=>toggleZoneEquipment(curZone, e.id)} style={{padding:'6px 12px',borderRadius:6,background:on?`${ACCENT}18`:'transparent',border:`1px solid ${on?ACCENT:BORDER}`,color:on?ACCENT:SUB,fontSize:12,fontWeight:on?600:500,cursor:'pointer',fontFamily:'inherit',minHeight:32}}>
+                          {on && <span style={{marginRight:4}}>✓</span>}{e.label}
+                        </button>
+                      )
+                    })}
+                    <button onClick={()=>{
+                      // "Unknown" clears any selection — explicit
+                      // unmapped flag. The engine treats empty
+                      // servingEquipmentIds as fallback-trigger.
+                      setZones(prev => { const next = [...prev]; next[curZone] = { ...(next[curZone]||{}), servingEquipmentIds: [] }; return next })
+                      setEquipment(prev => prev.map(e => ({ ...e, servedZoneIds: (e.servedZoneIds||[]).filter(zid => zid !== zData.zid) })))
+                    }} style={{padding:'6px 12px',borderRadius:6,background:sel.length===0?`${DIM}18`:'transparent',border:`1px solid ${sel.length===0?DIM:BORDER}`,color:sel.length===0?TEXT:SUB,fontSize:12,fontWeight:500,cursor:'pointer',fontFamily:'inherit',minHeight:32}}>
+                      {sel.length === 0 && <span style={{marginRight:4}}>✓</span>}Unknown
+                    </button>
+                  </div>
+                )}
+              </div>
+            )
+          })()}
           {renderQuestion(zcq,zData,setZF,zqi,zVis,()=>{if(zqi<zVis.length-1)setZqi(zqi+1)},()=>{if(zqi>0)setZqi(zqi-1)},()=>{setZonePrompt(true)},'Complete Zone ✓',zSecs)}
         </div>}
 

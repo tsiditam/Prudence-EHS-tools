@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { scoreZone, compositeScore, evalOSHA, calcVent, genRecs } from '../engines/scoring'
 
+// Engine v2.8.0 — genRecs returns RecommendationAction[] objects per
+// bucket instead of legacy "ZoneName: text" strings. txt() flattens
+// either shape so existing string-match assertions keep working.
+const txt = (r) => typeof r === 'string' ? r : (r?.text || '')
+
 // ── scoreZone ──────────────────────────────────────────────────────────────
 
 describe('scoreZone', () => {
@@ -250,7 +255,7 @@ describe('genRecs', () => {
     }]
     const recs = genRecs(zoneScores, { hm: 'Within 6 months' })
     expect(recs.imm.length).toBeGreaterThan(0)
-    expect(recs.imm.some(r => r.toLowerCase().includes('evacuate') || r.toLowerCase().includes('combustion'))).toBe(true)
+    expect(recs.imm.some(r => txt(r).toLowerCase().includes('evacuate') || txt(r).toLowerCase().includes('combustion'))).toBe(true)
   })
 
   it('recommends HVAC maintenance schedule for unknown maintenance', () => {
@@ -259,7 +264,7 @@ describe('genRecs', () => {
       cats: [{ l: 'HVAC', r: [{ t: 'Maintenance unknown', sev: 'info' }] }],
     }]
     const recs = genRecs(zoneScores, { hm: 'Unknown' })
-    expect(recs.adm.some(r => r.toLowerCase().includes('hvac') && r.toLowerCase().includes('maintenance'))).toBe(true)
+    expect(recs.adm.some(r => txt(r).toLowerCase().includes('hvac') && txt(r).toLowerCase().includes('maintenance'))).toBe(true)
   })
 
   it('always includes monitoring recommendation', () => {
@@ -269,7 +274,7 @@ describe('genRecs', () => {
     }]
     const recs = genRecs(zoneScores, { hm: 'Within 6 months' })
     expect(recs.mon.length).toBeGreaterThan(0)
-    expect(recs.mon.some(r => r.toLowerCase().includes('reassessment'))).toBe(true)
+    expect(recs.mon.some(r => txt(r).toLowerCase().includes('reassessment'))).toBe(true)
   })
 
   it('deduplicates recommendations', () => {
@@ -278,7 +283,7 @@ describe('genRecs', () => {
       { zoneName: 'Z1', cats: [{ l: 'Contaminants', r: [{ t: 'CO 60 ppm — EXCEEDS OSHA PEL', sev: 'critical' }] }] },
     ]
     const recs = genRecs(zoneScores, {})
-    const evacuate = recs.imm.filter(r => r.toLowerCase().includes('evacuate') || r.toLowerCase().includes('combustion'))
+    const evacuate = recs.imm.filter(r => txt(r).toLowerCase().includes('evacuate') || txt(r).toLowerCase().includes('combustion'))
     expect(evacuate.length).toBe(1)
   })
 })
