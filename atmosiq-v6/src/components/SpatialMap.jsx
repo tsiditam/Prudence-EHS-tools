@@ -130,7 +130,7 @@ export default function SpatialMap({ zones, zoneScores, floorPlan, onUpdateZone,
                   style={{ position: 'absolute', left: `${z.mapX}%`, top: `${z.mapY}%`, transform: 'translate(-50%, -100%)', cursor: 'pointer', zIndex: 10 }}
                 >
                   <div style={{ width: 24, height: 24, borderRadius: '50%', background: color, border: '2px solid #fff', boxShadow: `0 2px 8px ${color}80`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <span style={{ fontSize: 9, fontWeight: 800, color: '#fff', fontFamily: "'DM Mono'" }}>{score ?? '?'}</span>
+                    <span style={{ fontSize: 9, fontWeight: 800, color: '#fff', fontFamily: "var(--font-mono)" }}>{score ?? '?'}</span>
                   </div>
                   <div style={{ width: 0, height: 0, borderLeft: '6px solid transparent', borderRight: '6px solid transparent', borderTop: `8px solid ${color}`, margin: '-1px auto 0' }} />
                 </div>
@@ -152,7 +152,7 @@ export default function SpatialMap({ zones, zoneScores, floorPlan, onUpdateZone,
         <div style={{ padding: 14, background: CARD, border: `1px solid ${BORDER}`, borderRadius: 10, marginBottom: 12 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: TEXT }}>{zones[selectedPin]?.zn}</div>
-            <span style={{ fontSize: 18, fontWeight: 800, color: pinColor(zoneScores[selectedPin].tot), fontFamily: "'DM Mono'" }}>{zoneScores[selectedPin].tot}/100</span>
+            <span style={{ fontSize: 18, fontWeight: 800, color: pinColor(zoneScores[selectedPin].tot), fontFamily: "var(--font-mono)" }}>{zoneScores[selectedPin].tot}/100</span>
           </div>
           <div style={{ fontSize: 10, color: DIM, marginBottom: 8 }}>Top Risk Factors</div>
           {getTopFindings(selectedPin).map((f, i) => (

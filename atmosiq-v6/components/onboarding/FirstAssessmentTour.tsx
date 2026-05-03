@@ -171,7 +171,7 @@ export default function FirstAssessmentTour({
       style={{
         position: 'fixed', inset: 0, background: '#000000DD', zIndex: 300,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: 16, fontFamily: "'Outfit', system-ui",
+        padding: 16, fontFamily: "'inherit', system-ui",
       }}
     >
       <div
@@ -222,7 +222,7 @@ export default function FirstAssessmentTour({
               border: `1px dashed ${PALETTE.accent}`,
               borderRadius: 12,
               fontSize: 12, color: PALETTE.accent,
-              fontFamily: "'DM Mono', monospace",
+              fontFamily: "var(--font-mono), monospace",
             }}
           >
             {step.spotlight === 'meter' && '→ Highlighting: Calibration date field'}

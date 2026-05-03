@@ -40,9 +40,12 @@ const C = {
   muted: '#38384A',
 }
 
-const display = { fontFamily: 'Space Grotesk, Inter, sans-serif' }
-const body = { fontFamily: 'Inter, sans-serif' }
-const mono = { fontFamily: 'DM Mono, monospace' }
+// v2.8 UI pass — drop Space Grotesk; align with the app-wide
+// Inter-anchored Notion-style stack inherited from body. Mono uses
+// the system stack via the --font-mono CSS variable on :root.
+const display = { fontFamily: 'inherit' }
+const body = { fontFamily: 'inherit' }
+const mono = { fontFamily: 'var(--font-mono)' }
 
 const ease = 'all 0.9s cubic-bezier(0.16, 1, 0.3, 1)'
 

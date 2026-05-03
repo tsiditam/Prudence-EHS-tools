@@ -41,7 +41,7 @@ export default function Loading({ onDone, fast }) {
         marginTop: 20,
         fontSize: 18,
         fontWeight: 700,
-        fontFamily: "'Outfit', system-ui, sans-serif",
+        fontFamily: "'inherit', system-ui, sans-serif",
         letterSpacing: '-0.3px',
         opacity: 0,
         animation: 'loadTextIn 0.8s ease-out 1s forwards',

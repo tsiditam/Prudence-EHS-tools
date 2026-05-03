@@ -83,7 +83,7 @@ export default function PricingSheet({ profile, credits = 0, onClose, contentMax
         {/* Balance */}
         <div style={{ padding: '8px 14px', background: SURFACE, borderRadius: 8, border: `1px solid ${BORDER}`, marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{ fontSize: 11, color: SUB }}>Your balance</span>
-          <span style={{ fontSize: 13, fontWeight: 700, color: ACCENT, fontFamily: "'DM Mono'" }}>{credits} credit{credits !== 1 ? 's' : ''}</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: ACCENT, fontFamily: "var(--font-mono)" }}>{credits} credit{credits !== 1 ? 's' : ''}</span>
         </div>
 
         {/* Monthly / Annual toggle */}
@@ -142,14 +142,14 @@ export default function PricingSheet({ profile, credits = 0, onClose, contentMax
                 </div>
                 <div style={{ fontSize: 11, color: DIM, marginTop: 2 }}>{tier.blurb}</div>
                 {isAnnual && tier.id !== 'free' && (
-                  <div style={{ fontSize: 9, color: DIM, marginTop: 2, fontFamily: "'DM Mono'" }}>billed yearly</div>
+                  <div style={{ fontSize: 9, color: DIM, marginTop: 2, fontFamily: "var(--font-mono)" }}>billed yearly</div>
                 )}
               </div>
               <div style={{ textAlign: 'right', flexShrink: 0 }}>
                 <div style={{ fontSize: 18, fontWeight: 700, color: tier.id === 'free' ? SUB : ACCENT }}>
                   {formatUsd(price)}
                 </div>
-                <div style={{ fontSize: 9, color: DIM, fontFamily: "'DM Mono'" }}>
+                <div style={{ fontSize: 9, color: DIM, fontFamily: "var(--font-mono)" }}>
                   {periodLabel || 'forever'}
                 </div>
                 <div style={{ fontSize: 10, color: tier.popular ? ACCENT : SUB, marginTop: 4, fontWeight: 600 }}>

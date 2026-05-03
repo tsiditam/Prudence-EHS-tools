@@ -25,10 +25,10 @@ export default function SensorScreen({ data, onChange, isDesktop }) {
           </div>
           <div style={{ position: 'relative', width: 140 }}>
             <input type="number" value={data[sf.id] || ''} onChange={e => onChange(sf.id, e.target.value)}
-              style={{ width: '100%', padding: '12px 14px', paddingRight: 44, background: '#0C1017', border: '1px solid #1A2030', borderRadius: 8, color: '#F0F4F8', fontSize: 16, fontFamily: 'DM Mono, monospace', outline: 'none', boxSizing: 'border-box', transition: 'all 0.2s ease' }}
+              style={{ width: '100%', padding: '12px 14px', paddingRight: 44, background: '#0C1017', border: '1px solid #1A2030', borderRadius: 8, color: '#F0F4F8', fontSize: 16, fontFamily: 'var(--font-mono)', outline: 'none', boxSizing: 'border-box', transition: 'all 0.2s ease' }}
               onFocus={e => { e.target.style.borderColor = '#22D3EE'; e.target.style.boxShadow = '0 0 20px rgba(34,211,238,0.15)' }}
               onBlur={e => { e.target.style.borderColor = '#1A2030'; e.target.style.boxShadow = 'none' }} />
-            <span style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: '#5E6578', fontFamily: 'DM Mono, monospace' }}>{sf.u}</span>
+            <span style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: '#5E6578', fontFamily: 'var(--font-mono)' }}>{sf.u}</span>
           </div>
         </div>
       ))}

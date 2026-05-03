@@ -116,7 +116,7 @@ export default function V21InternalPanel({
         {titleBar}
         <div style={{
           padding: '12px 14px', background: `${DANGER}10`, border: `1px solid ${DANGER}30`,
-          borderRadius: 10, marginBottom: 10, fontSize: 11, color: DANGER, fontFamily: "'DM Mono', monospace",
+          borderRadius: 10, marginBottom: 10, fontSize: 11, color: DANGER, fontFamily: "var(--font-mono), monospace",
         }}>
           Bridge error: {internal.error}
         </div>
@@ -161,7 +161,7 @@ export default function V21InternalPanel({
                 display: 'flex', alignItems: 'center', gap: 10, padding: '6px 8px',
                 borderBottom: i < Math.min(report.prioritizationQueue.length, 12) - 1 ? `1px solid ${BORDER}` : 'none',
               }}>
-                <span style={{ fontSize: 10, color: DIM, fontFamily: "'DM Mono', monospace", minWidth: 22 }}>#{i + 1}</span>
+                <span style={{ fontSize: 10, color: DIM, fontFamily: "var(--font-mono), monospace", minWidth: 22 }}>#{i + 1}</span>
                 <span style={{ fontSize: 11, color: TEXT, flex: 1, lineHeight: 1.3 }}>
                   <strong>{p.zone}</strong>
                   <span style={{ color: SUB }}> · {findingTitleFromQueue(score, p.findingId)}</span>
@@ -170,7 +170,7 @@ export default function V21InternalPanel({
                   padding: '1px 6px', fontSize: 9, fontWeight: 700, borderRadius: 3,
                   background: `${tierColor(p.deduction)}15`, color: tierColor(p.deduction),
                 }}>−{p.deduction}</span>
-                <span style={{ fontSize: 9, color: DIM, fontFamily: "'DM Mono', monospace", minWidth: 50, textAlign: 'right' }}>
+                <span style={{ fontSize: 9, color: DIM, fontFamily: "var(--font-mono), monospace", minWidth: 50, textAlign: 'right' }}>
                   p={p.priority.toFixed(1)}
                 </span>
               </div>
@@ -186,8 +186,8 @@ export default function V21InternalPanel({
             }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
                 <span style={{ fontSize: 12, fontWeight: 700, color: TEXT }}>{z.zoneName}</span>
-                <span style={{ fontSize: 10, color: DIM, fontFamily: "'DM Mono', monospace" }}>{z.zoneId}</span>
-                <span style={{ marginLeft: 'auto', fontSize: 11, color: TEXT, fontFamily: "'DM Mono', monospace" }}>
+                <span style={{ fontSize: 10, color: DIM, fontFamily: "var(--font-mono), monospace" }}>{z.zoneId}</span>
+                <span style={{ marginLeft: 'auto', fontSize: 11, color: TEXT, fontFamily: "var(--font-mono), monospace" }}>
                   {z.composite ?? '—'}{z.composite != null ? '/100' : ''}
                 </span>
                 <span style={{
@@ -204,7 +204,7 @@ export default function V21InternalPanel({
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
                 {z.categories.map(c => (
-                  <div key={c.category} style={{ fontSize: 10, color: SUB, fontFamily: "'DM Mono', monospace" }}>
+                  <div key={c.category} style={{ fontSize: 10, color: SUB, fontFamily: "var(--font-mono), monospace" }}>
                     {c.category}: {c.cappedScore}/{c.maxScore}{' '}
                     <span style={{ color: statusColor(c.status) }}>[{c.status}]</span>
                   </div>
@@ -228,7 +228,7 @@ export default function V21InternalPanel({
           ))}
         </Section>
 
-        <div style={{ marginTop: 8, fontSize: 9, color: DIM, fontFamily: "'DM Mono', monospace", textAlign: 'right' }}>
+        <div style={{ marginTop: 8, fontSize: 9, color: DIM, fontFamily: "var(--font-mono), monospace", textAlign: 'right' }}>
           Bridged from legacy scoring · {new Date(report.generatedAt).toLocaleTimeString()}
         </div>
       </div>
@@ -260,7 +260,7 @@ function Stat({ label, value, suffix, mono }) {
       <div style={{ fontSize: 9, color: DIM, textTransform: 'uppercase', letterSpacing: '0.3px' }}>{label}</div>
       <div style={{
         fontSize: 13, fontWeight: 600, color: TEXT, marginTop: 2,
-        fontFamily: mono ? "'DM Mono', monospace" : 'inherit',
+        fontFamily: mono ? "var(--font-mono), monospace" : 'inherit',
       }}>
         {value}{suffix && <span style={{ fontSize: 9, color: DIM, fontWeight: 500 }}>{suffix}</span>}
       </div>
@@ -306,7 +306,7 @@ function FindingRow({ f, category }) {
           fontSize: 8, padding: '1px 5px', borderRadius: 3, fontWeight: 700,
           background: `${sevColor}20`, color: sevColor, letterSpacing: '0.3px',
         }}>{f.severityInternal.toUpperCase()}</span>
-        <span style={{ fontSize: 9, color: DIM, fontFamily: "'DM Mono', monospace" }}>
+        <span style={{ fontSize: 9, color: DIM, fontFamily: "var(--font-mono), monospace" }}>
           {category} · {f.conditionType}
         </span>
         <span style={{ marginLeft: 'auto', fontSize: 9, color: DIM }}>−{f.deductionInternal}</span>

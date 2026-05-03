@@ -20,7 +20,7 @@ const SUB = '#8B93A5'
 const DIM = '#6B7380'
 const ERR = '#EF4444'
 
-const inp = {width:'100%',padding:'18px 20px',background:BG,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:17,fontFamily:"'Outfit'",fontWeight:500,outline:'none',boxSizing:'border-box'}
+const inp = {width:'100%',padding:'18px 20px',background:BG,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:17,fontFamily:'inherit',fontWeight:500,outline:'none',boxSizing:'border-box'}
 
 export default function AuthScreen({ onAuth }) {
   const [mode, setMode] = useState('login') // login | register | forgot
@@ -72,7 +72,7 @@ export default function AuthScreen({ onAuth }) {
   }
 
   return (
-    <div style={{minHeight:'100vh',background:BG,color:TEXT,fontFamily:"'Outfit', system-ui",padding:'0 24px',paddingTop:'env(safe-area-inset-top, 20px)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+    <div style={{minHeight:'100vh',background:BG,color:TEXT,fontFamily:"'inherit', system-ui",padding:'0 24px',paddingTop:'env(safe-area-inset-top, 20px)',display:'flex',alignItems:'center',justifyContent:'center'}}>
       <div style={{maxWidth:400,width:'100%',animation:'fadeUp .5s ease'}}>
         {/* Brand */}
         <div style={{textAlign:'center',marginBottom:40}}>

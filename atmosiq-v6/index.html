@@ -22,8 +22,27 @@
     <link rel="manifest" href="/manifest.json" />
     <link rel="apple-touch-icon" href="/icons/icon-192.png" />
     <title>AtmosFlow — by Prudence EHS</title>
-    <style>html,body{margin:0;background:#050507;}</style>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <style>
+      html,body{margin:0;background:#050507;}
+      /* Notion-style system stack with Inter as the cross-platform anchor.
+         Inter is loaded below; the system fallbacks (SF Pro on iOS/Mac,
+         Segoe UI on Windows, Roboto on Android) keep the app feeling
+         native if Inter ever fails to load. font-feature-settings 'cv11'
+         flips Inter to its single-storey 'a' which is the look the rest
+         of the design language is calibrated to. */
+      :root{
+        --font-sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI Variable','Segoe UI',system-ui,ui-sans-serif,'Helvetica Neue',Arial,sans-serif,'Apple Color Emoji','Segoe UI Emoji';
+        --font-mono:ui-monospace,'SF Mono',Menlo,Monaco,'Cascadia Code','Roboto Mono',Consolas,monospace;
+      }
+      body{
+        font-family:var(--font-sans);
+        font-feature-settings:'cv11','ss03';
+        -webkit-font-smoothing:antialiased;
+        -moz-osx-font-smoothing:grayscale;
+        text-rendering:optimizeLegibility;
+      }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
   </head>
   <body>
     <div id="root"></div>
