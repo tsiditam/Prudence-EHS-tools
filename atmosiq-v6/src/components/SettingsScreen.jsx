@@ -265,8 +265,10 @@ export default function SettingsScreen({ profile, credits, onEditProfile, onLogo
         <Row label="Privacy Policy" action={() => onNavigate?.('privacy')} />
       </Group>
 
-      {/* ── About — single row, version pill on the right doubles as the
-          5-tap admin-activation gesture (preserved from the prior design). ── */}
+      {/* ── About — version pill doubles as the 5-tap admin-activation
+          gesture (preserved). Credit definition is mirrored here per
+          the CIH credibility requirement that the unit be defined
+          consistently in both surfaces (header chip + Settings). ── */}
       <Group title="About">
         <button
           onClick={() => {
@@ -282,6 +284,10 @@ export default function SettingsScreen({ profile, credits, onEditProfile, onLogo
           </div>
           <span style={{fontSize:10,color:DIM,fontFamily:"var(--font-mono)",padding:'3px 8px',borderRadius:6,background:SURFACE,border:`1px solid ${BORDER}`,flexShrink:0}}>v{VER}</span>
         </button>
+        <div style={{padding:'14px 16px',borderTop:`1px solid ${BORDER}`}}>
+          <div style={{fontSize:11,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:6}}>What is a credit?</div>
+          <div style={{fontSize:12,color:SUB,lineHeight:1.55}}>One credit covers a single building assessment, regardless of zone count, and one finalized report. AI-generated narrative requests draw separately at 3 credits per request.</div>
+        </div>
       </Group>
       {showAdminInput && (
         <div style={{padding:'14px 16px',background:CARD,border:`1px solid ${WARN}25`,borderRadius:10,marginTop:8}}>
