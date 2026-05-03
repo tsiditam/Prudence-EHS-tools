@@ -1276,8 +1276,8 @@ export default function MobileApp() {
             Try it with sample data
           </div>
           <button onClick={()=>runDemo()} style={{width:'100%',padding:'14px 16px',marginBottom:8,background:'transparent',border:`1px solid ${BORDER}`,borderRadius:12,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,fontFamily:'inherit',transition:'border-color 160ms ease, transform 160ms ease',WebkitTapHighlightColor:'transparent'}}>
-            <div style={{width:40,height:40,borderRadius:10,background:`${ACCENT}10`,border:`1px solid ${ACCENT}30`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-              <I n="bldg" s={18} c={ACCENT} w={1.8} />
+            <div style={{width:40,height:40,borderRadius:10,background:`${WARN}10`,border:`1px solid ${WARN}30`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+              <I n="play" s={18} c={WARN} w={1.8} />
             </div>
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:14,fontWeight:700,color:TEXT}}>{userMode === 'fm' ? 'Sample Air Quality Check' : 'Office Building Demo'}</div>
@@ -1286,8 +1286,8 @@ export default function MobileApp() {
             <span style={{fontSize:10,color:SUB,fontFamily:"'DM Mono'",padding:'4px 8px',borderRadius:6,background:`${SUB}10`,whiteSpace:'nowrap',flexShrink:0}}>~10 min</span>
           </button>
           {userMode !== 'fm' && <button onClick={()=>runDemo('dc')} style={{width:'100%',padding:'14px 16px',marginBottom:16,background:'transparent',border:`1px solid ${BORDER}`,borderRadius:12,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,fontFamily:'inherit',transition:'border-color 160ms ease, transform 160ms ease',WebkitTapHighlightColor:'transparent'}}>
-            <div style={{width:40,height:40,borderRadius:10,background:`${ACCENT}10`,border:`1px solid ${ACCENT}30`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-              <I n="pulse" s={18} c={ACCENT} w={1.8} />
+            <div style={{width:40,height:40,borderRadius:10,background:`${WARN}10`,border:`1px solid ${WARN}30`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+              <I n="play" s={18} c={WARN} w={1.8} />
             </div>
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:14,fontWeight:700,color:TEXT}}>Data Center Demo</div>
