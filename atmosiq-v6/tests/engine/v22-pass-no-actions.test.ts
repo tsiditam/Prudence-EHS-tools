@@ -56,16 +56,14 @@ describe('Pass/info findings do not produce recommended actions', () => {
       }
     }
 
-    // Zone section should not display contradictory output:
-    // if "No significant conditions" is the message, the
-    // recommendedActions array should also be empty.
+    // v2.3 — Zone section should not display contradictory output:
+    // an empty findings array means the renderer prints the
+    // empty-zone single sentence; the per-zone recommendedActions
+    // roll-up should also be empty.
     const result = renderClientReport(score)
     if (result.kind !== 'report') return
     const zs = result.report.zoneSections[0]
-    const noSignificant = zs.observedConditions.some(c =>
-      c.toLowerCase().includes('no significant conditions identified'),
-    )
-    if (noSignificant) {
+    if (zs.findings.length === 0) {
       expect(zs.recommendedActions.length).toBe(0)
     }
   })
@@ -116,14 +114,10 @@ describe('Pass/info findings do not produce recommended actions', () => {
 
     const result = renderClientReport(score)
     if (result.kind !== 'report') return
-    // Building-conditions section should report "no conditions identified"
-    // and carry no recommended actions.
+    // v2.3 §2 — when the only HVAC-related finding is a pass-level
+    // condition, no significant building-scoped finding survives
+    // and the section is omitted entirely.
     const bs = result.report.buildingAndSystemConditions
-    const allClear = bs.observedConditions.some(c =>
-      c.toLowerCase().includes('no building or system conditions'),
-    )
-    if (allClear) {
-      expect(bs.recommendedActions.length).toBe(0)
-    }
+    expect(bs).toBeUndefined()
   })
 })

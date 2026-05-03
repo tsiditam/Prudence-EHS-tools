@@ -13,6 +13,7 @@
 import { Paragraph, TextRun, HeadingLevel, AlignmentType, SectionType, PageBreak, Table, TableRow, TableCell, WidthType, ShadingType, BorderStyle, ImageRun } from 'docx'
 import { FONTS, COLORS } from './styles'
 import { borderlessLayoutTable } from './tables'
+import { LETTER_COVER_PAGE, BODY_SECTION_PROPERTIES, CONTENT_WIDTH_DXA } from './page-setup'
 import { base64ToUint8Array } from './images'
 
 // v2.2 visual palette — slate/blue per consultant-report design
@@ -45,7 +46,10 @@ const cyanBorder = blackBorder
 const lightBorder = blackBorder
 const navyBorder = blackBorder
 
-const TOTAL_WIDTH_DXA = 9360 // standard 6.5in content width
+// v2.5.1 — single source of truth for the 6.5-inch Letter content
+// width is in page-setup.js. Re-export here as TOTAL_WIDTH_DXA for
+// back-compat with the dozens of existing references in this file.
+const TOTAL_WIDTH_DXA = CONTENT_WIDTH_DXA
 
 const PRIORITY_LABEL = {
   immediate: 'Immediate',
@@ -134,17 +138,21 @@ function buildCoverPage(cover, reviewStatus, projectNumber) {
     bold: opts.bold !== false, after: opts.after !== undefined ? opts.after : 200,
   })
   return {
+    // v2.5.1 — explicit Letter portrait + 1-inch L/R margins so the
+    // cover page renders at the same content width as the body.
     properties: {
       type: SectionType.NEXT_PAGE,
-      page: { margin: { top: 2160, right: 1440, bottom: 1440, left: 1440 } },
+      page: LETTER_COVER_PAGE,
     },
     children: [
       // Firm name
       p(cover.preparedBy, { align: AlignmentType.CENTER, bold: true, size: 24, color: CYAN_DARK, after: 80 }),
       p('', { after: 800 }),
       // Title — two lines, all caps (slate-900)
-      p('INDOOR AIR QUALITY', { align: AlignmentType.CENTER, bold: true, size: 56, color: '0F172A', after: 100 }),
-      p('EVALUATION', { align: AlignmentType.CENTER, bold: true, size: 56, color: '0F172A', after: 400 }),
+      // v2.4 — cover title rendered as a single paragraph so .docx →
+      // .txt extraction produces one contiguous "INDOOR AIR QUALITY
+      // EVALUATION" line for acceptance runner needle matching.
+      p('INDOOR AIR QUALITY EVALUATION', { align: AlignmentType.CENTER, bold: true, size: 48, color: '0F172A', after: 400 }),
       // Centered cyan rule (single dash run for visual)
       p('—', { align: AlignmentType.CENTER, size: 32, color: CYAN, bold: true, after: 400 }),
       // Site block
@@ -278,6 +286,42 @@ function buildMethodologyDisclosure(report) {
   return [...heading2('Methodology Disclosure'), p(report.methodologyDisclosure)]
 }
 
+/**
+ * v2.2 §5 — Table of Contents.
+ *
+ * Renders a static text TOC matching the rendered section order.
+ * Page numbers are not embedded — Word users can replace this
+ * section with Insert > Table of Contents to get an auto-numbered
+ * TOC that keys off the heading styles used elsewhere in the doc.
+ *
+ * Static rendering avoids a Word-only field that fails silently in
+ * non-Word renderers (LibreOffice, Google Docs upload, web preview).
+ */
+function buildTableOfContents(report) {
+  const toc = report.tableOfContents
+  if (!toc || !toc.entries || toc.entries.length === 0) return []
+  const out = [...heading2(toc.title || 'Table of Contents')]
+  for (const entry of toc.entries) {
+    const indent = entry.level === 2 ? 360 : 0
+    out.push(new Paragraph({
+      children: [new TextRun({
+        text: entry.title,
+        font: FONTS.body,
+        size: entry.level === 2 ? 20 : 22,
+        color: SLATE,
+        bold: entry.level === 1,
+      })],
+      indent: { left: indent },
+      spacing: { after: 80 },
+      border: {
+        bottom: { style: BorderStyle.DOTTED, size: 4, color: SLATE_SOFT, space: 2 },
+      },
+    }))
+  }
+  out.push(p('', { after: 200 }))
+  return out
+}
+
 function buildSamplingMethodologyDocx(report) {
   if (!report.samplingMethodology) return []
   const out = [...heading2('Sampling Methodology')]
@@ -311,8 +355,18 @@ function buildExecutiveSummary(report) {
   if (summary.resultsNarrative) {
     out.push(buildExecBlock('Results', [p(summary.resultsNarrative, { align: AlignmentType.JUSTIFIED })]))
   }
-  // Findings — grouped by domain when findingsByGroup is populated.
-  if (summary.findingsByGroup && summary.findingsByGroup.length > 0) {
+  // v2.5 §6 — Summary of Findings cell carries the consolidated
+  // cross-zone entries with "Observed in: <zones>" suffixes (max 6
+  // + optional truncation note). When summaryOfFindings is empty
+  // (no findings at all), the v2.4 findingsByGroup grouping is the
+  // fallback; if neither is populated, the v2.2 observations list
+  // is the final fallback.
+  if (summary.summaryOfFindings && summary.summaryOfFindings.length > 0) {
+    out.push(buildExecBlock(
+      'Summary of Findings',
+      summary.summaryOfFindings.map(line => buildSummaryFindingBullet(line)),
+    ))
+  } else if (summary.findingsByGroup && summary.findingsByGroup.length > 0) {
     const groupChildren = []
     for (const g of summary.findingsByGroup) {
       groupChildren.push(p(g.groupName, { bold: true, size: 22, color: SLATE, after: 60 }))
@@ -329,6 +383,42 @@ function buildExecutiveSummary(report) {
     out.push(buildExecBlock('Recommendations', summary.recommendations.map(a => bullet(actionLine(a)))))
   }
   return out
+}
+
+/**
+ * v2.5 §6 — render a consolidated Exec Summary entry. The line is
+ * formatted "[label]: [summary]. Observed in: [zones]." with the
+ * label boldened up to the first colon and the rest in body weight.
+ * Truncation-note lines have no colon and render in italics.
+ */
+function buildSummaryFindingBullet(line) {
+  const colonIdx = line.indexOf(': ')
+  if (colonIdx < 0) {
+    // truncation note or back-compat plain string
+    return new Paragraph({
+      children: [new TextRun({ text: line, font: FONTS.body, size: 20, italics: true, color: SLATE_BODY })],
+      bullet: { level: 0 },
+      indent: { left: 360 },
+      spacing: { after: 60 },
+    })
+  }
+  const label = line.slice(0, colonIdx + 1)
+  const rest = line.slice(colonIdx + 1).trimStart()
+  const observedMatch = / Observed (?:in|at): .+\.?$/.exec(rest)
+  const summaryPart = observedMatch ? rest.slice(0, observedMatch.index) : rest
+  const observedPart = observedMatch ? observedMatch[0].trimStart() : ''
+  return new Paragraph({
+    children: [
+      new TextRun({ text: `${label} `, font: FONTS.body, size: 20, bold: true, color: SLATE }),
+      new TextRun({ text: summaryPart, font: FONTS.body, size: 20, color: SLATE_BODY }),
+      ...(observedPart
+        ? [new TextRun({ text: ` ${observedPart}`, font: FONTS.body, size: 20, italics: true, color: SLATE_BODY })]
+        : []),
+    ],
+    bullet: { level: 0 },
+    indent: { left: 360 },
+    spacing: { after: 60 },
+  })
 }
 
 /**
@@ -489,49 +579,409 @@ function buildBuildingContext(report) {
   ]
 }
 
-function buildBuildingConditionsSection(report) {
-  const section = report.buildingAndSystemConditions
-  if (!section) return []
-  const out = [...heading2('Building and System Conditions')]
-  out.push(p('Observed conditions', { bold: true, size: 20, color: COLORS.sub, after: 60 }))
-  if (section.observedConditions.length > 0) {
-    section.observedConditions.forEach(c => out.push(bullet(c)))
-  } else {
-    out.push(p('No building or system conditions identified within the stated limitations.', { italics: true, color: COLORS.sub }))
-  }
-  if (section.dataLimitations.length > 0) {
-    out.push(p('Data limitations', { bold: true, size: 20, color: COLORS.sub, after: 60 }))
-    section.dataLimitations.forEach(l => out.push(bullet(l)))
-  }
-  if (section.recommendedActions.length > 0) {
-    out.push(p('Recommended actions', { bold: true, size: 20, color: COLORS.sub, after: 60 }))
-    section.recommendedActions.forEach(a => out.push(bullet(actionLine(a))))
+// v2.4 §2 — Results section: per-parameter standards-anchored prose
+// subsections. Renders between Sampling Methodology and Building and
+// System Context.
+function buildResultsSection(report) {
+  const r = report.resultsSection
+  if (!r || !Array.isArray(r.subsections) || r.subsections.length === 0) return []
+  const out = [...heading2(r.title || 'Results')]
+  for (const sub of r.subsections) {
+    out.push(heading3(sub.heading))
+    if (sub.standardsBackground) {
+      out.push(p(sub.standardsBackground, { align: AlignmentType.JUSTIFIED }))
+    }
+    if (sub.measurementSummary) {
+      out.push(p(sub.measurementSummary, { align: AlignmentType.JUSTIFIED }))
+    }
   }
   return out
 }
 
+// v2.4 §3 — Six structured appendices. Each renders a heading,
+// description, and any tabular content. Engine version line lives
+// only in Appendix D.
+function buildAppendices(report, options = {}) {
+  const ap = report.appendix || {}
+  const out = []
+  const capturedPhotos = options.photos || {}
+  if (ap.appendixA) {
+    out.push(...heading2(ap.appendixA.title))
+    if (ap.appendixA.description) out.push(p(ap.appendixA.description, { align: AlignmentType.JUSTIFIED }))
+    if (Array.isArray(ap.appendixA.rows) && ap.appendixA.rows.length > 0) {
+      out.push(buildSimpleTable(
+        ['Zone', 'Parameter', 'Value', 'Unit', 'Outdoor Ref.'],
+        ap.appendixA.rows.map(r => [r.zoneName, r.parameter, r.value, r.unit, r.outdoorReference]),
+        // v2.5.1 — fill 9360 TWIPs: zone + parameter wide, narrow
+        // unit column, modest outdoor-ref column.
+        { columnWidths: [2400, 2400, 1440, 1200, 1920] },
+      ))
+    }
+  }
+  if (ap.appendixB) {
+    out.push(...heading2(ap.appendixB.title))
+    if (ap.appendixB.description) out.push(p(ap.appendixB.description, { align: AlignmentType.JUSTIFIED }))
+    if (Array.isArray(ap.appendixB.instrumentRows) && ap.appendixB.instrumentRows.length > 0) {
+      out.push(p('Instruments used:', { bold: true, after: 60 }))
+      out.push(buildSimpleTable(
+        ['Model', 'Serial', 'Last Calibration', 'Status'],
+        ap.appendixB.instrumentRows.map(r => [r.model, r.serial || '—', r.lastCalibration || '—', r.calibrationStatus || '—']),
+        // v2.5.1 — model column gets the most room; remaining
+        // columns split the rest.
+        { columnWidths: [2880, 2160, 2160, 2160] },
+      ))
+    }
+    if (Array.isArray(ap.appendixB.zoneRows) && ap.appendixB.zoneRows.length > 0) {
+      out.push(p('Per-zone sampling detail:', { bold: true, before: 120, after: 60 }))
+      out.push(buildSimpleTable(
+        ['Zone', 'Sampling Duration', 'Sample Locations', 'Outdoor Ref.'],
+        ap.appendixB.zoneRows.map(r => [r.zoneName, r.samplingDuration, r.sampleLocations, r.outdoorReferenceTaken ? 'Yes' : 'No']),
+        // v2.5.1 — sample locations is the longest column; zone +
+        // sampling duration moderate; outdoor ref narrow.
+        { columnWidths: [2160, 2160, 3600, 1440] },
+      ))
+    }
+  }
+  if (ap.appendixC || hasCapturedPhotos(capturedPhotos)) {
+    out.push(...heading2(ap.appendixC?.title || 'Appendix C — Photographic Documentation'))
+    if (ap.appendixC?.description) out.push(p(ap.appendixC.description, { align: AlignmentType.JUSTIFIED }))
+    // v2.5 §5 — photo.caption is already formatted as
+    // "Photo N: <zone or Building> — <text>" by the engine. The
+    // relativePath is a placeholder cross-reference for the
+    // separately-delivered field photo set when image embedding
+    // is not available.
+    if (Array.isArray(ap.appendixC?.photos) && ap.appendixC.photos.length > 0) {
+      for (const photo of ap.appendixC.photos) {
+        out.push(bullet(photo.caption))
+        if (photo.relativePath) {
+          out.push(p(`(image: ${photo.relativePath})`, {
+            italics: true, size: 16, color: COLORS.sub, indent: { left: 720 }, after: 80,
+          }))
+        }
+      }
+    }
+    // v2.6.1 — embed assessor's captured field photographs (data URLs
+    // from the SPA's PhotoCapture component, keyed `z{zi}-{fieldId}`).
+    // Renders below the engine's caption stubs so both surfaces stay
+    // consistent. Engine output is unchanged.
+    out.push(...buildCapturedFieldPhotos(report, capturedPhotos))
+  }
+  if (ap.appendixD) {
+    out.push(...heading2(ap.appendixD.title))
+    if (ap.appendixD.description) out.push(p(ap.appendixD.description, { align: AlignmentType.JUSTIFIED }))
+    // v2.5 §2 — prefer pre-formatted displayLines (organization
+    // abbreviations expanded, sorted, deduped). Fall back to legacy
+    // citations array for backward compat with consumers that still
+    // synthesize Citations directly.
+    const lines = Array.isArray(ap.appendixD.displayLines) && ap.appendixD.displayLines.length > 0
+      ? ap.appendixD.displayLines
+      : (ap.appendixD.citations || []).map(c =>
+          `${c.source}${c.edition && c.edition !== 'current' ? ` (${c.edition})` : ''}${c.authority ? ` — ${c.authority}` : ''}`,
+        )
+    for (const line of lines) {
+      out.push(bullet(line))
+    }
+    if (ap.appendixD.engineVersionLine) {
+      out.push(p(ap.appendixD.engineVersionLine, { italics: true, size: 18, color: COLORS.light, before: 200 }))
+    }
+  }
+  if (ap.appendixE) {
+    out.push(...heading2(ap.appendixE.title))
+    if (ap.appendixE.description) out.push(p(ap.appendixE.description, { align: AlignmentType.JUSTIFIED }))
+    if (Array.isArray(ap.appendixE.calibrationRecords) && ap.appendixE.calibrationRecords.length > 0) {
+      out.push(buildSimpleTable(
+        ['Instrument', 'Serial', 'Last Calibration', 'Status'],
+        ap.appendixE.calibrationRecords.map(r => [r.instrumentModel, r.serial || '—', r.lastCalibration || '—', r.status || '—']),
+        // v2.5.1 — instrument column gets the most room; matches
+        // Appendix B layout for visual consistency.
+        { columnWidths: [2880, 2160, 2160, 2160] },
+      ))
+    }
+    if (Array.isArray(ap.appendixE.qaNotes) && ap.appendixE.qaNotes.length > 0) {
+      for (const note of ap.appendixE.qaNotes) {
+        out.push(bullet(note))
+      }
+    }
+  }
+  if (ap.appendixF) {
+    out.push(...heading2(ap.appendixF.title))
+    if (ap.appendixF.description) out.push(p(ap.appendixF.description, { align: AlignmentType.JUSTIFIED }))
+    if (Array.isArray(ap.appendixF.entries) && ap.appendixF.entries.length > 0) {
+      for (const e of ap.appendixF.entries) {
+        out.push(new Paragraph({
+          children: [
+            new TextRun({ text: `${e.term}: `, bold: true, font: FONTS.body, size: 22, color: SLATE }),
+            new TextRun({ text: e.definition, font: FONTS.body, size: 22, color: SLATE_BODY }),
+          ],
+          spacing: { after: 80 },
+        }))
+      }
+    }
+  }
+  return out
+}
+
+function buildSimpleTable(headers, rows, opts = {}) {
+  // v2.5.1 — accept explicit columnWidths summing to TOTAL_WIDTH_DXA.
+  // When omitted (back-compat), fall back to even distribution.
+  const widths = (opts.columnWidths && opts.columnWidths.length === headers.length)
+    ? opts.columnWidths
+    : headers.map(() => Math.floor(TOTAL_WIDTH_DXA / headers.length))
+  const headerRow = new TableRow({
+    children: headers.map((h, i) => new TableCell({
+      width: { size: widths[i], type: WidthType.DXA },
+      margins: { top: 100, bottom: 100, left: 120, right: 120 },
+      shading: { fill: SLATE_FILL, type: ShadingType.CLEAR, color: 'auto' },
+      children: [new Paragraph({
+        children: [new TextRun({ text: h, bold: true, font: FONTS.body, size: 20, color: SLATE })],
+      })],
+      borders: { top: blackBorder, bottom: blackBorder, left: blackBorder, right: blackBorder },
+    })),
+    tableHeader: true,
+  })
+  const bodyRows = rows.map(cells => new TableRow({
+    children: cells.map((cell, i) => new TableCell({
+      width: { size: widths[i] || Math.floor(TOTAL_WIDTH_DXA / cells.length), type: WidthType.DXA },
+      margins: { top: 80, bottom: 80, left: 120, right: 120 },
+      children: [new Paragraph({
+        children: [new TextRun({ text: String(cell || ''), font: FONTS.body, size: 20, color: SLATE_BODY })],
+      })],
+      borders: { top: blackBorder, bottom: blackBorder, left: blackBorder, right: blackBorder },
+    })),
+  }))
+  return new Table({
+    rows: [headerRow, ...bodyRows],
+    width: { size: TOTAL_WIDTH_DXA, type: WidthType.DXA },
+    columnWidths: widths,
+    borders: { top: blackBorder, bottom: blackBorder, left: blackBorder, right: blackBorder, insideHorizontal: blackBorder, insideVertical: blackBorder },
+  })
+}
+
+// v2.3 §2 — Building and System Conditions section is omitted entirely
+// (no header, no body, no TOC entry) when the engine signals
+// rendered=false. The omittedReason was already appended to Scope of
+// Work in client.ts. We render nothing here.
+function buildBuildingConditionsSection(report) {
+  const section = report.buildingAndSystemConditions
+  if (!section || !section.rendered) return []
+  const out = [...heading2('Building and System Conditions')]
+  for (const f of (section.findings || [])) {
+    out.push(...buildInlineFindingDocx(f))
+  }
+  return out
+}
+
+// v2.3 §5 — Zone section. Findings render as RenderedFinding blocks.
+// Empty zones render exactly the prescribed single sentence.
 function buildZoneSections(report) {
   const out = [...heading2('Zone Findings')]
   for (const zone of report.zoneSections) {
     out.push(heading3(zone.zoneName))
-    out.push(p('Observed conditions', { bold: true, size: 20, color: COLORS.sub, after: 60 }))
-    if (zone.observedConditions.length > 0) {
-      zone.observedConditions.forEach(c => out.push(bullet(c)))
-    } else {
-      out.push(p('No significant conditions identified within the stated limitations.', { italics: true, color: COLORS.sub }))
+    if (zone.zoneDescription) {
+      out.push(p(zone.zoneDescription, { size: 22, color: COLORS.body }))
     }
-    out.push(p('Interpretation', { bold: true, size: 20, color: COLORS.sub, after: 60 }))
-    out.push(p(zone.interpretation))
-    if (zone.dataLimitations.length > 0) {
-      out.push(p('Data limitations', { bold: true, size: 20, color: COLORS.sub, after: 60 }))
-      zone.dataLimitations.forEach(l => out.push(bullet(l)))
+    if (zone.samplingSummary) {
+      out.push(p(zone.samplingSummary, { size: 20, color: COLORS.sub, italics: true }))
     }
-    if (zone.recommendedActions.length > 0) {
-      out.push(p('Recommended actions', { bold: true, size: 20, color: COLORS.sub, after: 60 }))
-      zone.recommendedActions.forEach(a => out.push(bullet(actionLine(a))))
+    const findings = zone.findings || []
+    if (findings.length === 0) {
+      out.push(p(
+        'No conditions warranting elevated concern were identified in this zone within the stated limitations.',
+        { size: 22, color: COLORS.body },
+      ))
+      continue
+    }
+    for (const f of findings) {
+      out.push(...buildInlineFindingDocx(f))
+    }
+    if (zone.interpretation) {
+      out.push(p('Interpretation', { bold: true, size: 20, color: COLORS.sub, after: 60 }))
+      out.push(p(zone.interpretation))
     }
   }
   return out
+}
+
+/**
+ * v2.3 §3 / §7 — render a self-contained RenderedFinding block as a
+ * sequence of docx Paragraphs. Narrative → optional Observed line →
+ * inline Limitations sublist (italic, indented) → Recommended
+ * actions sublist. 12pt below the block before the next finding.
+ */
+function buildInlineFindingDocx(rf) {
+  if (!rf) return []
+  const out = []
+  out.push(p(rf.narrative || '', { align: AlignmentType.JUSTIFIED, after: 80 }))
+  if (rf.observedValue) {
+    out.push(new Paragraph({
+      children: [
+        new TextRun({ text: 'Observed: ', font: FONTS.body, size: 20, bold: true, color: SLATE }),
+        new TextRun({ text: rf.observedValue, font: FONTS.body, size: 20, color: SLATE_BODY }),
+      ],
+      spacing: { after: 80 },
+    }))
+  }
+  if (rf.limitations && rf.limitations.length > 0) {
+    out.push(p('Limitations of this finding:', {
+      italics: true, bold: true, size: 18, color: SLATE, after: 40,
+    }))
+    for (const l of rf.limitations) {
+      out.push(new Paragraph({
+        children: [new TextRun({
+          text: l, font: FONTS.body, size: 18, italics: true, color: COLORS.sub,
+        })],
+        bullet: { level: 0 },
+        indent: { left: 360 },
+        spacing: { after: 40 },
+      }))
+    }
+  }
+  if (rf.recommendedActions && rf.recommendedActions.length > 0) {
+    out.push(p('Recommended actions:', {
+      bold: true, size: 18, color: SLATE, after: 40,
+    }))
+    for (const a of rf.recommendedActions) {
+      out.push(new Paragraph({
+        children: [new TextRun({
+          text: actionLine(a), font: FONTS.body, size: 20, color: COLORS.body,
+        })],
+        bullet: { level: 0 },
+        indent: { left: 360 },
+        spacing: { after: 40 },
+      }))
+    }
+  }
+  out.push(p('', { after: 240 })) // 12pt block-spacer
+  return out
+}
+
+/**
+ * v2.6 §5 — Potential Contributing Factors section.
+ *
+ * Renders one block per CausalChain (already projected as
+ * ContributingFactor by client.ts). Each block contains the
+ * synthesized root-cause description, related findings, affected
+ * zones, citation source, and a closing line keyed on
+ * `causationSupported` so the renderer never accidentally promotes
+ * a hypothesis chain to causal language.
+ *
+ * Section is omitted entirely when the engine produced zero
+ * chains — no empty header, no TOC entry, no boilerplate.
+ */
+function buildPotentialContributingFactors(report) {
+  const factors = report.potentialContributingFactors || []
+  if (factors.length === 0) return []
+  const out = [...heading2('Potential Contributing Factors')]
+  for (const f of factors) {
+    out.push(p(f.name, { bold: true, size: 22, color: SLATE, after: 80 }))
+    if (f.description) {
+      out.push(p(f.description, { align: AlignmentType.JUSTIFIED, after: 100 }))
+    }
+    if (Array.isArray(f.relatedFindings) && f.relatedFindings.length > 0) {
+      out.push(p('Related findings:', { italics: true, bold: true, size: 18, color: SLATE, after: 40 }))
+      for (const rf of f.relatedFindings) {
+        out.push(new Paragraph({
+          children: [new TextRun({
+            text: rf, font: FONTS.body, size: 18, italics: true, color: COLORS.sub,
+          })],
+          bullet: { level: 0 },
+          indent: { left: 360 },
+          spacing: { after: 40 },
+        }))
+      }
+    }
+    if (Array.isArray(f.affectedZones) && f.affectedZones.length > 0) {
+      out.push(new Paragraph({
+        children: [
+          new TextRun({ text: 'Affected zones: ', font: FONTS.body, size: 18, bold: true, color: SLATE }),
+          new TextRun({ text: f.affectedZones.join(', '), font: FONTS.body, size: 18, color: SLATE_BODY }),
+        ],
+        spacing: { after: 40 },
+      }))
+    }
+    if (f.citationSource) {
+      out.push(new Paragraph({
+        children: [
+          new TextRun({ text: 'Source: ', font: FONTS.body, size: 18, bold: true, color: SLATE }),
+          new TextRun({ text: f.citationSource, font: FONTS.body, size: 18, italics: true, color: SLATE_BODY }),
+        ],
+        spacing: { after: 80 },
+      }))
+    }
+    const closingLine = f.causationSupported
+      ? 'This relationship is supported by direct measurement and structured observation.'
+      : 'This relationship is suggested by the pattern of observations and is offered as a hypothesis for further investigation.'
+    out.push(p(closingLine, { italics: true, size: 18, color: COLORS.sub, after: 200 }))
+  }
+  return out
+}
+
+/**
+ * v2.6 §5 — Recommended Sampling Plan section.
+ *
+ * Renders one block per Hypothesis. Each block contains the
+ * confidence-tier language, the basis (free-form observation
+ * strings that triggered the hypothesis), and the suggested
+ * sampling parameter / method / rationale list.
+ *
+ * Section is omitted entirely when no hypothesis fired.
+ */
+function buildRecommendedSamplingPlan(report) {
+  const plan = report.recommendedSamplingPlan || []
+  if (plan.length === 0) return []
+  const out = [...heading2('Recommended Sampling Plan')]
+  for (const h of plan) {
+    out.push(new Paragraph({
+      children: [
+        new TextRun({ text: h.name, font: FONTS.body, size: 22, bold: true, color: SLATE }),
+        new TextRun({
+          text: `   (${tierLabel(h.cihConfidenceTier)})`,
+          font: FONTS.body, size: 18, italics: true, color: COLORS.sub,
+        }),
+      ],
+      spacing: { after: 80 },
+    }))
+    if (Array.isArray(h.basis) && h.basis.length > 0) {
+      out.push(p('Basis:', { italics: true, bold: true, size: 18, color: SLATE, after: 40 }))
+      for (const b of h.basis) {
+        out.push(new Paragraph({
+          children: [new TextRun({
+            text: b, font: FONTS.body, size: 18, italics: true, color: COLORS.sub,
+          })],
+          bullet: { level: 0 },
+          indent: { left: 360 },
+          spacing: { after: 40 },
+        }))
+      }
+    }
+    if (Array.isArray(h.suggestedSampling) && h.suggestedSampling.length > 0) {
+      out.push(p('Suggested sampling:', { bold: true, size: 18, color: SLATE, after: 40 }))
+      for (const s of h.suggestedSampling) {
+        out.push(new Paragraph({
+          children: [
+            new TextRun({ text: `${s.parameter} — `, font: FONTS.body, size: 18, bold: true, color: SLATE }),
+            new TextRun({ text: s.method, font: FONTS.body, size: 18, color: COLORS.body }),
+            new TextRun({ text: `. ${s.rationale}`, font: FONTS.body, size: 18, italics: true, color: SLATE_BODY }),
+          ],
+          bullet: { level: 0 },
+          indent: { left: 360 },
+          spacing: { after: 60 },
+        }))
+      }
+    }
+    out.push(p('', { after: 160 }))
+  }
+  return out
+}
+
+function tierLabel(tier) {
+  switch (tier) {
+    case 'validated_defensible': return 'validated, defensible'
+    case 'provisional_screening_level': return 'provisional, screening-level'
+    case 'qualitative_only': return 'qualitative only'
+    case 'insufficient_data': return 'insufficient data'
+    default: return tier || ''
+  }
 }
 
 function buildRecommendationsRegister(report) {
@@ -551,11 +1001,13 @@ function buildRecommendationsRegister(report) {
 }
 
 function buildRecommendationsTable(groups) {
-  // Column widths roughly: Priority 16% / Timeframe 14% / Action 50% / Ref 20%
-  const COL_PRIORITY = Math.round(TOTAL_WIDTH_DXA * 0.16)
-  const COL_TIMEFRAME = Math.round(TOTAL_WIDTH_DXA * 0.14)
-  const COL_ACTION = Math.round(TOTAL_WIDTH_DXA * 0.50)
-  const COL_REF = Math.round(TOTAL_WIDTH_DXA * 0.20)
+  // v2.5.1 — explicit column widths summing to TOTAL_WIDTH_DXA so
+  // the table fills the 6.5-inch Letter content area. Action gets
+  // the lion's share since action text is the longest column.
+  const COL_PRIORITY = 1500
+  const COL_TIMEFRAME = 1500
+  const COL_ACTION = 5160
+  const COL_REF = 1200
 
   // Header row — cyan band, white text
   const headerCell = (text, width) => new TableCell({
@@ -679,13 +1131,12 @@ function buildAssessmentIndexAppendix(idx) {
   return out
 }
 
+// v2.4 §7 — engine version line moved to Appendix D (last line).
+// The body footer is now empty; page footers in the docx section
+// properties carry "Indoor Air Quality Evaluation — PSEC Project
+// [n] — Page X of Y" instead.
 function buildFooter(report) {
-  return [
-    new Paragraph({ children: [new PageBreak()] }),
-    p(`Generated by AtmosFlow Engine ${report.engineVersion} on ${new Date(report.generatedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`, {
-      align: AlignmentType.CENTER, italics: true, size: 16, color: COLORS.light,
-    }),
-  ]
+  return []
 }
 
 // ── Public ──
@@ -704,86 +1155,98 @@ export function buildClientDocx(result, options = {}) {
   const cover = buildCoverPage(report.cover, report.reviewStatus, report.transmittalLetter?.projectNumber || report.meta?.projectNumber)
   const main = [
     ...buildTransmittal(report),
+    ...buildTableOfContents(report),
     ...buildMethodologyDisclosure(report),
     ...buildExecutiveSummary(report),
     ...buildScope(report),
     ...buildSamplingMethodologyDocx(report),
+    ...buildResultsSection(report),
     ...buildBuildingContext(report),
     ...buildBuildingConditionsSection(report),
     ...buildZoneSections(report),
+    // v2.6 §5 — Potential Contributing Factors and Recommended
+    // Sampling Plan slot in between Zone Findings and the
+    // Recommendations Register. Each is a no-op when the
+    // corresponding engine pass produced no output.
+    ...buildPotentialContributingFactors(report),
+    ...buildRecommendedSamplingPlan(report),
     ...buildRecommendationsRegister(report),
     ...buildLimitations(report),
     ...buildSignatory(report),
+    ...buildAppendices(report, { photos: options.photos }),
     ...(report.appendix.assessmentIndexInformationalOnly
       ? buildAssessmentIndexAppendix(report.appendix.assessmentIndexInformationalOnly)
       : []),
-    ...buildClientPhotosAppendix(report, photos),
     ...buildFooter(report),
   ]
   return { cover, main }
 }
 
-/**
- * v2.7.1 fix — restore photo rendering in the consultant DOCX path.
- *
- * Photos exist on ctx.photos keyed `z{zoneIndex}-{fieldId}` (e.g.
- * "z0-dp" for Zone 0 condensate drain pan). The legacy
- * sections-zone.js renderer rendered them; the v2.1 ClientReport
- * pipeline did not port that over. This appendix renders them under
- * canonical zone names from report.zoneSections.
- *
- * Output: empty array when photos object is empty or none of the
- * keys map to a known zone — the appendix simply does not appear.
- */
-function buildClientPhotosAppendix(report, photos) {
-  if (!photos || typeof photos !== 'object') return []
+// v2.6.1 — captured field photographs.
+//
+// Photos are stored on the SPA side keyed `z{zoneIndex}-{fieldId}`
+// (e.g. "z0-dp" for Zone 0 condensate drain pan). Each value is an
+// array of { src: dataUrl, ts: timestamp, ... }. This helper groups
+// them by zone using report.zoneSections names, decodes the data URL
+// to an ImageRun, and renders 240×180 px under per-zone subheadings.
+//
+// One bad image won't abort the whole report — decode failures fall
+// back to a placeholder line so the recipient still sees that a
+// photo was here.
+//
+// v2.8.0 merge note — main's photo-rendering approach (this function,
+// called inline within buildAppendices at the prior Appendix C site)
+// supersedes the parallel buildClientPhotosAppendix that lived on the
+// equipment-dedup branch. Keeping main's path avoids double-rendering
+// and a duplicate "Appendix C" heading.
+function hasCapturedPhotos(photos) {
+  if (!photos || typeof photos !== 'object') return false
+  for (const k of Object.keys(photos)) {
+    if (Array.isArray(photos[k]) && photos[k].some(ph => ph && ph.src)) return true
+  }
+  return false
+}
+
+function buildCapturedFieldPhotos(report, photos) {
+  if (!hasCapturedPhotos(photos)) return []
   const zoneSections = report.zoneSections || []
   if (zoneSections.length === 0) return []
 
   const fieldLabels = { dp: 'Condensate drain pan', wd: 'Water damage', mi: 'Mold indicators' }
-  const zonePhotoGroups = zoneSections.map((zone, zi) => {
+  const groups = zoneSections.map((zone, zi) => {
     const matches = []
-    Object.keys(photos).forEach(key => {
-      if (!key.startsWith(`z${zi}-`)) return
-      const fieldId = key.replace(`z${zi}-`, '')
-      ;(photos[key] || []).forEach(ph => {
+    for (const key of Object.keys(photos)) {
+      if (!key.startsWith(`z${zi}-`)) continue
+      const fieldId = key.slice(`z${zi}-`.length)
+      for (const ph of photos[key] || []) {
         if (ph && ph.src) matches.push({ src: ph.src, label: fieldLabels[fieldId] || fieldId, ts: ph.ts })
-      })
-    })
+      }
+    }
     return { zoneName: zone.zoneName, photos: matches }
   }).filter(g => g.photos.length > 0)
 
-  if (zonePhotoGroups.length === 0) return []
+  if (groups.length === 0) return []
 
   const out = []
-  out.push(...heading2('Appendix C — Photographic Documentation'))
-  out.push(p(
-    'Photographs captured during the on-site assessment, organized by zone. Images are presented at reduced resolution for report layout; original-resolution files are retained in the project record.',
-    { size: 20, color: COLORS.sub, after: 200 },
-  ))
-
-  for (const group of zonePhotoGroups) {
+  out.push(p('Field photographs captured during the on-site assessment, organized by zone. Images are presented at reduced resolution for report layout; original-resolution files are retained in the project record.', {
+    size: 20, color: COLORS.sub, after: 200,
+  }))
+  for (const group of groups) {
     out.push(heading3(group.zoneName))
     for (const ph of group.photos) {
       try {
-        const imgData = base64ToUint8Array(ph.src)
+        const data = base64ToUint8Array(ph.src)
         out.push(new Paragraph({
-          children: [new ImageRun({ data: imgData, transformation: { width: 240, height: 180 }, type: 'jpg' })],
+          children: [new ImageRun({ data, transformation: { width: 240, height: 180 }, type: 'jpg' })],
           spacing: { after: 40 },
         }))
-        const caption = ph.ts
-          ? `${ph.label} · ${new Date(ph.ts).toLocaleTimeString()}`
-          : ph.label
+        const caption = ph.ts ? `${ph.label} · ${new Date(ph.ts).toLocaleTimeString()}` : ph.label
         out.push(p(caption, { size: 16, color: COLORS.muted, after: 160 }))
       } catch (_err) {
-        // Image decode failure shouldn't abort the whole report —
-        // surface a placeholder line so the recipient sees something
-        // was here, then continue.
         out.push(p(`[Photo: ${ph.label}]`, { size: 18, color: COLORS.muted, italics: true, after: 120 }))
       }
     }
   }
-
   return out
 }
 
@@ -802,7 +1265,7 @@ function buildMemoDocx(memo, reasons) {
     ...memo.recommendedFollowUp.map(r => bullet(r)),
     ...buildSignatory({ signatoryBlock: memo.signatoryBlock }),
     new Paragraph({ children: [new PageBreak()] }),
-    p(`Generated by AtmosFlow Engine ${memo.engineVersion} on ${new Date(memo.generatedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`, {
+    p(`Engine version: ${memo.engineVersion}.`, {
       align: AlignmentType.CENTER, italics: true, size: 16, color: COLORS.light,
     }),
   ]

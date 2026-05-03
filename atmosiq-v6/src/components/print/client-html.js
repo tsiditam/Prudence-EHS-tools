@@ -137,6 +137,28 @@ const PAGE_STYLES = `
   .draft-notice { padding: 12px 16px; background: #FFFBEB; border: 1px solid #FBBF24; border-radius: 4px; font-size: 11pt; color: #92400E; margin-top: 20px; line-height: 1.6; }
   .draft-watermark { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-30deg); font-size: 96pt; color: rgba(251, 191, 36, 0.10); font-weight: 800; pointer-events: none; z-index: 0; letter-spacing: 6px; }
 
+  /* ── Table of Contents ── */
+  .toc {
+    margin: 18px 0 28px; padding: 18px 22px;
+    background: #F8FAFC; border: 1px solid #E2E8F0;
+    page-break-after: avoid;
+  }
+  .toc-title {
+    font-family: 'Source Serif 4', Cambria, Georgia, serif;
+    font-size: 14pt; font-weight: 700; color: #1E293B;
+    margin-bottom: 10px; letter-spacing: 0.3px;
+    padding-bottom: 6px; border-bottom: 1px solid #E2E8F0;
+  }
+  .toc-list { list-style: none; margin: 0; padding: 0; }
+  .toc-list li {
+    padding: 4px 0; line-height: 1.5; font-size: 11.5pt;
+    border-bottom: 1px dotted #E2E8F0;
+  }
+  .toc-list li:last-child { border-bottom: none; }
+  .toc-list li.level-2 { padding-left: 24px; font-size: 11pt; color: #5C6F7E; }
+  .toc-list a { color: #1E293B; text-decoration: none; }
+  .toc-list a:hover { color: #2563EB; }
+
   /* ── Verbatim engine paragraph (Methodology Disclosure) ── */
   .verbatim {
     padding: 14px 20px; background: #F8FAFC; border-left: 4px solid #2563EB;
@@ -225,6 +247,49 @@ const PAGE_STYLES = `
     text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px;
   }
   .opinion-text { font-size: 12pt; line-height: 1.7; color: #1f2937; font-weight: 600; }
+
+  /* ── v2.3 §3 — RenderedFinding inline layout ── */
+  .finding {
+    margin: 0 0 18px 0; padding-bottom: 12px;
+    page-break-inside: avoid;
+  }
+  .finding-narrative { margin: 0 0 8px 0; line-height: 1.7; text-align: justify; }
+  .finding-observation {
+    margin: 4px 0 8px 0; padding: 6px 10px;
+    background: #F8FAFC; border-left: 3px solid #2563EB;
+    font-size: 11pt; line-height: 1.5;
+  }
+  .finding-observation-label { font-weight: 700; color: #1E293B; }
+  .finding-observation-value {
+    font-family: 'DM Mono', 'SF Mono', Consolas, monospace;
+    color: #1E293B;
+  }
+  .finding-source { font-size: 10pt; color: #5C6F7E; font-style: italic; }
+  .finding-limitations {
+    margin: 8px 0 8px 24px; padding-left: 12px;
+    border-left: 1px solid #E2E8F0;
+  }
+  .finding-limitations-label {
+    font-size: 10.5pt; font-weight: 600; color: #1E293B;
+    font-style: italic; margin-bottom: 4px;
+  }
+  .finding-limitations-list { margin: 0 0 0 18px; padding: 0; }
+  .finding-limitations-list li {
+    font-size: 10.5pt; font-style: italic; color: #5C6F7E;
+    margin-bottom: 3px; line-height: 1.55; text-align: left;
+  }
+  .finding-actions { margin: 10px 0 0 24px; }
+  .finding-actions-label {
+    font-size: 10.5pt; font-weight: 600; color: #1E293B;
+    margin-bottom: 4px;
+  }
+  .finding-actions-list { margin: 0 0 0 18px; padding: 0; }
+  .finding-actions-list li {
+    font-size: 11pt; margin-bottom: 4px; line-height: 1.55;
+    text-align: left;
+  }
+  .zone-description { font-size: 11pt; color: #334155; margin-bottom: 8px; }
+  .zone-sampling { font-size: 10.5pt; color: #5C6F7E; margin-bottom: 12px; }
 
   /* ── Zone cards ── */
   .zone-card {
@@ -320,38 +385,164 @@ function generateFullClientHTML(report, options) {
 
   ${report.transmittalLetter ? renderTransmittalLetter(report.transmittalLetter) : `<h2>Transmittal</h2><div class="verbatim">${esc(report.transmittal)}</div>`}
 
-  ${report.methodologyDisclosure ? `<h2>Methodology Disclosure</h2><div class="verbatim">${esc(report.methodologyDisclosure)}</div>` : ''}
+  ${report.tableOfContents ? renderTableOfContents(report.tableOfContents) : ''}
 
-  <h2>Executive Summary</h2>
+  ${report.methodologyDisclosure ? `<h2 id="methodology-disclosure">Methodology Disclosure</h2><div class="verbatim">${esc(report.methodologyDisclosure)}</div>` : ''}
+
+  <h2 id="executive-summary">Executive Summary</h2>
   ${renderExecSummary(report.executiveSummary)}
 
-  <h2>Scope and Methodology</h2>
+  <h2 id="scope-and-methodology">Scope and Methodology</h2>
   <div class="verbatim">${esc(report.scopeAndMethodology)}</div>
 
   ${report.samplingMethodology ? renderSamplingMethodology(report.samplingMethodology) : ''}
 
-  <h2>Building and System Context</h2>
+  ${report.resultsSection ? renderResultsSection(report.resultsSection) : ''}
+
+  <h2 id="building-and-system-context">Building and System Context</h2>
   <p>${esc(report.buildingAndSystemContext)}</p>
 
   ${renderBuildingConditions(report.buildingAndSystemConditions)}
 
-  <h2>Zone Findings</h2>
+  <h2 id="zone-findings">Zone Findings</h2>
   ${report.zoneSections.map(renderZoneSection).join('')}
+
+  ${renderPotentialContributingFactors(report.potentialContributingFactors)}
+  ${renderRecommendedSamplingPlan(report.recommendedSamplingPlan)}
 
   ${renderRecommendationsRegister(report.recommendationsRegister)}
 
-  <h2>Limitations and Professional Judgment</h2>
+  <h2 id="limitations-and-professional-judgment">Limitations and Professional Judgment</h2>
   <p>${esc(report.limitationsAndProfessionalJudgment)}</p>
 
   ${renderSignatoryBlock(report.signatoryBlock)}
 
-  ${report.appendix.assessmentIndexInformationalOnly ? renderAssessmentIndexAppendix(report.appendix.assessmentIndexInformationalOnly) : ''}
+  ${renderAppendices(report.appendix)}
 
-  <div class="footer">
-    Generated by AtmosFlow Engine ${esc(report.engineVersion)} on ${new Date(report.generatedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-  </div>
+  ${report.appendix.assessmentIndexInformationalOnly ? renderAssessmentIndexAppendix(report.appendix.assessmentIndexInformationalOnly) : ''}
 </body>
 </html>`
+}
+
+// v2.4 §2 — Results section: per-parameter standards-anchored prose
+function renderResultsSection(rs) {
+  if (!rs || !Array.isArray(rs.subsections) || rs.subsections.length === 0) return ''
+  const subs = rs.subsections.map(sub => `
+    <h3>${esc(sub.heading)}</h3>
+    ${sub.standardsBackground ? `<p>${esc(sub.standardsBackground)}</p>` : ''}
+    ${sub.measurementSummary ? `<p>${esc(sub.measurementSummary)}</p>` : ''}
+  `).join('')
+  return `<h2 id="results">${esc(rs.title || 'Results')}</h2>${subs}`
+}
+
+// v2.4 §3 — Six structured appendices with stable anchor ids.
+function renderAppendices(ap) {
+  if (!ap) return ''
+  const out = []
+  if (ap.appendixA) {
+    out.push(`<h2 id="appendix-a">${esc(ap.appendixA.title)}</h2>`)
+    if (ap.appendixA.description) out.push(`<p>${esc(ap.appendixA.description)}</p>`)
+    if (Array.isArray(ap.appendixA.rows) && ap.appendixA.rows.length > 0) {
+      out.push(renderHtmlTable(
+        ['Zone', 'Parameter', 'Value', 'Unit', 'Outdoor Ref.'],
+        ap.appendixA.rows.map(r => [r.zoneName, r.parameter, r.value, r.unit, r.outdoorReference]),
+      ))
+    }
+  }
+  if (ap.appendixB) {
+    out.push(`<h2 id="appendix-b">${esc(ap.appendixB.title)}</h2>`)
+    if (ap.appendixB.description) out.push(`<p>${esc(ap.appendixB.description)}</p>`)
+    if (Array.isArray(ap.appendixB.instrumentRows) && ap.appendixB.instrumentRows.length > 0) {
+      out.push('<p><strong>Instruments used:</strong></p>')
+      out.push(renderHtmlTable(
+        ['Model', 'Serial', 'Last Calibration', 'Status'],
+        ap.appendixB.instrumentRows.map(r => [r.model, r.serial || '—', r.lastCalibration || '—', r.calibrationStatus || '—']),
+      ))
+    }
+    if (Array.isArray(ap.appendixB.zoneRows) && ap.appendixB.zoneRows.length > 0) {
+      out.push('<p><strong>Per-zone sampling detail:</strong></p>')
+      out.push(renderHtmlTable(
+        ['Zone', 'Sampling Duration', 'Sample Locations', 'Outdoor Ref.'],
+        ap.appendixB.zoneRows.map(r => [r.zoneName, r.samplingDuration, r.sampleLocations, r.outdoorReferenceTaken ? 'Yes' : 'No']),
+      ))
+    }
+  }
+  if (ap.appendixC) {
+    out.push(`<h2 id="appendix-c">${esc(ap.appendixC.title)}</h2>`)
+    if (ap.appendixC.description) out.push(`<p>${esc(ap.appendixC.description)}</p>`)
+    // v2.5 §5 — photo.caption is already formatted as
+    // "Photo N: <zone or Building> — <text>". The relativePath is
+    // an italic cross-reference line.
+    if (Array.isArray(ap.appendixC.photos) && ap.appendixC.photos.length > 0) {
+      out.push('<ol class="photo-list">')
+      for (const photo of ap.appendixC.photos) {
+        out.push(`<li>${esc(photo.caption)}${photo.relativePath ? ` <em class="photo-ref">(image: ${esc(photo.relativePath)})</em>` : ''}</li>`)
+      }
+      out.push('</ol>')
+    }
+  }
+  if (ap.appendixD) {
+    out.push(`<h2 id="appendix-d">${esc(ap.appendixD.title)}</h2>`)
+    if (ap.appendixD.description) out.push(`<p>${esc(ap.appendixD.description)}</p>`)
+    // v2.5 §2 — prefer pre-formatted displayLines. Fall back to the
+    // legacy citation list for backward compat.
+    const lines = Array.isArray(ap.appendixD.displayLines) && ap.appendixD.displayLines.length > 0
+      ? ap.appendixD.displayLines
+      : (ap.appendixD.citations || []).map(c =>
+          `${c.source}${c.edition && c.edition !== 'current' ? ` (${c.edition})` : ''}${c.authority ? ` — ${c.authority}` : ''}`,
+        )
+    if (lines.length > 0) {
+      out.push('<ul class="citations">')
+      for (const line of lines) out.push(`<li>${esc(line)}</li>`)
+      out.push('</ul>')
+    }
+    if (ap.appendixD.engineVersionLine) {
+      out.push(`<p class="engine-version">${esc(ap.appendixD.engineVersionLine)}</p>`)
+    }
+  }
+  if (ap.appendixE) {
+    out.push(`<h2 id="appendix-e">${esc(ap.appendixE.title)}</h2>`)
+    if (ap.appendixE.description) out.push(`<p>${esc(ap.appendixE.description)}</p>`)
+    if (Array.isArray(ap.appendixE.calibrationRecords) && ap.appendixE.calibrationRecords.length > 0) {
+      out.push(renderHtmlTable(
+        ['Instrument', 'Serial', 'Last Calibration', 'Status'],
+        ap.appendixE.calibrationRecords.map(r => [r.instrumentModel, r.serial || '—', r.lastCalibration || '—', r.status || '—']),
+      ))
+    }
+    if (Array.isArray(ap.appendixE.qaNotes) && ap.appendixE.qaNotes.length > 0) {
+      out.push('<ul>')
+      for (const n of ap.appendixE.qaNotes) out.push(`<li>${esc(n)}</li>`)
+      out.push('</ul>')
+    }
+  }
+  if (ap.appendixF) {
+    out.push(`<h2 id="appendix-f">${esc(ap.appendixF.title)}</h2>`)
+    if (ap.appendixF.description) out.push(`<p>${esc(ap.appendixF.description)}</p>`)
+    if (Array.isArray(ap.appendixF.entries) && ap.appendixF.entries.length > 0) {
+      out.push('<dl>')
+      for (const e of ap.appendixF.entries) {
+        out.push(`<dt>${esc(e.term)}</dt><dd>${esc(e.definition)}</dd>`)
+      }
+      out.push('</dl>')
+    }
+  }
+  return out.join('\n')
+}
+
+function renderHtmlTable(headers, rows) {
+  const head = headers.map(h => `<th>${esc(h)}</th>`).join('')
+  const body = rows.map(cells => `<tr>${cells.map(c => `<td>${esc(String(c == null ? '' : c))}</td>`).join('')}</tr>`).join('')
+  return `<table class="appendix-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`
+}
+
+function renderTableOfContents(toc) {
+  if (!toc || !toc.entries || toc.entries.length === 0) return ''
+  return `<nav class="toc" aria-label="Table of Contents">
+    <div class="toc-title">${esc(toc.title || 'Table of Contents')}</div>
+    <ol class="toc-list">
+      ${toc.entries.map(e => `<li class="level-${e.level}"><a href="#${esc(e.anchorId)}">${esc(e.title)}</a></li>`).join('')}
+    </ol>
+  </nav>`
 }
 
 function renderCover(cover, reviewStatus, projectNumber) {
@@ -415,20 +606,34 @@ function renderExecSummary(summary) {
     ? block('Results', `<p>${esc(summary.resultsNarrative)}</p>`)
     : ''
 
-  // v2.2 — grouped findings render. Falls back to flat observations
-  // list if findingsByGroup is absent (e.g., older ClientReport
-  // shapes or no significant findings).
-  const findingsBlock = summary.findingsByGroup && summary.findingsByGroup.length > 0
-    ? block('Summary of Findings', summary.findingsByGroup.map(g => `
+  // v2.5 §6 — Summary of Findings cell carries the consolidated
+  // cross-zone entries with "Observed in: <zones>" suffixes (max 6
+  // + optional truncation note). Falls back to v2.4 findingsByGroup
+  // grouping, then to v2.2 flat observations list.
+  const findingsBlock = summary.summaryOfFindings && summary.summaryOfFindings.length > 0
+    ? block('Summary of Findings', `<ul class="findings-consolidated">${summary.summaryOfFindings.map(line => {
+        const colonIdx = line.indexOf(': ')
+        if (colonIdx < 0) {
+          return `<li class="truncation-note"><em>${esc(line)}</em></li>`
+        }
+        const label = line.slice(0, colonIdx + 1)
+        const rest = line.slice(colonIdx + 1).trimStart()
+        const observedMatch = / Observed (?:in|at): .+\.?$/.exec(rest)
+        const summaryPart = observedMatch ? rest.slice(0, observedMatch.index) : rest
+        const observedPart = observedMatch ? observedMatch[0].trim() : ''
+        return `<li><strong>${esc(label)}</strong> ${esc(summaryPart)}${observedPart ? ` <em>${esc(observedPart)}</em>` : ''}</li>`
+      }).join('')}</ul>`)
+    : (summary.findingsByGroup && summary.findingsByGroup.length > 0
+        ? block('Summary of Findings', summary.findingsByGroup.map(g => `
         <div class="finding-group">
           <div class="finding-group-name">${esc(g.groupName)}</div>
           <ul class="finding-group-list">
             ${g.observations.map(o => `<li><span class="lead-term">${esc(o.leadTerm)}:</span> ${esc(o.statement)}</li>`).join('')}
           </ul>
         </div>`).join(''))
-    : (summary.observations && summary.observations.length > 0
-        ? block('Summary of Findings', `<ul>${summary.observations.map(o => `<li>${esc(o)}</li>`).join('')}</ul>`)
-        : '')
+        : (summary.observations && summary.observations.length > 0
+            ? block('Summary of Findings', `<ul>${summary.observations.map(o => `<li>${esc(o)}</li>`).join('')}</ul>`)
+            : ''))
 
   const recBlock = summary.recommendations && summary.recommendations.length > 0
     ? block('Recommendations', `<ul>${summary.recommendations.map(a => `<li><strong>${esc(PRIORITY_LABEL[a.priority] || a.priority)}</strong> (${esc(a.timeframe)}): ${esc(a.action)}${a.standardReference ? ` <em>— ${esc(a.standardReference)}</em>` : ''}</li>`).join('')}</ul>`)
@@ -490,50 +695,140 @@ function renderSamplingMethodology(section) {
   // v2.2 §7 — Sampling Methodology section (auto-generated from
   // AssessmentMeta.instrumentsUsed).
   const instruments = section.instrumentParagraphs.map(p => `<p>${esc(p)}</p>`).join('')
-  return `<h2>Sampling Methodology</h2>
+  return `<h2 id="sampling-methodology">Sampling Methodology</h2>
     ${instruments}
     <p>${esc(section.overallParagraph)}</p>`
 }
 
+// v2.3 §2 — Building and System Conditions section is omitted entirely
+// when no building-scoped findings exist. The omittedReason has already
+// been appended to Scope of Work. We render nothing here.
 function renderBuildingConditions(section) {
-  if (!section) return ''
-  const conds = section.observedConditions.length > 0
-    ? `<ul>${section.observedConditions.map(c => `<li>${esc(c)}</li>`).join('')}</ul>`
-    : ''
-  const limitations = section.dataLimitations.length > 0
-    ? `<div class="label">Data limitations</div><ul>${section.dataLimitations.map(l => `<li>${esc(l)}</li>`).join('')}</ul>`
-    : ''
-  const actions = section.recommendedActions.length > 0
-    ? `<div class="label">Recommended actions</div><ul>${section.recommendedActions.map(a => `<li><strong>${esc(PRIORITY_LABEL[a.priority] || a.priority)}</strong> (${esc(a.timeframe)}): ${esc(a.action)}${a.standardReference ? ` <em>— ${esc(a.standardReference)}</em>` : ''}</li>`).join('')}</ul>`
-    : ''
-  return `<h2>Building and System Conditions</h2>
-    <div class="zone-card">
-      <div class="label" style="margin-top:0;">Observed conditions</div>
-      ${conds}
-      ${limitations}
-      ${actions}
-    </div>`
+  if (!section || !section.rendered) return ''
+  const findings = (section.findings || []).map(renderInlineFinding).join('')
+  return `<h2 id="building-and-system-conditions">Building and System Conditions</h2>
+    ${findings}`
 }
 
+// v2.3 §5 — zone section. Findings render as self-contained
+// RenderedFinding blocks (narrative + observed value + inline
+// limitations + recommended actions). Empty zones render exactly
+// the prescribed single sentence.
 function renderZoneSection(zone) {
-  const conds = zone.observedConditions.length > 0
-    ? `<ul>${zone.observedConditions.map(c => `<li>${esc(c)}</li>`).join('')}</ul>`
-    : '<p><em>No significant conditions identified within the stated limitations.</em></p>'
-  const limitations = zone.dataLimitations.length > 0
-    ? `<div class="label">Data limitations</div><ul>${zone.dataLimitations.map(l => `<li>${esc(l)}</li>`).join('')}</ul>`
+  const findings = zone.findings || []
+  const description = zone.zoneDescription
+    ? `<p class="zone-description">${esc(zone.zoneDescription)}</p>`
     : ''
-  const actions = zone.recommendedActions.length > 0
-    ? `<div class="label">Recommended actions</div><ul>${zone.recommendedActions.map(a => `<li><strong>${esc(PRIORITY_LABEL[a.priority] || a.priority)}</strong> (${esc(a.timeframe)}): ${esc(a.action)}${a.standardReference ? ` <em>— ${esc(a.standardReference)}</em>` : ''}</li>`).join('')}</ul>`
+  const sampling = zone.samplingSummary
+    ? `<p class="zone-sampling"><em>${esc(zone.samplingSummary)}</em></p>`
     : ''
+  if (findings.length === 0) {
+    return `<div class="zone-card">
+      <div class="zone-name">${esc(zone.zoneName)}</div>
+      ${description}
+      ${sampling}
+      <p>No conditions warranting elevated concern were identified in this zone within the stated limitations.</p>
+    </div>`
+  }
+  const findingBlocks = findings.map(renderInlineFinding).join('')
   return `<div class="zone-card">
     <div class="zone-name">${esc(zone.zoneName)}</div>
-    <div class="label">Observed conditions</div>
-    ${conds}
+    ${description}
+    ${sampling}
+    ${findingBlocks}
     <div class="label">Interpretation</div>
     <p>${esc(zone.interpretation)}</p>
+  </div>`
+}
+
+// v2.3 §3 — render a self-contained RenderedFinding block: narrative
+// paragraph, observed value, inline limitations sublist (italic +
+// indented), and recommended actions sublist.
+function renderInlineFinding(rf) {
+  if (!rf) return ''
+  const observed = rf.observedValue
+    ? `<div class="finding-observation"><span class="finding-observation-label">Observed:</span> <span class="finding-observation-value">${esc(rf.observedValue)}</span></div>`
+    : ''
+  const limitations = rf.limitations && rf.limitations.length > 0
+    ? `<div class="finding-limitations">
+         <div class="finding-limitations-label">Limitations of this finding:</div>
+         <ul class="finding-limitations-list">${rf.limitations.map(l => `<li>${esc(l)}</li>`).join('')}</ul>
+       </div>`
+    : ''
+  const actions = rf.recommendedActions && rf.recommendedActions.length > 0
+    ? `<div class="finding-actions">
+         <div class="finding-actions-label">Recommended actions:</div>
+         <ul class="finding-actions-list">${rf.recommendedActions.map(a => `<li><strong>${esc(PRIORITY_LABEL[a.priority] || a.priority)}</strong> (${esc(a.timeframe)}): ${esc(a.action)}${a.standardReference ? ` <em>— ${esc(a.standardReference)}</em>` : ''}</li>`).join('')}</ul>
+       </div>`
+    : ''
+  return `<div class="finding">
+    <p class="finding-narrative">${esc(rf.narrative)}</p>
+    ${observed}
     ${limitations}
     ${actions}
   </div>`
+}
+
+/**
+ * v2.6 §5 — Potential Contributing Factors HTML section.
+ * Omitted entirely when no chains exist.
+ */
+function renderPotentialContributingFactors(factors) {
+  if (!Array.isArray(factors) || factors.length === 0) return ''
+  const blocks = factors.map(f => {
+    const closing = f.causationSupported
+      ? 'This relationship is supported by direct measurement and structured observation.'
+      : 'This relationship is suggested by the pattern of observations and is offered as a hypothesis for further investigation.'
+    const related = Array.isArray(f.relatedFindings) && f.relatedFindings.length > 0
+      ? `<div class="contributing-related"><strong>Related findings:</strong><ul>${f.relatedFindings.map(rf => `<li>${esc(rf)}</li>`).join('')}</ul></div>`
+      : ''
+    const zones = Array.isArray(f.affectedZones) && f.affectedZones.length > 0
+      ? `<div class="contributing-zones"><strong>Affected zones:</strong> ${esc(f.affectedZones.join(', '))}</div>`
+      : ''
+    const source = f.citationSource
+      ? `<div class="contributing-source"><strong>Source:</strong> <em>${esc(f.citationSource)}</em></div>`
+      : ''
+    return `<article class="contributing-factor">
+      <h3>${esc(f.name)}</h3>
+      <p>${esc(f.description)}</p>
+      ${related}
+      ${zones}
+      ${source}
+      <p class="contributing-closing"><em>${esc(closing)}</em></p>
+    </article>`
+  }).join('')
+  return `<h2 id="potential-contributing-factors">Potential Contributing Factors</h2>${blocks}`
+}
+
+/**
+ * v2.6 §5 — Recommended Sampling Plan HTML section.
+ * Omitted entirely when no hypothesis fired.
+ */
+function renderRecommendedSamplingPlan(plan) {
+  if (!Array.isArray(plan) || plan.length === 0) return ''
+  const tier = (t) => {
+    switch (t) {
+      case 'validated_defensible': return 'validated, defensible'
+      case 'provisional_screening_level': return 'provisional, screening-level'
+      case 'qualitative_only': return 'qualitative only'
+      case 'insufficient_data': return 'insufficient data'
+      default: return t || ''
+    }
+  }
+  const blocks = plan.map(h => {
+    const basis = Array.isArray(h.basis) && h.basis.length > 0
+      ? `<div class="hypothesis-basis"><strong>Basis:</strong><ul>${h.basis.map(b => `<li>${esc(b)}</li>`).join('')}</ul></div>`
+      : ''
+    const sampling = Array.isArray(h.suggestedSampling) && h.suggestedSampling.length > 0
+      ? `<div class="hypothesis-sampling"><strong>Suggested sampling:</strong><ul>${h.suggestedSampling.map(s => `<li><strong>${esc(s.parameter)}</strong> — ${esc(s.method)}. <em>${esc(s.rationale)}</em></li>`).join('')}</ul></div>`
+      : ''
+    return `<article class="hypothesis">
+      <h3>${esc(h.name)} <span class="confidence">(${esc(tier(h.cihConfidenceTier))})</span></h3>
+      ${basis}
+      ${sampling}
+    </article>`
+  }).join('')
+  return `<h2 id="recommended-sampling-plan">Recommended Sampling Plan</h2>${blocks}`
 }
 
 function renderRecommendationsRegister(reg) {
@@ -559,7 +854,7 @@ function renderRecommendationsRegister(reg) {
       </tr>`),
   ])
 
-  return `<h2>Recommendations Register</h2>
+  return `<h2 id="recommendations-register">Recommendations Register</h2>
     <table class="rec-table">
       <thead>
         <tr>
@@ -597,7 +892,7 @@ function renderSignatoryBlock(sig) {
 
 function renderAssessmentIndexAppendix(idx) {
   return `<div class="pg-break"></div>
-    <h2>Appendix — Assessment Index (Informational Only)</h2>
+    <h2 id="appendix-assessment-index">Appendix — Assessment Index (Informational Only)</h2>
     <p><em>${esc(idx.disclaimer)}</em></p>
     <table>
       <tr><th>Zone</th><th>Index</th><th>Tier</th></tr>

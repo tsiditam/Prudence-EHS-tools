@@ -21,6 +21,24 @@ const SUCCESS = '#22C55E'
 const WARN = '#FBBF24'
 const DANGER = '#EF4444'
 
+// v2.6.2 — relative-time helper for the Recent Signups panel.
+// Renders "5h ago" / "2d ago" / "3w ago" / falls back to a date.
+function relativeJoined(iso) {
+  if (!iso) return ''
+  const ms = Date.now() - new Date(iso).getTime()
+  if (!Number.isFinite(ms) || ms < 0) return ''
+  const min = Math.round(ms / 60000)
+  if (min < 1) return 'just now'
+  if (min < 60) return `${min}m ago`
+  const hr = Math.round(min / 60)
+  if (hr < 24) return `${hr}h ago`
+  const d = Math.round(hr / 24)
+  if (d < 14) return `${d}d ago`
+  const w = Math.round(d / 7)
+  if (w < 8) return `${w}w ago`
+  return new Date(iso).toLocaleDateString()
+}
+
 export default function AdminDashboard({ onBack, adminSecret }) {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -111,13 +129,50 @@ export default function AdminDashboard({ onBack, adminSecret }) {
         </div>
       </div>
 
+      {/* Recent Signups — 10 most recent profiles by created_at desc */}
+      {(data?.recentSignups || []).length > 0 && (
+        <div style={{marginBottom:20}}>
+          <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',marginBottom:10}}>
+            <div style={{fontSize:11,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'0.5px'}}>Recent Signups</div>
+            <div style={{fontSize:10,color:DIM}}>Most recent first · tap email to copy</div>
+          </div>
+          {data.recentSignups.map(s => (
+            <div key={s.id} style={{padding:'10px 14px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,marginBottom:6}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',gap:12}}>
+                <div style={{minWidth:0,flex:1}}>
+                  <div style={{fontSize:13,fontWeight:600,color:TEXT}}>{s.name || 'Unnamed'}</div>
+                  {s.email && (
+                    <button
+                      type="button"
+                      onClick={() => { try { navigator.clipboard?.writeText(s.email) } catch {} }}
+                      title="Copy email"
+                      style={{padding:0,background:'none',border:'none',color:ACCENT,fontSize:11,fontFamily:"'DM Mono'",cursor:'pointer',marginTop:2,textAlign:'left',wordBreak:'break-all'}}
+                    >{s.email}</button>
+                  )}
+                  <div style={{fontSize:10,color:DIM,fontFamily:"'DM Mono'",marginTop:2}}>
+                    {s.firm || 'No firm'} · {s.plan || 'free'} · {s.credits_remaining ?? 0} credits
+                  </div>
+                </div>
+                <div style={{textAlign:'right',whiteSpace:'nowrap'}}>
+                  <div style={{fontSize:10,color:SUB,fontFamily:"'DM Mono'"}}>{relativeJoined(s.created_at)}</div>
+                  <div style={{fontSize:9,color:DIM,fontFamily:"'DM Mono'",marginTop:2}}>{new Date(s.created_at).toLocaleDateString()}</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* User List */}
       <div style={{fontSize:11,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:10}}>Users ({(data?.users||[]).length})</div>
       {(data?.users||[]).map(u=>(
         <div key={u.id} style={{padding:'12px 16px',background:CARD,border:`1px solid ${selectedUser===u.id?ACCENT+'30':BORDER}`,borderRadius:10,marginBottom:6,cursor:'pointer'}} onClick={()=>setSelectedUser(selectedUser===u.id?null:u.id)}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-            <div>
+            <div style={{minWidth:0}}>
               <div style={{fontSize:13,fontWeight:600,color:TEXT}}>{u.name||'Unnamed'}</div>
+              {u.email && (
+                <div style={{fontSize:10,color:SUB,fontFamily:"'DM Mono'",marginTop:2,wordBreak:'break-all'}}>{u.email}</div>
+              )}
               <div style={{fontSize:10,color:DIM,fontFamily:"'DM Mono'",marginTop:2}}>{u.firm||'No firm'} · {u.plan} · {u.credits_remaining} credits</div>
             </div>
             <div style={{display:'flex',alignItems:'center',gap:6}}>

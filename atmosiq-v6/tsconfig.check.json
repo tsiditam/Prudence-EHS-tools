@@ -17,5 +17,5 @@
     "components/**/*.{ts,tsx}",
     "pages/**/*.{ts,tsx}"
   ],
-  "exclude": ["node_modules", "dist", "src"]
+  "exclude": ["node_modules", "dist", "src", "scripts/render-acceptance-fixture.test.ts", "scripts/acceptance/render-acceptance-fixture.test.ts"]
 }

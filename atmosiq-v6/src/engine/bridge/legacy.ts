@@ -36,6 +36,9 @@ import { lookupPhrase } from '../report/phrases/index'
 import { evaluatePermissions } from '../report/permissions'
 import { evaluateZoneOpinion } from '../report/professional-opinion'
 import { classifyCondition } from './classify'
+import { computeParameterRanges, type LegacyZone } from '../report/parameter-ranges'
+import { deriveCausalChains } from '../causal-chains'
+import { deriveHypotheses } from '../hypotheses'
 
 // ── Public API ──
 
@@ -72,6 +75,26 @@ export function legacyToAssessmentScore(
   const confidenceValue = mapConfidenceValue(confidenceBand)
   const defensibilityFlags = computeDefensibilityFlags(zones, zonesData, ctx)
 
+  // v2.4 §2 — compute per-parameter range/average summaries from the
+  // legacy zone-data so the renderer's Results section can emit
+  // standards-anchored prose without re-walking the raw fields.
+  const parameterRanges = computeParameterRanges(zonesData as unknown as ReadonlyArray<LegacyZone>)
+
+  // v2.6 §2 + §3 — invoke the diagnostic-reasoning passes so the
+  // resulting AssessmentScore carries populated causalChains and
+  // hypotheses arrays. Both engines are pure functions of (zones,
+  // findings) / (zonesData, buildingData, findings); calling them
+  // here means every consumer of legacyToAssessmentScore (bridge
+  // tests, fixture renderer, runtime) gets the same contract.
+  const allFindings = zones.flatMap(z => z.categories.flatMap(c => c.findings))
+  const causalChains = deriveCausalChains(zones, allFindings)
+  const hypotheses = deriveHypotheses({
+    zonesData,
+    buildingData: ctx.building ?? {},
+    findings: allFindings,
+    zones,
+  })
+
   return {
     siteScore,
     siteTier,
@@ -80,6 +103,10 @@ export function legacyToAssessmentScore(
     confidenceBand,
     defensibilityFlags,
     meta: ctx.meta,
+    parameterRanges,
+    legacyZonesData: zonesData,
+    causalChains,
+    hypotheses,
   }
 }
 

@@ -17,7 +17,13 @@
     "lint": "eslint --max-warnings=0 \"scripts/**/*.{js,mjs,ts}\" \"tests/api/**/*.ts\" \"tests/scripts/**/*.ts\" \"tests/components/**/*.{ts,tsx}\" \"tests/lib/**/*.ts\" \"tests/pages/**/*.{ts,tsx}\" \"lib/**/*.ts\" \"components/**/*.{ts,tsx}\" \"pages/**/*.{ts,tsx}\"",
     "accept:prod-ready": "node scripts/acceptance-check.mjs --config scripts/acceptance/prod-ready.json",
     "accept:pricing-rollout": "node scripts/acceptance-check.mjs --config scripts/acceptance/pricing-rollout.json",
-    "accept:go-live": "node scripts/acceptance-check.mjs --config scripts/acceptance/go-live.json"
+    "accept:go-live": "node scripts/acceptance-check.mjs --config scripts/acceptance/go-live.json",
+    "render:acceptance": "VITEST_RENDER_FIXTURES=1 vitest run scripts/render-acceptance-fixture.test.ts",
+    "render:acceptance:v2.3": "VITEST_RENDER_FIXTURES=1 vitest run scripts/acceptance/render-acceptance-fixture.test.ts",
+    "accept:v2.3": "node scripts/acceptance/run-v23.mjs",
+    "accept:v2.4": "npm run render:acceptance && node scripts/acceptance-check.mjs --config scripts/acceptance/v2.4.json",
+    "accept:v2.5": "npm run render:acceptance && node scripts/acceptance-check.mjs --config scripts/acceptance/v2.5.json",
+    "accept:v2.6": "npm run render:acceptance && node scripts/acceptance-check.mjs --config scripts/acceptance/v2.6.json"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

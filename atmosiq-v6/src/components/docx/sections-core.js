@@ -8,6 +8,7 @@ import { FONTS, COLORS, SEV_COLORS, scoreColor, riskLabel } from './styles'
 import { buildTable, kvTable, borderlessLayoutTable, dataCell, headerCell } from './tables'
 import { base64ToUint8Array } from './images'
 import { inferCitationsFromContext, filterManifestByRegistration } from '../../engine/report/citation-tracker'
+import { LETTER_BODY_PAGE } from './page-setup'
 
 const p = (text, opts = {}) => new Paragraph({
   children: [new TextRun({ text, font: FONTS.body, size: opts.size || 22, color: opts.color || COLORS.body, bold: opts.bold, italics: opts.italics })],
@@ -29,7 +30,9 @@ const numbered = (text, idx) => new Paragraph({
 
 export function buildCoverPage(ctx) {
   return {
-    properties: { page: { margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 } } },
+    // v2.5.1 — explicit Letter portrait + 1-inch margins so the cover
+    // page renders at the same content width as the body section.
+    properties: { page: LETTER_BODY_PAGE },
     children: [
       p('', { after: 2400 }),
       p(ctx.firmName, { align: AlignmentType.CENTER, size: 24, bold: true, color: COLORS.text, after: 120 }),

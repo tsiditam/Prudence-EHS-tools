@@ -36,6 +36,13 @@ import AdminDashboard from './AdminDashboard'
 import WelcomeScreen from './WelcomeScreen'
 import SettingsScreen from './SettingsScreen'
 import { printReport, generatePrintHTML } from './PrintReport'
+// v2.6.1 — DocxReport is a static import. Earlier `await import('./DocxReport')`
+// triggered "'text/html' is not a valid JavaScript MIME type" errors when a
+// user's cached index.html referenced a chunk hash that no longer existed
+// after redeploy (the missing-chunk request returned the SPA HTML fallback).
+// Bundling the docx renderer into the main chunk eliminates that failure
+// mode for the most common user action — exporting a report.
+import { generateDocx, generateConsultantOnly, generateTechnicalOnly } from './DocxReport'
 import { DEMO_PRESURVEY, DEMO_BUILDING, DEMO_ZONES, DEMO_EQUIPMENT } from '../constants/demoData'
 import { DEMO_FM_PRESURVEY, DEMO_FM_BUILDING, DEMO_FM_ZONES } from '../constants/demoDataFM'
 import { DEMO_DC_PRESURVEY, DEMO_DC_BUILDING, DEMO_DC_ZONES } from '../constants/demoDataDC'
@@ -123,6 +130,11 @@ export default function MobileApp() {
   const [userMode, setUserMode] = useState(getMode())
   const [needsModeSelect, setNeedsModeSelect] = useState(false)
   const [profileChecked, setProfileChecked] = useState(false)
+  // Paywall pause — set to false to re-enable the credits gate.
+  // When true: startNew + requestNarrative skip the credits check, and
+  // consumeCredit no-ops so we don't spam analytics or hit /api/credits
+  // 402s. The pricing modal is still reachable from the credits chip.
+  const PAYWALL_DISABLED = true
   // views: dash|quickstart|zone|details|results|history|drafts|report
   const [view, setView] = useState('dash')
   const [milestone, setMilestone] = useState(null)
@@ -283,6 +295,7 @@ export default function MobileApp() {
   }
 
   const consumeCredit = async (amount, reason, refId) => {
+    if (PAYWALL_DISABLED) return
     setCredits(prev => Math.max(0, prev - amount))
     trackEvent('credit_consumed', { amount, reason, balance: credits - amount })
     if (supabase) {
@@ -297,7 +310,7 @@ export default function MobileApp() {
   }
 
   const startNew = () => {
-    if (credits < 1) { setShowPricing(true); return }
+    if (!PAYWALL_DISABLED && credits < 1) { setShowPricing(true); return }
     setShowDisclaimer(true)
   }
 
@@ -472,7 +485,7 @@ export default function MobileApp() {
   }
 
   const requestNarrative = async () => {
-    if (credits < 3) { setShowPricing(true); return }
+    if (!PAYWALL_DISABLED && credits < 3) { setShowPricing(true); return }
     consumeCredit(3, 'narrative')
     trackEvent('narrative_requested', { facility: bldg.fn || '', score: comp?.tot })
     setNarrativeLoading(true)
@@ -517,7 +530,6 @@ export default function MobileApp() {
     trackEvent('report_exported', { format: docxType || format, facility: bldg.fn || '', score: comp?.tot, zones: zones.length, has_narrative: !!narrative, photos: Object.values(filteredPhotos).flat().length })
     try {
       if (format === 'docx') {
-        const { generateDocx, generateConsultantOnly, generateTechnicalOnly } = await import('./DocxReport')
         if (docxType === 'consultant') await generateConsultantOnly(reportData)
         else if (docxType === 'technical') await generateTechnicalOnly(reportData)
         else await generateDocx(reportData)
@@ -526,7 +538,19 @@ export default function MobileApp() {
       }
     } catch (e) {
       console.error('Export failed:', e)
-      alert('Report export failed: ' + (e.message || 'Unknown error') + '. Please try again.')
+      // v2.6.1 — detect the stale-chunk MIME error and offer a hard
+      // reload instead of the generic "Please try again" message.
+      // The error fires when index.html references a chunk hash the
+      // server no longer has (post-redeploy without cache bust).
+      const msg = (e && e.message) || ''
+      if (/is not a valid JavaScript MIME type|Failed to fetch dynamically imported module|Importing a module script failed/i.test(msg)) {
+        const reload = window.confirm(
+          'This page is out of date and the export cannot run with the cached version. Reload to update?'
+        )
+        if (reload) window.location.reload()
+        return
+      }
+      alert('Report export failed: ' + (msg || 'Unknown error') + '. Please try again.')
     }
   }
 
@@ -1325,8 +1349,8 @@ export default function MobileApp() {
             Try it with sample data
           </div>
           <button onClick={()=>runDemo()} style={{width:'100%',padding:'14px 16px',marginBottom:8,background:'transparent',border:`1px solid ${BORDER}`,borderRadius:12,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,fontFamily:'inherit',transition:'border-color 160ms ease, transform 160ms ease',WebkitTapHighlightColor:'transparent'}}>
-            <div style={{width:40,height:40,borderRadius:10,background:`${ACCENT}10`,border:`1px solid ${ACCENT}30`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-              <I n="bldg" s={18} c={ACCENT} w={1.8} />
+            <div style={{width:40,height:40,borderRadius:10,background:`${WARN}10`,border:`1px solid ${WARN}30`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+              <I n="play" s={18} c={WARN} w={1.8} />
             </div>
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:14,fontWeight:700,color:TEXT}}>{userMode === 'fm' ? 'Sample Air Quality Check' : 'Office Building Demo'}</div>
@@ -1335,8 +1359,8 @@ export default function MobileApp() {
             <span style={{fontSize:10,color:SUB,fontFamily:"'DM Mono'",padding:'4px 8px',borderRadius:6,background:`${SUB}10`,whiteSpace:'nowrap',flexShrink:0}}>~10 min</span>
           </button>
           {userMode !== 'fm' && <button onClick={()=>runDemo('dc')} style={{width:'100%',padding:'14px 16px',marginBottom:16,background:'transparent',border:`1px solid ${BORDER}`,borderRadius:12,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,fontFamily:'inherit',transition:'border-color 160ms ease, transform 160ms ease',WebkitTapHighlightColor:'transparent'}}>
-            <div style={{width:40,height:40,borderRadius:10,background:`${ACCENT}10`,border:`1px solid ${ACCENT}30`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-              <I n="pulse" s={18} c={ACCENT} w={1.8} />
+            <div style={{width:40,height:40,borderRadius:10,background:`${WARN}10`,border:`1px solid ${WARN}30`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+              <I n="play" s={18} c={WARN} w={1.8} />
             </div>
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:14,fontWeight:700,color:TEXT}}>Data Center Demo</div>

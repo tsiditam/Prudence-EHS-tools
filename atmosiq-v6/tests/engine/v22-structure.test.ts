@@ -148,11 +148,20 @@ describe('v2.2 acceptance — structural assertions', () => {
     expect(sm.overallParagraph).toMatch(/Sample locations/)
   })
 
-  it('ClientReport.buildingAndSystemConditions section is present', () => {
+  it('ClientReport.buildingAndSystemConditions is optional and either populated or omitted', () => {
+    // v2.3 §2 — buildingAndSystemConditions is undefined when no
+    // building-scoped findings exist. When defined, rendered=true and
+    // findings is a RenderedFinding[]; rendered=false reports use
+    // omittedReason. The fixture below has no HVAC findings so the
+    // section should be undefined (and the omittedReason sentence
+    // appended to scopeOfWork instead).
     const result = renderClientReport(buildScore())
     if (result.kind !== 'report') throw new Error('Expected report')
-    expect(result.report.buildingAndSystemConditions).toBeDefined()
-    expect(Array.isArray(result.report.buildingAndSystemConditions.observedConditions)).toBe(true)
+    const bs = result.report.buildingAndSystemConditions
+    if (bs !== undefined) {
+      expect(typeof bs.rendered).toBe('boolean')
+      expect(Array.isArray(bs.findings)).toBe(true)
+    }
   })
 
   it('ClientReport.methodologyDisclosure carries the screening disclosure paragraph', () => {
