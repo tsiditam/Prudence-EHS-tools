@@ -1296,159 +1296,119 @@ export default function MobileApp() {
 
       <div style={{maxWidth:contentMax,margin:'0 auto',padding:`0 ${padX}px`,position:'relative',zIndex:1}}>
 
-        {view==='dash'&&<div style={{paddingTop:28,paddingBottom:100}}>
+        {view==='dash'&&<div style={{paddingTop:24,paddingBottom:100,maxWidth:contentMax,margin:'0 auto'}}>
 
-          {/* ── Context Header ── */}
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20,animation:'fadeUp .4s ease'}}>
+          {/* ── Header: name, date, exception-only status, credits, settings ── */}
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24,animation:'fadeUp .4s ease'}}>
             <div>
-              <div style={{fontSize:14,fontWeight:600,color:TEXT,marginBottom:2}}>{profile?.name||'Assessor'}</div>
-              <div style={{fontSize:11,fontFamily:"'DM Mono'",color:SUB}}>{new Date().toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'})}</div>
-              <div style={{fontSize:10,color:DIM,marginTop:4,display:'flex',alignItems:'center',gap:6}}>
-                {profile?.iaq_meter && <><div style={{width:5,height:5,borderRadius:'50%',background:profile.iaq_cal_status?.includes('within manufacturer')?SUCCESS:WARN}} /><span>{profile.iaq_cal_status?.includes('within manufacturer')?'Meter calibrated':'Check calibration'}</span><span style={{color:BORDER}}>·</span></>}
-                <span>Standards loaded</span>
-              </div>
+              <div style={{fontSize:14,fontWeight:600,color:TEXT,fontFamily:"'Sora'",letterSpacing:'-0.2px'}}>{profile?.name || 'Assessor'}</div>
+              <div style={{fontSize:11,fontFamily:"'DM Mono'",color:DIM,marginTop:2}}>{new Date().toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'})}</div>
             </div>
             <div style={{display:'flex',alignItems:'center',gap:8}}>
-              <button onClick={()=>setShowPricing(true)} style={{padding:'4px 10px',borderRadius:6,background:SURFACE,border:`1px solid ${BORDER}`,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:5}}>
-                <span style={{fontSize:12,fontWeight:700,color:ACCENT,fontFamily:"'DM Mono'"}}>{credits}</span>
-                <span style={{fontSize:9,color:SUB,fontWeight:500}}>credits</span>
+              <button onClick={()=>setShowPricing(true)} style={{padding:'6px 12px',borderRadius:8,background:SURFACE,border:`1px solid ${BORDER}`,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'baseline',gap:6,minHeight:36}}>
+                <span style={{fontSize:13,fontWeight:700,color:ACCENT,fontFamily:"'DM Mono'"}}>{credits}</span>
+                <span style={{fontSize:10,color:SUB}}>credits</span>
               </button>
-              {profile&&<button onClick={()=>setView('settings')} style={{width:36,height:36,borderRadius:10,background:CARD,border:`1px solid ${BORDER}`,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',transition:'border-color 0.15s'}}>
+              {profile&&<button onClick={()=>setView('settings')} style={{width:36,height:36,borderRadius:10,background:SURFACE,border:`1px solid ${BORDER}`,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
                 <I n="user" s={16} c={SUB} />
               </button>}
             </div>
           </div>
 
-          {/* ── Product descriptor ── */}
-          <div style={{fontSize:12,color:SUB,marginBottom:18,lineHeight:1.4}}>Guided IAQ assessments with report-ready findings and narratives.</div>
-
-          {/* ── Dashboard Content — adaptive layout ── */}
-          <div style={{display:isTabletLand?'grid':'block',gridTemplateColumns:isTabletLand?'1fr 1fr':'none',gap:isTabletLand?24:0,alignItems:'start'}}>
-
-          {/* Left column (or full width on portrait/phone) */}
-          <div>
-          {/* ── New Assessment (secondary) ── */}
-          <button onClick={startNew} style={{width:'100%',padding:'14px 20px',marginBottom:10,background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,fontFamily:'inherit',transition:'border-color 0.15s'}}>
-            <div style={{width:40,height:40,borderRadius:10,background:SURFACE,border:`1px solid ${BORDER}`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-              <I n="wind" s={18} c={SUB} w={1.8} />
-            </div>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:15,fontWeight:700,color:TEXT}}>{userMode === 'fm' ? 'New Air Quality Check' : 'New Assessment'}</div>
-              <div style={{fontSize:11,color:DIM,marginTop:2}}>{userMode === 'fm' ? 'Guided building walkthrough' : 'Guided IAQ walkthrough'}</div>
-            </div>
-            <span style={{fontSize:13,color:DIM}}>→</span>
-          </button>
-
-          {/* ── Sample-data demo launchers (UI upgrade) ──
-              Both demos render with equal visual weight: bordered card +
-              accent-circle icon + facility metadata + "~10 min" pill.
-              The previous primary/secondary asymmetry implied a hierarchy
-              that doesn't actually exist — both are demos.
-          */}
-          <div style={{fontSize:11,color:DIM,textTransform:'uppercase',letterSpacing:'0.6px',marginBottom:8,marginTop:4,fontWeight:600}}>
-            Try it with sample data
-          </div>
-          <button onClick={()=>runDemo()} style={{width:'100%',padding:'14px 16px',marginBottom:8,background:'transparent',border:`1px solid ${BORDER}`,borderRadius:12,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,fontFamily:'inherit',transition:'border-color 160ms ease, transform 160ms ease',WebkitTapHighlightColor:'transparent'}}>
-            <div style={{width:40,height:40,borderRadius:10,background:`${WARN}10`,border:`1px solid ${WARN}30`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-              <I n="play" s={18} c={WARN} w={1.8} />
-            </div>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:14,fontWeight:700,color:TEXT}}>{userMode === 'fm' ? 'Sample Air Quality Check' : 'Office Building Demo'}</div>
-              <div style={{fontSize:11,color:SUB,marginTop:2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{userMode === 'fm' ? 'Greenfield Office Park · 2 areas' : 'Meridian Commerce Tower · 3 zones'}</div>
-            </div>
-            <span style={{fontSize:10,color:SUB,fontFamily:"'DM Mono'",padding:'4px 8px',borderRadius:6,background:`${SUB}10`,whiteSpace:'nowrap',flexShrink:0}}>~10 min</span>
-          </button>
-          {userMode !== 'fm' && <button onClick={()=>runDemo('dc')} style={{width:'100%',padding:'14px 16px',marginBottom:16,background:'transparent',border:`1px solid ${BORDER}`,borderRadius:12,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,fontFamily:'inherit',transition:'border-color 160ms ease, transform 160ms ease',WebkitTapHighlightColor:'transparent'}}>
-            <div style={{width:40,height:40,borderRadius:10,background:`${WARN}10`,border:`1px solid ${WARN}30`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-              <I n="play" s={18} c={WARN} w={1.8} />
-            </div>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:14,fontWeight:700,color:TEXT}}>Data Center Demo</div>
-              <div style={{fontSize:11,color:SUB,marginTop:2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>Hizinburg DC · 3 zones · ISA-71.04 + ISO 14644</div>
-            </div>
-            <span style={{fontSize:10,color:SUB,fontFamily:"'DM Mono'",padding:'4px 8px',borderRadius:6,background:`${SUB}10`,whiteSpace:'nowrap',flexShrink:0}}>~10 min</span>
-          </button>}
-
-          {/* ── Workspace Cards ── */}
-          <div style={{display:'grid',gridTemplateColumns:isTabletLand?'1fr':'1fr 1fr',gap:10,marginBottom:isTabletLand?12:20}}>
-            {[
-              {l:userMode==='fm'?'In Progress':'Drafts',n:(index.drafts||[]).length,v:'drafts',ic:'clip',sub:((index.drafts||[]).length>0?'In progress':userMode==='fm'?'No active checks':'No active drafts')},
-              {l:'Reports',n:(index.reports||[]).length,v:'history',ic:'findings',sub:((index.reports||[]).length>0?'Finalized':'Ready after assessment')}
-            ].map(c=>(
-              <button key={c.l} onClick={()=>{if(c.n)setView(c.v)}} style={{padding:'16px',background:CARD,border:`1px solid ${c.n?`${ACCENT}18`:BORDER}`,borderRadius:10,cursor:c.n?'pointer':'default',textAlign:'left',fontFamily:'inherit',transition:'border-color 0.15s'}}>
-                <div style={{fontSize:22,fontWeight:700,fontFamily:"'DM Mono'",color:c.n?TEXT:DIM,marginBottom:8}}>{c.n}</div>
-                <div style={{fontSize:13,fontWeight:600,color:c.n?TEXT:SUB}}>{c.l}</div>
-                <div style={{fontSize:10,color:SUB,marginTop:3}}>{c.sub}</div>
-              </button>
-            ))}
-          </div>
-
-          {/* ── Attention Strip — rotates based on state ── */}
+          {/* ── Exception-only status. Renders nothing in the happy path. ── */}
           {(() => {
-            const draftCount = (index.drafts||[]).length
-            const reportCount = (index.reports||[]).length
             const calDue = profile?.iaq_meter && !profile?.iaq_cal_status?.includes('within manufacturer')
-            const lastReport = (index.reports||[])[0]
-            let msg, icon, color
-            if (calDue) { msg = 'Meter calibration may be due — check before next assessment'; icon = 'alert'; color = WARN }
-            else if (draftCount > 0) { msg = `${draftCount} draft${draftCount>1?'s':''} in progress — tap to resume`; icon = 'draft'; color = SUB }
-            else if (reportCount === 0) { msg = 'No reports ready for export'; icon = 'guidance'; color = DIM }
-            else if (lastReport) { msg = `Last report: ${lastReport.facility || 'Assessment'} · ${fD(lastReport.ts)}`; icon = 'findings'; color = DIM }
-            else { msg = 'System ready'; icon = 'check'; color = DIM }
+            if (!calDue) return null
             return (
-              <div style={{padding:'8px 14px',background:SURFACE,borderRadius:8,border:`1px solid ${BORDER}`,marginBottom:12,display:'flex',alignItems:'center',gap:8}}>
-                <I n={icon} s={13} c={color} w={1.6} />
-                <span style={{fontSize:10,color:color===WARN?SUB:SUB}}>{msg}</span>
+              <div role="status" style={{padding:'10px 14px',background:`${WARN}10`,border:`1px solid ${WARN}30`,borderRadius:10,marginBottom:16,display:'flex',alignItems:'center',gap:10}}>
+                <I n="alert" s={14} c={WARN} w={1.8} />
+                <span style={{fontSize:12,color:TEXT,fontWeight:500}}>Calibration may be due — check before next assessment</span>
+                <button onClick={()=>setView('settings')} style={{marginLeft:'auto',background:'none',border:'none',color:WARN,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Review</button>
               </div>
             )
           })()}
 
-          {/* ── Status Bar ── */}
-          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 14px',background:SURFACE,borderRadius:8,border:`1px solid ${BORDER}`,marginBottom:isTabletLand?0:20}}>
-            <div style={{display:'flex',alignItems:'center',gap:8}}>
-              <div style={{width:5,height:5,borderRadius:'50%',background:navigator.onLine&&supabase?SUCCESS:supabase?WARN:DIM}} />
-              <span style={{fontSize:10,color:DIM,fontFamily:"'DM Mono'"}}>{navigator.onLine&&supabase?'Cloud synced':supabase?'Offline mode':'Stored on device'}</span>
+          {/* ── Tier 1: primary action ── */}
+          <button onClick={startNew} style={{width:'100%',padding:'18px 20px',marginBottom:24,background:`${ACCENT}10`,border:`1px solid ${ACCENT}40`,borderRadius:14,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,fontFamily:'inherit',transition:'border-color 0.15s, background 0.15s',minHeight:64}}>
+            <div style={{width:44,height:44,borderRadius:11,background:`${ACCENT}18`,border:`1px solid ${ACCENT}30`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+              <I n="wind" s={20} c={ACCENT} w={2} />
             </div>
-            <span style={{fontSize:9,color:DIM,fontFamily:"'DM Mono'"}}>v{VER}</span>
-          </div>
-          </div>{/* end left column */}
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:16,fontWeight:700,color:TEXT,fontFamily:"'Sora'",letterSpacing:'-0.2px'}}>{userMode==='fm' ? 'New Air Quality Check' : 'New Assessment'}</div>
+              <div style={{fontSize:11,color:SUB,marginTop:3,fontFamily:"'DM Mono'"}}>1 credit</div>
+            </div>
+          </button>
 
-          {/* Right column (recent assessments — side panel in landscape, below in portrait) */}
-          <div>
-          {/* ── Recent Assessments ── */}
-          {(index.reports||[]).length>0&&<div>
-            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
-              <span style={{fontSize:12,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'1px'}}>Recent</span>
-              {(index.reports||[]).length>3&&<button onClick={()=>setView('history')} style={{background:'none',border:'none',color:ACCENT,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',padding:'4px 0'}}>View all</button>}
-            </div>
-            {(index.reports||[]).slice(0,3).map(r=>(
-              <button key={r.id} onClick={()=>openReport(r)} style={{width:'100%',padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,marginBottom:6,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit',transition:'border-color 0.15s'}}>
-                <div style={{width:38,height:38,borderRadius:8,background:r.score>=70?`${SUCCESS}10`:r.score>=50?`${WARN}10`:`${DANGER}10`,border:`1px solid ${r.score>=70?`${SUCCESS}20`:r.score>=50?`${WARN}20`:`${DANGER}20`}`,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                  <span style={{fontSize:14,fontWeight:800,fontFamily:"'DM Mono'",color:r.score>=70?SUCCESS:r.score>=50?WARN:DANGER}}>{r.score||'—'}</span>
-                </div>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:13,fontWeight:600,color:TEXT,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.facility||'Untitled'}</div>
-                  <div style={{fontSize:11,color:DIM,fontFamily:"'DM Mono'",marginTop:2}}>{fD(r.ts)}</div>
-                </div>
-                <span style={{fontSize:12,color:DIM}}>→</span>
+          {/* ── Tier 2 Group A: Workspace ── */}
+          <div style={{fontSize:11,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:8,paddingLeft:4}}>Workspace</div>
+          <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,marginBottom:24,overflow:'hidden'}}>
+            {[
+              { key:'drafts', label: userMode==='fm' ? 'In Progress' : 'Drafts', count: (index.drafts||[]).length, view: 'drafts' },
+              { key:'reports', label: 'Reports', count: (index.reports||[]).length, view: 'history' },
+            ].map((row, i) => (
+              <button key={row.key} onClick={()=>{ if (row.count) setView(row.view) }} disabled={!row.count} style={{width:'100%',padding:'14px 16px',background:'transparent',border:'none',borderTop: i===0 ? 'none' : `1px solid ${BORDER}`,cursor: row.count ? 'pointer' : 'default',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit',minHeight:56,opacity: row.count ? 1 : 0.55}}>
+                <span style={{flex:1,fontSize:14,fontWeight:600,color: row.count ? TEXT : SUB}}>{row.label}</span>
+                <span style={{fontSize:14,fontWeight:700,fontFamily:"'DM Mono'",color: row.count ? TEXT : DIM}}>{row.count}</span>
+                {row.count > 0 && <span style={{color:DIM,fontSize:13,marginLeft:4}}>›</span>}
               </button>
             ))}
-          </div>}
+          </div>
 
-          {/* ── System Summary (when no recent reports) ── */}
-          {(index.reports||[]).length===0&&(
-            <div style={{padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,marginTop:12}}>
-              <div style={{fontSize:11,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:10}}>Configuration</div>
-              <div style={{display:'flex',flexDirection:'column',gap:6,fontSize:11}}>
-                <div style={{display:'flex',justifyContent:'space-between'}}><span style={{color:SUB}}>Assessor</span><span style={{color:TEXT,fontWeight:500}}>{profile?.name?.split(',')[0]||'Not set'}</span></div>
-                <div style={{display:'flex',justifyContent:'space-between'}}><span style={{color:SUB}}>Instrument</span><span style={{color:profile?.iaq_meter?TEXT:DIM,fontFamily:profile?.iaq_meter?"'DM Mono'":'inherit',fontWeight:500}}>{profile?.iaq_meter||'No meter connected'}</span></div>
-                <div style={{display:'flex',justifyContent:'space-between'}}><span style={{color:SUB}}>Reference standards</span><span style={{color:TEXT,fontWeight:500}}>ASHRAE · OSHA · EPA</span></div>
-                <div style={{display:'flex',justifyContent:'space-between'}}><span style={{color:SUB}}>Local storage</span><span style={{color:TEXT,fontFamily:"'DM Mono'",fontWeight:500}}>{(index.drafts||[]).length} drafts · {(index.reports||[]).length} reports</span></div>
+          {/* ── Tier 2 Group B: Recent reports (only when present) ── */}
+          {(index.reports||[]).length > 0 && <>
+            <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',marginBottom:8,paddingLeft:4,paddingRight:4}}>
+              <div style={{fontSize:11,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'0.8px'}}>Recent</div>
+              {(index.reports||[]).length > 3 && <button onClick={()=>setView('history')} style={{background:'none',border:'none',color:ACCENT,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',padding:0}}>View all</button>}
+            </div>
+            <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,marginBottom:24,overflow:'hidden'}}>
+              {(index.reports||[]).slice(0,3).map((r, i) => {
+                const sc = r.score
+                const sevColor = sc>=70 ? SUCCESS : sc>=50 ? WARN : DANGER
+                return (
+                  <button key={r.id} onClick={()=>openReport(r)} style={{width:'100%',padding:'14px 16px',background:'transparent',border:'none',borderTop: i===0 ? 'none' : `1px solid ${BORDER}`,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit',minHeight:60}}>
+                    <div style={{width:38,height:38,borderRadius:8,background:`${sevColor}10`,border:`1px solid ${sevColor}25`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                      <span style={{fontSize:14,fontWeight:800,fontFamily:"'DM Mono'",color:sevColor}}>{sc || '—'}</span>
+                    </div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:13,fontWeight:600,color:TEXT,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.facility || 'Untitled'}</div>
+                      <div style={{fontSize:11,color:DIM,fontFamily:"'DM Mono'",marginTop:2}}>{fD(r.ts)}</div>
+                    </div>
+                    <span style={{color:DIM,fontSize:13}}>›</span>
+                  </button>
+                )
+              })}
+            </div>
+          </>}
+
+          {/* ── Tier 2 Group C: Demos ── */}
+          <div style={{fontSize:11,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:8,paddingLeft:4}}>Try with sample data</div>
+          <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,marginBottom:20,overflow:'hidden'}}>
+            <button onClick={()=>runDemo()} style={{width:'100%',padding:'14px 16px',background:'transparent',border:'none',cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit',minHeight:56}}>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:14,fontWeight:600,color:TEXT}}>{userMode==='fm' ? 'Sample Air Quality Check' : 'Office Building Demo'}</div>
+                <div style={{fontSize:11,color:SUB,marginTop:2,fontFamily:"'DM Mono'",overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{userMode==='fm' ? 'Greenfield Office Park · 2 areas' : 'Meridian Commerce Tower · 3 zones'}</div>
               </div>
+              <span style={{fontSize:10,color:DIM,fontFamily:"'DM Mono'",padding:'3px 8px',borderRadius:6,background:SURFACE,border:`1px solid ${BORDER}`}}>~10 min</span>
+              <span style={{color:DIM,fontSize:13,marginLeft:4}}>›</span>
+            </button>
+            {userMode !== 'fm' && <button onClick={()=>runDemo('dc')} style={{width:'100%',padding:'14px 16px',background:'transparent',border:'none',borderTop:`1px solid ${BORDER}`,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit',minHeight:56}}>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:14,fontWeight:600,color:TEXT}}>Data Center Demo</div>
+                <div style={{fontSize:11,color:SUB,marginTop:2,fontFamily:"'DM Mono'",overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>Hizinburg DC · 3 zones · ISA-71.04 + ISO 14644</div>
+              </div>
+              <span style={{fontSize:10,color:DIM,fontFamily:"'DM Mono'",padding:'3px 8px',borderRadius:6,background:SURFACE,border:`1px solid ${BORDER}`}}>~10 min</span>
+              <span style={{color:DIM,fontSize:13,marginLeft:4}}>›</span>
+            </button>}
+          </div>
+
+          {/* ── Empty state — only when no reports AND no drafts ── */}
+          {(index.reports||[]).length===0 && (index.drafts||[]).length===0 && (
+            <div style={{padding:'18px 16px',background:SURFACE,border:`1px dashed ${BORDER}`,borderRadius:12,marginBottom:20,textAlign:'center'}}>
+              <div style={{fontSize:13,fontWeight:600,color:TEXT,marginBottom:4}}>No assessments yet</div>
+              <div style={{fontSize:12,color:SUB,lineHeight:1.5}}>Start a new assessment above, or run a demo to see a finished report.</div>
             </div>
           )}
-          </div>{/* end right column */}
-          </div>{/* end adaptive grid */}
+
         </div>}
 
         {view==='quickstart'&&qscq&&renderQuestion(qscq,mergedData,setQSField,qsqi,qsVis,()=>{if(qsqi<qsVis.length-1)setQsqi(qsqi+1)},()=>{if(qsqi>0)setQsqi(qsqi-1)},finishQuickStart,'→ HVAC Equipment',qsSecs)}
@@ -1641,7 +1601,7 @@ export default function MobileApp() {
           ))}
         </div>}
         {view==='trash'&&<TrashView onRecover={async(id)=>{await Backup.recover(id);await refreshIndex()}} onDelete={async(id)=>{await Backup.permanentDelete(id)}} />}
-        {view==='settings'&&<SettingsScreen profile={profile} onEditProfile={()=>{setProfile({...profile,isNew:true});setView('dash')}} onLogout={handleLogout} onClose={()=>setView('dash')} onNavigate={(v)=>{if(v==='pricing'){setShowPricing(true)}else{setView(v)}}} adminActive={!!adminSecret} onActivateAdmin={(secret)=>{setAdminSecret(secret);setView('admin')}} />}
+        {view==='settings'&&<SettingsScreen profile={profile} credits={credits} onEditProfile={()=>{setProfile({...profile,isNew:true});setView('dash')}} onLogout={handleLogout} onClose={()=>setView('dash')} onNavigate={(v)=>{if(v==='pricing'){setShowPricing(true)}else{setView(v)}}} adminActive={!!adminSecret} onActivateAdmin={(secret)=>{setAdminSecret(secret);setView('admin')}} />}
         {view==='tos'&&<TermsOfService onBack={()=>setView('settings')} />}
         {view==='privacy'&&<PrivacyPolicy onBack={()=>setView('settings')} />}
         {view==='admin'&&adminSecret&&<AdminDashboard onBack={()=>setView('settings')} adminSecret={adminSecret} />}

@@ -24,7 +24,7 @@ const SUCCESS = '#22C55E'
 const WARN = '#FBBF24'
 const DANGER = '#EF4444'
 
-export default function SettingsScreen({ profile, onEditProfile, onLogout, onClose, onNavigate, onActivateAdmin, adminActive }) {
+export default function SettingsScreen({ profile, credits, onEditProfile, onLogout, onClose, onNavigate, onActivateAdmin, adminActive }) {
   const [health, setHealth] = useState(null)
   const [importMsg, setImportMsg] = useState('')
   const [index, setIndex] = useState({ reports: [], drafts: [] })
@@ -71,228 +71,220 @@ export default function SettingsScreen({ profile, onEditProfile, onLogout, onClo
   })()
 
   // ─── Components ───
+  // v2.8 UI pass — inset-grouped lists (Apple HIG), no per-row card chrome,
+  // no colored icon tile on every row, no restating subtitles. Status earns
+  // space by exception. "Sign out" is plain text; only "Delete account" is
+  // destructive. Notion-style "Danger zone" group anchors the bottom.
 
-  const Section = ({ title }) => (
-    <div style={{fontSize:11,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:10,marginTop:28,paddingBottom:8,borderBottom:`1px solid ${BORDER}`}}>{title}</div>
+  const Group = ({ title, right, children }) => (
+    <div style={{marginTop:24}}>
+      {(title || right) && (
+        <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',padding:'0 4px 8px'}}>
+          {title && <div style={{fontSize:11,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'0.8px'}}>{title}</div>}
+          {right}
+        </div>
+      )}
+      <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,overflow:'hidden'}}>
+        {children}
+      </div>
+    </div>
   )
 
-  const Row = ({ icon, label, sub, action, color, right }) => (
-    <button onClick={action} style={{width:'100%',padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,cursor:action?'pointer':'default',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit',minHeight:52,marginBottom:6,transition:'border-color 0.15s'}}>
-      <div style={{width:36,height:36,borderRadius:9,background:`${color||ACCENT}10`,border:`1px solid ${color||ACCENT}15`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-        <I n={icon} s={17} c={color||ACCENT} w={1.8} />
-      </div>
+  // Plain list row. No colored icon tile by default. `value` is right-aligned
+  // (DM Mono for technical values). `tone='danger'` paints the label red for
+  // destructive Tier-3 actions. The borderTop on rows after the first is the
+  // hairline divider inside the group container.
+  const Row = ({ label, sub, value, action, tone, first }) => (
+    <button
+      onClick={action}
+      disabled={!action}
+      style={{
+        width:'100%',padding:'14px 16px',background:'transparent',border:'none',
+        borderTop: first ? 'none' : `1px solid ${BORDER}`,
+        cursor: action ? 'pointer' : 'default',textAlign:'left',
+        display:'flex',alignItems:'center',gap:12,fontFamily:'inherit',minHeight:52,
+      }}>
       <div style={{flex:1,minWidth:0}}>
-        <div style={{fontSize:14,fontWeight:600,color:TEXT}}>{label}</div>
-        {sub && <div style={{fontSize:11,color:DIM,marginTop:1,lineHeight:1.4}}>{sub}</div>}
+        <div style={{fontSize:14,fontWeight:600,color: tone==='danger' ? DANGER : TEXT}}>{label}</div>
+        {sub && <div style={{fontSize:11,color:DIM,marginTop:2,lineHeight:1.4,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{sub}</div>}
       </div>
-      {right || (action && <span style={{fontSize:13,color:DIM}}>→</span>)}
+      {value && <span style={{fontSize:12,color:SUB,fontFamily:"'DM Mono'",marginRight: action ? 6 : 0,flexShrink:0}}>{value}</span>}
+      {action && <span style={{color:DIM,fontSize:13,flexShrink:0}}>›</span>}
     </button>
   )
 
-  const StatusDot = ({ ok }) => (
-    <div style={{width:7,height:7,borderRadius:'50%',background:ok?SUCCESS:WARN,flexShrink:0}} />
+  // Subtle exception pill. Used only when state is NOT fine.
+  const ExceptionPill = ({ tone='warn', text }) => (
+    <span style={{
+      fontSize:10,fontWeight:600,fontFamily:"'DM Mono'",
+      color: tone==='warn' ? WARN : DANGER,
+      padding:'3px 8px',borderRadius:6,
+      background: tone==='warn' ? `${WARN}10` : `${DANGER}10`,
+      border: `1px solid ${tone==='warn' ? WARN : DANGER}25`,
+    }}>{text}</span>
   )
 
+  const calOk = profile?.iaq_cal_status?.includes('within manufacturer')
+  const pidOk = profile?.pid_cal_status?.includes('calibrated')
+  const dataOk = !health || health.healthy
+
   return (
-    <div style={{paddingTop:24,paddingBottom:100}}>
-      <h2 style={{fontSize:20,fontWeight:700,marginBottom:4,color:TEXT,letterSpacing:'-0.3px'}}>Settings</h2>
-      <div style={{fontSize:11,color:DIM,marginBottom:20}}>Assessment configuration and data management</div>
+    <div style={{paddingTop:24,paddingBottom:120}}>
+      <h2 style={{fontSize:22,fontWeight:700,marginBottom:20,color:TEXT,letterSpacing:'-0.3px',fontFamily:"'Sora'"}}>Settings</h2>
 
-      {/* ═══ ASSESSOR PROFILE ═══ */}
-      <Section title="Assessor Profile" />
-
-      {profile && (
-        <div style={{padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,marginBottom:6,display:'flex',alignItems:'center',gap:12}}>
-          <div style={{width:42,height:42,borderRadius:10,background:`${ACCENT}10`,border:`1px solid ${ACCENT}18`,display:'flex',alignItems:'center',justifyContent:'center'}}>
-            <I n="user" s={18} c={ACCENT} />
-          </div>
-          <div style={{flex:1,minWidth:0}}>
-            <div style={{fontSize:15,fontWeight:700,color:TEXT,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{profile.name||'Assessor'}</div>
-            <div style={{fontSize:10,color:DIM,fontFamily:"'DM Mono'",marginTop:2}}>{(profile.certs||[]).length > 3 ? `${(profile.certs||[]).slice(0,3).join(' · ')} +${(profile.certs||[]).length-3}` : (profile.certs||[]).join(' · ')||'No certifications on file'}</div>
-          </div>
-          <button onClick={onEditProfile} style={{padding:'6px 12px',borderRadius:6,background:'transparent',border:`1px solid ${BORDER}`,color:SUB,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',transition:'border-color 0.15s'}}>Edit</button>
-        </div>
-      )}
-
-      {profile?.iaq_meter && (
-        <div style={{padding:'12px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,marginBottom:6}}>
-          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-            <div style={{fontSize:12,fontWeight:600,color:SUB}}>Primary instrument</div>
-            <div style={{display:'flex',alignItems:'center',gap:6}}>
-              <StatusDot ok={profile.iaq_cal_status?.includes('within manufacturer')} />
-              <span style={{fontSize:10,color:DIM,fontFamily:"'DM Mono'"}}>{profile.iaq_cal_status?.includes('within manufacturer') ? 'Calibrated' : 'Check cal.'}</span>
+      {/* ── Account ── */}
+      <Group title="Account">
+        {profile && (
+          <button onClick={onEditProfile} style={{width:'100%',padding:'16px',background:'transparent',border:'none',cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit',minHeight:64}}>
+            <div style={{width:42,height:42,borderRadius:10,background:`${ACCENT}10`,border:`1px solid ${ACCENT}18`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+              <I n="user" s={18} c={ACCENT} />
             </div>
-          </div>
-          <div style={{fontSize:13,fontWeight:600,color:TEXT,marginTop:4}}>{profile.iaq_meter}</div>
-          {profile.iaq_serial && <div style={{fontSize:10,color:DIM,fontFamily:"'DM Mono'",marginTop:2}}>S/N {profile.iaq_serial}</div>}
-          {profile.iaq_cal_date && <div style={{fontSize:10,color:DIM,fontFamily:"'DM Mono'",marginTop:1}}>Last calibrated: {profile.iaq_cal_date}</div>}
-        </div>
-      )}
-
-      {profile?.pid_meter && (
-        <div style={{padding:'12px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,marginBottom:6}}>
-          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-            <div style={{fontSize:12,fontWeight:600,color:SUB}}>PID / VOC meter</div>
-            <div style={{display:'flex',alignItems:'center',gap:6}}>
-              <StatusDot ok={profile.pid_cal_status?.includes('calibrated')} />
-              <span style={{fontSize:10,color:DIM,fontFamily:"'DM Mono'"}}>{profile.pid_cal_status || '—'}</span>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:15,fontWeight:700,color:TEXT,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{profile.name || 'Assessor'}</div>
+              <div style={{fontSize:11,color:DIM,fontFamily:"'DM Mono'",marginTop:2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{(profile.certs||[]).slice(0,3).join(' · ') || 'No certifications on file'}</div>
             </div>
-          </div>
-          <div style={{fontSize:13,fontWeight:600,color:TEXT,marginTop:4}}>{profile.pid_meter}</div>
-        </div>
-      )}
-
-      <Row icon="clip" label="Edit Credentials & Instruments" sub="Update certifications, meters, and calibration status" action={onEditProfile} />
-
-      {/* ═══ REPORTS & METHODOLOGY ═══ */}
-      <Section title="Reports & Methodology" />
-
-      <div style={{padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,marginBottom:6}}>
-        <div style={{fontSize:12,fontWeight:600,color:SUB,marginBottom:8}}>Core IAQ Standards</div>
-        <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
-          {['ASHRAE 62.1-2025','ASHRAE 55-2023','OSHA PELs','NIOSH RELs','EPA NAAQS','WHO AQG'].map(s => (
-            <span key={s} style={{padding:'4px 8px',borderRadius:4,background:`${ACCENT}08`,border:`1px solid ${ACCENT}12`,fontSize:9,fontWeight:600,color:ACCENT,fontFamily:"'DM Mono'",letterSpacing:'0.2px'}}>{s}</span>
-          ))}
-        </div>
-        <details style={{marginTop:10}}>
-          <summary style={{fontSize:10,fontWeight:600,color:DIM,cursor:'pointer',listStyle:'none',display:'flex',alignItems:'center',gap:4}}>
-            <span style={{fontSize:8}}>▶</span> Data Center Standards
-          </summary>
-          <div style={{display:'flex',flexWrap:'wrap',gap:4,marginTop:6}}>
-            {['ANSI/ISA 71.04-2013','ISO 14644-1:2015','ASHRAE TC 9.9','IEEE 1635','NFPA 855'].map(s => (
-              <span key={s} style={{padding:'4px 8px',borderRadius:4,background:`${DIM}10`,border:`1px solid ${DIM}20`,fontSize:9,fontWeight:600,color:DIM,fontFamily:"'DM Mono'",letterSpacing:'0.2px'}}>{s}</span>
-            ))}
-          </div>
-        </details>
-        <div style={{fontSize:10,color:DIM,marginTop:8,lineHeight:1.5}}>Scoring informed by, not certified by, these standards. Thresholds update with each app release.</div>
-      </div>
-
-      <Row icon="pulse" label="Scoring Model" sub="5 categories · Worst-zone weighted · Thresholds update with releases" color={DIM} />
-      <Row icon="report" label="Report Defaults" sub="Cover, summary, zones, causal chains, sampling, recommendations" color={DIM} />
-      <Row icon="user" label="Report Signature & Credentials" sub="Assessor name, credentials, and report footer" color={DIM} />
-      <Row icon="shield" label="Defensibility Controls" sub="Warnings, completeness checks, and finalization rules" color={DIM} />
-
-      {/* ═══ DATA & BACKUP ═══ */}
-      <Section title="Data & Backup" />
-
-      {/* Data Summary */}
-      <div style={{padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,marginBottom:6}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
-          <div style={{fontSize:12,fontWeight:600,color:SUB}}>Local data</div>
-          {health && (
-            <div style={{display:'flex',alignItems:'center',gap:6}}>
-              <StatusDot ok={health.healthy} />
-              <span style={{fontSize:10,color:health.healthy?SUCCESS:WARN,fontFamily:"'DM Mono'",fontWeight:600}}>{health.healthy ? 'Healthy' : 'Issues found'}</span>
+            <span style={{color:DIM,fontSize:13,flexShrink:0}}>›</span>
+          </button>
+        )}
+        <Row label="Buy Credits" sub={typeof credits === 'number' ? `${credits} available` : null} action={() => onNavigate?.('pricing')} />
+        {!showPasswordChange ? (
+          <Row label="Change Password" action={() => setShowPasswordChange(true)} />
+        ) : (
+          <div style={{padding:'14px 16px',borderTop:`1px solid ${BORDER}`}}>
+            <input type="password" value={newPassword} onChange={e=>setNewPassword(e.target.value)} placeholder="New password (min 8 characters)" style={{width:'100%',padding:'10px 14px',background:BG,border:`1px solid ${BORDER}`,borderRadius:8,color:TEXT,fontSize:13,fontFamily:'inherit',outline:'none',boxSizing:'border-box',marginBottom:8}} />
+            <input type="password" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} placeholder="Confirm new password" style={{width:'100%',padding:'10px 14px',background:BG,border:`1px solid ${BORDER}`,borderRadius:8,color:TEXT,fontSize:13,fontFamily:'inherit',outline:'none',boxSizing:'border-box',marginBottom:8}} />
+            {passwordMsg && <div style={{fontSize:11,color:passwordMsg.includes('success')?SUCCESS:DANGER,marginBottom:8}}>{passwordMsg}</div>}
+            <div style={{display:'flex',gap:8}}>
+              <button onClick={()=>{setShowPasswordChange(false);setNewPassword('');setConfirmPassword('');setPasswordMsg('')}} style={{flex:0,padding:'8px 16px',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:8,color:SUB,fontSize:11,cursor:'pointer',fontFamily:'inherit'}}>Cancel</button>
+              <button onClick={async()=>{
+                if (newPassword.length < 8) { setPasswordMsg('Password must be at least 8 characters'); return }
+                if (newPassword !== confirmPassword) { setPasswordMsg('Passwords do not match'); return }
+                try {
+                  const { supabase: sb } = await import('../utils/supabaseClient')
+                  if (sb) {
+                    const { error } = await sb.auth.updateUser({ password: newPassword })
+                    if (error) setPasswordMsg(error.message)
+                    else { setPasswordMsg('Password updated successfully'); setNewPassword(''); setConfirmPassword(''); setTimeout(()=>{setShowPasswordChange(false);setPasswordMsg('')},2000) }
+                  }
+                } catch { setPasswordMsg('Failed to update password') }
+              }} style={{flex:1,padding:'8px 16px',background:ACCENT,border:'none',borderRadius:8,color:BG,fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>Update Password</button>
             </div>
-          )}
-        </div>
-        <div style={{display:'flex',gap:16,fontSize:11,color:DIM,fontFamily:"'DM Mono'",flexWrap:'wrap'}}>
-          <span>{index.reports?.length || 0} reports</span>
-          <span>{index.drafts?.length || 0} drafts</span>
-          {trashCount > 0 && <span>{trashCount} in trash</span>}
-          <span>{storageUsed} used</span>
-        </div>
-        <div style={{fontSize:10,color:DIM,fontFamily:"'DM Mono'",marginTop:6}}>Last export: not yet · Local data {health?.healthy ? 'healthy' : 'check required'}</div>
-        {health && !health.healthy && (
-          <div style={{marginTop:8}}>
-            {health.issues.map((issue, i) => (
-              <div key={i} style={{fontSize:10,color:issue.level==='critical'?DANGER:WARN,marginBottom:2}}>{issue.msg}</div>
-            ))}
           </div>
         )}
-      </div>
+      </Group>
 
-      <Row icon="download" label="Export Backup" sub="Download all assessments, drafts, and profile as JSON" action={() => Backup.downloadBackup()} />
+      {/* ── Instruments ── */}
+      {(profile?.iaq_meter || profile?.pid_meter) && (
+        <Group title="Instruments">
+          {profile?.iaq_meter && (
+            <Row
+              first
+              label={profile.iaq_meter}
+              sub={profile.iaq_serial ? `S/N ${profile.iaq_serial}${profile.iaq_cal_date ? ' · last cal ' + profile.iaq_cal_date : ''}` : (profile.iaq_cal_date ? `Last cal ${profile.iaq_cal_date}` : null)}
+              value={!calOk ? <ExceptionPill text="Cal due" /> : null}
+              action={onEditProfile}
+            />
+          )}
+          {profile?.pid_meter && (
+            <Row
+              first={!profile?.iaq_meter}
+              label={profile.pid_meter}
+              sub="PID / VOC meter"
+              value={!pidOk ? <ExceptionPill text="Cal due" /> : null}
+              action={onEditProfile}
+            />
+          )}
+          <Row label="Edit credentials & instruments" action={onEditProfile} />
+        </Group>
+      )}
+      {!profile?.iaq_meter && !profile?.pid_meter && (
+        <Group title="Instruments">
+          <Row label="Add an instrument" sub="Register your IAQ meter and PID for calibration tracking" action={onEditProfile} first />
+        </Group>
+      )}
 
-      <label style={{display:'block',marginBottom:6}}>
-        <Row icon="refresh" label="Restore from Backup" sub="Import a previously exported JSON backup file" action={() => document.getElementById('settings-import').click()} />
-        <input id="settings-import" type="file" accept=".json" onChange={handleImport} style={{display:'none'}} />
-      </label>
-      {importMsg && <div style={{padding:'8px 14px',background:`${ACCENT}08`,border:`1px solid ${ACCENT}18`,borderRadius:8,marginBottom:6,fontSize:11,color:ACCENT}}>{importMsg}</div>}
-
-      {/* ═══ ACCOUNT ═══ */}
-      <Section title="Account" />
-
-      <Row icon="bolt" label="Buy Credits" sub="Assessment and narrative credits" action={() => onNavigate?.('pricing')} />
-
-      {/* Change Password */}
-      {!showPasswordChange ? (
-        <Row icon="shield" label="Change Password" sub="Update your account password" action={() => setShowPasswordChange(true)} />
-      ) : (
-        <div style={{padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,marginBottom:6}}>
-          <div style={{fontSize:12,fontWeight:600,color:TEXT,marginBottom:10}}>Change Password</div>
-          <input type="password" value={newPassword} onChange={e=>setNewPassword(e.target.value)} placeholder="New password (min 8 characters)" style={{width:'100%',padding:'10px 14px',background:BG,border:`1px solid ${BORDER}`,borderRadius:8,color:TEXT,fontSize:13,fontFamily:'inherit',outline:'none',boxSizing:'border-box',marginBottom:8}} />
-          <input type="password" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} placeholder="Confirm new password" style={{width:'100%',padding:'10px 14px',background:BG,border:`1px solid ${BORDER}`,borderRadius:8,color:TEXT,fontSize:13,fontFamily:'inherit',outline:'none',boxSizing:'border-box',marginBottom:8}} />
-          {passwordMsg && <div style={{fontSize:11,color:passwordMsg.includes('success')?SUCCESS:DANGER,marginBottom:8}}>{passwordMsg}</div>}
-          <div style={{display:'flex',gap:8}}>
-            <button onClick={()=>{setShowPasswordChange(false);setNewPassword('');setConfirmPassword('');setPasswordMsg('')}} style={{flex:0,padding:'8px 16px',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:8,color:SUB,fontSize:11,cursor:'pointer',fontFamily:'inherit'}}>Cancel</button>
-            <button onClick={async()=>{
-              if(newPassword.length<8){setPasswordMsg('Password must be at least 8 characters');return}
-              if(newPassword!==confirmPassword){setPasswordMsg('Passwords do not match');return}
-              try{
-                const{supabase:sb}=await import('../utils/supabaseClient')
-                if(sb){const{error}=await sb.auth.updateUser({password:newPassword});if(error){setPasswordMsg(error.message)}else{setPasswordMsg('Password updated successfully');setNewPassword('');setConfirmPassword('');setTimeout(()=>{setShowPasswordChange(false);setPasswordMsg('')},2000)}}
-              }catch{setPasswordMsg('Failed to update password')}
-            }} style={{flex:1,padding:'8px 16px',background:ACCENT,border:'none',borderRadius:8,color:BG,fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>Update Password</button>
+      {/* ── Methodology ── */}
+      <Group title="Methodology">
+        <div style={{padding:'14px 16px'}}>
+          <div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:8}}>
+            {['ASHRAE 62.1-2025','ASHRAE 55-2023','OSHA PELs','NIOSH RELs','EPA NAAQS','WHO AQG'].map(s => (
+              <span key={s} style={{padding:'4px 8px',borderRadius:4,background:`${ACCENT}08`,border:`1px solid ${ACCENT}12`,fontSize:9,fontWeight:600,color:ACCENT,fontFamily:"'DM Mono'",letterSpacing:'0.2px'}}>{s}</span>
+            ))}
           </div>
+          <details>
+            <summary style={{fontSize:10,fontWeight:600,color:DIM,cursor:'pointer',listStyle:'none',display:'flex',alignItems:'center',gap:4}}>
+              <span style={{fontSize:8}}>▶</span> Data center standards
+            </summary>
+            <div style={{display:'flex',flexWrap:'wrap',gap:4,marginTop:6}}>
+              {['ANSI/ISA 71.04-2013','ISO 14644-1:2015','ASHRAE TC 9.9','IEEE 1635','NFPA 855'].map(s => (
+                <span key={s} style={{padding:'4px 8px',borderRadius:4,background:`${DIM}10`,border:`1px solid ${DIM}20`,fontSize:9,fontWeight:600,color:DIM,fontFamily:"'DM Mono'",letterSpacing:'0.2px'}}>{s}</span>
+              ))}
+            </div>
+          </details>
+          <div style={{fontSize:10,color:DIM,marginTop:10,lineHeight:1.5}}>Scoring informed by, not certified by, these standards. Thresholds update with each app release.</div>
+        </div>
+      </Group>
+
+      {/* ── Data & Backup ── */}
+      <Group
+        title="Data & Backup"
+        right={!dataOk ? <ExceptionPill tone="warn" text="Issues found" /> : null}
+      >
+        <Row
+          first
+          label="Local data"
+          sub={`${index.reports?.length || 0} reports · ${index.drafts?.length || 0} drafts${trashCount ? ' · ' + trashCount + ' in trash' : ''}`}
+          value={storageUsed}
+        />
+        <Row label="Export Backup" action={() => Backup.downloadBackup()} />
+        <label style={{display:'block'}}>
+          <Row label="Restore from Backup" action={() => document.getElementById('settings-import').click()} />
+          <input id="settings-import" type="file" accept=".json" onChange={handleImport} style={{display:'none'}} />
+        </label>
+        {trashCount > 0 && <Row label="Trash" value={`${trashCount}`} action={() => onNavigate?.('trash')} />}
+      </Group>
+      {importMsg && <div style={{padding:'8px 14px',background:`${ACCENT}08`,border:`1px solid ${ACCENT}18`,borderRadius:8,marginTop:8,fontSize:11,color:ACCENT}}>{importMsg}</div>}
+      {!dataOk && health?.issues?.length > 0 && (
+        <div style={{marginTop:8,padding:'10px 14px',background:`${WARN}08`,border:`1px solid ${WARN}25`,borderRadius:8}}>
+          {health.issues.map((issue, i) => (
+            <div key={i} style={{fontSize:11,color:issue.level==='critical'?DANGER:WARN,marginBottom:i<health.issues.length-1?4:0}}>{issue.msg}</div>
+          ))}
         </div>
       )}
 
-      {adminActive && <Row icon="chart" label="Admin Dashboard" sub="Users, revenue, and platform metrics" action={() => onNavigate?.('admin')} />}
-      <Row icon="user" label="Sign Out" sub="Switch assessor profile" action={onLogout} color={DANGER} />
-
-      {/* Delete account — hidden behind confirmation */}
-      {!deleteConfirm ? (
-        <button onClick={() => setDeleteConfirm(true)} style={{width:'100%',padding:'10px',marginTop:8,background:'transparent',border:'none',color:DIM,fontSize:10,cursor:'pointer',fontFamily:'inherit',textAlign:'center'}}>Delete account</button>
-      ) : (
-        <div style={{padding:'14px 16px',background:`${DANGER}08`,border:`1px solid ${DANGER}20`,borderRadius:10,marginTop:8}}>
-          <div style={{fontSize:12,fontWeight:600,color:DANGER,marginBottom:6}}>Permanently delete your account?</div>
-          <div style={{fontSize:10,color:DIM,marginBottom:12,lineHeight:1.5}}>This removes all assessments, reports, credits, and profile data. This cannot be undone.</div>
-          <div style={{display:'flex',gap:8}}>
-            <button onClick={() => setDeleteConfirm(false)} style={{flex:1,padding:'8px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:8,color:SUB,fontSize:11,cursor:'pointer',fontFamily:'inherit'}}>Cancel</button>
-            <button onClick={async () => {
-              try {
-                const session = await (await import('../utils/cloudStorage')).default.getSession()
-                if (session?.access_token) {
-                  await fetch('/api/delete-account', { method: 'POST', headers: { 'Authorization': `Bearer ${session.access_token}` } })
-                }
-              } catch {}
-              onLogout()
-            }} style={{flex:1,padding:'8px',background:`${DANGER}15`,border:`1px solid ${DANGER}30`,borderRadius:8,color:DANGER,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Delete Everything</button>
-          </div>
-        </div>
+      {/* ── Admin (only when activated) ── */}
+      {adminActive && (
+        <Group title="Admin">
+          <Row first label="Admin Dashboard" action={() => onNavigate?.('admin')} />
+        </Group>
       )}
 
-      {/* ═══ LEGAL & SUPPORT ═══ */}
-      <Section title="Legal" />
+      {/* ── Legal ── */}
+      <Group title="Legal">
+        <Row first label="Terms of Service" action={() => onNavigate?.('tos')} />
+        <Row label="Privacy Policy" action={() => onNavigate?.('privacy')} />
+      </Group>
 
-      <Row icon="clip" label="Terms of Service" sub="Usage terms, disclaimers, and IP" action={() => onNavigate?.('tos')} color={DIM} />
-      <Row icon="clip" label="Privacy Policy" sub="Data handling and analytics disclosure" action={() => onNavigate?.('privacy')} color={DIM} />
-
-      {/* ═══ ABOUT ═══ */}
-      <Section title="About AtmosFlow" />
-
-      <div style={{padding:'16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10}}>
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
-          <div style={{fontSize:15,fontWeight:700,color:TEXT}}>Atmos<span style={{color:ACCENT}}>Flow</span></div>
-          <span onClick={() => {
+      {/* ── About — single row, version pill on the right doubles as the
+          5-tap admin-activation gesture (preserved from the prior design). ── */}
+      <Group title="About">
+        <button
+          onClick={() => {
             const next = adminTaps + 1
             setAdminTaps(next)
             if (next >= 5 && !adminActive) setShowAdminInput(true)
             setTimeout(() => setAdminTaps(0), 3000)
-          }} style={{fontSize:10,color:DIM,fontFamily:"'DM Mono'",padding:'2px 8px',borderRadius:4,background:SURFACE,border:`1px solid ${BORDER}`,cursor:'default'}}>v{VER}</span>
-        </div>
-        <div style={{fontSize:12,color:SUB,lineHeight:1.6,marginBottom:10}}>Standards-driven indoor air quality assessment platform for industrial hygienists and EHS professionals.</div>
-        <div style={{display:'flex',flexDirection:'column',gap:2,fontSize:10,color:DIM,fontFamily:"'DM Mono'"}}>
-          <span>Prudence Safety & Environmental Consulting, LLC</span>
-          <span>Germantown, MD · © 2026</span>
-          <span>Scoring: deterministic · Standards: ASHRAE / OSHA / EPA / WHO</span>
-        </div>
-      </div>
-
-      {/* Admin activation modal */}
+          }}
+          style={{width:'100%',padding:'14px 16px',background:'transparent',border:'none',cursor:'default',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit',minHeight:52}}>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:14,fontWeight:600,color:TEXT}}>AtmosFlow</div>
+            <div style={{fontSize:11,color:DIM,marginTop:2}}>Prudence Safety &amp; Environmental Consulting · Germantown, MD</div>
+          </div>
+          <span style={{fontSize:10,color:DIM,fontFamily:"'DM Mono'",padding:'3px 8px',borderRadius:6,background:SURFACE,border:`1px solid ${BORDER}`,flexShrink:0}}>v{VER}</span>
+        </button>
+      </Group>
       {showAdminInput && (
-        <div style={{padding:'14px 16px',background:CARD,border:`1px solid ${WARN}25`,borderRadius:10,marginTop:12}}>
+        <div style={{padding:'14px 16px',background:CARD,border:`1px solid ${WARN}25`,borderRadius:10,marginTop:8}}>
           <div style={{fontSize:12,fontWeight:600,color:WARN,marginBottom:8}}>Admin Access</div>
           <div style={{display:'flex',gap:8}}>
             <input value={adminCode} onChange={e=>setAdminCode(e.target.value)} placeholder="Enter admin secret" type="password" style={{flex:1,padding:'10px 14px',background:BG,border:`1px solid ${BORDER}`,borderRadius:8,color:TEXT,fontSize:13,fontFamily:'inherit',outline:'none'}} />
@@ -300,6 +292,32 @@ export default function SettingsScreen({ profile, onEditProfile, onLogout, onClo
           </div>
         </div>
       )}
+
+      {/* ── Danger Zone — Notion-style, deliberately isolated, bottom of screen.
+          Sign out is plain (terminal but not destructive); Delete is red. ── */}
+      <Group title="Danger zone">
+        <Row first label="Sign out" action={onLogout} />
+        {!deleteConfirm ? (
+          <Row label="Delete account" tone="danger" action={() => setDeleteConfirm(true)} />
+        ) : (
+          <div style={{padding:'14px 16px',borderTop:`1px solid ${BORDER}`,background:`${DANGER}06`}}>
+            <div style={{fontSize:13,fontWeight:600,color:DANGER,marginBottom:6}}>Permanently delete your account?</div>
+            <div style={{fontSize:11,color:SUB,marginBottom:12,lineHeight:1.5}}>This removes all assessments, reports, credits, and profile data. This cannot be undone.</div>
+            <div style={{display:'flex',gap:8}}>
+              <button onClick={() => setDeleteConfirm(false)} style={{flex:1,padding:'10px',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:8,color:SUB,fontSize:12,cursor:'pointer',fontFamily:'inherit'}}>Cancel</button>
+              <button onClick={async () => {
+                try {
+                  const session = await (await import('../utils/cloudStorage')).default.getSession()
+                  if (session?.access_token) {
+                    await fetch('/api/delete-account', { method: 'POST', headers: { 'Authorization': `Bearer ${session.access_token}` } })
+                  }
+                } catch {}
+                onLogout()
+              }} style={{flex:1,padding:'10px',background:`${DANGER}15`,border:`1px solid ${DANGER}30`,borderRadius:8,color:DANGER,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Delete everything</button>
+            </div>
+          </div>
+        )}
+      </Group>
     </div>
   )
 }
