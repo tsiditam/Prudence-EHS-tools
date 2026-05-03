@@ -12,7 +12,7 @@ export default function ModeSelector({ onSelect }) {
   return (
     <div style={{
       minHeight: '100vh', background: BG, color: TEXT,
-      fontFamily: "'Outfit', system-ui, sans-serif",
+      fontFamily: "'inherit', system-ui, sans-serif",
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
       padding: '40px 20px',
     }}>

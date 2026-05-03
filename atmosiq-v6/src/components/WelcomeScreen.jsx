@@ -44,7 +44,7 @@ export default function WelcomeScreen({ onComplete }) {
   const [step, setStep] = useState(0)
 
   return (
-    <div style={{minHeight:'100vh',background:BG,color:TEXT,fontFamily:"'Outfit', system-ui",display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'0 24px',paddingTop:'env(safe-area-inset-top, 20px)'}}>
+    <div style={{minHeight:'100vh',background:BG,color:TEXT,fontFamily:"'inherit', system-ui",display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'0 24px',paddingTop:'env(safe-area-inset-top, 20px)'}}>
       <div style={{maxWidth:400,width:'100%',textAlign:'center'}}>
 
         {/* Logo */}

@@ -113,7 +113,7 @@ export default function AdminDashboard({ onBack, adminSecret }) {
           {label:'Revenue',value:m.totalRevenueFormatted||'$0',color:WARN},
         ].map((s,i)=>(
           <div key={i} style={{padding:'14px 12px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,textAlign:'center'}}>
-            <div style={{fontSize:22,fontWeight:700,color:s.color,fontFamily:"'DM Mono'"}}>{s.value}</div>
+            <div style={{fontSize:22,fontWeight:700,color:s.color,fontFamily:"var(--font-mono)"}}>{s.value}</div>
             <div style={{fontSize:9,color:DIM,marginTop:4,textTransform:'uppercase',letterSpacing:'0.5px'}}>{s.label}</div>
           </div>
         ))}
@@ -122,7 +122,7 @@ export default function AdminDashboard({ onBack, adminSecret }) {
       {/* 30-day usage */}
       <div style={{padding:'12px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,marginBottom:20}}>
         <div style={{fontSize:11,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:8}}>Last 30 Days</div>
-        <div style={{display:'flex',gap:16,fontSize:11,color:SUB,fontFamily:"'DM Mono'"}}>
+        <div style={{display:'flex',gap:16,fontSize:11,color:SUB,fontFamily:"var(--font-mono)"}}>
           <span>{m.last30Days?.signups || 0} signups</span>
           <span>{m.last30Days?.assessments || 0} assessments</span>
           <span>{m.last30Days?.narratives || 0} narratives</span>
@@ -146,16 +146,16 @@ export default function AdminDashboard({ onBack, adminSecret }) {
                       type="button"
                       onClick={() => { try { navigator.clipboard?.writeText(s.email) } catch {} }}
                       title="Copy email"
-                      style={{padding:0,background:'none',border:'none',color:ACCENT,fontSize:11,fontFamily:"'DM Mono'",cursor:'pointer',marginTop:2,textAlign:'left',wordBreak:'break-all'}}
+                      style={{padding:0,background:'none',border:'none',color:ACCENT,fontSize:11,fontFamily:"var(--font-mono)",cursor:'pointer',marginTop:2,textAlign:'left',wordBreak:'break-all'}}
                     >{s.email}</button>
                   )}
-                  <div style={{fontSize:10,color:DIM,fontFamily:"'DM Mono'",marginTop:2}}>
+                  <div style={{fontSize:10,color:DIM,fontFamily:"var(--font-mono)",marginTop:2}}>
                     {s.firm || 'No firm'} · {s.plan || 'free'} · {s.credits_remaining ?? 0} credits
                   </div>
                 </div>
                 <div style={{textAlign:'right',whiteSpace:'nowrap'}}>
-                  <div style={{fontSize:10,color:SUB,fontFamily:"'DM Mono'"}}>{relativeJoined(s.created_at)}</div>
-                  <div style={{fontSize:9,color:DIM,fontFamily:"'DM Mono'",marginTop:2}}>{new Date(s.created_at).toLocaleDateString()}</div>
+                  <div style={{fontSize:10,color:SUB,fontFamily:"var(--font-mono)"}}>{relativeJoined(s.created_at)}</div>
+                  <div style={{fontSize:9,color:DIM,fontFamily:"var(--font-mono)",marginTop:2}}>{new Date(s.created_at).toLocaleDateString()}</div>
                 </div>
               </div>
             </div>
@@ -171,9 +171,9 @@ export default function AdminDashboard({ onBack, adminSecret }) {
             <div style={{minWidth:0}}>
               <div style={{fontSize:13,fontWeight:600,color:TEXT}}>{u.name||'Unnamed'}</div>
               {u.email && (
-                <div style={{fontSize:10,color:SUB,fontFamily:"'DM Mono'",marginTop:2,wordBreak:'break-all'}}>{u.email}</div>
+                <div style={{fontSize:10,color:SUB,fontFamily:"var(--font-mono)",marginTop:2,wordBreak:'break-all'}}>{u.email}</div>
               )}
-              <div style={{fontSize:10,color:DIM,fontFamily:"'DM Mono'",marginTop:2}}>{u.firm||'No firm'} · {u.plan} · {u.credits_remaining} credits</div>
+              <div style={{fontSize:10,color:DIM,fontFamily:"var(--font-mono)",marginTop:2}}>{u.firm||'No firm'} · {u.plan} · {u.credits_remaining} credits</div>
             </div>
             <div style={{display:'flex',alignItems:'center',gap:6}}>
               <div style={{width:6,height:6,borderRadius:'50%',background:u.subscription_status==='active'?SUCCESS:u.subscription_status==='suspended'?DANGER:DIM}} />
@@ -196,7 +196,7 @@ export default function AdminDashboard({ onBack, adminSecret }) {
                   <button onClick={()=>setUserStatus(u.id,'active')} style={{flex:1,padding:'8px',background:`${SUCCESS}10`,border:`1px solid ${SUCCESS}25`,borderRadius:8,color:SUCCESS,fontSize:10,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Reactivate</button>
                 )}
               </div>
-              <div style={{fontSize:9,color:DIM,fontFamily:"'DM Mono'",marginTop:8}}>ID: {u.id.slice(0,8)}... · Joined: {new Date(u.created_at).toLocaleDateString()}</div>
+              <div style={{fontSize:9,color:DIM,fontFamily:"var(--font-mono)",marginTop:8}}>ID: {u.id.slice(0,8)}... · Joined: {new Date(u.created_at).toLocaleDateString()}</div>
             </div>
           )}
         </div>

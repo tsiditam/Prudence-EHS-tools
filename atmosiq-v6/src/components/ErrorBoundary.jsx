@@ -29,7 +29,7 @@ export default class ErrorBoundary extends Component {
       return (
         <div style={{
           minHeight: '100vh', background: '#060609', color: '#F0F2F5',
-          fontFamily: "'Outfit', system-ui", display: 'flex',
+          fontFamily: "'inherit', system-ui", display: 'flex',
           alignItems: 'center', justifyContent: 'center', padding: 32,
           textAlign: 'center',
         }}>
@@ -76,7 +76,7 @@ export default class ErrorBoundary extends Component {
               Download Emergency Backup
             </button>
             {this.state.error && (
-              <div style={{ marginTop: 20, fontSize: 11, color: '#6B7280', fontFamily: "'DM Mono'", textAlign: 'left', padding: 12, background: '#101018', borderRadius: 8, border: '1px solid #1E1E2E', wordBreak: 'break-all' }}>
+              <div style={{ marginTop: 20, fontSize: 11, color: '#6B7280', fontFamily: "var(--font-mono)", textAlign: 'left', padding: 12, background: '#101018', borderRadius: 8, border: '1px solid #1E1E2E', wordBreak: 'break-all' }}>
                 {this.state.error.toString()}
               </div>
             )}

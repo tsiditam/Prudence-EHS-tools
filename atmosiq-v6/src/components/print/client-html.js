@@ -261,7 +261,7 @@ const PAGE_STYLES = `
   }
   .finding-observation-label { font-weight: 700; color: #1E293B; }
   .finding-observation-value {
-    font-family: 'DM Mono', 'SF Mono', Consolas, monospace;
+    font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
     color: #1E293B;
   }
   .finding-source { font-size: 10pt; color: #5C6F7E; font-style: italic; }

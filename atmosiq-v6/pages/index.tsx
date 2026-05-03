@@ -44,7 +44,7 @@ export default function LandingPage({
         background: PALETTE.bg,
         color: PALETTE.text,
         minHeight: '100vh',
-        fontFamily: "'Outfit', system-ui, -apple-system, sans-serif",
+        fontFamily: "'inherit', system-ui, -apple-system, sans-serif",
         WebkitFontSmoothing: 'antialiased',
       }}
     >
@@ -70,7 +70,7 @@ function Hero({ signupHref }: { signupHref: string }) {
       </div>
       <h1
         style={{
-          fontFamily: "'Sora', 'Outfit', system-ui",
+          fontFamily: "'inherit', 'inherit', system-ui",
           fontSize: 'clamp(34px, 6vw, 56px)',
           fontWeight: 800,
           lineHeight: 1.05,
@@ -250,7 +250,7 @@ function PricingTeaser() {
             }}
           >
             <div style={{ flex: '0 0 100px', fontWeight: 700, fontSize: 16 }}>{t.name}</div>
-            <div style={{ flex: '0 0 140px', color: PALETTE.accent, fontWeight: 700, fontFamily: "'DM Mono', monospace", fontSize: 14 }}>{t.price}</div>
+            <div style={{ flex: '0 0 140px', color: PALETTE.accent, fontWeight: 700, fontFamily: "var(--font-mono), monospace", fontSize: 14 }}>{t.price}</div>
             <div style={{ flex: '1 1 200px', color: PALETTE.sub, fontSize: 13 }}>{t.credits} — {t.blurb}</div>
           </div>
         ))}
@@ -395,7 +395,7 @@ function SectionEyebrow({ children }: { children: React.ReactNode }) {
         display: 'inline-block',
         fontSize: 11,
         color: PALETTE.accent,
-        fontFamily: "'DM Mono', monospace",
+        fontFamily: "var(--font-mono), monospace",
         textTransform: 'uppercase',
         letterSpacing: '0.8px',
         background: `${PALETTE.accent}10`,

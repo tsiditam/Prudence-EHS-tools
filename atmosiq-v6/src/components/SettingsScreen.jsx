@@ -91,9 +91,9 @@ export default function SettingsScreen({ profile, credits, onEditProfile, onLogo
   )
 
   // Plain list row. No colored icon tile by default. `value` is right-aligned
-  // (DM Mono for technical values). `tone='danger'` paints the label red for
-  // destructive Tier-3 actions. The borderTop on rows after the first is the
-  // hairline divider inside the group container.
+  // (system mono for technical values). `tone='danger'` paints the label red
+  // for destructive Tier-3 actions. The borderTop on rows after the first is
+  // the hairline divider inside the group container.
   const Row = ({ label, sub, value, action, tone, first }) => (
     <button
       onClick={action}
@@ -108,7 +108,7 @@ export default function SettingsScreen({ profile, credits, onEditProfile, onLogo
         <div style={{fontSize:14,fontWeight:600,color: tone==='danger' ? DANGER : TEXT}}>{label}</div>
         {sub && <div style={{fontSize:11,color:DIM,marginTop:2,lineHeight:1.4,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{sub}</div>}
       </div>
-      {value && <span style={{fontSize:12,color:SUB,fontFamily:"'DM Mono'",marginRight: action ? 6 : 0,flexShrink:0}}>{value}</span>}
+      {value && <span style={{fontSize:12,color:SUB,fontFamily:"var(--font-mono)",marginRight: action ? 6 : 0,flexShrink:0}}>{value}</span>}
       {action && <span style={{color:DIM,fontSize:13,flexShrink:0}}>›</span>}
     </button>
   )
@@ -116,7 +116,7 @@ export default function SettingsScreen({ profile, credits, onEditProfile, onLogo
   // Subtle exception pill. Used only when state is NOT fine.
   const ExceptionPill = ({ tone='warn', text }) => (
     <span style={{
-      fontSize:10,fontWeight:600,fontFamily:"'DM Mono'",
+      fontSize:10,fontWeight:600,fontFamily:"var(--font-mono)",
       color: tone==='warn' ? WARN : DANGER,
       padding:'3px 8px',borderRadius:6,
       background: tone==='warn' ? `${WARN}10` : `${DANGER}10`,
@@ -130,7 +130,7 @@ export default function SettingsScreen({ profile, credits, onEditProfile, onLogo
 
   return (
     <div style={{paddingTop:24,paddingBottom:120}}>
-      <h2 style={{fontSize:22,fontWeight:700,marginBottom:20,color:TEXT,letterSpacing:'-0.3px',fontFamily:"'Sora'"}}>Settings</h2>
+      <h2 style={{fontSize:22,fontWeight:700,marginBottom:20,color:TEXT,letterSpacing:'-0.3px',fontFamily:'inherit'}}>Settings</h2>
 
       {/* ── Account ── */}
       <Group title="Account">
@@ -141,7 +141,7 @@ export default function SettingsScreen({ profile, credits, onEditProfile, onLogo
             </div>
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:15,fontWeight:700,color:TEXT,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{profile.name || 'Assessor'}</div>
-              <div style={{fontSize:11,color:DIM,fontFamily:"'DM Mono'",marginTop:2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{(profile.certs||[]).slice(0,3).join(' · ') || 'No certifications on file'}</div>
+              <div style={{fontSize:11,color:DIM,fontFamily:"var(--font-mono)",marginTop:2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{(profile.certs||[]).slice(0,3).join(' · ') || 'No certifications on file'}</div>
             </div>
             <span style={{color:DIM,fontSize:13,flexShrink:0}}>›</span>
           </button>
@@ -208,7 +208,7 @@ export default function SettingsScreen({ profile, credits, onEditProfile, onLogo
         <div style={{padding:'14px 16px'}}>
           <div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:8}}>
             {['ASHRAE 62.1-2025','ASHRAE 55-2023','OSHA PELs','NIOSH RELs','EPA NAAQS','WHO AQG'].map(s => (
-              <span key={s} style={{padding:'4px 8px',borderRadius:4,background:`${ACCENT}08`,border:`1px solid ${ACCENT}12`,fontSize:9,fontWeight:600,color:ACCENT,fontFamily:"'DM Mono'",letterSpacing:'0.2px'}}>{s}</span>
+              <span key={s} style={{padding:'4px 8px',borderRadius:4,background:`${ACCENT}08`,border:`1px solid ${ACCENT}12`,fontSize:9,fontWeight:600,color:ACCENT,fontFamily:"var(--font-mono)",letterSpacing:'0.2px'}}>{s}</span>
             ))}
           </div>
           <details>
@@ -217,7 +217,7 @@ export default function SettingsScreen({ profile, credits, onEditProfile, onLogo
             </summary>
             <div style={{display:'flex',flexWrap:'wrap',gap:4,marginTop:6}}>
               {['ANSI/ISA 71.04-2013','ISO 14644-1:2015','ASHRAE TC 9.9','IEEE 1635','NFPA 855'].map(s => (
-                <span key={s} style={{padding:'4px 8px',borderRadius:4,background:`${DIM}10`,border:`1px solid ${DIM}20`,fontSize:9,fontWeight:600,color:DIM,fontFamily:"'DM Mono'",letterSpacing:'0.2px'}}>{s}</span>
+                <span key={s} style={{padding:'4px 8px',borderRadius:4,background:`${DIM}10`,border:`1px solid ${DIM}20`,fontSize:9,fontWeight:600,color:DIM,fontFamily:"var(--font-mono)",letterSpacing:'0.2px'}}>{s}</span>
               ))}
             </div>
           </details>
@@ -280,7 +280,7 @@ export default function SettingsScreen({ profile, credits, onEditProfile, onLogo
             <div style={{fontSize:14,fontWeight:600,color:TEXT}}>AtmosFlow</div>
             <div style={{fontSize:11,color:DIM,marginTop:2}}>Prudence Safety &amp; Environmental Consulting · Germantown, MD</div>
           </div>
-          <span style={{fontSize:10,color:DIM,fontFamily:"'DM Mono'",padding:'3px 8px',borderRadius:6,background:SURFACE,border:`1px solid ${BORDER}`,flexShrink:0}}>v{VER}</span>
+          <span style={{fontSize:10,color:DIM,fontFamily:"var(--font-mono)",padding:'3px 8px',borderRadius:6,background:SURFACE,border:`1px solid ${BORDER}`,flexShrink:0}}>v{VER}</span>
         </button>
       </Group>
       {showAdminInput && (

@@ -26,11 +26,25 @@ export const CSS = {
 
 export const SP = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32, xxl: 48 }
 
-export const mono = { fontFamily: 'DM Mono, monospace' }
-
 // ── Font families ──
-export const FONT_DESKTOP = 'Inter, sans-serif'
-export const FONT_MOBILE = 'Outfit, sans-serif'
+//
+// v2.8 UI pass — single Inter-anchored Notion-style stack across the
+// app. The body element sets this in index.html so most components
+// just inherit; these tokens are kept for the few call sites that
+// composed style objects from FONT_DESKTOP / FONT_MOBILE / mono before
+// the inline-style rewrite. Both desktop and mobile now use the same
+// stack (the previous Outfit/Inter split was producing two different
+// looks on phone vs. browser-window since Outfit was never loaded).
+export const FONT_SYSTEM = "'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI Variable','Segoe UI',system-ui,ui-sans-serif,'Helvetica Neue',Arial,sans-serif"
+// System monospace stack — SF Mono on Apple, Cascadia Code on Windows,
+// Roboto Mono on Android. Drops the DM Mono web-font load and lets
+// each platform render in its native mono so technical values feel
+// at home (the way Notion's inline code does).
+export const FONT_MONO   = "ui-monospace,'SF Mono',Menlo,Monaco,'Cascadia Code','Roboto Mono',Consolas,monospace"
+
+export const mono = { fontFamily: FONT_MONO }
+export const FONT_DESKTOP = FONT_SYSTEM
+export const FONT_MOBILE = FONT_SYSTEM
 
 // ── Desktop: polished with glow/glass effects ──
 // ── Mobile:  original flat field-tool style ──

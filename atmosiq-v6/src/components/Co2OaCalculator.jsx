@@ -76,7 +76,7 @@ export default function Co2OaCalculator({ co2, co2o, onApply, onCo2Change, onCo2
           borderRadius: 12,
           color: ACCENT,
           fontSize: 14,
-          fontFamily: "'Outfit'",
+          fontFamily: 'inherit',
           fontWeight: 600,
           cursor: 'pointer',
           minHeight: 48,
@@ -102,13 +102,13 @@ export default function Co2OaCalculator({ co2, co2o, onApply, onCo2Change, onCo2
 
   return (
     <div style={{ marginTop: 14, padding: 16, background: `${ACCENT}06`, border: `1px solid ${ACCENT}25`, borderRadius: 12 }}>
-      <div style={{ fontSize: 12, fontFamily: "'DM Mono'", fontWeight: 600, color: ACCENT, letterSpacing: 0.4, marginBottom: 12, textTransform: 'uppercase' }}>
+      <div style={{ fontSize: 12, fontFamily: "var(--font-mono)", fontWeight: 600, color: ACCENT, letterSpacing: 0.4, marginBottom: 12, textTransform: 'uppercase' }}>
         Estimate from CO₂ mass-balance
       </div>
 
       <div style={{ display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
         <label style={{ flex: '1 1 140px', minWidth: 0 }}>
-          <div style={{ fontSize: 12, color: SUB, marginBottom: 6, fontFamily: "'DM Mono'" }}>Indoor CO₂ (ppm)</div>
+          <div style={{ fontSize: 12, color: SUB, marginBottom: 6, fontFamily: "var(--font-mono)" }}>Indoor CO₂ (ppm)</div>
           <input
             type="number"
             inputMode="decimal"
@@ -123,7 +123,7 @@ export default function Co2OaCalculator({ co2, co2o, onApply, onCo2Change, onCo2
               borderRadius: 10,
               color: TEXT,
               fontSize: 15,
-              fontFamily: "'Outfit'",
+              fontFamily: 'inherit',
               fontWeight: 500,
               outline: 'none',
               boxSizing: 'border-box',
@@ -133,7 +133,7 @@ export default function Co2OaCalculator({ co2, co2o, onApply, onCo2Change, onCo2
           />
         </label>
         <label style={{ flex: '1 1 140px', minWidth: 0 }}>
-          <div style={{ fontSize: 12, color: SUB, marginBottom: 6, fontFamily: "'DM Mono'" }}>Outdoor CO₂ (ppm)</div>
+          <div style={{ fontSize: 12, color: SUB, marginBottom: 6, fontFamily: "var(--font-mono)" }}>Outdoor CO₂ (ppm)</div>
           <input
             type="number"
             inputMode="decimal"
@@ -148,7 +148,7 @@ export default function Co2OaCalculator({ co2, co2o, onApply, onCo2Change, onCo2
               borderRadius: 10,
               color: TEXT,
               fontSize: 15,
-              fontFamily: "'Outfit'",
+              fontFamily: 'inherit',
               fontWeight: 500,
               outline: 'none',
               boxSizing: 'border-box',
@@ -162,9 +162,9 @@ export default function Co2OaCalculator({ co2, co2o, onApply, onCo2Change, onCo2
       {result && result.cfmPerPerson != null && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '12px 14px', background: CARD, border: `1px solid ${BORDER}`, borderRadius: 10, marginBottom: 10, flexWrap: 'wrap' }}>
           <div>
-            <div style={{ fontSize: 11, color: SUB, fontFamily: "'DM Mono'", letterSpacing: 0.3, textTransform: 'uppercase', marginBottom: 2 }}>Estimated</div>
-            <div style={{ fontSize: 22, fontWeight: 700, color: ACCENT, fontFamily: "'Outfit'" }}>
-              {result.cfmPerPerson} <span style={{ fontSize: 13, color: DIM, fontWeight: 500, fontFamily: "'DM Mono'" }}>cfm/person</span>
+            <div style={{ fontSize: 11, color: SUB, fontFamily: "var(--font-mono)", letterSpacing: 0.3, textTransform: 'uppercase', marginBottom: 2 }}>Estimated</div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: ACCENT, fontFamily: 'inherit' }}>
+              {result.cfmPerPerson} <span style={{ fontSize: 13, color: DIM, fontWeight: 500, fontFamily: "var(--font-mono)" }}>cfm/person</span>
             </div>
           </div>
           <button
@@ -178,7 +178,7 @@ export default function Co2OaCalculator({ co2, co2o, onApply, onCo2Change, onCo2
               fontSize: 14,
               fontWeight: 700,
               cursor: 'pointer',
-              fontFamily: "'Outfit'",
+              fontFamily: 'inherit',
               minHeight: 44,
             }}
           >
@@ -193,7 +193,7 @@ export default function Co2OaCalculator({ co2, co2o, onApply, onCo2Change, onCo2
         </div>
       )}
 
-      <div style={{ fontSize: 11, color: DIM, lineHeight: 1.5, fontFamily: "'Outfit'" }}>
+      <div style={{ fontSize: 11, color: DIM, lineHeight: 1.5, fontFamily: 'inherit' }}>
         Steady-state mass-balance with G = 0.0084 cfm/person (sedentary adult, 1.2 met). Per ASHRAE 62.1-2019 Appendix C; Persily 2017. <strong style={{ color: SUB }}>Estimate only</strong> — verify with a balometer measurement at the OA diffuser for compliance documentation.
       </div>
     </div>

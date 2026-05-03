@@ -29,7 +29,7 @@ export default function HistoryView({
                 <div key={r.id} onClick={() => loadReport(r.id)} style={{ ...crd, cursor: 'pointer' }} {...cardHover}>
                   <div style={{ fontWeight: 600 }}>{r.facility || 'Untitled'}</div>
                   <div style={{ fontSize: 12, color: CSS.muted }}>{new Date(r.ts).toLocaleString()}</div>
-                  {r.score != null && <div style={{ fontSize: 13, color: CSS.accent, marginTop: 4, fontFamily: 'DM Mono, monospace' }}>Score: {r.score}/100</div>}
+                  {r.score != null && <div style={{ fontSize: 13, color: CSS.accent, marginTop: 4, fontFamily: 'var(--font-mono)' }}>Score: {r.score}/100</div>}
                 </div>
               ))}
             </div>

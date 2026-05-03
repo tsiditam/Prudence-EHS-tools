@@ -30,7 +30,7 @@ const PID_OPTS = ['RAE Systems MiniRAE 3000','RAE Systems ppbRAE 3000','Ion Scie
 const CAL_OPTS = ['Calibrated within manufacturer spec','Calibrated — overdue for recertification','Field-zeroed only','Not calibrated','Unknown']
 const PID_CAL_OPTS = ['Bump-tested and calibrated','Bump-tested only','Not calibrated','N/A']
 
-const inp = { width:'100%',padding:'14px 16px',background:BG,border:`1px solid ${BORDER}`,borderRadius:8,color:TEXT,fontSize:15,fontFamily:"'Outfit'",fontWeight:500,outline:'none',boxSizing:'border-box',transition:'border-color 0.15s' }
+const inp = { width:'100%',padding:'14px 16px',background:BG,border:`1px solid ${BORDER}`,borderRadius:8,color:TEXT,fontSize:15,fontFamily:'inherit',fontWeight:500,outline:'none',boxSizing:'border-box',transition:'border-color 0.15s' }
 const label = { fontSize:13,fontWeight:600,color:SUB,marginBottom:6,display:'block',letterSpacing:'0.1px' }
 
 function SectionLabel({ children }) {
@@ -114,7 +114,7 @@ export default function ProfileScreen({ onLogin }) {
   // ── Profile Select ──
   if (mode === 'select' && profiles.length > 0) {
     return (
-      <div style={{minHeight:'100vh',background:BG,color:TEXT,fontFamily:"'Outfit', system-ui",padding:'0 20px',paddingTop:'env(safe-area-inset-top, 20px)'}}>
+      <div style={{minHeight:'100vh',background:BG,color:TEXT,fontFamily:"'inherit', system-ui",padding:'0 20px',paddingTop:'env(safe-area-inset-top, 20px)'}}>
         <div style={{maxWidth:maxW,margin:'0 auto',paddingTop:48,paddingBottom:100}}>
           <div style={{marginBottom:32}}>
             <div style={{fontSize:22,fontWeight:700,letterSpacing:'-0.3px',marginBottom:4}}>Atmos<span style={{color:ACCENT}}>Flow</span></div>
@@ -130,7 +130,7 @@ export default function ProfileScreen({ onLogin }) {
                   </div>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{fontSize:15,fontWeight:600,color:TEXT,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.name || 'Unnamed'}</div>
-                    <div style={{fontSize:11,color:DIM,marginTop:2,fontFamily:"'DM Mono'"}}>{(p.certs||[]).slice(0,3).join(' · ') || 'No certifications'}</div>
+                    <div style={{fontSize:11,color:DIM,marginTop:2,fontFamily:"var(--font-mono)"}}>{(p.certs||[]).slice(0,3).join(' · ') || 'No certifications'}</div>
                   </div>
                 </button>
                 <button onClick={() => handleEdit(p)} style={{width:40,height:40,borderRadius:8,background:'transparent',border:`1px solid ${BORDER}`,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'border-color 0.15s'}}>
@@ -148,7 +148,7 @@ export default function ProfileScreen({ onLogin }) {
 
   // ── Create / Edit ──
   return (
-    <div style={{minHeight:'100vh',background:BG,color:TEXT,fontFamily:"'Outfit', system-ui",padding:'0 20px',paddingTop:'env(safe-area-inset-top, 20px)'}}>
+    <div style={{minHeight:'100vh',background:BG,color:TEXT,fontFamily:"'inherit', system-ui",padding:'0 20px',paddingTop:'env(safe-area-inset-top, 20px)'}}>
       <div style={{maxWidth:maxW,margin:'0 auto',paddingTop:32,paddingBottom:100}}>
 
         {/* Header */}

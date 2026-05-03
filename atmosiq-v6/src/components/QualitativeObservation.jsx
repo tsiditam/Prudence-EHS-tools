@@ -69,7 +69,7 @@ export default function QualitativeObservation({ data, onChange, step, onNext, o
 
   return (
     <div>
-      <div style={{ fontSize: 10, color: DIM, marginBottom: 6, fontFamily: "'DM Mono'" }}>
+      <div style={{ fontSize: 10, color: DIM, marginBottom: 6, fontFamily: "var(--font-mono)" }}>
         {step + 1} of {totalSteps}
       </div>
       <div style={{ fontSize: 9, color: ACCENT, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>
@@ -87,7 +87,7 @@ export default function QualitativeObservation({ data, onChange, step, onNext, o
               background: sel ? `${ACCENT}12` : CARD,
               border: `1.5px solid ${sel ? ACCENT : BORDER}`,
               borderRadius: 12, color: sel ? ACCENT : TEXT, fontSize: 15,
-              fontFamily: "'Outfit'", fontWeight: 500, cursor: 'pointer',
+              fontFamily: 'inherit', fontWeight: 500, cursor: 'pointer',
               display: 'flex', alignItems: 'center', gap: 12, minHeight: 48,
             }}>
               <div style={{

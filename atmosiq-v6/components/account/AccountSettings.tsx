@@ -156,7 +156,7 @@ export default function AccountSettings({
         background: PALETTE.bg,
         color: PALETTE.text,
         padding: 24,
-        fontFamily: "'Outfit', system-ui, -apple-system, sans-serif",
+        fontFamily: "'inherit', system-ui, -apple-system, sans-serif",
         maxWidth: 720,
         margin: '0 auto',
       }}
@@ -175,7 +175,7 @@ export default function AccountSettings({
           )}
         </Row>
         <Row label="Credits remaining">
-          <span data-testid="credits-label" style={{ fontFamily: "'DM Mono', monospace", color: PALETTE.accent }}>
+          <span data-testid="credits-label" style={{ fontFamily: "var(--font-mono), monospace", color: PALETTE.accent }}>
             {profile.credits_remaining}
           </span>
         </Row>

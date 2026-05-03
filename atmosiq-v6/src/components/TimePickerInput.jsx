@@ -117,7 +117,7 @@ export default function TimePickerInput({ value, onChange, placeholder = 'Select
                   borderRadius: '14px',
                   color: TEXT,
                   fontSize: '17px',
-                  fontFamily: "'Outfit', sans-serif",
+                  fontFamily: "'inherit', sans-serif",
                   fontWeight: 500,
                   padding: '6px 8px',
                   '&:hover': { borderColor: ACCENT },

@@ -86,15 +86,15 @@ export default function PropertyDashboard({ onBack, onNavigate, assessmentIndex 
       {/* Portfolio Metrics */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 16 }}>
         <div style={{ padding: 12, background: CARD, border: `1px solid ${BORDER}`, borderRadius: 8, textAlign: 'center' }}>
-          <div style={{ fontSize: 18, fontWeight: 700, color: TEXT, fontFamily: "'DM Mono'" }}>{enriched.length}</div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: TEXT, fontFamily: "var(--font-mono)" }}>{enriched.length}</div>
           <div style={{ fontSize: 9, color: SUB, marginTop: 2 }}>Properties</div>
         </div>
         <div style={{ padding: 12, background: CARD, border: `1px solid ${BORDER}`, borderRadius: 8, textAlign: 'center' }}>
-          <div style={{ fontSize: 18, fontWeight: 700, color: avgScore != null ? (avgScore >= 70 ? SUCCESS : avgScore >= 50 ? WARN : DANGER) : DIM, fontFamily: "'DM Mono'" }}>{avgScore ?? '—'}</div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: avgScore != null ? (avgScore >= 70 ? SUCCESS : avgScore >= 50 ? WARN : DANGER) : DIM, fontFamily: "var(--font-mono)" }}>{avgScore ?? '—'}</div>
           <div style={{ fontSize: 9, color: SUB, marginTop: 2 }}>Avg Score</div>
         </div>
         <div style={{ padding: 12, background: CARD, border: `1px solid ${BORDER}`, borderRadius: 8, textAlign: 'center' }}>
-          <div style={{ fontSize: 18, fontWeight: 700, color: totalComplaints > 0 ? WARN : SUCCESS, fontFamily: "'DM Mono'" }}>{totalComplaints}</div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: totalComplaints > 0 ? WARN : SUCCESS, fontFamily: "var(--font-mono)" }}>{totalComplaints}</div>
           <div style={{ fontSize: 9, color: SUB, marginTop: 2 }}>Open Complaints</div>
         </div>
       </div>
