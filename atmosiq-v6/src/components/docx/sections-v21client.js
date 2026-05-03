@@ -10,10 +10,11 @@
  * Word output. Used by DocxReport.generateConsultantDocx.
  */
 
-import { Paragraph, TextRun, HeadingLevel, AlignmentType, SectionType, PageBreak, Table, TableRow, TableCell, WidthType, ShadingType, BorderStyle } from 'docx'
+import { Paragraph, TextRun, HeadingLevel, AlignmentType, SectionType, PageBreak, Table, TableRow, TableCell, WidthType, ShadingType, BorderStyle, ImageRun } from 'docx'
 import { FONTS, COLORS } from './styles'
 import { borderlessLayoutTable } from './tables'
 import { LETTER_COVER_PAGE, BODY_SECTION_PROPERTIES, CONTENT_WIDTH_DXA } from './page-setup'
+import { base64ToUint8Array } from './images'
 
 // v2.2 visual palette — slate/blue per consultant-report design
 // guidance. PRIMARY (slate-900) for headings + dark text. ACCENT
@@ -600,9 +601,10 @@ function buildResultsSection(report) {
 // v2.4 §3 — Six structured appendices. Each renders a heading,
 // description, and any tabular content. Engine version line lives
 // only in Appendix D.
-function buildAppendices(report) {
+function buildAppendices(report, options = {}) {
   const ap = report.appendix || {}
   const out = []
+  const capturedPhotos = options.photos || {}
   if (ap.appendixA) {
     out.push(...heading2(ap.appendixA.title))
     if (ap.appendixA.description) out.push(p(ap.appendixA.description, { align: AlignmentType.JUSTIFIED }))
@@ -640,15 +642,15 @@ function buildAppendices(report) {
       ))
     }
   }
-  if (ap.appendixC) {
-    out.push(...heading2(ap.appendixC.title))
-    if (ap.appendixC.description) out.push(p(ap.appendixC.description, { align: AlignmentType.JUSTIFIED }))
+  if (ap.appendixC || hasCapturedPhotos(capturedPhotos)) {
+    out.push(...heading2(ap.appendixC?.title || 'Appendix C — Photographic Documentation'))
+    if (ap.appendixC?.description) out.push(p(ap.appendixC.description, { align: AlignmentType.JUSTIFIED }))
     // v2.5 §5 — photo.caption is already formatted as
     // "Photo N: <zone or Building> — <text>" by the engine. The
     // relativePath is a placeholder cross-reference for the
     // separately-delivered field photo set when image embedding
     // is not available.
-    if (Array.isArray(ap.appendixC.photos) && ap.appendixC.photos.length > 0) {
+    if (Array.isArray(ap.appendixC?.photos) && ap.appendixC.photos.length > 0) {
       for (const photo of ap.appendixC.photos) {
         out.push(bullet(photo.caption))
         if (photo.relativePath) {
@@ -658,6 +660,11 @@ function buildAppendices(report) {
         }
       }
     }
+    // v2.6.1 — embed assessor's captured field photographs (data URLs
+    // from the SPA's PhotoCapture component, keyed `z{zi}-{fieldId}`).
+    // Renders below the engine's caption stubs so both surfaces stay
+    // consistent. Engine output is unchanged.
+    out.push(...buildCapturedFieldPhotos(report, capturedPhotos))
   }
   if (ap.appendixD) {
     out.push(...heading2(ap.appendixD.title))
@@ -1139,7 +1146,7 @@ function buildFooter(report) {
  * from a ClientReportResult. Caller wraps the result in a Document
  * with the two sections.
  */
-export function buildClientDocx(result) {
+export function buildClientDocx(result, options = {}) {
   if (result.kind === 'pre_assessment_memo') {
     return buildMemoDocx(result.memo, result.reasons || [])
   }
@@ -1165,13 +1172,75 @@ export function buildClientDocx(result) {
     ...buildRecommendationsRegister(report),
     ...buildLimitations(report),
     ...buildSignatory(report),
-    ...buildAppendices(report),
+    ...buildAppendices(report, { photos: options.photos }),
     ...(report.appendix.assessmentIndexInformationalOnly
       ? buildAssessmentIndexAppendix(report.appendix.assessmentIndexInformationalOnly)
       : []),
     ...buildFooter(report),
   ]
   return { cover, main }
+}
+
+// v2.6.1 — captured field photographs.
+//
+// Photos are stored on the SPA side keyed `z{zoneIndex}-{fieldId}`
+// (e.g. "z0-dp" for Zone 0 condensate drain pan). Each value is an
+// array of { src: dataUrl, ts: timestamp, ... }. This helper groups
+// them by zone using report.zoneSections names, decodes the data URL
+// to an ImageRun, and renders 240×180 px under per-zone subheadings.
+//
+// One bad image won't abort the whole report — decode failures fall
+// back to a placeholder line so the recipient still sees that a
+// photo was here.
+function hasCapturedPhotos(photos) {
+  if (!photos || typeof photos !== 'object') return false
+  for (const k of Object.keys(photos)) {
+    if (Array.isArray(photos[k]) && photos[k].some(ph => ph && ph.src)) return true
+  }
+  return false
+}
+
+function buildCapturedFieldPhotos(report, photos) {
+  if (!hasCapturedPhotos(photos)) return []
+  const zoneSections = report.zoneSections || []
+  if (zoneSections.length === 0) return []
+
+  const fieldLabels = { dp: 'Condensate drain pan', wd: 'Water damage', mi: 'Mold indicators' }
+  const groups = zoneSections.map((zone, zi) => {
+    const matches = []
+    for (const key of Object.keys(photos)) {
+      if (!key.startsWith(`z${zi}-`)) continue
+      const fieldId = key.slice(`z${zi}-`.length)
+      for (const ph of photos[key] || []) {
+        if (ph && ph.src) matches.push({ src: ph.src, label: fieldLabels[fieldId] || fieldId, ts: ph.ts })
+      }
+    }
+    return { zoneName: zone.zoneName, photos: matches }
+  }).filter(g => g.photos.length > 0)
+
+  if (groups.length === 0) return []
+
+  const out = []
+  out.push(p('Field photographs captured during the on-site assessment, organized by zone. Images are presented at reduced resolution for report layout; original-resolution files are retained in the project record.', {
+    size: 20, color: COLORS.sub, after: 200,
+  }))
+  for (const group of groups) {
+    out.push(heading3(group.zoneName))
+    for (const ph of group.photos) {
+      try {
+        const data = base64ToUint8Array(ph.src)
+        out.push(new Paragraph({
+          children: [new ImageRun({ data, transformation: { width: 240, height: 180 }, type: 'jpg' })],
+          spacing: { after: 40 },
+        }))
+        const caption = ph.ts ? `${ph.label} · ${new Date(ph.ts).toLocaleTimeString()}` : ph.label
+        out.push(p(caption, { size: 16, color: COLORS.muted, after: 160 }))
+      } catch (_err) {
+        out.push(p(`[Photo: ${ph.label}]`, { size: 18, color: COLORS.muted, italics: true, after: 120 }))
+      }
+    }
+  }
+  return out
 }
 
 function buildMemoDocx(memo, reasons) {
