@@ -15,6 +15,9 @@ import Storage from '../utils/cloudStorage'
 import { supabase, trackEvent } from '../utils/supabaseClient'
 import Backup from '../utils/backup'
 import { groupActions } from '../utils/recFormatting'
+import { getCalibrationBannerState } from '../utils/instrumentRegistry'
+import { getRiskBand } from '../engines/riskBands'
+import { TIERS } from './pricing/tiers'
 import { VER, STANDARDS_MANIFEST } from '../constants/standards'
 import { Q_PRESURVEY, Q_BUILDING, Q_ZONE, Q_QUICKSTART, Q_DETAILS, SENSOR_FIELDS } from '../constants/questions'
 import { scoreZone, compositeScore, evalOSHA, calcVent, genRecs, evalMold, evalMeasurementConfidence } from '../engines/scoring'
@@ -170,6 +173,22 @@ export default function MobileApp() {
   // gear icon in the Home header; Settings is now one entry inside the
   // dropdown alongside Upgrade plan / Reports / Trash / Help & Support.
   const [showHomeMenu, setShowHomeMenu] = useState(false)
+  // CIH credibility — credit-unit definition sheet. Tap on the credits
+  // chip opens this small sheet (definition + per-credit price by
+  // plan + Buy Credits CTA) instead of going straight to pricing.
+  // Per FTC dark-patterns guidance and Cialdini transparency-in-pricing.
+  const [showCreditsSheet, setShowCreditsSheet] = useState(false)
+  // CIH credibility — demo cards auto-retire after the user has
+  // finalized at least one real assessment, or when they explicitly
+  // dismiss them. localStorage flag persists the dismissal across
+  // sessions so they don't reappear on next visit.
+  const [demosDismissed, setDemosDismissed] = useState(() => {
+    try { return localStorage.getItem('atmosflow:demos-dismissed') === '1' } catch { return false }
+  })
+  const dismissDemos = () => {
+    try { localStorage.setItem('atmosflow:demos-dismissed', '1') } catch {}
+    setDemosDismissed(true)
+  }
 
   useEffect(() => { const t = setInterval(() => setClock(new Date()), 30000); return () => clearInterval(t) }, [])
 
@@ -1202,6 +1221,56 @@ export default function MobileApp() {
         />
       )}
 
+      {/* ── Credit Definition Sheet ──
+          CIH credibility — vague billing units erode professional
+          trust. Tap on the credits chip in the Home header opens this
+          small sheet (definition only, plus per-credit price by plan
+          and a Buy Credits CTA) so the unit is never opaque. Same
+          definition is mirrored in Settings → About to satisfy the
+          "matches the billing engine and MSA pricing schedule"
+          consistency requirement. (FTC dark-patterns guidance;
+          Cialdini, *Influence*.) ── */}
+      {showCreditsSheet && (
+        <>
+          <div onClick={()=>setShowCreditsSheet(false)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.6)',zIndex:300,animation:'fadeUp .15s ease'}} />
+          <div role="dialog" aria-label="What is a credit" style={{
+            position:'fixed',left:0,right:0,bottom:0,zIndex:301,
+            background:CARD,borderTop:`1px solid ${BORDER}`,
+            borderRadius:'20px 20px 0 0',padding:'18px 20px',
+            paddingBottom:'calc(24px + env(safe-area-inset-bottom, 0px))',
+            maxWidth:contentMax,margin:'0 auto',
+          }}>
+            <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',marginBottom:12}}>
+              <div style={{fontSize:11,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'0.8px'}}>Credits</div>
+              <button onClick={()=>setShowCreditsSheet(false)} style={{background:'none',border:'none',color:SUB,fontSize:13,cursor:'pointer',fontFamily:'inherit',padding:0}}>Close</button>
+            </div>
+            <div style={{fontSize:14,color:TEXT,lineHeight:1.55,marginBottom:14}}>
+              One credit covers a single building assessment, regardless of zone count, and one finalized report. AI-generated narrative requests draw separately at 3 credits per request.
+            </div>
+            <div style={{fontSize:11,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:8}}>Per-credit price by plan</div>
+            <div style={{background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:10,overflow:'hidden',marginBottom:16}}>
+              {TIERS.filter(t => t.monthly > 0).map((t, i, arr) => (
+                <div key={t.id} style={{
+                  display:'flex',alignItems:'baseline',justifyContent:'space-between',
+                  padding:'12px 14px',
+                  borderTop: i === 0 ? 'none' : `1px solid ${BORDER}`,
+                }}>
+                  <div>
+                    <span style={{fontSize:13,fontWeight:600,color:TEXT}}>{t.name}</span>
+                    <span style={{fontSize:11,color:DIM,marginLeft:8}}>{t.credits} credits / ${t.monthly}/mo</span>
+                  </div>
+                  <span style={{fontSize:13,fontWeight:700,color:ACCENT,fontFamily:'var(--font-mono)'}}>${(t.monthly / t.credits).toFixed(2)}/credit</span>
+                </div>
+              ))}
+            </div>
+            <div style={{display:'flex',gap:8}}>
+              <button onClick={()=>setShowCreditsSheet(false)} style={{flex:0,padding:'12px 18px',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:10,color:SUB,fontSize:13,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>Close</button>
+              <button onClick={()=>{setShowCreditsSheet(false); setShowPricing(true)}} style={{flex:1,padding:'12px 18px',background:ACCENT,border:'none',borderRadius:10,color:BG,fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>Buy Credits</button>
+            </div>
+          </div>
+        </>
+      )}
+
       {/* ── Photo Selection Modal ── */}
       {showPhotoSelect&&<div style={{position:'fixed',inset:0,background:'#000000DD',zIndex:260,display:'flex',alignItems:'flex-end',justifyContent:'center'}} onClick={e=>{if(e.target===e.currentTarget)setShowPhotoSelect(false)}}>
         <div style={{width:'100%',maxWidth:contentMax,background:CARD,border:`1px solid ${BORDER}`,borderRadius:'20px 20px 0 0',padding:'24px 20px',paddingBottom:'calc(32px + env(safe-area-inset-bottom, 0px))',animation:'fadeUp .3s ease',maxHeight:'80vh',overflowY:'auto'}}>
@@ -1302,14 +1371,20 @@ export default function MobileApp() {
 
         {view==='dash'&&<div style={{paddingTop:24,paddingBottom:100,maxWidth:contentMax,margin:'0 auto'}}>
 
-          {/* ── Header: name, date, credits, kebab menu ── */}
+          {/* ── Header: name, credits chip (opens definition sheet), kebab menu ── */}
+          {/* Date line under the name was retired — returning users
+              know what day it is. Date stays inside the report header
+              for screenshot/audit context. (NN/g first-impressions
+              vs. ongoing-use.) */}
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24,animation:'fadeUp .4s ease'}}>
             <div>
               <div style={{fontSize:14,fontWeight:600,color:TEXT,fontFamily:'inherit',letterSpacing:'-0.2px'}}>{profile?.name || 'Assessor'}</div>
-              <div style={{fontSize:11,fontFamily:"var(--font-mono)",color:DIM,marginTop:2}}>{new Date().toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'})}</div>
             </div>
             <div style={{position:'relative',display:'flex',alignItems:'center',gap:8}}>
-              <button onClick={()=>setShowPricing(true)} style={{padding:'6px 12px',borderRadius:8,background:SURFACE,border:`1px solid ${BORDER}`,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'baseline',gap:6,minHeight:36}}>
+              <button
+                onClick={()=>setShowCreditsSheet(true)}
+                aria-label={`${credits} credits — tap for definition`}
+                style={{padding:'6px 12px',borderRadius:8,background:SURFACE,border:`1px solid ${BORDER}`,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'baseline',gap:6,minHeight:36}}>
                 <span style={{fontSize:13,fontWeight:700,color:ACCENT,fontFamily:"var(--font-mono)"}}>{credits}</span>
                 <span style={{fontSize:10,color:SUB}}>credits</span>
               </button>
@@ -1359,15 +1434,33 @@ export default function MobileApp() {
             </div>
           </div>
 
-          {/* ── Exception-only status. Renders nothing in the happy path. ── */}
+          {/* ── Calibration exception banner. Renders nothing in the
+              happy path. Surfaces only when the primary instrument's
+              calibration is within CAL_WARN_DAYS of expiry, already
+              expired, or has no recorded calibration date — the three
+              cases that would have an IH peer reviewer ask "would I
+              sign my name to a report this tool produced?" before the
+              next assessment even starts. (Norman, status by exception;
+              Hollnagel, surface only what diverges from expected state.) ── */}
           {(() => {
-            const calDue = profile?.iaq_meter && !profile?.iaq_cal_status?.includes('within manufacturer')
-            if (!calDue) return null
+            const banner = getCalibrationBannerState(profile?.iaq_meter, profile?.iaq_cal_date)
+            if (!banner) return null
+            const color = banner.tone === 'danger' ? DANGER : WARN
             return (
-              <div role="status" style={{padding:'10px 14px',background:`${WARN}10`,border:`1px solid ${WARN}30`,borderRadius:10,marginBottom:16,display:'flex',alignItems:'center',gap:10}}>
-                <I n="alert" s={14} c={WARN} w={1.8} />
-                <span style={{fontSize:12,color:TEXT,fontWeight:500}}>Calibration may be due — check before next assessment</span>
-                <button onClick={()=>setView('settings')} style={{marginLeft:'auto',background:'none',border:'none',color:WARN,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Review</button>
+              <div role="status" style={{padding:'10px 14px',background:`${color}10`,border:`1px solid ${color}30`,borderRadius:10,marginBottom:16,display:'flex',alignItems:'center',gap:10}}>
+                <I n="alert" s={14} c={color} w={1.8} />
+                <span style={{fontSize:12,color:TEXT,fontWeight:500,flex:1,minWidth:0}}>
+                  {banner.kind === 'unrecorded' && (
+                    <>{profile?.iaq_meter} <span style={{color:DIM}}>calibration date not recorded</span></>
+                  )}
+                  {banner.kind === 'expiring' && (
+                    <>{profile?.iaq_meter} <span style={{color:DIM}}>calibration expires in</span> <span style={{fontFamily:'var(--font-mono)',color:color,fontWeight:600}}>{banner.daysToExpiry} days</span></>
+                  )}
+                  {banner.kind === 'expired' && (
+                    <>{profile?.iaq_meter} <span style={{color:DIM}}>calibration expired</span> <span style={{fontFamily:'var(--font-mono)',color:color,fontWeight:600}}>{Math.abs(banner.daysToExpiry)} days</span> <span style={{color:DIM}}>ago</span></>
+                  )}
+                </span>
+                <button onClick={()=>setView('settings')} style={{background:'none',border:'none',color:color,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',flexShrink:0}}>Review</button>
               </div>
             )
           })()}
@@ -1404,19 +1497,28 @@ export default function MobileApp() {
               <div style={{fontSize:11,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'0.8px'}}>Recent</div>
               {(index.reports||[]).length > 3 && <button onClick={()=>setView('history')} style={{background:'none',border:'none',color:ACCENT,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',padding:0}}>View all</button>}
             </div>
+            {/* Tier label pill (not a bare numeric score) — a CIH peer
+                reviewer reading "50" out of context can mistake it for
+                a verdict; the band label conveys the same severity
+                while reinforcing the screening-only positioning. The
+                composite remains visible inside the report itself,
+                where methodology and confidence are alongside it.
+                Color is reinforced by text per WCAG 1.4.1. ── */}
             <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,marginBottom:24,overflow:'hidden'}}>
               {(index.reports||[]).slice(0,3).map((r, i) => {
-                const sc = r.score
-                const sevColor = sc>=70 ? SUCCESS : sc>=50 ? WARN : DANGER
+                const band = getRiskBand(r.score ?? null)
                 return (
                   <button key={r.id} onClick={()=>openReport(r)} style={{width:'100%',padding:'14px 16px',background:'transparent',border:'none',borderTop: i===0 ? 'none' : `1px solid ${BORDER}`,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit',minHeight:60}}>
-                    <div style={{width:38,height:38,borderRadius:8,background:`${sevColor}10`,border:`1px solid ${sevColor}25`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                      <span style={{fontSize:14,fontWeight:800,fontFamily:"var(--font-mono)",color:sevColor}}>{sc || '—'}</span>
-                    </div>
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{fontSize:13,fontWeight:600,color:TEXT,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.facility || 'Untitled'}</div>
                       <div style={{fontSize:11,color:DIM,fontFamily:"var(--font-mono)",marginTop:2}}>{fD(r.ts)}</div>
                     </div>
+                    <span style={{
+                      padding:'4px 10px',borderRadius:6,
+                      background:`${band.color}12`,border:`1px solid ${band.color}30`,
+                      fontSize:11,fontWeight:700,color:band.color,
+                      letterSpacing:'0.3px',whiteSpace:'nowrap',flexShrink:0,
+                    }}>{band.label}</span>
                     <span style={{color:DIM,fontSize:13}}>›</span>
                   </button>
                 )
@@ -1424,8 +1526,19 @@ export default function MobileApp() {
             </div>
           </>}
 
-          {/* ── Tier 2 Group C: Demos ── */}
-          <div style={{fontSize:11,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:8,paddingLeft:4}}>Try with sample data</div>
+          {/* ── Tier 2 Group C: Demos ──
+              Auto-retire after the user has finalized at least one
+              real report, or once they explicitly dismiss them.
+              Returning users don't need first-run scaffolding above
+              the fold. (NN/g first-impressions vs. ongoing-use, 2017.)
+              The constants/runtime check uses index.reports.length
+              because runDemo() does NOT write to STO — only real
+              finalized assessments populate the index. */}
+          {(index.reports||[]).length === 0 && !demosDismissed && <>
+          <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',marginBottom:8,paddingLeft:4,paddingRight:4}}>
+            <div style={{fontSize:11,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'0.8px'}}>Try with sample data</div>
+            <button onClick={dismissDemos} style={{background:'none',border:'none',color:DIM,fontSize:11,fontWeight:500,cursor:'pointer',fontFamily:'inherit',padding:0}}>Dismiss</button>
+          </div>
           <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,marginBottom:20,overflow:'hidden'}}>
             <button onClick={()=>runDemo()} style={{width:'100%',padding:'14px 16px',background:'transparent',border:'none',cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit',minHeight:56}}>
               <div style={{flex:1,minWidth:0}}>
@@ -1444,12 +1557,13 @@ export default function MobileApp() {
               <span style={{color:DIM,fontSize:13,marginLeft:4}}>›</span>
             </button>}
           </div>
+          </>}
 
           {/* ── Empty state — only when no reports AND no drafts ── */}
           {(index.reports||[]).length===0 && (index.drafts||[]).length===0 && (
             <div style={{padding:'18px 16px',background:SURFACE,border:`1px dashed ${BORDER}`,borderRadius:12,marginBottom:20,textAlign:'center'}}>
               <div style={{fontSize:13,fontWeight:600,color:TEXT,marginBottom:4}}>No assessments yet</div>
-              <div style={{fontSize:12,color:SUB,lineHeight:1.5}}>Start a new assessment above, or run a demo to see a finished report.</div>
+              <div style={{fontSize:12,color:SUB,lineHeight:1.5}}>{demosDismissed ? 'Start a new assessment above.' : 'Start a new assessment above, or run a demo to see a finished report.'}</div>
             </div>
           )}
 

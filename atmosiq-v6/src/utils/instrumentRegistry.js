@@ -6,6 +6,28 @@
 
 const STORAGE_KEY = 'atmosflow:instruments'
 
+// ── Calibration thresholds (methodology config) ──────────────────────────
+//
+// CAL_VALIDITY_DAYS — how long a calibration is considered current.
+// Calibrations older than this are treated as expired and block
+// finalization (see MobileApp.finishAssessment guard). Per-device-class
+// override is on the roadmap; today the value is uniform across sensor
+// types. Keep aligned with isOutOfCal() below.
+//
+// CAL_WARN_DAYS — how many days before expiry the dashboard surfaces a
+// pre-expiry warning banner. Banner renders when daysToExpiry is in
+// (-∞, CAL_WARN_DAYS]: amber while still positive, red once negative.
+//
+// Provenance: AtmosFlow defensibility hardening spec (calibration
+// warnings); resilience-engineering principle (Hollnagel) — surface
+// only what diverges from expected state. CLAUDE.md describes the
+// gate as 270-day; live code has been at 365 since the original
+// instrument-registry implementation. The 365 value is preserved here
+// to keep finalization-gate behavior unchanged; reconciling the
+// CLAUDE.md figure with live code is a separate methodology workstream.
+export const CAL_VALIDITY_DAYS = 365
+export const CAL_WARN_DAYS = 30
+
 export const SENSOR_TYPES = [
   { id: 'multi_gas', label: 'Multi-Gas / IAQ Meter', measures: ['co2', 'tf', 'rh', 'co'] },
   { id: 'particle_counter', label: 'Particle Counter', measures: ['pm'] },
@@ -53,7 +75,49 @@ export function isOutOfCal(instrument) {
   if (!instrument?.lastCalDate) return true
   const calDate = new Date(instrument.lastCalDate)
   const daysSinceCal = (Date.now() - calDate.getTime()) / 86400000
-  return daysSinceCal > 365
+  return daysSinceCal > CAL_VALIDITY_DAYS
+}
+
+/**
+ * Pure helper for the dashboard exception banner. Returns null when
+ * the instrument's calibration is current (banner renders nothing —
+ * the absence is itself the signal). Returns a state object only when
+ * the assessor needs to act before starting an assessment.
+ *
+ * @param {string} meter         human-readable meter label (e.g. "Graywolf IQ-610")
+ * @param {string|null} calDate  ISO date string of the last calibration; null/undefined means not recorded
+ * @param {Date} [now]           injectable clock for testing; defaults to Date.now()
+ * @returns {null | { tone: 'warn'|'danger', kind: 'unrecorded'|'expiring'|'expired', daysToExpiry: number|null, message: string }}
+ */
+export function getCalibrationBannerState(meter, calDate, now = new Date()) {
+  if (!meter) return null
+  if (!calDate) {
+    return {
+      tone: 'warn',
+      kind: 'unrecorded',
+      daysToExpiry: null,
+      message: `${meter} calibration date not recorded`,
+    }
+  }
+  const daysSince = Math.floor((now.getTime() - new Date(calDate).getTime()) / 86400000)
+  const daysToExpiry = CAL_VALIDITY_DAYS - daysSince
+  if (daysToExpiry < 0) {
+    return {
+      tone: 'danger',
+      kind: 'expired',
+      daysToExpiry,
+      message: `${meter} calibration expired ${Math.abs(daysToExpiry)} days ago`,
+    }
+  }
+  if (daysToExpiry <= CAL_WARN_DAYS) {
+    return {
+      tone: 'warn',
+      kind: 'expiring',
+      daysToExpiry,
+      message: `${meter} calibration expires in ${daysToExpiry} days`,
+    }
+  }
+  return null
 }
 
 export function getCalWarning(instrument) {
