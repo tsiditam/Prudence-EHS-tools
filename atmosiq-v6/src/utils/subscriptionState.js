@@ -35,15 +35,68 @@
  * preserving the "quiet by default" rule.
  */
 
+// ── Beta-end gates ────────────────────────────────────────────────
+//
+// The beta-to-live transition is gate-driven, not calendar-driven.
+// All four milestones below must be production-ready (built, deployed,
+// AND verified in production) before BILLING_MODE flips and
+// BETA_END_DATE gets set to a concrete ISO date. Each gate's
+// completion should be documented in docs/GO_LIVE.md with the commit
+// or PR that closed it.
+//
+// Beta-end gates (all four required):
+//
+//   1. White paper shipped — methodology document published, with at
+//      least one external-CIH peer-review signoff on the record. Lives
+//      in atmosiq-v6/docs/white-paper/ once final.
+//
+//   2. Calibration warnings live in production — the days-to-expiry
+//      banner (CAL_VALIDITY_DAYS / CAL_WARN_DAYS in
+//      src/utils/instrumentRegistry.js) deployed AND observed firing
+//      on a real expired-instrument case at least once. The presence
+//      of the helper isn't enough; we need a real-world hit on the
+//      banner before flipping.
+//
+//   3. Post-finalization versioning in production — the REVISED-badge
+//      and recipient-notification registry referenced by the v2.8.0
+//      engine spec §6 (still flagged TODO in CHANGELOG.md). Without
+//      this, re-running the engine after edits silently overwrites
+//      reports already in recipients' hands; the "report is
+//      defensible" claim depends on this being done.
+//
+//   4. CIH peer review findings remediated — every Critical and High
+//      finding from the most recent CIH peer review closed, with the
+//      remediation commit/PR recorded against each. Outstanding
+//      findings are tracked in docs/CIH_REVIEW.md (TBD).
+//
+// Procedure when all four gates clear:
+//   a. Set BETA_END_DATE to an ISO date ~30 days out (beta partners
+//      get a scheduled wind-down, not a sudden cutover).
+//   b. Flip VITE_BILLING_MODE to 'live' in the production Vercel env.
+//   c. Land Phase 2 (Stripe products + webhooks + schema), Phase 4
+//      (marketing pricing page), then Phase 3 (Single Assessment
+//      License) per the rollout sequence in PR #146's description.
+//   d. Send the beta-partner wind-down email through the Resend
+//      sequence (lib/email-sequences.ts) referencing the new tier
+//      they should subscribe to.
+//
+// Until then, BETA_END_DATE stays null and the chip stays quiet.
+export const BETA_END_DATE = null
+
 // Billing mode flag. 'beta' (default when env var is unset) means no
 // billing chrome anywhere in the product. Phase 2 flips this to
-// 'live' once Stripe products + webhooks are wired.
+// 'live' once the four beta-end gates above are cleared and Stripe
+// products + webhooks are wired.
 //
 // TODO(billing-architecture): when Phase 2 ships the live subscription
 // model, the gating check becomes `mode === 'live'` and the helper
 // branches on profile.subscription_* fields written by the webhook
 // handler. Keep the env-flag indirection so QA can flip a single
 // build flag to test the full UX before flipping it on for everyone.
+//
+// Do NOT flip this without all four BETA_END_DATE gates above —
+// flipping early surfaces billing UI to beta partners under their
+// signed beta agreement, which is a contract violation.
 export const BILLING_MODE = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_BILLING_MODE) || 'beta'
 
 /**
