@@ -60,6 +60,7 @@ import PropertyDashboard from './PropertyDashboard'
 import SpatialMap from './SpatialMap'
 import InstrumentManager from './InstrumentManager'
 import V21InternalPanel from './V21InternalPanel'
+import { FAQ_SECTIONS } from '../constants/faq'
 import { useAssessment } from '../contexts/AssessmentContext.jsx'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import { useStorage } from '../contexts/StorageContext.jsx'
@@ -85,6 +86,56 @@ const DIM = '#6B7380'
 const SUCCESS = '#22C55E'
 const WARN = '#FBBF24'
 const DANGER = '#EF4444'
+
+// In-app FAQ — same FAQ_SECTIONS data as the public landing page so the
+// public answer and the in-app answer cannot drift apart. One question
+// open at a time across the entire list.
+function HelpView({ onBack }) {
+  const [openId, setOpenId] = useState(null)
+  return (
+    <div style={{paddingTop:24,paddingBottom:120}}>
+      <button onClick={onBack} style={{background:'none',border:'none',color:ACCENT,fontSize:15,fontWeight:500,cursor:'pointer',padding:'0 4px',marginBottom:16,fontFamily:'inherit'}}>← Settings</button>
+      <h2 style={{fontSize:22,fontWeight:700,marginBottom:6,color:TEXT,letterSpacing:'-0.3px',fontFamily:'inherit'}}>Help &amp; FAQ</h2>
+      <div style={{fontSize:12,color:DIM,marginBottom:20,lineHeight:1.55}}>Common questions about AtmosFlow methodology, scoring, workflow, and limitations.</div>
+      {FAQ_SECTIONS.map(section => (
+        <div key={section.title} style={{marginTop:24}}>
+          <div style={{fontSize:11,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'0.8px',padding:'0 4px 8px'}}>{section.title}</div>
+          <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,overflow:'hidden'}}>
+            {section.items.map((item, i) => {
+              const id = section.title + ':' + i
+              const open = openId === id
+              return (
+                <div key={id} style={{borderTop: i === 0 ? 'none' : `1px solid ${BORDER}`}}>
+                  <button
+                    onClick={() => setOpenId(open ? null : id)}
+                    aria-expanded={open}
+                    style={{
+                      width:'100%',padding:'14px 16px',background:'transparent',border:'none',cursor:'pointer',
+                      textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit',
+                      color:TEXT,fontSize:14,fontWeight:600,lineHeight:1.45,minHeight:52,
+                    }}>
+                    <span style={{flex:1,minWidth:0}}>{item.q}</span>
+                    <span style={{
+                      flexShrink:0,fontSize:18,color:DIM,lineHeight:1,
+                      transform: open ? 'rotate(45deg)' : 'rotate(0deg)',
+                      transition: 'transform 200ms ease',
+                    }}>+</span>
+                  </button>
+                  {open && (
+                    <div style={{padding:'0 16px 16px',fontSize:13,color:SUB,lineHeight:1.7,whiteSpace:'pre-line'}}>{item.a}</div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      ))}
+      <div style={{marginTop:28,padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,fontSize:12,color:SUB,lineHeight:1.7,textAlign:'center'}}>
+        More questions? <a href="mailto:support@prudenceehs.com" style={{color:ACCENT,textDecoration:'none'}}>support@prudenceehs.com</a>
+      </div>
+    </div>
+  )
+}
 
 export default function MobileApp() {
   const { isTablet, isTabletLand } = useMediaQuery()
@@ -1154,7 +1205,7 @@ export default function MobileApp() {
           </div>
           <div style={{display:'flex',alignItems:'center',gap:8}}>
             {isAssessing&&<span style={{fontSize:10,color:ACCENT,fontFamily:"var(--font-mono)",background:`${ACCENT}0A`,padding:'3px 10px',borderRadius:4,border:`1px solid ${ACCENT}20`,letterSpacing:'0.5px'}}>SAVING</span>}
-            {view!=='dash'&&view!=='drafts'&&view!=='history'&&view!=='settings'&&view!=='trash'&&view!=='tos'&&view!=='privacy'&&<button onClick={()=>{setView('dash');setViewRpt(null)}} style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:8,color:SUB,fontSize:13,fontWeight:600,padding:'7px 14px',cursor:'pointer',fontFamily:'inherit',minHeight:36,transition:'color 0.15s'}}>← Home</button>}
+            {view!=='dash'&&view!=='drafts'&&view!=='history'&&view!=='settings'&&view!=='trash'&&view!=='tos'&&view!=='privacy'&&view!=='help'&&<button onClick={()=>{setView('dash');setViewRpt(null)}} style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:8,color:SUB,fontSize:13,fontWeight:600,padding:'7px 14px',cursor:'pointer',fontFamily:'inherit',minHeight:36,transition:'color 0.15s'}}>← Home</button>}
           </div>
         </div>
       </header>
@@ -1762,6 +1813,7 @@ export default function MobileApp() {
         {view==='settings'&&<SettingsScreen profile={profile} credits={credits} onEditProfile={()=>{setProfile({...profile,isNew:true});setView('dash')}} onLogout={handleLogout} onClose={()=>setView('dash')} onNavigate={(v)=>{if(v==='pricing'){setShowPricing(true)}else{setView(v)}}} adminActive={!!adminSecret} onActivateAdmin={(secret)=>{setAdminSecret(secret);setView('admin')}} />}
         {view==='tos'&&<TermsOfService onBack={()=>setView('settings')} />}
         {view==='privacy'&&<PrivacyPolicy onBack={()=>setView('settings')} />}
+        {view==='help'&&<HelpView onBack={()=>setView('settings')} />}
         {view==='admin'&&adminSecret&&<AdminDashboard onBack={()=>setView('settings')} adminSecret={adminSecret} />}
         {view==='complaints'&&<ComplaintLog buildingId={bldg?.fn||'default'} onBack={()=>setView('dash')} />}
         {view==='interventions'&&<InterventionTracker buildingId={bldg?.fn||'default'} onBack={()=>setView('dash')} assessments={index.reports} />}

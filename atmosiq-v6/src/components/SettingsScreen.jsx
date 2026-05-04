@@ -259,6 +259,11 @@ export default function SettingsScreen({ profile, credits, onEditProfile, onLogo
         </Group>
       )}
 
+      {/* ── Help ── */}
+      <Group title="Help">
+        <Row first label="Help & FAQ" sub="Methodology, scoring, workflow, limitations" action={() => onNavigate?.('help')} />
+      </Group>
+
       {/* ── Legal ── */}
       <Group title="Legal">
         <Row first label="Terms of Service" action={() => onNavigate?.('tos')} />
