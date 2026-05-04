@@ -15,6 +15,7 @@
 
 import { supabase } from './supabaseClient'
 import STO from './storage'
+import * as Sentry from '@sentry/react'
 
 const SYNC_QUEUE_KEY = 'atmosiq-sync-queue'
 const isOnline = () => navigator.onLine && !!supabase
@@ -104,16 +105,81 @@ const SupaStorage = {
     const local = await STO.get('atmosiq-profile')
     // Try to sync from cloud if online
     if (isOnline()) {
+      Sentry.addBreadcrumb({
+        category: 'profile_sync',
+        message: 'getProfile.start',
+        level: 'info',
+        data: { hasLocal: !!local },
+      })
       try {
         const { data: { user } } = await supabase.auth.getUser()
-        if (user) {
-          const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-          if (data) {
-            await STO.set('atmosiq-profile', data)
-            return data
-          }
+        if (!user) {
+          Sentry.addBreadcrumb({
+            category: 'profile_sync',
+            message: 'getProfile.no_auth_user',
+            level: 'info',
+          })
+          return local
         }
-      } catch {}
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single()
+        if (error) {
+          // PGRST116 = "no rows returned" — normal first-sign-in case
+          // when the user has no profile row yet. Logged as info, not
+          // a failure. Any other error code is a real defect (RLS
+          // denial, schema drift, network) and surfaces as an exception.
+          if (error.code === 'PGRST116') {
+            Sentry.addBreadcrumb({
+              category: 'profile_sync',
+              message: 'getProfile.no_row',
+              level: 'info',
+              data: { code: error.code },
+            })
+          } else {
+            Sentry.addBreadcrumb({
+              category: 'profile_sync',
+              message: 'getProfile.read_failed',
+              level: 'warning',
+              data: { code: error.code, statusText: error.message },
+            })
+            Sentry.captureException(
+              new Error(`profile_sync.getProfile failed: ${error.code || 'unknown'} ${error.message || ''}`),
+              {
+                tags: { component: 'profile_sync', op: 'getProfile' },
+                extra: {
+                  code: error.code,
+                  hint: error.hint,
+                  details: error.details,
+                  // Note: error.message and details may include schema
+                  // info but not user PII (no row contents). beforeSend
+                  // in lib/sentry-client.ts scrubs Extra anyway.
+                },
+              },
+            )
+          }
+        } else if (data) {
+          await STO.set('atmosiq-profile', data)
+          Sentry.addBreadcrumb({
+            category: 'profile_sync',
+            message: 'getProfile.success',
+            level: 'info',
+          })
+          return data
+        }
+      } catch (err) {
+        Sentry.addBreadcrumb({
+          category: 'profile_sync',
+          message: 'getProfile.exception',
+          level: 'warning',
+          data: { name: err?.name, message: err?.message },
+        })
+        Sentry.captureException(err, {
+          tags: { component: 'profile_sync', op: 'getProfile' },
+        })
+      }
     }
     return local
   },
@@ -123,10 +189,15 @@ const SupaStorage = {
     await STO.set('atmosiq-profile', profile)
     // Sync to cloud if online
     if (isOnline()) {
+      Sentry.addBreadcrumb({
+        category: 'profile_sync',
+        message: 'saveProfile.start',
+        level: 'info',
+      })
       try {
         const { data: { user } } = await supabase.auth.getUser()
         if (user) {
-          await supabase.from('profiles').upsert({
+          const { error } = await supabase.from('profiles').upsert({
             id: user.id,
             name: profile.name,
             certs: profile.certs || [],
@@ -141,11 +212,59 @@ const SupaStorage = {
             firm: profile.firm,
             marketing_consent: profile.marketing_consent || false,
           })
+          if (error) {
+            // Supabase upsert does NOT throw on PostgREST errors —
+            // RLS denial, schema mismatch, validation all return
+            // {error} silently. Surface them so silent data loss
+            // becomes diagnosable.
+            Sentry.addBreadcrumb({
+              category: 'profile_sync',
+              message: 'saveProfile.upsert_failed',
+              level: 'warning',
+              data: { code: error.code, statusText: error.message },
+            })
+            Sentry.captureException(
+              new Error(`profile_sync.saveProfile upsert failed: ${error.code || 'unknown'} ${error.message || ''}`),
+              {
+                tags: { component: 'profile_sync', op: 'saveProfile' },
+                extra: { code: error.code, hint: error.hint, details: error.details },
+              },
+            )
+            // Preserve existing fall-through behavior: original code
+            // only queued on thrown exception, not on PostgREST error.
+            // Not changing that here — this PR is observability-only.
+          } else {
+            Sentry.addBreadcrumb({
+              category: 'profile_sync',
+              message: 'saveProfile.success',
+              level: 'info',
+            })
+          }
+        } else {
+          Sentry.addBreadcrumb({
+            category: 'profile_sync',
+            message: 'saveProfile.no_auth_user',
+            level: 'info',
+          })
         }
-      } catch {
+      } catch (err) {
+        Sentry.addBreadcrumb({
+          category: 'profile_sync',
+          message: 'saveProfile.exception',
+          level: 'warning',
+          data: { name: err?.name, message: err?.message },
+        })
+        Sentry.captureException(err, {
+          tags: { component: 'profile_sync', op: 'saveProfile' },
+        })
         await this._queueSync('profile', profile)
       }
     } else {
+      Sentry.addBreadcrumb({
+        category: 'profile_sync',
+        message: 'saveProfile.offline_queued',
+        level: 'info',
+      })
       await this._queueSync('profile', profile)
     }
     return true
