@@ -17,7 +17,7 @@ import Backup from '../utils/backup'
 import { groupActions } from '../utils/recFormatting'
 import { getCalibrationBannerState } from '../utils/instrumentRegistry'
 import { getRiskBand } from '../engines/riskBands'
-import { TIERS } from './pricing/tiers'
+import { getSubscriptionBannerState, BILLING_MODE } from '../utils/subscriptionState'
 import { VER, STANDARDS_MANIFEST } from '../constants/standards'
 import { Q_PRESURVEY, Q_BUILDING, Q_ZONE, Q_QUICKSTART, Q_DETAILS, SENSOR_FIELDS } from '../constants/questions'
 import { scoreZone, compositeScore, evalOSHA, calcVent, genRecs, evalMold, evalMeasurementConfidence } from '../engines/scoring'
@@ -133,10 +133,20 @@ export default function MobileApp() {
   const [userMode, setUserMode] = useState(getMode())
   const [needsModeSelect, setNeedsModeSelect] = useState(false)
   const [profileChecked, setProfileChecked] = useState(false)
-  // Paywall pause — set to false to re-enable the credits gate.
-  // When true: startNew + requestNarrative skip the credits check, and
-  // consumeCredit no-ops so we don't spam analytics or hit /api/credits
-  // 402s. The pricing modal is still reachable from the credits chip.
+  // Paywall pause — set to false to re-enable the (legacy) credits
+  // gate. When true: startNew + requestNarrative skip the credits
+  // check, and consumeCredit no-ops so we don't spam analytics or hit
+  // /api/credits 402s. The pricing modal is no longer reachable from
+  // the credits chip — the chip itself was removed in
+  // billing-architecture Phase 1.
+  //
+  // TODO(billing-architecture): replace with the BILLING_MODE flag
+  // exported from src/utils/subscriptionState.js. Phase 2 deletes
+  // this constant, the consumeCredit machinery, and the credit-
+  // balance pre-checks below in favor of subscription-tier
+  // entitlements written by Stripe webhooks. Until then, leaving
+  // PAYWALL_DISABLED=true keeps the existing call sites safely
+  // dormant.
   const PAYWALL_DISABLED = true
   // views: dash|quickstart|zone|details|results|history|drafts|report
   const [view, setView] = useState('dash')
@@ -171,13 +181,14 @@ export default function MobileApp() {
   const [hSort, setHSort] = useState('newest')
   // v2.8 UI pass — Notion-style 3-dot home menu. Replaces the standalone
   // gear icon in the Home header; Settings is now one entry inside the
-  // dropdown alongside Upgrade plan / Reports / Trash / Help & Support.
+  // dropdown.
   const [showHomeMenu, setShowHomeMenu] = useState(false)
-  // CIH credibility — credit-unit definition sheet. Tap on the credits
-  // chip opens this small sheet (definition + per-credit price by
-  // plan + Buy Credits CTA) instead of going straight to pricing.
-  // Per FTC dark-patterns guidance and Cialdini transparency-in-pricing.
-  const [showCreditsSheet, setShowCreditsSheet] = useState(false)
+  // Billing Phase 1 — credit-unit definition sheet was added in PR
+  // #143 (Fix 2 of the CIH-credibility prompt) and removed by the
+  // subsequent pricing-architecture decision (delete the credit
+  // model entirely; replace with subscription tiers + Single
+  // Assessment License). The state declaration is intentionally kept
+  // *gone* — there's no in-product surface that opens this sheet.
   // CIH credibility — demo cards auto-retire after the user has
   // finalized at least one real assessment, or when they explicitly
   // dismiss them. localStorage flag persists the dismissal across
@@ -1230,46 +1241,14 @@ export default function MobileApp() {
           "matches the billing engine and MSA pricing schedule"
           consistency requirement. (FTC dark-patterns guidance;
           Cialdini, *Influence*.) ── */}
-      {showCreditsSheet && (
-        <>
-          <div onClick={()=>setShowCreditsSheet(false)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.6)',zIndex:300,animation:'fadeUp .15s ease'}} />
-          <div role="dialog" aria-label="What is a credit" style={{
-            position:'fixed',left:0,right:0,bottom:0,zIndex:301,
-            background:CARD,borderTop:`1px solid ${BORDER}`,
-            borderRadius:'20px 20px 0 0',padding:'18px 20px',
-            paddingBottom:'calc(24px + env(safe-area-inset-bottom, 0px))',
-            maxWidth:contentMax,margin:'0 auto',
-          }}>
-            <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',marginBottom:12}}>
-              <div style={{fontSize:11,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'0.8px'}}>Credits</div>
-              <button onClick={()=>setShowCreditsSheet(false)} style={{background:'none',border:'none',color:SUB,fontSize:13,cursor:'pointer',fontFamily:'inherit',padding:0}}>Close</button>
-            </div>
-            <div style={{fontSize:14,color:TEXT,lineHeight:1.55,marginBottom:14}}>
-              One credit covers a single building assessment, regardless of zone count, and one finalized report. AI-generated narrative requests draw separately at 3 credits per request.
-            </div>
-            <div style={{fontSize:11,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:8}}>Per-credit price by plan</div>
-            <div style={{background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:10,overflow:'hidden',marginBottom:16}}>
-              {TIERS.filter(t => t.monthly > 0).map((t, i, arr) => (
-                <div key={t.id} style={{
-                  display:'flex',alignItems:'baseline',justifyContent:'space-between',
-                  padding:'12px 14px',
-                  borderTop: i === 0 ? 'none' : `1px solid ${BORDER}`,
-                }}>
-                  <div>
-                    <span style={{fontSize:13,fontWeight:600,color:TEXT}}>{t.name}</span>
-                    <span style={{fontSize:11,color:DIM,marginLeft:8}}>{t.credits} credits / ${t.monthly}/mo</span>
-                  </div>
-                  <span style={{fontSize:13,fontWeight:700,color:ACCENT,fontFamily:'var(--font-mono)'}}>${(t.monthly / t.credits).toFixed(2)}/credit</span>
-                </div>
-              ))}
-            </div>
-            <div style={{display:'flex',gap:8}}>
-              <button onClick={()=>setShowCreditsSheet(false)} style={{flex:0,padding:'12px 18px',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:10,color:SUB,fontSize:13,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>Close</button>
-              <button onClick={()=>{setShowCreditsSheet(false); setShowPricing(true)}} style={{flex:1,padding:'12px 18px',background:ACCENT,border:'none',borderRadius:10,color:BG,fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>Buy Credits</button>
-            </div>
-          </div>
-        </>
-      )}
+      {/* Credit-definition mini-sheet removed — Phase 1 of the
+          billing-architecture migration deletes the credit model
+          entirely. The user paid at subscription time; the product
+          surface no longer carries a billing UI. See
+          src/utils/subscriptionState.js for the new helper that
+          replaces it (always-null in beta), and the pricing-
+          architecture prompt for the Phase 2+ subscription-tier
+          model. */}
 
       {/* ── Photo Selection Modal ── */}
       {showPhotoSelect&&<div style={{position:'fixed',inset:0,background:'#000000DD',zIndex:260,display:'flex',alignItems:'flex-end',justifyContent:'center'}} onClick={e=>{if(e.target===e.currentTarget)setShowPhotoSelect(false)}}>
@@ -1381,13 +1360,22 @@ export default function MobileApp() {
               <div style={{fontSize:14,fontWeight:600,color:TEXT,fontFamily:'inherit',letterSpacing:'-0.2px'}}>{profile?.name || 'Assessor'}</div>
             </div>
             <div style={{position:'relative',display:'flex',alignItems:'center',gap:8}}>
-              <button
-                onClick={()=>setShowCreditsSheet(true)}
-                aria-label={`${credits} credits — tap for definition`}
-                style={{padding:'6px 12px',borderRadius:8,background:SURFACE,border:`1px solid ${BORDER}`,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'baseline',gap:6,minHeight:36}}>
-                <span style={{fontSize:13,fontWeight:700,color:ACCENT,fontFamily:"var(--font-mono)"}}>{credits}</span>
-                <span style={{fontSize:10,color:SUB}}>credits</span>
-              </button>
+              {/* Subscription-status pill — exception-only. In beta
+                  (Phase 1) the helper returns null and the pill
+                  renders nothing. Phase 2+ surfaces it on diverging
+                  state (payment failed, plan cancelling, beta ending,
+                  etc.). Same rationale as the calibration banner —
+                  status earns space by exception. */}
+              {(() => {
+                const state = getSubscriptionBannerState(profile)
+                if (!state) return null
+                const color = state.tone === 'danger' ? DANGER : WARN
+                return (
+                  <button onClick={() => setView('settings')} aria-label={state.message} style={{padding:'5px 10px',borderRadius:8,background:`${color}10`,border:`1px solid ${color}30`,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:6,minHeight:32}}>
+                    <span style={{fontSize:11,fontWeight:600,color,fontFamily:'var(--font-mono)'}}>{state.message}</span>
+                  </button>
+                )
+              })()}
               {profile && (
                 <button
                   onClick={()=>setShowHomeMenu(v=>!v)}
@@ -1405,8 +1393,13 @@ export default function MobileApp() {
                       lightweight popover model. */}
                   <div onClick={()=>setShowHomeMenu(false)} style={{position:'fixed',inset:0,zIndex:90,background:'transparent'}} />
                   <div role="menu" style={{position:'absolute',top:'calc(100% + 8px)',right:0,minWidth:240,background:CARD,border:`1px solid ${BORDER}`,borderRadius:14,padding:6,zIndex:100,boxShadow:'0 12px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.02) inset',animation:'fadeUp .15s ease'}}>
+                    {/* Upgrade plan removed in billing-architecture
+                        Phase 1 — beta users have nothing to upgrade
+                        from, and the entry routed to the four-tier
+                        pricing sheet which is being retired in favor
+                        of subscription tiers + a Single Assessment
+                        License (Phase 2+). */}
                     {[
-                      { label: 'Upgrade plan', icon: 'bolt',   onClick: () => setShowPricing(true) },
                       { label: 'Settings',     icon: 'gear',   onClick: () => setView('settings') },
                       { label: 'Reports',      icon: 'report', onClick: () => setView('history') },
                       { label: 'Trash',        icon: 'trash',  onClick: () => setView('trash') },
@@ -1472,7 +1465,10 @@ export default function MobileApp() {
             </div>
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:16,fontWeight:700,color:TEXT,fontFamily:'inherit',letterSpacing:'-0.2px'}}>{userMode==='fm' ? 'New Air Quality Check' : 'New Assessment'}</div>
-              <div style={{fontSize:11,color:SUB,marginTop:3,fontFamily:"var(--font-mono)"}}>1 credit</div>
+              {/* Caption removed in billing-architecture Phase 1.
+                  Returning users don't need a pricing reminder
+                  inside the product — the price was paid at
+                  subscription time. */}
             </div>
           </button>
 
@@ -1759,7 +1755,7 @@ export default function MobileApp() {
           ))}
         </div>}
         {view==='trash'&&<TrashView onRecover={async(id)=>{await Backup.recover(id);await refreshIndex()}} onDelete={async(id)=>{await Backup.permanentDelete(id)}} />}
-        {view==='settings'&&<SettingsScreen profile={profile} credits={credits} onEditProfile={()=>{setProfile({...profile,isNew:true});setView('dash')}} onLogout={handleLogout} onClose={()=>setView('dash')} onNavigate={(v)=>{if(v==='pricing'){setShowPricing(true)}else{setView(v)}}} adminActive={!!adminSecret} onActivateAdmin={(secret)=>{setAdminSecret(secret);setView('admin')}} />}
+        {view==='settings'&&<SettingsScreen profile={profile} onEditProfile={()=>{setProfile({...profile,isNew:true});setView('dash')}} onLogout={handleLogout} onClose={()=>setView('dash')} onNavigate={(v)=>{if(v==='pricing'){setShowPricing(true)}else{setView(v)}}} adminActive={!!adminSecret} onActivateAdmin={(secret)=>{setAdminSecret(secret);setView('admin')}} />}
         {view==='tos'&&<TermsOfService onBack={()=>setView('settings')} />}
         {view==='privacy'&&<PrivacyPolicy onBack={()=>setView('settings')} />}
         {view==='admin'&&adminSecret&&<AdminDashboard onBack={()=>setView('settings')} adminSecret={adminSecret} />}
