@@ -199,7 +199,7 @@ export default function SettingsScreen({ profile, credits, onEditProfile, onLogo
               action={() => onNavigate?.('instrument-edit')}
             />
           )}
-          <Row label="Edit credentials & instruments" action={onEditProfile} />
+          <Row label="Edit instruments" action={() => onNavigate?.('instrument-edit')} />
         </Group>
       )}
       {!profile?.iaq_meter && !profile?.pid_meter && (

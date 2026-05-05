@@ -1944,12 +1944,12 @@ export default function MobileApp() {
               {id:'dash',label:'Home',icon:'home'},
               {id:'properties',label:'Buildings',icon:'bldg'},
               {id:'complaints',label:'Complaints',icon:'alert'},
-              {id:'settings',label:'Settings',icon:'user'},
+              {id:'settings',label:'Settings',icon:'gear'},
             ] : [
               {id:'dash',label:'Home',icon:'home'},
               {id:'drafts',label:'Drafts',icon:'clip',badge:(index.drafts||[]).length||null},
               {id:'history',label:'Reports',icon:'findings',badge:(index.reports||[]).length||null},
-              {id:'settings',label:'Settings',icon:'user'},
+              {id:'settings',label:'Settings',icon:'gear'},
             ]).map(t=>(
               <button key={t.id} onClick={()=>{ supabase&&trackEvent('page_view',{tab:t.id}); setView(t.id); if(t.id==='dash')setViewRpt(null); }} style={{background:'none',border:'none',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:2,padding:'6px 16px',minWidth:56,fontFamily:'inherit',position:'relative',WebkitTapHighlightColor:'transparent',transition:'opacity 0.15s'}}>
                 {/* Active "lift": icon scale 1.06× + smooth transition. Color
