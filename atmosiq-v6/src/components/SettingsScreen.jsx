@@ -10,6 +10,7 @@ import { useState, useEffect } from 'react'
 import STO from '../utils/storage'
 import Backup from '../utils/backup'
 import { VER } from '../constants/standards'
+import { getSubscriptionRowSubtitle } from '../utils/subscriptionState'
 import { I } from './Icons'
 
 const BG = '#07080C'
@@ -24,7 +25,12 @@ const SUCCESS = '#22C55E'
 const WARN = '#FBBF24'
 const DANGER = '#EF4444'
 
-export default function SettingsScreen({ profile, credits, onEditProfile, onLogout, onClose, onNavigate, onActivateAdmin, adminActive }) {
+// `credits` prop intentionally dropped in billing-architecture
+// Phase 1 — the Manage Subscription row's subtitle now comes from
+// subscriptionState.getSubscriptionRowSubtitle, not from a numeric
+// balance. `onNavigate` kept as a prop because Phase 2 will route
+// `'manage-subscription'` to the Stripe Customer Portal through it.
+export default function SettingsScreen({ profile, onEditProfile, onLogout, onClose, onNavigate, onActivateAdmin, adminActive }) {
   const [health, setHealth] = useState(null)
   const [importMsg, setImportMsg] = useState('')
   const [index, setIndex] = useState({ reports: [], drafts: [] })
@@ -146,7 +152,17 @@ export default function SettingsScreen({ profile, credits, onEditProfile, onLogo
             <span style={{color:DIM,fontSize:13,flexShrink:0}}>›</span>
           </button>
         )}
-        <Row label="Buy Credits" sub={typeof credits === 'number' ? `${credits} available` : null} action={() => onNavigate?.('pricing')} />
+        {/* Manage Subscription — replaces "Buy Credits" in
+            billing-architecture Phase 1. Subtitle is sourced from
+            subscriptionState.getSubscriptionRowSubtitle so the
+            canonical billing-state strings live in one file. Phase 1
+            falls through to mailto:support — Phase 2 routes to the
+            Stripe Customer Portal once subscriptions are wired. */}
+        <Row
+          label="Manage Subscription"
+          sub={getSubscriptionRowSubtitle(profile)}
+          action={() => { window.location.href = 'mailto:support@prudenceehs.com?subject=AtmosFlow%20subscription' }}
+        />
         {!showPasswordChange ? (
           <Row label="Change Password" action={() => setShowPasswordChange(true)} />
         ) : (
@@ -212,7 +228,7 @@ export default function SettingsScreen({ profile, credits, onEditProfile, onLogo
       <Group title="Methodology">
         <div style={{padding:'14px 16px'}}>
           <div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:8}}>
-            {['ASHRAE 62.1-2025','ASHRAE 55-2023','OSHA PELs','NIOSH RELs','EPA NAAQS','WHO AQG'].map(s => (
+            {['ASHRAE 62.1-2025','ASHRAE 55-2023','OSHA PELs','NIOSH RELs','EPA NAAQS','WHO AQG','AIHA'].map(s => (
               <span key={s} style={{padding:'4px 8px',borderRadius:4,background:`${ACCENT}08`,border:`1px solid ${ACCENT}12`,fontSize:9,fontWeight:600,color:ACCENT,fontFamily:"var(--font-mono)",letterSpacing:'0.2px'}}>{s}</span>
             ))}
           </div>
@@ -294,10 +310,11 @@ export default function SettingsScreen({ profile, credits, onEditProfile, onLogo
           </div>
           <span style={{fontSize:10,color:DIM,fontFamily:"var(--font-mono)",padding:'3px 8px',borderRadius:6,background:SURFACE,border:`1px solid ${BORDER}`,flexShrink:0}}>v{VER}</span>
         </button>
-        <div style={{padding:'14px 16px',borderTop:`1px solid ${BORDER}`}}>
-          <div style={{fontSize:11,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:6}}>What is a credit?</div>
-          <div style={{fontSize:12,color:SUB,lineHeight:1.55}}>One credit covers a single building assessment, regardless of zone count, and one finalized report. AI-generated narrative requests draw separately at 3 credits per request.</div>
-        </div>
+        {/* "What is a credit?" mirror removed in billing-architecture
+            Phase 1 along with the credit-definition mini-sheet on
+            Home. The product no longer has credits — see
+            src/utils/subscriptionState.js for the new model and the
+            pricing-architecture prompt for the Phase 2+ tier rollout. */}
       </Group>
       {showAdminInput && (
         <div style={{padding:'14px 16px',background:CARD,border:`1px solid ${WARN}25`,borderRadius:10,marginTop:8}}>
