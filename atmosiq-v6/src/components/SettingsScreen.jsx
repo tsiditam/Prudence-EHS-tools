@@ -223,7 +223,7 @@ export default function SettingsScreen({ profile, onEditProfile, onLogout, onClo
       <Group title="Methodology">
         <div style={{padding:'14px 16px'}}>
           <div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:8}}>
-            {['ASHRAE 62.1-2025','ASHRAE 55-2023','OSHA PELs','NIOSH RELs','EPA NAAQS','WHO AQG'].map(s => (
+            {['ASHRAE 62.1-2025','ASHRAE 55-2023','OSHA PELs','NIOSH RELs','EPA NAAQS','WHO AQG','AIHA'].map(s => (
               <span key={s} style={{padding:'4px 8px',borderRadius:4,background:`${ACCENT}08`,border:`1px solid ${ACCENT}12`,fontSize:9,fontWeight:600,color:ACCENT,fontFamily:"var(--font-mono)",letterSpacing:'0.2px'}}>{s}</span>
             ))}
           </div>
