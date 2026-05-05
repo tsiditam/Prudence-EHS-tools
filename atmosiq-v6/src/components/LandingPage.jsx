@@ -10,12 +10,14 @@
  * Contact: tsidi@prudenceehs.com
  */
 
+import { useState } from 'react'
 import BlueprintBG from './BlueprintBG'
 import AirflowMotion from './AirflowMotion'
 import { I } from './Icons'
 import ScoreRing from './ScoreRing'
 import { useInView } from '../hooks/useInView'
 import { useCounter } from '../hooks/useCounter'
+import { FAQ_SECTIONS } from '../constants/faq'
 
 // ── Palette ────────────────────────────────────────────────────────────────
 // Warm golds + cool cyans + deep violets — premium contrast
@@ -96,6 +98,63 @@ function Counter({ target, suffix = '', dk }) {
   return <span ref={ref} style={{ fontSize: dk ? 72 : 44, fontWeight: 700, ...display, lineHeight: 1 }}>{value}{suffix}</span>
 }
 
+// FAQ accordion — one open at a time across the whole list. Inline-styled
+// to match the rest of the landing page; renders the same FAQ_SECTIONS
+// data as the in-app HelpView so the public answer and the in-app answer
+// can never drift apart.
+function FAQAccordion({ dk, openId, setOpenId }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: dk ? 36 : 24 }}>
+      {FAQ_SECTIONS.map(section => (
+        <div key={section.title}>
+          <div style={{
+            fontSize: 11, fontWeight: 600, color: C.dim,
+            textTransform: 'uppercase', letterSpacing: '0.14em',
+            marginBottom: 12, paddingLeft: 4,
+          }}>{section.title}</div>
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, overflow: 'hidden' }}>
+            {section.items.map((item, i) => {
+              const id = section.title + ':' + i
+              const open = openId === id
+              return (
+                <div key={id} style={{ borderTop: i === 0 ? 'none' : `1px solid ${C.border}` }}>
+                  <button
+                    onClick={() => setOpenId(open ? null : id)}
+                    aria-expanded={open}
+                    style={{
+                      width: '100%', padding: dk ? '16px 22px' : '14px 16px',
+                      background: 'transparent', border: 'none', cursor: 'pointer',
+                      textAlign: 'left', display: 'flex', alignItems: 'center', gap: 12,
+                      fontFamily: 'inherit', color: C.text,
+                      fontSize: dk ? 15 : 14, fontWeight: 600, lineHeight: 1.45,
+                    }}>
+                    <span style={{ flex: 1, minWidth: 0 }}>{item.q}</span>
+                    <span style={{
+                      flexShrink: 0, fontSize: 18, color: C.dim,
+                      transform: open ? 'rotate(45deg)' : 'rotate(0deg)',
+                      transition: 'transform 200ms ease',
+                      lineHeight: 1,
+                    }}>+</span>
+                  </button>
+                  {open && (
+                    <div style={{
+                      padding: dk ? '0 22px 18px' : '0 16px 16px',
+                      fontSize: dk ? 14 : 13, color: C.sub, lineHeight: 1.75,
+                      whiteSpace: 'pre-line',
+                    }}>
+                      {item.a}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 const features = [
   { icon: 'wind', color: C.cyan, title: 'Ventilation Scoring', desc: 'CO₂ differential evaluated against recognized ventilation standards. Outdoor air rate calculations per occupant load and space use. Flags inadequate ventilation before you leave the building.' },
   { icon: 'shield', color: C.gold, title: 'OSHA-Readiness Review', desc: 'Field data cross-referenced against 29 CFR 1910 in real time. Conditions warranting regulatory attention are surfaced with confidence levels. When data is missing, confidence degrades — so you always know how strong your documentation is.' },
@@ -113,6 +172,7 @@ const steps = [
 
 export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
   const dk = isDesktop
+  const [faqOpenId, setFaqOpenId] = useState(null)
 
   return (
     <div style={{ minHeight: '100vh', background: C.bg, color: C.text, ...body, overflowX: 'hidden' }}>
@@ -641,6 +701,28 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
                   Start Free Assessment
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+      </Section>
+
+      {/* ── FAQ ── */}
+      <Section style={{
+        padding: dk ? '80px 56px 100px' : '50px 20px 60px',
+        borderTop: `1px solid ${C.border}`,
+        background: 'linear-gradient(180deg, transparent 0%, rgba(34,211,238,0.015) 100%)',
+      }}>
+        {(inView) => (
+          <div style={{ ...reveal(inView), maxWidth: 880, margin: '0 auto' }}>
+            <div style={{ textAlign: 'center', marginBottom: dk ? 56 : 36 }}>
+              <div style={{ fontSize: 10, color: C.cyan, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 14, fontWeight: 600 }}>FAQ</div>
+              <h2 style={{ ...display, fontSize: dk ? 44 : 26, fontWeight: 700, letterSpacing: '-0.035em', margin: 0, lineHeight: 1.15 }}>
+                Frequently asked{dk ? <br /> : ' '}<span style={{ color: C.dim }}>questions.</span>
+              </h2>
+            </div>
+            <FAQAccordion dk={dk} openId={faqOpenId} setOpenId={setFaqOpenId} />
+            <div style={{ marginTop: dk ? 40 : 28, textAlign: 'center', fontSize: 12, color: C.dim, lineHeight: 1.7 }}>
+              More questions? <a href="mailto:support@prudenceehs.com" style={{ color: C.cyan, textDecoration: 'none' }}>support@prudenceehs.com</a>
             </div>
           </div>
         )}

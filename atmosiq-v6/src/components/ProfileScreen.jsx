@@ -25,10 +25,12 @@ const DANGER = '#EF4444'
 
 const CERT_OPTS = ['CIH','CIH-in-Training','CSP','CHMM','ACAC CIEC','ACAC CMC','ACAC CMI','NYSDOL Mold Assessor','State IH License','OSHA 30-Hour','Other']
 const EXP_OPTS = ['1–3 years','3–5 years','5–10 years','10–20 years','20+ years']
-const IAQ_OPTS = ['TSI Q-Trak 7575','TSI Q-Trak 7515','TSI IAQ-Calc 7545','Graywolf AdvancedSense Pro','Graywolf IQ-610','Testo 400','Testo 440','Kanomax IAQ-2000','Other']
-const PID_OPTS = ['RAE Systems MiniRAE 3000','RAE Systems ppbRAE 3000','Ion Science Tiger','Ion Science Cub','Honeywell ToxiRAE Pro PID','Other']
-const CAL_OPTS = ['Calibrated within manufacturer spec','Calibrated — overdue for recertification','Field-zeroed only','Not calibrated','Unknown']
-const PID_CAL_OPTS = ['Bump-tested and calibrated','Bump-tested only','Not calibrated','N/A']
+// Instrument-related option lists are exported so the standalone
+// InstrumentEditView in MobileApp can reuse them without drift.
+export const IAQ_OPTS = ['TSI Q-Trak 7575','TSI Q-Trak 7515','TSI IAQ-Calc 7545','Graywolf AdvancedSense Pro','Graywolf IQ-610','Testo 400','Testo 440','Kanomax IAQ-2000','Other']
+export const PID_OPTS = ['RAE Systems MiniRAE 3000','RAE Systems ppbRAE 3000','Ion Science Tiger','Ion Science Cub','Honeywell ToxiRAE Pro PID','Other']
+export const CAL_OPTS = ['Calibrated within manufacturer spec','Calibrated — overdue for recertification','Field-zeroed only','Not calibrated','Unknown']
+export const PID_CAL_OPTS = ['Bump-tested and calibrated','Bump-tested only','Not calibrated','N/A']
 
 const inp = { width:'100%',padding:'14px 16px',background:BG,border:`1px solid ${BORDER}`,borderRadius:8,color:TEXT,fontSize:15,fontFamily:'inherit',fontWeight:500,outline:'none',boxSizing:'border-box',transition:'border-color 0.15s' }
 const label = { fontSize:13,fontWeight:600,color:SUB,marginBottom:6,display:'block',letterSpacing:'0.1px' }

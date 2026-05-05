@@ -32,7 +32,7 @@ import PhotoCapture from './PhotoCapture'
 import SensorScreen from './SensorScreen'
 import TimePickerInput from './TimePickerInput'
 import Co2OaCalculator from './Co2OaCalculator'
-import ProfileScreen from './ProfileScreen'
+import ProfileScreen, { IAQ_OPTS, PID_OPTS, CAL_OPTS, PID_CAL_OPTS } from './ProfileScreen'
 import AuthScreen from './AuthScreen'
 import { TermsOfService, PrivacyPolicy } from './LegalScreens'
 import AdminDashboard from './AdminDashboard'
@@ -60,6 +60,7 @@ import PropertyDashboard from './PropertyDashboard'
 import SpatialMap from './SpatialMap'
 import InstrumentManager from './InstrumentManager'
 import V21InternalPanel from './V21InternalPanel'
+import { FAQ_SECTIONS } from '../constants/faq'
 import { useAssessment } from '../contexts/AssessmentContext.jsx'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import { useStorage } from '../contexts/StorageContext.jsx'
@@ -85,6 +86,165 @@ const DIM = '#6B7380'
 const SUCCESS = '#22C55E'
 const WARN = '#FBBF24'
 const DANGER = '#EF4444'
+
+// In-app FAQ — same FAQ_SECTIONS data as the public landing page so the
+// public answer and the in-app answer cannot drift apart. One question
+// open at a time across the entire list.
+function HelpView({ onBack }) {
+  const [openId, setOpenId] = useState(null)
+  return (
+    <div style={{paddingTop:24,paddingBottom:120}}>
+      <button onClick={onBack} style={{background:'none',border:'none',color:ACCENT,fontSize:15,fontWeight:500,cursor:'pointer',padding:'0 4px',marginBottom:16,fontFamily:'inherit'}}>← Settings</button>
+      <h2 style={{fontSize:22,fontWeight:700,marginBottom:6,color:TEXT,letterSpacing:'-0.3px',fontFamily:'inherit'}}>Help &amp; FAQ</h2>
+      <div style={{fontSize:12,color:DIM,marginBottom:20,lineHeight:1.55}}>Common questions about AtmosFlow methodology, scoring, workflow, and limitations.</div>
+      {FAQ_SECTIONS.map(section => (
+        <div key={section.title} style={{marginTop:24}}>
+          <div style={{fontSize:11,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'0.8px',padding:'0 4px 8px'}}>{section.title}</div>
+          <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,overflow:'hidden'}}>
+            {section.items.map((item, i) => {
+              const id = section.title + ':' + i
+              const open = openId === id
+              return (
+                <div key={id} style={{borderTop: i === 0 ? 'none' : `1px solid ${BORDER}`}}>
+                  <button
+                    onClick={() => setOpenId(open ? null : id)}
+                    aria-expanded={open}
+                    style={{
+                      width:'100%',padding:'14px 16px',background:'transparent',border:'none',cursor:'pointer',
+                      textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit',
+                      color:TEXT,fontSize:14,fontWeight:600,lineHeight:1.45,minHeight:52,
+                    }}>
+                    <span style={{flex:1,minWidth:0}}>{item.q}</span>
+                    <span style={{
+                      flexShrink:0,fontSize:18,color:DIM,lineHeight:1,
+                      transform: open ? 'rotate(45deg)' : 'rotate(0deg)',
+                      transition: 'transform 200ms ease',
+                    }}>+</span>
+                  </button>
+                  {open && (
+                    <div style={{padding:'0 16px 16px',fontSize:13,color:SUB,lineHeight:1.7,whiteSpace:'pre-line'}}>{item.a}</div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      ))}
+      <div style={{marginTop:28,padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,fontSize:12,color:SUB,lineHeight:1.7,textAlign:'center'}}>
+        More questions? <a href="mailto:support@prudenceehs.com" style={{color:ACCENT,textDecoration:'none'}}>support@prudenceehs.com</a>
+      </div>
+    </div>
+  )
+}
+
+// Standalone instrument editor — edits ONLY the profile-embedded primary
+// IAQ + PID fields (iaq_meter, iaq_serial, iaq_cal_date, iaq_cal_status,
+// pid_meter, pid_cal_status, other_instruments). Reachable from each
+// instrument row in Settings so the user no longer has to walk through
+// the multi-profile picker + Credentials step just to update a serial
+// number or a calibration date. Mirrors ProfileScreen Step 1 visually
+// but skips every other affordance.
+function InstrumentEditView({ profile, onSave, onCancel }) {
+  const [form, setForm] = useState(profile || {})
+  const [saving, setSaving] = useState(false)
+  const setF = (k, v) => setForm(p => ({ ...p, [k]: v }))
+
+  const inp = { width:'100%',padding:'14px 16px',background:BG,border:`1px solid ${BORDER}`,borderRadius:8,color:TEXT,fontSize:15,fontFamily:'inherit',fontWeight:500,outline:'none',boxSizing:'border-box',transition:'border-color 0.15s' }
+  const lbl = { fontSize:13,fontWeight:600,color:SUB,marginBottom:6,display:'block',letterSpacing:'0.1px' }
+
+  const Radio = ({ selected, label, onClick }) => (
+    <button onClick={onClick} style={{width:'100%',padding:'10px 14px',textAlign:'left',background:selected?`${ACCENT}08`:'transparent',border:`1px solid ${selected?`${ACCENT}30`:BORDER}`,borderRadius:8,color:selected?TEXT:SUB,fontSize:13,fontWeight:selected?600:500,cursor:'pointer',fontFamily:'inherit',minHeight:38,transition:'all 0.15s',marginBottom:4}}>{label}</button>
+  )
+
+  const handleSave = async () => {
+    if (saving) return
+    setSaving(true)
+    try {
+      await Profiles.save({
+        ...profile,
+        iaq_meter: form.iaq_meter || '',
+        iaq_serial: form.iaq_serial || '',
+        iaq_cal_date: form.iaq_cal_date || '',
+        iaq_cal_status: form.iaq_cal_status || '',
+        pid_meter: form.pid_meter || '',
+        pid_cal_status: form.pid_cal_status || '',
+        other_instruments: form.other_instruments || '',
+      })
+      // Calibration changes drive the finalization gate — track them so
+      // we have a paper trail consistent with ProfileScreen's behavior.
+      if (form.iaq_cal_date !== profile?.iaq_cal_date || form.iaq_cal_status !== profile?.iaq_cal_status) {
+        trackEvent('calibration_date_entered', { instrument: 'iaq', meter: form.iaq_meter || '', status: form.iaq_cal_status || '' })
+      }
+      if (form.pid_cal_status !== profile?.pid_cal_status) {
+        trackEvent('calibration_date_entered', { instrument: 'pid', meter: form.pid_meter || '', status: form.pid_cal_status || '' })
+      }
+      const updated = await Profiles.get(profile.id)
+      onSave(updated)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div style={{paddingTop:24,paddingBottom:120}}>
+      <button onClick={onCancel} style={{background:'none',border:'none',color:ACCENT,fontSize:15,fontWeight:500,cursor:'pointer',padding:'0 4px',marginBottom:16,fontFamily:'inherit'}}>← Settings</button>
+      <h2 style={{fontSize:22,fontWeight:700,marginBottom:6,color:TEXT,letterSpacing:'-0.3px',fontFamily:'inherit'}}>Instruments</h2>
+      <div style={{fontSize:12,color:DIM,marginBottom:24,lineHeight:1.55}}>Primary IAQ meter, PID, and calibration records used in your reports.</div>
+
+      <div style={{marginBottom:20}}>
+        <span style={lbl}>Primary IAQ meter</span>
+        <select value={form.iaq_meter||''} onChange={e=>setF('iaq_meter',e.target.value)} style={{...inp,appearance:'auto'}}>
+          <option value="">Select or skip</option>
+          {IAQ_OPTS.map(o => <option key={o} value={o}>{o}</option>)}
+        </select>
+      </div>
+
+      {form.iaq_meter && (
+        <div style={{padding:'16px',background:SURFACE,borderRadius:8,border:`1px solid ${BORDER}`,marginBottom:20}}>
+          <div style={{fontSize:11,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:12}}>{form.iaq_meter}</div>
+          <div style={{marginBottom:14}}>
+            <span style={lbl}>Serial number <span style={{color:DIM,fontWeight:400,fontSize:11}}>(optional)</span></span>
+            <input type="text" value={form.iaq_serial||''} onChange={e=>setF('iaq_serial',e.target.value)} placeholder="S/N" style={inp} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />
+          </div>
+          <div style={{marginBottom:14}}>
+            <span style={lbl}>Last calibration</span>
+            <input type="date" value={form.iaq_cal_date||''} onChange={e=>setF('iaq_cal_date',e.target.value)} style={{...inp,colorScheme:'dark'}} />
+          </div>
+          <div>
+            <span style={lbl}>Calibration status</span>
+            {CAL_OPTS.map(o => <Radio key={o} selected={form.iaq_cal_status===o} label={o} onClick={()=>setF('iaq_cal_status',o)} />)}
+          </div>
+        </div>
+      )}
+
+      <div style={{marginBottom:20}}>
+        <span style={lbl}>PID / VOC meter <span style={{color:DIM,fontWeight:400,fontSize:11}}>(optional)</span></span>
+        <select value={form.pid_meter||''} onChange={e=>setF('pid_meter',e.target.value)} style={{...inp,appearance:'auto'}}>
+          <option value="">None</option>
+          {PID_OPTS.map(o => <option key={o} value={o}>{o}</option>)}
+        </select>
+      </div>
+
+      {form.pid_meter && (
+        <div style={{padding:'16px',background:SURFACE,borderRadius:8,border:`1px solid ${BORDER}`,marginBottom:20}}>
+          <div style={{fontSize:11,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:12}}>{form.pid_meter}</div>
+          <span style={lbl}>Calibration status</span>
+          {PID_CAL_OPTS.map(o => <Radio key={o} selected={form.pid_cal_status===o} label={o} onClick={()=>setF('pid_cal_status',o)} />)}
+        </div>
+      )}
+
+      <div style={{marginBottom:24}}>
+        <span style={lbl}>Additional instruments <span style={{color:DIM,fontWeight:400,fontSize:11}}>(optional)</span></span>
+        <textarea value={form.other_instruments||''} onChange={e=>setF('other_instruments',e.target.value)} placeholder="Moisture meter, thermal camera, smoke pencil..." rows={2} style={{...inp,resize:'vertical',fontFamily:'inherit'}} />
+      </div>
+
+      <div style={{display:'flex',gap:8}}>
+        <button onClick={onCancel} disabled={saving} style={{flex:0,padding:'14px 20px',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:8,color:SUB,fontSize:14,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>Cancel</button>
+        <button onClick={handleSave} disabled={saving || !profile?.id} style={{flex:1,padding:'14px 0',background:ACCENT,border:'none',borderRadius:8,color:BG,fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:48,letterSpacing:'-0.1px',opacity:saving?0.6:1}}>{saving ? 'Saving…' : 'Save'}</button>
+      </div>
+    </div>
+  )
+}
 
 export default function MobileApp() {
   const { isTablet, isTabletLand } = useMediaQuery()
@@ -1165,7 +1325,7 @@ export default function MobileApp() {
           </div>
           <div style={{display:'flex',alignItems:'center',gap:8}}>
             {isAssessing&&<span style={{fontSize:10,color:ACCENT,fontFamily:"var(--font-mono)",background:`${ACCENT}0A`,padding:'3px 10px',borderRadius:4,border:`1px solid ${ACCENT}20`,letterSpacing:'0.5px'}}>SAVING</span>}
-            {view!=='dash'&&view!=='drafts'&&view!=='history'&&view!=='settings'&&view!=='trash'&&view!=='tos'&&view!=='privacy'&&<button onClick={()=>{setView('dash');setViewRpt(null)}} style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:8,color:SUB,fontSize:13,fontWeight:600,padding:'7px 14px',cursor:'pointer',fontFamily:'inherit',minHeight:36,transition:'color 0.15s'}}>← Home</button>}
+            {view!=='dash'&&view!=='drafts'&&view!=='history'&&view!=='settings'&&view!=='trash'&&view!=='tos'&&view!=='privacy'&&view!=='help'&&view!=='instrument-edit'&&<button onClick={()=>{setView('dash');setViewRpt(null)}} style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:8,color:SUB,fontSize:13,fontWeight:600,padding:'7px 14px',cursor:'pointer',fontFamily:'inherit',minHeight:36,transition:'color 0.15s'}}>← Home</button>}
           </div>
         </div>
       </header>
@@ -1758,6 +1918,8 @@ export default function MobileApp() {
         {view==='settings'&&<SettingsScreen profile={profile} onEditProfile={()=>{setProfile({...profile,isNew:true});setView('dash')}} onLogout={handleLogout} onClose={()=>setView('dash')} onNavigate={(v)=>{if(v==='pricing'){setShowPricing(true)}else{setView(v)}}} adminActive={!!adminSecret} onActivateAdmin={(secret)=>{setAdminSecret(secret);setView('admin')}} />}
         {view==='tos'&&<TermsOfService onBack={()=>setView('settings')} />}
         {view==='privacy'&&<PrivacyPolicy onBack={()=>setView('settings')} />}
+        {view==='help'&&<HelpView onBack={()=>setView('settings')} />}
+        {view==='instrument-edit'&&<InstrumentEditView profile={profile} onSave={(updated)=>{setProfile(updated);setView('settings')}} onCancel={()=>setView('settings')} />}
         {view==='admin'&&adminSecret&&<AdminDashboard onBack={()=>setView('settings')} adminSecret={adminSecret} />}
         {view==='complaints'&&<ComplaintLog buildingId={bldg?.fn||'default'} onBack={()=>setView('dash')} />}
         {view==='interventions'&&<InterventionTracker buildingId={bldg?.fn||'default'} onBack={()=>setView('dash')} assessments={index.reports} />}
@@ -1778,12 +1940,12 @@ export default function MobileApp() {
               {id:'dash',label:'Home',icon:'home'},
               {id:'properties',label:'Buildings',icon:'bldg'},
               {id:'complaints',label:'Complaints',icon:'alert'},
-              {id:'settings',label:'Settings',icon:'user'},
+              {id:'settings',label:'Settings',icon:'gear'},
             ] : [
               {id:'dash',label:'Home',icon:'home'},
               {id:'drafts',label:'Drafts',icon:'clip',badge:(index.drafts||[]).length||null},
               {id:'history',label:'Reports',icon:'report',badge:(index.reports||[]).length||null},
-              {id:'settings',label:'Settings',icon:'user'},
+              {id:'settings',label:'Settings',icon:'gear'},
             ]).map(t=>(
               <button key={t.id} onClick={()=>{ supabase&&trackEvent('page_view',{tab:t.id}); setView(t.id); if(t.id==='dash')setViewRpt(null); }} style={{background:'none',border:'none',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:2,padding:'6px 16px',minWidth:56,fontFamily:'inherit',position:'relative',WebkitTapHighlightColor:'transparent',transition:'opacity 0.15s'}}>
                 {/* Active "lift": icon scale 1.06× + smooth transition. Color

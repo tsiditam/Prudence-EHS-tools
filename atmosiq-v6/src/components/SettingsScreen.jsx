@@ -189,7 +189,12 @@ export default function SettingsScreen({ profile, onEditProfile, onLogout, onClo
         )}
       </Group>
 
-      {/* ── Instruments ── */}
+      {/* ── Instruments ──
+          IAQ/PID/Add rows route to the standalone instrument editor
+          (view='instrument-edit') so users land directly on the
+          calibration form instead of the multi-profile picker.
+          "Edit credentials & instruments" still routes to the full
+          profile flow because the label promises both surfaces. */}
       {(profile?.iaq_meter || profile?.pid_meter) && (
         <Group title="Instruments">
           {profile?.iaq_meter && (
@@ -198,7 +203,7 @@ export default function SettingsScreen({ profile, onEditProfile, onLogout, onClo
               label={profile.iaq_meter}
               sub={profile.iaq_serial ? `S/N ${profile.iaq_serial}${profile.iaq_cal_date ? ' · last cal ' + profile.iaq_cal_date : ''}` : (profile.iaq_cal_date ? `Last cal ${profile.iaq_cal_date}` : null)}
               value={!calOk ? <ExceptionPill text="Cal due" /> : null}
-              action={onEditProfile}
+              action={() => onNavigate?.('instrument-edit')}
             />
           )}
           {profile?.pid_meter && (
@@ -207,15 +212,15 @@ export default function SettingsScreen({ profile, onEditProfile, onLogout, onClo
               label={profile.pid_meter}
               sub="PID / VOC meter"
               value={!pidOk ? <ExceptionPill text="Cal due" /> : null}
-              action={onEditProfile}
+              action={() => onNavigate?.('instrument-edit')}
             />
           )}
-          <Row label="Edit credentials & instruments" action={onEditProfile} />
+          <Row label="Edit instruments" action={() => onNavigate?.('instrument-edit')} />
         </Group>
       )}
       {!profile?.iaq_meter && !profile?.pid_meter && (
         <Group title="Instruments">
-          <Row label="Add an instrument" sub="Register your IAQ meter and PID for calibration tracking" action={onEditProfile} first />
+          <Row label="Add an instrument" sub="Register your IAQ meter and PID for calibration tracking" action={() => onNavigate?.('instrument-edit')} first />
         </Group>
       )}
 
@@ -274,6 +279,11 @@ export default function SettingsScreen({ profile, onEditProfile, onLogout, onClo
           <Row first label="Admin Dashboard" action={() => onNavigate?.('admin')} />
         </Group>
       )}
+
+      {/* ── Help ── */}
+      <Group title="Help">
+        <Row first label="Help & FAQ" sub="Methodology, scoring, workflow, limitations" action={() => onNavigate?.('help')} />
+      </Group>
 
       {/* ── Legal ── */}
       <Group title="Legal">
