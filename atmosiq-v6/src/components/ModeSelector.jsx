@@ -18,11 +18,8 @@ export default function ModeSelector({ onSelect }) {
     }}>
       <div style={{ maxWidth: 440, width: '100%', textAlign: 'center' }}>
         {/* Brand */}
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, marginBottom: 32 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 8, background: ACCENT, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <I n="wind" s={16} c={BG} w={2.2} />
-          </div>
-          <span style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.3px' }}>Atmos<span style={{ color: ACCENT }}>Flow</span></span>
+        <div style={{ display: 'inline-flex', alignItems: 'center', marginBottom: 32 }}>
+          <span style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.3px' }}>AtmosFlow</span>
         </div>
 
         <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>How will you use AtmosFlow?</div>

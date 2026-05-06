@@ -66,7 +66,7 @@ function Hero({ signupHref }: { signupHref: string }) {
   return (
     <header style={{ paddingTop: 32, paddingBottom: 56 }}>
       <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.5px', marginBottom: 32 }}>
-        Atmos<span style={{ color: PALETTE.accent }}>Flow</span>
+        AtmosFlow
       </div>
       <h1
         style={{

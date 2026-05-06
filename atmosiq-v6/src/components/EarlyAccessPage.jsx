@@ -100,7 +100,7 @@ export default function EarlyAccessPage() {
       {/* Brand */}
       <div style={{ textAlign: 'center', marginBottom: 32 }}>
         <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.5px', marginBottom: 4 }}>
-          <span style={{ color: '#fff' }}>Atmos</span><span style={{ color: C.cyan }}>Flow</span>
+          <span style={{ color: '#fff' }}>AtmosFlow</span>
         </div>
         <div style={{ fontSize: 11, color: C.sub }}>by Prudence EHS</div>
       </div>

@@ -1319,9 +1319,8 @@ export default function MobileApp() {
     <div style={{minHeight:'100vh',background:BG,color:TEXT,fontFamily:"'inherit', system-ui, sans-serif"}}>
       <header style={{position:'fixed',top:0,left:0,right:0,zIndex:100,background:`${BG}F2`,backdropFilter:'blur(24px) saturate(1.4)',WebkitBackdropFilter:'blur(24px) saturate(1.4)',borderBottom:`1px solid ${BORDER}`,paddingTop:'env(safe-area-inset-top, 0px)'}}>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',height:48,padding:`0 ${padX}px`,maxWidth:contentMax,margin:'0 auto'}}>
-          <div style={{display:'flex',alignItems:'center',gap:10}}>
-            <div style={{width:28,height:28,borderRadius:7,background:ACCENT,display:'flex',alignItems:'center',justifyContent:'center'}}><I n="wind" s={14} c={BG} w={2.2} /></div>
-            <span style={{fontSize:15,fontWeight:700,letterSpacing:'-0.3px',color:TEXT}}>Atmos<span style={{color:ACCENT}}>Flow</span></span>
+          <div style={{display:'flex',alignItems:'center'}}>
+            <span style={{fontSize:15,fontWeight:700,letterSpacing:'-0.3px',color:TEXT}}>AtmosFlow</span>
           </div>
           <div style={{display:'flex',alignItems:'center',gap:8}}>
             {isAssessing&&<span style={{fontSize:10,color:ACCENT,fontFamily:"var(--font-mono)",background:`${ACCENT}0A`,padding:'3px 10px',borderRadius:4,border:`1px solid ${ACCENT}20`,letterSpacing:'0.5px'}}>SAVING</span>}
