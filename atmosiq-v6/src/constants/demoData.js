@@ -12,7 +12,7 @@
 
 export const DEMO_PRESURVEY = {
   ps_assessor: 'J. Smith, CIH, CSP',
-  ps_assessor_certs: ['CIH', 'CSP', 'OSHA 30-Hour'],
+  ps_assessor_certs: ['CIH', 'CSP'],
   ps_assessor_exp: '10-20 years',
   ps_inst_iaq: 'TSI Q-Trak 7575',
   ps_inst_iaq_serial: 'QT-2024-08712',
