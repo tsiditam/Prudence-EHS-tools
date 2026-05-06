@@ -1516,7 +1516,7 @@ export default function MobileApp() {
               vs. ongoing-use.) */}
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24,animation:'fadeUp .4s ease'}}>
             <div>
-              <div style={{fontSize:14,fontWeight:600,color:TEXT,fontFamily:'inherit',letterSpacing:'-0.2px'}}>{profile?.name || 'Assessor'}</div>
+              <div style={{fontSize:12,fontWeight:600,color:ACCENT,fontFamily:'inherit',letterSpacing:'-0.2px'}}>{profile?.name || 'Assessor'}</div>
             </div>
             <div style={{position:'relative',display:'flex',alignItems:'center',gap:8}}>
               {/* Subscription-status pill — exception-only. In beta
