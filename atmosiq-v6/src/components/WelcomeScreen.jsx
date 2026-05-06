@@ -47,14 +47,9 @@ export default function WelcomeScreen({ onComplete }) {
     <div style={{minHeight:'100vh',background:BG,color:TEXT,fontFamily:"'inherit', system-ui",display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'0 24px',paddingTop:'env(safe-area-inset-top, 20px)'}}>
       <div style={{maxWidth:400,width:'100%',textAlign:'center'}}>
 
-        {/* Logo */}
+        {/* Brand */}
         <div style={{marginBottom:40}}>
-          <div style={{display:'inline-flex',alignItems:'center',gap:10}}>
-            <div style={{width:32,height:32,borderRadius:8,background:ACCENT,display:'flex',alignItems:'center',justifyContent:'center'}}>
-              <I n="wind" s={16} c={BG} w={2.2} />
-            </div>
-            <span style={{fontSize:22,fontWeight:700,letterSpacing:'-0.3px'}}>Atmos<span style={{color:ACCENT}}>Flow</span></span>
-          </div>
+          <span style={{fontSize:22,fontWeight:700,letterSpacing:'-0.3px'}}>AtmosFlow</span>
         </div>
 
         {/* Slide */}
