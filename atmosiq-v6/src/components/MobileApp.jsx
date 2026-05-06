@@ -1618,9 +1618,9 @@ export default function MobileApp() {
           })()}
 
           {/* ── Tier 1: primary action ── */}
-          <button onClick={startNew} style={{width:'100%',padding:'18px 20px',marginBottom:24,background:`${ACCENT}10`,border:`1px solid ${ACCENT}40`,borderRadius:14,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,fontFamily:'inherit',transition:'border-color 0.15s, background 0.15s',minHeight:64}}>
-            <div style={{width:44,height:44,borderRadius:11,background:`${ACCENT}18`,border:`1px solid ${ACCENT}30`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-              <I n="wind" s={20} c={ACCENT} w={2} />
+          <button onClick={startNew} style={{width:'100%',padding:'18px 20px',marginBottom:24,background:`${SUCCESS}10`,border:`1px solid ${SUCCESS}40`,borderRadius:14,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,fontFamily:'inherit',transition:'border-color 0.15s, background 0.15s',minHeight:64}}>
+            <div style={{width:44,height:44,borderRadius:11,background:`${SUCCESS}18`,border:`1px solid ${SUCCESS}30`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+              <I n="wind" s={20} c={SUCCESS} w={2} />
             </div>
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:16,fontWeight:700,color:TEXT,fontFamily:'inherit',letterSpacing:'-0.2px'}}>{userMode==='fm' ? 'New Air Quality Check' : 'New Assessment'}</div>
