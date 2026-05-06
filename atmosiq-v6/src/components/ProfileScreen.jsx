@@ -23,7 +23,7 @@ const SUB = '#8B93A5'
 const DIM = '#6B7380'
 const DANGER = '#EF4444'
 
-const CERT_OPTS = ['CIH','CIH-in-Training','CSP','CHMM','ACAC CIEC','ACAC CMC','ACAC CMI','NYSDOL Mold Assessor','State IH License','OSHA 30-Hour','Other']
+const CERT_OPTS = ['CIH','CIH-in-Training','CSP','CHMM','ACAC CIEC','ACAC CMC','ACAC CMI','Other']
 const EXP_OPTS = ['1–3 years','3–5 years','5–10 years','10–20 years','20+ years']
 // Instrument-related option lists are exported so the standalone
 // InstrumentEditView in MobileApp can reuse them without drift.
