@@ -23,7 +23,7 @@ export const I = ({ n, s=18, c='currentColor', w=1.8 }) => {
     bldg:     <svg {...p}><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22V12h6v10"/><line x1="8" y1="6" x2="8" y2="6.01" strokeWidth="2.5"/></svg>,
     chart:    <svg {...p}><path d="M18 20V10M12 20V4M6 20v-6"/></svg>,
     wind:     <svg {...p}><path d="M17.7 7.7A2.5 2.5 0 1119 10H2"/><path d="M9.6 4.6A2 2 0 1111 7H2"/><path d="M12.6 19.4A2 2 0 1014 17H2"/></svg>,
-    home:     <svg {...p}><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>,
+    home:     <svg {...p}><path d="M2 11L12 3L22 11Z"/><path d="M4 11v10h16V11"/><path d="M10 21v-6a1 1 0 011-1h2a1 1 0 011 1v6"/></svg>,
     clip:     <svg {...p}><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>,
     clock:    <svg {...p}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
     search:   <svg {...p}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
