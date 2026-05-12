@@ -273,6 +273,35 @@ Run tests after any change to `src/engine/`, `src/engines/`, `src/components/doc
   ACMT 2025)
 - Report generation without calibration verification
 
+## gstack
+
+This project uses [gstack](https://github.com/garrytan/gstack) for Claude
+Code slash commands (web browsing, review, ship, design, etc.).
+
+**Install (one-time, per machine):**
+
+```bash
+git clone --single-branch --depth 1 https://github.com/garrytan/gstack.git ~/.claude/skills/gstack
+cd ~/.claude/skills/gstack && ./setup
+```
+
+Requires `bun` and (on Windows) `node`.
+
+**Rules:**
+
+- Use the `/browse` skill from gstack for all web browsing.
+- Never use `mcp__claude-in-chrome__*` tools.
+
+**Available skills:**
+
+- `/office-hours`, `/plan-ceo-review`, `/plan-eng-review`, `/plan-design-review`, `/design-consultation`, `/design-shotgun`, `/design-html`
+- `/review`, `/ship`, `/land-and-deploy`, `/canary`, `/benchmark`
+- `/browse`, `/connect-chrome`
+- `/qa`, `/qa-only`, `/design-review`
+- `/setup-browser-cookies`, `/setup-deploy`, `/setup-gbrain`
+- `/retro`, `/investigate`, `/document-release`, `/codex`, `/cso`, `/autoplan`
+- `/plan-devex-review`, `/devex-review`, `/careful`, `/freeze`, `/guard`, `/unfreeze`, `/gstack-upgrade`, `/learn`
+
 ## When in doubt
 
 Ask. The author of this codebase is **Tsidi Tamakloe** (CSP, BCSP
