@@ -1638,31 +1638,16 @@ export default function MobileApp() {
           })()}
 
           {/* ── Tier 1: primary action ── */}
-          <button onClick={startNew} style={{width:'100%',padding:'18px 20px',marginBottom:24,background:`${mix('success', 6)}`,border:`1px solid ${mix('success', 25)}`,borderRadius:14,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,fontFamily:'inherit',transition:'border-color 0.15s, background 0.15s',minHeight:64}}>
-            <div style={{width:44,height:44,borderRadius:11,background:`${mix('success', 9)}`,border:`1px solid ${mix('success', 19)}`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-              <I n="wind" s={20} c={SUCCESS} w={2} />
-            </div>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:16,fontWeight:700,color:TEXT,fontFamily:'inherit',letterSpacing:'-0.2px'}}>{userMode==='fm' ? 'New Air Quality Check' : 'New Assessment'}</div>
-              {/* Caption removed in billing-architecture Phase 1.
-                  Returning users don't need a pricing reminder
-                  inside the product — the price was paid at
-                  subscription time. */}
-            </div>
+          <button onClick={startNew} style={{width:'100%',padding:'18px 24px',marginBottom:16,background:ACCENT,border:'none',borderRadius:12,cursor:'pointer',textAlign:'center',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'inherit',transition:'opacity 0.15s',minHeight:60}}>
+            <div style={{fontSize:16,fontWeight:700,color:ON_ACCENT,fontFamily:'inherit',letterSpacing:'-0.2px'}}>{userMode==='fm' ? 'Start Air Quality Check' : 'Start Assessment'}</div>
           </button>
 
           {/* ── Tier 1b: incident response ── */}
-          {/* Sibling to "New Assessment." WARN-colored (amber) so it
-              reads as urgent without being alarming. Documentation
-              flow — no scoring, no calibration gate, no engine path. */}
-          <button onClick={()=>setView('incident-form')} style={{width:'100%',padding:'16px 20px',marginBottom:24,background:`${WARN}10`,border:`1px solid ${WARN}40`,borderRadius:14,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,fontFamily:'inherit',transition:'border-color 0.15s, background 0.15s',minHeight:60}}>
-            <div style={{width:40,height:40,borderRadius:10,background:`${WARN}18`,border:`1px solid ${WARN}30`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-              <I n="alert" s={18} c={WARN} w={2} />
-            </div>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:15,fontWeight:700,color:TEXT,fontFamily:'inherit',letterSpacing:'-0.2px'}}>Report an incident</div>
-              <div style={{fontSize:11,color:SUB,marginTop:2}}>Fast capture for an indoor air event — no full assessment required</div>
-            </div>
+          {/* Sibling to "Start Assessment." Matches the primary CTA
+              styling per design — documentation flow, no scoring,
+              no calibration gate, no engine path. */}
+          <button onClick={()=>setView('incident-form')} style={{width:'100%',padding:'18px 24px',marginBottom:24,background:ACCENT,border:'none',borderRadius:12,cursor:'pointer',textAlign:'center',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'inherit',transition:'opacity 0.15s',minHeight:60}}>
+            <div style={{fontSize:16,fontWeight:700,color:ON_ACCENT,fontFamily:'inherit',letterSpacing:'-0.2px'}}>Report an incident</div>
           </button>
 
           {/* ── Tier 2 Group A: Workspace ── */}
