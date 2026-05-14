@@ -16,8 +16,10 @@ import App from './App'
 import ErrorBoundary from './components/ErrorBoundary'
 import EarlyAccessPage from './components/EarlyAccessPage'
 import { initSentryClient } from '../lib/sentry-client'
+import { bootTheme } from './utils/theme'
 
 initSentryClient()
+bootTheme()
 
 const isEarlyAccess = window.location.pathname === '/early-access'
 

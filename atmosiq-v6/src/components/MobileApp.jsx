@@ -64,6 +64,7 @@ import { FAQ_SECTIONS } from '../constants/faq'
 import { useAssessment } from '../contexts/AssessmentContext.jsx'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import { useStorage } from '../contexts/StorageContext.jsx'
+import { useTheme } from '../utils/theme'
 
 const haptic = (type) => { try { if (navigator.vibrate) navigator.vibrate(type === 'heavy' ? [30,20,30] : type === 'success' ? [10,30,10,30,10] : 12) } catch {} }
 const BETA_MODE = true // Set to false when ready to go live — re-enables all premium gates
@@ -74,18 +75,28 @@ const sv = sev => ({critical:{c:'#EF4444',bg:'#EF444418',l:'CRITICAL'},high:{c:'
 const badge = (risk,rc) => <span style={{padding:'6px 16px',background:`${rc}18`,border:`1px solid ${rc}35`,borderRadius:20,fontSize:13,fontWeight:700,color:rc}}>{risk}</span>
 
 // ─── Design Tokens ───
-const BG = '#07080C'
-const SURFACE = '#0D0E14'
-const CARD = '#111318'
-const BORDER = '#1C1E26'
-const ACCENT = '#22D3EE'
-const ACCENT_DIM = '#1A8FA0'
-const TEXT = '#ECEEF2'
-const SUB = '#8B93A5'
-const DIM = '#6B7380'
-const SUCCESS = '#22C55E'
-const WARN = '#FBBF24'
-const DANGER = '#EF4444'
+// CSS-variable references defined in index.html. Default is the dark
+// palette; [data-theme="light"] on <html> overrides to light. Toggle
+// via src/utils/theme.js — set in Settings → Theme or the header kebab.
+const BG = 'var(--bg)'
+const SURFACE = 'var(--surface)'
+const CARD = 'var(--card)'
+const BORDER = 'var(--border)'
+const ACCENT = 'var(--accent)'
+const ACCENT_DIM = 'var(--accent-dim)'
+const TEXT = 'var(--text)'
+const SUB = 'var(--sub)'
+const DIM = 'var(--dim)'
+const SUCCESS = 'var(--success)'
+const WARN = 'var(--warn)'
+const DANGER = 'var(--danger)'
+const ON_ACCENT = 'var(--on-accent)'
+
+// Legacy `${TOKEN}HEX_ALPHA` template-string trick relied on TOKEN being
+// a literal hex string. With var(--…) references it produces invalid
+// CSS, so we rewrite those sites to color-mix. Supported on
+// Safari 16.2+ / Chrome 111+ / Firefox 113+ — within the iOS-PWA target.
+const mix = (name, pct) => `color-mix(in srgb, var(--${name}) ${pct}%, transparent)`
 
 // In-app FAQ — same FAQ_SECTIONS data as the public landing page so the
 // public answer and the in-app answer cannot drift apart. One question
@@ -153,7 +164,7 @@ function InstrumentEditView({ profile, onSave, onCancel }) {
   const lbl = { fontSize:13,fontWeight:600,color:SUB,marginBottom:6,display:'block',letterSpacing:'0.1px' }
 
   const Radio = ({ selected, label, onClick }) => (
-    <button onClick={onClick} style={{width:'100%',padding:'10px 14px',textAlign:'left',background:selected?`${ACCENT}08`:'transparent',border:`1px solid ${selected?`${ACCENT}30`:BORDER}`,borderRadius:8,color:selected?TEXT:SUB,fontSize:13,fontWeight:selected?600:500,cursor:'pointer',fontFamily:'inherit',minHeight:38,transition:'all 0.15s',marginBottom:4}}>{label}</button>
+    <button onClick={onClick} style={{width:'100%',padding:'10px 14px',textAlign:'left',background:selected?`${mix('accent', 3)}`:'transparent',border:`1px solid ${selected?`${mix('accent', 19)}`:BORDER}`,borderRadius:8,color:selected?TEXT:SUB,fontSize:13,fontWeight:selected?600:500,cursor:'pointer',fontFamily:'inherit',minHeight:38,transition:'all 0.15s',marginBottom:4}}>{label}</button>
   )
 
   const handleSave = async () => {
@@ -240,7 +251,7 @@ function InstrumentEditView({ profile, onSave, onCancel }) {
 
       <div style={{display:'flex',gap:8}}>
         <button onClick={onCancel} disabled={saving} style={{flex:0,padding:'14px 20px',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:8,color:SUB,fontSize:14,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>Cancel</button>
-        <button onClick={handleSave} disabled={saving || !profile?.id} style={{flex:1,padding:'14px 0',background:ACCENT,border:'none',borderRadius:8,color:BG,fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:48,letterSpacing:'-0.1px',opacity:saving?0.6:1}}>{saving ? 'Saving…' : 'Save'}</button>
+        <button onClick={handleSave} disabled={saving || !profile?.id} style={{flex:1,padding:'14px 0',background:ACCENT,border:'none',borderRadius:8,color:ON_ACCENT,fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:48,letterSpacing:'-0.1px',opacity:saving?0.6:1}}>{saving ? 'Saving…' : 'Save'}</button>
       </div>
     </div>
   )
@@ -251,6 +262,10 @@ export default function MobileApp() {
   // Responsive layout: phone=620, tablet portrait=860, tablet landscape=1080
   const contentMax = isTabletLand ? 1080 : isTablet ? 860 : 620
   const padX = isTablet ? 28 : 20
+
+  // Theme quick-toggle for the kebab menu. Default is dark; this lets
+  // users flip light/dark in one tap without opening Settings.
+  const { mode: themeMode, toggle: toggleThemeMode } = useTheme()
 
   // ── Shared state from context providers ──
   // Auth: profile/credits/admin live in AuthContext so other route components
@@ -836,10 +851,10 @@ export default function MobileApp() {
           </div>
         </div>
         <div style={{display:'flex',gap:6,marginBottom:24,flexWrap:'wrap'}}>
-          {secs.map((s,i)=><span key={s} style={{padding:'8px 16px',borderRadius:20,fontSize:12,fontWeight:600,fontFamily:"var(--font-mono)",minHeight:36,display:'inline-flex',alignItems:'center',background:i===secIdx?`${ACCENT}15`:'transparent',color:i===secIdx?ACCENT:i<secIdx?SUB:DIM,border:`1px solid ${i===secIdx?ACCENT+'30':'transparent'}`}}>{s}</span>)}
+          {secs.map((s,i)=><span key={s} style={{padding:'8px 16px',borderRadius:20,fontSize:12,fontWeight:600,fontFamily:"var(--font-mono)",minHeight:36,display:'inline-flex',alignItems:'center',background:i===secIdx?`${mix('accent', 8)}`:'transparent',color:i===secIdx?ACCENT:i<secIdx?SUB:DIM,border:`1px solid ${i===secIdx?mix('accent', 19):'transparent'}`}}>{s}</span>)}
         </div>
         <div key={q.id+'-'+curZone} style={{animation:'fadeUp .4s cubic-bezier(.22,1,.36,1)'}}>
-          <div style={{width:48,height:48,borderRadius:12,background:`${ACCENT}08`,border:`1px solid ${ACCENT}15`,display:'flex',alignItems:'center',justifyContent:'center',marginBottom:16}}>{emojiToIcon[q.ic] ? <I n={emojiToIcon[q.ic]} s={22} c={ACCENT} w={1.6} /> : <span style={{fontSize:22}}>{q.ic}</span>}</div>
+          <div style={{width:48,height:48,borderRadius:12,background:`${mix('accent', 3)}`,border:`1px solid ${mix('accent', 8)}`,display:'flex',alignItems:'center',justifyContent:'center',marginBottom:16}}>{emojiToIcon[q.ic] ? <I n={emojiToIcon[q.ic]} s={22} c={ACCENT} w={1.6} /> : <span style={{fontSize:22}}>{q.ic}</span>}</div>
           <h2 style={{fontSize:26,fontWeight:700,lineHeight:1.3,margin:0,marginBottom:10,letterSpacing:'-0.3px',color:TEXT}}>{q.q}</h2>
           {q.ref&&<div style={{display:'inline-flex',gap:7,padding:'8px 14px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,marginBottom:20,marginTop:6}}><span style={{fontSize:13,color:SUB,fontFamily:"var(--font-mono)",lineHeight:1.4}}>{q.ref}</span></div>}
           {!q.ref&&<div style={{height:16}} />}
@@ -849,10 +864,10 @@ export default function MobileApp() {
           {q.t==='date'&&<input type="date" value={data[q.id]||''} onChange={e=>setField(q.id,e.target.value)} style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:17,fontFamily:'inherit',outline:'none',boxSizing:'border-box',colorScheme:'dark'}} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />}
           {q.t==='time'&&<TimePickerInput value={data[q.id]||''} onChange={v=>setField(q.id,v)} placeholder={q.ph||'Select time…'} />}
           {q.t==='ta'&&<textarea value={data[q.id]||''} onChange={e=>setField(q.id,e.target.value)} placeholder={q.ph||'Notes...'} rows={3} style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:'inherit',outline:'none',resize:'vertical',boxSizing:'border-box'}} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />}
-          {q.t==='ch'&&q.opts&&<div style={{display:'flex',flexDirection:'column',gap:8}}>{q.opts.map((o,i)=>{const stMap=q._subtypeMap;const storedVal=stMap?stMap.find(st=>st.label===o)?.id||o:o;const sel=stMap?(data[q.id]===storedVal):(data[q.id]===o||(o==='Other'&&data[q.id]&&!q.opts.slice(0,-1).includes(data[q.id])));const locked=isPremiumOpt(q,o)&&!isEnterprise(profile);return(<button key={o} onClick={()=>{if(locked){haptic('light');setShowPremiumGate(true);return}haptic('light');if(o==='Other'){setField(q.id,'Other')}else{setField(q.id,storedVal);setTimeout(goNext,250)}}} style={{padding:'16px 20px',textAlign:'left',background:sel?`${ACCENT}12`:locked?`${CARD}`:`${CARD}`,border:`1.5px solid ${sel?ACCENT:BORDER}`,borderRadius:14,color:sel?ACCENT:locked?DIM:'#E2E8F0',fontSize:16,fontFamily:'inherit',fontWeight:500,cursor:'pointer',display:'flex',alignItems:'center',gap:14,minHeight:54,animation:`fadeUp .3s ${i*.04}s cubic-bezier(.22,1,.36,1) both`}}><div style={{width:24,height:24,borderRadius:'50%',border:`2px solid ${sel?ACCENT:'#2A3040'}`,background:sel?ACCENT:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{sel&&<I n="check" s={12} c={BG} />}</div><span style={{flex:1}}>{o}</span>{locked&&<span style={{fontSize:9,fontWeight:700,padding:'2px 8px',borderRadius:4,background:'#F9731615',color:'#F97316',letterSpacing:'0.3px'}}>PREMIUM</span>}</button>)})}
+          {q.t==='ch'&&q.opts&&<div style={{display:'flex',flexDirection:'column',gap:8}}>{q.opts.map((o,i)=>{const stMap=q._subtypeMap;const storedVal=stMap?stMap.find(st=>st.label===o)?.id||o:o;const sel=stMap?(data[q.id]===storedVal):(data[q.id]===o||(o==='Other'&&data[q.id]&&!q.opts.slice(0,-1).includes(data[q.id])));const locked=isPremiumOpt(q,o)&&!isEnterprise(profile);return(<button key={o} onClick={()=>{if(locked){haptic('light');setShowPremiumGate(true);return}haptic('light');if(o==='Other'){setField(q.id,'Other')}else{setField(q.id,storedVal);setTimeout(goNext,250)}}} style={{padding:'16px 20px',textAlign:'left',background:sel?`${mix('accent', 7)}`:locked?`${CARD}`:`${CARD}`,border:`1.5px solid ${sel?ACCENT:BORDER}`,borderRadius:14,color:sel?ACCENT:locked?DIM:'#E2E8F0',fontSize:16,fontFamily:'inherit',fontWeight:500,cursor:'pointer',display:'flex',alignItems:'center',gap:14,minHeight:54,animation:`fadeUp .3s ${i*.04}s cubic-bezier(.22,1,.36,1) both`}}><div style={{width:24,height:24,borderRadius:'50%',border:`2px solid ${sel?ACCENT:'#2A3040'}`,background:sel?ACCENT:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{sel&&<I n="check" s={12} c={ON_ACCENT} />}</div><span style={{flex:1}}>{o}</span>{locked&&<span style={{fontSize:9,fontWeight:700,padding:'2px 8px',borderRadius:4,background:'#F9731615',color:'#F97316',letterSpacing:'0.3px'}}>PREMIUM</span>}</button>)})}
             {q.other&&data[q.id]&&(data[q.id]==='Other'||!q.opts.slice(0,-1).includes(data[q.id]))&&<input type="text" value={data[q.id]==='Other'?'':data[q.id]} onChange={e=>setField(q.id,e.target.value||'Other')} placeholder="Describe space use..." autoFocus style={{width:'100%',padding:'16px 20px',background:CARD,border:`1.5px solid ${ACCENT}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:'inherit',outline:'none',boxSizing:'border-box',marginTop:4}} />}
           </div>}
-          {q.t==='multi'&&q.opts&&<div style={{display:'flex',flexWrap:'wrap',gap:8}}>{q.opts.map((o,i)=>{const arr=data[q.id]||[],sel=arr.includes(o);return(<button key={o} onClick={()=>setField(q.id,sel?arr.filter(x=>x!==o):[...arr,o])} style={{padding:'12px 18px',borderRadius:24,background:sel?`${ACCENT}15`:CARD,border:`1.5px solid ${sel?ACCENT:BORDER}`,color:sel?ACCENT:'#C8D0DC',fontSize:14,fontFamily:'inherit',fontWeight:500,cursor:'pointer',minHeight:44,animation:`fadeUp .25s ${i*.03}s cubic-bezier(.22,1,.36,1) both`}}>{sel?'✓ ':''}{o}</button>)})}</div>}
+          {q.t==='multi'&&q.opts&&<div style={{display:'flex',flexWrap:'wrap',gap:8}}>{q.opts.map((o,i)=>{const arr=data[q.id]||[],sel=arr.includes(o);return(<button key={o} onClick={()=>setField(q.id,sel?arr.filter(x=>x!==o):[...arr,o])} style={{padding:'12px 18px',borderRadius:24,background:sel?`${mix('accent', 8)}`:CARD,border:`1.5px solid ${sel?ACCENT:BORDER}`,color:sel?ACCENT:'#C8D0DC',fontSize:14,fontFamily:'inherit',fontWeight:500,cursor:'pointer',minHeight:44,animation:`fadeUp .25s ${i*.03}s cubic-bezier(.22,1,.36,1) both`}}>{sel?'✓ ':''}{o}</button>)})}</div>}
           {q.t==='combo'&&q.opts&&(()=>{const otherOpts=q.opts.filter(o=>o!=='Other');const isOther=(data[q.id]||'')==='__other__'||((data[q.id]||'')&&!otherOpts.includes(data[q.id]));return(<div><select value={isOther?'__other__':(data[q.id]||'')} onChange={e=>setField(q.id,e.target.value)} style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:'inherit',outline:'none',boxSizing:'border-box',appearance:'auto'}}><option value="">Select or skip...</option>{otherOpts.map(o=><option key={o} value={o}>{o}</option>)}<option value="__other__">Other</option></select>{isOther&&<input type="text" value={data[q.id]==='__other__'?'':data[q.id]} onChange={e=>setField(q.id,e.target.value||'__other__')} placeholder="Type here..." autoFocus style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${ACCENT}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:'inherit',outline:'none',boxSizing:'border-box',marginTop:8}} />}</div>)})()}
           {q.t==='sensors'&&<SensorScreen data={data} onChange={setField} isDesktop={false} />}
           {q.photo&&<PhotoCapture photos={photos[`z${curZone}-${q.id}`]||[]} onAdd={p=>setPhotos(prev=>({...prev,[`z${curZone}-${q.id}`]:[...(prev[`z${curZone}-${q.id}`]||[]),p]}))} onRemove={i=>setPhotos(prev=>({...prev,[`z${curZone}-${q.id}`]:(prev[`z${curZone}-${q.id}`]||[]).filter((_,j)=>j!==i)}))} />}
@@ -920,7 +935,7 @@ export default function MobileApp() {
             </div>}
             <div style={{flex:1,minWidth:0}}>
               <span style={{padding:'3px 8px',borderRadius:4,fontSize:9,fontWeight:700,background:`${comp.rc}12`,color:comp.rc,textTransform:'uppercase',letterSpacing:'0.5px'}}>{comp.risk}</span>
-              {measConf&&<span style={{padding:'3px 8px',borderRadius:4,fontSize:9,fontWeight:600,background:measConf.overall==='High'?`${SUCCESS}12`:measConf.overall==='Low'?`${WARN}12`:`${DIM}15`,color:measConf.overall==='High'?SUCCESS:measConf.overall==='Low'?WARN:SUB,marginLeft:6,letterSpacing:'0.3px'}}>{measConf.overall} Confidence</span>}
+              {measConf&&<span style={{padding:'3px 8px',borderRadius:4,fontSize:9,fontWeight:600,background:measConf.overall==='High'?`${mix('success', 7)}`:measConf.overall==='Low'?`${mix('warn', 7)}`:`${mix('dim', 8)}`,color:measConf.overall==='High'?SUCCESS:measConf.overall==='Low'?WARN:SUB,marginLeft:6,letterSpacing:'0.3px'}}>{measConf.overall} Confidence</span>}
               <div style={{fontSize:13,fontWeight:600,color:TEXT,marginTop:6,lineHeight:1.4}}>{riskLabel}</div>
               <div style={{fontSize:11,color:SUB,marginTop:3,lineHeight:1.4}}>{actionLabel}</div>
             </div>
@@ -977,7 +992,7 @@ export default function MobileApp() {
 
         {/* ── Instrument Data prompt ── */}
         {!archived && (!presurvey.ps_inst_iaq || !presurvey.ps_inst_iaq_serial || !presurvey.ps_inst_iaq_cal) && (
-          <button onClick={()=>{setDqi(Q_DETAILS.findIndex(q=>q.id==='ps_inst_iaq'));setView('details')}} style={{width:'100%',padding:'12px 16px',background:`${WARN}08`,border:`1px solid ${WARN}20`,borderRadius:10,marginBottom:8,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit'}}>
+          <button onClick={()=>{setDqi(Q_DETAILS.findIndex(q=>q.id==='ps_inst_iaq'));setView('details')}} style={{width:'100%',padding:'12px 16px',background:`${mix('warn', 3)}`,border:`1px solid ${mix('warn', 13)}`,borderRadius:10,marginBottom:8,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit'}}>
             <I n="alert" s={16} c={WARN} />
             <div style={{flex:1}}><span style={{fontSize:12,fontWeight:600,color:WARN}}>Add instrument data</span><span style={{fontSize:10,color:DIM,marginLeft:8}}>Required for defensible reports</span></div>
             <span style={{fontSize:13,color:WARN}}>→</span>
@@ -986,7 +1001,7 @@ export default function MobileApp() {
 
         {/* ── Assessment Details prompt ── */}
         {!archived && detailsFilled < 5 && (
-          <button onClick={()=>{setDqi(0);setView('details')}} style={{width:'100%',padding:'12px 16px',background:`${WARN}08`,border:`1px solid ${WARN}20`,borderRadius:10,marginBottom:12,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit'}}>
+          <button onClick={()=>{setDqi(0);setView('details')}} style={{width:'100%',padding:'12px 16px',background:`${mix('warn', 3)}`,border:`1px solid ${mix('warn', 13)}`,borderRadius:10,marginBottom:12,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit'}}>
             <I n="clip" s={16} c={WARN} />
             <div style={{flex:1}}><span style={{fontSize:12,fontWeight:600,color:WARN}}>Add assessment details</span><span style={{fontSize:10,color:DIM,marginLeft:8}}>Strengthens defensibility</span></div>
             <span style={{fontSize:13,color:WARN}}>→</span>
@@ -1010,7 +1025,7 @@ export default function MobileApp() {
           {zoneScores.map((z,i) => (
             <button key={i} onClick={()=>setSelZone(i)} style={{padding:'8px 12px',borderRadius:7,border:'none',background:selZone===i?`${z.rc}12`:'transparent',color:selZone===i?TEXT:DIM,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap',flexShrink:0,minHeight:36,display:'flex',alignItems:'center',gap:8}}>
               <span>{z.zoneName}</span>
-              <span style={{padding:'2px 6px',borderRadius:4,fontSize:10,fontWeight:700,fontFamily:"var(--font-mono)",background:selZone===i?`${z.rc}20`:`${DIM}15`,color:selZone===i?z.rc:DIM}}>{z.tot}</span>
+              <span style={{padding:'2px 6px',borderRadius:4,fontSize:10,fontWeight:700,fontFamily:"var(--font-mono)",background:selZone===i?`${z.rc}20`:`${mix('dim', 8)}`,color:selZone===i?z.rc:DIM}}>{z.tot}</span>
             </button>
           ))}
         </div>}
@@ -1110,7 +1125,7 @@ export default function MobileApp() {
               <div key={i} style={{marginBottom:i<moldResults.length-1?12:0}}>
                 <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:3,flexWrap:'wrap'}}>
                   <div style={{color:moldColor,fontWeight:700,fontSize:13,lineHeight:1.4}}>{m.label}</div>
-                  {m.investigationTriggered&&<span style={{padding:'2px 8px',background:`${WARN}15`,border:`1px solid ${WARN}30`,borderRadius:4,fontSize:10,fontWeight:700,color:WARN,letterSpacing:'0.3px'}}>Investigation triggered</span>}
+                  {m.investigationTriggered&&<span style={{padding:'2px 8px',background:`${mix('warn', 8)}`,border:`1px solid ${mix('warn', 19)}`,borderRadius:4,fontSize:10,fontWeight:700,color:WARN,letterSpacing:'0.3px'}}>Investigation triggered</span>}
                 </div>
                 <div style={{color:SUB,fontSize:13,lineHeight:1.6}}>{m.visual}</div>
               </div>
@@ -1212,7 +1227,7 @@ export default function MobileApp() {
             <div style={{fontSize:15,fontWeight:600,marginTop:14,marginBottom:4,color:TEXT}}>Findings Narrative</div>
             <div style={{fontSize:12,color:SUB,lineHeight:1.6,marginBottom:6}}>Generate a professional findings narrative from your assessment data.</div>
             <div style={{fontSize:10,color:DIM,lineHeight:1.5,marginBottom:20}}>Output is generated from deterministic scoring results — not from raw AI interpretation. You review and approve before delivery.</div>
-            <button onClick={requestNarrative} style={{padding:'12px 28px',background:ACCENT,border:'none',borderRadius:8,color:BG,fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>Generate Narrative</button>
+            <button onClick={requestNarrative} style={{padding:'12px 28px',background:ACCENT,border:'none',borderRadius:8,color:ON_ACCENT,fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>Generate Narrative</button>
             <div style={{fontSize:9,color:DIM,marginTop:10}}>Costs 3 credits</div>
           </div>}
           {narrativeLoading&&<div style={{padding:44,textAlign:'center',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10}}><div style={{width:36,height:36,margin:'0 auto 14px',borderRadius:'50%',border:'2px solid transparent',borderTopColor:ACCENT,animation:'spin 1s linear infinite'}} /><div style={{fontSize:12,color:SUB}}>Generating narrative from assessment data...</div></div>}
@@ -1222,7 +1237,7 @@ export default function MobileApp() {
               <span style={{fontSize:11,color:DIM,fontWeight:500}}>AI-generated · Review required</span>
             </div>
             <div style={{fontSize:13,color:SUB,lineHeight:1.8,whiteSpace:'pre-wrap'}}>{narrative}</div>
-            <div style={{marginTop:14,padding:'10px 12px',background:`${WARN}08`,border:`1px solid ${WARN}18`,borderRadius:10}}>
+            <div style={{marginTop:14,padding:'10px 12px',background:`${mix('warn', 3)}`,border:`1px solid ${mix('warn', 9)}`,borderRadius:10}}>
               <div style={{fontSize:11,color:WARN,fontWeight:600,marginBottom:3}}>Professional review required</div>
               <div style={{fontSize:11,color:DIM,lineHeight:1.5}}>This narrative was generated from deterministic scoring output. Review, edit, and approve before including in any client deliverable or report.</div>
             </div>
@@ -1274,11 +1289,11 @@ export default function MobileApp() {
             })}
           </div>)})}
           <div style={{display:'flex',gap:10,marginTop:8}}>
-            <button onClick={()=>handleExport('pdf')} style={{flex:1,padding:'14px 20px',background:`${ACCENT}12`,border:`1px solid ${ACCENT}30`,borderRadius:12,color:ACCENT,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:48,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="download" s={16} c={ACCENT} /> PDF</button>
-            <button onClick={()=>setDocxPicker(true)} style={{flex:1,padding:'14px 20px',background:`${ACCENT}12`,border:`1px solid ${ACCENT}30`,borderRadius:12,color:ACCENT,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:48,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="notes" s={16} c={ACCENT} /> Word</button>
+            <button onClick={()=>handleExport('pdf')} style={{flex:1,padding:'14px 20px',background:`${mix('accent', 7)}`,border:`1px solid ${mix('accent', 19)}`,borderRadius:12,color:ACCENT,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:48,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="download" s={16} c={ACCENT} /> PDF</button>
+            <button onClick={()=>setDocxPicker(true)} style={{flex:1,padding:'14px 20px',background:`${mix('accent', 7)}`,border:`1px solid ${mix('accent', 19)}`,borderRadius:12,color:ACCENT,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:48,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="notes" s={16} c={ACCENT} /> Word</button>
             <button onClick={handleShare} style={{flex:1,padding:'14px 20px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,color:SUB,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:48,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="send" s={16} c={SUB} /> Share</button>
           </div>
-          <button onClick={()=>setView('spatial')} style={{padding:'14px 20px',background:`${ACCENT}06`,border:`1px solid ${ACCENT}18`,borderRadius:12,color:ACCENT,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit',marginTop:8,minHeight:48,width:'100%',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="bldg" s={16} c={ACCENT} /> Map Zones on Floor Plan</button>
+          <button onClick={()=>setView('spatial')} style={{padding:'14px 20px',background:`${mix('accent', 2)}`,border:`1px solid ${mix('accent', 9)}`,borderRadius:12,color:ACCENT,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit',marginTop:8,minHeight:48,width:'100%',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="bldg" s={16} c={ACCENT} /> Map Zones on Floor Plan</button>
           {!archived&&<button onClick={startNew} style={{padding:'14px 20px',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:12,color:SUB,fontSize:15,cursor:'pointer',fontFamily:'inherit',marginTop:8,minHeight:48,width:'100%'}}>New Assessment</button>}
         </div>}
       </div>
@@ -1301,7 +1316,7 @@ export default function MobileApp() {
               <div style={{fontSize:15,fontWeight:600,color:TEXT}}>{t.name||'Untitled'}</div>
               <div style={{fontSize:12,color:DIM,fontFamily:"var(--font-mono)",marginTop:4}}>Deleted {fD(t.deletedAt)} · Expires {fD(t.expiresAt)}</div>
             </div>
-            <button onClick={async()=>{await onRecover(t.id);setItems(await Backup.listTrash())}} style={{padding:'10px 16px',background:`${ACCENT}15`,border:`1px solid ${ACCENT}30`,borderRadius:10,color:ACCENT,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>Recover</button>
+            <button onClick={async()=>{await onRecover(t.id);setItems(await Backup.listTrash())}} style={{padding:'10px 16px',background:`${mix('accent', 8)}`,border:`1px solid ${mix('accent', 19)}`,borderRadius:10,color:ACCENT,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>Recover</button>
             <button onClick={async()=>{await onDelete(t.id);setItems(await Backup.listTrash())}} style={{padding:'10px 14px',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:10,color:DIM,fontSize:13,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>✕</button>
           </div>
         ))}
@@ -1317,22 +1332,22 @@ export default function MobileApp() {
 
   return (
     <div style={{minHeight:'100vh',background:BG,color:TEXT,fontFamily:"'inherit', system-ui, sans-serif"}}>
-      <header style={{position:'fixed',top:0,left:0,right:0,zIndex:100,background:`${BG}F2`,backdropFilter:'blur(24px) saturate(1.4)',WebkitBackdropFilter:'blur(24px) saturate(1.4)',borderBottom:`1px solid ${BORDER}`,paddingTop:'env(safe-area-inset-top, 0px)'}}>
+      <header style={{position:'fixed',top:0,left:0,right:0,zIndex:100,background:`${mix('bg', 95)}`,backdropFilter:'blur(24px) saturate(1.4)',WebkitBackdropFilter:'blur(24px) saturate(1.4)',borderBottom:`1px solid ${BORDER}`,paddingTop:'env(safe-area-inset-top, 0px)'}}>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',height:48,padding:`0 ${padX}px`,maxWidth:contentMax,margin:'0 auto'}}>
           <div style={{display:'flex',alignItems:'center'}}>
             <span style={{fontSize:15,fontWeight:700,letterSpacing:'-0.3px',color:TEXT}}>AtmosFlow</span>
           </div>
           <div style={{display:'flex',alignItems:'center',gap:8}}>
-            {isAssessing&&<span style={{fontSize:10,color:ACCENT,fontFamily:"var(--font-mono)",background:`${ACCENT}0A`,padding:'3px 10px',borderRadius:4,border:`1px solid ${ACCENT}20`,letterSpacing:'0.5px'}}>SAVING</span>}
+            {isAssessing&&<span style={{fontSize:10,color:ACCENT,fontFamily:"var(--font-mono)",background:`${mix('accent', 4)}`,padding:'3px 10px',borderRadius:4,border:`1px solid ${mix('accent', 13)}`,letterSpacing:'0.5px'}}>SAVING</span>}
             {view!=='dash'&&view!=='drafts'&&view!=='history'&&view!=='settings'&&view!=='trash'&&view!=='tos'&&view!=='privacy'&&view!=='help'&&view!=='instrument-edit'&&<button onClick={()=>{setView('dash');setViewRpt(null)}} style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:8,color:SUB,fontSize:13,fontWeight:600,padding:'7px 14px',cursor:'pointer',fontFamily:'inherit',minHeight:36,transition:'color 0.15s'}}>← Home</button>}
           </div>
         </div>
       </header>
       <div style={{height:'calc(48px + env(safe-area-inset-top, 0px))'}} />
 
-      {milestone&&<div style={{position:'fixed',inset:0,background:`${BG}F0`,zIndex:300,display:'flex',alignItems:'center',justifyContent:'center',padding:'0 32px'}}><div style={{textAlign:'center',animation:'milestoneIn .5s cubic-bezier(.22,1,.36,1)'}}><div style={{marginBottom:20,display:'flex',justifyContent:'center'}}><div style={{width:80,height:80,borderRadius:22,background:`${ACCENT}12`,border:`1.5px solid ${ACCENT}30`,display:'flex',alignItems:'center',justifyContent:'center'}}><I n={milestone.icon} s={40} c={ACCENT} w={2} /></div></div><div style={{fontSize:26,fontWeight:800,letterSpacing:'-0.5px',color:TEXT}}>{milestone.title}</div><div style={{fontSize:15,color:ACCENT,fontFamily:"var(--font-mono)",marginTop:10}}>{milestone.sub}</div></div></div>}
+      {milestone&&<div style={{position:'fixed',inset:0,background:`${mix('bg', 94)}`,zIndex:300,display:'flex',alignItems:'center',justifyContent:'center',padding:'0 32px'}}><div style={{textAlign:'center',animation:'milestoneIn .5s cubic-bezier(.22,1,.36,1)'}}><div style={{marginBottom:20,display:'flex',justifyContent:'center'}}><div style={{width:80,height:80,borderRadius:22,background:`${mix('accent', 7)}`,border:`1.5px solid ${mix('accent', 19)}`,display:'flex',alignItems:'center',justifyContent:'center'}}><I n={milestone.icon} s={40} c={ACCENT} w={2} /></div></div><div style={{fontSize:26,fontWeight:800,letterSpacing:'-0.5px',color:TEXT}}>{milestone.title}</div><div style={{fontSize:15,color:ACCENT,fontFamily:"var(--font-mono)",marginTop:10}}>{milestone.sub}</div></div></div>}
 
-      {zonePrompt&&<div style={{position:'fixed',inset:0,background:'#000000CC',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',padding:24}}><div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:18,padding:28,maxWidth:340,width:'100%',animation:'fadeUp .3s ease'}}><div style={{fontSize:18,fontWeight:700,marginBottom:8,color:TEXT}}>Zone Complete</div><div style={{fontSize:14,color:SUB,marginBottom:24,lineHeight:1.6}}>Add another zone to this assessment?</div><div style={{display:'flex',flexDirection:'column',gap:10}}><button onClick={()=>{trackEvent('zone_added',{zone_index:zones.length});setZonePrompt(false);setZones(p=>[...p,{}]);setCurZone(zones.length);setZqi(0)}} style={{padding:'16px 0',background:`${ACCENT}12`,border:`1px solid ${ACCENT}30`,borderRadius:12,color:ACCENT,fontSize:16,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:52}}>+ Add Another Zone</button><button onClick={()=>{setZonePrompt(false);finishAssessment()}} style={{padding:'16px 0',background:'linear-gradient(135deg,#059669,#22C55E)',border:'none',borderRadius:12,color:'#fff',fontSize:16,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:52}}>Finish Assessment ✓</button></div></div></div>}
+      {zonePrompt&&<div style={{position:'fixed',inset:0,background:'#000000CC',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',padding:24}}><div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:18,padding:28,maxWidth:340,width:'100%',animation:'fadeUp .3s ease'}}><div style={{fontSize:18,fontWeight:700,marginBottom:8,color:TEXT}}>Zone Complete</div><div style={{fontSize:14,color:SUB,marginBottom:24,lineHeight:1.6}}>Add another zone to this assessment?</div><div style={{display:'flex',flexDirection:'column',gap:10}}><button onClick={()=>{trackEvent('zone_added',{zone_index:zones.length});setZonePrompt(false);setZones(p=>[...p,{}]);setCurZone(zones.length);setZqi(0)}} style={{padding:'16px 0',background:`${mix('accent', 7)}`,border:`1px solid ${mix('accent', 19)}`,borderRadius:12,color:ACCENT,fontSize:16,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:52}}>+ Add Another Zone</button><button onClick={()=>{setZonePrompt(false);finishAssessment()}} style={{padding:'16px 0',background:'linear-gradient(135deg,#059669,#22C55E)',border:'none',borderRadius:12,color:'#fff',fontSize:16,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:52}}>Finish Assessment ✓</button></div></div></div>}
 
       {/* ── Connection Toast ── */}
       {connectionToast && (
@@ -1374,7 +1389,7 @@ export default function MobileApp() {
 
           <div style={{display:'flex',gap:10,marginTop:20}}>
             <button onClick={()=>setShowDisclaimer(false)} style={{flex:0,padding:'12px 20px',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:8,color:SUB,fontSize:13,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>Cancel</button>
-            <button onClick={proceedAfterDisclaimer} style={{flex:1,padding:'12px 20px',background:ACCENT,border:'none',borderRadius:8,color:BG,fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>I Understand — Begin Assessment</button>
+            <button onClick={proceedAfterDisclaimer} style={{flex:1,padding:'12px 20px',background:ACCENT,border:'none',borderRadius:8,color:ON_ACCENT,fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>I Understand — Begin Assessment</button>
           </div>
 
           <div style={{textAlign:'center',marginTop:12,fontSize:9,color:DIM}}>By proceeding, you acknowledge these terms for this assessment session.</div>
@@ -1421,7 +1436,7 @@ export default function MobileApp() {
             const fieldLabels={dp:'Condensate drain pan',wd:'Water damage',mi:'Mold indicators'}
             const zoneName=zones[zi]?.zn||`Zone ${zi+1}`
             return (photos[k]||[]).map((p,i)=>(
-              <button key={`${k}::${i}`} onClick={()=>setSelectedPhotos(prev=>({...prev,[`${k}::${i}`]:!prev[`${k}::${i}`]}))} style={{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'10px 12px',background:selectedPhotos[`${k}::${i}`]?`${ACCENT}08`:SURFACE,border:`1px solid ${selectedPhotos[`${k}::${i}`]?ACCENT+'30':BORDER}`,borderRadius:10,marginBottom:6,cursor:'pointer',fontFamily:'inherit',textAlign:'left'}}>
+              <button key={`${k}::${i}`} onClick={()=>setSelectedPhotos(prev=>({...prev,[`${k}::${i}`]:!prev[`${k}::${i}`]}))} style={{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'10px 12px',background:selectedPhotos[`${k}::${i}`]?`${mix('accent', 3)}`:SURFACE,border:`1px solid ${selectedPhotos[`${k}::${i}`]?mix('accent', 19):BORDER}`,borderRadius:10,marginBottom:6,cursor:'pointer',fontFamily:'inherit',textAlign:'left'}}>
                 <div style={{width:20,height:20,borderRadius:5,border:`2px solid ${selectedPhotos[`${k}::${i}`]?ACCENT:DIM}`,background:selectedPhotos[`${k}::${i}`]?ACCENT:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
                   {selectedPhotos[`${k}::${i}`]&&<span style={{color:'#000',fontSize:12,fontWeight:700}}>✓</span>}
                 </div>
@@ -1467,12 +1482,12 @@ export default function MobileApp() {
       {calWarning&&<div style={{position:'fixed',inset:0,background:'#000000CC',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',padding:24}}>
         <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:18,padding:28,maxWidth:400,width:'100%',animation:'fadeUp .3s ease'}}>
           <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12}}>
-            <div style={{width:36,height:36,borderRadius:10,background:`${WARN}15`,border:`1px solid ${WARN}30`,display:'flex',alignItems:'center',justifyContent:'center'}}><I n="alert" s={18} c={WARN} w={2} /></div>
+            <div style={{width:36,height:36,borderRadius:10,background:`${mix('warn', 8)}`,border:`1px solid ${mix('warn', 19)}`,display:'flex',alignItems:'center',justifyContent:'center'}}><I n="alert" s={18} c={WARN} w={2} /></div>
             <div style={{fontSize:18,fontWeight:700,color:TEXT}}>Instrument Data Missing</div>
           </div>
           <div style={{fontSize:13,color:SUB,lineHeight:1.7,marginBottom:16}}>Reports generated without instrument identification and calibration records have reduced defensibility. The following information was not provided:</div>
           <div style={{background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:10,padding:14,marginBottom:20}}>
-            {calWarning.map((m,i)=><div key={i} style={{fontSize:12,color:WARN,lineHeight:1.8,paddingLeft:12,borderLeft:`2px solid ${WARN}30`,marginBottom:i<calWarning.length-1?6:0}}>• {m}</div>)}
+            {calWarning.map((m,i)=><div key={i} style={{fontSize:12,color:WARN,lineHeight:1.8,paddingLeft:12,borderLeft:`2px solid ${mix('warn', 19)}`,marginBottom:i<calWarning.length-1?6:0}}>• {m}</div>)}
           </div>
           <div style={{display:'flex',gap:10}}>
             <button onClick={()=>{setCalWarning(null);setDqi(Q_DETAILS.findIndex(q=>q.id==='ps_inst_iaq'));setView('details')}} style={{flex:1,padding:'14px 0',background:ACCENT,border:'none',borderRadius:10,color:'#000',fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>Add instrument data</button>
@@ -1496,7 +1511,7 @@ export default function MobileApp() {
               <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:2}}>Technical Report</div>
               <div style={{fontSize:11,color:SUB,lineHeight:1.5}}>Structured findings register, score matrix, instrument log, and data gaps. For peer review and engineering.</div>
             </button>
-            <button onClick={()=>{setDocxPicker(false);handleExport('docx','both')}} style={{padding:'16px',background:`${ACCENT}08`,border:`1px solid ${ACCENT}20`,borderRadius:12,cursor:'pointer',textAlign:'left',fontFamily:'inherit',transition:'border-color 0.15s'}}>
+            <button onClick={()=>{setDocxPicker(false);handleExport('docx','both')}} style={{padding:'16px',background:`${mix('accent', 3)}`,border:`1px solid ${mix('accent', 13)}`,borderRadius:12,cursor:'pointer',textAlign:'left',fontFamily:'inherit',transition:'border-color 0.15s'}}>
               <div style={{fontSize:14,fontWeight:700,color:ACCENT,marginBottom:2}}>Both Reports</div>
               <div style={{fontSize:11,color:SUB,lineHeight:1.5}}>Downloads both files — consultant report + technical report.</div>
             </button>
@@ -1560,6 +1575,9 @@ export default function MobileApp() {
                         License (Phase 2+). */}
                     {[
                       { label: 'Settings',     icon: 'gear',   onClick: () => setView('settings') },
+                      { label: themeMode === 'light' ? 'Switch to dark mode' : 'Switch to light mode',
+                        icon: themeMode === 'light' ? 'moon' : 'sun',
+                        onClick: () => { toggleThemeMode() } },
                       { label: 'Reports',      icon: 'report', onClick: () => setView('history') },
                       { label: 'Trash',        icon: 'trash',  onClick: () => setView('trash') },
                       { label: 'Help & Support', icon: 'help', onClick: () => { window.location.href = 'mailto:support@prudenceehs.com?subject=AtmosFlow%20support' } },
@@ -1618,8 +1636,8 @@ export default function MobileApp() {
           })()}
 
           {/* ── Tier 1: primary action ── */}
-          <button onClick={startNew} style={{width:'100%',padding:'18px 20px',marginBottom:24,background:`${ACCENT}10`,border:`1px solid ${ACCENT}40`,borderRadius:14,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,fontFamily:'inherit',transition:'border-color 0.15s, background 0.15s',minHeight:64}}>
-            <div style={{width:44,height:44,borderRadius:11,background:`${ACCENT}18`,border:`1px solid ${ACCENT}30`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+          <button onClick={startNew} style={{width:'100%',padding:'18px 20px',marginBottom:24,background:`${mix('accent', 6)}`,border:`1px solid ${mix('accent', 25)}`,borderRadius:14,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,fontFamily:'inherit',transition:'border-color 0.15s, background 0.15s',minHeight:64}}>
+            <div style={{width:44,height:44,borderRadius:11,background:`${mix('accent', 9)}`,border:`1px solid ${mix('accent', 19)}`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
               <I n="wind" s={20} c={ACCENT} w={2} />
             </div>
             <div style={{flex:1,minWidth:0}}>
@@ -1751,7 +1769,7 @@ export default function MobileApp() {
 
           {/* Add / edit form */}
           {editingEqId ? (
-            <div style={{padding:18,background:CARD,border:`1px solid ${ACCENT}30`,borderRadius:12,marginBottom:14}}>
+            <div style={{padding:18,background:CARD,border:`1px solid ${mix('accent', 19)}`,borderRadius:12,marginBottom:14}}>
               <div style={{fontSize:11,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'0.6px',marginBottom:14}}>{editingEqId === '__new' ? 'New equipment unit' : 'Edit equipment'}</div>
               <div style={{marginBottom:12}}>
                 <div style={{fontSize:12,fontWeight:600,color:SUB,marginBottom:6}}>Label *</div>
@@ -1790,17 +1808,17 @@ export default function MobileApp() {
                   const next = { id, label: eqForm.label.trim(), type: eqForm.type, location: eqForm.location?.trim() || '', filterClass: eqForm.filterClass?.trim() || '', notes: eqForm.notes?.trim() || '', servedZoneIds: editingEqId === '__new' ? [] : (equipment.find(x=>x.id===editingEqId)?.servedZoneIds || []) }
                   setEquipment(prev => editingEqId === '__new' ? [...prev, next] : prev.map(x => x.id === editingEqId ? next : x))
                   setEditingEqId(null); setEqForm({})
-                }} style={{flex:1,padding:'12px 18px',background:ACCENT,border:'none',borderRadius:8,color:BG,fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:44,opacity:(!eqForm.label || !eqForm.type) ? 0.4 : 1}}>{editingEqId === '__new' ? 'Add Equipment' : 'Save'}</button>
+                }} style={{flex:1,padding:'12px 18px',background:ACCENT,border:'none',borderRadius:8,color:ON_ACCENT,fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:44,opacity:(!eqForm.label || !eqForm.type) ? 0.4 : 1}}>{editingEqId === '__new' ? 'Add Equipment' : 'Save'}</button>
               </div>
             </div>
           ) : (
-            <button onClick={()=>{setEditingEqId('__new'); setEqForm({})}} style={{width:'100%',padding:'14px 0',background:`${ACCENT}10`,border:`1px dashed ${ACCENT}40`,borderRadius:10,color:ACCENT,fontSize:14,fontWeight:600,cursor:'pointer',fontFamily:'inherit',marginBottom:14,minHeight:48}}>+ Add HVAC Equipment</button>
+            <button onClick={()=>{setEditingEqId('__new'); setEqForm({})}} style={{width:'100%',padding:'14px 0',background:`${mix('accent', 6)}`,border:`1px dashed ${mix('accent', 25)}`,borderRadius:10,color:ACCENT,fontSize:14,fontWeight:600,cursor:'pointer',fontFamily:'inherit',marginBottom:14,minHeight:48}}>+ Add HVAC Equipment</button>
           )}
 
           {/* Continue / Skip */}
           <div style={{display:'flex',gap:10,marginTop:18}}>
             <button onClick={()=>{setView('quickstart'); setQsqi(qsVis.length-1)}} style={{flex:0,padding:'14px 22px',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:10,color:SUB,fontSize:14,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>← Back</button>
-            <button onClick={finishEquipment} style={{flex:1,padding:'14px 22px',background:ACCENT,border:'none',borderRadius:10,color:BG,fontSize:15,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>{(equipment||[]).length === 0 ? 'Skip — Continue to Zones →' : 'Continue to Zones →'}</button>
+            <button onClick={finishEquipment} style={{flex:1,padding:'14px 22px',background:ACCENT,border:'none',borderRadius:10,color:ON_ACCENT,fontSize:15,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>{(equipment||[]).length === 0 ? 'Skip — Continue to Zones →' : 'Continue to Zones →'}</button>
           </div>
         </div>}
 
@@ -1818,7 +1836,7 @@ export default function MobileApp() {
           {zqi === 0 && (() => {
             const sel = Array.isArray(zData.servingEquipmentIds) ? zData.servingEquipmentIds : []
             return (
-              <div style={{marginTop:12,padding:'12px 14px',background:`${ACCENT}06`,border:`1px solid ${ACCENT}20`,borderRadius:10}}>
+              <div style={{marginTop:12,padding:'12px 14px',background:`${mix('accent', 2)}`,border:`1px solid ${mix('accent', 13)}`,borderRadius:10}}>
                 <div style={{fontSize:11,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'0.6px',marginBottom:8}}>Served by HVAC equipment</div>
                 {(equipment||[]).length === 0 ? (
                   <div style={{fontSize:12,color:SUB,lineHeight:1.5}}>No equipment captured. Recommendations for this zone will surface as building-wide actions until equipment is identified. <button onClick={()=>setView('equipment')} style={{background:'none',border:'none',color:ACCENT,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',padding:0,textDecoration:'underline'}}>Add equipment →</button></div>
@@ -1827,7 +1845,7 @@ export default function MobileApp() {
                     {equipment.map(e => {
                       const on = sel.includes(e.id)
                       return (
-                        <button key={e.id} onClick={()=>toggleZoneEquipment(curZone, e.id)} style={{padding:'6px 12px',borderRadius:6,background:on?`${ACCENT}18`:'transparent',border:`1px solid ${on?ACCENT:BORDER}`,color:on?ACCENT:SUB,fontSize:12,fontWeight:on?600:500,cursor:'pointer',fontFamily:'inherit',minHeight:32}}>
+                        <button key={e.id} onClick={()=>toggleZoneEquipment(curZone, e.id)} style={{padding:'6px 12px',borderRadius:6,background:on?`${mix('accent', 9)}`:'transparent',border:`1px solid ${on?ACCENT:BORDER}`,color:on?ACCENT:SUB,fontSize:12,fontWeight:on?600:500,cursor:'pointer',fontFamily:'inherit',minHeight:32}}>
                           {on && <span style={{marginRight:4}}>✓</span>}{e.label}
                         </button>
                       )
@@ -1838,7 +1856,7 @@ export default function MobileApp() {
                       // servingEquipmentIds as fallback-trigger.
                       setZones(prev => { const next = [...prev]; next[curZone] = { ...(next[curZone]||{}), servingEquipmentIds: [] }; return next })
                       setEquipment(prev => prev.map(e => ({ ...e, servedZoneIds: (e.servedZoneIds||[]).filter(zid => zid !== zData.zid) })))
-                    }} style={{padding:'6px 12px',borderRadius:6,background:sel.length===0?`${DIM}18`:'transparent',border:`1px solid ${sel.length===0?DIM:BORDER}`,color:sel.length===0?TEXT:SUB,fontSize:12,fontWeight:500,cursor:'pointer',fontFamily:'inherit',minHeight:32}}>
+                    }} style={{padding:'6px 12px',borderRadius:6,background:sel.length===0?`${mix('dim', 9)}`:'transparent',border:`1px solid ${sel.length===0?DIM:BORDER}`,color:sel.length===0?TEXT:SUB,fontSize:12,fontWeight:500,cursor:'pointer',fontFamily:'inherit',minHeight:32}}>
                       {sel.length === 0 && <span style={{marginRight:4}}>✓</span>}Unknown
                     </button>
                   </div>
@@ -1871,7 +1889,7 @@ export default function MobileApp() {
                 <div style={{fontSize:11,color:DIM,fontFamily:"var(--font-mono)",marginTop:3}}>{fD(d.ua||d.ts)}</div>
                 <div style={{fontSize:10,color:ACCENT,marginTop:3}}>In progress</div>
               </div>
-              <button onClick={()=>resumeDraft(d.id)} style={{padding:'8px 16px',background:`${ACCENT}12`,border:`1px solid ${ACCENT}25`,borderRadius:8,color:ACCENT,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:38}}>Resume</button>
+              <button onClick={()=>resumeDraft(d.id)} style={{padding:'8px 16px',background:`${mix('accent', 7)}`,border:`1px solid ${mix('accent', 15)}`,borderRadius:8,color:ACCENT,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:38}}>Resume</button>
               <button onClick={(e)=>{e.stopPropagation();setDelConf({id:d.id,name:d.facility,type:'dft'})}} style={{width:44,height:44,background:'#EF444410',border:`1px solid #EF444425`,borderRadius:8,color:'#EF4444',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'inherit',flexShrink:0,WebkitTapHighlightColor:'transparent'}}>
                 <I n="trash" s={14} c="#EF4444" w={1.4} />
               </button>
@@ -1900,7 +1918,7 @@ export default function MobileApp() {
             </div>
           ):fReports.map(r=>(
             <div key={r.id} onClick={()=>openReport(r)} style={{width:'100%',padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,marginBottom:6,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit',transition:'border-color 0.15s'}}>
-              <div style={{width:40,height:40,borderRadius:8,background:r.score>=70?`${SUCCESS}10`:r.score>=50?`${WARN}10`:`${DANGER}10`,border:`1px solid ${r.score>=70?`${SUCCESS}20`:r.score>=50?`${WARN}20`:`${DANGER}20`}`,display:'flex',alignItems:'center',justifyContent:'center'}}>
+              <div style={{width:40,height:40,borderRadius:8,background:r.score>=70?`${mix('success', 6)}`:r.score>=50?`${mix('warn', 6)}`:`${mix('danger', 6)}`,border:`1px solid ${r.score>=70?`${mix('success', 13)}`:r.score>=50?`${mix('warn', 13)}`:`${mix('danger', 13)}`}`,display:'flex',alignItems:'center',justifyContent:'center'}}>
                 <span style={{fontSize:15,fontWeight:800,fontFamily:"var(--font-mono)",color:r.score>=70?SUCCESS:r.score>=50?WARN:DANGER}}>{r.score||'—'}</span>
               </div>
               <div style={{flex:1,minWidth:0}}>
@@ -1951,7 +1969,7 @@ export default function MobileApp() {
                     change on icon and label provides the secondary signal. */}
                 <div style={{position:'relative',transform:view===t.id?'scale(1.06)':'scale(1)',transition:'transform 160ms ease'}}>
                   <I n={t.icon} s={20} c={view===t.id?ACCENT:DIM} w={view===t.id?2:1.6} />
-                  {t.badge>0&&<div style={{position:'absolute',top:-3,right:-7,minWidth:14,height:14,borderRadius:7,background:ACCENT,display:'flex',alignItems:'center',justifyContent:'center',fontSize:8,fontWeight:700,color:BG,fontFamily:"var(--font-mono)",padding:'0 3px'}}>{t.badge}</div>}
+                  {t.badge>0&&<div style={{position:'absolute',top:-3,right:-7,minWidth:14,height:14,borderRadius:7,background:ACCENT,display:'flex',alignItems:'center',justifyContent:'center',fontSize:8,fontWeight:700,color:ON_ACCENT,fontFamily:"var(--font-mono)",padding:'0 3px'}}>{t.badge}</div>}
                 </div>
                 <span style={{fontSize:9,fontWeight:view===t.id?600:500,color:view===t.id?ACCENT:DIM,letterSpacing:'0.2px',transition:'color 160ms ease'}}>{t.label}</span>
               </button>

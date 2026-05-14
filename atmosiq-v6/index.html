@@ -33,6 +33,39 @@
       :root{
         --font-sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI Variable','Segoe UI',system-ui,ui-sans-serif,'Helvetica Neue',Arial,sans-serif,'Apple Color Emoji','Segoe UI Emoji';
         --font-mono:ui-monospace,'SF Mono',Menlo,Monaco,'Cascadia Code','Roboto Mono',Consolas,monospace;
+
+        /* Theme palette — dark is the default. Values match the in-app
+           MobileApp.jsx constants so unmigrated components render
+           identically. Components opt into theming by referencing
+           var(--bg) etc. instead of inline hex literals. Light mode is
+           an opt-in override under [data-theme="light"] below. */
+        --bg:#07080C;
+        --surface:#0D0E14;
+        --card:#111318;
+        --border:#1C1E26;
+        --accent:#22D3EE;
+        --accent-dim:#1A8FA0;
+        --text:#ECEEF2;
+        --sub:#8B93A5;
+        --dim:#6B7380;
+        --warn:#FBBF24;
+        --danger:#EF4444;
+        --success:#22C55E;
+        /* Foreground used on top of --accent (filled accent buttons). */
+        --on-accent:#07080C;
+      }
+      [data-theme="light"]{
+        --bg:#F7F8FA;
+        --surface:#FFFFFF;
+        --card:#FFFFFF;
+        --border:#E4E7EB;
+        --accent:#0E7490;
+        --accent-dim:#155E75;
+        --text:#0F172A;
+        --sub:#475569;
+        --dim:#94A3B8;
+        --on-accent:#FFFFFF;
+        /* warn/danger/success unchanged across modes — semantic */
       }
       body{
         font-family:var(--font-sans);
