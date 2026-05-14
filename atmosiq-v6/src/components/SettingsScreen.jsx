@@ -11,7 +11,7 @@ import STO from '../utils/storage'
 import Backup from '../utils/backup'
 import { VER } from '../constants/standards'
 import { getSubscriptionRowSubtitle } from '../utils/subscriptionState'
-import { useTheme } from '../utils/theme'
+import { useTheme, mix } from '../utils/theme'
 import { I } from './Icons'
 
 // Theme tokens. These are CSS-variable references defined in
@@ -31,12 +31,8 @@ const WARN = 'var(--warn)'
 const DANGER = 'var(--danger)'
 const ON_ACCENT = 'var(--on-accent)'
 
-// Replacement for legacy `${TOKEN}HEX_ALPHA` string concatenation.
-// The old pattern only worked because TOKEN was a literal hex string;
-// with var(--…) references it produces invalid CSS. color-mix is
-// supported on Safari 16.2+ / Chrome 111+ / Firefox 113+ — well within
-// the iOS-PWA target. `name` is the bare var name without `var(--)`.
-const mix = (name, pct) => `color-mix(in srgb, var(--${name}) ${pct}%, transparent)`
+// `mix(name, pct)` for legacy `${TOKEN}HEX_ALPHA` sites is imported
+// from utils/theme above.
 
 // `credits` prop intentionally dropped in billing-architecture
 // Phase 1 — the Manage Subscription row's subtitle now comes from

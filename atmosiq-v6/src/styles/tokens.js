@@ -4,17 +4,21 @@
  * All rights reserved.
  */
 
+// Color keys reference the CSS variables declared in index.html so
+// the palette swaps when the theme toggle flips. Glass / shadow /
+// hover values stay as-is — they're desktop-only polish (unreachable
+// in the mobile-PWA path) and don't trivially translate to light.
 export const CSS = {
-  bg: '#080A0E',
-  card: '#0C1017',
-  border: '#1A2030',
-  accent: '#22D3EE',
-  accentDim: '#22D3EE20',
-  text: '#F0F4F8',
-  muted: '#5E6578',
-  danger: '#EF4444',
-  warn: '#FBBF24',
-  success: '#22C55E',
+  bg: 'var(--bg)',
+  card: 'var(--card)',
+  border: 'var(--border)',
+  accent: 'var(--accent)',
+  accentDim: 'color-mix(in srgb, var(--accent) 13%, transparent)',
+  text: 'var(--text)',
+  muted: 'var(--dim)',
+  danger: 'var(--danger)',
+  warn: 'var(--warn)',
+  success: 'var(--success)',
   cardGlass: 'rgba(12, 16, 23, 0.7)',
   cardGlassBorder: 'rgba(34, 211, 238, 0.08)',
   surfaceHover: '#0F1520',
@@ -52,7 +56,7 @@ export const FONT_MOBILE = FONT_SYSTEM
 export const btn = (primary, dk) => dk ? ({
   padding: '14px 32px',
   background: primary ? CSS.accent : 'transparent',
-  color: primary ? '#080A0E' : CSS.text,
+  color: primary ? 'var(--on-accent)' : CSS.text,
   border: primary ? 'none' : `1px solid ${CSS.border}`,
   borderRadius: 14,
   fontSize: 16,
@@ -63,7 +67,7 @@ export const btn = (primary, dk) => dk ? ({
 }) : ({
   padding: '14px 28px',
   background: primary ? CSS.accent : 'transparent',
-  color: primary ? '#080A0E' : CSS.text,
+  color: primary ? 'var(--on-accent)' : CSS.text,
   border: primary ? 'none' : `1px solid ${CSS.border}`,
   borderRadius: 12,
   fontSize: 16,

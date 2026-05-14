@@ -13,14 +13,14 @@
 
 import { useState, useMemo, useRef, useEffect } from 'react'
 
-const BG = '#07080C'
-const SURFACE = '#0D0E14'
-const CARD = '#111318'
-const BORDER = '#1C1E26'
-const ACCENT = '#22D3EE'
-const TEXT = '#ECEEF2'
-const SUB = '#8B93A5'
-const DIM = '#6B7380'
+const BG = 'var(--bg)'
+const SURFACE = 'var(--surface)'
+const CARD = 'var(--card)'
+const BORDER = 'var(--border)'
+const ACCENT = 'var(--accent)'
+const TEXT = 'var(--text)'
+const SUB = 'var(--sub)'
+const DIM = 'var(--dim)'
 
 // Wheel geometry. ITEM_H is the height of one row; VISIBLE is the
 // number of rows shown at once (must be odd so a row sits on the

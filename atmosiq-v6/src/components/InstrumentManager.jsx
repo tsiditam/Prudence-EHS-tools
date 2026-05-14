@@ -7,10 +7,11 @@
 import { useState, useEffect } from 'react'
 import { I } from './Icons'
 import { loadInstruments, saveInstruments, addInstrument, removeInstrument, SENSOR_TYPES, isOutOfCal, getCalWarning } from '../utils/instrumentRegistry'
+import { mix } from '../utils/theme'
 
-const CARD = '#111318', BORDER = '#1C1E26', ACCENT = '#22D3EE'
-const TEXT = '#ECEEF2', SUB = '#8B93A5', DIM = '#6B7380'
-const SUCCESS = '#22C55E', WARN = '#FBBF24', DANGER = '#EF4444'
+const CARD = 'var(--card)', BORDER = 'var(--border)', ACCENT = 'var(--accent)'
+const TEXT = 'var(--text)', SUB = 'var(--sub)', DIM = 'var(--dim)'
+const SUCCESS = 'var(--success)', WARN = 'var(--warn)', DANGER = 'var(--danger)'
 
 export default function InstrumentManager({ onBack, onSelect }) {
   const [instruments, setInstruments] = useState([])
@@ -32,7 +33,7 @@ export default function InstrumentManager({ onBack, onSelect }) {
     setInstruments(loadInstruments())
   }
 
-  const inp = { width: '100%', padding: '12px 14px', background: '#07080C', border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT, fontSize: 14, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }
+  const inp = { width: '100%', padding: '12px 14px', background: 'var(--bg)', border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT, fontSize: 14, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }
 
   return (
     <div style={{ paddingTop: 20, paddingBottom: 100 }}>
@@ -42,7 +43,7 @@ export default function InstrumentManager({ onBack, onSelect }) {
           <div style={{ fontSize: 20, fontWeight: 700, color: TEXT, marginTop: 4 }}>Instrument Registry</div>
           <div style={{ fontSize: 11, color: SUB }}>Manage your assessment instruments</div>
         </div>
-        <button onClick={() => setShowAdd(true)} style={{ padding: '6px 12px', background: ACCENT, border: 'none', borderRadius: 6, color: '#000', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>+ Add</button>
+        <button onClick={() => setShowAdd(true)} style={{ padding: '6px 12px', background: ACCENT, border: 'none', borderRadius: 6, color: 'var(--on-accent)', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>+ Add</button>
       </div>
 
       {showAdd && (
@@ -66,7 +67,7 @@ export default function InstrumentManager({ onBack, onSelect }) {
             </select>
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={() => { setShowAdd(false); setForm({}) }} style={{ flex: 1, padding: '10px', background: CARD, border: `1px solid ${BORDER}`, borderRadius: 8, color: SUB, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
-              <button onClick={handleAdd} style={{ flex: 1, padding: '10px', background: ACCENT, border: 'none', borderRadius: 8, color: '#000', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Save</button>
+              <button onClick={handleAdd} style={{ flex: 1, padding: '10px', background: ACCENT, border: 'none', borderRadius: 8, color: 'var(--on-accent)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Save</button>
             </div>
           </div>
         </div>
@@ -84,7 +85,7 @@ export default function InstrumentManager({ onBack, onSelect }) {
         const warning = getCalWarning(inst)
         const stype = SENSOR_TYPES.find(s => s.id === inst.sensorType)
         return (
-          <div key={inst.id} style={{ padding: 14, background: CARD, border: `1px solid ${outOfCal ? WARN + '30' : BORDER}`, borderRadius: 10, marginBottom: 8 }}>
+          <div key={inst.id} style={{ padding: 14, background: CARD, border: `1px solid ${outOfCal ? mix('warn', 19) : BORDER}`, borderRadius: 10, marginBottom: 8 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: TEXT }}>{inst.nickname || inst.make}</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -96,8 +97,8 @@ export default function InstrumentManager({ onBack, onSelect }) {
             <div style={{ fontSize: 10, color: DIM, marginTop: 2 }}>{stype?.label || inst.sensorType}{inst.lastCalDate ? ` · Cal: ${inst.lastCalDate}` : ''}</div>
             {warning && <div style={{ fontSize: 10, color: WARN, marginTop: 4 }}>⚠ {warning}</div>}
             <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-              {onSelect && <button onClick={() => onSelect(inst)} style={{ padding: '4px 12px', background: `${ACCENT}12`, border: `1px solid ${ACCENT}25`, borderRadius: 6, color: ACCENT, fontSize: 10, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Use This</button>}
-              <button onClick={() => handleRemove(inst.id)} style={{ padding: '4px 12px', background: '#EF444410', border: '1px solid #EF444425', borderRadius: 6, color: '#EF4444', fontSize: 10, cursor: 'pointer', fontFamily: 'inherit' }}>Remove</button>
+              {onSelect && <button onClick={() => onSelect(inst)} style={{ padding: '4px 12px', background: `${mix('accent', 7)}`, border: `1px solid ${mix('accent', 15)}`, borderRadius: 6, color: ACCENT, fontSize: 10, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Use This</button>}
+              <button onClick={() => handleRemove(inst.id)} style={{ padding: '4px 12px', background: mix('danger', 6), border: `1px solid ${mix('danger', 15)}`, borderRadius: 6, color: 'var(--danger)', fontSize: 10, cursor: 'pointer', fontFamily: 'inherit' }}>Remove</button>
             </div>
           </div>
         )

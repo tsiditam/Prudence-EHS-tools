@@ -68,3 +68,11 @@ export function useTheme() {
   const toggle = () => update(mode === 'light' ? 'dark' : 'light')
   return { mode, setMode: update, toggle }
 }
+
+// color-mix helper for the legacy `${TOKEN}HEX_ALPHA` template-string
+// pattern. With CSS-var references TOKEN no longer expands to a hex
+// string, so we rewrite those sites to color-mix. `name` is the bare
+// var name without the `var(--)` wrapper. Supported on Safari 16.2+ /
+// Chrome 111+ / Firefox 113+ — within the iOS-PWA target.
+export const mix = (name, pct) =>
+  `color-mix(in srgb, var(--${name}) ${pct}%, transparent)`

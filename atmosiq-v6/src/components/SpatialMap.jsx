@@ -6,11 +6,12 @@
 
 import { useState, useRef } from 'react'
 import { I } from './Icons'
+import { mix } from '../utils/theme'
 
-const CARD = '#111318', BORDER = '#1C1E26', ACCENT = '#22D3EE'
-const TEXT = '#ECEEF2', SUB = '#8B93A5', DIM = '#6B7380', BG = '#07080C'
+const CARD = 'var(--card)', BORDER = 'var(--border)', ACCENT = 'var(--accent)'
+const TEXT = 'var(--text)', SUB = 'var(--sub)', DIM = 'var(--dim)', BG = 'var(--bg)'
 
-const PIN_COLORS = { critical: '#EF4444', high: '#FB923C', moderate: '#FBBF24', low: '#22C55E' }
+const PIN_COLORS = { critical: 'var(--danger)', high: '#FB923C', moderate: 'var(--warn)', low: 'var(--success)' }
 function pinColor(score) {
   if (score === null || score === undefined) return DIM
   if (score < 50) return PIN_COLORS.critical
@@ -92,7 +93,7 @@ export default function SpatialMap({ zones, zoneScores, floorPlan, onUpdateZone,
           <I n="bldg" s={32} c={DIM} w={1.4} />
           <div style={{ fontSize: 14, fontWeight: 600, color: SUB, marginTop: 12 }}>Upload Floor Plan</div>
           <div style={{ fontSize: 11, color: DIM, marginTop: 4, marginBottom: 16 }}>PNG, JPG, or PDF of the building layout</div>
-          <label style={{ padding: '10px 24px', background: ACCENT, border: 'none', borderRadius: 8, color: '#000', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+          <label style={{ padding: '10px 24px', background: ACCENT, border: 'none', borderRadius: 8, color: 'var(--on-accent)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
             Choose File
             <input type="file" accept="image/*" onChange={handleFileUpload} style={{ display: 'none' }} />
           </label>
@@ -107,7 +108,7 @@ export default function SpatialMap({ zones, zoneScores, floorPlan, onUpdateZone,
               Replace
               <input type="file" accept="image/*" onChange={handleFileUpload} style={{ display: 'none' }} />
             </label>
-            <button onClick={() => { onUploadFloorPlan(null); zones.forEach((z, i) => { if (z.mapX != null) onUpdateZone(i, { mapX: null, mapY: null }) }) }} style={{ padding: '4px 12px', background: '#EF444410', border: '1px solid #EF444425', borderRadius: 6, color: '#EF4444', fontSize: 10, cursor: 'pointer', fontFamily: 'inherit' }}>Remove</button>
+            <button onClick={() => { onUploadFloorPlan(null); zones.forEach((z, i) => { if (z.mapX != null) onUpdateZone(i, { mapX: null, mapY: null }) }) }} style={{ padding: '4px 12px', background: mix('danger', 6), border: `1px solid ${mix('danger', 15)}`, borderRadius: 6, color: 'var(--danger)', fontSize: 10, cursor: 'pointer', fontFamily: 'inherit' }}>Remove</button>
           </div>
           <div
             ref={mapRef}
@@ -160,7 +161,7 @@ export default function SpatialMap({ zones, zoneScores, floorPlan, onUpdateZone,
           ))}
           {getTopFindings(selectedPin).length === 0 && <div style={{ fontSize: 11, color: DIM, fontStyle: 'italic' }}>No significant findings</div>}
           <div style={{ display: 'flex', gap: 12, marginTop: 10 }}>
-            <button onClick={() => { onUpdateZone(selectedPin, { mapX: null, mapY: null }); setSelectedPin(null) }} style={{ background: 'none', border: 'none', color: '#EF4444', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>Unpin & Reposition</button>
+            <button onClick={() => { onUpdateZone(selectedPin, { mapX: null, mapY: null }); setSelectedPin(null) }} style={{ background: 'none', border: 'none', color: 'var(--danger)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>Unpin & Reposition</button>
             <button onClick={() => setSelectedPin(null)} style={{ background: 'none', border: 'none', color: ACCENT, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>Close</button>
           </div>
         </div>
@@ -175,7 +176,7 @@ export default function SpatialMap({ zones, zoneScores, floorPlan, onUpdateZone,
               const zi = zones.indexOf(z)
               const score = zoneScores?.[zi]?.tot
               return (
-                <button key={zi} onClick={() => setDragging(zi)} style={{ padding: '6px 14px', borderRadius: 20, background: dragging === zi ? `${ACCENT}20` : CARD, border: `1px solid ${dragging === zi ? ACCENT : BORDER}`, color: dragging === zi ? ACCENT : TEXT, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <button key={zi} onClick={() => setDragging(zi)} style={{ padding: '6px 14px', borderRadius: 20, background: dragging === zi ? `${mix('accent', 13)}` : CARD, border: `1px solid ${dragging === zi ? ACCENT : BORDER}`, color: dragging === zi ? ACCENT : TEXT, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6 }}>
                   <div style={{ width: 8, height: 8, borderRadius: '50%', background: pinColor(score) }} />
                   {z.zn || `Zone ${zi + 1}`}
                 </button>

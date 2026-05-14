@@ -5,10 +5,11 @@
 
 import { useState, useEffect } from 'react'
 import { I } from './Icons'
+import { mix } from '../utils/theme'
 
-const CARD = '#111318', BORDER = '#1C1E26', ACCENT = '#22D3EE'
-const TEXT = '#ECEEF2', SUB = '#8B93A5', DIM = '#6B7380'
-const SUCCESS = '#22C55E', WARN = '#FBBF24', DANGER = '#EF4444'
+const CARD = 'var(--card)', BORDER = 'var(--border)', ACCENT = 'var(--accent)'
+const TEXT = 'var(--text)', SUB = 'var(--sub)', DIM = 'var(--dim)'
+const SUCCESS = 'var(--success)', WARN = 'var(--warn)', DANGER = 'var(--danger)'
 const STORAGE_PREFIX = 'atmosflow:interventions:'
 
 const TYPES = [
@@ -80,7 +81,7 @@ export default function InterventionTracker({ buildingId, onBack, assessments })
   const effColor = { improved: SUCCESS, no_change: WARN, worsened: DANGER, not_yet_measured: DIM }
   const effLabel = { improved: '↑ Improved', no_change: '→ No Change', worsened: '↓ Worsened', not_yet_measured: '? Not Measured' }
   const typeLabel = Object.fromEntries(TYPES.map(t => [t.id, t.label]))
-  const inp = { width: '100%', padding: '12px 14px', background: '#07080C', border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT, fontSize: 14, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }
+  const inp = { width: '100%', padding: '12px 14px', background: 'var(--bg)', border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT, fontSize: 14, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }
 
   return (
     <div style={{ paddingTop: 20, paddingBottom: 100 }}>
@@ -92,7 +93,7 @@ export default function InterventionTracker({ buildingId, onBack, assessments })
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button onClick={exportCSV} style={{ padding: '6px 12px', background: CARD, border: `1px solid ${BORDER}`, borderRadius: 6, color: SUB, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>Export CSV</button>
-          <button onClick={() => setShowForm(true)} style={{ padding: '6px 12px', background: ACCENT, border: 'none', borderRadius: 6, color: '#000', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>+ Add</button>
+          <button onClick={() => setShowForm(true)} style={{ padding: '6px 12px', background: ACCENT, border: 'none', borderRadius: 6, color: 'var(--on-accent)', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>+ Add</button>
         </div>
       </div>
 
@@ -110,7 +111,7 @@ export default function InterventionTracker({ buildingId, onBack, assessments })
             <textarea value={form.notes || ''} onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="Notes..." rows={2} style={{ ...inp, resize: 'vertical' }} />
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={() => { setShowForm(false); setForm({}) }} style={{ flex: 1, padding: '10px', background: CARD, border: `1px solid ${BORDER}`, borderRadius: 8, color: SUB, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
-              <button onClick={addIntervention} style={{ flex: 1, padding: '10px', background: ACCENT, border: 'none', borderRadius: 8, color: '#000', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Save</button>
+              <button onClick={addIntervention} style={{ flex: 1, padding: '10px', background: ACCENT, border: 'none', borderRadius: 8, color: 'var(--on-accent)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Save</button>
             </div>
           </div>
         </div>
@@ -126,7 +127,7 @@ export default function InterventionTracker({ buildingId, onBack, assessments })
           <div style={{ fontSize: 12, color: SUB, marginBottom: 4 }}>{i.description}</div>
           {i.targetArea && <div style={{ fontSize: 10, color: DIM }}>{i.targetArea} · {new Date(i.datePerformed).toLocaleDateString()}</div>}
           {i.effectiveness === 'not_yet_measured' && (
-            <button onClick={() => {}} style={{ marginTop: 8, padding: '6px 14px', background: `${ACCENT}12`, border: `1px solid ${ACCENT}30`, borderRadius: 6, color: ACCENT, fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Run Post-Intervention Check →</button>
+            <button onClick={() => {}} style={{ marginTop: 8, padding: '6px 14px', background: `${mix('accent', 7)}`, border: `1px solid ${mix('accent', 19)}`, borderRadius: 6, color: ACCENT, fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Run Post-Intervention Check →</button>
           )}
         </div>
       ))}

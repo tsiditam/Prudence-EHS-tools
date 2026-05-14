@@ -6,10 +6,11 @@
 import { useState, useEffect } from 'react'
 import { I } from './Icons'
 import { COMPLAINT_SYMPTOMS } from '../constants/terminology'
+import { mix } from '../utils/theme'
 
-const BG = '#07080C', CARD = '#111318', BORDER = '#1C1E26', ACCENT = '#22D3EE'
-const TEXT = '#ECEEF2', SUB = '#8B93A5', DIM = '#6B7380'
-const WARN = '#FBBF24', DANGER = '#EF4444', SUCCESS = '#22C55E'
+const BG = 'var(--bg)', CARD = 'var(--card)', BORDER = 'var(--border)', ACCENT = 'var(--accent)'
+const TEXT = 'var(--text)', SUB = 'var(--sub)', DIM = 'var(--dim)'
+const WARN = 'var(--warn)', DANGER = 'var(--danger)', SUCCESS = 'var(--success)'
 const STORAGE_PREFIX = 'atmosflow:complaints:'
 
 function loadComplaints(buildingId) {
@@ -78,14 +79,14 @@ export default function ComplaintLog({ buildingId, onBack }) {
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button onClick={exportCSV} style={{ padding: '6px 12px', background: CARD, border: `1px solid ${BORDER}`, borderRadius: 6, color: SUB, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>Export CSV</button>
-          <button onClick={() => setShowForm(true)} style={{ padding: '6px 12px', background: ACCENT, border: 'none', borderRadius: 6, color: '#000', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>+ Add</button>
+          <button onClick={() => setShowForm(true)} style={{ padding: '6px 12px', background: ACCENT, border: 'none', borderRadius: 6, color: 'var(--on-accent)', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>+ Add</button>
         </div>
       </div>
 
       {/* Filter */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
         {['open', 'all'].map(f => (
-          <button key={f} onClick={() => setFilter(f)} style={{ padding: '6px 14px', borderRadius: 6, background: filter === f ? `${ACCENT}12` : CARD, border: `1px solid ${filter === f ? ACCENT + '30' : BORDER}`, color: filter === f ? ACCENT : SUB, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', textTransform: 'capitalize' }}>{f}</button>
+          <button key={f} onClick={() => setFilter(f)} style={{ padding: '6px 14px', borderRadius: 6, background: filter === f ? `${mix('accent', 7)}` : CARD, border: `1px solid ${filter === f ? mix('accent', 19) : BORDER}`, color: filter === f ? ACCENT : SUB, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', textTransform: 'capitalize' }}>{f}</button>
         ))}
         <span style={{ fontSize: 10, color: DIM, alignSelf: 'center', marginLeft: 'auto' }}>{filtered.length} complaint{filtered.length !== 1 ? 's' : ''}</span>
       </div>
@@ -101,7 +102,7 @@ export default function ComplaintLog({ buildingId, onBack }) {
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {COMPLAINT_SYMPTOMS.map(s => {
                 const sel = (form.symptoms || []).includes(s)
-                return <button key={s} onClick={() => setForm({ ...form, symptoms: sel ? (form.symptoms || []).filter(x => x !== s) : [...(form.symptoms || []), s] })} style={{ padding: '5px 10px', borderRadius: 16, background: sel ? `${ACCENT}15` : CARD, border: `1px solid ${sel ? ACCENT : BORDER}`, color: sel ? ACCENT : SUB, fontSize: 10, cursor: 'pointer', fontFamily: 'inherit' }}>{s}</button>
+                return <button key={s} onClick={() => setForm({ ...form, symptoms: sel ? (form.symptoms || []).filter(x => x !== s) : [...(form.symptoms || []), s] })} style={{ padding: '5px 10px', borderRadius: 16, background: sel ? `${mix('accent', 8)}` : CARD, border: `1px solid ${sel ? ACCENT : BORDER}`, color: sel ? ACCENT : SUB, fontSize: 10, cursor: 'pointer', fontFamily: 'inherit' }}>{s}</button>
               })}
             </div>
             <select value={form.severity || 'mild'} onChange={e => setForm({ ...form, severity: e.target.value })} style={{ ...inp, appearance: 'auto' }}>
@@ -116,7 +117,7 @@ export default function ComplaintLog({ buildingId, onBack }) {
             <textarea value={form.notes || ''} onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="Additional notes..." rows={2} style={{ ...inp, resize: 'vertical' }} />
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={() => { setShowForm(false); setForm({}) }} style={{ flex: 1, padding: '10px', background: CARD, border: `1px solid ${BORDER}`, borderRadius: 8, color: SUB, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
-              <button onClick={addComplaint} style={{ flex: 1, padding: '10px', background: ACCENT, border: 'none', borderRadius: 8, color: '#000', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Save Complaint</button>
+              <button onClick={addComplaint} style={{ flex: 1, padding: '10px', background: ACCENT, border: 'none', borderRadius: 8, color: 'var(--on-accent)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Save Complaint</button>
             </div>
           </div>
         </div>
@@ -135,7 +136,7 @@ export default function ComplaintLog({ buildingId, onBack }) {
           {c.medicalAttention && <div style={{ fontSize: 10, color: DANGER, marginTop: 4 }}>⚠ Medical attention sought</div>}
           <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
             {['open', 'investigating', 'resolved', 'referred'].map(s => (
-              <button key={s} onClick={() => updateStatus(c.id, s)} style={{ padding: '3px 8px', borderRadius: 4, background: c.status === s ? `${ACCENT}15` : 'transparent', border: `1px solid ${c.status === s ? ACCENT + '30' : BORDER}`, color: c.status === s ? ACCENT : DIM, fontSize: 9, cursor: 'pointer', fontFamily: 'inherit', textTransform: 'capitalize' }}>{s}</button>
+              <button key={s} onClick={() => updateStatus(c.id, s)} style={{ padding: '3px 8px', borderRadius: 4, background: c.status === s ? `${mix('accent', 8)}` : 'transparent', border: `1px solid ${c.status === s ? mix('accent', 19) : BORDER}`, color: c.status === s ? ACCENT : DIM, fontSize: 9, cursor: 'pointer', fontFamily: 'inherit', textTransform: 'capitalize' }}>{s}</button>
             ))}
           </div>
         </div>

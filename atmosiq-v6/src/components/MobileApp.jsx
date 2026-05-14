@@ -64,7 +64,7 @@ import { FAQ_SECTIONS } from '../constants/faq'
 import { useAssessment } from '../contexts/AssessmentContext.jsx'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import { useStorage } from '../contexts/StorageContext.jsx'
-import { useTheme } from '../utils/theme'
+import { useTheme, mix } from '../utils/theme'
 
 const haptic = (type) => { try { if (navigator.vibrate) navigator.vibrate(type === 'heavy' ? [30,20,30] : type === 'success' ? [10,30,10,30,10] : 12) } catch {} }
 const BETA_MODE = true // Set to false when ready to go live — re-enables all premium gates
@@ -92,11 +92,10 @@ const WARN = 'var(--warn)'
 const DANGER = 'var(--danger)'
 const ON_ACCENT = 'var(--on-accent)'
 
-// Legacy `${TOKEN}HEX_ALPHA` template-string trick relied on TOKEN being
-// a literal hex string. With var(--…) references it produces invalid
-// CSS, so we rewrite those sites to color-mix. Supported on
-// Safari 16.2+ / Chrome 111+ / Firefox 113+ — within the iOS-PWA target.
-const mix = (name, pct) => `color-mix(in srgb, var(--${name}) ${pct}%, transparent)`
+// `mix(name, pct)` for legacy `${TOKEN}HEX_ALPHA` sites is imported
+// from utils/theme above. CSS-var references with hex-suffix alpha
+// would produce invalid CSS, so those sites are rewritten to
+// color-mix(in srgb, var(--…) X%, transparent).
 
 // In-app FAQ — same FAQ_SECTIONS data as the public landing page so the
 // public answer and the in-app answer cannot drift apart. One question
@@ -1450,7 +1449,7 @@ export default function MobileApp() {
           })}
           <div style={{display:'flex',gap:10,marginTop:16}}>
             <button onClick={()=>{setSelectedPhotos({});confirmExportWithPhotos()}} style={{flex:1,padding:'14px 0',background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:10,color:SUB,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>Skip Photos</button>
-            <button onClick={confirmExportWithPhotos} style={{flex:1,padding:'14px 0',background:ACCENT,border:'none',borderRadius:10,color:'#000',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>Export with {Object.values(selectedPhotos).filter(Boolean).length} Photo{Object.values(selectedPhotos).filter(Boolean).length!==1?'s':''}</button>
+            <button onClick={confirmExportWithPhotos} style={{flex:1,padding:'14px 0',background:ACCENT,border:'none',borderRadius:10,color: 'var(--on-accent)',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>Export with {Object.values(selectedPhotos).filter(Boolean).length} Photo{Object.values(selectedPhotos).filter(Boolean).length!==1?'s':''}</button>
           </div>
         </div>
       </div>}
@@ -1490,7 +1489,7 @@ export default function MobileApp() {
             {calWarning.map((m,i)=><div key={i} style={{fontSize:12,color:WARN,lineHeight:1.8,paddingLeft:12,borderLeft:`2px solid ${mix('warn', 19)}`,marginBottom:i<calWarning.length-1?6:0}}>• {m}</div>)}
           </div>
           <div style={{display:'flex',gap:10}}>
-            <button onClick={()=>{setCalWarning(null);setDqi(Q_DETAILS.findIndex(q=>q.id==='ps_inst_iaq'));setView('details')}} style={{flex:1,padding:'14px 0',background:ACCENT,border:'none',borderRadius:10,color:'#000',fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>Add instrument data</button>
+            <button onClick={()=>{setCalWarning(null);setDqi(Q_DETAILS.findIndex(q=>q.id==='ps_inst_iaq'));setView('details')}} style={{flex:1,padding:'14px 0',background:ACCENT,border:'none',borderRadius:10,color: 'var(--on-accent)',fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>Add instrument data</button>
             <button onClick={()=>{setCalWarning(null);finishAssessment(true)}} style={{flex:1,padding:'14px 0',background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:10,color:SUB,fontSize:13,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>Continue without</button>
           </div>
           <div style={{textAlign:'center',marginTop:10,fontSize:9,color:DIM,lineHeight:1.5}}>Instrument metadata strengthens OSHA defensibility and professional credibility of assessment findings.</div>
@@ -1912,7 +1911,7 @@ export default function MobileApp() {
               <div style={{fontSize:15,fontWeight:600,color:SUB,marginTop:16}}>No reports generated yet</div>
               <div style={{fontSize:12,color:DIM,marginTop:6,lineHeight:1.5}}>{hSearch?'No reports match your search.':'Complete and finalize an assessment to generate your first report.'}</div>
               {!hSearch&&<>
-                <button onClick={startNew} style={{marginTop:16,padding:'10px 24px',background:ACCENT,border:'none',borderRadius:8,color:'#000',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Start Assessment</button>
+                <button onClick={startNew} style={{marginTop:16,padding:'10px 24px',background:ACCENT,border:'none',borderRadius:8,color: 'var(--on-accent)',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Start Assessment</button>
                 <div style={{marginTop:10}}><button onClick={runDemo} style={{background:'none',border:'none',color:DIM,fontSize:11,cursor:'pointer',fontFamily:'inherit'}}>or view sample report →</button></div>
               </>}
             </div>

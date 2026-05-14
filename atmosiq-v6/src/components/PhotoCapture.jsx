@@ -37,18 +37,18 @@ export default function PhotoCapture({ photos, onAdd, onRemove, isDesktop }) {
         {(photos || []).map((p, i) => {
           const src = typeof p === 'string' ? p : p.src, ts = typeof p === 'object' ? p.ts : null
           return (
-            <div key={i} style={{ position: 'relative', width: thumbSize, height: thumbSize, borderRadius: 8, overflow: 'hidden', border: '1px solid #1A2030', transition: 'transform 0.2s ease' }}
+            <div key={i} style={{ position: 'relative', width: thumbSize, height: thumbSize, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)', transition: 'transform 0.2s ease' }}
               onMouseEnter={e => { if (isDesktop) e.currentTarget.style.transform = 'scale(1.05)' }}
               onMouseLeave={e => { if (isDesktop) e.currentTarget.style.transform = 'scale(1)' }}>
               <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               {ts && <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: '#000A', padding: '1px 3px', fontSize: 7, color: '#C8D0DC', textAlign: 'center' }}>{new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>}
-              <button onClick={() => onRemove(i)} style={{ position: 'absolute', top: 2, right: 2, width: 18, height: 18, borderRadius: '50%', background: '#EF4444', border: 'none', color: '#fff', fontSize: 10, cursor: 'pointer' }}>x</button>
+              <button onClick={() => onRemove(i)} style={{ position: 'absolute', top: 2, right: 2, width: 18, height: 18, borderRadius: '50%', background: 'var(--danger)', border: 'none', color: '#fff', fontSize: 10, cursor: 'pointer' }}>x</button>
             </div>
           )
         })}
-        <button onClick={() => fileRef.current?.click()} style={{ width: thumbSize, height: thumbSize, borderRadius: 8, border: '1.5px dashed #2A3040', background: 'transparent', color: '#5E6578', fontSize: 20, cursor: 'pointer', transition: 'all 0.2s' }}
-          onMouseEnter={e => { if (isDesktop) { e.target.style.borderColor = '#22D3EE'; e.target.style.color = '#22D3EE' } }}
-          onMouseLeave={e => { if (isDesktop) { e.target.style.borderColor = '#2A3040'; e.target.style.color = '#5E6578' } }}>
+        <button onClick={() => fileRef.current?.click()} style={{ width: thumbSize, height: thumbSize, borderRadius: 8, border: '1.5px dashed #2A3040', background: 'transparent', color: 'var(--dim)', fontSize: 20, cursor: 'pointer', transition: 'all 0.2s' }}
+          onMouseEnter={e => { if (isDesktop) { e.target.style.borderColor = 'var(--accent)'; e.target.style.color = 'var(--accent)' } }}
+          onMouseLeave={e => { if (isDesktop) { e.target.style.borderColor = '#2A3040'; e.target.style.color = 'var(--dim)' } }}>
           📷
         </button>
       </div>

@@ -6,10 +6,11 @@
 import { useState, useEffect } from 'react'
 import { I } from './Icons'
 import { FM_TRAFFIC_LIGHT } from '../constants/terminology'
+import { mix } from '../utils/theme'
 
-const BG = '#07080C', CARD = '#111318', BORDER = '#1C1E26', ACCENT = '#22D3EE'
-const TEXT = '#ECEEF2', SUB = '#8B93A5', DIM = '#6B7380'
-const SUCCESS = '#22C55E', WARN = '#FBBF24', DANGER = '#EF4444'
+const BG = 'var(--bg)', CARD = 'var(--card)', BORDER = 'var(--border)', ACCENT = 'var(--accent)'
+const TEXT = 'var(--text)', SUB = 'var(--sub)', DIM = 'var(--dim)'
+const SUCCESS = 'var(--success)', WARN = 'var(--warn)', DANGER = 'var(--danger)'
 const STORAGE_KEY = 'atmosflow:buildings'
 
 function loadBuildings() {
@@ -74,7 +75,7 @@ export default function PropertyDashboard({ onBack, onNavigate, assessmentIndex 
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'portfolio-summary.csv'; a.click()
   }
 
-  const tl = (risk) => FM_TRAFFIC_LIGHT[risk] || { color: DIM, label: '—', bg: `${DIM}10` }
+  const tl = (risk) => FM_TRAFFIC_LIGHT[risk] || { color: DIM, label: '—', bg: `${mix('dim', 6)}` }
   const inp = { width: '100%', padding: '12px 14px', background: BG, border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT, fontSize: 14, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }
 
   return (
@@ -102,11 +103,11 @@ export default function PropertyDashboard({ onBack, onNavigate, assessmentIndex 
       {/* Filters + Actions */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
         {['all', 'critical', 'overdue', 'escalated'].map(f => (
-          <button key={f} onClick={() => setFilter(f)} style={{ padding: '5px 12px', borderRadius: 6, background: filter === f ? `${ACCENT}12` : CARD, border: `1px solid ${filter === f ? ACCENT + '30' : BORDER}`, color: filter === f ? ACCENT : SUB, fontSize: 10, cursor: 'pointer', fontFamily: 'inherit', textTransform: 'capitalize' }}>{f}</button>
+          <button key={f} onClick={() => setFilter(f)} style={{ padding: '5px 12px', borderRadius: 6, background: filter === f ? `${mix('accent', 7)}` : CARD, border: `1px solid ${filter === f ? mix('accent', 19) : BORDER}`, color: filter === f ? ACCENT : SUB, fontSize: 10, cursor: 'pointer', fontFamily: 'inherit', textTransform: 'capitalize' }}>{f}</button>
         ))}
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
           <button onClick={exportCSV} style={{ padding: '5px 10px', background: CARD, border: `1px solid ${BORDER}`, borderRadius: 6, color: SUB, fontSize: 10, cursor: 'pointer', fontFamily: 'inherit' }}>CSV</button>
-          <button onClick={() => setShowAdd(true)} style={{ padding: '5px 10px', background: ACCENT, border: 'none', borderRadius: 6, color: '#000', fontSize: 10, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>+ Building</button>
+          <button onClick={() => setShowAdd(true)} style={{ padding: '5px 10px', background: ACCENT, border: 'none', borderRadius: 6, color: 'var(--on-accent)', fontSize: 10, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>+ Building</button>
         </div>
       </div>
 
@@ -116,7 +117,7 @@ export default function PropertyDashboard({ onBack, onNavigate, assessmentIndex 
           <input value={newAddr} onChange={e => setNewAddr(e.target.value)} placeholder="Address (optional)" style={{ ...inp, marginBottom: 8 }} />
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={() => setShowAdd(false)} style={{ flex: 1, padding: '8px', background: CARD, border: `1px solid ${BORDER}`, borderRadius: 6, color: SUB, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
-            <button onClick={addBuilding} style={{ flex: 1, padding: '8px', background: ACCENT, border: 'none', borderRadius: 6, color: '#000', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Add</button>
+            <button onClick={addBuilding} style={{ flex: 1, padding: '8px', background: ACCENT, border: 'none', borderRadius: 6, color: 'var(--on-accent)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Add</button>
           </div>
         </div>
       )}

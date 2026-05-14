@@ -8,18 +8,19 @@
 
 import { useState, useEffect } from 'react'
 import { I } from './Icons'
+import { mix } from '../utils/theme'
 
-const BG = '#07080C'
-const SURFACE = '#0D0E14'
-const CARD = '#111318'
-const BORDER = '#1C1E26'
-const ACCENT = '#22D3EE'
-const TEXT = '#ECEEF2'
-const SUB = '#8B93A5'
-const DIM = '#6B7380'
-const SUCCESS = '#22C55E'
-const WARN = '#FBBF24'
-const DANGER = '#EF4444'
+const BG = 'var(--bg)'
+const SURFACE = 'var(--surface)'
+const CARD = 'var(--card)'
+const BORDER = 'var(--border)'
+const ACCENT = 'var(--accent)'
+const TEXT = 'var(--text)'
+const SUB = 'var(--sub)'
+const DIM = 'var(--dim)'
+const SUCCESS = 'var(--success)'
+const WARN = 'var(--warn)'
+const DANGER = 'var(--danger)'
 
 // v2.6.2 — relative-time helper for the Recent Signups panel.
 // Renders "5h ago" / "2d ago" / "3w ago" / falls back to a date.
@@ -166,7 +167,7 @@ export default function AdminDashboard({ onBack, adminSecret }) {
       {/* User List */}
       <div style={{fontSize:11,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:10}}>Users ({(data?.users||[]).length})</div>
       {(data?.users||[]).map(u=>(
-        <div key={u.id} style={{padding:'12px 16px',background:CARD,border:`1px solid ${selectedUser===u.id?ACCENT+'30':BORDER}`,borderRadius:10,marginBottom:6,cursor:'pointer'}} onClick={()=>setSelectedUser(selectedUser===u.id?null:u.id)}>
+        <div key={u.id} style={{padding:'12px 16px',background:CARD,border:`1px solid ${selectedUser===u.id?mix('accent', 19):BORDER}`,borderRadius:10,marginBottom:6,cursor:'pointer'}} onClick={()=>setSelectedUser(selectedUser===u.id?null:u.id)}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
             <div style={{minWidth:0}}>
               <div style={{fontSize:13,fontWeight:600,color:TEXT}}>{u.name||'Unnamed'}</div>
@@ -186,14 +187,14 @@ export default function AdminDashboard({ onBack, adminSecret }) {
             <div style={{marginTop:12,paddingTop:12,borderTop:`1px solid ${BORDER}`}}>
               <div style={{display:'flex',gap:8,marginBottom:8}}>
                 <input value={creditAdj} onChange={e=>setCreditAdj(e.target.value)} placeholder="Credits (+/-)" type="number" style={{flex:1,padding:'8px 12px',background:BG,border:`1px solid ${BORDER}`,borderRadius:8,color:TEXT,fontSize:13,fontFamily:'inherit',outline:'none'}} />
-                <button onClick={()=>adjustCredits(u.id,creditAdj,'admin')} style={{padding:'8px 14px',background:`${ACCENT}12`,border:`1px solid ${ACCENT}25`,borderRadius:8,color:ACCENT,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Apply</button>
+                <button onClick={()=>adjustCredits(u.id,creditAdj,'admin')} style={{padding:'8px 14px',background:`${mix('accent', 7)}`,border:`1px solid ${mix('accent', 15)}`,borderRadius:8,color:ACCENT,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Apply</button>
               </div>
               <div style={{display:'flex',gap:8}}>
                 {u.subscription_status!=='suspended'&&(
-                  <button onClick={()=>setUserStatus(u.id,'suspended')} style={{flex:1,padding:'8px',background:`${DANGER}10`,border:`1px solid ${DANGER}25`,borderRadius:8,color:DANGER,fontSize:10,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Suspend</button>
+                  <button onClick={()=>setUserStatus(u.id,'suspended')} style={{flex:1,padding:'8px',background:`${mix('danger', 6)}`,border:`1px solid ${mix('danger', 15)}`,borderRadius:8,color:DANGER,fontSize:10,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Suspend</button>
                 )}
                 {u.subscription_status==='suspended'&&(
-                  <button onClick={()=>setUserStatus(u.id,'active')} style={{flex:1,padding:'8px',background:`${SUCCESS}10`,border:`1px solid ${SUCCESS}25`,borderRadius:8,color:SUCCESS,fontSize:10,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Reactivate</button>
+                  <button onClick={()=>setUserStatus(u.id,'active')} style={{flex:1,padding:'8px',background:`${mix('success', 6)}`,border:`1px solid ${mix('success', 15)}`,borderRadius:8,color:SUCCESS,fontSize:10,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Reactivate</button>
                 )}
               </div>
               <div style={{fontSize:9,color:DIM,fontFamily:"var(--font-mono)",marginTop:8}}>ID: {u.id.slice(0,8)}... · Joined: {new Date(u.created_at).toLocaleDateString()}</div>

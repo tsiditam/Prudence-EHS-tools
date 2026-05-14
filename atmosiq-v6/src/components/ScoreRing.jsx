@@ -22,12 +22,12 @@ export default function ScoreRing({ value, max=100, color, size=130 }) {
   return (
     <div style={{position:'relative',width:size,height:size}}>
       <svg width={size} height={size} style={{transform:'rotate(-90deg)'}}>
-        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#1A2030" strokeWidth="5" />
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="var(--border)" strokeWidth="5" />
         <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth="5" strokeDasharray={circ} strokeDashoffset={off} strokeLinecap="round" style={{filter:'drop-shadow(0 0 5px '+color+'50)'}} />
       </svg>
       <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}>
         <span style={{fontSize:size*.3,fontWeight:700,color,lineHeight:1,fontFamily:'var(--font-mono)'}}>{Math.round(a)}</span>
-        <span style={{fontSize:9,color:'#5E6578',fontFamily:'var(--font-mono)'}}>/{max}</span>
+        <span style={{fontSize:9,color:'var(--dim)',fontFamily:'var(--font-mono)'}}>/{max}</span>
       </div>
     </div>
   )

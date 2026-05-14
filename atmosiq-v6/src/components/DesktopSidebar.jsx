@@ -13,7 +13,7 @@ export default function DesktopSidebar({ step, setStep, saveDraft, setShowHistor
   return (
     <div style={{
       position: 'fixed', left: 0, top: 0, bottom: 0, width: 280,
-      background: 'linear-gradient(180deg, #0A0D14 0%, #080A0E 100%)',
+      background: 'linear-gradient(180deg, var(--surface) 0%, var(--bg) 100%)',
       borderRight: `1px solid ${CSS.border}`,
       display: 'flex', flexDirection: 'column',
       padding: '0', zIndex: 200,
@@ -54,7 +54,7 @@ export default function DesktopSidebar({ step, setStep, saveDraft, setShowHistor
                 width: 32, height: 32, borderRadius: '50%',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 background: active ? CSS.accent : completed ? CSS.accent + '30' : CSS.border,
-                color: active ? '#080A0E' : completed ? CSS.accent : CSS.muted,
+                color: active ? 'var(--bg)' : completed ? CSS.accent : CSS.muted,
                 fontSize: 13, fontWeight: 700, ...mono,
                 transition: 'all 0.2s ease',
               }}>
