@@ -1679,13 +1679,6 @@ export default function MobileApp() {
 
           {/* Demos moved into the kebab menu (top-right). */}
 
-          {/* ── Empty state — only when no reports AND no drafts ── */}
-          {(index.reports||[]).length===0 && (index.drafts||[]).length===0 && (
-            <div style={{padding:'18px 16px',background:SURFACE,border:`1px dashed ${BORDER}`,borderRadius:12,marginBottom:20,textAlign:'center'}}>
-              <div style={{fontSize:13,fontWeight:600,color:TEXT,marginBottom:4}}>No assessments yet</div>
-              <div style={{fontSize:12,color:SUB,lineHeight:1.5}}>Start a new assessment above, or open a demo from the kebab menu.</div>
-            </div>
-          )}
 
         </div>}
 
