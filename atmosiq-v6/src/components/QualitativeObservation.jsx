@@ -6,9 +6,10 @@
 
 import { useState } from 'react'
 import { I } from './Icons'
+import { mix } from '../utils/theme'
 
-const CARD = '#111318', BORDER = '#1C1E26', ACCENT = '#22D3EE'
-const TEXT = '#ECEEF2', SUB = '#8B93A5', DIM = '#6B7380'
+const CARD = 'var(--card)', BORDER = 'var(--border)', ACCENT = 'var(--accent)'
+const TEXT = 'var(--text)', SUB = 'var(--sub)', DIM = 'var(--dim)'
 
 const ODOR_OPTIONS = [
   'None', 'Chemical / solvent', 'Chemical / cleaner', 'Musty / earthy',
@@ -84,7 +85,7 @@ export default function QualitativeObservation({ data, onChange, step, onNext, o
           return (
             <button key={o} onClick={() => select(o)} style={{
               padding: '14px 18px', textAlign: 'left',
-              background: sel ? `${ACCENT}12` : CARD,
+              background: sel ? `${mix('accent', 7)}` : CARD,
               border: `1.5px solid ${sel ? ACCENT : BORDER}`,
               borderRadius: 12, color: sel ? ACCENT : TEXT, fontSize: 15,
               fontFamily: 'inherit', fontWeight: 500, cursor: 'pointer',
@@ -96,7 +97,7 @@ export default function QualitativeObservation({ data, onChange, step, onNext, o
                 background: sel ? ACCENT : 'transparent',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
               }}>
-                {sel && <span style={{ color: '#07080C', fontSize: 11, fontWeight: 700 }}>✓</span>}
+                {sel && <span style={{ color: 'var(--bg)', fontSize: 11, fontWeight: 700 }}>✓</span>}
               </div>
               {o}
             </button>
@@ -122,7 +123,7 @@ export default function QualitativeObservation({ data, onChange, step, onNext, o
           <button onClick={onBack} style={{ flex: 0, padding: '12px 20px', background: 'transparent', border: `1px solid ${BORDER}`, borderRadius: 8, color: SUB, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Back</button>
         )}
         {q.multi && (
-          <button onClick={onNext} style={{ flex: 1, padding: '12px 20px', background: ACCENT, border: 'none', borderRadius: 8, color: '#000', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+          <button onClick={onNext} style={{ flex: 1, padding: '12px 20px', background: ACCENT, border: 'none', borderRadius: 8, color: 'var(--on-accent)', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
             {step === totalSteps - 1 ? 'Finish Observations' : 'Next'}
           </button>
         )}

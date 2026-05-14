@@ -8,14 +8,15 @@
 
 import { useState } from 'react'
 import { I } from './Icons'
+import { mix } from '../utils/theme'
 
-const BG = '#07080C'
-const CARD = '#111318'
-const BORDER = '#1C1E26'
-const ACCENT = '#22D3EE'
-const TEXT = '#ECEEF2'
-const SUB = '#8B93A5'
-const DIM = '#6B7380'
+const BG = 'var(--bg)'
+const CARD = 'var(--card)'
+const BORDER = 'var(--border)'
+const ACCENT = 'var(--accent)'
+const TEXT = 'var(--text)'
+const SUB = 'var(--sub)'
+const DIM = 'var(--dim)'
 
 const slides = [
   {
@@ -54,7 +55,7 @@ export default function WelcomeScreen({ onComplete }) {
 
         {/* Slide */}
         <div style={{animation:'fadeUp .4s ease'}}>
-          <div style={{width:56,height:56,borderRadius:14,background:`${ACCENT}10`,border:`1px solid ${ACCENT}18`,display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 20px'}}>
+          <div style={{width:56,height:56,borderRadius:14,background:`${mix('accent', 6)}`,border:`1px solid ${mix('accent', 9)}`,display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 20px'}}>
             <I n={slides[step].icon} s={26} c={ACCENT} w={1.8} />
           </div>
           <div style={{fontSize:20,fontWeight:700,color:TEXT,marginBottom:10,letterSpacing:'-0.3px'}}>{slides[step].title}</div>
@@ -64,7 +65,7 @@ export default function WelcomeScreen({ onComplete }) {
         {/* Progress dots */}
         <div style={{display:'flex',justifyContent:'center',gap:6,marginTop:32,marginBottom:32}}>
           {slides.map((_, i) => (
-            <div key={i} style={{width:step===i?20:6,height:6,borderRadius:3,background:step===i?ACCENT:`${DIM}40`,transition:'all 0.3s'}} />
+            <div key={i} style={{width:step===i?20:6,height:6,borderRadius:3,background:step===i?ACCENT:`${mix('dim', 25)}`,transition:'all 0.3s'}} />
           ))}
         </div>
 
@@ -73,12 +74,12 @@ export default function WelcomeScreen({ onComplete }) {
           <div style={{display:'flex',gap:10}}>
             {step > 0 && <button onClick={()=>setStep(step-1)} style={{flex:0,padding:'12px 20px',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:8,color:SUB,fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>Back</button>}
             {step === 0 && <button onClick={onComplete} style={{flex:0,padding:'12px 20px',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:8,color:DIM,fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>Skip</button>}
-            <button onClick={()=>setStep(step+1)} style={{flex:1,padding:'12px 20px',background:ACCENT,border:'none',borderRadius:8,color:'#000',fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>Next</button>
+            <button onClick={()=>setStep(step+1)} style={{flex:1,padding:'12px 20px',background:ACCENT,border:'none',borderRadius:8,color:'var(--on-accent)',fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>Next</button>
           </div>
         ) : (
           <div style={{display:'flex',gap:10}}>
             <button onClick={()=>setStep(step-1)} style={{flex:0,padding:'14px 20px',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:8,color:SUB,fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>Back</button>
-            <button onClick={onComplete} style={{flex:1,padding:'14px 20px',background:ACCENT,border:'none',borderRadius:8,color:'#000',fontSize:15,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>Get Started</button>
+            <button onClick={onComplete} style={{flex:1,padding:'14px 20px',background:ACCENT,border:'none',borderRadius:8,color:'var(--on-accent)',fontSize:15,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>Get Started</button>
           </div>
         )}
 

@@ -11,8 +11,8 @@ import ScoreRing from './ScoreRing'
 import { CSS, mono, btn, cardStyle, cardHoverHandlers, btnPressHandlers, FONT_DESKTOP, FONT_MOBILE } from '../styles/tokens'
 
 const SevBadge = ({ sev, dk }) => {
-  const colors = { critical: '#EF4444', high: '#FB923C', medium: '#FBBF24', low: '#22D3EE', pass: '#22C55E', info: '#8B5CF6' }
-  return <span style={{ padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600, background: (colors[sev] || '#5E6578') + '20', color: colors[sev] || '#5E6578', ...(dk ? mono : {}) }}>{sev}</span>
+  const colors = { critical: 'var(--danger)', high: '#FB923C', medium: 'var(--warn)', low: 'var(--accent)', pass: 'var(--success)', info: '#8B5CF6' }
+  return <span style={{ padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600, background: (colors[sev] || 'var(--dim)') + '20', color: colors[sev] || 'var(--dim)', ...(dk ? mono : {}) }}>{sev}</span>
 }
 
 export default function ReportView({
@@ -109,7 +109,7 @@ export default function ReportView({
                 </div>
               ))}
               {oshaEvals?.[zi] && (
-                <div style={{ marginTop: 8, padding: '10px 12px', background: oshaEvals[zi].flag ? '#EF444415' : '#22C55E15', borderRadius: 8, fontSize: 13 }}>
+                <div style={{ marginTop: 8, padding: '10px 12px', background: oshaEvals[zi].flag ? mix('danger', 8) : mix('success', 8), borderRadius: 8, fontSize: 13 }}>
                   <div style={{ fontWeight: 600, color: oshaEvals[zi].flag ? CSS.danger : CSS.success }}>
                     <I n="shield" s={14} c={oshaEvals[zi].flag ? CSS.danger : CSS.success} /> OSHA Readiness: {oshaEvals[zi].conf}
                   </div>
@@ -171,7 +171,7 @@ export default function ReportView({
               ))}
             </div>
             {samplingPlan.outdoorGaps?.length > 0 && (
-              <div style={{ padding: 10, background: '#FBBF2415', borderRadius: 8, marginTop: 8 }}>
+              <div style={{ padding: 10, background: mix('warn', 8), borderRadius: 8, marginTop: 8 }}>
                 <div style={{ fontWeight: 600, fontSize: 13, color: CSS.warn, marginBottom: 4 }}>Data Gaps</div>
                 {samplingPlan.outdoorGaps.map((g, i) => <div key={i} style={{ fontSize: 12, color: CSS.warn }}>&excl; {g}</div>)}
               </div>

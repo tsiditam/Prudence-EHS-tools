@@ -5,9 +5,10 @@
  */
 
 import { useState, useMemo } from 'react'
+import { mix } from '../utils/theme'
 
-const CARD = '#111318', BORDER = '#1C1E26', ACCENT = '#22D3EE'
-const TEXT = '#ECEEF2', SUB = '#8B93A5', DIM = '#6B7380'
+const CARD = 'var(--card)', BORDER = 'var(--border)', ACCENT = 'var(--accent)'
+const TEXT = 'var(--text)', SUB = 'var(--sub)', DIM = 'var(--dim)'
 
 const DIRECTORY_DATA = [
   { name: 'Placeholder CIH Professional A', credentials: ['CIH'], city: 'Bethesda', state: 'MD', contact: 'contact@example.com', aiha: 'AIHA-0001' },
@@ -48,7 +49,7 @@ export default function IHDirectory({ onBack }) {
       <div style={{ fontSize: 11, color: SUB, marginBottom: 16 }}>AIHA/ABIH-credentialed industrial hygienists</div>
 
       {/* Disclaimer */}
-      <div style={{ padding: 12, background: `${ACCENT}06`, border: `1px solid ${ACCENT}18`, borderRadius: 8, marginBottom: 16, fontSize: 10, color: SUB, lineHeight: 1.6 }}>
+      <div style={{ padding: 12, background: `${mix('accent', 2)}`, border: `1px solid ${mix('accent', 9)}`, borderRadius: 8, marginBottom: 16, fontSize: 10, color: SUB, lineHeight: 1.6 }}>
         AtmosFlow does not endorse specific professionals. This directory is provided as a starting point for finding credentialed industrial hygiene expertise in your area.
       </div>
 
@@ -66,7 +67,7 @@ export default function IHDirectory({ onBack }) {
           <div style={{ fontSize: 14, fontWeight: 600, color: TEXT, marginBottom: 4 }}>{p.name}</div>
           <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
             {p.credentials.map(c => (
-              <span key={c} style={{ padding: '2px 8px', borderRadius: 4, background: `${ACCENT}12`, color: ACCENT, fontSize: 9, fontWeight: 600 }}>{c}</span>
+              <span key={c} style={{ padding: '2px 8px', borderRadius: 4, background: `${mix('accent', 7)}`, color: ACCENT, fontSize: 9, fontWeight: 600 }}>{c}</span>
             ))}
           </div>
           <div style={{ fontSize: 11, color: SUB }}>{p.city}, {p.state}</div>

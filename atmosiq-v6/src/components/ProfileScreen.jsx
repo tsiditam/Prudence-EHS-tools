@@ -11,17 +11,19 @@ import { useMediaQuery } from '../hooks/useMediaQuery'
 import Profiles from '../utils/profiles'
 import { trackEvent } from '../utils/supabaseClient'
 import { I } from './Icons'
+import { mix } from '../utils/theme'
 
 // ─── Design Tokens (aligned with MobileApp) ───
-const BG = '#07080C'
-const SURFACE = '#0D0E14'
-const CARD = '#111318'
-const BORDER = '#1C1E26'
-const ACCENT = '#22D3EE'
-const TEXT = '#ECEEF2'
-const SUB = '#8B93A5'
-const DIM = '#6B7380'
-const DANGER = '#EF4444'
+const BG = 'var(--bg)'
+const SURFACE = 'var(--surface)'
+const CARD = 'var(--card)'
+const BORDER = 'var(--border)'
+const ACCENT = 'var(--accent)'
+const ON_ACCENT = 'var(--on-accent)'
+const TEXT = 'var(--text)'
+const SUB = 'var(--sub)'
+const DIM = 'var(--dim)'
+const DANGER = 'var(--danger)'
 
 const CERT_OPTS = ['CIH','CIH-in-Training','CSP','CHMM','ACAC CIEC','ACAC CMC','ACAC CMI','Other']
 const EXP_OPTS = ['1–3 years','3–5 years','5–10 years','10–20 years','20+ years']
@@ -41,7 +43,7 @@ function SectionLabel({ children }) {
 
 function Chip({ selected, label: text, onClick }) {
   return (
-    <button onClick={onClick} style={{padding:'8px 14px',borderRadius:6,background:selected?`${ACCENT}12`:'transparent',border:`1px solid ${selected?ACCENT:BORDER}`,color:selected?ACCENT:SUB,fontSize:12,fontWeight:selected?600:500,cursor:'pointer',fontFamily:'inherit',minHeight:36,transition:'all 0.15s'}}>
+    <button onClick={onClick} style={{padding:'8px 14px',borderRadius:6,background:selected?`${mix('accent', 7)}`:'transparent',border:`1px solid ${selected?ACCENT:BORDER}`,color:selected?ACCENT:SUB,fontSize:12,fontWeight:selected?600:500,cursor:'pointer',fontFamily:'inherit',minHeight:36,transition:'all 0.15s'}}>
       {selected && <span style={{marginRight:4}}>✓</span>}{text}
     </button>
   )
@@ -49,7 +51,7 @@ function Chip({ selected, label: text, onClick }) {
 
 function RadioOption({ selected, label: text, onClick, compact }) {
   return (
-    <button onClick={onClick} style={{width:'100%',padding:compact?'10px 14px':'12px 16px',textAlign:'left',background:selected?`${ACCENT}08`:'transparent',border:`1px solid ${selected?`${ACCENT}30`:BORDER}`,borderRadius:8,color:selected?TEXT:SUB,fontSize:compact?13:14,fontWeight:selected?600:500,cursor:'pointer',fontFamily:'inherit',minHeight:compact?38:44,transition:'all 0.15s',marginBottom:4}}>
+    <button onClick={onClick} style={{width:'100%',padding:compact?'10px 14px':'12px 16px',textAlign:'left',background:selected?`${mix('accent', 3)}`:'transparent',border:`1px solid ${selected?`${mix('accent', 19)}`:BORDER}`,borderRadius:8,color:selected?TEXT:SUB,fontSize:compact?13:14,fontWeight:selected?600:500,cursor:'pointer',fontFamily:'inherit',minHeight:compact?38:44,transition:'all 0.15s',marginBottom:4}}>
       {text}
     </button>
   )
@@ -127,7 +129,7 @@ export default function ProfileScreen({ onLogin }) {
             {profiles.map(p => (
               <div key={p.id} style={{display:'flex',alignItems:'center',gap:10}}>
                 <button onClick={() => handleSelect(p)} style={{flex:1,padding:'16px 18px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,fontFamily:'inherit',transition:'border-color 0.15s'}}>
-                  <div style={{width:40,height:40,borderRadius:10,background:`${ACCENT}10`,border:`1px solid ${ACCENT}18`,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                  <div style={{width:40,height:40,borderRadius:10,background:`${mix('accent', 6)}`,border:`1px solid ${mix('accent', 9)}`,display:'flex',alignItems:'center',justifyContent:'center'}}>
                     <I n="user" s={18} c={ACCENT} />
                   </div>
                   <div style={{flex:1,minWidth:0}}>
@@ -171,7 +173,7 @@ export default function ProfileScreen({ onLogin }) {
         {/* Step Indicator */}
         <div style={{display:'flex',gap:6,marginBottom:28}}>
           {['Credentials','Instruments'].map((s,i) => (
-            <button key={s} onClick={() => setStep(i)} style={{flex:1,padding:'8px 0',borderRadius:6,border:'none',background:step===i?`${ACCENT}12`:'transparent',color:step===i?ACCENT:DIM,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:34,transition:'all 0.15s',borderBottom:step===i?`2px solid ${ACCENT}`:`2px solid transparent`}}>
+            <button key={s} onClick={() => setStep(i)} style={{flex:1,padding:'8px 0',borderRadius:6,border:'none',background:step===i?`${mix('accent', 7)}`:'transparent',color:step===i?ACCENT:DIM,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:34,transition:'all 0.15s',borderBottom:step===i?`2px solid ${ACCENT}`:`2px solid transparent`}}>
               <span style={{fontSize:10,fontWeight:700,marginRight:6,opacity:0.5}}>{i+1}</span>{s}
             </button>
           ))}
@@ -216,12 +218,12 @@ export default function ProfileScreen({ onLogin }) {
             <input type="text" value={form.firm_phone||''} onChange={e=>setF('firm_phone',e.target.value)} placeholder="e.g. (301) 541-8362" style={inp} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />
           </div>
 
-          <button onClick={()=>setF('marketing_consent',!form.marketing_consent)} style={{display:'flex',alignItems:'center',gap:12,padding:'12px 14px',background:'transparent',border:`1px solid ${form.marketing_consent?`${ACCENT}30`:BORDER}`,borderRadius:8,cursor:'pointer',textAlign:'left',fontFamily:'inherit',marginBottom:24,width:'100%',transition:'border-color 0.15s'}}>
-            <div style={{width:18,height:18,borderRadius:4,border:`1.5px solid ${form.marketing_consent?ACCENT:DIM}`,background:form.marketing_consent?ACCENT:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'all 0.15s'}}>{form.marketing_consent&&<span style={{color:BG,fontSize:11,fontWeight:700}}>✓</span>}</div>
+          <button onClick={()=>setF('marketing_consent',!form.marketing_consent)} style={{display:'flex',alignItems:'center',gap:12,padding:'12px 14px',background:'transparent',border:`1px solid ${form.marketing_consent?`${mix('accent', 19)}`:BORDER}`,borderRadius:8,cursor:'pointer',textAlign:'left',fontFamily:'inherit',marginBottom:24,width:'100%',transition:'border-color 0.15s'}}>
+            <div style={{width:18,height:18,borderRadius:4,border:`1.5px solid ${form.marketing_consent?ACCENT:DIM}`,background:form.marketing_consent?ACCENT:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'all 0.15s'}}>{form.marketing_consent&&<span style={{color:ON_ACCENT,fontSize:11,fontWeight:700}}>✓</span>}</div>
             <div style={{fontSize:12,color:SUB,lineHeight:1.5}}>Receive product updates and IH field tips</div>
           </button>
 
-          <button onClick={() => setStep(1)} disabled={!form.name} style={{width:'100%',padding:'14px 0',background:ACCENT,border:'none',borderRadius:8,color:BG,fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit',opacity:form.name?1:.3,minHeight:48,transition:'opacity 0.2s',letterSpacing:'-0.1px'}}>Continue to Instruments</button>
+          <button onClick={() => setStep(1)} disabled={!form.name} style={{width:'100%',padding:'14px 0',background:ACCENT,border:'none',borderRadius:8,color:ON_ACCENT,fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit',opacity:form.name?1:.3,minHeight:48,transition:'opacity 0.2s',letterSpacing:'-0.1px'}}>Continue to Instruments</button>
         </div>}
 
         {/* ── Step 2: Instruments ── */}
@@ -278,11 +280,11 @@ export default function ProfileScreen({ onLogin }) {
           {/* Actions */}
           <div style={{display:'flex',gap:8}}>
             <button onClick={() => setStep(0)} style={{flex:0,padding:'14px 20px',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:8,color:SUB,fontSize:14,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>←</button>
-            <button onClick={handleSave} style={{flex:1,padding:'14px 0',background:ACCENT,border:'none',borderRadius:8,color:BG,fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:48,letterSpacing:'-0.1px'}}>{editId ? 'Save Profile' : 'Create Profile'}</button>
+            <button onClick={handleSave} style={{flex:1,padding:'14px 0',background:ACCENT,border:'none',borderRadius:8,color:ON_ACCENT,fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:48,letterSpacing:'-0.1px'}}>{editId ? 'Save Profile' : 'Create Profile'}</button>
           </div>
 
           {editId && (
-            <button onClick={() => { handleDelete(editId); setMode('select') }} style={{width:'100%',padding:'12px 0',background:'transparent',border:`1px solid ${DANGER}25`,borderRadius:8,color:DANGER,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:40,marginTop:12,transition:'background 0.15s'}}>Delete this profile</button>
+            <button onClick={() => { handleDelete(editId); setMode('select') }} style={{width:'100%',padding:'12px 0',background:'transparent',border:`1px solid ${mix('danger', 15)}`,borderRadius:8,color:DANGER,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:40,marginTop:12,transition:'background 0.15s'}}>Delete this profile</button>
           )}
         </div>}
       </div>

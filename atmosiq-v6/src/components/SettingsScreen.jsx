@@ -11,19 +11,28 @@ import STO from '../utils/storage'
 import Backup from '../utils/backup'
 import { VER } from '../constants/standards'
 import { getSubscriptionRowSubtitle } from '../utils/subscriptionState'
+import { useTheme, mix } from '../utils/theme'
 import { I } from './Icons'
 
-const BG = '#07080C'
-const SURFACE = '#0D0E14'
-const CARD = '#111318'
-const BORDER = '#1C1E26'
-const ACCENT = '#22D3EE'
-const TEXT = '#ECEEF2'
-const SUB = '#8B93A5'
-const DIM = '#6B7380'
-const SUCCESS = '#22C55E'
-const WARN = '#FBBF24'
-const DANGER = '#EF4444'
+// Theme tokens. These are CSS-variable references defined in
+// index.html (:root for dark, [data-theme="light"] for light), so the
+// page re-renders without color changes when the toggle flips — the
+// browser swaps the resolved palette via the cascade.
+const BG = 'var(--bg)'
+const SURFACE = 'var(--surface)'
+const CARD = 'var(--card)'
+const BORDER = 'var(--border)'
+const ACCENT = 'var(--accent)'
+const TEXT = 'var(--text)'
+const SUB = 'var(--sub)'
+const DIM = 'var(--dim)'
+const SUCCESS = 'var(--success)'
+const WARN = 'var(--warn)'
+const DANGER = 'var(--danger)'
+const ON_ACCENT = 'var(--on-accent)'
+
+// `mix(name, pct)` for legacy `${TOKEN}HEX_ALPHA` sites is imported
+// from utils/theme above.
 
 // `credits` prop intentionally dropped in billing-architecture
 // Phase 1 — the Manage Subscription row's subtitle now comes from
@@ -31,6 +40,7 @@ const DANGER = '#EF4444'
 // balance. `onNavigate` kept as a prop because Phase 2 will route
 // `'manage-subscription'` to the Stripe Customer Portal through it.
 export default function SettingsScreen({ profile, onEditProfile, onLogout, onClose, onNavigate, onActivateAdmin, adminActive }) {
+  const { mode: themeMode, setMode: setThemeMode } = useTheme()
   const [health, setHealth] = useState(null)
   const [importMsg, setImportMsg] = useState('')
   const [index, setIndex] = useState({ reports: [], drafts: [] })
@@ -125,8 +135,8 @@ export default function SettingsScreen({ profile, onEditProfile, onLogout, onClo
       fontSize:10,fontWeight:600,fontFamily:"var(--font-mono)",
       color: tone==='warn' ? WARN : DANGER,
       padding:'3px 8px',borderRadius:6,
-      background: tone==='warn' ? `${WARN}10` : `${DANGER}10`,
-      border: `1px solid ${tone==='warn' ? WARN : DANGER}25`,
+      background: tone==='warn' ? mix('warn', 6) : mix('danger', 6),
+      border: `1px solid ${tone==='warn' ? mix('warn', 14) : mix('danger', 14)}`,
     }}>{text}</span>
   )
 
@@ -142,7 +152,7 @@ export default function SettingsScreen({ profile, onEditProfile, onLogout, onClo
       <Group title="Account">
         {profile && (
           <button onClick={onEditProfile} style={{width:'100%',padding:'16px',background:'transparent',border:'none',cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit',minHeight:64}}>
-            <div style={{width:42,height:42,borderRadius:10,background:`${ACCENT}10`,border:`1px solid ${ACCENT}18`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+            <div style={{width:42,height:42,borderRadius:10,background:mix('accent', 6),border:`1px solid ${mix('accent', 9)}`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
               <I n="user" s={18} c={ACCENT} />
             </div>
             <div style={{flex:1,minWidth:0}}>
@@ -163,6 +173,39 @@ export default function SettingsScreen({ profile, onEditProfile, onLogout, onClo
           sub={getSubscriptionRowSubtitle(profile)}
           action={() => { window.location.href = 'mailto:support@prudenceehs.com?subject=AtmosFlow%20subscription' }}
         />
+        {/* Theme — manual dark/light picker. Default is dark. Light
+            mode is opt-in and only affects the authenticated in-app
+            surface; landing pages, auth, and the PWA install chrome
+            stay dark/branded regardless of this choice. */}
+        <div style={{padding:'14px 16px',borderTop:`1px solid ${BORDER}`,display:'flex',alignItems:'center',gap:12,minHeight:52}}>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:14,fontWeight:600,color:TEXT}}>Theme</div>
+            <div style={{fontSize:11,color:DIM,marginTop:2,lineHeight:1.4}}>In-app only · landing &amp; install screens stay dark</div>
+          </div>
+          <div style={{display:'flex',gap:6,flexShrink:0}}>
+            {[{v:'dark',l:'Dark'},{v:'light',l:'Light'}].map(o => {
+              const sel = themeMode === o.v
+              return (
+                <button
+                  key={o.v}
+                  onClick={() => setThemeMode(o.v)}
+                  aria-pressed={sel}
+                  style={{
+                    padding:'6px 12px',
+                    background: sel ? mix('accent', 9) : 'transparent',
+                    border:`1px solid ${sel ? ACCENT : BORDER}`,
+                    borderRadius:8,
+                    color: sel ? ACCENT : SUB,
+                    fontSize:12,
+                    fontWeight:600,
+                    cursor:'pointer',
+                    fontFamily:'inherit',
+                    transition:'all .15s ease',
+                  }}>{o.l}</button>
+              )
+            })}
+          </div>
+        </div>
         {!showPasswordChange ? (
           <Row label="Change Password" action={() => setShowPasswordChange(true)} />
         ) : (
@@ -183,7 +226,7 @@ export default function SettingsScreen({ profile, onEditProfile, onLogout, onClo
                     else { setPasswordMsg('Password updated successfully'); setNewPassword(''); setConfirmPassword(''); setTimeout(()=>{setShowPasswordChange(false);setPasswordMsg('')},2000) }
                   }
                 } catch { setPasswordMsg('Failed to update password') }
-              }} style={{flex:1,padding:'8px 16px',background:ACCENT,border:'none',borderRadius:8,color:BG,fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>Update Password</button>
+              }} style={{flex:1,padding:'8px 16px',background:ACCENT,border:'none',borderRadius:8,color:ON_ACCENT,fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>Update Password</button>
             </div>
           </div>
         )}
@@ -229,7 +272,7 @@ export default function SettingsScreen({ profile, onEditProfile, onLogout, onClo
         <div style={{padding:'14px 16px'}}>
           <div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:8}}>
             {['ASHRAE 62.1-2025','ASHRAE 55-2023','OSHA PELs','NIOSH RELs','EPA NAAQS','WHO AQG','AIHA'].map(s => (
-              <span key={s} style={{padding:'4px 8px',borderRadius:4,background:`${ACCENT}08`,border:`1px solid ${ACCENT}12`,fontSize:9,fontWeight:600,color:ACCENT,fontFamily:"var(--font-mono)",letterSpacing:'0.2px'}}>{s}</span>
+              <span key={s} style={{padding:'4px 8px',borderRadius:4,background:mix('accent', 3),border:`1px solid ${mix('accent', 7)}`,fontSize:9,fontWeight:600,color:ACCENT,fontFamily:"var(--font-mono)",letterSpacing:'0.2px'}}>{s}</span>
             ))}
           </div>
           <details>
@@ -238,7 +281,7 @@ export default function SettingsScreen({ profile, onEditProfile, onLogout, onClo
             </summary>
             <div style={{display:'flex',flexWrap:'wrap',gap:4,marginTop:6}}>
               {['ANSI/ISA 71.04-2013','ISO 14644-1:2015','ASHRAE TC 9.9','IEEE 1635','NFPA 855'].map(s => (
-                <span key={s} style={{padding:'4px 8px',borderRadius:4,background:`${DIM}10`,border:`1px solid ${DIM}20`,fontSize:9,fontWeight:600,color:DIM,fontFamily:"var(--font-mono)",letterSpacing:'0.2px'}}>{s}</span>
+                <span key={s} style={{padding:'4px 8px',borderRadius:4,background:mix('dim', 6),border:`1px solid ${mix('dim', 12)}`,fontSize:9,fontWeight:600,color:DIM,fontFamily:"var(--font-mono)",letterSpacing:'0.2px'}}>{s}</span>
               ))}
             </div>
           </details>
@@ -264,9 +307,9 @@ export default function SettingsScreen({ profile, onEditProfile, onLogout, onClo
         </label>
         {trashCount > 0 && <Row label="Trash" value={`${trashCount}`} action={() => onNavigate?.('trash')} />}
       </Group>
-      {importMsg && <div style={{padding:'8px 14px',background:`${ACCENT}08`,border:`1px solid ${ACCENT}18`,borderRadius:8,marginTop:8,fontSize:11,color:ACCENT}}>{importMsg}</div>}
+      {importMsg && <div style={{padding:'8px 14px',background:mix('accent', 3),border:`1px solid ${mix('accent', 9)}`,borderRadius:8,marginTop:8,fontSize:11,color:ACCENT}}>{importMsg}</div>}
       {!dataOk && health?.issues?.length > 0 && (
-        <div style={{marginTop:8,padding:'10px 14px',background:`${WARN}08`,border:`1px solid ${WARN}25`,borderRadius:8}}>
+        <div style={{marginTop:8,padding:'10px 14px',background:mix('warn', 3),border:`1px solid ${mix('warn', 14)}`,borderRadius:8}}>
           {health.issues.map((issue, i) => (
             <div key={i} style={{fontSize:11,color:issue.level==='critical'?DANGER:WARN,marginBottom:i<health.issues.length-1?4:0}}>{issue.msg}</div>
           ))}
@@ -317,11 +360,11 @@ export default function SettingsScreen({ profile, onEditProfile, onLogout, onClo
             pricing-architecture prompt for the Phase 2+ tier rollout. */}
       </Group>
       {showAdminInput && (
-        <div style={{padding:'14px 16px',background:CARD,border:`1px solid ${WARN}25`,borderRadius:10,marginTop:8}}>
+        <div style={{padding:'14px 16px',background:CARD,border:`1px solid ${mix('warn', 14)}`,borderRadius:10,marginTop:8}}>
           <div style={{fontSize:12,fontWeight:600,color:WARN,marginBottom:8}}>Admin Access</div>
           <div style={{display:'flex',gap:8}}>
             <input value={adminCode} onChange={e=>setAdminCode(e.target.value)} placeholder="Enter admin secret" type="password" style={{flex:1,padding:'10px 14px',background:BG,border:`1px solid ${BORDER}`,borderRadius:8,color:TEXT,fontSize:13,fontFamily:'inherit',outline:'none'}} />
-            <button onClick={() => { if (adminCode) { onActivateAdmin?.(adminCode); setShowAdminInput(false); setAdminCode('') } }} style={{padding:'10px 16px',background:`${WARN}15`,border:`1px solid ${WARN}30`,borderRadius:8,color:WARN,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Activate</button>
+            <button onClick={() => { if (adminCode) { onActivateAdmin?.(adminCode); setShowAdminInput(false); setAdminCode('') } }} style={{padding:'10px 16px',background:mix('warn', 8),border:`1px solid ${mix('warn', 19)}`,borderRadius:8,color:WARN,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Activate</button>
           </div>
         </div>
       )}
@@ -333,7 +376,7 @@ export default function SettingsScreen({ profile, onEditProfile, onLogout, onClo
         {!deleteConfirm ? (
           <Row label="Delete account" tone="danger" action={() => setDeleteConfirm(true)} />
         ) : (
-          <div style={{padding:'14px 16px',borderTop:`1px solid ${BORDER}`,background:`${DANGER}06`}}>
+          <div style={{padding:'14px 16px',borderTop:`1px solid ${BORDER}`,background:mix('danger', 2)}}>
             <div style={{fontSize:13,fontWeight:600,color:DANGER,marginBottom:6}}>Permanently delete your account?</div>
             <div style={{fontSize:11,color:SUB,marginBottom:12,lineHeight:1.5}}>This removes all assessments, reports, credits, and profile data. This cannot be undone.</div>
             <div style={{display:'flex',gap:8}}>
@@ -346,7 +389,7 @@ export default function SettingsScreen({ profile, onEditProfile, onLogout, onClo
                   }
                 } catch {}
                 onLogout()
-              }} style={{flex:1,padding:'10px',background:`${DANGER}15`,border:`1px solid ${DANGER}30`,borderRadius:8,color:DANGER,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Delete everything</button>
+              }} style={{flex:1,padding:'10px',background:mix('danger', 8),border:`1px solid ${mix('danger', 19)}`,borderRadius:8,color:DANGER,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Delete everything</button>
             </div>
           </div>
         )}

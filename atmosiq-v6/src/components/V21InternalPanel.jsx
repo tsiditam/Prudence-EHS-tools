@@ -16,23 +16,24 @@ import { useMemo, useState } from 'react'
 import { legacyToAssessmentScore, deriveAssessmentMeta } from '../engine/bridge'
 import { renderInternalReport } from '../engine/report/internal'
 import { ENGINE_VERSION } from '../version'
+import { mix } from '../utils/theme'
 
-const SURFACE = '#0D0E14'
-const CARD = '#111318'
-const BORDER = '#1C1E26'
-const ACCENT = '#22D3EE'
-const TEXT = '#ECEEF2'
-const SUB = '#8B93A5'
-const DIM = '#6B7380'
-const SUCCESS = '#22C55E'
-const WARN = '#FBBF24'
-const DANGER = '#EF4444'
+const SURFACE = 'var(--surface)'
+const CARD = 'var(--card)'
+const BORDER = 'var(--border)'
+const ACCENT = 'var(--accent)'
+const TEXT = 'var(--text)'
+const SUB = 'var(--sub)'
+const DIM = 'var(--dim)'
+const SUCCESS = 'var(--success)'
+const WARN = 'var(--warn)'
+const DANGER = 'var(--danger)'
 
 const SEV_COLOR = {
   critical: DANGER,
   high: '#FB923C',
   medium: WARN,
-  low: '#22D3EE',
+  low: 'var(--accent)',
   pass: SUCCESS,
   info: SUB,
 }
@@ -97,7 +98,7 @@ export default function V21InternalPanel({
     >
       <span style={{
         padding: '2px 7px', borderRadius: 4, fontSize: 9, fontWeight: 700,
-        background: `${ACCENT}15`, color: ACCENT, letterSpacing: '0.4px',
+        background: `${mix('accent', 8)}`, color: ACCENT, letterSpacing: '0.4px',
       }}>v{ENGINE_VERSION} ENGINE</span>
       <span style={{ fontSize: 11, color: TEXT, fontWeight: 600 }}>
         Internal report (operator dashboard)
@@ -115,7 +116,7 @@ export default function V21InternalPanel({
       <>
         {titleBar}
         <div style={{
-          padding: '12px 14px', background: `${DANGER}10`, border: `1px solid ${DANGER}30`,
+          padding: '12px 14px', background: `${mix('danger', 6)}`, border: `1px solid ${mix('danger', 19)}`,
           borderRadius: 10, marginBottom: 10, fontSize: 11, color: DANGER, fontFamily: "var(--font-mono), monospace",
         }}>
           Bridge error: {internal.error}
@@ -147,7 +148,7 @@ export default function V21InternalPanel({
           <Section label="Missing data">
             {report.missingDataFlags.map((m, i) => (
               <div key={i} style={{
-                padding: '8px 10px', background: `${WARN}08`, border: `1px solid ${WARN}25`,
+                padding: '8px 10px', background: `${mix('warn', 3)}`, border: `1px solid ${mix('warn', 15)}`,
                 borderRadius: 6, marginBottom: 6, fontSize: 11, color: WARN,
               }}>{m}</div>
             ))}
@@ -281,7 +282,7 @@ function FlagGrid({ flags }) {
       {items.map(([label, ok]) => (
         <div key={label} style={{
           display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px',
-          background: ok ? `${SUCCESS}10` : `${WARN}10`,
+          background: ok ? `${mix('success', 6)}` : `${mix('warn', 6)}`,
           border: `1px solid ${ok ? SUCCESS : WARN}25`, borderRadius: 6,
         }}>
           <span style={{

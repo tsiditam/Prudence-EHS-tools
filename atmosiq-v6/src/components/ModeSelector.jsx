@@ -4,9 +4,10 @@
  */
 
 import { I } from './Icons'
+import { mix } from '../utils/theme'
 
-const BG = '#07080C', CARD = '#111318', BORDER = '#1C1E26', ACCENT = '#22D3EE'
-const TEXT = '#ECEEF2', SUB = '#8B93A5', DIM = '#6B7380'
+const BG = 'var(--bg)', CARD = 'var(--card)', BORDER = 'var(--border)', ACCENT = 'var(--accent)'
+const TEXT = 'var(--text)', SUB = 'var(--sub)', DIM = 'var(--dim)'
 
 export default function ModeSelector({ onSelect }) {
   return (
@@ -34,7 +35,7 @@ export default function ModeSelector({ onSelect }) {
           marginBottom: 12, transition: 'border-color 0.2s',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
-            <div style={{ width: 40, height: 40, borderRadius: 10, background: `${ACCENT}10`, border: `1px solid ${ACCENT}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: 40, height: 40, borderRadius: 10, background: `${mix('accent', 6)}`, border: `1px solid ${mix('accent', 9)}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <I n="shield" s={20} c={ACCENT} w={1.6} />
             </div>
             <div style={{ fontSize: 16, fontWeight: 700, color: TEXT }}>I'm an EHS or IH professional</div>
@@ -51,7 +52,7 @@ export default function ModeSelector({ onSelect }) {
           marginBottom: 24, transition: 'border-color 0.2s',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
-            <div style={{ width: 40, height: 40, borderRadius: 10, background: `${ACCENT}10`, border: `1px solid ${ACCENT}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: 40, height: 40, borderRadius: 10, background: `${mix('accent', 6)}`, border: `1px solid ${mix('accent', 9)}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <I n="bldg" s={20} c={ACCENT} w={1.6} />
             </div>
             <div style={{ fontSize: 16, fontWeight: 700, color: TEXT }}>I manage a building or facility</div>

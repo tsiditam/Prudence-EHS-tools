@@ -12,16 +12,17 @@
 import { useState } from 'react'
 import STO from '../utils/storage'
 import { COMPLAINT_SYMPTOMS } from '../constants/terminology'
+import { mix } from '../utils/theme'
 
-const BG = '#07080C'
-const CARD = '#111318'
-const BORDER = '#1C1E26'
-const ACCENT = '#22D3EE'
-const WARN = '#FBBF24'
-const DANGER = '#EF4444'
-const TEXT = '#ECEEF2'
-const SUB = '#8B93A5'
-const DIM = '#6B7380'
+const BG = 'var(--bg)'
+const CARD = 'var(--card)'
+const BORDER = 'var(--border)'
+const ACCENT = 'var(--accent)'
+const WARN = 'var(--warn)'
+const DANGER = 'var(--danger)'
+const TEXT = 'var(--text)'
+const SUB = 'var(--sub)'
+const DIM = 'var(--dim)'
 
 // Trigger types — subset of Q_PRESURVEY.ps_reason (incident-only)
 // plus emergency-specific entries. Order: emergency-first so users
@@ -184,7 +185,7 @@ export default function IncidentForm({ onCancel, onSaved }) {
         ))}
       </div>
       {isEmergency && (
-        <div style={{ marginTop: 12, padding: '10px 12px', background: `${DANGER}10`, border: `1px solid ${DANGER}40`, borderRadius: 8, fontSize: 12, color: TEXT, lineHeight: 1.5 }}>
+        <div style={{ marginTop: 12, padding: '10px 12px', background: `${mix('danger', 6)}`, border: `1px solid ${mix('danger', 25)}`, borderRadius: 8, fontSize: 12, color: TEXT, lineHeight: 1.5 }}>
           <strong style={{ color: DANGER }}>⚠ Emergency type selected.</strong> If there is imminent danger to occupants, contact 911 or your building emergency services <strong>before</strong> continuing to document. AtmosFlow does not provide emergency response.
         </div>
       )}
@@ -224,7 +225,7 @@ export default function IncidentForm({ onCancel, onSaved }) {
         {INCIDENT_SEVERITIES.map(s => (
           <button key={s.value} onClick={() => f('severity', s.value)} style={{
             padding: '10px 14px', textAlign: 'left',
-            background: form.severity === s.value ? `${ACCENT}10` : 'transparent',
+            background: form.severity === s.value ? `${mix('accent', 6)}` : 'transparent',
             border: `1px solid ${form.severity === s.value ? ACCENT : BORDER}`,
             borderRadius: 8, color: form.severity === s.value ? TEXT : SUB,
             fontSize: 13, fontWeight: form.severity === s.value ? 600 : 500,
@@ -280,7 +281,7 @@ export default function IncidentForm({ onCancel, onSaved }) {
       {/* Footer actions */}
       <div style={{ position: 'sticky', bottom: 0, marginTop: 32, padding: '16px 0', background: BG, borderTop: `1px solid ${BORDER}`, display: 'flex', gap: 8 }}>
         <button onClick={onCancel} style={{ flex: 1, padding: '14px', background: CARD, border: `1px solid ${BORDER}`, borderRadius: 10, color: SUB, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', minHeight: 48 }}>Cancel</button>
-        <button onClick={handleSave} disabled={!canSave || saving} style={{ flex: 2, padding: '14px', background: canSave ? WARN : `${WARN}30`, border: 'none', borderRadius: 10, color: canSave ? '#000' : SUB, fontSize: 14, fontWeight: 700, cursor: canSave ? 'pointer' : 'not-allowed', fontFamily: 'inherit', minHeight: 48, transition: 'opacity 0.15s' }}>
+        <button onClick={handleSave} disabled={!canSave || saving} style={{ flex: 2, padding: '14px', background: canSave ? WARN : `${mix('warn', 19)}`, border: 'none', borderRadius: 10, color: canSave ? '#000' : SUB, fontSize: 14, fontWeight: 700, cursor: canSave ? 'pointer' : 'not-allowed', fontFamily: 'inherit', minHeight: 48, transition: 'opacity 0.15s' }}>
           {saving ? 'Saving…' : 'Save incident'}
         </button>
       </div>

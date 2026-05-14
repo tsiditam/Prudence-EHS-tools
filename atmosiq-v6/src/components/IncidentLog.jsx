@@ -10,16 +10,17 @@
 
 import { useEffect, useState } from 'react'
 import STO from '../utils/storage'
+import { mix } from '../utils/theme'
 
-const CARD = '#111318'
-const BORDER = '#1C1E26'
-const ACCENT = '#22D3EE'
-const WARN = '#FBBF24'
-const DANGER = '#EF4444'
-const SUCCESS = '#22C55E'
-const TEXT = '#ECEEF2'
-const SUB = '#8B93A5'
-const DIM = '#6B7380'
+const CARD = 'var(--card)'
+const BORDER = 'var(--border)'
+const ACCENT = 'var(--accent)'
+const WARN = 'var(--warn)'
+const DANGER = 'var(--danger)'
+const SUCCESS = 'var(--success)'
+const TEXT = 'var(--text)'
+const SUB = 'var(--sub)'
+const DIM = 'var(--dim)'
 
 const STATUS_FILTERS = [
   { id: 'open', label: 'Open' },
@@ -75,7 +76,7 @@ export default function IncidentLog({ onBack, onNewIncident, onView }) {
           <h2 style={{ fontSize: 22, fontWeight: 700, color: TEXT, margin: 0, letterSpacing: '-0.3px' }}>Incidents</h2>
           <div style={{ fontSize: 12, color: SUB, marginTop: 4 }}>Indoor air events documented for the record. Not a substitute for emergency services.</div>
         </div>
-        <button onClick={onNewIncident} style={{ padding: '10px 14px', background: WARN, border: 'none', borderRadius: 8, color: '#000', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', minHeight: 40 }}>+ Report</button>
+        <button onClick={onNewIncident} style={{ padding: '10px 14px', background: WARN, border: 'none', borderRadius: 8, color: 'var(--on-accent)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', minHeight: 40 }}>+ Report</button>
       </div>
 
       {/* Status filter chips */}
@@ -83,8 +84,8 @@ export default function IncidentLog({ onBack, onNewIncident, onView }) {
         {STATUS_FILTERS.map(s => (
           <button key={s.id} onClick={() => setFilter(s.id)} style={{
             padding: '7px 12px', borderRadius: 6,
-            background: filter === s.id ? `${ACCENT}12` : 'transparent',
-            border: `1px solid ${filter === s.id ? `${ACCENT}40` : BORDER}`,
+            background: filter === s.id ? `${mix('accent', 7)}` : 'transparent',
+            border: `1px solid ${filter === s.id ? `${mix('accent', 25)}` : BORDER}`,
             color: filter === s.id ? ACCENT : SUB,
             fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', minHeight: 32,
           }}>

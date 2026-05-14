@@ -10,16 +10,17 @@
 
 import { useState } from 'react'
 import STO from '../utils/storage'
+import { mix } from '../utils/theme'
 
-const CARD = '#111318'
-const BORDER = '#1C1E26'
-const ACCENT = '#22D3EE'
-const WARN = '#FBBF24'
-const DANGER = '#EF4444'
-const SUCCESS = '#22C55E'
-const TEXT = '#ECEEF2'
-const SUB = '#8B93A5'
-const DIM = '#6B7380'
+const CARD = 'var(--card)'
+const BORDER = 'var(--border)'
+const ACCENT = 'var(--accent)'
+const WARN = 'var(--warn)'
+const DANGER = 'var(--danger)'
+const SUCCESS = 'var(--success)'
+const TEXT = 'var(--text)'
+const SUB = 'var(--sub)'
+const DIM = 'var(--dim)'
 
 const STATUSES = [
   { id: 'open', label: 'Open', color: ACCENT },
@@ -115,7 +116,7 @@ export default function IncidentDetail({ incident, onBack, onChange, onDeleted }
         <Section title="Symptoms reported">
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {incident.symptoms.map(s => (
-              <span key={s} style={{ fontSize: 11, padding: '4px 10px', borderRadius: 12, background: `${ACCENT}10`, color: ACCENT, border: `1px solid ${ACCENT}25` }}>{s}</span>
+              <span key={s} style={{ fontSize: 11, padding: '4px 10px', borderRadius: 12, background: `${mix('accent', 6)}`, color: ACCENT, border: `1px solid ${mix('accent', 15)}` }}>{s}</span>
             ))}
           </div>
         </Section>
@@ -155,9 +156,9 @@ export default function IncidentDetail({ incident, onBack, onChange, onDeleted }
       {/* Danger zone — delete */}
       <div style={{ marginTop: 32, paddingTop: 16, borderTop: `1px solid ${BORDER}` }}>
         {!confirmDelete ? (
-          <button onClick={() => setConfirmDelete(true)} style={{ padding: '10px 16px', background: 'transparent', border: `1px solid ${DANGER}40`, borderRadius: 8, color: DANGER, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Delete incident</button>
+          <button onClick={() => setConfirmDelete(true)} style={{ padding: '10px 16px', background: 'transparent', border: `1px solid ${mix('danger', 25)}`, borderRadius: 8, color: DANGER, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Delete incident</button>
         ) : (
-          <div style={{ padding: 14, background: `${DANGER}10`, border: `1px solid ${DANGER}40`, borderRadius: 8 }}>
+          <div style={{ padding: 14, background: `${mix('danger', 6)}`, border: `1px solid ${mix('danger', 25)}`, borderRadius: 8 }}>
             <div style={{ fontSize: 13, color: TEXT, marginBottom: 10 }}>Delete this incident? This cannot be undone.</div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={() => setConfirmDelete(false)} style={{ flex: 1, padding: '10px', background: 'transparent', border: `1px solid ${BORDER}`, borderRadius: 6, color: SUB, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>

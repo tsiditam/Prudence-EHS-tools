@@ -25,13 +25,14 @@
  */
 
 import { useState, useEffect, useMemo } from 'react'
+import { mix } from '../utils/theme'
 
-const CARD = '#111318'
-const BORDER = '#1C1E26'
-const ACCENT = '#22D3EE'
-const TEXT = '#ECEEF2'
-const SUB = '#8B93A5'
-const DIM = '#6B7380'
+const CARD = 'var(--card)'
+const BORDER = 'var(--border)'
+const ACCENT = 'var(--accent)'
+const TEXT = 'var(--text)'
+const SUB = 'var(--sub)'
+const DIM = 'var(--dim)'
 
 // ASHRAE 62.1-2019 Appendix C: G ≈ 0.0084 cfm/person at 1.2 met
 // (sedentary office worker, average adult). Persily 2017 confirms
@@ -101,7 +102,7 @@ export default function Co2OaCalculator({ co2, co2o, onApply, onCo2Change, onCo2
   }
 
   return (
-    <div style={{ marginTop: 14, padding: 16, background: `${ACCENT}06`, border: `1px solid ${ACCENT}25`, borderRadius: 12 }}>
+    <div style={{ marginTop: 14, padding: 16, background: `${mix('accent', 2)}`, border: `1px solid ${mix('accent', 15)}`, borderRadius: 12 }}>
       <div style={{ fontSize: 12, fontFamily: "var(--font-mono)", fontWeight: 600, color: ACCENT, letterSpacing: 0.4, marginBottom: 12, textTransform: 'uppercase' }}>
         Estimate from CO₂ mass-balance
       </div>

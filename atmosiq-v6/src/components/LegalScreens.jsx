@@ -5,20 +5,22 @@
  * LegalScreens — Terms of Service and Privacy Policy
  */
 
-const BG = '#060609'
-const CARD = '#101018'
-const BORDER = '#1E1E2E'
-const ACCENT = '#22D3EE'
-const TEXT = '#F0F2F5'
-const SUB = '#9BA4B5'
-const DIM = '#6B7280'
-const WARN = '#FBBF24'
+import { mix } from '../utils/theme'
+
+const BG = 'var(--bg)'
+const CARD = 'var(--card)'
+const BORDER = 'var(--border)'
+const ACCENT = 'var(--accent)'
+const TEXT = 'var(--text)'
+const SUB = 'var(--sub)'
+const DIM = 'var(--dim)'
+const WARN = 'var(--warn)'
 
 function Section({ title, body, important }) {
   return (
     <div style={{
-      padding: '18px 20px', background: important ? `${WARN}06` : CARD,
-      border: `1px solid ${important ? `${WARN}30` : BORDER}`,
+      padding: '18px 20px', background: important ? `${mix('warn', 2)}` : CARD,
+      border: `1px solid ${important ? `${mix('warn', 19)}` : BORDER}`,
       borderRadius: 14, marginBottom: 10,
     }}>
       <div style={{ fontSize: 14, fontWeight: 700, color: TEXT, marginBottom: 8 }}>{title}</div>
