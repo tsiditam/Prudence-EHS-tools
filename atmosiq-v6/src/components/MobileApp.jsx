@@ -1650,21 +1650,6 @@ export default function MobileApp() {
             <div style={{fontSize:14,fontWeight:700,color:ON_ACCENT,fontFamily:'inherit',letterSpacing:'-0.2px'}}>Report an incident</div>
           </button>
 
-          {/* ── Tier 2 Group A: Workspace ── */}
-          <div style={{fontSize:11,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:8,paddingLeft:4}}>Workspace</div>
-          <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,marginBottom:24,overflow:'hidden'}}>
-            {[
-              { key:'drafts', label: userMode==='fm' ? 'In Progress' : 'Drafts', count: (index.drafts||[]).length, view: 'drafts' },
-              { key:'reports', label: 'Reports', count: (index.reports||[]).length, view: 'history' },
-            ].map((row, i) => (
-              <button key={row.key} onClick={()=>{ if (row.count) setView(row.view) }} disabled={!row.count} style={{width:'100%',padding:'14px 16px',background:'transparent',border:'none',borderTop: i===0 ? 'none' : `1px solid ${BORDER}`,cursor: row.count ? 'pointer' : 'default',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit',minHeight:56,opacity: row.count ? 1 : 0.55}}>
-                <span style={{flex:1,fontSize:14,fontWeight:600,color: row.count ? TEXT : SUB}}>{row.label}</span>
-                <span style={{fontSize:14,fontWeight:700,fontFamily:"var(--font-mono)",color: row.count ? TEXT : DIM}}>{row.count}</span>
-                {row.count > 0 && <span style={{color:DIM,fontSize:13,marginLeft:4}}>›</span>}
-              </button>
-            ))}
-          </div>
-
           {/* ── Tier 2 Group B: Recent reports (only when present) ── */}
           {(index.reports||[]).length > 0 && <>
             <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',marginBottom:8,paddingLeft:4,paddingRight:4}}>
