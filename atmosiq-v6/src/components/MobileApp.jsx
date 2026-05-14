@@ -1437,7 +1437,7 @@ export default function MobileApp() {
             return (photos[k]||[]).map((p,i)=>(
               <button key={`${k}::${i}`} onClick={()=>setSelectedPhotos(prev=>({...prev,[`${k}::${i}`]:!prev[`${k}::${i}`]}))} style={{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'10px 12px',background:selectedPhotos[`${k}::${i}`]?`${mix('accent', 3)}`:SURFACE,border:`1px solid ${selectedPhotos[`${k}::${i}`]?mix('accent', 19):BORDER}`,borderRadius:10,marginBottom:6,cursor:'pointer',fontFamily:'inherit',textAlign:'left'}}>
                 <div style={{width:20,height:20,borderRadius:5,border:`2px solid ${selectedPhotos[`${k}::${i}`]?ACCENT:DIM}`,background:selectedPhotos[`${k}::${i}`]?ACCENT:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                  {selectedPhotos[`${k}::${i}`]&&<span style={{color:'#000',fontSize:12,fontWeight:700}}>✓</span>}
+                  {selectedPhotos[`${k}::${i}`]&&<span style={{color:ON_ACCENT,fontSize:12,fontWeight:700}}>✓</span>}
                 </div>
                 {p.src&&<img src={p.src} alt="" style={{width:48,height:48,objectFit:'cover',borderRadius:6,flexShrink:0}} />}
                 <div style={{flex:1,minWidth:0}}>

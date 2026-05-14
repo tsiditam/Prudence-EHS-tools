@@ -55,17 +55,25 @@
         --on-accent:#07080C;
       }
       [data-theme="light"]{
-        --bg:#F7F8FA;
+        --bg:#F0F2F5;
         --surface:#FFFFFF;
         --card:#FFFFFF;
-        --border:#E4E7EB;
+        --border:#CBD0D6;
         --accent:#0E7490;
         --accent-dim:#155E75;
         --text:#0F172A;
         --sub:#475569;
-        --dim:#94A3B8;
+        --dim:#5B6675;
         --on-accent:#FFFFFF;
-        /* warn/danger/success unchanged across modes — semantic */
+        /* Semantic colors diverge in light mode: the vivid dark-mode
+           shades wash out on white (warn #FBBF24 → 1.57:1, success
+           #22C55E → 2.14:1). Light mode uses darker stops from the
+           same hue families so they remain legible as foreground
+           text. Severity-badge helpers in component code still use
+           the literal dark-mode hexes for semantic consistency. */
+        --warn:#9A4A08;
+        --danger:#B91C1C;
+        --success:#15703A;
       }
       body{
         font-family:var(--font-sans);
