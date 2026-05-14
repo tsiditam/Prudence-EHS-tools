@@ -53,7 +53,9 @@ import { getMode, setMode as persistMode, isFM, t } from '../constants/terminolo
 import { evaluateEscalation, hasActiveEscalation } from '../engines/escalation'
 import { getBuildingProfile } from '../engines/buildingProfiles'
 import ModeSelector from './ModeSelector'
-import ComplaintLog from './ComplaintLog'
+import IncidentForm from './IncidentForm'
+import IncidentLog from './IncidentLog'
+import IncidentDetail from './IncidentDetail'
 import InterventionTracker from './InterventionTracker'
 import IHDirectory from './IHDirectory'
 import PropertyDashboard from './PropertyDashboard'
@@ -347,6 +349,7 @@ export default function MobileApp() {
   const [selZone, setSelZone] = useState(0)
 
   const [viewRpt, setViewRpt] = useState(null)
+  const [currentIncident, setCurrentIncident] = useState(null)
   const [delConf, setDelConf] = useState(null)
   const [zonePrompt, setZonePrompt] = useState(false)
   const [calWarning, setCalWarning] = useState(null)
@@ -1338,7 +1341,7 @@ export default function MobileApp() {
           </div>
           <div style={{display:'flex',alignItems:'center',gap:8}}>
             {isAssessing&&<span style={{fontSize:10,color:ACCENT,fontFamily:"var(--font-mono)",background:`${mix('accent', 4)}`,padding:'3px 10px',borderRadius:4,border:`1px solid ${mix('accent', 13)}`,letterSpacing:'0.5px'}}>SAVING</span>}
-            {view!=='dash'&&view!=='drafts'&&view!=='history'&&view!=='settings'&&view!=='trash'&&view!=='tos'&&view!=='privacy'&&view!=='help'&&view!=='instrument-edit'&&<button onClick={()=>{setView('dash');setViewRpt(null)}} style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:8,color:SUB,fontSize:13,fontWeight:600,padding:'7px 14px',cursor:'pointer',fontFamily:'inherit',minHeight:36,transition:'color 0.15s'}}>← Home</button>}
+            {view!=='dash'&&view!=='drafts'&&view!=='history'&&view!=='settings'&&view!=='trash'&&view!=='tos'&&view!=='privacy'&&view!=='help'&&view!=='instrument-edit'&&view!=='incident-form'&&view!=='incident-log'&&view!=='incident-detail'&&<button onClick={()=>{setView('dash');setViewRpt(null)}} style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:8,color:SUB,fontSize:13,fontWeight:600,padding:'7px 14px',cursor:'pointer',fontFamily:'inherit',minHeight:36,transition:'color 0.15s'}}>← Home</button>}
           </div>
         </div>
       </header>
@@ -1530,7 +1533,7 @@ export default function MobileApp() {
               vs. ongoing-use.) */}
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24,animation:'fadeUp .4s ease'}}>
             <div>
-              <div style={{fontSize:14,fontWeight:600,color:TEXT,fontFamily:'inherit',letterSpacing:'-0.2px'}}>{profile?.name || 'Assessor'}</div>
+              <div style={{fontSize:12,fontWeight:600,color:ACCENT,fontFamily:"var(--font-mono)",letterSpacing:'-0.2px'}}>{profile?.name || 'Assessor'}</div>
             </div>
             <div style={{position:'relative',display:'flex',alignItems:'center',gap:8}}>
               {/* Subscription-status pill — exception-only. In beta
@@ -1635,9 +1638,9 @@ export default function MobileApp() {
           })()}
 
           {/* ── Tier 1: primary action ── */}
-          <button onClick={startNew} style={{width:'100%',padding:'18px 20px',marginBottom:24,background:`${mix('accent', 6)}`,border:`1px solid ${mix('accent', 25)}`,borderRadius:14,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,fontFamily:'inherit',transition:'border-color 0.15s, background 0.15s',minHeight:64}}>
-            <div style={{width:44,height:44,borderRadius:11,background:`${mix('accent', 9)}`,border:`1px solid ${mix('accent', 19)}`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-              <I n="wind" s={20} c={ACCENT} w={2} />
+          <button onClick={startNew} style={{width:'100%',padding:'18px 20px',marginBottom:24,background:`${mix('success', 6)}`,border:`1px solid ${mix('success', 25)}`,borderRadius:14,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,fontFamily:'inherit',transition:'border-color 0.15s, background 0.15s',minHeight:64}}>
+            <div style={{width:44,height:44,borderRadius:11,background:`${mix('success', 9)}`,border:`1px solid ${mix('success', 19)}`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+              <I n="wind" s={20} c={SUCCESS} w={2} />
             </div>
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:16,fontWeight:700,color:TEXT,fontFamily:'inherit',letterSpacing:'-0.2px'}}>{userMode==='fm' ? 'New Air Quality Check' : 'New Assessment'}</div>
@@ -1645,6 +1648,20 @@ export default function MobileApp() {
                   Returning users don't need a pricing reminder
                   inside the product — the price was paid at
                   subscription time. */}
+            </div>
+          </button>
+
+          {/* ── Tier 1b: incident response ── */}
+          {/* Sibling to "New Assessment." WARN-colored (amber) so it
+              reads as urgent without being alarming. Documentation
+              flow — no scoring, no calibration gate, no engine path. */}
+          <button onClick={()=>setView('incident-form')} style={{width:'100%',padding:'16px 20px',marginBottom:24,background:`${WARN}10`,border:`1px solid ${WARN}40`,borderRadius:14,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,fontFamily:'inherit',transition:'border-color 0.15s, background 0.15s',minHeight:60}}>
+            <div style={{width:40,height:40,borderRadius:10,background:`${WARN}18`,border:`1px solid ${WARN}30`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+              <I n="alert" s={18} c={WARN} w={2} />
+            </div>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:15,fontWeight:700,color:TEXT,fontFamily:'inherit',letterSpacing:'-0.2px'}}>Report an incident</div>
+              <div style={{fontSize:11,color:SUB,marginTop:2}}>Fast capture for an indoor air event — no full assessment required</div>
             </div>
           </button>
 
@@ -1937,7 +1954,9 @@ export default function MobileApp() {
         {view==='help'&&<HelpView onBack={()=>setView('settings')} />}
         {view==='instrument-edit'&&<InstrumentEditView profile={profile} onSave={(updated)=>{setProfile(updated);setView('settings')}} onCancel={()=>setView('settings')} />}
         {view==='admin'&&adminSecret&&<AdminDashboard onBack={()=>setView('settings')} adminSecret={adminSecret} />}
-        {view==='complaints'&&<ComplaintLog buildingId={bldg?.fn||'default'} onBack={()=>setView('dash')} />}
+        {view==='incident-form'&&<IncidentForm onCancel={()=>setView('dash')} onSaved={(inc)=>{setCurrentIncident(inc);setView('incident-detail')}} />}
+        {view==='incident-log'&&<IncidentLog onBack={()=>setView('dash')} onNewIncident={()=>setView('incident-form')} onView={(inc)=>{setCurrentIncident(inc);setView('incident-detail')}} />}
+        {view==='incident-detail'&&currentIncident&&<IncidentDetail incident={currentIncident} onBack={()=>setView('incident-log')} onChange={setCurrentIncident} onDeleted={()=>{setCurrentIncident(null);setView('incident-log')}} />}
         {view==='interventions'&&<InterventionTracker buildingId={bldg?.fn||'default'} onBack={()=>setView('dash')} assessments={index.reports} />}
         {view==='directory'&&<IHDirectory onBack={()=>setView('dash')} />}
         {view==='properties'&&<PropertyDashboard onBack={()=>setView('dash')} onNavigate={(v)=>setView(v)} assessmentIndex={index} />}
@@ -1955,7 +1974,7 @@ export default function MobileApp() {
             {(userMode === 'fm' ? [
               {id:'dash',label:'Home',icon:'home'},
               {id:'properties',label:'Buildings',icon:'bldg'},
-              {id:'complaints',label:'Complaints',icon:'alert'},
+              {id:'incident-log',label:'Incidents',icon:'alert'},
               {id:'settings',label:'Settings',icon:'gear'},
             ] : [
               {id:'dash',label:'Home',icon:'home'},

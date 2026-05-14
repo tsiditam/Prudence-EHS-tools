@@ -57,6 +57,71 @@ const STO = {
   },
   async hasVisited() { return await this.get('atmosiq-visited') },
   async markVisited() { return await this.set('atmosiq-visited', true) },
+
+  // ── Incidents ──────────────────────────────────────────────────
+  // Single global array under 'atmosflow:incidents'. Migrates legacy
+  // FM 'atmosflow:complaints:<buildingId>' records on first read,
+  // preserving the originals at '<key>:migrated' for recovery.
+  async getIncidents() {
+    await this._migrateComplaints()
+    return (await this.get('atmosflow:incidents')) || []
+  },
+  async saveIncident(incident) {
+    const all = (await this.get('atmosflow:incidents')) || []
+    const now = new Date().toISOString()
+    const i = all.findIndex(x => x.id === incident.id)
+    if (i >= 0) all[i] = { ...all[i], ...incident, updated_at: now }
+    else all.unshift({ ...incident, created_at: incident.created_at || now, updated_at: now })
+    await this.set('atmosflow:incidents', all)
+    return all[i >= 0 ? i : 0]
+  },
+  async deleteIncident(id) {
+    const all = (await this.get('atmosflow:incidents')) || []
+    await this.set('atmosflow:incidents', all.filter(x => x.id !== id))
+  },
+  async _migrateComplaints() {
+    if (await this.get('atmosflow:complaints-migrated')) return
+    const keys = await this.keys('atmosflow:complaints:')
+    const fresh = keys.filter(k => !k.endsWith(':migrated'))
+    if (fresh.length === 0) {
+      await this.set('atmosflow:complaints-migrated', true)
+      return
+    }
+    const existing = (await this.get('atmosflow:incidents')) || []
+    const sevMap = { mild: 'minor', moderate: 'moderate', severe: 'severe' }
+    const statusMap = { open: 'open', investigating: 'in_progress', resolved: 'resolved', referred: 'escalated' }
+    const migrated = []
+    for (const key of fresh) {
+      const list = (await this.get(key)) || []
+      for (const c of list) {
+        migrated.push({
+          id: 'inc-' + (c.id || Date.now().toString(36)),
+          building_id: c.buildingId || '',
+          building_name: c.buildingId || '',
+          reported_at: c.dateReported || c.createdAt || new Date().toISOString(),
+          reporter_name: c.reportedBy || 'Anonymous',
+          reporter_role: '',
+          trigger_type: 'Occupant complaint(s)',
+          severity: sevMap[c.severity] || 'moderate',
+          location: c.location || '',
+          observations: c.notes || '',
+          symptoms: c.symptoms || [],
+          medical_attention: !!c.medicalAttention,
+          actions_taken: [],
+          actions_taken_other: '',
+          photo_ids: [],
+          status: statusMap[c.status] || 'open',
+          linked_assessment_ids: c.linkedAssessmentIds || [],
+          created_at: c.createdAt || new Date().toISOString(),
+          updated_at: c.updatedAt || new Date().toISOString(),
+        })
+      }
+      await this.set(key + ':migrated', list)
+      await this.del(key)
+    }
+    await this.set('atmosflow:incidents', [...migrated, ...existing])
+    await this.set('atmosflow:complaints-migrated', true)
+  },
 }
 
 export default STO
