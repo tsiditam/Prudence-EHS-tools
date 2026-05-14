@@ -366,18 +366,6 @@ export default function MobileApp() {
   // model entirely; replace with subscription tiers + Single
   // Assessment License). The state declaration is intentionally kept
   // *gone* — there's no in-product surface that opens this sheet.
-  // CIH credibility — demo cards auto-retire after the user has
-  // finalized at least one real assessment, or when they explicitly
-  // dismiss them. localStorage flag persists the dismissal across
-  // sessions so they don't reappear on next visit.
-  const [demosDismissed, setDemosDismissed] = useState(() => {
-    try { return localStorage.getItem('atmosflow:demos-dismissed') === '1' } catch { return false }
-  })
-  const dismissDemos = () => {
-    try { localStorage.setItem('atmosflow:demos-dismissed', '1') } catch {}
-    setDemosDismissed(true)
-  }
-
   useEffect(() => { const t = setInterval(() => setClock(new Date()), 30000); return () => clearInterval(t) }, [])
 
   // Check for existing auth on load
@@ -1582,6 +1570,10 @@ export default function MobileApp() {
                         onClick: () => { toggleThemeMode() } },
                       { label: 'Reports',      icon: 'report', onClick: () => setView('history') },
                       { label: 'Trash',        icon: 'trash',  onClick: () => setView('trash') },
+                      { label: userMode==='fm' ? 'Sample Air Quality Check' : 'Office Building Demo',
+                        icon: 'play',
+                        onClick: () => runDemo() },
+                      ...(userMode !== 'fm' ? [{ label: 'Data Center Demo', icon: 'play', onClick: () => runDemo('dc') }] : []),
                       { label: 'Help & Support', icon: 'help', onClick: () => { window.location.href = 'mailto:support@prudenceehs.com?subject=AtmosFlow%20support' } },
                     ].map(item => (
                       <button
@@ -1638,47 +1630,17 @@ export default function MobileApp() {
           })()}
 
           {/* ── Tier 1: primary action ── */}
-          <button onClick={startNew} style={{width:'100%',padding:'18px 20px',marginBottom:24,background:`${mix('success', 6)}`,border:`1px solid ${mix('success', 25)}`,borderRadius:14,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,fontFamily:'inherit',transition:'border-color 0.15s, background 0.15s',minHeight:64}}>
-            <div style={{width:44,height:44,borderRadius:11,background:`${mix('success', 9)}`,border:`1px solid ${mix('success', 19)}`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-              <I n="wind" s={20} c={SUCCESS} w={2} />
-            </div>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:16,fontWeight:700,color:TEXT,fontFamily:'inherit',letterSpacing:'-0.2px'}}>{userMode==='fm' ? 'New Air Quality Check' : 'New Assessment'}</div>
-              {/* Caption removed in billing-architecture Phase 1.
-                  Returning users don't need a pricing reminder
-                  inside the product — the price was paid at
-                  subscription time. */}
-            </div>
+          <button onClick={startNew} style={{width:'60%',margin:'32px auto 10px',padding:'11px 16px',background:ACCENT,border:'none',borderRadius:10,cursor:'pointer',textAlign:'center',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'inherit',transition:'opacity 0.15s',minHeight:40}}>
+            <div style={{fontSize:14,fontWeight:700,color:ON_ACCENT,fontFamily:'inherit',letterSpacing:'-0.2px'}}>{userMode==='fm' ? 'Start Air Quality Check' : 'Start Assessment'}</div>
           </button>
 
           {/* ── Tier 1b: incident response ── */}
-          {/* Sibling to "New Assessment." WARN-colored (amber) so it
-              reads as urgent without being alarming. Documentation
-              flow — no scoring, no calibration gate, no engine path. */}
-          <button onClick={()=>setView('incident-form')} style={{width:'100%',padding:'16px 20px',marginBottom:24,background:`${WARN}10`,border:`1px solid ${WARN}40`,borderRadius:14,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,fontFamily:'inherit',transition:'border-color 0.15s, background 0.15s',minHeight:60}}>
-            <div style={{width:40,height:40,borderRadius:10,background:`${WARN}18`,border:`1px solid ${WARN}30`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-              <I n="alert" s={18} c={WARN} w={2} />
-            </div>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:15,fontWeight:700,color:TEXT,fontFamily:'inherit',letterSpacing:'-0.2px'}}>Report an incident</div>
-              <div style={{fontSize:11,color:SUB,marginTop:2}}>Fast capture for an indoor air event — no full assessment required</div>
-            </div>
+          {/* Sibling to "Start Assessment." Matches the primary CTA
+              styling per design — documentation flow, no scoring,
+              no calibration gate, no engine path. */}
+          <button onClick={()=>setView('incident-form')} style={{width:'60%',margin:'0 auto 28px',padding:'11px 16px',background:ACCENT,border:'none',borderRadius:10,cursor:'pointer',textAlign:'center',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'inherit',transition:'opacity 0.15s',minHeight:40}}>
+            <div style={{fontSize:14,fontWeight:700,color:ON_ACCENT,fontFamily:'inherit',letterSpacing:'-0.2px'}}>Report an incident</div>
           </button>
-
-          {/* ── Tier 2 Group A: Workspace ── */}
-          <div style={{fontSize:11,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:8,paddingLeft:4}}>Workspace</div>
-          <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,marginBottom:24,overflow:'hidden'}}>
-            {[
-              { key:'drafts', label: userMode==='fm' ? 'In Progress' : 'Drafts', count: (index.drafts||[]).length, view: 'drafts' },
-              { key:'reports', label: 'Reports', count: (index.reports||[]).length, view: 'history' },
-            ].map((row, i) => (
-              <button key={row.key} onClick={()=>{ if (row.count) setView(row.view) }} disabled={!row.count} style={{width:'100%',padding:'14px 16px',background:'transparent',border:'none',borderTop: i===0 ? 'none' : `1px solid ${BORDER}`,cursor: row.count ? 'pointer' : 'default',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit',minHeight:56,opacity: row.count ? 1 : 0.55}}>
-                <span style={{flex:1,fontSize:14,fontWeight:600,color: row.count ? TEXT : SUB}}>{row.label}</span>
-                <span style={{fontSize:14,fontWeight:700,fontFamily:"var(--font-mono)",color: row.count ? TEXT : DIM}}>{row.count}</span>
-                {row.count > 0 && <span style={{color:DIM,fontSize:13,marginLeft:4}}>›</span>}
-              </button>
-            ))}
-          </div>
 
           {/* ── Tier 2 Group B: Recent reports (only when present) ── */}
           {(index.reports||[]).length > 0 && <>
@@ -1715,46 +1677,8 @@ export default function MobileApp() {
             </div>
           </>}
 
-          {/* ── Tier 2 Group C: Demos ──
-              Auto-retire after the user has finalized at least one
-              real report, or once they explicitly dismiss them.
-              Returning users don't need first-run scaffolding above
-              the fold. (NN/g first-impressions vs. ongoing-use, 2017.)
-              The constants/runtime check uses index.reports.length
-              because runDemo() does NOT write to STO — only real
-              finalized assessments populate the index. */}
-          {(index.reports||[]).length === 0 && !demosDismissed && <>
-          <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',marginBottom:8,paddingLeft:4,paddingRight:4}}>
-            <div style={{fontSize:11,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'0.8px'}}>Try with sample data</div>
-            <button onClick={dismissDemos} style={{background:'none',border:'none',color:DIM,fontSize:11,fontWeight:500,cursor:'pointer',fontFamily:'inherit',padding:0}}>Dismiss</button>
-          </div>
-          <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,marginBottom:20,overflow:'hidden'}}>
-            <button onClick={()=>runDemo()} style={{width:'100%',padding:'14px 16px',background:'transparent',border:'none',cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit',minHeight:56}}>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:14,fontWeight:600,color:TEXT}}>{userMode==='fm' ? 'Sample Air Quality Check' : 'Office Building Demo'}</div>
-                <div style={{fontSize:11,color:SUB,marginTop:2,fontFamily:"var(--font-mono)",overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{userMode==='fm' ? 'Greenfield Office Park · 2 areas' : 'Meridian Commerce Tower · 3 zones'}</div>
-              </div>
-              <span style={{fontSize:10,color:DIM,fontFamily:"var(--font-mono)",padding:'3px 8px',borderRadius:6,background:SURFACE,border:`1px solid ${BORDER}`}}>~10 min</span>
-              <span style={{color:DIM,fontSize:13,marginLeft:4}}>›</span>
-            </button>
-            {userMode !== 'fm' && <button onClick={()=>runDemo('dc')} style={{width:'100%',padding:'14px 16px',background:'transparent',border:'none',borderTop:`1px solid ${BORDER}`,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit',minHeight:56}}>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:14,fontWeight:600,color:TEXT}}>Data Center Demo</div>
-                <div style={{fontSize:11,color:SUB,marginTop:2,fontFamily:"var(--font-mono)",overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>Hizinburg DC · 3 zones · ISA-71.04 + ISO 14644</div>
-              </div>
-              <span style={{fontSize:10,color:DIM,fontFamily:"var(--font-mono)",padding:'3px 8px',borderRadius:6,background:SURFACE,border:`1px solid ${BORDER}`}}>~10 min</span>
-              <span style={{color:DIM,fontSize:13,marginLeft:4}}>›</span>
-            </button>}
-          </div>
-          </>}
+          {/* Demos moved into the kebab menu (top-right). */}
 
-          {/* ── Empty state — only when no reports AND no drafts ── */}
-          {(index.reports||[]).length===0 && (index.drafts||[]).length===0 && (
-            <div style={{padding:'18px 16px',background:SURFACE,border:`1px dashed ${BORDER}`,borderRadius:12,marginBottom:20,textAlign:'center'}}>
-              <div style={{fontSize:13,fontWeight:600,color:TEXT,marginBottom:4}}>No assessments yet</div>
-              <div style={{fontSize:12,color:SUB,lineHeight:1.5}}>{demosDismissed ? 'Start a new assessment above.' : 'Start a new assessment above, or run a demo to see a finished report.'}</div>
-            </div>
-          )}
 
         </div>}
 
