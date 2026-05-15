@@ -1879,8 +1879,8 @@ export default function MobileApp() {
         {view==='instrument-edit'&&<InstrumentEditView profile={profile} onSave={(updated)=>{setProfile(updated);setView('settings')}} onCancel={()=>setView('settings')} />}
         {view==='admin'&&adminSecret&&<AdminDashboard onBack={()=>setView('settings')} adminSecret={adminSecret} />}
         {view==='incident-form'&&<IncidentForm onCancel={()=>setView('dash')} onSaved={(inc)=>{setCurrentIncident(inc);setView('incident-detail')}} />}
-        {view==='incident-log'&&<IncidentLog onBack={()=>setView('dash')} onNewIncident={()=>setView('incident-form')} onView={(inc)=>{setCurrentIncident(inc);setView('incident-detail')}} />}
-        {view==='incident-detail'&&currentIncident&&<IncidentDetail incident={currentIncident} onBack={()=>setView('incident-log')} onChange={setCurrentIncident} onDeleted={()=>{setCurrentIncident(null);setView('incident-log')}} />}
+        {view==='incident-log'&&<IncidentLog profile={profile} onBack={()=>setView('dash')} onNewIncident={()=>setView('incident-form')} onView={(inc)=>{setCurrentIncident(inc);setView('incident-detail')}} />}
+        {view==='incident-detail'&&currentIncident&&<IncidentDetail incident={currentIncident} profile={profile} onBack={()=>setView('incident-log')} onChange={setCurrentIncident} onDeleted={()=>{setCurrentIncident(null);setView('incident-log')}} />}
         {view==='interventions'&&<InterventionTracker buildingId={bldg?.fn||'default'} onBack={()=>setView('dash')} assessments={index.reports} />}
         {view==='directory'&&<IHDirectory onBack={()=>setView('dash')} />}
         {view==='properties'&&<PropertyDashboard onBack={()=>setView('dash')} onNavigate={(v)=>setView(v)} assessmentIndex={index} />}

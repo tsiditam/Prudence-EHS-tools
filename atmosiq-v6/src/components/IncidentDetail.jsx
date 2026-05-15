@@ -11,6 +11,8 @@
 import { useState } from 'react'
 import STO from '../utils/storage'
 import { mix } from '../utils/theme'
+import { generateIncidentDocx } from './IncidentDocxReport'
+import { I } from './Icons'
 
 const CARD = 'var(--card)'
 const BORDER = 'var(--border)'
@@ -54,8 +56,10 @@ function Field({ label, value, mono }) {
   )
 }
 
-export default function IncidentDetail({ incident, onBack, onChange, onDeleted }) {
+export default function IncidentDetail({ incident, profile, onBack, onChange, onDeleted }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState('')
 
   if (!incident) return null
 
@@ -67,6 +71,19 @@ export default function IncidentDetail({ incident, onBack, onChange, onDeleted }
   const handleDelete = async () => {
     await STO.deleteIncident(incident.id)
     onDeleted?.()
+  }
+
+  const handleExport = async () => {
+    setExportError('')
+    setExporting(true)
+    try {
+      await generateIncidentDocx(incident, profile)
+    } catch (err) {
+      console.error('Incident DOCX export failed', err)
+      setExportError(err?.message || 'Export failed. Please try again.')
+    } finally {
+      setExporting(false)
+    }
   }
 
   const sevColor = SEVERITY_COLOR[incident.severity] || DIM
@@ -83,6 +100,29 @@ export default function IncidentDetail({ incident, onBack, onChange, onDeleted }
         <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 4, background: `${sevColor}18`, color: sevColor, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{incident.severity}</span>
       </div>
       <div style={{ fontSize: 12, color: SUB, fontFamily: 'var(--font-mono)' }}>{incident.location}{incident.building_name ? ` · ${incident.building_name}` : ''}</div>
+
+      {/* Export — primary affordance, prominent under the title.
+          Uses the Web Share API on iOS PWA so the user can save to
+          Files, email, AirDrop, or send via Messages in one tap;
+          falls back to download elsewhere. */}
+      <div style={{ marginTop: 14 }}>
+        <button
+          onClick={handleExport}
+          disabled={exporting}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 8,
+            padding: '10px 16px', background: ACCENT, border: 'none',
+            borderRadius: 8, color: 'var(--on-accent)', fontSize: 13,
+            fontWeight: 700, cursor: exporting ? 'wait' : 'pointer',
+            fontFamily: 'inherit', minHeight: 40, opacity: exporting ? 0.7 : 1,
+          }}>
+          <I n="download" s={14} c="var(--on-accent)" w={2} />
+          {exporting ? 'Preparing…' : 'Export Word report'}
+        </button>
+        {exportError && (
+          <div style={{ marginTop: 8, fontSize: 11, color: DANGER }}>{exportError}</div>
+        )}
+      </div>
 
       {/* Status editor */}
       <div style={{ marginTop: 16 }}>
