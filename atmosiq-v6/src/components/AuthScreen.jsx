@@ -77,6 +77,9 @@ export default function AuthScreen({ onAuth }) {
         {/* Brand */}
         <div style={{textAlign:'center',marginBottom:40}}>
           <div style={{fontSize:36,fontWeight:800,marginBottom:8}}>AtmosFlow</div>
+          <div style={{fontSize:13,color:SUB,marginBottom:12,lineHeight:1.5,padding:'0 8px'}}>
+            Field-grade indoor air quality screening, assessment, and incident documentation for IH and EHS professionals.
+          </div>
           <div style={{fontSize:14,color:SUB}}>
             {mode === 'login' ? 'Sign in to your account' : mode === 'register' ? 'Create your account' : 'Reset your password'}
           </div>
