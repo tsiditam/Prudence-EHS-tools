@@ -11,6 +11,8 @@
 import { useEffect, useState } from 'react'
 import STO from '../utils/storage'
 import { mix } from '../utils/theme'
+import { generateIncidentDocx } from './IncidentDocxReport'
+import { I } from './Icons'
 
 const CARD = 'var(--card)'
 const BORDER = 'var(--border)'
@@ -52,13 +54,26 @@ function fmtDate(iso) {
   } catch { return iso }
 }
 
-export default function IncidentLog({ onBack, onNewIncident, onView }) {
+export default function IncidentLog({ profile, onBack, onNewIncident, onView }) {
   const [incidents, setIncidents] = useState([])
   const [filter, setFilter] = useState('open')
+  const [exportingId, setExportingId] = useState(null)
 
   useEffect(() => {
     STO.getIncidents().then(setIncidents)
   }, [])
+
+  const handleExport = async (e, inc) => {
+    e.stopPropagation()
+    setExportingId(inc.id)
+    try {
+      await generateIncidentDocx(inc, profile)
+    } catch (err) {
+      console.error('Incident DOCX export failed', err)
+    } finally {
+      setExportingId(null)
+    }
+  }
 
   const filtered = filter === 'all' ? incidents : incidents.filter(i => i.status === filter)
   const counts = STATUS_FILTERS.reduce((acc, f) => {
@@ -103,15 +118,28 @@ export default function IncidentLog({ onBack, onNewIncident, onView }) {
         </div>
       )}
       {filtered.map(inc => (
-        <button key={inc.id} onClick={() => onView?.(inc)} style={{
+        <div key={inc.id} onClick={() => onView?.(inc)} role="button" tabIndex={0} style={{
           width: '100%', textAlign: 'left', padding: '14px 16px',
           background: CARD, border: `1px solid ${BORDER}`, borderRadius: 10,
           marginBottom: 8, cursor: 'pointer', fontFamily: 'inherit',
           display: 'flex', flexDirection: 'column', gap: 6,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{inc.location || '(no location)'}</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{inc.location || '(no location)'}</div>
             <span style={{ fontSize: 9, fontWeight: 700, padding: '3px 8px', borderRadius: 4, background: `${SEVERITY_COLOR[inc.severity] || DIM}18`, color: SEVERITY_COLOR[inc.severity] || DIM, textTransform: 'uppercase', letterSpacing: '0.5px', flexShrink: 0 }}>{inc.severity}</span>
+            <button
+              onClick={(e) => handleExport(e, inc)}
+              disabled={exportingId === inc.id}
+              aria-label="Export Word report"
+              style={{
+                flexShrink: 0, width: 32, height: 32, padding: 0,
+                background: 'transparent', border: `1px solid ${BORDER}`,
+                borderRadius: 6, cursor: exportingId === inc.id ? 'wait' : 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                opacity: exportingId === inc.id ? 0.5 : 1,
+              }}>
+              <I n="download" s={14} c={SUB} w={1.8} />
+            </button>
           </div>
           <div style={{ fontSize: 12, color: SUB, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{inc.trigger_type}{inc.building_name ? ` · ${inc.building_name}` : ''}</div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11, color: DIM, fontFamily: 'var(--font-mono)' }}>
@@ -121,7 +149,7 @@ export default function IncidentLog({ onBack, onNewIncident, onView }) {
           {inc.medical_attention && (
             <div style={{ fontSize: 10, color: DANGER, marginTop: 2 }}>⚠ Medical attention sought</div>
           )}
-        </button>
+        </div>
       ))}
     </div>
   )

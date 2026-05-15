@@ -1327,9 +1327,71 @@ export default function MobileApp() {
           <div style={{display:'flex',alignItems:'center'}}>
             <span style={{fontSize:15,fontWeight:700,letterSpacing:'-0.3px',color:TEXT}}>AtmosFlow</span>
           </div>
-          <div style={{display:'flex',alignItems:'center',gap:8}}>
+          <div style={{position:'relative',display:'flex',alignItems:'center',gap:8}}>
             {isAssessing&&<span style={{fontSize:10,color:ACCENT,fontFamily:"var(--font-mono)",background:`${mix('accent', 4)}`,padding:'3px 10px',borderRadius:4,border:`1px solid ${mix('accent', 13)}`,letterSpacing:'0.5px'}}>SAVING</span>}
             {view!=='dash'&&view!=='drafts'&&view!=='history'&&view!=='settings'&&view!=='trash'&&view!=='tos'&&view!=='privacy'&&view!=='help'&&view!=='instrument-edit'&&view!=='incident-form'&&view!=='incident-log'&&view!=='incident-detail'&&<button onClick={()=>{setView('dash');setViewRpt(null)}} style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:8,color:SUB,fontSize:13,fontWeight:600,padding:'7px 14px',cursor:'pointer',fontFamily:'inherit',minHeight:36,transition:'color 0.15s'}}>← Home</button>}
+            {/* Subscription-status pill — exception-only. In beta
+                the helper returns null. Phase 2+ surfaces it on
+                diverging state (payment failed, plan cancelling,
+                beta ending). Lives next to the hamburger so the
+                user can act on it from any screen. */}
+            {(() => {
+              const state = getSubscriptionBannerState(profile)
+              if (!state) return null
+              const color = state.tone === 'danger' ? DANGER : WARN
+              return (
+                <button onClick={() => setView('settings')} aria-label={state.message} style={{padding:'5px 10px',borderRadius:8,background:`${color}10`,border:`1px solid ${color}30`,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:6,minHeight:32}}>
+                  <span style={{fontSize:11,fontWeight:600,color,fontFamily:'var(--font-mono)'}}>{state.message}</span>
+                </button>
+              )
+            })()}
+            {profile && (
+              <button
+                onClick={()=>setShowHomeMenu(v=>!v)}
+                aria-label="Open menu"
+                aria-haspopup="menu"
+                aria-expanded={showHomeMenu}
+                style={{width:36,height:36,borderRadius:10,background:showHomeMenu ? CARD : 'transparent',border:`1px solid ${BORDER}`,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                <I n="menu" s={22} c={ACCENT} w={2.6} />
+              </button>
+            )}
+            {showHomeMenu && (
+              <>
+                {/* Transparent backdrop catches outside clicks. */}
+                <div onClick={()=>setShowHomeMenu(false)} style={{position:'fixed',inset:0,zIndex:90,background:'transparent'}} />
+                <div role="menu" style={{position:'absolute',top:'calc(100% + 8px)',right:0,minWidth:240,background:CARD,border:`1px solid ${BORDER}`,borderRadius:14,padding:6,zIndex:100,boxShadow:'0 12px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.02) inset',animation:'fadeUp .15s ease'}}>
+                  {[
+                    { label: 'Settings',     icon: 'gear',   onClick: () => setView('settings') },
+                    { label: themeMode === 'light' ? 'Switch to dark mode' : 'Switch to light mode',
+                      icon: themeMode === 'light' ? 'moon' : 'sun',
+                      onClick: () => { toggleThemeMode() } },
+                    { label: 'Reports',      icon: 'report', onClick: () => setView('history') },
+                    { label: 'Trash',        icon: 'trash',  onClick: () => setView('trash') },
+                    { label: userMode==='fm' ? 'Sample Air Quality Check' : 'Office Building Demo',
+                      icon: 'play',
+                      onClick: () => runDemo() },
+                    ...(userMode !== 'fm' ? [{ label: 'Data Center Demo', icon: 'play', onClick: () => runDemo('dc') }] : []),
+                    { label: 'Help & Support', icon: 'help', onClick: () => { window.location.href = 'mailto:support@prudenceehs.com?subject=AtmosFlow%20support' } },
+                  ].map(item => (
+                    <button
+                      key={item.label}
+                      role="menuitem"
+                      onClick={() => { setShowHomeMenu(false); item.onClick() }}
+                      style={{
+                        width:'100%',padding:'12px 14px',background:'transparent',border:'none',borderRadius:10,
+                        cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,
+                        fontFamily:'inherit',color:TEXT,fontSize:14,fontWeight:500,minHeight:44,
+                        transition:'background 0.12s',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = SURFACE }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}>
+                      <I n={item.icon} s={18} c={SUB} w={1.6} />
+                      <span>{item.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -1514,89 +1576,9 @@ export default function MobileApp() {
 
         {view==='dash'&&<div style={{paddingTop:24,paddingBottom:100,maxWidth:contentMax,margin:'0 auto'}}>
 
-          {/* ── Header: name, credits chip (opens definition sheet), kebab menu ── */}
-          {/* Date line under the name was retired — returning users
-              know what day it is. Date stays inside the report header
-              for screenshot/audit context. (NN/g first-impressions
-              vs. ongoing-use.) */}
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24,animation:'fadeUp .4s ease'}}>
-            <div>
-              <div style={{fontSize:12,fontWeight:600,color:ACCENT,fontFamily:"var(--font-mono)",letterSpacing:'-0.2px'}}>{profile?.name || 'Assessor'}</div>
-            </div>
-            <div style={{position:'relative',display:'flex',alignItems:'center',gap:8}}>
-              {/* Subscription-status pill — exception-only. In beta
-                  (Phase 1) the helper returns null and the pill
-                  renders nothing. Phase 2+ surfaces it on diverging
-                  state (payment failed, plan cancelling, beta ending,
-                  etc.). Same rationale as the calibration banner —
-                  status earns space by exception. */}
-              {(() => {
-                const state = getSubscriptionBannerState(profile)
-                if (!state) return null
-                const color = state.tone === 'danger' ? DANGER : WARN
-                return (
-                  <button onClick={() => setView('settings')} aria-label={state.message} style={{padding:'5px 10px',borderRadius:8,background:`${color}10`,border:`1px solid ${color}30`,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:6,minHeight:32}}>
-                    <span style={{fontSize:11,fontWeight:600,color,fontFamily:'var(--font-mono)'}}>{state.message}</span>
-                  </button>
-                )
-              })()}
-              {profile && (
-                <button
-                  onClick={()=>setShowHomeMenu(v=>!v)}
-                  aria-label="Open menu"
-                  aria-haspopup="menu"
-                  aria-expanded={showHomeMenu}
-                  style={{width:36,height:36,borderRadius:10,background:showHomeMenu ? CARD : SURFACE,border:`1px solid ${BORDER}`,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                  <I n="dots" s={18} c={SUB} />
-                </button>
-              )}
-              {showHomeMenu && (
-                <>
-                  {/* Backdrop catches outside clicks. Transparent so it
-                      doesn't darken the screen — matches Notion's
-                      lightweight popover model. */}
-                  <div onClick={()=>setShowHomeMenu(false)} style={{position:'fixed',inset:0,zIndex:90,background:'transparent'}} />
-                  <div role="menu" style={{position:'absolute',top:'calc(100% + 8px)',right:0,minWidth:240,background:CARD,border:`1px solid ${BORDER}`,borderRadius:14,padding:6,zIndex:100,boxShadow:'0 12px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.02) inset',animation:'fadeUp .15s ease'}}>
-                    {/* Upgrade plan removed in billing-architecture
-                        Phase 1 — beta users have nothing to upgrade
-                        from, and the entry routed to the four-tier
-                        pricing sheet which is being retired in favor
-                        of subscription tiers + a Single Assessment
-                        License (Phase 2+). */}
-                    {[
-                      { label: 'Settings',     icon: 'gear',   onClick: () => setView('settings') },
-                      { label: themeMode === 'light' ? 'Switch to dark mode' : 'Switch to light mode',
-                        icon: themeMode === 'light' ? 'moon' : 'sun',
-                        onClick: () => { toggleThemeMode() } },
-                      { label: 'Reports',      icon: 'report', onClick: () => setView('history') },
-                      { label: 'Trash',        icon: 'trash',  onClick: () => setView('trash') },
-                      { label: userMode==='fm' ? 'Sample Air Quality Check' : 'Office Building Demo',
-                        icon: 'play',
-                        onClick: () => runDemo() },
-                      ...(userMode !== 'fm' ? [{ label: 'Data Center Demo', icon: 'play', onClick: () => runDemo('dc') }] : []),
-                      { label: 'Help & Support', icon: 'help', onClick: () => { window.location.href = 'mailto:support@prudenceehs.com?subject=AtmosFlow%20support' } },
-                    ].map(item => (
-                      <button
-                        key={item.label}
-                        role="menuitem"
-                        onClick={() => { setShowHomeMenu(false); item.onClick() }}
-                        style={{
-                          width:'100%',padding:'12px 14px',background:'transparent',border:'none',borderRadius:10,
-                          cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,
-                          fontFamily:'inherit',color:TEXT,fontSize:14,fontWeight:500,minHeight:44,
-                          transition:'background 0.12s',
-                        }}
-                        onMouseEnter={e => { e.currentTarget.style.background = SURFACE }}
-                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}>
-                        <I n={item.icon} s={18} c={SUB} w={1.6} />
-                        <span>{item.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
+          {/* Header row removed — the hamburger menu and subscription-
+              status pill moved into the global fixed header so they
+              live at the same level as the AtmosFlow wordmark. */}
 
           {/* ── Calibration exception banner. Renders nothing in the
               happy path. Surfaces only when the primary instrument's
@@ -1879,8 +1861,8 @@ export default function MobileApp() {
         {view==='instrument-edit'&&<InstrumentEditView profile={profile} onSave={(updated)=>{setProfile(updated);setView('settings')}} onCancel={()=>setView('settings')} />}
         {view==='admin'&&adminSecret&&<AdminDashboard onBack={()=>setView('settings')} adminSecret={adminSecret} />}
         {view==='incident-form'&&<IncidentForm onCancel={()=>setView('dash')} onSaved={(inc)=>{setCurrentIncident(inc);setView('incident-detail')}} />}
-        {view==='incident-log'&&<IncidentLog onBack={()=>setView('dash')} onNewIncident={()=>setView('incident-form')} onView={(inc)=>{setCurrentIncident(inc);setView('incident-detail')}} />}
-        {view==='incident-detail'&&currentIncident&&<IncidentDetail incident={currentIncident} onBack={()=>setView('incident-log')} onChange={setCurrentIncident} onDeleted={()=>{setCurrentIncident(null);setView('incident-log')}} />}
+        {view==='incident-log'&&<IncidentLog profile={profile} onBack={()=>setView('dash')} onNewIncident={()=>setView('incident-form')} onView={(inc)=>{setCurrentIncident(inc);setView('incident-detail')}} />}
+        {view==='incident-detail'&&currentIncident&&<IncidentDetail incident={currentIncident} profile={profile} onBack={()=>setView('incident-log')} onChange={setCurrentIncident} onDeleted={()=>{setCurrentIncident(null);setView('incident-log')}} />}
         {view==='interventions'&&<InterventionTracker buildingId={bldg?.fn||'default'} onBack={()=>setView('dash')} assessments={index.reports} />}
         {view==='directory'&&<IHDirectory onBack={()=>setView('dash')} />}
         {view==='properties'&&<PropertyDashboard onBack={()=>setView('dash')} onNavigate={(v)=>setView(v)} assessmentIndex={index} />}
