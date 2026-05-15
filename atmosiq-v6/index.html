@@ -55,10 +55,17 @@
         --on-accent:#07080C;
       }
       [data-theme="light"]{
-        --bg:#F0F2F5;
-        --surface:#FFFFFF;
+        /* Cyan-and-white retune (PR follow-up to the original
+           neutral light palette). Page reads as cyan-tinted white
+           rather than slate gray; card outlines pick up a soft cyan
+           tint so the brand pulls through the chrome, not just the
+           filled accent buttons. Cards stay pure white so content
+           always has the cleanest read. Body text stops are kept
+           untouched — all text pairings still clear AA 4.5:1. */
+        --bg:#F0FAFC;
+        --surface:#DAF2F8;
         --card:#FFFFFF;
-        --border:#CBD0D6;
+        --border:#B6E0E8;
         --accent:#0E7490;
         --accent-dim:#155E75;
         --text:#0F172A;
