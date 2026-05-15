@@ -111,12 +111,12 @@ export default function IncidentDetail({ incident, profile, onBack, onChange, on
           disabled={exporting}
           style={{
             display: 'inline-flex', alignItems: 'center', gap: 8,
-            padding: '10px 16px', background: ACCENT, border: 'none',
-            borderRadius: 8, color: 'var(--on-accent)', fontSize: 13,
+            padding: '10px 16px', background: 'var(--accent-fill)', border: 'none',
+            borderRadius: 8, color: 'var(--on-accent-fill)', fontSize: 13,
             fontWeight: 700, cursor: exporting ? 'wait' : 'pointer',
             fontFamily: 'inherit', minHeight: 40, opacity: exporting ? 0.7 : 1,
           }}>
-          <I n="download" s={14} c="var(--on-accent)" w={2} />
+          <I n="download" s={14} c="var(--on-accent-fill)" w={2} />
           {exporting ? 'Preparing…' : 'Export Word report'}
         </button>
         {exportError && (

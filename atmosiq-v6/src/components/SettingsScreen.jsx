@@ -226,7 +226,7 @@ export default function SettingsScreen({ profile, onEditProfile, onLogout, onClo
                     else { setPasswordMsg('Password updated successfully'); setNewPassword(''); setConfirmPassword(''); setTimeout(()=>{setShowPasswordChange(false);setPasswordMsg('')},2000) }
                   }
                 } catch { setPasswordMsg('Failed to update password') }
-              }} style={{flex:1,padding:'8px 16px',background:ACCENT,border:'none',borderRadius:8,color:ON_ACCENT,fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>Update Password</button>
+              }} style={{flex:1,padding:'8px 16px',background:'var(--accent-fill)',border:'none',borderRadius:8,color:'var(--on-accent-fill)',fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>Update Password</button>
             </div>
           </div>
         )}

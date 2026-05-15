@@ -170,7 +170,7 @@ export default function AuthScreen({ onAuth }) {
           )}
 
           {/* Primary action */}
-          {mode === 'login' && <button onClick={handleLogin} disabled={loading} style={{padding:'16px 0',background:`linear-gradient(135deg,#0891B2,${ACCENT})`,border:'none',borderRadius:14,color:'#fff',fontSize:17,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:54,opacity:loading?.6:1}}>{loading ? 'Signing in...' : 'Sign In'}</button>}
+          {mode === 'login' && <button onClick={handleLogin} disabled={loading} style={{padding:'16px 0',background:'var(--accent-fill)',border:'none',borderRadius:14,color:'var(--on-accent-fill)',fontSize:17,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:54,opacity:loading?.6:1}}>{loading ? 'Signing in...' : 'Sign In'}</button>}
           {mode === 'register' && <button onClick={handleRegister} disabled={loading} style={{padding:'16px 0',background:'linear-gradient(135deg,#059669,#22C55E)',border:'none',borderRadius:14,color:'#fff',fontSize:17,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:54,opacity:loading?.6:1}}>{loading ? 'Creating account...' : 'Create Account'}</button>}
           {mode === 'forgot' && <button onClick={handleForgot} disabled={loading} style={{padding:'16px 0',background:`linear-gradient(135deg,#0891B2,${ACCENT})`,border:'none',borderRadius:14,color:'#fff',fontSize:17,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:54,opacity:loading?.6:1}}>{loading ? 'Sending...' : 'Send Reset Link'}</button>}
         </div>

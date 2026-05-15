@@ -1811,7 +1811,7 @@ export default function MobileApp() {
                 <div style={{fontSize:11,color:DIM,fontFamily:"var(--font-mono)",marginTop:3}}>{fD(d.ua||d.ts)}</div>
                 <div style={{fontSize:10,color:ACCENT,marginTop:3}}>In progress</div>
               </div>
-              <button onClick={()=>resumeDraft(d.id)} style={{padding:'8px 16px',background:`${mix('accent', 7)}`,border:`1px solid ${mix('accent', 15)}`,borderRadius:8,color:ACCENT,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:38}}>Resume</button>
+              <button onClick={()=>resumeDraft(d.id)} style={{padding:'8px 16px',background:'var(--accent-fill)',border:'none',borderRadius:8,color:'var(--on-accent-fill)',fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:38}}>Resume</button>
               <button onClick={(e)=>{e.stopPropagation();setDelConf({id:d.id,name:d.facility,type:'dft'})}} style={{width:44,height:44,background:'#EF444410',border:`1px solid #EF444425`,borderRadius:8,color:'#EF4444',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'inherit',flexShrink:0,WebkitTapHighlightColor:'transparent'}}>
                 <I n="trash" s={14} c="#EF4444" w={1.4} />
               </button>
@@ -1834,7 +1834,7 @@ export default function MobileApp() {
               <div style={{fontSize:15,fontWeight:600,color:SUB,marginTop:16}}>No reports generated yet</div>
               <div style={{fontSize:12,color:DIM,marginTop:6,lineHeight:1.5}}>{hSearch?'No reports match your search.':'Complete and finalize an assessment to generate your first report.'}</div>
               {!hSearch&&<>
-                <button onClick={startNew} style={{marginTop:16,padding:'10px 24px',background:ACCENT,border:'none',borderRadius:8,color: 'var(--on-accent)',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Start Assessment</button>
+                <button onClick={startNew} style={{marginTop:16,padding:'10px 24px',background:'var(--accent-fill)',border:'none',borderRadius:8,color:'var(--on-accent-fill)',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>Start Assessment</button>
                 <div style={{marginTop:10}}><button onClick={runDemo} style={{background:'none',border:'none',color:DIM,fontSize:11,cursor:'pointer',fontFamily:'inherit'}}>or view sample report →</button></div>
               </>}
             </div>
