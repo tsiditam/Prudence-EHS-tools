@@ -1284,7 +1284,7 @@ export default function MobileApp() {
             <button onClick={handleShare} style={{flex:1,padding:'14px 20px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,color:SUB,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:48,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="send" s={16} c={SUB} /> Share</button>
           </div>
           <button onClick={()=>setView('spatial')} style={{padding:'14px 20px',background:`${mix('accent', 2)}`,border:`1px solid ${mix('accent', 9)}`,borderRadius:12,color:ACCENT,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit',marginTop:8,minHeight:48,width:'100%',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="bldg" s={16} c={ACCENT} /> Map Zones on Floor Plan</button>
-          {!archived&&<button onClick={startNew} style={{padding:'14px 20px',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:12,color:SUB,fontSize:15,cursor:'pointer',fontFamily:'inherit',marginTop:8,minHeight:48,width:'100%'}}>New Assessment</button>}
+          {!archived&&<button onClick={startNew} style={{padding:'14px 20px',background:'var(--accent-fill)',border:'none',borderRadius:12,color:'var(--on-accent-fill)',fontSize:15,fontWeight:700,cursor:'pointer',fontFamily:'inherit',marginTop:8,minHeight:48,width:'100%'}}>Start Assessment</button>}
         </div>}
       </div>
     )
@@ -1801,7 +1801,7 @@ export default function MobileApp() {
               <I n="draft" s={28} c={DIM} w={1.4} />
               <div style={{fontSize:15,fontWeight:600,color:SUB,marginTop:16}}>No drafts in progress</div>
               <div style={{fontSize:12,color:DIM,marginTop:6,lineHeight:1.5}}>Start a new assessment to begin capturing field data.</div>
-              <button onClick={startNew} style={{marginTop:16,padding:'10px 24px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:8,color:SUB,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>New Assessment</button>
+              <button onClick={startNew} style={{marginTop:16,padding:'10px 24px',background:'var(--accent-fill)',border:'none',borderRadius:8,color:'var(--on-accent-fill)',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>Start Assessment</button>
               <div style={{marginTop:10}}><button onClick={runDemo} style={{background:'none',border:'none',color:DIM,fontSize:11,cursor:'pointer',fontFamily:'inherit'}}>or open sample project →</button></div>
             </div>
           ):(index.drafts||[]).map(d=>(
