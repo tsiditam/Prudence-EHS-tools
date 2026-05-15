@@ -1613,7 +1613,7 @@ export default function MobileApp() {
 
           {/* ── Tier 1: primary action ── */}
           <button onClick={startNew} style={{width:'60%',margin:'32px auto 10px',padding:'11px 16px',background:ACCENT,border:'none',borderRadius:10,cursor:'pointer',textAlign:'center',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'inherit',transition:'opacity 0.15s',minHeight:40}}>
-            <div style={{fontSize:14,fontWeight:700,color:ON_ACCENT,fontFamily:'inherit',letterSpacing:'-0.2px'}}>{userMode==='fm' ? 'Start Air Quality Check' : 'Start Assessment'}</div>
+            <div style={{fontSize:14,fontWeight:700,color:ON_ACCENT,fontFamily:'inherit',letterSpacing:'-0.2px'}}>Start IAQ Assessment</div>
           </button>
 
           {/* ── Tier 1b: incident response ── */}
@@ -1621,7 +1621,7 @@ export default function MobileApp() {
               styling per design — documentation flow, no scoring,
               no calibration gate, no engine path. */}
           <button onClick={()=>setView('incident-form')} style={{width:'60%',margin:'0 auto 28px',padding:'11px 16px',background:ACCENT,border:'none',borderRadius:10,cursor:'pointer',textAlign:'center',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'inherit',transition:'opacity 0.15s',minHeight:40}}>
-            <div style={{fontSize:14,fontWeight:700,color:ON_ACCENT,fontFamily:'inherit',letterSpacing:'-0.2px'}}>Report an incident</div>
+            <div style={{fontSize:14,fontWeight:700,color:ON_ACCENT,fontFamily:'inherit',letterSpacing:'-0.2px'}}>Report IAQ Incident</div>
           </button>
 
           {/* ── Tier 2 Group B: Recent reports (only when present) ── */}
