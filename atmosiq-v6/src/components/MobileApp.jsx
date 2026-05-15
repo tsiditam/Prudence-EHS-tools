@@ -1284,7 +1284,7 @@ export default function MobileApp() {
             <button onClick={handleShare} style={{flex:1,padding:'14px 20px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,color:SUB,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:48,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="send" s={16} c={SUB} /> Share</button>
           </div>
           <button onClick={()=>setView('spatial')} style={{padding:'14px 20px',background:`${mix('accent', 2)}`,border:`1px solid ${mix('accent', 9)}`,borderRadius:12,color:ACCENT,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit',marginTop:8,minHeight:48,width:'100%',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="bldg" s={16} c={ACCENT} /> Map Zones on Floor Plan</button>
-          {!archived&&<button onClick={startNew} style={{padding:'14px 20px',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:12,color:SUB,fontSize:15,cursor:'pointer',fontFamily:'inherit',marginTop:8,minHeight:48,width:'100%'}}>New Assessment</button>}
+          {!archived&&<button onClick={startNew} style={{padding:'14px 20px',background:'var(--accent-fill)',border:'none',borderRadius:12,color:'var(--on-accent-fill)',fontSize:15,fontWeight:700,cursor:'pointer',fontFamily:'inherit',marginTop:8,minHeight:48,width:'100%'}}>Start Assessment</button>}
         </div>}
       </div>
     )
@@ -1611,17 +1611,17 @@ export default function MobileApp() {
             )
           })()}
 
-          {/* ── Tier 1: primary action ── */}
-          <button onClick={startNew} style={{width:'60%',margin:'32px auto 10px',padding:'11px 16px',background:ACCENT,border:'none',borderRadius:10,cursor:'pointer',textAlign:'center',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'inherit',transition:'opacity 0.15s',minHeight:40}}>
-            <div style={{fontSize:14,fontWeight:700,color:ON_ACCENT,fontFamily:'inherit',letterSpacing:'-0.2px'}}>Start IAQ Assessment</div>
+          {/* ── Tier 1: primary action ──
+              Uses --accent-fill / --on-accent-fill so the pill renders
+              the same vivid brand cyan in BOTH dark and light modes —
+              matches the dark-mode look on a white-mode page. */}
+          <button onClick={startNew} style={{width:'60%',margin:'32px auto 10px',padding:'11px 16px',background:'var(--accent-fill)',border:'none',borderRadius:10,cursor:'pointer',textAlign:'center',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'inherit',transition:'opacity 0.15s',minHeight:40}}>
+            <div style={{fontSize:14,fontWeight:700,color:'var(--on-accent-fill)',fontFamily:'inherit',letterSpacing:'-0.2px'}}>Start IAQ Assessment</div>
           </button>
 
           {/* ── Tier 1b: incident response ── */}
-          {/* Sibling to "Start Assessment." Matches the primary CTA
-              styling per design — documentation flow, no scoring,
-              no calibration gate, no engine path. */}
-          <button onClick={()=>setView('incident-form')} style={{width:'60%',margin:'0 auto 28px',padding:'11px 16px',background:ACCENT,border:'none',borderRadius:10,cursor:'pointer',textAlign:'center',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'inherit',transition:'opacity 0.15s',minHeight:40}}>
-            <div style={{fontSize:14,fontWeight:700,color:ON_ACCENT,fontFamily:'inherit',letterSpacing:'-0.2px'}}>Report IAQ Incident</div>
+          <button onClick={()=>setView('incident-form')} style={{width:'60%',margin:'0 auto 28px',padding:'11px 16px',background:'var(--accent-fill)',border:'none',borderRadius:10,cursor:'pointer',textAlign:'center',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'inherit',transition:'opacity 0.15s',minHeight:40}}>
+            <div style={{fontSize:14,fontWeight:700,color:'var(--on-accent-fill)',fontFamily:'inherit',letterSpacing:'-0.2px'}}>Report IAQ Incident</div>
           </button>
 
           {/* ── Tier 2 Group B: Recent reports (only when present) ── */}
@@ -1801,7 +1801,7 @@ export default function MobileApp() {
               <I n="draft" s={28} c={DIM} w={1.4} />
               <div style={{fontSize:15,fontWeight:600,color:SUB,marginTop:16}}>No drafts in progress</div>
               <div style={{fontSize:12,color:DIM,marginTop:6,lineHeight:1.5}}>Start a new assessment to begin capturing field data.</div>
-              <button onClick={startNew} style={{marginTop:16,padding:'10px 24px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:8,color:SUB,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>New Assessment</button>
+              <button onClick={startNew} style={{marginTop:16,padding:'10px 24px',background:'var(--accent-fill)',border:'none',borderRadius:8,color:'var(--on-accent-fill)',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>Start Assessment</button>
               <div style={{marginTop:10}}><button onClick={runDemo} style={{background:'none',border:'none',color:DIM,fontSize:11,cursor:'pointer',fontFamily:'inherit'}}>or open sample project →</button></div>
             </div>
           ):(index.drafts||[]).map(d=>(
@@ -1811,7 +1811,7 @@ export default function MobileApp() {
                 <div style={{fontSize:11,color:DIM,fontFamily:"var(--font-mono)",marginTop:3}}>{fD(d.ua||d.ts)}</div>
                 <div style={{fontSize:10,color:ACCENT,marginTop:3}}>In progress</div>
               </div>
-              <button onClick={()=>resumeDraft(d.id)} style={{padding:'8px 16px',background:`${mix('accent', 7)}`,border:`1px solid ${mix('accent', 15)}`,borderRadius:8,color:ACCENT,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:38}}>Resume</button>
+              <button onClick={()=>resumeDraft(d.id)} style={{padding:'8px 16px',background:'var(--accent-fill)',border:'none',borderRadius:8,color:'var(--on-accent-fill)',fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:38}}>Resume</button>
               <button onClick={(e)=>{e.stopPropagation();setDelConf({id:d.id,name:d.facility,type:'dft'})}} style={{width:44,height:44,background:'#EF444410',border:`1px solid #EF444425`,borderRadius:8,color:'#EF4444',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'inherit',flexShrink:0,WebkitTapHighlightColor:'transparent'}}>
                 <I n="trash" s={14} c="#EF4444" w={1.4} />
               </button>
@@ -1834,7 +1834,7 @@ export default function MobileApp() {
               <div style={{fontSize:15,fontWeight:600,color:SUB,marginTop:16}}>No reports generated yet</div>
               <div style={{fontSize:12,color:DIM,marginTop:6,lineHeight:1.5}}>{hSearch?'No reports match your search.':'Complete and finalize an assessment to generate your first report.'}</div>
               {!hSearch&&<>
-                <button onClick={startNew} style={{marginTop:16,padding:'10px 24px',background:ACCENT,border:'none',borderRadius:8,color: 'var(--on-accent)',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Start Assessment</button>
+                <button onClick={startNew} style={{marginTop:16,padding:'10px 24px',background:'var(--accent-fill)',border:'none',borderRadius:8,color:'var(--on-accent-fill)',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>Start Assessment</button>
                 <div style={{marginTop:10}}><button onClick={runDemo} style={{background:'none',border:'none',color:DIM,fontSize:11,cursor:'pointer',fontFamily:'inherit'}}>or view sample report →</button></div>
               </>}
             </div>

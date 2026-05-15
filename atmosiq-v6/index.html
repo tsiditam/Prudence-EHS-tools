@@ -53,18 +53,37 @@
         --success:#22C55E;
         /* Foreground used on top of --accent (filled accent buttons). */
         --on-accent:#07080C;
+        /* Brand-cyan fill for primary CTAs — invariant across modes so
+           light-mode pills look the same vivid brand color as dark-mode
+           pills (same hue as the AtmosFlow wordmark). --on-accent-fill
+           is the foreground that pairs with it — always dark, because
+           white text on bright #22D3EE is only 1.96:1 and fails AA. */
+        --accent-fill:#22D3EE;
+        --on-accent-fill:#07080C;
       }
       [data-theme="light"]{
-        --bg:#F0F2F5;
+        /* Per design direction: pure white pages, brand-cyan
+           everywhere the brand color appears (text, icons, borders,
+           filled buttons). The dark-cyan #0E7490 stop used previously
+           for AA-safe accent text is replaced with the bright brand
+           #22D3EE. NOTE: bright cyan on white renders at ~1.96:1,
+           below WCAG AA 4.5:1 for body text. Accepted intentionally
+           in favor of brand consistency — flag for any future
+           accessibility audit. */
+        --bg:#FFFFFF;
         --surface:#FFFFFF;
         --card:#FFFFFF;
-        --border:#CBD0D6;
-        --accent:#0E7490;
+        --border:#B6E0E8;
+        --accent:#22D3EE;
         --accent-dim:#155E75;
         --text:#0F172A;
         --sub:#475569;
         --dim:#5B6675;
-        --on-accent:#FFFFFF;
+        --on-accent:#07080C;
+        /* --accent-fill / --on-accent-fill stay invariant across
+           modes (brand cyan + dark text on filled CTAs). */
+        --accent-fill:#22D3EE;
+        --on-accent-fill:#07080C;
         /* Semantic colors diverge in light mode: the vivid dark-mode
            shades wash out on white (warn #FBBF24 → 1.57:1, success
            #22C55E → 2.14:1). Light mode uses darker stops from the
