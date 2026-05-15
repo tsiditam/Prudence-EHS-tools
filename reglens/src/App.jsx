@@ -2474,32 +2474,21 @@ export default function RegLensApp() {
 
   const stages = ["Reading your document…", "Checking against OSHA standards…", "Scanning EPA regulations…", "Identifying compliance gaps…", "Verifying citations…", "Scoring findings by severity…", "Calculating your score…"];
 
-  // Detect environment: deployed Vercel (has /api/claude.js) vs artifact sandbox (direct API)
-  const API_BASE = typeof window !== "undefined" && window.location.hostname.includes("vercel.app")
-    ? "" // relative path — uses /api/claude.js on same domain
-    : null; // null = try direct Anthropic API (works in Claude artifacts)
-
   async function callAI(messages, maxTokens = 4000) {
-    // Try 1: Vercel proxy (works on deployed app)
-    if (API_BASE !== null) {
-      const res = await fetch("/api/claude.js", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: maxTokens, messages }),
-      });
-      if (res.ok) return await res.json();
-      // If proxy fails, fall through to direct
+    if (!user?.access_token) {
+      throw new Error("Please sign in to run a review.");
     }
-
-    // Try 2: Direct Anthropic API (works in Claude artifact sandbox)
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
+    const res = await fetch("/api/claude", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: maxTokens, messages }),
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${user.access_token}`,
+      },
+      body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: maxTokens, messages }),
     });
     if (!res.ok) {
       const errBody = await res.json().catch(() => ({}));
-      throw new Error(errBody?.error?.message || `API returned HTTP ${res.status}`);
+      throw new Error(errBody?.error?.message || errBody?.error || `API returned HTTP ${res.status}`);
     }
     return await res.json();
   }
@@ -2646,13 +2635,21 @@ export default function RegLensApp() {
       return;
     }
 
-    // PDF/DOCX: try server-side parsing first, fall back to browser readAsText
+    // PDF/DOCX: server-side parsing (requires sign-in)
     if (ext === "pdf" || ext === "docx") {
+      if (!user?.access_token) {
+        setAuthScreen("signup");
+        return;
+      }
       try {
         const formData = new FormData();
         formData.append("file", f);
 
-        const res = await fetch("/api/parse-document", { method: "POST", body: formData });
+        const res = await fetch("/api/parse-document", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${user.access_token}` },
+          body: formData,
+        });
         const data = await res.json();
 
         if (!res.ok) {
@@ -2662,7 +2659,7 @@ export default function RegLensApp() {
 
         const text = data.text;
         if (data.wasTruncated) {
-          console.warn(`Document truncated from ~${data.tokenCount} tokens to 12,000`);
+          console.warn(`Document truncated from ~${data.tokenCount} tokens for review`);
         }
 
         const val = localValidate(text, selectedType);
@@ -2673,25 +2670,8 @@ export default function RegLensApp() {
           runReview(text, selectedType);
         }
       } catch (fetchErr) {
-        // Server-side parsing unavailable (e.g., running in artifact sandbox)
-        // Fall back to readAsText — works for text-based content, garbled for binary
-        console.warn("Server-side parsing unavailable, falling back to browser text read:", fetchErr.message);
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          const text = ev.target.result;
-          if (ext === "pdf" && text.includes("%PDF")) {
-            alert("PDF parsing requires the server. Please deploy to Vercel with /api/parse-document.js, or upload a .txt version of this document.");
-            return;
-          }
-          const val = localValidate(text, selectedType);
-          if (!val.valid) {
-            setValidation({ ...val, text, type: selectedType });
-            setTab("validation-error");
-          } else {
-            runReview(text, selectedType);
-          }
-        };
-        reader.readAsText(f);
+        console.error("parse-document fetch error:", fetchErr);
+        alert("Could not reach the document parser. Check your connection and try again.");
       }
       return;
     }
@@ -4619,22 +4599,23 @@ export default function RegLensApp() {
 
                       // Generate abatement plan
                       const prompt = buildCitationPrompt(citationText, citationIndustry, citationContext);
-                      let responseText = "";
-                      try {
-                        const res = await fetch("/api/claude", {
-                          method: "POST", headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ prompt, max_tokens: 6000 }),
-                        });
-                        const data = await res.json();
-                        responseText = data.content?.[0]?.text || data.text || data.result || "";
-                      } catch {
-                        const res = await fetch("https://api.anthropic.com/v1/messages", {
-                          method: "POST", headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 6000, messages: [{ role: "user", content: prompt }] }),
-                        });
-                        const data = await res.json();
-                        responseText = data.content?.[0]?.text || "";
+                      const res = await fetch("/api/claude", {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "application/json",
+                          Authorization: `Bearer ${user.access_token}`,
+                        },
+                        body: JSON.stringify({
+                          model: "claude-sonnet-4-6",
+                          max_tokens: 6000,
+                          messages: [{ role: "user", content: prompt }],
+                        }),
+                      });
+                      const data = await res.json();
+                      if (!res.ok) {
+                        throw new Error(data?.error?.message || data?.error || `API returned HTTP ${res.status}`);
                       }
+                      const responseText = data.content?.[0]?.text || "";
 
                       const cleaned = responseText.replace(/```json\s*/g, "").replace(/```/g, "").trim();
                       const parsed = JSON.parse(cleaned);
@@ -5858,32 +5839,29 @@ export default function RegLensApp() {
                         // Track CAP usage
                         try { const c = parseInt(localStorage.getItem("rl_cap_count") || "0"); localStorage.setItem("rl_cap_count", String(c + 1)); } catch {}
                         try {
-                          const prompt = buildCAPPrompt(auditResult.findings, auditIndustry, auditNotes);
-                          let responseText = "";
-
-                          // Try API proxy first, fallback to direct
-                          try {
-                            const res = await fetch("/api/claude", {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ prompt, max_tokens: 4000 }),
-                            });
-                            const data = await res.json();
-                            responseText = data.content?.[0]?.text || data.text || data.result || "";
-                          } catch {
-                            // Fallback to direct API (for artifact sandbox)
-                            const res = await fetch("https://api.anthropic.com/v1/messages", {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({
-                                model: "claude-sonnet-4-20250514",
-                                max_tokens: 4000,
-                                messages: [{ role: "user", content: prompt }],
-                              }),
-                            });
-                            const data = await res.json();
-                            responseText = data.content?.[0]?.text || "";
+                          if (!user?.access_token) {
+                            setAuthScreen("signup");
+                            setCapLoading(false);
+                            return;
                           }
+                          const prompt = buildCAPPrompt(auditResult.findings, auditIndustry, auditNotes);
+                          const res = await fetch("/api/claude", {
+                            method: "POST",
+                            headers: {
+                              "Content-Type": "application/json",
+                              Authorization: `Bearer ${user.access_token}`,
+                            },
+                            body: JSON.stringify({
+                              model: "claude-sonnet-4-6",
+                              max_tokens: 4000,
+                              messages: [{ role: "user", content: prompt }],
+                            }),
+                          });
+                          const data = await res.json();
+                          if (!res.ok) {
+                            throw new Error(data?.error?.message || data?.error || `API returned HTTP ${res.status}`);
+                          }
+                          const responseText = data.content?.[0]?.text || "";
 
                           // Parse JSON response
                           const cleaned = responseText.replace(/```json\s*/g, "").replace(/```/g, "").trim();
