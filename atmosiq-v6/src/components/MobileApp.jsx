@@ -1519,10 +1519,7 @@ export default function MobileApp() {
               know what day it is. Date stays inside the report header
               for screenshot/audit context. (NN/g first-impressions
               vs. ongoing-use.) */}
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24,animation:'fadeUp .4s ease'}}>
-            <div>
-              <div style={{fontSize:12,fontWeight:600,color:ACCENT,fontFamily:"var(--font-mono)",letterSpacing:'-0.2px'}}>{profile?.name || 'Assessor'}</div>
-            </div>
+          <div style={{display:'flex',justifyContent:'flex-end',alignItems:'center',marginBottom:24,animation:'fadeUp .4s ease'}}>
             <div style={{position:'relative',display:'flex',alignItems:'center',gap:8}}>
               {/* Subscription-status pill — exception-only. In beta
                   (Phase 1) the helper returns null and the pill
@@ -1547,7 +1544,7 @@ export default function MobileApp() {
                   aria-haspopup="menu"
                   aria-expanded={showHomeMenu}
                   style={{width:36,height:36,borderRadius:10,background:showHomeMenu ? CARD : SURFACE,border:`1px solid ${BORDER}`,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                  <I n="dots" s={18} c={SUB} />
+                  <I n="menu" s={18} c={SUB} />
                 </button>
               )}
               {showHomeMenu && (
