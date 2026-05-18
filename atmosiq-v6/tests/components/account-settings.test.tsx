@@ -51,7 +51,7 @@ describe('AccountSettings', () => {
   it('Manage subscription button POSTs to /api/customer-portal', async () => {
     Object.defineProperty(window, 'location', {
       writable: true,
-      value: { href: '', origin: 'https://atmosiq.prudenceehs.com' },
+      value: { href: '', origin: 'https://atmosflow.net' },
     })
 
     render(<AccountSettings profile={baseProfile} accessToken="token-x" fetcher={mockFetch as any} />)

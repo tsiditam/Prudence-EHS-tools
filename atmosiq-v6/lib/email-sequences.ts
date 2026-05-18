@@ -40,9 +40,9 @@ export interface EmailTemplate {
 }
 
 const SIGNATURE = '— Tsidi\nPrudence Safety & Environmental Consulting, LLC'
-const APP_URL = 'atmosiq.prudenceehs.com'
-const SAMPLE_REPORT_URL = 'https://atmosiq.prudenceehs.com/sample-report.pdf'
-const PRICING_URL = 'https://atmosiq.prudenceehs.com/#pricing'
+const APP_URL = 'atmosflow.net'
+const SAMPLE_REPORT_URL = 'https://atmosflow.net/sample-report.pdf'
+const PRICING_URL = 'https://atmosflow.net/#pricing'
 
 function firstName(ctx: UserContext): string {
   return ctx.first_name?.trim() || 'there'

@@ -1,5 +1,5 @@
 /**
- * Public landing page — atmosiq.prudenceehs.com.
+ * Public landing page — atmosflow.net.
  *
  * Mobile-first React component matching the in-app dark theme. No external
  * trackers; the early-access form is the conversion event tracked in

@@ -104,7 +104,7 @@ isn't visible until:
    over to the new bundle. On iOS PWA standalone mode, this typically
    requires deleting the home-screen icon and reinstalling, or
    triggering a service-worker update via Settings → Safari →
-   Advanced → Website Data → Remove for `atmosiq.prudenceehs.com`.
+   Advanced → Website Data → Remove for `atmosflow.net`.
 
 If the user reports "I cleared cache and still don't see it," check
 in this order:

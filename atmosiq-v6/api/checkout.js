@@ -57,7 +57,7 @@ async function handler(req, res) {
   const billingPeriod = String(body.billing_period || 'monthly')
   const userId = body.userId
   const userEmail = body.userEmail
-  const returnUrl = body.returnUrl || 'https://atmosiq.prudenceehs.com'
+  const returnUrl = body.returnUrl || 'https://atmosflow.net'
 
   if (!['solo', 'pro', 'practice'].includes(plan)) {
     return res.status(400).json({ error: `Invalid plan: ${plan}` })
