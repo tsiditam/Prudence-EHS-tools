@@ -1821,7 +1821,6 @@ export default function MobileApp() {
           {(index.drafts||[]).length===0?(
             <div style={{padding:'24px',textAlign:'center',background:CARD,borderRadius:10,border:`1px solid ${BORDER}`,marginBottom:24}}>
               <div style={{fontSize:13,color:SUB}}>No drafts in progress</div>
-              <button onClick={startNew} style={{marginTop:12,padding:'10px 24px',background:'var(--accent-fill)',border:'none',borderRadius:8,color:'var(--on-accent-fill)',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>Start Assessment</button>
             </div>
           ):(<div style={{marginBottom:24}}>{(index.drafts||[]).map(d=>(
             <div key={d.id} style={{padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,marginBottom:6,display:'flex',alignItems:'center',gap:12}}>
@@ -1852,10 +1851,9 @@ export default function MobileApp() {
               <I n="report" s={28} c={DIM} w={1.4} />
               <div style={{fontSize:15,fontWeight:600,color:SUB,marginTop:16}}>No reports generated yet</div>
               <div style={{fontSize:12,color:DIM,marginTop:6,lineHeight:1.5}}>{hSearch?'No reports match your search.':'Complete and finalize an assessment to generate your first report.'}</div>
-              {!hSearch&&<>
-                <button onClick={startNew} style={{marginTop:16,padding:'10px 24px',background:'var(--accent-fill)',border:'none',borderRadius:8,color:'var(--on-accent-fill)',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>Start Assessment</button>
-                <div style={{marginTop:10}}><button onClick={runDemo} style={{background:'none',border:'none',color:DIM,fontSize:11,cursor:'pointer',fontFamily:'inherit'}}>or view sample report →</button></div>
-              </>}
+              {!hSearch&&(
+                <div style={{marginTop:12}}><button onClick={runDemo} style={{background:'none',border:'none',color:DIM,fontSize:11,cursor:'pointer',fontFamily:'inherit'}}>View sample report →</button></div>
+              )}
             </div>
           ):fReports.map(r=>(
             <div key={r.id} onClick={()=>openReport(r)} style={{width:'100%',padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,marginBottom:6,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit',transition:'border-color 0.15s'}}>
