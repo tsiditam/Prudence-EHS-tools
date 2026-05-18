@@ -63,6 +63,7 @@ import SpatialMap from './SpatialMap'
 import InstrumentManager from './InstrumentManager'
 import V21InternalPanel from './V21InternalPanel'
 import { FAQ_SECTIONS } from '../constants/faq'
+import SearchView from './SearchView'
 import { useAssessment } from '../contexts/AssessmentContext.jsx'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import { useStorage } from '../contexts/StorageContext.jsx'
@@ -1329,7 +1330,7 @@ export default function MobileApp() {
           </div>
           <div style={{position:'relative',display:'flex',alignItems:'center',gap:8}}>
             {isAssessing&&<span style={{fontSize:10,color:ACCENT,fontFamily:"var(--font-mono)",background:`${mix('accent', 4)}`,padding:'3px 10px',borderRadius:4,border:`1px solid ${mix('accent', 13)}`,letterSpacing:'0.5px'}}>SAVING</span>}
-            {view!=='dash'&&view!=='drafts'&&view!=='history'&&view!=='settings'&&view!=='trash'&&view!=='tos'&&view!=='privacy'&&view!=='help'&&view!=='instrument-edit'&&view!=='incident-form'&&view!=='incident-log'&&view!=='incident-detail'&&<button onClick={()=>{setView('dash');setViewRpt(null)}} style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:8,color:SUB,fontSize:13,fontWeight:600,padding:'7px 14px',cursor:'pointer',fontFamily:'inherit',minHeight:36,transition:'color 0.15s'}}>← Home</button>}
+            {view!=='dash'&&view!=='history'&&view!=='search'&&view!=='settings'&&view!=='trash'&&view!=='tos'&&view!=='privacy'&&view!=='help'&&view!=='instrument-edit'&&view!=='incident-form'&&view!=='incident-log'&&view!=='incident-detail'&&<button onClick={()=>{setView('dash');setViewRpt(null)}} style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:8,color:SUB,fontSize:13,fontWeight:600,padding:'7px 14px',cursor:'pointer',fontFamily:'inherit',minHeight:36,transition:'color 0.15s'}}>← Home</button>}
             {/* Subscription-status pill — exception-only. In beta
                 the helper returns null. Phase 2+ surfaces it on
                 diverging state (payment failed, plan cancelling,
@@ -1361,17 +1362,18 @@ export default function MobileApp() {
                 <div onClick={()=>setShowHomeMenu(false)} style={{position:'fixed',inset:0,zIndex:90,background:'transparent'}} />
                 <div role="menu" style={{position:'absolute',top:'calc(100% + 8px)',right:0,minWidth:240,background:CARD,border:`1px solid ${BORDER}`,borderRadius:14,padding:6,zIndex:100,boxShadow:'0 12px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.02) inset',animation:'fadeUp .15s ease'}}>
                   {[
+                    { label: 'Search',       icon: 'search', onClick: () => setView('search') },
                     { label: 'Settings',     icon: 'gear',   onClick: () => setView('settings') },
                     { label: themeMode === 'light' ? 'Switch to dark mode' : 'Switch to light mode',
                       icon: themeMode === 'light' ? 'moon' : 'sun',
                       onClick: () => { toggleThemeMode() } },
-                    { label: 'Reports',      icon: 'report', onClick: () => setView('history') },
                     { label: 'Trash',        icon: 'trash',  onClick: () => setView('trash') },
                     { label: userMode==='fm' ? 'Sample Air Quality Check' : 'Office Building Demo',
                       icon: 'play',
                       onClick: () => runDemo() },
                     ...(userMode !== 'fm' ? [{ label: 'Data Center Demo', icon: 'play', onClick: () => runDemo('dc') }] : []),
                     { label: 'Help & Support', icon: 'help', onClick: () => { window.location.href = 'mailto:support@prudenceehs.com?subject=AtmosFlow%20support' } },
+                    { label: 'Sign out',     icon: 'logout', onClick: handleLogout, divider: true, danger: true },
                   ].map(item => (
                     <button
                       key={item.label}
@@ -1380,12 +1382,13 @@ export default function MobileApp() {
                       style={{
                         width:'100%',padding:'12px 14px',background:'transparent',border:'none',borderRadius:10,
                         cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,
-                        fontFamily:'inherit',color:TEXT,fontSize:14,fontWeight:500,minHeight:44,
+                        fontFamily:'inherit',color:item.danger?DANGER:TEXT,fontSize:14,fontWeight:500,minHeight:44,
                         transition:'background 0.12s',
+                        ...(item.divider?{marginTop:6,paddingTop:14,borderTop:`1px solid ${BORDER}`,borderRadius:0}:{}),
                       }}
                       onMouseEnter={e => { e.currentTarget.style.background = SURFACE }}
                       onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}>
-                      <I n={item.icon} s={18} c={SUB} w={1.6} />
+                      <I n={item.icon} s={18} c={item.danger?DANGER:SUB} w={1.6} />
                       <span>{item.label}</span>
                     </button>
                   ))}
@@ -1793,18 +1796,28 @@ export default function MobileApp() {
 
         {(view==='results'||view==='report')&&renderResults(view==='report')}
 
-        {view==='drafts'&&<div style={{paddingTop:28,paddingBottom:100}}>
-          <h2 style={{fontSize:20,fontWeight:700,marginBottom:4,color:TEXT}}>{userMode === 'fm' ? 'In Progress' : 'Drafts'}</h2>
-          <div style={{fontSize:11,color:DIM,marginBottom:20}}>{userMode === 'fm' ? 'Air quality checks in progress' : 'Assessments in progress'}</div>
+        {view==='search'&&<SearchView
+          index={index}
+          onOpenReport={(r)=>openReport(r)}
+          onResumeDraft={(id)=>resumeDraft(id)}
+          onOpenIncident={(inc)=>{setCurrentIncident(inc);setView('incident-detail')}}
+          onNavigate={(v)=>setView(v)}
+        />}
+
+        {view==='history'&&<div style={{paddingTop:28,paddingBottom:100}}>
+          <h2 style={{fontSize:20,fontWeight:700,marginBottom:4,color:TEXT}}>Reports</h2>
+          <div style={{fontSize:11,color:DIM,marginBottom:20}}>Drafts and finalized deliverables</div>
+
+          {/* ── Drafts section ─────────────────────────────────────── */}
+          <div style={{fontSize:11,fontWeight:700,color:DIM,textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:10}}>
+            {userMode === 'fm' ? 'In Progress' : 'Drafts'}{(index.drafts||[]).length>0?` · ${(index.drafts||[]).length}`:''}
+          </div>
           {(index.drafts||[]).length===0?(
-            <div style={{padding:'48px 24px',textAlign:'center',background:CARD,borderRadius:10,border:`1px solid ${BORDER}`}}>
-              <I n="draft" s={28} c={DIM} w={1.4} />
-              <div style={{fontSize:15,fontWeight:600,color:SUB,marginTop:16}}>No drafts in progress</div>
-              <div style={{fontSize:12,color:DIM,marginTop:6,lineHeight:1.5}}>Start a new assessment to begin capturing field data.</div>
-              <button onClick={startNew} style={{marginTop:16,padding:'10px 24px',background:'var(--accent-fill)',border:'none',borderRadius:8,color:'var(--on-accent-fill)',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>Start Assessment</button>
-              <div style={{marginTop:10}}><button onClick={runDemo} style={{background:'none',border:'none',color:DIM,fontSize:11,cursor:'pointer',fontFamily:'inherit'}}>or open sample project →</button></div>
+            <div style={{padding:'24px',textAlign:'center',background:CARD,borderRadius:10,border:`1px solid ${BORDER}`,marginBottom:24}}>
+              <div style={{fontSize:13,color:SUB}}>No drafts in progress</div>
+              <button onClick={startNew} style={{marginTop:12,padding:'10px 24px',background:'var(--accent-fill)',border:'none',borderRadius:8,color:'var(--on-accent-fill)',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>Start Assessment</button>
             </div>
-          ):(index.drafts||[]).map(d=>(
+          ):(<div style={{marginBottom:24}}>{(index.drafts||[]).map(d=>(
             <div key={d.id} style={{padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,marginBottom:6,display:'flex',alignItems:'center',gap:12}}>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontSize:14,fontWeight:600,color:TEXT,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{d.facility||'Untitled Assessment'}</div>
@@ -1816,14 +1829,14 @@ export default function MobileApp() {
                 <I n="trash" s={14} c="#EF4444" w={1.4} />
               </button>
             </div>
-          ))}
-        </div>}
+          ))}</div>)}
 
-        {view==='history'&&<div style={{paddingTop:28,paddingBottom:100}}>
-          <h2 style={{fontSize:20,fontWeight:700,marginBottom:4,color:TEXT}}>Reports</h2>
-          <div style={{fontSize:11,color:DIM,marginBottom:16}}>Finalized assessment deliverables</div>
+          {/* ── Finalized section ──────────────────────────────────── */}
+          <div style={{fontSize:11,fontWeight:700,color:DIM,textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:10}}>
+            Finalized{(index.reports||[]).length>0?` · ${(index.reports||[]).length}`:''}
+          </div>
           <div style={{display:'flex',gap:8,marginBottom:14}}>
-            <input type="text" value={hSearch} onChange={e=>setHSearch(e.target.value)} placeholder="Search reports..." style={{flex:1,padding:'12px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,color:TEXT,fontSize:15,fontFamily:'inherit',outline:'none',boxSizing:'border-box',minHeight:44}} />
+            <input type="text" value={hSearch} onChange={e=>setHSearch(e.target.value)} placeholder="Search finalized reports..." style={{flex:1,padding:'12px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,color:TEXT,fontSize:15,fontFamily:'inherit',outline:'none',boxSizing:'border-box',minHeight:44}} />
             <select value={hSort} onChange={e=>setHSort(e.target.value)} style={{padding:'12px 12px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,color:SUB,fontSize:12,fontFamily:'inherit',outline:'none',minHeight:44}}>
               <option value="newest">Newest</option><option value="oldest">Oldest</option><option value="score-low">Score ↑</option><option value="score-high">Score ↓</option>
             </select>
@@ -1884,8 +1897,8 @@ export default function MobileApp() {
               {id:'settings',label:'Settings',icon:'gear'},
             ] : [
               {id:'dash',label:'Home',icon:'home'},
-              {id:'drafts',label:'Drafts',icon:'clip',badge:(index.drafts||[]).length||null},
-              {id:'history',label:'Reports',icon:'report',badge:(index.reports||[]).length||null},
+              {id:'history',label:'Reports',icon:'report',badge:((index.drafts||[]).length+(index.reports||[]).length)||null},
+              {id:'search',label:'Search',icon:'search'},
               {id:'settings',label:'Settings',icon:'gear'},
             ]).map(t=>(
               <button key={t.id} onClick={()=>{ supabase&&trackEvent('page_view',{tab:t.id}); setView(t.id); if(t.id==='dash')setViewRpt(null); }} style={{background:'none',border:'none',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:2,padding:'6px 16px',minWidth:56,fontFamily:'inherit',position:'relative',WebkitTapHighlightColor:'transparent',transition:'opacity 0.15s'}}>
