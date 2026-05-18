@@ -66,6 +66,8 @@ import { FAQ_SECTIONS } from '../constants/faq'
 import SearchView from './SearchView'
 import FieldAssistantFab from './FieldAssistantFab'
 import FieldAssistant from './FieldAssistant'
+import ReadinessPanel from './ReadinessPanel'
+import { buildReadinessVerdict } from '../engines/readiness-verdict'
 import SamplingFormsView from './SamplingFormsView'
 import { useAssessment } from '../contexts/AssessmentContext.jsx'
 import { useAuth } from '../contexts/AuthContext.jsx'
@@ -1036,8 +1038,8 @@ export default function MobileApp() {
         */}
         <div style={{display:'flex',gap:0,marginBottom:14,borderBottom:`1px solid ${BORDER}`,overflowX:'auto',scrollbarWidth:'none',WebkitOverflowScrolling:'touch'}}>
           {(userMode === 'fm'
-            ? [['overview','findings','Findings'],['narrative','pulse','Narrative'],['actions','bolt','Actions']]
-            : [['overview','findings','Findings'],['rootcause','chain','Pathways'],['sampling','flask','Sampling'],['narrative','pulse','Narrative'],['actions','bolt','Actions']]
+            ? [['overview','findings','Findings'],['readiness','shield','Ready'],['narrative','pulse','Narrative'],['actions','bolt','Actions']]
+            : [['overview','findings','Findings'],['readiness','shield','Ready'],['rootcause','chain','Pathways'],['sampling','flask','Sampling'],['narrative','pulse','Narrative'],['actions','bolt','Actions']]
           ).map(([k,ic,l])=>{
             const isActive = rTab===k
             return (
@@ -1048,6 +1050,18 @@ export default function MobileApp() {
             )
           })}
         </div>
+
+        {rTab==='readiness' && (
+          <ReadinessPanel
+            assessment={{
+              assessmentMode: 'SCREENING',
+              presurvey, building: bldg, client: bldg && bldg.client ? bldg.client : {},
+              zones, zoneScores, recs, photos,
+              profile: profile ? { name: profile.name } : null,
+            }}
+            onAskCopilot={() => { setFaOpen(true); haptic('light') }}
+          />
+        )}
 
         {rTab==='overview' && zs && <div style={{display:isTablet?'grid':'flex',gridTemplateColumns:isTablet?'1fr 1fr':'none',flexDirection:'column',gap:10}}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10}}>
@@ -1942,6 +1956,20 @@ export default function MobileApp() {
             zones_count: zones.length,
             incident: currentIncident,
             profile_minimal: profile ? { plan: profile.plan, certs: profile.certs, firm: profile.firm } : null,
+            // v1.5 Defensibility Copilot: when the user is in results
+            // view, attach the readiness verdict so the agent can answer
+            // "what's blocking this report?" with concrete gaps + the
+            // ASHRAE / IICRC citations baked into the gap rationales —
+            // no tool-calling round-trip required.
+            readiness: (view === 'results' || view === 'report') && comp
+              ? buildReadinessVerdict({
+                  assessmentMode: 'SCREENING',
+                  presurvey, building: bldg,
+                  client: bldg && bldg.client ? bldg.client : {},
+                  zones, zoneScores, recs, photos,
+                  profile: profile ? { name: profile.name } : null,
+                })
+              : undefined,
           }}
         />
       )}
