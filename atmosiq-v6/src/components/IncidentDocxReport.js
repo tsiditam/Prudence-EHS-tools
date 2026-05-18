@@ -23,6 +23,7 @@ import {
 } from 'docx'
 import { BODY_SECTION_PROPERTIES } from './docx/page-setup'
 import { DOCX_STYLES } from './docx/styles'
+import { deliverFile } from './forms/deliverFile'
 
 const FONT = { font: 'Cambria' }
 
@@ -222,35 +223,10 @@ function buildFilename(incident) {
   return `AtmosFlow-Incident-${where}-${dateIso}.docx`
 }
 
-// Hands the document to the user. Prefers the iOS share sheet
-// (single tap → save to Files, email, AirDrop, Messages); falls back
-// to direct download elsewhere.
-async function deliverBlob(blob, filename) {
-  // Web Share API path — iOS PWA, Android Chrome.
-  try {
-    if (typeof navigator !== 'undefined' && navigator.canShare) {
-      const file = new File([blob], filename, { type: blob.type || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' })
-      if (navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: 'AtmosFlow Incident Report' })
-        return
-      }
-    }
-  } catch (err) {
-    // User cancelled the share sheet or share is unavailable —
-    // fall through to download. Don't surface the error.
-    if (err?.name !== 'AbortError') console.warn('Share failed, falling back to download:', err)
-  }
-  // Download path.
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  a.style.display = 'none'
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  setTimeout(() => URL.revokeObjectURL(url), 10000)
-}
+// Hands the document to the user via the shared deliverFile helper —
+// iOS / Android land in the native share sheet, desktop falls back
+// to anchor download.
+const deliverBlob = (blob, filename) => deliverFile(blob, filename)
 
 export async function generateIncidentDocx(incident, profile) {
   if (!incident) throw new Error('generateIncidentDocx: incident is required')

@@ -66,6 +66,7 @@ import { FAQ_SECTIONS } from '../constants/faq'
 import SearchView from './SearchView'
 import FieldAssistantFab from './FieldAssistantFab'
 import FieldAssistant from './FieldAssistant'
+import SamplingFormsView from './SamplingFormsView'
 import { useAssessment } from '../contexts/AssessmentContext.jsx'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import { useStorage } from '../contexts/StorageContext.jsx'
@@ -1336,7 +1337,7 @@ export default function MobileApp() {
           </div>
           <div style={{position:'relative',display:'flex',alignItems:'center',gap:8}}>
             {isAssessing&&<span style={{fontSize:10,color:ACCENT,fontFamily:"var(--font-mono)",background:`${mix('accent', 4)}`,padding:'3px 10px',borderRadius:4,border:`1px solid ${mix('accent', 13)}`,letterSpacing:'0.5px'}}>SAVING</span>}
-            {view!=='dash'&&view!=='history'&&view!=='search'&&view!=='settings'&&view!=='trash'&&view!=='tos'&&view!=='privacy'&&view!=='help'&&view!=='instrument-edit'&&view!=='incident-form'&&view!=='incident-log'&&view!=='incident-detail'&&<button onClick={()=>{setView('dash');setViewRpt(null)}} style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:8,color:SUB,fontSize:13,fontWeight:600,padding:'7px 14px',cursor:'pointer',fontFamily:'inherit',minHeight:36,transition:'color 0.15s'}}>← Home</button>}
+            {view!=='dash'&&view!=='history'&&view!=='search'&&view!=='settings'&&view!=='trash'&&view!=='tos'&&view!=='privacy'&&view!=='help'&&view!=='instrument-edit'&&view!=='incident-form'&&view!=='incident-log'&&view!=='incident-detail'&&view!=='sampling-forms'&&<button onClick={()=>{setView('dash');setViewRpt(null)}} style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:8,color:SUB,fontSize:13,fontWeight:600,padding:'7px 14px',cursor:'pointer',fontFamily:'inherit',minHeight:36,transition:'color 0.15s'}}>← Home</button>}
             {/* Subscription-status pill — exception-only. In beta
                 the helper returns null. Phase 2+ surfaces it on
                 diverging state (payment failed, plan cancelling,
@@ -1374,6 +1375,7 @@ export default function MobileApp() {
                       icon: themeMode === 'light' ? 'moon' : 'sun',
                       onClick: () => { toggleThemeMode() } },
                     { label: 'Trash',        icon: 'trash',  onClick: () => setView('trash') },
+                    { label: 'Sampling forms', icon: 'flask', onClick: () => setView('sampling-forms') },
                     { label: userMode==='fm' ? 'Sample Air Quality Check' : 'Office Building Demo',
                       icon: 'play',
                       onClick: () => runDemo() },
@@ -1873,6 +1875,7 @@ export default function MobileApp() {
           ))}
         </div>}
         {view==='trash'&&<TrashView onRecover={async(id)=>{await Backup.recover(id);await refreshIndex()}} onDelete={async(id)=>{await Backup.permanentDelete(id)}} />}
+        {view==='sampling-forms'&&<SamplingFormsView profile={profile} onBack={()=>setView('dash')} />}
         {view==='settings'&&<SettingsScreen profile={profile} onEditProfile={()=>{setProfile({...profile,isNew:true});setView('dash')}} onLogout={handleLogout} onClose={()=>setView('dash')} onNavigate={(v)=>{if(v==='pricing'){setShowPricing(true)}else{setView(v)}}} adminActive={!!adminSecret} onActivateAdmin={(secret)=>{setAdminSecret(secret);setView('admin')}} />}
         {view==='tos'&&<TermsOfService onBack={()=>setView('settings')} />}
         {view==='privacy'&&<PrivacyPolicy onBack={()=>setView('settings')} />}
