@@ -126,7 +126,8 @@ export default function SearchView({ index, onOpenReport, onResumeDraft, onOpenI
   })), [])
 
   const query = q.trim().toLowerCase()
-  const match = (item) => !query || item.haystack.includes(query)
+  // Empty query → empty page. Results only appear as the user types.
+  const match = (item) => query.length > 0 && item.haystack.includes(query)
   const reports = reportItems.filter(match)
   const incs = incidentItems.filter(match)
   const faqs = faqItems.filter(match)
