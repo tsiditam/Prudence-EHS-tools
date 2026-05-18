@@ -29,6 +29,8 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { FIELD_ASSISTANT_ROLE_PROMPT } from '../src/constants/field-assistant-prompt'
 import { STANDARDS_FOR_AGENT, FAQ_FOR_AGENT } from '../src/constants/field-assistant-corpus'
+import { FIELD_ASSISTANT_TOOLS, MAX_TOOL_ROUNDS } from '../src/constants/field-assistant-tools'
+import { STANDARDS_MANIFEST, STD } from '../src/constants/standards'
 import { scrubPii } from '../lib/sentry'
 // eslint-disable-next-line @typescript-eslint/no-require-imports -- CommonJS shared helper
 const { auditLog } = require('./_audit')
@@ -230,8 +232,17 @@ async function callAnthropicStream(
   apiKey: string,
   systemBlocks: unknown,
   messages: unknown,
+  tools: unknown,
 ): Promise<Response> {
   const fetchFn = getFetch()
+  const body: Record<string, unknown> = {
+    model: ANTHROPIC_MODEL,
+    max_tokens: MAX_OUTPUT_TOKENS,
+    stream: true,
+    system: systemBlocks,
+    messages,
+  }
+  if (tools) body.tools = tools
   return fetchFn('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -239,13 +250,7 @@ async function callAnthropicStream(
       'x-api-key': apiKey,
       'anthropic-version': '2023-06-01',
     },
-    body: JSON.stringify({
-      model: ANTHROPIC_MODEL,
-      max_tokens: MAX_OUTPUT_TOKENS,
-      stream: true,
-      system: systemBlocks,
-      messages,
-    }),
+    body: JSON.stringify(body),
   }) as Promise<Response>
 }
 
@@ -254,8 +259,15 @@ function writeSse(res: VercelLikeResponse, event: string, data: unknown): void {
   res.write(`data: ${JSON.stringify(data)}\n\n`)
 }
 
+interface ToolUseBlock {
+  id: string
+  name: string
+  input: unknown
+}
+
 interface StreamResult {
   text: string
+  toolUses: ToolUseBlock[]
   inputTokens: number | null
   outputTokens: number | null
   cacheCreate: number | null
@@ -273,19 +285,24 @@ async function pumpAnthropicStream(
   let buf = ''
   const acc: StreamResult = {
     text: '',
+    toolUses: [],
     inputTokens: null,
     outputTokens: null,
     cacheCreate: null,
     cacheRead: null,
     stopReason: null,
   }
+  // Tool-use blocks arrive as: content_block_start (with id+name),
+  // then a sequence of content_block_delta with input_json_delta
+  // (partial JSON of the input arg), then content_block_stop. We
+  // accumulate partial JSON per block index, then JSON.parse at stop.
+  const toolInputBuffers: Record<number, { id: string; name: string; json: string }> = {}
 
   while (true) {
     const { done, value } = await reader.read()
     if (done) break
     buf += decoder.decode(value, { stream: true })
     let idx
-    // Anthropic SSE frames are separated by \n\n.
     while ((idx = buf.indexOf('\n\n')) !== -1) {
       const frame = buf.slice(0, idx)
       buf = buf.slice(idx + 2)
@@ -297,7 +314,28 @@ async function pumpAnthropicStream(
       } catch {
         continue
       }
-      if (payload.type === 'content_block_delta' && payload.delta?.type === 'text_delta') {
+      if (payload.type === 'content_block_start' && payload.content_block?.type === 'tool_use') {
+        const block = payload.content_block
+        toolInputBuffers[payload.index] = { id: block.id, name: block.name, json: '' }
+      } else if (
+        payload.type === 'content_block_delta' &&
+        payload.delta?.type === 'input_json_delta'
+      ) {
+        const buf2 = toolInputBuffers[payload.index]
+        if (buf2) buf2.json += payload.delta.partial_json || ''
+      } else if (payload.type === 'content_block_stop') {
+        const tb = toolInputBuffers[payload.index]
+        if (tb) {
+          let parsed: unknown = {}
+          try {
+            parsed = tb.json ? JSON.parse(tb.json) : {}
+          } catch {
+            parsed = { _parse_error: tb.json }
+          }
+          acc.toolUses.push({ id: tb.id, name: tb.name, input: parsed })
+          delete toolInputBuffers[payload.index]
+        }
+      } else if (payload.type === 'content_block_delta' && payload.delta?.type === 'text_delta') {
         const tok = payload.delta.text as string
         acc.text += tok
         writeSse(res, 'token', { text: tok })
@@ -314,6 +352,204 @@ async function pumpAnthropicStream(
     }
   }
   return acc
+}
+
+// ── Tool implementations ──────────────────────────────────────────
+// Plain shape (no discriminated union) so call sites don't need
+// narrowing helpers — keeps the tool-loop code readable.
+interface ToolResult {
+  ok: boolean
+  data?: unknown
+  error?: string
+}
+
+async function toolGetAssessment(
+  supabase: SupabaseClient,
+  userId: string,
+  input: { assessment_id?: string },
+): Promise<ToolResult> {
+  const id = input?.assessment_id
+  if (!id) return { ok: false, error: 'assessment_id is required' }
+  const { data, error } = await supabase
+    .from('assessments')
+    .select(
+      'id, status, facility_name, facility_address, presurvey, building, zones, zone_scores, composite, recommendations, sampling_plan, score, risk, updated_at',
+    )
+    .eq('id', id)
+    .eq('user_id', userId)
+    .single()
+  if (error || !data) return { ok: false, error: 'Assessment not found in your account.' }
+  return { ok: true, data }
+}
+
+async function toolGetZoneReadings(
+  supabase: SupabaseClient,
+  userId: string,
+  input: { assessment_id?: string; zone_index?: number },
+): Promise<ToolResult> {
+  if (!input?.assessment_id || typeof input.zone_index !== 'number') {
+    return { ok: false, error: 'assessment_id and zone_index are required' }
+  }
+  const { data, error } = await supabase
+    .from('assessments')
+    .select('zones, zone_scores')
+    .eq('id', input.assessment_id)
+    .eq('user_id', userId)
+    .single()
+  if (error || !data) return { ok: false, error: 'Assessment not found in your account.' }
+  const zones = (data.zones as unknown[]) || []
+  const zone = zones[input.zone_index]
+  if (!zone) return { ok: false, error: `Zone index ${input.zone_index} not found in assessment.` }
+  const zoneScores = (data.zone_scores as Record<string, unknown>) || {}
+  const score = zoneScores?.[String(input.zone_index)] || null
+  return { ok: true, data: { zone, score } }
+}
+
+function toolLookupStandard(input: { name?: string }): ToolResult {
+  const name = (input?.name || '').trim()
+  if (!name) return { ok: false, error: 'name is required' }
+  const manifestKeys = Object.keys(STANDARDS_MANIFEST).filter(
+    (k) => k !== 'engineVersion' && k !== 'manifestUpdated',
+  )
+  // Match either exact or case-insensitive substring on the manifest keys.
+  const lower = name.toLowerCase()
+  const match = manifestKeys.find((k) => k.toLowerCase() === lower) ||
+    manifestKeys.find((k) => k.toLowerCase().includes(lower)) ||
+    manifestKeys.find((k) => lower.includes(k.toLowerCase()))
+  if (!match) return { ok: false, error: `"${name}" not found in the standards manifest.` }
+  const version = (STANDARDS_MANIFEST as Record<string, string>)[match]
+  // Bring in the threshold slice if we have one (STD) — keyed by short label.
+  let thresholds: unknown = null
+  const lowerMatch = match.toLowerCase()
+  if (lowerMatch.includes('ashrae 62.1') || lowerMatch.includes('ashrae 55')) {
+    thresholds = lowerMatch.includes('62.1') ? STD.v : STD.t
+  } else if (lowerMatch.includes('osha') || lowerMatch.includes('niosh') ||
+             lowerMatch.includes('naaqs') || lowerMatch.includes('molhave')) {
+    thresholds = STD.c
+  }
+  return { ok: true, data: { name: match, version, thresholds } }
+}
+
+async function executeTool(
+  supabase: SupabaseClient,
+  userId: string,
+  name: string,
+  input: unknown,
+): Promise<ToolResult> {
+  try {
+    if (name === 'get_assessment') {
+      return await toolGetAssessment(supabase, userId, input as { assessment_id?: string })
+    }
+    if (name === 'get_zone_readings') {
+      return await toolGetZoneReadings(
+        supabase,
+        userId,
+        input as { assessment_id?: string; zone_index?: number },
+      )
+    }
+    if (name === 'lookup_standard') {
+      return toolLookupStandard(input as { name?: string })
+    }
+    return { ok: false, error: `Unknown tool: ${name}` }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'tool_execution_failed'
+    return { ok: false, error: msg }
+  }
+}
+
+// ── Tool loop ────────────────────────────────────────────────────
+// Encodes the assistant's content for the next round in Anthropic's
+// expected shape: array of text + tool_use blocks.
+function buildAssistantContent(text: string, toolUses: ToolUseBlock[]) {
+  const content: unknown[] = []
+  if (text) content.push({ type: 'text', text })
+  for (const tu of toolUses) {
+    content.push({ type: 'tool_use', id: tu.id, name: tu.name, input: tu.input })
+  }
+  return content
+}
+
+interface TurnAggregate {
+  finalText: string
+  inputTokens: number
+  outputTokens: number
+  cacheRead: number | null
+  cacheCreate: number | null
+  toolCalls: { name: string; ok: boolean }[]
+  rounds: number
+  stopReason: string | null
+}
+
+async function runConversationTurn(
+  apiKey: string,
+  systemBlocks: unknown,
+  initialMessages: unknown[],
+  supabase: SupabaseClient,
+  userId: string,
+  res: VercelLikeResponse,
+): Promise<TurnAggregate> {
+  const messages = [...initialMessages]
+  const agg: TurnAggregate = {
+    finalText: '',
+    inputTokens: 0,
+    outputTokens: 0,
+    cacheRead: null,
+    cacheCreate: null,
+    toolCalls: [],
+    rounds: 0,
+    stopReason: null,
+  }
+
+  for (let round = 0; round < MAX_TOOL_ROUNDS + 1; round++) {
+    agg.rounds = round + 1
+    const upstream = await callAnthropicStream(apiKey, systemBlocks, messages, FIELD_ASSISTANT_TOOLS)
+    if (!upstream.ok) {
+      const errText = await upstream.text().catch(() => '')
+      throw new Error(`upstream_${upstream.status}: ${errText || 'error'}`)
+    }
+    const result = await pumpAnthropicStream(upstream, res)
+    agg.inputTokens += result.inputTokens || 0
+    agg.outputTokens += result.outputTokens || 0
+    // Cache stats reflect the most recent round (each round is a fresh
+    // request; later rounds typically hit cache fully).
+    if (result.cacheRead != null) agg.cacheRead = (agg.cacheRead || 0) + result.cacheRead
+    if (result.cacheCreate != null) agg.cacheCreate = (agg.cacheCreate || 0) + result.cacheCreate
+    agg.stopReason = result.stopReason
+    if (result.text) agg.finalText = result.text  // the final round's text
+
+    if (result.stopReason !== 'tool_use' || result.toolUses.length === 0) break
+    if (round >= MAX_TOOL_ROUNDS) {
+      // Cap hit — append a synthetic apology so the user gets a clean close.
+      agg.finalText += '\n\n(Stopped after reaching the tool-call cap. Try a more specific question.)'
+      break
+    }
+
+    // Echo the assistant message into history, run the tool calls, then
+    // append a user message carrying the tool_result blocks.
+    messages.push({
+      role: 'assistant',
+      content: buildAssistantContent(result.text, result.toolUses),
+    })
+    const toolResultBlocks: unknown[] = []
+    for (const tu of result.toolUses) {
+      writeSse(res, 'tool_use', { name: tu.name, input: tu.input })
+      const tr = await executeTool(supabase, userId, tu.name, tu.input)
+      agg.toolCalls.push({ name: tu.name, ok: tr.ok })
+      writeSse(res, 'tool_result', { name: tu.name, ok: tr.ok })
+      let resultPayload: unknown
+      if (tr.ok) resultPayload = tr.data
+      else resultPayload = { error: tr.error }
+      toolResultBlocks.push({
+        type: 'tool_result',
+        tool_use_id: tu.id,
+        content: JSON.stringify(resultPayload),
+        is_error: !tr.ok,
+      })
+    }
+    messages.push({ role: 'user', content: toolResultBlocks })
+  }
+
+  return agg
 }
 
 async function persistTurn(
@@ -470,47 +706,32 @@ async function handler(req: VercelLikeRequest, res: VercelLikeResponse): Promise
     console.error('[field-assistant] user-turn persist failed:', msg)
   }
 
-  // Call Anthropic and pump the stream
+  // Call Anthropic with the tool loop (single round if no tools used,
+  // up to MAX_TOOL_ROUNDS + 1 calls if Claude chains tool requests).
   const systemBlocks = buildSystemBlocks(body.context)
-  const messages = buildAnthropicMessages(history, userMessage)
+  const initialMessages = buildAnthropicMessages(history, userMessage)
 
-  let upstream: Response
+  let turn: TurnAggregate
   try {
-    upstream = await callAnthropicStream(apiKey, systemBlocks, messages)
+    turn = await runConversationTurn(apiKey, systemBlocks, initialMessages, supabase, user.id, res)
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'anthropic_call_failed'
-    writeSse(res, 'error', { error: msg })
-    res.end()
-    return
-  }
-  if (!upstream.ok) {
-    const errText = await upstream.text().catch(() => '')
-    writeSse(res, 'error', { status: upstream.status, error: errText || 'upstream_error' })
-    res.end()
-    return
-  }
-
-  let result: StreamResult
-  try {
-    result = await pumpAnthropicStream(upstream, res)
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : 'stream_failure'
+    const msg = err instanceof Error ? err.message : 'turn_failed'
     writeSse(res, 'error', { error: msg })
     res.end()
     return
   }
 
-  const cost = estimateCost(result.inputTokens, result.outputTokens, result.cacheCreate, result.cacheRead)
+  const cost = estimateCost(turn.inputTokens, turn.outputTokens, turn.cacheCreate, turn.cacheRead)
 
   // Persist assistant turn + ledger row + audit log. Failures logged
   // but never block the response — the assessor already has the text.
   try {
-    await persistTurn(supabase, conversationId, user.id, 'assistant', result.text, contextView as string | null)
+    await persistTurn(supabase, conversationId, user.id, 'assistant', turn.finalText, contextView as string | null)
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     console.error('[field-assistant] assistant-turn persist failed:', msg)
   }
-  await recordGeneration(supabase, user.id, result.inputTokens, result.outputTokens, cost)
+  await recordGeneration(supabase, user.id, turn.inputTokens, turn.outputTokens, cost)
 
   // Compute remaining-quota figure for the day so the UI can show a
   // "N of M today" footer. Counts the just-inserted row so the number
@@ -534,27 +755,30 @@ async function handler(req: VercelLikeRequest, res: VercelLikeResponse): Promise
     target_id: conversationId,
     details: {
       model: ANTHROPIC_MODEL,
-      input_tokens: result.inputTokens,
-      output_tokens: result.outputTokens,
-      cache_read_input_tokens: result.cacheRead,
-      cache_creation_input_tokens: result.cacheCreate,
+      input_tokens: turn.inputTokens,
+      output_tokens: turn.outputTokens,
+      cache_read_input_tokens: turn.cacheRead,
+      cache_creation_input_tokens: turn.cacheCreate,
       estimated_cost_usd: cost,
-      stop_reason: result.stopReason,
+      stop_reason: turn.stopReason,
       context_view: contextView,
       plan,
+      rounds: turn.rounds,
+      tool_calls: turn.toolCalls,
     },
     req,
   })
 
   writeSse(res, 'done', {
     usage: {
-      input_tokens: result.inputTokens,
-      output_tokens: result.outputTokens,
-      cache_read_input_tokens: result.cacheRead,
-      cache_creation_input_tokens: result.cacheCreate,
+      input_tokens: turn.inputTokens,
+      output_tokens: turn.outputTokens,
+      cache_read_input_tokens: turn.cacheRead,
+      cache_creation_input_tokens: turn.cacheCreate,
       estimated_cost_usd: cost,
     },
     quota: quotaBlock,
+    rounds: turn.rounds,
   })
   res.end()
 }
@@ -568,6 +792,10 @@ export const __test = {
   checkRateLimits,
   buildSystemBlocks,
   buildAnthropicMessages,
+  executeTool,
+  toolGetAssessment,
+  toolGetZoneReadings,
+  toolLookupStandard,
   PER_MINUTE_LIMIT,
   PER_DAY_LIMIT,
   FREE_TIER_DAILY_CAP,
