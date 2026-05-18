@@ -56,6 +56,7 @@ export function useFieldAssistant() {
   const [sending, setSending] = useState(false)
   const [error, setError] = useState(null)
   const [conversationId, setConversationId] = useState(null)
+  const [quota, setQuota] = useState(null) // { used_today, limit_today, plan } | null
   const inFlight = useRef(null)
 
   const reset = useCallback(() => {
@@ -65,6 +66,7 @@ export function useFieldAssistant() {
     setConversationId(null)
     setError(null)
     setSending(false)
+    setQuota(null)
   }, [])
 
   const sendMessage = useCallback(async (text, context) => {
@@ -142,9 +144,25 @@ export function useFieldAssistant() {
     const reader = res.body.getReader()
     const decoder = new TextDecoder()
     let buffer = ''
-    let accumulated = ''
+    let assistantMsgId = null  // id of the in-progress assistant bubble
+    let assistantText = ''
     let upstreamError = null
     let receivedConversationId = conversationId
+    let receivedQuota = null
+
+    const appendToken = (chunk) => {
+      assistantText += chunk
+      if (!assistantMsgId) {
+        const msg = makeMessage('assistant', chunk)
+        assistantMsgId = msg.id
+        setMessages((prev) => [...prev, msg])
+      } else {
+        const id = assistantMsgId
+        setMessages((prev) =>
+          prev.map((m) => (m.id === id ? { ...m, content: m.content + chunk } : m)),
+        )
+      }
+    }
 
     try {
       while (true) {
@@ -155,17 +173,14 @@ export function useFieldAssistant() {
         for (const frame of parseSseFrames(buffer)) {
           if (frame.done) { processed = frame.rest; break }
           if (frame.event === 'meta') {
-            if (frame.data?.conversation_id) {
-              receivedConversationId = frame.data.conversation_id
-            }
+            if (frame.data?.conversation_id) receivedConversationId = frame.data.conversation_id
           } else if (frame.event === 'token') {
-            if (typeof frame.data?.text === 'string') accumulated += frame.data.text
+            if (typeof frame.data?.text === 'string') appendToken(frame.data.text)
+          } else if (frame.event === 'done') {
+            if (frame.data?.quota) receivedQuota = frame.data.quota
           } else if (frame.event === 'error') {
             upstreamError = frame.data?.error || 'Upstream error'
           }
-          // 'done' is handled implicitly when the stream closes — we have
-          // accumulated already; no need to do anything special here for
-          // the buffered render strategy.
         }
         buffer = processed
       }
@@ -178,12 +193,11 @@ export function useFieldAssistant() {
     if (receivedConversationId && receivedConversationId !== conversationId) {
       setConversationId(receivedConversationId)
     }
+    if (receivedQuota) setQuota(receivedQuota)
 
-    if (upstreamError && !accumulated) {
+    if (upstreamError && !assistantText) {
       setError(upstreamError)
-    } else if (accumulated) {
-      setMessages((prev) => [...prev, makeMessage('assistant', accumulated)])
-    } else if (!upstreamError) {
+    } else if (!assistantText && !upstreamError) {
       setError('No response from assistant. Please try again.')
     }
 
@@ -191,5 +205,5 @@ export function useFieldAssistant() {
     setSending(false)
   }, [conversationId, sending])
 
-  return { messages, sending, error, conversationId, sendMessage, reset }
+  return { messages, sending, error, conversationId, quota, sendMessage, reset }
 }

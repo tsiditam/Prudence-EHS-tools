@@ -511,6 +511,21 @@ async function handler(req: VercelLikeRequest, res: VercelLikeResponse): Promise
     console.error('[field-assistant] assistant-turn persist failed:', msg)
   }
   await recordGeneration(supabase, user.id, result.inputTokens, result.outputTokens, cost)
+
+  // Compute remaining-quota figure for the day so the UI can show a
+  // "N of M today" footer. Counts the just-inserted row so the number
+  // reflects post-call state. Failure here is non-fatal — we'll just
+  // omit the quota block from the done event.
+  let quotaBlock: { used_today: number; limit_today: number; plan: string } | null = null
+  try {
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60_000).toISOString()
+    const usedToday = await countRowsSince(supabase, user.id, oneDayAgo)
+    const limitToday = plan === 'free' ? FREE_TIER_DAILY_CAP : PER_DAY_LIMIT
+    quotaBlock = { used_today: usedToday, limit_today: limitToday, plan }
+  } catch {
+    /* ignore — quota footer just won't show */
+  }
+
   await auditLog({
     action: 'field_assistant.message',
     actor_id: user.id,
@@ -539,6 +554,7 @@ async function handler(req: VercelLikeRequest, res: VercelLikeResponse): Promise
       cache_creation_input_tokens: result.cacheCreate,
       estimated_cost_usd: cost,
     },
+    quota: quotaBlock,
   })
   res.end()
 }

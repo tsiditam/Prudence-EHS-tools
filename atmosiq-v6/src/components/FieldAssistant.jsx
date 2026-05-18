@@ -84,21 +84,38 @@ function ThinkingDots() {
 }
 
 export default function FieldAssistant({ onClose, context }) {
-  const { messages, sending, error, sendMessage } = useFieldAssistant()
+  const { messages, sending, error, quota, sendMessage } = useFieldAssistant()
   const [input, setInput] = useState('')
+  const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine)
   const scrollRef = useRef(null)
   const inputRef = useRef(null)
 
   useEffect(() => {
-    // Auto-scroll to bottom on new messages / sending changes.
+    // Auto-scroll to bottom on new messages and as tokens stream in.
+    // Tracks total content length (across all messages) so streaming
+    // updates re-trigger the scroll.
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
-  }, [messages.length, sending])
+  }, [messages, sending])
 
   useEffect(() => {
     inputRef.current?.focus()
+    const goOnline = () => setOnline(true)
+    const goOffline = () => setOnline(false)
+    window.addEventListener('online', goOnline)
+    window.addEventListener('offline', goOffline)
+    return () => {
+      window.removeEventListener('online', goOnline)
+      window.removeEventListener('offline', goOffline)
+    }
   }, [])
+
+  // Show the "thinking…" dots only before the first token arrives.
+  // Once the assistant bubble exists, the streaming text serves as
+  // the visual indicator that something is happening.
+  const lastRole = messages[messages.length - 1]?.role
+  const showThinking = sending && lastRole !== 'assistant'
 
   const submit = async () => {
     const text = input
@@ -198,7 +215,7 @@ export default function FieldAssistant({ onClose, context }) {
             <MessageBubble key={m.id} role={m.role} content={m.content} />
           ))}
 
-          {sending && <ThinkingDots />}
+          {showThinking && <ThinkingDots />}
 
           {error && (
             <div style={{
@@ -210,6 +227,19 @@ export default function FieldAssistant({ onClose, context }) {
             </div>
           )}
         </div>
+
+        {/* Offline banner — only shown when network is actually down */}
+        {!online && (
+          <div style={{
+            padding: '8px 12px', marginTop: 6,
+            background: mix('warn', 8), border: `1px solid ${mix('warn', 25)}`,
+            borderRadius: 8, color: 'var(--warn)', fontSize: 12, lineHeight: 1.4,
+            display: 'flex', alignItems: 'center', gap: 8,
+          }}>
+            <div style={{ width: 6, height: 6, borderRadius: 3, background: 'var(--warn)' }} />
+            You're offline. The assistant will work again when you're back online.
+          </div>
+        )}
 
         {/* Input row */}
         <div style={{
@@ -253,6 +283,24 @@ export default function FieldAssistant({ onClose, context }) {
             <I n="send" s={16} c={input.trim() && !sending ? 'var(--on-accent-fill)' : DIM} w={1.8} />
           </button>
         </div>
+
+        {/* Quota footer — only shown after the first response when the
+            backend has reported per-user usage. Free-tier users see a
+            soft upgrade nudge once they're past 80% of the daily cap. */}
+        {quota && (
+          <div style={{
+            marginTop: 8, paddingTop: 8, borderTop: `1px solid ${BORDER}`,
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            fontSize: 11, color: DIM, fontFamily: 'var(--font-mono)', letterSpacing: '0.3px',
+          }}>
+            <span>{quota.used_today} / {quota.limit_today} messages today</span>
+            {quota.plan === 'free' && quota.used_today >= Math.floor(quota.limit_today * 0.8) && (
+              <span style={{ color: ACCENT, fontFamily: 'inherit', fontWeight: 600 }}>
+                Upgrade for more →
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       <style>{`
