@@ -28,9 +28,11 @@ const today = () => new Date().toISOString().slice(0, 10)
 // y position immediately below the header so the caller can continue
 // from there.
 export function drawHeaderBand(doc, { title, formId }) {
-  // 3pt brand stripe at the top of the page.
+  // 2pt black stripe at the top of the page — gives the form structure
+  // without dominating the page weight (the old 4pt cyan stripe looked
+  // brand-y; a thinner black bar reads as legal-document chrome).
   doc.setFillColor(ACCENT)
-  doc.rect(0, 0, PAGE_W, 4, 'F')
+  doc.rect(0, 0, PAGE_W, 2, 'F')
 
   // Wordmark — "AtmosFlow" Helvetica-Bold.
   doc.setFont(FONT_FAMILY, 'bold')
@@ -234,8 +236,8 @@ export function transferTable(doc, y) {
   doc.setLineWidth(0.5)
   doc.rect(MARGIN, y, CONTENT_W, tableH)
 
-  // Header band.
-  doc.setFillColor(245, 249, 251) // very pale cyan tint
+  // Header band — neutral light gray so it prints reliably on B&W printers.
+  doc.setFillColor(240, 240, 240)
   doc.rect(MARGIN, y, CONTENT_W, rowH, 'F')
 
   let x = MARGIN
@@ -272,7 +274,9 @@ export function transferTable(doc, y) {
 // in it accidentally.
 export function labUseOnly(doc, y) {
   const h = 70
-  doc.setFillColor(248, 250, 252)
+  // Neutral light gray — visually distinct enough to signal "do not
+  // write here" while still printing reliably on B&W printers.
+  doc.setFillColor(235, 235, 235)
   doc.setDrawColor(RULE)
   doc.setLineWidth(0.5)
   doc.rect(MARGIN, y, CONTENT_W, h, 'FD')

@@ -19,13 +19,16 @@ export const MARGIN = 36 // 0.5 inch — tighter than the report PDF so
                           // the sample-log table fits 15 rows.
 export const CONTENT_W = PAGE_W - MARGIN * 2
 
-// AtmosFlow brand cyan. Invariant across light/dark in the SPA and
-// invariant in print output (forms always render on white paper).
-export const ACCENT = '#22D3EE'
-export const ACCENT_DARK = '#0E7490' // section header text — AA on white
-export const SLATE = '#1E293B'        // body text
+// Black-and-white palette. AtmosFlow's brand cyan is intentionally
+// NOT used on the printed CoC forms: cyan top stripes and cyan
+// section headers wash out on monochrome printers and reduce the
+// legal-document gravitas that a CoC needs. Everything is grayscale
+// so the form prints identically on any printer.
+export const ACCENT = '#000000'      // top stripe + section underlines
+export const ACCENT_DARK = '#000000' // section header text + form title
+export const SLATE = '#1E293B'        // body text — near-black
 export const SOFT = '#475569'         // metadata, footer
-export const RULE = '#CBD5E1'         // table borders, divider lines
+export const RULE = '#94A3B8'         // table borders, divider lines (a touch darker than the SPA's RULE so it prints reliably)
 export const MUTED = '#94A3B8'        // hand-fill placeholders
 export const WHITE = '#FFFFFF'
 

@@ -105,7 +105,7 @@ export function generateTvocCoCBlob({ profile } = {}) {
       valign: 'middle',
     },
     headStyles: {
-      fillColor: [245, 249, 251],
+      fillColor: [240, 240, 240],
       textColor: ACCENT_DARK,
       fontSize: SZ_LABEL,
       fontStyle: 'bold',
