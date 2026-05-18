@@ -3,26 +3,30 @@
  * Copyright (c) 2026 Prudence Safety & Environmental Consulting, LLC
  * All rights reserved.
  *
- * Field Assistant — bottom-sheet chat UI for the in-app conversational
- * agent. Mounted at MobileApp level; visibility controlled by the
+ * Bottom-sheet chat UI for Jasper — the in-app Indoor Air Quality AI
+ * assistant. Mounted at MobileApp level; visibility controlled by the
  * `open` prop. Receives the assessor's current app context (view,
  * presurvey, current zone, etc.) and forwards it to the API so the
  * agent can give context-aware answers.
  *
- * Layout uses the established bottom-sheet pattern (see e.g. the photo
- * selector at MobileApp.jsx:1483–1511 and PricingSheet): backdrop +
- * rounded-top panel, 85vh max height, env(safe-area-inset-bottom) at
- * the bottom of the inner panel.
+ * Internal name kept as "FieldAssistant" (file, hook, API, tables)
+ * to avoid breaking shipped data + RLS. User-facing copy reads as
+ * "Jasper" throughout.
  *
- * Commit 2/3: buffered render — assistant message appears in full when
- * the stream completes. A "Thinking…" placeholder shows while sending.
- * Commit 3/3 will swap for incremental token render.
+ * First-run gate: when localStorage.jasper_intro_v1 is unset, the
+ * sheet body renders an intro panel with three AtmosFlow-tailored
+ * disclaimers + Terms / Privacy links + a "Start Chatting" button
+ * that gates the input until pressed. Versioned flag so we can
+ * re-prompt if the disclaimer text materially changes.
  */
 
 import { useEffect, useRef, useState } from 'react'
 import { I } from './Icons'
+import JasperMonitorIcon from './JasperMonitorIcon'
 import { useFieldAssistant } from '../hooks/useFieldAssistant'
 import { mix } from '../utils/theme'
+
+const INTRO_FLAG_KEY = 'jasper_intro_v1'
 
 const CARD = 'var(--card)'
 const SURFACE = 'var(--surface)'
@@ -83,12 +87,83 @@ function ThinkingDots() {
   )
 }
 
-export default function FieldAssistant({ onClose, context }) {
+function JasperIntroPanel({ onAccept, onNavigate }) {
+  const linkStyle = {
+    background: 'transparent', border: 'none', padding: 0,
+    color: ACCENT, fontFamily: 'inherit', fontSize: 13, fontWeight: 600,
+    textDecoration: 'underline', cursor: 'pointer',
+  }
+  return (
+    <div style={{ padding: '12px 4px 4px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+        <JasperMonitorIcon size={40} />
+        <div style={{ fontSize: 15, color: TEXT, lineHeight: 1.45, fontWeight: 600 }}>
+          <span role="img" aria-label="waving hand">👋</span> Hi, I'm Jasper, your Indoor Air Quality AI assistant.
+        </div>
+      </div>
+
+      <ul style={{
+        listStyle: 'disc', paddingLeft: 20, margin: '0 0 16px',
+        color: SUB, fontSize: 13, lineHeight: 1.55,
+      }}>
+        <li style={{ marginBottom: 10 }}>
+          I'm an AI screening assistant — I won't make compliance, causation,
+          or final IAQ calls. Those go to a qualified professional.
+        </li>
+        <li style={{ marginBottom: 10 }}>
+          Don't paste sensitive PII (SSN, medical records, banking).
+          Building / client / sample names are fine.
+        </li>
+        <li>
+          Chats are saved to your AtmosFlow account until you delete them.
+          You can clear conversation history in Settings.
+        </li>
+      </ul>
+
+      <div style={{ fontSize: 12, color: DIM, lineHeight: 1.55, marginBottom: 16 }}>
+        By starting this chat, you agree to the{' '}
+        <button type="button" onClick={() => onNavigate?.('tos')} style={linkStyle}>
+          Terms of Service
+        </button>{' '}
+        and acknowledge the{' '}
+        <button type="button" onClick={() => onNavigate?.('privacy')} style={linkStyle}>
+          Privacy Policy
+        </button>.
+      </div>
+
+      <button
+        type="button"
+        onClick={onAccept}
+        style={{
+          width: '100%', padding: '12px 16px', borderRadius: 12,
+          background: 'var(--accent-fill)', color: 'var(--on-accent-fill)',
+          border: 'none', fontFamily: 'inherit', fontSize: 14, fontWeight: 700,
+          cursor: 'pointer', letterSpacing: '0.2px',
+        }}>
+        Start Chatting
+      </button>
+    </div>
+  )
+}
+
+function readIntroFlag() {
+  if (typeof window === 'undefined') return true
+  try { return window.localStorage.getItem(INTRO_FLAG_KEY) !== null } catch { return true }
+}
+
+export default function FieldAssistant({ onClose, context, onNavigate }) {
   const { messages, sending, error, quota, sendMessage } = useFieldAssistant()
   const [input, setInput] = useState('')
   const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine)
+  const [introAccepted, setIntroAccepted] = useState(readIntroFlag)
   const scrollRef = useRef(null)
   const inputRef = useRef(null)
+
+  const acceptIntro = () => {
+    try { window.localStorage.setItem(INTRO_FLAG_KEY, new Date().toISOString()) } catch { /* ignore quota / private-mode */ }
+    setIntroAccepted(true)
+    setTimeout(() => inputRef.current?.focus(), 0)
+  }
 
   useEffect(() => {
     // Auto-scroll to bottom on new messages and as tokens stream in.
@@ -159,17 +234,17 @@ export default function FieldAssistant({ onClose, context }) {
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <I n="sparkle" s={18} c={ACCENT} w={1.8} />
+            <JasperMonitorIcon size={22} />
             <div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: TEXT }}>Field Assistant</div>
-              <div style={{ fontSize: 10, color: DIM, fontFamily: 'var(--font-mono)', letterSpacing: '0.3px' }}>
-                AI · REVIEW REQUIRED
+              <div style={{ fontSize: 15, fontWeight: 700, color: TEXT, lineHeight: 1.2 }}>Jasper</div>
+              <div style={{ fontSize: 11, color: SUB, lineHeight: 1.3, marginTop: 1 }}>
+                Indoor Air Quality AI assistant
               </div>
             </div>
           </div>
           <button
             onClick={onClose}
-            aria-label="Close field assistant"
+            aria-label="Close Jasper"
             style={{
               background: 'transparent', border: `1px solid ${BORDER}`, borderRadius: 8,
               width: 32, height: 32, cursor: 'pointer', color: SUB,
@@ -185,7 +260,11 @@ export default function FieldAssistant({ onClose, context }) {
             flex: 1, overflowY: 'auto', padding: '8px 2px',
             minHeight: 200,
           }}>
-          {messages.length === 0 && !sending && (
+          {!introAccepted && (
+            <JasperIntroPanel onAccept={acceptIntro} onNavigate={onNavigate} />
+          )}
+
+          {introAccepted && messages.length === 0 && !sending && (
             <div style={{ padding: '16px 4px', color: SUB, fontSize: 13, lineHeight: 1.6 }}>
               <div style={{ marginBottom: 12 }}>
                 Ask anything about the standards, the readings you're seeing, or
@@ -251,8 +330,8 @@ export default function FieldAssistant({ onClose, context }) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKey}
-            disabled={sending}
-            placeholder="Ask the field assistant…"
+            disabled={sending || !introAccepted}
+            placeholder={introAccepted ? 'Ask Jasper…' : 'Tap "Start Chatting" above to begin'}
             rows={1}
             style={{
               flex: 1, resize: 'none',
@@ -263,25 +342,52 @@ export default function FieldAssistant({ onClose, context }) {
               color: TEXT, fontSize: 14, fontFamily: 'inherit',
               outline: 'none', boxSizing: 'border-box',
               minHeight: 42, maxHeight: 120, lineHeight: 1.5,
+              opacity: introAccepted ? 1 : 0.55,
             }}
             onFocus={(e) => { e.currentTarget.style.borderColor = ACCENT }}
             onBlur={(e) => { e.currentTarget.style.borderColor = BORDER }}
           />
           <button
             onClick={submit}
-            disabled={!input.trim() || sending}
+            disabled={!input.trim() || sending || !introAccepted}
             aria-label="Send"
             style={{
               width: 42, height: 42, borderRadius: 12,
-              background: input.trim() && !sending ? 'var(--accent-fill)' : SURFACE,
-              border: input.trim() && !sending ? 'none' : `1px solid ${BORDER}`,
-              cursor: input.trim() && !sending ? 'pointer' : 'not-allowed',
+              background: input.trim() && !sending && introAccepted ? 'var(--accent-fill)' : SURFACE,
+              border: input.trim() && !sending && introAccepted ? 'none' : `1px solid ${BORDER}`,
+              cursor: input.trim() && !sending && introAccepted ? 'pointer' : 'not-allowed',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontFamily: 'inherit', flexShrink: 0,
               transition: 'background 0.15s, border-color 0.15s',
             }}>
-            <I n="send" s={16} c={input.trim() && !sending ? 'var(--on-accent-fill)' : DIM} w={1.8} />
+            <I n="send" s={16} c={input.trim() && !sending && introAccepted ? 'var(--on-accent-fill)' : DIM} w={1.8} />
           </button>
+        </div>
+
+        {/* Always-on legal + defensibility footer. Terms / Privacy stay one
+            tap away after the intro is dismissed; the mono REVIEW REQUIRED
+            chip carries the screening-only positioning. */}
+        <div style={{
+          marginTop: 8, paddingTop: 8, borderTop: `1px solid ${BORDER}`,
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          fontSize: 10, color: DIM, gap: 8, flexWrap: 'wrap',
+        }}>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <button
+              type="button"
+              onClick={() => onNavigate?.('tos')}
+              style={{ background: 'transparent', border: 'none', padding: 0, color: SUB, fontFamily: 'inherit', fontSize: 11, cursor: 'pointer' }}>
+              Terms
+            </button>
+            <span aria-hidden="true">·</span>
+            <button
+              type="button"
+              onClick={() => onNavigate?.('privacy')}
+              style={{ background: 'transparent', border: 'none', padding: 0, color: SUB, fontFamily: 'inherit', fontSize: 11, cursor: 'pointer' }}>
+              Privacy
+            </button>
+          </div>
+          <span style={{ fontFamily: 'var(--font-mono)', letterSpacing: '0.3px' }}>AI · REVIEW REQUIRED</span>
         </div>
 
         {/* Quota footer — only shown after the first response when the

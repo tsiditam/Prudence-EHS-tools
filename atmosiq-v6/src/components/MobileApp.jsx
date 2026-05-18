@@ -1933,6 +1933,7 @@ export default function MobileApp() {
       {profile && faOpen && (
         <FieldAssistant
           onClose={() => setFaOpen(false)}
+          onNavigate={(v) => { setFaOpen(false); setView(v) }}
           context={{
             view,
             presurvey,
