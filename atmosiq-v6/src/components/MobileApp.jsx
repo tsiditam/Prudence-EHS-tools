@@ -64,6 +64,8 @@ import InstrumentManager from './InstrumentManager'
 import V21InternalPanel from './V21InternalPanel'
 import { FAQ_SECTIONS } from '../constants/faq'
 import SearchView from './SearchView'
+import FieldAssistantFab from './FieldAssistantFab'
+import FieldAssistant from './FieldAssistant'
 import { useAssessment } from '../contexts/AssessmentContext.jsx'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import { useStorage } from '../contexts/StorageContext.jsx'
@@ -361,6 +363,10 @@ export default function MobileApp() {
   // gear icon in the Home header; Settings is now one entry inside the
   // dropdown.
   const [showHomeMenu, setShowHomeMenu] = useState(false)
+  // Field-assistant bottom sheet. Backend: api/field-assistant.ts.
+  // UI is hidden whenever there's no profile (auth screen), during a
+  // milestone overlay, or while another full-screen modal is up.
+  const [faOpen, setFaOpen] = useState(false)
   // Billing Phase 1 — credit-unit definition sheet was added in PR
   // #143 (Fix 2 of the CIH-credibility prompt) and removed by the
   // subsequent pricing-architecture decision (delete the credit
@@ -1913,6 +1919,27 @@ export default function MobileApp() {
             ))}
           </div>
         </nav>
+      )}
+
+      {/* Field-assistant FAB — bottom-right, above the bottom nav.
+          Hidden when no profile (auth screen), during the milestone
+          overlay, and while a wizard step is mid-stream (isAssessing). */}
+      {profile && !milestone && !isAssessing && !faOpen && (
+        <FieldAssistantFab onClick={() => setFaOpen(true)} />
+      )}
+      {profile && faOpen && (
+        <FieldAssistant
+          onClose={() => setFaOpen(false)}
+          context={{
+            view,
+            presurvey,
+            bldg,
+            current_zone: zones[curZone],
+            zones_count: zones.length,
+            incident: currentIncident,
+            profile_minimal: profile ? { plan: profile.plan, certs: profile.certs, firm: profile.firm } : null,
+          }}
+        />
       )}
 
       <style>{`
