@@ -49,7 +49,7 @@
 
 - Free during beta with 5 credits on signup
 - Direct outreach to CIH/CSP professionals via LinkedIn and AIHA/ASSP channels
-- Early access waitlist at `atmosiq.prudenceehs.com/early-access`
+- Early access waitlist at `atmosflow.net/early-access`
 - Feedback collection from beta users to refine scoring methodology and report format
 
 ### Phase 2: Launch
@@ -103,6 +103,6 @@ Credits consumed per completed assessment (1 credit) and per AI narrative genera
 Germantown, Maryland
 
 *Contact: support@prudenceehs.com · 1-(301)-541-8362*
-*Product: atmosiq.prudenceehs.com*
+*Product: atmosflow.net*
 
 © 2026 Prudence Safety & Environmental Consulting, LLC. All rights reserved.

@@ -10,7 +10,7 @@ identifies risk indicators and produces sampling plans but never makes
 definitive regulatory classifications or compliance determinations.
 Maintain that positioning in any code, copy, or documentation you generate.
 
-Live at atmosiq.prudenceehs.com. Engine version is currently **2.6** (post
+Live at atmosflow.net. Engine version is currently **2.6** (post
 v2.5 residual defect cleanup + v2.6 hypothesis and causal-chain restoration).
 
 ## Stack

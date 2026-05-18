@@ -108,7 +108,7 @@ describe('email-sequences templates', () => {
     const r = tpl.render(freeUser)
     expect(r.subject).toMatch(/Welcome to AtmosFlow/)
     expect(r.body).toMatch(/Hi Alex/)
-    expect(r.body).toMatch(/atmosiq.prudenceehs.com/)
+    expect(r.body).toMatch(/atmosflow.net/)
   })
 
   it('falls back to "there" when first_name is null', () => {

@@ -89,7 +89,7 @@ export async function handler(req: VercelLikeRequest, res: VercelLikeResponse) {
     return res.status(404).json({ error: 'No active subscription to manage.' })
   }
 
-  const returnUrl = (req.body && req.body.return_url) || 'https://atmosiq.prudenceehs.com/account'
+  const returnUrl = (req.body && req.body.return_url) || 'https://atmosflow.net/account'
 
   try {
     const session = await stripe.billingPortal.sessions.create({
