@@ -1372,6 +1372,7 @@ export default function MobileApp() {
                       onClick: () => runDemo() },
                     ...(userMode !== 'fm' ? [{ label: 'Data Center Demo', icon: 'play', onClick: () => runDemo('dc') }] : []),
                     { label: 'Help & Support', icon: 'help', onClick: () => { window.location.href = 'mailto:support@prudenceehs.com?subject=AtmosFlow%20support' } },
+                    { label: 'Sign out',     icon: 'logout', onClick: handleLogout, divider: true, danger: true },
                   ].map(item => (
                     <button
                       key={item.label}
@@ -1380,12 +1381,13 @@ export default function MobileApp() {
                       style={{
                         width:'100%',padding:'12px 14px',background:'transparent',border:'none',borderRadius:10,
                         cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,
-                        fontFamily:'inherit',color:TEXT,fontSize:14,fontWeight:500,minHeight:44,
+                        fontFamily:'inherit',color:item.danger?DANGER:TEXT,fontSize:14,fontWeight:500,minHeight:44,
                         transition:'background 0.12s',
+                        ...(item.divider?{marginTop:6,paddingTop:14,borderTop:`1px solid ${BORDER}`,borderRadius:0}:{}),
                       }}
                       onMouseEnter={e => { e.currentTarget.style.background = SURFACE }}
                       onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}>
-                      <I n={item.icon} s={18} c={SUB} w={1.6} />
+                      <I n={item.icon} s={18} c={item.danger?DANGER:SUB} w={1.6} />
                       <span>{item.label}</span>
                     </button>
                   ))}
