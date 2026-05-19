@@ -55,6 +55,12 @@
       { "type": "file_exists", "path": "tests/components/PendingSyncIndicator.test.tsx" }
     ]},
 
+    { "id": "NARRATIVE-AI-REVIEW-BANNER", "label": "Executive Summary AI narrative is wrapped in a hard 'IH Review Required' banner", "checks": [
+      { "type": "grep_matches", "pattern": "IH REVIEW REQUIRED", "paths": ["src/components/docx/sections-core.js"] },
+      { "type": "grep_matches", "pattern": "aiReviewRequiredBanner", "paths": ["src/components/docx/sections-core.js"] },
+      { "type": "file_exists", "path": "tests/engine/ai-review-required-banner.test.ts" }
+    ]},
+
     { "id": "SENTRY-PACKAGE", "label": "Sentry package installed", "checks": [
       { "type": "grep_matches", "pattern": "@sentry/", "paths": ["package.json"] }
     ]},
