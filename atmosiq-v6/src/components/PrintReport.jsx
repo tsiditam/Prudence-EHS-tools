@@ -88,8 +88,8 @@ export function generateLegacyPrintHTML(data) {
   const reportId = data.id || `AIQ-${Date.now().toString(36).toUpperCase().slice(-6)}`
   const assessor = profile?.name || presurvey?.ps_assessor || 'Assessor'
   const ver = data.version || '6.0.0'
-  const firmName = profile?.firm || 'Prudence Safety &amp; Environmental Consulting, LLC'
-  const firmAddress = profile?.firm_address || 'Germantown, Maryland'
+  const firmName = profile?.firm || 'Prudence EHS'
+  const firmAddress = profile?.firm_address || '660 Quince Orchard Road, #1136, Gaithersburg, MD 20878'
   const firmPhone = profile?.firm_phone || '(301) 541-8362'
   const firmEmail = profile?.email || 'support@prudenceehs.com'
 
