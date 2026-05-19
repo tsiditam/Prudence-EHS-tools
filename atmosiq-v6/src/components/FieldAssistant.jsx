@@ -93,9 +93,18 @@ function JasperIntroPanel({ onAccept, onNavigate }) {
     color: ACCENT, fontFamily: 'inherit', fontSize: 13, fontWeight: 600,
     textDecoration: 'underline', cursor: 'pointer',
   }
+  // Each child of the intro cascades in with the same 500ms reveal
+  // animation, staggered ~500ms apart. The reduced-motion media query
+  // in the inline <style> block at the bottom of this file nullifies
+  // the cascade for users with motion sensitivity.
+  const reveal = (delayMs) => ({
+    animation: 'jasperReveal 500ms ease-out both',
+    animationDelay: `${delayMs}ms`,
+  })
   return (
     <div style={{ padding: '12px 4px 4px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+      <div className="jasper-stagger"
+        style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, ...reveal(0) }}>
         <JasperMonitorIcon size={40} />
         <div style={{ fontSize: 15, color: TEXT, lineHeight: 1.45, fontWeight: 600 }}>
           <span role="img" aria-label="waving hand">👋</span> Hi, I'm Jasper, your Indoor Air Quality AI assistant.
@@ -106,21 +115,22 @@ function JasperIntroPanel({ onAccept, onNavigate }) {
         listStyle: 'disc', paddingLeft: 20, margin: '0 0 16px',
         color: SUB, fontSize: 13, lineHeight: 1.55,
       }}>
-        <li style={{ marginBottom: 10 }}>
+        <li className="jasper-stagger" style={{ marginBottom: 10, ...reveal(500) }}>
           I'm an AI screening assistant — I won't make compliance, causation,
           or final IAQ calls. Those go to a qualified professional.
         </li>
-        <li style={{ marginBottom: 10 }}>
+        <li className="jasper-stagger" style={{ marginBottom: 10, ...reveal(1000) }}>
           Don't paste sensitive PII (SSN, medical records, banking).
           Building / client / sample names are fine.
         </li>
-        <li>
+        <li className="jasper-stagger" style={reveal(1500)}>
           Chats are saved to your AtmosFlow account until you delete them.
           You can clear conversation history in Settings.
         </li>
       </ul>
 
-      <div style={{ fontSize: 12, color: DIM, lineHeight: 1.55, marginBottom: 16 }}>
+      <div className="jasper-stagger"
+        style={{ fontSize: 12, color: DIM, lineHeight: 1.55, marginBottom: 16, ...reveal(2000) }}>
         By starting this chat, you agree to the{' '}
         <button type="button" onClick={() => onNavigate?.('tos')} style={linkStyle}>
           Terms of Service
@@ -134,11 +144,13 @@ function JasperIntroPanel({ onAccept, onNavigate }) {
       <button
         type="button"
         onClick={onAccept}
+        className="jasper-stagger"
         style={{
           width: '100%', padding: '12px 16px', borderRadius: 12,
           background: 'var(--accent-fill)', color: 'var(--on-accent-fill)',
           border: 'none', fontFamily: 'inherit', fontSize: 14, fontWeight: 700,
           cursor: 'pointer', letterSpacing: '0.2px',
+          ...reveal(2500),
         }}>
         Start Chatting
       </button>
@@ -277,23 +289,29 @@ export default function FieldAssistant({ onClose, context, onNavigate }) {
 
           {introAccepted && messages.length === 0 && !sending && (
             <div style={{ padding: '16px 4px', color: SUB, fontSize: 13, lineHeight: 1.6 }}>
-              <div style={{ marginBottom: 12 }}>
+              <div className="jasper-stagger"
+                style={{ marginBottom: 12, animation: 'jasperReveal 500ms ease-out both', animationDelay: '0ms' }}>
                 Ask anything about the standards, the readings you're seeing, or
                 what to sample next. I won't assign scores — that's the engine's call.
               </div>
-              <div style={{ fontSize: 11, fontWeight: 600, color: DIM, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8 }}>
+              <div className="jasper-stagger"
+                style={{ fontSize: 11, fontWeight: 600, color: DIM, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8,
+                  animation: 'jasperReveal 500ms ease-out both', animationDelay: '500ms' }}>
                 Try
               </div>
-              {SUGGESTIONS.map((s) => (
+              {SUGGESTIONS.map((s, i) => (
                 <button
                   key={s}
                   onClick={() => sendMessage(s, context)}
                   disabled={sending}
+                  className="jasper-stagger"
                   style={{
                     display: 'block', width: '100%', textAlign: 'left',
                     padding: '10px 12px', marginBottom: 6,
                     background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 10,
                     color: TEXT, fontSize: 13, fontFamily: 'inherit', cursor: 'pointer',
+                    animation: 'jasperReveal 500ms ease-out both',
+                    animationDelay: `${1000 + i * 700}ms`,
                   }}>
                   {s}
                 </button>
@@ -426,6 +444,17 @@ export default function FieldAssistant({ onClose, context, onNavigate }) {
         @keyframes faDot {
           0%, 80%, 100% { opacity: 0.3; transform: translateY(0); }
           40% { opacity: 1; transform: translateY(-3px); }
+        }
+        @keyframes jasperReveal {
+          0%   { opacity: 0; transform: translateY(6px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .jasper-stagger {
+            animation: none !important;
+            opacity: 1 !important;
+            transform: none !important;
+          }
         }
       `}</style>
     </div>
