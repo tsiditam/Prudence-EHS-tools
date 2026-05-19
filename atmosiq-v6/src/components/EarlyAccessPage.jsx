@@ -150,7 +150,7 @@ export default function EarlyAccessPage() {
       </div>
 
       {/* Footer */}
-      <div style={{ marginTop: 40, fontSize: 10, color: C.sub }}>© 2026 Prudence Safety & Environmental Consulting, LLC</div>
+      <div style={{ marginTop: 40, fontSize: 10, color: C.sub }}>© 2026 Prudence EHS</div>
     </div>
   )
 }

@@ -1,33 +1,30 @@
 /**
- * Engine v2.7 Fix 8 — regression test for the "Prudence EHS " trailing-
- * space concatenation bug.
+ * Engine v2.7 Fix 8 — regression test for trailing-whitespace bugs on
+ * the company-name field.
  *
  * Background. A prior version of the report renderer rendered the
- * company name with a trailing space — "Prudence EHS " — that
- * appeared throughout the cover page, transmittal letter, and
- * signatory block. The bug is NOT present in the current source
- * (verified by exhaustive grep on this branch); this test is a
- * regression guard so a future string-concat change cannot reintroduce
- * it without the test catching it.
+ * company name with a trailing space that appeared throughout the
+ * cover page, transmittal letter, and signatory block. The bug is NOT
+ * present in the current source; this test is a regression guard so a
+ * future string-concat change cannot reintroduce it without the test
+ * catching it.
  *
- * Two layers:
- *   1. Source-level guard — no source file should contain the literal
- *      "Prudence EHS " (with trailing space) followed by anything that
- *      isn't a continuation word like "Safety" or "Consulting".
- *   2. Render-level guard — when a profile contains a company name
- *      with trailing whitespace, the renderer should produce a docx
- *      whose extracted text does NOT include "Prudence EHS " followed
- *      by a non-continuation token. (Trim at input or output.)
- *
- * The canonical company name in this codebase is
- * "Prudence Safety & Environmental Consulting, LLC" — the abbreviated
- * "Prudence EHS" form should never appear in generated reports.
+ * Note on naming: the user-facing canonical brand is "Prudence EHS"
+ * (the rebrand from "Prudence Safety & Environmental Consulting, LLC"
+ * landed in commit history). The full legal entity name is preserved
+ * inside source-code copyright headers and the ToS Section 1
+ * entity-definition line. Both forms are valid in the codebase; the
+ * trailing-whitespace guard below targets the bug class, not the
+ * specific brand string.
  */
 import { describe, it, expect } from 'vitest'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 
-const PROBLEMATIC_PATTERN = /Prudence\s+EHS\s+(?!Safety|Consulting|—|&|,|\.|$)/
+// Catches a Prudence-brand token followed by trailing whitespace that
+// runs into something that ISN'T a legitimate continuation (Safety /
+// Consulting / EHS) or sentence terminator (— · , . & or line-end).
+const PROBLEMATIC_PATTERN = /Prudence\s+(?:Safety|EHS)\s+(?!Safety|Consulting|EHS|—|·|&|,|\.|$)/
 
 function* walkSourceFiles(root: string): Generator<string> {
   let entries: string[]
@@ -42,8 +39,8 @@ function* walkSourceFiles(root: string): Generator<string> {
   }
 }
 
-describe('regression: "Prudence EHS " trailing-space bug', () => {
-  it('no source file contains "Prudence EHS " followed by a non-continuation word', () => {
+describe('regression: company-name trailing-whitespace bug', () => {
+  it('no source file contains a Prudence brand token followed by a non-continuation word', () => {
     const offenders: Array<{ file: string; line: number; text: string }> = []
     const repoRoot = join(__dirname, '..', '..')
     for (const file of walkSourceFiles(join(repoRoot, 'src'))) {
@@ -61,28 +58,24 @@ describe('regression: "Prudence EHS " trailing-space bug', () => {
     if (offenders.length > 0) {
       const summary = offenders.map(o => `${o.file}:${o.line}: ${o.text}`).join('\n')
       throw new Error(
-        `Found ${offenders.length} occurrence(s) of "Prudence EHS " followed by ` +
-        `a non-continuation word. The canonical company name is "Prudence ` +
-        `Safety & Environmental Consulting, LLC". Fix the offending source:\n${summary}`
+        `Found ${offenders.length} occurrence(s) of a Prudence brand token ` +
+        `followed by trailing whitespace + a non-continuation word. ` +
+        `Fix the offending source:\n${summary}`
       )
     }
     expect(offenders).toEqual([])
   })
 
-  it('canonical company name is well-formed (no trailing whitespace)', () => {
-    // Belt-and-suspenders: assert the canonical string used by
-    // DocxReport.js (line 63: firmName fallback) is exactly the form
-    // we want — full legal name, no abbreviated "EHS" form, no
-    // trailing whitespace.
-    const expectedCanonical = 'Prudence Safety & Environmental Consulting, LLC'
+  it('canonical user-facing brand is well-formed (no trailing whitespace)', () => {
+    // The user-facing canonical brand used by DocxReport.js firmName
+    // fallback. Full legal name lives in source-code copyright headers
+    // + the ToS Section 1 entity definition only.
+    const expectedCanonical = 'Prudence EHS'
     expect(expectedCanonical).toBe(expectedCanonical.trim())
-    expect(expectedCanonical).not.toMatch(/Prudence\s+EHS\s/)
+    expect(expectedCanonical).not.toMatch(/\s$/)
   })
 
   it('input trimming: "Prudence EHS " (with trailing space) trims cleanly', () => {
-    // Demonstrates the belt-and-suspenders trim-at-input behavior
-    // recommended by the Fix 8 spec: any company-name field arriving
-    // with trailing whitespace gets normalized.
     const dirty = 'Prudence EHS '
     expect(dirty).not.toBe(dirty.trim())
     expect(dirty.trim()).toBe('Prudence EHS')

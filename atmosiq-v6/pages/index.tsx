@@ -369,9 +369,9 @@ function Footer() {
     >
       <div style={{ maxWidth: 980, margin: '0 auto', fontSize: 12, lineHeight: 1.7 }}>
         <p style={{ marginBottom: 8, color: PALETTE.sub }}>
-          AtmosFlow — by Prudence Safety &amp; Environmental Consulting, LLC
+          AtmosFlow — by Prudence EHS
         </p>
-        <p style={{ marginBottom: 16 }}>Germantown, MD</p>
+        <p style={{ marginBottom: 16 }}>660 Quince Orchard Road, #1136 · Gaithersburg, MD 20878</p>
         <p style={{ marginBottom: 16 }}>
           <a href="#pricing" style={{ color: PALETTE.dim, textDecoration: 'none', marginRight: 14 }}>Pricing</a>
           <a href="mailto:support@prudenceehs.com" style={{ color: PALETTE.dim, textDecoration: 'none', marginRight: 14 }}>Privacy</a>

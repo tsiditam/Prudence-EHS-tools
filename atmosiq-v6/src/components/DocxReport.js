@@ -64,8 +64,8 @@ function buildContext(data) {
     // v2.7 Fix 8: trim company-name input as belt-and-suspenders
     // against a historical trailing-space concat bug in the firm
     // string. Regression guard: tests/engine/company-name-no-trailing-space.test.ts
-    firmName: (profile?.firm || 'Prudence Safety & Environmental Consulting, LLC').trim(),
-    firmAddress: (profile?.firm_address || 'Germantown, Maryland').trim(),
+    firmName: (profile?.firm || 'Prudence EHS').trim(),
+    firmAddress: (profile?.firm_address || '660 Quince Orchard Road, #1136, Gaithersburg, MD 20878').trim(),
     firmPhone: (profile?.firm_phone || '(301) 541-8362').trim(),
     firmEmail: (profile?.email || 'support@prudenceehs.com').trim(),
     assessorCerts: profile?.certs || [],
@@ -104,7 +104,7 @@ async function generateConsultantDocx(ctx, data) {
     : cover.children
 
   const doc = new Document({
-    creator: 'AtmosFlow — Prudence Safety & Environmental Consulting, LLC',
+    creator: 'AtmosFlow — Prudence EHS',
     title: `IAQ Assessment Report — ${ctx.facilityName}`,
     description: 'Indoor Air Quality Assessment Report',
     styles: DOCX_STYLES,
@@ -147,7 +147,7 @@ async function generateTechnicalDocx(ctx) {
   ]
 
   const doc = new Document({
-    creator: 'AtmosFlow — Prudence Safety & Environmental Consulting, LLC',
+    creator: 'AtmosFlow — Prudence EHS',
     title: `IAQ Technical Report — ${ctx.facilityName}`,
     description: 'Indoor Air Quality Technical Assessment Report — Structured Findings',
     styles: DOCX_STYLES,

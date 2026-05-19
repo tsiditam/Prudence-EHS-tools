@@ -186,7 +186,7 @@ export default function AuthScreen({ onAuth }) {
 
         {/* Footer */}
         <div style={{textAlign:'center',marginTop:40,fontSize:11,color:DIM,lineHeight:1.6}}>
-          Prudence Safety & Environmental Consulting, LLC<br />
+          Prudence EHS<br />
           Your data is encrypted and stored securely.
         </div>
       </div>

@@ -736,7 +736,7 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
             <div style={{ display: 'flex', alignItems: 'center' }}>
               <span style={{ ...display, fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em' }}>AtmosFlow</span>
             </div>
-            <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>Prudence Safety & Environmental Consulting, LLC</div>
+            <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>Prudence EHS</div>
           </div>
           <div style={{ textAlign: dk ? 'right' : 'left', fontSize: 12, color: C.sub, lineHeight: 1.8 }}>
             <div><a href="mailto:support@prudenceehs.com" style={{ color: C.sub, textDecoration: 'none' }}>support@prudenceehs.com</a></div>
@@ -755,7 +755,7 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
         </div>
 
         {/* Copyright */}
-        <div style={{ fontSize: 10, color: C.muted }}>© 2026 Prudence Safety & Environmental Consulting, LLC. All rights reserved.</div>
+        <div style={{ fontSize: 10, color: C.muted }}>© 2026 Prudence EHS. All rights reserved.</div>
       </footer>
 
       {/* ── Keyframes ── */}

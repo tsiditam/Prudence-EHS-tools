@@ -349,7 +349,7 @@ export default function SettingsScreen({ profile, onEditProfile, onLogout, onClo
           style={{width:'100%',padding:'14px 16px',background:'transparent',border:'none',cursor:'default',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit',minHeight:52}}>
           <div style={{flex:1,minWidth:0}}>
             <div style={{fontSize:14,fontWeight:600,color:TEXT}}>AtmosFlow</div>
-            <div style={{fontSize:11,color:DIM,marginTop:2}}>Prudence Safety &amp; Environmental Consulting · Germantown, MD</div>
+            <div style={{fontSize:11,color:DIM,marginTop:2}}>Prudence EHS · Gaithersburg, MD</div>
           </div>
           <span style={{fontSize:10,color:DIM,fontFamily:"var(--font-mono)",padding:'3px 8px',borderRadius:6,background:SURFACE,border:`1px solid ${BORDER}`,flexShrink:0}}>v{VER}</span>
         </button>
