@@ -114,6 +114,14 @@
       { "type": "file_exists", "path": "tests/engine/sections-methodology-currency.test.ts" }
     ]},
 
+    { "id": "CALIBRATION-APPENDIX-MAPPER", "label": "Calibration appendix B+E mapper exists and is wired into DocxReport", "checks": [
+      { "type": "file_exists", "path": "src/components/docx/calibration-appendix.js" },
+      { "type": "grep_matches", "pattern": "buildCalibrationAppendix", "paths": ["src/components/DocxReport.js"] },
+      { "type": "grep_matches", "pattern": "augmentWithCalibrationAppendices", "paths": ["src/components/DocxReport.js"] },
+      { "type": "file_exists", "path": "tests/engine/calibration-appendix.test.ts" },
+      { "type": "file_exists", "path": "tests/engine/calibration-appendix-augment.test.ts" }
+    ]},
+
     { "id": "SENTRY-PACKAGE", "label": "Sentry package installed", "checks": [
       { "type": "grep_matches", "pattern": "@sentry/", "paths": ["package.json"] }
     ]},

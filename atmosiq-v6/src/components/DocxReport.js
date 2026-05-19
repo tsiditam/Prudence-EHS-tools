@@ -22,9 +22,43 @@ import { buildTechnicalMetadata, buildFindingsRegister, buildCategoryScoresSumma
 import { buildClientDocx } from './docx/sections-v21client'
 import { buildLabResultsAppendix } from './docx/sections-lab-results'
 import { buildMethodologyCurrency } from './docx/sections-methodology-currency'
+import { buildCalibrationAppendix } from './docx/calibration-appendix'
 import { legacyToAssessmentScore, deriveAssessmentMeta } from '../engine/bridge'
 import { renderClientReport } from '../engine/report/client'
 import { watermarkSectionAttachments, buildCoverNoticeParagraph } from './docx/watermark'
+
+/**
+ * Spread-merge calibration appendices into a ClientReport result.
+ *
+ * The engine (src/engine/report/client.ts) declares appendixB +
+ * appendixE as optional readonly fields on ClientReportAppendix but
+ * never populates them. The DOCX renderer at
+ * sections-v21client.js:621 gates rendering on `if (ap.appendixB)`,
+ * so without this layer the appendices are silently absent from the
+ * client deliverable — calibration data exists in presurvey but the
+ * client never sees it. This layer fills the gap from presurvey
+ * without touching engine code.
+ *
+ * Engine output wins when present (forward-compat with a future
+ * engine version that populates these fields itself).
+ */
+export function augmentWithCalibrationAppendices(result, presurvey) {
+  if (!result || result.kind === 'pre_assessment_memo' || !result.report) return result
+  const { appendixB, appendixE } = buildCalibrationAppendix(presurvey)
+  if (!appendixB && !appendixE) return result
+  const existing = result.report.appendix || {}
+  return {
+    ...result,
+    report: {
+      ...result.report,
+      appendix: {
+        ...existing,
+        appendixB: existing.appendixB || appendixB || undefined,
+        appendixE: existing.appendixE || appendixE || undefined,
+      },
+    },
+  }
+}
 
 function buildContext(data) {
   const { building, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos, floorPlan, version, standardsManifest } = data
@@ -92,7 +126,15 @@ async function generateConsultantDocx(ctx, data) {
   const result = renderClientReport(score, {
     includeAssessmentIndexAppendix: !!data.includeAssessmentIndexAppendix,
   })
-  const { cover, main } = buildClientDocx(result, { photos: data.photos || ctx.photos || {} })
+
+  // Augment the engine result with calibration appendices B + E. The
+  // engine declares both as optional readonly fields but does not
+  // populate them today; this layer fills them from presurvey data and
+  // preserves engine output if a future engine version starts emitting
+  // them itself. No engine files modified.
+  const augmentedResult = augmentWithCalibrationAppendices(result, data.presurvey)
+
+  const { cover, main } = buildClientDocx(augmentedResult, { photos: data.photos || ctx.photos || {} })
 
   // Lab results appendix — appended after the v2.1 buildClientDocx
   // main body when the assessor has imported analytical CSV results
