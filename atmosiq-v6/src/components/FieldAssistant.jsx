@@ -227,17 +227,27 @@ export default function FieldAssistant({ onClose, context, onNavigate }) {
         animation: 'fadeUp .3s ease',
         maxHeight: '88vh',
         display: 'flex', flexDirection: 'column',
+        // Without border-box the 32px horizontal padding adds to width:100%
+        // on narrow viewports (iPhone portrait), so the panel + its
+        // content extend past the right edge. overflow:hidden keeps any
+        // remaining flex-grow children from leaking past the rounded
+        // top corners.
+        boxSizing: 'border-box',
+        overflow: 'hidden',
       }}>
         {/* Drag handle */}
         <div style={{ width: 36, height: 4, borderRadius: 2, background: BORDER, margin: '0 auto 10px' }} />
 
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
             <JasperMonitorIcon size={22} />
-            <div>
+            <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ fontSize: 15, fontWeight: 700, color: TEXT, lineHeight: 1.2 }}>Jasper</div>
-              <div style={{ fontSize: 11, color: SUB, lineHeight: 1.3, marginTop: 1 }}>
+              <div style={{
+                fontSize: 11, color: SUB, lineHeight: 1.3, marginTop: 1,
+                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+              }}>
                 Indoor Air Quality AI assistant
               </div>
             </div>
@@ -247,7 +257,7 @@ export default function FieldAssistant({ onClose, context, onNavigate }) {
             aria-label="Close Jasper"
             style={{
               background: 'transparent', border: `1px solid ${BORDER}`, borderRadius: 8,
-              width: 32, height: 32, cursor: 'pointer', color: SUB,
+              width: 32, height: 32, cursor: 'pointer', color: SUB, flexShrink: 0,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 16, fontFamily: 'inherit', lineHeight: 1,
             }}>×</button>
@@ -257,8 +267,9 @@ export default function FieldAssistant({ onClose, context, onNavigate }) {
         <div
           ref={scrollRef}
           style={{
-            flex: 1, overflowY: 'auto', padding: '8px 2px',
-            minHeight: 200,
+            flex: 1, overflowY: 'auto', overflowX: 'hidden',
+            padding: '8px 2px', minHeight: 200,
+            minWidth: 0, boxSizing: 'border-box', wordBreak: 'break-word',
           }}>
           {!introAccepted && (
             <JasperIntroPanel onAccept={acceptIntro} onNavigate={onNavigate} />
@@ -324,6 +335,7 @@ export default function FieldAssistant({ onClose, context, onNavigate }) {
         <div style={{
           display: 'flex', gap: 8, alignItems: 'flex-end',
           paddingTop: 10, borderTop: `1px solid ${BORDER}`, marginTop: 8,
+          minWidth: 0, boxSizing: 'border-box',
         }}>
           <textarea
             ref={inputRef}
@@ -334,7 +346,7 @@ export default function FieldAssistant({ onClose, context, onNavigate }) {
             placeholder={introAccepted ? 'Ask Jasper…' : 'Tap "Start Chatting" above to begin'}
             rows={1}
             style={{
-              flex: 1, resize: 'none',
+              flex: 1, resize: 'none', minWidth: 0, width: '100%',
               padding: '10px 14px',
               background: SURFACE,
               border: `1px solid ${BORDER}`,
@@ -371,6 +383,7 @@ export default function FieldAssistant({ onClose, context, onNavigate }) {
           marginTop: 8, paddingTop: 8, borderTop: `1px solid ${BORDER}`,
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           fontSize: 10, color: DIM, gap: 8, flexWrap: 'wrap',
+          minWidth: 0, boxSizing: 'border-box',
         }}>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
             <button
