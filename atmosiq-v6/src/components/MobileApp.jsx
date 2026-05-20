@@ -2154,22 +2154,36 @@ export default function MobileApp() {
                       determinations.
                     </div>
 
-                    {/* Stat strip — compact, mono numerals, separated by hairlines */}
-                    <div style={{margin:'0 24px',borderTop:`1px solid ${V3.BORDER_DEFAULT}`,borderBottom:`1px solid ${V3.BORDER_DEFAULT}`,display:'flex',alignItems:'stretch',gap:0}}>
-                      <div style={V3.statBlock}>
-                        <div style={V3.N.lg}>{(activeDraft.zoneCount ?? activeDraft.zones?.length ?? 0)}</div>
-                        <div style={V3.T.micro}>Zones Started</div>
-                      </div>
-                      <div style={V3.statDivider} />
-                      <div style={V3.statBlock}>
-                        <div style={{...V3.N.lg, fontSize:18, lineHeight:'24px'}}>{fD(activeDraft.ua || activeDraft.ts) || '—'}</div>
-                        <div style={V3.T.micro}>Last Touched</div>
-                      </div>
-                      <div style={V3.statDivider} />
-                      <div style={V3.statBlock}>
-                        <div style={{...V3.N.lg, fontSize:18, lineHeight:'24px'}}>Screening</div>
-                        <div style={V3.T.micro}>Assessment Type</div>
-                      </div>
+                    {/* Inline meta band. The earlier stat-strip pattern
+                        (3 mono columns separated by hairlines) is right
+                        for homogeneous numerals like 23 / 19 / 2 on the
+                        scored Assessment detail hero, but it goes cheap
+                        when the columns hold mixed types — a single
+                        digit, a date that wraps, and a text label like
+                        "Screening". This band reads as a quiet caption
+                        row with icon + label + value separated by mid-
+                        dots; same data, calmer composition, and the
+                        Assessment details panel below still carries
+                        the canonical key:value list. */}
+                    <div style={{padding:'14px 24px 18px', display:'flex', alignItems:'center', gap:14, flexWrap:'wrap', color:V3.TEXT_TERTIARY}}>
+                      <span style={{display:'inline-flex',alignItems:'center',gap:6}}>
+                        <I n="layers" s={13} c={V3.TEXT_TERTIARY} w={1.6} />
+                        <span style={V3.T.caption}>
+                          <span style={{color:V3.TEXT_PRIMARY, fontWeight:600}}>{(activeDraft.zoneCount ?? activeDraft.zones?.length ?? 0)}</span> zone{(activeDraft.zoneCount ?? activeDraft.zones?.length ?? 0) === 1 ? '' : 's'} started
+                        </span>
+                      </span>
+                      <span style={{color:V3.BORDER_STRONG}}>·</span>
+                      <span style={{display:'inline-flex',alignItems:'center',gap:6}}>
+                        <I n="clock" s={13} c={V3.TEXT_TERTIARY} w={1.6} />
+                        <span style={V3.T.caption}>
+                          Last touched <span style={{color:V3.TEXT_PRIMARY, fontWeight:600, fontFamily:'var(--font-mono)'}}>{fD(activeDraft.ua || activeDraft.ts) || '—'}</span>
+                        </span>
+                      </span>
+                      <span style={{color:V3.BORDER_STRONG}}>·</span>
+                      <span style={{display:'inline-flex',alignItems:'center',gap:6}}>
+                        <I n="shield" s={13} c={V3.TEXT_TERTIARY} w={1.6} />
+                        <span style={V3.T.caption}>Screening assessment</span>
+                      </span>
                     </div>
 
                     {/* Workflow tabs. Visual stage indicator until the
