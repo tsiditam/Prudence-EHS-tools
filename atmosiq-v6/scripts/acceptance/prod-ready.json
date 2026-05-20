@@ -83,6 +83,17 @@
       { "type": "file_exists", "path": "tests/scripts/build-precache-manifest.test.ts" }
     ]},
 
+    { "id": "PHOTO-ANALYSIS-AI", "label": "Multimodal photo analysis endpoint + IH-Review-Required render path", "checks": [
+      { "type": "file_exists", "path": "api/photo-analyze.js" },
+      { "type": "file_exists", "path": "src/utils/photoAnalysis.js" },
+      { "type": "grep_matches", "pattern": "ih_review_required", "paths": ["api/photo-analyze.js"] },
+      { "type": "grep_matches", "pattern": "Never invent a citation", "paths": ["api/photo-analyze.js"] },
+      { "type": "grep_matches", "pattern": "analyzePhoto", "paths": ["src/components/PhotoCapture.jsx"] },
+      { "type": "grep_matches", "pattern": "AI-PROPOSED", "paths": ["src/components/docx/sections-v21client.js"] },
+      { "type": "file_exists", "path": "tests/api/photo-analyze.test.ts" },
+      { "type": "file_exists", "path": "tests/lib/photo-analysis.test.ts" }
+    ]},
+
     { "id": "STANDARDS-CURRENCY", "label": "Standards Currency layer surfaces ASHRAE 241 / EPA PM2.5 annual / ACGIH TLV references without engine touch", "checks": [
       { "type": "file_exists", "path": "src/engines/contextualStandards.js" },
       { "type": "file_exists", "path": "src/components/docx/sections-methodology-currency.js" },
