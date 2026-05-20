@@ -18,6 +18,13 @@ import { supabase } from '../utils/supabaseClient'
 
 const ENDPOINT = '/api/field-assistant'
 
+// Mirrors the backend caps in api/field-assistant.ts so a too-large
+// or too-many-photos request fails fast on the client without a
+// 400 round-trip.
+export const MAX_PHOTOS_PER_REQUEST = 5
+export const MAX_PHOTO_BYTES = 2_000_000 // ~2MB decoded
+const ALLOWED_PHOTO_MIME = ['image/jpeg', 'image/png', 'image/webp']
+
 function makeMessage(role, content, extras = {}) {
   return {
     id: (typeof crypto !== 'undefined' && crypto.randomUUID)
@@ -51,12 +58,33 @@ function* parseSseFrames(buffer) {
   }
 }
 
+/**
+ * Read a File / Blob and resolve to a base64 data URL. Used for the
+ * L4 photo-attach path — photos are passed in the request body so the
+ * backend can route them to the analyze_photo tool dispatcher.
+ */
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result)
+    reader.onerror = () => reject(reader.error || new Error('file_read_failed'))
+    reader.readAsDataURL(file)
+  })
+}
+
 export function useFieldAssistant() {
   const [messages, setMessages] = useState([])
   const [sending, setSending] = useState(false)
   const [error, setError] = useState(null)
   const [conversationId, setConversationId] = useState(null)
   const [quota, setQuota] = useState(null) // { used_today, limit_today, plan } | null
+  // L4 — photos staged for the next message. Cleared on successful send.
+  // Each entry: { id, dataUrl, label, sizeBytes }
+  const [attachedPhotos, setAttachedPhotos] = useState([])
+  // Ref mirror of attachedPhotos so attachPhoto can synchronously check
+  // the current count even when called multiple times in the same act
+  // cycle (React state updates aren't visible inside the same closure).
+  const photosRef = useRef([])
   const inFlight = useRef(null)
 
   const reset = useCallback(() => {
@@ -67,6 +95,63 @@ export function useFieldAssistant() {
     setError(null)
     setSending(false)
     setQuota(null)
+    photosRef.current = []
+    setAttachedPhotos([])
+  }, [])
+
+  /**
+   * Stage a File for the next message. Validates MIME type + size up
+   * front so the user sees a useful error instead of a backend 400.
+   */
+  const attachPhoto = useCallback(async (file, label) => {
+    if (!file) return { ok: false, error: 'no_file' }
+    if (!ALLOWED_PHOTO_MIME.includes(file.type)) {
+      const msg = 'Only JPEG, PNG, and WebP photos are supported.'
+      setError(msg)
+      return { ok: false, error: msg }
+    }
+    if (file.size > MAX_PHOTO_BYTES) {
+      const msg = `Photo exceeds the ${Math.round(MAX_PHOTO_BYTES / 1_000_000)}MB limit. Resize and retry.`
+      setError(msg)
+      return { ok: false, error: msg }
+    }
+    if (photosRef.current.length >= MAX_PHOTOS_PER_REQUEST) {
+      const msg = `Maximum ${MAX_PHOTOS_PER_REQUEST} photos per message.`
+      setError(msg)
+      return { ok: false, error: msg }
+    }
+    let dataUrl
+    try {
+      dataUrl = await fileToDataUrl(file)
+    } catch {
+      const msg = 'Failed to read photo file.'
+      setError(msg)
+      return { ok: false, error: msg }
+    }
+    const id =
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? `photo-${crypto.randomUUID().slice(0, 8)}`
+        : `photo-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+    const entry = {
+      id,
+      dataUrl,
+      label: typeof label === 'string' && label ? label.slice(0, 200) : file.name || null,
+      sizeBytes: file.size,
+    }
+    photosRef.current = [...photosRef.current, entry]
+    setAttachedPhotos(photosRef.current)
+    setError(null)
+    return { ok: true, id }
+  }, [])
+
+  const removePhoto = useCallback((id) => {
+    photosRef.current = photosRef.current.filter((p) => p.id !== id)
+    setAttachedPhotos(photosRef.current)
+  }, [])
+
+  const clearPhotos = useCallback(() => {
+    photosRef.current = []
+    setAttachedPhotos([])
   }, [])
 
   const sendMessage = useCallback(async (text, context) => {
@@ -79,7 +164,8 @@ export function useFieldAssistant() {
 
     setError(null)
     setSending(true)
-    const userMsg = makeMessage('user', trimmed)
+    const photosAttached = attachedPhotos.map((p) => ({ id: p.id, label: p.label }))
+    const userMsg = makeMessage('user', trimmed, photosAttached.length ? { photos: photosAttached } : {})
     setMessages((prev) => [...prev, userMsg])
 
     let token = null
@@ -100,6 +186,13 @@ export function useFieldAssistant() {
     const ctrl = new AbortController()
     inFlight.current = ctrl
 
+    // Snapshot the attached-photo list so the user can attach more
+    // while the response streams without re-sending the originals.
+    const photosToSend = attachedPhotos.slice()
+    const photosPayload = photosToSend.length
+      ? photosToSend.map((p) => ({ id: p.id, dataUrl: p.dataUrl, label: p.label }))
+      : undefined
+
     let res
     try {
       res = await fetch(ENDPOINT, {
@@ -109,6 +202,7 @@ export function useFieldAssistant() {
           conversation_id: conversationId,
           message: trimmed,
           context,
+          ...(photosPayload ? { photos: photosPayload } : {}),
         }),
         signal: ctrl.signal,
       })
@@ -195,6 +289,14 @@ export function useFieldAssistant() {
     }
     if (receivedQuota) setQuota(receivedQuota)
 
+    // Clear the staged photos now that they've been sent. The user
+    // bubble retains a record of which IDs were attached so the UI
+    // can render "📎 N photos" under the message.
+    if (photosToSend.length > 0 && !upstreamError) {
+      photosRef.current = []
+      setAttachedPhotos([])
+    }
+
     if (upstreamError && !assistantText) {
       setError(upstreamError)
     } else if (!assistantText && !upstreamError) {
@@ -203,7 +305,19 @@ export function useFieldAssistant() {
 
     inFlight.current = null
     setSending(false)
-  }, [conversationId, sending])
+  }, [conversationId, sending, attachedPhotos])
 
-  return { messages, sending, error, conversationId, quota, sendMessage, reset }
+  return {
+    messages,
+    sending,
+    error,
+    conversationId,
+    quota,
+    attachedPhotos,
+    sendMessage,
+    reset,
+    attachPhoto,
+    removePhoto,
+    clearPhotos,
+  }
 }

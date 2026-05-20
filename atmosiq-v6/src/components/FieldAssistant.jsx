@@ -43,7 +43,7 @@ const SUGGESTIONS = [
   'When should I sample for TVOCs?',
 ]
 
-function MessageBubble({ role, content }) {
+function MessageBubble({ role, content, photos }) {
   const isUser = role === 'user'
   return (
     <div style={{
@@ -64,6 +64,15 @@ function MessageBubble({ role, content }) {
         wordBreak: 'break-word',
       }}>
         {content}
+        {isUser && Array.isArray(photos) && photos.length > 0 && (
+          <div style={{
+            marginTop: 6, display: 'flex', alignItems: 'center', gap: 4,
+            fontSize: 11, color: SUB, fontFamily: 'var(--font-mono)', opacity: 0.8,
+          }}>
+            <I n="paperclip" s={11} c={SUB} w={1.6} />
+            <span>{photos.length} photo{photos.length === 1 ? '' : 's'} attached</span>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -164,12 +173,31 @@ function readIntroFlag() {
 }
 
 export default function FieldAssistant({ onClose, context, onNavigate }) {
-  const { messages, sending, error, quota, sendMessage } = useFieldAssistant()
+  const {
+    messages,
+    sending,
+    error,
+    quota,
+    attachedPhotos,
+    sendMessage,
+    attachPhoto,
+    removePhoto,
+  } = useFieldAssistant()
   const [input, setInput] = useState('')
   const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine)
   const [introAccepted, setIntroAccepted] = useState(readIntroFlag)
   const scrollRef = useRef(null)
   const inputRef = useRef(null)
+  const fileInputRef = useRef(null)
+
+  const onPickPhotos = async (e) => {
+    const files = Array.from(e.target.files || [])
+    // Reset the input so re-picking the same file fires onChange again.
+    if (e.target) e.target.value = ''
+    for (const file of files) {
+      await attachPhoto(file)
+    }
+  }
 
   const acceptIntro = () => {
     try { window.localStorage.setItem(INTRO_FLAG_KEY, new Date().toISOString()) } catch { /* ignore quota / private-mode */ }
@@ -320,7 +348,7 @@ export default function FieldAssistant({ onClose, context, onNavigate }) {
           )}
 
           {messages.map((m) => (
-            <MessageBubble key={m.id} role={m.role} content={m.content} />
+            <MessageBubble key={m.id} role={m.role} content={m.content} photos={m.photos} />
           ))}
 
           {showThinking && <ThinkingDots />}
@@ -349,12 +377,100 @@ export default function FieldAssistant({ onClose, context, onNavigate }) {
           </div>
         )}
 
+        {/* L4 — staged photo thumbnails. Each chip shows the image, a
+            short label, and a remove × button. Hidden when nothing is
+            attached so the input row collapses back to its compact
+            form. */}
+        {attachedPhotos.length > 0 && (
+          <div
+            data-testid="attached-photos"
+            style={{
+              display: 'flex', flexWrap: 'wrap', gap: 6,
+              paddingTop: 8, marginTop: 8,
+              borderTop: `1px solid ${BORDER}`,
+            }}
+          >
+            {attachedPhotos.map((p) => (
+              <div
+                key={p.id}
+                style={{
+                  position: 'relative',
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '4px 28px 4px 4px',
+                  background: SURFACE, border: `1px solid ${BORDER}`,
+                  borderRadius: 8,
+                }}
+              >
+                <img
+                  src={p.dataUrl}
+                  alt={p.label || 'attached photo'}
+                  style={{ width: 32, height: 32, borderRadius: 4, objectFit: 'cover', display: 'block' }}
+                />
+                <span
+                  style={{
+                    fontSize: 11, color: SUB, maxWidth: 140,
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  }}
+                  title={p.label || ''}
+                >
+                  {p.label || 'photo'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => removePhoto(p.id)}
+                  aria-label={`Remove ${p.label || 'photo'}`}
+                  disabled={sending}
+                  style={{
+                    position: 'absolute', top: 2, right: 2,
+                    width: 20, height: 20, borderRadius: 10,
+                    background: 'transparent', border: 'none',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: sending ? 'not-allowed' : 'pointer',
+                    color: DIM,
+                  }}
+                >
+                  <I n="x" s={12} c={DIM} w={2} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Input row */}
         <div style={{
           display: 'flex', gap: 8, alignItems: 'flex-end',
           paddingTop: 10, borderTop: `1px solid ${BORDER}`, marginTop: 8,
           minWidth: 0, boxSizing: 'border-box',
         }}>
+          {/* Hidden file input — the visible paperclip button drives it.
+              `multiple` + accept restrict to the formats the backend
+              parses; the hook validates again before the actual upload. */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            multiple
+            onChange={onPickPhotos}
+            style={{ display: 'none' }}
+            data-testid="photo-file-input"
+            aria-hidden="true"
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={sending || !introAccepted || attachedPhotos.length >= 5}
+            aria-label="Attach photo"
+            style={{
+              width: 42, height: 42, borderRadius: 12,
+              background: SURFACE,
+              border: `1px solid ${BORDER}`,
+              cursor: sending || !introAccepted || attachedPhotos.length >= 5 ? 'not-allowed' : 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontFamily: 'inherit', flexShrink: 0,
+              opacity: sending || !introAccepted ? 0.55 : 1,
+            }}>
+            <I n="paperclip" s={16} c={attachedPhotos.length > 0 ? ACCENT : SUB} w={1.8} />
+          </button>
           <textarea
             ref={inputRef}
             value={input}

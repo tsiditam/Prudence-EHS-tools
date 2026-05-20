@@ -150,6 +150,17 @@
       { "type": "grep_matches", "pattern": "vision_usages", "paths": ["api/field-assistant.ts"] }
     ]},
 
+    { "id": "JASPER-L4-VISION-UI", "label": "Field Assistant (Jasper) Layer-4 vision UI — photo attach + send wired through the hook", "checks": [
+      { "type": "grep_matches", "pattern": "attachPhoto", "paths": ["src/hooks/useFieldAssistant.js"] },
+      { "type": "grep_matches", "pattern": "MAX_PHOTOS_PER_REQUEST", "paths": ["src/hooks/useFieldAssistant.js"] },
+      { "type": "grep_matches", "pattern": "photos: photosPayload", "paths": ["src/hooks/useFieldAssistant.js"] },
+      { "type": "grep_matches", "pattern": "Attach photo", "paths": ["src/components/FieldAssistant.jsx"] },
+      { "type": "grep_matches", "pattern": "data-testid=\"photo-file-input\"", "paths": ["src/components/FieldAssistant.jsx"] },
+      { "type": "grep_matches", "pattern": "paperclip", "paths": ["src/components/Icons.jsx"] },
+      { "type": "file_exists", "path": "tests/lib/useFieldAssistant-photos.test.ts" },
+      { "type": "file_exists", "path": "tests/components/FieldAssistant-photos.test.tsx" }
+    ]},
+
     { "id": "SENTRY-PACKAGE", "label": "Sentry package installed", "checks": [
       { "type": "grep_matches", "pattern": "@sentry/", "paths": ["package.json"] }
     ]},
