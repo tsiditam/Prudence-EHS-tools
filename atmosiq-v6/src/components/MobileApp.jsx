@@ -66,6 +66,7 @@ import { FAQ_SECTIONS } from '../constants/faq'
 import SearchView from './SearchView'
 import FieldAssistantFab from './FieldAssistantFab'
 import FieldAssistant from './FieldAssistant'
+import PendingSyncIndicator from './PendingSyncIndicator'
 import ReadinessPanel from './ReadinessPanel'
 import { buildReadinessVerdict } from '../engines/readiness-verdict'
 import SamplingFormsView from './SamplingFormsView'
@@ -338,13 +339,41 @@ export default function MobileApp() {
   const [showDisclaimer, setShowDisclaimer] = useState(false)
   const [connectionToast, setConnectionToast] = useState(null)
 
-  // Connection toast
+  // Connection toast + offline-queue auto-drain triggers.
+  //
+  // Three triggers drain the queue when online:
+  //   1. window 'online' event — fires once on transition (already
+  //      hooked in supabaseStorage.js too; this is belt-and-suspenders).
+  //   2. visibilitychange — when the tab becomes visible again, the
+  //      user may have been away for a while; try a drain.
+  //   3. periodic interval (60s) — covers cases where neither of the
+  //      above fires (e.g. flaky cellular that doesn't trigger the
+  //      online event, user staring at the same tab for hours).
+  //
+  // Each trigger is a no-op when the queue is empty or when a drain
+  // is already in flight (single-flight guard in processSyncQueue).
   useEffect(() => {
     const goOffline = () => { setConnectionToast('offline'); setTimeout(() => setConnectionToast(null), 4000) }
-    const goOnline = () => { setConnectionToast('online'); setTimeout(() => setConnectionToast(null), 3000) }
+    const goOnline = () => {
+      setConnectionToast('online')
+      setTimeout(() => setConnectionToast(null), 3000)
+      Storage.processSyncQueue()
+    }
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && navigator.onLine) Storage.processSyncQueue()
+    }
     window.addEventListener('offline', goOffline)
     window.addEventListener('online', goOnline)
-    return () => { window.removeEventListener('offline', goOffline); window.removeEventListener('online', goOnline) }
+    document.addEventListener('visibilitychange', onVisible)
+    const drainId = setInterval(() => {
+      if (navigator.onLine) Storage.processSyncQueue()
+    }, 60000)
+    return () => {
+      window.removeEventListener('offline', goOffline)
+      window.removeEventListener('online', goOnline)
+      document.removeEventListener('visibilitychange', onVisible)
+      clearInterval(drainId)
+    }
   }, [])
 
   const [showPhotoSelect, setShowPhotoSelect] = useState(false)
@@ -1425,6 +1454,12 @@ export default function MobileApp() {
       {milestone&&<div style={{position:'fixed',inset:0,background:`${mix('bg', 94)}`,zIndex:300,display:'flex',alignItems:'center',justifyContent:'center',padding:'0 32px'}}><div style={{textAlign:'center',animation:'milestoneIn .5s cubic-bezier(.22,1,.36,1)'}}><div style={{marginBottom:20,display:'flex',justifyContent:'center'}}><div style={{width:80,height:80,borderRadius:22,background:`${mix('accent', 7)}`,border:`1.5px solid ${mix('accent', 19)}`,display:'flex',alignItems:'center',justifyContent:'center'}}><I n={milestone.icon} s={40} c={ACCENT} w={2} /></div></div><div style={{fontSize:26,fontWeight:800,letterSpacing:'-0.5px',color:TEXT}}>{milestone.title}</div><div style={{fontSize:15,color:ACCENT,fontFamily:"var(--font-mono)",marginTop:10}}>{milestone.sub}</div></div></div>}
 
       {zonePrompt&&<div style={{position:'fixed',inset:0,background:'#000000CC',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',padding:24}}><div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:18,padding:28,maxWidth:340,width:'100%',animation:'fadeUp .3s ease'}}><div style={{fontSize:18,fontWeight:700,marginBottom:8,color:TEXT}}>Zone Complete</div><div style={{fontSize:14,color:SUB,marginBottom:24,lineHeight:1.6}}>Add another zone to this assessment?</div><div style={{display:'flex',flexDirection:'column',gap:10}}><button onClick={()=>{trackEvent('zone_added',{zone_index:zones.length});setZonePrompt(false);setZones(p=>[...p,{}]);setCurZone(zones.length);setZqi(0)}} style={{padding:'16px 0',background:`${mix('accent', 7)}`,border:`1px solid ${mix('accent', 19)}`,borderRadius:12,color:ACCENT,fontSize:16,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:52}}>+ Add Another Zone</button><button onClick={()=>{setZonePrompt(false);finishAssessment()}} style={{padding:'16px 0',background:'linear-gradient(135deg,#059669,#22C55E)',border:'none',borderRadius:12,color:'#fff',fontSize:16,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:52}}>Finish Assessment ✓</button></div></div></div>}
+
+      {/* Persistent badge that surfaces the offline sync queue. Renders
+          nothing when the queue is empty and no recent error — sits to
+          the right of the transient connection toast when both are
+          visible. */}
+      <PendingSyncIndicator />
 
       {/* ── Connection Toast ── */}
       {connectionToast && (

@@ -18,7 +18,18 @@ import STO from './storage'
 import * as Sentry from '@sentry/react'
 
 const SYNC_QUEUE_KEY = 'atmosiq-sync-queue'
+const SYNC_STATE_KEY = 'atmosiq-sync-state'
+const SYNC_EVENT = 'atmosflow:sync-state-changed'
 const isOnline = () => navigator.onLine && !!supabase
+
+// Dispatch a sync-state-changed event so any UI listener (useSyncState
+// hook, PendingSyncIndicator) can re-render immediately on queue or
+// status change. Falls back to polling in the hook if the event is
+// missed (e.g. cross-tab without a BroadcastChannel).
+function emitSyncStateChange() {
+  if (typeof window === 'undefined') return
+  try { window.dispatchEvent(new CustomEvent(SYNC_EVENT)) } catch { /* SSR / restricted env */ }
+}
 
 const SupaStorage = {
   // ── Auth ──
@@ -366,23 +377,87 @@ const SupaStorage = {
     const queue = await STO.get(SYNC_QUEUE_KEY) || []
     queue.push({ type, data, queuedAt: new Date().toISOString() })
     await STO.set(SYNC_QUEUE_KEY, queue)
+    emitSyncStateChange()
   },
 
+  /**
+   * Drain the offline sync queue. Updates SYNC_STATE_KEY with attempt
+   * + outcome timestamps so the UI can show "last synced N min ago"
+   * and so a periodic trigger (every minute, on tab focus, on the
+   * online event) can be safely no-op when the queue is empty.
+   *
+   * Concurrent calls are guarded by a single-flight flag in
+   * SYNC_STATE_KEY.inFlight so two triggers (e.g. online event +
+   * periodic interval firing close together) don't double-process.
+   */
   async processSyncQueue() {
     if (!isOnline()) return
     const queue = await STO.get(SYNC_QUEUE_KEY) || []
     if (!queue.length) return
+
+    const state = (await STO.get(SYNC_STATE_KEY)) || {}
+    if (state.inFlight) return
+    const startedAt = new Date().toISOString()
+    await STO.set(SYNC_STATE_KEY, { ...state, inFlight: true, lastAttempt: startedAt })
+    emitSyncStateChange()
+
     const remaining = []
+    let lastError = null
     for (const item of queue) {
       try {
         if (item.type === 'profile') await this.saveProfile(item.data)
         else if (item.type === 'assessment') await this.saveAssessment(item.data)
         else if (item.type === 'delete') await supabase.from('assessments').delete().eq('id', item.data.id)
-      } catch {
+      } catch (err) {
         remaining.push(item)
+        // Keep the most recent error so the indicator can surface it.
+        lastError = (err && err.message) || 'sync_failed'
       }
     }
     await STO.set(SYNC_QUEUE_KEY, remaining)
+
+    const finishedAt = new Date().toISOString()
+    const nextState = {
+      ...(await STO.get(SYNC_STATE_KEY) || {}),
+      inFlight: false,
+      lastAttempt: startedAt,
+      lastSuccess: remaining.length === 0 ? finishedAt : (state.lastSuccess || null),
+      lastError: remaining.length === 0 ? null : (lastError || state.lastError || 'partial_drain'),
+    }
+    await STO.set(SYNC_STATE_KEY, nextState)
+    emitSyncStateChange()
+  },
+
+  /**
+   * Read-only snapshot of sync queue + state. Used by the PendingSync
+   * indicator and the useSyncState hook to render reactively. Safe to
+   * call from anywhere — never touches the network.
+   *
+   * Returns:
+   *   queueDepth  — count of items waiting to sync (0 when caught up)
+   *   inFlight    — true while processSyncQueue is mid-drain
+   *   lastAttempt — ISO timestamp of the last drain attempt, or null
+   *   lastSuccess — ISO timestamp of the last fully successful drain, or null
+   *   lastError   — error message from the most recent partial drain, or null
+   *   online      — navigator.onLine AND supabase is configured
+   */
+  async getSyncState() {
+    const queue = await STO.get(SYNC_QUEUE_KEY) || []
+    const state = await STO.get(SYNC_STATE_KEY) || {}
+    return {
+      queueDepth: queue.length,
+      inFlight: !!state.inFlight,
+      lastAttempt: state.lastAttempt || null,
+      lastSuccess: state.lastSuccess || null,
+      lastError: state.lastError || null,
+      online: isOnline(),
+    }
+  },
+
+  /** Convenience accessor — queueDepth alone, no full state read. */
+  async getQueueDepth() {
+    const queue = await STO.get(SYNC_QUEUE_KEY) || []
+    return queue.length
   },
 
   // ── Full sync (pull cloud data to local) ──
