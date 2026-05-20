@@ -83,6 +83,17 @@
       { "type": "file_exists", "path": "tests/scripts/build-precache-manifest.test.ts" }
     ]},
 
+    { "id": "STANDARDS-CURRENCY", "label": "Standards Currency layer surfaces ASHRAE 241 / EPA PM2.5 annual / ACGIH TLV references without engine touch", "checks": [
+      { "type": "file_exists", "path": "src/engines/contextualStandards.js" },
+      { "type": "file_exists", "path": "src/components/docx/sections-methodology-currency.js" },
+      { "type": "grep_matches", "pattern": "ASHRAE 241", "paths": ["src/constants/standards.js"] },
+      { "type": "grep_matches", "pattern": "EPA PM2.5 Annual NAAQS Revision", "paths": ["src/constants/standards.js"] },
+      { "type": "grep_matches", "pattern": "ACGIH TLVs and BEIs", "paths": ["src/constants/standards.js"] },
+      { "type": "grep_matches", "pattern": "buildMethodologyCurrency", "paths": ["src/components/DocxReport.js"] },
+      { "type": "file_exists", "path": "tests/engine/contextual-standards.test.ts" },
+      { "type": "file_exists", "path": "tests/engine/sections-methodology-currency.test.ts" }
+    ]},
+
     { "id": "SENTRY-PACKAGE", "label": "Sentry package installed", "checks": [
       { "type": "grep_matches", "pattern": "@sentry/", "paths": ["package.json"] }
     ]},
