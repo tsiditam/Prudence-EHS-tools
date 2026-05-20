@@ -216,14 +216,16 @@ export const statDivider = {
 }
 
 // GaugeBar — the horizontal severity gauge used on the Key Indicator
-// card. `value` 0–100, `tone` is the dot color; the track is a
-// green→amber→red gradient so a glance reads "high" or "low" without
-// the user parsing the number first.
+// card. `value` 0–100, `tone` is the dot color. AtmosFlow's scoring
+// convention is lower-is-worse (the composite indicator note reads
+// "lower scores indicate greater concern"), so the gradient runs
+// red → amber → green from left to right — a score of 19 lands in
+// the red zone, a score of 85 lands in the green.
 export const gaugeTrack = {
   position: 'relative',
   height: 6,
   borderRadius: R.pill,
-  background: 'linear-gradient(90deg, #22C55E 0%, #FBBF24 50%, #EF4444 100%)',
+  background: 'linear-gradient(90deg, #EF4444 0%, #FBBF24 50%, #22C55E 100%)',
   opacity: 0.85,
 }
 export const gaugeDot = (value, tone) => ({
