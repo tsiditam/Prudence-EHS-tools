@@ -67,6 +67,7 @@ import SearchView from './SearchView'
 import FieldAssistantFab from './FieldAssistantFab'
 import FieldAssistant from './FieldAssistant'
 import PendingSyncIndicator from './PendingSyncIndicator'
+import JasperWatchPanel from './JasperWatchPanel'
 import ReadinessPanel from './ReadinessPanel'
 import { buildReadinessVerdict } from '../engines/readiness-verdict'
 import SamplingFormsView from './SamplingFormsView'
@@ -898,7 +899,7 @@ export default function MobileApp() {
           </div>}
           {q.t==='multi'&&q.opts&&<div style={{display:'flex',flexWrap:'wrap',gap:8}}>{q.opts.map((o,i)=>{const arr=data[q.id]||[],sel=arr.includes(o);return(<button key={o} onClick={()=>setField(q.id,sel?arr.filter(x=>x!==o):[...arr,o])} style={{padding:'12px 18px',borderRadius:24,background:sel?`${mix('accent', 8)}`:CARD,border:`1.5px solid ${sel?ACCENT:BORDER}`,color:sel?ACCENT:TEXT,fontSize:14,fontFamily:'inherit',fontWeight:500,cursor:'pointer',minHeight:44,animation:`fadeUp .25s ${i*.03}s cubic-bezier(.22,1,.36,1) both`}}>{sel?'✓ ':''}{o}</button>)})}</div>}
           {q.t==='combo'&&q.opts&&(()=>{const otherOpts=q.opts.filter(o=>o!=='Other');const isOther=(data[q.id]||'')==='__other__'||((data[q.id]||'')&&!otherOpts.includes(data[q.id]));return(<div><select value={isOther?'__other__':(data[q.id]||'')} onChange={e=>setField(q.id,e.target.value)} style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:'inherit',outline:'none',boxSizing:'border-box',appearance:'auto'}}><option value="">Select or skip...</option>{otherOpts.map(o=><option key={o} value={o}>{o}</option>)}<option value="__other__">Other</option></select>{isOther&&<input type="text" value={data[q.id]==='__other__'?'':data[q.id]} onChange={e=>setField(q.id,e.target.value||'__other__')} placeholder="Type here..." autoFocus style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${ACCENT}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:'inherit',outline:'none',boxSizing:'border-box',marginTop:8}} />}</div>)})()}
-          {q.t==='sensors'&&<SensorScreen data={data} onChange={setField} isDesktop={false} />}
+          {q.t==='sensors'&&<><SensorScreen data={data} onChange={setField} isDesktop={false} /><JasperWatchPanel data={data} context={{building: bldg, presurvey}} /></>}
           {q.photo&&<PhotoCapture
             photos={photos[`z${curZone}-${q.id}`]||[]}
             analysisContext={`Zone ${curZone+1} — ${q.lbl || q.id}`}
