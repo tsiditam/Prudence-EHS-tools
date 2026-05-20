@@ -55,6 +55,14 @@
       { "type": "file_exists", "path": "tests/components/PendingSyncIndicator.test.tsx" }
     ]},
 
+    { "id": "RESURVEY-SCHEDULE", "label": "Re-survey Schedule section is rendered in the consultant DOCX", "checks": [
+      { "type": "file_exists", "path": "src/engines/resurveySchedule.js" },
+      { "type": "file_exists", "path": "src/components/docx/sections-resurvey.js" },
+      { "type": "grep_matches", "pattern": "buildResurveySchedule", "paths": ["src/components/docx/sections-v21client.js"] },
+      { "type": "file_exists", "path": "tests/engine/resurvey-schedule.test.ts" },
+      { "type": "file_exists", "path": "tests/engine/sections-resurvey.test.ts" }
+    ]},
+
     { "id": "OFFLINE-SW-APP-SHELL", "label": "Service worker precaches the app shell + skips /api/ from caching", "checks": [
       { "type": "file_exists", "path": "scripts/build-precache-manifest.mjs" },
       { "type": "grep_matches", "pattern": "precacheManifestPlugin", "paths": ["vite.config.js"] },
