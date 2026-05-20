@@ -45,6 +45,16 @@
       { "type": "file_exists", "path": "tests/api/narrative-rate-limit.test.ts" }
     ]},
 
+    { "id": "OFFLINE-SYNC-INDICATOR", "label": "Pending-sync indicator exists and queue state is observable", "checks": [
+      { "type": "file_exists", "path": "src/components/PendingSyncIndicator.jsx" },
+      { "type": "file_exists", "path": "src/hooks/useSyncState.js" },
+      { "type": "grep_matches", "pattern": "getSyncState", "paths": ["src/utils/supabaseStorage.js"] },
+      { "type": "grep_matches", "pattern": "getQueueDepth", "paths": ["src/utils/supabaseStorage.js"] },
+      { "type": "grep_matches", "pattern": "PendingSyncIndicator", "paths": ["src/components/MobileApp.jsx"] },
+      { "type": "file_exists", "path": "tests/lib/sync-state.test.ts" },
+      { "type": "file_exists", "path": "tests/components/PendingSyncIndicator.test.tsx" }
+    ]},
+
     { "id": "SENTRY-PACKAGE", "label": "Sentry package installed", "checks": [
       { "type": "grep_matches", "pattern": "@sentry/", "paths": ["package.json"] }
     ]},
