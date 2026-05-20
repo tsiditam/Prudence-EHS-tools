@@ -72,6 +72,13 @@
       { "type": "file_exists", "path": "tests/scripts/build-precache-manifest.test.ts" }
     ]},
 
+    { "id": "PHOTO-GPS-CAPTURE", "label": "PhotoCapture records GPS at capture time and renders it in DOCX captions", "checks": [
+      { "type": "file_exists", "path": "src/utils/gpsFormat.js" },
+      { "type": "grep_matches", "pattern": "captureGpsReading", "paths": ["src/components/PhotoCapture.jsx"] },
+      { "type": "grep_matches", "pattern": "formatGpsCoord", "paths": ["src/components/docx/sections-v21client.js"] },
+      { "type": "file_exists", "path": "tests/lib/gps-format.test.ts" }
+    ]},
+
     { "id": "SENTRY-PACKAGE", "label": "Sentry package installed", "checks": [
       { "type": "grep_matches", "pattern": "@sentry/", "paths": ["package.json"] }
     ]},

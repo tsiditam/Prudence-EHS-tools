@@ -15,6 +15,7 @@ import { FONTS, COLORS } from './styles'
 import { borderlessLayoutTable } from './tables'
 import { LETTER_COVER_PAGE, BODY_SECTION_PROPERTIES, CONTENT_WIDTH_DXA } from './page-setup'
 import { base64ToUint8Array } from './images'
+import { formatGpsCoord } from '../../utils/gpsFormat'
 import { buildResurveySchedule } from './sections-resurvey'
 
 // v2.2 visual palette — slate/blue per consultant-report design
@@ -1229,7 +1230,7 @@ function buildCapturedFieldPhotos(report, photos) {
       if (!key.startsWith(`z${zi}-`)) continue
       const fieldId = key.slice(`z${zi}-`.length)
       for (const ph of photos[key] || []) {
-        if (ph && ph.src) matches.push({ src: ph.src, label: fieldLabels[fieldId] || fieldId, ts: ph.ts })
+        if (ph && ph.src) matches.push({ src: ph.src, label: fieldLabels[fieldId] || fieldId, ts: ph.ts, gps: ph.gps || null })
       }
     }
     return { zoneName: zone.zoneName, photos: matches }
@@ -1250,8 +1251,17 @@ function buildCapturedFieldPhotos(report, photos) {
           children: [new ImageRun({ data, transformation: { width: 240, height: 180 }, type: 'jpg' })],
           spacing: { after: 40 },
         }))
-        const caption = ph.ts ? `${ph.label} · ${new Date(ph.ts).toLocaleTimeString()}` : ph.label
-        out.push(p(caption, { size: 16, color: COLORS.muted, after: 160 }))
+        // Caption: label · time · GPS coords. The GPS suffix is the
+        // Move 4b defensibility signal — geotagged finding photos
+        // carry a "where + when" audit trail to the reviewer. Older
+        // assessments without ph.gps render the caption unchanged.
+        const parts = [ph.label]
+        if (ph.ts) parts.push(new Date(ph.ts).toLocaleTimeString())
+        if (ph.gps) {
+          const gpsLabel = formatGpsCoord(ph.gps.lat, ph.gps.lng, ph.gps.accuracy)
+          if (gpsLabel) parts.push(gpsLabel)
+        }
+        out.push(p(parts.join(' · '), { size: 16, color: COLORS.muted, after: 160 }))
       } catch (_err) {
         out.push(p(`[Photo: ${ph.label}]`, { size: 18, color: COLORS.muted, italics: true, after: 120 }))
       }
