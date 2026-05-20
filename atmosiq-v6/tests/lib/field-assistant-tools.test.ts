@@ -11,13 +11,14 @@ import { describe, it, expect } from 'vitest'
 import { FIELD_ASSISTANT_TOOLS, dispatchTool } from '../../src/constants/field-assistant-tools.js'
 
 describe('FIELD_ASSISTANT_TOOLS schema', () => {
-  it('exposes four tools with the expected names', () => {
+  it('exposes five tools with the expected names', () => {
     const names = FIELD_ASSISTANT_TOOLS.map((t: { name: string }) => t.name)
     expect(names).toEqual([
       'lookup_exposure_limit',
       'lookup_sampling_method',
       'lookup_health_effects',
       'list_known_analytes',
+      'search_standards_corpus',
     ])
   })
 
@@ -102,6 +103,43 @@ describe('dispatchTool — list_known_analytes', () => {
     expect(r.analytes.length).toBeGreaterThan(10)
     expect(r.analytes[0].key).toBeDefined()
     expect(r.analytes[0].aliases).toBeDefined()
+  })
+})
+
+describe('dispatchTool — search_standards_corpus', () => {
+  it('returns status:ok with passages for a methodology query', () => {
+    const r = dispatchTool('search_standards_corpus', { query: 'IICRC mold condition' })
+    expect(r.status).toBe('ok')
+    expect(Array.isArray(r.results)).toBe(true)
+    expect(r.results.length).toBeGreaterThan(0)
+    expect(r.results[0].id).toBe('iicrc-s520-conditions')
+    expect(r.results[0].citation).toBeDefined()
+    expect(r.results[0].text).toBeDefined()
+    expect(typeof r.results[0].relevance).toBe('number')
+  })
+
+  it('respects the k parameter', () => {
+    const r = dispatchTool('search_standards_corpus', { query: 'ventilation', k: 2 })
+    expect(r.status).toBe('ok')
+    expect(r.results.length).toBeLessThanOrEqual(2)
+  })
+
+  it('returns status:no_matches with corpus summary for off-topic query', () => {
+    const r = dispatchTool('search_standards_corpus', { query: 'zzzzz qqqqq unicornsparkle' })
+    expect(r.status).toBe('no_matches')
+    expect(r.corpus_summary).toBeDefined()
+    expect(r.corpus_summary.chunkCount).toBeGreaterThan(0)
+  })
+
+  it('returns status:error for empty query', () => {
+    const r = dispatchTool('search_standards_corpus', { query: '' })
+    expect(r.status).toBe('error')
+    expect(r.error).toBe('empty_query')
+  })
+
+  it('returns status:error for missing query field', () => {
+    const r = dispatchTool('search_standards_corpus', {})
+    expect(r.status).toBe('error')
   })
 })
 

@@ -128,6 +128,18 @@
       { "type": "file_exists", "path": "tests/lib/field-assistant-tools.test.ts" }
     ]},
 
+    { "id": "JASPER-L3-CORPUS-SEARCH", "label": "Field Assistant (Jasper) Layer-3 corpus search — TF-IDF retrieval over curated IAQ standards corpus", "checks": [
+      { "type": "file_exists", "path": "src/constants/standards-corpus.js" },
+      { "type": "file_exists", "path": "src/utils/corpus-search.js" },
+      { "type": "grep_matches", "pattern": "search_standards_corpus", "paths": ["src/constants/field-assistant-tools.js"] },
+      { "type": "grep_matches", "pattern": "searchCorpus", "paths": ["src/utils/corpus-search.js"] },
+      { "type": "grep_matches", "pattern": "STANDARDS_CORPUS", "paths": ["src/constants/standards-corpus.js"] },
+      { "type": "grep_matches", "pattern": "iicrc-s520-conditions", "paths": ["src/constants/standards-corpus.js"] },
+      { "type": "grep_matches", "pattern": "ashrae-241-2023", "paths": ["src/constants/standards-corpus.js"] },
+      { "type": "grep_matches", "pattern": "molhave-tvoc-framework", "paths": ["src/constants/standards-corpus.js"] },
+      { "type": "file_exists", "path": "tests/lib/corpus-search.test.ts" }
+    ]},
+
     { "id": "SENTRY-PACKAGE", "label": "Sentry package installed", "checks": [
       { "type": "grep_matches", "pattern": "@sentry/", "paths": ["package.json"] }
     ]},

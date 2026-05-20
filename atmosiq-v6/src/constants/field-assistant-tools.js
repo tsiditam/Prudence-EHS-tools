@@ -30,6 +30,8 @@ import {
   lookupHealthEffects,
   listAnalytes,
 } from './iaq-knowledge-base.js'
+import { searchCorpus } from '../utils/corpus-search.js'
+import { summarizeCorpus } from './standards-corpus.js'
 
 // ── Anthropic tool-use schemas ──────────────────────────────────────
 // Each entry mirrors the Anthropic Messages API "tools" array shape.
@@ -94,6 +96,29 @@ export const FIELD_ASSISTANT_TOOLS = [
       required: [],
     },
   },
+  {
+    name: 'search_standards_corpus',
+    description:
+      'Free-text search over the curated IAQ standards corpus: ASHRAE 62.1 / 55 / 241, OSHA Z-1/Z-2, NIOSH RELs/NMAM methods, EPA NAAQS, IICRC S520 mold framework, IARC carcinogen groups, sampling methodology, defensibility primitives. Returns up to k matching passages each with a primary-source citation. Use this for conceptual or methodological questions where the answer is NOT a single analyte\'s PEL/TLV/method (those use the lookup_* tools). Examples: "what is demand-controlled ventilation", "how is mold condition 3 defined", "chain of custody requirements", "Mølhave TVOC framework", "ASHRAE 241 ECAi". Synthesize the returned passages into the four-section answer format; cite the returned citation strings verbatim.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        query: {
+          type: 'string',
+          description:
+            'Free-text query. Use technical terms from IAQ practice — ASHRAE / OSHA / NIOSH / EPA section numbers, acronyms (PEL, TLV, REL, NAAQS, ECAi), or topic phrases ("mold condition framework", "ventilation rate procedure"). Stopwords are filtered.',
+        },
+        k: {
+          type: 'integer',
+          description:
+            'Maximum number of passages to return (default 3, max 10). Use 3 for direct questions; up to 5 for broader concept queries.',
+          minimum: 1,
+          maximum: 10,
+        },
+      },
+      required: ['query'],
+    },
+  },
 ]
 
 /**
@@ -147,6 +172,42 @@ export function dispatchTool(name, input) {
 
     if (name === 'list_known_analytes') {
       return { status: 'ok', analytes: listAnalytes() }
+    }
+
+    if (name === 'search_standards_corpus') {
+      const query = input && typeof input.query === 'string' ? input.query : ''
+      const k = input && typeof input.k === 'number' ? input.k : 3
+      if (!query.trim()) {
+        return {
+          status: 'error',
+          error: 'empty_query',
+          message: 'Query string is empty.',
+        }
+      }
+      const results = searchCorpus(query, { k })
+      if (results.length === 0) {
+        return {
+          status: 'no_matches',
+          query,
+          corpus_summary: summarizeCorpus(),
+          message:
+            'No passages in the curated corpus match this query. The corpus covers ASHRAE 62.1 / 55 / 241, OSHA / NIOSH / ACGIH / EPA reference frameworks, IICRC S520 mold, and core IAQ methodology. If the question is about a specific analyte\'s PEL/TLV/method, call lookup_exposure_limit / lookup_sampling_method / lookup_health_effects instead. Otherwise tell the assessor the corpus does not cover this topic and recommend primary sources.',
+        }
+      }
+      return {
+        status: 'ok',
+        query,
+        result_count: results.length,
+        results: results.map((r) => ({
+          id: r.chunk.id,
+          title: r.chunk.title,
+          citation: r.chunk.citation,
+          document: r.chunk.document,
+          year: r.chunk.year,
+          text: r.chunk.text,
+          relevance: Math.round(r.score * 1000) / 1000,
+        })),
+      }
     }
 
     return {
