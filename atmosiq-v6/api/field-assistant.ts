@@ -27,11 +27,11 @@
  */
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import { FIELD_ASSISTANT_ROLE_PROMPT } from '../src/constants/field-assistant-prompt'
-import { STANDARDS_FOR_AGENT, FAQ_FOR_AGENT } from '../src/constants/field-assistant-corpus'
+import { FIELD_ASSISTANT_ROLE_PROMPT } from '../src/constants/field-assistant-prompt.js'
+import { STANDARDS_FOR_AGENT, FAQ_FOR_AGENT } from '../src/constants/field-assistant-corpus.js'
 // eslint-disable-next-line @typescript-eslint/no-require-imports -- ESM/CJS interop on Vercel
 const { FIELD_ASSISTANT_TOOLS, dispatchTool } = require('../src/constants/field-assistant-tools.js')
-import { scrubPii } from '../lib/sentry'
+import { scrubPii } from '../lib/sentry.js'
 // eslint-disable-next-line @typescript-eslint/no-require-imports -- CommonJS shared helper
 const { auditLog } = require('./_audit')
 
