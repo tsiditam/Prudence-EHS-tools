@@ -55,6 +55,17 @@
       { "type": "file_exists", "path": "tests/components/PendingSyncIndicator.test.tsx" }
     ]},
 
+    { "id": "LAB-RESULTS-IMPORT", "label": "Lab Results CSV import + Appendix G renderer", "checks": [
+      { "type": "file_exists", "path": "src/utils/labResultsParser.js" },
+      { "type": "file_exists", "path": "src/components/LabResultsImport.jsx" },
+      { "type": "file_exists", "path": "src/components/docx/sections-lab-results.js" },
+      { "type": "grep_matches", "pattern": "buildLabResultsAppendix", "paths": ["src/components/DocxReport.js"] },
+      { "type": "grep_matches", "pattern": "LabResultsImport", "paths": ["src/components/SamplingFormsView.jsx"] },
+      { "type": "grep_matches", "pattern": "labResults: viewRpt", "paths": ["src/components/MobileApp.jsx"] },
+      { "type": "file_exists", "path": "tests/lib/lab-results-parser.test.ts" },
+      { "type": "file_exists", "path": "tests/engine/lab-results-appendix.test.ts" }
+    ]},
+
     { "id": "RESURVEY-SCHEDULE", "label": "Re-survey Schedule section is rendered in the consultant DOCX", "checks": [
       { "type": "file_exists", "path": "src/engines/resurveySchedule.js" },
       { "type": "file_exists", "path": "src/components/docx/sections-resurvey.js" },

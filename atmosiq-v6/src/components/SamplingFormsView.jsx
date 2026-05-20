@@ -18,6 +18,7 @@ import { I } from './Icons'
 import { generateMoldCoCBlob, MOLD_COC_FILENAME_PREFIX } from './forms/MoldCoCForm'
 import { generateTvocCoCBlob, TVOC_COC_FILENAME_PREFIX } from './forms/TvocCoCForm'
 import { deliverFile } from './forms/deliverFile'
+import LabResultsImport from './LabResultsImport'
 
 const CARD = 'var(--card)'
 const BORDER = 'var(--border)'
@@ -67,6 +68,11 @@ function buildFilename(prefix, profile) {
 export default function SamplingFormsView({ profile, onBack }) {
   const [busyId, setBusyId] = useState('')
   const [error, setError] = useState('')
+  const [subView, setSubView] = useState('picker') // 'picker' | 'lab-import'
+
+  if (subView === 'lab-import') {
+    return <LabResultsImport onBack={() => setSubView('picker')} />
+  }
 
   const handleGenerate = async (form) => {
     setError('')
@@ -161,6 +167,57 @@ export default function SamplingFormsView({ profile, onBack }) {
             </button>
           </div>
         ))}
+      </div>
+
+      {/* Lab Results Import — third card. Closes the CoC loop: forms
+          go out via the Generate PDF buttons above, lab CSVs come back
+          and attach to the originating assessment via this view. */}
+      <div
+        style={{
+          padding: '18px',
+          marginTop: 12,
+          background: CARD,
+          border: `1px solid ${BORDER}`,
+          borderRadius: 12,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 12,
+        }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+          <div style={{
+            width: 40, height: 40, borderRadius: 8,
+            background: `color-mix(in srgb, var(--accent) 8%, transparent)`,
+            border: `1px solid color-mix(in srgb, var(--accent) 25%, transparent)`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+          }}>
+            <I n="upload" s={20} c={ACCENT} w={1.8} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: TEXT, marginBottom: 4 }}>
+              Import Lab Results
+            </div>
+            <div style={{ fontSize: 12, color: SUB, lineHeight: 1.55 }}>
+              Upload a CSV from your analytical lab (EMSL, EMLab P&amp;K, Eurofins, generic).
+              Results attach to an existing assessment and render as Appendix G in the
+              consultant DOCX.
+            </div>
+          </div>
+        </div>
+        <button
+          onClick={() => setSubView('lab-import')}
+          style={{
+            alignSelf: 'flex-start',
+            display: 'inline-flex', alignItems: 'center', gap: 8,
+            padding: '10px 18px',
+            background: 'var(--accent-fill)',
+            border: 'none', borderRadius: 8,
+            color: 'var(--on-accent-fill)',
+            fontSize: 13, fontWeight: 700,
+            cursor: 'pointer', fontFamily: 'inherit', minHeight: 40,
+          }}>
+          <I n="upload" s={14} c="var(--on-accent-fill)" w={2} />
+          Import CSV
+        </button>
       </div>
 
       <div style={{ marginTop: 24, fontSize: 11, color: DIM, lineHeight: 1.6 }}>

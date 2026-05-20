@@ -20,6 +20,7 @@ import { buildSamplingPlan, buildRecommendations } from './docx/sections-recomme
 import { buildAppendixB, buildFooter } from './docx/sections-appendix'
 import { buildTechnicalMetadata, buildFindingsRegister, buildCategoryScoresSummary, buildDataGapRegister, buildInstrumentLog, buildOutdoorBaseline } from './docx/sections-technical'
 import { buildClientDocx } from './docx/sections-v21client'
+import { buildLabResultsAppendix } from './docx/sections-lab-results'
 import { legacyToAssessmentScore, deriveAssessmentMeta } from '../engine/bridge'
 import { renderClientReport } from '../engine/report/client'
 import { watermarkSectionAttachments, buildCoverNoticeParagraph } from './docx/watermark'
@@ -91,6 +92,14 @@ async function generateConsultantDocx(ctx, data) {
     includeAssessmentIndexAppendix: !!data.includeAssessmentIndexAppendix,
   })
   const { cover, main } = buildClientDocx(result, { photos: data.photos || ctx.photos || {} })
+
+  // Lab results appendix — appended after the v2.1 buildClientDocx
+  // main body when the assessor has imported analytical CSV results
+  // via LabResultsImport. No-op when assessment.labResults is missing
+  // or empty (legacy assessments render identically). Closes the CoC
+  // loop in the deliverable.
+  const labResultsChildren = buildLabResultsAppendix(data.labResults)
+  if (labResultsChildren.length > 0) main.push(...labResultsChildren)
 
   // Free-tier watermark: pass watermarkConfig from caller (e.g. resolved
   // from the user's profile.plan upstream). When tier === 'free', adds
