@@ -55,6 +55,15 @@
       { "type": "file_exists", "path": "tests/components/PendingSyncIndicator.test.tsx" }
     ]},
 
+    { "id": "OFFLINE-SW-APP-SHELL", "label": "Service worker precaches the app shell + skips /api/ from caching", "checks": [
+      { "type": "file_exists", "path": "scripts/build-precache-manifest.mjs" },
+      { "type": "grep_matches", "pattern": "precacheManifestPlugin", "paths": ["vite.config.js"] },
+      { "type": "grep_matches", "pattern": "precache-manifest.json", "paths": ["public/sw.js"] },
+      { "type": "grep_matches", "pattern": "isApiRequest", "paths": ["public/sw.js"] },
+      { "type": "grep_matches", "pattern": "networkFirstWithShellFallback", "paths": ["public/sw.js"] },
+      { "type": "file_exists", "path": "tests/scripts/build-precache-manifest.test.ts" }
+    ]},
+
     { "id": "SENTRY-PACKAGE", "label": "Sentry package installed", "checks": [
       { "type": "grep_matches", "pattern": "@sentry/", "paths": ["package.json"] }
     ]},
