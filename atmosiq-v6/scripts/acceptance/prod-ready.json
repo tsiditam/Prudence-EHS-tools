@@ -94,6 +94,15 @@
       { "type": "file_exists", "path": "tests/lib/photo-analysis.test.ts" }
     ]},
 
+    { "id": "JASPER-WATCH-LIVE-ADVISOR", "label": "Live deterministic advisor surfaces reading-vs-threshold flags during sensor entry (Play 3a)", "checks": [
+      { "type": "file_exists", "path": "src/engines/liveAdvisor.js" },
+      { "type": "file_exists", "path": "src/components/JasperWatchPanel.jsx" },
+      { "type": "grep_matches", "pattern": "JasperWatchPanel", "paths": ["src/components/MobileApp.jsx"] },
+      { "type": "grep_matches", "pattern": "evaluateLive", "paths": ["src/components/JasperWatchPanel.jsx"] },
+      { "type": "file_exists", "path": "tests/engine/live-advisor.test.ts" },
+      { "type": "file_exists", "path": "tests/components/JasperWatchPanel.test.tsx" }
+    ]},
+
     { "id": "STANDARDS-CURRENCY", "label": "Standards Currency layer surfaces ASHRAE 241 / EPA PM2.5 annual / ACGIH TLV references without engine touch", "checks": [
       { "type": "file_exists", "path": "src/engines/contextualStandards.js" },
       { "type": "file_exists", "path": "src/components/docx/sections-methodology-currency.js" },
