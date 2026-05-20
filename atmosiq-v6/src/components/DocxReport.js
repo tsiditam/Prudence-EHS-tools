@@ -21,6 +21,7 @@ import { buildAppendixB, buildFooter } from './docx/sections-appendix'
 import { buildTechnicalMetadata, buildFindingsRegister, buildCategoryScoresSummary, buildDataGapRegister, buildInstrumentLog, buildOutdoorBaseline } from './docx/sections-technical'
 import { buildClientDocx } from './docx/sections-v21client'
 import { buildLabResultsAppendix } from './docx/sections-lab-results'
+import { buildMethodologyCurrency } from './docx/sections-methodology-currency'
 import { legacyToAssessmentScore, deriveAssessmentMeta } from '../engine/bridge'
 import { renderClientReport } from '../engine/report/client'
 import { watermarkSectionAttachments, buildCoverNoticeParagraph } from './docx/watermark'
@@ -100,6 +101,14 @@ async function generateConsultantDocx(ctx, data) {
   // loop in the deliverable.
   const labResultsChildren = buildLabResultsAppendix(data.labResults)
   if (labResultsChildren.length > 0) main.push(...labResultsChildren)
+
+  // Standards Currency section — methodology-currency layer that
+  // documents bibliographic references NOT integrated into AtmosFlow's
+  // deterministic scoring path (ASHRAE 241-2023, EPA PM2.5 annual
+  // NAAQS 2024 revision, ACGIH TLV 2025). Engine-sacred respected —
+  // adds visibility for the reviewing IH without altering any
+  // scoring outcome.
+  main.push(...buildMethodologyCurrency())
 
   // Free-tier watermark: pass watermarkConfig from caller (e.g. resolved
   // from the user's profile.plan upstream). When tier === 'free', adds

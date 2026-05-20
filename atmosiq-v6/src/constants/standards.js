@@ -46,6 +46,16 @@ export const STANDARDS_MANIFEST = {
   'ASHRAE TC 9.9': '2011',
   'IEEE 1635 / ASHRAE Guideline 21': 'current',
   'NFPA 855': '2026',
+  // Move 5 — methodology currency layer. Bibliographic only — these
+  // standards are NOT integrated into STD scoring thresholds (engine
+  // is sacred); they appear in the report's Standards Currency
+  // section as references a qualified IH may consult during review.
+  // See src/engines/contextualStandards.js for the rationale text
+  // that accompanies each entry. Verify edition/year against the
+  // primary source before any future bump.
+  'ASHRAE 241': '2023 (infectious aerosol control; bibliographic reference)',
+  'EPA PM2.5 Annual NAAQS Revision': '2024 (89 FR 16202; primary annual lowered to 9 µg/m³)',
+  'ACGIH TLVs and BEIs': '2025 edition (bibliographic reference)',
   engineVersion: ENGINE_VERSION,
   manifestUpdated: STANDARDS_MANIFEST_DATE,
 }
