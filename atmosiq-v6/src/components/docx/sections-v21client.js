@@ -1229,7 +1229,7 @@ function buildCapturedFieldPhotos(report, photos) {
       if (!key.startsWith(`z${zi}-`)) continue
       const fieldId = key.slice(`z${zi}-`.length)
       for (const ph of photos[key] || []) {
-        if (ph && ph.src) matches.push({ src: ph.src, label: fieldLabels[fieldId] || fieldId, ts: ph.ts })
+        if (ph && ph.src) matches.push({ src: ph.src, label: fieldLabels[fieldId] || fieldId, ts: ph.ts, aiAnalysis: ph.aiAnalysis || null })
       }
     }
     return { zoneName: zone.zoneName, photos: matches }
@@ -1251,7 +1251,51 @@ function buildCapturedFieldPhotos(report, photos) {
           spacing: { after: 40 },
         }))
         const caption = ph.ts ? `${ph.label} · ${new Date(ph.ts).toLocaleTimeString()}` : ph.label
-        out.push(p(caption, { size: 16, color: COLORS.muted, after: 160 }))
+        out.push(p(caption, { size: 16, color: COLORS.muted, after: ph.aiAnalysis ? 60 : 160 }))
+        // AI-screening block — appears only when the photo carries an
+        // AI analysis. Framed as "AI-PROPOSED · IH REVIEW REQUIRED"
+        // per CLAUDE.md screening-only positioning. Observed line
+        // first, then concerns + recommended_actions + confidence,
+        // then disclaimers, all in tight italic body type to read
+        // as a sidecar to the photo rather than a finding statement.
+        if (ph.aiAnalysis) {
+          out.push(p('AI-PROPOSED · IH REVIEW REQUIRED', {
+            size: 14, bold: true, color: '7C3AED', after: 20,
+          }))
+          if (ph.aiAnalysis.observed) {
+            out.push(p(`Observed: ${ph.aiAnalysis.observed}`, {
+              size: 16, color: COLORS.body, after: 20,
+            }))
+          }
+          if (Array.isArray(ph.aiAnalysis.concerns) && ph.aiAnalysis.concerns.length > 0) {
+            out.push(p(`Concerns: ${ph.aiAnalysis.concerns.join('; ')}`, {
+              size: 16, color: COLORS.body, after: 20,
+            }))
+          }
+          if (ph.aiAnalysis.probable_iaq_class) {
+            out.push(p(`Possible classification: ${ph.aiAnalysis.probable_iaq_class}`, {
+              size: 16, color: COLORS.body, after: 20,
+            }))
+          }
+          if (Array.isArray(ph.aiAnalysis.recommended_actions) && ph.aiAnalysis.recommended_actions.length > 0) {
+            out.push(p(`Suggested next steps: ${ph.aiAnalysis.recommended_actions.join('; ')}`, {
+              size: 16, color: COLORS.body, after: 20,
+            }))
+          }
+          if (ph.aiAnalysis.confidence) {
+            const citations = Array.isArray(ph.aiAnalysis.citations) && ph.aiAnalysis.citations.length > 0
+              ? ` · References: ${ph.aiAnalysis.citations.join(', ')}`
+              : ''
+            out.push(p(`Confidence: ${ph.aiAnalysis.confidence}${citations}`, {
+              size: 16, color: COLORS.muted, italics: true, after: 20,
+            }))
+          }
+          if (ph.aiAnalysis.disclaimers) {
+            out.push(p(ph.aiAnalysis.disclaimers, {
+              size: 14, italics: true, color: COLORS.muted, after: 160,
+            }))
+          }
+        }
       } catch (_err) {
         out.push(p(`[Photo: ${ph.label}]`, { size: 18, color: COLORS.muted, italics: true, after: 120 }))
       }
