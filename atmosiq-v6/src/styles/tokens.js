@@ -118,10 +118,13 @@ export const STATUS = {
 // Type scale. Named entries return style objects so call sites read
 // like `<div style={T.h2}>...` instead of carrying inline fontSize/
 // fontWeight tuples. Letter-spacing follows the optical hierarchy:
-// display tightens, micro opens up.
+// display tightens, micro opens up. v3.1 refinement: h1 bumped 24→28
+// so facility headers carry the same weight as the reference target;
+// hSub added for the address line that sits under h1.
 export const T = {
   display:    { fontSize: 32, lineHeight: '40px', fontWeight: 700, letterSpacing: '-0.5px', color: TEXT_PRIMARY },
-  h1:         { fontSize: 24, lineHeight: '32px', fontWeight: 700, letterSpacing: '-0.4px', color: TEXT_PRIMARY },
+  h1:         { fontSize: 28, lineHeight: '34px', fontWeight: 700, letterSpacing: '-0.6px', color: TEXT_PRIMARY },
+  h1Sub:      { fontSize: 13, lineHeight: '18px', fontWeight: 400, color: TEXT_SECONDARY },
   h2:         { fontSize: 18, lineHeight: '26px', fontWeight: 600, letterSpacing: '-0.2px', color: TEXT_PRIMARY },
   h3:         { fontSize: 15, lineHeight: '22px', fontWeight: 600, color: TEXT_PRIMARY },
   body:       { fontSize: 14, lineHeight: '20px', fontWeight: 400, color: TEXT_PRIMARY },
@@ -135,12 +138,16 @@ export const T = {
 
 // Numeric scale. Mono-spaced so columns of measurements align and
 // digits don't shift on update — the same convention as a real
-// instrument readout.
+// instrument readout. v3.1 adds `display` for the dominant stat
+// numerals in the hero (Zone Average / Lowest Zone / Zones Assessed
+// in the reference target run ~38–40 px); `lg` stays for the second-
+// tier numerals (Key Indicator score), `md` for inline values.
 export const N = {
-  xl: { fontFamily: FONT_MONO, fontSize: 36, lineHeight: '40px', fontWeight: 600, letterSpacing: '-0.5px', color: TEXT_PRIMARY },
-  lg: { fontFamily: FONT_MONO, fontSize: 24, lineHeight: '28px', fontWeight: 600, color: TEXT_PRIMARY },
-  md: { fontFamily: FONT_MONO, fontSize: 16, lineHeight: '20px', fontWeight: 600, color: TEXT_PRIMARY },
-  sm: { fontFamily: FONT_MONO, fontSize: 12, lineHeight: '16px', fontWeight: 500, color: TEXT_TERTIARY },
+  display: { fontFamily: FONT_MONO, fontSize: 38, lineHeight: '42px', fontWeight: 600, letterSpacing: '-0.6px', color: TEXT_PRIMARY },
+  xl:      { fontFamily: FONT_MONO, fontSize: 36, lineHeight: '40px', fontWeight: 600, letterSpacing: '-0.5px', color: TEXT_PRIMARY },
+  lg:      { fontFamily: FONT_MONO, fontSize: 24, lineHeight: '28px', fontWeight: 600, color: TEXT_PRIMARY },
+  md:      { fontFamily: FONT_MONO, fontSize: 16, lineHeight: '20px', fontWeight: 600, color: TEXT_PRIMARY },
+  sm:      { fontFamily: FONT_MONO, fontSize: 12, lineHeight: '16px', fontWeight: 500, color: TEXT_TERTIARY },
 }
 
 // Radii.

@@ -964,32 +964,50 @@ export default function MobileApp() {
     return (
       <div style={{paddingTop:20,paddingBottom:120}}>
 
-        {/* ── Building Header — facility name, location, meta strip,
-            and the two primary actions. Layout mirrors the v3 Home
-            hero so a user navigating from Home to a finalized report
-            sees the same chrome. ── */}
-        <div style={{marginBottom:14,display:'flex',alignItems:'flex-start',gap:16,flexWrap:'wrap'}}>
+        {/* ── Building Header — facility name, address, meta strip,
+            and the header-level CTAs that match the reference target
+            (Continue Assessment + View Report (Draft) on the right).
+            For finalized reports (archived) the CTAs collapse to
+            Share + a kebab so the chrome stays consistent. ── */}
+        <div style={{marginBottom:18,display:'flex',alignItems:'flex-start',gap:16,flexWrap:'wrap'}}>
           <div style={{flex:1,minWidth:0}}>
-            <div style={{...V3.T.h1, marginBottom:4, overflow:'hidden', textOverflow:'ellipsis'}}>{bldg.fn||'Assessment'}</div>
-            {bldg.fl && <div style={{...V3.T.captionDim, marginBottom:6}}>{bldg.fl}</div>}
+            <div style={{...V3.T.h1, fontSize:30, lineHeight:'36px', marginBottom:4, overflow:'hidden', textOverflow:'ellipsis'}}>{bldg.fn||'Assessment'}</div>
+            {bldg.fl && <div style={{...V3.T.h1Sub, marginBottom:8}}>{bldg.fl}</div>}
             <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap',color:V3.TEXT_TERTIARY,fontSize:12}}>
               {profile && (
                 <span style={{display:'inline-flex',alignItems:'center',gap:6}}>
                   <I n="user" s={13} c={V3.TEXT_TERTIARY} w={1.6} />
-                  <span>{profile.name || 'Assessment by you'}</span>
+                  <span>{profile.name ? `Assessment by ${profile.name}` : 'Assessment by you'}</span>
                 </span>
               )}
-              {profile && <span style={{color:V3.BORDER_STRONG}}>·</span>}
+              <span style={{color:V3.BORDER_STRONG}}>·</span>
               <span style={{fontFamily:'var(--font-mono)'}}>{clock.toLocaleDateString([],{month:'short',day:'numeric',year:'numeric'})}</span>
               {archived ? (
                 <span style={V3.pill(V3.STATUS.ready)}>Final</span>
               ) : narrative ? (
                 <span style={V3.pill(V3.STATUS.draft)}>Ready for Review</span>
               ) : (
-                <span style={V3.pill(V3.STATUS.inProgress)}>Draft</span>
+                <span style={V3.pill(V3.STATUS.inProgress)}>In Progress</span>
               )}
             </div>
           </div>
+          {!archived && (
+            <div style={{display:'flex',gap:8,flexShrink:0,alignSelf:'flex-start'}}>
+              {(index.drafts||[]).length > 0 && (() => {
+                const matchingDraft = (index.drafts||[]).find(d => d.facility === bldg.fn) || (index.drafts||[])[0]
+                return matchingDraft ? (
+                  <button onClick={()=>resumeDraft(matchingDraft.id)} style={V3.btnPrimary}>
+                    <I n="play" s={13} c="var(--on-accent-fill)" w={2} />
+                    Continue Assessment
+                  </button>
+                ) : null
+              })()}
+              <button onClick={()=>setRTab('narrative')} style={V3.btnSecondary}>
+                <I n="report" s={13} c={V3.TEXT_PRIMARY} w={1.7} />
+                View Report (Draft)
+              </button>
+            </div>
+          )}
         </div>
 
         {/* ── Legacy / Standards Badge ── */}
@@ -1035,26 +1053,33 @@ export default function MobileApp() {
 
             {userMode !== 'fm' && (
               <>
-                <div style={{margin:'14px 24px 0',borderTop:`1px solid ${V3.BORDER_DEFAULT}`,borderBottom:`1px solid ${V3.BORDER_DEFAULT}`,display:'flex',alignItems:'stretch',gap:0}}>
-                  <div style={V3.statBlock}>
-                    <div style={V3.N.lg}>{comp.avg}<span style={{...V3.N.sm, marginLeft:2}}>/100</span></div>
-                    <div style={V3.T.micro}>Zone Average</div>
+                <div style={{margin:'18px 24px 0',padding:'18px 0 16px',borderTop:`1px solid ${V3.BORDER_DEFAULT}`,borderBottom:`1px solid ${V3.BORDER_DEFAULT}`,display:'flex',alignItems:'stretch',gap:0}}>
+                  <div style={{...V3.statBlock, padding:'2px 0'}}>
+                    <div style={{display:'flex',alignItems:'baseline',gap:2}}>
+                      <span style={V3.N.xl}>{comp.avg}</span>
+                      <span style={{...V3.N.sm, fontSize:13, color:V3.TEXT_TERTIARY}}>/100</span>
+                    </div>
+                    <div style={{...V3.T.micro, marginTop:6}}>Zone Average</div>
                   </div>
                   <div style={V3.statDivider} />
-                  <div style={V3.statBlock}>
-                    <div style={{...V3.N.lg, color: comp.rc}}>{comp.worst}<span style={{...V3.N.sm, marginLeft:2}}>/100</span></div>
-                    <div style={V3.T.micro}>Lowest Zone</div>
+                  <div style={{...V3.statBlock, padding:'2px 0'}}>
+                    <div style={{display:'flex',alignItems:'baseline',gap:2}}>
+                      <span style={{...V3.N.xl, color: comp.rc}}>{comp.worst}</span>
+                      <span style={{...V3.N.sm, fontSize:13, color:V3.TEXT_TERTIARY}}>/100</span>
+                    </div>
+                    <div style={{...V3.T.micro, marginTop:6}}>Lowest Zone</div>
                   </div>
                   <div style={V3.statDivider} />
-                  <div style={V3.statBlock}>
-                    <div style={V3.N.lg}>{comp.count}</div>
-                    <div style={V3.T.micro}>Zones Assessed</div>
+                  <div style={{...V3.statBlock, padding:'2px 0'}}>
+                    <div style={V3.N.xl}>{comp.count}</div>
+                    <div style={{...V3.T.micro, marginTop:6}}>Zones Assessed</div>
                   </div>
                 </div>
-                <div style={{padding:'10px 24px 18px',display:'flex',alignItems:'center',gap:8,justifyContent:'center'}}>
-                  <span style={{...V3.T.captionDim, fontFamily:'var(--font-mono)'}}>
+                <div style={{padding:'12px 24px 18px',display:'flex',alignItems:'center',gap:6,justifyContent:'center'}}>
+                  <span style={{...V3.T.captionDim, fontFamily:'var(--font-mono)', fontSize:11}}>
                     Composite indicator · Lower scores indicate greater concern
                   </span>
+                  <I n="help" s={12} c={V3.TEXT_MUTED} w={1.6} />
                 </div>
               </>
             )}
@@ -1106,16 +1131,23 @@ export default function MobileApp() {
           </div>
         </div>
 
-        {/* ── v2.1 Engine InternalReport (operator dashboard) ── */}
-        <V21InternalPanel
-          zoneScores={zoneScores}
-          comp={comp}
-          zones={zones}
-          profile={profile}
-          presurvey={presurvey}
-          bldg={bldg}
-          assessmentDate={viewRpt?.ts ? viewRpt.ts.slice(0,10) : undefined}
-        />
+        {/* ── v2.1 Engine InternalReport (operator dashboard) ──
+            Demoted to a tighter wrapper so the chrome line "v2.8.0
+            ENGINE · Internal report (operator dashboard) · Expand"
+            doesn't break the visual flow between hero and tabs.
+            The panel itself manages its own collapsed state — we
+            only constrain its outer padding here. ── */}
+        <div style={{marginBottom:14, marginTop:-4, opacity:0.85}}>
+          <V21InternalPanel
+            zoneScores={zoneScores}
+            comp={comp}
+            zones={zones}
+            profile={profile}
+            presurvey={presurvey}
+            bldg={bldg}
+            assessmentDate={viewRpt?.ts ? viewRpt.ts.slice(0,10) : undefined}
+          />
+        </div>
 
         {/* ── Data-completeness prompts. Banner-style status-by-
             exception entries — surface only when defensibility is at
@@ -1228,46 +1260,55 @@ export default function MobileApp() {
 
               {/* ── Two-up: Professional Assessment + Key Indicator ─── */}
               <div style={{display:'grid',gridTemplateColumns:isTablet?'minmax(0,1.1fr) minmax(0,1fr)':'minmax(0,1fr)',gap:16}}>
-                {/* Professional Assessment */}
+                {/* Professional Assessment.
+                    Inner grid uses minmax(0,1fr) so long engine output
+                    like "HVAC system deficiency" wraps inside its cell
+                    instead of forcing 2 lines via column starvation;
+                    at the narrowest of the iPad-portrait two-column
+                    split we collapse Primary driver / Complaint pattern
+                    to a single column for breathing room. ── */}
                 <div style={V3.panel()}>
-                  <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:16,flexWrap:'wrap'}}>
-                    <div style={V3.T.h3}>Professional Assessment</div>
-                    <div style={{...V3.T.captionDim, fontStyle:'italic'}}>(Screening-Level)</div>
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginBottom:18}}>
+                    <div style={{display:'flex',alignItems:'baseline',gap:8,flexWrap:'wrap'}}>
+                      <div style={V3.T.h3}>Professional Assessment</div>
+                      <div style={{...V3.T.captionDim, fontStyle:'italic'}}>(Screening-Level)</div>
+                    </div>
+                    <I n="help" s={13} c={V3.TEXT_MUTED} w={1.6} />
                   </div>
-                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:expertCause||expertComplaint?16:0}}>
+                  <div style={{display:'grid',gridTemplateColumns:isTabletLand?'minmax(0,1fr) minmax(0,1fr)':'minmax(0,1fr)',gap:isTabletLand?14:10,marginBottom:expertCause||expertComplaint?14:0}}>
                     {expertDriver && (
                       <div style={{display:'flex',gap:10,alignItems:'flex-start'}}>
                         <div style={V3.iconBox('var(--accent)')}><I n="wind" s={15} c="var(--accent)" w={1.8} /></div>
-                        <div style={{minWidth:0}}>
+                        <div style={{minWidth:0,flex:1}}>
                           <div style={V3.T.captionDim}>Primary driver</div>
-                          <div style={{...V3.T.bodyStrong, marginTop:2, lineHeight:'18px'}}>{expertDriver}</div>
+                          <div style={{...V3.T.bodyStrong, marginTop:3, lineHeight:'18px'}}>{expertDriver}</div>
                         </div>
                       </div>
                     )}
                     {expertComplaint && (
                       <div style={{display:'flex',gap:10,alignItems:'flex-start'}}>
                         <div style={V3.iconBox(WARN)}><I n="people" s={15} c={WARN} w={1.8} /></div>
-                        <div style={{minWidth:0}}>
+                        <div style={{minWidth:0,flex:1}}>
                           <div style={V3.T.captionDim}>Complaint pattern</div>
-                          <div style={{...V3.T.bodyStrong, marginTop:2, lineHeight:'18px'}}>Building-related symptoms</div>
+                          <div style={{...V3.T.bodyStrong, marginTop:3, lineHeight:'18px'}}>Building-related symptoms</div>
                         </div>
                       </div>
                     )}
                   </div>
                   {expertCause && (
-                    <div style={{padding:'12px 0',borderTop:`1px solid ${V3.BORDER_SUBTLE}`,display:'flex',gap:10,alignItems:'flex-start'}}>
+                    <div style={{padding:'14px 0',borderTop:`1px solid ${V3.BORDER_SUBTLE}`,display:'flex',gap:10,alignItems:'flex-start'}}>
                       <div style={V3.iconBox(V3.TEXT_SECONDARY)}><I n="person" s={15} c={V3.TEXT_SECONDARY} w={1.8} /></div>
                       <div style={{minWidth:0,flex:1}}>
                         <div style={V3.T.captionDim}>Likely contributing cause</div>
-                        <div style={{...V3.T.body, marginTop:2, lineHeight:'19px'}}>{expertCause.length > 140 ? expertCause.slice(0, 137) + '…' : expertCause}</div>
+                        <div style={{...V3.T.body, marginTop:3, lineHeight:'19px'}}>{expertCause.length > 140 ? expertCause.slice(0, 137) + '…' : expertCause}</div>
                       </div>
                     </div>
                   )}
-                  <div style={{padding:'12px 0 0',borderTop:`1px solid ${V3.BORDER_SUBTLE}`,display:'flex',gap:10,alignItems:'flex-start'}}>
+                  <div style={{padding:'14px 0 0',borderTop:`1px solid ${V3.BORDER_SUBTLE}`,display:'flex',gap:10,alignItems:'flex-start'}}>
                     <div style={V3.iconBox(V3.TEXT_SECONDARY)}><I n="notes" s={15} c={V3.TEXT_SECONDARY} w={1.8} /></div>
                     <div style={{minWidth:0,flex:1}}>
                       <div style={V3.T.captionDim}>Overall assessment</div>
-                      <div style={{...V3.T.body, marginTop:2, lineHeight:'19px'}}>{(() => {
+                      <div style={{...V3.T.body, marginTop:3, lineHeight:'19px'}}>{(() => {
                         if (comp.tot < 30) return 'Under-delivered outdoor air is the most common contributor based on available data.'
                         if (comp.tot < 50) return 'Multiple contributing factors detected; targeted intervention warranted.'
                         if (comp.tot < 70) return 'Conditions trending outside accepted range; targeted improvements recommended.'
@@ -1276,47 +1317,58 @@ export default function MobileApp() {
                     </div>
                   </div>
                   <div style={V3.divider()} />
-                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
-                    <div>
-                      <div style={V3.T.captionDim}>Confidence</div>
-                      <div style={{display:'flex',alignItems:'center',gap:8,marginTop:4}}>
-                        <span style={{...V3.T.bodyStrong, color:confTone}}>{measConf?.overall || 'Pending'}</span>
+                  <div style={{display:'grid',gridTemplateColumns:'minmax(0,1fr) minmax(0,1fr)',gap:16}}>
+                    <div style={{display:'flex',alignItems:'flex-start',gap:8}}>
+                      <I n="chart" s={14} c={confTone} w={1.7} />
+                      <div style={{minWidth:0}}>
+                        <div style={V3.T.captionDim}>Confidence</div>
+                        <div style={{...V3.T.bodyStrong, color:confTone, marginTop:2}}>{measConf?.overall || 'Pending'}</div>
                       </div>
                     </div>
-                    <div>
-                      <div style={V3.T.captionDim}>Assessment type</div>
-                      <div style={{...V3.T.body, marginTop:4}}>Screening <span style={V3.T.captionDim}>(Non-compliance)</span></div>
+                    <div style={{display:'flex',alignItems:'flex-start',gap:8}}>
+                      <I n="shield" s={14} c={V3.TEXT_SECONDARY} w={1.7} />
+                      <div style={{minWidth:0}}>
+                        <div style={V3.T.captionDim}>Assessment type</div>
+                        <div style={{...V3.T.body, marginTop:2}}>Screening <span style={V3.T.captionDim}>(Non-compliance)</span></div>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Key Indicator */}
+                {/* Key Indicator.
+                    Title row left + score right (matches the reference
+                    target proportions). Score takes mono numerals at
+                    32 px so it reads as the dominant value, with the
+                    concern label tinted to the same severity tone
+                    underneath. Gauge bar runs full width below. ── */}
                 <div style={V3.panel()}>
-                  <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:14,flexWrap:'wrap'}}>
+                  <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:16,flexWrap:'wrap'}}>
                     <div style={V3.T.h3}>Key Indicator</div>
                     <div style={V3.T.captionDim}>(Worst Zone)</div>
                   </div>
                   {keyCat ? (
                     <>
-                      <div style={{display:'flex',alignItems:'flex-start',gap:12,marginBottom:12}}>
-                        <div style={V3.iconBox(keyTone)}>
-                          <I n={keyCat.l === 'Ventilation' ? 'wind' : keyCat.l === 'HVAC' ? 'hvac' : keyCat.l === 'Environment' ? 'thermo' : keyCat.l === 'Contaminants' ? 'flask' : 'symptom'} s={16} c={keyTone} w={1.8} />
-                        </div>
-                        <div style={{flex:1,minWidth:0}}>
-                          <div style={{...V3.T.bodyStrong, fontSize:16, lineHeight:'20px'}}>{keyCat.l}</div>
-                          <div style={{display:'flex',alignItems:'baseline',gap:4,marginTop:4}}>
-                            <span style={{...V3.N.lg, color:keyTone, fontSize:22, lineHeight:'26px'}}>{keyPct ?? '—'}</span>
-                            {keyPct !== null && <span style={{...V3.N.sm}}>/100</span>}
+                      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,marginBottom:18}}>
+                        <div style={{display:'flex',alignItems:'center',gap:12,minWidth:0,flex:1}}>
+                          <div style={V3.iconBox(keyTone)}>
+                            <I n={keyCat.l === 'Ventilation' ? 'wind' : keyCat.l === 'HVAC' ? 'hvac' : keyCat.l === 'Environment' ? 'thermo' : keyCat.l === 'Contaminants' ? 'flask' : 'symptom'} s={16} c={keyTone} w={1.8} />
                           </div>
-                          <div style={{...V3.T.caption, color:keyTone, marginTop:2}}>{keyConcernLabel}</div>
+                          <div style={{...V3.T.bodyStrong, fontSize:17, lineHeight:'22px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{keyCat.l}</div>
+                        </div>
+                        <div style={{textAlign:'right',flexShrink:0}}>
+                          <div style={{display:'flex',alignItems:'baseline',gap:1,justifyContent:'flex-end'}}>
+                            <span style={{fontFamily:'var(--font-mono)', fontSize:32, lineHeight:'34px', fontWeight:600, color:keyTone, letterSpacing:'-0.5px'}}>{keyPct ?? '—'}</span>
+                            {keyPct !== null && <span style={{...V3.N.sm, fontSize:13, color:V3.TEXT_TERTIARY}}>/100</span>}
+                          </div>
+                          <div style={{...V3.T.caption, color:keyTone, marginTop:2, textAlign:'right'}}>{keyConcernLabel}</div>
                         </div>
                       </div>
                       {keyPct !== null && (
                         <>
-                          <div style={{...V3.gaugeTrack, marginTop:14}}>
-                            <div style={V3.gaugeDot(keyPct, keyTone)} />
+                          <div style={{...V3.gaugeTrack, height:8}}>
+                            <div style={{...V3.gaugeDot(keyPct, keyTone), top:-5, width:16, height:16}} />
                           </div>
-                          <div style={{display:'flex',justifyContent:'space-between',marginTop:8,...V3.N.sm}}>
+                          <div style={{display:'flex',justifyContent:'space-between',marginTop:8,...V3.N.sm, fontSize:11}}>
                             <span>0</span>
                             <span>100</span>
                           </div>
@@ -1325,6 +1377,12 @@ export default function MobileApp() {
                       <div style={V3.divider()} />
                       <div style={V3.T.captionDim}>Why this matters</div>
                       <div style={{...V3.T.body, marginTop:4, lineHeight:'20px'}}>{keyDesc}</div>
+                      <div style={{marginTop:14, paddingTop:14, borderTop:`1px solid ${V3.BORDER_SUBTLE}`, display:'flex', alignItems:'baseline', justifyContent:'space-between', gap:8}}>
+                        <button onClick={()=>setSelZone(zoneScores.findIndex(z => z.tot === comp.worst))} style={{background:'none',border:'none',color:'var(--accent)',fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',padding:0,display:'inline-flex',alignItems:'center',gap:6}}>
+                          View worst zone
+                          <span style={{fontSize:13}}>›</span>
+                        </button>
+                      </div>
                     </>
                   ) : (
                     <div style={V3.T.bodyDim}>No category scored yet — capture field data to surface the worst-zone indicator.</div>
@@ -1456,44 +1514,44 @@ export default function MobileApp() {
           {zs.cats.map((cat,ci)=>{
             if (cat.s === null || cat.status === 'DATA_GAP' || cat.status === 'INSUFFICIENT') {
               return(
-                <div key={cat.l} style={{padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10}}>
+                <div key={cat.l} style={{padding:'14px 18px',background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.md}}>
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                    <span style={{fontSize:14,fontWeight:600,color:TEXT}}>{cat.l}</span>
-                    <span style={{fontSize:11,color:DIM,fontStyle:'italic'}}>Not scored</span>
+                    <span style={V3.T.bodyStrong}>{cat.l}</span>
+                    <span style={V3.pill(V3.TEXT_TERTIARY)}>Not Scored</span>
                   </div>
-                  <div style={{fontSize:11,color:DIM,marginTop:6,lineHeight:1.5}}>Data gap — documentation not provided for this category</div>
+                  <div style={{...V3.T.captionDim, marginTop:6}}>Data gap — documentation not provided for this category</div>
                 </div>
               )
             }
             const pct=Math.round((cat.s/cat.mx)*100);const bc=pct>=80?'#22C55E':pct>=60?'#FBBF24':pct>=40?'#FB923C':'#EF4444';const pctLabel=pct>=80?'Within range':pct>=60?'Moderate concern':pct>=40?'Significant concern':'Critical concern';const fmLabel=pct>=70?'Pass':pct>=40?'Needs attention':'Action needed';const fmColor=pct>=70?'#22C55E':pct>=40?'#FBBF24':'#EF4444';const findings=cat.r.filter(r => !(r.sev === 'pass' && pct < 70));return(
-            <div key={cat.l} style={{padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10}}>
-              {/* ── Canonical two-up label/value header (matches Expert Summary grammar) ── */}
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:userMode==='fm'?12:10}}>
-                <div>
-                  <div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Category</div>
-                  <div style={{color:TEXT,fontWeight:600,fontSize:14,lineHeight:1.4}}>{cat.l}</div>
-                </div>
-                <div>
-                  <div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Score</div>
-                  {userMode === 'fm' ? (
-                    <span style={{padding:'3px 10px',borderRadius:6,fontSize:11,fontWeight:700,background:`${fmColor}15`,color:fmColor}}>{cat.s===null?'No data':fmLabel}</span>
-                  ) : (
-                    <div style={{lineHeight:1.4,fontSize:13}}>
-                      <span style={{color:bc,fontWeight:700}}>{cat.s}/{cat.mx}</span>
-                      <span style={{color:DIM,fontWeight:500}}> · {pctLabel}</span>
-                    </div>
-                  )}
-                </div>
+            <div key={cat.l} style={{padding:'16px 18px',background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.md}}>
+              {/* Category header — single row, mono score + concern
+                  text inline, with a thin progress bar below. Replaces
+                  the legacy "Category | Score" two-up grid that double-
+                  printed the cat label and used two micro headings. */}
+              <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',gap:12,marginBottom:userMode==='fm'?12:8}}>
+                <div style={{...V3.T.bodyStrong, fontSize:15}}>{cat.l}</div>
+                {userMode === 'fm' ? (
+                  <span style={V3.pill(fmColor)}>{cat.s===null?'No data':fmLabel}</span>
+                ) : (
+                  <div style={{display:'flex',alignItems:'baseline',gap:6}}>
+                    <span style={{...V3.N.md, color:bc, fontSize:15}}>{cat.s}<span style={{color:V3.TEXT_TERTIARY, fontWeight:500}}>/{cat.mx}</span></span>
+                    <span style={V3.T.captionDim}>· {pctLabel}</span>
+                  </div>
+                )}
               </div>
-              {userMode !== 'fm' && <div style={{height:3,background:BORDER,borderRadius:2,overflow:'hidden',marginBottom:14}}>
+              {userMode !== 'fm' && <div style={{height:3,background:V3.BORDER_DEFAULT,borderRadius:2,overflow:'hidden',marginBottom:14}}>
                 <div style={{height:'100%',width:`${pct}%`,background:bc,borderRadius:2,transition:'width .8s ease'}} />
               </div>}
               {findings.map((r,i)=>{const s=sv(r.sev);const sevLabel=r.sev.charAt(0).toUpperCase()+r.sev.slice(1);return(
-                <div key={i} style={{marginBottom: i < findings.length - 1 ? 14 : 0}}>
-                  <div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Severity</div>
-                  <div style={{color:s.c,fontWeight:700,fontSize:13,lineHeight:1.4,marginBottom:6}}>{sevLabel}</div>
-                  <div style={{color:SUB,fontSize:13,lineHeight:1.6}}>{r.t}</div>
-                  {r.std && <div style={{color:DIM,fontSize:12,marginTop:4,lineHeight:1.5}}>{r.std}</div>}
+                <div key={i} style={{paddingTop: i === 0 ? 0 : 12, paddingBottom: i < findings.length - 1 ? 12 : 0, borderTop: i === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`}}>
+                  <div style={{display:'flex',alignItems:'flex-start',gap:10}}>
+                    <span style={{...V3.pill(s.c), marginTop:1, flexShrink:0}}>{sevLabel}</span>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{...V3.T.body, lineHeight:'20px'}}>{r.t}</div>
+                      {r.std && <div style={{...V3.T.captionDim, marginTop:4, fontFamily:'var(--font-mono)', fontSize:11}}>{r.std}</div>}
+                    </div>
+                  </div>
                 </div>
               )})}
             </div>
