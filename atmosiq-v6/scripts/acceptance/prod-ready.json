@@ -45,6 +45,17 @@
       { "type": "file_exists", "path": "tests/api/narrative-rate-limit.test.ts" }
     ]},
 
+    { "id": "PHOTO-BLOB-STORE", "label": "Photo blob store + compaction layer wired into supabaseStorage", "checks": [
+      { "type": "file_exists", "path": "src/utils/photoBlobStore.js" },
+      { "type": "file_exists", "path": "src/utils/photoCompaction.js" },
+      { "type": "grep_matches", "pattern": "compactPhotos", "paths": ["src/utils/supabaseStorage.js"] },
+      { "type": "grep_matches", "pattern": "expandPhotos", "paths": ["src/utils/supabaseStorage.js"] },
+      { "type": "grep_matches", "pattern": "purgeAssessmentPhotos", "paths": ["src/utils/supabaseStorage.js"] },
+      { "type": "file_exists", "path": "tests/lib/photo-blob-store.test.ts" },
+      { "type": "file_exists", "path": "tests/lib/photo-compaction.test.ts" },
+      { "type": "file_exists", "path": "tests/lib/supabase-storage-photo-compaction.test.ts" }
+    ]},
+
     { "id": "OFFLINE-SYNC-INDICATOR", "label": "Pending-sync indicator exists and queue state is observable", "checks": [
       { "type": "file_exists", "path": "src/components/PendingSyncIndicator.jsx" },
       { "type": "file_exists", "path": "src/hooks/useSyncState.js" },
