@@ -29,6 +29,8 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { FIELD_ASSISTANT_ROLE_PROMPT } from '../src/constants/field-assistant-prompt'
 import { STANDARDS_FOR_AGENT, FAQ_FOR_AGENT } from '../src/constants/field-assistant-corpus'
+// eslint-disable-next-line @typescript-eslint/no-require-imports -- ESM/CJS interop on Vercel
+const { FIELD_ASSISTANT_TOOLS, dispatchTool } = require('../src/constants/field-assistant-tools.js')
 import { scrubPii } from '../lib/sentry'
 // eslint-disable-next-line @typescript-eslint/no-require-imports -- CommonJS shared helper
 const { auditLog } = require('./_audit')
@@ -52,6 +54,10 @@ const TITLE_TRUNCATE_LEN = 80
 // Cap conversation history sent to the model. Going further back hurts
 // latency without improving answer quality for field-triage questions.
 const MAX_HISTORY_TURNS = 20
+// Hard cap on the agent's tool-use loop per request. The agent
+// typically resolves an answer in 1–2 tool calls; >4 indicates a stuck
+// loop and we cut it off rather than spend tokens spinning.
+const MAX_TOOL_ROUNDS = 4
 
 interface VercelLikeRequest {
   method?: string
@@ -245,6 +251,7 @@ async function callAnthropicStream(
       stream: true,
       system: systemBlocks,
       messages,
+      tools: FIELD_ASSISTANT_TOOLS,
     }),
   }) as Promise<Response>
 }
@@ -254,6 +261,12 @@ function writeSse(res: VercelLikeResponse, event: string, data: unknown): void {
   res.write(`data: ${JSON.stringify(data)}\n\n`)
 }
 
+interface ToolUseBlock {
+  id: string
+  name: string
+  inputJson: string
+}
+
 interface StreamResult {
   text: string
   inputTokens: number | null
@@ -261,6 +274,17 @@ interface StreamResult {
   cacheCreate: number | null
   cacheRead: number | null
   stopReason: string | null
+  /**
+   * Content blocks the agent emitted in order — preserved so we can
+   * round-trip them back as an `assistant` message when running a
+   * tool-use turn. Anthropic requires the assistant message echo
+   * before tool_result blocks are accepted.
+   */
+  contentBlocks: Array<
+    | { type: 'text'; text: string }
+    | { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> }
+  >
+  toolUses: ToolUseBlock[]
 }
 
 async function pumpAnthropicStream(
@@ -278,7 +302,14 @@ async function pumpAnthropicStream(
     cacheCreate: null,
     cacheRead: null,
     stopReason: null,
+    contentBlocks: [],
+    toolUses: [],
   }
+  // Per-content-block scratchpad indexed by Anthropic's block index.
+  const blockState = new Map<
+    number,
+    { type: 'text'; text: string } | { type: 'tool_use'; id: string; name: string; inputJson: string }
+  >()
 
   while (true) {
     const { done, value } = await reader.read()
@@ -297,15 +328,60 @@ async function pumpAnthropicStream(
       } catch {
         continue
       }
-      if (payload.type === 'content_block_delta' && payload.delta?.type === 'text_delta') {
-        const tok = payload.delta.text as string
-        acc.text += tok
-        writeSse(res, 'token', { text: tok })
+      if (payload.type === 'content_block_start') {
+        const i = payload.index as number
+        const block = payload.content_block
+        if (block?.type === 'text') {
+          blockState.set(i, { type: 'text', text: '' })
+        } else if (block?.type === 'tool_use') {
+          blockState.set(i, {
+            type: 'tool_use',
+            id: block.id,
+            name: block.name,
+            inputJson: '',
+          })
+        }
+      } else if (payload.type === 'content_block_delta') {
+        const i = payload.index as number
+        let state = blockState.get(i)
+        // Tolerant: production streams always emit content_block_start
+        // before a delta, but some test fixtures skip it. Auto-init
+        // as a text block if a text_delta arrives unannounced.
+        if (!state && payload.delta?.type === 'text_delta') {
+          state = { type: 'text', text: '' }
+          blockState.set(i, state)
+        }
+        if (!state) continue
+        if (payload.delta?.type === 'text_delta' && state.type === 'text') {
+          const tok = payload.delta.text as string
+          state.text += tok
+          acc.text += tok
+          writeSse(res, 'token', { text: tok })
+        } else if (payload.delta?.type === 'input_json_delta' && state.type === 'tool_use') {
+          state.inputJson += payload.delta.partial_json || ''
+        }
+      } else if (payload.type === 'content_block_stop') {
+        const i = payload.index as number
+        const state = blockState.get(i)
+        if (!state) continue
+        if (state.type === 'text') {
+          acc.contentBlocks.push({ type: 'text', text: state.text })
+        } else if (state.type === 'tool_use') {
+          let input: Record<string, unknown> = {}
+          try {
+            input = state.inputJson ? JSON.parse(state.inputJson) : {}
+          } catch {
+            // Malformed tool input — let the dispatcher handle it.
+            input = {}
+          }
+          acc.contentBlocks.push({ type: 'tool_use', id: state.id, name: state.name, input })
+          acc.toolUses.push({ id: state.id, name: state.name, inputJson: state.inputJson })
+        }
       } else if (payload.type === 'message_start' && payload.message?.usage) {
         const u = payload.message.usage
         acc.inputTokens = (acc.inputTokens || 0) + (u.input_tokens || 0)
-        acc.cacheCreate = u.cache_creation_input_tokens ?? null
-        acc.cacheRead = u.cache_read_input_tokens ?? null
+        acc.cacheCreate = (acc.cacheCreate || 0) + (u.cache_creation_input_tokens || 0)
+        acc.cacheRead = (acc.cacheRead || 0) + (u.cache_read_input_tokens || 0)
       } else if (payload.type === 'message_delta' && payload.usage) {
         const u = payload.usage
         acc.outputTokens = (acc.outputTokens || 0) + (u.output_tokens || 0)
@@ -314,6 +390,99 @@ async function pumpAnthropicStream(
     }
   }
   return acc
+}
+
+/**
+ * Run the agent's tool-use loop. Streams every assistant turn's text
+ * to the SSE response. On a tool_use stop_reason we dispatch the
+ * tool(s), append assistant + tool_result messages, and call the
+ * model again with the same tools array — up to MAX_TOOL_ROUNDS to
+ * prevent runaway loops. The final assistant text is the
+ * concatenation of all text the model emitted across turns (so the
+ * persisted history reflects the full answer even when intermediate
+ * tool turns produced partial text).
+ */
+async function runAgentLoop(
+  apiKey: string,
+  systemBlocks: unknown,
+  initialMessages: Array<{ role: string; content: unknown }>,
+  res: VercelLikeResponse,
+): Promise<StreamResult & { rounds: number; toolCalls: Array<{ name: string; input: unknown; resultStatus: string }> }> {
+  const messages: Array<{ role: string; content: unknown }> = initialMessages.slice()
+  const toolCalls: Array<{ name: string; input: unknown; resultStatus: string }> = []
+  let combinedText = ''
+  let totalInput = 0
+  let totalOutput = 0
+  let totalCacheCreate = 0
+  let totalCacheRead = 0
+  let lastStopReason: string | null = null
+  let rounds = 0
+
+  while (rounds < MAX_TOOL_ROUNDS) {
+    rounds += 1
+    const upstream = await callAnthropicStream(apiKey, systemBlocks, messages)
+    if (!upstream.ok) {
+      const errText = await upstream.text().catch(() => '')
+      throw new Error(`upstream_${upstream.status}: ${errText || 'no_body'}`)
+    }
+    const turn = await pumpAnthropicStream(upstream, res)
+    combinedText += turn.text
+    totalInput += turn.inputTokens || 0
+    totalOutput += turn.outputTokens || 0
+    totalCacheCreate += turn.cacheCreate || 0
+    totalCacheRead += turn.cacheRead || 0
+    lastStopReason = turn.stopReason
+
+    if (turn.stopReason !== 'tool_use' || turn.toolUses.length === 0) {
+      // Final turn — agent is done.
+      break
+    }
+
+    // Echo the assistant turn (text + tool_use blocks, in order).
+    messages.push({ role: 'assistant', content: turn.contentBlocks })
+
+    // Dispatch every tool the model requested in this turn, then
+    // append a single user message containing all tool_result blocks
+    // (Anthropic requires one tool_result per tool_use_id, in any
+    // order, but all in one message).
+    const toolResults: Array<{ type: 'tool_result'; tool_use_id: string; content: string }> = []
+    for (const block of turn.contentBlocks) {
+      if (block.type !== 'tool_use') continue
+      const result = dispatchTool(block.name, block.input)
+      toolCalls.push({ name: block.name, input: block.input, resultStatus: (result && (result as any).status) || 'unknown' })
+      writeSse(res, 'tool_call', {
+        name: block.name,
+        status: (result && (result as any).status) || 'unknown',
+      })
+      toolResults.push({
+        type: 'tool_result',
+        tool_use_id: block.id,
+        content: JSON.stringify(result),
+      })
+    }
+    messages.push({ role: 'user', content: toolResults })
+  }
+
+  if (rounds >= MAX_TOOL_ROUNDS && lastStopReason === 'tool_use') {
+    // We hit the loop cap — surface a graceful note in the stream so
+    // the assessor knows the agent didn't finish on its own.
+    const note = '\n\n(Agent reached its tool-call budget for this turn; finalize the answer with the data already retrieved.)'
+    writeSse(res, 'token', { text: note })
+    combinedText += note
+  }
+
+  return {
+    text: combinedText,
+    inputTokens: totalInput,
+    outputTokens: totalOutput,
+    cacheCreate: totalCacheCreate || null,
+    cacheRead: totalCacheRead || null,
+    stopReason: lastStopReason,
+    contentBlocks: [],
+    toolUses: [],
+    rounds,
+    toolCalls,
+  }
 }
 
 async function persistTurn(
@@ -470,31 +639,15 @@ async function handler(req: VercelLikeRequest, res: VercelLikeResponse): Promise
     console.error('[field-assistant] user-turn persist failed:', msg)
   }
 
-  // Call Anthropic and pump the stream
+  // Call Anthropic and pump the stream (with tool-use loop)
   const systemBlocks = buildSystemBlocks(body.context)
-  const messages = buildAnthropicMessages(history, userMessage)
+  const initialMessages = buildAnthropicMessages(history, userMessage)
 
-  let upstream: Response
+  let result: Awaited<ReturnType<typeof runAgentLoop>>
   try {
-    upstream = await callAnthropicStream(apiKey, systemBlocks, messages)
+    result = await runAgentLoop(apiKey, systemBlocks, initialMessages, res)
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'anthropic_call_failed'
-    writeSse(res, 'error', { error: msg })
-    res.end()
-    return
-  }
-  if (!upstream.ok) {
-    const errText = await upstream.text().catch(() => '')
-    writeSse(res, 'error', { status: upstream.status, error: errText || 'upstream_error' })
-    res.end()
-    return
-  }
-
-  let result: StreamResult
-  try {
-    result = await pumpAnthropicStream(upstream, res)
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : 'stream_failure'
+    const msg = err instanceof Error ? err.message : 'agent_loop_failed'
     writeSse(res, 'error', { error: msg })
     res.end()
     return
@@ -542,6 +695,8 @@ async function handler(req: VercelLikeRequest, res: VercelLikeResponse): Promise
       stop_reason: result.stopReason,
       context_view: contextView,
       plan,
+      tool_rounds: result.rounds,
+      tool_calls: result.toolCalls.map((t) => ({ name: t.name, status: t.resultStatus })),
     },
     req,
   })
@@ -555,6 +710,7 @@ async function handler(req: VercelLikeRequest, res: VercelLikeResponse): Promise
       estimated_cost_usd: cost,
     },
     quota: quotaBlock,
+    tool_calls: result.toolCalls.map((t) => ({ name: t.name, status: t.resultStatus })),
   })
   res.end()
 }
@@ -568,6 +724,7 @@ export const __test = {
   checkRateLimits,
   buildSystemBlocks,
   buildAnthropicMessages,
+  runAgentLoop,
   PER_MINUTE_LIMIT,
   PER_DAY_LIMIT,
   FREE_TIER_DAILY_CAP,
@@ -575,6 +732,7 @@ export const __test = {
   GENERATION_TYPE,
   MAX_HISTORY_TURNS,
   MAX_USER_MESSAGE_LEN,
+  MAX_TOOL_ROUNDS,
   setSupabase(mock: unknown) {
     _supabase = mock as SupabaseClient
   },

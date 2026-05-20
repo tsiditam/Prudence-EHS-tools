@@ -401,3 +401,118 @@ describe('field-assistant handler', () => {
     expect(messages.filter((m) => m.role === 'assistant').length).toBe(1)
   })
 })
+
+// ─── Tool-use round-trip ────────────────────────────────────────────
+// Anthropic streams a tool_use block; our handler dispatches the tool
+// against the curated knowledge base, sends a tool_result back, then
+// streams the final assistant turn. These tests pin that the loop
+// completes, the model's text from both turns is captured, and the
+// done event reports the tool calls.
+
+function toolUseStreamEvents(toolName: string, toolInput: Record<string, unknown>, toolUseId = 'toolu_01') {
+  return [
+    `event: message_start\ndata: ${JSON.stringify({
+      type: 'message_start',
+      message: { usage: { input_tokens: 200, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 } },
+    })}\n\n`,
+    `event: content_block_start\ndata: ${JSON.stringify({
+      type: 'content_block_start',
+      index: 0,
+      content_block: { type: 'text', text: '' },
+    })}\n\n`,
+    `event: content_block_delta\ndata: ${JSON.stringify({
+      type: 'content_block_delta',
+      index: 0,
+      delta: { type: 'text_delta', text: 'Looking up…' },
+    })}\n\n`,
+    `event: content_block_stop\ndata: ${JSON.stringify({ type: 'content_block_stop', index: 0 })}\n\n`,
+    `event: content_block_start\ndata: ${JSON.stringify({
+      type: 'content_block_start',
+      index: 1,
+      content_block: { type: 'tool_use', id: toolUseId, name: toolName, input: {} },
+    })}\n\n`,
+    `event: content_block_delta\ndata: ${JSON.stringify({
+      type: 'content_block_delta',
+      index: 1,
+      delta: { type: 'input_json_delta', partial_json: JSON.stringify(toolInput) },
+    })}\n\n`,
+    `event: content_block_stop\ndata: ${JSON.stringify({ type: 'content_block_stop', index: 1 })}\n\n`,
+    `event: message_delta\ndata: ${JSON.stringify({
+      type: 'message_delta',
+      delta: { stop_reason: 'tool_use' },
+      usage: { output_tokens: 50 },
+    })}\n\n`,
+  ]
+}
+
+describe('field-assistant tool-use', () => {
+  it('runs a single tool-use round, dispatches the tool, and streams the follow-up', async () => {
+    let callCount = 0
+    t.setFetch(((_url: string, _init: any) => {
+      callCount += 1
+      // First call: model emits tool_use for lookup_exposure_limit
+      if (callCount === 1) {
+        return Promise.resolve(
+          makeStreamingResponse(toolUseStreamEvents('lookup_exposure_limit', { analyte: 'formaldehyde' })),
+        )
+      }
+      // Second call: model returns final text answer
+      return Promise.resolve(makeStreamingResponse(defaultStreamEvents('OSHA PEL is 0.75 ppm 8-hr TWA.')))
+    }) as any)
+    const { res, captured } = makeRes()
+    await fnHandler(makeReq({ message: 'What is the OSHA PEL for formaldehyde?' }), res as any)
+    expect(callCount).toBe(2)
+    const events = sseEvents(captured)
+    // tool_call surfaced to the client mid-stream
+    const toolCall = events.find((e) => e.event === 'tool_call')
+    expect(toolCall).toBeDefined()
+    expect(toolCall!.data.name).toBe('lookup_exposure_limit')
+    expect(toolCall!.data.status).toBe('ok')
+    // done event includes a summary of tool calls
+    const done = events.find((e) => e.event === 'done')
+    expect(done!.data.tool_calls).toEqual([{ name: 'lookup_exposure_limit', status: 'ok' }])
+    // Final assistant turn persisted
+    const assistantTurns = messages.filter((m) => m.role === 'assistant')
+    expect(assistantTurns.length).toBe(1)
+    expect(assistantTurns[0].content).toContain('0.75 ppm')
+  })
+
+  it('surfaces a not_found tool status when the analyte is unknown', async () => {
+    let callCount = 0
+    t.setFetch(((_url: string, _init: any) => {
+      callCount += 1
+      if (callCount === 1) {
+        return Promise.resolve(
+          makeStreamingResponse(toolUseStreamEvents('lookup_exposure_limit', { analyte: 'unobtainium' })),
+        )
+      }
+      return Promise.resolve(makeStreamingResponse(defaultStreamEvents('Not in the table — consult NIOSH NPG.')))
+    }) as any)
+    const { res, captured } = makeRes()
+    await fnHandler(makeReq({ message: 'What is the PEL for unobtainium?' }), res as any)
+    const events = sseEvents(captured)
+    const toolCall = events.find((e) => e.event === 'tool_call')
+    expect(toolCall!.data.status).toBe('not_found')
+  })
+
+  it('caps the loop at MAX_TOOL_ROUNDS even if the model keeps calling tools', async () => {
+    // Every fetch call returns another tool_use → the handler should
+    // bail out after MAX_TOOL_ROUNDS to prevent runaway billing.
+    let callCount = 0
+    t.setFetch(((_url: string, _init: any) => {
+      callCount += 1
+      return Promise.resolve(
+        makeStreamingResponse(
+          toolUseStreamEvents('lookup_exposure_limit', { analyte: 'carbon monoxide' }, `toolu_${callCount}`),
+        ),
+      )
+    }) as any)
+    const { res, captured } = makeRes()
+    await fnHandler(makeReq({ message: 'pathological loop' }), res as any)
+    expect(callCount).toBe(t.MAX_TOOL_ROUNDS)
+    const events = sseEvents(captured)
+    expect(events.filter((e) => e.event === 'tool_call').length).toBe(t.MAX_TOOL_ROUNDS)
+    // Final done event still fires
+    expect(events.find((e) => e.event === 'done')).toBeDefined()
+  })
+})
