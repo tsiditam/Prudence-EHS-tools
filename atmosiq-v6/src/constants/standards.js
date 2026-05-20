@@ -10,7 +10,7 @@
  * Contact: tsidi@prudenceehs.com
  */
 
-import { ENGINE_VERSION, STANDARDS_MANIFEST_DATE } from '../version'
+import { ENGINE_VERSION, STANDARDS_MANIFEST_DATE } from '../version.js'
 
 // ─── Citation verification policy ────────────────────────────────────
 // Journal entries must be verified against primary sources before
@@ -99,7 +99,7 @@ export const STD = {
   },
 }
 
-export { VER } from '../version'
+export { VER } from '../version.js'
 
 export const PLAT_MODULES = [
   { id: 'atmosiq',    n: 'AtmosFlow',            i: '🌬️', on: true },

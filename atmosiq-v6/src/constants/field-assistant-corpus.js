@@ -14,8 +14,8 @@
  * request — keeps the handler hot path cheap.
  */
 
-import { STANDARDS_MANIFEST, STD } from './standards'
-import { FAQ_SECTIONS } from './faq'
+import { STANDARDS_MANIFEST, STD } from './standards.js'
+import { FAQ_SECTIONS } from './faq.js'
 
 function formatStandardsManifest() {
   const lines = ['AtmosFlow Standards Manifest', '']
