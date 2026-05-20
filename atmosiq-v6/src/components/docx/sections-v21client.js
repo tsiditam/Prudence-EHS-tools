@@ -15,6 +15,7 @@ import { FONTS, COLORS } from './styles'
 import { borderlessLayoutTable } from './tables'
 import { LETTER_COVER_PAGE, BODY_SECTION_PROPERTIES, CONTENT_WIDTH_DXA } from './page-setup'
 import { base64ToUint8Array } from './images'
+import { buildResurveySchedule } from './sections-resurvey'
 
 // v2.2 visual palette — slate/blue per consultant-report design
 // guidance. PRIMARY (slate-900) for headings + dark text. ACCENT
@@ -1171,6 +1172,15 @@ export function buildClientDocx(result, options = {}) {
     ...buildPotentialContributingFactors(report),
     ...buildRecommendedSamplingPlan(report),
     ...buildRecommendationsRegister(report),
+    // Re-survey schedule — sits between the Recommendations Register
+    // and Limitations so the reader knows when to expect the next
+    // assessment before they read the limitations + signatory block.
+    // Engine-sacred: schedule logic lives in src/engines/ (plural);
+    // src/engine/ (the TypeScript engine) is untouched.
+    ...buildResurveySchedule({
+      recommendationsRegister: report.recommendationsRegister,
+      assessmentDate: report.cover?.date,
+    }),
     ...buildLimitations(report),
     ...buildSignatory(report),
     ...buildAppendices(report, { photos: options.photos }),
