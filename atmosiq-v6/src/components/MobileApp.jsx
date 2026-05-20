@@ -26,6 +26,7 @@ import { buildCausalChains } from '../engines/causalChains'
 import { generateNarrative } from '../engines/narrative'
 import PricingSheet from './pricing/PricingSheet'
 import { I, emojiToIcon } from './Icons'
+import * as V3 from '../styles/tokens'
 import Loading from './Loading'
 import ScoreRing from './ScoreRing'
 import PhotoCapture from './PhotoCapture'
@@ -1646,95 +1647,298 @@ export default function MobileApp() {
 
       <div style={{maxWidth:contentMax,margin:'0 auto',padding:`0 ${padX}px`,position:'relative',zIndex:1}}>
 
-        {view==='dash'&&<div style={{paddingTop:24,paddingBottom:100,maxWidth:contentMax,margin:'0 auto'}}>
+        {view==='dash'&&(() => {
+          // ── v3 Home — premium dark, expert-grade. Surfaces situational
+          //    awareness when an assessment is in progress; falls back
+          //    to a tight start panel when none is active. The legacy
+          //    "two cyan pills floating on a black page" launcher pad
+          //    was replaced because it conveyed nothing domain-specific
+          //    about IH work and left ~50% of the viewport empty. The
+          //    v3 layout is built from primitives in src/styles/tokens.js
+          //    (panel, pill, tabItem, statBlock, …) so the next slice
+          //    (Assessment detail screen) can reuse the same surface.
+          const drafts = index.drafts || []
+          const reports = index.reports || []
+          const activeDraft = drafts[0] || null
+          const isWide = isTablet || isTabletLand
 
-          {/* Header row removed — the hamburger menu and subscription-
-              status pill moved into the global fixed header so they
-              live at the same level as the AtmosFlow wordmark. */}
+          // Workflow stages — visual only on Home, all route to
+          // resumeDraft until the per-stage detail views land in a
+          // subsequent slice. The active marker reflects "current
+          // focus" once stage tracking is available in draft state;
+          // for now we anchor on Findings as the canonical entry.
+          const stages = [
+            { id: 'findings',  label: 'Findings',  icon: 'findings' },
+            { id: 'pathways',  label: 'Pathways',  icon: 'chain' },
+            { id: 'sampling',  label: 'Sampling',  icon: 'flask' },
+            { id: 'narrative', label: 'Narrative', icon: 'notes' },
+            { id: 'actions',   label: 'Actions',   icon: 'check' },
+            { id: 'review',    label: 'Review',    icon: 'shield' },
+          ]
+          const activeStage = activeDraft?.stage || 'findings'
 
-          {/* ── Calibration exception banner. Renders nothing in the
-              happy path. Surfaces only when the primary instrument's
-              calibration is within CAL_WARN_DAYS of expiry, already
-              expired, or has no recorded calibration date — the three
-              cases that would have an IH peer reviewer ask "would I
-              sign my name to a report this tool produced?" before the
-              next assessment even starts. (Norman, status by exception;
-              Hollnagel, surface only what diverges from expected state.) ── */}
-          {(() => {
-            const banner = getCalibrationBannerState(profile?.iaq_meter, profile?.iaq_cal_date)
-            if (!banner) return null
-            const color = banner.tone === 'danger' ? DANGER : WARN
-            return (
-              <div role="status" style={{padding:'10px 14px',background:`${color}10`,border:`1px solid ${color}30`,borderRadius:10,marginBottom:16,display:'flex',alignItems:'center',gap:10}}>
-                <I n="alert" s={14} c={color} w={1.8} />
-                <span style={{fontSize:12,color:TEXT,fontWeight:500,flex:1,minWidth:0}}>
-                  {banner.kind === 'unrecorded' && (
-                    <>{profile?.iaq_meter} <span style={{color:DIM}}>calibration date not recorded</span></>
-                  )}
-                  {banner.kind === 'expiring' && (
-                    <>{profile?.iaq_meter} <span style={{color:DIM}}>calibration expires in</span> <span style={{fontFamily:'var(--font-mono)',color:color,fontWeight:600}}>{banner.daysToExpiry} days</span></>
-                  )}
-                  {banner.kind === 'expired' && (
-                    <>{profile?.iaq_meter} <span style={{color:DIM}}>calibration expired</span> <span style={{fontFamily:'var(--font-mono)',color:color,fontWeight:600}}>{Math.abs(banner.daysToExpiry)} days</span> <span style={{color:DIM}}>ago</span></>
-                  )}
-                </span>
-                <button onClick={()=>setView('settings')} style={{background:'none',border:'none',color:color,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',flexShrink:0}}>Review</button>
-              </div>
-            )
-          })()}
+          return (
+            <div style={{paddingTop:24,paddingBottom:100,maxWidth:contentMax,margin:'0 auto'}}>
 
-          {/* ── Tier 1: primary action ──
-              Uses --accent-fill / --on-accent-fill so the pill renders
-              the same vivid brand cyan in BOTH dark and light modes —
-              matches the dark-mode look on a white-mode page. */}
-          <button onClick={startNew} style={{width:'60%',margin:'32px auto 10px',padding:'11px 16px',background:'var(--accent-fill)',border:'none',borderRadius:10,cursor:'pointer',textAlign:'center',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'inherit',transition:'opacity 0.15s',minHeight:40}}>
-            <div style={{fontSize:14,fontWeight:700,color:'var(--on-accent-fill)',fontFamily:'inherit',letterSpacing:'-0.2px'}}>Start IAQ Assessment</div>
-          </button>
-
-          {/* ── Tier 1b: incident response ── */}
-          <button onClick={()=>setView('incident-form')} style={{width:'60%',margin:'0 auto 28px',padding:'11px 16px',background:'var(--accent-fill)',border:'none',borderRadius:10,cursor:'pointer',textAlign:'center',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'inherit',transition:'opacity 0.15s',minHeight:40}}>
-            <div style={{fontSize:14,fontWeight:700,color:'var(--on-accent-fill)',fontFamily:'inherit',letterSpacing:'-0.2px'}}>Report IAQ Incident</div>
-          </button>
-
-          {/* ── Tier 2 Group B: Recent reports (only when present) ── */}
-          {(index.reports||[]).length > 0 && <>
-            <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',marginBottom:8,paddingLeft:4,paddingRight:4}}>
-              <div style={{fontSize:11,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'0.8px'}}>Recent</div>
-              {(index.reports||[]).length > 3 && <button onClick={()=>setView('history')} style={{background:'none',border:'none',color:ACCENT,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',padding:0}}>View all</button>}
-            </div>
-            {/* Tier label pill (not a bare numeric score) — a CIH peer
-                reviewer reading "50" out of context can mistake it for
-                a verdict; the band label conveys the same severity
-                while reinforcing the screening-only positioning. The
-                composite remains visible inside the report itself,
-                where methodology and confidence are alongside it.
-                Color is reinforced by text per WCAG 1.4.1. ── */}
-            <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,marginBottom:24,overflow:'hidden'}}>
-              {(index.reports||[]).slice(0,3).map((r, i) => {
-                const band = getRiskBand(r.score ?? null)
+              {/* Calibration exception banner — status-by-exception.
+                  Surfaces only when the primary instrument's
+                  calibration is within CAL_WARN_DAYS of expiry,
+                  already expired, or has no recorded calibration
+                  date — the cases that would have an IH peer
+                  reviewer ask "would I sign my name to a report
+                  this tool produced?" (Norman, status by exception;
+                  Hollnagel, surface only what diverges.) */}
+              {(() => {
+                const banner = getCalibrationBannerState(profile?.iaq_meter, profile?.iaq_cal_date)
+                if (!banner) return null
+                const color = banner.tone === 'danger' ? DANGER : WARN
                 return (
-                  <button key={r.id} onClick={()=>openReport(r)} style={{width:'100%',padding:'14px 16px',background:'transparent',border:'none',borderTop: i===0 ? 'none' : `1px solid ${BORDER}`,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit',minHeight:60}}>
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontSize:13,fontWeight:600,color:TEXT,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.facility || 'Untitled'}</div>
-                      <div style={{fontSize:11,color:DIM,fontFamily:"var(--font-mono)",marginTop:2}}>{fD(r.ts)}</div>
-                    </div>
-                    <span style={{
-                      padding:'4px 10px',borderRadius:6,
-                      background:`${band.color}12`,border:`1px solid ${band.color}30`,
-                      fontSize:11,fontWeight:700,color:band.color,
-                      letterSpacing:'0.3px',whiteSpace:'nowrap',flexShrink:0,
-                    }}>{band.label}</span>
-                    <span style={{color:DIM,fontSize:13}}>›</span>
-                  </button>
+                  <div role="status" style={{padding:'10px 14px',background:`${color}10`,border:`1px solid ${color}30`,borderRadius:10,marginBottom:16,display:'flex',alignItems:'center',gap:10}}>
+                    <I n="alert" s={14} c={color} w={1.8} />
+                    <span style={{fontSize:12,color:TEXT,fontWeight:500,flex:1,minWidth:0}}>
+                      {banner.kind === 'unrecorded' && (
+                        <>{profile?.iaq_meter} <span style={{color:DIM}}>calibration date not recorded</span></>
+                      )}
+                      {banner.kind === 'expiring' && (
+                        <>{profile?.iaq_meter} <span style={{color:DIM}}>calibration expires in</span> <span style={{fontFamily:'var(--font-mono)',color:color,fontWeight:600}}>{banner.daysToExpiry} days</span></>
+                      )}
+                      {banner.kind === 'expired' && (
+                        <>{profile?.iaq_meter} <span style={{color:DIM}}>calibration expired</span> <span style={{fontFamily:'var(--font-mono)',color:color,fontWeight:600}}>{Math.abs(banner.daysToExpiry)} days</span> <span style={{color:DIM}}>ago</span></>
+                      )}
+                    </span>
+                    <button onClick={()=>setView('settings')} style={{background:'none',border:'none',color:color,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',flexShrink:0}}>Review</button>
+                  </div>
                 )
-              })}
+              })()}
+
+              {activeDraft ? (
+                <>
+                  {/* ── HERO: current assessment situational awareness ─── */}
+                  <div style={{...V3.panel({ accent: V3.STATUS.inProgress }), padding:0, marginBottom:16}}>
+                    {/* Header row — facility name + meta + primary actions */}
+                    <div style={{padding:'20px 24px 0',display:'flex',alignItems:'flex-start',gap:16,flexWrap:'wrap'}}>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{...V3.T.h1, marginBottom:6, overflow:'hidden', textOverflow:'ellipsis'}}>
+                          {activeDraft.facility || 'Untitled Assessment'}
+                        </div>
+                        <div style={{display:'flex',alignItems:'center',gap:14,flexWrap:'wrap',color:V3.TEXT_TERTIARY,fontSize:12}}>
+                          <span style={{display:'inline-flex',alignItems:'center',gap:6}}>
+                            <I n="user" s={13} c={V3.TEXT_TERTIARY} w={1.6} />
+                            <span>Assessment by you</span>
+                          </span>
+                          <span style={{color:V3.BORDER_STRONG}}>·</span>
+                          <span style={{fontFamily:'var(--font-mono)'}}>{fD(activeDraft.ua || activeDraft.ts)}</span>
+                          <span style={V3.pill(V3.STATUS.inProgress)}>In Progress</span>
+                        </div>
+                      </div>
+                      <div style={{display:'flex',gap:8,flexShrink:0}}>
+                        <button onClick={()=>resumeDraft(activeDraft.id)} style={V3.btnPrimary}>
+                          Continue Assessment
+                          <I n="play" s={13} c="var(--on-accent-fill)" w={1.8} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Headline + severity/confidence framing. Until the
+                        engine has scored the draft, we surface the
+                        canonical screening framing rather than synthesize
+                        a severity that would mislead an IH peer reviewer. */}
+                    <div style={{padding:'18px 24px 4px',display:'flex',gap:8,flexWrap:'wrap'}}>
+                      <span style={V3.pill(V3.STATUS.inProgress, { lg: true })}>Screening in progress</span>
+                      <span style={{...V3.pill(V3.TEXT_TERTIARY, { lg: true }), color: V3.TEXT_TERTIARY, background:'transparent', border:`1px solid ${V3.BORDER_DEFAULT}`}}>Awaiting field data</span>
+                    </div>
+                    <div style={{padding:'8px 24px 16px',...V3.T.h2}}>
+                      Continue capturing field data to refine the screening assessment
+                    </div>
+                    <div style={{padding:'0 24px 18px',...V3.T.bodyDim, maxWidth:640}}>
+                      Severity, confidence, and recommended actions will populate as findings,
+                      measurements, and zone observations are entered. Outputs are
+                      screening-level — they identify risk indicators, not regulatory
+                      determinations.
+                    </div>
+
+                    {/* Stat strip — compact, mono numerals, separated by hairlines */}
+                    <div style={{margin:'0 24px',borderTop:`1px solid ${V3.BORDER_DEFAULT}`,borderBottom:`1px solid ${V3.BORDER_DEFAULT}`,display:'flex',alignItems:'stretch',gap:0}}>
+                      <div style={V3.statBlock}>
+                        <div style={V3.N.lg}>{(activeDraft.zoneCount ?? activeDraft.zones?.length ?? 0)}</div>
+                        <div style={V3.T.micro}>Zones Started</div>
+                      </div>
+                      <div style={V3.statDivider} />
+                      <div style={V3.statBlock}>
+                        <div style={{...V3.N.lg, fontSize:18, lineHeight:'24px'}}>{fD(activeDraft.ua || activeDraft.ts) || '—'}</div>
+                        <div style={V3.T.micro}>Last Touched</div>
+                      </div>
+                      <div style={V3.statDivider} />
+                      <div style={V3.statBlock}>
+                        <div style={{...V3.N.lg, fontSize:18, lineHeight:'24px'}}>Screening</div>
+                        <div style={V3.T.micro}>Assessment Type</div>
+                      </div>
+                    </div>
+
+                    {/* Workflow tabs. Visual stage indicator until the
+                        per-stage detail views ship — every tab resumes
+                        the draft so users can pick up where they left
+                        off without a dead-click. */}
+                    <div style={{padding:'14px 16px 16px',display:'flex',alignItems:'stretch',gap:2,overflowX:'auto',scrollbarWidth:'none'}}>
+                      {stages.map(s => {
+                        const isActive = s.id === activeStage
+                        return (
+                          <button key={s.id} onClick={()=>resumeDraft(activeDraft.id)} style={V3.tabItem(isActive)}>
+                            <I n={s.icon} s={16} c={isActive ? 'var(--accent)' : V3.TEXT_TERTIARY} w={1.6} />
+                            <span>{s.label}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {/* ── Two-up: Next action + Assessment metadata ─── */}
+                  <div style={{display:'grid',gap:16,gridTemplateColumns:isWide?'1.2fr 1fr':'1fr',marginBottom:24}}>
+                    {/* Next action — drives the assessor forward */}
+                    <div style={V3.panel()}>
+                      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
+                        <div style={{display:'flex',alignItems:'center',gap:10}}>
+                          <div style={V3.iconBox('var(--accent)')}>
+                            <I n="target" s={16} c="var(--accent)" w={1.8} />
+                          </div>
+                          <div style={V3.T.h3}>Next recommended steps</div>
+                        </div>
+                      </div>
+                      <div style={{display:'flex',flexDirection:'column',gap:12}}>
+                        <div style={{display:'flex',alignItems:'flex-start',gap:12}}>
+                          <I n="check" s={16} c={V3.TEXT_TERTIARY} w={1.8} />
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={V3.T.body}>Complete the zone walkthrough</div>
+                            <div style={V3.T.captionDim}>Capture observations, instrument readings, and HVAC notes per zone.</div>
+                          </div>
+                        </div>
+                        <div style={{display:'flex',alignItems:'flex-start',gap:12}}>
+                          <I n="check" s={16} c={V3.TEXT_TERTIARY} w={1.8} />
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={V3.T.body}>Record an outdoor reference reading</div>
+                            <div style={V3.T.captionDim}>Needed for CO₂ and humidity Δ comparisons in the narrative.</div>
+                          </div>
+                        </div>
+                        <div style={{display:'flex',alignItems:'flex-start',gap:12}}>
+                          <I n="check" s={16} c={V3.TEXT_TERTIARY} w={1.8} />
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={V3.T.body}>Verify instrument calibration is current</div>
+                            <div style={V3.T.captionDim}>Required for any quantitative finding to appear in the report.</div>
+                          </div>
+                        </div>
+                      </div>
+                      <div style={V3.divider()} />
+                      <button onClick={()=>resumeDraft(activeDraft.id)} style={{...V3.btnGhost, width:'100%'}}>
+                        Continue from current step
+                        <I n="play" s={13} c={V3.TEXT_SECONDARY} w={1.8} />
+                      </button>
+                    </div>
+
+                    {/* Assessment metadata — calm, structured */}
+                    <div style={V3.panel()}>
+                      <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
+                        <div style={V3.iconBox(V3.TEXT_SECONDARY)}>
+                          <I n="clip" s={16} c={V3.TEXT_SECONDARY} w={1.8} />
+                        </div>
+                        <div style={V3.T.h3}>Assessment details</div>
+                      </div>
+                      {[
+                        ['Facility', activeDraft.facility || '—'],
+                        ['Started', fD(activeDraft.ts) || '—'],
+                        ['Last touched', fD(activeDraft.ua || activeDraft.ts) || '—'],
+                        ['Zones', String(activeDraft.zoneCount ?? activeDraft.zones?.length ?? 0)],
+                        ['Status', 'In Progress'],
+                      ].map(([k, v], i, arr) => (
+                        <div key={k} style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',padding:'10px 0',borderBottom: i === arr.length - 1 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`}}>
+                          <div style={V3.T.captionDim}>{k}</div>
+                          <div style={{...V3.T.body, fontFamily: (k === 'Started' || k === 'Last touched' || k === 'Zones') ? 'var(--font-mono)' : undefined, textAlign:'right'}}>{v}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Other in-progress assessments — only if multiple drafts */}
+                  {drafts.length > 1 && (
+                    <div style={{marginBottom:24}}>
+                      <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',marginBottom:10,padding:'0 2px'}}>
+                        <div style={V3.T.micro}>Other in progress · {drafts.length - 1}</div>
+                        <button onClick={()=>setView('history')} style={{background:'none',border:'none',color:'var(--accent)',fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',padding:0}}>View all</button>
+                      </div>
+                      <div style={{background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.lg,overflow:'hidden'}}>
+                        {drafts.slice(1, 4).map((d, i) => (
+                          <button key={d.id} onClick={()=>resumeDraft(d.id)} style={{width:'100%',padding:'14px 16px',background:'transparent',border:'none',borderTop: i === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit',minHeight:60}}>
+                            <div style={V3.iconBox(V3.STATUS.inProgress)}>
+                              <I n="bldg" s={15} c={V3.STATUS.inProgress} w={1.6} />
+                            </div>
+                            <div style={{flex:1,minWidth:0}}>
+                              <div style={{...V3.T.bodyStrong, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{d.facility || 'Untitled Assessment'}</div>
+                              <div style={{...V3.T.captionDim, fontFamily:'var(--font-mono)'}}>{fD(d.ua || d.ts)}</div>
+                            </div>
+                            <span style={V3.pill(V3.STATUS.inProgress)}>In Progress</span>
+                            <span style={{color:V3.TEXT_TERTIARY,fontSize:13}}>›</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                /* ── No active draft — premium start panel ─────────────── */
+                <div style={{...V3.panel(), padding:'28px 26px', marginBottom:24}}>
+                  <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
+                    <I n="airflow" s={18} c="var(--accent)" w={1.8} />
+                    <div style={V3.T.micro}>AtmosFlow · Screening Workflow</div>
+                  </div>
+                  <div style={{...V3.T.h1, marginBottom:6}}>Start a new IAQ assessment</div>
+                  <div style={{...V3.T.bodyDim, maxWidth:560, marginBottom:20}}>
+                    Capture field observations, instrument readings, and zone data.
+                    AtmosFlow organizes findings into a screening-level professional
+                    assessment with severity, confidence, and recommended actions.
+                  </div>
+                  <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+                    <button onClick={startNew} style={V3.btnPrimary}>
+                      <I n="play" s={14} c="var(--on-accent-fill)" w={2} />
+                      Start IAQ Assessment
+                    </button>
+                    <button onClick={()=>setView('incident-form')} style={V3.btnSecondary}>
+                      <I n="alert" s={14} c={V3.TEXT_PRIMARY} w={1.8} />
+                      Report IAQ Incident
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* ── Finalized reports — restyled list ──────────────────── */}
+              {reports.length > 0 && (
+                <div>
+                  <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',marginBottom:10,padding:'0 2px'}}>
+                    <div style={V3.T.micro}>Recent reports{reports.length > 0 ? ` · ${reports.length}` : ''}</div>
+                    {reports.length > 3 && <button onClick={()=>setView('history')} style={{background:'none',border:'none',color:'var(--accent)',fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',padding:0}}>View all</button>}
+                  </div>
+                  <div style={{background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.lg,overflow:'hidden'}}>
+                    {reports.slice(0, 3).map((r, i) => {
+                      const band = getRiskBand(r.score ?? null)
+                      return (
+                        <button key={r.id} onClick={()=>openReport(r)} style={{width:'100%',padding:'14px 16px',background:'transparent',border:'none',borderTop: i === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit',minHeight:60}}>
+                          <div style={V3.iconBox(band.color)}>
+                            <I n="report" s={15} c={band.color} w={1.6} />
+                          </div>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{...V3.T.bodyStrong, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{r.facility || 'Untitled'}</div>
+                            <div style={{...V3.T.captionDim, fontFamily:'var(--font-mono)'}}>{fD(r.ts)}</div>
+                          </div>
+                          <span style={V3.pill(band.color)}>{band.label}</span>
+                          <span style={{color:V3.TEXT_TERTIARY,fontSize:13}}>›</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
             </div>
-          </>}
-
-          {/* Demos moved into the kebab menu (top-right). */}
-
-
-        </div>}
+          )
+        })()}
 
         {view==='quickstart'&&qscq&&renderQuestion(qscq,mergedData,setQSField,qsqi,qsVis,()=>{if(qsqi<qsVis.length-1)setQsqi(qsqi+1)},()=>{if(qsqi>0)setQsqi(qsqi-1)},finishQuickStart,'→ HVAC Equipment',qsSecs)}
 
