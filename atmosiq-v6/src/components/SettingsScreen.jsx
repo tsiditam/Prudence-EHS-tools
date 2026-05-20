@@ -13,6 +13,7 @@ import { VER } from '../constants/standards'
 import { getSubscriptionRowSubtitle } from '../utils/subscriptionState'
 import { useTheme, mix } from '../utils/theme'
 import { I } from './Icons'
+import * as V3 from '../styles/tokens'
 
 // Theme tokens. These are CSS-variable references defined in
 // index.html (:root for dark, [data-theme="light"] for light), so the
@@ -95,12 +96,12 @@ export default function SettingsScreen({ profile, onEditProfile, onLogout, onClo
   const Group = ({ title, right, children }) => (
     <div style={{marginTop:24}}>
       {(title || right) && (
-        <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',padding:'0 4px 8px'}}>
-          {title && <div style={{fontSize:11,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'0.8px'}}>{title}</div>}
+        <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',padding:'0 4px 10px'}}>
+          {title && <div style={V3.T.micro}>{title}</div>}
           {right}
         </div>
       )}
-      <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,overflow:'hidden'}}>
+      <div style={{background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.lg,overflow:'hidden'}}>
         {children}
       </div>
     </div>
@@ -146,7 +147,10 @@ export default function SettingsScreen({ profile, onEditProfile, onLogout, onClo
 
   return (
     <div style={{paddingTop:24,paddingBottom:120}}>
-      <h2 style={{fontSize:22,fontWeight:700,marginBottom:20,color:TEXT,letterSpacing:'-0.3px',fontFamily:'inherit'}}>Settings</h2>
+      <div style={{marginBottom:20}}>
+        <div style={{...V3.T.h1, marginBottom:4}}>Settings</div>
+        <div style={V3.T.bodyDim}>Account, instruments, data, and preferences</div>
+      </div>
 
       {/* ── Account ── */}
       <Group title="Account">

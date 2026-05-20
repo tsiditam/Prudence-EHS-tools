@@ -2416,67 +2416,108 @@ export default function MobileApp() {
           onNavigate={(v)=>setView(v)}
         />}
 
-        {view==='history'&&<div style={{paddingTop:28,paddingBottom:100}}>
-          <h2 style={{fontSize:20,fontWeight:700,marginBottom:4,color:TEXT}}>Reports</h2>
-          <div style={{fontSize:11,color:DIM,marginBottom:20}}>Drafts and finalized deliverables</div>
-
-          {/* ── Drafts section ─────────────────────────────────────── */}
-          <div style={{fontSize:11,fontWeight:700,color:DIM,textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:10}}>
-            {userMode === 'fm' ? 'In Progress' : 'Drafts'}{(index.drafts||[]).length>0?` · ${(index.drafts||[]).length}`:''}
+        {view==='history'&&<div style={{paddingTop:28,paddingBottom:100,maxWidth:contentMax,margin:'0 auto'}}>
+          {/* ── Reports header ────────────────────────────────────── */}
+          <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:16,flexWrap:'wrap',marginBottom:20}}>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{...V3.T.h1, marginBottom:4}}>Reports</div>
+              <div style={V3.T.bodyDim}>Drafts and finalized deliverables · {((index.drafts||[]).length + (index.reports||[]).length)} total</div>
+            </div>
+            <button onClick={startNew} style={V3.btnPrimary}>
+              <I n="play" s={13} c="var(--on-accent-fill)" w={2} />
+              New Assessment
+            </button>
           </div>
-          {(index.drafts||[]).length===0?(
-            <div style={{padding:'24px',textAlign:'center',background:CARD,borderRadius:10,border:`1px solid ${BORDER}`,marginBottom:24}}>
-              <div style={{fontSize:13,color:SUB}}>No drafts in progress</div>
-              <button onClick={startNew} style={{marginTop:12,padding:'10px 24px',background:'var(--accent-fill)',border:'none',borderRadius:8,color:'var(--on-accent-fill)',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>Start Assessment</button>
-            </div>
-          ):(<div style={{marginBottom:24}}>{(index.drafts||[]).map(d=>(
-            <div key={d.id} style={{padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,marginBottom:6,display:'flex',alignItems:'center',gap:12}}>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:14,fontWeight:600,color:TEXT,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{d.facility||'Untitled Assessment'}</div>
-                <div style={{fontSize:11,color:DIM,fontFamily:"var(--font-mono)",marginTop:3}}>{fD(d.ua||d.ts)}</div>
-                <div style={{fontSize:10,color:ACCENT,marginTop:3}}>In progress</div>
-              </div>
-              <button onClick={()=>resumeDraft(d.id)} style={{padding:'8px 16px',background:'var(--accent-fill)',border:'none',borderRadius:8,color:'var(--on-accent-fill)',fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:38}}>Resume</button>
-              <button onClick={(e)=>{e.stopPropagation();setDelConf({id:d.id,name:d.facility,type:'dft'})}} style={{width:44,height:44,background:'#EF444410',border:`1px solid #EF444425`,borderRadius:8,color:'#EF4444',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'inherit',flexShrink:0,WebkitTapHighlightColor:'transparent'}}>
-                <I n="trash" s={14} c="#EF4444" w={1.4} />
-              </button>
-            </div>
-          ))}</div>)}
 
-          {/* ── Finalized section ──────────────────────────────────── */}
-          <div style={{fontSize:11,fontWeight:700,color:DIM,textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:10}}>
-            Finalized{(index.reports||[]).length>0?` · ${(index.reports||[]).length}`:''}
+          {/* ── Drafts / In Progress ──────────────────────────────── */}
+          <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',marginBottom:10,padding:'0 2px'}}>
+            <div style={V3.T.micro}>{userMode === 'fm' ? 'In Progress' : 'Drafts'}{(index.drafts||[]).length>0?` · ${(index.drafts||[]).length}`:''}</div>
+          </div>
+          {(index.drafts||[]).length === 0 ? (
+            <div style={{...V3.panel(), display:'flex',alignItems:'center',gap:14,marginBottom:24,padding:'18px 22px'}}>
+              <div style={V3.iconBox(V3.STATUS.draft)}><I n="draft" s={15} c={V3.STATUS.draft} w={1.6} /></div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={V3.T.bodyStrong}>No drafts in progress</div>
+                <div style={V3.T.captionDim}>Start a new assessment to capture field observations.</div>
+              </div>
+              <button onClick={startNew} style={V3.btnSecondary}>Start Assessment</button>
+            </div>
+          ) : (
+            <div style={{background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.lg,marginBottom:24,overflow:'hidden'}}>
+              {(index.drafts||[]).map((d, i) => (
+                <div key={d.id} style={{padding:'14px 16px',background:'transparent',borderTop: i === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`,display:'flex',alignItems:'center',gap:12}}>
+                  <div style={V3.iconBox(V3.STATUS.inProgress)}><I n="bldg" s={15} c={V3.STATUS.inProgress} w={1.6} /></div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{...V3.T.bodyStrong, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{d.facility||'Untitled Assessment'}</div>
+                    <div style={{display:'flex',alignItems:'center',gap:8,marginTop:3}}>
+                      <span style={{...V3.T.captionDim, fontFamily:'var(--font-mono)'}}>{fD(d.ua||d.ts)}</span>
+                      <span style={V3.pill(V3.STATUS.inProgress)}>In Progress</span>
+                    </div>
+                  </div>
+                  <button onClick={()=>resumeDraft(d.id)} style={V3.btnPrimary}>Resume</button>
+                  <button onClick={(e)=>{e.stopPropagation();setDelConf({id:d.id,name:d.facility,type:'dft'})}} style={{width:40,height:40,background:`${DANGER}10`,border:`1px solid ${DANGER}28`,borderRadius:V3.R.md,color:DANGER,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'inherit',flexShrink:0,WebkitTapHighlightColor:'transparent'}}>
+                    <I n="trash" s={14} c={DANGER} w={1.4} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ── Finalized ─────────────────────────────────────────── */}
+          <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',marginBottom:10,padding:'0 2px'}}>
+            <div style={V3.T.micro}>Finalized{(index.reports||[]).length>0?` · ${(index.reports||[]).length}`:''}</div>
           </div>
           <div style={{display:'flex',gap:8,marginBottom:14}}>
-            <input type="text" value={hSearch} onChange={e=>setHSearch(e.target.value)} placeholder="Search finalized reports..." style={{flex:1,padding:'12px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,color:TEXT,fontSize:15,fontFamily:'inherit',outline:'none',boxSizing:'border-box',minHeight:44}} />
-            <select value={hSort} onChange={e=>setHSort(e.target.value)} style={{padding:'12px 12px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,color:SUB,fontSize:12,fontFamily:'inherit',outline:'none',minHeight:44}}>
+            <div style={{flex:1,position:'relative'}}>
+              <input type="text" value={hSearch} onChange={e=>setHSearch(e.target.value)} placeholder="Search finalized reports..." style={{width:'100%',padding:'12px 14px 12px 38px',background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.md,color:TEXT,fontSize:14,fontFamily:'inherit',outline:'none',boxSizing:'border-box',minHeight:44}} />
+              <div style={{position:'absolute',top:'50%',left:14,transform:'translateY(-50%)',pointerEvents:'none',display:'flex'}}>
+                <I n="search" s={14} c={V3.TEXT_TERTIARY} w={1.8} />
+              </div>
+            </div>
+            <select value={hSort} onChange={e=>setHSort(e.target.value)} style={{padding:'12px 14px',background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.md,color:V3.TEXT_SECONDARY,fontSize:13,fontFamily:'inherit',outline:'none',minHeight:44,cursor:'pointer'}}>
               <option value="newest">Newest</option><option value="oldest">Oldest</option><option value="score-low">Score ↑</option><option value="score-high">Score ↓</option>
             </select>
           </div>
-          {fReports.length===0?(
-            <div style={{padding:'48px 24px',textAlign:'center',background:CARD,borderRadius:10,border:`1px solid ${BORDER}`}}>
-              <I n="report" s={28} c={DIM} w={1.4} />
-              <div style={{fontSize:15,fontWeight:600,color:SUB,marginTop:16}}>No reports generated yet</div>
-              <div style={{fontSize:12,color:DIM,marginTop:6,lineHeight:1.5}}>{hSearch?'No reports match your search.':'Complete and finalize an assessment to generate your first report.'}</div>
-              {!hSearch&&<>
-                <button onClick={startNew} style={{marginTop:16,padding:'10px 24px',background:'var(--accent-fill)',border:'none',borderRadius:8,color:'var(--on-accent-fill)',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>Start Assessment</button>
-                <div style={{marginTop:10}}><button onClick={runDemo} style={{background:'none',border:'none',color:DIM,fontSize:11,cursor:'pointer',fontFamily:'inherit'}}>or view sample report →</button></div>
-              </>}
-            </div>
-          ):fReports.map(r=>(
-            <div key={r.id} onClick={()=>openReport(r)} style={{width:'100%',padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,marginBottom:6,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit',transition:'border-color 0.15s'}}>
-              <div style={{width:40,height:40,borderRadius:8,background:r.score>=70?`${mix('success', 6)}`:r.score>=50?`${mix('warn', 6)}`:`${mix('danger', 6)}`,border:`1px solid ${r.score>=70?`${mix('success', 13)}`:r.score>=50?`${mix('warn', 13)}`:`${mix('danger', 13)}`}`,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                <span style={{fontSize:15,fontWeight:800,fontFamily:"var(--font-mono)",color:r.score>=70?SUCCESS:r.score>=50?WARN:DANGER}}>{r.score||'—'}</span>
+          {fReports.length === 0 ? (
+            <div style={{...V3.panel(), padding:'40px 24px', textAlign:'center'}}>
+              <div style={{...V3.iconBox(V3.TEXT_TERTIARY), width:48, height:48, margin:'0 auto 12px', borderRadius:V3.R.lg}}>
+                <I n="report" s={20} c={V3.TEXT_TERTIARY} w={1.6} />
               </div>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:14,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:TEXT}}>{r.facility||'Untitled'}</div>
-                <div style={{fontSize:10,color:DIM,fontFamily:"var(--font-mono)",marginTop:3}}>{fD(r.ts)} · Final</div>
+              <div style={{...V3.T.h3, marginBottom:6}}>No reports generated yet</div>
+              <div style={{...V3.T.bodyDim, marginBottom:hSearch?0:16}}>
+                {hSearch ? 'No reports match your search.' : 'Complete and finalize an assessment to generate your first report.'}
               </div>
-              <button onClick={e=>{e.stopPropagation();setDelConf({id:r.id,name:r.facility,type:'rpt'})}} style={{width:36,height:36,background:'transparent',border:`1px solid ${BORDER}`,borderRadius:8,color:DIM,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'inherit',flexShrink:0}}>
-                <I n="trash" s={14} c={DIM} w={1.4} />
-              </button>
+              {!hSearch && (
+                <div style={{display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap'}}>
+                  <button onClick={startNew} style={V3.btnPrimary}>Start Assessment</button>
+                  <button onClick={runDemo} style={V3.btnGhost}>View sample report</button>
+                </div>
+              )}
             </div>
-          ))}
+          ) : (
+            <div style={{background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.lg,overflow:'hidden'}}>
+              {fReports.map((r, i) => {
+                const band = getRiskBand(r.score ?? null)
+                return (
+                  <div key={r.id} onClick={()=>openReport(r)} style={{padding:'14px 16px',background:'transparent',borderTop: i === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`,cursor:'pointer',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit'}}>
+                    <div style={V3.iconBox(band.color)}><I n="report" s={15} c={band.color} w={1.6} /></div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{...V3.T.bodyStrong, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{r.facility||'Untitled'}</div>
+                      <div style={{display:'flex',alignItems:'center',gap:8,marginTop:3}}>
+                        <span style={{...V3.T.captionDim, fontFamily:'var(--font-mono)'}}>{fD(r.ts)}</span>
+                        <span style={V3.pill(V3.STATUS.ready)}>Final</span>
+                      </div>
+                    </div>
+                    <span style={V3.pill(band.color)}>{band.label}</span>
+                    <button onClick={e=>{e.stopPropagation();setDelConf({id:r.id,name:r.facility,type:'rpt'})}} style={{width:36,height:36,background:'transparent',border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.md,color:V3.TEXT_TERTIARY,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'inherit',flexShrink:0}}>
+                      <I n="trash" s={13} c={V3.TEXT_TERTIARY} w={1.4} />
+                    </button>
+                    <span style={{color:V3.TEXT_TERTIARY,fontSize:13}}>›</span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>}
         {view==='trash'&&<TrashView onRecover={async(id)=>{await Backup.recover(id);await refreshIndex()}} onDelete={async(id)=>{await Backup.permanentDelete(id)}} />}
         {view==='sampling-forms'&&<SamplingFormsView profile={profile} onBack={()=>setView('dash')} />}
@@ -2496,13 +2537,18 @@ export default function MobileApp() {
         {view==='instruments'&&<InstrumentManager onBack={()=>setView('settings')} />}
       </div>
 
-      {/* ── Bottom Tab Bar ── */}
-      {/* iOS Safari defensives: solid background (no scroll-bleed during URL-bar transitions),
-          isolation:isolate for a clean stacking context, transform:translateZ(0) to force a
-          compositor layer so position:fixed cannot be reinterpreted relative to an ancestor. */}
+      {/* ── Bottom Tab Bar (v3) ──
+          iOS Safari defensives retained: solid background (no scroll-
+          bleed during URL-bar transitions), isolation:isolate for a
+          clean stacking context, transform:translateZ(0) to force a
+          compositor layer so position:fixed cannot be reinterpreted
+          relative to an ancestor.
+          v3 visual: top hairline + top accent rail above the active
+          tab (instrument-panel cue, replaces the earlier scale 1.06
+          "lift"), icon stays at its base size, label sits below. */}
       {!isAssessing && !milestone && (
-        <nav style={{position:'fixed',bottom:0,left:0,right:0,zIndex:100,background:BG,borderTop:`1px solid ${BORDER}`,paddingBottom:'env(safe-area-inset-bottom, 0px)',isolation:'isolate',transform:'translateZ(0)',WebkitTransform:'translateZ(0)'}}>
-          <div style={{display:'flex',justifyContent:'space-around',alignItems:'center',height:52,maxWidth:contentMax,margin:'0 auto'}}>
+        <nav style={{position:'fixed',bottom:0,left:0,right:0,zIndex:100,background:BG,borderTop:`1px solid ${V3.BORDER_DEFAULT}`,paddingBottom:'env(safe-area-inset-bottom, 0px)',isolation:'isolate',transform:'translateZ(0)',WebkitTransform:'translateZ(0)'}}>
+          <div style={{display:'flex',justifyContent:'space-around',alignItems:'stretch',height:56,maxWidth:contentMax,margin:'0 auto'}}>
             {(userMode === 'fm' ? [
               {id:'dash',label:'Home',icon:'home'},
               {id:'properties',label:'Buildings',icon:'bldg'},
@@ -2513,17 +2559,22 @@ export default function MobileApp() {
               {id:'history',label:'Reports',icon:'report',badge:((index.drafts||[]).length+(index.reports||[]).length)||null},
               {id:'search',label:'Search',icon:'search'},
               {id:'settings',label:'Settings',icon:'gear'},
-            ]).map(t=>(
-              <button key={t.id} onClick={()=>{ supabase&&trackEvent('page_view',{tab:t.id}); setView(t.id); if(t.id==='dash')setViewRpt(null); }} style={{background:'none',border:'none',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:2,padding:'6px 16px',minWidth:56,fontFamily:'inherit',position:'relative',WebkitTapHighlightColor:'transparent',transition:'opacity 0.15s'}}>
-                {/* Active "lift": icon scale 1.06× + smooth transition. Color
-                    change on icon and label provides the secondary signal. */}
-                <div style={{position:'relative',transform:view===t.id?'scale(1.06)':'scale(1)',transition:'transform 160ms ease'}}>
-                  <I n={t.icon} s={20} c={view===t.id?ACCENT:DIM} w={view===t.id?2:1.6} />
-                  {t.badge>0&&<div style={{position:'absolute',top:-3,right:-7,minWidth:14,height:14,borderRadius:7,background:ACCENT,display:'flex',alignItems:'center',justifyContent:'center',fontSize:8,fontWeight:700,color:ON_ACCENT,fontFamily:"var(--font-mono)",padding:'0 3px'}}>{t.badge}</div>}
-                </div>
-                <span style={{fontSize:9,fontWeight:view===t.id?600:500,color:view===t.id?ACCENT:DIM,letterSpacing:'0.2px',transition:'color 160ms ease'}}>{t.label}</span>
-              </button>
-            ))}
+            ]).map(t=>{
+              const isActive = view === t.id
+              return (
+                <button key={t.id} onClick={()=>{ supabase&&trackEvent('page_view',{tab:t.id}); setView(t.id); if(t.id==='dash')setViewRpt(null); }} style={{flex:1,background:'none',border:'none',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:4,paddingTop:6,fontFamily:'inherit',position:'relative',WebkitTapHighlightColor:'transparent',transition:'opacity 0.15s'}}>
+                  {/* Top accent rail — only on the active tab. Cyan
+                      hairline tucked under the nav's top border so the
+                      visual is "this lane is lit", not a button glow. */}
+                  <div style={{position:'absolute',top:0,left:'20%',right:'20%',height:2,background:isActive?'var(--accent)':'transparent',borderRadius:'0 0 2px 2px',transition:'background 160ms ease'}} />
+                  <div style={{position:'relative',display:'flex'}}>
+                    <I n={t.icon} s={20} c={isActive?'var(--accent)':V3.TEXT_TERTIARY} w={isActive?2:1.7} />
+                    {t.badge>0&&<div style={{position:'absolute',top:-4,right:-8,minWidth:15,height:15,borderRadius:V3.R.pill,background:'var(--accent)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,fontWeight:700,color:'var(--on-accent-fill)',fontFamily:'var(--font-mono)',padding:'0 4px'}}>{t.badge}</div>}
+                  </div>
+                  <span style={{fontSize:10,fontWeight:isActive?600:500,color:isActive?'var(--accent)':V3.TEXT_TERTIARY,letterSpacing:'0.2px',transition:'color 160ms ease'}}>{t.label}</span>
+                </button>
+              )
+            })}
           </div>
         </nav>
       )}
