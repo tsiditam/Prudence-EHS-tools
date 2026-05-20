@@ -83,6 +83,15 @@
       { "type": "file_exists", "path": "tests/scripts/build-precache-manifest.test.ts" }
     ]},
 
+    { "id": "CROSS-ASSESSMENT-MEMORY", "label": "Cross-assessment similarity + Past Patterns panel (Play 2)", "checks": [
+      { "type": "file_exists", "path": "src/utils/assessmentSimilarity.js" },
+      { "type": "file_exists", "path": "src/hooks/useSimilarAssessments.js" },
+      { "type": "file_exists", "path": "src/components/SimilarAssessmentsPanel.jsx" },
+      { "type": "grep_matches", "pattern": "SimilarAssessmentsPanel", "paths": ["src/components/MobileApp.jsx"] },
+      { "type": "file_exists", "path": "tests/lib/assessment-similarity.test.ts" },
+      { "type": "file_exists", "path": "tests/components/SimilarAssessmentsPanel.test.tsx" }
+    ]},
+
     { "id": "PHOTO-ANALYSIS-AI", "label": "Multimodal photo analysis endpoint + IH-Review-Required render path", "checks": [
       { "type": "file_exists", "path": "api/photo-analyze.js" },
       { "type": "file_exists", "path": "src/utils/photoAnalysis.js" },

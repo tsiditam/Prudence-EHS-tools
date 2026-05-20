@@ -66,6 +66,7 @@ import { FAQ_SECTIONS } from '../constants/faq'
 import SearchView from './SearchView'
 import FieldAssistantFab from './FieldAssistantFab'
 import FieldAssistant from './FieldAssistant'
+import SimilarAssessmentsPanel from './SimilarAssessmentsPanel'
 import PendingSyncIndicator from './PendingSyncIndicator'
 import JasperWatchPanel from './JasperWatchPanel'
 import ReadinessPanel from './ReadinessPanel'
@@ -962,6 +963,26 @@ export default function MobileApp() {
 
         {/* ── Legacy / Standards Badge ── */}
         {viewRpt && !viewRpt.standardsManifest && <div style={{padding:'8px 14px',background:'#FBBF2410',border:`1px solid #FBBF2428`,borderRadius:8,marginBottom:10,fontSize:10,color:WARN}}>Legacy v1.x scoring — standards manifest not embedded</div>}
+
+        {/* ── Past Patterns (Play 2 — cross-assessment memory) ──
+            Surfaces deterministic similarity matches from the assessor's
+            historical localStorage assessments. Hidden when history < 3.
+            Advisory only — never replaces the deterministic findings
+            above; the panel renders below this point as a memory aid. */}
+        <SimilarAssessmentsPanel
+          currentAssessment={{
+            id: viewRpt?.id || null,
+            building: bldg,
+            presurvey,
+            comp,
+            recs,
+            moldResults,
+          }}
+          onOpenPastAssessment={(id) => {
+            const meta = (index.reports || []).find(r => r.id === id) || (index.drafts || []).find(d => d.id === id)
+            if (meta) openReport(meta)
+          }}
+        />
 
         {/* ── Composite Score Card ── */}
         <div style={{padding:'20px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,marginBottom:12,position:'relative',overflow:'hidden'}}>
