@@ -58,6 +58,10 @@ const MAX_HISTORY_TURNS = 20
 // typically resolves an answer in 1–2 tool calls; >4 indicates a stuck
 // loop and we cut it off rather than spend tokens spinning.
 const MAX_TOOL_ROUNDS = 4
+// L4 photo attachments. Caps keep the request body under Vercel's
+// ~4.5MB hobby-tier limit and protect against accidental large uploads.
+const MAX_PHOTOS_PER_REQUEST = 5
+const MAX_PHOTO_BYTES = 2_000_000 // ~2MB per photo, base64-decoded estimate
 
 interface VercelLikeRequest {
   method?: string
@@ -205,14 +209,24 @@ async function ensureConversation(
   return data.id as string
 }
 
-function buildSystemBlocks(context: RequestContext) {
-  const contextBlock = context
+function buildSystemBlocks(
+  context: RequestContext,
+  photoIndex: Array<{ id: string; label: string | null }> = [],
+) {
+  const baseContext = context
     ? `Current assessor context (passed at request time, do not assume any other state):\n${JSON.stringify(
         context,
         null,
         2,
       )}`
     : 'No assessment context provided — the assessor is asking a general question.'
+  const photoBlock =
+    photoIndex.length > 0
+      ? `\n\nAvailable photos in this conversation (call analyze_photo with one of these IDs):\n${photoIndex
+          .map((p) => `  - id: "${p.id}"${p.label ? `  (label: "${p.label}")` : ''}`)
+          .join('\n')}`
+      : '\n\nNo photos are attached to this conversation. analyze_photo will return no_photos_attached if called.'
+  const contextBlock = baseContext + photoBlock
   return [
     { type: 'text', text: FIELD_ASSISTANT_ROLE_PROMPT, cache_control: { type: 'ephemeral' } },
     { type: 'text', text: STANDARDS_FOR_AGENT, cache_control: { type: 'ephemeral' } },
@@ -402,11 +416,31 @@ async function pumpAnthropicStream(
  * persisted history reflects the full answer even when intermediate
  * tool turns produced partial text).
  */
+interface PhotoEntry {
+  id: string
+  dataUrl: string
+  label?: string | null
+}
+interface VisionUsageRecord {
+  photo_id: string
+  focus: string
+  input_tokens: number | null
+  output_tokens: number | null
+  confidence: string
+}
+interface ToolDispatchContext {
+  photos: Map<string, PhotoEntry>
+  anthropicApiKey: string
+  fetchFn: typeof fetch
+  recordVisionUsage: (u: VisionUsageRecord) => void
+}
+
 async function runAgentLoop(
   apiKey: string,
   systemBlocks: unknown,
   initialMessages: Array<{ role: string; content: unknown }>,
   res: VercelLikeResponse,
+  toolCtx: ToolDispatchContext,
 ): Promise<StreamResult & { rounds: number; toolCalls: Array<{ name: string; input: unknown; resultStatus: string }> }> {
   const messages: Array<{ role: string; content: unknown }> = initialMessages.slice()
   const toolCalls: Array<{ name: string; input: unknown; resultStatus: string }> = []
@@ -448,7 +482,7 @@ async function runAgentLoop(
     const toolResults: Array<{ type: 'tool_result'; tool_use_id: string; content: string }> = []
     for (const block of turn.contentBlocks) {
       if (block.type !== 'tool_use') continue
-      const result = dispatchTool(block.name, block.input)
+      const result = await dispatchTool(block.name, block.input, toolCtx)
       toolCalls.push({ name: block.name, input: block.input, resultStatus: (result && (result as any).status) || 'unknown' })
       writeSse(res, 'tool_call', {
         name: block.name,
@@ -562,6 +596,7 @@ async function handler(req: VercelLikeRequest, res: VercelLikeResponse): Promise
     conversation_id?: string | null
     message?: string
     context?: RequestContext
+    photos?: Array<{ id?: string; dataUrl?: string; label?: string }>
   }
   const userMessage = typeof body.message === 'string' ? body.message.trim() : ''
   if (!userMessage) {
@@ -571,6 +606,35 @@ async function handler(req: VercelLikeRequest, res: VercelLikeResponse): Promise
   if (userMessage.length > MAX_USER_MESSAGE_LEN) {
     res.status(400).json({ error: `Message exceeds ${MAX_USER_MESSAGE_LEN} characters` })
     return
+  }
+
+  // L4 photos — validate, build the per-request photo map, and assemble
+  // a short list of {id, label} entries to expose to Claude via the
+  // dynamic context block so it knows which IDs are callable.
+  const photoMap = new Map<string, PhotoEntry>()
+  const photoIndex: Array<{ id: string; label: string | null }> = []
+  if (Array.isArray(body.photos) && body.photos.length > 0) {
+    if (body.photos.length > MAX_PHOTOS_PER_REQUEST) {
+      res.status(400).json({
+        error: `photos array exceeds ${MAX_PHOTOS_PER_REQUEST} entries`,
+      })
+      return
+    }
+    for (const p of body.photos) {
+      if (!p || typeof p.id !== 'string' || !p.id || typeof p.dataUrl !== 'string') continue
+      // Estimate decoded byte size — base64 ≈ 3/4 of encoded length.
+      const encodedLen = p.dataUrl.length
+      const decodedEst = Math.floor((encodedLen * 3) / 4)
+      if (decodedEst > MAX_PHOTO_BYTES) {
+        res.status(400).json({
+          error: `photo ${p.id} exceeds ${MAX_PHOTO_BYTES} bytes (~${Math.round(MAX_PHOTO_BYTES / 1_000_000)}MB) decoded size`,
+        })
+        return
+      }
+      const label = typeof p.label === 'string' && p.label ? p.label.slice(0, 200) : null
+      photoMap.set(p.id, { id: p.id, dataUrl: p.dataUrl, label })
+      photoIndex.push({ id: p.id, label })
+    }
   }
 
   // Plan lookup (free tier has tighter cap)
@@ -640,12 +704,24 @@ async function handler(req: VercelLikeRequest, res: VercelLikeResponse): Promise
   }
 
   // Call Anthropic and pump the stream (with tool-use loop)
-  const systemBlocks = buildSystemBlocks(body.context)
+  const systemBlocks = buildSystemBlocks(body.context, photoIndex)
   const initialMessages = buildAnthropicMessages(history, userMessage)
+
+  // Collect L4 vision usage so we can write per-photo audit details
+  // and add the per-photo cost to the ledger row.
+  const visionUsages: VisionUsageRecord[] = []
+  const toolCtx: ToolDispatchContext = {
+    photos: photoMap,
+    anthropicApiKey: apiKey,
+    fetchFn: getFetch(),
+    recordVisionUsage: (u: VisionUsageRecord) => {
+      visionUsages.push(u)
+    },
+  }
 
   let result: Awaited<ReturnType<typeof runAgentLoop>>
   try {
-    result = await runAgentLoop(apiKey, systemBlocks, initialMessages, res)
+    result = await runAgentLoop(apiKey, systemBlocks, initialMessages, res, toolCtx)
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'agent_loop_failed'
     writeSse(res, 'error', { error: msg })
@@ -697,6 +773,8 @@ async function handler(req: VercelLikeRequest, res: VercelLikeResponse): Promise
       plan,
       tool_rounds: result.rounds,
       tool_calls: result.toolCalls.map((t) => ({ name: t.name, status: t.resultStatus })),
+      vision_usages: visionUsages,
+      photos_attached: photoIndex.length,
     },
     req,
   })

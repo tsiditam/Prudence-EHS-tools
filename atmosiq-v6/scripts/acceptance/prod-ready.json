@@ -140,6 +140,16 @@
       { "type": "file_exists", "path": "tests/lib/corpus-search.test.ts" }
     ]},
 
+    { "id": "JASPER-L4-VISION-TOOL", "label": "Field Assistant (Jasper) Layer-4 vision tool — multimodal photo analysis wired into the agent loop", "checks": [
+      { "type": "grep_matches", "pattern": "analyze_photo", "paths": ["src/constants/field-assistant-tools.js"] },
+      { "type": "grep_matches", "pattern": "parsePhotoDataUrl", "paths": ["src/constants/field-assistant-tools.js"] },
+      { "type": "grep_matches", "pattern": "ih_review_required", "paths": ["src/constants/field-assistant-tools.js"] },
+      { "type": "grep_matches", "pattern": "MAX_PHOTOS_PER_REQUEST", "paths": ["api/field-assistant.ts"] },
+      { "type": "grep_matches", "pattern": "ToolDispatchContext", "paths": ["api/field-assistant.ts"] },
+      { "type": "grep_matches", "pattern": "Available photos in this conversation", "paths": ["api/field-assistant.ts"] },
+      { "type": "grep_matches", "pattern": "vision_usages", "paths": ["api/field-assistant.ts"] }
+    ]},
+
     { "id": "SENTRY-PACKAGE", "label": "Sentry package installed", "checks": [
       { "type": "grep_matches", "pattern": "@sentry/", "paths": ["package.json"] }
     ]},
