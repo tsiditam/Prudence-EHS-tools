@@ -201,6 +201,11 @@ export default function FieldAssistant({ onClose, context, onNavigate }) {
   const [historyLoading, setHistoryLoading] = useState(false)
   const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine)
   const [introAccepted, setIntroAccepted] = useState(readIntroFlag)
+  // Focus-within state for the unified composer container so its
+  // border + soft glow can react to the textarea getting focus.
+  // CSS :focus-within would also work, but we render via inline
+  // styles for the rest of the surface, so this stays consistent.
+  const [composerFocused, setComposerFocused] = useState(false)
   const scrollRef = useRef(null)
   const inputRef = useRef(null)
   const fileInputRef = useRef(null)
@@ -228,6 +233,19 @@ export default function FieldAssistant({ onClose, context, onNavigate }) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
   }, [messages, sending])
+
+  // Auto-resize the textarea as the user types so the composer grows
+  // up to MAX_COMPOSER_HEIGHT (then scrolls internally). Mirrors the
+  // standard Claude / ChatGPT pattern. Resetting height to 0 first
+  // forces scrollHeight to reflect the current content rather than
+  // the previously-fitted height.
+  useEffect(() => {
+    const el = inputRef.current
+    if (!el) return
+    el.style.height = '0px'
+    const next = Math.min(el.scrollHeight, 200)
+    el.style.height = next + 'px'
+  }, [input])
 
   useEffect(() => {
     inputRef.current?.focus()
@@ -534,74 +552,92 @@ export default function FieldAssistant({ onClose, context, onNavigate }) {
           </div>
         )}
 
-        {/* L4 — staged photo thumbnails. Each chip shows the image, a
-            short label, and a remove × button. Hidden when nothing is
-            attached so the input row collapses back to its compact
-            form. */}
-        {attachedPhotos.length > 0 && (
-          <div
-            data-testid="attached-photos"
-            style={{
-              display: 'flex', flexWrap: 'wrap', gap: 6,
-              paddingTop: 8, marginTop: 8,
-              borderTop: `1px solid ${BORDER}`,
-            }}
-          >
-            {attachedPhotos.map((p) => (
-              <div
-                key={p.id}
-                style={{
-                  position: 'relative',
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  padding: '4px 28px 4px 4px',
-                  background: SURFACE, border: `1px solid ${BORDER}`,
-                  borderRadius: 8,
-                }}
-              >
-                <img
-                  src={p.dataUrl}
-                  alt={p.label || 'attached photo'}
-                  style={{ width: 32, height: 32, borderRadius: 4, objectFit: 'cover', display: 'block' }}
-                />
-                <span
+        {/* Unified Claude-style composer. One rounded surface holds
+            three stacked regions: attached-photo chips at the top,
+            the textarea in the middle, and an action toolbar at the
+            bottom (paperclip + mic on the left, send on the right).
+            Borders on individual children removed — the container
+            border is the only visible boundary, and it brightens to
+            ACCENT with a soft glow on focus-within. AtmosFlow colors
+            throughout: SURFACE background, ACCENT focus / send-fill,
+            DIM idle icon foreground. */}
+        <div
+          style={{
+            marginTop: 10,
+            background: SURFACE,
+            border: `1.5px solid ${composerFocused ? ACCENT : BORDER}`,
+            borderRadius: 18,
+            transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
+            boxShadow: composerFocused
+              ? `0 0 0 4px ${mix('accent', 12)}, 0 1px 2px rgba(0,0,0,0.06)`
+              : '0 1px 2px rgba(0,0,0,0.04)',
+            opacity: introAccepted ? 1 : 0.55,
+            minWidth: 0, boxSizing: 'border-box',
+          }}
+        >
+          {/* L4 — staged photo chips. Sit inside the composer at the
+              top so they read as "things attached to this message"
+              rather than a separate region. Hidden when nothing is
+              attached so the container collapses back to its compact
+              form. */}
+          {attachedPhotos.length > 0 && (
+            <div
+              data-testid="attached-photos"
+              style={{
+                display: 'flex', flexWrap: 'wrap', gap: 6,
+                padding: '10px 12px 0',
+              }}
+            >
+              {attachedPhotos.map((p) => (
+                <div
+                  key={p.id}
                   style={{
-                    fontSize: 11, color: SUB, maxWidth: 140,
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                  }}
-                  title={p.label || ''}
-                >
-                  {p.label || 'photo'}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => removePhoto(p.id)}
-                  aria-label={`Remove ${p.label || 'photo'}`}
-                  disabled={sending}
-                  style={{
-                    position: 'absolute', top: 2, right: 2,
-                    width: 20, height: 20, borderRadius: 10,
-                    background: 'transparent', border: 'none',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    cursor: sending ? 'not-allowed' : 'pointer',
-                    color: DIM,
+                    position: 'relative',
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    padding: '4px 28px 4px 4px',
+                    background: CARD, border: `1px solid ${BORDER}`,
+                    borderRadius: 8,
                   }}
                 >
-                  <I n="x" s={12} c={DIM} w={2} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
+                  <img
+                    src={p.dataUrl}
+                    alt={p.label || 'attached photo'}
+                    style={{ width: 32, height: 32, borderRadius: 4, objectFit: 'cover', display: 'block' }}
+                  />
+                  <span
+                    style={{
+                      fontSize: 11, color: SUB, maxWidth: 140,
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    }}
+                    title={p.label || ''}
+                  >
+                    {p.label || 'photo'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removePhoto(p.id)}
+                    aria-label={`Remove ${p.label || 'photo'}`}
+                    disabled={sending}
+                    style={{
+                      position: 'absolute', top: 2, right: 2,
+                      width: 20, height: 20, borderRadius: 10,
+                      background: 'transparent', border: 'none',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      cursor: sending ? 'not-allowed' : 'pointer',
+                      color: DIM,
+                    }}
+                  >
+                    <I n="x" s={12} c={DIM} w={2} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
 
-        {/* Input row */}
-        <div style={{
-          display: 'flex', gap: 8, alignItems: 'flex-end',
-          paddingTop: 10, borderTop: `1px solid ${BORDER}`, marginTop: 8,
-          minWidth: 0, boxSizing: 'border-box',
-        }}>
-          {/* Hidden file input — the visible paperclip button drives it.
-              `multiple` + accept restrict to the formats the backend
-              parses; the hook validates again before the actual upload. */}
+          {/* Hidden file input — the visible paperclip button below
+              drives it. multiple + accept restrict to the formats
+              the backend parses; the hook validates again before
+              the actual upload. */}
           <input
             ref={fileInputRef}
             type="file"
@@ -612,70 +648,92 @@ export default function FieldAssistant({ onClose, context, onNavigate }) {
             data-testid="photo-file-input"
             aria-hidden="true"
           />
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={sending || !introAccepted || attachedPhotos.length >= 5}
-            aria-label="Attach photo"
-            style={{
-              width: 42, height: 42, borderRadius: 12,
-              background: SURFACE,
-              border: `1px solid ${BORDER}`,
-              cursor: sending || !introAccepted || attachedPhotos.length >= 5 ? 'not-allowed' : 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontFamily: 'inherit', flexShrink: 0,
-              opacity: sending || !introAccepted ? 0.55 : 1,
-            }}>
-            <I n="paperclip" s={16} c={attachedPhotos.length > 0 ? ACCENT : SUB} w={1.8} />
-          </button>
+
+          {/* Textarea — transparent, no border, no outline. Visually
+              the textarea IS the container content; the container
+              owns all the chrome. Auto-resizes via the useEffect
+              above (up to 200px, then internal scroll). */}
           <textarea
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKey}
+            onFocus={() => setComposerFocused(true)}
+            onBlur={() => setComposerFocused(false)}
             disabled={sending || !introAccepted}
-            placeholder={introAccepted ? 'Ask Jasper…' : 'Tap "Start Chatting" above to begin'}
+            placeholder={introAccepted ? 'Ask Jasper anything…' : 'Tap "Start Chatting" above to begin'}
             rows={1}
             style={{
-              flex: 1, resize: 'none', minWidth: 0, width: '100%',
-              padding: '10px 14px',
-              background: SURFACE,
-              border: `1px solid ${BORDER}`,
-              borderRadius: 12,
-              color: TEXT, fontSize: 14, fontFamily: 'inherit',
+              width: '100%',
+              padding: '14px 16px 6px',
+              background: 'transparent',
+              border: 'none',
+              color: TEXT, fontSize: 15, fontFamily: 'inherit',
               outline: 'none', boxSizing: 'border-box',
-              minHeight: 42, maxHeight: 120, lineHeight: 1.5,
-              opacity: introAccepted ? 1 : 0.55,
+              minHeight: 48, maxHeight: 200, lineHeight: 1.5,
+              resize: 'none',
+              display: 'block',
             }}
-            onFocus={(e) => { e.currentTarget.style.borderColor = ACCENT }}
-            onBlur={(e) => { e.currentTarget.style.borderColor = BORDER }}
           />
-          {/* Voice dictation — dictate questions while walking a
-              building. Each final phrase appends to the input value
-              with a single separating space (appendWithSpace handles
-              the boundary). Disabled while the intro gate is open
-              or a turn is in flight. */}
-          <VoiceInputButton
-            ariaLabel="Dictate message"
-            disabled={sending || !introAccepted}
-            size={42}
-            onTranscript={(text) => setInput((v) => appendWithSpace(v, text))}
-          />
-          <button
-            onClick={submit}
-            disabled={!input.trim() || sending || !introAccepted}
-            aria-label="Send"
-            style={{
-              width: 42, height: 42, borderRadius: 12,
-              background: input.trim() && !sending && introAccepted ? 'var(--accent-fill)' : SURFACE,
-              border: input.trim() && !sending && introAccepted ? 'none' : `1px solid ${BORDER}`,
-              cursor: input.trim() && !sending && introAccepted ? 'pointer' : 'not-allowed',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontFamily: 'inherit', flexShrink: 0,
-              transition: 'background 0.15s, border-color 0.15s',
-            }}>
-            <I n="send" s={16} c={input.trim() && !sending && introAccepted ? 'var(--on-accent-fill)' : DIM} w={1.8} />
-          </button>
+
+          {/* Action toolbar — paperclip + mic on the left as ghost
+              icon buttons, send on the right as a small accent
+              circle that lights up only when there's content. Sits
+              inside the same rounded container so the whole thing
+              reads as one surface. */}
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '4px 8px 8px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={sending || !introAccepted || attachedPhotos.length >= 5}
+                aria-label="Attach photo"
+                style={{
+                  width: 36, height: 36, borderRadius: 10,
+                  background: 'transparent', border: 'none',
+                  cursor: sending || !introAccepted || attachedPhotos.length >= 5 ? 'not-allowed' : 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontFamily: 'inherit', flexShrink: 0,
+                  opacity: sending || !introAccepted ? 0.55 : 1,
+                  WebkitTapHighlightColor: 'transparent',
+                }}>
+                <I n="paperclip" s={18} c={attachedPhotos.length > 0 ? ACCENT : SUB} w={1.8} />
+              </button>
+              {/* Voice dictation — same hook as before, but the
+                  button is rendered as a ghost (no border, no
+                  background) so it sits flush with the paperclip
+                  inside the composer container. The pulse +
+                  listening fill from the component itself still
+                  fire as expected. */}
+              <VoiceInputButton
+                ariaLabel="Dictate message"
+                disabled={sending || !introAccepted}
+                size={36}
+                style={{ border: 'none', borderRadius: 10, background: 'transparent' }}
+                idleBorder="transparent"
+                onTranscript={(text) => setInput((v) => appendWithSpace(v, text))}
+              />
+            </div>
+            <button
+              onClick={submit}
+              disabled={!input.trim() || sending || !introAccepted}
+              aria-label="Send"
+              style={{
+                width: 36, height: 36, borderRadius: 18,
+                background: input.trim() && !sending && introAccepted ? 'var(--accent-fill)' : CARD,
+                border: 'none',
+                cursor: input.trim() && !sending && introAccepted ? 'pointer' : 'not-allowed',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontFamily: 'inherit', flexShrink: 0,
+                transition: 'background 0.15s, transform 0.1s',
+                WebkitTapHighlightColor: 'transparent',
+              }}>
+              <I n="send" s={16} c={input.trim() && !sending && introAccepted ? 'var(--on-accent-fill)' : DIM} w={1.8} />
+            </button>
+          </div>
         </div>
         </>)}
 
