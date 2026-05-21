@@ -25,6 +25,7 @@ import { I } from './Icons'
 // Jasper brand mark: monitor → robot. See JasperRobotIcon.jsx for the
 // cyan→orange→red gradient + filled silhouette spec.
 import JasperRobotIcon from './JasperRobotIcon'
+import VoiceInputButton, { appendWithSpace } from './VoiceInputButton'
 import { useFieldAssistant } from '../hooks/useFieldAssistant'
 import { mix } from '../utils/theme'
 
@@ -648,6 +649,17 @@ export default function FieldAssistant({ onClose, context, onNavigate }) {
             }}
             onFocus={(e) => { e.currentTarget.style.borderColor = ACCENT }}
             onBlur={(e) => { e.currentTarget.style.borderColor = BORDER }}
+          />
+          {/* Voice dictation — dictate questions while walking a
+              building. Each final phrase appends to the input value
+              with a single separating space (appendWithSpace handles
+              the boundary). Disabled while the intro gate is open
+              or a turn is in flight. */}
+          <VoiceInputButton
+            ariaLabel="Dictate message"
+            disabled={sending || !introAccepted}
+            size={42}
+            onTranscript={(text) => setInput((v) => appendWithSpace(v, text))}
           />
           <button
             onClick={submit}

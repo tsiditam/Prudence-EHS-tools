@@ -7,6 +7,7 @@
 import { useState } from 'react'
 import { I } from './Icons'
 import { mix } from '../utils/theme'
+import VoiceInputButton, { appendWithSpace } from './VoiceInputButton'
 
 const CARD = 'var(--card)', BORDER = 'var(--border)', ACCENT = 'var(--accent)'
 const TEXT = 'var(--text)', SUB = 'var(--sub)', DIM = 'var(--dim)'
@@ -105,17 +106,28 @@ export default function QualitativeObservation({ data, onChange, step, onNext, o
         })}
       </div>
 
-      {/* Notes */}
-      <textarea
-        value={data.obs_notes || ''} onChange={e => onChange('obs_notes', e.target.value)}
-        placeholder="Additional notes (optional)..."
-        rows={2} style={{
-          width: '100%', marginTop: 12, padding: '10px 14px',
-          background: CARD, border: `1px solid ${BORDER}`, borderRadius: 8,
-          color: TEXT, fontSize: 13, fontFamily: 'inherit', outline: 'none',
-          resize: 'vertical', boxSizing: 'border-box',
-        }}
-      />
+      {/* Notes — dictation supported via the mic button anchored in
+          the bottom-right of the textarea. Padding-right on the
+          textarea keeps typed content from sliding under the button. */}
+      <div style={{ position: 'relative', marginTop: 12 }}>
+        <textarea
+          value={data.obs_notes || ''} onChange={e => onChange('obs_notes', e.target.value)}
+          placeholder="Additional notes (optional)..."
+          rows={2} style={{
+            width: '100%', padding: '10px 44px 10px 14px',
+            background: CARD, border: `1px solid ${BORDER}`, borderRadius: 8,
+            color: TEXT, fontSize: 13, fontFamily: 'inherit', outline: 'none',
+            resize: 'vertical', boxSizing: 'border-box',
+          }}
+        />
+        <div style={{ position: 'absolute', right: 6, bottom: 6 }}>
+          <VoiceInputButton
+            ariaLabel="Dictate observation notes"
+            size={30}
+            onTranscript={(text) => onChange('obs_notes', appendWithSpace(data.obs_notes || '', text))}
+          />
+        </div>
+      </div>
 
       {/* Navigation */}
       <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
