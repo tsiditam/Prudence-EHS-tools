@@ -301,7 +301,13 @@ export const btnSecondary = {
   padding: '10px 18px',
   background: 'transparent',
   color: TEXT_PRIMARY,
-  border: `1px solid ${BORDER_STRONG}`,
+  // Theme-aware border — was BORDER_STRONG (rgba(255,255,255,0.12))
+  // which is invisible on the light-mode white background. var(--border)
+  // resolves to #1C1E26 in dark mode (subtle but visible) and #B6E0E8
+  // in light mode (visible cyan-tinted edge). Without this, secondary
+  // buttons like "Report IAQ Incident" on Home read as plain headline
+  // text in light mode rather than as tappable affordances.
+  border: `1px solid var(--border)`,
   borderRadius: R.md,
   fontSize: 13,
   fontWeight: 600,
@@ -312,7 +318,7 @@ export const btnSecondary = {
 }
 export const btnGhost = {
   ...btnSecondary,
-  border: `1px solid ${BORDER_DEFAULT}`,
+  border: `1px solid var(--border)`,
   color: TEXT_SECONDARY,
 }
 

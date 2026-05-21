@@ -1745,7 +1745,11 @@ export default function MobileApp() {
             <button onClick={handleShare} style={{flex:1,padding:'14px 20px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,color:SUB,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:48,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="send" s={16} c={SUB} /> Share</button>
           </div>
           <button onClick={()=>setView('spatial')} style={{padding:'14px 20px',background:`${mix('accent', 2)}`,border:`1px solid ${mix('accent', 9)}`,borderRadius:12,color:ACCENT,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit',marginTop:8,minHeight:48,width:'100%',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="bldg" s={16} c={ACCENT} /> Map Zones on Floor Plan</button>
-          {!archived&&<button onClick={startNew} style={{padding:'14px 20px',background:'var(--accent-fill)',border:'none',borderRadius:12,color:'var(--on-accent-fill)',fontSize:15,fontWeight:700,cursor:'pointer',fontFamily:'inherit',marginTop:8,minHeight:48,width:'100%'}}>Start Assessment</button>}
+          {/* Removed redundant "Start Assessment" CTA — the user viewing
+              this screen is already inside an assessment; starting a new
+              one is handled from Home or the Reports tab header. The
+              Continue Assessment button at the top of the hero is the
+              right affordance for picking up where they left off. */}
         </div>}
       </div>
     )
@@ -2506,13 +2510,17 @@ export default function MobileApp() {
             <div style={V3.T.micro}>{userMode === 'fm' ? 'In Progress' : 'Drafts'}{(index.drafts||[]).length>0?` · ${(index.drafts||[]).length}`:''}</div>
           </div>
           {(index.drafts||[]).length === 0 ? (
+            // Empty state — informational only. The "New Assessment"
+            // CTA at the top of the Reports header is the canonical
+            // start-an-assessment affordance; a duplicate here was
+            // redundant and the V3.btnSecondary variant rendered as
+            // plain text on white in light mode.
             <div style={{...V3.panel(), display:'flex',alignItems:'center',gap:14,marginBottom:24,padding:'18px 22px'}}>
               <div style={V3.iconBox(V3.STATUS.draft)}><I n="draft" s={15} c={V3.STATUS.draft} w={1.6} /></div>
               <div style={{flex:1,minWidth:0}}>
                 <div style={V3.T.bodyStrong}>No drafts in progress</div>
                 <div style={V3.T.captionDim}>Start a new assessment to capture field observations.</div>
               </div>
-              <button onClick={startNew} style={V3.btnSecondary}>Start Assessment</button>
             </div>
           ) : (
             <div style={{background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.lg,marginBottom:24,overflow:'hidden'}}>
@@ -2560,8 +2568,12 @@ export default function MobileApp() {
                 {hSearch ? 'No reports match your search.' : 'Complete and finalize an assessment to generate your first report.'}
               </div>
               {!hSearch && (
+                // "Start Assessment" removed — redundant with the
+                // "New Assessment" CTA in the Reports header above.
+                // "View sample report" stays as the only action here
+                // because it offers a distinct value prop (preview the
+                // output) rather than restating the primary CTA.
                 <div style={{display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap'}}>
-                  <button onClick={startNew} style={V3.btnPrimary}>Start Assessment</button>
                   <button onClick={runDemo} style={V3.btnGhost}>View sample report</button>
                 </div>
               )}
