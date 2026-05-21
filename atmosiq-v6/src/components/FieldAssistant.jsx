@@ -116,7 +116,7 @@ function JasperIntroPanel({ onAccept, onNavigate }) {
     <div style={{ padding: '12px 4px 4px' }}>
       <div className="jasper-stagger"
         style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, ...reveal(0) }}>
-        <JasperRobotIcon size={40} />
+        <JasperRobotIcon size={40} color="var(--accent)" />
         <div style={{ fontSize: 15, color: TEXT, lineHeight: 1.45, fontWeight: 600 }}>
           <span role="img" aria-label="waving hand">👋</span> Hi, I'm Jasper, your Indoor Air Quality AI assistant.
         </div>
@@ -254,38 +254,53 @@ export default function FieldAssistant({ onClose, context, onNavigate }) {
   }
 
   return (
-    <div
-      onClick={handleBackdropClick}
-      style={{
-        position: 'fixed', inset: 0, background: '#000000DD', zIndex: 260,
-        display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
-      }}>
-      <div style={{
-        width: '100%', maxWidth: 640, background: CARD,
-        border: `1px solid ${BORDER}`, borderBottom: 'none',
-        borderRadius: '20px 20px 0 0',
-        padding: '12px 16px',
-        paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))',
-        animation: 'fadeUp .3s ease',
-        maxHeight: '88vh',
-        display: 'flex', flexDirection: 'column',
-        // Without border-box the 32px horizontal padding adds to width:100%
-        // on narrow viewports (iPhone portrait), so the panel + its
-        // content extend past the right edge. overflow:hidden keeps any
-        // remaining flex-grow children from leaking past the rounded
-        // top corners.
-        boxSizing: 'border-box',
-        overflow: 'hidden',
-      }}>
+    <>
+      {/* Backdrop — separated from the sheet so the sheet can be
+          explicitly positioned with bottom/left/right instead of
+          relying on flex-centering inside the backdrop. On iOS PWA
+          the flex-centered pattern was producing a sheet wider than
+          the visual viewport during URL-bar collapse transitions,
+          which leaked content past both side edges (the original
+          bug report showed the robot icon's left ear cut off and
+          "Terms · Privacy · AI · REVIEW REQUIRED" bleeding past
+          both screen edges). */}
+      <div
+        onClick={handleBackdropClick}
+        style={{
+          position: 'fixed', inset: 0, background: '#000000DD', zIndex: 260,
+        }}
+      />
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          position: 'fixed',
+          bottom: 0,
+          left: 'env(safe-area-inset-left, 0px)',
+          right: 'env(safe-area-inset-right, 0px)',
+          zIndex: 261,
+          maxWidth: 640,
+          marginLeft: 'auto',
+          marginRight: 'auto',
+          background: CARD,
+          border: `1px solid ${BORDER}`, borderBottom: 'none',
+          borderRadius: '20px 20px 0 0',
+          padding: '12px 16px',
+          paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))',
+          animation: 'fadeUp .3s ease',
+          maxHeight: '88vh',
+          display: 'flex', flexDirection: 'column',
+          boxSizing: 'border-box',
+          overflow: 'hidden',
+        }}>
         {/* Drag handle */}
         <div style={{ width: 36, height: 4, borderRadius: 2, background: BORDER, margin: '0 auto 10px' }} />
 
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
-            <JasperRobotIcon size={22} />
+            <JasperRobotIcon size={22} color="var(--accent)" />
             <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ fontSize: 15, fontWeight: 700, color: TEXT, lineHeight: 1.2 }}>Jasper</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: TEXT, lineHeight: 1.2 }}>AI Assistant</div>
               <div style={{
                 fontSize: 11, color: SUB, lineHeight: 1.3, marginTop: 1,
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
@@ -575,6 +590,6 @@ export default function FieldAssistant({ onClose, context, onNavigate }) {
           }
         }
       `}</style>
-    </div>
+    </>
   )
 }
