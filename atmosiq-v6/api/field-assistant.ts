@@ -91,6 +91,25 @@ function getFetch(): typeof fetch {
   return _fetch || (global.fetch as typeof fetch)
 }
 
+function friendlyUpstreamError(raw: string): string {
+  if (raw.includes('credit balance')) {
+    return 'The AI assistant is temporarily unavailable due to a billing issue. Please contact your administrator.'
+  }
+  if (raw.startsWith('upstream_429')) {
+    return 'The AI assistant is receiving too many requests. Please wait a moment and try again.'
+  }
+  if (raw.startsWith('upstream_401')) {
+    return 'AI assistant authentication failed. Please contact your administrator.'
+  }
+  if (raw.startsWith('upstream_5')) {
+    return 'The AI service is temporarily unavailable. Please try again in a few minutes.'
+  }
+  if (raw.startsWith('upstream_')) {
+    return 'The AI assistant encountered an unexpected error. Please try again.'
+  }
+  return raw
+}
+
 function estimateCost(
   inputTokens: number | null,
   outputTokens: number | null,
@@ -721,7 +740,8 @@ async function handler(req: VercelLikeRequest, res: VercelLikeResponse): Promise
   try {
     result = await runAgentLoop(apiKey, systemBlocks, initialMessages, res, toolCtx)
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'agent_loop_failed'
+    const raw = err instanceof Error ? err.message : 'agent_loop_failed'
+    const msg = friendlyUpstreamError(raw)
     writeSse(res, 'error', { error: msg })
     res.end()
     return

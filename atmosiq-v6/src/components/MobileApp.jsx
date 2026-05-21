@@ -26,6 +26,7 @@ import { buildCausalChains } from '../engines/causalChains'
 import { generateNarrative } from '../engines/narrative'
 import PricingSheet from './pricing/PricingSheet'
 import { I, emojiToIcon } from './Icons'
+import * as V3 from '../styles/tokens'
 import Loading from './Loading'
 import ScoreRing from './ScoreRing'
 import PhotoCapture from './PhotoCapture'
@@ -946,147 +947,249 @@ export default function MobileApp() {
     const expertComplaint = hasComplaints ? 'Building-related symptom cluster reported' : null
     const expertCause = causalChains[0] ? causalChains[0].rootCause : (driverCat ? (causeMap[driverCat.l] || 'Contributing factors require further investigation') : null)
 
+    // ── v3 derivations for the redesigned hero / panels ──
+    // Severity headline distilled from comp.tot. Pulled out of the
+    // legacy riskLabel string so the hero can render a tight 3-word
+    // headline plus a sentence of supporting prose.
+    const sevPillTone = comp.tot < 30 ? V3.SEVERITY.critical : comp.tot < 50 ? V3.SEVERITY.high : comp.tot < 70 ? V3.SEVERITY.medium : V3.SEVERITY.pass
+    const sevPillLabel = comp.tot < 30 ? 'Critical Concern' : comp.tot < 50 ? 'Significant Concern' : comp.tot < 70 ? 'Moderate Concern' : 'Within Acceptable Range'
+    const confTone = measConf?.overall === 'High' ? V3.CONFIDENCE.high : measConf?.overall === 'Low' ? V3.CONFIDENCE.low : V3.CONFIDENCE.medium
+    const confLabel = measConf?.overall ? `${measConf.overall} Confidence` : 'Confidence Pending'
+    const headline = (() => {
+      if (causalChains[0]?.type) return `${causalChains[0].type} likely`
+      if (expertDriver) return `${expertDriver}`
+      return 'Screening-level assessment complete'
+    })()
+
     return (
       <div style={{paddingTop:20,paddingBottom:120}}>
 
-        {/* ── Building Header ── */}
-        <div style={{marginBottom:14}}>
-          <div style={{fontSize:18,fontWeight:700,color:TEXT,letterSpacing:'-0.3px'}}>{bldg.fn||'Assessment'}</div>
-          {bldg.fl && <div style={{fontSize:11,color:SUB,marginTop:3}}>{bldg.fl}</div>}
-          <div style={{display:'flex',alignItems:'center',gap:8,marginTop:6}}>
-            {profile && <><I n="user" s={11} c={DIM} w={1.4} /><span style={{fontSize:10,color:DIM}}>{profile.name}</span></>}
-            {profile && <span style={{color:BORDER}}>·</span>}
-            <span style={{fontSize:10,color:DIM}}>{clock.toLocaleDateString([],{weekday:'short',month:'short',day:'numeric'})}</span>
+        {/* ── Building Header — facility name, address, meta strip,
+            and the header-level CTAs that match the reference target
+            (Continue Assessment + View Report (Draft) on the right).
+            For finalized reports (archived) the CTAs collapse to
+            Share + a kebab so the chrome stays consistent. ── */}
+        <div style={{marginBottom:18,display:'flex',alignItems:'flex-start',gap:16,flexWrap:'wrap'}}>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{...V3.T.h1, fontSize:30, lineHeight:'36px', marginBottom:4, overflow:'hidden', textOverflow:'ellipsis'}}>{bldg.fn||'Assessment'}</div>
+            {bldg.fl && <div style={{...V3.T.h1Sub, marginBottom:8}}>{bldg.fl}</div>}
+            <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap',color:V3.TEXT_TERTIARY,fontSize:12}}>
+              {profile && (
+                <span style={{display:'inline-flex',alignItems:'center',gap:6}}>
+                  <I n="user" s={13} c={V3.TEXT_TERTIARY} w={1.6} />
+                  <span>{profile.name ? `Assessment by ${profile.name}` : 'Assessment by you'}</span>
+                </span>
+              )}
+              <span style={{color:V3.BORDER_STRONG}}>·</span>
+              <span style={{fontFamily:'var(--font-mono)'}}>{clock.toLocaleDateString([],{month:'short',day:'numeric',year:'numeric'})}</span>
+              {archived ? (
+                <span style={V3.pill(V3.STATUS.ready)}>Final</span>
+              ) : narrative ? (
+                <span style={V3.pill(V3.STATUS.draft)}>Ready for Review</span>
+              ) : (
+                <span style={V3.pill(V3.STATUS.inProgress)}>In Progress</span>
+              )}
+            </div>
           </div>
+          {!archived && (
+            <div style={{display:'flex',gap:8,flexShrink:0,alignSelf:'flex-start'}}>
+              {(index.drafts||[]).length > 0 && (() => {
+                const matchingDraft = (index.drafts||[]).find(d => d.facility === bldg.fn) || (index.drafts||[])[0]
+                return matchingDraft ? (
+                  <button onClick={()=>resumeDraft(matchingDraft.id)} style={V3.btnPrimary}>
+                    <I n="play" s={13} c="var(--on-accent-fill)" w={2} />
+                    Continue Assessment
+                  </button>
+                ) : null
+              })()}
+              <button onClick={()=>setRTab('narrative')} style={V3.btnSecondary}>
+                <I n="report" s={13} c={V3.TEXT_PRIMARY} w={1.7} />
+                View Report (Draft)
+              </button>
+            </div>
+          )}
         </div>
 
         {/* ── Legacy / Standards Badge ── */}
-        {viewRpt && !viewRpt.standardsManifest && <div style={{padding:'8px 14px',background:'#FBBF2410',border:`1px solid #FBBF2428`,borderRadius:8,marginBottom:10,fontSize:10,color:WARN}}>Legacy v1.x scoring — standards manifest not embedded</div>}
-
-        {/* ── Composite Score Card ── */}
-        <div style={{padding:'20px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,marginBottom:12,position:'relative',overflow:'hidden'}}>
-          {/* Severity accent — top edge gradient */}
-          <div style={{position:'absolute',top:0,left:0,right:0,height:3,background:`linear-gradient(90deg, ${comp.rc}, ${comp.rc}40)`}} />
-          <div style={{display:'flex',alignItems:'center',gap:20,marginTop:2}}>
-            {userMode !== 'fm' && <div style={{flexShrink:0}}>
-              <ScoreRing value={comp.tot} color={comp.rc} size={96} />
-            </div>}
-            {userMode === 'fm' && <div style={{flexShrink:0,width:64,height:64,borderRadius:16,background:`${comp.rc}15`,border:`2px solid ${comp.rc}40`,display:'flex',alignItems:'center',justifyContent:'center'}}>
-              <I n={comp.tot>=70?'check':comp.tot>=40?'alert':'alert'} s={28} c={comp.rc} w={2} />
-            </div>}
-            <div style={{flex:1,minWidth:0}}>
-              <span style={{padding:'3px 8px',borderRadius:4,fontSize:9,fontWeight:700,background:`${comp.rc}12`,color:comp.rc,textTransform:'uppercase',letterSpacing:'0.5px'}}>{comp.risk}</span>
-              {measConf&&<span style={{padding:'3px 8px',borderRadius:4,fontSize:9,fontWeight:600,background:measConf.overall==='High'?`${mix('success', 7)}`:measConf.overall==='Low'?`${mix('warn', 7)}`:`${mix('dim', 8)}`,color:measConf.overall==='High'?SUCCESS:measConf.overall==='Low'?WARN:SUB,marginLeft:6,letterSpacing:'0.3px'}}>{measConf.overall} Confidence</span>}
-              <div style={{fontSize:13,fontWeight:600,color:TEXT,marginTop:6,lineHeight:1.4}}>{riskLabel}</div>
-              <div style={{fontSize:11,color:SUB,marginTop:3,lineHeight:1.4}}>{actionLabel}</div>
-            </div>
+        {viewRpt && !viewRpt.standardsManifest && (
+          <div style={{padding:'8px 14px',background:`${V3.SEVERITY.medium}10`,border:`1px solid ${V3.SEVERITY.medium}28`,borderRadius:V3.R.md,marginBottom:10,fontSize:11,color:WARN}}>
+            Legacy v1.x scoring — standards manifest not embedded
           </div>
-          {userMode !== 'fm' && <>
-          <div style={{display:'flex',gap:1,marginTop:16,background:SURFACE,borderRadius:8,overflow:'hidden'}}>
-            {[
-              {l:'Zone average',v:comp.avg,s:'/100'},
-              {l:'Lowest zone',v:comp.worst,s:'/100'},
-              {l:'Zones assessed',v:comp.count,s:''},
-            ].map((m,i)=>(
-              <div key={i} style={{flex:1,padding:'10px 8px',textAlign:'center',borderRight:i<2?`1px solid ${BORDER}`:'none'}}>
-                <div style={{fontSize:16,fontWeight:700,color:TEXT,fontFamily:"var(--font-mono)"}}>{m.v}<span style={{fontSize:9,color:DIM,fontWeight:500}}>{m.s}</span></div>
-                <div style={{fontSize:8,color:SUB,marginTop:2,textTransform:'uppercase',letterSpacing:'0.3px'}}>{m.l}</div>
+        )}
+
+        {/* ── Hero: composite assessment + next recommended steps ──
+            Two-column on tablet+, stacked on mobile. The left column
+            is the situational summary (severity, confidence, headline
+            sentence, stat strip). The right column lists up to three
+            recommended next steps drawn from recs.imm so the assessor
+            sees the call-to-action without scrolling. */}
+        <div style={{display:'grid',gridTemplateColumns:isTablet?'minmax(0,1.4fr) minmax(0,1fr)':'minmax(0,1fr)',gap:16,marginBottom:16}}>
+          {/* Composite hero */}
+          <div style={{...V3.panel({ accent: sevPillTone }), padding:0}}>
+            <div style={{padding:'22px 24px 8px',display:'flex',alignItems:'flex-start',gap:18}}>
+              <div style={{flexShrink:0}}>
+                {userMode !== 'fm' ? (
+                  <ScoreRing value={comp.tot} color={comp.rc} size={84} />
+                ) : (
+                  <div style={{width:60,height:60,borderRadius:V3.R.lg,background:`${comp.rc}15`,border:`2px solid ${comp.rc}40`,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                    <I n={comp.tot>=70?'check':'alert'} s={26} c={comp.rc} w={2} />
+                  </div>
+                )}
               </div>
-            ))}
-          </div>
-          <div style={{textAlign:'center',marginTop:10,fontSize:9,color:DIM,fontFamily:"var(--font-mono)"}}>
-            {comp.logic==='worst-zone-override'?'Composite = worst zone (Critical zone override)':'Composite = zone average (no Critical zones)'}
-          </div>
-          </>}
-          {userMode === 'fm' && <div style={{textAlign:'center',marginTop:12,fontSize:10,color:DIM}}>{comp.count} area{comp.count!==1?'s':''} assessed</div>}
-          {measConf?.overall==='Low'&&<div style={{textAlign:'center',marginTop:6,fontSize:9,color:WARN,lineHeight:1.5}}>Single-point measurement. Consider time-weighted sampling per AIHA strategy before drawing conclusions.</div>}
-        </div>
-
-        {/* ── v2.1 Engine InternalReport (operator dashboard) ── */}
-        <V21InternalPanel
-          zoneScores={zoneScores}
-          comp={comp}
-          zones={zones}
-          profile={profile}
-          presurvey={presurvey}
-          bldg={bldg}
-          assessmentDate={viewRpt?.ts ? viewRpt.ts.slice(0,10) : undefined}
-        />
-
-        {/* ── Expert Summary Card ── */}
-        {(causalChains.length > 0 || driverCat) && (
-          <div style={{padding:'16px 18px',background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:10,marginBottom:12}}>
-            <div style={{fontSize:10,fontWeight:600,color:SUB,textTransform:'uppercase',letterSpacing:'0.6px',marginBottom:12}}>Expert Summary</div>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,fontSize:12}}>
-              {expertDriver && <div><div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Primary driver</div><div style={{color:TEXT,fontWeight:600,lineHeight:1.4}}>{expertDriver}</div></div>}
-              {expertComplaint && <div><div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Complaint pattern</div><div style={{color:WARN,fontWeight:500,lineHeight:1.4}}>{expertComplaint}</div></div>}
-              {!expertComplaint && expertCause && <div><div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Contributing cause</div><div style={{color:SUB,lineHeight:1.4}}>{expertCause.length > 80 ? expertCause.slice(0,77)+'...' : expertCause}</div></div>}
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{display:'flex',gap:8,marginBottom:10,flexWrap:'wrap'}}>
+                  <span style={V3.pill(sevPillTone)}>{sevPillLabel}</span>
+                  {measConf && <span style={V3.pill(confTone)}>{confLabel}</span>}
+                </div>
+                <div style={{...V3.T.h2, marginBottom:6, lineHeight:'24px'}}>{headline}</div>
+                <div style={{...V3.T.bodyDim, marginBottom:0}}>
+                  {comp.tot < 30 ? 'Building-related symptom cluster identified. Immediate corrective action recommended.'
+                    : comp.tot < 50 ? 'Targeted investigation and corrective action warranted.'
+                    : comp.tot < 70 ? 'Targeted improvements recommended; conditions trending outside accepted range.'
+                    : 'Conditions within acceptable range; continue routine monitoring.'}
+                </div>
+              </div>
             </div>
-            {expertComplaint && expertCause && <div style={{marginTop:12}}><div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Likely contributing cause</div><div style={{fontSize:12,color:SUB,lineHeight:1.5}}>{expertCause.length > 120 ? expertCause.slice(0,117)+'...' : expertCause}</div></div>
-            }
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginTop:12,fontSize:12}}>
-              {recs?.imm?.[0] && (() => { const first = recs.imm[0]; const text = (typeof first === 'string') ? first : (first?.text || ''); return (<div><div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Next action</div><div style={{color:ACCENT,lineHeight:1.4}}>{text.length > 70 ? text.slice(0,67)+'...' : text}</div></div>) })()}
-              <div><div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Sampling</div><div style={{color:TEXT,lineHeight:1.4}}>{samplingPlan?.plan?.length > 0 ? `Targeted confirmatory sampling recommended (${samplingPlan.plan.length} analytical method${samplingPlan.plan.length>1?'s':''})` : 'No confirmatory sampling indicated at this time'}</div></div>
+
+            {userMode !== 'fm' && (
+              <>
+                <div style={{margin:'18px 24px 0',padding:'18px 0 16px',borderTop:`1px solid ${V3.BORDER_DEFAULT}`,borderBottom:`1px solid ${V3.BORDER_DEFAULT}`,display:'flex',alignItems:'stretch',gap:0}}>
+                  <div style={{...V3.statBlock, padding:'2px 0'}}>
+                    <div style={{display:'flex',alignItems:'baseline',gap:2}}>
+                      <span style={V3.N.xl}>{comp.avg}</span>
+                      <span style={{...V3.N.sm, fontSize:13, color:V3.TEXT_TERTIARY}}>/100</span>
+                    </div>
+                    <div style={{...V3.T.micro, marginTop:6}}>Zone Average</div>
+                  </div>
+                  <div style={V3.statDivider} />
+                  <div style={{...V3.statBlock, padding:'2px 0'}}>
+                    <div style={{display:'flex',alignItems:'baseline',gap:2}}>
+                      <span style={{...V3.N.xl, color: comp.rc}}>{comp.worst}</span>
+                      <span style={{...V3.N.sm, fontSize:13, color:V3.TEXT_TERTIARY}}>/100</span>
+                    </div>
+                    <div style={{...V3.T.micro, marginTop:6}}>Lowest Zone</div>
+                  </div>
+                  <div style={V3.statDivider} />
+                  <div style={{...V3.statBlock, padding:'2px 0'}}>
+                    <div style={V3.N.xl}>{comp.count}</div>
+                    <div style={{...V3.T.micro, marginTop:6}}>Zones Assessed</div>
+                  </div>
+                </div>
+                <div style={{padding:'12px 24px 18px',display:'flex',alignItems:'center',gap:6,justifyContent:'center'}}>
+                  <span style={{...V3.T.captionDim, fontFamily:'var(--font-mono)', fontSize:11}}>
+                    Composite indicator · Lower scores indicate greater concern
+                  </span>
+                  <I n="help" s={12} c={V3.TEXT_MUTED} w={1.6} />
+                </div>
+              </>
+            )}
+            {userMode === 'fm' && (
+              <div style={{padding:'12px 24px 18px',textAlign:'center',...V3.T.captionDim}}>
+                {comp.count} area{comp.count!==1?'s':''} assessed
+              </div>
+            )}
+            {measConf?.overall === 'Low' && (
+              <div style={{margin:'0 24px 18px',padding:'10px 12px',background:`${V3.SEVERITY.medium}10`,border:`1px solid ${V3.SEVERITY.medium}28`,borderRadius:V3.R.md,...V3.T.captionDim, color:WARN}}>
+                Single-point measurement. Consider time-weighted sampling per AIHA strategy before drawing conclusions.
+              </div>
+            )}
+          </div>
+
+          {/* Next recommended steps — derives from recs.imm */}
+          <div style={V3.panel()}>
+            <div style={{...V3.T.h3, marginBottom:14}}>Next recommended steps</div>
+            <div style={{display:'flex',flexDirection:'column',gap:12}}>
+              {(() => {
+                const items = []
+                if (recs?.imm?.length) {
+                  recs.imm.slice(0, 3).forEach((item, idx) => {
+                    const text = typeof item === 'string' ? item : (item?.text || '')
+                    if (text) items.push({ k: `imm-${idx}`, text })
+                  })
+                }
+                if (samplingPlan?.plan?.length > 0 && items.length < 3) {
+                  items.push({ k: 'samp', text: `Targeted confirmatory sampling (${samplingPlan.plan.length} analytical method${samplingPlan.plan.length>1?'s':''})` })
+                }
+                if (items.length === 0) {
+                  return <div style={V3.T.bodyDim}>No immediate actions identified. Continue routine monitoring and re-assess on the next cycle.</div>
+                }
+                return items.map(({ k, text }) => (
+                  <div key={k} style={{display:'flex',alignItems:'flex-start',gap:10}}>
+                    <div style={{...V3.iconBox('var(--accent)'), width:22, height:22, borderRadius:V3.R.pill, flexShrink:0, marginTop:1}}>
+                      <I n="check" s={12} c="var(--accent)" w={2.2} />
+                    </div>
+                    <div style={{...V3.T.body, flex:1, minWidth:0}}>{text}</div>
+                  </div>
+                ))
+              })()}
             </div>
-          </div>
-        )}
-
-        {/* ── Instrument Data prompt ── */}
-        {!archived && (!presurvey.ps_inst_iaq || !presurvey.ps_inst_iaq_serial || !presurvey.ps_inst_iaq_cal) && (
-          <button onClick={()=>{setDqi(Q_DETAILS.findIndex(q=>q.id==='ps_inst_iaq'));setView('details')}} style={{width:'100%',padding:'12px 16px',background:`${mix('warn', 3)}`,border:`1px solid ${mix('warn', 13)}`,borderRadius:10,marginBottom:8,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit'}}>
-            <I n="alert" s={16} c={WARN} />
-            <div style={{flex:1}}><span style={{fontSize:12,fontWeight:600,color:WARN}}>Add instrument data</span><span style={{fontSize:10,color:DIM,marginLeft:8}}>Required for defensible reports</span></div>
-            <span style={{fontSize:13,color:WARN}}>→</span>
-          </button>
-        )}
-
-        {/* ── Assessment Details prompt ── */}
-        {!archived && detailsFilled < 5 && (
-          <button onClick={()=>{setDqi(0);setView('details')}} style={{width:'100%',padding:'12px 16px',background:`${mix('warn', 3)}`,border:`1px solid ${mix('warn', 13)}`,borderRadius:10,marginBottom:12,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit'}}>
-            <I n="clip" s={16} c={WARN} />
-            <div style={{flex:1}}><span style={{fontSize:12,fontWeight:600,color:WARN}}>Add assessment details</span><span style={{fontSize:10,color:DIM,marginLeft:8}}>Strengthens defensibility</span></div>
-            <span style={{fontSize:13,color:WARN}}>→</span>
-          </button>
-        )}
-
-        {/* ── Report Status Strip ── */}
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 14px',background:SURFACE,borderRadius:8,border:`1px solid ${BORDER}`,marginBottom:16}}>
-          <div style={{display:'flex',alignItems:'center',gap:6}}>
-            <div style={{width:6,height:6,borderRadius:'50%',background:archived?SUCCESS:narrative?WARN:DIM}} />
-            <span style={{fontSize:10,color:SUB,fontFamily:"var(--font-mono)"}}>{archived?'Final':narrative?'Ready for review':'Draft'}</span>
-          </div>
-          <div style={{display:'flex',alignItems:'center',gap:10,fontSize:9,color:DIM,fontFamily:"var(--font-mono)"}}>
-            <span>{zoneScores.reduce((a,z)=>a+z.cats.reduce((b,c)=>b+c.r.length,0),0)} findings</span>
-            <span>{Object.keys(photos||{}).length} photos</span>
-          </div>
-        </div>
-
-        {/* ── Zone Selector ── */}
-        {zoneScores.length > 1 && <div style={{display:'flex',gap:4,padding:3,background:CARD,borderRadius:10,border:`1px solid ${BORDER}`,marginBottom:12,overflowX:'auto',WebkitOverflowScrolling:'touch',scrollbarWidth:'none'}}>
-          {zoneScores.map((z,i) => (
-            <button key={i} onClick={()=>setSelZone(i)} style={{padding:'8px 12px',borderRadius:7,border:'none',background:selZone===i?`${z.rc}12`:'transparent',color:selZone===i?TEXT:DIM,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap',flexShrink:0,minHeight:36,display:'flex',alignItems:'center',gap:8}}>
-              <span>{z.zoneName}</span>
-              <span style={{padding:'2px 6px',borderRadius:4,fontSize:10,fontWeight:700,fontFamily:"var(--font-mono)",background:selZone===i?`${z.rc}20`:`${mix('dim', 8)}`,color:selZone===i?z.rc:DIM}}>{z.tot}</span>
+            <div style={V3.divider()} />
+            <button onClick={()=>setRTab('actions')} style={{background:'none',border:'none',color:'var(--accent)',fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',padding:0,display:'inline-flex',alignItems:'center',gap:6}}>
+              View all actions
+              <span style={{fontSize:13}}>›</span>
             </button>
-          ))}
-        </div>}
+          </div>
+        </div>
 
-        {/* ── Content Tabs ──
-            Tab visual language (UI upgrade): underline-on-active segmented
-            control, ~44px tap target, icon stacked above label, transition
-            on color/border. Container is a single bottom rule (no card-on-
-            card nesting). Inactive uses SUB (raised from DIM for legibility).
-        */}
-        <div style={{display:'flex',gap:0,marginBottom:14,borderBottom:`1px solid ${BORDER}`,overflowX:'auto',scrollbarWidth:'none',WebkitOverflowScrolling:'touch'}}>
+        {/* ── v2.1 Engine InternalReport (operator dashboard) ──
+            Demoted to a tighter wrapper so the chrome line "v2.8.0
+            ENGINE · Internal report (operator dashboard) · Expand"
+            doesn't break the visual flow between hero and tabs.
+            The panel itself manages its own collapsed state — we
+            only constrain its outer padding here. ── */}
+        <div style={{marginBottom:14, marginTop:-4, opacity:0.85}}>
+          <V21InternalPanel
+            zoneScores={zoneScores}
+            comp={comp}
+            zones={zones}
+            profile={profile}
+            presurvey={presurvey}
+            bldg={bldg}
+            assessmentDate={viewRpt?.ts ? viewRpt.ts.slice(0,10) : undefined}
+          />
+        </div>
+
+        {/* ── Data-completeness prompts. Banner-style status-by-
+            exception entries — surface only when defensibility is at
+            risk. Restyled with the v3 token surface so they read as
+            actionable warnings rather than chrome noise. ── */}
+        {!archived && (!presurvey.ps_inst_iaq || !presurvey.ps_inst_iaq_serial || !presurvey.ps_inst_iaq_cal) && (
+          <button onClick={()=>{setDqi(Q_DETAILS.findIndex(q=>q.id==='ps_inst_iaq'));setView('details')}} style={{width:'100%',padding:'12px 16px',background:`${WARN}10`,border:`1px solid ${WARN}28`,borderRadius:V3.R.md,marginBottom:8,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit'}}>
+            <I n="alert" s={16} c={WARN} />
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{...V3.T.bodyStrong, color:WARN}}>Add instrument data</div>
+              <div style={V3.T.captionDim}>Required for defensible reports</div>
+            </div>
+            <span style={{fontSize:13,color:WARN}}>→</span>
+          </button>
+        )}
+        {!archived && detailsFilled < 5 && (
+          <button onClick={()=>{setDqi(0);setView('details')}} style={{width:'100%',padding:'12px 16px',background:`${WARN}10`,border:`1px solid ${WARN}28`,borderRadius:V3.R.md,marginBottom:12,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit'}}>
+            <I n="clip" s={16} c={WARN} />
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{...V3.T.bodyStrong, color:WARN}}>Add assessment details</div>
+              <div style={V3.T.captionDim}>Strengthens defensibility</div>
+            </div>
+            <span style={{fontSize:13,color:WARN}}>→</span>
+          </button>
+        )}
+
+        {/* ── Workflow tabs — v3 tabRow. State keys stay the same
+            (overview/readiness/rootcause/sampling/narrative/actions)
+            for back-compat with the setRTab call sites at lines 592,
+            707, 822; visible labels are reconciled with the workflow
+            grammar used on Home (Findings / Pathways / Sampling /
+            Narrative / Actions / Review). ── */}
+        <div style={{...V3.tabRow, marginBottom:16}}>
           {(userMode === 'fm'
-            ? [['overview','findings','Findings'],['readiness','shield','Ready'],['narrative','pulse','Narrative'],['actions','bolt','Actions']]
-            : [['overview','findings','Findings'],['readiness','shield','Ready'],['rootcause','chain','Pathways'],['sampling','flask','Sampling'],['narrative','pulse','Narrative'],['actions','bolt','Actions']]
+            ? [['overview','findings','Findings'],['narrative','notes','Narrative'],['actions','check','Actions'],['readiness','shield','Review']]
+            : [['overview','findings','Findings'],['rootcause','chain','Pathways'],['sampling','flask','Sampling'],['narrative','notes','Narrative'],['actions','check','Actions'],['readiness','shield','Review']]
           ).map(([k,ic,l])=>{
             const isActive = rTab===k
             return (
-              <button key={k} onClick={()=>{setRTab(k);haptic('light')}} style={{flex:'1 1 auto',minWidth:64,padding:'10px 10px 12px',background:'transparent',border:'none',borderBottom:`2px solid ${isActive?ACCENT:'transparent'}`,marginBottom:-1,color:isActive?ACCENT:SUB,fontSize:12,fontWeight:isActive?600:500,cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap',display:'flex',flexDirection:'column',alignItems:'center',gap:4,transition:'color 160ms ease, border-color 160ms ease',WebkitTapHighlightColor:'transparent'}}>
-                <I n={ic} s={14} c={isActive?ACCENT:SUB} w={isActive?2:1.6} />
-                {l}
+              <button key={k} onClick={()=>{setRTab(k);haptic('light')}} style={V3.tabItem(isActive)}>
+                <I n={ic} s={15} c={isActive?'var(--accent)':V3.TEXT_TERTIARY} w={isActive?1.9:1.6} />
+                <span>{l}</span>
               </button>
             )
           })}
@@ -1104,59 +1207,351 @@ export default function MobileApp() {
           />
         )}
 
-        {rTab==='overview' && zs && <div style={{display:isTablet?'grid':'flex',gridTemplateColumns:isTablet?'1fr 1fr':'none',flexDirection:'column',gap:10}}>
-          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10}}>
-            <div style={{fontSize:14,fontWeight:600,color:TEXT}}>{zs.zoneName}</div>
-            {userMode === 'fm' ? (
-              <span style={{padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:700,background:`${zs.rc}15`,color:zs.rc}}>{zs.risk}</span>
-            ) : (
-              <div style={{display:'flex',alignItems:'baseline',gap:2}}>
-                <span style={{fontSize:22,fontWeight:800,fontFamily:"var(--font-mono)",color:zs.rc}}>{zs.tot}</span>
-                <span style={{fontSize:11,color:DIM,fontFamily:"var(--font-mono)"}}>/100</span>
+        {rTab==='overview' && zs && (() => {
+          // ── v3 Findings tab — derive panels from existing engine state ──
+          // Data Gaps: combine OSHA-relevant gaps, not-scored categories
+          // on the focused zone, and instrument/details prompts that
+          // would erode defensibility if shipped to a report.
+          const gapItems = []
+          if (!presurvey.ps_inst_iaq) gapItems.push('Instrument model not recorded')
+          else if (!presurvey.ps_inst_iaq_cal) gapItems.push('Instrument calibration date not recorded')
+          if (zs?.cats?.some(c => c.l === 'Environment' && (c.s === null || c.status === 'DATA_GAP'))) gapItems.push('Humidity / thermal data not logged')
+          if (zs?.cats?.some(c => c.l === 'Ventilation' && (c.s === null || c.status === 'DATA_GAP'))) gapItems.push('Airflow / CO₂ measurement not captured')
+          if (oshaResult?.gaps?.length) oshaResult.gaps.slice(0, 3).forEach(g => gapItems.push(g))
+          // De-dupe + cap at 4 visible entries
+          const dataGaps = Array.from(new Set(gapItems)).slice(0, 4)
+
+          // Evidence Summary breakdown. The engine does not separately
+          // tag finding provenance (measurement vs observation vs
+          // occupant report), so the breakdown is derived from the
+          // category each finding belongs to. Heuristic mapping —
+          // refine in a future slice once provenance is a first-class
+          // field on Finding.
+          const evCount = { meas: 0, obs: 0, occ: 0 }
+          zoneScores.forEach(z => (z.cats || []).forEach(c => {
+            const n = (c.r || []).length
+            if (c.l === 'Ventilation' || c.l === 'Environment' || c.l === 'Contaminants') evCount.meas += n
+            else if (c.l === 'HVAC') evCount.obs += n
+            else if (c.l === 'Complaints') evCount.occ += n
+          }))
+          const evTotal = evCount.meas + evCount.obs + evCount.occ
+          const photoCount = Object.keys(photos || {}).length
+
+          // Key indicator — use the primary driver category from this
+          // zone. If complaints carry the most weight, the gauge would
+          // mislead (complaints are a symptom, not a driver), so the
+          // logic mirrors line 940 above and picks the worst non-
+          // complaint category.
+          const keyCat = driverCat || zs.cats?.[0]
+          const keyPct = keyCat && keyCat.s !== null ? Math.round((keyCat.s / keyCat.mx) * 100) : null
+          const keyTone = keyPct === null ? V3.TEXT_TERTIARY : keyPct < 30 ? V3.SEVERITY.critical : keyPct < 50 ? V3.SEVERITY.high : keyPct < 70 ? V3.SEVERITY.medium : V3.SEVERITY.pass
+          const keyConcernLabel = keyPct === null ? 'Insufficient Data' : keyPct < 30 ? 'Critical Concern' : keyPct < 50 ? 'High Concern' : keyPct < 70 ? 'Moderate Concern' : 'Within Range'
+          const keyDescMap = {
+            Ventilation: 'CO₂ and outdoor-air delivery indicators inform ventilation effectiveness, not air quality contamination.',
+            Contaminants: 'Combined exposure indicators across particulate, VOC, and other measured contaminants.',
+            HVAC: 'Mechanical system condition, maintenance, and operational reliability indicators.',
+            Environment: 'Thermal and moisture indicators relative to recognized comfort and dewpoint ranges.',
+            Complaints: 'Occupant-reported symptom patterns. Indicates impact, not cause.',
+          }
+          const keyDesc = keyCat ? (keyDescMap[keyCat.l] || 'Category-level severity indicator.') : ''
+
+          return (
+            <div style={{display:'flex',flexDirection:'column',gap:16}}>
+
+              {/* ── Two-up: Professional Assessment + Key Indicator ─── */}
+              <div style={{display:'grid',gridTemplateColumns:isTablet?'minmax(0,1.1fr) minmax(0,1fr)':'minmax(0,1fr)',gap:16}}>
+                {/* Professional Assessment.
+                    Inner grid uses minmax(0,1fr) so long engine output
+                    like "HVAC system deficiency" wraps inside its cell
+                    instead of forcing 2 lines via column starvation;
+                    at the narrowest of the iPad-portrait two-column
+                    split we collapse Primary driver / Complaint pattern
+                    to a single column for breathing room. ── */}
+                <div style={V3.panel()}>
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginBottom:18}}>
+                    <div style={{display:'flex',alignItems:'baseline',gap:8,flexWrap:'wrap'}}>
+                      <div style={V3.T.h3}>Professional Assessment</div>
+                      <div style={{...V3.T.captionDim, fontStyle:'italic'}}>(Screening-Level)</div>
+                    </div>
+                    <I n="help" s={13} c={V3.TEXT_MUTED} w={1.6} />
+                  </div>
+                  <div style={{display:'grid',gridTemplateColumns:isTabletLand?'minmax(0,1fr) minmax(0,1fr)':'minmax(0,1fr)',gap:isTabletLand?14:10,marginBottom:expertCause||expertComplaint?14:0}}>
+                    {expertDriver && (
+                      <div style={{display:'flex',gap:10,alignItems:'flex-start'}}>
+                        <div style={V3.iconBox('var(--accent)')}><I n="wind" s={15} c="var(--accent)" w={1.8} /></div>
+                        <div style={{minWidth:0,flex:1}}>
+                          <div style={V3.T.captionDim}>Primary driver</div>
+                          <div style={{...V3.T.bodyStrong, marginTop:3, lineHeight:'18px'}}>{expertDriver}</div>
+                        </div>
+                      </div>
+                    )}
+                    {expertComplaint && (
+                      <div style={{display:'flex',gap:10,alignItems:'flex-start'}}>
+                        <div style={V3.iconBox(WARN)}><I n="people" s={15} c={WARN} w={1.8} /></div>
+                        <div style={{minWidth:0,flex:1}}>
+                          <div style={V3.T.captionDim}>Complaint pattern</div>
+                          <div style={{...V3.T.bodyStrong, marginTop:3, lineHeight:'18px'}}>Building-related symptoms</div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  {expertCause && (
+                    <div style={{padding:'14px 0',borderTop:`1px solid ${V3.BORDER_SUBTLE}`,display:'flex',gap:10,alignItems:'flex-start'}}>
+                      <div style={V3.iconBox(V3.TEXT_SECONDARY)}><I n="person" s={15} c={V3.TEXT_SECONDARY} w={1.8} /></div>
+                      <div style={{minWidth:0,flex:1}}>
+                        <div style={V3.T.captionDim}>Likely contributing cause</div>
+                        <div style={{...V3.T.body, marginTop:3, lineHeight:'19px'}}>{expertCause.length > 140 ? expertCause.slice(0, 137) + '…' : expertCause}</div>
+                      </div>
+                    </div>
+                  )}
+                  <div style={{padding:'14px 0 0',borderTop:`1px solid ${V3.BORDER_SUBTLE}`,display:'flex',gap:10,alignItems:'flex-start'}}>
+                    <div style={V3.iconBox(V3.TEXT_SECONDARY)}><I n="notes" s={15} c={V3.TEXT_SECONDARY} w={1.8} /></div>
+                    <div style={{minWidth:0,flex:1}}>
+                      <div style={V3.T.captionDim}>Overall assessment</div>
+                      <div style={{...V3.T.body, marginTop:3, lineHeight:'19px'}}>{(() => {
+                        if (comp.tot < 30) return 'Under-delivered outdoor air is the most common contributor based on available data.'
+                        if (comp.tot < 50) return 'Multiple contributing factors detected; targeted intervention warranted.'
+                        if (comp.tot < 70) return 'Conditions trending outside accepted range; targeted improvements recommended.'
+                        return 'Conditions consistent with expected baseline; continue routine monitoring.'
+                      })()}</div>
+                    </div>
+                  </div>
+                  <div style={V3.divider()} />
+                  <div style={{display:'grid',gridTemplateColumns:'minmax(0,1fr) minmax(0,1fr)',gap:16}}>
+                    <div style={{display:'flex',alignItems:'flex-start',gap:8}}>
+                      <I n="chart" s={14} c={confTone} w={1.7} />
+                      <div style={{minWidth:0}}>
+                        <div style={V3.T.captionDim}>Confidence</div>
+                        <div style={{...V3.T.bodyStrong, color:confTone, marginTop:2}}>{measConf?.overall || 'Pending'}</div>
+                      </div>
+                    </div>
+                    <div style={{display:'flex',alignItems:'flex-start',gap:8}}>
+                      <I n="shield" s={14} c={V3.TEXT_SECONDARY} w={1.7} />
+                      <div style={{minWidth:0}}>
+                        <div style={V3.T.captionDim}>Assessment type</div>
+                        <div style={{...V3.T.body, marginTop:2}}>Screening <span style={V3.T.captionDim}>(Non-compliance)</span></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Key Indicator.
+                    Title row left + score right (matches the reference
+                    target proportions). Score takes mono numerals at
+                    32 px so it reads as the dominant value, with the
+                    concern label tinted to the same severity tone
+                    underneath. Gauge bar runs full width below. ── */}
+                <div style={V3.panel()}>
+                  <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:16,flexWrap:'wrap'}}>
+                    <div style={V3.T.h3}>Key Indicator</div>
+                    <div style={V3.T.captionDim}>(Worst Zone)</div>
+                  </div>
+                  {keyCat ? (
+                    <>
+                      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,marginBottom:18}}>
+                        <div style={{display:'flex',alignItems:'center',gap:12,minWidth:0,flex:1}}>
+                          <div style={V3.iconBox(keyTone)}>
+                            <I n={keyCat.l === 'Ventilation' ? 'wind' : keyCat.l === 'HVAC' ? 'hvac' : keyCat.l === 'Environment' ? 'thermo' : keyCat.l === 'Contaminants' ? 'flask' : 'symptom'} s={16} c={keyTone} w={1.8} />
+                          </div>
+                          <div style={{...V3.T.bodyStrong, fontSize:17, lineHeight:'22px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{keyCat.l}</div>
+                        </div>
+                        <div style={{textAlign:'right',flexShrink:0}}>
+                          <div style={{display:'flex',alignItems:'baseline',gap:1,justifyContent:'flex-end'}}>
+                            <span style={{fontFamily:'var(--font-mono)', fontSize:32, lineHeight:'34px', fontWeight:600, color:keyTone, letterSpacing:'-0.5px'}}>{keyPct ?? '—'}</span>
+                            {keyPct !== null && <span style={{...V3.N.sm, fontSize:13, color:V3.TEXT_TERTIARY}}>/100</span>}
+                          </div>
+                          <div style={{...V3.T.caption, color:keyTone, marginTop:2, textAlign:'right'}}>{keyConcernLabel}</div>
+                        </div>
+                      </div>
+                      {keyPct !== null && (
+                        <>
+                          <div style={{...V3.gaugeTrack, height:8}}>
+                            <div style={{...V3.gaugeDot(keyPct, keyTone), top:-5, width:16, height:16}} />
+                          </div>
+                          <div style={{display:'flex',justifyContent:'space-between',marginTop:8,...V3.N.sm, fontSize:11}}>
+                            <span>0</span>
+                            <span>100</span>
+                          </div>
+                        </>
+                      )}
+                      <div style={V3.divider()} />
+                      <div style={V3.T.captionDim}>Why this matters</div>
+                      <div style={{...V3.T.body, marginTop:4, lineHeight:'20px'}}>{keyDesc}</div>
+                      <div style={{marginTop:14, paddingTop:14, borderTop:`1px solid ${V3.BORDER_SUBTLE}`, display:'flex', alignItems:'baseline', justifyContent:'space-between', gap:8}}>
+                        <button onClick={()=>setSelZone(zoneScores.findIndex(z => z.tot === comp.worst))} style={{background:'none',border:'none',color:'var(--accent)',fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',padding:0,display:'inline-flex',alignItems:'center',gap:6}}>
+                          View worst zone
+                          <span style={{fontSize:13}}>›</span>
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <div style={V3.T.bodyDim}>No category scored yet — capture field data to surface the worst-zone indicator.</div>
+                  )}
+                </div>
               </div>
-            )}
-          </div>
+
+              {/* ── Two-up: Data Gaps + Evidence Summary ─── */}
+              <div style={{display:'grid',gridTemplateColumns:isTablet?'minmax(0,1fr) minmax(0,1fr)':'minmax(0,1fr)',gap:16}}>
+                {/* Data Gaps */}
+                <div style={V3.panel()}>
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
+                    <div style={{display:'flex',alignItems:'center',gap:10}}>
+                      <div style={V3.iconBox(WARN)}><I n="gap" s={15} c={WARN} w={1.8} /></div>
+                      <div style={V3.T.h3}>Data Gaps</div>
+                    </div>
+                    {dataGaps.length > 0 && <span style={V3.pill(WARN)}>{dataGaps.length} item{dataGaps.length===1?'':'s'}</span>}
+                  </div>
+                  {dataGaps.length === 0 ? (
+                    <div style={V3.T.bodyDim}>No defensibility-blocking gaps identified for this assessment.</div>
+                  ) : (
+                    <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                      {dataGaps.map((g, i) => (
+                        <div key={i} style={{display:'flex',alignItems:'flex-start',gap:10}}>
+                          <I n="alert" s={14} c={WARN} w={1.8} />
+                          <div style={{...V3.T.body, flex:1, minWidth:0, lineHeight:'19px'}}>{g}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {dataGaps.length > 0 && (
+                    <>
+                      <div style={V3.divider()} />
+                      <button onClick={()=>setRTab('readiness')} style={{background:'none',border:'none',color:'var(--accent)',fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',padding:0,display:'inline-flex',alignItems:'center',gap:6}}>
+                        View all gaps and assumptions
+                        <span style={{fontSize:13}}>›</span>
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                {/* Evidence Summary */}
+                <div style={V3.panel()}>
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
+                    <div style={{display:'flex',alignItems:'center',gap:10}}>
+                      <div style={V3.iconBox(V3.TEXT_SECONDARY)}><I n="report" s={15} c={V3.TEXT_SECONDARY} w={1.8} /></div>
+                      <div style={V3.T.h3}>Evidence Summary</div>
+                    </div>
+                    {evTotal > 0 && <span style={V3.pill(V3.TEXT_SECONDARY)}>{evTotal} finding{evTotal===1?'':'s'}</span>}
+                  </div>
+                  <div style={{display:'flex',flexDirection:'column'}}>
+                    {[
+                      ['Measurements',     evCount.meas, 'gauge'],
+                      ['Observations',     evCount.obs,  'eye'],
+                      ['Occupant Feedback',evCount.occ,  'people'],
+                      ['Photos',           photoCount,   'image'],
+                    ].map(([k, v, ic], i, arr) => (
+                      <div key={k} style={{display:'flex',alignItems:'center',gap:12,padding:'8px 0',borderBottom: i === arr.length - 1 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`}}>
+                        <I n={ic} s={14} c={V3.TEXT_TERTIARY} w={1.6} />
+                        <div style={{...V3.T.body, flex:1, minWidth:0}}>{k}</div>
+                        <div style={{...V3.N.md, color: v > 0 ? V3.TEXT_PRIMARY : V3.TEXT_MUTED}}>{v}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Assessed Zones table — click row to focus that zone
+                  for the detailed drilldown below. Current focus is
+                  visually called out with a Current focus sub-label
+                  and a raised background on the row. ── */}
+              <div style={V3.panel({ dense: true })}>
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12,padding:'4px 4px 0'}}>
+                  <div style={{display:'flex',alignItems:'baseline',gap:8}}>
+                    <div style={V3.T.h3}>Assessed Zones</div>
+                    <div style={V3.T.captionDim}>{zoneScores.length}</div>
+                  </div>
+                </div>
+                {/* Header row */}
+                <div style={{display:'grid',gridTemplateColumns: isTablet ? '2fr 1fr 1fr 1.4fr' : '2fr 1fr 1.4fr', gap:12, padding:'8px 8px', borderBottom:`1px solid ${V3.BORDER_DEFAULT}`}}>
+                  <div style={V3.T.micro}>Zone</div>
+                  {isTablet && <div style={V3.T.micro}>Findings</div>}
+                  <div style={{...V3.T.micro, textAlign:'right'}}>Score</div>
+                  <div style={{...V3.T.micro, textAlign:'right'}}>Status</div>
+                </div>
+                {zoneScores.map((z, i) => {
+                  const isFocus = selZone === i
+                  const findingCount = (z.cats || []).reduce((acc, c) => acc + (c.r?.length || 0), 0)
+                  return (
+                    <button key={i} onClick={()=>setSelZone(i)} style={{display:'grid',gridTemplateColumns: isTablet ? '2fr 1fr 1fr 1.4fr' : '2fr 1fr 1.4fr', gap:12, padding:'12px 8px', alignItems:'center', textAlign:'left', background: isFocus ? V3.RAISED : 'transparent', border:'none', borderTop: i === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`, cursor:'pointer', fontFamily:'inherit', borderRadius: isFocus ? V3.R.sm : 0, width:'100%'}}>
+                      <div style={{minWidth:0}}>
+                        <div style={{...V3.T.bodyStrong, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{z.zoneName}</div>
+                        {isFocus && <div style={{...V3.T.micro, color:'var(--accent)', marginTop:3, textTransform:'none', letterSpacing:0, fontSize:11}}>Current focus</div>}
+                      </div>
+                      {isTablet && <div style={{...V3.N.md, color:V3.TEXT_SECONDARY}}>{findingCount}</div>}
+                      <div style={{textAlign:'right'}}>
+                        <span style={{...V3.N.md, color:z.rc}}>{z.tot}</span>
+                        <span style={V3.N.sm}>/100</span>
+                      </div>
+                      <div style={{textAlign:'right',display:'flex',justifyContent:'flex-end',alignItems:'center',gap:8}}>
+                        <span style={V3.pill(z.rc)}>{z.risk}</span>
+                        <span style={{color:V3.TEXT_TERTIARY,fontSize:13}}>›</span>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* ── Detailed findings — the legacy zone-by-category
+                  drilldown for the currently focused zone. Kept as the
+                  authoritative engine readout so the redesigned panels
+                  above act as the executive summary, not a substitute. ── */}
+              <div style={{display:'flex',alignItems:'baseline',gap:8,marginTop:8,padding:'0 2px'}}>
+                <div style={V3.T.micro}>Detailed findings</div>
+                <div style={V3.T.captionDim}>· {zs.zoneName}</div>
+              </div>
+              <div style={{display:isTablet?'grid':'flex',gridTemplateColumns:isTablet?'1fr 1fr':'none',flexDirection:'column',gap:10}}>
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 16px',background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.md}}>
+                  <div style={{...V3.T.bodyStrong}}>{zs.zoneName}</div>
+                  {userMode === 'fm' ? (
+                    <span style={V3.pill(zs.rc)}>{zs.risk}</span>
+                  ) : (
+                    <div style={{display:'flex',alignItems:'baseline',gap:2}}>
+                      <span style={{...V3.N.lg, color:zs.rc, fontSize:22, lineHeight:'26px'}}>{zs.tot}</span>
+                      <span style={V3.N.sm}>/100</span>
+                    </div>
+                  )}
+                </div>
           {zs.cats.map((cat,ci)=>{
             if (cat.s === null || cat.status === 'DATA_GAP' || cat.status === 'INSUFFICIENT') {
               return(
-                <div key={cat.l} style={{padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10}}>
+                <div key={cat.l} style={{padding:'14px 18px',background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.md}}>
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                    <span style={{fontSize:14,fontWeight:600,color:TEXT}}>{cat.l}</span>
-                    <span style={{fontSize:11,color:DIM,fontStyle:'italic'}}>Not scored</span>
+                    <span style={V3.T.bodyStrong}>{cat.l}</span>
+                    <span style={V3.pill(V3.TEXT_TERTIARY)}>Not Scored</span>
                   </div>
-                  <div style={{fontSize:11,color:DIM,marginTop:6,lineHeight:1.5}}>Data gap — documentation not provided for this category</div>
+                  <div style={{...V3.T.captionDim, marginTop:6}}>Data gap — documentation not provided for this category</div>
                 </div>
               )
             }
             const pct=Math.round((cat.s/cat.mx)*100);const bc=pct>=80?'#22C55E':pct>=60?'#FBBF24':pct>=40?'#FB923C':'#EF4444';const pctLabel=pct>=80?'Within range':pct>=60?'Moderate concern':pct>=40?'Significant concern':'Critical concern';const fmLabel=pct>=70?'Pass':pct>=40?'Needs attention':'Action needed';const fmColor=pct>=70?'#22C55E':pct>=40?'#FBBF24':'#EF4444';const findings=cat.r.filter(r => !(r.sev === 'pass' && pct < 70));return(
-            <div key={cat.l} style={{padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10}}>
-              {/* ── Canonical two-up label/value header (matches Expert Summary grammar) ── */}
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:userMode==='fm'?12:10}}>
-                <div>
-                  <div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Category</div>
-                  <div style={{color:TEXT,fontWeight:600,fontSize:14,lineHeight:1.4}}>{cat.l}</div>
-                </div>
-                <div>
-                  <div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Score</div>
-                  {userMode === 'fm' ? (
-                    <span style={{padding:'3px 10px',borderRadius:6,fontSize:11,fontWeight:700,background:`${fmColor}15`,color:fmColor}}>{cat.s===null?'No data':fmLabel}</span>
-                  ) : (
-                    <div style={{lineHeight:1.4,fontSize:13}}>
-                      <span style={{color:bc,fontWeight:700}}>{cat.s}/{cat.mx}</span>
-                      <span style={{color:DIM,fontWeight:500}}> · {pctLabel}</span>
-                    </div>
-                  )}
-                </div>
+            <div key={cat.l} style={{padding:'16px 18px',background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.md}}>
+              {/* Category header — single row, mono score + concern
+                  text inline, with a thin progress bar below. Replaces
+                  the legacy "Category | Score" two-up grid that double-
+                  printed the cat label and used two micro headings. */}
+              <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',gap:12,marginBottom:userMode==='fm'?12:8}}>
+                <div style={{...V3.T.bodyStrong, fontSize:15}}>{cat.l}</div>
+                {userMode === 'fm' ? (
+                  <span style={V3.pill(fmColor)}>{cat.s===null?'No data':fmLabel}</span>
+                ) : (
+                  <div style={{display:'flex',alignItems:'baseline',gap:6}}>
+                    <span style={{...V3.N.md, color:bc, fontSize:15}}>{cat.s}<span style={{color:V3.TEXT_TERTIARY, fontWeight:500}}>/{cat.mx}</span></span>
+                    <span style={V3.T.captionDim}>· {pctLabel}</span>
+                  </div>
+                )}
               </div>
-              {userMode !== 'fm' && <div style={{height:3,background:BORDER,borderRadius:2,overflow:'hidden',marginBottom:14}}>
+              {userMode !== 'fm' && <div style={{height:3,background:V3.BORDER_DEFAULT,borderRadius:2,overflow:'hidden',marginBottom:14}}>
                 <div style={{height:'100%',width:`${pct}%`,background:bc,borderRadius:2,transition:'width .8s ease'}} />
               </div>}
               {findings.map((r,i)=>{const s=sv(r.sev);const sevLabel=r.sev.charAt(0).toUpperCase()+r.sev.slice(1);return(
-                <div key={i} style={{marginBottom: i < findings.length - 1 ? 14 : 0}}>
-                  <div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Severity</div>
-                  <div style={{color:s.c,fontWeight:700,fontSize:13,lineHeight:1.4,marginBottom:6}}>{sevLabel}</div>
-                  <div style={{color:SUB,fontSize:13,lineHeight:1.6}}>{r.t}</div>
-                  {r.std && <div style={{color:DIM,fontSize:12,marginTop:4,lineHeight:1.5}}>{r.std}</div>}
+                <div key={i} style={{paddingTop: i === 0 ? 0 : 12, paddingBottom: i < findings.length - 1 ? 12 : 0, borderTop: i === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`}}>
+                  <div style={{display:'flex',alignItems:'flex-start',gap:10}}>
+                    <span style={{...V3.pill(s.c), marginTop:1, flexShrink:0}}>{sevLabel}</span>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{...V3.T.body, lineHeight:'20px'}}>{r.t}</div>
+                      {r.std && <div style={{...V3.T.captionDim, marginTop:4, fontFamily:'var(--font-mono)', fontSize:11}}>{r.std}</div>}
+                    </div>
+                  </div>
                 </div>
               )})}
             </div>
@@ -1203,7 +1598,10 @@ export default function MobileApp() {
               </details>
             )
           })()}
-        </div>}
+              </div>
+            </div>
+          )
+        })()}
 
         {rTab==='rootcause'&&<div style={{display:'flex',flexDirection:'column',gap:12}}>
           <div style={{fontSize:11,color:DIM,lineHeight:1.5,marginBottom:4}}>Concern pathways are based on correlation of field observations, measurements, and occupant reports. They support — but do not confirm — root-cause determination.</div>
@@ -1646,95 +2044,312 @@ export default function MobileApp() {
 
       <div style={{maxWidth:contentMax,margin:'0 auto',padding:`0 ${padX}px`,position:'relative',zIndex:1}}>
 
-        {view==='dash'&&<div style={{paddingTop:24,paddingBottom:100,maxWidth:contentMax,margin:'0 auto'}}>
+        {view==='dash'&&(() => {
+          // ── v3 Home — premium dark, expert-grade. Surfaces situational
+          //    awareness when an assessment is in progress; falls back
+          //    to a tight start panel when none is active. The legacy
+          //    "two cyan pills floating on a black page" launcher pad
+          //    was replaced because it conveyed nothing domain-specific
+          //    about IH work and left ~50% of the viewport empty. The
+          //    v3 layout is built from primitives in src/styles/tokens.js
+          //    (panel, pill, tabItem, statBlock, …) so the next slice
+          //    (Assessment detail screen) can reuse the same surface.
+          const drafts = index.drafts || []
+          const reports = index.reports || []
+          const activeDraft = drafts[0] || null
+          const isWide = isTablet || isTabletLand
 
-          {/* Header row removed — the hamburger menu and subscription-
-              status pill moved into the global fixed header so they
-              live at the same level as the AtmosFlow wordmark. */}
+          // Workflow stages — visual only on Home, all route to
+          // resumeDraft until the per-stage detail views land in a
+          // subsequent slice. The active marker reflects "current
+          // focus" once stage tracking is available in draft state;
+          // for now we anchor on Findings as the canonical entry.
+          const stages = [
+            { id: 'findings',  label: 'Findings',  icon: 'findings' },
+            { id: 'pathways',  label: 'Pathways',  icon: 'chain' },
+            { id: 'sampling',  label: 'Sampling',  icon: 'flask' },
+            { id: 'narrative', label: 'Narrative', icon: 'notes' },
+            { id: 'actions',   label: 'Actions',   icon: 'check' },
+            { id: 'review',    label: 'Review',    icon: 'shield' },
+          ]
+          const activeStage = activeDraft?.stage || 'findings'
 
-          {/* ── Calibration exception banner. Renders nothing in the
-              happy path. Surfaces only when the primary instrument's
-              calibration is within CAL_WARN_DAYS of expiry, already
-              expired, or has no recorded calibration date — the three
-              cases that would have an IH peer reviewer ask "would I
-              sign my name to a report this tool produced?" before the
-              next assessment even starts. (Norman, status by exception;
-              Hollnagel, surface only what diverges from expected state.) ── */}
-          {(() => {
-            const banner = getCalibrationBannerState(profile?.iaq_meter, profile?.iaq_cal_date)
-            if (!banner) return null
-            const color = banner.tone === 'danger' ? DANGER : WARN
-            return (
-              <div role="status" style={{padding:'10px 14px',background:`${color}10`,border:`1px solid ${color}30`,borderRadius:10,marginBottom:16,display:'flex',alignItems:'center',gap:10}}>
-                <I n="alert" s={14} c={color} w={1.8} />
-                <span style={{fontSize:12,color:TEXT,fontWeight:500,flex:1,minWidth:0}}>
-                  {banner.kind === 'unrecorded' && (
-                    <>{profile?.iaq_meter} <span style={{color:DIM}}>calibration date not recorded</span></>
-                  )}
-                  {banner.kind === 'expiring' && (
-                    <>{profile?.iaq_meter} <span style={{color:DIM}}>calibration expires in</span> <span style={{fontFamily:'var(--font-mono)',color:color,fontWeight:600}}>{banner.daysToExpiry} days</span></>
-                  )}
-                  {banner.kind === 'expired' && (
-                    <>{profile?.iaq_meter} <span style={{color:DIM}}>calibration expired</span> <span style={{fontFamily:'var(--font-mono)',color:color,fontWeight:600}}>{Math.abs(banner.daysToExpiry)} days</span> <span style={{color:DIM}}>ago</span></>
-                  )}
-                </span>
-                <button onClick={()=>setView('settings')} style={{background:'none',border:'none',color:color,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',flexShrink:0}}>Review</button>
-              </div>
-            )
-          })()}
+          return (
+            <div style={{paddingTop:24,paddingBottom:100,maxWidth:contentMax,margin:'0 auto'}}>
 
-          {/* ── Tier 1: primary action ──
-              Uses --accent-fill / --on-accent-fill so the pill renders
-              the same vivid brand cyan in BOTH dark and light modes —
-              matches the dark-mode look on a white-mode page. */}
-          <button onClick={startNew} style={{width:'60%',margin:'32px auto 10px',padding:'11px 16px',background:'var(--accent-fill)',border:'none',borderRadius:10,cursor:'pointer',textAlign:'center',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'inherit',transition:'opacity 0.15s',minHeight:40}}>
-            <div style={{fontSize:14,fontWeight:700,color:'var(--on-accent-fill)',fontFamily:'inherit',letterSpacing:'-0.2px'}}>Start IAQ Assessment</div>
-          </button>
-
-          {/* ── Tier 1b: incident response ── */}
-          <button onClick={()=>setView('incident-form')} style={{width:'60%',margin:'0 auto 28px',padding:'11px 16px',background:'var(--accent-fill)',border:'none',borderRadius:10,cursor:'pointer',textAlign:'center',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'inherit',transition:'opacity 0.15s',minHeight:40}}>
-            <div style={{fontSize:14,fontWeight:700,color:'var(--on-accent-fill)',fontFamily:'inherit',letterSpacing:'-0.2px'}}>Report IAQ Incident</div>
-          </button>
-
-          {/* ── Tier 2 Group B: Recent reports (only when present) ── */}
-          {(index.reports||[]).length > 0 && <>
-            <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',marginBottom:8,paddingLeft:4,paddingRight:4}}>
-              <div style={{fontSize:11,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'0.8px'}}>Recent</div>
-              {(index.reports||[]).length > 3 && <button onClick={()=>setView('history')} style={{background:'none',border:'none',color:ACCENT,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',padding:0}}>View all</button>}
-            </div>
-            {/* Tier label pill (not a bare numeric score) — a CIH peer
-                reviewer reading "50" out of context can mistake it for
-                a verdict; the band label conveys the same severity
-                while reinforcing the screening-only positioning. The
-                composite remains visible inside the report itself,
-                where methodology and confidence are alongside it.
-                Color is reinforced by text per WCAG 1.4.1. ── */}
-            <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,marginBottom:24,overflow:'hidden'}}>
-              {(index.reports||[]).slice(0,3).map((r, i) => {
-                const band = getRiskBand(r.score ?? null)
+              {/* Calibration exception banner — status-by-exception.
+                  Surfaces only when the primary instrument's
+                  calibration is within CAL_WARN_DAYS of expiry,
+                  already expired, or has no recorded calibration
+                  date — the cases that would have an IH peer
+                  reviewer ask "would I sign my name to a report
+                  this tool produced?" (Norman, status by exception;
+                  Hollnagel, surface only what diverges.) */}
+              {(() => {
+                const banner = getCalibrationBannerState(profile?.iaq_meter, profile?.iaq_cal_date)
+                if (!banner) return null
+                const color = banner.tone === 'danger' ? DANGER : WARN
                 return (
-                  <button key={r.id} onClick={()=>openReport(r)} style={{width:'100%',padding:'14px 16px',background:'transparent',border:'none',borderTop: i===0 ? 'none' : `1px solid ${BORDER}`,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit',minHeight:60}}>
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontSize:13,fontWeight:600,color:TEXT,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.facility || 'Untitled'}</div>
-                      <div style={{fontSize:11,color:DIM,fontFamily:"var(--font-mono)",marginTop:2}}>{fD(r.ts)}</div>
-                    </div>
-                    <span style={{
-                      padding:'4px 10px',borderRadius:6,
-                      background:`${band.color}12`,border:`1px solid ${band.color}30`,
-                      fontSize:11,fontWeight:700,color:band.color,
-                      letterSpacing:'0.3px',whiteSpace:'nowrap',flexShrink:0,
-                    }}>{band.label}</span>
-                    <span style={{color:DIM,fontSize:13}}>›</span>
-                  </button>
+                  <div role="status" style={{padding:'10px 14px',background:`${color}10`,border:`1px solid ${color}30`,borderRadius:10,marginBottom:16,display:'flex',alignItems:'center',gap:10}}>
+                    <I n="alert" s={14} c={color} w={1.8} />
+                    <span style={{fontSize:12,color:TEXT,fontWeight:500,flex:1,minWidth:0}}>
+                      {banner.kind === 'unrecorded' && (
+                        <>{profile?.iaq_meter} <span style={{color:DIM}}>calibration date not recorded</span></>
+                      )}
+                      {banner.kind === 'expiring' && (
+                        <>{profile?.iaq_meter} <span style={{color:DIM}}>calibration expires in</span> <span style={{fontFamily:'var(--font-mono)',color:color,fontWeight:600}}>{banner.daysToExpiry} days</span></>
+                      )}
+                      {banner.kind === 'expired' && (
+                        <>{profile?.iaq_meter} <span style={{color:DIM}}>calibration expired</span> <span style={{fontFamily:'var(--font-mono)',color:color,fontWeight:600}}>{Math.abs(banner.daysToExpiry)} days</span> <span style={{color:DIM}}>ago</span></>
+                      )}
+                    </span>
+                    <button onClick={()=>setView('settings')} style={{background:'none',border:'none',color:color,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',flexShrink:0}}>Review</button>
+                  </div>
                 )
-              })}
+              })()}
+
+              {activeDraft ? (
+                <>
+                  {/* ── HERO: current assessment situational awareness ─── */}
+                  <div style={{...V3.panel({ accent: V3.STATUS.inProgress }), padding:0, marginBottom:16}}>
+                    {/* Header row — facility name + meta + primary actions */}
+                    <div style={{padding:'20px 24px 0',display:'flex',alignItems:'flex-start',gap:16,flexWrap:'wrap'}}>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{...V3.T.h1, marginBottom:6, overflow:'hidden', textOverflow:'ellipsis'}}>
+                          {activeDraft.facility || 'Untitled Assessment'}
+                        </div>
+                        <div style={{display:'flex',alignItems:'center',gap:14,flexWrap:'wrap',color:V3.TEXT_TERTIARY,fontSize:12}}>
+                          <span style={{display:'inline-flex',alignItems:'center',gap:6}}>
+                            <I n="user" s={13} c={V3.TEXT_TERTIARY} w={1.6} />
+                            <span>Assessment by you</span>
+                          </span>
+                          <span style={{color:V3.BORDER_STRONG}}>·</span>
+                          <span style={{fontFamily:'var(--font-mono)'}}>{fD(activeDraft.ua || activeDraft.ts)}</span>
+                          <span style={V3.pill(V3.STATUS.inProgress)}>In Progress</span>
+                        </div>
+                      </div>
+                      <div style={{display:'flex',gap:8,flexShrink:0}}>
+                        <button onClick={()=>resumeDraft(activeDraft.id)} style={V3.btnPrimary}>
+                          Continue Assessment
+                          <I n="play" s={13} c="var(--on-accent-fill)" w={1.8} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Headline + severity/confidence framing. Until the
+                        engine has scored the draft, we surface the
+                        canonical screening framing rather than synthesize
+                        a severity that would mislead an IH peer reviewer. */}
+                    <div style={{padding:'18px 24px 4px',display:'flex',gap:8,flexWrap:'wrap'}}>
+                      <span style={V3.pill(V3.STATUS.inProgress, { lg: true })}>Screening in progress</span>
+                      <span style={{...V3.pill(V3.TEXT_TERTIARY, { lg: true }), color: V3.TEXT_TERTIARY, background:'transparent', border:`1px solid ${V3.BORDER_DEFAULT}`}}>Awaiting field data</span>
+                    </div>
+                    <div style={{padding:'8px 24px 16px',...V3.T.h2}}>
+                      Continue capturing field data to refine the screening assessment
+                    </div>
+                    <div style={{padding:'0 24px 18px',...V3.T.bodyDim, maxWidth:640}}>
+                      Severity, confidence, and recommended actions will populate as findings,
+                      measurements, and zone observations are entered. Outputs are
+                      screening-level — they identify risk indicators, not regulatory
+                      determinations.
+                    </div>
+
+                    {/* Inline meta band. The earlier stat-strip pattern
+                        (3 mono columns separated by hairlines) is right
+                        for homogeneous numerals like 23 / 19 / 2 on the
+                        scored Assessment detail hero, but it goes cheap
+                        when the columns hold mixed types — a single
+                        digit, a date that wraps, and a text label like
+                        "Screening". This band reads as a quiet caption
+                        row with icon + label + value separated by mid-
+                        dots; same data, calmer composition, and the
+                        Assessment details panel below still carries
+                        the canonical key:value list. */}
+                    <div style={{padding:'14px 24px 18px', display:'flex', alignItems:'center', gap:14, flexWrap:'wrap', color:V3.TEXT_TERTIARY}}>
+                      <span style={{display:'inline-flex',alignItems:'center',gap:6}}>
+                        <I n="layers" s={13} c={V3.TEXT_TERTIARY} w={1.6} />
+                        <span style={V3.T.caption}>
+                          <span style={{color:V3.TEXT_PRIMARY, fontWeight:600}}>{(activeDraft.zoneCount ?? activeDraft.zones?.length ?? 0)}</span> zone{(activeDraft.zoneCount ?? activeDraft.zones?.length ?? 0) === 1 ? '' : 's'} started
+                        </span>
+                      </span>
+                      <span style={{color:V3.BORDER_STRONG}}>·</span>
+                      <span style={{display:'inline-flex',alignItems:'center',gap:6}}>
+                        <I n="clock" s={13} c={V3.TEXT_TERTIARY} w={1.6} />
+                        <span style={V3.T.caption}>
+                          Last touched <span style={{color:V3.TEXT_PRIMARY, fontWeight:600, fontFamily:'var(--font-mono)'}}>{fD(activeDraft.ua || activeDraft.ts) || '—'}</span>
+                        </span>
+                      </span>
+                      <span style={{color:V3.BORDER_STRONG}}>·</span>
+                      <span style={{display:'inline-flex',alignItems:'center',gap:6}}>
+                        <I n="shield" s={13} c={V3.TEXT_TERTIARY} w={1.6} />
+                        <span style={V3.T.caption}>Screening assessment</span>
+                      </span>
+                    </div>
+
+                    {/* Workflow tabs. Visual stage indicator until the
+                        per-stage detail views ship — every tab resumes
+                        the draft so users can pick up where they left
+                        off without a dead-click. */}
+                    <div style={{padding:'14px 16px 16px',display:'flex',alignItems:'stretch',gap:2,overflowX:'auto',scrollbarWidth:'none'}}>
+                      {stages.map(s => {
+                        const isActive = s.id === activeStage
+                        return (
+                          <button key={s.id} onClick={()=>resumeDraft(activeDraft.id)} style={V3.tabItem(isActive)}>
+                            <I n={s.icon} s={16} c={isActive ? 'var(--accent)' : V3.TEXT_TERTIARY} w={1.6} />
+                            <span>{s.label}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {/* ── Two-up: Next action + Assessment metadata ─── */}
+                  <div style={{display:'grid',gap:16,gridTemplateColumns:isWide?'1.2fr 1fr':'1fr',marginBottom:24}}>
+                    {/* Next action — drives the assessor forward */}
+                    <div style={V3.panel()}>
+                      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
+                        <div style={{display:'flex',alignItems:'center',gap:10}}>
+                          <div style={V3.iconBox('var(--accent)')}>
+                            <I n="target" s={16} c="var(--accent)" w={1.8} />
+                          </div>
+                          <div style={V3.T.h3}>Next recommended steps</div>
+                        </div>
+                      </div>
+                      <div style={{display:'flex',flexDirection:'column',gap:12}}>
+                        <div style={{display:'flex',alignItems:'flex-start',gap:12}}>
+                          <I n="check" s={16} c={V3.TEXT_TERTIARY} w={1.8} />
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={V3.T.body}>Complete the zone walkthrough</div>
+                            <div style={V3.T.captionDim}>Capture observations, instrument readings, and HVAC notes per zone.</div>
+                          </div>
+                        </div>
+                        <div style={{display:'flex',alignItems:'flex-start',gap:12}}>
+                          <I n="check" s={16} c={V3.TEXT_TERTIARY} w={1.8} />
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={V3.T.body}>Record an outdoor reference reading</div>
+                            <div style={V3.T.captionDim}>Needed for CO₂ and humidity Δ comparisons in the narrative.</div>
+                          </div>
+                        </div>
+                        <div style={{display:'flex',alignItems:'flex-start',gap:12}}>
+                          <I n="check" s={16} c={V3.TEXT_TERTIARY} w={1.8} />
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={V3.T.body}>Verify instrument calibration is current</div>
+                            <div style={V3.T.captionDim}>Required for any quantitative finding to appear in the report.</div>
+                          </div>
+                        </div>
+                      </div>
+                      <div style={V3.divider()} />
+                      <button onClick={()=>resumeDraft(activeDraft.id)} style={{...V3.btnGhost, width:'100%'}}>
+                        Continue from current step
+                        <I n="play" s={13} c={V3.TEXT_SECONDARY} w={1.8} />
+                      </button>
+                    </div>
+
+                    {/* Assessment metadata — calm, structured */}
+                    <div style={V3.panel()}>
+                      <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
+                        <div style={V3.iconBox(V3.TEXT_SECONDARY)}>
+                          <I n="clip" s={16} c={V3.TEXT_SECONDARY} w={1.8} />
+                        </div>
+                        <div style={V3.T.h3}>Assessment details</div>
+                      </div>
+                      {[
+                        ['Facility', activeDraft.facility || '—'],
+                        ['Started', fD(activeDraft.ts) || '—'],
+                        ['Last touched', fD(activeDraft.ua || activeDraft.ts) || '—'],
+                        ['Zones', String(activeDraft.zoneCount ?? activeDraft.zones?.length ?? 0)],
+                        ['Status', 'In Progress'],
+                      ].map(([k, v], i, arr) => (
+                        <div key={k} style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',padding:'10px 0',borderBottom: i === arr.length - 1 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`}}>
+                          <div style={V3.T.captionDim}>{k}</div>
+                          <div style={{...V3.T.body, fontFamily: (k === 'Started' || k === 'Last touched' || k === 'Zones') ? 'var(--font-mono)' : undefined, textAlign:'right'}}>{v}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Other in-progress assessments — only if multiple drafts */}
+                  {drafts.length > 1 && (
+                    <div style={{marginBottom:24}}>
+                      <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',marginBottom:10,padding:'0 2px'}}>
+                        <div style={V3.T.micro}>Other in progress · {drafts.length - 1}</div>
+                        <button onClick={()=>setView('history')} style={{background:'none',border:'none',color:'var(--accent)',fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',padding:0}}>View all</button>
+                      </div>
+                      <div style={{background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.lg,overflow:'hidden'}}>
+                        {drafts.slice(1, 4).map((d, i) => (
+                          <button key={d.id} onClick={()=>resumeDraft(d.id)} style={{width:'100%',padding:'14px 16px',background:'transparent',border:'none',borderTop: i === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit',minHeight:60}}>
+                            <div style={V3.iconBox(V3.STATUS.inProgress)}>
+                              <I n="bldg" s={15} c={V3.STATUS.inProgress} w={1.6} />
+                            </div>
+                            <div style={{flex:1,minWidth:0}}>
+                              <div style={{...V3.T.bodyStrong, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{d.facility || 'Untitled Assessment'}</div>
+                              <div style={{...V3.T.captionDim, fontFamily:'var(--font-mono)'}}>{fD(d.ua || d.ts)}</div>
+                            </div>
+                            <span style={V3.pill(V3.STATUS.inProgress)}>In Progress</span>
+                            <span style={{color:V3.TEXT_TERTIARY,fontSize:13}}>›</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                /* ── No active draft — premium start panel ─────────────── */
+                <div style={{...V3.panel(), padding:'28px 26px', marginBottom:24}}>
+                  <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
+                    <I n="airflow" s={18} c="var(--accent)" w={1.8} />
+                    <div style={V3.T.micro}>AtmosFlow · Screening Workflow</div>
+                  </div>
+                  <div style={{...V3.T.h1, marginBottom:6}}>Start a new IAQ assessment</div>
+                  <div style={{...V3.T.bodyDim, maxWidth:560, marginBottom:20}}>
+                    Capture field observations, instrument readings, and zone data.
+                    AtmosFlow organizes findings into a screening-level professional
+                    assessment with severity, confidence, and recommended actions.
+                  </div>
+                  <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+                    <button onClick={startNew} style={V3.btnPrimary}>
+                      <I n="play" s={14} c="var(--on-accent-fill)" w={2} />
+                      Start IAQ Assessment
+                    </button>
+                    <button onClick={()=>setView('incident-form')} style={V3.btnSecondary}>
+                      <I n="alert" s={14} c={V3.TEXT_PRIMARY} w={1.8} />
+                      Report IAQ Incident
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* ── Finalized reports — restyled list ──────────────────── */}
+              {reports.length > 0 && (
+                <div>
+                  <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',marginBottom:10,padding:'0 2px'}}>
+                    <div style={V3.T.micro}>Recent reports{reports.length > 0 ? ` · ${reports.length}` : ''}</div>
+                    {reports.length > 3 && <button onClick={()=>setView('history')} style={{background:'none',border:'none',color:'var(--accent)',fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',padding:0}}>View all</button>}
+                  </div>
+                  <div style={{background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.lg,overflow:'hidden'}}>
+                    {reports.slice(0, 3).map((r, i) => {
+                      const band = getRiskBand(r.score ?? null)
+                      return (
+                        <button key={r.id} onClick={()=>openReport(r)} style={{width:'100%',padding:'14px 16px',background:'transparent',border:'none',borderTop: i === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit',minHeight:60}}>
+                          <div style={V3.iconBox(band.color)}>
+                            <I n="report" s={15} c={band.color} w={1.6} />
+                          </div>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{...V3.T.bodyStrong, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{r.facility || 'Untitled'}</div>
+                            <div style={{...V3.T.captionDim, fontFamily:'var(--font-mono)'}}>{fD(r.ts)}</div>
+                          </div>
+                          <span style={V3.pill(band.color)}>{band.label}</span>
+                          <span style={{color:V3.TEXT_TERTIARY,fontSize:13}}>›</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
             </div>
-          </>}
-
-          {/* Demos moved into the kebab menu (top-right). */}
-
-
-        </div>}
+          )
+        })()}
 
         {view==='quickstart'&&qscq&&renderQuestion(qscq,mergedData,setQSField,qsqi,qsVis,()=>{if(qsqi<qsVis.length-1)setQsqi(qsqi+1)},()=>{if(qsqi>0)setQsqi(qsqi-1)},finishQuickStart,'→ HVAC Equipment',qsSecs)}
 
@@ -1873,67 +2488,108 @@ export default function MobileApp() {
           onNavigate={(v)=>setView(v)}
         />}
 
-        {view==='history'&&<div style={{paddingTop:28,paddingBottom:100}}>
-          <h2 style={{fontSize:20,fontWeight:700,marginBottom:4,color:TEXT}}>Reports</h2>
-          <div style={{fontSize:11,color:DIM,marginBottom:20}}>Drafts and finalized deliverables</div>
-
-          {/* ── Drafts section ─────────────────────────────────────── */}
-          <div style={{fontSize:11,fontWeight:700,color:DIM,textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:10}}>
-            {userMode === 'fm' ? 'In Progress' : 'Drafts'}{(index.drafts||[]).length>0?` · ${(index.drafts||[]).length}`:''}
+        {view==='history'&&<div style={{paddingTop:28,paddingBottom:100,maxWidth:contentMax,margin:'0 auto'}}>
+          {/* ── Reports header ────────────────────────────────────── */}
+          <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:16,flexWrap:'wrap',marginBottom:20}}>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{...V3.T.h1, marginBottom:4}}>Reports</div>
+              <div style={V3.T.bodyDim}>Drafts and finalized deliverables · {((index.drafts||[]).length + (index.reports||[]).length)} total</div>
+            </div>
+            <button onClick={startNew} style={V3.btnPrimary}>
+              <I n="play" s={13} c="var(--on-accent-fill)" w={2} />
+              New Assessment
+            </button>
           </div>
-          {(index.drafts||[]).length===0?(
-            <div style={{padding:'24px',textAlign:'center',background:CARD,borderRadius:10,border:`1px solid ${BORDER}`,marginBottom:24}}>
-              <div style={{fontSize:13,color:SUB}}>No drafts in progress</div>
-              <button onClick={startNew} style={{marginTop:12,padding:'10px 24px',background:'var(--accent-fill)',border:'none',borderRadius:8,color:'var(--on-accent-fill)',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>Start Assessment</button>
-            </div>
-          ):(<div style={{marginBottom:24}}>{(index.drafts||[]).map(d=>(
-            <div key={d.id} style={{padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,marginBottom:6,display:'flex',alignItems:'center',gap:12}}>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:14,fontWeight:600,color:TEXT,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{d.facility||'Untitled Assessment'}</div>
-                <div style={{fontSize:11,color:DIM,fontFamily:"var(--font-mono)",marginTop:3}}>{fD(d.ua||d.ts)}</div>
-                <div style={{fontSize:10,color:ACCENT,marginTop:3}}>In progress</div>
-              </div>
-              <button onClick={()=>resumeDraft(d.id)} style={{padding:'8px 16px',background:'var(--accent-fill)',border:'none',borderRadius:8,color:'var(--on-accent-fill)',fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:38}}>Resume</button>
-              <button onClick={(e)=>{e.stopPropagation();setDelConf({id:d.id,name:d.facility,type:'dft'})}} style={{width:44,height:44,background:'#EF444410',border:`1px solid #EF444425`,borderRadius:8,color:'#EF4444',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'inherit',flexShrink:0,WebkitTapHighlightColor:'transparent'}}>
-                <I n="trash" s={14} c="#EF4444" w={1.4} />
-              </button>
-            </div>
-          ))}</div>)}
 
-          {/* ── Finalized section ──────────────────────────────────── */}
-          <div style={{fontSize:11,fontWeight:700,color:DIM,textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:10}}>
-            Finalized{(index.reports||[]).length>0?` · ${(index.reports||[]).length}`:''}
+          {/* ── Drafts / In Progress ──────────────────────────────── */}
+          <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',marginBottom:10,padding:'0 2px'}}>
+            <div style={V3.T.micro}>{userMode === 'fm' ? 'In Progress' : 'Drafts'}{(index.drafts||[]).length>0?` · ${(index.drafts||[]).length}`:''}</div>
+          </div>
+          {(index.drafts||[]).length === 0 ? (
+            <div style={{...V3.panel(), display:'flex',alignItems:'center',gap:14,marginBottom:24,padding:'18px 22px'}}>
+              <div style={V3.iconBox(V3.STATUS.draft)}><I n="draft" s={15} c={V3.STATUS.draft} w={1.6} /></div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={V3.T.bodyStrong}>No drafts in progress</div>
+                <div style={V3.T.captionDim}>Start a new assessment to capture field observations.</div>
+              </div>
+              <button onClick={startNew} style={V3.btnSecondary}>Start Assessment</button>
+            </div>
+          ) : (
+            <div style={{background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.lg,marginBottom:24,overflow:'hidden'}}>
+              {(index.drafts||[]).map((d, i) => (
+                <div key={d.id} style={{padding:'14px 16px',background:'transparent',borderTop: i === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`,display:'flex',alignItems:'center',gap:12}}>
+                  <div style={V3.iconBox(V3.STATUS.inProgress)}><I n="bldg" s={15} c={V3.STATUS.inProgress} w={1.6} /></div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{...V3.T.bodyStrong, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{d.facility||'Untitled Assessment'}</div>
+                    <div style={{display:'flex',alignItems:'center',gap:8,marginTop:3}}>
+                      <span style={{...V3.T.captionDim, fontFamily:'var(--font-mono)'}}>{fD(d.ua||d.ts)}</span>
+                      <span style={V3.pill(V3.STATUS.inProgress)}>In Progress</span>
+                    </div>
+                  </div>
+                  <button onClick={()=>resumeDraft(d.id)} style={V3.btnPrimary}>Resume</button>
+                  <button onClick={(e)=>{e.stopPropagation();setDelConf({id:d.id,name:d.facility,type:'dft'})}} style={{width:40,height:40,background:`${DANGER}10`,border:`1px solid ${DANGER}28`,borderRadius:V3.R.md,color:DANGER,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'inherit',flexShrink:0,WebkitTapHighlightColor:'transparent'}}>
+                    <I n="trash" s={14} c={DANGER} w={1.4} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ── Finalized ─────────────────────────────────────────── */}
+          <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',marginBottom:10,padding:'0 2px'}}>
+            <div style={V3.T.micro}>Finalized{(index.reports||[]).length>0?` · ${(index.reports||[]).length}`:''}</div>
           </div>
           <div style={{display:'flex',gap:8,marginBottom:14}}>
-            <input type="text" value={hSearch} onChange={e=>setHSearch(e.target.value)} placeholder="Search finalized reports..." style={{flex:1,padding:'12px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,color:TEXT,fontSize:15,fontFamily:'inherit',outline:'none',boxSizing:'border-box',minHeight:44}} />
-            <select value={hSort} onChange={e=>setHSort(e.target.value)} style={{padding:'12px 12px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,color:SUB,fontSize:12,fontFamily:'inherit',outline:'none',minHeight:44}}>
+            <div style={{flex:1,position:'relative'}}>
+              <input type="text" value={hSearch} onChange={e=>setHSearch(e.target.value)} placeholder="Search finalized reports..." style={{width:'100%',padding:'12px 14px 12px 38px',background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.md,color:TEXT,fontSize:14,fontFamily:'inherit',outline:'none',boxSizing:'border-box',minHeight:44}} />
+              <div style={{position:'absolute',top:'50%',left:14,transform:'translateY(-50%)',pointerEvents:'none',display:'flex'}}>
+                <I n="search" s={14} c={V3.TEXT_TERTIARY} w={1.8} />
+              </div>
+            </div>
+            <select value={hSort} onChange={e=>setHSort(e.target.value)} style={{padding:'12px 14px',background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.md,color:V3.TEXT_SECONDARY,fontSize:13,fontFamily:'inherit',outline:'none',minHeight:44,cursor:'pointer'}}>
               <option value="newest">Newest</option><option value="oldest">Oldest</option><option value="score-low">Score ↑</option><option value="score-high">Score ↓</option>
             </select>
           </div>
-          {fReports.length===0?(
-            <div style={{padding:'48px 24px',textAlign:'center',background:CARD,borderRadius:10,border:`1px solid ${BORDER}`}}>
-              <I n="report" s={28} c={DIM} w={1.4} />
-              <div style={{fontSize:15,fontWeight:600,color:SUB,marginTop:16}}>No reports generated yet</div>
-              <div style={{fontSize:12,color:DIM,marginTop:6,lineHeight:1.5}}>{hSearch?'No reports match your search.':'Complete and finalize an assessment to generate your first report.'}</div>
-              {!hSearch&&<>
-                <button onClick={startNew} style={{marginTop:16,padding:'10px 24px',background:'var(--accent-fill)',border:'none',borderRadius:8,color:'var(--on-accent-fill)',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>Start Assessment</button>
-                <div style={{marginTop:10}}><button onClick={runDemo} style={{background:'none',border:'none',color:DIM,fontSize:11,cursor:'pointer',fontFamily:'inherit'}}>or view sample report →</button></div>
-              </>}
-            </div>
-          ):fReports.map(r=>(
-            <div key={r.id} onClick={()=>openReport(r)} style={{width:'100%',padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,marginBottom:6,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit',transition:'border-color 0.15s'}}>
-              <div style={{width:40,height:40,borderRadius:8,background:r.score>=70?`${mix('success', 6)}`:r.score>=50?`${mix('warn', 6)}`:`${mix('danger', 6)}`,border:`1px solid ${r.score>=70?`${mix('success', 13)}`:r.score>=50?`${mix('warn', 13)}`:`${mix('danger', 13)}`}`,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                <span style={{fontSize:15,fontWeight:800,fontFamily:"var(--font-mono)",color:r.score>=70?SUCCESS:r.score>=50?WARN:DANGER}}>{r.score||'—'}</span>
+          {fReports.length === 0 ? (
+            <div style={{...V3.panel(), padding:'40px 24px', textAlign:'center'}}>
+              <div style={{...V3.iconBox(V3.TEXT_TERTIARY), width:48, height:48, margin:'0 auto 12px', borderRadius:V3.R.lg}}>
+                <I n="report" s={20} c={V3.TEXT_TERTIARY} w={1.6} />
               </div>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:14,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:TEXT}}>{r.facility||'Untitled'}</div>
-                <div style={{fontSize:10,color:DIM,fontFamily:"var(--font-mono)",marginTop:3}}>{fD(r.ts)} · Final</div>
+              <div style={{...V3.T.h3, marginBottom:6}}>No reports generated yet</div>
+              <div style={{...V3.T.bodyDim, marginBottom:hSearch?0:16}}>
+                {hSearch ? 'No reports match your search.' : 'Complete and finalize an assessment to generate your first report.'}
               </div>
-              <button onClick={e=>{e.stopPropagation();setDelConf({id:r.id,name:r.facility,type:'rpt'})}} style={{width:36,height:36,background:'transparent',border:`1px solid ${BORDER}`,borderRadius:8,color:DIM,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'inherit',flexShrink:0}}>
-                <I n="trash" s={14} c={DIM} w={1.4} />
-              </button>
+              {!hSearch && (
+                <div style={{display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap'}}>
+                  <button onClick={startNew} style={V3.btnPrimary}>Start Assessment</button>
+                  <button onClick={runDemo} style={V3.btnGhost}>View sample report</button>
+                </div>
+              )}
             </div>
-          ))}
+          ) : (
+            <div style={{background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.lg,overflow:'hidden'}}>
+              {fReports.map((r, i) => {
+                const band = getRiskBand(r.score ?? null)
+                return (
+                  <div key={r.id} onClick={()=>openReport(r)} style={{padding:'14px 16px',background:'transparent',borderTop: i === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`,cursor:'pointer',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit'}}>
+                    <div style={V3.iconBox(band.color)}><I n="report" s={15} c={band.color} w={1.6} /></div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{...V3.T.bodyStrong, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{r.facility||'Untitled'}</div>
+                      <div style={{display:'flex',alignItems:'center',gap:8,marginTop:3}}>
+                        <span style={{...V3.T.captionDim, fontFamily:'var(--font-mono)'}}>{fD(r.ts)}</span>
+                        <span style={V3.pill(V3.STATUS.ready)}>Final</span>
+                      </div>
+                    </div>
+                    <span style={V3.pill(band.color)}>{band.label}</span>
+                    <button onClick={e=>{e.stopPropagation();setDelConf({id:r.id,name:r.facility,type:'rpt'})}} style={{width:36,height:36,background:'transparent',border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.md,color:V3.TEXT_TERTIARY,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'inherit',flexShrink:0}}>
+                      <I n="trash" s={13} c={V3.TEXT_TERTIARY} w={1.4} />
+                    </button>
+                    <span style={{color:V3.TEXT_TERTIARY,fontSize:13}}>›</span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>}
         {view==='trash'&&<TrashView onRecover={async(id)=>{await Backup.recover(id);await refreshIndex()}} onDelete={async(id)=>{await Backup.permanentDelete(id)}} />}
         {view==='sampling-forms'&&<SamplingFormsView profile={profile} onBack={()=>setView('dash')} />}
@@ -1953,13 +2609,18 @@ export default function MobileApp() {
         {view==='instruments'&&<InstrumentManager onBack={()=>setView('settings')} />}
       </div>
 
-      {/* ── Bottom Tab Bar ── */}
-      {/* iOS Safari defensives: solid background (no scroll-bleed during URL-bar transitions),
-          isolation:isolate for a clean stacking context, transform:translateZ(0) to force a
-          compositor layer so position:fixed cannot be reinterpreted relative to an ancestor. */}
+      {/* ── Bottom Tab Bar (v3) ──
+          iOS Safari defensives retained: solid background (no scroll-
+          bleed during URL-bar transitions), isolation:isolate for a
+          clean stacking context, transform:translateZ(0) to force a
+          compositor layer so position:fixed cannot be reinterpreted
+          relative to an ancestor.
+          v3 visual: top hairline + top accent rail above the active
+          tab (instrument-panel cue, replaces the earlier scale 1.06
+          "lift"), icon stays at its base size, label sits below. */}
       {!isAssessing && !milestone && (
-        <nav style={{position:'fixed',bottom:0,left:0,right:0,zIndex:100,background:BG,borderTop:`1px solid ${BORDER}`,paddingBottom:'env(safe-area-inset-bottom, 0px)',isolation:'isolate',transform:'translateZ(0)',WebkitTransform:'translateZ(0)'}}>
-          <div style={{display:'flex',justifyContent:'space-around',alignItems:'center',height:52,maxWidth:contentMax,margin:'0 auto'}}>
+        <nav style={{position:'fixed',bottom:0,left:0,right:0,zIndex:100,background:BG,borderTop:`1px solid ${V3.BORDER_DEFAULT}`,paddingBottom:'env(safe-area-inset-bottom, 0px)',isolation:'isolate',transform:'translateZ(0)',WebkitTransform:'translateZ(0)'}}>
+          <div style={{display:'flex',justifyContent:'space-around',alignItems:'stretch',height:56,maxWidth:contentMax,margin:'0 auto'}}>
             {(userMode === 'fm' ? [
               {id:'dash',label:'Home',icon:'home'},
               {id:'properties',label:'Buildings',icon:'bldg'},
@@ -1970,17 +2631,22 @@ export default function MobileApp() {
               {id:'history',label:'Reports',icon:'report',badge:((index.drafts||[]).length+(index.reports||[]).length)||null},
               {id:'search',label:'Search',icon:'search'},
               {id:'settings',label:'Settings',icon:'gear'},
-            ]).map(t=>(
-              <button key={t.id} onClick={()=>{ supabase&&trackEvent('page_view',{tab:t.id}); setView(t.id); if(t.id==='dash')setViewRpt(null); }} style={{background:'none',border:'none',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:2,padding:'6px 16px',minWidth:56,fontFamily:'inherit',position:'relative',WebkitTapHighlightColor:'transparent',transition:'opacity 0.15s'}}>
-                {/* Active "lift": icon scale 1.06× + smooth transition. Color
-                    change on icon and label provides the secondary signal. */}
-                <div style={{position:'relative',transform:view===t.id?'scale(1.06)':'scale(1)',transition:'transform 160ms ease'}}>
-                  <I n={t.icon} s={20} c={view===t.id?ACCENT:DIM} w={view===t.id?2:1.6} />
-                  {t.badge>0&&<div style={{position:'absolute',top:-3,right:-7,minWidth:14,height:14,borderRadius:7,background:ACCENT,display:'flex',alignItems:'center',justifyContent:'center',fontSize:8,fontWeight:700,color:ON_ACCENT,fontFamily:"var(--font-mono)",padding:'0 3px'}}>{t.badge}</div>}
-                </div>
-                <span style={{fontSize:9,fontWeight:view===t.id?600:500,color:view===t.id?ACCENT:DIM,letterSpacing:'0.2px',transition:'color 160ms ease'}}>{t.label}</span>
-              </button>
-            ))}
+            ]).map(t=>{
+              const isActive = view === t.id
+              return (
+                <button key={t.id} onClick={()=>{ supabase&&trackEvent('page_view',{tab:t.id}); setView(t.id); if(t.id==='dash')setViewRpt(null); }} style={{flex:1,background:'none',border:'none',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:4,paddingTop:6,fontFamily:'inherit',position:'relative',WebkitTapHighlightColor:'transparent',transition:'opacity 0.15s'}}>
+                  {/* Top accent rail — only on the active tab. Cyan
+                      hairline tucked under the nav's top border so the
+                      visual is "this lane is lit", not a button glow. */}
+                  <div style={{position:'absolute',top:0,left:'20%',right:'20%',height:2,background:isActive?'var(--accent)':'transparent',borderRadius:'0 0 2px 2px',transition:'background 160ms ease'}} />
+                  <div style={{position:'relative',display:'flex'}}>
+                    <I n={t.icon} s={20} c={isActive?'var(--accent)':V3.TEXT_TERTIARY} w={isActive?2:1.7} />
+                    {t.badge>0&&<div style={{position:'absolute',top:-4,right:-8,minWidth:15,height:15,borderRadius:V3.R.pill,background:'var(--accent)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,fontWeight:700,color:'var(--on-accent-fill)',fontFamily:'var(--font-mono)',padding:'0 4px'}}>{t.badge}</div>}
+                  </div>
+                  <span style={{fontSize:10,fontWeight:isActive?600:500,color:isActive?'var(--accent)':V3.TEXT_TERTIARY,letterSpacing:'0.2px',transition:'color 160ms ease'}}>{t.label}</span>
+                </button>
+              )
+            })}
           </div>
         </nav>
       )}

@@ -18,6 +18,18 @@ import { supabase } from '../utils/supabaseClient'
 
 const ENDPOINT = '/api/field-assistant'
 
+function friendlyError(msg) {
+  if (!msg || typeof msg !== 'string') return 'Something went wrong. Please try again.'
+  if (msg.includes('credit balance') || msg.includes('billing')) {
+    return 'The AI assistant is temporarily unavailable due to a billing issue. Please contact your administrator.'
+  }
+  if (msg.startsWith('upstream_429')) return 'The AI assistant is receiving too many requests. Please wait a moment and try again.'
+  if (msg.startsWith('upstream_401')) return 'AI assistant authentication failed. Please contact your administrator.'
+  if (msg.startsWith('upstream_5')) return 'The AI service is temporarily unavailable. Please try again in a few minutes.'
+  if (msg.startsWith('upstream_')) return 'The AI assistant encountered an unexpected error. Please try again.'
+  return msg
+}
+
 // Mirrors the backend caps in api/field-assistant.ts so a too-large
 // or too-many-photos request fails fast on the client without a
 // 400 round-trip.
@@ -273,14 +285,14 @@ export function useFieldAssistant() {
           } else if (frame.event === 'done') {
             if (frame.data?.quota) receivedQuota = frame.data.quota
           } else if (frame.event === 'error') {
-            upstreamError = frame.data?.error || 'Upstream error'
+            upstreamError = friendlyError(frame.data?.error || 'Upstream error')
           }
         }
         buffer = processed
       }
     } catch (err) {
       if (err?.name !== 'AbortError') {
-        upstreamError = err?.message || 'Stream interrupted'
+        upstreamError = friendlyError(err?.message || 'Stream interrupted')
       }
     }
 
