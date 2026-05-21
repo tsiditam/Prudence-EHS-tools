@@ -2642,20 +2642,16 @@ export default function MobileApp() {
               {id:'dash',label:'Home',icon:'home'},
               {id:'history',label:'Reports',icon:'report',badge:((index.drafts||[]).length+(index.reports||[]).length)||null},
               // Jasper replaces the previous Search tab. The robot
-              // brand mark + cyan→orange→red gradient label is the
-              // single launcher for the Field Assistant (the old
-              // FieldAssistantFab floating button is retired since the
-              // nav tab is always-visible in the same screen position).
-              {id:'jasper',label:'Jasper',icon:'jasper',gradient:true},
+              // brand mark carries the cyan→orange→red gradient; the
+              // label uses the same neutral TEXT_TERTIARY → accent
+              // treatment as every other tab so the bottom nav reads
+              // as one cohesive row rather than a vibrant Jasper item
+              // sitting next to muted siblings.
+              {id:'jasper',label:'Jasper',icon:'jasper'},
               {id:'settings',label:'Settings',icon:'gear'},
             ]).map(t=>{
               const isJasper = t.id === 'jasper'
               const isActive = isJasper ? faOpen : (view === t.id)
-              // Cyan→orange→red gradient applied to the Jasper icon's
-              // SVG fill and to the label via background-clip:text.
-              // Matches the brand mark stops in JasperRobotIcon so the
-              // label and silhouette read as one unit.
-              const jasperGrad = 'linear-gradient(90deg, #22D3EE 0%, #F97316 55%, #EF4444 100%)'
               const onClick = isJasper
                 ? () => { supabase && trackEvent('jasper_open', { source: 'bottom_nav' }); setFaOpen(true) }
                 : () => { supabase && trackEvent('page_view', { tab: t.id }); setView(t.id); if (t.id === 'dash') setViewRpt(null) }
@@ -2664,9 +2660,8 @@ export default function MobileApp() {
                   {/* Top accent rail — only on the active tab. Cyan
                       hairline tucked under the nav's top border so the
                       visual is "this lane is lit", not a button glow.
-                      For Jasper, the rail picks up the gradient's cyan
-                      start so the lit-lane cue stays consistent across
-                      tabs. */}
+                      For Jasper, the rail lights up while the
+                      FieldAssistant sheet is open. */}
                   <div style={{position:'absolute',top:0,left:'20%',right:'20%',height:2,background:isActive?'var(--accent)':'transparent',borderRadius:'0 0 2px 2px',transition:'background 160ms ease'}} />
                   <div style={{position:'relative',display:'flex'}}>
                     {isJasper ? (
@@ -2676,20 +2671,7 @@ export default function MobileApp() {
                     )}
                     {t.badge>0&&<div style={{position:'absolute',top:-4,right:-8,minWidth:15,height:15,borderRadius:V3.R.pill,background:'var(--accent)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,fontWeight:700,color:'var(--on-accent-fill)',fontFamily:'var(--font-mono)',padding:'0 4px'}}>{t.badge}</div>}
                   </div>
-                  {isJasper ? (
-                    <span style={{
-                      fontSize: 10,
-                      fontWeight: 700,
-                      letterSpacing: '0.2px',
-                      background: jasperGrad,
-                      WebkitBackgroundClip: 'text',
-                      backgroundClip: 'text',
-                      color: 'transparent',
-                      WebkitTextFillColor: 'transparent',
-                    }}>{t.label}</span>
-                  ) : (
-                    <span style={{fontSize:10,fontWeight:isActive?600:500,color:isActive?'var(--accent)':V3.TEXT_TERTIARY,letterSpacing:'0.2px',transition:'color 160ms ease'}}>{t.label}</span>
-                  )}
+                  <span style={{fontSize:10,fontWeight:isActive?600:500,color:isActive?'var(--accent)':V3.TEXT_TERTIARY,letterSpacing:'0.2px',transition:'color 160ms ease'}}>{t.label}</span>
                 </button>
               )
             })}

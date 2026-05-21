@@ -3,20 +3,22 @@
  * Copyright (c) 2026 Prudence Safety & Environmental Consulting, LLC
  * All rights reserved.
  *
- * Jasper's brand mark — a friendly robot silhouette painted in a
- * cyan → orange → red horizontal gradient. Replaces JasperMonitorIcon
- * which used a "computer monitor" metaphor that read as a
- * desktop-software artifact in a field-app context. Robot is the
- * intuitive metaphor for an in-app AI assistant.
+ * Jasper's brand mark — a Copilot-style friendly robot. Single
+ * rounded squircle "head/body" with two oval eyes and small paddle
+ * ears on the sides. No antenna, no separate neck/torso, no body
+ * screen — the v1 robot was too busy at the 20-22px sizes where it
+ * actually renders in the bottom nav and FieldAssistant header. A
+ * minimalist silhouette reads as a friendly AI companion at any
+ * size and matches the visual register of the rest of the nav.
  *
- * The inner features (eyes, mouth, body screen) are cut out with
- * `var(--card)` so they read as a window through the silhouette on
- * whatever surface the icon sits on. A unique gradient id is
- * generated per render (useId) so multiple instances on the same
- * page don't collide on the same <defs> id.
+ * Painted in a cyan → orange → red horizontal gradient. The eyes
+ * are cut to `var(--card)` so they read as a window through the
+ * silhouette on whatever surface it sits on. A unique gradient id
+ * per render (useId) prevents <defs> id collisions when multiple
+ * instances appear on the same page.
  *
- * Used in: BottomNav Jasper tab, Jasper chat sheet header, Jasper
- * first-run intro panel.
+ * Used in: BottomNav Jasper tab, FieldAssistant chat sheet header,
+ * FieldAssistant first-run intro panel.
  */
 
 import { useId } from 'react'
@@ -40,28 +42,17 @@ export default function JasperRobotIcon({ size = 32, title }) {
           <stop offset="100%" stopColor="#EF4444" />
         </linearGradient>
       </defs>
-      {/* Antenna ball */}
-      <circle cx="12" cy="2" r="1" fill={`url(#${gid})`} />
-      {/* Antenna stem */}
-      <rect x="11.5" y="3" width="1" height="2" fill={`url(#${gid})`} />
-      {/* Head */}
-      <rect x="5.5" y="5" width="13" height="9" rx="1.6" fill={`url(#${gid})`} />
-      {/* Left ear */}
-      <rect x="3.5" y="7.5" width="2.2" height="4.2" rx="1.1" fill={`url(#${gid})`} />
-      {/* Right ear */}
-      <rect x="18.3" y="7.5" width="2.2" height="4.2" rx="1.1" fill={`url(#${gid})`} />
-      {/* Left eye — cut to surface */}
-      <rect x="7.6" y="7.4" width="2.8" height="3.6" rx="0.7" fill="var(--card)" />
-      {/* Right eye — cut to surface */}
-      <rect x="13.6" y="7.4" width="2.8" height="3.6" rx="0.7" fill="var(--card)" />
-      {/* Mouth — cut to surface */}
-      <rect x="10" y="12" width="4" height="1.1" rx="0.4" fill="var(--card)" />
-      {/* Neck */}
-      <rect x="9.2" y="14.4" width="5.6" height="1.5" fill={`url(#${gid})`} />
-      {/* Body */}
-      <rect x="3.5" y="16" width="17" height="6.4" rx="1.6" fill={`url(#${gid})`} />
-      {/* Body screen — cut to surface */}
-      <rect x="5.6" y="17.4" width="12.8" height="3.6" rx="0.5" fill="var(--card)" />
+      {/* Side paddle ears — small rounded extensions */}
+      <rect x="2.4" y="9.4" width="2.6" height="5.2" rx="1.3" fill={`url(#${gid})`} />
+      <rect x="19" y="9.4" width="2.6" height="5.2" rx="1.3" fill={`url(#${gid})`} />
+      {/* Head/body squircle — single unified silhouette, very
+          rounded corners so it reads as soft-organic rather than
+          industrial. */}
+      <rect x="4.5" y="4" width="15" height="16" rx="5" fill={`url(#${gid})`} />
+      {/* Left eye — oval cut to surface */}
+      <ellipse cx="9.4" cy="11" rx="1.45" ry="1.85" fill="var(--card)" />
+      {/* Right eye — oval cut to surface */}
+      <ellipse cx="14.6" cy="11" rx="1.45" ry="1.85" fill="var(--card)" />
     </svg>
   )
 }
