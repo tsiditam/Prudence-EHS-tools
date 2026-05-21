@@ -91,7 +91,11 @@ export const SEVERITY = {
   critical: '#EF4444',
   high:     '#FB923C',
   medium:   '#FBBF24',
-  low:      '#22D3EE',
+  // sky-400; reassigned from #22D3EE so Low severity doesn't share the
+  // brand accent hue. Pre-reassignment a Low-severity pill and a primary
+  // CTA both rendered cyan, conflating "this is a result" with "this
+  // is an action."
+  low:      '#38BDF8',
   pass:     '#22C55E',
   info:     '#94A3B8',
 }
@@ -136,18 +140,23 @@ export const T = {
   microAccent:{ fontSize: 11, lineHeight: '14px', fontWeight: 600, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.8px' },
 }
 
-// Numeric scale. Mono-spaced so columns of measurements align and
-// digits don't shift on update — the same convention as a real
-// instrument readout. v3.1 adds `display` for the dominant stat
-// numerals in the hero (Zone Average / Lowest Zone / Zones Assessed
-// in the reference target run ~38–40 px); `lg` stays for the second-
-// tier numerals (Key Indicator score), `md` for inline values.
+// Numeric scale. Stats / scores / measurement readouts use Inter with
+// OpenType `tnum` (tabular numerals) so digits stay column-aligned
+// without resorting to a separate mono family. The previous mono stack
+// (SF Mono / Cascadia / Roboto Mono) was reading as "default code
+// editor font" on a premium product; tabular Inter keeps the
+// instrument-readout alignment without the developer-tool aesthetic.
+// `cv11` keeps Inter's single-storey 'a' the rest of the system uses.
+// `display` is for dominant hero numerals (~38 px), `xl` for stat
+// strip (Zone Average / Lowest Zone), `lg` for the Key Indicator
+// score, `md` / `sm` for inline values and timestamps.
+const NUM_FEATURES = '"tnum" 1, "cv11" 1'
 export const N = {
-  display: { fontFamily: FONT_MONO, fontSize: 38, lineHeight: '42px', fontWeight: 600, letterSpacing: '-0.6px', color: TEXT_PRIMARY },
-  xl:      { fontFamily: FONT_MONO, fontSize: 36, lineHeight: '40px', fontWeight: 600, letterSpacing: '-0.5px', color: TEXT_PRIMARY },
-  lg:      { fontFamily: FONT_MONO, fontSize: 24, lineHeight: '28px', fontWeight: 600, color: TEXT_PRIMARY },
-  md:      { fontFamily: FONT_MONO, fontSize: 16, lineHeight: '20px', fontWeight: 600, color: TEXT_PRIMARY },
-  sm:      { fontFamily: FONT_MONO, fontSize: 12, lineHeight: '16px', fontWeight: 500, color: TEXT_TERTIARY },
+  display: { fontFamily: FONT_SYSTEM, fontFeatureSettings: NUM_FEATURES, fontSize: 38, lineHeight: '42px', fontWeight: 700, letterSpacing: '-0.6px', color: TEXT_PRIMARY },
+  xl:      { fontFamily: FONT_SYSTEM, fontFeatureSettings: NUM_FEATURES, fontSize: 36, lineHeight: '40px', fontWeight: 700, letterSpacing: '-0.5px', color: TEXT_PRIMARY },
+  lg:      { fontFamily: FONT_SYSTEM, fontFeatureSettings: NUM_FEATURES, fontSize: 24, lineHeight: '28px', fontWeight: 600, color: TEXT_PRIMARY },
+  md:      { fontFamily: FONT_SYSTEM, fontFeatureSettings: NUM_FEATURES, fontSize: 16, lineHeight: '20px', fontWeight: 600, color: TEXT_PRIMARY },
+  sm:      { fontFamily: FONT_SYSTEM, fontFeatureSettings: NUM_FEATURES, fontSize: 12, lineHeight: '16px', fontWeight: 500, color: TEXT_TERTIARY },
 }
 
 // Radii.

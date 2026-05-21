@@ -62,16 +62,17 @@
         --on-accent-fill:#07080C;
       }
       [data-theme="light"]{
-        /* Per design direction: pure white pages, brand-cyan
-           everywhere the brand color appears (text, icons, borders,
-           filled buttons). The dark-cyan #0E7490 stop used previously
-           for AA-safe accent text is replaced with the bright brand
-           #22D3EE. NOTE: bright cyan on white renders at ~1.96:1,
-           below WCAG AA 4.5:1 for body text. Accepted intentionally
-           in favor of brand consistency — flag for any future
-           accessibility audit. */
-        --bg:#FFFFFF;
-        --surface:#FFFFFF;
+        /* Premium Light palette — replaces pure-white with a three-step
+           surface ladder so hierarchy reads in light mode the same way
+           it does in dark. bg is a warm off-white, surface is a tier
+           lower, card stays pure white so cards lift visually off the
+           page. Brand-cyan stays invariant (text, icons, borders,
+           filled buttons). NOTE: bright cyan on near-white renders at
+           ~1.96:1, below WCAG AA 4.5:1 for body text. Accepted
+           intentionally in favor of brand consistency — flag for any
+           future accessibility audit. */
+        --bg:#FAFAFB;
+        --surface:#F4F5F7;
         --card:#FFFFFF;
         --border:#B6E0E8;
         --accent:#22D3EE;
