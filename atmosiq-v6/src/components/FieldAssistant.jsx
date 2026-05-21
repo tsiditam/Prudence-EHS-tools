@@ -116,7 +116,7 @@ function JasperIntroPanel({ onAccept, onNavigate }) {
     <div style={{ padding: '12px 4px 4px' }}>
       <div className="jasper-stagger"
         style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, ...reveal(0) }}>
-        <JasperRobotIcon size={40} />
+        <JasperRobotIcon size={40} color="var(--accent)" />
         <div style={{ fontSize: 15, color: TEXT, lineHeight: 1.45, fontWeight: 600 }}>
           <span role="img" aria-label="waving hand">👋</span> Hi, I'm Jasper, your Indoor Air Quality AI assistant.
         </div>
@@ -283,9 +283,9 @@ export default function FieldAssistant({ onClose, context, onNavigate }) {
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
-            <JasperRobotIcon size={22} />
+            <JasperRobotIcon size={22} color="var(--accent)" />
             <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ fontSize: 15, fontWeight: 700, color: TEXT, lineHeight: 1.2 }}>Jasper</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: TEXT, lineHeight: 1.2 }}>Jasper AI</div>
               <div style={{
                 fontSize: 11, color: SUB, lineHeight: 1.3, marginTop: 1,
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
