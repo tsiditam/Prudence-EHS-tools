@@ -33,6 +33,7 @@ import PhotoCapture from './PhotoCapture'
 import SensorScreen from './SensorScreen'
 import TimePickerInput from './TimePickerInput'
 import Co2OaCalculator from './Co2OaCalculator'
+import VoiceInputButton, { appendWithSpace } from './VoiceInputButton'
 import ProfileScreen, { IAQ_OPTS, PID_OPTS, CAL_OPTS, PID_CAL_OPTS } from './ProfileScreen'
 import AuthScreen from './AuthScreen'
 import { TermsOfService, PrivacyPolicy } from './LegalScreens'
@@ -902,7 +903,23 @@ export default function MobileApp() {
           {q.t==='num'&&<div><div style={{position:'relative'}}><input type="number" inputMode="decimal" value={data[q.id]||''} onChange={e=>setField(q.id,e.target.value)} placeholder={q.ph||'Enter...'} autoFocus onKeyDown={e=>{if(e.key==='Enter'&&data[q.id])goNext()}} style={{width:'100%',padding:'18px 20px',paddingRight:q.u?70:20,background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:17,fontFamily:'inherit',fontWeight:500,outline:'none',boxSizing:'border-box'}} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />{q.u&&<span style={{position:'absolute',right:18,top:'50%',transform:'translateY(-50%)',color:DIM,fontSize:14,fontFamily:"var(--font-mono)"}}>{q.u}</span>}</div>{q.helper==='co2_mass_balance'&&<Co2OaCalculator co2={data.co2} co2o={data.co2o} onApply={v=>setField(q.id,v)} onCo2Change={v=>setField('co2',v)} onCo2oChange={v=>setField('co2o',v)} />}</div>}
           {q.t==='date'&&<input type="date" value={data[q.id]||''} onChange={e=>setField(q.id,e.target.value)} style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:17,fontFamily:'inherit',outline:'none',boxSizing:'border-box',colorScheme:'dark'}} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />}
           {q.t==='time'&&<TimePickerInput value={data[q.id]||''} onChange={v=>setField(q.id,v)} placeholder={q.ph||'Select time…'} />}
-          {q.t==='ta'&&<textarea value={data[q.id]||''} onChange={e=>setField(q.id,e.target.value)} placeholder={q.ph||'Notes...'} rows={3} style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:'inherit',outline:'none',resize:'vertical',boxSizing:'border-box'}} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />}
+          {/* Free-text wizard input ('ta' question type). Wrapped in
+              a relative container so the dictation mic button can
+              float in the bottom-right corner of the textarea
+              without consuming vertical space or breaking the
+              existing focus styling. Padding-right on the textarea
+              is bumped to keep typed content from sliding under
+              the button. */}
+          {q.t==='ta'&&<div style={{position:'relative'}}>
+            <textarea value={data[q.id]||''} onChange={e=>setField(q.id,e.target.value)} placeholder={q.ph||'Notes...'} rows={3} style={{width:'100%',padding:'18px 56px 18px 20px',background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:'inherit',outline:'none',resize:'vertical',boxSizing:'border-box'}} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />
+            <div style={{position:'absolute',right:10,bottom:10}}>
+              <VoiceInputButton
+                ariaLabel="Dictate notes"
+                size={36}
+                onTranscript={(text)=>setField(q.id, appendWithSpace(data[q.id]||'', text))}
+              />
+            </div>
+          </div>}
           {q.t==='ch'&&q.opts&&<div style={{display:'flex',flexDirection:'column',gap:8}}>{q.opts.map((o,i)=>{const stMap=q._subtypeMap;const storedVal=stMap?stMap.find(st=>st.label===o)?.id||o:o;const sel=stMap?(data[q.id]===storedVal):(data[q.id]===o||(o==='Other'&&data[q.id]&&!q.opts.slice(0,-1).includes(data[q.id])));const locked=isPremiumOpt(q,o)&&!isEnterprise(profile);return(<button key={o} onClick={()=>{if(locked){haptic('light');setShowPremiumGate(true);return}haptic('light');if(o==='Other'){setField(q.id,'Other')}else{setField(q.id,storedVal);setTimeout(goNext,250)}}} style={{padding:'16px 20px',textAlign:'left',background:sel?`${mix('accent', 7)}`:locked?`${CARD}`:`${CARD}`,border:`1.5px solid ${sel?ACCENT:BORDER}`,borderRadius:14,color:sel?ACCENT:locked?DIM:TEXT,fontSize:16,fontFamily:'inherit',fontWeight:500,cursor:'pointer',display:'flex',alignItems:'center',gap:14,minHeight:54,animation:`fadeUp .3s ${i*.04}s cubic-bezier(.22,1,.36,1) both`}}><div style={{width:24,height:24,borderRadius:'50%',border:`2px solid ${sel?ACCENT:BORDER}`,background:sel?ACCENT:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{sel&&<I n="check" s={12} c={ON_ACCENT} />}</div><span style={{flex:1}}>{o}</span>{locked&&<span style={{fontSize:9,fontWeight:700,padding:'2px 8px',borderRadius:4,background:'#F9731615',color:'#F97316',letterSpacing:'0.3px'}}>PREMIUM</span>}</button>)})}
             {q.other&&data[q.id]&&(data[q.id]==='Other'||!q.opts.slice(0,-1).includes(data[q.id]))&&<input type="text" value={data[q.id]==='Other'?'':data[q.id]} onChange={e=>setField(q.id,e.target.value||'Other')} placeholder="Describe space use..." autoFocus style={{width:'100%',padding:'16px 20px',background:CARD,border:`1.5px solid ${ACCENT}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:'inherit',outline:'none',boxSizing:'border-box',marginTop:4}} />}
           </div>}
