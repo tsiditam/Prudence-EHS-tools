@@ -85,6 +85,15 @@ const fD = ts => ts ? new Date(ts).toLocaleDateString('en-US',{month:'short',day
 const sv = sev => ({critical:{c:'#EF4444',bg:'#EF444418',l:'CRITICAL'},high:{c:'#FB923C',bg:'#FB923C18',l:'HIGH'},medium:{c:'#FBBF24',bg:'#FBBF2418',l:'MEDIUM'},low:{c:'#22D3EE',bg:'#22D3EE15',l:'LOW'},pass:{c:'#22C55E',bg:'#22C55E15',l:'PASS'},info:{c:'#94A3B8',bg:'#94A3B815',l:'INFO'}}[sev]||{c:'#94A3B8',bg:'#94A3B815',l:''})
 const badge = (risk,rc) => <span style={{padding:'6px 16px',background:`${rc}18`,border:`1px solid ${rc}35`,borderRadius:20,fontSize:13,fontWeight:700,color:rc}}>{risk}</span>
 
+// Lime-green CTA overlay applied to the two top-of-funnel actions
+// (New Assessment, Continue Assessment) to make them stand out from
+// the rest of the v3 accent-fill primary buttons. Spread on top of
+// V3.btnPrimary so padding / radius / typography stay consistent
+// with the rest of the button surface. Lime-400 (#A3E635) on black
+// text passes WCAG AA at 13px+ font sizes.
+const LIME_CTA = { background: '#A3E635', color: '#000' }
+const LIME_CTA_ICON = '#000'
+
 // ─── Design Tokens ───
 // CSS-variable references defined in index.html. Default is the dark
 // palette; [data-theme="light"] on <html> overrides to light. Toggle
@@ -2204,9 +2213,9 @@ export default function MobileApp() {
                         title width without wrapping around a
                         floating button. */}
                     <div style={{padding:'0 16px 18px'}}>
-                      <button onClick={()=>resumeDraft(activeDraft.id)} style={{...V3.btnPrimary, display:'flex', width:'100%'}}>
+                      <button onClick={()=>resumeDraft(activeDraft.id)} style={{...V3.btnPrimary, display:'flex', width:'100%', ...LIME_CTA}}>
                         Continue Assessment
-                        <I n="play" s={13} c="var(--on-accent-fill)" w={1.8} />
+                        <I n="play" s={13} c={LIME_CTA_ICON} w={1.8} />
                       </button>
                     </div>
                   </div>
@@ -2299,8 +2308,8 @@ export default function MobileApp() {
                     assessment with severity, confidence, and recommended actions.
                   </div>
                   <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
-                    <button onClick={startNew} style={V3.btnPrimary}>
-                      <I n="play" s={14} c="var(--on-accent-fill)" w={2} />
+                    <button onClick={startNew} style={{...V3.btnPrimary, ...LIME_CTA}}>
+                      <I n="play" s={14} c={LIME_CTA_ICON} w={2} />
                       Start IAQ Assessment
                     </button>
                     <button onClick={()=>setView('incident-form')} style={V3.btnSecondary}>
@@ -2487,8 +2496,8 @@ export default function MobileApp() {
               <div style={{...V3.T.h1, marginBottom:4}}>Reports</div>
               <div style={V3.T.bodyDim}>Drafts and finalized deliverables · {((index.drafts||[]).length + (index.reports||[]).length)} total</div>
             </div>
-            <button onClick={startNew} style={V3.btnPrimary}>
-              <I n="play" s={13} c="var(--on-accent-fill)" w={2} />
+            <button onClick={startNew} style={{...V3.btnPrimary, ...LIME_CTA}}>
+              <I n="play" s={13} c={LIME_CTA_ICON} w={2} />
               New Assessment
             </button>
           </div>
