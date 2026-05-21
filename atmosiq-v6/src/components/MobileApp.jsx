@@ -397,6 +397,14 @@ export default function MobileApp() {
   // gear icon in the Home header; Settings is now one entry inside the
   // dropdown.
   const [showHomeMenu, setShowHomeMenu] = useState(false)
+  // Home menu sub-mode. 'main' shows the canonical menu items; 'demos'
+  // shows the demo picker (Office Building / Data Center / FM Sample
+  // Check). Consolidates what was three separate flat menu entries
+  // into one "Demos" entry with a sub-list, reducing menu height and
+  // making the "load fake data to explore the app" affordance more
+  // discoverable as a category. Reset to 'main' whenever the menu
+  // closes so reopening always lands at the top level.
+  const [homeMenuMode, setHomeMenuMode] = useState('main')
   // Field-assistant bottom sheet. Backend: api/field-assistant.ts.
   // UI is hidden whenever there's no profile (auth screen), during a
   // milestone overlay, or while another full-screen modal is up.
@@ -1002,7 +1010,21 @@ export default function MobileApp() {
                   </button>
                 ) : null
               })()}
-              <button onClick={()=>setRTab('narrative')} style={V3.btnSecondary}>
+              {/* "View Report (Draft)" → switch the inner result-tabs
+                  to the Narrative tab AND scroll to it. Previously the
+                  button only set rTab; on a fresh draft the user was at
+                  the top of the page and the rTab tab strip + content
+                  sits ~700px below the hero, so clicking the button
+                  gave no visible feedback. The setTimeout 0 lets React
+                  commit the rTab change before we scroll the now-
+                  active tab content into view. */}
+              <button onClick={()=>{
+                setRTab('narrative')
+                setTimeout(() => {
+                  const el = document.getElementById('result-tabs-anchor')
+                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                }, 0)
+              }} style={V3.btnSecondary}>
                 <I n="report" s={13} c={V3.TEXT_PRIMARY} w={1.7} />
                 View Report (Draft)
               </button>
@@ -1180,7 +1202,7 @@ export default function MobileApp() {
             707, 822; visible labels are reconciled with the workflow
             grammar used on Home (Findings / Pathways / Sampling /
             Narrative / Actions / Review). ── */}
-        <div style={{...V3.tabRow, marginBottom:16}}>
+        <div id="result-tabs-anchor" style={{...V3.tabRow, marginBottom:16, scrollMarginTop:80}}>
           {(userMode === 'fm'
             ? [['overview','findings','Findings'],['narrative','notes','Narrative'],['actions','check','Actions'],['readiness','shield','Review']]
             : [['overview','findings','Findings'],['rootcause','chain','Pathways'],['sampling','flask','Sampling'],['narrative','notes','Narrative'],['actions','check','Actions'],['readiness','shield','Review']]
@@ -1820,46 +1842,90 @@ export default function MobileApp() {
                 <I n="menu" s={22} c={ACCENT} w={2.6} />
               </button>
             )}
-            {showHomeMenu && (
-              <>
-                {/* Transparent backdrop catches outside clicks. */}
-                <div onClick={()=>setShowHomeMenu(false)} style={{position:'fixed',inset:0,zIndex:90,background:'transparent'}} />
-                <div role="menu" style={{position:'absolute',top:'calc(100% + 8px)',right:0,minWidth:240,background:CARD,border:`1px solid ${BORDER}`,borderRadius:14,padding:6,zIndex:100,boxShadow:'0 12px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.02) inset',animation:'fadeUp .15s ease'}}>
-                  {[
-                    { label: 'Search',       icon: 'search', onClick: () => setView('search') },
-                    { label: 'Settings',     icon: 'gear',   onClick: () => setView('settings') },
-                    { label: themeMode === 'light' ? 'Switch to dark mode' : 'Switch to light mode',
-                      icon: themeMode === 'light' ? 'moon' : 'sun',
-                      onClick: () => { toggleThemeMode() } },
-                    { label: 'Trash',        icon: 'trash',  onClick: () => setView('trash') },
-                    { label: 'Sampling forms', icon: 'flask', onClick: () => setView('sampling-forms') },
-                    { label: userMode==='fm' ? 'Sample Air Quality Check' : 'Office Building Demo',
-                      icon: 'play',
-                      onClick: () => runDemo() },
-                    ...(userMode !== 'fm' ? [{ label: 'Data Center Demo', icon: 'play', onClick: () => runDemo('dc') }] : []),
-                    { label: 'Help & Support', icon: 'help', onClick: () => { window.location.href = 'mailto:support@prudenceehs.com?subject=AtmosFlow%20support' } },
-                    { label: 'Sign out',     icon: 'logout', onClick: handleLogout, divider: true, danger: true },
-                  ].map(item => (
-                    <button
-                      key={item.label}
-                      role="menuitem"
-                      onClick={() => { setShowHomeMenu(false); item.onClick() }}
-                      style={{
-                        width:'100%',padding:'12px 14px',background:'transparent',border:'none',borderRadius:10,
-                        cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,
-                        fontFamily:'inherit',color:item.danger?DANGER:TEXT,fontSize:14,fontWeight:500,minHeight:44,
-                        transition:'background 0.12s',
-                        ...(item.divider?{marginTop:6,paddingTop:14,borderTop:`1px solid ${BORDER}`,borderRadius:0}:{}),
-                      }}
-                      onMouseEnter={e => { e.currentTarget.style.background = SURFACE }}
-                      onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}>
-                      <I n={item.icon} s={18} c={item.danger?DANGER:SUB} w={1.6} />
-                      <span>{item.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
+            {showHomeMenu && (() => {
+              // Demo entries by user mode. For FM users there's only
+              // one demo (Sample Air Quality Check); for everyone else
+              // the two scored demos (Office Building, Data Center)
+              // share the picker. runDemo() with no arg defaults to
+              // 'office' inside the handler.
+              const demoItems = userMode === 'fm'
+                ? [{ label: 'Sample Air Quality Check', icon: 'play', onClick: () => runDemo() }]
+                : [
+                    { label: 'Office Building', icon: 'play', onClick: () => runDemo() },
+                    { label: 'Data Center',     icon: 'play', onClick: () => runDemo('dc') },
+                  ]
+              const mainItems = [
+                { label: 'Search',       icon: 'search', onClick: () => setView('search') },
+                { label: 'Settings',     icon: 'gear',   onClick: () => setView('settings') },
+                { label: themeMode === 'light' ? 'Switch to dark mode' : 'Switch to light mode',
+                  icon: themeMode === 'light' ? 'moon' : 'sun',
+                  onClick: () => { toggleThemeMode() } },
+                { label: 'Trash',        icon: 'trash',  onClick: () => setView('trash') },
+                { label: 'Sampling forms', icon: 'flask', onClick: () => setView('sampling-forms') },
+                // Single Demos entry — opens the sub-picker instead
+                // of running a demo directly. The "submenu" flag tells
+                // the click handler to stay open + switch mode rather
+                // than close.
+                { label: 'Demos', icon: 'play', submenu: 'demos' },
+                { label: 'Help & Support', icon: 'help', onClick: () => { window.location.href = 'mailto:support@prudenceehs.com?subject=AtmosFlow%20support' } },
+                { label: 'Sign out',     icon: 'logout', onClick: handleLogout, divider: true, danger: true },
+              ]
+              const closeMenu = () => { setShowHomeMenu(false); setHomeMenuMode('main') }
+              return (
+                <>
+                  {/* Transparent backdrop catches outside clicks. */}
+                  <div onClick={closeMenu} style={{position:'fixed',inset:0,zIndex:90,background:'transparent'}} />
+                  <div role="menu" style={{position:'absolute',top:'calc(100% + 8px)',right:0,minWidth:240,background:CARD,border:`1px solid ${BORDER}`,borderRadius:14,padding:6,zIndex:100,boxShadow:'0 12px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.02) inset',animation:'fadeUp .15s ease'}}>
+                    {homeMenuMode === 'demos' && (
+                      // Submenu header — back button to return to the
+                      // main menu without closing the popover.
+                      <button
+                        role="menuitem"
+                        onClick={() => setHomeMenuMode('main')}
+                        style={{
+                          width:'100%',padding:'10px 14px 12px',background:'transparent',border:'none',borderRadius:10,
+                          cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:10,
+                          fontFamily:'inherit',color:SUB,fontSize:12,fontWeight:600,minHeight:36,letterSpacing:'0.3px',
+                          textTransform:'uppercase',
+                          borderBottom:`1px solid ${BORDER}`,marginBottom:4,borderRadius:0,
+                        }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={SUB} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <polyline points="15 18 9 12 15 6" />
+                        </svg>
+                        <span>Demos</span>
+                      </button>
+                    )}
+                    {(homeMenuMode === 'demos' ? demoItems : mainItems).map(item => (
+                      <button
+                        key={item.label}
+                        role="menuitem"
+                        onClick={() => {
+                          if (item.submenu) { setHomeMenuMode(item.submenu); return }
+                          closeMenu()
+                          item.onClick()
+                        }}
+                        style={{
+                          width:'100%',padding:'12px 14px',background:'transparent',border:'none',borderRadius:10,
+                          cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,
+                          fontFamily:'inherit',color:item.danger?DANGER:TEXT,fontSize:14,fontWeight:500,minHeight:44,
+                          transition:'background 0.12s',
+                          ...(item.divider?{marginTop:6,paddingTop:14,borderTop:`1px solid ${BORDER}`,borderRadius:0}:{}),
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = SURFACE }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}>
+                        <I n={item.icon} s={18} c={item.danger?DANGER:SUB} w={1.6} />
+                        <span style={{flex:1}}>{item.label}</span>
+                        {item.submenu && (
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={SUB} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <polyline points="9 18 15 12 9 6" />
+                          </svg>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )
+            })()}
           </div>
         </div>
       </header>
