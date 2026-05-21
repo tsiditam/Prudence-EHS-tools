@@ -300,7 +300,7 @@ export default function FieldAssistant({ onClose, context, onNavigate }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
             <JasperRobotIcon size={22} color="var(--accent)" />
             <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ fontSize: 15, fontWeight: 700, color: TEXT, lineHeight: 1.2 }}>Jasper AI</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: TEXT, lineHeight: 1.2 }}>AI Assistant</div>
               <div style={{
                 fontSize: 11, color: SUB, lineHeight: 1.3, marginTop: 1,
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
