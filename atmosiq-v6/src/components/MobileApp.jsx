@@ -2144,7 +2144,12 @@ export default function MobileApp() {
                       <span style={V3.pill(V3.STATUS.inProgress, { lg: true })}>Screening in progress</span>
                       <span style={{...V3.pill(V3.TEXT_TERTIARY, { lg: true }), color: V3.TEXT_TERTIARY, background:'transparent', border:`1px solid ${V3.BORDER_DEFAULT}`}}>Awaiting field data</span>
                     </div>
-                    <div style={{padding:'8px 24px 16px',...V3.T.h2}}>
+                    {/* Headline runs at 22/28 Bold -1, a hand-tuned cut
+                        between V3.T.h1 (30/36, too dominant for the
+                        framing context) and V3.T.h2 (18/26, too light to
+                        carry the hero pre-scoring). Spec lifted from the
+                        v3 Figma Home frame. */}
+                    <div style={{padding:'8px 24px 16px', fontSize:22, lineHeight:'28px', fontWeight:700, letterSpacing:'-1px', color:V3.TEXT_PRIMARY}}>
                       Continue capturing field data to refine the screening assessment
                     </div>
                     <div style={{padding:'0 24px 18px',...V3.T.bodyDim, maxWidth:640}}>
