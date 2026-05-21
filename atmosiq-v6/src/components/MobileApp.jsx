@@ -2641,13 +2641,13 @@ export default function MobileApp() {
             ] : [
               {id:'dash',label:'Home',icon:'home'},
               {id:'history',label:'Reports',icon:'report',badge:((index.drafts||[]).length+(index.reports||[]).length)||null},
-              // Jasper replaces the previous Search tab. The robot
-              // brand mark carries the cyan→orange→red gradient; the
-              // label uses the same neutral TEXT_TERTIARY → accent
-              // treatment as every other tab so the bottom nav reads
-              // as one cohesive row rather than a vibrant Jasper item
-              // sitting next to muted siblings.
-              {id:'jasper',label:'Jasper',icon:'jasper'},
+              // Jasper AI replaces the previous Search tab. Robot
+              // silhouette + same TEXT_TERTIARY → accent treatment
+              // as every other tab so the row reads as one cohesive
+              // nav. The "AI" suffix in the label is explicit (was
+              // just "Jasper" before) — the icon alone doesn't tell
+              // a first-time user that this tab opens the assistant.
+              {id:'jasper',label:'Jasper AI',icon:'jasper'},
               {id:'settings',label:'Settings',icon:'gear'},
             ]).map(t=>{
               const isJasper = t.id === 'jasper'
@@ -2665,7 +2665,7 @@ export default function MobileApp() {
                   <div style={{position:'absolute',top:0,left:'20%',right:'20%',height:2,background:isActive?'var(--accent)':'transparent',borderRadius:'0 0 2px 2px',transition:'background 160ms ease'}} />
                   <div style={{position:'relative',display:'flex'}}>
                     {isJasper ? (
-                      <JasperRobotIcon size={22} />
+                      <JasperRobotIcon size={22} color={isActive ? 'var(--accent)' : V3.TEXT_TERTIARY} />
                     ) : (
                       <I n={t.icon} s={20} c={isActive?'var(--accent)':V3.TEXT_TERTIARY} w={isActive?2:1.7} />
                     )}
