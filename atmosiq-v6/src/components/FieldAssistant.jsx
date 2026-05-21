@@ -254,29 +254,44 @@ export default function FieldAssistant({ onClose, context, onNavigate }) {
   }
 
   return (
-    <div
-      onClick={handleBackdropClick}
-      style={{
-        position: 'fixed', inset: 0, background: '#000000DD', zIndex: 260,
-        display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
-      }}>
-      <div style={{
-        width: '100%', maxWidth: 640, background: CARD,
-        border: `1px solid ${BORDER}`, borderBottom: 'none',
-        borderRadius: '20px 20px 0 0',
-        padding: '12px 16px',
-        paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))',
-        animation: 'fadeUp .3s ease',
-        maxHeight: '88vh',
-        display: 'flex', flexDirection: 'column',
-        // Without border-box the 32px horizontal padding adds to width:100%
-        // on narrow viewports (iPhone portrait), so the panel + its
-        // content extend past the right edge. overflow:hidden keeps any
-        // remaining flex-grow children from leaking past the rounded
-        // top corners.
-        boxSizing: 'border-box',
-        overflow: 'hidden',
-      }}>
+    <>
+      {/* Backdrop — separated from the sheet so the sheet can be
+          explicitly positioned with bottom/left/right instead of
+          relying on flex-centering inside the backdrop. On iOS PWA
+          the flex-centered pattern was producing a sheet wider than
+          the visual viewport during URL-bar collapse transitions,
+          which leaked content past both side edges (the original
+          bug report showed the robot icon's left ear cut off and
+          "Terms · Privacy · AI · REVIEW REQUIRED" bleeding past
+          both screen edges). */}
+      <div
+        onClick={handleBackdropClick}
+        style={{
+          position: 'fixed', inset: 0, background: '#000000DD', zIndex: 260,
+        }}
+      />
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          position: 'fixed',
+          bottom: 0,
+          left: 'env(safe-area-inset-left, 0px)',
+          right: 'env(safe-area-inset-right, 0px)',
+          zIndex: 261,
+          maxWidth: 640,
+          marginLeft: 'auto',
+          marginRight: 'auto',
+          background: CARD,
+          border: `1px solid ${BORDER}`, borderBottom: 'none',
+          borderRadius: '20px 20px 0 0',
+          padding: '12px 16px',
+          paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))',
+          animation: 'fadeUp .3s ease',
+          maxHeight: '88vh',
+          display: 'flex', flexDirection: 'column',
+          boxSizing: 'border-box',
+          overflow: 'hidden',
+        }}>
         {/* Drag handle */}
         <div style={{ width: 36, height: 4, borderRadius: 2, background: BORDER, margin: '0 auto 10px' }} />
 
@@ -575,6 +590,6 @@ export default function FieldAssistant({ onClose, context, onNavigate }) {
           }
         }
       `}</style>
-    </div>
+    </>
   )
 }
