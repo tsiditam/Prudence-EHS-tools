@@ -32,6 +32,7 @@ import { STANDARDS_FOR_AGENT, FAQ_FOR_AGENT } from '../src/constants/field-assis
 import { FIELD_ASSISTANT_TOOLS, dispatchTool } from '../src/constants/field-assistant-tools.js'
 import { scrubPii } from '../lib/sentry.js'
 import { auditLog } from './_audit.js'
+import { hasUnlimitedUsage } from '../lib/unlimited-usage.js'
 
 // ── Quota / model / pricing ────────────────────────────────────────
 const PER_MINUTE_LIMIT = 15
@@ -667,15 +668,26 @@ async function handler(req: VercelLikeRequest, res: VercelLikeResponse): Promise
     // Profile missing → treat as free.
   }
 
+  // Unlimited-usage allowlist (UNLIMITED_USAGE_EMAILS env var). Skip
+  // rate-limit gates for allowlisted internal test accounts. The
+  // quota footer block below still computes against PER_DAY_LIMIT so
+  // the UI doesn't crash on a missing limit; for an allowlisted user
+  // it just shows used_today / PER_DAY_LIMIT as if they were on a
+  // paid plan, which is fine for testing.
+  const userEmail = (user && user.email) || ''
+  const unlimited = hasUnlimitedUsage(userEmail)
+
   // Rate limit
-  let limitCheck: RateLimitResult
-  try {
-    limitCheck = await checkRateLimits(supabase, user.id, plan)
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    console.error('[field-assistant] rate limit check failed:', msg)
-    res.status(500).json({ error: 'rate_limit_check_failed' })
-    return
+  let limitCheck: RateLimitResult = { ok: true }
+  if (!unlimited) {
+    try {
+      limitCheck = await checkRateLimits(supabase, user.id, plan)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error('[field-assistant] rate limit check failed:', msg)
+      res.status(500).json({ error: 'rate_limit_check_failed' })
+      return
+    }
   }
   if (!limitCheck.ok) {
     res.setHeader('Retry-After', String(limitCheck.retry_after))
