@@ -86,13 +86,13 @@ const fD = ts => ts ? new Date(ts).toLocaleDateString('en-US',{month:'short',day
 const sv = sev => ({critical:{c:'#EF4444',bg:'#EF444418',l:'CRITICAL'},high:{c:'#FB923C',bg:'#FB923C18',l:'HIGH'},medium:{c:'#FBBF24',bg:'#FBBF2418',l:'MEDIUM'},low:{c:'#22D3EE',bg:'#22D3EE15',l:'LOW'},pass:{c:'#22C55E',bg:'#22C55E15',l:'PASS'},info:{c:'#94A3B8',bg:'#94A3B815',l:'INFO'}}[sev]||{c:'#94A3B8',bg:'#94A3B815',l:''})
 const badge = (risk,rc) => <span style={{padding:'6px 16px',background:`${rc}18`,border:`1px solid ${rc}35`,borderRadius:20,fontSize:13,fontWeight:700,color:rc}}>{risk}</span>
 
-// Lime-green CTA overlay applied to the two top-of-funnel actions
+// Bright-green CTA overlay applied to the two top-of-funnel actions
 // (New Assessment, Continue Assessment) to make them stand out from
 // the rest of the v3 accent-fill primary buttons. Spread on top of
 // V3.btnPrimary so padding / radius / typography stay consistent
-// with the rest of the button surface. Lime-400 (#A3E635) on black
-// text passes WCAG AA at 13px+ font sizes.
-const LIME_CTA = { background: '#A3E635', color: '#000' }
+// with the rest of the button surface. #5BFF7B on black text passes
+// WCAG AA easily at 13px+ font sizes (contrast ~16:1).
+const LIME_CTA = { background: '#5BFF7B', color: '#000' }
 const LIME_CTA_ICON = '#000'
 
 // ─── Design Tokens ───
@@ -2543,9 +2543,13 @@ export default function MobileApp() {
                   <div style={V3.iconBox(V3.STATUS.inProgress)}><I n="bldg" s={15} c={V3.STATUS.inProgress} w={1.6} /></div>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{...V3.T.bodyStrong, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{d.facility||'Untitled Assessment'}</div>
+                    {/* "In Progress" pill removed — rows in the
+                        Drafts section are by definition in-progress,
+                        and the section header already labels them as
+                        such ("DRAFTS · N"). The Resume button to the
+                        right is the action signal. */}
                     <div style={{display:'flex',alignItems:'center',gap:8,marginTop:3}}>
                       <span style={{...V3.T.captionDim, fontFamily:'var(--font-mono)'}}>{fD(d.ua||d.ts)}</span>
-                      <span style={V3.pill(V3.STATUS.inProgress)}>In Progress</span>
                     </div>
                   </div>
                   <button onClick={()=>resumeDraft(d.id)} style={V3.btnPrimary}>Resume</button>
