@@ -2707,13 +2707,15 @@ export default function MobileApp() {
             ] : [
               {id:'dash',label:'Home',icon:'home'},
               {id:'history',label:'Reports',icon:'report',badge:((index.drafts||[]).length+(index.reports||[]).length)||null},
-              // Jasper AI replaces the previous Search tab. Robot
-              // silhouette + same TEXT_TERTIARY → accent treatment
-              // as every other tab so the row reads as one cohesive
-              // nav. The "AI" suffix in the label is explicit (was
-              // just "Jasper" before) — the icon alone doesn't tell
-              // a first-time user that this tab opens the assistant.
-              {id:'jasper',label:'Jasper AI',icon:'jasper'},
+              // AI Assistant replaces the previous Search tab. The
+              // brain-on-chip silhouette + same TEXT_TERTIARY →
+              // accent treatment as every other tab so the row reads
+              // as one cohesive nav. The label is the descriptive
+              // "AI Assistant" rather than the codename "Jasper"
+              // because the icon alone doesn't tell a first-time
+              // user that this tab opens the assistant, and the
+              // generic name is more self-explanatory than a brand.
+              {id:'jasper',label:'AI Assistant',icon:'jasper'},
               {id:'settings',label:'Settings',icon:'gear'},
             ]).map(t=>{
               const isJasper = t.id === 'jasper'
