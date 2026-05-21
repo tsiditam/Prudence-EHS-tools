@@ -989,64 +989,19 @@ export default function MobileApp() {
     return (
       <div style={{paddingTop:20,paddingBottom:120}}>
 
-        {/* ── Building Header — facility name, address, meta strip,
-            and the header-level CTAs that match the reference target
-            (Continue Assessment + View Report (Draft) on the right).
-            For finalized reports (archived) the CTAs collapse to
-            Share + a kebab so the chrome stays consistent. ── */}
-        <div style={{marginBottom:18,display:'flex',alignItems:'flex-start',gap:16,flexWrap:'wrap'}}>
-          <div style={{flex:1,minWidth:0}}>
-            <div style={{...V3.T.h1, fontSize:30, lineHeight:'36px', marginBottom:4, overflow:'hidden', textOverflow:'ellipsis'}}>{bldg.fn||'Assessment'}</div>
-            {bldg.fl && <div style={{...V3.T.h1Sub, marginBottom:8}}>{bldg.fl}</div>}
-            <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap',color:V3.TEXT_TERTIARY,fontSize:12}}>
-              {profile && (
-                <span style={{display:'inline-flex',alignItems:'center',gap:6}}>
-                  <I n="user" s={13} c={V3.TEXT_TERTIARY} w={1.6} />
-                  <span>{profile.name ? `Assessment by ${profile.name}` : 'Assessment by you'}</span>
-                </span>
-              )}
-              <span style={{color:V3.BORDER_STRONG}}>·</span>
-              <span style={{fontFamily:'var(--font-mono)'}}>{clock.toLocaleDateString([],{month:'short',day:'numeric',year:'numeric'})}</span>
-              {archived ? (
-                <span style={V3.pill(V3.STATUS.ready)}>Final</span>
-              ) : narrative ? (
-                <span style={V3.pill(V3.STATUS.draft)}>Ready for Review</span>
-              ) : (
-                <span style={V3.pill(V3.STATUS.inProgress)}>In Progress</span>
-              )}
-            </div>
-          </div>
-          {!archived && (
-            <div style={{display:'flex',gap:8,flexShrink:0,alignSelf:'flex-start'}}>
-              {(index.drafts||[]).length > 0 && (() => {
-                const matchingDraft = (index.drafts||[]).find(d => d.facility === bldg.fn) || (index.drafts||[])[0]
-                return matchingDraft ? (
-                  <button onClick={()=>resumeDraft(matchingDraft.id)} style={V3.btnPrimary}>
-                    <I n="play" s={13} c="var(--on-accent-fill)" w={2} />
-                    Continue Assessment
-                  </button>
-                ) : null
-              })()}
-              {/* "View Report (Draft)" → switch the inner result-tabs
-                  to the Narrative tab AND scroll to it. Previously the
-                  button only set rTab; on a fresh draft the user was at
-                  the top of the page and the rTab tab strip + content
-                  sits ~700px below the hero, so clicking the button
-                  gave no visible feedback. The setTimeout 0 lets React
-                  commit the rTab change before we scroll the now-
-                  active tab content into view. */}
-              <button onClick={()=>{
-                setRTab('narrative')
-                setTimeout(() => {
-                  const el = document.getElementById('result-tabs-anchor')
-                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                }, 0)
-              }} style={V3.btnSecondary}>
-                <I n="report" s={13} c={V3.TEXT_PRIMARY} w={1.7} />
-                View Report (Draft)
-              </button>
-            </div>
-          )}
+        {/* ── Building Header — facility name + address only. The
+            meta strip (assessor name · date · status pill) and the
+            header-level CTAs (Continue Assessment + View Report
+            (Draft)) were removed: the score panel below is the
+            point of this view, and the meta + CTAs were chrome that
+            competed with the actual content. The home tab still
+            provides Continue Assessment on the in-progress hero
+            card, and the result tabs strip below this header
+            still navigates to the Narrative tab — so no
+            functionality is lost, only redundant header chrome. ── */}
+        <div style={{marginBottom:18}}>
+          <div style={{...V3.T.h1, fontSize:30, lineHeight:'36px', marginBottom:4, overflow:'hidden', textOverflow:'ellipsis'}}>{bldg.fn||'Assessment'}</div>
+          {bldg.fl && <div style={{...V3.T.h1Sub}}>{bldg.fl}</div>}
         </div>
 
         {/* ── Legacy / Standards Badge ── */}
@@ -2199,39 +2154,35 @@ export default function MobileApp() {
                 <>
                   {/* ── HERO: current assessment situational awareness ─── */}
                   <div style={{...V3.panel({ accent: V3.STATUS.inProgress }), padding:0, marginBottom:16}}>
-                    {/* Header row — facility name + meta + primary actions */}
-                    <div style={{padding:'20px 24px 0',display:'flex',alignItems:'flex-start',gap:16,flexWrap:'wrap'}}>
-                      <div style={{flex:1,minWidth:0}}>
-                        <div style={{...V3.T.h1, marginBottom:6, overflow:'hidden', textOverflow:'ellipsis'}}>
-                          {activeDraft.facility || 'Untitled Assessment'}
-                        </div>
-                        <div style={{display:'flex',alignItems:'center',gap:14,flexWrap:'wrap',color:V3.TEXT_TERTIARY,fontSize:12}}>
-                          <span style={{display:'inline-flex',alignItems:'center',gap:6}}>
-                            <I n="user" s={13} c={V3.TEXT_TERTIARY} w={1.6} />
-                            <span>Assessment by you</span>
-                          </span>
-                          <span style={{color:V3.BORDER_STRONG}}>·</span>
-                          <span style={{fontFamily:'var(--font-mono)'}}>{fD(activeDraft.ua || activeDraft.ts)}</span>
-                          <span style={V3.pill(V3.STATUS.inProgress)}>In Progress</span>
-                        </div>
+                    {/* Header row — facility name + meta. The
+                        Continue Assessment CTA used to live at the
+                        right edge of this row; it's been moved to
+                        a full-width footer at the bottom of the
+                        card so long facility names ("222 bridge
+                        road") can use the full title width without
+                        wrapping awkwardly around the button. */}
+                    <div style={{padding:'20px 24px 0'}}>
+                      <div style={{...V3.T.h1, marginBottom:6, overflow:'hidden', textOverflow:'ellipsis'}}>
+                        {activeDraft.facility || 'Untitled Assessment'}
                       </div>
-                      <div style={{display:'flex',gap:8,flexShrink:0}}>
-                        <button onClick={()=>resumeDraft(activeDraft.id)} style={V3.btnPrimary}>
-                          Continue Assessment
-                          <I n="play" s={13} c="var(--on-accent-fill)" w={1.8} />
-                        </button>
+                      <div style={{display:'flex',alignItems:'center',gap:14,flexWrap:'wrap',color:V3.TEXT_TERTIARY,fontSize:12}}>
+                        <span style={{display:'inline-flex',alignItems:'center',gap:6}}>
+                          <I n="user" s={13} c={V3.TEXT_TERTIARY} w={1.6} />
+                          <span>Assessment by you</span>
+                        </span>
+                        <span style={{color:V3.BORDER_STRONG}}>·</span>
+                        <span style={{fontFamily:'var(--font-mono)'}}>{fD(activeDraft.ua || activeDraft.ts)}</span>
+                        <span style={V3.pill(V3.STATUS.inProgress)}>In Progress</span>
                       </div>
                     </div>
 
-                    {/* Headline + severity/confidence framing. Until the
-                        engine has scored the draft, we surface the
-                        canonical screening framing rather than synthesize
-                        a severity that would mislead an IH peer reviewer. */}
-                    <div style={{padding:'18px 24px 4px',display:'flex',gap:8,flexWrap:'wrap'}}>
-                      <span style={V3.pill(V3.STATUS.inProgress, { lg: true })}>Screening in progress</span>
-                      <span style={{...V3.pill(V3.TEXT_TERTIARY, { lg: true }), color: V3.TEXT_TERTIARY, background:'transparent', border:`1px solid ${V3.BORDER_DEFAULT}`}}>Awaiting field data</span>
-                    </div>
-                    <div style={{padding:'8px 24px 16px',...V3.T.h2}}>
+                    {/* Headline + screening framing. The earlier
+                        "Screening in progress / Awaiting field data"
+                        pill row was removed — those states are
+                        already conveyed by the In Progress pill in
+                        the header and the body copy below, so the
+                        extra pills read as redundant chrome. */}
+                    <div style={{padding:'18px 24px 4px',...V3.T.h2}}>
                       Continue capturing field data to refine the screening assessment
                     </div>
                     <div style={{padding:'0 24px 18px',...V3.T.bodyDim, maxWidth:640}}>
@@ -2241,42 +2192,17 @@ export default function MobileApp() {
                       determinations.
                     </div>
 
-                    {/* Inline meta band. The earlier stat-strip pattern
-                        (3 mono columns separated by hairlines) is right
-                        for homogeneous numerals like 23 / 19 / 2 on the
-                        scored Assessment detail hero, but it goes cheap
-                        when the columns hold mixed types — a single
-                        digit, a date that wraps, and a text label like
-                        "Screening". This band reads as a quiet caption
-                        row with icon + label + value separated by mid-
-                        dots; same data, calmer composition, and the
-                        Assessment details panel below still carries
-                        the canonical key:value list. */}
-                    <div style={{padding:'14px 24px 18px', display:'flex', alignItems:'center', gap:14, flexWrap:'wrap', color:V3.TEXT_TERTIARY}}>
-                      <span style={{display:'inline-flex',alignItems:'center',gap:6}}>
-                        <I n="layers" s={13} c={V3.TEXT_TERTIARY} w={1.6} />
-                        <span style={V3.T.caption}>
-                          <span style={{color:V3.TEXT_PRIMARY, fontWeight:600}}>{(activeDraft.zoneCount ?? activeDraft.zones?.length ?? 0)}</span> zone{(activeDraft.zoneCount ?? activeDraft.zones?.length ?? 0) === 1 ? '' : 's'} started
-                        </span>
-                      </span>
-                      <span style={{color:V3.BORDER_STRONG}}>·</span>
-                      <span style={{display:'inline-flex',alignItems:'center',gap:6}}>
-                        <I n="clock" s={13} c={V3.TEXT_TERTIARY} w={1.6} />
-                        <span style={V3.T.caption}>
-                          Last touched <span style={{color:V3.TEXT_PRIMARY, fontWeight:600, fontFamily:'var(--font-mono)'}}>{fD(activeDraft.ua || activeDraft.ts) || '—'}</span>
-                        </span>
-                      </span>
-                      <span style={{color:V3.BORDER_STRONG}}>·</span>
-                      <span style={{display:'inline-flex',alignItems:'center',gap:6}}>
-                        <I n="shield" s={13} c={V3.TEXT_TERTIARY} w={1.6} />
-                        <span style={V3.T.caption}>Screening assessment</span>
-                      </span>
-                    </div>
-
                     {/* Workflow tabs. Visual stage indicator until the
                         per-stage detail views ship — every tab resumes
                         the draft so users can pick up where they left
-                        off without a dead-click. */}
+                        off without a dead-click. The inline meta band
+                        that previously sat between the body copy and
+                        these tabs (zones started · last touched ·
+                        screening assessment) was removed: zones-started
+                        is implicit in the workflow stage, last-touched
+                        already appears in the header meta row, and
+                        "screening assessment" is the only kind of
+                        assessment the product produces. */}
                     <div style={{padding:'14px 16px 16px',display:'flex',alignItems:'stretch',gap:2,overflowX:'auto',scrollbarWidth:'none'}}>
                       {stages.map(s => {
                         const isActive = s.id === activeStage
@@ -2288,10 +2214,27 @@ export default function MobileApp() {
                         )
                       })}
                     </div>
+
+                    {/* Bottom CTA — primary resume action. Lives at
+                        the foot of the card (not in the header) so
+                        the facility name above can take the full
+                        title width without wrapping around a
+                        floating button. */}
+                    <div style={{padding:'0 16px 18px'}}>
+                      <button onClick={()=>resumeDraft(activeDraft.id)} style={{...V3.btnPrimary, display:'flex', width:'100%'}}>
+                        Continue Assessment
+                        <I n="play" s={13} c="var(--on-accent-fill)" w={1.8} />
+                      </button>
+                    </div>
                   </div>
 
-                  {/* ── Two-up: Next action + Assessment metadata ─── */}
-                  <div style={{display:'grid',gap:16,gridTemplateColumns:isWide?'1.2fr 1fr':'1fr',marginBottom:24}}>
+                  {/* Next recommended steps. The "Assessment details"
+                      key:value panel that previously sat to the right
+                      of this card was removed — facility / started /
+                      last touched / zones / status all surface in the
+                      hero header above, so the panel was a redundant
+                      restatement. Single-column layout now. */}
+                  <div style={{marginBottom:24}}>
                     {/* Next action — drives the assessor forward */}
                     <div style={V3.panel()}>
                       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
@@ -2332,27 +2275,6 @@ export default function MobileApp() {
                       </button>
                     </div>
 
-                    {/* Assessment metadata — calm, structured */}
-                    <div style={V3.panel()}>
-                      <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
-                        <div style={V3.iconBox(V3.TEXT_SECONDARY)}>
-                          <I n="clip" s={16} c={V3.TEXT_SECONDARY} w={1.8} />
-                        </div>
-                        <div style={V3.T.h3}>Assessment details</div>
-                      </div>
-                      {[
-                        ['Facility', activeDraft.facility || '—'],
-                        ['Started', fD(activeDraft.ts) || '—'],
-                        ['Last touched', fD(activeDraft.ua || activeDraft.ts) || '—'],
-                        ['Zones', String(activeDraft.zoneCount ?? activeDraft.zones?.length ?? 0)],
-                        ['Status', 'In Progress'],
-                      ].map(([k, v], i, arr) => (
-                        <div key={k} style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',padding:'10px 0',borderBottom: i === arr.length - 1 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`}}>
-                          <div style={V3.T.captionDim}>{k}</div>
-                          <div style={{...V3.T.body, fontFamily: (k === 'Started' || k === 'Last touched' || k === 'Zones') ? 'var(--font-mono)' : undefined, textAlign:'right'}}>{v}</div>
-                        </div>
-                      ))}
-                    </div>
                   </div>
 
                   {/* Other in-progress assessments — only if multiple drafts */}
