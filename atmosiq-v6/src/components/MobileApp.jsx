@@ -972,64 +972,19 @@ export default function MobileApp() {
     return (
       <div style={{paddingTop:20,paddingBottom:120}}>
 
-        {/* ── Building Header — facility name, address, meta strip,
-            and the header-level CTAs that match the reference target
-            (Continue Assessment + View Report (Draft) on the right).
-            For finalized reports (archived) the CTAs collapse to
-            Share + a kebab so the chrome stays consistent. ── */}
-        <div style={{marginBottom:18,display:'flex',alignItems:'flex-start',gap:16,flexWrap:'wrap'}}>
-          <div style={{flex:1,minWidth:0}}>
-            <div style={{...V3.T.h1, fontSize:30, lineHeight:'36px', marginBottom:4, overflow:'hidden', textOverflow:'ellipsis'}}>{bldg.fn||'Assessment'}</div>
-            {bldg.fl && <div style={{...V3.T.h1Sub, marginBottom:8}}>{bldg.fl}</div>}
-            <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap',color:V3.TEXT_TERTIARY,fontSize:12}}>
-              {profile && (
-                <span style={{display:'inline-flex',alignItems:'center',gap:6}}>
-                  <I n="user" s={13} c={V3.TEXT_TERTIARY} w={1.6} />
-                  <span>{profile.name ? `Assessment by ${profile.name}` : 'Assessment by you'}</span>
-                </span>
-              )}
-              <span style={{color:V3.BORDER_STRONG}}>·</span>
-              <span style={{fontFamily:'var(--font-mono)'}}>{clock.toLocaleDateString([],{month:'short',day:'numeric',year:'numeric'})}</span>
-              {archived ? (
-                <span style={V3.pill(V3.STATUS.ready)}>Final</span>
-              ) : narrative ? (
-                <span style={V3.pill(V3.STATUS.draft)}>Ready for Review</span>
-              ) : (
-                <span style={V3.pill(V3.STATUS.inProgress)}>In Progress</span>
-              )}
-            </div>
-          </div>
-          {!archived && (
-            <div style={{display:'flex',gap:8,flexShrink:0,alignSelf:'flex-start'}}>
-              {(index.drafts||[]).length > 0 && (() => {
-                const matchingDraft = (index.drafts||[]).find(d => d.facility === bldg.fn) || (index.drafts||[])[0]
-                return matchingDraft ? (
-                  <button onClick={()=>resumeDraft(matchingDraft.id)} style={V3.btnPrimary}>
-                    <I n="play" s={13} c="var(--on-accent-fill)" w={2} />
-                    Continue Assessment
-                  </button>
-                ) : null
-              })()}
-              {/* "View Report (Draft)" → switch the inner result-tabs
-                  to the Narrative tab AND scroll to it. Previously the
-                  button only set rTab; on a fresh draft the user was at
-                  the top of the page and the rTab tab strip + content
-                  sits ~700px below the hero, so clicking the button
-                  gave no visible feedback. The setTimeout 0 lets React
-                  commit the rTab change before we scroll the now-
-                  active tab content into view. */}
-              <button onClick={()=>{
-                setRTab('narrative')
-                setTimeout(() => {
-                  const el = document.getElementById('result-tabs-anchor')
-                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                }, 0)
-              }} style={V3.btnSecondary}>
-                <I n="report" s={13} c={V3.TEXT_PRIMARY} w={1.7} />
-                View Report (Draft)
-              </button>
-            </div>
-          )}
+        {/* ── Building Header — facility name + address only. The
+            meta strip (assessor name · date · status pill) and the
+            header-level CTAs (Continue Assessment + View Report
+            (Draft)) were removed: the score panel below is the
+            point of this view, and the meta + CTAs were chrome that
+            competed with the actual content. The home tab still
+            provides Continue Assessment on the in-progress hero
+            card, and the result tabs strip below this header
+            still navigates to the Narrative tab — so no
+            functionality is lost, only redundant header chrome. ── */}
+        <div style={{marginBottom:18}}>
+          <div style={{...V3.T.h1, fontSize:30, lineHeight:'36px', marginBottom:4, overflow:'hidden', textOverflow:'ellipsis'}}>{bldg.fn||'Assessment'}</div>
+          {bldg.fl && <div style={{...V3.T.h1Sub}}>{bldg.fl}</div>}
         </div>
 
         {/* ── Legacy / Standards Badge ── */}
