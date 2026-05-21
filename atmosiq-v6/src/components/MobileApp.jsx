@@ -65,8 +65,8 @@ import InstrumentManager from './InstrumentManager'
 import V21InternalPanel from './V21InternalPanel'
 import { FAQ_SECTIONS } from '../constants/faq'
 import SearchView from './SearchView'
-import FieldAssistantFab from './FieldAssistantFab'
 import FieldAssistant from './FieldAssistant'
+import JasperRobotIcon from './JasperRobotIcon'
 import PendingSyncIndicator from './PendingSyncIndicator'
 import JasperWatchPanel from './JasperWatchPanel'
 import ReadinessPanel from './ReadinessPanel'
@@ -1745,7 +1745,11 @@ export default function MobileApp() {
             <button onClick={handleShare} style={{flex:1,padding:'14px 20px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,color:SUB,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:48,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="send" s={16} c={SUB} /> Share</button>
           </div>
           <button onClick={()=>setView('spatial')} style={{padding:'14px 20px',background:`${mix('accent', 2)}`,border:`1px solid ${mix('accent', 9)}`,borderRadius:12,color:ACCENT,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit',marginTop:8,minHeight:48,width:'100%',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="bldg" s={16} c={ACCENT} /> Map Zones on Floor Plan</button>
-          {!archived&&<button onClick={startNew} style={{padding:'14px 20px',background:'var(--accent-fill)',border:'none',borderRadius:12,color:'var(--on-accent-fill)',fontSize:15,fontWeight:700,cursor:'pointer',fontFamily:'inherit',marginTop:8,minHeight:48,width:'100%'}}>Start Assessment</button>}
+          {/* Removed redundant "Start Assessment" CTA — the user viewing
+              this screen is already inside an assessment; starting a new
+              one is handled from Home or the Reports tab header. The
+              Continue Assessment button at the top of the hero is the
+              right affordance for picking up where they left off. */}
         </div>}
       </div>
     )
@@ -2506,13 +2510,17 @@ export default function MobileApp() {
             <div style={V3.T.micro}>{userMode === 'fm' ? 'In Progress' : 'Drafts'}{(index.drafts||[]).length>0?` · ${(index.drafts||[]).length}`:''}</div>
           </div>
           {(index.drafts||[]).length === 0 ? (
+            // Empty state — informational only. The "New Assessment"
+            // CTA at the top of the Reports header is the canonical
+            // start-an-assessment affordance; a duplicate here was
+            // redundant and the V3.btnSecondary variant rendered as
+            // plain text on white in light mode.
             <div style={{...V3.panel(), display:'flex',alignItems:'center',gap:14,marginBottom:24,padding:'18px 22px'}}>
               <div style={V3.iconBox(V3.STATUS.draft)}><I n="draft" s={15} c={V3.STATUS.draft} w={1.6} /></div>
               <div style={{flex:1,minWidth:0}}>
                 <div style={V3.T.bodyStrong}>No drafts in progress</div>
                 <div style={V3.T.captionDim}>Start a new assessment to capture field observations.</div>
               </div>
-              <button onClick={startNew} style={V3.btnSecondary}>Start Assessment</button>
             </div>
           ) : (
             <div style={{background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.lg,marginBottom:24,overflow:'hidden'}}>
@@ -2560,8 +2568,12 @@ export default function MobileApp() {
                 {hSearch ? 'No reports match your search.' : 'Complete and finalize an assessment to generate your first report.'}
               </div>
               {!hSearch && (
+                // "Start Assessment" removed — redundant with the
+                // "New Assessment" CTA in the Reports header above.
+                // "View sample report" stays as the only action here
+                // because it offers a distinct value prop (preview the
+                // output) rather than restating the primary CTA.
                 <div style={{display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap'}}>
-                  <button onClick={startNew} style={V3.btnPrimary}>Start Assessment</button>
                   <button onClick={runDemo} style={V3.btnGhost}>View sample report</button>
                 </div>
               )}
@@ -2629,18 +2641,34 @@ export default function MobileApp() {
             ] : [
               {id:'dash',label:'Home',icon:'home'},
               {id:'history',label:'Reports',icon:'report',badge:((index.drafts||[]).length+(index.reports||[]).length)||null},
-              {id:'search',label:'Search',icon:'search'},
+              // Jasper replaces the previous Search tab. The robot
+              // brand mark carries the cyan→orange→red gradient; the
+              // label uses the same neutral TEXT_TERTIARY → accent
+              // treatment as every other tab so the bottom nav reads
+              // as one cohesive row rather than a vibrant Jasper item
+              // sitting next to muted siblings.
+              {id:'jasper',label:'Jasper',icon:'jasper'},
               {id:'settings',label:'Settings',icon:'gear'},
             ]).map(t=>{
-              const isActive = view === t.id
+              const isJasper = t.id === 'jasper'
+              const isActive = isJasper ? faOpen : (view === t.id)
+              const onClick = isJasper
+                ? () => { supabase && trackEvent('jasper_open', { source: 'bottom_nav' }); setFaOpen(true) }
+                : () => { supabase && trackEvent('page_view', { tab: t.id }); setView(t.id); if (t.id === 'dash') setViewRpt(null) }
               return (
-                <button key={t.id} onClick={()=>{ supabase&&trackEvent('page_view',{tab:t.id}); setView(t.id); if(t.id==='dash')setViewRpt(null); }} style={{flex:1,background:'none',border:'none',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:4,paddingTop:6,fontFamily:'inherit',position:'relative',WebkitTapHighlightColor:'transparent',transition:'opacity 0.15s'}}>
+                <button key={t.id} onClick={onClick} style={{flex:1,background:'none',border:'none',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:4,paddingTop:6,fontFamily:'inherit',position:'relative',WebkitTapHighlightColor:'transparent',transition:'opacity 0.15s'}}>
                   {/* Top accent rail — only on the active tab. Cyan
                       hairline tucked under the nav's top border so the
-                      visual is "this lane is lit", not a button glow. */}
+                      visual is "this lane is lit", not a button glow.
+                      For Jasper, the rail lights up while the
+                      FieldAssistant sheet is open. */}
                   <div style={{position:'absolute',top:0,left:'20%',right:'20%',height:2,background:isActive?'var(--accent)':'transparent',borderRadius:'0 0 2px 2px',transition:'background 160ms ease'}} />
                   <div style={{position:'relative',display:'flex'}}>
-                    <I n={t.icon} s={20} c={isActive?'var(--accent)':V3.TEXT_TERTIARY} w={isActive?2:1.7} />
+                    {isJasper ? (
+                      <JasperRobotIcon size={22} />
+                    ) : (
+                      <I n={t.icon} s={20} c={isActive?'var(--accent)':V3.TEXT_TERTIARY} w={isActive?2:1.7} />
+                    )}
                     {t.badge>0&&<div style={{position:'absolute',top:-4,right:-8,minWidth:15,height:15,borderRadius:V3.R.pill,background:'var(--accent)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,fontWeight:700,color:'var(--on-accent-fill)',fontFamily:'var(--font-mono)',padding:'0 4px'}}>{t.badge}</div>}
                   </div>
                   <span style={{fontSize:10,fontWeight:isActive?600:500,color:isActive?'var(--accent)':V3.TEXT_TERTIARY,letterSpacing:'0.2px',transition:'color 160ms ease'}}>{t.label}</span>
@@ -2651,12 +2679,11 @@ export default function MobileApp() {
         </nav>
       )}
 
-      {/* Field-assistant FAB — bottom-right, above the bottom nav.
-          Hidden when no profile (auth screen), during the milestone
-          overlay, and while a wizard step is mid-stream (isAssessing). */}
-      {profile && !milestone && !isAssessing && !faOpen && (
-        <FieldAssistantFab onClick={() => setFaOpen(true)} />
-      )}
+      {/* The floating Field-Assistant FAB was retired when Jasper
+          moved into the bottom-nav tab — two launchers for the same
+          modal was redundant, and the FAB's bottom-right position
+          visually overlapped the new Jasper tab. The Jasper tab in
+          the nav is now the single launcher across the app. */}
       {profile && faOpen && (
         <FieldAssistant
           onClose={() => setFaOpen(false)}
