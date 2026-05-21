@@ -1041,7 +1041,13 @@ export default function MobileApp() {
                   <span style={V3.pill(sevPillTone)}>{sevPillLabel}</span>
                   {measConf && <span style={V3.pill(confTone)}>{confLabel}</span>}
                 </div>
-                <div style={{...V3.T.h2, marginBottom:6, lineHeight:'24px'}}>{headline}</div>
+                {/* Headline runs at 18 Bold -1 per the v3 Figma HeroCard
+                    spec — heavier than V3.T.h2 (18 SemiBold -0.2) so it
+                    anchors the hero next to the ScoreRing's visual mass.
+                    Tighter -1 letter-spacing gives the optical density
+                    that reads as a confident screening conclusion rather
+                    than a sub-headline. */}
+                <div style={{...V3.T.h2, fontWeight:700, letterSpacing:'-1px', lineHeight:'24px', marginBottom:6}}>{headline}</div>
                 <div style={{...V3.T.bodyDim, marginBottom:0}}>
                   {comp.tot < 30 ? 'Building-related symptom cluster identified. Immediate corrective action recommended.'
                     : comp.tot < 50 ? 'Targeted investigation and corrective action warranted.'
