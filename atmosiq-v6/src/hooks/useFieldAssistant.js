@@ -111,6 +111,81 @@ export function useFieldAssistant() {
     setAttachedPhotos([])
   }, [])
 
+  // "New chat" alias for the user-facing affordance. Semantically the
+  // same as reset() — both forget the current conversationId so the
+  // next send creates a fresh row in field_assistant_conversations.
+  // Kept as a named alias because the chat header button reads
+  // "New chat", not "Reset".
+  const newConversation = reset
+
+  // List the user's past conversations for the history surface. Each
+  // row carries id + title (auto-set to the first user message on
+  // server, see api/field-assistant.ts → ensureConversation) +
+  // created_at / updated_at + message_count. Server caps at 50.
+  // Returns [] on auth failure or network error rather than throwing
+  // so the UI can render an empty state cleanly.
+  const listConversations = useCallback(async () => {
+    if (!supabase) return []
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return []
+      const r = await fetch('/api/field-assistant-history?action=list', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      if (!r.ok) return []
+      const body = await r.json()
+      return Array.isArray(body.conversations) ? body.conversations : []
+    } catch (err) {
+      // Network errors are non-fatal — the user can still chat,
+      // they just don't see history until next attempt.
+      console.warn('[useFieldAssistant] listConversations failed:', err && err.message)
+      return []
+    }
+  }, [])
+
+  // Load a specific conversation's messages and switch the sheet to
+  // continue it. Replaces the current in-memory transcript wholesale
+  // so the chat view immediately reflects the picked conversation;
+  // subsequent sendMessage() calls reuse the same conversationId so
+  // the server appends to the existing row rather than creating a
+  // new one. Returns false if the conversation can't be loaded
+  // (e.g. it was deleted or belongs to another user).
+  const loadConversation = useCallback(async (id) => {
+    if (!supabase || !id) return false
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return false
+      const r = await fetch(`/api/field-assistant-history?action=get&id=${encodeURIComponent(id)}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      if (!r.ok) return false
+      const body = await r.json()
+      const msgs = Array.isArray(body.messages) ? body.messages : []
+      // Map server rows to the in-memory message shape used by the
+      // chat view. Server rows have {id, role, content, context_view,
+      // created_at}; the chat view expects {role, content, ...} —
+      // matching the shape used in sendMessage's setMessages call.
+      setMessages(msgs.map((m) => ({
+        id: m.id,
+        role: m.role,
+        content: m.content,
+        contextView: m.context_view || null,
+        createdAt: m.created_at,
+      })))
+      setConversationId(id)
+      setError(null)
+      // Clear any photos staged for a brand-new chat; resuming an
+      // existing conversation shouldn't carry over half-attached
+      // photos from a different mental session.
+      photosRef.current = []
+      setAttachedPhotos([])
+      return true
+    } catch (err) {
+      console.warn('[useFieldAssistant] loadConversation failed:', err && err.message)
+      return false
+    }
+  }, [])
+
   /**
    * Stage a File for the next message. Validates MIME type + size up
    * front so the user sees a useful error instead of a backend 400.
@@ -331,5 +406,8 @@ export function useFieldAssistant() {
     attachPhoto,
     removePhoto,
     clearPhotos,
+    listConversations,
+    loadConversation,
+    newConversation,
   }
 }

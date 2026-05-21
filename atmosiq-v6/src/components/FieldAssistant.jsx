@@ -181,11 +181,23 @@ export default function FieldAssistant({ onClose, context, onNavigate }) {
     error,
     quota,
     attachedPhotos,
+    conversationId,
     sendMessage,
     attachPhoto,
     removePhoto,
+    listConversations,
+    loadConversation,
+    newConversation,
   } = useFieldAssistant()
   const [input, setInput] = useState('')
+  // History panel state. `historyOpen` toggles the panel overlay
+  // inside the sheet (replacing the chat transcript view). `historyList`
+  // caches the most-recent fetch so reopening the panel is instant;
+  // we refresh on every open to pick up new turns from the current
+  // session.
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [historyList, setHistoryList] = useState([])
+  const [historyLoading, setHistoryLoading] = useState(false)
   const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine)
   const [introAccepted, setIntroAccepted] = useState(readIntroFlag)
   const scrollRef = useRef(null)
@@ -309,18 +321,145 @@ export default function FieldAssistant({ onClose, context, onNavigate }) {
               </div>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            aria-label="Close Jasper"
-            style={{
-              background: 'transparent', border: `1px solid ${BORDER}`, borderRadius: 8,
-              width: 32, height: 32, cursor: 'pointer', color: SUB, flexShrink: 0,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 16, fontFamily: 'inherit', lineHeight: 1,
-            }}>×</button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+            {/* New chat — only meaningful when the current transcript
+                has at least one turn, otherwise the button is a no-op
+                that just re-resets empty state. Hidden in that case
+                so the header stays uncluttered for first-time users. */}
+            {messages.length > 0 && !historyOpen && (
+              <button
+                onClick={() => { newConversation(); setHistoryOpen(false) }}
+                aria-label="Start a new conversation"
+                title="New chat"
+                style={{
+                  background: 'transparent', border: `1px solid ${BORDER}`, borderRadius: 8,
+                  width: 32, height: 32, cursor: 'pointer', color: SUB,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontFamily: 'inherit',
+                }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+              </button>
+            )}
+            {/* History — toggles the past-conversations browser. Open
+                state both swaps the panel content AND tints the
+                button so the affordance is obvious. */}
+            <button
+              onClick={async () => {
+                const next = !historyOpen
+                setHistoryOpen(next)
+                if (next) {
+                  setHistoryLoading(true)
+                  const list = await listConversations()
+                  setHistoryList(list)
+                  setHistoryLoading(false)
+                }
+              }}
+              aria-label={historyOpen ? 'Back to chat' : 'View past conversations'}
+              title={historyOpen ? 'Back to chat' : 'History'}
+              style={{
+                background: historyOpen ? `${ACCENT}22` : 'transparent',
+                border: `1px solid ${historyOpen ? ACCENT : BORDER}`,
+                borderRadius: 8, width: 32, height: 32, cursor: 'pointer',
+                color: historyOpen ? ACCENT : SUB,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontFamily: 'inherit',
+              }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="9" />
+                <polyline points="12 7 12 12 15 14" />
+              </svg>
+            </button>
+            <button
+              onClick={onClose}
+              aria-label="Close AI Assistant"
+              style={{
+                background: 'transparent', border: `1px solid ${BORDER}`, borderRadius: 8,
+                width: 32, height: 32, cursor: 'pointer', color: SUB,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 16, fontFamily: 'inherit', lineHeight: 1,
+              }}>×</button>
+          </div>
         </div>
 
+        {/* History panel — replaces the chat transcript when open.
+            Renders past conversations grouped by recency. Empty
+            conversations (zero messages) are hidden because they're
+            usually accidental sheet opens that never produced a
+            turn. Tapping a row resumes that conversation and snaps
+            back to the chat view. */}
+        {historyOpen && (
+          <div style={{
+            flex: 1, overflowY: 'auto', overflowX: 'hidden',
+            padding: '8px 2px', minHeight: 200,
+            minWidth: 0, boxSizing: 'border-box',
+          }}>
+            <div style={{
+              fontSize: 11, fontWeight: 600, color: SUB, letterSpacing: '0.3px',
+              textTransform: 'uppercase', padding: '6px 4px 10px',
+            }}>
+              Past conversations
+            </div>
+            {historyLoading && (
+              <div style={{ padding: 20, textAlign: 'center', color: SUB, fontSize: 12 }}>
+                Loading…
+              </div>
+            )}
+            {!historyLoading && historyList.filter((c) => (c.message_count || 0) > 0).length === 0 && (
+              <div style={{ padding: '20px 4px', color: SUB, fontSize: 13, lineHeight: 1.6 }}>
+                No past conversations yet. When you chat with the AI Assistant, your turns are saved here automatically so you can revisit or continue them later.
+              </div>
+            )}
+            {!historyLoading && historyList
+              .filter((c) => (c.message_count || 0) > 0)
+              .map((c) => {
+                const isCurrent = c.id === conversationId
+                const updated = c.updated_at ? new Date(c.updated_at) : null
+                const dateLabel = updated
+                  ? updated.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })
+                  : ''
+                return (
+                  <button
+                    key={c.id}
+                    onClick={async () => {
+                      const ok = await loadConversation(c.id)
+                      if (ok) setHistoryOpen(false)
+                    }}
+                    style={{
+                      display: 'block', width: '100%', textAlign: 'left',
+                      padding: '12px 14px',
+                      background: isCurrent ? `${ACCENT}10` : 'transparent',
+                      border: `1px solid ${isCurrent ? ACCENT + '40' : BORDER}`,
+                      borderRadius: 10, marginBottom: 8,
+                      cursor: 'pointer', fontFamily: 'inherit', color: TEXT,
+                    }}>
+                    <div style={{
+                      fontSize: 14, fontWeight: 600, lineHeight: 1.3, marginBottom: 4,
+                      overflow: 'hidden', textOverflow: 'ellipsis',
+                      display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+                    }}>
+                      {c.title || 'Untitled conversation'}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: SUB }}>
+                      <span style={{ fontFamily: 'var(--font-mono)' }}>{dateLabel}</span>
+                      <span aria-hidden="true">·</span>
+                      <span>{c.message_count} message{c.message_count === 1 ? '' : 's'}</span>
+                      {isCurrent && (
+                        <>
+                          <span aria-hidden="true">·</span>
+                          <span style={{ color: ACCENT, fontWeight: 600 }}>Current</span>
+                        </>
+                      )}
+                    </div>
+                  </button>
+                )
+              })}
+          </div>
+        )}
+
         {/* Message list / empty state */}
+        {!historyOpen && (<>
         <div
           ref={scrollRef}
           style={{
@@ -526,6 +665,7 @@ export default function FieldAssistant({ onClose, context, onNavigate }) {
             <I n="send" s={16} c={input.trim() && !sending && introAccepted ? 'var(--on-accent-fill)' : DIM} w={1.8} />
           </button>
         </div>
+        </>)}
 
         {/* Always-on legal + defensibility footer. Terms / Privacy stay one
             tap away after the intro is dismissed; the mono REVIEW REQUIRED
