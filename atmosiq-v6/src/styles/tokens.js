@@ -42,13 +42,20 @@ export const SP = { xxs: 2, xs: 4, sm: 8, md: 16, lg: 24, xl: 32, xxl: 48, xxxl:
 // stack (the previous Outfit/Inter split was producing two different
 // looks on phone vs. browser-window since Outfit was never loaded).
 export const FONT_SYSTEM = "'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI Variable','Segoe UI',system-ui,ui-sans-serif,'Helvetica Neue',Arial,sans-serif"
-// System monospace stack — SF Mono on Apple, Cascadia Code on Windows,
-// Roboto Mono on Android. Drops the DM Mono web-font load and lets
-// each platform render in its native mono so technical values feel
-// at home (the way Notion's inline code does).
-export const FONT_MONO   = "ui-monospace,'SF Mono',Menlo,Monaco,'Cascadia Code','Roboto Mono',Consolas,monospace"
+// FONT_MONO used to be a separate system-mono stack (SF Mono / Cascadia
+// / Roboto Mono). v3 design pass moved away from it — the system mono
+// was reading as "default code editor font" on a premium product.
+// FONT_MONO is now an alias for FONT_SYSTEM; tabular numerals come from
+// the body-level `font-feature-settings:'tnum'` rule in index.html
+// (CSS inheritance carries it everywhere). The export is retained so
+// the handful of `import { FONT_MONO }` call sites in the codebase
+// still resolve; new code should use FONT_SYSTEM directly.
+export const FONT_MONO   = FONT_SYSTEM
 
-export const mono = { fontFamily: FONT_MONO }
+// `mono` is the inline-style fragment equivalent of FONT_MONO. Same
+// alias reasoning — it now resolves to Inter; tabular numerals come
+// from body-level inheritance.
+export const mono = { fontFamily: FONT_SYSTEM }
 export const FONT_DESKTOP = FONT_SYSTEM
 export const FONT_MOBILE = FONT_SYSTEM
 

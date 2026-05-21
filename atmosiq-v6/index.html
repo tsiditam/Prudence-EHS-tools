@@ -32,7 +32,17 @@
          of the design language is calibrated to. */
       :root{
         --font-sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI Variable','Segoe UI',system-ui,ui-sans-serif,'Helvetica Neue',Arial,sans-serif,'Apple Color Emoji','Segoe UI Emoji';
-        --font-mono:ui-monospace,'SF Mono',Menlo,Monaco,'Cascadia Code','Roboto Mono',Consolas,monospace;
+        /* --font-mono is now an alias for --font-sans. The v3 design
+           pass moved away from a separate mono family — the system
+           mono stack (SF Mono / Cascadia / Roboto Mono) was reading
+           as "default code editor font" on a premium product. The
+           variable name is retained for the ~70 inline call sites
+           still spelling fontFamily:'var(--font-mono)'; rendering is
+           Inter with tabular numerals inherited from the body rule
+           below, so columns of stat values and dates still align.
+           Future cleanup can migrate the call sites to var(--font-sans)
+           and delete this alias. */
+        --font-mono:var(--font-sans);
 
         /* Theme palette — dark is the default. Values match the in-app
            MobileApp.jsx constants so unmigrated components render
@@ -97,7 +107,16 @@
       }
       body{
         font-family:var(--font-sans);
-        font-feature-settings:'cv11','ss03';
+        /* OpenType features: cv11 = single-storey 'a' (Inter), ss03 =
+           higher-contrast curves, tnum = tabular (column-aligned)
+           numerals. tnum is set globally because AtmosFlow is an
+           instrument-readout product — every stat strip, score, date,
+           and measurement readout benefits from tabular alignment, and
+           Inter's proportional vs tabular numerals are close enough
+           visually that narrative copy still reads well. font-feature-
+           settings inherits in CSS, so every descendant picks this up
+           without needing inline declarations. */
+        font-feature-settings:'cv11','ss03','tnum';
         -webkit-font-smoothing:antialiased;
         -moz-osx-font-smoothing:grayscale;
         text-rendering:optimizeLegibility;
