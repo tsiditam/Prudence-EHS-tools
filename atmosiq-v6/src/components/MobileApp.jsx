@@ -65,8 +65,8 @@ import InstrumentManager from './InstrumentManager'
 import V21InternalPanel from './V21InternalPanel'
 import { FAQ_SECTIONS } from '../constants/faq'
 import SearchView from './SearchView'
-import FieldAssistantFab from './FieldAssistantFab'
 import FieldAssistant from './FieldAssistant'
+import JasperRobotIcon from './JasperRobotIcon'
 import PendingSyncIndicator from './PendingSyncIndicator'
 import JasperWatchPanel from './JasperWatchPanel'
 import ReadinessPanel from './ReadinessPanel'
@@ -2641,21 +2641,55 @@ export default function MobileApp() {
             ] : [
               {id:'dash',label:'Home',icon:'home'},
               {id:'history',label:'Reports',icon:'report',badge:((index.drafts||[]).length+(index.reports||[]).length)||null},
-              {id:'search',label:'Search',icon:'search'},
+              // Jasper replaces the previous Search tab. The robot
+              // brand mark + cyan→orange→red gradient label is the
+              // single launcher for the Field Assistant (the old
+              // FieldAssistantFab floating button is retired since the
+              // nav tab is always-visible in the same screen position).
+              {id:'jasper',label:'Jasper',icon:'jasper',gradient:true},
               {id:'settings',label:'Settings',icon:'gear'},
             ]).map(t=>{
-              const isActive = view === t.id
+              const isJasper = t.id === 'jasper'
+              const isActive = isJasper ? faOpen : (view === t.id)
+              // Cyan→orange→red gradient applied to the Jasper icon's
+              // SVG fill and to the label via background-clip:text.
+              // Matches the brand mark stops in JasperRobotIcon so the
+              // label and silhouette read as one unit.
+              const jasperGrad = 'linear-gradient(90deg, #22D3EE 0%, #F97316 55%, #EF4444 100%)'
+              const onClick = isJasper
+                ? () => { supabase && trackEvent('jasper_open', { source: 'bottom_nav' }); setFaOpen(true) }
+                : () => { supabase && trackEvent('page_view', { tab: t.id }); setView(t.id); if (t.id === 'dash') setViewRpt(null) }
               return (
-                <button key={t.id} onClick={()=>{ supabase&&trackEvent('page_view',{tab:t.id}); setView(t.id); if(t.id==='dash')setViewRpt(null); }} style={{flex:1,background:'none',border:'none',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:4,paddingTop:6,fontFamily:'inherit',position:'relative',WebkitTapHighlightColor:'transparent',transition:'opacity 0.15s'}}>
+                <button key={t.id} onClick={onClick} style={{flex:1,background:'none',border:'none',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:4,paddingTop:6,fontFamily:'inherit',position:'relative',WebkitTapHighlightColor:'transparent',transition:'opacity 0.15s'}}>
                   {/* Top accent rail — only on the active tab. Cyan
                       hairline tucked under the nav's top border so the
-                      visual is "this lane is lit", not a button glow. */}
+                      visual is "this lane is lit", not a button glow.
+                      For Jasper, the rail picks up the gradient's cyan
+                      start so the lit-lane cue stays consistent across
+                      tabs. */}
                   <div style={{position:'absolute',top:0,left:'20%',right:'20%',height:2,background:isActive?'var(--accent)':'transparent',borderRadius:'0 0 2px 2px',transition:'background 160ms ease'}} />
                   <div style={{position:'relative',display:'flex'}}>
-                    <I n={t.icon} s={20} c={isActive?'var(--accent)':V3.TEXT_TERTIARY} w={isActive?2:1.7} />
+                    {isJasper ? (
+                      <JasperRobotIcon size={22} />
+                    ) : (
+                      <I n={t.icon} s={20} c={isActive?'var(--accent)':V3.TEXT_TERTIARY} w={isActive?2:1.7} />
+                    )}
                     {t.badge>0&&<div style={{position:'absolute',top:-4,right:-8,minWidth:15,height:15,borderRadius:V3.R.pill,background:'var(--accent)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,fontWeight:700,color:'var(--on-accent-fill)',fontFamily:'var(--font-mono)',padding:'0 4px'}}>{t.badge}</div>}
                   </div>
-                  <span style={{fontSize:10,fontWeight:isActive?600:500,color:isActive?'var(--accent)':V3.TEXT_TERTIARY,letterSpacing:'0.2px',transition:'color 160ms ease'}}>{t.label}</span>
+                  {isJasper ? (
+                    <span style={{
+                      fontSize: 10,
+                      fontWeight: 700,
+                      letterSpacing: '0.2px',
+                      background: jasperGrad,
+                      WebkitBackgroundClip: 'text',
+                      backgroundClip: 'text',
+                      color: 'transparent',
+                      WebkitTextFillColor: 'transparent',
+                    }}>{t.label}</span>
+                  ) : (
+                    <span style={{fontSize:10,fontWeight:isActive?600:500,color:isActive?'var(--accent)':V3.TEXT_TERTIARY,letterSpacing:'0.2px',transition:'color 160ms ease'}}>{t.label}</span>
+                  )}
                 </button>
               )
             })}
@@ -2663,12 +2697,11 @@ export default function MobileApp() {
         </nav>
       )}
 
-      {/* Field-assistant FAB — bottom-right, above the bottom nav.
-          Hidden when no profile (auth screen), during the milestone
-          overlay, and while a wizard step is mid-stream (isAssessing). */}
-      {profile && !milestone && !isAssessing && !faOpen && (
-        <FieldAssistantFab onClick={() => setFaOpen(true)} />
-      )}
+      {/* The floating Field-Assistant FAB was retired when Jasper
+          moved into the bottom-nav tab — two launchers for the same
+          modal was redundant, and the FAB's bottom-right position
+          visually overlapped the new Jasper tab. The Jasper tab in
+          the nav is now the single launcher across the app. */}
       {profile && faOpen && (
         <FieldAssistant
           onClose={() => setFaOpen(false)}

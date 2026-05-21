@@ -22,7 +22,9 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { I } from './Icons'
-import JasperMonitorIcon from './JasperMonitorIcon'
+// Jasper brand mark: monitor → robot. See JasperRobotIcon.jsx for the
+// cyan→orange→red gradient + filled silhouette spec.
+import JasperRobotIcon from './JasperRobotIcon'
 import { useFieldAssistant } from '../hooks/useFieldAssistant'
 import { mix } from '../utils/theme'
 
@@ -114,7 +116,7 @@ function JasperIntroPanel({ onAccept, onNavigate }) {
     <div style={{ padding: '12px 4px 4px' }}>
       <div className="jasper-stagger"
         style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, ...reveal(0) }}>
-        <JasperMonitorIcon size={40} />
+        <JasperRobotIcon size={40} />
         <div style={{ fontSize: 15, color: TEXT, lineHeight: 1.45, fontWeight: 600 }}>
           <span role="img" aria-label="waving hand">👋</span> Hi, I'm Jasper, your Indoor Air Quality AI assistant.
         </div>
@@ -281,7 +283,7 @@ export default function FieldAssistant({ onClose, context, onNavigate }) {
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
-            <JasperMonitorIcon size={22} />
+            <JasperRobotIcon size={22} />
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ fontSize: 15, fontWeight: 700, color: TEXT, lineHeight: 1.2 }}>Jasper</div>
               <div style={{
