@@ -69,6 +69,7 @@ import V21InternalPanel from './V21InternalPanel'
 import { FAQ_SECTIONS } from '../constants/faq'
 import SearchView from './SearchView'
 import FieldAssistant from './FieldAssistant'
+import VoiceCommandModal from './VoiceCommandModal'
 import JasperRobotIcon from './JasperRobotIcon'
 import PendingSyncIndicator from './PendingSyncIndicator'
 import JasperWatchPanel from './JasperWatchPanel'
@@ -419,6 +420,12 @@ export default function MobileApp() {
   // UI is hidden whenever there's no profile (auth screen), during a
   // milestone overlay, or while another full-screen modal is up.
   const [faOpen, setFaOpen] = useState(false)
+  // Voice-command modal state. When the user submits a transcribed
+  // question, we drop the transcript into `voicePrefill` and open
+  // the Jasper sheet; FieldAssistant's initialMessage prop picks it
+  // up and auto-sends.
+  const [voiceCmdOpen, setVoiceCmdOpen] = useState(false)
+  const [voicePrefill, setVoicePrefill] = useState(null)
   // Billing Phase 1 — credit-unit definition sheet was added in PR
   // #143 (Fix 2 of the CIH-credibility prompt) and removed by the
   // subsequent pricing-architecture decision (delete the credit
@@ -1967,6 +1974,38 @@ export default function MobileApp() {
                   }}>
                   <I n="search" s={17} c={TEXT} w={2} />
                 </button>
+                {/* Voice command — speak a question and Jasper
+                    answers. Sits between Search and the avatar in
+                    the right-cluster pill so the assessor can
+                    invoke it from any screen. Tapping opens the
+                    fullscreen Voice Command modal; the transcript
+                    routes to Jasper via the initialMessage prop. */}
+                <button
+                  type="button"
+                  onClick={() => { supabase && trackEvent('jasper_open', { source: 'voice_command' }); setVoiceCmdOpen(true) }}
+                  aria-label="Ask Jasper by voice"
+                  title="Ask Jasper by voice"
+                  style={{
+                    width:30, height:30, borderRadius:'50%',
+                    background:'transparent', border:'none',
+                    cursor:'pointer', display:'flex',
+                    alignItems:'center', justifyContent:'center',
+                    fontFamily:'inherit', padding:0,
+                    WebkitTapHighlightColor:'transparent',
+                  }}>
+                  {/* Mic glyph — same wireframe as VoiceInputButton
+                      so the affordance reads as "voice" across the
+                      app, just visually paired with Jasper here by
+                      the context (header pill, not a textarea). */}
+                  <svg width="16" height="16" viewBox="0 0 24 24"
+                    fill="none" stroke="var(--text)" strokeWidth="2"
+                    strokeLinecap="round" strokeLinejoin="round"
+                    aria-hidden="true">
+                    <rect x="9" y="2" width="6" height="12" rx="3" />
+                    <path d="M5 11a7 7 0 0 0 14 0" />
+                    <line x1="12" y1="18" x2="12" y2="22" />
+                  </svg>
+                </button>
                 <ProfileAvatar
                   profile={profile}
                   size={30}
@@ -2785,10 +2824,26 @@ export default function MobileApp() {
           modal was redundant, and the FAB's bottom-right position
           visually overlapped the new Jasper tab. The Jasper tab in
           the nav is now the single launcher across the app. */}
+      {/* Voice command modal — speaks → routes the transcript to
+          Jasper via initialMessage. Lives at the app shell so it's
+          available from every screen via the header pill's mic. */}
+      {profile && (
+        <VoiceCommandModal
+          open={voiceCmdOpen}
+          onCancel={() => setVoiceCmdOpen(false)}
+          onSubmit={(transcript) => {
+            setVoiceCmdOpen(false)
+            setVoicePrefill(transcript)
+            setFaOpen(true)
+          }}
+        />
+      )}
+
       {profile && faOpen && (
         <FieldAssistant
-          onClose={() => setFaOpen(false)}
-          onNavigate={(v) => { setFaOpen(false); setView(v) }}
+          onClose={() => { setFaOpen(false); setVoicePrefill(null) }}
+          onNavigate={(v) => { setFaOpen(false); setVoicePrefill(null); setView(v) }}
+          initialMessage={voicePrefill}
           context={{
             view,
             presurvey,
