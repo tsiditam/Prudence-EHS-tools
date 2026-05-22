@@ -97,6 +97,14 @@ export function useFieldAssistant() {
   // the first `token` event after the tool finishes (when the
   // model resumes streaming text), or on `done` / abort.
   const [activeTool, setActiveTool] = useState(null)
+  // Pending agentic actions. Each entry is the payload emitted by
+  // the `proposed_action` SSE event:
+  //   { id, action: { type, ...params }, summary, status: 'pending' | 'accepted' | 'rejected' }
+  // The chat UI renders these as inline action cards with
+  // Accept / Reject buttons. The parent (MobileApp) handles the
+  // actual execution via the onAction callback that
+  // FieldAssistant passes through.
+  const [proposedActions, setProposedActions] = useState([])
   // L4 — photos staged for the next message. Cleared on successful send.
   // Each entry: { id, dataUrl, label, sizeBytes }
   const [attachedPhotos, setAttachedPhotos] = useState([])
@@ -116,6 +124,20 @@ export function useFieldAssistant() {
     setQuota(null)
     photosRef.current = []
     setAttachedPhotos([])
+    setActiveTool(null)
+    setProposedActions([])
+  }, [])
+
+  // Stamp a proposed action as accepted / rejected. Called by
+  // the chat UI's ActionCard buttons. The actual application of
+  // the action (setView / append note) lives in the parent
+  // component — this hook just records the outcome so the card
+  // re-renders in its terminal visual state.
+  const markActionAccepted = useCallback((id) => {
+    setProposedActions((prev) => prev.map((a) => (a.id === id ? { ...a, status: 'accepted' } : a)))
+  }, [])
+  const markActionRejected = useCallback((id) => {
+    setProposedActions((prev) => prev.map((a) => (a.id === id ? { ...a, status: 'rejected' } : a)))
   }, [])
 
   // "New chat" alias for the user-facing affordance. Semantically the
@@ -379,6 +401,25 @@ export function useFieldAssistant() {
             // status. The next text token (if any) will resume the
             // assistant bubble.
             setActiveTool(null)
+          } else if (frame.event === 'proposed_action') {
+            // Agentic action — append an inline card to the chat.
+            // The hook only TRACKS the card state (pending /
+            // accepted / rejected); execution lives in the parent
+            // component so MobileApp can route setView / append
+            // notes without the hook needing knowledge of app
+            // state. Generates an id if the server didn't supply
+            // one, so accept/reject can target the right card.
+            const action = frame.data?.action || null
+            const summary = typeof frame.data?.summary === 'string' ? frame.data.summary : ''
+            if (action && typeof action === 'object' && action.type) {
+              const id = frame.data?.id || (typeof crypto !== 'undefined' && crypto.randomUUID
+                ? `action-${crypto.randomUUID().slice(0, 8)}`
+                : `action-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`)
+              setProposedActions((prev) => [
+                ...prev,
+                { id, action, summary, status: 'pending' },
+              ])
+            }
           } else if (frame.event === 'done') {
             if (frame.data?.quota) receivedQuota = frame.data.quota
             setActiveTool(null)
@@ -437,6 +478,7 @@ export function useFieldAssistant() {
     quota,
     attachedPhotos,
     activeTool,
+    proposedActions,
     sendMessage,
     stop,
     reset,
@@ -446,5 +488,7 @@ export function useFieldAssistant() {
     listConversations,
     loadConversation,
     newConversation,
+    markActionAccepted,
+    markActionRejected,
   }
 }

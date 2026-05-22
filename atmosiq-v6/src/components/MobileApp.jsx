@@ -2844,6 +2844,48 @@ export default function MobileApp() {
           onClose={() => { setFaOpen(false); setVoicePrefill(null) }}
           onNavigate={(v) => { setFaOpen(false); setVoicePrefill(null); setView(v) }}
           initialMessage={voicePrefill}
+          onAction={(action) => {
+            // Agentic action executor. Jasper proposes via
+            // propose_action tool → SSE → ActionCard in chat →
+            // user taps Apply → this callback runs. Return
+            // false to veto (rare); otherwise the hook marks
+            // the card accepted.
+            if (!action || typeof action !== 'object') return false
+            if (action.type === 'navigate') {
+              const target = action.target
+              if (!target) return false
+              // Results view also accepts an inner tab via the
+              // tab_target field. Set rTab BEFORE setView so the
+              // tab is correct when results mount.
+              if (action.tab_target) setRTab(action.tab_target)
+              setView(target)
+              setFaOpen(false)
+              setVoicePrefill(null)
+              return true
+            }
+            if (action.type === 'add_zone_note') {
+              const noteText = (action.note_text || '').trim()
+              if (!noteText) return false
+              // Append to the current zone's notes field. If
+              // there's no current zone (e.g. user is on the
+              // dashboard), reject — the model shouldn't have
+              // proposed this. The notes field on a zone is
+              // `nt` per the wizard schema; append with a
+              // newline separator if there's existing content.
+              const zoneIdx = curZone
+              const zone = zones[zoneIdx]
+              if (!zone) return false
+              const prevNotes = zone.nt || ''
+              const nextNotes = prevNotes
+                ? `${prevNotes}\n${noteText}`
+                : noteText
+              const nextZones = zones.slice()
+              nextZones[zoneIdx] = { ...zone, nt: nextNotes }
+              setZones(nextZones)
+              return true
+            }
+            return false
+          }}
           context={{
             view,
             presurvey,

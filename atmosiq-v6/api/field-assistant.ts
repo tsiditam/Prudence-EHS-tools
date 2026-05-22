@@ -538,6 +538,26 @@ async function runAgentLoop(
         name: block.name,
         status: (result && (result as any).status) || 'unknown',
       })
+      // Side-channel SSE event for agentic propose_action results.
+      // The tool returns a structured action payload that the
+      // client uses to render an Accept / Reject card inline in
+      // the chat. The tool_call (completion) event above tells the
+      // UI that the agent has finished its tool call; this
+      // proposed_action event carries the actual proposal so the
+      // client can construct the card without parsing the
+      // model's free-text follow-up.
+      if (
+        block.name === 'propose_action'
+        && result
+        && (result as any).status === 'proposed'
+        && (result as any).action
+      ) {
+        writeSse(res, 'proposed_action', {
+          id: block.id,
+          action: (result as any).action,
+          summary: (result as any).summary || '',
+        })
+      }
       toolResults.push({
         type: 'tool_result',
         tool_use_id: block.id,
