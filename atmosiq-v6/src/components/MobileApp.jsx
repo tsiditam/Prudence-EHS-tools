@@ -30,6 +30,7 @@ import * as V3 from '../styles/tokens'
 import Loading from './Loading'
 import ScoreRing from './ScoreRing'
 import PhotoCapture from './PhotoCapture'
+import ProfileAvatar from './ProfileAvatar'
 import SensorScreen from './SensorScreen'
 import TimePickerInput from './TimePickerInput'
 import Co2OaCalculator from './Co2OaCalculator'
@@ -1815,6 +1816,22 @@ export default function MobileApp() {
                 </button>
               )
             })()}
+            {/* Persistent profile avatar — circular, accent ring,
+                32px so it sits cleanly next to the 36px hamburger
+                inside the 48px-tall header. Click routes to the
+                Settings screen (account section is the first
+                visible card), matching the GitHub / Linear pattern
+                where the header avatar is the shortcut to "your
+                account". The hamburger stays as the catch-all menu
+                launcher next to it. */}
+            {profile && (
+              <ProfileAvatar
+                profile={profile}
+                size={32}
+                onClick={() => setView('settings')}
+                ariaLabel={`Open account ${profile.name ? `for ${profile.name}` : ''}`.trim()}
+              />
+            )}
             {profile && (
               <button
                 onClick={()=>setShowHomeMenu(v=>!v)}

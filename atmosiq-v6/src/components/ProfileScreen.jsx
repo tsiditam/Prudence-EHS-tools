@@ -11,6 +11,7 @@ import { useMediaQuery } from '../hooks/useMediaQuery'
 import Profiles from '../utils/profiles'
 import { trackEvent } from '../utils/supabaseClient'
 import { I } from './Icons'
+import ProfileAvatar from './ProfileAvatar'
 import { mix } from '../utils/theme'
 
 // ─── Design Tokens (aligned with MobileApp) ───
@@ -181,6 +182,32 @@ export default function ProfileScreen({ onLogin }) {
 
         {/* ── Step 1: Credentials ── */}
         {step === 0 && <div style={{animation:'fadeUp .25s ease'}}>
+
+          {/* Profile photo. Large circular avatar at the top of the
+              edit form with a camera badge — tapping either the
+              avatar or the badge opens the file picker. The picker
+              compresses to a 256×256 JPEG before persisting so
+              localStorage doesn't bloat. A small "Remove photo"
+              link appears once a photo is set so the user can
+              roll back to initials. */}
+          <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:8,marginBottom:24,paddingTop:4}}>
+            <ProfileAvatar
+              profile={form}
+              size={96}
+              editable
+              onPickPhoto={(dataUrl) => setF('avatar_url', dataUrl)}
+            />
+            {form.avatar_url ? (
+              <button
+                type="button"
+                onClick={() => setF('avatar_url', '')}
+                style={{background:'none',border:'none',color:DIM,fontSize:12,fontWeight:500,cursor:'pointer',fontFamily:'inherit',padding:'4px 8px'}}>
+                Remove photo
+              </button>
+            ) : (
+              <div style={{fontSize:11,color:DIM,textAlign:'center'}}>Tap to add a profile photo</div>
+            )}
+          </div>
 
           <div style={{marginBottom:20}}>
             <span style={label}>Full name and credentials <span style={{color:ACCENT}}>*</span></span>
