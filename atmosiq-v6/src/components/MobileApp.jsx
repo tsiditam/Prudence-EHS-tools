@@ -1795,43 +1795,15 @@ export default function MobileApp() {
     <div style={{minHeight:'100vh',background:BG,color:TEXT,fontFamily:"'inherit', system-ui, sans-serif"}}>
       <header style={{position:'fixed',top:0,left:0,right:0,zIndex:100,background:`${mix('bg', 95)}`,backdropFilter:'blur(24px) saturate(1.4)',WebkitBackdropFilter:'blur(24px) saturate(1.4)',borderBottom:`1px solid ${BORDER}`,paddingTop:'env(safe-area-inset-top, 0px)'}}>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',height:48,padding:`0 ${padX}px`,maxWidth:contentMax,margin:'0 auto'}}>
-          <div style={{display:'flex',alignItems:'center'}}>
-            <span style={{fontSize:15,fontWeight:700,letterSpacing:'-0.3px',color:TEXT}}>AtmosFlow</span>
-          </div>
-          <div style={{position:'relative',display:'flex',alignItems:'center',gap:8}}>
-            {isAssessing&&<span style={{fontSize:10,color:ACCENT,fontFamily:"var(--font-mono)",background:`${mix('accent', 4)}`,padding:'3px 10px',borderRadius:4,border:`1px solid ${mix('accent', 13)}`,letterSpacing:'0.5px'}}>SAVING</span>}
-            {view!=='dash'&&view!=='history'&&view!=='search'&&view!=='settings'&&view!=='trash'&&view!=='tos'&&view!=='privacy'&&view!=='help'&&view!=='instrument-edit'&&view!=='incident-form'&&view!=='incident-log'&&view!=='incident-detail'&&view!=='sampling-forms'&&<button onClick={()=>{setView('dash');setViewRpt(null)}} style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:8,color:SUB,fontSize:13,fontWeight:600,padding:'7px 14px',cursor:'pointer',fontFamily:'inherit',minHeight:36,transition:'color 0.15s'}}>← Home</button>}
-            {/* Subscription-status pill — exception-only. In beta
-                the helper returns null. Phase 2+ surfaces it on
-                diverging state (payment failed, plan cancelling,
-                beta ending). Lives next to the hamburger so the
-                user can act on it from any screen. */}
-            {(() => {
-              const state = getSubscriptionBannerState(profile)
-              if (!state) return null
-              const color = state.tone === 'danger' ? DANGER : WARN
-              return (
-                <button onClick={() => setView('settings')} aria-label={state.message} style={{padding:'5px 10px',borderRadius:8,background:`${color}10`,border:`1px solid ${color}30`,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:6,minHeight:32}}>
-                  <span style={{fontSize:11,fontWeight:600,color,fontFamily:'var(--font-mono)'}}>{state.message}</span>
-                </button>
-              )
-            })()}
-            {/* Persistent profile avatar — circular, accent ring,
-                32px so it sits cleanly next to the 36px hamburger
-                inside the 48px-tall header. Click routes to the
-                Settings screen (account section is the first
-                visible card), matching the GitHub / Linear pattern
-                where the header avatar is the shortcut to "your
-                account". The hamburger stays as the catch-all menu
-                launcher next to it. */}
-            {profile && (
-              <ProfileAvatar
-                profile={profile}
-                size={32}
-                onClick={() => setView('settings')}
-                ariaLabel={`Open account ${profile.name ? `for ${profile.name}` : ''}`.trim()}
-              />
-            )}
+          {/* Left cluster — hamburger menu (with its dropdown). The
+              "AtmosFlow" wordmark used to live here; it's been removed
+              so the menu sits flush at the left edge and the right
+              cluster (status pills + avatar) reads as the identity
+              column. The relative positioning anchors the dropdown
+              menu below to this left cluster instead of the right
+              one, so the popover now opens DOWN-LEFT from the
+              hamburger rather than down-right. */}
+          <div style={{position:'relative',display:'flex',alignItems:'center'}}>
             {profile && (
               <button
                 onClick={()=>setShowHomeMenu(v=>!v)}
@@ -1875,7 +1847,11 @@ export default function MobileApp() {
                 <>
                   {/* Transparent backdrop catches outside clicks. */}
                   <div onClick={closeMenu} style={{position:'fixed',inset:0,zIndex:90,background:'transparent'}} />
-                  <div role="menu" style={{position:'absolute',top:'calc(100% + 8px)',right:0,minWidth:240,background:CARD,border:`1px solid ${BORDER}`,borderRadius:14,padding:6,zIndex:100,boxShadow:'0 12px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.02) inset',animation:'fadeUp .15s ease'}}>
+                  {/* Anchored to the LEFT cluster now (left:0 instead
+                      of right:0) so the popover opens down-left from
+                      the hamburger and doesn't overflow the right
+                      edge of the screen. */}
+                  <div role="menu" style={{position:'absolute',top:'calc(100% + 8px)',left:0,minWidth:240,background:CARD,border:`1px solid ${BORDER}`,borderRadius:14,padding:6,zIndex:100,boxShadow:'0 12px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.02) inset',animation:'fadeUp .15s ease'}}>
                     {homeMenuMode === 'demos' && (
                       // Submenu header — back button to return to the
                       // main menu without closing the popover.
@@ -1926,6 +1902,40 @@ export default function MobileApp() {
                 </>
               )
             })()}
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:8}}>
+            {isAssessing&&<span style={{fontSize:10,color:ACCENT,fontFamily:"var(--font-mono)",background:`${mix('accent', 4)}`,padding:'3px 10px',borderRadius:4,border:`1px solid ${mix('accent', 13)}`,letterSpacing:'0.5px'}}>SAVING</span>}
+            {view!=='dash'&&view!=='history'&&view!=='search'&&view!=='settings'&&view!=='trash'&&view!=='tos'&&view!=='privacy'&&view!=='help'&&view!=='instrument-edit'&&view!=='incident-form'&&view!=='incident-log'&&view!=='incident-detail'&&view!=='sampling-forms'&&<button onClick={()=>{setView('dash');setViewRpt(null)}} style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:8,color:SUB,fontSize:13,fontWeight:600,padding:'7px 14px',cursor:'pointer',fontFamily:'inherit',minHeight:36,transition:'color 0.15s'}}>← Home</button>}
+            {/* Subscription-status pill — exception-only. In beta
+                the helper returns null. Phase 2+ surfaces it on
+                diverging state (payment failed, plan cancelling,
+                beta ending). Lives next to the hamburger so the
+                user can act on it from any screen. */}
+            {(() => {
+              const state = getSubscriptionBannerState(profile)
+              if (!state) return null
+              const color = state.tone === 'danger' ? DANGER : WARN
+              return (
+                <button onClick={() => setView('settings')} aria-label={state.message} style={{padding:'5px 10px',borderRadius:8,background:`${color}10`,border:`1px solid ${color}30`,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:6,minHeight:32}}>
+                  <span style={{fontSize:11,fontWeight:600,color,fontFamily:'var(--font-mono)'}}>{state.message}</span>
+                </button>
+              )
+            })()}
+            {/* Persistent profile avatar — circular, accent ring,
+                32px. Click routes to the Settings screen, matching
+                the GitHub / Linear pattern where the right-edge
+                avatar is the shortcut to "your account". The
+                hamburger menu now lives in the LEFT cluster, so
+                this is the only chrome on the right beyond the
+                conditional status pills + ← Home button. */}
+            {profile && (
+              <ProfileAvatar
+                profile={profile}
+                size={32}
+                onClick={() => setView('settings')}
+                ariaLabel={`Open account ${profile.name ? `for ${profile.name}` : ''}`.trim()}
+              />
+            )}
           </div>
         </div>
       </header>
