@@ -70,6 +70,14 @@ function buildContext(data) {
     firmAddress: (profile?.firm_address || '660 Quince Orchard Road, #1136, Gaithersburg, MD 20878').trim(),
     firmPhone: (profile?.firm_phone || '(301) 541-8362').trim(),
     firmEmail: (profile?.email || 'support@prudenceehs.com').trim(),
+    // Optional branding assets. When set, the cover renders the
+    // firm logo above the wordmark and the PE / CIH seal as a small
+    // credential mark above the confidential footer. License line
+    // (e.g. "WV IH License #12345") renders under the firm address
+    // so it's part of the identity block.
+    firmLogo: typeof profile?.firm_logo_dataurl === 'string' ? profile.firm_logo_dataurl : null,
+    firmLicense: typeof profile?.firm_license === 'string' ? profile.firm_license.trim() : '',
+    peSeal: typeof profile?.pe_seal_dataurl === 'string' ? profile.pe_seal_dataurl : null,
     assessorCerts: profile?.certs || [],
   }
 }
