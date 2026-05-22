@@ -35,6 +35,7 @@ import SensorScreen from './SensorScreen'
 import TimePickerInput from './TimePickerInput'
 import Co2OaCalculator from './Co2OaCalculator'
 import VoiceInputButton, { appendWithSpace } from './VoiceInputButton'
+import InlineAiButton from './InlineAiButton'
 import ProfileScreen, { IAQ_OPTS, PID_OPTS, CAL_OPTS, PID_CAL_OPTS } from './ProfileScreen'
 import AuthScreen from './AuthScreen'
 import { TermsOfService, PrivacyPolicy } from './LegalScreens'
@@ -919,12 +920,25 @@ export default function MobileApp() {
               is bumped to keep typed content from sliding under
               the button. */}
           {q.t==='ta'&&<div style={{position:'relative'}}>
-            <textarea value={data[q.id]||''} onChange={e=>setField(q.id,e.target.value)} placeholder={q.ph||'Notes...'} rows={3} style={{width:'100%',padding:'18px 56px 18px 20px',background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:'inherit',outline:'none',resize:'vertical',boxSizing:'border-box'}} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />
-            <div style={{position:'absolute',right:10,bottom:10}}>
+            {/* Free-text wizard input. Right-side padding grows to
+                fit two 36px buttons (voice mic + AI rewrite).
+                Buttons are absolute-positioned in the bottom-right
+                corner of the textarea — same idiom as Notion AI /
+                Cursor inline-AI / Apple Writing Tools, just adapted
+                for a touch-first wizard. */}
+            <textarea value={data[q.id]||''} onChange={e=>setField(q.id,e.target.value)} placeholder={q.ph||'Notes...'} rows={3} style={{width:'100%',padding:'18px 96px 18px 20px',background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:'inherit',outline:'none',resize:'vertical',boxSizing:'border-box'}} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />
+            <div style={{position:'absolute',right:10,bottom:10,display:'flex',gap:6}}>
               <VoiceInputButton
                 ariaLabel="Dictate notes"
                 size={36}
                 onTranscript={(text)=>setField(q.id, appendWithSpace(data[q.id]||'', text))}
+              />
+              <InlineAiButton
+                ariaLabel="Rewrite with AI"
+                size={36}
+                text={data[q.id]||''}
+                context={{ field: q.id, prompt: q.q || q.ph || null }}
+                onAccept={(rewritten)=>setField(q.id, rewritten)}
               />
             </div>
           </div>}
