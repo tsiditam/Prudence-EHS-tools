@@ -1921,20 +1921,46 @@ export default function MobileApp() {
                 </button>
               )
             })()}
-            {/* Persistent profile avatar — circular, accent ring,
-                32px. Click routes to the Settings screen, matching
-                the GitHub / Linear pattern where the right-edge
-                avatar is the shortcut to "your account". The
-                hamburger menu now lives in the LEFT cluster, so
-                this is the only chrome on the right beyond the
-                conditional status pills + ← Home button. */}
+            {/* Persistent right-cluster pill — search icon + profile
+                avatar wrapped in a single rounded container. Reads as
+                one identity-and-quick-find unit at the right edge of
+                the header. Search opens the search view; avatar
+                routes to Settings (account section). The pill
+                background is one step UP the surface ladder (CARD
+                over SURFACE) so it lifts off the blurred header
+                background; the avatar sits flush inside with no
+                gap between its right edge and the pill's right
+                edge, matching the reference pattern. */}
             {profile && (
-              <ProfileAvatar
-                profile={profile}
-                size={32}
-                onClick={() => setView('settings')}
-                ariaLabel={`Open account ${profile.name ? `for ${profile.name}` : ''}`.trim()}
-              />
+              <div style={{
+                display:'flex', alignItems:'center', gap:2,
+                background: CARD, border:`1px solid ${BORDER}`,
+                borderRadius: 999, padding:'2px 2px 2px 6px',
+                height: 36, boxSizing:'border-box',
+              }}>
+                <button
+                  type="button"
+                  onClick={() => setView('search')}
+                  aria-label="Search"
+                  title="Search"
+                  style={{
+                    width:30, height:30, borderRadius:'50%',
+                    background:'transparent', border:'none',
+                    cursor:'pointer', display:'flex',
+                    alignItems:'center', justifyContent:'center',
+                    fontFamily:'inherit', padding:0,
+                    WebkitTapHighlightColor:'transparent',
+                  }}>
+                  <I n="search" s={17} c={TEXT} w={2} />
+                </button>
+                <ProfileAvatar
+                  profile={profile}
+                  size={30}
+                  onClick={() => setView('settings')}
+                  ariaLabel={`Open account ${profile.name ? `for ${profile.name}` : ''}`.trim()}
+                  ringTone="none"
+                />
+              </div>
             )}
           </div>
         </div>
