@@ -90,6 +90,13 @@ export function useFieldAssistant() {
   const [error, setError] = useState(null)
   const [conversationId, setConversationId] = useState(null)
   const [quota, setQuota] = useState(null) // { used_today, limit_today, plan } | null
+  // Tool-call transparency. While a tool is running, `activeTool`
+  // holds { name, input } so the UI can render
+  // "Searching ASHRAE 62.1…" instead of a generic thinking dot.
+  // Cleared on the matching `tool_call` (completion) event, on
+  // the first `token` event after the tool finishes (when the
+  // model resumes streaming text), or on `done` / abort.
+  const [activeTool, setActiveTool] = useState(null)
   // L4 — photos staged for the next message. Cleared on successful send.
   // Each entry: { id, dataUrl, label, sizeBytes }
   const [attachedPhotos, setAttachedPhotos] = useState([])
@@ -356,11 +363,28 @@ export function useFieldAssistant() {
           if (frame.event === 'meta') {
             if (frame.data?.conversation_id) receivedConversationId = frame.data.conversation_id
           } else if (frame.event === 'token') {
+            // First token after a tool finishes signals the model
+            // is back to generating text — clear the active tool
+            // indicator so the UI returns to the regular streaming
+            // bubble.
+            setActiveTool(null)
             if (typeof frame.data?.text === 'string') appendToken(frame.data.text)
+          } else if (frame.event === 'tool_start') {
+            setActiveTool({
+              name: frame.data?.name || 'unknown',
+              input: frame.data?.input || {},
+            })
+          } else if (frame.event === 'tool_call') {
+            // Completion event for a tool — clear the active-tool
+            // status. The next text token (if any) will resume the
+            // assistant bubble.
+            setActiveTool(null)
           } else if (frame.event === 'done') {
             if (frame.data?.quota) receivedQuota = frame.data.quota
+            setActiveTool(null)
           } else if (frame.event === 'error') {
             upstreamError = friendlyError(frame.data?.error || 'Upstream error')
+            setActiveTool(null)
           }
         }
         buffer = processed
@@ -394,6 +418,17 @@ export function useFieldAssistant() {
     setSending(false)
   }, [conversationId, sending, attachedPhotos])
 
+  // Stop the in-flight stream. The AbortController triggers an
+  // AbortError in the fetch which is caught silently by the
+  // send-loop. The partial assistant turn already on screen stays
+  // visible. Used by the modern "Stop generating" affordance.
+  const stop = useCallback(() => {
+    inFlight.current?.abort?.()
+    inFlight.current = null
+    setActiveTool(null)
+    setSending(false)
+  }, [])
+
   return {
     messages,
     sending,
@@ -401,7 +436,9 @@ export function useFieldAssistant() {
     conversationId,
     quota,
     attachedPhotos,
+    activeTool,
     sendMessage,
+    stop,
     reset,
     attachPhoto,
     removePhoto,

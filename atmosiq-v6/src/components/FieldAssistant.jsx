@@ -81,19 +81,87 @@ function MessageBubble({ role, content, photos }) {
   )
 }
 
-function ThinkingDots() {
+/**
+ * Map an Anthropic tool name + input to the user-visible status
+ * line that renders while the tool is running. Keeps the wording
+ * close to what a Mac user expects from a modern AI app
+ * ("Searching ASHRAE 62.1…", "Analyzing photo…").
+ *
+ * Falls back to a generic "Working…" when the tool name isn't
+ * mapped — better than silently leaking the raw tool identifier.
+ */
+function describeTool(tool) {
+  if (!tool) return null
+  const name = tool.name || ''
+  const input = tool.input || {}
+  if (name === 'search_iaq_corpus' || name === 'search_corpus' || name === 'lookup_corpus') {
+    const q = typeof input.query === 'string' ? input.query.slice(0, 60) : ''
+    return q ? `Searching standards for "${q}"…` : 'Searching the standards corpus…'
+  }
+  if (name === 'lookup_standard' || name === 'lookup_threshold' || name === 'standards_lookup') {
+    const ref = typeof input.standard === 'string' ? input.standard
+      : typeof input.name === 'string' ? input.name
+      : typeof input.id === 'string' ? input.id
+      : ''
+    return ref ? `Looking up ${ref}…` : 'Looking up standards…'
+  }
+  if (name === 'analyze_photo' || name === 'vision' || name === 'photo_analysis') {
+    return 'Analyzing the attached photo…'
+  }
+  if (name === 'evaluate_threshold' || name === 'threshold_check') {
+    return 'Checking the measurement against thresholds…'
+  }
+  if (name === 'web_search' || name === 'browse') {
+    return 'Searching the web…'
+  }
+  // Friendly fallback: split snake_case → spaces, sentence case.
+  const friendly = name.replace(/_/g, ' ').replace(/\s+/g, ' ').trim()
+  return friendly ? `Running ${friendly}…` : 'Working…'
+}
+
+/**
+ * Thinking / tool-status indicator. When the agent is between
+ * tokens (no active tool), renders the classic 3-dot pulse. When
+ * a tool is running, renders a small spinner + a short status line
+ * describing what the tool is doing. Same bubble surface either
+ * way so the rhythm of the conversation doesn't jump.
+ */
+function ToolStatus({ tool }) {
+  const status = describeTool(tool)
   return (
     <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 12 }}>
       <div style={{
-        padding: '12px 16px', borderRadius: 14, background: SURFACE,
-        border: `1px solid ${BORDER}`, display: 'flex', gap: 4,
+        padding: status ? '10px 14px' : '12px 16px',
+        borderRadius: 14, background: SURFACE,
+        border: `1px solid ${BORDER}`,
+        display: 'flex', alignItems: 'center', gap: status ? 10 : 4,
+        maxWidth: '85%',
       }}>
-        {[0, 1, 2].map(i => (
-          <span key={i} style={{
-            width: 6, height: 6, borderRadius: 3, background: DIM,
-            animation: `faDot 1.2s ${i * 0.15}s ease-in-out infinite`,
-          }} />
-        ))}
+        {status ? (
+          <>
+            {/* Small inline spinner. CSS rotation only — no JS. */}
+            <span
+              aria-hidden="true"
+              style={{
+                width: 12, height: 12, borderRadius: '50%',
+                border: `1.5px solid ${BORDER}`,
+                borderTopColor: ACCENT,
+                animation: 'faSpin 0.9s linear infinite',
+                flexShrink: 0,
+              }}
+            />
+            <span style={{ fontSize: 13, color: SUB, lineHeight: 1.4, fontStyle: 'italic' }}>
+              {status}
+            </span>
+          </>
+        ) : (
+          [0, 1, 2].map(i => (
+            <span key={i} style={{
+              width: 6, height: 6, borderRadius: 3, background: DIM,
+              animation: `faDot 1.2s ${i * 0.15}s ease-in-out infinite`,
+            }} />
+          ))
+        )}
       </div>
     </div>
   )
@@ -183,7 +251,9 @@ export default function FieldAssistant({ onClose, context, onNavigate }) {
     quota,
     attachedPhotos,
     conversationId,
+    activeTool,
     sendMessage,
+    stop,
     attachPhoto,
     removePhoto,
     listConversations,
@@ -526,7 +596,7 @@ export default function FieldAssistant({ onClose, context, onNavigate }) {
             <MessageBubble key={m.id} role={m.role} content={m.content} photos={m.photos} />
           ))}
 
-          {showThinking && <ThinkingDots />}
+          {showThinking && <ToolStatus tool={activeTool} />}
 
           {error && (
             <div style={{
@@ -717,22 +787,54 @@ export default function FieldAssistant({ onClose, context, onNavigate }) {
                 onTranscript={(text) => setInput((v) => appendWithSpace(v, text))}
               />
             </div>
-            <button
-              onClick={submit}
-              disabled={!input.trim() || sending || !introAccepted}
-              aria-label="Send"
-              style={{
-                width: 36, height: 36, borderRadius: 18,
-                background: input.trim() && !sending && introAccepted ? 'var(--accent-fill)' : CARD,
-                border: 'none',
-                cursor: input.trim() && !sending && introAccepted ? 'pointer' : 'not-allowed',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontFamily: 'inherit', flexShrink: 0,
-                transition: 'background 0.15s, transform 0.1s',
-                WebkitTapHighlightColor: 'transparent',
-              }}>
-              <I n="send" s={16} c={input.trim() && !sending && introAccepted ? 'var(--on-accent-fill)' : DIM} w={1.8} />
-            </button>
+            {/* Send / Stop toggle. While the agent is streaming
+                (sending=true) the same circle holds a Stop glyph
+                that aborts the in-flight request. After Stop the
+                partial assistant turn already on screen stays
+                visible so the user can read what was produced
+                before they interrupted. Modern AI chat pattern —
+                ChatGPT, Claude, Gemini, Granola all do this. */}
+            {sending ? (
+              <button
+                onClick={stop}
+                aria-label="Stop generating"
+                title="Stop generating"
+                style={{
+                  width: 36, height: 36, borderRadius: 18,
+                  background: 'var(--accent-fill)',
+                  border: 'none',
+                  cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontFamily: 'inherit', flexShrink: 0,
+                  transition: 'background 0.15s, transform 0.1s',
+                  WebkitTapHighlightColor: 'transparent',
+                  animation: 'faStopIn 140ms cubic-bezier(0.16, 1, 0.3, 1)',
+                }}>
+                {/* Filled square — universal "stop" glyph in AI
+                    chat UIs. Sized to read at 36px. */}
+                <span style={{
+                  display: 'block', width: 12, height: 12, borderRadius: 2,
+                  background: 'var(--on-accent-fill)',
+                }} />
+              </button>
+            ) : (
+              <button
+                onClick={submit}
+                disabled={!input.trim() || !introAccepted}
+                aria-label="Send"
+                style={{
+                  width: 36, height: 36, borderRadius: 18,
+                  background: input.trim() && introAccepted ? 'var(--accent-fill)' : CARD,
+                  border: 'none',
+                  cursor: input.trim() && introAccepted ? 'pointer' : 'not-allowed',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontFamily: 'inherit', flexShrink: 0,
+                  transition: 'background 0.15s, transform 0.1s',
+                  WebkitTapHighlightColor: 'transparent',
+                }}>
+                <I n="send" s={16} c={input.trim() && introAccepted ? 'var(--on-accent-fill)' : DIM} w={1.8} />
+              </button>
+            )}
           </div>
         </div>
         </>)}
@@ -787,6 +889,14 @@ export default function FieldAssistant({ onClose, context, onNavigate }) {
         @keyframes faDot {
           0%, 80%, 100% { opacity: 0.3; transform: translateY(0); }
           40% { opacity: 1; transform: translateY(-3px); }
+        }
+        @keyframes faSpin {
+          0%   { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        @keyframes faStopIn {
+          from { opacity: 0; transform: scale(0.8); }
+          to   { opacity: 1; transform: scale(1); }
         }
         @keyframes jasperReveal {
           0%   { opacity: 0; transform: translateY(6px); }
