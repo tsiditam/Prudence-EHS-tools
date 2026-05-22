@@ -329,18 +329,31 @@ export const btnGhost = {
 
 // Workflow-tab row — horizontal scroller of workflow stages. Each
 // tab is an inline-flex item with an icon stack. Active tab gets a
-// 2-px cyan underline (BORDER_ACCENT), inactive tabs are TEXT_MUTED.
-// Consumer renders the tabs; this exports the row + item base styles.
+// 2-px cyan underline + a faint accent-tinted pill so the active
+// state still reads after the user has scrolled the row.
+//
+// Mobile fit-and-finish:
+//   - `WebkitOverflowScrolling: 'touch'` enables momentum scrolling
+//     on iOS Safari (default behavior on iOS PWAs is jerky without it)
+//   - `scrollSnapType: 'x proximity'` lets tabs settle at a stable
+//     position instead of mid-tab when the user lifts their finger
+//   - `scrollPaddingInline` makes sure a snap-aligned tab doesn't
+//     end up half-hidden behind the row's own padding
+//   - Row inline-padding bumped from 6 → 12 so the first/last tab
+//     has visual breathing room from the card edge
 export const tabRow = {
   display: 'flex',
   alignItems: 'stretch',
   gap: 4,
-  padding: '6px 6px 0',
+  padding: '6px 12px 0',
   background: CARD,
   border: `1px solid ${BORDER_DEFAULT}`,
   borderRadius: R.lg,
   overflowX: 'auto',
   scrollbarWidth: 'none',
+  WebkitOverflowScrolling: 'touch',
+  scrollSnapType: 'x proximity',
+  scrollPaddingInline: 12,
 }
 export const tabItem = (active) => ({
   display: 'inline-flex',
@@ -348,8 +361,10 @@ export const tabItem = (active) => ({
   alignItems: 'center',
   gap: 4,
   padding: '10px 14px 12px',
-  background: 'transparent',
+  background: active ? `color-mix(in srgb, var(--accent) 8%, transparent)` : 'transparent',
   border: 'none',
+  borderTopLeftRadius: R.sm,
+  borderTopRightRadius: R.sm,
   borderBottom: active ? `2px solid var(--accent)` : '2px solid transparent',
   color: active ? 'var(--accent)' : TEXT_TERTIARY,
   fontSize: 12,
@@ -358,7 +373,8 @@ export const tabItem = (active) => ({
   fontFamily: 'inherit',
   whiteSpace: 'nowrap',
   flexShrink: 0,
-  transition: 'color 0.15s ease, border-color 0.15s ease',
+  scrollSnapAlign: 'start',
+  transition: 'color 0.15s ease, border-color 0.15s ease, background 0.15s ease',
 })
 
 // ── Legacy helpers (v2.x and earlier — retained for unmigrated screens) ──

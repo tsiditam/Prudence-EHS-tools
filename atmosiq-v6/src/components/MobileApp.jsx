@@ -86,14 +86,12 @@ const fD = ts => ts ? new Date(ts).toLocaleDateString('en-US',{month:'short',day
 const sv = sev => ({critical:{c:'#EF4444',bg:'#EF444418',l:'CRITICAL'},high:{c:'#FB923C',bg:'#FB923C18',l:'HIGH'},medium:{c:'#FBBF24',bg:'#FBBF2418',l:'MEDIUM'},low:{c:'#22D3EE',bg:'#22D3EE15',l:'LOW'},pass:{c:'#22C55E',bg:'#22C55E15',l:'PASS'},info:{c:'#94A3B8',bg:'#94A3B815',l:'INFO'}}[sev]||{c:'#94A3B8',bg:'#94A3B815',l:''})
 const badge = (risk,rc) => <span style={{padding:'6px 16px',background:`${rc}18`,border:`1px solid ${rc}35`,borderRadius:20,fontSize:13,fontWeight:700,color:rc}}>{risk}</span>
 
-// Bright-green CTA overlay applied to the two top-of-funnel actions
-// (New Assessment, Continue Assessment) to make them stand out from
-// the rest of the v3 accent-fill primary buttons. Spread on top of
-// V3.btnPrimary so padding / radius / typography stay consistent
-// with the rest of the button surface. #5BFF7B on black text passes
-// WCAG AA easily at 13px+ font sizes (contrast ~16:1).
-const LIME_CTA = { background: '#5BFF7B', color: '#000' }
-const LIME_CTA_ICON = '#000'
+// Top-of-funnel CTAs (New Assessment / Continue Assessment) use the
+// shared V3.btnPrimary surface — accent-fill cyan, accent-on-fill
+// text — so the primary accent stays single-channel across the app.
+// Semantic colors (red/amber/green) are reserved for severity,
+// confidence, and other meaning-bearing chrome.
+const PRIMARY_CTA_ICON = 'var(--on-accent-fill)'
 
 // ─── Design Tokens ───
 // CSS-variable references defined in index.html. Default is the dark
@@ -1698,7 +1696,7 @@ export default function MobileApp() {
           </div>}
         </div>}
 
-        {rTab==='actions'&&recs&&<div style={{display:'flex',flexDirection:'column',gap:10}}>
+        {rTab==='actions'&&recs&&<div style={{display:'flex',flexDirection:'column',gap:14}}>
           <div style={{fontSize:11,color:DIM,lineHeight:1.5,marginBottom:2}}>Recommendations are tiered by urgency and type. Review and adapt for site-specific conditions before implementation.</div>
           {[{k:'imm',l:'Immediate Actions',s:'Address within 48 hours',c:'#EF4444'},{k:'eng',l:'Engineering Controls',s:'1–4 weeks',c:ACCENT},{k:'adm',l:'Administrative Controls',s:'1–3 months',c:'#FBBF24'},{k:'mon',l:'Ongoing Monitoring',s:'Continuous',c:SUB}].map(cat=>{
             if(!recs[cat.k]?.length)return null
@@ -1709,14 +1707,18 @@ export default function MobileApp() {
             // location header renders once with its actions as bullets
             // (instead of repeating the location label per rule).
             const groups = groupActions(recs[cat.k], knownZones)
-            return(<div key={cat.k} style={{padding:14,background:CARD,border:`1px solid ${BORDER}`,borderRadius:10}}>
+            // Mobile fit-and-finish: 3px left accent stripe in the tier
+            // color so the priority hierarchy reads at a glance when
+            // scrolling. Card padding bumped to 16px and the left edge
+            // gets extra to clear the stripe.
+            return(<div key={cat.k} style={{padding:'16px 16px 16px 18px',background:CARD,border:`1px solid ${BORDER}`,borderLeft:`3px solid ${cat.c}`,borderRadius:10}}>
             {/* ── Canonical two-up: TIER + TIMEFRAME ── */}
-            <div style={{display:'grid',gridTemplateColumns:'1fr auto',gap:12,marginBottom:14,alignItems:'flex-start'}}>
+            <div style={{display:'grid',gridTemplateColumns:'1fr auto',gap:12,marginBottom:16,alignItems:'flex-start'}}>
               <div>
                 <div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Tier</div>
-                <div style={{color:cat.c,fontWeight:600,fontSize:14,lineHeight:1.4}}>{cat.l}</div>
+                <div style={{color:cat.c,fontWeight:700,fontSize:15,lineHeight:1.4,letterSpacing:'-0.1px'}}>{cat.l}</div>
               </div>
-              <div>
+              <div style={{textAlign:'right'}}>
                 <div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Timeframe</div>
                 <div style={{color:SUB,fontWeight:500,fontSize:13,lineHeight:1.4}}>{cat.s}</div>
               </div>
@@ -1726,17 +1728,17 @@ export default function MobileApp() {
               const isEquipment = g.scope === 'equipment'
               const headerColor = isEquipment ? ACCENT : TEXT
               return (
-                <div key={g.key} style={{marginBottom: gi < groups.length - 1 ? 14 : 0}}>
-                  <div style={{color:headerColor,fontWeight:600,fontSize:13,lineHeight:1.4,marginBottom:6,display:'flex',alignItems:'baseline',gap:6}}>
+                <div key={g.key} style={{marginBottom: gi < groups.length - 1 ? 16 : 0}}>
+                  <div style={{color:headerColor,fontWeight:600,fontSize:13,lineHeight:1.4,marginBottom:8,display:'flex',alignItems:'baseline',gap:6}}>
                     <span>{g.label}</span>
                   </div>
                   <ul style={{margin:0,padding:'0 0 0 18px',listStyle:'disc',color:SUB}}>
                     {g.actions.map((a, ai) => (
-                      <li key={ai} style={{color:SUB,fontSize:13,lineHeight:1.6,marginBottom:4}}>{a.text}</li>
+                      <li key={ai} style={{color:SUB,fontSize:13,lineHeight:1.65,marginBottom:6}}>{a.text}</li>
                     ))}
                   </ul>
                   {isEquipment && g.affectedZoneNames && g.affectedZoneNames.length > 0 && (
-                    <div style={{color:DIM,fontSize:11,fontStyle:'italic',marginTop:4,marginLeft:18}}>Affects: {g.affectedZoneNames.join(', ')}</div>
+                    <div style={{color:DIM,fontSize:11,fontStyle:'italic',marginTop:6,marginLeft:18}}>Affects: {g.affectedZoneNames.join(', ')}</div>
                   )}
                 </div>
               )
@@ -2191,10 +2193,10 @@ export default function MobileApp() {
                         already conveyed by the In Progress pill in
                         the header and the body copy below, so the
                         extra pills read as redundant chrome. */}
-                    <div style={{padding:'18px 24px 4px',...V3.T.h2}}>
+                    <div style={{padding:'20px 24px 4px',...V3.T.h2}}>
                       Continue capturing field data to refine the screening assessment
                     </div>
-                    <div style={{padding:'0 24px 18px',...V3.T.bodyDim, maxWidth:640}}>
+                    <div style={{padding:'0 24px 20px',...V3.T.bodyDim, maxWidth:640}}>
                       Severity, confidence, and recommended actions will populate as findings,
                       measurements, and zone observations are entered. Outputs are
                       screening-level — they identify risk indicators, not regulatory
@@ -2212,7 +2214,19 @@ export default function MobileApp() {
                         already appears in the header meta row, and
                         "screening assessment" is the only kind of
                         assessment the product produces. */}
-                    <div style={{padding:'14px 16px 16px',display:'flex',alignItems:'stretch',gap:2,overflowX:'auto',scrollbarWidth:'none'}}>
+                    {/* Inline workflow stepper. The container picks up
+                        the same mobile-fit-and-finish treatment as the
+                        V3.tabRow token (momentum scrolling, scroll-snap,
+                        inline padding) so iOS swipes feel native and
+                        first/last tabs don't hug the card edge. */}
+                    <div style={{
+                      padding:'14px 16px 16px',
+                      display:'flex', alignItems:'stretch', gap:4,
+                      overflowX:'auto', scrollbarWidth:'none',
+                      WebkitOverflowScrolling:'touch',
+                      scrollSnapType:'x proximity',
+                      scrollPaddingInline:16,
+                    }}>
                       {stages.map(s => {
                         const isActive = s.id === activeStage
                         return (
@@ -2229,10 +2243,10 @@ export default function MobileApp() {
                         the facility name above can take the full
                         title width without wrapping around a
                         floating button. */}
-                    <div style={{padding:'0 16px 18px'}}>
-                      <button onClick={()=>resumeDraft(activeDraft.id)} style={{...V3.btnPrimary, display:'flex', width:'100%', ...LIME_CTA}}>
+                    <div style={{padding:'4px 20px 20px'}}>
+                      <button onClick={()=>resumeDraft(activeDraft.id)} style={{...V3.btnPrimary, display:'flex', width:'100%'}}>
                         Continue Assessment
-                        <I n="play" s={13} c={LIME_CTA_ICON} w={1.8} />
+                        <I n="play" s={13} c={PRIMARY_CTA_ICON} w={1.8} />
                       </button>
                     </div>
                   </div>
@@ -2325,8 +2339,8 @@ export default function MobileApp() {
                     assessment with severity, confidence, and recommended actions.
                   </div>
                   <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
-                    <button onClick={startNew} style={{...V3.btnPrimary, ...LIME_CTA}}>
-                      <I n="play" s={14} c={LIME_CTA_ICON} w={2} />
+                    <button onClick={startNew} style={V3.btnPrimary}>
+                      <I n="play" s={14} c={PRIMARY_CTA_ICON} w={2} />
                       Start IAQ Assessment
                     </button>
                     <button onClick={()=>setView('incident-form')} style={V3.btnSecondary}>
@@ -2513,8 +2527,8 @@ export default function MobileApp() {
               <div style={{...V3.T.h1, marginBottom:4}}>Reports</div>
               <div style={V3.T.bodyDim}>Drafts and finalized deliverables · {((index.drafts||[]).length + (index.reports||[]).length)} total</div>
             </div>
-            <button onClick={startNew} style={{...V3.btnPrimary, ...LIME_CTA}}>
-              <I n="play" s={13} c={LIME_CTA_ICON} w={2} />
+            <button onClick={startNew} style={V3.btnPrimary}>
+              <I n="play" s={13} c={PRIMARY_CTA_ICON} w={2} />
               New Assessment
             </button>
           </div>
