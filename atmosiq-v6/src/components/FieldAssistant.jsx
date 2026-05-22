@@ -243,7 +243,109 @@ function readIntroFlag() {
   try { return window.localStorage.getItem(INTRO_FLAG_KEY) !== null } catch { return true }
 }
 
-export default function FieldAssistant({ onClose, context, onNavigate, initialMessage }) {
+/**
+ * Inline agentic-action card. Rendered in the chat when Jasper
+ * has called the propose_action tool. Three visual states:
+ *   - pending:  "Add note to Zone A1" + [Reject] [Apply] buttons
+ *   - accepted: muted "✓ Applied"
+ *   - rejected: muted "× Rejected"
+ *
+ * The parent passes onAccept / onReject — the actual application
+ * of the action (setView / append note) lives in MobileApp via
+ * the onAction prop, not here.
+ */
+function ActionCard({ action, summary, status, onAccept, onReject }) {
+  const isPending = status === 'pending'
+  const isAccepted = status === 'accepted'
+  const glyph =
+    action?.type === 'navigate'
+      ? 'M9 18l6-6-6-6' // chevron-right
+      : 'M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7 M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z' // pencil-square
+  return (
+    <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 12 }}>
+      <div style={{
+        maxWidth: '90%',
+        padding: '12px 14px',
+        borderRadius: 14,
+        background: isAccepted ? mix('accent', 6) : SURFACE,
+        border: isPending
+          ? `1px solid color-mix(in srgb, var(--accent) 36%, transparent)`
+          : `1px solid ${BORDER}`,
+        opacity: status === 'rejected' ? 0.6 : 1,
+        transition: 'background 0.15s, border-color 0.15s, opacity 0.15s',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: isPending ? 10 : 0 }}>
+          <span style={{
+            width: 28, height: 28, borderRadius: 8,
+            background: isAccepted
+              ? 'var(--accent-fill)'
+              : 'color-mix(in srgb, var(--accent) 12%, transparent)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0,
+          }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+              stroke={isAccepted ? 'var(--on-accent-fill)' : 'var(--accent)'}
+              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              {isAccepted ? <polyline points="20 6 9 17 4 12" /> : <path d={glyph} />}
+            </svg>
+          </span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{
+              fontSize: 10, color: 'var(--accent)', fontWeight: 700,
+              letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 2,
+            }}>
+              {isAccepted ? 'Applied' : status === 'rejected' ? 'Rejected' : 'Proposed action'}
+            </div>
+            <div style={{ fontSize: 14, color: TEXT, lineHeight: 1.4, fontWeight: 600 }}>
+              {summary || (action?.type === 'navigate' ? 'Open a screen' : 'Add a note')}
+            </div>
+            {action?.type === 'add_zone_note' && action.note_text && (
+              <div style={{
+                fontSize: 12, color: SUB, lineHeight: 1.5, marginTop: 6,
+                padding: '8px 10px', background: CARD, border: `1px solid ${BORDER}`,
+                borderRadius: 8, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+              }}>
+                {action.note_text}
+              </div>
+            )}
+          </div>
+        </div>
+        {isPending && (
+          <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+            <button
+              type="button"
+              onClick={onReject}
+              style={{
+                flex: 1, padding: '8px 12px',
+                background: 'transparent', border: `1px solid ${BORDER}`,
+                borderRadius: 8, color: SUB,
+                fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                fontFamily: 'inherit', minHeight: 36,
+                WebkitTapHighlightColor: 'transparent',
+              }}>
+              Reject
+            </button>
+            <button
+              type="button"
+              onClick={onAccept}
+              style={{
+                flex: 1, padding: '8px 12px',
+                background: 'var(--accent-fill)', border: 'none',
+                borderRadius: 8, color: 'var(--on-accent-fill)',
+                fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                fontFamily: 'inherit', minHeight: 36, letterSpacing: '-0.1px',
+                WebkitTapHighlightColor: 'transparent',
+              }}>
+              Apply
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export default function FieldAssistant({ onClose, context, onNavigate, initialMessage, onAction }) {
   const {
     messages,
     sending,
@@ -252,6 +354,7 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
     attachedPhotos,
     conversationId,
     activeTool,
+    proposedActions,
     sendMessage,
     stop,
     attachPhoto,
@@ -259,6 +362,8 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
     listConversations,
     loadConversation,
     newConversation,
+    markActionAccepted,
+    markActionRejected,
   } = useFieldAssistant()
   const [input, setInput] = useState('')
   // History panel state. `historyOpen` toggles the panel overlay
@@ -618,6 +723,30 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
 
           {messages.map((m) => (
             <MessageBubble key={m.id} role={m.role} content={m.content} photos={m.photos} />
+          ))}
+
+          {/* Proposed action cards — rendered AFTER the message
+              loop so they always appear at the bottom of the
+              transcript next to Jasper's follow-up text. The
+              parent (MobileApp) supplies onAction; success/
+              failure marks the card via the hook callbacks. */}
+          {proposedActions.map((p) => (
+            <ActionCard
+              key={p.id}
+              action={p.action}
+              summary={p.summary}
+              status={p.status}
+              onAccept={() => {
+                const ok = onAction?.(p.action)
+                // onAction may return false to veto (e.g. nav target
+                // not reachable from the current view). In that
+                // case mark as rejected so the user sees a clean
+                // outcome rather than a perpetual Apply button.
+                if (ok === false) markActionRejected(p.id)
+                else markActionAccepted(p.id)
+              }}
+              onReject={() => markActionRejected(p.id)}
+            />
           ))}
 
           {showThinking && <ToolStatus tool={activeTool} />}

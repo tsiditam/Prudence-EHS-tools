@@ -141,6 +141,49 @@ export const FIELD_ASSISTANT_TOOLS = [
       required: ['photo_id'],
     },
   },
+  {
+    name: 'propose_action',
+    description:
+      "Propose a user-confirmable action to the assessor. Use this whenever the user asks Jasper to DO something in the app — navigate to a screen, add a note to a zone, or otherwise mutate app state — rather than just asking a question. The tool does NOT execute the action server-side: it returns a structured proposal that the client renders as an inline action card with Accept / Reject buttons. The user retains final control. Examples that should trigger this tool: \"take me to the actions tab\", \"open settings\", \"show me the results\", \"add a note to this zone that the HVAC was running loud\", \"jot down that the carpet smelled musty\". For pure information questions (\"what does ASHRAE 62.1 say about CO₂?\") DO NOT use this tool — answer with text. After calling this tool, follow up with a short one-line acknowledgement ('I've drafted that — tap Accept to apply.'). NEVER invent measurements, occupant counts, severity ratings, or scores; this tool only carries the literal user request.",
+    input_schema: {
+      type: 'object',
+      properties: {
+        action_type: {
+          type: 'string',
+          enum: ['navigate', 'add_zone_note'],
+          description:
+            'Which action to propose. "navigate" routes to a screen via setView. "add_zone_note" appends free-text to the current zone\'s notes field.',
+        },
+        target: {
+          type: 'string',
+          description:
+            'For action_type=navigate: the target view. One of "dash" (home), "history" (reports), "settings", "search", "trash", "incident-log", "results" (current assessment results). If the user names a tab inside the results view (findings / pathways / sampling / narrative / actions), use action_type=navigate with target="results" and put the inner tab in tab_target.',
+        },
+        tab_target: {
+          type: 'string',
+          enum: ['overview', 'findings', 'pathways', 'sampling', 'narrative', 'actions'],
+          description:
+            'Optional inner tab when target=results. Routes setRTab on the client.',
+        },
+        note_text: {
+          type: 'string',
+          description:
+            'For action_type=add_zone_note: the literal text to add to the zone\'s notes field. Use the user\'s words verbatim where possible; do not paraphrase or expand.',
+        },
+        zone_label: {
+          type: 'string',
+          description:
+            'Optional human-readable zone label for the action card. If not supplied, the client uses the current zone from context.',
+        },
+        summary: {
+          type: 'string',
+          description:
+            'One-line summary the client shows on the action card ("Add note to Zone A1", "Open Reports", etc.). Always provide this so the user knows what they\'re accepting.',
+        },
+      },
+      required: ['action_type', 'summary'],
+    },
+  },
 ]
 
 // ── Vision tool internals ───────────────────────────────────────────
@@ -462,6 +505,69 @@ export async function dispatchTool(name, input, ctx = {}) {
         }
       }
       return await analyzePhoto(photo, focus, ctx)
+    }
+
+    if (name === 'propose_action') {
+      // Agentic action proposal. The tool intentionally does NOT
+      // execute the action server-side — it returns a structured
+      // payload that the client renders as an inline action card
+      // with Accept / Reject buttons. The user retains the final
+      // word over any state mutation. The API layer side-channels
+      // the same payload to the client via a `proposed_action`
+      // SSE event (see api/field-assistant.ts) so the chat UI
+      // can render the card while the agent finishes its turn.
+      const allowed = new Set(['navigate', 'add_zone_note'])
+      const actionType = input && typeof input.action_type === 'string' ? input.action_type : ''
+      if (!allowed.has(actionType)) {
+        return {
+          status: 'rejected',
+          reason: 'unsupported_action_type',
+          message: `Unsupported action_type "${actionType}". Supported: ${[...allowed].join(', ')}.`,
+        }
+      }
+      const allowedTargets = new Set(['dash', 'history', 'settings', 'search', 'trash', 'incident-log', 'results'])
+      const allowedTabs = new Set(['overview', 'findings', 'pathways', 'sampling', 'narrative', 'actions'])
+      const action = { type: actionType }
+      if (actionType === 'navigate') {
+        const target = input && typeof input.target === 'string' ? input.target : ''
+        if (!allowedTargets.has(target)) {
+          return {
+            status: 'rejected',
+            reason: 'unsupported_target',
+            message: `Unsupported navigation target "${target}". Supported: ${[...allowedTargets].join(', ')}.`,
+          }
+        }
+        action.target = target
+        if (input.tab_target && allowedTabs.has(input.tab_target)) {
+          action.tab_target = input.tab_target
+        }
+      } else if (actionType === 'add_zone_note') {
+        const noteText = input && typeof input.note_text === 'string' ? input.note_text : ''
+        if (!noteText.trim()) {
+          return {
+            status: 'rejected',
+            reason: 'empty_note',
+            message: 'note_text is required and cannot be empty.',
+          }
+        }
+        action.note_text = noteText.slice(0, 1000)
+        if (typeof input.zone_label === 'string' && input.zone_label.trim()) {
+          action.zone_label = input.zone_label.slice(0, 200)
+        }
+      }
+      const summary = input && typeof input.summary === 'string' && input.summary.trim()
+        ? input.summary.slice(0, 200)
+        : `Proposed ${actionType}`
+      return {
+        status: 'proposed',
+        action,
+        summary,
+        // Echoed back to the model so it can reference the
+        // proposal in its follow-up text. The model should NOT
+        // assume the action has been applied — it should tell the
+        // user to tap Accept.
+        message: 'Action proposed. The user will see an Accept / Reject card and decide.',
+      }
     }
 
     return {
