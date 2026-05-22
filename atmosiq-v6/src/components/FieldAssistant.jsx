@@ -175,7 +175,7 @@ function readIntroFlag() {
   try { return window.localStorage.getItem(INTRO_FLAG_KEY) !== null } catch { return true }
 }
 
-export default function FieldAssistant({ onClose, context, onNavigate }) {
+export default function FieldAssistant({ onClose, context, onNavigate, initialMessage }) {
   const {
     messages,
     sending,
@@ -246,6 +246,30 @@ export default function FieldAssistant({ onClose, context, onNavigate }) {
     const next = Math.min(el.scrollHeight, 200)
     el.style.height = next + 'px'
   }, [input])
+
+  // Initial-message auto-send. When the sheet is opened by the
+  // voice-command modal with a transcribed question, we don't want
+  // the user to have to tap Send — speak → done. Fires once on
+  // mount when initialMessage is set and the intro gate is already
+  // accepted. If the user has never seen the intro, we surface it
+  // first and the initial message becomes the input value so they
+  // can review + send after accepting.
+  const initialMessageRef = useRef(null)
+  useEffect(() => {
+    if (!initialMessage || initialMessageRef.current === initialMessage) return
+    initialMessageRef.current = initialMessage
+    if (!introAccepted) {
+      // Intro not yet accepted — drop it into the input so the
+      // user can review it after tapping Start Chatting.
+      setInput(initialMessage)
+      return
+    }
+    // Already accepted — auto-send. sendMessage handles its own
+    // disabled-while-sending guard, so a stray double-trigger
+    // won't double-send.
+    sendMessage(initialMessage, context)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialMessage, introAccepted])
 
   useEffect(() => {
     inputRef.current?.focus()
