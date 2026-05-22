@@ -42,6 +42,7 @@
         --bg:#07080C;
         --surface:#0D0E14;
         --card:#111318;
+        --raised:#161922;
         --border:#1C1E26;
         --accent:#22D3EE;
         --accent-dim:#1A8FA0;
@@ -73,6 +74,12 @@
         --bg:#FFFFFF;
         --surface:#FFFFFF;
         --card:#FFFFFF;
+        /* Light-mode raised surface for "selected" / "focused" rows.
+           Dark mode lifts to a slightly lighter navy than --card; in
+           light mode we need a subtle off-white that reads as
+           selected against pure-white cards without becoming a black
+           bar (the previous bug — RAISED was hardcoded #161922). */
+        --raised:#F1F5F9;
         --border:#B6E0E8;
         --accent:#22D3EE;
         --accent-dim:#155E75;

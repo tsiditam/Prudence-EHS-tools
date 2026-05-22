@@ -64,7 +64,12 @@ export const FONT_MOBILE = FONT_SYSTEM
 export const BG_BASE = 'var(--bg)'
 export const SURFACE = 'var(--surface)'
 export const CARD = 'var(--card)'
-export const RAISED = '#161922'
+// Theme-aware. Dark = #161922 (a half-step lighter than --card);
+// light = #F1F5F9 (slate-100, reads as subtly selected against
+// pure-white --card). Defined as CSS variables in index.html so
+// the focused-row / sidebar-active highlight flips with the theme
+// instead of rendering as a black bar in light mode.
+export const RAISED = 'var(--raised)'
 
 // Border ladder. Neutral, not cyan-tinted — cyan is reserved for
 // semantic emphasis (active states, key links). Subtle is for
