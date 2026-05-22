@@ -36,6 +36,7 @@ import TimePickerInput from './TimePickerInput'
 import Co2OaCalculator from './Co2OaCalculator'
 import VoiceInputButton, { appendWithSpace } from './VoiceInputButton'
 import InlineAiButton from './InlineAiButton'
+import BleSensorButton from './BleSensorButton'
 import ProfileScreen, { IAQ_OPTS, PID_OPTS, CAL_OPTS, PID_CAL_OPTS } from './ProfileScreen'
 import AuthScreen from './AuthScreen'
 import { TermsOfService, PrivacyPolicy } from './LegalScreens'
@@ -917,7 +918,36 @@ export default function MobileApp() {
           {!q.ref&&<div style={{height:16}} />}
 
           {q.t==='text'&&<input type="text" autoComplete={q.ac||'off'} value={data[q.id]||''} onChange={e=>setField(q.id,e.target.value)} placeholder={q.ph||'Type...'} autoFocus onKeyDown={e=>{if(e.key==='Enter'&&data[q.id])goNext()}} style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:17,fontFamily:'inherit',fontWeight:500,outline:'none',boxSizing:'border-box'}} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />}
-          {q.t==='num'&&<div><div style={{position:'relative'}}><input type="number" inputMode="decimal" value={data[q.id]||''} onChange={e=>setField(q.id,e.target.value)} placeholder={q.ph||'Enter...'} autoFocus onKeyDown={e=>{if(e.key==='Enter'&&data[q.id])goNext()}} style={{width:'100%',padding:'18px 20px',paddingRight:q.u?70:20,background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:17,fontFamily:'inherit',fontWeight:500,outline:'none',boxSizing:'border-box'}} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />{q.u&&<span style={{position:'absolute',right:18,top:'50%',transform:'translateY(-50%)',color:DIM,fontSize:14,fontFamily:"var(--font-mono)"}}>{q.u}</span>}</div>{q.helper==='co2_mass_balance'&&<Co2OaCalculator co2={data.co2} co2o={data.co2o} onApply={v=>setField(q.id,v)} onCo2Change={v=>setField('co2',v)} onCo2oChange={v=>setField('co2o',v)} />}</div>}
+          {q.t==='num'&&(() => {
+            // Map wizard field id → canonical BLE metric. Only the
+            // CO2 fields wire to BLE in this PR; adding RH / temp /
+            // pressure is a one-liner per field once their drivers
+            // are tested on hardware.
+            const bleMetric = (q.id === 'co2' || q.id === 'co2o') ? 'co2_ppm' : null
+            return (
+              <div>
+                <div style={{display:'flex',alignItems:'stretch',gap:8}}>
+                  <div style={{position:'relative',flex:1,minWidth:0}}>
+                    <input type="number" inputMode="decimal" value={data[q.id]||''} onChange={e=>setField(q.id,e.target.value)} placeholder={q.ph||'Enter...'} autoFocus onKeyDown={e=>{if(e.key==='Enter'&&data[q.id])goNext()}} style={{width:'100%',padding:'18px 20px',paddingRight:q.u?70:20,background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:17,fontFamily:'inherit',fontWeight:500,outline:'none',boxSizing:'border-box'}} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />
+                    {q.u&&<span style={{position:'absolute',right:18,top:'50%',transform:'translateY(-50%)',color:DIM,fontSize:14,fontFamily:"var(--font-mono)"}}>{q.u}</span>}
+                  </div>
+                  {/* BLE sensor pair button — sits to the right of
+                      the input as a sibling so it doesn't fight with
+                      the existing unit badge for the input's
+                      right-padding. */}
+                  {bleMetric && (
+                    <BleSensorButton
+                      metric={bleMetric}
+                      size={56}
+                      ariaLabel={`Pair Bluetooth sensor for ${q.id === 'co2o' ? 'outdoor CO₂' : 'CO₂'}`}
+                      onInsert={(value) => setField(q.id, String(value))}
+                    />
+                  )}
+                </div>
+                {q.helper==='co2_mass_balance'&&<Co2OaCalculator co2={data.co2} co2o={data.co2o} onApply={v=>setField(q.id,v)} onCo2Change={v=>setField('co2',v)} onCo2oChange={v=>setField('co2o',v)} />}
+              </div>
+            )
+          })()}
           {q.t==='date'&&<input type="date" value={data[q.id]||''} onChange={e=>setField(q.id,e.target.value)} style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:17,fontFamily:'inherit',outline:'none',boxSizing:'border-box',colorScheme:'dark'}} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />}
           {q.t==='time'&&<TimePickerInput value={data[q.id]||''} onChange={v=>setField(q.id,v)} placeholder={q.ph||'Select time…'} />}
           {/* Free-text wizard input ('ta' question type). Wrapped in
