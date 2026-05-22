@@ -17,6 +17,7 @@ import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent, cleanup, act } from '@testing-library/react'
 
 import VoiceCommandModal from '../../src/components/VoiceCommandModal'
+import { __test as networkTest } from '../../src/hooks/useNetworkStatus'
 
 afterEach(() => {
   cleanup()
@@ -66,6 +67,7 @@ beforeEach(() => {
   FakeSpeechRecognition.instances = []
   ;(window as unknown as { SpeechRecognition?: typeof FakeSpeechRecognition }).SpeechRecognition = FakeSpeechRecognition
   delete (window as unknown as { webkitSpeechRecognition?: unknown }).webkitSpeechRecognition
+  networkTest.reset()
 })
 
 describe('<VoiceCommandModal>', () => {
@@ -184,5 +186,14 @@ describe('<VoiceCommandModal>', () => {
     fireEvent.click(screen.getByRole('button', { name: /send to jasper/i }))
     await act(async () => { await vi.advanceTimersByTimeAsync(2500) })
     expect(onSubmit).toHaveBeenCalledTimes(1)
+  })
+
+  it('does NOT start the recognizer when offline; shows the offline message', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    networkTest.setOnline(false)
+    render(<VoiceCommandModal open onCancel={() => {}} onSubmit={() => {}} />)
+    await act(async () => { await vi.advanceTimersByTimeAsync(100) })
+    expect(FakeSpeechRecognition.instances).toHaveLength(0)
+    expect(screen.getByText(/voice commands need network/i)).toBeTruthy()
   })
 })

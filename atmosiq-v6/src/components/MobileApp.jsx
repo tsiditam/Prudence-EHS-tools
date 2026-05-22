@@ -72,6 +72,7 @@ import FieldAssistant from './FieldAssistant'
 import VoiceCommandModal from './VoiceCommandModal'
 import JasperRobotIcon from './JasperRobotIcon'
 import PendingSyncIndicator from './PendingSyncIndicator'
+import OfflineBanner from './OfflineBanner'
 import JasperWatchPanel from './JasperWatchPanel'
 import ReadinessPanel from './ReadinessPanel'
 import { buildReadinessVerdict } from '../engines/readiness-verdict'
@@ -1814,6 +1815,12 @@ export default function MobileApp() {
 
   return (
     <div style={{minHeight:'100vh',background:BG,color:TEXT,fontFamily:"'inherit', system-ui, sans-serif"}}>
+      {/* Global offline banner — sits above the header so the
+          offline state is impossible to miss. PendingSyncIndicator
+          below stays as the source-of-truth for queue depth + last
+          sync time; this banner is the binary "are we connected"
+          signal. */}
+      <OfflineBanner />
       <header style={{position:'fixed',top:0,left:0,right:0,zIndex:100,background:`${mix('bg', 95)}`,backdropFilter:'blur(24px) saturate(1.4)',WebkitBackdropFilter:'blur(24px) saturate(1.4)',borderBottom:`1px solid ${BORDER}`,paddingTop:'env(safe-area-inset-top, 0px)'}}>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',height:48,padding:`0 ${padX}px`,maxWidth:contentMax,margin:'0 auto'}}>
           {/* Left cluster — hamburger menu (with its dropdown). The

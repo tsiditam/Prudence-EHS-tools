@@ -33,6 +33,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useVoiceTranscription, isVoiceTranscriptionSupported } from '../hooks/useVoiceTranscription'
+import { useNetworkStatus } from '../hooks/useNetworkStatus'
 
 const SILENCE_AUTOSUBMIT_MS = 2200
 
@@ -45,6 +46,12 @@ export default function VoiceCommandModal({ open, onCancel, onSubmit }) {
   const submittedRef = useRef(false)
 
   const supported = isVoiceTranscriptionSupported()
+  // Voice command routes to Jasper, which requires network. The
+  // Web Speech API itself uses cloud STT on most browsers too, so
+  // there's no useful offline path. Detect offline early and show
+  // a clear gating state instead of opening the mic only to have
+  // the Jasper send fail.
+  const { online } = useNetworkStatus()
 
   const { listening, interim, error, start, stop, abort } = useVoiceTranscription({
     continuous: true,
@@ -63,8 +70,11 @@ export default function VoiceCommandModal({ open, onCancel, onSubmit }) {
     setSilenceArmed(false)
     // Defer start a tick so the modal is fully mounted before the
     // browser permission prompt fires (matters on iOS where the
-    // prompt can briefly steal focus from the modal).
-    const t = setTimeout(() => { if (supported) start() }, 50)
+    // prompt can briefly steal focus from the modal). Skip starting
+    // entirely when offline — the Web Speech API uses cloud STT on
+    // most browsers, and the downstream Jasper send needs network
+    // anyway. The error state below surfaces the offline gate.
+    const t = setTimeout(() => { if (supported && online) start() }, 50)
     return () => {
       clearTimeout(t)
       abort()
@@ -127,7 +137,7 @@ export default function VoiceCommandModal({ open, onCancel, onSubmit }) {
   // color, interim suffix in DIM italic so they read the "not yet
   // committed" boundary.
   const hasText = (finalText.trim() + interim.trim()).length > 0
-  const showError = !supported || (error && error !== 'no-speech')
+  const showError = !supported || !online || (error && error !== 'no-speech')
 
   return (
     <div
@@ -227,11 +237,13 @@ export default function VoiceCommandModal({ open, onCancel, onSubmit }) {
         textAlign: 'center', maxWidth: 480,
       }}>
         {showError ? (
-          !supported
-            ? 'Voice commands are not supported in this browser.'
-            : error === 'not-allowed'
-              ? 'Microphone permission denied. Enable it in browser settings.'
-              : 'Voice input failed — try again.'
+          !online
+            ? 'Voice commands need network. Reconnect to ask Jasper.'
+            : !supported
+              ? 'Voice commands are not supported in this browser.'
+              : error === 'not-allowed'
+                ? 'Microphone permission denied. Enable it in browser settings.'
+                : 'Voice input failed — try again.'
         ) : listening ? (
           hasText ? 'Pause when done — I\'ll send to Jasper automatically.' : 'Listening… speak your question.'
         ) : 'Tap the mic to retry.'}
