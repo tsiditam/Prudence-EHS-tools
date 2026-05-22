@@ -13,6 +13,7 @@ import { VER } from '../constants/standards'
 import { getSubscriptionRowSubtitle } from '../utils/subscriptionState'
 import { useTheme, mix } from '../utils/theme'
 import { I } from './Icons'
+import ProfileAvatar from './ProfileAvatar'
 import * as V3 from '../styles/tokens'
 
 // Theme tokens. These are CSS-variable references defined in
@@ -152,13 +153,15 @@ export default function SettingsScreen({ profile, onEditProfile, onLogout, onClo
         <div style={V3.T.bodyDim}>Account, instruments, data, and preferences</div>
       </div>
 
-      {/* ── Account ── */}
+      {/* ── Account ── Circular ProfileAvatar replaces the previous
+          square accent-tinted user icon. Reads as the assessor's
+          identity row at the top of Settings — photo when set,
+          initials fallback otherwise. Tapping the row still opens
+          the profile editor (where the avatar can be changed). */}
       <Group title="Account">
         {profile && (
-          <button onClick={onEditProfile} style={{width:'100%',padding:'16px',background:'transparent',border:'none',cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit',minHeight:64}}>
-            <div style={{width:42,height:42,borderRadius:10,background:mix('accent', 6),border:`1px solid ${mix('accent', 9)}`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-              <I n="user" s={18} c={ACCENT} />
-            </div>
+          <button onClick={onEditProfile} style={{width:'100%',padding:'16px',background:'transparent',border:'none',cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,fontFamily:'inherit',minHeight:72}}>
+            <ProfileAvatar profile={profile} size={52} />
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:15,fontWeight:700,color:TEXT,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{profile.name || 'Assessor'}</div>
               <div style={{fontSize:11,color:DIM,fontFamily:"var(--font-mono)",marginTop:2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{(profile.certs||[]).slice(0,3).join(' · ') || 'No certifications on file'}</div>
