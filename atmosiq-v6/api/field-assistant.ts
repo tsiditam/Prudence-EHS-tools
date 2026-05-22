@@ -293,6 +293,22 @@ function writeSse(res: VercelLikeResponse, event: string, data: unknown): void {
   res.write(`data: ${JSON.stringify(data)}\n\n`)
 }
 
+/**
+ * Slim down tool input for the tool_start SSE event so the UI can
+ * show a specific status line ("Searching for: CO₂ thresholds")
+ * without us shipping photo blobs or huge JSON payloads through
+ * the stream. Returns only short string / number / boolean fields.
+ */
+function safeInputPreview(input: Record<string, unknown> | undefined): Record<string, string | number | boolean> {
+  if (!input || typeof input !== 'object') return {}
+  const out: Record<string, string | number | boolean> = {}
+  for (const [k, v] of Object.entries(input)) {
+    if (typeof v === 'string' && v.length <= 200) out[k] = v
+    else if (typeof v === 'number' || typeof v === 'boolean') out[k] = v
+  }
+  return out
+}
+
 interface ToolUseBlock {
   id: string
   name: string
@@ -500,9 +516,25 @@ async function runAgentLoop(
     const toolResults: Array<{ type: 'tool_result'; tool_use_id: string; content: string }> = []
     for (const block of turn.contentBlocks) {
       if (block.type !== 'tool_use') continue
+      // Emit a tool_start event BEFORE awaiting the tool so the UI
+      // can render "Searching ASHRAE 62.1…" / "Analyzing photo…"
+      // while the dispatcher is still running. Without this the
+      // tool_call event only arrives after the tool finishes, and
+      // the user just sees a blank thinking indicator while it
+      // works. Paired with the existing tool_call (completion)
+      // event below.
+      writeSse(res, 'tool_start', {
+        id: block.id,
+        name: block.name,
+        // Echo a small, JSON-safe subset of inputs so the UI can
+        // be more specific ("Searching for: CO2 thresholds") if it
+        // wants to. We avoid echoing photos or large blobs.
+        input: safeInputPreview(block.input),
+      })
       const result = await dispatchTool(block.name, block.input, toolCtx)
       toolCalls.push({ name: block.name, input: block.input, resultStatus: (result && (result as any).status) || 'unknown' })
       writeSse(res, 'tool_call', {
+        id: block.id,
         name: block.name,
         status: (result && (result as any).status) || 'unknown',
       })
