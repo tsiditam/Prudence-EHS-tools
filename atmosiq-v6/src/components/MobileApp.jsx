@@ -1980,13 +1980,38 @@ export default function MobileApp() {
               const closeMenu = () => { setShowHomeMenu(false); setHomeMenuMode('main') }
               return (
                 <>
-                  {/* Transparent backdrop catches outside clicks. */}
-                  <div onClick={closeMenu} style={{position:'fixed',inset:0,zIndex:90,background:'transparent'}} />
-                  {/* Anchored to the LEFT cluster now (left:0 instead
-                      of right:0) so the popover opens down-left from
-                      the hamburger and doesn't overflow the right
-                      edge of the screen. */}
-                  <div role="menu" style={{position:'absolute',top:'calc(100% + 8px)',left:0,minWidth:240,background:CARD,border:`1px solid ${BORDER}`,borderRadius:14,padding:6,zIndex:100,boxShadow:'0 12px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.02) inset',animation:'fadeUp .15s ease'}}>
+                  {/* Full-viewport backdrop catches outside taps. zIndex
+                      sits ABOVE all page content (floating CTA at 90,
+                      bottom nav at 100, header surface) and just BELOW
+                      the menu itself (210) so any tap that's not on
+                      the menu dismisses it. The faint backdrop blur
+                      gives the menu the same liquid-glass treatment
+                      as the rest of the v3.3 surface — the page
+                      behind it softens slightly when the menu opens. */}
+                  <div
+                    onClick={closeMenu}
+                    onPointerDown={closeMenu}
+                    style={{
+                      position:'fixed', inset:0, zIndex:200,
+                      background:'rgba(0,0,0,0.18)',
+                      backdropFilter:'blur(4px)',
+                      WebkitBackdropFilter:'blur(4px)',
+                    }} />
+                  {/* Anchored to the LEFT cluster (left:0) so the popover
+                      opens down-left from the hamburger. Soft-glass
+                      treatment matches the result hero / Home cards
+                      vocabulary. */}
+                  <div role="menu" style={{
+                    position:'absolute', top:'calc(100% + 8px)', left:0,
+                    minWidth:240, zIndex:210, padding:6,
+                    ...GLASS.elevated,
+                    borderRadius: RADII.card,
+                    boxShadow:
+                      'inset 0 1px 0 rgba(255,255,255,0.06), ' +
+                      '0 12px 32px rgba(0,0,0,0.55), ' +
+                      '0 2px 6px rgba(0,0,0,0.30)',
+                    animation:'fadeUp .15s ease',
+                  }}>
                     {homeMenuMode === 'demos' && (
                       // Submenu header — back button to return to the
                       // main menu without closing the popover.
@@ -2141,7 +2166,35 @@ export default function MobileApp() {
 
       {milestone&&<div style={{position:'fixed',inset:0,background:`${mix('bg', 94)}`,zIndex:300,display:'flex',alignItems:'center',justifyContent:'center',padding:'0 32px'}}><div style={{textAlign:'center',animation:'milestoneIn .5s cubic-bezier(.22,1,.36,1)'}}><div style={{marginBottom:20,display:'flex',justifyContent:'center'}}><div style={{width:80,height:80,borderRadius:22,background:`${mix('accent', 7)}`,border:`1.5px solid ${mix('accent', 19)}`,display:'flex',alignItems:'center',justifyContent:'center'}}><I n={milestone.icon} s={40} c={ACCENT} w={2} /></div></div><div style={{fontSize:26,fontWeight:800,letterSpacing:'-0.5px',color:TEXT}}>{milestone.title}</div><div style={{fontSize:15,color:ACCENT,fontFamily:"var(--font-mono)",marginTop:10}}>{milestone.sub}</div></div></div>}
 
-      {zonePrompt&&<div style={{position:'fixed',inset:0,background:'#000000CC',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',padding:24}}><div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:18,padding:28,maxWidth:340,width:'100%',animation:'fadeUp .3s ease'}}><div style={{fontSize:18,fontWeight:700,marginBottom:8,color:TEXT}}>Zone Complete</div><div style={{fontSize:14,color:SUB,marginBottom:24,lineHeight:1.6}}>Add another zone to this assessment?</div><div style={{display:'flex',flexDirection:'column',gap:10}}><button onClick={()=>{trackEvent('zone_added',{zone_index:zones.length});setZonePrompt(false);setZones(p=>[...p,{}]);setCurZone(zones.length);setZqi(0)}} style={{padding:'16px 0',background:`${mix('accent', 7)}`,border:`1px solid ${mix('accent', 19)}`,borderRadius:12,color:ACCENT,fontSize:16,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:52}}>+ Add Another Zone</button><button onClick={()=>{setZonePrompt(false);finishAssessment()}} style={{padding:'16px 0',background:'linear-gradient(135deg,#059669,#22C55E)',border:'none',borderRadius:12,color:'#fff',fontSize:16,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:52}}>Finish Assessment ✓</button></div></div></div>}
+      {/* Zone Complete bottom sheet — appears after the last question
+          in a zone. Soft-glass; the existing finishAssessment() call
+          is the "tap outside to dismiss" semantic equivalent (closes
+          the sheet without finalizing), so onClose just sets the
+          prompt state back to false without finishing. */}
+      {zonePrompt && (
+        <BottomSheet title="Zone complete" onClose={()=>setZonePrompt(false)} ariaLabel="Zone complete — add another or finish">
+          <div style={{...V3.T.bodyDim, margin:'4px 0 18px'}}>Add another zone to this assessment, or wrap up and review findings?</div>
+          <div style={{display:'flex',flexDirection:'column',gap:10}}>
+            <TactileButton
+              variant="secondary"
+              fullWidth
+              onClick={()=>{trackEvent('zone_added',{zone_index:zones.length});setZonePrompt(false);setZones(p=>[...p,{}]);setCurZone(zones.length);setZqi(0)}}
+              icon={<I n="bldg" s={16} c="var(--accent)" w={1.8} />}
+            >
+              Add another zone
+            </TactileButton>
+            <TactileButton
+              variant="primary"
+              fullWidth
+              haptic="success"
+              onClick={()=>{setZonePrompt(false);finishAssessment()}}
+              iconRight={<I n="check" s={16} c={PRIMARY_CTA_ICON} w={2.2} />}
+            >
+              Finish walkthrough
+            </TactileButton>
+          </div>
+        </BottomSheet>
+      )}
 
       {/* Persistent badge that surfaces the offline sync queue. Renders
           nothing when the queue is empty and no recent error — sits to
@@ -2157,44 +2210,47 @@ export default function MobileApp() {
         </div>
       )}
 
-      {/* ── Pre-Assessment Disclaimer ── */}
-      {showDisclaimer&&<div style={{position:'fixed',inset:0,background:'#000000DD',zIndex:250,display:'flex',alignItems:'center',justifyContent:'center',padding:20}} onClick={e=>{if(e.target===e.currentTarget)setShowDisclaimer(false)}}>
-        <div style={{width:'100%',maxWidth:420,background:CARD,border:`1px solid ${BORDER}`,borderRadius:14,padding:'24px 20px',animation:'fadeUp .3s ease',maxHeight:'85vh',overflowY:'auto'}}>
-          <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16}}>
-            <I n="shield" s={20} c={ACCENT} w={1.6} />
-            <div style={{fontSize:16,fontWeight:700,color:TEXT}}>Before You Begin</div>
+      {/* ── Pre-assessment disclaimer — bottom sheet ──
+          Four advisory panels rendered as in-sheet soft-glass cards
+          so the disclaimers feel like read-and-acknowledge items
+          rather than dense legal-form text. Tap outside dismisses
+          (the user is not committing yet); the explicit primary
+          button is the consent action. */}
+      {showDisclaimer && (
+        <BottomSheet
+          title="Before you begin"
+          onClose={()=>setShowDisclaimer(false)}
+          maxWidth={460}
+          ariaLabel="Pre-assessment disclaimer"
+        >
+          <div style={{display:'flex',alignItems:'center',gap:10,margin:'4px 0 14px'}}>
+            <I n="shield" s={18} c={ACCENT} w={1.6} />
+            <div style={V3.T.captionDim}>Acknowledge before starting</div>
           </div>
-
-          <div style={{display:'flex',flexDirection:'column',gap:12,fontSize:12,color:SUB,lineHeight:1.7}}>
-            <div style={{padding:'12px 14px',background:SURFACE,borderRadius:8,border:`1px solid ${BORDER}`}}>
-              <div style={{fontSize:10,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:6}}>Advisory Use Only</div>
-              <div>All outputs generated by AtmosFlow are advisory and intended to support — not replace — professional judgment by a qualified industrial hygienist or EHS professional.</div>
-            </div>
-
-            <div style={{padding:'12px 14px',background:SURFACE,borderRadius:8,border:`1px solid ${BORDER}`}}>
-              <div style={{fontSize:10,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:6}}>Scoring Methodology</div>
-              <div>Scoring applies deterministic rules informed by recognized ventilation, comfort, and exposure standards. It does not constitute a compliance certification or regulatory determination.</div>
-            </div>
-
-            <div style={{padding:'12px 14px',background:SURFACE,borderRadius:8,border:`1px solid ${BORDER}`}}>
-              <div style={{fontSize:10,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:6}}>Assessor Responsibility</div>
-              <div>You are responsible for interpreting findings, reviewing all generated outputs, and exercising professional judgment before any deliverable is shared with clients or used for decision-making.</div>
-            </div>
-
-            <div style={{padding:'12px 14px',background:SURFACE,borderRadius:8,border:`1px solid ${BORDER}`}}>
-              <div style={{fontSize:10,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:6}}>Report Review</div>
-              <div>AI-generated narratives and automated findings require professional review before client delivery. AtmosFlow does not provide legal, regulatory, or medical advice.</div>
-            </div>
+          <div style={{display:'flex',flexDirection:'column',gap:10,fontSize:13,color:SUB,lineHeight:1.6,marginBottom:18}}>
+            {[
+              { label: 'Advisory use only', body: 'All outputs generated by AtmosFlow are advisory and intended to support — not replace — professional judgment by a qualified industrial hygienist or EHS professional.' },
+              { label: 'Scoring methodology', body: 'Scoring applies deterministic rules informed by recognized ventilation, comfort, and exposure standards. It does not constitute a compliance certification or regulatory determination.' },
+              { label: 'Assessor responsibility', body: 'You are responsible for interpreting findings, reviewing all generated outputs, and exercising professional judgment before any deliverable is shared with clients or used for decision-making.' },
+              { label: 'Report review', body: 'AI-generated narratives and automated findings require professional review before client delivery. AtmosFlow does not provide legal, regulatory, or medical advice.' },
+            ].map((d, i) => (
+              <div key={i} style={{...GLASS.subtle, padding:'12px 14px', borderRadius:RADII.md}}>
+                <div style={{...V3.T.micro, marginBottom:4}}>{d.label}</div>
+                <div style={{color:V3.TEXT_SECONDARY}}>{d.body}</div>
+              </div>
+            ))}
           </div>
-
-          <div style={{display:'flex',gap:10,marginTop:20}}>
-            <button onClick={()=>setShowDisclaimer(false)} style={{flex:0,padding:'12px 20px',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:8,color:SUB,fontSize:13,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>Cancel</button>
-            <button onClick={proceedAfterDisclaimer} style={{flex:1,padding:'12px 20px',background:ACCENT,border:'none',borderRadius:8,color:ON_ACCENT,fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>I Understand — Begin Assessment</button>
+          <div style={{display:'flex',gap:10,flexDirection:'column'}}>
+            <TactileButton variant="primary" fullWidth size="lg" onClick={proceedAfterDisclaimer} haptic="success">
+              I understand — begin walkthrough
+            </TactileButton>
+            <TactileButton variant="ghost" fullWidth onClick={()=>setShowDisclaimer(false)}>
+              Not yet
+            </TactileButton>
           </div>
-
-          <div style={{textAlign:'center',marginTop:12,fontSize:9,color:DIM}}>By proceeding, you acknowledge these terms for this assessment session.</div>
-        </div>
-      </div>}
+          <div style={{textAlign:'center',marginTop:10,fontSize:10,color:DIM}}>By proceeding, you acknowledge these terms for this session.</div>
+        </BottomSheet>
+      )}
 
       {/* ── Pricing Modal ── */}
       {showPricing && (
@@ -2224,78 +2280,149 @@ export default function MobileApp() {
           architecture prompt for the Phase 2+ subscription-tier
           model. */}
 
-      {/* ── Photo Selection Modal ── */}
-      {showPhotoSelect&&<div style={{position:'fixed',inset:0,background:'#000000DD',zIndex:260,display:'flex',alignItems:'flex-end',justifyContent:'center'}} onClick={e=>{if(e.target===e.currentTarget)setShowPhotoSelect(false)}}>
-        <div style={{width:'100%',maxWidth:contentMax,background:CARD,border:`1px solid ${BORDER}`,borderRadius:'20px 20px 0 0',padding:'24px 20px',paddingBottom:'calc(32px + env(safe-area-inset-bottom, 0px))',animation:'fadeUp .3s ease',maxHeight:'80vh',overflowY:'auto'}}>
-          <div style={{width:36,height:4,borderRadius:2,background:BORDER,margin:'0 auto 16px'}} />
-          <div style={{fontSize:18,fontWeight:700,color:TEXT,marginBottom:4}}>Include Photos</div>
-          <div style={{fontSize:12,color:SUB,marginBottom:16}}>Select which photos to include in the report.</div>
+      {/* ── Photo Selection — bottom sheet ─────────────────────────
+          Soft-glass sheet listing every captured photo with a tick
+          affordance. Skip Photos and Export with N Photos remain;
+          the row toggles use the new accent-tinted selected state
+          but otherwise keep the same multi-select semantics. */}
+      {showPhotoSelect && (
+        <BottomSheet
+          title="Include photos"
+          onClose={()=>setShowPhotoSelect(false)}
+          maxWidth={contentMax}
+          ariaLabel="Select photos to include in the report"
+        >
+          <div style={{...V3.T.bodyDim, margin:'4px 0 14px'}}>Select which photos to include in the report.</div>
           {Object.keys(photos).filter(k=>(photos[k]||[]).length>0).map(k=>{
             const zi=parseInt(k.match(/^z(\d+)-/)?.[1]??'-1')
             const fieldId=k.replace(/^z\d+-/,'')
             const fieldLabels={dp:'Condensate drain pan',wd:'Water damage',mi:'Mold indicators'}
             const zoneName=zones[zi]?.zn||`Zone ${zi+1}`
-            return (photos[k]||[]).map((p,i)=>(
-              <button key={`${k}::${i}`} onClick={()=>setSelectedPhotos(prev=>({...prev,[`${k}::${i}`]:!prev[`${k}::${i}`]}))} style={{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'10px 12px',background:selectedPhotos[`${k}::${i}`]?`${mix('accent', 3)}`:SURFACE,border:`1px solid ${selectedPhotos[`${k}::${i}`]?mix('accent', 19):BORDER}`,borderRadius:10,marginBottom:6,cursor:'pointer',fontFamily:'inherit',textAlign:'left'}}>
-                <div style={{width:20,height:20,borderRadius:5,border:`2px solid ${selectedPhotos[`${k}::${i}`]?ACCENT:DIM}`,background:selectedPhotos[`${k}::${i}`]?ACCENT:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                  {selectedPhotos[`${k}::${i}`]&&<span style={{color:ON_ACCENT,fontSize:12,fontWeight:700}}>✓</span>}
-                </div>
-                {p.src&&<img src={p.src} alt="" style={{width:48,height:48,objectFit:'cover',borderRadius:6,flexShrink:0}} />}
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:12,fontWeight:600,color:TEXT}}>{fieldLabels[fieldId]||fieldId}</div>
-                  <div style={{fontSize:10,color:DIM,marginTop:1}}>{zoneName}{p.ts?` · ${new Date(p.ts).toLocaleTimeString()}`:''}</div>
-                </div>
-              </button>
-            ))
+            return (photos[k]||[]).map((p,i)=>{
+              const sel = !!selectedPhotos[`${k}::${i}`]
+              return (
+                <button key={`${k}::${i}`} onClick={()=>setSelectedPhotos(prev=>({...prev,[`${k}::${i}`]:!prev[`${k}::${i}`]}))} style={{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'10px 12px',background:sel?`color-mix(in srgb, var(--accent) 8%, transparent)`:'transparent',border:`1px solid ${sel?'color-mix(in srgb, var(--accent) 30%, transparent)':V3.BORDER_DEFAULT}`,borderRadius:10,marginBottom:6,cursor:'pointer',fontFamily:'inherit',textAlign:'left',WebkitTapHighlightColor:'transparent'}}>
+                  <div style={{width:20,height:20,borderRadius:5,border:`2px solid ${sel?ACCENT:DIM}`,background:sel?ACCENT:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                    {sel && <span style={{color:ON_ACCENT,fontSize:12,fontWeight:700}}>✓</span>}
+                  </div>
+                  {p.src && <img src={p.src} alt="" style={{width:48,height:48,objectFit:'cover',borderRadius:6,flexShrink:0}} />}
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:13,fontWeight:600,color:TEXT}}>{fieldLabels[fieldId]||fieldId}</div>
+                    <div style={{fontSize:11,color:DIM,marginTop:2}}>{zoneName}{p.ts?` · ${new Date(p.ts).toLocaleTimeString()}`:''}</div>
+                  </div>
+                </button>
+              )
+            })
           })}
           <div style={{display:'flex',gap:10,marginTop:16}}>
-            <button onClick={()=>{setSelectedPhotos({});confirmExportWithPhotos()}} style={{flex:1,padding:'14px 0',background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:10,color:SUB,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>Skip Photos</button>
-            <button onClick={confirmExportWithPhotos} style={{flex:1,padding:'14px 0',background:ACCENT,border:'none',borderRadius:10,color: 'var(--on-accent)',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>Export with {Object.values(selectedPhotos).filter(Boolean).length} Photo{Object.values(selectedPhotos).filter(Boolean).length!==1?'s':''}</button>
+            <TactileButton variant="ghost" fullWidth onClick={()=>{setSelectedPhotos({});confirmExportWithPhotos()}}>Skip photos</TactileButton>
+            <TactileButton variant="primary" fullWidth onClick={confirmExportWithPhotos}>
+              Export with {Object.values(selectedPhotos).filter(Boolean).length} photo{Object.values(selectedPhotos).filter(Boolean).length!==1?'s':''}
+            </TactileButton>
           </div>
-        </div>
-      </div>}
+        </BottomSheet>
+      )}
 
-      {/* ── Premium Gate Modal ── */}
-      {showPremiumGate&&<div style={{position:'fixed',inset:0,background:'#000000DD',zIndex:270,display:'flex',alignItems:'center',justifyContent:'center',padding:24}} onClick={e=>{if(e.target===e.currentTarget)setShowPremiumGate(false)}}>
-        <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:18,padding:28,maxWidth:380,width:'100%',animation:'fadeUp .3s ease'}}>
-          <div style={{fontSize:20,fontWeight:700,color:TEXT,marginBottom:6}}>Unlock Mission-Critical IAQ Features</div>
-          <div style={{fontSize:13,color:SUB,lineHeight:1.7,marginBottom:16}}>The Data Center module activates specialized analytical logic for ASHRAE TC 9.9 thermal ranges and ANSI/ISA-71.04 corrosion tracking. This is required for documenting compliance in facilities with high-value hardware and mission-critical uptime requirements.</div>
-          <div style={{padding:12,background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:10,marginBottom:16}}>
-            <div style={{display:'flex',flexDirection:'column',gap:6,fontSize:11,color:SUB}}>
-              <div style={{display:'flex',alignItems:'center',gap:6}}><span style={{color:ACCENT}}>✓</span> ISA-71.04 gaseous corrosion classification</div>
-              <div style={{display:'flex',alignItems:'center',gap:6}}><span style={{color:ACCENT}}>✓</span> ISO 14644-1 particle count tracking</div>
-              <div style={{display:'flex',alignItems:'center',gap:6}}><span style={{color:ACCENT}}>✓</span> ASHRAE TC 9.9 thermal envelope scoring</div>
-              <div style={{display:'flex',alignItems:'center',gap:6}}><span style={{color:ACCENT}}>✓</span> Creep corrosion risk pattern analysis</div>
-              <div style={{display:'flex',alignItems:'center',gap:6}}><span style={{color:ACCENT}}>✓</span> Zone-specific equipment-focused weighting</div>
+      {/* ── Premium Gate — bottom sheet ─────────────────────────── */}
+      {showPremiumGate && (
+        <BottomSheet
+          title="Unlock mission-critical IAQ features"
+          onClose={()=>setShowPremiumGate(false)}
+          maxWidth={420}
+          ariaLabel="Data Center module — premium gate"
+        >
+          <div style={{...V3.T.bodyDim, margin:'4px 0 14px', lineHeight:1.65}}>
+            The Data Center module activates specialized analytical logic for ASHRAE TC 9.9 thermal ranges and ANSI/ISA-71.04 corrosion tracking. Required for documenting compliance in facilities with high-value hardware and mission-critical uptime requirements.
+          </div>
+          <div style={{...GLASS.subtle, padding:'14px 16px', borderRadius:RADII.md, marginBottom:18}}>
+            <div style={{display:'flex',flexDirection:'column',gap:8,fontSize:12,color:V3.TEXT_SECONDARY,lineHeight:1.5}}>
+              <div style={{display:'flex',alignItems:'center',gap:8}}><span style={{color:ACCENT,fontWeight:700}}>✓</span> ISA-71.04 gaseous corrosion classification</div>
+              <div style={{display:'flex',alignItems:'center',gap:8}}><span style={{color:ACCENT,fontWeight:700}}>✓</span> ISO 14644-1 particle count tracking</div>
+              <div style={{display:'flex',alignItems:'center',gap:8}}><span style={{color:ACCENT,fontWeight:700}}>✓</span> ASHRAE TC 9.9 thermal envelope scoring</div>
+              <div style={{display:'flex',alignItems:'center',gap:8}}><span style={{color:ACCENT,fontWeight:700}}>✓</span> Creep corrosion risk pattern analysis</div>
+              <div style={{display:'flex',alignItems:'center',gap:8}}><span style={{color:ACCENT,fontWeight:700}}>✓</span> Zone-specific equipment-focused weighting</div>
             </div>
           </div>
-          <div style={{display:'flex',gap:10}}>
-            <button onClick={()=>setShowPremiumGate(false)} style={{flex:1,padding:'14px 0',background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:10,color:SUB,fontSize:13,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>Back</button>
-            <a href="mailto:support@prudenceehs.com?subject=Data Center Module — Enterprise Inquiry" style={{flex:1,padding:'14px 0',background:'#F97316',border:'none',borderRadius:10,color:'#000',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:44,textDecoration:'none',display:'flex',alignItems:'center',justifyContent:'center'}}>Contact Sales</a>
+          <div style={{display:'flex',gap:10,flexDirection:'column'}}>
+            <a
+              href="mailto:support@prudenceehs.com?subject=Data Center Module — Enterprise Inquiry"
+              style={{
+                display:'flex',alignItems:'center',justifyContent:'center',gap:8,
+                padding:'15px 0', minHeight:48,
+                background:'#F97316', color:'#000', fontSize:14, fontWeight:700,
+                borderRadius:RADII.md, textDecoration:'none', fontFamily:'inherit',
+                boxShadow:'inset 0 1px 0 rgba(255,255,255,0.18), 0 8px 18px rgba(249,115,22,0.30)',
+                WebkitTapHighlightColor:'transparent',
+              }}>
+              Contact sales
+            </a>
+            <TactileButton variant="ghost" fullWidth onClick={()=>setShowPremiumGate(false)}>
+              Back
+            </TactileButton>
           </div>
-        </div>
-      </div>}
+        </BottomSheet>
+      )}
 
-      {delConf&&<div style={{position:'fixed',inset:0,background:'#000000CC',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',padding:24}}><div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:18,padding:28,maxWidth:340,width:'100%',animation:'fadeUp .3s ease'}}><div style={{fontSize:18,fontWeight:700,marginBottom:8,color:TEXT}}>Move to Trash?</div><div style={{fontSize:14,color:SUB,marginBottom:12,lineHeight:1.6}}>You can recover this for 30 days.</div><div style={{fontSize:12,color:DIM,marginBottom:24,background:SURFACE,padding:'10px 14px',borderRadius:8}}>Recoverable from Dashboard → Trash</div><div style={{display:'flex',gap:10}}><button onClick={()=>setDelConf(null)} style={{flex:1,padding:'14px 0',background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:10,color:SUB,fontSize:14,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>Cancel</button><button onClick={()=>deleteItem(delConf.id,delConf.name,delConf.type)} style={{flex:1,padding:'14px 0',background:'#EF444420',border:'1px solid #EF444440',borderRadius:10,color:'#EF4444',fontSize:14,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>Delete</button></div></div></div>}
+      {/* ── Move-to-Trash confirmation — bottom sheet ──────────────
+          Outside-tap dismiss now works (the old solid-modal had no
+          backdrop click handler). Delete is a danger TactileButton
+          with a heavier haptic so the confirmatory tap reads as
+          deliberate. */}
+      {delConf && (
+        <BottomSheet
+          title="Move to trash?"
+          onClose={()=>setDelConf(null)}
+          maxWidth={400}
+          ariaLabel="Confirm move to trash"
+        >
+          <div style={{...V3.T.bodyDim, margin:'4px 0 10px'}}>You can recover this for 30 days.</div>
+          <div style={{...GLASS.subtle, ...V3.T.captionDim, padding:'10px 14px', borderRadius:RADII.md, marginBottom:18}}>
+            Recoverable from Dashboard → Trash
+          </div>
+          <div style={{display:'flex',gap:10,flexDirection:'column'}}>
+            <TactileButton variant="danger" fullWidth haptic="heavy" onClick={()=>deleteItem(delConf.id,delConf.name,delConf.type)}>
+              Delete
+            </TactileButton>
+            <TactileButton variant="ghost" fullWidth onClick={()=>setDelConf(null)}>
+              Cancel
+            </TactileButton>
+          </div>
+        </BottomSheet>
+      )}
 
-      {/* ── Calibration Warning Modal ── */}
-      {calWarning&&<div style={{position:'fixed',inset:0,background:'#000000CC',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',padding:24}}>
-        <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:18,padding:28,maxWidth:400,width:'100%',animation:'fadeUp .3s ease'}}>
-          <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12}}>
-            <div style={{width:36,height:36,borderRadius:10,background:`${mix('warn', 8)}`,border:`1px solid ${mix('warn', 19)}`,display:'flex',alignItems:'center',justifyContent:'center'}}><I n="alert" s={18} c={WARN} w={2} /></div>
-            <div style={{fontSize:18,fontWeight:700,color:TEXT}}>Instrument Data Missing</div>
+      {/* ── Calibration warning — bottom sheet ──────────────────── */}
+      {calWarning && (
+        <BottomSheet
+          title="Instrument data missing"
+          onClose={()=>setCalWarning(null)}
+          maxWidth={420}
+          ariaLabel="Instrument calibration warning"
+        >
+          <div style={{display:'flex',alignItems:'center',gap:10,margin:'4px 0 12px'}}>
+            <div style={{width:36,height:36,borderRadius:10,background:`color-mix(in srgb, var(--warn) 14%, transparent)`,border:`1px solid color-mix(in srgb, var(--warn) 32%, transparent)`,display:'flex',alignItems:'center',justifyContent:'center'}}>
+              <I n="alert" s={18} c={WARN} w={2} />
+            </div>
+            <div style={V3.T.captionDim}>Defensibility advisory</div>
           </div>
-          <div style={{fontSize:13,color:SUB,lineHeight:1.7,marginBottom:16}}>Reports generated without instrument identification and calibration records have reduced defensibility. The following information was not provided:</div>
-          <div style={{background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:10,padding:14,marginBottom:20}}>
-            {calWarning.map((m,i)=><div key={i} style={{fontSize:12,color:WARN,lineHeight:1.8,paddingLeft:12,borderLeft:`2px solid ${mix('warn', 19)}`,marginBottom:i<calWarning.length-1?6:0}}>• {m}</div>)}
+          <div style={{...V3.T.bodyDim, lineHeight:1.65, marginBottom:14}}>
+            Reports generated without instrument identification and calibration records have reduced defensibility. The following information was not provided:
           </div>
-          <div style={{display:'flex',gap:10}}>
-            <button onClick={()=>{setCalWarning(null);setDqi(Q_DETAILS.findIndex(q=>q.id==='ps_inst_iaq'));setView('details')}} style={{flex:1,padding:'14px 0',background:ACCENT,border:'none',borderRadius:10,color: 'var(--on-accent)',fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>Add instrument data</button>
-            <button onClick={()=>{setCalWarning(null);finishAssessment(true)}} style={{flex:1,padding:'14px 0',background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:10,color:SUB,fontSize:13,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>Continue without</button>
+          <div style={{...GLASS.subtle, padding:'12px 14px', borderRadius:RADII.md, marginBottom:18}}>
+            {calWarning.map((m,i) => (
+              <div key={i} style={{fontSize:12,color:WARN,lineHeight:1.8,paddingLeft:12,borderLeft:`2px solid color-mix(in srgb, var(--warn) 38%, transparent)`,marginBottom:i<calWarning.length-1?6:0}}>• {m}</div>
+            ))}
           </div>
-          <div style={{textAlign:'center',marginTop:10,fontSize:9,color:DIM,lineHeight:1.5}}>Instrument metadata strengthens OSHA defensibility and professional credibility of assessment findings.</div>
-        </div>
-      </div>}
+          <div style={{display:'flex',gap:10,flexDirection:'column'}}>
+            <TactileButton variant="primary" fullWidth size="lg" onClick={()=>{setCalWarning(null);setDqi(Q_DETAILS.findIndex(q=>q.id==='ps_inst_iaq'));setView('details')}}>
+              Add instrument data
+            </TactileButton>
+            <TactileButton variant="ghost" fullWidth onClick={()=>{setCalWarning(null);finishAssessment(true)}}>
+              Continue without
+            </TactileButton>
+          </div>
+          <div style={{textAlign:'center',marginTop:12,fontSize:10,color:DIM,lineHeight:1.5}}>Instrument metadata strengthens OSHA defensibility and professional credibility of assessment findings.</div>
+        </BottomSheet>
+      )}
 
       {/* ── DOCX Report Type Picker — bottom sheet ─────────────────
           Mobile-first soft-glass sheet. The three options are now
@@ -2348,8 +2475,27 @@ export default function MobileApp() {
           return { label: 'Professional Judgment Eligible', color: ACCENT, bg: mix('accent', 8) }
         }
         return (
-          <div style={{position:'fixed',inset:0,background:'#000000CC',zIndex:201,display:'flex',alignItems:'center',justifyContent:'center',padding:16,overflowY:'auto'}}>
-            <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:18,padding:'24px 22px',maxWidth:560,width:'100%',maxHeight:'92vh',overflowY:'auto'}} data-testid="consultant-preflight-modal">
+          <div style={{
+            position:'fixed', inset:0,
+            background:'rgba(0,0,0,0.55)',
+            backdropFilter:'blur(6px)',
+            WebkitBackdropFilter:'blur(6px)',
+            zIndex:201, display:'flex', alignItems:'center', justifyContent:'center',
+            padding:16, overflowY:'auto',
+          }}>
+            {/* Defensibility gate: deliberately no outside-tap dismiss
+                so the user has to actively Cancel or Issue under
+                documented judgment. Soft-glass treatment keeps the
+                surface vocabulary consistent. */}
+            <div style={{
+              ...GLASS.elevated,
+              borderRadius: RADII.card,
+              padding: '24px 22px',
+              maxWidth: 560, width: '100%', maxHeight: '92vh', overflowY: 'auto',
+              boxShadow:
+                'inset 0 1px 0 rgba(255,255,255,0.06), ' +
+                '0 24px 56px rgba(0,0,0,0.55)',
+            }} data-testid="consultant-preflight-modal">
               <div style={{fontSize:20,fontWeight:700,color:TEXT,marginBottom:8,lineHeight:1.3}}>Report cannot be issued yet</div>
               <div style={{fontSize:13,color:SUB,marginBottom:22,lineHeight:1.55}}>AtmosFlow identified the following defensibility requirements that should be resolved before report issuance. Certain items may be issued under documented professional judgment by the reviewing IH.</div>
 
