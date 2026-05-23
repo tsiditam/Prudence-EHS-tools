@@ -91,6 +91,39 @@ import { useStorage } from '../contexts/StorageContext.jsx'
 import { useTheme, mix } from '../utils/theme'
 
 const haptic = (type) => { try { if (navigator.vibrate) navigator.vibrate(type === 'heavy' ? [30,20,30] : type === 'success' ? [10,30,10,30,10] : 12) } catch {} }
+
+// Press-feedback handlers for native <button>s that aren't going
+// through the TactileButton primitive (e.g. the bottom nav, the
+// workflow stage tabs, the result tab row). Returns the four pointer
+// handlers + the style fragment needed to animate the press. iOS
+// Safari does not support navigator.vibrate at all (Apple has never
+// exposed the Taptic Engine to web JS) so the scale + opacity dip
+// IS the "haptic" on iOS - it's what makes the tap feel physical
+// even without a real buzz. On Android the dip + vibrate stack.
+//
+// Usage:
+//   <button {...pressFeedback()} onClick={...} style={{ ...pressFeedback.style, ...rest }}>
+//
+// pressFeedback() can be called with `intensity` ('soft' for the
+// thinner nav-tab buttons, 'medium' for chip-sized tabs).
+const pressFeedback = (intensity = 'medium') => {
+  const scale = intensity === 'soft' ? 0.92 : 0.95
+  const dim = intensity === 'soft' ? '0.78' : '0.85'
+  return {
+    onPointerDown: (e) => { e.currentTarget.style.transform = `scale(${scale})`; e.currentTarget.style.opacity = dim },
+    onPointerUp:   (e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.opacity = '1' },
+    onPointerLeave:(e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.opacity = '1' },
+    onPointerCancel:(e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.opacity = '1' },
+  }
+}
+// Companion style fragment - tap-highlight reset + spring transition.
+// Spread INTO the button's `style={{...}}` so it composes with the
+// existing tab styling.
+pressFeedback.style = {
+  WebkitTapHighlightColor: 'transparent',
+  touchAction: 'manipulation',
+  transition: 'transform 120ms cubic-bezier(0.34,1.4,0.64,1), opacity 120ms ease-out',
+}
 const BETA_MODE = true // Set to false when ready to go live — re-enables all premium gates
 const isEnterprise = (profile) => BETA_MODE || profile?.plan === 'team' || profile?.plan === 'enterprise' || !!localStorage.getItem('atmosflow:premiumOverride')
 const isPremiumOpt = (q, opt) => q.premiumOpts && q.premiumOpts.includes(opt)
@@ -1313,7 +1346,7 @@ export default function MobileApp() {
           ).map(([k,ic,l])=>{
             const isActive = rTab===k
             return (
-              <button key={k} onClick={()=>{setRTab(k);haptic('light')}} style={V3.tabItem(isActive)}>
+              <button key={k} onClick={()=>{setRTab(k);haptic('light')}} {...pressFeedback()} style={{...V3.tabItem(isActive), ...pressFeedback.style}}>
                 <I n={ic} s={15} c={isActive?'var(--accent)':V3.TEXT_TERTIARY} w={isActive?1.9:1.6} />
                 <span>{l}</span>
               </button>
@@ -2720,7 +2753,7 @@ export default function MobileApp() {
                       {stages.map(s => {
                         const isActive = s.id === activeStage
                         return (
-                          <button key={s.id} onClick={()=>{ haptic('light'); resumeDraft(activeDraft.id) }} style={V3.tabItem(isActive)}>
+                          <button key={s.id} onClick={()=>{ haptic('light'); resumeDraft(activeDraft.id) }} {...pressFeedback()} style={{...V3.tabItem(isActive), ...pressFeedback.style}}>
                             <I n={s.icon} s={16} c={isActive ? 'var(--accent)' : V3.TEXT_TERTIARY} w={1.6} />
                             <span>{s.label}</span>
                           </button>
@@ -3248,7 +3281,11 @@ export default function MobileApp() {
                 ? () => { haptic('light'); supabase && trackEvent('jasper_open', { source: 'bottom_nav' }); setFaOpen(true) }
                 : () => { haptic('light'); supabase && trackEvent('page_view', { tab: t.id }); setView(t.id); if (t.id === 'dash') setViewRpt(null) }
               return (
-                <button key={t.id} onClick={onClick} style={{flex:1,background:'none',border:'none',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:4,paddingTop:6,fontFamily:'inherit',position:'relative',WebkitTapHighlightColor:'transparent',transition:'opacity 0.15s'}}>
+                <button
+                  key={t.id}
+                  onClick={onClick}
+                  {...pressFeedback('soft')}
+                  style={{flex:1,background:'none',border:'none',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:4,paddingTop:6,fontFamily:'inherit',position:'relative',...pressFeedback.style}}>
                   {/* Top accent rail — only on the active tab. Cyan
                       hairline tucked under the nav's top border so the
                       visual is "this lane is lit", not a button glow.
