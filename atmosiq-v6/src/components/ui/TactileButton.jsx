@@ -27,6 +27,22 @@
 import { SPRING, tapResetStyle, tapTransition } from '../../styles/soft-glass'
 import { R, TEXT_PRIMARY, TEXT_SECONDARY } from '../../styles/tokens'
 
+// Lightweight haptic firing — duration pattern matches MobileApp.jsx's
+// local haptic() helper so taps across the app feel consistent. Wrapped
+// in try/catch because navigator.vibrate throws on iOS Safari outside
+// of a user gesture (it's a no-op on iOS PWAs but still safe to call).
+const fireHaptic = (kind) => {
+  try {
+    if (!kind) return
+    if (typeof navigator === 'undefined' || !navigator.vibrate) return
+    const pattern =
+      kind === 'heavy'   ? [30, 20, 30] :
+      kind === 'success' ? [10, 30, 10, 30, 10] :
+      12
+    navigator.vibrate(pattern)
+  } catch { /* swallow — vibrate is best-effort on web */ }
+}
+
 const VARIANT = {
   primary: {
     background: 'var(--accent-fill)',
@@ -70,6 +86,13 @@ export default function TactileButton({
   onClick,
   disabled = false,
   type = 'button',
+  // Haptic pattern fired on press. Defaults to 'light' for primary/
+  // secondary actions where the button represents real intent;
+  // `ghost` variant defaults to no haptic since it's used for
+  // cancel/dismiss and a buzz on those reads as overwrought.
+  // Pass haptic={false} to silence; pass 'heavy' or 'success' for
+  // confirmatory taps (e.g. "Issue report under documented judgment").
+  haptic,
   style,
   children,
   ...rest
@@ -102,6 +125,13 @@ export default function TactileButton({
     ...style,
   }
 
+  // Haptic default by variant: real-intent buttons buzz lightly,
+  // ghost/cancel stays silent. `haptic={false}` overrides; an explicit
+  // string overrides too.
+  const hapticKind = haptic === false
+    ? null
+    : (haptic || (variant === 'ghost' ? null : 'light'))
+
   const handlers = disabled
     ? {}
     : {
@@ -109,6 +139,7 @@ export default function TactileButton({
         onPointerDown: (e) => {
           e.currentTarget.style.transform = 'scale(0.97)'
           e.currentTarget.style.transition = `transform ${SPRING.durFast} ${SPRING.gentle}`
+          fireHaptic(hapticKind)
         },
         onPointerUp:    (e) => { e.currentTarget.style.transform = 'scale(1)' },
         onPointerLeave: (e) => { e.currentTarget.style.transform = 'scale(1)' },
