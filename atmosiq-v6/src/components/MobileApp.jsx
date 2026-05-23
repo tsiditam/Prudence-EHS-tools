@@ -3384,15 +3384,14 @@ export default function MobileApp() {
             ] : [
               {id:'dash',label:'Home',icon:'home'},
               {id:'history',label:'Reports',icon:'report',badge:((index.drafts||[]).length+(index.reports||[]).length)||null},
-              // AI Assistant replaces the previous Search tab. The
+              // AtmosFlow AI replaces the previous Search tab. The
               // brain-on-chip silhouette + same TEXT_TERTIARY →
               // accent treatment as every other tab so the row reads
-              // as one cohesive nav. The label is the descriptive
-              // "AI Assistant" rather than the codename "Jasper"
-              // because the icon alone doesn't tell a first-time
-              // user that this tab opens the assistant, and the
-              // generic name is more self-explanatory than a brand.
-              {id:'jasper',label:'AI Assistant',icon:'jasper'},
+              // as one cohesive nav. Labeled "AtmosFlow AI" to match
+              // the assistant sheet's header — one consistent name
+              // across every surface (the internal id stays 'jasper'
+              // to avoid touching shipped event/table names).
+              {id:'jasper',label:'AtmosFlow AI',icon:'jasper'},
               {id:'settings',label:'Settings',icon:'gear'},
             ]).map(t=>{
               const isJasper = t.id === 'jasper'
@@ -3502,6 +3501,19 @@ export default function MobileApp() {
             current_zone: zones[curZone],
             zones_count: zones.length,
             incident: currentIncident,
+            // Active-assessment label for the assistant's context chip +
+            // prompt. Prefer the loaded assessment's facility; on the
+            // dashboard (where bldg isn't hydrated until a draft is
+            // resumed) fall back to the top in-progress draft so the
+            // assistant still knows what the assessor is working on.
+            active_assessment: (() => {
+              const facility = bldg?.fn || (index?.drafts || [])[0]?.facility || null
+              if (!facility) return null
+              const status = (view === 'results' || view === 'report')
+                ? 'Finalized report'
+                : 'Draft assessment'
+              return { facility, status }
+            })(),
             profile_minimal: profile ? { plan: profile.plan, certs: profile.certs, firm: profile.firm } : null,
             // v1.5 Defensibility Copilot: when the user is in results
             // view, attach the readiness verdict so the agent can answer

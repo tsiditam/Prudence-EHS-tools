@@ -41,9 +41,9 @@ const DIM = 'var(--dim)'
 const DANGER = 'var(--danger)'
 
 const SUGGESTIONS = [
-  'What does ASHRAE 62.1 say about CO₂ in offices?',
-  'Indoor CO₂ at 1,400 ppm — what does that imply?',
-  'When should I sample for TVOCs?',
+  'CO₂ is 1,400 ppm in an office. What should I check next?',
+  'When is TVOC sampling warranted?',
+  'How does ASHRAE 62.1 apply to office ventilation?',
 ]
 
 function MessageBubble({ role, content, photos }) {
@@ -187,7 +187,7 @@ function JasperIntroPanel({ onAccept, onNavigate }) {
         style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, ...reveal(0) }}>
         <JasperRobotIcon size={40} color="var(--accent)" />
         <div style={{ fontSize: 15, color: TEXT, lineHeight: 1.45, fontWeight: 600 }}>
-          <span role="img" aria-label="waving hand">👋</span> Hi, I'm Jasper, your Indoor Air Quality AI assistant.
+          <span role="img" aria-label="waving hand">👋</span> Welcome to AtmosFlow AI — your indoor air quality assistant.
         </div>
       </div>
 
@@ -530,12 +530,12 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
             <JasperRobotIcon size={22} color="var(--accent)" />
             <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ fontSize: 15, fontWeight: 700, color: TEXT, lineHeight: 1.2 }}>AI Assistant</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: TEXT, lineHeight: 1.2 }}>AtmosFlow AI</div>
               <div style={{
                 fontSize: 11, color: SUB, lineHeight: 1.3, marginTop: 1,
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
               }}>
-                Indoor Air Quality AI assistant
+                Indoor air quality assistant
               </div>
             </div>
           </div>
@@ -589,17 +589,47 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
                 <polyline points="12 7 12 12 15 14" />
               </svg>
             </button>
+            {/* Close — given a filled surface + brighter foreground so it
+                reads unmistakably as the dismiss control, distinct from
+                the transparent ghost history / new-chat buttons beside
+                it. A crisp stroked X replaces the "×" text glyph (which
+                renders inconsistently across platforms). */}
             <button
               onClick={onClose}
-              aria-label="Close AI Assistant"
+              aria-label="Close AtmosFlow AI"
+              title="Close"
               style={{
-                background: 'transparent', border: `1px solid ${BORDER}`, borderRadius: 8,
-                width: 32, height: 32, cursor: 'pointer', color: SUB,
+                background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8,
+                width: 32, height: 32, cursor: 'pointer', color: TEXT,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 16, fontFamily: 'inherit', lineHeight: 1,
-              }}>×</button>
+                fontFamily: 'inherit', flexShrink: 0,
+              }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M18 6 6 18M6 6l12 12" />
+              </svg>
+            </button>
           </div>
         </div>
+
+        {/* Active-assessment context chip — ties the assistant to what
+            the assessor is working on so it doesn't read as a generic
+            LLM sheet. Shown only when context carries a named
+            assessment; hidden while browsing past conversations. */}
+        {!historyOpen && context?.active_assessment?.facility && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 7,
+            marginBottom: 10, padding: '6px 10px', borderRadius: 8,
+            background: mix('accent', 6), border: `1px solid ${mix('accent', 16)}`,
+            minWidth: 0,
+          }}>
+            <span style={{ width: 6, height: 6, borderRadius: 3, background: ACCENT, flexShrink: 0 }} />
+            <span style={{ fontSize: 11, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
+              <span style={{ color: SUB }}>Context: </span>
+              <span style={{ color: TEXT, fontWeight: 600 }}>{context.active_assessment.facility}</span>
+              <span style={{ color: SUB }}> · {context.active_assessment.status}</span>
+            </span>
+          </div>
+        )}
 
         {/* History panel — replaces the chat transcript when open.
             Renders past conversations grouped by recency. Empty
@@ -626,7 +656,7 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
             )}
             {!historyLoading && historyList.filter((c) => (c.message_count || 0) > 0).length === 0 && (
               <div style={{ padding: '20px 4px', color: SUB, fontSize: 13, lineHeight: 1.6 }}>
-                No past conversations yet. When you chat with the AI Assistant, your turns are saved here automatically so you can revisit or continue them later.
+                No past conversations yet. When you chat with AtmosFlow AI, your turns are saved here automatically so you can revisit or continue them later.
               </div>
             )}
             {!historyLoading && historyList
@@ -693,8 +723,8 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
             <div style={{ padding: '16px 4px', color: SUB, fontSize: 13, lineHeight: 1.6 }}>
               <div className="jasper-stagger"
                 style={{ marginBottom: 12, animation: 'jasperReveal 500ms ease-out both', animationDelay: '0ms' }}>
-                Ask anything about the standards, the readings you're seeing, or
-                what to sample next. I won't assign scores — that's the engine's call.
+                Ask about standards, readings, sampling, or likely next steps.
+                Scoring stays with the assessment engine.
               </div>
               <div className="jasper-stagger"
                 style={{ fontSize: 11, fontWeight: 600, color: DIM, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8,
@@ -884,16 +914,16 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
             onFocus={() => setComposerFocused(true)}
             onBlur={() => setComposerFocused(false)}
             disabled={sending || !introAccepted}
-            placeholder={introAccepted ? 'Ask Jasper anything…' : 'Tap "Start Chatting" above to begin'}
+            placeholder={introAccepted ? 'Ask AtmosFlow AI…' : 'Tap "Start Chatting" above to begin'}
             rows={1}
             style={{
               width: '100%',
-              padding: '14px 16px 6px',
+              padding: '11px 16px 4px',
               background: 'transparent',
               border: 'none',
               color: TEXT, fontSize: 15, fontFamily: 'inherit',
               outline: 'none', boxSizing: 'border-box',
-              minHeight: 48, maxHeight: 200, lineHeight: 1.5,
+              minHeight: 40, maxHeight: 200, lineHeight: 1.5,
               resize: 'none',
               display: 'block',
             }}
@@ -906,7 +936,7 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
               reads as one surface. */}
           <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            padding: '4px 8px 8px',
+            padding: '2px 8px 6px',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
               <button
@@ -992,31 +1022,33 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
         </div>
         </>)}
 
-        {/* Always-on legal + defensibility footer. Terms / Privacy stay one
-            tap away after the intro is dismissed; the mono REVIEW REQUIRED
-            chip carries the screening-only positioning. */}
+        {/* Footer. This is a tool inside the assessment workflow, not a
+            standalone chatbot product, so the legal links are kept one
+            tap away but visually recessive (DIM, tiny). The screening-
+            only review note carries the defensibility positioning and
+            is the more legible of the two. */}
         <div style={{
           marginTop: 8, paddingTop: 8, borderTop: `1px solid ${BORDER}`,
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           fontSize: 10, color: DIM, gap: 8, flexWrap: 'wrap',
           minWidth: 0, boxSizing: 'border-box',
         }}>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <button
               type="button"
               onClick={() => onNavigate?.('tos')}
-              style={{ background: 'transparent', border: 'none', padding: 0, color: SUB, fontFamily: 'inherit', fontSize: 11, cursor: 'pointer' }}>
+              style={{ background: 'transparent', border: 'none', padding: 0, color: DIM, fontFamily: 'inherit', fontSize: 10, cursor: 'pointer' }}>
               Terms
             </button>
-            <span aria-hidden="true">·</span>
+            <span aria-hidden="true" style={{ color: DIM }}>·</span>
             <button
               type="button"
               onClick={() => onNavigate?.('privacy')}
-              style={{ background: 'transparent', border: 'none', padding: 0, color: SUB, fontFamily: 'inherit', fontSize: 11, cursor: 'pointer' }}>
+              style={{ background: 'transparent', border: 'none', padding: 0, color: DIM, fontFamily: 'inherit', fontSize: 10, cursor: 'pointer' }}>
               Privacy
             </button>
           </div>
-          <span style={{ fontFamily: 'var(--font-mono)', letterSpacing: '0.3px' }}>AI · REVIEW REQUIRED</span>
+          <span style={{ color: SUB, fontSize: 10, letterSpacing: '0.2px' }}>AI output requires professional review</span>
         </div>
 
         {/* Quota footer — only shown after the first response when the
