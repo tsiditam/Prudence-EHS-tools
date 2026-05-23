@@ -124,7 +124,11 @@ export const CONFIDENCE = {
 
 // Status (workflow state, not assessment outcome).
 export const STATUS = {
-  inProgress: '#22D3EE',
+  // "In Progress" reads green (active) rather than the cyan brand accent,
+  // so workflow status stays distinct from the app's single accent
+  // channel. Used only by the in-progress hero pill + its card rail and
+  // the draft-row icons.
+  inProgress: '#22C55E',
   draft:      '#8B93A5',
   ready:      '#22C55E',
   blocked:    '#EF4444',
