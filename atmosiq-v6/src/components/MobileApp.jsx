@@ -31,6 +31,7 @@ import Loading from './Loading'
 import ScoreRing from './ScoreRing'
 import PhotoCapture from './PhotoCapture'
 import ProfileAvatar from './ProfileAvatar'
+import CollaboratorsBar from './CollaboratorsBar'
 import SensorScreen from './SensorScreen'
 import TimePickerInput from './TimePickerInput'
 import Co2OaCalculator from './Co2OaCalculator'
@@ -2467,6 +2468,20 @@ export default function MobileApp() {
                         <span style={{color:V3.BORDER_STRONG}}>·</span>
                         <span style={{fontFamily:'var(--font-mono)'}}>{fD(activeDraft.ua || activeDraft.ts)}</span>
                         <span style={V3.pill(V3.STATUS.inProgress)}>In Progress</span>
+                        {/* Real-time presence — surfaces other IHs
+                            who joined the same assessment via the
+                            Supabase Realtime presence channel. Renders
+                            nothing in the solo case (the common case)
+                            so the hero stays clean. */}
+                        {profile?.id && (
+                          <span style={{marginLeft:'auto'}}>
+                            <CollaboratorsBar
+                              assessmentId={activeDraft.id}
+                              me={{ id: profile.id, name: profile.name, avatar_url: profile.avatar_url }}
+                              currentZone={null}
+                            />
+                          </span>
+                        )}
                       </div>
                     </div>
 
