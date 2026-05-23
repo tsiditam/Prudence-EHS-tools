@@ -27,6 +27,11 @@ import { generateNarrative } from '../engines/narrative'
 import PricingSheet from './pricing/PricingSheet'
 import { I, emojiToIcon } from './Icons'
 import * as V3 from '../styles/tokens'
+import { GLASS, RADII, RHYTHM, stack as sgStack } from '../styles/soft-glass'
+import GlassCard from './ui/GlassCard'
+import StatusPill from './ui/StatusPill'
+import TactileButton from './ui/TactileButton'
+import BottomSheet from './ui/BottomSheet'
 import Loading from './Loading'
 import ScoreRing from './ScoreRing'
 import PhotoCapture from './PhotoCapture'
@@ -1141,9 +1146,13 @@ export default function MobileApp() {
             sentence, stat strip). The right column lists up to three
             recommended next steps drawn from recs.imm so the assessor
             sees the call-to-action without scrolling. */}
-        <div style={{display:'grid',gridTemplateColumns:isTablet?'minmax(0,1.4fr) minmax(0,1fr)':'minmax(0,1fr)',gap:16,marginBottom:16}}>
-          {/* Composite hero */}
-          <div style={{...V3.panel({ accent: sevPillTone }), padding:0}}>
+        <div style={{display:'grid',gridTemplateColumns:isTablet?'minmax(0,1.4fr) minmax(0,1fr)':'minmax(0,1fr)',gap:RHYTHM.base,marginBottom:RHYTHM.base}}>
+          {/* Composite hero — soft-glass card with severity-railed top
+              edge, layered shadow, and meniscus highlight. Padding is
+              zero on the wrapper because the hero composes three
+              vertical zones (intro, denominator line, optional
+              advisory) each with their own padding rhythm. */}
+          <GlassCard accent={sevPillTone} style={{padding:0}}>
             <div style={{padding:'22px 24px 8px',display:'flex',alignItems:'flex-start',gap:18}}>
               <div style={{flexShrink:0}}>
                 {userMode !== 'fm' ? (
@@ -1156,8 +1165,8 @@ export default function MobileApp() {
               </div>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{display:'flex',gap:8,marginBottom:10,flexWrap:'wrap'}}>
-                  <span style={V3.pill(sevPillTone)}>{sevPillLabel}</span>
-                  {measConf && <span style={V3.pill(confTone)}>{confLabel}</span>}
+                  <StatusPill tone={sevPillTone}>{sevPillLabel}</StatusPill>
+                  {measConf && <StatusPill tone={confTone}>{confLabel}</StatusPill>}
                 </div>
                 {/* Headline runs at 18 Bold -1 per the v3 Figma HeroCard
                     spec — heavier than V3.T.h2 (18 SemiBold -0.2) so it
@@ -1188,14 +1197,24 @@ export default function MobileApp() {
               {comp.count} {userMode === 'fm' ? 'area' : 'zone'}{comp.count!==1?'s':''} assessed
             </div>
             {measConf?.overall === 'Low' && (
-              <div style={{margin:'0 24px 18px',padding:'10px 12px',background:`${V3.SEVERITY.medium}10`,border:`1px solid ${V3.SEVERITY.medium}28`,borderRadius:V3.R.md,...V3.T.captionDim, color:WARN}}>
+              <div style={{
+                margin:'0 20px 20px',
+                padding:'12px 14px',
+                ...GLASS.subtle,
+                borderRadius:RADII.md,
+                ...V3.T.captionDim,
+                color:WARN,
+                lineHeight:1.55,
+              }}>
                 Single-point measurement. Consider time-weighted sampling per AIHA strategy before drawing conclusions.
               </div>
             )}
-          </div>
+          </GlassCard>
 
-          {/* Next recommended steps — derives from recs.imm */}
-          <div style={V3.panel()}>
+          {/* Next recommended steps — soft-glass card matching the
+              hero's surface vocabulary. Sits to the right on tablet,
+              stacks below on phone. */}
+          <GlassCard>
             <div style={{...V3.T.h3, marginBottom:14}}>Next recommended steps</div>
             <div style={{display:'flex',flexDirection:'column',gap:12}}>
               {(() => {
@@ -1227,7 +1246,7 @@ export default function MobileApp() {
               View all actions
               <span style={{fontSize:13}}>›</span>
             </button>
-          </div>
+          </GlassCard>
         </div>
 
         {/* ── v2.1 Engine InternalReport (operator dashboard) ──
@@ -1850,11 +1869,17 @@ export default function MobileApp() {
               )
             })}
           </div>)})}
-          <div style={{display:'flex',gap:10,marginTop:8}}>
-            <button onClick={()=>setDocxPicker(true)} style={{flex:1,padding:'14px 20px',background:`${mix('accent', 7)}`,border:`1px solid ${mix('accent', 19)}`,borderRadius:12,color:ACCENT,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:48,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="notes" s={16} c={ACCENT} /> Word</button>
-            <button onClick={handleShare} style={{flex:1,padding:'14px 20px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,color:SUB,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:48,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="send" s={16} c={SUB} /> Share</button>
+          {/* Floating action bar — tactile soft-glass buttons with
+              scale-down tap feedback. Word is the primary export
+              affordance now that PDF has been retired; Share and Map
+              Zones round out the result-screen action surface. */}
+          <div style={sgStack('tight')}>
+            <div style={{display:'flex',gap:10,marginTop:8}}>
+              <TactileButton variant="secondary" fullWidth size="lg" onClick={()=>setDocxPicker(true)} icon={<I n="notes" s={16} c={ACCENT} />}>Word</TactileButton>
+              <TactileButton variant="ghost" fullWidth size="lg" onClick={handleShare} icon={<I n="send" s={16} c={SUB} />}>Share</TactileButton>
+            </div>
+            <TactileButton variant="secondary" fullWidth size="lg" onClick={()=>setView('spatial')} icon={<I n="bldg" s={16} c={ACCENT} />}>Map Zones on Floor Plan</TactileButton>
           </div>
-          <button onClick={()=>setView('spatial')} style={{padding:'14px 20px',background:`${mix('accent', 2)}`,border:`1px solid ${mix('accent', 9)}`,borderRadius:12,color:ACCENT,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit',marginTop:8,minHeight:48,width:'100%',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="bldg" s={16} c={ACCENT} /> Map Zones on Floor Plan</button>
           {/* Removed redundant "Start Assessment" CTA — the user viewing
               this screen is already inside an assessment; starting a new
               one is handled from Home or the Reports tab header. The
@@ -2267,28 +2292,33 @@ export default function MobileApp() {
         </div>
       </div>}
 
-      {/* ── DOCX Report Type Picker ── */}
-      {docxPicker&&<div style={{position:'fixed',inset:0,background:'#000000CC',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',padding:24}}>
-        <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:18,padding:28,maxWidth:380,width:'100%',animation:'fadeUp .3s ease'}}>
-          <div style={{fontSize:18,fontWeight:700,color:TEXT,marginBottom:4}}>Export Word Report</div>
-          <div style={{fontSize:12,color:SUB,marginBottom:20,lineHeight:1.5}}>Choose which report format to generate.</div>
-          <div style={{display:'flex',flexDirection:'column',gap:8}}>
-            <button onClick={()=>{setDocxPicker(false);handleExport('docx','consultant')}} style={{padding:'16px',background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:12,cursor:'pointer',textAlign:'left',fontFamily:'inherit',transition:'border-color 0.15s'}}>
-              <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:2}}>Consultant Report</div>
-              <div style={{fontSize:11,color:SUB,lineHeight:1.5}}>Narrative format with executive summary, interpretation, and recommendations. For client delivery.</div>
-            </button>
-            <button onClick={()=>{setDocxPicker(false);handleExport('docx','technical')}} style={{padding:'16px',background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:12,cursor:'pointer',textAlign:'left',fontFamily:'inherit',transition:'border-color 0.15s'}}>
-              <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:2}}>Technical Report</div>
-              <div style={{fontSize:11,color:SUB,lineHeight:1.5}}>Structured findings register, score matrix, instrument log, and data gaps. For peer review and engineering.</div>
-            </button>
-            <button onClick={()=>{setDocxPicker(false);handleExport('docx','both')}} style={{padding:'16px',background:`${mix('accent', 3)}`,border:`1px solid ${mix('accent', 13)}`,borderRadius:12,cursor:'pointer',textAlign:'left',fontFamily:'inherit',transition:'border-color 0.15s'}}>
-              <div style={{fontSize:14,fontWeight:700,color:ACCENT,marginBottom:2}}>Both Reports</div>
-              <div style={{fontSize:11,color:SUB,lineHeight:1.5}}>Downloads both files — consultant report + technical report.</div>
-            </button>
+      {/* ── DOCX Report Type Picker — bottom sheet ─────────────────
+          Mobile-first soft-glass sheet. The three options are now
+          tactile soft-glass cards (tap feedback + glass background)
+          rather than flat-colored buttons. The "Both" option keeps
+          its accent rail to read as the recommended path. */}
+      {docxPicker && (
+        <BottomSheet title="Export Word Report" onClose={()=>setDocxPicker(false)} ariaLabel="Choose report format">
+          <div style={{fontSize:13,color:SUB,margin:'4px 0 16px',lineHeight:1.55}}>Choose which report format to generate.</div>
+          <div style={{display:'flex',flexDirection:'column',gap:10}}>
+            <GlassCard onClick={()=>{setDocxPicker(false);handleExport('docx','consultant')}} dense style={{padding:'14px 16px'}}>
+              <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:3}}>Consultant Report</div>
+              <div style={{fontSize:12,color:SUB,lineHeight:1.55}}>Narrative format with executive summary, interpretation, and recommendations. For client delivery.</div>
+            </GlassCard>
+            <GlassCard onClick={()=>{setDocxPicker(false);handleExport('docx','technical')}} dense style={{padding:'14px 16px'}}>
+              <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:3}}>Technical Report</div>
+              <div style={{fontSize:12,color:SUB,lineHeight:1.55}}>Structured findings register, score matrix, instrument log, and data gaps. For peer review and engineering.</div>
+            </GlassCard>
+            <GlassCard onClick={()=>{setDocxPicker(false);handleExport('docx','both')}} accent={ACCENT} dense style={{padding:'14px 16px'}}>
+              <div style={{fontSize:14,fontWeight:700,color:ACCENT,marginBottom:3}}>Both Reports</div>
+              <div style={{fontSize:12,color:SUB,lineHeight:1.55}}>Downloads both files — consultant report + technical report.</div>
+            </GlassCard>
           </div>
-          <button onClick={()=>setDocxPicker(false)} style={{width:'100%',padding:'12px 0',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:10,color:DIM,fontSize:13,cursor:'pointer',fontFamily:'inherit',marginTop:12,minHeight:44}}>Cancel</button>
-        </div>
-      </div>}
+          <div style={{marginTop:14}}>
+            <TactileButton variant="ghost" fullWidth onClick={()=>setDocxPicker(false)}>Cancel</TactileButton>
+          </div>
+        </BottomSheet>
+      )}
 
       {/* ── Consultant Report Preflight Modal ──
           Surfaces defensibility requirements + IH professional-judgment
