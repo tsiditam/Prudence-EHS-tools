@@ -13,7 +13,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#050507" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -23,7 +23,28 @@
     <link rel="apple-touch-icon" href="/icons/icon-192.png" />
     <title>AtmosFlow — by Prudence EHS</title>
     <style>
-      html,body{margin:0;background:#050507;}
+      html,body{
+        margin:0;
+        background:#050507;
+        /* Lock the mobile viewport: no rubber-band bounce when the
+           user scrolls past the top/bottom edge, no horizontal
+           overflow that lets the page slide sideways, and no
+           double-tap zoom. Combined with the maximum-scale=1
+           viewport meta above and the 16px input font rule below,
+           the page never "expands" on phone — it only scrolls
+           vertically within its own content. */
+        overscroll-behavior:none;
+        overflow-x:hidden;
+        touch-action:pan-y;
+        -webkit-text-size-adjust:100%;
+        text-size-adjust:100%;
+      }
+      /* iOS Safari auto-zooms when the focused input's font-size is
+         under 16px. Floor every form control at 16px so focusing a
+         field doesn't yank the viewport. Visual size of inline
+         numeric inputs is preserved via component-level transforms
+         where needed. */
+      input,select,textarea{font-size:16px;}
       /* Notion-style system stack with Inter as the cross-platform anchor.
          Inter is loaded below; the system fallbacks (SF Pro on iOS/Mac,
          Segoe UI on Windows, Roboto on Android) keep the app feeling
@@ -32,7 +53,17 @@
          of the design language is calibrated to. */
       :root{
         --font-sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI Variable','Segoe UI',system-ui,ui-sans-serif,'Helvetica Neue',Arial,sans-serif,'Apple Color Emoji','Segoe UI Emoji';
-        --font-mono:ui-monospace,'SF Mono',Menlo,Monaco,'Cascadia Code','Roboto Mono',Consolas,monospace;
+        /* --font-mono is now an alias for --font-sans. The v3 design
+           pass moved away from a separate mono family — the system
+           mono stack (SF Mono / Cascadia / Roboto Mono) was reading
+           as "default code editor font" on a premium product. The
+           variable name is retained for the ~70 inline call sites
+           still spelling fontFamily:'var(--font-mono)'; rendering is
+           Inter with tabular numerals inherited from the body rule
+           below, so columns of stat values and dates still align.
+           Future cleanup can migrate the call sites to var(--font-sans)
+           and delete this alias. */
+        --font-mono:var(--font-sans);
 
         /* Theme palette — dark is the default. Values match the in-app
            MobileApp.jsx constants so unmigrated components render
@@ -63,16 +94,17 @@
         --on-accent-fill:#07080C;
       }
       [data-theme="light"]{
-        /* Per design direction: pure white pages, brand-cyan
-           everywhere the brand color appears (text, icons, borders,
-           filled buttons). The dark-cyan #0E7490 stop used previously
-           for AA-safe accent text is replaced with the bright brand
-           #22D3EE. NOTE: bright cyan on white renders at ~1.96:1,
-           below WCAG AA 4.5:1 for body text. Accepted intentionally
-           in favor of brand consistency — flag for any future
-           accessibility audit. */
-        --bg:#FFFFFF;
-        --surface:#FFFFFF;
+        /* Premium Light palette — replaces pure-white with a three-step
+           surface ladder so hierarchy reads in light mode the same way
+           it does in dark. bg is a warm off-white, surface is a tier
+           lower, card stays pure white so cards lift visually off the
+           page. Brand-cyan stays invariant (text, icons, borders,
+           filled buttons). NOTE: bright cyan on near-white renders at
+           ~1.96:1, below WCAG AA 4.5:1 for body text. Accepted
+           intentionally in favor of brand consistency — flag for any
+           future accessibility audit. */
+        --bg:#FAFAFB;
+        --surface:#F4F5F7;
         --card:#FFFFFF;
         /* Light-mode raised surface for "selected" / "focused" rows.
            Dark mode lifts to a slightly lighter navy than --card; in
@@ -103,7 +135,16 @@
       }
       body{
         font-family:var(--font-sans);
-        font-feature-settings:'cv11','ss03';
+        /* OpenType features: cv11 = single-storey 'a' (Inter), ss03 =
+           higher-contrast curves, tnum = tabular (column-aligned)
+           numerals. tnum is set globally because AtmosFlow is an
+           instrument-readout product — every stat strip, score, date,
+           and measurement readout benefits from tabular alignment, and
+           Inter's proportional vs tabular numerals are close enough
+           visually that narrative copy still reads well. font-feature-
+           settings inherits in CSS, so every descendant picks this up
+           without needing inline declarations. */
+        font-feature-settings:'cv11','ss03','tnum';
         -webkit-font-smoothing:antialiased;
         -moz-osx-font-smoothing:grayscale;
         text-rendering:optimizeLegibility;

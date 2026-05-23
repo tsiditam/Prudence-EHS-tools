@@ -42,13 +42,20 @@ export const SP = { xxs: 2, xs: 4, sm: 8, md: 16, lg: 24, xl: 32, xxl: 48, xxxl:
 // stack (the previous Outfit/Inter split was producing two different
 // looks on phone vs. browser-window since Outfit was never loaded).
 export const FONT_SYSTEM = "'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI Variable','Segoe UI',system-ui,ui-sans-serif,'Helvetica Neue',Arial,sans-serif"
-// System monospace stack — SF Mono on Apple, Cascadia Code on Windows,
-// Roboto Mono on Android. Drops the DM Mono web-font load and lets
-// each platform render in its native mono so technical values feel
-// at home (the way Notion's inline code does).
-export const FONT_MONO   = "ui-monospace,'SF Mono',Menlo,Monaco,'Cascadia Code','Roboto Mono',Consolas,monospace"
+// FONT_MONO used to be a separate system-mono stack (SF Mono / Cascadia
+// / Roboto Mono). v3 design pass moved away from it — the system mono
+// was reading as "default code editor font" on a premium product.
+// FONT_MONO is now an alias for FONT_SYSTEM; tabular numerals come from
+// the body-level `font-feature-settings:'tnum'` rule in index.html
+// (CSS inheritance carries it everywhere). The export is retained so
+// the handful of `import { FONT_MONO }` call sites in the codebase
+// still resolve; new code should use FONT_SYSTEM directly.
+export const FONT_MONO   = FONT_SYSTEM
 
-export const mono = { fontFamily: FONT_MONO }
+// `mono` is the inline-style fragment equivalent of FONT_MONO. Same
+// alias reasoning — it now resolves to Inter; tabular numerals come
+// from body-level inheritance.
+export const mono = { fontFamily: FONT_SYSTEM }
 export const FONT_DESKTOP = FONT_SYSTEM
 export const FONT_MOBILE = FONT_SYSTEM
 
@@ -96,7 +103,11 @@ export const SEVERITY = {
   critical: '#EF4444',
   high:     '#FB923C',
   medium:   '#FBBF24',
-  low:      '#22D3EE',
+  // sky-400; reassigned from #22D3EE so Low severity doesn't share the
+  // brand accent hue. Pre-reassignment a Low-severity pill and a primary
+  // CTA both rendered cyan, conflating "this is a result" with "this
+  // is an action."
+  low:      '#38BDF8',
   pass:     '#22C55E',
   info:     '#94A3B8',
 }
@@ -141,18 +152,23 @@ export const T = {
   microAccent:{ fontSize: 11, lineHeight: '14px', fontWeight: 600, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.8px' },
 }
 
-// Numeric scale. Mono-spaced so columns of measurements align and
-// digits don't shift on update — the same convention as a real
-// instrument readout. v3.1 adds `display` for the dominant stat
-// numerals in the hero (Zone Average / Lowest Zone / Zones Assessed
-// in the reference target run ~38–40 px); `lg` stays for the second-
-// tier numerals (Key Indicator score), `md` for inline values.
+// Numeric scale. Stats / scores / measurement readouts use Inter with
+// OpenType `tnum` (tabular numerals) so digits stay column-aligned
+// without resorting to a separate mono family. The previous mono stack
+// (SF Mono / Cascadia / Roboto Mono) was reading as "default code
+// editor font" on a premium product; tabular Inter keeps the
+// instrument-readout alignment without the developer-tool aesthetic.
+// `cv11` keeps Inter's single-storey 'a' the rest of the system uses.
+// `display` is for dominant hero numerals (~38 px), `xl` for stat
+// strip (Zone Average / Lowest Zone), `lg` for the Key Indicator
+// score, `md` / `sm` for inline values and timestamps.
+const NUM_FEATURES = '"tnum" 1, "cv11" 1'
 export const N = {
-  display: { fontFamily: FONT_MONO, fontSize: 38, lineHeight: '42px', fontWeight: 600, letterSpacing: '-0.6px', color: TEXT_PRIMARY },
-  xl:      { fontFamily: FONT_MONO, fontSize: 36, lineHeight: '40px', fontWeight: 600, letterSpacing: '-0.5px', color: TEXT_PRIMARY },
-  lg:      { fontFamily: FONT_MONO, fontSize: 24, lineHeight: '28px', fontWeight: 600, color: TEXT_PRIMARY },
-  md:      { fontFamily: FONT_MONO, fontSize: 16, lineHeight: '20px', fontWeight: 600, color: TEXT_PRIMARY },
-  sm:      { fontFamily: FONT_MONO, fontSize: 12, lineHeight: '16px', fontWeight: 500, color: TEXT_TERTIARY },
+  display: { fontFamily: FONT_SYSTEM, fontFeatureSettings: NUM_FEATURES, fontSize: 38, lineHeight: '42px', fontWeight: 700, letterSpacing: '-0.6px', color: TEXT_PRIMARY },
+  xl:      { fontFamily: FONT_SYSTEM, fontFeatureSettings: NUM_FEATURES, fontSize: 36, lineHeight: '40px', fontWeight: 700, letterSpacing: '-0.5px', color: TEXT_PRIMARY },
+  lg:      { fontFamily: FONT_SYSTEM, fontFeatureSettings: NUM_FEATURES, fontSize: 24, lineHeight: '28px', fontWeight: 600, color: TEXT_PRIMARY },
+  md:      { fontFamily: FONT_SYSTEM, fontFeatureSettings: NUM_FEATURES, fontSize: 16, lineHeight: '20px', fontWeight: 600, color: TEXT_PRIMARY },
+  sm:      { fontFamily: FONT_SYSTEM, fontFeatureSettings: NUM_FEATURES, fontSize: 12, lineHeight: '16px', fontWeight: 500, color: TEXT_TERTIARY },
 }
 
 // Radii.
