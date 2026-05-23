@@ -121,7 +121,11 @@ export const ARANET4_DRIVER = {
   vendor: 'SAF Tehnika',
   // Metrics this device emits. Drives BleSensorButton's filter — a
   // CO2 input only shows drivers whose metrics include 'co2_ppm'.
-  metrics: ['co2_ppm', 'temperature_c', 'humidity_rh', 'pressure_hpa', 'battery_pct'],
+  // temperature_f is included alongside temperature_c because the
+  // parser computes both (line 77). AtmosFlow's field schema uses °F
+  // (`tf`, `tfo`), so the Fahrenheit metric must be in the registry
+  // for `driversForMetric('temperature_f')` to match Aranet4.
+  metrics: ['co2_ppm', 'temperature_c', 'temperature_f', 'humidity_rh', 'pressure_hpa', 'battery_pct'],
   // Web Bluetooth requestDevice filter.
   filter: { services: [ARANET4_SERVICE_UUID] },
   serviceUuid: ARANET4_SERVICE_UUID,

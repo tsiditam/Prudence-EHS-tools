@@ -986,7 +986,16 @@ export default function MobileApp() {
             // CO2 fields wire to BLE in this PR; adding RH / temp /
             // pressure is a one-liner per field once their drivers
             // are tested on hardware.
-            const bleMetric = (q.id === 'co2' || q.id === 'co2o') ? 'co2_ppm' : null
+            // Map a question's field id to the canonical BLE driver
+            // metric so the inline sensor button can stream values
+            // straight into the field. Aranet4 emits CO₂, temperature,
+            // humidity, and pressure — wire every supported field.
+            const BLE_METRIC_BY_FIELD = {
+              co2: 'co2_ppm', co2o: 'co2_ppm',
+              tf: 'temperature_f', tfo: 'temperature_f',
+              rh: 'humidity_rh', rho: 'humidity_rh',
+            }
+            const bleMetric = BLE_METRIC_BY_FIELD[q.id] || null
             return (
               <div>
                 <div style={{display:'flex',alignItems:'stretch',gap:8}}>
@@ -998,14 +1007,21 @@ export default function MobileApp() {
                       the input as a sibling so it doesn't fight with
                       the existing unit badge for the input's
                       right-padding. */}
-                  {bleMetric && (
-                    <BleSensorButton
-                      metric={bleMetric}
-                      size={56}
-                      ariaLabel={`Pair Bluetooth sensor for ${q.id === 'co2o' ? 'outdoor CO₂' : 'CO₂'}`}
-                      onInsert={(value) => setField(q.id, String(value))}
-                    />
-                  )}
+                  {bleMetric && (() => {
+                    const BLE_FIELD_LABELS = {
+                      co2: 'indoor CO₂', co2o: 'outdoor CO₂',
+                      tf: 'indoor temperature', tfo: 'outdoor temperature',
+                      rh: 'indoor humidity', rho: 'outdoor humidity',
+                    }
+                    return (
+                      <BleSensorButton
+                        metric={bleMetric}
+                        size={56}
+                        ariaLabel={`Pair Bluetooth sensor for ${BLE_FIELD_LABELS[q.id] || q.label || q.id}`}
+                        onInsert={(value) => setField(q.id, String(value))}
+                      />
+                    )
+                  })()}
                 </div>
                 {q.helper==='co2_mass_balance'&&<Co2OaCalculator co2={data.co2} co2o={data.co2o} onApply={v=>setField(q.id,v)} onCo2Change={v=>setField('co2',v)} onCo2oChange={v=>setField('co2o',v)} />}
               </div>
