@@ -12,7 +12,7 @@
  * path because it is operator-facing, not client-facing.
  */
 
-import { Document, Packer } from 'docx'
+import { Document, Packer, Paragraph, TextRun, AlignmentType, HeadingLevel } from 'docx'
 import { BODY_SECTION_PROPERTIES } from './docx/page-setup'
 import { DOCX_STYLES } from './docx/styles'
 import { buildCoverPage } from './docx/sections-core'
@@ -85,6 +85,26 @@ function buildContext(data) {
 }
 
 async function generateConsultantDocx(ctx, data) {
+  const doc = await buildConsultantDocument(ctx, data)
+  const blob = await Packer.toBlob(doc)
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `AtmosFlow-Report-${ctx.facilityName}.docx`
+  a.style.display = 'none'
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(url), 5000)
+}
+
+/**
+ * Build the consultant DOCX as a `docx` Document. Same content
+ * pipeline as generateConsultantDocx, factored out so callers that
+ * need the blob (e.g. handleShare → navigator.share) can avoid the
+ * download-as-side-effect.
+ */
+async function buildConsultantDocument(ctx, data) {
   // v2.1 path: bridge legacy scoring data → AssessmentScore → ClientReport
   // → docx. CIH-defensible deliverable.
   const meta = deriveAssessmentMeta({
@@ -162,7 +182,7 @@ async function generateConsultantDocx(ctx, data) {
     ...overrideAttachments,
   }
 
-  const doc = new Document({
+  return new Document({
     creator: 'AtmosFlow — Prudence EHS',
     title: `IAQ Assessment Report — ${ctx.facilityName}`,
     description: 'Indoor Air Quality Assessment Report',
@@ -178,17 +198,6 @@ async function generateConsultantDocx(ctx, data) {
       },
     ],
   })
-
-  const blob = await Packer.toBlob(doc)
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `AtmosFlow-Report-${ctx.facilityName}.docx`
-  a.style.display = 'none'
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  setTimeout(() => URL.revokeObjectURL(url), 10000)
 }
 
 async function generateTechnicalDocx(ctx) {
@@ -246,4 +255,95 @@ export async function generateConsultantOnly(data) {
 export async function generateTechnicalOnly(data) {
   const ctx = buildContext(data)
   await generateTechnicalDocx(ctx)
+}
+
+/**
+ * Build the full consultant DOCX and return it as a Blob without
+ * triggering a download. Used by the result-screen Share button so
+ * the assessor can hand off the same file the Word export produces
+ * via navigator.share() (iOS Files, Mail, Slack, etc.) rather than
+ * a side-of-the-road HTML print preview.
+ */
+export async function getConsultantDocxBlob(data) {
+  const ctx = buildContext(data)
+  const doc = await buildConsultantDocument(ctx, data)
+  const blob = await Packer.toBlob(doc)
+  return {
+    blob,
+    fileName: `AtmosFlow-Report-${ctx.facilityName}.docx`,
+  }
+}
+
+/**
+ * Build a lightweight narrative-only DOCX (no cover ladder, no
+ * appendices, no per-zone tables — just the AI-generated findings
+ * narrative as a clean, shareable Word document with a header that
+ * pins the facility and assessor and the same "Professional review
+ * required" advisory the in-app view shows). Used by the Share
+ * narrative button on the Narrative result tab.
+ *
+ * Kept structurally simple so it fits in messaging apps (small file
+ * size, no embedded images) and reads as a draft for the reviewing
+ * IH rather than as a finalized deliverable.
+ */
+export async function getNarrativeDocxBlob({ facility, narrative, profile, ts }) {
+  const facilityName = (facility && (typeof facility === 'string' ? facility : facility.fn)) || 'Assessment'
+  const dateStr = ts ? new Date(ts).toLocaleDateString() : new Date().toLocaleDateString()
+  const assessorName = (profile && profile.name) || ''
+  const assessorCerts = (profile && Array.isArray(profile.certs) && profile.certs.length)
+    ? ` · ${profile.certs.join(', ')}`
+    : ''
+
+  // Split the narrative on blank lines so each paragraph renders as
+  // its own Paragraph block (single \n inside a paragraph would lose
+  // the line break in Word; \n\n becomes a real paragraph break).
+  const paragraphs = String(narrative || '')
+    .split(/\n{2,}/)
+    .map(p => p.trim())
+    .filter(Boolean)
+
+  const children = [
+    new Paragraph({
+      alignment: AlignmentType.LEFT,
+      spacing: { after: 80 },
+      heading: HeadingLevel.HEADING_1,
+      children: [new TextRun({ text: 'IAQ Findings Narrative', bold: true, size: 32, font: 'Inter' })],
+    }),
+    new Paragraph({
+      spacing: { after: 60 },
+      children: [new TextRun({ text: facilityName, size: 22, font: 'Inter' })],
+    }),
+    new Paragraph({
+      spacing: { after: 240 },
+      children: [new TextRun({ text: `${dateStr}${assessorName ? ` · ${assessorName}${assessorCerts}` : ''}`, size: 18, color: '6B7280', font: 'Inter' })],
+    }),
+    // "Professional review required" advisory mirrors the in-app
+    // banner so the reviewing IH never receives a narrative without
+    // the framing that says it must be reviewed before delivery.
+    new Paragraph({
+      spacing: { before: 80, after: 280 },
+      children: [
+        new TextRun({ text: 'AI-generated · Professional review required. ', bold: true, color: 'B45309', size: 18, font: 'Inter' }),
+        new TextRun({ text: 'This narrative was generated from deterministic scoring output. Review, edit, and approve before including in any client deliverable.', color: 'B45309', size: 18, font: 'Inter' }),
+      ],
+    }),
+    ...paragraphs.map(p => new Paragraph({
+      spacing: { after: 160 },
+      children: [new TextRun({ text: p, size: 22, font: 'Inter' })],
+    })),
+  ]
+
+  const doc = new Document({
+    creator: 'AtmosFlow — Prudence EHS',
+    title: `IAQ Findings Narrative — ${facilityName}`,
+    description: 'AI-generated findings narrative — review required before client delivery.',
+    styles: DOCX_STYLES,
+    sections: [{ properties: BODY_SECTION_PROPERTIES, children }],
+  })
+
+  const blob = await Packer.toBlob(doc)
+  return {
+    blob,
+    fileName: `AtmosFlow-Narrative-${facilityName}.docx`,
+  }
 }

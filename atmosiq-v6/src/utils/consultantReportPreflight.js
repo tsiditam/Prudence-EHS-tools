@@ -156,14 +156,29 @@ export function buildScoreFromReportData(reportData) {
   )
 }
 
+// Engine triggers that the UI deliberately does NOT surface or gate on.
+// `credential_absence` is suppressed because the product is positioned
+// as a screening tool used by the credentialed assessor — gating
+// issuance on a structured-credentials field in the SaaS profile
+// produced a workflow blocker without a defensibility win: every
+// issued report already carries the assessor's name, firm, and (when
+// present) seal, and the reviewing IH's signature is the actual
+// licensure assertion, not a checkbox in a profile. The engine still
+// fires the trigger internally so audit logs and downstream tooling
+// continue to see it; the UI just doesn't gate on it.
+const SUPPRESSED_TRIGGERS = new Set(['credential_absence'])
+
 /**
  * Run the engine's refusal triggers and return structured preflight
- * info. `wouldRefuse` is true iff at least one trigger fired.
+ * info. `wouldRefuse` is true iff at least one non-suppressed trigger
+ * fired.
  */
 export function runConsultantPreflight(reportData) {
   const score = buildScoreFromReportData(reportData)
   const triggers = evaluateRefusalTriggers(score)
-  const fired = triggers.filter(t => t.fired)
+  const fired = triggers
+    .filter(t => t.fired)
+    .filter(t => !SUPPRESSED_TRIGGERS.has(t.id))
   const enriched = fired.map(t => {
     const guidance = TRIGGER_GUIDANCE[t.id] || fallbackGuidance(t.id)
     return {

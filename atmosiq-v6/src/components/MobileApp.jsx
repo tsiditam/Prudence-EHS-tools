@@ -57,7 +57,7 @@ import { printReport, generatePrintHTML } from './PrintReport'
 // after redeploy (the missing-chunk request returned the SPA HTML fallback).
 // Bundling the docx renderer into the main chunk eliminates that failure
 // mode for the most common user action — exporting a report.
-import { generateDocx, generateConsultantOnly, generateTechnicalOnly } from './DocxReport'
+import { generateDocx, generateConsultantOnly, generateTechnicalOnly, getConsultantDocxBlob, getNarrativeDocxBlob } from './DocxReport'
 import { runConsultantPreflight } from '../utils/consultantReportPreflight'
 import { DEMO_PRESURVEY, DEMO_BUILDING, DEMO_ZONES, DEMO_EQUIPMENT } from '../constants/demoData'
 import { DEMO_FM_PRESURVEY, DEMO_FM_BUILDING, DEMO_FM_ZONES } from '../constants/demoDataFM'
@@ -934,19 +934,83 @@ export default function MobileApp() {
     }
   }
 
+  /**
+   * Share the consultant DOCX via the Web Share API. The previous
+   * implementation shared an inline HTML print preview, which broke
+   * when the recipient opened it in any app that expected a Word
+   * document (mail clients, Slack, iOS Files). The DOCX is the file
+   * the assessor would attach to an email anyway — share that.
+   *
+   * Fallback ladder:
+   *   1. navigator.share with the DOCX as a File (iOS Safari, Android Chrome)
+   *   2. navigator.share with text-only summary (older browsers)
+   *   3. Direct download as a last resort (desktop)
+   */
   const handleShare = async () => {
     const title = `IAQ Assessment Report — ${bldg.fn || 'Assessment'}`
-    const html = generatePrintHTML({ building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: {}, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode })
-    const blob = new Blob([html], { type: 'text/html' })
-    const file = new File([blob], `${bldg.fn || 'Assessment'}-Report.html`, { type: 'text/html' })
+    const filteredPhotos = (() => {
+      const sel = selectedPhotos && Object.values(selectedPhotos).some(Boolean) ? selectedPhotos : null
+      if (!sel) return photos
+      const out = {}
+      Object.keys(photos || {}).forEach(k => {
+        out[k] = (photos[k] || []).filter((_, i) => sel[`${k}::${i}`])
+      })
+      return out
+    })()
+    const reportData = { building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, floorPlan, labResults: viewRpt?.labResults || null, ts: viewRpt?.ts }
+    let blob, fileName
+    try {
+      const built = await getConsultantDocxBlob(reportData)
+      blob = built.blob
+      fileName = built.fileName
+    } catch (e) {
+      console.error('Share DOCX build failed:', e)
+      alert('Could not prepare report for sharing: ' + ((e && e.message) || 'Unknown error'))
+      return
+    }
+    trackEvent('report_shared', { facility: bldg.fn || '', score: comp?.tot, format: 'docx' })
+    const file = new File([blob], fileName, { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' })
     if (navigator.share && navigator.canShare?.({ files: [file] })) {
-      try { await navigator.share({ title, files: [file] }) } catch {}
+      try { await navigator.share({ title, files: [file] }) } catch { /* user cancelled */ }
     } else if (navigator.share) {
-      const text = `${bldg.fn || 'Facility'}\nComposite Score: ${comp?.tot || '?'}/100 — ${comp?.risk || '?'}\n${zoneScores?.length || 0} zones assessed`
-      try { await navigator.share({ title, text }) } catch {}
+      const text = `${bldg.fn || 'Facility'} — IAQ screening assessment\n${zoneScores?.length || 0} zone${(zoneScores?.length || 0) === 1 ? '' : 's'} assessed`
+      try { await navigator.share({ title, text }) } catch { /* user cancelled */ }
     } else {
       const url = URL.createObjectURL(blob)
-      const a = document.createElement('a'); a.href = url; a.download = file.name; a.click()
+      const a = document.createElement('a'); a.href = url; a.download = fileName; a.click()
+      setTimeout(() => URL.revokeObjectURL(url), 5000)
+    }
+  }
+
+  /**
+   * Share the AI-generated findings narrative as a lightweight DOCX.
+   * Distinct from the full consultant DOCX path — this builds a
+   * minimal Word doc with just the narrative text + the "review
+   * required" advisory, so the reviewing IH can hand it off as a
+   * draft for editing rather than as the finalized deliverable.
+   */
+  const handleShareNarrative = async () => {
+    if (!narrative) return
+    let blob, fileName
+    try {
+      const built = await getNarrativeDocxBlob({ facility: bldg, narrative, profile, ts: viewRpt?.ts })
+      blob = built.blob
+      fileName = built.fileName
+    } catch (e) {
+      console.error('Share narrative DOCX build failed:', e)
+      alert('Could not prepare narrative for sharing: ' + ((e && e.message) || 'Unknown error'))
+      return
+    }
+    trackEvent('narrative_shared', { facility: bldg.fn || '', word_count: String(narrative).split(/\s+/).length })
+    const file = new File([blob], fileName, { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' })
+    const title = `IAQ Findings Narrative — ${bldg.fn || 'Assessment'}`
+    if (navigator.share && navigator.canShare?.({ files: [file] })) {
+      try { await navigator.share({ title, files: [file] }) } catch { /* user cancelled */ }
+    } else if (navigator.share) {
+      try { await navigator.share({ title, text: String(narrative).slice(0, 280) }) } catch { /* user cancelled */ }
+    } else {
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a'); a.href = url; a.download = fileName; a.click()
       setTimeout(() => URL.revokeObjectURL(url), 5000)
     }
   }
@@ -1547,12 +1611,6 @@ export default function MobileApp() {
                       <div style={V3.divider()} />
                       <div style={V3.T.captionDim}>Why this matters</div>
                       <div style={{...V3.T.body, marginTop:4, lineHeight:'20px'}}>{keyDesc}</div>
-                      <div style={{marginTop:14, paddingTop:14, borderTop:`1px solid ${V3.BORDER_SUBTLE}`, display:'flex', alignItems:'baseline', justifyContent:'space-between', gap:8}}>
-                        <button onClick={()=>setSelZone(zoneScores.findIndex(z => z.tot === comp.worst))} style={{background:'none',border:'none',color:'var(--accent)',fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',padding:0,display:'inline-flex',alignItems:'center',gap:6}}>
-                          View worst zone
-                          <span style={{fontSize:13}}>›</span>
-                        </button>
-                      </div>
                     </>
                   ) : (
                     <div style={V3.T.bodyDim}>No category scored yet — capture field data to surface the worst-zone indicator.</div>
@@ -1861,6 +1919,15 @@ export default function MobileApp() {
             <div style={{marginTop:14,padding:'10px 12px',background:`${mix('warn', 3)}`,border:`1px solid ${mix('warn', 9)}`,borderRadius:10}}>
               <div style={{fontSize:11,color:WARN,fontWeight:600,marginBottom:3}}>Professional review required</div>
               <div style={{fontSize:11,color:DIM,lineHeight:1.5}}>This narrative was generated from deterministic scoring output. Review, edit, and approve before including in any client deliverable or report.</div>
+            </div>
+            {/* Share the narrative as a lightweight DOCX so the
+                reviewing IH can hand it off as an editable draft
+                (Mail, Slack, Files) without bundling the full
+                consultant report. */}
+            <div style={{marginTop:14,display:'flex',gap:10,flexWrap:'wrap'}}>
+              <TactileButton variant="secondary" onClick={handleShareNarrative} icon={<I n="send" s={15} c="var(--accent)" w={1.8} />}>
+                Share narrative as Word
+              </TactileButton>
             </div>
           </div>}
         </div>}
