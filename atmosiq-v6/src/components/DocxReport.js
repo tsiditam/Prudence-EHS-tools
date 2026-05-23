@@ -25,6 +25,8 @@ import { buildMethodologyCurrency } from './docx/sections-methodology-currency'
 import { legacyToAssessmentScore, deriveAssessmentMeta } from '../engine/bridge'
 import { renderClientReport } from '../engine/report/client'
 import { watermarkSectionAttachments, buildCoverNoticeParagraph } from './docx/watermark'
+import { applyOverrideToScore } from '../utils/consultantReportOverride'
+import { buildOverrideCoverNoticeParagraph, buildOverrideSectionAttachments } from './docx/override-watermark'
 
 function buildContext(data) {
   const { building, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos, floorPlan, version, standardsManifest } = data
@@ -91,12 +93,25 @@ async function generateConsultantDocx(ctx, data) {
     building: data.building,
     assessmentDate: data.ts ? data.ts.slice(0, 10) : undefined,
   })
-  const score = legacyToAssessmentScore(
+  let score = legacyToAssessmentScore(
     data.zoneScores || [],
     data.comp || null,
     data.zones || [],
     { meta, presurvey: data.presurvey, building: data.building },
   )
+
+  // IH professional-judgment override: the SPA's preflight modal
+  // surfaced the engine's refusal triggers, the IH typed a
+  // justification, and elected to issue under override. We mutate the
+  // engine's INPUT (the score) to bypass the requested triggers, leaving
+  // the engine itself untouched. The cover notice below records what
+  // was overridden so the deliverable speaks plainly to its reader.
+  let overrideMutations = []
+  if (data.ihOverride && Array.isArray(data.ihOverride.triggers) && data.ihOverride.triggers.length > 0) {
+    const result = applyOverrideToScore(score, data.ihOverride)
+    score = result.score
+    overrideMutations = result.mutations
+  }
   const result = renderClientReport(score, {
     includeAssessmentIndexAppendix: !!data.includeAssessmentIndexAppendix,
   })
@@ -125,9 +140,27 @@ async function generateConsultantDocx(ctx, data) {
   const watermarkConfig = data.watermarkConfig || null
   const sectionWatermark = watermarkSectionAttachments(watermarkConfig)
   const coverNotice = buildCoverNoticeParagraph(watermarkConfig)
-  const coverChildren = coverNotice
-    ? [...(cover.children || []), coverNotice]
-    : cover.children
+
+  // IH override watermark — independent of free-tier watermark, fires
+  // only when data.ihOverride was attached upstream by the preflight
+  // modal. The cover notice is prepended (visible before the report
+  // title); the per-page header/footer marks every page.
+  const overrideAttachments = buildOverrideSectionAttachments(data.ihOverride)
+  const overrideNoticeBlocks = buildOverrideCoverNoticeParagraph(data.ihOverride, overrideMutations)
+
+  const coverChildren = [
+    ...overrideNoticeBlocks,
+    ...(cover.children || []),
+    ...(coverNotice ? [coverNotice] : []),
+  ]
+
+  // Merge headers/footers when both watermarks are active. Override
+  // wins on the header (more important warning); free-tier footer
+  // remains. When only one is active, the other's spread yields {}.
+  const mergedSectionAttachments = {
+    ...sectionWatermark,
+    ...overrideAttachments,
+  }
 
   const doc = new Document({
     creator: 'AtmosFlow — Prudence EHS',
@@ -135,13 +168,13 @@ async function generateConsultantDocx(ctx, data) {
     description: 'Indoor Air Quality Assessment Report',
     styles: DOCX_STYLES,
     sections: [
-      { ...cover, children: coverChildren, ...sectionWatermark },
+      { ...cover, children: coverChildren, ...mergedSectionAttachments },
       {
         // v2.5.1 — explicit Letter portrait + 1-inch margins so the
         // body fills the 6.5-inch content area on US Letter paper.
         properties: BODY_SECTION_PROPERTIES,
         children: main,
-        ...sectionWatermark,
+        ...mergedSectionAttachments,
       },
     ],
   })
