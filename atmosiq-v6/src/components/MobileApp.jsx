@@ -2964,10 +2964,26 @@ export default function MobileApp() {
                     assessment with severity, confidence, and recommended actions.
                   </div>
                   <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
-                    <TactileButton variant="primary" onClick={startNew} icon={<I n="play" s={14} c={PRIMARY_CTA_ICON} w={2} />}>
+                    <TactileButton variant="primary" size="sm" pill onClick={startNew} icon={<I n="play" s={13} c={PRIMARY_CTA_ICON} w={2} />}>
                       Start walkthrough
                     </TactileButton>
-                    <TactileButton variant="secondary" onClick={()=>setView('incident-form')} icon={<I n="alert" s={14} c="var(--accent)" w={1.8} />}>
+                    {/* Report an incident is a secondary action here, so
+                        its accent border + tint are toned down (30%→16%
+                        border, 12%→7% fill) to calm the neon-bright halo
+                        the default secondary variant gave it on the dark
+                        co-pilot card. */}
+                    <TactileButton
+                      variant="secondary"
+                      size="sm"
+                      pill
+                      onClick={()=>setView('incident-form')}
+                      icon={<I n="alert" s={13} c="var(--accent)" w={1.8} />}
+                      style={{
+                        background:'color-mix(in srgb, var(--accent) 7%, transparent)',
+                        border:'1px solid color-mix(in srgb, var(--accent) 16%, transparent)',
+                        boxShadow:'inset 0 1px 0 rgba(255,255,255,0.03), 0 1px 2px rgba(0,0,0,0.20)',
+                      }}
+                    >
                       Report an incident
                     </TactileButton>
                   </div>
