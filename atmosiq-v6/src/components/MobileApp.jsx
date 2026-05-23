@@ -1851,7 +1851,6 @@ export default function MobileApp() {
             })}
           </div>)})}
           <div style={{display:'flex',gap:10,marginTop:8}}>
-            <button onClick={()=>handleExport('pdf')} style={{flex:1,padding:'14px 20px',background:`${mix('accent', 7)}`,border:`1px solid ${mix('accent', 19)}`,borderRadius:12,color:ACCENT,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:48,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="download" s={16} c={ACCENT} /> PDF</button>
             <button onClick={()=>setDocxPicker(true)} style={{flex:1,padding:'14px 20px',background:`${mix('accent', 7)}`,border:`1px solid ${mix('accent', 19)}`,borderRadius:12,color:ACCENT,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:48,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="notes" s={16} c={ACCENT} /> Word</button>
             <button onClick={handleShare} style={{flex:1,padding:'14px 20px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,color:SUB,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:48,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="send" s={16} c={SUB} /> Share</button>
           </div>
