@@ -2742,7 +2742,10 @@ export default function MobileApp() {
             derive its local `activeDraft`; computed inline here
             because the IIFE's locals aren't visible at this scope. ── */}
         {(() => {
-          const fab = view === 'dash' ? (drafts && drafts[0]) || null : null
+          // `drafts` lives inside the dash IIFE, but `index` is the
+          // outer-scope storage hook (line 309) — `index.drafts` is the
+          // same array the IIFE reads from. Pull from there directly.
+          const fab = view === 'dash' ? ((index?.drafts || [])[0] || null) : null
           if (!fab) return null
           return (
             <div style={{
