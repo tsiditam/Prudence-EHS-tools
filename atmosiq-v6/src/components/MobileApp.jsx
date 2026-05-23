@@ -3233,7 +3233,7 @@ export default function MobileApp() {
               <button
                 onClick={startNew}
                 aria-label="Start new assessment"
-                style={{...V3.iconBox(V3.STATUS.draft),border:'none',padding:0,cursor:'pointer',fontFamily:'inherit',WebkitTapHighlightColor:'transparent'}}
+                style={{...V3.iconBox(V3.STATUS.draft),padding:0,cursor:'pointer',fontFamily:'inherit',WebkitTapHighlightColor:'transparent'}}
               >
                 <I n="draft" s={15} c={V3.STATUS.draft} w={1.6} />
               </button>
