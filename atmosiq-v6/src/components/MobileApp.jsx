@@ -155,6 +155,21 @@ const DIM = 'var(--dim)'
 const SUCCESS = 'var(--success)'
 const WARN = 'var(--warn)'
 const DANGER = 'var(--danger)'
+
+// Canonical results-card section label (Pathways / Sampling): an
+// uppercase group header sitting above each label/value pair. A touch
+// larger and more tracked than inline micro-copy so the card's content
+// groups read as distinct sections and the card gets a clear vertical
+// rhythm.
+const CARD_LABEL = { fontSize: 10, color: DIM, textTransform: 'uppercase', letterSpacing: '0.6px', fontWeight: 600, marginBottom: 5 }
+
+// Confidence tones for the results cards. High = green (confident),
+// Moderate = amber, Possible = a cool slate-blue — deliberately lower-
+// energy but still chromatic, so the lowest tier reads as an intentional
+// confidence state rather than disabled gray body text.
+const confColor = (conf) => conf === 'Strong' ? '#22C55E'
+  : conf === 'Moderate' ? '#FBBF24'
+  : '#8AA4CC'
 const ON_ACCENT = 'var(--on-accent)'
 
 // `mix(name, pct)` for legacy `${TOKEN}HEX_ALPHA` sites is imported
@@ -1850,33 +1865,38 @@ export default function MobileApp() {
         {rTab==='rootcause'&&<div style={{display:'flex',flexDirection:'column',gap:12}}>
           <div style={{fontSize:11,color:DIM,lineHeight:1.5,marginBottom:4}}>Concern pathways are based on correlation of field observations, measurements, and occupant reports. They support — but do not confirm — root-cause determination.</div>
           {causalChains.length===0?<div style={{padding:36,textAlign:'center',background:CARD,borderRadius:10,border:`1px solid ${BORDER}`}}><I n="chain" s={24} c={DIM} w={1.4} /><div style={{fontSize:14,fontWeight:600,marginTop:12,marginBottom:4,color:SUB}}>No concern pathways identified</div><div style={{fontSize:12,color:DIM,lineHeight:1.5}}>No correlated multi-factor findings in this assessment.</div></div>
-          :causalChains.map((ch,i)=>{const confLabel=ch.confidence==='Strong'?'High':ch.confidence==='Moderate'?'Moderate':'Possible';const cc=ch.confidence==='Strong'?'#22C55E':ch.confidence==='Moderate'?'#FBBF24':SUB;return(
-            <div key={i} style={{padding:16,background:CARD,border:`1px solid ${BORDER}`,borderRadius:10}}>
+          :causalChains.map((ch,i)=>{const confLabel=ch.confidence==='Strong'?'High':ch.confidence==='Moderate'?'Moderate':'Possible';const cc=confColor(ch.confidence);return(
+            <div key={i} style={{padding:'16px 16px 18px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12}}>
               {/* ── Canonical two-up: PATHWAY + CONFIDENCE ── */}
-              <div style={{display:'grid',gridTemplateColumns:'1fr auto',gap:12,marginBottom:12,alignItems:'flex-start'}}>
+              <div style={{display:'grid',gridTemplateColumns:'1fr auto',gap:12,marginBottom:14,alignItems:'flex-start'}}>
                 <div>
-                  <div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Pathway</div>
-                  <div style={{color:TEXT,fontWeight:600,fontSize:14,lineHeight:1.4}}>{ch.type}</div>
+                  <div style={CARD_LABEL}>Pathway</div>
+                  <div style={{color:TEXT,fontWeight:700,fontSize:15,lineHeight:1.35}}>{ch.type}</div>
                 </div>
                 <div>
-                  <div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Confidence</div>
-                  <span style={{padding:'3px 10px',background:`${cc}12`,border:`1px solid ${cc}25`,borderRadius:4,fontSize:11,fontWeight:700,color:cc,letterSpacing:'0.3px'}}>{confLabel}</span>
+                  <div style={CARD_LABEL}>Confidence</div>
+                  <span style={{padding:'3px 10px',background:`${cc}1F`,border:`1px solid ${cc}59`,borderRadius:5,fontSize:11,fontWeight:700,color:cc,letterSpacing:'0.4px',whiteSpace:'nowrap'}}>{confLabel}</span>
                 </div>
               </div>
               {/* ── ZONE — plain bold white, not cyan/monospace ── */}
-              <div style={{marginBottom:12}}>
-                <div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Zone</div>
+              <div style={{marginBottom:14}}>
+                <div style={CARD_LABEL}>Zone</div>
                 <div style={{color:TEXT,fontWeight:600,fontSize:13,lineHeight:1.4}}>{ch.zone}</div>
               </div>
-              {/* ── HYPOTHESIS — flat label/value, no border, no quote framing ── */}
-              <div style={{marginBottom:12}}>
-                <div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Hypothesis</div>
-                <div style={{color:SUB,fontSize:13,lineHeight:1.6}}>{ch.rootCause}</div>
+              {/* ── HYPOTHESIS — the primary conclusion, rendered brighter
+                  (TEXT, not SUB) than the supporting evidence below so the
+                  takeaway is scannable first. ── */}
+              <div style={{marginBottom:14}}>
+                <div style={CARD_LABEL}>Hypothesis</div>
+                <div style={{color:TEXT,fontSize:14,lineHeight:1.55}}>{ch.rootCause}</div>
               </div>
-              {/* ── SUPPORTING EVIDENCE — flat list, no leading arrows ── */}
-              <div>
-                <div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Supporting evidence</div>
-                {ch.evidence.map((e,j)=><div key={j} style={{fontSize:13,color:SUB,lineHeight:1.6,marginBottom:j<ch.evidence.length-1?2:0}}>{e}</div>)}
+              {/* ── SUPPORTING EVIDENCE — separated from the interpretation
+                  above by a hairline; dimmer + roomier line spacing so the
+                  references read as a scannable list, not a wall of text.
+                  Flat list, no leading arrows (intentional). ── */}
+              <div style={{paddingTop:14,borderTop:`1px solid ${V3.BORDER_SUBTLE}`}}>
+                <div style={CARD_LABEL}>Supporting evidence</div>
+                {ch.evidence.map((e,j)=><div key={j} style={{fontSize:13,color:SUB,lineHeight:1.55,marginBottom:j<ch.evidence.length-1?6:0}}>{e}</div>)}
               </div>
             </div>
           )})}
@@ -1885,31 +1905,34 @@ export default function MobileApp() {
         {rTab==='sampling'&&<div style={{display:'flex',flexDirection:'column',gap:14}}>
           {(!samplingPlan||samplingPlan.plan.length===0)?<div style={{padding:36,textAlign:'center',background:CARD,borderRadius:10,border:`1px solid ${BORDER}`}}><I n="flask" s={24} c={DIM} w={1.4} /><div style={{fontSize:14,fontWeight:600,marginTop:12,marginBottom:4,color:SUB}}>No sampling indicated</div><div style={{fontSize:12,color:DIM,lineHeight:1.5}}>No hypotheses requiring confirmatory sampling.</div></div>
           :<>{samplingPlan.plan.map((p,i)=>{const pc=p.priority==='critical'?'#EF4444':p.priority==='high'?'#FB923C':'#FBBF24';const priLabel=p.priority.charAt(0).toUpperCase()+p.priority.slice(1);return(
-            <div key={i} style={{padding:18,background:CARD,border:`1px solid ${BORDER}`,borderRadius:10}}>
+            <div key={i} style={{padding:'18px 18px 20px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12}}>
               {/* ── Canonical two-up: SAMPLE TYPE + PRIORITY ── */}
-              <div style={{display:'grid',gridTemplateColumns:'1fr auto',gap:12,marginBottom:12,alignItems:'flex-start'}}>
+              <div style={{display:'grid',gridTemplateColumns:'1fr auto',gap:12,marginBottom:14,alignItems:'flex-start'}}>
                 <div>
-                  <div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Sample type</div>
-                  <div style={{color:TEXT,fontWeight:600,fontSize:14,lineHeight:1.4}}>{p.type}</div>
+                  <div style={CARD_LABEL}>Sample type</div>
+                  <div style={{color:TEXT,fontWeight:700,fontSize:15,lineHeight:1.35}}>{p.type}</div>
                 </div>
                 <div>
-                  <div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Priority</div>
-                  <span style={{padding:'3px 10px',background:`${pc}12`,border:`1px solid ${pc}25`,borderRadius:4,fontSize:11,fontWeight:700,color:pc,letterSpacing:'0.3px'}}>{priLabel}</span>
+                  <div style={CARD_LABEL}>Priority</div>
+                  <span style={{padding:'3px 10px',background:`${pc}1F`,border:`1px solid ${pc}59`,borderRadius:5,fontSize:11,fontWeight:700,color:pc,letterSpacing:'0.4px',whiteSpace:'nowrap'}}>{priLabel}</span>
                 </div>
               </div>
               {/* ── ZONE — plain bold white ── */}
-              <div style={{marginBottom:12}}>
-                <div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Zone</div>
+              <div style={{marginBottom:14}}>
+                <div style={CARD_LABEL}>Zone</div>
                 <div style={{color:TEXT,fontWeight:600,fontSize:13,lineHeight:1.4}}>{p.zone}</div>
               </div>
-              {/* ── HYPOTHESIS / METHOD / CONTROLS — flat label/value pairs ── */}
-              {[{l:'Hypothesis',v:p.hypothesis},{l:'Method',v:p.method},{l:'Controls',v:p.controls}].filter(x=>x.v).map(x=><div key={x.l} style={{marginBottom:12}}>
-                <div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>{x.l}</div>
-                <div style={{color:SUB,fontSize:13,lineHeight:1.6}}>{x.v}</div>
+              {/* ── HYPOTHESIS / METHOD / CONTROLS — flat label/value pairs.
+                  The hypothesis (the reason to sample) leads brighter than
+                  the method/controls detail beneath it. ── */}
+              {[{l:'Hypothesis',v:p.hypothesis},{l:'Method',v:p.method},{l:'Controls',v:p.controls}].filter(x=>x.v).map((x,xi)=><div key={x.l} style={{marginBottom:14}}>
+                <div style={CARD_LABEL}>{x.l}</div>
+                <div style={{color:xi===0?TEXT:SUB,fontSize:xi===0?14:13,lineHeight:1.55}}>{x.v}</div>
               </div>)}
-              {/* ── REFERENCE — sentence case, no monospace ── */}
-              {p.standard && <div>
-                <div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Reference</div>
+              {/* ── REFERENCE — separated from the interpretation above by a
+                  hairline so the citation reads as a distinct reference. ── */}
+              {p.standard && <div style={{paddingTop:14,borderTop:`1px solid ${V3.BORDER_SUBTLE}`}}>
+                <div style={CARD_LABEL}>Reference</div>
                 <div style={{color:DIM,fontSize:12,lineHeight:1.5}}>{p.standard}</div>
               </div>}
             </div>
@@ -2219,7 +2242,13 @@ export default function MobileApp() {
           </div>
           <div style={{display:'flex',alignItems:'center',gap:8}}>
             {isAssessing&&<span style={{fontSize:10,color:ACCENT,fontFamily:"var(--font-mono)",background:`${mix('accent', 4)}`,padding:'3px 10px',borderRadius:4,border:`1px solid ${mix('accent', 13)}`,letterSpacing:'0.5px'}}>SAVING</span>}
-            {view!=='dash'&&view!=='history'&&view!=='search'&&view!=='settings'&&view!=='trash'&&view!=='tos'&&view!=='privacy'&&view!=='help'&&view!=='instrument-edit'&&view!=='incident-form'&&view!=='incident-log'&&view!=='incident-detail'&&view!=='sampling-forms'&&<button onClick={()=>{setView('dash');setViewRpt(null)}} style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:8,color:SUB,fontSize:13,fontWeight:600,padding:'7px 14px',cursor:'pointer',fontFamily:'inherit',minHeight:36,transition:'color 0.15s'}}>← Home</button>}
+            {/* Home — compact icon control on deeper screens. The action
+                always routes to the dashboard (not a one-step back), so a
+                home glyph reads more honestly than a back arrow and frees
+                the horizontal space the "← Home" text pill used to take.
+                Square 36×36 footprint + radius matches the hamburger so
+                the header chrome stays cohesive. */}
+            {view!=='dash'&&view!=='history'&&view!=='search'&&view!=='settings'&&view!=='trash'&&view!=='tos'&&view!=='privacy'&&view!=='help'&&view!=='instrument-edit'&&view!=='incident-form'&&view!=='incident-log'&&view!=='incident-detail'&&view!=='sampling-forms'&&<button onClick={()=>{setView('dash');setViewRpt(null)}} aria-label="Home" title="Home" style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,color:SUB,cursor:'pointer',fontFamily:'inherit',width:36,height:36,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'color 0.15s',WebkitTapHighlightColor:'transparent'}}><I n="home" s={17} c={SUB} w={1.8} /></button>}
             {/* Subscription-status pill — exception-only. In beta
                 the helper returns null. Phase 2+ surfaces it on
                 diverging state (payment failed, plan cancelling,
@@ -3400,15 +3429,14 @@ export default function MobileApp() {
             ] : [
               {id:'dash',label:'Home',icon:'home'},
               {id:'history',label:'Reports',icon:'report',badge:((index.drafts||[]).length+(index.reports||[]).length)||null},
-              // AI Assistant replaces the previous Search tab. The
+              // AtmosFlow AI replaces the previous Search tab. The
               // brain-on-chip silhouette + same TEXT_TERTIARY →
               // accent treatment as every other tab so the row reads
-              // as one cohesive nav. The label is the descriptive
-              // "AI Assistant" rather than the codename "Jasper"
-              // because the icon alone doesn't tell a first-time
-              // user that this tab opens the assistant, and the
-              // generic name is more self-explanatory than a brand.
-              {id:'jasper',label:'AI Assistant',icon:'jasper'},
+              // as one cohesive nav. Labeled "AtmosFlow AI" to match
+              // the assistant sheet's header — one consistent name
+              // across every surface (the internal id stays 'jasper'
+              // to avoid touching shipped event/table names).
+              {id:'jasper',label:'AtmosFlow AI',icon:'jasper'},
               {id:'settings',label:'Settings',icon:'gear'},
             ]).map(t=>{
               const isJasper = t.id === 'jasper'
@@ -3518,6 +3546,19 @@ export default function MobileApp() {
             current_zone: zones[curZone],
             zones_count: zones.length,
             incident: currentIncident,
+            // Active-assessment label for the assistant's context chip +
+            // prompt. Prefer the loaded assessment's facility; on the
+            // dashboard (where bldg isn't hydrated until a draft is
+            // resumed) fall back to the top in-progress draft so the
+            // assistant still knows what the assessor is working on.
+            active_assessment: (() => {
+              const facility = bldg?.fn || (index?.drafts || [])[0]?.facility || null
+              if (!facility) return null
+              const status = (view === 'results' || view === 'report')
+                ? 'Finalized report'
+                : 'Draft assessment'
+              return { facility, status }
+            })(),
             profile_minimal: profile ? { plan: profile.plan, certs: profile.certs, firm: profile.firm } : null,
             // v1.5 Defensibility Copilot: when the user is in results
             // view, attach the readiness verdict so the agent can answer
