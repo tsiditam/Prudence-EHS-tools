@@ -21,7 +21,9 @@ Adapted from Apple's iOS 26 "Liquid Glass" language:
 3. **Glass / blur** — translucent surfaces with `backdrop-filter: blur`
    at three tiers (subtle 8px / card 14px / elevated 22px) and a
    `saturate(140–160%)` boost so the surface picks up color from the
-   background.
+   background. Opacity tuned to 88% / 93% / 96% (v3.3.1) — translucent
+   enough to feel like a layer of glass, opaque enough that text
+   stays confidently legible over busy page content.
 4. **Spring motion** — `cubic-bezier(0.34, 1.4, 0.64, 1)` for taps,
    `cubic-bezier(0.16, 1.2, 0.3, 1)` for sheet entrance. Settles feel
    physical; never snap.
