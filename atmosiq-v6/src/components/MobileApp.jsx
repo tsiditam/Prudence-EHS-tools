@@ -2226,7 +2226,13 @@ export default function MobileApp() {
           </div>
           <div style={{display:'flex',alignItems:'center',gap:8}}>
             {isAssessing&&<span style={{fontSize:10,color:ACCENT,fontFamily:"var(--font-mono)",background:`${mix('accent', 4)}`,padding:'3px 10px',borderRadius:4,border:`1px solid ${mix('accent', 13)}`,letterSpacing:'0.5px'}}>SAVING</span>}
-            {view!=='dash'&&view!=='history'&&view!=='search'&&view!=='settings'&&view!=='trash'&&view!=='tos'&&view!=='privacy'&&view!=='help'&&view!=='instrument-edit'&&view!=='incident-form'&&view!=='incident-log'&&view!=='incident-detail'&&view!=='sampling-forms'&&<button onClick={()=>{setView('dash');setViewRpt(null)}} style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:8,color:SUB,fontSize:13,fontWeight:600,padding:'7px 14px',cursor:'pointer',fontFamily:'inherit',minHeight:36,transition:'color 0.15s'}}>← Home</button>}
+            {/* Home — compact icon control on deeper screens. The action
+                always routes to the dashboard (not a one-step back), so a
+                home glyph reads more honestly than a back arrow and frees
+                the horizontal space the "← Home" text pill used to take.
+                Square 36×36 footprint + radius matches the hamburger so
+                the header chrome stays cohesive. */}
+            {view!=='dash'&&view!=='history'&&view!=='search'&&view!=='settings'&&view!=='trash'&&view!=='tos'&&view!=='privacy'&&view!=='help'&&view!=='instrument-edit'&&view!=='incident-form'&&view!=='incident-log'&&view!=='incident-detail'&&view!=='sampling-forms'&&<button onClick={()=>{setView('dash');setViewRpt(null)}} aria-label="Home" title="Home" style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,color:SUB,cursor:'pointer',fontFamily:'inherit',width:36,height:36,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'color 0.15s',WebkitTapHighlightColor:'transparent'}}><I n="home" s={17} c={SUB} w={1.8} /></button>}
             {/* Subscription-status pill — exception-only. In beta
                 the helper returns null. Phase 2+ surfaces it on
                 diverging state (payment failed, plan cancelling,
