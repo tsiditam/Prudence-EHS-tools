@@ -1261,17 +1261,25 @@ export default function MobileApp() {
             doesn't break the visual flow between hero and tabs.
             The panel itself manages its own collapsed state — we
             only constrain its outer padding here. ── */}
-        <div style={{marginBottom:14, marginTop:-4, opacity:0.85}}>
-          <V21InternalPanel
-            zoneScores={zoneScores}
-            comp={comp}
-            zones={zones}
-            profile={profile}
-            presurvey={presurvey}
-            bldg={bldg}
-            assessmentDate={viewRpt?.ts ? viewRpt.ts.slice(0,10) : undefined}
-          />
-        </div>
+        {/* Internal operator dashboard — visible only to PSEC staff
+            with an active admin session (Settings → Activate admin).
+            Surfaces v2.8 engine scoring internals (severity matrix,
+            confidence tiers, defensibility flags) that are useful for
+            QA/debugging but not appropriate for client-facing or
+            non-staff consultant accounts. */}
+        {!!adminSecret && (
+          <div style={{marginBottom:14, marginTop:-4, opacity:0.85}}>
+            <V21InternalPanel
+              zoneScores={zoneScores}
+              comp={comp}
+              zones={zones}
+              profile={profile}
+              presurvey={presurvey}
+              bldg={bldg}
+              assessmentDate={viewRpt?.ts ? viewRpt.ts.slice(0,10) : undefined}
+            />
+          </div>
+        )}
 
         {/* ── Data-completeness prompts. Banner-style status-by-
             exception entries — surface only when defensibility is at
