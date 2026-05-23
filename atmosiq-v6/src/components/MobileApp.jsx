@@ -2069,7 +2069,12 @@ export default function MobileApp() {
             {profile && (
               <div style={{
                 display:'flex', alignItems:'center', gap:2,
-                background: CARD, border:`1px solid ${BORDER}`,
+                // Soft-glass pill: low-opacity card surface with a
+                // backdrop blur so it reads as a translucent layer
+                // floating over the blurred header rather than a flat
+                // CARD block. Inner highlight + outer drop give it the
+                // tactile depth the rest of the v3.3 surface uses.
+                ...GLASS.subtle,
                 borderRadius: 999, padding:'2px 2px 2px 6px',
                 height: 36, boxSizing:'border-box',
               }}>
@@ -2448,7 +2453,11 @@ export default function MobileApp() {
           const activeStage = activeDraft?.stage || 'findings'
 
           return (
-            <div style={{paddingTop:24,paddingBottom:100,maxWidth:contentMax,margin:'0 auto'}}>
+            // Bottom padding clears the bottom nav (64px) AND, when an
+            // active draft is in flight, the floating Continue walkthrough
+            // action bar (~76px) that pins above the nav. Without the
+            // bump the last list item ends up tucked behind the CTA.
+            <div style={{paddingTop:24, paddingBottom: activeDraft ? 200 : 100, maxWidth:contentMax,margin:'0 auto'}}>
 
               {/* Calibration exception banner — status-by-exception.
                   Surfaces only when the primary instrument's
@@ -2483,15 +2492,16 @@ export default function MobileApp() {
 
               {activeDraft ? (
                 <>
-                  {/* ── HERO: current assessment situational awareness ─── */}
-                  <div style={{...V3.panel({ accent: V3.STATUS.inProgress }), padding:0, marginBottom:16}}>
-                    {/* Header row — facility name + meta. The
-                        Continue Assessment CTA used to live at the
-                        right edge of this row; it's been moved to
-                        a full-width footer at the bottom of the
-                        card so long facility names ("222 bridge
-                        road") can use the full title width without
-                        wrapping awkwardly around the button. */}
+                  {/* ── HERO: current assessment situational awareness ───
+                      Soft-glass card with the in-progress accent rail at
+                      the top. The Continue walkthrough CTA used to live
+                      inside this card at the foot; it's now a floating
+                      action bar pinned to the bottom of the dash view
+                      (rendered below in the same view block), so the
+                      hero focuses on situational awareness and the
+                      primary action sticks to the thumb-reach zone of
+                      the screen. */}
+                  <GlassCard accent={V3.STATUS.inProgress} style={{padding:0, marginBottom:RHYTHM.base}}>
                     <div style={{padding:'20px 24px 0'}}>
                       <div style={{...V3.T.h1, marginBottom:6, overflow:'hidden', textOverflow:'ellipsis'}}>
                         {activeDraft.facility || 'Untitled Assessment'}
@@ -2503,7 +2513,7 @@ export default function MobileApp() {
                         </span>
                         <span style={{color:V3.BORDER_STRONG}}>·</span>
                         <span style={{fontFamily:'var(--font-mono)'}}>{fD(activeDraft.ua || activeDraft.ts)}</span>
-                        <span style={V3.pill(V3.STATUS.inProgress)}>In Progress</span>
+                        <StatusPill tone={V3.STATUS.inProgress}>In Progress</StatusPill>
                         {/* Real-time presence — surfaces other IHs
                             who joined the same assessment via the
                             Supabase Realtime presence channel. Renders
@@ -2572,18 +2582,13 @@ export default function MobileApp() {
                       })}
                     </div>
 
-                    {/* Bottom CTA — primary resume action. Lives at
-                        the foot of the card (not in the header) so
-                        the facility name above can take the full
-                        title width without wrapping around a
-                        floating button. */}
-                    <div style={{padding:'4px 20px 20px'}}>
-                      <button onClick={()=>resumeDraft(activeDraft.id)} style={{...V3.btnPrimary, display:'flex', width:'100%'}}>
-                        Continue Assessment
-                        <I n="play" s={13} c={PRIMARY_CTA_ICON} w={1.8} />
-                      </button>
-                    </div>
-                  </div>
+                    {/* Bottom card spacing — the resume CTA used to
+                        live here but moved to a sticky floating action
+                        bar at the bottom of the view so it's always
+                        reachable from the thumb-zone regardless of
+                        scroll position. */}
+                    <div style={{padding:'4px 20px 20px'}} />
+                  </GlassCard>
 
                   {/* Next recommended steps. The "Assessment details"
                       key:value panel that previously sat to the right
@@ -2591,9 +2596,9 @@ export default function MobileApp() {
                       last touched / zones / status all surface in the
                       hero header above, so the panel was a redundant
                       restatement. Single-column layout now. */}
-                  <div style={{marginBottom:24}}>
+                  <div style={{marginBottom:RHYTHM.section}}>
                     {/* Next action — drives the assessor forward */}
-                    <div style={V3.panel()}>
+                    <GlassCard>
                       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
                         <div style={{display:'flex',alignItems:'center',gap:10}}>
                           <div style={V3.iconBox('var(--accent)')}>
@@ -2626,87 +2631,99 @@ export default function MobileApp() {
                         </div>
                       </div>
                       <div style={V3.divider()} />
-                      <button onClick={()=>resumeDraft(activeDraft.id)} style={{...V3.btnGhost, width:'100%'}}>
-                        Continue from current step
-                        <I n="play" s={13} c={V3.TEXT_SECONDARY} w={1.8} />
-                      </button>
-                    </div>
+                      <TactileButton variant="ghost" fullWidth onClick={()=>resumeDraft(activeDraft.id)} iconRight={<I n="play" s={13} c={V3.TEXT_SECONDARY} w={1.8} />}>
+                        Pick up where you left off
+                      </TactileButton>
+                    </GlassCard>
 
                   </div>
 
-                  {/* Other in-progress assessments — only if multiple drafts */}
+                  {/* Other in-progress assessments — only if multiple drafts.
+                      Each row is a soft-glass card with tap feedback so
+                      the list reads as a stack of individual cards rather
+                      than a flat segmented control. */}
                   {drafts.length > 1 && (
-                    <div style={{marginBottom:24}}>
+                    <div style={{marginBottom:RHYTHM.section}}>
                       <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',marginBottom:10,padding:'0 2px'}}>
                         <div style={V3.T.micro}>Other in progress · {drafts.length - 1}</div>
                         <button onClick={()=>setView('history')} style={{background:'none',border:'none',color:'var(--accent)',fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',padding:0}}>View all</button>
                       </div>
-                      <div style={{background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.lg,overflow:'hidden'}}>
-                        {drafts.slice(1, 4).map((d, i) => (
-                          <button key={d.id} onClick={()=>resumeDraft(d.id)} style={{width:'100%',padding:'14px 16px',background:'transparent',border:'none',borderTop: i === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit',minHeight:60}}>
-                            <div style={V3.iconBox(V3.STATUS.inProgress)}>
-                              <I n="bldg" s={15} c={V3.STATUS.inProgress} w={1.6} />
+                      <div style={sgStack('tight')}>
+                        {drafts.slice(1, 4).map((d) => (
+                          <GlassCard key={d.id} dense onClick={()=>resumeDraft(d.id)} style={{padding:'14px 16px'}}>
+                            <div style={{display:'flex',alignItems:'center',gap:12,minHeight:44}}>
+                              <div style={V3.iconBox(V3.STATUS.inProgress)}>
+                                <I n="bldg" s={15} c={V3.STATUS.inProgress} w={1.6} />
+                              </div>
+                              <div style={{flex:1,minWidth:0}}>
+                                <div style={{...V3.T.bodyStrong, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{d.facility || 'Untitled Assessment'}</div>
+                                <div style={{...V3.T.captionDim, fontFamily:'var(--font-mono)'}}>{fD(d.ua || d.ts)}</div>
+                              </div>
+                              <StatusPill tone={V3.STATUS.inProgress}>In Progress</StatusPill>
+                              <span style={{color:V3.TEXT_TERTIARY,fontSize:13}}>›</span>
                             </div>
-                            <div style={{flex:1,minWidth:0}}>
-                              <div style={{...V3.T.bodyStrong, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{d.facility || 'Untitled Assessment'}</div>
-                              <div style={{...V3.T.captionDim, fontFamily:'var(--font-mono)'}}>{fD(d.ua || d.ts)}</div>
-                            </div>
-                            <span style={V3.pill(V3.STATUS.inProgress)}>In Progress</span>
-                            <span style={{color:V3.TEXT_TERTIARY,fontSize:13}}>›</span>
-                          </button>
+                          </GlassCard>
                         ))}
                       </div>
                     </div>
                   )}
                 </>
               ) : (
-                /* ── No active draft — premium start panel ─────────────── */
-                <div style={{...V3.panel(), padding:'28px 26px', marginBottom:24}}>
+                /* ── No active draft — soft-glass start panel.
+                    Friendly microcopy ("Start a walkthrough" instead of
+                    "Start IAQ Assessment") reframes the workflow from
+                    compliance form to field activity. The two CTAs use
+                    TactileButton primary/secondary so the press feels
+                    physical, with a light haptic on touch. */
+                <GlassCard style={{padding:'28px 26px', marginBottom:RHYTHM.section}}>
                   <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
                     <I n="airflow" s={18} c="var(--accent)" w={1.8} />
-                    <div style={V3.T.micro}>AtmosFlow · Screening Workflow</div>
+                    <div style={V3.T.micro}>AtmosFlow · Field co-pilot</div>
                   </div>
-                  <div style={{...V3.T.h1, marginBottom:6}}>Start a new IAQ assessment</div>
+                  <div style={{...V3.T.h1, marginBottom:6}}>Ready to start a walkthrough?</div>
                   <div style={{...V3.T.bodyDim, maxWidth:560, marginBottom:20}}>
-                    Capture field observations, instrument readings, and zone data.
-                    AtmosFlow organizes findings into a screening-level professional
+                    Capture field observations, instrument readings, and zone notes.
+                    AtmosFlow organizes them into a screening-level professional
                     assessment with severity, confidence, and recommended actions.
                   </div>
                   <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
-                    <button onClick={startNew} style={V3.btnPrimary}>
-                      <I n="play" s={14} c={PRIMARY_CTA_ICON} w={2} />
-                      Start IAQ Assessment
-                    </button>
-                    <button onClick={()=>setView('incident-form')} style={V3.btnSecondary}>
-                      <I n="alert" s={14} c={V3.TEXT_PRIMARY} w={1.8} />
-                      Report IAQ Incident
-                    </button>
+                    <TactileButton variant="primary" onClick={startNew} icon={<I n="play" s={14} c={PRIMARY_CTA_ICON} w={2} />}>
+                      Start walkthrough
+                    </TactileButton>
+                    <TactileButton variant="secondary" onClick={()=>setView('incident-form')} icon={<I n="alert" s={14} c="var(--accent)" w={1.8} />}>
+                      Report an incident
+                    </TactileButton>
                   </div>
-                </div>
+                </GlassCard>
               )}
 
-              {/* ── Finalized reports — restyled list ──────────────────── */}
+              {/* ── Finalized reports — stack of soft-glass cards.
+                  Each report card uses tap feedback (scale + light
+                  haptic) so the list reads as physical objects rather
+                  than rows in a table. */}
               {reports.length > 0 && (
                 <div>
                   <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',marginBottom:10,padding:'0 2px'}}>
                     <div style={V3.T.micro}>Recent reports{reports.length > 0 ? ` · ${reports.length}` : ''}</div>
                     {reports.length > 3 && <button onClick={()=>setView('history')} style={{background:'none',border:'none',color:'var(--accent)',fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',padding:0}}>View all</button>}
                   </div>
-                  <div style={{background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.lg,overflow:'hidden'}}>
-                    {reports.slice(0, 3).map((r, i) => {
+                  <div style={sgStack('tight')}>
+                    {reports.slice(0, 3).map((r) => {
                       const band = getRiskBand(r.score ?? null)
                       return (
-                        <button key={r.id} onClick={()=>openReport(r)} style={{width:'100%',padding:'14px 16px',background:'transparent',border:'none',borderTop: i === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit',minHeight:60}}>
-                          <div style={V3.iconBox(band.color)}>
-                            <I n="report" s={15} c={band.color} w={1.6} />
+                        <GlassCard key={r.id} dense onClick={()=>openReport(r)} style={{padding:'14px 16px'}}>
+                          <div style={{display:'flex',alignItems:'center',gap:12,minHeight:44}}>
+                            <div style={V3.iconBox(band.color)}>
+                              <I n="report" s={15} c={band.color} w={1.6} />
+                            </div>
+                            <div style={{flex:1,minWidth:0}}>
+                              <div style={{...V3.T.bodyStrong, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{r.facility || 'Untitled'}</div>
+                              <div style={{...V3.T.captionDim, fontFamily:'var(--font-mono)'}}>{fD(r.ts)}</div>
+                            </div>
+                            <StatusPill tone={band.color}>{band.label}</StatusPill>
+                            <span style={{color:V3.TEXT_TERTIARY,fontSize:13}}>›</span>
                           </div>
-                          <div style={{flex:1,minWidth:0}}>
-                            <div style={{...V3.T.bodyStrong, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{r.facility || 'Untitled'}</div>
-                            <div style={{...V3.T.captionDim, fontFamily:'var(--font-mono)'}}>{fD(r.ts)}</div>
-                          </div>
-                          <span style={V3.pill(band.color)}>{band.label}</span>
-                          <span style={{color:V3.TEXT_TERTIARY,fontSize:13}}>›</span>
-                        </button>
+                        </GlassCard>
                       )
                     })}
                   </div>
@@ -2716,6 +2733,59 @@ export default function MobileApp() {
             </div>
           )
         })()}
+
+        {/* ── Floating Continue walkthrough CTA ─────────────────────
+            When the user has an active draft, a soft-glass action bar
+            stickies to the bottom of the dash view above the bottom
+            nav, always in thumb-reach regardless of scroll position.
+            Disappears in the empty-state (no draft to continue) and
+            on every other view. ── */}
+        {view === 'dash' && activeDraft && (
+          <div style={{
+            position: 'fixed',
+            left: 0, right: 0,
+            // Sits above the bottom-nav (height ~64) + safe-area inset
+            // so the CTA never overlaps the nav. zIndex below the nav
+            // (100) so a stray full-bleed dropdown can't trap focus.
+            bottom: `calc(72px + env(safe-area-inset-bottom, 0px))`,
+            zIndex: 90,
+            display: 'flex',
+            justifyContent: 'center',
+            pointerEvents: 'none',
+            padding: '0 14px',
+          }}>
+            <div style={{
+              ...GLASS.elevated,
+              maxWidth: contentMax,
+              width: '100%',
+              borderRadius: RADII.sheet,
+              padding: '10px 12px',
+              pointerEvents: 'auto',
+              display: 'flex',
+              gap: 10,
+              alignItems: 'center',
+              boxShadow:
+                '0 -6px 20px rgba(0,0,0,0.32), ' +
+                '0 12px 28px rgba(0,0,0,0.42), ' +
+                'inset 0 1px 0 rgba(255,255,255,0.06)',
+            }}>
+              <div style={{flex:1,minWidth:0,padding:'0 6px'}}>
+                <div style={{...V3.T.captionDim, marginBottom:2}}>Active walkthrough</div>
+                <div style={{...V3.T.bodyStrong, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+                  {activeDraft.facility || 'Untitled Assessment'}
+                </div>
+              </div>
+              <TactileButton
+                variant="primary"
+                size="md"
+                onClick={()=>resumeDraft(activeDraft.id)}
+                iconRight={<I n="play" s={14} c={PRIMARY_CTA_ICON} w={2} />}
+              >
+                Continue walkthrough
+              </TactileButton>
+            </div>
+          </div>
+        )}
 
         {view==='quickstart'&&qscq&&renderQuestion(qscq,mergedData,setQSField,qsqi,qsVis,()=>{if(qsqi<qsVis.length-1)setQsqi(qsqi+1)},()=>{if(qsqi>0)setQsqi(qsqi-1)},finishQuickStart,'→ HVAC Equipment',qsSecs)}
 
