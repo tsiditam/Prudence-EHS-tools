@@ -1175,43 +1175,18 @@ export default function MobileApp() {
               </div>
             </div>
 
-            {userMode !== 'fm' && (
-              <>
-                <div style={{margin:'18px 24px 0',padding:'18px 0 16px',borderTop:`1px solid ${V3.BORDER_DEFAULT}`,borderBottom:`1px solid ${V3.BORDER_DEFAULT}`,display:'flex',alignItems:'stretch',gap:0}}>
-                  <div style={{...V3.statBlock, padding:'2px 0'}}>
-                    <div style={{display:'flex',alignItems:'baseline',gap:2}}>
-                      <span style={V3.N.xl}>{comp.avg}</span>
-                      <span style={{...V3.N.sm, fontSize:13, color:V3.TEXT_TERTIARY}}>/100</span>
-                    </div>
-                    <div style={{...V3.T.micro, marginTop:6}}>Zone Average</div>
-                  </div>
-                  <div style={V3.statDivider} />
-                  <div style={{...V3.statBlock, padding:'2px 0'}}>
-                    <div style={{display:'flex',alignItems:'baseline',gap:2}}>
-                      <span style={{...V3.N.xl, color: comp.rc}}>{comp.worst}</span>
-                      <span style={{...V3.N.sm, fontSize:13, color:V3.TEXT_TERTIARY}}>/100</span>
-                    </div>
-                    <div style={{...V3.T.micro, marginTop:6}}>Lowest Zone</div>
-                  </div>
-                  <div style={V3.statDivider} />
-                  <div style={{...V3.statBlock, padding:'2px 0'}}>
-                    <div style={V3.N.xl}>{comp.count}</div>
-                    <div style={{...V3.T.micro, marginTop:6}}>Zones Assessed</div>
-                  </div>
-                </div>
-                <div style={{padding:'12px 24px 18px',display:'flex',alignItems:'center',gap:6,justifyContent:'center'}}>
-                  <span style={{...V3.T.captionDim, fontFamily:'var(--font-mono)', fontSize:11}}>
-                    Composite indicator · Lower scores indicate greater concern
-                  </span>
-                  <I n="help" s={12} c={V3.TEXT_MUTED} w={1.6} />
-                </div>
-              </>
-            )}
-            {userMode === 'fm' && (
-              <div style={{padding:'12px 24px 18px',textAlign:'center',...V3.T.captionDim}}>
-                {comp.count} area{comp.count!==1?'s':''} assessed
-              </div>
-            )}
+            {/* Zone-count summary — a single low-emphasis denominator
+                line replaces the earlier three-up score strip (Zone
+                Average / Lowest Zone / Zones Assessed). Numeric
+                composite scores are still computed by the engine and
+                surface in the operator dashboard + DOCX, but the hero
+                leads with the severity pill + narrative, not a
+                /100 readout. Keeps the screening-only positioning:
+                scores are an internal indicator, the conclusion is
+                the headline. */}
+            <div style={{padding:'12px 24px 18px',textAlign:'center',...V3.T.captionDim}}>
+              {comp.count} {userMode === 'fm' ? 'area' : 'zone'}{comp.count!==1?'s':''} assessed
+            </div>
             {measConf?.overall === 'Low' && (
               <div style={{margin:'0 24px 18px',padding:'10px 12px',background:`${V3.SEVERITY.medium}10`,border:`1px solid ${V3.SEVERITY.medium}28`,borderRadius:V3.R.md,...V3.T.captionDim, color:WARN}}>
                 Single-point measurement. Consider time-weighted sampling per AIHA strategy before drawing conclusions.
