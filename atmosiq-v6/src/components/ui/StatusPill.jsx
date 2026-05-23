@@ -21,9 +21,9 @@
 
 import { softPill } from '../../styles/soft-glass'
 
-export default function StatusPill({ tone, size = 'sm', children, style, ...rest }) {
+export default function StatusPill({ tone, size = 'sm', dim = false, children, style, ...rest }) {
   const composed = {
-    ...softPill(tone, { lg: size === 'lg' }),
+    ...softPill(tone, { lg: size === 'lg', dim }),
     ...style,
   }
   return <span style={composed} {...rest}>{children}</span>

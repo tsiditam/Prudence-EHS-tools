@@ -2151,7 +2151,14 @@ export default function MobileApp() {
                     top: anchor.top, left: anchor.left,
                     minWidth:240, zIndex:1010, padding:6,
                     ...GLASS.elevated,
-                    borderRadius: RADII.card,
+                    // Notion-like frosted translucency: drop the elevated
+                    // surface's near-opaque 96% fill to ~70% and lean on a
+                    // heavier backdrop blur, so the page reads softly
+                    // through the menu instead of behind a solid block.
+                    background:'color-mix(in srgb, var(--card) 70%, transparent)',
+                    backdropFilter:'blur(30px) saturate(180%)',
+                    WebkitBackdropFilter:'blur(30px) saturate(180%)',
+                    borderRadius: RADII.sheet,
                     boxShadow:
                       'inset 0 1px 0 rgba(255,255,255,0.06), ' +
                       '0 12px 32px rgba(0,0,0,0.55), ' +
@@ -2806,7 +2813,7 @@ export default function MobileApp() {
                         </span>
                         <span style={{color:V3.BORDER_STRONG}}>·</span>
                         <span style={{fontFamily:'var(--font-mono)'}}>{fD(activeDraft.ua || activeDraft.ts)}</span>
-                        <StatusPill tone={V3.STATUS.inProgress}>In Progress</StatusPill>
+                        <StatusPill tone={V3.STATUS.inProgress} dim>In Progress</StatusPill>
                         {/* Real-time presence — surfaces other IHs
                             who joined the same assessment via the
                             Supabase Realtime presence channel. Renders
@@ -2923,10 +2930,6 @@ export default function MobileApp() {
                           </div>
                         </div>
                       </div>
-                      <div style={V3.divider()} />
-                      <TactileButton variant="ghost" fullWidth onClick={()=>resumeDraft(activeDraft.id)} iconRight={<I n="play" s={13} c={V3.TEXT_SECONDARY} w={1.8} />}>
-                        Pick up where you left off
-                      </TactileButton>
                     </GlassCard>
 
                   </div>
@@ -2952,7 +2955,7 @@ export default function MobileApp() {
                                 <div style={{...V3.T.bodyStrong, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{d.facility || 'Untitled Assessment'}</div>
                                 <div style={{...V3.T.captionDim, fontFamily:'var(--font-mono)'}}>{fD(d.ua || d.ts)}</div>
                               </div>
-                              <StatusPill tone={V3.STATUS.inProgress}>In Progress</StatusPill>
+                              <StatusPill tone={V3.STATUS.inProgress} dim>In Progress</StatusPill>
                               <span style={{color:V3.TEXT_TERTIARY,fontSize:13}}>›</span>
                             </div>
                           </GlassCard>
@@ -3029,7 +3032,7 @@ export default function MobileApp() {
                               <div style={{...V3.T.bodyStrong, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{r.facility || 'Untitled'}</div>
                               <div style={{...V3.T.captionDim, fontFamily:'var(--font-mono)'}}>{fD(r.ts)}</div>
                             </div>
-                            <StatusPill tone={band.color}>{band.label}</StatusPill>
+                            <StatusPill tone={band.color} dim>{band.label}</StatusPill>
                             <span style={{color:V3.TEXT_TERTIARY,fontSize:13}}>›</span>
                           </div>
                         </GlassCard>
@@ -3093,9 +3096,10 @@ export default function MobileApp() {
                 </div>
                 <TactileButton
                   variant="primary"
-                  size="md"
+                  size="sm"
+                  pill
                   onClick={()=>resumeDraft(fab.id)}
-                  iconRight={<I n="play" s={14} c={PRIMARY_CTA_ICON} w={2} />}
+                  iconRight={<I n="play" s={13} c={PRIMARY_CTA_ICON} w={2} />}
                 >
                   Continue walkthrough
                 </TactileButton>

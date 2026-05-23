@@ -178,21 +178,25 @@ export const softCard = (opts = {}) => {
 // Inline status pill for soft-glass surfaces. Same color contract as
 // V3.pill but uses the glass-subtle background so it reads as a chip
 // inside a card rather than a flat solid block.
+// `dim` softens the neon glow for low-stakes contexts (e.g. the Home
+// dashboard) without changing the hue: the fill + border alphas drop,
+// the text is mixed ~28% toward the muted text color so it reads as the
+// tone but stops glowing, and the inner highlight is removed.
 export const softPill = (tone, opts = {}) => ({
   display: 'inline-flex',
   alignItems: 'center',
   gap: 6,
   padding: opts.lg ? '6px 12px' : '4px 10px',
   borderRadius: RADII.pill,
-  background: `${tone}1F`,
-  border: `1px solid ${tone}55`,
-  color: tone,
+  background: opts.dim ? `${tone}14` : `${tone}1F`,
+  border: `1px solid ${opts.dim ? `${tone}33` : `${tone}55`}`,
+  color: opts.dim ? `color-mix(in srgb, ${tone} 72%, var(--sub))` : tone,
   fontSize: opts.lg ? 12 : 11,
   fontWeight: 700,
   letterSpacing: '0.35px',
   textTransform: 'uppercase',
   whiteSpace: 'nowrap',
-  boxShadow: `inset 0 1px 0 ${tone}28`,
+  boxShadow: opts.dim ? 'none' : `inset 0 1px 0 ${tone}28`,
 })
 
 // Stack of cards — wraps a column of soft-glass cards in a consistent
