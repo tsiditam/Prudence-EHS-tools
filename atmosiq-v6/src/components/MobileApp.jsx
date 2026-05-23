@@ -2797,7 +2797,7 @@ export default function MobileApp() {
                         </span>
                         <span style={{color:V3.BORDER_STRONG}}>·</span>
                         <span style={{fontFamily:'var(--font-mono)'}}>{fD(activeDraft.ua || activeDraft.ts)}</span>
-                        <StatusPill tone={V3.STATUS.inProgress}>In Progress</StatusPill>
+                        <StatusPill tone={V3.STATUS.inProgress} dim>In Progress</StatusPill>
                         {/* Real-time presence — surfaces other IHs
                             who joined the same assessment via the
                             Supabase Realtime presence channel. Renders
@@ -2939,7 +2939,7 @@ export default function MobileApp() {
                                 <div style={{...V3.T.bodyStrong, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{d.facility || 'Untitled Assessment'}</div>
                                 <div style={{...V3.T.captionDim, fontFamily:'var(--font-mono)'}}>{fD(d.ua || d.ts)}</div>
                               </div>
-                              <StatusPill tone={V3.STATUS.inProgress}>In Progress</StatusPill>
+                              <StatusPill tone={V3.STATUS.inProgress} dim>In Progress</StatusPill>
                               <span style={{color:V3.TEXT_TERTIARY,fontSize:13}}>›</span>
                             </div>
                           </GlassCard>
@@ -3016,7 +3016,7 @@ export default function MobileApp() {
                               <div style={{...V3.T.bodyStrong, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{r.facility || 'Untitled'}</div>
                               <div style={{...V3.T.captionDim, fontFamily:'var(--font-mono)'}}>{fD(r.ts)}</div>
                             </div>
-                            <StatusPill tone={band.color}>{band.label}</StatusPill>
+                            <StatusPill tone={band.color} dim>{band.label}</StatusPill>
                             <span style={{color:V3.TEXT_TERTIARY,fontSize:13}}>›</span>
                           </div>
                         </GlassCard>
