@@ -3210,16 +3210,14 @@ export default function MobileApp() {
         />}
 
         {view==='history'&&<div style={{paddingTop:28,paddingBottom:100,maxWidth:contentMax,margin:'0 auto'}}>
-          {/* ── Reports header ────────────────────────────────────── */}
-          <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:16,flexWrap:'wrap',marginBottom:20}}>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{...V3.T.h1, marginBottom:4}}>Reports</div>
-              <div style={V3.T.bodyDim}>Drafts and finalized deliverables · {((index.drafts||[]).length + (index.reports||[]).length)} total</div>
-            </div>
-            <button onClick={startNew} style={V3.btnPrimary}>
-              <I n="play" s={13} c={PRIMARY_CTA_ICON} w={2} />
-              New Assessment
-            </button>
+          {/* ── Reports header ──────────────────────────────────────
+              The "New Assessment" CTA that previously sat here was
+              removed. The clickable draft-icon in the empty-state
+              card below is now the start-an-assessment affordance
+              within the Reports tab; the Home tab also offers it. */}
+          <div style={{marginBottom:20}}>
+            <div style={{...V3.T.h1, marginBottom:4}}>Reports</div>
+            <div style={V3.T.bodyDim}>Drafts and finalized deliverables · {((index.drafts||[]).length + (index.reports||[]).length)} total</div>
           </div>
 
           {/* ── Drafts / In Progress ──────────────────────────────── */}
@@ -3227,13 +3225,18 @@ export default function MobileApp() {
             <div style={V3.T.micro}>{userMode === 'fm' ? 'In Progress' : 'Drafts'}{(index.drafts||[]).length>0?` · ${(index.drafts||[]).length}`:''}</div>
           </div>
           {(index.drafts||[]).length === 0 ? (
-            // Empty state — informational only. The "New Assessment"
-            // CTA at the top of the Reports header is the canonical
-            // start-an-assessment affordance; a duplicate here was
-            // redundant and the V3.btnSecondary variant rendered as
-            // plain text on white in light mode.
+            // Empty state — the draft icon is the start-an-assessment
+            // affordance now that the header CTA has been removed.
+            // Rendered as a <button> for keyboard + screen-reader
+            // accessibility; visual treatment matches V3.iconBox.
             <div style={{...V3.panel(), display:'flex',alignItems:'center',gap:14,marginBottom:24,padding:'18px 22px'}}>
-              <div style={V3.iconBox(V3.STATUS.draft)}><I n="draft" s={15} c={V3.STATUS.draft} w={1.6} /></div>
+              <button
+                onClick={startNew}
+                aria-label="Start new assessment"
+                style={{...V3.iconBox(V3.STATUS.draft),border:'none',padding:0,cursor:'pointer',fontFamily:'inherit',WebkitTapHighlightColor:'transparent'}}
+              >
+                <I n="draft" s={15} c={V3.STATUS.draft} w={1.6} />
+              </button>
               <div style={{flex:1,minWidth:0}}>
                 <div style={V3.T.bodyStrong}>No drafts in progress</div>
                 <div style={V3.T.captionDim}>Start a new assessment to capture field observations.</div>
@@ -3289,11 +3292,11 @@ export default function MobileApp() {
                 {hSearch ? 'No reports match your search.' : 'Complete and finalize an assessment to generate your first report.'}
               </div>
               {!hSearch && (
-                // "Start Assessment" removed — redundant with the
-                // "New Assessment" CTA in the Reports header above.
-                // "View sample report" stays as the only action here
-                // because it offers a distinct value prop (preview the
-                // output) rather than restating the primary CTA.
+                // "View sample report" stays as the only action here —
+                // it offers a distinct value prop (preview the output)
+                // and starting a new assessment is reachable via the
+                // clickable draft icon in the Drafts empty-state above
+                // and from the Home tab.
                 <div style={{display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap'}}>
                   <button onClick={runDemo} style={V3.btnGhost}>View sample report</button>
                 </div>
@@ -3310,7 +3313,6 @@ export default function MobileApp() {
                       <div style={{...V3.T.bodyStrong, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{r.facility||'Untitled'}</div>
                       <div style={{display:'flex',alignItems:'center',gap:8,marginTop:3}}>
                         <span style={{...V3.T.captionDim, fontFamily:'var(--font-mono)'}}>{fD(r.ts)}</span>
-                        <span style={V3.pill(V3.STATUS.ready)}>Final</span>
                       </div>
                     </div>
                     <span style={V3.pill(band.color)}>{band.label}</span>
