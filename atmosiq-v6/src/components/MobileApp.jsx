@@ -1242,7 +1242,7 @@ export default function MobileApp() {
               })()}
             </div>
             <div style={V3.divider()} />
-            <button onClick={()=>setRTab('actions')} style={{background:'none',border:'none',color:'var(--accent)',fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',padding:0,display:'inline-flex',alignItems:'center',gap:6}}>
+            <button onClick={()=>{ haptic('light'); setRTab('actions') }} style={{background:'none',border:'none',color:'var(--accent)',fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',padding:0,display:'inline-flex',alignItems:'center',gap:6}}>
               View all actions
               <span style={{fontSize:13}}>›</span>
             </button>
@@ -1542,7 +1542,7 @@ export default function MobileApp() {
                   {dataGaps.length > 0 && (
                     <>
                       <div style={V3.divider()} />
-                      <button onClick={()=>setRTab('readiness')} style={{background:'none',border:'none',color:'var(--accent)',fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',padding:0,display:'inline-flex',alignItems:'center',gap:6}}>
+                      <button onClick={()=>{ haptic('light'); setRTab('readiness') }} style={{background:'none',border:'none',color:'var(--accent)',fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',padding:0,display:'inline-flex',alignItems:'center',gap:6}}>
                         View all gaps and assumptions
                         <span style={{fontSize:13}}>›</span>
                       </button>
@@ -2720,7 +2720,7 @@ export default function MobileApp() {
                       {stages.map(s => {
                         const isActive = s.id === activeStage
                         return (
-                          <button key={s.id} onClick={()=>resumeDraft(activeDraft.id)} style={V3.tabItem(isActive)}>
+                          <button key={s.id} onClick={()=>{ haptic('light'); resumeDraft(activeDraft.id) }} style={V3.tabItem(isActive)}>
                             <I n={s.icon} s={16} c={isActive ? 'var(--accent)' : V3.TEXT_TERTIARY} w={1.6} />
                             <span>{s.label}</span>
                           </button>
@@ -3245,8 +3245,8 @@ export default function MobileApp() {
               const isJasper = t.id === 'jasper'
               const isActive = isJasper ? faOpen : (view === t.id)
               const onClick = isJasper
-                ? () => { supabase && trackEvent('jasper_open', { source: 'bottom_nav' }); setFaOpen(true) }
-                : () => { supabase && trackEvent('page_view', { tab: t.id }); setView(t.id); if (t.id === 'dash') setViewRpt(null) }
+                ? () => { haptic('light'); supabase && trackEvent('jasper_open', { source: 'bottom_nav' }); setFaOpen(true) }
+                : () => { haptic('light'); supabase && trackEvent('page_view', { tab: t.id }); setView(t.id); if (t.id === 'dash') setViewRpt(null) }
               return (
                 <button key={t.id} onClick={onClick} style={{flex:1,background:'none',border:'none',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:4,paddingTop:6,fontFamily:'inherit',position:'relative',WebkitTapHighlightColor:'transparent',transition:'opacity 0.15s'}}>
                   {/* Top accent rail — only on the active tab. Cyan
