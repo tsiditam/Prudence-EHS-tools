@@ -13,7 +13,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#050507" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -23,7 +23,28 @@
     <link rel="apple-touch-icon" href="/icons/icon-192.png" />
     <title>AtmosFlow — by Prudence EHS</title>
     <style>
-      html,body{margin:0;background:#050507;}
+      html,body{
+        margin:0;
+        background:#050507;
+        /* Lock the mobile viewport: no rubber-band bounce when the
+           user scrolls past the top/bottom edge, no horizontal
+           overflow that lets the page slide sideways, and no
+           double-tap zoom. Combined with the maximum-scale=1
+           viewport meta above and the 16px input font rule below,
+           the page never "expands" on phone — it only scrolls
+           vertically within its own content. */
+        overscroll-behavior:none;
+        overflow-x:hidden;
+        touch-action:pan-y;
+        -webkit-text-size-adjust:100%;
+        text-size-adjust:100%;
+      }
+      /* iOS Safari auto-zooms when the focused input's font-size is
+         under 16px. Floor every form control at 16px so focusing a
+         field doesn't yank the viewport. Visual size of inline
+         numeric inputs is preserved via component-level transforms
+         where needed. */
+      input,select,textarea{font-size:16px;}
       /* Notion-style system stack with Inter as the cross-platform anchor.
          Inter is loaded below; the system fallbacks (SF Pro on iOS/Mac,
          Segoe UI on Windows, Roboto on Android) keep the app feeling
