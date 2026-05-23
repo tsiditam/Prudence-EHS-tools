@@ -31,6 +31,7 @@
 
 import { useState } from 'react'
 import { useBleInstrument } from '../hooks/useBleInstrument'
+import { useBleSession } from '../hooks/useBleSession'
 import { BLE_DRIVERS, driversForMetric, isBleSupported } from '../utils/bleDrivers'
 
 const METRIC_LABELS = {
@@ -52,24 +53,50 @@ export default function BleSensorButton({
   const [open, setOpen] = useState(false)
   const supported = isBleSupported()
   const interactive = !disabled
+  const session = useBleSession()
+  // Live session is "useful here" when a device is paired AND it emits
+  // the metric this button is bound to. Drives the green dot and the
+  // sheet-skips-picker behavior.
+  const sessionUseful = session.active && session.emitsMetric(metric)
+
+  const glyphColor = sessionUseful
+    ? 'var(--success)'
+    : supported
+      ? 'var(--accent)'
+      : 'var(--dim)'
 
   return (
     <>
       <button
         type="button"
-        aria-label={ariaLabel}
-        title={!supported ? 'Bluetooth not available in this browser' : ariaLabel}
+        data-testid="ble-sensor-button"
+        data-session-active={sessionUseful ? 'true' : 'false'}
+        aria-label={
+          sessionUseful
+            ? `Insert latest reading from ${session.deviceName}`
+            : ariaLabel
+        }
+        title={
+          !supported
+            ? 'Bluetooth not available in this browser'
+            : sessionUseful
+              ? `Connected: ${session.deviceName} — tap to insert latest reading`
+              : ariaLabel
+        }
         disabled={!interactive}
         onClick={(e) => { e.preventDefault(); setOpen(true) }}
         style={{
           width: size, height: size, borderRadius: 8,
-          background: 'transparent',
-          border: `1px solid var(--border)`,
+          background: sessionUseful
+            ? 'color-mix(in srgb, var(--success) 10%, transparent)'
+            : 'transparent',
+          border: `1px solid ${sessionUseful ? 'var(--success)' : 'var(--border)'}`,
           cursor: interactive ? 'pointer' : 'not-allowed',
-          color: supported ? 'var(--accent)' : 'var(--dim)',
+          color: glyphColor,
           opacity: interactive ? 1 : 0.55,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontFamily: 'inherit', padding: 0, flexShrink: 0,
+          position: 'relative',
           transition: 'background 0.15s, border-color 0.15s, color 0.15s',
           WebkitTapHighlightColor: 'transparent',
         }}>
@@ -79,6 +106,22 @@ export default function BleSensorButton({
           strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M6.5 6.5l11 11L12 23V1l5.5 5.5-11 11" />
         </svg>
+        {/* Live-session dot — pulses on the top-right when a paired
+            device emits this metric. Tells the user the button will
+            insert from the existing session rather than re-pair. */}
+        {sessionUseful && (
+          <span
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              top: 3, right: 3,
+              width: 8, height: 8, borderRadius: 4,
+              background: 'var(--success)',
+              boxShadow: '0 0 0 2px var(--card)',
+              animation: 'blePulse 1.6s ease-in-out infinite',
+            }}
+          />
+        )}
       </button>
       {open && (
         <BleSensorSheet
@@ -99,7 +142,15 @@ export default function BleSensorButton({
  */
 function BleSensorSheet({ metric, onInsert, onClose }) {
   const matching = driversForMetric(metric)
-  const [chosenDriver, setChosenDriver] = useState(matching.length === 1 ? matching[0] : null)
+  const session = useBleSession()
+  // When a session is already paired AND emits this metric, skip the
+  // picker entirely and show the active-session view. The user can
+  // still tap "Pair a different device" to drop back into the picker.
+  const sessionMatches = session.active && session.emitsMetric(metric)
+  const [showPicker, setShowPicker] = useState(false)
+  const [chosenDriver, setChosenDriver] = useState(
+    sessionMatches ? null : (matching.length === 1 ? matching[0] : null),
+  )
   const supported = isBleSupported()
 
   return (
@@ -145,8 +196,30 @@ function BleSensorSheet({ metric, onInsert, onClose }) {
           <UnsupportedView onClose={onClose} />
         )}
 
-        {/* Driver picker — when there's > 1 matching driver and none picked. */}
-        {supported && !chosenDriver && (
+        {/* Active-session shortcut — paired device already emits this
+            metric. One tap to insert the latest reading, refresh, or
+            disconnect. "Pair a different device" drops to the picker. */}
+        {supported && sessionMatches && !showPicker && !chosenDriver && (
+          <ActiveSessionView
+            metric={metric}
+            session={session}
+            onInsert={onInsert}
+            onPairDifferent={() => setShowPicker(true)}
+            onClose={onClose}
+          />
+        )}
+
+        {/* Driver picker — when there's > 1 matching driver and none picked,
+            or when the user explicitly opted to swap devices. */}
+        {supported && !sessionMatches && !chosenDriver && (
+          <DriverPicker
+            metric={metric}
+            drivers={matching}
+            onPick={(d) => setChosenDriver(d)}
+            onClose={onClose}
+          />
+        )}
+        {supported && sessionMatches && showPicker && !chosenDriver && (
           <DriverPicker
             metric={metric}
             drivers={matching}
@@ -174,6 +247,10 @@ function BleSensorSheet({ metric, onInsert, onClose }) {
           to   { transform: translateY(0); opacity: 1 }
         }
         @keyframes bleSpin { to { transform: rotate(360deg) } }
+        @keyframes blePulse {
+          0%, 100% { opacity: 1; transform: scale(1) }
+          50%      { opacity: 0.45; transform: scale(0.85) }
+        }
         @media (prefers-reduced-motion: reduce) {
           [role="dialog"] { animation: none !important }
           [role="dialog"] > div { animation: none !important }
@@ -209,6 +286,154 @@ function UnsupportedView({ onClose }) {
         }}>
         Got it
       </button>
+    </div>
+  )
+}
+
+/**
+ * Active-session view — shown when a previously-paired device is still
+ * live AND emits the metric the caller is binding to. Renders the
+ * latest reading with an Insert affordance, plus refresh and
+ * disconnect actions. Eliminates the re-pair churn that motivated the
+ * shared session in the first place.
+ */
+function ActiveSessionView({ metric, session, onInsert, onPairDifferent, onClose }) {
+  const target = METRIC_LABELS[metric] || { label: metric, unit: '', decimals: 1 }
+  const reading = session.reading
+  const formatted = reading ? formatReading(metric, reading) : null
+  const value = reading ? reading[metric] : null
+  const [busy, setBusy] = useState(false)
+  const lastReadSeconds = session.lastReadAt
+    ? Math.max(0, Math.round((Date.now() - new Date(session.lastReadAt).getTime()) / 1000))
+    : null
+
+  const handleRefresh = async () => {
+    setBusy(true)
+    try { await session.refresh() } finally { setBusy(false) }
+  }
+
+  const handleInsert = () => {
+    if (typeof value !== 'number') return
+    onInsert?.(value, reading)
+  }
+
+  return (
+    <div data-testid="ble-active-session">
+      <div style={{
+        display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
+        gap: 12, marginBottom: 14,
+      }}>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.2px' }}>
+            {session.deviceName}
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--sub)', marginTop: 2 }}>
+            Connected · {target.label}
+            {lastReadSeconds !== null && (
+              <span style={{ color: 'var(--dim)', marginLeft: 6 }}>· read {lastReadSeconds}s ago</span>
+            )}
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          style={{
+            background: 'transparent', border: 'none', cursor: 'pointer',
+            color: 'var(--sub)', fontSize: 13, fontWeight: 600, fontFamily: 'inherit',
+            padding: '6px 4px',
+          }}>
+          Close
+        </button>
+      </div>
+
+      <div style={{
+        padding: '20px 16px',
+        background: 'var(--card)',
+        border: '1px solid var(--border)',
+        borderRadius: 12,
+        textAlign: 'center',
+        marginBottom: 12,
+      }}>
+        {formatted ? (
+          <>
+            <div style={{
+              fontSize: 38, fontWeight: 700, color: 'var(--text)',
+              fontFamily: 'var(--font-mono)', letterSpacing: '-1px',
+            }}>
+              {formatted}
+              <span style={{ fontSize: 16, color: 'var(--sub)', fontWeight: 600, marginLeft: 6 }}>{target.unit}</span>
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 6 }}>
+              Live from paired sensor
+            </div>
+          </>
+        ) : (
+          <div style={{ fontSize: 13, color: 'var(--sub)' }}>
+            No reading yet — tap Refresh.
+          </div>
+        )}
+      </div>
+
+      <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+        <button
+          type="button"
+          data-testid="ble-session-insert"
+          disabled={typeof value !== 'number'}
+          onClick={handleInsert}
+          style={{
+            flex: 1, padding: '14px 16px',
+            background: typeof value === 'number' ? 'var(--accent)' : 'var(--card)',
+            border: typeof value === 'number' ? 'none' : '1px solid var(--border)',
+            borderRadius: 12,
+            color: typeof value === 'number' ? 'var(--on-accent)' : 'var(--dim)',
+            fontSize: 14, fontWeight: 700, fontFamily: 'inherit',
+            cursor: typeof value === 'number' ? 'pointer' : 'not-allowed',
+            minHeight: 48,
+          }}>
+          {formatted ? `Insert ${formatted} ${target.unit}` : 'Insert'}
+        </button>
+        <button
+          type="button"
+          data-testid="ble-session-refresh"
+          disabled={busy}
+          onClick={handleRefresh}
+          style={{
+            padding: '14px 16px',
+            background: 'var(--card)', border: '1px solid var(--border)',
+            borderRadius: 12, color: 'var(--text)', fontSize: 13, fontWeight: 600,
+            cursor: busy ? 'wait' : 'pointer', fontFamily: 'inherit', minHeight: 48,
+          }}>
+          {busy ? '…' : 'Refresh'}
+        </button>
+      </div>
+
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button
+          type="button"
+          onClick={onPairDifferent}
+          style={{
+            flex: 1, padding: '10px 14px',
+            background: 'transparent', border: '1px solid var(--border)',
+            borderRadius: 10, color: 'var(--sub)', fontSize: 12, fontWeight: 600,
+            cursor: 'pointer', fontFamily: 'inherit', minHeight: 40,
+          }}>
+          Pair a different device
+        </button>
+        <button
+          type="button"
+          data-testid="ble-session-disconnect"
+          onClick={() => { session.disconnect(); onClose() }}
+          style={{
+            flex: 1, padding: '10px 14px',
+            background: 'transparent',
+            border: '1px solid color-mix(in srgb, var(--danger) 30%, transparent)',
+            borderRadius: 10, color: 'var(--danger)', fontSize: 12, fontWeight: 600,
+            cursor: 'pointer', fontFamily: 'inherit', minHeight: 40,
+          }}>
+          Disconnect
+        </button>
+      </div>
     </div>
   )
 }

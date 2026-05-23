@@ -11,6 +11,8 @@ import STO from '../utils/storage'
 import Backup from '../utils/backup'
 import { VER } from '../constants/standards'
 import { getSubscriptionRowSubtitle } from '../utils/subscriptionState'
+import { useBleSession } from '../hooks/useBleSession'
+import { isBleSupported } from '../utils/bleDrivers'
 import { useTheme, mix } from '../utils/theme'
 import { I } from './Icons'
 import ProfileAvatar from './ProfileAvatar'
@@ -43,6 +45,8 @@ const ON_ACCENT = 'var(--on-accent)'
 // `'manage-subscription'` to the Stripe Customer Portal through it.
 export default function SettingsScreen({ profile, onEditProfile, onLogout, onClose, onNavigate, onActivateAdmin, adminActive }) {
   const { mode: themeMode, setMode: setThemeMode } = useTheme()
+  const bleSession = useBleSession()
+  const bleSupported = isBleSupported()
   const [health, setHealth] = useState(null)
   const [importMsg, setImportMsg] = useState('')
   const [index, setIndex] = useState({ reports: [], drafts: [] })
@@ -273,6 +277,51 @@ export default function SettingsScreen({ profile, onEditProfile, onLogout, onClo
           <Row label="Add an instrument" sub="Register your IAQ meter and PID for calibration tracking" action={() => onNavigate?.('instrument-edit')} first />
         </Group>
       )}
+
+      {/* ── Bluetooth Sensors ──
+          Surfaces the live Web Bluetooth session so the user can see
+          what's paired without scrolling back through a question
+          flow. Pairing itself happens from the inline button next to
+          a reading field (CO₂, temp, RH) — that's where Web Bluetooth's
+          user-gesture requirement is naturally satisfied. */}
+      {(() => {
+        if (!bleSupported) {
+          return (
+            <Group title="Bluetooth Sensors">
+              <Row
+                first
+                label="Not available in this browser"
+                sub="Use Chrome on Android, Bluefy on iPhone, or Chrome/Edge on desktop to pair sensors."
+              />
+            </Group>
+          )
+        }
+        if (!bleSession.active) {
+          return (
+            <Group title="Bluetooth Sensors">
+              <Row
+                first
+                label="No sensor paired"
+                sub="Tap the Bluetooth glyph next to any CO₂, temperature, or humidity field to pair an Aranet4."
+              />
+            </Group>
+          )
+        }
+        const r = bleSession.reading
+        const co2 = r && typeof r.co2_ppm === 'number' ? `${r.co2_ppm} ppm` : null
+        const temp = r && typeof r.temperature_f === 'number' ? `${r.temperature_f.toFixed(1)}°F` : null
+        const rh = r && typeof r.humidity_rh === 'number' ? `${r.humidity_rh}% RH` : null
+        const battery = r && typeof r.battery_pct === 'number' ? `${r.battery_pct}%` : null
+        const latest = [co2, temp, rh].filter(Boolean).join(' · ') || 'No reading yet'
+        const sub = battery ? `${latest} · battery ${battery}` : latest
+        return (
+          <Group title="Bluetooth Sensors">
+            <Row first label={bleSession.deviceName || 'Paired sensor'} sub={sub} value="Live" />
+            <Row label="Refresh reading" action={() => { bleSession.refresh() }} />
+            <Row label="Disconnect" tone="danger" action={() => { bleSession.disconnect() }} />
+          </Group>
+        )
+      })()}
 
       {/* ── Methodology ── */}
       <Group title="Methodology">

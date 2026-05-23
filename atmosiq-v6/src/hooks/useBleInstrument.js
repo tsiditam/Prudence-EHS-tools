@@ -38,6 +38,11 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { isBleSupported } from '../utils/bleDrivers'
+import {
+  setSession as publishSession,
+  setReading as publishReading,
+  clearSession as clearPublishedSession,
+} from '../utils/bleSession'
 
 export function useBleInstrument(driver) {
   const supported = isBleSupported()
@@ -89,6 +94,7 @@ export function useBleInstrument(driver) {
         return null
       }
       setReading(parsed)
+      publishReading(parsed)
       setState('connected')
       setError(null)
       return parsed
@@ -145,6 +151,7 @@ export function useBleInstrument(driver) {
       characteristicRef.current = null
       setState('idle')
       setReading(null)
+      clearPublishedSession()
     }
     disconnectHandlerRef.current = onDisc
     nextDevice.addEventListener('gattserverdisconnected', onDisc)
@@ -164,6 +171,12 @@ export function useBleInstrument(driver) {
     }
 
     characteristicRef.current = characteristic
+    publishSession({
+      driver,
+      device: nextDevice,
+      characteristic,
+      deviceName: nextDevice.name || driver.name,
+    })
     setState('connected')
 
     // First read — happens implicitly so the user sees data right
@@ -177,6 +190,7 @@ export function useBleInstrument(driver) {
     setReading(null)
     setState('idle')
     setError(null)
+    clearPublishedSession()
   }, [cleanup])
 
   return {
