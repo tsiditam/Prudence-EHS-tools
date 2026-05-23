@@ -80,6 +80,9 @@ const VARIANT = {
 export default function TactileButton({
   variant = 'secondary',
   size = 'md',
+  // Pill shape — fully-rounded ends (R.pill) instead of the default
+  // R.md corner. Used for compact, badge-like action CTAs.
+  pill = false,
   icon,
   iconRight,
   fullWidth = false,
@@ -109,7 +112,7 @@ export default function TactileButton({
     justifyContent: 'center',
     gap: 8,
     padding: `${padY}px ${padX}px`,
-    borderRadius: R.md,
+    borderRadius: pill ? R.pill : R.md,
     fontSize,
     fontWeight: 700,
     letterSpacing: '-0.1px',
