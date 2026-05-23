@@ -8,6 +8,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import STO from '../utils/storage'
 import Profiles from '../utils/profiles'
@@ -424,6 +425,16 @@ export default function MobileApp() {
   // gear icon in the Home header; Settings is now one entry inside the
   // dropdown.
   const [showHomeMenu, setShowHomeMenu] = useState(false)
+  // Ref + cached rect for the hamburger menu's anchoring. When the menu
+  // opens, we cache the button's bounding rect so the portal'd menu can
+  // position itself with `position: fixed`. Portaling is required
+  // because the header has `backdrop-filter: blur(24px)` which creates
+  // a containing block for fixed-positioned descendants — any backdrop
+  // rendered as a descendant of the header is clipped to the header's
+  // bounds, so taps below the header strip never reach it. Portaling
+  // to document.body escapes that containing block.
+  const menuButtonRef = useRef(null)
+  const [menuAnchor, setMenuAnchor] = useState(null)
   // Home menu sub-mode. 'main' shows the canonical menu items; 'demos'
   // shows the demo picker (Office Building / Data Center / FM Sample
   // Check). Consolidates what was three separate flat menu entries
@@ -1941,7 +1952,18 @@ export default function MobileApp() {
           <div style={{position:'relative',display:'flex',alignItems:'center'}}>
             {profile && (
               <button
-                onClick={()=>setShowHomeMenu(v=>!v)}
+                ref={menuButtonRef}
+                onClick={(e)=>{
+                  // Cache the rect when opening so the portal'd menu
+                  // can render with `position: fixed` anchored to the
+                  // button. Reading at toggle-time (not on every render)
+                  // avoids layout thrash.
+                  if (!showHomeMenu) {
+                    const r = e.currentTarget.getBoundingClientRect()
+                    setMenuAnchor({ top: r.bottom + 8, left: r.left })
+                  }
+                  setShowHomeMenu(v=>!v)
+                }}
                 aria-label="Open menu"
                 aria-haspopup="menu"
                 aria-expanded={showHomeMenu}
@@ -1978,32 +2000,40 @@ export default function MobileApp() {
                 { label: 'Sign out',     icon: 'logout', onClick: handleLogout, divider: true, danger: true },
               ]
               const closeMenu = () => { setShowHomeMenu(false); setHomeMenuMode('main') }
-              return (
+              // The menu + backdrop are portaled to document.body so they
+              // escape the header's containing block. The header has
+              // `backdrop-filter: blur(24px)` which (per CSS spec)
+              // creates a containing block for `position: fixed`
+              // descendants — without the portal, the backdrop's
+              // `inset: 0` would clip to the header strip, leaving the
+              // page below tap-unreachable. The anchor coordinates come
+              // from the hamburger button's bounding rect, cached on
+              // open.
+              const anchor = menuAnchor || { top: 60, left: 12 }
+              return createPortal(
                 <>
-                  {/* Full-viewport backdrop catches outside taps. zIndex
-                      sits ABOVE all page content (floating CTA at 90,
-                      bottom nav at 100, header surface) and just BELOW
-                      the menu itself (210) so any tap that's not on
-                      the menu dismisses it. The faint backdrop blur
-                      gives the menu the same liquid-glass treatment
-                      as the rest of the v3.3 surface — the page
-                      behind it softens slightly when the menu opens. */}
+                  {/* Full-viewport backdrop. Sits at z-1000 — well above
+                      the header (100), bottom nav (100), floating CTA
+                      (90), and any sheet/modal stack. Both onClick and
+                      onPointerDown handlers so iOS catches the first
+                      touch even if the click event is swallowed by a
+                      tap-cancel on scroll-jitter. */}
                   <div
                     onClick={closeMenu}
                     onPointerDown={closeMenu}
                     style={{
-                      position:'fixed', inset:0, zIndex:200,
-                      background:'rgba(0,0,0,0.18)',
-                      backdropFilter:'blur(4px)',
-                      WebkitBackdropFilter:'blur(4px)',
+                      position:'fixed', inset:0, zIndex:1000,
+                      background:'rgba(0,0,0,0.22)',
+                      backdropFilter:'blur(6px)',
+                      WebkitBackdropFilter:'blur(6px)',
                     }} />
-                  {/* Anchored to the LEFT cluster (left:0) so the popover
-                      opens down-left from the hamburger. Soft-glass
-                      treatment matches the result hero / Home cards
-                      vocabulary. */}
+                  {/* Menu — position:fixed anchored to the cached
+                      button rect. Soft-glass surface matches the rest
+                      of v3.3. z-1010 so it sits above its own backdrop. */}
                   <div role="menu" style={{
-                    position:'absolute', top:'calc(100% + 8px)', left:0,
-                    minWidth:240, zIndex:210, padding:6,
+                    position:'fixed',
+                    top: anchor.top, left: anchor.left,
+                    minWidth:240, zIndex:1010, padding:6,
                     ...GLASS.elevated,
                     borderRadius: RADII.card,
                     boxShadow:
@@ -2059,7 +2089,8 @@ export default function MobileApp() {
                       </button>
                     ))}
                   </div>
-                </>
+                </>,
+                document.body
               )
             })()}
           </div>
