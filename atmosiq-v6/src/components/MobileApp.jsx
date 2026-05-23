@@ -2738,54 +2738,59 @@ export default function MobileApp() {
             When the user has an active draft, a soft-glass action bar
             stickies to the bottom of the dash view above the bottom
             nav, always in thumb-reach regardless of scroll position.
-            Disappears in the empty-state (no draft to continue) and
-            on every other view. ── */}
-        {view === 'dash' && activeDraft && (
-          <div style={{
-            position: 'fixed',
-            left: 0, right: 0,
-            // Sits above the bottom-nav (height ~64) + safe-area inset
-            // so the CTA never overlaps the nav. zIndex below the nav
-            // (100) so a stray full-bleed dropdown can't trap focus.
-            bottom: `calc(72px + env(safe-area-inset-bottom, 0px))`,
-            zIndex: 90,
-            display: 'flex',
-            justifyContent: 'center',
-            pointerEvents: 'none',
-            padding: '0 14px',
-          }}>
+            `drafts[0]` is the same expression the dash IIFE uses to
+            derive its local `activeDraft`; computed inline here
+            because the IIFE's locals aren't visible at this scope. ── */}
+        {(() => {
+          const fab = view === 'dash' ? (drafts && drafts[0]) || null : null
+          if (!fab) return null
+          return (
             <div style={{
-              ...GLASS.elevated,
-              maxWidth: contentMax,
-              width: '100%',
-              borderRadius: RADII.sheet,
-              padding: '10px 12px',
-              pointerEvents: 'auto',
+              position: 'fixed',
+              left: 0, right: 0,
+              // Sits above the bottom-nav (height ~64) + safe-area inset
+              // so the CTA never overlaps the nav. zIndex below the nav
+              // (100) so a stray full-bleed dropdown can't trap focus.
+              bottom: `calc(72px + env(safe-area-inset-bottom, 0px))`,
+              zIndex: 90,
               display: 'flex',
-              gap: 10,
-              alignItems: 'center',
-              boxShadow:
-                '0 -6px 20px rgba(0,0,0,0.32), ' +
-                '0 12px 28px rgba(0,0,0,0.42), ' +
-                'inset 0 1px 0 rgba(255,255,255,0.06)',
+              justifyContent: 'center',
+              pointerEvents: 'none',
+              padding: '0 14px',
             }}>
-              <div style={{flex:1,minWidth:0,padding:'0 6px'}}>
-                <div style={{...V3.T.captionDim, marginBottom:2}}>Active walkthrough</div>
-                <div style={{...V3.T.bodyStrong, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
-                  {activeDraft.facility || 'Untitled Assessment'}
+              <div style={{
+                ...GLASS.elevated,
+                maxWidth: contentMax,
+                width: '100%',
+                borderRadius: RADII.sheet,
+                padding: '10px 12px',
+                pointerEvents: 'auto',
+                display: 'flex',
+                gap: 10,
+                alignItems: 'center',
+                boxShadow:
+                  '0 -6px 20px rgba(0,0,0,0.32), ' +
+                  '0 12px 28px rgba(0,0,0,0.42), ' +
+                  'inset 0 1px 0 rgba(255,255,255,0.06)',
+              }}>
+                <div style={{flex:1,minWidth:0,padding:'0 6px'}}>
+                  <div style={{...V3.T.captionDim, marginBottom:2}}>Active walkthrough</div>
+                  <div style={{...V3.T.bodyStrong, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+                    {fab.facility || 'Untitled Assessment'}
+                  </div>
                 </div>
+                <TactileButton
+                  variant="primary"
+                  size="md"
+                  onClick={()=>resumeDraft(fab.id)}
+                  iconRight={<I n="play" s={14} c={PRIMARY_CTA_ICON} w={2} />}
+                >
+                  Continue walkthrough
+                </TactileButton>
               </div>
-              <TactileButton
-                variant="primary"
-                size="md"
-                onClick={()=>resumeDraft(activeDraft.id)}
-                iconRight={<I n="play" s={14} c={PRIMARY_CTA_ICON} w={2} />}
-              >
-                Continue walkthrough
-              </TactileButton>
             </div>
-          </div>
-        )}
+          )
+        })()}
 
         {view==='quickstart'&&qscq&&renderQuestion(qscq,mergedData,setQSField,qsqi,qsVis,()=>{if(qsqi<qsVis.length-1)setQsqi(qsqi+1)},()=>{if(qsqi>0)setQsqi(qsqi-1)},finishQuickStart,'→ HVAC Equipment',qsSecs)}
 
