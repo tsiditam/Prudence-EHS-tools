@@ -42,8 +42,11 @@ import { BORDER_DEFAULT, BORDER_SUBTLE, CARD, R, SURFACE, TEXT_PRIMARY } from '.
 export const GLASS = {
   // In-content glass — used for inline pills, micro-cards, banners
   // inside a parent card. Lightest blur, lightest shadow.
+  // v3.3.1: opacity bumped 78→88% so chips read clearly against any
+  // background; the prior value washed out over photo thumbnails and
+  // photo-backed body panels.
   subtle: {
-    background: 'color-mix(in srgb, var(--card) 78%, transparent)',
+    background: 'color-mix(in srgb, var(--card) 88%, transparent)',
     backdropFilter: 'blur(8px) saturate(140%)',
     WebkitBackdropFilter: 'blur(8px) saturate(140%)',
     border: `1px solid ${BORDER_SUBTLE}`,
@@ -54,8 +57,11 @@ export const GLASS = {
   // Standard glass — the workhorse soft-glass card. Used for the
   // result hero, next-steps panel, recommendation groups. Has the
   // meniscus highlight + a layered outer shadow.
+  // v3.3.1: opacity bumped 82→93% — the previous level read as a
+  // ghosted overlay rather than a confident card surface, and the
+  // page text behind it bled through enough to hurt legibility.
   card: {
-    background: 'color-mix(in srgb, var(--card) 82%, transparent)',
+    background: 'color-mix(in srgb, var(--card) 93%, transparent)',
     backdropFilter: 'blur(14px) saturate(150%)',
     WebkitBackdropFilter: 'blur(14px) saturate(150%)',
     border: `1px solid ${BORDER_DEFAULT}`,
@@ -67,8 +73,12 @@ export const GLASS = {
   // Elevated glass — floating bottom sheets, modal panels, the docx
   // picker. Heavier blur, heavier shadow so it sits visually above
   // the page content.
+  // v3.3.1: opacity bumped 88→96% — modals over a busy page (assessment
+  // form / dash content) were transmitting too much background colour
+  // and reading as hazy. 96% still picks up enough through-color to
+  // feel like a layer, not a flat block.
   elevated: {
-    background: 'color-mix(in srgb, var(--card) 88%, transparent)',
+    background: 'color-mix(in srgb, var(--card) 96%, transparent)',
     backdropFilter: 'blur(22px) saturate(160%)',
     WebkitBackdropFilter: 'blur(22px) saturate(160%)',
     border: `1px solid ${BORDER_DEFAULT}`,
