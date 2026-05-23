@@ -17,94 +17,113 @@ import { legacyToAssessmentScore, deriveAssessmentMeta } from '../engine/bridge'
 import { evaluateRefusalTriggers } from '../engine/report/pre-assessment-memo'
 
 /**
- * Engine refusal triggers, paired with the IH-facing guidance the
- * preflight modal renders. Order matches the renderTriggers list in the
- * modal so we don't reshuffle the user's mental model.
+ * Defensibility requirements surfaced before report issuance, paired
+ * with the IH-facing guidance the preflight modal renders. Order
+ * matches the modal's render list so we don't reshuffle the user's
+ * mental model.
  *
- * `overridable: true` means the IH can elect to issue under
- * professional-judgment override. `overridable: false` means the
- * underlying refusal cannot be honestly overridden (e.g., bypassing the
- * "no measurements" trigger would produce a report with empty Results
- * sections — not a flag, a fig leaf). For those triggers, the modal
- * only offers a "fix in app" path.
+ * `overridable: true` means a reviewing IH may proceed under
+ * documented professional judgment. `overridable: false` means the
+ * requirement must be completed before issuance — proceeding without
+ * it would produce a deliverable that no licensed professional has
+ * actually signed off on.
  */
 const TRIGGER_GUIDANCE = {
   no_measurement: {
-    label: 'No instrument measurements recorded',
+    label: 'Instrument measurements not recorded',
     description:
-      'The engine sees no zones with direct-reading instrument data. ' +
-      'A consultant report needs at least one measurement to populate ' +
-      'the Results section and per-zone tables.',
-    fixWhere: 'Open any zone → Measurements tab → enter CO₂, PM2.5, CO, temperature, or RH.',
+      'No zones currently include direct-reading instrument data. ' +
+      'A consultant report relies on at least one measurement to ' +
+      'populate the Results section and per-zone tables.',
+    fixWhere:
+      'To resolve: open any zone → Measurements tab → record CO₂, PM2.5, ' +
+      'CO, temperature, or relative humidity readings for the zones surveyed.',
     overridable: true,
     overrideCaveat:
-      'Overriding produces a report with empty / sparse Results sections. ' +
-      'The cover notice will state this explicitly so recipients are not misled.',
+      'The reviewing IH may proceed if a documented walkthrough or qualitative ' +
+      'assessment provides sufficient basis. The final report will include a ' +
+      'disclosure noting that direct-reading measurements were not collected.',
   },
   bulk_insufficiency: {
-    label: 'More than half of zone categories lack sufficient data',
+    label: 'Multiple zones below the data-sufficiency threshold',
     description:
-      'Sufficiency is computed per (zone × category) cell. The engine ' +
-      'flags the report as data-thin when over 50% of cells are below ' +
-      'their sufficiency threshold.',
-    fixWhere: 'Open the zones flagged with red sufficiency bars → fill in the missing fields.',
+      'More than half of the (zone × category) cells in this assessment ' +
+      'are below their data-sufficiency threshold, which limits the ' +
+      'reliability of category-level conclusions.',
+    fixWhere:
+      'To resolve: open the zones flagged with reduced sufficiency and ' +
+      'complete the missing observations or measurements.',
     overridable: true,
     overrideCaveat:
-      'Overriding marks the affected categories as scored under IH judgment. ' +
-      'Recipients see a prominent insufficient-data cover notice.',
+      'The reviewing IH may proceed if professional judgment supports the ' +
+      'conclusions despite the data gaps. The final report will include a ' +
+      'disclosure noting the affected categories were scored under documented ' +
+      'professional judgment.',
   },
   confidence_collapse: {
     label: 'No findings at validated or screening confidence',
     description:
-      'Every finding in the assessment is at the lowest confidence tier ' +
-      '("insufficient_data"). The engine cannot anchor a professional ' +
-      'opinion to evidence at that tier.',
-    fixWhere: 'Add an instrument-anchored measurement to at least one zone, or override.',
+      'Every finding in this assessment currently sits at the lowest ' +
+      'confidence tier. A consultant-grade professional opinion is ' +
+      'typically anchored to at least one finding at screening or ' +
+      'validated confidence.',
+    fixWhere:
+      'To resolve: add an instrument-anchored measurement to at least ' +
+      'one zone, or proceed under documented professional judgment.',
     overridable: true,
     overrideCaveat:
-      'Overriding bumps one finding to provisional-screening confidence ' +
-      'and lets the report render. The cover notice flags the override.',
+      'The reviewing IH may elect to issue based on qualitative ' +
+      'observations. The final report will include a disclosure noting ' +
+      'the confidence-tier override.',
   },
   calibration_absence: {
-    label: 'No instrument calibration record on file',
+    label: 'Instrument calibration verification missing',
     description:
-      'AtmosFlow checks that calibration date/status was captured at the ' +
-      'time of the assessment. This is normally a hard gate — calibration ' +
-      'verification is a litigation defense.',
+      'AtmosFlow requires documentation of instrument calibration status ' +
+      'at the time of assessment to support technical defensibility and ' +
+      'data reliability.',
     fixWhere:
-      'Pre-Survey → Instruments → "Last factory/field calibration date" or "Calibration status." ' +
-      'Note: updates to your profile only flow into NEW assessments — fix it on this one too.',
+      'To resolve: Pre-Survey → Instruments → add calibration date, field ' +
+      'verification status, or calibration documentation for the instruments ' +
+      'used during this assessment.\n\n' +
+      'Note: Profile updates apply only to future assessments. Existing ' +
+      'assessments must be updated individually.',
     overridable: true,
     overrideCaveat:
-      'CLAUDE.md flags calibration gating as "Preserve" — overriding here is ' +
-      'a deliberate professional judgment that takes precedence over the engine\'s ' +
-      'standard defensibility check. The cover notice will state this explicitly.',
+      'The reviewing IH may proceed without calibration documentation if ' +
+      'sufficient technical justification exists. The final report will ' +
+      'include a disclosure noting that standard calibration verification ' +
+      'requirements were not fully satisfied.',
   },
   credential_absence: {
-    label: 'No credentials on the preparing assessor or reviewer',
+    label: 'Reviewer credentials required before issuance',
     description:
-      'The preparing assessor has no listed credentials AND no reviewing ' +
-      'professional is designated. A consultant report needs at least one ' +
-      'licensed signer.',
+      'This assessment does not currently include a designated reviewing ' +
+      'professional or documented reviewer credentials. Consultant-issued ' +
+      'reports require at least one qualified reviewing professional, such ' +
+      'as CIH, CSP, PE, or ROH.',
     fixWhere:
-      'Profile → Credentials → add CIH / CSP / PE / ROH. ' +
-      'OR designate a reviewing professional on this assessment.',
+      'To resolve: add reviewer credentials under Profile → Credentials, ' +
+      'or assign a qualified reviewing professional to this assessment.',
     overridable: false,
     overrideCaveat:
-      'Cannot honestly override — the report has no licensed signer. ' +
-      'Add credentials before issuing.',
+      'This requirement must be completed before report issuance.',
   },
   insufficient_opinion: {
-    label: 'All findings are at insufficient-data confidence',
+    label: 'All findings sit at insufficient-data confidence',
     description:
-      'Every finding across every zone landed at the insufficient_data ' +
-      'confidence tier. The engine cannot render a professional opinion ' +
-      'without at least one finding at provisional or higher confidence.',
-    fixWhere: 'Add a measurement-backed observation to at least one finding, or override.',
+      'Every finding across every zone currently sits at the ' +
+      'insufficient-data confidence tier. A consultant-grade professional ' +
+      'opinion typically requires at least one finding at provisional ' +
+      'confidence or above.',
+    fixWhere:
+      'To resolve: add a measurement-backed observation to at least one ' +
+      'finding, or proceed under documented professional judgment.',
     overridable: true,
     overrideCaveat:
-      'Overriding bumps the highest-quality finding to provisional confidence. ' +
-      'The cover notice flags the override.',
+      'The reviewing IH may elect to issue based on the available evidence. ' +
+      'The final report will include a disclosure noting the confidence-tier ' +
+      'override.',
   },
 }
 

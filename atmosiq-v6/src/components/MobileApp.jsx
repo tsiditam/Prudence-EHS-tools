@@ -2309,8 +2309,8 @@ export default function MobileApp() {
       </div>}
 
       {/* ── Consultant Report Preflight Modal ──
-          Surfaces engine refusal triggers + IH override path. Pinned by
-          tests/components/consultant-preflight-modal.test.tsx. */}
+          Surfaces defensibility requirements + IH professional-judgment
+          path. Pinned by tests/lib/consultant-report-preflight.test.ts. */}
       {preflight && (() => {
         const hasNonOverridable = preflight.triggers.some(t => !t.overridable)
         const overridableTriggers = preflight.triggers.filter(t => t.overridable)
@@ -2318,66 +2318,84 @@ export default function MobileApp() {
           && overridableTriggers.every(t => overrideChecked[t.id])
         const justificationOk = overrideJustification.trim().length >= 10
         const canOverride = !hasNonOverridable && allChecked && justificationOk
+        // Severity is derived in the UI layer (not the engine):
+        //   • non-overridable triggers       → Required Before Issuance
+        //   • overridable, but a non-overridable blocker is also present
+        //     → effectively required, because the override path is gated
+        //     off until the blocker clears (e.g., calibration override is
+        //     unavailable until a reviewing professional is designated)
+        //   • overridable, no blockers       → Professional Judgment Eligible
+        const severityFor = (trig) => {
+          if (!trig.overridable) return { label: 'Required Before Issuance', color: WARN, bg: mix('warn', 12) }
+          if (hasNonOverridable)  return { label: 'Required Before Issuance', color: WARN, bg: mix('warn', 12) }
+          return { label: 'Professional Judgment Eligible', color: ACCENT, bg: mix('accent', 8) }
+        }
         return (
-          <div style={{position:'fixed',inset:0,background:'#000000CC',zIndex:201,display:'flex',alignItems:'center',justifyContent:'center',padding:24,overflowY:'auto'}}>
-            <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:18,padding:24,maxWidth:520,width:'100%',maxHeight:'90vh',overflowY:'auto'}} data-testid="consultant-preflight-modal">
-              <div style={{fontSize:18,fontWeight:700,color:TEXT,marginBottom:4}}>Engine refused to issue this report</div>
-              <div style={{fontSize:12,color:SUB,marginBottom:16,lineHeight:1.5}}>The v2.1 engine flagged the following defensibility gaps. Fix the data, or — as the licensed IH — issue the report under professional-judgment override.</div>
+          <div style={{position:'fixed',inset:0,background:'#000000CC',zIndex:201,display:'flex',alignItems:'center',justifyContent:'center',padding:16,overflowY:'auto'}}>
+            <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:18,padding:'24px 22px',maxWidth:560,width:'100%',maxHeight:'92vh',overflowY:'auto'}} data-testid="consultant-preflight-modal">
+              <div style={{fontSize:20,fontWeight:700,color:TEXT,marginBottom:8,lineHeight:1.3}}>Report cannot be issued yet</div>
+              <div style={{fontSize:13,color:SUB,marginBottom:22,lineHeight:1.55}}>AtmosFlow identified the following defensibility requirements that should be resolved before report issuance. Certain items may be issued under documented professional judgment by the reviewing IH.</div>
 
-              <div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:16}}>
-                {preflight.triggers.map(trig => (
-                  <div key={trig.id} data-testid={`preflight-trigger-${trig.id}`} style={{padding:12,background:SURFACE,border:`1px solid ${trig.overridable ? BORDER : mix('warn', 19)}`,borderRadius:10}}>
-                    <div style={{fontSize:13,fontWeight:700,color:trig.overridable ? TEXT : WARN,marginBottom:4}}>{trig.label}</div>
-                    <div style={{fontSize:11,color:SUB,lineHeight:1.5,marginBottom:6}}>{trig.description}</div>
-                    <div style={{fontSize:11,color:DIM,lineHeight:1.5,marginBottom:8}}><strong>Fix:</strong> {trig.fixWhere}</div>
-                    {trig.overridable ? (
-                      <label style={{display:'flex',alignItems:'flex-start',gap:8,cursor:'pointer',fontSize:11,color:SUB,lineHeight:1.5}}>
-                        <input
-                          type="checkbox"
-                          data-testid={`preflight-override-${trig.id}`}
-                          checked={!!overrideChecked[trig.id]}
-                          onChange={e => setOverrideChecked(prev => ({...prev,[trig.id]: e.target.checked}))}
-                          style={{marginTop:2}}
-                        />
-                        <span>Override under IH judgment. {trig.overrideCaveat}</span>
-                      </label>
-                    ) : (
-                      <div style={{fontSize:11,color:WARN,fontStyle:'italic',lineHeight:1.5}}>Cannot be overridden — fix this gap before issuing.</div>
-                    )}
-                  </div>
-                ))}
+              <div style={{display:'flex',flexDirection:'column',gap:14,marginBottom:22}}>
+                {preflight.triggers.map(trig => {
+                  const sev = severityFor(trig)
+                  return (
+                    <div key={trig.id} data-testid={`preflight-trigger-${trig.id}`} style={{padding:'14px 16px',background:SURFACE,border:`1px solid ${trig.overridable && !hasNonOverridable ? BORDER : mix('warn', 19)}`,borderRadius:12}}>
+                      <div style={{display:'inline-block',fontSize:10,fontWeight:700,letterSpacing:'0.04em',textTransform:'uppercase',color:sev.color,background:sev.bg,padding:'4px 8px',borderRadius:6,marginBottom:8}}>{sev.label}</div>
+                      <div style={{fontSize:14,fontWeight:600,color:TEXT,marginBottom:8,lineHeight:1.4}}>{trig.label}</div>
+                      <div style={{fontSize:12,color:SUB,lineHeight:1.6,marginBottom:12,whiteSpace:'pre-wrap'}}>{trig.description}</div>
+                      <div style={{fontSize:12,color:DIM,lineHeight:1.6,marginBottom:trig.overridable ? 12 : 0,whiteSpace:'pre-wrap'}}>{trig.fixWhere}</div>
+                      {trig.overridable && !hasNonOverridable && (
+                        <label style={{display:'flex',alignItems:'flex-start',gap:10,cursor:'pointer',fontSize:12,color:SUB,lineHeight:1.6,padding:'10px 12px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:8,marginTop:4}}>
+                          <input
+                            type="checkbox"
+                            data-testid={`preflight-override-${trig.id}`}
+                            checked={!!overrideChecked[trig.id]}
+                            onChange={e => setOverrideChecked(prev => ({...prev,[trig.id]: e.target.checked}))}
+                            style={{marginTop:3,flexShrink:0}}
+                          />
+                          <span><strong style={{color:TEXT,fontWeight:600}}>Issue under documented professional judgment.</strong> {trig.overrideCaveat}</span>
+                        </label>
+                      )}
+                      {!trig.overridable && (
+                        <div style={{fontSize:12,color:WARN,fontWeight:600,lineHeight:1.6,marginTop:10}}>This requirement must be completed before report issuance.</div>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
 
-              {!hasNonOverridable && (
-                <div style={{marginBottom:16}}>
-                  <div style={{fontSize:12,fontWeight:600,color:TEXT,marginBottom:6}}>IH justification (required, min 10 characters)</div>
+              {!hasNonOverridable && overridableTriggers.length > 0 && (
+                <div style={{marginBottom:20}}>
+                  <div style={{fontSize:13,fontWeight:600,color:TEXT,marginBottom:8}}>Reviewing IH justification</div>
+                  <div style={{fontSize:11,color:DIM,marginBottom:8,lineHeight:1.5}}>Required, minimum 10 characters.</div>
                   <textarea
                     data-testid="preflight-justification"
                     value={overrideJustification}
                     onChange={e=>setOverrideJustification(e.target.value)}
                     rows={4}
-                    placeholder="State the professional basis for issuing despite the engine's refusal (e.g., 'Calibration certificate on file at PSEC office, dated 2025-09-12. Field measurements taken under direct CIH supervision.')."
-                    style={{width:'100%',padding:10,background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:8,color:TEXT,fontSize:12,fontFamily:'inherit',resize:'vertical',lineHeight:1.5}}
+                    placeholder="Describe the professional basis for issuing under documented judgment (e.g., 'Calibration certificate on file at PSEC office, dated 2025-09-12. Field measurements taken under direct CIH supervision.')."
+                    style={{width:'100%',padding:12,background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:8,color:TEXT,fontSize:14,fontFamily:'inherit',resize:'vertical',lineHeight:1.55,boxSizing:'border-box'}}
                   />
-                  <div style={{fontSize:10,color:DIM,marginTop:4,lineHeight:1.5}}>This justification is written into the report cover page and persists in the deliverable's audit trail.</div>
+                  <div style={{fontSize:11,color:DIM,marginTop:6,lineHeight:1.5}}>This justification is recorded on the report cover and retained in the deliverable's audit trail.</div>
                 </div>
               )}
 
-              <div style={{display:'flex',gap:8,flexDirection:'column'}}>
-                {!hasNonOverridable && (
+              <div style={{display:'flex',gap:10,flexDirection:'column'}}>
+                {!hasNonOverridable && overridableTriggers.length > 0 && (
                   <button
                     data-testid="preflight-generate-override"
                     disabled={!canOverride}
                     onClick={executeConsultantWithOverride}
-                    style={{padding:'14px 0',background: canOverride ? ACCENT : SURFACE,border: canOverride ? 'none' : `1px solid ${BORDER}`,borderRadius:10,color: canOverride ? 'var(--on-accent)' : DIM,fontSize:14,fontWeight:700,cursor: canOverride ? 'pointer' : 'not-allowed',fontFamily:'inherit',minHeight:48}}>
-                    Generate with IH override
+                    style={{padding:'15px 0',background: canOverride ? ACCENT : SURFACE,border: canOverride ? 'none' : `1px solid ${BORDER}`,borderRadius:10,color: canOverride ? 'var(--on-accent)' : DIM,fontSize:14,fontWeight:700,cursor: canOverride ? 'pointer' : 'not-allowed',fontFamily:'inherit',minHeight:48}}>
+                    Issue report under documented professional judgment
                   </button>
                 )}
                 <button
                   data-testid="preflight-cancel"
                   onClick={()=>{setPreflight(null);setOverrideJustification('');setOverrideChecked({})}}
-                  style={{padding:'12px 0',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:10,color:SUB,fontSize:13,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>
-                  Cancel — fix the data first
+                  style={{padding:'13px 0',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:10,color:SUB,fontSize:14,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>
+                  Cancel — fix required items
                 </button>
               </div>
             </div>

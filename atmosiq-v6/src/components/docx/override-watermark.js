@@ -17,8 +17,8 @@
 
 import { Header, Footer, Paragraph, TextRun, AlignmentType, BorderStyle } from 'docx'
 
-const OVERRIDE_HEADER_TEXT = 'IH JUDGMENT OVERRIDE — INSUFFICIENT DATA'
-const OVERRIDE_FOOTER_TEXT = 'Issued under industrial-hygienist professional-judgment override — see cover page for justification.'
+const OVERRIDE_HEADER_TEXT = 'ISSUED UNDER DOCUMENTED PROFESSIONAL JUDGMENT'
+const OVERRIDE_FOOTER_TEXT = 'Issued under documented professional judgment by the reviewing industrial hygienist — see cover page for justification.'
 const OVERRIDE_COLOR = 'B45309' // amber-700; high-contrast warning tone, prints legibly
 
 function isOverrideActive(ihOverride) {
@@ -89,7 +89,7 @@ export function buildOverrideCoverNoticeParagraph(ihOverride, mutations) {
     },
     children: [
       new TextRun({
-        text: 'INSUFFICIENT DATA — IH PROFESSIONAL JUDGMENT OVERRIDE',
+        text: 'ISSUED UNDER DOCUMENTED PROFESSIONAL JUDGMENT',
         color: OVERRIDE_COLOR,
         size: 22,
         font: 'Inter',
@@ -104,12 +104,13 @@ export function buildOverrideCoverNoticeParagraph(ihOverride, mutations) {
     children: [
       new TextRun({
         text:
-          'This report was generated under an industrial-hygienist override of ' +
-          'the AtmosFlow engine\'s refusal-to-issue triggers. The preparing ' +
-          'assessor has elected to issue under their professional licensure, ' +
-          'accepting responsibility for the conclusions drawn from the ' +
-          'available data. Recipients should weight this report\'s conclusions ' +
-          'accordingly.',
+          'This report was issued under documented professional judgment by ' +
+          'the reviewing industrial hygienist. One or more standard ' +
+          'defensibility requirements were not fully satisfied at the time ' +
+          'of issuance; the reviewing IH has elected to proceed under their ' +
+          'professional licensure, accepting responsibility for the ' +
+          'conclusions drawn from the available data. Recipients should ' +
+          'weight this report\'s conclusions accordingly.',
         color: OVERRIDE_COLOR,
         size: 18,
         font: 'Inter',
@@ -121,7 +122,7 @@ export function buildOverrideCoverNoticeParagraph(ihOverride, mutations) {
     spacing: { before: 80, after: 40 },
     children: [
       new TextRun({
-        text: 'Engine refusal triggers bypassed under IH judgment:',
+        text: 'Defensibility requirements issued under documented professional judgment:',
         color: OVERRIDE_COLOR,
         size: 18,
         font: 'Inter',
