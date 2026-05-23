@@ -32,6 +32,7 @@ import { STANDARDS_FOR_AGENT, FAQ_FOR_AGENT } from '../src/constants/field-assis
 import { FIELD_ASSISTANT_TOOLS, dispatchTool } from '../src/constants/field-assistant-tools.js'
 import { scrubPii } from '../lib/sentry.js'
 import { auditLog } from './_audit.js'
+import { hasUnlimitedUsage } from '../lib/unlimited-usage.js'
 
 // ── Quota / model / pricing ────────────────────────────────────────
 const PER_MINUTE_LIMIT = 15
@@ -292,6 +293,22 @@ function writeSse(res: VercelLikeResponse, event: string, data: unknown): void {
   res.write(`data: ${JSON.stringify(data)}\n\n`)
 }
 
+/**
+ * Slim down tool input for the tool_start SSE event so the UI can
+ * show a specific status line ("Searching for: CO₂ thresholds")
+ * without us shipping photo blobs or huge JSON payloads through
+ * the stream. Returns only short string / number / boolean fields.
+ */
+function safeInputPreview(input: Record<string, unknown> | undefined): Record<string, string | number | boolean> {
+  if (!input || typeof input !== 'object') return {}
+  const out: Record<string, string | number | boolean> = {}
+  for (const [k, v] of Object.entries(input)) {
+    if (typeof v === 'string' && v.length <= 200) out[k] = v
+    else if (typeof v === 'number' || typeof v === 'boolean') out[k] = v
+  }
+  return out
+}
+
 interface ToolUseBlock {
   id: string
   name: string
@@ -499,12 +516,48 @@ async function runAgentLoop(
     const toolResults: Array<{ type: 'tool_result'; tool_use_id: string; content: string }> = []
     for (const block of turn.contentBlocks) {
       if (block.type !== 'tool_use') continue
+      // Emit a tool_start event BEFORE awaiting the tool so the UI
+      // can render "Searching ASHRAE 62.1…" / "Analyzing photo…"
+      // while the dispatcher is still running. Without this the
+      // tool_call event only arrives after the tool finishes, and
+      // the user just sees a blank thinking indicator while it
+      // works. Paired with the existing tool_call (completion)
+      // event below.
+      writeSse(res, 'tool_start', {
+        id: block.id,
+        name: block.name,
+        // Echo a small, JSON-safe subset of inputs so the UI can
+        // be more specific ("Searching for: CO2 thresholds") if it
+        // wants to. We avoid echoing photos or large blobs.
+        input: safeInputPreview(block.input),
+      })
       const result = await dispatchTool(block.name, block.input, toolCtx)
       toolCalls.push({ name: block.name, input: block.input, resultStatus: (result && (result as any).status) || 'unknown' })
       writeSse(res, 'tool_call', {
+        id: block.id,
         name: block.name,
         status: (result && (result as any).status) || 'unknown',
       })
+      // Side-channel SSE event for agentic propose_action results.
+      // The tool returns a structured action payload that the
+      // client uses to render an Accept / Reject card inline in
+      // the chat. The tool_call (completion) event above tells the
+      // UI that the agent has finished its tool call; this
+      // proposed_action event carries the actual proposal so the
+      // client can construct the card without parsing the
+      // model's free-text follow-up.
+      if (
+        block.name === 'propose_action'
+        && result
+        && (result as any).status === 'proposed'
+        && (result as any).action
+      ) {
+        writeSse(res, 'proposed_action', {
+          id: block.id,
+          action: (result as any).action,
+          summary: (result as any).summary || '',
+        })
+      }
       toolResults.push({
         type: 'tool_result',
         tool_use_id: block.id,
@@ -667,15 +720,26 @@ async function handler(req: VercelLikeRequest, res: VercelLikeResponse): Promise
     // Profile missing → treat as free.
   }
 
+  // Unlimited-usage allowlist (UNLIMITED_USAGE_EMAILS env var). Skip
+  // rate-limit gates for allowlisted internal test accounts. The
+  // quota footer block below still computes against PER_DAY_LIMIT so
+  // the UI doesn't crash on a missing limit; for an allowlisted user
+  // it just shows used_today / PER_DAY_LIMIT as if they were on a
+  // paid plan, which is fine for testing.
+  const userEmail = (user && user.email) || ''
+  const unlimited = hasUnlimitedUsage(userEmail)
+
   // Rate limit
-  let limitCheck: RateLimitResult
-  try {
-    limitCheck = await checkRateLimits(supabase, user.id, plan)
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    console.error('[field-assistant] rate limit check failed:', msg)
-    res.status(500).json({ error: 'rate_limit_check_failed' })
-    return
+  let limitCheck: RateLimitResult = { ok: true }
+  if (!unlimited) {
+    try {
+      limitCheck = await checkRateLimits(supabase, user.id, plan)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error('[field-assistant] rate limit check failed:', msg)
+      res.status(500).json({ error: 'rate_limit_check_failed' })
+      return
+    }
   }
   if (!limitCheck.ok) {
     res.setHeader('Retry-After', String(limitCheck.retry_after))

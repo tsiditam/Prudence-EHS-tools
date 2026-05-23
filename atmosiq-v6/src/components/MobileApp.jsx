@@ -30,9 +30,14 @@ import * as V3 from '../styles/tokens'
 import Loading from './Loading'
 import ScoreRing from './ScoreRing'
 import PhotoCapture from './PhotoCapture'
+import ProfileAvatar from './ProfileAvatar'
+import CollaboratorsBar from './CollaboratorsBar'
 import SensorScreen from './SensorScreen'
 import TimePickerInput from './TimePickerInput'
 import Co2OaCalculator from './Co2OaCalculator'
+import VoiceInputButton, { appendWithSpace } from './VoiceInputButton'
+import InlineAiButton from './InlineAiButton'
+import BleSensorButton from './BleSensorButton'
 import ProfileScreen, { IAQ_OPTS, PID_OPTS, CAL_OPTS, PID_CAL_OPTS } from './ProfileScreen'
 import AuthScreen from './AuthScreen'
 import { TermsOfService, PrivacyPolicy } from './LegalScreens'
@@ -47,6 +52,7 @@ import { printReport, generatePrintHTML } from './PrintReport'
 // Bundling the docx renderer into the main chunk eliminates that failure
 // mode for the most common user action — exporting a report.
 import { generateDocx, generateConsultantOnly, generateTechnicalOnly } from './DocxReport'
+import { runConsultantPreflight } from '../utils/consultantReportPreflight'
 import { DEMO_PRESURVEY, DEMO_BUILDING, DEMO_ZONES, DEMO_EQUIPMENT } from '../constants/demoData'
 import { DEMO_FM_PRESURVEY, DEMO_FM_BUILDING, DEMO_FM_ZONES } from '../constants/demoDataFM'
 import { DEMO_DC_PRESURVEY, DEMO_DC_BUILDING, DEMO_DC_ZONES } from '../constants/demoDataDC'
@@ -65,9 +71,11 @@ import InstrumentManager from './InstrumentManager'
 import V21InternalPanel from './V21InternalPanel'
 import { FAQ_SECTIONS } from '../constants/faq'
 import SearchView from './SearchView'
-import FieldAssistantFab from './FieldAssistantFab'
 import FieldAssistant from './FieldAssistant'
+import VoiceCommandModal from './VoiceCommandModal'
+import JasperRobotIcon from './JasperRobotIcon'
 import PendingSyncIndicator from './PendingSyncIndicator'
+import OfflineBanner from './OfflineBanner'
 import JasperWatchPanel from './JasperWatchPanel'
 import ReadinessPanel from './ReadinessPanel'
 import { buildReadinessVerdict } from '../engines/readiness-verdict'
@@ -84,6 +92,13 @@ const isPremiumOpt = (q, opt) => q.premiumOpts && q.premiumOpts.includes(opt)
 const fD = ts => ts ? new Date(ts).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : ''
 const sv = sev => ({critical:{c:'#EF4444',bg:'#EF444418',l:'CRITICAL'},high:{c:'#FB923C',bg:'#FB923C18',l:'HIGH'},medium:{c:'#FBBF24',bg:'#FBBF2418',l:'MEDIUM'},low:{c:'#38BDF8',bg:'#38BDF815',l:'LOW'},pass:{c:'#22C55E',bg:'#22C55E15',l:'PASS'},info:{c:'#94A3B8',bg:'#94A3B815',l:'INFO'}}[sev]||{c:'#94A3B8',bg:'#94A3B815',l:''})
 const badge = (risk,rc) => <span style={{padding:'6px 16px',background:`${rc}18`,border:`1px solid ${rc}35`,borderRadius:20,fontSize:13,fontWeight:700,color:rc}}>{risk}</span>
+
+// Top-of-funnel CTAs (New Assessment / Continue Assessment) use the
+// shared V3.btnPrimary surface — accent-fill cyan, accent-on-fill
+// text — so the primary accent stays single-channel across the app.
+// Semantic colors (red/amber/green) are reserved for severity,
+// confidence, and other meaning-bearing chrome.
+const PRIMARY_CTA_ICON = 'var(--on-accent-fill)'
 
 // ─── Design Tokens ───
 // CSS-variable references defined in index.html. Default is the dark
@@ -391,16 +406,37 @@ export default function MobileApp() {
   const [zonePrompt, setZonePrompt] = useState(false)
   const [calWarning, setCalWarning] = useState(null)
   const [docxPicker, setDocxPicker] = useState(false)
+  // Consultant preflight: when the v2.1 engine would refuse to issue
+  // (no measurements, calibration missing, etc.), we surface the
+  // triggers + an IH override flow instead of silently downgrading to
+  // a memo file. Shape: { triggers, score, reportData } | null.
+  const [preflight, setPreflight] = useState(null)
+  const [overrideJustification, setOverrideJustification] = useState('')
+  const [overrideChecked, setOverrideChecked] = useState({})
   const [hSearch, setHSearch] = useState('')
   const [hSort, setHSort] = useState('newest')
   // v2.8 UI pass — Notion-style 3-dot home menu. Replaces the standalone
   // gear icon in the Home header; Settings is now one entry inside the
   // dropdown.
   const [showHomeMenu, setShowHomeMenu] = useState(false)
+  // Home menu sub-mode. 'main' shows the canonical menu items; 'demos'
+  // shows the demo picker (Office Building / Data Center / FM Sample
+  // Check). Consolidates what was three separate flat menu entries
+  // into one "Demos" entry with a sub-list, reducing menu height and
+  // making the "load fake data to explore the app" affordance more
+  // discoverable as a category. Reset to 'main' whenever the menu
+  // closes so reopening always lands at the top level.
+  const [homeMenuMode, setHomeMenuMode] = useState('main')
   // Field-assistant bottom sheet. Backend: api/field-assistant.ts.
   // UI is hidden whenever there's no profile (auth screen), during a
   // milestone overlay, or while another full-screen modal is up.
   const [faOpen, setFaOpen] = useState(false)
+  // Voice-command modal state. When the user submits a transcribed
+  // question, we drop the transcript into `voicePrefill` and open
+  // the Jasper sheet; FieldAssistant's initialMessage prop picks it
+  // up and auto-sends.
+  const [voiceCmdOpen, setVoiceCmdOpen] = useState(false)
+  const [voicePrefill, setVoicePrefill] = useState(null)
   // Billing Phase 1 — credit-unit definition sheet was added in PR
   // #143 (Fix 2 of the CIH-credibility prompt) and removed by the
   // subsequent pricing-architecture decision (delete the credit
@@ -768,6 +804,31 @@ export default function MobileApp() {
     const esc = evaluateEscalation({ zones, comp, moldResults }, [], [])
     const reportData = { building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, escalationTriggers: esc, floorPlan, labResults: viewRpt?.labResults || null }
     trackEvent('report_exported', { format: docxType || format, facility: bldg.fn || '', score: comp?.tot, zones: zones.length, has_narrative: !!narrative, photos: Object.values(filteredPhotos).flat().length })
+
+    // Consultant preflight: the v2.1 engine returns a Pre-Assessment
+    // Site Visit Memo (not a full consultant report) when its refusal
+    // triggers fire. Catch this BEFORE generation so we can show the
+    // IH which gaps the engine flagged and offer an override path.
+    // Technical / Both DOCX and PDF do not go through the v2.1 engine
+    // — they render directly from the legacy zoneScores — so they
+    // skip the preflight.
+    if (format === 'docx' && docxType === 'consultant') {
+      try {
+        const pf = runConsultantPreflight(reportData)
+        if (pf.wouldRefuse) {
+          setPreflight({ ...pf, reportData })
+          setOverrideJustification('')
+          setOverrideChecked({})
+          return
+        }
+      } catch (pfErr) {
+        // Preflight failure must not block export. Log + proceed; the
+        // engine will produce its memo if refusal still applies, which
+        // is the prior behavior.
+        console.warn('Consultant preflight failed; proceeding without preflight modal:', pfErr)
+      }
+    }
+
     try {
       if (format === 'docx') {
         if (docxType === 'consultant') await generateConsultantOnly(reportData)
@@ -791,6 +852,36 @@ export default function MobileApp() {
         return
       }
       alert('Report export failed: ' + (msg || 'Unknown error') + '. Please try again.')
+    }
+  }
+
+  // Run the consultant DOCX with the IH override applied. Called from
+  // the preflight modal's "Generate with IH override" action. The
+  // override payload becomes part of the deliverable's cover notice
+  // and per-page watermark, so the audit trail is in the report
+  // itself — no separate audit-log entry required.
+  const executeConsultantWithOverride = async () => {
+    if (!preflight) return
+    const triggers = Object.keys(overrideChecked).filter(k => overrideChecked[k])
+    const ihOverride = {
+      triggers,
+      justification: overrideJustification.trim(),
+      overriddenAt: new Date().toISOString(),
+    }
+    const reportData = { ...preflight.reportData, ihOverride }
+    trackEvent('consultant_override_applied', {
+      facility: bldg.fn || '',
+      triggers: triggers.join(','),
+      justification_length: ihOverride.justification.length,
+    })
+    setPreflight(null)
+    setOverrideJustification('')
+    setOverrideChecked({})
+    try {
+      await generateConsultantOnly(reportData)
+    } catch (e) {
+      console.error('Consultant override export failed:', e)
+      alert('Report export failed under override: ' + ((e && e.message) || 'Unknown error') + '.')
     }
   }
 
@@ -891,10 +982,68 @@ export default function MobileApp() {
           {!q.ref&&<div style={{height:16}} />}
 
           {q.t==='text'&&<input type="text" autoComplete={q.ac||'off'} value={data[q.id]||''} onChange={e=>setField(q.id,e.target.value)} placeholder={q.ph||'Type...'} autoFocus onKeyDown={e=>{if(e.key==='Enter'&&data[q.id])goNext()}} style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:17,fontFamily:'inherit',fontWeight:500,outline:'none',boxSizing:'border-box'}} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />}
-          {q.t==='num'&&<div><div style={{position:'relative'}}><input type="number" inputMode="decimal" value={data[q.id]||''} onChange={e=>setField(q.id,e.target.value)} placeholder={q.ph||'Enter...'} autoFocus onKeyDown={e=>{if(e.key==='Enter'&&data[q.id])goNext()}} style={{width:'100%',padding:'18px 20px',paddingRight:q.u?70:20,background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:17,fontFamily:'inherit',fontWeight:500,outline:'none',boxSizing:'border-box'}} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />{q.u&&<span style={{position:'absolute',right:18,top:'50%',transform:'translateY(-50%)',color:DIM,fontSize:14,fontFamily:"var(--font-mono)"}}>{q.u}</span>}</div>{q.helper==='co2_mass_balance'&&<Co2OaCalculator co2={data.co2} co2o={data.co2o} onApply={v=>setField(q.id,v)} onCo2Change={v=>setField('co2',v)} onCo2oChange={v=>setField('co2o',v)} />}</div>}
+          {q.t==='num'&&(() => {
+            // Map wizard field id → canonical BLE metric. Only the
+            // CO2 fields wire to BLE in this PR; adding RH / temp /
+            // pressure is a one-liner per field once their drivers
+            // are tested on hardware.
+            const bleMetric = (q.id === 'co2' || q.id === 'co2o') ? 'co2_ppm' : null
+            return (
+              <div>
+                <div style={{display:'flex',alignItems:'stretch',gap:8}}>
+                  <div style={{position:'relative',flex:1,minWidth:0}}>
+                    <input type="number" inputMode="decimal" value={data[q.id]||''} onChange={e=>setField(q.id,e.target.value)} placeholder={q.ph||'Enter...'} autoFocus onKeyDown={e=>{if(e.key==='Enter'&&data[q.id])goNext()}} style={{width:'100%',padding:'18px 20px',paddingRight:q.u?70:20,background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:17,fontFamily:'inherit',fontWeight:500,outline:'none',boxSizing:'border-box'}} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />
+                    {q.u&&<span style={{position:'absolute',right:18,top:'50%',transform:'translateY(-50%)',color:DIM,fontSize:14,fontFamily:"var(--font-mono)"}}>{q.u}</span>}
+                  </div>
+                  {/* BLE sensor pair button — sits to the right of
+                      the input as a sibling so it doesn't fight with
+                      the existing unit badge for the input's
+                      right-padding. */}
+                  {bleMetric && (
+                    <BleSensorButton
+                      metric={bleMetric}
+                      size={56}
+                      ariaLabel={`Pair Bluetooth sensor for ${q.id === 'co2o' ? 'outdoor CO₂' : 'CO₂'}`}
+                      onInsert={(value) => setField(q.id, String(value))}
+                    />
+                  )}
+                </div>
+                {q.helper==='co2_mass_balance'&&<Co2OaCalculator co2={data.co2} co2o={data.co2o} onApply={v=>setField(q.id,v)} onCo2Change={v=>setField('co2',v)} onCo2oChange={v=>setField('co2o',v)} />}
+              </div>
+            )
+          })()}
           {q.t==='date'&&<input type="date" value={data[q.id]||''} onChange={e=>setField(q.id,e.target.value)} style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:17,fontFamily:'inherit',outline:'none',boxSizing:'border-box',colorScheme:'dark'}} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />}
           {q.t==='time'&&<TimePickerInput value={data[q.id]||''} onChange={v=>setField(q.id,v)} placeholder={q.ph||'Select time…'} />}
-          {q.t==='ta'&&<textarea value={data[q.id]||''} onChange={e=>setField(q.id,e.target.value)} placeholder={q.ph||'Notes...'} rows={3} style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:'inherit',outline:'none',resize:'vertical',boxSizing:'border-box'}} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />}
+          {/* Free-text wizard input ('ta' question type). Wrapped in
+              a relative container so the dictation mic button can
+              float in the bottom-right corner of the textarea
+              without consuming vertical space or breaking the
+              existing focus styling. Padding-right on the textarea
+              is bumped to keep typed content from sliding under
+              the button. */}
+          {q.t==='ta'&&<div style={{position:'relative'}}>
+            {/* Free-text wizard input. Right-side padding grows to
+                fit two 36px buttons (voice mic + AI rewrite).
+                Buttons are absolute-positioned in the bottom-right
+                corner of the textarea — same idiom as Notion AI /
+                Cursor inline-AI / Apple Writing Tools, just adapted
+                for a touch-first wizard. */}
+            <textarea value={data[q.id]||''} onChange={e=>setField(q.id,e.target.value)} placeholder={q.ph||'Notes...'} rows={3} style={{width:'100%',padding:'18px 96px 18px 20px',background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:'inherit',outline:'none',resize:'vertical',boxSizing:'border-box'}} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />
+            <div style={{position:'absolute',right:10,bottom:10,display:'flex',gap:6}}>
+              <VoiceInputButton
+                ariaLabel="Dictate notes"
+                size={36}
+                onTranscript={(text)=>setField(q.id, appendWithSpace(data[q.id]||'', text))}
+              />
+              <InlineAiButton
+                ariaLabel="Rewrite with AI"
+                size={36}
+                text={data[q.id]||''}
+                context={{ field: q.id, prompt: q.q || q.ph || null }}
+                onAccept={(rewritten)=>setField(q.id, rewritten)}
+              />
+            </div>
+          </div>}
           {q.t==='ch'&&q.opts&&<div style={{display:'flex',flexDirection:'column',gap:8}}>{q.opts.map((o,i)=>{const stMap=q._subtypeMap;const storedVal=stMap?stMap.find(st=>st.label===o)?.id||o:o;const sel=stMap?(data[q.id]===storedVal):(data[q.id]===o||(o==='Other'&&data[q.id]&&!q.opts.slice(0,-1).includes(data[q.id])));const locked=isPremiumOpt(q,o)&&!isEnterprise(profile);return(<button key={o} onClick={()=>{if(locked){haptic('light');setShowPremiumGate(true);return}haptic('light');if(o==='Other'){setField(q.id,'Other')}else{setField(q.id,storedVal);setTimeout(goNext,250)}}} style={{padding:'16px 20px',textAlign:'left',background:sel?`${mix('accent', 7)}`:locked?`${CARD}`:`${CARD}`,border:`1.5px solid ${sel?ACCENT:BORDER}`,borderRadius:14,color:sel?ACCENT:locked?DIM:TEXT,fontSize:16,fontFamily:'inherit',fontWeight:500,cursor:'pointer',display:'flex',alignItems:'center',gap:14,minHeight:54,animation:`fadeUp .3s ${i*.04}s cubic-bezier(.22,1,.36,1) both`}}><div style={{width:24,height:24,borderRadius:'50%',border:`2px solid ${sel?ACCENT:BORDER}`,background:sel?ACCENT:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{sel&&<I n="check" s={12} c={ON_ACCENT} />}</div><span style={{flex:1}}>{o}</span>{locked&&<span style={{fontSize:9,fontWeight:700,padding:'2px 8px',borderRadius:4,background:'#F9731615',color:'#F97316',letterSpacing:'0.3px'}}>PREMIUM</span>}</button>)})}
             {q.other&&data[q.id]&&(data[q.id]==='Other'||!q.opts.slice(0,-1).includes(data[q.id]))&&<input type="text" value={data[q.id]==='Other'?'':data[q.id]} onChange={e=>setField(q.id,e.target.value||'Other')} placeholder="Describe space use..." autoFocus style={{width:'100%',padding:'16px 20px',background:CARD,border:`1.5px solid ${ACCENT}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:'inherit',outline:'none',boxSizing:'border-box',marginTop:4}} />}
           </div>}
@@ -964,50 +1113,19 @@ export default function MobileApp() {
     return (
       <div style={{paddingTop:20,paddingBottom:120}}>
 
-        {/* ── Building Header — facility name, address, meta strip,
-            and the header-level CTAs that match the reference target
-            (Continue Assessment + View Report (Draft) on the right).
-            For finalized reports (archived) the CTAs collapse to
-            Share + a kebab so the chrome stays consistent. ── */}
-        <div style={{marginBottom:18,display:'flex',alignItems:'flex-start',gap:16,flexWrap:'wrap'}}>
-          <div style={{flex:1,minWidth:0}}>
-            <div style={{...V3.T.h1, fontSize:30, lineHeight:'36px', marginBottom:4, overflow:'hidden', textOverflow:'ellipsis'}}>{bldg.fn||'Assessment'}</div>
-            {bldg.fl && <div style={{...V3.T.h1Sub, marginBottom:8}}>{bldg.fl}</div>}
-            <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap',color:V3.TEXT_TERTIARY,fontSize:12}}>
-              {profile && (
-                <span style={{display:'inline-flex',alignItems:'center',gap:6}}>
-                  <I n="user" s={13} c={V3.TEXT_TERTIARY} w={1.6} />
-                  <span>{profile.name ? `Assessment by ${profile.name}` : 'Assessment by you'}</span>
-                </span>
-              )}
-              <span style={{color:V3.BORDER_STRONG}}>·</span>
-              <span style={{fontFamily:'var(--font-mono)'}}>{clock.toLocaleDateString([],{month:'short',day:'numeric',year:'numeric'})}</span>
-              {archived ? (
-                <span style={V3.pill(V3.STATUS.ready)}>Final</span>
-              ) : narrative ? (
-                <span style={V3.pill(V3.STATUS.draft)}>Ready for Review</span>
-              ) : (
-                <span style={V3.pill(V3.STATUS.inProgress)}>In Progress</span>
-              )}
-            </div>
-          </div>
-          {!archived && (
-            <div style={{display:'flex',gap:8,flexShrink:0,alignSelf:'flex-start'}}>
-              {(index.drafts||[]).length > 0 && (() => {
-                const matchingDraft = (index.drafts||[]).find(d => d.facility === bldg.fn) || (index.drafts||[])[0]
-                return matchingDraft ? (
-                  <button onClick={()=>resumeDraft(matchingDraft.id)} style={V3.btnPrimary}>
-                    <I n="play" s={13} c="var(--on-accent-fill)" w={2} />
-                    Continue Assessment
-                  </button>
-                ) : null
-              })()}
-              <button onClick={()=>setRTab('narrative')} style={V3.btnSecondary}>
-                <I n="report" s={13} c={V3.TEXT_PRIMARY} w={1.7} />
-                View Report (Draft)
-              </button>
-            </div>
-          )}
+        {/* ── Building Header — facility name + address only. The
+            meta strip (assessor name · date · status pill) and the
+            header-level CTAs (Continue Assessment + View Report
+            (Draft)) were removed: the score panel below is the
+            point of this view, and the meta + CTAs were chrome that
+            competed with the actual content. The home tab still
+            provides Continue Assessment on the in-progress hero
+            card, and the result tabs strip below this header
+            still navigates to the Narrative tab — so no
+            functionality is lost, only redundant header chrome. ── */}
+        <div style={{marginBottom:18}}>
+          <div style={{...V3.T.h1, fontSize:30, lineHeight:'36px', marginBottom:4, overflow:'hidden', textOverflow:'ellipsis'}}>{bldg.fn||'Assessment'}</div>
+          {bldg.fl && <div style={{...V3.T.h1Sub}}>{bldg.fl}</div>}
         </div>
 
         {/* ── Legacy / Standards Badge ── */}
@@ -1186,7 +1304,7 @@ export default function MobileApp() {
             707, 822; visible labels are reconciled with the workflow
             grammar used on Home (Findings / Pathways / Sampling /
             Narrative / Actions / Review). ── */}
-        <div style={{...V3.tabRow, marginBottom:16}}>
+        <div id="result-tabs-anchor" style={{...V3.tabRow, marginBottom:16, scrollMarginTop:80}}>
           {(userMode === 'fm'
             ? [['overview','findings','Findings'],['narrative','notes','Narrative'],['actions','check','Actions'],['readiness','shield','Review']]
             : [['overview','findings','Findings'],['rootcause','chain','Pathways'],['sampling','flask','Sampling'],['narrative','notes','Narrative'],['actions','check','Actions'],['readiness','shield','Review']]
@@ -1612,7 +1730,7 @@ export default function MobileApp() {
         {rTab==='rootcause'&&<div style={{display:'flex',flexDirection:'column',gap:12}}>
           <div style={{fontSize:11,color:DIM,lineHeight:1.5,marginBottom:4}}>Concern pathways are based on correlation of field observations, measurements, and occupant reports. They support — but do not confirm — root-cause determination.</div>
           {causalChains.length===0?<div style={{padding:36,textAlign:'center',background:CARD,borderRadius:10,border:`1px solid ${BORDER}`}}><I n="chain" s={24} c={DIM} w={1.4} /><div style={{fontSize:14,fontWeight:600,marginTop:12,marginBottom:4,color:SUB}}>No concern pathways identified</div><div style={{fontSize:12,color:DIM,lineHeight:1.5}}>No correlated multi-factor findings in this assessment.</div></div>
-          :causalChains.map((ch,i)=>{const confLabel=ch.confidence==='Strong'?'High confidence':ch.confidence==='Moderate'?'Moderate confidence':'Possible';const cc=ch.confidence==='Strong'?'#22C55E':ch.confidence==='Moderate'?'#FBBF24':SUB;return(
+          :causalChains.map((ch,i)=>{const confLabel=ch.confidence==='Strong'?'High':ch.confidence==='Moderate'?'Moderate':'Possible';const cc=ch.confidence==='Strong'?'#22C55E':ch.confidence==='Moderate'?'#FBBF24':SUB;return(
             <div key={i} style={{padding:16,background:CARD,border:`1px solid ${BORDER}`,borderRadius:10}}>
               {/* ── Canonical two-up: PATHWAY + CONFIDENCE ── */}
               <div style={{display:'grid',gridTemplateColumns:'1fr auto',gap:12,marginBottom:12,alignItems:'flex-start'}}>
@@ -1701,7 +1819,7 @@ export default function MobileApp() {
           </div>}
         </div>}
 
-        {rTab==='actions'&&recs&&<div style={{display:'flex',flexDirection:'column',gap:10}}>
+        {rTab==='actions'&&recs&&<div style={{display:'flex',flexDirection:'column',gap:14}}>
           <div style={{fontSize:11,color:DIM,lineHeight:1.5,marginBottom:2}}>Recommendations are tiered by urgency and type. Review and adapt for site-specific conditions before implementation.</div>
           {[{k:'imm',l:'Immediate Actions',s:'Address within 48 hours',c:'#EF4444'},{k:'eng',l:'Engineering Controls',s:'1–4 weeks',c:ACCENT},{k:'adm',l:'Administrative Controls',s:'1–3 months',c:'#FBBF24'},{k:'mon',l:'Ongoing Monitoring',s:'Continuous',c:SUB}].map(cat=>{
             if(!recs[cat.k]?.length)return null
@@ -1712,14 +1830,18 @@ export default function MobileApp() {
             // location header renders once with its actions as bullets
             // (instead of repeating the location label per rule).
             const groups = groupActions(recs[cat.k], knownZones)
-            return(<div key={cat.k} style={{padding:14,background:CARD,border:`1px solid ${BORDER}`,borderRadius:10}}>
+            // Mobile fit-and-finish: 3px left accent stripe in the tier
+            // color so the priority hierarchy reads at a glance when
+            // scrolling. Card padding bumped to 16px and the left edge
+            // gets extra to clear the stripe.
+            return(<div key={cat.k} style={{padding:'16px 16px 16px 18px',background:CARD,border:`1px solid ${BORDER}`,borderLeft:`3px solid ${cat.c}`,borderRadius:10}}>
             {/* ── Canonical two-up: TIER + TIMEFRAME ── */}
-            <div style={{display:'grid',gridTemplateColumns:'1fr auto',gap:12,marginBottom:14,alignItems:'flex-start'}}>
+            <div style={{display:'grid',gridTemplateColumns:'1fr auto',gap:12,marginBottom:16,alignItems:'flex-start'}}>
               <div>
                 <div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Tier</div>
-                <div style={{color:cat.c,fontWeight:600,fontSize:14,lineHeight:1.4}}>{cat.l}</div>
+                <div style={{color:cat.c,fontWeight:700,fontSize:15,lineHeight:1.4,letterSpacing:'-0.1px'}}>{cat.l}</div>
               </div>
-              <div>
+              <div style={{textAlign:'right'}}>
                 <div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Timeframe</div>
                 <div style={{color:SUB,fontWeight:500,fontSize:13,lineHeight:1.4}}>{cat.s}</div>
               </div>
@@ -1729,17 +1851,17 @@ export default function MobileApp() {
               const isEquipment = g.scope === 'equipment'
               const headerColor = isEquipment ? ACCENT : TEXT
               return (
-                <div key={g.key} style={{marginBottom: gi < groups.length - 1 ? 14 : 0}}>
-                  <div style={{color:headerColor,fontWeight:600,fontSize:13,lineHeight:1.4,marginBottom:6,display:'flex',alignItems:'baseline',gap:6}}>
+                <div key={g.key} style={{marginBottom: gi < groups.length - 1 ? 16 : 0}}>
+                  <div style={{color:headerColor,fontWeight:600,fontSize:13,lineHeight:1.4,marginBottom:8,display:'flex',alignItems:'baseline',gap:6}}>
                     <span>{g.label}</span>
                   </div>
                   <ul style={{margin:0,padding:'0 0 0 18px',listStyle:'disc',color:SUB}}>
                     {g.actions.map((a, ai) => (
-                      <li key={ai} style={{color:SUB,fontSize:13,lineHeight:1.6,marginBottom:4}}>{a.text}</li>
+                      <li key={ai} style={{color:SUB,fontSize:13,lineHeight:1.65,marginBottom:6}}>{a.text}</li>
                     ))}
                   </ul>
                   {isEquipment && g.affectedZoneNames && g.affectedZoneNames.length > 0 && (
-                    <div style={{color:DIM,fontSize:11,fontStyle:'italic',marginTop:4,marginLeft:18}}>Affects: {g.affectedZoneNames.join(', ')}</div>
+                    <div style={{color:DIM,fontSize:11,fontStyle:'italic',marginTop:6,marginLeft:18}}>Affects: {g.affectedZoneNames.join(', ')}</div>
                   )}
                 </div>
               )
@@ -1751,7 +1873,11 @@ export default function MobileApp() {
             <button onClick={handleShare} style={{flex:1,padding:'14px 20px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,color:SUB,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:48,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="send" s={16} c={SUB} /> Share</button>
           </div>
           <button onClick={()=>setView('spatial')} style={{padding:'14px 20px',background:`${mix('accent', 2)}`,border:`1px solid ${mix('accent', 9)}`,borderRadius:12,color:ACCENT,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit',marginTop:8,minHeight:48,width:'100%',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="bldg" s={16} c={ACCENT} /> Map Zones on Floor Plan</button>
-          {!archived&&<button onClick={startNew} style={{padding:'14px 20px',background:'var(--accent-fill)',border:'none',borderRadius:12,color:'var(--on-accent-fill)',fontSize:15,fontWeight:700,cursor:'pointer',fontFamily:'inherit',marginTop:8,minHeight:48,width:'100%'}}>Start Assessment</button>}
+          {/* Removed redundant "Start Assessment" CTA — the user viewing
+              this screen is already inside an assessment; starting a new
+              one is handled from Home or the Reports tab header. The
+              Continue Assessment button at the top of the hero is the
+              right affordance for picking up where they left off. */}
         </div>}
       </div>
     )
@@ -1789,12 +1915,123 @@ export default function MobileApp() {
 
   return (
     <div style={{minHeight:'100vh',background:BG,color:TEXT,fontFamily:"'inherit', system-ui, sans-serif"}}>
+      {/* Global offline banner — sits above the header so the
+          offline state is impossible to miss. PendingSyncIndicator
+          below stays as the source-of-truth for queue depth + last
+          sync time; this banner is the binary "are we connected"
+          signal. */}
+      <OfflineBanner />
       <header style={{position:'fixed',top:0,left:0,right:0,zIndex:100,background:`${mix('bg', 95)}`,backdropFilter:'blur(24px) saturate(1.4)',WebkitBackdropFilter:'blur(24px) saturate(1.4)',borderBottom:`1px solid ${BORDER}`,paddingTop:'env(safe-area-inset-top, 0px)'}}>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',height:48,padding:`0 ${padX}px`,maxWidth:contentMax,margin:'0 auto'}}>
-          <div style={{display:'flex',alignItems:'center'}}>
-            <span style={{fontSize:15,fontWeight:700,letterSpacing:'-0.3px',color:TEXT}}>AtmosFlow</span>
+          {/* Left cluster — hamburger menu (with its dropdown). The
+              "AtmosFlow" wordmark used to live here; it's been removed
+              so the menu sits flush at the left edge and the right
+              cluster (status pills + avatar) reads as the identity
+              column. The relative positioning anchors the dropdown
+              menu below to this left cluster instead of the right
+              one, so the popover now opens DOWN-LEFT from the
+              hamburger rather than down-right. */}
+          <div style={{position:'relative',display:'flex',alignItems:'center'}}>
+            {profile && (
+              <button
+                onClick={()=>setShowHomeMenu(v=>!v)}
+                aria-label="Open menu"
+                aria-haspopup="menu"
+                aria-expanded={showHomeMenu}
+                style={{width:36,height:36,borderRadius:10,background:showHomeMenu ? CARD : 'transparent',border:`1px solid ${BORDER}`,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                <I n="menu" s={22} c={ACCENT} w={2.6} />
+              </button>
+            )}
+            {showHomeMenu && (() => {
+              // Demo entries by user mode. For FM users there's only
+              // one demo (Sample Air Quality Check); for everyone else
+              // the two scored demos (Office Building, Data Center)
+              // share the picker. runDemo() with no arg defaults to
+              // 'office' inside the handler.
+              const demoItems = userMode === 'fm'
+                ? [{ label: 'Sample Air Quality Check', icon: 'play', onClick: () => runDemo() }]
+                : [
+                    { label: 'Office Building', icon: 'play', onClick: () => runDemo() },
+                    { label: 'Data Center',     icon: 'play', onClick: () => runDemo('dc') },
+                  ]
+              const mainItems = [
+                { label: 'Search',       icon: 'search', onClick: () => setView('search') },
+                { label: 'Settings',     icon: 'gear',   onClick: () => setView('settings') },
+                { label: themeMode === 'light' ? 'Switch to dark mode' : 'Switch to light mode',
+                  icon: themeMode === 'light' ? 'moon' : 'sun',
+                  onClick: () => { toggleThemeMode() } },
+                { label: 'Trash',        icon: 'trash',  onClick: () => setView('trash') },
+                { label: 'Sampling forms', icon: 'flask', onClick: () => setView('sampling-forms') },
+                // Single Demos entry — opens the sub-picker instead
+                // of running a demo directly. The "submenu" flag tells
+                // the click handler to stay open + switch mode rather
+                // than close.
+                { label: 'Demos', icon: 'play', submenu: 'demos' },
+                { label: 'Help & Support', icon: 'help', onClick: () => { window.location.href = 'mailto:support@prudenceehs.com?subject=AtmosFlow%20support' } },
+                { label: 'Sign out',     icon: 'logout', onClick: handleLogout, divider: true, danger: true },
+              ]
+              const closeMenu = () => { setShowHomeMenu(false); setHomeMenuMode('main') }
+              return (
+                <>
+                  {/* Transparent backdrop catches outside clicks. */}
+                  <div onClick={closeMenu} style={{position:'fixed',inset:0,zIndex:90,background:'transparent'}} />
+                  {/* Anchored to the LEFT cluster now (left:0 instead
+                      of right:0) so the popover opens down-left from
+                      the hamburger and doesn't overflow the right
+                      edge of the screen. */}
+                  <div role="menu" style={{position:'absolute',top:'calc(100% + 8px)',left:0,minWidth:240,background:CARD,border:`1px solid ${BORDER}`,borderRadius:14,padding:6,zIndex:100,boxShadow:'0 12px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.02) inset',animation:'fadeUp .15s ease'}}>
+                    {homeMenuMode === 'demos' && (
+                      // Submenu header — back button to return to the
+                      // main menu without closing the popover.
+                      <button
+                        role="menuitem"
+                        onClick={() => setHomeMenuMode('main')}
+                        style={{
+                          width:'100%',padding:'10px 14px 12px',background:'transparent',border:'none',borderRadius:10,
+                          cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:10,
+                          fontFamily:'inherit',color:SUB,fontSize:12,fontWeight:600,minHeight:36,letterSpacing:'0.3px',
+                          textTransform:'uppercase',
+                          borderBottom:`1px solid ${BORDER}`,marginBottom:4,borderRadius:0,
+                        }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={SUB} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <polyline points="15 18 9 12 15 6" />
+                        </svg>
+                        <span>Demos</span>
+                      </button>
+                    )}
+                    {(homeMenuMode === 'demos' ? demoItems : mainItems).map(item => (
+                      <button
+                        key={item.label}
+                        role="menuitem"
+                        onClick={() => {
+                          if (item.submenu) { setHomeMenuMode(item.submenu); return }
+                          closeMenu()
+                          item.onClick()
+                        }}
+                        style={{
+                          width:'100%',padding:'12px 14px',background:'transparent',border:'none',borderRadius:10,
+                          cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,
+                          fontFamily:'inherit',color:item.danger?DANGER:TEXT,fontSize:14,fontWeight:500,minHeight:44,
+                          transition:'background 0.12s',
+                          ...(item.divider?{marginTop:6,paddingTop:14,borderTop:`1px solid ${BORDER}`,borderRadius:0}:{}),
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = SURFACE }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}>
+                        <I n={item.icon} s={18} c={item.danger?DANGER:SUB} w={1.6} />
+                        <span style={{flex:1}}>{item.label}</span>
+                        {item.submenu && (
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={SUB} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <polyline points="9 18 15 12 9 6" />
+                          </svg>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )
+            })()}
           </div>
-          <div style={{position:'relative',display:'flex',alignItems:'center',gap:8}}>
+          <div style={{display:'flex',alignItems:'center',gap:8}}>
             {isAssessing&&<span style={{fontSize:10,color:ACCENT,fontFamily:"var(--font-mono)",background:`${mix('accent', 4)}`,padding:'3px 10px',borderRadius:4,border:`1px solid ${mix('accent', 13)}`,letterSpacing:'0.5px'}}>SAVING</span>}
             {view!=='dash'&&view!=='history'&&view!=='search'&&view!=='settings'&&view!=='trash'&&view!=='tos'&&view!=='privacy'&&view!=='help'&&view!=='instrument-edit'&&view!=='incident-form'&&view!=='incident-log'&&view!=='incident-detail'&&view!=='sampling-forms'&&<button onClick={()=>{setView('dash');setViewRpt(null)}} style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:8,color:SUB,fontSize:13,fontWeight:600,padding:'7px 14px',cursor:'pointer',fontFamily:'inherit',minHeight:36,transition:'color 0.15s'}}>← Home</button>}
             {/* Subscription-status pill — exception-only. In beta
@@ -1812,55 +2049,78 @@ export default function MobileApp() {
                 </button>
               )
             })()}
+            {/* Persistent right-cluster pill — search icon + profile
+                avatar wrapped in a single rounded container. Reads as
+                one identity-and-quick-find unit at the right edge of
+                the header. Search opens the search view; avatar
+                routes to Settings (account section). The pill
+                background is one step UP the surface ladder (CARD
+                over SURFACE) so it lifts off the blurred header
+                background; the avatar sits flush inside with no
+                gap between its right edge and the pill's right
+                edge, matching the reference pattern. */}
             {profile && (
-              <button
-                onClick={()=>setShowHomeMenu(v=>!v)}
-                aria-label="Open menu"
-                aria-haspopup="menu"
-                aria-expanded={showHomeMenu}
-                style={{width:36,height:36,borderRadius:10,background:showHomeMenu ? CARD : 'transparent',border:`1px solid ${BORDER}`,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                <I n="menu" s={22} c={ACCENT} w={2.6} />
-              </button>
-            )}
-            {showHomeMenu && (
-              <>
-                {/* Transparent backdrop catches outside clicks. */}
-                <div onClick={()=>setShowHomeMenu(false)} style={{position:'fixed',inset:0,zIndex:90,background:'transparent'}} />
-                <div role="menu" style={{position:'absolute',top:'calc(100% + 8px)',right:0,minWidth:240,background:CARD,border:`1px solid ${BORDER}`,borderRadius:14,padding:6,zIndex:100,boxShadow:'0 12px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.02) inset',animation:'fadeUp .15s ease'}}>
-                  {[
-                    { label: 'Search',       icon: 'search', onClick: () => setView('search') },
-                    { label: 'Settings',     icon: 'gear',   onClick: () => setView('settings') },
-                    { label: themeMode === 'light' ? 'Switch to dark mode' : 'Switch to light mode',
-                      icon: themeMode === 'light' ? 'moon' : 'sun',
-                      onClick: () => { toggleThemeMode() } },
-                    { label: 'Trash',        icon: 'trash',  onClick: () => setView('trash') },
-                    { label: 'Sampling forms', icon: 'flask', onClick: () => setView('sampling-forms') },
-                    { label: userMode==='fm' ? 'Sample Air Quality Check' : 'Office Building Demo',
-                      icon: 'play',
-                      onClick: () => runDemo() },
-                    ...(userMode !== 'fm' ? [{ label: 'Data Center Demo', icon: 'play', onClick: () => runDemo('dc') }] : []),
-                    { label: 'Help & Support', icon: 'help', onClick: () => { window.location.href = 'mailto:support@prudenceehs.com?subject=AtmosFlow%20support' } },
-                    { label: 'Sign out',     icon: 'logout', onClick: handleLogout, divider: true, danger: true },
-                  ].map(item => (
-                    <button
-                      key={item.label}
-                      role="menuitem"
-                      onClick={() => { setShowHomeMenu(false); item.onClick() }}
-                      style={{
-                        width:'100%',padding:'12px 14px',background:'transparent',border:'none',borderRadius:10,
-                        cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,
-                        fontFamily:'inherit',color:item.danger?DANGER:TEXT,fontSize:14,fontWeight:500,minHeight:44,
-                        transition:'background 0.12s',
-                        ...(item.divider?{marginTop:6,paddingTop:14,borderTop:`1px solid ${BORDER}`,borderRadius:0}:{}),
-                      }}
-                      onMouseEnter={e => { e.currentTarget.style.background = SURFACE }}
-                      onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}>
-                      <I n={item.icon} s={18} c={item.danger?DANGER:SUB} w={1.6} />
-                      <span>{item.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </>
+              <div style={{
+                display:'flex', alignItems:'center', gap:2,
+                background: CARD, border:`1px solid ${BORDER}`,
+                borderRadius: 999, padding:'2px 2px 2px 6px',
+                height: 36, boxSizing:'border-box',
+              }}>
+                <button
+                  type="button"
+                  onClick={() => setView('search')}
+                  aria-label="Search"
+                  title="Search"
+                  style={{
+                    width:30, height:30, borderRadius:'50%',
+                    background:'transparent', border:'none',
+                    cursor:'pointer', display:'flex',
+                    alignItems:'center', justifyContent:'center',
+                    fontFamily:'inherit', padding:0,
+                    WebkitTapHighlightColor:'transparent',
+                  }}>
+                  <I n="search" s={17} c={TEXT} w={2} />
+                </button>
+                {/* Voice command — speak a question and Jasper
+                    answers. Sits between Search and the avatar in
+                    the right-cluster pill so the assessor can
+                    invoke it from any screen. Tapping opens the
+                    fullscreen Voice Command modal; the transcript
+                    routes to Jasper via the initialMessage prop. */}
+                <button
+                  type="button"
+                  onClick={() => { supabase && trackEvent('jasper_open', { source: 'voice_command' }); setVoiceCmdOpen(true) }}
+                  aria-label="Ask Jasper by voice"
+                  title="Ask Jasper by voice"
+                  style={{
+                    width:30, height:30, borderRadius:'50%',
+                    background:'transparent', border:'none',
+                    cursor:'pointer', display:'flex',
+                    alignItems:'center', justifyContent:'center',
+                    fontFamily:'inherit', padding:0,
+                    WebkitTapHighlightColor:'transparent',
+                  }}>
+                  {/* Mic glyph — same wireframe as VoiceInputButton
+                      so the affordance reads as "voice" across the
+                      app, just visually paired with Jasper here by
+                      the context (header pill, not a textarea). */}
+                  <svg width="16" height="16" viewBox="0 0 24 24"
+                    fill="none" stroke="var(--text)" strokeWidth="2"
+                    strokeLinecap="round" strokeLinejoin="round"
+                    aria-hidden="true">
+                    <rect x="9" y="2" width="6" height="12" rx="3" />
+                    <path d="M5 11a7 7 0 0 0 14 0" />
+                    <line x1="12" y1="18" x2="12" y2="22" />
+                  </svg>
+                </button>
+                <ProfileAvatar
+                  profile={profile}
+                  size={30}
+                  onClick={() => setView('settings')}
+                  ariaLabel={`Open account ${profile.name ? `for ${profile.name}` : ''}`.trim()}
+                  ringTone="none"
+                />
+              </div>
             )}
           </div>
         </div>
@@ -2048,6 +2308,83 @@ export default function MobileApp() {
         </div>
       </div>}
 
+      {/* ── Consultant Report Preflight Modal ──
+          Surfaces engine refusal triggers + IH override path. Pinned by
+          tests/components/consultant-preflight-modal.test.tsx. */}
+      {preflight && (() => {
+        const hasNonOverridable = preflight.triggers.some(t => !t.overridable)
+        const overridableTriggers = preflight.triggers.filter(t => t.overridable)
+        const allChecked = overridableTriggers.length > 0
+          && overridableTriggers.every(t => overrideChecked[t.id])
+        const justificationOk = overrideJustification.trim().length >= 10
+        const canOverride = !hasNonOverridable && allChecked && justificationOk
+        return (
+          <div style={{position:'fixed',inset:0,background:'#000000CC',zIndex:201,display:'flex',alignItems:'center',justifyContent:'center',padding:24,overflowY:'auto'}}>
+            <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:18,padding:24,maxWidth:520,width:'100%',maxHeight:'90vh',overflowY:'auto'}} data-testid="consultant-preflight-modal">
+              <div style={{fontSize:18,fontWeight:700,color:TEXT,marginBottom:4}}>Engine refused to issue this report</div>
+              <div style={{fontSize:12,color:SUB,marginBottom:16,lineHeight:1.5}}>The v2.1 engine flagged the following defensibility gaps. Fix the data, or — as the licensed IH — issue the report under professional-judgment override.</div>
+
+              <div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:16}}>
+                {preflight.triggers.map(trig => (
+                  <div key={trig.id} data-testid={`preflight-trigger-${trig.id}`} style={{padding:12,background:SURFACE,border:`1px solid ${trig.overridable ? BORDER : mix('warn', 19)}`,borderRadius:10}}>
+                    <div style={{fontSize:13,fontWeight:700,color:trig.overridable ? TEXT : WARN,marginBottom:4}}>{trig.label}</div>
+                    <div style={{fontSize:11,color:SUB,lineHeight:1.5,marginBottom:6}}>{trig.description}</div>
+                    <div style={{fontSize:11,color:DIM,lineHeight:1.5,marginBottom:8}}><strong>Fix:</strong> {trig.fixWhere}</div>
+                    {trig.overridable ? (
+                      <label style={{display:'flex',alignItems:'flex-start',gap:8,cursor:'pointer',fontSize:11,color:SUB,lineHeight:1.5}}>
+                        <input
+                          type="checkbox"
+                          data-testid={`preflight-override-${trig.id}`}
+                          checked={!!overrideChecked[trig.id]}
+                          onChange={e => setOverrideChecked(prev => ({...prev,[trig.id]: e.target.checked}))}
+                          style={{marginTop:2}}
+                        />
+                        <span>Override under IH judgment. {trig.overrideCaveat}</span>
+                      </label>
+                    ) : (
+                      <div style={{fontSize:11,color:WARN,fontStyle:'italic',lineHeight:1.5}}>Cannot be overridden — fix this gap before issuing.</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {!hasNonOverridable && (
+                <div style={{marginBottom:16}}>
+                  <div style={{fontSize:12,fontWeight:600,color:TEXT,marginBottom:6}}>IH justification (required, min 10 characters)</div>
+                  <textarea
+                    data-testid="preflight-justification"
+                    value={overrideJustification}
+                    onChange={e=>setOverrideJustification(e.target.value)}
+                    rows={4}
+                    placeholder="State the professional basis for issuing despite the engine's refusal (e.g., 'Calibration certificate on file at PSEC office, dated 2025-09-12. Field measurements taken under direct CIH supervision.')."
+                    style={{width:'100%',padding:10,background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:8,color:TEXT,fontSize:12,fontFamily:'inherit',resize:'vertical',lineHeight:1.5}}
+                  />
+                  <div style={{fontSize:10,color:DIM,marginTop:4,lineHeight:1.5}}>This justification is written into the report cover page and persists in the deliverable's audit trail.</div>
+                </div>
+              )}
+
+              <div style={{display:'flex',gap:8,flexDirection:'column'}}>
+                {!hasNonOverridable && (
+                  <button
+                    data-testid="preflight-generate-override"
+                    disabled={!canOverride}
+                    onClick={executeConsultantWithOverride}
+                    style={{padding:'14px 0',background: canOverride ? ACCENT : SURFACE,border: canOverride ? 'none' : `1px solid ${BORDER}`,borderRadius:10,color: canOverride ? 'var(--on-accent)' : DIM,fontSize:14,fontWeight:700,cursor: canOverride ? 'pointer' : 'not-allowed',fontFamily:'inherit',minHeight:48}}>
+                    Generate with IH override
+                  </button>
+                )}
+                <button
+                  data-testid="preflight-cancel"
+                  onClick={()=>{setPreflight(null);setOverrideJustification('');setOverrideChecked({})}}
+                  style={{padding:'12px 0',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:10,color:SUB,fontSize:13,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>
+                  Cancel — fix the data first
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
       <div style={{maxWidth:contentMax,margin:'0 auto',padding:`0 ${padX}px`,position:'relative',zIndex:1}}>
 
         {view==='dash'&&(() => {
@@ -2118,90 +2455,82 @@ export default function MobileApp() {
                 <>
                   {/* ── HERO: current assessment situational awareness ─── */}
                   <div style={{...V3.panel({ accent: V3.STATUS.inProgress }), padding:0, marginBottom:16}}>
-                    {/* Header row — facility name + meta + primary actions */}
-                    <div style={{padding:'20px 24px 0',display:'flex',alignItems:'flex-start',gap:16,flexWrap:'wrap'}}>
-                      <div style={{flex:1,minWidth:0}}>
-                        <div style={{...V3.T.h1, marginBottom:6, overflow:'hidden', textOverflow:'ellipsis'}}>
-                          {activeDraft.facility || 'Untitled Assessment'}
-                        </div>
-                        <div style={{display:'flex',alignItems:'center',gap:14,flexWrap:'wrap',color:V3.TEXT_TERTIARY,fontSize:12}}>
-                          <span style={{display:'inline-flex',alignItems:'center',gap:6}}>
-                            <I n="user" s={13} c={V3.TEXT_TERTIARY} w={1.6} />
-                            <span>Assessment by you</span>
-                          </span>
-                          <span style={{color:V3.BORDER_STRONG}}>·</span>
-                          <span style={{fontFamily:'var(--font-mono)'}}>{fD(activeDraft.ua || activeDraft.ts)}</span>
-                          <span style={V3.pill(V3.STATUS.inProgress)}>In Progress</span>
-                        </div>
+                    {/* Header row — facility name + meta. The
+                        Continue Assessment CTA used to live at the
+                        right edge of this row; it's been moved to
+                        a full-width footer at the bottom of the
+                        card so long facility names ("222 bridge
+                        road") can use the full title width without
+                        wrapping awkwardly around the button. */}
+                    <div style={{padding:'20px 24px 0'}}>
+                      <div style={{...V3.T.h1, marginBottom:6, overflow:'hidden', textOverflow:'ellipsis'}}>
+                        {activeDraft.facility || 'Untitled Assessment'}
                       </div>
-                      <div style={{display:'flex',gap:8,flexShrink:0}}>
-                        <button onClick={()=>resumeDraft(activeDraft.id)} style={V3.btnPrimary}>
-                          Continue Assessment
-                          <I n="play" s={13} c="var(--on-accent-fill)" w={1.8} />
-                        </button>
+                      <div style={{display:'flex',alignItems:'center',gap:14,flexWrap:'wrap',color:V3.TEXT_TERTIARY,fontSize:12}}>
+                        <span style={{display:'inline-flex',alignItems:'center',gap:6}}>
+                          <I n="user" s={13} c={V3.TEXT_TERTIARY} w={1.6} />
+                          <span>Assessment by you</span>
+                        </span>
+                        <span style={{color:V3.BORDER_STRONG}}>·</span>
+                        <span style={{fontFamily:'var(--font-mono)'}}>{fD(activeDraft.ua || activeDraft.ts)}</span>
+                        <span style={V3.pill(V3.STATUS.inProgress)}>In Progress</span>
+                        {/* Real-time presence — surfaces other IHs
+                            who joined the same assessment via the
+                            Supabase Realtime presence channel. Renders
+                            nothing in the solo case (the common case)
+                            so the hero stays clean. */}
+                        {profile?.id && (
+                          <span style={{marginLeft:'auto'}}>
+                            <CollaboratorsBar
+                              assessmentId={activeDraft.id}
+                              me={{ id: profile.id, name: profile.name, avatar_url: profile.avatar_url }}
+                              currentZone={null}
+                            />
+                          </span>
+                        )}
                       </div>
                     </div>
 
-                    {/* Headline + severity/confidence framing. Until the
-                        engine has scored the draft, we surface the
-                        canonical screening framing rather than synthesize
-                        a severity that would mislead an IH peer reviewer. */}
-                    <div style={{padding:'18px 24px 4px',display:'flex',gap:8,flexWrap:'wrap'}}>
-                      <span style={V3.pill(V3.STATUS.inProgress, { lg: true })}>Screening in progress</span>
-                      <span style={{...V3.pill(V3.TEXT_TERTIARY, { lg: true }), color: V3.TEXT_TERTIARY, background:'transparent', border:`1px solid ${V3.BORDER_DEFAULT}`}}>Awaiting field data</span>
-                    </div>
-                    {/* Headline runs at 22/28 Bold -1, a hand-tuned cut
-                        between V3.T.h1 (30/36, too dominant for the
-                        framing context) and V3.T.h2 (18/26, too light to
-                        carry the hero pre-scoring). Spec lifted from the
-                        v3 Figma Home frame. */}
-                    <div style={{padding:'8px 24px 16px', fontSize:22, lineHeight:'28px', fontWeight:700, letterSpacing:'-1px', color:V3.TEXT_PRIMARY}}>
+                    {/* Headline + screening framing. The earlier
+                        "Screening in progress / Awaiting field data"
+                        pill row was removed — those states are
+                        already conveyed by the In Progress pill in
+                        the header and the body copy below, so the
+                        extra pills read as redundant chrome. */}
+                    <div style={{padding:'20px 24px 4px',...V3.T.h2}}>
                       Continue capturing field data to refine the screening assessment
                     </div>
-                    <div style={{padding:'0 24px 18px',...V3.T.bodyDim, maxWidth:640}}>
+                    <div style={{padding:'0 24px 20px',...V3.T.bodyDim, maxWidth:640}}>
                       Severity, confidence, and recommended actions will populate as findings,
                       measurements, and zone observations are entered. Outputs are
                       screening-level — they identify risk indicators, not regulatory
                       determinations.
                     </div>
 
-                    {/* Inline meta band. The earlier stat-strip pattern
-                        (3 mono columns separated by hairlines) is right
-                        for homogeneous numerals like 23 / 19 / 2 on the
-                        scored Assessment detail hero, but it goes cheap
-                        when the columns hold mixed types — a single
-                        digit, a date that wraps, and a text label like
-                        "Screening". This band reads as a quiet caption
-                        row with icon + label + value separated by mid-
-                        dots; same data, calmer composition, and the
-                        Assessment details panel below still carries
-                        the canonical key:value list. */}
-                    <div style={{padding:'14px 24px 18px', display:'flex', alignItems:'center', gap:14, flexWrap:'wrap', color:V3.TEXT_TERTIARY}}>
-                      <span style={{display:'inline-flex',alignItems:'center',gap:6}}>
-                        <I n="layers" s={13} c={V3.TEXT_TERTIARY} w={1.6} />
-                        <span style={V3.T.caption}>
-                          <span style={{color:V3.TEXT_PRIMARY, fontWeight:600}}>{(activeDraft.zoneCount ?? activeDraft.zones?.length ?? 0)}</span> zone{(activeDraft.zoneCount ?? activeDraft.zones?.length ?? 0) === 1 ? '' : 's'} started
-                        </span>
-                      </span>
-                      <span style={{color:V3.BORDER_STRONG}}>·</span>
-                      <span style={{display:'inline-flex',alignItems:'center',gap:6}}>
-                        <I n="clock" s={13} c={V3.TEXT_TERTIARY} w={1.6} />
-                        <span style={V3.T.caption}>
-                          Last touched <span style={{color:V3.TEXT_PRIMARY, fontWeight:600, fontFamily:'var(--font-mono)'}}>{fD(activeDraft.ua || activeDraft.ts) || '—'}</span>
-                        </span>
-                      </span>
-                      <span style={{color:V3.BORDER_STRONG}}>·</span>
-                      <span style={{display:'inline-flex',alignItems:'center',gap:6}}>
-                        <I n="shield" s={13} c={V3.TEXT_TERTIARY} w={1.6} />
-                        <span style={V3.T.caption}>Screening assessment</span>
-                      </span>
-                    </div>
-
                     {/* Workflow tabs. Visual stage indicator until the
                         per-stage detail views ship — every tab resumes
                         the draft so users can pick up where they left
-                        off without a dead-click. */}
-                    <div style={{padding:'14px 16px 16px',display:'flex',alignItems:'stretch',gap:2,overflowX:'auto',scrollbarWidth:'none'}}>
+                        off without a dead-click. The inline meta band
+                        that previously sat between the body copy and
+                        these tabs (zones started · last touched ·
+                        screening assessment) was removed: zones-started
+                        is implicit in the workflow stage, last-touched
+                        already appears in the header meta row, and
+                        "screening assessment" is the only kind of
+                        assessment the product produces. */}
+                    {/* Inline workflow stepper. The container picks up
+                        the same mobile-fit-and-finish treatment as the
+                        V3.tabRow token (momentum scrolling, scroll-snap,
+                        inline padding) so iOS swipes feel native and
+                        first/last tabs don't hug the card edge. */}
+                    <div style={{
+                      padding:'14px 16px 16px',
+                      display:'flex', alignItems:'stretch', gap:4,
+                      overflowX:'auto', scrollbarWidth:'none',
+                      WebkitOverflowScrolling:'touch',
+                      scrollSnapType:'x proximity',
+                      scrollPaddingInline:16,
+                    }}>
                       {stages.map(s => {
                         const isActive = s.id === activeStage
                         return (
@@ -2212,10 +2541,27 @@ export default function MobileApp() {
                         )
                       })}
                     </div>
+
+                    {/* Bottom CTA — primary resume action. Lives at
+                        the foot of the card (not in the header) so
+                        the facility name above can take the full
+                        title width without wrapping around a
+                        floating button. */}
+                    <div style={{padding:'4px 20px 20px'}}>
+                      <button onClick={()=>resumeDraft(activeDraft.id)} style={{...V3.btnPrimary, display:'flex', width:'100%'}}>
+                        Continue Assessment
+                        <I n="play" s={13} c={PRIMARY_CTA_ICON} w={1.8} />
+                      </button>
+                    </div>
                   </div>
 
-                  {/* ── Two-up: Next action + Assessment metadata ─── */}
-                  <div style={{display:'grid',gap:16,gridTemplateColumns:isWide?'1.2fr 1fr':'1fr',marginBottom:24}}>
+                  {/* Next recommended steps. The "Assessment details"
+                      key:value panel that previously sat to the right
+                      of this card was removed — facility / started /
+                      last touched / zones / status all surface in the
+                      hero header above, so the panel was a redundant
+                      restatement. Single-column layout now. */}
+                  <div style={{marginBottom:24}}>
                     {/* Next action — drives the assessor forward */}
                     <div style={V3.panel()}>
                       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
@@ -2256,27 +2602,6 @@ export default function MobileApp() {
                       </button>
                     </div>
 
-                    {/* Assessment metadata — calm, structured */}
-                    <div style={V3.panel()}>
-                      <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
-                        <div style={V3.iconBox(V3.TEXT_SECONDARY)}>
-                          <I n="clip" s={16} c={V3.TEXT_SECONDARY} w={1.8} />
-                        </div>
-                        <div style={V3.T.h3}>Assessment details</div>
-                      </div>
-                      {[
-                        ['Facility', activeDraft.facility || '—'],
-                        ['Started', fD(activeDraft.ts) || '—'],
-                        ['Last touched', fD(activeDraft.ua || activeDraft.ts) || '—'],
-                        ['Zones', String(activeDraft.zoneCount ?? activeDraft.zones?.length ?? 0)],
-                        ['Status', 'In Progress'],
-                      ].map(([k, v], i, arr) => (
-                        <div key={k} style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',padding:'10px 0',borderBottom: i === arr.length - 1 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`}}>
-                          <div style={V3.T.captionDim}>{k}</div>
-                          <div style={{...V3.T.body, fontFamily: (k === 'Started' || k === 'Last touched' || k === 'Zones') ? 'var(--font-mono)' : undefined, textAlign:'right'}}>{v}</div>
-                        </div>
-                      ))}
-                    </div>
                   </div>
 
                   {/* Other in-progress assessments — only if multiple drafts */}
@@ -2319,7 +2644,7 @@ export default function MobileApp() {
                   </div>
                   <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
                     <button onClick={startNew} style={V3.btnPrimary}>
-                      <I n="play" s={14} c="var(--on-accent-fill)" w={2} />
+                      <I n="play" s={14} c={PRIMARY_CTA_ICON} w={2} />
                       Start IAQ Assessment
                     </button>
                     <button onClick={()=>setView('incident-form')} style={V3.btnSecondary}>
@@ -2507,7 +2832,7 @@ export default function MobileApp() {
               <div style={V3.T.bodyDim}>Drafts and finalized deliverables · {((index.drafts||[]).length + (index.reports||[]).length)} total</div>
             </div>
             <button onClick={startNew} style={V3.btnPrimary}>
-              <I n="play" s={13} c="var(--on-accent-fill)" w={2} />
+              <I n="play" s={13} c={PRIMARY_CTA_ICON} w={2} />
               New Assessment
             </button>
           </div>
@@ -2517,13 +2842,17 @@ export default function MobileApp() {
             <div style={V3.T.micro}>{userMode === 'fm' ? 'In Progress' : 'Drafts'}{(index.drafts||[]).length>0?` · ${(index.drafts||[]).length}`:''}</div>
           </div>
           {(index.drafts||[]).length === 0 ? (
+            // Empty state — informational only. The "New Assessment"
+            // CTA at the top of the Reports header is the canonical
+            // start-an-assessment affordance; a duplicate here was
+            // redundant and the V3.btnSecondary variant rendered as
+            // plain text on white in light mode.
             <div style={{...V3.panel(), display:'flex',alignItems:'center',gap:14,marginBottom:24,padding:'18px 22px'}}>
               <div style={V3.iconBox(V3.STATUS.draft)}><I n="draft" s={15} c={V3.STATUS.draft} w={1.6} /></div>
               <div style={{flex:1,minWidth:0}}>
                 <div style={V3.T.bodyStrong}>No drafts in progress</div>
                 <div style={V3.T.captionDim}>Start a new assessment to capture field observations.</div>
               </div>
-              <button onClick={startNew} style={V3.btnSecondary}>Start Assessment</button>
             </div>
           ) : (
             <div style={{background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.lg,marginBottom:24,overflow:'hidden'}}>
@@ -2532,9 +2861,13 @@ export default function MobileApp() {
                   <div style={V3.iconBox(V3.STATUS.inProgress)}><I n="bldg" s={15} c={V3.STATUS.inProgress} w={1.6} /></div>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{...V3.T.bodyStrong, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{d.facility||'Untitled Assessment'}</div>
+                    {/* "In Progress" pill removed — rows in the
+                        Drafts section are by definition in-progress,
+                        and the section header already labels them as
+                        such ("DRAFTS · N"). The Resume button to the
+                        right is the action signal. */}
                     <div style={{display:'flex',alignItems:'center',gap:8,marginTop:3}}>
                       <span style={{...V3.T.captionDim, fontFamily:'var(--font-mono)'}}>{fD(d.ua||d.ts)}</span>
-                      <span style={V3.pill(V3.STATUS.inProgress)}>In Progress</span>
                     </div>
                   </div>
                   <button onClick={()=>resumeDraft(d.id)} style={V3.btnPrimary}>Resume</button>
@@ -2571,8 +2904,12 @@ export default function MobileApp() {
                 {hSearch ? 'No reports match your search.' : 'Complete and finalize an assessment to generate your first report.'}
               </div>
               {!hSearch && (
+                // "Start Assessment" removed — redundant with the
+                // "New Assessment" CTA in the Reports header above.
+                // "View sample report" stays as the only action here
+                // because it offers a distinct value prop (preview the
+                // output) rather than restating the primary CTA.
                 <div style={{display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap'}}>
-                  <button onClick={startNew} style={V3.btnPrimary}>Start Assessment</button>
                   <button onClick={runDemo} style={V3.btnGhost}>View sample report</button>
                 </div>
               )}
@@ -2640,18 +2977,36 @@ export default function MobileApp() {
             ] : [
               {id:'dash',label:'Home',icon:'home'},
               {id:'history',label:'Reports',icon:'report',badge:((index.drafts||[]).length+(index.reports||[]).length)||null},
-              {id:'search',label:'Search',icon:'search'},
+              // AI Assistant replaces the previous Search tab. The
+              // brain-on-chip silhouette + same TEXT_TERTIARY →
+              // accent treatment as every other tab so the row reads
+              // as one cohesive nav. The label is the descriptive
+              // "AI Assistant" rather than the codename "Jasper"
+              // because the icon alone doesn't tell a first-time
+              // user that this tab opens the assistant, and the
+              // generic name is more self-explanatory than a brand.
+              {id:'jasper',label:'AI Assistant',icon:'jasper'},
               {id:'settings',label:'Settings',icon:'gear'},
             ]).map(t=>{
-              const isActive = view === t.id
+              const isJasper = t.id === 'jasper'
+              const isActive = isJasper ? faOpen : (view === t.id)
+              const onClick = isJasper
+                ? () => { supabase && trackEvent('jasper_open', { source: 'bottom_nav' }); setFaOpen(true) }
+                : () => { supabase && trackEvent('page_view', { tab: t.id }); setView(t.id); if (t.id === 'dash') setViewRpt(null) }
               return (
-                <button key={t.id} onClick={()=>{ supabase&&trackEvent('page_view',{tab:t.id}); setView(t.id); if(t.id==='dash')setViewRpt(null); }} style={{flex:1,background:'none',border:'none',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:4,paddingTop:6,fontFamily:'inherit',position:'relative',WebkitTapHighlightColor:'transparent',transition:'opacity 0.15s'}}>
+                <button key={t.id} onClick={onClick} style={{flex:1,background:'none',border:'none',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:4,paddingTop:6,fontFamily:'inherit',position:'relative',WebkitTapHighlightColor:'transparent',transition:'opacity 0.15s'}}>
                   {/* Top accent rail — only on the active tab. Cyan
                       hairline tucked under the nav's top border so the
-                      visual is "this lane is lit", not a button glow. */}
+                      visual is "this lane is lit", not a button glow.
+                      For Jasper, the rail lights up while the
+                      FieldAssistant sheet is open. */}
                   <div style={{position:'absolute',top:0,left:'20%',right:'20%',height:2,background:isActive?'var(--accent)':'transparent',borderRadius:'0 0 2px 2px',transition:'background 160ms ease'}} />
                   <div style={{position:'relative',display:'flex'}}>
-                    <I n={t.icon} s={20} c={isActive?'var(--accent)':V3.TEXT_TERTIARY} w={isActive?2:1.7} />
+                    {isJasper ? (
+                      <JasperRobotIcon size={22} color={isActive ? 'var(--accent)' : V3.TEXT_TERTIARY} />
+                    ) : (
+                      <I n={t.icon} s={20} c={isActive?'var(--accent)':V3.TEXT_TERTIARY} w={isActive?2:1.7} />
+                    )}
                     {t.badge>0&&<div style={{position:'absolute',top:-4,right:-8,minWidth:15,height:15,borderRadius:V3.R.pill,background:'var(--accent)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,fontWeight:700,color:'var(--on-accent-fill)',fontFamily:'var(--font-mono)',padding:'0 4px'}}>{t.badge}</div>}
                   </div>
                   <span style={{fontSize:10,fontWeight:isActive?600:500,color:isActive?'var(--accent)':V3.TEXT_TERTIARY,letterSpacing:'0.2px',transition:'color 160ms ease'}}>{t.label}</span>
@@ -2662,16 +3017,73 @@ export default function MobileApp() {
         </nav>
       )}
 
-      {/* Field-assistant FAB — bottom-right, above the bottom nav.
-          Hidden when no profile (auth screen), during the milestone
-          overlay, and while a wizard step is mid-stream (isAssessing). */}
-      {profile && !milestone && !isAssessing && !faOpen && (
-        <FieldAssistantFab onClick={() => setFaOpen(true)} />
+      {/* The floating Field-Assistant FAB was retired when Jasper
+          moved into the bottom-nav tab — two launchers for the same
+          modal was redundant, and the FAB's bottom-right position
+          visually overlapped the new Jasper tab. The Jasper tab in
+          the nav is now the single launcher across the app. */}
+      {/* Voice command modal — speaks → routes the transcript to
+          Jasper via initialMessage. Lives at the app shell so it's
+          available from every screen via the header pill's mic. */}
+      {profile && (
+        <VoiceCommandModal
+          open={voiceCmdOpen}
+          onCancel={() => setVoiceCmdOpen(false)}
+          onSubmit={(transcript) => {
+            setVoiceCmdOpen(false)
+            setVoicePrefill(transcript)
+            setFaOpen(true)
+          }}
+        />
       )}
+
       {profile && faOpen && (
         <FieldAssistant
-          onClose={() => setFaOpen(false)}
-          onNavigate={(v) => { setFaOpen(false); setView(v) }}
+          onClose={() => { setFaOpen(false); setVoicePrefill(null) }}
+          onNavigate={(v) => { setFaOpen(false); setVoicePrefill(null); setView(v) }}
+          initialMessage={voicePrefill}
+          onAction={(action) => {
+            // Agentic action executor. Jasper proposes via
+            // propose_action tool → SSE → ActionCard in chat →
+            // user taps Apply → this callback runs. Return
+            // false to veto (rare); otherwise the hook marks
+            // the card accepted.
+            if (!action || typeof action !== 'object') return false
+            if (action.type === 'navigate') {
+              const target = action.target
+              if (!target) return false
+              // Results view also accepts an inner tab via the
+              // tab_target field. Set rTab BEFORE setView so the
+              // tab is correct when results mount.
+              if (action.tab_target) setRTab(action.tab_target)
+              setView(target)
+              setFaOpen(false)
+              setVoicePrefill(null)
+              return true
+            }
+            if (action.type === 'add_zone_note') {
+              const noteText = (action.note_text || '').trim()
+              if (!noteText) return false
+              // Append to the current zone's notes field. If
+              // there's no current zone (e.g. user is on the
+              // dashboard), reject — the model shouldn't have
+              // proposed this. The notes field on a zone is
+              // `nt` per the wizard schema; append with a
+              // newline separator if there's existing content.
+              const zoneIdx = curZone
+              const zone = zones[zoneIdx]
+              if (!zone) return false
+              const prevNotes = zone.nt || ''
+              const nextNotes = prevNotes
+                ? `${prevNotes}\n${noteText}`
+                : noteText
+              const nextZones = zones.slice()
+              nextZones[zoneIdx] = { ...zone, nt: nextNotes }
+              setZones(nextZones)
+              return true
+            }
+            return false
+          }}
           context={{
             view,
             presurvey,

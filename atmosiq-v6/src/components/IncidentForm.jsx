@@ -13,6 +13,7 @@ import { useState } from 'react'
 import STO from '../utils/storage'
 import { COMPLAINT_SYMPTOMS } from '../constants/terminology'
 import { mix } from '../utils/theme'
+import VoiceInputButton, { appendWithSpace } from './VoiceInputButton'
 
 const BG = 'var(--bg)'
 const CARD = 'var(--card)'
@@ -210,7 +211,27 @@ export default function IncidentForm({ onCancel, onSaved }) {
       {/* Section: Description */}
       <div style={sectionHeader}>What you observed</div>
       <label style={labelStyle}>Observations <span style={{ color: DANGER }}>*</span></label>
-      <textarea value={form.observations} onChange={e => f('observations', e.target.value)} placeholder="Describe what you saw, smelled, or measured. Include any device readings if available." rows={4} style={{ ...inp, resize: 'vertical', fontFamily: 'inherit' }} />
+      {/* Description with inline dictation. The mic button anchors
+          in the bottom-right of the textarea; right-side padding
+          on the textarea keeps typed content out from under it.
+          Both inp's existing padding and the override here ship
+          via the spread; the wrapper handles the layout. */}
+      <div style={{ position: 'relative' }}>
+        <textarea
+          value={form.observations}
+          onChange={e => f('observations', e.target.value)}
+          placeholder="Describe what you saw, smelled, or measured. Include any device readings if available."
+          rows={4}
+          style={{ ...inp, paddingRight: 52, resize: 'vertical', fontFamily: 'inherit' }}
+        />
+        <div style={{ position: 'absolute', right: 8, bottom: 8 }}>
+          <VoiceInputButton
+            ariaLabel="Dictate observations"
+            size={36}
+            onTranscript={(text) => f('observations', appendWithSpace(form.observations || '', text))}
+          />
+        </div>
+      </div>
       <div style={{ ...labelStyle, marginTop: 12 }}>Symptoms reported by occupants</div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
         {COMPLAINT_SYMPTOMS.map(s => (

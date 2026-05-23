@@ -90,6 +90,21 @@ export function useFieldAssistant() {
   const [error, setError] = useState(null)
   const [conversationId, setConversationId] = useState(null)
   const [quota, setQuota] = useState(null) // { used_today, limit_today, plan } | null
+  // Tool-call transparency. While a tool is running, `activeTool`
+  // holds { name, input } so the UI can render
+  // "Searching ASHRAE 62.1…" instead of a generic thinking dot.
+  // Cleared on the matching `tool_call` (completion) event, on
+  // the first `token` event after the tool finishes (when the
+  // model resumes streaming text), or on `done` / abort.
+  const [activeTool, setActiveTool] = useState(null)
+  // Pending agentic actions. Each entry is the payload emitted by
+  // the `proposed_action` SSE event:
+  //   { id, action: { type, ...params }, summary, status: 'pending' | 'accepted' | 'rejected' }
+  // The chat UI renders these as inline action cards with
+  // Accept / Reject buttons. The parent (MobileApp) handles the
+  // actual execution via the onAction callback that
+  // FieldAssistant passes through.
+  const [proposedActions, setProposedActions] = useState([])
   // L4 — photos staged for the next message. Cleared on successful send.
   // Each entry: { id, dataUrl, label, sizeBytes }
   const [attachedPhotos, setAttachedPhotos] = useState([])
@@ -109,6 +124,95 @@ export function useFieldAssistant() {
     setQuota(null)
     photosRef.current = []
     setAttachedPhotos([])
+    setActiveTool(null)
+    setProposedActions([])
+  }, [])
+
+  // Stamp a proposed action as accepted / rejected. Called by
+  // the chat UI's ActionCard buttons. The actual application of
+  // the action (setView / append note) lives in the parent
+  // component — this hook just records the outcome so the card
+  // re-renders in its terminal visual state.
+  const markActionAccepted = useCallback((id) => {
+    setProposedActions((prev) => prev.map((a) => (a.id === id ? { ...a, status: 'accepted' } : a)))
+  }, [])
+  const markActionRejected = useCallback((id) => {
+    setProposedActions((prev) => prev.map((a) => (a.id === id ? { ...a, status: 'rejected' } : a)))
+  }, [])
+
+  // "New chat" alias for the user-facing affordance. Semantically the
+  // same as reset() — both forget the current conversationId so the
+  // next send creates a fresh row in field_assistant_conversations.
+  // Kept as a named alias because the chat header button reads
+  // "New chat", not "Reset".
+  const newConversation = reset
+
+  // List the user's past conversations for the history surface. Each
+  // row carries id + title (auto-set to the first user message on
+  // server, see api/field-assistant.ts → ensureConversation) +
+  // created_at / updated_at + message_count. Server caps at 50.
+  // Returns [] on auth failure or network error rather than throwing
+  // so the UI can render an empty state cleanly.
+  const listConversations = useCallback(async () => {
+    if (!supabase) return []
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return []
+      const r = await fetch('/api/field-assistant-history?action=list', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      if (!r.ok) return []
+      const body = await r.json()
+      return Array.isArray(body.conversations) ? body.conversations : []
+    } catch (err) {
+      // Network errors are non-fatal — the user can still chat,
+      // they just don't see history until next attempt.
+      console.warn('[useFieldAssistant] listConversations failed:', err && err.message)
+      return []
+    }
+  }, [])
+
+  // Load a specific conversation's messages and switch the sheet to
+  // continue it. Replaces the current in-memory transcript wholesale
+  // so the chat view immediately reflects the picked conversation;
+  // subsequent sendMessage() calls reuse the same conversationId so
+  // the server appends to the existing row rather than creating a
+  // new one. Returns false if the conversation can't be loaded
+  // (e.g. it was deleted or belongs to another user).
+  const loadConversation = useCallback(async (id) => {
+    if (!supabase || !id) return false
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return false
+      const r = await fetch(`/api/field-assistant-history?action=get&id=${encodeURIComponent(id)}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      if (!r.ok) return false
+      const body = await r.json()
+      const msgs = Array.isArray(body.messages) ? body.messages : []
+      // Map server rows to the in-memory message shape used by the
+      // chat view. Server rows have {id, role, content, context_view,
+      // created_at}; the chat view expects {role, content, ...} —
+      // matching the shape used in sendMessage's setMessages call.
+      setMessages(msgs.map((m) => ({
+        id: m.id,
+        role: m.role,
+        content: m.content,
+        contextView: m.context_view || null,
+        createdAt: m.created_at,
+      })))
+      setConversationId(id)
+      setError(null)
+      // Clear any photos staged for a brand-new chat; resuming an
+      // existing conversation shouldn't carry over half-attached
+      // photos from a different mental session.
+      photosRef.current = []
+      setAttachedPhotos([])
+      return true
+    } catch (err) {
+      console.warn('[useFieldAssistant] loadConversation failed:', err && err.message)
+      return false
+    }
   }, [])
 
   /**
@@ -281,11 +385,47 @@ export function useFieldAssistant() {
           if (frame.event === 'meta') {
             if (frame.data?.conversation_id) receivedConversationId = frame.data.conversation_id
           } else if (frame.event === 'token') {
+            // First token after a tool finishes signals the model
+            // is back to generating text — clear the active tool
+            // indicator so the UI returns to the regular streaming
+            // bubble.
+            setActiveTool(null)
             if (typeof frame.data?.text === 'string') appendToken(frame.data.text)
+          } else if (frame.event === 'tool_start') {
+            setActiveTool({
+              name: frame.data?.name || 'unknown',
+              input: frame.data?.input || {},
+            })
+          } else if (frame.event === 'tool_call') {
+            // Completion event for a tool — clear the active-tool
+            // status. The next text token (if any) will resume the
+            // assistant bubble.
+            setActiveTool(null)
+          } else if (frame.event === 'proposed_action') {
+            // Agentic action — append an inline card to the chat.
+            // The hook only TRACKS the card state (pending /
+            // accepted / rejected); execution lives in the parent
+            // component so MobileApp can route setView / append
+            // notes without the hook needing knowledge of app
+            // state. Generates an id if the server didn't supply
+            // one, so accept/reject can target the right card.
+            const action = frame.data?.action || null
+            const summary = typeof frame.data?.summary === 'string' ? frame.data.summary : ''
+            if (action && typeof action === 'object' && action.type) {
+              const id = frame.data?.id || (typeof crypto !== 'undefined' && crypto.randomUUID
+                ? `action-${crypto.randomUUID().slice(0, 8)}`
+                : `action-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`)
+              setProposedActions((prev) => [
+                ...prev,
+                { id, action, summary, status: 'pending' },
+              ])
+            }
           } else if (frame.event === 'done') {
             if (frame.data?.quota) receivedQuota = frame.data.quota
+            setActiveTool(null)
           } else if (frame.event === 'error') {
             upstreamError = friendlyError(frame.data?.error || 'Upstream error')
+            setActiveTool(null)
           }
         }
         buffer = processed
@@ -319,6 +459,17 @@ export function useFieldAssistant() {
     setSending(false)
   }, [conversationId, sending, attachedPhotos])
 
+  // Stop the in-flight stream. The AbortController triggers an
+  // AbortError in the fetch which is caught silently by the
+  // send-loop. The partial assistant turn already on screen stays
+  // visible. Used by the modern "Stop generating" affordance.
+  const stop = useCallback(() => {
+    inFlight.current?.abort?.()
+    inFlight.current = null
+    setActiveTool(null)
+    setSending(false)
+  }, [])
+
   return {
     messages,
     sending,
@@ -326,10 +477,18 @@ export function useFieldAssistant() {
     conversationId,
     quota,
     attachedPhotos,
+    activeTool,
+    proposedActions,
     sendMessage,
+    stop,
     reset,
     attachPhoto,
     removePhoto,
     clearPhotos,
+    listConversations,
+    loadConversation,
+    newConversation,
+    markActionAccepted,
+    markActionRejected,
   }
 }

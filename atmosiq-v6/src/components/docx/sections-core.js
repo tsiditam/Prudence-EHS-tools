@@ -6,7 +6,7 @@
 import { Paragraph, TextRun, HeadingLevel, AlignmentType, SectionType, PageBreak, ImageRun } from 'docx'
 import { FONTS, COLORS, SEV_COLORS, scoreColor, riskLabel } from './styles'
 import { buildTable, kvTable, borderlessLayoutTable, dataCell, headerCell } from './tables'
-import { base64ToUint8Array } from './images'
+import { base64ToUint8Array, inferImageType, isImageDataUrl } from './images'
 import { inferCitationsFromContext, filterManifestByRegistration } from '../../engine/report/citation-tracker'
 import { LETTER_BODY_PAGE } from './page-setup'
 
@@ -28,26 +28,87 @@ const numbered = (text, idx) => new Paragraph({
   spacing: { after: 60 },
 })
 
+/**
+ * Build a centered ImageRun-bearing paragraph for the firm logo /
+ * PE seal. Sizes are inches × 9525 EMU/inch — docx package wants
+ * EMUs. 240×72 logo (≈ 2.5 in × 0.75 in) reads as a header mark
+ * without crowding the cover title. PE seal at 100×100 (~1 in × 1
+ * in) sits as a small credential mark above the confidential
+ * footer. Returns null on invalid input so the caller can
+ * conditionally inject only when present.
+ */
+function brandedImageParagraph(dataUrl, widthPx, heightPx, after = 200) {
+  if (!isImageDataUrl(dataUrl)) return null
+  try {
+    return new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { after },
+      children: [
+        new ImageRun({
+          data: base64ToUint8Array(dataUrl),
+          transformation: { width: widthPx, height: heightPx },
+          type: inferImageType(dataUrl),
+        }),
+      ],
+    })
+  } catch {
+    // Defensive: corrupt data URL shouldn't sink the report. Fall
+    // back to silently dropping the image — the assessor sees the
+    // textual identity block below either way.
+    return null
+  }
+}
+
 export function buildCoverPage(ctx) {
+  const children = []
+  // Top spacing — tighter when a logo is present so the logo +
+  // wordmark + title cluster reads as one block. Without a logo we
+  // keep the existing generous top margin so the title still feels
+  // anchored vertically.
+  children.push(p('', { after: ctx.firmLogo ? 1200 : 2400 }))
+
+  // Branded logo (optional). Sits above the firm name + address.
+  const logoPara = brandedImageParagraph(ctx.firmLogo, 240, 80, 200)
+  if (logoPara) children.push(logoPara)
+
+  // Firm identity block — name, address, optional phone + license.
+  children.push(p(ctx.firmName, { align: AlignmentType.CENTER, size: 24, bold: true, color: COLORS.text, after: 120 }))
+  children.push(p(ctx.firmAddress, { align: AlignmentType.CENTER, size: 20, color: COLORS.sub, after: ctx.firmPhone || ctx.firmLicense ? 60 : 400 }))
+  if (ctx.firmPhone) {
+    children.push(p(ctx.firmPhone, { align: AlignmentType.CENTER, size: 20, color: COLORS.sub, after: ctx.firmLicense ? 60 : 400 }))
+  }
+  if (ctx.firmLicense) {
+    children.push(p(ctx.firmLicense, { align: AlignmentType.CENTER, size: 18, color: COLORS.muted, after: 400 }))
+  }
+
+  // Title — the report's anchor visual.
+  children.push(p('Indoor Air Quality', { align: AlignmentType.CENTER, size: 44, bold: true, color: COLORS.text, after: 40 }))
+  children.push(p('Assessment Report', { align: AlignmentType.CENTER, size: 44, bold: true, color: COLORS.text, after: 400 }))
+
+  // Site + assessment metadata.
+  children.push(p(`Site: ${ctx.facilityName}`, { align: AlignmentType.CENTER, size: 22, color: COLORS.sub, after: 60 }))
+  children.push(p(`Location: ${ctx.address}`, { align: AlignmentType.CENTER, size: 22, color: COLORS.sub, after: 60 }))
+  children.push(p(`Assessment Date: ${ctx.assessDate}`, { align: AlignmentType.CENTER, size: 22, color: COLORS.sub, after: 60 }))
+  children.push(p(`Report Date: ${ctx.reportDate}`, { align: AlignmentType.CENTER, size: 22, color: COLORS.sub, after: 60 }))
+  children.push(p(`Assessor: ${ctx.assessor}`, { align: AlignmentType.CENTER, size: 22, color: COLORS.sub, after: 60 }))
+  children.push(p(`Report ID: ${ctx.reportId}`, { align: AlignmentType.CENTER, size: 22, color: COLORS.sub, after: 60 }))
+  children.push(p('Version: 1.0  |  Status: Draft — Pending Professional Review', { align: AlignmentType.CENTER, size: 20, color: COLORS.muted, after: 600 }))
+
+  // Optional PE / CIH seal — small credential mark above the
+  // confidential footer. The seal IS the professional accountability
+  // signal on a consultant-grade deliverable; the existing
+  // "Draft — Pending Professional Review" status above it
+  // communicates that the seal is the IH's, not AtmosFlow's.
+  const sealPara = brandedImageParagraph(ctx.peSeal, 100, 100, 200)
+  if (sealPara) children.push(sealPara)
+
+  children.push(p('CONFIDENTIAL — FOR CLIENT USE ONLY', { align: AlignmentType.CENTER, size: 18, bold: true, color: COLORS.muted, after: 0 }))
+
   return {
     // v2.5.1 — explicit Letter portrait + 1-inch margins so the cover
     // page renders at the same content width as the body section.
     properties: { page: LETTER_BODY_PAGE },
-    children: [
-      p('', { after: 2400 }),
-      p(ctx.firmName, { align: AlignmentType.CENTER, size: 24, bold: true, color: COLORS.text, after: 120 }),
-      p(ctx.firmAddress, { align: AlignmentType.CENTER, size: 20, color: COLORS.sub, after: 400 }),
-      p('Indoor Air Quality', { align: AlignmentType.CENTER, size: 44, bold: true, color: COLORS.text, after: 40 }),
-      p('Assessment Report', { align: AlignmentType.CENTER, size: 44, bold: true, color: COLORS.text, after: 400 }),
-      p(`Site: ${ctx.facilityName}`, { align: AlignmentType.CENTER, size: 22, color: COLORS.sub, after: 60 }),
-      p(`Location: ${ctx.address}`, { align: AlignmentType.CENTER, size: 22, color: COLORS.sub, after: 60 }),
-      p(`Assessment Date: ${ctx.assessDate}`, { align: AlignmentType.CENTER, size: 22, color: COLORS.sub, after: 60 }),
-      p(`Report Date: ${ctx.reportDate}`, { align: AlignmentType.CENTER, size: 22, color: COLORS.sub, after: 60 }),
-      p(`Assessor: ${ctx.assessor}`, { align: AlignmentType.CENTER, size: 22, color: COLORS.sub, after: 60 }),
-      p(`Report ID: ${ctx.reportId}`, { align: AlignmentType.CENTER, size: 22, color: COLORS.sub, after: 60 }),
-      p('Version: 1.0  |  Status: Draft — Pending Professional Review', { align: AlignmentType.CENTER, size: 20, color: COLORS.muted, after: 600 }),
-      p('CONFIDENTIAL — FOR CLIENT USE ONLY', { align: AlignmentType.CENTER, size: 18, bold: true, color: COLORS.muted, after: 0 }),
-    ],
+    children,
   }
 }
 

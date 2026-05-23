@@ -194,7 +194,7 @@ function findHeaderRow(lines) {
  *   warnings: string[],
  * }}
  */
-export function parseLabResultsCsv(csvText) {
+export function parseLabResultsCsv(csvText, opts = {}) {
   if (typeof csvText !== 'string' || !csvText.trim()) {
     return { laboratory: null, rows: [], unmappedColumns: [], warnings: ['Empty or non-text CSV input.'] }
   }
@@ -211,7 +211,17 @@ export function parseLabResultsCsv(csvText) {
     }
   }
   const { headerIndex, headers } = header
-  const mapping = headers.map(mapHeader)
+  const overrides = (opts && opts.overrides) || {}
+  // Apply overrides on top of the auto-detect. Empty string means
+  // "explicitly leave this column unmapped" (e.g. user wants a column
+  // the parser auto-detected to fall into `extra` instead).
+  const mapping = headers.map((h) => {
+    if (Object.prototype.hasOwnProperty.call(overrides, h)) {
+      const v = overrides[h]
+      return v ? v : null
+    }
+    return mapHeader(h)
+  })
   const unmappedColumns = headers.filter((_, i) => !mapping[i])
   const rows = []
   for (let i = headerIndex + 1; i < lines.length; i++) {
@@ -242,4 +252,48 @@ export function parseLabResultsCsv(csvText) {
   const warnings = []
   if (rows.length === 0) warnings.push('Header row found but no data rows could be parsed.')
   return { laboratory, rows, unmappedColumns, warnings }
+}
+
+/**
+ * Inspect a CSV before commitment. Returns a lightweight preview the
+ * column-mapping wizard renders BEFORE the user accepts the final
+ * import: detected headers, what each one auto-mapped to (or null),
+ * and the first few raw rows so the user can eyeball the data before
+ * confirming the mapping.
+ *
+ *   const preview = previewLabResultsCsv(text)
+ *   // preview.headers          string[]
+ *   // preview.autoMapping      Record<rawHeader, canonical|null>
+ *   // preview.sampleRows       string[][]   first 5 raw rows
+ *   // preview.laboratory       string|null
+ *
+ * @param {string} csvText
+ * @param {number} [maxRows=5]  how many sample rows to surface
+ */
+export function previewLabResultsCsv(csvText, maxRows = 5) {
+  const empty = { laboratory: null, headers: [], autoMapping: {}, sampleRows: [] }
+  if (typeof csvText !== 'string' || !csvText.trim()) return empty
+  const laboratory = detectLaboratory(csvText)
+  const lines = csvText.replace(/\r\n?/g, '\n').split('\n').filter(l => l.trim().length > 0)
+  const header = findHeaderRow(lines)
+  if (!header) return empty
+  const { headerIndex, headers } = header
+  const autoMapping = {}
+  for (const h of headers) autoMapping[h] = mapHeader(h)
+  const sampleRows = []
+  for (let i = headerIndex + 1; i < lines.length && sampleRows.length < maxRows; i++) {
+    const fields = splitCsvLine(lines[i])
+    if (fields.length === 0 || fields.every(f => !f)) continue
+    sampleRows.push(fields)
+  }
+  return { laboratory, headers, autoMapping, sampleRows }
+}
+
+/**
+ * The fixed list of canonical fields the wizard's per-column dropdown
+ * offers. Exported so the UI can build the option list without
+ * duplicating the source-of-truth.
+ */
+export function getCanonicalFields() {
+  return CANONICAL_FIELDS.slice()
 }

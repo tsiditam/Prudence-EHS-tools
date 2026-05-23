@@ -28,7 +28,8 @@
  */
 
 import { useEffect, useRef, useState } from 'react'
-import { parseLabResultsCsv } from '../utils/labResultsParser'
+import { parseLabResultsCsv, getCanonicalFields } from '../utils/labResultsParser'
+import { listTemplates, saveTemplate, findTemplateForLab, deleteTemplate } from '../utils/labCsvTemplates'
 import Storage from '../utils/cloudStorage'
 
 const CARD = 'var(--card)'
@@ -43,11 +44,245 @@ const SURFACE = 'var(--surface)'
 
 const PREVIEW_LIMIT = 8
 
+// Friendly labels for the canonical-field dropdown. Maps the internal
+// schema field names to wording an IH would recognize.
+const CANONICAL_LABELS = {
+  sampleId: 'Sample ID',
+  sampleType: 'Sample type / media',
+  location: 'Location',
+  collectedAt: 'Date collected',
+  receivedAt: 'Date received',
+  analyte: 'Analyte / organism / compound',
+  result: 'Result',
+  units: 'Units',
+  detectionLimit: 'Detection / reporting limit',
+  analystNotes: 'Notes / comments',
+}
+
+/**
+ * Column-mapping wizard panel. Surfaces one dropdown per detected
+ * header so the IH can override the auto-detect (or unmap a wrongly-
+ * matched column). "Save as template" persists the current overrides
+ * to localStorage so the next CSV from the same lab auto-applies.
+ *
+ * Lifted out of the main component to keep the import flow readable.
+ */
+function ColumnMappingPanel({
+  csvText, parsed, overrides, templates,
+  showSaveTemplate, newTemplateName,
+  onChangeOverride, onApplyTemplate,
+  onOpenSaveTemplate, onCancelSaveTemplate, onChangeTemplateName, onSaveTemplate,
+  onDeleteTemplate,
+}) {
+  const canonicalFields = getCanonicalFields()
+  const headers = parsed.rows[0]
+    ? Object.keys({
+      // Build the headers list from a sample row's `extra` keys
+      // plus the canonical fields that are populated. Order matches
+      // the CSV's original column order via the auto-detect.
+    })
+    : []
+  // Simpler: parse the CSV text's header row again to keep order.
+  const headerLine = csvText.split(/\r\n?|\n/).find((l) => l.split(',').length >= 2 && l.trim().length > 0) || ''
+  const detectedHeaders = headerLine.split(',').map((s) => s.trim().replace(/^"|"$/g, ''))
+  // Build a map of canonical → rawHeader so we can show ✓ for the
+  // canonical fields that are currently filled.
+  const currentMapping = {}
+  detectedHeaders.forEach((h) => {
+    if (Object.prototype.hasOwnProperty.call(overrides, h)) {
+      currentMapping[h] = overrides[h] || ''
+    } else {
+      // Mirror parser auto-detect by checking which canonical key has
+      // data in the first parsed row.
+      const firstRow = parsed.rows[0] || {}
+      let auto = ''
+      for (const cf of canonicalFields) {
+        if (firstRow[cf] && parsed.rows.some((r) => r.extra && r.extra[h] === r[cf])) {
+          // not a great heuristic; the parser doesn't expose its
+          // mapping post-parse, so fall back to the "extra" check
+          // below.
+        }
+      }
+      if (!auto) {
+        // If the column appears in `extra`, it wasn't mapped.
+        const inExtra = parsed.rows[0]?.extra && Object.prototype.hasOwnProperty.call(parsed.rows[0].extra, h)
+        auto = inExtra ? '' : ''
+      }
+      currentMapping[h] = ''
+    }
+  })
+
+  return (
+    <div style={{
+      marginBottom: 16, padding: 14,
+      background: 'color-mix(in srgb, var(--accent) 4%, transparent)',
+      border: `1px solid color-mix(in srgb, var(--accent) 22%, transparent)`,
+      borderRadius: 10,
+    }}>
+      <div style={{
+        display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
+        gap: 12, marginBottom: 12,
+      }}>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: TEXT, marginBottom: 2 }}>
+            Column mapping
+          </div>
+          <div style={{ fontSize: 11, color: SUB, lineHeight: 1.5 }}>
+            Pick a canonical field for each column. "Auto" keeps the parser's guess; "—" leaves the column unmapped (data preserved in extras).
+          </div>
+        </div>
+      </div>
+
+      {/* Template controls — apply existing, save new */}
+      {(templates.length > 0 || parsed.laboratory) && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+          {templates.length > 0 && (
+            <select
+              value=""
+              onChange={(e) => {
+                if (!e.target.value) return
+                const tpl = templates.find((t) => t.id === e.target.value)
+                if (tpl) onApplyTemplate(tpl)
+                e.target.value = ''
+              }}
+              style={{
+                padding: '6px 10px', background: SURFACE, border: `1px solid ${BORDER}`,
+                borderRadius: 8, color: TEXT, fontSize: 12, fontFamily: 'inherit',
+              }}>
+              <option value="">Apply saved template…</option>
+              {templates.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}{t.laboratory ? ` · ${t.laboratory}` : ''}
+                </option>
+              ))}
+            </select>
+          )}
+          {!showSaveTemplate && (
+            <button
+              type="button"
+              onClick={onOpenSaveTemplate}
+              style={{
+                background: 'transparent', border: `1px solid ${BORDER}`,
+                borderRadius: 8, color: ACCENT, fontSize: 12, fontWeight: 600,
+                cursor: 'pointer', fontFamily: 'inherit', padding: '6px 10px',
+              }}>
+              Save as template
+            </button>
+          )}
+          {showSaveTemplate && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <input
+                type="text"
+                value={newTemplateName}
+                onChange={(e) => onChangeTemplateName(e.target.value)}
+                placeholder={parsed.laboratory ? `${parsed.laboratory} mapping` : 'Template name'}
+                style={{
+                  padding: '6px 10px', background: SURFACE, border: `1px solid ${BORDER}`,
+                  borderRadius: 8, color: TEXT, fontSize: 12, fontFamily: 'inherit',
+                  minWidth: 180,
+                }}
+              />
+              <button
+                type="button"
+                onClick={onSaveTemplate}
+                disabled={!newTemplateName.trim()}
+                style={{
+                  background: newTemplateName.trim() ? ACCENT : SURFACE,
+                  border: 'none', borderRadius: 8,
+                  color: newTemplateName.trim() ? 'var(--on-accent-fill)' : DIM,
+                  fontSize: 12, fontWeight: 700, cursor: newTemplateName.trim() ? 'pointer' : 'not-allowed',
+                  fontFamily: 'inherit', padding: '6px 12px',
+                }}>
+                Save
+              </button>
+              <button
+                type="button"
+                onClick={onCancelSaveTemplate}
+                style={{
+                  background: 'transparent', border: 'none',
+                  color: SUB, fontSize: 12, fontWeight: 500,
+                  cursor: 'pointer', fontFamily: 'inherit', padding: '6px 8px',
+                }}>
+                Cancel
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Per-column mapping rows */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {detectedHeaders.map((h) => (
+          <div key={h} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{
+              flex: 1, minWidth: 0, fontSize: 12, color: TEXT, fontWeight: 600,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {h}
+            </div>
+            <select
+              value={Object.prototype.hasOwnProperty.call(overrides, h) ? (overrides[h] || '__unmap__') : '__auto__'}
+              onChange={(e) => {
+                const v = e.target.value
+                if (v === '__auto__') onChangeOverride(h, '__auto__')
+                else if (v === '__unmap__') onChangeOverride(h, '')
+                else onChangeOverride(h, v)
+              }}
+              style={{
+                padding: '6px 10px', background: SURFACE, border: `1px solid ${BORDER}`,
+                borderRadius: 8, color: TEXT, fontSize: 12, fontFamily: 'inherit',
+                minWidth: 180,
+              }}>
+              <option value="__auto__">Auto (parser default)</option>
+              <option value="__unmap__">— Leave unmapped</option>
+              {canonicalFields.map((f) => (
+                <option key={f} value={f}>{CANONICAL_LABELS[f] || f}</option>
+              ))}
+            </select>
+          </div>
+        ))}
+      </div>
+
+      {templates.length > 0 && (
+        <div style={{ marginTop: 12, fontSize: 11, color: DIM, lineHeight: 1.5 }}>
+          {templates.length} saved template{templates.length === 1 ? '' : 's'}.{' '}
+          {templates.map((t) => (
+            <span key={t.id} style={{ marginRight: 6 }}>
+              <span style={{ color: SUB }}>{t.name}</span>
+              <button
+                type="button"
+                onClick={() => onDeleteTemplate(t.id)}
+                aria-label={`Delete template ${t.name}`}
+                style={{
+                  background: 'transparent', border: 'none', cursor: 'pointer',
+                  color: DIM, fontSize: 11, padding: '0 4px', fontFamily: 'inherit',
+                }}>
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function LabResultsImport({ onBack, onSaved }) {
   const fileRef = useRef(null)
   const [filename, setFilename] = useState('')
   const [parsed, setParsed] = useState(null)
   const [error, setError] = useState('')
+  // Column-mapping wizard state. csvText is the raw CSV kept around
+  // so we can re-parse with new overrides whenever the user adjusts
+  // a column dropdown. overrides is { rawHeader → canonicalField };
+  // entries with value === '' explicitly unmap an auto-detected
+  // column. mappingOpen toggles the Adjust-mapping panel.
+  const [csvText, setCsvText] = useState('')
+  const [overrides, setOverrides] = useState({})
+  const [mappingOpen, setMappingOpen] = useState(false)
+  const [templates, setTemplates] = useState(() => listTemplates())
+  const [showSaveTemplate, setShowSaveTemplate] = useState(false)
+  const [newTemplateName, setNewTemplateName] = useState('')
   const [assessments, setAssessments] = useState([])
   const [targetId, setTargetId] = useState('')
   const [busy, setBusy] = useState(false)
@@ -75,12 +310,27 @@ export default function LabResultsImport({ onBack, onSaved }) {
     setError('')
     setSaved(false)
     setParsed(null)
+    setCsvText('')
+    setOverrides({})
+    setMappingOpen(false)
+    setShowSaveTemplate(false)
+    setNewTemplateName('')
     const file = e.target.files?.[0]
     if (!file) return
     setFilename(file.name)
     try {
       const text = await file.text()
-      const result = parseLabResultsCsv(text)
+      // Auto-apply a saved template when the detected laboratory
+      // matches. Templates are saved per-lab so the next CSV from
+      // the same lab gets the user's previous mapping for free.
+      // Falls through to the bare auto-detect when no template
+      // matches.
+      const initialPass = parseLabResultsCsv(text)
+      const tpl = findTemplateForLab(initialPass.laboratory || '')
+      const initialOverrides = tpl ? tpl.mapping : {}
+      const result = tpl ? parseLabResultsCsv(text, { overrides: initialOverrides }) : initialPass
+      setCsvText(text)
+      setOverrides(initialOverrides)
       setParsed(result)
       if (result.warnings.length > 0 && result.rows.length === 0) {
         setError(result.warnings.join(' '))
@@ -194,11 +444,77 @@ export default function LabResultsImport({ onBack, onSaved }) {
               Detected laboratory: <strong style={{ color: TEXT }}>{parsed.laboratory}</strong>
             </div>
           )}
-          {parsed.unmappedColumns.length > 0 && (
-            <div style={{ fontSize: 11, color: DIM, marginBottom: 12, lineHeight: 1.55 }}>
-              Unmapped columns (preserved verbatim, not shown in the report table):{' '}
-              <em>{parsed.unmappedColumns.join(', ')}</em>
+          {/* Column-mapping affordance. Always visible so the user
+              can override a misdetected column even when nothing is
+              technically unmapped; default copy nudges them when
+              there ARE unmapped columns so they don't lose data. */}
+          <div style={{
+            display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
+            gap: 8, marginBottom: 12,
+          }}>
+            <div style={{ fontSize: 11, color: parsed.unmappedColumns.length > 0 ? 'var(--warn)' : DIM, lineHeight: 1.55 }}>
+              {parsed.unmappedColumns.length > 0 ? (
+                <>
+                  {parsed.unmappedColumns.length} unmapped column{parsed.unmappedColumns.length === 1 ? '' : 's'}:{' '}
+                  <em>{parsed.unmappedColumns.join(', ')}</em>
+                </>
+              ) : (
+                <>All columns mapped automatically.</>
+              )}
             </div>
+            <button
+              type="button"
+              onClick={() => setMappingOpen((v) => !v)}
+              style={{
+                background: 'transparent', border: 'none', cursor: 'pointer',
+                color: ACCENT, fontSize: 12, fontWeight: 600, fontFamily: 'inherit',
+                padding: '4px 6px', flexShrink: 0,
+              }}>
+              {mappingOpen ? 'Hide mapping' : 'Adjust mapping'}
+            </button>
+          </div>
+          {mappingOpen && csvText && (
+            <ColumnMappingPanel
+              csvText={csvText}
+              parsed={parsed}
+              overrides={overrides}
+              templates={templates}
+              showSaveTemplate={showSaveTemplate}
+              newTemplateName={newTemplateName}
+              onChangeOverride={(rawHeader, canonical) => {
+                const next = { ...overrides }
+                if (canonical === '__auto__') {
+                  delete next[rawHeader]
+                } else {
+                  next[rawHeader] = canonical || ''
+                }
+                setOverrides(next)
+                setParsed(parseLabResultsCsv(csvText, { overrides: next }))
+              }}
+              onApplyTemplate={(tpl) => {
+                if (!tpl) return
+                setOverrides(tpl.mapping || {})
+                setParsed(parseLabResultsCsv(csvText, { overrides: tpl.mapping || {} }))
+              }}
+              onOpenSaveTemplate={() => setShowSaveTemplate(true)}
+              onCancelSaveTemplate={() => { setShowSaveTemplate(false); setNewTemplateName('') }}
+              onChangeTemplateName={setNewTemplateName}
+              onSaveTemplate={() => {
+                if (!newTemplateName.trim()) return
+                saveTemplate({
+                  name: newTemplateName.trim(),
+                  laboratory: parsed.laboratory || null,
+                  mapping: overrides,
+                })
+                setTemplates(listTemplates())
+                setShowSaveTemplate(false)
+                setNewTemplateName('')
+              }}
+              onDeleteTemplate={(id) => {
+                deleteTemplate(id)
+                setTemplates(listTemplates())
+              }}
+            />
           )}
           <div style={{ overflowX: 'auto', borderRadius: 8, border: `1px solid ${BORDER}` }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>

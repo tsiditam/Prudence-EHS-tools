@@ -149,7 +149,18 @@ export function validateAssessment(assessment) {
   }
   // ─── end Fix 4 ──────────────────────────────────────────────────────
 
-  // Sufficiency check per zone
+  // Sufficiency check per zone — surfaced as warnings, not blockers.
+  // Rationale: per-category sufficiency is a confidence signal, not a
+  // defensibility-required field. The canonical Finalization Gate is the
+  // six-blocker spec above (client/contact/photos/denominator/assessor).
+  // Insufficient categories already propagate via `qualitative_only` +
+  // `insufficientCats` into the rendered report (DOCX + PrintReport both
+  // annotate affected zones), and the bulk-insufficiency refusal trigger
+  // in `src/engine/report/pre-assessment-memo.ts` still intercepts the
+  // >50%-cells-insufficient case. Hard-blocking finalization on top of
+  // those layers locked the IH out of generating any report at all when
+  // a single category fell short — surfacing as a warning keeps the
+  // signal visible without taking the report hostage.
   zones.forEach((z, i) => {
     const suff = evaluateAllSufficiency({ ...assessment.building, ...z })
     const insufficient = Object.entries(suff)
@@ -157,7 +168,7 @@ export function validateAssessment(assessment) {
       .map(([k]) => k)
 
     if (mode.id === 'FULL_ASSESSMENT' && insufficient.length > 0) {
-      blockers.push(`Zone "${z.zn || i + 1}": ${insufficient.join(', ')} — insufficient data for FULL_ASSESSMENT.`)
+      warnings.push(`Zone "${z.zn || i + 1}": ${insufficient.join(', ')} — insufficient data for FULL_ASSESSMENT. Report will render with reduced confidence; affected categories will be flagged in the audit trail.`)
     }
     if (suff._overall < 0.5) {
       warnings.push(`Zone "${z.zn || i + 1}": overall data sufficiency at ${Math.round(suff._overall * 100)}%.`)

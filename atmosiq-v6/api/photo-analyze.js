@@ -32,6 +32,7 @@
 
 const { createClient } = require('@supabase/supabase-js')
 const { auditLog } = require('./_audit')
+const { hasUnlimitedUsage } = require('../lib/unlimited-usage')
 
 const PER_MINUTE_LIMIT = 10
 const PER_DAY_LIMIT = 100
@@ -246,12 +247,20 @@ async function handler(req, res) {
     // Free tier on missing profile.
   }
 
-  let limitCheck
-  try {
-    limitCheck = await checkRateLimits(supabase, user.id, plan)
-  } catch (err) {
-    console.error('[photo-analyze] rate limit check failed:', err && err.message)
-    return res.status(500).json({ error: 'rate_limit_check_failed' })
+  // Unlimited-usage allowlist (UNLIMITED_USAGE_EMAILS env var). Skip
+  // rate-limit gates for allowlisted internal test accounts. See
+  // lib/unlimited-usage.js for the contract.
+  const userEmail = (user && user.email) || ''
+  const unlimited = hasUnlimitedUsage(userEmail)
+
+  let limitCheck = { ok: true }
+  if (!unlimited) {
+    try {
+      limitCheck = await checkRateLimits(supabase, user.id, plan)
+    } catch (err) {
+      console.error('[photo-analyze] rate limit check failed:', err && err.message)
+      return res.status(500).json({ error: 'rate_limit_check_failed' })
+    }
   }
   if (!limitCheck.ok) {
     if (typeof res.setHeader === 'function') {

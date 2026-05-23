@@ -11,6 +11,7 @@ import { useMediaQuery } from '../hooks/useMediaQuery'
 import Profiles from '../utils/profiles'
 import { trackEvent } from '../utils/supabaseClient'
 import { I } from './Icons'
+import ProfileAvatar from './ProfileAvatar'
 import { mix } from '../utils/theme'
 
 // ─── Design Tokens (aligned with MobileApp) ───
@@ -55,6 +56,131 @@ function RadioOption({ selected, label: text, onClick, compact }) {
       {text}
     </button>
   )
+}
+
+/**
+ * Compact image-upload control for report-branding assets.
+ *
+ *   <ImageUpload
+ *     label="Firm logo"  hint="Appears on the report cover"
+ *     dataUrl={form.firm_logo_dataurl}
+ *     onPick={(dataUrl) => setF('firm_logo_dataurl', dataUrl)}
+ *     onClear={() => setF('firm_logo_dataurl', '')}
+ *     maxDim={512}
+ *   />
+ *
+ * Renders a dashed-border tile with a preview thumbnail (when set)
+ * or a "+ Upload" prompt (when empty). Files are compressed to a
+ * JPEG data URL with the bounding box defined by `maxDim` before
+ * being passed to onPick — keeps localStorage / profile-record
+ * size under control. Same canvas-resize pattern used by
+ * ProfileAvatar.
+ */
+function ImageUpload({ label, hint, dataUrl, onPick, onClear, maxDim = 256, accept = 'image/jpeg,image/png,image/webp' }) {
+  const ref = useState(null)[0]
+  const inputRef = ref || { current: null }
+  const handlePick = async (e) => {
+    const file = e.target.files && e.target.files[0]
+    if (e.target) e.target.value = ''
+    if (!file) return
+    try {
+      const compressed = await compressToDataUrl(file, maxDim)
+      onPick?.(compressed)
+    } catch {
+      // Silent on decode failure — user can retry.
+    }
+  }
+  const open = () => {
+    const el = document.getElementById(`image-upload-${label.replace(/\s+/g, '-').toLowerCase()}`)
+    if (el && el.click) el.click()
+  }
+  const inputId = `image-upload-${label.replace(/\s+/g, '-').toLowerCase()}`
+  const has = typeof dataUrl === 'string' && dataUrl.startsWith('data:image/')
+  return (
+    <div style={{
+      flex: 1, minWidth: 0,
+      display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 6,
+    }}>
+      <div style={{ fontSize: 11, fontWeight: 600, color: DIM, letterSpacing: '0.2px' }}>
+        {label} <span style={{ color: DIM, fontWeight: 400 }}>· {hint}</span>
+      </div>
+      <button
+        type="button"
+        onClick={open}
+        style={{
+          height: 110, padding: 8, background: 'transparent',
+          border: `1.5px dashed ${has ? ACCENT : BORDER}`,
+          borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          overflow: 'hidden', position: 'relative',
+        }}
+      >
+        {has ? (
+          <img src={dataUrl} alt={`${label} preview`}
+            style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+        ) : (
+          <span style={{ fontSize: 13, color: SUB, fontWeight: 600 }}>+ Upload</span>
+        )}
+      </button>
+      {has && (
+        <button
+          type="button"
+          onClick={(e) => { e.preventDefault(); onClear?.() }}
+          style={{
+            background: 'transparent', border: 'none', cursor: 'pointer',
+            color: DIM, fontSize: 11, fontWeight: 500, fontFamily: 'inherit',
+            padding: '2px 0', alignSelf: 'flex-end',
+          }}>
+          Remove
+        </button>
+      )}
+      <input
+        id={inputId}
+        type="file"
+        accept={accept}
+        onChange={handlePick}
+        style={{ display: 'none' }}
+      />
+    </div>
+  )
+}
+
+/**
+ * Read a File and produce a JPEG data URL clamped to maxDim × maxDim
+ * (preserving aspect ratio). Used to keep the firm logo / PE seal
+ * small enough to round-trip through localStorage without bloating
+ * the profile record.
+ */
+function compressToDataUrl(file, maxDim) {
+  return new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file)
+    const img = new Image()
+    img.onload = () => {
+      try {
+        const ratio = Math.min(1, maxDim / Math.max(img.width, img.height))
+        const w = Math.max(1, Math.round(img.width * ratio))
+        const h = Math.max(1, Math.round(img.height * ratio))
+        const canvas = document.createElement('canvas')
+        canvas.width = w
+        canvas.height = h
+        const ctx = canvas.getContext('2d')
+        if (!ctx) { URL.revokeObjectURL(objectUrl); reject(new Error('canvas')); return }
+        // White background so transparent PNGs (most logos) don't
+        // render as black blocks when re-encoded to JPEG.
+        ctx.fillStyle = '#FFFFFF'
+        ctx.fillRect(0, 0, w, h)
+        ctx.drawImage(img, 0, 0, w, h)
+        const out = canvas.toDataURL('image/jpeg', 0.9)
+        URL.revokeObjectURL(objectUrl)
+        resolve(out)
+      } catch (err) {
+        URL.revokeObjectURL(objectUrl)
+        reject(err)
+      }
+    }
+    img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error('image_load_failed')) }
+    img.src = objectUrl
+  })
 }
 
 export default function ProfileScreen({ onLogin }) {
@@ -182,6 +308,32 @@ export default function ProfileScreen({ onLogin }) {
         {/* ── Step 1: Credentials ── */}
         {step === 0 && <div style={{animation:'fadeUp .25s ease'}}>
 
+          {/* Profile photo. Large circular avatar at the top of the
+              edit form with a camera badge — tapping either the
+              avatar or the badge opens the file picker. The picker
+              compresses to a 256×256 JPEG before persisting so
+              localStorage doesn't bloat. A small "Remove photo"
+              link appears once a photo is set so the user can
+              roll back to initials. */}
+          <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:8,marginBottom:24,paddingTop:4}}>
+            <ProfileAvatar
+              profile={form}
+              size={96}
+              editable
+              onPickPhoto={(dataUrl) => setF('avatar_url', dataUrl)}
+            />
+            {form.avatar_url ? (
+              <button
+                type="button"
+                onClick={() => setF('avatar_url', '')}
+                style={{background:'none',border:'none',color:DIM,fontSize:12,fontWeight:500,cursor:'pointer',fontFamily:'inherit',padding:'4px 8px'}}>
+                Remove photo
+              </button>
+            ) : (
+              <div style={{fontSize:11,color:DIM,textAlign:'center'}}>Tap to add a profile photo</div>
+            )}
+          </div>
+
           <div style={{marginBottom:20}}>
             <span style={label}>Full name and credentials <span style={{color:ACCENT}}>*</span></span>
             <input type="text" value={form.name||''} onChange={e=>setF('name',e.target.value)} placeholder="J. Smith, CIH, CSP" style={inp} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />
@@ -216,6 +368,37 @@ export default function ProfileScreen({ onLogin }) {
           <div style={{marginBottom:20}}>
             <span style={label}>Firm phone <span style={{color:DIM,fontWeight:400,fontSize:11}}>(appears on reports)</span></span>
             <input type="text" value={form.firm_phone||''} onChange={e=>setF('firm_phone',e.target.value)} placeholder="e.g. (301) 541-8362" style={inp} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />
+          </div>
+
+          <div style={{marginBottom:20}}>
+            <span style={label}>Firm license / certifications <span style={{color:DIM,fontWeight:400,fontSize:11}}>(appears on report cover)</span></span>
+            <input type="text" value={form.firm_license||''} onChange={e=>setF('firm_license',e.target.value)} placeholder="e.g. WV IH Lic #12345 · MD IAQ #6789" style={inp} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />
+          </div>
+
+          {/* Branding assets — firm logo + PE / CIH seal. Both are
+              compressed to small JPEG data URLs (≤256×256) before
+              storage so they fit comfortably in the profile record.
+              When set, the DOCX cover renders the logo above the
+              firm wordmark and the seal as a small credential mark
+              above the confidential footer. */}
+          <SectionLabel>Report branding</SectionLabel>
+          <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
+            <ImageUpload
+              label="Firm logo"
+              hint="Appears on the report cover"
+              dataUrl={form.firm_logo_dataurl}
+              onPick={(dataUrl) => setF('firm_logo_dataurl', dataUrl)}
+              onClear={() => setF('firm_logo_dataurl', '')}
+              maxDim={512}
+            />
+            <ImageUpload
+              label="PE / CIH seal"
+              hint="Optional credential mark"
+              dataUrl={form.pe_seal_dataurl}
+              onPick={(dataUrl) => setF('pe_seal_dataurl', dataUrl)}
+              onClear={() => setF('pe_seal_dataurl', '')}
+              maxDim={256}
+            />
           </div>
 
           <button onClick={()=>setF('marketing_consent',!form.marketing_consent)} style={{display:'flex',alignItems:'center',gap:12,padding:'12px 14px',background:'transparent',border:`1px solid ${form.marketing_consent?`${mix('accent', 19)}`:BORDER}`,borderRadius:8,cursor:'pointer',textAlign:'left',fontFamily:'inherit',marginBottom:24,width:'100%',transition:'border-color 0.15s'}}>

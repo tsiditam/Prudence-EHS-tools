@@ -10,15 +10,22 @@ import { useState } from 'react'
 import Storage from '../utils/cloudStorage'
 import { trackEvent } from '../utils/supabaseClient'
 import { I } from './Icons'
+import * as V3 from '../styles/tokens'
 
-const BG = '#07080C'
-const CARD = '#111318'
-const BORDER = '#1C1E26'
-const ACCENT = '#22D3EE'
-const TEXT = '#ECEEF2'
-const SUB = '#8B93A5'
-const DIM = '#6B7380'
-const ERR = '#EF4444'
+// Theme-aware references so AuthScreen respects the light/dark toggle
+// introduced in v3.2. Previously the constants were hardcoded hex
+// (#07080C, #111318, #1C1E26, #ECEEF2, #8B93A5, #6B7380) which left
+// the auth flow stuck in dark mode while the rest of the app flipped.
+// var(--bg) / var(--card) / var(--border) / var(--text) / var(--sub)
+// / var(--dim) are defined in index.html and swap with the theme.
+const BG = V3.BG_BASE
+const CARD = V3.CARD
+const BORDER = V3.CSS.border
+const ACCENT = 'var(--accent)'
+const TEXT = V3.TEXT_PRIMARY
+const SUB = V3.TEXT_TERTIARY
+const DIM = V3.TEXT_MUTED
+const ERR = V3.SEVERITY.critical
 
 const inp = {width:'100%',padding:'18px 20px',background:BG,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:17,fontFamily:'inherit',fontWeight:500,outline:'none',boxSizing:'border-box'}
 
@@ -103,15 +110,19 @@ export default function AuthScreen({ onAuth }) {
   }
 
   return (
-    <div style={{minHeight:'100vh',background:BG,color:TEXT,fontFamily:"'inherit', system-ui",padding:'0 24px',paddingTop:'env(safe-area-inset-top, 20px)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+    <div style={{minHeight:'100vh',background:BG,color:TEXT,fontFamily:'inherit',padding:'0 24px',paddingTop:'env(safe-area-inset-top, 20px)',display:'flex',alignItems:'center',justifyContent:'center'}}>
       <div style={{maxWidth:400,width:'100%',animation:'fadeUp .5s ease'}}>
-        {/* Brand */}
+        {/* Brand. AtmosFlow wordmark anchored at V3.T.display (32/40
+            Bold -0.5) — pre-v3 the wordmark was hand-tuned at 36/800
+            which was heavier than every other display surface in the
+            app. Anchoring on the token keeps the wordmark in lockstep
+            with future display-scale refinements. */}
         <div style={{textAlign:'center',marginBottom:40}}>
-          <div style={{fontSize:36,fontWeight:800,marginBottom:8}}>AtmosFlow</div>
-          <div style={{fontSize:13,color:SUB,marginBottom:12,lineHeight:1.5,padding:'0 8px'}}>
+          <div style={{...V3.T.display, marginBottom:8}}>AtmosFlow</div>
+          <div style={{...V3.T.bodyDim, fontSize:13, marginBottom:12, padding:'0 8px'}}>
             Field-grade indoor air quality screening, assessment, and incident documentation for IH and EHS professionals.
           </div>
-          <div style={{fontSize:14,color:SUB}}>
+          <div style={{...V3.T.bodyDim, color:SUB}}>
             {mode === 'login' ? 'Sign in to your account' : mode === 'register' ? 'Create your account' : 'Reset your password'}
           </div>
         </div>
@@ -169,10 +180,29 @@ export default function AuthScreen({ onAuth }) {
             </label>
           )}
 
-          {/* Primary action */}
-          {mode === 'login' && <button onClick={handleLogin} disabled={loading} style={{padding:'16px 0',background:'var(--accent-fill)',border:'none',borderRadius:14,color:'var(--on-accent-fill)',fontSize:17,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:54,opacity:loading?.6:1}}>{loading ? 'Signing in...' : 'Sign In'}</button>}
-          {mode === 'register' && <button onClick={handleRegister} disabled={loading} style={{padding:'16px 0',background:'linear-gradient(135deg,#059669,#22C55E)',border:'none',borderRadius:14,color:'#fff',fontSize:17,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:54,opacity:loading?.6:1}}>{loading ? 'Creating account...' : 'Create Account'}</button>}
-          {mode === 'forgot' && <button onClick={handleForgot} disabled={loading} style={{padding:'16px 0',background:`linear-gradient(135deg,#0891B2,${ACCENT})`,border:'none',borderRadius:14,color:'#fff',fontSize:17,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:54,opacity:loading?.6:1}}>{loading ? 'Sending...' : 'Send Reset Link'}</button>}
+          {/* Primary action. All three modes resolve to the same
+              v3 accent fill — pre-v3 used a green gradient for
+              Create Account (signal: "go!") and a cyan gradient for
+              Send Reset Link (redundant with the accent). One fill
+              across the auth flow reads calmer and matches the rest
+              of the v3 surface. Size override (54-px min-height,
+              17-px font) preserves the larger field-tap target
+              auth needs. */}
+          {(() => {
+            const cta = mode === 'login'
+              ? { label: loading ? 'Signing in...' : 'Sign In', onClick: handleLogin }
+              : mode === 'register'
+                ? { label: loading ? 'Creating account...' : 'Create Account', onClick: handleRegister }
+                : { label: loading ? 'Sending...' : 'Send Reset Link', onClick: handleForgot }
+            return (
+              <button
+                onClick={cta.onClick}
+                disabled={loading}
+                style={{...V3.btnPrimary, width:'100%', padding:'16px 0', borderRadius:14, fontSize:17, minHeight:54, opacity: loading ? 0.6 : 1}}>
+                {cta.label}
+              </button>
+            )
+          })()}
         </div>
 
         {/* Mode switches */}
@@ -185,7 +215,7 @@ export default function AuthScreen({ onAuth }) {
         </div>
 
         {/* Footer */}
-        <div style={{textAlign:'center',marginTop:40,fontSize:11,color:DIM,lineHeight:1.6}}>
+        <div style={{...V3.T.micro, textTransform:'none', letterSpacing:'normal', fontWeight:400, textAlign:'center', marginTop:40, color:DIM, lineHeight:1.6}}>
           Prudence EHS<br />
           Your data is encrypted and stored securely.
         </div>
@@ -195,7 +225,7 @@ export default function AuthScreen({ onAuth }) {
         @keyframes fadeUp{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}
         *{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent;}
         button{-webkit-tap-highlight-color:transparent;}
-        input::placeholder{color:#525A6A;}
+        input::placeholder{color:var(--dim);}
         ::-webkit-scrollbar{width:0;height:0;}
       `}</style>
     </div>
