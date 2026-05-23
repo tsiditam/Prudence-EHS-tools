@@ -183,20 +183,21 @@ export function applyOverrideToScore(score, override) {
 export function buildOverrideCoverNotice(override, mutations) {
   if (!override || !mutations || mutations.length === 0) return null
   const lines = [
-    'INSUFFICIENT DATA — IH PROFESSIONAL JUDGMENT OVERRIDE',
+    'ISSUED UNDER DOCUMENTED PROFESSIONAL JUDGMENT',
     '',
-    'This report was generated under an industrial-hygienist override of ' +
-      'the AtmosFlow engine\'s refusal-to-issue triggers. The preparing ' +
-      'assessor has elected to issue under their professional licensure, ' +
-      'accepting responsibility for the conclusions drawn from the ' +
-      'available data.',
+    'This report was issued under documented professional judgment by the ' +
+      'reviewing industrial hygienist. One or more standard defensibility ' +
+      'requirements were not fully satisfied at the time of issuance; the ' +
+      'reviewing IH has elected to proceed under their professional ' +
+      'licensure, accepting responsibility for the conclusions drawn from ' +
+      'the available data.',
     '',
-    'Engine refusal triggers bypassed under IH judgment:',
+    'Defensibility requirements issued under documented professional judgment:',
     ...mutations.map(m => `  • ${m.id} — ${m.what}`),
     '',
-    `Assessor justification: "${override.justification || '(none provided)'}"`,
+    `Reviewing IH justification: "${override.justification || '(none provided)'}"`,
     '',
-    `Override applied at: ${override.overriddenAt || new Date().toISOString()}`,
+    `Issued at: ${override.overriddenAt || new Date().toISOString()}`,
     '',
     'Recipients should weight this report\'s conclusions accordingly.',
   ]

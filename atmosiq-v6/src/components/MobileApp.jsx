@@ -27,6 +27,11 @@ import { generateNarrative } from '../engines/narrative'
 import PricingSheet from './pricing/PricingSheet'
 import { I, emojiToIcon } from './Icons'
 import * as V3 from '../styles/tokens'
+import { GLASS, RADII, RHYTHM, stack as sgStack } from '../styles/soft-glass'
+import GlassCard from './ui/GlassCard'
+import StatusPill from './ui/StatusPill'
+import TactileButton from './ui/TactileButton'
+import BottomSheet from './ui/BottomSheet'
 import Loading from './Loading'
 import ScoreRing from './ScoreRing'
 import PhotoCapture from './PhotoCapture'
@@ -1141,9 +1146,13 @@ export default function MobileApp() {
             sentence, stat strip). The right column lists up to three
             recommended next steps drawn from recs.imm so the assessor
             sees the call-to-action without scrolling. */}
-        <div style={{display:'grid',gridTemplateColumns:isTablet?'minmax(0,1.4fr) minmax(0,1fr)':'minmax(0,1fr)',gap:16,marginBottom:16}}>
-          {/* Composite hero */}
-          <div style={{...V3.panel({ accent: sevPillTone }), padding:0}}>
+        <div style={{display:'grid',gridTemplateColumns:isTablet?'minmax(0,1.4fr) minmax(0,1fr)':'minmax(0,1fr)',gap:RHYTHM.base,marginBottom:RHYTHM.base}}>
+          {/* Composite hero — soft-glass card with severity-railed top
+              edge, layered shadow, and meniscus highlight. Padding is
+              zero on the wrapper because the hero composes three
+              vertical zones (intro, denominator line, optional
+              advisory) each with their own padding rhythm. */}
+          <GlassCard accent={sevPillTone} style={{padding:0}}>
             <div style={{padding:'22px 24px 8px',display:'flex',alignItems:'flex-start',gap:18}}>
               <div style={{flexShrink:0}}>
                 {userMode !== 'fm' ? (
@@ -1156,8 +1165,8 @@ export default function MobileApp() {
               </div>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{display:'flex',gap:8,marginBottom:10,flexWrap:'wrap'}}>
-                  <span style={V3.pill(sevPillTone)}>{sevPillLabel}</span>
-                  {measConf && <span style={V3.pill(confTone)}>{confLabel}</span>}
+                  <StatusPill tone={sevPillTone}>{sevPillLabel}</StatusPill>
+                  {measConf && <StatusPill tone={confTone}>{confLabel}</StatusPill>}
                 </div>
                 {/* Headline runs at 18 Bold -1 per the v3 Figma HeroCard
                     spec — heavier than V3.T.h2 (18 SemiBold -0.2) so it
@@ -1175,52 +1184,37 @@ export default function MobileApp() {
               </div>
             </div>
 
-            {userMode !== 'fm' && (
-              <>
-                <div style={{margin:'18px 24px 0',padding:'18px 0 16px',borderTop:`1px solid ${V3.BORDER_DEFAULT}`,borderBottom:`1px solid ${V3.BORDER_DEFAULT}`,display:'flex',alignItems:'stretch',gap:0}}>
-                  <div style={{...V3.statBlock, padding:'2px 0'}}>
-                    <div style={{display:'flex',alignItems:'baseline',gap:2}}>
-                      <span style={V3.N.xl}>{comp.avg}</span>
-                      <span style={{...V3.N.sm, fontSize:13, color:V3.TEXT_TERTIARY}}>/100</span>
-                    </div>
-                    <div style={{...V3.T.micro, marginTop:6}}>Zone Average</div>
-                  </div>
-                  <div style={V3.statDivider} />
-                  <div style={{...V3.statBlock, padding:'2px 0'}}>
-                    <div style={{display:'flex',alignItems:'baseline',gap:2}}>
-                      <span style={{...V3.N.xl, color: comp.rc}}>{comp.worst}</span>
-                      <span style={{...V3.N.sm, fontSize:13, color:V3.TEXT_TERTIARY}}>/100</span>
-                    </div>
-                    <div style={{...V3.T.micro, marginTop:6}}>Lowest Zone</div>
-                  </div>
-                  <div style={V3.statDivider} />
-                  <div style={{...V3.statBlock, padding:'2px 0'}}>
-                    <div style={V3.N.xl}>{comp.count}</div>
-                    <div style={{...V3.T.micro, marginTop:6}}>Zones Assessed</div>
-                  </div>
-                </div>
-                <div style={{padding:'12px 24px 18px',display:'flex',alignItems:'center',gap:6,justifyContent:'center'}}>
-                  <span style={{...V3.T.captionDim, fontFamily:'var(--font-mono)', fontSize:11}}>
-                    Composite indicator · Lower scores indicate greater concern
-                  </span>
-                  <I n="help" s={12} c={V3.TEXT_MUTED} w={1.6} />
-                </div>
-              </>
-            )}
-            {userMode === 'fm' && (
-              <div style={{padding:'12px 24px 18px',textAlign:'center',...V3.T.captionDim}}>
-                {comp.count} area{comp.count!==1?'s':''} assessed
-              </div>
-            )}
+            {/* Zone-count summary — a single low-emphasis denominator
+                line replaces the earlier three-up score strip (Zone
+                Average / Lowest Zone / Zones Assessed). Numeric
+                composite scores are still computed by the engine and
+                surface in the operator dashboard + DOCX, but the hero
+                leads with the severity pill + narrative, not a
+                /100 readout. Keeps the screening-only positioning:
+                scores are an internal indicator, the conclusion is
+                the headline. */}
+            <div style={{padding:'12px 24px 18px',textAlign:'center',...V3.T.captionDim}}>
+              {comp.count} {userMode === 'fm' ? 'area' : 'zone'}{comp.count!==1?'s':''} assessed
+            </div>
             {measConf?.overall === 'Low' && (
-              <div style={{margin:'0 24px 18px',padding:'10px 12px',background:`${V3.SEVERITY.medium}10`,border:`1px solid ${V3.SEVERITY.medium}28`,borderRadius:V3.R.md,...V3.T.captionDim, color:WARN}}>
+              <div style={{
+                margin:'0 20px 20px',
+                padding:'12px 14px',
+                ...GLASS.subtle,
+                borderRadius:RADII.md,
+                ...V3.T.captionDim,
+                color:WARN,
+                lineHeight:1.55,
+              }}>
                 Single-point measurement. Consider time-weighted sampling per AIHA strategy before drawing conclusions.
               </div>
             )}
-          </div>
+          </GlassCard>
 
-          {/* Next recommended steps — derives from recs.imm */}
-          <div style={V3.panel()}>
+          {/* Next recommended steps — soft-glass card matching the
+              hero's surface vocabulary. Sits to the right on tablet,
+              stacks below on phone. */}
+          <GlassCard>
             <div style={{...V3.T.h3, marginBottom:14}}>Next recommended steps</div>
             <div style={{display:'flex',flexDirection:'column',gap:12}}>
               {(() => {
@@ -1252,7 +1246,7 @@ export default function MobileApp() {
               View all actions
               <span style={{fontSize:13}}>›</span>
             </button>
-          </div>
+          </GlassCard>
         </div>
 
         {/* ── v2.1 Engine InternalReport (operator dashboard) ──
@@ -1261,17 +1255,25 @@ export default function MobileApp() {
             doesn't break the visual flow between hero and tabs.
             The panel itself manages its own collapsed state — we
             only constrain its outer padding here. ── */}
-        <div style={{marginBottom:14, marginTop:-4, opacity:0.85}}>
-          <V21InternalPanel
-            zoneScores={zoneScores}
-            comp={comp}
-            zones={zones}
-            profile={profile}
-            presurvey={presurvey}
-            bldg={bldg}
-            assessmentDate={viewRpt?.ts ? viewRpt.ts.slice(0,10) : undefined}
-          />
-        </div>
+        {/* Internal operator dashboard — visible only to PSEC staff
+            with an active admin session (Settings → Activate admin).
+            Surfaces v2.8 engine scoring internals (severity matrix,
+            confidence tiers, defensibility flags) that are useful for
+            QA/debugging but not appropriate for client-facing or
+            non-staff consultant accounts. */}
+        {!!adminSecret && (
+          <div style={{marginBottom:14, marginTop:-4, opacity:0.85}}>
+            <V21InternalPanel
+              zoneScores={zoneScores}
+              comp={comp}
+              zones={zones}
+              profile={profile}
+              presurvey={presurvey}
+              bldg={bldg}
+              assessmentDate={viewRpt?.ts ? viewRpt.ts.slice(0,10) : undefined}
+            />
+          </div>
+        )}
 
         {/* ── Data-completeness prompts. Banner-style status-by-
             exception entries — surface only when defensibility is at
@@ -1867,12 +1869,17 @@ export default function MobileApp() {
               )
             })}
           </div>)})}
-          <div style={{display:'flex',gap:10,marginTop:8}}>
-            <button onClick={()=>handleExport('pdf')} style={{flex:1,padding:'14px 20px',background:`${mix('accent', 7)}`,border:`1px solid ${mix('accent', 19)}`,borderRadius:12,color:ACCENT,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:48,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="download" s={16} c={ACCENT} /> PDF</button>
-            <button onClick={()=>setDocxPicker(true)} style={{flex:1,padding:'14px 20px',background:`${mix('accent', 7)}`,border:`1px solid ${mix('accent', 19)}`,borderRadius:12,color:ACCENT,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:48,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="notes" s={16} c={ACCENT} /> Word</button>
-            <button onClick={handleShare} style={{flex:1,padding:'14px 20px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,color:SUB,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:48,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="send" s={16} c={SUB} /> Share</button>
+          {/* Floating action bar — tactile soft-glass buttons with
+              scale-down tap feedback. Word is the primary export
+              affordance now that PDF has been retired; Share and Map
+              Zones round out the result-screen action surface. */}
+          <div style={sgStack('tight')}>
+            <div style={{display:'flex',gap:10,marginTop:8}}>
+              <TactileButton variant="secondary" fullWidth size="lg" onClick={()=>setDocxPicker(true)} icon={<I n="notes" s={16} c={ACCENT} />}>Word</TactileButton>
+              <TactileButton variant="ghost" fullWidth size="lg" onClick={handleShare} icon={<I n="send" s={16} c={SUB} />}>Share</TactileButton>
+            </div>
+            <TactileButton variant="secondary" fullWidth size="lg" onClick={()=>setView('spatial')} icon={<I n="bldg" s={16} c={ACCENT} />}>Map Zones on Floor Plan</TactileButton>
           </div>
-          <button onClick={()=>setView('spatial')} style={{padding:'14px 20px',background:`${mix('accent', 2)}`,border:`1px solid ${mix('accent', 9)}`,borderRadius:12,color:ACCENT,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit',marginTop:8,minHeight:48,width:'100%',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><I n="bldg" s={16} c={ACCENT} /> Map Zones on Floor Plan</button>
           {/* Removed redundant "Start Assessment" CTA — the user viewing
               this screen is already inside an assessment; starting a new
               one is handled from Home or the Reports tab header. The
@@ -2285,32 +2292,37 @@ export default function MobileApp() {
         </div>
       </div>}
 
-      {/* ── DOCX Report Type Picker ── */}
-      {docxPicker&&<div style={{position:'fixed',inset:0,background:'#000000CC',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',padding:24}}>
-        <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:18,padding:28,maxWidth:380,width:'100%',animation:'fadeUp .3s ease'}}>
-          <div style={{fontSize:18,fontWeight:700,color:TEXT,marginBottom:4}}>Export Word Report</div>
-          <div style={{fontSize:12,color:SUB,marginBottom:20,lineHeight:1.5}}>Choose which report format to generate.</div>
-          <div style={{display:'flex',flexDirection:'column',gap:8}}>
-            <button onClick={()=>{setDocxPicker(false);handleExport('docx','consultant')}} style={{padding:'16px',background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:12,cursor:'pointer',textAlign:'left',fontFamily:'inherit',transition:'border-color 0.15s'}}>
-              <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:2}}>Consultant Report</div>
-              <div style={{fontSize:11,color:SUB,lineHeight:1.5}}>Narrative format with executive summary, interpretation, and recommendations. For client delivery.</div>
-            </button>
-            <button onClick={()=>{setDocxPicker(false);handleExport('docx','technical')}} style={{padding:'16px',background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:12,cursor:'pointer',textAlign:'left',fontFamily:'inherit',transition:'border-color 0.15s'}}>
-              <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:2}}>Technical Report</div>
-              <div style={{fontSize:11,color:SUB,lineHeight:1.5}}>Structured findings register, score matrix, instrument log, and data gaps. For peer review and engineering.</div>
-            </button>
-            <button onClick={()=>{setDocxPicker(false);handleExport('docx','both')}} style={{padding:'16px',background:`${mix('accent', 3)}`,border:`1px solid ${mix('accent', 13)}`,borderRadius:12,cursor:'pointer',textAlign:'left',fontFamily:'inherit',transition:'border-color 0.15s'}}>
-              <div style={{fontSize:14,fontWeight:700,color:ACCENT,marginBottom:2}}>Both Reports</div>
-              <div style={{fontSize:11,color:SUB,lineHeight:1.5}}>Downloads both files — consultant report + technical report.</div>
-            </button>
+      {/* ── DOCX Report Type Picker — bottom sheet ─────────────────
+          Mobile-first soft-glass sheet. The three options are now
+          tactile soft-glass cards (tap feedback + glass background)
+          rather than flat-colored buttons. The "Both" option keeps
+          its accent rail to read as the recommended path. */}
+      {docxPicker && (
+        <BottomSheet title="Export Word Report" onClose={()=>setDocxPicker(false)} ariaLabel="Choose report format">
+          <div style={{fontSize:13,color:SUB,margin:'4px 0 16px',lineHeight:1.55}}>Choose which report format to generate.</div>
+          <div style={{display:'flex',flexDirection:'column',gap:10}}>
+            <GlassCard onClick={()=>{setDocxPicker(false);handleExport('docx','consultant')}} dense style={{padding:'14px 16px'}}>
+              <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:3}}>Consultant Report</div>
+              <div style={{fontSize:12,color:SUB,lineHeight:1.55}}>Narrative format with executive summary, interpretation, and recommendations. For client delivery.</div>
+            </GlassCard>
+            <GlassCard onClick={()=>{setDocxPicker(false);handleExport('docx','technical')}} dense style={{padding:'14px 16px'}}>
+              <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:3}}>Technical Report</div>
+              <div style={{fontSize:12,color:SUB,lineHeight:1.55}}>Structured findings register, score matrix, instrument log, and data gaps. For peer review and engineering.</div>
+            </GlassCard>
+            <GlassCard onClick={()=>{setDocxPicker(false);handleExport('docx','both')}} accent={ACCENT} dense style={{padding:'14px 16px'}}>
+              <div style={{fontSize:14,fontWeight:700,color:ACCENT,marginBottom:3}}>Both Reports</div>
+              <div style={{fontSize:12,color:SUB,lineHeight:1.55}}>Downloads both files — consultant report + technical report.</div>
+            </GlassCard>
           </div>
-          <button onClick={()=>setDocxPicker(false)} style={{width:'100%',padding:'12px 0',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:10,color:DIM,fontSize:13,cursor:'pointer',fontFamily:'inherit',marginTop:12,minHeight:44}}>Cancel</button>
-        </div>
-      </div>}
+          <div style={{marginTop:14}}>
+            <TactileButton variant="ghost" fullWidth onClick={()=>setDocxPicker(false)}>Cancel</TactileButton>
+          </div>
+        </BottomSheet>
+      )}
 
       {/* ── Consultant Report Preflight Modal ──
-          Surfaces engine refusal triggers + IH override path. Pinned by
-          tests/components/consultant-preflight-modal.test.tsx. */}
+          Surfaces defensibility requirements + IH professional-judgment
+          path. Pinned by tests/lib/consultant-report-preflight.test.ts. */}
       {preflight && (() => {
         const hasNonOverridable = preflight.triggers.some(t => !t.overridable)
         const overridableTriggers = preflight.triggers.filter(t => t.overridable)
@@ -2318,66 +2330,84 @@ export default function MobileApp() {
           && overridableTriggers.every(t => overrideChecked[t.id])
         const justificationOk = overrideJustification.trim().length >= 10
         const canOverride = !hasNonOverridable && allChecked && justificationOk
+        // Severity is derived in the UI layer (not the engine):
+        //   • non-overridable triggers       → Required Before Issuance
+        //   • overridable, but a non-overridable blocker is also present
+        //     → effectively required, because the override path is gated
+        //     off until the blocker clears (e.g., calibration override is
+        //     unavailable until a reviewing professional is designated)
+        //   • overridable, no blockers       → Professional Judgment Eligible
+        const severityFor = (trig) => {
+          if (!trig.overridable) return { label: 'Required Before Issuance', color: WARN, bg: mix('warn', 12) }
+          if (hasNonOverridable)  return { label: 'Required Before Issuance', color: WARN, bg: mix('warn', 12) }
+          return { label: 'Professional Judgment Eligible', color: ACCENT, bg: mix('accent', 8) }
+        }
         return (
-          <div style={{position:'fixed',inset:0,background:'#000000CC',zIndex:201,display:'flex',alignItems:'center',justifyContent:'center',padding:24,overflowY:'auto'}}>
-            <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:18,padding:24,maxWidth:520,width:'100%',maxHeight:'90vh',overflowY:'auto'}} data-testid="consultant-preflight-modal">
-              <div style={{fontSize:18,fontWeight:700,color:TEXT,marginBottom:4}}>Engine refused to issue this report</div>
-              <div style={{fontSize:12,color:SUB,marginBottom:16,lineHeight:1.5}}>The v2.1 engine flagged the following defensibility gaps. Fix the data, or — as the licensed IH — issue the report under professional-judgment override.</div>
+          <div style={{position:'fixed',inset:0,background:'#000000CC',zIndex:201,display:'flex',alignItems:'center',justifyContent:'center',padding:16,overflowY:'auto'}}>
+            <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:18,padding:'24px 22px',maxWidth:560,width:'100%',maxHeight:'92vh',overflowY:'auto'}} data-testid="consultant-preflight-modal">
+              <div style={{fontSize:20,fontWeight:700,color:TEXT,marginBottom:8,lineHeight:1.3}}>Report cannot be issued yet</div>
+              <div style={{fontSize:13,color:SUB,marginBottom:22,lineHeight:1.55}}>AtmosFlow identified the following defensibility requirements that should be resolved before report issuance. Certain items may be issued under documented professional judgment by the reviewing IH.</div>
 
-              <div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:16}}>
-                {preflight.triggers.map(trig => (
-                  <div key={trig.id} data-testid={`preflight-trigger-${trig.id}`} style={{padding:12,background:SURFACE,border:`1px solid ${trig.overridable ? BORDER : mix('warn', 19)}`,borderRadius:10}}>
-                    <div style={{fontSize:13,fontWeight:700,color:trig.overridable ? TEXT : WARN,marginBottom:4}}>{trig.label}</div>
-                    <div style={{fontSize:11,color:SUB,lineHeight:1.5,marginBottom:6}}>{trig.description}</div>
-                    <div style={{fontSize:11,color:DIM,lineHeight:1.5,marginBottom:8}}><strong>Fix:</strong> {trig.fixWhere}</div>
-                    {trig.overridable ? (
-                      <label style={{display:'flex',alignItems:'flex-start',gap:8,cursor:'pointer',fontSize:11,color:SUB,lineHeight:1.5}}>
-                        <input
-                          type="checkbox"
-                          data-testid={`preflight-override-${trig.id}`}
-                          checked={!!overrideChecked[trig.id]}
-                          onChange={e => setOverrideChecked(prev => ({...prev,[trig.id]: e.target.checked}))}
-                          style={{marginTop:2}}
-                        />
-                        <span>Override under IH judgment. {trig.overrideCaveat}</span>
-                      </label>
-                    ) : (
-                      <div style={{fontSize:11,color:WARN,fontStyle:'italic',lineHeight:1.5}}>Cannot be overridden — fix this gap before issuing.</div>
-                    )}
-                  </div>
-                ))}
+              <div style={{display:'flex',flexDirection:'column',gap:14,marginBottom:22}}>
+                {preflight.triggers.map(trig => {
+                  const sev = severityFor(trig)
+                  return (
+                    <div key={trig.id} data-testid={`preflight-trigger-${trig.id}`} style={{padding:'14px 16px',background:SURFACE,border:`1px solid ${trig.overridable && !hasNonOverridable ? BORDER : mix('warn', 19)}`,borderRadius:12}}>
+                      <div style={{display:'inline-block',fontSize:10,fontWeight:700,letterSpacing:'0.04em',textTransform:'uppercase',color:sev.color,background:sev.bg,padding:'4px 8px',borderRadius:6,marginBottom:8}}>{sev.label}</div>
+                      <div style={{fontSize:14,fontWeight:600,color:TEXT,marginBottom:8,lineHeight:1.4}}>{trig.label}</div>
+                      <div style={{fontSize:12,color:SUB,lineHeight:1.6,marginBottom:12,whiteSpace:'pre-wrap'}}>{trig.description}</div>
+                      <div style={{fontSize:12,color:DIM,lineHeight:1.6,marginBottom:trig.overridable ? 12 : 0,whiteSpace:'pre-wrap'}}>{trig.fixWhere}</div>
+                      {trig.overridable && !hasNonOverridable && (
+                        <label style={{display:'flex',alignItems:'flex-start',gap:10,cursor:'pointer',fontSize:12,color:SUB,lineHeight:1.6,padding:'10px 12px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:8,marginTop:4}}>
+                          <input
+                            type="checkbox"
+                            data-testid={`preflight-override-${trig.id}`}
+                            checked={!!overrideChecked[trig.id]}
+                            onChange={e => setOverrideChecked(prev => ({...prev,[trig.id]: e.target.checked}))}
+                            style={{marginTop:3,flexShrink:0}}
+                          />
+                          <span><strong style={{color:TEXT,fontWeight:600}}>Issue under documented professional judgment.</strong> {trig.overrideCaveat}</span>
+                        </label>
+                      )}
+                      {!trig.overridable && (
+                        <div style={{fontSize:12,color:WARN,fontWeight:600,lineHeight:1.6,marginTop:10}}>This requirement must be completed before report issuance.</div>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
 
-              {!hasNonOverridable && (
-                <div style={{marginBottom:16}}>
-                  <div style={{fontSize:12,fontWeight:600,color:TEXT,marginBottom:6}}>IH justification (required, min 10 characters)</div>
+              {!hasNonOverridable && overridableTriggers.length > 0 && (
+                <div style={{marginBottom:20}}>
+                  <div style={{fontSize:13,fontWeight:600,color:TEXT,marginBottom:8}}>Reviewing IH justification</div>
+                  <div style={{fontSize:11,color:DIM,marginBottom:8,lineHeight:1.5}}>Required, minimum 10 characters.</div>
                   <textarea
                     data-testid="preflight-justification"
                     value={overrideJustification}
                     onChange={e=>setOverrideJustification(e.target.value)}
                     rows={4}
-                    placeholder="State the professional basis for issuing despite the engine's refusal (e.g., 'Calibration certificate on file at PSEC office, dated 2025-09-12. Field measurements taken under direct CIH supervision.')."
-                    style={{width:'100%',padding:10,background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:8,color:TEXT,fontSize:12,fontFamily:'inherit',resize:'vertical',lineHeight:1.5}}
+                    placeholder="Describe the professional basis for issuing under documented judgment (e.g., 'Calibration certificate on file at PSEC office, dated 2025-09-12. Field measurements taken under direct CIH supervision.')."
+                    style={{width:'100%',padding:12,background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:8,color:TEXT,fontSize:14,fontFamily:'inherit',resize:'vertical',lineHeight:1.55,boxSizing:'border-box'}}
                   />
-                  <div style={{fontSize:10,color:DIM,marginTop:4,lineHeight:1.5}}>This justification is written into the report cover page and persists in the deliverable's audit trail.</div>
+                  <div style={{fontSize:11,color:DIM,marginTop:6,lineHeight:1.5}}>This justification is recorded on the report cover and retained in the deliverable's audit trail.</div>
                 </div>
               )}
 
-              <div style={{display:'flex',gap:8,flexDirection:'column'}}>
-                {!hasNonOverridable && (
+              <div style={{display:'flex',gap:10,flexDirection:'column'}}>
+                {!hasNonOverridable && overridableTriggers.length > 0 && (
                   <button
                     data-testid="preflight-generate-override"
                     disabled={!canOverride}
                     onClick={executeConsultantWithOverride}
-                    style={{padding:'14px 0',background: canOverride ? ACCENT : SURFACE,border: canOverride ? 'none' : `1px solid ${BORDER}`,borderRadius:10,color: canOverride ? 'var(--on-accent)' : DIM,fontSize:14,fontWeight:700,cursor: canOverride ? 'pointer' : 'not-allowed',fontFamily:'inherit',minHeight:48}}>
-                    Generate with IH override
+                    style={{padding:'15px 0',background: canOverride ? ACCENT : SURFACE,border: canOverride ? 'none' : `1px solid ${BORDER}`,borderRadius:10,color: canOverride ? 'var(--on-accent)' : DIM,fontSize:14,fontWeight:700,cursor: canOverride ? 'pointer' : 'not-allowed',fontFamily:'inherit',minHeight:48}}>
+                    Issue report under documented professional judgment
                   </button>
                 )}
                 <button
                   data-testid="preflight-cancel"
                   onClick={()=>{setPreflight(null);setOverrideJustification('');setOverrideChecked({})}}
-                  style={{padding:'12px 0',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:10,color:SUB,fontSize:13,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>
-                  Cancel — fix the data first
+                  style={{padding:'13px 0',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:10,color:SUB,fontSize:14,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>
+                  Cancel — fix required items
                 </button>
               </div>
             </div>
