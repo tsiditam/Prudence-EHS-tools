@@ -10,75 +10,55 @@
  * Contact: tsidi@prudenceehs.com
  */
 
-export const I = ({ n, s=18, c='currentColor', w=1.8 }) => {
-  const p = { width:s, height:s, viewBox:'0 0 24 24', fill:'none', stroke:c, strokeWidth:w, strokeLinecap:'round', strokeLinejoin:'round' }
-  const icons = {
-    findings: <svg {...p}><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 14l2 2 4-4"/></svg>,
-    chain:    <svg {...p}><circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M8.5 8.5L15.5 15.5"/></svg>,
-    flask:    <svg {...p}><path d="M9 3v6l-2 4v5a2 2 0 002 2h6a2 2 0 002-2v-5l-2-4V3"/><path d="M9 3h6"/><path d="M7 13h10"/></svg>,
-    pulse:    <svg {...p}><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 12h3l1.5-3 2 6 1.5-3H19" strokeWidth="2"/></svg>,
-    bolt:     <svg {...p}><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" fill={c} fillOpacity=".12"/><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>,
-    play:     <svg {...p}><path d="M8 5v14l11-7z" fill={c} fillOpacity=".15"/><path d="M8 5v14l11-7z" strokeLinejoin="round"/></svg>,
-    check:    <svg {...p}><path d="M20 6L9 17l-5-5" strokeWidth="2.5"/></svg>,
-    bldg:     <svg {...p}><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22V12h6v10"/><line x1="8" y1="6" x2="8" y2="6.01" strokeWidth="2.5"/></svg>,
-    chart:    <svg {...p}><path d="M18 20V10M12 20V4M6 20v-6"/></svg>,
-    wind:     <svg {...p}><path d="M17.7 7.7A2.5 2.5 0 1119 10H2"/><path d="M9.6 4.6A2 2 0 1111 7H2"/><path d="M12.6 19.4A2 2 0 1014 17H2"/></svg>,
-    home:     <svg {...p}><path d="M3 10.5L12 3l9 7.5V20a1.5 1.5 0 01-1.5 1.5H15v-7H9v7H4.5A1.5 1.5 0 013 20V10.5z" strokeLinejoin="round" strokeLinecap="round"/></svg>,
-    clip:     <svg {...p}><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>,
-    clock:    <svg {...p}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
-    search:   <svg {...p}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
-    shield:   <svg {...p}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>,
-    user:     <svg {...p}><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
-    download: <svg {...p}><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
-    upload:   <svg {...p}><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>,
-    send:     <svg {...p}><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>,
-    refresh:  <svg {...p}><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>,
-    alert:    <svg {...p}><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/></svg>,
-    trash:    <svg {...p}><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>,
-    flag:     <svg {...p}><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>,
-    menu:     <svg {...p}><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>,
-    save:     <svg {...p}><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>,
-    layers:   <svg {...p}><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>,
-    // ─── Assessment Icon Family ───
-    airflow:  <svg {...p}><path d="M17.7 7.7A2.5 2.5 0 1119 10H2"/><path d="M9.6 4.6A2 2 0 1111 7H2"/><path d="M12.6 19.4A2 2 0 1014 17H2"/></svg>,
-    moisture: <svg {...p}><path d="M12 2.69l5.66 5.66a8 8 0 11-11.31 0z"/></svg>,
-    thermo:   <svg {...p}><path d="M14 14.76V3.5a2.5 2.5 0 00-5 0v11.26a4.5 4.5 0 105 0z"/></svg>,
-    hvac:     <svg {...p}><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 12h4l2-3 2 3h4"/><path d="M2 8h20"/></svg>,
-    person:   <svg {...p}><circle cx="12" cy="5" r="3"/><path d="M12 8v4M9 20l3-8 3 8M7 14h10"/></svg>,
-    symptom:  <svg {...p}><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>,
-    notes:    <svg {...p}><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h6"/></svg>,
-    target:   <svg {...p}><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>,
-    cal:      <svg {...p}><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
-    location: <svg {...p}><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>,
-    gauge:    <svg {...p}><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/><path d="M12 2v2M22 12h-2M12 22v-2M2 12h2"/></svg>,
-    droplet:  <svg {...p}><path d="M12 2.69l5.66 5.66a8 8 0 11-11.31 0z" fill={c} fillOpacity=".08"/><path d="M12 2.69l5.66 5.66a8 8 0 11-11.31 0z"/></svg>,
-    people:   <svg {...p}><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>,
-    mic:      <svg {...p}><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>,
-    eye:      <svg {...p}><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>,
-    door:     <svg {...p}><rect x="4" y="2" width="16" height="20" rx="1"/><path d="M9 12h.01"/><path d="M12 2v20"/></svg>,
-    filter:   <svg {...p}><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>,
-    mold:     <svg {...p}><circle cx="12" cy="12" r="3"/><circle cx="6" cy="8" r="2"/><circle cx="18" cy="8" r="2"/><circle cx="8" cy="17" r="2"/><circle cx="16" cy="17" r="2"/></svg>,
-    weather:  <svg {...p}><path d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z"/></svg>,
-    pressure: <svg {...p}><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>,
-    wrench:   <svg {...p}><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>,
-    serial:   <svg {...p}><rect x="2" y="7" width="20" height="10" rx="2"/><path d="M6 11h.01M10 11h.01M14 11h.01M18 11h.01"/></svg>,
-    gap:      <svg {...p}><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>,
-    report:   <svg {...p}><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M8 18v-4M12 18v-6M16 18v-2"/></svg>,
-    template: <svg {...p}><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>,
-    draft:    <svg {...p}><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
-    guidance: <svg {...p}><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>,
-    gear:     <svg {...p}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>,
-    help:     <svg {...p}><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
-    dots:     <svg {...p}><circle cx="5" cy="12" r="1.5" fill={c}/><circle cx="12" cy="12" r="1.5" fill={c}/><circle cx="19" cy="12" r="1.5" fill={c}/></svg>,
-    sun:      <svg {...p}><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>,
-    moon:     <svg {...p}><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>,
-    logout:   <svg {...p}><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
-    sparkle:  <svg {...p}><path d="M12 3l1.8 5.4L19 10l-5.2 1.6L12 17l-1.8-5.4L5 10l5.2-1.6L12 3z" strokeLinejoin="round"/></svg>,
-    paperclip:<svg {...p}><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>,
-    image:    <svg {...p}><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>,
-    x:        <svg {...p}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
+import {
+  ClipboardCheck, Link2, FlaskConical, Activity, Zap, Play, Check, Building2,
+  BarChart3, Wind, Home, Clipboard, Clock, Search, ShieldCheck, User, Download,
+  Upload, Send, RefreshCw, AlertTriangle, Trash2, Flag, Menu, Save, Layers,
+  Droplets, Droplet, Thermometer, AirVent, PersonStanding, HeartPulse, FileText,
+  Target, Calendar, MapPin, Gauge, Users, Mic, Eye, DoorClosed, Filter, Cloud,
+  Wrench, Barcode, AlertCircle, ScrollText, LayoutTemplate, SquarePen, Info,
+  Settings, HelpCircle, MoreHorizontal, Sun, Moon, LogOut, Sparkles, Paperclip,
+  Image, X,
+} from 'lucide-react'
+
+// Premium icon set — Lucide (the set Obsidian ships), wrapped behind the
+// existing <I n s c w /> API so every call site stays unchanged: `n` maps
+// to a Lucide component, `s`=size, `c`=color, `w`=strokeWidth.
+const LUCIDE = {
+  findings: ClipboardCheck, chain: Link2, flask: FlaskConical, pulse: Activity,
+  bolt: Zap, play: Play, check: Check, bldg: Building2, chart: BarChart3,
+  wind: Wind, airflow: Wind, home: Home, clip: Clipboard, clock: Clock,
+  search: Search, shield: ShieldCheck, user: User, download: Download,
+  upload: Upload, send: Send, refresh: RefreshCw, alert: AlertTriangle,
+  trash: Trash2, flag: Flag, menu: Menu, save: Save, layers: Layers,
+  moisture: Droplets, droplet: Droplet, thermo: Thermometer, hvac: AirVent,
+  person: PersonStanding, symptom: HeartPulse, notes: FileText, target: Target,
+  cal: Calendar, location: MapPin, gauge: Gauge, people: Users, mic: Mic,
+  eye: Eye, door: DoorClosed, filter: Filter, weather: Cloud, wrench: Wrench,
+  serial: Barcode, gap: AlertCircle, report: ScrollText, template: LayoutTemplate,
+  draft: SquarePen, guidance: Info, gear: Settings, help: HelpCircle,
+  dots: MoreHorizontal, sun: Sun, moon: Moon, logout: LogOut, sparkle: Sparkles,
+  paperclip: Paperclip, image: Image, x: X,
+}
+
+// Domain-specific glyphs with no clean Lucide match — kept as custom
+// strokes on the same 24-grid with round joins so they read correctly:
+// a spore cluster for mould / microbial, and a radial burst for building
+// pressure.
+const CUSTOM = {
+  mold: (p) => <svg {...p}><circle cx="12" cy="12" r="3"/><circle cx="6" cy="8" r="2"/><circle cx="18" cy="8" r="2"/><circle cx="8" cy="17" r="2"/><circle cx="16" cy="17" r="2"/></svg>,
+  pressure: (p) => <svg {...p}><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>,
+}
+
+export const I = ({ n, s = 18, c = 'currentColor', w = 1.8 }) => {
+  const L = LUCIDE[n]
+  if (L) return <L size={s} color={c} strokeWidth={w} />
+  const C = CUSTOM[n]
+  if (C) {
+    const p = { width: s, height: s, viewBox: '0 0 24 24', fill: 'none', stroke: c, strokeWidth: w, strokeLinecap: 'round', strokeLinejoin: 'round' }
+    return C(p)
   }
-  return icons[n] || null
+  return null
 }
 
 /**
@@ -100,4 +80,18 @@ export const emojiToIcon = {
   '🩺': 'symptom', '🏠': 'home', '📌': 'location', '🚪': 'door',
   '🪣': 'droplet', '🫧': 'filter', '🔍': 'search', '🔎': 'search',
   '🏭': 'bldg', '⏱️': 'clock',
+  // Previously-unmapped question icons (were rendering as raw iOS emoji).
+  '🔬': 'flask', '⚗️': 'flask', '📮': 'flag', '🗺️': 'location',
+  '🔨': 'wrench', '💼': 'bldg', '🏙️': 'bldg', '🏷️': 'flag',
+}
+
+// Resolve an emoji to an SVG icon name, tolerant of the U+FE0F variation
+// selector (so '🏗️' and '🏗' both resolve). Returns null when unmapped,
+// so callers can decide on a fallback.
+const _normEmojiToIcon = Object.fromEntries(
+  Object.entries(emojiToIcon).map(([k, v]) => [k.replace(/[\uFE00-\uFE0F]/g, ''), v])
+)
+export function iconForEmoji(emoji) {
+  if (!emoji) return null
+  return emojiToIcon[emoji] || _normEmojiToIcon[emoji.replace(/[\uFE00-\uFE0F]/g, '')] || null
 }
