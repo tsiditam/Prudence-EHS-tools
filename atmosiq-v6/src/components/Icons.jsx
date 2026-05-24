@@ -100,4 +100,18 @@ export const emojiToIcon = {
   '🩺': 'symptom', '🏠': 'home', '📌': 'location', '🚪': 'door',
   '🪣': 'droplet', '🫧': 'filter', '🔍': 'search', '🔎': 'search',
   '🏭': 'bldg', '⏱️': 'clock',
+  // Previously-unmapped question icons (were rendering as raw iOS emoji).
+  '🔬': 'flask', '⚗️': 'flask', '📮': 'flag', '🗺️': 'location',
+  '🔨': 'wrench', '💼': 'bldg', '🏙️': 'bldg', '🏷️': 'flag',
+}
+
+// Resolve an emoji to an SVG icon name, tolerant of the U+FE0F variation
+// selector (so '🏗️' and '🏗' both resolve). Returns null when unmapped,
+// so callers can decide on a fallback.
+const _normEmojiToIcon = Object.fromEntries(
+  Object.entries(emojiToIcon).map(([k, v]) => [k.replace(/[\ufe00-\ufe0f]/g, ''), v])
+)
+export function iconForEmoji(emoji) {
+  if (!emoji) return null
+  return emojiToIcon[emoji] || _normEmojiToIcon[emoji.replace(/[\ufe00-\ufe0f]/g, '')] || null
 }
