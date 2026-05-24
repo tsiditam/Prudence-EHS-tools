@@ -75,7 +75,12 @@
         --card:#111318;
         --raised:#161922;
         --border:#1C1E26;
-        --accent:#22D3EE;
+        /* Restrained primary cyan — darker and a touch less saturated
+           than the old #22D3EE aqua, so header controls, icon outlines,
+           text accents, and default active states read technical and
+           premium rather than consumer-bright. The brighter --accent-fill
+           below is reserved for filled-CTA / active emphasis. */
+        --accent:#2EA7BF;
         --accent-dim:#1A8FA0;
         --text:#ECEEF2;
         --sub:#8B93A5;
@@ -85,12 +90,13 @@
         --success:#22C55E;
         /* Foreground used on top of --accent (filled accent buttons). */
         --on-accent:#07080C;
-        /* Brand-cyan fill for primary CTAs — invariant across modes so
-           light-mode pills look the same vivid brand color as dark-mode
-           pills (same hue as the AtmosFlow wordmark). --on-accent-fill
-           is the foreground that pairs with it — always dark, because
-           white text on bright #22D3EE is only 1.96:1 and fails AA. */
-        --accent-fill:#22D3EE;
+        /* Brighter cyan reserved for emphasis — filled primary CTAs and
+           active/selected highlights. Toned down from the old #22D3EE
+           aqua but kept a step brighter than --accent so filled buttons
+           still pop. Invariant across modes. --on-accent-fill is the
+           paired foreground — always dark, because light text on cyan
+           this bright fails WCAG AA. */
+        --accent-fill:#39C0D9;
         --on-accent-fill:#07080C;
       }
       [data-theme="light"]{
@@ -98,30 +104,30 @@
            surface ladder so hierarchy reads in light mode the same way
            it does in dark. bg is a warm off-white, surface is a tier
            lower, card stays pure white so cards lift visually off the
-           page. Brand-cyan stays invariant (text, icons, borders,
-           filled buttons). NOTE: bright cyan on near-white renders at
-           ~1.96:1, below WCAG AA 4.5:1 for body text. Accepted
-           intentionally in favor of brand consistency — flag for any
-           future accessibility audit. */
+           page. The restrained cyan (#2EA7BF) carries text, icons, and
+           borders; the brighter #39C0D9 fills emphasis CTAs. NOTE: even
+           the darker accent on near-white is ~2.6:1, still below WCAG AA
+           4.5:1 for body text — accepted intentionally for brand
+           consistency; flag for any future accessibility audit. */
         --bg:#FAFAFB;
         --surface:#F4F5F7;
         --card:#FFFFFF;
         /* Light-mode raised surface for "selected" / "focused" rows.
-           Dark mode lifts to a slightly lighter navy than --card; in
-           light mode we need a subtle off-white that reads as
-           selected against pure-white cards without becoming a black
-           bar (the previous bug — RAISED was hardcoded #161922). */
-        --raised:#F1F5F9;
+           A pale cyan tint (the brand's light tint) so selected/active
+           rows read as an accent highlight against pure-white cards,
+           rather than the previous neutral off-white. Subtle enough to
+           stay a background, not a fill. */
+        --raised:#DDF7FB;
         --border:#B6E0E8;
-        --accent:#22D3EE;
+        --accent:#2EA7BF;
         --accent-dim:#155E75;
         --text:#0F172A;
         --sub:#475569;
         --dim:#5B6675;
         --on-accent:#07080C;
         /* --accent-fill / --on-accent-fill stay invariant across
-           modes (brand cyan + dark text on filled CTAs). */
-        --accent-fill:#22D3EE;
+           modes (emphasis cyan + dark text on filled CTAs). */
+        --accent-fill:#39C0D9;
         --on-accent-fill:#07080C;
         /* Semantic colors diverge in light mode: the vivid dark-mode
            shades wash out on white (warn #FBBF24 → 1.57:1, success
