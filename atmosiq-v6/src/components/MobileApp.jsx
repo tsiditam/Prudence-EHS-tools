@@ -17,6 +17,7 @@ import { supabase, trackEvent } from '../utils/supabaseClient'
 import Backup from '../utils/backup'
 import { groupActions } from '../utils/recFormatting'
 import { getCalibrationBannerState, loadInstruments, isOutOfCal } from '../utils/instrumentRegistry'
+import { extractDocxText, REVIEW_INSTRUCTIONS, REVIEW_CREDIT_COST } from '../utils/reportReview'
 import { getRiskBand } from '../engines/riskBands'
 import { getSubscriptionBannerState, BILLING_MODE } from '../utils/subscriptionState'
 import { VER, STANDARDS_MANIFEST } from '../constants/standards'
@@ -526,6 +527,15 @@ export default function MobileApp() {
   // up and auto-sends.
   const [voiceCmdOpen, setVoiceCmdOpen] = useState(false)
   const [voicePrefill, setVoicePrefill] = useState(null)
+  // AtmosFlow AI "Review for discrepancies" — chooser + the payload/prompt
+  // handed to the assistant. reviewPayload rides the request context;
+  // reviewPrefill is the visible directive the sheet auto-sends on open.
+  const [reviewChooserOpen, setReviewChooserOpen] = useState(false)
+  const [reviewPayload, setReviewPayload] = useState(null)
+  const [reviewPrefill, setReviewPrefill] = useState(null)
+  const [reviewBusy, setReviewBusy] = useState(false)
+  const [reviewError, setReviewError] = useState(null)
+  const reviewDocxInputRef = useRef(null)
   // Billing Phase 1 — credit-unit definition sheet was added in PR
   // #143 (Fix 2 of the CIH-credibility prompt) and removed by the
   // subsequent pricing-architecture decision (delete the credit
@@ -693,6 +703,62 @@ export default function MobileApp() {
           if (res.ok) { const data = await res.json(); setCredits(data.credits) }
         }
       } catch {}
+    }
+  }
+
+  // Hand the assistant a discrepancy-scan directive. The bulk report
+  // content rides the request context (report_review), so the visible
+  // chat message stays a short prompt. Charges credits up front, gated
+  // on balance like the other paid actions.
+  const launchReview = (kind, content) => {
+    if (!content || !content.trim()) { setReviewError('Nothing to review — no report content was found.'); return }
+    if (!PAYWALL_DISABLED && credits < REVIEW_CREDIT_COST) { setReviewChooserOpen(false); setShowPricing(true); return }
+    consumeCredit(REVIEW_CREDIT_COST, 'discrepancy_scan', viewRpt?.id || draftId || '')
+    setReviewPayload({ kind, content, instructions: REVIEW_INSTRUCTIONS })
+    setReviewPrefill('Review this report for discrepancies — compare the narrative against the underlying data and flag any inconsistencies, missing defensibility items, or unfilled placeholders.')
+    setReviewChooserOpen(false)
+    setReviewError(null)
+    setFaOpen(true)
+    trackEvent('report_review_started', { kind })
+  }
+
+  // Source 1 — the current in-app assessment. Send the structured data
+  // (not the rendered doc) so the assistant can cross-check the narrative
+  // against the underlying scores/zones/recommendations. Photos are
+  // excluded (binary + large); the deterministic readiness gate already
+  // covers photo presence.
+  const reviewCurrentReport = () => {
+    let content = ''
+    try {
+      content = JSON.stringify({
+        facility: bldg?.fn || null,
+        building: bldg, presurvey,
+        composite: comp, zoneScores, zones,
+        recommendations: recs, causalChains, samplingPlan,
+        narrative: narrative || null,
+        osha: oshaResult || null,
+        userMode,
+      })
+    } catch { content = '' }
+    launchReview('current', content)
+  }
+
+  // Source 2 — an uploaded .docx (external or older report). Extract the
+  // text client-side via jszip; the assistant scans the rendered text.
+  const onPickReviewDocx = async (e) => {
+    const file = e.target.files && e.target.files[0]
+    if (e.target) e.target.value = ''
+    if (!file) return
+    setReviewError(null)
+    setReviewBusy(true)
+    try {
+      const text = await extractDocxText(file)
+      setReviewBusy(false)
+      if (!text || text.length < 20) { setReviewError('Could not read text from that file — make sure it is a .docx report.'); return }
+      launchReview('docx', `Uploaded document: ${file.name}\n\n${text}`)
+    } catch (err) {
+      setReviewBusy(false)
+      setReviewError((err && err.message) || 'Could not read that .docx file.')
     }
   }
 
@@ -2062,6 +2128,7 @@ export default function MobileApp() {
               <TactileButton variant="ghost" fullWidth size="lg" onClick={handleShare} icon={<I n="send" s={16} c={SUB} />}>Share</TactileButton>
             </div>
             <TactileButton variant="secondary" fullWidth size="lg" onClick={()=>setView('spatial')} icon={<I n="bldg" s={16} c={ACCENT} />}>Map Zones on Floor Plan</TactileButton>
+            <TactileButton variant="ghost" fullWidth size="lg" onClick={()=>{setReviewError(null);setReviewChooserOpen(true)}} icon={<I n="search" s={16} c={SUB} />}>Review for discrepancies</TactileButton>
           </div>
           {/* Removed redundant "Start Assessment" CTA — the user viewing
               this screen is already inside an assessment; starting a new
@@ -2675,6 +2742,40 @@ export default function MobileApp() {
               ))}
             </div>
           )}
+        </BottomSheet>
+      )}
+
+      {reviewChooserOpen && (
+        <BottomSheet
+          title="Review for discrepancies"
+          onClose={()=>setReviewChooserOpen(false)}
+          maxWidth={420}
+          ariaLabel="Review report for discrepancies"
+        >
+          <div style={{...V3.T.bodyDim, lineHeight:1.6, margin:'4px 0 16px'}}>
+            AtmosFlow AI scans for internal inconsistencies — narrative vs data,
+            missing defensibility items, and unfilled placeholders. A screening
+            QA aid, not a substitute for professional review.{!PAYWALL_DISABLED ? ` Uses ${REVIEW_CREDIT_COST} credits.` : ''}
+          </div>
+          {reviewError && (
+            <div style={{...GLASS.subtle, padding:'10px 12px', borderRadius:RADII.md, marginBottom:12, color:DANGER, fontSize:12, lineHeight:1.5}}>{reviewError}</div>
+          )}
+          <div style={{display:'flex',flexDirection:'column',gap:10}}>
+            <TactileButton variant="primary" fullWidth size="lg" disabled={reviewBusy} onClick={reviewCurrentReport}>
+              Scan this report
+            </TactileButton>
+            <TactileButton variant="secondary" fullWidth size="lg" disabled={reviewBusy} onClick={()=>reviewDocxInputRef.current?.click()}>
+              {reviewBusy ? 'Reading…' : 'Upload a Word (.docx) file'}
+            </TactileButton>
+          </div>
+          <input
+            ref={reviewDocxInputRef}
+            type="file"
+            accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            onChange={onPickReviewDocx}
+            style={{display:'none'}}
+            aria-hidden="true"
+          />
         </BottomSheet>
       )}
 
@@ -3576,9 +3677,9 @@ export default function MobileApp() {
 
       {profile && faOpen && (
         <FieldAssistant
-          onClose={() => { setFaOpen(false); setVoicePrefill(null) }}
-          onNavigate={(v) => { setFaOpen(false); setVoicePrefill(null); setView(v) }}
-          initialMessage={voicePrefill}
+          onClose={() => { setFaOpen(false); setVoicePrefill(null); setReviewPrefill(null); setReviewPayload(null) }}
+          onNavigate={(v) => { setFaOpen(false); setVoicePrefill(null); setReviewPrefill(null); setReviewPayload(null); setView(v) }}
+          initialMessage={voicePrefill || reviewPrefill}
           onAction={(action) => {
             // Agentic action executor. Jasper proposes via
             // propose_action tool → SSE → ActionCard in chat →
@@ -3628,6 +3729,10 @@ export default function MobileApp() {
             current_zone: zones[curZone],
             zones_count: zones.length,
             incident: currentIncident,
+            // Discrepancy-scan payload + directive (present only during a
+            // "Review for discrepancies" run). Carries the report content
+            // so the chat message can stay a short prompt.
+            report_review: reviewPayload || undefined,
             // Active-assessment label for the assistant's context chip +
             // prompt. Prefer the loaded assessment's facility; on the
             // dashboard (where bldg isn't hydrated until a draft is
