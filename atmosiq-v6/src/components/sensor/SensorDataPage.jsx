@@ -18,7 +18,7 @@ import { I } from '../Icons'
 import GlassCard from '../ui/GlassCard'
 import TactileButton from '../ui/TactileButton'
 import { parseSensorCsv, SENSOR_PARAMS } from '../../utils/sensorParser'
-import { GRAPH_DEFS, LIGHT_PALETTE, DARK_PALETTE } from './SensorCharts'
+import { GRAPH_DEFS, MultiParameterChart, LIGHT_PALETTE, DARK_PALETTE } from './SensorCharts'
 import dayjs from 'dayjs'
 
 // Charts pass resolved hex (Recharts emits SVG attributes where var()
@@ -173,6 +173,7 @@ export default function SensorDataPage({ value, onChange, onBack }) {
               ))}
             </div>
           )}
+          {data.params.length >= 2 && <MultiParamSection data={data} state={data.graphs?.multi || {}} onState={(patch) => setGraph('multi', patch)} />}
           <button onClick={clear} style={{ ...ghostBtn, marginTop: 18, color: V3.DANGER, borderColor: `color-mix(in srgb, var(--danger) 30%, transparent)` }}>Remove sensor data</button>
         </>
       )}
@@ -182,9 +183,42 @@ export default function SensorDataPage({ value, onChange, onBack }) {
 
 const CAP_W = 680, CAP_H = 300
 
-function GraphCard({ def, data, state, onState }) {
+// Compare up to 3 detected parameters on one normalized timeline. Changing
+// the selection invalidates any captured image (so the report figure always
+// matches the shown selection).
+function MultiParamSection({ data, state, onState }) {
+  const selected = (state.params && state.params.length) ? state.params : data.params.slice(0, Math.min(3, data.params.length))
+  const labelOf = (k) => SENSOR_PARAMS.find((s) => s.key === k)?.label || k
+  const toggleParam = (k) => {
+    const has = selected.includes(k)
+    if (!has && selected.length >= 3) return
+    const next = has ? selected.filter((x) => x !== k) : [...selected, k]
+    if (!next.length) return
+    onState({ params: next, include: false, imageDataUrl: null })
+  }
+  const def = { id: 'multi', title: 'Multi-Parameter Comparison', series: selected.map(labelOf), Chart: MultiParameterChart }
+  return (
+    <div style={{ marginTop: 18 }}>
+      <div style={{ ...V3.T.micro, margin: '0 2px 8px' }}>Compare parameters · pick up to 3</div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+        {data.params.map((k) => {
+          const on = selected.includes(k)
+          return (
+            <button key={k} onClick={() => toggleParam(k)} aria-pressed={on}
+              style={{ ...chip, cursor: 'pointer', color: on ? ACCENT : SUB, borderColor: on ? ACCENT : BORDER, background: on ? 'color-mix(in srgb, var(--accent) 8%, transparent)' : 'var(--surface)' }}>
+              {on ? '✓ ' : ''}{labelOf(k)}
+            </button>
+          )
+        })}
+      </div>
+      <GraphCard def={def} data={data} state={state} onState={onState} chartProps={{ params: selected }} />
+    </div>
+  )
+}
+
+function GraphCard({ def, data, state, onState, chartProps = {} }) {
   const hiddenRef = useRef(null)
-  const [capture, setCapture] = useState(null) // null | 'include' | 'export'
+  const [capture, setCapture] = useState(null) // null | 'include' | 'export' | 'export-svg'
   const [busy, setBusy] = useState(false)
   const { Chart } = def
   const pal = currentPalette()
@@ -196,19 +230,28 @@ function GraphCard({ def, data, state, onState }) {
   useEffect(() => {
     if (!capture) return undefined
     let cancelled = false
+    const baseName = `${(data.fileName || 'sensor').replace(/\.(csv|xlsx)$/i, '')}-${def.id}`
     const id = requestAnimationFrame(() => requestAnimationFrame(async () => {
       try {
-        const html2canvas = (await import('html2canvas')).default
-        const node = hiddenRef.current
-        const canvas = await html2canvas(node, { backgroundColor: '#FFFFFF', scale: 2, logging: false })
-        const png = canvas.toDataURL('image/png')
-        if (cancelled) return
-        if (capture === 'include') onState({ include: true, imageDataUrl: png, title: def.title, series: def.series })
-        else if (capture === 'export') {
-          const a = document.createElement('a')
-          a.href = png
-          a.download = `${(data.fileName || 'sensor').replace(/\.csv$/i, '')}-${def.id}.png`
-          a.click()
+        if (capture === 'export-svg') {
+          const svg = hiddenRef.current?.querySelector('svg')
+          if (svg) {
+            const clone = svg.cloneNode(true)
+            clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+            const blob = new Blob([new XMLSerializer().serializeToString(clone)], { type: 'image/svg+xml' })
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a'); a.href = url; a.download = `${baseName}.svg`; a.click()
+            setTimeout(() => URL.revokeObjectURL(url), 2000)
+          }
+        } else {
+          const html2canvas = (await import('html2canvas')).default
+          const canvas = await html2canvas(hiddenRef.current, { backgroundColor: '#FFFFFF', scale: 2, logging: false })
+          const png = canvas.toDataURL('image/png')
+          if (cancelled) return
+          if (capture === 'include') onState({ include: true, imageDataUrl: png, title: def.title, series: def.series })
+          else if (capture === 'export') {
+            const a = document.createElement('a'); a.href = png; a.download = `${baseName}.png`; a.click()
+          }
         }
       } catch { /* best-effort */ }
       if (!cancelled) { setBusy(false); setCapture(null) }
@@ -221,6 +264,7 @@ function GraphCard({ def, data, state, onState }) {
     setBusy(true); setCapture('include')
   }
   const exportPng = () => { setBusy(true); setCapture('export') }
+  const exportSvg = () => { setBusy(true); setCapture('export-svg') }
 
   return (
     <GlassCard style={{ padding: 0, overflow: 'hidden' }}>
@@ -239,7 +283,7 @@ function GraphCard({ def, data, state, onState }) {
         </label>
       </div>
       <div style={{ padding: '4px 8px 12px', background: CARD }}>
-        <Chart data={data.points} hasTs={data.hasTimestamps} units={data.units} palette={pal} />
+        <Chart data={data.points} hasTs={data.hasTimestamps} units={data.units} palette={pal} {...chartProps} />
       </div>
       <div style={{ padding: '0 18px 16px' }}>
         <textarea value={state.caption || ''} onChange={(e) => onState({ caption: e.target.value })} placeholder="Caption (e.g. CO₂ rose during occupied periods and declined after apparent occupancy reduction — interpret with site observations)."
@@ -248,11 +292,14 @@ function GraphCard({ def, data, state, onState }) {
           <button onClick={exportPng} disabled={busy} style={ghostBtn}>
             <I n="download" s={14} c={SUB} w={1.8} /> {busy && capture === 'export' ? 'Exporting…' : 'Export PNG'}
           </button>
+          <button onClick={exportSvg} disabled={busy} style={ghostBtn}>
+            <I n="download" s={14} c={SUB} w={1.8} /> {busy && capture === 'export-svg' ? 'Exporting…' : 'Export SVG'}
+          </button>
         </div>
       </div>
       {capture && (
         <div aria-hidden="true" ref={hiddenRef} style={{ position: 'fixed', left: -10000, top: 0, width: CAP_W, height: CAP_H, background: '#FFFFFF', padding: 8, boxSizing: 'border-box', pointerEvents: 'none' }}>
-          <Chart data={data.points} hasTs={data.hasTimestamps} units={data.units} palette={LIGHT_PALETTE} width={CAP_W - 16} height={CAP_H - 16} />
+          <Chart data={data.points} hasTs={data.hasTimestamps} units={data.units} palette={LIGHT_PALETTE} width={CAP_W - 16} height={CAP_H - 16} {...chartProps} />
         </div>
       )}
     </GlassCard>

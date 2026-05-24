@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { classifyHeader, parseSensorCsv, downsample, detectUnit } from '../../src/utils/sensorParser'
+import { classifyHeader, parseSensorCsv, downsample, detectUnit, normalizeForCompare } from '../../src/utils/sensorParser'
 
 describe('classifyHeader', () => {
   it('detects timestamp, parameters, and units', () => {
@@ -69,6 +69,29 @@ describe('parseSensorCsv', () => {
   it('returns null for empty / header-only input', () => {
     expect(parseSensorCsv('')).toBeNull()
     expect(parseSensorCsv('Timestamp,CO2')).toBeNull()
+  })
+})
+
+describe('normalizeForCompare', () => {
+  const pts = [
+    { t: 1, co2: 500, rh: 40 },
+    { t: 2, co2: 1000, rh: 50 },
+    { t: 3, co2: 1500, rh: 60 },
+  ]
+  it('scales each param to 0–100% of its own range, keeping actuals', () => {
+    const { data, ranges } = normalizeForCompare(pts, ['co2', 'rh'])
+    expect(ranges.co2).toEqual({ min: 500, max: 1500 })
+    expect(data[0].n_co2).toBe(0)
+    expect(data[2].n_co2).toBe(100)
+    expect(data[1].n_co2).toBe(50)
+    expect(data[1].co2).toBe(1000) // actual preserved for the tooltip
+    expect(data[0].n_rh).toBe(0)
+    expect(data[2].n_rh).toBe(100)
+  })
+  it('handles nulls and flat series without dividing by zero', () => {
+    const { data } = normalizeForCompare([{ t: 1, x: 5 }, { t: 2, x: null }, { t: 3, x: 5 }], ['x'])
+    expect(data[1].n_x).toBeNull()
+    expect(data[0].n_x).toBe(50) // flat range → midpoint
   })
 })
 

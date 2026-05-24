@@ -16,6 +16,7 @@ import {
   Tooltip, ReferenceLine, Legend,
 } from 'recharts'
 import dayjs from 'dayjs'
+import { normalizeForCompare, SENSOR_PARAMS } from '../../utils/sensorParser'
 
 // Resolved palettes (no CSS vars — see header). DARK mirrors the app's
 // dark tokens; LIGHT is the white-document palette used for report images.
@@ -95,6 +96,50 @@ export function PMTimelineChart({ data, hasTs = true, units = {}, palette = DARK
       <Legend wrapperStyle={{ fontSize: 11, color: pal.axis }} />
       <Line type="monotone" dataKey="pm25" name="PM2.5" stroke={SERIES.pm25} strokeWidth={2} dot={false} connectNulls isAnimationActive={!width} />
       <Line type="monotone" dataKey="pm10" name="PM10" stroke={SERIES.pm10} strokeWidth={2} dot={false} connectNulls isAnimationActive={!width} />
+    </LineChart>
+  )
+  return <Shell width={width} height={height}>{inner}</Shell>
+}
+
+const paramLabel = (k) => SENSOR_PARAMS.find((p) => p.key === k)?.label || k
+
+// Multi-parameter comparison: each selected parameter scaled to 0–100% of
+// its own range so trends of different magnitudes read together. The
+// tooltip shows ACTUAL values + units (de-normalized), and the axis is
+// clearly labelled "normalized" so magnitude is never implied.
+function MultiTooltip({ active, payload, label, hasTs, units, pal }) {
+  if (!active || !payload || !payload.length) return null
+  const row = payload[0]?.payload || {}
+  return (
+    <div style={{ background: pal.card, border: `1px solid ${pal.grid}`, borderRadius: 8, padding: '8px 10px', fontSize: 12, color: pal.text, boxShadow: '0 4px 16px rgba(0,0,0,0.25)' }}>
+      <div style={{ color: pal.axis, marginBottom: 4, fontFamily: 'var(--font-mono)' }}>{hasTs ? dayjs(label).format('MMM D, YYYY HH:mm') : `Reading #${label}`}</div>
+      {payload.map((p) => {
+        const key = String(p.dataKey).replace(/^n_/, '')
+        const actual = row[key]
+        return (
+          <div key={p.dataKey} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 8, height: 8, borderRadius: 2, background: p.stroke, display: 'inline-block' }} />
+            <span style={{ fontWeight: 600 }}>{p.name}:</span>
+            <span style={{ fontFamily: 'var(--font-mono)' }}>{actual == null ? '—' : actual}{units?.[key] ? ` ${units[key]}` : ''}</span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+export function MultiParameterChart({ data, params = [], hasTs = true, units = {}, palette = DARK_PALETTE, width, height }) {
+  const pal = palette
+  const sel = (params || []).slice(0, 3)
+  const { data: nd } = normalizeForCompare(data, sel)
+  const inner = (w, h) => (
+    <LineChart data={nd} {...(width ? { width: w, height: h } : {})} margin={{ top: 8, right: 16, bottom: 4, left: 4 }}>
+      <CartesianGrid stroke={pal.grid} strokeOpacity={0.5} vertical={false} />
+      <XAxis dataKey="t" type="number" domain={['dataMin', 'dataMax']} scale="time" tickFormatter={fmtTime(hasTs)} {...axis(pal)} />
+      <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} {...axis(pal)} width={44} label={{ value: 'Normalized (% of range)', angle: -90, position: 'insideLeft', fill: pal.axis, fontSize: 11 }} />
+      <Tooltip content={<MultiTooltip hasTs={hasTs} units={units} pal={pal} />} />
+      <Legend wrapperStyle={{ fontSize: 11, color: pal.axis }} />
+      {sel.map((k) => <Line key={k} type="monotone" dataKey={`n_${k}`} name={paramLabel(k)} stroke={SERIES[k] || pal.axis} strokeWidth={2} dot={false} connectNulls isAnimationActive={!width} />)}
     </LineChart>
   )
   return <Shell width={width} height={height}>{inner}</Shell>

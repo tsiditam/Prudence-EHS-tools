@@ -106,6 +106,31 @@ export function downsample(points, maxPoints = 800) {
   return out
 }
 
+// Scale each selected parameter to 0–100% of its own observed range, for
+// a shape-comparison chart where parameters of different magnitudes (CO₂
+// in thousands vs RH in tens) can be read together. Actual values are
+// preserved on each point (key `<param>`) so the tooltip shows real units;
+// only the `n_<param>` keys are normalized. Returns { data, ranges }.
+export function normalizeForCompare(points, params) {
+  const list = Array.isArray(params) ? params : []
+  const ranges = {}
+  list.forEach((p) => {
+    const vals = points.map((pt) => pt[p]).filter((v) => v != null)
+    ranges[p] = vals.length ? { min: Math.min(...vals), max: Math.max(...vals) } : { min: 0, max: 1 }
+  })
+  const data = points.map((pt) => {
+    const o = { t: pt.t }
+    list.forEach((p) => {
+      o[p] = pt[p] ?? null
+      const r = ranges[p]
+      const span = r.max - r.min
+      o['n_' + p] = pt[p] == null ? null : (span ? ((pt[p] - r.min) / span) * 100 : 50)
+    })
+    return o
+  })
+  return { data, ranges }
+}
+
 /**
  * Parse sensor CSV text. `mapping` optionally overrides auto-detection:
  *   { [columnIndex]: { role, param, unit } }
