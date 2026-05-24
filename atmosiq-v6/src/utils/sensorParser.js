@@ -138,6 +138,58 @@ export function normalizeForCompare(points, params) {
   return { data, ranges }
 }
 
+// Map a logger parameter onto the per-zone reading field id (SENSOR_FIELDS)
+// it can populate. Indoor only — the outdoor fields (co2o, tfo, …) and HCHO
+// have no logger source and stay manual. TVOC is intentionally absent: the
+// reading field is µg/m³ but loggers report ppb, and ppb↔µg/m³ is not
+// convertible for a VOC mixture without a molar-mass assumption
+// (Mølhave 1991), so we surface it as skipped rather than fill a wrong unit.
+const READING_FIELD_MAP = {
+  co2:  { field: 'co2', dp: 0 },
+  pm25: { field: 'pm',  dp: 1 },
+  rh:   { field: 'rh',  dp: 0 },
+  co:   { field: 'co',  dp: 1 },
+  temp: { field: 'tf',  dp: 1 },
+}
+
+/**
+ * Derive per-zone reading-field values from a parsed sensor-log object
+ * (the shape returned by parseSensorRows, persisted as `sensorData`).
+ * Pure: returns { fields, details, skipped } and mutates nothing.
+ *   fields  — { [fieldId]: stringValue } ready to write via setZF
+ *   details — [{ field, param, value, n, converted }] for a UI preview
+ *   skipped — [{ param, reason }] for parameters with no safe target
+ * `stat` selects 'mean' (default) or 'median'.
+ */
+export function sensorAveragesToFields(sensorData, opts = {}) {
+  const stat = opts.stat === 'median' ? 'median' : 'mean'
+  const empty = { fields: {}, details: [], skipped: [] }
+  const stats = sensorData && sensorData.summary && sensorData.summary.stats
+  if (!stats) return empty
+  const units = sensorData.units || {}
+  const params = Array.isArray(sensorData.params) ? sensorData.params : []
+  const fields = {}
+  const details = []
+  const skipped = []
+  params.forEach((p) => {
+    const s = stats[p]
+    if (!s) return
+    const map = READING_FIELD_MAP[p]
+    if (!map) {
+      if (p === 'tvoc') skipped.push({ param: p, reason: 'units ppb; reading field is µg/m³ — enter manually' })
+      return
+    }
+    let val = s[stat]
+    if (val == null) return
+    let converted = false
+    if (p === 'temp' && units.temp === '°C') { val = (val * 9) / 5 + 32; converted = true }
+    const rounded = Number(val.toFixed(map.dp))
+    fields[map.field] = String(rounded)
+    details.push({ field: map.field, param: p, value: rounded, n: s.n, converted })
+  })
+  return { fields, details, skipped }
+}
+
 /**
  * Parse sensor CSV text. `mapping` optionally overrides auto-detection:
  *   { [columnIndex]: { role, param, unit } }
@@ -222,8 +274,19 @@ function buildSummary(points, activeParams, hasTimestamps, emptyRows) {
     intervalSec = median(deltas.filter((d) => d > 0))
   }
   const missing = {}
+  const stats = {}
   activeParams.forEach((c) => {
-    missing[c.param] = points.filter((p) => p[c.param] == null).length
+    const vals = points.map((p) => p[c.param]).filter((v) => v != null)
+    missing[c.param] = points.length - vals.length
+    stats[c.param] = vals.length
+      ? {
+          mean: vals.reduce((a, b) => a + b, 0) / vals.length,
+          median: median(vals),
+          min: Math.min(...vals),
+          max: Math.max(...vals),
+          n: vals.length,
+        }
+      : null
   })
   return {
     count: points.length,
@@ -232,6 +295,7 @@ function buildSummary(points, activeParams, hasTimestamps, emptyRows) {
     intervalSec,
     emptyRows,
     missing,
+    stats,
   }
 }
 

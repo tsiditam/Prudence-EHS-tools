@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { classifyHeader, parseSensorCsv, downsample, detectUnit, normalizeForCompare } from '../../src/utils/sensorParser'
+import { classifyHeader, parseSensorCsv, downsample, detectUnit, normalizeForCompare, sensorAveragesToFields } from '../../src/utils/sensorParser'
 
 describe('classifyHeader', () => {
   it('detects timestamp, parameters, and units', () => {
@@ -92,6 +92,47 @@ describe('normalizeForCompare', () => {
     const { data } = normalizeForCompare([{ t: 1, x: 5 }, { t: 2, x: null }, { t: 3, x: 5 }], ['x'])
     expect(data[1].n_x).toBeNull()
     expect(data[0].n_x).toBe(50) // flat range → midpoint
+  })
+})
+
+describe('summary.stats', () => {
+  it('computes mean / median / n per parameter over non-null values', () => {
+    const r = parseSensorCsv('Timestamp,CO2 (ppm)\n2026-05-01 09:00,500\n2026-05-01 09:05,700\n2026-05-01 09:10,900')
+    expect(r.summary.stats.co2).toMatchObject({ mean: 700, median: 700, n: 3, min: 500, max: 900 })
+  })
+})
+
+describe('sensorAveragesToFields', () => {
+  it('maps logger averages onto the per-zone reading fields as strings', () => {
+    const r = parseSensorCsv('Timestamp,CO2 (ppm),Temp (°F),RH (%)\n2026-05-01 09:00,500,70,40\n2026-05-01 09:05,700,72,50')
+    const { fields, details, skipped } = sensorAveragesToFields(r)
+    expect(fields).toEqual({ co2: '600', tf: '71', rh: '45' })
+    expect(details.find((d) => d.field === 'co2')).toMatchObject({ param: 'co2', value: 600, n: 2 })
+    expect(skipped).toHaveLength(0)
+  })
+
+  it('converts °C logs to °F for the tf field and flags the conversion', () => {
+    const r = parseSensorCsv('Timestamp,Temp (°C)\n2026-05-01 09:00,20\n2026-05-01 09:05,25')
+    const { fields, details } = sensorAveragesToFields(r)
+    expect(fields.tf).toBe('72.5') // mean 22.5°C → 72.5°F
+    expect(details[0].converted).toBe(true)
+  })
+
+  it('skips TVOC rather than filling a wrong unit (ppb vs µg/m³)', () => {
+    const r = parseSensorCsv('Timestamp,TVOC (ppb)\n2026-05-01 09:00,100\n2026-05-01 09:05,300')
+    const { fields, skipped } = sensorAveragesToFields(r)
+    expect(fields.tv).toBeUndefined()
+    expect(skipped.map((s) => s.param)).toContain('tvoc')
+  })
+
+  it('supports the median statistic for spike-resistant fills', () => {
+    const r = parseSensorCsv('Timestamp,CO2 (ppm)\n2026-05-01 09:00,500\n2026-05-01 09:05,600\n2026-05-01 09:10,1900')
+    expect(sensorAveragesToFields(r, { stat: 'mean' }).fields.co2).toBe('1000')
+    expect(sensorAveragesToFields(r, { stat: 'median' }).fields.co2).toBe('600')
+  })
+
+  it('returns empty structures when no log is loaded', () => {
+    expect(sensorAveragesToFields(null)).toEqual({ fields: {}, details: [], skipped: [] })
   })
 })
 
