@@ -19,9 +19,13 @@ export default function ScoreRing({ value, max=100, color, size=130 }) {
     const reduce = typeof window!=='undefined' && typeof window.matchMedia==='function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
     if (reduce) { setA(value); return undefined }
     let st=null, raf=null
-    const step=ts=>{if(!st)st=ts;const pr=Math.min((ts-st)/1000,1);setA(value*(1-Math.pow(1-pr,3)));if(pr<1)raf=requestAnimationFrame(step)}
+    const step=ts=>{if(!st)st=ts;const pr=Math.min((ts-st)/1000,1);if(pr<1){setA(value*(1-Math.pow(1-pr,3)));raf=requestAnimationFrame(step)}else{setA(value)}}
     raf=requestAnimationFrame(step)
-    return ()=>{ if(raf) cancelAnimationFrame(raf) }
+    // Failsafe: rAF is throttled/paused on mobile Safari during scroll, view
+    // transitions, and when backgrounded — which can freeze the number at 0
+    // or a stale value. Guarantee the final value lands on a plain timer.
+    const failsafe=setTimeout(()=>setA(value),1100)
+    return ()=>{ if(raf) cancelAnimationFrame(raf); clearTimeout(failsafe) }
   },[value])
   const r=(size-10)/2,circ=2*Math.PI*r,off=circ-(a/max)*circ
   return (
