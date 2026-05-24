@@ -34,6 +34,7 @@ export default function AuthScreen({ onAuth }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPw, setConfirmPw] = useState('')
+  const [showPw, setShowPw] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
@@ -169,9 +170,17 @@ export default function AuthScreen({ onAuth }) {
         <div style={{display:'flex',flexDirection:'column',gap:14}}>
           <input type="email" value={email} onChange={e=>{setEmail(e.target.value);setError('')}} placeholder="Email address" autoComplete="email" style={inp} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />
 
-          {mode !== 'forgot' && <input type="password" value={password} onChange={e=>{setPassword(e.target.value);setError('')}} placeholder="Password" autoComplete={mode==='register'?'new-password':'current-password'} style={inp} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} onKeyDown={e=>{if(e.key==='Enter'&&mode==='login')handleLogin()}} />}
+          {mode !== 'forgot' && (
+            <div style={{position:'relative'}}>
+              <input type={showPw?'text':'password'} value={password} onChange={e=>{setPassword(e.target.value);setError('')}} placeholder="Password" autoComplete={mode==='register'?'new-password':'current-password'} style={{...inp, paddingRight:52}} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} onKeyDown={e=>{if(e.key==='Enter'&&mode==='login')handleLogin()}} />
+              {/* Show/hide toggle so the user can verify what they typed. */}
+              <button type="button" onClick={()=>setShowPw(v=>!v)} aria-label={showPw?'Hide password':'Show password'} title={showPw?'Hide password':'Show password'} style={{position:'absolute',top:'50%',right:8,transform:'translateY(-50%)',width:40,height:40,display:'flex',alignItems:'center',justifyContent:'center',background:'transparent',border:'none',cursor:'pointer',fontFamily:'inherit',WebkitTapHighlightColor:'transparent'}}>
+                <I n="eye" s={18} c={showPw?ACCENT:SUB} w={1.8} />
+              </button>
+            </div>
+          )}
 
-          {mode === 'register' && <input type="password" value={confirmPw} onChange={e=>{setConfirmPw(e.target.value);setError('')}} placeholder="Confirm password" autoComplete="new-password" style={inp} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />}
+          {mode === 'register' && <input type={showPw?'text':'password'} value={confirmPw} onChange={e=>{setConfirmPw(e.target.value);setError('')}} placeholder="Confirm password" autoComplete="new-password" style={inp} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />}
 
           {mode === 'register' && (
             <label style={{display:'flex',alignItems:'flex-start',gap:10,fontSize:12,color:SUB,lineHeight:1.5,cursor:'pointer',padding:'4px 0'}}>
