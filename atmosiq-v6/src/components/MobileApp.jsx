@@ -16,7 +16,7 @@ import Storage from '../utils/cloudStorage'
 import { supabase, trackEvent } from '../utils/supabaseClient'
 import Backup from '../utils/backup'
 import { groupActions } from '../utils/recFormatting'
-import { getCalibrationBannerState } from '../utils/instrumentRegistry'
+import { getCalibrationBannerState, loadInstruments, isOutOfCal } from '../utils/instrumentRegistry'
 import { getRiskBand } from '../engines/riskBands'
 import { getSubscriptionBannerState, BILLING_MODE } from '../utils/subscriptionState'
 import { VER, STANDARDS_MANIFEST } from '../constants/standards'
@@ -171,6 +171,23 @@ const confColor = (conf) => conf === 'Strong' ? '#22C55E'
   : conf === 'Moderate' ? '#FBBF24'
   : '#8AA4CC'
 const ON_ACCENT = 'var(--on-accent)'
+
+// Map a saved profile instrument's coarse calStatus → the assessment's
+// calibration-status option. Best-guess only — the assessor confirms it
+// on the instrument step before finalizing (the field stays editable).
+// Factory/field calibrations downgrade to "overdue for recertification"
+// once the last-cal date is past the validity window, and to "Unknown"
+// when no cal date is on file — we never assert current calibration we
+// can't date-support.
+function mapInstrumentCalStatus(inst) {
+  const s = inst?.calStatus
+  if (s === 'bump') return 'Field-zeroed only'
+  if (s === 'factory' || s === 'field') {
+    if (!inst.lastCalDate) return 'Unknown'
+    return isOutOfCal(inst) ? 'Calibrated — overdue for recertification' : 'Calibrated within manufacturer spec'
+  }
+  return 'Unknown'
+}
 
 // `mix(name, pct)` for legacy `${TOKEN}HEX_ALPHA` sites is imported
 // from utils/theme above. CSS-var references with hex-suffix alpha
@@ -459,6 +476,14 @@ export default function MobileApp() {
   const [delConf, setDelConf] = useState(null)
   const [zonePrompt, setZonePrompt] = useState(false)
   const [calWarning, setCalWarning] = useState(null)
+  // Saved profile instruments + the picker that lets the assessor pull
+  // make/serial/cal into the assessment instead of retyping them.
+  const [instPickerOpen, setInstPickerOpen] = useState(false)
+  const [savedInstruments, setSavedInstruments] = useState([])
+  // Refresh on mount and whenever the view changes or the advisory opens,
+  // so instruments added in Settings mid-session show up at the entry
+  // points (localStorage read is cheap).
+  useEffect(() => { setSavedInstruments(loadInstruments()) }, [view, calWarning])
   const [docxPicker, setDocxPicker] = useState(false)
   // Consultant preflight: when the v2.1 engine would refuse to issue
   // (no measurements, calibration missing, etc.), we surface the
@@ -598,8 +623,30 @@ export default function MobileApp() {
     }
   }, [])
 
+  // Populate the assessment's instrument fields from a saved profile
+  // instrument. Calibration status is a best-guess mapping the assessor
+  // confirms (left editable) on the instrument step.
+  const applyInstrument = useCallback((inst) => {
+    if (!inst) return
+    setQSField('ps_inst_iaq', inst.make || inst.nickname || '')
+    setQSField('ps_inst_iaq_serial', inst.serial || '')
+    setQSField('ps_inst_iaq_cal', inst.lastCalDate || '')
+    setQSField('ps_inst_iaq_cal_status', mapInstrumentCalStatus(inst))
+  }, [setQSField])
+
+
   const qsVis = useMemo(() => Q_QUICKSTART.filter(q => { if (!q.cond) return true; if (q.cond.eq && mergedData[q.cond.f] !== q.cond.eq) return false; if (q.cond.ne && mergedData[q.cond.f] === q.cond.ne) return false; return true }), [mergedData])
   const dtVis = useMemo(() => Q_DETAILS.filter(q => { if (!q.cond) return true; if (q.cond.eq && mergedData[q.cond.f] !== q.cond.eq) return false; if (q.cond.ne && mergedData[q.cond.f] === q.cond.ne) return false; return true }), [mergedData])
+
+  // Pick a saved instrument from either entry point (advisory modal or
+  // the instrument step), then route to the instrument step so the
+  // prefilled — and editable — fields can be reviewed before finalizing.
+  const pickInstrument = useCallback((inst) => {
+    applyInstrument(inst)
+    setInstPickerOpen(false)
+    setDqi(Math.max(0, dtVis.findIndex(q => q.id === 'ps_inst_iaq')))
+    setView('details')
+  }, [applyInstrument, dtVis, setDqi, setView])
   const zData = zones[curZone] || {}
   const dcProfile = useMemo(() => getBuildingProfile(bldg.ft), [bldg.ft])
   const zoneSubtype = zData.zone_subtype || null
@@ -1086,7 +1133,7 @@ export default function MobileApp() {
 
 
   // ── Question renderer (shared across quick start, zone, details) ──
-  const renderQuestion = (q, data, setField, qIdx, visQs, goNext, goPrev, onFinish, finishLabel, secs) => {
+  const renderQuestion = (q, data, setField, qIdx, visQs, goNext, goPrev, onFinish, finishLabel, secs, extraTop) => {
     const progress = Math.round(((qIdx + 1) / visQs.length) * 100)
     const secIdx = secs.indexOf(q.sec)
     return (
@@ -1108,6 +1155,8 @@ export default function MobileApp() {
           <h2 style={{fontSize:26,fontWeight:700,lineHeight:1.3,margin:0,marginBottom:10,letterSpacing:'-0.3px',color:TEXT}}>{q.q}</h2>
           {q.ref&&<div style={{display:'inline-flex',gap:7,padding:'8px 14px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,marginBottom:20,marginTop:6}}><span style={{fontSize:13,color:SUB,fontFamily:"var(--font-mono)",lineHeight:1.4}}>{q.ref}</span></div>}
           {!q.ref&&<div style={{height:16}} />}
+
+          {extraTop}
 
           {q.t==='text'&&<input type="text" autoComplete={q.ac||'off'} value={data[q.id]||''} onChange={e=>setField(q.id,e.target.value)} placeholder={q.ph||'Type...'} autoFocus onKeyDown={e=>{if(e.key==='Enter'&&data[q.id])goNext()}} style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:17,fontFamily:'inherit',fontWeight:500,outline:'none',boxSizing:'border-box'}} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />}
           {q.t==='num'&&(() => {
@@ -2583,11 +2632,49 @@ export default function MobileApp() {
             <TactileButton variant="primary" fullWidth size="lg" onClick={()=>{setCalWarning(null);setDqi(Math.max(0, dtVis.findIndex(q=>q.id==='ps_inst_iaq')));setView('details')}}>
               Add instrument data
             </TactileButton>
+            {savedInstruments.length > 0 && (
+              <TactileButton variant="secondary" fullWidth size="lg" onClick={()=>{setCalWarning(null);setInstPickerOpen(true)}}>
+                Use a saved instrument
+              </TactileButton>
+            )}
             <TactileButton variant="ghost" fullWidth onClick={()=>{setCalWarning(null);finishAssessment(true)}}>
               Continue without
             </TactileButton>
           </div>
           <div style={{textAlign:'center',marginTop:12,fontSize:10,color:DIM,lineHeight:1.5}}>Instrument metadata strengthens OSHA defensibility and professional credibility of assessment findings.</div>
+        </BottomSheet>
+      )}
+
+      {instPickerOpen && (
+        <BottomSheet
+          title="Use a saved instrument"
+          onClose={()=>setInstPickerOpen(false)}
+          maxWidth={420}
+          ariaLabel="Pick a saved instrument"
+        >
+          <div style={{...V3.T.bodyDim, lineHeight:1.6, margin:'4px 0 16px'}}>
+            Pulls make/model, serial, and last-cal date from your profile. The
+            calibration status is mapped automatically — confirm it on the
+            instrument step before finalizing.
+          </div>
+          {savedInstruments.length === 0 ? (
+            <div style={{...GLASS.subtle, padding:'16px', borderRadius:RADII.md, ...V3.T.captionDim, textAlign:'center'}}>
+              No saved instruments yet. Add them in Settings → Instruments.
+            </div>
+          ) : (
+            <div style={{display:'flex',flexDirection:'column',gap:8}}>
+              {savedInstruments.map(inst => (
+                <button key={inst.id} onClick={()=>pickInstrument(inst)} style={{width:'100%',textAlign:'left',padding:'14px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:RADII.md,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:12,WebkitTapHighlightColor:'transparent'}}>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{...V3.T.bodyStrong, overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{inst.make || inst.nickname || 'Instrument'}</div>
+                    <div style={V3.T.captionDim}>{inst.serial ? `S/N ${inst.serial}` : 'No serial'}{inst.lastCalDate ? ` · Cal ${inst.lastCalDate}` : ' · No cal date'}</div>
+                  </div>
+                  {isOutOfCal(inst) && <span style={{fontSize:10,fontWeight:700,color:WARN,padding:'2px 8px',borderRadius:4,background:`color-mix(in srgb, var(--warn) 12%, transparent)`,border:`1px solid color-mix(in srgb, var(--warn) 30%, transparent)`,letterSpacing:'0.3px',flexShrink:0}}>OVERDUE</span>}
+                  <span style={{color:V3.TEXT_TERTIARY,fontSize:13,flexShrink:0}}>›</span>
+                </button>
+              ))}
+            </div>
+          )}
         </BottomSheet>
       )}
 
@@ -3250,7 +3337,14 @@ export default function MobileApp() {
           {renderQuestion(zcq,zData,setZF,zqi,zVis,()=>{if(zqi<zVis.length-1)setZqi(zqi+1)},()=>{if(zqi>0)setZqi(zqi-1)},()=>{setZonePrompt(true)},'Complete Zone ✓',zSecs)}
         </div>}
 
-        {view==='details'&&dtcq&&renderQuestion(dtcq,mergedData,setQSField,dqi,dtVis,()=>{if(dqi<dtVis.length-1)setDqi(dqi+1)},()=>{if(dqi>0)setDqi(dqi-1)},finishDetails,'Done ✓',dtSecs)}
+        {view==='details'&&dtcq&&renderQuestion(dtcq,mergedData,setQSField,dqi,dtVis,()=>{if(dqi<dtVis.length-1)setDqi(dqi+1)},()=>{if(dqi>0)setDqi(dqi-1)},finishDetails,'Done ✓',dtSecs,
+          dtcq.id==='ps_inst_iaq' && savedInstruments.length>0 ? (
+            <button onClick={()=>setInstPickerOpen(true)} style={{width:'100%',padding:'12px 16px',marginBottom:16,background:mix('accent',6),border:`1px solid ${mix('accent',18)}`,borderRadius:14,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:10,fontFamily:'inherit',WebkitTapHighlightColor:'transparent'}}>
+              <I n="gear" s={16} c={ACCENT} w={1.8} />
+              <span style={{flex:1,...V3.T.bodyStrong,color:ACCENT}}>Use a saved instrument</span>
+              <span style={V3.T.captionDim}>{savedInstruments.length}</span>
+            </button>
+          ) : null)}
 
         {(view==='results'||view==='report')&&renderResults(view==='report')}
 
