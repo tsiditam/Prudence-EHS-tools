@@ -36,6 +36,7 @@ import TactileButton from './ui/TactileButton'
 import BottomSheet from './ui/BottomSheet'
 import Loading from './Loading'
 import ScoreRing from './ScoreRing'
+import CountUp from './ui/CountUp'
 import PhotoCapture from './PhotoCapture'
 import ProfileAvatar from './ProfileAvatar'
 import CollaboratorsBar from './CollaboratorsBar'
@@ -1370,7 +1371,19 @@ export default function MobileApp() {
     })()
 
     return (
-      <div style={{paddingTop:20,paddingBottom:120}}>
+      <div style={{paddingTop:20,paddingBottom:120,position:'relative',isolation:'isolate'}}>
+        {/* Very-low-intensity airflow gradient behind the results — a
+            calm "moving air" ambience for the instrument-panel feel.
+            Masked to fade out before content, pointer-transparent, and
+            disabled under prefers-reduced-motion. */}
+        <div className="fa-airflow" aria-hidden="true" style={{
+          position:'absolute', top:0, left:0, right:0, height:440, zIndex:0, pointerEvents:'none',
+          background:'radial-gradient(60% 50% at 50% 0%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 70%)',
+          backgroundSize:'160% 160%', backgroundRepeat:'no-repeat',
+          maskImage:'linear-gradient(180deg, #000 0%, #000 40%, transparent 100%)',
+          WebkitMaskImage:'linear-gradient(180deg, #000 0%, #000 40%, transparent 100%)',
+        }} />
+        <div style={{position:'relative', zIndex:1}}>
 
         {/* ── Building Header — facility name + address only. The
             meta strip (assessor name · date · status pill) and the
@@ -1853,7 +1866,7 @@ export default function MobileApp() {
                       </div>
                       {isTablet && <div style={{...V3.N.md, color:V3.TEXT_SECONDARY}}>{findingCount}</div>}
                       <div style={{textAlign:'right'}}>
-                        <span style={{...V3.N.md, color:z.rc}}>{z.tot}</span>
+                        <span style={{...V3.N.md, color:z.rc}}><CountUp value={z.tot} /></span>
                         <span style={V3.N.sm}>/100</span>
                       </div>
                       <div style={{textAlign:'right',display:'flex',justifyContent:'flex-end',alignItems:'center',gap:8}}>
@@ -1873,7 +1886,7 @@ export default function MobileApp() {
                 <div style={V3.T.micro}>Detailed findings</div>
                 <div style={V3.T.captionDim}>· {zs.zoneName}</div>
               </div>
-              <div style={{display:isTablet?'grid':'flex',gridTemplateColumns:isTablet?'1fr 1fr':'none',flexDirection:'column',gap:10}}>
+              <div key={selZone} className="fa-zone-in" style={{display:isTablet?'grid':'flex',gridTemplateColumns:isTablet?'1fr 1fr':'none',flexDirection:'column',gap:10}}>
                 <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 16px',background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.md}}>
                   <div style={{...V3.T.bodyStrong}}>{zs.zoneName}</div>
                   {userMode === 'fm' ? (
@@ -1909,7 +1922,7 @@ export default function MobileApp() {
                   <span style={V3.pill(fmColor)}>{cat.s===null?'No data':fmLabel}</span>
                 ) : (
                   <div style={{display:'flex',alignItems:'baseline',gap:6}}>
-                    <span style={{...V3.N.md, color:bc, fontSize:15}}>{cat.s}<span style={{color:V3.TEXT_TERTIARY, fontWeight:500}}>/{cat.mx}</span></span>
+                    <span style={{...V3.N.md, color:bc, fontSize:15}}><CountUp value={cat.s} /><span style={{color:V3.TEXT_TERTIARY, fontWeight:500}}>/{cat.mx}</span></span>
                     <span style={V3.T.captionDim}>· {pctLabel}</span>
                   </div>
                 )}
@@ -2152,6 +2165,7 @@ export default function MobileApp() {
               Continue Assessment button at the top of the hero is the
               right affordance for picking up where they left off. */}
         </div>}
+        </div>
       </div>
     )
   }
@@ -3656,6 +3670,17 @@ export default function MobileApp() {
                       FieldAssistant sheet is open. */}
                   <div style={{position:'absolute',top:0,left:'20%',right:'20%',height:2,background:isActive?'var(--accent)':'transparent',borderRadius:'0 0 2px 2px',transition:'background 160ms ease'}} />
                   <div style={{position:'relative',display:'flex'}}>
+                    {/* Ambient breathing glow behind the AI tab so the
+                        assistant reads as "alive" / inviting. Sits behind
+                        the icon, pointer-transparent; calms under
+                        prefers-reduced-motion (static soft glow). */}
+                    {isJasper && (
+                      <span className="fa-breathe" aria-hidden="true" style={{
+                        position:'absolute', top:'50%', left:'50%', width:34, height:34,
+                        marginTop:-17, marginLeft:-17, borderRadius:'50%', pointerEvents:'none',
+                        background:'radial-gradient(circle, color-mix(in srgb, var(--accent) 42%, transparent), transparent 70%)',
+                      }} />
+                    )}
                     {isJasper ? (
                       <JasperRobotIcon size={22} color={isActive ? 'var(--accent)' : V3.TEXT_TERTIARY} />
                     ) : (
@@ -3786,6 +3811,21 @@ export default function MobileApp() {
         @keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
         @keyframes spin{to{transform:rotate(360deg);}}
         @keyframes milestoneIn{from{opacity:0;transform:scale(.85) translateY(20px);}to{opacity:1;transform:scale(1) translateY(0);}}
+        /* Motion polish — "alive" ambience. faZoneIn: the focused-zone
+           drilldown expands in when you open a zone. faBreathe: the AI
+           tab's ambient glow. faDrift: a very-low-intensity airflow
+           gradient behind the results. All disabled under reduced-motion. */
+        @keyframes faZoneIn{from{opacity:0;transform:translateY(8px) scale(.995);}to{opacity:1;transform:translateY(0) scale(1);}}
+        @keyframes faBreathe{0%,100%{opacity:.22;transform:scale(.82);}50%{opacity:.55;transform:scale(1.12);}}
+        @keyframes faDrift{0%{background-position:38% 0%;}50%{background-position:62% 14%;}100%{background-position:38% 0%;}}
+        .fa-zone-in{animation:faZoneIn .26s cubic-bezier(.22,1,.36,1) both;}
+        .fa-breathe{animation:faBreathe 3.6s ease-in-out infinite;}
+        .fa-airflow{animation:faDrift 22s ease-in-out infinite;}
+        @media (prefers-reduced-motion: reduce){
+          .fa-zone-in{animation:none;}
+          .fa-breathe{animation:none;opacity:.32;}
+          .fa-airflow{animation:none;}
+        }
         *{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent;}
         button{font-family:inherit;-webkit-tap-highlight-color:transparent;}
         input::placeholder,textarea::placeholder{color:#525A6A;}
