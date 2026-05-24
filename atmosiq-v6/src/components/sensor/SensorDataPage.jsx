@@ -17,9 +17,13 @@ import * as V3 from '../../styles/tokens'
 import { I } from '../Icons'
 import GlassCard from '../ui/GlassCard'
 import TactileButton from '../ui/TactileButton'
-import { parseSensorCsv, SENSOR_PARAMS } from '../../utils/sensorParser'
+import { parseSensorRows, SENSOR_PARAMS } from '../../utils/sensorParser'
+import { splitCsvLine } from '../../utils/labResultsParser'
+import { xlsxToRows } from '../../utils/sensorXlsx'
 import { GRAPH_DEFS, MultiParameterChart, LIGHT_PALETTE, DARK_PALETTE } from './SensorCharts'
 import dayjs from 'dayjs'
+
+const csvToRows = (text) => text.split(/\r\n?|\n/).filter((l) => l.trim().length > 0).map(splitCsvLine)
 
 // Charts pass resolved hex (Recharts emits SVG attributes where var()
 // won't resolve), so pick the palette from the live theme.
@@ -37,7 +41,7 @@ export default function SensorDataPage({ value, onChange, onBack }) {
   const fileRef = useRef(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
-  const [csvText, setCsvText] = useState(null) // kept for re-mapping this session
+  const [sourceRows, setSourceRows] = useState(null) // kept for re-mapping this session
   const [mapOpen, setMapOpen] = useState(false)
   const data = value || null
 
@@ -46,14 +50,16 @@ export default function SensorDataPage({ value, onChange, onBack }) {
     if (e.target) e.target.value = ''
     if (!file) return
     setError(null)
-    if (!/\.csv$/i.test(file.name)) { setError('Please upload a .csv logger export. (XLSX support is coming.)'); return }
+    const isCsv = /\.csv$/i.test(file.name)
+    const isXlsx = /\.xlsx$/i.test(file.name)
+    if (!isCsv && !isXlsx) { setError('Please upload a .csv or .xlsx logger export.'); return }
     if (file.size > MAX_FILE_BYTES) { setError('File is larger than 8 MB. Trim the export or split it.'); return }
     setBusy(true)
     try {
-      const text = await file.text()
-      const parsed = parseSensorCsv(text, { fileName: file.name })
+      const rows = isXlsx ? await xlsxToRows(file) : csvToRows(await file.text())
+      const parsed = parseSensorRows(rows, { fileName: file.name })
       if (!parsed) { setError('Could not find a timestamp + parameter columns in that file. Check the export or adjust the mapping.'); setBusy(false); return }
-      setCsvText(text)
+      setSourceRows(rows)
       onChange({ ...parsed, graphs: {} })
     } catch (err) {
       setError((err && err.message) || 'Could not read that file.')
@@ -62,8 +68,8 @@ export default function SensorDataPage({ value, onChange, onBack }) {
   }
 
   const reparse = (mapping) => {
-    if (!csvText) return
-    const parsed = parseSensorCsv(csvText, { fileName: data?.fileName, mapping })
+    if (!sourceRows) return
+    const parsed = parseSensorRows(sourceRows, { fileName: data?.fileName, mapping })
     if (parsed) onChange({ ...parsed, mapping, graphs: data?.graphs || {} })
   }
 
@@ -71,7 +77,7 @@ export default function SensorDataPage({ value, onChange, onBack }) {
     onChange({ ...data, graphs: { ...(data.graphs || {}), [id]: { ...(data.graphs?.[id] || {}), ...patch } } })
   }
 
-  const clear = () => { setCsvText(null); setError(null); onChange(null) }
+  const clear = () => { setSourceRows(null); setError(null); onChange(null) }
 
   const graphs = data ? GRAPH_DEFS.filter((g) => g.needs(data.params)) : []
   const includedCount = data ? graphs.filter((g) => data.graphs?.[g.id]?.include).length : 0
@@ -98,13 +104,13 @@ export default function SensorDataPage({ value, onChange, onBack }) {
           </div>
           <div style={{ ...V3.T.h3, marginBottom: 6 }}>Upload Logger Data</div>
           <div style={{ ...V3.T.bodyDim, maxWidth: 460, margin: '0 auto 18px' }}>
-            CSV exports from TSI Q-Trak, HOBO, Aeroqual, GrayWolf, Airthings, and most loggers. AtmosFlow detects timestamp, CO₂, temperature, RH, PM, TVOC and CO columns automatically.
+            CSV or XLSX exports from TSI Q-Trak, HOBO, Aeroqual, GrayWolf, Airthings, and most loggers. AtmosFlow detects timestamp, CO₂, temperature, RH, PM, TVOC and CO columns automatically.
           </div>
           {error && <div style={{ ...errBox, marginBottom: 14 }}>{error}</div>}
           <TactileButton variant="primary" size="lg" pill disabled={busy} onClick={() => fileRef.current?.click()} icon={<I n="upload" s={15} c="var(--on-accent-fill)" w={2} />}>
             {busy ? 'Reading…' : 'Upload Logger Data'}
           </TactileButton>
-          <input ref={fileRef} type="file" accept=".csv,text/csv" onChange={onPick} style={{ display: 'none' }} aria-hidden="true" />
+          <input ref={fileRef} type="file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={onPick} style={{ display: 'none' }} aria-hidden="true" />
         </GlassCard>
       )}
 
@@ -119,7 +125,7 @@ export default function SensorDataPage({ value, onChange, onBack }) {
                 <div style={{ ...V3.T.captionDim, marginTop: 2 }}>{fmtRange(data.summary.start, data.summary.end)}</div>
               </div>
               <button onClick={() => fileRef.current?.click()} style={ghostBtn}>Replace</button>
-              <input ref={fileRef} type="file" accept=".csv,text/csv" onChange={onPick} style={{ display: 'none' }} aria-hidden="true" />
+              <input ref={fileRef} type="file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={onPick} style={{ display: 'none' }} aria-hidden="true" />
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10, marginTop: 14 }}>
               <Stat label="Readings" value={data.summary.count.toLocaleString()} />
@@ -136,7 +142,7 @@ export default function SensorDataPage({ value, onChange, onBack }) {
             <button onClick={() => setMapOpen((v) => !v)} style={{ ...ghostBtn, marginTop: 14, width: '100%', justifyContent: 'center' }}>
               {mapOpen ? 'Hide column mapping' : 'Adjust column mapping'}
             </button>
-            {mapOpen && csvText && <MappingPanel columns={data.columns} onApply={(m) => { reparse(m); setMapOpen(false) }} />}
+            {mapOpen && sourceRows && <MappingPanel columns={data.columns} onApply={(m) => { reparse(m); setMapOpen(false) }} />}
           </GlassCard>
 
           {/* Data quality */}
