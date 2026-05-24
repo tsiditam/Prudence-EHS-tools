@@ -36,6 +36,7 @@ import TactileButton from './ui/TactileButton'
 import BottomSheet from './ui/BottomSheet'
 import Loading from './Loading'
 import ScoreRing from './ScoreRing'
+import CountUp from './ui/CountUp'
 import PhotoCapture from './PhotoCapture'
 import ProfileAvatar from './ProfileAvatar'
 import CollaboratorsBar from './CollaboratorsBar'
@@ -1837,7 +1838,7 @@ export default function MobileApp() {
                       </div>
                       {isTablet && <div style={{...V3.N.md, color:V3.TEXT_SECONDARY}}>{findingCount}</div>}
                       <div style={{textAlign:'right'}}>
-                        <span style={{...V3.N.md, color:z.rc}}>{z.tot}</span>
+                        <span style={{...V3.N.md, color:z.rc}}><CountUp value={z.tot} /></span>
                         <span style={V3.N.sm}>/100</span>
                       </div>
                       <div style={{textAlign:'right',display:'flex',justifyContent:'flex-end',alignItems:'center',gap:8}}>
@@ -1893,7 +1894,7 @@ export default function MobileApp() {
                   <span style={V3.pill(fmColor)}>{cat.s===null?'No data':fmLabel}</span>
                 ) : (
                   <div style={{display:'flex',alignItems:'baseline',gap:6}}>
-                    <span style={{...V3.N.md, color:bc, fontSize:15}}>{cat.s}<span style={{color:V3.TEXT_TERTIARY, fontWeight:500}}>/{cat.mx}</span></span>
+                    <span style={{...V3.N.md, color:bc, fontSize:15}}><CountUp value={cat.s} /><span style={{color:V3.TEXT_TERTIARY, fontWeight:500}}>/{cat.mx}</span></span>
                     <span style={V3.T.captionDim}>· {pctLabel}</span>
                   </div>
                 )}
