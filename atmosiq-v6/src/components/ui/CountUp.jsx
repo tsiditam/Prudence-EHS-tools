@@ -38,16 +38,21 @@ export function useCountUp(value, { duration = 800 } = {}) {
     if (duration <= 0 || prefersReducedMotion()) { setDisplay(value); fromRef.current = value; return undefined }
     const from = isNum(fromRef.current) ? fromRef.current : 0
     let start = null
+    const settle = () => { setDisplay(value); fromRef.current = value }
     const tick = (ts) => {
       if (start == null) start = ts
       const p = Math.min((ts - start) / duration, 1)
       const eased = 1 - Math.pow(1 - p, 3)
-      setDisplay(from + (value - from) * eased)
-      if (p < 1) { rafRef.current = requestAnimationFrame(tick) }
-      else { fromRef.current = value }
+      if (p < 1) { setDisplay(from + (value - from) * eased); rafRef.current = requestAnimationFrame(tick) }
+      else { settle() }
     }
     rafRef.current = requestAnimationFrame(tick)
-    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }
+    // Failsafe: requestAnimationFrame is throttled or paused on mobile Safari
+    // during scroll, view transitions, and when the tab is backgrounded. If
+    // frames stop firing mid-animation the number freezes at 0 or a stale
+    // value — so guarantee the final value lands on a plain timer regardless.
+    const failsafe = setTimeout(settle, duration + 100)
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); clearTimeout(failsafe) }
   }, [value, duration])
 
   return display
