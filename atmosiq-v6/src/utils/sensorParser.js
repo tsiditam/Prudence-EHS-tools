@@ -79,6 +79,13 @@ function parseTimestamp(v) {
     const d = dayjs(s, f, true)
     if (d.isValid()) return d.valueOf()
   }
+  // Excel date serial (days since 1899-12-30, fraction = time of day).
+  // XLSX stores dates as bare numbers; serials for ~1954–2120 land in
+  // 20000–80000, distinct from the 10/13-digit epoch forms above.
+  if (/^\d{4,6}(\.\d+)?$/.test(s)) {
+    const n = Number(s)
+    if (n >= 20000 && n <= 80000) return Math.round((n - 25569) * 86400000)
+  }
   const loose = dayjs(s)
   return loose.isValid() ? loose.valueOf() : null
 }
@@ -106,6 +113,31 @@ export function downsample(points, maxPoints = 800) {
   return out
 }
 
+// Scale each selected parameter to 0–100% of its own observed range, for
+// a shape-comparison chart where parameters of different magnitudes (CO₂
+// in thousands vs RH in tens) can be read together. Actual values are
+// preserved on each point (key `<param>`) so the tooltip shows real units;
+// only the `n_<param>` keys are normalized. Returns { data, ranges }.
+export function normalizeForCompare(points, params) {
+  const list = Array.isArray(params) ? params : []
+  const ranges = {}
+  list.forEach((p) => {
+    const vals = points.map((pt) => pt[p]).filter((v) => v != null)
+    ranges[p] = vals.length ? { min: Math.min(...vals), max: Math.max(...vals) } : { min: 0, max: 1 }
+  })
+  const data = points.map((pt) => {
+    const o = { t: pt.t }
+    list.forEach((p) => {
+      o[p] = pt[p] ?? null
+      const r = ranges[p]
+      const span = r.max - r.min
+      o['n_' + p] = pt[p] == null ? null : (span ? ((pt[p] - r.min) / span) * 100 : 50)
+    })
+    return o
+  })
+  return { data, ranges }
+}
+
 /**
  * Parse sensor CSV text. `mapping` optionally overrides auto-detection:
  *   { [columnIndex]: { role, param, unit } }
@@ -113,11 +145,21 @@ export function downsample(points, maxPoints = 800) {
  */
 export function parseSensorCsv(csvText, opts = {}) {
   if (typeof csvText !== 'string' || !csvText.trim()) return null
-  const maxPoints = opts.maxPoints || 800
   const lines = csvText.split(/\r\n?|\n/).filter((l) => l.trim().length > 0)
   if (lines.length < 2) return null
+  return parseSensorRows(lines.map(splitCsvLine), opts)
+}
 
-  const headers = splitCsvLine(lines[0])
+/**
+ * Core parser over a 2D array of rows (rows[0] = headers). Shared by the
+ * CSV path and the XLSX path (sensorXlsx.js) so both produce identical
+ * series + summary + quality output.
+ */
+export function parseSensorRows(rows, opts = {}) {
+  if (!Array.isArray(rows) || rows.length < 2) return null
+  const maxPoints = opts.maxPoints || 800
+
+  const headers = rows[0]
   // Per-column classification (mapping override wins).
   const cols = headers.map((h, i) => (opts.mapping && opts.mapping[i]) || classifyHeader(h))
   const tsIdx = cols.findIndex((c) => c.role === 'timestamp')
@@ -134,9 +176,9 @@ export function parseSensorCsv(csvText, opts = {}) {
 
   const rawPoints = []
   let emptyRows = 0
-  for (let r = 1; r < lines.length; r++) {
-    const cells = splitCsvLine(lines[r])
-    if (!cells.length || cells.every((x) => !String(x).trim())) { emptyRows++; continue }
+  for (let r = 1; r < rows.length; r++) {
+    const cells = rows[r] || []
+    if (!cells.length || cells.every((x) => !String(x ?? '').trim())) { emptyRows++; continue }
     const t = tsIdx >= 0 ? parseTimestamp(cells[tsIdx]) : (r - 1)
     const pt = { t, _i: r - 1 }
     let any = false

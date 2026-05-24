@@ -17,9 +17,13 @@ import * as V3 from '../../styles/tokens'
 import { I } from '../Icons'
 import GlassCard from '../ui/GlassCard'
 import TactileButton from '../ui/TactileButton'
-import { parseSensorCsv, SENSOR_PARAMS } from '../../utils/sensorParser'
-import { GRAPH_DEFS, LIGHT_PALETTE, DARK_PALETTE } from './SensorCharts'
+import { parseSensorRows, SENSOR_PARAMS } from '../../utils/sensorParser'
+import { splitCsvLine } from '../../utils/labResultsParser'
+import { xlsxToRows } from '../../utils/sensorXlsx'
+import { GRAPH_DEFS, MultiParameterChart, LIGHT_PALETTE, DARK_PALETTE } from './SensorCharts'
 import dayjs from 'dayjs'
+
+const csvToRows = (text) => text.split(/\r\n?|\n/).filter((l) => l.trim().length > 0).map(splitCsvLine)
 
 // Charts pass resolved hex (Recharts emits SVG attributes where var()
 // won't resolve), so pick the palette from the live theme.
@@ -37,7 +41,7 @@ export default function SensorDataPage({ value, onChange, onBack }) {
   const fileRef = useRef(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
-  const [csvText, setCsvText] = useState(null) // kept for re-mapping this session
+  const [sourceRows, setSourceRows] = useState(null) // kept for re-mapping this session
   const [mapOpen, setMapOpen] = useState(false)
   const data = value || null
 
@@ -46,14 +50,16 @@ export default function SensorDataPage({ value, onChange, onBack }) {
     if (e.target) e.target.value = ''
     if (!file) return
     setError(null)
-    if (!/\.csv$/i.test(file.name)) { setError('Please upload a .csv logger export. (XLSX support is coming.)'); return }
+    const isCsv = /\.csv$/i.test(file.name)
+    const isXlsx = /\.xlsx$/i.test(file.name)
+    if (!isCsv && !isXlsx) { setError('Please upload a .csv or .xlsx logger export.'); return }
     if (file.size > MAX_FILE_BYTES) { setError('File is larger than 8 MB. Trim the export or split it.'); return }
     setBusy(true)
     try {
-      const text = await file.text()
-      const parsed = parseSensorCsv(text, { fileName: file.name })
+      const rows = isXlsx ? await xlsxToRows(file) : csvToRows(await file.text())
+      const parsed = parseSensorRows(rows, { fileName: file.name })
       if (!parsed) { setError('Could not find a timestamp + parameter columns in that file. Check the export or adjust the mapping.'); setBusy(false); return }
-      setCsvText(text)
+      setSourceRows(rows)
       onChange({ ...parsed, graphs: {} })
     } catch (err) {
       setError((err && err.message) || 'Could not read that file.')
@@ -62,8 +68,8 @@ export default function SensorDataPage({ value, onChange, onBack }) {
   }
 
   const reparse = (mapping) => {
-    if (!csvText) return
-    const parsed = parseSensorCsv(csvText, { fileName: data?.fileName, mapping })
+    if (!sourceRows) return
+    const parsed = parseSensorRows(sourceRows, { fileName: data?.fileName, mapping })
     if (parsed) onChange({ ...parsed, mapping, graphs: data?.graphs || {} })
   }
 
@@ -71,7 +77,7 @@ export default function SensorDataPage({ value, onChange, onBack }) {
     onChange({ ...data, graphs: { ...(data.graphs || {}), [id]: { ...(data.graphs?.[id] || {}), ...patch } } })
   }
 
-  const clear = () => { setCsvText(null); setError(null); onChange(null) }
+  const clear = () => { setSourceRows(null); setError(null); onChange(null) }
 
   const graphs = data ? GRAPH_DEFS.filter((g) => g.needs(data.params)) : []
   const includedCount = data ? graphs.filter((g) => data.graphs?.[g.id]?.include).length : 0
@@ -98,13 +104,13 @@ export default function SensorDataPage({ value, onChange, onBack }) {
           </div>
           <div style={{ ...V3.T.h3, marginBottom: 6 }}>Upload Logger Data</div>
           <div style={{ ...V3.T.bodyDim, maxWidth: 460, margin: '0 auto 18px' }}>
-            CSV exports from TSI Q-Trak, HOBO, Aeroqual, GrayWolf, Airthings, and most loggers. AtmosFlow detects timestamp, CO₂, temperature, RH, PM, TVOC and CO columns automatically.
+            CSV or XLSX exports from TSI Q-Trak, HOBO, Aeroqual, GrayWolf, Airthings, and most loggers. AtmosFlow detects timestamp, CO₂, temperature, RH, PM, TVOC and CO columns automatically.
           </div>
           {error && <div style={{ ...errBox, marginBottom: 14 }}>{error}</div>}
           <TactileButton variant="primary" size="lg" pill disabled={busy} onClick={() => fileRef.current?.click()} icon={<I n="upload" s={15} c="var(--on-accent-fill)" w={2} />}>
             {busy ? 'Reading…' : 'Upload Logger Data'}
           </TactileButton>
-          <input ref={fileRef} type="file" accept=".csv,text/csv" onChange={onPick} style={{ display: 'none' }} aria-hidden="true" />
+          <input ref={fileRef} type="file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={onPick} style={{ display: 'none' }} aria-hidden="true" />
         </GlassCard>
       )}
 
@@ -119,7 +125,7 @@ export default function SensorDataPage({ value, onChange, onBack }) {
                 <div style={{ ...V3.T.captionDim, marginTop: 2 }}>{fmtRange(data.summary.start, data.summary.end)}</div>
               </div>
               <button onClick={() => fileRef.current?.click()} style={ghostBtn}>Replace</button>
-              <input ref={fileRef} type="file" accept=".csv,text/csv" onChange={onPick} style={{ display: 'none' }} aria-hidden="true" />
+              <input ref={fileRef} type="file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={onPick} style={{ display: 'none' }} aria-hidden="true" />
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10, marginTop: 14 }}>
               <Stat label="Readings" value={data.summary.count.toLocaleString()} />
@@ -136,7 +142,7 @@ export default function SensorDataPage({ value, onChange, onBack }) {
             <button onClick={() => setMapOpen((v) => !v)} style={{ ...ghostBtn, marginTop: 14, width: '100%', justifyContent: 'center' }}>
               {mapOpen ? 'Hide column mapping' : 'Adjust column mapping'}
             </button>
-            {mapOpen && csvText && <MappingPanel columns={data.columns} onApply={(m) => { reparse(m); setMapOpen(false) }} />}
+            {mapOpen && sourceRows && <MappingPanel columns={data.columns} onApply={(m) => { reparse(m); setMapOpen(false) }} />}
           </GlassCard>
 
           {/* Data quality */}
@@ -173,6 +179,7 @@ export default function SensorDataPage({ value, onChange, onBack }) {
               ))}
             </div>
           )}
+          {data.params.length >= 2 && <MultiParamSection data={data} state={data.graphs?.multi || {}} onState={(patch) => setGraph('multi', patch)} />}
           <button onClick={clear} style={{ ...ghostBtn, marginTop: 18, color: V3.DANGER, borderColor: `color-mix(in srgb, var(--danger) 30%, transparent)` }}>Remove sensor data</button>
         </>
       )}
@@ -182,9 +189,42 @@ export default function SensorDataPage({ value, onChange, onBack }) {
 
 const CAP_W = 680, CAP_H = 300
 
-function GraphCard({ def, data, state, onState }) {
+// Compare up to 3 detected parameters on one normalized timeline. Changing
+// the selection invalidates any captured image (so the report figure always
+// matches the shown selection).
+function MultiParamSection({ data, state, onState }) {
+  const selected = (state.params && state.params.length) ? state.params : data.params.slice(0, Math.min(3, data.params.length))
+  const labelOf = (k) => SENSOR_PARAMS.find((s) => s.key === k)?.label || k
+  const toggleParam = (k) => {
+    const has = selected.includes(k)
+    if (!has && selected.length >= 3) return
+    const next = has ? selected.filter((x) => x !== k) : [...selected, k]
+    if (!next.length) return
+    onState({ params: next, include: false, imageDataUrl: null })
+  }
+  const def = { id: 'multi', title: 'Multi-Parameter Comparison', series: selected.map(labelOf), Chart: MultiParameterChart }
+  return (
+    <div style={{ marginTop: 18 }}>
+      <div style={{ ...V3.T.micro, margin: '0 2px 8px' }}>Compare parameters · pick up to 3</div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+        {data.params.map((k) => {
+          const on = selected.includes(k)
+          return (
+            <button key={k} onClick={() => toggleParam(k)} aria-pressed={on}
+              style={{ ...chip, cursor: 'pointer', color: on ? ACCENT : SUB, borderColor: on ? ACCENT : BORDER, background: on ? 'color-mix(in srgb, var(--accent) 8%, transparent)' : 'var(--surface)' }}>
+              {on ? '✓ ' : ''}{labelOf(k)}
+            </button>
+          )
+        })}
+      </div>
+      <GraphCard def={def} data={data} state={state} onState={onState} chartProps={{ params: selected }} />
+    </div>
+  )
+}
+
+function GraphCard({ def, data, state, onState, chartProps = {} }) {
   const hiddenRef = useRef(null)
-  const [capture, setCapture] = useState(null) // null | 'include' | 'export'
+  const [capture, setCapture] = useState(null) // null | 'include' | 'export' | 'export-svg'
   const [busy, setBusy] = useState(false)
   const { Chart } = def
   const pal = currentPalette()
@@ -196,19 +236,28 @@ function GraphCard({ def, data, state, onState }) {
   useEffect(() => {
     if (!capture) return undefined
     let cancelled = false
+    const baseName = `${(data.fileName || 'sensor').replace(/\.(csv|xlsx)$/i, '')}-${def.id}`
     const id = requestAnimationFrame(() => requestAnimationFrame(async () => {
       try {
-        const html2canvas = (await import('html2canvas')).default
-        const node = hiddenRef.current
-        const canvas = await html2canvas(node, { backgroundColor: '#FFFFFF', scale: 2, logging: false })
-        const png = canvas.toDataURL('image/png')
-        if (cancelled) return
-        if (capture === 'include') onState({ include: true, imageDataUrl: png, title: def.title, series: def.series })
-        else if (capture === 'export') {
-          const a = document.createElement('a')
-          a.href = png
-          a.download = `${(data.fileName || 'sensor').replace(/\.csv$/i, '')}-${def.id}.png`
-          a.click()
+        if (capture === 'export-svg') {
+          const svg = hiddenRef.current?.querySelector('svg')
+          if (svg) {
+            const clone = svg.cloneNode(true)
+            clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+            const blob = new Blob([new XMLSerializer().serializeToString(clone)], { type: 'image/svg+xml' })
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a'); a.href = url; a.download = `${baseName}.svg`; a.click()
+            setTimeout(() => URL.revokeObjectURL(url), 2000)
+          }
+        } else {
+          const html2canvas = (await import('html2canvas')).default
+          const canvas = await html2canvas(hiddenRef.current, { backgroundColor: '#FFFFFF', scale: 2, logging: false })
+          const png = canvas.toDataURL('image/png')
+          if (cancelled) return
+          if (capture === 'include') onState({ include: true, imageDataUrl: png, title: def.title, series: def.series })
+          else if (capture === 'export') {
+            const a = document.createElement('a'); a.href = png; a.download = `${baseName}.png`; a.click()
+          }
         }
       } catch { /* best-effort */ }
       if (!cancelled) { setBusy(false); setCapture(null) }
@@ -221,6 +270,7 @@ function GraphCard({ def, data, state, onState }) {
     setBusy(true); setCapture('include')
   }
   const exportPng = () => { setBusy(true); setCapture('export') }
+  const exportSvg = () => { setBusy(true); setCapture('export-svg') }
 
   return (
     <GlassCard style={{ padding: 0, overflow: 'hidden' }}>
@@ -239,7 +289,7 @@ function GraphCard({ def, data, state, onState }) {
         </label>
       </div>
       <div style={{ padding: '4px 8px 12px', background: CARD }}>
-        <Chart data={data.points} hasTs={data.hasTimestamps} units={data.units} palette={pal} />
+        <Chart data={data.points} hasTs={data.hasTimestamps} units={data.units} palette={pal} {...chartProps} />
       </div>
       <div style={{ padding: '0 18px 16px' }}>
         <textarea value={state.caption || ''} onChange={(e) => onState({ caption: e.target.value })} placeholder="Caption (e.g. CO₂ rose during occupied periods and declined after apparent occupancy reduction — interpret with site observations)."
@@ -248,11 +298,14 @@ function GraphCard({ def, data, state, onState }) {
           <button onClick={exportPng} disabled={busy} style={ghostBtn}>
             <I n="download" s={14} c={SUB} w={1.8} /> {busy && capture === 'export' ? 'Exporting…' : 'Export PNG'}
           </button>
+          <button onClick={exportSvg} disabled={busy} style={ghostBtn}>
+            <I n="download" s={14} c={SUB} w={1.8} /> {busy && capture === 'export-svg' ? 'Exporting…' : 'Export SVG'}
+          </button>
         </div>
       </div>
       {capture && (
         <div aria-hidden="true" ref={hiddenRef} style={{ position: 'fixed', left: -10000, top: 0, width: CAP_W, height: CAP_H, background: '#FFFFFF', padding: 8, boxSizing: 'border-box', pointerEvents: 'none' }}>
-          <Chart data={data.points} hasTs={data.hasTimestamps} units={data.units} palette={LIGHT_PALETTE} width={CAP_W - 16} height={CAP_H - 16} />
+          <Chart data={data.points} hasTs={data.hasTimestamps} units={data.units} palette={LIGHT_PALETTE} width={CAP_W - 16} height={CAP_H - 16} {...chartProps} />
         </div>
       )}
     </GlassCard>
