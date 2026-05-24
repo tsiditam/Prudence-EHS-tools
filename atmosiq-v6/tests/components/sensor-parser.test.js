@@ -3,7 +3,19 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { classifyHeader, parseSensorCsv, downsample, detectUnit, normalizeForCompare, sensorAveragesToFields } from '../../src/utils/sensorParser'
+import { classifyHeader, parseSensorCsv, downsample, detectUnit, normalizeForCompare, sensorAveragesToFields, ppbToUgm3, ugm3ToPpb } from '../../src/utils/sensorParser'
+
+describe('TVOC unit conversion helpers', () => {
+  it('round-trips ppb ↔ µg/m³ for isobutylene', () => {
+    const ug = ppbToUgm3(200, 56.11)
+    expect(Math.round(ug)).toBe(459)
+    expect(Math.round(ugm3ToPpb(ug, 56.11))).toBe(200)
+  })
+  it('guards invalid input', () => {
+    expect(ppbToUgm3(null, 56.11)).toBeNull()
+    expect(ugm3ToPpb(459, 0)).toBeNull()
+  })
+})
 
 describe('classifyHeader', () => {
   it('detects timestamp, parameters, and units', () => {

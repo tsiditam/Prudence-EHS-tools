@@ -157,6 +157,14 @@ export function ppbToUgm3(ppb, mw) {
   return (ppb * mw) / MOLAR_VOLUME_25C
 }
 
+// Inverse of ppbToUgm3 — mass concentration (µg/m³) back to ppb for a
+// reference compound. Used for ppb-equivalent display alongside the µg/m³
+// reading field, which stays the canonical (Mølhave-aligned) scored unit.
+export function ugm3ToPpb(ugm3, mw) {
+  if (ugm3 == null || !Number.isFinite(ugm3) || !Number.isFinite(mw) || mw === 0) return null
+  return (ugm3 * MOLAR_VOLUME_25C) / mw
+}
+
 // Map a logger parameter onto the per-zone reading field id (SENSOR_FIELDS)
 // it can populate. Indoor only — the outdoor fields (co2o, tfo, …) and HCHO
 // have no logger source and stay manual. TVOC is handled separately because

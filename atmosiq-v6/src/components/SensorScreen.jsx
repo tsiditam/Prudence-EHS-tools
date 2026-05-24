@@ -12,7 +12,7 @@
 
 import { useState } from 'react'
 import { SENSOR_FIELDS } from '../constants/questions'
-import { SENSOR_PARAMS, TVOC_REFERENCES, ppbToUgm3, sensorAveragesToFields } from '../utils/sensorParser'
+import { SENSOR_PARAMS, TVOC_REFERENCES, ppbToUgm3, ugm3ToPpb, sensorAveragesToFields } from '../utils/sensorParser'
 import { mix } from '../utils/theme'
 
 const paramLabel = (key) => SENSOR_PARAMS.find((p) => p.key === key)?.label || key
@@ -53,6 +53,15 @@ export default function SensorScreen({ data, onChange, sensorData, isDesktop }) 
     if (tvocIn.val === '' || !Number.isFinite(v)) return null
     const ug = ppbToUgm3(tvocIn.unit === 'ppm' ? v * 1000 : v, TVOC_REFERENCES[tvocRef].mw)
     return ug == null ? null : Math.round(ug)
+  })()
+
+  // ppb-equivalent of the µg/m³ value currently entered in the TVOC field, so
+  // ppb-native instrument users see a familiar number. µg/m³ stays canonical.
+  const tvocPpbEquiv = (() => {
+    const v = Number(data.tv)
+    if (String(data.tv ?? '').trim() === '' || !Number.isFinite(v)) return null
+    const ppb = ugm3ToPpb(v, TVOC_REFERENCES[tvocRef].mw)
+    return ppb == null ? null : Math.round(ppb)
   })()
 
   return (
@@ -99,6 +108,12 @@ export default function SensorScreen({ data, onChange, sensorData, isDesktop }) 
               <span style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: 'var(--dim)', fontFamily: 'var(--font-mono)' }}>{sf.u}</span>
             </div>
           </div>
+
+          {sf.id === 'tv' && tvocPpbEquiv != null && (
+            <div style={{ fontSize: 12, color: 'var(--dim)', fontFamily: 'var(--font-mono)', textAlign: 'right', marginTop: -4 }}>
+              ≈ {tvocPpbEquiv} ppb ({TVOC_REFERENCES[tvocRef].label.toLowerCase()}-equiv)
+            </div>
+          )}
 
           {sf.id === 'tv' && (
             <div style={{ padding: '12px 14px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10 }}>
