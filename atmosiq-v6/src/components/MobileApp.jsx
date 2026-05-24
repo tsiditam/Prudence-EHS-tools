@@ -52,6 +52,7 @@ import AuthScreen from './AuthScreen'
 import { TermsOfService, PrivacyPolicy } from './LegalScreens'
 import AdminDashboard from './AdminDashboard'
 import WelcomeScreen from './WelcomeScreen'
+import SensorDataPage from './sensor/SensorDataPage'
 import SettingsScreen from './SettingsScreen'
 import { printReport, generatePrintHTML } from './PrintReport'
 // v2.6.1 — DocxReport is a static import. Earlier `await import('./DocxReport')`
@@ -534,6 +535,9 @@ export default function MobileApp() {
   // reviewPrefill is the visible directive the sheet auto-sends on open.
   const [reviewChooserOpen, setReviewChooserOpen] = useState(false)
   const [reviewPayload, setReviewPayload] = useState(null)
+  // Sensor Data / Environmental Evidence Graphs — parsed logger series +
+  // per-graph report selections, persisted with the assessment draft.
+  const [sensorData, setSensorData] = useState(null)
   const [reviewPrefill, setReviewPrefill] = useState(null)
   const [reviewBusy, setReviewBusy] = useState(false)
   const [reviewError, setReviewError] = useState(null)
@@ -615,14 +619,14 @@ export default function MobileApp() {
     if (!['quickstart','zone','details'].includes(view) || !draftId) return
     if (saveRef.current) clearTimeout(saveRef.current)
     saveRef.current = setTimeout(async () => {
-      const draft = { id:draftId, presurvey, bldg, zones, equipment, photos, floorPlan, qsqi, dqi, curZone, zqi, ua:new Date().toISOString(), standardsManifest:STANDARDS_MANIFEST }
+      const draft = { id:draftId, presurvey, bldg, zones, equipment, photos, floorPlan, sensorData, qsqi, dqi, curZone, zqi, ua:new Date().toISOString(), standardsManifest:STANDARDS_MANIFEST }
       await STO.set(draftId, draft)
       await STO.addDraftToIndex({ id:draftId, facility:bldg.fn||'Untitled', ua:draft.ua })
       await refreshIndex()
       trackEvent('draft_saved', { draft_id: draftId, phase: view, zones: (zones||[]).length })
     }, 1200)
     return () => { if (saveRef.current) clearTimeout(saveRef.current) }
-  }, [presurvey, bldg, zones, equipment, photos, qsqi, dqi, curZone, zqi, view, draftId])
+  }, [presurvey, bldg, zones, equipment, photos, sensorData, qsqi, dqi, curZone, zqi, view, draftId])
 
   // Merge quick start data into both presurvey and bldg depending on field prefix
   const mergedData = useMemo(() => ({ ...presurvey, ...bldg }), [presurvey, bldg])
@@ -778,7 +782,7 @@ export default function MobileApp() {
     setDraftId(id)
     // Auto-fill from profile
     const psFill = profile ? Profiles.toPresurvey(profile) : {}
-    setPresurvey(psFill); setBldg({}); setQsqi(0); setDqi(0)
+    setPresurvey(psFill); setBldg({}); setQsqi(0); setDqi(0); setSensorData(null)
     setZones([{}]); setCurZone(0); setZqi(0); setPhotos({}); setEquipment([])
     setZoneScores([]); setComp(null); setOshaResult(null); setRecs(null); setNarrative(null); setSamplingPlan(null); setCausalChains([])
     setView('quickstart')
@@ -811,7 +815,7 @@ export default function MobileApp() {
     const d = await STO.get(id)
     if (!d) return
     trackEvent('draft_resumed', { draft_id: id, facility: d.bldg?.fn || d.building?.fn || '' })
-    setDraftId(d.id); setPresurvey(d.presurvey||{}); setBldg(d.bldg||d.building||{}); setZones(d.zones||[{}]); setEquipment(d.equipment||[]); setPhotos(d.photos||{}); setFloorPlan(d.floorPlan||null)
+    setDraftId(d.id); setPresurvey(d.presurvey||{}); setBldg(d.bldg||d.building||{}); setZones(d.zones||[{}]); setEquipment(d.equipment||[]); setPhotos(d.photos||{}); setFloorPlan(d.floorPlan||null); setSensorData(d.sensorData||null)
     setQsqi(d.qsqi||0); setDqi(d.dqi||0); setCurZone(d.curZone||0); setZqi(d.zqi||0)
     // Resume at the right phase
     if (!d.bldg?.fn && !d.building?.fn) setView('quickstart')
@@ -2143,6 +2147,7 @@ export default function MobileApp() {
             </div>
             <TactileButton variant="secondary" fullWidth size="lg" onClick={()=>setView('spatial')} icon={<I n="bldg" s={16} c={ACCENT} />}>Map Zones on Floor Plan</TactileButton>
             <TactileButton variant="ghost" fullWidth size="lg" onClick={()=>{setReviewError(null);setReviewChooserOpen(true)}} icon={<I n="search" s={16} c={SUB} />}>Review for discrepancies</TactileButton>
+            <TactileButton variant="secondary" fullWidth size="lg" onClick={()=>setView('sensor-data')} icon={<I n="chart" s={16} c={ACCENT} />}>Sensor Data{sensorData?.graphs && Object.values(sensorData.graphs).some(g=>g?.include)?' ✓':''}</TactileButton>
           </div>
           {/* Removed redundant "Start Assessment" CTA — the user viewing
               this screen is already inside an assessment; starting a new
@@ -3591,6 +3596,7 @@ export default function MobileApp() {
         </div>}
         {view==='trash'&&<TrashView onRecover={async(id)=>{await Backup.recover(id);await refreshIndex()}} onDelete={async(id)=>{await Backup.permanentDelete(id)}} />}
         {view==='sampling-forms'&&<SamplingFormsView profile={profile} onBack={()=>setView('dash')} />}
+        {view==='sensor-data'&&<SensorDataPage value={sensorData} onChange={setSensorData} onBack={()=>setView(comp?'results':'dash')} />}
         {view==='settings'&&<SettingsScreen profile={profile} onEditProfile={()=>{sessionStorage.setItem('aiq_welcomed','1');setWelcomeDone(true);setProfile({...profile,isNew:true});setView('dash')}} onLogout={handleLogout} onClose={()=>setView('dash')} onNavigate={(v)=>{if(v==='pricing'){setShowPricing(true)}else{setView(v)}}} adminActive={!!adminSecret} onActivateAdmin={(secret)=>{setAdminSecret(secret);setView('admin')}} />}
         {view==='tos'&&<TermsOfService onBack={()=>setView('settings')} />}
         {view==='privacy'&&<PrivacyPolicy onBack={()=>setView('settings')} />}
