@@ -21,6 +21,7 @@ import { buildAppendixB, buildFooter } from './docx/sections-appendix'
 import { buildTechnicalMetadata, buildFindingsRegister, buildCategoryScoresSummary, buildDataGapRegister, buildInstrumentLog, buildOutdoorBaseline } from './docx/sections-technical'
 import { buildClientDocx } from './docx/sections-v21client'
 import { buildLabResultsAppendix } from './docx/sections-lab-results'
+import { buildSensorGraphsAppendix } from './docx/sections-sensor'
 import { buildMethodologyCurrency } from './docx/sections-methodology-currency'
 import { legacyToAssessmentScore, deriveAssessmentMeta } from '../engine/bridge'
 import { renderClientReport } from '../engine/report/client'
@@ -144,6 +145,11 @@ async function buildConsultantDocument(ctx, data) {
   // loop in the deliverable.
   const labResultsChildren = buildLabResultsAppendix(data.labResults)
   if (labResultsChildren.length > 0) main.push(...labResultsChildren)
+
+  // Sensor Data appendix — report-ready IAQ timelines the assessor flagged
+  // for inclusion on the Sensor Data screen. No-op when none are included.
+  const sensorChildren = buildSensorGraphsAppendix(data.sensorData)
+  if (sensorChildren.length > 0) main.push(...sensorChildren)
 
   // Standards Currency section — methodology-currency layer that
   // documents bibliographic references NOT integrated into AtmosFlow's

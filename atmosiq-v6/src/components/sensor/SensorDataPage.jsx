@@ -12,14 +12,18 @@
  * qualified IAQ professional.
  */
 
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import * as V3 from '../../styles/tokens'
 import { I } from '../Icons'
 import GlassCard from '../ui/GlassCard'
 import TactileButton from '../ui/TactileButton'
-import { parseSensorCsv, SENSOR_PARAMS, classifyHeader } from '../../utils/sensorParser'
-import { GRAPH_DEFS } from './SensorCharts'
+import { parseSensorCsv, SENSOR_PARAMS } from '../../utils/sensorParser'
+import { GRAPH_DEFS, LIGHT_PALETTE, DARK_PALETTE } from './SensorCharts'
 import dayjs from 'dayjs'
+
+// Charts pass resolved hex (Recharts emits SVG attributes where var()
+// won't resolve), so pick the palette from the live theme.
+const currentPalette = () => (typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'light' ? LIGHT_PALETTE : DARK_PALETTE)
 
 const MAX_FILE_BYTES = 8 * 1024 * 1024 // 8 MB
 const TEXT = 'var(--text)', SUB = 'var(--sub)', DIM = 'var(--dim)', CARD = 'var(--card)', BORDER = 'var(--border)', ACCENT = 'var(--accent)'
@@ -176,54 +180,81 @@ export default function SensorDataPage({ value, onChange, onBack }) {
   )
 }
 
-function GraphCard({ def, data, state, onState }) {
-  const chartRef = useRef(null)
-  const [exporting, setExporting] = useState(false)
-  const { Chart } = def
+const CAP_W = 680, CAP_H = 300
 
-  const exportPng = async () => {
-    if (!chartRef.current) return
-    setExporting(true)
-    try {
-      const html2canvas = (await import('html2canvas')).default
-      const canvas = await html2canvas(chartRef.current, { backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--card') || '#111318', scale: 2, logging: false })
-      const url = canvas.toDataURL('image/png')
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `${(data.fileName || 'sensor').replace(/\.csv$/i, '')}-${def.id}.png`
-      a.click()
-    } catch { /* export is best-effort */ }
-    setExporting(false)
+function GraphCard({ def, data, state, onState }) {
+  const hiddenRef = useRef(null)
+  const [capture, setCapture] = useState(null) // null | 'include' | 'export'
+  const [busy, setBusy] = useState(false)
+  const { Chart } = def
+  const pal = currentPalette()
+
+  // Render the included/exported image from a hidden, fixed-size,
+  // LIGHT-palette copy of the chart (so the report image is white-paper
+  // ready regardless of the app theme). html2canvas reads computed styles;
+  // the resolved-hex palette captures cleanly, legend included.
+  useEffect(() => {
+    if (!capture) return undefined
+    let cancelled = false
+    const id = requestAnimationFrame(() => requestAnimationFrame(async () => {
+      try {
+        const html2canvas = (await import('html2canvas')).default
+        const node = hiddenRef.current
+        const canvas = await html2canvas(node, { backgroundColor: '#FFFFFF', scale: 2, logging: false })
+        const png = canvas.toDataURL('image/png')
+        if (cancelled) return
+        if (capture === 'include') onState({ include: true, imageDataUrl: png, title: def.title, series: def.series })
+        else if (capture === 'export') {
+          const a = document.createElement('a')
+          a.href = png
+          a.download = `${(data.fileName || 'sensor').replace(/\.csv$/i, '')}-${def.id}.png`
+          a.click()
+        }
+      } catch { /* best-effort */ }
+      if (!cancelled) { setBusy(false); setCapture(null) }
+    }))
+    return () => { cancelled = true; cancelAnimationFrame(id) }
+  }, [capture]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const toggleInclude = () => {
+    if (state.include) { onState({ include: false, imageDataUrl: null }); return }
+    setBusy(true); setCapture('include')
   }
+  const exportPng = () => { setBusy(true); setCapture('export') }
 
   return (
     <GlassCard style={{ padding: 0, overflow: 'hidden' }}>
       <div style={{ padding: '16px 18px 8px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <div style={{ minWidth: 0 }}>
           <div style={V3.T.bodyStrong}>{def.title}</div>
-          <div style={{ ...V3.T.captionDim, marginTop: 2 }}>{fmtRange(data.summary.start, data.summary.end)}</div>
+          <div style={{ ...V3.T.captionDim, marginTop: 2 }}>{fmtRange(data.summary.start, data.summary.end)}{def.series.length > 1 ? ` · ${def.series.join(' / ')}` : ''}</div>
         </div>
         <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', flexShrink: 0 }}>
-          <span style={{ ...V3.T.caption, color: state.include ? ACCENT : SUB }}>Include in report</span>
-          <span onClick={() => onState({ include: !state.include })} role="switch" aria-checked={!!state.include} aria-label="Include in report" tabIndex={0}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onState({ include: !state.include }) } }}
+          <span style={{ ...V3.T.caption, color: state.include ? ACCENT : SUB }}>{busy && capture === 'include' ? 'Preparing…' : 'Include in report'}</span>
+          <span onClick={toggleInclude} role="switch" aria-checked={!!state.include} aria-label="Include graph in report" tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleInclude() } }}
             style={{ width: 40, height: 24, borderRadius: 12, background: state.include ? ACCENT : 'var(--surface)', border: `1px solid ${state.include ? ACCENT : BORDER}`, position: 'relative', transition: 'background .2s, border-color .2s', flexShrink: 0 }}>
             <span style={{ position: 'absolute', top: 2, left: state.include ? 18 : 2, width: 18, height: 18, borderRadius: '50%', background: state.include ? 'var(--on-accent-fill)' : SUB, transition: 'left .2s' }} />
           </span>
         </label>
       </div>
-      <div ref={chartRef} style={{ padding: '4px 8px 12px', background: CARD }}>
-        <Chart data={data.points} hasTs={data.hasTimestamps} units={data.units} />
+      <div style={{ padding: '4px 8px 12px', background: CARD }}>
+        <Chart data={data.points} hasTs={data.hasTimestamps} units={data.units} palette={pal} />
       </div>
       <div style={{ padding: '0 18px 16px' }}>
         <textarea value={state.caption || ''} onChange={(e) => onState({ caption: e.target.value })} placeholder="Caption (e.g. CO₂ rose during occupied periods and declined after apparent occupancy reduction — interpret with site observations)."
           rows={2} style={{ width: '100%', padding: '10px 12px', background: 'var(--surface)', border: `1px solid ${BORDER}`, borderRadius: 10, color: TEXT, fontSize: 13, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box', resize: 'vertical', lineHeight: 1.5 }} />
         <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-          <button onClick={exportPng} disabled={exporting} style={ghostBtn}>
-            <I n="download" s={14} c={SUB} w={1.8} /> {exporting ? 'Exporting…' : 'Export PNG'}
+          <button onClick={exportPng} disabled={busy} style={ghostBtn}>
+            <I n="download" s={14} c={SUB} w={1.8} /> {busy && capture === 'export' ? 'Exporting…' : 'Export PNG'}
           </button>
         </div>
       </div>
+      {capture && (
+        <div aria-hidden="true" ref={hiddenRef} style={{ position: 'fixed', left: -10000, top: 0, width: CAP_W, height: CAP_H, background: '#FFFFFF', padding: 8, boxSizing: 'border-box', pointerEvents: 'none' }}>
+          <Chart data={data.points} hasTs={data.hasTimestamps} units={data.units} palette={LIGHT_PALETTE} width={CAP_W - 16} height={CAP_H - 16} />
+        </div>
+      )}
     </GlassCard>
   )
 }

@@ -985,7 +985,7 @@ export default function MobileApp() {
 
   const executeExport = async (format, filteredPhotos, docxType) => {
     const esc = evaluateEscalation({ zones, comp, moldResults }, [], [])
-    const reportData = { building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, escalationTriggers: esc, floorPlan, labResults: viewRpt?.labResults || null }
+    const reportData = { building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, escalationTriggers: esc, floorPlan, sensorData, labResults: viewRpt?.labResults || null }
     trackEvent('report_exported', { format: docxType || format, facility: bldg.fn || '', score: comp?.tot, zones: zones.length, has_narrative: !!narrative, photos: Object.values(filteredPhotos).flat().length })
 
     // Consultant preflight: the v2.1 engine returns a Pre-Assessment
@@ -1091,7 +1091,7 @@ export default function MobileApp() {
       })
       return out
     })()
-    const reportData = { building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, floorPlan, labResults: viewRpt?.labResults || null, ts: viewRpt?.ts }
+    const reportData = { building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, floorPlan, sensorData, labResults: viewRpt?.labResults || null, ts: viewRpt?.ts }
     let blob, fileName
     try {
       const built = await getConsultantDocxBlob(reportData)
