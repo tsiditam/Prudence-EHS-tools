@@ -115,12 +115,36 @@ describe('sensorAveragesToFields', () => {
     const r = parseSensorCsv('Timestamp,Temp (°C)\n2026-05-01 09:00,20\n2026-05-01 09:05,25')
     const { fields, details } = sensorAveragesToFields(r)
     expect(fields.tf).toBe('72.5') // mean 22.5°C → 72.5°F
-    expect(details[0].converted).toBe(true)
+    expect(details[0].note).toBe('°C→°F')
   })
 
-  it('skips TVOC rather than filling a wrong unit (ppb vs µg/m³)', () => {
+  it('fills TVOC directly when the log is already µg/m³', () => {
+    const r = parseSensorCsv('Timestamp,TVOC (µg/m³)\n2026-05-01 09:00,300\n2026-05-01 09:05,500')
+    const { fields, details, skipped } = sensorAveragesToFields(r)
+    expect(fields.tv).toBe('400')
+    expect(details.find((d) => d.field === 'tv').note).toBe('')
+    expect(skipped).toHaveLength(0)
+  })
+
+  it('converts TVOC ppb to µg/m³ via isobutylene by default', () => {
     const r = parseSensorCsv('Timestamp,TVOC (ppb)\n2026-05-01 09:00,100\n2026-05-01 09:05,300')
-    const { fields, skipped } = sensorAveragesToFields(r)
+    const { fields, details } = sensorAveragesToFields(r)
+    // mean 200 ppb × 56.11 / 24.45 ≈ 459 µg/m³
+    expect(fields.tv).toBe('459')
+    expect(details.find((d) => d.field === 'tv').note).toMatch(/ppb→µg\/m³ @ Isobutylene/)
+  })
+
+  it('uses the selected reference compound and ppm scaling for TVOC', () => {
+    const r = parseSensorCsv('Timestamp,TVOC (ppm)\n2026-05-01 09:00,1\n2026-05-01 09:05,1')
+    // 1 ppm = 1000 ppb × 92.14 / 24.45 ≈ 3769 µg/m³ (toluene)
+    const { fields, details } = sensorAveragesToFields(r, { tvocRef: 'toluene' })
+    expect(fields.tv).toBe('3769')
+    expect(details.find((d) => d.field === 'tv').note).toMatch(/ppm→µg\/m³ @ Toluene/)
+  })
+
+  it('skips TVOC when the unit is not interpretable as ppb/ppm/µg/m³', () => {
+    const fake = { params: ['tvoc'], units: { tvoc: 'index' }, summary: { stats: { tvoc: { mean: 120, n: 5 } } } }
+    const { fields, skipped } = sensorAveragesToFields(fake)
     expect(fields.tv).toBeUndefined()
     expect(skipped.map((s) => s.param)).toContain('tvoc')
   })
