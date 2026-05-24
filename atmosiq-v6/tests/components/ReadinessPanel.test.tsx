@@ -8,12 +8,10 @@
  *     lists each gap entry with its humanized kind label
  *   • Renders the red "Cannot finalize yet" pill when finalization
  *     blockers exist
- *   • The "Ask the copilot what's next" CTA fires onAskCopilot with
- *     the computed verdict
  */
 
-import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, fireEvent, cleanup } from '@testing-library/react'
+import { describe, it, expect, afterEach } from 'vitest'
+import { render, screen, cleanup } from '@testing-library/react'
 import ReadinessPanel from '../../src/components/ReadinessPanel'
 
 function cleanAssessment(overrides: Record<string, unknown> = {}) {
@@ -44,7 +42,7 @@ afterEach(() => cleanup())
 
 describe('ReadinessPanel', () => {
   it('renders the "Ready for sign-off" status on a clean assessment', () => {
-    render(<ReadinessPanel assessment={cleanAssessment()} onAskCopilot={() => {}} />)
+    render(<ReadinessPanel assessment={cleanAssessment()} />)
     // Status pill label + summary line both carry the phrase.
     expect(screen.getAllByText(/Ready for sign-off/i).length).toBeGreaterThan(0)
   })
@@ -55,7 +53,6 @@ describe('ReadinessPanel', () => {
         assessment={cleanAssessment({
           zones: [{ zn: 'Zone 1', co2: '1180' /* no co2o */, meas_conditions: 'Yes' }],
         })}
-        onAskCopilot={() => {}}
       />,
     )
     // "Defensibility gaps" shows up twice — status pill + section header.
@@ -69,21 +66,10 @@ describe('ReadinessPanel', () => {
         assessment={cleanAssessment({
           client: { name: 'Not Specified', contact_name: '', contact_role: '' },
         })}
-        onAskCopilot={() => {}}
       />,
     )
     expect(screen.getByText(/Cannot finalize yet/i)).toBeTruthy()
     // Surface at least one of the named blockers (client name)
     expect(screen.getByText(/Client name is empty/i)).toBeTruthy()
-  })
-
-  it('fires onAskCopilot with the verdict when the CTA is tapped', () => {
-    const onAsk = vi.fn()
-    render(<ReadinessPanel assessment={cleanAssessment()} onAskCopilot={onAsk} />)
-    fireEvent.click(screen.getByText(/Ask the copilot what's next/i))
-    expect(onAsk).toHaveBeenCalledOnce()
-    const verdict = onAsk.mock.calls[0][0]
-    expect(verdict.status).toBe('ready')
-    expect(verdict.ready).toBe(true)
   })
 })

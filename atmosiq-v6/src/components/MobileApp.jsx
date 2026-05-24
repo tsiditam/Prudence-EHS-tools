@@ -1601,7 +1601,6 @@ export default function MobileApp() {
               zones, zoneScores, recs, photos,
               profile: profile ? { name: profile.name } : null,
             }}
-            onAskCopilot={() => { setFaOpen(true); haptic('light') }}
           />
         )}
 

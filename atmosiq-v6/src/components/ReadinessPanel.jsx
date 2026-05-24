@@ -13,8 +13,6 @@
  *   3. Defensibility gaps — soft, amber, resolve or disclose
  *   4. Finalization warnings — soft, dim, informational
  *   5. Confidence breakdown — high / medium / low / qualitative-only counts
- *   6. CTA — "Ask the copilot what's next" → opens the Field Assistant
- *      sheet with the readiness verdict attached to its context
  *
  * Engine-sacred boundary: this component reads the assessment via the
  * readiness-verdict orchestrator. It does not import scoring or
@@ -189,7 +187,7 @@ function humanizeKind(kind) {
   }[kind] || kind
 }
 
-export default function ReadinessPanel({ assessment, onAskCopilot }) {
+export default function ReadinessPanel({ assessment }) {
   const verdict = useMemo(() => buildReadinessVerdict(assessment || {}), [assessment])
 
   return (
@@ -215,24 +213,6 @@ export default function ReadinessPanel({ assessment, onAskCopilot }) {
       </Section>
 
       <ConfidenceBar confidence={verdict.confidence} />
-
-      <button
-        type="button"
-        onClick={() => onAskCopilot?.(verdict)}
-        style={{
-          width: '100%', padding: '12px 16px', borderRadius: 12,
-          background: 'var(--accent-fill)', color: 'var(--on-accent-fill)',
-          border: 'none', fontFamily: 'inherit', fontSize: 14, fontWeight: 700,
-          cursor: 'pointer', letterSpacing: '0.2px',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-          marginTop: 8,
-        }}>
-        <I n="sparkle" s={16} c="var(--on-accent-fill)" w={1.8} />
-        Ask the copilot what's next
-      </button>
-      <div style={{ fontSize: 11, color: DIM, textAlign: 'center', marginTop: 8, lineHeight: 1.4 }}>
-        AI · REVIEW REQUIRED · The copilot will walk you through the gaps using AtmosFlow's standards corpus.
-      </div>
     </div>
   )
 }
