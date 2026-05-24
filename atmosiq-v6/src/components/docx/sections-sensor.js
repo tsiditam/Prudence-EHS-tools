@@ -29,12 +29,11 @@ const IMG_W = 600
 const IMG_H = Math.round(600 * (284 / 664))
 
 export function buildSensorGraphsAppendix(sensorData) {
-  if (!sensorData || !sensorData.graphs) return []
+  if (!sensorData || !sensorData.graphs) return null
   const included = Object.values(sensorData.graphs).filter((g) => g && g.include && isImageDataUrl(g.imageDataUrl))
-  if (!included.length) return []
+  if (!included.length) return null
 
   const out = []
-  out.push(new Paragraph({ text: 'Appendix — Environmental Evidence Graphs', heading: HeadingLevel.HEADING_1, pageBreakBefore: true, spacing: { after: 120 } }))
   out.push(p(
     'The following timelines were generated from uploaded sensor logger data for screening and documentation purposes. Interpretation should be reviewed by a qualified IAQ professional; AtmosFlow does not make compliance determinations.',
     { italics: true, color: '595959', after: 200 },
@@ -44,7 +43,7 @@ export function buildSensorGraphsAppendix(sensorData) {
   }
 
   included.forEach((g) => {
-    out.push(new Paragraph({ text: g.title || 'Sensor Graph', heading: HeadingLevel.HEADING_2, spacing: { before: 160, after: 80 } }))
+    out.push(new Paragraph({ text: g.title || 'Sensor Graph', heading: HeadingLevel.HEADING_3, spacing: { before: 160, after: 80 } }))
     try {
       out.push(new Paragraph({
         children: [new ImageRun({ data: base64ToUint8Array(g.imageDataUrl), transformation: { width: IMG_W, height: IMG_H }, type: inferImageType(g.imageDataUrl) })],
@@ -62,5 +61,5 @@ export function buildSensorGraphsAppendix(sensorData) {
   if (sensorData.quality && sensorData.quality.level && sensorData.quality.level !== 'ok') {
     out.push(p(`Data quality: ${sensorData.quality.status}`, { italics: true, color: '9A4A08', size: 18, before: 80, after: 120 }))
   }
-  return out
+  return { title: 'Environmental Evidence Graphs', children: out }
 }

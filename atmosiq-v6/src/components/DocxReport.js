@@ -136,28 +136,32 @@ async function buildConsultantDocument(ctx, data) {
   const result = renderClientReport(score, {
     includeAssessmentIndexAppendix: !!data.includeAssessmentIndexAppendix,
   })
-  const { cover, main } = buildClientDocx(result, { photos: data.photos || ctx.photos || {} })
 
-  // Lab results appendix — appended after the v2.1 buildClientDocx
-  // main body when the assessor has imported analytical CSV results
-  // via LabResultsImport. No-op when assessment.labResults is missing
-  // or empty (legacy assessments render identically). Closes the CoC
-  // loop in the deliverable.
-  const labResultsChildren = buildLabResultsAppendix(data.labResults)
-  if (labResultsChildren.length > 0) main.push(...labResultsChildren)
-
-  // Sensor Data appendix — report-ready IAQ timelines the assessor flagged
-  // for inclusion on the Sensor Data screen. No-op when none are included.
-  const sensorChildren = buildSensorGraphsAppendix(data.sensorData)
-  if (sensorChildren.length > 0) main.push(...sensorChildren)
-
-  // Standards Currency section — methodology-currency layer that
-  // documents bibliographic references NOT integrated into AtmosFlow's
-  // deterministic scoring path (ASHRAE 241-2023, EPA PM2.5 annual
-  // NAAQS 2024 revision, ACGIH TLV 2025). Engine-sacred respected —
-  // adds visibility for the reviewing IH without altering any
-  // scoring outcome.
-  main.push(...buildMethodologyCurrency())
+  // Supplemental sections are folded into the canonical model by
+  // buildClientDocx (sections-supplemental.js) rather than appended after
+  // the fact, so they share the section heading style, sit in the right
+  // position, get continuous appendix letters (after the engine's
+  // Appendix F), and register in the Table of Contents:
+  //   • Standards Currency — methodology-currency body section documenting
+  //     references NOT in the deterministic scoring path (ASHRAE 241-2023,
+  //     EPA PM2.5 annual NAAQS 2024, ACGIH TLV 2025). Renders after
+  //     Limitations/Professional Judgment. Engine-sacred respected.
+  //   • Laboratory Analytical Results — closes the CoC loop when the
+  //     assessor imported analytical CSV results (→ Appendix G).
+  //   • Environmental Evidence Graphs — report-ready IAQ timelines the
+  //     assessor flagged on the Sensor Data screen (→ Appendix H).
+  // Each builder returns null when it has nothing to render.
+  const supplemental = {
+    bodySections: [buildMethodologyCurrency()].filter(Boolean),
+    appendices: [
+      buildLabResultsAppendix(data.labResults),
+      buildSensorGraphsAppendix(data.sensorData),
+    ].filter(Boolean),
+  }
+  const { cover, main } = buildClientDocx(result, {
+    photos: data.photos || ctx.photos || {},
+    supplemental,
+  })
 
   // Free-tier watermark: pass watermarkConfig from caller (e.g. resolved
   // from the user's profile.plan upstream). When tier === 'free', adds

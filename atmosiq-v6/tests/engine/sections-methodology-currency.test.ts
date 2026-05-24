@@ -25,12 +25,18 @@ function flatten(node: unknown): string {
   return acc
 }
 
+// The builder now returns a body-only { title, children } descriptor; the
+// consultant pipeline renders the shared "Standards Currency" heading and
+// places the section after Limitations/Professional Judgment.
+const childrenOf = (section: any): any[] => (section && Array.isArray(section.children) ? section.children : [])
+
 describe('buildMethodologyCurrency', () => {
-  it('emits a "Standards Currency" heading + intro + per-entry block', () => {
-    const children = buildMethodologyCurrency()
+  it('returns a "Standards Currency" section with intro + per-entry block', () => {
+    const section = buildMethodologyCurrency() as any
+    expect(section.title).toBe('Standards Currency')
+    const children = childrenOf(section)
     expect(children.every((c: unknown) => c instanceof Paragraph)).toBe(true)
     const allText = children.map(flatten).join(' ')
-    expect(allText).toMatch(/Standards Currency/)
     expect(allText).toMatch(/AtmosFlow scores/)
     // Every contextual standard's summary should appear in the rendered
     // section. Three entries today (ASHRAE 241, EPA PM2.5 annual,
@@ -40,27 +46,27 @@ describe('buildMethodologyCurrency', () => {
     }
   })
 
-  it('renders each entry as heading + citation + rationale (3 paragraphs)', () => {
-    const children = buildMethodologyCurrency()
-    // 1 H2 heading + 1 intro paragraph + (3 × N) per-entry blocks
-    const expected = 2 + 3 * CONTEXTUAL_STANDARDS.length
+  it('renders intro + each entry as heading + citation + rationale (3 paragraphs)', () => {
+    const children = childrenOf(buildMethodologyCurrency())
+    // 1 intro paragraph + (3 × N) per-entry blocks (heading is added by the pipeline)
+    const expected = 1 + 3 * CONTEXTUAL_STANDARDS.length
     expect(children.length).toBe(expected)
   })
 
   it('mentions both PM2.5 values (9 µg/m³ annual, 35 µg/m³ 24-hr) somewhere in the section text', () => {
-    const allText = buildMethodologyCurrency().map(flatten).join(' ')
+    const allText = childrenOf(buildMethodologyCurrency()).map(flatten).join(' ')
     expect(allText).toMatch(/9\s?µg\/m³|9\s?µg\/m3/)
     expect(allText).toMatch(/35\s?µg\/m³|35\s?µg\/m3/)
   })
 
   it('mentions ASHRAE 241 + ECAi (the key terminology a reviewing IH would look for)', () => {
-    const allText = buildMethodologyCurrency().map(flatten).join(' ')
+    const allText = childrenOf(buildMethodologyCurrency()).map(flatten).join(' ')
     expect(allText).toMatch(/ASHRAE\s+(?:Standard\s+)?241-2023/)
     expect(allText).toMatch(/ECAi/)
   })
 
   it('mentions ACGIH TLV + the OSHA-PEL / NIOSH-REL framing', () => {
-    const allText = buildMethodologyCurrency().map(flatten).join(' ')
+    const allText = childrenOf(buildMethodologyCurrency()).map(flatten).join(' ')
     expect(allText).toMatch(/ACGIH/)
     expect(allText).toMatch(/Threshold Limit Value/i)
     expect(allText).toMatch(/OSHA/)
