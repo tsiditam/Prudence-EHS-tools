@@ -20,7 +20,9 @@ const BG = '#07080C'
 const SURFACE = '#0D0E14'
 const CARD = '#111318'
 const BORDER = '#1C1E26'
-const ACCENT = '#22D3EE'
+// Restrained primary cyan — matches the refined --accent so the pricing
+// sheet's accents/active toggles stay consistent with the rest of the app.
+const ACCENT = '#2EA7BF'
 const TEXT = '#ECEEF2'
 const SUB = '#8B93A5'
 const DIM = '#6B7380'
