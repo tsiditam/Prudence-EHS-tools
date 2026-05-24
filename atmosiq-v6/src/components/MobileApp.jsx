@@ -1403,7 +1403,7 @@ export default function MobileApp() {
             risk. Restyled with the v3 token surface so they read as
             actionable warnings rather than chrome noise. ── */}
         {!archived && (!presurvey.ps_inst_iaq || !presurvey.ps_inst_iaq_serial || !presurvey.ps_inst_iaq_cal) && (
-          <button onClick={()=>{setDqi(Q_DETAILS.findIndex(q=>q.id==='ps_inst_iaq'));setView('details')}} style={{width:'100%',padding:'12px 16px',background:`${WARN}10`,border:`1px solid ${WARN}28`,borderRadius:V3.R.md,marginBottom:8,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit'}}>
+          <button onClick={()=>{setDqi(Math.max(0, dtVis.findIndex(q=>q.id==='ps_inst_iaq')));setView('details')}} style={{width:'100%',padding:'12px 16px',background:`${WARN}10`,border:`1px solid ${WARN}28`,borderRadius:V3.R.md,marginBottom:8,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit'}}>
             <I n="alert" s={16} c={WARN} />
             <div style={{flex:1,minWidth:0}}>
               <div style={{...V3.T.bodyStrong, color:WARN}}>Add instrument data</div>
@@ -2580,7 +2580,7 @@ export default function MobileApp() {
             ))}
           </div>
           <div style={{display:'flex',gap:10,flexDirection:'column'}}>
-            <TactileButton variant="primary" fullWidth size="lg" onClick={()=>{setCalWarning(null);setDqi(Q_DETAILS.findIndex(q=>q.id==='ps_inst_iaq'));setView('details')}}>
+            <TactileButton variant="primary" fullWidth size="lg" onClick={()=>{setCalWarning(null);setDqi(Math.max(0, dtVis.findIndex(q=>q.id==='ps_inst_iaq')));setView('details')}}>
               Add instrument data
             </TactileButton>
             <TactileButton variant="ghost" fullWidth onClick={()=>{setCalWarning(null);finishAssessment(true)}}>
