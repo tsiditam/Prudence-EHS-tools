@@ -17,7 +17,7 @@ import * as V3 from '../../styles/tokens'
 import { I } from '../Icons'
 import GlassCard from '../ui/GlassCard'
 import TactileButton from '../ui/TactileButton'
-import { parseSensorRows, SENSOR_PARAMS } from '../../utils/sensorParser'
+import { parseSensorRows, SENSOR_PARAMS, TVOC_REFERENCES, ppbToUgm3, ugm3ToPpb } from '../../utils/sensorParser'
 import { splitCsvLine } from '../../utils/labResultsParser'
 import { xlsxToRows } from '../../utils/sensorXlsx'
 import { GRAPH_DEFS, MultiParameterChart, LIGHT_PALETTE, DARK_PALETTE } from './SensorCharts'
@@ -36,6 +36,19 @@ const QUALITY_TONE = { ok: V3.STATUS.ready, minor: '#FBBF24', uncertain: '#FBBF2
 
 const fmtRange = (s, e) => (s && e ? `${dayjs(s).format('MMM D, HH:mm')} – ${dayjs(e).format('MMM D, HH:mm')}` : 'Row order (no timestamps)')
 const fmtInterval = (sec) => (sec == null ? '—' : sec >= 3600 ? `${(sec / 3600).toFixed(1)} h` : sec >= 60 ? `${Math.round(sec / 60)} min` : `${Math.round(sec)} s`)
+// Compact average: integers above 100 (e.g. CO₂ ppm), one decimal below.
+const fmtAvg = (v) => (v == null || !Number.isFinite(v) ? '—' : Math.abs(v) >= 100 ? String(Math.round(v)) : String(Math.round(v * 10) / 10))
+// TVOC cross-unit equivalent (isobutylene-equiv) so both mass- and
+// volume-based readers see a familiar number. µg/m³ stays the canonical
+// scored unit; this line is informational only.
+const tvocEquivLabel = (mean, unit) => {
+  const mw = TVOC_REFERENCES.isobutylene.mw
+  const u = String(unit || '').toLowerCase()
+  if (/µg|ug/.test(u)) { const ppb = ugm3ToPpb(mean, mw); return ppb == null ? null : `≈ ${Math.round(ppb)} ppb (isobutylene-equiv)` }
+  if (u.includes('ppm')) { const ug = ppbToUgm3(mean * 1000, mw); return ug == null ? null : `≈ ${Math.round(ug)} µg/m³ (isobutylene-equiv)` }
+  if (u.includes('ppb')) { const ug = ppbToUgm3(mean, mw); return ug == null ? null : `≈ ${Math.round(ug)} µg/m³ (isobutylene-equiv)` }
+  return null
+}
 
 export default function SensorDataPage({ value, onChange, onBack }) {
   const fileRef = useRef(null)
@@ -139,6 +152,31 @@ export default function SensorDataPage({ value, onChange, onBack }) {
                 return <span key={p} style={chip}>{spec?.label || p}{data.units[p] ? ` · ${data.units[p]}` : ''}</span>
               })}
             </div>
+            {data.summary.stats && data.params.some((p) => data.summary.stats[p]) && (
+              <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${BORDER}` }}>
+                <div style={{ ...V3.T.micro, marginBottom: 8 }}>Averages</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
+                  {data.params.map((p) => {
+                    const s = data.summary.stats[p]
+                    if (!s) return null
+                    const spec = SENSOR_PARAMS.find((x) => x.key === p)
+                    const u = data.units[p] || spec?.unit || ''
+                    return (
+                      <div key={p} style={{ padding: '10px 12px', background: 'var(--surface)', border: `1px solid ${BORDER}`, borderRadius: 10 }}>
+                        <div style={{ fontSize: 16, fontWeight: 700, color: TEXT, fontFamily: 'var(--font-mono)', letterSpacing: '-0.3px' }}>
+                          {fmtAvg(s.mean)} <span style={{ fontSize: 11, fontWeight: 600, color: DIM }}>{u}</span>
+                        </div>
+                        <div style={{ ...V3.T.captionDim, marginTop: 2 }}>{spec?.label || p} · mean</div>
+                        <div style={{ fontSize: 11, color: DIM, marginTop: 2, fontFamily: 'var(--font-mono)' }}>{fmtAvg(s.min)}–{fmtAvg(s.max)} · n={s.n}</div>
+                        {p === 'tvoc' && tvocEquivLabel(s.mean, u) && (
+                          <div style={{ fontSize: 11, color: DIM, marginTop: 2, fontFamily: 'var(--font-mono)' }}>{tvocEquivLabel(s.mean, u)}</div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
             <button onClick={() => setMapOpen((v) => !v)} style={{ ...ghostBtn, marginTop: 14, width: '100%', justifyContent: 'center' }}>
               {mapOpen ? 'Hide column mapping' : 'Adjust column mapping'}
             </button>

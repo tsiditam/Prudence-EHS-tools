@@ -138,12 +138,37 @@ export function normalizeForCompare(points, params) {
   return { data, ranges }
 }
 
+// PID reference compounds for the TVOC ppb/ppm → µg/m³ conversion. TVOC is a
+// mixture with no single molecular weight, so mass concentration is expressed
+// relative to a reference compound; PID instruments calibrate to isobutylene
+// by default. The conversion is an explicit, surfaced assumption — never a
+// silent one (the chosen compound is shown wherever a converted value lands).
+export const TVOC_REFERENCES = {
+  isobutylene: { label: 'Isobutylene', mw: 56.11 },
+  toluene:     { label: 'Toluene',     mw: 92.14 },
+}
+// Molar volume of an ideal gas at 25 °C and 1 atm (L/mol).
+const MOLAR_VOLUME_25C = 24.45
+
+// Convert a volumetric mixing ratio (ppb) to mass concentration (µg/m³) for a
+// reference compound of molecular weight `mw` (g/mol). µg/m³ = ppb · MW ÷ Vm.
+export function ppbToUgm3(ppb, mw) {
+  if (ppb == null || !Number.isFinite(ppb) || !Number.isFinite(mw)) return null
+  return (ppb * mw) / MOLAR_VOLUME_25C
+}
+
+// Inverse of ppbToUgm3 — mass concentration (µg/m³) back to ppb for a
+// reference compound. Used for ppb-equivalent display alongside the µg/m³
+// reading field, which stays the canonical (Mølhave-aligned) scored unit.
+export function ugm3ToPpb(ugm3, mw) {
+  if (ugm3 == null || !Number.isFinite(ugm3) || !Number.isFinite(mw) || mw === 0) return null
+  return (ugm3 * MOLAR_VOLUME_25C) / mw
+}
+
 // Map a logger parameter onto the per-zone reading field id (SENSOR_FIELDS)
 // it can populate. Indoor only — the outdoor fields (co2o, tfo, …) and HCHO
-// have no logger source and stay manual. TVOC is intentionally absent: the
-// reading field is µg/m³ but loggers report ppb, and ppb↔µg/m³ is not
-// convertible for a VOC mixture without a molar-mass assumption
-// (Mølhave 1991), so we surface it as skipped rather than fill a wrong unit.
+// have no logger source and stay manual. TVOC is handled separately because
+// its reading field is µg/m³ while loggers report ppb/ppm/µg/m³.
 const READING_FIELD_MAP = {
   co2:  { field: 'co2', dp: 0 },
   pm25: { field: 'pm',  dp: 1 },
@@ -157,9 +182,11 @@ const READING_FIELD_MAP = {
  * (the shape returned by parseSensorRows, persisted as `sensorData`).
  * Pure: returns { fields, details, skipped } and mutates nothing.
  *   fields  — { [fieldId]: stringValue } ready to write via setZF
- *   details — [{ field, param, value, n, converted }] for a UI preview
+ *   details — [{ field, param, value, n, note }] for a UI preview
+ *             (`note` describes any unit conversion applied)
  *   skipped — [{ param, reason }] for parameters with no safe target
- * `stat` selects 'mean' (default) or 'median'.
+ * `stat` selects 'mean' (default) or 'median'. `tvocRef` selects the TVOC
+ * reference compound key (default 'isobutylene').
  */
 export function sensorAveragesToFields(sensorData, opts = {}) {
   const stat = opts.stat === 'median' ? 'median' : 'mean'
@@ -168,24 +195,45 @@ export function sensorAveragesToFields(sensorData, opts = {}) {
   if (!stats) return empty
   const units = sensorData.units || {}
   const params = Array.isArray(sensorData.params) ? sensorData.params : []
+  const ref = TVOC_REFERENCES[opts.tvocRef] || TVOC_REFERENCES.isobutylene
   const fields = {}
   const details = []
   const skipped = []
   params.forEach((p) => {
     const s = stats[p]
     if (!s) return
-    const map = READING_FIELD_MAP[p]
-    if (!map) {
-      if (p === 'tvoc') skipped.push({ param: p, reason: 'units ppb; reading field is µg/m³ — enter manually' })
-      return
-    }
     let val = s[stat]
     if (val == null) return
-    let converted = false
-    if (p === 'temp' && units.temp === '°C') { val = (val * 9) / 5 + 32; converted = true }
+
+    if (p === 'tvoc') {
+      // `tv` is µg/m³. Fill directly when the log is already mass-based;
+      // convert from ppb/ppm via the chosen PID reference compound. Skip
+      // anything else (e.g. a unitless air-quality index) rather than guess.
+      const u = String(units.tvoc || '').toLowerCase()
+      let note = ''
+      if (/µg|ug/.test(u)) {
+        // already µg/m³ — no conversion
+      } else if (u.includes('ppm') || u.includes('ppb')) {
+        const isPpm = u.includes('ppm')
+        val = ppbToUgm3(isPpm ? val * 1000 : val, ref.mw)
+        note = `${isPpm ? 'ppm' : 'ppb'}→µg/m³ @ ${ref.label}`
+      } else {
+        skipped.push({ param: 'tvoc', reason: `unit "${units.tvoc || 'unknown'}" not convertible to µg/m³` })
+        return
+      }
+      const rounded = Number(val.toFixed(0))
+      fields.tv = String(rounded)
+      details.push({ field: 'tv', param: 'tvoc', value: rounded, n: s.n, note })
+      return
+    }
+
+    const map = READING_FIELD_MAP[p]
+    if (!map) return
+    let note = ''
+    if (p === 'temp' && units.temp === '°C') { val = (val * 9) / 5 + 32; note = '°C→°F' }
     const rounded = Number(val.toFixed(map.dp))
     fields[map.field] = String(rounded)
-    details.push({ field: map.field, param: p, value: rounded, n: s.n, converted })
+    details.push({ field: map.field, param: p, value: rounded, n: s.n, note })
   })
   return { fields, details, skipped }
 }

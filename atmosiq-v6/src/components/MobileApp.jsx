@@ -2266,6 +2266,7 @@ export default function MobileApp() {
                   onClick: () => { toggleThemeMode() } },
                 { label: 'Trash',        icon: 'trash',  onClick: () => setView('trash') },
                 { label: 'Sampling forms', icon: 'flask', onClick: () => setView('sampling-forms') },
+                { label: 'Sensor Data',  icon: 'chart',  onClick: () => setView('sensor-data') },
                 // Single Demos entry — opens the sub-picker instead
                 // of running a demo directly. The "submenu" flag tells
                 // the click handler to stay open + switch mode rather
