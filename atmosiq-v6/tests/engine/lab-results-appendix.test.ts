@@ -18,6 +18,13 @@ import { describe, it, expect } from 'vitest'
 import { Table, Paragraph } from 'docx'
 import { buildLabResultsAppendix } from '../../src/components/docx/sections-lab-results.js'
 
+// The builder now returns a body-only { title, children } descriptor (the
+// consultant pipeline renders the shared heading + assigns the appendix
+// letter). These helpers adapt the assertions to that shape.
+function childrenOf(section: any): any[] {
+  return section && Array.isArray(section.children) ? section.children : []
+}
+
 function flatten(node: unknown): string {
   if (node == null) return ''
   if (typeof node === 'string') return node
@@ -48,28 +55,31 @@ const SAMPLE_ROWS = [
 ]
 
 describe('buildLabResultsAppendix', () => {
-  it('returns [] when labResults is missing entirely', () => {
-    expect(buildLabResultsAppendix(undefined)).toEqual([])
-    expect(buildLabResultsAppendix(null)).toEqual([])
+  it('returns null when labResults is missing entirely', () => {
+    expect(buildLabResultsAppendix(undefined)).toBeNull()
+    expect(buildLabResultsAppendix(null)).toBeNull()
   })
 
-  it('returns [] when rows array is missing or empty', () => {
-    expect(buildLabResultsAppendix({})).toEqual([])
-    expect(buildLabResultsAppendix({ rows: [] })).toEqual([])
-    expect(buildLabResultsAppendix({ rows: null as unknown as [] })).toEqual([])
+  it('returns null when rows array is missing or empty', () => {
+    expect(buildLabResultsAppendix({})).toBeNull()
+    expect(buildLabResultsAppendix({ rows: [] })).toBeNull()
+    expect(buildLabResultsAppendix({ rows: null as unknown as [] })).toBeNull()
   })
 
-  it('emits Appendix G heading + table + footnote when rows are present', () => {
-    const children = buildLabResultsAppendix({
+  it('emits the appendix title + table + footnote when rows are present', () => {
+    const section = buildLabResultsAppendix({
       laboratory: 'EMSL Analytical, Inc.',
       importedAt: '2026-05-19T10:00:00.000Z',
       importedFromFilename: 'emsl-12345.csv',
       rows: SAMPLE_ROWS,
     })
+    // The pipeline prefixes "Appendix <letter> — " and renders the heading;
+    // the builder owns only the title text + body.
+    expect(section!.title).toBe('Laboratory Analytical Results')
+    const children = childrenOf(section)
     const tables = children.filter((c: unknown) => c instanceof Table)
     expect(tables).toHaveLength(1)
     const allText = children.map(flatten).join(' ')
-    expect(allText).toMatch(/Appendix G — Laboratory Analytical Results/)
     expect(allText).toMatch(/EMSL Analytical, Inc/)
     expect(allText).toMatch(/emsl-12345\.csv/)
     expect(allText).toMatch(/AC-001/)
@@ -78,11 +88,11 @@ describe('buildLabResultsAppendix', () => {
   })
 
   it('omits filename from provenance when filename is absent', () => {
-    const children = buildLabResultsAppendix({
+    const children = childrenOf(buildLabResultsAppendix({
       laboratory: 'EMLab P&K (Eurofins)',
       importedAt: '2026-05-19T10:00:00.000Z',
       rows: SAMPLE_ROWS,
-    })
+    }))
     const allText = children.map(flatten).join(' ')
     expect(allText).toMatch(/EMLab P&K/)
     expect(allText).toMatch(/Results imported on/)
@@ -90,17 +100,17 @@ describe('buildLabResultsAppendix', () => {
   })
 
   it('falls back to a generic lab phrase when laboratory is null', () => {
-    const children = buildLabResultsAppendix({
+    const children = childrenOf(buildLabResultsAppendix({
       laboratory: null,
       importedAt: null,
       rows: SAMPLE_ROWS,
-    })
+    }))
     const allText = children.map(flatten).join(' ')
     expect(allText).toMatch(/Independent analytical laboratory/)
   })
 
   it('renders one table row per source row + a header row', () => {
-    const children = buildLabResultsAppendix({ rows: SAMPLE_ROWS, laboratory: 'X' })
+    const children = childrenOf(buildLabResultsAppendix({ rows: SAMPLE_ROWS, laboratory: 'X' }))
     const tables = children.filter((c: unknown) => c instanceof Table)
     expect(tables).toHaveLength(1)
     // The table internal row count is not trivially introspectable
@@ -112,10 +122,10 @@ describe('buildLabResultsAppendix', () => {
   })
 
   it('handles rows with missing canonical fields by rendering em-dash', () => {
-    const children = buildLabResultsAppendix({
+    const children = childrenOf(buildLabResultsAppendix({
       laboratory: 'X',
       rows: [{ sampleId: 'S1' } as unknown as typeof SAMPLE_ROWS[number]],
-    })
+    }))
     const allText = children.map(flatten).join(' ')
     expect(allText).toMatch(/S1/)
     // The em-dash placeholder character appears for the missing fields.

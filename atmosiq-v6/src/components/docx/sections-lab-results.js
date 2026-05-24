@@ -8,14 +8,16 @@
  * loose lab PDF the assessor mailed under separate cover.
  *
  * Render rules:
- *   • No section emitted if assessment.labResults is missing or
- *     empty — silent no-op so legacy / un-attached assessments
- *     render identically to before this PR.
- *   • Heading reads "Appendix G — Laboratory Analytical Results"
- *     because A-F are already claimed by the v2.1 client report
- *     pipeline (see src/engine/report/types.ts:319-325).
+ *   • Returns null if assessment.labResults is missing or empty —
+ *     silent no-op so legacy / un-attached assessments render
+ *     identically.
+ *   • Returns a { title, children } descriptor (body only, no heading).
+ *     The consultant pipeline (sections-supplemental.js) renders the
+ *     shared section heading and assigns the appendix letter — A-F are
+ *     claimed by the engine model, so this lands as the next letter
+ *     (typically G).
  *   • Lab name + import provenance line ("Imported from FILENAME on
- *     DATE") sits between the heading and the table.
+ *     DATE") leads the section body.
  *   • Table columns: Sample ID, Location, Collected, Analyte,
  *     Result, Units, DL. Detection limit + lab notes are omitted
  *     from the table to keep it narrow; full row data including
@@ -28,7 +30,7 @@
  * Engine-sacred audit: no src/engine/ touch. Pure DOCX rendering.
  */
 
-import { Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx'
+import { Paragraph, TextRun, AlignmentType } from 'docx'
 import { FONTS, COLORS } from './styles'
 import { buildTable } from './tables'
 
@@ -54,11 +56,11 @@ function formatImportDate(iso) {
  * @param {string} [labResults.importedAt]         ISO timestamp
  * @param {string} [labResults.importedFromFilename]
  * @param {Array}  [labResults.rows]               parser output rows
- * @returns {Array} DOCX children (heading + provenance + table + footnote) — empty when nothing to render
+ * @returns {{title: string, children: Array}|null} section descriptor (body only) — null when nothing to render
  */
 export function buildLabResultsAppendix(labResults) {
   if (!labResults || !Array.isArray(labResults.rows) || labResults.rows.length === 0) {
-    return []
+    return null
   }
   const rows = labResults.rows
   const lab = labResults.laboratory || 'Independent analytical laboratory'
@@ -79,24 +81,26 @@ export function buildLabResultsAppendix(labResults) {
     r.detectionLimit || '—',
   ])
 
-  return [
-    p('Appendix G — Laboratory Analytical Results', { heading: HeadingLevel.HEADING_2 }),
-    p(provenance, { size: 20, color: COLORS.sub, align: AlignmentType.JUSTIFIED, after: 160 }),
-    buildTable(
-      [
-        { text: 'Sample ID', width: 14 },
-        { text: 'Location', width: 22 },
-        { text: 'Collected', width: 12 },
-        { text: 'Analyte', width: 20 },
-        { text: 'Result', width: 12 },
-        { text: 'Units', width: 10 },
-        { text: 'DL', width: 10 },
-      ],
-      tableRows,
-    ),
-    p(
-      'Laboratory results are reported as received from the analytical laboratory. Interpretation of these values in the context of the building investigation is provided in the body of this report; the raw data above supports independent review by a qualified industrial hygienist.',
-      { size: 18, color: COLORS.muted, italics: true, after: 200 },
-    ),
-  ]
+  return {
+    title: 'Laboratory Analytical Results',
+    children: [
+      p(provenance, { size: 20, color: COLORS.sub, align: AlignmentType.JUSTIFIED, after: 160 }),
+      buildTable(
+        [
+          { text: 'Sample ID', width: 14 },
+          { text: 'Location', width: 22 },
+          { text: 'Collected', width: 12 },
+          { text: 'Analyte', width: 20 },
+          { text: 'Result', width: 12 },
+          { text: 'Units', width: 10 },
+          { text: 'DL', width: 10 },
+        ],
+        tableRows,
+      ),
+      p(
+        'Laboratory results are reported as received from the analytical laboratory. Interpretation of these values in the context of the building investigation is provided in the body of this report; the raw data above supports independent review by a qualified industrial hygienist.',
+        { size: 18, color: COLORS.muted, italics: true, after: 200 },
+      ),
+    ],
+  }
 }

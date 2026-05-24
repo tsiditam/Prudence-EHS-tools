@@ -33,14 +33,16 @@ const p = (text, opts = {}) => new Paragraph({
  *
  * @param {object} [ctx]  forwarded to getContextualStandards for
  *                        any future conditional rendering
- * @returns {Array} DOCX children (heading + intro + per-entry blocks)
+ * @returns {{title: string, children: Array}|null} body-section descriptor
+ *   (no heading; the consultant pipeline renders the shared section
+ *   heading and places it after Limitations/Professional Judgment) — null
+ *   when there are no contextual standards to render.
  */
 export function buildMethodologyCurrency(ctx) {
   const entries = getContextualStandards(ctx)
-  if (!entries || entries.length === 0) return []
+  if (!entries || entries.length === 0) return null
 
   const out = [
-    p('Standards Currency', { heading: HeadingLevel.HEADING_2 }),
     p(
       'AtmosFlow scores the assessment against the standards manifest summarized in Appendix D and the deterministic thresholds documented in the engine version note. Several adjacent or recently-revised standards are NOT integrated into the deterministic scoring path but are referenced here so the reviewing industrial hygienist can consider them in context. None of the items below alter the scoring outcomes presented in the body of this report.',
       { size: 20, color: COLORS.sub, align: AlignmentType.JUSTIFIED, after: 200 },
@@ -53,5 +55,5 @@ export function buildMethodologyCurrency(ctx) {
     out.push(p(entry.rationale, { size: 20, color: COLORS.body, align: AlignmentType.JUSTIFIED, after: 160 }))
   }
 
-  return out
+  return { title: 'Standards Currency', children: out }
 }
