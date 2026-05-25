@@ -50,7 +50,12 @@ describe('GRAPH_DEFS', () => {
     const byId = Object.fromEntries(GRAPH_DEFS.map((g) => [g.id, g]))
     expect(byId.co).toBeTruthy()
     expect(byId.tvoc).toBeTruthy()
-    GRAPH_DEFS.forEach((g) => expect(typeof g.refKey).toBe('string'))
+    // CO and TVOC have STD reference lines, so they carry a refKey.
+    expect(typeof byId.co.refKey).toBe('string')
+    expect(typeof byId.tvoc.refKey).toBe('string')
+    // HCHO has no fixed reference line (unit-ambiguous) → no refKey, by design.
+    expect(byId.hcho).toBeTruthy()
+    expect(byId.hcho.refKey).toBeUndefined()
   })
 })
 

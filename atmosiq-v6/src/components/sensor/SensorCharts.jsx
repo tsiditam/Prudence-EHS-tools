@@ -27,7 +27,7 @@ export const LIGHT_PALETTE = { axis: '#475569', grid: '#CBD5E1', text: '#0F172A'
 
 // Distinct, contrast-safe series colours so series read without relying
 // on a single hue (works on both dark + white backgrounds).
-const SERIES = { co2: '#0E9FB8', temp: '#EA7A2B', rh: '#2563EB', pm25: '#7C3AED', pm10: '#DB2777', tvoc: '#059669', co: '#CA8A04' }
+const SERIES = { co2: '#0E9FB8', temp: '#EA7A2B', rh: '#2563EB', pm25: '#7C3AED', pm10: '#DB2777', tvoc: '#059669', co: '#CA8A04', hcho: '#DC2626' }
 
 const fmtTime = (hasTs) => (v) => (hasTs ? dayjs(v).format('MMM D HH:mm') : `#${v}`)
 
@@ -89,6 +89,24 @@ function occupancyAreas(windows, yAxisId) {
       stroke="none"
     />
   ))
+}
+
+// Formaldehyde timeline. No fixed reference line — loggers report HCHO in
+// ppb / µg/m³ / mg/m³ / ppm, so a hardcoded guideline line would be
+// unit-ambiguous and misleading. The Y-axis label carries the detected unit.
+export function HCHOTimelineChart({ data, hasTs = true, units = {}, palette = DARK_PALETTE, width, height, occupancy = [] }) {
+  const pal = palette
+  const inner = (w, h) => (
+    <LineChart data={data} {...(width ? { width: w, height: h } : {})} margin={{ top: 8, right: 16, bottom: 4, left: 4 }}>
+      <CartesianGrid stroke={pal.grid} strokeOpacity={0.5} vertical={false} />
+      {occupancyAreas(occupancy)}
+      <XAxis dataKey="t" type="number" domain={['dataMin', 'dataMax']} scale="time" tickFormatter={fmtTime(hasTs)} {...axis(pal)} />
+      <YAxis {...axis(pal)} width={46} label={{ value: units.hcho ? `Formaldehyde (${units.hcho})` : 'Formaldehyde', angle: -90, position: 'insideLeft', fill: pal.axis, fontSize: 11 }} />
+      <Tooltip content={<ChartTooltip hasTs={hasTs} units={units} pal={pal} />} />
+      <Line type="monotone" dataKey="hcho" name="Formaldehyde" stroke={SERIES.hcho} strokeWidth={2} dot={false} connectNulls isAnimationActive={!width} />
+    </LineChart>
+  )
+  return <Shell width={width} height={height}>{inner}</Shell>
 }
 
 export function CO2TimelineChart({ data, hasTs = true, units = {}, palette = DARK_PALETTE, width, height, showRefs = false, occupancy = [] }) {
@@ -301,6 +319,7 @@ export const GRAPH_DEFS = [
   { id: 'pm', title: 'Particulate Matter (PM2.5 / PM10)', needs: (p) => p.includes('pm25') || p.includes('pm10'), series: ['PM2.5', 'PM10'], refKey: 'pm', Chart: PMTimelineChart },
   { id: 'co', title: 'Carbon Monoxide (CO)', needs: (p) => p.includes('co'), series: ['CO'], refKey: 'co', Chart: COTimelineChart },
   { id: 'tvoc', title: 'Total VOCs (TVOC)', needs: (p) => p.includes('tvoc'), series: ['TVOC'], refKey: 'tvoc', Chart: TVOCTimelineChart },
+  { id: 'hcho', title: 'Formaldehyde Over Time', needs: (p) => p.includes('hcho'), series: ['Formaldehyde'], Chart: HCHOTimelineChart },
 ]
 
 // Reference-line catalogue for the toggle UI: which thresholds key applies
