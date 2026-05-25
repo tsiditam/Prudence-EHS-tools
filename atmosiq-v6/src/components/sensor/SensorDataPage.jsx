@@ -50,13 +50,68 @@ const tvocEquivLabel = (mean, unit) => {
   return null
 }
 
+// "Analyzing" reveal — after a successful upload we hold the parsed
+// results behind a short processing animation so the transition reads as
+// the app working through the data rather than snapping in. ~2.6s across
+// three status lines. Honors prefers-reduced-motion (skipped → instant).
+const ANALYZE_MS = 2600
+const ANALYZE_STATUS = ['Parsing readings…', 'Computing averages…', 'Preparing visuals…']
+
+function AnalyzingCard({ fileName, phase }) {
+  return (
+    <GlassCard style={{ marginTop: 16, padding: '40px 24px', textAlign: 'center', animation: 'fadeUp .3s ease' }}>
+      <style>{`
+        @keyframes sdPulse { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.09);opacity:.82} }
+        @keyframes sdScan { 0%{transform:translateX(-110%)} 100%{transform:translateX(320%)} }
+      `}</style>
+      <div style={{ width: 60, height: 60, borderRadius: 16, margin: '0 auto 18px', background: 'color-mix(in srgb, var(--accent) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--accent) 28%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'sdPulse 1.4s ease-in-out infinite' }}>
+        <I n="chart" s={26} c={ACCENT} w={1.8} />
+      </div>
+      <div style={{ ...V3.T.h3, marginBottom: 6 }}>Analyzing sensor data</div>
+      <div style={{ ...V3.T.bodyDim, maxWidth: 360, margin: '0 auto 20px', minHeight: 20 }}>
+        {ANALYZE_STATUS[Math.min(phase, ANALYZE_STATUS.length - 1)]}
+      </div>
+      <div style={{ position: 'relative', height: 4, maxWidth: 280, margin: '0 auto', borderRadius: 2, background: 'var(--surface)', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', top: 0, bottom: 0, width: '35%', borderRadius: 2, background: ACCENT, animation: 'sdScan 1.2s ease-in-out infinite' }} />
+      </div>
+      {fileName && <div style={{ ...V3.T.captionDim, marginTop: 16, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fileName}</div>}
+    </GlassCard>
+  )
+}
+
 export default function SensorDataPage({ value, onChange, onBack }) {
   const fileRef = useRef(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
   const [sourceRows, setSourceRows] = useState(null) // kept for re-mapping this session
   const [mapOpen, setMapOpen] = useState(false)
+  const [analyzing, setAnalyzing] = useState(false)
+  const [phase, setPhase] = useState(0)
+  const analyzeTimer = useRef(null)
+  const phaseTimer = useRef(null)
   const data = value || null
+
+  const stopAnalyzing = () => {
+    if (analyzeTimer.current) { clearTimeout(analyzeTimer.current); analyzeTimer.current = null }
+    if (phaseTimer.current) { clearInterval(phaseTimer.current); phaseTimer.current = null }
+  }
+
+  // Hold the parsed results behind a brief processing animation. Skipped
+  // (instant reveal) under prefers-reduced-motion — the delay is an
+  // animation, so motion-averse users get the fast path.
+  const startAnalyzing = () => {
+    stopAnalyzing()
+    let reduce = false
+    try { reduce = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches } catch { reduce = false }
+    if (reduce) { setAnalyzing(false); return }
+    setPhase(0)
+    setAnalyzing(true)
+    phaseTimer.current = setInterval(() => setPhase((p) => Math.min(p + 1, ANALYZE_STATUS.length - 1)), Math.round(ANALYZE_MS / ANALYZE_STATUS.length))
+    analyzeTimer.current = setTimeout(() => { setAnalyzing(false); stopAnalyzing() }, ANALYZE_MS)
+  }
+
+  // Cancel any pending reveal timers on unmount.
+  useEffect(() => () => stopAnalyzing(), [])
 
   const onPick = async (e) => {
     const file = e.target.files && e.target.files[0]
@@ -74,6 +129,7 @@ export default function SensorDataPage({ value, onChange, onBack }) {
       if (!parsed) { setError('Could not find a timestamp + parameter columns in that file. Check the export or adjust the mapping.'); setBusy(false); return }
       setSourceRows(rows)
       onChange({ ...parsed, graphs: {} })
+      startAnalyzing()
     } catch (err) {
       setError((err && err.message) || 'Could not read that file.')
     }
@@ -90,7 +146,7 @@ export default function SensorDataPage({ value, onChange, onBack }) {
     onChange({ ...data, graphs: { ...(data.graphs || {}), [id]: { ...(data.graphs?.[id] || {}), ...patch } } })
   }
 
-  const clear = () => { setSourceRows(null); setError(null); onChange(null) }
+  const clear = () => { stopAnalyzing(); setAnalyzing(false); setSourceRows(null); setError(null); onChange(null) }
 
   const graphs = data ? GRAPH_DEFS.filter((g) => g.needs(data.params)) : []
   const includedCount = data ? graphs.filter((g) => data.graphs?.[g.id]?.include).length : 0
@@ -127,7 +183,9 @@ export default function SensorDataPage({ value, onChange, onBack }) {
         </GlassCard>
       )}
 
-      {data && (
+      {data && analyzing && <AnalyzingCard fileName={data.fileName} phase={phase} />}
+
+      {data && !analyzing && (
         <>
           {error && <div style={{ ...errBox, marginTop: 14 }}>{error}</div>}
           {/* File summary */}
