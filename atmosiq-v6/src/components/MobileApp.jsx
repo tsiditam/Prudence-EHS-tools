@@ -3685,7 +3685,7 @@ export default function MobileApp() {
               {id:'dash',label:'Home',icon:'home'},
               {id:'properties',label:'Buildings',icon:'bldg'},
               {id:'incident-log',label:'Incidents',icon:'alert'},
-              {id:'settings',label:'Settings',icon:'gear'},
+              {id:'sensor-data',label:'Logger Studio',icon:'chart'},
             ] : [
               {id:'dash',label:'Home',icon:'home'},
               {id:'history',label:'Reports',icon:'report',badge:((index.drafts||[]).length+(index.reports||[]).length)||null},
@@ -3697,7 +3697,10 @@ export default function MobileApp() {
               // across every surface (the internal id stays 'jasper'
               // to avoid touching shipped event/table names).
               {id:'jasper',label:'AtmosFlow AI',icon:'jasper'},
-              {id:'settings',label:'Settings',icon:'gear'},
+              // Logger Studio takes the 4th slot. Settings stays reachable
+              // from the header avatar + hamburger menu, so it doesn't need a
+              // permanent nav tab; the analyzer is the higher-frequency lane.
+              {id:'sensor-data',label:'Logger Studio',icon:'chart'},
             ]).map(t=>{
               const isJasper = t.id === 'jasper'
               const isActive = isJasper ? faOpen : (view === t.id)
