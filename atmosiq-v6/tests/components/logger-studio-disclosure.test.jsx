@@ -41,6 +41,9 @@ describe('Logger Studio progressive disclosure', () => {
     const { container } = render(<Harness />)
     await upload(container, makeFile(INDOOR, 'indoor.csv'))
 
+    // The secondary tools live under the Analysis tab.
+    await act(async () => { fireEvent.click(screen.getByRole('tab', { name: 'Analysis' })) })
+
     // Headers present...
     expect(screen.getByText('Reference lines')).toBeTruthy()
     expect(screen.getByText('Compare datasets')).toBeTruthy()
