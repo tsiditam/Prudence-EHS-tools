@@ -75,6 +75,9 @@ describe('Logger Studio multi-file flow', () => {
     expect(screen.getByText('Compare datasets')).toBeTruthy()
     expect(screen.queryByText('Indoor vs Outdoor CO₂')).toBeNull()
 
+    // Compare datasets is a collapsed section by default — expand it first.
+    await act(async () => { fireEvent.click(screen.getByText('Compare datasets')) })
+
     // 2) Add an outdoor baseline → differential + cfm/person estimate appear.
     const roleSelect = container.querySelector('select[aria-label="Dataset role"]')
     await act(async () => { fireEvent.change(roleSelect, { target: { value: 'outdoor' } }) })

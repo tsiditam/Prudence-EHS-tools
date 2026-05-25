@@ -60,7 +60,9 @@ describe('occupancy editor on the page', () => {
     const { container } = render(<Harness />)
     await upload(container, makeFile(INDOOR_TS, 'indoor.csv'))
 
+    // Occupancy is a collapsed section by default — expand it first.
     expect(screen.getByText('Occupancy periods')).toBeTruthy()
+    await act(async () => { fireEvent.click(screen.getByText('Occupancy periods')) })
     const removesBefore = screen.queryAllByRole('button', { name: /^Remove/ }).length
 
     await act(async () => { fireEvent.click(screen.getByText('+ Occupied (all)')) })

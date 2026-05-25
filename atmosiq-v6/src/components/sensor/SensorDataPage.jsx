@@ -373,8 +373,8 @@ export default function SensorDataPage({ value, onChange, onBack, onAskInsights 
             <div style={V3.T.captionDim}>{includedCount} in report</div>
           </div>
           {availableRefs.length > 0 && (
-            <div style={{ margin: '0 2px 12px' }}>
-              <div style={{ ...V3.T.captionDim, marginBottom: 8 }}>Reference lines — labelled advisory / context values, not compliance limits.</div>
+            <CollapsibleCard title="Reference lines" summary={`${availableRefs.filter((d) => refs[d.key]).length} of ${availableRefs.length} on`} defaultOpen={false}>
+              <div style={{ ...V3.T.captionDim, marginBottom: 10 }}>Labelled advisory / context values, not compliance limits.</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                 {availableRefs.map((d) => {
                   const on = !!refs[d.key]
@@ -386,7 +386,7 @@ export default function SensorDataPage({ value, onChange, onBack, onAskInsights 
                   )
                 })}
               </div>
-            </div>
+            </CollapsibleCard>
           )}
           {graphs.length === 0 ? (
             <GlassCard style={{ textAlign: 'center', padding: '28px 20px' }}>
@@ -631,6 +631,27 @@ function Stat({ label, value }) {
 
 const OCC_TONE = { occupied: '#10B981', unoccupied: '#94A3B8' }
 
+// Collapsible section — a header (title + state summary + chevron) that
+// toggles its body. Keeps the secondary analysis tools (reference lines,
+// dataset comparison, occupancy) from competing with the charts at full
+// weight; each opens on demand. Open state is ephemeral (per mount).
+function CollapsibleCard({ title, summary, defaultOpen = false, children }) {
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <GlassCard style={{ marginTop: 14 }}>
+      <button onClick={() => setOpen((o) => !o)} aria-expanded={open}
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, width: '100%', background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', WebkitTapHighlightColor: 'transparent' }}>
+        <span style={{ display: 'flex', alignItems: 'baseline', gap: 10, minWidth: 0 }}>
+          <span style={V3.T.micro}>{title}</span>
+          {summary ? <span style={{ ...V3.T.captionDim, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{summary}</span> : null}
+        </span>
+        <span aria-hidden="true" style={{ fontSize: 18, lineHeight: 1, color: SUB, flexShrink: 0, transform: open ? 'rotate(90deg)' : 'none', transition: 'transform .15s ease' }}>›</span>
+      </button>
+      {open ? <div style={{ marginTop: 12 }}>{children}</div> : null}
+    </GlassCard>
+  )
+}
+
 // Tag occupied / unoccupied periods on the shared time axis. Time inputs +
 // presets (mobile-friendly); windows are clamped to the data range and shade
 // every timeline chart. Pure presentation — state lives in the envelope.
@@ -669,9 +690,9 @@ function OccupancyEditor({ windows, range, onChange }) {
   const remove = (id) => onChange(list.filter((w) => w.id !== id))
 
   const inStyle = { padding: '8px 10px', background: 'var(--surface)', border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT, fontSize: 13, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }
+  const summary = list.length ? `${list.length} period${list.length > 1 ? 's' : ''}` : 'None yet — mark occupied / unoccupied windows'
   return (
-    <GlassCard style={{ marginTop: 14 }}>
-      <div style={{ ...V3.T.micro, marginBottom: 10 }}>Occupancy periods</div>
+    <CollapsibleCard title="Occupancy periods" summary={summary} defaultOpen={list.length > 0}>
       {list.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
           {list.map((w) => (
@@ -704,7 +725,7 @@ function OccupancyEditor({ windows, range, onChange }) {
       <div style={{ ...V3.T.captionDim, marginTop: 8, lineHeight: 1.5 }}>
         Shading marks occupied (green) vs unoccupied (grey) periods on every timeline and the report image — context for interpretation, not a measurement.
       </div>
-    </GlassCard>
+    </CollapsibleCard>
   )
 }
 
@@ -721,9 +742,9 @@ function DatasetManager({ datasets, onPickFor, onRemove, busy }) {
     onPickFor({ role, label: l })
     setLabel('')
   }
+  const summary = extras.length ? `${extras.length} added · ${extras.map((d) => d.label).join(', ')}` : 'Indoor only — add outdoor baseline or zones'
   return (
-    <GlassCard style={{ marginTop: 14 }}>
-      <div style={{ ...V3.T.micro, marginBottom: 10 }}>Compare datasets</div>
+    <CollapsibleCard title="Compare datasets" summary={summary} defaultOpen={extras.length > 0}>
       {extras.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
           {extras.map((d) => (
@@ -754,7 +775,7 @@ function DatasetManager({ datasets, onPickFor, onRemove, busy }) {
       <div style={{ ...V3.T.captionDim, marginTop: 8, lineHeight: 1.5 }}>
         Add an outdoor CO₂ baseline to estimate ventilation, or upload zone files to compare the same parameter across locations.
       </div>
-    </GlassCard>
+    </CollapsibleCard>
   )
 }
 
