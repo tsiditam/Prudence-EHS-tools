@@ -75,11 +75,8 @@ import ModeSelector from './ModeSelector'
 import IncidentForm from './IncidentForm'
 import IncidentLog from './IncidentLog'
 import IncidentDetail from './IncidentDetail'
-import InterventionTracker from './InterventionTracker'
-import IHDirectory from './IHDirectory'
 import PropertyDashboard from './PropertyDashboard'
 import SpatialMap from './SpatialMap'
-import InstrumentManager from './InstrumentManager'
 import V21InternalPanel from './V21InternalPanel'
 import { FAQ_SECTIONS } from '../constants/faq'
 import SearchView from './SearchView'
@@ -3629,11 +3626,8 @@ export default function MobileApp() {
         {view==='incident-form'&&<IncidentForm onCancel={()=>setView('dash')} onSaved={(inc)=>{setCurrentIncident(inc);setView('incident-detail')}} />}
         {view==='incident-log'&&<IncidentLog profile={profile} onBack={()=>setView('dash')} onNewIncident={()=>setView('incident-form')} onView={(inc)=>{setCurrentIncident(inc);setView('incident-detail')}} />}
         {view==='incident-detail'&&currentIncident&&<IncidentDetail incident={currentIncident} profile={profile} onBack={()=>setView('incident-log')} onChange={setCurrentIncident} onDeleted={()=>{setCurrentIncident(null);setView('incident-log')}} />}
-        {view==='interventions'&&<InterventionTracker buildingId={bldg?.fn||'default'} onBack={()=>setView('dash')} assessments={index.reports} />}
-        {view==='directory'&&<IHDirectory onBack={()=>setView('dash')} />}
         {view==='properties'&&<PropertyDashboard onBack={()=>setView('dash')} onNavigate={(v)=>setView(v)} assessmentIndex={index} />}
         {view==='spatial'&&<SpatialMap zones={zones} zoneScores={zoneScores} floorPlan={floorPlan} onUploadFloorPlan={setFloorPlan} onUpdateZone={(zi, update)=>{const z=[...zones];z[zi]={...z[zi],...update};setZones(z)}} onClose={()=>{runScoring();setView('results')}} />}
-        {view==='instruments'&&<InstrumentManager onBack={()=>setView('settings')} />}
       </div>
 
       {/* ── Bottom Tab Bar (v3) ──
