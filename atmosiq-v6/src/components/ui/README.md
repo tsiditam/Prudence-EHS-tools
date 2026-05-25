@@ -153,6 +153,26 @@ Behavior:
 - Spring entrance (220–320ms with `SPRING.bounce`).
 - `prefers-reduced-motion: reduce` disables the entrance animation.
 
+### V3-surface primitives (Logger Studio)
+
+Plain V3-token primitives (solid surfaces, neutral borders — **not**
+soft-glass: no blur, spring, or haptics) extracted from `SensorDataPage`
+during the Logger Studio redesign. They sit alongside the soft-glass set
+in this directory; reach for them on V3-surface screens.
+
+| Primitive | File | Purpose |
+|---|---|---|
+| `<SegmentedControl>` | `SegmentedControl.jsx` | Tablist of pill buttons for a view switch. `options=[{value,label,badge?}]`, controlled via `value` / `onChange`. |
+| `<Chip>` | `Chip.jsx` | Rounded pill. Static label (no `onClick`), action chip (`onClick`), or toggle (`onClick` + `selected`, optional leading ✓ via `checkmark`). |
+| `<CollapsibleCard>` | `CollapsibleCard.jsx` | GlassCard with a micro-label header that toggles its body; optional dim `summary` while collapsed. |
+| `<GhostButton>` | `GhostButton.jsx` | Low-emphasis bordered button. `style` overrides spacing / danger color. Exports `ghostButtonStyle`. |
+| `<Select>` | `Select.jsx` | Compact themed native `<select>`. Exports `selectStyle`. |
+| `<StatTile>` | `StatTile.jsx` | Labelled numeric readout tile (`label` / `value`). |
+| `<RoleBadge>` | `RoleBadge.jsx` | Tiny uppercase outlined dataset-role tag (indoor / outdoor / zone). Exports `ROLE_TONE`. |
+| `<InlineError>` | `InlineError.jsx` | Danger-tinted inline message box. Exports `inlineErrorStyle`. |
+
+Contract pinned by `tests/components/sensor-ui-primitives.test.jsx`.
+
 ## Migration playbook
 
 When converting a legacy modal / panel / button:

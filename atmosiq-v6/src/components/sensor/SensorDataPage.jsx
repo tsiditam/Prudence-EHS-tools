@@ -17,6 +17,14 @@ import * as V3 from '../../styles/tokens'
 import { I } from '../Icons'
 import GlassCard from '../ui/GlassCard'
 import TactileButton from '../ui/TactileButton'
+import SegmentedControl from '../ui/SegmentedControl'
+import Chip from '../ui/Chip'
+import CollapsibleCard from '../ui/CollapsibleCard'
+import GhostButton from '../ui/GhostButton'
+import Select from '../ui/Select'
+import StatTile from '../ui/StatTile'
+import RoleBadge from '../ui/RoleBadge'
+import InlineError from '../ui/InlineError'
 import { parseSensorRows, SENSOR_PARAMS, TVOC_REFERENCES, ppbToUgm3, ugm3ToPpb, HCHO_MW, normalizeSensorData, primaryDataset, alignDatasets } from '../../utils/sensorParser'
 import { splitCsvLine } from '../../utils/labResultsParser'
 import { xlsxToRows } from '../../utils/sensorXlsx'
@@ -38,29 +46,6 @@ const QUALITY_TONE = { ok: V3.STATUS.ready, minor: '#FBBF24', uncertain: '#FBBF2
 // Short tab labels for the Analysis parameter strip (GRAPH_DEFS titles are
 // long); falls back to the full title for anything unmapped.
 const SHORT_LABEL = { co2: 'CO₂', tempRh: 'Temp / RH', pm: 'PM', co: 'CO', tvoc: 'TVOC', hcho: 'Formaldehyde' }
-
-// Segmented control for the three Logger Studio modes: Overview (fast
-// interpretation), Analysis (the charts + controls), Report (curation +
-// export). The Report tab carries a count of graphs flagged for the report.
-function ModeSwitcher({ mode, onMode, reportCount }) {
-  const tabs = [['overview', 'Overview'], ['analysis', 'Analysis'], ['report', 'Report']]
-  return (
-    <div role="tablist" aria-label="Logger Studio view" style={{ display: 'flex', gap: 4, padding: 4, background: 'var(--surface)', border: `1px solid ${BORDER}`, borderRadius: 12, marginTop: 14 }}>
-      {tabs.map(([k, label]) => {
-        const on = mode === k
-        return (
-          <button key={k} role="tab" aria-selected={on} onClick={() => onMode(k)}
-            style={{ flex: 1, padding: '9px 8px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: on ? 700 : 600, color: on ? ACCENT : SUB, background: on ? CARD : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: 'color .15s, background .15s' }}>
-            {label}
-            {k === 'report' && reportCount > 0 ? (
-              <span style={{ minWidth: 18, height: 18, padding: '0 5px', borderRadius: 999, background: ACCENT, color: 'var(--on-accent-fill)', fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{reportCount}</span>
-            ) : null}
-          </button>
-        )
-      })}
-    </div>
-  )
-}
 
 const fmtRange = (s, e) => (s && e ? `${dayjs(s).format('MMM D, HH:mm')} – ${dayjs(e).format('MMM D, HH:mm')}` : 'Row order (no timestamps)')
 const fmtInterval = (sec) => (sec == null ? '—' : sec >= 3600 ? `${(sec / 3600).toFixed(1)} h` : sec >= 60 ? `${Math.round(sec / 60)} min` : `${Math.round(sec)} s`)
@@ -325,15 +310,11 @@ export default function SensorDataPage({ value, onChange, onBack, onAskInsights 
           <div style={{ ...V3.T.micro, margin: '0 2px 8px' }}>Zone comparison{sharedParams.length > 1 ? ' · pick a parameter' : ''}</div>
           {sharedParams.length > 1 && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
-              {sharedParams.map((k) => {
-                const on = k === activeZoneParam
-                return (
-                  <button key={k} onClick={() => setZoneParam(k)} aria-pressed={on}
-                    style={{ ...chip, cursor: 'pointer', color: on ? ACCENT : SUB, borderColor: on ? ACCENT : BORDER, background: on ? 'color-mix(in srgb, var(--accent) 8%, transparent)' : 'var(--surface)' }}>
-                    {on ? '✓ ' : ''}{SENSOR_PARAMS.find((s) => s.key === k)?.label || k}
-                  </button>
-                )
-              })}
+              {sharedParams.map((k) => (
+                <Chip key={k} selected={k === activeZoneParam} onClick={() => setZoneParam(k)} checkmark>
+                  {SENSOR_PARAMS.find((s) => s.key === k)?.label || k}
+                </Chip>
+              ))}
             </div>
           )}
           <GraphCard
@@ -383,7 +364,7 @@ export default function SensorDataPage({ value, onChange, onBack, onAskInsights 
           <div style={{ ...V3.T.bodyDim, maxWidth: 460, margin: '0 auto 18px' }}>
             CSV or XLSX exports from TSI Q-Trak, HOBO, Aeroqual, GrayWolf, Airthings, and most loggers. AtmosFlow detects timestamp, CO₂, temperature, RH, PM, TVOC and CO columns automatically.
           </div>
-          {error && <div style={{ ...errBox, marginBottom: 14 }}>{error}</div>}
+          {error && <InlineError style={{ marginBottom: 14 }}>{error}</InlineError>}
           <TactileButton variant="primary" size="lg" pill disabled={busy} onClick={() => pickFor({ role: 'indoor', label: 'Indoor' })} icon={<I n="upload" s={15} c="var(--on-accent-fill)" w={2} />}>
             {busy ? 'Reading…' : 'Upload Logger Data'}
           </TactileButton>
@@ -394,9 +375,10 @@ export default function SensorDataPage({ value, onChange, onBack, onAskInsights 
 
       {data && !analyzing && (
         <>
-          {error && <div style={{ ...errBox, marginTop: 14 }}>{error}</div>}
+          {error && <InlineError style={{ marginTop: 14 }}>{error}</InlineError>}
 
-          <ModeSwitcher mode={mode} onMode={setMode} reportCount={includedReportCount} />
+          <SegmentedControl ariaLabel="Logger Studio view" value={mode} onChange={setMode} style={{ marginTop: 14 }}
+            options={[{ value: 'overview', label: 'Overview' }, { value: 'analysis', label: 'Analysis' }, { value: 'report', label: 'Report', badge: includedReportCount || undefined }]} />
 
           {mode === 'overview' && (
             <>
@@ -405,23 +387,23 @@ export default function SensorDataPage({ value, onChange, onBack, onAskInsights 
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
               <div style={{ minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={roleBadge('indoor')}>Indoor</span>
+                  <RoleBadge role="indoor">Indoor</RoleBadge>
                   <div style={{ ...V3.T.bodyStrong, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{data.fileName || 'Logger data'}</div>
                 </div>
                 <div style={{ ...V3.T.captionDim, marginTop: 2 }}>{fmtRange(data.summary.start, data.summary.end)}</div>
               </div>
-              <button onClick={() => pickFor({ role: 'indoor', label: 'Indoor' })} style={ghostBtn}>Replace</button>
+              <GhostButton onClick={() => pickFor({ role: 'indoor', label: 'Indoor' })}>Replace</GhostButton>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10, marginTop: 14 }}>
-              <Stat label="Readings" value={data.summary.count.toLocaleString()} />
-              <Stat label="Interval" value={fmtInterval(data.summary.intervalSec)} />
-              <Stat label="Parameters" value={data.params.length} />
-              <Stat label="Empty rows" value={data.summary.emptyRows} />
+              <StatTile label="Readings" value={data.summary.count.toLocaleString()} />
+              <StatTile label="Interval" value={fmtInterval(data.summary.intervalSec)} />
+              <StatTile label="Parameters" value={data.params.length} />
+              <StatTile label="Empty rows" value={data.summary.emptyRows} />
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 14 }}>
               {data.params.map((p) => {
                 const spec = SENSOR_PARAMS.find((s) => s.key === p)
-                return <span key={p} style={chip}>{spec?.label || p}{data.units[p] ? ` · ${data.units[p]}` : ''}</span>
+                return <Chip key={p}>{spec?.label || p}{data.units[p] ? ` · ${data.units[p]}` : ''}</Chip>
               })}
             </div>
             {data.summary.stats && data.params.some((p) => data.summary.stats[p]) && (
@@ -462,9 +444,9 @@ export default function SensorDataPage({ value, onChange, onBack, onAskInsights 
                 </div>
               </div>
             )}
-            <button onClick={() => setMapOpen((v) => !v)} style={{ ...ghostBtn, marginTop: 14, width: '100%', justifyContent: 'center' }}>
+            <GhostButton onClick={() => setMapOpen((v) => !v)} style={{ marginTop: 14, width: '100%', justifyContent: 'center' }}>
               {mapOpen ? 'Hide column mapping' : 'Adjust column mapping'}
-            </button>
+            </GhostButton>
             {mapOpen && sourceRows && <MappingPanel columns={data.columns} onApply={(m) => { reparse(m); setMapOpen(false) }} />}
           </GlassCard>
 
@@ -486,7 +468,7 @@ export default function SensorDataPage({ value, onChange, onBack, onAskInsights 
             </div>
           </GlassCard>
 
-              <button onClick={clear} style={{ ...ghostBtn, marginTop: 18, color: V3.DANGER, borderColor: `color-mix(in srgb, var(--danger) 30%, transparent)` }}>Remove logger data</button>
+              <GhostButton onClick={clear} style={{ marginTop: 18, color: V3.DANGER, borderColor: 'color-mix(in srgb, var(--danger) 30%, transparent)' }}>Remove logger data</GhostButton>
             </>
           )}
 
@@ -496,15 +478,11 @@ export default function SensorDataPage({ value, onChange, onBack, onAskInsights 
                 <CollapsibleCard title="Reference lines" summary={`${availableRefs.filter((d) => refs[d.key]).length} of ${availableRefs.length} on`} defaultOpen={false}>
                   <div style={{ ...V3.T.captionDim, marginBottom: 10 }}>Labelled advisory / context values, not compliance limits.</div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                    {availableRefs.map((d) => {
-                      const on = !!refs[d.key]
-                      return (
-                        <button key={d.key} onClick={() => toggleRef(d.key)} aria-pressed={on} title={d.std}
-                          style={{ ...chip, cursor: 'pointer', color: on ? ACCENT : SUB, borderColor: on ? ACCENT : BORDER, background: on ? 'color-mix(in srgb, var(--accent) 8%, transparent)' : 'var(--surface)' }}>
-                          {on ? '✓ ' : ''}{d.label}
-                        </button>
-                      )
-                    })}
+                    {availableRefs.map((d) => (
+                      <Chip key={d.key} selected={!!refs[d.key]} onClick={() => toggleRef(d.key)} title={d.std} checkmark>
+                        {d.label}
+                      </Chip>
+                    ))}
                   </div>
                 </CollapsibleCard>
               )}
@@ -518,15 +496,11 @@ export default function SensorDataPage({ value, onChange, onBack, onAskInsights 
                 <>
                   <div style={{ ...V3.T.micro, margin: '20px 2px 8px' }}>Charts</div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
-                    {chartTabs.map((t) => {
-                      const on = t.key === activeChart?.key
-                      return (
-                        <button key={t.key} onClick={() => setActiveChartKey(t.key)} aria-pressed={on}
-                          style={{ ...chip, cursor: 'pointer', color: on ? ACCENT : SUB, borderColor: on ? ACCENT : BORDER, background: on ? 'color-mix(in srgb, var(--accent) 8%, transparent)' : 'var(--surface)' }}>
-                          {t.label}
-                        </button>
-                      )
-                    })}
+                    {chartTabs.map((t) => (
+                      <Chip key={t.key} selected={t.key === activeChart?.key} onClick={() => setActiveChartKey(t.key)}>
+                        {t.label}
+                      </Chip>
+                    ))}
                   </div>
                   {renderChartBlock(activeChart, 'analysis')}
                 </>
@@ -576,15 +550,11 @@ function MultiParamSection({ data, state, onState, occupancy = [], mode = 'repor
     <div style={{ marginTop: 18 }}>
       <div style={{ ...V3.T.micro, margin: '0 2px 8px' }}>Compare parameters · pick up to 3</div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
-        {data.params.map((k) => {
-          const on = selected.includes(k)
-          return (
-            <button key={k} onClick={() => toggleParam(k)} aria-pressed={on}
-              style={{ ...chip, cursor: 'pointer', color: on ? ACCENT : SUB, borderColor: on ? ACCENT : BORDER, background: on ? 'color-mix(in srgb, var(--accent) 8%, transparent)' : 'var(--surface)' }}>
-              {on ? '✓ ' : ''}{labelOf(k)}
-            </button>
-          )
-        })}
+        {data.params.map((k) => (
+          <Chip key={k} selected={selected.includes(k)} onClick={() => toggleParam(k)} checkmark>
+            {labelOf(k)}
+          </Chip>
+        ))}
       </div>
       <GraphCard def={def} data={data} state={state} onState={onState} chartProps={{ params: selected, occupancy }} mode={mode} />
     </div>
@@ -665,12 +635,12 @@ function GraphCard({ def, data, state, onState, chartProps = {}, mode = 'report'
           <textarea value={state.caption || ''} onChange={(e) => onState({ caption: e.target.value })} placeholder="Caption (e.g. CO₂ rose during occupied periods and declined after apparent occupancy reduction — interpret with site observations)."
             rows={2} style={{ width: '100%', padding: '10px 12px', background: 'var(--surface)', border: `1px solid ${BORDER}`, borderRadius: 10, color: TEXT, fontSize: 13, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box', resize: 'vertical', lineHeight: 1.5 }} />
           <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-            <button onClick={exportPng} disabled={busy} style={ghostBtn}>
+            <GhostButton onClick={exportPng} disabled={busy}>
               <I n="download" s={14} c={SUB} w={1.8} /> {busy && capture === 'export' ? 'Exporting…' : 'Export PNG'}
-            </button>
-            <button onClick={exportSvg} disabled={busy} style={ghostBtn}>
+            </GhostButton>
+            <GhostButton onClick={exportSvg} disabled={busy}>
               <I n="download" s={14} c={SUB} w={1.8} /> {busy && capture === 'export-svg' ? 'Exporting…' : 'Export SVG'}
-            </button>
+            </GhostButton>
           </div>
         </div>
       )}
@@ -692,14 +662,14 @@ function MappingPanel({ columns, onApply }) {
       {columns.map((c, i) => (
         <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 8, alignItems: 'center' }}>
           <span style={{ ...V3.T.caption, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.raw || `Column ${i + 1}`}</span>
-          <select value={map[i].role} onChange={(e) => setMap((m) => m.map((x, j) => (j === i ? { ...x, role: e.target.value } : x)))} style={sel}>
+          <Select value={map[i].role} onChange={(e) => setMap((m) => m.map((x, j) => (j === i ? { ...x, role: e.target.value } : x)))}>
             {roles.map((r) => <option key={r} value={r}>{r}</option>)}
-          </select>
+          </Select>
           {map[i].role === 'param' ? (
-            <select value={map[i].param} onChange={(e) => setMap((m) => m.map((x, j) => (j === i ? { ...x, param: e.target.value } : x)))} style={sel}>
+            <Select value={map[i].param} onChange={(e) => setMap((m) => m.map((x, j) => (j === i ? { ...x, param: e.target.value } : x)))}>
               <option value="">param…</option>
               {SENSOR_PARAMS.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
-            </select>
+            </Select>
           ) : <span />}
         </div>
       ))}
@@ -712,37 +682,7 @@ function MappingPanel({ columns, onApply }) {
   )
 }
 
-function Stat({ label, value }) {
-  return (
-    <div style={{ padding: '10px 12px', background: 'var(--surface)', border: `1px solid ${BORDER}`, borderRadius: 10 }}>
-      <div style={{ fontSize: 18, fontWeight: 700, color: TEXT, fontFamily: 'var(--font-mono)', letterSpacing: '-0.3px' }}>{value}</div>
-      <div style={{ ...V3.T.captionDim, marginTop: 2 }}>{label}</div>
-    </div>
-  )
-}
-
 const OCC_TONE = { occupied: '#10B981', unoccupied: '#94A3B8' }
-
-// Collapsible section — a header (title + state summary + chevron) that
-// toggles its body. Keeps the secondary analysis tools (reference lines,
-// dataset comparison, occupancy) from competing with the charts at full
-// weight; each opens on demand. Open state is ephemeral (per mount).
-function CollapsibleCard({ title, summary, defaultOpen = false, children }) {
-  const [open, setOpen] = useState(defaultOpen)
-  return (
-    <GlassCard style={{ marginTop: 14 }}>
-      <button onClick={() => setOpen((o) => !o)} aria-expanded={open}
-        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, width: '100%', background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', WebkitTapHighlightColor: 'transparent' }}>
-        <span style={{ display: 'flex', alignItems: 'baseline', gap: 10, minWidth: 0 }}>
-          <span style={V3.T.micro}>{title}</span>
-          {summary ? <span style={{ ...V3.T.captionDim, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{summary}</span> : null}
-        </span>
-        <span aria-hidden="true" style={{ fontSize: 18, lineHeight: 1, color: SUB, flexShrink: 0, transform: open ? 'rotate(90deg)' : 'none', transition: 'transform .15s ease' }}>›</span>
-      </button>
-      {open ? <div style={{ marginTop: 12 }}>{children}</div> : null}
-    </GlassCard>
-  )
-}
 
 // Tag occupied / unoccupied periods on the shared time axis. Time inputs +
 // presets (mobile-friendly); windows are clamped to the data range and shade
@@ -794,21 +734,21 @@ function OccupancyEditor({ windows, range, onChange }) {
                 <div style={{ ...V3.T.caption, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.label}</div>
                 <div style={V3.T.captionDim}>{fmtRange(w.start, w.end)}</div>
               </div>
-              <button onClick={() => remove(w.id)} aria-label={`Remove ${w.label}`} style={{ ...ghostBtn, padding: '4px 10px', minHeight: 30 }}>Remove</button>
+              <GhostButton onClick={() => remove(w.id)} aria-label={`Remove ${w.label}`} style={{ padding: '4px 10px', minHeight: 30 }}>Remove</GhostButton>
             </div>
           ))}
         </div>
       )}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
-        <button onClick={addBusinessHours} style={{ ...chip, cursor: 'pointer' }}>+ Business hours (8–18)</button>
-        <button onClick={() => addWhole('occupied')} style={{ ...chip, cursor: 'pointer' }}>+ Occupied (all)</button>
-        <button onClick={() => addWhole('unoccupied')} style={{ ...chip, cursor: 'pointer' }}>+ Unoccupied (all)</button>
+        <Chip onClick={addBusinessHours}>+ Business hours (8–18)</Chip>
+        <Chip onClick={() => addWhole('occupied')}>+ Occupied (all)</Chip>
+        <Chip onClick={() => addWhole('unoccupied')}>+ Unoccupied (all)</Chip>
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-        <select value={kind} onChange={(e) => setKind(e.target.value)} style={{ ...sel }} aria-label="Occupancy kind">
+        <Select value={kind} onChange={(e) => setKind(e.target.value)} aria-label="Occupancy kind">
           <option value="occupied">Occupied</option>
           <option value="unoccupied">Unoccupied</option>
-        </select>
+        </Select>
         <input type="datetime-local" value={startLocal} min={fmtLocal(range.start)} max={fmtLocal(range.end)} onChange={(e) => setStartLocal(e.target.value)} aria-label="Start" style={inStyle} />
         <input type="datetime-local" value={endLocal} min={fmtLocal(range.start)} max={fmtLocal(range.end)} onChange={(e) => setEndLocal(e.target.value)} aria-label="End" style={inStyle} />
         <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Label (optional)" style={{ ...inStyle, flex: '1 1 140px', minWidth: 0 }} />
@@ -841,21 +781,21 @@ function DatasetManager({ datasets, onPickFor, onRemove, busy }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
           {extras.map((d) => (
             <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', background: 'var(--surface)', border: `1px solid ${BORDER}`, borderRadius: 10 }}>
-              <span style={roleBadge(d.role)}>{d.role === 'outdoor' ? 'Outdoor' : 'Zone'}</span>
+              <RoleBadge role={d.role}>{d.role === 'outdoor' ? 'Outdoor' : 'Zone'}</RoleBadge>
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{ ...V3.T.caption, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.label}{d.fileName && d.fileName !== d.label ? ` · ${d.fileName}` : ''}</div>
                 <div style={V3.T.captionDim}>{(d.summary?.count ?? 0).toLocaleString()} readings · {(d.params || []).map((p) => SENSOR_PARAMS.find((s) => s.key === p)?.label || p).join(', ')}</div>
               </div>
-              <button onClick={() => onRemove(d.id)} aria-label={`Remove ${d.label}`} style={{ ...ghostBtn, padding: '6px 10px', minHeight: 32 }}>Remove</button>
+              <GhostButton onClick={() => onRemove(d.id)} aria-label={`Remove ${d.label}`} style={{ padding: '6px 10px', minHeight: 32 }}>Remove</GhostButton>
             </div>
           ))}
         </div>
       )}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-        <select value={role} onChange={(e) => setRole(e.target.value)} style={sel} aria-label="Dataset role">
+        <Select value={role} onChange={(e) => setRole(e.target.value)} aria-label="Dataset role">
           <option value="outdoor" disabled={hasOutdoor}>Outdoor baseline{hasOutdoor ? ' (added)' : ''}</option>
           <option value="zone">Zone</option>
-        </select>
+        </Select>
         {role === 'zone' && (
           <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Zone label (e.g. Conference Room A)"
             style={{ flex: '1 1 200px', minWidth: 0, padding: '8px 10px', background: 'var(--surface)', border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT, fontSize: 13, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }} />
@@ -870,10 +810,3 @@ function DatasetManager({ datasets, onPickFor, onRemove, busy }) {
     </CollapsibleCard>
   )
 }
-
-const errBox = { padding: '10px 12px', background: `color-mix(in srgb, var(--danger) 10%, transparent)`, border: `1px solid color-mix(in srgb, var(--danger) 28%, transparent)`, borderRadius: 10, color: 'var(--danger)', fontSize: 12, lineHeight: 1.5 }
-const ghostBtn = { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: 'transparent', border: `1px solid ${BORDER}`, borderRadius: 10, color: SUB, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', minHeight: 38, WebkitTapHighlightColor: 'transparent' }
-const chip = { fontSize: 11, fontWeight: 600, color: SUB, padding: '4px 10px', borderRadius: 999, background: 'var(--surface)', border: `1px solid ${BORDER}` }
-const ROLE_TONE = { indoor: 'var(--accent)', outdoor: '#EA7A2B', zone: '#7C3AED' }
-const roleBadge = (role) => ({ fontSize: 10, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: ROLE_TONE[role] || SUB, border: `1px solid ${ROLE_TONE[role] || BORDER}`, borderRadius: 6, padding: '2px 6px', flexShrink: 0, background: 'transparent', whiteSpace: 'nowrap' })
-const sel = { padding: '6px 8px', background: 'var(--surface)', border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT, fontSize: 12, fontFamily: 'inherit', appearance: 'auto' }
