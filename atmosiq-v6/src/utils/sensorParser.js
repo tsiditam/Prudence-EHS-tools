@@ -191,10 +191,13 @@ const READING_FIELD_MAP = {
 export function sensorAveragesToFields(sensorData, opts = {}) {
   const stat = opts.stat === 'median' ? 'median' : 'mean'
   const empty = { fields: {}, details: [], skipped: [] }
-  const stats = sensorData && sensorData.summary && sensorData.summary.stats
+  // Accept either a raw parsed object (v1) or the multi-dataset envelope
+  // (v2): averages always come from the primary indoor dataset.
+  const ds = primaryDataset(sensorData) || {}
+  const stats = ds.summary && ds.summary.stats
   if (!stats) return empty
-  const units = sensorData.units || {}
-  const params = Array.isArray(sensorData.params) ? sensorData.params : []
+  const units = ds.units || {}
+  const params = Array.isArray(ds.params) ? ds.params : []
   const ref = TVOC_REFERENCES[opts.tvocRef] || TVOC_REFERENCES.isobutylene
   const fields = {}
   const details = []
@@ -390,4 +393,107 @@ function assessQuality(points, activeParams, hasTimestamps, summary) {
     review: 'Data requires review before using in a final report.',
   }
   return { level: worst, status: statusText[worst], flags }
+}
+
+// ── Multi-dataset envelope (Logger Studio) ────────────────────────────────
+// Logger Studio compares multiple logger files (indoor / outdoor baseline /
+// per-zone). They live in a single `sensorData` envelope so persistence and
+// the report pipeline keep one key. `graphs` (per-chart export state) and
+// `thresholds` (reference-line visibility) stay envelope-level; the parsed
+// series live in `datasets[]`.
+
+export const SENSOR_DATA_VERSION = 2
+
+/**
+ * Normalize any stored sensorData into the v2 multi-dataset envelope.
+ * Idempotent: a v2 envelope passes through (defaults filled); a legacy v1
+ * parsed object is wrapped as the single primary indoor dataset. Returns
+ * null for nullish input.
+ */
+export function normalizeSensorData(sd) {
+  if (!sd || typeof sd !== 'object') return sd ?? null
+  if (sd.version === SENSOR_DATA_VERSION && Array.isArray(sd.datasets)) {
+    return {
+      ...sd,
+      datasets: sd.datasets,
+      occupancyWindows: Array.isArray(sd.occupancyWindows) ? sd.occupancyWindows : [],
+      thresholds: sd.thresholds || { co2: true },
+      graphs: sd.graphs || {},
+    }
+  }
+  // Legacy v1: the object itself is the primary (indoor) dataset, with
+  // graphs/thresholds/mapping riding alongside the parsed fields.
+  const { graphs, thresholds, version, datasets, occupancyWindows, ...parsed } = sd
+  return {
+    version: SENSOR_DATA_VERSION,
+    datasets: [{ id: 'primary', role: 'indoor', label: 'Indoor', ...parsed }],
+    occupancyWindows: [],
+    thresholds: thresholds || { co2: true },
+    graphs: graphs || {},
+  }
+}
+
+/**
+ * The primary (indoor) dataset. Accepts a v2 envelope or a legacy v1 object
+ * (which is itself the primary dataset). Returns null when absent.
+ */
+export function primaryDataset(sd) {
+  if (!sd || typeof sd !== 'object') return null
+  if (Array.isArray(sd.datasets)) return sd.datasets.find((d) => d.role === 'indoor') || sd.datasets[0] || null
+  return sd
+}
+
+// Nearest value (within `tol` ms) to time `t` in a t-sorted [{t, v}] array.
+function nearestValue(arr, t, tol) {
+  if (!arr.length) return null
+  let lo = 0
+  let hi = arr.length - 1
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1
+    if (arr[mid].t < t) lo = mid + 1
+    else hi = mid
+  }
+  let best = arr[lo]
+  if (lo > 0 && Math.abs(arr[lo - 1].t - t) < Math.abs(best.t - t)) best = arr[lo - 1]
+  return Math.abs(best.t - t) <= tol ? best.v : null
+}
+
+/**
+ * Time-align one parameter across several datasets for overlay charts.
+ * Builds a union timeline of all datasets' timestamps and, for each base
+ * time, nearest-joins each dataset's value within a tolerance (defaults to
+ * the smallest dataset interval, floor 60 s). Returns
+ *   { points: [{ t, [datasetId]: value|null }], ids: [datasetId] }
+ * Only timestamped datasets participate (row-order series can't be aligned).
+ */
+export function alignDatasets(datasets, param, opts = {}) {
+  const list = (datasets || []).filter((d) => d && d.hasTimestamps && Array.isArray(d.points))
+  const ids = list.map((d) => d.id)
+  if (!list.length) return { points: [], ids }
+
+  const series = {}
+  let allTs = []
+  list.forEach((d) => {
+    const s = d.points
+      .map((p) => ({ t: p.t, v: p[param] }))
+      .filter((p) => typeof p.t === 'number' && p.v != null)
+      .sort((a, b) => a.t - b.t)
+    series[d.id] = s
+    allTs = allTs.concat(s.map((p) => p.t))
+  })
+  const baseTs = Array.from(new Set(allTs)).sort((a, b) => a - b)
+  if (!baseTs.length) return { points: [], ids }
+
+  const intervals = list.map((d) => d.summary && d.summary.intervalSec).filter((s) => s > 0)
+  const tol = opts.toleranceMs != null
+    ? opts.toleranceMs
+    : Math.max((intervals.length ? Math.min(...intervals) : 300) * 1000, 60000)
+
+  let points = baseTs.map((t) => {
+    const row = { t }
+    ids.forEach((id) => { row[id] = nearestValue(series[id], t, tol) })
+    return row
+  })
+  points = downsample(points, opts.maxPoints || 800)
+  return { points, ids }
 }

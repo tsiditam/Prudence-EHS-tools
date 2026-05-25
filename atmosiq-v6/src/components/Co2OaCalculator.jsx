@@ -26,6 +26,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { mix } from '../utils/theme'
+import { calcCfmPerPerson } from '../utils/ventilation'
 
 const CARD = 'var(--card)'
 const BORDER = 'var(--border)'
@@ -33,24 +34,6 @@ const ACCENT = 'var(--accent)'
 const TEXT = 'var(--text)'
 const SUB = 'var(--sub)'
 const DIM = 'var(--dim)'
-
-// ASHRAE 62.1-2019 Appendix C: G ≈ 0.0084 cfm/person at 1.2 met
-// (sedentary office worker, average adult). Persily 2017 confirms
-// this within ~10% for typical office demographics.
-const G_CFM_PER_PERSON = 0.0084
-
-function calcCfmPerPerson(co2Indoor, co2Outdoor) {
-  const cs = parseFloat(co2Indoor)
-  const co = parseFloat(co2Outdoor)
-  if (!Number.isFinite(cs) || !Number.isFinite(co)) return null
-  const delta = cs - co
-  if (delta < 50) {
-    return { error: 'CO₂ differential too small (<50 ppm). Mass-balance estimate is unreliable below this threshold — use a direct airflow measurement.' }
-  }
-  const vo = (G_CFM_PER_PERSON * 1e6) / delta
-  if (!Number.isFinite(vo) || vo <= 0) return null
-  return { cfmPerPerson: Math.round(vo * 10) / 10 }
-}
 
 export default function Co2OaCalculator({ co2, co2o, onApply, onCo2Change, onCo2oChange }) {
   const [indoor, setIndoor] = useState(co2 || '')
