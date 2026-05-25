@@ -53,6 +53,8 @@ import { TermsOfService, PrivacyPolicy } from './LegalScreens'
 import AdminDashboard from './AdminDashboard'
 import WelcomeScreen from './WelcomeScreen'
 import SensorDataPage from './sensor/SensorDataPage'
+import ProjectsScreen from './projects/ProjectsScreen'
+import ProjectDetail from './projects/ProjectDetail'
 import SettingsScreen from './SettingsScreen'
 import { printReport, generatePrintHTML } from './PrintReport'
 // v2.6.1 — DocxReport is a static import. Earlier `await import('./DocxReport')`
@@ -425,6 +427,7 @@ export default function MobileApp() {
   const PAYWALL_DISABLED = true
   // views: dash|quickstart|zone|details|results|history|drafts|report
   const [view, setView] = useState('dash')
+  const [activeProjectId, setActiveProjectId] = useState(null)
   const [milestone, setMilestone] = useState(null)
   const [clock, setClock] = useState(new Date())
   const [showPricing, setShowPricing] = useState(false)
@@ -2267,6 +2270,7 @@ export default function MobileApp() {
                 { label: 'Trash',        icon: 'trash',  onClick: () => setView('trash') },
                 { label: 'Sampling forms', icon: 'flask', onClick: () => setView('sampling-forms') },
                 { label: 'Sensor Data',  icon: 'chart',  onClick: () => setView('sensor-data') },
+                { label: 'Projects',     icon: 'bldg',   onClick: () => setView('projects') },
                 // Single Demos entry — opens the sub-picker instead
                 // of running a demo directly. The "submenu" flag tells
                 // the click handler to stay open + switch mode rather
@@ -3614,6 +3618,8 @@ export default function MobileApp() {
         {view==='trash'&&<TrashView onRecover={async(id)=>{await Backup.recover(id);await refreshIndex()}} onDelete={async(id)=>{await Backup.permanentDelete(id)}} />}
         {view==='sampling-forms'&&<SamplingFormsView profile={profile} onBack={()=>setView('dash')} />}
         {view==='sensor-data'&&<SensorDataPage value={sensorData} onChange={setSensorData} onBack={()=>setView(comp?'results':'dash')} />}
+        {view==='projects'&&<ProjectsScreen onBack={()=>setView('dash')} onOpen={(pid)=>{setActiveProjectId(pid);setView('project-detail')}} />}
+        {view==='project-detail'&&<ProjectDetail id={activeProjectId} profile={profile} onBack={()=>setView('projects')} onOpenReport={(r)=>openReport(r)} />}
         {view==='settings'&&<SettingsScreen profile={profile} onEditProfile={()=>{sessionStorage.setItem('aiq_welcomed','1');setWelcomeDone(true);setProfile({...profile,isNew:true});setView('dash')}} onLogout={handleLogout} onClose={()=>setView('dash')} onNavigate={(v)=>{if(v==='pricing'){setShowPricing(true)}else{setView(v)}}} adminActive={!!adminSecret} onActivateAdmin={(secret)=>{setAdminSecret(secret);setView('admin')}} />}
         {view==='tos'&&<TermsOfService onBack={()=>setView('settings')} />}
         {view==='privacy'&&<PrivacyPolicy onBack={()=>setView('settings')} />}
