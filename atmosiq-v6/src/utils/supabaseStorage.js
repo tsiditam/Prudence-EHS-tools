@@ -17,6 +17,7 @@ import { supabase } from './supabaseClient'
 import STO from './storage'
 import { KEYS } from './storageKeys'
 import * as Sentry from '@sentry/react'
+import { compactPhotos, expandPhotos, purgeAssessmentPhotos } from './photoCompaction'
 
 const SYNC_QUEUE_KEY = KEYS.syncQueue
 const SYNC_STATE_KEY = KEYS.syncState
@@ -294,13 +295,23 @@ const SupaStorage = {
   async getAssessment(id) {
     // Local first
     const local = await STO.get(id)
-    if (local) return local
+    if (local) {
+      // Expand any compact photo refs (idbId) back to inline base64 so
+      // every consumer above this layer (DOCX, PrintReport, in-app
+      // viewer) sees the legacy { src, ts } shape it has always seen.
+      const expanded = await expandPhotos(local.photos || {})
+      return { ...local, photos: expanded.photos }
+    }
     // Try cloud
     if (isOnline()) {
       try {
         const { data } = await supabase.from('assessments').select('*').eq('id', id).single()
         if (data) {
-          await STO.set(id, data)
+          // Compact incoming cloud photos before localStorage write to
+          // escape the quota cap; the wire format is preserved (cloud
+          // still holds base64).
+          const compacted = await compactPhotos(data.photos || {}, id)
+          await STO.set(id, { ...data, photos: compacted.photos })
           return data
         }
       } catch {}
@@ -309,8 +320,13 @@ const SupaStorage = {
   },
 
   async saveAssessment(assessment) {
-    // Save locally first (instant, works offline)
-    await STO.set(assessment.id, assessment)
+    // Compact photos before localStorage write — inline base64 blobs
+    // get offloaded to IndexedDB so localStorage doesn't hit its
+    // 5–10 MB quota on photo-heavy assessments. Falls through silently
+    // when IndexedDB is unavailable (private browsing, etc.).
+    const compactResult = await compactPhotos(assessment.photos || {}, assessment.id)
+    const localCopy = { ...assessment, photos: compactResult.photos }
+    await STO.set(assessment.id, localCopy)
     // Update local index
     if (assessment.status === 'complete') {
       await STO.addReportToIndex({
@@ -326,7 +342,9 @@ const SupaStorage = {
         ua: new Date().toISOString(),
       })
     }
-    // Sync to cloud when online
+    // Sync to cloud when online — wire format MUST be the inline
+    // base64 form (Supabase JSONB doesn't know about our IDB refs).
+    // `assessment.photos` is already inline as received; reuse it.
     if (isOnline()) {
       try {
         const { data: { user } } = await supabase.auth.getUser()
@@ -365,6 +383,9 @@ const SupaStorage = {
     await STO.del(id)
     await STO.removeFromIndex(id, 'rpt')
     await STO.removeFromIndex(id, 'dft')
+    // Purge any IndexedDB-stored photos for this assessment so deleted
+    // assessments don't leak blob storage. Best-effort; never throws.
+    try { await purgeAssessmentPhotos(id) } catch { /* ignore */ }
     if (isOnline()) {
       try { await supabase.from('assessments').delete().eq('id', id) }
       catch { await this._queueSync('delete', { id }) }
