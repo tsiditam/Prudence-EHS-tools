@@ -2182,7 +2182,7 @@ export default function MobileApp() {
             </div>
             <TactileButton variant="secondary" fullWidth size="lg" onClick={()=>setView('spatial')} icon={<I n="bldg" s={16} c={ACCENT} />}>Map Zones on Floor Plan</TactileButton>
             <TactileButton variant="ghost" fullWidth size="lg" onClick={()=>{setReviewError(null);setReviewChooserOpen(true)}} icon={<I n="search" s={16} c={SUB} />}>Review for discrepancies</TactileButton>
-            <TactileButton variant="secondary" fullWidth size="lg" onClick={()=>setView('sensor-data')} icon={<I n="chart" s={16} c={ACCENT} />}>Sensor Data{sensorData?.graphs && Object.values(sensorData.graphs).some(g=>g?.include)?' ✓':''}</TactileButton>
+            <TactileButton variant="secondary" fullWidth size="lg" onClick={()=>setView('sensor-data')} icon={<I n="chart" s={16} c={ACCENT} />}>Logger Studio{sensorData?.graphs && Object.values(sensorData.graphs).some(g=>g?.include)?' ✓':''}</TactileButton>
           </div>
           {/* Removed redundant "Start Assessment" CTA — the user viewing
               this screen is already inside an assessment; starting a new
@@ -2285,7 +2285,7 @@ export default function MobileApp() {
                   onClick: () => { toggleThemeMode() } },
                 { label: 'Trash',        icon: 'trash',  onClick: () => setView('trash') },
                 { label: 'Sampling forms', icon: 'flask', onClick: () => setView('sampling-forms') },
-                { label: 'Sensor Data',  icon: 'chart',  onClick: () => setView('sensor-data') },
+                { label: 'Logger Studio', icon: 'chart', onClick: () => setView('sensor-data') },
                 { label: 'Projects',     icon: 'bldg',   onClick: () => setView('projects') },
                 // Single Demos entry — opens the sub-picker instead
                 // of running a demo directly. The "submenu" flag tells

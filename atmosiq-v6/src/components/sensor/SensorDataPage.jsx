@@ -3,7 +3,7 @@
  * Copyright (c) 2026 Prudence Safety & Environmental Consulting, LLC
  * All rights reserved.
  *
- * SensorDataPage — "Sensor Data / Environmental Evidence Graphs".
+ * SensorDataPage — "Logger Studio" (Environmental Evidence Graphs).
  * Upload a CSV logger export → detect/map columns → review data quality →
  * generate report-ready IAQ timelines → flag graphs for the report.
  *
@@ -20,7 +20,7 @@ import TactileButton from '../ui/TactileButton'
 import { parseSensorRows, SENSOR_PARAMS, TVOC_REFERENCES, ppbToUgm3, ugm3ToPpb } from '../../utils/sensorParser'
 import { splitCsvLine } from '../../utils/labResultsParser'
 import { xlsxToRows } from '../../utils/sensorXlsx'
-import { GRAPH_DEFS, MultiParameterChart, LIGHT_PALETTE, DARK_PALETTE } from './SensorCharts'
+import { GRAPH_DEFS, REF_LINE_DEFS, MultiParameterChart, LIGHT_PALETTE, DARK_PALETTE } from './SensorCharts'
 import dayjs from 'dayjs'
 
 const csvToRows = (text) => text.split(/\r\n?|\n/).filter((l) => l.trim().length > 0).map(splitCsvLine)
@@ -67,7 +67,7 @@ function AnalyzingCard({ fileName, phase }) {
       <div style={{ width: 60, height: 60, borderRadius: 16, margin: '0 auto 18px', background: 'color-mix(in srgb, var(--accent) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--accent) 28%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'sdPulse 1.4s ease-in-out infinite' }}>
         <I n="chart" s={26} c={ACCENT} w={1.8} />
       </div>
-      <div style={{ ...V3.T.h3, marginBottom: 6 }}>Analyzing sensor data</div>
+      <div style={{ ...V3.T.h3, marginBottom: 6 }}>Analyzing logger data</div>
       <div style={{ ...V3.T.bodyDim, maxWidth: 360, margin: '0 auto 20px', minHeight: 20 }}>
         {ANALYZE_STATUS[Math.min(phase, ANALYZE_STATUS.length - 1)]}
       </div>
@@ -150,6 +150,11 @@ export default function SensorDataPage({ value, onChange, onBack }) {
 
   const graphs = data ? GRAPH_DEFS.filter((g) => g.needs(data.params)) : []
   const includedCount = data ? graphs.filter((g) => data.graphs?.[g.id]?.include).length : 0
+  // Reference-line visibility. Default { co2: true } preserves the legacy
+  // always-on CO₂ advisory line; once the user toggles, the explicit map wins.
+  const refs = (data && data.thresholds) || { co2: true }
+  const availableRefs = data ? REF_LINE_DEFS.filter((d) => d.applies(data.params, data.units)) : []
+  const toggleRef = (key) => onChange({ ...data, thresholds: { ...refs, [key]: !refs[key] } })
 
   return (
     <div style={{ paddingTop: 16, paddingBottom: 120, maxWidth: 820, margin: '0 auto' }}>
@@ -161,7 +166,7 @@ export default function SensorDataPage({ value, onChange, onBack }) {
           </button>
         )}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ ...V3.T.h1, marginBottom: 2 }}>Sensor Data</div>
+          <div style={{ ...V3.T.h1, marginBottom: 2 }}>Logger Studio</div>
           <div style={V3.T.bodyDim}>Upload logger data and generate report-ready IAQ visuals.</div>
         </div>
       </div>
@@ -264,6 +269,22 @@ export default function SensorDataPage({ value, onChange, onBack }) {
             <div style={V3.T.micro}>Graphs{graphs.length ? ` · ${graphs.length}` : ''}</div>
             <div style={V3.T.captionDim}>{includedCount} in report</div>
           </div>
+          {availableRefs.length > 0 && (
+            <div style={{ margin: '0 2px 12px' }}>
+              <div style={{ ...V3.T.captionDim, marginBottom: 8 }}>Reference lines — labelled advisory / context values, not compliance limits.</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {availableRefs.map((d) => {
+                  const on = !!refs[d.key]
+                  return (
+                    <button key={d.key} onClick={() => toggleRef(d.key)} aria-pressed={on} title={d.std}
+                      style={{ ...chip, cursor: 'pointer', color: on ? ACCENT : SUB, borderColor: on ? ACCENT : BORDER, background: on ? 'color-mix(in srgb, var(--accent) 8%, transparent)' : 'var(--surface)' }}>
+                      {on ? '✓ ' : ''}{d.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
           {graphs.length === 0 ? (
             <GlassCard style={{ textAlign: 'center', padding: '28px 20px' }}>
               <div style={V3.T.bodyDim}>No chartable IAQ parameters detected. Use “Adjust column mapping” to map your columns.</div>
@@ -271,12 +292,12 @@ export default function SensorDataPage({ value, onChange, onBack }) {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               {graphs.map((g) => (
-                <GraphCard key={g.id} def={g} data={data} state={data.graphs?.[g.id] || {}} onState={(patch) => setGraph(g.id, patch)} />
+                <GraphCard key={g.id} def={g} data={data} state={data.graphs?.[g.id] || {}} onState={(patch) => setGraph(g.id, patch)} chartProps={{ showRefs: !!refs[g.refKey] }} />
               ))}
             </div>
           )}
           {data.params.length >= 2 && <MultiParamSection data={data} state={data.graphs?.multi || {}} onState={(patch) => setGraph('multi', patch)} />}
-          <button onClick={clear} style={{ ...ghostBtn, marginTop: 18, color: V3.DANGER, borderColor: `color-mix(in srgb, var(--danger) 30%, transparent)` }}>Remove sensor data</button>
+          <button onClick={clear} style={{ ...ghostBtn, marginTop: 18, color: V3.DANGER, borderColor: `color-mix(in srgb, var(--danger) 30%, transparent)` }}>Remove logger data</button>
         </>
       )}
     </div>
