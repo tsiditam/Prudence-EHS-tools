@@ -25,7 +25,8 @@ import Select from '../ui/Select'
 import StatTile from '../ui/StatTile'
 import RoleBadge from '../ui/RoleBadge'
 import InlineError from '../ui/InlineError'
-import { parseSensorRows, SENSOR_PARAMS, TVOC_REFERENCES, ppbToUgm3, ugm3ToPpb, HCHO_MW, normalizeSensorData, primaryDataset, alignDatasets } from '../../utils/sensorParser'
+import { parseSensorRows, SENSOR_PARAMS, TVOC_REFERENCES, ppbToUgm3, ugm3ToPpb, HCHO_MW, normalizeSensorData, primaryDataset, alignDatasets, sensorAveragesToFields } from '../../utils/sensorParser'
+import SendToReportSheet from './SendToReportSheet'
 import { splitCsvLine } from '../../utils/labResultsParser'
 import { xlsxToRows } from '../../utils/sensorXlsx'
 import { GRAPH_DEFS, REF_LINE_DEFS, MultiParameterChart, Co2DifferentialChart, MultiZoneChart, LIGHT_PALETTE, DARK_PALETTE } from './SensorCharts'
@@ -104,9 +105,10 @@ function AnalyzingCard({ fileName, phase }) {
   )
 }
 
-export default function SensorDataPage({ value, onChange, onBack }) {
+export default function SensorDataPage({ value, onChange, onBack, reports = [], currentReportId = null, currentZones = [], onApplyAverages }) {
   const fileRef = useRef(null)
   const [busy, setBusy] = useState(false)
+  const [sendOpen, setSendOpen] = useState(false)
   const [error, setError] = useState(null)
   const [sourceRows, setSourceRows] = useState(null) // kept for re-mapping this session
   const [mapOpen, setMapOpen] = useState(false)
@@ -126,6 +128,12 @@ export default function SensorDataPage({ value, onChange, onBack }) {
   const datasets = env ? env.datasets : []
   const data = primary
   const graphsState = (env && env.graphs) || {}
+  // Whether the loaded log yields any zone-fillable averages (gates the
+  // "Send averages to a report" action below the Overview averages grid).
+  const canSendAverages = useMemo(
+    () => !!onApplyAverages && sensorAveragesToFields(value, { stat: 'mean', tvocRef: 'isobutylene' }).details.length > 0,
+    [value, onApplyAverages]
+  )
 
   const pickFor = (target) => { setPendingTarget(target); setError(null); fileRef.current?.click() }
 
@@ -434,6 +442,12 @@ export default function SensorDataPage({ value, onChange, onBack }) {
                 </div>
               </div>
             )}
+            {canSendAverages && (
+              <TactileButton variant="secondary" fullWidth size="md" onClick={() => setSendOpen(true)}
+                icon={<I n="report" s={16} c={ACCENT} />} style={{ marginTop: 14 }}>
+                Send averages to a report
+              </TactileButton>
+            )}
             <GhostButton onClick={() => setMapOpen((v) => !v)} style={{ marginTop: 14, width: '100%', justifyContent: 'center' }}>
               {mapOpen ? 'Hide column mapping' : 'Adjust column mapping'}
             </GhostButton>
@@ -515,6 +529,17 @@ export default function SensorDataPage({ value, onChange, onBack }) {
             </>
           )}
         </>
+      )}
+
+      {sendOpen && (
+        <SendToReportSheet
+          sensorData={value}
+          reports={reports}
+          currentReportId={currentReportId}
+          currentZones={currentZones}
+          onApply={onApplyAverages}
+          onClose={() => setSendOpen(false)}
+        />
       )}
     </div>
   )

@@ -831,6 +831,44 @@ export default function MobileApp() {
     else setView('quickstart')
   }
 
+  // Logger Studio → report. Writes converted sensor-log averages into a
+  // chosen zone of a chosen in-progress report. For the currently-loaded
+  // draft we update live state (autosave persists it); for any other draft
+  // we read/merge/write it directly via STO. Indoor reading fields only —
+  // the converter leaves outdoor/metadata fields untouched.
+  const applyAveragesToReport = async ({ reportId, zoneIndex, newZoneName, fields, mode }) => {
+    if (!reportId || !fields) return { ok: false }
+    const isCurrent = reportId === draftId
+    const existing = await STO.get(reportId)
+    if (!existing && !isCurrent) return { ok: false }
+    const baseDraft = existing || {}
+    const srcZones = isCurrent ? zones : (baseDraft.zones || [])
+    const nextZones = srcZones.map(z => ({ ...(z || {}) }))
+    let zi
+    if (zoneIndex === 'new') {
+      nextZones.push({ zn: (newZoneName || '').trim() || `Zone ${nextZones.length + 1}` })
+      zi = nextZones.length - 1
+    } else {
+      zi = zoneIndex
+      if (zi == null || zi < 0 || zi >= nextZones.length) return { ok: false }
+    }
+    const zone = { ...(nextZones[zi] || {}) }
+    let written = 0
+    Object.keys(fields).forEach(id => {
+      const isEmpty = String(zone[id] ?? '').trim() === ''
+      if (isEmpty || mode === 'overwrite') { zone[id] = fields[id]; written++ }
+    })
+    nextZones[zi] = zone
+    const ua = new Date().toISOString()
+    const facility = baseDraft.bldg?.fn || baseDraft.building?.fn || (isCurrent ? bldg.fn : '') || 'Untitled'
+    await STO.set(reportId, { ...baseDraft, id: reportId, zones: nextZones, ua })
+    await STO.addDraftToIndex({ id: reportId, facility, ua })
+    if (isCurrent) setZones(nextZones)
+    await refreshIndex()
+    trackEvent('logger_averages_applied', { report_id: reportId, zone_index: zi, fields: written, mode })
+    return { ok: true, written, zoneName: zone.zn || `Zone ${zi + 1}`, facility }
+  }
+
   const finishQuickStart = () => {
     trackEvent('quickstart_completed', { facility: bldg.fn || '', building_type: bldg.ft || '' })
     if (zones.length === 0) setZones([{}])
@@ -3636,7 +3674,7 @@ export default function MobileApp() {
         </div>}
         {view==='trash'&&<TrashView onRecover={async(id)=>{await Backup.recover(id);await refreshIndex()}} onDelete={async(id)=>{await Backup.permanentDelete(id)}} />}
         {view==='sampling-forms'&&<SamplingFormsView profile={profile} onBack={()=>setView('dash')} />}
-        {view==='sensor-data'&&<SensorDataPage value={sensorData} onChange={setSensorData} onBack={()=>setView(comp?'results':'dash')} />}
+        {view==='sensor-data'&&<SensorDataPage value={sensorData} onChange={setSensorData} reports={index.drafts||[]} currentReportId={draftId} currentZones={zones} onApplyAverages={applyAveragesToReport} onBack={()=>setView(comp?'results':'dash')} />}
         {view==='projects'&&<ProjectsScreen onBack={()=>setView('dash')} onOpen={(pid)=>{setProjectBackView('projects');setActiveProjectId(pid);setView('project-detail')}} />}
         {view==='project-detail'&&<ProjectDetail id={activeProjectId} profile={profile} onBack={()=>setView(projectBackView)} onOpenReport={(r)=>openReport(r)} />}
         {view==='settings'&&<SettingsScreen profile={profile} onEditProfile={()=>{sessionStorage.setItem('aiq_welcomed','1');setWelcomeDone(true);setProfile({...profile,isNew:true});setView('dash')}} onLogout={handleLogout} onClose={()=>setView('dash')} onNavigate={(v)=>{if(v==='pricing'){setShowPricing(true)}else{setView(v)}}} adminActive={!!adminSecret} onActivateAdmin={(secret)=>{setAdminSecret(secret);setView('admin')}} />}
