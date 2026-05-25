@@ -213,6 +213,56 @@ export function MultiParameterChart({ data, params = [], hasTs = true, units = {
   return <Shell width={width} height={height}>{inner}</Shell>
 }
 
+// Indoor vs outdoor CO₂: absolute traces on the left axis, the
+// indoor−outdoor differential on the right axis. The advisory reference is
+// the ASHRAE 62.1 differential (STD.v.co2.diff) and belongs to the Δ axis.
+// `points` are pre-aligned rows { t, indoor, outdoor, diff } (alignDatasets).
+export function Co2DifferentialChart({ points = [], hasTs = true, palette = DARK_PALETTE, width, height, showRefs = false }) {
+  const pal = palette
+  const units = { indoor: 'ppm', outdoor: 'ppm', diff: 'ppm' }
+  const inner = (w, h) => (
+    <LineChart data={points} {...(width ? { width: w, height: h } : {})} margin={{ top: 8, right: 16, bottom: 4, left: 4 }}>
+      <CartesianGrid stroke={pal.grid} strokeOpacity={0.5} vertical={false} />
+      <XAxis dataKey="t" type="number" domain={['dataMin', 'dataMax']} scale="time" tickFormatter={fmtTime(hasTs)} {...axis(pal)} />
+      <YAxis yAxisId="abs" {...axis(pal)} width={46} label={{ value: 'CO₂ (ppm)', angle: -90, position: 'insideLeft', fill: pal.axis, fontSize: 11 }} />
+      <YAxis yAxisId="diff" orientation="right" {...axis(pal)} width={48} label={{ value: 'Δ in−out (ppm)', angle: 90, position: 'insideRight', fill: pal.axis, fontSize: 11 }} />
+      {showRefs && refLine(pal, { key: 'co2diff', y: STD.v.co2.diff, color: SERIES.rh, opacity: 0.6, yAxisId: 'diff', label: `${STD.v.co2.diff} ppm above outdoor · ${STD.v.ref}` })}
+      <Tooltip content={<ChartTooltip hasTs={hasTs} units={units} pal={pal} />} />
+      <Legend wrapperStyle={{ fontSize: 11, color: pal.axis }} />
+      <Line yAxisId="abs" type="monotone" dataKey="indoor" name="Indoor CO₂" stroke={SERIES.co2} strokeWidth={2} dot={false} connectNulls isAnimationActive={!width} />
+      <Line yAxisId="abs" type="monotone" dataKey="outdoor" name="Outdoor CO₂" stroke={SERIES.temp} strokeWidth={2} strokeDasharray="5 3" dot={false} connectNulls isAnimationActive={!width} />
+      <Line yAxisId="diff" type="monotone" dataKey="diff" name="Δ (indoor−outdoor)" stroke={SERIES.rh} strokeWidth={1.5} dot={false} connectNulls isAnimationActive={!width} />
+    </LineChart>
+  )
+  return <Shell width={width} height={height}>{inner}</Shell>
+}
+
+// Distinct per-zone line colours for the multi-zone overlay.
+const ZONE_COLORS = ['#0E9FB8', '#EA7A2B', '#2563EB', '#7C3AED', '#059669', '#CA8A04']
+
+// Overlay one parameter (default CO₂) across several zone datasets on a
+// shared time axis. `points` are pre-aligned rows keyed by dataset id;
+// `zones` is [{ id, label }]. The CO₂ advisory line shows when enabled.
+export function MultiZoneChart({ points = [], zones = [], param = 'co2', units = {}, hasTs = true, palette = DARK_PALETTE, width, height, showRefs = false }) {
+  const pal = palette
+  const unit = units[param] || SENSOR_PARAMS.find((s) => s.key === param)?.unit || ''
+  const tipUnits = Object.fromEntries(zones.map((z) => [z.id, unit]))
+  const inner = (w, h) => (
+    <LineChart data={points} {...(width ? { width: w, height: h } : {})} margin={{ top: 8, right: 16, bottom: 4, left: 4 }}>
+      <CartesianGrid stroke={pal.grid} strokeOpacity={0.5} vertical={false} />
+      <XAxis dataKey="t" type="number" domain={['dataMin', 'dataMax']} scale="time" tickFormatter={fmtTime(hasTs)} {...axis(pal)} />
+      <YAxis {...axis(pal)} width={48} label={{ value: `${paramLabel(param)}${unit ? ` (${unit})` : ''}`, angle: -90, position: 'insideLeft', fill: pal.axis, fontSize: 11 }} />
+      {showRefs && param === 'co2' && refLine(pal, { key: 'co2adv', y: STD.v.co2.con, color: pal.axis, opacity: 0.45, label: `${STD.v.co2.con} ppm · ${STD.v.ref} advisory` })}
+      <Tooltip content={<ChartTooltip hasTs={hasTs} units={tipUnits} pal={pal} />} />
+      <Legend wrapperStyle={{ fontSize: 11, color: pal.axis }} />
+      {zones.map((z, i) => (
+        <Line key={z.id} type="monotone" dataKey={z.id} name={z.label} stroke={ZONE_COLORS[i % ZONE_COLORS.length]} strokeWidth={2} dot={false} connectNulls isAnimationActive={!width} />
+      ))}
+    </LineChart>
+  )
+  return <Shell width={width} height={height}>{inner}</Shell>
+}
+
 // Which chart applies given the detected params. `series` names drive the
 // DOCX section text (the report image relies on axis labels + this list
 // rather than the Recharts HTML legend).

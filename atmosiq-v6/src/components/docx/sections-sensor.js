@@ -14,6 +14,7 @@
 import { Paragraph, TextRun, HeadingLevel, AlignmentType, ImageRun } from 'docx'
 import dayjs from 'dayjs'
 import { base64ToUint8Array, inferImageType, isImageDataUrl } from './images'
+import { primaryDataset } from '../../utils/sensorParser'
 
 const p = (text, opts = {}) => new Paragraph({
   children: [new TextRun({ text, italics: !!opts.italics, bold: !!opts.bold, color: opts.color, size: opts.size })],
@@ -33,13 +34,17 @@ export function buildSensorGraphsAppendix(sensorData) {
   const included = Object.values(sensorData.graphs).filter((g) => g && g.include && isImageDataUrl(g.imageDataUrl))
   if (!included.length) return null
 
+  // Data source / quality come from the primary indoor dataset (v2 envelope)
+  // or the object itself (legacy v1). Graphs stay at the envelope level.
+  const src = primaryDataset(sensorData) || {}
+
   const out = []
   out.push(p(
     'The following timelines were generated from uploaded sensor logger data for screening and documentation purposes. Interpretation should be reviewed by a qualified IAQ professional; AtmosFlow does not make compliance determinations.',
     { italics: true, color: '595959', after: 200 },
   ))
-  if (sensorData.fileName) {
-    out.push(p(`Data source: ${sensorData.fileName} · ${sensorData.summary?.count ?? '—'} readings · ${fmtRange(sensorData.summary?.start, sensorData.summary?.end)}`, { color: '595959', size: 18, after: 200 }))
+  if (src.fileName) {
+    out.push(p(`Data source: ${src.fileName} · ${src.summary?.count ?? '—'} readings · ${fmtRange(src.summary?.start, src.summary?.end)}`, { color: '595959', size: 18, after: 200 }))
   }
 
   included.forEach((g) => {
@@ -51,15 +56,15 @@ export function buildSensorGraphsAppendix(sensorData) {
       }))
     } catch { /* skip an unreadable image rather than break generation */ }
     if (Array.isArray(g.series) && g.series.length) {
-      out.push(p(`Parameters: ${g.series.join(', ')}${sensorData.summary ? ` · ${fmtRange(sensorData.summary.start, sensorData.summary.end)}` : ''}`, { color: '595959', size: 18, after: 60 }))
+      out.push(p(`Parameters: ${g.series.join(', ')}${src.summary ? ` · ${fmtRange(src.summary.start, src.summary.end)}` : ''}`, { color: '595959', size: 18, after: 60 }))
     }
     if (g.caption && g.caption.trim()) out.push(p(g.caption.trim(), { after: 80 }))
     if (g.notes && g.notes.trim()) out.push(p(`Notes: ${g.notes.trim()}`, { color: '595959', size: 18, after: 80 }))
   })
 
   // Carry the data-quality status onto the report when it isn't clean.
-  if (sensorData.quality && sensorData.quality.level && sensorData.quality.level !== 'ok') {
-    out.push(p(`Data quality: ${sensorData.quality.status}`, { italics: true, color: '9A4A08', size: 18, before: 80, after: 120 }))
+  if (src.quality && src.quality.level && src.quality.level !== 'ok') {
+    out.push(p(`Data quality: ${src.quality.status}`, { italics: true, color: '9A4A08', size: 18, before: 80, after: 120 }))
   }
   return { title: 'Environmental Evidence Graphs', children: out }
 }
