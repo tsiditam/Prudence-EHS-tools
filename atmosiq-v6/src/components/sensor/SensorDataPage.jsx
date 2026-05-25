@@ -104,12 +104,10 @@ function AnalyzingCard({ fileName, phase }) {
   )
 }
 
-export default function SensorDataPage({ value, onChange, onBack, onAskInsights }) {
+export default function SensorDataPage({ value, onChange, onBack }) {
   const fileRef = useRef(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
-  const [sourceRows, setSourceRows] = useState(null) // kept for re-mapping this session
-  const [mapOpen, setMapOpen] = useState(false)
   const [analyzing, setAnalyzing] = useState(false)
   const [phase, setPhase] = useState(0)
   // Active view (Overview / Analysis / Report) and, within Analysis, the
@@ -169,11 +167,10 @@ export default function SensorDataPage({ value, onChange, onBack, onAskInsights 
       const isPrimary = target.role === 'indoor'
       if (!env || isPrimary) {
         // First upload, or replacing the primary indoor dataset. The reveal
-        // animation + re-mapping source rows apply to the primary only.
+        // animation applies to the primary only.
         const ds = { id: 'primary', role: 'indoor', label: 'Indoor', ...parsed }
         const nextDatasets = env ? env.datasets.map((d) => (d.id === (primary?.id || 'primary') ? ds : d)) : [ds]
         const next = env ? { ...env, datasets: nextDatasets } : normalizeSensorData({ ...parsed, graphs: {} })
-        setSourceRows(rows)
         onChange(next)
         startAnalyzing()
       } else {
@@ -187,14 +184,6 @@ export default function SensorDataPage({ value, onChange, onBack, onAskInsights 
     setBusy(false)
   }
 
-  const reparse = (mapping) => {
-    if (!sourceRows || !env) return
-    const parsed = parseSensorRows(sourceRows, { fileName: primary?.fileName, mapping })
-    if (!parsed) return
-    const ds = { id: primary?.id || 'primary', role: 'indoor', label: primary?.label || 'Indoor', ...parsed, mapping }
-    onChange({ ...env, datasets: env.datasets.map((d) => (d.id === ds.id ? ds : d)) })
-  }
-
   const setGraph = (id, patch) => {
     onChange({ ...env, graphs: { ...graphsState, [id]: { ...(graphsState[id] || {}), ...patch } } })
   }
@@ -206,7 +195,7 @@ export default function SensorDataPage({ value, onChange, onBack, onAskInsights 
     onChange({ ...env, datasets: remaining })
   }
 
-  const clear = () => { stopAnalyzing(); setAnalyzing(false); setSourceRows(null); setError(null); onChange(null) }
+  const clear = () => { stopAnalyzing(); setAnalyzing(false); setError(null); onChange(null) }
 
   const graphs = data ? GRAPH_DEFS.filter((g) => g.needs(data.params)) : []
   // Reference-line visibility. Default { co2: true } preserves the legacy
@@ -333,7 +322,7 @@ export default function SensorDataPage({ value, onChange, onBack, onAskInsights 
 
   const emptyCharts = (
     <GlassCard style={{ textAlign: 'center', padding: '28px 20px', marginTop: 14 }}>
-      <div style={V3.T.bodyDim}>No chartable IAQ parameters detected. Use “Adjust column mapping” in Overview to map your columns.</div>
+      <div style={V3.T.bodyDim}>No chartable IAQ parameters were detected in this file.</div>
     </GlassCard>
   )
 
@@ -434,20 +423,6 @@ export default function SensorDataPage({ value, onChange, onBack, onAskInsights 
                 </div>
               </div>
             )}
-            {onAskInsights && (
-              <div style={{ marginTop: 14 }}>
-                <TactileButton variant="secondary" size="lg" fullWidth onClick={onAskInsights} icon={<I n="sparkle" s={16} c="var(--accent)" w={1.8} />}>
-                  Ask AtmosFlow AI for insights · 1 credit
-                </TactileButton>
-                <div style={{ ...V3.T.captionDim, marginTop: 6, textAlign: 'center' }}>
-                  AI · screening aid · review required. Reads the summary above (not the raw series).
-                </div>
-              </div>
-            )}
-            <GhostButton onClick={() => setMapOpen((v) => !v)} style={{ marginTop: 14, width: '100%', justifyContent: 'center' }}>
-              {mapOpen ? 'Hide column mapping' : 'Adjust column mapping'}
-            </GhostButton>
-            {mapOpen && sourceRows && <MappingPanel columns={data.columns} onApply={(m) => { reparse(m); setMapOpen(false) }} />}
           </GlassCard>
 
           {/* Data quality */}
@@ -650,35 +625,6 @@ function GraphCard({ def, data, state, onState, chartProps = {}, mode = 'report'
         </div>
       )}
     </GlassCard>
-  )
-}
-
-function MappingPanel({ columns, onApply }) {
-  const [map, setMap] = useState(() => columns.map((c) => ({ role: c.role, param: c.param || '', unit: c.unit || '' })))
-  const roles = ['unknown', 'timestamp', 'param', 'zone']
-  return (
-    <div style={{ marginTop: 12, borderTop: `1px solid ${BORDER}`, paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div style={V3.T.captionDim}>Map each column, then apply to re-read the file.</div>
-      {columns.map((c, i) => (
-        <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 8, alignItems: 'center' }}>
-          <span style={{ ...V3.T.caption, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.raw || `Column ${i + 1}`}</span>
-          <Select value={map[i].role} onChange={(e) => setMap((m) => m.map((x, j) => (j === i ? { ...x, role: e.target.value } : x)))}>
-            {roles.map((r) => <option key={r} value={r}>{r}</option>)}
-          </Select>
-          {map[i].role === 'param' ? (
-            <Select value={map[i].param} onChange={(e) => setMap((m) => m.map((x, j) => (j === i ? { ...x, param: e.target.value } : x)))}>
-              <option value="">param…</option>
-              {SENSOR_PARAMS.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
-            </Select>
-          ) : <span />}
-        </div>
-      ))}
-      <TactileButton variant="secondary" size="sm" onClick={() => {
-        const mapping = {}
-        map.forEach((m, i) => { mapping[i] = m.role === 'param' ? { role: 'param', param: m.param, unit: m.unit || (SENSOR_PARAMS.find((p) => p.key === m.param)?.unit) } : { role: m.role } })
-        onApply(mapping)
-      }}>Apply mapping</TactileButton>
-    </div>
   )
 }
 
