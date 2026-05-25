@@ -3747,9 +3747,9 @@ export default function MobileApp() {
                         prefers-reduced-motion (static soft glow). */}
                     {isJasper && (
                       <span className="fa-breathe" aria-hidden="true" style={{
-                        position:'absolute', top:'50%', left:'50%', width:34, height:34,
-                        marginTop:-17, marginLeft:-17, borderRadius:'50%', pointerEvents:'none',
-                        background:'radial-gradient(circle, color-mix(in srgb, var(--accent) 42%, transparent), transparent 70%)',
+                        position:'absolute', top:'50%', left:'50%', width:46, height:46,
+                        marginTop:-23, marginLeft:-23, borderRadius:'50%', pointerEvents:'none',
+                        background:'radial-gradient(circle, color-mix(in srgb, var(--accent) 62%, transparent), color-mix(in srgb, var(--accent) 28%, transparent) 48%, transparent 78%)',
                       }} />
                     )}
                     {isJasper ? (
@@ -3887,14 +3887,14 @@ export default function MobileApp() {
            tab's ambient glow. faDrift: a very-low-intensity airflow
            gradient behind the results. All disabled under reduced-motion. */
         @keyframes faZoneIn{from{opacity:0;transform:translateY(8px) scale(.995);}to{opacity:1;transform:translateY(0) scale(1);}}
-        @keyframes faBreathe{0%,100%{opacity:.22;transform:scale(.82);}50%{opacity:.55;transform:scale(1.12);}}
+        @keyframes faBreathe{0%,100%{opacity:.38;transform:scale(.78);}50%{opacity:.92;transform:scale(1.32);}}
         @keyframes faDrift{0%{background-position:38% 0%;}50%{background-position:62% 14%;}100%{background-position:38% 0%;}}
         .fa-zone-in{animation:faZoneIn .26s cubic-bezier(.22,1,.36,1) both;}
         .fa-breathe{animation:faBreathe 3.6s ease-in-out infinite;}
         .fa-airflow{animation:faDrift 22s ease-in-out infinite;}
         @media (prefers-reduced-motion: reduce){
           .fa-zone-in{animation:none;}
-          .fa-breathe{animation:none;opacity:.32;}
+          .fa-breathe{animation:none;opacity:.55;}
           .fa-airflow{animation:none;}
         }
         *{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent;}
