@@ -53,7 +53,13 @@ function Shell({ width, height = 240, children }) {
   return <div role="img" style={{ width: '100%', height, minWidth: 0 }}><ResponsiveContainer width="100%" height="100%">{children('100%', height)}</ResponsiveContainer></div>
 }
 
-const axis = (pal) => ({ stroke: pal.axis, tick: { fill: pal.axis, fontSize: 11 }, tickLine: false, axisLine: { stroke: pal.grid } })
+const axis = (pal) => ({ stroke: pal.axis, tick: { fill: pal.axis, fontSize: 11, fontFamily: 'var(--font-sans)' }, tickLine: false, axisLine: { stroke: pal.grid } })
+
+// Y-axis title — unit only (the chart card already names the parameter), set
+// in the app font so chart type matches the rest of the UI. `right` flips it
+// for the secondary axis on dual-axis charts. Generous default `width` so the
+// rotated title and the tick numbers don't collide.
+const yLabel = (pal, value, opts = {}) => ({ value, angle: opts.right ? 90 : -90, position: opts.right ? 'insideRight' : 'insideLeft', fill: pal.axis, fontSize: 11, fontFamily: 'var(--font-sans)' })
 
 // A labelled, dashed advisory/context reference line. Values come from STD
 // (standards.js) — never hardcoded — and the label always names its source
@@ -66,7 +72,7 @@ const refLine = (pal, { key, y, color, label, dash = '4 4', opacity = 0.5, yAxis
     stroke={color}
     strokeDasharray={dash}
     strokeOpacity={opacity}
-    label={{ value: label, fill: pal.axis, fontSize: 9, position: 'right' }}
+    label={{ value: label, fill: pal.axis, fontSize: 9, position: 'right', fontFamily: 'var(--font-sans)' }}
   />
 )
 
@@ -101,7 +107,7 @@ export function HCHOTimelineChart({ data, hasTs = true, units = {}, palette = DA
       <CartesianGrid stroke={pal.grid} strokeOpacity={0.5} vertical={false} />
       {occupancyAreas(occupancy)}
       <XAxis dataKey="t" type="number" domain={['dataMin', 'dataMax']} scale="time" tickFormatter={fmtTime(hasTs)} {...axis(pal)} />
-      <YAxis {...axis(pal)} width={46} label={{ value: units.hcho ? `Formaldehyde (${units.hcho})` : 'Formaldehyde', angle: -90, position: 'insideLeft', fill: pal.axis, fontSize: 11 }} />
+      <YAxis {...axis(pal)} width={54} label={yLabel(pal, units.hcho || 'mg/m³')} />
       <Tooltip content={<ChartTooltip hasTs={hasTs} units={units} pal={pal} />} />
       <Line type="monotone" dataKey="hcho" name="Formaldehyde" stroke={SERIES.hcho} strokeWidth={2} dot={false} connectNulls isAnimationActive={!width} />
     </LineChart>
@@ -116,7 +122,7 @@ export function CO2TimelineChart({ data, hasTs = true, units = {}, palette = DAR
       <CartesianGrid stroke={pal.grid} strokeOpacity={0.5} vertical={false} />
       {occupancyAreas(occupancy)}
       <XAxis dataKey="t" type="number" domain={['dataMin', 'dataMax']} scale="time" tickFormatter={fmtTime(hasTs)} {...axis(pal)} />
-      <YAxis {...axis(pal)} width={46} label={{ value: 'CO₂ (ppm)', angle: -90, position: 'insideLeft', fill: pal.axis, fontSize: 11 }} />
+      <YAxis {...axis(pal)} width={52} label={yLabel(pal, 'ppm')} />
       {showRefs && refLine(pal, { key: 'co2adv', y: STD.v.co2.con, color: SERIES.co2, opacity: 0.55, label: `${STD.v.co2.con} ppm · ${STD.v.ref} advisory` })}
       <Tooltip content={<ChartTooltip hasTs={hasTs} units={units} pal={pal} />} />
       <Line type="monotone" dataKey="co2" name="CO₂" stroke={SERIES.co2} strokeWidth={2} dot={false} connectNulls isAnimationActive={!width} />
@@ -132,14 +138,14 @@ export function TempHumidityChart({ data, hasTs = true, units = {}, palette = DA
       <CartesianGrid stroke={pal.grid} strokeOpacity={0.5} vertical={false} />
       {occupancyAreas(occupancy, 'temp')}
       <XAxis dataKey="t" type="number" domain={['dataMin', 'dataMax']} scale="time" tickFormatter={fmtTime(hasTs)} {...axis(pal)} />
-      <YAxis yAxisId="temp" {...axis(pal)} width={42} label={{ value: `Temp (${units.temp || '°F'})`, angle: -90, position: 'insideLeft', fill: pal.axis, fontSize: 11 }} />
-      <YAxis yAxisId="rh" orientation="right" domain={[0, 100]} {...axis(pal)} width={38} label={{ value: 'RH (%)', angle: 90, position: 'insideRight', fill: pal.axis, fontSize: 11 }} />
+      <YAxis yAxisId="temp" {...axis(pal)} width={48} label={yLabel(pal, units.temp || '°F')} />
+      <YAxis yAxisId="rh" orientation="right" domain={[0, 100]} {...axis(pal)} width={44} label={yLabel(pal, '%', { right: true })} />
       {showRefs && (
         <ReferenceArea yAxisId="rh" y1={STD.t.rh.min} y2={STD.t.rh.max} fill={SERIES.rh} fillOpacity={0.07} stroke="none"
-          label={{ value: `${STD.t.rh.min}–${STD.t.rh.max}% · ${STD.t.ref} comfort`, position: 'insideTopRight', fill: pal.axis, fontSize: 9 }} />
+          label={{ value: `${STD.t.rh.min}–${STD.t.rh.max}% · ${STD.t.ref} comfort`, position: 'insideTopRight', fill: pal.axis, fontSize: 9, fontFamily: 'var(--font-sans)' }} />
       )}
       <Tooltip content={<ChartTooltip hasTs={hasTs} units={units} pal={pal} />} />
-      <Legend wrapperStyle={{ fontSize: 11, color: pal.axis }} />
+      <Legend wrapperStyle={{ fontSize: 11, color: pal.axis, fontFamily: 'var(--font-sans)' }} />
       <Line yAxisId="temp" type="monotone" dataKey="temp" name="Temperature" stroke={SERIES.temp} strokeWidth={2} dot={false} connectNulls isAnimationActive={!width} />
       <Line yAxisId="rh" type="monotone" dataKey="rh" name="Relative Humidity" stroke={SERIES.rh} strokeWidth={2} dot={false} connectNulls isAnimationActive={!width} />
     </LineChart>
@@ -154,13 +160,13 @@ export function PMTimelineChart({ data, hasTs = true, units = {}, palette = DARK
       <CartesianGrid stroke={pal.grid} strokeOpacity={0.5} vertical={false} />
       {occupancyAreas(occupancy)}
       <XAxis dataKey="t" type="number" domain={['dataMin', 'dataMax']} scale="time" tickFormatter={fmtTime(hasTs)} {...axis(pal)} />
-      <YAxis {...axis(pal)} width={46} label={{ value: `PM (${units.pm25 || 'µg/m³'})`, angle: -90, position: 'insideLeft', fill: pal.axis, fontSize: 11 }} />
+      <YAxis {...axis(pal)} width={54} label={yLabel(pal, units.pm25 || 'µg/m³')} />
       {showRefs && [
         refLine(pal, { key: 'pmepa', y: STD.c.pm25.epa, color: SERIES.pm25, opacity: 0.5, label: `EPA 24-h ${STD.c.pm25.epa} µg/m³` }),
         refLine(pal, { key: 'pmwho', y: STD.c.pm25.who, color: SERIES.pm25, dash: '2 4', opacity: 0.4, label: `WHO ${STD.c.pm25.who} µg/m³` }),
       ]}
       <Tooltip content={<ChartTooltip hasTs={hasTs} units={units} pal={pal} />} />
-      <Legend wrapperStyle={{ fontSize: 11, color: pal.axis }} />
+      <Legend wrapperStyle={{ fontSize: 11, color: pal.axis, fontFamily: 'var(--font-sans)' }} />
       <Line type="monotone" dataKey="pm25" name="PM2.5" stroke={SERIES.pm25} strokeWidth={2} dot={false} connectNulls isAnimationActive={!width} />
       <Line type="monotone" dataKey="pm10" name="PM10" stroke={SERIES.pm10} strokeWidth={2} dot={false} connectNulls isAnimationActive={!width} />
     </LineChart>
@@ -175,7 +181,7 @@ export function COTimelineChart({ data, hasTs = true, units = {}, palette = DARK
       <CartesianGrid stroke={pal.grid} strokeOpacity={0.5} vertical={false} />
       {occupancyAreas(occupancy)}
       <XAxis dataKey="t" type="number" domain={['dataMin', 'dataMax']} scale="time" tickFormatter={fmtTime(hasTs)} {...axis(pal)} />
-      <YAxis {...axis(pal)} width={46} label={{ value: `CO (${units.co || 'ppm'})`, angle: -90, position: 'insideLeft', fill: pal.axis, fontSize: 11 }} />
+      <YAxis {...axis(pal)} width={52} label={yLabel(pal, units.co || 'ppm')} />
       {showRefs && [
         refLine(pal, { key: 'coosha', y: STD.c.co.osha, color: SERIES.co, opacity: 0.55, label: `OSHA PEL ${STD.c.co.osha} (8-h TWA)` }),
         refLine(pal, { key: 'coniosh', y: STD.c.co.niosh, color: SERIES.co, dash: '2 4', opacity: 0.45, label: `NIOSH REL ${STD.c.co.niosh}` }),
@@ -201,7 +207,7 @@ export function TVOCTimelineChart({ data, hasTs = true, units = {}, palette = DA
       <CartesianGrid stroke={pal.grid} strokeOpacity={0.5} vertical={false} />
       {occupancyAreas(occupancy)}
       <XAxis dataKey="t" type="number" domain={['dataMin', 'dataMax']} scale="time" tickFormatter={fmtTime(hasTs)} {...axis(pal)} />
-      <YAxis {...axis(pal)} width={52} label={{ value: `TVOC (${units.tvoc || 'ppb'})`, angle: -90, position: 'insideLeft', fill: pal.axis, fontSize: 11 }} />
+      <YAxis {...axis(pal)} width={54} label={yLabel(pal, units.tvoc || 'ppb')} />
       {showTiers && [
         refLine(pal, { key: 'tvoccon', y: STD.c.tvoc.con, color: SERIES.tvoc, opacity: 0.5, label: `Mølhave ${STD.c.tvoc.con} µg/m³ (advisory)` }),
         refLine(pal, { key: 'tvocact', y: STD.c.tvoc.act, color: SERIES.tvoc, dash: '2 4', opacity: 0.45, label: `Mølhave ${STD.c.tvoc.act} µg/m³ (advisory)` }),
@@ -249,9 +255,9 @@ export function MultiParameterChart({ data, params = [], hasTs = true, units = {
       <CartesianGrid stroke={pal.grid} strokeOpacity={0.5} vertical={false} />
       {occupancyAreas(occupancy)}
       <XAxis dataKey="t" type="number" domain={['dataMin', 'dataMax']} scale="time" tickFormatter={fmtTime(hasTs)} {...axis(pal)} />
-      <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} {...axis(pal)} width={44} label={{ value: 'Normalized (% of range)', angle: -90, position: 'insideLeft', fill: pal.axis, fontSize: 11 }} />
+      <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} {...axis(pal)} width={52} label={yLabel(pal, '% of range')} />
       <Tooltip content={<MultiTooltip hasTs={hasTs} units={units} pal={pal} />} />
-      <Legend wrapperStyle={{ fontSize: 11, color: pal.axis }} />
+      <Legend wrapperStyle={{ fontSize: 11, color: pal.axis, fontFamily: 'var(--font-sans)' }} />
       {sel.map((k) => <Line key={k} type="monotone" dataKey={`n_${k}`} name={paramLabel(k)} stroke={SERIES[k] || pal.axis} strokeWidth={2} dot={false} connectNulls isAnimationActive={!width} />)}
     </LineChart>
   )
@@ -270,11 +276,11 @@ export function Co2DifferentialChart({ points = [], hasTs = true, palette = DARK
       <CartesianGrid stroke={pal.grid} strokeOpacity={0.5} vertical={false} />
       {occupancyAreas(occupancy, 'abs')}
       <XAxis dataKey="t" type="number" domain={['dataMin', 'dataMax']} scale="time" tickFormatter={fmtTime(hasTs)} {...axis(pal)} />
-      <YAxis yAxisId="abs" {...axis(pal)} width={46} label={{ value: 'CO₂ (ppm)', angle: -90, position: 'insideLeft', fill: pal.axis, fontSize: 11 }} />
-      <YAxis yAxisId="diff" orientation="right" {...axis(pal)} width={48} label={{ value: 'Δ in−out (ppm)', angle: 90, position: 'insideRight', fill: pal.axis, fontSize: 11 }} />
+      <YAxis yAxisId="abs" {...axis(pal)} width={54} label={yLabel(pal, 'ppm')} />
+      <YAxis yAxisId="diff" orientation="right" {...axis(pal)} width={54} label={yLabel(pal, 'Δ ppm', { right: true })} />
       {showRefs && refLine(pal, { key: 'co2diff', y: STD.v.co2.diff, color: SERIES.rh, opacity: 0.6, yAxisId: 'diff', label: `${STD.v.co2.diff} ppm above outdoor · ${STD.v.ref}` })}
       <Tooltip content={<ChartTooltip hasTs={hasTs} units={units} pal={pal} />} />
-      <Legend wrapperStyle={{ fontSize: 11, color: pal.axis }} />
+      <Legend wrapperStyle={{ fontSize: 11, color: pal.axis, fontFamily: 'var(--font-sans)' }} />
       <Line yAxisId="abs" type="monotone" dataKey="indoor" name="Indoor CO₂" stroke={SERIES.co2} strokeWidth={2} dot={false} connectNulls isAnimationActive={!width} />
       <Line yAxisId="abs" type="monotone" dataKey="outdoor" name="Outdoor CO₂" stroke={SERIES.temp} strokeWidth={2} strokeDasharray="5 3" dot={false} connectNulls isAnimationActive={!width} />
       <Line yAxisId="diff" type="monotone" dataKey="diff" name="Δ (indoor−outdoor)" stroke={SERIES.rh} strokeWidth={1.5} dot={false} connectNulls isAnimationActive={!width} />
@@ -298,10 +304,10 @@ export function MultiZoneChart({ points = [], zones = [], param = 'co2', units =
       <CartesianGrid stroke={pal.grid} strokeOpacity={0.5} vertical={false} />
       {occupancyAreas(occupancy)}
       <XAxis dataKey="t" type="number" domain={['dataMin', 'dataMax']} scale="time" tickFormatter={fmtTime(hasTs)} {...axis(pal)} />
-      <YAxis {...axis(pal)} width={48} label={{ value: `${paramLabel(param)}${unit ? ` (${unit})` : ''}`, angle: -90, position: 'insideLeft', fill: pal.axis, fontSize: 11 }} />
+      <YAxis {...axis(pal)} width={54} label={yLabel(pal, unit || paramLabel(param))} />
       {showRefs && param === 'co2' && refLine(pal, { key: 'co2adv', y: STD.v.co2.con, color: pal.axis, opacity: 0.45, label: `${STD.v.co2.con} ppm · ${STD.v.ref} advisory` })}
       <Tooltip content={<ChartTooltip hasTs={hasTs} units={tipUnits} pal={pal} />} />
-      <Legend wrapperStyle={{ fontSize: 11, color: pal.axis }} />
+      <Legend wrapperStyle={{ fontSize: 11, color: pal.axis, fontFamily: 'var(--font-sans)' }} />
       {zones.map((z, i) => (
         <Line key={z.id} type="monotone" dataKey={z.id} name={z.label} stroke={ZONE_COLORS[i % ZONE_COLORS.length]} strokeWidth={2} dot={false} connectNulls isAnimationActive={!width} />
       ))}

@@ -18,7 +18,6 @@ import Backup from '../utils/backup'
 import { groupActions } from '../utils/recFormatting'
 import { getCalibrationBannerState, loadInstruments, isOutOfCal } from '../utils/instrumentRegistry'
 import { extractDocxText, REVIEW_INSTRUCTIONS, REVIEW_CREDIT_COST } from '../utils/reportReview'
-import { SENSOR_INSIGHTS_CREDIT_COST, buildSensorInsightsPayload } from '../utils/sensorInsights'
 import { getRiskBand } from '../engines/riskBands'
 import { getSubscriptionBannerState, BILLING_MODE } from '../utils/subscriptionState'
 import { VER, STANDARDS_MANIFEST } from '../constants/standards'
@@ -547,11 +546,6 @@ export default function MobileApp() {
   const [reviewPrefill, setReviewPrefill] = useState(null)
   const [reviewBusy, setReviewBusy] = useState(false)
   const [reviewError, setReviewError] = useState(null)
-  // Sensor-insights AI run (analyzer → AtmosFlow AI). sensorInsightsPayload
-  // rides the request context (summary only); sensorInsightsPrefill is the
-  // short message the sheet auto-sends on open. Mirrors the review pair.
-  const [sensorInsightsPayload, setSensorInsightsPayload] = useState(null)
-  const [sensorInsightsPrefill, setSensorInsightsPrefill] = useState(null)
   const reviewDocxInputRef = useRef(null)
   // Billing Phase 1 — credit-unit definition sheet was added in PR
   // #143 (Fix 2 of the CIH-credibility prompt) and removed by the
@@ -742,17 +736,6 @@ export default function MobileApp() {
   // Analyzer → AtmosFlow AI: hand the parsed sensor SUMMARY (never the raw
   // series) to the assistant for a screening-level read. Mirrors
   // launchReview's credit-gate + open-the-sheet flow.
-  const launchSensorInsights = () => {
-    const payload = buildSensorInsightsPayload(sensorData)
-    if (!payload) return
-    if (!PAYWALL_DISABLED && credits < SENSOR_INSIGHTS_CREDIT_COST) { setShowPricing(true); return }
-    consumeCredit(SENSOR_INSIGHTS_CREDIT_COST, 'sensor_insights', draftId || viewRpt?.id || '')
-    setSensorInsightsPayload(payload)
-    setSensorInsightsPrefill('Give me a screening-level read of this sensor log — central values, ranges, data-quality caveats, and what to investigate next.')
-    setFaOpen(true)
-    trackEvent('sensor_insights_started', { params: (sensorData?.params || []).length })
-  }
-
   // Source 1 — the current in-app assessment. Send the structured data
   // (not the rendered doc) so the assistant can cross-check the narrative
   // against the underlying scores/zones/recommendations. Photos are
@@ -846,6 +829,44 @@ export default function MobileApp() {
     if (!d.bldg?.fn && !d.building?.fn) setView('quickstart')
     else if (d.zones?.length > 0 && d.zones[0]?.zn) setView('zone')
     else setView('quickstart')
+  }
+
+  // Logger Studio → report. Writes converted sensor-log averages into a
+  // chosen zone of a chosen in-progress report. For the currently-loaded
+  // draft we update live state (autosave persists it); for any other draft
+  // we read/merge/write it directly via STO. Indoor reading fields only —
+  // the converter leaves outdoor/metadata fields untouched.
+  const applyAveragesToReport = async ({ reportId, zoneIndex, newZoneName, fields, mode }) => {
+    if (!reportId || !fields) return { ok: false }
+    const isCurrent = reportId === draftId
+    const existing = await STO.get(reportId)
+    if (!existing && !isCurrent) return { ok: false }
+    const baseDraft = existing || {}
+    const srcZones = isCurrent ? zones : (baseDraft.zones || [])
+    const nextZones = srcZones.map(z => ({ ...(z || {}) }))
+    let zi
+    if (zoneIndex === 'new') {
+      nextZones.push({ zn: (newZoneName || '').trim() || `Zone ${nextZones.length + 1}` })
+      zi = nextZones.length - 1
+    } else {
+      zi = zoneIndex
+      if (zi == null || zi < 0 || zi >= nextZones.length) return { ok: false }
+    }
+    const zone = { ...(nextZones[zi] || {}) }
+    let written = 0
+    Object.keys(fields).forEach(id => {
+      const isEmpty = String(zone[id] ?? '').trim() === ''
+      if (isEmpty || mode === 'overwrite') { zone[id] = fields[id]; written++ }
+    })
+    nextZones[zi] = zone
+    const ua = new Date().toISOString()
+    const facility = baseDraft.bldg?.fn || baseDraft.building?.fn || (isCurrent ? bldg.fn : '') || 'Untitled'
+    await STO.set(reportId, { ...baseDraft, id: reportId, zones: nextZones, ua })
+    await STO.addDraftToIndex({ id: reportId, facility, ua })
+    if (isCurrent) setZones(nextZones)
+    await refreshIndex()
+    trackEvent('logger_averages_applied', { report_id: reportId, zone_index: zi, fields: written, mode })
+    return { ok: true, written, zoneName: zone.zn || `Zone ${zi + 1}`, facility }
   }
 
   const finishQuickStart = () => {
@@ -3653,7 +3674,7 @@ export default function MobileApp() {
         </div>}
         {view==='trash'&&<TrashView onRecover={async(id)=>{await Backup.recover(id);await refreshIndex()}} onDelete={async(id)=>{await Backup.permanentDelete(id)}} />}
         {view==='sampling-forms'&&<SamplingFormsView profile={profile} onBack={()=>setView('dash')} />}
-        {view==='sensor-data'&&<SensorDataPage value={sensorData} onChange={setSensorData} onBack={()=>setView(comp?'results':'dash')} onAskInsights={launchSensorInsights} />}
+        {view==='sensor-data'&&<SensorDataPage value={sensorData} onChange={setSensorData} reports={index.drafts||[]} currentReportId={draftId} currentZones={zones} onApplyAverages={applyAveragesToReport} onBack={()=>setView(comp?'results':'dash')} />}
         {view==='projects'&&<ProjectsScreen onBack={()=>setView('dash')} onOpen={(pid)=>{setProjectBackView('projects');setActiveProjectId(pid);setView('project-detail')}} />}
         {view==='project-detail'&&<ProjectDetail id={activeProjectId} profile={profile} onBack={()=>setView(projectBackView)} onOpenReport={(r)=>openReport(r)} />}
         {view==='settings'&&<SettingsScreen profile={profile} onEditProfile={()=>{sessionStorage.setItem('aiq_welcomed','1');setWelcomeDone(true);setProfile({...profile,isNew:true});setView('dash')}} onLogout={handleLogout} onClose={()=>setView('dash')} onNavigate={(v)=>{if(v==='pricing'){setShowPricing(true)}else{setView(v)}}} adminActive={!!adminSecret} onActivateAdmin={(secret)=>{setAdminSecret(secret);setView('admin')}} />}
@@ -3768,9 +3789,9 @@ export default function MobileApp() {
 
       {profile && faOpen && (
         <FieldAssistant
-          onClose={() => { setFaOpen(false); setVoicePrefill(null); setReviewPrefill(null); setReviewPayload(null); setSensorInsightsPrefill(null); setSensorInsightsPayload(null) }}
-          onNavigate={(v) => { setFaOpen(false); setVoicePrefill(null); setReviewPrefill(null); setReviewPayload(null); setSensorInsightsPrefill(null); setSensorInsightsPayload(null); setView(v) }}
-          initialMessage={voicePrefill || reviewPrefill || sensorInsightsPrefill}
+          onClose={() => { setFaOpen(false); setVoicePrefill(null); setReviewPrefill(null); setReviewPayload(null) }}
+          onNavigate={(v) => { setFaOpen(false); setVoicePrefill(null); setReviewPrefill(null); setReviewPayload(null); setView(v) }}
+          initialMessage={voicePrefill || reviewPrefill}
           onAction={(action) => {
             // Agentic action executor. Jasper proposes via
             // propose_action tool → SSE → ActionCard in chat →
@@ -3824,10 +3845,6 @@ export default function MobileApp() {
             // "Review for discrepancies" run). Carries the report content
             // so the chat message can stay a short prompt.
             report_review: reviewPayload || undefined,
-            // Sensor-analyzer summary + directive (present only during an
-            // analyzer "Ask AtmosFlow AI for insights" run). Summary only —
-            // never the raw time series.
-            sensor_insights: sensorInsightsPayload || undefined,
             // Active-assessment label for the assistant's context chip +
             // prompt. Prefer the loaded assessment's facility; on the
             // dashboard (where bldg isn't hydrated until a draft is
