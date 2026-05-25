@@ -216,6 +216,14 @@ export default function SensorDataPage({ value, onChange, onBack }) {
     return { points, zones: dsForParam.map((d) => ({ id: d.id, label: d.label })), units: dsForParam[0].units || {} }
   }, [datasets, activeZoneParam]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Occupancy windows tag occupied / unoccupied periods on the shared time
+  // axis; they shade every timeline chart (and the captured report image).
+  const occWindows = (env && env.occupancyWindows) || []
+  const setOccupancy = (next) => onChange({ ...env, occupancyWindows: next })
+  const occRange = (primary && primary.hasTimestamps && primary.summary?.start && primary.summary?.end)
+    ? { start: primary.summary.start, end: primary.summary.end }
+    : null
+
   return (
     <div style={{ paddingTop: 16, paddingBottom: 120, maxWidth: 820, margin: '0 auto' }}>
       {/* Header */}
@@ -331,6 +339,9 @@ export default function SensorDataPage({ value, onChange, onBack }) {
           {/* Datasets — add an outdoor baseline or named zones to compare. */}
           <DatasetManager datasets={datasets} onPickFor={pickFor} onRemove={removeDataset} busy={busy} />
 
+          {/* Occupancy — tag occupied / unoccupied periods that shade every chart. */}
+          {occRange && <OccupancyEditor windows={occWindows} range={occRange} onChange={setOccupancy} />}
+
           {/* Graph gallery */}
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', margin: '20px 2px 10px' }}>
             <div style={V3.T.micro}>Graphs{graphs.length ? ` · ${graphs.length}` : ''}</div>
@@ -359,11 +370,11 @@ export default function SensorDataPage({ value, onChange, onBack }) {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               {graphs.map((g) => (
-                <GraphCard key={g.id} def={g} data={data} state={graphsState[g.id] || {}} onState={(patch) => setGraph(g.id, patch)} chartProps={{ showRefs: !!refs[g.refKey] }} />
+                <GraphCard key={g.id} def={g} data={data} state={graphsState[g.id] || {}} onState={(patch) => setGraph(g.id, patch)} chartProps={{ showRefs: !!refs[g.refKey], occupancy: occWindows }} />
               ))}
             </div>
           )}
-          {data.params.length >= 2 && <MultiParamSection data={data} state={graphsState.multi || {}} onState={(patch) => setGraph('multi', patch)} />}
+          {data.params.length >= 2 && <MultiParamSection data={data} state={graphsState.multi || {}} onState={(patch) => setGraph('multi', patch)} occupancy={occWindows} />}
 
           {/* Indoor vs outdoor CO₂ — ventilation differential (reuses the
               Co2OaCalculator mass-balance method). */}
@@ -375,7 +386,7 @@ export default function SensorDataPage({ value, onChange, onBack }) {
                 data={data}
                 state={graphsState['co2-diff'] || {}}
                 onState={(patch) => setGraph('co2-diff', patch)}
-                chartProps={{ points: diff.rows, hasTs: true, showRefs: !!refs.co2 }}
+                chartProps={{ points: diff.rows, hasTs: true, showRefs: !!refs.co2, occupancy: occWindows }}
               />
               <GlassCard style={{ marginTop: 10 }}>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
@@ -418,7 +429,7 @@ export default function SensorDataPage({ value, onChange, onBack }) {
                 data={data}
                 state={graphsState[`zones-${activeZoneParam}`] || {}}
                 onState={(patch) => setGraph(`zones-${activeZoneParam}`, patch)}
-                chartProps={{ points: zoneOverlay.points, zones: zoneOverlay.zones, param: activeZoneParam, units: zoneOverlay.units, hasTs: true, showRefs: !!refs[activeZoneParam] }}
+                chartProps={{ points: zoneOverlay.points, zones: zoneOverlay.zones, param: activeZoneParam, units: zoneOverlay.units, hasTs: true, showRefs: !!refs[activeZoneParam], occupancy: occWindows }}
               />
             </div>
           )}
@@ -435,7 +446,7 @@ const CAP_W = 680, CAP_H = 300
 // Compare up to 3 detected parameters on one normalized timeline. Changing
 // the selection invalidates any captured image (so the report figure always
 // matches the shown selection).
-function MultiParamSection({ data, state, onState }) {
+function MultiParamSection({ data, state, onState, occupancy = [] }) {
   const selected = (state.params && state.params.length) ? state.params : data.params.slice(0, Math.min(3, data.params.length))
   const labelOf = (k) => SENSOR_PARAMS.find((s) => s.key === k)?.label || k
   const toggleParam = (k) => {
@@ -460,7 +471,7 @@ function MultiParamSection({ data, state, onState }) {
           )
         })}
       </div>
-      <GraphCard def={def} data={data} state={state} onState={onState} chartProps={{ params: selected }} />
+      <GraphCard def={def} data={data} state={state} onState={onState} chartProps={{ params: selected, occupancy }} />
     </div>
   )
 }
@@ -590,6 +601,85 @@ function Stat({ label, value }) {
       <div style={{ fontSize: 18, fontWeight: 700, color: TEXT, fontFamily: 'var(--font-mono)', letterSpacing: '-0.3px' }}>{value}</div>
       <div style={{ ...V3.T.captionDim, marginTop: 2 }}>{label}</div>
     </div>
+  )
+}
+
+const OCC_TONE = { occupied: '#10B981', unoccupied: '#94A3B8' }
+
+// Tag occupied / unoccupied periods on the shared time axis. Time inputs +
+// presets (mobile-friendly); windows are clamped to the data range and shade
+// every timeline chart. Pure presentation — state lives in the envelope.
+function OccupancyEditor({ windows, range, onChange }) {
+  const fmtLocal = (ms) => dayjs(ms).format('YYYY-MM-DDTHH:mm')
+  const [kind, setKind] = useState('occupied')
+  const [startLocal, setStartLocal] = useState(fmtLocal(range.start))
+  const [endLocal, setEndLocal] = useState(fmtLocal(range.end))
+  const [label, setLabel] = useState('')
+  const list = Array.isArray(windows) ? windows : []
+
+  const add = (win) => onChange([...list, { id: `occ-${Date.now()}-${Math.round(Math.random() * 1e4)}`, ...win }])
+  const addManual = () => {
+    const s = dayjs(startLocal).valueOf()
+    const e = dayjs(endLocal).valueOf()
+    if (!Number.isFinite(s) || !Number.isFinite(e) || e <= s) return
+    const cs = Math.max(s, range.start)
+    const ce = Math.min(e, range.end)
+    if (ce <= cs) return
+    add({ start: cs, end: ce, kind, label: label.trim() || (kind === 'occupied' ? 'Occupied' : 'Unoccupied') })
+    setLabel('')
+  }
+  const addWhole = (k) => add({ start: range.start, end: range.end, kind: k, label: k === 'occupied' ? 'Occupied' : 'Unoccupied' })
+  const addBusinessHours = () => {
+    const next = []
+    let day = dayjs(range.start).startOf('day')
+    const last = dayjs(range.end)
+    while (day.isBefore(last)) {
+      const s = Math.max(day.hour(8).valueOf(), range.start)
+      const e = Math.min(day.hour(18).valueOf(), range.end)
+      if (e > s) next.push({ id: `occ-${day.valueOf()}`, start: s, end: e, kind: 'occupied', label: 'Business hours' })
+      day = day.add(1, 'day')
+    }
+    if (next.length) onChange([...list, ...next])
+  }
+  const remove = (id) => onChange(list.filter((w) => w.id !== id))
+
+  const inStyle = { padding: '8px 10px', background: 'var(--surface)', border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT, fontSize: 13, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }
+  return (
+    <GlassCard style={{ marginTop: 14 }}>
+      <div style={{ ...V3.T.micro, marginBottom: 10 }}>Occupancy periods</div>
+      {list.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
+          {list.map((w) => (
+            <div key={w.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 10px', background: 'var(--surface)', border: `1px solid ${BORDER}`, borderRadius: 10 }}>
+              <span style={{ width: 10, height: 10, borderRadius: 3, background: OCC_TONE[w.kind] || OCC_TONE.occupied, flexShrink: 0 }} />
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ ...V3.T.caption, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.label}</div>
+                <div style={V3.T.captionDim}>{fmtRange(w.start, w.end)}</div>
+              </div>
+              <button onClick={() => remove(w.id)} aria-label={`Remove ${w.label}`} style={{ ...ghostBtn, padding: '4px 10px', minHeight: 30 }}>Remove</button>
+            </div>
+          ))}
+        </div>
+      )}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+        <button onClick={addBusinessHours} style={{ ...chip, cursor: 'pointer' }}>+ Business hours (8–18)</button>
+        <button onClick={() => addWhole('occupied')} style={{ ...chip, cursor: 'pointer' }}>+ Occupied (all)</button>
+        <button onClick={() => addWhole('unoccupied')} style={{ ...chip, cursor: 'pointer' }}>+ Unoccupied (all)</button>
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+        <select value={kind} onChange={(e) => setKind(e.target.value)} style={{ ...sel }} aria-label="Occupancy kind">
+          <option value="occupied">Occupied</option>
+          <option value="unoccupied">Unoccupied</option>
+        </select>
+        <input type="datetime-local" value={startLocal} min={fmtLocal(range.start)} max={fmtLocal(range.end)} onChange={(e) => setStartLocal(e.target.value)} aria-label="Start" style={inStyle} />
+        <input type="datetime-local" value={endLocal} min={fmtLocal(range.start)} max={fmtLocal(range.end)} onChange={(e) => setEndLocal(e.target.value)} aria-label="End" style={inStyle} />
+        <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Label (optional)" style={{ ...inStyle, flex: '1 1 140px', minWidth: 0 }} />
+        <TactileButton variant="secondary" size="sm" onClick={addManual}>Add period</TactileButton>
+      </div>
+      <div style={{ ...V3.T.captionDim, marginTop: 8, lineHeight: 1.5 }}>
+        Shading marks occupied (green) vs unoccupied (grey) periods on every timeline and the report image — context for interpretation, not a measurement.
+      </div>
+    </GlassCard>
   )
 }
 
