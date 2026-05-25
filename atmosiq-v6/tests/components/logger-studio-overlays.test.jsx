@@ -69,29 +69,36 @@ describe('Logger Studio multi-file flow', () => {
   it('surfaces the ventilation differential and zone comparison as datasets are added', async () => {
     const { container } = render(<Harness />)
 
-    // 1) Indoor upload (default target) reveals the dataset manager.
+    // 1) Indoor upload (default target). Compare datasets lives under Analysis.
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Upload Logger Data/i })) })
     await changeFile(container, makeFile(INDOOR, 'indoor.csv'))
+    await act(async () => { fireEvent.click(screen.getByRole('tab', { name: 'Analysis' })) })
     expect(screen.getByText('Compare datasets')).toBeTruthy()
-    expect(screen.queryByText('Indoor vs Outdoor CO₂')).toBeNull()
+    expect(screen.queryByText('Indoor vs Outdoor')).toBeNull()
 
     // Compare datasets is a collapsed section by default — expand it first.
     await act(async () => { fireEvent.click(screen.getByText('Compare datasets')) })
 
-    // 2) Add an outdoor baseline → differential + cfm/person estimate appear.
+    // 2) Add an outdoor baseline → the differential surfaces as a chart tab.
     const roleSelect = container.querySelector('select[aria-label="Dataset role"]')
     await act(async () => { fireEvent.change(roleSelect, { target: { value: 'outdoor' } }) })
     await act(async () => { fireEvent.click(screen.getByText('Add file')) })
     await changeFile(container, makeFile(OUTDOOR, 'outdoor.csv'))
-    expect(screen.getByText('Indoor vs Outdoor CO₂')).toBeTruthy()
-    expect(screen.getByText('Est. outdoor air')).toBeTruthy()
+    expect(screen.getByText('Indoor vs Outdoor')).toBeTruthy()
 
-    // 3) Add a named zone → zone comparison overlay appears.
+    // 3) Add a named zone → the zone comparison surfaces as a chart tab.
     await act(async () => { fireEvent.change(roleSelect, { target: { value: 'zone' } }) })
     const labelInput = container.querySelector('input[placeholder^="Zone label"]')
     await act(async () => { fireEvent.change(labelInput, { target: { value: 'Conference Room A' } }) })
     await act(async () => { fireEvent.click(screen.getByText('Add file')) })
     await changeFile(container, makeFile(ZONE, 'zoneA.csv'))
+    expect(screen.getByText('Zone Comparison')).toBeTruthy()
+
+    // The Report tab lists every chart block — the differential (with its
+    // cfm/person estimate) and the zone comparison render there.
+    await act(async () => { fireEvent.click(screen.getByRole('tab', { name: /Report/ })) })
+    expect(screen.getByText('Indoor vs Outdoor CO₂')).toBeTruthy()
+    expect(screen.getByText('Est. outdoor air')).toBeTruthy()
     expect(screen.getByText(/Zone Comparison —/)).toBeTruthy()
   })
 })

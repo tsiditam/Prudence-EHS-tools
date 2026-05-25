@@ -60,7 +60,8 @@ describe('occupancy editor on the page', () => {
     const { container } = render(<Harness />)
     await upload(container, makeFile(INDOOR_TS, 'indoor.csv'))
 
-    // Occupancy is a collapsed section by default — expand it first.
+    // Occupancy lives under the Analysis tab, collapsed by default.
+    await act(async () => { fireEvent.click(screen.getByRole('tab', { name: 'Analysis' })) })
     expect(screen.getByText('Occupancy periods')).toBeTruthy()
     await act(async () => { fireEvent.click(screen.getByText('Occupancy periods')) })
     const removesBefore = screen.queryAllByRole('button', { name: /^Remove/ }).length
@@ -77,6 +78,7 @@ describe('occupancy editor on the page', () => {
   it('is hidden when the logger has no timestamps', async () => {
     const { container } = render(<Harness />)
     await upload(container, makeFile(NO_TS, 'rows.csv'))
+    await act(async () => { fireEvent.click(screen.getByRole('tab', { name: 'Analysis' })) })
     expect(screen.queryByText('Occupancy periods')).toBeNull()
   })
 })
