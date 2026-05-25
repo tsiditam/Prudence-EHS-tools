@@ -17,7 +17,7 @@ import * as V3 from '../../styles/tokens'
 import { I } from '../Icons'
 import GlassCard from '../ui/GlassCard'
 import TactileButton from '../ui/TactileButton'
-import { parseSensorRows, SENSOR_PARAMS, TVOC_REFERENCES, ppbToUgm3, ugm3ToPpb } from '../../utils/sensorParser'
+import { parseSensorRows, SENSOR_PARAMS, TVOC_REFERENCES, ppbToUgm3, ugm3ToPpb, HCHO_MW } from '../../utils/sensorParser'
 import { splitCsvLine } from '../../utils/labResultsParser'
 import { xlsxToRows } from '../../utils/sensorXlsx'
 import { GRAPH_DEFS, MultiParameterChart, LIGHT_PALETTE, DARK_PALETTE } from './SensorCharts'
@@ -47,6 +47,18 @@ const tvocEquivLabel = (mean, unit) => {
   if (/µg|ug/.test(u)) { const ppb = ugm3ToPpb(mean, mw); return ppb == null ? null : `≈ ${Math.round(ppb)} ppb (isobutylene-equiv)` }
   if (u.includes('ppm')) { const ug = ppbToUgm3(mean * 1000, mw); return ug == null ? null : `≈ ${Math.round(ug)} µg/m³ (isobutylene-equiv)` }
   if (u.includes('ppb')) { const ug = ppbToUgm3(mean, mw); return ug == null ? null : `≈ ${Math.round(ug)} µg/m³ (isobutylene-equiv)` }
+  return null
+}
+// Formaldehyde cross-unit equivalent. HCHO is a single compound (MW 30.03),
+// so this conversion is exact (no reference-compound assumption like TVOC).
+// Surfaces the mass/volume counterpart so the reading can be compared against
+// ppm-based occupational limits or µg/m³-based guidelines.
+const hchoEquivLabel = (mean, unit) => {
+  const u = String(unit || '').toLowerCase()
+  if (/µg|ug/.test(u)) { const ppb = ugm3ToPpb(mean, HCHO_MW); return ppb == null ? null : `≈ ${ppb < 100 ? Math.round(ppb * 10) / 10 : Math.round(ppb)} ppb` }
+  if (/mg/.test(u)) { const ppb = ugm3ToPpb(mean * 1000, HCHO_MW); return ppb == null ? null : `≈ ${Math.round(ppb)} ppb` }
+  if (u.includes('ppm')) { const ug = ppbToUgm3(mean * 1000, HCHO_MW); return ug == null ? null : `≈ ${Math.round(ug)} µg/m³` }
+  if (u.includes('ppb')) { const ug = ppbToUgm3(mean, HCHO_MW); return ug == null ? null : `≈ ${Math.round(ug)} µg/m³` }
   return null
 }
 
@@ -228,6 +240,9 @@ export default function SensorDataPage({ value, onChange, onBack }) {
                         <div style={{ fontSize: 11, color: DIM, marginTop: 2, fontFamily: 'var(--font-mono)' }}>{fmtAvg(s.min)}–{fmtAvg(s.max)} · n={s.n}</div>
                         {p === 'tvoc' && tvocEquivLabel(s.mean, u) && (
                           <div style={{ fontSize: 11, color: DIM, marginTop: 2, fontFamily: 'var(--font-mono)' }}>{tvocEquivLabel(s.mean, u)}</div>
+                        )}
+                        {p === 'hcho' && hchoEquivLabel(s.mean, u) && (
+                          <div style={{ fontSize: 11, color: DIM, marginTop: 2, fontFamily: 'var(--font-mono)' }}>{hchoEquivLabel(s.mean, u)}</div>
                         )}
                       </div>
                     )

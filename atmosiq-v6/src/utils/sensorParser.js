@@ -27,6 +27,7 @@ export const SENSOR_PARAMS = [
   { key: 'pm25',  label: 'PM2.5',       unit: 'µg/m³', match: /pm\s*2\.?5|pm25/i,                              min: 0,    max: 2000 },
   { key: 'pm10',  label: 'PM10',        unit: 'µg/m³', match: /pm\s*10|pm10/i,                                 min: 0,    max: 5000 },
   { key: 'tvoc',  label: 'TVOC',        unit: 'ppb',   match: /tvoc|\bvoc/i,                                   min: 0,    max: 60000 },
+  { key: 'hcho',  label: 'Formaldehyde', unit: 'ppb',  match: /hcho|formaldehyde|ch2o|methanal/i,              min: 0,    max: 6000 },
   { key: 'co',    label: 'CO',          unit: 'ppm',   match: /(^|[^a-z2])co($|[^a-z2])|carbon\s*monox/i,      min: 0,    max: 1000 },
   { key: 'temp',  label: 'Temperature', unit: '°F',    match: /temp|temperature|°\s*[cf]\b/i,                  min: -40,  max: 160 },
   { key: 'rh',    label: 'Relative Humidity', unit: '%', match: /\brh\b|humid|%\s*rh/i,                        min: 0,    max: 100 },
@@ -51,6 +52,7 @@ export function detectUnit(header, param) {
     return '°F'
   }
   if (/µg\/m³|ug\/m3|ug\/m\^?3/.test(h)) return 'µg/m³'
+  if (/mg\/m³|mg\/m3|mg\/m\^?3/.test(h)) return 'mg/m³'
   if (/\bppm\b/.test(h)) return 'ppm'
   if (/\bppb\b/.test(h)) return 'ppb'
   if (/%/.test(h)) return '%'
@@ -164,6 +166,11 @@ export function ugm3ToPpb(ugm3, mw) {
   if (ugm3 == null || !Number.isFinite(ugm3) || !Number.isFinite(mw) || mw === 0) return null
   return (ugm3 * MOLAR_VOLUME_25C) / mw
 }
+
+// Formaldehyde (HCHO) molecular weight (g/mol). A single compound, so the
+// ppb ↔ µg/m³ conversion is exact — no reference-compound assumption like
+// TVOC. Used for the analyzer's cross-unit equivalent display.
+export const HCHO_MW = 30.03
 
 // Map a logger parameter onto the per-zone reading field id (SENSOR_FIELDS)
 // it can populate. Indoor only — the outdoor fields (co2o, tfo, …) and HCHO
