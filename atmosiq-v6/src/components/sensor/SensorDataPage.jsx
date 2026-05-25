@@ -52,9 +52,9 @@ const tvocEquivLabel = (mean, unit) => {
 
 // "Analyzing" reveal — after a successful upload we hold the parsed
 // results behind a short processing animation so the transition reads as
-// the app working through the data rather than snapping in. ~2.6s across
+// the app working through the data rather than snapping in. ~5s across
 // three status lines. Honors prefers-reduced-motion (skipped → instant).
-const ANALYZE_MS = 2600
+const ANALYZE_MS = 5000
 const ANALYZE_STATUS = ['Parsing readings…', 'Computing averages…', 'Preparing visuals…']
 
 function AnalyzingCard({ fileName, phase }) {

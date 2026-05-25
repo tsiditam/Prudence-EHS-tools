@@ -64,5 +64,5 @@ describe('SensorDataPage analyzing reveal', () => {
   })
 })
 
-// A hair past the component's ANALYZE_MS (2600).
-const ANALYZE_TOTAL = 2800
+// A hair past the component's ANALYZE_MS (5000).
+const ANALYZE_TOTAL = 5200
