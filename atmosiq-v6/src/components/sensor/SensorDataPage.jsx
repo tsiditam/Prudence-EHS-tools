@@ -348,7 +348,7 @@ export default function SensorDataPage({ value, onChange, onBack, onAskInsights 
         )}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ ...V3.T.h1, marginBottom: 2 }}>Logger Studio</div>
-          <div style={V3.T.bodyDim}>Upload logger data and generate report-ready IAQ visuals.</div>
+          <div style={V3.T.bodyDim}>Upload logger data for report-ready IAQ visuals.</div>
         </div>
       </div>
 
@@ -515,7 +515,7 @@ export default function SensorDataPage({ value, onChange, onBack, onAskInsights 
                   <span style={{ fontSize: 24, fontWeight: 700, color: ACCENT, fontFamily: 'var(--font-mono)' }}>{includedReportCount}</span>
                   <span style={V3.T.bodyStrong}>of {chartTabs.length} graph{chartTabs.length === 1 ? '' : 's'} in report</span>
                 </div>
-                <div style={{ ...V3.T.captionDim, marginTop: 6, lineHeight: 1.5 }}>Toggle graphs to include and add captions. Included graphs are embedded as images when you generate the report; the export buttons save individual figures.</div>
+                <div style={{ ...V3.T.captionDim, marginTop: 6, lineHeight: 1.5 }}>Toggle graphs to include. Captions and exports are below.</div>
               </GlassCard>
               {chartTabs.length === 0 ? emptyCharts : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 14 }}>
@@ -632,7 +632,7 @@ function GraphCard({ def, data, state, onState, chartProps = {}, mode = 'report'
       </div>
       {mode !== 'analysis' && (
         <div style={{ padding: '0 18px 16px' }}>
-          <textarea value={state.caption || ''} onChange={(e) => onState({ caption: e.target.value })} placeholder="Caption (e.g. CO₂ rose during occupied periods and declined after apparent occupancy reduction — interpret with site observations)."
+          <textarea value={state.caption || ''} onChange={(e) => onState({ caption: e.target.value })} placeholder="Add a caption (optional)"
             rows={2} style={{ width: '100%', padding: '10px 12px', background: 'var(--surface)', border: `1px solid ${BORDER}`, borderRadius: 10, color: TEXT, fontSize: 13, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box', resize: 'vertical', lineHeight: 1.5 }} />
           <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
             <GhostButton onClick={exportPng} disabled={busy}>
