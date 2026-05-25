@@ -79,7 +79,7 @@ function AnalyzingCard({ fileName, phase }) {
   )
 }
 
-export default function SensorDataPage({ value, onChange, onBack }) {
+export default function SensorDataPage({ value, onChange, onBack, onAskInsights }) {
   const fileRef = useRef(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
@@ -232,6 +232,16 @@ export default function SensorDataPage({ value, onChange, onBack }) {
                       </div>
                     )
                   })}
+                </div>
+              </div>
+            )}
+            {onAskInsights && (
+              <div style={{ marginTop: 14 }}>
+                <TactileButton variant="secondary" size="lg" fullWidth onClick={onAskInsights} icon={<I n="sparkle" s={16} c="var(--accent)" w={1.8} />}>
+                  Ask AtmosFlow AI for insights · 1 credit
+                </TactileButton>
+                <div style={{ ...V3.T.captionDim, marginTop: 6, textAlign: 'center' }}>
+                  AI · screening aid · review required. Reads the summary above (not the raw series).
                 </div>
               </div>
             )}
