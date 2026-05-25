@@ -56,6 +56,7 @@ import SensorDataPage from './sensor/SensorDataPage'
 import ProjectsScreen from './projects/ProjectsScreen'
 import ProjectDetail from './projects/ProjectDetail'
 import { getOrCreateProjectByName } from '../utils/projectStore'
+import { KEYS } from '../utils/storageKeys'
 import SettingsScreen from './SettingsScreen'
 import { printReport, generatePrintHTML } from './PrintReport'
 // v2.6.1 — DocxReport is a static import. Earlier `await import('./DocxReport')`
@@ -130,7 +131,7 @@ pressFeedback.style = {
   transition: 'transform 120ms cubic-bezier(0.34,1.4,0.64,1), opacity 120ms ease-out',
 }
 const BETA_MODE = true // Set to false when ready to go live — re-enables all premium gates
-const isEnterprise = (profile) => BETA_MODE || profile?.plan === 'team' || profile?.plan === 'enterprise' || !!localStorage.getItem('atmosflow:premiumOverride')
+const isEnterprise = (profile) => BETA_MODE || profile?.plan === 'team' || profile?.plan === 'enterprise' || !!localStorage.getItem(KEYS.premiumOverride)
 const isPremiumOpt = (q, opt) => q.premiumOpts && q.premiumOpts.includes(opt)
 const fD = ts => ts ? new Date(ts).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : ''
 const sv = sev => ({critical:{c:'#EF4444',bg:'#EF444418',l:'CRITICAL'},high:{c:'#FB923C',bg:'#FB923C18',l:'HIGH'},medium:{c:'#FBBF24',bg:'#FBBF2418',l:'MEDIUM'},low:{c:'#38BDF8',bg:'#38BDF815',l:'LOW'},pass:{c:'#22C55E',bg:'#22C55E15',l:'PASS'},info:{c:'#94A3B8',bg:'#94A3B815',l:'INFO'}}[sev]||{c:'#94A3B8',bg:'#94A3B815',l:''})
@@ -1159,7 +1160,7 @@ export default function MobileApp() {
   // workspace) rather than parallel and disconnected.
   const openBuildingProject = async (buildingId) => {
     let buildings = []
-    try { buildings = JSON.parse(localStorage.getItem('atmosflow:buildings') || '[]') } catch { buildings = [] }
+    try { buildings = JSON.parse(localStorage.getItem(KEYS.buildings) || '[]') } catch { buildings = [] }
     const b = buildings.find(x => x && x.id === buildingId)
     if (!b) return
     const proj = await getOrCreateProjectByName(b.name, { address: b.address || '', status: 'active' })
@@ -1209,7 +1210,7 @@ export default function MobileApp() {
     return <ProfileScreen onLogin={handleLogin} />
   }
   // Mode selection — FM mode paused; auto-select IH for all users
-  const hasModeSet = localStorage.getItem('atmosflow:userMode')
+  const hasModeSet = localStorage.getItem(KEYS.userMode)
   if (profile && (!hasModeSet || hasModeSet === 'fm')) {
     persistMode('ih')
     setUserMode('ih')

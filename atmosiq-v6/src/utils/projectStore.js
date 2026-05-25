@@ -20,8 +20,9 @@
  */
 
 import STO from './storage'
+import { KEYS } from './storageKeys'
 
-const KEY = 'atmosflow:projects'
+const KEY = KEYS.projects
 
 // Per-file cap for inline (data-URL) storage. localStorage quota is ~5 MB
 // per origin and base64 inflates payloads ~33%, so we keep individual

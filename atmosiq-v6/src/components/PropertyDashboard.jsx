@@ -7,11 +7,12 @@ import { useState, useEffect } from 'react'
 import { I } from './Icons'
 import { FM_TRAFFIC_LIGHT } from '../constants/terminology'
 import { mix } from '../utils/theme'
+import { KEYS, complaintsKey } from '../utils/storageKeys'
 
 const BG = 'var(--bg)', CARD = 'var(--card)', BORDER = 'var(--border)', ACCENT = 'var(--accent)'
 const TEXT = 'var(--text)', SUB = 'var(--sub)', DIM = 'var(--dim)'
 const SUCCESS = 'var(--success)', WARN = 'var(--warn)', DANGER = 'var(--danger)'
-const STORAGE_KEY = 'atmosflow:buildings'
+const STORAGE_KEY = KEYS.buildings
 
 function loadBuildings() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') } catch { return [] }
@@ -19,7 +20,7 @@ function loadBuildings() {
 function saveBuildings(b) { localStorage.setItem(STORAGE_KEY, JSON.stringify(b)) }
 
 function loadComplaints(buildingId) {
-  try { return JSON.parse(localStorage.getItem(`atmosflow:complaints:${buildingId}`) || '[]') } catch { return [] }
+  try { return JSON.parse(localStorage.getItem(complaintsKey(buildingId)) || '[]') } catch { return [] }
 }
 
 export default function PropertyDashboard({ onBack, onNavigate, assessmentIndex }) {

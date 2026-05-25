@@ -4,7 +4,9 @@
  * Tracks make/model, serial, calibration, and sensor type.
  */
 
-const STORAGE_KEY = 'atmosflow:instruments'
+import { KEYS } from './storageKeys'
+
+const STORAGE_KEY = KEYS.instruments
 
 // ── Calibration thresholds (methodology config) ──────────────────────────
 //

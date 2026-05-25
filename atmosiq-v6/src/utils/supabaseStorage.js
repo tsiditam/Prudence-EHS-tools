@@ -15,10 +15,11 @@
 
 import { supabase } from './supabaseClient'
 import STO from './storage'
+import { KEYS } from './storageKeys'
 import * as Sentry from '@sentry/react'
 
-const SYNC_QUEUE_KEY = 'atmosiq-sync-queue'
-const SYNC_STATE_KEY = 'atmosiq-sync-state'
+const SYNC_QUEUE_KEY = KEYS.syncQueue
+const SYNC_STATE_KEY = KEYS.syncState
 const SYNC_EVENT = 'atmosflow:sync-state-changed'
 const isOnline = () => navigator.onLine && !!supabase
 
@@ -68,7 +69,7 @@ const SupaStorage = {
     const result = await supabase.auth.signInWithPassword({ email, password })
     // Cache session locally for offline access
     if (result.data?.session) {
-      await STO.set('atmosiq-cached-session', {
+      await STO.set(KEYS.cachedSession, {
         user: result.data.user,
         email: result.data.user.email,
         id: result.data.user.id,
@@ -80,7 +81,7 @@ const SupaStorage = {
 
   async signOut() {
     if (supabase) await supabase.auth.signOut()
-    await STO.del('atmosiq-cached-session')
+    await STO.del(KEYS.cachedSession)
   },
 
   async getUser() {
@@ -92,7 +93,7 @@ const SupaStorage = {
       } catch {}
     }
     // Fall back to cached session (offline)
-    const cached = await STO.get('atmosiq-cached-session')
+    const cached = await STO.get(KEYS.cachedSession)
     return cached || null
   },
 
@@ -113,7 +114,7 @@ const SupaStorage = {
   // ── Profile (offline-first) ──
   async getProfile() {
     // Always read from local first (fast)
-    const local = await STO.get('atmosiq-profile')
+    const local = await STO.get(KEYS.profile)
     // Try to sync from cloud if online
     if (isOnline()) {
       Sentry.addBreadcrumb({
@@ -172,7 +173,7 @@ const SupaStorage = {
             )
           }
         } else if (data) {
-          await STO.set('atmosiq-profile', data)
+          await STO.set(KEYS.profile, data)
           Sentry.addBreadcrumb({
             category: 'profile_sync',
             message: 'getProfile.success',
@@ -197,7 +198,7 @@ const SupaStorage = {
 
   async saveProfile(profile) {
     // Save locally first (instant)
-    await STO.set('atmosiq-profile', profile)
+    await STO.set(KEYS.profile, profile)
     // Sync to cloud if online
     if (isOnline()) {
       Sentry.addBreadcrumb({
@@ -468,7 +469,7 @@ const SupaStorage = {
       if (!user) return
       // Sync profile
       const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-      if (profile) await STO.set('atmosiq-profile', profile)
+      if (profile) await STO.set(KEYS.profile, profile)
       // Sync assessments
       const { data: assessments } = await supabase.from('assessments').select('*').eq('user_id', user.id).order('updated_at', { ascending: false })
       if (assessments) {
