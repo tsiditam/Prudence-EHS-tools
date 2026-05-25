@@ -7,9 +7,10 @@
  */
 
 import STO from './storage'
+import { KEYS } from './storageKeys'
 
-const PROFILES_KEY = 'atmosiq-profiles'
-const ACTIVE_KEY = 'atmosiq-active-profile'
+const PROFILES_KEY = KEYS.profiles
+const ACTIVE_KEY = KEYS.activeProfile
 
 const Profiles = {
   async getAll() {

@@ -20,8 +20,9 @@
  */
 
 import STO from './storage'
+import { KEYS } from './storageKeys'
 
-const KEY = 'atmosflow:projects'
+const KEY = KEYS.projects
 
 // Per-file cap for inline (data-URL) storage. localStorage quota is ~5 MB
 // per origin and base64 inflates payloads ~33%, so we keep individual
@@ -100,6 +101,24 @@ export async function createProject(fields = {}) {
   pushActivity(project, 'Project created')
   await writeAll([project, ...all])
   return project
+}
+
+/**
+ * Find an existing project by (case-insensitive, trimmed) name, or create
+ * one with the given extra fields. Used to bridge the FM Buildings
+ * portfolio (PropertyDashboard) to the project workspace: tapping a
+ * building opens its Project, creating it on first open. Name-matching
+ * mirrors how PropertyDashboard already ties reports to buildings
+ * (report.facility === building.name).
+ */
+export async function getOrCreateProjectByName(name, fields = {}) {
+  const key = String(name || '').trim().toLowerCase()
+  if (key) {
+    const all = await readAll()
+    const match = all.find(p => String(p.name || '').trim().toLowerCase() === key)
+    if (match) return match
+  }
+  return createProject({ name, ...fields })
 }
 
 /** Shallow-merge metadata fields onto a project; bumps updatedAt. */
@@ -239,7 +258,7 @@ export async function unlinkReport(id, reportId) {
 
 export default {
   PROJECT_STATUSES, SITE_TYPES, DOCUMENT_CATEGORIES, MAX_INLINE_FILE_BYTES,
-  getProjects, getProject, createProject, updateProject, deleteProject,
+  getProjects, getProject, createProject, getOrCreateProjectByName, updateProject, deleteProject,
   addDocument, removeDocument, addEvidence, removeEvidence,
   addNote, removeNote, linkReport, unlinkReport,
 }

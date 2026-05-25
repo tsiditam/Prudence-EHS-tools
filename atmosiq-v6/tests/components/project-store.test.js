@@ -10,6 +10,7 @@ import {
   getProjects, getProject, createProject, updateProject, deleteProject,
   addDocument, removeDocument, addEvidence, removeEvidence,
   addNote, removeNote, linkReport, unlinkReport, MAX_INLINE_FILE_BYTES,
+  getOrCreateProjectByName,
 } from '../../src/utils/projectStore.js'
 
 beforeEach(() => { localStorage.clear() })
@@ -111,6 +112,17 @@ describe('projectStore — notes & linked assessments', () => {
     expect(withNote.notes[0].text).toBe('Follow up on AHU-3')
     const after = await removeNote(p.id, withNote.notes[0].id)
     expect(after.notes).toHaveLength(0)
+  })
+
+  it('getOrCreateProjectByName creates once then returns the same project (FM building bridge)', async () => {
+    const created = await getOrCreateProjectByName('Tower A', { address: '1 Main St', status: 'active' })
+    expect(created.name).toBe('Tower A')
+    expect(created.address).toBe('1 Main St')
+    expect(created.status).toBe('active')
+    // Case-insensitive / trimmed match returns the existing project, no dup.
+    const again = await getOrCreateProjectByName('  tower a ')
+    expect(again.id).toBe(created.id)
+    expect(await getProjects()).toHaveLength(1)
   })
 
   it('links an assessment idempotently and unlinks it', async () => {
