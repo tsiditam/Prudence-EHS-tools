@@ -55,6 +55,7 @@ import WelcomeScreen from './WelcomeScreen'
 import SensorDataPage from './sensor/SensorDataPage'
 import ProjectsScreen from './projects/ProjectsScreen'
 import ProjectDetail from './projects/ProjectDetail'
+import { getOrCreateProjectByName } from '../utils/projectStore'
 import SettingsScreen from './SettingsScreen'
 import { printReport, generatePrintHTML } from './PrintReport'
 // v2.6.1 — DocxReport is a static import. Earlier `await import('./DocxReport')`
@@ -425,6 +426,9 @@ export default function MobileApp() {
   // views: dash|quickstart|zone|details|results|history|drafts|report
   const [view, setView] = useState('dash')
   const [activeProjectId, setActiveProjectId] = useState(null)
+  // Where the project workspace returns to — 'projects' (IH list) or
+  // 'properties' (FM Buildings portfolio), set when navigating in.
+  const [projectBackView, setProjectBackView] = useState('projects')
   const [milestone, setMilestone] = useState(null)
   const [clock, setClock] = useState(new Date())
   const [showPricing, setShowPricing] = useState(false)
@@ -1147,6 +1151,21 @@ export default function MobileApp() {
       const a = document.createElement('a'); a.href = url; a.download = fileName; a.click()
       setTimeout(() => URL.revokeObjectURL(url), 5000)
     }
+  }
+
+  // Bridge the FM Buildings portfolio to the project workspace: tapping a
+  // building opens its Project (created on first open, matched by name), so
+  // the two building-organization surfaces are layered (portfolio → site
+  // workspace) rather than parallel and disconnected.
+  const openBuildingProject = async (buildingId) => {
+    let buildings = []
+    try { buildings = JSON.parse(localStorage.getItem('atmosflow:buildings') || '[]') } catch { buildings = [] }
+    const b = buildings.find(x => x && x.id === buildingId)
+    if (!b) return
+    const proj = await getOrCreateProjectByName(b.name, { address: b.address || '', status: 'active' })
+    setProjectBackView('properties')
+    setActiveProjectId(proj.id)
+    setView('project-detail')
   }
 
   const openReport = async (meta) => {
@@ -3615,8 +3634,8 @@ export default function MobileApp() {
         {view==='trash'&&<TrashView onRecover={async(id)=>{await Backup.recover(id);await refreshIndex()}} onDelete={async(id)=>{await Backup.permanentDelete(id)}} />}
         {view==='sampling-forms'&&<SamplingFormsView profile={profile} onBack={()=>setView('dash')} />}
         {view==='sensor-data'&&<SensorDataPage value={sensorData} onChange={setSensorData} onBack={()=>setView(comp?'results':'dash')} />}
-        {view==='projects'&&<ProjectsScreen onBack={()=>setView('dash')} onOpen={(pid)=>{setActiveProjectId(pid);setView('project-detail')}} />}
-        {view==='project-detail'&&<ProjectDetail id={activeProjectId} profile={profile} onBack={()=>setView('projects')} onOpenReport={(r)=>openReport(r)} />}
+        {view==='projects'&&<ProjectsScreen onBack={()=>setView('dash')} onOpen={(pid)=>{setProjectBackView('projects');setActiveProjectId(pid);setView('project-detail')}} />}
+        {view==='project-detail'&&<ProjectDetail id={activeProjectId} profile={profile} onBack={()=>setView(projectBackView)} onOpenReport={(r)=>openReport(r)} />}
         {view==='settings'&&<SettingsScreen profile={profile} onEditProfile={()=>{sessionStorage.setItem('aiq_welcomed','1');setWelcomeDone(true);setProfile({...profile,isNew:true});setView('dash')}} onLogout={handleLogout} onClose={()=>setView('dash')} onNavigate={(v)=>{if(v==='pricing'){setShowPricing(true)}else{setView(v)}}} adminActive={!!adminSecret} onActivateAdmin={(secret)=>{setAdminSecret(secret);setView('admin')}} />}
         {view==='tos'&&<TermsOfService onBack={()=>setView('settings')} />}
         {view==='privacy'&&<PrivacyPolicy onBack={()=>setView('settings')} />}
@@ -3626,7 +3645,7 @@ export default function MobileApp() {
         {view==='incident-form'&&<IncidentForm onCancel={()=>setView('dash')} onSaved={(inc)=>{setCurrentIncident(inc);setView('incident-detail')}} />}
         {view==='incident-log'&&<IncidentLog profile={profile} onBack={()=>setView('dash')} onNewIncident={()=>setView('incident-form')} onView={(inc)=>{setCurrentIncident(inc);setView('incident-detail')}} />}
         {view==='incident-detail'&&currentIncident&&<IncidentDetail incident={currentIncident} profile={profile} onBack={()=>setView('incident-log')} onChange={setCurrentIncident} onDeleted={()=>{setCurrentIncident(null);setView('incident-log')}} />}
-        {view==='properties'&&<PropertyDashboard onBack={()=>setView('dash')} onNavigate={(v)=>setView(v)} assessmentIndex={index} />}
+        {view==='properties'&&<PropertyDashboard onBack={()=>setView('dash')} onNavigate={(target,arg)=>{if(target==='building'){openBuildingProject(arg)}else{setView(target)}}} assessmentIndex={index} />}
         {view==='spatial'&&<SpatialMap zones={zones} zoneScores={zoneScores} floorPlan={floorPlan} onUploadFloorPlan={setFloorPlan} onUpdateZone={(zi, update)=>{const z=[...zones];z[zi]={...z[zi],...update};setZones(z)}} onClose={()=>{runScoring();setView('results')}} />}
       </div>
 
