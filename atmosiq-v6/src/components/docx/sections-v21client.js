@@ -16,6 +16,8 @@ import { borderlessLayoutTable } from './tables'
 import { LETTER_COVER_PAGE, BODY_SECTION_PROPERTIES, CONTENT_WIDTH_DXA } from './page-setup'
 import { base64ToUint8Array } from './images'
 import { buildResurveySchedule } from './sections-resurvey'
+import { sectionHeading2 } from './headings'
+import { assembleSupplementalSections, mergeSupplementalTocEntries } from './sections-supplemental'
 
 // v2.2 visual palette — slate/blue per consultant-report design
 // guidance. PRIMARY (slate-900) for headings + dark text. ACCENT
@@ -101,19 +103,10 @@ const bullet = (text, opts = {}) => new Paragraph({
  * section children list. The single-element array preserves the same
  * call-site shape the v2.2.0a banded version used.
  */
+// Section/appendix heading. Delegates to the shared sectionHeading2 so the
+// canonical sections and the supplemental appendices share one heading style.
 function heading2(text) {
-  return [
-    new Paragraph({
-      children: [new TextRun({
-        text: text || '', font: FONTS.body, size: 28, bold: true, color: CYAN_DARK,
-      })],
-      heading: HeadingLevel.HEADING_2,
-      spacing: { before: 360, after: 160 },
-      border: {
-        bottom: { style: BorderStyle.SINGLE, size: 12, color: CYAN, space: 4 },
-      },
-    }),
-  ]
+  return [sectionHeading2(text)]
 }
 
 const heading3 = (text) => p(text, { heading: HeadingLevel.HEADING_3, bold: true, size: 24, color: CYAN_DARK, after: 100 })
@@ -298,11 +291,12 @@ function buildMethodologyDisclosure(report) {
  * Static rendering avoids a Word-only field that fails silently in
  * non-Word renderers (LibreOffice, Google Docs upload, web preview).
  */
-function buildTableOfContents(report) {
+function buildTableOfContents(report, entriesOverride) {
   const toc = report.tableOfContents
-  if (!toc || !toc.entries || toc.entries.length === 0) return []
+  const entries = entriesOverride || (toc && toc.entries)
+  if (!toc || !entries || entries.length === 0) return []
   const out = [...heading2(toc.title || 'Table of Contents')]
-  for (const entry of toc.entries) {
+  for (const entry of entries) {
     const indent = entry.level === 2 ? 360 : 0
     out.push(new Paragraph({
       children: [new TextRun({
@@ -1154,9 +1148,19 @@ export function buildClientDocx(result, options = {}) {
   const report = result.report
   const photos = options.photos || {}
   const cover = buildCoverPage(report.cover, report.reviewStatus, report.transmittalLetter?.projectNumber || report.meta?.projectNumber)
+
+  // Supplemental sections (standards currency body section + lab / sensor
+  // appendices) are assembled here — inside the canonical model — so they
+  // share the section heading style, are lettered continuously after the
+  // engine's Appendix F, sit in the right position, and register in the TOC.
+  // See sections-supplemental.js. No-op when options.supplemental is absent.
+  const engineTocEntries = report.tableOfContents?.entries || []
+  const supp = assembleSupplementalSections(options.supplemental, { headingFn: sectionHeading2, engineTocEntries })
+  const tocEntries = mergeSupplementalTocEntries(engineTocEntries, supp)
+
   const main = [
     ...buildTransmittal(report),
-    ...buildTableOfContents(report),
+    ...buildTableOfContents(report, tocEntries),
     ...buildMethodologyDisclosure(report),
     ...buildExecutiveSummary(report),
     ...buildScope(report),
@@ -1182,8 +1186,16 @@ export function buildClientDocx(result, options = {}) {
       assessmentDate: report.cover?.date,
     }),
     ...buildLimitations(report),
+    // Standards Currency (and any future body-level supplemental section)
+    // sits after Limitations/Professional Judgment and before the Signatory
+    // + appendices, matching its TOC position.
+    ...supp.bodyChildren,
     ...buildSignatory(report),
     ...buildAppendices(report, { photos: options.photos }),
+    // Lab results (Appendix G) + sensor graphs (Appendix H) — lettered
+    // continuously after the engine's Appendix F, before the informational
+    // assessment index and footer.
+    ...supp.appendixChildren,
     ...(report.appendix.assessmentIndexInformationalOnly
       ? buildAssessmentIndexAppendix(report.appendix.assessmentIndexInformationalOnly)
       : []),

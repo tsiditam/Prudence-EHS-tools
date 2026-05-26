@@ -3,7 +3,7 @@
  * Copyright (c) 2026 Prudence Safety & Environmental Consulting, LLC
  * All rights reserved.
  *
- * SensorDataPage — "Sensor Data / Environmental Evidence Graphs".
+ * SensorDataPage — "Logger Studio" (Environmental Evidence Graphs).
  * Upload a CSV logger export → detect/map columns → review data quality →
  * generate report-ready IAQ timelines → flag graphs for the report.
  *
@@ -12,15 +12,25 @@
  * qualified IAQ professional.
  */
 
-import { useRef, useState, useEffect } from 'react'
+import { useRef, useState, useEffect, useMemo } from 'react'
 import * as V3 from '../../styles/tokens'
 import { I } from '../Icons'
 import GlassCard from '../ui/GlassCard'
 import TactileButton from '../ui/TactileButton'
-import { parseSensorRows, SENSOR_PARAMS, TVOC_REFERENCES, ppbToUgm3, ugm3ToPpb } from '../../utils/sensorParser'
+import SegmentedControl from '../ui/SegmentedControl'
+import Chip from '../ui/Chip'
+import CollapsibleCard from '../ui/CollapsibleCard'
+import GhostButton from '../ui/GhostButton'
+import Select from '../ui/Select'
+import StatTile from '../ui/StatTile'
+import RoleBadge from '../ui/RoleBadge'
+import InlineError from '../ui/InlineError'
+import { parseSensorRows, SENSOR_PARAMS, TVOC_REFERENCES, ppbToUgm3, ugm3ToPpb, HCHO_MW, normalizeSensorData, primaryDataset, alignDatasets, sensorAveragesToFields } from '../../utils/sensorParser'
+import SendToReportSheet from './SendToReportSheet'
 import { splitCsvLine } from '../../utils/labResultsParser'
 import { xlsxToRows } from '../../utils/sensorXlsx'
-import { GRAPH_DEFS, MultiParameterChart, LIGHT_PALETTE, DARK_PALETTE } from './SensorCharts'
+import { GRAPH_DEFS, REF_LINE_DEFS, MultiParameterChart, Co2DifferentialChart, MultiZoneChart, LIGHT_PALETTE, DARK_PALETTE } from './SensorCharts'
+import { calcCfmPerPerson, VENTILATION_CITATION } from '../../utils/ventilation'
 import dayjs from 'dayjs'
 
 const csvToRows = (text) => text.split(/\r\n?|\n/).filter((l) => l.trim().length > 0).map(splitCsvLine)
@@ -33,6 +43,10 @@ const MAX_FILE_BYTES = 8 * 1024 * 1024 // 8 MB
 const TEXT = 'var(--text)', SUB = 'var(--sub)', DIM = 'var(--dim)', CARD = 'var(--card)', BORDER = 'var(--border)', ACCENT = 'var(--accent)'
 
 const QUALITY_TONE = { ok: V3.STATUS.ready, minor: '#FBBF24', uncertain: '#FBBF24', review: V3.DANGER }
+
+// Short tab labels for the Analysis parameter strip (GRAPH_DEFS titles are
+// long); falls back to the full title for anything unmapped.
+const SHORT_LABEL = { co2: 'CO₂', tempRh: 'Temp / RH', pm: 'PM', co: 'CO', tvoc: 'TVOC', hcho: 'Formaldehyde' }
 
 const fmtRange = (s, e) => (s && e ? `${dayjs(s).format('MMM D, HH:mm')} – ${dayjs(e).format('MMM D, HH:mm')}` : 'Row order (no timestamps)')
 const fmtInterval = (sec) => (sec == null ? '—' : sec >= 3600 ? `${(sec / 3600).toFixed(1)} h` : sec >= 60 ? `${Math.round(sec / 60)} min` : `${Math.round(sec)} s`)
@@ -49,14 +63,101 @@ const tvocEquivLabel = (mean, unit) => {
   if (u.includes('ppb')) { const ug = ppbToUgm3(mean, mw); return ug == null ? null : `≈ ${Math.round(ug)} µg/m³ (isobutylene-equiv)` }
   return null
 }
+// Formaldehyde cross-unit equivalent. HCHO is a single compound (MW 30.03),
+// so this conversion is exact (no reference-compound assumption like TVOC).
+// Surfaces the mass/volume counterpart so the reading can be compared against
+// ppm-based occupational limits or µg/m³-based guidelines.
+const hchoEquivLabel = (mean, unit) => {
+  const u = String(unit || '').toLowerCase()
+  if (/µg|ug/.test(u)) { const ppb = ugm3ToPpb(mean, HCHO_MW); return ppb == null ? null : `≈ ${ppb < 100 ? Math.round(ppb * 10) / 10 : Math.round(ppb)} ppb` }
+  if (/mg/.test(u)) { const ppb = ugm3ToPpb(mean * 1000, HCHO_MW); return ppb == null ? null : `≈ ${Math.round(ppb)} ppb` }
+  if (u.includes('ppm')) { const ug = ppbToUgm3(mean * 1000, HCHO_MW); return ug == null ? null : `≈ ${Math.round(ug)} µg/m³` }
+  if (u.includes('ppb')) { const ug = ppbToUgm3(mean, HCHO_MW); return ug == null ? null : `≈ ${Math.round(ug)} µg/m³` }
+  return null
+}
 
-export default function SensorDataPage({ value, onChange, onBack }) {
+// "Analyzing" reveal — after a successful upload we hold the parsed
+// results behind a short processing animation so the transition reads as
+// the app working through the data rather than snapping in. ~5s across
+// three status lines. Honors prefers-reduced-motion (skipped → instant).
+const ANALYZE_MS = 5000
+const ANALYZE_STATUS = ['Parsing readings…', 'Computing averages…', 'Preparing visuals…']
+
+function AnalyzingCard({ fileName, phase }) {
+  return (
+    <GlassCard style={{ marginTop: 16, padding: '40px 24px', textAlign: 'center', animation: 'fadeUp .3s ease' }}>
+      <style>{`
+        @keyframes sdPulse { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.09);opacity:.82} }
+        @keyframes sdScan { 0%{transform:translateX(-110%)} 100%{transform:translateX(320%)} }
+      `}</style>
+      <div style={{ width: 60, height: 60, borderRadius: 16, margin: '0 auto 18px', background: 'color-mix(in srgb, var(--accent) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--accent) 28%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'sdPulse 1.4s ease-in-out infinite' }}>
+        <I n="chart" s={26} c={ACCENT} w={1.8} />
+      </div>
+      <div style={{ ...V3.T.h3, marginBottom: 6 }}>Analyzing logger data</div>
+      <div style={{ ...V3.T.bodyDim, maxWidth: 360, margin: '0 auto 20px', minHeight: 20 }}>
+        {ANALYZE_STATUS[Math.min(phase, ANALYZE_STATUS.length - 1)]}
+      </div>
+      <div style={{ position: 'relative', height: 4, maxWidth: 280, margin: '0 auto', borderRadius: 2, background: 'var(--surface)', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', top: 0, bottom: 0, width: '35%', borderRadius: 2, background: ACCENT, animation: 'sdScan 1.2s ease-in-out infinite' }} />
+      </div>
+      {fileName && <div style={{ ...V3.T.captionDim, marginTop: 16, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fileName}</div>}
+    </GlassCard>
+  )
+}
+
+export default function SensorDataPage({ value, onChange, onBack, reports = [], currentReportId = null, currentZones = [], onApplyAverages }) {
   const fileRef = useRef(null)
   const [busy, setBusy] = useState(false)
+  const [sendOpen, setSendOpen] = useState(false)
   const [error, setError] = useState(null)
   const [sourceRows, setSourceRows] = useState(null) // kept for re-mapping this session
   const [mapOpen, setMapOpen] = useState(false)
-  const data = value || null
+  const [analyzing, setAnalyzing] = useState(false)
+  const [phase, setPhase] = useState(0)
+  // Active view (Overview / Analysis / Report) and, within Analysis, the
+  // selected chart in the parameter tab strip.
+  const [mode, setMode] = useState('overview')
+  const [activeChartKey, setActiveChartKey] = useState(null)
+  // Where the next picked file lands: the primary indoor dataset, an outdoor
+  // baseline, or a named zone. Set just before opening the file picker.
+  const [pendingTarget, setPendingTarget] = useState({ role: 'indoor', label: 'Indoor' })
+  const analyzeTimer = useRef(null)
+  const phaseTimer = useRef(null)
+  const env = useMemo(() => normalizeSensorData(value), [value])
+  const primary = env ? primaryDataset(env) : null
+  const datasets = env ? env.datasets : []
+  const data = primary
+  const graphsState = (env && env.graphs) || {}
+  // Whether the loaded log yields any zone-fillable averages (gates the
+  // "Send averages to a report" action below the Overview averages grid).
+  const canSendAverages = useMemo(
+    () => !!onApplyAverages && sensorAveragesToFields(value, { stat: 'mean', tvocRef: 'isobutylene' }).details.length > 0,
+    [value, onApplyAverages]
+  )
+
+  const pickFor = (target) => { setPendingTarget(target); setError(null); fileRef.current?.click() }
+
+  const stopAnalyzing = () => {
+    if (analyzeTimer.current) { clearTimeout(analyzeTimer.current); analyzeTimer.current = null }
+    if (phaseTimer.current) { clearInterval(phaseTimer.current); phaseTimer.current = null }
+  }
+
+  // Hold the parsed results behind a brief processing animation. Skipped
+  // (instant reveal) under prefers-reduced-motion — the delay is an
+  // animation, so motion-averse users get the fast path.
+  const startAnalyzing = () => {
+    stopAnalyzing()
+    let reduce = false
+    try { reduce = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches } catch { reduce = false }
+    if (reduce) { setAnalyzing(false); return }
+    setPhase(0)
+    setAnalyzing(true)
+    phaseTimer.current = setInterval(() => setPhase((p) => Math.min(p + 1, ANALYZE_STATUS.length - 1)), Math.round(ANALYZE_MS / ANALYZE_STATUS.length))
+    analyzeTimer.current = setTimeout(() => { setAnalyzing(false); stopAnalyzing() }, ANALYZE_MS)
+  }
+
+  // Cancel any pending reveal timers on unmount.
+  useEffect(() => () => stopAnalyzing(), [])
 
   const onPick = async (e) => {
     const file = e.target.files && e.target.files[0]
@@ -72,8 +173,22 @@ export default function SensorDataPage({ value, onChange, onBack }) {
       const rows = isXlsx ? await xlsxToRows(file) : csvToRows(await file.text())
       const parsed = parseSensorRows(rows, { fileName: file.name })
       if (!parsed) { setError('Could not find a timestamp + parameter columns in that file. Check the export or adjust the mapping.'); setBusy(false); return }
-      setSourceRows(rows)
-      onChange({ ...parsed, graphs: {} })
+      const target = pendingTarget || { role: 'indoor', label: 'Indoor' }
+      const isPrimary = target.role === 'indoor'
+      if (!env || isPrimary) {
+        // First upload, or replacing the primary indoor dataset. The reveal
+        // animation + re-mapping source rows apply to the primary only.
+        const ds = { id: 'primary', role: 'indoor', label: 'Indoor', ...parsed }
+        const nextDatasets = env ? env.datasets.map((d) => (d.id === (primary?.id || 'primary') ? ds : d)) : [ds]
+        const next = env ? { ...env, datasets: nextDatasets } : normalizeSensorData({ ...parsed, graphs: {} })
+        setSourceRows(rows)
+        onChange(next)
+        startAnalyzing()
+      } else {
+        // Additional dataset (outdoor baseline or a named zone).
+        const ds = { id: `ds-${Date.now()}`, role: target.role, label: (target.label || '').trim() || (target.role === 'outdoor' ? 'Outdoor' : 'Zone'), ...parsed }
+        onChange({ ...env, datasets: [...env.datasets, ds] })
+      }
     } catch (err) {
       setError((err && err.message) || 'Could not read that file.')
     }
@@ -81,19 +196,154 @@ export default function SensorDataPage({ value, onChange, onBack }) {
   }
 
   const reparse = (mapping) => {
-    if (!sourceRows) return
-    const parsed = parseSensorRows(sourceRows, { fileName: data?.fileName, mapping })
-    if (parsed) onChange({ ...parsed, mapping, graphs: data?.graphs || {} })
+    if (!sourceRows || !env) return
+    const parsed = parseSensorRows(sourceRows, { fileName: primary?.fileName, mapping })
+    if (!parsed) return
+    const ds = { id: primary?.id || 'primary', role: 'indoor', label: primary?.label || 'Indoor', ...parsed, mapping }
+    onChange({ ...env, datasets: env.datasets.map((d) => (d.id === ds.id ? ds : d)) })
   }
 
   const setGraph = (id, patch) => {
-    onChange({ ...data, graphs: { ...(data.graphs || {}), [id]: { ...(data.graphs?.[id] || {}), ...patch } } })
+    onChange({ ...env, graphs: { ...graphsState, [id]: { ...(graphsState[id] || {}), ...patch } } })
   }
 
-  const clear = () => { setSourceRows(null); setError(null); onChange(null) }
+  const removeDataset = (id) => {
+    if (!env) return
+    const remaining = env.datasets.filter((d) => d.id !== id)
+    if (!remaining.length) { clear(); return }
+    onChange({ ...env, datasets: remaining })
+  }
+
+  const clear = () => { stopAnalyzing(); setAnalyzing(false); setSourceRows(null); setError(null); onChange(null) }
 
   const graphs = data ? GRAPH_DEFS.filter((g) => g.needs(data.params)) : []
-  const includedCount = data ? graphs.filter((g) => data.graphs?.[g.id]?.include).length : 0
+  // Reference-line visibility. Default { co2: true } preserves the legacy
+  // always-on CO₂ advisory line; once the user toggles, the explicit map wins.
+  const refs = (env && env.thresholds) || { co2: true }
+  const availableRefs = data ? REF_LINE_DEFS.filter((d) => d.applies(data.params, data.units)) : []
+  const toggleRef = (key) => onChange({ ...env, thresholds: { ...refs, [key]: !refs[key] } })
+
+  // Indoor vs outdoor CO₂ differential — both must be timestamped CO₂ series.
+  const outdoorDs = datasets.find((d) => d.role === 'outdoor' && d.params?.includes('co2') && d.hasTimestamps)
+  const diff = useMemo(() => {
+    if (!primary || !primary.params?.includes('co2') || !primary.hasTimestamps || !outdoorDs) return null
+    const { points } = alignDatasets([{ ...primary, id: 'indoor' }, { ...outdoorDs, id: 'outdoor' }], 'co2')
+    const rows = points.map((p) => ({ t: p.t, indoor: p.indoor, outdoor: p.outdoor, diff: p.indoor != null && p.outdoor != null ? Math.round(p.indoor - p.outdoor) : null }))
+    const paired = rows.filter((r) => r.diff != null)
+    if (!paired.length) return null
+    const mean = (xs) => xs.reduce((a, b) => a + b, 0) / xs.length
+    const meanIndoor = mean(paired.map((r) => r.indoor))
+    const meanOutdoor = mean(paired.map((r) => r.outdoor))
+    return { rows, meanDiff: Math.round(meanIndoor - meanOutdoor), vo: calcCfmPerPerson(meanIndoor, meanOutdoor) }
+  }, [primary, outdoorDs])
+
+  // Multi-zone overlay — params shared by ≥2 timestamped datasets.
+  const tsDatasets = datasets.filter((d) => d.hasTimestamps && Array.isArray(d.params))
+  const sharedParams = SENSOR_PARAMS.map((s) => s.key).filter((k) => tsDatasets.filter((d) => d.params.includes(k)).length >= 2)
+  const [zoneParam, setZoneParam] = useState(null)
+  const activeZoneParam = (zoneParam && sharedParams.includes(zoneParam)) ? zoneParam : (sharedParams.includes('co2') ? 'co2' : sharedParams[0])
+  const zoneOverlay = useMemo(() => {
+    if (!activeZoneParam) return null
+    const dsForParam = tsDatasets.filter((d) => d.params.includes(activeZoneParam))
+    if (dsForParam.length < 2) return null
+    const { points } = alignDatasets(dsForParam, activeZoneParam)
+    if (!points.length) return null
+    return { points, zones: dsForParam.map((d) => ({ id: d.id, label: d.label })), units: dsForParam[0].units || {} }
+  }, [datasets, activeZoneParam]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Occupancy windows tag occupied / unoccupied periods on the shared time
+  // axis; they shade every timeline chart (and the captured report image).
+  const occWindows = (env && env.occupancyWindows) || []
+  const setOccupancy = (next) => onChange({ ...env, occupancyWindows: next })
+  const occRange = (primary && primary.hasTimestamps && primary.summary?.start && primary.summary?.end)
+    ? { start: primary.summary.start, end: primary.summary.end }
+    : null
+
+  // Chart "views" available for the Analysis tab strip and the Report list:
+  // each detected parameter graph, plus the multi-parameter, indoor/outdoor
+  // differential, and zone-comparison overlays when they apply.
+  const chartTabs = []
+  graphs.forEach((g) => chartTabs.push({ key: g.id, kind: 'graph', def: g, label: SHORT_LABEL[g.id] || g.title }))
+  if (data && data.params.length >= 2) chartTabs.push({ key: 'multi', kind: 'multi', label: 'Multi-Parameter' })
+  if (diff) chartTabs.push({ key: 'co2-diff', kind: 'diff', label: 'Indoor vs Outdoor' })
+  if (zoneOverlay) chartTabs.push({ key: 'zones', kind: 'zone', label: 'Zone Comparison' })
+  const activeChart = chartTabs.find((t) => t.key === activeChartKey) || chartTabs[0] || null
+  // Count every graph flagged for the report (standard + overlays).
+  const includedReportCount = Object.values(graphsState).filter((s) => s && s.include).length
+
+  // One chart block, shared by Analysis (single, controls hidden) and Report
+  // (listed, with caption + export). blockMode is forwarded to GraphCard.
+  const renderChartBlock = (tab, blockMode) => {
+    if (!tab) return null
+    if (tab.kind === 'graph') {
+      return <GraphCard def={tab.def} data={data} state={graphsState[tab.def.id] || {}} onState={(patch) => setGraph(tab.def.id, patch)} chartProps={{ showRefs: !!refs[tab.def.refKey], occupancy: occWindows }} mode={blockMode} />
+    }
+    if (tab.kind === 'multi') {
+      return <MultiParamSection data={data} state={graphsState.multi || {}} onState={(patch) => setGraph('multi', patch)} occupancy={occWindows} mode={blockMode} />
+    }
+    if (tab.kind === 'diff' && diff) {
+      return (
+        <div>
+          <div style={{ ...V3.T.micro, margin: '0 2px 8px' }}>Indoor vs Outdoor CO₂ · ventilation differential</div>
+          <GraphCard
+            def={{ id: 'co2-diff', title: 'Indoor vs Outdoor CO₂', series: ['Indoor CO₂', 'Outdoor CO₂', 'Δ (indoor−outdoor)'], refKey: 'co2', Chart: Co2DifferentialChart }}
+            data={data}
+            state={graphsState['co2-diff'] || {}}
+            onState={(patch) => setGraph('co2-diff', patch)}
+            chartProps={{ points: diff.rows, hasTs: true, showRefs: !!refs.co2, occupancy: occWindows }}
+            mode={blockMode}
+          />
+          <GlassCard style={{ marginTop: 10 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
+              <div>
+                <div style={V3.T.micro}>Mean differential</div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: TEXT, fontFamily: 'var(--font-mono)' }}>{diff.meanDiff} <span style={{ fontSize: 11, color: DIM }}>ppm</span></div>
+              </div>
+              <div>
+                <div style={V3.T.micro}>Est. outdoor air</div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: diff.vo?.cfmPerPerson != null ? ACCENT : DIM, fontFamily: 'var(--font-mono)' }}>
+                  {diff.vo?.cfmPerPerson != null ? <>{diff.vo.cfmPerPerson} <span style={{ fontSize: 11, color: DIM }}>cfm/person</span></> : '—'}
+                </div>
+              </div>
+            </div>
+            {diff.vo?.error && <div style={{ ...V3.T.captionDim, marginTop: 8, color: '#FCA85F' }}>{diff.vo.error}</div>}
+            <div style={{ ...V3.T.captionDim, marginTop: 10, lineHeight: 1.5 }}>{VENTILATION_CITATION}</div>
+          </GlassCard>
+        </div>
+      )
+    }
+    if (tab.kind === 'zone' && zoneOverlay) {
+      return (
+        <div>
+          <div style={{ ...V3.T.micro, margin: '0 2px 8px' }}>Zone comparison{sharedParams.length > 1 ? ' · pick a parameter' : ''}</div>
+          {sharedParams.length > 1 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+              {sharedParams.map((k) => (
+                <Chip key={k} selected={k === activeZoneParam} onClick={() => setZoneParam(k)} checkmark>
+                  {SENSOR_PARAMS.find((s) => s.key === k)?.label || k}
+                </Chip>
+              ))}
+            </div>
+          )}
+          <GraphCard
+            def={{ id: `zones-${activeZoneParam}`, title: `Zone Comparison — ${SENSOR_PARAMS.find((s) => s.key === activeZoneParam)?.label || activeZoneParam}`, series: zoneOverlay.zones.map((z) => z.label), refKey: activeZoneParam, Chart: MultiZoneChart }}
+            data={data}
+            state={graphsState[`zones-${activeZoneParam}`] || {}}
+            onState={(patch) => setGraph(`zones-${activeZoneParam}`, patch)}
+            chartProps={{ points: zoneOverlay.points, zones: zoneOverlay.zones, param: activeZoneParam, units: zoneOverlay.units, hasTs: true, showRefs: !!refs[activeZoneParam], occupancy: occWindows }}
+            mode={blockMode}
+          />
+        </div>
+      )
+    }
+    return null
+  }
+
+  const emptyCharts = (
+    <GlassCard style={{ textAlign: 'center', padding: '28px 20px', marginTop: 14 }}>
+      <div style={V3.T.bodyDim}>No chartable IAQ parameters detected. Use “Adjust column mapping” in Overview to map your columns.</div>
+    </GlassCard>
+  )
 
   return (
     <div style={{ paddingTop: 16, paddingBottom: 120, maxWidth: 820, margin: '0 auto' }}>
@@ -105,10 +355,13 @@ export default function SensorDataPage({ value, onChange, onBack }) {
           </button>
         )}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ ...V3.T.h1, marginBottom: 2 }}>Sensor Data</div>
-          <div style={V3.T.bodyDim}>Upload logger data and generate report-ready IAQ visuals.</div>
+          <div style={{ ...V3.T.h1, marginBottom: 2 }}>Logger Studio</div>
+          <div style={V3.T.bodyDim}>Upload logger data for report-ready IAQ visuals.</div>
         </div>
       </div>
+
+      {/* Single hidden file input; pendingTarget decides where the file lands. */}
+      <input ref={fileRef} type="file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={onPick} style={{ display: 'none' }} aria-hidden="true" />
 
       {!data && (
         <GlassCard style={{ marginTop: 16, padding: '28px 24px', textAlign: 'center', animation: 'fadeUp .3s ease' }}>
@@ -119,37 +372,46 @@ export default function SensorDataPage({ value, onChange, onBack }) {
           <div style={{ ...V3.T.bodyDim, maxWidth: 460, margin: '0 auto 18px' }}>
             CSV or XLSX exports from TSI Q-Trak, HOBO, Aeroqual, GrayWolf, Airthings, and most loggers. AtmosFlow detects timestamp, CO₂, temperature, RH, PM, TVOC and CO columns automatically.
           </div>
-          {error && <div style={{ ...errBox, marginBottom: 14 }}>{error}</div>}
-          <TactileButton variant="primary" size="lg" pill disabled={busy} onClick={() => fileRef.current?.click()} icon={<I n="upload" s={15} c="var(--on-accent-fill)" w={2} />}>
+          {error && <InlineError style={{ marginBottom: 14 }}>{error}</InlineError>}
+          <TactileButton variant="primary" size="lg" pill disabled={busy} onClick={() => pickFor({ role: 'indoor', label: 'Indoor' })} icon={<I n="upload" s={15} c="var(--on-accent-fill)" w={2} />}>
             {busy ? 'Reading…' : 'Upload Logger Data'}
           </TactileButton>
-          <input ref={fileRef} type="file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={onPick} style={{ display: 'none' }} aria-hidden="true" />
         </GlassCard>
       )}
 
-      {data && (
+      {data && analyzing && <AnalyzingCard fileName={data.fileName} phase={phase} />}
+
+      {data && !analyzing && (
         <>
-          {error && <div style={{ ...errBox, marginTop: 14 }}>{error}</div>}
+          {error && <InlineError style={{ marginTop: 14 }}>{error}</InlineError>}
+
+          <SegmentedControl ariaLabel="Logger Studio view" value={mode} onChange={setMode} style={{ marginTop: 14 }}
+            options={[{ value: 'overview', label: 'Overview' }, { value: 'analysis', label: 'Analysis' }, { value: 'report', label: 'Report', badge: includedReportCount || undefined }]} />
+
+          {mode === 'overview' && (
+            <>
           {/* File summary */}
-          <GlassCard style={{ marginTop: 16, animation: 'fadeUp .3s ease' }}>
+          <GlassCard style={{ marginTop: 14, animation: 'fadeUp .3s ease' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
               <div style={{ minWidth: 0 }}>
-                <div style={{ ...V3.T.bodyStrong, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{data.fileName || 'Logger data'}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <RoleBadge role="indoor">Indoor</RoleBadge>
+                  <div style={{ ...V3.T.bodyStrong, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{data.fileName || 'Logger data'}</div>
+                </div>
                 <div style={{ ...V3.T.captionDim, marginTop: 2 }}>{fmtRange(data.summary.start, data.summary.end)}</div>
               </div>
-              <button onClick={() => fileRef.current?.click()} style={ghostBtn}>Replace</button>
-              <input ref={fileRef} type="file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={onPick} style={{ display: 'none' }} aria-hidden="true" />
+              <GhostButton onClick={() => pickFor({ role: 'indoor', label: 'Indoor' })}>Replace</GhostButton>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10, marginTop: 14 }}>
-              <Stat label="Readings" value={data.summary.count.toLocaleString()} />
-              <Stat label="Interval" value={fmtInterval(data.summary.intervalSec)} />
-              <Stat label="Parameters" value={data.params.length} />
-              <Stat label="Empty rows" value={data.summary.emptyRows} />
+              <StatTile label="Readings" value={data.summary.count.toLocaleString()} />
+              <StatTile label="Interval" value={fmtInterval(data.summary.intervalSec)} />
+              <StatTile label="Parameters" value={data.params.length} />
+              <StatTile label="Empty rows" value={data.summary.emptyRows} />
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 14 }}>
               {data.params.map((p) => {
                 const spec = SENSOR_PARAMS.find((s) => s.key === p)
-                return <span key={p} style={chip}>{spec?.label || p}{data.units[p] ? ` · ${data.units[p]}` : ''}</span>
+                return <Chip key={p}>{spec?.label || p}{data.units[p] ? ` · ${data.units[p]}` : ''}</Chip>
               })}
             </div>
             {data.summary.stats && data.params.some((p) => data.summary.stats[p]) && (
@@ -171,15 +433,24 @@ export default function SensorDataPage({ value, onChange, onBack }) {
                         {p === 'tvoc' && tvocEquivLabel(s.mean, u) && (
                           <div style={{ fontSize: 11, color: DIM, marginTop: 2, fontFamily: 'var(--font-mono)' }}>{tvocEquivLabel(s.mean, u)}</div>
                         )}
+                        {p === 'hcho' && hchoEquivLabel(s.mean, u) && (
+                          <div style={{ fontSize: 11, color: DIM, marginTop: 2, fontFamily: 'var(--font-mono)' }}>{hchoEquivLabel(s.mean, u)}</div>
+                        )}
                       </div>
                     )
                   })}
                 </div>
               </div>
             )}
-            <button onClick={() => setMapOpen((v) => !v)} style={{ ...ghostBtn, marginTop: 14, width: '100%', justifyContent: 'center' }}>
+            {canSendAverages && (
+              <TactileButton variant="secondary" fullWidth size="md" onClick={() => setSendOpen(true)}
+                icon={<I n="report" s={16} c={ACCENT} />} style={{ marginTop: 14 }}>
+                Send averages to a report
+              </TactileButton>
+            )}
+            <GhostButton onClick={() => setMapOpen((v) => !v)} style={{ marginTop: 14, width: '100%', justifyContent: 'center' }}>
               {mapOpen ? 'Hide column mapping' : 'Adjust column mapping'}
-            </button>
+            </GhostButton>
             {mapOpen && sourceRows && <MappingPanel columns={data.columns} onApply={(m) => { reparse(m); setMapOpen(false) }} />}
           </GlassCard>
 
@@ -201,25 +472,74 @@ export default function SensorDataPage({ value, onChange, onBack }) {
             </div>
           </GlassCard>
 
-          {/* Graph gallery */}
-          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', margin: '20px 2px 10px' }}>
-            <div style={V3.T.micro}>Graphs{graphs.length ? ` · ${graphs.length}` : ''}</div>
-            <div style={V3.T.captionDim}>{includedCount} in report</div>
-          </div>
-          {graphs.length === 0 ? (
-            <GlassCard style={{ textAlign: 'center', padding: '28px 20px' }}>
-              <div style={V3.T.bodyDim}>No chartable IAQ parameters detected. Use “Adjust column mapping” to map your columns.</div>
-            </GlassCard>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              {graphs.map((g) => (
-                <GraphCard key={g.id} def={g} data={data} state={data.graphs?.[g.id] || {}} onState={(patch) => setGraph(g.id, patch)} />
-              ))}
-            </div>
+              <GhostButton onClick={clear} style={{ marginTop: 18, color: V3.DANGER, borderColor: 'color-mix(in srgb, var(--danger) 30%, transparent)' }}>Remove logger data</GhostButton>
+            </>
           )}
-          {data.params.length >= 2 && <MultiParamSection data={data} state={data.graphs?.multi || {}} onState={(patch) => setGraph('multi', patch)} />}
-          <button onClick={clear} style={{ ...ghostBtn, marginTop: 18, color: V3.DANGER, borderColor: `color-mix(in srgb, var(--danger) 30%, transparent)` }}>Remove sensor data</button>
+
+          {mode === 'analysis' && (
+            <>
+              {availableRefs.length > 0 && (
+                <CollapsibleCard title="Reference lines" summary={`${availableRefs.filter((d) => refs[d.key]).length} of ${availableRefs.length} on`} defaultOpen={false}>
+                  <div style={{ ...V3.T.captionDim, marginBottom: 10 }}>Labelled advisory / context values, not compliance limits.</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {availableRefs.map((d) => (
+                      <Chip key={d.key} selected={!!refs[d.key]} onClick={() => toggleRef(d.key)} title={d.std} checkmark>
+                        {d.label}
+                      </Chip>
+                    ))}
+                  </div>
+                </CollapsibleCard>
+              )}
+
+              {/* Compare datasets — add an outdoor baseline or named zones. */}
+              <DatasetManager datasets={datasets} onPickFor={pickFor} onRemove={removeDataset} busy={busy} />
+
+              {/* Occupancy — tag occupied / unoccupied periods that shade every chart. */}
+              {occRange && <OccupancyEditor windows={occWindows} range={occRange} onChange={setOccupancy} />}
+              {chartTabs.length === 0 ? emptyCharts : (
+                <>
+                  <div style={{ ...V3.T.micro, margin: '20px 2px 8px' }}>Charts</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
+                    {chartTabs.map((t) => (
+                      <Chip key={t.key} selected={t.key === activeChart?.key} onClick={() => setActiveChartKey(t.key)}>
+                        {t.label}
+                      </Chip>
+                    ))}
+                  </div>
+                  {renderChartBlock(activeChart, 'analysis')}
+                </>
+              )}
+            </>
+          )}
+
+          {mode === 'report' && (
+            <>
+              <GlassCard style={{ marginTop: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                  <span style={{ fontSize: 24, fontWeight: 700, color: ACCENT, fontFamily: 'var(--font-mono)' }}>{includedReportCount}</span>
+                  <span style={V3.T.bodyStrong}>of {chartTabs.length} graph{chartTabs.length === 1 ? '' : 's'} in report</span>
+                </div>
+                <div style={{ ...V3.T.captionDim, marginTop: 6, lineHeight: 1.5 }}>Toggle graphs to include. Captions and exports are below.</div>
+              </GlassCard>
+              {chartTabs.length === 0 ? emptyCharts : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 14 }}>
+                  {chartTabs.map((t) => <div key={t.key}>{renderChartBlock(t, 'report')}</div>)}
+                </div>
+              )}
+            </>
+          )}
         </>
+      )}
+
+      {sendOpen && (
+        <SendToReportSheet
+          sensorData={value}
+          reports={reports}
+          currentReportId={currentReportId}
+          currentZones={currentZones}
+          onApply={onApplyAverages}
+          onClose={() => setSendOpen(false)}
+        />
       )}
     </div>
   )
@@ -230,7 +550,7 @@ const CAP_W = 680, CAP_H = 300
 // Compare up to 3 detected parameters on one normalized timeline. Changing
 // the selection invalidates any captured image (so the report figure always
 // matches the shown selection).
-function MultiParamSection({ data, state, onState }) {
+function MultiParamSection({ data, state, onState, occupancy = [], mode = 'report' }) {
   const selected = (state.params && state.params.length) ? state.params : data.params.slice(0, Math.min(3, data.params.length))
   const labelOf = (k) => SENSOR_PARAMS.find((s) => s.key === k)?.label || k
   const toggleParam = (k) => {
@@ -245,22 +565,18 @@ function MultiParamSection({ data, state, onState }) {
     <div style={{ marginTop: 18 }}>
       <div style={{ ...V3.T.micro, margin: '0 2px 8px' }}>Compare parameters · pick up to 3</div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
-        {data.params.map((k) => {
-          const on = selected.includes(k)
-          return (
-            <button key={k} onClick={() => toggleParam(k)} aria-pressed={on}
-              style={{ ...chip, cursor: 'pointer', color: on ? ACCENT : SUB, borderColor: on ? ACCENT : BORDER, background: on ? 'color-mix(in srgb, var(--accent) 8%, transparent)' : 'var(--surface)' }}>
-              {on ? '✓ ' : ''}{labelOf(k)}
-            </button>
-          )
-        })}
+        {data.params.map((k) => (
+          <Chip key={k} selected={selected.includes(k)} onClick={() => toggleParam(k)} checkmark>
+            {labelOf(k)}
+          </Chip>
+        ))}
       </div>
-      <GraphCard def={def} data={data} state={state} onState={onState} chartProps={{ params: selected }} />
+      <GraphCard def={def} data={data} state={state} onState={onState} chartProps={{ params: selected, occupancy }} mode={mode} />
     </div>
   )
 }
 
-function GraphCard({ def, data, state, onState, chartProps = {} }) {
+function GraphCard({ def, data, state, onState, chartProps = {}, mode = 'report' }) {
   const hiddenRef = useRef(null)
   const [capture, setCapture] = useState(null) // null | 'include' | 'export' | 'export-svg'
   const [busy, setBusy] = useState(false)
@@ -329,18 +645,20 @@ function GraphCard({ def, data, state, onState, chartProps = {} }) {
       <div style={{ padding: '4px 8px 12px', background: CARD }}>
         <Chart data={data.points} hasTs={data.hasTimestamps} units={data.units} palette={pal} {...chartProps} />
       </div>
-      <div style={{ padding: '0 18px 16px' }}>
-        <textarea value={state.caption || ''} onChange={(e) => onState({ caption: e.target.value })} placeholder="Caption (e.g. CO₂ rose during occupied periods and declined after apparent occupancy reduction — interpret with site observations)."
-          rows={2} style={{ width: '100%', padding: '10px 12px', background: 'var(--surface)', border: `1px solid ${BORDER}`, borderRadius: 10, color: TEXT, fontSize: 13, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box', resize: 'vertical', lineHeight: 1.5 }} />
-        <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-          <button onClick={exportPng} disabled={busy} style={ghostBtn}>
-            <I n="download" s={14} c={SUB} w={1.8} /> {busy && capture === 'export' ? 'Exporting…' : 'Export PNG'}
-          </button>
-          <button onClick={exportSvg} disabled={busy} style={ghostBtn}>
-            <I n="download" s={14} c={SUB} w={1.8} /> {busy && capture === 'export-svg' ? 'Exporting…' : 'Export SVG'}
-          </button>
+      {mode !== 'analysis' && (
+        <div style={{ padding: '0 18px 16px' }}>
+          <textarea value={state.caption || ''} onChange={(e) => onState({ caption: e.target.value })} placeholder="Add a caption (optional)"
+            rows={2} style={{ width: '100%', padding: '10px 12px', background: 'var(--surface)', border: `1px solid ${BORDER}`, borderRadius: 10, color: TEXT, fontSize: 13, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box', resize: 'vertical', lineHeight: 1.5 }} />
+          <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+            <GhostButton onClick={exportPng} disabled={busy}>
+              <I n="download" s={14} c={SUB} w={1.8} /> {busy && capture === 'export' ? 'Exporting…' : 'Export PNG'}
+            </GhostButton>
+            <GhostButton onClick={exportSvg} disabled={busy}>
+              <I n="download" s={14} c={SUB} w={1.8} /> {busy && capture === 'export-svg' ? 'Exporting…' : 'Export SVG'}
+            </GhostButton>
+          </div>
         </div>
-      </div>
+      )}
       {capture && (
         <div aria-hidden="true" ref={hiddenRef} style={{ position: 'fixed', left: -10000, top: 0, width: CAP_W, height: CAP_H, background: '#FFFFFF', padding: 8, boxSizing: 'border-box', pointerEvents: 'none' }}>
           <Chart data={data.points} hasTs={data.hasTimestamps} units={data.units} palette={LIGHT_PALETTE} width={CAP_W - 16} height={CAP_H - 16} {...chartProps} />
@@ -359,14 +677,14 @@ function MappingPanel({ columns, onApply }) {
       {columns.map((c, i) => (
         <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 8, alignItems: 'center' }}>
           <span style={{ ...V3.T.caption, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.raw || `Column ${i + 1}`}</span>
-          <select value={map[i].role} onChange={(e) => setMap((m) => m.map((x, j) => (j === i ? { ...x, role: e.target.value } : x)))} style={sel}>
+          <Select value={map[i].role} onChange={(e) => setMap((m) => m.map((x, j) => (j === i ? { ...x, role: e.target.value } : x)))}>
             {roles.map((r) => <option key={r} value={r}>{r}</option>)}
-          </select>
+          </Select>
           {map[i].role === 'param' ? (
-            <select value={map[i].param} onChange={(e) => setMap((m) => m.map((x, j) => (j === i ? { ...x, param: e.target.value } : x)))} style={sel}>
+            <Select value={map[i].param} onChange={(e) => setMap((m) => m.map((x, j) => (j === i ? { ...x, param: e.target.value } : x)))}>
               <option value="">param…</option>
               {SENSOR_PARAMS.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
-            </select>
+            </Select>
           ) : <span />}
         </div>
       ))}
@@ -379,16 +697,131 @@ function MappingPanel({ columns, onApply }) {
   )
 }
 
-function Stat({ label, value }) {
+const OCC_TONE = { occupied: '#10B981', unoccupied: '#94A3B8' }
+
+// Tag occupied / unoccupied periods on the shared time axis. Time inputs +
+// presets (mobile-friendly); windows are clamped to the data range and shade
+// every timeline chart. Pure presentation — state lives in the envelope.
+function OccupancyEditor({ windows, range, onChange }) {
+  const fmtLocal = (ms) => dayjs(ms).format('YYYY-MM-DDTHH:mm')
+  const [kind, setKind] = useState('occupied')
+  const [startLocal, setStartLocal] = useState(fmtLocal(range.start))
+  const [endLocal, setEndLocal] = useState(fmtLocal(range.end))
+  const [label, setLabel] = useState('')
+  const list = Array.isArray(windows) ? windows : []
+
+  const add = (win) => onChange([...list, { id: `occ-${Date.now()}-${Math.round(Math.random() * 1e4)}`, ...win }])
+  const addManual = () => {
+    const s = dayjs(startLocal).valueOf()
+    const e = dayjs(endLocal).valueOf()
+    if (!Number.isFinite(s) || !Number.isFinite(e) || e <= s) return
+    const cs = Math.max(s, range.start)
+    const ce = Math.min(e, range.end)
+    if (ce <= cs) return
+    add({ start: cs, end: ce, kind, label: label.trim() || (kind === 'occupied' ? 'Occupied' : 'Unoccupied') })
+    setLabel('')
+  }
+  const addWhole = (k) => add({ start: range.start, end: range.end, kind: k, label: k === 'occupied' ? 'Occupied' : 'Unoccupied' })
+  const addBusinessHours = () => {
+    const next = []
+    let day = dayjs(range.start).startOf('day')
+    const last = dayjs(range.end)
+    while (day.isBefore(last)) {
+      const s = Math.max(day.hour(8).valueOf(), range.start)
+      const e = Math.min(day.hour(18).valueOf(), range.end)
+      if (e > s) next.push({ id: `occ-${day.valueOf()}`, start: s, end: e, kind: 'occupied', label: 'Business hours' })
+      day = day.add(1, 'day')
+    }
+    if (next.length) onChange([...list, ...next])
+  }
+  const remove = (id) => onChange(list.filter((w) => w.id !== id))
+
+  const inStyle = { padding: '8px 10px', background: 'var(--surface)', border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT, fontSize: 13, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }
+  const summary = list.length ? `${list.length} period${list.length > 1 ? 's' : ''}` : 'None yet — mark occupied / unoccupied windows'
   return (
-    <div style={{ padding: '10px 12px', background: 'var(--surface)', border: `1px solid ${BORDER}`, borderRadius: 10 }}>
-      <div style={{ fontSize: 18, fontWeight: 700, color: TEXT, fontFamily: 'var(--font-mono)', letterSpacing: '-0.3px' }}>{value}</div>
-      <div style={{ ...V3.T.captionDim, marginTop: 2 }}>{label}</div>
-    </div>
+    <CollapsibleCard title="Occupancy periods" summary={summary} defaultOpen={list.length > 0}>
+      {list.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
+          {list.map((w) => (
+            <div key={w.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 10px', background: 'var(--surface)', border: `1px solid ${BORDER}`, borderRadius: 10 }}>
+              <span style={{ width: 10, height: 10, borderRadius: 3, background: OCC_TONE[w.kind] || OCC_TONE.occupied, flexShrink: 0 }} />
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ ...V3.T.caption, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.label}</div>
+                <div style={V3.T.captionDim}>{fmtRange(w.start, w.end)}</div>
+              </div>
+              <GhostButton onClick={() => remove(w.id)} aria-label={`Remove ${w.label}`} style={{ padding: '4px 10px', minHeight: 30 }}>Remove</GhostButton>
+            </div>
+          ))}
+        </div>
+      )}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+        <Chip onClick={addBusinessHours}>+ Business hours (8–18)</Chip>
+        <Chip onClick={() => addWhole('occupied')}>+ Occupied (all)</Chip>
+        <Chip onClick={() => addWhole('unoccupied')}>+ Unoccupied (all)</Chip>
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+        <Select value={kind} onChange={(e) => setKind(e.target.value)} aria-label="Occupancy kind">
+          <option value="occupied">Occupied</option>
+          <option value="unoccupied">Unoccupied</option>
+        </Select>
+        <input type="datetime-local" value={startLocal} min={fmtLocal(range.start)} max={fmtLocal(range.end)} onChange={(e) => setStartLocal(e.target.value)} aria-label="Start" style={inStyle} />
+        <input type="datetime-local" value={endLocal} min={fmtLocal(range.start)} max={fmtLocal(range.end)} onChange={(e) => setEndLocal(e.target.value)} aria-label="End" style={inStyle} />
+        <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Label (optional)" style={{ ...inStyle, flex: '1 1 140px', minWidth: 0 }} />
+        <TactileButton variant="secondary" size="sm" onClick={addManual}>Add period</TactileButton>
+      </div>
+      <div style={{ ...V3.T.captionDim, marginTop: 8, lineHeight: 1.5 }}>
+        Shading marks occupied (green) vs unoccupied (grey) periods on every timeline and the report image — context for interpretation, not a measurement.
+      </div>
+    </CollapsibleCard>
   )
 }
 
-const errBox = { padding: '10px 12px', background: `color-mix(in srgb, var(--danger) 10%, transparent)`, border: `1px solid color-mix(in srgb, var(--danger) 28%, transparent)`, borderRadius: 10, color: 'var(--danger)', fontSize: 12, lineHeight: 1.5 }
-const ghostBtn = { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: 'transparent', border: `1px solid ${BORDER}`, borderRadius: 10, color: SUB, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', minHeight: 38, WebkitTapHighlightColor: 'transparent' }
-const chip = { fontSize: 11, fontWeight: 600, color: SUB, padding: '4px 10px', borderRadius: 999, background: 'var(--surface)', border: `1px solid ${BORDER}` }
-const sel = { padding: '6px 8px', background: 'var(--surface)', border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT, fontSize: 12, fontFamily: 'inherit', appearance: 'auto' }
+// Manage the additional datasets (outdoor baseline + named zones) compared
+// against the primary indoor logger. The primary itself is shown above in
+// the file-summary card; this lists only the extras + the add control.
+function DatasetManager({ datasets, onPickFor, onRemove, busy }) {
+  const extras = datasets.filter((d) => d.role !== 'indoor')
+  const hasOutdoor = datasets.some((d) => d.role === 'outdoor')
+  const [role, setRole] = useState('zone')
+  const [label, setLabel] = useState('')
+  const add = () => {
+    const l = role === 'outdoor' ? 'Outdoor' : (label.trim() || 'Zone')
+    onPickFor({ role, label: l })
+    setLabel('')
+  }
+  const summary = extras.length ? `${extras.length} added · ${extras.map((d) => d.label).join(', ')}` : 'Indoor only — add outdoor baseline or zones'
+  return (
+    <CollapsibleCard title="Compare datasets" summary={summary} defaultOpen={extras.length > 0}>
+      {extras.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+          {extras.map((d) => (
+            <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', background: 'var(--surface)', border: `1px solid ${BORDER}`, borderRadius: 10 }}>
+              <RoleBadge role={d.role}>{d.role === 'outdoor' ? 'Outdoor' : 'Zone'}</RoleBadge>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ ...V3.T.caption, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.label}{d.fileName && d.fileName !== d.label ? ` · ${d.fileName}` : ''}</div>
+                <div style={V3.T.captionDim}>{(d.summary?.count ?? 0).toLocaleString()} readings · {(d.params || []).map((p) => SENSOR_PARAMS.find((s) => s.key === p)?.label || p).join(', ')}</div>
+              </div>
+              <GhostButton onClick={() => onRemove(d.id)} aria-label={`Remove ${d.label}`} style={{ padding: '6px 10px', minHeight: 32 }}>Remove</GhostButton>
+            </div>
+          ))}
+        </div>
+      )}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+        <Select value={role} onChange={(e) => setRole(e.target.value)} aria-label="Dataset role">
+          <option value="outdoor" disabled={hasOutdoor}>Outdoor baseline{hasOutdoor ? ' (added)' : ''}</option>
+          <option value="zone">Zone</option>
+        </Select>
+        {role === 'zone' && (
+          <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Zone label (e.g. Conference Room A)"
+            style={{ flex: '1 1 200px', minWidth: 0, padding: '8px 10px', background: 'var(--surface)', border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT, fontSize: 13, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }} />
+        )}
+        <TactileButton variant="secondary" size="sm" disabled={busy} onClick={add} icon={<I n="upload" s={13} c={ACCENT} w={2} />}>
+          {busy ? 'Reading…' : 'Add file'}
+        </TactileButton>
+      </div>
+      <div style={{ ...V3.T.captionDim, marginTop: 8, lineHeight: 1.5 }}>
+        Add an outdoor CO₂ baseline to estimate ventilation, or upload zone files to compare the same parameter across locations.
+      </div>
+    </CollapsibleCard>
+  )
+}

@@ -13,6 +13,8 @@
 // localStorage wrapper — replaces window.storage (Claude artifact API)
 // Drop-in async interface compatible with all STO calls in App.jsx
 
+import { KEYS, COMPLAINTS_PREFIX } from './storageKeys'
+
 const STO = {
   async get(k) {
     try {
@@ -34,9 +36,9 @@ const STO = {
     } catch { return [] }
   },
   async getIndex() {
-    return await this.get('atmosiq-idx') || { reports: [], drafts: [] }
+    return await this.get(KEYS.index) || { reports: [], drafts: [] }
   },
-  async saveIndex(idx) { return await this.set('atmosiq-idx', idx) },
+  async saveIndex(idx) { return await this.set(KEYS.index, idx) },
   async addReportToIndex(meta) {
     const idx = await this.getIndex()
     idx.reports = idx.reports.filter(r => r.id !== meta.id)
@@ -55,39 +57,39 @@ const STO = {
     else idx.drafts = idx.drafts.filter(d => d.id !== id)
     await this.saveIndex(idx)
   },
-  async hasVisited() { return await this.get('atmosiq-visited') },
-  async markVisited() { return await this.set('atmosiq-visited', true) },
+  async hasVisited() { return await this.get(KEYS.visited) },
+  async markVisited() { return await this.set(KEYS.visited, true) },
 
   // ── Incidents ──────────────────────────────────────────────────
-  // Single global array under 'atmosflow:incidents'. Migrates legacy
+  // Single global array under KEYS.incidents. Migrates legacy
   // FM 'atmosflow:complaints:<buildingId>' records on first read,
   // preserving the originals at '<key>:migrated' for recovery.
   async getIncidents() {
     await this._migrateComplaints()
-    return (await this.get('atmosflow:incidents')) || []
+    return (await this.get(KEYS.incidents)) || []
   },
   async saveIncident(incident) {
-    const all = (await this.get('atmosflow:incidents')) || []
+    const all = (await this.get(KEYS.incidents)) || []
     const now = new Date().toISOString()
     const i = all.findIndex(x => x.id === incident.id)
     if (i >= 0) all[i] = { ...all[i], ...incident, updated_at: now }
     else all.unshift({ ...incident, created_at: incident.created_at || now, updated_at: now })
-    await this.set('atmosflow:incidents', all)
+    await this.set(KEYS.incidents, all)
     return all[i >= 0 ? i : 0]
   },
   async deleteIncident(id) {
-    const all = (await this.get('atmosflow:incidents')) || []
-    await this.set('atmosflow:incidents', all.filter(x => x.id !== id))
+    const all = (await this.get(KEYS.incidents)) || []
+    await this.set(KEYS.incidents, all.filter(x => x.id !== id))
   },
   async _migrateComplaints() {
-    if (await this.get('atmosflow:complaints-migrated')) return
-    const keys = await this.keys('atmosflow:complaints:')
+    if (await this.get(KEYS.complaintsMigrated)) return
+    const keys = await this.keys(COMPLAINTS_PREFIX)
     const fresh = keys.filter(k => !k.endsWith(':migrated'))
     if (fresh.length === 0) {
-      await this.set('atmosflow:complaints-migrated', true)
+      await this.set(KEYS.complaintsMigrated, true)
       return
     }
-    const existing = (await this.get('atmosflow:incidents')) || []
+    const existing = (await this.get(KEYS.incidents)) || []
     const sevMap = { mild: 'minor', moderate: 'moderate', severe: 'severe' }
     const statusMap = { open: 'open', investigating: 'in_progress', resolved: 'resolved', referred: 'escalated' }
     const migrated = []
@@ -119,8 +121,8 @@ const STO = {
       await this.set(key + ':migrated', list)
       await this.del(key)
     }
-    await this.set('atmosflow:incidents', [...migrated, ...existing])
-    await this.set('atmosflow:complaints-migrated', true)
+    await this.set(KEYS.incidents, [...migrated, ...existing])
+    await this.set(KEYS.complaintsMigrated, true)
   },
 }
 

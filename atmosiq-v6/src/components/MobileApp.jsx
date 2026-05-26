@@ -54,6 +54,10 @@ import AdminDashboard from './AdminDashboard'
 import WelcomeScreen from './WelcomeScreen'
 import SensorDataPage from './sensor/SensorDataPage'
 import LoggerGraphsTab from './sensor/LoggerGraphsTab'
+import ProjectsScreen from './projects/ProjectsScreen'
+import ProjectDetail from './projects/ProjectDetail'
+import { getOrCreateProjectByName } from '../utils/projectStore'
+import { KEYS } from '../utils/storageKeys'
 import SettingsScreen from './SettingsScreen'
 import { printReport, generatePrintHTML } from './PrintReport'
 // v2.6.1 — DocxReport is a static import. Earlier `await import('./DocxReport')`
@@ -74,11 +78,8 @@ import ModeSelector from './ModeSelector'
 import IncidentForm from './IncidentForm'
 import IncidentLog from './IncidentLog'
 import IncidentDetail from './IncidentDetail'
-import InterventionTracker from './InterventionTracker'
-import IHDirectory from './IHDirectory'
 import PropertyDashboard from './PropertyDashboard'
 import SpatialMap from './SpatialMap'
-import InstrumentManager from './InstrumentManager'
 import V21InternalPanel from './V21InternalPanel'
 import { FAQ_SECTIONS } from '../constants/faq'
 import SearchView from './SearchView'
@@ -131,7 +132,7 @@ pressFeedback.style = {
   transition: 'transform 120ms cubic-bezier(0.34,1.4,0.64,1), opacity 120ms ease-out',
 }
 const BETA_MODE = true // Set to false when ready to go live — re-enables all premium gates
-const isEnterprise = (profile) => BETA_MODE || profile?.plan === 'team' || profile?.plan === 'enterprise' || !!localStorage.getItem('atmosflow:premiumOverride')
+const isEnterprise = (profile) => BETA_MODE || profile?.plan === 'team' || profile?.plan === 'enterprise' || !!localStorage.getItem(KEYS.premiumOverride)
 const isPremiumOpt = (q, opt) => q.premiumOpts && q.premiumOpts.includes(opt)
 const fD = ts => ts ? new Date(ts).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : ''
 const sv = sev => ({critical:{c:'#EF4444',bg:'#EF444418',l:'CRITICAL'},high:{c:'#FB923C',bg:'#FB923C18',l:'HIGH'},medium:{c:'#FBBF24',bg:'#FBBF2418',l:'MEDIUM'},low:{c:'#38BDF8',bg:'#38BDF815',l:'LOW'},pass:{c:'#22C55E',bg:'#22C55E15',l:'PASS'},info:{c:'#94A3B8',bg:'#94A3B815',l:'INFO'}}[sev]||{c:'#94A3B8',bg:'#94A3B815',l:''})
@@ -426,6 +427,10 @@ export default function MobileApp() {
   const PAYWALL_DISABLED = true
   // views: dash|quickstart|zone|details|results|history|drafts|report
   const [view, setView] = useState('dash')
+  const [activeProjectId, setActiveProjectId] = useState(null)
+  // Where the project workspace returns to — 'projects' (IH list) or
+  // 'properties' (FM Buildings portfolio), set when navigating in.
+  const [projectBackView, setProjectBackView] = useState('projects')
   const [milestone, setMilestone] = useState(null)
   const [clock, setClock] = useState(new Date())
   const [showPricing, setShowPricing] = useState(false)
@@ -729,6 +734,9 @@ export default function MobileApp() {
     trackEvent('report_review_started', { kind })
   }
 
+  // Analyzer → AtmosFlow AI: hand the parsed sensor SUMMARY (never the raw
+  // series) to the assistant for a screening-level read. Mirrors
+  // launchReview's credit-gate + open-the-sheet flow.
   // Source 1 — the current in-app assessment. Send the structured data
   // (not the rendered doc) so the assistant can cross-check the narrative
   // against the underlying scores/zones/recommendations. Photos are
@@ -822,6 +830,44 @@ export default function MobileApp() {
     if (!d.bldg?.fn && !d.building?.fn) setView('quickstart')
     else if (d.zones?.length > 0 && d.zones[0]?.zn) setView('zone')
     else setView('quickstart')
+  }
+
+  // Logger Studio → report. Writes converted sensor-log averages into a
+  // chosen zone of a chosen in-progress report. For the currently-loaded
+  // draft we update live state (autosave persists it); for any other draft
+  // we read/merge/write it directly via STO. Indoor reading fields only —
+  // the converter leaves outdoor/metadata fields untouched.
+  const applyAveragesToReport = async ({ reportId, zoneIndex, newZoneName, fields, mode }) => {
+    if (!reportId || !fields) return { ok: false }
+    const isCurrent = reportId === draftId
+    const existing = await STO.get(reportId)
+    if (!existing && !isCurrent) return { ok: false }
+    const baseDraft = existing || {}
+    const srcZones = isCurrent ? zones : (baseDraft.zones || [])
+    const nextZones = srcZones.map(z => ({ ...(z || {}) }))
+    let zi
+    if (zoneIndex === 'new') {
+      nextZones.push({ zn: (newZoneName || '').trim() || `Zone ${nextZones.length + 1}` })
+      zi = nextZones.length - 1
+    } else {
+      zi = zoneIndex
+      if (zi == null || zi < 0 || zi >= nextZones.length) return { ok: false }
+    }
+    const zone = { ...(nextZones[zi] || {}) }
+    let written = 0
+    Object.keys(fields).forEach(id => {
+      const isEmpty = String(zone[id] ?? '').trim() === ''
+      if (isEmpty || mode === 'overwrite') { zone[id] = fields[id]; written++ }
+    })
+    nextZones[zi] = zone
+    const ua = new Date().toISOString()
+    const facility = baseDraft.bldg?.fn || baseDraft.building?.fn || (isCurrent ? bldg.fn : '') || 'Untitled'
+    await STO.set(reportId, { ...baseDraft, id: reportId, zones: nextZones, ua })
+    await STO.addDraftToIndex({ id: reportId, facility, ua })
+    if (isCurrent) setZones(nextZones)
+    await refreshIndex()
+    trackEvent('logger_averages_applied', { report_id: reportId, zone_index: zi, fields: written, mode })
+    return { ok: true, written, zoneName: zone.zn || `Zone ${zi + 1}`, facility }
   }
 
   const finishQuickStart = () => {
@@ -1150,6 +1196,21 @@ export default function MobileApp() {
     }
   }
 
+  // Bridge the FM Buildings portfolio to the project workspace: tapping a
+  // building opens its Project (created on first open, matched by name), so
+  // the two building-organization surfaces are layered (portfolio → site
+  // workspace) rather than parallel and disconnected.
+  const openBuildingProject = async (buildingId) => {
+    let buildings = []
+    try { buildings = JSON.parse(localStorage.getItem(KEYS.buildings) || '[]') } catch { buildings = [] }
+    const b = buildings.find(x => x && x.id === buildingId)
+    if (!b) return
+    const proj = await getOrCreateProjectByName(b.name, { address: b.address || '', status: 'active' })
+    setProjectBackView('properties')
+    setActiveProjectId(proj.id)
+    setView('project-detail')
+  }
+
   const openReport = async (meta) => {
     const rpt = await STO.get(meta.id)
     if (!rpt) return
@@ -1191,7 +1252,7 @@ export default function MobileApp() {
     return <ProfileScreen onLogin={handleLogin} />
   }
   // Mode selection — FM mode paused; auto-select IH for all users
-  const hasModeSet = localStorage.getItem('atmosflow:userMode')
+  const hasModeSet = localStorage.getItem(KEYS.userMode)
   if (profile && (!hasModeSet || hasModeSet === 'fm')) {
     persistMode('ih')
     setUserMode('ih')
@@ -1607,7 +1668,6 @@ export default function MobileApp() {
               zones, zoneScores, recs, photos,
               profile: profile ? { name: profile.name } : null,
             }}
-            onAskCopilot={() => { setFaOpen(true); haptic('light') }}
           />
         )}
 
@@ -2171,7 +2231,7 @@ export default function MobileApp() {
             </div>
             <TactileButton variant="secondary" fullWidth size="lg" onClick={()=>setView('spatial')} icon={<I n="bldg" s={16} c={ACCENT} />}>Map Zones on Floor Plan</TactileButton>
             <TactileButton variant="ghost" fullWidth size="lg" onClick={()=>{setReviewError(null);setReviewChooserOpen(true)}} icon={<I n="search" s={16} c={SUB} />}>Review for discrepancies</TactileButton>
-            <TactileButton variant="secondary" fullWidth size="lg" onClick={()=>setView('sensor-data')} icon={<I n="chart" s={16} c={ACCENT} />}>Sensor Data{sensorData?.graphs && Object.values(sensorData.graphs).some(g=>g?.include)?' ✓':''}</TactileButton>
+            <TactileButton variant="secondary" fullWidth size="lg" onClick={()=>setView('sensor-data')} icon={<I n="chart" s={16} c={ACCENT} />}>Logger Studio{sensorData?.graphs && Object.values(sensorData.graphs).some(g=>g?.include)?' ✓':''}</TactileButton>
           </div>
           {/* Removed redundant "Start Assessment" CTA — the user viewing
               this screen is already inside an assessment; starting a new
@@ -2274,7 +2334,8 @@ export default function MobileApp() {
                   onClick: () => { toggleThemeMode() } },
                 { label: 'Trash',        icon: 'trash',  onClick: () => setView('trash') },
                 { label: 'Sampling forms', icon: 'flask', onClick: () => setView('sampling-forms') },
-                { label: 'Sensor Data',  icon: 'chart',  onClick: () => setView('sensor-data') },
+                { label: 'Logger Studio', icon: 'chart', onClick: () => setView('sensor-data') },
+                { label: 'Projects',     icon: 'bldg',   onClick: () => setView('projects') },
                 // Single Demos entry — opens the sub-picker instead
                 // of running a demo directly. The "submenu" flag tells
                 // the click handler to stay open + switch mode rather
@@ -3621,7 +3682,9 @@ export default function MobileApp() {
         </div>}
         {view==='trash'&&<TrashView onRecover={async(id)=>{await Backup.recover(id);await refreshIndex()}} onDelete={async(id)=>{await Backup.permanentDelete(id)}} />}
         {view==='sampling-forms'&&<SamplingFormsView profile={profile} onBack={()=>setView('dash')} />}
-        {view==='sensor-data'&&<SensorDataPage value={sensorData} onChange={setSensorData} onBack={()=>setView(comp?'results':'dash')} />}
+        {view==='sensor-data'&&<SensorDataPage value={sensorData} onChange={setSensorData} reports={index.drafts||[]} currentReportId={draftId} currentZones={zones} onApplyAverages={applyAveragesToReport} onBack={()=>setView(comp?'results':'dash')} />}
+        {view==='projects'&&<ProjectsScreen onBack={()=>setView('dash')} onOpen={(pid)=>{setProjectBackView('projects');setActiveProjectId(pid);setView('project-detail')}} />}
+        {view==='project-detail'&&<ProjectDetail id={activeProjectId} profile={profile} onBack={()=>setView(projectBackView)} onOpenReport={(r)=>openReport(r)} />}
         {view==='settings'&&<SettingsScreen profile={profile} onEditProfile={()=>{sessionStorage.setItem('aiq_welcomed','1');setWelcomeDone(true);setProfile({...profile,isNew:true});setView('dash')}} onLogout={handleLogout} onClose={()=>setView('dash')} onNavigate={(v)=>{if(v==='pricing'){setShowPricing(true)}else{setView(v)}}} adminActive={!!adminSecret} onActivateAdmin={(secret)=>{setAdminSecret(secret);setView('admin')}} />}
         {view==='tos'&&<TermsOfService onBack={()=>setView('settings')} />}
         {view==='privacy'&&<PrivacyPolicy onBack={()=>setView('settings')} />}
@@ -3631,11 +3694,8 @@ export default function MobileApp() {
         {view==='incident-form'&&<IncidentForm onCancel={()=>setView('dash')} onSaved={(inc)=>{setCurrentIncident(inc);setView('incident-detail')}} />}
         {view==='incident-log'&&<IncidentLog profile={profile} onBack={()=>setView('dash')} onNewIncident={()=>setView('incident-form')} onView={(inc)=>{setCurrentIncident(inc);setView('incident-detail')}} />}
         {view==='incident-detail'&&currentIncident&&<IncidentDetail incident={currentIncident} profile={profile} onBack={()=>setView('incident-log')} onChange={setCurrentIncident} onDeleted={()=>{setCurrentIncident(null);setView('incident-log')}} />}
-        {view==='interventions'&&<InterventionTracker buildingId={bldg?.fn||'default'} onBack={()=>setView('dash')} assessments={index.reports} />}
-        {view==='directory'&&<IHDirectory onBack={()=>setView('dash')} />}
-        {view==='properties'&&<PropertyDashboard onBack={()=>setView('dash')} onNavigate={(v)=>setView(v)} assessmentIndex={index} />}
+        {view==='properties'&&<PropertyDashboard onBack={()=>setView('dash')} onNavigate={(target,arg)=>{if(target==='building'){openBuildingProject(arg)}else{setView(target)}}} assessmentIndex={index} />}
         {view==='spatial'&&<SpatialMap zones={zones} zoneScores={zoneScores} floorPlan={floorPlan} onUploadFloorPlan={setFloorPlan} onUpdateZone={(zi, update)=>{const z=[...zones];z[zi]={...z[zi],...update};setZones(z)}} onClose={()=>{runScoring();setView('results')}} />}
-        {view==='instruments'&&<InstrumentManager onBack={()=>setView('settings')} />}
       </div>
 
       {/* ── Bottom Tab Bar (v3) ──
@@ -3654,7 +3714,7 @@ export default function MobileApp() {
               {id:'dash',label:'Home',icon:'home'},
               {id:'properties',label:'Buildings',icon:'bldg'},
               {id:'incident-log',label:'Incidents',icon:'alert'},
-              {id:'settings',label:'Settings',icon:'gear'},
+              {id:'sensor-data',label:'Logger Studio',icon:'chart'},
             ] : [
               {id:'dash',label:'Home',icon:'home'},
               {id:'history',label:'Reports',icon:'report',badge:((index.drafts||[]).length+(index.reports||[]).length)||null},
@@ -3666,7 +3726,10 @@ export default function MobileApp() {
               // across every surface (the internal id stays 'jasper'
               // to avoid touching shipped event/table names).
               {id:'jasper',label:'AtmosFlow AI',icon:'jasper'},
-              {id:'settings',label:'Settings',icon:'gear'},
+              // Logger Studio takes the 4th slot. Settings stays reachable
+              // from the header avatar + hamburger menu, so it doesn't need a
+              // permanent nav tab; the analyzer is the higher-frequency lane.
+              {id:'sensor-data',label:'Logger Studio',icon:'chart'},
             ]).map(t=>{
               const isJasper = t.id === 'jasper'
               const isActive = isJasper ? faOpen : (view === t.id)
@@ -3692,9 +3755,9 @@ export default function MobileApp() {
                         prefers-reduced-motion (static soft glow). */}
                     {isJasper && (
                       <span className="fa-breathe" aria-hidden="true" style={{
-                        position:'absolute', top:'50%', left:'50%', width:34, height:34,
-                        marginTop:-17, marginLeft:-17, borderRadius:'50%', pointerEvents:'none',
-                        background:'radial-gradient(circle, color-mix(in srgb, var(--accent) 42%, transparent), transparent 70%)',
+                        position:'absolute', top:'50%', left:'50%', width:46, height:46,
+                        marginTop:-23, marginLeft:-23, borderRadius:'50%', pointerEvents:'none',
+                        background:'radial-gradient(circle, color-mix(in srgb, var(--accent) 62%, transparent), color-mix(in srgb, var(--accent) 28%, transparent) 48%, transparent 78%)',
                       }} />
                     )}
                     {isJasper ? (
@@ -3832,14 +3895,14 @@ export default function MobileApp() {
            tab's ambient glow. faDrift: a very-low-intensity airflow
            gradient behind the results. All disabled under reduced-motion. */
         @keyframes faZoneIn{from{opacity:0;transform:translateY(8px) scale(.995);}to{opacity:1;transform:translateY(0) scale(1);}}
-        @keyframes faBreathe{0%,100%{opacity:.22;transform:scale(.82);}50%{opacity:.55;transform:scale(1.12);}}
+        @keyframes faBreathe{0%,100%{opacity:.38;transform:scale(.78);}50%{opacity:.92;transform:scale(1.32);}}
         @keyframes faDrift{0%{background-position:38% 0%;}50%{background-position:62% 14%;}100%{background-position:38% 0%;}}
         .fa-zone-in{animation:faZoneIn .26s cubic-bezier(.22,1,.36,1) both;}
         .fa-breathe{animation:faBreathe 3.6s ease-in-out infinite;}
         .fa-airflow{animation:faDrift 22s ease-in-out infinite;}
         @media (prefers-reduced-motion: reduce){
           .fa-zone-in{animation:none;}
-          .fa-breathe{animation:none;opacity:.32;}
+          .fa-breathe{animation:none;opacity:.55;}
           .fa-airflow{animation:none;}
         }
         *{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent;}

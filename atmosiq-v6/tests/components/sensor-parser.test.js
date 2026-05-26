@@ -3,7 +3,35 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { classifyHeader, parseSensorCsv, downsample, detectUnit, normalizeForCompare, sensorAveragesToFields, ppbToUgm3, ugm3ToPpb } from '../../src/utils/sensorParser'
+import { classifyHeader, parseSensorCsv, downsample, detectUnit, normalizeForCompare, sensorAveragesToFields, ppbToUgm3, ugm3ToPpb, HCHO_MW } from '../../src/utils/sensorParser'
+
+describe('Formaldehyde (HCHO) detection', () => {
+  it('classifies HCHO / formaldehyde / CH2O headers as the hcho param', () => {
+    expect(classifyHeader('HCHO (ppb)')).toMatchObject({ role: 'param', param: 'hcho', unit: 'ppb' })
+    expect(classifyHeader('Formaldehyde')).toMatchObject({ role: 'param', param: 'hcho' })
+    expect(classifyHeader('CH2O (µg/m³)')).toMatchObject({ role: 'param', param: 'hcho', unit: 'µg/m³' })
+    expect(classifyHeader('HCHO (mg/m3)')).toMatchObject({ role: 'param', param: 'hcho', unit: 'mg/m³' })
+  })
+  it('does not collide with CO or CO2', () => {
+    expect(classifyHeader('CO2 (ppm)').param).toBe('co2')
+    expect(classifyHeader('CO (ppm)').param).toBe('co')
+  })
+  it('detects mg/m³ units', () => {
+    expect(detectUnit('HCHO (mg/m3)', 'hcho')).toBe('mg/m³')
+  })
+  it('converts exactly with the single-compound molecular weight (MW 30.03)', () => {
+    // 30 ppb HCHO ≈ 36.8 µg/m³ at 25 °C; round-trips back to 30 ppb.
+    const ug = ppbToUgm3(30, HCHO_MW)
+    expect(Math.round(ug)).toBe(37)
+    expect(Math.round(ugm3ToPpb(ug, HCHO_MW))).toBe(30)
+  })
+  it('parses an HCHO logger column end-to-end', () => {
+    const r = parseSensorCsv('Timestamp,HCHO (ppb)\n2026-05-01 09:00,20\n2026-05-01 09:05,40\n2026-05-01 09:10,30')
+    expect(r.params).toContain('hcho')
+    expect(r.units.hcho).toBe('ppb')
+    expect(Math.round(r.summary.stats.hcho.mean)).toBe(30)
+  })
+})
 
 describe('TVOC unit conversion helpers', () => {
   it('round-trips ppb ↔ µg/m³ for isobutylene', () => {

@@ -4,7 +4,9 @@
  * Scoring engine is mode-agnostic — same inputs, same outputs regardless of mode.
  */
 
-const STORAGE_KEY = 'atmosflow:userMode'
+import { KEYS } from '../utils/storageKeys'
+
+const STORAGE_KEY = KEYS.userMode
 
 export const TERMINOLOGY = {
   ih: {

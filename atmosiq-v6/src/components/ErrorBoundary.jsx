@@ -9,6 +9,7 @@
  */
 
 import { Component } from 'react'
+import { KEYS } from '../utils/storageKeys'
 
 export default class ErrorBoundary extends Component {
   constructor(props) {
@@ -57,9 +58,9 @@ export default class ErrorBoundary extends Component {
             </button>
             <button onClick={() => {
               try {
-                const idx = JSON.parse(localStorage.getItem('atmosiq-idx') || '{}')
+                const idx = JSON.parse(localStorage.getItem(KEYS.index) || '{}')
                 const allData = { idx }
-                const keys = Object.keys(localStorage).filter(k => k.startsWith('rpt-') || k.startsWith('draft-') || k === 'atmosiq-profile')
+                const keys = Object.keys(localStorage).filter(k => k.startsWith('rpt-') || k.startsWith('draft-') || k === KEYS.profile)
                 keys.forEach(k => { try { allData[k] = JSON.parse(localStorage.getItem(k)) } catch {} })
                 const blob = new Blob([JSON.stringify(allData, null, 2)], { type: 'application/json' })
                 const url = URL.createObjectURL(blob)

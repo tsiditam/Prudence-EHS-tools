@@ -8,8 +8,9 @@
 
 import STO from './storage'
 import { APP_VERSION } from '../version'
+import { KEYS } from './storageKeys'
 
-const TRASH_KEY = 'atmosiq-trash'
+const TRASH_KEY = KEYS.trash
 const TRASH_TTL_DAYS = 30
 
 const Backup = {
@@ -26,7 +27,7 @@ const Backup = {
     data.index = await STO.getIndex()
 
     // Profile
-    data.profile = await STO.get('atmosiq-profile')
+    data.profile = await STO.get(KEYS.profile)
 
     // All reports
     data.reports = []
@@ -73,7 +74,7 @@ const Backup = {
 
     // Import profile
     if (jsonData.profile) {
-      await STO.set('atmosiq-profile', jsonData.profile)
+      await STO.set(KEYS.profile, jsonData.profile)
     }
 
     // Import reports

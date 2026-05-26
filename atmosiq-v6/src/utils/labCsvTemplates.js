@@ -27,7 +27,9 @@
  * so applying a template is `parseLabResultsCsv(text, { overrides: t.mapping })`.
  */
 
-const STORAGE_KEY = 'atmosflow:lab_csv_templates'
+import { KEYS } from './storageKeys'
+
+const STORAGE_KEY = KEYS.labCsvTemplates
 
 function readStore() {
   if (typeof localStorage === 'undefined') return { templates: [] }

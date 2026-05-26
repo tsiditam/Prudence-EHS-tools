@@ -15,10 +15,12 @@
 
 import { supabase } from './supabaseClient'
 import STO from './storage'
+import { KEYS } from './storageKeys'
 import * as Sentry from '@sentry/react'
+import { compactPhotos, expandPhotos, purgeAssessmentPhotos } from './photoCompaction'
 
-const SYNC_QUEUE_KEY = 'atmosiq-sync-queue'
-const SYNC_STATE_KEY = 'atmosiq-sync-state'
+const SYNC_QUEUE_KEY = KEYS.syncQueue
+const SYNC_STATE_KEY = KEYS.syncState
 const SYNC_EVENT = 'atmosflow:sync-state-changed'
 const isOnline = () => navigator.onLine && !!supabase
 
@@ -68,7 +70,7 @@ const SupaStorage = {
     const result = await supabase.auth.signInWithPassword({ email, password })
     // Cache session locally for offline access
     if (result.data?.session) {
-      await STO.set('atmosiq-cached-session', {
+      await STO.set(KEYS.cachedSession, {
         user: result.data.user,
         email: result.data.user.email,
         id: result.data.user.id,
@@ -80,7 +82,7 @@ const SupaStorage = {
 
   async signOut() {
     if (supabase) await supabase.auth.signOut()
-    await STO.del('atmosiq-cached-session')
+    await STO.del(KEYS.cachedSession)
   },
 
   async getUser() {
@@ -92,7 +94,7 @@ const SupaStorage = {
       } catch {}
     }
     // Fall back to cached session (offline)
-    const cached = await STO.get('atmosiq-cached-session')
+    const cached = await STO.get(KEYS.cachedSession)
     return cached || null
   },
 
@@ -113,7 +115,7 @@ const SupaStorage = {
   // ── Profile (offline-first) ──
   async getProfile() {
     // Always read from local first (fast)
-    const local = await STO.get('atmosiq-profile')
+    const local = await STO.get(KEYS.profile)
     // Try to sync from cloud if online
     if (isOnline()) {
       Sentry.addBreadcrumb({
@@ -172,7 +174,7 @@ const SupaStorage = {
             )
           }
         } else if (data) {
-          await STO.set('atmosiq-profile', data)
+          await STO.set(KEYS.profile, data)
           Sentry.addBreadcrumb({
             category: 'profile_sync',
             message: 'getProfile.success',
@@ -197,7 +199,7 @@ const SupaStorage = {
 
   async saveProfile(profile) {
     // Save locally first (instant)
-    await STO.set('atmosiq-profile', profile)
+    await STO.set(KEYS.profile, profile)
     // Sync to cloud if online
     if (isOnline()) {
       Sentry.addBreadcrumb({
@@ -293,13 +295,23 @@ const SupaStorage = {
   async getAssessment(id) {
     // Local first
     const local = await STO.get(id)
-    if (local) return local
+    if (local) {
+      // Expand any compact photo refs (idbId) back to inline base64 so
+      // every consumer above this layer (DOCX, PrintReport, in-app
+      // viewer) sees the legacy { src, ts } shape it has always seen.
+      const expanded = await expandPhotos(local.photos || {})
+      return { ...local, photos: expanded.photos }
+    }
     // Try cloud
     if (isOnline()) {
       try {
         const { data } = await supabase.from('assessments').select('*').eq('id', id).single()
         if (data) {
-          await STO.set(id, data)
+          // Compact incoming cloud photos before localStorage write to
+          // escape the quota cap; the wire format is preserved (cloud
+          // still holds base64).
+          const compacted = await compactPhotos(data.photos || {}, id)
+          await STO.set(id, { ...data, photos: compacted.photos })
           return data
         }
       } catch {}
@@ -308,8 +320,13 @@ const SupaStorage = {
   },
 
   async saveAssessment(assessment) {
-    // Save locally first (instant, works offline)
-    await STO.set(assessment.id, assessment)
+    // Compact photos before localStorage write — inline base64 blobs
+    // get offloaded to IndexedDB so localStorage doesn't hit its
+    // 5–10 MB quota on photo-heavy assessments. Falls through silently
+    // when IndexedDB is unavailable (private browsing, etc.).
+    const compactResult = await compactPhotos(assessment.photos || {}, assessment.id)
+    const localCopy = { ...assessment, photos: compactResult.photos }
+    await STO.set(assessment.id, localCopy)
     // Update local index
     if (assessment.status === 'complete') {
       await STO.addReportToIndex({
@@ -325,7 +342,9 @@ const SupaStorage = {
         ua: new Date().toISOString(),
       })
     }
-    // Sync to cloud when online
+    // Sync to cloud when online — wire format MUST be the inline
+    // base64 form (Supabase JSONB doesn't know about our IDB refs).
+    // `assessment.photos` is already inline as received; reuse it.
     if (isOnline()) {
       try {
         const { data: { user } } = await supabase.auth.getUser()
@@ -364,6 +383,9 @@ const SupaStorage = {
     await STO.del(id)
     await STO.removeFromIndex(id, 'rpt')
     await STO.removeFromIndex(id, 'dft')
+    // Purge any IndexedDB-stored photos for this assessment so deleted
+    // assessments don't leak blob storage. Best-effort; never throws.
+    try { await purgeAssessmentPhotos(id) } catch { /* ignore */ }
     if (isOnline()) {
       try { await supabase.from('assessments').delete().eq('id', id) }
       catch { await this._queueSync('delete', { id }) }
@@ -468,7 +490,7 @@ const SupaStorage = {
       if (!user) return
       // Sync profile
       const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-      if (profile) await STO.set('atmosiq-profile', profile)
+      if (profile) await STO.set(KEYS.profile, profile)
       // Sync assessments
       const { data: assessments } = await supabase.from('assessments').select('*').eq('user_id', user.id).order('updated_at', { ascending: false })
       if (assessments) {
