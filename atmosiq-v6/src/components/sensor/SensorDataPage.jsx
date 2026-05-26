@@ -22,14 +22,18 @@ import Chip from '../ui/Chip'
 import CollapsibleCard from '../ui/CollapsibleCard'
 import GhostButton from '../ui/GhostButton'
 import Select from '../ui/Select'
-import StatTile from '../ui/StatTile'
 import RoleBadge from '../ui/RoleBadge'
+import StatTile from '../ui/StatTile'
 import InlineError from '../ui/InlineError'
 import { parseSensorRows, SENSOR_PARAMS, TVOC_REFERENCES, ppbToUgm3, ugm3ToPpb, HCHO_MW, normalizeSensorData, primaryDataset, alignDatasets, sensorAveragesToFields, detectDatasetRole, SENSOR_DATA_VERSION, withDisplayTempUnit } from '../../utils/sensorParser'
 import SendToReportSheet from './SendToReportSheet'
 import { splitCsvLine } from '../../utils/labResultsParser'
 import { xlsxToRows } from '../../utils/sensorXlsx'
-import { GRAPH_DEFS, REF_LINE_DEFS, MultiParameterChart, Co2DifferentialChart, MultiZoneChart, LIGHT_PALETTE, DARK_PALETTE } from './SensorCharts'
+import { GRAPH_DEFS, REF_LINE_DEFS, MultiParameterChart, Co2DifferentialChart, MultiZoneChart, LIGHT_PALETTE, DARK_PALETTE, SERIES } from './SensorCharts'
+import { paramReference, exceedance, categoryOf, CATEGORY } from '../../utils/sensorThresholds'
+import { chartStats, chartPrimaryParam } from '../../utils/sensorAnalytics'
+import Sparkline from '../ui/Sparkline'
+import GaugeBar from '../ui/GaugeBar'
 import { calcCfmPerPerson, VENTILATION_CITATION } from '../../utils/ventilation'
 import dayjs from 'dayjs'
 
@@ -74,6 +78,108 @@ const hchoEquivLabel = (mean, unit) => {
   if (u.includes('ppm')) { const ug = ppbToUgm3(mean * 1000, HCHO_MW); return ug == null ? null : `≈ ${Math.round(ug)} µg/m³` }
   if (u.includes('ppb')) { const ug = ppbToUgm3(mean, HCHO_MW); return ug == null ? null : `≈ ${Math.round(ug)} µg/m³` }
   return null
+}
+
+// Exceedance tones reuse the app's risk palette (danger red / caution
+// amber) rather than the parameter hue, so a flag reads as a real cue.
+const EXC_TONE = { danger: V3.DANGER, warn: '#FB923C' }
+
+// One Overview parameter card: identity dot + sparkline, the mean in
+// tabular numerals, a gauge against the screening reference, the observed
+// range, the reference line(s), and a screening exceedance flag when the
+// values sit above a reference. Screening only — never a determination.
+function ParamCard({ param, stats, unit, points, ts }) {
+  const spec = SENSOR_PARAMS.find((s) => s.key === param)
+  const color = SERIES[param] || 'var(--accent)'
+  const ref = paramReference(param, { unit, ts })
+  const exc = exceedance(param, stats, ref)
+  const equiv = param === 'tvoc' ? tvocEquivLabel(stats.mean, unit)
+    : param === 'hcho' ? hchoEquivLabel(stats.mean, unit) : null
+  return (
+    <GlassCard style={{ marginTop: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
+          <span style={{ ...V3.T.micro, color: SUB }}>{spec?.label || param}</span>
+        </div>
+        <Sparkline values={points} color={color} />
+      </div>
+      <div style={{ marginTop: 8, fontSize: 26, fontWeight: 700, color: TEXT, fontFamily: 'var(--font-mono)', letterSpacing: '-0.5px' }}>
+        {fmtAvg(stats.mean)} <span style={{ fontSize: 12, fontWeight: 600, color: DIM }}>{unit}</span>
+      </div>
+      <div style={{ marginTop: 8 }}>
+        <GaugeBar min={stats.min} max={stats.max} value={stats.mean} limit={ref.limit} band={ref.band} color={color} />
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 8, fontSize: 11, color: DIM, fontFamily: 'var(--font-mono)' }}>
+        <span>{fmtAvg(stats.min)}–{fmtAvg(stats.max)} {unit} · n={stats.n}</span>
+        {ref.limit != null && <span>limit {fmtAvg(ref.limit)}</span>}
+      </div>
+      {ref.refs.length > 0 && (
+        <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${BORDER}` }}>
+          <div style={{ fontSize: 11, color: DIM, lineHeight: 1.5 }}>{ref.refs.join(' · ')}</div>
+          {exc.level && (
+            <div style={{ fontSize: 12, fontWeight: 600, color: EXC_TONE[exc.level], marginTop: 5, lineHeight: 1.45 }}>
+              {exc.message}{equiv ? ` · ${equiv}` : ''}
+            </div>
+          )}
+          {ref.note && (
+            <div style={{ fontSize: 10, color: DIM, marginTop: 6, lineHeight: 1.5, fontStyle: 'italic' }}>{ref.note}</div>
+          )}
+        </div>
+      )}
+    </GlassCard>
+  )
+}
+
+// Top-of-Overview banner summarizing how many parameters sit above a
+// screening reference (mirrors the per-card flags).
+function ThresholdBanner({ items }) {
+  if (!items.length) return null
+  return (
+    <GlassCard style={{ marginTop: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 22, fontWeight: 700, color: V3.DANGER, fontFamily: 'var(--font-mono)' }}>{items.length}</span>
+        <span style={{ ...V3.T.bodyStrong }}>parameter{items.length === 1 ? '' : 's'} above a screening reference</span>
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 8 }}>
+        {items.map((it) => (
+          <span key={it.param} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: SUB }}>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: SERIES[it.param] || 'var(--accent)' }} />
+            {it.label}
+          </span>
+        ))}
+      </div>
+    </GlassCard>
+  )
+}
+
+// Factual stat row under an Analysis chart: mean, peak (flagged occupied
+// when occupancy windows exist), % of readings over the screening
+// reference, and the occupied−unoccupied delta. Cells with no input
+// (no reference / no occupancy) are omitted. Numbers only — no judgment.
+function ChartStatRow({ stats, unit, reference }) {
+  if (!stats) return null
+  const cells = [
+    { label: 'Mean', value: fmtAvg(stats.mean), sub: unit },
+    { label: 'Peak', value: fmtAvg(stats.peak), sub: stats.peakOccupied === true ? 'occupied hr' : stats.peakOccupied === false ? 'unoccupied' : unit },
+  ]
+  if (stats.pctOver != null) {
+    cells.push({ label: `% > ${reference?.limitLabel || 'ref'}`, value: `${Math.round(stats.pctOver)}%`, sub: `of n=${stats.n}`, tone: stats.pctOver > 0 ? '#FB923C' : null })
+  }
+  if (stats.deltaOccNoc != null) {
+    cells.push({ label: 'Δ occ−noc', value: `${stats.deltaOccNoc >= 0 ? '+' : ''}${fmtAvg(stats.deltaOccNoc)}`, sub: unit })
+  }
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cells.length}, 1fr)`, gap: 8, padding: '0 18px 12px' }}>
+      {cells.map((c, i) => (
+        <div key={i} style={{ padding: '9px 11px', background: 'var(--surface)', border: `1px solid ${BORDER}`, borderRadius: 10 }}>
+          <div style={{ ...V3.T.micro, color: SUB }}>{c.label}</div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: c.tone || TEXT, fontFamily: 'var(--font-mono)', letterSpacing: '-0.3px', marginTop: 2 }}>{c.value}</div>
+          <div style={{ fontSize: 10, color: DIM, marginTop: 1 }}>{c.sub}</div>
+        </div>
+      ))}
+    </div>
+  )
 }
 
 // "Analyzing" reveal — after a successful upload we hold the parsed
@@ -411,80 +517,79 @@ export default function SensorDataPage({ value, onChange, onBack, reports = [], 
 
           {mode === 'overview' && (
             <>
-          {/* File summary */}
+          {/* Session header — eyebrow + title + quiet metadata. Identity
+              (role / file / range) sits as a subdued line so it reads as
+              context, not the headline. */}
           <GlassCard style={{ marginTop: 14, animation: 'fadeUp .3s ease' }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <RoleBadge role={data.role || 'indoor'}>{data.label || 'Indoor'}</RoleBadge>
-                  <div style={{ ...V3.T.bodyStrong, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{data.fileName || 'Logger data'}</div>
-                </div>
-                <div style={{ ...V3.T.captionDim, marginTop: 2 }}>{fmtRange(data.summary.start, data.summary.end)}</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <div style={V3.T.micro}>Logger Studio · Averages</div>
+              {hasTemp && tempNative && (
+                <SegmentedControl
+                  ariaLabel="Temperature display unit"
+                  style={{ padding: 3, gap: 2, width: 104, flex: '0 0 auto' }}
+                  value={tempDisplay}
+                  onChange={(u) => onChange({ ...env, tempDisplay: u })}
+                  options={[{ value: '°C', label: '°C' }, { value: '°F', label: '°F' }]}
+                />
+              )}
+            </div>
+            <div style={{ ...V3.T.h1, marginTop: 8 }}>Session Averages</div>
+            <div style={{ ...V3.T.captionDim, marginTop: 4 }}>
+              {data.summary.count.toLocaleString()} readings · {fmtInterval(data.summary.intervalSec)} interval · {data.params.length} parameters{data.summary.emptyRows ? ` · ${data.summary.emptyRows} empty` : ''}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                <RoleBadge role={data.role || 'indoor'}>{data.label || 'Indoor'}</RoleBadge>
+                <div style={{ ...V3.T.captionDim, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{data.fileName || 'Logger data'} · {fmtRange(data.summary.start, data.summary.end)}</div>
               </div>
               <GhostButton onClick={() => pickFor({ role: 'indoor', label: 'Indoor' })}>Replace</GhostButton>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10, marginTop: 14 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginTop: 14 }}>
               <StatTile label="Readings" value={data.summary.count.toLocaleString()} />
               <StatTile label="Interval" value={fmtInterval(data.summary.intervalSec)} />
-              <StatTile label="Parameters" value={data.params.length} />
-              <StatTile label="Empty rows" value={data.summary.emptyRows} />
+              <StatTile label="Params" value={data.params.length} />
+              <StatTile label="Empty" value={data.summary.emptyRows} />
             </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 14 }}>
-              {data.params.map((p) => {
-                const spec = SENSOR_PARAMS.find((s) => s.key === p)
-                return <Chip key={p}>{spec?.label || p}{data.units[p] ? ` · ${data.units[p]}` : ''}</Chip>
-              })}
-            </div>
-            {data.summary.stats && data.params.some((p) => data.summary.stats[p]) && (
-              <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${BORDER}` }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
-                  <div style={V3.T.micro}>Averages</div>
-                  {hasTemp && tempNative && (
-                    <SegmentedControl
-                      ariaLabel="Temperature display unit"
-                      style={{ padding: 3, gap: 2, width: 116, flex: '0 0 auto' }}
-                      value={tempDisplay}
-                      onChange={(u) => onChange({ ...env, tempDisplay: u })}
-                      options={[{ value: '°C', label: '°C' }, { value: '°F', label: '°F' }]}
-                    />
-                  )}
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
-                  {data.params.map((p) => {
-                    const s = data.summary.stats[p]
-                    if (!s) return null
-                    const spec = SENSOR_PARAMS.find((x) => x.key === p)
-                    const u = data.units[p] || spec?.unit || ''
-                    return (
-                      <div key={p} style={{ padding: '10px 12px', background: 'var(--surface)', border: `1px solid ${BORDER}`, borderRadius: 10 }}>
-                        <div style={{ fontSize: 16, fontWeight: 700, color: TEXT, fontFamily: 'var(--font-mono)', letterSpacing: '-0.3px' }}>
-                          {fmtAvg(s.mean)} <span style={{ fontSize: 11, fontWeight: 600, color: DIM }}>{u}</span>
-                        </div>
-                        <div style={{ ...V3.T.captionDim, marginTop: 2 }}>{spec?.label || p} · mean</div>
-                        <div style={{ fontSize: 11, color: DIM, marginTop: 2, fontFamily: 'var(--font-mono)' }}>{fmtAvg(s.min)}–{fmtAvg(s.max)} · n={s.n}</div>
-                        {p === 'tvoc' && tvocEquivLabel(s.mean, u) && (
-                          <div style={{ fontSize: 11, color: DIM, marginTop: 2, fontFamily: 'var(--font-mono)' }}>{tvocEquivLabel(s.mean, u)}</div>
-                        )}
-                        {p === 'hcho' && hchoEquivLabel(s.mean, u) && (
-                          <div style={{ fontSize: 11, color: DIM, marginTop: 2, fontFamily: 'var(--font-mono)' }}>{hchoEquivLabel(s.mean, u)}</div>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
-            {canSendAverages && (
-              <TactileButton variant="secondary" fullWidth size="md" onClick={() => setSendOpen(true)}
-                icon={<I n="report" s={16} c={ACCENT} />} style={{ marginTop: 14 }}>
-                Send averages to a report
-              </TactileButton>
-            )}
             <GhostButton onClick={() => setMapOpen((v) => !v)} style={{ marginTop: 14, width: '100%', justifyContent: 'center' }}>
               {mapOpen ? 'Hide column mapping' : 'Adjust column mapping'}
             </GhostButton>
             {mapOpen && sourceRows && <MappingPanel columns={data.columns} onApply={(m) => { reparse(m); setMapOpen(false) }} />}
           </GlassCard>
+
+          {/* Session averages — grouped by category, each card gauged
+              against its screening reference. */}
+          {data.summary.stats && data.params.some((p) => data.summary.stats[p]) && (() => {
+            const flagged = []
+            data.params.forEach((p) => {
+              const s = data.summary.stats[p]
+              if (!s) return
+              const exc = exceedance(p, s, paramReference(p, { unit: data.units[p] || '', ts: data.summary.start }))
+              if (exc.level) flagged.push({ param: p, label: SENSOR_PARAMS.find((x) => x.key === p)?.label || p })
+            })
+            return (
+              <>
+                <ThresholdBanner items={flagged} />
+                {CATEGORY.map((cat) => {
+                  const ps = data.params.filter((p) => data.summary.stats[p] && categoryOf(p) === cat.id)
+                  if (!ps.length) return null
+                  return (
+                    <div key={cat.id} style={{ marginTop: 16 }}>
+                      <div style={{ ...V3.T.micro, color: SUB, marginBottom: 2 }}>{cat.label}</div>
+                      {ps.map((p) => (
+                        <ParamCard key={p} param={p} stats={data.summary.stats[p]} unit={data.units[p] || ''} points={data.points.map((pt) => pt[p])} ts={data.summary.start} />
+                      ))}
+                    </div>
+                  )
+                })}
+                {canSendAverages && (
+                  <TactileButton variant="secondary" fullWidth size="md" onClick={() => setSendOpen(true)}
+                    icon={<I n="report" s={16} c={ACCENT} />} style={{ marginTop: 16 }}>
+                    Send averages to a report
+                  </TactileButton>
+                )}
+              </>
+            )
+          })()}
 
           {/* Data quality */}
           <GlassCard style={{ marginTop: 14 }}>
@@ -546,13 +651,6 @@ export default function SensorDataPage({ value, onChange, onBack, reports = [], 
 
           {mode === 'report' && (
             <>
-              <GlassCard style={{ marginTop: 14 }}>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                  <span style={{ fontSize: 24, fontWeight: 700, color: ACCENT, fontFamily: 'var(--font-mono)' }}>{includedReportCount}</span>
-                  <span style={V3.T.bodyStrong}>of {chartTabs.length} graph{chartTabs.length === 1 ? '' : 's'} in report</span>
-                </div>
-                <div style={{ ...V3.T.captionDim, marginTop: 6, lineHeight: 1.5 }}>Toggle graphs to include. Captions and exports are below.</div>
-              </GlassCard>
               {chartTabs.length === 0 ? emptyCharts : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 14 }}>
                   {chartTabs.map((t) => <div key={t.key}>{renderChartBlock(t, 'report')}</div>)}
@@ -614,6 +712,18 @@ function GraphCard({ def, data, state, onState, chartProps = {}, mode = 'report'
   const [busy, setBusy] = useState(false)
   const { Chart } = def
   const pal = currentPalette()
+
+  // Factual stat row for single-parameter timeline charts. Reuses the
+  // Phase-1 screening reference (for % over) and the occupancy windows.
+  const statParam = chartPrimaryParam(def.id)
+  const statRef = statParam ? paramReference(statParam, { unit: data.units[statParam] || '', ts: data.summary.start }) : null
+  const stats = statParam
+    ? chartStats(
+        data.points.map((p) => p[statParam]),
+        data.points.map((p) => p.t),
+        { occupancyWindows: chartProps.occupancy, limit: statRef ? statRef.limit : null },
+      )
+    : null
 
   // Render the included/exported image from a hidden, fixed-size,
   // LIGHT-palette copy of the chart (so the report image is white-paper
@@ -683,6 +793,7 @@ function GraphCard({ def, data, state, onState, chartProps = {}, mode = 'report'
       <div style={{ padding: '4px 8px 12px', background: CARD }}>
         <Chart data={data.points} hasTs={data.hasTimestamps} units={data.units} palette={pal} {...chartProps} />
       </div>
+      {stats && <ChartStatRow stats={stats} unit={data.units[statParam] || ''} reference={statRef} />}
       {mode !== 'analysis' && (
         <div style={{ padding: '0 18px 16px' }}>
           <textarea value={state.caption || ''} onChange={(e) => onState({ caption: e.target.value })} placeholder="Add a caption (optional)"

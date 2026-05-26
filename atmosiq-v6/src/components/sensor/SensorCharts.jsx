@@ -27,7 +27,7 @@ export const LIGHT_PALETTE = { axis: '#475569', grid: '#CBD5E1', text: '#0F172A'
 
 // Distinct, contrast-safe series colours so series read without relying
 // on a single hue (works on both dark + white backgrounds).
-const SERIES = { co2: '#0E9FB8', temp: '#EA7A2B', rh: '#2563EB', pm25: '#7C3AED', pm10: '#DB2777', tvoc: '#059669', co: '#CA8A04', hcho: '#DC2626' }
+export const SERIES = { co2: '#0E9FB8', temp: '#EA7A2B', rh: '#2563EB', pm25: '#7C3AED', pm10: '#DB2777', tvoc: '#059669', co: '#CA8A04', hcho: '#DC2626' }
 
 const fmtTime = (hasTs) => (v) => (hasTs ? dayjs(v).format('MMM D HH:mm') : `#${v}`)
 
