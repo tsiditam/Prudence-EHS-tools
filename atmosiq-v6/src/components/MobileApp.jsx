@@ -32,6 +32,9 @@ import { isOtherChoice } from '../utils/choiceOther'
 import * as V3 from '../styles/tokens'
 import { GLASS, RADII, RHYTHM, stack as sgStack } from '../styles/soft-glass'
 import GlassCard from './ui/GlassCard'
+import ScrollHintTabs from './ui/ScrollHintTabs'
+import FeedbackSheet from './ui/FeedbackSheet'
+import FeedbackButton from './ui/FeedbackButton'
 import StatusPill from './ui/StatusPill'
 import TactileButton from './ui/TactileButton'
 import BottomSheet from './ui/BottomSheet'
@@ -95,7 +98,7 @@ import SamplingFormsView from './SamplingFormsView'
 import { useAssessment } from '../contexts/AssessmentContext.jsx'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import { useStorage } from '../contexts/StorageContext.jsx'
-import { useTheme, mix } from '../utils/theme'
+import { mix } from '../utils/theme'
 
 const haptic = (type) => { try { if (navigator.vibrate) navigator.vibrate(type === 'heavy' ? [30,20,30] : type === 'success' ? [10,30,10,30,10] : 12) } catch {} }
 
@@ -365,10 +368,6 @@ export default function MobileApp() {
   const contentMax = isTabletLand ? 1080 : isTablet ? 860 : 620
   const padX = isTablet ? 28 : 20
 
-  // Theme quick-toggle for the kebab menu. Default is dark; this lets
-  // users flip light/dark in one tap without opening Settings.
-  const { mode: themeMode, toggle: toggleThemeMode } = useTheme()
-
   // ── Shared state from context providers ──
   // Auth: profile/credits/admin live in AuthContext so other route components
   // (split out in Phase 5) can read them without prop drilling.
@@ -508,6 +507,10 @@ export default function MobileApp() {
   // gear icon in the Home header; Settings is now one entry inside the
   // dropdown.
   const [showHomeMenu, setShowHomeMenu] = useState(false)
+  // Feedback sheet: holds the context string of where it was opened from
+  // (menu, AI narrative, findings…) or null when closed.
+  const [feedbackCtx, setFeedbackCtx] = useState(null)
+  const openFeedback = (ctx) => setFeedbackCtx(ctx || 'General feedback')
   // Ref + cached rect for the hamburger menu's anchoring. When the menu
   // opens, we cache the button's bounding rect so the portal'd menu can
   // position itself with `position: fixed`. Portaling is required
@@ -1644,7 +1647,7 @@ export default function MobileApp() {
             707, 822; visible labels are reconciled with the workflow
             grammar used on Home (Findings / Pathways / Sampling /
             Narrative / Actions / Review). ── */}
-        <div id="result-tabs-anchor" style={{...V3.tabRow, marginBottom:16, scrollMarginTop:80}}>
+        <ScrollHintTabs id="result-tabs-anchor" style={{marginBottom:16}}>
           {[...(userMode === 'fm'
             ? [['overview','findings','Findings'],['narrative','notes','Narrative'],['actions','check','Actions'],['readiness','shield','Review']]
             : [['overview','findings','Findings'],['rootcause','chain','Pathways'],['sampling','flask','Sampling'],['narrative','notes','Narrative'],['actions','check','Actions'],['readiness','shield','Review']]),
@@ -1658,7 +1661,7 @@ export default function MobileApp() {
               </button>
             )
           })}
-        </div>
+        </ScrollHintTabs>
 
         {rTab==='readiness' && (
           <ReadinessPanel
@@ -1668,6 +1671,7 @@ export default function MobileApp() {
               zones, zoneScores, recs, photos,
               profile: profile ? { name: profile.name } : null,
             }}
+            onFeedback={()=>openFeedback('Findings & readiness')}
           />
         )}
 
@@ -2153,7 +2157,10 @@ export default function MobileApp() {
           {narrative&&<div style={{padding:18,background:CARD,border:`1px solid ${BORDER}`,borderRadius:10}}>
             <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',gap:12,marginBottom:12,flexWrap:'wrap'}}>
               <div style={{fontSize:14,fontWeight:600,color:TEXT}}>Findings Narrative</div>
-              <span style={{fontSize:11,color:DIM,fontWeight:500}}>AI-generated · Review required</span>
+              <div style={{display:'flex',alignItems:'center',gap:4}}>
+                <span style={{fontSize:11,color:DIM,fontWeight:500}}>AI-generated · Review required</span>
+                <FeedbackButton label="Flag" onClick={()=>openFeedback('AI narrative')} />
+              </div>
             </div>
             <div style={{fontSize:13,color:SUB,lineHeight:1.8,whiteSpace:'pre-wrap'}}>{narrative}</div>
             <div style={{marginTop:14,padding:'10px 12px',background:`${mix('warn', 3)}`,border:`1px solid ${mix('warn', 9)}`,borderRadius:10}}>
@@ -2326,22 +2333,28 @@ export default function MobileApp() {
                     { label: 'Office Building', icon: 'play', onClick: () => runDemo() },
                     { label: 'Data Center',     icon: 'play', onClick: () => runDemo('dc') },
                   ]
+              // Ordered by the assessor's natural flow rather than a flat
+              // ranking: the work you open the app to do first, then the
+              // app/account housekeeping, then the exit. `divider: true`
+              // draws a separator above an item, so it also marks each new
+              // group's first entry.
               const mainItems = [
+                // Work — the tools an assessment runs on.
                 { label: 'Search',       icon: 'search', onClick: () => setView('search') },
-                { label: 'Settings',     icon: 'gear',   onClick: () => setView('settings') },
-                { label: themeMode === 'light' ? 'Switch to dark mode' : 'Switch to light mode',
-                  icon: themeMode === 'light' ? 'moon' : 'sun',
-                  onClick: () => { toggleThemeMode() } },
-                { label: 'Trash',        icon: 'trash',  onClick: () => setView('trash') },
+                { label: 'Projects',     icon: 'bldg',   onClick: () => setView('projects') },
                 { label: 'Sampling forms', icon: 'flask', onClick: () => setView('sampling-forms') },
                 { label: 'Logger Studio', icon: 'chart', onClick: () => setView('sensor-data') },
-                { label: 'Projects',     icon: 'bldg',   onClick: () => setView('projects') },
-                // Single Demos entry — opens the sub-picker instead
-                // of running a demo directly. The "submenu" flag tells
-                // the click handler to stay open + switch mode rather
-                // than close.
+                // App & account — configure, manage, and learn. The
+                // light/dark toggle lives in Settings; it isn't duplicated here.
+                { label: 'Settings',     icon: 'gear',   onClick: () => setView('settings'), divider: true },
+                { label: 'Trash',        icon: 'trash',  onClick: () => setView('trash') },
+                // Single Demos entry — opens the sub-picker instead of
+                // running a demo directly. The "submenu" flag tells the
+                // click handler to stay open + switch mode rather than close.
                 { label: 'Demos', icon: 'play', submenu: 'demos' },
+                { label: 'Send feedback', icon: 'flag', onClick: () => openFeedback('Menu') },
                 { label: 'Help & Support', icon: 'help', onClick: () => { window.location.href = 'mailto:support@prudenceehs.com?subject=AtmosFlow%20support' } },
+                // Exit.
                 { label: 'Sign out',     icon: 'logout', onClick: handleLogout, divider: true, danger: true },
               ]
               const closeMenu = () => { setShowHomeMenu(false); setHomeMenuMode('main') }
@@ -2751,6 +2764,10 @@ export default function MobileApp() {
           </div>
         </BottomSheet>
       )}
+
+      {/* Feedback sheet — opened from the menu (global) or a contextual
+          Flag trigger (AI narrative, findings). v0 sends via mailto. */}
+      <FeedbackSheet open={!!feedbackCtx} context={feedbackCtx} version={VER} onClose={()=>setFeedbackCtx(null)} />
 
       {/* ── Move-to-Trash confirmation — bottom sheet ──────────────
           Outside-tap dismiss now works (the old solid-modal had no
