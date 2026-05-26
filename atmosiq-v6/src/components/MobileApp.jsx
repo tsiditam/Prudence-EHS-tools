@@ -1414,7 +1414,14 @@ export default function MobileApp() {
     // Logger timelines flagged "Include in report". When viewing a saved
     // report the dataset rides on viewRpt; live results use current state.
     const loggerSd = (archived ? viewRpt?.sensorData : sensorData) || null
-    const hasLoggerGraphs = !!(loggerSd?.graphs && Object.values(loggerSd.graphs).some(g => g?.include))
+    // Show the Logger tab whenever the assessment carries logger readings —
+    // viewing your uploaded data is decoupled from the per-graph "Include in
+    // report" flag (which now governs only DOCX embedding). Handles the v2
+    // multi-dataset envelope and the legacy v1 single-dataset shape.
+    const hasLoggerData = !!(loggerSd && (
+      (Array.isArray(loggerSd.datasets) && loggerSd.datasets.some(d => Array.isArray(d?.points) && d.points.length > 0)) ||
+      (Array.isArray(loggerSd.points) && loggerSd.points.length > 0)
+    ))
     const detailsFilled = Q_DETAILS.filter(q => mergedData[q.id]).length
     const worstCat = zs?.cats?.reduce((a, b) => ((a.s/a.mx) < (b.s/b.mx) ? a : b)) || null
     const complaintCat = zs?.cats?.find(c => c.l === 'Complaints')
@@ -1651,7 +1658,7 @@ export default function MobileApp() {
           {[...(userMode === 'fm'
             ? [['overview','findings','Findings'],['narrative','notes','Narrative'],['actions','check','Actions'],['readiness','shield','Review']]
             : [['overview','findings','Findings'],['rootcause','chain','Pathways'],['sampling','flask','Sampling'],['narrative','notes','Narrative'],['actions','check','Actions'],['readiness','shield','Review']]),
-            ...(hasLoggerGraphs ? [['logger','chart','Logger']] : [])
+            ...(hasLoggerData ? [['logger','chart','Logger']] : [])
           ].map(([k,ic,l])=>{
             const isActive = rTab===k
             return (

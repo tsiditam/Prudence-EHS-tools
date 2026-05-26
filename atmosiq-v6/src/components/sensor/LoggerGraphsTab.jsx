@@ -3,14 +3,15 @@
  * Copyright (c) 2026 Prudence Safety & Environmental Consulting, LLC
  * All rights reserved.
  *
- * LoggerGraphsTab — read-only results-screen view of the logger timelines
- * the assessor flagged "Include in report" in Logger Studio. The standard
- * per-parameter timelines and the multi-parameter comparison are re-rendered
- * live from the primary dataset (interactive), honouring the same occupancy
- * shading and advisory reference-line toggles as Logger Studio. The
- * cross-dataset overlays (indoor/outdoor differential, zone comparison) are
- * derived in Logger Studio from aligned datasets, so the captured report
- * figure is shown for those rather than re-deriving that pipeline here.
+ * LoggerGraphsTab — results-screen view of the assessment's logger timelines.
+ * Viewing is decoupled from report inclusion: every detected per-parameter
+ * timeline (plus the multi-parameter comparison) is re-rendered live from the
+ * primary dataset, honouring the same occupancy shading and advisory
+ * reference-line toggles as Logger Studio. Charts the assessor flagged
+ * "Include in report" carry an "In report" badge; the flag itself governs only
+ * DOCX embedding. The cross-dataset overlays (indoor/outdoor differential,
+ * zone comparison) are derived in Logger Studio from aligned datasets, so the
+ * captured report figure is shown for those when available.
  *
  * Screening / documentation only — interpretation belongs to a qualified IAQ
  * professional; the timelines never assert a compliance verdict.
@@ -34,7 +35,7 @@ const CARD = 'var(--card)', BORDER = 'var(--border)'
 function EmptyNote() {
   return (
     <GlassCard style={{ textAlign: 'center', padding: '28px 20px' }}>
-      <div style={V3.T.bodyDim}>No logger graphs were included for this report.</div>
+      <div style={V3.T.bodyDim}>No logger readings to display.</div>
     </GlassCard>
   )
 }
@@ -53,25 +54,26 @@ export default function LoggerGraphsTab({ sensorData }) {
 
   const cards = []
 
-  // Standard single-parameter timelines + the multi-parameter comparison are
-  // re-rendered live from the primary dataset.
+  // Every detected single-parameter timeline + the multi-parameter comparison
+  // is re-rendered live from the primary dataset — independent of the report
+  // "Include" flag (which now only drives DOCX embedding).
   if (hasPoints) {
     GRAPH_DEFS
-      .filter((g) => g.needs(ds.params || []) && graphsState[g.id]?.include)
+      .filter((g) => g.needs(ds.params || []))
       .forEach((g) => {
         const Chart = g.Chart
         cards.push({
-          id: g.id, title: g.title, series: g.series, caption: graphsState[g.id]?.caption,
+          id: g.id, title: g.title, series: g.series, caption: graphsState[g.id]?.caption, inReport: !!graphsState[g.id]?.include,
           node: <Chart data={ds.points} hasTs={ds.hasTimestamps} units={ds.units} palette={pal} showRefs={!!refs[g.refKey]} occupancy={occupancy} />,
         })
       })
 
-    if (graphsState.multi?.include) {
-      const params = (graphsState.multi.params && graphsState.multi.params.length)
+    if ((ds.params || []).length >= 2) {
+      const params = (graphsState.multi?.params && graphsState.multi.params.length)
         ? graphsState.multi.params
         : (ds.params || []).slice(0, 3)
       cards.push({
-        id: 'multi', title: 'Multi-Parameter Comparison', series: params.map(paramLabel), caption: graphsState.multi.caption,
+        id: 'multi', title: 'Multi-Parameter Comparison', series: params.map(paramLabel), caption: graphsState.multi?.caption, inReport: !!graphsState.multi?.include,
         node: <MultiParameterChart data={ds.points} params={params} hasTs={ds.hasTimestamps} units={ds.units} palette={pal} occupancy={occupancy} />,
       })
     }
@@ -84,7 +86,7 @@ export default function LoggerGraphsTab({ sensorData }) {
   Object.entries(graphsState).forEach(([id, s]) => {
     if (!s || !s.include || handled.has(id) || !s.imageDataUrl) return
     cards.push({
-      id, title: s.title || 'Logger graph', series: s.series, caption: s.caption,
+      id, title: s.title || 'Logger graph', series: s.series, caption: s.caption, inReport: true,
       node: <img src={s.imageDataUrl} alt={s.title || 'Logger graph'} style={{ width: '100%', height: 'auto', display: 'block', borderRadius: 8 }} />,
     })
   })
@@ -93,10 +95,15 @@ export default function LoggerGraphsTab({ sensorData }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {cards.map(({ id, title, series, caption, node }) => (
+      {cards.map(({ id, title, series, caption, node, inReport }) => (
         <GlassCard key={id} style={{ padding: 0, overflow: 'hidden' }}>
           <div style={{ padding: '16px 18px 8px' }}>
-            <div style={V3.T.bodyStrong}>{title}</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <div style={V3.T.bodyStrong}>{title}</div>
+              {inReport && (
+                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.4px', textTransform: 'uppercase', color: 'var(--accent)', background: 'color-mix(in srgb, var(--accent) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--accent) 24%, transparent)', borderRadius: 6, padding: '2px 7px', flexShrink: 0 }}>In report</span>
+              )}
+            </div>
             <div style={{ ...V3.T.captionDim, marginTop: 2 }}>
               {range}{series && series.length > 1 ? ` · ${series.join(' / ')}` : ''}
             </div>
