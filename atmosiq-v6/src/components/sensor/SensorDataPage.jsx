@@ -651,13 +651,6 @@ export default function SensorDataPage({ value, onChange, onBack, reports = [], 
 
           {mode === 'report' && (
             <>
-              <GlassCard style={{ marginTop: 14 }}>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                  <span style={{ fontSize: 24, fontWeight: 700, color: ACCENT, fontFamily: 'var(--font-mono)' }}>{includedReportCount}</span>
-                  <span style={V3.T.bodyStrong}>of {chartTabs.length} graph{chartTabs.length === 1 ? '' : 's'} in report</span>
-                </div>
-                <div style={{ ...V3.T.captionDim, marginTop: 6, lineHeight: 1.5 }}>Toggle graphs to include. Captions and exports are below.</div>
-              </GlassCard>
               {chartTabs.length === 0 ? emptyCharts : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 14 }}>
                   {chartTabs.map((t) => <div key={t.key}>{renderChartBlock(t, 'report')}</div>)}

@@ -57,9 +57,8 @@ describe('Logger Studio modes', () => {
     expect(screen.queryByText('Readings')).toBeNull()
     expect(screen.queryByText('Export PNG')).toBeNull()
 
-    // Report: curation summary + the chart with caption/export controls.
+    // Report: the chart listed with caption/export controls.
     await tab(/Report/)
-    expect(screen.getByText(/of 1 graph in report/)).toBeTruthy()
     expect(screen.getByText('CO₂ Over Time')).toBeTruthy()
     expect(screen.getByText('Export PNG')).toBeTruthy()
   })
