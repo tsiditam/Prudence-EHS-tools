@@ -1270,9 +1270,23 @@ export default function MobileApp() {
 
 
   // ── Question renderer (shared across quick start, zone, details) ──
-  const renderQuestion = (q, data, setField, qIdx, visQs, goNext, goPrev, onFinish, finishLabel, secs, extraTop) => {
+  const renderQuestion = (q, data, setField, qIdx, visQs, goNext, goPrev, goTo, onFinish, finishLabel, secs, extraTop) => {
     const progress = Math.round(((qIdx + 1) / visQs.length) * 100)
     const secIdx = secs.indexOf(q.sec)
+    // Section chips are tappable jump targets. Backward/current sections
+    // are always reachable so the assessor can return to fix anything;
+    // forward jumps are allowed only once every required question before
+    // the target is answered, so the chips can't be used to skip required
+    // fields ahead of where the walkthrough has actually reached.
+    const answeredReq = (qq) => {
+      if (!qq.req) return true
+      const v = data[qq.id]
+      if (Array.isArray(v)) return v.length > 0
+      if (qq.t === 'ch') return v != null && v !== '' && v !== 'Other'
+      return v != null && v !== ''
+    }
+    const sectionTarget = (s) => visQs.findIndex(qq => qq.sec === s)
+    const canJumpTo = (targetIdx) => targetIdx >= 0 && (targetIdx <= qIdx || visQs.slice(0, targetIdx).every(answeredReq))
     return (
       <div style={{paddingTop:12,paddingBottom:120}}>
         <div style={{marginBottom:20}}>
@@ -1285,7 +1299,18 @@ export default function MobileApp() {
           </div>
         </div>
         <div style={{display:'flex',gap:6,marginBottom:24,flexWrap:'wrap'}}>
-          {secs.map((s,i)=><span key={s} style={{padding:'8px 16px',borderRadius:20,fontSize:12,fontWeight:600,fontFamily:"var(--font-mono)",minHeight:36,display:'inline-flex',alignItems:'center',background:i===secIdx?`${mix('accent', 8)}`:'transparent',color:i===secIdx?ACCENT:i<secIdx?SUB:DIM,border:`1px solid ${i===secIdx?mix('accent', 19):'transparent'}`}}>{s}</span>)}
+          {secs.map((s,i)=>{
+            const targetIdx = sectionTarget(s)
+            const reachable = canJumpTo(targetIdx)
+            const isActive = i===secIdx
+            const tappable = reachable && targetIdx !== qIdx && !!goTo
+            return (
+              <button key={s} type="button" disabled={!reachable}
+                aria-current={isActive?'step':undefined}
+                onClick={()=>{ if(tappable){ haptic('light'); goTo(targetIdx) } }}
+                style={{padding:'8px 16px',borderRadius:20,fontSize:12,fontWeight:600,fontFamily:"var(--font-mono)",minHeight:36,display:'inline-flex',alignItems:'center',background:isActive?`${mix('accent', 8)}`:'transparent',color:isActive?ACCENT:i<secIdx?SUB:DIM,border:`1px solid ${isActive?mix('accent', 19):'transparent'}`,cursor:tappable?'pointer':'default',opacity:reachable?1:0.55,WebkitTapHighlightColor:'transparent'}}>{s}</button>
+            )
+          })}
         </div>
         <div key={q.id+'-'+curZone} style={{animation:'fadeUp .4s cubic-bezier(.22,1,.36,1)'}}>
           <div style={{width:48,height:48,borderRadius:12,background:`${mix('accent', 3)}`,border:`1px solid ${mix('accent', 8)}`,display:'flex',alignItems:'center',justifyContent:'center',marginBottom:16}}>{iconForEmoji(q.ic) ? <I n={iconForEmoji(q.ic)} s={22} c={ACCENT} w={1.6} /> : <span style={{fontSize:22}}>{q.ic}</span>}</div>
@@ -3436,7 +3461,7 @@ export default function MobileApp() {
           )
         })()}
 
-        {view==='quickstart'&&qscq&&renderQuestion(qscq,mergedData,setQSField,qsqi,qsVis,()=>{if(qsqi<qsVis.length-1)setQsqi(qsqi+1)},()=>{if(qsqi>0)setQsqi(qsqi-1)},finishQuickStart,'→ HVAC Equipment',qsSecs)}
+        {view==='quickstart'&&qscq&&renderQuestion(qscq,mergedData,setQSField,qsqi,qsVis,()=>{if(qsqi<qsVis.length-1)setQsqi(qsqi+1)},()=>{if(qsqi>0)setQsqi(qsqi-1)},(i)=>setQsqi(Math.max(0,Math.min(i,qsVis.length-1))),finishQuickStart,'→ HVAC Equipment',qsSecs)}
 
         {view==='equipment'&&<div style={{paddingTop:20,paddingBottom:120,maxWidth:contentMax,margin:'0 auto'}}>
           <div style={{marginBottom:18}}>
@@ -3558,10 +3583,10 @@ export default function MobileApp() {
               </div>
             )
           })()}
-          {renderQuestion(zcq,zData,setZF,zqi,zVis,()=>{if(zqi<zVis.length-1)setZqi(zqi+1)},()=>{if(zqi>0)setZqi(zqi-1)},()=>{setZonePrompt(true)},'Complete Zone ✓',zSecs)}
+          {renderQuestion(zcq,zData,setZF,zqi,zVis,()=>{if(zqi<zVis.length-1)setZqi(zqi+1)},()=>{if(zqi>0)setZqi(zqi-1)},(i)=>setZqi(Math.max(0,Math.min(i,zVis.length-1))),()=>{setZonePrompt(true)},'Complete Zone ✓',zSecs)}
         </div>}
 
-        {view==='details'&&dtcq&&renderQuestion(dtcq,mergedData,setQSField,dqi,dtVis,()=>{if(dqi<dtVis.length-1)setDqi(dqi+1)},()=>{if(dqi>0)setDqi(dqi-1)},finishDetails,'Done ✓',dtSecs,
+        {view==='details'&&dtcq&&renderQuestion(dtcq,mergedData,setQSField,dqi,dtVis,()=>{if(dqi<dtVis.length-1)setDqi(dqi+1)},()=>{if(dqi>0)setDqi(dqi-1)},(i)=>setDqi(Math.max(0,Math.min(i,dtVis.length-1))),finishDetails,'Done ✓',dtSecs,
           dtcq.id==='ps_inst_iaq' && savedInstruments.length>0 ? (
             <button onClick={()=>setInstPickerOpen(true)} style={{width:'100%',padding:'12px 16px',marginBottom:16,background:mix('accent',6),border:`1px solid ${mix('accent',18)}`,borderRadius:14,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:10,fontFamily:'inherit',WebkitTapHighlightColor:'transparent'}}>
               <I n="gear" s={16} c={ACCENT} w={1.8} />
