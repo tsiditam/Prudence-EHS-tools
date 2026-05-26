@@ -40,6 +40,7 @@ export const STANDARDS_MANIFEST = {
   'IICRC S520': '2024',
   'NIOSH Pocket Guide RELs': 'current',
   'EPA NAAQS': '2024',
+  'WELL Building Standard v2': 'Q3 2024 (IAQ features A01/V01 — advisory comfort/ventilation reference, not a regulatory limit)',
   'Molhave TVOC tiers': '1991 (advisory only)',
   'ANSI/ISA 71.04': '2013',
   'ISO 14644-1': '2015',
@@ -71,7 +72,12 @@ export const STD = {
   },
   v: {
     ref: 'ASHRAE 62.1-2025',
-    co2: { base: 420, diff: 700, con: 1000, act: 1500 },
+    // `con` (NIOSH 1000) and `act` (1500) are screening trigger points;
+    // `diff` is the 700 ppm-above-outdoor ventilation surrogate (ASHRAE
+    // 62.1 / Persily 2021 — CO₂ indexes ventilation per occupant, NOT a
+    // health/contaminant limit). `well` is the WELL v2 enhanced-air target
+    // surfaced as a comfort/ventilation reference, not a regulatory limit.
+    co2: { base: 420, diff: 700, con: 1000, act: 1500, well: 800 },
     oa: {
       office:        { pp: 5,   ps: 0.06 },
       classroom:     { pp: 15,  ps: 0.12 },
@@ -92,9 +98,16 @@ export const STD = {
     },
   },
   c: {
-    co:   { osha: 50,   niosh: 35 },
-    hcho: { osha: 0.75, niosh: 0.016, al: 0.5 },
+    // ppm unless noted. `epa` on CO is the EPA NAAQS 8-hour primary
+    // standard (9 ppm). hcho `epaRfc` is the EPA IRIS chronic inhalation
+    // reference concentration (~8 ppb ≈ 0.0098 mg/m³) and `who` is the
+    // WHO 30-minute guideline (0.081 ppm ≈ 0.1 mg/m³, formaldehyde).
+    co:   { osha: 50,   niosh: 35,    epa: 9 },
+    hcho: { osha: 0.75, niosh: 0.016, al: 0.5, epaRfc: 0.008, who: 0.081 },
     pm25: { epa: 35,    who: 15 },
+    // TVOC `con` is 500 µg/m³ — the Mølhave 1991 multifactorial-exposure
+    // advisory tier (≈219 ppb isobutylene-equiv). Advisory only: TVOC has
+    // no consensus health limit; always carry the Mølhave disclaimer.
     tvoc: { con: 500,   act: 3000 },
   },
 }
