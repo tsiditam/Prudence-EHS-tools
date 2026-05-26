@@ -32,6 +32,7 @@ import { isOtherChoice } from '../utils/choiceOther'
 import * as V3 from '../styles/tokens'
 import { GLASS, RADII, RHYTHM, stack as sgStack } from '../styles/soft-glass'
 import GlassCard from './ui/GlassCard'
+import ScrollHintTabs from './ui/ScrollHintTabs'
 import StatusPill from './ui/StatusPill'
 import TactileButton from './ui/TactileButton'
 import BottomSheet from './ui/BottomSheet'
@@ -1644,7 +1645,7 @@ export default function MobileApp() {
             707, 822; visible labels are reconciled with the workflow
             grammar used on Home (Findings / Pathways / Sampling /
             Narrative / Actions / Review). ── */}
-        <div id="result-tabs-anchor" style={{...V3.tabRow, marginBottom:16, scrollMarginTop:80}}>
+        <ScrollHintTabs id="result-tabs-anchor" style={{marginBottom:16}}>
           {[...(userMode === 'fm'
             ? [['overview','findings','Findings'],['narrative','notes','Narrative'],['actions','check','Actions'],['readiness','shield','Review']]
             : [['overview','findings','Findings'],['rootcause','chain','Pathways'],['sampling','flask','Sampling'],['narrative','notes','Narrative'],['actions','check','Actions'],['readiness','shield','Review']]),
@@ -1658,7 +1659,7 @@ export default function MobileApp() {
               </button>
             )
           })}
-        </div>
+        </ScrollHintTabs>
 
         {rTab==='readiness' && (
           <ReadinessPanel
