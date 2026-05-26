@@ -2327,22 +2327,29 @@ export default function MobileApp() {
                     { label: 'Office Building', icon: 'play', onClick: () => runDemo() },
                     { label: 'Data Center',     icon: 'play', onClick: () => runDemo('dc') },
                   ]
+              // Ordered by the assessor's natural flow rather than a flat
+              // ranking: the work you open the app to do first, then the
+              // app/account housekeeping, then the exit. `divider: true`
+              // draws a separator above an item, so it also marks each new
+              // group's first entry.
               const mainItems = [
+                // Work — the tools an assessment runs on.
                 { label: 'Search',       icon: 'search', onClick: () => setView('search') },
-                { label: 'Settings',     icon: 'gear',   onClick: () => setView('settings') },
+                { label: 'Projects',     icon: 'bldg',   onClick: () => setView('projects') },
+                { label: 'Sampling forms', icon: 'flask', onClick: () => setView('sampling-forms') },
+                { label: 'Logger Studio', icon: 'chart', onClick: () => setView('sensor-data') },
+                // App & account — configure, manage, and learn.
+                { label: 'Settings',     icon: 'gear',   onClick: () => setView('settings'), divider: true },
                 { label: themeMode === 'light' ? 'Switch to dark mode' : 'Switch to light mode',
                   icon: themeMode === 'light' ? 'moon' : 'sun',
                   onClick: () => { toggleThemeMode() } },
                 { label: 'Trash',        icon: 'trash',  onClick: () => setView('trash') },
-                { label: 'Sampling forms', icon: 'flask', onClick: () => setView('sampling-forms') },
-                { label: 'Logger Studio', icon: 'chart', onClick: () => setView('sensor-data') },
-                { label: 'Projects',     icon: 'bldg',   onClick: () => setView('projects') },
-                // Single Demos entry — opens the sub-picker instead
-                // of running a demo directly. The "submenu" flag tells
-                // the click handler to stay open + switch mode rather
-                // than close.
+                // Single Demos entry — opens the sub-picker instead of
+                // running a demo directly. The "submenu" flag tells the
+                // click handler to stay open + switch mode rather than close.
                 { label: 'Demos', icon: 'play', submenu: 'demos' },
                 { label: 'Help & Support', icon: 'help', onClick: () => { window.location.href = 'mailto:support@prudenceehs.com?subject=AtmosFlow%20support' } },
+                // Exit.
                 { label: 'Sign out',     icon: 'logout', onClick: handleLogout, divider: true, danger: true },
               ]
               const closeMenu = () => { setShowHomeMenu(false); setHomeMenuMode('main') }
