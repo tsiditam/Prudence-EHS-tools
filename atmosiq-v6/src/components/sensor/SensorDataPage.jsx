@@ -31,6 +31,7 @@ import { splitCsvLine } from '../../utils/labResultsParser'
 import { xlsxToRows } from '../../utils/sensorXlsx'
 import { GRAPH_DEFS, REF_LINE_DEFS, MultiParameterChart, Co2DifferentialChart, MultiZoneChart, LIGHT_PALETTE, DARK_PALETTE, SERIES } from './SensorCharts'
 import { paramReference, exceedance, categoryOf, CATEGORY } from '../../utils/sensorThresholds'
+import { chartStats, chartPrimaryParam } from '../../utils/sensorAnalytics'
 import Sparkline from '../ui/Sparkline'
 import GaugeBar from '../ui/GaugeBar'
 import { calcCfmPerPerson, VENTILATION_CITATION } from '../../utils/ventilation'
@@ -149,6 +150,35 @@ function ThresholdBanner({ items }) {
         ))}
       </div>
     </GlassCard>
+  )
+}
+
+// Factual stat row under an Analysis chart: mean, peak (flagged occupied
+// when occupancy windows exist), % of readings over the screening
+// reference, and the occupied−unoccupied delta. Cells with no input
+// (no reference / no occupancy) are omitted. Numbers only — no judgment.
+function ChartStatRow({ stats, unit, reference }) {
+  if (!stats) return null
+  const cells = [
+    { label: 'Mean', value: fmtAvg(stats.mean), sub: unit },
+    { label: 'Peak', value: fmtAvg(stats.peak), sub: stats.peakOccupied === true ? 'occupied hr' : stats.peakOccupied === false ? 'unoccupied' : unit },
+  ]
+  if (stats.pctOver != null) {
+    cells.push({ label: `% > ${reference?.limitLabel || 'ref'}`, value: `${Math.round(stats.pctOver)}%`, sub: `of n=${stats.n}`, tone: stats.pctOver > 0 ? '#FB923C' : null })
+  }
+  if (stats.deltaOccNoc != null) {
+    cells.push({ label: 'Δ occ−noc', value: `${stats.deltaOccNoc >= 0 ? '+' : ''}${fmtAvg(stats.deltaOccNoc)}`, sub: unit })
+  }
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cells.length}, 1fr)`, gap: 8, padding: '0 18px 12px' }}>
+      {cells.map((c, i) => (
+        <div key={i} style={{ padding: '9px 11px', background: 'var(--surface)', border: `1px solid ${BORDER}`, borderRadius: 10 }}>
+          <div style={{ ...V3.T.micro, color: SUB }}>{c.label}</div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: c.tone || TEXT, fontFamily: 'var(--font-mono)', letterSpacing: '-0.3px', marginTop: 2 }}>{c.value}</div>
+          <div style={{ fontSize: 10, color: DIM, marginTop: 1 }}>{c.sub}</div>
+        </div>
+      ))}
+    </div>
   )
 }
 
@@ -692,6 +722,18 @@ function GraphCard({ def, data, state, onState, chartProps = {}, mode = 'report'
   const { Chart } = def
   const pal = currentPalette()
 
+  // Factual stat row for single-parameter timeline charts. Reuses the
+  // Phase-1 screening reference (for % over) and the occupancy windows.
+  const statParam = chartPrimaryParam(def.id)
+  const statRef = statParam ? paramReference(statParam, { unit: data.units[statParam] || '', ts: data.summary.start }) : null
+  const stats = statParam
+    ? chartStats(
+        data.points.map((p) => p[statParam]),
+        data.points.map((p) => p.t),
+        { occupancyWindows: chartProps.occupancy, limit: statRef ? statRef.limit : null },
+      )
+    : null
+
   // Render the included/exported image from a hidden, fixed-size,
   // LIGHT-palette copy of the chart (so the report image is white-paper
   // ready regardless of the app theme). html2canvas reads computed styles;
@@ -760,6 +802,7 @@ function GraphCard({ def, data, state, onState, chartProps = {}, mode = 'report'
       <div style={{ padding: '4px 8px 12px', background: CARD }}>
         <Chart data={data.points} hasTs={data.hasTimestamps} units={data.units} palette={pal} {...chartProps} />
       </div>
+      {stats && <ChartStatRow stats={stats} unit={data.units[statParam] || ''} reference={statRef} />}
       {mode !== 'analysis' && (
         <div style={{ padding: '0 18px 16px' }}>
           <textarea value={state.caption || ''} onChange={(e) => onState({ caption: e.target.value })} placeholder="Add a caption (optional)"
