@@ -25,7 +25,7 @@ import Select from '../ui/Select'
 import StatTile from '../ui/StatTile'
 import RoleBadge from '../ui/RoleBadge'
 import InlineError from '../ui/InlineError'
-import { parseSensorRows, SENSOR_PARAMS, TVOC_REFERENCES, ppbToUgm3, ugm3ToPpb, HCHO_MW, normalizeSensorData, primaryDataset, alignDatasets, sensorAveragesToFields, detectDatasetRole, SENSOR_DATA_VERSION } from '../../utils/sensorParser'
+import { parseSensorRows, SENSOR_PARAMS, TVOC_REFERENCES, ppbToUgm3, ugm3ToPpb, HCHO_MW, normalizeSensorData, primaryDataset, alignDatasets, sensorAveragesToFields, detectDatasetRole, SENSOR_DATA_VERSION, withDisplayTempUnit } from '../../utils/sensorParser'
 import SendToReportSheet from './SendToReportSheet'
 import { splitCsvLine } from '../../utils/labResultsParser'
 import { xlsxToRows } from '../../utils/sensorXlsx'
@@ -126,7 +126,15 @@ export default function SensorDataPage({ value, onChange, onBack, reports = [], 
   const env = useMemo(() => normalizeSensorData(value), [value])
   const primary = env ? primaryDataset(env) : null
   const datasets = env ? env.datasets : []
-  const data = primary
+  // Temperature display unit. Defaults to the native detected unit; the user
+  // can flip the Overview + charts to the other scale via the toggle. Stored
+  // on the envelope so the choice persists. `data` is a render-time view of
+  // the primary dataset with temperature projected to the chosen unit — the
+  // stored series stays native.
+  const tempNative = (primary && primary.units && primary.units.temp) || null
+  const hasTemp = !!(primary && (primary.params || []).includes('temp'))
+  const tempDisplay = (env && env.tempDisplay) || tempNative || '°F'
+  const data = useMemo(() => withDisplayTempUnit(primary, tempDisplay), [primary, tempDisplay])
   const graphsState = (env && env.graphs) || {}
   // Whether the loaded log yields any zone-fillable averages (gates the
   // "Send averages to a report" action below the Overview averages grid).
@@ -429,7 +437,18 @@ export default function SensorDataPage({ value, onChange, onBack, reports = [], 
             </div>
             {data.summary.stats && data.params.some((p) => data.summary.stats[p]) && (
               <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${BORDER}` }}>
-                <div style={{ ...V3.T.micro, marginBottom: 8 }}>Averages</div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
+                  <div style={V3.T.micro}>Averages</div>
+                  {hasTemp && tempNative && (
+                    <SegmentedControl
+                      ariaLabel="Temperature display unit"
+                      style={{ padding: 3, gap: 2, width: 116, flex: '0 0 auto' }}
+                      value={tempDisplay}
+                      onChange={(u) => onChange({ ...env, tempDisplay: u })}
+                      options={[{ value: '°C', label: '°C' }, { value: '°F', label: '°F' }]}
+                    />
+                  )}
+                </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
                   {data.params.map((p) => {
                     const s = data.summary.stats[p]

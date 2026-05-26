@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { classifyHeader, parseSensorCsv, downsample, detectUnit, normalizeForCompare, sensorAveragesToFields, ppbToUgm3, ugm3ToPpb, HCHO_MW, inferTempUnit, detectDatasetRole } from '../../src/utils/sensorParser'
+import { classifyHeader, parseSensorCsv, downsample, detectUnit, normalizeForCompare, sensorAveragesToFields, ppbToUgm3, ugm3ToPpb, HCHO_MW, inferTempUnit, detectDatasetRole, convertTempValue, withDisplayTempUnit } from '../../src/utils/sensorParser'
 
 describe('Formaldehyde (HCHO) detection', () => {
   it('classifies HCHO / formaldehyde / CH2O headers as the hcho param', () => {
@@ -107,6 +107,36 @@ describe('detectDatasetRole', () => {
   it('returns null when the signal is absent or mixed', () => {
     expect(detectDatasetRole('export.csv', ['Timestamp', 'Temp', 'CO2'])).toBeNull()
     expect(detectDatasetRole('site.xlsx', ['Indoor CO2', 'Outdoor CO2'])).toBeNull()
+  })
+})
+
+describe('temperature display unit conversion', () => {
+  it('convertTempValue converts both ways and is identity on match/null', () => {
+    expect(convertTempValue(20, '°C', '°F')).toBeCloseTo(68, 5)
+    expect(convertTempValue(68, '°F', '°C')).toBeCloseTo(20, 5)
+    expect(convertTempValue(20, '°C', '°C')).toBe(20)
+    expect(convertTempValue(null, '°C', '°F')).toBeNull()
+  })
+
+  it('withDisplayTempUnit projects a Celsius dataset to Fahrenheit (points + stats + unit)', () => {
+    const ds = parseSensorCsv('Timestamp,Temp [degC],CO2 (ppm)\n2026-05-25 08:00,20,420\n2026-05-25 08:10,22,440')
+    expect(ds.units.temp).toBe('°C')
+    const f = withDisplayTempUnit(ds, '°F')
+    expect(f.units.temp).toBe('°F')
+    expect(f.summary.stats.temp.mean).toBeCloseTo(69.8, 1) // 21°C → 69.8°F
+    expect(f.summary.stats.temp.min).toBeCloseTo(68, 1)
+    expect(f.summary.stats.temp.max).toBeCloseTo(71.6, 1)
+    expect(f.points[0].temp).toBeCloseTo(68, 1)
+    // Non-temperature series and units are untouched.
+    expect(f.units.co2).toBe('ppm')
+    expect(f.points[0].co2).toBe(420)
+  })
+
+  it('withDisplayTempUnit is a no-op when the unit already matches or there is no temp column', () => {
+    const ds = parseSensorCsv('Timestamp,Temp (°C)\n2026-05-25 08:00,20\n2026-05-25 08:10,22')
+    expect(withDisplayTempUnit(ds, '°C')).toBe(ds)
+    const noTemp = parseSensorCsv('Timestamp,CO2 (ppm)\n2026-05-25 08:00,420\n2026-05-25 08:10,440')
+    expect(withDisplayTempUnit(noTemp, '°F')).toBe(noTemp)
   })
 })
 

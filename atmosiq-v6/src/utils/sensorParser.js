@@ -95,6 +95,35 @@ export function detectDatasetRole(fileName, headers) {
   return null
 }
 
+// Convert a single temperature value between scales. Identity when the units
+// match or the value is null.
+export function convertTempValue(v, from, to) {
+  if (v == null || from === to) return v
+  if (from === '°C' && to === '°F') return (v * 9) / 5 + 32
+  if (from === '°F' && to === '°C') return ((v - 32) * 5) / 9
+  return v
+}
+
+// Return a display-converted view of a parsed dataset with its temperature
+// series + stats expressed in `targetUnit`. Pure: returns the dataset
+// unchanged when it has no temperature column, the unit already matches, or
+// no target is given. The stored data stays in its native unit — this is a
+// render-time projection only (Logger Studio's °C/°F display toggle).
+export function withDisplayTempUnit(ds, targetUnit) {
+  if (!ds || !targetUnit) return ds
+  const native = ds.units && ds.units.temp
+  if (!native || native === targetUnit || !(ds.params || []).includes('temp')) return ds
+  const conv = (v) => convertTempValue(v, native, targetUnit)
+  const points = Array.isArray(ds.points)
+    ? ds.points.map((p) => (p.temp == null ? p : { ...p, temp: conv(p.temp) }))
+    : ds.points
+  const st = ds.summary && ds.summary.stats && ds.summary.stats.temp
+  const summary = st
+    ? { ...ds.summary, stats: { ...ds.summary.stats, temp: { ...st, mean: conv(st.mean), median: conv(st.median), min: conv(st.min), max: conv(st.max) } } }
+    : ds.summary
+  return { ...ds, points, summary, units: { ...ds.units, temp: targetUnit } }
+}
+
 // Classify a header → { role:'timestamp'|'zone'|'param'|'unknown', param?, unit? }
 export function classifyHeader(header) {
   if (typeof header !== 'string' || !header.trim()) return { role: 'unknown' }
