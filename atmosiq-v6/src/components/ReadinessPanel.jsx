@@ -86,14 +86,34 @@ function Section({ title, count, color, children }) {
   )
 }
 
-function BlockerCard({ text }) {
+// Renders a structured finalization item ({ label, message, location })
+// for both hard blockers (red) and dismissible items (amber). `tone`
+// drives the accent; `text` is a back-compat fallback when only a plain
+// string is available.
+function FinalizationCard({ item, text, tone }) {
+  const label = item?.label
+  const message = item?.message ?? text
+  const location = item?.location
   return (
     <div style={{
-      padding: '11px 14px', background: CARD, border: `1px solid #EF444440`,
-      borderLeft: '3px solid #EF4444', borderRadius: 8, marginBottom: 6,
-      fontSize: 13, lineHeight: 1.5, color: TEXT,
+      padding: '11px 14px', background: CARD, border: `1px solid ${tone}40`,
+      borderLeft: `3px solid ${tone}`, borderRadius: 8, marginBottom: 6,
     }}>
-      {text}
+      {label && (
+        <div style={{ fontSize: 13, fontWeight: 700, color: TEXT, marginBottom: 3 }}>
+          {label}
+        </div>
+      )}
+      <div style={{ fontSize: 13, lineHeight: 1.5, color: label ? SUB : TEXT }}>
+        {message}
+      </div>
+      {location && (
+        <div style={{
+          marginTop: 7, fontSize: 11, color: SUB, fontWeight: 600, lineHeight: 1.4,
+        }}>
+          <span style={{ color: tone }}>→ </span>Fix in: {location}
+        </div>
+      )}
     </div>
   )
 }
@@ -195,8 +215,18 @@ export default function ReadinessPanel({ assessment }) {
       <StatusPill status={verdict.status} summary={verdict.summary} />
 
       <Section title="Finalization blockers" count={verdict.finalization_blockers.length} color="#EF4444">
-        {verdict.finalization_blockers.map((text, i) => (
-          <BlockerCard key={i} text={text} />
+        {(verdict.finalization_blocker_details && verdict.finalization_blocker_details.length > 0
+          ? verdict.finalization_blocker_details.map((item) => (
+              <FinalizationCard key={item.id} item={item} tone="#EF4444" />
+            ))
+          : verdict.finalization_blockers.map((text, i) => (
+              <FinalizationCard key={i} text={text} tone="#EF4444" />
+            )))}
+      </Section>
+
+      <Section title="Recommended before sign-off (dismissible)" count={(verdict.finalization_dismissible || []).length} color="#FB923C">
+        {(verdict.finalization_dismissible || []).map((item) => (
+          <FinalizationCard key={item.id} item={item} tone="#FB923C" />
         ))}
       </Section>
 

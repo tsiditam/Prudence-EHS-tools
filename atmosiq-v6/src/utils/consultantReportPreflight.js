@@ -15,6 +15,7 @@
 
 import { legacyToAssessmentScore, deriveAssessmentMeta } from '../engine/bridge'
 import { evaluateRefusalTriggers } from '../engine/report/pre-assessment-memo'
+import { validateAssessment } from '../engines/validation'
 
 /**
  * Defensibility requirements surfaced before report issuance, paired
@@ -169,9 +170,52 @@ export function buildScoreFromReportData(reportData) {
 const SUPPRESSED_TRIGGERS = new Set(['credential_absence'])
 
 /**
- * Run the engine's refusal triggers and return structured preflight
- * info. `wouldRefuse` is true iff at least one non-suppressed trigger
- * fired.
+ * Map the finalization gate's structured blockers into the same trigger
+ * shape the preflight modal renders. Hard blockers are non-overridable
+ * (must be fixed before issuance); dismissible blockers are overridable
+ * under documented professional judgment. This applies the SAME
+ * client/contact/photo gate the advisory Readiness panel surfaces to the
+ * consultant DOCX path, paired with each field's fix location.
+ *
+ * SCREENING mode is used so the instrument/calibration checks are NOT
+ * duplicated here — the engine's own `calibration_absence` /
+ * `no_measurement` triggers already cover instrumentation.
+ */
+function fieldGateTriggers(reportData) {
+  const gate = validateAssessment({
+    assessmentMode: 'SCREENING',
+    presurvey: reportData.presurvey,
+    building: reportData.building,
+    client: reportData.client || {},
+    zones: reportData.zones,
+    zoneScores: reportData.zoneScores,
+    recs: reportData.recs,
+    photos: reportData.photos,
+    photoOverrides: reportData.photoOverrides,
+    profile: reportData.profile,
+  })
+  const toTrigger = (b, overridable) => ({
+    id: `field_${b.id}`,
+    engineDescription: b.message,
+    label: b.label,
+    description: b.message,
+    fixWhere: b.location ? `To resolve: ${b.location}` : 'Review the assessment data.',
+    overridable,
+    overrideCaveat: overridable
+      ? 'The reviewing IH may proceed under documented professional judgment. The item is recorded in the report\'s review notes.'
+      : 'This requirement must be completed before report issuance.',
+  })
+  return [
+    ...(gate.hardBlockers || []).map(b => toTrigger(b, false)),
+    ...(gate.dismissibleBlockers || []).map(b => toTrigger(b, true)),
+  ]
+}
+
+/**
+ * Run the engine's refusal triggers + the finalization field gate and
+ * return structured preflight info. `wouldRefuse` is true iff at least
+ * one non-suppressed engine trigger fired OR a finalization blocker
+ * (hard or dismissible) is present.
  */
 export function runConsultantPreflight(reportData) {
   const score = buildScoreFromReportData(reportData)
@@ -187,9 +231,11 @@ export function runConsultantPreflight(reportData) {
       ...guidance,
     }
   })
+  const fieldTriggers = fieldGateTriggers(reportData)
+  const allTriggers = [...enriched, ...fieldTriggers]
   return {
-    wouldRefuse: fired.length > 0,
-    triggers: enriched,
+    wouldRefuse: allTriggers.length > 0,
+    triggers: allTriggers,
     score,
   }
 }

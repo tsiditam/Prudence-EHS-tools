@@ -57,9 +57,9 @@ function confidenceCounts(assessment) {
  *   'blocked'  — finalization blockers exist → cannot export until
  *                resolved
  */
-function deriveStatus({ canFinalize, gaps }) {
+function deriveStatus({ canFinalize, gaps, dismissible }) {
   if (!canFinalize) return 'blocked'
-  if (gaps.length > 0) return 'gaps'
+  if (gaps.length > 0 || dismissible.length > 0) return 'gaps'
   return 'ready'
 }
 
@@ -97,14 +97,18 @@ export function buildReadinessVerdict(assessment) {
   const gate = validateAssessment(assessment)
   const gaps = detectDefensibilityGaps(assessment)
   const confidence = confidenceCounts(assessment)
-  const status = deriveStatus({ canFinalize: gate.canFinalize, gaps })
+  const dismissible = gate.dismissibleBlockers || []
+  const status = deriveStatus({ canFinalize: gate.canFinalize, gaps, dismissible })
   const ready = status === 'ready'
 
   let summary
   if (status === 'ready') {
     summary = `Ready for sign-off — ${confidence.high + confidence.medium + confidence.low + confidence.qualitative_only} findings, no blockers.`
   } else if (status === 'gaps') {
-    summary = `${gaps.length} defensibility gap${gaps.length === 1 ? '' : 's'} to resolve or disclose before sign-off.`
+    const parts = []
+    if (gaps.length > 0) parts.push(`${gaps.length} defensibility gap${gaps.length === 1 ? '' : 's'}`)
+    if (dismissible.length > 0) parts.push(`${dismissible.length} dismissible item${dismissible.length === 1 ? '' : 's'}`)
+    summary = `${parts.join(' + ')} to resolve or disclose before sign-off.`
   } else {
     summary = `${gate.blockers.length} blocker${gate.blockers.length === 1 ? '' : 's'} to clear before this report can finalize.`
   }
@@ -115,6 +119,8 @@ export function buildReadinessVerdict(assessment) {
     ready,
     can_finalize: gate.canFinalize,
     finalization_blockers: gate.blockers,
+    finalization_blocker_details: gate.hardBlockers || [],
+    finalization_dismissible: dismissible,
     finalization_warnings: gate.warnings,
     defensibility_gaps: gaps,
     confidence,

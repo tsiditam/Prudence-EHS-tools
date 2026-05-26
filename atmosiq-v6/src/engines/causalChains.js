@@ -26,13 +26,13 @@ export function buildCausalChains(zones, bldg, zoneScores) {
       if (d.sr === 'Yes — clear pattern') ev.push('Symptoms resolve when away from building')
       if (d.cc === 'Yes — this zone') ev.push('Symptom clustering in this zone')
       if ((d.sy||[]).length) ev.push('Reported: ' + d.sy.join(', '))
-      chains.push({ zone: zName, type: 'SBS Pattern — Ventilation Deficiency Hypothesis',
-        rootCause: 'Occupant symptom pattern consistent with sick building syndrome. Under-delivered outdoor air is the most common contributor and should be investigated first.',
+      chains.push({ zone: zName, type: 'Ventilation Deficiency — SBS Indicator Pattern',
+        rootCause: 'Occupant symptom pattern consistent with a sick-building-syndrome indicator profile (screening-level — not a clinical SBS determination). Under-delivered outdoor air is the most common contributor and should be investigated first.',
         evidence: ev, confidence: ev.length >= 3 ? 'Strong' : 'Moderate' })
-      chains.push({ zone: zName, type: 'SBS Pattern — Bioaerosol / Microbial Hypothesis',
+      chains.push({ zone: zName, type: 'Microbial / Bioaerosol — SBS Indicator Pattern',
         rootCause: 'Hidden moisture or microbial amplification cannot be ruled out without moisture mapping and bioaerosol sampling.',
         evidence: [...ev, 'Hypothesis — requires confirmatory investigation'], confidence: 'Possible' })
-      chains.push({ zone: zName, type: 'SBS Pattern — VOC Source Hypothesis',
+      chains.push({ zone: zName, type: 'VOC Source — SBS Indicator Pattern',
         rootCause: 'New materials, cleaning products, or adjacent processes may be contributing VOCs not captured by walkthrough.',
         evidence: [...ev, 'Hypothesis — requires TVOC/speciation sampling'], confidence: 'Possible' })
     }

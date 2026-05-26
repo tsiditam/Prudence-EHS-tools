@@ -175,10 +175,20 @@ When working on report generation, these patterns are non-negotiable:
 - **Location on recommendations.** Every Immediate-priority
   recommendation must populate at least one of: `zone_id`, `system`,
   `surface_or_asset`, `free_text`.
-- **Finalization gate.** Block report finalization on missing client
-  name, missing site contact (name + role), missing occupant
-  denominator for symptomatic zones, missing photos for Critical/High
-  findings, or assessor name matching placeholder patterns.
+- **Finalization gate.** Two tiers in `src/engines/validation.js`.
+  HARD blockers prevent finalization (`canFinalize === false`): missing
+  client name, missing site contact (name + role), missing photos for
+  Critical/High findings, plus instrument registration + calibration.
+  DISMISSIBLE blockers are surfaced with the exact field + fix-location
+  but may be issued under documented IH judgment (logged to the review
+  trail): occupant denominator for symptomatic zones, assessor-name
+  placeholder, requested-by provenance, and findings without
+  recommendations. Client identity autowires from
+  `presurvey.ps_recipient_*`; occupant denominator autowires from the
+  zone's `oc` / `ac` intake fields. The same gate drives both the
+  advisory Readiness panel (`ReadinessPanel.jsx`) and the consultant
+  preflight modal (`consultantReportPreflight.js`). Do not weaken the
+  HARD tier or the calibration checks.
 - **Journal citations must be verified.** Title, journal, volume,
   issue, pages, year — all from primary sources. Flag unverified
   entries with TODO and exclude from generated reports.

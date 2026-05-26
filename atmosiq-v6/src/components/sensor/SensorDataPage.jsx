@@ -25,7 +25,7 @@ import Select from '../ui/Select'
 import StatTile from '../ui/StatTile'
 import RoleBadge from '../ui/RoleBadge'
 import InlineError from '../ui/InlineError'
-import { parseSensorRows, SENSOR_PARAMS, TVOC_REFERENCES, ppbToUgm3, ugm3ToPpb, HCHO_MW, normalizeSensorData, primaryDataset, alignDatasets, sensorAveragesToFields } from '../../utils/sensorParser'
+import { parseSensorRows, SENSOR_PARAMS, TVOC_REFERENCES, ppbToUgm3, ugm3ToPpb, HCHO_MW, normalizeSensorData, primaryDataset, alignDatasets, sensorAveragesToFields, detectDatasetRole, SENSOR_DATA_VERSION, withDisplayTempUnit } from '../../utils/sensorParser'
 import SendToReportSheet from './SendToReportSheet'
 import { splitCsvLine } from '../../utils/labResultsParser'
 import { xlsxToRows } from '../../utils/sensorXlsx'
@@ -126,7 +126,15 @@ export default function SensorDataPage({ value, onChange, onBack, reports = [], 
   const env = useMemo(() => normalizeSensorData(value), [value])
   const primary = env ? primaryDataset(env) : null
   const datasets = env ? env.datasets : []
-  const data = primary
+  // Temperature display unit. Defaults to the native detected unit; the user
+  // can flip the Overview + charts to the other scale via the toggle. Stored
+  // on the envelope so the choice persists. `data` is a render-time view of
+  // the primary dataset with temperature projected to the chosen unit — the
+  // stored series stays native.
+  const tempNative = (primary && primary.units && primary.units.temp) || null
+  const hasTemp = !!(primary && (primary.params || []).includes('temp'))
+  const tempDisplay = (env && env.tempDisplay) || tempNative || '°F'
+  const data = useMemo(() => withDisplayTempUnit(primary, tempDisplay), [primary, tempDisplay])
   const graphsState = (env && env.graphs) || {}
   // Whether the loaded log yields any zone-fillable averages (gates the
   // "Send averages to a report" action below the Overview averages grid).
@@ -174,19 +182,32 @@ export default function SensorDataPage({ value, onChange, onBack, reports = [], 
       const parsed = parseSensorRows(rows, { fileName: file.name })
       if (!parsed) { setError('Could not find a timestamp + parameter columns in that file. Check the export or adjust the mapping.'); setBusy(false); return }
       const target = pendingTarget || { role: 'indoor', label: 'Indoor' }
-      const isPrimary = target.role === 'indoor'
-      if (!env || isPrimary) {
-        // First upload, or replacing the primary indoor dataset. The reveal
-        // animation + re-mapping source rows apply to the primary only.
-        const ds = { id: 'primary', role: 'indoor', label: 'Indoor', ...parsed }
-        const nextDatasets = env ? env.datasets.map((d) => (d.id === (primary?.id || 'primary') ? ds : d)) : [ds]
-        const next = env ? { ...env, datasets: nextDatasets } : normalizeSensorData({ ...parsed, graphs: {} })
+      // The generic uploader lands in the indoor primary slot by default;
+      // honor a clear outdoor/indoor signal from the filename or column
+      // headers instead of silently labeling the data indoor. Explicit
+      // "add outdoor baseline / zone" picks keep the user's chosen role.
+      const detectedRole = detectDatasetRole(parsed.fileName, (parsed.columns || []).map((c) => c.raw))
+      const role = target.role === 'indoor' && detectedRole ? detectedRole : target.role
+      const label = role === 'outdoor' ? 'Outdoor' : role === 'indoor' ? 'Indoor' : ((target.label || '').trim() || 'Zone')
+      if (!env) {
+        // First upload — establish the envelope. This dataset takes the
+        // 'primary' slot (it's the only data) with its detected role + label.
+        const ds = { id: 'primary', role, label, ...parsed }
         setSourceRows(rows)
-        onChange(next)
+        onChange(normalizeSensorData({ version: SENSOR_DATA_VERSION, datasets: [ds], graphs: {} }))
+        startAnalyzing()
+      } else if (role === 'indoor') {
+        // Replacing / setting the primary indoor dataset. The reveal
+        // animation + re-mapping source rows apply to the primary only.
+        const ds = { id: primary?.id || 'primary', role: 'indoor', label: 'Indoor', ...parsed }
+        const nextDatasets = env.datasets.length ? env.datasets.map((d) => (d.id === ds.id ? ds : d)) : [ds]
+        setSourceRows(rows)
+        onChange({ ...env, datasets: nextDatasets })
         startAnalyzing()
       } else {
-        // Additional dataset (outdoor baseline or a named zone).
-        const ds = { id: `ds-${Date.now()}`, role: target.role, label: (target.label || '').trim() || (target.role === 'outdoor' ? 'Outdoor' : 'Zone'), ...parsed }
+        // Additional dataset (outdoor baseline / named zone), including a
+        // detected-outdoor file dropped on the generic uploader.
+        const ds = { id: `ds-${Date.now()}`, role, label, ...parsed }
         onChange({ ...env, datasets: [...env.datasets, ds] })
       }
     } catch (err) {
@@ -199,7 +220,7 @@ export default function SensorDataPage({ value, onChange, onBack, reports = [], 
     if (!sourceRows || !env) return
     const parsed = parseSensorRows(sourceRows, { fileName: primary?.fileName, mapping })
     if (!parsed) return
-    const ds = { id: primary?.id || 'primary', role: 'indoor', label: primary?.label || 'Indoor', ...parsed, mapping }
+    const ds = { id: primary?.id || 'primary', role: primary?.role || 'indoor', label: primary?.label || 'Indoor', ...parsed, mapping }
     onChange({ ...env, datasets: env.datasets.map((d) => (d.id === ds.id ? ds : d)) })
   }
 
@@ -395,7 +416,7 @@ export default function SensorDataPage({ value, onChange, onBack, reports = [], 
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
               <div style={{ minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <RoleBadge role="indoor">Indoor</RoleBadge>
+                  <RoleBadge role={data.role || 'indoor'}>{data.label || 'Indoor'}</RoleBadge>
                   <div style={{ ...V3.T.bodyStrong, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{data.fileName || 'Logger data'}</div>
                 </div>
                 <div style={{ ...V3.T.captionDim, marginTop: 2 }}>{fmtRange(data.summary.start, data.summary.end)}</div>
@@ -416,7 +437,18 @@ export default function SensorDataPage({ value, onChange, onBack, reports = [], 
             </div>
             {data.summary.stats && data.params.some((p) => data.summary.stats[p]) && (
               <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${BORDER}` }}>
-                <div style={{ ...V3.T.micro, marginBottom: 8 }}>Averages</div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
+                  <div style={V3.T.micro}>Averages</div>
+                  {hasTemp && tempNative && (
+                    <SegmentedControl
+                      ariaLabel="Temperature display unit"
+                      style={{ padding: 3, gap: 2, width: 116, flex: '0 0 auto' }}
+                      value={tempDisplay}
+                      onChange={(u) => onChange({ ...env, tempDisplay: u })}
+                      options={[{ value: '°C', label: '°C' }, { value: '°F', label: '°F' }]}
+                    />
+                  )}
+                </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
                   {data.params.map((p) => {
                     const s = data.summary.stats[p]

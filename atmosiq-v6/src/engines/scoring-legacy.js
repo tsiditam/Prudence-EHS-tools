@@ -140,10 +140,12 @@ export function genRecs(zoneScores, bldg, opts = {}) {
         if (r.t.includes('CO ')) pushZone('imm', zs.zoneName, 'Immediately evacuate and investigate combustion source.')
         if (r.t.includes('ormaldehyde')) pushZone('imm', zs.zoneName, 'Implement exposure controls per 29 CFR 1910.1048.')
         // No supply airflow / no filtration are intrinsically building-scoped
-        // (no zone prefix in legacy output) — the HVAC service request is
-        // about the system, not a single zone.
-        if (r.t.includes('No supply airflow')) pushBuilding('imm', 'Request immediate HVAC service to restore airflow.')
-        if (r.t.includes('No filtration') || r.t.includes('no filter')) pushBuilding('imm', 'Request immediate HVAC service — no filtration installed.')
+        // — the HVAC service request is about the system, not a single zone.
+        // We still record the originating zone(s) in affectedZoneNames so the
+        // Immediate action carries its provenance (the dedup phase below
+        // merges these when the same system action surfaces from several zones).
+        if (r.t.includes('No supply airflow')) pushBuilding('imm', 'Request immediate HVAC service to restore airflow.', [zs.zoneName])
+        if (r.t.includes('No filtration') || r.t.includes('no filter')) pushBuilding('imm', 'Request immediate HVAC service — no filtration installed.', [zs.zoneName])
         if (r.t.includes('Drain pan')) trigger('drainpan_immediate', zs.zoneName)
         if (r.t.includes('water') || r.t.includes('leak')) pushZone('imm', zs.zoneName, 'Arrest water intrusion. Assess materials within 48 hours.')
         if (r.t.toLowerCase().includes('occupant') && r.t.includes('symptom')) pushZone('imm', zs.zoneName, 'Document symptom patterns using NIOSH IEQ questionnaire or equivalent structured instrument. Evaluate ventilation immediately.')
@@ -267,16 +269,26 @@ export function genRecs(zoneScores, bldg, opts = {}) {
   if (bldg.hm === 'Unknown') pushBuilding('adm', 'Establish preventive HVAC maintenance schedule.')
   pushBuilding('mon', 'Conduct periodic reassessment to verify corrective action effectiveness.')
 
-  // Dedup within each bucket — key off scope, equipment/zone id, and text
+  // Dedup within each bucket — key off scope, equipment/zone id, and text.
+  // When duplicates collapse (e.g. a building/system action surfaced from
+  // several zones), merge their zone provenance into the kept action so
+  // affectedZoneNames/Ids reflect every originating zone, not just the first.
   const keyOf = (a) => `${a.scope}|${a.equipmentId || a.zoneId || ''}|${a.text}`
+  const mergeZones = (target, src) => {
+    if (Array.isArray(src.affectedZoneNames) && src.affectedZoneNames.length)
+      target.affectedZoneNames = [...new Set([...(target.affectedZoneNames || []), ...src.affectedZoneNames])]
+    if (Array.isArray(src.affectedZoneIds) && src.affectedZoneIds.length)
+      target.affectedZoneIds = [...new Set([...(target.affectedZoneIds || []), ...src.affectedZoneIds])]
+  }
   for (const k of ['imm','eng','adm','mon']) {
-    const seen = new Set()
-    buckets[k] = buckets[k].filter(a => {
+    const byKey = new Map()
+    for (const a of buckets[k]) {
       const key = keyOf(a)
-      if (seen.has(key)) return false
-      seen.add(key)
-      return true
-    })
+      const existing = byKey.get(key)
+      if (existing) mergeZones(existing, a)
+      else byKey.set(key, a)
+    }
+    buckets[k] = [...byKey.values()]
   }
   return buckets
 }
