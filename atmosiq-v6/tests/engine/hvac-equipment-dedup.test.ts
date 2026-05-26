@@ -191,6 +191,21 @@ describe('Engine v2.8.0 — equipment-scoped recommendations', () => {
     if (firstEq !== -1 && lastZone !== -1) expect(lastZone).toBeLessThan(firstEq)
     if (firstBuilding !== -1 && firstEq !== -1) expect(firstEq).toBeLessThan(firstBuilding)
   })
+
+  it('AC#9 building-scoped HVAC-service action records every originating zone in affectedZoneNames', () => {
+    const zoneScores = [
+      { zoneName: 'Zone A', cats: [{ l: 'HVAC', r: [{ t: 'No supply airflow detected', sev: 'critical' }] }] },
+      { zoneName: 'Zone B', cats: [{ l: 'HVAC', r: [{ t: 'No supply airflow detected', sev: 'critical' }] }] },
+    ]
+    const recs = genRecs(zoneScores, {}) as { imm: any[] }
+    const hvac = recs.imm.filter((a: any) => a.text === 'Request immediate HVAC service to restore airflow.')
+    // Multi-zone system action collapses to ONE building-scoped rec…
+    expect(hvac.length).toBe(1)
+    expect(hvac[0].scope).toBe('building')
+    // …but carries the provenance of BOTH originating zones, not just the first.
+    expect(new Set(hvac[0].affectedZoneNames)).toEqual(new Set(['Zone A', 'Zone B']))
+    expect(new Set(hvac[0].affectedZoneIds)).toEqual(new Set(['Zone A', 'Zone B']))
+  })
 })
 
 describe('Engine v2.8.0 — backward-compatible normalization', () => {
