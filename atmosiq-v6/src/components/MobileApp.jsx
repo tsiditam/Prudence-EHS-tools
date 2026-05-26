@@ -96,7 +96,7 @@ import SamplingFormsView from './SamplingFormsView'
 import { useAssessment } from '../contexts/AssessmentContext.jsx'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import { useStorage } from '../contexts/StorageContext.jsx'
-import { useTheme, mix } from '../utils/theme'
+import { mix } from '../utils/theme'
 
 const haptic = (type) => { try { if (navigator.vibrate) navigator.vibrate(type === 'heavy' ? [30,20,30] : type === 'success' ? [10,30,10,30,10] : 12) } catch {} }
 
@@ -365,10 +365,6 @@ export default function MobileApp() {
   // Responsive layout: phone=620, tablet portrait=860, tablet landscape=1080
   const contentMax = isTabletLand ? 1080 : isTablet ? 860 : 620
   const padX = isTablet ? 28 : 20
-
-  // Theme quick-toggle for the kebab menu. Default is dark; this lets
-  // users flip light/dark in one tap without opening Settings.
-  const { mode: themeMode, toggle: toggleThemeMode } = useTheme()
 
   // ── Shared state from context providers ──
   // Auth: profile/credits/admin live in AuthContext so other route components
@@ -2338,11 +2334,9 @@ export default function MobileApp() {
                 { label: 'Projects',     icon: 'bldg',   onClick: () => setView('projects') },
                 { label: 'Sampling forms', icon: 'flask', onClick: () => setView('sampling-forms') },
                 { label: 'Logger Studio', icon: 'chart', onClick: () => setView('sensor-data') },
-                // App & account — configure, manage, and learn.
+                // App & account — configure, manage, and learn. The
+                // light/dark toggle lives in Settings; it isn't duplicated here.
                 { label: 'Settings',     icon: 'gear',   onClick: () => setView('settings'), divider: true },
-                { label: themeMode === 'light' ? 'Switch to dark mode' : 'Switch to light mode',
-                  icon: themeMode === 'light' ? 'moon' : 'sun',
-                  onClick: () => { toggleThemeMode() } },
                 { label: 'Trash',        icon: 'trash',  onClick: () => setView('trash') },
                 // Single Demos entry — opens the sub-picker instead of
                 // running a demo directly. The "submenu" flag tells the
