@@ -33,11 +33,28 @@ function emitSyncStateChange() {
   try { window.dispatchEvent(new CustomEvent(SYNC_EVENT)) } catch { /* SSR / restricted env */ }
 }
 
+// Auth round-trips to Supabase can stall indefinitely on flaky mobile
+// connections, leaving the sign-in / sign-up button spinning forever
+// with no error. Cap each call so the caller always gets a resolvable
+// { error } it can surface. Resolves (not rejects) with the same
+// { data, error } shape the supabase-js auth methods return.
+const AUTH_TIMEOUT_MS = 20000
+function withTimeout(promise, ms, message) {
+  return Promise.race([
+    promise,
+    new Promise((resolve) => setTimeout(() => resolve({ data: null, error: { message } }), ms)),
+  ])
+}
+
 const SupaStorage = {
   // ── Auth ──
   async signUp(email, password) {
     if (!supabase) return { error: { message: 'Not configured' } }
-    const result = await supabase.auth.signUp({ email, password })
+    const result = await withTimeout(
+      supabase.auth.signUp({ email, password }),
+      AUTH_TIMEOUT_MS,
+      'Sign-up timed out. Check your connection and try again.',
+    )
     // Bootstrap a free-tier profile row immediately so the user can
     // try AtmosFlow with 1 credit before any payment step.
     if (result.data && result.data.user && result.data.user.id) {
@@ -67,7 +84,11 @@ const SupaStorage = {
 
   async signIn(email, password) {
     if (!supabase) return { error: { message: 'Not configured' } }
-    const result = await supabase.auth.signInWithPassword({ email, password })
+    const result = await withTimeout(
+      supabase.auth.signInWithPassword({ email, password }),
+      AUTH_TIMEOUT_MS,
+      'Sign-in timed out. Check your connection and try again.',
+    )
     // Cache session locally for offline access
     if (result.data?.session) {
       await STO.set(KEYS.cachedSession, {
