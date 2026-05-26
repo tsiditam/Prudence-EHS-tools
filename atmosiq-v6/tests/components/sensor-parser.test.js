@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { classifyHeader, parseSensorCsv, downsample, detectUnit, normalizeForCompare, sensorAveragesToFields, ppbToUgm3, ugm3ToPpb, HCHO_MW } from '../../src/utils/sensorParser'
+import { classifyHeader, parseSensorCsv, downsample, detectUnit, normalizeForCompare, sensorAveragesToFields, ppbToUgm3, ugm3ToPpb, HCHO_MW, inferTempUnit, detectDatasetRole } from '../../src/utils/sensorParser'
 
 describe('Formaldehyde (HCHO) detection', () => {
   it('classifies HCHO / formaldehyde / CH2O headers as the hcho param', () => {
@@ -68,6 +68,71 @@ describe('detectUnit', () => {
     expect(detectUnit('Temp (°F)', 'temp')).toBe('°F')
     expect(detectUnit('Temperature C', 'temp')).toBe('°C')
     expect(detectUnit('PM2.5 ug/m3', 'pm25')).toBe('µg/m³')
+  })
+
+  it('recognizes degC / degF and bracketed unit tokens', () => {
+    // The real logger export header from the bug report.
+    expect(detectUnit('Indoor Temp [degC]', 'temp')).toBe('°C')
+    expect(detectUnit('Outdoor Temp [degF]', 'temp')).toBe('°F')
+    expect(detectUnit('Temperature (degrees C)', 'temp')).toBe('°C')
+    expect(detectUnit('Temp [C]', 'temp')).toBe('°C')
+    expect(detectUnit('Temp (F)', 'temp')).toBe('°F')
+  })
+
+  it('returns null for an unmarked temperature header (so the value scale can be inferred)', () => {
+    expect(detectUnit('Temperature', 'temp')).toBeNull()
+    expect(detectUnit('Temp', 'temp')).toBeNull()
+  })
+})
+
+describe('inferTempUnit', () => {
+  it('infers Celsius for occupied-space values that would be implausibly cold as °F', () => {
+    expect(inferTempUnit([18, 20, 21, 22])).toBe('°C')
+  })
+  it('infers Fahrenheit for typical room values', () => {
+    expect(inferTempUnit([68, 70, 72, 74])).toBe('°F')
+  })
+  it('defaults to °F when there are no values', () => {
+    expect(inferTempUnit([])).toBe('°F')
+  })
+})
+
+describe('detectDatasetRole', () => {
+  it('detects outdoor from the filename', () => {
+    expect(detectDatasetRole('IAQ_Outdoor_20_Lines.xlsx', ['Timestamp', 'Temp'])).toBe('outdoor')
+  })
+  it('detects indoor from column headers', () => {
+    expect(detectDatasetRole('export.csv', ['Timestamp', 'Indoor Temp [degC]', 'Indoor CO2 [ppm]'])).toBe('indoor')
+  })
+  it('returns null when the signal is absent or mixed', () => {
+    expect(detectDatasetRole('export.csv', ['Timestamp', 'Temp', 'CO2'])).toBeNull()
+    expect(detectDatasetRole('site.xlsx', ['Indoor CO2', 'Outdoor CO2'])).toBeNull()
+  })
+})
+
+describe('temperature unit handling end-to-end (bug report)', () => {
+  it('reads the [degC] header as Celsius and displays Celsius, not Fahrenheit', () => {
+    const r = parseSensorCsv('Timestamp,Indoor Temp [degC],Indoor CO2 [ppm]\n2026-05-25 08:00,21.51,422\n2026-05-25 08:10,21.63,445')
+    expect(r.units.temp).toBe('°C')
+    // No false "implausibly cold °F" flag, because the unit is correctly °C.
+    expect(r.quality.flags.some((f) => /implausibly cold/i.test(f.msg))).toBe(false)
+    // Sending averages to a report still converts °C → °F for the tf field.
+    const { fields, details } = sensorAveragesToFields(r)
+    expect(details.find((d) => d.param === 'temp').note).toBe('°C→°F')
+    expect(Number(fields.tf)).toBeCloseTo((21.57 * 9) / 5 + 32, 0)
+  })
+
+  it('infers Celsius and flags it when the header has no unit', () => {
+    const r = parseSensorCsv('Timestamp,Temp\n2026-05-25 08:00,20\n2026-05-25 08:10,21\n2026-05-25 08:20,22')
+    expect(r.units.temp).toBe('°C')
+    expect(r.quality.flags.some((f) => /inferred °C/i.test(f.msg))).toBe(true)
+  })
+
+  it('questions a °F-labeled series that reads like Celsius', () => {
+    const r = parseSensorCsv('Timestamp,Temp (°F)\n2026-05-25 08:00,20\n2026-05-25 08:10,21\n2026-05-25 08:20,22')
+    expect(r.units.temp).toBe('°F')
+    expect(r.quality.level).toBe('review')
+    expect(r.quality.flags.some((f) => /implausibly cold/i.test(f.msg))).toBe(true)
   })
 })
 

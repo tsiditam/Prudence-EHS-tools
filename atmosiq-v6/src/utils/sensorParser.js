@@ -48,14 +48,50 @@ const TS_FORMATS = [
 export function detectUnit(header, param) {
   const h = header.toLowerCase()
   if (param === 'temp') {
-    if (/°\s*c|\bc\b|celsius/.test(h) && !/°\s*f|fahren/.test(h)) return '°C'
-    return '°F'
+    // Explicit Fahrenheit / Celsius markers, including bracketed forms
+    // ("Temp [degC]", "Temperature (°F)") and the bare "degC" / "degF"
+    // tokens loggers commonly emit. Returns null when no marker is present
+    // so the caller can infer the scale from the values rather than
+    // defaulting to °F (which mis-reads Celsius logs).
+    if (/°\s*f\b|deg(?:rees?)?\.?\s*f\b|fahrenheit|\[f\]|\(f\)|\bf\b/.test(h)) return '°F'
+    if (/°\s*c\b|deg(?:rees?)?\.?\s*c\b|celsius|\[c\]|\(c\)|\bc\b/.test(h)) return '°C'
+    return null
   }
   if (/µg\/m³|ug\/m3|ug\/m\^?3/.test(h)) return 'µg/m³'
   if (/mg\/m³|mg\/m3|mg\/m\^?3/.test(h)) return 'mg/m³'
   if (/\bppm\b/.test(h)) return 'ppm'
   if (/\bppb\b/.test(h)) return 'ppb'
   if (/%/.test(h)) return '%'
+  return null
+}
+
+// Infer the temperature scale from the value distribution when the header
+// carried no explicit unit. Occupied / most-outdoor IAQ temperatures read
+// ~50–100 °F versus ~10–38 °C, so a sub-45 median with no reading above ~50
+// is implausibly cold for °F but normal for °C → Celsius; otherwise °F.
+export function inferTempUnit(values) {
+  const vals = (values || []).filter((v) => v != null)
+  if (!vals.length) return '°F'
+  const med = median(vals)
+  const max = Math.max(...vals)
+  return (med != null && med <= 45 && max <= 50) ? '°C' : '°F'
+}
+
+// Hint phrases that indicate whether a logger export is indoor or outdoor.
+// Read from the filename and column headers (e.g. "IAQ_Outdoor_20.xlsx",
+// "Outdoor CO2 [ppm]"). Returns null when the signal is absent or mixed.
+const OUTDOOR_HINT = /\boutdoor\b|\bambient\b|\bexterior\b|\boutside\b|\boa\b/i
+const INDOOR_HINT = /\bindoor\b|\binterior\b|\binside\b|\breturn\b/i
+export function detectDatasetRole(fileName, headers) {
+  // Normalize separators (underscores, dots, brackets) to spaces so the
+  // \b word-boundary hints match inside names like "IAQ_Outdoor_20.xlsx".
+  const hay = [fileName || '', ...(Array.isArray(headers) ? headers : [])]
+    .join(' ')
+    .replace(/[^a-zA-Z0-9]+/g, ' ')
+  const outdoor = OUTDOOR_HINT.test(hay)
+  const indoor = INDOOR_HINT.test(hay)
+  if (outdoor && !indoor) return 'outdoor'
+  if (indoor && !outdoor) return 'indoor'
   return null
 }
 
@@ -306,8 +342,25 @@ export function parseSensorRows(rows, opts = {}) {
   // Sort by timestamp when we have real ones.
   if (hasTimestamps) rawPoints.sort((a, b) => (a.t ?? 0) - (b.t ?? 0))
 
+  // Temperature unit: prefer an explicit marker (mapping override or header);
+  // otherwise infer from the values rather than defaulting to °F, so a bare
+  // "Temp" column of Celsius readings isn't mis-scaled.
+  let tempInferredCelsius = false
+  const tCol = activeParams.find((c) => c.param === 'temp')
+  if (tCol) {
+    const mapped = opts.mapping && opts.mapping[tCol.i] && opts.mapping[tCol.i].unit
+    const explicit = mapped || detectUnit(headers[tCol.i] || '', 'temp')
+    if (explicit) {
+      units.temp = explicit
+    } else {
+      const inferred = inferTempUnit(rawPoints.map((p) => p.temp))
+      units.temp = inferred
+      tempInferredCelsius = inferred === '°C'
+    }
+  }
+
   const summary = buildSummary(rawPoints, activeParams, hasTimestamps, emptyRows)
-  const quality = assessQuality(rawPoints, activeParams, hasTimestamps, summary)
+  const quality = assessQuality(rawPoints, activeParams, hasTimestamps, summary, units, tempInferredCelsius)
   const points = downsample(rawPoints, maxPoints).map(({ _i, ...rest }) => rest)
 
   return {
@@ -357,9 +410,23 @@ function buildSummary(points, activeParams, hasTimestamps, emptyRows) {
   }
 }
 
-function assessQuality(points, activeParams, hasTimestamps, summary) {
+function assessQuality(points, activeParams, hasTimestamps, summary, units = {}, tempInferredCelsius = false) {
   const flags = []
   if (!hasTimestamps) flags.push({ level: 'uncertain', msg: 'No timestamp column detected — map it or the X-axis uses row order.' })
+
+  // Temperature unit sanity. A °F-labeled series that averages near or below
+  // freezing-comfort is almost certainly Celsius mislabeled as Fahrenheit;
+  // surface it for review rather than silently charting 20 °F for a room.
+  const tempVals = points.map((p) => p.temp).filter((v) => v != null)
+  if (tempVals.length) {
+    const tmed = median(tempVals)
+    if (units.temp === '°F' && tmed != null && tmed <= 45) {
+      flags.push({ level: 'review', msg: `Temperature averages ${Math.round(tmed)} °F — implausibly cold for an occupied space. Verify the unit; these values read like °C.` })
+    }
+  }
+  if (tempInferredCelsius) {
+    flags.push({ level: 'minor', msg: 'Temperature unit not specified in the header — inferred °C from the values (they read like Celsius). Remap the column if this is wrong.' })
+  }
 
   if (hasTimestamps) {
     const ts = points.map((p) => p.t).filter((t) => typeof t === 'number')
