@@ -22,6 +22,7 @@
 import { useMemo } from 'react'
 import { buildReadinessVerdict } from '../engines/readiness-verdict'
 import { I } from './Icons'
+import FeedbackButton from './ui/FeedbackButton'
 
 const CARD = 'var(--card)'
 const SURFACE = 'var(--surface)'
@@ -207,7 +208,7 @@ function humanizeKind(kind) {
   }[kind] || kind
 }
 
-export default function ReadinessPanel({ assessment }) {
+export default function ReadinessPanel({ assessment, onFeedback }) {
   const verdict = useMemo(() => buildReadinessVerdict(assessment || {}), [assessment])
 
   return (
@@ -243,6 +244,12 @@ export default function ReadinessPanel({ assessment }) {
       </Section>
 
       <ConfidenceBar confidence={verdict.confidence} />
+
+      {onFeedback && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
+          <FeedbackButton label="Flag a finding" onClick={onFeedback} />
+        </div>
+      )}
     </div>
   )
 }

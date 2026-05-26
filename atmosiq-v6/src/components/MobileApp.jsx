@@ -33,6 +33,8 @@ import * as V3 from '../styles/tokens'
 import { GLASS, RADII, RHYTHM, stack as sgStack } from '../styles/soft-glass'
 import GlassCard from './ui/GlassCard'
 import ScrollHintTabs from './ui/ScrollHintTabs'
+import FeedbackSheet from './ui/FeedbackSheet'
+import FeedbackButton from './ui/FeedbackButton'
 import StatusPill from './ui/StatusPill'
 import TactileButton from './ui/TactileButton'
 import BottomSheet from './ui/BottomSheet'
@@ -505,6 +507,10 @@ export default function MobileApp() {
   // gear icon in the Home header; Settings is now one entry inside the
   // dropdown.
   const [showHomeMenu, setShowHomeMenu] = useState(false)
+  // Feedback sheet: holds the context string of where it was opened from
+  // (menu, AI narrative, findings…) or null when closed.
+  const [feedbackCtx, setFeedbackCtx] = useState(null)
+  const openFeedback = (ctx) => setFeedbackCtx(ctx || 'General feedback')
   // Ref + cached rect for the hamburger menu's anchoring. When the menu
   // opens, we cache the button's bounding rect so the portal'd menu can
   // position itself with `position: fixed`. Portaling is required
@@ -1665,6 +1671,7 @@ export default function MobileApp() {
               zones, zoneScores, recs, photos,
               profile: profile ? { name: profile.name } : null,
             }}
+            onFeedback={()=>openFeedback('Findings & readiness')}
           />
         )}
 
@@ -2150,7 +2157,10 @@ export default function MobileApp() {
           {narrative&&<div style={{padding:18,background:CARD,border:`1px solid ${BORDER}`,borderRadius:10}}>
             <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',gap:12,marginBottom:12,flexWrap:'wrap'}}>
               <div style={{fontSize:14,fontWeight:600,color:TEXT}}>Findings Narrative</div>
-              <span style={{fontSize:11,color:DIM,fontWeight:500}}>AI-generated · Review required</span>
+              <div style={{display:'flex',alignItems:'center',gap:4}}>
+                <span style={{fontSize:11,color:DIM,fontWeight:500}}>AI-generated · Review required</span>
+                <FeedbackButton label="Flag" onClick={()=>openFeedback('AI narrative')} />
+              </div>
             </div>
             <div style={{fontSize:13,color:SUB,lineHeight:1.8,whiteSpace:'pre-wrap'}}>{narrative}</div>
             <div style={{marginTop:14,padding:'10px 12px',background:`${mix('warn', 3)}`,border:`1px solid ${mix('warn', 9)}`,borderRadius:10}}>
@@ -2342,6 +2352,7 @@ export default function MobileApp() {
                 // running a demo directly. The "submenu" flag tells the
                 // click handler to stay open + switch mode rather than close.
                 { label: 'Demos', icon: 'play', submenu: 'demos' },
+                { label: 'Send feedback', icon: 'flag', onClick: () => openFeedback('Menu') },
                 { label: 'Help & Support', icon: 'help', onClick: () => { window.location.href = 'mailto:support@prudenceehs.com?subject=AtmosFlow%20support' } },
                 // Exit.
                 { label: 'Sign out',     icon: 'logout', onClick: handleLogout, divider: true, danger: true },
@@ -2753,6 +2764,10 @@ export default function MobileApp() {
           </div>
         </BottomSheet>
       )}
+
+      {/* Feedback sheet — opened from the menu (global) or a contextual
+          Flag trigger (AI narrative, findings). v0 sends via mailto. */}
+      <FeedbackSheet open={!!feedbackCtx} context={feedbackCtx} version={VER} onClose={()=>setFeedbackCtx(null)} />
 
       {/* ── Move-to-Trash confirmation — bottom sheet ──────────────
           Outside-tap dismiss now works (the old solid-modal had no
