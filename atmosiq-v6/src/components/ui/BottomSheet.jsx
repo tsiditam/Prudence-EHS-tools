@@ -31,6 +31,7 @@
  */
 
 import { useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { FLOATING_BAR_SHADOW, GLASS, RADII, SPRING } from '../../styles/soft-glass'
 import { BORDER_DEFAULT, TEXT_PRIMARY } from '../../styles/tokens'
 
@@ -61,7 +62,11 @@ export default function BottomSheet({
 
   if (!open) return null
 
-  return (
+  // Portal to <body> so the sheet escapes any ancestor stacking context
+  // (e.g. the app's content wrapper sits at zIndex:1, below the fixed
+  // bottom nav at zIndex:100). Without this the sheet's zIndex:230 is
+  // trapped inside that context and the nav paints over its footer CTA.
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
@@ -132,6 +137,7 @@ export default function BottomSheet({
         `}</style>
       </div>
 
-    </div>
+    </div>,
+    document.body,
   )
 }

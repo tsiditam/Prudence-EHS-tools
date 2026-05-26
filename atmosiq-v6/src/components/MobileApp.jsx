@@ -1396,7 +1396,7 @@ export default function MobileApp() {
             {q.sk&&<button onClick={goNext} style={{padding:'14px 22px',background:'transparent',border:`1.5px solid ${BORDER}`,borderRadius:12,color:SUB,fontSize:15,fontWeight:500,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>Skip</button>}
             {qIdx===visQs.length-1
               ? <button onClick={onFinish} style={{padding:'14px 28px',background:'linear-gradient(135deg,#059669,#22C55E)',border:'none',borderRadius:12,color:'#fff',fontSize:16,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>{finishLabel}</button>
-              : q.t!=='ch' ? <button onClick={goNext} style={{padding:'14px 28px',background:`linear-gradient(135deg,#0891B2,${ACCENT})`,border:'none',borderRadius:12,color:'#fff',fontSize:16,fontWeight:600,cursor:'pointer',fontFamily:'inherit',opacity:(!q.req||data[q.id])?1:.3,minHeight:48}}>Continue →</button> : null}
+              : (q.t!=='ch' || (q.other&&isOtherChoice(q.opts,data[q.id]))) ? <button onClick={goNext} style={{padding:'14px 28px',background:`linear-gradient(135deg,#0891B2,${ACCENT})`,border:'none',borderRadius:12,color:'#fff',fontSize:16,fontWeight:600,cursor:'pointer',fontFamily:'inherit',opacity:(!q.req||(q.t==='ch'?(data[q.id]&&data[q.id]!=='Other'):data[q.id]))?1:.3,minHeight:48}}>Continue →</button> : null}
           </div>
         </div>
       </div>
