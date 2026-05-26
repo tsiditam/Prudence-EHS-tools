@@ -620,7 +620,13 @@ function GraphCard({ def, data, state, onState, chartProps = {}, mode = 'report'
   }, [capture]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleInclude = () => {
-    if (state.include) { onState({ include: false, imageDataUrl: null }); return }
+    if (state.include) { onState({ include: false, imageDataUrl: null }); setCapture(null); setBusy(false); return }
+    // Commit inclusion immediately. The on-screen Logger result tab re-renders
+    // this graph live from the dataset, so inclusion must not wait on the PNG
+    // capture below — that pass only enriches the DOCX figure (best-effort).
+    // Gating inclusion on html2canvas left the flag silently un-committed when
+    // capture failed (e.g. iOS Safari), so no graph reached the Logger tab.
+    onState({ include: true, title: def.title, series: def.series })
     setBusy(true); setCapture('include')
   }
   const exportPng = () => { setBusy(true); setCapture('export') }
