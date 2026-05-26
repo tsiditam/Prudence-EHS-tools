@@ -53,6 +53,7 @@ import { TermsOfService, PrivacyPolicy } from './LegalScreens'
 import AdminDashboard from './AdminDashboard'
 import WelcomeScreen from './WelcomeScreen'
 import SensorDataPage from './sensor/SensorDataPage'
+import LoggerGraphsTab from './sensor/LoggerGraphsTab'
 import SettingsScreen from './SettingsScreen'
 import { printReport, generatePrintHTML } from './PrintReport'
 // v2.6.1 — DocxReport is a static import. Earlier `await import('./DocxReport')`
@@ -1346,6 +1347,10 @@ export default function MobileApp() {
   const renderResults = (archived) => {
     if (!comp || !zoneScores.length) return null
     const zs = zoneScores[selZone]
+    // Logger timelines flagged "Include in report". When viewing a saved
+    // report the dataset rides on viewRpt; live results use current state.
+    const loggerSd = (archived ? viewRpt?.sensorData : sensorData) || null
+    const hasLoggerGraphs = !!(loggerSd?.graphs && Object.values(loggerSd.graphs).some(g => g?.include))
     const detailsFilled = Q_DETAILS.filter(q => mergedData[q.id]).length
     const worstCat = zs?.cats?.reduce((a, b) => ((a.s/a.mx) < (b.s/b.mx) ? a : b)) || null
     const complaintCat = zs?.cats?.find(c => c.l === 'Complaints')
@@ -1579,10 +1584,11 @@ export default function MobileApp() {
             grammar used on Home (Findings / Pathways / Sampling /
             Narrative / Actions / Review). ── */}
         <div id="result-tabs-anchor" style={{...V3.tabRow, marginBottom:16, scrollMarginTop:80}}>
-          {(userMode === 'fm'
+          {[...(userMode === 'fm'
             ? [['overview','findings','Findings'],['narrative','notes','Narrative'],['actions','check','Actions'],['readiness','shield','Review']]
-            : [['overview','findings','Findings'],['rootcause','chain','Pathways'],['sampling','flask','Sampling'],['narrative','notes','Narrative'],['actions','check','Actions'],['readiness','shield','Review']]
-          ).map(([k,ic,l])=>{
+            : [['overview','findings','Findings'],['rootcause','chain','Pathways'],['sampling','flask','Sampling'],['narrative','notes','Narrative'],['actions','check','Actions'],['readiness','shield','Review']]),
+            ...(hasLoggerGraphs ? [['logger','chart','Logger']] : [])
+          ].map(([k,ic,l])=>{
             const isActive = rTab===k
             return (
               <button key={k} onClick={()=>{setRTab(k);haptic('light')}} {...pressFeedback()} style={{...V3.tabItem(isActive), ...pressFeedback.style}}>
@@ -1604,6 +1610,8 @@ export default function MobileApp() {
             onAskCopilot={() => { setFaOpen(true); haptic('light') }}
           />
         )}
+
+        {rTab==='logger' && <LoggerGraphsTab sensorData={loggerSd} />}
 
         {rTab==='overview' && zs && (() => {
           // ── v3 Findings tab — derive panels from existing engine state ──
