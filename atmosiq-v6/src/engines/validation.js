@@ -1,25 +1,39 @@
 /**
  * AtmosFlow Assessment Validation — pre-finalize gate.
- * Blockers prevent report rendering. Priority Actions derived from
- * findings — cannot be empty when findings exist.
+ * Priority Actions derived from findings — cannot be empty when findings
+ * exist.
  *
  * Engine v2.7 Fix 4 — extended evidentiary completeness checks beyond
  * instrument calibration. Reports finalized today with placeholder
  * data ("Not Specified" client, no occupant denominator, no photos
- * for Critical findings) created defensibility liability; the calibration
- * gate proved the pattern works, so we extend it with six more checks:
- *   1. client name populated and non-placeholder
- *   2. site contact name + role both populated (people request reports,
- *      buildings don't)
- *   3. requested_by is a person, not a bare facility name
- *   4. Critical/High findings each have at least one photo, OR an
- *      explicit "photo capture not feasible" override with justification
- *   5. zones with reported occupant symptoms have an occupant denominator
- *   6. assessor name does not match placeholder patterns
+ * for Critical findings) created defensibility liability.
  *
- * The gate returns { canFinalize, blockers, warnings, mode } — callers
- * surface `blockers` as a structured list per severity, NOT as a generic
- * error.
+ * Severity tiers (v2.8): each check is classified `hard` or
+ * `dismissible`.
+ *   • HARD blockers prevent finalization (canFinalize === false):
+ *     instrument registration, calibration, client name, site contact
+ *     name + role, and photo evidence for Critical/High zones. These
+ *     are the load-bearing defensibility + litigation items.
+ *   • DISMISSIBLE blockers are surfaced with the same field/location
+ *     detail but do NOT block finalization — the licensed assessor may
+ *     proceed and the item is logged for the CIH review: requested-by
+ *     provenance, occupant denominator, assessor-name placeholder, and
+ *     findings-without-recommendations completeness.
+ *
+ * Each blocker is a structured object:
+ *   { id, field, label, message, location, severity }
+ * so callers can point the assessor at the exact field and screen
+ * rather than surfacing a generic error.
+ *
+ * Client identity is autowired from `presurvey.ps_recipient_*` (the
+ * fields the intake actually captures, per src/engine/bridge/meta.ts)
+ * when an explicit `client` object is not supplied, so the gate reads
+ * the recipient data the assessor entered instead of an empty object.
+ *
+ * The gate returns:
+ *   { canFinalize, blockers, hardBlockers, dismissibleBlockers,
+ *     warnings, mode }
+ * `blockers` remains a string[] of HARD blocker messages for back-compat.
  */
 
 import { ASSESSMENT_MODES } from './riskBands'
@@ -27,6 +41,21 @@ import { evaluateAllSufficiency } from './sufficiency'
 
 const NOT_SPECIFIED_PATTERNS = /^(not specified|n\/a|na|none|tbd|todo)$/i
 const ASSESSOR_PLACEHOLDER_PATTERNS = /\b(hobo lobo|lorem|ipsum|test user|placeholder|example name|john doe|jane doe)\b/i
+
+// Where the assessor fixes each field. Surfaced verbatim in the
+// Readiness panel and the consultant preflight so "what's missing"
+// always comes with "where to fix it".
+const LOC = {
+  recipientOrg:  'Assessment Details → Client / Recipient → Recipient organization',
+  recipientName: 'Assessment Details → Client / Recipient → Recipient name',
+  recipientRole: 'Assessment Details → Client / Recipient → Recipient title',
+  assessor:      'Pre-Survey → Assessor → Assessor name and credentials',
+  instrument:    'Pre-Survey → Instruments → Primary IAQ meter',
+  calibration:   'Pre-Survey → Instruments → Calibration status',
+  zonePhotos:    (z) => `Zone "${z}" → attach a photo, or mark "photo capture not feasible" with justification`,
+  zoneOccupants: (z) => `Zone "${z}" → occupant counts (affected of total)`,
+  recommendations: 'Results → Actions → priority recommendations',
+}
 
 function isMissingOrPlaceholder(value) {
   if (value == null) return true
@@ -43,11 +72,18 @@ function zoneHasSymptomFindings(zoneScore) {
   ))
 }
 
+function present(v) {
+  return v != null && String(v).trim() !== ''
+}
+
 function zoneHasOccupantDenominator(zone) {
   if (!zone) return false
-  const total = zone.total_count ?? zone.totalOccupants ?? zone.occupant_total
-  const affected = zone.affected_count ?? zone.affectedOccupants ?? zone.occupant_affected
-  return total != null && affected != null
+  // Autowire from the fields zone intake actually captures: `oc`
+  // (occupant count → total) and `ac` (affected range). Falls back to
+  // the explicit denominator fields when supplied directly.
+  const total = zone.total_count ?? zone.totalOccupants ?? zone.occupant_total ?? zone.oc
+  const affected = zone.affected_count ?? zone.affectedOccupants ?? zone.occupant_affected ?? zone.ac
+  return present(total) && present(affected)
 }
 
 function zoneHasPhotos(photos, zoneName) {
@@ -63,8 +99,14 @@ function zoneHasPhotoOverride(overrides, zoneName) {
 }
 
 export function validateAssessment(assessment) {
-  const blockers = []
+  const hardBlockers = []
+  const dismissibleBlockers = []
   const warnings = []
+  const addHard = (id, field, label, message, location) =>
+    hardBlockers.push({ id, field, label, message, location, severity: 'hard' })
+  const addDismissible = (id, field, label, message, location) =>
+    dismissibleBlockers.push({ id, field, label, message, location, severity: 'dismissible' })
+
   const mode = ASSESSMENT_MODES[assessment.assessmentMode] || ASSESSMENT_MODES.FULL_ASSESSMENT
   const zones = assessment.zones || []
   const zoneScores = assessment.zoneScores || []
@@ -75,47 +117,58 @@ export function validateAssessment(assessment) {
   const hasImmediate = (recs.imm || []).length > 0
   const hasEngineering = (recs.eng || []).length > 0
 
-  // Instrument registration
+  // Instrument registration — HARD (calibration gate, CLAUDE.md mandate)
   if (mode.requiresInstruments && !assessment.presurvey?.ps_inst_iaq) {
-    blockers.push('No instrument registered. Required for ' + mode.id + ' mode.')
+    addHard('instrument_missing', 'ps_inst_iaq', 'Instrument not registered',
+      'No instrument registered. Required for ' + mode.id + ' mode.', LOC.instrument)
   }
 
-  // Calibration
+  // Calibration — HARD (calibration gate, CLAUDE.md mandate)
   if (mode.requiresCalibration && assessment.presurvey?.ps_inst_iaq) {
     const calStatus = assessment.presurvey?.ps_inst_iaq_cal_status || ''
     if (!calStatus.includes('within manufacturer') && !calStatus.includes('Calibrated')) {
-      blockers.push('Instrument calibration not confirmed. Required for FULL_ASSESSMENT mode.')
+      addHard('calibration_unconfirmed', 'ps_inst_iaq_cal_status', 'Calibration not confirmed',
+        'Instrument calibration not confirmed. Required for FULL_ASSESSMENT mode.', LOC.calibration)
     }
   }
 
-  // ─── v2.7 Fix 4: evidentiary completeness ──────────────────────────
+  // ─── Evidentiary completeness ───────────────────────────────────────
+  // Client identity autowires from presurvey.ps_recipient_* (the fields
+  // intake captures) when no explicit client object is supplied.
   const client = assessment.client || {}
   const building = assessment.building || {}
+  const presurvey = assessment.presurvey || {}
+  const clientName = client.name || client.organization || building.client_name || presurvey.ps_recipient_organization
+  const contactName = client.contact_name || presurvey.ps_recipient_name
+  const contactRole = client.contact_role || presurvey.ps_recipient_title
+  const requestedBy = client.requested_by || client.requestedBy || presurvey.ps_recipient_name
 
-  // 1. Client name populated and non-placeholder
-  const clientName = client.name || client.organization || building.client_name
+  // Client name — HARD
   if (isMissingOrPlaceholder(clientName)) {
-    blockers.push('Client name is empty or "Not Specified". A real client name is required for report finalization.')
+    addHard('client_name', 'ps_recipient_organization', 'Client name missing',
+      'Client name is empty or "Not Specified". A real client name is required for report finalization.', LOC.recipientOrg)
   }
 
-  // 2. Site contact — both name AND role required
-  if (isMissingOrPlaceholder(client.contact_name)) {
-    blockers.push('Site contact name is missing. Reports are addressed to a person, not a building.')
+  // Site contact name + role — HARD
+  if (isMissingOrPlaceholder(contactName)) {
+    addHard('contact_name', 'ps_recipient_name', 'Site contact name missing',
+      'Site contact name is missing. Reports are addressed to a person, not a building.', LOC.recipientName)
   }
-  if (isMissingOrPlaceholder(client.contact_role)) {
-    blockers.push('Site contact role is missing (e.g. Facility Manager, Building Owner, EHS Director).')
+  if (isMissingOrPlaceholder(contactRole)) {
+    addHard('contact_role', 'ps_recipient_title', 'Site contact role missing',
+      'Site contact role is missing (e.g. Facility Manager, Building Owner, EHS Director).', LOC.recipientRole)
   }
 
-  // 3. Requested-by must be a person, not the facility name itself
-  const requestedBy = client.requested_by || client.requestedBy
+  // Requested-by provenance — DISMISSIBLE
   if (requestedBy != null && requestedBy !== '') {
     const facilityName = building.fn || building.name || ''
     if (facilityName && String(requestedBy).trim() === String(facilityName).trim()) {
-      blockers.push('Requested-by is set to the facility name with no person attached. Buildings do not request reports — capture the requester\'s name.')
+      addDismissible('requested_by_facility', 'ps_recipient_name', 'Requested-by is the facility name',
+        'Requested-by is set to the facility name with no person attached. Buildings do not request reports — capture the requester\'s name.', LOC.recipientName)
     }
   }
 
-  // 4. Critical/High findings need photo evidence (or explicit override)
+  // Critical/High findings need photo evidence (or explicit override) — HARD
   const photos = assessment.photos || {}
   const overrides = assessment.photoOverrides || {}
   const photoBlockedZones = new Set()
@@ -130,24 +183,27 @@ export function validateAssessment(assessment) {
     photoBlockedZones.add(zoneName)
   }
   for (const zoneName of photoBlockedZones) {
-    blockers.push(`Zone "${zoneName}" has Critical or High findings but no photo evidence and no "photo capture not feasible" override with justification.`)
+    addHard(`photo_${zoneName}`, 'photos', 'Critical/High finding without photo',
+      `Zone "${zoneName}" has Critical or High findings but no photo evidence and no "photo capture not feasible" override with justification.`, LOC.zonePhotos(zoneName))
   }
 
-  // 5. Zones with reported occupant symptoms must have an occupant denominator
+  // Occupant denominator for symptomatic zones — DISMISSIBLE
   for (let i = 0; i < zones.length; i++) {
     const zoneScore = zoneScores[i]
     if (!zoneHasSymptomFindings(zoneScore)) continue
     if (zoneHasOccupantDenominator(zones[i])) continue
     const zoneName = zoneScore?.zoneName || zones[i]?.zn || `zone ${i + 1}`
-    blockers.push(`Zone "${zoneName}" reports occupant symptoms but no occupant denominator (affected_count of total_count) was recorded.`)
+    addDismissible(`occupant_denom_${zoneName}`, 'occupant_count', 'Occupant denominator missing',
+      `Zone "${zoneName}" reports occupant symptoms but no occupant denominator (affected_count of total_count) was recorded.`, LOC.zoneOccupants(zoneName))
   }
 
-  // 6. Assessor name must not match placeholder patterns
+  // Assessor name placeholder — DISMISSIBLE
   const assessorName = assessment.presurvey?.ps_assessor || assessment.profile?.name
   if (assessorName && ASSESSOR_PLACEHOLDER_PATTERNS.test(String(assessorName))) {
-    blockers.push(`Assessor name "${assessorName}" matches a placeholder pattern. Replace with the actual licensed professional's name before finalizing.`)
+    addDismissible('assessor_placeholder', 'ps_assessor', 'Assessor name looks like a placeholder',
+      `Assessor name "${assessorName}" matches a placeholder pattern. Replace with the actual licensed professional's name before finalizing.`, LOC.assessor)
   }
-  // ─── end Fix 4 ──────────────────────────────────────────────────────
+  // ─── end evidentiary completeness ───────────────────────────────────
 
   // Sufficiency check per zone — surfaced as warnings, not blockers.
   // Rationale: per-category sufficiency is a confidence signal, not a
@@ -175,12 +231,14 @@ export function validateAssessment(assessment) {
     }
   })
 
-  // Critical findings without recommendations
+  // Findings without recommendations — DISMISSIBLE (completeness signal)
   if (criticalFindings.length > 0 && !hasImmediate) {
-    blockers.push('Critical findings exist but no Immediate priority actions generated.')
+    addDismissible('critical_no_imm', 'recs', 'Critical findings without Immediate actions',
+      'Critical findings exist but no Immediate priority actions generated.', LOC.recommendations)
   }
   if (highFindings.length > 0 && !hasImmediate && !hasEngineering) {
-    blockers.push('High-severity findings exist with no matching Priority Actions.')
+    addDismissible('high_no_recs', 'recs', 'High findings without Priority Actions',
+      'High-severity findings exist with no matching Priority Actions.', LOC.recommendations)
   }
 
   // Confidence warning
@@ -195,8 +253,10 @@ export function validateAssessment(assessment) {
   if (!bldg.fm) warnings.push('Filter type not recorded.')
 
   return {
-    canFinalize: blockers.length === 0,
-    blockers,
+    canFinalize: hardBlockers.length === 0,
+    blockers: hardBlockers.map(b => b.message),
+    hardBlockers,
+    dismissibleBlockers,
     warnings,
     mode: mode.id,
   }
