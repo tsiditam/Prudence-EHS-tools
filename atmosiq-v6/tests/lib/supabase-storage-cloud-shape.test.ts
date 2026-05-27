@@ -9,7 +9,7 @@
  * `!zoneScores.length`, and the report view renders nothing (dead tap).
  */
 import { describe, it, expect } from 'vitest'
-import { fromCloudRow } from '../../src/utils/supabaseStorage.js'
+import { fromCloudRow, toPayload } from '../../src/utils/supabaseStorage.js'
 
 function cloudRow() {
   return {
@@ -82,5 +82,81 @@ describe('fromCloudRow — cloud snake_case → app camelCase', () => {
   it('returns the input unchanged when it is not an object', () => {
     expect(fromCloudRow(null)).toBeNull()
     expect(fromCloudRow(undefined)).toBeUndefined()
+  })
+})
+
+describe('toPayload — app-shape snapshot for the cloud payload column', () => {
+  it('keeps every field except photos (which have their own column)', () => {
+    const assessment = {
+      id: 'A-1', status: 'complete',
+      building: { fn: 'X' }, zones: [{ zn: 'Z' }],
+      equipment: [{ id: 'ahu-1' }], floorPlan: { url: 'fp' },
+      sensorData: { co2: 600 }, labResults: { rows: 2 },
+      standardsManifest: { v: '2026-05' }, ver: '6.0.0',
+      photos: { 'z0-dp': [{ src: 'data:...', ts: 't' }] },
+    }
+    const p = toPayload(assessment)
+    expect(p.equipment).toEqual([{ id: 'ahu-1' }])
+    expect(p.floorPlan).toEqual({ url: 'fp' })
+    expect(p.sensorData).toEqual({ co2: 600 })
+    expect(p.labResults).toEqual({ rows: 2 })
+    expect(p.standardsManifest).toEqual({ v: '2026-05' })
+    expect(p.ver).toBe('6.0.0')
+    expect('photos' in p).toBe(false)
+  })
+})
+
+describe('fromCloudRow — payload preference (lossless restore)', () => {
+  function payloadRow() {
+    return {
+      id: 'A-1',
+      status: 'complete',
+      // Flattened columns are still written, but payload wins:
+      zone_scores: [{ zn: 'stale' }],
+      photos: { 'z0-dp': [{ src: 'data:img', ts: 't' }] },
+      updated_at: '2026-05-27T12:00:00Z',
+      payload: {
+        id: 'A-1', status: 'complete',
+        building: { fn: 'One Lonely Plaza' },
+        zones: [{ zn: 'Zone A' }],
+        zoneScores: [{ zn: 'Zone A', tot: 62 }],
+        comp: { tot: 62, risk: 'MODERATE' },
+        recs: [{ id: 'r1' }],
+        equipment: [{ id: 'ahu-1' }],
+        floorPlan: { url: 'fp' },
+        sensorData: { co2: 600 },
+        labResults: { rows: 2 },
+        standardsManifest: { v: '2026-05' },
+        ver: '6.0.0',
+      },
+    }
+  }
+
+  it('restores the full payload, preserving fields the flat columns drop', () => {
+    const out = fromCloudRow(payloadRow())
+    expect(out.equipment).toEqual([{ id: 'ahu-1' }])
+    expect(out.floorPlan).toEqual({ url: 'fp' })
+    expect(out.sensorData).toEqual({ co2: 600 })
+    expect(out.labResults).toEqual({ rows: 2 })
+    expect(out.standardsManifest).toEqual({ v: '2026-05' })
+    expect(out.ver).toBe('6.0.0')
+    // App-shape fields the report view reads:
+    expect(out.zoneScores).toEqual([{ zn: 'Zone A', tot: 62 }])
+    expect(out.comp).toEqual({ tot: 62, risk: 'MODERATE' })
+  })
+
+  it('overlays the photos column and the row id/status/ts onto the payload', () => {
+    const out = fromCloudRow(payloadRow())
+    expect(out.photos).toEqual({ 'z0-dp': [{ src: 'data:img', ts: 't' }] })
+    expect(out.id).toBe('A-1')
+    expect(out.status).toBe('complete')
+    expect(out.ts).toBe('2026-05-27T12:00:00Z')
+  })
+
+  it('falls back to the snake_case mapping when payload is null (legacy rows)', () => {
+    const legacy = { id: 'L-1', status: 'complete', zone_scores: [{ zn: 'Z' }], composite: { tot: 50 }, payload: null }
+    const out = fromCloudRow(legacy)
+    expect(out.zoneScores).toEqual([{ zn: 'Z' }])
+    expect(out.comp).toEqual({ tot: 50 })
   })
 })

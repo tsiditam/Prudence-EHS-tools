@@ -46,6 +46,15 @@ function withTimeout(promise, ms, message) {
   ])
 }
 
+// Full app-shape snapshot for the cloud `payload` column. Everything except
+// photos, which keep their own column (and their own compaction lifecycle) so
+// the base64 blobs aren't stored twice.
+export function toPayload(assessment) {
+  if (!assessment || typeof assessment !== 'object') return assessment
+  const { photos, ...rest } = assessment // eslint-disable-line no-unused-vars
+  return rest
+}
+
 // The `assessments` cloud table stores report fields in snake_case columns
 // (zone_scores, composite, recommendations, sampling_plan, causal_chains,
 // osha_evals) — saveAssessment flattens to that shape on the way UP. But
@@ -55,10 +64,24 @@ function withTimeout(promise, ms, message) {
 // zoneScores/recs/etc. undefined, so renderResults bails (`!zoneScores.length`)
 // and the report view renders nothing — a tap that looks dead. Map cloud →
 // app shape so a cloud-restored report opens identically to a local one.
-// Only emits keys the cloud actually carries, so spreading it over an
-// existing local copy never clobbers local-only fields (equipment, floorPlan).
 export function fromCloudRow(a) {
   if (!a || typeof a !== 'object') return a
+  // Preferred path (post-014 migration): the full app-shape snapshot lives in
+  // `payload`, so the restore is lossless — equipment, floorPlan, sensorData,
+  // labResults, standardsManifest all survive. Photos live in their own column
+  // (base64 wire form); overlay them onto the payload.
+  if (a.payload && typeof a.payload === 'object' && !Array.isArray(a.payload)) {
+    return {
+      ...a.payload,
+      id: a.id ?? a.payload.id,
+      status: a.status ?? a.payload.status,
+      photos: a.photos ?? a.payload.photos ?? {},
+      ts: a.updated_at ?? a.payload.ts,
+    }
+  }
+  // Legacy row (no payload): map the snake_case columns → camelCase app keys.
+  // Only emits keys the cloud actually carries, so spreading it over an
+  // existing local copy never clobbers local-only fields (equipment, floorPlan).
   const out = {
     id: a.id,
     status: a.status,
@@ -405,7 +428,7 @@ const SupaStorage = {
       try {
         const { data: { user } } = await supabase.auth.getUser()
         if (user) {
-          await supabase.from('assessments').upsert({
+          const row = {
             id: assessment.id,
             user_id: user.id,
             status: assessment.status || 'draft',
@@ -424,7 +447,19 @@ const SupaStorage = {
             narrative: assessment.narrative,
             score: assessment.comp?.tot || assessment.composite?.tot,
             risk: assessment.comp?.risk || assessment.composite?.risk,
-          })
+            // Lossless app-shape snapshot — preserves fields the flattened
+            // columns drop (equipment, floorPlan, sensorData, labResults,
+            // standardsManifest). fromCloudRow prefers this on the way down.
+            payload: toPayload(assessment),
+          }
+          const { error } = await supabase.from('assessments').upsert(row)
+          if (error) {
+            // payload column not migrated yet → retry without it so the core
+            // report still syncs (it restores via the flattened columns).
+            delete row.payload
+            const { error: e2 } = await supabase.from('assessments').upsert(row)
+            if (e2) throw e2
+          }
         }
       } catch {
         await this._queueSync('assessment', assessment)
