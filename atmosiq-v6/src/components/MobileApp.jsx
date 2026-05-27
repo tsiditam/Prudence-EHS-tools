@@ -371,6 +371,49 @@ const EXCLUSIVE_MULTI_OPTS = new Set([
 ])
 const isExclusiveMultiOpt = (o) => EXCLUSIVE_MULTI_OPTS.has(String(o).trim().toLowerCase())
 
+// Per-zone "photo capture not feasible" control. Clears a Critical/High photo
+// blocker with a documented justification when a photo genuinely can't be
+// taken. Writes { reason } into photoOverrides[zoneName], which the
+// readiness/validation engine already honors (src/engines/validation.js).
+function PhotoNotFeasible({ existing, onSave, onClear }) {
+  const [open, setOpen] = useState(false)
+  const [reason, setReason] = useState((existing && existing.reason) || '')
+  const marked = !!(existing && typeof existing.reason === 'string' && existing.reason.trim())
+  const link = { background:'none', border:'none', padding:0, color:'var(--accent)', fontSize:12, fontFamily:'inherit', cursor:'pointer', textDecoration:'underline' }
+  if (marked) {
+    return (
+      <div style={{marginTop:10, fontSize:12, color:'var(--sub)', lineHeight:1.5}}>
+        Photo capture marked <strong>not feasible</strong> — “{existing.reason}”.{' '}
+        <button type="button" onClick={onClear} style={link}>Undo</button>
+      </div>
+    )
+  }
+  if (!open) {
+    return <button type="button" onClick={()=>setOpen(true)} style={{...link, marginTop:10, display:'inline-block'}}>Photo capture not feasible?</button>
+  }
+  return (
+    <div style={{marginTop:10}}>
+      <textarea
+        value={reason}
+        onChange={e=>setReason(e.target.value)}
+        rows={2}
+        placeholder="Why can't a photo be captured for this zone? (required — e.g. tenant denied access, energized equipment)"
+        style={{width:'100%', padding:'12px 14px', background:'var(--card)', border:'1.5px solid var(--border)', borderRadius:12, color:'var(--text)', fontSize:14, fontFamily:'inherit', outline:'none', boxSizing:'border-box', resize:'vertical'}}
+      />
+      <div style={{display:'flex', gap:8, marginTop:8}}>
+        <button type="button" disabled={!reason.trim()} onClick={()=>{ onSave(reason.trim()); setOpen(false) }}
+          style={{padding:'8px 16px', borderRadius:10, border:'none', background: reason.trim()?'var(--accent)':'var(--border)', color:'var(--on-accent)', fontSize:13, fontWeight:600, fontFamily:'inherit', cursor: reason.trim()?'pointer':'not-allowed', minHeight:40}}>
+          Mark not feasible
+        </button>
+        <button type="button" onClick={()=>{ setOpen(false); setReason((existing && existing.reason) || '') }}
+          style={{padding:'8px 16px', borderRadius:10, border:'1px solid var(--border)', background:'transparent', color:'var(--sub)', fontSize:13, fontFamily:'inherit', cursor:'pointer', minHeight:40}}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function MobileApp() {
   const { isTablet, isTabletLand } = useMediaQuery()
   // Responsive layout: phone=620, tablet portrait=860, tablet landscape=1080
@@ -397,6 +440,7 @@ export default function MobileApp() {
     qsqi, setQsqi, dqi, setDqi, zqi, setZqi,
     zones, setZones, curZone, setCurZone,
     photos, setPhotos,
+    photoOverrides, setPhotoOverrides,
     zoneScores, setZoneScores,
     comp, setComp,
     oshaResult, setOshaResult,
@@ -637,14 +681,14 @@ export default function MobileApp() {
     if (!['quickstart','zone','details'].includes(view) || !draftId) return
     if (saveRef.current) clearTimeout(saveRef.current)
     saveRef.current = setTimeout(async () => {
-      const draft = { id:draftId, presurvey, bldg, zones, equipment, photos, floorPlan, sensorData, qsqi, dqi, curZone, zqi, ua:new Date().toISOString(), standardsManifest:STANDARDS_MANIFEST }
+      const draft = { id:draftId, presurvey, bldg, zones, equipment, photos, photoOverrides, floorPlan, sensorData, qsqi, dqi, curZone, zqi, ua:new Date().toISOString(), standardsManifest:STANDARDS_MANIFEST }
       await STO.set(draftId, draft)
       await STO.addDraftToIndex({ id:draftId, facility:bldg.fn||'Untitled', ua:draft.ua })
       await refreshIndex()
       trackEvent('draft_saved', { draft_id: draftId, phase: view, zones: (zones||[]).length })
     }, 1200)
     return () => { if (saveRef.current) clearTimeout(saveRef.current) }
-  }, [presurvey, bldg, zones, equipment, photos, sensorData, qsqi, dqi, curZone, zqi, view, draftId])
+  }, [presurvey, bldg, zones, equipment, photos, photoOverrides, sensorData, qsqi, dqi, curZone, zqi, view, draftId])
 
   // Merge quick start data into both presurvey and bldg depending on field prefix
   const mergedData = useMemo(() => ({ ...presurvey, ...bldg }), [presurvey, bldg])
@@ -847,7 +891,7 @@ export default function MobileApp() {
     const d = await STO.get(id)
     if (!d) return
     trackEvent('draft_resumed', { draft_id: id, facility: d.bldg?.fn || d.building?.fn || '' })
-    setDraftId(d.id); setPresurvey(d.presurvey||{}); setBldg(d.bldg||d.building||{}); setZones(d.zones||[{}]); setEquipment(d.equipment||[]); setPhotos(d.photos||{}); setFloorPlan(d.floorPlan||null); setSensorData(d.sensorData||null)
+    setDraftId(d.id); setPresurvey(d.presurvey||{}); setBldg(d.bldg||d.building||{}); setZones(d.zones||[{}]); setEquipment(d.equipment||[]); setPhotos(d.photos||{}); setPhotoOverrides(d.photoOverrides||{}); setFloorPlan(d.floorPlan||null); setSensorData(d.sensorData||null)
     setQsqi(d.qsqi||0); setDqi(d.dqi||0); setCurZone(d.curZone||0); setZqi(d.zqi||0)
     // Resume at the right phase
     if (!d.bldg?.fn && !d.building?.fn) setView('quickstart')
@@ -1055,7 +1099,7 @@ export default function MobileApp() {
 
   const executeExport = async (format, filteredPhotos, docxType) => {
     const esc = evaluateEscalation({ zones, comp, moldResults }, [], [])
-    const reportData = { building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, escalationTriggers: esc, floorPlan, sensorData, labResults: viewRpt?.labResults || null }
+    const reportData = { building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, escalationTriggers: esc, floorPlan, sensorData, labResults: viewRpt?.labResults || null }
     trackEvent('report_exported', { format: docxType || format, facility: bldg.fn || '', score: comp?.tot, zones: zones.length, has_narrative: !!narrative, photos: Object.values(filteredPhotos).flat().length })
 
     try {
@@ -1107,7 +1151,7 @@ export default function MobileApp() {
       })
       return out
     })()
-    const reportData = { building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, floorPlan, sensorData, labResults: viewRpt?.labResults || null, ts: viewRpt?.ts }
+    const reportData = { building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, floorPlan, sensorData, labResults: viewRpt?.labResults || null, ts: viewRpt?.ts }
     let blob, fileName
     try {
       const built = await getConsultantDocxBlob(reportData)
@@ -1185,7 +1229,7 @@ export default function MobileApp() {
     if (!rpt) return
     trackEvent('report_viewed', { report_id: meta.id, facility: meta.facility || '', score: meta.score })
     setViewRpt(rpt); setPresurvey(rpt.presurvey||{}); setBldg(rpt.building||rpt.bldg||{}); setZones(rpt.zones||[]); setEquipment(rpt.equipment||[])
-    setPhotos(rpt.photos||{}); setFloorPlan(rpt.floorPlan||null); setZoneScores(rpt.zoneScores||[]); setComp(rpt.comp||rpt.composite)
+    setPhotos(rpt.photos||{}); setPhotoOverrides(rpt.photoOverrides||{}); setFloorPlan(rpt.floorPlan||null); setZoneScores(rpt.zoneScores||[]); setComp(rpt.comp||rpt.composite)
     setOshaResult(rpt.oshaEvals?.[0]||rpt.osha||null); setRecs(rpt.recs||null)
     setSamplingPlan(rpt.samplingPlan||null); setCausalChains(rpt.causalChains||[])
     setSelZone(0); setRTab('overview'); setNarrative(rpt.narrative||null); setView('report')
@@ -1390,6 +1434,11 @@ export default function MobileApp() {
             })}
             onRemove={i=>setPhotos(prev=>({...prev,[`z${curZone}-${q.id}`]:(prev[`z${curZone}-${q.id}`]||[]).filter((_,j)=>j!==i)}))}
           />}
+          {q.photo&&(zones[curZone]?.zn)&&<PhotoNotFeasible
+            existing={photoOverrides[zones[curZone].zn]}
+            onSave={reason=>setPhotoOverrides(prev=>({...prev,[zones[curZone].zn]:{reason}}))}
+            onClear={()=>setPhotoOverrides(prev=>{const n={...prev};delete n[zones[curZone].zn];return n})}
+          />}
         </div>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:32}}>
           <button onClick={goPrev} disabled={qIdx===0} style={{background:'none',border:'none',color:qIdx===0?DIM:SUB,fontSize:16,fontWeight:500,cursor:qIdx===0?'default':'pointer',fontFamily:'inherit',padding:'12px 16px',minHeight:48,minWidth:48}}>← Back</button>
@@ -1444,6 +1493,18 @@ export default function MobileApp() {
     }
     const di = dtVis.findIndex(q => q.id === blocker.field)
     setDqi(di >= 0 ? di : 0); setView('details')
+  }
+
+  // From the read-only saved-report view, a blocker tap first resumes the
+  // assessment as an editable draft (so edits autosave to the same record),
+  // then jumps to the exact field. No-op target falls through to fixBlocker.
+  const resumeAndFix = async (blocker) => {
+    const id = viewRpt?.id
+    if (id) {
+      await resumeDraft(id)
+      setViewRpt(null)
+    }
+    fixBlocker(blocker)
   }
 
   // ── Results renderer ──
@@ -1736,11 +1797,11 @@ export default function MobileApp() {
             assessment={{
               assessmentMode: 'SCREENING',
               presurvey, building: bldg, client: bldg && bldg.client ? bldg.client : {},
-              zones, zoneScores, recs, photos,
+              zones, zoneScores, recs, photos, photoOverrides,
               profile: profile ? { name: profile.name } : null,
             }}
             onFeedback={()=>openFeedback('Findings & readiness')}
-            onFix={archived ? undefined : fixBlocker}
+            onFix={archived ? (viewRpt?.id ? resumeAndFix : undefined) : fixBlocker}
           />
         )}
 
