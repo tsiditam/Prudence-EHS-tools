@@ -175,20 +175,26 @@ When working on report generation, these patterns are non-negotiable:
 - **Location on recommendations.** Every Immediate-priority
   recommendation must populate at least one of: `zone_id`, `system`,
   `surface_or_asset`, `free_text`.
-- **Finalization gate.** Two tiers in `src/engines/validation.js`.
-  HARD blockers prevent finalization (`canFinalize === false`): missing
-  client name, missing site contact (name + role), missing photos for
-  Critical/High findings, plus instrument registration + calibration.
-  DISMISSIBLE blockers are surfaced with the exact field + fix-location
-  but may be issued under documented IH judgment (logged to the review
-  trail): occupant denominator for symptomatic zones, assessor-name
-  placeholder, requested-by provenance, and findings without
-  recommendations. Client identity autowires from
-  `presurvey.ps_recipient_*`; occupant denominator autowires from the
-  zone's `oc` / `ac` intake fields. The same gate drives both the
-  advisory Readiness panel (`ReadinessPanel.jsx`) and the consultant
-  preflight modal (`consultantReportPreflight.js`). Do not weaken the
-  HARD tier or the calibration checks.
+- **Finalization gate (advisory only).** `src/engines/validation.js`
+  produces a two-tier blocker list — HARD (missing client name, missing
+  site contact name + role, missing photos for Critical/High findings)
+  and DISMISSIBLE (occupant denominator for symptomatic zones,
+  assessor-name placeholder, requested-by provenance, findings without
+  recommendations) — each with the exact field + fix-location. Client
+  identity autowires from `presurvey.ps_recipient_*`; occupant
+  denominator autowires from the zone's `oc` / `ac` intake fields.
+  **As of 2026-05-27 this gate is advisory — it does NOT block report
+  issuance.** It drives the informational Readiness panel
+  (`ReadinessPanel.jsx`, SCREENING mode), whose blocker cards are
+  tap-to-fix (they navigate to the exact field). The consultant
+  report-issuance preflight modal (`consultantReportPreflight.js`) was
+  **removed** by product decision: a credentialed assessor owns
+  defensibility, so AtmosFlow surfaces gaps but never hard-blocks the
+  deliverable. Do not re-introduce a hard issuance block (or restore the
+  preflight modal) without explicit product sign-off. Note: the engine
+  may still emit a Pre-Assessment Memo instead of a full consultant
+  report when it has no measurements — that is the engine's own behavior
+  and a deliverable, not a finalization gate.
 - **Journal citations must be verified.** Title, journal, volume,
   issue, pages, year — all from primary sources. Flag unverified
   entries with TODO and exclude from generated reports.
