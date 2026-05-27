@@ -137,7 +137,10 @@ export default function VoiceCommandModal({ open, onCancel, onSubmit }) {
   // color, interim suffix in DIM italic so they read the "not yet
   // committed" boundary.
   const hasText = (finalText.trim() + interim.trim()).length > 0
-  const showError = !supported || !online || (error && error !== 'no-speech')
+  // Only surface a failure when we genuinely captured nothing. A transient
+  // recognizer error (e.g. network/aborted) that still yielded a transcript
+  // must NOT read as "failed" — the user clearly got their words in.
+  const showError = !hasText && (!supported || !online || (error && error !== 'no-speech'))
 
   return (
     <div
@@ -169,7 +172,7 @@ export default function VoiceCommandModal({ open, onCancel, onSubmit }) {
           fontSize: 11, color: 'var(--sub)', textTransform: 'uppercase',
           letterSpacing: '1px', fontWeight: 700,
         }}>
-          Ask Jasper
+          Voice command
         </div>
         <button
           type="button"
@@ -238,15 +241,15 @@ export default function VoiceCommandModal({ open, onCancel, onSubmit }) {
       }}>
         {showError ? (
           !online
-            ? 'Voice commands need network. Reconnect to ask Jasper.'
+            ? 'Voice commands need network. Reconnect and try again.'
             : !supported
               ? 'Voice commands are not supported in this browser.'
               : error === 'not-allowed'
                 ? 'Microphone permission denied. Enable it in browser settings.'
                 : 'Voice input failed — try again.'
         ) : listening ? (
-          hasText ? 'Pause when done — I\'ll send to Jasper automatically.' : 'Listening… speak your question.'
-        ) : 'Tap the mic to retry.'}
+          hasText ? 'Pause when done — I\'ll send automatically.' : 'Listening… speak your question.'
+        ) : hasText ? 'Ready — tap Send, or the mic to add more.' : 'Tap the mic to retry.'}
       </div>
 
       {/* Live transcript */}
@@ -280,7 +283,7 @@ export default function VoiceCommandModal({ open, onCancel, onSubmit }) {
         )}
       </div>
 
-      {/* Action row — Cancel + Send to Jasper */}
+      {/* Action row — Cancel + Send */}
       <div style={{
         marginTop: 24, display: 'flex', gap: 12,
         width: '100%', maxWidth: 560,
@@ -313,7 +316,7 @@ export default function VoiceCommandModal({ open, onCancel, onSubmit }) {
             WebkitTapHighlightColor: 'transparent',
             transition: 'background 0.15s',
           }}>
-          {hasText ? 'Send to Jasper' : 'Speak to send'}
+          {hasText ? 'Send' : 'Speak to send'}
         </button>
       </div>
 
