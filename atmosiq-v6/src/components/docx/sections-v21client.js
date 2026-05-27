@@ -18,6 +18,10 @@ import { base64ToUint8Array } from './images'
 import { buildResurveySchedule } from './sections-resurvey'
 import { sectionHeading2 } from './headings'
 import { assembleSupplementalSections, mergeSupplementalTocEntries } from './sections-supplemental'
+import {
+  BENCHMARK_TABLE_HEADERS, BENCHMARK_ROWS, BENCHMARK_INTRO, BENCHMARK_FOOTNOTE,
+  DISCLAIMER_PARAGRAPHS, CONCLUSIONS_CLOSING, certificationStatement, FIRM_NAME,
+} from './canonical-content'
 
 // v2.2 visual palette — slate/blue per consultant-report design
 // guidance. PRIMARY (slate-900) for headings + dark text. ACCENT
@@ -1134,6 +1138,125 @@ function buildFooter(report) {
   return []
 }
 
+// ── Phase 2 — canonical additive sections (DOCX layer) ──
+// These render report-spec sections the engine ClientReport does not
+// produce, sourced from data already on the ClientReport. Static prose
+// + the benchmark table data live in canonical-content.js so they can
+// be unit-tested against the banned-language linter.
+
+function longDateFromMs(ms) {
+  const d = new Date(ms || Date.now())
+  if (isNaN(d.getTime())) return ''
+  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+}
+
+// Document Control — front-matter table (after the transmittal, before
+// the Table of Contents). Not itself a TOC entry.
+export function buildDocumentControl(report) {
+  const meta = report.meta || {}
+  const sig = report.signatoryBlock || {}
+  const reportId = `RPT-${Number(report.generatedAt || Date.now()).toString(36).toUpperCase()}`
+  const status = REVIEW_STATUS_LABEL[report.reviewStatus] || 'Draft — Pending Professional Review'
+  const preparedBy = sig.preparedBy
+    ? `${sig.preparedBy.name}${sig.preparedBy.credentials ? `, ${sig.preparedBy.credentials}` : ''}`
+    : (meta.preparingAssessor?.fullName || '—')
+  const reviewedBy = sig.reviewedBy
+    ? `${sig.reviewedBy.name}${sig.reviewedBy.credentials ? `, ${sig.reviewedBy.credentials}` : ''}`
+    : (meta.reviewingProfessional?.fullName || 'Pending professional review')
+  const assessmentDate = formatLongDate(meta.assessmentDate) || report.cover?.date || '—'
+  const rows = [
+    ['Report ID', reportId],
+    ['Report version', '1.0'],
+    ['Status', status],
+    ['Assessment date', assessmentDate],
+    ['Report date', longDateFromMs(report.generatedAt)],
+    ['Project number', meta.projectNumber || report.transmittalLetter?.projectNumber || '—'],
+    ['Prepared by', preparedBy],
+    ['Reviewed by', reviewedBy],
+    ['Platform / engine version', report.engineVersion || '—'],
+    ['Distribution', 'CONFIDENTIAL — For client use only'],
+  ]
+  const w1 = Math.floor(TOTAL_WIDTH_DXA * 0.32)
+  return [
+    ...heading2('Document Control'),
+    buildSimpleTable(['Item', 'Detail'], rows, { columnWidths: [w1, TOTAL_WIDTH_DXA - w1] }),
+    p('', { after: 120 }),
+  ]
+}
+
+// Standards, Guidelines, and Benchmark Types — hardcoded per
+// docs/report-spec §4; always rendered in full.
+export function buildBenchmarksSection() {
+  return [
+    ...heading2('Standards, Guidelines, and Benchmark Types'),
+    p(BENCHMARK_INTRO, { size: 20, color: COLORS.sub }),
+    buildSimpleTable(BENCHMARK_TABLE_HEADERS, BENCHMARK_ROWS),
+    p(BENCHMARK_FOOTNOTE, { italics: true, size: 18, color: COLORS.muted }),
+  ]
+}
+
+// Conclusions — synthesized from already-validated ClientReport prose
+// (overall professional opinion + grouped findings) plus a clean
+// screening-level closing. Always rendered.
+export function buildConclusions(report) {
+  const es = report.executiveSummary || {}
+  const out = [...heading2('Conclusions')]
+  if (es.overallProfessionalOpinionLanguage) out.push(p(es.overallProfessionalOpinionLanguage))
+  const groups = es.findingsByGroup || []
+  if (groups.length > 0) {
+    for (const g of groups) {
+      const first = g.observations && g.observations[0] && g.observations[0].statement
+      if (first) out.push(bullet(`${g.groupName}: ${first}`))
+    }
+  } else {
+    for (const o of (es.observations || []).slice(0, 6)) out.push(bullet(o))
+  }
+  out.push(p(CONCLUSIONS_CLOSING, { size: 20, color: COLORS.sub }))
+  return out
+}
+
+// Disclaimer — standalone, distinct from the Limitations section.
+export function buildDisclaimer() {
+  const out = [...heading2('Disclaimer')]
+  for (const para of DISCLAIMER_PARAGRAPHS) out.push(p(para, { size: 20, color: COLORS.sub }))
+  return out
+}
+
+// Certification — formal statement; signature lines render in the
+// Signatory block that follows.
+export function buildCertification(report) {
+  const meta = report.meta || {}
+  const sig = report.signatoryBlock || {}
+  const paras = certificationStatement({
+    assessor: sig.preparedBy?.name || meta.preparingAssessor?.fullName || '',
+    assessorCreds: sig.preparedBy?.credentials || (meta.preparingAssessor?.credentials || []).join(', '),
+    reviewer: sig.reviewedBy?.name || meta.reviewingProfessional?.fullName || '',
+    reviewerCreds: sig.reviewedBy?.credentials || (meta.reviewingProfessional?.credentials || []).join(', '),
+    firm: sig.preparedBy?.firm || meta.issuingFirm?.name || FIRM_NAME,
+    reviewStatus: report.reviewStatus,
+  })
+  const out = [...heading2('Certification')]
+  for (const para of paras) out.push(p(para))
+  return out
+}
+
+// Insert a TOC entry relative to an existing entry by title regex.
+// Falls back to appending when no anchor matches.
+function spliceTocEntry(entries, newEntry, { after, before } = {}) {
+  const arr = [...entries]
+  if (after) {
+    let idx = -1
+    for (let i = 0; i < arr.length; i++) if (after.test(arr[i].title || '')) idx = i
+    if (idx >= 0) { arr.splice(idx + 1, 0, newEntry); return arr }
+  }
+  if (before) {
+    const idx = arr.findIndex(e => before.test(e.title || ''))
+    if (idx >= 0) { arr.splice(idx, 0, newEntry); return arr }
+  }
+  arr.push(newEntry)
+  return arr
+}
+
 // ── Public ──
 
 /**
@@ -1156,15 +1279,24 @@ export function buildClientDocx(result, options = {}) {
   // See sections-supplemental.js. No-op when options.supplemental is absent.
   const engineTocEntries = report.tableOfContents?.entries || []
   const supp = assembleSupplementalSections(options.supplemental, { headingFn: sectionHeading2, engineTocEntries })
-  const tocEntries = mergeSupplementalTocEntries(engineTocEntries, supp)
+  let tocEntries = mergeSupplementalTocEntries(engineTocEntries, supp)
+  // Phase 2 — splice the canonical additive sections into the TOC at
+  // their rendered positions (Document Control is front-matter and
+  // intentionally not listed).
+  tocEntries = spliceTocEntry(tocEntries, { anchorId: 'benchmarks', title: 'Standards, Guidelines, and Benchmark Types', level: 1 }, { after: /Sampling Methodology/i })
+  tocEntries = spliceTocEntry(tocEntries, { anchorId: 'conclusions', title: 'Conclusions', level: 1 }, { before: /Recommendations Register/i })
+  tocEntries = spliceTocEntry(tocEntries, { anchorId: 'disclaimer', title: 'Disclaimer', level: 1 }, { after: /Limitations and Professional Judgment/i })
+  tocEntries = spliceTocEntry(tocEntries, { anchorId: 'certification', title: 'Certification', level: 1 }, { before: /^Appendix / })
 
   const main = [
     ...buildTransmittal(report),
+    ...buildDocumentControl(report),
     ...buildTableOfContents(report, tocEntries),
     ...buildMethodologyDisclosure(report),
     ...buildExecutiveSummary(report),
     ...buildScope(report),
     ...buildSamplingMethodologyDocx(report),
+    ...buildBenchmarksSection(),
     ...buildResultsSection(report),
     ...buildBuildingContext(report),
     ...buildBuildingConditionsSection(report),
@@ -1175,6 +1307,9 @@ export function buildClientDocx(result, options = {}) {
     // corresponding engine pass produced no output.
     ...buildPotentialContributingFactors(report),
     ...buildRecommendedSamplingPlan(report),
+    // Conclusions sit after the findings/discussion and before the
+    // Recommendations Register, mirroring the canonical report flow.
+    ...buildConclusions(report),
     ...buildRecommendationsRegister(report),
     // Re-survey schedule — sits between the Recommendations Register
     // and Limitations so the reader knows when to expect the next
@@ -1186,10 +1321,14 @@ export function buildClientDocx(result, options = {}) {
       assessmentDate: report.cover?.date,
     }),
     ...buildLimitations(report),
+    // Disclaimer — standalone legal block, distinct from Limitations.
+    ...buildDisclaimer(),
     // Standards Currency (and any future body-level supplemental section)
     // sits after Limitations/Professional Judgment and before the Signatory
     // + appendices, matching its TOC position.
     ...supp.bodyChildren,
+    // Certification statement precedes the signature block.
+    ...buildCertification(report),
     ...buildSignatory(report),
     ...buildAppendices(report, { photos: options.photos }),
     // Lab results (Appendix G) + sensor graphs (Appendix H) — lettered
