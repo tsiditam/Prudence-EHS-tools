@@ -24,11 +24,8 @@
  * mass rather than a state change.
  */
 
-import { forwardRef } from 'react'
-import { motion, useReducedMotion } from 'motion/react'
-import { SPRING, tapResetStyle } from '../../styles/soft-glass'
+import { SPRING, tapResetStyle, tapTransition } from '../../styles/soft-glass'
 import { R, TEXT_PRIMARY, TEXT_SECONDARY } from '../../styles/tokens'
-import { tapFeelProps } from '../../styles/spring-motion'
 
 // Lightweight haptic firing — duration pattern matches MobileApp.jsx's
 // local haptic() helper so taps across the app feel consistent. Wrapped
@@ -80,11 +77,7 @@ const VARIANT = {
   },
 }
 
-// Same as soft-glass `tapTransition` but WITHOUT `transform` — Motion now
-// owns the scale animation, so a CSS transition on transform would fight it.
-const TRANSITION_NO_TRANSFORM = `opacity ${SPRING.durFast} ${SPRING.gentle}, background ${SPRING.durMed} ${SPRING.settle}, border-color ${SPRING.durMed} ${SPRING.settle}, box-shadow ${SPRING.durMed} ${SPRING.settle}`
-
-const TactileButton = forwardRef(function TactileButton({
+export default function TactileButton({
   variant = 'secondary',
   size = 'md',
   // Pill shape — fully-rounded ends (R.pill) instead of the default
@@ -106,8 +99,7 @@ const TactileButton = forwardRef(function TactileButton({
   style,
   children,
   ...rest
-}, ref) {
-  const reduced = useReducedMotion()
+}) {
   const v = VARIANT[variant] || VARIANT.secondary
   const padY = size === 'lg' ? 16 : size === 'sm' ? 10 : 14
   const padX = size === 'lg' ? 22 : size === 'sm' ? 14 : 18
@@ -128,7 +120,7 @@ const TactileButton = forwardRef(function TactileButton({
     fontFamily: 'inherit',
     minHeight: minH,
     opacity: disabled ? 0.5 : 1,
-    transition: TRANSITION_NO_TRANSFORM,
+    transition: tapTransition,
     width: fullWidth ? '100%' : undefined,
     color: TEXT_PRIMARY,
     ...v,
@@ -143,30 +135,25 @@ const TactileButton = forwardRef(function TactileButton({
     ? null
     : (haptic || (variant === 'ghost' ? null : 'light'))
 
-  // Motion owns the press/hover scale now (whileTap/whileHover + spring).
-  // We keep only the click + the existing per-variant haptic on pointerdown.
   const handlers = disabled
     ? {}
     : {
         onClick,
-        onPointerDown: () => fireHaptic(hapticKind),
+        onPointerDown: (e) => {
+          e.currentTarget.style.transform = 'scale(0.97)'
+          e.currentTarget.style.transition = `transform ${SPRING.durFast} ${SPRING.gentle}`
+          fireHaptic(hapticKind)
+        },
+        onPointerUp:    (e) => { e.currentTarget.style.transform = 'scale(1)' },
+        onPointerLeave: (e) => { e.currentTarget.style.transform = 'scale(1)' },
+        onPointerCancel:(e) => { e.currentTarget.style.transform = 'scale(1)' },
       }
 
   return (
-    <motion.button
-      ref={ref}
-      type={type}
-      disabled={disabled}
-      style={composed}
-      {...(disabled ? {} : tapFeelProps(reduced))}
-      {...handlers}
-      {...rest}
-    >
+    <button type={type} disabled={disabled} style={composed} {...handlers} {...rest}>
       {icon}
       <span>{children}</span>
       {iconRight}
-    </motion.button>
+    </button>
   )
-})
-
-export default TactileButton
+}
