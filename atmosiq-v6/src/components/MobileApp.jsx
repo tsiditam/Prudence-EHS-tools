@@ -718,7 +718,15 @@ export default function MobileApp() {
     if (!['quickstart','zone','details'].includes(view) || !draftId) return
     if (saveRef.current) clearTimeout(saveRef.current)
     saveRef.current = setTimeout(async () => {
-      const draft = { id:draftId, presurvey, bldg, zones, equipment, photos, photoOverrides, floorPlan, sensorData, qsqi, dqi, curZone, zqi, ua:new Date().toISOString(), standardsManifest:STANDARDS_MANIFEST }
+      // Merge over the existing stored body. When a finalized report is
+      // resumed for editing (resumeAndFix sets draftId === the report's rpt
+      // id), the prior body carries comp/zoneScores/recs/etc.; a plain
+      // draft-shape write would drop them and leave the report unopenable.
+      // Preserving them keeps the report renderable while it's edited, and a
+      // re-finalize recomputes them. Fresh drafts have none, so this is a
+      // no-op for them.
+      const prev = (await STO.get(draftId)) || {}
+      const draft = { ...prev, id:draftId, presurvey, bldg, zones, equipment, photos, photoOverrides, floorPlan, sensorData, qsqi, dqi, curZone, zqi, ua:new Date().toISOString(), standardsManifest:STANDARDS_MANIFEST }
       await STO.set(draftId, draft)
       await STO.addDraftToIndex({ id:draftId, facility:bldg.fn||'Untitled', ua:draft.ua })
       await refreshIndex()
@@ -1261,14 +1269,23 @@ export default function MobileApp() {
     setView('project-detail')
   }
 
+  // A finalized report needs a composite + at least one zone score to render.
+  // A local body missing them is unusable for the report view (e.g. it was
+  // overwritten by a draft-shape autosave, or never fully persisted).
+  const isRenderableReport = (r) => !!(r && (r.comp || r.composite) && Array.isArray(r.zoneScores) && r.zoneScores.length > 0)
+
   const openReport = async (meta) => {
-    // Read the saved body from localStorage; if it isn't there (e.g. a quota
-    // write silently failed, or this device never had it), fall back to the
-    // cloud copy. Never let the tap die silently — surface what happened.
+    // Read the local body first; if it isn't renderable as a finalized report
+    // (missing/corrupt), pull the complete copy from the cloud and heal local.
+    // Never let the tap die silently — surface what happened.
     let rpt = null
     try {
-      rpt = await STO.get(meta.id)
-      if (!rpt && supabase) rpt = await Storage.getAssessment(meta.id)
+      const local = await STO.get(meta.id)
+      rpt = local
+      if (!isRenderableReport(rpt) && supabase) {
+        const remote = await Storage.getRemoteAssessment(meta.id)
+        if (isRenderableReport(remote) || (!rpt && remote)) rpt = remote
+      }
     } catch (e) {
       try { Sentry.captureException(e, { extra: { where: 'openReport.fetch', id: meta?.id } }) } catch { /* noop */ }
     }

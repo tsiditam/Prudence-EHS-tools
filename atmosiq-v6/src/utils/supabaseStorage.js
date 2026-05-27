@@ -398,6 +398,24 @@ const SupaStorage = {
     return null
   },
 
+  // Always fetch from the cloud, bypassing the local-first short-circuit, and
+  // heal the local copy with the result. getAssessment returns the local copy
+  // whenever one exists — but the local copy can be stale or corrupt (e.g. a
+  // finalized report whose localStorage entry was overwritten by a draft-shape
+  // autosave). When the in-app report view needs the authoritative finalized
+  // record, use this to re-pull the complete cloud copy and repair local.
+  async getRemoteAssessment(id) {
+    if (!isOnline()) return null
+    try {
+      const { data } = await supabase.from('assessments').select('*').eq('id', id).single()
+      if (!data) return null
+      const norm = fromCloudRow(data)
+      const compacted = await compactPhotos(norm.photos || {}, id)
+      await STO.set(id, { ...norm, photos: compacted.photos })
+      return { ...norm }
+    } catch { return null }
+  },
+
   async saveAssessment(assessment) {
     // Compact photos before localStorage write — inline base64 blobs
     // get offloaded to IndexedDB so localStorage doesn't hit its
