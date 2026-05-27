@@ -2586,7 +2586,6 @@ export default function MobileApp() {
           { label:'Map zones on floor plan',  icon:'bldg',     onClick:()=>setView('spatial') },
           { label:'Discrepancies Check',      icon:'findings', onClick:()=>{ setReviewError(null); setReviewChooserOpen(true) } },
           { label:'Ask AtmosFlow AI',         icon:'mic',      onClick:()=>{ supabase && trackEvent('jasper_open',{source:'report_actions'}); setVoiceCmdOpen(true) } },
-          { label:'Search',                   icon:'search',   onClick:()=>setView('search') },
         ] : [
           { label:'Search',             icon:'search', onClick:()=>setView('search') },
           { label:'Ask AtmosFlow AI', icon:'mic',    onClick:()=>{ supabase && trackEvent('jasper_open',{source:'header_actions'}); setVoiceCmdOpen(true) } },
