@@ -2284,24 +2284,11 @@ export default function MobileApp() {
               )
             })}
           </div>)})}
-          {/* Floating action bar — tactile soft-glass buttons with
-              scale-down tap feedback. Word is the primary export
-              affordance now that PDF has been retired; Share and Map
-              Zones round out the result-screen action surface. */}
-          <div style={sgStack('tight')}>
-            <div style={{display:'flex',gap:10,marginTop:8}}>
-              <TactileButton variant="secondary" fullWidth size="lg" onClick={()=>setDocxPicker(true)} icon={<I n="notes" s={16} c={ACCENT} />}>Word</TactileButton>
-              <TactileButton variant="ghost" fullWidth size="lg" onClick={handleShare} icon={<I n="send" s={16} c={SUB} />}>Share</TactileButton>
-            </div>
-            <TactileButton variant="secondary" fullWidth size="lg" onClick={()=>setView('spatial')} icon={<I n="bldg" s={16} c={ACCENT} />}>Map Zones on Floor Plan</TactileButton>
-            <TactileButton variant="ghost" fullWidth size="lg" onClick={()=>{setReviewError(null);setReviewChooserOpen(true)}} icon={<I n="search" s={16} c={SUB} />}>Review for discrepancies</TactileButton>
-            <TactileButton variant="secondary" fullWidth size="lg" onClick={()=>setView('sensor-data')} icon={<I n="chart" s={16} c={ACCENT} />}>Logger Studio{sensorData?.graphs && Object.values(sensorData.graphs).some(g=>g?.include)?' ✓':''}</TactileButton>
-          </div>
-          {/* Removed redundant "Start Assessment" CTA — the user viewing
-              this screen is already inside an assessment; starting a new
-              one is handled from Home or the Reports tab header. The
-              Continue Assessment button at the top of the hero is the
-              right affordance for picking up where they left off. */}
+          {/* The result-screen action bar (Word · Share · Map Zones ·
+              Review for discrepancies · Logger Studio) was retired from
+              this tab. Those actions now live in the header ⋯ menu so
+              the Actions tab stays focused on the recommendations
+              themselves; Logger Studio remains in the bottom nav. */}
         </div>}
         </div>
       </div>
@@ -2594,10 +2581,12 @@ export default function MobileApp() {
         const onResults = view==='results' || view==='report'
         const close = () => setActionsOpen(false)
         const items = onResults ? [
-          { label:'Search',                 icon:'search', onClick:()=>setView('search') },
-          { label:'Ask AtmosFlow AI',     icon:'mic',    onClick:()=>{ supabase && trackEvent('jasper_open',{source:'report_actions'}); setVoiceCmdOpen(true) } },
-          { label:'Map zones on floor plan', icon:'bldg',   onClick:()=>setView('spatial') },
-          { label:'Share',                   icon:'send',   onClick:()=>handleShare() },
+          { label:'Export Word doc',          icon:'notes',    onClick:()=>setDocxPicker(true) },
+          { label:'Share',                    icon:'send',     onClick:()=>handleShare() },
+          { label:'Map zones on floor plan',  icon:'bldg',     onClick:()=>setView('spatial') },
+          { label:'Discrepancies Check',      icon:'findings', onClick:()=>{ setReviewError(null); setReviewChooserOpen(true) } },
+          { label:'Ask AtmosFlow AI',         icon:'mic',      onClick:()=>{ supabase && trackEvent('jasper_open',{source:'report_actions'}); setVoiceCmdOpen(true) } },
+          { label:'Search',                   icon:'search',   onClick:()=>setView('search') },
         ] : [
           { label:'Search',             icon:'search', onClick:()=>setView('search') },
           { label:'Ask AtmosFlow AI', icon:'mic',    onClick:()=>{ supabase && trackEvent('jasper_open',{source:'header_actions'}); setVoiceCmdOpen(true) } },
@@ -2951,10 +2940,10 @@ export default function MobileApp() {
 
       {reviewChooserOpen && (
         <BottomSheet
-          title="Review for discrepancies"
+          title="Discrepancies Check"
           onClose={()=>setReviewChooserOpen(false)}
           maxWidth={420}
-          ariaLabel="Review report for discrepancies"
+          ariaLabel="Discrepancies check on the report"
         >
           <div style={{...V3.T.bodyDim, lineHeight:1.6, margin:'4px 0 16px'}}>
             AtmosFlow AI scans for internal inconsistencies — narrative vs data,
