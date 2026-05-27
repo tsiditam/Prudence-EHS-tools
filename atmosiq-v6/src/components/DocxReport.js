@@ -13,7 +13,7 @@
  */
 
 import { Document, Packer, Paragraph, TextRun, AlignmentType, HeadingLevel } from 'docx'
-import { BODY_SECTION_PROPERTIES } from './docx/page-setup'
+import { BODY_SECTION_PROPERTIES, LETTER_BODY_PAGE } from './docx/page-setup'
 import { DOCX_STYLES } from './docx/styles'
 import { buildCoverPage } from './docx/sections-core'
 import { buildSamplingPlan, buildRecommendations } from './docx/sections-recommendations'
@@ -279,7 +279,9 @@ async function buildConsultantDocument(ctx, data) {
       {
         // v2.5.1 — explicit Letter portrait + 1-inch margins so the
         // body fills the 6.5-inch content area on US Letter paper.
-        properties: BODY_SECTION_PROPERTIES,
+        // Restart page numbering at 1 for the body so the cover (its own
+        // section) is not counted in the "Page X of Y" footer.
+        properties: { ...BODY_SECTION_PROPERTIES, page: { ...LETTER_BODY_PAGE, pageNumbers: { start: 1 } } },
         children: main,
         ...bodyAttachments,
       },

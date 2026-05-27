@@ -11,6 +11,7 @@ import { describe, it, expect } from 'vitest'
 import { Document, Packer, SectionType } from 'docx'
 import JSZip from 'jszip'
 import { reportSectionAttachments } from '../../src/components/docx/report-chrome.js'
+import { BODY_SECTION_PROPERTIES, LETTER_BODY_PAGE } from '../../src/components/docx/page-setup.js'
 import { DOCX_STYLES } from '../../src/components/docx/styles.js'
 
 async function packWithChrome(opts: { firm?: string; projectNumber?: string; clientName?: string }) {
@@ -46,9 +47,10 @@ describe('Phase 3 — report chrome', () => {
     const { footer } = await packWithChrome({ clientName: 'Acme Property Group' })
     expect(footer).toContain('CONFIDENTIAL — Prepared for Acme Property Group')
     expect(footer).toContain('Page ')
-    // Live Word field codes, not baked-in numbers.
+    // Live Word field codes, not baked-in numbers. SECTIONPAGES (not
+    // NUMPAGES) so the cover section is excluded from the total.
     expect(footer).toContain('PAGE')
-    expect(footer).toContain('NUMPAGES')
+    expect(footer).toContain('SECTIONPAGES')
   })
 
   it('falls back to a generic confidential line when no client is provided', async () => {
@@ -60,5 +62,24 @@ describe('Phase 3 — report chrome', () => {
     const { header } = await packWithChrome({ firm: 'PSEC' })
     expect(header).toContain('PSEC')
     expect(header).not.toContain('Project No.')
+  })
+
+  it('body section restarts page numbering at 1 (cover excluded)', async () => {
+    // Mirrors the consultant body-section properties in DocxReport.js.
+    const doc = new Document({
+      creator: 'AtmosFlow', title: 'Test', styles: DOCX_STYLES,
+      sections: [
+        { properties: { type: SectionType.NEXT_PAGE }, children: [] },
+        {
+          properties: { ...BODY_SECTION_PROPERTIES, page: { ...LETTER_BODY_PAGE, pageNumbers: { start: 1 } } },
+          children: [],
+          ...reportSectionAttachments({ clientName: 'Acme' }),
+        },
+      ],
+    })
+    const buf = await Packer.toBuffer(doc)
+    const zip = await JSZip.loadAsync(buf)
+    const xml = await zip.file('word/document.xml')!.async('string')
+    expect(xml).toContain('w:start="1"')
   })
 })

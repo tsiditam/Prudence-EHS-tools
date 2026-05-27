@@ -52,7 +52,9 @@ export function buildReportFooter({ clientName } = {}) {
         new TextRun({ text: left, font: FONTS.body, size: CHROME_SIZE, color: CHROME_GRAY }),
         new TextRun({ text: '\t', font: FONTS.body, size: CHROME_SIZE }),
         new TextRun({
-          children: ['Page ', PageNumber.CURRENT, ' of ', PageNumber.TOTAL_PAGES],
+          // Section-relative total so the cover (its own section) is not
+          // counted; the body restarts at page 1 (see DocxReport.js).
+          children: ['Page ', PageNumber.CURRENT, ' of ', PageNumber.TOTAL_PAGES_IN_SECTION],
           font: FONTS.body, size: CHROME_SIZE, color: CHROME_GRAY,
         }),
       ],

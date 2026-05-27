@@ -1212,10 +1212,15 @@ export function buildInstrumentAccuracyNote(info) {
 // Standards, Guidelines, and Benchmark Types — hardcoded per
 // docs/report-spec §4; always rendered in full.
 export function buildBenchmarksSection() {
+  // Proportional widths (sum = content width): Parameter / Benchmark /
+  // Source / Type / Purpose. Keeps the Purpose column from cramping.
+  const W = TOTAL_WIDTH_DXA
+  const w = [Math.round(W * 0.17), Math.round(W * 0.22), Math.round(W * 0.16), Math.round(W * 0.19)]
+  w.push(W - w[0] - w[1] - w[2] - w[3])
   return [
     ...heading2('Standards, Guidelines, and Benchmark Types'),
     p(BENCHMARK_INTRO, { size: 20, color: COLORS.sub }),
-    buildSimpleTable(BENCHMARK_TABLE_HEADERS, BENCHMARK_ROWS),
+    buildSimpleTable(BENCHMARK_TABLE_HEADERS, BENCHMARK_ROWS, { columnWidths: w }),
     p(BENCHMARK_FOOTNOTE, { italics: true, size: 18, color: COLORS.muted }),
   ]
 }
