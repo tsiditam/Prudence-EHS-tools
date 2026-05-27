@@ -1508,6 +1508,25 @@ export default function MobileApp() {
         <div style={{marginBottom:18}}>
           <div style={{...V3.T.h1, fontSize:30, lineHeight:'36px', marginBottom:4, overflow:'hidden', textOverflow:'ellipsis'}}>{bldg.fn||'Assessment'}</div>
           {bldg.fl && <div style={{...V3.T.h1Sub}}>{bldg.fl}</div>}
+          {/* Senior-design metadata row: semantic status dot + counts.
+              The report is persisted on this view, so the dot reads
+              "Saved" (green); saving/offline color states arrive with
+              the Phase-2 collapsing-nav work. */}
+          {(() => {
+            const zonesCount = (zoneScores||[]).length
+            const findingsCount = (zoneScores||[]).reduce((n,z)=>n+(z.cats||[]).reduce((m,c)=>m+(c.r||[]).filter(r=>r.sev==='critical'||r.sev==='high'||r.sev==='medium'||r.sev==='low').length,0),0)
+            return (
+              <div style={{display:'flex',alignItems:'center',gap:9,marginTop:12,fontSize:13,color:SUB,flexWrap:'wrap',fontFamily:'var(--font-mono)'}}>
+                <span style={{display:'inline-flex',alignItems:'center',gap:6,color:V3.STATUS.ready,fontWeight:600}}>
+                  <span style={{width:7,height:7,borderRadius:'50%',background:V3.STATUS.ready,flexShrink:0}} />Saved
+                </span>
+                <span style={{color:DIM}}>·</span>
+                <span>{findingsCount} finding{findingsCount===1?'':'s'}</span>
+                <span style={{color:DIM}}>·</span>
+                <span>{zonesCount} zone{zonesCount===1?'':'s'}</span>
+              </div>
+            )
+          })()}
         </div>
 
         {/* ── Legacy / Standards Badge ── */}
