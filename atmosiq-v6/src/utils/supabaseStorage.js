@@ -46,6 +46,40 @@ function withTimeout(promise, ms, message) {
   ])
 }
 
+// The `assessments` cloud table stores report fields in snake_case columns
+// (zone_scores, composite, recommendations, sampling_plan, causal_chains,
+// osha_evals) — saveAssessment flattens to that shape on the way UP. But
+// every in-app consumer (openReport, renderResults, DOCX export) reads the
+// camelCase shape that the LOCAL copy is saved in. Without mapping back on
+// the way DOWN, a report restored from the cloud comes back with
+// zoneScores/recs/etc. undefined, so renderResults bails (`!zoneScores.length`)
+// and the report view renders nothing — a tap that looks dead. Map cloud →
+// app shape so a cloud-restored report opens identically to a local one.
+// Only emits keys the cloud actually carries, so spreading it over an
+// existing local copy never clobbers local-only fields (equipment, floorPlan).
+export function fromCloudRow(a) {
+  if (!a || typeof a !== 'object') return a
+  const out = {
+    id: a.id,
+    status: a.status,
+    presurvey: a.presurvey || {},
+    building: a.building || {},
+    zones: a.zones || [],
+    photos: a.photos || {},
+    narrative: a.narrative ?? null,
+    zoneScores: a.zone_scores ?? a.zoneScores ?? [],
+    oshaEvals: a.osha_evals ?? a.oshaEvals ?? null,
+    recs: a.recommendations ?? a.recs ?? null,
+    samplingPlan: a.sampling_plan ?? a.samplingPlan ?? null,
+    causalChains: a.causal_chains ?? a.causalChains ?? [],
+  }
+  const composite = a.composite ?? a.comp ?? null
+  out.comp = composite
+  out.composite = composite
+  if (a.updated_at) out.ts = a.updated_at
+  return out
+}
+
 const SupaStorage = {
   // ── Auth ──
   async signUp(email, password) {
@@ -328,12 +362,13 @@ const SupaStorage = {
       try {
         const { data } = await supabase.from('assessments').select('*').eq('id', id).single()
         if (data) {
-          // Compact incoming cloud photos before localStorage write to
-          // escape the quota cap; the wire format is preserved (cloud
-          // still holds base64).
-          const compacted = await compactPhotos(data.photos || {}, id)
-          await STO.set(id, { ...data, photos: compacted.photos })
-          return data
+          // Normalize snake_case cloud columns → camelCase app shape, then
+          // compact the inline cloud photos before the localStorage write to
+          // escape the quota cap (cloud still holds the base64 wire format).
+          const norm = fromCloudRow(data)
+          const compacted = await compactPhotos(norm.photos || {}, id)
+          await STO.set(id, { ...norm, photos: compacted.photos })
+          return { ...norm }
         }
       } catch {}
     }
@@ -516,7 +551,13 @@ const SupaStorage = {
       const { data: assessments } = await supabase.from('assessments').select('*').eq('user_id', user.id).order('updated_at', { ascending: false })
       if (assessments) {
         for (const a of assessments) {
-          await STO.set(a.id, a)
+          // Map cloud → app shape and merge over any existing local copy so
+          // local-only fields (equipment, floorPlan, draft progress) survive
+          // a re-sync. Compact photos to stay under the localStorage quota.
+          const existing = await STO.get(a.id)
+          const norm = fromCloudRow(a)
+          const { photos } = await compactPhotos(norm.photos || {}, a.id)
+          await STO.set(a.id, { ...(existing || {}), ...norm, photos })
         }
         // Rebuild local index
         const reports = assessments.filter(a => a.status === 'complete').map(a => ({ id: a.id, ts: a.updated_at, facility: a.facility_name, score: a.score }))
