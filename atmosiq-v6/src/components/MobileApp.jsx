@@ -42,7 +42,6 @@ import Loading from './Loading'
 import ScoreRing from './ScoreRing'
 import CountUp from './ui/CountUp'
 import PhotoCapture from './PhotoCapture'
-import ProfileAvatar from './ProfileAvatar'
 import CollaboratorsBar from './CollaboratorsBar'
 import SensorScreen from './SensorScreen'
 import TimePickerInput from './TimePickerInput'
@@ -538,6 +537,9 @@ export default function MobileApp() {
   // the Jasper sheet; FieldAssistant's initialMessage prop picks it
   // up and auto-sends.
   const [voiceCmdOpen, setVoiceCmdOpen] = useState(false)
+  // Header ⋯ overflow — opens a context action menu (Senior top-bar design).
+  const [actionsOpen, setActionsOpen] = useState(false)
+  const [actionsAnchor, setActionsAnchor] = useState(null)
   const [voicePrefill, setVoicePrefill] = useState(null)
   // AtmosFlow AI "Review for discrepancies" — chooser + the payload/prompt
   // handed to the assistant. reviewPayload rides the request context;
@@ -2282,24 +2284,11 @@ export default function MobileApp() {
               )
             })}
           </div>)})}
-          {/* Floating action bar — tactile soft-glass buttons with
-              scale-down tap feedback. Word is the primary export
-              affordance now that PDF has been retired; Share and Map
-              Zones round out the result-screen action surface. */}
-          <div style={sgStack('tight')}>
-            <div style={{display:'flex',gap:10,marginTop:8}}>
-              <TactileButton variant="secondary" fullWidth size="lg" onClick={()=>setDocxPicker(true)} icon={<I n="notes" s={16} c={ACCENT} />}>Word</TactileButton>
-              <TactileButton variant="ghost" fullWidth size="lg" onClick={handleShare} icon={<I n="send" s={16} c={SUB} />}>Share</TactileButton>
-            </div>
-            <TactileButton variant="secondary" fullWidth size="lg" onClick={()=>setView('spatial')} icon={<I n="bldg" s={16} c={ACCENT} />}>Map Zones on Floor Plan</TactileButton>
-            <TactileButton variant="ghost" fullWidth size="lg" onClick={()=>{setReviewError(null);setReviewChooserOpen(true)}} icon={<I n="search" s={16} c={SUB} />}>Review for discrepancies</TactileButton>
-            <TactileButton variant="secondary" fullWidth size="lg" onClick={()=>setView('sensor-data')} icon={<I n="chart" s={16} c={ACCENT} />}>Logger Studio{sensorData?.graphs && Object.values(sensorData.graphs).some(g=>g?.include)?' ✓':''}</TactileButton>
-          </div>
-          {/* Removed redundant "Start Assessment" CTA — the user viewing
-              this screen is already inside an assessment; starting a new
-              one is handled from Home or the Reports tab header. The
-              Continue Assessment button at the top of the hero is the
-              right affordance for picking up where they left off. */}
+          {/* The result-screen action bar (Word · Share · Map Zones ·
+              Review for discrepancies · Logger Studio) was retired from
+              this tab. Those actions now live in the header ⋯ menu so
+              the Actions tab stays focused on the recommendations
+              themselves; Logger Studio remains in the bottom nav. */}
         </div>}
         </div>
       </div>
@@ -2355,7 +2344,22 @@ export default function MobileApp() {
               one, so the popover now opens DOWN-LEFT from the
               hamburger rather than down-right. */}
           <div style={{position:'relative',display:'flex',alignItems:'center'}}>
-            {profile && (
+            {/* Back to dashboard — shown on every screen except the
+                dashboard root, per the Senior top-bar design
+                (‹ · title · ⋯ · avatar). Routes Home rather than a
+                one-step history pop, so the label names the
+                destination. Global nav lives on the dashboard
+                hamburger + the bottom nav. */}
+            {profile && view!=='dash' && (
+              <button
+                onClick={()=>{setView('dash');setViewRpt(null)}}
+                aria-label="Back to dashboard"
+                style={{display:'flex',alignItems:'center',gap:3,height:36,padding:'0 10px 0 2px',background:'transparent',border:'none',borderRadius:10,cursor:'pointer',fontFamily:'inherit',color:ACCENT,WebkitTapHighlightColor:'transparent'}}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={ACCENT} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6" /></svg>
+                <span style={{fontSize:16,fontWeight:600,letterSpacing:'-0.01em'}}>Home</span>
+              </button>
+            )}
+            {profile && view==='dash' && (
               <button
                 ref={menuButtonRef}
                 onClick={(e)=>{
@@ -2399,6 +2403,7 @@ export default function MobileApp() {
                 { label: 'Projects',     icon: 'bldg',   onClick: () => setView('projects') },
                 { label: 'Sampling forms', icon: 'flask', onClick: () => setView('sampling-forms') },
                 { label: 'Logger Studio', icon: 'chart', onClick: () => setView('sensor-data') },
+                { label: 'Ask AtmosFlow AI', icon: 'mic', onClick: () => { supabase && trackEvent('jasper_open', { source: 'menu_voice' }); setVoiceCmdOpen(true) } },
                 // App & account — configure, manage, and learn. The
                 // light/dark toggle lives in Settings; it isn't duplicated here.
                 { label: 'Settings',     icon: 'gear',   onClick: () => setView('settings'), divider: true },
@@ -2516,13 +2521,6 @@ export default function MobileApp() {
           </div>
           <div style={{display:'flex',alignItems:'center',gap:8}}>
             {isAssessing&&<span style={{fontSize:10,color:ACCENT,fontFamily:"var(--font-mono)",background:`${mix('accent', 4)}`,padding:'3px 10px',borderRadius:4,border:`1px solid ${mix('accent', 13)}`,letterSpacing:'0.5px'}}>SAVING</span>}
-            {/* Home — compact icon control on deeper screens. The action
-                always routes to the dashboard (not a one-step back), so a
-                home glyph reads more honestly than a back arrow and frees
-                the horizontal space the "← Home" text pill used to take.
-                Square 36×36 footprint + radius matches the hamburger so
-                the header chrome stays cohesive. */}
-            {view!=='dash'&&view!=='history'&&view!=='search'&&view!=='settings'&&view!=='trash'&&view!=='tos'&&view!=='privacy'&&view!=='help'&&view!=='instrument-edit'&&view!=='incident-form'&&view!=='incident-log'&&view!=='incident-detail'&&view!=='sampling-forms'&&<button onClick={()=>{setView('dash');setViewRpt(null)}} aria-label="Home" title="Home" style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,color:SUB,cursor:'pointer',fontFamily:'inherit',width:36,height:36,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'color 0.15s',WebkitTapHighlightColor:'transparent'}}><I n="home" s={17} c={SUB} w={1.8} /></button>}
             {/* Subscription-status pill — exception-only. In beta
                 the helper returns null. Phase 2+ surfaces it on
                 diverging state (payment failed, plan cancelling,
@@ -2538,88 +2536,104 @@ export default function MobileApp() {
                 </button>
               )
             })()}
-            {/* Persistent right-cluster pill — search icon + profile
-                avatar wrapped in a single rounded container. Reads as
-                one identity-and-quick-find unit at the right edge of
-                the header. Search opens the search view; avatar
-                routes to Settings (account section). The pill
-                background is one step UP the surface ladder (CARD
-                over SURFACE) so it lifts off the blurred header
-                background; the avatar sits flush inside with no
-                gap between its right edge and the pill's right
-                edge, matching the reference pattern. */}
-            {profile && (
-              <div style={{
-                display:'flex', alignItems:'center', gap:2,
-                // Soft-glass pill: low-opacity card surface with a
-                // backdrop blur so it reads as a translucent layer
-                // floating over the blurred header rather than a flat
-                // CARD block. Inner highlight + outer drop give it the
-                // tactile depth the rest of the v3.3 surface uses.
-                ...GLASS.subtle,
-                borderRadius: 999, padding:'2px 2px 2px 6px',
-                height: 36, boxSizing:'border-box',
-              }}>
-                <button
-                  type="button"
-                  onClick={() => setView('search')}
-                  aria-label="Search"
-                  title="Search"
-                  style={{
-                    width:30, height:30, borderRadius:'50%',
-                    background:'transparent', border:'none',
-                    cursor:'pointer', display:'flex',
-                    alignItems:'center', justifyContent:'center',
-                    fontFamily:'inherit', padding:0,
-                    WebkitTapHighlightColor:'transparent',
-                  }}>
-                  <I n="search" s={17} c={TEXT} w={2} />
-                </button>
-                {/* Voice command — speak a question and Jasper
-                    answers. Sits between Search and the avatar in
-                    the right-cluster pill so the assessor can
-                    invoke it from any screen. Tapping opens the
-                    fullscreen Voice Command modal; the transcript
-                    routes to Jasper via the initialMessage prop. */}
-                <button
-                  type="button"
-                  onClick={() => { supabase && trackEvent('jasper_open', { source: 'voice_command' }); setVoiceCmdOpen(true) }}
-                  aria-label="Ask Jasper by voice"
-                  title="Ask Jasper by voice"
-                  style={{
-                    width:30, height:30, borderRadius:'50%',
-                    background:'transparent', border:'none',
-                    cursor:'pointer', display:'flex',
-                    alignItems:'center', justifyContent:'center',
-                    fontFamily:'inherit', padding:0,
-                    WebkitTapHighlightColor:'transparent',
-                  }}>
-                  {/* Mic glyph — same wireframe as VoiceInputButton
-                      so the affordance reads as "voice" across the
-                      app, just visually paired with Jasper here by
-                      the context (header pill, not a textarea). */}
-                  <svg width="16" height="16" viewBox="0 0 24 24"
-                    fill="none" stroke="var(--text)" strokeWidth="2"
-                    strokeLinecap="round" strokeLinejoin="round"
-                    aria-hidden="true">
-                    <rect x="9" y="2" width="6" height="12" rx="3" />
-                    <path d="M5 11a7 7 0 0 0 14 0" />
-                    <line x1="12" y1="18" x2="12" y2="22" />
-                  </svg>
-                </button>
-                <ProfileAvatar
-                  profile={profile}
-                  size={30}
-                  onClick={() => setView('settings')}
-                  ariaLabel={`Open account ${profile.name ? `for ${profile.name}` : ''}`.trim()}
-                  ringTone="none"
-                />
-              </div>
+            {/* Overflow (⋯) — context actions for the current screen,
+                opened as a compact dropdown anchored to this button
+                (top-right), matching the hamburger menu's popover.
+                Replaces the always-on search/mic icons per the Senior
+                top-bar design. Hidden on the dashboard, where the
+                hamburger menu already exposes these actions. */}
+            {profile && view!=='dash' && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  const r = e.currentTarget.getBoundingClientRect()
+                  setActionsAnchor({ top: r.bottom + 8, right: Math.max(8, window.innerWidth - r.right) })
+                  setActionsOpen(true)
+                }}
+                aria-label="More actions"
+                aria-haspopup="menu"
+                aria-expanded={actionsOpen}
+                style={{
+                  width:36, height:36, borderRadius:'50%',
+                  ...GLASS.subtle,
+                  cursor:'pointer', display:'flex',
+                  alignItems:'center', justifyContent:'center',
+                  padding:0, boxSizing:'border-box',
+                  WebkitTapHighlightColor:'transparent',
+                }}>
+                <I n="dots" s={20} c={TEXT} w={2} />
+              </button>
             )}
           </div>
         </div>
       </header>
       <div style={{height:'calc(48px + env(safe-area-inset-top, 0px))'}} />
+
+      {/* Context action menu — opened from the header ⋯ overflow.
+          Compact dropdown anchored to the kebab button (top-right),
+          same soft-glass popover as the hamburger menu; no report
+          title/address header. Items are scoped to the current screen:
+          on the report views they surface the report's own actions
+          (search, voice, map, share); elsewhere the global search +
+          voice. Every item maps to an existing handler — no
+          placeholder actions. */}
+      {actionsOpen && (() => {
+        const onResults = view==='results' || view==='report'
+        const close = () => setActionsOpen(false)
+        const items = onResults ? [
+          { label:'Export Word doc',          icon:'notes',    onClick:()=>setDocxPicker(true) },
+          { label:'Share',                    icon:'send',     onClick:()=>handleShare() },
+          { label:'Map zones on floor plan',  icon:'bldg',     onClick:()=>setView('spatial') },
+          { label:'Discrepancies Check',      icon:'findings', onClick:()=>{ setReviewError(null); setReviewChooserOpen(true) } },
+          { label:'Ask AtmosFlow AI',         icon:'mic',      onClick:()=>{ supabase && trackEvent('jasper_open',{source:'report_actions'}); setVoiceCmdOpen(true) } },
+        ] : [
+          { label:'Search',             icon:'search', onClick:()=>setView('search') },
+          { label:'Ask AtmosFlow AI', icon:'mic',    onClick:()=>{ supabase && trackEvent('jasper_open',{source:'header_actions'}); setVoiceCmdOpen(true) } },
+        ]
+        const anchor = actionsAnchor || { top: 60, right: 12 }
+        return createPortal(
+          <>
+            <div
+              onClick={close}
+              onPointerDown={close}
+              style={{position:'fixed',inset:0,zIndex:1000,background:'rgba(0,0,0,0.22)',backdropFilter:'blur(6px)',WebkitBackdropFilter:'blur(6px)'}} />
+            <div role="menu" aria-label="Screen actions" style={{
+              position:'fixed',
+              top: anchor.top, right: anchor.right,
+              minWidth:220, zIndex:1010, padding:6,
+              ...GLASS.elevated,
+              background:'color-mix(in srgb, var(--card) 70%, transparent)',
+              backdropFilter:'blur(30px) saturate(180%)',
+              WebkitBackdropFilter:'blur(30px) saturate(180%)',
+              borderRadius: RADII.sheet,
+              boxShadow:
+                'inset 0 1px 0 rgba(255,255,255,0.06), ' +
+                '0 12px 32px rgba(0,0,0,0.55), ' +
+                '0 2px 6px rgba(0,0,0,0.30)',
+              animation:'fadeUp .15s ease',
+            }}>
+              {items.map(item => (
+                <button
+                  key={item.label}
+                  role="menuitem"
+                  onClick={()=>{ close(); item.onClick() }}
+                  style={{
+                    width:'100%',padding:'12px 14px',background:'transparent',border:'none',borderRadius:10,
+                    cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,
+                    fontFamily:'inherit',color:TEXT,fontSize:14,fontWeight:500,minHeight:44,
+                    transition:'background 0.12s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = SURFACE }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}>
+                  <I n={item.icon} s={18} c={SUB} w={1.6} />
+                  <span style={{flex:1}}>{item.label}</span>
+                </button>
+              ))}
+            </div>
+          </>,
+          document.body
+        )
+      })()}
 
       {milestone&&<div style={{position:'fixed',inset:0,background:`${mix('bg', 94)}`,zIndex:300,display:'flex',alignItems:'center',justifyContent:'center',padding:'0 32px'}}><div style={{textAlign:'center',animation:'milestoneIn .5s cubic-bezier(.22,1,.36,1)'}}><div style={{marginBottom:20,display:'flex',justifyContent:'center'}}><div style={{width:80,height:80,borderRadius:22,background:`${mix('accent', 7)}`,border:`1.5px solid ${mix('accent', 19)}`,display:'flex',alignItems:'center',justifyContent:'center'}}><I n={milestone.icon} s={40} c={ACCENT} w={2} /></div></div><div style={{fontSize:26,fontWeight:800,letterSpacing:'-0.5px',color:TEXT}}>{milestone.title}</div><div style={{fontSize:15,color:ACCENT,fontFamily:"var(--font-mono)",marginTop:10}}>{milestone.sub}</div></div></div>}
 
@@ -2925,10 +2939,10 @@ export default function MobileApp() {
 
       {reviewChooserOpen && (
         <BottomSheet
-          title="Review for discrepancies"
+          title="Discrepancies Check"
           onClose={()=>setReviewChooserOpen(false)}
           maxWidth={420}
-          ariaLabel="Review report for discrepancies"
+          ariaLabel="Discrepancies check on the report"
         >
           <div style={{...V3.T.bodyDim, lineHeight:1.6, margin:'4px 0 16px'}}>
             AtmosFlow AI scans for internal inconsistencies — narrative vs data,
