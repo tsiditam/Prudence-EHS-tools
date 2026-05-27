@@ -23,6 +23,13 @@
  * builds: bump package.json and APP_VERSION together.
  */
 
+/* global __BUILD_SHA__ */
+// Short git SHA of the deployed build, injected by Vite at build time
+// (see vite.config.js `define`). Lets the running client be matched to
+// an exact commit — handy when a PWA is serving a stale bundle. Falls
+// back to 'dev' when the define is absent (e.g. unit tests).
+export const BUILD_SHA = (typeof __BUILD_SHA__ !== 'undefined' && __BUILD_SHA__) || 'dev'
+
 export const APP_VERSION = '6.0.0-beta'
 export const ENGINE_VERSION = '2.8.0'
 export const STANDARDS_MANIFEST_DATE = '2026-04-25'
