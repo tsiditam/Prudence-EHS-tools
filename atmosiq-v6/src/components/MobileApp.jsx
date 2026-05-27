@@ -451,43 +451,52 @@ class ReportErrorBoundary extends Component {
 function DeferredRender({ render }) { return render() }
 
 // Full-screen "writing your report" overlay shown while a DOCX is generated.
-// A pen-in-hand sweeps over ruled lines that ink in, with a determinate
-// progress bar that fills over `durationMs` so the wait reads as bounded.
+// A red pen (no hand) sweeps left→right tracing a glowing cyan signature that
+// inks in beneath the nib, looping, with a determinate progress bar that fills
+// over `durationMs` so the wait reads as bounded.
 function ReportWritingOverlay({ label, durationMs }) {
-  const ACCENT = 'var(--accent, #38bdf8)'
+  const INK = '#22d3ee'
   return createPortal(
     <div role="status" aria-live="polite" aria-label={label}
       style={{ position:'fixed', inset:0, zIndex:4000, background:'rgba(8,10,14,0.94)',
         backdropFilter:'blur(10px)', WebkitBackdropFilter:'blur(10px)', display:'flex',
         flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'0 36px', fontFamily:'inherit' }}>
       <style>{`
-        @keyframes rwoPen { 0%{transform:translate(-26px,6px)} 50%{transform:translate(0,-3px)} 100%{transform:translate(26px,6px)} }
-        @keyframes rwoInk { 0%{stroke-dashoffset:var(--len)} 55%,100%{stroke-dashoffset:0} }
+        @keyframes rwoInk {
+          0%{stroke-dashoffset:var(--len);opacity:0} 8%{opacity:1}
+          62%{stroke-dashoffset:0;opacity:1} 86%{stroke-dashoffset:0;opacity:1} 100%{stroke-dashoffset:0;opacity:0}
+        }
+        @keyframes rwoPen {
+          0%{transform:translate(0px,0px);opacity:0} 8%{opacity:1}
+          20%{transform:translate(26px,-13px)} 32%{transform:translate(52px,3px)}
+          44%{transform:translate(78px,-13px)} 56%{transform:translate(104px,3px)}
+          62%{transform:translate(132px,-9px);opacity:1} 86%{transform:translate(132px,-9px);opacity:1}
+          100%{transform:translate(132px,-9px);opacity:0}
+        }
         @keyframes rwoBar { from{width:0%} to{width:100%} }
         @keyframes rwoIn  { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:none} }
         @keyframes rwoDots{ 0%,20%{opacity:.25} 50%{opacity:1} 80%,100%{opacity:.25} }
       `}</style>
       <div style={{ animation:'rwoIn .4s ease both', display:'flex', flexDirection:'column', alignItems:'center', width:'100%', maxWidth:340 }}>
-        <svg width="210" height="156" viewBox="0 0 210 156" fill="none" aria-hidden="true">
-          <rect x="20" y="26" width="170" height="104" rx="14" fill="rgba(255,255,255,0.045)" stroke="rgba(255,255,255,0.09)"/>
-          {[56, 78, 100].map((y, i) => (
-            <path key={y} d={`M42 ${y} H168`} stroke={ACCENT} strokeWidth="3.2" strokeLinecap="round"
-              opacity="0.9" strokeDasharray="126" style={{ ['--len']:'126px', strokeDashoffset:126, animation:`rwoInk 4.2s ease-in-out ${i*1.4}s infinite` }} />
-          ))}
-          <path d="M42 122 H120" stroke={ACCENT} strokeWidth="3.2" strokeLinecap="round" opacity="0.9"
-            strokeDasharray="78" style={{ ['--len']:'78px', strokeDashoffset:78, animation:'rwoInk 4.2s ease-in-out 4.2s infinite' }} />
-          {/* pen held in hand — outer group tilts, inner group does the writing sweep */}
-          <g transform="rotate(-32 150 44)">
-            <g style={{ animation:'rwoPen 1.5s ease-in-out infinite alternate' }}>
-              <rect x="143" y="0" width="14" height="64" rx="6" fill={ACCENT}/>
-              <rect x="143" y="0" width="14" height="15" rx="6" fill="rgba(255,255,255,0.4)"/>
-              <path d="M143 64 H157 L150 86 Z" fill="#0b0d12"/>
-              <path d="M147 73 H153 L150 86 Z" fill={ACCENT}/>
-              {/* hand / grip */}
-              <path d="M132 40 q-9 5 -7 19 q2 14 18 14 h12 q11 0 11 -11 v-18 q-18 5 -34 -3 z" fill="rgba(228,201,178,0.95)"/>
-              <path d="M150 45 q11 3 17 -1" stroke="rgba(0,0,0,0.12)" strokeWidth="1.6" fill="none" strokeLinecap="round"/>
-              <path d="M149 54 q12 3 18 0" stroke="rgba(0,0,0,0.10)" strokeWidth="1.6" fill="none" strokeLinecap="round"/>
-              <path d="M148 63 q11 3 16 1" stroke="rgba(0,0,0,0.09)" strokeWidth="1.6" fill="none" strokeLinecap="round"/>
+        <svg width="240" height="170" viewBox="0 0 240 170" fill="none" aria-hidden="true">
+          {/* glowing cyan signature — inks in left→right beneath the nib, loops */}
+          <path d="M36 128 q 11 -19 24 -2 q 10 14 21 2 q 11 -19 24 -2 q 10 15 22 2 q 11 -15 21 -5"
+            stroke={INK} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" fill="none"
+            strokeDasharray="250"
+            style={{ ['--len']:'250px', strokeDashoffset:250,
+              filter:`drop-shadow(0 0 4px ${INK}) drop-shadow(0 0 9px rgba(34,211,238,0.7))`,
+              animation:'rwoInk 3.6s ease-in-out infinite' }} />
+          {/* red pen, no hand — nib anchored at the line start, sweeps right with the ink */}
+          <g transform="translate(36,128)">
+            <g style={{ animation:'rwoPen 3.6s ease-in-out infinite' }}>
+              <g transform="rotate(33)">
+                <path d="M-8 -20 L8 -20 L0 0 Z" fill="#ef4444"/>
+                <path d="M-3 -7 L3 -7 L0 0 Z" fill="#7f1d1d"/>
+                <rect x="-9" y="-26" width="18" height="6" rx="2" fill="#b91c1c"/>
+                <rect x="-9" y="-88" width="18" height="64" rx="7" fill="#ef4444"/>
+                <rect x="-9" y="-88" width="18" height="14" rx="7" fill="#f87171"/>
+                <rect x="3" y="-82" width="4.5" height="34" rx="2.2" fill="rgba(255,255,255,0.92)"/>
+              </g>
             </g>
           </g>
         </svg>
@@ -498,7 +507,7 @@ function ReportWritingOverlay({ label, durationMs }) {
           Assembling findings, recommendations, and citations.
         </div>
         <div style={{ width:'100%', height:6, borderRadius:99, background:'rgba(255,255,255,0.08)', marginTop:20, overflow:'hidden' }}>
-          <div style={{ height:'100%', borderRadius:99, background:ACCENT, animation:`rwoBar ${durationMs}ms linear both` }}/>
+          <div style={{ height:'100%', borderRadius:99, background:INK, boxShadow:`0 0 8px ${INK}`, animation:`rwoBar ${durationMs}ms linear both` }}/>
         </div>
       </div>
     </div>,
