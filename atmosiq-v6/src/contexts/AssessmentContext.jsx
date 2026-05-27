@@ -22,6 +22,10 @@ export function AssessmentProvider({ children }) {
   const [zones, setZones] = useState([{}])
   const [curZone, setCurZone] = useState(0)
   const [photos, setPhotos] = useState({})
+  // Per-zone "photo capture not feasible" overrides, keyed by zone name:
+  // { [zoneName]: { reason } }. Lets a Critical/High photo blocker be
+  // cleared with a documented justification instead of a photo.
+  const [photoOverrides, setPhotoOverrides] = useState({})
   const [floorPlan, setFloorPlan] = useState(null)
   // HvacEquipment[] captured during the walkthrough. Drives
   // equipment-scoped recommendation grouping in genRecs (v2.8.0+).
@@ -95,7 +99,7 @@ export function AssessmentProvider({ children }) {
   // ── Reset Assessment ──
   const resetAssessment = useCallback(() => {
     setDraftId(null); setPresurvey({}); setBldg({}); setZones([{}]); setEquipment([])
-    setCurZone(0); setPhotos({}); setFloorPlan(null)
+    setCurZone(0); setPhotos({}); setPhotoOverrides({}); setFloorPlan(null)
     setQsqi(0); setDqi(0); setZqi(0)
     setZoneScores([]); setComp(null); setOshaResult(null); setRecs(null)
     setNarrative(null); setSamplingPlan(null); setCausalChains([]); setMoldResults([])
@@ -112,6 +116,7 @@ export function AssessmentProvider({ children }) {
     setZones(d.zones || [{}])
     setEquipment(d.equipment || [])
     setPhotos(d.photos || {})
+    setPhotoOverrides(d.photoOverrides || {})
     setFloorPlan(d.floorPlan || null)
     setQsqi(d.qsqi || 0)
     setDqi(d.dqi || 0)
@@ -129,6 +134,7 @@ export function AssessmentProvider({ children }) {
     setZones(rpt.zones || [])
     setEquipment(rpt.equipment || [])
     setPhotos(rpt.photos || {})
+    setPhotoOverrides(rpt.photoOverrides || {})
     setFloorPlan(rpt.floorPlan || null)
     setZoneScores(rpt.zoneScores || [])
     setComp(rpt.comp || rpt.composite)
@@ -144,6 +150,7 @@ export function AssessmentProvider({ children }) {
     // Assessment data
     draftId, setDraftId, presurvey, setPresurvey, bldg, setBldg,
     zones, setZones, curZone, setCurZone, photos, setPhotos,
+    photoOverrides, setPhotoOverrides,
     floorPlan, setFloorPlan, mergedData, zData,
     equipment, setEquipment,
     // Question navigation
@@ -158,7 +165,7 @@ export function AssessmentProvider({ children }) {
     // Operations
     runScoring, resetAssessment, loadDraft, loadReport,
   }), [
-    draftId, presurvey, bldg, zones, curZone, photos, floorPlan, mergedData, zData, equipment,
+    draftId, presurvey, bldg, zones, curZone, photos, photoOverrides, floorPlan, mergedData, zData, equipment,
     qsqi, dqi, zqi, setQSField, setZF,
     zoneScores, comp, oshaResult, recs, narrative, narrativeLoading,
     samplingPlan, causalChains, moldResults, measConf,
