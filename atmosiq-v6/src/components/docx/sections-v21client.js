@@ -158,7 +158,7 @@ function buildCoverPage(cover, reviewStatus, projectNumber) {
       valueLine(formatLongDate(cover.date), { size: 22, color: '0F172A', bold: false, after: 240 }),
       // Project number block (if present)
       ...(projectNumber ? [
-        labelLine('PSEC PROJECT NUMBER'),
+        labelLine('PROJECT NUMBER'),
         valueLine(projectNumber, { size: 22, color: '0F172A', after: 320 }),
       ] : [p('', { after: 320 })]),
       // Status pill (bold caps, cyan-dark)

@@ -560,7 +560,7 @@ function renderCover(cover, reviewStatus, projectNumber) {
       <div style="font-size:11pt; color:#2D3A4A; margin-bottom:24px;">${esc(cover.location) || ''}</div>
       <div style="text-transform:uppercase; letter-spacing:0.6px; font-size:9pt; color:#5C6F7E; margin-bottom:6px;">Assessment Date</div>
       <div style="font-size:11pt; color:#0F172A; margin-bottom:20px;">${esc(formatLongDate(cover.date))}</div>
-      ${projectNumber ? `<div style="text-transform:uppercase; letter-spacing:0.6px; font-size:9pt; color:#5C6F7E; margin-bottom:6px;">PSEC Project Number</div>
+      ${projectNumber ? `<div style="text-transform:uppercase; letter-spacing:0.6px; font-size:9pt; color:#5C6F7E; margin-bottom:6px;">Project Number</div>
       <div style="font-size:11pt; color:#0F172A; font-weight:600; margin-bottom:0;">${esc(projectNumber)}</div>` : ''}
     </div>
     <div class="cover-status">${esc(REVIEW_STATUS_LABEL[reviewStatus] || cover.status)}</div>
