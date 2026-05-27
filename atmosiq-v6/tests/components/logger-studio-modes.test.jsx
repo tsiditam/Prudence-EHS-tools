@@ -43,8 +43,8 @@ describe('Logger Studio modes', () => {
     const { container } = render(<Harness />)
     await upload(container, makeFile(INDOOR, 'indoor.csv'))
 
-    // Overview (default): file summary present; Analysis controls absent.
-    expect(screen.getByText('Readings')).toBeTruthy()
+    // Overview (default): session header present; Analysis controls absent.
+    expect(screen.getByText('Session Averages')).toBeTruthy()
     expect(screen.queryByText('Compare datasets')).toBeNull()
     expect(screen.queryByText('Charts')).toBeNull()
 
@@ -54,7 +54,7 @@ describe('Logger Studio modes', () => {
     expect(screen.getByText('Compare datasets')).toBeTruthy()
     expect(screen.getByText('Charts')).toBeTruthy()
     expect(screen.getByText('CO₂ Over Time')).toBeTruthy()
-    expect(screen.queryByText('Readings')).toBeNull()
+    expect(screen.queryByText('Session Averages')).toBeNull()
     expect(screen.queryByText('Export PNG')).toBeNull()
 
     // Report: the chart listed with caption/export controls.

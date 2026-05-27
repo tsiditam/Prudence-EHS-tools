@@ -47,12 +47,12 @@ describe('SensorDataPage analyzing reveal', () => {
 
     // During analyzing: processing card visible, results hidden.
     expect(screen.getByText(/Analyzing logger data/i)).toBeTruthy()
-    expect(screen.queryByText('Readings')).toBeNull()
+    expect(screen.queryByText('Session Averages')).toBeNull()
 
     // After the delay the results appear and the analyzing card is gone.
     await act(async () => { vi.advanceTimersByTime(ANALYZE_TOTAL) })
     expect(screen.queryByText(/Analyzing logger data/i)).toBeNull()
-    expect(screen.getByText('Readings')).toBeTruthy()
+    expect(screen.getByText('Session Averages')).toBeTruthy()
   })
 
   it('reveals results immediately under prefers-reduced-motion (no delay)', async () => {
@@ -60,7 +60,7 @@ describe('SensorDataPage analyzing reveal', () => {
     const { container } = render(<Harness />)
     await uploadCsv(container)
     expect(screen.queryByText(/Analyzing logger data/i)).toBeNull()
-    expect(screen.getByText('Readings')).toBeTruthy()
+    expect(screen.getByText('Session Averages')).toBeTruthy()
   })
 })
 

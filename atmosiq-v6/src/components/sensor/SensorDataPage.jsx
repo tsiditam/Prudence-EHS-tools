@@ -23,7 +23,6 @@ import CollapsibleCard from '../ui/CollapsibleCard'
 import GhostButton from '../ui/GhostButton'
 import Select from '../ui/Select'
 import RoleBadge from '../ui/RoleBadge'
-import StatTile from '../ui/StatTile'
 import InlineError from '../ui/InlineError'
 import { parseSensorRows, SENSOR_PARAMS, TVOC_REFERENCES, ppbToUgm3, ugm3ToPpb, HCHO_MW, normalizeSensorData, primaryDataset, alignDatasets, sensorAveragesToFields, detectDatasetRole, SENSOR_DATA_VERSION, withDisplayTempUnit } from '../../utils/sensorParser'
 import SendToReportSheet from './SendToReportSheet'
@@ -104,8 +103,8 @@ function ParamCard({ param, stats, unit, points, ts }) {
         </div>
         <Sparkline values={points} color={color} />
       </div>
-      <div style={{ marginTop: 8, fontSize: 26, fontWeight: 700, color: TEXT, fontFamily: 'var(--font-mono)', letterSpacing: '-0.5px' }}>
-        {fmtAvg(stats.mean)} <span style={{ fontSize: 12, fontWeight: 600, color: DIM }}>{unit}</span>
+      <div style={{ marginTop: 8, fontSize: 20, fontWeight: 700, color: TEXT, fontFamily: 'var(--font-mono)', letterSpacing: '-0.3px' }}>
+        {fmtAvg(stats.mean)} <span style={{ fontSize: 11, fontWeight: 600, color: DIM }}>{unit}</span>
       </div>
       <div style={{ marginTop: 8 }}>
         <GaugeBar min={stats.min} max={stats.max} value={stats.mean} limit={ref.limit} band={ref.band} color={color} />
@@ -138,7 +137,7 @@ function ThresholdBanner({ items }) {
   return (
     <GlassCard style={{ marginTop: 14 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 22, fontWeight: 700, color: V3.DANGER, fontFamily: 'var(--font-mono)' }}>{items.length}</span>
+        <span style={{ fontSize: 15, fontWeight: 700, color: V3.DANGER, fontFamily: 'var(--font-mono)' }}>{items.length}</span>
         <span style={{ ...V3.T.bodyStrong }}>parameter{items.length === 1 ? '' : 's'} above a screening reference</span>
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 8 }}>
@@ -170,12 +169,12 @@ function ChartStatRow({ stats, unit, reference }) {
     cells.push({ label: 'Δ occ−noc', value: `${stats.deltaOccNoc >= 0 ? '+' : ''}${fmtAvg(stats.deltaOccNoc)}`, sub: unit })
   }
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cells.length}, 1fr)`, gap: 8, padding: '0 18px 12px' }}>
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px 20px', padding: '0 18px 12px' }}>
       {cells.map((c, i) => (
-        <div key={i} style={{ padding: '9px 11px', background: 'var(--surface)', border: `1px solid ${BORDER}`, borderRadius: 10 }}>
-          <div style={{ ...V3.T.micro, color: SUB }}>{c.label}</div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: c.tone || TEXT, fontFamily: 'var(--font-mono)', letterSpacing: '-0.3px', marginTop: 2 }}>{c.value}</div>
-          <div style={{ fontSize: 10, color: DIM, marginTop: 1 }}>{c.sub}</div>
+        <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
+          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.4px', textTransform: 'uppercase', color: SUB }}>{c.label}</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: c.tone || TEXT, fontFamily: 'var(--font-mono)' }}>{c.value}</span>
+          {c.sub && <span style={{ fontSize: 10, color: DIM }}>{c.sub}</span>}
         </div>
       ))}
     </div>
@@ -424,11 +423,11 @@ export default function SensorDataPage({ value, onChange, onBack, reports = [], 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
               <div>
                 <div style={V3.T.micro}>Mean differential</div>
-                <div style={{ fontSize: 18, fontWeight: 700, color: TEXT, fontFamily: 'var(--font-mono)' }}>{diff.meanDiff} <span style={{ fontSize: 11, color: DIM }}>ppm</span></div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: TEXT, fontFamily: 'var(--font-mono)' }}>{diff.meanDiff} <span style={{ fontSize: 11, color: DIM }}>ppm</span></div>
               </div>
               <div>
                 <div style={V3.T.micro}>Est. outdoor air</div>
-                <div style={{ fontSize: 18, fontWeight: 700, color: diff.vo?.cfmPerPerson != null ? ACCENT : DIM, fontFamily: 'var(--font-mono)' }}>
+                <div style={{ fontSize: 16, fontWeight: 700, color: diff.vo?.cfmPerPerson != null ? ACCENT : DIM, fontFamily: 'var(--font-mono)' }}>
                   {diff.vo?.cfmPerPerson != null ? <>{diff.vo.cfmPerPerson} <span style={{ fontSize: 11, color: DIM }}>cfm/person</span></> : '—'}
                 </div>
               </div>
@@ -543,12 +542,6 @@ export default function SensorDataPage({ value, onChange, onBack, reports = [], 
                 <div style={{ ...V3.T.captionDim, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{data.fileName || 'Logger data'} · {fmtRange(data.summary.start, data.summary.end)}</div>
               </div>
               <GhostButton onClick={() => pickFor({ role: 'indoor', label: 'Indoor' })}>Replace</GhostButton>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginTop: 14 }}>
-              <StatTile label="Readings" value={data.summary.count.toLocaleString()} />
-              <StatTile label="Interval" value={fmtInterval(data.summary.intervalSec)} />
-              <StatTile label="Params" value={data.params.length} />
-              <StatTile label="Empty" value={data.summary.emptyRows} />
             </div>
             <GhostButton onClick={() => setMapOpen((v) => !v)} style={{ marginTop: 14, width: '100%', justifyContent: 'center' }}>
               {mapOpen ? 'Hide column mapping' : 'Adjust column mapping'}
