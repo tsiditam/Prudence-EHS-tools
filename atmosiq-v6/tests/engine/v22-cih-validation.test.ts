@@ -267,6 +267,68 @@ describe('CIH validation — §10 tone bans', () => {
   })
 })
 
+describe('CIH validation — §10 v2.7 context-aware bans', () => {
+  // Inject a single zone-finding narrative into an otherwise-clean
+  // default report so the assertion isolates the injected prose.
+  function reportWithNarrative(narrative: string): ClientReport {
+    const report = buildReport()
+    const finding = {
+      findingId: 'F-LINT' as any,
+      conditionType: 'co_above_pel_documented' as any,
+      narrative,
+      limitations: [],
+      recommendedActions: [],
+      confidenceTierLanguage: 'qualitative',
+    }
+    return {
+      ...report,
+      zoneSections: report.zoneSections.map((z, i) => i === 0 ? { ...z, findings: [finding as any] } : z),
+    }
+  }
+
+  const FLAGGED: ReadonlyArray<[string, string]> = [
+    ['compliance assertion ("in compliance with")', 'The ventilation system is in compliance with ASHRAE 62.1.'],
+    ['"compliant with" assertion', 'Indoor carbon monoxide levels are compliant with the OSHA PEL.'],
+    ['clinical "consistent with"', 'The reported symptoms are consistent with hypersensitivity pneumonitis.'],
+    ['confidence misattribution', 'We have high confidence that mold caused the occupant symptoms.'],
+    ['health attribution via "indicates"', 'The elevated readings indicate a respiratory illness among occupants.'],
+    ['definitive assertion', 'We definitively conclude the source is microbial growth.'],
+    ['guarantee of outcome', 'These corrections will ensure safe air quality for all occupants.'],
+    ['SBS assertion', 'Sick building syndrome was identified at this facility.'],
+  ]
+  for (const [label, narrative] of FLAGGED) {
+    it(`flags ${label}`, () => {
+      const v = validateReportContent(reportWithNarrative(narrative))
+      expect(v.passed).toBe(false)
+      expect(v.blockedTermsFound.length).toBeGreaterThan(0)
+    })
+  }
+
+  // Allow-list cases — each is legitimate screening prose the engine
+  // itself generates; none may be flagged or the allow-list has drifted.
+  const ALLOWED: ReadonlyArray<[string, string]> = [
+    ['screening "consistent with"', 'Findings in this zone are consistent with insufficient outdoor air delivery for the observed occupancy.'],
+    ['environmental "consistent with"', 'Environmental conditions consistent with potentially corrosive atmospheres were observed.'],
+    ['confidence in measurement', 'There is high confidence in the measured CO2 excursion given the calibrated instrument.'],
+    ['environmental "indicates"', 'Indoor PM elevation above outdoor baseline indicates filter bypass or inadequate filtration class.'],
+    ['deferred definitive determinations', 'These are presented as professional judgment rather than definitive determinations.'],
+    ['definitive conclusion deferral', 'Confirmatory sampling is recommended before drawing definitive conclusions.'],
+    ['ensure calibration (no outcome)', 'Ensure all instruments are calibrated within manufacturer specifications prior to assessment.'],
+    ['negated SBS', 'This screening is not a sick building syndrome determination.'],
+  ]
+  for (const [label, narrative] of ALLOWED) {
+    it(`allows ${label}`, () => {
+      const v = validateReportContent(reportWithNarrative(narrative))
+      expect(v.blockedTermsFound.length).toBe(0)
+    })
+  }
+
+  it('default render produces zero banned-language hits (allow-list drift guard)', () => {
+    const v = validateReportContent(buildReport())
+    expect(v.blockedTermsFound.length).toBe(0)
+  })
+})
+
 describe('CIH validation — §11 required statements', () => {
   it('Flags missing methodology disclosure', () => {
     const report = buildReport()
