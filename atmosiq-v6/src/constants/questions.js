@@ -16,7 +16,7 @@ export const Q_PRESURVEY = [
   { id:'ps_assessor_certs',      sec:'Assessor',      q:'Certifications and licenses held',     t:'multi',       ic:'🎓', opts:['CIH','CIH-in-Training','CSP','CHMM','ACAC CIEC','ACAC CMC','ACAC CMI','Other'] },
   { id:'ps_assessor_exp',        sec:'Assessor',      q:'Years of IH/EHS experience',           t:'ch',          ic:'📅', opts:['1-3 years','3-5 years','5-10 years','10-20 years','20+ years'] },
   // Client / Recipient — drives the transmittal letter and exec summary metadata table
-  { id:'ps_project_number',      sec:'Client',        q:'PSEC project number',                  t:'text', sk:1,  ic:'🏷️', ph:'e.g. PSEC-2026-0042' },
+  { id:'ps_project_number',      sec:'Client',        q:'Project Number',                  t:'text', sk:1,  ic:'🏷️', ph:'e.g. PSEC-2026-0042' },
   { id:'ps_recipient_name',      sec:'Client',        q:'Recipient name',                       t:'text', sk:1,  ic:'👤', ph:'e.g. Sean Navins' },
   { id:'ps_recipient_title',     sec:'Client',        q:'Recipient title',                      t:'text', sk:1,  ic:'💼', ph:'e.g. Chief Engineer or Mr.' },
   { id:'ps_recipient_organization', sec:'Client',     q:'Recipient organization',               t:'text', sk:1,  ic:'🏢', ph:'e.g. Sage Realty' },
@@ -87,7 +87,7 @@ export const Q_DETAILS = [
   // Client / Recipient — drives the consultant deliverable letter and
   // exec summary metadata table. All optional; gracefully degrades to
   // a generic addressee if not supplied.
-  { id:'ps_project_number',         sec:'Client / Recipient', q:'PSEC project number',          t:'text', sk:1, ic:'🏷️', ph:'e.g. PSEC-2026-0042' },
+  { id:'ps_project_number',         sec:'Client / Recipient', q:'Project Number',          t:'text', sk:1, ic:'🏷️', ph:'e.g. PSEC-2026-0042' },
   { id:'ps_recipient_name',         sec:'Client / Recipient', q:'Recipient name',               t:'text', sk:1, ic:'👤', ph:'e.g. Sean Navins' },
   { id:'ps_recipient_title',        sec:'Client / Recipient', q:'Recipient title',              t:'text', sk:1, ic:'💼', ph:'e.g. Chief Engineer or Mr.' },
   { id:'ps_recipient_organization', sec:'Client / Recipient', q:'Recipient organization',       t:'text', sk:1, ic:'🏢', ph:'e.g. Sage Realty' },
