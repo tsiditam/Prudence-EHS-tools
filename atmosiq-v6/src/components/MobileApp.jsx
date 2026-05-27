@@ -69,7 +69,6 @@ import { printReport, generatePrintHTML } from './PrintReport'
 // Bundling the docx renderer into the main chunk eliminates that failure
 // mode for the most common user action — exporting a report.
 import { generateDocx, generateConsultantOnly, generateTechnicalOnly, getConsultantDocxBlob, getNarrativeDocxBlob } from './DocxReport'
-import { runConsultantPreflight } from '../utils/consultantReportPreflight'
 import { DEMO_PRESURVEY, DEMO_BUILDING, DEMO_ZONES, DEMO_EQUIPMENT } from '../constants/demoData'
 import { DEMO_FM_PRESURVEY, DEMO_FM_BUILDING, DEMO_FM_ZONES } from '../constants/demoDataFM'
 import { DEMO_DC_PRESURVEY, DEMO_DC_BUILDING, DEMO_DC_ZONES } from '../constants/demoDataDC'
@@ -504,13 +503,6 @@ export default function MobileApp() {
   // points (localStorage read is cheap).
   useEffect(() => { setSavedInstruments(loadInstruments()) }, [view, calWarning])
   const [docxPicker, setDocxPicker] = useState(false)
-  // Consultant preflight: when the v2.1 engine would refuse to issue
-  // (no measurements, calibration missing, etc.), we surface the
-  // triggers + an IH override flow instead of silently downgrading to
-  // a memo file. Shape: { triggers, score, reportData } | null.
-  const [preflight, setPreflight] = useState(null)
-  const [overrideJustification, setOverrideJustification] = useState('')
-  const [overrideChecked, setOverrideChecked] = useState({})
   const [hSearch, setHSearch] = useState('')
   const [hSort, setHSort] = useState('newest')
   // v2.8 UI pass — Notion-style 3-dot home menu. Replaces the standalone
@@ -1066,30 +1058,6 @@ export default function MobileApp() {
     const reportData = { building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, escalationTriggers: esc, floorPlan, sensorData, labResults: viewRpt?.labResults || null }
     trackEvent('report_exported', { format: docxType || format, facility: bldg.fn || '', score: comp?.tot, zones: zones.length, has_narrative: !!narrative, photos: Object.values(filteredPhotos).flat().length })
 
-    // Consultant preflight: the v2.1 engine returns a Pre-Assessment
-    // Site Visit Memo (not a full consultant report) when its refusal
-    // triggers fire. Catch this BEFORE generation so we can show the
-    // IH which gaps the engine flagged and offer an override path.
-    // Technical / Both DOCX and PDF do not go through the v2.1 engine
-    // — they render directly from the legacy zoneScores — so they
-    // skip the preflight.
-    if (format === 'docx' && docxType === 'consultant') {
-      try {
-        const pf = runConsultantPreflight(reportData)
-        if (pf.wouldRefuse) {
-          setPreflight({ ...pf, reportData })
-          setOverrideJustification('')
-          setOverrideChecked({})
-          return
-        }
-      } catch (pfErr) {
-        // Preflight failure must not block export. Log + proceed; the
-        // engine will produce its memo if refusal still applies, which
-        // is the prior behavior.
-        console.warn('Consultant preflight failed; proceeding without preflight modal:', pfErr)
-      }
-    }
-
     try {
       if (format === 'docx') {
         if (docxType === 'consultant') await generateConsultantOnly(reportData)
@@ -1113,36 +1081,6 @@ export default function MobileApp() {
         return
       }
       alert('Report export failed: ' + (msg || 'Unknown error') + '. Please try again.')
-    }
-  }
-
-  // Run the consultant DOCX with the IH override applied. Called from
-  // the preflight modal's "Generate with IH override" action. The
-  // override payload becomes part of the deliverable's cover notice
-  // and per-page watermark, so the audit trail is in the report
-  // itself — no separate audit-log entry required.
-  const executeConsultantWithOverride = async () => {
-    if (!preflight) return
-    const triggers = Object.keys(overrideChecked).filter(k => overrideChecked[k])
-    const ihOverride = {
-      triggers,
-      justification: overrideJustification.trim(),
-      overriddenAt: new Date().toISOString(),
-    }
-    const reportData = { ...preflight.reportData, ihOverride }
-    trackEvent('consultant_override_applied', {
-      facility: bldg.fn || '',
-      triggers: triggers.join(','),
-      justification_length: ihOverride.justification.length,
-    })
-    setPreflight(null)
-    setOverrideJustification('')
-    setOverrideChecked({})
-    try {
-      await generateConsultantOnly(reportData)
-    } catch (e) {
-      console.error('Consultant override export failed:', e)
-      alert('Report export failed under override: ' + ((e && e.message) || 'Unknown error') + '.')
     }
   }
 
@@ -3069,120 +3007,6 @@ export default function MobileApp() {
           </div>
         </BottomSheet>
       )}
-
-      {/* ── Consultant Report Preflight Modal ──
-          Surfaces defensibility requirements + IH professional-judgment
-          path. Pinned by tests/lib/consultant-report-preflight.test.ts. */}
-      {preflight && (() => {
-        const hasNonOverridable = preflight.triggers.some(t => !t.overridable)
-        const overridableTriggers = preflight.triggers.filter(t => t.overridable)
-        const allChecked = overridableTriggers.length > 0
-          && overridableTriggers.every(t => overrideChecked[t.id])
-        const justificationOk = overrideJustification.trim().length >= 10
-        const canOverride = !hasNonOverridable && allChecked && justificationOk
-        // Severity is derived in the UI layer (not the engine):
-        //   • non-overridable triggers       → Required Before Issuance
-        //   • overridable, but a non-overridable blocker is also present
-        //     → effectively required, because the override path is gated
-        //     off until the blocker clears (e.g., calibration override is
-        //     unavailable until a reviewing professional is designated)
-        //   • overridable, no blockers       → Professional Judgment Eligible
-        const severityFor = (trig) => {
-          if (!trig.overridable) return { label: 'Required Before Issuance', color: WARN, bg: mix('warn', 12) }
-          if (hasNonOverridable)  return { label: 'Required Before Issuance', color: WARN, bg: mix('warn', 12) }
-          return { label: 'Professional Judgment Eligible', color: ACCENT, bg: mix('accent', 8) }
-        }
-        return (
-          <div style={{
-            position:'fixed', inset:0,
-            background:'rgba(0,0,0,0.55)',
-            backdropFilter:'blur(6px)',
-            WebkitBackdropFilter:'blur(6px)',
-            zIndex:201, display:'flex', alignItems:'center', justifyContent:'center',
-            padding:16, overflowY:'auto',
-          }}>
-            {/* Defensibility gate: deliberately no outside-tap dismiss
-                so the user has to actively Cancel or Issue under
-                documented judgment. Soft-glass treatment keeps the
-                surface vocabulary consistent. */}
-            <div style={{
-              ...GLASS.elevated,
-              borderRadius: RADII.card,
-              padding: '24px 22px',
-              maxWidth: 560, width: '100%', maxHeight: '92vh', overflowY: 'auto',
-              boxShadow:
-                'inset 0 1px 0 rgba(255,255,255,0.06), ' +
-                '0 24px 56px rgba(0,0,0,0.55)',
-            }} data-testid="consultant-preflight-modal">
-              <div style={{fontSize:20,fontWeight:700,color:TEXT,marginBottom:8,lineHeight:1.3}}>Report cannot be issued yet</div>
-              <div style={{fontSize:13,color:SUB,marginBottom:22,lineHeight:1.55}}>AtmosFlow identified the following defensibility requirements that should be resolved before report issuance. Certain items may be issued under documented professional judgment by the reviewing IH.</div>
-
-              <div style={{display:'flex',flexDirection:'column',gap:14,marginBottom:22}}>
-                {preflight.triggers.map(trig => {
-                  const sev = severityFor(trig)
-                  return (
-                    <div key={trig.id} data-testid={`preflight-trigger-${trig.id}`} style={{padding:'14px 16px',background:SURFACE,border:`1px solid ${trig.overridable && !hasNonOverridable ? BORDER : mix('warn', 19)}`,borderRadius:12}}>
-                      <div style={{display:'inline-block',fontSize:10,fontWeight:700,letterSpacing:'0.04em',textTransform:'uppercase',color:sev.color,background:sev.bg,padding:'4px 8px',borderRadius:6,marginBottom:8}}>{sev.label}</div>
-                      <div style={{fontSize:14,fontWeight:600,color:TEXT,marginBottom:8,lineHeight:1.4}}>{trig.label}</div>
-                      <div style={{fontSize:12,color:SUB,lineHeight:1.6,marginBottom:12,whiteSpace:'pre-wrap'}}>{trig.description}</div>
-                      <div style={{fontSize:12,color:DIM,lineHeight:1.6,marginBottom:trig.overridable ? 12 : 0,whiteSpace:'pre-wrap'}}>{trig.fixWhere}</div>
-                      {trig.overridable && !hasNonOverridable && (
-                        <label style={{display:'flex',alignItems:'flex-start',gap:10,cursor:'pointer',fontSize:12,color:SUB,lineHeight:1.6,padding:'10px 12px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:8,marginTop:4}}>
-                          <input
-                            type="checkbox"
-                            data-testid={`preflight-override-${trig.id}`}
-                            checked={!!overrideChecked[trig.id]}
-                            onChange={e => setOverrideChecked(prev => ({...prev,[trig.id]: e.target.checked}))}
-                            style={{marginTop:3,flexShrink:0}}
-                          />
-                          <span><strong style={{color:TEXT,fontWeight:600}}>Issue under documented professional judgment.</strong> {trig.overrideCaveat}</span>
-                        </label>
-                      )}
-                      {!trig.overridable && (
-                        <div style={{fontSize:12,color:WARN,fontWeight:600,lineHeight:1.6,marginTop:10}}>This requirement must be completed before report issuance.</div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-
-              {!hasNonOverridable && overridableTriggers.length > 0 && (
-                <div style={{marginBottom:20}}>
-                  <div style={{fontSize:13,fontWeight:600,color:TEXT,marginBottom:8}}>Reviewing IH justification</div>
-                  <div style={{fontSize:11,color:DIM,marginBottom:8,lineHeight:1.5}}>Required, minimum 10 characters.</div>
-                  <textarea
-                    data-testid="preflight-justification"
-                    value={overrideJustification}
-                    onChange={e=>setOverrideJustification(e.target.value)}
-                    rows={4}
-                    placeholder="Describe the professional basis for issuing under documented judgment (e.g., 'Calibration certificate on file at PSEC office, dated 2025-09-12. Field measurements taken under direct CIH supervision.')."
-                    style={{width:'100%',padding:12,background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:8,color:TEXT,fontSize:14,fontFamily:'inherit',resize:'vertical',lineHeight:1.55,boxSizing:'border-box'}}
-                  />
-                  <div style={{fontSize:11,color:DIM,marginTop:6,lineHeight:1.5}}>This justification is recorded on the report cover and retained in the deliverable's audit trail.</div>
-                </div>
-              )}
-
-              <div style={{display:'flex',gap:10,flexDirection:'column'}}>
-                {!hasNonOverridable && overridableTriggers.length > 0 && (
-                  <button
-                    data-testid="preflight-generate-override"
-                    disabled={!canOverride}
-                    onClick={executeConsultantWithOverride}
-                    style={{padding:'15px 0',background: canOverride ? ACCENT : SURFACE,border: canOverride ? 'none' : `1px solid ${BORDER}`,borderRadius:10,color: canOverride ? 'var(--on-accent)' : DIM,fontSize:14,fontWeight:700,cursor: canOverride ? 'pointer' : 'not-allowed',fontFamily:'inherit',minHeight:48}}>
-                    Issue report under documented professional judgment
-                  </button>
-                )}
-                <button
-                  data-testid="preflight-cancel"
-                  onClick={()=>{setPreflight(null);setOverrideJustification('');setOverrideChecked({})}}
-                  style={{padding:'13px 0',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:10,color:SUB,fontSize:14,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>
-                  Cancel — fix required items
-                </button>
-              </div>
-            </div>
-          </div>
-        )
-      })()}
 
       <div style={{maxWidth:contentMax,margin:'0 auto',padding:`0 ${padX}px`,position:'relative',zIndex:1}}>
 
