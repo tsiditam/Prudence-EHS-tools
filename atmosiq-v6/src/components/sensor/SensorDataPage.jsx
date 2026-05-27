@@ -23,7 +23,6 @@ import CollapsibleCard from '../ui/CollapsibleCard'
 import GhostButton from '../ui/GhostButton'
 import Select from '../ui/Select'
 import RoleBadge from '../ui/RoleBadge'
-import StatTile from '../ui/StatTile'
 import InlineError from '../ui/InlineError'
 import { parseSensorRows, SENSOR_PARAMS, TVOC_REFERENCES, ppbToUgm3, ugm3ToPpb, HCHO_MW, normalizeSensorData, primaryDataset, alignDatasets, sensorAveragesToFields, detectDatasetRole, SENSOR_DATA_VERSION, withDisplayTempUnit } from '../../utils/sensorParser'
 import SendToReportSheet from './SendToReportSheet'
@@ -543,12 +542,6 @@ export default function SensorDataPage({ value, onChange, onBack, reports = [], 
                 <div style={{ ...V3.T.captionDim, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{data.fileName || 'Logger data'} · {fmtRange(data.summary.start, data.summary.end)}</div>
               </div>
               <GhostButton onClick={() => pickFor({ role: 'indoor', label: 'Indoor' })}>Replace</GhostButton>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginTop: 14 }}>
-              <StatTile label="Readings" value={data.summary.count.toLocaleString()} />
-              <StatTile label="Interval" value={fmtInterval(data.summary.intervalSec)} />
-              <StatTile label="Params" value={data.params.length} />
-              <StatTile label="Empty" value={data.summary.emptyRows} />
             </div>
             <GhostButton onClick={() => setMapOpen((v) => !v)} style={{ marginTop: 14, width: '100%', justifyContent: 'center' }}>
               {mapOpen ? 'Hide column mapping' : 'Adjust column mapping'}
