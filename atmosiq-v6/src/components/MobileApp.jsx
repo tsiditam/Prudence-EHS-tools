@@ -7,7 +7,8 @@
  * Flow: Profile → Dashboard → Quick Start → Zone Walkthrough → Details (optional) → Results
  */
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, Component } from 'react'
+import * as Sentry from '@sentry/react'
 import { createPortal } from 'react-dom'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import STO from '../utils/storage'
@@ -414,6 +415,41 @@ function PhotoNotFeasible({ existing, onSave, onClear }) {
   )
 }
 
+// Catches render-time errors in the saved-report / results view so a failure
+// shows the actual error on screen (and reports to Sentry) instead of a blank
+// screen that reads as a dead tap. Children render inside the boundary, so a
+// throw while building the report view is caught here.
+class ReportErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { err: null } }
+  static getDerivedStateFromError(err) { return { err } }
+  componentDidCatch(err, info) {
+    try { Sentry.captureException(err, { extra: { componentStack: info?.componentStack, where: 'report-view-render' } }) } catch { /* noop */ }
+  }
+  render() {
+    if (!this.state.err) return this.props.children
+    const e = this.state.err
+    return (
+      <div style={{ padding: '40px 24px', maxWidth: 620, margin: '0 auto', fontFamily: 'inherit' }}>
+        <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text)', marginBottom: 8 }}>Couldn’t open this report</div>
+        <div style={{ fontSize: 14, color: 'var(--sub)', marginBottom: 16, lineHeight: 1.5 }}>
+          The report errored while rendering. These details were also sent to Sentry — please copy or screenshot them so this can be fixed.
+        </div>
+        <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 12, lineHeight: 1.5, background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12, padding: 14, color: 'var(--danger)', maxHeight: 300, overflow: 'auto', margin: 0 }}>
+          {String(e?.name || 'Error')}: {String(e?.message || e)}{'\n\n'}{String(e?.stack || '').slice(0, 1400)}
+        </pre>
+        <button type="button" onClick={this.props.onBack} style={{ marginTop: 16, padding: '12px 20px', borderRadius: 12, border: 'none', background: 'var(--accent)', color: 'var(--on-accent-fill, #000)', fontSize: 14, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>
+          ← Back to Reports
+        </button>
+      </div>
+    )
+  }
+}
+
+// Invokes a render closure as a child component so a throw inside it is caught
+// by an ancestor error boundary (a function called inline during the parent's
+// render would not be).
+function DeferredRender({ render }) { return render() }
+
 export default function MobileApp() {
   const { isTablet, isTabletLand } = useMediaQuery()
   // Responsive layout: phone=620, tablet portrait=860, tablet landscape=1080
@@ -534,6 +570,7 @@ export default function MobileApp() {
   const [selZone, setSelZone] = useState(0)
 
   const [viewRpt, setViewRpt] = useState(null)
+  const [reportOpenError, setReportOpenError] = useState(null)
   const [currentIncident, setCurrentIncident] = useState(null)
   const [delConf, setDelConf] = useState(null)
   const [zonePrompt, setZonePrompt] = useState(false)
@@ -1225,8 +1262,22 @@ export default function MobileApp() {
   }
 
   const openReport = async (meta) => {
-    const rpt = await STO.get(meta.id)
-    if (!rpt) return
+    // Read the saved body from localStorage; if it isn't there (e.g. a quota
+    // write silently failed, or this device never had it), fall back to the
+    // cloud copy. Never let the tap die silently — surface what happened.
+    let rpt = null
+    try {
+      rpt = await STO.get(meta.id)
+      if (!rpt && supabase) rpt = await Storage.getAssessment(meta.id)
+    } catch (e) {
+      try { Sentry.captureException(e, { extra: { where: 'openReport.fetch', id: meta?.id } }) } catch { /* noop */ }
+    }
+    if (!rpt) {
+      setReportOpenError({ name: 'ReportNotFound', message: `Report "${meta?.facility || meta?.id}" could not be loaded from this device or the cloud.`, stack: '' })
+      setViewRpt(meta); setView('report')
+      return
+    }
+    setReportOpenError(null)
     trackEvent('report_viewed', { report_id: meta.id, facility: meta.facility || '', score: meta.score })
     setViewRpt(rpt); setPresurvey(rpt.presurvey||{}); setBldg(rpt.building||rpt.bldg||{}); setZones(rpt.zones||[]); setEquipment(rpt.equipment||[])
     setPhotos(rpt.photos||{}); setPhotoOverrides(rpt.photoOverrides||{}); setFloorPlan(rpt.floorPlan||null); setZoneScores(rpt.zoneScores||[]); setComp(rpt.comp||rpt.composite)
@@ -3598,7 +3649,23 @@ export default function MobileApp() {
             </button>
           ) : null)}
 
-        {(view==='results'||view==='report')&&renderResults(view==='report')}
+        {(view==='results'||view==='report') && (
+          <ReportErrorBoundary
+            key={viewRpt?.id || view}
+            onBack={() => { setReportOpenError(null); setView(view==='report' ? 'history' : 'dashboard') }}
+          >
+            <DeferredRender render={() => {
+              if (reportOpenError) { const err = new Error(reportOpenError.message); err.name = reportOpenError.name || 'ReportOpenError'; throw err }
+              const out = renderResults(view==='report')
+              if (out == null && view==='report') {
+                const err = new Error(`Report rendered empty — render guard fell through (comp=${!!comp}, zoneScores=${zoneScores?.length || 0}, selZone=${selZone}).`)
+                err.name = 'EmptyReportRender'
+                throw err
+              }
+              return out
+            }} />
+          </ReportErrorBoundary>
+        )}
 
         {view==='search'&&<SearchView
           index={index}

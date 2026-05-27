@@ -46,6 +46,63 @@ function withTimeout(promise, ms, message) {
   ])
 }
 
+// Full app-shape snapshot for the cloud `payload` column. Everything except
+// photos, which keep their own column (and their own compaction lifecycle) so
+// the base64 blobs aren't stored twice.
+export function toPayload(assessment) {
+  if (!assessment || typeof assessment !== 'object') return assessment
+  const { photos, ...rest } = assessment // eslint-disable-line no-unused-vars
+  return rest
+}
+
+// The `assessments` cloud table stores report fields in snake_case columns
+// (zone_scores, composite, recommendations, sampling_plan, causal_chains,
+// osha_evals) — saveAssessment flattens to that shape on the way UP. But
+// every in-app consumer (openReport, renderResults, DOCX export) reads the
+// camelCase shape that the LOCAL copy is saved in. Without mapping back on
+// the way DOWN, a report restored from the cloud comes back with
+// zoneScores/recs/etc. undefined, so renderResults bails (`!zoneScores.length`)
+// and the report view renders nothing — a tap that looks dead. Map cloud →
+// app shape so a cloud-restored report opens identically to a local one.
+export function fromCloudRow(a) {
+  if (!a || typeof a !== 'object') return a
+  // Preferred path (post-014 migration): the full app-shape snapshot lives in
+  // `payload`, so the restore is lossless — equipment, floorPlan, sensorData,
+  // labResults, standardsManifest all survive. Photos live in their own column
+  // (base64 wire form); overlay them onto the payload.
+  if (a.payload && typeof a.payload === 'object' && !Array.isArray(a.payload)) {
+    return {
+      ...a.payload,
+      id: a.id ?? a.payload.id,
+      status: a.status ?? a.payload.status,
+      photos: a.photos ?? a.payload.photos ?? {},
+      ts: a.updated_at ?? a.payload.ts,
+    }
+  }
+  // Legacy row (no payload): map the snake_case columns → camelCase app keys.
+  // Only emits keys the cloud actually carries, so spreading it over an
+  // existing local copy never clobbers local-only fields (equipment, floorPlan).
+  const out = {
+    id: a.id,
+    status: a.status,
+    presurvey: a.presurvey || {},
+    building: a.building || {},
+    zones: a.zones || [],
+    photos: a.photos || {},
+    narrative: a.narrative ?? null,
+    zoneScores: a.zone_scores ?? a.zoneScores ?? [],
+    oshaEvals: a.osha_evals ?? a.oshaEvals ?? null,
+    recs: a.recommendations ?? a.recs ?? null,
+    samplingPlan: a.sampling_plan ?? a.samplingPlan ?? null,
+    causalChains: a.causal_chains ?? a.causalChains ?? [],
+  }
+  const composite = a.composite ?? a.comp ?? null
+  out.comp = composite
+  out.composite = composite
+  if (a.updated_at) out.ts = a.updated_at
+  return out
+}
+
 const SupaStorage = {
   // ── Auth ──
   async signUp(email, password) {
@@ -328,12 +385,13 @@ const SupaStorage = {
       try {
         const { data } = await supabase.from('assessments').select('*').eq('id', id).single()
         if (data) {
-          // Compact incoming cloud photos before localStorage write to
-          // escape the quota cap; the wire format is preserved (cloud
-          // still holds base64).
-          const compacted = await compactPhotos(data.photos || {}, id)
-          await STO.set(id, { ...data, photos: compacted.photos })
-          return data
+          // Normalize snake_case cloud columns → camelCase app shape, then
+          // compact the inline cloud photos before the localStorage write to
+          // escape the quota cap (cloud still holds the base64 wire format).
+          const norm = fromCloudRow(data)
+          const compacted = await compactPhotos(norm.photos || {}, id)
+          await STO.set(id, { ...norm, photos: compacted.photos })
+          return { ...norm }
         }
       } catch {}
     }
@@ -370,7 +428,7 @@ const SupaStorage = {
       try {
         const { data: { user } } = await supabase.auth.getUser()
         if (user) {
-          await supabase.from('assessments').upsert({
+          const row = {
             id: assessment.id,
             user_id: user.id,
             status: assessment.status || 'draft',
@@ -389,7 +447,19 @@ const SupaStorage = {
             narrative: assessment.narrative,
             score: assessment.comp?.tot || assessment.composite?.tot,
             risk: assessment.comp?.risk || assessment.composite?.risk,
-          })
+            // Lossless app-shape snapshot — preserves fields the flattened
+            // columns drop (equipment, floorPlan, sensorData, labResults,
+            // standardsManifest). fromCloudRow prefers this on the way down.
+            payload: toPayload(assessment),
+          }
+          const { error } = await supabase.from('assessments').upsert(row)
+          if (error) {
+            // payload column not migrated yet → retry without it so the core
+            // report still syncs (it restores via the flattened columns).
+            delete row.payload
+            const { error: e2 } = await supabase.from('assessments').upsert(row)
+            if (e2) throw e2
+          }
         }
       } catch {
         await this._queueSync('assessment', assessment)
@@ -516,7 +586,13 @@ const SupaStorage = {
       const { data: assessments } = await supabase.from('assessments').select('*').eq('user_id', user.id).order('updated_at', { ascending: false })
       if (assessments) {
         for (const a of assessments) {
-          await STO.set(a.id, a)
+          // Map cloud → app shape and merge over any existing local copy so
+          // local-only fields (equipment, floorPlan, draft progress) survive
+          // a re-sync. Compact photos to stay under the localStorage quota.
+          const existing = await STO.get(a.id)
+          const norm = fromCloudRow(a)
+          const { photos } = await compactPhotos(norm.photos || {}, a.id)
+          await STO.set(a.id, { ...(existing || {}), ...norm, photos })
         }
         // Rebuild local index
         const reports = assessments.filter(a => a.status === 'complete').map(a => ({ id: a.id, ts: a.updated_at, facility: a.facility_name, score: a.score }))
