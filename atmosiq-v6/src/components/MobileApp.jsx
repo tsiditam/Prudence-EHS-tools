@@ -450,6 +450,71 @@ class ReportErrorBoundary extends Component {
 // render would not be).
 function DeferredRender({ render }) { return render() }
 
+// Full-screen "writing your report" overlay shown while a DOCX is generated.
+// A red pen (no hand) sweeps left→right tracing a glowing cyan signature that
+// inks in beneath the nib, looping, with a determinate progress bar that fills
+// over `durationMs` so the wait reads as bounded.
+function ReportWritingOverlay({ label, durationMs }) {
+  const INK = '#22d3ee'
+  return createPortal(
+    <div role="status" aria-live="polite" aria-label={label}
+      style={{ position:'fixed', inset:0, zIndex:4000, background:'rgba(8,10,14,0.94)',
+        backdropFilter:'blur(10px)', WebkitBackdropFilter:'blur(10px)', display:'flex',
+        flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'0 36px', fontFamily:'inherit' }}>
+      <style>{`
+        @keyframes rwoInk {
+          0%{stroke-dashoffset:var(--len);opacity:0} 8%{opacity:1}
+          62%{stroke-dashoffset:0;opacity:1} 86%{stroke-dashoffset:0;opacity:1} 100%{stroke-dashoffset:0;opacity:0}
+        }
+        @keyframes rwoPen {
+          0%{transform:translate(0px,0px);opacity:0} 8%{opacity:1}
+          20%{transform:translate(26px,-13px)} 32%{transform:translate(52px,3px)}
+          44%{transform:translate(78px,-13px)} 56%{transform:translate(104px,3px)}
+          62%{transform:translate(132px,-9px);opacity:1} 86%{transform:translate(132px,-9px);opacity:1}
+          100%{transform:translate(132px,-9px);opacity:0}
+        }
+        @keyframes rwoBar { from{width:0%} to{width:100%} }
+        @keyframes rwoIn  { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:none} }
+        @keyframes rwoDots{ 0%,20%{opacity:.25} 50%{opacity:1} 80%,100%{opacity:.25} }
+      `}</style>
+      <div style={{ animation:'rwoIn .4s ease both', display:'flex', flexDirection:'column', alignItems:'center', width:'100%', maxWidth:340 }}>
+        <svg width="240" height="170" viewBox="0 0 240 170" fill="none" aria-hidden="true">
+          {/* glowing cyan signature — inks in left→right beneath the nib, loops */}
+          <path d="M36 128 q 11 -19 24 -2 q 10 14 21 2 q 11 -19 24 -2 q 10 15 22 2 q 11 -15 21 -5"
+            stroke={INK} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" fill="none"
+            strokeDasharray="250"
+            style={{ ['--len']:'250px', strokeDashoffset:250,
+              filter:`drop-shadow(0 0 4px ${INK}) drop-shadow(0 0 9px rgba(34,211,238,0.7))`,
+              animation:'rwoInk 3.6s ease-in-out infinite' }} />
+          {/* red pen, no hand — nib anchored at the line start, sweeps right with the ink */}
+          <g transform="translate(36,128)">
+            <g style={{ animation:'rwoPen 3.6s ease-in-out infinite' }}>
+              <g transform="rotate(33)">
+                <path d="M-8 -20 L8 -20 L0 0 Z" fill="#ef4444"/>
+                <path d="M-3 -7 L3 -7 L0 0 Z" fill="#7f1d1d"/>
+                <rect x="-9" y="-26" width="18" height="6" rx="2" fill="#b91c1c"/>
+                <rect x="-9" y="-88" width="18" height="64" rx="7" fill="#ef4444"/>
+                <rect x="-9" y="-88" width="18" height="14" rx="7" fill="#f87171"/>
+                <rect x="3" y="-82" width="4.5" height="34" rx="2.2" fill="rgba(255,255,255,0.92)"/>
+              </g>
+            </g>
+          </g>
+        </svg>
+        <div style={{ fontSize:16, fontWeight:700, color:'var(--text, #fff)', marginTop:6, textAlign:'center', letterSpacing:'-0.2px' }}>
+          {label}<span style={{ animation:'rwoDots 1.4s infinite' }}>…</span>
+        </div>
+        <div style={{ fontSize:12.5, color:'var(--sub, #9aa7b4)', marginTop:6, textAlign:'center', lineHeight:1.5 }}>
+          Assembling findings, recommendations, and citations.
+        </div>
+        <div style={{ width:'100%', height:6, borderRadius:99, background:'rgba(255,255,255,0.08)', marginTop:20, overflow:'hidden' }}>
+          <div style={{ height:'100%', borderRadius:99, background:INK, boxShadow:`0 0 8px ${INK}`, animation:`rwoBar ${durationMs}ms linear both` }}/>
+        </div>
+      </div>
+    </div>,
+    document.body
+  )
+}
+
 export default function MobileApp() {
   const { isTablet, isTabletLand } = useMediaQuery()
   // Responsive layout: phone=620, tablet portrait=860, tablet landscape=1080
@@ -566,6 +631,8 @@ export default function MobileApp() {
   const [showPremiumGate, setShowPremiumGate] = useState(false)
   const [selectedPhotos, setSelectedPhotos] = useState({})
   const [exportFormat, setExportFormat] = useState(null)
+  // Pen-writing overlay shown while a DOCX generates: { label, durationMs } | null
+  const [genWriting, setGenWriting] = useState(null)
   const [rTab, setRTab] = useState('overview')
   const [selZone, setSelZone] = useState(0)
 
@@ -1149,6 +1216,14 @@ export default function MobileApp() {
 
     try {
       if (format === 'docx') {
+        // Play the pen-writing animation for a fixed beat before the file is
+        // produced — longer for the narrative consultant report, shorter for
+        // the structured technical report.
+        const WRITE_MS = { consultant: 12000, technical: 8000 }
+        const ms = WRITE_MS[docxType] || 12000
+        const label = docxType === 'technical' ? 'Writing your technical report' : 'Writing your consultant report'
+        setGenWriting({ label, durationMs: ms })
+        await new Promise(res => setTimeout(res, ms))
         if (docxType === 'consultant') await generateConsultantOnly(reportData)
         else if (docxType === 'technical') await generateTechnicalOnly(reportData)
         else await generateDocx(reportData)
@@ -1170,6 +1245,8 @@ export default function MobileApp() {
         return
       }
       alert('Report export failed: ' + (msg || 'Unknown error') + '. Please try again.')
+    } finally {
+      setGenWriting(null)
     }
   }
 
@@ -2722,7 +2799,7 @@ export default function MobileApp() {
         const onResults = view==='results' || view==='report'
         const close = () => setActionsOpen(false)
         const items = onResults ? [
-          { label:'Export Word doc',          icon:'notes',    onClick:()=>setDocxPicker(true) },
+          { label:'Generate reports',         icon:'notes',    onClick:()=>setDocxPicker(true) },
           { label:'Share',                    icon:'send',     onClick:()=>handleShare() },
           { label:'Map zones on floor plan',  icon:'bldg',     onClick:()=>setView('spatial') },
           { label:'Discrepancies Check',      icon:'findings', onClick:()=>{ setReviewError(null); setReviewChooserOpen(true) } },
@@ -3113,13 +3190,11 @@ export default function MobileApp() {
       )}
 
       {/* ── DOCX Report Type Picker — bottom sheet ─────────────────
-          Mobile-first soft-glass sheet. The three options are now
-          tactile soft-glass cards (tap feedback + glass background)
-          rather than flat-colored buttons. The "Both" option keeps
-          its accent rail to read as the recommended path. */}
+          Mobile-first soft-glass sheet. Two mutually-exclusive options
+          (consultant or technical) as tactile soft-glass cards. */}
       {docxPicker && (
-        <BottomSheet title="Export Word Report" onClose={()=>setDocxPicker(false)} ariaLabel="Choose report format">
-          <div style={{fontSize:13,color:SUB,margin:'4px 0 16px',lineHeight:1.55}}>Choose which report format to generate.</div>
+        <BottomSheet title="Generate Report" onClose={()=>setDocxPicker(false)} ariaLabel="Choose report format">
+          <div style={{fontSize:13,color:SUB,margin:'4px 0 16px',lineHeight:1.55}}>Choose which report to generate.</div>
           <div style={{display:'flex',flexDirection:'column',gap:10}}>
             <GlassCard onClick={()=>{setDocxPicker(false);handleExport('docx','consultant')}} dense style={{padding:'14px 16px'}}>
               <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:3}}>Consultant Report</div>
@@ -3129,16 +3204,14 @@ export default function MobileApp() {
               <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:3}}>Technical Report</div>
               <div style={{fontSize:12,color:SUB,lineHeight:1.55}}>Structured findings register, score matrix, instrument log, and data gaps. For peer review and engineering.</div>
             </GlassCard>
-            <GlassCard onClick={()=>{setDocxPicker(false);handleExport('docx','both')}} accent={ACCENT} dense style={{padding:'14px 16px'}}>
-              <div style={{fontSize:14,fontWeight:700,color:ACCENT,marginBottom:3}}>Both Reports</div>
-              <div style={{fontSize:12,color:SUB,lineHeight:1.55}}>Downloads both files — consultant report + technical report.</div>
-            </GlassCard>
           </div>
           <div style={{marginTop:14}}>
             <TactileButton variant="ghost" fullWidth onClick={()=>setDocxPicker(false)}>Cancel</TactileButton>
           </div>
         </BottomSheet>
       )}
+
+      {genWriting && <ReportWritingOverlay label={genWriting.label} durationMs={genWriting.durationMs} />}
 
       <div style={{maxWidth:contentMax,margin:'0 auto',padding:`0 ${padX}px`,position:'relative',zIndex:1}}>
 
