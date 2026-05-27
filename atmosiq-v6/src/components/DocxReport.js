@@ -26,6 +26,7 @@ import { buildMethodologyCurrency } from './docx/sections-methodology-currency'
 import { legacyToAssessmentScore, deriveAssessmentMeta } from '../engine/bridge'
 import { renderClientReport } from '../engine/report/client'
 import { watermarkSectionAttachments, buildCoverNoticeParagraph } from './docx/watermark'
+import { reportSectionAttachments } from './docx/report-chrome'
 import { applyOverrideToScore } from '../utils/consultantReportOverride'
 import { buildOverrideCoverNoticeParagraph, buildOverrideSectionAttachments } from './docx/override-watermark'
 
@@ -184,10 +185,29 @@ async function buildConsultantDocument(ctx, data) {
     ...(coverNotice ? [coverNotice] : []),
   ]
 
-  // Merge headers/footers when both watermarks are active. Override
-  // wins on the header (more important warning); free-tier footer
-  // remains. When only one is active, the other's spread yields {}.
-  const mergedSectionAttachments = {
+  // Formal running header/footer (firm · project no. / "Confidential —
+  // Prepared for {client}" · Page X of Y). Used as the BASE of the body
+  // merge so the free-tier watermark and IH-override attachments still
+  // take precedence for their slots when present (their whole-object
+  // spread replaces this chrome). Paid reports — which previously had
+  // no running header/footer — get the formal chrome.
+  const reportChrome = reportSectionAttachments({
+    firm: meta.issuingFirm?.name,
+    projectNumber: meta.projectNumber,
+    clientName: meta.transmittalRecipient?.organization
+      || meta.transmittalRecipient?.fullName
+      || ctx.facilityName,
+  })
+
+  // Cover keeps only the watermark/override attachments (no formal
+  // running chrome on the title page); the body gets the chrome with
+  // watermark/override layered on top.
+  const coverAttachments = {
+    ...sectionWatermark,
+    ...overrideAttachments,
+  }
+  const bodyAttachments = {
+    ...reportChrome,
     ...sectionWatermark,
     ...overrideAttachments,
   }
@@ -198,13 +218,13 @@ async function buildConsultantDocument(ctx, data) {
     description: 'Indoor Air Quality Assessment Report',
     styles: DOCX_STYLES,
     sections: [
-      { ...cover, children: coverChildren, ...mergedSectionAttachments },
+      { ...cover, children: coverChildren, ...coverAttachments },
       {
         // v2.5.1 — explicit Letter portrait + 1-inch margins so the
         // body fills the 6.5-inch content area on US Letter paper.
         properties: BODY_SECTION_PROPERTIES,
         children: main,
-        ...mergedSectionAttachments,
+        ...bodyAttachments,
       },
     ],
   })
