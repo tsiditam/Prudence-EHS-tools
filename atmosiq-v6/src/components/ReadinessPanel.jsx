@@ -87,19 +87,23 @@ function Section({ title, count, color, children }) {
   )
 }
 
-// Renders a structured finalization item ({ label, message, location })
-// for both hard blockers (red) and dismissible items (amber). `tone`
-// drives the accent; `text` is a back-compat fallback when only a plain
-// string is available.
-function FinalizationCard({ item, text, tone }) {
+// Renders a structured finalization item ({ id, field, label, message,
+// location }) for both hard blockers (red) and dismissible items (amber).
+// `tone` drives the accent; `text` is a back-compat fallback when only a
+// plain string is available. When `onFix` is supplied and the item carries a
+// location, the card becomes a button that jumps to the field that fixes it.
+function FinalizationCard({ item, text, tone, onFix }) {
   const label = item?.label
   const message = item?.message ?? text
   const location = item?.location
-  return (
-    <div style={{
-      padding: '11px 14px', background: CARD, border: `1px solid ${tone}40`,
-      borderLeft: `3px solid ${tone}`, borderRadius: 8, marginBottom: 6,
-    }}>
+  const canFix = !!(onFix && item && location)
+  const baseStyle = {
+    padding: '11px 14px', background: CARD, border: `1px solid ${tone}40`,
+    borderLeft: `3px solid ${tone}`, borderRadius: 8, marginBottom: 6,
+    display: 'block', width: '100%', textAlign: 'left', boxSizing: 'border-box',
+  }
+  const body = (
+    <>
       {label && (
         <div style={{ fontSize: 13, fontWeight: 700, color: TEXT, marginBottom: 3 }}>
           {label}
@@ -110,13 +114,21 @@ function FinalizationCard({ item, text, tone }) {
       </div>
       {location && (
         <div style={{
-          marginTop: 7, fontSize: 11, color: SUB, fontWeight: 600, lineHeight: 1.4,
+          marginTop: 7, fontSize: 11, color: canFix ? tone : SUB, fontWeight: 700, lineHeight: 1.4,
         }}>
-          <span style={{ color: tone }}>→ </span>Fix in: {location}
+          <span style={{ color: tone }}>→ </span>{canFix ? 'Fix' : 'Fix in'}: {location}
         </div>
       )}
-    </div>
+    </>
   )
+  if (canFix) {
+    return (
+      <button type="button" onClick={() => onFix(item)} style={{ ...baseStyle, cursor: 'pointer', fontFamily: 'inherit', WebkitTapHighlightColor: 'transparent' }}>
+        {body}
+      </button>
+    )
+  }
+  return <div style={baseStyle}>{body}</div>
 }
 
 function GapCard({ gap }) {
@@ -208,7 +220,7 @@ function humanizeKind(kind) {
   }[kind] || kind
 }
 
-export default function ReadinessPanel({ assessment, onFeedback }) {
+export default function ReadinessPanel({ assessment, onFeedback, onFix }) {
   const verdict = useMemo(() => buildReadinessVerdict(assessment || {}), [assessment])
 
   return (
@@ -218,7 +230,7 @@ export default function ReadinessPanel({ assessment, onFeedback }) {
       <Section title="Finalization blockers" count={verdict.finalization_blockers.length} color="#EF4444">
         {(verdict.finalization_blocker_details && verdict.finalization_blocker_details.length > 0
           ? verdict.finalization_blocker_details.map((item) => (
-              <FinalizationCard key={item.id} item={item} tone="#EF4444" />
+              <FinalizationCard key={item.id} item={item} tone="#EF4444" onFix={onFix} />
             ))
           : verdict.finalization_blockers.map((text, i) => (
               <FinalizationCard key={i} text={text} tone="#EF4444" />
@@ -227,7 +239,7 @@ export default function ReadinessPanel({ assessment, onFeedback }) {
 
       <Section title="Recommended before sign-off (dismissible)" count={(verdict.finalization_dismissible || []).length} color="#FB923C">
         {(verdict.finalization_dismissible || []).map((item) => (
-          <FinalizationCard key={item.id} item={item} tone="#FB923C" />
+          <FinalizationCard key={item.id} item={item} tone="#FB923C" onFix={onFix} />
         ))}
       </Section>
 

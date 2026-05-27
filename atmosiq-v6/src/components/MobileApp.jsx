@@ -1472,6 +1472,23 @@ export default function MobileApp() {
     })
   }
 
+  // Jump from a Readiness blocker straight to the field that fixes it.
+  // Client / contact / instrument blockers live in the Assessment Details
+  // step (Q_DETAILS); occupant-denominator and photo blockers are zone-scoped
+  // so they open the relevant zone walkthrough. Closes the gap where the
+  // panel told the assessor where to fix but gave no way to get there.
+  const fixBlocker = (blocker) => {
+    if (!blocker) return
+    const id = blocker.id || ''
+    if (id.startsWith('occupant_denom_') || id.startsWith('photo_')) {
+      const zoneName = id.replace(/^(occupant_denom_|photo_)/, '')
+      const zi = (zones || []).findIndex(z => (z?.zn || '') === zoneName)
+      setCurZone(zi >= 0 ? zi : 0); setZqi(0); setView('zone'); return
+    }
+    const di = dtVis.findIndex(q => q.id === blocker.field)
+    setDqi(di >= 0 ? di : 0); setView('details')
+  }
+
   // ── Results renderer ──
   const renderResults = (archived) => {
     if (!comp || !zoneScores.length) return null
@@ -1763,6 +1780,7 @@ export default function MobileApp() {
               profile: profile ? { name: profile.name } : null,
             }}
             onFeedback={()=>openFeedback('Findings & readiness')}
+            onFix={archived ? undefined : fixBlocker}
           />
         )}
 
