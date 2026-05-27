@@ -111,8 +111,9 @@ export const Q_DETAILS = [
   { id:'bld_exhaust',         sec:'Airflow Paths', q:'Exhaust systems present?',        t:'multi',sk:1, ic:'🔃', opts:['Restroom exhaust','Kitchen / break room hood','Lab fume hoods','Server room exhaust','Parking garage exhaust','Loading dock exhaust','Janitor closet exhaust','None identified'] },
   { id:'bld_intake_proximity',sec:'Airflow Paths', q:'OA intake proximity to sources?', t:'multi',sk:1, ic:'⚠️', opts:['Near loading dock','Near parking garage','Near exhaust outlet','Near dumpster / waste','Near cooling tower','Near traffic / roadway','Clear of sources','Not assessed'] },
   // Weather
-  { id:'wx_temp',   sec:'Outdoor Conditions', q:'Outdoor temperature?',       t:'num', sk:1, ic:'🌡️', u:'°F' },
-  { id:'wx_rh',     sec:'Outdoor Conditions', q:'Outdoor relative humidity?', t:'num', sk:1, ic:'💧', u:'%' },
+  // Weather context. Outdoor temperature and RH are captured as instrument
+  // readings (tfo / rho in SENSOR_FIELDS), so they are not repeated here —
+  // this section is qualitative sky/precip context only.
   { id:'wx_sky',    sec:'Outdoor Conditions', q:'Sky / weather?',             t:'ch',  sk:1, ic:'☀️', opts:['Clear / Sunny','Partly cloudy','Overcast','Light rain','Heavy rain','Snow','Fog','Windy (>15 mph)'] },
   { id:'wx_precip', sec:'Outdoor Conditions', q:'Recent precipitation?',      t:'ch',  sk:1, ic:'🌧️', opts:['None in past 48 hours','Light rain within 24 hours','Heavy rain within 24 hours','Rain within past week','Flooding event recent','Snow / ice'] },
   // Pre-survey details
