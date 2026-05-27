@@ -4,7 +4,7 @@ export const COMPLAINTS_PHRASES: Partial<Record<ConditionType, PhraseLibraryEntr
   occupant_symptoms_anecdotal: {
     conditionType: 'occupant_symptoms_anecdotal',
     intentTemplate:
-      'Anecdotal occupant feedback suggests a potential building-related pattern. A structured symptom survey was not conducted at the time of assessment.',
+      'Occupant feedback was noted anecdotally. A structured symptom survey was not conducted at the time of assessment, and this environmental screening does not characterize occupant health.',
     bannedAlternatives: [
       'the building is causing symptoms',
       'occupants are being made sick',
@@ -26,7 +26,7 @@ export const COMPLAINTS_PHRASES: Partial<Record<ConditionType, PhraseLibraryEntr
   occupant_cluster_anecdotal: {
     conditionType: 'occupant_cluster_anecdotal',
     intentTemplate:
-      'Multiple occupants in the same area reported similar symptoms, suggesting a potential spatial cluster. Formal epidemiological evaluation was not performed.',
+      'Multiple occupants in the same localized area reported similar symptoms. Formal epidemiological evaluation was not performed, and this environmental screening does not characterize occupant health.',
     bannedAlternatives: [
       'disease cluster confirmed',
       'outbreak identified',
@@ -49,7 +49,7 @@ export const COMPLAINTS_PHRASES: Partial<Record<ConditionType, PhraseLibraryEntr
   symptoms_resolve_away_from_building: {
     conditionType: 'symptoms_resolve_away_from_building',
     intentTemplate:
-      'Occupants report that symptoms improve when away from the building, which is an epidemiological indicator consistent with building-related illness. This pattern supports the hypothesis of a building-related contributor but does not confirm causation.',
+      'Occupants report that symptoms improve when away from the building. This is a self-reported observation only; it is not a building-related-illness determination. Characterizing it requires a structured occupant symptom survey and medical/occupational-health evaluation, which are outside the scope of this environmental screening.',
     bannedAlternatives: [
       'building-related illness confirmed',
       'the building is making people sick',
