@@ -144,7 +144,7 @@ describe('<VoiceCommandModal>', () => {
 
     act(() => { pushFinal(recog, 'What does ASHRAE 62.1 say about CO2?') })
 
-    const sendBtn = screen.getByRole('button', { name: /send to jasper/i })
+    const sendBtn = screen.getByRole('button', { name: /^send$/i })
     fireEvent.click(sendBtn)
     expect(onSubmit).toHaveBeenCalledTimes(1)
     expect(onSubmit).toHaveBeenCalledWith('What does ASHRAE 62.1 say about CO2?')
@@ -183,7 +183,7 @@ describe('<VoiceCommandModal>', () => {
 
     act(() => { pushFinal(recog, 'Test question?') })
 
-    fireEvent.click(screen.getByRole('button', { name: /send to jasper/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^send$/i }))
     await act(async () => { await vi.advanceTimersByTimeAsync(2500) })
     expect(onSubmit).toHaveBeenCalledTimes(1)
   })
