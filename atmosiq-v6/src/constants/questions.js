@@ -28,9 +28,11 @@ export const Q_PRESURVEY = [
   // Instruments
   { id:'ps_inst_iaq',            sec:'Instruments',   q:'Primary IAQ meter make/model?',        t:'combo',       ic:'📏', ph:'Or type your own...', opts:['TSI Q-Trak 7575','TSI Q-Trak 7515','TSI IAQ-Calc 7545','TSI VelociCalc 9565','Graywolf AdvancedSense Pro','Graywolf IQ-610','Graywolf PC-3016A','FLIR CM174','Kanomax 2211','Kanomax IAQ-2000','E Instruments AQ Pro','Testo 400','Testo 440','Bacharach Monoxor III','Aeroqual Series 500','HAL Technology HFX205','PPM Technology formaldemeter htV-m','CEM DT-9881','Extech SD800','Fieldpiece SDP2','Other'] },
   { id:'ps_inst_iaq_serial',     sec:'Instruments',   q:'Serial number?',                       t:'text', sk:1,  ic:'🔢', ph:'Instrument serial number' },
+  { id:'ps_inst_iaq_accuracy',   sec:'Instruments',   q:'Stated accuracy (manufacturer spec)?', t:'text', sk:1,  ic:'🎯', ph:'e.g. CO₂ ±3% · Temp ±0.5°F · RH ±3%' },
   { id:'ps_inst_iaq_cal',        sec:'Instruments',   q:'Last factory/field calibration date?', t:'date',        ic:'🔧' },
   { id:'ps_inst_iaq_cal_status', sec:'Instruments',   q:'Calibration status',                   t:'ch',          ic:'✅', opts:['Calibrated within manufacturer spec','Calibrated — overdue for recertification','Field-zeroed only','Not calibrated','Unknown'] },
   { id:'ps_inst_pid',            sec:'Instruments',   q:'PID / VOC meter (if used)?',           t:'combo', sk:1, ic:'🧪', ph:'Or type your own...', opts:['RAE Systems MiniRAE 3000','RAE Systems ppbRAE 3000','RAE Systems MultiRAE','Ion Science Tiger','Ion Science Tiger XT','Ion Science Cub','Honeywell ToxiRAE Pro PID','RKI Instruments Eagle 2','MSA Altair 5X PID','Dräger X-am 8000','Baseline piD-TECH eVx','Mocon Baseline VOC-TRAQ II','Other'] },
+  { id:'ps_inst_pid_accuracy',   sec:'Instruments',   q:'PID stated accuracy / range?',         t:'text', sk:1,  ic:'🎯', ph:'e.g. ±10% · 0–15,000 ppb' },
   { id:'ps_inst_pid_cal',        sec:'Instruments',   q:'PID calibration status?',              t:'ch',   sk:1,  ic:'✅', opts:['Bump-tested and calibrated','Bump-tested only','Not calibrated','N/A'] },
   { id:'ps_inst_other',          sec:'Instruments',   q:'Other instruments used?',              t:'ta',   sk:1,  ic:'🛠️', ph:'Moisture meter, thermal camera, smoke pencil, etc.' },
   // Trigger
@@ -132,6 +134,7 @@ export const Q_DETAILS = [
   // Instruments (also in Q_PRESURVEY — duplicated here so assessors can add post-assessment)
   { id:'ps_inst_iaq',            sec:'Instruments',   q:'Primary IAQ meter make/model?',        t:'combo', sk:1, ic:'📏', ph:'Or type your own...', opts:['TSI Q-Trak 7575','TSI Q-Trak 7515','TSI IAQ-Calc 7545','TSI VelociCalc 9565','Graywolf AdvancedSense Pro','Graywolf IQ-610','Graywolf PC-3016A','FLIR CM174','Kanomax 2211','Kanomax IAQ-2000','E Instruments AQ Pro','Testo 400','Testo 440','Bacharach Monoxor III','Aeroqual Series 500','HAL Technology HFX205','PPM Technology formaldemeter htV-m','CEM DT-9881','Extech SD800','Fieldpiece SDP2','Other'] },
   { id:'ps_inst_iaq_serial',     sec:'Instruments',   q:'Serial number?',                       t:'text', sk:1,  ic:'🔢', ph:'Instrument serial number' },
+  { id:'ps_inst_iaq_accuracy',   sec:'Instruments',   q:'Stated accuracy (manufacturer spec)?', t:'text', sk:1,  ic:'🎯', ph:'e.g. CO₂ ±3% · Temp ±0.5°F · RH ±3%' },
   { id:'ps_inst_iaq_cal',        sec:'Instruments',   q:'Last factory/field calibration date?', t:'date', sk:1,  ic:'🔧' },
   { id:'ps_inst_iaq_cal_status', sec:'Instruments',   q:'Calibration status',                   t:'ch',   sk:1,  ic:'✅', opts:['Calibrated within manufacturer spec','Calibrated — overdue for recertification','Field-zeroed only','Not calibrated','Unknown'] },
 ]

@@ -28,6 +28,7 @@ import { renderClientReport } from '../engine/report/client'
 import { watermarkSectionAttachments, buildCoverNoticeParagraph } from './docx/watermark'
 import { reportSectionAttachments } from './docx/report-chrome'
 import { DATA_GAP_MESSAGES } from './docx/canonical-content'
+import { getCalibrationBannerState } from '../utils/instrumentRegistry'
 import { applyOverrideToScore } from '../utils/consultantReportOverride'
 import { buildOverrideCoverNoticeParagraph, buildOverrideSectionAttachments } from './docx/override-watermark'
 
@@ -130,6 +131,36 @@ function deriveScientificDataGaps(data) {
   return gaps
 }
 
+/**
+ * Build the DOCX-layer instrument accuracy/calibration note input from
+ * presurvey data. Reuses getCalibrationBannerState (the live calibration
+ * gate helper) for the staleness line — no threshold is duplicated here.
+ * Returns null when no primary IAQ instrument was recorded.
+ */
+function buildInstrumentAccuracyInfo(presurvey) {
+  const ps = presurvey || {}
+  const name = ps.ps_inst_iaq
+  if (!name) return null
+  const calDate = ps.ps_inst_iaq_cal || null
+  const banner = getCalibrationBannerState(name, calDate)
+  let calibrationLine
+  if (!calDate) calibrationLine = `${name} calibration date not recorded.`
+  else if (banner && banner.kind === 'expired') calibrationLine = `${banner.message} (as of the report date).`
+  else if (banner && banner.kind === 'expiring') calibrationLine = `${banner.message}.`
+  else calibrationLine = `${name} calibration is current as of the report date.`
+  return {
+    iaqName: name,
+    iaqSerial: ps.ps_inst_iaq_serial || '',
+    iaqAccuracy: ps.ps_inst_iaq_accuracy || '',
+    calDate,
+    calStatus: ps.ps_inst_iaq_cal_status || '',
+    calibrationLine,
+    pidName: ps.ps_inst_pid || '',
+    pidAccuracy: ps.ps_inst_pid_accuracy || '',
+    pidCalStatus: ps.ps_inst_pid_cal || '',
+  }
+}
+
 async function buildConsultantDocument(ctx, data) {
   // v2.1 path: bridge legacy scoring data → AssessmentScore → ClientReport
   // → docx. CIH-defensible deliverable.
@@ -187,6 +218,7 @@ async function buildConsultantDocument(ctx, data) {
     photos: data.photos || ctx.photos || {},
     supplemental,
     dataGaps: deriveScientificDataGaps(data),
+    instrumentAccuracy: buildInstrumentAccuracyInfo(data.presurvey),
   })
 
   // Free-tier watermark: pass watermarkConfig from caller (e.g. resolved

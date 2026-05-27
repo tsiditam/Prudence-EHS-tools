@@ -92,6 +92,11 @@ export const DATA_GAP_MESSAGES = {
   lab: 'Laboratory analytical sampling and speciation were not performed. Screening-level results identify indicators for prioritization and further evaluation, not specific contaminants or exposures.',
 }
 
+// ── Instrument accuracy + calibration note ──
+
+export const INSTRUMENT_ACCURACY_NOTE =
+  'Stated instrument accuracy and calibration status for the direct-reading instruments used in this assessment. Stated accuracy is the manufacturer specification for the instrument; it is not a measurement uncertainty determination for the specific conditions sampled.'
+
 // ── Certification statement ──
 
 /**

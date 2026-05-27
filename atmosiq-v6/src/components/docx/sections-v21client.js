@@ -21,7 +21,7 @@ import { assembleSupplementalSections, mergeSupplementalTocEntries } from './sec
 import {
   BENCHMARK_TABLE_HEADERS, BENCHMARK_ROWS, BENCHMARK_INTRO, BENCHMARK_FOOTNOTE,
   DISCLAIMER_PARAGRAPHS, CONCLUSIONS_CLOSING, certificationStatement, FIRM_NAME,
-  DATA_GAPS_INTRO,
+  DATA_GAPS_INTRO, INSTRUMENT_ACCURACY_NOTE,
 } from './canonical-content'
 
 // v2.2 visual palette — slate/blue per consultant-report design
@@ -1185,6 +1185,30 @@ export function buildDocumentControl(report) {
   ]
 }
 
+// Instrument Accuracy and Calibration — DOCX-layer note built from
+// presurvey data (passed via options.instrumentAccuracy). Surfaces
+// stated accuracy + a calibration-staleness line. No-op when absent.
+export function buildInstrumentAccuracyNote(info) {
+  if (!info || !info.iaqName) return []
+  const out = [...heading2('Instrument Accuracy and Calibration')]
+  out.push(p(INSTRUMENT_ACCURACY_NOTE, { size: 20, color: COLORS.sub }))
+  const rows = [
+    ['Primary IAQ instrument', info.iaqSerial ? `${info.iaqName} (S/N ${info.iaqSerial})` : info.iaqName],
+    ['Stated accuracy', info.iaqAccuracy || 'Not provided'],
+    ['Last calibration', info.calDate ? formatLongDate(info.calDate) : 'Not recorded'],
+    ['Calibration status', info.calStatus || 'Not provided'],
+  ]
+  if (info.pidName) {
+    rows.push(['PID / VOC instrument', info.pidName])
+    rows.push(['PID stated accuracy', info.pidAccuracy || 'Not provided'])
+    rows.push(['PID calibration status', info.pidCalStatus || 'Not provided'])
+  }
+  const w1 = Math.floor(TOTAL_WIDTH_DXA * 0.34)
+  out.push(buildSimpleTable(['Item', 'Detail'], rows, { columnWidths: [w1, TOTAL_WIDTH_DXA - w1] }))
+  if (info.calibrationLine) out.push(p(info.calibrationLine, { italics: true, size: 18, color: COLORS.muted }))
+  return out
+}
+
 // Standards, Guidelines, and Benchmark Types — hardcoded per
 // docs/report-spec §4; always rendered in full.
 export function buildBenchmarksSection() {
@@ -1296,6 +1320,11 @@ export function buildClientDocx(result, options = {}) {
   // their rendered positions (Document Control is front-matter and
   // intentionally not listed).
   tocEntries = spliceTocEntry(tocEntries, { anchorId: 'benchmarks', title: 'Standards, Guidelines, and Benchmark Types', level: 1 }, { after: /Sampling Methodology/i })
+  // Instrument Accuracy sits between Sampling Methodology and Benchmarks
+  // (when present).
+  if (options.instrumentAccuracy && options.instrumentAccuracy.iaqName) {
+    tocEntries = spliceTocEntry(tocEntries, { anchorId: 'instrument-accuracy', title: 'Instrument Accuracy and Calibration', level: 1 }, { after: /Sampling Methodology/i })
+  }
   tocEntries = spliceTocEntry(tocEntries, { anchorId: 'conclusions', title: 'Conclusions', level: 1 }, { before: /Recommendations Register/i })
   tocEntries = spliceTocEntry(tocEntries, { anchorId: 'disclaimer', title: 'Disclaimer', level: 1 }, { after: /Limitations and Professional Judgment/i })
   // Data Gaps sits between Limitations and Disclaimer (when present).
@@ -1312,6 +1341,7 @@ export function buildClientDocx(result, options = {}) {
     ...buildExecutiveSummary(report),
     ...buildScope(report),
     ...buildSamplingMethodologyDocx(report),
+    ...buildInstrumentAccuracyNote(options.instrumentAccuracy),
     ...buildBenchmarksSection(),
     ...buildResultsSection(report),
     ...buildBuildingContext(report),
