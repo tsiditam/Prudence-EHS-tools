@@ -42,7 +42,6 @@ import Loading from './Loading'
 import ScoreRing from './ScoreRing'
 import CountUp from './ui/CountUp'
 import PhotoCapture from './PhotoCapture'
-import ProfileAvatar from './ProfileAvatar'
 import CollaboratorsBar from './CollaboratorsBar'
 import SensorScreen from './SensorScreen'
 import TimePickerInput from './TimePickerInput'
@@ -538,8 +537,9 @@ export default function MobileApp() {
   // the Jasper sheet; FieldAssistant's initialMessage prop picks it
   // up and auto-sends.
   const [voiceCmdOpen, setVoiceCmdOpen] = useState(false)
-  // Header ⋯ overflow — opens a context action sheet (Senior top-bar design).
+  // Header ⋯ overflow — opens a context action menu (Senior top-bar design).
   const [actionsOpen, setActionsOpen] = useState(false)
+  const [actionsAnchor, setActionsAnchor] = useState(null)
   const [voicePrefill, setVoicePrefill] = useState(null)
   // AtmosFlow AI "Review for discrepancies" — chooser + the payload/prompt
   // handed to the assistant. reviewPayload rides the request context;
@@ -2416,7 +2416,7 @@ export default function MobileApp() {
                 { label: 'Projects',     icon: 'bldg',   onClick: () => setView('projects') },
                 { label: 'Sampling forms', icon: 'flask', onClick: () => setView('sampling-forms') },
                 { label: 'Logger Studio', icon: 'chart', onClick: () => setView('sensor-data') },
-                { label: 'Ask Jasper by voice', icon: 'mic', onClick: () => { supabase && trackEvent('jasper_open', { source: 'menu_voice' }); setVoiceCmdOpen(true) } },
+                { label: 'Ask AtmosFlow AI', icon: 'mic', onClick: () => { supabase && trackEvent('jasper_open', { source: 'menu_voice' }); setVoiceCmdOpen(true) } },
                 // App & account — configure, manage, and learn. The
                 // light/dark toggle lives in Settings; it isn't duplicated here.
                 { label: 'Settings',     icon: 'gear',   onClick: () => setView('settings'), divider: true },
@@ -2550,17 +2550,22 @@ export default function MobileApp() {
               )
             })()}
             {/* Overflow (⋯) — context actions for the current screen,
-                opened as a bottom sheet. Replaces the always-on
-                search/mic icons per the Senior top-bar design
-                (search + voice now live inside the sheet). Hidden on
-                the dashboard, where the hamburger menu already exposes
-                these actions. */}
+                opened as a compact dropdown anchored to this button
+                (top-right), matching the hamburger menu's popover.
+                Replaces the always-on search/mic icons per the Senior
+                top-bar design. Hidden on the dashboard, where the
+                hamburger menu already exposes these actions. */}
             {profile && view!=='dash' && (
               <button
                 type="button"
-                onClick={() => setActionsOpen(true)}
+                onClick={(e) => {
+                  const r = e.currentTarget.getBoundingClientRect()
+                  setActionsAnchor({ top: r.bottom + 8, right: Math.max(8, window.innerWidth - r.right) })
+                  setActionsOpen(true)
+                }}
                 aria-label="More actions"
-                aria-haspopup="dialog"
+                aria-haspopup="menu"
+                aria-expanded={actionsOpen}
                 style={{
                   width:36, height:36, borderRadius:'50%',
                   ...GLASS.subtle,
@@ -2572,57 +2577,73 @@ export default function MobileApp() {
                 <I n="dots" s={20} c={TEXT} w={2} />
               </button>
             )}
-            {profile && (
-              <ProfileAvatar
-                profile={profile}
-                size={34}
-                onClick={() => setView('settings')}
-                ariaLabel={`Open account ${profile.name ? `for ${profile.name}` : ''}`.trim()}
-                ringTone="none"
-              />
-            )}
           </div>
         </div>
       </header>
       <div style={{height:'calc(48px + env(safe-area-inset-top, 0px))'}} />
 
-      {/* Context action sheet — opened from the header ⋯ overflow.
-          Items are scoped to the current screen: on the report views
-          they surface the report's own actions (search, voice, map,
-          share); elsewhere the global search + voice. Every item maps
-          to an existing handler — no placeholder actions. */}
+      {/* Context action menu — opened from the header ⋯ overflow.
+          Compact dropdown anchored to the kebab button (top-right),
+          same soft-glass popover as the hamburger menu; no report
+          title/address header. Items are scoped to the current screen:
+          on the report views they surface the report's own actions
+          (search, voice, map, share); elsewhere the global search +
+          voice. Every item maps to an existing handler — no
+          placeholder actions. */}
       {actionsOpen && (() => {
         const onResults = view==='results' || view==='report'
         const close = () => setActionsOpen(false)
         const items = onResults ? [
-          { icon:'search', title:'Search',                 sub:'Across your assessments',          onClick:()=>setView('search') },
-          { icon:'mic',    title:'Ask Jasper by voice',     sub:'Voice question about this report', onClick:()=>{ supabase && trackEvent('jasper_open',{source:'report_actions'}); setVoiceCmdOpen(true) } },
-          { icon:'bldg',   title:'Map zones on floor plan', sub:'Overlay sample locations',         onClick:()=>setView('spatial') },
-          { icon:'send',   title:'Share',                   sub:'Word · PDF deliverable',           onClick:()=>handleShare() },
+          { label:'Search',                 icon:'search', onClick:()=>setView('search') },
+          { label:'Ask AtmosFlow AI',     icon:'mic',    onClick:()=>{ supabase && trackEvent('jasper_open',{source:'report_actions'}); setVoiceCmdOpen(true) } },
+          { label:'Map zones on floor plan', icon:'bldg',   onClick:()=>setView('spatial') },
+          { label:'Share',                   icon:'send',   onClick:()=>handleShare() },
         ] : [
-          { icon:'search', title:'Search',             sub:'Across your assessments', onClick:()=>setView('search') },
-          { icon:'mic',    title:'Ask Jasper by voice', sub:'Voice command',           onClick:()=>{ supabase && trackEvent('jasper_open',{source:'header_actions'}); setVoiceCmdOpen(true) } },
+          { label:'Search',             icon:'search', onClick:()=>setView('search') },
+          { label:'Ask AtmosFlow AI', icon:'mic',    onClick:()=>{ supabase && trackEvent('jasper_open',{source:'header_actions'}); setVoiceCmdOpen(true) } },
         ]
-        const heading = onResults ? (bldg.fn||'Report') : 'Quick actions'
-        const subhead = onResults ? (bldg.fl||null) : null
-        return (
-          <BottomSheet title={heading} onClose={close} ariaLabel={`${heading} — actions`}>
-            {subhead && <div style={{...V3.T.bodyDim, marginTop:-6, marginBottom:4}}>{subhead}</div>}
-            <div style={{display:'flex',flexDirection:'column',marginTop:subhead?8:2}}>
-              {items.map((it,idx)=>(
+        const anchor = actionsAnchor || { top: 60, right: 12 }
+        return createPortal(
+          <>
+            <div
+              onClick={close}
+              onPointerDown={close}
+              style={{position:'fixed',inset:0,zIndex:1000,background:'rgba(0,0,0,0.22)',backdropFilter:'blur(6px)',WebkitBackdropFilter:'blur(6px)'}} />
+            <div role="menu" aria-label="Screen actions" style={{
+              position:'fixed',
+              top: anchor.top, right: anchor.right,
+              minWidth:220, zIndex:1010, padding:6,
+              ...GLASS.elevated,
+              background:'color-mix(in srgb, var(--card) 70%, transparent)',
+              backdropFilter:'blur(30px) saturate(180%)',
+              WebkitBackdropFilter:'blur(30px) saturate(180%)',
+              borderRadius: RADII.sheet,
+              boxShadow:
+                'inset 0 1px 0 rgba(255,255,255,0.06), ' +
+                '0 12px 32px rgba(0,0,0,0.55), ' +
+                '0 2px 6px rgba(0,0,0,0.30)',
+              animation:'fadeUp .15s ease',
+            }}>
+              {items.map(item => (
                 <button
-                  key={it.title}
-                  onClick={()=>{ close(); it.onClick() }}
-                  style={{display:'flex',alignItems:'center',gap:14,width:'100%',padding:'14px 2px',background:'transparent',border:'none',borderTop:idx?`1px solid ${BORDER}`:'none',cursor:'pointer',textAlign:'left',fontFamily:'inherit',WebkitTapHighlightColor:'transparent'}}>
-                  <span style={{width:38,height:38,flexShrink:0,borderRadius:11,background:SURFACE,display:'flex',alignItems:'center',justifyContent:'center'}}><I n={it.icon} s={18} c={ACCENT} w={1.8} /></span>
-                  <span style={{display:'flex',flexDirection:'column',gap:2,minWidth:0}}>
-                    <span style={{fontSize:15,fontWeight:600,color:TEXT}}>{it.title}</span>
-                    <span style={{fontSize:12.5,color:SUB}}>{it.sub}</span>
-                  </span>
+                  key={item.label}
+                  role="menuitem"
+                  onClick={()=>{ close(); item.onClick() }}
+                  style={{
+                    width:'100%',padding:'12px 14px',background:'transparent',border:'none',borderRadius:10,
+                    cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,
+                    fontFamily:'inherit',color:TEXT,fontSize:14,fontWeight:500,minHeight:44,
+                    transition:'background 0.12s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = SURFACE }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}>
+                  <I n={item.icon} s={18} c={SUB} w={1.6} />
+                  <span style={{flex:1}}>{item.label}</span>
                 </button>
               ))}
             </div>
-          </BottomSheet>
+          </>,
+          document.body
         )
       })()}
 
