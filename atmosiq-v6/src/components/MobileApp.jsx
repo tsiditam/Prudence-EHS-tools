@@ -1473,7 +1473,7 @@ export default function MobileApp() {
     const driverMap = {Ventilation:'Ventilation inadequacy',Contaminants:'Elevated contaminant exposure',HVAC:'HVAC system deficiency',Environment:'Environmental condition exceedance'}
     const causeMap = {Ventilation:'Insufficient outdoor air delivery or poor air distribution',Contaminants:'Proximity to emission sources with inadequate dilution ventilation',HVAC:'Deferred maintenance or mechanical system degradation',Environment:'Thermal or moisture conditions outside recognized comfort standards'}
     const expertDriver = driverCat ? (driverMap[driverCat.l] || driverCat.l + ' deficiency') : null
-    const expertComplaint = hasComplaints ? 'Building-related symptom cluster reported' : null
+    const expertComplaint = hasComplaints ? 'Occupant symptoms reported' : null
     const expertCause = causalChains[0] ? causalChains[0].rootCause : (driverCat ? (causeMap[driverCat.l] || 'Contributing factors require further investigation') : null)
 
     // ── v3 derivations for the redesigned hero / panels ──
@@ -1485,7 +1485,10 @@ export default function MobileApp() {
     const confTone = measConf?.overall === 'High' ? V3.CONFIDENCE.high : measConf?.overall === 'Low' ? V3.CONFIDENCE.low : V3.CONFIDENCE.medium
     const confLabel = measConf?.overall ? `${measConf.overall} Confidence` : 'Confidence Pending'
     const headline = (() => {
-      if (causalChains[0]?.type) return `${causalChains[0].type} likely`
+      // Name the screening indicator, not a likelihood on the attribution —
+      // confidence/likelihood belongs to the measurement layer, not the
+      // causal-attribution layer (keeps the screening framing defensible).
+      if (causalChains[0]?.type) return causalChains[0].type
       if (expertDriver) return `${expertDriver}`
       return 'Screening-level assessment complete'
     })()
@@ -1826,7 +1829,7 @@ export default function MobileApp() {
                         <div style={V3.iconBox(WARN)}><I n="people" s={15} c={WARN} w={1.8} /></div>
                         <div style={{minWidth:0,flex:1}}>
                           <div style={V3.T.captionDim}>Complaint pattern</div>
-                          <div style={{...V3.T.bodyStrong, marginTop:3, lineHeight:'18px'}}>Building-related symptoms</div>
+                          <div style={{...V3.T.bodyStrong, marginTop:3, lineHeight:'18px'}}>Occupant symptoms reported</div>
                         </div>
                       </div>
                     )}
@@ -1845,7 +1848,7 @@ export default function MobileApp() {
                     <div style={{minWidth:0,flex:1}}>
                       <div style={V3.T.captionDim}>Overall assessment</div>
                       <div style={{...V3.T.body, marginTop:3, lineHeight:'19px'}}>{(() => {
-                        if (comp.tot < 30) return 'Under-delivered outdoor air is the most common contributor based on available data.'
+                        if (comp.tot < 30) return 'Screening-level indicators point to significant concerns across multiple factors; targeted investigation and corrective action are recommended.'
                         if (comp.tot < 50) return 'Multiple contributing factors detected; targeted intervention warranted.'
                         if (comp.tot < 70) return 'Conditions trending outside accepted range; targeted improvements recommended.'
                         return 'Conditions consistent with expected baseline; continue routine monitoring.'
