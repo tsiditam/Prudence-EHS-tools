@@ -27,6 +27,7 @@ import { legacyToAssessmentScore, deriveAssessmentMeta } from '../engine/bridge'
 import { renderClientReport } from '../engine/report/client'
 import { watermarkSectionAttachments, buildCoverNoticeParagraph } from './docx/watermark'
 import { reportSectionAttachments } from './docx/report-chrome'
+import { DATA_GAP_MESSAGES } from './docx/canonical-content'
 import { applyOverrideToScore } from '../utils/consultantReportOverride'
 import { buildOverrideCoverNoticeParagraph, buildOverrideSectionAttachments } from './docx/override-watermark'
 
@@ -106,6 +107,29 @@ async function generateConsultantDocx(ctx, data) {
  * need the blob (e.g. handleShare → navigator.share) can avoid the
  * download-as-side-effect.
  */
+/**
+ * Derive client-facing SCIENTIFIC data gaps from the assessment itself
+ * (what was not measured / not available) — distinct from the internal
+ * readiness blockers in src/engines/validation.js. Returns an ordered
+ * list of plain-language gap statements (canonical, linter-clean).
+ */
+function deriveScientificDataGaps(data) {
+  const zones = Array.isArray(data?.zones) ? data.zones : []
+  const anyZoneHas = (key) => zones.some(z => z && String(z[key] ?? '').trim() !== '')
+  const gaps = []
+  if (!anyZoneHas('hc')) gaps.push(DATA_GAP_MESSAGES.hcho)
+  if (!anyZoneHas('co')) gaps.push(DATA_GAP_MESSAGES.co)
+  if (!anyZoneHas('tv')) gaps.push(DATA_GAP_MESSAGES.tvoc)
+  const hasOutdoor = ['co2o', 'tfo', 'rho', 'pmo', 'tvo'].some(anyZoneHas)
+  if (!hasOutdoor) gaps.push(DATA_GAP_MESSAGES.outdoor)
+  const hasSensor = Array.isArray(data?.sensorData) ? data.sensorData.length > 0 : !!data?.sensorData
+  if (!hasSensor) gaps.push(DATA_GAP_MESSAGES.continuous)
+  const lab = data?.labResults
+  const hasLab = Array.isArray(lab) ? lab.length > 0 : (lab && typeof lab === 'object' ? Object.keys(lab).length > 0 : false)
+  if (!hasLab) gaps.push(DATA_GAP_MESSAGES.lab)
+  return gaps
+}
+
 async function buildConsultantDocument(ctx, data) {
   // v2.1 path: bridge legacy scoring data → AssessmentScore → ClientReport
   // → docx. CIH-defensible deliverable.
@@ -162,6 +186,7 @@ async function buildConsultantDocument(ctx, data) {
   const { cover, main } = buildClientDocx(result, {
     photos: data.photos || ctx.photos || {},
     supplemental,
+    dataGaps: deriveScientificDataGaps(data),
   })
 
   // Free-tier watermark: pass watermarkConfig from caller (e.g. resolved

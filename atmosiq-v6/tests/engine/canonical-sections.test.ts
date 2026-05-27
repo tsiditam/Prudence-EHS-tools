@@ -17,12 +17,13 @@ import { scoreZone, compositeScore } from '../../src/engines/scoring'
 import { scanProseForBannedLanguage } from '../../src/engine/report/cih-validation'
 import {
   buildClientDocx, buildBenchmarksSection, buildDocumentControl,
-  buildConclusions, buildDisclaimer, buildCertification,
+  buildConclusions, buildDisclaimer, buildCertification, buildDataGapsSection,
 } from '../../src/components/docx/sections-v21client.js'
 import { DOCX_STYLES } from '../../src/components/docx/styles.js'
 import {
   BENCHMARK_ROWS, BENCHMARK_TYPE_LABELS, BENCHMARK_INTRO, BENCHMARK_FOOTNOTE,
   DISCLAIMER_PARAGRAPHS, CONCLUSIONS_CLOSING, certificationStatement,
+  DATA_GAP_MESSAGES, DATA_GAPS_INTRO,
 } from '../../src/components/docx/canonical-content.js'
 import type { AssessmentMeta } from '../../src/engine/types/domain'
 
@@ -73,6 +74,8 @@ describe('Phase 2 — new static prose passes the banned-language linter', () =>
     ['benchmark footnote', BENCHMARK_FOOTNOTE],
     ['conclusions closing', CONCLUSIONS_CLOSING],
     ...DISCLAIMER_PARAGRAPHS.map((p, i) => [`disclaimer #${i}`, p] as [string, string]),
+    ['data-gaps intro', DATA_GAPS_INTRO],
+    ...Object.entries(DATA_GAP_MESSAGES).map(([k, v]) => [`data gap: ${k}`, v] as [string, string]),
   ]
   for (const [label, text] of statics) {
     it(`${label} is clean`, () => {
@@ -103,12 +106,17 @@ describe('Phase 2 — section builders', () => {
     expect(buildDisclaimer().length).toBeGreaterThan(0)
     expect(buildCertification(r).length).toBeGreaterThan(0)
   })
+  it('data-gaps builder is a no-op for an empty list and renders for a populated one', () => {
+    expect(buildDataGapsSection([])).toEqual([])
+    expect(buildDataGapsSection(undefined as any)).toEqual([])
+    expect(buildDataGapsSection([DATA_GAP_MESSAGES.outdoor]).length).toBeGreaterThan(0)
+  })
 })
 
 describe('Phase 2 — rendered DOCX', () => {
   it('contains the new section headings, TOC titles, and benchmark content', async () => {
     const result = buildReport()
-    const { cover, main } = buildClientDocx(result)
+    const { cover, main } = buildClientDocx(result, { dataGaps: [DATA_GAP_MESSAGES.outdoor, DATA_GAP_MESSAGES.lab] })
     const doc = new Document({
       creator: 'AtmosFlow', title: 'Test', styles: DOCX_STYLES,
       sections: [cover, { properties: { type: SectionType.NEXT_PAGE }, children: main }],
@@ -116,7 +124,7 @@ describe('Phase 2 — rendered DOCX', () => {
     const buf = await Packer.toBuffer(doc)
     const zip = await JSZip.loadAsync(buf)
     const xml = await zip.file('word/document.xml')!.async('string')
-    for (const t of ['Document Control', 'Standards, Guidelines, and Benchmark Types', 'Conclusions', 'Disclaimer', 'Certification']) {
+    for (const t of ['Document Control', 'Standards, Guidelines, and Benchmark Types', 'Conclusions', 'Data Gaps and Limitations on Interpretation', 'Disclaimer', 'Certification']) {
       expect(xml).toContain(t)
     }
     expect(xml).toContain('ASHRAE 62.1-2025')

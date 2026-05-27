@@ -75,6 +75,23 @@ export const DISCLAIMER_PARAGRAPHS = [
 export const CONCLUSIONS_CLOSING =
   'These conclusions are screening-level and reflect conditions observed during a single site visit. They are presented as professional judgment to support prioritization and further evaluation, and are not exposure, health, or regulatory-compliance determinations.'
 
+// ── Data gaps and limitations on interpretation (scientific) ──
+// Client-facing scientific gaps derived from the assessment itself
+// (what was not measured / not available), NOT the internal readiness
+// blockers from src/engines/validation.js.
+
+export const DATA_GAPS_INTRO =
+  'The following data gaps and limitations on interpretation apply to this screening-level assessment. They are listed so the reader can weigh the findings appropriately and identify where additional investigation would strengthen the basis for decisions.'
+
+export const DATA_GAP_MESSAGES = {
+  hcho: 'Formaldehyde (HCHO) was not measured. Screening-level direct-reading values are preliminary; a quantitative exposure assessment requires validated sampling (for example, NIOSH Method 2016 or an equivalent method).',
+  co: 'Carbon monoxide (CO) was not measured at the assessed locations.',
+  tvoc: 'Total volatile organic compounds (TVOCs) were not screened. TVOC screening does not identify specific compounds and does not substitute for laboratory speciation.',
+  outdoor: 'Outdoor (ambient) reference readings were not captured. Indoor/outdoor comparison supports building-attribution screening and was not available for this assessment.',
+  continuous: 'Measurements are point-in-time direct readings. Continuous monitoring was not deployed, so reported values may not represent worst-case, average, or typical conditions.',
+  lab: 'Laboratory analytical sampling and speciation were not performed. Screening-level results identify indicators for prioritization and further evaluation, not specific contaminants or exposures.',
+}
+
 // ── Certification statement ──
 
 /**

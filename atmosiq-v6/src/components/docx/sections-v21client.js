@@ -21,6 +21,7 @@ import { assembleSupplementalSections, mergeSupplementalTocEntries } from './sec
 import {
   BENCHMARK_TABLE_HEADERS, BENCHMARK_ROWS, BENCHMARK_INTRO, BENCHMARK_FOOTNOTE,
   DISCLAIMER_PARAGRAPHS, CONCLUSIONS_CLOSING, certificationStatement, FIRM_NAME,
+  DATA_GAPS_INTRO,
 } from './canonical-content'
 
 // v2.2 visual palette — slate/blue per consultant-report design
@@ -1215,6 +1216,17 @@ export function buildConclusions(report) {
   return out
 }
 
+// Data Gaps and Limitations on Interpretation — scientific gaps
+// derived from the assessment (passed via options.dataGaps). No-op
+// when the list is empty.
+export function buildDataGapsSection(dataGaps) {
+  if (!Array.isArray(dataGaps) || dataGaps.length === 0) return []
+  const out = [...heading2('Data Gaps and Limitations on Interpretation')]
+  out.push(p(DATA_GAPS_INTRO, { size: 20, color: COLORS.sub }))
+  for (const g of dataGaps) out.push(bullet(g))
+  return out
+}
+
 // Disclaimer — standalone, distinct from the Limitations section.
 export function buildDisclaimer() {
   const out = [...heading2('Disclaimer')]
@@ -1286,6 +1298,10 @@ export function buildClientDocx(result, options = {}) {
   tocEntries = spliceTocEntry(tocEntries, { anchorId: 'benchmarks', title: 'Standards, Guidelines, and Benchmark Types', level: 1 }, { after: /Sampling Methodology/i })
   tocEntries = spliceTocEntry(tocEntries, { anchorId: 'conclusions', title: 'Conclusions', level: 1 }, { before: /Recommendations Register/i })
   tocEntries = spliceTocEntry(tocEntries, { anchorId: 'disclaimer', title: 'Disclaimer', level: 1 }, { after: /Limitations and Professional Judgment/i })
+  // Data Gaps sits between Limitations and Disclaimer (when present).
+  if (Array.isArray(options.dataGaps) && options.dataGaps.length > 0) {
+    tocEntries = spliceTocEntry(tocEntries, { anchorId: 'data-gaps', title: 'Data Gaps and Limitations on Interpretation', level: 1 }, { after: /Limitations and Professional Judgment/i })
+  }
   tocEntries = spliceTocEntry(tocEntries, { anchorId: 'certification', title: 'Certification', level: 1 }, { before: /^Appendix / })
 
   const main = [
@@ -1321,6 +1337,8 @@ export function buildClientDocx(result, options = {}) {
       assessmentDate: report.cover?.date,
     }),
     ...buildLimitations(report),
+    // Data Gaps — scientific gaps derived from the assessment.
+    ...buildDataGapsSection(options.dataGaps),
     // Disclaimer — standalone legal block, distinct from Limitations.
     ...buildDisclaimer(),
     // Standards Currency (and any future body-level supplemental section)
