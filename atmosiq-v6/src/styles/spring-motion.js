@@ -25,8 +25,10 @@
  */
 
 export const TAP_SPRING = { type: 'spring', stiffness: 500, damping: 30, mass: 0.5 }
-export const TAP_SCALE = 0.97
-export const HOVER_SCALE = 1.02
+// TEMP PROOF BUILD — exaggerated scales so the spring is unmistakable.
+// Tuned values are tap 0.97 / hover 1.02. REVERT before keeping.
+export const TAP_SCALE = 0.9
+export const HOVER_SCALE = 1.06
 
 /**
  * Motion props for the tap/hover spring feel. Honors reduced motion:
