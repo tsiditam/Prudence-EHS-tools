@@ -9,7 +9,7 @@
  * `!zoneScores.length`, and the report view renders nothing (dead tap).
  */
 import { describe, it, expect } from 'vitest'
-import { fromCloudRow, toPayload } from '../../src/utils/supabaseStorage.js'
+import Storage, { fromCloudRow, toPayload } from '../../src/utils/supabaseStorage.js'
 
 function cloudRow() {
   return {
@@ -158,5 +158,14 @@ describe('fromCloudRow — payload preference (lossless restore)', () => {
     const out = fromCloudRow(legacy)
     expect(out.zoneScores).toEqual([{ zn: 'Z' }])
     expect(out.comp).toEqual({ tot: 50 })
+  })
+})
+
+describe('getRemoteAssessment — cloud-bypass fetch', () => {
+  it('is exported and resolves null when no cloud is configured (offline-safe)', async () => {
+    // jsdom has no VITE_SUPABASE_URL, so supabase is null → isOnline() false.
+    // It must resolve null rather than throw, so openReport can fall through.
+    expect(typeof Storage.getRemoteAssessment).toBe('function')
+    await expect(Storage.getRemoteAssessment('rpt-x')).resolves.toBeNull()
   })
 })
