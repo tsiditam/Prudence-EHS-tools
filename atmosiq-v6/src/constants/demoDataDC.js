@@ -10,6 +10,7 @@ export const DEMO_DC_PRESURVEY = {
   ps_assessor_exp: '10-20 years',
   ps_inst_iaq: 'TSI Q-Trak 7575',
   ps_inst_iaq_serial: 'QT-2025-14201',
+  ps_inst_iaq_accuracy: 'CO₂ ±3% rdg ±50 ppm · Temp ±0.5°C · RH ±3%',
   ps_inst_iaq_cal: '2026-03-01',
   ps_inst_iaq_cal_status: 'Calibrated within manufacturer spec',
   ps_reason: 'Routine / scheduled assessment',
