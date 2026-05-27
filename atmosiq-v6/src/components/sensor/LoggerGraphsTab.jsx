@@ -30,7 +30,7 @@ const currentPalette = () => (typeof document !== 'undefined' && document.docume
 const fmtRange = (s, e) => (s && e ? `${dayjs(s).format('MMM D, HH:mm')} – ${dayjs(e).format('MMM D, HH:mm')}` : 'Row order (no timestamps)')
 const paramLabel = (k) => SENSOR_PARAMS.find((p) => p.key === k)?.label || k
 
-const CARD = 'var(--card)', BORDER = 'var(--border)'
+const CARD = 'var(--card)', BORDER = 'var(--border)', SUB = 'var(--sub)', ACCENT = 'var(--accent)', SURFACE = 'var(--surface)'
 
 function EmptyNote() {
   return (
@@ -40,7 +40,7 @@ function EmptyNote() {
   )
 }
 
-export default function LoggerGraphsTab({ sensorData }) {
+export default function LoggerGraphsTab({ sensorData, editable = false, onToggleInclude }) {
   const env = normalizeSensorData(sensorData)
   if (!env || !env.graphs) return <EmptyNote />
 
@@ -100,9 +100,21 @@ export default function LoggerGraphsTab({ sensorData }) {
           <div style={{ padding: '16px 18px 8px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
               <div style={V3.T.bodyStrong}>{title}</div>
-              {inReport && (
+              {editable && onToggleInclude ? (
+                // Inline include/exclude switch — lets the assessor drop a
+                // graph from the report (or add it back) right from this tab,
+                // mirroring Logger Studio's "Include in report" control.
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', flexShrink: 0 }}>
+                  <span style={{ ...V3.T.caption, color: inReport ? ACCENT : SUB }}>In report</span>
+                  <span onClick={() => onToggleInclude(id, !inReport, { title, series })} role="switch" aria-checked={inReport} aria-label={`Include ${title} in report`} tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggleInclude(id, !inReport, { title, series }) } }}
+                    style={{ width: 40, height: 24, borderRadius: 12, background: inReport ? ACCENT : SURFACE, border: `1px solid ${inReport ? ACCENT : BORDER}`, position: 'relative', transition: 'background .2s, border-color .2s', flexShrink: 0 }}>
+                    <span style={{ position: 'absolute', top: 2, left: inReport ? 18 : 2, width: 18, height: 18, borderRadius: '50%', background: inReport ? 'var(--on-accent-fill)' : SUB, transition: 'left .2s' }} />
+                  </span>
+                </label>
+              ) : inReport ? (
                 <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.4px', textTransform: 'uppercase', color: 'var(--accent)', background: 'color-mix(in srgb, var(--accent) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--accent) 24%, transparent)', borderRadius: 6, padding: '2px 7px', flexShrink: 0 }}>In report</span>
-              )}
+              ) : null}
             </div>
             <div style={{ ...V3.T.captionDim, marginTop: 2 }}>
               {range}{series && series.length > 1 ? ` · ${series.join(' / ')}` : ''}

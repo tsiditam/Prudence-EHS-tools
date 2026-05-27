@@ -1452,6 +1452,26 @@ export default function MobileApp() {
   }
 
 
+  // Toggle a logger graph's report inclusion from the results Logger tab.
+  // Mirrors Logger Studio's "Include in report" switch but operates on the
+  // live sensorData state, which is what report generation reads — so dropping
+  // a graph here removes it from the exported/finalized report. Wired only on
+  // the live results view (not archived reports). The captured image is left
+  // intact so re-enabling restores the DOCX figure.
+  const toggleLoggerInclude = (id, include, meta = {}) => {
+    setSensorData(prev => {
+      if (!prev) return prev
+      const graphs = { ...(prev.graphs || {}) }
+      const existing = graphs[id] || {}
+      graphs[id] = { ...existing, include }
+      if (include) {
+        if (!graphs[id].title && meta.title) graphs[id].title = meta.title
+        if (!graphs[id].series && meta.series) graphs[id].series = meta.series
+      }
+      return { ...prev, graphs }
+    })
+  }
+
   // ── Results renderer ──
   const renderResults = (archived) => {
     if (!comp || !zoneScores.length) return null
@@ -1746,7 +1766,7 @@ export default function MobileApp() {
           />
         )}
 
-        {rTab==='logger' && <LoggerGraphsTab sensorData={loggerSd} />}
+        {rTab==='logger' && <LoggerGraphsTab sensorData={loggerSd} editable={!archived} onToggleInclude={archived ? undefined : toggleLoggerInclude} />}
 
         {rTab==='overview' && zs && (() => {
           // ── v3 Findings tab — derive panels from existing engine state ──
