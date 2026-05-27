@@ -10,6 +10,7 @@ export const DEMO_FM_PRESURVEY = {
   ps_assessor_exp: '3-5 years',
   ps_inst_iaq: 'Temtop M2000',
   ps_inst_iaq_serial: '',
+  ps_inst_iaq_accuracy: 'CO₂ ±50 ppm ±5% · PM2.5 ±10% · HCHO ±5%',
   ps_inst_iaq_cal_status: '',
   ps_reason: 'Occupant complaint(s)',
   ps_complaint_narrative: 'Three tenants on the 2nd floor have reported stuffy air and headaches over the past two weeks. One tenant mentioned symptoms improve over the weekend.',

@@ -18,7 +18,12 @@ export function buildCausalChains(zones, bldg, zoneScores) {
   zoneScores.forEach((zs, i) => {
     const z = zones[i] || {}, d = { ...bldg, ...z }, zName = zs.zoneName
 
-    // Gap 3: SBS pattern fires causal chains from complaints alone
+    // Occupant-complaint pattern fires environmental screening hypotheses
+    // from complaints alone. The platform screens building conditions only —
+    // it never characterizes occupant health, so no SBS / building-related-
+    // illness language appears in any output. Symptom characterization
+    // requires an occupant survey + medical/occupational-health input and is
+    // outside this screening's scope.
     const sbsDetected = detectSBSPattern(d)
     if (sbsDetected && !chains.some(c => c.zone === zName && c.type.includes('Ventilation'))) {
       const ev = []
@@ -26,13 +31,13 @@ export function buildCausalChains(zones, bldg, zoneScores) {
       if (d.sr === 'Yes — clear pattern') ev.push('Symptoms resolve when away from building')
       if (d.cc === 'Yes — this zone') ev.push('Symptom clustering in this zone')
       if ((d.sy||[]).length) ev.push('Reported: ' + d.sy.join(', '))
-      chains.push({ zone: zName, type: 'Ventilation Deficiency — SBS Indicator Pattern',
-        rootCause: 'Occupant symptom pattern consistent with a sick-building-syndrome indicator profile (screening-level — not a clinical SBS determination). Under-delivered outdoor air is the most common contributor and should be investigated first.',
+      chains.push({ zone: zName, type: 'Ventilation Deficiency (Screening)',
+        rootCause: 'Occupant complaints were reported in this zone. As an environmental screening hypothesis, insufficient outdoor-air delivery is a common contributor and warrants investigation of ventilation rates and outdoor-air damper operation. This screening evaluates building conditions only and does not characterize occupant health.',
         evidence: ev, confidence: ev.length >= 3 ? 'Strong' : 'Moderate' })
-      chains.push({ zone: zName, type: 'Microbial / Bioaerosol — SBS Indicator Pattern',
+      chains.push({ zone: zName, type: 'Microbial / Bioaerosol (Screening)',
         rootCause: 'Hidden moisture or microbial amplification cannot be ruled out without moisture mapping and bioaerosol sampling.',
         evidence: [...ev, 'Hypothesis — requires confirmatory investigation'], confidence: 'Possible' })
-      chains.push({ zone: zName, type: 'VOC Source — SBS Indicator Pattern',
+      chains.push({ zone: zName, type: 'VOC Source (Screening)',
         rootCause: 'New materials, cleaning products, or adjacent processes may be contributing VOCs not captured by walkthrough.',
         evidence: [...ev, 'Hypothesis — requires TVOC/speciation sampling'], confidence: 'Possible' })
     }

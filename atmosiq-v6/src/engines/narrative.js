@@ -48,6 +48,14 @@ export async function generateNarrative(bldg, zones, zoneScores, comp, osha, rec
       else console.error('Narrative proxy error:', data.error)
       return null
     }
+    // Drop AI narrative that trips the banned-language linter and fall
+    // back to the validated deterministic report prose. The flagged
+    // phrases are logged so the failure is visible to the assessor.
+    if (data.language_review === 'failed') {
+      const terms = (data.banned_language || []).map(h => h.term).join(', ')
+      console.warn('AI narrative suppressed — banned language detected:', terms)
+      return null
+    }
     return data.narrative || null
   } catch(e) { console.error('AI narrative error:', e); return null }
 }

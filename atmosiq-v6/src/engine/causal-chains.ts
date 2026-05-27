@@ -276,10 +276,10 @@ function ruleSickBuilding(
   const causationSupported = false
   return {
     id: 'chain_sick_building',
-    name: 'Building-related illness pattern',
+    name: 'Reported symptom-resolution pattern (screening)',
     relatedFindingIds: ids(related),
     rootCause:
-      'Reported symptoms abate when occupants leave the building. Combined with measurable IAQ deficits, this is the textbook presentation of building-related illness per NIOSH Health Hazard Evaluation methodology and warrants a comprehensive remediation plan rather than isolated fixes. A structured symptom survey with spatial mapping and a coordinated environmental investigation are recommended before remediation scope is finalized.',
+      'Occupants reported that symptoms abate when away from the building, alongside measurable IAQ deficits documented in this assessment. This is a self-reported pattern only — it is not a medical or building-related-illness determination, and this environmental screening does not characterize occupant health. Characterizing the pattern requires a structured occupant symptom survey (per NIOSH Health Hazard Evaluation methodology) with medical/occupational-health input. That survey and a coordinated environmental investigation are recommended before remediation scope is finalized.',
     causationSupported,
     contributingZones: collectZoneIds(related),
     citation: CITATION_NIOSH_HHE,

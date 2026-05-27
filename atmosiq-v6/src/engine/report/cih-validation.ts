@@ -71,6 +71,40 @@ export interface BlockedTermHit {
   readonly snippet: string  // surrounding text (~80 chars)
 }
 
+/**
+ * A single banned-language hit, location-agnostic. Returned by the
+ * pure scanner so the same logic can run over engine prose (Path A)
+ * and AI-generated narrative (Path B, via the api/_banned-language.js
+ * CommonJS mirror — kept in sync by tests/engine/banned-language-parity).
+ */
+export interface BannedLanguageHit {
+  readonly term: string
+  readonly snippet: string
+  readonly category: string
+  readonly recommendedFix: string
+}
+
+/**
+ * Context-aware ban. Unlike the flat TONE_BANNED_TERMS list, these
+ * fire only when the surrounding text disambiguates a defensibility
+ * problem from the engine's own legitimate screening prose:
+ *   - requiredContext: hit ONLY when this also matches the local
+ *     window (e.g. "consistent with" → only when a clinical term
+ *     follows; the engine uses "consistent with insufficient outdoor
+ *     air…" legitimately).
+ *   - allowedContext: SUPPRESS the hit when any of these match the
+ *     window (e.g. "definitive conclusion" / "rather than definitive
+ *     determinations" are the engine's standard deferral phrasing).
+ */
+interface ContextAwareBan {
+  readonly id: string
+  readonly pattern: RegExp                            // word-boundary, global+case-insensitive
+  readonly requiredContext?: RegExp                   // flag only when this matches the window
+  readonly allowedContext?: ReadonlyArray<RegExp>     // suppress when any matches the window
+  readonly category: string
+  readonly recommendedFix: string
+}
+
 // ── Banned term lists per CIH defensibility §10 ──
 
 /**
@@ -81,18 +115,148 @@ export interface BlockedTermHit {
  * authoring time), this is a defensive double-check on the
  * RENDERED output — catches anything that slipped through.
  */
-const TONE_BANNED_TERMS: ReadonlyArray<string> = [
+export const TONE_BANNED_TERMS: ReadonlyArray<string> = [
   'caused by',
   'confirmed',
   'unsafe',
   'hazardous',
   'noncompliant',
   'violation',
+  'violates',
   'health risk',
   'high risk',
   'critical risk',
   'elevated risk',
+  // v2.7 — compliance assertions (the engine uses "compliance requires
+  // …sampling" / "not a compliance determination" legitimately, so only
+  // the assertive "(in) compliance/compliant with" forms are banned).
+  'in compliance with',
+  'compliant with',
+  // v2.7 — clinical/alarmist mold language (also gated upstream in
+  // validators.ts, banned unconditionally here as a rendered-output net).
+  'toxic mold',
+  'black mold',
 ]
+
+/**
+ * v2.7 context-aware bans. See ContextAwareBan above for semantics.
+ * Every allowedContext / requiredContext below was seeded from the
+ * engine's own clean prose (synthesis.ts, finding-groups.ts,
+ * templates.ts, professional-opinion.ts, sampling-adequacy.ts,
+ * causal-chains.ts) so a default render produces zero hits — see the
+ * regression test in tests/engine/v22-cih-validation.test.ts.
+ *
+ * MIRROR: api/_banned-language.js holds an identical copy for the AI
+ * narrative path; tests/engine/banned-language-parity.test.ts asserts
+ * the two never drift. Update both together.
+ */
+export const CONTEXT_AWARE_BANS: ReadonlyArray<ContextAwareBan> = [
+  {
+    id: 'consistent-with-clinical',
+    pattern: /\bconsistent with\b/gi,
+    requiredContext: /\b(illness|disease|syndrome|infection|poisoning|pneumonitis|asthma|diagnos|hypersensitivity|toxicity|carcinogen|cancer|sick building|legionnaire|respiratory (?:illness|disease|infection|condition))\b/i,
+    category: '§10 Clinical attribution',
+    recommendedFix: 'Do not link an observation to a clinical condition. Describe the environmental condition and recommend medical referral if warranted.',
+  },
+  {
+    id: 'high-confidence-attribution',
+    pattern: /\bhigh confidence\b/gi,
+    requiredContext: /high confidence\b[\s\S]{0,60}\b(caus(?:e|ed|es|ation)|attribut|due to|responsible for|stems from|results? from|diagnos|is the source|proves?|proven)\b/i,
+    category: '§10 Confidence misattribution',
+    recommendedFix: 'Attach confidence to the measurement or instrument reliability, not to a causal attribution.',
+  },
+  {
+    id: 'indicates-health',
+    pattern: /\bindicat(?:e|es|ed|ing)\b/gi,
+    requiredContext: /indicat\w*\b[\s\S]{0,50}\b(illness|disease|syndrome|infection|poisoning|pneumonitis|asthma|health (?:effect|risk|condition|hazard|impact)|respiratory (?:illness|condition|distress)|symptom|toxicity|carcinogen|cancer)\b/i,
+    category: '§10 Health attribution',
+    recommendedFix: 'Describe what the measurement indicates environmentally; do not assert a health condition.',
+  },
+  {
+    id: 'definitive-assertion',
+    pattern: /\bdefinitiv(?:e|ely)\b/gi,
+    allowedContext: [
+      /definitive (?:conclusion|determination|classification|class|g-?class)/i,
+      /\b(?:not|rather than|without|before|never|avoid|cannot|unable to)\b[\s\S]{0,30}definitiv/i,
+    ],
+    category: '§10 Definitive language',
+    recommendedFix: 'Use screening-level / preliminary language; definitive conclusions require licensed-professional, evidence-backed determinations.',
+  },
+  {
+    id: 'guarantee-outcome',
+    pattern: /\b(?:guarantee|guarantees|guaranteed|ensure|ensures|ensured|ensuring)\b/gi,
+    requiredContext: /\b(?:guarantee|ensur)\w*\b[\s\S]{0,40}\b(air quality|safe|safety|health|healthy|conditions?|outcomes?|compliance|compliant|results?|no (?:risk|hazard|mold|exposure|contamination))\b/i,
+    category: '§10 Guarantee of outcome',
+    recommendedFix: 'Avoid guaranteeing conditions or outcomes; describe screening observations and recommendations only.',
+  },
+  {
+    id: 'sbs-bri-attribution',
+    pattern: /\b(?:sick building syndrome|building[- ]related illness)\b/gi,
+    allowedContext: [
+      /\bnot\b[\s\S]{0,40}(?:sick building syndrome|building[- ]related illness)/i,
+      /(?:sick building syndrome|building[- ]related illness)[\s\S]{0,40}(?:investigation|methodology|program|are distinct|requires (?:medical|a licensed))/i,
+      /should not (?:diagnose|attribute|determine)/i,
+    ],
+    category: '§10 Clinical syndrome attribution',
+    recommendedFix: 'Do not assert SBS/BRI — these require licensed medical diagnosis. Describe environmental conditions only.',
+  },
+]
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+const TONE_TERM_REGEXES: ReadonlyArray<{ term: string; re: RegExp }> =
+  TONE_BANNED_TERMS.map(term => ({ term, re: new RegExp('\\b' + escapeRegExp(term) + '\\b', 'i') }))
+
+function snippetAround(text: string, idx: number, len: number): string {
+  const start = Math.max(0, idx - 40)
+  const end = Math.min(text.length, idx + len + 40)
+  return text.slice(start, end)
+}
+
+/**
+ * PURE banned-language scanner over a single prose string. Combines the
+ * unconditional word-boundary TONE_BANNED_TERMS with the context-aware
+ * CONTEXT_AWARE_BANS. Shared by the engine's post-render tone check and
+ * (via the api/_banned-language.js mirror) the AI-narrative path.
+ */
+export function scanProseForBannedLanguage(text: string): BannedLanguageHit[] {
+  const hits: BannedLanguageHit[] = []
+  if (!text) return hits
+
+  for (const { term, re } of TONE_TERM_REGEXES) {
+    const m = re.exec(text)
+    if (m) {
+      hits.push({
+        term,
+        snippet: snippetAround(text, m.index, term.length),
+        category: '§10 Tone violation',
+        recommendedFix: `Replace "${term}" with screening-level / preliminary / "may be consistent with" language.`,
+      })
+    }
+  }
+
+  for (const ban of CONTEXT_AWARE_BANS) {
+    ban.pattern.lastIndex = 0
+    let m: RegExpExecArray | null
+    while ((m = ban.pattern.exec(text)) !== null) {
+      const idx = m.index
+      const win = text.slice(Math.max(0, idx - 30), Math.min(text.length, idx + m[0].length + 140))
+      if (m[0].length === 0) ban.pattern.lastIndex++  // guard against zero-width loops
+      if (ban.requiredContext && !ban.requiredContext.test(win)) continue
+      if (ban.allowedContext && ban.allowedContext.some(re => re.test(win))) continue
+      hits.push({
+        term: m[0],
+        snippet: snippetAround(text, idx, m[0].length),
+        category: ban.category,
+        recommendedFix: ban.recommendedFix,
+      })
+    }
+  }
+
+  return hits
+}
 
 /**
  * Quantified-count patterns. Catches "11 conditions warrant" and
@@ -345,21 +509,14 @@ function checkToneViolations(
   const surfaces = collectAllProseSurfaces(report)
   for (const { field, text } of surfaces) {
     if (!text) continue
-    const lower = text.toLowerCase()
-    for (const term of TONE_BANNED_TERMS) {
-      const idx = lower.indexOf(term)
-      if (idx === -1) continue
-      // Build a small snippet around the hit.
-      const start = Math.max(0, idx - 40)
-      const end = Math.min(text.length, idx + term.length + 40)
-      const snippet = text.slice(start, end)
-      blockedTermsFound.push({ term, location: field, snippet })
+    for (const hit of scanProseForBannedLanguage(text)) {
+      blockedTermsFound.push({ term: hit.term, location: field, snippet: hit.snippet })
       issues.push({
-        category: '§10 Tone violation',
+        category: hit.category,
         severity: 'blocking',
         location: field,
-        message: `Banned term "${term}" found in client-facing prose.`,
-        recommendedFix: `Replace "${term}" with screening-level / preliminary / "may be consistent with" language.`,
+        message: `Banned term "${hit.term}" found in client-facing prose.`,
+        recommendedFix: hit.recommendedFix,
       })
     }
   }

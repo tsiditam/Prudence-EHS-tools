@@ -13,7 +13,7 @@
  */
 
 import { Document, Packer, Paragraph, TextRun, AlignmentType, HeadingLevel } from 'docx'
-import { BODY_SECTION_PROPERTIES } from './docx/page-setup'
+import { BODY_SECTION_PROPERTIES, LETTER_BODY_PAGE } from './docx/page-setup'
 import { DOCX_STYLES } from './docx/styles'
 import { buildCoverPage } from './docx/sections-core'
 import { buildSamplingPlan, buildRecommendations } from './docx/sections-recommendations'
@@ -26,6 +26,9 @@ import { buildMethodologyCurrency } from './docx/sections-methodology-currency'
 import { legacyToAssessmentScore, deriveAssessmentMeta } from '../engine/bridge'
 import { renderClientReport } from '../engine/report/client'
 import { watermarkSectionAttachments, buildCoverNoticeParagraph } from './docx/watermark'
+import { reportSectionAttachments } from './docx/report-chrome'
+import { DATA_GAP_MESSAGES } from './docx/canonical-content'
+import { getCalibrationBannerState } from '../utils/instrumentRegistry'
 import { applyOverrideToScore } from '../utils/consultantReportOverride'
 import { buildOverrideCoverNoticeParagraph, buildOverrideSectionAttachments } from './docx/override-watermark'
 
@@ -105,6 +108,59 @@ async function generateConsultantDocx(ctx, data) {
  * need the blob (e.g. handleShare → navigator.share) can avoid the
  * download-as-side-effect.
  */
+/**
+ * Derive client-facing SCIENTIFIC data gaps from the assessment itself
+ * (what was not measured / not available) — distinct from the internal
+ * readiness blockers in src/engines/validation.js. Returns an ordered
+ * list of plain-language gap statements (canonical, linter-clean).
+ */
+function deriveScientificDataGaps(data) {
+  const zones = Array.isArray(data?.zones) ? data.zones : []
+  const anyZoneHas = (key) => zones.some(z => z && String(z[key] ?? '').trim() !== '')
+  const gaps = []
+  if (!anyZoneHas('hc')) gaps.push(DATA_GAP_MESSAGES.hcho)
+  if (!anyZoneHas('co')) gaps.push(DATA_GAP_MESSAGES.co)
+  if (!anyZoneHas('tv')) gaps.push(DATA_GAP_MESSAGES.tvoc)
+  const hasOutdoor = ['co2o', 'tfo', 'rho', 'pmo', 'tvo'].some(anyZoneHas)
+  if (!hasOutdoor) gaps.push(DATA_GAP_MESSAGES.outdoor)
+  const hasSensor = Array.isArray(data?.sensorData) ? data.sensorData.length > 0 : !!data?.sensorData
+  if (!hasSensor) gaps.push(DATA_GAP_MESSAGES.continuous)
+  const lab = data?.labResults
+  const hasLab = Array.isArray(lab) ? lab.length > 0 : (lab && typeof lab === 'object' ? Object.keys(lab).length > 0 : false)
+  if (!hasLab) gaps.push(DATA_GAP_MESSAGES.lab)
+  return gaps
+}
+
+/**
+ * Build the DOCX-layer instrument accuracy/calibration note input from
+ * presurvey data. Reuses getCalibrationBannerState (the live calibration
+ * gate helper) for the staleness line — no threshold is duplicated here.
+ * Returns null when no primary IAQ instrument was recorded.
+ */
+function buildInstrumentAccuracyInfo(presurvey) {
+  const ps = presurvey || {}
+  const name = ps.ps_inst_iaq
+  if (!name) return null
+  const calDate = ps.ps_inst_iaq_cal || null
+  const banner = getCalibrationBannerState(name, calDate)
+  let calibrationLine
+  if (!calDate) calibrationLine = `${name} calibration date not recorded.`
+  else if (banner && banner.kind === 'expired') calibrationLine = `${banner.message} (as of the report date).`
+  else if (banner && banner.kind === 'expiring') calibrationLine = `${banner.message}.`
+  else calibrationLine = `${name} calibration is current as of the report date.`
+  return {
+    iaqName: name,
+    iaqSerial: ps.ps_inst_iaq_serial || '',
+    iaqAccuracy: ps.ps_inst_iaq_accuracy || '',
+    calDate,
+    calStatus: ps.ps_inst_iaq_cal_status || '',
+    calibrationLine,
+    pidName: ps.ps_inst_pid || '',
+    pidAccuracy: ps.ps_inst_pid_accuracy || '',
+    pidCalStatus: ps.ps_inst_pid_cal || '',
+  }
+}
+
 async function buildConsultantDocument(ctx, data) {
   // v2.1 path: bridge legacy scoring data → AssessmentScore → ClientReport
   // → docx. CIH-defensible deliverable.
@@ -161,6 +217,8 @@ async function buildConsultantDocument(ctx, data) {
   const { cover, main } = buildClientDocx(result, {
     photos: data.photos || ctx.photos || {},
     supplemental,
+    dataGaps: deriveScientificDataGaps(data),
+    instrumentAccuracy: buildInstrumentAccuracyInfo(data.presurvey),
   })
 
   // Free-tier watermark: pass watermarkConfig from caller (e.g. resolved
@@ -184,10 +242,29 @@ async function buildConsultantDocument(ctx, data) {
     ...(coverNotice ? [coverNotice] : []),
   ]
 
-  // Merge headers/footers when both watermarks are active. Override
-  // wins on the header (more important warning); free-tier footer
-  // remains. When only one is active, the other's spread yields {}.
-  const mergedSectionAttachments = {
+  // Formal running header/footer (firm · project no. / "Confidential —
+  // Prepared for {client}" · Page X of Y). Used as the BASE of the body
+  // merge so the free-tier watermark and IH-override attachments still
+  // take precedence for their slots when present (their whole-object
+  // spread replaces this chrome). Paid reports — which previously had
+  // no running header/footer — get the formal chrome.
+  const reportChrome = reportSectionAttachments({
+    firm: meta.issuingFirm?.name,
+    projectNumber: meta.projectNumber,
+    clientName: meta.transmittalRecipient?.organization
+      || meta.transmittalRecipient?.fullName
+      || ctx.facilityName,
+  })
+
+  // Cover keeps only the watermark/override attachments (no formal
+  // running chrome on the title page); the body gets the chrome with
+  // watermark/override layered on top.
+  const coverAttachments = {
+    ...sectionWatermark,
+    ...overrideAttachments,
+  }
+  const bodyAttachments = {
+    ...reportChrome,
     ...sectionWatermark,
     ...overrideAttachments,
   }
@@ -198,13 +275,15 @@ async function buildConsultantDocument(ctx, data) {
     description: 'Indoor Air Quality Assessment Report',
     styles: DOCX_STYLES,
     sections: [
-      { ...cover, children: coverChildren, ...mergedSectionAttachments },
+      { ...cover, children: coverChildren, ...coverAttachments },
       {
         // v2.5.1 — explicit Letter portrait + 1-inch margins so the
         // body fills the 6.5-inch content area on US Letter paper.
-        properties: BODY_SECTION_PROPERTIES,
+        // Restart page numbering at 1 for the body so the cover (its own
+        // section) is not counted in the "Page X of Y" footer.
+        properties: { ...BODY_SECTION_PROPERTIES, page: { ...LETTER_BODY_PAGE, pageNumbers: { start: 1 } } },
         children: main,
-        ...mergedSectionAttachments,
+        ...bodyAttachments,
       },
     ],
   })

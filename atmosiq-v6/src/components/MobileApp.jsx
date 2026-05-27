@@ -69,7 +69,6 @@ import { printReport, generatePrintHTML } from './PrintReport'
 // Bundling the docx renderer into the main chunk eliminates that failure
 // mode for the most common user action — exporting a report.
 import { generateDocx, generateConsultantOnly, generateTechnicalOnly, getConsultantDocxBlob, getNarrativeDocxBlob } from './DocxReport'
-import { runConsultantPreflight } from '../utils/consultantReportPreflight'
 import { DEMO_PRESURVEY, DEMO_BUILDING, DEMO_ZONES, DEMO_EQUIPMENT } from '../constants/demoData'
 import { DEMO_FM_PRESURVEY, DEMO_FM_BUILDING, DEMO_FM_ZONES } from '../constants/demoDataFM'
 import { DEMO_DC_PRESURVEY, DEMO_DC_BUILDING, DEMO_DC_ZONES } from '../constants/demoDataDC'
@@ -361,6 +360,17 @@ function InstrumentEditView({ profile, onSave, onCancel }) {
   )
 }
 
+// Multi-select "exclusive" options — a "none / not assessed / clear of
+// sources" answer that can't coexist with specific selections. Selecting
+// one clears the rest and locks the others; selecting a specific option
+// clears any exclusive choice. Matched by label so the rule applies
+// consistently across every t:'multi' question in the app.
+const EXCLUSIVE_MULTI_OPTS = new Set([
+  'not assessed', 'none identified', 'none observed', 'none',
+  'clear of sources', 'nothing yet', 'unknown',
+])
+const isExclusiveMultiOpt = (o) => EXCLUSIVE_MULTI_OPTS.has(String(o).trim().toLowerCase())
+
 export default function MobileApp() {
   const { isTablet, isTabletLand } = useMediaQuery()
   // Responsive layout: phone=620, tablet portrait=860, tablet landscape=1080
@@ -493,13 +503,6 @@ export default function MobileApp() {
   // points (localStorage read is cheap).
   useEffect(() => { setSavedInstruments(loadInstruments()) }, [view, calWarning])
   const [docxPicker, setDocxPicker] = useState(false)
-  // Consultant preflight: when the v2.1 engine would refuse to issue
-  // (no measurements, calibration missing, etc.), we surface the
-  // triggers + an IH override flow instead of silently downgrading to
-  // a memo file. Shape: { triggers, score, reportData } | null.
-  const [preflight, setPreflight] = useState(null)
-  const [overrideJustification, setOverrideJustification] = useState('')
-  const [overrideChecked, setOverrideChecked] = useState({})
   const [hSearch, setHSearch] = useState('')
   const [hSort, setHSort] = useState('newest')
   // v2.8 UI pass — Notion-style 3-dot home menu. Replaces the standalone
@@ -540,6 +543,10 @@ export default function MobileApp() {
   // Header ⋯ overflow — opens a context action menu (Senior top-bar design).
   const [actionsOpen, setActionsOpen] = useState(false)
   const [actionsAnchor, setActionsAnchor] = useState(null)
+  // A Readiness "Fix" that targets a zone field — held until the zone's
+  // question list (zVis) recomputes for the new zone, then an effect lands
+  // zqi exactly on the target question.
+  const [pendingZoneFix, setPendingZoneFix] = useState(null)
   const [voicePrefill, setVoicePrefill] = useState(null)
   // AtmosFlow AI "Review for discrepancies" — chooser + the payload/prompt
   // handed to the assistant. reviewPayload rides the request context;
@@ -702,6 +709,17 @@ export default function MobileApp() {
     return qs
   }, [zData, bldg.ft, dcProfile, suppressedIds, additionalQs])
   const setZF = useCallback((id,v) => { setZones(prev => { const next = [...prev]; next[curZone] = {...(next[curZone]||{}), [id]:v}; return next }) }, [curZone])
+  // Land a pending Readiness "Fix" on the exact zone question once we've
+  // navigated to that zone and its visible-question list is built. '__photo__'
+  // targets the first photo-capable question; otherwise we match the field id.
+  useEffect(() => {
+    if (!pendingZoneFix || view !== 'zone' || curZone !== pendingZoneFix.zoneIndex) return
+    const idx = pendingZoneFix.field === '__photo__'
+      ? zVis.findIndex(q => q.photo)
+      : zVis.findIndex(q => q.id === pendingZoneFix.field)
+    if (idx >= 0) setZqi(idx)
+    setPendingZoneFix(null)
+  }, [pendingZoneFix, view, curZone, zVis, setZqi])
 
   const showMilestone = (icon, title, sub, nextFn) => {
     haptic('success'); setMilestone({icon, title, sub})
@@ -1040,30 +1058,6 @@ export default function MobileApp() {
     const reportData = { building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, escalationTriggers: esc, floorPlan, sensorData, labResults: viewRpt?.labResults || null }
     trackEvent('report_exported', { format: docxType || format, facility: bldg.fn || '', score: comp?.tot, zones: zones.length, has_narrative: !!narrative, photos: Object.values(filteredPhotos).flat().length })
 
-    // Consultant preflight: the v2.1 engine returns a Pre-Assessment
-    // Site Visit Memo (not a full consultant report) when its refusal
-    // triggers fire. Catch this BEFORE generation so we can show the
-    // IH which gaps the engine flagged and offer an override path.
-    // Technical / Both DOCX and PDF do not go through the v2.1 engine
-    // — they render directly from the legacy zoneScores — so they
-    // skip the preflight.
-    if (format === 'docx' && docxType === 'consultant') {
-      try {
-        const pf = runConsultantPreflight(reportData)
-        if (pf.wouldRefuse) {
-          setPreflight({ ...pf, reportData })
-          setOverrideJustification('')
-          setOverrideChecked({})
-          return
-        }
-      } catch (pfErr) {
-        // Preflight failure must not block export. Log + proceed; the
-        // engine will produce its memo if refusal still applies, which
-        // is the prior behavior.
-        console.warn('Consultant preflight failed; proceeding without preflight modal:', pfErr)
-      }
-    }
-
     try {
       if (format === 'docx') {
         if (docxType === 'consultant') await generateConsultantOnly(reportData)
@@ -1087,36 +1081,6 @@ export default function MobileApp() {
         return
       }
       alert('Report export failed: ' + (msg || 'Unknown error') + '. Please try again.')
-    }
-  }
-
-  // Run the consultant DOCX with the IH override applied. Called from
-  // the preflight modal's "Generate with IH override" action. The
-  // override payload becomes part of the deliverable's cover notice
-  // and per-page watermark, so the audit trail is in the report
-  // itself — no separate audit-log entry required.
-  const executeConsultantWithOverride = async () => {
-    if (!preflight) return
-    const triggers = Object.keys(overrideChecked).filter(k => overrideChecked[k])
-    const ihOverride = {
-      triggers,
-      justification: overrideJustification.trim(),
-      overriddenAt: new Date().toISOString(),
-    }
-    const reportData = { ...preflight.reportData, ihOverride }
-    trackEvent('consultant_override_applied', {
-      facility: bldg.fn || '',
-      triggers: triggers.join(','),
-      justification_length: ihOverride.justification.length,
-    })
-    setPreflight(null)
-    setOverrideJustification('')
-    setOverrideChecked({})
-    try {
-      await generateConsultantOnly(reportData)
-    } catch (e) {
-      console.error('Consultant override export failed:', e)
-      alert('Report export failed under override: ' + ((e && e.message) || 'Unknown error') + '.')
     }
   }
 
@@ -1408,7 +1372,10 @@ export default function MobileApp() {
           {q.t==='ch'&&q.opts&&<div style={{display:'flex',flexDirection:'column',gap:8}}>{q.opts.map((o,i)=>{const stMap=q._subtypeMap;const storedVal=stMap?stMap.find(st=>st.label===o)?.id||o:o;const sel=stMap?(data[q.id]===storedVal):(o==='Other'?isOtherChoice(q.opts,data[q.id]):(data[q.id]===o));const locked=isPremiumOpt(q,o)&&!isEnterprise(profile);return(<button key={o} onClick={()=>{if(locked){haptic('light');setShowPremiumGate(true);return}haptic('light');if(o==='Other'&&q.other){setField(q.id,'Other')}else{setField(q.id,storedVal);setTimeout(goNext,250)}}} style={{padding:'16px 20px',textAlign:'left',background:sel?`${mix('accent', 7)}`:locked?`${CARD}`:`${CARD}`,border:`1.5px solid ${sel?ACCENT:BORDER}`,borderRadius:14,color:sel?ACCENT:locked?DIM:TEXT,fontSize:16,fontFamily:'inherit',fontWeight:500,cursor:'pointer',display:'flex',alignItems:'center',gap:14,minHeight:54,animation:`fadeUp .3s ${i*.04}s cubic-bezier(.22,1,.36,1) both`}}><div style={{width:24,height:24,borderRadius:'50%',border:`2px solid ${sel?ACCENT:BORDER}`,background:sel?ACCENT:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{sel&&<I n="check" s={12} c={ON_ACCENT} />}</div><span style={{flex:1}}>{o}</span>{locked&&<span style={{fontSize:9,fontWeight:700,padding:'2px 8px',borderRadius:4,background:'#F9731615',color:'#F97316',letterSpacing:'0.3px'}}>PREMIUM</span>}</button>)})}
             {q.other&&isOtherChoice(q.opts,data[q.id])&&<input type="text" value={data[q.id]==='Other'?'':data[q.id]} onChange={e=>setField(q.id,e.target.value||'Other')} placeholder="Describe space use..." autoFocus style={{width:'100%',padding:'16px 20px',background:CARD,border:`1.5px solid ${ACCENT}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:'inherit',outline:'none',boxSizing:'border-box',marginTop:4}} />}
           </div>}
-          {q.t==='multi'&&q.opts&&<div style={{display:'flex',flexWrap:'wrap',gap:8}}>{q.opts.map((o,i)=>{const arr=data[q.id]||[],sel=arr.includes(o);return(<button key={o} onClick={()=>setField(q.id,sel?arr.filter(x=>x!==o):[...arr,o])} style={{padding:'12px 18px',borderRadius:24,background:sel?`${mix('accent', 8)}`:CARD,border:`1.5px solid ${sel?ACCENT:BORDER}`,color:sel?ACCENT:TEXT,fontSize:14,fontFamily:'inherit',fontWeight:500,cursor:'pointer',minHeight:44,animation:`fadeUp .25s ${i*.03}s cubic-bezier(.22,1,.36,1) both`}}>{sel?'✓ ':''}{o}</button>)})}</div>}
+          {q.t==='multi'&&q.opts&&(()=>{const arr=data[q.id]||[];const exclusiveSel=arr.find(isExclusiveMultiOpt)||null;return(<div style={{display:'flex',flexWrap:'wrap',gap:8}}>{q.opts.map((o,i)=>{const optExclusive=isExclusiveMultiOpt(o);
+            // When an exclusive choice is active, every other option is
+            // locked (and shown unchecked) until it's deselected.
+            const locked=exclusiveSel&&o!==exclusiveSel;const sel=exclusiveSel?o===exclusiveSel:arr.includes(o);const onClick=()=>{if(locked)return;if(optExclusive){setField(q.id,sel?[]:[o]);return}setField(q.id,sel?arr.filter(x=>x!==o):[...arr.filter(x=>!isExclusiveMultiOpt(x)),o])};return(<button key={o} disabled={!!locked} aria-disabled={!!locked} onClick={onClick} style={{padding:'12px 18px',borderRadius:24,background:sel?`${mix('accent', 8)}`:CARD,border:`1.5px solid ${sel?ACCENT:BORDER}`,color:sel?ACCENT:TEXT,fontSize:14,fontFamily:'inherit',fontWeight:500,cursor:locked?'not-allowed':'pointer',opacity:locked?0.4:1,transition:'opacity .15s',minHeight:44,animation:`fadeUp .25s ${i*.03}s cubic-bezier(.22,1,.36,1) both`}}>{sel?'✓ ':''}{o}</button>)})}</div>)})()}
           {q.t==='combo'&&q.opts&&(()=>{const otherOpts=q.opts.filter(o=>o!=='Other');const isOther=(data[q.id]||'')==='__other__'||((data[q.id]||'')&&!otherOpts.includes(data[q.id]));return(<div><select value={isOther?'__other__':(data[q.id]||'')} onChange={e=>setField(q.id,e.target.value)} style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:'inherit',outline:'none',boxSizing:'border-box',appearance:'auto'}}><option value="">Select or skip...</option>{otherOpts.map(o=><option key={o} value={o}>{o}</option>)}<option value="__other__">Other</option></select>{isOther&&<input type="text" value={data[q.id]==='__other__'?'':data[q.id]} onChange={e=>setField(q.id,e.target.value||'__other__')} placeholder="Type here..." autoFocus style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${ACCENT}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:'inherit',outline:'none',boxSizing:'border-box',marginTop:8}} />}</div>)})()}
           {q.t==='sensors'&&<><SensorScreen data={data} onChange={setField} sensorData={sensorData} isDesktop={false} /><JasperWatchPanel data={data} context={{building: bldg, presurvey}} /></>}
           {q.photo&&<PhotoCapture
@@ -1438,6 +1405,47 @@ export default function MobileApp() {
   }
 
 
+  // Toggle a logger graph's report inclusion from the results Logger tab.
+  // Mirrors Logger Studio's "Include in report" switch but operates on the
+  // live sensorData state, which is what report generation reads — so dropping
+  // a graph here removes it from the exported/finalized report. Wired only on
+  // the live results view (not archived reports). The captured image is left
+  // intact so re-enabling restores the DOCX figure.
+  const toggleLoggerInclude = (id, include, meta = {}) => {
+    setSensorData(prev => {
+      if (!prev) return prev
+      const graphs = { ...(prev.graphs || {}) }
+      const existing = graphs[id] || {}
+      graphs[id] = { ...existing, include }
+      if (include) {
+        if (!graphs[id].title && meta.title) graphs[id].title = meta.title
+        if (!graphs[id].series && meta.series) graphs[id].series = meta.series
+      }
+      return { ...prev, graphs }
+    })
+  }
+
+  // Jump from a Readiness blocker straight to the field that fixes it.
+  // Client / contact / instrument blockers live in the Assessment Details
+  // step (Q_DETAILS); occupant-denominator and photo blockers are zone-scoped
+  // so they open the relevant zone walkthrough. Closes the gap where the
+  // panel told the assessor where to fix but gave no way to get there.
+  const fixBlocker = (blocker) => {
+    if (!blocker) return
+    const id = blocker.id || ''
+    if (id.startsWith('occupant_denom_') || id.startsWith('photo_')) {
+      const zoneName = id.replace(/^(occupant_denom_|photo_)/, '')
+      const zi = (zones || []).findIndex(z => (z?.zn || '') === zoneName)
+      const target = zi >= 0 ? zi : 0
+      // Land on the exact question: occupant count ('oc') for the denominator
+      // blocker, the first photo-capable question for the photo blocker.
+      setPendingZoneFix({ zoneIndex: target, field: id.startsWith('occupant_denom_') ? 'oc' : '__photo__' })
+      setCurZone(target); setZqi(0); setView('zone'); return
+    }
+    const di = dtVis.findIndex(q => q.id === blocker.field)
+    setDqi(di >= 0 ? di : 0); setView('details')
+  }
+
   // ── Results renderer ──
   const renderResults = (archived) => {
     if (!comp || !zoneScores.length) return null
@@ -1465,7 +1473,7 @@ export default function MobileApp() {
     const driverMap = {Ventilation:'Ventilation inadequacy',Contaminants:'Elevated contaminant exposure',HVAC:'HVAC system deficiency',Environment:'Environmental condition exceedance'}
     const causeMap = {Ventilation:'Insufficient outdoor air delivery or poor air distribution',Contaminants:'Proximity to emission sources with inadequate dilution ventilation',HVAC:'Deferred maintenance or mechanical system degradation',Environment:'Thermal or moisture conditions outside recognized comfort standards'}
     const expertDriver = driverCat ? (driverMap[driverCat.l] || driverCat.l + ' deficiency') : null
-    const expertComplaint = hasComplaints ? 'Building-related symptom cluster reported' : null
+    const expertComplaint = hasComplaints ? 'Occupant symptoms reported' : null
     const expertCause = causalChains[0] ? causalChains[0].rootCause : (driverCat ? (causeMap[driverCat.l] || 'Contributing factors require further investigation') : null)
 
     // ── v3 derivations for the redesigned hero / panels ──
@@ -1477,7 +1485,10 @@ export default function MobileApp() {
     const confTone = measConf?.overall === 'High' ? V3.CONFIDENCE.high : measConf?.overall === 'Low' ? V3.CONFIDENCE.low : V3.CONFIDENCE.medium
     const confLabel = measConf?.overall ? `${measConf.overall} Confidence` : 'Confidence Pending'
     const headline = (() => {
-      if (causalChains[0]?.type) return `${causalChains[0].type} likely`
+      // Name the screening indicator, not a likelihood on the attribution —
+      // confidence/likelihood belongs to the measurement layer, not the
+      // causal-attribution layer (keeps the screening framing defensible).
+      if (causalChains[0]?.type) return causalChains[0].type
       if (expertDriver) return `${expertDriver}`
       return 'Screening-level assessment complete'
     })()
@@ -1729,10 +1740,11 @@ export default function MobileApp() {
               profile: profile ? { name: profile.name } : null,
             }}
             onFeedback={()=>openFeedback('Findings & readiness')}
+            onFix={archived ? undefined : fixBlocker}
           />
         )}
 
-        {rTab==='logger' && <LoggerGraphsTab sensorData={loggerSd} />}
+        {rTab==='logger' && <LoggerGraphsTab sensorData={loggerSd} editable={!archived} onToggleInclude={archived ? undefined : toggleLoggerInclude} />}
 
         {rTab==='overview' && zs && (() => {
           // ── v3 Findings tab — derive panels from existing engine state ──
@@ -1817,7 +1829,7 @@ export default function MobileApp() {
                         <div style={V3.iconBox(WARN)}><I n="people" s={15} c={WARN} w={1.8} /></div>
                         <div style={{minWidth:0,flex:1}}>
                           <div style={V3.T.captionDim}>Complaint pattern</div>
-                          <div style={{...V3.T.bodyStrong, marginTop:3, lineHeight:'18px'}}>Building-related symptoms</div>
+                          <div style={{...V3.T.bodyStrong, marginTop:3, lineHeight:'18px'}}>Occupant symptoms reported</div>
                         </div>
                       </div>
                     )}
@@ -1836,7 +1848,7 @@ export default function MobileApp() {
                     <div style={{minWidth:0,flex:1}}>
                       <div style={V3.T.captionDim}>Overall assessment</div>
                       <div style={{...V3.T.body, marginTop:3, lineHeight:'19px'}}>{(() => {
-                        if (comp.tot < 30) return 'Under-delivered outdoor air is the most common contributor based on available data.'
+                        if (comp.tot < 30) return 'Screening-level indicators point to significant concerns across multiple factors; targeted investigation and corrective action are recommended.'
                         if (comp.tot < 50) return 'Multiple contributing factors detected; targeted intervention warranted.'
                         if (comp.tot < 70) return 'Conditions trending outside accepted range; targeted improvements recommended.'
                         return 'Conditions consistent with expected baseline; continue routine monitoring.'
@@ -2998,120 +3010,6 @@ export default function MobileApp() {
           </div>
         </BottomSheet>
       )}
-
-      {/* ── Consultant Report Preflight Modal ──
-          Surfaces defensibility requirements + IH professional-judgment
-          path. Pinned by tests/lib/consultant-report-preflight.test.ts. */}
-      {preflight && (() => {
-        const hasNonOverridable = preflight.triggers.some(t => !t.overridable)
-        const overridableTriggers = preflight.triggers.filter(t => t.overridable)
-        const allChecked = overridableTriggers.length > 0
-          && overridableTriggers.every(t => overrideChecked[t.id])
-        const justificationOk = overrideJustification.trim().length >= 10
-        const canOverride = !hasNonOverridable && allChecked && justificationOk
-        // Severity is derived in the UI layer (not the engine):
-        //   • non-overridable triggers       → Required Before Issuance
-        //   • overridable, but a non-overridable blocker is also present
-        //     → effectively required, because the override path is gated
-        //     off until the blocker clears (e.g., calibration override is
-        //     unavailable until a reviewing professional is designated)
-        //   • overridable, no blockers       → Professional Judgment Eligible
-        const severityFor = (trig) => {
-          if (!trig.overridable) return { label: 'Required Before Issuance', color: WARN, bg: mix('warn', 12) }
-          if (hasNonOverridable)  return { label: 'Required Before Issuance', color: WARN, bg: mix('warn', 12) }
-          return { label: 'Professional Judgment Eligible', color: ACCENT, bg: mix('accent', 8) }
-        }
-        return (
-          <div style={{
-            position:'fixed', inset:0,
-            background:'rgba(0,0,0,0.55)',
-            backdropFilter:'blur(6px)',
-            WebkitBackdropFilter:'blur(6px)',
-            zIndex:201, display:'flex', alignItems:'center', justifyContent:'center',
-            padding:16, overflowY:'auto',
-          }}>
-            {/* Defensibility gate: deliberately no outside-tap dismiss
-                so the user has to actively Cancel or Issue under
-                documented judgment. Soft-glass treatment keeps the
-                surface vocabulary consistent. */}
-            <div style={{
-              ...GLASS.elevated,
-              borderRadius: RADII.card,
-              padding: '24px 22px',
-              maxWidth: 560, width: '100%', maxHeight: '92vh', overflowY: 'auto',
-              boxShadow:
-                'inset 0 1px 0 rgba(255,255,255,0.06), ' +
-                '0 24px 56px rgba(0,0,0,0.55)',
-            }} data-testid="consultant-preflight-modal">
-              <div style={{fontSize:20,fontWeight:700,color:TEXT,marginBottom:8,lineHeight:1.3}}>Report cannot be issued yet</div>
-              <div style={{fontSize:13,color:SUB,marginBottom:22,lineHeight:1.55}}>AtmosFlow identified the following defensibility requirements that should be resolved before report issuance. Certain items may be issued under documented professional judgment by the reviewing IH.</div>
-
-              <div style={{display:'flex',flexDirection:'column',gap:14,marginBottom:22}}>
-                {preflight.triggers.map(trig => {
-                  const sev = severityFor(trig)
-                  return (
-                    <div key={trig.id} data-testid={`preflight-trigger-${trig.id}`} style={{padding:'14px 16px',background:SURFACE,border:`1px solid ${trig.overridable && !hasNonOverridable ? BORDER : mix('warn', 19)}`,borderRadius:12}}>
-                      <div style={{display:'inline-block',fontSize:10,fontWeight:700,letterSpacing:'0.04em',textTransform:'uppercase',color:sev.color,background:sev.bg,padding:'4px 8px',borderRadius:6,marginBottom:8}}>{sev.label}</div>
-                      <div style={{fontSize:14,fontWeight:600,color:TEXT,marginBottom:8,lineHeight:1.4}}>{trig.label}</div>
-                      <div style={{fontSize:12,color:SUB,lineHeight:1.6,marginBottom:12,whiteSpace:'pre-wrap'}}>{trig.description}</div>
-                      <div style={{fontSize:12,color:DIM,lineHeight:1.6,marginBottom:trig.overridable ? 12 : 0,whiteSpace:'pre-wrap'}}>{trig.fixWhere}</div>
-                      {trig.overridable && !hasNonOverridable && (
-                        <label style={{display:'flex',alignItems:'flex-start',gap:10,cursor:'pointer',fontSize:12,color:SUB,lineHeight:1.6,padding:'10px 12px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:8,marginTop:4}}>
-                          <input
-                            type="checkbox"
-                            data-testid={`preflight-override-${trig.id}`}
-                            checked={!!overrideChecked[trig.id]}
-                            onChange={e => setOverrideChecked(prev => ({...prev,[trig.id]: e.target.checked}))}
-                            style={{marginTop:3,flexShrink:0}}
-                          />
-                          <span><strong style={{color:TEXT,fontWeight:600}}>Issue under documented professional judgment.</strong> {trig.overrideCaveat}</span>
-                        </label>
-                      )}
-                      {!trig.overridable && (
-                        <div style={{fontSize:12,color:WARN,fontWeight:600,lineHeight:1.6,marginTop:10}}>This requirement must be completed before report issuance.</div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-
-              {!hasNonOverridable && overridableTriggers.length > 0 && (
-                <div style={{marginBottom:20}}>
-                  <div style={{fontSize:13,fontWeight:600,color:TEXT,marginBottom:8}}>Reviewing IH justification</div>
-                  <div style={{fontSize:11,color:DIM,marginBottom:8,lineHeight:1.5}}>Required, minimum 10 characters.</div>
-                  <textarea
-                    data-testid="preflight-justification"
-                    value={overrideJustification}
-                    onChange={e=>setOverrideJustification(e.target.value)}
-                    rows={4}
-                    placeholder="Describe the professional basis for issuing under documented judgment (e.g., 'Calibration certificate on file at PSEC office, dated 2025-09-12. Field measurements taken under direct CIH supervision.')."
-                    style={{width:'100%',padding:12,background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:8,color:TEXT,fontSize:14,fontFamily:'inherit',resize:'vertical',lineHeight:1.55,boxSizing:'border-box'}}
-                  />
-                  <div style={{fontSize:11,color:DIM,marginTop:6,lineHeight:1.5}}>This justification is recorded on the report cover and retained in the deliverable's audit trail.</div>
-                </div>
-              )}
-
-              <div style={{display:'flex',gap:10,flexDirection:'column'}}>
-                {!hasNonOverridable && overridableTriggers.length > 0 && (
-                  <button
-                    data-testid="preflight-generate-override"
-                    disabled={!canOverride}
-                    onClick={executeConsultantWithOverride}
-                    style={{padding:'15px 0',background: canOverride ? ACCENT : SURFACE,border: canOverride ? 'none' : `1px solid ${BORDER}`,borderRadius:10,color: canOverride ? 'var(--on-accent)' : DIM,fontSize:14,fontWeight:700,cursor: canOverride ? 'pointer' : 'not-allowed',fontFamily:'inherit',minHeight:48}}>
-                    Issue report under documented professional judgment
-                  </button>
-                )}
-                <button
-                  data-testid="preflight-cancel"
-                  onClick={()=>{setPreflight(null);setOverrideJustification('');setOverrideChecked({})}}
-                  style={{padding:'13px 0',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:10,color:SUB,fontSize:14,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>
-                  Cancel — fix required items
-                </button>
-              </div>
-            </div>
-          </div>
-        )
-      })()}
 
       <div style={{maxWidth:contentMax,margin:'0 auto',padding:`0 ${padX}px`,position:'relative',zIndex:1}}>
 

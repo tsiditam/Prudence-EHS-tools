@@ -18,6 +18,7 @@
 const { createClient } = require('@supabase/supabase-js')
 const { auditLog } = require('./_audit')
 const { hasUnlimitedUsage } = require('../lib/unlimited-usage')
+const { scan: scanBannedLanguage } = require('./_banned-language')
 
 const PER_MINUTE_LIMIT = 10
 const PER_DAY_LIMIT = 100
@@ -190,6 +191,15 @@ async function handler(req, res) {
   const data = await response.json()
   const text = data.content
     && data.content.map(b => b && b.type === 'text' ? b.text : '').filter(Boolean).join('\n') || null
+
+  // Lint the AI narrative with the same ruleset as the deterministic
+  // engine prose. We do NOT hard-block: the client suppresses an
+  // unclean narrative and falls back to the validated deterministic
+  // report, while the flags travel in the response + audit log so the
+  // failure is observable.
+  const bannedLanguage = text ? scanBannedLanguage(text) : []
+  const languageReview = bannedLanguage.length > 0 ? 'failed' : 'passed'
+
   const inputTokens = data.usage && typeof data.usage.input_tokens === 'number' ? data.usage.input_tokens : null
   const outputTokens = data.usage && typeof data.usage.output_tokens === 'number' ? data.usage.output_tokens : null
   const cost = estimateCost(inputTokens, outputTokens)
@@ -216,12 +226,16 @@ async function handler(req, res) {
       output_tokens: outputTokens,
       estimated_cost_usd: cost,
       plan,
+      language_review: languageReview,
+      banned_language_count: bannedLanguage.length,
     },
     req,
   })
 
   return res.status(200).json({
     narrative: text,
+    language_review: languageReview,
+    banned_language: bannedLanguage,
     usage: { input_tokens: inputTokens, output_tokens: outputTokens, estimated_cost_usd: cost },
   })
 }
