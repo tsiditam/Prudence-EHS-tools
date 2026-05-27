@@ -551,6 +551,10 @@ export default function MobileApp() {
   // Header ⋯ overflow — opens a context action menu (Senior top-bar design).
   const [actionsOpen, setActionsOpen] = useState(false)
   const [actionsAnchor, setActionsAnchor] = useState(null)
+  // A Readiness "Fix" that targets a zone field — held until the zone's
+  // question list (zVis) recomputes for the new zone, then an effect lands
+  // zqi exactly on the target question.
+  const [pendingZoneFix, setPendingZoneFix] = useState(null)
   const [voicePrefill, setVoicePrefill] = useState(null)
   // AtmosFlow AI "Review for discrepancies" — chooser + the payload/prompt
   // handed to the assistant. reviewPayload rides the request context;
@@ -713,6 +717,17 @@ export default function MobileApp() {
     return qs
   }, [zData, bldg.ft, dcProfile, suppressedIds, additionalQs])
   const setZF = useCallback((id,v) => { setZones(prev => { const next = [...prev]; next[curZone] = {...(next[curZone]||{}), [id]:v}; return next }) }, [curZone])
+  // Land a pending Readiness "Fix" on the exact zone question once we've
+  // navigated to that zone and its visible-question list is built. '__photo__'
+  // targets the first photo-capable question; otherwise we match the field id.
+  useEffect(() => {
+    if (!pendingZoneFix || view !== 'zone' || curZone !== pendingZoneFix.zoneIndex) return
+    const idx = pendingZoneFix.field === '__photo__'
+      ? zVis.findIndex(q => q.photo)
+      : zVis.findIndex(q => q.id === pendingZoneFix.field)
+    if (idx >= 0) setZqi(idx)
+    setPendingZoneFix(null)
+  }, [pendingZoneFix, view, curZone, zVis, setZqi])
 
   const showMilestone = (icon, title, sub, nextFn) => {
     haptic('success'); setMilestone({icon, title, sub})
@@ -1483,7 +1498,11 @@ export default function MobileApp() {
     if (id.startsWith('occupant_denom_') || id.startsWith('photo_')) {
       const zoneName = id.replace(/^(occupant_denom_|photo_)/, '')
       const zi = (zones || []).findIndex(z => (z?.zn || '') === zoneName)
-      setCurZone(zi >= 0 ? zi : 0); setZqi(0); setView('zone'); return
+      const target = zi >= 0 ? zi : 0
+      // Land on the exact question: occupant count ('oc') for the denominator
+      // blocker, the first photo-capable question for the photo blocker.
+      setPendingZoneFix({ zoneIndex: target, field: id.startsWith('occupant_denom_') ? 'oc' : '__photo__' })
+      setCurZone(target); setZqi(0); setView('zone'); return
     }
     const di = dtVis.findIndex(q => q.id === blocker.field)
     setDqi(di >= 0 ? di : 0); setView('details')
