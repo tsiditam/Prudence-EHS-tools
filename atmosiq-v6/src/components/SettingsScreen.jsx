@@ -9,7 +9,7 @@
 import { useState, useEffect } from 'react'
 import STO from '../utils/storage'
 import Backup from '../utils/backup'
-import { VER } from '../constants/standards'
+import { VER, BUILD_SHA } from '../constants/standards'
 import { getSubscriptionRowSubtitle } from '../utils/subscriptionState'
 import { useBleSession } from '../hooks/useBleSession'
 import { isBleSupported } from '../utils/bleDrivers'
@@ -407,7 +407,7 @@ export default function SettingsScreen({ profile, onEditProfile, onLogout, onClo
             <div style={{fontSize:14,fontWeight:600,color:TEXT}}>AtmosFlow</div>
             <div style={{fontSize:11,color:DIM,marginTop:2}}>Prudence EHS · Gaithersburg, MD</div>
           </div>
-          <span style={{fontSize:10,color:DIM,fontFamily:"var(--font-mono)",padding:'3px 8px',borderRadius:6,background:SURFACE,border:`1px solid ${BORDER}`,flexShrink:0}}>v{VER}</span>
+          <span style={{fontSize:10,color:DIM,fontFamily:"var(--font-mono)",padding:'3px 8px',borderRadius:6,background:SURFACE,border:`1px solid ${BORDER}`,flexShrink:0}}>v{VER} · {BUILD_SHA}</span>
         </button>
         {/* "What is a credit?" mirror removed in billing-architecture
             Phase 1 along with the credit-definition mini-sheet on

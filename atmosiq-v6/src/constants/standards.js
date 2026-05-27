@@ -112,7 +112,7 @@ export const STD = {
   },
 }
 
-export { VER } from '../version.js'
+export { VER, BUILD_SHA } from '../version.js'
 
 export const PLAT_MODULES = [
   { id: 'atmosiq',    n: 'AtmosFlow',            i: '🌬️', on: true },
