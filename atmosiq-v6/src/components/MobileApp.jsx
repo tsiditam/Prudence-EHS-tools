@@ -361,6 +361,17 @@ function InstrumentEditView({ profile, onSave, onCancel }) {
   )
 }
 
+// Multi-select "exclusive" options — a "none / not assessed / clear of
+// sources" answer that can't coexist with specific selections. Selecting
+// one clears the rest and locks the others; selecting a specific option
+// clears any exclusive choice. Matched by label so the rule applies
+// consistently across every t:'multi' question in the app.
+const EXCLUSIVE_MULTI_OPTS = new Set([
+  'not assessed', 'none identified', 'none observed', 'none',
+  'clear of sources', 'nothing yet', 'unknown',
+])
+const isExclusiveMultiOpt = (o) => EXCLUSIVE_MULTI_OPTS.has(String(o).trim().toLowerCase())
+
 export default function MobileApp() {
   const { isTablet, isTabletLand } = useMediaQuery()
   // Responsive layout: phone=620, tablet portrait=860, tablet landscape=1080
@@ -1408,7 +1419,10 @@ export default function MobileApp() {
           {q.t==='ch'&&q.opts&&<div style={{display:'flex',flexDirection:'column',gap:8}}>{q.opts.map((o,i)=>{const stMap=q._subtypeMap;const storedVal=stMap?stMap.find(st=>st.label===o)?.id||o:o;const sel=stMap?(data[q.id]===storedVal):(o==='Other'?isOtherChoice(q.opts,data[q.id]):(data[q.id]===o));const locked=isPremiumOpt(q,o)&&!isEnterprise(profile);return(<button key={o} onClick={()=>{if(locked){haptic('light');setShowPremiumGate(true);return}haptic('light');if(o==='Other'&&q.other){setField(q.id,'Other')}else{setField(q.id,storedVal);setTimeout(goNext,250)}}} style={{padding:'16px 20px',textAlign:'left',background:sel?`${mix('accent', 7)}`:locked?`${CARD}`:`${CARD}`,border:`1.5px solid ${sel?ACCENT:BORDER}`,borderRadius:14,color:sel?ACCENT:locked?DIM:TEXT,fontSize:16,fontFamily:'inherit',fontWeight:500,cursor:'pointer',display:'flex',alignItems:'center',gap:14,minHeight:54,animation:`fadeUp .3s ${i*.04}s cubic-bezier(.22,1,.36,1) both`}}><div style={{width:24,height:24,borderRadius:'50%',border:`2px solid ${sel?ACCENT:BORDER}`,background:sel?ACCENT:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{sel&&<I n="check" s={12} c={ON_ACCENT} />}</div><span style={{flex:1}}>{o}</span>{locked&&<span style={{fontSize:9,fontWeight:700,padding:'2px 8px',borderRadius:4,background:'#F9731615',color:'#F97316',letterSpacing:'0.3px'}}>PREMIUM</span>}</button>)})}
             {q.other&&isOtherChoice(q.opts,data[q.id])&&<input type="text" value={data[q.id]==='Other'?'':data[q.id]} onChange={e=>setField(q.id,e.target.value||'Other')} placeholder="Describe space use..." autoFocus style={{width:'100%',padding:'16px 20px',background:CARD,border:`1.5px solid ${ACCENT}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:'inherit',outline:'none',boxSizing:'border-box',marginTop:4}} />}
           </div>}
-          {q.t==='multi'&&q.opts&&<div style={{display:'flex',flexWrap:'wrap',gap:8}}>{q.opts.map((o,i)=>{const arr=data[q.id]||[],sel=arr.includes(o);return(<button key={o} onClick={()=>setField(q.id,sel?arr.filter(x=>x!==o):[...arr,o])} style={{padding:'12px 18px',borderRadius:24,background:sel?`${mix('accent', 8)}`:CARD,border:`1.5px solid ${sel?ACCENT:BORDER}`,color:sel?ACCENT:TEXT,fontSize:14,fontFamily:'inherit',fontWeight:500,cursor:'pointer',minHeight:44,animation:`fadeUp .25s ${i*.03}s cubic-bezier(.22,1,.36,1) both`}}>{sel?'✓ ':''}{o}</button>)})}</div>}
+          {q.t==='multi'&&q.opts&&(()=>{const arr=data[q.id]||[];const exclusiveSel=arr.find(isExclusiveMultiOpt)||null;return(<div style={{display:'flex',flexWrap:'wrap',gap:8}}>{q.opts.map((o,i)=>{const optExclusive=isExclusiveMultiOpt(o);
+            // When an exclusive choice is active, every other option is
+            // locked (and shown unchecked) until it's deselected.
+            const locked=exclusiveSel&&o!==exclusiveSel;const sel=exclusiveSel?o===exclusiveSel:arr.includes(o);const onClick=()=>{if(locked)return;if(optExclusive){setField(q.id,sel?[]:[o]);return}setField(q.id,sel?arr.filter(x=>x!==o):[...arr.filter(x=>!isExclusiveMultiOpt(x)),o])};return(<button key={o} disabled={!!locked} aria-disabled={!!locked} onClick={onClick} style={{padding:'12px 18px',borderRadius:24,background:sel?`${mix('accent', 8)}`:CARD,border:`1.5px solid ${sel?ACCENT:BORDER}`,color:sel?ACCENT:TEXT,fontSize:14,fontFamily:'inherit',fontWeight:500,cursor:locked?'not-allowed':'pointer',opacity:locked?0.4:1,transition:'opacity .15s',minHeight:44,animation:`fadeUp .25s ${i*.03}s cubic-bezier(.22,1,.36,1) both`}}>{sel?'✓ ':''}{o}</button>)})}</div>)})()}
           {q.t==='combo'&&q.opts&&(()=>{const otherOpts=q.opts.filter(o=>o!=='Other');const isOther=(data[q.id]||'')==='__other__'||((data[q.id]||'')&&!otherOpts.includes(data[q.id]));return(<div><select value={isOther?'__other__':(data[q.id]||'')} onChange={e=>setField(q.id,e.target.value)} style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:'inherit',outline:'none',boxSizing:'border-box',appearance:'auto'}}><option value="">Select or skip...</option>{otherOpts.map(o=><option key={o} value={o}>{o}</option>)}<option value="__other__">Other</option></select>{isOther&&<input type="text" value={data[q.id]==='__other__'?'':data[q.id]} onChange={e=>setField(q.id,e.target.value||'__other__')} placeholder="Type here..." autoFocus style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${ACCENT}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:'inherit',outline:'none',boxSizing:'border-box',marginTop:8}} />}</div>)})()}
           {q.t==='sensors'&&<><SensorScreen data={data} onChange={setField} sensorData={sensorData} isDesktop={false} /><JasperWatchPanel data={data} context={{building: bldg, presurvey}} /></>}
           {q.photo&&<PhotoCapture
