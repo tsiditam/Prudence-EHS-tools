@@ -35,6 +35,7 @@ import { STD } from '../constants/standards'
 // same feel without re-copying inline styles.
 import JasperContextChip from './ui/JasperContextChip'
 import JasperSuggestionCard from './ui/JasperSuggestionCard'
+import JasperFeedbackRow from './ui/JasperFeedbackRow'
 import {
   JASPER_SPRING,
   JASPER_DURATION,
@@ -146,7 +147,16 @@ function buildContextChips(context) {
   return out
 }
 
-function MessageBubble({ role, content, photos }) {
+function MessageBubble({
+  role, content, photos,
+  // Feedback wiring — only populated for assistant turns. dbId is
+  // the field_assistant_messages row id, threaded from the SSE
+  // meta event's assistant_message_id. submitFeedback comes from
+  // useFieldAssistant. `streaming` is true while tokens are still
+  // arriving for THIS turn — the feedback row stays hidden until
+  // the response settles so users don't rate a half-formed answer.
+  dbId, feedbackRating, submitFeedback, streaming,
+}) {
   const isUser = role === 'user'
   // User stays in the right-aligned cyan bubble (per request — no
   // change to the question state). Assistant goes edge-to-edge,
@@ -178,7 +188,8 @@ function MessageBubble({ role, content, photos }) {
   return (
     <div className="jasper-msg-in" style={{
       display: 'flex',
-      justifyContent: isUser ? 'flex-end' : 'flex-start',
+      flexDirection: 'column',
+      alignItems: isUser ? 'flex-end' : 'flex-start',
       // Assistant text gets more breathing room below it so the
       // next turn doesn't crowd. User bubbles keep the tighter gap
       // the existing transcript rhythm uses.
@@ -196,6 +207,13 @@ function MessageBubble({ role, content, photos }) {
           </div>
         )}
       </div>
+      {!isUser && !streaming && dbId && submitFeedback && (
+        <JasperFeedbackRow
+          dbId={dbId}
+          rating={feedbackRating || null}
+          submitFeedback={submitFeedback}
+        />
+      )}
     </div>
   )
 }
@@ -490,6 +508,7 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
     listConversations,
     loadConversation,
     deleteConversation,
+    submitFeedback,
     newConversation,
     markActionAccepted,
     markActionRejected,
@@ -1313,9 +1332,26 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
             </div>
           )}
 
-          {messages.map((m) => (
-            <MessageBubble key={m.id} role={m.role} content={m.content} photos={m.photos} />
-          ))}
+          {messages.map((m, idx) => {
+            // A turn is "streaming" only if it's the LAST assistant
+            // message AND the hook is still sending. We hide the
+            // feedback row in that window so users don't rate a
+            // half-formed answer.
+            const isLast = idx === messages.length - 1
+            const turnStreaming = sending && isLast && m.role === 'assistant'
+            return (
+              <MessageBubble
+                key={m.id}
+                role={m.role}
+                content={m.content}
+                photos={m.photos}
+                dbId={m.dbId}
+                feedbackRating={m.feedbackRating}
+                submitFeedback={submitFeedback}
+                streaming={turnStreaming}
+              />
+            )
+          })}
 
           {/* Proposed action cards — rendered AFTER the message
               loop so they always appear at the bottom of the

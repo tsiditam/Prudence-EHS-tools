@@ -196,10 +196,17 @@ export function useFieldAssistant() {
       // matching the shape used in sendMessage's setMessages call.
       setMessages(msgs.map((m) => ({
         id: m.id,
+        // Server row id IS the DB id for resumed conversations, so
+        // dbId == id. The streaming path uses a separate clientside
+        // UUID for the in-progress bubble + the dbId from the SSE
+        // meta event; the loaded path can pin both to the same value.
+        dbId: m.id,
         role: m.role,
         content: m.content,
         contextView: m.context_view || null,
         createdAt: m.created_at,
+        feedbackRating: m.feedback_rating || null,
+        feedbackReason: m.feedback_reason || null,
       })))
       setConversationId(id)
       setError(null)
@@ -211,6 +218,44 @@ export function useFieldAssistant() {
       return true
     } catch (err) {
       console.warn('[useFieldAssistant] loadConversation failed:', err && err.message)
+      return false
+    }
+  }, [])
+
+  // Submit thumbs-up / thumbs-down feedback on a single assistant
+  // message. The dbId comes from the SSE meta event's
+  // assistant_message_id, threaded onto the in-memory message via
+  // appendToken below. Optimistic local update — UI shows the new
+  // rating immediately and rolls back if the server rejects.
+  // Returns true on success, false on auth / network / 404.
+  const submitFeedback = useCallback(async (dbMessageId, rating, reason) => {
+    if (!dbMessageId || (rating !== 'up' && rating !== 'down')) return false
+    // Optimistic flip — capture the previous rating so we can
+    // restore on failure.
+    let prev = null
+    setMessages((list) => list.map((m) => {
+      if (m.dbId !== dbMessageId) return m
+      prev = { rating: m.feedbackRating || null, reason: m.feedbackReason || null }
+      return { ...m, feedbackRating: rating, feedbackReason: reason || null }
+    }))
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) throw new Error('not_signed_in')
+      const r = await fetch('/api/field-assistant-feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ message_id: dbMessageId, rating, reason: reason || undefined }),
+      })
+      if (!r.ok) throw new Error(`status_${r.status}`)
+      return true
+    } catch (err) {
+      // Roll back the optimistic flip so the UI matches reality.
+      setMessages((list) => list.map((m) => (
+        m.dbId === dbMessageId
+          ? { ...m, feedbackRating: prev?.rating || null, feedbackReason: prev?.reason || null }
+          : m
+      )))
+      console.warn('[useFieldAssistant] submitFeedback failed:', err && err.message)
       return false
     }
   }, [])
@@ -386,11 +431,16 @@ export function useFieldAssistant() {
     let upstreamError = null
     let receivedConversationId = conversationId
     let receivedQuota = null
+    // DB row id for the upcoming assistant turn — comes from the SSE
+    // meta event. Threaded onto the assistant bubble's `dbId` field
+    // so the inline thumbs-up / thumbs-down feedback row knows which
+    // row to attach the rating to.
+    let receivedAssistantDbId = null
 
     const appendToken = (chunk) => {
       assistantText += chunk
       if (!assistantMsgId) {
-        const msg = makeMessage('assistant', chunk)
+        const msg = makeMessage('assistant', chunk, receivedAssistantDbId ? { dbId: receivedAssistantDbId } : {})
         assistantMsgId = msg.id
         setMessages((prev) => [...prev, msg])
       } else {
@@ -411,6 +461,9 @@ export function useFieldAssistant() {
           if (frame.done) { processed = frame.rest; break }
           if (frame.event === 'meta') {
             if (frame.data?.conversation_id) receivedConversationId = frame.data.conversation_id
+            if (typeof frame.data?.assistant_message_id === 'string') {
+              receivedAssistantDbId = frame.data.assistant_message_id
+            }
           } else if (frame.event === 'token') {
             // First token after a tool finishes signals the model
             // is back to generating text — clear the active tool
@@ -515,6 +568,7 @@ export function useFieldAssistant() {
     listConversations,
     loadConversation,
     deleteConversation,
+    submitFeedback,
     newConversation,
     markActionAccepted,
     markActionRejected,

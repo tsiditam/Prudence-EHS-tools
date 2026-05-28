@@ -232,6 +232,24 @@
 
     { "id": "DOCS-PROD-READY", "label": "Production readiness documentation exists", "checks": [
       { "type": "file_exists", "path": "docs/PRODUCTION_READINESS.md" }
+    ]},
+
+    { "id": "AI-TRAINING-CONSENT", "label": "AI fine-tuning consent migration + helper exist", "checks": [
+      { "type": "file_exists", "path": "supabase/migrations/015_ai_training_consent.sql" },
+      { "type": "grep_matches", "pattern": "ai_training_consent", "paths": ["supabase/migrations/015_ai_training_consent.sql"] },
+      { "type": "file_exists", "path": "lib/ai-training-consent.ts" },
+      { "type": "grep_matches", "pattern": "userConsentsToTraining", "paths": ["lib/ai-training-consent.ts"] }
+    ]},
+    { "id": "FEEDBACK-WRITE-PATH", "label": "AI feedback endpoint + UI primitive exist", "checks": [
+      { "type": "file_exists", "path": "api/field-assistant-feedback.ts" },
+      { "type": "grep_matches", "pattern": "field_assistant_feedback", "paths": ["api/field-assistant-feedback.ts"] },
+      { "type": "file_exists", "path": "src/components/ui/JasperFeedbackRow.jsx" },
+      { "type": "grep_matches", "pattern": "thumbsUp|thumbsDown", "paths": ["src/components/ui/JasperFeedbackRow.jsx"] }
+    ]},
+    { "id": "EXPORT-PIPELINE", "label": "Fine-tune dataset export script exists", "checks": [
+      { "type": "file_exists", "path": "scripts/export-finetune-dataset.mjs" },
+      { "type": "grep_matches", "pattern": "buildTrainingRows", "paths": ["scripts/export-finetune-dataset.mjs"] },
+      { "type": "grep_matches", "pattern": "include-negatives", "paths": ["scripts/export-finetune-dataset.mjs"] }
     ]}
   ]
 }
