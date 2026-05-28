@@ -142,6 +142,12 @@
       { "type": "file_exists", "path": "tests/engine/calibration-appendix-augment.test.ts" }
     ]},
 
+    { "id": "NARRATIVE-AI-REVIEW-BANNER", "label": "Executive Summary AI narrative is wrapped in a hard 'IH Review Required' banner", "checks": [
+      { "type": "grep_matches", "pattern": "IH REVIEW REQUIRED", "paths": ["src/components/docx/sections-core.js"] },
+      { "type": "grep_matches", "pattern": "aiReviewRequiredBanner", "paths": ["src/components/docx/sections-core.js"] },
+      { "type": "file_exists", "path": "tests/engine/ai-review-required-banner.test.ts" }
+    ]},
+
     { "id": "INSTRUMENT-LOG-IMPORT", "label": "Instrument log CSV import aggregates time-series into spot readings (Play 4a)", "checks": [
       { "type": "file_exists", "path": "src/utils/instrumentLogParser.js" },
       { "type": "file_exists", "path": "src/components/InstrumentLogImport.jsx" },
