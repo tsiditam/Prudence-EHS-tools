@@ -132,6 +132,19 @@ describe('finalization gate — v2.7 Fix 4 extensions', () => {
     expect(r.canFinalize).toBe(true)
   })
 
+  it('does NOT flag a "No complaints" zone for the occupant denominator (sev:"pass" findings are not symptomatic)', () => {
+    const r = validateAssessment(makeAssessmentWithFullData({
+      zones: [{ zn: 'Zone 1 Room 345', oc: 20 }],
+      zoneScores: [{
+        zoneName: 'Zone 1 Room 345',
+        // Mirrors what scoring.js pushes for cx === 'No complaints'.
+        cats: [{ l: 'Complaints', r: [{ t: 'No complaints', sev: 'pass' }] }],
+      }],
+      photos: { 'Zone 1 Room 345': [{ id: 'p1' }] },
+    }))
+    expect(r.dismissibleBlockers.some((b: any) => /occupant denominator/i.test(b.message))).toBe(false)
+  })
+
   it('flags symptom-zone missing occupant denominator as dismissible, not a hard block', () => {
     const r = validateAssessment(makeAssessmentWithFullData({
       zones: [{ zn: '3rd Floor' }],

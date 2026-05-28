@@ -67,8 +67,12 @@ function isMissingOrPlaceholder(value) {
 
 function zoneHasSymptomFindings(zoneScore) {
   if (!zoneScore || !zoneScore.cats) return false
+  // Only non-pass findings count. Scoring pushes {t:'No complaints', sev:'pass'}
+  // for cx='No complaints', and that text matches /complaint/ — without the
+  // sev filter, a zone explicitly reporting "No complaints" would falsely
+  // trigger the occupant-denominator gap.
   return zoneScore.cats.some(c => (c.r || []).some(r =>
-    typeof r.t === 'string' && /symptom|occupant|complaint|headache|irritation|fatigue/i.test(r.t)
+    r && r.sev !== 'pass' && typeof r.t === 'string' && /symptom|occupant|complaint|headache|irritation|fatigue/i.test(r.t)
   ))
 }
 
