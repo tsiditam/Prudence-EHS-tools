@@ -20,10 +20,14 @@
  * user_id ownership as a second layer of defense.
  *
  * Endpoints:
- *   GET /api/field-assistant-history?action=list
+ *   GET    /api/field-assistant-history?action=list
  *     → { conversations: Array<{id, title, created_at, updated_at, message_count}> }
- *   GET /api/field-assistant-history?action=get&id=<uuid>
+ *   GET    /api/field-assistant-history?action=get&id=<uuid>
  *     → { conversation: {...}, messages: Array<{id, role, content, context_view, created_at}> }
+ *   DELETE /api/field-assistant-history?id=<uuid>
+ *     → { ok: true }
+ *     Messages cascade-delete via the FK in migration 013, so we only
+ *     need to delete the conversation row.
  */
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
@@ -61,7 +65,7 @@ async function handler(req: import('http').IncomingMessage & {
   status: (n: number) => typeof res
   json: (body: unknown) => void
 }) {
-  if (req.method !== 'GET') {
+  if (req.method !== 'GET' && req.method !== 'DELETE') {
     res.status(405).json({ error: 'Method not allowed' })
     return
   }
@@ -78,6 +82,38 @@ async function handler(req: import('http').IncomingMessage & {
   )
   if (authErr || !user) {
     res.status(401).json({ error: 'Invalid token' })
+    return
+  }
+
+  // DELETE — remove a single conversation by id. Filtered by user_id
+  // so a token that knows another user's conversation_id can't touch
+  // it (RLS would normally enforce this on a user-key client; we use
+  // the service-role key here, so the explicit filter is the only
+  // defense). Messages cascade-delete via the FK on conversation_id.
+  if (req.method === 'DELETE') {
+    const id = req.query?.id as string | undefined
+    if (!id || typeof id !== 'string') {
+      res.status(400).json({ error: 'missing_id' })
+      return
+    }
+    const { error: delErr, count } = await supabase
+      .from('field_assistant_conversations')
+      .delete({ count: 'exact' })
+      .eq('id', id)
+      .eq('user_id', user.id)
+    if (delErr) {
+      console.error('[fa-history] delete failed:', delErr.message)
+      res.status(500).json({ error: 'delete_failed' })
+      return
+    }
+    if (!count) {
+      // No row matched — either the id is bogus or it belongs to
+      // another user. Either way, surface 404 so the client can
+      // prune its local list without a misleading "success" toast.
+      res.status(404).json({ error: 'not_found' })
+      return
+    }
+    res.status(200).json({ ok: true })
     return
   }
 

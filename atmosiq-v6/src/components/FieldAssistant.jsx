@@ -469,6 +469,7 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
     removePhoto,
     listConversations,
     loadConversation,
+    deleteConversation,
     newConversation,
     markActionAccepted,
     markActionRejected,
@@ -482,6 +483,13 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
   const [historyOpen, setHistoryOpen] = useState(false)
   const [historyList, setHistoryList] = useState([])
   const [historyLoading, setHistoryLoading] = useState(false)
+  // Inline two-step delete: tapping the trash icon arms a row for
+  // ~4s; a second tap (on the matching Delete button) commits.
+  // Only one row can be armed at a time so the affordance is
+  // unambiguous.
+  const [pendingDeleteId, setPendingDeleteId] = useState(null)
+  const [deletingId, setDeletingId] = useState(null)
+  const pendingDeleteTimerRef = useRef(null)
   const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine)
   const [introAccepted, setIntroAccepted] = useState(readIntroFlag)
   // Focus-within state for the unified composer container so its
@@ -568,6 +576,12 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
     return () => {
       window.removeEventListener('online', goOnline)
       window.removeEventListener('offline', goOffline)
+      // Clear any armed-delete timer so unmount can't fire setState
+      // on a stale component.
+      if (pendingDeleteTimerRef.current) {
+        clearTimeout(pendingDeleteTimerRef.current)
+        pendingDeleteTimerRef.current = null
+      }
     }
   }, [])
 
@@ -806,44 +820,175 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
               .filter((c) => (c.message_count || 0) > 0)
               .map((c) => {
                 const isCurrent = c.id === conversationId
+                const isPendingDelete = c.id === pendingDeleteId
+                const isDeleting = c.id === deletingId
                 const updated = c.updated_at ? new Date(c.updated_at) : null
                 const dateLabel = updated
                   ? updated.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })
                   : ''
+
+                const armDelete = () => {
+                  // Cancel any prior armed row, then arm this one
+                  // with a 4s auto-disarm so a forgotten tap doesn't
+                  // sit there indefinitely.
+                  if (pendingDeleteTimerRef.current) {
+                    clearTimeout(pendingDeleteTimerRef.current)
+                    pendingDeleteTimerRef.current = null
+                  }
+                  setPendingDeleteId(c.id)
+                  pendingDeleteTimerRef.current = setTimeout(() => {
+                    setPendingDeleteId((cur) => (cur === c.id ? null : cur))
+                    pendingDeleteTimerRef.current = null
+                  }, 4000)
+                }
+                const cancelDelete = () => {
+                  if (pendingDeleteTimerRef.current) {
+                    clearTimeout(pendingDeleteTimerRef.current)
+                    pendingDeleteTimerRef.current = null
+                  }
+                  setPendingDeleteId(null)
+                }
+                const commitDelete = async () => {
+                  if (pendingDeleteTimerRef.current) {
+                    clearTimeout(pendingDeleteTimerRef.current)
+                    pendingDeleteTimerRef.current = null
+                  }
+                  setDeletingId(c.id)
+                  setPendingDeleteId(null)
+                  const ok = await deleteConversation(c.id)
+                  setDeletingId(null)
+                  if (!ok) {
+                    setError('Could not delete that conversation. Please try again.')
+                    return
+                  }
+                  // Optimistically prune from the in-memory list.
+                  setHistoryList((list) => list.filter((row) => row.id !== c.id))
+                  // If we just deleted the conversation the chat
+                  // view is pointed at, drop it so the next send
+                  // starts a fresh row instead of trying to append
+                  // to a missing one.
+                  if (isCurrent) newConversation()
+                }
+
                 return (
-                  <button
+                  <div
                     key={c.id}
-                    onClick={async () => {
-                      const ok = await loadConversation(c.id)
-                      if (ok) setHistoryOpen(false)
-                    }}
                     style={{
-                      display: 'block', width: '100%', textAlign: 'left',
-                      padding: '12px 14px',
+                      display: 'flex', alignItems: 'stretch', gap: 0,
                       background: isCurrent ? `${ACCENT}10` : 'transparent',
                       border: `1px solid ${isCurrent ? ACCENT + '40' : BORDER}`,
                       borderRadius: 10, marginBottom: 8,
-                      cursor: 'pointer', fontFamily: 'inherit', color: TEXT,
+                      overflow: 'hidden',
+                      opacity: isDeleting ? 0.55 : 1,
+                      transition: 'opacity 0.15s ease, background 0.15s ease, border-color 0.15s ease',
                     }}>
-                    <div style={{
-                      fontSize: 14, fontWeight: 600, lineHeight: 1.3, marginBottom: 4,
-                      overflow: 'hidden', textOverflow: 'ellipsis',
-                      display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-                    }}>
-                      {c.title || 'Untitled conversation'}
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: SUB }}>
-                      <span style={{ fontFamily: 'var(--font-mono)' }}>{dateLabel}</span>
-                      <span aria-hidden="true">·</span>
-                      <span>{c.message_count} message{c.message_count === 1 ? '' : 's'}</span>
-                      {isCurrent && (
-                        <>
-                          <span aria-hidden="true">·</span>
-                          <span style={{ color: ACCENT, fontWeight: 600 }}>Current</span>
-                        </>
-                      )}
-                    </div>
-                  </button>
+                    {isPendingDelete ? (
+                      // Inline confirmation row — the original
+                      // title/metadata is hidden so the action is
+                      // unambiguous. "Cancel" returns the row to
+                      // its normal state; "Delete" commits.
+                      <div style={{
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        flex: 1, padding: '10px 12px',
+                      }}>
+                        <span style={{ flex: 1, fontSize: 13, color: TEXT, lineHeight: 1.35 }}>
+                          Delete this conversation?
+                        </span>
+                        <button
+                          type="button"
+                          onClick={cancelDelete}
+                          style={{
+                            padding: '6px 12px', borderRadius: 8,
+                            background: 'transparent', border: `1px solid ${BORDER}`,
+                            color: SUB, fontSize: 12, fontWeight: 600,
+                            fontFamily: 'inherit', cursor: 'pointer',
+                            WebkitTapHighlightColor: 'transparent',
+                          }}>
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={commitDelete}
+                          style={{
+                            padding: '6px 12px', borderRadius: 8,
+                            background: mix('danger', 18),
+                            border: `1px solid ${mix('danger', 35)}`,
+                            color: DANGER, fontSize: 12, fontWeight: 700,
+                            fontFamily: 'inherit', cursor: 'pointer',
+                            WebkitTapHighlightColor: 'transparent',
+                          }}>
+                          Delete
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          disabled={isDeleting}
+                          onClick={async () => {
+                            if (isDeleting) return
+                            const ok = await loadConversation(c.id)
+                            if (ok) setHistoryOpen(false)
+                          }}
+                          style={{
+                            flex: 1, display: 'block', textAlign: 'left',
+                            padding: '12px 14px',
+                            background: 'transparent', border: 'none',
+                            cursor: isDeleting ? 'wait' : 'pointer',
+                            fontFamily: 'inherit', color: TEXT,
+                            WebkitTapHighlightColor: 'transparent',
+                          }}>
+                          <div style={{
+                            fontSize: 14, fontWeight: 600, lineHeight: 1.3, marginBottom: 4,
+                            overflow: 'hidden', textOverflow: 'ellipsis',
+                            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+                          }}>
+                            {c.title || 'Untitled conversation'}
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: SUB }}>
+                            <span style={{ fontFamily: 'var(--font-mono)' }}>{dateLabel}</span>
+                            <span aria-hidden="true">·</span>
+                            <span>{c.message_count} message{c.message_count === 1 ? '' : 's'}</span>
+                            {isCurrent && (
+                              <>
+                                <span aria-hidden="true">·</span>
+                                <span style={{ color: ACCENT, fontWeight: 600 }}>Current</span>
+                              </>
+                            )}
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={armDelete}
+                          disabled={isDeleting}
+                          aria-label={`Delete ${c.title || 'conversation'}`}
+                          title="Delete conversation"
+                          style={{
+                            flexShrink: 0,
+                            width: 44,
+                            background: 'transparent', border: 'none',
+                            borderLeft: `1px solid ${BORDER}`,
+                            cursor: isDeleting ? 'wait' : 'pointer',
+                            color: DIM,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontFamily: 'inherit',
+                            WebkitTapHighlightColor: 'transparent',
+                            transition: 'color 0.15s ease, background 0.15s ease',
+                          }}
+                          onMouseEnter={(e) => {
+                            if (isDeleting) return
+                            e.currentTarget.style.color = 'var(--danger)'
+                            e.currentTarget.style.background = mix('danger', 8)
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.color = DIM
+                            e.currentTarget.style.background = 'transparent'
+                          }}>
+                          <I n="trash" s={15} c="currentColor" w={1.8} />
+                        </button>
+                      </>
+                    )}
+                  </div>
                 )
               })}
           </div>
@@ -1170,7 +1315,11 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
                   transition: 'background 0.15s, transform 0.1s',
                   WebkitTapHighlightColor: 'transparent',
                 }}>
-                <I n="send" s={16} c={input.trim() && introAccepted ? 'var(--on-accent-fill)' : DIM} w={1.8} />
+                {/* Chunky up-arrow glyph — matches the
+                    Claude / ChatGPT / Gemini send-button convention.
+                    StrokeWidth bumped to 2.6 so the arrow reads as
+                    bold against the small (16px) icon size. */}
+                <I n="arrowUp" s={18} c={input.trim() && introAccepted ? 'var(--on-accent-fill)' : DIM} w={2.6} />
               </button>
             )}
           </div>
