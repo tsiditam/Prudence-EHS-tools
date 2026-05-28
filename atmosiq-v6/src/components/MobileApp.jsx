@@ -1670,9 +1670,17 @@ export default function MobileApp() {
       const zoneName = id.replace(/^(occupant_denom_|photo_)/, '')
       const zi = (zones || []).findIndex(z => (z?.zn || '') === zoneName)
       const target = zi >= 0 ? zi : 0
-      // Land on the exact question: occupant count ('oc') for the denominator
-      // blocker, the first photo-capable question for the photo blocker.
-      setPendingZoneFix({ zoneIndex: target, field: id.startsWith('occupant_denom_') ? 'oc' : '__photo__' })
+      // Land on the exact question. For the denominator blocker the missing
+      // piece is almost always "How many affected?" ('ac') — 'oc' (Occupant
+      // count) is already required/filled — so target whichever is empty,
+      // preferring 'ac'. Photo blocker → first photo-capable question.
+      let zoneField = '__photo__'
+      if (id.startsWith('occupant_denom_')) {
+        const z = zones[target] || {}
+        const hasVal = v => v != null && String(v).trim() !== ''
+        zoneField = !hasVal(z.ac) ? 'ac' : 'oc'
+      }
+      setPendingZoneFix({ zoneIndex: target, field: zoneField })
       setCurZone(target); setZqi(0); setView('zone'); return
     }
     const di = dtVis.findIndex(q => q.id === blocker.field)
