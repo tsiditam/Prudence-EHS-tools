@@ -153,6 +153,35 @@ Behavior:
 - Spring entrance (220–320ms with `SPRING.bounce`).
 - `prefers-reduced-motion: reduce` disables the entrance animation.
 
+### AtmosFlow AI primitives (Jasper)
+
+Extracted from `FieldAssistant.jsx` during the Phase 4 design-system
+pass so other AI surfaces (e.g. `JasperWatchPanel`, future inline-AI
+widgets) can adopt the same feel without re-copying inline styles.
+Tokens live in `src/styles/jasper-tokens.js`.
+
+| Primitive | File | Purpose |
+|---|---|---|
+| `<JasperContextChip>` | `JasperContextChip.jsx` | Small pill that surfaces what the AI assistant knows about the user's situation. Three tones (`accent` / `warn` / `success`) keyed off `JASPER_CHIP_TONES`. |
+| `<JasperSuggestionCard>` | `JasperSuggestionCard.jsx` | Empty-state suggestion card with tinted icon tile + uppercase category label + question body. Hover/focus lifts 1px and adds a soft cyan glow. |
+
+Token surface (`src/styles/jasper-tokens.js`):
+
+| Export | Purpose |
+|---|---|
+| `JASPER_SPRING` | iOS sheet-present cubic-bezier. Use for sheet entrances. |
+| `JASPER_EASE_OUT` | Ease-out-quart. Use for bubble / chip / hover transitions. |
+| `JASPER_DURATION.{backdrop,sheet,enter,hover}` | Tuned timings; tweak in one place. |
+| `JASPER_STAGGER_MS` | Inter-item delay for chip / card list reveals (60ms). |
+| `jasperAtmosphere(base?, strengthPct?)` | Radial cyan halo gradient for the sheet background. |
+| `JASPER_SHEET_SHADOW` | Top-anchored elevation shadow + accent halo edge. |
+| `jasperComposerFocusShadow()` | Composer focus ring (soft cyan halo). |
+| `JASPER_CHIP_TONES.{accent,warn,success}` | `{ fg, bg, bd }` palette consumed by `<JasperContextChip>`. |
+| `JASPER_KEYFRAMES_CSS` | The full animation rule set (keyframes + reduced-motion overrides + suggestion-card hover rules). Mount once per surface in a `<style>` block. |
+
+Host surfaces must mount `JASPER_KEYFRAMES_CSS` somewhere in their tree —
+the primitives reference class names defined in that block.
+
 ### V3-surface primitives (Logger Studio)
 
 Plain V3-token primitives (solid surfaces, neutral borders — **not**

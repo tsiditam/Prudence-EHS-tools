@@ -20,7 +20,7 @@
  * re-prompt if the disclaimer text materially changes.
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { I } from './Icons'
 // Jasper brand mark: monitor → robot. See JasperRobotIcon.jsx for the
 // cyan→orange→red gradient + filled silhouette spec.
@@ -28,6 +28,21 @@ import JasperRobotIcon from './JasperRobotIcon'
 import VoiceInputButton, { appendWithSpace } from './VoiceInputButton'
 import { useFieldAssistant } from '../hooks/useFieldAssistant'
 import { mix } from '../utils/theme'
+import { STD } from '../constants/standards'
+// Phase 4 — design-system primitives + tokens extracted out of this
+// file so JasperWatchPanel and other future AI surfaces can adopt the
+// same feel without re-copying inline styles.
+import JasperContextChip from './ui/JasperContextChip'
+import JasperSuggestionCard from './ui/JasperSuggestionCard'
+import {
+  JASPER_SPRING,
+  JASPER_DURATION,
+  JASPER_STAGGER_MS,
+  jasperAtmosphere,
+  JASPER_SHEET_SHADOW,
+  jasperComposerFocusShadow,
+  JASPER_KEYFRAMES_CSS,
+} from '../styles/jasper-tokens'
 
 const INTRO_FLAG_KEY = 'jasper_intro_v1'
 
@@ -40,16 +55,100 @@ const SUB = 'var(--sub)'
 const DIM = 'var(--dim)'
 const DANGER = 'var(--danger)'
 
+// Phase 1 redesign: suggestion cards carry a category label + icon so
+// the empty state reads as a curated launchpad (Claude / ChatGPT
+// pattern) rather than a flat list of strings. Categories are
+// IAQ-tailored — Measurement / Sampling / Standards — and map to the
+// three most common opening questions.
 const SUGGESTIONS = [
-  'CO₂ is 1,400 ppm in an office. What should I check next?',
-  'When is TVOC sampling warranted?',
-  'How does ASHRAE 62.1 apply to office ventilation?',
+  { category: 'Measurement', icon: 'gauge',    text: 'CO₂ is 1,400 ppm in an office. What should I check next?' },
+  { category: 'Sampling',    icon: 'flask',    text: 'When is TVOC sampling warranted?' },
+  { category: 'Standards',   icon: 'guidance', text: 'How does ASHRAE 62.1 apply to office ventilation?' },
 ]
+
+/**
+ * Phase-2 context awareness — derives a short list of chips from the
+ * `context` payload that MobileApp already builds and ships to the
+ * assistant API. No new wiring; this is a pure read of context so
+ * the assistant sheet visually mirrors what the agent is told.
+ *
+ * Chips currently surfaced:
+ *   - Facility (always when present) — anchors the panel to the
+ *     active assessment.
+ *   - Status — "Draft" vs "Finalized" (tone shifts to success on
+ *     finalized so the user can spot when they've crossed the line).
+ *   - Zone — current zone's name/id when the assessor is mid-walk
+ *     (wizard / zones / sensors view).
+ *   - Measurement signals — CO₂ / RH / PM₂.₅ from the current
+ *     zone's intake fields, compared to the thresholds in
+ *     src/constants/standards.js (which is the SAME source the
+ *     engine reads). The engine itself stays sacred — we only read
+ *     the published threshold table, not its scoring code paths.
+ *
+ * Output is an ordered array of { id, label, tone, icon } records.
+ * Tone maps to a CSS class on the chip; 'accent' = cyan default,
+ * 'warn' = elevated reading, 'success' = finalized.
+ */
+function buildContextChips(context) {
+  if (!context || typeof context !== 'object') return []
+  const out = []
+
+  const active = context.active_assessment
+  if (active && active.facility) {
+    out.push({ id: 'facility', label: active.facility, tone: 'accent', icon: 'bldg' })
+    if (active.status) {
+      const finalized = /finalized/i.test(active.status)
+      out.push({
+        id: 'status',
+        label: active.status,
+        tone: finalized ? 'success' : 'accent',
+        icon: finalized ? 'check' : 'draft',
+      })
+    }
+  }
+
+  const zone = context.current_zone
+  // Zone chips only make sense in walk-through views — on the
+  // dashboard or report, the assessor isn't looking AT a zone.
+  const inWalk = context.view === 'wizard'
+  if (inWalk && zone && typeof zone === 'object') {
+    const zoneLabel = zone.n || zone.zid || (typeof context.zones_count === 'number' ? `Zone ${(context.current_zone_idx ?? 0) + 1}` : null)
+    if (zoneLabel) out.push({ id: 'zone', label: zoneLabel, tone: 'accent', icon: 'location' })
+
+    // Measurement signals — only added when a numeric reading is
+    // actually present AND it crosses a published threshold. We
+    // never invent a chip from a missing value.
+    const co2 = Number(zone.co2)
+    if (Number.isFinite(co2)) {
+      const act = STD?.co2?.act ?? 1500
+      const con = STD?.co2?.con ?? 1000
+      if (co2 >= act)      out.push({ id: 'co2',  label: 'CO₂ action level', tone: 'warn', icon: 'wind' })
+      else if (co2 >= con) out.push({ id: 'co2',  label: 'CO₂ elevated',     tone: 'warn', icon: 'wind' })
+    }
+    const rh = Number(zone.rh)
+    if (Number.isFinite(rh)) {
+      if (rh >= 60)      out.push({ id: 'rh', label: 'Humidity high', tone: 'warn', icon: 'droplet' })
+      else if (rh <= 30) out.push({ id: 'rh', label: 'Humidity low',  tone: 'warn', icon: 'droplet' })
+    }
+    const pm = Number(zone.pm)
+    if (Number.isFinite(pm) && pm >= 12) {
+      out.push({ id: 'pm', label: 'PM₂.₅ elevated', tone: 'warn', icon: 'cloud' })
+    }
+    const tv = Number(zone.tv)
+    if (Number.isFinite(tv) && tv >= 500) {
+      // 500 µg/m³ — Mølhave 1991 advisory tier midpoint; surfaced
+      // as a signal that TVOC is in the "complaints possible" band.
+      out.push({ id: 'tvoc', label: 'TVOC elevated', tone: 'warn', icon: 'flask' })
+    }
+  }
+
+  return out
+}
 
 function MessageBubble({ role, content, photos }) {
   const isUser = role === 'user'
   return (
-    <div style={{
+    <div className="jasper-msg-in" style={{
       display: 'flex',
       justifyContent: isUser ? 'flex-end' : 'flex-start',
       marginBottom: 12,
@@ -129,7 +228,7 @@ function describeTool(tool) {
 function ToolStatus({ tool }) {
   const status = describeTool(tool)
   return (
-    <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 12 }}>
+    <div className="jasper-msg-in" style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 12 }}>
       <div style={{
         padding: status ? '10px 14px' : '12px 16px',
         borderRadius: 14, background: SURFACE,
@@ -155,12 +254,21 @@ function ToolStatus({ tool }) {
             </span>
           </>
         ) : (
-          [0, 1, 2].map(i => (
-            <span key={i} style={{
-              width: 6, height: 6, borderRadius: 3, background: DIM,
-              animation: `faDot 1.2s ${i * 0.15}s ease-in-out infinite`,
-            }} />
-          ))
+          <>
+            {/* Contextual thinking verb — softens the indicator and
+                makes the wait feel intentional, matching the
+                "Searching… / Looking up…" verbs that appear once a
+                tool kicks in. */}
+            <span style={{ fontSize: 13, color: SUB, lineHeight: 1.4, fontStyle: 'italic', marginRight: 4 }}>
+              Thinking
+            </span>
+            {[0, 1, 2].map(i => (
+              <span key={i} style={{
+                width: 6, height: 6, borderRadius: 3, background: DIM,
+                animation: `faDot 1.2s ${i * 0.15}s ease-in-out infinite`,
+              }} />
+            ))}
+          </>
         )}
       </div>
     </div>
@@ -262,7 +370,7 @@ function ActionCard({ action, summary, status, onAccept, onReject }) {
       ? 'M9 18l6-6-6-6' // chevron-right
       : 'M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7 M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z' // pencil-square
   return (
-    <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 12 }}>
+    <div className="jasper-msg-in" style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 12 }}>
       <div style={{
         maxWidth: '90%',
         padding: '12px 14px',
@@ -385,6 +493,11 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
   const inputRef = useRef(null)
   const fileInputRef = useRef(null)
 
+  // Derive context chips client-side from the same context object
+  // we ship to the API. Memoized on context identity so a re-render
+  // from typing in the textarea doesn't re-walk the zone payload.
+  const contextChips = useMemo(() => buildContextChips(context), [context])
+
   const onPickPhotos = async (e) => {
     const files = Array.from(e.target.files || [])
     // Reset the input so re-picking the same file fires onChange again.
@@ -493,15 +606,28 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
           which leaked content past both side edges (the original
           bug report showed the robot icon's left ear cut off and
           "Terms · Privacy · AI · REVIEW REQUIRED" bleeding past
-          both screen edges). */}
+          both screen edges).
+
+          Phase-3 depth: scrim drops from solid #000DD to a softer
+          rgba 0.55 + 8px backdrop blur, so the page behind reads
+          as a defocused hint of the assessment instead of a black
+          void. Matches the iOS / macOS sheet pattern (Messages,
+          Mail, ChatGPT iOS) and reinforces the sheet's elevation. */}
       <div
         onClick={handleBackdropClick}
+        className="jasper-backdrop"
         style={{
-          position: 'fixed', inset: 0, background: '#000000DD', zIndex: 260,
+          position: 'fixed', inset: 0,
+          background: 'rgba(2, 6, 10, 0.55)',
+          WebkitBackdropFilter: 'blur(8px) saturate(120%)',
+          backdropFilter: 'blur(8px) saturate(120%)',
+          zIndex: 260,
+          animation: 'jasperBackdropIn 280ms ease-out both',
         }}
       />
       <div
         onClick={(e) => e.stopPropagation()}
+        className="jasper-sheet"
         style={{
           position: 'fixed',
           bottom: 0,
@@ -511,19 +637,30 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
           maxWidth: 640,
           marginLeft: 'auto',
           marginRight: 'auto',
-          background: CARD,
+          // Atmospheric surface — token-driven (jasper-tokens.js).
+          // The same gradient is available to any future AI surface.
+          background: jasperAtmosphere(),
           border: `1px solid ${BORDER}`, borderBottom: 'none',
           borderRadius: '20px 20px 0 0',
           padding: '12px 16px',
           paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))',
-          animation: 'fadeUp .3s ease',
+          // Motion + depth — token-driven so the iOS spring + sheet
+          // shadow are tuned in one place.
+          animation: `jasperSheetIn ${JASPER_DURATION.sheet}ms ${JASPER_SPRING} both`,
+          boxShadow: JASPER_SHEET_SHADOW,
           maxHeight: '88vh',
           display: 'flex', flexDirection: 'column',
           boxSizing: 'border-box',
           overflow: 'hidden',
         }}>
-        {/* Drag handle */}
-        <div style={{ width: 36, height: 4, borderRadius: 2, background: BORDER, margin: '0 auto 10px' }} />
+        {/* Drag handle — Phase-3: brightened from BORDER to SUB
+            with a 5px height and a subtle drop shadow so the
+            affordance reads at a glance instead of disappearing
+            into the sheet's gradient header. */}
+        <div style={{
+          width: 40, height: 5, borderRadius: 3, background: SUB,
+          margin: '0 auto 10px', opacity: 0.55,
+        }} />
 
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, gap: 12 }}>
@@ -611,23 +748,29 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
           </div>
         </div>
 
-        {/* Active-assessment context chip — ties the assistant to what
-            the assessor is working on so it doesn't read as a generic
-            LLM sheet. Shown only when context carries a named
-            assessment; hidden while browsing past conversations. */}
-        {!historyOpen && context?.active_assessment?.facility && (
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 7,
-            marginBottom: 10, padding: '6px 10px', borderRadius: 8,
-            background: mix('accent', 6), border: `1px solid ${mix('accent', 16)}`,
-            minWidth: 0,
-          }}>
-            <span style={{ width: 6, height: 6, borderRadius: 3, background: ACCENT, flexShrink: 0 }} />
-            <span style={{ fontSize: 11, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
-              <span style={{ color: SUB }}>Context: </span>
-              <span style={{ color: TEXT, fontWeight: 600 }}>{context.active_assessment.facility}</span>
-              <span style={{ color: SUB }}> · {context.active_assessment.status}</span>
-            </span>
+        {/* Phase-2 context chip strip — replaces the single
+            facility/status pill with a richer row that reflects
+            what's actually in the context payload the agent
+            receives: facility, draft/finalized status, current
+            zone, and measurement signals from that zone (CO₂
+            elevated, humidity high, etc.). The user can see at a
+            glance what Jasper knows about their current situation.
+            Hidden while the history panel is open. */}
+        {!historyOpen && contextChips.length > 0 && (
+          <div
+            aria-label="AtmosFlow AI context"
+            style={{
+              display: 'flex', flexWrap: 'wrap', gap: 6,
+              marginBottom: 10, minWidth: 0,
+            }}>
+            {contextChips.map((c, i) => (
+              <span
+                key={c.id}
+                className="jasper-chip-in"
+                style={{ animationDelay: `${120 + i * JASPER_STAGGER_MS}ms` }}>
+                <JasperContextChip label={c.label} tone={c.tone} icon={c.icon} />
+              </span>
+            ))}
           </div>
         )}
 
@@ -720,33 +863,45 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
           )}
 
           {introAccepted && messages.length === 0 && !sending && (
-            <div style={{ padding: '16px 4px', color: SUB, fontSize: 13, lineHeight: 1.6 }}>
+            <div style={{ padding: '20px 4px 12px' }}>
+              {/* Typography hierarchy — a real headline anchors the
+                  empty state instead of a single body paragraph.
+                  Subtitle carries the screening-only positioning so
+                  the user sees the boundary on the very first frame. */}
               <div className="jasper-stagger"
-                style={{ marginBottom: 12, animation: 'jasperReveal 500ms ease-out both', animationDelay: '0ms' }}>
+                style={{
+                  fontSize: 20, fontWeight: 700, color: TEXT,
+                  lineHeight: 1.25, letterSpacing: '-0.2px', marginBottom: 6,
+                  animation: 'jasperReveal 500ms ease-out both', animationDelay: '0ms',
+                }}>
+                How can I help with this assessment?
+              </div>
+              <div className="jasper-stagger"
+                style={{
+                  color: SUB, fontSize: 13, lineHeight: 1.55, marginBottom: 18,
+                  animation: 'jasperReveal 500ms ease-out both', animationDelay: '250ms',
+                }}>
                 Ask about standards, readings, sampling, or likely next steps.
                 Scoring stays with the assessment engine.
               </div>
               <div className="jasper-stagger"
-                style={{ fontSize: 11, fontWeight: 600, color: DIM, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8,
-                  animation: 'jasperReveal 500ms ease-out both', animationDelay: '500ms' }}>
-                Try
+                style={{
+                  fontSize: 11, fontWeight: 600, color: DIM,
+                  textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10,
+                  animation: 'jasperReveal 500ms ease-out both', animationDelay: '500ms',
+                }}>
+                Try one of these
               </div>
               {SUGGESTIONS.map((s, i) => (
-                <button
-                  key={s}
-                  onClick={() => sendMessage(s, context)}
+                <JasperSuggestionCard
+                  key={s.text}
+                  category={s.category}
+                  icon={s.icon}
+                  text={s.text}
                   disabled={sending}
-                  className="jasper-stagger"
-                  style={{
-                    display: 'block', width: '100%', textAlign: 'left',
-                    padding: '10px 12px', marginBottom: 6,
-                    background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 10,
-                    color: TEXT, fontSize: 13, fontFamily: 'inherit', cursor: 'pointer',
-                    animation: 'jasperReveal 500ms ease-out both',
-                    animationDelay: `${1000 + i * 700}ms`,
-                  }}>
-                  {s}
-                </button>
+                  onClick={() => sendMessage(s.text, context)}
+                  revealDelayMs={900 + i * 180}
+                />
               ))}
             </div>
           )}
@@ -822,7 +977,7 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
             borderRadius: 18,
             transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
             boxShadow: composerFocused
-              ? `0 0 0 4px ${mix('accent', 12)}, 0 1px 2px rgba(0,0,0,0.06)`
+              ? jasperComposerFocusShadow()
               : '0 1px 2px rgba(0,0,0,0.04)',
             opacity: introAccepted ? 1 : 0.55,
             minWidth: 0, boxSizing: 'border-box',
@@ -1071,6 +1226,9 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
       </div>
 
       <style>{`
+        /* Surface-local keyframes — used only by this file's
+           thinking-dot pulse, tool-spinner, and Stop-button entrance.
+           Anything reusable across AI surfaces lives in jasper-tokens. */
         @keyframes faDot {
           0%, 80%, 100% { opacity: 0.3; transform: translateY(0); }
           40% { opacity: 1; transform: translateY(-3px); }
@@ -1083,17 +1241,7 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
           from { opacity: 0; transform: scale(0.8); }
           to   { opacity: 1; transform: scale(1); }
         }
-        @keyframes jasperReveal {
-          0%   { opacity: 0; transform: translateY(6px); }
-          100% { opacity: 1; transform: translateY(0); }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .jasper-stagger {
-            animation: none !important;
-            opacity: 1 !important;
-            transform: none !important;
-          }
-        }
+        ${JASPER_KEYFRAMES_CSS}
       `}</style>
     </>
   )
