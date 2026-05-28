@@ -88,6 +88,7 @@ import V21InternalPanel from './V21InternalPanel'
 import { FAQ_SECTIONS } from '../constants/faq'
 import SearchView from './SearchView'
 import FieldAssistant from './FieldAssistant'
+import SimilarAssessmentsPanel from './SimilarAssessmentsPanel'
 import VoiceCommandModal from './VoiceCommandModal'
 import JasperRobotIcon from './JasperRobotIcon'
 import PendingSyncIndicator from './PendingSyncIndicator'
@@ -1829,6 +1830,26 @@ export default function MobileApp() {
             Legacy v1.x scoring — standards manifest not embedded
           </div>
         )}
+
+        {/* ── Past Patterns (Play 2 — cross-assessment memory) ──
+            Surfaces deterministic similarity matches from the assessor's
+            historical localStorage assessments. Hidden when history < 3.
+            Advisory only — never replaces the deterministic findings
+            above; the panel renders below this point as a memory aid. */}
+        <SimilarAssessmentsPanel
+          currentAssessment={{
+            id: viewRpt?.id || null,
+            building: bldg,
+            presurvey,
+            comp,
+            recs,
+            moldResults,
+          }}
+          onOpenPastAssessment={(id) => {
+            const meta = (index.reports || []).find(r => r.id === id) || (index.drafts || []).find(d => d.id === id)
+            if (meta) openReport(meta)
+          }}
+        />
 
         {/* ── Hero: composite assessment + next recommended steps ──
             Two-column on tablet+, stacked on mobile. The left column
