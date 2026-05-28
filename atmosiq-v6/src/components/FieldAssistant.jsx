@@ -29,6 +29,20 @@ import VoiceInputButton, { appendWithSpace } from './VoiceInputButton'
 import { useFieldAssistant } from '../hooks/useFieldAssistant'
 import { mix } from '../utils/theme'
 import { STD } from '../constants/standards'
+// Phase 4 — design-system primitives + tokens extracted out of this
+// file so JasperWatchPanel and other future AI surfaces can adopt the
+// same feel without re-copying inline styles.
+import JasperContextChip from './ui/JasperContextChip'
+import JasperSuggestionCard from './ui/JasperSuggestionCard'
+import {
+  JASPER_SPRING,
+  JASPER_DURATION,
+  JASPER_STAGGER_MS,
+  jasperAtmosphere,
+  JASPER_SHEET_SHADOW,
+  jasperComposerFocusShadow,
+  JASPER_KEYFRAMES_CSS,
+} from '../styles/jasper-tokens'
 
 const INTRO_FLAG_KEY = 'jasper_intro_v1'
 
@@ -129,34 +143,6 @@ function buildContextChips(context) {
   }
 
   return out
-}
-
-/**
- * Single context chip. Tones:
- *   - accent  : cyan border + faint cyan fill (default identity chip)
- *   - warn    : warning-colored fill (elevated measurement signal)
- *   - success : success-colored fill (finalized report)
- */
-function ContextChip({ label, tone = 'accent', icon }) {
-  const palette =
-    tone === 'warn'
-      ? { fg: 'var(--warn)', bg: 'color-mix(in srgb, var(--warn) 12%, transparent)', bd: 'color-mix(in srgb, var(--warn) 30%, transparent)' }
-      : tone === 'success'
-      ? { fg: 'var(--ok)',   bg: 'color-mix(in srgb, var(--ok) 12%, transparent)',   bd: 'color-mix(in srgb, var(--ok) 30%, transparent)' }
-      : { fg: 'var(--accent)', bg: 'color-mix(in srgb, var(--accent) 10%, transparent)', bd: 'color-mix(in srgb, var(--accent) 28%, transparent)' }
-  return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 5,
-      padding: '4px 9px 4px 7px', borderRadius: 999,
-      background: palette.bg, border: `1px solid ${palette.bd}`,
-      fontSize: 11, lineHeight: 1.2, fontWeight: 600,
-      color: palette.fg, letterSpacing: '0.1px',
-      maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-    }}>
-      {icon && <I n={icon} s={11} c={palette.fg} w={2} />}
-      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
-    </span>
-  )
 }
 
 function MessageBubble({ role, content, photos }) {
@@ -651,30 +637,17 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
           maxWidth: 640,
           marginLeft: 'auto',
           marginRight: 'auto',
-          // Atmospheric surface: the sheet's base is CARD, with a
-          // soft cyan halo radiating from the top center. Reads as
-          // "atmosphere" / breath / sky without dragging in any of
-          // the AtmosFlow brand tokens that already render in the
-          // header. Single layered gradient — no extra DOM, no
-          // perf cost.
-          background: `radial-gradient(140% 90% at 50% 0%, color-mix(in srgb, var(--accent) 7%, var(--card)) 0%, var(--card) 55%)`,
+          // Atmospheric surface — token-driven (jasper-tokens.js).
+          // The same gradient is available to any future AI surface.
+          background: jasperAtmosphere(),
           border: `1px solid ${BORDER}`, borderBottom: 'none',
           borderRadius: '20px 20px 0 0',
           padding: '12px 16px',
           paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))',
-          // Phase-3 motion: iOS sheet spring (Apple's "sheet
-          // present" cubic-bezier) replaces the generic ease.
-          // 380ms gives the rise weight without dragging.
-          animation: 'jasperSheetIn 380ms cubic-bezier(0.32, 0.72, 0, 1) both',
-          // Phase-3 depth: layered elevation shadow + faint accent
-          // halo around the top edge. Reads as a sheet floating
-          // above the page rather than a flat panel pinned to the
-          // bottom. Top-only halo keeps the bottom-anchored sheet
-          // from looking detached from the viewport edge.
-          boxShadow:
-            '0 -20px 60px -10px rgba(0, 0, 0, 0.45),' +
-            '0 -8px 24px -8px rgba(0, 0, 0, 0.30),' +
-            '0 -1px 0 color-mix(in srgb, var(--accent) 22%, transparent)',
+          // Motion + depth — token-driven so the iOS spring + sheet
+          // shadow are tuned in one place.
+          animation: `jasperSheetIn ${JASPER_DURATION.sheet}ms ${JASPER_SPRING} both`,
+          boxShadow: JASPER_SHEET_SHADOW,
           maxHeight: '88vh',
           display: 'flex', flexDirection: 'column',
           boxSizing: 'border-box',
@@ -794,8 +767,8 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
               <span
                 key={c.id}
                 className="jasper-chip-in"
-                style={{ animationDelay: `${120 + i * 60}ms` }}>
-                <ContextChip label={c.label} tone={c.tone} icon={c.icon} />
+                style={{ animationDelay: `${120 + i * JASPER_STAGGER_MS}ms` }}>
+                <JasperContextChip label={c.label} tone={c.tone} icon={c.icon} />
               </span>
             ))}
           </div>
@@ -920,50 +893,15 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
                 Try one of these
               </div>
               {SUGGESTIONS.map((s, i) => (
-                <button
+                <JasperSuggestionCard
                   key={s.text}
-                  onClick={() => sendMessage(s.text, context)}
+                  category={s.category}
+                  icon={s.icon}
+                  text={s.text}
                   disabled={sending}
-                  className="jasper-suggestion jasper-stagger"
-                  style={{
-                    display: 'flex', alignItems: 'flex-start', gap: 12,
-                    width: '100%', textAlign: 'left',
-                    padding: '12px 14px', marginBottom: 8,
-                    background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 12,
-                    color: TEXT, fontSize: 13.5, fontFamily: 'inherit', cursor: 'pointer',
-                    lineHeight: 1.45,
-                    transition: 'border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease, background 160ms ease',
-                    animation: 'jasperReveal 500ms ease-out both',
-                    animationDelay: `${900 + i * 180}ms`,
-                  }}>
-                  {/* Tinted icon tile — the soft cyan square reads as
-                      a category badge and gives the card a focal
-                      point. Tile background lifts slightly on hover
-                      via the CSS rule at the bottom of the file. */}
-                  <span className="jasper-suggestion__icon"
-                    style={{
-                      width: 32, height: 32, borderRadius: 9,
-                      background: mix('accent', 10),
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      flexShrink: 0,
-                      transition: 'background 160ms ease',
-                    }}>
-                    <I n={s.icon} s={16} c={ACCENT} w={1.9} />
-                  </span>
-                  <span style={{ flex: 1, minWidth: 0 }}>
-                    <span style={{
-                      display: 'block',
-                      fontSize: 10, fontWeight: 700, color: ACCENT,
-                      letterSpacing: '0.55px', textTransform: 'uppercase',
-                      marginBottom: 3,
-                    }}>
-                      {s.category}
-                    </span>
-                    <span style={{ display: 'block', color: TEXT, fontWeight: 500 }}>
-                      {s.text}
-                    </span>
-                  </span>
-                </button>
+                  onClick={() => sendMessage(s.text, context)}
+                  revealDelayMs={900 + i * 180}
+                />
               ))}
             </div>
           )}
@@ -1039,7 +977,7 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
             borderRadius: 18,
             transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
             boxShadow: composerFocused
-              ? `0 0 0 4px ${mix('accent', 12)}, 0 1px 2px rgba(0,0,0,0.06)`
+              ? jasperComposerFocusShadow()
               : '0 1px 2px rgba(0,0,0,0.04)',
             opacity: introAccepted ? 1 : 0.55,
             minWidth: 0, boxSizing: 'border-box',
@@ -1288,6 +1226,9 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
       </div>
 
       <style>{`
+        /* Surface-local keyframes — used only by this file's
+           thinking-dot pulse, tool-spinner, and Stop-button entrance.
+           Anything reusable across AI surfaces lives in jasper-tokens. */
         @keyframes faDot {
           0%, 80%, 100% { opacity: 0.3; transform: translateY(0); }
           40% { opacity: 1; transform: translateY(-3px); }
@@ -1300,74 +1241,7 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
           from { opacity: 0; transform: scale(0.8); }
           to   { opacity: 1; transform: scale(1); }
         }
-        @keyframes jasperReveal {
-          0%   { opacity: 0; transform: translateY(6px); }
-          100% { opacity: 1; transform: translateY(0); }
-        }
-        /* Phase-3 motion primitives. */
-        @keyframes jasperBackdropIn {
-          from { opacity: 0; }
-          to   { opacity: 1; }
-        }
-        @keyframes jasperSheetIn {
-          from { opacity: 0; transform: translateY(28px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes jasperMsgIn {
-          0%   { opacity: 0; transform: translateY(8px) scale(0.98); }
-          100% { opacity: 1; transform: translateY(0) scale(1); }
-        }
-        @keyframes jasperChipIn {
-          0%   { opacity: 0; transform: translateY(-4px); }
-          100% { opacity: 1; transform: translateY(0); }
-        }
-        .jasper-msg-in {
-          animation: jasperMsgIn 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
-        }
-        .jasper-chip-in {
-          display: inline-flex;
-          animation: jasperChipIn 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
-        }
-        /* Phase-1 suggestion cards: cyan-tinted border, soft accent
-           glow, and a 1px lift on hover. Focus state mirrors hover
-           plus a 3px focus ring so keyboard users get the same
-           affordance. Icon tile background brightens in sync. */
-        .jasper-suggestion:hover:not(:disabled),
-        .jasper-suggestion:focus-visible {
-          border-color: color-mix(in srgb, var(--accent) 45%, transparent) !important;
-          box-shadow:
-            0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent),
-            0 8px 24px -12px color-mix(in srgb, var(--accent) 55%, transparent),
-            0 2px 6px rgba(0,0,0,0.06);
-          transform: translateY(-1px);
-          background: color-mix(in srgb, var(--accent) 4%, var(--surface)) !important;
-        }
-        .jasper-suggestion:focus-visible {
-          outline: none;
-        }
-        .jasper-suggestion:hover:not(:disabled) .jasper-suggestion__icon,
-        .jasper-suggestion:focus-visible .jasper-suggestion__icon {
-          background: color-mix(in srgb, var(--accent) 18%, transparent) !important;
-        }
-        .jasper-suggestion:active:not(:disabled) {
-          transform: translateY(0);
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .jasper-stagger,
-          .jasper-msg-in,
-          .jasper-chip-in,
-          .jasper-backdrop,
-          .jasper-sheet {
-            animation: none !important;
-            opacity: 1 !important;
-            transform: none !important;
-          }
-          .jasper-suggestion:hover:not(:disabled),
-          .jasper-suggestion:focus-visible,
-          .jasper-suggestion:active:not(:disabled) {
-            transform: none !important;
-          }
-        }
+        ${JASPER_KEYFRAMES_CSS}
       `}</style>
     </>
   )
