@@ -188,9 +188,15 @@ async function handler(req: import('http').IncomingMessage & {
       return
     }
 
+    // Pull messages + any feedback in one round-trip. The
+    // PostgREST `*` join syntax leans on the FK we declared in
+    // migration 015 (field_assistant_feedback.message_id →
+    // field_assistant_messages.id). One row per message; the
+    // feedback array is empty or single-element due to the
+    // UNIQUE(message_id).
     const { data: messages, error: msgErr } = await supabase
       .from('field_assistant_messages')
-      .select('id, role, content, context_view, created_at')
+      .select('id, role, content, context_view, created_at, field_assistant_feedback ( rating, reason )')
       .eq('conversation_id', id)
       .eq('user_id', user.id)
       .order('created_at', { ascending: true })
@@ -200,9 +206,28 @@ async function handler(req: import('http').IncomingMessage & {
       return
     }
 
+    // Flatten the embedded feedback array into top-level
+    // feedback_rating / feedback_reason fields so the client
+    // doesn't need to unpack the join shape.
+    const flat = (messages || []).map((m) => {
+      const raw = m as { field_assistant_feedback?: { rating?: string; reason?: string | null }[] } & MessageRow
+      const fb = Array.isArray(raw.field_assistant_feedback) && raw.field_assistant_feedback[0]
+        ? raw.field_assistant_feedback[0]
+        : null
+      return {
+        id: raw.id,
+        role: raw.role,
+        content: raw.content,
+        context_view: raw.context_view,
+        created_at: raw.created_at,
+        feedback_rating: fb?.rating || null,
+        feedback_reason: fb?.reason || null,
+      }
+    })
+
     res.status(200).json({
       conversation: conv as ConversationRow,
-      messages: (messages || []) as MessageRow[],
+      messages: flat,
     })
     return
   }

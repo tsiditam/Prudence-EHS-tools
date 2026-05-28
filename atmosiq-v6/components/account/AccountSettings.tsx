@@ -38,6 +38,14 @@ export interface AccountProfile {
   annual_renewal_at?: string | null
   subscription_status?: string | null
   stripe_customer_id?: string | null
+  /**
+   * AI fine-tuning consent (migration 015). Default true on signup;
+   * the "Help improve AtmosFlow AI" toggle in this component flips
+   * it. When false, the export pipeline excludes this user's
+   * conversation turns from training datasets. Does NOT affect
+   * persistence — chats are still saved either way.
+   */
+  ai_training_consent?: boolean
 }
 
 export interface AccountSettingsProps {
@@ -66,6 +74,26 @@ export default function AccountSettings({
   const [portalError, setPortalError] = useState<string | null>(null)
   const [deleteStage, setDeleteStage] = useState<'idle' | 'confirm1' | 'confirm2' | 'deleting' | 'deleted' | 'error'>('idle')
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  // AI fine-tuning consent (migration 015). Default true if the
+  // profile row doesn't carry the value yet (so users on the
+  // pre-migration build flip from "implicitly enrolled" to
+  // "explicitly opted out" cleanly).
+  const [aiConsent, setAiConsent] = useState<boolean>(profile.ai_training_consent !== false)
+  const [aiConsentSaving, setAiConsentSaving] = useState(false)
+
+  const toggleAiConsent = async () => {
+    const next = !aiConsent
+    setAiConsent(next)            // optimistic flip
+    setAiConsentSaving(true)
+    try {
+      // Stub persistence — parent owns the actual Supabase update.
+      // Matches the saveProfile pattern above.
+      await new Promise(r => setTimeout(r, 50))
+      onProfileSaved && onProfileSaved({ ai_training_consent: next })
+    } finally {
+      setAiConsentSaving(false)
+    }
+  }
 
   const tierLabel = ({ free: 'Free', solo: 'Solo', pro: 'Pro', practice: 'Practice' } as const)[profile.plan]
   const renewalLabel = profile.billing_period === 'annual' && profile.annual_renewal_at
@@ -233,6 +261,48 @@ export default function AccountSettings({
             Saved.
           </p>
         )}
+      </Section>
+
+      {/* AI improvement program — migration 015. Default-on with
+          a one-click opt-out. Toggling does NOT delete past
+          conversations; it stops future use of new turns. */}
+      <Section title="AI improvement program">
+        <p style={{ color: PALETTE.sub, fontSize: 13, lineHeight: 1.6, margin: 0 }}>
+          When enabled, anonymized excerpts of your AtmosFlow AI
+          conversations may be used to improve Jasper's accuracy on
+          indoor air quality screening. Facility names and personal
+          identifiers are scrubbed before analysis. You can turn this
+          off at any time; turning it off stops future use but does
+          not retroactively remove past contributions from completed
+          training runs.
+        </p>
+        <label
+          data-testid="ai-consent-toggle"
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            gap: 12, padding: '12px 14px', marginTop: 14,
+            background: PALETTE.surface, border: `1px solid ${PALETTE.border}`,
+            borderRadius: 10, cursor: aiConsentSaving ? 'wait' : 'pointer',
+          }}>
+          <span style={{ color: PALETTE.text, fontSize: 14, fontWeight: 600 }}>
+            Help improve AtmosFlow AI
+          </span>
+          <input
+            type="checkbox"
+            checked={aiConsent}
+            disabled={aiConsentSaving}
+            onChange={toggleAiConsent}
+            style={{
+              width: 18, height: 18, accentColor: PALETTE.accent,
+              cursor: aiConsentSaving ? 'wait' : 'pointer',
+            }}
+          />
+        </label>
+        <p style={{ color: PALETTE.dim, fontSize: 11, marginTop: 8, lineHeight: 1.5 }}>
+          {aiConsent
+            ? 'On — future turns may be included in training datasets.'
+            : 'Off — future turns will be excluded from training datasets.'}
+        </p>
       </Section>
 
       {/* Danger zone */}
