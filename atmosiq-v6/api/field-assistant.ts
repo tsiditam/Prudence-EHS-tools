@@ -30,6 +30,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { FIELD_ASSISTANT_ROLE_PROMPT } from '../src/constants/field-assistant-prompt.js'
 import { STANDARDS_FOR_AGENT, FAQ_FOR_AGENT } from '../src/constants/field-assistant-corpus.js'
 import { FIELD_ASSISTANT_TOOLS, dispatchTool } from '../src/constants/field-assistant-tools.js'
+import { renderTemplate } from '../lib/report-templates/render'
 import { scrubPii } from '../lib/sentry.js'
 import { auditLog } from './_audit.js'
 import { hasUnlimitedUsage } from '../lib/unlimited-usage.js'
@@ -468,10 +469,14 @@ interface ToolDispatchContext {
   fetchFn: typeof fetch
   recordVisionUsage: (u: VisionUsageRecord) => void
   // generate_report support — injected so the tool dispatcher can
-  // hit Storage / report_templates without recreating auth.
+  // hit Storage / report_templates without recreating auth. The
+  // render fn is injected from this TS module so field-assistant-tools.js
+  // (plain ESM) doesn't import the .ts renderer directly — that would
+  // crash the Vercel runtime at load time.
   supabase: SupabaseClient
   userId: string
   assessmentContext: Record<string, unknown> | undefined
+  renderTemplate: typeof renderTemplate
 }
 
 async function runAgentLoop(
@@ -882,6 +887,7 @@ async function handler(req: VercelLikeRequest, res: VercelLikeResponse): Promise
       (body.context && typeof body.context === 'object'
         ? (body.context as Record<string, unknown>)
         : undefined),
+    renderTemplate,
   }
 
   // Wall-clock latency around the upstream call + tool loop.

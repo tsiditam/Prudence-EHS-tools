@@ -32,9 +32,14 @@ import {
 } from './iaq-knowledge-base.js'
 import { searchCorpus } from '../utils/corpus-search.js'
 import { summarizeCorpus } from './standards-corpus.js'
-// Render lib is TS but imported via the module-name (no extension).
-// Vite/vitest resolve both runtime and test surface through tsconfig.
-import { renderTemplate as defaultRenderTemplate } from '../../lib/report-templates/render'
+// NOTE: the docxtemplater-backed renderer (lib/report-templates/render.ts)
+// is NOT imported directly here. This file is plain ES modules; the
+// renderer is TypeScript and pulls in docxtemplater + pizzip. Importing
+// it from this `.js` module crashes the Vercel runtime at load time
+// because the .ts extension isn't resolvable from a .js ESM context,
+// which would break every Jasper call — not just generate_report. So
+// the renderer is injected via ctx.renderTemplate by the TS handler
+// (api/field-assistant.ts), matching the analyze_photo pattern.
 
 // ── Anthropic tool-use schemas ──────────────────────────────────────
 // Each entry mirrors the Anthropic Messages API "tools" array shape.
@@ -601,13 +606,15 @@ export async function dispatchTool(name, input, ctx = {}) {
 
     if (name === 'generate_report') {
       // Required ctx (injected by api/field-assistant.ts):
-      //   • supabase           — service-role client
-      //   • userId             — caller's auth.uid()
-      //   • assessmentContext  — the same body.context Jasper saw on
-      //                          the system prompt; resolvers walk it
-      //   • renderTemplate?    — optional override (tests inject a
-      //                          stub). Defaults to the lib import.
-      if (!ctx || !ctx.supabase || !ctx.userId) {
+      //   • supabase          — service-role client
+      //   • userId            — caller's auth.uid()
+      //   • assessmentContext — the same body.context Jasper saw on
+      //                         the system prompt; resolvers walk it
+      //   • renderTemplate    — the lib's render fn, injected from
+      //                         api/field-assistant.ts (the TS-side
+      //                         is what bundles docxtemplater). Tests
+      //                         inject a stub.
+      if (!ctx || !ctx.supabase || !ctx.userId || typeof ctx.renderTemplate !== 'function') {
         return {
           status: 'error',
           error: 'render_unavailable',
@@ -615,7 +622,7 @@ export async function dispatchTool(name, input, ctx = {}) {
             'Report generation is not available in this request context. Report rendering must be invoked through the Field Assistant API handler.',
         }
       }
-      const render = ctx.renderTemplate || defaultRenderTemplate
+      const render = ctx.renderTemplate
       // List templates owned by this user, newest first.
       const { data: templates, error: listErr } = await ctx.supabase
         .from('report_templates')
