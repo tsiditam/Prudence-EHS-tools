@@ -22,6 +22,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { I } from './Icons'
+import STO from '../utils/storage'
 // Jasper brand mark: monitor → robot. See JasperRobotIcon.jsx for the
 // cyan→orange→red gradient + filled silhouette spec.
 import JasperRobotIcon from './JasperRobotIcon'
@@ -490,6 +491,16 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
   const [pendingDeleteId, setPendingDeleteId] = useState(null)
   const [deletingId, setDeletingId] = useState(null)
   const pendingDeleteTimerRef = useRef(null)
+  // Context-switch override. When the user picks a different
+  // assessment via the facility-chip picker, this object replaces
+  // the prop-derived active_assessment in BOTH the chip strip and
+  // the API context payload. Zone-derived chips are dropped (we
+  // don't have that assessment's zones loaded into app state).
+  // null = follow whatever the app is currently showing.
+  const [overrideAssessment, setOverrideAssessment] = useState(null)
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [pickerLoading, setPickerLoading] = useState(false)
+  const [pickerIndex, setPickerIndex] = useState({ reports: [], drafts: [] })
   const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine)
   const [introAccepted, setIntroAccepted] = useState(readIntroFlag)
   // Focus-within state for the unified composer container so its
@@ -501,10 +512,31 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
   const inputRef = useRef(null)
   const fileInputRef = useRef(null)
 
-  // Derive context chips client-side from the same context object
-  // we ship to the API. Memoized on context identity so a re-render
-  // from typing in the textarea doesn't re-walk the zone payload.
-  const contextChips = useMemo(() => buildContextChips(context), [context])
+  // Effective context — the prop-derived context layered with any
+  // user-picked override. Used by BOTH the chip strip and the
+  // sendMessage payload so what the assessor sees in the chip row
+  // is exactly what Jasper is told. When an override is active we
+  // drop current_zone so zone-derived measurement chips don't
+  // misrepresent a different assessment's readings.
+  const effectiveContext = useMemo(() => {
+    if (!overrideAssessment) return context
+    return {
+      ...(context || {}),
+      active_assessment: {
+        facility: overrideAssessment.facility,
+        status: overrideAssessment.status,
+        id: overrideAssessment.id,
+      },
+      current_zone: null,
+      // Tag the override on the payload so the API/agent prompt
+      // can distinguish "the user is mid-walk on this report" from
+      // "the user asked about a different report from the chat
+      // sheet". Backend doesn't need to do anything with this
+      // today; the field is informational.
+      context_override: { source: overrideAssessment.source || 'picker' },
+    }
+  }, [context, overrideAssessment])
+  const contextChips = useMemo(() => buildContextChips(effectiveContext), [effectiveContext])
 
   const onPickPhotos = async (e) => {
     const files = Array.from(e.target.files || [])
@@ -563,7 +595,7 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
     // Already accepted — auto-send. sendMessage handles its own
     // disabled-while-sending guard, so a stray double-trigger
     // won't double-send.
-    sendMessage(initialMessage, context)
+    sendMessage(initialMessage, effectiveContext)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialMessage, introAccepted])
 
@@ -595,7 +627,7 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
     const text = input
     if (!text.trim() || sending) return
     setInput('')
-    await sendMessage(text, context)
+    await sendMessage(text, effectiveContext)
   }
 
   const handleKey = (e) => {
@@ -608,6 +640,37 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
 
   const handleBackdropClick = (e) => {
     if (e.target === e.currentTarget) onClose?.()
+  }
+
+  // Open the assessment picker. Loads the local index lazily so a
+  // sheet open doesn't pay the storage read cost upfront.
+  const openAssessmentPicker = async () => {
+    setPickerOpen(true)
+    setPickerLoading(true)
+    try {
+      const idx = await STO.getIndex()
+      setPickerIndex({
+        reports: Array.isArray(idx?.reports) ? idx.reports : [],
+        drafts:  Array.isArray(idx?.drafts)  ? idx.drafts  : [],
+      })
+    } catch {
+      setPickerIndex({ reports: [], drafts: [] })
+    } finally {
+      setPickerLoading(false)
+    }
+  }
+  const pickAssessment = (entry, kind) => {
+    setOverrideAssessment({
+      id: entry.id,
+      facility: entry.facility || 'Untitled',
+      status: kind === 'report' ? 'Finalized report' : 'Draft assessment',
+      source: 'picker',
+    })
+    setPickerOpen(false)
+  }
+  const clearOverride = () => {
+    setOverrideAssessment(null)
+    setPickerOpen(false)
   }
 
   return (
@@ -770,21 +833,33 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
             elevated, humidity high, etc.). The user can see at a
             glance what Jasper knows about their current situation.
             Hidden while the history panel is open. */}
-        {!historyOpen && contextChips.length > 0 && (
+        {!historyOpen && !pickerOpen && contextChips.length > 0 && (
           <div
             aria-label="AtmosFlow AI context"
             style={{
               display: 'flex', flexWrap: 'wrap', gap: 6,
               marginBottom: 10, minWidth: 0,
             }}>
-            {contextChips.map((c, i) => (
-              <span
-                key={c.id}
-                className="jasper-chip-in"
-                style={{ animationDelay: `${120 + i * JASPER_STAGGER_MS}ms` }}>
-                <JasperContextChip label={c.label} tone={c.tone} icon={c.icon} />
-              </span>
-            ))}
+            {contextChips.map((c, i) => {
+              // The facility chip is the user's entry point to
+              // switch which assessment Jasper is talking about.
+              // Other chips stay informational (read-only).
+              const isFacility = c.id === 'facility'
+              return (
+                <span
+                  key={c.id}
+                  className="jasper-chip-in"
+                  style={{ animationDelay: `${120 + i * JASPER_STAGGER_MS}ms` }}>
+                  <JasperContextChip
+                    label={c.label}
+                    tone={c.tone}
+                    icon={c.icon}
+                    onClick={isFacility ? openAssessmentPicker : undefined}
+                    ariaLabel={isFacility ? `${c.label} — tap to switch assessment` : undefined}
+                  />
+                </span>
+              )
+            })}
           </div>
         )}
 
@@ -994,8 +1069,176 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
           </div>
         )}
 
+        {/* Assessment picker — same swap-the-body pattern the
+            history panel uses, so the BottomSheet z-index doesn't
+            need to clear the Jasper sheet's own 261. Opens via
+            the facility chip; commits via row tap; resets via
+            the "Use current view" row at the top (only shown when
+            an override is active). */}
+        {pickerOpen && (
+          <div style={{
+            flex: 1, overflowY: 'auto', overflowX: 'hidden',
+            padding: '8px 2px', minHeight: 200,
+            minWidth: 0, boxSizing: 'border-box',
+          }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '6px 4px 10px', gap: 8,
+            }}>
+              <div style={{
+                fontSize: 11, fontWeight: 600, color: SUB,
+                letterSpacing: '0.3px', textTransform: 'uppercase',
+              }}>
+                Pick an assessment
+              </div>
+              <button
+                type="button"
+                onClick={() => setPickerOpen(false)}
+                aria-label="Close picker"
+                style={{
+                  background: 'transparent', border: 'none', padding: '4px 8px',
+                  color: SUB, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                  fontFamily: 'inherit',
+                }}>
+                Cancel
+              </button>
+            </div>
+
+            {overrideAssessment && (
+              <button
+                type="button"
+                onClick={clearOverride}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  width: '100%', textAlign: 'left',
+                  padding: '12px 14px', marginBottom: 10,
+                  background: mix('accent', 6),
+                  border: `1px dashed ${mix('accent', 30)}`,
+                  borderRadius: 10, cursor: 'pointer',
+                  fontFamily: 'inherit', color: TEXT,
+                }}>
+                <I n="refresh" s={14} c={ACCENT} w={1.8} />
+                <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>
+                  Use current view
+                </span>
+                <span style={{ fontSize: 11, color: SUB }}>
+                  Reset to what the app is showing
+                </span>
+              </button>
+            )}
+
+            {pickerLoading && (
+              <div style={{ padding: 20, textAlign: 'center', color: SUB, fontSize: 12 }}>
+                Loading…
+              </div>
+            )}
+
+            {!pickerLoading && pickerIndex.reports.length === 0 && pickerIndex.drafts.length === 0 && (
+              <div style={{ padding: '20px 4px', color: SUB, fontSize: 13, lineHeight: 1.6 }}>
+                No saved assessments yet. Once you have drafts or finalized reports, they'll show up here so you can ask Jasper about any of them.
+              </div>
+            )}
+
+            {!pickerLoading && pickerIndex.reports.length > 0 && (
+              <>
+                <div style={{
+                  fontSize: 10, fontWeight: 700, color: DIM,
+                  letterSpacing: '0.55px', textTransform: 'uppercase',
+                  padding: '8px 4px 6px',
+                }}>
+                  Finalized reports
+                </div>
+                {pickerIndex.reports.slice(0, 12).map((r) => {
+                  const isPicked = overrideAssessment?.id === r.id
+                  return (
+                    <button
+                      key={r.id}
+                      type="button"
+                      onClick={() => pickAssessment(r, 'report')}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 10,
+                        width: '100%', textAlign: 'left',
+                        padding: '11px 14px', marginBottom: 6,
+                        background: isPicked ? `${ACCENT}10` : 'transparent',
+                        border: `1px solid ${isPicked ? ACCENT + '40' : BORDER}`,
+                        borderRadius: 10, cursor: 'pointer',
+                        fontFamily: 'inherit', color: TEXT,
+                        WebkitTapHighlightColor: 'transparent',
+                      }}>
+                      <I n="check" s={14} c={isPicked ? ACCENT : 'var(--ok)'} w={2} />
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{
+                          display: 'block', fontSize: 13.5, fontWeight: 600,
+                          lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        }}>
+                          {r.facility || 'Untitled report'}
+                        </span>
+                        <span style={{ fontSize: 11, color: SUB, fontFamily: 'var(--font-mono)' }}>
+                          {r.ts ? new Date(r.ts).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
+                          {typeof r.score === 'number' ? ` · Score ${r.score}` : ''}
+                        </span>
+                      </span>
+                    </button>
+                  )
+                })}
+              </>
+            )}
+
+            {!pickerLoading && pickerIndex.drafts.length > 0 && (
+              <>
+                <div style={{
+                  fontSize: 10, fontWeight: 700, color: DIM,
+                  letterSpacing: '0.55px', textTransform: 'uppercase',
+                  padding: '14px 4px 6px',
+                }}>
+                  Drafts in progress
+                </div>
+                {pickerIndex.drafts.slice(0, 12).map((d) => {
+                  const isPicked = overrideAssessment?.id === d.id
+                  return (
+                    <button
+                      key={d.id}
+                      type="button"
+                      onClick={() => pickAssessment(d, 'draft')}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 10,
+                        width: '100%', textAlign: 'left',
+                        padding: '11px 14px', marginBottom: 6,
+                        background: isPicked ? `${ACCENT}10` : 'transparent',
+                        border: `1px solid ${isPicked ? ACCENT + '40' : BORDER}`,
+                        borderRadius: 10, cursor: 'pointer',
+                        fontFamily: 'inherit', color: TEXT,
+                        WebkitTapHighlightColor: 'transparent',
+                      }}>
+                      <I n="draft" s={14} c={isPicked ? ACCENT : SUB} w={1.8} />
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{
+                          display: 'block', fontSize: 13.5, fontWeight: 600,
+                          lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        }}>
+                          {d.facility || 'Untitled draft'}
+                        </span>
+                        <span style={{ fontSize: 11, color: SUB, fontFamily: 'var(--font-mono)' }}>
+                          {d.ua ? new Date(d.ua).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
+                        </span>
+                      </span>
+                    </button>
+                  )
+                })}
+              </>
+            )}
+
+            <div style={{
+              fontSize: 11, color: DIM, padding: '14px 4px 0', lineHeight: 1.5,
+            }}>
+              Tip: switching here only changes what Jasper knows about. To open
+              an assessment in the app, use the dashboard.
+            </div>
+          </div>
+        )}
+
         {/* Message list / empty state */}
-        {!historyOpen && (<>
+        {!historyOpen && !pickerOpen && (<>
         <div
           ref={scrollRef}
           style={{
@@ -1044,7 +1287,7 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
                   icon={s.icon}
                   text={s.text}
                   disabled={sending}
-                  onClick={() => sendMessage(s.text, context)}
+                  onClick={() => sendMessage(s.text, effectiveContext)}
                   revealDelayMs={900 + i * 180}
                 />
               ))}
