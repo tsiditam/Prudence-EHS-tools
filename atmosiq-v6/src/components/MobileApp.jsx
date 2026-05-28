@@ -48,6 +48,7 @@ import SensorScreen from './SensorScreen'
 import TimePickerInput from './TimePickerInput'
 import Co2OaCalculator from './Co2OaCalculator'
 import VoiceInputButton, { appendWithSpace } from './VoiceInputButton'
+import TextareaWithGhost from './TextareaWithGhost'
 import InlineAiButton from './InlineAiButton'
 import BleSensorButton from './BleSensorButton'
 import ProfileScreen, { IAQ_OPTS, PID_OPTS, CAL_OPTS, PID_CAL_OPTS } from './ProfileScreen'
@@ -1581,7 +1582,22 @@ export default function MobileApp() {
                 corner of the textarea — same idiom as Notion AI /
                 Cursor inline-AI / Apple Writing Tools, just adapted
                 for a touch-first wizard. */}
-            <textarea value={data[q.id]||''} onChange={e=>setField(q.id,e.target.value)} placeholder={q.ph||'Notes...'} rows={3} style={{width:'100%',padding:'18px 96px 18px 20px',background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:'inherit',outline:'none',resize:'vertical',boxSizing:'border-box'}} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />
+            {/* Free-text wizard input with predictive ghost-text
+                completion (Gmail Smart Compose pattern). The mirror
+                <div> behind a transparent textarea paints the AI's
+                ghost suffix inline with the caret — Tab to accept on
+                desktop, "Insert" pill on touch. Right-side padding
+                fits the voice mic + InlineAi buttons as before. */}
+            <TextareaWithGhost
+              value={data[q.id]||''}
+              onChange={e=>setField(q.id,e.target.value)}
+              context={{ field: q.id, prompt: q.q || q.ph || null }}
+              placeholder={q.ph||'Notes...'}
+              rows={3}
+              style={{width:'100%',padding:'18px 96px 18px 20px',background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:'inherit',outline:'none',resize:'vertical',boxSizing:'border-box',lineHeight:1.5}}
+              onFocus={e=>e.target.style.borderColor=ACCENT}
+              onBlur={e=>e.target.style.borderColor=BORDER}
+            />
             <div style={{position:'absolute',right:10,bottom:10,display:'flex',gap:6}}>
               <VoiceInputButton
                 ariaLabel="Dictate notes"
