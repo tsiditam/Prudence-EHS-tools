@@ -22,6 +22,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { I } from './Icons'
+import STO from '../utils/storage'
 // Jasper brand mark: monitor → robot. See JasperRobotIcon.jsx for the
 // cyan→orange→red gradient + filled silhouette spec.
 import JasperRobotIcon from './JasperRobotIcon'
@@ -147,24 +148,43 @@ function buildContextChips(context) {
 
 function MessageBubble({ role, content, photos }) {
   const isUser = role === 'user'
+  // User stays in the right-aligned cyan bubble (per request — no
+  // change to the question state). Assistant goes edge-to-edge,
+  // no bubble, no border, no fill — same pattern as Claude.ai /
+  // ChatGPT where the response IS the page.
+  const userStyle = {
+    maxWidth: '85%',
+    padding: '10px 14px',
+    borderRadius: 14,
+    background: mix('accent', 14),
+    border: `1px solid ${mix('accent', 25)}`,
+    color: TEXT,
+    fontSize: 14,
+    lineHeight: 1.55,
+    whiteSpace: 'pre-wrap',
+    wordBreak: 'break-word',
+  }
+  const assistantStyle = {
+    width: '100%',
+    padding: '2px 2px 4px',
+    color: TEXT,
+    fontSize: 15,
+    lineHeight: 1.65,
+    whiteSpace: 'pre-wrap',
+    wordBreak: 'break-word',
+    // No background, no border, no radius — flow with the sheet
+    // surface so the response feels like the canvas, not a card.
+  }
   return (
     <div className="jasper-msg-in" style={{
       display: 'flex',
       justifyContent: isUser ? 'flex-end' : 'flex-start',
-      marginBottom: 12,
+      // Assistant text gets more breathing room below it so the
+      // next turn doesn't crowd. User bubbles keep the tighter gap
+      // the existing transcript rhythm uses.
+      marginBottom: isUser ? 12 : 18,
     }}>
-      <div style={{
-        maxWidth: '85%',
-        padding: '10px 14px',
-        borderRadius: 14,
-        background: isUser ? mix('accent', 14) : SURFACE,
-        border: isUser ? `1px solid ${mix('accent', 25)}` : `1px solid ${BORDER}`,
-        color: TEXT,
-        fontSize: 14,
-        lineHeight: 1.55,
-        whiteSpace: 'pre-wrap',
-        wordBreak: 'break-word',
-      }}>
+      <div style={isUser ? userStyle : assistantStyle}>
         {content}
         {isUser && Array.isArray(photos) && photos.length > 0 && (
           <div style={{
@@ -469,6 +489,7 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
     removePhoto,
     listConversations,
     loadConversation,
+    deleteConversation,
     newConversation,
     markActionAccepted,
     markActionRejected,
@@ -482,6 +503,23 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
   const [historyOpen, setHistoryOpen] = useState(false)
   const [historyList, setHistoryList] = useState([])
   const [historyLoading, setHistoryLoading] = useState(false)
+  // Inline two-step delete: tapping the trash icon arms a row for
+  // ~4s; a second tap (on the matching Delete button) commits.
+  // Only one row can be armed at a time so the affordance is
+  // unambiguous.
+  const [pendingDeleteId, setPendingDeleteId] = useState(null)
+  const [deletingId, setDeletingId] = useState(null)
+  const pendingDeleteTimerRef = useRef(null)
+  // Context-switch override. When the user picks a different
+  // assessment via the facility-chip picker, this object replaces
+  // the prop-derived active_assessment in BOTH the chip strip and
+  // the API context payload. Zone-derived chips are dropped (we
+  // don't have that assessment's zones loaded into app state).
+  // null = follow whatever the app is currently showing.
+  const [overrideAssessment, setOverrideAssessment] = useState(null)
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [pickerLoading, setPickerLoading] = useState(false)
+  const [pickerIndex, setPickerIndex] = useState({ reports: [], drafts: [] })
   const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine)
   const [introAccepted, setIntroAccepted] = useState(readIntroFlag)
   // Focus-within state for the unified composer container so its
@@ -493,10 +531,31 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
   const inputRef = useRef(null)
   const fileInputRef = useRef(null)
 
-  // Derive context chips client-side from the same context object
-  // we ship to the API. Memoized on context identity so a re-render
-  // from typing in the textarea doesn't re-walk the zone payload.
-  const contextChips = useMemo(() => buildContextChips(context), [context])
+  // Effective context — the prop-derived context layered with any
+  // user-picked override. Used by BOTH the chip strip and the
+  // sendMessage payload so what the assessor sees in the chip row
+  // is exactly what Jasper is told. When an override is active we
+  // drop current_zone so zone-derived measurement chips don't
+  // misrepresent a different assessment's readings.
+  const effectiveContext = useMemo(() => {
+    if (!overrideAssessment) return context
+    return {
+      ...(context || {}),
+      active_assessment: {
+        facility: overrideAssessment.facility,
+        status: overrideAssessment.status,
+        id: overrideAssessment.id,
+      },
+      current_zone: null,
+      // Tag the override on the payload so the API/agent prompt
+      // can distinguish "the user is mid-walk on this report" from
+      // "the user asked about a different report from the chat
+      // sheet". Backend doesn't need to do anything with this
+      // today; the field is informational.
+      context_override: { source: overrideAssessment.source || 'picker' },
+    }
+  }, [context, overrideAssessment])
+  const contextChips = useMemo(() => buildContextChips(effectiveContext), [effectiveContext])
 
   const onPickPhotos = async (e) => {
     const files = Array.from(e.target.files || [])
@@ -555,7 +614,7 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
     // Already accepted — auto-send. sendMessage handles its own
     // disabled-while-sending guard, so a stray double-trigger
     // won't double-send.
-    sendMessage(initialMessage, context)
+    sendMessage(initialMessage, effectiveContext)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialMessage, introAccepted])
 
@@ -568,6 +627,12 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
     return () => {
       window.removeEventListener('online', goOnline)
       window.removeEventListener('offline', goOffline)
+      // Clear any armed-delete timer so unmount can't fire setState
+      // on a stale component.
+      if (pendingDeleteTimerRef.current) {
+        clearTimeout(pendingDeleteTimerRef.current)
+        pendingDeleteTimerRef.current = null
+      }
     }
   }, [])
 
@@ -581,7 +646,7 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
     const text = input
     if (!text.trim() || sending) return
     setInput('')
-    await sendMessage(text, context)
+    await sendMessage(text, effectiveContext)
   }
 
   const handleKey = (e) => {
@@ -594,6 +659,37 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
 
   const handleBackdropClick = (e) => {
     if (e.target === e.currentTarget) onClose?.()
+  }
+
+  // Open the assessment picker. Loads the local index lazily so a
+  // sheet open doesn't pay the storage read cost upfront.
+  const openAssessmentPicker = async () => {
+    setPickerOpen(true)
+    setPickerLoading(true)
+    try {
+      const idx = await STO.getIndex()
+      setPickerIndex({
+        reports: Array.isArray(idx?.reports) ? idx.reports : [],
+        drafts:  Array.isArray(idx?.drafts)  ? idx.drafts  : [],
+      })
+    } catch {
+      setPickerIndex({ reports: [], drafts: [] })
+    } finally {
+      setPickerLoading(false)
+    }
+  }
+  const pickAssessment = (entry, kind) => {
+    setOverrideAssessment({
+      id: entry.id,
+      facility: entry.facility || 'Untitled',
+      status: kind === 'report' ? 'Finalized report' : 'Draft assessment',
+      source: 'picker',
+    })
+    setPickerOpen(false)
+  }
+  const clearOverride = () => {
+    setOverrideAssessment(null)
+    setPickerOpen(false)
   }
 
   return (
@@ -756,21 +852,33 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
             elevated, humidity high, etc.). The user can see at a
             glance what Jasper knows about their current situation.
             Hidden while the history panel is open. */}
-        {!historyOpen && contextChips.length > 0 && (
+        {!historyOpen && !pickerOpen && contextChips.length > 0 && (
           <div
             aria-label="AtmosFlow AI context"
             style={{
               display: 'flex', flexWrap: 'wrap', gap: 6,
               marginBottom: 10, minWidth: 0,
             }}>
-            {contextChips.map((c, i) => (
-              <span
-                key={c.id}
-                className="jasper-chip-in"
-                style={{ animationDelay: `${120 + i * JASPER_STAGGER_MS}ms` }}>
-                <JasperContextChip label={c.label} tone={c.tone} icon={c.icon} />
-              </span>
-            ))}
+            {contextChips.map((c, i) => {
+              // The facility chip is the user's entry point to
+              // switch which assessment Jasper is talking about.
+              // Other chips stay informational (read-only).
+              const isFacility = c.id === 'facility'
+              return (
+                <span
+                  key={c.id}
+                  className="jasper-chip-in"
+                  style={{ animationDelay: `${120 + i * JASPER_STAGGER_MS}ms` }}>
+                  <JasperContextChip
+                    label={c.label}
+                    tone={c.tone}
+                    icon={c.icon}
+                    onClick={isFacility ? openAssessmentPicker : undefined}
+                    ariaLabel={isFacility ? `${c.label} — tap to switch assessment` : undefined}
+                  />
+                </span>
+              )
+            })}
           </div>
         )}
 
@@ -806,51 +914,350 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
               .filter((c) => (c.message_count || 0) > 0)
               .map((c) => {
                 const isCurrent = c.id === conversationId
+                const isPendingDelete = c.id === pendingDeleteId
+                const isDeleting = c.id === deletingId
                 const updated = c.updated_at ? new Date(c.updated_at) : null
                 const dateLabel = updated
                   ? updated.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })
                   : ''
+
+                const armDelete = () => {
+                  // Cancel any prior armed row, then arm this one
+                  // with a 4s auto-disarm so a forgotten tap doesn't
+                  // sit there indefinitely.
+                  if (pendingDeleteTimerRef.current) {
+                    clearTimeout(pendingDeleteTimerRef.current)
+                    pendingDeleteTimerRef.current = null
+                  }
+                  setPendingDeleteId(c.id)
+                  pendingDeleteTimerRef.current = setTimeout(() => {
+                    setPendingDeleteId((cur) => (cur === c.id ? null : cur))
+                    pendingDeleteTimerRef.current = null
+                  }, 4000)
+                }
+                const cancelDelete = () => {
+                  if (pendingDeleteTimerRef.current) {
+                    clearTimeout(pendingDeleteTimerRef.current)
+                    pendingDeleteTimerRef.current = null
+                  }
+                  setPendingDeleteId(null)
+                }
+                const commitDelete = async () => {
+                  if (pendingDeleteTimerRef.current) {
+                    clearTimeout(pendingDeleteTimerRef.current)
+                    pendingDeleteTimerRef.current = null
+                  }
+                  setDeletingId(c.id)
+                  setPendingDeleteId(null)
+                  const ok = await deleteConversation(c.id)
+                  setDeletingId(null)
+                  if (!ok) {
+                    setError('Could not delete that conversation. Please try again.')
+                    return
+                  }
+                  // Optimistically prune from the in-memory list.
+                  setHistoryList((list) => list.filter((row) => row.id !== c.id))
+                  // If we just deleted the conversation the chat
+                  // view is pointed at, drop it so the next send
+                  // starts a fresh row instead of trying to append
+                  // to a missing one.
+                  if (isCurrent) newConversation()
+                }
+
                 return (
-                  <button
+                  <div
                     key={c.id}
-                    onClick={async () => {
-                      const ok = await loadConversation(c.id)
-                      if (ok) setHistoryOpen(false)
-                    }}
                     style={{
-                      display: 'block', width: '100%', textAlign: 'left',
-                      padding: '12px 14px',
+                      display: 'flex', alignItems: 'stretch', gap: 0,
                       background: isCurrent ? `${ACCENT}10` : 'transparent',
                       border: `1px solid ${isCurrent ? ACCENT + '40' : BORDER}`,
                       borderRadius: 10, marginBottom: 8,
-                      cursor: 'pointer', fontFamily: 'inherit', color: TEXT,
+                      overflow: 'hidden',
+                      opacity: isDeleting ? 0.55 : 1,
+                      transition: 'opacity 0.15s ease, background 0.15s ease, border-color 0.15s ease',
                     }}>
-                    <div style={{
-                      fontSize: 14, fontWeight: 600, lineHeight: 1.3, marginBottom: 4,
-                      overflow: 'hidden', textOverflow: 'ellipsis',
-                      display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-                    }}>
-                      {c.title || 'Untitled conversation'}
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: SUB }}>
-                      <span style={{ fontFamily: 'var(--font-mono)' }}>{dateLabel}</span>
-                      <span aria-hidden="true">·</span>
-                      <span>{c.message_count} message{c.message_count === 1 ? '' : 's'}</span>
-                      {isCurrent && (
-                        <>
-                          <span aria-hidden="true">·</span>
-                          <span style={{ color: ACCENT, fontWeight: 600 }}>Current</span>
-                        </>
-                      )}
-                    </div>
-                  </button>
+                    {isPendingDelete ? (
+                      // Inline confirmation row — the original
+                      // title/metadata is hidden so the action is
+                      // unambiguous. "Cancel" returns the row to
+                      // its normal state; "Delete" commits.
+                      <div style={{
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        flex: 1, padding: '10px 12px',
+                      }}>
+                        <span style={{ flex: 1, fontSize: 13, color: TEXT, lineHeight: 1.35 }}>
+                          Delete this conversation?
+                        </span>
+                        <button
+                          type="button"
+                          onClick={cancelDelete}
+                          style={{
+                            padding: '6px 12px', borderRadius: 8,
+                            background: 'transparent', border: `1px solid ${BORDER}`,
+                            color: SUB, fontSize: 12, fontWeight: 600,
+                            fontFamily: 'inherit', cursor: 'pointer',
+                            WebkitTapHighlightColor: 'transparent',
+                          }}>
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={commitDelete}
+                          style={{
+                            padding: '6px 12px', borderRadius: 8,
+                            background: mix('danger', 18),
+                            border: `1px solid ${mix('danger', 35)}`,
+                            color: DANGER, fontSize: 12, fontWeight: 700,
+                            fontFamily: 'inherit', cursor: 'pointer',
+                            WebkitTapHighlightColor: 'transparent',
+                          }}>
+                          Delete
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          disabled={isDeleting}
+                          onClick={async () => {
+                            if (isDeleting) return
+                            const ok = await loadConversation(c.id)
+                            if (ok) setHistoryOpen(false)
+                          }}
+                          style={{
+                            flex: 1, display: 'block', textAlign: 'left',
+                            padding: '12px 14px',
+                            background: 'transparent', border: 'none',
+                            cursor: isDeleting ? 'wait' : 'pointer',
+                            fontFamily: 'inherit', color: TEXT,
+                            WebkitTapHighlightColor: 'transparent',
+                          }}>
+                          <div style={{
+                            fontSize: 14, fontWeight: 600, lineHeight: 1.3, marginBottom: 4,
+                            overflow: 'hidden', textOverflow: 'ellipsis',
+                            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+                          }}>
+                            {c.title || 'Untitled conversation'}
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: SUB }}>
+                            <span style={{ fontFamily: 'var(--font-mono)' }}>{dateLabel}</span>
+                            <span aria-hidden="true">·</span>
+                            <span>{c.message_count} message{c.message_count === 1 ? '' : 's'}</span>
+                            {isCurrent && (
+                              <>
+                                <span aria-hidden="true">·</span>
+                                <span style={{ color: ACCENT, fontWeight: 600 }}>Current</span>
+                              </>
+                            )}
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={armDelete}
+                          disabled={isDeleting}
+                          aria-label={`Delete ${c.title || 'conversation'}`}
+                          title="Delete conversation"
+                          style={{
+                            flexShrink: 0,
+                            width: 44,
+                            background: 'transparent', border: 'none',
+                            borderLeft: `1px solid ${BORDER}`,
+                            cursor: isDeleting ? 'wait' : 'pointer',
+                            color: DIM,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontFamily: 'inherit',
+                            WebkitTapHighlightColor: 'transparent',
+                            transition: 'color 0.15s ease, background 0.15s ease',
+                          }}
+                          onMouseEnter={(e) => {
+                            if (isDeleting) return
+                            e.currentTarget.style.color = 'var(--danger)'
+                            e.currentTarget.style.background = mix('danger', 8)
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.color = DIM
+                            e.currentTarget.style.background = 'transparent'
+                          }}>
+                          <I n="trash" s={15} c="currentColor" w={1.8} />
+                        </button>
+                      </>
+                    )}
+                  </div>
                 )
               })}
           </div>
         )}
 
+        {/* Assessment picker — same swap-the-body pattern the
+            history panel uses, so the BottomSheet z-index doesn't
+            need to clear the Jasper sheet's own 261. Opens via
+            the facility chip; commits via row tap; resets via
+            the "Use current view" row at the top (only shown when
+            an override is active). */}
+        {pickerOpen && (
+          <div style={{
+            flex: 1, overflowY: 'auto', overflowX: 'hidden',
+            padding: '8px 2px', minHeight: 200,
+            minWidth: 0, boxSizing: 'border-box',
+          }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '6px 4px 10px', gap: 8,
+            }}>
+              <div style={{
+                fontSize: 11, fontWeight: 600, color: SUB,
+                letterSpacing: '0.3px', textTransform: 'uppercase',
+              }}>
+                Pick an assessment
+              </div>
+              <button
+                type="button"
+                onClick={() => setPickerOpen(false)}
+                aria-label="Close picker"
+                style={{
+                  background: 'transparent', border: 'none', padding: '4px 8px',
+                  color: SUB, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                  fontFamily: 'inherit',
+                }}>
+                Cancel
+              </button>
+            </div>
+
+            {overrideAssessment && (
+              <button
+                type="button"
+                onClick={clearOverride}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  width: '100%', textAlign: 'left',
+                  padding: '12px 14px', marginBottom: 10,
+                  background: mix('accent', 6),
+                  border: `1px dashed ${mix('accent', 30)}`,
+                  borderRadius: 10, cursor: 'pointer',
+                  fontFamily: 'inherit', color: TEXT,
+                }}>
+                <I n="refresh" s={14} c={ACCENT} w={1.8} />
+                <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>
+                  Use current view
+                </span>
+                <span style={{ fontSize: 11, color: SUB }}>
+                  Reset to what the app is showing
+                </span>
+              </button>
+            )}
+
+            {pickerLoading && (
+              <div style={{ padding: 20, textAlign: 'center', color: SUB, fontSize: 12 }}>
+                Loading…
+              </div>
+            )}
+
+            {!pickerLoading && pickerIndex.reports.length === 0 && pickerIndex.drafts.length === 0 && (
+              <div style={{ padding: '20px 4px', color: SUB, fontSize: 13, lineHeight: 1.6 }}>
+                No saved assessments yet. Once you have drafts or finalized reports, they'll show up here so you can ask Jasper about any of them.
+              </div>
+            )}
+
+            {!pickerLoading && pickerIndex.reports.length > 0 && (
+              <>
+                <div style={{
+                  fontSize: 10, fontWeight: 700, color: DIM,
+                  letterSpacing: '0.55px', textTransform: 'uppercase',
+                  padding: '8px 4px 6px',
+                }}>
+                  Finalized reports
+                </div>
+                {pickerIndex.reports.slice(0, 12).map((r) => {
+                  const isPicked = overrideAssessment?.id === r.id
+                  return (
+                    <button
+                      key={r.id}
+                      type="button"
+                      onClick={() => pickAssessment(r, 'report')}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 10,
+                        width: '100%', textAlign: 'left',
+                        padding: '11px 14px', marginBottom: 6,
+                        background: isPicked ? `${ACCENT}10` : 'transparent',
+                        border: `1px solid ${isPicked ? ACCENT + '40' : BORDER}`,
+                        borderRadius: 10, cursor: 'pointer',
+                        fontFamily: 'inherit', color: TEXT,
+                        WebkitTapHighlightColor: 'transparent',
+                      }}>
+                      <I n="check" s={14} c={isPicked ? ACCENT : 'var(--ok)'} w={2} />
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{
+                          display: 'block', fontSize: 13.5, fontWeight: 600,
+                          lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        }}>
+                          {r.facility || 'Untitled report'}
+                        </span>
+                        <span style={{ fontSize: 11, color: SUB, fontFamily: 'var(--font-mono)' }}>
+                          {r.ts ? new Date(r.ts).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
+                          {typeof r.score === 'number' ? ` · Score ${r.score}` : ''}
+                        </span>
+                      </span>
+                    </button>
+                  )
+                })}
+              </>
+            )}
+
+            {!pickerLoading && pickerIndex.drafts.length > 0 && (
+              <>
+                <div style={{
+                  fontSize: 10, fontWeight: 700, color: DIM,
+                  letterSpacing: '0.55px', textTransform: 'uppercase',
+                  padding: '14px 4px 6px',
+                }}>
+                  Drafts in progress
+                </div>
+                {pickerIndex.drafts.slice(0, 12).map((d) => {
+                  const isPicked = overrideAssessment?.id === d.id
+                  return (
+                    <button
+                      key={d.id}
+                      type="button"
+                      onClick={() => pickAssessment(d, 'draft')}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 10,
+                        width: '100%', textAlign: 'left',
+                        padding: '11px 14px', marginBottom: 6,
+                        background: isPicked ? `${ACCENT}10` : 'transparent',
+                        border: `1px solid ${isPicked ? ACCENT + '40' : BORDER}`,
+                        borderRadius: 10, cursor: 'pointer',
+                        fontFamily: 'inherit', color: TEXT,
+                        WebkitTapHighlightColor: 'transparent',
+                      }}>
+                      <I n="draft" s={14} c={isPicked ? ACCENT : SUB} w={1.8} />
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{
+                          display: 'block', fontSize: 13.5, fontWeight: 600,
+                          lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        }}>
+                          {d.facility || 'Untitled draft'}
+                        </span>
+                        <span style={{ fontSize: 11, color: SUB, fontFamily: 'var(--font-mono)' }}>
+                          {d.ua ? new Date(d.ua).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
+                        </span>
+                      </span>
+                    </button>
+                  )
+                })}
+              </>
+            )}
+
+            <div style={{
+              fontSize: 11, color: DIM, padding: '14px 4px 0', lineHeight: 1.5,
+            }}>
+              Tip: switching here only changes what Jasper knows about. To open
+              an assessment in the app, use the dashboard.
+            </div>
+          </div>
+        )}
+
         {/* Message list / empty state */}
-        {!historyOpen && (<>
+        {!historyOpen && !pickerOpen && (<>
         <div
           ref={scrollRef}
           style={{
@@ -899,7 +1306,7 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
                   icon={s.icon}
                   text={s.text}
                   disabled={sending}
-                  onClick={() => sendMessage(s.text, context)}
+                  onClick={() => sendMessage(s.text, effectiveContext)}
                   revealDelayMs={900 + i * 180}
                 />
               ))}
@@ -1170,7 +1577,11 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
                   transition: 'background 0.15s, transform 0.1s',
                   WebkitTapHighlightColor: 'transparent',
                 }}>
-                <I n="send" s={16} c={input.trim() && introAccepted ? 'var(--on-accent-fill)' : DIM} w={1.8} />
+                {/* Chunky up-arrow glyph — matches the
+                    Claude / ChatGPT / Gemini send-button convention.
+                    StrokeWidth bumped to 2.6 so the arrow reads as
+                    bold against the small (16px) icon size. */}
+                <I n="arrowUp" s={18} c={input.trim() && introAccepted ? 'var(--on-accent-fill)' : DIM} w={2.6} />
               </button>
             )}
           </div>

@@ -215,6 +215,33 @@ export function useFieldAssistant() {
     }
   }, [])
 
+  // Delete a past conversation. Used by the history panel's trash
+  // affordance so the user can free up clutter without going into
+  // Settings → Clear conversation history (which nukes everything).
+  // Returns true on success, false on network / auth failure or a
+  // 404 (which the caller can treat as "already gone — prune
+  // locally"). If the deleted conversation is the one currently
+  // open in the chat view, the caller should also reset() so the
+  // sheet doesn't keep streaming into a row that no longer exists.
+  const deleteConversation = useCallback(async (id) => {
+    if (!supabase || !id) return false
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return false
+      const r = await fetch(`/api/field-assistant-history?id=${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      // 200 = deleted; 404 = already gone. Both are safe to treat
+      // as success from the UI's perspective — the row is no longer
+      // there either way.
+      return r.ok || r.status === 404
+    } catch (err) {
+      console.warn('[useFieldAssistant] deleteConversation failed:', err && err.message)
+      return false
+    }
+  }, [])
+
   /**
    * Stage a File for the next message. Validates MIME type + size up
    * front so the user sees a useful error instead of a backend 400.
@@ -487,6 +514,7 @@ export function useFieldAssistant() {
     clearPhotos,
     listConversations,
     loadConversation,
+    deleteConversation,
     newConversation,
     markActionAccepted,
     markActionRejected,
