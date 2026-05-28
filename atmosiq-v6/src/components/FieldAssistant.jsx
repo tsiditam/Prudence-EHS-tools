@@ -148,24 +148,43 @@ function buildContextChips(context) {
 
 function MessageBubble({ role, content, photos }) {
   const isUser = role === 'user'
+  // User stays in the right-aligned cyan bubble (per request — no
+  // change to the question state). Assistant goes edge-to-edge,
+  // no bubble, no border, no fill — same pattern as Claude.ai /
+  // ChatGPT where the response IS the page.
+  const userStyle = {
+    maxWidth: '85%',
+    padding: '10px 14px',
+    borderRadius: 14,
+    background: mix('accent', 14),
+    border: `1px solid ${mix('accent', 25)}`,
+    color: TEXT,
+    fontSize: 14,
+    lineHeight: 1.55,
+    whiteSpace: 'pre-wrap',
+    wordBreak: 'break-word',
+  }
+  const assistantStyle = {
+    width: '100%',
+    padding: '2px 2px 4px',
+    color: TEXT,
+    fontSize: 15,
+    lineHeight: 1.65,
+    whiteSpace: 'pre-wrap',
+    wordBreak: 'break-word',
+    // No background, no border, no radius — flow with the sheet
+    // surface so the response feels like the canvas, not a card.
+  }
   return (
     <div className="jasper-msg-in" style={{
       display: 'flex',
       justifyContent: isUser ? 'flex-end' : 'flex-start',
-      marginBottom: 12,
+      // Assistant text gets more breathing room below it so the
+      // next turn doesn't crowd. User bubbles keep the tighter gap
+      // the existing transcript rhythm uses.
+      marginBottom: isUser ? 12 : 18,
     }}>
-      <div style={{
-        maxWidth: '85%',
-        padding: '10px 14px',
-        borderRadius: 14,
-        background: isUser ? mix('accent', 14) : SURFACE,
-        border: isUser ? `1px solid ${mix('accent', 25)}` : `1px solid ${BORDER}`,
-        color: TEXT,
-        fontSize: 14,
-        lineHeight: 1.55,
-        whiteSpace: 'pre-wrap',
-        wordBreak: 'break-word',
-      }}>
+      <div style={isUser ? userStyle : assistantStyle}>
         {content}
         {isUser && Array.isArray(photos) && photos.length > 0 && (
           <div style={{
