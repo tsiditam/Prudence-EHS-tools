@@ -1653,6 +1653,8 @@ export default function MobileApp() {
       if (include) {
         if (!graphs[id].title && meta.title) graphs[id].title = meta.title
         if (!graphs[id].series && meta.series) graphs[id].series = meta.series
+        // White-paper PNG captured by the Logger tab — what the DOCX embeds.
+        if (meta.imageDataUrl) graphs[id].imageDataUrl = meta.imageDataUrl
       }
       return { ...prev, graphs }
     })

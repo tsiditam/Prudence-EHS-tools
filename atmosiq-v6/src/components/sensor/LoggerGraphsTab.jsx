@@ -13,10 +13,15 @@
  * zone comparison) are derived in Logger Studio from aligned datasets, so the
  * captured report figure is shown for those when available.
  *
+ * Including a live chart captures a white-paper PNG (html2canvas over a hidden
+ * light-palette copy, same as Logger Studio) into the graph's imageDataUrl —
+ * the DOCX appendix (sections-sensor) only embeds graphs that carry that image.
+ *
  * Screening / documentation only — interpretation belongs to a qualified IAQ
  * professional; the timelines never assert a compliance verdict.
  */
 
+import { useState, useEffect, useRef } from 'react'
 import * as V3 from '../../styles/tokens'
 import GlassCard from '../ui/GlassCard'
 import dayjs from 'dayjs'
@@ -31,6 +36,7 @@ const fmtRange = (s, e) => (s && e ? `${dayjs(s).format('MMM D, HH:mm')} – ${d
 const paramLabel = (k) => SENSOR_PARAMS.find((p) => p.key === k)?.label || k
 
 const CARD = 'var(--card)', BORDER = 'var(--border)', SUB = 'var(--sub)', ACCENT = 'var(--accent)', SURFACE = 'var(--surface)'
+const CAP_W = 680, CAP_H = 300
 
 function EmptyNote() {
   return (
@@ -41,6 +47,29 @@ function EmptyNote() {
 }
 
 export default function LoggerGraphsTab({ sensorData, editable = false, onToggleInclude }) {
+  // When a live chart is included, render a hidden fixed-size LIGHT-palette copy
+  // and html2canvas it to a white-paper PNG, stored as the graph's imageDataUrl
+  // (what the DOCX embeds). `capturing` holds the chart node being captured.
+  const [capturing, setCapturing] = useState(null)
+  const hiddenRef = useRef(null)
+
+  useEffect(() => {
+    if (!capturing || !onToggleInclude) return undefined
+    let cancelled = false
+    const raf = requestAnimationFrame(() => requestAnimationFrame(async () => {
+      let imageDataUrl = null
+      try {
+        const html2canvas = (await import('html2canvas')).default
+        const canvas = await html2canvas(hiddenRef.current, { backgroundColor: '#FFFFFF', scale: 2, logging: false })
+        imageDataUrl = canvas.toDataURL('image/png')
+      } catch { /* best-effort — still mark included so the toggle holds */ }
+      if (cancelled) return
+      onToggleInclude(capturing.id, true, { title: capturing.title, series: capturing.series, ...(imageDataUrl ? { imageDataUrl } : {}) })
+      setCapturing(null)
+    }))
+    return () => { cancelled = true; cancelAnimationFrame(raf) }
+  }, [capturing, onToggleInclude])
+
   const env = normalizeSensorData(sensorData)
   if (!env || !env.graphs) return <EmptyNote />
 
@@ -56,7 +85,8 @@ export default function LoggerGraphsTab({ sensorData, editable = false, onToggle
 
   // Every detected single-parameter timeline + the multi-parameter comparison
   // is re-rendered live from the primary dataset — independent of the report
-  // "Include" flag (which now only drives DOCX embedding).
+  // "Include" flag (which now only drives DOCX embedding). `lightNode` is the
+  // white-paper copy captured into the report image when the chart is included.
   if (hasPoints) {
     GRAPH_DEFS
       .filter((g) => g.needs(ds.params || []))
@@ -65,6 +95,7 @@ export default function LoggerGraphsTab({ sensorData, editable = false, onToggle
         cards.push({
           id: g.id, title: g.title, series: g.series, caption: graphsState[g.id]?.caption, inReport: !!graphsState[g.id]?.include,
           node: <Chart data={ds.points} hasTs={ds.hasTimestamps} units={ds.units} palette={pal} showRefs={!!refs[g.refKey]} occupancy={occupancy} />,
+          lightNode: <Chart data={ds.points} hasTs={ds.hasTimestamps} units={ds.units} palette={LIGHT_PALETTE} showRefs={!!refs[g.refKey]} occupancy={occupancy} />,
         })
       })
 
@@ -75,6 +106,7 @@ export default function LoggerGraphsTab({ sensorData, editable = false, onToggle
       cards.push({
         id: 'multi', title: 'Multi-Parameter Comparison', series: params.map(paramLabel), caption: graphsState.multi?.caption, inReport: !!graphsState.multi?.include,
         node: <MultiParameterChart data={ds.points} params={params} hasTs={ds.hasTimestamps} units={ds.units} palette={pal} occupancy={occupancy} />,
+        lightNode: <MultiParameterChart data={ds.points} params={params} hasTs={ds.hasTimestamps} units={ds.units} palette={LIGHT_PALETTE} occupancy={occupancy} />,
       })
     }
   }
@@ -93,9 +125,19 @@ export default function LoggerGraphsTab({ sensorData, editable = false, onToggle
 
   if (!cards.length) return <EmptyNote />
 
+  // Include → commit immediately (responsive toggle) then capture the white-
+  // paper image for the DOCX. Overlays (no lightNode) keep their Logger-Studio
+  // capture. Exclude just drops the flag (image is harmless while excluded).
+  const handleToggle = (card, next) => {
+    if (!onToggleInclude) return
+    if (!next) { onToggleInclude(card.id, false, { title: card.title, series: card.series }); return }
+    onToggleInclude(card.id, true, { title: card.title, series: card.series })
+    if (card.lightNode) setCapturing({ id: card.id, node: card.lightNode, title: card.title, series: card.series })
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {cards.map(({ id, title, series, caption, node, inReport }) => (
+      {cards.map(({ id, title, series, caption, node, inReport, lightNode }) => (
         <GlassCard key={id} style={{ padding: 0, overflow: 'hidden' }}>
           <div style={{ padding: '16px 18px 8px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
@@ -105,9 +147,9 @@ export default function LoggerGraphsTab({ sensorData, editable = false, onToggle
                 // graph from the report (or add it back) right from this tab,
                 // mirroring Logger Studio's "Include in report" control.
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', flexShrink: 0 }}>
-                  <span style={{ ...V3.T.caption, color: inReport ? ACCENT : SUB }}>In report</span>
-                  <span onClick={() => onToggleInclude(id, !inReport, { title, series })} role="switch" aria-checked={inReport} aria-label={`Include ${title} in report`} tabIndex={0}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggleInclude(id, !inReport, { title, series }) } }}
+                  <span style={{ ...V3.T.caption, color: inReport ? ACCENT : SUB }}>{capturing?.id === id ? 'Capturing…' : 'In report'}</span>
+                  <span onClick={() => handleToggle({ id, title, series, lightNode }, !inReport)} role="switch" aria-checked={inReport} aria-label={`Include ${title} in report`} tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleToggle({ id, title, series, lightNode }, !inReport) } }}
                     style={{ width: 40, height: 24, borderRadius: 12, background: inReport ? ACCENT : SURFACE, border: `1px solid ${inReport ? ACCENT : BORDER}`, position: 'relative', transition: 'background .2s, border-color .2s', flexShrink: 0 }}>
                     <span style={{ position: 'absolute', top: 2, left: inReport ? 18 : 2, width: 18, height: 18, borderRadius: '50%', background: inReport ? 'var(--on-accent-fill)' : SUB, transition: 'left .2s' }} />
                   </span>
@@ -129,6 +171,15 @@ export default function LoggerGraphsTab({ sensorData, editable = false, onToggle
       <div style={{ ...V3.T.captionDim, padding: '12px 4px 2px', lineHeight: 1.5, borderTop: `1px solid ${BORDER}` }}>
         Graphs are provided for screening and documentation purposes. Interpretation should be reviewed by a qualified IAQ professional. AtmosFlow does not make compliance determinations.
       </div>
+
+      {/* Hidden, fixed-size, white-paper copy of the chart being included — the
+          source html2canvas captures into the report image. Off-screen so it
+          never affects layout. */}
+      {capturing && (
+        <div aria-hidden="true" style={{ position: 'fixed', left: -99999, top: 0, width: CAP_W, height: CAP_H, background: '#FFFFFF', padding: 12, boxSizing: 'border-box', pointerEvents: 'none' }}>
+          <div ref={hiddenRef} style={{ width: '100%', height: '100%', background: '#FFFFFF' }}>{capturing.node}</div>
+        </div>
+      )}
     </div>
   )
 }
