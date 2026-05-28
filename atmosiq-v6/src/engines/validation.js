@@ -53,7 +53,7 @@ const LOC = {
   instrument:    'Pre-Survey → Instruments → Primary IAQ meter',
   calibration:   'Pre-Survey → Instruments → Calibration status',
   zonePhotos:    (z) => `Zone "${z}" → attach a photo, or mark "photo capture not feasible" with justification`,
-  zoneOccupants: (z) => `Zone "${z}" → occupant counts (affected of total)`,
+  zoneOccupants: (z) => `Zone "${z}" → "How many affected?" (affected) + "Occupant count?" (total)`,
   recommendations: 'Results → Actions → priority recommendations',
 }
 
@@ -193,8 +193,8 @@ export function validateAssessment(assessment) {
     if (!zoneHasSymptomFindings(zoneScore)) continue
     if (zoneHasOccupantDenominator(zones[i])) continue
     const zoneName = zoneScore?.zoneName || zones[i]?.zn || `zone ${i + 1}`
-    addDismissible(`occupant_denom_${zoneName}`, 'occupant_count', 'Occupant denominator missing',
-      `Zone "${zoneName}" reports occupant symptoms but no occupant denominator (affected_count of total_count) was recorded.`, LOC.zoneOccupants(zoneName))
+    addDismissible(`occupant_denom_${zoneName}`, 'ac', 'Occupant denominator missing',
+      `Zone "${zoneName}" reports occupant symptoms but no occupant denominator was recorded — set "How many affected?" (the affected count) to complete the affected-of-total figure.`, LOC.zoneOccupants(zoneName))
   }
 
   // Assessor name placeholder — DISMISSIBLE
