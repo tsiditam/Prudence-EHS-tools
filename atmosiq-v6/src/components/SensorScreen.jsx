@@ -21,7 +21,7 @@ const fieldUnit = (id) => SENSOR_FIELDS.find((f) => f.id === id)?.u || ''
 const miniSelect = { padding: '8px 10px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)', fontSize: 13, fontFamily: 'inherit', appearance: 'auto', minHeight: 38 }
 const miniInput = { width: 84, padding: '8px 10px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)', fontSize: 14, fontFamily: 'var(--font-mono)', outline: 'none', boxSizing: 'border-box', minHeight: 38 }
 
-export default function SensorScreen({ data, onChange, sensorData, isDesktop }) {
+export default function SensorScreen({ data, onChange, sensorData, isDesktop, showOutdoor = true }) {
   // TVOC reference compound for ppb/ppm → µg/m³ (shared by the logger
   // auto-fill and the manual converter below the TVOC field).
   const [tvocRef, setTvocRef] = useState('isobutylene')
@@ -93,7 +93,13 @@ export default function SensorScreen({ data, onChange, sensorData, isDesktop }) 
         </div>
       )}
 
-      {SENSOR_FIELDS.map(sf => (
+      {!showOutdoor && (
+        <div style={{ padding: '10px 14px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, fontSize: 12, color: 'var(--dim)', gridColumn: isDesktop ? '1 / -1' : undefined }}>
+          🌍 Outdoor baseline (CO₂ · temp · RH · PM2.5 · TVOC) is captured once on the first zone and applies to every zone — enter indoor readings only here.
+        </div>
+      )}
+
+      {SENSOR_FIELDS.filter(sf => showOutdoor || !sf.outdoor).map(sf => (
         <div key={sf.id} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ flex: 1 }}>
