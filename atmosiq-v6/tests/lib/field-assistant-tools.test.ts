@@ -11,7 +11,7 @@ import { describe, it, expect } from 'vitest'
 import { FIELD_ASSISTANT_TOOLS, dispatchTool } from '../../src/constants/field-assistant-tools.js'
 
 describe('FIELD_ASSISTANT_TOOLS schema', () => {
-  it('exposes seven tools with the expected names', () => {
+  it('exposes the expected catalog of tools', () => {
     const names = FIELD_ASSISTANT_TOOLS.map((t: { name: string }) => t.name)
     expect(names).toEqual([
       'lookup_exposure_limit',
@@ -21,6 +21,7 @@ describe('FIELD_ASSISTANT_TOOLS schema', () => {
       'search_standards_corpus',
       'analyze_photo',
       'propose_action',
+      'generate_report',
     ])
   })
 

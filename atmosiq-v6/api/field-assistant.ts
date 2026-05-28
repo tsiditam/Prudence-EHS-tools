@@ -467,6 +467,11 @@ interface ToolDispatchContext {
   anthropicApiKey: string
   fetchFn: typeof fetch
   recordVisionUsage: (u: VisionUsageRecord) => void
+  // generate_report support — injected so the tool dispatcher can
+  // hit Storage / report_templates without recreating auth.
+  supabase: SupabaseClient
+  userId: string
+  assessmentContext: Record<string, unknown> | undefined
 }
 
 async function runAgentLoop(
@@ -558,10 +563,38 @@ async function runAgentLoop(
           summary: (result as any).summary || '',
         })
       }
+      // Side-channel SSE event for generate_report results. The
+      // tool's base64 payload is large; we ship it to the client
+      // out-of-band so the chat UI can wire a Download button, and
+      // we strip it from the persisted tool_result so the
+      // field_assistant_messages content + training-export dataset
+      // stay free of transient binary blobs.
+      let persistedResult: unknown = result
+      if (
+        block.name === 'generate_report'
+        && result
+        && (result as any).status === 'ok'
+        && typeof (result as any).base64 === 'string'
+      ) {
+        writeSse(res, 'rendered_report', {
+          id: block.id,
+          template_id: (result as any).template_id || null,
+          template_name: (result as any).template_name || null,
+          file_name: (result as any).file_name || 'Report.docx',
+          size_bytes: (result as any).size_bytes || 0,
+          base64: (result as any).base64,
+          tokens_filled: (result as any).tokens_filled || [],
+          tokens_empty: (result as any).tokens_empty || [],
+          tokens_unknown: (result as any).tokens_unknown || [],
+        })
+        const stripped = { ...(result as Record<string, unknown>) }
+        delete stripped.base64
+        persistedResult = stripped
+      }
       toolResults.push({
         type: 'tool_result',
         tool_use_id: block.id,
-        content: JSON.stringify(result),
+        content: JSON.stringify(persistedResult),
       })
     }
     messages.push({ role: 'user', content: toolResults })
@@ -843,6 +876,12 @@ async function handler(req: VercelLikeRequest, res: VercelLikeResponse): Promise
     recordVisionUsage: (u: VisionUsageRecord) => {
       visionUsages.push(u)
     },
+    supabase,
+    userId: user.id,
+    assessmentContext:
+      (body.context && typeof body.context === 'object'
+        ? (body.context as Record<string, unknown>)
+        : undefined),
   }
 
   // Wall-clock latency around the upstream call + tool loop.

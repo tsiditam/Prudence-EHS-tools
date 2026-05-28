@@ -105,6 +105,15 @@ export function useFieldAssistant() {
   // actual execution via the onAction callback that
   // FieldAssistant passes through.
   const [proposedActions, setProposedActions] = useState([])
+  // Rendered DOCX deliverables emitted by the generate_report tool.
+  // Each entry: { id, template_id, template_name, file_name,
+  //   size_bytes, base64, tokens_filled, tokens_empty, tokens_unknown,
+  //   status: 'ready'|'downloaded' }
+  // base64 lives only in client memory — it's NOT persisted to
+  // field_assistant_messages (the api/field-assistant.ts side-channel
+  // strips it from the tool_result before insert), so a future
+  // export/training run can't replay binaries from the dataset.
+  const [renderedReports, setRenderedReports] = useState([])
   // L4 — photos staged for the next message. Cleared on successful send.
   // Each entry: { id, dataUrl, label, sizeBytes }
   const [attachedPhotos, setAttachedPhotos] = useState([])
@@ -126,6 +135,11 @@ export function useFieldAssistant() {
     setAttachedPhotos([])
     setActiveTool(null)
     setProposedActions([])
+    setRenderedReports([])
+  }, [])
+
+  const markReportDownloaded = useCallback((id) => {
+    setRenderedReports((prev) => prev.map((r) => (r.id === id ? { ...r, status: 'downloaded' } : r)))
   }, [])
 
   // Stamp a proposed action as accepted / rejected. Called by
@@ -500,6 +514,32 @@ export function useFieldAssistant() {
                 { id, action, summary, status: 'pending' },
               ])
             }
+          } else if (frame.event === 'rendered_report') {
+            // generate_report tool result — append an inline
+            // download card to the chat. The base64 payload lives
+            // ONLY in client memory; see hook-state notes for why.
+            const data = frame.data || {}
+            const base64 = typeof data.base64 === 'string' ? data.base64 : ''
+            if (base64) {
+              const id = data.id || (typeof crypto !== 'undefined' && crypto.randomUUID
+                ? `report-${crypto.randomUUID().slice(0, 8)}`
+                : `report-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`)
+              setRenderedReports((prev) => [
+                ...prev,
+                {
+                  id,
+                  template_id: data.template_id || null,
+                  template_name: data.template_name || null,
+                  file_name: data.file_name || 'Report.docx',
+                  size_bytes: typeof data.size_bytes === 'number' ? data.size_bytes : 0,
+                  base64,
+                  tokens_filled: Array.isArray(data.tokens_filled) ? data.tokens_filled : [],
+                  tokens_empty: Array.isArray(data.tokens_empty) ? data.tokens_empty : [],
+                  tokens_unknown: Array.isArray(data.tokens_unknown) ? data.tokens_unknown : [],
+                  status: 'ready',
+                },
+              ])
+            }
           } else if (frame.event === 'done') {
             if (frame.data?.quota) receivedQuota = frame.data.quota
             setActiveTool(null)
@@ -559,6 +599,7 @@ export function useFieldAssistant() {
     attachedPhotos,
     activeTool,
     proposedActions,
+    renderedReports,
     sendMessage,
     stop,
     reset,
@@ -572,5 +613,6 @@ export function useFieldAssistant() {
     newConversation,
     markActionAccepted,
     markActionRejected,
+    markReportDownloaded,
   }
 }

@@ -250,6 +250,16 @@
       { "type": "file_exists", "path": "scripts/export-finetune-dataset.mjs" },
       { "type": "grep_matches", "pattern": "buildTrainingRows", "paths": ["scripts/export-finetune-dataset.mjs"] },
       { "type": "grep_matches", "pattern": "include-negatives", "paths": ["scripts/export-finetune-dataset.mjs"] }
+    ]},
+    { "id": "REPORT-TEMPLATES", "label": "User-template DOCX render path exists", "checks": [
+      { "type": "file_exists", "path": "supabase/migrations/016_report_templates.sql" },
+      { "type": "grep_matches", "pattern": "report_templates", "paths": ["supabase/migrations/016_report_templates.sql"] },
+      { "type": "file_exists", "path": "lib/report-templates/token-registry.ts" },
+      { "type": "file_exists", "path": "lib/report-templates/render.ts" },
+      { "type": "file_exists", "path": "api/report-templates.ts" },
+      { "type": "file_exists", "path": "api/report-templates-render.ts" },
+      { "type": "grep_matches", "pattern": "generate_report", "paths": ["src/constants/field-assistant-tools.js"] },
+      { "type": "file_exists", "path": "src/components/settings/ReportTemplatesPanel.jsx" }
     ]}
   ]
 }

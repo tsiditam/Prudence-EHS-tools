@@ -491,6 +491,109 @@ function ActionCard({ action, summary, status, onAccept, onReject }) {
   )
 }
 
+/**
+ * DownloadCard — inline affordance for a rendered DOCX deliverable.
+ * Appears after Jasper invokes the generate_report tool. The base64
+ * payload lives in client memory only (never persisted to the
+ * messages row); clicking Download materializes it as a Blob and
+ * triggers a browser download.
+ */
+function DownloadCard({ report, onDownload }) {
+  const downloaded = report.status === 'downloaded'
+  const handle = () => {
+    try {
+      const byteString = atob(report.base64)
+      const bytes = new Uint8Array(byteString.length)
+      for (let i = 0; i < byteString.length; i += 1) bytes[i] = byteString.charCodeAt(i)
+      const blob = new Blob([bytes], {
+        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = report.file_name || 'Report.docx'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(url), 5000)
+      onDownload?.(report.id)
+    } catch (err) {
+      console.warn('[FieldAssistant] download failed:', err)
+    }
+  }
+  const tokensSummary = (() => {
+    const filled = (report.tokens_filled || []).length
+    const empty = (report.tokens_empty || []).length
+    const unknown = (report.tokens_unknown || []).length
+    const parts = [`${filled} filled`]
+    if (empty) parts.push(`${empty} blank`)
+    if (unknown) parts.push(`${unknown} unknown`)
+    return parts.join(' · ')
+  })()
+  return (
+    <div className="jasper-msg-in" style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 12 }}>
+      <div style={{
+        maxWidth: '90%',
+        padding: '12px 14px',
+        borderRadius: 14,
+        background: downloaded ? mix('accent', 6) : SURFACE,
+        border: downloaded
+          ? `1px solid ${BORDER}`
+          : `1px solid color-mix(in srgb, var(--accent) 36%, transparent)`,
+        transition: 'background 0.15s, border-color 0.15s',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+          <span style={{
+            width: 28, height: 28, borderRadius: 8,
+            background: downloaded
+              ? 'var(--accent-fill)'
+              : 'color-mix(in srgb, var(--accent) 12%, transparent)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0,
+          }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+              stroke={downloaded ? 'var(--on-accent-fill)' : 'var(--accent)'}
+              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              {downloaded
+                ? <polyline points="20 6 9 17 4 12" />
+                : <><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></>}
+            </svg>
+          </span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{
+              fontSize: 10, color: 'var(--accent)', fontWeight: 700,
+              letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 2,
+            }}>
+              {downloaded ? 'Downloaded' : 'Report ready'}
+            </div>
+            <div style={{
+              fontSize: 14, color: TEXT, lineHeight: 1.4, fontWeight: 600,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {report.file_name}
+            </div>
+            <div style={{ fontSize: 11, color: SUB, marginTop: 4 }}>
+              {report.template_name ? `${report.template_name} · ` : ''}{tokensSummary}
+            </div>
+          </div>
+        </div>
+        {!downloaded && (
+          <button onClick={handle} style={{
+            width: '100%', padding: '8px 12px',
+            background: 'var(--accent-fill)', border: 'none',
+            borderRadius: 8, color: 'var(--on-accent-fill)',
+            fontSize: 13, fontWeight: 700, cursor: 'pointer',
+            fontFamily: 'inherit', minHeight: 36, letterSpacing: '-0.1px',
+            WebkitTapHighlightColor: 'transparent',
+          }}>
+            Download
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function FieldAssistant({ onClose, context, onNavigate, initialMessage, onAction }) {
   const {
     messages,
@@ -501,6 +604,7 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
     conversationId,
     activeTool,
     proposedActions,
+    renderedReports,
     sendMessage,
     stop,
     attachPhoto,
@@ -512,6 +616,7 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
     newConversation,
     markActionAccepted,
     markActionRejected,
+    markReportDownloaded,
   } = useFieldAssistant()
   const [input, setInput] = useState('')
   // History panel state. `historyOpen` toggles the panel overlay
@@ -1374,6 +1479,18 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
                 else markActionAccepted(p.id)
               }}
               onReject={() => markActionRejected(p.id)}
+            />
+          ))}
+
+          {/* Rendered-report download cards — generate_report tool
+              results. base64 lives only on the client; clicking
+              Download materialises it as a Blob and triggers a
+              browser download. */}
+          {renderedReports.map((r) => (
+            <DownloadCard
+              key={r.id}
+              report={r}
+              onDownload={markReportDownloaded}
             />
           ))}
 
