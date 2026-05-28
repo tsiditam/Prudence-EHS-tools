@@ -40,10 +40,15 @@ const SUB = 'var(--sub)'
 const DIM = 'var(--dim)'
 const DANGER = 'var(--danger)'
 
+// Phase 1 redesign: suggestion cards carry a category label + icon so
+// the empty state reads as a curated launchpad (Claude / ChatGPT
+// pattern) rather than a flat list of strings. Categories are
+// IAQ-tailored — Measurement / Sampling / Standards — and map to the
+// three most common opening questions.
 const SUGGESTIONS = [
-  'CO₂ is 1,400 ppm in an office. What should I check next?',
-  'When is TVOC sampling warranted?',
-  'How does ASHRAE 62.1 apply to office ventilation?',
+  { category: 'Measurement', icon: 'gauge',    text: 'CO₂ is 1,400 ppm in an office. What should I check next?' },
+  { category: 'Sampling',    icon: 'flask',    text: 'When is TVOC sampling warranted?' },
+  { category: 'Standards',   icon: 'guidance', text: 'How does ASHRAE 62.1 apply to office ventilation?' },
 ]
 
 function MessageBubble({ role, content, photos }) {
@@ -155,12 +160,21 @@ function ToolStatus({ tool }) {
             </span>
           </>
         ) : (
-          [0, 1, 2].map(i => (
-            <span key={i} style={{
-              width: 6, height: 6, borderRadius: 3, background: DIM,
-              animation: `faDot 1.2s ${i * 0.15}s ease-in-out infinite`,
-            }} />
-          ))
+          <>
+            {/* Contextual thinking verb — softens the indicator and
+                makes the wait feel intentional, matching the
+                "Searching… / Looking up…" verbs that appear once a
+                tool kicks in. */}
+            <span style={{ fontSize: 13, color: SUB, lineHeight: 1.4, fontStyle: 'italic', marginRight: 4 }}>
+              Thinking
+            </span>
+            {[0, 1, 2].map(i => (
+              <span key={i} style={{
+                width: 6, height: 6, borderRadius: 3, background: DIM,
+                animation: `faDot 1.2s ${i * 0.15}s ease-in-out infinite`,
+              }} />
+            ))}
+          </>
         )}
       </div>
     </div>
@@ -511,7 +525,13 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
           maxWidth: 640,
           marginLeft: 'auto',
           marginRight: 'auto',
-          background: CARD,
+          // Atmospheric surface: the sheet's base is CARD, with a
+          // soft cyan halo radiating from the top center. Reads as
+          // "atmosphere" / breath / sky without dragging in any of
+          // the AtmosFlow brand tokens that already render in the
+          // header. Single layered gradient — no extra DOM, no
+          // perf cost.
+          background: `radial-gradient(140% 90% at 50% 0%, color-mix(in srgb, var(--accent) 7%, var(--card)) 0%, var(--card) 55%)`,
           border: `1px solid ${BORDER}`, borderBottom: 'none',
           borderRadius: '20px 20px 0 0',
           padding: '12px 16px',
@@ -720,32 +740,79 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
           )}
 
           {introAccepted && messages.length === 0 && !sending && (
-            <div style={{ padding: '16px 4px', color: SUB, fontSize: 13, lineHeight: 1.6 }}>
+            <div style={{ padding: '20px 4px 12px' }}>
+              {/* Typography hierarchy — a real headline anchors the
+                  empty state instead of a single body paragraph.
+                  Subtitle carries the screening-only positioning so
+                  the user sees the boundary on the very first frame. */}
               <div className="jasper-stagger"
-                style={{ marginBottom: 12, animation: 'jasperReveal 500ms ease-out both', animationDelay: '0ms' }}>
+                style={{
+                  fontSize: 20, fontWeight: 700, color: TEXT,
+                  lineHeight: 1.25, letterSpacing: '-0.2px', marginBottom: 6,
+                  animation: 'jasperReveal 500ms ease-out both', animationDelay: '0ms',
+                }}>
+                How can I help with this assessment?
+              </div>
+              <div className="jasper-stagger"
+                style={{
+                  color: SUB, fontSize: 13, lineHeight: 1.55, marginBottom: 18,
+                  animation: 'jasperReveal 500ms ease-out both', animationDelay: '250ms',
+                }}>
                 Ask about standards, readings, sampling, or likely next steps.
                 Scoring stays with the assessment engine.
               </div>
               <div className="jasper-stagger"
-                style={{ fontSize: 11, fontWeight: 600, color: DIM, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8,
-                  animation: 'jasperReveal 500ms ease-out both', animationDelay: '500ms' }}>
-                Try
+                style={{
+                  fontSize: 11, fontWeight: 600, color: DIM,
+                  textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10,
+                  animation: 'jasperReveal 500ms ease-out both', animationDelay: '500ms',
+                }}>
+                Try one of these
               </div>
               {SUGGESTIONS.map((s, i) => (
                 <button
-                  key={s}
-                  onClick={() => sendMessage(s, context)}
+                  key={s.text}
+                  onClick={() => sendMessage(s.text, context)}
                   disabled={sending}
-                  className="jasper-stagger"
+                  className="jasper-suggestion jasper-stagger"
                   style={{
-                    display: 'block', width: '100%', textAlign: 'left',
-                    padding: '10px 12px', marginBottom: 6,
-                    background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 10,
-                    color: TEXT, fontSize: 13, fontFamily: 'inherit', cursor: 'pointer',
+                    display: 'flex', alignItems: 'flex-start', gap: 12,
+                    width: '100%', textAlign: 'left',
+                    padding: '12px 14px', marginBottom: 8,
+                    background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 12,
+                    color: TEXT, fontSize: 13.5, fontFamily: 'inherit', cursor: 'pointer',
+                    lineHeight: 1.45,
+                    transition: 'border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease, background 160ms ease',
                     animation: 'jasperReveal 500ms ease-out both',
-                    animationDelay: `${1000 + i * 700}ms`,
+                    animationDelay: `${900 + i * 180}ms`,
                   }}>
-                  {s}
+                  {/* Tinted icon tile — the soft cyan square reads as
+                      a category badge and gives the card a focal
+                      point. Tile background lifts slightly on hover
+                      via the CSS rule at the bottom of the file. */}
+                  <span className="jasper-suggestion__icon"
+                    style={{
+                      width: 32, height: 32, borderRadius: 9,
+                      background: mix('accent', 10),
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      flexShrink: 0,
+                      transition: 'background 160ms ease',
+                    }}>
+                    <I n={s.icon} s={16} c={ACCENT} w={1.9} />
+                  </span>
+                  <span style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{
+                      display: 'block',
+                      fontSize: 10, fontWeight: 700, color: ACCENT,
+                      letterSpacing: '0.55px', textTransform: 'uppercase',
+                      marginBottom: 3,
+                    }}>
+                      {s.category}
+                    </span>
+                    <span style={{ display: 'block', color: TEXT, fontWeight: 500 }}>
+                      {s.text}
+                    </span>
+                  </span>
                 </button>
               ))}
             </div>
@@ -1087,10 +1154,39 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
           0%   { opacity: 0; transform: translateY(6px); }
           100% { opacity: 1; transform: translateY(0); }
         }
+        /* Phase-1 suggestion cards: cyan-tinted border, soft accent
+           glow, and a 1px lift on hover. Focus state mirrors hover
+           plus a 3px focus ring so keyboard users get the same
+           affordance. Icon tile background brightens in sync. */
+        .jasper-suggestion:hover:not(:disabled),
+        .jasper-suggestion:focus-visible {
+          border-color: color-mix(in srgb, var(--accent) 45%, transparent) !important;
+          box-shadow:
+            0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent),
+            0 8px 24px -12px color-mix(in srgb, var(--accent) 55%, transparent),
+            0 2px 6px rgba(0,0,0,0.06);
+          transform: translateY(-1px);
+          background: color-mix(in srgb, var(--accent) 4%, var(--surface)) !important;
+        }
+        .jasper-suggestion:focus-visible {
+          outline: none;
+        }
+        .jasper-suggestion:hover:not(:disabled) .jasper-suggestion__icon,
+        .jasper-suggestion:focus-visible .jasper-suggestion__icon {
+          background: color-mix(in srgb, var(--accent) 18%, transparent) !important;
+        }
+        .jasper-suggestion:active:not(:disabled) {
+          transform: translateY(0);
+        }
         @media (prefers-reduced-motion: reduce) {
           .jasper-stagger {
             animation: none !important;
             opacity: 1 !important;
+            transform: none !important;
+          }
+          .jasper-suggestion:hover:not(:disabled),
+          .jasper-suggestion:focus-visible,
+          .jasper-suggestion:active:not(:disabled) {
             transform: none !important;
           }
         }
