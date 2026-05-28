@@ -32,6 +32,9 @@ import {
 } from './iaq-knowledge-base.js'
 import { searchCorpus } from '../utils/corpus-search.js'
 import { summarizeCorpus } from './standards-corpus.js'
+// Render lib is TS but imported via the module-name (no extension).
+// Vite/vitest resolve both runtime and test surface through tsconfig.
+import { renderTemplate as defaultRenderTemplate } from '../../lib/report-templates/render'
 
 // ── Anthropic tool-use schemas ──────────────────────────────────────
 // Each entry mirrors the Anthropic Messages API "tools" array shape.
@@ -182,6 +185,32 @@ export const FIELD_ASSISTANT_TOOLS = [
         },
       },
       required: ['action_type', 'summary'],
+    },
+  },
+  {
+    name: 'generate_report',
+    description:
+      "Render a user-uploaded DOCX report template, filling all {{tokens}} with LITERAL data from the current assessment context. Use this whenever the assessor asks to \"render\", \"generate\", \"make\", or \"build\" a report from one of their saved templates (\"render my Federal template\", \"make me a deliverable using the Acme template\"). The tool does NOT write any prose into the template — it only substitutes registered tokens (client name, facility, finding counts, etc.) with values from the assessment. After a successful render the chat client surfaces an inline Download card and the assessor decides whether to save the file. If the user has no templates saved, the tool returns no_templates_saved and Jasper should point them at Settings → Report Templates. If the name hint matches multiple templates, the tool returns needs_disambiguation and Jasper should ask the user which one. Never invent or paraphrase data — every {{token}} is resolved by the canonical registry.",
+    input_schema: {
+      type: 'object',
+      properties: {
+        template_id: {
+          type: 'string',
+          description:
+            "Direct id of a saved report template. Prefer this when the user has named the template unambiguously and you've previously seen its id in this conversation.",
+        },
+        template_name_hint: {
+          type: 'string',
+          description:
+            "Free-text hint of which template the user means (\"Federal\", \"the one with the green letterhead\"). The dispatcher fuzzy-matches against saved template names. If exactly one matches, it is used; if multiple match, the tool returns needs_disambiguation so Jasper can ask the user.",
+        },
+        file_name: {
+          type: 'string',
+          description:
+            "Optional output file name (without extension). Defaults to \"{template_name}_{YYYY-MM-DD}\". Use a name that includes the client or site when known, e.g. \"AcmeHQ_IAQ_Screening\".",
+        },
+      },
+      required: [],
     },
   },
 ]
@@ -567,6 +596,139 @@ export async function dispatchTool(name, input, ctx = {}) {
         // assume the action has been applied — it should tell the
         // user to tap Accept.
         message: 'Action proposed. The user will see an Accept / Reject card and decide.',
+      }
+    }
+
+    if (name === 'generate_report') {
+      // Required ctx (injected by api/field-assistant.ts):
+      //   • supabase           — service-role client
+      //   • userId             — caller's auth.uid()
+      //   • assessmentContext  — the same body.context Jasper saw on
+      //                          the system prompt; resolvers walk it
+      //   • renderTemplate?    — optional override (tests inject a
+      //                          stub). Defaults to the lib import.
+      if (!ctx || !ctx.supabase || !ctx.userId) {
+        return {
+          status: 'error',
+          error: 'render_unavailable',
+          message:
+            'Report generation is not available in this request context. Report rendering must be invoked through the Field Assistant API handler.',
+        }
+      }
+      const render = ctx.renderTemplate || defaultRenderTemplate
+      // List templates owned by this user, newest first.
+      const { data: templates, error: listErr } = await ctx.supabase
+        .from('report_templates')
+        .select('id, name, storage_path')
+        .eq('user_id', ctx.userId)
+        .order('created_at', { ascending: false })
+      if (listErr) {
+        return {
+          status: 'error',
+          error: 'list_failed',
+          message: listErr.message || 'Failed to list saved templates.',
+        }
+      }
+      if (!templates || templates.length === 0) {
+        return {
+          status: 'no_templates_saved',
+          message:
+            'No report templates are saved for this user. Tell the assessor to upload a .docx in Settings → Report Templates, then ask Jasper to render it.',
+          settings_target: 'settings',
+        }
+      }
+      // Resolve which template to render.
+      const idHint = input && typeof input.template_id === 'string' ? input.template_id : ''
+      const nameHint = input && typeof input.template_name_hint === 'string'
+        ? input.template_name_hint.trim().toLowerCase()
+        : ''
+      let chosen = null
+      if (idHint) {
+        chosen = templates.find((t) => t.id === idHint) || null
+        if (!chosen) {
+          return {
+            status: 'not_found',
+            message: `No saved template with id "${idHint}". Available templates listed in candidates.`,
+            candidates: templates.map((t) => ({ id: t.id, name: t.name })),
+          }
+        }
+      } else if (nameHint) {
+        const matches = templates.filter((t) => (t.name || '').toLowerCase().includes(nameHint))
+        if (matches.length === 1) {
+          chosen = matches[0]
+        } else if (matches.length === 0) {
+          return {
+            status: 'not_found',
+            message: `No saved template matches "${nameHint}". Available templates listed in candidates.`,
+            candidates: templates.map((t) => ({ id: t.id, name: t.name })),
+          }
+        } else {
+          return {
+            status: 'needs_disambiguation',
+            message:
+              'Multiple saved templates match the hint. Ask the assessor which one to use.',
+            candidates: matches.map((t) => ({ id: t.id, name: t.name })),
+          }
+        }
+      } else if (templates.length === 1) {
+        chosen = templates[0]
+      } else {
+        return {
+          status: 'needs_disambiguation',
+          message:
+            'The assessor has multiple saved templates and did not specify which one. Ask which template to use.',
+          candidates: templates.map((t) => ({ id: t.id, name: t.name })),
+        }
+      }
+      // Download the template bytes from Storage.
+      const { data: dl, error: dlErr } = await ctx.supabase.storage
+        .from('report-templates')
+        .download(chosen.storage_path)
+      if (dlErr || !dl) {
+        return {
+          status: 'error',
+          error: 'storage_download_failed',
+          message: (dlErr && dlErr.message) || 'Template file download failed.',
+        }
+      }
+      const ab = await dl.arrayBuffer()
+      const templateBuffer = Buffer.from(ab)
+      // Render against the assessment context Jasper already has.
+      let result
+      try {
+        result = render(templateBuffer, ctx.assessmentContext || {})
+      } catch (err) {
+        return {
+          status: 'error',
+          error: 'render_failed',
+          message: (err && err.message) || 'Template render failed.',
+          code: err && err.code,
+        }
+      }
+      // Build a default file name. Strip path separators defensively.
+      const today = new Date().toISOString().slice(0, 10)
+      const requested = input && typeof input.file_name === 'string' && input.file_name.trim()
+        ? input.file_name.trim()
+        : `${chosen.name}_${today}`
+      const safe = requested.replace(/[\\/]/g, '_').slice(0, 200)
+      const fileName = /\.docx$/i.test(safe) ? safe : `${safe}.docx`
+      return {
+        status: 'ok',
+        template_id: chosen.id,
+        template_name: chosen.name,
+        file_name: fileName,
+        size_bytes: result.buffer.length,
+        tokens_filled: result.tokens_filled,
+        tokens_empty: result.tokens_empty,
+        tokens_unknown: result.tokens_unknown,
+        // base64 payload — large strings. The api/field-assistant.ts
+        // handler strips this out of the persisted assistant turn
+        // (and side-channels it to the client via an SSE event) so
+        // the field_assistant_messages row stays small and the
+        // training export doesn't carry transient binaries.
+        base64: result.buffer.toString('base64'),
+        message:
+          'Report rendered. Tell the assessor the file is ready and that they can Download it from the chat. NEVER claim the report has been delivered to the client — the assessor reviews and forwards.',
       }
     }
 
