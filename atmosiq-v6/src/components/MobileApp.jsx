@@ -651,6 +651,8 @@ export default function MobileApp() {
   // points (localStorage read is cheap).
   useEffect(() => { setSavedInstruments(loadInstruments()) }, [view, calWarning])
   const [docxPicker, setDocxPicker] = useState(false)
+  // Logger Studio → "Send graphs to a report" target picker
+  const [graphTargetOpen, setGraphTargetOpen] = useState(false)
   const [hSearch, setHSearch] = useState('')
   const [hSort, setHSort] = useState('newest')
   // v2.8 UI pass — Notion-style 3-dot home menu. Replaces the standalone
@@ -1058,6 +1060,27 @@ export default function MobileApp() {
     return { ok: true, written, zoneName: zone.zn || `Zone ${zi + 1}`, facility }
   }
 
+  // Attach the loaded Logger Studio charts (the whole sensorData object — its
+  // per-graph "Include in report" flags + captured images) to a chosen report
+  // or draft, so the charts embed in that report's DOCX (sections-sensor reads
+  // sensorData.graphs[*].include + imageDataUrl). Writes into the target's
+  // stored body; the currently-open assessment already carries it live.
+  const applyGraphsToReport = async (reportId) => {
+    if (!reportId || !sensorData) return { ok: false }
+    if (reportId === draftId) return { ok: true, current: true }
+    const base = await STO.get(reportId)
+    if (!base) return { ok: false }
+    const ua = new Date().toISOString()
+    const facility = base.bldg?.fn || base.building?.fn || base.facility_name || 'Untitled'
+    await STO.set(reportId, { ...base, id: reportId, sensorData, ua })
+    // Refresh the matching index entry's timestamp without moving it between lists.
+    if ((index.drafts || []).some(d => d.id === reportId)) await STO.addDraftToIndex({ id: reportId, facility, ua })
+    else if ((index.reports || []).some(r => r.id === reportId)) await STO.addReportToIndex({ id: reportId, ts: base.ts || ua, facility, score: base.comp?.tot ?? base.composite?.tot ?? base.score })
+    await refreshIndex()
+    trackEvent('logger_graphs_applied', { report_id: reportId })
+    return { ok: true, facility }
+  }
+
   const finishQuickStart = () => {
     trackEvent('quickstart_completed', { facility: bldg.fn || '', building_type: bldg.ft || '' })
     if (zones.length === 0) setZones([{}])
@@ -1166,7 +1189,7 @@ export default function MobileApp() {
     // finalized report never also lingers as a draft.
     const reuseId = draftId && (index.reports || []).some(r => r.id === draftId)
     const rid = reuseId ? draftId : ('rpt-' + Date.now())
-    const report = { id:rid, ts:new Date().toISOString(), ver:VER, presurvey, building:bldg, zones, equipment, photos, floorPlan, zoneScores:zScores, comp:composite, oshaEvals:[osha], recs:recommendations, samplingPlan:sp, causalChains:cc, standardsManifest:STANDARDS_MANIFEST }
+    const report = { id:rid, ts:new Date().toISOString(), ver:VER, presurvey, building:bldg, zones, equipment, photos, floorPlan, sensorData, zoneScores:zScores, comp:composite, oshaEvals:[osha], recs:recommendations, samplingPlan:sp, causalChains:cc, standardsManifest:STANDARDS_MANIFEST }
     await STO.set(rid, report)
     await STO.addReportToIndex({ id:rid, ts:report.ts, facility:bldg.fn, score:composite?.tot })
     await STO.removeFromIndex(rid, 'dft')
@@ -2821,6 +2844,11 @@ export default function MobileApp() {
           { label:'Discrepancies Check',      icon:'findings', onClick:()=>{ setReviewError(null); setReviewChooserOpen(true) } },
           { label:'Ask AtmosFlow AI',         icon:'mic',      onClick:()=>{ supabase && trackEvent('jasper_open',{source:'report_actions'}); setVoiceCmdOpen(true) } },
         ] : [
+          // Logger Studio: offer "send the included charts to a report" when
+          // the user has toggled at least one graph "Include in report".
+          ...(view==='sensor-data' && sensorData?.graphs && Object.values(sensorData.graphs).some(g => g && g.include)
+            ? [{ label:'Send graphs to a report', icon:'send', onClick:()=>{ close(); setGraphTargetOpen(true) } }]
+            : []),
           { label:'Search',             icon:'search', onClick:()=>setView('search') },
           { label:'Ask AtmosFlow AI', icon:'mic',    onClick:()=>{ supabase && trackEvent('jasper_open',{source:'header_actions'}); setVoiceCmdOpen(true) } },
         ]
@@ -3228,6 +3256,41 @@ export default function MobileApp() {
       )}
 
       {genWriting && <ReportWritingOverlay label={genWriting.label} durationMs={genWriting.durationMs} />}
+
+      {graphTargetOpen && (() => {
+        const drafts = index.drafts || []
+        const reports = index.reports || []
+        const send = async (id) => {
+          const res = await applyGraphsToReport(id)
+          setGraphTargetOpen(false)
+          if (res?.ok) alert(`Charts attached to "${res.facility || 'this report'}". They'll appear in its Word export. Open it and re-export to include them.`)
+          else alert("Couldn't attach the charts to that report.")
+        }
+        const Row = ({ item, kind }) => (
+          <GlassCard dense onClick={()=>send(item.id)} style={{padding:'14px 16px'}}>
+            <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:3}}>{item.facility || 'Untitled'}</div>
+            <div style={{fontSize:12,color:SUB}}>{kind}</div>
+          </GlassCard>
+        )
+        return (
+          <BottomSheet title="Send graphs to a report" onClose={()=>setGraphTargetOpen(false)} maxWidth={420} ariaLabel="Choose a report to receive the logger charts">
+            <div style={{fontSize:13,color:SUB,margin:'4px 0 16px',lineHeight:1.55}}>The charts marked “Include in report” will be attached to the report you pick and embed in its Word export.</div>
+            {drafts.length === 0 && reports.length === 0 ? (
+              <div style={{fontSize:13,color:SUB,padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:V3.R.md,lineHeight:1.55}}>No reports yet — start an assessment first, then send the charts to it.</div>
+            ) : (
+              <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                {drafts.length > 0 && <div style={V3.T.micro}>Drafts</div>}
+                {drafts.map(d => <Row key={d.id} item={d} kind="Draft" />)}
+                {reports.length > 0 && <div style={{...V3.T.micro, marginTop: drafts.length ? 6 : 0}}>Finalized</div>}
+                {reports.map(r => <Row key={r.id} item={r} kind="Finalized report" />)}
+              </div>
+            )}
+            <div style={{marginTop:14}}>
+              <TactileButton variant="ghost" fullWidth onClick={()=>setGraphTargetOpen(false)}>Cancel</TactileButton>
+            </div>
+          </BottomSheet>
+        )
+      })()}
 
       <div style={{maxWidth:contentMax,margin:'0 auto',padding:`0 ${padX}px`,position:'relative',zIndex:1}}>
 
