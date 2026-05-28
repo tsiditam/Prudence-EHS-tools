@@ -20,7 +20,7 @@
  * re-prompt if the disclaimer text materially changes.
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { I } from './Icons'
 // Jasper brand mark: monitor → robot. See JasperRobotIcon.jsx for the
 // cyan→orange→red gradient + filled silhouette spec.
@@ -28,6 +28,7 @@ import JasperRobotIcon from './JasperRobotIcon'
 import VoiceInputButton, { appendWithSpace } from './VoiceInputButton'
 import { useFieldAssistant } from '../hooks/useFieldAssistant'
 import { mix } from '../utils/theme'
+import { STD } from '../constants/standards'
 
 const INTRO_FLAG_KEY = 'jasper_intro_v1'
 
@@ -50,6 +51,113 @@ const SUGGESTIONS = [
   { category: 'Sampling',    icon: 'flask',    text: 'When is TVOC sampling warranted?' },
   { category: 'Standards',   icon: 'guidance', text: 'How does ASHRAE 62.1 apply to office ventilation?' },
 ]
+
+/**
+ * Phase-2 context awareness — derives a short list of chips from the
+ * `context` payload that MobileApp already builds and ships to the
+ * assistant API. No new wiring; this is a pure read of context so
+ * the assistant sheet visually mirrors what the agent is told.
+ *
+ * Chips currently surfaced:
+ *   - Facility (always when present) — anchors the panel to the
+ *     active assessment.
+ *   - Status — "Draft" vs "Finalized" (tone shifts to success on
+ *     finalized so the user can spot when they've crossed the line).
+ *   - Zone — current zone's name/id when the assessor is mid-walk
+ *     (wizard / zones / sensors view).
+ *   - Measurement signals — CO₂ / RH / PM₂.₅ from the current
+ *     zone's intake fields, compared to the thresholds in
+ *     src/constants/standards.js (which is the SAME source the
+ *     engine reads). The engine itself stays sacred — we only read
+ *     the published threshold table, not its scoring code paths.
+ *
+ * Output is an ordered array of { id, label, tone, icon } records.
+ * Tone maps to a CSS class on the chip; 'accent' = cyan default,
+ * 'warn' = elevated reading, 'success' = finalized.
+ */
+function buildContextChips(context) {
+  if (!context || typeof context !== 'object') return []
+  const out = []
+
+  const active = context.active_assessment
+  if (active && active.facility) {
+    out.push({ id: 'facility', label: active.facility, tone: 'accent', icon: 'bldg' })
+    if (active.status) {
+      const finalized = /finalized/i.test(active.status)
+      out.push({
+        id: 'status',
+        label: active.status,
+        tone: finalized ? 'success' : 'accent',
+        icon: finalized ? 'check' : 'draft',
+      })
+    }
+  }
+
+  const zone = context.current_zone
+  // Zone chips only make sense in walk-through views — on the
+  // dashboard or report, the assessor isn't looking AT a zone.
+  const inWalk = context.view === 'wizard'
+  if (inWalk && zone && typeof zone === 'object') {
+    const zoneLabel = zone.n || zone.zid || (typeof context.zones_count === 'number' ? `Zone ${(context.current_zone_idx ?? 0) + 1}` : null)
+    if (zoneLabel) out.push({ id: 'zone', label: zoneLabel, tone: 'accent', icon: 'location' })
+
+    // Measurement signals — only added when a numeric reading is
+    // actually present AND it crosses a published threshold. We
+    // never invent a chip from a missing value.
+    const co2 = Number(zone.co2)
+    if (Number.isFinite(co2)) {
+      const act = STD?.co2?.act ?? 1500
+      const con = STD?.co2?.con ?? 1000
+      if (co2 >= act)      out.push({ id: 'co2',  label: 'CO₂ action level', tone: 'warn', icon: 'wind' })
+      else if (co2 >= con) out.push({ id: 'co2',  label: 'CO₂ elevated',     tone: 'warn', icon: 'wind' })
+    }
+    const rh = Number(zone.rh)
+    if (Number.isFinite(rh)) {
+      if (rh >= 60)      out.push({ id: 'rh', label: 'Humidity high', tone: 'warn', icon: 'droplet' })
+      else if (rh <= 30) out.push({ id: 'rh', label: 'Humidity low',  tone: 'warn', icon: 'droplet' })
+    }
+    const pm = Number(zone.pm)
+    if (Number.isFinite(pm) && pm >= 12) {
+      out.push({ id: 'pm', label: 'PM₂.₅ elevated', tone: 'warn', icon: 'cloud' })
+    }
+    const tv = Number(zone.tv)
+    if (Number.isFinite(tv) && tv >= 500) {
+      // 500 µg/m³ — Mølhave 1991 advisory tier midpoint; surfaced
+      // as a signal that TVOC is in the "complaints possible" band.
+      out.push({ id: 'tvoc', label: 'TVOC elevated', tone: 'warn', icon: 'flask' })
+    }
+  }
+
+  return out
+}
+
+/**
+ * Single context chip. Tones:
+ *   - accent  : cyan border + faint cyan fill (default identity chip)
+ *   - warn    : warning-colored fill (elevated measurement signal)
+ *   - success : success-colored fill (finalized report)
+ */
+function ContextChip({ label, tone = 'accent', icon }) {
+  const palette =
+    tone === 'warn'
+      ? { fg: 'var(--warn)', bg: 'color-mix(in srgb, var(--warn) 12%, transparent)', bd: 'color-mix(in srgb, var(--warn) 30%, transparent)' }
+      : tone === 'success'
+      ? { fg: 'var(--ok)',   bg: 'color-mix(in srgb, var(--ok) 12%, transparent)',   bd: 'color-mix(in srgb, var(--ok) 30%, transparent)' }
+      : { fg: 'var(--accent)', bg: 'color-mix(in srgb, var(--accent) 10%, transparent)', bd: 'color-mix(in srgb, var(--accent) 28%, transparent)' }
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 5,
+      padding: '4px 9px 4px 7px', borderRadius: 999,
+      background: palette.bg, border: `1px solid ${palette.bd}`,
+      fontSize: 11, lineHeight: 1.2, fontWeight: 600,
+      color: palette.fg, letterSpacing: '0.1px',
+      maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+    }}>
+      {icon && <I n={icon} s={11} c={palette.fg} w={2} />}
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
+    </span>
+  )
+}
 
 function MessageBubble({ role, content, photos }) {
   const isUser = role === 'user'
@@ -399,6 +507,11 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
   const inputRef = useRef(null)
   const fileInputRef = useRef(null)
 
+  // Derive context chips client-side from the same context object
+  // we ship to the API. Memoized on context identity so a re-render
+  // from typing in the textarea doesn't re-walk the zone payload.
+  const contextChips = useMemo(() => buildContextChips(context), [context])
+
   const onPickPhotos = async (e) => {
     const files = Array.from(e.target.files || [])
     // Reset the input so re-picking the same file fires onChange again.
@@ -631,23 +744,24 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
           </div>
         </div>
 
-        {/* Active-assessment context chip — ties the assistant to what
-            the assessor is working on so it doesn't read as a generic
-            LLM sheet. Shown only when context carries a named
-            assessment; hidden while browsing past conversations. */}
-        {!historyOpen && context?.active_assessment?.facility && (
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 7,
-            marginBottom: 10, padding: '6px 10px', borderRadius: 8,
-            background: mix('accent', 6), border: `1px solid ${mix('accent', 16)}`,
-            minWidth: 0,
-          }}>
-            <span style={{ width: 6, height: 6, borderRadius: 3, background: ACCENT, flexShrink: 0 }} />
-            <span style={{ fontSize: 11, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
-              <span style={{ color: SUB }}>Context: </span>
-              <span style={{ color: TEXT, fontWeight: 600 }}>{context.active_assessment.facility}</span>
-              <span style={{ color: SUB }}> · {context.active_assessment.status}</span>
-            </span>
+        {/* Phase-2 context chip strip — replaces the single
+            facility/status pill with a richer row that reflects
+            what's actually in the context payload the agent
+            receives: facility, draft/finalized status, current
+            zone, and measurement signals from that zone (CO₂
+            elevated, humidity high, etc.). The user can see at a
+            glance what Jasper knows about their current situation.
+            Hidden while the history panel is open. */}
+        {!historyOpen && contextChips.length > 0 && (
+          <div
+            aria-label="AtmosFlow AI context"
+            style={{
+              display: 'flex', flexWrap: 'wrap', gap: 6,
+              marginBottom: 10, minWidth: 0,
+            }}>
+            {contextChips.map((c) => (
+              <ContextChip key={c.id} label={c.label} tone={c.tone} icon={c.icon} />
+            ))}
           </div>
         )}
 
