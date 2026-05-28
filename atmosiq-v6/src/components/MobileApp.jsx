@@ -864,7 +864,16 @@ export default function MobileApp() {
     if (additionalQs.length > 0) qs = [...qs, ...additionalQs]
     return qs
   }, [zData, bldg.ft, dcProfile, suppressedIds, additionalQs])
-  const setZF = useCallback((id,v) => { setZones(prev => { const next = [...prev]; next[curZone] = {...(next[curZone]||{}), [id]:v}; return next }) }, [curZone])
+  // Outdoor sensor readings are a site-wide baseline, captured once (only the
+  // first zone shows them). Writing one applies it to EVERY zone so scoring and
+  // the report see the outdoor value regardless of which zone is active.
+  const OUTDOOR_SENSOR_IDS = useMemo(() => new Set(SENSOR_FIELDS.filter(f => f.outdoor).map(f => f.id)), [])
+  const setZF = useCallback((id,v) => {
+    setZones(prev => {
+      if (OUTDOOR_SENSOR_IDS.has(id)) return prev.map(z => ({ ...(z||{}), [id]:v }))
+      const next = [...prev]; next[curZone] = {...(next[curZone]||{}), [id]:v}; return next
+    })
+  }, [curZone, OUTDOOR_SENSOR_IDS, setZones])
   // Land a pending Readiness "Fix" on the exact zone question once we've
   // navigated to that zone and its visible-question list is built. '__photo__'
   // targets the first photo-capable question; otherwise we match the field id.
@@ -1566,7 +1575,7 @@ export default function MobileApp() {
             // locked (and shown unchecked) until it's deselected.
             const locked=exclusiveSel&&o!==exclusiveSel;const sel=exclusiveSel?o===exclusiveSel:arr.includes(o);const onClick=()=>{if(locked)return;if(optExclusive){setField(q.id,sel?[]:[o]);return}setField(q.id,sel?arr.filter(x=>x!==o):[...arr.filter(x=>!isExclusiveMultiOpt(x)),o])};return(<button key={o} disabled={!!locked} aria-disabled={!!locked} onClick={onClick} style={{padding:'12px 18px',borderRadius:24,background:sel?`${mix('accent', 8)}`:CARD,border:`1.5px solid ${sel?ACCENT:BORDER}`,color:sel?ACCENT:TEXT,fontSize:14,fontFamily:'inherit',fontWeight:500,cursor:locked?'not-allowed':'pointer',opacity:locked?0.4:1,transition:'opacity .15s',minHeight:44,animation:`fadeUp .25s ${i*.03}s cubic-bezier(.22,1,.36,1) both`}}>{sel?'✓ ':''}{o}</button>)})}</div>)})()}
           {q.t==='combo'&&q.opts&&(()=>{const otherOpts=q.opts.filter(o=>o!=='Other');const isOther=(data[q.id]||'')==='__other__'||((data[q.id]||'')&&!otherOpts.includes(data[q.id]));return(<div><select value={isOther?'__other__':(data[q.id]||'')} onChange={e=>setField(q.id,e.target.value)} style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:'inherit',outline:'none',boxSizing:'border-box',appearance:'auto'}}><option value="">Select or skip...</option>{otherOpts.map(o=><option key={o} value={o}>{o}</option>)}<option value="__other__">Other</option></select>{isOther&&<input type="text" value={data[q.id]==='__other__'?'':data[q.id]} onChange={e=>setField(q.id,e.target.value||'__other__')} placeholder="Type here..." autoFocus style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${ACCENT}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:'inherit',outline:'none',boxSizing:'border-box',marginTop:8}} />}</div>)})()}
-          {q.t==='sensors'&&<><SensorScreen data={data} onChange={setField} sensorData={sensorData} isDesktop={false} /><JasperWatchPanel data={data} context={{building: bldg, presurvey}} /></>}
+          {q.t==='sensors'&&<><SensorScreen data={data} onChange={setField} sensorData={sensorData} isDesktop={false} showOutdoor={curZone === 0} /><JasperWatchPanel data={data} context={{building: bldg, presurvey}} /></>}
           {q.photo&&<PhotoCapture
             photos={photos[`z${curZone}-${q.id}`]||[]}
             analysisContext={`Zone ${curZone+1} — ${q.lbl || q.id}`}

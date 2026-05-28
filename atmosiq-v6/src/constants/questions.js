@@ -106,13 +106,13 @@ export const Q_DETAILS = [
   { id:'fc',  sec:'HVAC Details',      q:'Filter condition?',          t:'ch',  sk:1, ic:'🔍', opts:['Clean / Recent','Moderately loaded','Heavily loaded','Damaged / Bypass','Not accessible'] },
   { id:'od',  sec:'HVAC Details',      q:'Outdoor air damper?',        t:'ch',  sk:1, ic:'🚪', opts:['Open — proper','Closed / minimum','Stuck / inoperable','Not accessible','Unknown'] },
   { id:'dp',  sec:'HVAC Details',      q:'Condensate drain pan?',      t:'ch',  sk:1, ic:'🪣', opts:['Clean — draining','Standing water','Bio growth observed','Not accessible'], photo:1 },
-  // Airflow
-  { id:'bld_pressure',        sec:'Airflow Paths', q:'Building pressurization?',        t:'ch',   sk:1, ic:'🌀', opts:['Positive (air pushes out)','Negative (air pulls in)','Neutral','Variable / unknown','Not assessed'] },
-  { id:'bld_exhaust',         sec:'Airflow Paths', q:'Exhaust systems present?',        t:'multi',sk:1, ic:'🔃', opts:['Restroom exhaust','Kitchen / break room hood','Lab fume hoods','Server room exhaust','Parking garage exhaust','Loading dock exhaust','Janitor closet exhaust','None identified'] },
-  { id:'bld_intake_proximity',sec:'Airflow Paths', q:'OA intake proximity to sources?', t:'multi',sk:1, ic:'⚠️', opts:['Near loading dock','Near parking garage','Near exhaust outlet','Near dumpster / waste','Near cooling tower','Near traffic / roadway','Clear of sources','Not assessed'] },
+  // Airflow paths are captured per-zone (Q_ZONE → Airflow: zone pressure +
+  // cross-contamination), not at the building level here, to avoid asking the
+  // same thing twice.
   // Weather
-  { id:'wx_temp',   sec:'Outdoor Conditions', q:'Outdoor temperature?',       t:'num', sk:1, ic:'🌡️', u:'°F' },
-  { id:'wx_rh',     sec:'Outdoor Conditions', q:'Outdoor relative humidity?', t:'num', sk:1, ic:'💧', u:'%' },
+  // Weather context. Outdoor temperature and RH are captured as instrument
+  // readings (tfo / rho in SENSOR_FIELDS), so they are not repeated here —
+  // this section is qualitative sky/precip context only.
   { id:'wx_sky',    sec:'Outdoor Conditions', q:'Sky / weather?',             t:'ch',  sk:1, ic:'☀️', opts:['Clear / Sunny','Partly cloudy','Overcast','Light rain','Heavy rain','Snow','Fog','Windy (>15 mph)'] },
   { id:'wx_precip', sec:'Outdoor Conditions', q:'Recent precipitation?',      t:'ch',  sk:1, ic:'🌧️', opts:['None in past 48 hours','Light rain within 24 hours','Heavy rain within 24 hours','Rain within past week','Flooding event recent','Snow / ice'] },
   // Pre-survey details
@@ -201,17 +201,20 @@ export const Q_ZONE = [
   { id:'znt',               sec:'Zone Notes',  q:'Zone observations / notes?',   t:'ta',   sk:1, ic:'📝' },
 ]
 
+// Outdoor fields are flagged `outdoor:1` — they are a site-wide baseline,
+// captured ONCE (rendered only on the first zone) and propagated to every zone
+// for scoring and the report, rather than re-asked in every zone's panel.
 export const SENSOR_FIELDS = [
   { id:'co2',  label:'CO2 (Indoor)',         u:'ppm',    ref:'ASHRAE 62.1 · >1000 concern' },
-  { id:'co2o', label:'CO2 (Outdoor)',        u:'ppm',    ref:'~420 typical · REQUIRED for delta' },
+  { id:'co2o', label:'CO2 (Outdoor)',        u:'ppm',    ref:'~420 typical · REQUIRED for delta', outdoor:1 },
   { id:'tf',   label:'Temperature (Indoor)', u:'°F',     ref:'ASHRAE 55-2023' },
-  { id:'tfo',  label:'Temperature (Outdoor)',u:'°F',     ref:'Outdoor baseline' },
+  { id:'tfo',  label:'Temperature (Outdoor)',u:'°F',     ref:'Outdoor baseline', outdoor:1 },
   { id:'rh',   label:'RH (Indoor)',          u:'%',      ref:'30-60%' },
-  { id:'rho',  label:'RH (Outdoor)',         u:'%',      ref:'Outdoor baseline' },
+  { id:'rho',  label:'RH (Outdoor)',         u:'%',      ref:'Outdoor baseline', outdoor:1 },
   { id:'pm',   label:'PM2.5 (Indoor)',       u:'ug/m3',  ref:'EPA: 35 · WHO: 15' },
-  { id:'pmo',  label:'PM2.5 (Outdoor)',      u:'ug/m3',  ref:'Outdoor control sample' },
+  { id:'pmo',  label:'PM2.5 (Outdoor)',      u:'ug/m3',  ref:'Outdoor control sample', outdoor:1 },
   { id:'co',   label:'CO',                   u:'ppm',    ref:'OSHA: 50 · NIOSH: 35' },
   { id:'tv',   label:'TVOCs (PID)',          u:'ug/m3',  ref:'Concern: 500 · Use PID for spikes' },
-  { id:'tvo',  label:'TVOCs (Outdoor)',      u:'ug/m3',  ref:'Outdoor control baseline' },
+  { id:'tvo',  label:'TVOCs (Outdoor)',      u:'ug/m3',  ref:'Outdoor control baseline', outdoor:1 },
   { id:'hc',   label:'HCHO',                 u:'ppm',    ref:'OSHA: 0.75 · NIOSH: 0.016' },
 ]
