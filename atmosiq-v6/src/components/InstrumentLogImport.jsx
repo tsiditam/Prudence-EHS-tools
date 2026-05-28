@@ -22,7 +22,14 @@
  */
 
 import { useRef, useState } from 'react'
-import { parseInstrumentLogCsv } from '../utils/instrumentLogParser'
+import {
+  parseSensorCsv,
+  parseSensorRows,
+  sensorAveragesToFields,
+  normalizeSensorData,
+  SENSOR_DATA_VERSION,
+} from '../utils/sensorParser'
+import { xlsxToRows } from '../utils/sensorXlsx'
 
 const CARD = 'var(--card)'
 const BORDER = 'var(--border)'
@@ -53,6 +60,26 @@ const PARAM_UNIT = {
   hc: 'ppm',
 }
 
+// Per-parameter mean/median/p95/max from the dataset's points array. The
+// sensorParser populates summary.stats with mean/median/min/max but not
+// p95, and the preview table needs p95 so the assessor can spot a mean
+// masked by a spike — compute all four here so the table column set
+// stays consistent across CSV and XLSX inputs.
+function quantile(sorted, q) {
+  if (!sorted.length) return null
+  const idx = (sorted.length - 1) * q
+  const lo = Math.floor(idx)
+  const hi = Math.ceil(idx)
+  return lo === hi ? sorted[lo] : sorted[lo] + (sorted[hi] - sorted[lo]) * (idx - lo)
+}
+function aggregate(values) {
+  const finite = (values || []).filter((v) => Number.isFinite(v))
+  if (!finite.length) return null
+  const sorted = [...finite].sort((a, b) => a - b)
+  const mean = finite.reduce((a, b) => a + b, 0) / finite.length
+  return { mean, median: quantile(sorted, 0.5), p95: quantile(sorted, 0.95), max: sorted[sorted.length - 1] }
+}
+
 function fmt(value, paramId) {
   if (value === null || value === undefined || !Number.isFinite(value)) return '—'
   if (paramId === 'hc') return value.toFixed(3)
@@ -75,18 +102,64 @@ export default function InstrumentLogImport({ onApply, isCompact }) {
     const file = e.target.files?.[0]
     if (!file) return
     setFilename(file.name)
+    const isXlsx = /\.xlsx$/i.test(file.name)
     try {
-      const text = await file.text()
-      const result = parseInstrumentLogCsv(text)
+      // Use the same parser as Logger Studio for both CSV and XLSX so this
+      // inline import surfaces the same files in the OS picker and accepts
+      // the same shapes. xlsxToRows is no-extra-deps (jszip + DOMParser);
+      // parseSensorRows / parseSensorCsv produce identical dataset shapes.
+      const parsedDataset = isXlsx
+        ? parseSensorRows(await xlsxToRows(file), { fileName: file.name })
+        : parseSensorCsv(await file.text(), { fileName: file.name })
+      if (!parsedDataset) {
+        setError('Could not parse the file. It needs at least a timestamp/row column + one recognised parameter column.')
+        return
+      }
+      // Wrap as a single-dataset envelope so sensorAveragesToFields can
+      // produce the field-keyed mean values that map straight into the
+      // zone's sensor inputs — same flow as Logger Studio's Send-to-Report.
+      const envelope = normalizeSensorData({
+        version: SENSOR_DATA_VERSION,
+        datasets: [{ id: 'primary', role: 'indoor', label: 'Indoor', ...parsedDataset }],
+        graphs: {},
+      })
+      const { fields: rawFields, details } = sensorAveragesToFields(envelope, { stat: 'mean', tvocRef: 'isobutylene' })
+      // sensorAveragesToFields hands back display-rounded strings (its
+      // primary caller fills text inputs). MobileApp.onApply filters by
+      // Number.isFinite before writing into the zone, so coerce to numbers.
+      const fields = {}
+      for (const [k, v] of Object.entries(rawFields || {})) {
+        const n = Number(v)
+        if (Number.isFinite(n)) fields[k] = n
+      }
+      // Build per-field aggregates for the preview table by sampling each
+      // active parameter's values out of the dataset's points. details
+      // tells us which sensorParser param maps to which sensor field.
+      const points = parsedDataset.points || []
+      const parameters = {}
+      for (const d of details || []) {
+        const agg = aggregate(points.map((p) => p[d.param]))
+        if (agg) parameters[d.field] = agg
+      }
+      const result = {
+        sampleCount: parsedDataset.rawCount || (parsedDataset.points || []).length,
+        instrument: null,
+        parameters,
+        recommendedReadings: fields,
+        warnings: [],
+        unmappedColumns: (parsedDataset.columns || []).filter((c) => c.role === 'unknown').map((c) => c.raw),
+      }
       setParsed(result)
-      if (result.warnings.length > 0 && Object.keys(result.parameters).length === 0) {
-        setError(result.warnings.join(' '))
+      if (Object.keys(parameters).length === 0) {
+        setError('No recognised IAQ parameter columns were found (CO₂ / Temp / RH / PM2.5 / TVOC / CO / HCHO).')
       } else if (result.sampleCount === 0) {
         setError('No sample rows were parsed from the file.')
       }
     } catch (err) {
       console.error('[instrument-log] parse failed', err)
-      setError(err?.message || 'Could not read the CSV. Confirm the file is valid UTF-8 text.')
+      setError(err?.message || (isXlsx
+        ? 'Could not read the XLSX. Try exporting as CSV from your meter.'
+        : 'Could not read the CSV. Confirm the file is valid UTF-8 text.'))
     } finally {
       if (e.target) e.target.value = ''
     }
@@ -126,7 +199,7 @@ export default function InstrumentLogImport({ onApply, isCompact }) {
           width: isCompact ? 'auto' : '100%',
         }}
       >
-        + Import instrument log (Q-Trak / Aeroqual / Graywolf CSV)
+        + Import instrument log (Q-Trak / Aeroqual / Graywolf · CSV or XLSX)
       </button>
     )
   }
@@ -153,12 +226,12 @@ export default function InstrumentLogImport({ onApply, isCompact }) {
         </button>
       </div>
       <div style={{ fontSize: 11, color: SUB, lineHeight: 1.5, marginBottom: 10 }}>
-        Upload a CSV from a connected IAQ meter (TSI Q-Trak / IAQ-Calc, Aeroqual S500, Graywolf, Testo, etc.).
+        Upload a CSV or XLSX from a connected IAQ meter (TSI Q-Trak / IAQ-Calc, Aeroqual S500, Graywolf, Testo, etc.).
         The parser aggregates the time-series and pre-fills the spot readings below. Raw series is
         not stored — only the aggregates.
       </div>
 
-      <input ref={fileRef} type="file" accept=".csv,text/csv,application/vnd.ms-excel" onChange={handleFile} style={{ display: 'none' }} />
+      <input ref={fileRef} type="file" accept=".csv,.xlsx,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={handleFile} style={{ display: 'none' }} />
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
         <button
@@ -175,7 +248,7 @@ export default function InstrumentLogImport({ onApply, isCompact }) {
             fontFamily: 'inherit',
           }}
         >
-          {filename ? 'Choose different CSV…' : 'Choose CSV file…'}
+          {filename ? 'Choose different file…' : 'Choose CSV or XLSX…'}
         </button>
         {filename && <span style={{ alignSelf: 'center', fontSize: 11, color: SUB }}>{filename}</span>}
       </div>

@@ -35,16 +35,17 @@ describe('InstrumentLogImport', () => {
     render(<InstrumentLogImport onApply={() => {}} />)
     fireEvent.click(screen.getByText(/Import instrument log/i))
     expect(screen.getByTestId('instrument-log-import')).toBeTruthy()
-    expect(screen.getByText(/Choose CSV file/)).toBeTruthy()
+    expect(screen.getByText(/Choose CSV or XLSX/)).toBeTruthy()
   })
 
   it('parses an uploaded CSV and renders the preview table', async () => {
     render(<InstrumentLogImport onApply={() => {}} />)
     fireEvent.click(screen.getByText(/Import instrument log/i))
 
+    // Header-first CSV — Logger Studio's sensorParser (which this importer
+    // now shares) treats row 0 as the column header row, matching the
+    // shape of typical XLSX exports from connected meters.
     const csv = [
-      'TSI Q-Trak 7575',
-      '',
       'Time,CO2,Temperature [°F],RH,CO',
       '10:00,800,72.5,45.0,1.0',
       '10:01,820,72.6,45.1,1.0',
@@ -59,7 +60,6 @@ describe('InstrumentLogImport', () => {
       expect(screen.queryByText(/sample rows parsed/)).toBeTruthy()
     })
     const panel = screen.getByTestId('instrument-log-import')
-    expect(panel.textContent).toContain('TSI Q-Trak')
     expect(panel.textContent).toContain('3 sample rows parsed')
     expect(panel.textContent).toContain('CO₂')
     expect(panel.textContent).toContain('Temp')
@@ -100,7 +100,7 @@ describe('InstrumentLogImport', () => {
 
     await waitFor(() => {
       const panel = screen.getByTestId('instrument-log-import')
-      expect(panel.textContent).toMatch(/No recognizable parameter header row|No supported parameters/i)
+      expect(panel.textContent).toMatch(/No recognised IAQ parameter columns|Could not parse the file|recognised parameter column/i)
     })
     expect(screen.queryByText(/Apply mean values/)).toBeNull()
   })

@@ -148,12 +148,11 @@
       { "type": "file_exists", "path": "tests/engine/ai-review-required-banner.test.ts" }
     ]},
 
-    { "id": "INSTRUMENT-LOG-IMPORT", "label": "Instrument log CSV import aggregates time-series into spot readings (Play 4a)", "checks": [
-      { "type": "file_exists", "path": "src/utils/instrumentLogParser.js" },
+    { "id": "INSTRUMENT-LOG-IMPORT", "label": "Instrument log CSV/XLSX import aggregates time-series into spot readings via the Logger Studio parser (Play 4a)", "checks": [
       { "type": "file_exists", "path": "src/components/InstrumentLogImport.jsx" },
       { "type": "grep_matches", "pattern": "InstrumentLogImport", "paths": ["src/components/MobileApp.jsx"] },
-      { "type": "grep_matches", "pattern": "parseInstrumentLogCsv", "paths": ["src/components/InstrumentLogImport.jsx"] },
-      { "type": "file_exists", "path": "tests/lib/instrument-log-parser.test.ts" },
+      { "type": "grep_matches", "pattern": "parseSensorCsv|parseSensorRows", "paths": ["src/components/InstrumentLogImport.jsx"] },
+      { "type": "grep_matches", "pattern": "xlsxToRows", "paths": ["src/components/InstrumentLogImport.jsx"] },
       { "type": "file_exists", "path": "tests/components/InstrumentLogImport.test.tsx" }
     ]},
 
