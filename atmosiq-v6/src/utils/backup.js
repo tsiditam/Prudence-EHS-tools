@@ -109,27 +109,31 @@ const Backup = {
 
   // ── Soft Delete (30-day recovery) ──
   async softDelete(id, name, type) {
-    // Get the data before removing
     const data = await STO.get(id)
-    if (!data) return false
 
-    // Add to trash with expiration
-    const trash = await STO.get(TRASH_KEY) || []
-    trash.push({
-      id,
-      name: name || 'Untitled',
-      type, // 'rpt' or 'dft'
-      deletedAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + TRASH_TTL_DAYS * 86400000).toISOString(),
-      data,
-    })
-    await STO.set(TRASH_KEY, trash)
+    // Stash a recoverable copy only when there's actually a body to keep.
+    // Orphaned index entries (a body lost to an interrupted finalize) have no
+    // data — but they must still be removable, so we fall through to prune the
+    // index regardless instead of bailing early.
+    if (data) {
+      const trash = await STO.get(TRASH_KEY) || []
+      trash.push({
+        id,
+        name: name || 'Untitled',
+        type, // 'rpt' or 'dft'
+        deletedAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + TRASH_TTL_DAYS * 86400000).toISOString(),
+        data,
+      })
+      await STO.set(TRASH_KEY, trash)
+      await STO.del(id)
+    }
 
-    // Remove from active storage
-    await STO.del(id)
+    // Always prune the active index — and from BOTH lists, since a duplicate
+    // finalize could have left the same id in reports and drafts at once.
     const idx = await STO.getIndex()
-    if (type === 'rpt') idx.reports = (idx.reports || []).filter(r => r.id !== id)
-    else idx.drafts = (idx.drafts || []).filter(d => d.id !== id)
+    idx.reports = (idx.reports || []).filter(r => r.id !== id)
+    idx.drafts = (idx.drafts || []).filter(d => d.id !== id)
     await STO.saveIndex(idx)
 
     return true

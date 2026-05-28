@@ -1159,11 +1159,18 @@ export default function MobileApp() {
     haptic('success')
     setMilestone({icon:'chart',title:'Assessment Complete',sub:`Scoring ${zones.length} zone${zones.length>1?'s':''}...`})
     setTimeout(() => { setMilestone(null); setRTab('overview'); setView('results') }, 1600)
-    const rid = 'rpt-' + Date.now()
+    // Reuse the existing report id when re-finalizing one that was resumed to
+    // fix a defensibility gap, so it UPDATES in place instead of spawning a
+    // duplicate. A brand-new assessment gets a fresh rpt- id and its source
+    // draft is retired. Either way the id is dropped from the drafts list so a
+    // finalized report never also lingers as a draft.
+    const reuseId = draftId && (index.reports || []).some(r => r.id === draftId)
+    const rid = reuseId ? draftId : ('rpt-' + Date.now())
     const report = { id:rid, ts:new Date().toISOString(), ver:VER, presurvey, building:bldg, zones, equipment, photos, floorPlan, zoneScores:zScores, comp:composite, oshaEvals:[osha], recs:recommendations, samplingPlan:sp, causalChains:cc, standardsManifest:STANDARDS_MANIFEST }
     await STO.set(rid, report)
     await STO.addReportToIndex({ id:rid, ts:report.ts, facility:bldg.fn, score:composite?.tot })
-    if (draftId) { await STO.del(draftId) }
+    await STO.removeFromIndex(rid, 'dft')
+    if (draftId && draftId !== rid) { await STO.del(draftId); await STO.removeFromIndex(draftId, 'dft') }
     await refreshIndex()
     // Sync to cloud
     if (supabase) {
