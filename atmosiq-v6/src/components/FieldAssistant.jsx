@@ -162,7 +162,7 @@ function ContextChip({ label, tone = 'accent', icon }) {
 function MessageBubble({ role, content, photos }) {
   const isUser = role === 'user'
   return (
-    <div style={{
+    <div className="jasper-msg-in" style={{
       display: 'flex',
       justifyContent: isUser ? 'flex-end' : 'flex-start',
       marginBottom: 12,
@@ -242,7 +242,7 @@ function describeTool(tool) {
 function ToolStatus({ tool }) {
   const status = describeTool(tool)
   return (
-    <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 12 }}>
+    <div className="jasper-msg-in" style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 12 }}>
       <div style={{
         padding: status ? '10px 14px' : '12px 16px',
         borderRadius: 14, background: SURFACE,
@@ -384,7 +384,7 @@ function ActionCard({ action, summary, status, onAccept, onReject }) {
       ? 'M9 18l6-6-6-6' // chevron-right
       : 'M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7 M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z' // pencil-square
   return (
-    <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 12 }}>
+    <div className="jasper-msg-in" style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 12 }}>
       <div style={{
         maxWidth: '90%',
         padding: '12px 14px',
@@ -620,15 +620,28 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
           which leaked content past both side edges (the original
           bug report showed the robot icon's left ear cut off and
           "Terms · Privacy · AI · REVIEW REQUIRED" bleeding past
-          both screen edges). */}
+          both screen edges).
+
+          Phase-3 depth: scrim drops from solid #000DD to a softer
+          rgba 0.55 + 8px backdrop blur, so the page behind reads
+          as a defocused hint of the assessment instead of a black
+          void. Matches the iOS / macOS sheet pattern (Messages,
+          Mail, ChatGPT iOS) and reinforces the sheet's elevation. */}
       <div
         onClick={handleBackdropClick}
+        className="jasper-backdrop"
         style={{
-          position: 'fixed', inset: 0, background: '#000000DD', zIndex: 260,
+          position: 'fixed', inset: 0,
+          background: 'rgba(2, 6, 10, 0.55)',
+          WebkitBackdropFilter: 'blur(8px) saturate(120%)',
+          backdropFilter: 'blur(8px) saturate(120%)',
+          zIndex: 260,
+          animation: 'jasperBackdropIn 280ms ease-out both',
         }}
       />
       <div
         onClick={(e) => e.stopPropagation()}
+        className="jasper-sheet"
         style={{
           position: 'fixed',
           bottom: 0,
@@ -649,14 +662,32 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
           borderRadius: '20px 20px 0 0',
           padding: '12px 16px',
           paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))',
-          animation: 'fadeUp .3s ease',
+          // Phase-3 motion: iOS sheet spring (Apple's "sheet
+          // present" cubic-bezier) replaces the generic ease.
+          // 380ms gives the rise weight without dragging.
+          animation: 'jasperSheetIn 380ms cubic-bezier(0.32, 0.72, 0, 1) both',
+          // Phase-3 depth: layered elevation shadow + faint accent
+          // halo around the top edge. Reads as a sheet floating
+          // above the page rather than a flat panel pinned to the
+          // bottom. Top-only halo keeps the bottom-anchored sheet
+          // from looking detached from the viewport edge.
+          boxShadow:
+            '0 -20px 60px -10px rgba(0, 0, 0, 0.45),' +
+            '0 -8px 24px -8px rgba(0, 0, 0, 0.30),' +
+            '0 -1px 0 color-mix(in srgb, var(--accent) 22%, transparent)',
           maxHeight: '88vh',
           display: 'flex', flexDirection: 'column',
           boxSizing: 'border-box',
           overflow: 'hidden',
         }}>
-        {/* Drag handle */}
-        <div style={{ width: 36, height: 4, borderRadius: 2, background: BORDER, margin: '0 auto 10px' }} />
+        {/* Drag handle — Phase-3: brightened from BORDER to SUB
+            with a 5px height and a subtle drop shadow so the
+            affordance reads at a glance instead of disappearing
+            into the sheet's gradient header. */}
+        <div style={{
+          width: 40, height: 5, borderRadius: 3, background: SUB,
+          margin: '0 auto 10px', opacity: 0.55,
+        }} />
 
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, gap: 12 }}>
@@ -759,8 +790,13 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
               display: 'flex', flexWrap: 'wrap', gap: 6,
               marginBottom: 10, minWidth: 0,
             }}>
-            {contextChips.map((c) => (
-              <ContextChip key={c.id} label={c.label} tone={c.tone} icon={c.icon} />
+            {contextChips.map((c, i) => (
+              <span
+                key={c.id}
+                className="jasper-chip-in"
+                style={{ animationDelay: `${120 + i * 60}ms` }}>
+                <ContextChip label={c.label} tone={c.tone} icon={c.icon} />
+              </span>
             ))}
           </div>
         )}
@@ -1268,6 +1304,30 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
           0%   { opacity: 0; transform: translateY(6px); }
           100% { opacity: 1; transform: translateY(0); }
         }
+        /* Phase-3 motion primitives. */
+        @keyframes jasperBackdropIn {
+          from { opacity: 0; }
+          to   { opacity: 1; }
+        }
+        @keyframes jasperSheetIn {
+          from { opacity: 0; transform: translateY(28px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes jasperMsgIn {
+          0%   { opacity: 0; transform: translateY(8px) scale(0.98); }
+          100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes jasperChipIn {
+          0%   { opacity: 0; transform: translateY(-4px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+        .jasper-msg-in {
+          animation: jasperMsgIn 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+        }
+        .jasper-chip-in {
+          display: inline-flex;
+          animation: jasperChipIn 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+        }
         /* Phase-1 suggestion cards: cyan-tinted border, soft accent
            glow, and a 1px lift on hover. Focus state mirrors hover
            plus a 3px focus ring so keyboard users get the same
@@ -1293,7 +1353,11 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
           transform: translateY(0);
         }
         @media (prefers-reduced-motion: reduce) {
-          .jasper-stagger {
+          .jasper-stagger,
+          .jasper-msg-in,
+          .jasper-chip-in,
+          .jasper-backdrop,
+          .jasper-sheet {
             animation: none !important;
             opacity: 1 !important;
             transform: none !important;
