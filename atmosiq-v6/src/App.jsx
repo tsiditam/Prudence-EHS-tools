@@ -33,6 +33,7 @@ import DesktopSidebar from './components/DesktopSidebar'
 import HistoryView from './components/HistoryView'
 import ReportView from './components/ReportView'
 import MobileApp from './components/MobileApp'
+import PeerReviewLanding, { PEER_REVIEW_TOKEN_PARAM } from './components/PeerReviewLanding'
 import { AssessmentProvider } from './contexts/AssessmentContext.jsx'
 import { AuthProvider } from './contexts/AuthContext.jsx'
 import { StorageProvider } from './contexts/StorageContext.jsx'
@@ -49,6 +50,16 @@ const STEP_LABELS = ['Pre-Survey', 'Building', 'Zones', 'Review']
 export default function App() {
   const { isDesktop, isStandalone } = useMediaQuery()
   const dk = isDesktop
+
+  // Habit-loop PR 4 — peer review magic-link. Resolved BEFORE auth
+  // so an un-authenticated reviewer (the colleague the assessor sent
+  // the report to) can record their response without an AtmosFlow
+  // account. The token is a server-validated UUID; no client logic
+  // is bypassed by reading it from the URL.
+  const reviewToken = (typeof window !== 'undefined')
+    ? new URLSearchParams(window.location.search).get(PEER_REVIEW_TOKEN_PARAM)
+    : null
+  if (reviewToken) return <PeerReviewLanding token={reviewToken} />
 
   // Desktop browsers → marketing landing page only (no app access)
   if (dk && !isStandalone) return <LandingPage onStartNew={() => {}} onStartDemo={() => {}} isDesktop={true} />

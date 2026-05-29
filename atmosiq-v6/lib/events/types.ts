@@ -36,6 +36,30 @@ export type EventName =
   | 'narrative_generated'
   /** handleExport in MobileApp.jsx succeeded (built-in OR template). */
   | 'report_exported'
+  /**
+   * finishAssessment in MobileApp.jsx wrote a finalized report row.
+   * When `details.site_id` is present, /api/events dispatches
+   * `enqueueReassessmentReminder` to schedule the re-assessment
+   * email. Habit-loop PR 1.
+   */
+  | 'assessment_finalized'
+  /**
+   * Assessor sent a finalized report to a peer reviewer (habit-loop
+   * PR 4). details: { peer_review_id, reviewer_email_hash }.
+   */
+  | 'peer_review_requested'
+  /**
+   * Reviewer submitted a response via the magic-link landing page
+   * (habit-loop PR 4). details: { peer_review_id, status }.
+   */
+  | 'peer_review_completed'
+  /**
+   * User uploaded lab results CSV for a finalized assessment
+   * (habit-loop PR 5). details: { report_id }. The /api/events
+   * dispatcher cancels any pending sampling_results.reminder when
+   * this fires.
+   */
+  | 'lab_results_attached'
 
 export const KNOWN_EVENTS: readonly EventName[] = [
   'logger_imported',
@@ -44,6 +68,10 @@ export const KNOWN_EVENTS: readonly EventName[] = [
   'jasper_asked',
   'narrative_generated',
   'report_exported',
+  'assessment_finalized',
+  'peer_review_requested',
+  'peer_review_completed',
+  'lab_results_attached',
 ] as const
 
 /** Optional caller-supplied input for one event. */

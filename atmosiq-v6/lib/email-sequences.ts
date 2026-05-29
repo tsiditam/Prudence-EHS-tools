@@ -28,6 +28,15 @@ export interface RenderedEmail {
   text: string
 }
 
+/**
+ * Optional per-row payload threaded through the email_queue table
+ * (migration 018) and into render(). Used by event-scheduled
+ * templates (e.g. `reassessment.reminder`) that need per-instance
+ * data the static `UserContext` doesn't carry. Templates that don't
+ * need a payload simply ignore the second arg.
+ */
+export type EmailPayload = Readonly<Record<string, unknown>>
+
 export interface EmailTemplate {
   id: string
   /** When to enqueue, in ms after signup. 0 = immediate. */
@@ -36,7 +45,7 @@ export interface EmailTemplate {
   cancelOnMilestone?: 'first_assessment_completed'
   /** Only send to users still on the named plan when delivery time arrives. */
   requirePlanIs?: 'free' | 'paid'
-  render: (ctx: UserContext) => RenderedEmail
+  render: (ctx: UserContext, payload?: EmailPayload) => RenderedEmail
 }
 
 const SIGNATURE = '— Tsidi\nPrudence Safety & Environmental Consulting, LLC'
@@ -250,9 +259,286 @@ ${SIGNATURE}`
   },
 ]
 
+// ─── Event-scheduled templates (habit-loop PR 1+) ──────────────────
+// These don't participate in templatesForPlan() — they're enqueued
+// directly by trigger functions in response to product events
+// (finalize-assessment, etc.), not at signup. delayMs is unused
+// because the row's scheduled_for is computed by the trigger.
+
+export const EVENT_TEMPLATES: EmailTemplate[] = [
+  {
+    id: 'reassessment.reminder',
+    delayMs: 0,
+    render: (ctx, payload) => {
+      // Payload threaded through email_queue.payload (migration 018).
+      const siteName = (payload && typeof payload.site_name === 'string')
+        ? payload.site_name
+        : 'one of your sites'
+      const siteId = (payload && typeof payload.site_id === 'string') ? payload.site_id : ''
+      // Format the due date the email is sent FOR (matches scheduled_for
+      // in most cases). Fallback to today if missing.
+      const dueIso = (payload && typeof payload.due_at === 'string') ? payload.due_at : null
+      const dueDate = dueIso ? new Date(dueIso) : new Date()
+      const dueLabel = isNaN(dueDate.getTime())
+        ? ''
+        : dueDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+
+      const startUrl = siteId
+        ? `https://${APP_URL}/?start=site&id=${encodeURIComponent(siteId)}`
+        : `https://${APP_URL}/`
+
+      const subject = `Re-assessment due at ${siteName}`
+      const body = `Hi ${firstName(ctx)},
+
+A reminder from AtmosFlow: ${siteName} is due for re-assessment${dueLabel ? ` (${dueLabel})` : ''}.
+
+Start a re-assessment with the previous building profile already
+filled in — most consultants finish a follow-up walkthrough in
+20 minutes:
+
+${startUrl}
+
+Re-assessment intervals are typically annual for most occupied
+buildings; adjust the cadence per site in Settings → Sites if your
+site warrants quarterly or post-event review.
+
+Not the right time? You can pause reminders for this site in
+Settings → Sites, or turn off re-assessment emails entirely in
+Settings → Email Preferences.
+
+${SIGNATURE}`
+      return { subject, body, text: body }
+    },
+  },
+  // ── Calibration expiry (habit-loop PR 2) ─────────────────────────
+  // Two-stage reminders driven by scripts/cron-calibration-expiry.ts
+  // scanning public.profiles daily. The cron picks ONE email per
+  // (user, instrument, cal_date, kind) so re-runs after first
+  // delivery are no-ops; re-calibrating advances cal_date and starts
+  // a fresh cycle.
+  {
+    id: 'calibration.expiring',
+    delayMs: 0,
+    render: (ctx, payload) => {
+      const meter = (payload && typeof payload.meter === 'string') ? payload.meter : 'your instrument'
+      const days = (payload && typeof payload.days_to_expiry === 'number') ? payload.days_to_expiry : null
+      const subject = `${meter} calibration expires soon — schedule recalibration`
+      const window = (days != null && days > 0) ? `in ${days} day${days === 1 ? '' : 's'}` : 'soon'
+      const body = `Hi ${firstName(ctx)},
+
+A heads up: ${meter} is recorded as expiring ${window}.
+
+AtmosFlow flags assessments where the primary instrument is out of
+calibration. Re-cal now (or send it out) so your upcoming
+assessments stay CIH-defensible without an "Out of calibration"
+banner on the cover page.
+
+After re-cal, update the date in Settings → Profile → Instruments
+so AtmosFlow knows the new validity window.
+
+You can turn off these reminders any time in Settings → Profile →
+Email Preferences.
+
+${SIGNATURE}`
+      return { subject, body, text: body }
+    },
+  },
+  // ── Peer review (habit-loop PR 4) ────────────────────────────────
+  // Transactional — sent synchronously by /api/peer-review.ts (NOT
+  // drained from email_queue). Templates live here so the rendering
+  // logic stays in one place; the API endpoint calls getTemplate +
+  // render then sends via Resend directly.
+  //
+  // peer_review.request — to the REVIEWER (not necessarily an
+  //   AtmosFlow user). Includes the magic-link URL + DOCX attachment.
+  // peer_review.completed — to the ASSESSOR, after the reviewer
+  //   responds. Status + notes summary.
+  {
+    id: 'peer_review.request',
+    delayMs: 0,
+    render: (_ctx, payload) => {
+      // Note: ctx.first_name here is the REVIEWER (whose name we know
+      // from the form), NOT the assessor; the API endpoint constructs
+      // a minimal UserContext for the reviewer with their name.
+      const p = (payload || {}) as Record<string, unknown>
+      const assessor = typeof p.assessor_name === 'string' ? p.assessor_name : 'an AtmosFlow user'
+      const reviewer = typeof p.reviewer_name === 'string' ? p.reviewer_name : 'colleague'
+      const facility = typeof p.facility_name === 'string' && p.facility_name ? p.facility_name : 'an IAQ assessment'
+      const message = typeof p.message === 'string' && p.message.trim() ? p.message.trim() : ''
+      const respondUrl = typeof p.respond_url === 'string' ? p.respond_url : `https://${APP_URL}/`
+      const subject = `Peer review requested: ${facility}`
+      const messageBlock = message ? `\n${assessor} included a note:\n\n  ${message}\n` : ''
+      const body = `Hi ${reviewer},
+
+${assessor} sent you an AtmosFlow IAQ assessment for peer review.
+
+Facility: ${facility}
+${messageBlock}
+The report is attached to this email as a Word document. When you've
+reviewed it, please open this link to record your response (approve,
+request changes, or comment):
+
+${respondUrl}
+
+The link expires in 30 days. No AtmosFlow account is required —
+the link is single-purpose and only records your review status +
+optional notes.
+
+${SIGNATURE}`
+      return { subject, body, text: body }
+    },
+  },
+  {
+    id: 'peer_review.completed',
+    delayMs: 0,
+    render: (ctx, payload) => {
+      const p = (payload || {}) as Record<string, unknown>
+      const reviewer = typeof p.reviewer_name === 'string' ? p.reviewer_name : 'Your reviewer'
+      const facility = typeof p.facility_name === 'string' && p.facility_name ? p.facility_name : 'your assessment'
+      const status = typeof p.status === 'string' ? p.status : 'commented'
+      const notes = typeof p.notes === 'string' && p.notes.trim() ? p.notes.trim() : ''
+      const statusLabel = status === 'approved' ? 'Approved'
+        : status === 'changes_requested' ? 'Requested changes'
+        : 'Comment'
+      const subject = `${reviewer} reviewed ${facility} — ${statusLabel}`
+      const notesBlock = notes ? `\nReviewer notes:\n\n  ${notes}\n` : ''
+      const body = `Hi ${firstName(ctx)},
+
+${reviewer} responded to your peer review request.
+
+Facility:  ${facility}
+Response:  ${statusLabel}
+${notesBlock}
+You can see this review (and any other pending reviews) in the
+peer reviews list on the report's results screen.
+
+${SIGNATURE}`
+      return { subject, body, text: body }
+    },
+  },
+  // ── Sampling results outstanding (habit-loop PR 5) ───────────────
+  // Fires N days after finalize when the engine generated a sampling
+  // plan but no lab results have been attached yet. Cancelled
+  // automatically when /api/events sees a lab_results_attached event.
+  {
+    id: 'sampling_results.reminder',
+    delayMs: 0,
+    render: (ctx, payload) => {
+      const p = (payload || {}) as Record<string, unknown>
+      const facility = (typeof p.facility_name === 'string' && p.facility_name) ? p.facility_name : 'your assessment'
+      const planSize = typeof p.sampling_plan_size === 'number' ? p.sampling_plan_size : 0
+      const methodLine = planSize > 0
+        ? `${planSize} sampling method${planSize === 1 ? '' : 's'}`
+        : 'sampling methods'
+      const subject = `Lab results still pending — ${facility}`
+      const body = `Hi ${firstName(ctx)},
+
+Your AtmosFlow assessment for ${facility} included ${methodLine}
+in the sampling plan. The deliverable carries those
+recommendations forward; once the lab returns analytical results,
+attaching the CSV closes the loop and the report includes the
+results appendix.
+
+Open AtmosFlow → the report's Lab Results tab → import the CSV.
+
+If you've already attached the results, ignore this message —
+AtmosFlow only knows what it sees on the assessment record.
+
+You can turn off these reminders any time in Settings → Profile
+→ Email Preferences.
+
+${SIGNATURE}`
+      return { subject, body, text: body }
+    },
+  },
+  // ── Portfolio digest (habit-loop PR 3) ───────────────────────────
+  // Quarterly summary email driven by scripts/cron-portfolio-digest.ts.
+  // Stats are the user's OWN audit_log totals — no cohort comparison
+  // (per the Hook audit's screening-only constraint). Variability is
+  // user-corpus-driven, which is the defensible form of "variable
+  // reward" per Eyal's framework for B2B / professional audiences.
+  {
+    id: 'portfolio.digest',
+    delayMs: 0,
+    render: (ctx, payload) => {
+      const stats = (payload || {}) as Record<string, unknown>
+      const qLabel = typeof stats.quarter_label === 'string' ? stats.quarter_label : 'this quarter'
+      const priorLabel = typeof stats.prior_label === 'string' ? stats.prior_label : 'last quarter'
+      const finalized = typeof stats.assessments_finalized === 'number' ? stats.assessments_finalized : 0
+      const finalizedPrior = typeof stats.assessments_finalized_prior === 'number' ? stats.assessments_finalized_prior : 0
+      const delta = typeof stats.delta_finalized === 'number' ? stats.delta_finalized : (finalized - finalizedPrior)
+      const reports = typeof stats.reports_exported === 'number' ? stats.reports_exported : 0
+      const sites = typeof stats.distinct_sites === 'number' ? stats.distinct_sites : 0
+
+      // Delta phrasing — factual, no judgment.
+      let deltaLine: string
+      if (finalizedPrior === 0 && finalized > 0) {
+        deltaLine = `${finalized} more than ${priorLabel} (no assessments recorded that quarter).`
+      } else if (delta > 0) {
+        deltaLine = `${delta} more than ${priorLabel} (${finalizedPrior}).`
+      } else if (delta < 0) {
+        deltaLine = `${Math.abs(delta)} fewer than ${priorLabel} (${finalizedPrior}).`
+      } else {
+        deltaLine = `Same as ${priorLabel} (${finalizedPrior}).`
+      }
+
+      const subject = `Your ${qLabel} on AtmosFlow — ${finalized} assessment${finalized === 1 ? '' : 's'}`
+      const sitesLine = sites > 0
+        ? `Sites assessed:        ${sites}\n`
+        : ''
+      const body = `Hi ${firstName(ctx)},
+
+Your ${qLabel} on AtmosFlow:
+
+Assessments finalized: ${finalized}
+${sitesLine}Reports exported:      ${reports}
+
+${deltaLine}
+
+These are your own totals — no benchmarks, no cohort comparison.
+Use them however helps your practice. If a number looks off,
+reply to this email and tell me; it usually means the engine
+didn't see something you finalized.
+
+Turn off these quarterly digests any time in Settings → Profile →
+Email Preferences.
+
+${SIGNATURE}`
+      return { subject, body, text: body }
+    },
+  },
+  {
+    id: 'calibration.expired',
+    delayMs: 0,
+    render: (ctx, payload) => {
+      const meter = (payload && typeof payload.meter === 'string') ? payload.meter : 'your instrument'
+      const days = (payload && typeof payload.days_to_expiry === 'number') ? Math.abs(payload.days_to_expiry) : null
+      const subject = `${meter} calibration has expired`
+      const sinceFragment = (days != null && days > 0) ? ` (${days} day${days === 1 ? '' : 's'} ago)` : ''
+      const body = `Hi ${firstName(ctx)},
+
+${meter} is recorded as expired${sinceFragment}.
+
+Findings derived from an out-of-calibration instrument carry a
+"qualitative-only" caveat through every part of the deliverable —
+that's the conservative behavior built into AtmosFlow's
+defensibility layer. Re-cal before your next walkthrough to
+remove the caveat.
+
+After re-cal, update the date in Settings → Profile → Instruments.
+
+If this is wrong (cal happened but the date wasn't logged), just
+update the date in your profile and AtmosFlow will recompute.
+
+${SIGNATURE}`
+      return { subject, body, text: body }
+    },
+  },
+]
+
 // ─── Lookup ────────────────────────────────────────────────────────
 const ALL_TEMPLATES: Record<string, EmailTemplate> = {}
-for (const t of [...FREE_TIER_TEMPLATES, ...PAID_TIER_TEMPLATES]) {
+for (const t of [...FREE_TIER_TEMPLATES, ...PAID_TIER_TEMPLATES, ...EVENT_TEMPLATES]) {
   ALL_TEMPLATES[t.id] = t
 }
 

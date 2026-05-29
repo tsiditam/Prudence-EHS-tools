@@ -111,3 +111,386 @@ export async function onSubscriptionCanceled(
   // Intentional no-op. See TODO above.
   return { enqueued: 0 }
 }
+
+// ─── Calibration expiry reminder (habit-loop PR 2) ─────────────────
+
+export type CalibrationKind = 'expiring' | 'expired'
+
+export interface CalibrationReminderEvent {
+  user_id: string
+  /** Stable identifier for the instrument slot — 'iaq' | 'pid'. */
+  instrument_key: string
+  /** Human-readable meter label (e.g. "Graywolf IQ-610"). */
+  meter: string
+  /** Cal date the reminder is computed against. Identifies the cycle. */
+  cal_date: string
+  /** State.kind from getCalibrationBannerState. */
+  kind: CalibrationKind
+  /** Days to expiry at the time the reminder is computed (negative when expired). */
+  days_to_expiry: number
+}
+
+/**
+ * Schedule a calibration-expiring or calibration-expired email.
+ *
+ * Idempotency model:
+ *   • Skips entirely when a row already exists for (user_id,
+ *     template_id, payload.instrument_key, payload.cal_date) — sent
+ *     OR queued. So the daily cron firing again the next day is a
+ *     no-op once the reminder has gone out for THIS cal cycle.
+ *   • When a row exists for the same (user_id, instrument_key) but
+ *     with a STALE cal_date (the user re-calibrated since the prior
+ *     reminder), the stale unsent row is cancelled. The fresh cycle
+ *     can then enqueue its own first reminder cleanly.
+ *
+ * Returns { canceled, enqueued } so the caller can log progress.
+ * `enqueued: 0` is the no-op-because-already-sent path — not an error.
+ */
+export async function enqueueCalibrationReminder(
+  supabase: SupabaseLike,
+  event: CalibrationReminderEvent,
+): Promise<{ canceled: number; enqueued: number; skipped: boolean }> {
+  if (!event.user_id || !event.instrument_key || !event.meter || !event.cal_date) {
+    throw new Error('enqueueCalibrationReminder: missing required fields')
+  }
+  if (event.kind !== 'expiring' && event.kind !== 'expired') {
+    throw new Error(`enqueueCalibrationReminder: invalid kind ${event.kind}`)
+  }
+  const tpl = getTemplate('calibration.' + event.kind)
+  if (!tpl) {
+    throw new Error(`enqueueCalibrationReminder: template calibration.${event.kind} not registered`)
+  }
+
+  // Pull all queue rows of this template for this user. Filter
+  // payload-side so the SQL stays simple (no JSONB predicates).
+  const { data: priorRows, error: selErr } = await supabase
+    .from('email_queue')
+    .select('id, sent_at, canceled_at, payload')
+    .eq('user_id', event.user_id)
+    .eq('template_id', tpl.id)
+  if (selErr) {
+    throw new Error(`enqueueCalibrationReminder select failed: ${selErr.message}`)
+  }
+
+  type Row = { id: number; sent_at: string | null; canceled_at: string | null; payload?: { instrument_key?: string; cal_date?: string } }
+  const rows = (priorRows || []) as Row[]
+  // Sent or queued row matching this exact cal_date → already covered.
+  const alreadyCovered = rows.some(r =>
+    r.payload?.instrument_key === event.instrument_key &&
+    r.payload?.cal_date === event.cal_date &&
+    r.canceled_at == null,
+  )
+  if (alreadyCovered) {
+    return { canceled: 0, enqueued: 0, skipped: true }
+  }
+
+  // Stale unsent rows for the same instrument → cancel.
+  const staleIds: number[] = []
+  for (const r of rows) {
+    if (
+      r.payload?.instrument_key === event.instrument_key &&
+      r.payload?.cal_date !== event.cal_date &&
+      r.sent_at == null &&
+      r.canceled_at == null
+    ) {
+      staleIds.push(r.id)
+    }
+  }
+  let canceled = 0
+  if (staleIds.length > 0) {
+    const { error: cancelErr } = await supabase
+      .from('email_queue')
+      .update({ canceled_at: new Date().toISOString(), cancel_reason: 'cal_date_advanced' })
+      .in('id', staleIds)
+    if (cancelErr) {
+      throw new Error(`enqueueCalibrationReminder cancel failed: ${cancelErr.message}`)
+    }
+    canceled = staleIds.length
+  }
+
+  // Schedule immediately — the cron is the gating clock, not scheduled_for.
+  const { error: insErr } = await supabase.from('email_queue').insert({
+    user_id: event.user_id,
+    template_id: tpl.id,
+    scheduled_for: new Date().toISOString(),
+    payload: {
+      instrument_key: event.instrument_key,
+      meter: event.meter,
+      cal_date: event.cal_date,
+      kind: event.kind,
+      days_to_expiry: event.days_to_expiry,
+    },
+  })
+  if (insErr) {
+    throw new Error(`enqueueCalibrationReminder insert failed: ${insErr.message}`)
+  }
+  return { canceled, enqueued: 1, skipped: false }
+}
+
+// ─── Portfolio digest (habit-loop PR 3) ────────────────────────────
+
+export interface PortfolioDigestEvent {
+  user_id: string
+  /** Identifier for this quarter — used for idempotency keying. e.g. "2026-Q2". */
+  quarter_key: string
+  /** Stats payload — opaque to this function; rendered by the template. */
+  stats: Record<string, unknown>
+}
+
+/**
+ * Schedule the quarterly portfolio digest email for a user.
+ *
+ * Idempotency model: only one digest per (user_id, quarter_key)
+ * ever exists. If a row for this quarter already exists (sent OR
+ * queued), this is a no-op. The cron is free to re-run during the
+ * same quarter (e.g. on Vercel cron retries) without duplicating.
+ *
+ * The stats payload is captured at enqueue-time and rendered by the
+ * template at send-time; if numbers change between enqueue and send
+ * (the user finalizes more assessments in those few minutes), the
+ * digest reports the snapshot from enqueue. That's intentional —
+ * the alternative (re-aggregate at send) would require the cron
+ * processor to know about audit_log, breaking layering.
+ */
+export async function enqueuePortfolioDigest(
+  supabase: SupabaseLike,
+  event: PortfolioDigestEvent,
+): Promise<{ enqueued: number; skipped: boolean }> {
+  if (!event.user_id || !event.quarter_key) {
+    throw new Error('enqueuePortfolioDigest: missing user_id / quarter_key')
+  }
+  const tpl = getTemplate('portfolio.digest')
+  if (!tpl) {
+    throw new Error('enqueuePortfolioDigest: portfolio.digest template not registered')
+  }
+
+  // Has this quarter already been digested?
+  const { data: priorRows, error: selErr } = await supabase
+    .from('email_queue')
+    .select('id, sent_at, canceled_at, payload')
+    .eq('user_id', event.user_id)
+    .eq('template_id', tpl.id)
+  if (selErr) {
+    throw new Error(`enqueuePortfolioDigest select failed: ${selErr.message}`)
+  }
+  type Row = { id: number; sent_at: string | null; canceled_at: string | null; payload?: { quarter_key?: string } }
+  const rows = (priorRows || []) as Row[]
+  const alreadyCovered = rows.some(r =>
+    r.payload?.quarter_key === event.quarter_key &&
+    r.canceled_at == null,
+  )
+  if (alreadyCovered) {
+    return { enqueued: 0, skipped: true }
+  }
+
+  const { error: insErr } = await supabase.from('email_queue').insert({
+    user_id: event.user_id,
+    template_id: tpl.id,
+    scheduled_for: new Date().toISOString(),
+    payload: {
+      quarter_key: event.quarter_key,
+      ...event.stats,
+    },
+  })
+  if (insErr) {
+    throw new Error(`enqueuePortfolioDigest insert failed: ${insErr.message}`)
+  }
+  return { enqueued: 1, skipped: false }
+}
+
+// ─── Sampling results outstanding reminder (habit-loop PR 5) ───────
+
+export interface SamplingResultsReminderEvent {
+  user_id: string
+  /** The finalized report's id (rpt-...). */
+  report_id: string
+  facility_name: string | null
+  sampling_plan_size: number
+  /** When the reminder email should fire (typically finalize_at + 14 days). */
+  due_at: Date
+}
+
+/**
+ * Schedule a `sampling_results.reminder` email for a finalized
+ * assessment whose engine output included a sampling plan but no
+ * lab results were attached at finalize time.
+ *
+ * Idempotency: cancels any unsent prior reminder for the same
+ * (user_id, report_id) before insert. Re-finalizing the same
+ * report moves the reminder rather than stacking it.
+ */
+export async function enqueueSamplingResultsReminder(
+  supabase: SupabaseLike,
+  event: SamplingResultsReminderEvent,
+): Promise<{ canceled: number; enqueued: number }> {
+  if (!event.user_id || !event.report_id) {
+    throw new Error('enqueueSamplingResultsReminder: missing user_id / report_id')
+  }
+  const tpl = getTemplate('sampling_results.reminder')
+  if (!tpl) {
+    throw new Error('enqueueSamplingResultsReminder: template not registered')
+  }
+  const { data: priorRows, error: selErr } = await supabase
+    .from('email_queue')
+    .select('id, payload')
+    .eq('user_id', event.user_id)
+    .eq('template_id', tpl.id)
+    .is('sent_at', null)
+    .is('canceled_at', null)
+  if (selErr) {
+    throw new Error(`enqueueSamplingResultsReminder select failed: ${selErr.message}`)
+  }
+  type Row = { id: number; payload?: { report_id?: string } }
+  const matchingIds: Array<number | string> = []
+  for (const r of (priorRows || []) as Row[]) {
+    if (r.payload?.report_id === event.report_id) matchingIds.push(r.id)
+  }
+  let canceled = 0
+  if (matchingIds.length > 0) {
+    const { error: cancelErr } = await supabase
+      .from('email_queue')
+      .update({ canceled_at: new Date().toISOString(), cancel_reason: 'sampling_results_reschedule' })
+      .in('id', matchingIds)
+    if (cancelErr) {
+      throw new Error(`enqueueSamplingResultsReminder cancel failed: ${cancelErr.message}`)
+    }
+    canceled = matchingIds.length
+  }
+  const { error: insErr } = await supabase.from('email_queue').insert({
+    user_id: event.user_id,
+    template_id: tpl.id,
+    scheduled_for: event.due_at.toISOString(),
+    payload: {
+      report_id: event.report_id,
+      facility_name: event.facility_name,
+      sampling_plan_size: event.sampling_plan_size,
+    },
+  })
+  if (insErr) {
+    throw new Error(`enqueueSamplingResultsReminder insert failed: ${insErr.message}`)
+  }
+  return { canceled, enqueued: 1 }
+}
+
+/**
+ * Cancel any unsent sampling_results.reminder for (user_id, report_id).
+ * Called by the /api/events dispatcher when a `lab_results_attached`
+ * event fires.
+ */
+export async function cancelSamplingResultsReminder(
+  supabase: SupabaseLike,
+  event: { user_id: string; report_id: string },
+): Promise<{ canceled: number }> {
+  if (!event.user_id || !event.report_id) {
+    throw new Error('cancelSamplingResultsReminder: missing user_id / report_id')
+  }
+  const tpl = getTemplate('sampling_results.reminder')
+  if (!tpl) return { canceled: 0 }
+  const { data: priorRows, error: selErr } = await supabase
+    .from('email_queue')
+    .select('id, payload')
+    .eq('user_id', event.user_id)
+    .eq('template_id', tpl.id)
+    .is('sent_at', null)
+    .is('canceled_at', null)
+  if (selErr) {
+    throw new Error(`cancelSamplingResultsReminder select failed: ${selErr.message}`)
+  }
+  type Row = { id: number; payload?: { report_id?: string } }
+  const matchingIds: Array<number | string> = []
+  for (const r of (priorRows || []) as Row[]) {
+    if (r.payload?.report_id === event.report_id) matchingIds.push(r.id)
+  }
+  if (matchingIds.length === 0) return { canceled: 0 }
+  const { error: cancelErr } = await supabase
+    .from('email_queue')
+    .update({ canceled_at: new Date().toISOString(), cancel_reason: 'lab_results_attached' })
+    .in('id', matchingIds)
+  if (cancelErr) {
+    throw new Error(`cancelSamplingResultsReminder cancel failed: ${cancelErr.message}`)
+  }
+  return { canceled: matchingIds.length }
+}
+
+// ─── Re-assessment reminder (habit-loop PR 1) ──────────────────────
+
+export interface ReassessmentReminderEvent {
+  user_id: string
+  site_id: string
+  site_name: string
+  /** When the reminder email should fire (typically last_finalized_at + interval). */
+  due_at: Date
+}
+
+/**
+ * Schedule a `reassessment.reminder` email for a saved site.
+ *
+ * Idempotent across re-finalizations of the same site: any unsent
+ * prior reminder row for `(user_id, site_id)` is cancelled, then a
+ * single new row is inserted. Re-finalizing the same site moves the
+ * reminder rather than stacking it.
+ *
+ * The payload (site_name, site_id, due_at) is read at render time by
+ * the `reassessment.reminder` template — see email_queue.payload
+ * (migration 018) + the render(ctx, payload) signature.
+ */
+export async function enqueueReassessmentReminder(
+  supabase: SupabaseLike,
+  event: ReassessmentReminderEvent,
+): Promise<{ canceled: number; enqueued: number }> {
+  if (!event.user_id || !event.site_id || !event.site_name) {
+    throw new Error('enqueueReassessmentReminder: missing user_id / site_id / site_name')
+  }
+  const tpl = getTemplate('reassessment.reminder')
+  if (!tpl) {
+    throw new Error('enqueueReassessmentReminder: reassessment.reminder template not registered')
+  }
+
+  // 1) Cancel any prior unsent reminder for THIS site so we never
+  //    stack two reminders. Filter on the site_id stored in payload
+  //    so reminders for OTHER sites are untouched.
+  const { data: priorRows, error: selErr } = await supabase
+    .from('email_queue')
+    .select('id, payload')
+    .eq('user_id', event.user_id)
+    .eq('template_id', tpl.id)
+    .is('sent_at', null)
+    .is('canceled_at', null)
+  if (selErr) {
+    throw new Error(`enqueueReassessmentReminder select failed: ${selErr.message}`)
+  }
+  let canceled = 0
+  const matchingIds: Array<number | string> = []
+  for (const row of (priorRows || []) as Array<{ id: number; payload?: { site_id?: string } }>) {
+    if (row.payload && row.payload.site_id === event.site_id) {
+      matchingIds.push(row.id)
+    }
+  }
+  if (matchingIds.length > 0) {
+    const { error: cancelErr } = await supabase
+      .from('email_queue')
+      .update({ canceled_at: new Date().toISOString(), cancel_reason: 'reassessment_reschedule' })
+      .in('id', matchingIds)
+    if (cancelErr) {
+      throw new Error(`enqueueReassessmentReminder cancel failed: ${cancelErr.message}`)
+    }
+    canceled = matchingIds.length
+  }
+
+  // 2) Insert the new reminder row scheduled for the next due date.
+  const { error: insErr } = await supabase.from('email_queue').insert({
+    user_id: event.user_id,
+    template_id: tpl.id,
+    scheduled_for: event.due_at.toISOString(),
+    payload: {
+      site_id: event.site_id,
+      site_name: event.site_name,
+      due_at: event.due_at.toISOString(),
+    },
+  })
+  if (insErr) {
+    throw new Error(`enqueueReassessmentReminder insert failed: ${insErr.message}`)
+  }
+
+  return { canceled, enqueued: 1 }
+}

@@ -325,6 +325,69 @@
       { "type": "grep_matches", "pattern": "export interface NarrativeOk", "paths": ["lib/contracts/narrative.ts"] },
       { "type": "grep_matches", "pattern": "export interface ReportRenderInput", "paths": ["lib/contracts/report-render.ts"] },
       { "type": "grep_matches", "pattern": "export interface JasperTurnRequest", "paths": ["lib/contracts/jasper-turn.ts"] }
+    ]},
+    { "id": "SITE-LIBRARY", "label": "Site library + sites API exist (habit-loop PR 1)", "checks": [
+      { "type": "grep_matches", "pattern": "CREATE TABLE.*sites", "paths": ["supabase/migrations/"] },
+      { "type": "file_exists", "path": "api/sites.ts" },
+      { "type": "file_exists", "path": "src/components/settings/SiteLibraryPanel.jsx" },
+      { "type": "file_exists", "path": "tests/api/sites.test.ts" },
+      { "type": "grep_matches", "pattern": "SiteLibraryPanel", "paths": ["src/components/SettingsScreen.jsx"] }
+    ]},
+    { "id": "REASSESSMENT-REMINDER", "label": "Re-assessment reminder loop wired end-to-end (habit-loop PR 1)", "checks": [
+      { "type": "grep_matches", "pattern": "enqueueReassessmentReminder", "paths": ["lib/email-triggers.ts"] },
+      { "type": "grep_matches", "pattern": "reassessment\\.reminder", "paths": ["lib/email-sequences.ts"] },
+      { "type": "grep_matches", "pattern": "assessment_finalized", "paths": ["lib/events/types.ts", "api/events.ts", "src/components/MobileApp.jsx"] },
+      { "type": "grep_matches", "pattern": "email_preferences", "paths": ["src/components/ProfileScreen.jsx"] },
+      { "type": "file_exists", "path": "src/components/SaveSitePrompt.jsx" },
+      { "type": "file_exists", "path": "src/utils/siteLink.js" }
+    ]},
+    { "id": "CALIBRATION-EXPIRY-REMINDER", "label": "Calibration-expiry email loop wired end-to-end (habit-loop PR 2)", "checks": [
+      { "type": "file_exists", "path": "lib/calibration/banner-state.ts" },
+      { "type": "file_exists", "path": "scripts/cron-calibration-expiry.ts" },
+      { "type": "file_exists", "path": "api/cron-calibration-expiry.ts" },
+      { "type": "grep_matches", "pattern": "enqueueCalibrationReminder", "paths": ["lib/email-triggers.ts"] },
+      { "type": "grep_matches", "pattern": "calibration\\.expiring", "paths": ["lib/email-sequences.ts"] },
+      { "type": "grep_matches", "pattern": "calibration\\.expired", "paths": ["lib/email-sequences.ts"] },
+      { "type": "grep_matches", "pattern": "cron-calibration-expiry", "paths": ["vercel.json"] },
+      { "type": "grep_matches", "pattern": "calibration_expiry", "paths": ["src/components/ProfileScreen.jsx"] },
+      { "type": "file_exists", "path": "tests/lib/calibration-banner-state.test.ts" },
+      { "type": "file_exists", "path": "tests/scripts/cron-calibration-expiry.test.ts" }
+    ]},
+    { "id": "PORTFOLIO-DIGEST", "label": "Quarterly portfolio digest email loop wired end-to-end (habit-loop PR 3)", "checks": [
+      { "type": "file_exists", "path": "lib/portfolio/digest-stats.ts" },
+      { "type": "file_exists", "path": "scripts/cron-portfolio-digest.ts" },
+      { "type": "file_exists", "path": "api/cron-portfolio-digest.ts" },
+      { "type": "grep_matches", "pattern": "enqueuePortfolioDigest", "paths": ["lib/email-triggers.ts"] },
+      { "type": "grep_matches", "pattern": "portfolio\\.digest", "paths": ["lib/email-sequences.ts"] },
+      { "type": "grep_matches", "pattern": "cron-portfolio-digest", "paths": ["vercel.json"] },
+      { "type": "grep_matches", "pattern": "portfolio_digest", "paths": ["src/components/ProfileScreen.jsx"] },
+      { "type": "grep_matches", "pattern": "computeDigestStats", "paths": ["lib/portfolio/digest-stats.ts", "scripts/cron-portfolio-digest.ts"] },
+      { "type": "file_exists", "path": "tests/lib/digest-stats.test.ts" },
+      { "type": "file_exists", "path": "tests/scripts/cron-portfolio-digest.test.ts" }
+    ]},
+    { "id": "PEER-REVIEW", "label": "Peer review send + magic-link respond loop wired end-to-end (habit-loop PR 4)", "checks": [
+      { "type": "grep_matches", "pattern": "CREATE TABLE.*peer_reviews", "paths": ["supabase/migrations/"] },
+      { "type": "file_exists", "path": "lib/peer-review/types.ts" },
+      { "type": "file_exists", "path": "api/peer-review.ts" },
+      { "type": "file_exists", "path": "api/peer-review-respond.ts" },
+      { "type": "file_exists", "path": "src/components/PeerReviewModal.jsx" },
+      { "type": "file_exists", "path": "src/components/PeerReviewLanding.jsx" },
+      { "type": "grep_matches", "pattern": "peer_review\\.request", "paths": ["lib/email-sequences.ts"] },
+      { "type": "grep_matches", "pattern": "peer_review\\.completed", "paths": ["lib/email-sequences.ts"] },
+      { "type": "grep_matches", "pattern": "peer_review_requested", "paths": ["lib/events/types.ts", "src/components/MobileApp.jsx"] },
+      { "type": "grep_matches", "pattern": "peer_review_completed", "paths": ["lib/events/types.ts", "api/peer-review-respond.ts"] },
+      { "type": "grep_matches", "pattern": "PeerReviewLanding", "paths": ["src/App.jsx"] },
+      { "type": "file_exists", "path": "tests/api/peer-review.test.ts" },
+      { "type": "file_exists", "path": "tests/api/peer-review-respond.test.ts" },
+      { "type": "file_exists", "path": "tests/components/PeerReviewLanding.test.tsx" }
+    ]},
+    { "id": "SAMPLING-RESULTS-REMINDER", "label": "Sampling-results-outstanding reminder loop wired end-to-end (habit-loop PR 5)", "checks": [
+      { "type": "grep_matches", "pattern": "enqueueSamplingResultsReminder", "paths": ["lib/email-triggers.ts"] },
+      { "type": "grep_matches", "pattern": "cancelSamplingResultsReminder", "paths": ["lib/email-triggers.ts"] },
+      { "type": "grep_matches", "pattern": "sampling_results\\.reminder", "paths": ["lib/email-sequences.ts"] },
+      { "type": "grep_matches", "pattern": "lab_results_attached", "paths": ["lib/events/types.ts", "api/events.ts", "src/components/LabResultsImport.jsx"] },
+      { "type": "grep_matches", "pattern": "sampling_plan_size", "paths": ["api/events.ts", "src/components/MobileApp.jsx"] },
+      { "type": "grep_matches", "pattern": "sampling_results_outstanding", "paths": ["src/components/ProfileScreen.jsx"] }
     ]}
   ]
 }

@@ -45,6 +45,10 @@ export const KEYS = {
   // ── Feature data ('atmosflow:*') ──
   incidents: 'atmosflow:incidents',
   complaintsMigrated: 'atmosflow:complaints-migrated',
+  // Site library — local cache of /api/sites (habit-loop PR 1).
+  // Cloud is authoritative; this mirror lets the dashboard / FAB
+  // read sites without a fresh fetch.
+  sites: 'atmosflow:sites',
   userMode: 'atmosflow:userMode',    // 'ih' | 'fm'
   buildings: 'atmosflow:buildings',  // FM portfolio
   projects: 'atmosflow:projects',    // Project / Site Folders

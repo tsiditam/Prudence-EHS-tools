@@ -11,9 +11,24 @@ const StorageContext = createContext(null)
 
 export function StorageProvider({ children }) {
   const [index, setIndex] = useState({ reports: [], drafts: [] })
+  // Site library cache (habit-loop PR 1). Hydrated from
+  // localStorage on first refresh; refreshed by the SiteLibraryPanel
+  // / SaveSitePrompt after writes to /api/sites.
+  const [sites, setSites] = useState([])
 
   const refreshIndex = useCallback(async () => {
     setIndex(await STO.getIndex())
+  }, [])
+
+  const refreshSites = useCallback(async (next) => {
+    // Optional `next` arg lets callers atomically pass the just-fetched
+    // list from /api/sites without an extra localStorage round-trip.
+    if (Array.isArray(next)) {
+      await STO.saveSitesCache(next)
+      setSites(next)
+      return
+    }
+    setSites(await STO.getSites())
   }, [])
 
   const deleteItem = useCallback(async (id, name, type) => {
@@ -23,7 +38,8 @@ export function StorageProvider({ children }) {
 
   const value = useMemo(() => ({
     index, refreshIndex, deleteItem,
-  }), [index, refreshIndex, deleteItem])
+    sites, refreshSites,
+  }), [index, refreshIndex, deleteItem, sites, refreshSites])
 
   return <StorageContext.Provider value={value}>{children}</StorageContext.Provider>
 }

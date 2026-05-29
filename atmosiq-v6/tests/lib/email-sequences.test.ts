@@ -22,6 +22,11 @@ import {
   enqueueSignupSequence,
   onAssessmentCompleted,
   onSubscriptionCanceled,
+  enqueueReassessmentReminder,
+  enqueueCalibrationReminder,
+  enqueuePortfolioDigest,
+  enqueueSamplingResultsReminder,
+  cancelSamplingResultsReminder,
   type SupabaseLike,
 } from '../../lib/email-triggers'
 
@@ -208,6 +213,522 @@ describe('email-triggers — onSubscriptionCanceled is a no-op (TODO)', () => {
     const r = await onSubscriptionCanceled(supabase, { user_id: 'u_x', plan: 'pro', canceled_at: new Date() })
     expect(r.enqueued).toBe(0)
     expect(supabase.state.queue.length).toBe(0)
+  })
+})
+
+// ─── Re-assessment reminder (habit-loop PR 1) ──────────────────────
+
+describe('email-triggers — enqueueReassessmentReminder', () => {
+  const baseEvent = {
+    user_id: 'u_free',
+    site_id: 'site-acme',
+    site_name: 'Acme HQ',
+    due_at: new Date('2027-05-29T12:00:00Z'),
+  }
+
+  it('throws when required fields are missing', async () => {
+    const supabase = makeSupabaseMock()
+    await expect(enqueueReassessmentReminder(supabase, { ...baseEvent, user_id: '' })).rejects.toThrow()
+    await expect(enqueueReassessmentReminder(supabase, { ...baseEvent, site_id: '' })).rejects.toThrow()
+    await expect(enqueueReassessmentReminder(supabase, { ...baseEvent, site_name: '' })).rejects.toThrow()
+  })
+
+  it('inserts a single queue row scheduled for due_at with payload', async () => {
+    const supabase = makeSupabaseMock()
+    const r = await enqueueReassessmentReminder(supabase, baseEvent)
+    expect(r.canceled).toBe(0)
+    expect(r.enqueued).toBe(1)
+    expect(supabase.state.inserts).toHaveLength(1)
+    const row = supabase.state.inserts[0]
+    expect(row.template_id).toBe('reassessment.reminder')
+    expect(row.user_id).toBe('u_free')
+    expect(row.scheduled_for).toBe(baseEvent.due_at.toISOString())
+    expect(row.payload).toEqual({
+      site_id: 'site-acme',
+      site_name: 'Acme HQ',
+      due_at: baseEvent.due_at.toISOString(),
+    })
+  })
+
+  it('idempotency: re-enqueueing for the same site cancels the prior unsent row', async () => {
+    const supabase = makeSupabaseMock()
+    await enqueueReassessmentReminder(supabase, baseEvent)
+    expect(supabase.state.queue.filter(r => r.sent_at == null && r.canceled_at == null)).toHaveLength(1)
+
+    // Move the due date forward (e.g. user re-finalized the same site).
+    const later = new Date('2027-08-29T12:00:00Z')
+    const r2 = await enqueueReassessmentReminder(supabase, { ...baseEvent, due_at: later })
+    expect(r2.canceled).toBe(1)
+    expect(r2.enqueued).toBe(1)
+    // One unsent row remains — the new one.
+    const live = supabase.state.queue.filter(r => r.sent_at == null && r.canceled_at == null)
+    expect(live).toHaveLength(1)
+    expect(live[0].scheduled_for).toBe(later.toISOString())
+  })
+
+  it('does NOT cancel reminders for OTHER sites belonging to the same user', async () => {
+    const supabase = makeSupabaseMock()
+    await enqueueReassessmentReminder(supabase, baseEvent)
+    await enqueueReassessmentReminder(supabase, { ...baseEvent, site_id: 'site-other', site_name: 'Other HQ' })
+
+    // Re-enqueue for acme — should cancel only acme's prior row.
+    const r3 = await enqueueReassessmentReminder(supabase, { ...baseEvent, due_at: new Date('2028-01-01T00:00:00Z') })
+    expect(r3.canceled).toBe(1)
+    const live = supabase.state.queue.filter(r => r.sent_at == null && r.canceled_at == null)
+    expect(live).toHaveLength(2)
+    const siteIds = live.map(r => r.payload?.site_id).sort()
+    expect(siteIds).toEqual(['site-acme', 'site-other'])
+  })
+})
+
+// ─── Calibration expiry reminder (habit-loop PR 2) ──────────────────
+
+describe('email-triggers — enqueueCalibrationReminder', () => {
+  const baseEvent = {
+    user_id: 'u_free',
+    instrument_key: 'iaq',
+    meter: 'Graywolf IQ-610',
+    cal_date: '2025-06-01',
+    kind: 'expiring' as const,
+    days_to_expiry: 25,
+  }
+
+  it('throws on missing required fields', async () => {
+    const supabase = makeSupabaseMock()
+    await expect(enqueueCalibrationReminder(supabase, { ...baseEvent, user_id: '' })).rejects.toThrow()
+    await expect(enqueueCalibrationReminder(supabase, { ...baseEvent, instrument_key: '' })).rejects.toThrow()
+    await expect(enqueueCalibrationReminder(supabase, { ...baseEvent, meter: '' })).rejects.toThrow()
+    await expect(enqueueCalibrationReminder(supabase, { ...baseEvent, cal_date: '' })).rejects.toThrow()
+  })
+
+  it('throws on invalid kind', async () => {
+    const supabase = makeSupabaseMock()
+    await expect(enqueueCalibrationReminder(supabase, { ...baseEvent, kind: 'whatever' as never })).rejects.toThrow()
+  })
+
+  it('inserts an expiring reminder with payload', async () => {
+    const supabase = makeSupabaseMock()
+    const r = await enqueueCalibrationReminder(supabase, baseEvent)
+    expect(r).toEqual({ canceled: 0, enqueued: 1, skipped: false })
+    expect(supabase.state.inserts).toHaveLength(1)
+    const row = supabase.state.inserts[0]
+    expect(row.template_id).toBe('calibration.expiring')
+    expect(row.user_id).toBe('u_free')
+    expect(row.payload).toEqual({
+      instrument_key: 'iaq',
+      meter: 'Graywolf IQ-610',
+      cal_date: '2025-06-01',
+      kind: 'expiring',
+      days_to_expiry: 25,
+    })
+  })
+
+  it('uses the expired template when kind is expired', async () => {
+    const supabase = makeSupabaseMock()
+    await enqueueCalibrationReminder(supabase, { ...baseEvent, kind: 'expired', days_to_expiry: -3 })
+    expect(supabase.state.inserts[0].template_id).toBe('calibration.expired')
+  })
+
+  it('skips when a row for this cal_date is already queued (idempotency)', async () => {
+    const supabase = makeSupabaseMock()
+    await enqueueCalibrationReminder(supabase, baseEvent)
+    expect(supabase.state.inserts).toHaveLength(1)
+
+    // Cron re-runs the next day — same cal_date.
+    const r = await enqueueCalibrationReminder(supabase, { ...baseEvent, days_to_expiry: 24 })
+    expect(r).toEqual({ canceled: 0, enqueued: 0, skipped: true })
+    expect(supabase.state.inserts).toHaveLength(1)  // no second insert
+  })
+
+  it('cancels stale unsent rows when cal_date advances (re-calibration)', async () => {
+    const supabase = makeSupabaseMock()
+    // First cycle.
+    await enqueueCalibrationReminder(supabase, baseEvent)
+    const firstId = supabase.state.queue[0].id
+
+    // User re-calibrates → cal_date is now newer; cron sees a new cycle.
+    const r = await enqueueCalibrationReminder(supabase, {
+      ...baseEvent,
+      cal_date: '2026-05-15',
+      days_to_expiry: 14,
+    })
+    expect(r.canceled).toBe(1)
+    expect(r.enqueued).toBe(1)
+    const live = supabase.state.queue.filter(x => x.sent_at == null && x.canceled_at == null)
+    expect(live).toHaveLength(1)
+    // The cancelled row is the original
+    const cancelled = supabase.state.queue.find(x => x.id === firstId)
+    expect(cancelled?.canceled_at).not.toBeNull()
+  })
+
+  it('does NOT cancel reminders for OTHER instruments on the same user', async () => {
+    const supabase = makeSupabaseMock()
+    await enqueueCalibrationReminder(supabase, baseEvent)
+    await enqueueCalibrationReminder(supabase, {
+      ...baseEvent,
+      instrument_key: 'pid',
+      meter: 'RAE MiniRAE',
+      cal_date: '2025-08-01',
+      days_to_expiry: 10,
+    })
+    const live = supabase.state.queue.filter(x => x.sent_at == null && x.canceled_at == null)
+    expect(live).toHaveLength(2)
+    const keys = live.map(r => r.payload?.instrument_key).sort()
+    expect(keys).toEqual(['iaq', 'pid'])
+  })
+
+  it('skips when a previously-sent row covers this cal_date (no re-send)', async () => {
+    const supabase = makeSupabaseMock({
+      queue: [
+        // Pre-existing sent row.
+        {
+          id: 99, user_id: 'u_free', template_id: 'calibration.expiring',
+          sent_at: '2026-05-29T13:00:00Z', canceled_at: null,
+          payload: { instrument_key: 'iaq', cal_date: '2025-06-01' },
+        },
+      ],
+    })
+    const r = await enqueueCalibrationReminder(supabase, baseEvent)
+    expect(r).toEqual({ canceled: 0, enqueued: 0, skipped: true })
+  })
+})
+
+describe('email-sequences — calibration templates', () => {
+  it('calibration.expiring renders with meter + days', () => {
+    const tpl = getTemplate('calibration.expiring')!
+    expect(tpl).toBeTruthy()
+    const ctx: UserContext = { user_id: 'u', email: 'a@b', first_name: 'Jamie', plan: 'pro' }
+    const r = tpl.render(ctx, { meter: 'TSI 7575', days_to_expiry: 14 })
+    expect(r.subject).toMatch(/TSI 7575/)
+    expect(r.subject).toMatch(/expires soon/)
+    expect(r.body).toMatch(/in 14 days/)
+    expect(r.body).toMatch(/Hi Jamie/)
+  })
+
+  it('calibration.expired renders with meter + absolute days-since', () => {
+    const tpl = getTemplate('calibration.expired')!
+    const ctx: UserContext = { user_id: 'u', email: 'a@b', first_name: null, plan: 'free' }
+    const r = tpl.render(ctx, { meter: 'Graywolf IQ-610', days_to_expiry: -5 })
+    expect(r.subject).toMatch(/has expired/)
+    expect(r.body).toMatch(/5 days ago/)
+    expect(r.body).toMatch(/Hi there/)
+  })
+
+  it('falls back to generic copy when payload is missing', () => {
+    const expiring = getTemplate('calibration.expiring')!.render({ user_id: 'u', email: 'a', first_name: null, plan: 'free' })
+    expect(expiring.subject).toMatch(/your instrument/)
+    const expired = getTemplate('calibration.expired')!.render({ user_id: 'u', email: 'a', first_name: null, plan: 'free' })
+    expect(expired.subject).toMatch(/your instrument/)
+  })
+
+  it('are registered in ALL_TEMPLATES so the cron can find them', () => {
+    expect(getTemplate('calibration.expiring')).toBeTruthy()
+    expect(getTemplate('calibration.expired')).toBeTruthy()
+  })
+
+  it('are NOT in templatesForPlan (cron-scheduled, not signup sequence)', () => {
+    const freeIds = templatesForPlan('free').map(t => t.id)
+    const proIds = templatesForPlan('pro').map(t => t.id)
+    expect(freeIds).not.toContain('calibration.expiring')
+    expect(freeIds).not.toContain('calibration.expired')
+    expect(proIds).not.toContain('calibration.expiring')
+    expect(proIds).not.toContain('calibration.expired')
+  })
+})
+
+// ─── Portfolio digest (habit-loop PR 3) ─────────────────────────────
+
+describe('email-triggers — enqueuePortfolioDigest', () => {
+  const baseEvent = {
+    user_id: 'u1',
+    quarter_key: '2026-Q2',
+    stats: {
+      quarter_label: 'Q2 2026',
+      assessments_finalized: 5,
+      delta_finalized: 2,
+    },
+  }
+
+  it('throws on missing required fields', async () => {
+    const supabase = makeSupabaseMock()
+    await expect(enqueuePortfolioDigest(supabase, { ...baseEvent, user_id: '' })).rejects.toThrow()
+    await expect(enqueuePortfolioDigest(supabase, { ...baseEvent, quarter_key: '' })).rejects.toThrow()
+  })
+
+  it('inserts one row carrying the stats in payload', async () => {
+    const supabase = makeSupabaseMock()
+    const r = await enqueuePortfolioDigest(supabase, baseEvent)
+    expect(r).toEqual({ enqueued: 1, skipped: false })
+    expect(supabase.state.inserts).toHaveLength(1)
+    const row = supabase.state.inserts[0]
+    expect(row.template_id).toBe('portfolio.digest')
+    expect(row.payload).toMatchObject({
+      quarter_key: '2026-Q2',
+      assessments_finalized: 5,
+      delta_finalized: 2,
+    })
+  })
+
+  it('idempotency: re-running same quarter is a no-op', async () => {
+    const supabase = makeSupabaseMock()
+    await enqueuePortfolioDigest(supabase, baseEvent)
+    const r = await enqueuePortfolioDigest(supabase, baseEvent)
+    expect(r).toEqual({ enqueued: 0, skipped: true })
+    expect(supabase.state.inserts).toHaveLength(1)
+  })
+
+  it('skips when a sent row for this quarter already exists', async () => {
+    const supabase = makeSupabaseMock({
+      queue: [
+        {
+          id: 1, user_id: 'u1', template_id: 'portfolio.digest',
+          sent_at: '2026-07-01T13:30:00Z', canceled_at: null,
+          payload: { quarter_key: '2026-Q2' },
+        },
+      ],
+    })
+    const r = await enqueuePortfolioDigest(supabase, baseEvent)
+    expect(r).toEqual({ enqueued: 0, skipped: true })
+  })
+
+  it('does NOT skip when prior row was canceled', async () => {
+    const supabase = makeSupabaseMock({
+      queue: [
+        {
+          id: 1, user_id: 'u1', template_id: 'portfolio.digest',
+          sent_at: null, canceled_at: '2026-06-30T00:00:00Z',
+          payload: { quarter_key: '2026-Q2' },
+        },
+      ],
+    })
+    const r = await enqueuePortfolioDigest(supabase, baseEvent)
+    expect(r.enqueued).toBe(1)
+    expect(r.skipped).toBe(false)
+  })
+
+  it('does NOT collide across different quarters for the same user', async () => {
+    const supabase = makeSupabaseMock()
+    await enqueuePortfolioDigest(supabase, baseEvent)
+    const r = await enqueuePortfolioDigest(supabase, { ...baseEvent, quarter_key: '2026-Q3', stats: { quarter_label: 'Q3 2026' } })
+    expect(r.enqueued).toBe(1)
+    expect(supabase.state.inserts).toHaveLength(2)
+  })
+})
+
+describe('email-sequences — portfolio.digest template', () => {
+  const baseStats = {
+    quarter_label: 'Q2 2026',
+    prior_label: 'Q1 2026',
+    assessments_finalized: 5,
+    assessments_finalized_prior: 3,
+    delta_finalized: 2,
+    reports_exported: 5,
+    distinct_sites: 3,
+  }
+
+  it('renders with stats interpolated and a positive delta phrase', () => {
+    const tpl = getTemplate('portfolio.digest')!
+    const ctx: UserContext = { user_id: 'u', email: 'a@b', first_name: 'Jamie', plan: 'pro' }
+    const r = tpl.render(ctx, baseStats)
+    expect(r.subject).toMatch(/Q2 2026/)
+    expect(r.subject).toMatch(/5 assessments/)
+    expect(r.body).toMatch(/Hi Jamie/)
+    expect(r.body).toMatch(/Assessments finalized: 5/)
+    expect(r.body).toMatch(/Reports exported:\s+5/)
+    expect(r.body).toMatch(/Sites assessed:\s+3/)
+    expect(r.body).toMatch(/2 more than Q1 2026/)
+  })
+
+  it('renders a "fewer" delta phrase when current < prior', () => {
+    const tpl = getTemplate('portfolio.digest')!
+    const ctx: UserContext = { user_id: 'u', email: 'a@b', first_name: null, plan: 'free' }
+    const r = tpl.render(ctx, { ...baseStats, assessments_finalized: 2, assessments_finalized_prior: 5, delta_finalized: -3 })
+    expect(r.body).toMatch(/3 fewer than Q1 2026/)
+  })
+
+  it('renders "same as" when delta is zero', () => {
+    const tpl = getTemplate('portfolio.digest')!
+    const ctx: UserContext = { user_id: 'u', email: 'a@b', first_name: null, plan: 'free' }
+    const r = tpl.render(ctx, { ...baseStats, assessments_finalized: 3, assessments_finalized_prior: 3, delta_finalized: 0 })
+    expect(r.body).toMatch(/Same as Q1 2026/)
+  })
+
+  it('handles 0 prior with positive current as "more than ... (no assessments)"', () => {
+    const tpl = getTemplate('portfolio.digest')!
+    const ctx: UserContext = { user_id: 'u', email: 'a@b', first_name: null, plan: 'free' }
+    const r = tpl.render(ctx, { ...baseStats, assessments_finalized: 2, assessments_finalized_prior: 0, delta_finalized: 2 })
+    expect(r.body).toMatch(/no assessments recorded that quarter/)
+  })
+
+  it('omits the sites line when distinct_sites is 0', () => {
+    const tpl = getTemplate('portfolio.digest')!
+    const ctx: UserContext = { user_id: 'u', email: 'a@b', first_name: null, plan: 'free' }
+    const r = tpl.render(ctx, { ...baseStats, distinct_sites: 0 })
+    expect(r.body).not.toMatch(/Sites assessed/)
+  })
+
+  it('is registered and NOT in templatesForPlan', () => {
+    expect(getTemplate('portfolio.digest')).toBeTruthy()
+    expect(templatesForPlan('free').map(t => t.id)).not.toContain('portfolio.digest')
+    expect(templatesForPlan('pro').map(t => t.id)).not.toContain('portfolio.digest')
+  })
+})
+
+// ─── Sampling-results-outstanding (habit-loop PR 5) ─────────────────
+
+describe('email-triggers — enqueueSamplingResultsReminder', () => {
+  const baseEvent = {
+    user_id: 'u1',
+    report_id: 'rpt-1',
+    facility_name: 'Acme HQ',
+    sampling_plan_size: 3,
+    due_at: new Date('2026-06-12T12:00:00Z'),
+  }
+
+  it('throws on missing required fields', async () => {
+    const supabase = makeSupabaseMock()
+    await expect(enqueueSamplingResultsReminder(supabase, { ...baseEvent, user_id: '' })).rejects.toThrow()
+    await expect(enqueueSamplingResultsReminder(supabase, { ...baseEvent, report_id: '' })).rejects.toThrow()
+  })
+
+  it('inserts one row with the sampling payload', async () => {
+    const supabase = makeSupabaseMock()
+    const r = await enqueueSamplingResultsReminder(supabase, baseEvent)
+    expect(r).toEqual({ canceled: 0, enqueued: 1 })
+    expect(supabase.state.inserts).toHaveLength(1)
+    const row = supabase.state.inserts[0]
+    expect(row.template_id).toBe('sampling_results.reminder')
+    expect(row.scheduled_for).toBe(baseEvent.due_at.toISOString())
+    expect(row.payload).toEqual({
+      report_id: 'rpt-1',
+      facility_name: 'Acme HQ',
+      sampling_plan_size: 3,
+    })
+  })
+
+  it('idempotency: re-enqueue for same report cancels the prior unsent row', async () => {
+    const supabase = makeSupabaseMock()
+    await enqueueSamplingResultsReminder(supabase, baseEvent)
+    expect(supabase.state.queue.filter(r => r.sent_at == null && r.canceled_at == null)).toHaveLength(1)
+
+    const r2 = await enqueueSamplingResultsReminder(supabase, { ...baseEvent, due_at: new Date('2026-07-01T12:00:00Z') })
+    expect(r2.canceled).toBe(1)
+    expect(r2.enqueued).toBe(1)
+    const live = supabase.state.queue.filter(r => r.sent_at == null && r.canceled_at == null)
+    expect(live).toHaveLength(1)
+    expect(live[0].scheduled_for).toBe('2026-07-01T12:00:00.000Z')
+  })
+
+  it('does NOT cancel reminders for OTHER reports under the same user', async () => {
+    const supabase = makeSupabaseMock()
+    await enqueueSamplingResultsReminder(supabase, baseEvent)
+    await enqueueSamplingResultsReminder(supabase, { ...baseEvent, report_id: 'rpt-2', facility_name: 'Other HQ' })
+    const r3 = await enqueueSamplingResultsReminder(supabase, { ...baseEvent, due_at: new Date('2026-12-01T00:00:00Z') })
+    expect(r3.canceled).toBe(1)
+    const live = supabase.state.queue.filter(r => r.sent_at == null && r.canceled_at == null)
+    expect(live).toHaveLength(2)
+    expect(live.map(r => r.payload?.report_id).sort()).toEqual(['rpt-1', 'rpt-2'])
+  })
+})
+
+describe('email-triggers — cancelSamplingResultsReminder', () => {
+  it('throws on missing fields', async () => {
+    const supabase = makeSupabaseMock()
+    await expect(cancelSamplingResultsReminder(supabase, { user_id: '', report_id: 'r' })).rejects.toThrow()
+    await expect(cancelSamplingResultsReminder(supabase, { user_id: 'u', report_id: '' })).rejects.toThrow()
+  })
+
+  it('returns canceled:0 when no row exists', async () => {
+    const supabase = makeSupabaseMock()
+    const r = await cancelSamplingResultsReminder(supabase, { user_id: 'u1', report_id: 'rpt-x' })
+    expect(r).toEqual({ canceled: 0 })
+  })
+
+  it('cancels the matching pending row scoped to (user, report)', async () => {
+    const supabase = makeSupabaseMock()
+    await enqueueSamplingResultsReminder(supabase, {
+      user_id: 'u1', report_id: 'rpt-1', facility_name: 'A',
+      sampling_plan_size: 2, due_at: new Date('2026-06-12'),
+    })
+    const r = await cancelSamplingResultsReminder(supabase, { user_id: 'u1', report_id: 'rpt-1' })
+    expect(r.canceled).toBe(1)
+    expect(supabase.state.queue.filter(r => r.sent_at == null && r.canceled_at == null)).toHaveLength(0)
+  })
+
+  it('does NOT cancel reminders for OTHER reports', async () => {
+    const supabase = makeSupabaseMock()
+    await enqueueSamplingResultsReminder(supabase, {
+      user_id: 'u1', report_id: 'rpt-1', facility_name: 'A',
+      sampling_plan_size: 2, due_at: new Date('2026-06-12'),
+    })
+    const r = await cancelSamplingResultsReminder(supabase, { user_id: 'u1', report_id: 'rpt-other' })
+    expect(r.canceled).toBe(0)
+    expect(supabase.state.queue.filter(r => r.sent_at == null && r.canceled_at == null)).toHaveLength(1)
+  })
+})
+
+describe('email-sequences — sampling_results.reminder template', () => {
+  it('renders with facility + plan size + Hi name', () => {
+    const tpl = getTemplate('sampling_results.reminder')!
+    expect(tpl).toBeTruthy()
+    const ctx: UserContext = { user_id: 'u', email: 'a@b', first_name: 'Jamie', plan: 'pro' }
+    const r = tpl.render(ctx, { facility_name: 'Acme HQ', sampling_plan_size: 3 })
+    expect(r.subject).toBe('Lab results still pending — Acme HQ')
+    expect(r.body).toMatch(/Hi Jamie/)
+    expect(r.body).toMatch(/Acme HQ/)
+    expect(r.body).toMatch(/3 sampling methods/)
+  })
+
+  it('renders singular wording for sampling_plan_size === 1', () => {
+    const tpl = getTemplate('sampling_results.reminder')!
+    const ctx: UserContext = { user_id: 'u', email: 'a@b', first_name: null, plan: 'free' }
+    const r = tpl.render(ctx, { facility_name: 'Acme HQ', sampling_plan_size: 1 })
+    expect(r.body).toMatch(/1 sampling method[^s]/)
+  })
+
+  it('falls back gracefully when payload is missing', () => {
+    const tpl = getTemplate('sampling_results.reminder')!
+    const ctx: UserContext = { user_id: 'u', email: 'a@b', first_name: null, plan: 'free' }
+    const r = tpl.render(ctx)
+    expect(r.subject).toMatch(/your assessment/)
+  })
+
+  it('is registered + NOT in templatesForPlan', () => {
+    expect(getTemplate('sampling_results.reminder')).toBeTruthy()
+    expect(templatesForPlan('free').map(t => t.id)).not.toContain('sampling_results.reminder')
+    expect(templatesForPlan('pro').map(t => t.id)).not.toContain('sampling_results.reminder')
+  })
+})
+
+describe('email-sequences — reassessment.reminder template', () => {
+  it('renders with the site_name from the payload', () => {
+    const tpl = getTemplate('reassessment.reminder')!
+    expect(tpl).toBeTruthy()
+    const ctx: UserContext = { user_id: 'u', email: 'a@b', first_name: 'Jamie', plan: 'pro' }
+    const r = tpl.render(ctx, { site_name: 'Acme HQ', site_id: 'site-1', due_at: '2027-05-29T12:00:00Z' })
+    expect(r.subject).toBe('Re-assessment due at Acme HQ')
+    expect(r.body).toMatch(/Hi Jamie/)
+    expect(r.body).toMatch(/Acme HQ is due for re-assessment/)
+    expect(r.body).toMatch(/start=site&id=site-1/)
+  })
+
+  it('falls back to generic copy when payload is empty', () => {
+    const tpl = getTemplate('reassessment.reminder')!
+    const ctx: UserContext = { user_id: 'u', email: 'a@b', first_name: null, plan: 'free' }
+    const r = tpl.render(ctx)
+    expect(r.subject).toMatch(/Re-assessment due at one of your sites/)
+    expect(r.body).toMatch(/Hi there/)
+  })
+
+  it('is registered in ALL_TEMPLATES so the cron can find it', () => {
+    expect(getTemplate('reassessment.reminder')).toBeTruthy()
+  })
+
+  it('is NOT in templatesForPlan (event-scheduled, not signup sequence)', () => {
+    const freeIds = templatesForPlan('free').map(t => t.id)
+    const proIds = templatesForPlan('pro').map(t => t.id)
+    expect(freeIds).not.toContain('reassessment.reminder')
+    expect(proIds).not.toContain('reassessment.reminder')
   })
 })
 

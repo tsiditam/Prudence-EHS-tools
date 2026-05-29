@@ -34,6 +34,15 @@
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { KNOWN_EVENTS, type EventName } from '../lib/events/types'
+import {
+  enqueueReassessmentReminder,
+  enqueueSamplingResultsReminder,
+  cancelSamplingResultsReminder,
+} from '../lib/email-triggers'
+import { computeNextDueAt } from './sites'
+
+/** Lab-results follow-up window: enqueue reminder for finalize + N days. */
+const SAMPLING_RESULTS_REMINDER_DAYS = 14
 
 // Cap details to a sane size so a runaway client payload can't
 // inflate audit_log rows. Matches the spirit of the trackEvent
@@ -155,7 +164,151 @@ async function handler(req: Req, res: Res) {
     return
   }
 
+  // Dispatch product-flow side effects (habit-loop PR 1+). Each
+  // dispatch is best-effort — a failure here MUST NOT cause the
+  // 200 to flip to a 500, because the audit_log row is already
+  // written and the user's action succeeded from their perspective.
+  try {
+    await dispatchSideEffects(supabase, name as EventName, user.id, target_id, details)
+  } catch (dispatchErr) {
+    const msg = dispatchErr instanceof Error ? dispatchErr.message : String(dispatchErr)
+    console.error('[events] side-effect dispatch failed for', name, ':', msg)
+    // Fall through — still respond 200.
+  }
+
   res.status(200).json({ ok: true })
+}
+
+/**
+ * Side-effect dispatcher. Currently handles:
+ *   • assessment_finalized → enqueue reassessment reminder when the
+ *     details payload carries a site_id (i.e. the user opted to save
+ *     the site at finalize time).
+ *
+ * Wrapped in best-effort try/catch at the caller — never re-raise.
+ */
+async function dispatchSideEffects(
+  supabase: SupabaseClient,
+  name: EventName,
+  userId: string,
+  targetId: string | null,
+  details: Record<string, unknown>,
+): Promise<void> {
+  if (name === 'assessment_finalized') {
+    await dispatchAssessmentFinalized(supabase, userId, targetId, details)
+    return
+  }
+  if (name === 'lab_results_attached') {
+    await dispatchLabResultsAttached(supabase, userId, targetId, details)
+    return
+  }
+}
+
+/**
+ * Two reminders can fire from a single assessment_finalized event:
+ *
+ *   • Re-assessment reminder (habit-loop PR 1) — when the user
+ *     bound the assessment to a site at finalize time.
+ *   • Sampling-results-outstanding reminder (habit-loop PR 5) —
+ *     when the engine generated a sampling plan but no lab results
+ *     were attached at finalize time.
+ *
+ * Each is independently gated by its own email_preferences flag
+ * and wrapped in try/catch so a failure in one branch never
+ * suppresses the other.
+ */
+async function dispatchAssessmentFinalized(
+  supabase: SupabaseClient,
+  userId: string,
+  targetId: string | null,
+  details: Record<string, unknown>,
+): Promise<void> {
+  // Pull preferences once for both branches.
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('email_preferences')
+    .eq('id', userId)
+    .maybeSingle()
+  const prefs = (profile as {
+    email_preferences?: {
+      reassessment_reminders?: boolean
+      sampling_results_outstanding?: boolean
+    }
+  } | null)?.email_preferences
+
+  // ── Re-assessment reminder branch (PR 1) ─────────────────────────
+  const siteId = typeof details.site_id === 'string' ? details.site_id : null
+  if (siteId && !(prefs && prefs.reassessment_reminders === false)) {
+    try {
+      const { data: site } = await supabase
+        .from('sites')
+        .select('id, name, reassessment_interval_months, disabled_at, last_finalized_at')
+        .eq('id', siteId)
+        .eq('user_id', userId)
+        .maybeSingle()
+      if (site) {
+        const siteRow = site as {
+          id: string; name: string; reassessment_interval_months: number;
+          disabled_at: string | null; last_finalized_at: string | null;
+        }
+        if (!siteRow.disabled_at) {
+          const nextDueIso = computeNextDueAt(
+            siteRow.last_finalized_at,
+            siteRow.reassessment_interval_months,
+          )
+          if (nextDueIso) {
+            await enqueueReassessmentReminder(supabase as never, {
+              user_id: userId,
+              site_id: siteRow.id,
+              site_name: siteRow.name,
+              due_at: new Date(nextDueIso),
+            })
+          }
+        }
+      }
+    } catch (err) {
+      console.error('[events] reassessment dispatch failed:', err instanceof Error ? err.message : err)
+    }
+  }
+
+  // ── Sampling-results-outstanding branch (PR 5) ───────────────────
+  const planSize = typeof details.sampling_plan_size === 'number' ? details.sampling_plan_size : 0
+  const labAlready = details.lab_results_attached === true
+  // target_id is the report id (rpt-...) for assessment_finalized events.
+  const reportId = targetId
+  if (planSize > 0 && !labAlready && reportId && !(prefs && prefs.sampling_results_outstanding === false)) {
+    try {
+      const facility = typeof details.facility_name === 'string' ? details.facility_name : null
+      const dueAt = new Date(Date.now() + SAMPLING_RESULTS_REMINDER_DAYS * 86400000)
+      await enqueueSamplingResultsReminder(supabase as never, {
+        user_id: userId,
+        report_id: reportId,
+        facility_name: facility,
+        sampling_plan_size: planSize,
+        due_at: dueAt,
+      })
+    } catch (err) {
+      console.error('[events] sampling-results dispatch failed:', err instanceof Error ? err.message : err)
+    }
+  }
+}
+
+async function dispatchLabResultsAttached(
+  supabase: SupabaseClient,
+  userId: string,
+  targetId: string | null,
+  details: Record<string, unknown>,
+): Promise<void> {
+  const reportId = targetId || (typeof details.report_id === 'string' ? details.report_id : null)
+  if (!reportId) return
+  try {
+    await cancelSamplingResultsReminder(supabase as never, {
+      user_id: userId,
+      report_id: reportId,
+    })
+  } catch (err) {
+    console.error('[events] lab_results_attached dispatch failed:', err instanceof Error ? err.message : err)
+  }
 }
 
 export default handler
