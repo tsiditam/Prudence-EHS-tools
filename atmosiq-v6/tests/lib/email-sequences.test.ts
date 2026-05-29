@@ -22,6 +22,7 @@ import {
   enqueueSignupSequence,
   onAssessmentCompleted,
   onSubscriptionCanceled,
+  enqueueReassessmentReminder,
   type SupabaseLike,
 } from '../../lib/email-triggers'
 
@@ -208,6 +209,103 @@ describe('email-triggers — onSubscriptionCanceled is a no-op (TODO)', () => {
     const r = await onSubscriptionCanceled(supabase, { user_id: 'u_x', plan: 'pro', canceled_at: new Date() })
     expect(r.enqueued).toBe(0)
     expect(supabase.state.queue.length).toBe(0)
+  })
+})
+
+// ─── Re-assessment reminder (habit-loop PR 1) ──────────────────────
+
+describe('email-triggers — enqueueReassessmentReminder', () => {
+  const baseEvent = {
+    user_id: 'u_free',
+    site_id: 'site-acme',
+    site_name: 'Acme HQ',
+    due_at: new Date('2027-05-29T12:00:00Z'),
+  }
+
+  it('throws when required fields are missing', async () => {
+    const supabase = makeSupabaseMock()
+    await expect(enqueueReassessmentReminder(supabase, { ...baseEvent, user_id: '' })).rejects.toThrow()
+    await expect(enqueueReassessmentReminder(supabase, { ...baseEvent, site_id: '' })).rejects.toThrow()
+    await expect(enqueueReassessmentReminder(supabase, { ...baseEvent, site_name: '' })).rejects.toThrow()
+  })
+
+  it('inserts a single queue row scheduled for due_at with payload', async () => {
+    const supabase = makeSupabaseMock()
+    const r = await enqueueReassessmentReminder(supabase, baseEvent)
+    expect(r.canceled).toBe(0)
+    expect(r.enqueued).toBe(1)
+    expect(supabase.state.inserts).toHaveLength(1)
+    const row = supabase.state.inserts[0]
+    expect(row.template_id).toBe('reassessment.reminder')
+    expect(row.user_id).toBe('u_free')
+    expect(row.scheduled_for).toBe(baseEvent.due_at.toISOString())
+    expect(row.payload).toEqual({
+      site_id: 'site-acme',
+      site_name: 'Acme HQ',
+      due_at: baseEvent.due_at.toISOString(),
+    })
+  })
+
+  it('idempotency: re-enqueueing for the same site cancels the prior unsent row', async () => {
+    const supabase = makeSupabaseMock()
+    await enqueueReassessmentReminder(supabase, baseEvent)
+    expect(supabase.state.queue.filter(r => r.sent_at == null && r.canceled_at == null)).toHaveLength(1)
+
+    // Move the due date forward (e.g. user re-finalized the same site).
+    const later = new Date('2027-08-29T12:00:00Z')
+    const r2 = await enqueueReassessmentReminder(supabase, { ...baseEvent, due_at: later })
+    expect(r2.canceled).toBe(1)
+    expect(r2.enqueued).toBe(1)
+    // One unsent row remains — the new one.
+    const live = supabase.state.queue.filter(r => r.sent_at == null && r.canceled_at == null)
+    expect(live).toHaveLength(1)
+    expect(live[0].scheduled_for).toBe(later.toISOString())
+  })
+
+  it('does NOT cancel reminders for OTHER sites belonging to the same user', async () => {
+    const supabase = makeSupabaseMock()
+    await enqueueReassessmentReminder(supabase, baseEvent)
+    await enqueueReassessmentReminder(supabase, { ...baseEvent, site_id: 'site-other', site_name: 'Other HQ' })
+
+    // Re-enqueue for acme — should cancel only acme's prior row.
+    const r3 = await enqueueReassessmentReminder(supabase, { ...baseEvent, due_at: new Date('2028-01-01T00:00:00Z') })
+    expect(r3.canceled).toBe(1)
+    const live = supabase.state.queue.filter(r => r.sent_at == null && r.canceled_at == null)
+    expect(live).toHaveLength(2)
+    const siteIds = live.map(r => r.payload?.site_id).sort()
+    expect(siteIds).toEqual(['site-acme', 'site-other'])
+  })
+})
+
+describe('email-sequences — reassessment.reminder template', () => {
+  it('renders with the site_name from the payload', () => {
+    const tpl = getTemplate('reassessment.reminder')!
+    expect(tpl).toBeTruthy()
+    const ctx: UserContext = { user_id: 'u', email: 'a@b', first_name: 'Jamie', plan: 'pro' }
+    const r = tpl.render(ctx, { site_name: 'Acme HQ', site_id: 'site-1', due_at: '2027-05-29T12:00:00Z' })
+    expect(r.subject).toBe('Re-assessment due at Acme HQ')
+    expect(r.body).toMatch(/Hi Jamie/)
+    expect(r.body).toMatch(/Acme HQ is due for re-assessment/)
+    expect(r.body).toMatch(/start=site&id=site-1/)
+  })
+
+  it('falls back to generic copy when payload is empty', () => {
+    const tpl = getTemplate('reassessment.reminder')!
+    const ctx: UserContext = { user_id: 'u', email: 'a@b', first_name: null, plan: 'free' }
+    const r = tpl.render(ctx)
+    expect(r.subject).toMatch(/Re-assessment due at one of your sites/)
+    expect(r.body).toMatch(/Hi there/)
+  })
+
+  it('is registered in ALL_TEMPLATES so the cron can find it', () => {
+    expect(getTemplate('reassessment.reminder')).toBeTruthy()
+  })
+
+  it('is NOT in templatesForPlan (event-scheduled, not signup sequence)', () => {
+    const freeIds = templatesForPlan('free').map(t => t.id)
+    const proIds = templatesForPlan('pro').map(t => t.id)
+    expect(freeIds).not.toContain('reassessment.reminder')
+    expect(proIds).not.toContain('reassessment.reminder')
   })
 })
 

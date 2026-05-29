@@ -98,6 +98,8 @@ import ReadinessPanel from './ReadinessPanel'
 import { buildJasperContext } from '../../lib/context/buildJasperContext'
 import { buildAssessmentContext } from '../../lib/context/buildAssessmentContext'
 import { emitEvent } from '../../lib/events/emit'
+import SaveSitePrompt from './SaveSitePrompt'
+import { parseSiteLink, clearSiteLink, findMostRecentReportForSite } from '../utils/siteLink'
 import SamplingFormsView from './SamplingFormsView'
 import { useAssessment } from '../contexts/AssessmentContext.jsx'
 import { useAuth } from '../contexts/AuthContext.jsx'
@@ -714,6 +716,12 @@ export default function MobileApp() {
   const [reviewPrefill, setReviewPrefill] = useState(null)
   const [reviewBusy, setReviewBusy] = useState(false)
   const [reviewError, setReviewError] = useState(null)
+  // Site library (habit-loop PR 1) — currentSiteId tracks whether the
+  // in-progress assessment is bound to a saved site (via deep-link or
+  // SaveSitePrompt at finalize). Used at finalize-time to decide
+  // between "Save site" prompt vs silent next-due refresh.
+  const [currentSiteId, setCurrentSiteId] = useState(null)
+  const [savePromptCtx, setSavePromptCtx] = useState(null)  // { rid, ts } | null
   const reviewDocxInputRef = useRef(null)
   // Billing Phase 1 — credit-unit definition sheet was added in PR
   // #143 (Fix 2 of the CIH-credibility prompt) and removed by the
@@ -754,6 +762,64 @@ export default function MobileApp() {
       setProfileChecked(true)
     })()
   }, [])
+
+  // Deep-link hydration from the reassessment-reminder email
+  // (habit-loop PR 1). URL: ?start=site&id=<site_id>. When present
+  // AND the user is authenticated, fetch the site + the most recent
+  // finalized report referencing it, hydrate bldg/presurvey into a
+  // fresh draft, and land on the QuickStart screen. The URL params
+  // are cleared so a refresh doesn't re-trigger.
+  useEffect(() => {
+    if (!profileChecked || !profile) return
+    const siteId = parseSiteLink()
+    if (!siteId) return
+    clearSiteLink()
+    ;(async () => {
+      try {
+        const session = supabase ? await Storage.getSession() : null
+        if (!session?.access_token) return
+        const resp = await fetch('/api/sites', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
+          body: JSON.stringify({ action: 'list' }),
+        })
+        if (!resp.ok) return
+        const json = await resp.json().catch(() => ({}))
+        const site = (json.sites || []).find(s => s.id === siteId)
+        if (!site) return
+        // Find the most recent matching finalized report locally.
+        const allReports = []
+        for (const meta of (index?.reports || [])) {
+          const r = await STO.get(meta.id)
+          if (r) allReports.push(r)
+        }
+        const prior = findMostRecentReportForSite(site, allReports)
+        // Hydrate a NEW draft from the prior report, OR fall back to
+        // a fresh New Assessment with just the site name/address pre-filled.
+        const draftIdNew = 'draft-' + Date.now()
+        const psFill = profile ? Profiles.toPresurvey(profile) : {}
+        if (prior) {
+          setBldg({ ...(prior.building || {}), fn: site.name, address: site.address || prior.building?.address || '' })
+          setPresurvey({ ...psFill, ...(prior.presurvey || {}) })
+          setEquipment(prior.equipment || [])
+        } else {
+          setBldg({ fn: site.name, address: site.address || '', type: site.building_type || '' })
+          setPresurvey(psFill)
+          setEquipment([])
+        }
+        setDraftId(draftIdNew)
+        setCurrentSiteId(site.id)
+        setZones([{}]); setCurZone(0); setQsqi(0); setDqi(0); setZqi(0)
+        setPhotos({}); setPhotoOverrides({}); setSensorData(null); setFloorPlan(null)
+        setZoneScores([]); setComp(null); setOshaResult(null); setRecs(null)
+        setNarrative(null); setSamplingPlan(null); setCausalChains([])
+        trackEvent('site_link_hydrated', { site_id: site.id, prior_report: !!prior })
+        setView('quickstart')
+      } catch (e) {
+        console.warn('Site-link hydration failed:', e && e.message)
+      }
+    })()
+  }, [profileChecked, profile])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Listen for Supabase auth changes
   useEffect(() => {
@@ -800,14 +866,14 @@ export default function MobileApp() {
       // re-finalize recomputes them. Fresh drafts have none, so this is a
       // no-op for them.
       const prev = (await STO.get(draftId)) || {}
-      const draft = { ...prev, id:draftId, presurvey, bldg, zones, equipment, photos, photoOverrides, floorPlan, sensorData, qsqi, dqi, curZone, zqi, ua:new Date().toISOString(), standardsManifest:STANDARDS_MANIFEST }
+      const draft = { ...prev, id:draftId, presurvey, bldg, zones, equipment, photos, photoOverrides, floorPlan, sensorData, qsqi, dqi, curZone, zqi, site_id: currentSiteId || null, ua:new Date().toISOString(), standardsManifest:STANDARDS_MANIFEST }
       await STO.set(draftId, draft)
       await STO.addDraftToIndex({ id:draftId, facility:bldg.fn||'Untitled', ua:draft.ua })
       await refreshIndex()
       trackEvent('draft_saved', { draft_id: draftId, phase: view, zones: (zones||[]).length })
     }, 1200)
     return () => { if (saveRef.current) clearTimeout(saveRef.current) }
-  }, [presurvey, bldg, zones, equipment, photos, photoOverrides, sensorData, qsqi, dqi, curZone, zqi, view, draftId])
+  }, [presurvey, bldg, zones, equipment, photos, photoOverrides, sensorData, qsqi, dqi, curZone, zqi, view, draftId, currentSiteId])
 
   // Merge quick start data into both presurvey and bldg depending on field prefix
   const mergedData = useMemo(() => ({ ...presurvey, ...bldg }), [presurvey, bldg])
@@ -984,6 +1050,7 @@ export default function MobileApp() {
     trackEvent('assessment_created', {})
     const id = 'draft-' + Date.now()
     setDraftId(id)
+    setCurrentSiteId(null)  // PR 1: fresh assessments aren't bound to a site
     // Auto-fill from profile
     const psFill = profile ? Profiles.toPresurvey(profile) : {}
     setPresurvey(psFill); setBldg({}); setQsqi(0); setDqi(0); setSensorData(null)
@@ -1020,6 +1087,7 @@ export default function MobileApp() {
     if (!d) return
     trackEvent('draft_resumed', { draft_id: id, facility: d.bldg?.fn || d.building?.fn || '' })
     setDraftId(d.id); setPresurvey(d.presurvey||{}); setBldg(d.bldg||d.building||{}); setZones(d.zones||[{}]); setEquipment(d.equipment||[]); setPhotos(d.photos||{}); setPhotoOverrides(d.photoOverrides||{}); setFloorPlan(d.floorPlan||null); setSensorData(d.sensorData||null)
+    setCurrentSiteId(d.site_id || null)  // PR 1: inherit site binding if the draft carries one
     setQsqi(d.qsqi||0); setDqi(d.dqi||0); setCurZone(d.curZone||0); setZqi(d.zqi||0)
     // Resume at the right phase
     if (!d.bldg?.fn && !d.building?.fn) setView('quickstart')
@@ -1199,7 +1267,10 @@ export default function MobileApp() {
     // finalized report never also lingers as a draft.
     const reuseId = draftId && (index.reports || []).some(r => r.id === draftId)
     const rid = reuseId ? draftId : ('rpt-' + Date.now())
-    const report = { id:rid, ts:new Date().toISOString(), ver:VER, presurvey, building:bldg, zones, equipment, photos, floorPlan, sensorData, zoneScores:zScores, comp:composite, oshaEvals:[osha], recs:recommendations, samplingPlan:sp, causalChains:cc, standardsManifest:STANDARDS_MANIFEST }
+    // PR 1: stamp the report with the bound site_id when present
+    // (deep-link hydration or a previous "Save site" finalize).
+    // siteLink.findMostRecentReportForSite uses this on the next round.
+    const report = { id:rid, ts:new Date().toISOString(), ver:VER, presurvey, building:bldg, zones, equipment, photos, floorPlan, sensorData, zoneScores:zScores, comp:composite, oshaEvals:[osha], recs:recommendations, samplingPlan:sp, causalChains:cc, standardsManifest:STANDARDS_MANIFEST, site_id: currentSiteId || null }
     await STO.set(rid, report)
     await STO.addReportToIndex({ id:rid, ts:report.ts, facility:bldg.fn, score:composite?.tot })
     await STO.removeFromIndex(rid, 'dft')
@@ -1209,6 +1280,39 @@ export default function MobileApp() {
     if (supabase) {
       try { await Storage.saveAssessment({ ...report, status: 'complete', facility_name: bldg.fn, score: composite?.tot, risk: composite?.risk }) }
       catch (e) { console.warn('Cloud sync deferred:', e.message) }
+    }
+
+    // Habit-loop PR 1 — close the investment → trigger arc.
+    //
+    // Two branches:
+    //   • Already bound to a site (deep-link or earlier save): silently
+    //     refresh last_finalized_at on the site so the cron reschedules
+    //     the reminder pushed out one full interval from THIS finalize.
+    //   • Fresh assessment with no bound site: surface the SaveSitePrompt
+    //     so the user explicitly consents to the loop. Either choice
+    //     emits assessment_finalized (with or without site_id) so the
+    //     event spine sees a finalize regardless.
+    if (currentSiteId) {
+      // Silent refresh path. Update the site's last_finalized_at, then
+      // emit so /api/events re-enqueues the reminder.
+      try {
+        const session = supabase ? await Storage.getSession() : null
+        if (session?.access_token) {
+          await fetch('/api/sites', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
+            body: JSON.stringify({ action: 'save', site: { id: currentSiteId, name: bldg.fn || 'Site', last_finalized_at: report.ts } }),
+          })
+        }
+      } catch (e) { console.warn('Site refresh deferred:', e && e.message) }
+      emitEvent('assessment_finalized', {
+        target_id: rid,
+        target_type: 'assessment',
+        details: { site_id: currentSiteId, score: composite?.tot ?? null, zones: zones.length },
+      })
+    } else {
+      // First-time path — open the SaveSitePrompt over the results view.
+      setSavePromptCtx({ rid, ts: report.ts })
     }
   }
 
@@ -2977,6 +3081,54 @@ export default function MobileApp() {
       })()}
 
       {milestone&&<div style={{position:'fixed',inset:0,background:`${mix('bg', 94)}`,zIndex:300,display:'flex',alignItems:'center',justifyContent:'center',padding:'0 32px'}}><div style={{textAlign:'center',animation:'milestoneIn .5s cubic-bezier(.22,1,.36,1)'}}><div style={{marginBottom:20,display:'flex',justifyContent:'center'}}><div style={{width:80,height:80,borderRadius:22,background:`${mix('accent', 7)}`,border:`1.5px solid ${mix('accent', 19)}`,display:'flex',alignItems:'center',justifyContent:'center'}}><I n={milestone.icon} s={40} c={ACCENT} w={2} /></div></div><div style={{fontSize:26,fontWeight:800,letterSpacing:'-0.5px',color:TEXT}}>{milestone.title}</div><div style={{fontSize:15,color:ACCENT,fontFamily:"var(--font-mono)",marginTop:10}}>{milestone.sub}</div></div></div>}
+      <SaveSitePrompt
+        open={!!savePromptCtx}
+        bldg={bldg}
+        onSave={async (siteInput) => {
+          let savedSite = null
+          try {
+            const session = supabase ? await Storage.getSession() : null
+            if (session?.access_token) {
+              const resp = await fetch('/api/sites', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
+                body: JSON.stringify({ action: 'save', site: { ...siteInput, last_finalized_at: savePromptCtx?.ts || new Date().toISOString() } }),
+              })
+              const json = await resp.json().catch(() => ({}))
+              if (resp.ok && json.site) {
+                savedSite = json.site
+                setCurrentSiteId(savedSite.id)
+                // Stamp the just-finalized report with the site id so
+                // future deep-links can find it via findMostRecentReportForSite.
+                const rid = savePromptCtx?.rid
+                if (rid) {
+                  const stored = await STO.get(rid)
+                  if (stored) await STO.set(rid, { ...stored, site_id: savedSite.id })
+                }
+              } else {
+                throw new Error(json.error || 'save_failed')
+              }
+            }
+          } catch (e) {
+            // Bubble up to the prompt's error display.
+            throw e
+          }
+          emitEvent('assessment_finalized', {
+            target_id: savePromptCtx?.rid || null,
+            target_type: 'assessment',
+            details: { site_id: savedSite?.id || null, score: comp?.tot ?? null, zones: zones.length },
+          })
+          setSavePromptCtx(null)
+        }}
+        onDismiss={() => {
+          emitEvent('assessment_finalized', {
+            target_id: savePromptCtx?.rid || null,
+            target_type: 'assessment',
+            details: { site_id: null, score: comp?.tot ?? null, zones: zones.length, declined_save: true },
+          })
+          setSavePromptCtx(null)
+        }}
+      />
 
       {/* Zone Complete bottom sheet — appears after the last question
           in a zone. Soft-glass; the existing finishAssessment() call

@@ -18,6 +18,7 @@ import { I } from './Icons'
 import ProfileAvatar from './ProfileAvatar'
 import * as V3 from '../styles/tokens'
 import ReportTemplatesPanel from './settings/ReportTemplatesPanel'
+import SiteLibraryPanel from './settings/SiteLibraryPanel'
 
 // Theme tokens. These are CSS-variable references defined in
 // index.html (:root for dark, [data-theme="light"] for light), so the
@@ -383,6 +384,11 @@ export default function SettingsScreen({ profile, onEditProfile, onLogout, onClo
       {/* ── Help ── */}
       <Group title="Help">
         <Row first label="Help & FAQ" sub="Methodology, scoring, workflow, limitations" action={() => onNavigate?.('help')} />
+      </Group>
+
+      {/* ── Sites — saved site library + re-assessment reminders ── */}
+      <Group title="Sites">
+        <SiteLibraryPanel />
       </Group>
 
       {/* ── Report Templates — user-uploaded .docx renderable via Jasper ── */}

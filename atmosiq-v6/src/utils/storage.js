@@ -60,6 +60,18 @@ const STO = {
   async hasVisited() { return await this.get(KEYS.visited) },
   async markVisited() { return await this.set(KEYS.visited, true) },
 
+  // ── Site library (habit-loop PR 1) ────────────────────────────
+  // Cloud (/api/sites) is the source of truth; these are a local
+  // mirror so the dashboard / FAB / future Jasper context can read
+  // sites without an extra fetch. Callers should refresh after any
+  // /api/sites { action: 'save' | 'delete' } response.
+  async getSites() {
+    return (await this.get(KEYS.sites)) || []
+  },
+  async saveSitesCache(sites) {
+    return await this.set(KEYS.sites, Array.isArray(sites) ? sites : [])
+  },
+
   // ── Incidents ──────────────────────────────────────────────────
   // Single global array under KEYS.incidents. Migrates legacy
   // FM 'atmosflow:complaints:<buildingId>' records on first read,

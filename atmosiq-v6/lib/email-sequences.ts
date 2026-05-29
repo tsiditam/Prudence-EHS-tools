@@ -28,6 +28,15 @@ export interface RenderedEmail {
   text: string
 }
 
+/**
+ * Optional per-row payload threaded through the email_queue table
+ * (migration 018) and into render(). Used by event-scheduled
+ * templates (e.g. `reassessment.reminder`) that need per-instance
+ * data the static `UserContext` doesn't carry. Templates that don't
+ * need a payload simply ignore the second arg.
+ */
+export type EmailPayload = Readonly<Record<string, unknown>>
+
 export interface EmailTemplate {
   id: string
   /** When to enqueue, in ms after signup. 0 = immediate. */
@@ -36,7 +45,7 @@ export interface EmailTemplate {
   cancelOnMilestone?: 'first_assessment_completed'
   /** Only send to users still on the named plan when delivery time arrives. */
   requirePlanIs?: 'free' | 'paid'
-  render: (ctx: UserContext) => RenderedEmail
+  render: (ctx: UserContext, payload?: EmailPayload) => RenderedEmail
 }
 
 const SIGNATURE = '— Tsidi\nPrudence Safety & Environmental Consulting, LLC'
@@ -250,9 +259,62 @@ ${SIGNATURE}`
   },
 ]
 
+// ─── Event-scheduled templates (habit-loop PR 1+) ──────────────────
+// These don't participate in templatesForPlan() — they're enqueued
+// directly by trigger functions in response to product events
+// (finalize-assessment, etc.), not at signup. delayMs is unused
+// because the row's scheduled_for is computed by the trigger.
+
+export const EVENT_TEMPLATES: EmailTemplate[] = [
+  {
+    id: 'reassessment.reminder',
+    delayMs: 0,
+    render: (ctx, payload) => {
+      // Payload threaded through email_queue.payload (migration 018).
+      const siteName = (payload && typeof payload.site_name === 'string')
+        ? payload.site_name
+        : 'one of your sites'
+      const siteId = (payload && typeof payload.site_id === 'string') ? payload.site_id : ''
+      // Format the due date the email is sent FOR (matches scheduled_for
+      // in most cases). Fallback to today if missing.
+      const dueIso = (payload && typeof payload.due_at === 'string') ? payload.due_at : null
+      const dueDate = dueIso ? new Date(dueIso) : new Date()
+      const dueLabel = isNaN(dueDate.getTime())
+        ? ''
+        : dueDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+
+      const startUrl = siteId
+        ? `https://${APP_URL}/?start=site&id=${encodeURIComponent(siteId)}`
+        : `https://${APP_URL}/`
+
+      const subject = `Re-assessment due at ${siteName}`
+      const body = `Hi ${firstName(ctx)},
+
+A reminder from AtmosFlow: ${siteName} is due for re-assessment${dueLabel ? ` (${dueLabel})` : ''}.
+
+Start a re-assessment with the previous building profile already
+filled in — most consultants finish a follow-up walkthrough in
+20 minutes:
+
+${startUrl}
+
+Re-assessment intervals are typically annual for most occupied
+buildings; adjust the cadence per site in Settings → Sites if your
+site warrants quarterly or post-event review.
+
+Not the right time? You can pause reminders for this site in
+Settings → Sites, or turn off re-assessment emails entirely in
+Settings → Email Preferences.
+
+${SIGNATURE}`
+      return { subject, body, text: body }
+    },
+  },
+]
+
 // ─── Lookup ────────────────────────────────────────────────────────
 const ALL_TEMPLATES: Record<string, EmailTemplate> = {}
-for (const t of [...FREE_TIER_TEMPLATES, ...PAID_TIER_TEMPLATES]) {
+for (const t of [...FREE_TIER_TEMPLATES, ...PAID_TIER_TEMPLATES, ...EVENT_TEMPLATES]) {
   ALL_TEMPLATES[t.id] = t
 }
 

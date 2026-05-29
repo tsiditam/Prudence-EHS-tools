@@ -325,6 +325,21 @@
       { "type": "grep_matches", "pattern": "export interface NarrativeOk", "paths": ["lib/contracts/narrative.ts"] },
       { "type": "grep_matches", "pattern": "export interface ReportRenderInput", "paths": ["lib/contracts/report-render.ts"] },
       { "type": "grep_matches", "pattern": "export interface JasperTurnRequest", "paths": ["lib/contracts/jasper-turn.ts"] }
+    ]},
+    { "id": "SITE-LIBRARY", "label": "Site library + sites API exist (habit-loop PR 1)", "checks": [
+      { "type": "grep_matches", "pattern": "CREATE TABLE.*sites", "paths": ["supabase/migrations/"] },
+      { "type": "file_exists", "path": "api/sites.ts" },
+      { "type": "file_exists", "path": "src/components/settings/SiteLibraryPanel.jsx" },
+      { "type": "file_exists", "path": "tests/api/sites.test.ts" },
+      { "type": "grep_matches", "pattern": "SiteLibraryPanel", "paths": ["src/components/SettingsScreen.jsx"] }
+    ]},
+    { "id": "REASSESSMENT-REMINDER", "label": "Re-assessment reminder loop wired end-to-end (habit-loop PR 1)", "checks": [
+      { "type": "grep_matches", "pattern": "enqueueReassessmentReminder", "paths": ["lib/email-triggers.ts"] },
+      { "type": "grep_matches", "pattern": "reassessment\\.reminder", "paths": ["lib/email-sequences.ts"] },
+      { "type": "grep_matches", "pattern": "assessment_finalized", "paths": ["lib/events/types.ts", "api/events.ts", "src/components/MobileApp.jsx"] },
+      { "type": "grep_matches", "pattern": "email_preferences", "paths": ["src/components/ProfileScreen.jsx"] },
+      { "type": "file_exists", "path": "src/components/SaveSitePrompt.jsx" },
+      { "type": "file_exists", "path": "src/utils/siteLink.js" }
     ]}
   ]
 }

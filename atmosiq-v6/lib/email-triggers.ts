@@ -111,3 +111,86 @@ export async function onSubscriptionCanceled(
   // Intentional no-op. See TODO above.
   return { enqueued: 0 }
 }
+
+// ─── Re-assessment reminder (habit-loop PR 1) ──────────────────────
+
+export interface ReassessmentReminderEvent {
+  user_id: string
+  site_id: string
+  site_name: string
+  /** When the reminder email should fire (typically last_finalized_at + interval). */
+  due_at: Date
+}
+
+/**
+ * Schedule a `reassessment.reminder` email for a saved site.
+ *
+ * Idempotent across re-finalizations of the same site: any unsent
+ * prior reminder row for `(user_id, site_id)` is cancelled, then a
+ * single new row is inserted. Re-finalizing the same site moves the
+ * reminder rather than stacking it.
+ *
+ * The payload (site_name, site_id, due_at) is read at render time by
+ * the `reassessment.reminder` template — see email_queue.payload
+ * (migration 018) + the render(ctx, payload) signature.
+ */
+export async function enqueueReassessmentReminder(
+  supabase: SupabaseLike,
+  event: ReassessmentReminderEvent,
+): Promise<{ canceled: number; enqueued: number }> {
+  if (!event.user_id || !event.site_id || !event.site_name) {
+    throw new Error('enqueueReassessmentReminder: missing user_id / site_id / site_name')
+  }
+  const tpl = getTemplate('reassessment.reminder')
+  if (!tpl) {
+    throw new Error('enqueueReassessmentReminder: reassessment.reminder template not registered')
+  }
+
+  // 1) Cancel any prior unsent reminder for THIS site so we never
+  //    stack two reminders. Filter on the site_id stored in payload
+  //    so reminders for OTHER sites are untouched.
+  const { data: priorRows, error: selErr } = await supabase
+    .from('email_queue')
+    .select('id, payload')
+    .eq('user_id', event.user_id)
+    .eq('template_id', tpl.id)
+    .is('sent_at', null)
+    .is('canceled_at', null)
+  if (selErr) {
+    throw new Error(`enqueueReassessmentReminder select failed: ${selErr.message}`)
+  }
+  let canceled = 0
+  const matchingIds: Array<number | string> = []
+  for (const row of (priorRows || []) as Array<{ id: number; payload?: { site_id?: string } }>) {
+    if (row.payload && row.payload.site_id === event.site_id) {
+      matchingIds.push(row.id)
+    }
+  }
+  if (matchingIds.length > 0) {
+    const { error: cancelErr } = await supabase
+      .from('email_queue')
+      .update({ canceled_at: new Date().toISOString(), cancel_reason: 'reassessment_reschedule' })
+      .in('id', matchingIds)
+    if (cancelErr) {
+      throw new Error(`enqueueReassessmentReminder cancel failed: ${cancelErr.message}`)
+    }
+    canceled = matchingIds.length
+  }
+
+  // 2) Insert the new reminder row scheduled for the next due date.
+  const { error: insErr } = await supabase.from('email_queue').insert({
+    user_id: event.user_id,
+    template_id: tpl.id,
+    scheduled_for: event.due_at.toISOString(),
+    payload: {
+      site_id: event.site_id,
+      site_name: event.site_name,
+      due_at: event.due_at.toISOString(),
+    },
+  })
+  if (insErr) {
+    throw new Error(`enqueueReassessmentReminder insert failed: ${insErr.message}`)
+  }
+
+  return { canceled, enqueued: 1 }
+}

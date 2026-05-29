@@ -401,10 +401,32 @@ export default function ProfileScreen({ onLogin }) {
             />
           </div>
 
-          <button onClick={()=>setF('marketing_consent',!form.marketing_consent)} style={{display:'flex',alignItems:'center',gap:12,padding:'12px 14px',background:'transparent',border:`1px solid ${form.marketing_consent?`${mix('accent', 19)}`:BORDER}`,borderRadius:8,cursor:'pointer',textAlign:'left',fontFamily:'inherit',marginBottom:24,width:'100%',transition:'border-color 0.15s'}}>
+          <button onClick={()=>setF('marketing_consent',!form.marketing_consent)} style={{display:'flex',alignItems:'center',gap:12,padding:'12px 14px',background:'transparent',border:`1px solid ${form.marketing_consent?`${mix('accent', 19)}`:BORDER}`,borderRadius:8,cursor:'pointer',textAlign:'left',fontFamily:'inherit',marginBottom:14,width:'100%',transition:'border-color 0.15s'}}>
             <div style={{width:18,height:18,borderRadius:4,border:`1.5px solid ${form.marketing_consent?ACCENT:DIM}`,background:form.marketing_consent?ACCENT:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'all 0.15s'}}>{form.marketing_consent&&<span style={{color:ON_ACCENT,fontSize:11,fontWeight:700}}>✓</span>}</div>
             <div style={{fontSize:12,color:SUB,lineHeight:1.5}}>Receive product updates and IH field tips</div>
           </button>
+
+          {/* Email preferences — habit-loop PR 1. Default-on for new
+              profiles; the toggle flips the JSONB field on profiles
+              (migration 019). The trigger / cron read this column
+              before scheduling / sending a reassessment reminder. */}
+          {(() => {
+            const prefs = form.email_preferences || {}
+            const reassessOn = prefs.reassessment_reminders !== false
+            return (
+              <button
+                onClick={() => setF('email_preferences', { ...prefs, reassessment_reminders: !reassessOn })}
+                style={{display:'flex',alignItems:'center',gap:12,padding:'12px 14px',background:'transparent',border:`1px solid ${reassessOn?`${mix('accent', 19)}`:BORDER}`,borderRadius:8,cursor:'pointer',textAlign:'left',fontFamily:'inherit',marginBottom:24,width:'100%',transition:'border-color 0.15s'}}
+              >
+                <div style={{width:18,height:18,borderRadius:4,border:`1.5px solid ${reassessOn?ACCENT:DIM}`,background:reassessOn?ACCENT:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'all 0.15s'}}>
+                  {reassessOn&&<span style={{color:ON_ACCENT,fontSize:11,fontWeight:700}}>✓</span>}
+                </div>
+                <div style={{fontSize:12,color:SUB,lineHeight:1.5}}>
+                  Re-assessment reminders <span style={{color:DIM}}>· yearly per saved site</span>
+                </div>
+              </button>
+            )
+          })()}
 
           <button onClick={() => setStep(1)} disabled={!form.name} style={{width:'100%',padding:'14px 0',background:ACCENT,border:'none',borderRadius:8,color:ON_ACCENT,fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit',opacity:form.name?1:.3,minHeight:48,transition:'opacity 0.2s',letterSpacing:'-0.1px'}}>Continue to Instruments</button>
         </div>}

@@ -36,6 +36,13 @@ export type EventName =
   | 'narrative_generated'
   /** handleExport in MobileApp.jsx succeeded (built-in OR template). */
   | 'report_exported'
+  /**
+   * finishAssessment in MobileApp.jsx wrote a finalized report row.
+   * When `details.site_id` is present, /api/events dispatches
+   * `enqueueReassessmentReminder` to schedule the re-assessment
+   * email. Habit-loop PR 1.
+   */
+  | 'assessment_finalized'
 
 export const KNOWN_EVENTS: readonly EventName[] = [
   'logger_imported',
@@ -44,6 +51,7 @@ export const KNOWN_EVENTS: readonly EventName[] = [
   'jasper_asked',
   'narrative_generated',
   'report_exported',
+  'assessment_finalized',
 ] as const
 
 /** Optional caller-supplied input for one event. */

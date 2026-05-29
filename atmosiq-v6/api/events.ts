@@ -34,6 +34,8 @@
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { KNOWN_EVENTS, type EventName } from '../lib/events/types'
+import { enqueueReassessmentReminder } from '../lib/email-triggers'
+import { computeNextDueAt } from './sites'
 
 // Cap details to a sane size so a runaway client payload can't
 // inflate audit_log rows. Matches the spirit of the trackEvent
@@ -155,7 +157,76 @@ async function handler(req: Req, res: Res) {
     return
   }
 
+  // Dispatch product-flow side effects (habit-loop PR 1+). Each
+  // dispatch is best-effort — a failure here MUST NOT cause the
+  // 200 to flip to a 500, because the audit_log row is already
+  // written and the user's action succeeded from their perspective.
+  try {
+    await dispatchSideEffects(supabase, name as EventName, user.id, details)
+  } catch (dispatchErr) {
+    const msg = dispatchErr instanceof Error ? dispatchErr.message : String(dispatchErr)
+    console.error('[events] side-effect dispatch failed for', name, ':', msg)
+    // Fall through — still respond 200.
+  }
+
   res.status(200).json({ ok: true })
+}
+
+/**
+ * Side-effect dispatcher. Currently handles:
+ *   • assessment_finalized → enqueue reassessment reminder when the
+ *     details payload carries a site_id (i.e. the user opted to save
+ *     the site at finalize time).
+ *
+ * Wrapped in best-effort try/catch at the caller — never re-raise.
+ */
+async function dispatchSideEffects(
+  supabase: SupabaseClient,
+  name: EventName,
+  userId: string,
+  details: Record<string, unknown>,
+): Promise<void> {
+  if (name !== 'assessment_finalized') return
+  const siteId = typeof details.site_id === 'string' ? details.site_id : null
+  if (!siteId) return  // user chose "Not now" at the save prompt — no reminder.
+
+  // Check the user's opt-out and look up the site so we can compute
+  // the cadence + email subject from server-trusted data (never from
+  // the request body).
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('email_preferences')
+    .eq('id', userId)
+    .maybeSingle()
+  const prefs = (profile as { email_preferences?: { reassessment_reminders?: boolean } } | null)
+    ?.email_preferences
+  if (prefs && prefs.reassessment_reminders === false) return
+
+  const { data: site } = await supabase
+    .from('sites')
+    .select('id, name, reassessment_interval_months, disabled_at, last_finalized_at')
+    .eq('id', siteId)
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (!site) return  // missing or another user's site (RLS).
+  const siteRow = site as {
+    id: string; name: string; reassessment_interval_months: number;
+    disabled_at: string | null; last_finalized_at: string | null;
+  }
+  if (siteRow.disabled_at) return  // user paused reminders for this site.
+
+  const nextDueIso = computeNextDueAt(
+    siteRow.last_finalized_at,
+    siteRow.reassessment_interval_months,
+  )
+  if (!nextDueIso) return  // last_finalized_at not set yet — nothing to schedule.
+
+  await enqueueReassessmentReminder(supabase as never, {
+    user_id: userId,
+    site_id: siteRow.id,
+    site_name: siteRow.name,
+    due_at: new Date(nextDueIso),
+  })
 }
 
 export default handler

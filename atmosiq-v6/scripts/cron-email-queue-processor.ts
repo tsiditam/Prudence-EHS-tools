@@ -34,6 +34,8 @@ interface QueueRow {
   id: number
   user_id: string
   template_id: string
+  /** Per-row data for event-scheduled templates. Migration 018. */
+  payload?: Record<string, unknown> | null
 }
 
 interface ProfileRow {
@@ -54,7 +56,7 @@ export async function runEmailQueueProcessor(now: Date = new Date()): Promise<Pr
   // Fetch up to BATCH_SIZE due rows.
   const { data: dueRows, error: selErr } = await supabase
     .from('email_queue')
-    .select('id, user_id, template_id')
+    .select('id, user_id, template_id, payload')
     .lte('scheduled_for', now.toISOString())
     .is('sent_at', null)
     .is('canceled_at', null)
@@ -109,7 +111,14 @@ export async function runEmailQueueProcessor(now: Date = new Date()): Promise<Pr
       first_name: profile.name?.split(/\s+/)[0] ?? null,
       plan: (profile.plan as UserContext['plan']) || 'free',
     }
-    const rendered = tpl.render(ctx)
+    // Migration 018: per-row payload threaded into render() for
+    // event-scheduled templates (e.g. reassessment.reminder).
+    // Pre-migration rows have no payload column; default to {} so
+    // existing templates keep working unchanged.
+    const payload = (row.payload && typeof row.payload === 'object')
+      ? row.payload as Record<string, unknown>
+      : {}
+    const rendered = tpl.render(ctx, payload)
 
     if (!resendKey) {
       // Dry-run mode: mark as sent so the row drains but log a warning.
