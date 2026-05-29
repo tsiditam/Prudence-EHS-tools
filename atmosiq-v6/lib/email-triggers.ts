@@ -298,6 +298,120 @@ export async function enqueuePortfolioDigest(
   return { enqueued: 1, skipped: false }
 }
 
+// ─── Sampling results outstanding reminder (habit-loop PR 5) ───────
+
+export interface SamplingResultsReminderEvent {
+  user_id: string
+  /** The finalized report's id (rpt-...). */
+  report_id: string
+  facility_name: string | null
+  sampling_plan_size: number
+  /** When the reminder email should fire (typically finalize_at + 14 days). */
+  due_at: Date
+}
+
+/**
+ * Schedule a `sampling_results.reminder` email for a finalized
+ * assessment whose engine output included a sampling plan but no
+ * lab results were attached at finalize time.
+ *
+ * Idempotency: cancels any unsent prior reminder for the same
+ * (user_id, report_id) before insert. Re-finalizing the same
+ * report moves the reminder rather than stacking it.
+ */
+export async function enqueueSamplingResultsReminder(
+  supabase: SupabaseLike,
+  event: SamplingResultsReminderEvent,
+): Promise<{ canceled: number; enqueued: number }> {
+  if (!event.user_id || !event.report_id) {
+    throw new Error('enqueueSamplingResultsReminder: missing user_id / report_id')
+  }
+  const tpl = getTemplate('sampling_results.reminder')
+  if (!tpl) {
+    throw new Error('enqueueSamplingResultsReminder: template not registered')
+  }
+  const { data: priorRows, error: selErr } = await supabase
+    .from('email_queue')
+    .select('id, payload')
+    .eq('user_id', event.user_id)
+    .eq('template_id', tpl.id)
+    .is('sent_at', null)
+    .is('canceled_at', null)
+  if (selErr) {
+    throw new Error(`enqueueSamplingResultsReminder select failed: ${selErr.message}`)
+  }
+  type Row = { id: number; payload?: { report_id?: string } }
+  const matchingIds: Array<number | string> = []
+  for (const r of (priorRows || []) as Row[]) {
+    if (r.payload?.report_id === event.report_id) matchingIds.push(r.id)
+  }
+  let canceled = 0
+  if (matchingIds.length > 0) {
+    const { error: cancelErr } = await supabase
+      .from('email_queue')
+      .update({ canceled_at: new Date().toISOString(), cancel_reason: 'sampling_results_reschedule' })
+      .in('id', matchingIds)
+    if (cancelErr) {
+      throw new Error(`enqueueSamplingResultsReminder cancel failed: ${cancelErr.message}`)
+    }
+    canceled = matchingIds.length
+  }
+  const { error: insErr } = await supabase.from('email_queue').insert({
+    user_id: event.user_id,
+    template_id: tpl.id,
+    scheduled_for: event.due_at.toISOString(),
+    payload: {
+      report_id: event.report_id,
+      facility_name: event.facility_name,
+      sampling_plan_size: event.sampling_plan_size,
+    },
+  })
+  if (insErr) {
+    throw new Error(`enqueueSamplingResultsReminder insert failed: ${insErr.message}`)
+  }
+  return { canceled, enqueued: 1 }
+}
+
+/**
+ * Cancel any unsent sampling_results.reminder for (user_id, report_id).
+ * Called by the /api/events dispatcher when a `lab_results_attached`
+ * event fires.
+ */
+export async function cancelSamplingResultsReminder(
+  supabase: SupabaseLike,
+  event: { user_id: string; report_id: string },
+): Promise<{ canceled: number }> {
+  if (!event.user_id || !event.report_id) {
+    throw new Error('cancelSamplingResultsReminder: missing user_id / report_id')
+  }
+  const tpl = getTemplate('sampling_results.reminder')
+  if (!tpl) return { canceled: 0 }
+  const { data: priorRows, error: selErr } = await supabase
+    .from('email_queue')
+    .select('id, payload')
+    .eq('user_id', event.user_id)
+    .eq('template_id', tpl.id)
+    .is('sent_at', null)
+    .is('canceled_at', null)
+  if (selErr) {
+    throw new Error(`cancelSamplingResultsReminder select failed: ${selErr.message}`)
+  }
+  type Row = { id: number; payload?: { report_id?: string } }
+  const matchingIds: Array<number | string> = []
+  for (const r of (priorRows || []) as Row[]) {
+    if (r.payload?.report_id === event.report_id) matchingIds.push(r.id)
+  }
+  if (matchingIds.length === 0) return { canceled: 0 }
+  const { error: cancelErr } = await supabase
+    .from('email_queue')
+    .update({ canceled_at: new Date().toISOString(), cancel_reason: 'lab_results_attached' })
+    .in('id', matchingIds)
+  if (cancelErr) {
+    throw new Error(`cancelSamplingResultsReminder cancel failed: ${cancelErr.message}`)
+  }
+  return { canceled: matchingIds.length }
+}
+
 // ─── Re-assessment reminder (habit-loop PR 1) ──────────────────────
 
 export interface ReassessmentReminderEvent {

@@ -329,7 +329,7 @@ interface MockSite {
   disabled_at: string | null
   last_finalized_at: string | null
 }
-interface MockProfile { email_preferences?: { reassessment_reminders?: boolean } }
+interface MockProfile { email_preferences?: { reassessment_reminders?: boolean; sampling_results_outstanding?: boolean } }
 
 function makeDispatchMockSupabase(opts: {
   user?: { id: string; email?: string }
@@ -414,6 +414,164 @@ function makeDispatchMockSupabase(opts: {
     },
   }
 }
+
+describe('/api/events — assessment_finalized: sampling-results dispatch (habit-loop PR 5)', () => {
+  it('enqueues sampling_results.reminder when sampling_plan_size > 0 and no lab results', async () => {
+    const sb = makeDispatchMockSupabase()
+    __test.setSupabase(sb as never)
+    const res = makeRes()
+    await handler(
+      makeReq({
+        auth: 'Bearer t',
+        body: {
+          name: 'assessment_finalized',
+          target_id: 'rpt-1',
+          target_type: 'assessment',
+          details: {
+            facility_name: 'Acme HQ',
+            sampling_plan_size: 3,
+            lab_results_attached: false,
+          },
+        },
+      }),
+      res as never,
+    )
+    expect(res._statusCode).toBe(200)
+    const queueWrites = sb.state.insertCalls.filter(c => c.table === 'email_queue')
+    expect(queueWrites).toHaveLength(1)
+    expect(queueWrites[0].row.template_id).toBe('sampling_results.reminder')
+    expect((queueWrites[0].row.payload as { report_id: string }).report_id).toBe('rpt-1')
+    expect((queueWrites[0].row.payload as { sampling_plan_size: number }).sampling_plan_size).toBe(3)
+  })
+
+  it('does NOT enqueue when sampling_plan_size is 0', async () => {
+    const sb = makeDispatchMockSupabase()
+    __test.setSupabase(sb as never)
+    const res = makeRes()
+    await handler(
+      makeReq({
+        auth: 'Bearer t',
+        body: {
+          name: 'assessment_finalized',
+          target_id: 'rpt-1',
+          details: { sampling_plan_size: 0, lab_results_attached: false },
+        },
+      }),
+      res as never,
+    )
+    expect(res._statusCode).toBe(200)
+    expect(sb.state.insertCalls.filter(c => c.table === 'email_queue')).toHaveLength(0)
+  })
+
+  it('does NOT enqueue when lab_results_attached is true at finalize time', async () => {
+    const sb = makeDispatchMockSupabase()
+    __test.setSupabase(sb as never)
+    const res = makeRes()
+    await handler(
+      makeReq({
+        auth: 'Bearer t',
+        body: {
+          name: 'assessment_finalized',
+          target_id: 'rpt-1',
+          details: { sampling_plan_size: 3, lab_results_attached: true },
+        },
+      }),
+      res as never,
+    )
+    expect(res._statusCode).toBe(200)
+    expect(sb.state.insertCalls.filter(c => c.table === 'email_queue')).toHaveLength(0)
+  })
+
+  it('respects opt-out (email_preferences.sampling_results_outstanding=false)', async () => {
+    const sb = makeDispatchMockSupabase({
+      profile: { email_preferences: { sampling_results_outstanding: false } },
+    })
+    __test.setSupabase(sb as never)
+    const res = makeRes()
+    await handler(
+      makeReq({
+        auth: 'Bearer t',
+        body: {
+          name: 'assessment_finalized',
+          target_id: 'rpt-1',
+          details: { sampling_plan_size: 3, lab_results_attached: false },
+        },
+      }),
+      res as never,
+    )
+    expect(res._statusCode).toBe(200)
+    expect(sb.state.insertCalls.filter(c => c.table === 'email_queue')).toHaveLength(0)
+  })
+
+  it('does NOT enqueue when target_id is missing (no report id to anchor)', async () => {
+    const sb = makeDispatchMockSupabase()
+    __test.setSupabase(sb as never)
+    const res = makeRes()
+    await handler(
+      makeReq({
+        auth: 'Bearer t',
+        body: {
+          name: 'assessment_finalized',
+          // no target_id
+          details: { sampling_plan_size: 3, lab_results_attached: false },
+        },
+      }),
+      res as never,
+    )
+    expect(res._statusCode).toBe(200)
+    expect(sb.state.insertCalls.filter(c => c.table === 'email_queue')).toHaveLength(0)
+  })
+})
+
+describe('/api/events — lab_results_attached dispatch (habit-loop PR 5)', () => {
+  it('cancels any pending sampling_results.reminder for this report', async () => {
+    const sb = makeDispatchMockSupabase()
+    __test.setSupabase(sb as never)
+
+    // Seed a pending reminder
+    sb.state.queueRows.push({
+      id: 99, user_id: 'user-123', template_id: 'sampling_results.reminder',
+      sent_at: null, canceled_at: null,
+      payload: { report_id: 'rpt-7' },
+    })
+
+    const res = makeRes()
+    await handler(
+      makeReq({
+        auth: 'Bearer t',
+        body: {
+          name: 'lab_results_attached',
+          target_id: 'rpt-7',
+          details: { report_id: 'rpt-7' },
+        },
+      }),
+      res as never,
+    )
+    expect(res._statusCode).toBe(200)
+    // Update call recorded against the pending row.
+    expect(sb.state.updateCalls.length).toBeGreaterThanOrEqual(1)
+    const seeded = sb.state.queueRows.find(r => r.id === 99)
+    expect(seeded?.canceled_at).toBeTruthy()
+  })
+
+  it('is a no-op when no matching pending reminder exists', async () => {
+    const sb = makeDispatchMockSupabase()
+    __test.setSupabase(sb as never)
+    const res = makeRes()
+    await handler(
+      makeReq({
+        auth: 'Bearer t',
+        body: {
+          name: 'lab_results_attached',
+          target_id: 'rpt-x',
+          details: { report_id: 'rpt-x' },
+        },
+      }),
+      res as never,
+    )
+    expect(res._statusCode).toBe(200)
+  })
+})
 
 describe('/api/events — assessment_finalized dispatch (habit-loop PR 1)', () => {
   const PAST_ISO = '2025-05-29T12:00:00Z'

@@ -415,6 +415,7 @@ export default function ProfileScreen({ onLogin }) {
             const reassessOn = prefs.reassessment_reminders !== false
             const calOn = prefs.calibration_expiry !== false
             const digestOn = prefs.portfolio_digest !== false
+            const samplingOn = prefs.sampling_results_outstanding !== false
             return (
               <>
                 <button
@@ -441,13 +442,24 @@ export default function ProfileScreen({ onLogin }) {
                 </button>
                 <button
                   onClick={() => setF('email_preferences', { ...prefs, portfolio_digest: !digestOn })}
-                  style={{display:'flex',alignItems:'center',gap:12,padding:'12px 14px',background:'transparent',border:`1px solid ${digestOn?`${mix('accent', 19)}`:BORDER}`,borderRadius:8,cursor:'pointer',textAlign:'left',fontFamily:'inherit',marginBottom:24,width:'100%',transition:'border-color 0.15s'}}
+                  style={{display:'flex',alignItems:'center',gap:12,padding:'12px 14px',background:'transparent',border:`1px solid ${digestOn?`${mix('accent', 19)}`:BORDER}`,borderRadius:8,cursor:'pointer',textAlign:'left',fontFamily:'inherit',marginBottom:10,width:'100%',transition:'border-color 0.15s'}}
                 >
                   <div style={{width:18,height:18,borderRadius:4,border:`1.5px solid ${digestOn?ACCENT:DIM}`,background:digestOn?ACCENT:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'all 0.15s'}}>
                     {digestOn&&<span style={{color:ON_ACCENT,fontSize:11,fontWeight:700}}>✓</span>}
                   </div>
                   <div style={{fontSize:12,color:SUB,lineHeight:1.5}}>
                     Quarterly portfolio digest <span style={{color:DIM}}>· your totals only, no benchmarks</span>
+                  </div>
+                </button>
+                <button
+                  onClick={() => setF('email_preferences', { ...prefs, sampling_results_outstanding: !samplingOn })}
+                  style={{display:'flex',alignItems:'center',gap:12,padding:'12px 14px',background:'transparent',border:`1px solid ${samplingOn?`${mix('accent', 19)}`:BORDER}`,borderRadius:8,cursor:'pointer',textAlign:'left',fontFamily:'inherit',marginBottom:24,width:'100%',transition:'border-color 0.15s'}}
+                >
+                  <div style={{width:18,height:18,borderRadius:4,border:`1.5px solid ${samplingOn?ACCENT:DIM}`,background:samplingOn?ACCENT:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'all 0.15s'}}>
+                    {samplingOn&&<span style={{color:ON_ACCENT,fontSize:11,fontWeight:700}}>✓</span>}
+                  </div>
+                  <div style={{fontSize:12,color:SUB,lineHeight:1.5}}>
+                    Lab-results-outstanding reminders <span style={{color:DIM}}>· 14 days after finalize if no CSV attached</span>
                   </div>
                 </button>
               </>

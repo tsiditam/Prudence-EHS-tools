@@ -416,6 +416,41 @@ ${SIGNATURE}`
       return { subject, body, text: body }
     },
   },
+  // ── Sampling results outstanding (habit-loop PR 5) ───────────────
+  // Fires N days after finalize when the engine generated a sampling
+  // plan but no lab results have been attached yet. Cancelled
+  // automatically when /api/events sees a lab_results_attached event.
+  {
+    id: 'sampling_results.reminder',
+    delayMs: 0,
+    render: (ctx, payload) => {
+      const p = (payload || {}) as Record<string, unknown>
+      const facility = (typeof p.facility_name === 'string' && p.facility_name) ? p.facility_name : 'your assessment'
+      const planSize = typeof p.sampling_plan_size === 'number' ? p.sampling_plan_size : 0
+      const methodLine = planSize > 0
+        ? `${planSize} sampling method${planSize === 1 ? '' : 's'}`
+        : 'sampling methods'
+      const subject = `Lab results still pending — ${facility}`
+      const body = `Hi ${firstName(ctx)},
+
+Your AtmosFlow assessment for ${facility} included ${methodLine}
+in the sampling plan. The deliverable carries those
+recommendations forward; once the lab returns analytical results,
+attaching the CSV closes the loop and the report includes the
+results appendix.
+
+Open AtmosFlow → the report's Lab Results tab → import the CSV.
+
+If you've already attached the results, ignore this message —
+AtmosFlow only knows what it sees on the assessment record.
+
+You can turn off these reminders any time in Settings → Profile
+→ Email Preferences.
+
+${SIGNATURE}`
+      return { subject, body, text: body }
+    },
+  },
   // ── Portfolio digest (habit-loop PR 3) ───────────────────────────
   // Quarterly summary email driven by scripts/cron-portfolio-digest.ts.
   // Stats are the user's OWN audit_log totals — no cohort comparison

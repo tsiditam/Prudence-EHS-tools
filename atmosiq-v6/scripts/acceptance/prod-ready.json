@@ -380,6 +380,14 @@
       { "type": "file_exists", "path": "tests/api/peer-review.test.ts" },
       { "type": "file_exists", "path": "tests/api/peer-review-respond.test.ts" },
       { "type": "file_exists", "path": "tests/components/PeerReviewLanding.test.tsx" }
+    ]},
+    { "id": "SAMPLING-RESULTS-REMINDER", "label": "Sampling-results-outstanding reminder loop wired end-to-end (habit-loop PR 5)", "checks": [
+      { "type": "grep_matches", "pattern": "enqueueSamplingResultsReminder", "paths": ["lib/email-triggers.ts"] },
+      { "type": "grep_matches", "pattern": "cancelSamplingResultsReminder", "paths": ["lib/email-triggers.ts"] },
+      { "type": "grep_matches", "pattern": "sampling_results\\.reminder", "paths": ["lib/email-sequences.ts"] },
+      { "type": "grep_matches", "pattern": "lab_results_attached", "paths": ["lib/events/types.ts", "api/events.ts", "src/components/LabResultsImport.jsx"] },
+      { "type": "grep_matches", "pattern": "sampling_plan_size", "paths": ["api/events.ts", "src/components/MobileApp.jsx"] },
+      { "type": "grep_matches", "pattern": "sampling_results_outstanding", "paths": ["src/components/ProfileScreen.jsx"] }
     ]}
   ]
 }

@@ -1311,7 +1311,16 @@ export default function MobileApp() {
       emitEvent('assessment_finalized', {
         target_id: rid,
         target_type: 'assessment',
-        details: { site_id: currentSiteId, score: composite?.tot ?? null, zones: zones.length },
+        details: {
+          site_id: currentSiteId,
+          score: composite?.tot ?? null,
+          zones: zones.length,
+          facility_name: bldg.fn || null,
+          // Habit-loop PR 5: lets /api/events schedule the
+          // sampling-results-outstanding reminder.
+          sampling_plan_size: (sp?.plan || []).length,
+          lab_results_attached: !!(viewRpt?.labResults),
+        },
       })
     } else {
       // First-time path — open the SaveSitePrompt over the results view.
@@ -3189,7 +3198,14 @@ export default function MobileApp() {
           emitEvent('assessment_finalized', {
             target_id: savePromptCtx?.rid || null,
             target_type: 'assessment',
-            details: { site_id: savedSite?.id || null, score: comp?.tot ?? null, zones: zones.length },
+            details: {
+              site_id: savedSite?.id || null,
+              score: comp?.tot ?? null,
+              zones: zones.length,
+              facility_name: bldg.fn || null,
+              sampling_plan_size: (samplingPlan?.plan || []).length,
+              lab_results_attached: !!(viewRpt?.labResults),
+            },
           })
           setSavePromptCtx(null)
         }}
@@ -3197,7 +3213,15 @@ export default function MobileApp() {
           emitEvent('assessment_finalized', {
             target_id: savePromptCtx?.rid || null,
             target_type: 'assessment',
-            details: { site_id: null, score: comp?.tot ?? null, zones: zones.length, declined_save: true },
+            details: {
+              site_id: null,
+              score: comp?.tot ?? null,
+              zones: zones.length,
+              declined_save: true,
+              facility_name: bldg.fn || null,
+              sampling_plan_size: (samplingPlan?.plan || []).length,
+              lab_results_attached: !!(viewRpt?.labResults),
+            },
           })
           setSavePromptCtx(null)
         }}

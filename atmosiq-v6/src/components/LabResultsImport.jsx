@@ -31,6 +31,7 @@ import { useEffect, useRef, useState } from 'react'
 import { parseLabResultsCsv, getCanonicalFields } from '../utils/labResultsParser'
 import { listTemplates, saveTemplate, findTemplateForLab, deleteTemplate } from '../utils/labCsvTemplates'
 import Storage from '../utils/cloudStorage'
+import { emitEvent } from '../../lib/events/emit'
 
 const CARD = 'var(--card)'
 const BORDER = 'var(--border)'
@@ -362,6 +363,14 @@ export default function LabResultsImport({ onBack, onSaved }) {
         rows: parsed.rows,
       }
       await Storage.saveAssessment({ ...assessment, labResults })
+      // Habit-loop PR 5: emit lab_results_attached so /api/events
+      // can cancel any pending sampling_results.reminder for this
+      // report. Best-effort; never blocks the save.
+      emitEvent('lab_results_attached', {
+        target_id: targetId,
+        target_type: 'assessment',
+        details: { report_id: targetId, row_count: parsed.rows.length },
+      })
       setSaved(true)
       if (onSaved) onSaved({ assessmentId: targetId, rowCount: parsed.rows.length })
     } catch (err) {

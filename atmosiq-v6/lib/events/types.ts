@@ -53,6 +53,13 @@ export type EventName =
    * (habit-loop PR 4). details: { peer_review_id, status }.
    */
   | 'peer_review_completed'
+  /**
+   * User uploaded lab results CSV for a finalized assessment
+   * (habit-loop PR 5). details: { report_id }. The /api/events
+   * dispatcher cancels any pending sampling_results.reminder when
+   * this fires.
+   */
+  | 'lab_results_attached'
 
 export const KNOWN_EVENTS: readonly EventName[] = [
   'logger_imported',
@@ -64,6 +71,7 @@ export const KNOWN_EVENTS: readonly EventName[] = [
   'assessment_finalized',
   'peer_review_requested',
   'peer_review_completed',
+  'lab_results_attached',
 ] as const
 
 /** Optional caller-supplied input for one event. */
