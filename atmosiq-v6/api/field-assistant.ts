@@ -968,8 +968,12 @@ async function handler(req: VercelLikeRequest, res: VercelLikeResponse): Promise
     /* ignore — quota footer just won't show */
   }
 
+  // Renamed `field_assistant.message` → `jasper_asked` (connectivity
+  // PR D EventName allowlist). No external consumer reads the old
+  // string today; the new name lines up with KNOWN_EVENTS so the
+  // event-spine vocabulary is consistent across browser + server.
   await auditLog({
-    action: 'field_assistant.message',
+    action: 'jasper_asked',
     actor_id: user.id,
     actor_email: user.email,
     target_type: 'field_assistant_conversation',
@@ -991,6 +995,31 @@ async function handler(req: VercelLikeRequest, res: VercelLikeResponse): Promise
     },
     req,
   })
+
+  // PR D event spine: one `photo_analyzed` row per successful vision
+  // call this turn. Wrapped in try/catch — a logging failure must
+  // never break the user response (we've already written the
+  // jasper_asked row above for forensic).
+  for (const u of visionUsages) {
+    try {
+      await auditLog({
+        action: 'photo_analyzed',
+        actor_id: user.id,
+        actor_email: user.email,
+        target_type: 'photo',
+        target_id: u.photo_id,
+        details: {
+          focus: u.focus,
+          confidence: u.confidence,
+          input_tokens: u.input_tokens,
+          output_tokens: u.output_tokens,
+        },
+        req,
+      })
+    } catch {
+      // best-effort
+    }
+  }
 
   writeSse(res, 'done', {
     usage: {

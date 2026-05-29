@@ -215,8 +215,12 @@ async function handler(req, res) {
     console.error('[narrative] failed to record generation:', err && err.message)
   }
 
+  // Renamed `narrative.generate` → `narrative_generated` (connectivity
+  // PR D EventName allowlist). No external consumer reads the old
+  // string today; the new name lines up with KNOWN_EVENTS so the
+  // event-spine vocabulary is consistent across browser + server.
   await auditLog({
-    action: 'narrative.generate',
+    action: 'narrative_generated',
     actor_id: user.id,
     actor_email: user.email,
     target_type: 'narrative',
