@@ -95,8 +95,7 @@ import PendingSyncIndicator from './PendingSyncIndicator'
 import OfflineBanner from './OfflineBanner'
 import JasperWatchPanel from './JasperWatchPanel'
 import ReadinessPanel from './ReadinessPanel'
-import { buildReadinessVerdict } from '../engines/readiness-verdict'
-import { summarizeLoggerForContext } from '../../lib/jasper/logger-context-summary'
+import { buildJasperContext } from '../../lib/context/buildJasperContext'
 import SamplingFormsView from './SamplingFormsView'
 import { useAssessment } from '../contexts/AssessmentContext.jsx'
 import { useAuth } from '../contexts/AuthContext.jsx'
@@ -4183,54 +4182,15 @@ export default function MobileApp() {
             }
             return false
           }}
-          context={{
-            view,
-            presurvey,
-            bldg,
-            current_zone: zones[curZone],
-            zones_count: zones.length,
+          context={buildJasperContext({
+            view, presurvey, bldg, zones, curZone,
+            photos, sensorData,
+            comp, zoneScores, recs, narrative, samplingPlan, causalChains,
+            profile, draftId,
+            index,
             incident: currentIncident,
-            // Discrepancy-scan payload + directive (present only during a
-            // "Review for discrepancies" run). Carries the report content
-            // so the chat message can stay a short prompt.
-            report_review: reviewPayload || undefined,
-            // Active-assessment label for the assistant's context chip +
-            // prompt. Prefer the loaded assessment's facility; on the
-            // dashboard (where bldg isn't hydrated until a draft is
-            // resumed) fall back to the top in-progress draft so the
-            // assistant still knows what the assessor is working on.
-            active_assessment: (() => {
-              const facility = bldg?.fn || (index?.drafts || [])[0]?.facility || null
-              if (!facility) return null
-              const status = (view === 'results' || view === 'report')
-                ? 'Finalized report'
-                : 'Draft assessment'
-              return { facility, status }
-            })(),
-            profile_minimal: profile ? { plan: profile.plan, certs: profile.certs, firm: profile.firm } : null,
-            // v1.5 Defensibility Copilot: when the user is in results
-            // view, attach the readiness verdict so the agent can answer
-            // "what's blocking this report?" with concrete gaps + the
-            // ASHRAE / IICRC citations baked into the gap rationales —
-            // no tool-calling round-trip required.
-            readiness: (view === 'results' || view === 'report') && comp
-              ? buildReadinessVerdict({
-                  assessmentMode: 'SCREENING',
-                  presurvey, building: bldg,
-                  client: bldg && bldg.client ? bldg.client : {},
-                  zones, zoneScores, recs, photos,
-                  profile: profile ? { name: profile.name } : null,
-                })
-              : undefined,
-            // Logger Studio summary — present whenever the user has
-            // a sensor-logger session loaded on this draft. Compact
-            // (~300 token) per-parameter stats + quality flags + time
-            // range, suitable for the agent to reference without a
-            // tool round-trip. Returns null when no data is loaded.
-            logger_studio: sensorData
-              ? summarizeLoggerForContext(sensorData)
-              : undefined,
-          }}
+            report_review: reviewPayload || null,
+          })}
         />
       )}
 

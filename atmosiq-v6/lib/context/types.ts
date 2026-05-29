@@ -192,3 +192,66 @@ export interface RawAssessmentState {
   assessmentMode?: string
   reportDraftState?: Partial<ReportDraftState>
 }
+
+/**
+ * Extends RawAssessmentState with Jasper-runtime fields that live in
+ * MobileApp.jsx state but are not part of the persisted assessment
+ * draft (incident log entries, discrepancy-scan payloads, and the
+ * draft index used as an active-assessment fallback on the dashboard).
+ */
+export interface JasperContextInput extends RawAssessmentState {
+  /** Active incident being reviewed in the incident-detail view. */
+  incident?: unknown
+  /** Discrepancy-scan payload attached during a "Review for discrepancies" run. */
+  report_review?: unknown
+  /** Draft / report index — used as facility-name fallback when bldg isn't hydrated. */
+  index?: { drafts?: Array<{ facility?: string }>; reports?: unknown[] }
+}
+
+/**
+ * The context object passed as the `context` prop to FieldAssistant /
+ * Jasper. It is a strict superset of AssessmentContext:
+ *
+ *   • All normalized AssessmentContext fields are present (meta, project,
+ *     building, zones, walkthrough_findings, …) so new consumers can read
+ *     the canonical shape.
+ *   • The legacy Jasper field names (bldg, current_zone, readiness,
+ *     logger_studio, …) are preserved as top-level aliases so that:
+ *       1. FieldAssistant.jsx chip strip keeps working without changes.
+ *       2. The AI's context block still surfaces the same key names the
+ *          system prompt was authored against.
+ *
+ * Build it with buildJasperContext(); never construct it by hand.
+ */
+export type JasperContext = AssessmentContext & {
+  // ── Legacy top-level aliases ──────────────────────────────────────
+  /** Alias for meta.view. */
+  readonly view: string | null
+  /** Raw presurvey object — AI reads ps_recipient_* fields from here. */
+  readonly presurvey: Record<string, unknown> | null
+  /** Raw building object (same shape as state.bldg). */
+  readonly bldg: Record<string, unknown> | null
+  /** Raw zone object at the current zone index (with sensor readings). */
+  readonly current_zone: Record<string, unknown> | null
+  /** Number of zones in this assessment. */
+  readonly zones_count: number
+  /**
+   * Short active-assessment descriptor rendered in the Jasper chip
+   * strip and used as context by the AI.
+   */
+  readonly active_assessment: { readonly facility: string; readonly status: string } | null
+  /** Assessor profile fields relevant to report eligibility. */
+  readonly profile_minimal: {
+    readonly plan: unknown
+    readonly certs: unknown
+    readonly firm: unknown
+  } | null
+  /** Alias for readiness_verdict — preserved for AI context-block compat. */
+  readonly readiness: ReadinessVerdict | null
+  /** Alias for logger_data_summary — preserved for AI context-block compat. */
+  readonly logger_studio: LoggerContextSummary | null
+  /** Active incident (passthrough from MobileApp state). */
+  readonly incident: unknown
+  /** Discrepancy-scan payload (passthrough from MobileApp state). */
+  readonly report_review: unknown
+}
