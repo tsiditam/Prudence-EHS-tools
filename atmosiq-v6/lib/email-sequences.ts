@@ -310,6 +310,66 @@ ${SIGNATURE}`
       return { subject, body, text: body }
     },
   },
+  // ── Calibration expiry (habit-loop PR 2) ─────────────────────────
+  // Two-stage reminders driven by scripts/cron-calibration-expiry.ts
+  // scanning public.profiles daily. The cron picks ONE email per
+  // (user, instrument, cal_date, kind) so re-runs after first
+  // delivery are no-ops; re-calibrating advances cal_date and starts
+  // a fresh cycle.
+  {
+    id: 'calibration.expiring',
+    delayMs: 0,
+    render: (ctx, payload) => {
+      const meter = (payload && typeof payload.meter === 'string') ? payload.meter : 'your instrument'
+      const days = (payload && typeof payload.days_to_expiry === 'number') ? payload.days_to_expiry : null
+      const subject = `${meter} calibration expires soon — schedule recalibration`
+      const window = (days != null && days > 0) ? `in ${days} day${days === 1 ? '' : 's'}` : 'soon'
+      const body = `Hi ${firstName(ctx)},
+
+A heads up: ${meter} is recorded as expiring ${window}.
+
+AtmosFlow flags assessments where the primary instrument is out of
+calibration. Re-cal now (or send it out) so your upcoming
+assessments stay CIH-defensible without an "Out of calibration"
+banner on the cover page.
+
+After re-cal, update the date in Settings → Profile → Instruments
+so AtmosFlow knows the new validity window.
+
+You can turn off these reminders any time in Settings → Profile →
+Email Preferences.
+
+${SIGNATURE}`
+      return { subject, body, text: body }
+    },
+  },
+  {
+    id: 'calibration.expired',
+    delayMs: 0,
+    render: (ctx, payload) => {
+      const meter = (payload && typeof payload.meter === 'string') ? payload.meter : 'your instrument'
+      const days = (payload && typeof payload.days_to_expiry === 'number') ? Math.abs(payload.days_to_expiry) : null
+      const subject = `${meter} calibration has expired`
+      const sinceFragment = (days != null && days > 0) ? ` (${days} day${days === 1 ? '' : 's'} ago)` : ''
+      const body = `Hi ${firstName(ctx)},
+
+${meter} is recorded as expired${sinceFragment}.
+
+Findings derived from an out-of-calibration instrument carry a
+"qualitative-only" caveat through every part of the deliverable —
+that's the conservative behavior built into AtmosFlow's
+defensibility layer. Re-cal before your next walkthrough to
+remove the caveat.
+
+After re-cal, update the date in Settings → Profile → Instruments.
+
+If this is wrong (cal happened but the date wasn't logged), just
+update the date in your profile and AtmosFlow will recompute.
+
+${SIGNATURE}`
+      return { subject, body, text: body }
+    },
+  },
 ]
 
 // ─── Lookup ────────────────────────────────────────────────────────

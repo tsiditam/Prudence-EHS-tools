@@ -340,6 +340,18 @@
       { "type": "grep_matches", "pattern": "email_preferences", "paths": ["src/components/ProfileScreen.jsx"] },
       { "type": "file_exists", "path": "src/components/SaveSitePrompt.jsx" },
       { "type": "file_exists", "path": "src/utils/siteLink.js" }
+    ]},
+    { "id": "CALIBRATION-EXPIRY-REMINDER", "label": "Calibration-expiry email loop wired end-to-end (habit-loop PR 2)", "checks": [
+      { "type": "file_exists", "path": "lib/calibration/banner-state.ts" },
+      { "type": "file_exists", "path": "scripts/cron-calibration-expiry.ts" },
+      { "type": "file_exists", "path": "api/cron-calibration-expiry.ts" },
+      { "type": "grep_matches", "pattern": "enqueueCalibrationReminder", "paths": ["lib/email-triggers.ts"] },
+      { "type": "grep_matches", "pattern": "calibration\\.expiring", "paths": ["lib/email-sequences.ts"] },
+      { "type": "grep_matches", "pattern": "calibration\\.expired", "paths": ["lib/email-sequences.ts"] },
+      { "type": "grep_matches", "pattern": "cron-calibration-expiry", "paths": ["vercel.json"] },
+      { "type": "grep_matches", "pattern": "calibration_expiry", "paths": ["src/components/ProfileScreen.jsx"] },
+      { "type": "file_exists", "path": "tests/lib/calibration-banner-state.test.ts" },
+      { "type": "file_exists", "path": "tests/scripts/cron-calibration-expiry.test.ts" }
     ]}
   ]
 }

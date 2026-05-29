@@ -406,25 +406,39 @@ export default function ProfileScreen({ onLogin }) {
             <div style={{fontSize:12,color:SUB,lineHeight:1.5}}>Receive product updates and IH field tips</div>
           </button>
 
-          {/* Email preferences — habit-loop PR 1. Default-on for new
-              profiles; the toggle flips the JSONB field on profiles
-              (migration 019). The trigger / cron read this column
-              before scheduling / sending a reassessment reminder. */}
+          {/* Email preferences — habit-loop PR 1 + PR 2. Default-on
+              for new profiles; toggles flip the JSONB field on
+              profiles (migration 019). Each cron reads its own flag
+              before scheduling / sending. */}
           {(() => {
             const prefs = form.email_preferences || {}
             const reassessOn = prefs.reassessment_reminders !== false
+            const calOn = prefs.calibration_expiry !== false
             return (
-              <button
-                onClick={() => setF('email_preferences', { ...prefs, reassessment_reminders: !reassessOn })}
-                style={{display:'flex',alignItems:'center',gap:12,padding:'12px 14px',background:'transparent',border:`1px solid ${reassessOn?`${mix('accent', 19)}`:BORDER}`,borderRadius:8,cursor:'pointer',textAlign:'left',fontFamily:'inherit',marginBottom:24,width:'100%',transition:'border-color 0.15s'}}
-              >
-                <div style={{width:18,height:18,borderRadius:4,border:`1.5px solid ${reassessOn?ACCENT:DIM}`,background:reassessOn?ACCENT:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'all 0.15s'}}>
-                  {reassessOn&&<span style={{color:ON_ACCENT,fontSize:11,fontWeight:700}}>✓</span>}
-                </div>
-                <div style={{fontSize:12,color:SUB,lineHeight:1.5}}>
-                  Re-assessment reminders <span style={{color:DIM}}>· yearly per saved site</span>
-                </div>
-              </button>
+              <>
+                <button
+                  onClick={() => setF('email_preferences', { ...prefs, reassessment_reminders: !reassessOn })}
+                  style={{display:'flex',alignItems:'center',gap:12,padding:'12px 14px',background:'transparent',border:`1px solid ${reassessOn?`${mix('accent', 19)}`:BORDER}`,borderRadius:8,cursor:'pointer',textAlign:'left',fontFamily:'inherit',marginBottom:10,width:'100%',transition:'border-color 0.15s'}}
+                >
+                  <div style={{width:18,height:18,borderRadius:4,border:`1.5px solid ${reassessOn?ACCENT:DIM}`,background:reassessOn?ACCENT:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'all 0.15s'}}>
+                    {reassessOn&&<span style={{color:ON_ACCENT,fontSize:11,fontWeight:700}}>✓</span>}
+                  </div>
+                  <div style={{fontSize:12,color:SUB,lineHeight:1.5}}>
+                    Re-assessment reminders <span style={{color:DIM}}>· yearly per saved site</span>
+                  </div>
+                </button>
+                <button
+                  onClick={() => setF('email_preferences', { ...prefs, calibration_expiry: !calOn })}
+                  style={{display:'flex',alignItems:'center',gap:12,padding:'12px 14px',background:'transparent',border:`1px solid ${calOn?`${mix('accent', 19)}`:BORDER}`,borderRadius:8,cursor:'pointer',textAlign:'left',fontFamily:'inherit',marginBottom:24,width:'100%',transition:'border-color 0.15s'}}
+                >
+                  <div style={{width:18,height:18,borderRadius:4,border:`1.5px solid ${calOn?ACCENT:DIM}`,background:calOn?ACCENT:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'all 0.15s'}}>
+                    {calOn&&<span style={{color:ON_ACCENT,fontSize:11,fontWeight:700}}>✓</span>}
+                  </div>
+                  <div style={{fontSize:12,color:SUB,lineHeight:1.5}}>
+                    Calibration-expiry reminders <span style={{color:DIM}}>· 30 days before, and on expiry</span>
+                  </div>
+                </button>
+              </>
             )
           })()}
 

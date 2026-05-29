@@ -23,6 +23,7 @@ import {
   onAssessmentCompleted,
   onSubscriptionCanceled,
   enqueueReassessmentReminder,
+  enqueueCalibrationReminder,
   type SupabaseLike,
 } from '../../lib/email-triggers'
 
@@ -274,6 +275,161 @@ describe('email-triggers — enqueueReassessmentReminder', () => {
     expect(live).toHaveLength(2)
     const siteIds = live.map(r => r.payload?.site_id).sort()
     expect(siteIds).toEqual(['site-acme', 'site-other'])
+  })
+})
+
+// ─── Calibration expiry reminder (habit-loop PR 2) ──────────────────
+
+describe('email-triggers — enqueueCalibrationReminder', () => {
+  const baseEvent = {
+    user_id: 'u_free',
+    instrument_key: 'iaq',
+    meter: 'Graywolf IQ-610',
+    cal_date: '2025-06-01',
+    kind: 'expiring' as const,
+    days_to_expiry: 25,
+  }
+
+  it('throws on missing required fields', async () => {
+    const supabase = makeSupabaseMock()
+    await expect(enqueueCalibrationReminder(supabase, { ...baseEvent, user_id: '' })).rejects.toThrow()
+    await expect(enqueueCalibrationReminder(supabase, { ...baseEvent, instrument_key: '' })).rejects.toThrow()
+    await expect(enqueueCalibrationReminder(supabase, { ...baseEvent, meter: '' })).rejects.toThrow()
+    await expect(enqueueCalibrationReminder(supabase, { ...baseEvent, cal_date: '' })).rejects.toThrow()
+  })
+
+  it('throws on invalid kind', async () => {
+    const supabase = makeSupabaseMock()
+    await expect(enqueueCalibrationReminder(supabase, { ...baseEvent, kind: 'whatever' as never })).rejects.toThrow()
+  })
+
+  it('inserts an expiring reminder with payload', async () => {
+    const supabase = makeSupabaseMock()
+    const r = await enqueueCalibrationReminder(supabase, baseEvent)
+    expect(r).toEqual({ canceled: 0, enqueued: 1, skipped: false })
+    expect(supabase.state.inserts).toHaveLength(1)
+    const row = supabase.state.inserts[0]
+    expect(row.template_id).toBe('calibration.expiring')
+    expect(row.user_id).toBe('u_free')
+    expect(row.payload).toEqual({
+      instrument_key: 'iaq',
+      meter: 'Graywolf IQ-610',
+      cal_date: '2025-06-01',
+      kind: 'expiring',
+      days_to_expiry: 25,
+    })
+  })
+
+  it('uses the expired template when kind is expired', async () => {
+    const supabase = makeSupabaseMock()
+    await enqueueCalibrationReminder(supabase, { ...baseEvent, kind: 'expired', days_to_expiry: -3 })
+    expect(supabase.state.inserts[0].template_id).toBe('calibration.expired')
+  })
+
+  it('skips when a row for this cal_date is already queued (idempotency)', async () => {
+    const supabase = makeSupabaseMock()
+    await enqueueCalibrationReminder(supabase, baseEvent)
+    expect(supabase.state.inserts).toHaveLength(1)
+
+    // Cron re-runs the next day — same cal_date.
+    const r = await enqueueCalibrationReminder(supabase, { ...baseEvent, days_to_expiry: 24 })
+    expect(r).toEqual({ canceled: 0, enqueued: 0, skipped: true })
+    expect(supabase.state.inserts).toHaveLength(1)  // no second insert
+  })
+
+  it('cancels stale unsent rows when cal_date advances (re-calibration)', async () => {
+    const supabase = makeSupabaseMock()
+    // First cycle.
+    await enqueueCalibrationReminder(supabase, baseEvent)
+    const firstId = supabase.state.queue[0].id
+
+    // User re-calibrates → cal_date is now newer; cron sees a new cycle.
+    const r = await enqueueCalibrationReminder(supabase, {
+      ...baseEvent,
+      cal_date: '2026-05-15',
+      days_to_expiry: 14,
+    })
+    expect(r.canceled).toBe(1)
+    expect(r.enqueued).toBe(1)
+    const live = supabase.state.queue.filter(x => x.sent_at == null && x.canceled_at == null)
+    expect(live).toHaveLength(1)
+    // The cancelled row is the original
+    const cancelled = supabase.state.queue.find(x => x.id === firstId)
+    expect(cancelled?.canceled_at).not.toBeNull()
+  })
+
+  it('does NOT cancel reminders for OTHER instruments on the same user', async () => {
+    const supabase = makeSupabaseMock()
+    await enqueueCalibrationReminder(supabase, baseEvent)
+    await enqueueCalibrationReminder(supabase, {
+      ...baseEvent,
+      instrument_key: 'pid',
+      meter: 'RAE MiniRAE',
+      cal_date: '2025-08-01',
+      days_to_expiry: 10,
+    })
+    const live = supabase.state.queue.filter(x => x.sent_at == null && x.canceled_at == null)
+    expect(live).toHaveLength(2)
+    const keys = live.map(r => r.payload?.instrument_key).sort()
+    expect(keys).toEqual(['iaq', 'pid'])
+  })
+
+  it('skips when a previously-sent row covers this cal_date (no re-send)', async () => {
+    const supabase = makeSupabaseMock({
+      queue: [
+        // Pre-existing sent row.
+        {
+          id: 99, user_id: 'u_free', template_id: 'calibration.expiring',
+          sent_at: '2026-05-29T13:00:00Z', canceled_at: null,
+          payload: { instrument_key: 'iaq', cal_date: '2025-06-01' },
+        },
+      ],
+    })
+    const r = await enqueueCalibrationReminder(supabase, baseEvent)
+    expect(r).toEqual({ canceled: 0, enqueued: 0, skipped: true })
+  })
+})
+
+describe('email-sequences — calibration templates', () => {
+  it('calibration.expiring renders with meter + days', () => {
+    const tpl = getTemplate('calibration.expiring')!
+    expect(tpl).toBeTruthy()
+    const ctx: UserContext = { user_id: 'u', email: 'a@b', first_name: 'Jamie', plan: 'pro' }
+    const r = tpl.render(ctx, { meter: 'TSI 7575', days_to_expiry: 14 })
+    expect(r.subject).toMatch(/TSI 7575/)
+    expect(r.subject).toMatch(/expires soon/)
+    expect(r.body).toMatch(/in 14 days/)
+    expect(r.body).toMatch(/Hi Jamie/)
+  })
+
+  it('calibration.expired renders with meter + absolute days-since', () => {
+    const tpl = getTemplate('calibration.expired')!
+    const ctx: UserContext = { user_id: 'u', email: 'a@b', first_name: null, plan: 'free' }
+    const r = tpl.render(ctx, { meter: 'Graywolf IQ-610', days_to_expiry: -5 })
+    expect(r.subject).toMatch(/has expired/)
+    expect(r.body).toMatch(/5 days ago/)
+    expect(r.body).toMatch(/Hi there/)
+  })
+
+  it('falls back to generic copy when payload is missing', () => {
+    const expiring = getTemplate('calibration.expiring')!.render({ user_id: 'u', email: 'a', first_name: null, plan: 'free' })
+    expect(expiring.subject).toMatch(/your instrument/)
+    const expired = getTemplate('calibration.expired')!.render({ user_id: 'u', email: 'a', first_name: null, plan: 'free' })
+    expect(expired.subject).toMatch(/your instrument/)
+  })
+
+  it('are registered in ALL_TEMPLATES so the cron can find them', () => {
+    expect(getTemplate('calibration.expiring')).toBeTruthy()
+    expect(getTemplate('calibration.expired')).toBeTruthy()
+  })
+
+  it('are NOT in templatesForPlan (cron-scheduled, not signup sequence)', () => {
+    const freeIds = templatesForPlan('free').map(t => t.id)
+    const proIds = templatesForPlan('pro').map(t => t.id)
+    expect(freeIds).not.toContain('calibration.expiring')
+    expect(freeIds).not.toContain('calibration.expired')
+    expect(proIds).not.toContain('calibration.expiring')
+    expect(proIds).not.toContain('calibration.expired')
   })
 })
 

@@ -302,6 +302,12 @@ const SupaStorage = {
             other_instruments: profile.other_instruments,
             firm: profile.firm,
             marketing_consent: profile.marketing_consent || false,
+            // Habit-loop PR 1 + PR 2: email preferences JSONB drives
+            // the reassessment + calibration-expiry cron opt-outs.
+            // Default-on is enforced server-side via migration 019;
+            // we forward the field only when the SPA has it set so
+            // we don't overwrite the server default with `undefined`.
+            ...(profile.email_preferences ? { email_preferences: profile.email_preferences } : {}),
           })
           if (error) {
             // Supabase upsert does NOT throw on PostgREST errors —

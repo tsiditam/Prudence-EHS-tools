@@ -112,6 +112,121 @@ export async function onSubscriptionCanceled(
   return { enqueued: 0 }
 }
 
+// ─── Calibration expiry reminder (habit-loop PR 2) ─────────────────
+
+export type CalibrationKind = 'expiring' | 'expired'
+
+export interface CalibrationReminderEvent {
+  user_id: string
+  /** Stable identifier for the instrument slot — 'iaq' | 'pid'. */
+  instrument_key: string
+  /** Human-readable meter label (e.g. "Graywolf IQ-610"). */
+  meter: string
+  /** Cal date the reminder is computed against. Identifies the cycle. */
+  cal_date: string
+  /** State.kind from getCalibrationBannerState. */
+  kind: CalibrationKind
+  /** Days to expiry at the time the reminder is computed (negative when expired). */
+  days_to_expiry: number
+}
+
+/**
+ * Schedule a calibration-expiring or calibration-expired email.
+ *
+ * Idempotency model:
+ *   • Skips entirely when a row already exists for (user_id,
+ *     template_id, payload.instrument_key, payload.cal_date) — sent
+ *     OR queued. So the daily cron firing again the next day is a
+ *     no-op once the reminder has gone out for THIS cal cycle.
+ *   • When a row exists for the same (user_id, instrument_key) but
+ *     with a STALE cal_date (the user re-calibrated since the prior
+ *     reminder), the stale unsent row is cancelled. The fresh cycle
+ *     can then enqueue its own first reminder cleanly.
+ *
+ * Returns { canceled, enqueued } so the caller can log progress.
+ * `enqueued: 0` is the no-op-because-already-sent path — not an error.
+ */
+export async function enqueueCalibrationReminder(
+  supabase: SupabaseLike,
+  event: CalibrationReminderEvent,
+): Promise<{ canceled: number; enqueued: number; skipped: boolean }> {
+  if (!event.user_id || !event.instrument_key || !event.meter || !event.cal_date) {
+    throw new Error('enqueueCalibrationReminder: missing required fields')
+  }
+  if (event.kind !== 'expiring' && event.kind !== 'expired') {
+    throw new Error(`enqueueCalibrationReminder: invalid kind ${event.kind}`)
+  }
+  const tpl = getTemplate('calibration.' + event.kind)
+  if (!tpl) {
+    throw new Error(`enqueueCalibrationReminder: template calibration.${event.kind} not registered`)
+  }
+
+  // Pull all queue rows of this template for this user. Filter
+  // payload-side so the SQL stays simple (no JSONB predicates).
+  const { data: priorRows, error: selErr } = await supabase
+    .from('email_queue')
+    .select('id, sent_at, canceled_at, payload')
+    .eq('user_id', event.user_id)
+    .eq('template_id', tpl.id)
+  if (selErr) {
+    throw new Error(`enqueueCalibrationReminder select failed: ${selErr.message}`)
+  }
+
+  type Row = { id: number; sent_at: string | null; canceled_at: string | null; payload?: { instrument_key?: string; cal_date?: string } }
+  const rows = (priorRows || []) as Row[]
+  // Sent or queued row matching this exact cal_date → already covered.
+  const alreadyCovered = rows.some(r =>
+    r.payload?.instrument_key === event.instrument_key &&
+    r.payload?.cal_date === event.cal_date &&
+    r.canceled_at == null,
+  )
+  if (alreadyCovered) {
+    return { canceled: 0, enqueued: 0, skipped: true }
+  }
+
+  // Stale unsent rows for the same instrument → cancel.
+  const staleIds: number[] = []
+  for (const r of rows) {
+    if (
+      r.payload?.instrument_key === event.instrument_key &&
+      r.payload?.cal_date !== event.cal_date &&
+      r.sent_at == null &&
+      r.canceled_at == null
+    ) {
+      staleIds.push(r.id)
+    }
+  }
+  let canceled = 0
+  if (staleIds.length > 0) {
+    const { error: cancelErr } = await supabase
+      .from('email_queue')
+      .update({ canceled_at: new Date().toISOString(), cancel_reason: 'cal_date_advanced' })
+      .in('id', staleIds)
+    if (cancelErr) {
+      throw new Error(`enqueueCalibrationReminder cancel failed: ${cancelErr.message}`)
+    }
+    canceled = staleIds.length
+  }
+
+  // Schedule immediately — the cron is the gating clock, not scheduled_for.
+  const { error: insErr } = await supabase.from('email_queue').insert({
+    user_id: event.user_id,
+    template_id: tpl.id,
+    scheduled_for: new Date().toISOString(),
+    payload: {
+      instrument_key: event.instrument_key,
+      meter: event.meter,
+      cal_date: event.cal_date,
+      kind: event.kind,
+      days_to_expiry: event.days_to_expiry,
+    },
+  })
+  if (insErr) {
+    throw new Error(`enqueueCalibrationReminder insert failed: ${insErr.message}`)
+  }
+  return { canceled, enqueued: 1, skipped: false }
+}
+
 // ─── Re-assessment reminder (habit-loop PR 1) ──────────────────────
 
 export interface ReassessmentReminderEvent {
