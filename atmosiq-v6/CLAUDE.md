@@ -296,6 +296,40 @@ on this codebase. Watch for them.
    `tests/scripts/check-api-js-imports.test.ts` exercises this
    against a fixture tree that re-encodes the PR #297 pattern.
 
+5. **No heavy DOCX deps on the Jasper hot path.** After PR #297 / #298
+   landed, the Jasper handler still imported `lib/report-templates/render.ts`
+   directly — which pulls `docxtemplater` and `pizzip` into every
+   cold-start of `/api/field-assistant`. The user reported continued
+   500s on production despite the `.js → .ts` resolution fix. Root
+   cause was less important than the architectural rule we now enforce:
+
+   **The Jasper hot path stays lean.** `generate_report` returns a
+   render PROPOSAL — `{ status: 'render_proposed', template_id,
+   template_name, file_name }`. The handler side-channels a
+   `render_proposed` SSE event; the client receives it and POSTs to
+   `/api/report-templates-render` (the dedicated function that
+   actually bundles docxtemplater) with the same Bearer token. The
+   chat surfaces a Download card in `rendering` → `ready` → `downloaded`
+   states. This mirrors the `propose_action` pattern: the tool
+   dispatches intent; the client executes.
+
+   **The guardrail:** `tests/api/field-assistant-bundle.test.ts`
+   compiles `api/field-assistant.ts` with esbuild (matching Vercel's
+   bundle shape) and asserts that the output contains NO
+   `docxtemplater` / `pizzip` / `report-templates/render` /
+   `renderTemplate` symbol. A positive control asserts
+   `api/report-templates-render.ts` DOES bundle docxtemplater (so we
+   don't accidentally decouple too aggressively). Re-introducing the
+   import fails this test in CI before merge.
+
+   **Diagnostic instrumentation:** every implicit 500 path in the
+   handler now carries a stable `code` (`fa_init_000` … `fa_init_005`)
+   in the response body. When the user reports "Server error (500)",
+   reading the response in DevTools immediately identifies which path
+   failed (env var, supabase init, auth, conversation, history,
+   rate-limit). The user-visible message stays "Server error (500).
+   Please try again." — the code is for debugging only.
+
 ## Out of scope unless explicitly requested
 
 - Composite scoring math reconciliation (separate workstream)

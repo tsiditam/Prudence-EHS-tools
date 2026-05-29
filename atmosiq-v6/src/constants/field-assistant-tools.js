@@ -606,15 +606,16 @@ export async function dispatchTool(name, input, ctx = {}) {
 
     if (name === 'generate_report') {
       // Required ctx (injected by api/field-assistant.ts):
-      //   • supabase          — service-role client
+      //   • supabase          — service-role client; used to look up
+      //                         which template the user means
       //   • userId            — caller's auth.uid()
-      //   • assessmentContext — the same body.context Jasper saw on
-      //                         the system prompt; resolvers walk it
-      //   • renderTemplate    — the lib's render fn, injected from
-      //                         api/field-assistant.ts (the TS-side
-      //                         is what bundles docxtemplater). Tests
-      //                         inject a stub.
-      if (!ctx || !ctx.supabase || !ctx.userId || typeof ctx.renderTemplate !== 'function') {
+      //
+      // The dispatcher does NOT render the docx itself. Rendering
+      // happens client-side via /api/report-templates-render — that
+      // keeps docxtemplater + pizzip out of the Jasper cold-start.
+      // The tool returns a structured proposal; the SSE side-channel
+      // 'render_proposed' event tells the client to fetch + download.
+      if (!ctx || !ctx.supabase || !ctx.userId) {
         return {
           status: 'error',
           error: 'render_unavailable',
@@ -622,7 +623,6 @@ export async function dispatchTool(name, input, ctx = {}) {
             'Report generation is not available in this request context. Report rendering must be invoked through the Field Assistant API handler.',
         }
       }
-      const render = ctx.renderTemplate
       // List templates owned by this user, newest first.
       const { data: templates, error: listErr } = await ctx.supabase
         .from('report_templates')
@@ -687,31 +687,6 @@ export async function dispatchTool(name, input, ctx = {}) {
           candidates: templates.map((t) => ({ id: t.id, name: t.name })),
         }
       }
-      // Download the template bytes from Storage.
-      const { data: dl, error: dlErr } = await ctx.supabase.storage
-        .from('report-templates')
-        .download(chosen.storage_path)
-      if (dlErr || !dl) {
-        return {
-          status: 'error',
-          error: 'storage_download_failed',
-          message: (dlErr && dlErr.message) || 'Template file download failed.',
-        }
-      }
-      const ab = await dl.arrayBuffer()
-      const templateBuffer = Buffer.from(ab)
-      // Render against the assessment context Jasper already has.
-      let result
-      try {
-        result = render(templateBuffer, ctx.assessmentContext || {})
-      } catch (err) {
-        return {
-          status: 'error',
-          error: 'render_failed',
-          message: (err && err.message) || 'Template render failed.',
-          code: err && err.code,
-        }
-      }
       // Build a default file name. Strip path separators defensively.
       const today = new Date().toISOString().slice(0, 10)
       const requested = input && typeof input.file_name === 'string' && input.file_name.trim()
@@ -719,23 +694,19 @@ export async function dispatchTool(name, input, ctx = {}) {
         : `${chosen.name}_${today}`
       const safe = requested.replace(/[\\/]/g, '_').slice(0, 200)
       const fileName = /\.docx$/i.test(safe) ? safe : `${safe}.docx`
+      // Return the proposal. The api handler emits an SSE
+      // `render_proposed` event with this template_id + file_name; the
+      // client receives that event and POSTs to /api/report-templates-render
+      // with the assessment context to materialize the actual bytes.
+      // The docx render lives in that dedicated function ONLY — never
+      // in the Jasper hot path.
       return {
-        status: 'ok',
+        status: 'render_proposed',
         template_id: chosen.id,
         template_name: chosen.name,
         file_name: fileName,
-        size_bytes: result.buffer.length,
-        tokens_filled: result.tokens_filled,
-        tokens_empty: result.tokens_empty,
-        tokens_unknown: result.tokens_unknown,
-        // base64 payload — large strings. The api/field-assistant.ts
-        // handler strips this out of the persisted assistant turn
-        // (and side-channels it to the client via an SSE event) so
-        // the field_assistant_messages row stays small and the
-        // training export doesn't carry transient binaries.
-        base64: result.buffer.toString('base64'),
         message:
-          'Report rendered. Tell the assessor the file is ready and that they can Download it from the chat. NEVER claim the report has been delivered to the client — the assessor reviews and forwards.',
+          'Render proposed. Tell the assessor the file is being prepared and that a Download button will appear in the chat shortly. Do NOT claim the report has been delivered to the client — the assessor reviews and forwards.',
       }
     }
 

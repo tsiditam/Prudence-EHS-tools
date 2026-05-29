@@ -500,6 +500,9 @@ function ActionCard({ action, summary, status, onAccept, onReject }) {
  */
 function DownloadCard({ report, onDownload }) {
   const downloaded = report.status === 'downloaded'
+  const rendering = report.status === 'rendering'
+  const errored   = report.status === 'error'
+  const ready     = report.status === 'ready'
   const handle = () => {
     try {
       const byteString = atob(report.base64)
@@ -525,11 +528,16 @@ function DownloadCard({ report, onDownload }) {
     const filled = (report.tokens_filled || []).length
     const empty = (report.tokens_empty || []).length
     const unknown = (report.tokens_unknown || []).length
+    if (!filled && !empty && !unknown) return ''
     const parts = [`${filled} filled`]
     if (empty) parts.push(`${empty} blank`)
     if (unknown) parts.push(`${unknown} unknown`)
     return parts.join(' · ')
   })()
+  const eyebrow = downloaded ? 'Downloaded'
+    : errored ? 'Render failed'
+    : rendering ? 'Preparing report…'
+    : 'Report ready'
   return (
     <div className="jasper-msg-in" style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 12 }}>
       <div style={{
@@ -539,32 +547,38 @@ function DownloadCard({ report, onDownload }) {
         background: downloaded ? mix('accent', 6) : SURFACE,
         border: downloaded
           ? `1px solid ${BORDER}`
-          : `1px solid color-mix(in srgb, var(--accent) 36%, transparent)`,
+          : errored
+            ? `1px solid ${mix('danger', 25)}`
+            : `1px solid color-mix(in srgb, var(--accent) 36%, transparent)`,
         transition: 'background 0.15s, border-color 0.15s',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: ready || errored ? 10 : 0 }}>
           <span style={{
             width: 28, height: 28, borderRadius: 8,
             background: downloaded
               ? 'var(--accent-fill)'
-              : 'color-mix(in srgb, var(--accent) 12%, transparent)',
+              : errored
+                ? mix('danger', 12)
+                : 'color-mix(in srgb, var(--accent) 12%, transparent)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             flexShrink: 0,
           }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-              stroke={downloaded ? 'var(--on-accent-fill)' : 'var(--accent)'}
+              stroke={downloaded ? 'var(--on-accent-fill)' : errored ? DANGER : 'var(--accent)'}
               strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               {downloaded
                 ? <polyline points="20 6 9 17 4 12" />
-                : <><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></>}
+                : errored
+                  ? <><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></>
+                  : <><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></>}
             </svg>
           </span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{
-              fontSize: 10, color: 'var(--accent)', fontWeight: 700,
+              fontSize: 10, color: errored ? DANGER : 'var(--accent)', fontWeight: 700,
               letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 2,
             }}>
-              {downloaded ? 'Downloaded' : 'Report ready'}
+              {eyebrow}
             </div>
             <div style={{
               fontSize: 14, color: TEXT, lineHeight: 1.4, fontWeight: 600,
@@ -572,12 +586,19 @@ function DownloadCard({ report, onDownload }) {
             }}>
               {report.file_name}
             </div>
-            <div style={{ fontSize: 11, color: SUB, marginTop: 4 }}>
-              {report.template_name ? `${report.template_name} · ` : ''}{tokensSummary}
-            </div>
+            {errored && (
+              <div style={{ fontSize: 11, color: DANGER, marginTop: 4 }}>
+                {report.error || 'Render failed.'}
+              </div>
+            )}
+            {!errored && (
+              <div style={{ fontSize: 11, color: SUB, marginTop: 4 }}>
+                {report.template_name ? `${report.template_name}${tokensSummary ? ' · ' : ''}` : ''}{tokensSummary}
+              </div>
+            )}
           </div>
         </div>
-        {!downloaded && (
+        {ready && (
           <button onClick={handle} style={{
             width: '100%', padding: '8px 12px',
             background: 'var(--accent-fill)', border: 'none',
