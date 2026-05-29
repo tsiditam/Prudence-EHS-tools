@@ -95,8 +95,9 @@ import PendingSyncIndicator from './PendingSyncIndicator'
 import OfflineBanner from './OfflineBanner'
 import JasperWatchPanel from './JasperWatchPanel'
 import ReadinessPanel from './ReadinessPanel'
-import { buildReadinessVerdict } from '../engines/readiness-verdict'
-import { summarizeLoggerForContext } from '../../lib/jasper/logger-context-summary'
+import { buildJasperContext } from '../../lib/context/buildJasperContext'
+import { buildAssessmentContext } from '../../lib/context/buildAssessmentContext'
+import { emitEvent } from '../../lib/events/emit'
 import SamplingFormsView from './SamplingFormsView'
 import { useAssessment } from '../contexts/AssessmentContext.jsx'
 import { useAuth } from '../contexts/AuthContext.jsx'
@@ -1157,6 +1158,11 @@ export default function MobileApp() {
     setZones(zonesWithOutdoor)
     setZoneScores(zScores); setComp(composite); setOshaResult(osha); setRecs(recommendations)
     setSamplingPlan(sp); setCausalChains(cc); setMoldResults(mold); setMeasConf(mc)
+    emitEvent('engine_ran', {
+      target_id: draftId || null,
+      target_type: 'assessment',
+      details: { score: composite?.tot ?? null, band: composite?.band ?? null, zones: zonesWithOutdoor.length },
+    })
     return { zScores, composite, osha, recommendations, sp, cc, mold, mc }
   }
 
@@ -1254,7 +1260,12 @@ export default function MobileApp() {
 
   const executeExport = async (format, filteredPhotos, docxType) => {
     const esc = evaluateEscalation({ zones, comp, moldResults }, [], [])
-    const reportData = { building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, escalationTriggers: esc, floorPlan, sensorData, labResults: viewRpt?.labResults || null }
+    const assessmentContext = buildAssessmentContext({
+      view, presurvey, bldg, zones, curZone, photos: filteredPhotos, sensorData,
+      comp, zoneScores, recs, narrative, samplingPlan, causalChains,
+      profile, draftId,
+    })
+    const reportData = { building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, escalationTriggers: esc, floorPlan, sensorData, labResults: viewRpt?.labResults || null, assessmentContext }
     trackEvent('report_exported', { format: docxType || format, facility: bldg.fn || '', score: comp?.tot, zones: zones.length, has_narrative: !!narrative, photos: Object.values(filteredPhotos).flat().length })
 
     try {
@@ -1273,6 +1284,11 @@ export default function MobileApp() {
       } else {
         printReport(reportData)
       }
+      emitEvent('report_exported', {
+        target_id: draftId || null,
+        target_type: 'assessment',
+        details: { format: docxType || format, score: comp?.tot ?? null, zones: zones.length },
+      })
     } catch (e) {
       console.error('Export failed:', e)
       // v2.6.1 — detect the stale-chunk MIME error and offer a hard
@@ -1316,7 +1332,12 @@ export default function MobileApp() {
       })
       return out
     })()
-    const reportData = { building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, floorPlan, sensorData, labResults: viewRpt?.labResults || null, ts: viewRpt?.ts }
+    const assessmentContext = buildAssessmentContext({
+      view, presurvey, bldg, zones, curZone, photos: filteredPhotos, sensorData,
+      comp, zoneScores, recs, narrative, samplingPlan, causalChains,
+      profile, draftId,
+    })
+    const reportData = { building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, floorPlan, sensorData, labResults: viewRpt?.labResults || null, ts: viewRpt?.ts, assessmentContext }
     let blob, fileName
     try {
       const built = await getConsultantDocxBlob(reportData)
@@ -4183,54 +4204,15 @@ export default function MobileApp() {
             }
             return false
           }}
-          context={{
-            view,
-            presurvey,
-            bldg,
-            current_zone: zones[curZone],
-            zones_count: zones.length,
+          context={buildJasperContext({
+            view, presurvey, bldg, zones, curZone,
+            photos, sensorData,
+            comp, zoneScores, recs, narrative, samplingPlan, causalChains,
+            profile, draftId,
+            index,
             incident: currentIncident,
-            // Discrepancy-scan payload + directive (present only during a
-            // "Review for discrepancies" run). Carries the report content
-            // so the chat message can stay a short prompt.
-            report_review: reviewPayload || undefined,
-            // Active-assessment label for the assistant's context chip +
-            // prompt. Prefer the loaded assessment's facility; on the
-            // dashboard (where bldg isn't hydrated until a draft is
-            // resumed) fall back to the top in-progress draft so the
-            // assistant still knows what the assessor is working on.
-            active_assessment: (() => {
-              const facility = bldg?.fn || (index?.drafts || [])[0]?.facility || null
-              if (!facility) return null
-              const status = (view === 'results' || view === 'report')
-                ? 'Finalized report'
-                : 'Draft assessment'
-              return { facility, status }
-            })(),
-            profile_minimal: profile ? { plan: profile.plan, certs: profile.certs, firm: profile.firm } : null,
-            // v1.5 Defensibility Copilot: when the user is in results
-            // view, attach the readiness verdict so the agent can answer
-            // "what's blocking this report?" with concrete gaps + the
-            // ASHRAE / IICRC citations baked into the gap rationales —
-            // no tool-calling round-trip required.
-            readiness: (view === 'results' || view === 'report') && comp
-              ? buildReadinessVerdict({
-                  assessmentMode: 'SCREENING',
-                  presurvey, building: bldg,
-                  client: bldg && bldg.client ? bldg.client : {},
-                  zones, zoneScores, recs, photos,
-                  profile: profile ? { name: profile.name } : null,
-                })
-              : undefined,
-            // Logger Studio summary — present whenever the user has
-            // a sensor-logger session loaded on this draft. Compact
-            // (~300 token) per-parameter stats + quality flags + time
-            // range, suitable for the agent to reference without a
-            // tool round-trip. Returns null when no data is loaded.
-            logger_studio: sensorData
-              ? summarizeLoggerForContext(sensorData)
-              : undefined,
-          }}
+            report_review: reviewPayload || null,
+          })}
         />
       )}
 

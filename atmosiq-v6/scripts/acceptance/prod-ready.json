@@ -275,8 +275,8 @@
     ]},
     { "id": "JASPER-LOGGER-CONTEXT", "label": "Logger Studio session summary flows into Jasper context", "checks": [
       { "type": "file_exists", "path": "lib/jasper/logger-context-summary.ts" },
-      { "type": "grep_matches", "pattern": "summarizeLoggerForContext", "paths": ["lib/jasper/logger-context-summary.ts", "src/components/MobileApp.jsx"] },
-      { "type": "grep_matches", "pattern": "logger_studio", "paths": ["src/components/MobileApp.jsx", "src/constants/field-assistant-prompt.js"] },
+      { "type": "grep_matches", "pattern": "summarizeLoggerForContext", "paths": ["lib/jasper/logger-context-summary.ts", "lib/context/buildAssessmentContext.ts"] },
+      { "type": "grep_matches", "pattern": "logger_studio", "paths": ["lib/context/buildJasperContext.ts", "src/constants/field-assistant-prompt.js"] },
       { "type": "file_exists", "path": "tests/lib/logger-context-summary.test.ts" }
     ]},
     { "id": "SHARED-CONTEXT", "label": "Shared assessment-context builder + types exist (connectivity layer PR A)", "checks": [
@@ -285,6 +285,46 @@
       { "type": "grep_matches", "pattern": "export function buildAssessmentContext", "paths": ["lib/context/buildAssessmentContext.ts"] },
       { "type": "grep_matches", "pattern": "export interface AssessmentContext", "paths": ["lib/context/types.ts"] },
       { "type": "file_exists", "path": "tests/lib/buildAssessmentContext.test.ts" }
+    ]},
+    { "id": "JASPER-CONTEXT-BUILDER", "label": "Jasper context driven by buildJasperContext (connectivity layer PR B)", "checks": [
+      { "type": "file_exists", "path": "lib/context/buildJasperContext.ts" },
+      { "type": "grep_matches", "pattern": "export function buildJasperContext", "paths": ["lib/context/buildJasperContext.ts"] },
+      { "type": "grep_matches", "pattern": "buildJasperContext", "paths": ["src/components/MobileApp.jsx"] },
+      { "type": "file_exists", "path": "tests/lib/buildJasperContext.test.ts" },
+      { "type": "grep_matches", "pattern": "parity guard", "paths": ["tests/lib/buildJasperContext.test.ts"] }
+    ]},
+    { "id": "DOCX-USES-CONTEXT", "label": "DOCX renderer accepts AssessmentContext as a parallel data source (connectivity layer PR C)", "checks": [
+      { "type": "grep_matches", "pattern": "assessmentContext", "paths": ["src/components/DocxReport.js"] },
+      { "type": "grep_matches", "pattern": "buildAssessmentContext", "paths": ["src/components/MobileApp.jsx"] },
+      { "type": "file_exists", "path": "tests/components/DocxReport-context.test.ts" },
+      { "type": "grep_matches", "pattern": "Parity test for DocxReport", "paths": ["tests/components/DocxReport-context.test.ts"] }
+    ]},
+    { "id": "EVENT-SPINE", "label": "Typed event spine emits product-flow events into audit_log (connectivity layer PR D)", "checks": [
+      { "type": "file_exists", "path": "lib/events/types.ts" },
+      { "type": "file_exists", "path": "lib/events/emit.ts" },
+      { "type": "file_exists", "path": "api/events.ts" },
+      { "type": "grep_matches", "pattern": "export type EventName", "paths": ["lib/events/types.ts"] },
+      { "type": "grep_matches", "pattern": "export async function emitEvent", "paths": ["lib/events/emit.ts"] },
+      { "type": "grep_matches", "pattern": "emitEvent\\('engine_ran'", "paths": ["src/components/MobileApp.jsx"] },
+      { "type": "grep_matches", "pattern": "emitEvent\\('report_exported'", "paths": ["src/components/MobileApp.jsx"] },
+      { "type": "file_exists", "path": "tests/api/events.test.ts" }
+    ]},
+    { "id": "EVENT-SPINE-WIRED", "label": "All 6 EventName emit sites wired across browser + server (connectivity layer PR E)", "checks": [
+      { "type": "grep_matches", "pattern": "emitEvent\\('logger_imported'", "paths": ["src/components/sensor/SensorDataPage.jsx"] },
+      { "type": "grep_matches", "pattern": "'jasper_asked'", "paths": ["api/field-assistant.ts"] },
+      { "type": "grep_matches", "pattern": "'photo_analyzed'", "paths": ["api/field-assistant.ts"] },
+      { "type": "grep_matches", "pattern": "'narrative_generated'", "paths": ["api/narrative.js"] }
+    ]},
+    { "id": "MODULE-CONTRACTS-DEFINED", "label": "Typed module contracts capture the input/output of each AI surface (connectivity layer PR E)", "checks": [
+      { "type": "file_exists", "path": "lib/contracts/photo-analysis.ts" },
+      { "type": "file_exists", "path": "lib/contracts/narrative.ts" },
+      { "type": "file_exists", "path": "lib/contracts/report-render.ts" },
+      { "type": "file_exists", "path": "lib/contracts/jasper-turn.ts" },
+      { "type": "file_exists", "path": "lib/contracts/index.ts" },
+      { "type": "grep_matches", "pattern": "export interface AnalyzePhotoOk", "paths": ["lib/contracts/photo-analysis.ts"] },
+      { "type": "grep_matches", "pattern": "export interface NarrativeOk", "paths": ["lib/contracts/narrative.ts"] },
+      { "type": "grep_matches", "pattern": "export interface ReportRenderInput", "paths": ["lib/contracts/report-render.ts"] },
+      { "type": "grep_matches", "pattern": "export interface JasperTurnRequest", "paths": ["lib/contracts/jasper-turn.ts"] }
     ]}
   ]
 }

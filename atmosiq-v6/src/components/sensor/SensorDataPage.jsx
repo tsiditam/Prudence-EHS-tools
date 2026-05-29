@@ -32,6 +32,7 @@ import { GRAPH_DEFS, REF_LINE_DEFS, MultiParameterChart, Co2DifferentialChart, M
 import { paramReference, exceedance, categoryOf, CATEGORY } from '../../utils/sensorThresholds'
 import { chartStats, chartPrimaryParam } from '../../utils/sensorAnalytics'
 import Sparkline from '../ui/Sparkline'
+import { emitEvent } from '../../../lib/events/emit'
 import GaugeBar from '../ui/GaugeBar'
 import { calcCfmPerPerson, VENTILATION_CITATION } from '../../utils/ventilation'
 import dayjs from 'dayjs'
@@ -294,6 +295,16 @@ export default function SensorDataPage({ value, onChange, onBack, reports = [], 
       const detectedRole = detectDatasetRole(parsed.fileName, (parsed.columns || []).map((c) => c.raw))
       const role = target.role === 'indoor' && detectedRole ? detectedRole : target.role
       const label = role === 'outdoor' ? 'Outdoor' : role === 'indoor' ? 'Indoor' : ((target.label || '').trim() || 'Zone')
+      emitEvent('logger_imported', {
+        target_id: currentReportId || null,
+        target_type: 'assessment',
+        details: {
+          file_name: parsed.fileName || file.name,
+          role,
+          parameters: Array.isArray(parsed.params) ? parsed.params : [],
+          rows: Array.isArray(rows) ? rows.length : 0,
+        },
+      })
       if (!env) {
         // First upload — establish the envelope. This dataset takes the
         // 'primary' slot (it's the only data) with its detected role + label.
