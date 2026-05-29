@@ -65,18 +65,57 @@ export function augmentWithCalibrationAppendices(result, presurvey) {
   }
 }
 
-function buildContext(data) {
-  const { building, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos, floorPlan, version, standardsManifest } = data
+function pickStr(...vals) {
+  for (const v of vals) {
+    if (v === null || v === undefined) continue
+    const s = typeof v === 'string' ? v.trim() : (typeof v === 'number' ? String(v) : '')
+    if (s) return s
+  }
+  return null
+}
+
+/**
+ * Build the DOCX render context from caller `data`.
+ *
+ * Two-source pattern (connectivity layer PR C):
+ *   • `data.assessmentContext` (optional) — the normalized
+ *     AssessmentContext produced by `lib/context/buildAssessmentContext`.
+ *     When present, its identity fields (facility name, address,
+ *     assessor, client) are PREFERRED, so DocxReport reads the same
+ *     shape Jasper and the future server-side revalidator read.
+ *   • Legacy `data.building` / `data.presurvey` / `data.profile` /
+ *     `data.zones` / etc. — still consumed; remain the source for
+ *     fields the connectivity layer does not (yet) normalize
+ *     (calibration, firm branding, narrative, engine outputs).
+ *
+ * If `assessmentContext` is absent the function falls back to the
+ * legacy fields end-to-end — old call sites (e.g. resumed-report
+ * exports from before this PR) keep working unchanged.
+ *
+ * @internal Exported only for the parity test
+ * (`tests/components/DocxReport-context.test.ts`). Production
+ * callers go through `generateDocx` / `generateConsultantOnly` /
+ * `generateTechnicalOnly` / `getConsultantDocxBlob`.
+ */
+export function buildContext(data) {
+  const { building, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos, floorPlan, version, standardsManifest, assessmentContext } = data
   const bldg = building || {}
   const now = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
   const assessDate = data.ts ? new Date(data.ts).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : now
 
+  // Normalized identity fields from the connectivity layer (when
+  // present). The builder already applies the same precedence rules
+  // (building → presurvey → client) so DocxReport stays consistent
+  // with Jasper.
+  const ctxBuilding = assessmentContext && assessmentContext.building
+  const ctxProject = assessmentContext && assessmentContext.project
+
   return {
-    facilityName: bldg.fn || 'Facility',
-    address: bldg.fl || '—',
+    facilityName: pickStr(ctxBuilding && ctxBuilding.name, bldg.fn) || 'Facility',
+    address: pickStr(ctxBuilding && ctxBuilding.address, bldg.fl) || '—',
     assessDate,
     reportDate: now,
-    assessor: profile?.name || presurvey?.ps_assessor || 'Assessor',
+    assessor: pickStr(profile?.name, ctxProject && ctxProject.requested_by, presurvey?.ps_assessor) || 'Assessor',
     reportId: data.id || (() => { const chars = '23456789ABCDEFGHJKMNPQRSTUVWXYZ'; let s = ''; for (let i = 0; i < 3; i++) s += chars[Math.floor(Math.random() * chars.length)]; return `PSEC-IAQ-${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}-${s}` })(),
     version: version || '6.0.0',
     building: bldg,
@@ -102,6 +141,10 @@ function buildContext(data) {
     pidMeter: presurvey?.ps_inst_pid || '',
     pidCal: presurvey?.ps_inst_pid_cal || '',
     standardsManifest: standardsManifest || null,
+    // Pass-through so section builders that need richer context
+    // (logger summary, readiness verdict, photo index) can read the
+    // same normalized shape without re-deriving it.
+    assessmentContext: assessmentContext || null,
     // v2.7 Fix 8: trim company-name input as belt-and-suspenders
     // against a historical trailing-space concat bug in the firm
     // string. Regression guard: tests/engine/company-name-no-trailing-space.test.ts

@@ -292,6 +292,12 @@
       { "type": "grep_matches", "pattern": "buildJasperContext", "paths": ["src/components/MobileApp.jsx"] },
       { "type": "file_exists", "path": "tests/lib/buildJasperContext.test.ts" },
       { "type": "grep_matches", "pattern": "parity guard", "paths": ["tests/lib/buildJasperContext.test.ts"] }
+    ]},
+    { "id": "DOCX-USES-CONTEXT", "label": "DOCX renderer accepts AssessmentContext as a parallel data source (connectivity layer PR C)", "checks": [
+      { "type": "grep_matches", "pattern": "assessmentContext", "paths": ["src/components/DocxReport.js"] },
+      { "type": "grep_matches", "pattern": "buildAssessmentContext", "paths": ["src/components/MobileApp.jsx"] },
+      { "type": "file_exists", "path": "tests/components/DocxReport-context.test.ts" },
+      { "type": "grep_matches", "pattern": "Parity test for DocxReport", "paths": ["tests/components/DocxReport-context.test.ts"] }
     ]}
   ]
 }
