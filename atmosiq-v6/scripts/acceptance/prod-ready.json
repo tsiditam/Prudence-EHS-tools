@@ -352,6 +352,18 @@
       { "type": "grep_matches", "pattern": "calibration_expiry", "paths": ["src/components/ProfileScreen.jsx"] },
       { "type": "file_exists", "path": "tests/lib/calibration-banner-state.test.ts" },
       { "type": "file_exists", "path": "tests/scripts/cron-calibration-expiry.test.ts" }
+    ]},
+    { "id": "PORTFOLIO-DIGEST", "label": "Quarterly portfolio digest email loop wired end-to-end (habit-loop PR 3)", "checks": [
+      { "type": "file_exists", "path": "lib/portfolio/digest-stats.ts" },
+      { "type": "file_exists", "path": "scripts/cron-portfolio-digest.ts" },
+      { "type": "file_exists", "path": "api/cron-portfolio-digest.ts" },
+      { "type": "grep_matches", "pattern": "enqueuePortfolioDigest", "paths": ["lib/email-triggers.ts"] },
+      { "type": "grep_matches", "pattern": "portfolio\\.digest", "paths": ["lib/email-sequences.ts"] },
+      { "type": "grep_matches", "pattern": "cron-portfolio-digest", "paths": ["vercel.json"] },
+      { "type": "grep_matches", "pattern": "portfolio_digest", "paths": ["src/components/ProfileScreen.jsx"] },
+      { "type": "grep_matches", "pattern": "computeDigestStats", "paths": ["lib/portfolio/digest-stats.ts", "scripts/cron-portfolio-digest.ts"] },
+      { "type": "file_exists", "path": "tests/lib/digest-stats.test.ts" },
+      { "type": "file_exists", "path": "tests/scripts/cron-portfolio-digest.test.ts" }
     ]}
   ]
 }

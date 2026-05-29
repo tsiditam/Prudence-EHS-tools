@@ -227,6 +227,77 @@ export async function enqueueCalibrationReminder(
   return { canceled, enqueued: 1, skipped: false }
 }
 
+// ─── Portfolio digest (habit-loop PR 3) ────────────────────────────
+
+export interface PortfolioDigestEvent {
+  user_id: string
+  /** Identifier for this quarter — used for idempotency keying. e.g. "2026-Q2". */
+  quarter_key: string
+  /** Stats payload — opaque to this function; rendered by the template. */
+  stats: Record<string, unknown>
+}
+
+/**
+ * Schedule the quarterly portfolio digest email for a user.
+ *
+ * Idempotency model: only one digest per (user_id, quarter_key)
+ * ever exists. If a row for this quarter already exists (sent OR
+ * queued), this is a no-op. The cron is free to re-run during the
+ * same quarter (e.g. on Vercel cron retries) without duplicating.
+ *
+ * The stats payload is captured at enqueue-time and rendered by the
+ * template at send-time; if numbers change between enqueue and send
+ * (the user finalizes more assessments in those few minutes), the
+ * digest reports the snapshot from enqueue. That's intentional —
+ * the alternative (re-aggregate at send) would require the cron
+ * processor to know about audit_log, breaking layering.
+ */
+export async function enqueuePortfolioDigest(
+  supabase: SupabaseLike,
+  event: PortfolioDigestEvent,
+): Promise<{ enqueued: number; skipped: boolean }> {
+  if (!event.user_id || !event.quarter_key) {
+    throw new Error('enqueuePortfolioDigest: missing user_id / quarter_key')
+  }
+  const tpl = getTemplate('portfolio.digest')
+  if (!tpl) {
+    throw new Error('enqueuePortfolioDigest: portfolio.digest template not registered')
+  }
+
+  // Has this quarter already been digested?
+  const { data: priorRows, error: selErr } = await supabase
+    .from('email_queue')
+    .select('id, sent_at, canceled_at, payload')
+    .eq('user_id', event.user_id)
+    .eq('template_id', tpl.id)
+  if (selErr) {
+    throw new Error(`enqueuePortfolioDigest select failed: ${selErr.message}`)
+  }
+  type Row = { id: number; sent_at: string | null; canceled_at: string | null; payload?: { quarter_key?: string } }
+  const rows = (priorRows || []) as Row[]
+  const alreadyCovered = rows.some(r =>
+    r.payload?.quarter_key === event.quarter_key &&
+    r.canceled_at == null,
+  )
+  if (alreadyCovered) {
+    return { enqueued: 0, skipped: true }
+  }
+
+  const { error: insErr } = await supabase.from('email_queue').insert({
+    user_id: event.user_id,
+    template_id: tpl.id,
+    scheduled_for: new Date().toISOString(),
+    payload: {
+      quarter_key: event.quarter_key,
+      ...event.stats,
+    },
+  })
+  if (insErr) {
+    throw new Error(`enqueuePortfolioDigest insert failed: ${insErr.message}`)
+  }
+  return { enqueued: 1, skipped: false }
+}
+
 // ─── Re-assessment reminder (habit-loop PR 1) ──────────────────────
 
 export interface ReassessmentReminderEvent {

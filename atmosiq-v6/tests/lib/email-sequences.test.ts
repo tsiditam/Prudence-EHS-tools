@@ -24,6 +24,7 @@ import {
   onSubscriptionCanceled,
   enqueueReassessmentReminder,
   enqueueCalibrationReminder,
+  enqueuePortfolioDigest,
   type SupabaseLike,
 } from '../../lib/email-triggers'
 
@@ -430,6 +431,144 @@ describe('email-sequences — calibration templates', () => {
     expect(freeIds).not.toContain('calibration.expired')
     expect(proIds).not.toContain('calibration.expiring')
     expect(proIds).not.toContain('calibration.expired')
+  })
+})
+
+// ─── Portfolio digest (habit-loop PR 3) ─────────────────────────────
+
+describe('email-triggers — enqueuePortfolioDigest', () => {
+  const baseEvent = {
+    user_id: 'u1',
+    quarter_key: '2026-Q2',
+    stats: {
+      quarter_label: 'Q2 2026',
+      assessments_finalized: 5,
+      delta_finalized: 2,
+    },
+  }
+
+  it('throws on missing required fields', async () => {
+    const supabase = makeSupabaseMock()
+    await expect(enqueuePortfolioDigest(supabase, { ...baseEvent, user_id: '' })).rejects.toThrow()
+    await expect(enqueuePortfolioDigest(supabase, { ...baseEvent, quarter_key: '' })).rejects.toThrow()
+  })
+
+  it('inserts one row carrying the stats in payload', async () => {
+    const supabase = makeSupabaseMock()
+    const r = await enqueuePortfolioDigest(supabase, baseEvent)
+    expect(r).toEqual({ enqueued: 1, skipped: false })
+    expect(supabase.state.inserts).toHaveLength(1)
+    const row = supabase.state.inserts[0]
+    expect(row.template_id).toBe('portfolio.digest')
+    expect(row.payload).toMatchObject({
+      quarter_key: '2026-Q2',
+      assessments_finalized: 5,
+      delta_finalized: 2,
+    })
+  })
+
+  it('idempotency: re-running same quarter is a no-op', async () => {
+    const supabase = makeSupabaseMock()
+    await enqueuePortfolioDigest(supabase, baseEvent)
+    const r = await enqueuePortfolioDigest(supabase, baseEvent)
+    expect(r).toEqual({ enqueued: 0, skipped: true })
+    expect(supabase.state.inserts).toHaveLength(1)
+  })
+
+  it('skips when a sent row for this quarter already exists', async () => {
+    const supabase = makeSupabaseMock({
+      queue: [
+        {
+          id: 1, user_id: 'u1', template_id: 'portfolio.digest',
+          sent_at: '2026-07-01T13:30:00Z', canceled_at: null,
+          payload: { quarter_key: '2026-Q2' },
+        },
+      ],
+    })
+    const r = await enqueuePortfolioDigest(supabase, baseEvent)
+    expect(r).toEqual({ enqueued: 0, skipped: true })
+  })
+
+  it('does NOT skip when prior row was canceled', async () => {
+    const supabase = makeSupabaseMock({
+      queue: [
+        {
+          id: 1, user_id: 'u1', template_id: 'portfolio.digest',
+          sent_at: null, canceled_at: '2026-06-30T00:00:00Z',
+          payload: { quarter_key: '2026-Q2' },
+        },
+      ],
+    })
+    const r = await enqueuePortfolioDigest(supabase, baseEvent)
+    expect(r.enqueued).toBe(1)
+    expect(r.skipped).toBe(false)
+  })
+
+  it('does NOT collide across different quarters for the same user', async () => {
+    const supabase = makeSupabaseMock()
+    await enqueuePortfolioDigest(supabase, baseEvent)
+    const r = await enqueuePortfolioDigest(supabase, { ...baseEvent, quarter_key: '2026-Q3', stats: { quarter_label: 'Q3 2026' } })
+    expect(r.enqueued).toBe(1)
+    expect(supabase.state.inserts).toHaveLength(2)
+  })
+})
+
+describe('email-sequences — portfolio.digest template', () => {
+  const baseStats = {
+    quarter_label: 'Q2 2026',
+    prior_label: 'Q1 2026',
+    assessments_finalized: 5,
+    assessments_finalized_prior: 3,
+    delta_finalized: 2,
+    reports_exported: 5,
+    distinct_sites: 3,
+  }
+
+  it('renders with stats interpolated and a positive delta phrase', () => {
+    const tpl = getTemplate('portfolio.digest')!
+    const ctx: UserContext = { user_id: 'u', email: 'a@b', first_name: 'Jamie', plan: 'pro' }
+    const r = tpl.render(ctx, baseStats)
+    expect(r.subject).toMatch(/Q2 2026/)
+    expect(r.subject).toMatch(/5 assessments/)
+    expect(r.body).toMatch(/Hi Jamie/)
+    expect(r.body).toMatch(/Assessments finalized: 5/)
+    expect(r.body).toMatch(/Reports exported:\s+5/)
+    expect(r.body).toMatch(/Sites assessed:\s+3/)
+    expect(r.body).toMatch(/2 more than Q1 2026/)
+  })
+
+  it('renders a "fewer" delta phrase when current < prior', () => {
+    const tpl = getTemplate('portfolio.digest')!
+    const ctx: UserContext = { user_id: 'u', email: 'a@b', first_name: null, plan: 'free' }
+    const r = tpl.render(ctx, { ...baseStats, assessments_finalized: 2, assessments_finalized_prior: 5, delta_finalized: -3 })
+    expect(r.body).toMatch(/3 fewer than Q1 2026/)
+  })
+
+  it('renders "same as" when delta is zero', () => {
+    const tpl = getTemplate('portfolio.digest')!
+    const ctx: UserContext = { user_id: 'u', email: 'a@b', first_name: null, plan: 'free' }
+    const r = tpl.render(ctx, { ...baseStats, assessments_finalized: 3, assessments_finalized_prior: 3, delta_finalized: 0 })
+    expect(r.body).toMatch(/Same as Q1 2026/)
+  })
+
+  it('handles 0 prior with positive current as "more than ... (no assessments)"', () => {
+    const tpl = getTemplate('portfolio.digest')!
+    const ctx: UserContext = { user_id: 'u', email: 'a@b', first_name: null, plan: 'free' }
+    const r = tpl.render(ctx, { ...baseStats, assessments_finalized: 2, assessments_finalized_prior: 0, delta_finalized: 2 })
+    expect(r.body).toMatch(/no assessments recorded that quarter/)
+  })
+
+  it('omits the sites line when distinct_sites is 0', () => {
+    const tpl = getTemplate('portfolio.digest')!
+    const ctx: UserContext = { user_id: 'u', email: 'a@b', first_name: null, plan: 'free' }
+    const r = tpl.render(ctx, { ...baseStats, distinct_sites: 0 })
+    expect(r.body).not.toMatch(/Sites assessed/)
+  })
+
+  it('is registered and NOT in templatesForPlan', () => {
+    expect(getTemplate('portfolio.digest')).toBeTruthy()
+    expect(templatesForPlan('free').map(t => t.id)).not.toContain('portfolio.digest')
+    expect(templatesForPlan('pro').map(t => t.id)).not.toContain('portfolio.digest')
   })
 })
 

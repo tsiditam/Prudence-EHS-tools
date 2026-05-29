@@ -343,6 +343,62 @@ ${SIGNATURE}`
       return { subject, body, text: body }
     },
   },
+  // ── Portfolio digest (habit-loop PR 3) ───────────────────────────
+  // Quarterly summary email driven by scripts/cron-portfolio-digest.ts.
+  // Stats are the user's OWN audit_log totals — no cohort comparison
+  // (per the Hook audit's screening-only constraint). Variability is
+  // user-corpus-driven, which is the defensible form of "variable
+  // reward" per Eyal's framework for B2B / professional audiences.
+  {
+    id: 'portfolio.digest',
+    delayMs: 0,
+    render: (ctx, payload) => {
+      const stats = (payload || {}) as Record<string, unknown>
+      const qLabel = typeof stats.quarter_label === 'string' ? stats.quarter_label : 'this quarter'
+      const priorLabel = typeof stats.prior_label === 'string' ? stats.prior_label : 'last quarter'
+      const finalized = typeof stats.assessments_finalized === 'number' ? stats.assessments_finalized : 0
+      const finalizedPrior = typeof stats.assessments_finalized_prior === 'number' ? stats.assessments_finalized_prior : 0
+      const delta = typeof stats.delta_finalized === 'number' ? stats.delta_finalized : (finalized - finalizedPrior)
+      const reports = typeof stats.reports_exported === 'number' ? stats.reports_exported : 0
+      const sites = typeof stats.distinct_sites === 'number' ? stats.distinct_sites : 0
+
+      // Delta phrasing — factual, no judgment.
+      let deltaLine: string
+      if (finalizedPrior === 0 && finalized > 0) {
+        deltaLine = `${finalized} more than ${priorLabel} (no assessments recorded that quarter).`
+      } else if (delta > 0) {
+        deltaLine = `${delta} more than ${priorLabel} (${finalizedPrior}).`
+      } else if (delta < 0) {
+        deltaLine = `${Math.abs(delta)} fewer than ${priorLabel} (${finalizedPrior}).`
+      } else {
+        deltaLine = `Same as ${priorLabel} (${finalizedPrior}).`
+      }
+
+      const subject = `Your ${qLabel} on AtmosFlow — ${finalized} assessment${finalized === 1 ? '' : 's'}`
+      const sitesLine = sites > 0
+        ? `Sites assessed:        ${sites}\n`
+        : ''
+      const body = `Hi ${firstName(ctx)},
+
+Your ${qLabel} on AtmosFlow:
+
+Assessments finalized: ${finalized}
+${sitesLine}Reports exported:      ${reports}
+
+${deltaLine}
+
+These are your own totals — no benchmarks, no cohort comparison.
+Use them however helps your practice. If a number looks off,
+reply to this email and tell me; it usually means the engine
+didn't see something you finalized.
+
+Turn off these quarterly digests any time in Settings → Profile →
+Email Preferences.
+
+${SIGNATURE}`
+      return { subject, body, text: body }
+    },
+  },
   {
     id: 'calibration.expired',
     delayMs: 0,
