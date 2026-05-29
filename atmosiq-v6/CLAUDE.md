@@ -152,6 +152,33 @@ Read these directories first when investigating any task:
   change to complete a task, you have misunderstood the task — stop
   and report.
 
+## Assessment context (connectivity layer)
+
+There is one normalized shape every downstream consumer (Jasper,
+narrative generation, report rendering, Logger Studio, future
+server-side revalidation) should read from:
+
+- **Shape:** `lib/context/types.ts` — the `AssessmentContext`
+  interface. Every field is `readonly` (one-way data flow: consumers
+  READ the context; they never write back into it, the engine, or
+  the assessment record).
+- **Builder:** `lib/context/buildAssessmentContext.ts` —
+  `buildAssessmentContext(rawState)`. Pure function; composes the
+  existing pure helpers (`buildReadinessVerdict`,
+  `summarizeLoggerForContext`, `ENGINE_VERSION`). Engine outputs
+  (composite, zoneScores, recs, narrative) pass through unchanged.
+- **Drift guard:** `tests/lib/buildAssessmentContext.test.ts` pins
+  the top-level key set against a golden fixture. If you add a field
+  to the context, update the fixture; a failing snapshot means a
+  consumer-breaking change.
+
+When adding a new AI / report / export consumer, read from the
+builder's output — do NOT hand-build a bespoke data pull (the
+pattern Jasper's old `context = {...}` literal in MobileApp.jsx
+used). Migrating existing consumers onto the builder is staged
+(see the connectivity-layer plan): the builder ships first
+(landed), Jasper / DOCX migrations follow additively.
+
 ## Engine version conventions
 
 Three concepts, kept distinct:

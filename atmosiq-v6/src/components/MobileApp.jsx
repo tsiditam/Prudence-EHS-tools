@@ -96,6 +96,7 @@ import OfflineBanner from './OfflineBanner'
 import JasperWatchPanel from './JasperWatchPanel'
 import ReadinessPanel from './ReadinessPanel'
 import { buildReadinessVerdict } from '../engines/readiness-verdict'
+import { summarizeLoggerForContext } from '../../lib/jasper/logger-context-summary'
 import SamplingFormsView from './SamplingFormsView'
 import { useAssessment } from '../contexts/AssessmentContext.jsx'
 import { useAuth } from '../contexts/AuthContext.jsx'
@@ -4220,6 +4221,14 @@ export default function MobileApp() {
                   zones, zoneScores, recs, photos,
                   profile: profile ? { name: profile.name } : null,
                 })
+              : undefined,
+            // Logger Studio summary — present whenever the user has
+            // a sensor-logger session loaded on this draft. Compact
+            // (~300 token) per-parameter stats + quality flags + time
+            // range, suitable for the agent to reference without a
+            // tool round-trip. Returns null when no data is loaded.
+            logger_studio: sensorData
+              ? summarizeLoggerForContext(sensorData)
               : undefined,
           }}
         />
