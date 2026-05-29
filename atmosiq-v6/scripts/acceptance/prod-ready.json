@@ -260,6 +260,12 @@
       { "type": "file_exists", "path": "api/report-templates-render.ts" },
       { "type": "grep_matches", "pattern": "generate_report", "paths": ["src/constants/field-assistant-tools.js"] },
       { "type": "file_exists", "path": "src/components/settings/ReportTemplatesPanel.jsx" }
+    ]},
+    { "id": "API-JS-IMPORT-GUARDRAIL", "label": "Lint-time guardrail blocks .js → .ts imports on the API path", "checks": [
+      { "type": "file_exists", "path": "scripts/check-api-js-imports.mjs" },
+      { "type": "grep_matches", "pattern": "findApiJsTsLandmines", "paths": ["scripts/check-api-js-imports.mjs"] },
+      { "type": "file_exists", "path": "tests/scripts/check-api-js-imports.test.ts" },
+      { "type": "npm_script_passes", "script": "lint:imports" }
     ]}
   ]
 }
