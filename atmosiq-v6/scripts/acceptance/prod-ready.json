@@ -278,6 +278,13 @@
       { "type": "grep_matches", "pattern": "summarizeLoggerForContext", "paths": ["lib/jasper/logger-context-summary.ts", "src/components/MobileApp.jsx"] },
       { "type": "grep_matches", "pattern": "logger_studio", "paths": ["src/components/MobileApp.jsx", "src/constants/field-assistant-prompt.js"] },
       { "type": "file_exists", "path": "tests/lib/logger-context-summary.test.ts" }
+    ]},
+    { "id": "SHARED-CONTEXT", "label": "Shared assessment-context builder + types exist (connectivity layer PR A)", "checks": [
+      { "type": "file_exists", "path": "lib/context/types.ts" },
+      { "type": "file_exists", "path": "lib/context/buildAssessmentContext.ts" },
+      { "type": "grep_matches", "pattern": "export function buildAssessmentContext", "paths": ["lib/context/buildAssessmentContext.ts"] },
+      { "type": "grep_matches", "pattern": "export interface AssessmentContext", "paths": ["lib/context/types.ts"] },
+      { "type": "file_exists", "path": "tests/lib/buildAssessmentContext.test.ts" }
     ]}
   ]
 }
