@@ -97,6 +97,7 @@ import JasperWatchPanel from './JasperWatchPanel'
 import ReadinessPanel from './ReadinessPanel'
 import { buildJasperContext } from '../../lib/context/buildJasperContext'
 import { buildAssessmentContext } from '../../lib/context/buildAssessmentContext'
+import { emitEvent } from '../../lib/events/emit'
 import SamplingFormsView from './SamplingFormsView'
 import { useAssessment } from '../contexts/AssessmentContext.jsx'
 import { useAuth } from '../contexts/AuthContext.jsx'
@@ -1157,6 +1158,11 @@ export default function MobileApp() {
     setZones(zonesWithOutdoor)
     setZoneScores(zScores); setComp(composite); setOshaResult(osha); setRecs(recommendations)
     setSamplingPlan(sp); setCausalChains(cc); setMoldResults(mold); setMeasConf(mc)
+    emitEvent('engine_ran', {
+      target_id: draftId || null,
+      target_type: 'assessment',
+      details: { score: composite?.tot ?? null, band: composite?.band ?? null, zones: zonesWithOutdoor.length },
+    })
     return { zScores, composite, osha, recommendations, sp, cc, mold, mc }
   }
 
@@ -1278,6 +1284,11 @@ export default function MobileApp() {
       } else {
         printReport(reportData)
       }
+      emitEvent('report_exported', {
+        target_id: draftId || null,
+        target_type: 'assessment',
+        details: { format: docxType || format, score: comp?.tot ?? null, zones: zones.length },
+      })
     } catch (e) {
       console.error('Export failed:', e)
       // v2.6.1 — detect the stale-chunk MIME error and offer a hard

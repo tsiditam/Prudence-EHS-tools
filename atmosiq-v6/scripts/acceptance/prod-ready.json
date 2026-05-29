@@ -298,6 +298,16 @@
       { "type": "grep_matches", "pattern": "buildAssessmentContext", "paths": ["src/components/MobileApp.jsx"] },
       { "type": "file_exists", "path": "tests/components/DocxReport-context.test.ts" },
       { "type": "grep_matches", "pattern": "Parity test for DocxReport", "paths": ["tests/components/DocxReport-context.test.ts"] }
+    ]},
+    { "id": "EVENT-SPINE", "label": "Typed event spine emits product-flow events into audit_log (connectivity layer PR D)", "checks": [
+      { "type": "file_exists", "path": "lib/events/types.ts" },
+      { "type": "file_exists", "path": "lib/events/emit.ts" },
+      { "type": "file_exists", "path": "api/events.ts" },
+      { "type": "grep_matches", "pattern": "export type EventName", "paths": ["lib/events/types.ts"] },
+      { "type": "grep_matches", "pattern": "export async function emitEvent", "paths": ["lib/events/emit.ts"] },
+      { "type": "grep_matches", "pattern": "emitEvent\\('engine_ran'", "paths": ["src/components/MobileApp.jsx"] },
+      { "type": "grep_matches", "pattern": "emitEvent\\('report_exported'", "paths": ["src/components/MobileApp.jsx"] },
+      { "type": "file_exists", "path": "tests/api/events.test.ts" }
     ]}
   ]
 }
