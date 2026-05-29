@@ -255,6 +255,47 @@ on this codebase. Watch for them.
    summer — but fixing it is engine-scope and off-limits per the
    "engine is sacred" rule.
 
+4. **No extension-less `.ts` imports from a `.js` file on the API
+   path.** PR #297 (commit `fcfe774`) shipped this line in
+   `src/constants/field-assistant-tools.js` (a plain ES module loaded
+   by every Jasper turn):
+
+   ```js
+   import { renderTemplate as defaultRenderTemplate }
+     from '../../lib/report-templates/render'
+   ```
+
+   `render.ts` is TypeScript. Vitest's TS-aware resolver let the
+   extension-less `.ts` import resolve cleanly from a `.js` file,
+   so the test suite (1736/1741) was green, lint was green,
+   typecheck was green, and accept:prod-ready was green. Vercel's
+   serverless Node runtime, however, can't resolve a `.ts`
+   extension from a plain `.js` ESM importer at module-load time —
+   `/api/field-assistant` crashed at import before any handler
+   logic ran, and every Jasper turn returned 500 in production.
+   The crash silently passed every local gate and only surfaced on
+   atmosflow.net.
+
+   **The rule:** any `.js` / `.mjs` file that's transitively
+   reachable from `api/**` must NOT import an extension-less path
+   that resolves to a `.ts` / `.tsx` file. Two ways to satisfy it:
+   (a) inject the dep via a `ctx` parameter from a `.ts` entry
+   point (the `analyze_photo` / `generate_report` pattern in
+   `api/field-assistant.ts`), or (b) convert the importer itself
+   to `.ts`. SPA-side `.js → .ts` imports (under `src/components/`,
+   `src/main.jsx`, etc.) are intentionally allowed — Vite's
+   bundler handles them transparently. The narrow rule only
+   applies to the API graph.
+
+   **The guardrail:** `scripts/check-api-js-imports.mjs` runs as
+   part of `npm run lint` (wired through `lint:imports`) and as
+   acceptance criterion `API-JS-IMPORT-GUARDRAIL`. It walks the
+   import graph rooted at `api/**`, collects every `.js`/`.mjs`
+   file reached, and fails if any of their extension-less imports
+   resolve only to a `.ts`/`.tsx` file. The regression test at
+   `tests/scripts/check-api-js-imports.test.ts` exercises this
+   against a fixture tree that re-encodes the PR #297 pattern.
+
 ## Out of scope unless explicitly requested
 
 - Composite scoring math reconciliation (separate workstream)
