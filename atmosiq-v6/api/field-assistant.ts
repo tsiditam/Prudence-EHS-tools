@@ -30,7 +30,13 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { FIELD_ASSISTANT_ROLE_PROMPT } from '../src/constants/field-assistant-prompt.js'
 import { STANDARDS_FOR_AGENT, FAQ_FOR_AGENT } from '../src/constants/field-assistant-corpus.js'
 import { FIELD_ASSISTANT_TOOLS, dispatchTool } from '../src/constants/field-assistant-tools.js'
-import { renderTemplate } from '../lib/report-templates/render'
+// IMPORTANT: do NOT import lib/report-templates/render here. That
+// pulls docxtemplater + pizzip into every Jasper cold-start, and an
+// earlier attempt at that wiring crashed the function in production.
+// The generate_report tool now returns a render PROPOSAL — the
+// client invokes /api/report-templates-render on its own (mirrors
+// the propose_action pattern). Heavy deps stay in their dedicated
+// endpoint and the Jasper hot path stays lean.
 import { scrubPii } from '../lib/sentry.js'
 import { auditLog } from './_audit.js'
 import { hasUnlimitedUsage } from '../lib/unlimited-usage.js'
@@ -468,15 +474,14 @@ interface ToolDispatchContext {
   anthropicApiKey: string
   fetchFn: typeof fetch
   recordVisionUsage: (u: VisionUsageRecord) => void
-  // generate_report support — injected so the tool dispatcher can
-  // hit Storage / report_templates without recreating auth. The
-  // render fn is injected from this TS module so field-assistant-tools.js
-  // (plain ESM) doesn't import the .ts renderer directly — that would
-  // crash the Vercel runtime at load time.
+  // generate_report support — the dispatcher RESOLVES which template
+  // (via supabase) and returns a structured proposal. The actual
+  // .docx render happens client-side via /api/report-templates-render
+  // so docxtemplater never bundles into this function. No renderer
+  // is injected here.
   supabase: SupabaseClient
   userId: string
   assessmentContext: Record<string, unknown> | undefined
-  renderTemplate: typeof renderTemplate
 }
 
 async function runAgentLoop(
@@ -569,37 +574,28 @@ async function runAgentLoop(
         })
       }
       // Side-channel SSE event for generate_report results. The
-      // tool's base64 payload is large; we ship it to the client
-      // out-of-band so the chat UI can wire a Download button, and
-      // we strip it from the persisted tool_result so the
-      // field_assistant_messages content + training-export dataset
-      // stay free of transient binary blobs.
-      let persistedResult: unknown = result
+      // dispatcher returns a render PROPOSAL — template metadata
+      // only, no bytes. The client picks up this event and calls
+      // /api/report-templates-render on its own (mirrors the
+      // propose_action pattern). This keeps docxtemplater out of
+      // the Jasper hot path entirely.
       if (
         block.name === 'generate_report'
         && result
-        && (result as any).status === 'ok'
-        && typeof (result as any).base64 === 'string'
+        && (result as any).status === 'render_proposed'
+        && (result as any).template_id
       ) {
-        writeSse(res, 'rendered_report', {
+        writeSse(res, 'render_proposed', {
           id: block.id,
-          template_id: (result as any).template_id || null,
+          template_id: (result as any).template_id,
           template_name: (result as any).template_name || null,
           file_name: (result as any).file_name || 'Report.docx',
-          size_bytes: (result as any).size_bytes || 0,
-          base64: (result as any).base64,
-          tokens_filled: (result as any).tokens_filled || [],
-          tokens_empty: (result as any).tokens_empty || [],
-          tokens_unknown: (result as any).tokens_unknown || [],
         })
-        const stripped = { ...(result as Record<string, unknown>) }
-        delete stripped.base64
-        persistedResult = stripped
       }
       toolResults.push({
         type: 'tool_result',
         tool_use_id: block.id,
-        content: JSON.stringify(persistedResult),
+        content: JSON.stringify(result),
       })
     }
     messages.push({ role: 'user', content: toolResults })
@@ -704,7 +700,7 @@ async function handler(req: VercelLikeRequest, res: VercelLikeResponse): Promise
 
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) {
-    res.status(500).json({ error: 'Server misconfigured — missing API key' })
+    res.status(500).json({ error: 'Server misconfigured — missing API key', code: 'fa_init_000' })
     return
   }
 
@@ -716,13 +712,33 @@ async function handler(req: VercelLikeRequest, res: VercelLikeResponse): Promise
     return
   }
 
-  const supabase = getSupabase()
-  const {
-    data: { user },
-    error: authErr,
-  } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''))
-  if (authErr || !user) {
-    res.status(401).json({ error: 'Invalid token' })
+  // Supabase client construction — fails fast if env is missing so
+  // we don't get an uncaught 500 with no body. Every implicit-throw
+  // path below the SSE-headers point gets a `code` so the next time
+  // a user reports "Server error (500)" we can match it to a path
+  // by reading the response body in DevTools.
+  let supabase: SupabaseClient
+  try {
+    supabase = getSupabase()
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('[field-assistant] supabase init failed:', msg)
+    res.status(500).json({ error: 'supabase_init_failed', code: 'fa_init_001', detail: msg })
+    return
+  }
+
+  let user: { id: string; email?: string } | null = null
+  try {
+    const result = await supabase.auth.getUser(authHeader.replace('Bearer ', ''))
+    if (result.error || !result.data.user) {
+      res.status(401).json({ error: 'Invalid token' })
+      return
+    }
+    user = result.data.user as { id: string; email?: string }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('[field-assistant] auth lookup threw:', msg)
+    res.status(500).json({ error: 'auth_lookup_failed', code: 'fa_init_002', detail: msg })
     return
   }
 
@@ -802,7 +818,7 @@ async function handler(req: VercelLikeRequest, res: VercelLikeResponse): Promise
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       console.error('[field-assistant] rate limit check failed:', msg)
-      res.status(500).json({ error: 'rate_limit_check_failed' })
+      res.status(500).json({ error: 'rate_limit_check_failed', code: 'fa_init_005', detail: msg })
       return
     }
   }
@@ -825,10 +841,20 @@ async function handler(req: VercelLikeRequest, res: VercelLikeResponse): Promise
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     console.error('[field-assistant] conversation init failed:', msg)
-    res.status(500).json({ error: 'conversation_init_failed' })
+    res.status(500).json({ error: 'conversation_init_failed', code: 'fa_init_003', detail: msg })
     return
   }
-  const history = body.conversation_id ? await loadHistory(supabase, conversationId, user.id) : []
+  let history: FaMessageRow[] = []
+  if (body.conversation_id) {
+    try {
+      history = await loadHistory(supabase, conversationId, user.id)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error('[field-assistant] history load failed:', msg)
+      res.status(500).json({ error: 'history_load_failed', code: 'fa_init_004', detail: msg })
+      return
+    }
+  }
   // Legacy request-id (pre-existing field on the SSE meta event).
   // Retained for any old clients / tests that still read it.
   const messageId = (globalThis as any).crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`
@@ -887,7 +913,6 @@ async function handler(req: VercelLikeRequest, res: VercelLikeResponse): Promise
       (body.context && typeof body.context === 'object'
         ? (body.context as Record<string, unknown>)
         : undefined),
-    renderTemplate,
   }
 
   // Wall-clock latency around the upstream call + tool loop.

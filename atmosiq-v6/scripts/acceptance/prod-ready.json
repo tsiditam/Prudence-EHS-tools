@@ -266,6 +266,12 @@
       { "type": "grep_matches", "pattern": "findApiJsTsLandmines", "paths": ["scripts/check-api-js-imports.mjs"] },
       { "type": "file_exists", "path": "tests/scripts/check-api-js-imports.test.ts" },
       { "type": "npm_script_passes", "script": "lint:imports" }
+    ]},
+    { "id": "JASPER-HOT-PATH-LEAN", "label": "Jasper handler does not bundle docxtemplater (architectural test)", "checks": [
+      { "type": "file_exists", "path": "tests/api/field-assistant-bundle.test.ts" },
+      { "type": "grep_matches", "pattern": "does NOT pull docxtemplater", "paths": ["tests/api/field-assistant-bundle.test.ts"] },
+      { "type": "grep_matches", "pattern": "render_proposed", "paths": ["src/constants/field-assistant-tools.js", "api/field-assistant.ts", "src/hooks/useFieldAssistant.js"] },
+      { "type": "grep_matches", "pattern": "fa_init_", "paths": ["api/field-assistant.ts"] }
     ]}
   ]
 }

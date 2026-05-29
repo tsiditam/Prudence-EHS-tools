@@ -514,31 +514,81 @@ export function useFieldAssistant() {
                 { id, action, summary, status: 'pending' },
               ])
             }
-          } else if (frame.event === 'rendered_report') {
-            // generate_report tool result — append an inline
-            // download card to the chat. The base64 payload lives
-            // ONLY in client memory; see hook-state notes for why.
+          } else if (frame.event === 'render_proposed') {
+            // generate_report dispatcher resolved which template to
+            // render. The docx render itself lives in a separate
+            // function (/api/report-templates-render) so docxtemplater
+            // never bundles into the Jasper hot path. We add a card
+            // in `rendering` state immediately so the user sees
+            // progress, then POST to the render endpoint with the
+            // same auth token. On success the card flips to `ready`
+            // and exposes a Download button; on failure it shows the
+            // error.
             const data = frame.data || {}
-            const base64 = typeof data.base64 === 'string' ? data.base64 : ''
-            if (base64) {
+            const templateId = typeof data.template_id === 'string' ? data.template_id : ''
+            if (templateId) {
               const id = data.id || (typeof crypto !== 'undefined' && crypto.randomUUID
                 ? `report-${crypto.randomUUID().slice(0, 8)}`
                 : `report-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`)
+              const fileName = data.file_name || 'Report.docx'
               setRenderedReports((prev) => [
                 ...prev,
                 {
                   id,
-                  template_id: data.template_id || null,
+                  template_id: templateId,
                   template_name: data.template_name || null,
-                  file_name: data.file_name || 'Report.docx',
-                  size_bytes: typeof data.size_bytes === 'number' ? data.size_bytes : 0,
-                  base64,
-                  tokens_filled: Array.isArray(data.tokens_filled) ? data.tokens_filled : [],
-                  tokens_empty: Array.isArray(data.tokens_empty) ? data.tokens_empty : [],
-                  tokens_unknown: Array.isArray(data.tokens_unknown) ? data.tokens_unknown : [],
-                  status: 'ready',
+                  file_name: fileName,
+                  size_bytes: 0,
+                  base64: '',
+                  tokens_filled: [],
+                  tokens_empty: [],
+                  tokens_unknown: [],
+                  status: 'rendering',
+                  error: null,
                 },
               ])
+              // Fire-and-forget render. We capture the auth token at
+              // request time (same Bearer the SSE call used) and
+              // forward the assessment context so the resolvers walk
+              // the SAME shape Jasper saw.
+              ;(async () => {
+                try {
+                  const renderResp = await fetch('/api/report-templates-render', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      Authorization: token ? `Bearer ${token}` : '',
+                    },
+                    body: JSON.stringify({
+                      template_id: templateId,
+                      file_name: fileName,
+                      assessment_context: context,
+                      response_mode: 'base64',
+                    }),
+                  })
+                  const j = await renderResp.json().catch(() => ({}))
+                  if (!renderResp.ok || !j?.ok) {
+                    setRenderedReports((prev) => prev.map((r) => r.id === id
+                      ? { ...r, status: 'error', error: j?.error || `render_failed (${renderResp.status})` }
+                      : r))
+                    return
+                  }
+                  setRenderedReports((prev) => prev.map((r) => r.id === id ? {
+                    ...r,
+                    status: 'ready',
+                    base64: j.base64 || '',
+                    file_name: j.file_name || r.file_name,
+                    tokens_filled: Array.isArray(j.tokens_filled) ? j.tokens_filled : [],
+                    tokens_empty:  Array.isArray(j.tokens_empty)  ? j.tokens_empty  : [],
+                    tokens_unknown: Array.isArray(j.tokens_unknown) ? j.tokens_unknown : [],
+                    size_bytes: typeof j.base64 === 'string' ? Math.floor((j.base64.length * 3) / 4) : 0,
+                  } : r))
+                } catch (err) {
+                  setRenderedReports((prev) => prev.map((r) => r.id === id
+                    ? { ...r, status: 'error', error: err?.message || 'render_failed' }
+                    : r))
+                }
+              })()
             }
           } else if (frame.event === 'done') {
             if (frame.data?.quota) receivedQuota = frame.data.quota

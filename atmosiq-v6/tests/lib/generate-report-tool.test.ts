@@ -102,11 +102,13 @@ function fakeRender() {
   }
 }
 
+// The dispatcher no longer renders — it returns a proposal and the
+// client invokes /api/report-templates-render. renderTemplate is
+// intentionally NOT in ctx; the test asserts the proposal shape.
 const baseCtx = {
   supabase: fakeSupabase,
   userId: 'user-1',
   assessmentContext: { presurvey: { ps_recipient_name: 'Jane' } },
-  renderTemplate: fakeRender,
 }
 
 describe('dispatchTool: generate_report', () => {
@@ -126,7 +128,7 @@ describe('dispatchTool: generate_report', () => {
     expect(out).toMatchObject({ status: 'no_templates_saved' })
   })
 
-  it('auto-picks the only template when exactly one exists', async () => {
+  it('auto-picks the only template when exactly one exists and returns a render proposal', async () => {
     tplTable = [{
       id: 'only', name: 'Federal', user_id: 'user-1',
       storage_path: 'user-1/only.docx', created_at: '2026-05-01T00:00:00Z',
@@ -134,13 +136,13 @@ describe('dispatchTool: generate_report', () => {
     storageBucket.set('report-templates/user-1/only.docx', Buffer.from('TPL'))
     const out = await dispatchTool('generate_report', {}, baseCtx)
     expect(out).toMatchObject({
-      status: 'ok',
+      status: 'render_proposed',
       template_id: 'only',
       template_name: 'Federal',
-      tokens_filled: ['client.name'],
     })
-    expect((out as { base64: string }).base64).toBe(Buffer.from('FAKE_DOCX_BYTES').toString('base64'))
     expect((out as { file_name: string }).file_name).toMatch(/^Federal_\d{4}-\d{2}-\d{2}\.docx$/)
+    // Critically: NO base64. Rendering happens client-side.
+    expect((out as Record<string, unknown>).base64).toBeUndefined()
   })
 
   it('returns needs_disambiguation when multiple templates exist and no hint', async () => {
@@ -175,31 +177,37 @@ describe('dispatchTool: generate_report', () => {
     expect(out).toMatchObject({ status: 'not_found' })
   })
 
-  it('resolves a single-match name hint and renders successfully', async () => {
+  it('resolves a single-match name hint and returns a render proposal', async () => {
     tplTable = [
       { id: 'fed', name: 'Federal Letterhead', user_id: 'user-1', storage_path: 'user-1/fed.docx', created_at: '2026-05-02T00:00:00Z' },
       { id: 'acme', name: 'Acme',              user_id: 'user-1', storage_path: 'user-1/acme.docx', created_at: '2026-05-01T00:00:00Z' },
     ]
-    storageBucket.set('report-templates/user-1/fed.docx', Buffer.from('TPL'))
     const out = await dispatchTool(
       'generate_report',
       { template_name_hint: 'Federal', file_name: 'Custom_Report' },
       baseCtx,
     )
     expect(out).toMatchObject({
-      status: 'ok',
+      status: 'render_proposed',
       template_id: 'fed',
       template_name: 'Federal Letterhead',
       file_name: 'Custom_Report.docx',
     })
+    expect((out as Record<string, unknown>).base64).toBeUndefined()
   })
 
-  it('returns storage_download_failed when the file is missing', async () => {
+  it('NEVER touches Supabase Storage — the dispatcher must not pull bytes', async () => {
+    // Regression test: bringing docxtemplater + the storage download
+    // back into the Jasper hot path is what bundled heavy deps into
+    // the field-assistant cold-start. The dispatcher must stay at
+    // metadata-only resolution.
     tplTable = [{
-      id: 'orphan', name: 'Federal', user_id: 'user-1',
-      storage_path: 'user-1/orphan.docx', created_at: '2026-05-01T00:00:00Z',
+      id: 'only', name: 'Federal', user_id: 'user-1',
+      storage_path: 'user-1/only.docx', created_at: '2026-05-01T00:00:00Z',
     }]
+    // Storage is intentionally EMPTY — if the dispatcher tried to
+    // download, the old code returned storage_download_failed.
     const out = await dispatchTool('generate_report', {}, baseCtx)
-    expect(out).toMatchObject({ status: 'error', error: 'storage_download_failed' })
+    expect(out).toMatchObject({ status: 'render_proposed', template_id: 'only' })
   })
 })
