@@ -99,6 +99,7 @@ import { buildJasperContext } from '../../lib/context/buildJasperContext'
 import { buildAssessmentContext } from '../../lib/context/buildAssessmentContext'
 import { emitEvent } from '../../lib/events/emit'
 import SaveSitePrompt from './SaveSitePrompt'
+import PeerReviewModal from './PeerReviewModal'
 import { parseSiteLink, clearSiteLink, findMostRecentReportForSite } from '../utils/siteLink'
 import SamplingFormsView from './SamplingFormsView'
 import { useAssessment } from '../contexts/AssessmentContext.jsx'
@@ -722,6 +723,8 @@ export default function MobileApp() {
   // between "Save site" prompt vs silent next-due refresh.
   const [currentSiteId, setCurrentSiteId] = useState(null)
   const [savePromptCtx, setSavePromptCtx] = useState(null)  // { rid, ts } | null
+  // Habit-loop PR 4: peer review modal open state.
+  const [peerReviewOpen, setPeerReviewOpen] = useState(false)
   const reviewDocxInputRef = useRef(null)
   // Billing Phase 1 — credit-unit definition sheet was added in PR
   // #143 (Fix 2 of the CIH-credibility prompt) and removed by the
@@ -1464,6 +1467,69 @@ export default function MobileApp() {
       const a = document.createElement('a'); a.href = url; a.download = fileName; a.click()
       setTimeout(() => URL.revokeObjectURL(url), 5000)
     }
+  }
+
+  /**
+   * Send the finalized consultant DOCX to a peer reviewer (habit-loop PR 4).
+   * Generates the DOCX client-side (so docxtemplater stays out of the
+   * /api/peer-review function), base64-encodes it, POSTs to
+   * /api/peer-review with the reviewer's name/email/note. The server
+   * inserts a peer_reviews row + sends the email synchronously via
+   * Resend with the DOCX attached.
+   */
+  const sendForPeerReview = async ({ reviewer_name, reviewer_email, message }) => {
+    // Build reportData identically to handleShare so the DOCX is the
+    // same artifact the assessor would have shared manually.
+    const filteredPhotos = (() => {
+      const sel = selectedPhotos && Object.values(selectedPhotos).some(Boolean) ? selectedPhotos : null
+      if (!sel) return photos
+      const out = {}
+      Object.keys(photos || {}).forEach(k => {
+        out[k] = (photos[k] || []).filter((_, i) => sel[`${k}::${i}`])
+      })
+      return out
+    })()
+    const assessmentContext = buildAssessmentContext({
+      view, presurvey, bldg, zones, curZone, photos: filteredPhotos, sensorData,
+      comp, zoneScores, recs, narrative, samplingPlan, causalChains,
+      profile, draftId,
+    })
+    const reportData = { building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, floorPlan, sensorData, labResults: viewRpt?.labResults || null, ts: viewRpt?.ts, assessmentContext }
+    const built = await getConsultantDocxBlob(reportData)
+    // Blob → base64 (strip the data: prefix).
+    const base64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => {
+        const result = String(reader.result || '')
+        const idx = result.indexOf(',')
+        resolve(idx >= 0 ? result.slice(idx + 1) : result)
+      }
+      reader.onerror = () => reject(reader.error || new Error('read_failed'))
+      reader.readAsDataURL(built.blob)
+    })
+    if (!supabase) throw new Error('You need to be signed in to send for review.')
+    const session = await Storage.getSession()
+    if (!session?.access_token) throw new Error('Session expired — please sign in again.')
+    const reportId = viewRpt?.id || draftId || ('rpt-' + Date.now())
+    const resp = await fetch('/api/peer-review', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
+      body: JSON.stringify({
+        action: 'send',
+        report_id: reportId,
+        facility_name: bldg.fn || null,
+        reviewer_name, reviewer_email, message,
+        file_name: built.fileName,
+        docx_base64: base64,
+      }),
+    })
+    const json = await resp.json().catch(() => ({}))
+    if (!resp.ok) throw new Error(json.error || 'Send failed.')
+    emitEvent('peer_review_requested', {
+      target_id: json.id || null,
+      target_type: 'peer_review',
+      details: { facility: bldg.fn || null },
+    })
   }
 
   /**
@@ -3023,6 +3089,7 @@ export default function MobileApp() {
         const items = onResults ? [
           { label:'Generate reports',         icon:'notes',    onClick:()=>setDocxPicker(true) },
           { label:'Share',                    icon:'send',     onClick:()=>handleShare() },
+          { label:'Send for peer review',     icon:'check',    onClick:()=>{ setActionsOpen(false); setPeerReviewOpen(true) } },
           { label:'Map zones on floor plan',  icon:'bldg',     onClick:()=>setView('spatial') },
           { label:'Discrepancies Check',      icon:'findings', onClick:()=>{ setReviewError(null); setReviewChooserOpen(true) } },
           { label:'Ask AtmosFlow AI',         icon:'mic',      onClick:()=>{ supabase && trackEvent('jasper_open',{source:'report_actions'}); setVoiceCmdOpen(true) } },
@@ -3081,6 +3148,12 @@ export default function MobileApp() {
       })()}
 
       {milestone&&<div style={{position:'fixed',inset:0,background:`${mix('bg', 94)}`,zIndex:300,display:'flex',alignItems:'center',justifyContent:'center',padding:'0 32px'}}><div style={{textAlign:'center',animation:'milestoneIn .5s cubic-bezier(.22,1,.36,1)'}}><div style={{marginBottom:20,display:'flex',justifyContent:'center'}}><div style={{width:80,height:80,borderRadius:22,background:`${mix('accent', 7)}`,border:`1.5px solid ${mix('accent', 19)}`,display:'flex',alignItems:'center',justifyContent:'center'}}><I n={milestone.icon} s={40} c={ACCENT} w={2} /></div></div><div style={{fontSize:26,fontWeight:800,letterSpacing:'-0.5px',color:TEXT}}>{milestone.title}</div><div style={{fontSize:15,color:ACCENT,fontFamily:"var(--font-mono)",marginTop:10}}>{milestone.sub}</div></div></div>}
+      <PeerReviewModal
+        open={peerReviewOpen}
+        facility={bldg?.fn || ''}
+        onSend={sendForPeerReview}
+        onClose={() => setPeerReviewOpen(false)}
+      />
       <SaveSitePrompt
         open={!!savePromptCtx}
         bldg={bldg}

@@ -343,6 +343,79 @@ ${SIGNATURE}`
       return { subject, body, text: body }
     },
   },
+  // ── Peer review (habit-loop PR 4) ────────────────────────────────
+  // Transactional — sent synchronously by /api/peer-review.ts (NOT
+  // drained from email_queue). Templates live here so the rendering
+  // logic stays in one place; the API endpoint calls getTemplate +
+  // render then sends via Resend directly.
+  //
+  // peer_review.request — to the REVIEWER (not necessarily an
+  //   AtmosFlow user). Includes the magic-link URL + DOCX attachment.
+  // peer_review.completed — to the ASSESSOR, after the reviewer
+  //   responds. Status + notes summary.
+  {
+    id: 'peer_review.request',
+    delayMs: 0,
+    render: (_ctx, payload) => {
+      // Note: ctx.first_name here is the REVIEWER (whose name we know
+      // from the form), NOT the assessor; the API endpoint constructs
+      // a minimal UserContext for the reviewer with their name.
+      const p = (payload || {}) as Record<string, unknown>
+      const assessor = typeof p.assessor_name === 'string' ? p.assessor_name : 'an AtmosFlow user'
+      const reviewer = typeof p.reviewer_name === 'string' ? p.reviewer_name : 'colleague'
+      const facility = typeof p.facility_name === 'string' && p.facility_name ? p.facility_name : 'an IAQ assessment'
+      const message = typeof p.message === 'string' && p.message.trim() ? p.message.trim() : ''
+      const respondUrl = typeof p.respond_url === 'string' ? p.respond_url : `https://${APP_URL}/`
+      const subject = `Peer review requested: ${facility}`
+      const messageBlock = message ? `\n${assessor} included a note:\n\n  ${message}\n` : ''
+      const body = `Hi ${reviewer},
+
+${assessor} sent you an AtmosFlow IAQ assessment for peer review.
+
+Facility: ${facility}
+${messageBlock}
+The report is attached to this email as a Word document. When you've
+reviewed it, please open this link to record your response (approve,
+request changes, or comment):
+
+${respondUrl}
+
+The link expires in 30 days. No AtmosFlow account is required —
+the link is single-purpose and only records your review status +
+optional notes.
+
+${SIGNATURE}`
+      return { subject, body, text: body }
+    },
+  },
+  {
+    id: 'peer_review.completed',
+    delayMs: 0,
+    render: (ctx, payload) => {
+      const p = (payload || {}) as Record<string, unknown>
+      const reviewer = typeof p.reviewer_name === 'string' ? p.reviewer_name : 'Your reviewer'
+      const facility = typeof p.facility_name === 'string' && p.facility_name ? p.facility_name : 'your assessment'
+      const status = typeof p.status === 'string' ? p.status : 'commented'
+      const notes = typeof p.notes === 'string' && p.notes.trim() ? p.notes.trim() : ''
+      const statusLabel = status === 'approved' ? 'Approved'
+        : status === 'changes_requested' ? 'Requested changes'
+        : 'Comment'
+      const subject = `${reviewer} reviewed ${facility} — ${statusLabel}`
+      const notesBlock = notes ? `\nReviewer notes:\n\n  ${notes}\n` : ''
+      const body = `Hi ${firstName(ctx)},
+
+${reviewer} responded to your peer review request.
+
+Facility:  ${facility}
+Response:  ${statusLabel}
+${notesBlock}
+You can see this review (and any other pending reviews) in the
+peer reviews list on the report's results screen.
+
+${SIGNATURE}`
+      return { subject, body, text: body }
+    },
+  },
   // ── Portfolio digest (habit-loop PR 3) ───────────────────────────
   // Quarterly summary email driven by scripts/cron-portfolio-digest.ts.
   // Stats are the user's OWN audit_log totals — no cohort comparison

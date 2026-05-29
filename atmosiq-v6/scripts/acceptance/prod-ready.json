@@ -364,6 +364,22 @@
       { "type": "grep_matches", "pattern": "computeDigestStats", "paths": ["lib/portfolio/digest-stats.ts", "scripts/cron-portfolio-digest.ts"] },
       { "type": "file_exists", "path": "tests/lib/digest-stats.test.ts" },
       { "type": "file_exists", "path": "tests/scripts/cron-portfolio-digest.test.ts" }
+    ]},
+    { "id": "PEER-REVIEW", "label": "Peer review send + magic-link respond loop wired end-to-end (habit-loop PR 4)", "checks": [
+      { "type": "grep_matches", "pattern": "CREATE TABLE.*peer_reviews", "paths": ["supabase/migrations/"] },
+      { "type": "file_exists", "path": "lib/peer-review/types.ts" },
+      { "type": "file_exists", "path": "api/peer-review.ts" },
+      { "type": "file_exists", "path": "api/peer-review-respond.ts" },
+      { "type": "file_exists", "path": "src/components/PeerReviewModal.jsx" },
+      { "type": "file_exists", "path": "src/components/PeerReviewLanding.jsx" },
+      { "type": "grep_matches", "pattern": "peer_review\\.request", "paths": ["lib/email-sequences.ts"] },
+      { "type": "grep_matches", "pattern": "peer_review\\.completed", "paths": ["lib/email-sequences.ts"] },
+      { "type": "grep_matches", "pattern": "peer_review_requested", "paths": ["lib/events/types.ts", "src/components/MobileApp.jsx"] },
+      { "type": "grep_matches", "pattern": "peer_review_completed", "paths": ["lib/events/types.ts", "api/peer-review-respond.ts"] },
+      { "type": "grep_matches", "pattern": "PeerReviewLanding", "paths": ["src/App.jsx"] },
+      { "type": "file_exists", "path": "tests/api/peer-review.test.ts" },
+      { "type": "file_exists", "path": "tests/api/peer-review-respond.test.ts" },
+      { "type": "file_exists", "path": "tests/components/PeerReviewLanding.test.tsx" }
     ]}
   ]
 }

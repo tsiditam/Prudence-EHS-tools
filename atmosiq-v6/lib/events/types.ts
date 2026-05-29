@@ -43,6 +43,16 @@ export type EventName =
    * email. Habit-loop PR 1.
    */
   | 'assessment_finalized'
+  /**
+   * Assessor sent a finalized report to a peer reviewer (habit-loop
+   * PR 4). details: { peer_review_id, reviewer_email_hash }.
+   */
+  | 'peer_review_requested'
+  /**
+   * Reviewer submitted a response via the magic-link landing page
+   * (habit-loop PR 4). details: { peer_review_id, status }.
+   */
+  | 'peer_review_completed'
 
 export const KNOWN_EVENTS: readonly EventName[] = [
   'logger_imported',
@@ -52,6 +62,8 @@ export const KNOWN_EVENTS: readonly EventName[] = [
   'narrative_generated',
   'report_exported',
   'assessment_finalized',
+  'peer_review_requested',
+  'peer_review_completed',
 ] as const
 
 /** Optional caller-supplied input for one event. */
