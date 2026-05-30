@@ -460,9 +460,9 @@ export default function AuthScreen({ onAuth }) {
               style={{
                 background: 'none', border: 'none', color: TEXT,
                 fontFamily: "'Sora', 'Inter', system-ui, sans-serif",
-                fontSize: 15, fontWeight: 700, letterSpacing: '-0.01em',
-                textDecoration: 'underline', textUnderlineOffset: 4,
-                textDecorationThickness: 2,
+                fontSize: 10, fontWeight: 400, letterSpacing: '0',
+                textDecoration: 'underline', textUnderlineOffset: 2,
+                textDecorationThickness: 1,
                 cursor: 'pointer', padding: '10px 4px', minHeight: 44,
                 whiteSpace: 'nowrap',
                 WebkitTapHighlightColor: 'transparent',
@@ -471,7 +471,7 @@ export default function AuthScreen({ onAuth }) {
             <span style={{
               color: TEXT,
               fontFamily: "'Sora', 'Inter', system-ui, sans-serif",
-              fontSize: 15, fontWeight: 700,
+              fontSize: 10, fontWeight: 400,
               userSelect: 'none', padding: '0 2px',
             }}>|</span>
             <button
@@ -480,9 +480,9 @@ export default function AuthScreen({ onAuth }) {
               style={{
                 background: 'none', border: 'none', color: TEXT,
                 fontFamily: "'Sora', 'Inter', system-ui, sans-serif",
-                fontSize: 15, fontWeight: 700, letterSpacing: '-0.01em',
-                textDecoration: 'underline', textUnderlineOffset: 4,
-                textDecorationThickness: 2,
+                fontSize: 10, fontWeight: 400, letterSpacing: '0',
+                textDecoration: 'underline', textUnderlineOffset: 2,
+                textDecorationThickness: 1,
                 cursor: 'pointer', padding: '10px 4px', minHeight: 44,
                 whiteSpace: 'nowrap',
                 WebkitTapHighlightColor: 'transparent',
@@ -498,9 +498,9 @@ export default function AuthScreen({ onAuth }) {
               style={{
                 background: 'none', border: 'none', color: TEXT,
                 fontFamily: "'Sora', 'Inter', system-ui, sans-serif",
-                fontSize: 15, fontWeight: 700, letterSpacing: '-0.01em',
-                textDecoration: 'underline', textUnderlineOffset: 4,
-                textDecorationThickness: 2,
+                fontSize: 10, fontWeight: 400, letterSpacing: '0',
+                textDecoration: 'underline', textUnderlineOffset: 2,
+                textDecorationThickness: 1,
                 cursor: 'pointer', padding: '10px 16px', minHeight: 44,
                 display: 'flex', alignItems: 'center', gap: 6,
                 WebkitTapHighlightColor: 'transparent',
