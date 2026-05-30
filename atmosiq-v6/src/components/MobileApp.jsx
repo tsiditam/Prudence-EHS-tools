@@ -459,15 +459,15 @@ class ReportErrorBoundary extends Component {
 function DeferredRender({ render }) { return render() }
 
 // Full-screen "writing your report" overlay shown while a DOCX is generated.
-// Cycling status phrases (Claude-Code-style) in blue, with three small
-// cascading dots to the left. A determinate progress bar fills over
-// `durationMs` so the engineered wait reads as bounded.
+// Cycling status phrases (Claude-Code-style) in the brand accent (cyan),
+// with three small cascading dots to the left. A determinate progress
+// bar fills over `durationMs` so the engineered wait reads as bounded.
 //
 // The 12s / 8s engineered wait is preserved — the audit framed it as a
 // labor-illusion loading state (Norton & Buell 2009), not engagement
 // theater. New visual, same timing semantics.
 function ReportWritingOverlay({ label, durationMs }) {
-  const BLUE = '#60A5FA'
+  const ACCENT = 'var(--accent)'
   // Phrases are deliberately scoped to report ASSEMBLY (composing,
   // citing, formatting, polishing). No verbs that imply analysis,
   // diagnosis, or causation — that would conflict with the
@@ -502,23 +502,24 @@ function ReportWritingOverlay({ label, durationMs }) {
         @keyframes rwoPhrase { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
       `}</style>
       <div style={{ animation:'rwoIn .4s ease both', display:'flex', flexDirection:'column', alignItems:'center', width:'100%', maxWidth:440 }}>
-        <div style={{ fontSize:11, color:'var(--sub, #9aa7b4)', marginBottom:22, textAlign:'center', letterSpacing:'0.14em', textTransform:'uppercase', fontWeight:600 }}>
+        <div style={{ fontSize:11, color:'var(--sub, #9aa7b4)', marginBottom:22, textAlign:'center', letterSpacing:'0.14em', textTransform:'uppercase', fontWeight:600, fontFamily:'var(--font-mono)' }}>
           {label}
         </div>
         <div style={{ display:'flex', alignItems:'center', gap:12, minHeight:28, width:'100%', justifyContent:'center' }}>
           {/* three small cascading dots — "small animation to the left" */}
           <span aria-hidden="true" style={{ display:'inline-flex', alignItems:'center', gap:4, flexShrink:0 }}>
-            <span style={{ width:5, height:5, borderRadius:'50%', background:BLUE, boxShadow:`0 0 6px ${BLUE}`, animation:'rwoDot 1.3s ease-in-out infinite', animationDelay:'0s' }} />
-            <span style={{ width:5, height:5, borderRadius:'50%', background:BLUE, boxShadow:`0 0 6px ${BLUE}`, animation:'rwoDot 1.3s ease-in-out infinite', animationDelay:'0.18s' }} />
-            <span style={{ width:5, height:5, borderRadius:'50%', background:BLUE, boxShadow:`0 0 6px ${BLUE}`, animation:'rwoDot 1.3s ease-in-out infinite', animationDelay:'0.36s' }} />
+            <span style={{ width:5, height:5, borderRadius:'50%', background:ACCENT, boxShadow:`0 0 6px ${ACCENT}`, animation:'rwoDot 1.3s ease-in-out infinite', animationDelay:'0s' }} />
+            <span style={{ width:5, height:5, borderRadius:'50%', background:ACCENT, boxShadow:`0 0 6px ${ACCENT}`, animation:'rwoDot 1.3s ease-in-out infinite', animationDelay:'0.18s' }} />
+            <span style={{ width:5, height:5, borderRadius:'50%', background:ACCENT, boxShadow:`0 0 6px ${ACCENT}`, animation:'rwoDot 1.3s ease-in-out infinite', animationDelay:'0.36s' }} />
           </span>
-          {/* cycling phrase in blue — `key` replays the slide-in on each tick */}
-          <span key={idx} style={{ color:BLUE, fontSize:17, fontWeight:500, letterSpacing:'-0.2px', animation:'rwoPhrase .3s ease-out both' }}>
+          {/* cycling phrase in the brand accent (cyan), monospace —
+              `key={idx}` replays the slide-in on each tick. */}
+          <span key={idx} style={{ color:ACCENT, fontSize:16, fontWeight:500, letterSpacing:0, fontFamily:'var(--font-mono)', animation:'rwoPhrase .3s ease-out both' }}>
             {PHRASES[idx]}
           </span>
         </div>
         <div style={{ width:'100%', height:3, borderRadius:99, background:'rgba(255,255,255,0.08)', marginTop:28, overflow:'hidden' }}>
-          <div style={{ height:'100%', borderRadius:99, background:BLUE, boxShadow:`0 0 6px ${BLUE}`, animation:`rwoBar ${durationMs}ms linear both` }}/>
+          <div style={{ height:'100%', borderRadius:99, background:ACCENT, boxShadow:`0 0 6px ${ACCENT}`, animation:`rwoBar ${durationMs}ms linear both` }}/>
         </div>
       </div>
     </div>,
@@ -1392,8 +1393,8 @@ export default function MobileApp() {
         // Play the pen-writing animation for a fixed beat before the file is
         // produced — longer for the narrative consultant report, shorter for
         // the structured technical report.
-        const WRITE_MS = { consultant: 12000, technical: 8000 }
-        const ms = WRITE_MS[docxType] || 12000
+        const WRITE_MS = { consultant: 15000, technical: 12000 }
+        const ms = WRITE_MS[docxType] || 15000
         const label = docxType === 'technical' ? 'Writing your technical report' : 'Writing your consultant report'
         setGenWriting({ label, durationMs: ms })
         await new Promise(res => setTimeout(res, ms))
