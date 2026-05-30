@@ -265,7 +265,7 @@ export default function AuthScreen({ onAuth }) {
   const googleLabel = mode === 'register' ? 'Sign up with Google' : 'Continue with Google'
 
   return (
-    <div style={{
+    <div data-auth-version="phase2-redesign" style={{
       minHeight: '100vh', background: BG, color: TEXT, fontFamily: 'inherit',
       position: 'relative', overflowX: 'hidden',
       paddingTop: 'env(safe-area-inset-top, 20px)',
