@@ -251,7 +251,7 @@ export default function AuthScreen({ onAuth }) {
   // "FIELD-GRADE IAQ INTELLIGENCE" on the default login view,
   // "CREATE YOUR ACCOUNT" or "RESET YOUR PASSWORD" on the alt modes.
   const tagline = mode === 'login'
-    ? 'FIELD-GRADE IAQ INTELLIGENCE'
+    ? 'FIELD-GRADE INDOOR ENVIRONMENTAL QUALITY INTELLIGENCE'
     : mode === 'register' ? 'CREATE YOUR ACCOUNT' : 'RESET YOUR PASSWORD'
   const cta = mode === 'login'
     ? { label: loading ? 'Signing in…' : 'Sign In', onClick: handleLogin }
@@ -283,7 +283,9 @@ export default function AuthScreen({ onAuth }) {
           }}>AtmosFlow</div>
           <div style={{
             fontSize: 11, fontWeight: 600, color: ACCENT,
-            marginTop: 18, letterSpacing: '0.18em',
+            marginTop: 18, letterSpacing: '0.16em',
+            lineHeight: 1.5, maxWidth: 320,
+            marginLeft: 'auto', marginRight: 'auto',
           }}>{tagline}</div>
           <div style={{ width: 44, height: 2, background: ACCENT, borderRadius: 1, margin: '10px auto 0' }} />
         </div>
