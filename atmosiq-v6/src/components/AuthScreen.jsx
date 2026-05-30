@@ -451,39 +451,39 @@ export default function AuthScreen({ onAuth }) {
         {mode === 'login' && (
           <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            gap: 6, marginTop: 22,
+            gap: 0, marginTop: 22,
             whiteSpace: 'nowrap',
           }}>
             <button
               type="button"
               onClick={() => { setMode('register'); setError(''); setMessage('') }}
               style={{
-                background: 'none', border: 'none', color: TEXT,
+                background: 'none', border: 'none', color: ACCENT,
                 fontFamily: "'Sora', 'Inter', system-ui, sans-serif",
-                fontSize: 10, fontWeight: 400, letterSpacing: '0',
-                textDecoration: 'underline', textUnderlineOffset: 2,
+                fontSize: 12, fontWeight: 400, letterSpacing: '0',
+                textDecoration: 'underline', textUnderlineOffset: 3,
                 textDecorationThickness: 1,
-                cursor: 'pointer', padding: '10px 4px', minHeight: 44,
+                cursor: 'pointer', padding: '10px 0', minHeight: 44,
                 whiteSpace: 'nowrap',
                 WebkitTapHighlightColor: 'transparent',
               }}
             >Create an account</button>
             <span style={{
-              color: TEXT,
+              color: ACCENT,
               fontFamily: "'Sora', 'Inter', system-ui, sans-serif",
-              fontSize: 10, fontWeight: 400,
-              userSelect: 'none', padding: '0 2px',
+              fontSize: 12, fontWeight: 400,
+              userSelect: 'none', padding: '0 4px',
             }}>|</span>
             <button
               type="button"
               onClick={() => { setMode('forgot'); setError(''); setMessage('') }}
               style={{
-                background: 'none', border: 'none', color: TEXT,
+                background: 'none', border: 'none', color: ACCENT,
                 fontFamily: "'Sora', 'Inter', system-ui, sans-serif",
-                fontSize: 10, fontWeight: 400, letterSpacing: '0',
-                textDecoration: 'underline', textUnderlineOffset: 2,
+                fontSize: 12, fontWeight: 400, letterSpacing: '0',
+                textDecoration: 'underline', textUnderlineOffset: 3,
                 textDecorationThickness: 1,
-                cursor: 'pointer', padding: '10px 4px', minHeight: 44,
+                cursor: 'pointer', padding: '10px 0', minHeight: 44,
                 whiteSpace: 'nowrap',
                 WebkitTapHighlightColor: 'transparent',
               }}
