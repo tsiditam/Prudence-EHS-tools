@@ -237,6 +237,21 @@ export function ugm3ToPpb(ugm3, mw) {
 // TVOC. Used for the analyzer's cross-unit equivalent display.
 export const HCHO_MW = 30.03
 
+// Convert an HCHO value from its source unit to ppb. Single-compound
+// conversion (MW 30.03) — no reference-compound assumption. Used by
+// parseSensorRows to normalize HCHO at parse time so every downstream
+// consumer (Logger Studio cards, Jasper context, charts) reads in ppb
+// regardless of what the CSV's HCHO column declared. Identity for null
+// inputs or unrecognized units (passes the value through unchanged so
+// the row still parses).
+function hchoSourceToPpb(v, sourceUnit) {
+  if (v == null || !Number.isFinite(v)) return v
+  if (sourceUnit === 'µg/m³') return ugm3ToPpb(v, HCHO_MW)
+  if (sourceUnit === 'mg/m³') return ugm3ToPpb(v * 1000, HCHO_MW)
+  if (sourceUnit === 'ppm')   return v * 1000
+  return v
+}
+
 // Map a logger parameter onto the per-zone reading field id (SENSOR_FIELDS)
 // it can populate. Indoor only — the outdoor fields (co2o, tfo, …) and HCHO
 // have no logger source and stay manual. TVOC is handled separately because
@@ -345,6 +360,15 @@ export function parseSensorRows(rows, opts = {}) {
   const units = {}
   paramCols.forEach((c) => { if (c.unit) units[c.param] = c.unit })
 
+  // HCHO normalization: every downstream consumer reads HCHO in ppb. If the
+  // source CSV reported mg/m³ / µg/m³ / ppm, convert at parse time and stash
+  // the source unit in `units.hchoSource` for provenance display.
+  const hchoSource = (units.hcho && units.hcho !== 'ppb') ? units.hcho : null
+  if (hchoSource) {
+    units.hchoSource = hchoSource
+    units.hcho = 'ppb'
+  }
+
   // Build points; first param column wins if a param repeats.
   const seen = new Set()
   const activeParams = paramCols.filter((c) => (seen.has(c.param) ? false : seen.add(c.param)))
@@ -358,7 +382,8 @@ export function parseSensorRows(rows, opts = {}) {
     const pt = { t, _i: r - 1 }
     let any = false
     activeParams.forEach((c) => {
-      const n = toNumber(cells[c.i])
+      let n = toNumber(cells[c.i])
+      if (n != null && c.param === 'hcho' && hchoSource) n = hchoSourceToPpb(n, hchoSource)
       pt[c.param] = n
       if (n != null) any = true
     })

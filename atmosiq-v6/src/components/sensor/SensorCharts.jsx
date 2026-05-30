@@ -107,7 +107,7 @@ export function HCHOTimelineChart({ data, hasTs = true, units = {}, palette = DA
       <CartesianGrid stroke={pal.grid} strokeOpacity={0.5} vertical={false} />
       {occupancyAreas(occupancy)}
       <XAxis dataKey="t" type="number" domain={['dataMin', 'dataMax']} scale="time" tickFormatter={fmtTime(hasTs)} {...axis(pal)} />
-      <YAxis {...axis(pal)} width={54} label={yLabel(pal, units.hcho || 'mg/m³')} />
+      <YAxis {...axis(pal)} width={54} label={yLabel(pal, units.hcho || 'ppb')} />
       <Tooltip content={<ChartTooltip hasTs={hasTs} units={units} pal={pal} />} />
       <Line type="monotone" dataKey="hcho" name="Formaldehyde" stroke={SERIES.hcho} strokeWidth={2} dot={false} connectNulls isAnimationActive={!width} />
     </LineChart>

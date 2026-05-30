@@ -82,16 +82,18 @@ const tvocEquivLabel = (mean, unit) => {
   if (u.includes('ppb')) { const ug = ppbToUgm3(mean, mw); return ug == null ? null : `≈ ${Math.round(ug)} µg/m³ (isobutylene-equiv)` }
   return null
 }
-// Formaldehyde cross-unit equivalent. HCHO is a single compound (MW 30.03),
-// so this conversion is exact (no reference-compound assumption like TVOC).
-// Surfaces the mass/volume counterpart so the reading can be compared against
-// ppm-based occupational limits or µg/m³-based guidelines.
-const hchoEquivLabel = (mean, unit) => {
-  const u = String(unit || '').toLowerCase()
-  if (/µg|ug/.test(u)) { const ppb = ugm3ToPpb(mean, HCHO_MW); return ppb == null ? null : `≈ ${ppb < 100 ? Math.round(ppb * 10) / 10 : Math.round(ppb)} ppb` }
-  if (/mg/.test(u)) { const ppb = ugm3ToPpb(mean * 1000, HCHO_MW); return ppb == null ? null : `≈ ${Math.round(ppb)} ppb` }
-  if (u.includes('ppm')) { const ug = ppbToUgm3(mean * 1000, HCHO_MW); return ug == null ? null : `≈ ${Math.round(ug)} µg/m³` }
-  if (u.includes('ppb')) { const ug = ppbToUgm3(mean, HCHO_MW); return ug == null ? null : `≈ ${Math.round(ug)} µg/m³` }
+// Formaldehyde source-unit provenance. After the parser normalizes HCHO to
+// ppb at parse time (see sensorParser.js `hchoSourceToPpb`), the card always
+// shows ppb in the headline. When the source CSV reported a different unit
+// (mg/m³, µg/m³, ppm) we surface the equivalent value in that source unit so
+// the user can audit the conversion. Returns null when the data was already
+// ppb (no provenance line needed) or the conversion can't run.
+const hchoSourceLabel = (meanPpb, sourceUnit) => {
+  if (!sourceUnit || meanPpb == null || !Number.isFinite(meanPpb)) return null
+  const u = String(sourceUnit).toLowerCase()
+  if (/µg|ug/.test(u)) { const ug = ppbToUgm3(meanPpb, HCHO_MW); return ug == null ? null : `Source: ${ug < 10 ? ug.toFixed(2) : Math.round(ug)} µg/m³` }
+  if (/mg/.test(u))    { const ug = ppbToUgm3(meanPpb, HCHO_MW); return ug == null ? null : `Source: ${(ug / 1000).toFixed(3)} mg/m³` }
+  if (u.includes('ppm')) return `Source: ${(meanPpb / 1000).toFixed(3)} ppm`
   return null
 }
 
@@ -103,13 +105,13 @@ const EXC_TONE = { danger: V3.DANGER, warn: '#FB923C' }
 // tabular numerals, a gauge against the screening reference, the observed
 // range, the reference line(s), and a screening exceedance flag when the
 // values sit above a reference. Screening only — never a determination.
-function ParamCard({ param, stats, unit, points, ts }) {
+function ParamCard({ param, stats, unit, points, ts, hchoSourceUnit }) {
   const spec = SENSOR_PARAMS.find((s) => s.key === param)
   const color = SERIES[param] || 'var(--accent)'
   const ref = paramReference(param, { unit, ts })
   const exc = exceedance(param, stats, ref)
   const equiv = param === 'tvoc' ? tvocEquivLabel(stats.mean, unit)
-    : param === 'hcho' ? hchoEquivLabel(stats.mean, unit) : null
+    : param === 'hcho' ? hchoSourceLabel(stats.mean, hchoSourceUnit) : null
   return (
     <GlassCard style={{ marginTop: 10 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
@@ -595,7 +597,7 @@ export default function SensorDataPage({ value, onChange, onBack, reports = [], 
                     <div key={cat.id} style={{ marginTop: 16 }}>
                       <div style={{ ...V3.T.micro, color: SUB, marginBottom: 2 }}>{cat.label}</div>
                       {ps.map((p) => (
-                        <ParamCard key={p} param={p} stats={data.summary.stats[p]} unit={data.units[p] || ''} points={data.points.map((pt) => pt[p])} ts={data.summary.start} />
+                        <ParamCard key={p} param={p} stats={data.summary.stats[p]} unit={data.units[p] || ''} points={data.points.map((pt) => pt[p])} ts={data.summary.start} hchoSourceUnit={data.units.hchoSource} />
                       ))}
                     </div>
                   )
