@@ -297,15 +297,21 @@ export default function AuthScreen({ onAuth }) {
         maxWidth: 400, margin: '0 auto', padding: '0 24px',
         animation: 'auth-fadeUp .5s ease',
       }}>
-        {/* Header — inline AtmosFlow brand mark (wordmark with brain
-            icon replacing the "o" in "Flow") + tagline + cyan underline.
-            Mark is inline SVG so it renders without any external asset
-            dependency. To swap for a custom PNG/SVG later, replace
-            <AtmosFlowMark /> with <img src="/icons/atmosflow-logo.png"
-            alt="AtmosFlow" style={{height:56,...}} /> and drop the file
-            into atmosiq-v6/public/icons/. */}
+        {/* Header — custom AtmosFlow logo image + tagline + cyan underline.
+            File lives at /icons/atmosflow-logo.png (public/icons/ is served
+            verbatim by Vite). Explicit height prevents CLS during fetch. */}
         <div style={{ textAlign: 'center', paddingTop: 88, paddingBottom: 30 }}>
-          <AtmosFlowMark />
+          <img
+            src="/icons/atmosflow-logo.png"
+            alt="AtmosFlow"
+            style={{
+              display: 'block',
+              margin: '0 auto',
+              height: 64,
+              width: 'auto',
+              maxWidth: '100%',
+            }}
+          />
           <div style={{
             fontSize: 11, fontWeight: 600, color: ACCENT,
             marginTop: 18, letterSpacing: '0.16em',
