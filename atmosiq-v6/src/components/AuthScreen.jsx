@@ -39,20 +39,6 @@ const SUB = V3.TEXT_TERTIARY
 const DIM = V3.TEXT_MUTED
 const ERR = V3.SEVERITY.critical
 
-// Production AtmosFlow brand mark — the 3-airflow-curve cyan rounded-square
-// from public/icons/icon-512.svg. Inline SVG so the auth screen renders
-// without a network round-trip for the icon asset.
-const AtmosLogo = () => (
-  <svg width="76" height="76" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-    <rect width="512" height="512" rx="112" fill="var(--accent)" />
-    <g transform="translate(256,256)" stroke="var(--bg)" strokeWidth="20" strokeLinecap="round" strokeLinejoin="round" fill="none">
-      <path d="M68-81.6A50 50 0 1 1 100-40H-160" />
-      <path d="M-48-108.8A40 40 0 1 1-20-100H-160" />
-      <path d="M1.6 67.2A40 40 0 1 0 40 20H-160" />
-    </g>
-  </svg>
-)
-
 // Official Google 4-color G mark (aria-hidden — label is on the button).
 const GoogleG = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -274,12 +260,15 @@ export default function AuthScreen({ onAuth }) {
         maxWidth: 400, margin: '0 auto', padding: '0 24px',
         animation: 'auth-fadeUp .5s ease',
       }}>
-        {/* Header — logo + wordmark + tagline + cyan underline */}
-        <div style={{ textAlign: 'center', paddingTop: 56, paddingBottom: 30 }}>
-          <div style={{ display: 'inline-flex' }}><AtmosLogo /></div>
+        {/* Header — wordmark + tagline + cyan underline.
+            Logo icon dropped per founder direction; the wordmark
+            carries brand recognition on its own. Top padding bumped
+            from 56 → 88 so the wordmark has breathing room from the
+            iOS status bar without the logo as a vertical anchor. */}
+        <div style={{ textAlign: 'center', paddingTop: 88, paddingBottom: 30 }}>
           <div style={{
             fontSize: 40, fontWeight: 700, letterSpacing: '-0.055em',
-            marginTop: 14, color: TEXT, lineHeight: 1.05,
+            color: TEXT, lineHeight: 1.05,
           }}>AtmosFlow</div>
           <div style={{
             fontSize: 11, fontWeight: 600, color: ACCENT,
@@ -316,40 +305,11 @@ export default function AuthScreen({ onAuth }) {
           }}>{message}</div>
         )}
 
-        {/* OAuth — login + register only. Forgot-password is email-only. */}
-        {mode !== 'forgot' && <>
-          <button
-            type="button"
-            onClick={handleGoogleSignIn}
-            disabled={loading}
-            aria-label={googleLabel}
-            style={{
-              width: '100%', padding: '0 16px',
-              background: SURFACE,
-              border: '1px solid var(--border)', borderRadius: 16,
-              color: TEXT, fontSize: 15, fontWeight: 600,
-              cursor: loading ? 'wait' : 'pointer',
-              fontFamily: 'inherit', minHeight: 56,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
-              opacity: loading ? 0.6 : 1, marginBottom: 18,
-              transition: 'opacity 150ms ease, border-color 150ms ease',
-            }}
-          >
-            <GoogleG />
-            {googleLabel}
-          </button>
-
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18,
-            color: SUB, fontSize: 11, fontWeight: 600, letterSpacing: '0.12em',
-          }}>
-            <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-            <span>OR</span>
-            <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-          </div>
-        </>}
-
-        {/* Form */}
+        {/* Form — email/password primary path. Google SSO repositioned
+            below Sign In as a smaller secondary CTA (founder direction).
+            The OR divider was removed since the visual hierarchy now
+            speaks for itself: large cyan Sign In = primary, small
+            outlined Google = secondary. */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <Field
             name="email"
@@ -358,7 +318,7 @@ export default function AuthScreen({ onAuth }) {
             value={email}
             onChange={setEmail}
             autoComplete="email"
-            placeholder="you@organization.com"
+            placeholder=""
             focusedField={focusedField}
             setFocusedField={setFocusedField}
             clearError={clearError}
@@ -428,25 +388,22 @@ export default function AuthScreen({ onAuth }) {
           )}
 
           {/* Primary CTA — cyan fill, restrained glow, mode-aware label.
-              Glow was 24-px 35% pre-design-review; the louder shadow was
-              fighting the Google CTA for visual weight (expert review
-              flagged "two competing primaries"). 14-px 22% lets Sign In
-              read as the form-submit primary without drowning the
-              Google SSO shortcut directly above it. */}
+              Sized down (56→48 h, 16→15 font) per founder direction so
+              the CTA reads as confident rather than oversized. */}
           <button
             type="submit"
             onClick={cta.onClick}
             disabled={loading}
             aria-busy={loading}
             style={{
-              width: '100%', padding: '16px 0', marginTop: 6,
-              background: ACCENT, border: 'none', borderRadius: 16,
+              width: '100%', padding: '12px 0', marginTop: 6,
+              background: ACCENT, border: 'none', borderRadius: 14,
               color: 'var(--on-accent-fill, #07080C)',
-              fontSize: 16, fontWeight: 700, letterSpacing: '-0.01em',
+              fontSize: 15, fontWeight: 700, letterSpacing: '-0.01em',
               cursor: loading ? 'wait' : 'pointer',
-              minHeight: 56,
+              minHeight: 48,
               opacity: loading ? 0.7 : 1,
-              boxShadow: '0 4px 14px -4px color-mix(in srgb, var(--accent) 22%, transparent)',
+              boxShadow: '0 3px 10px -3px color-mix(in srgb, var(--accent) 22%, transparent)',
               fontFamily: 'inherit',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
               transition: 'opacity 150ms ease, transform 100ms ease',
@@ -455,6 +412,33 @@ export default function AuthScreen({ onAuth }) {
             {loading && <Spinner />}
             {cta.label}
           </button>
+
+          {/* Secondary SSO — Google. Repositioned below Sign In and
+              styled as a quiet outlined button (transparent + border)
+              so the email/password path is unambiguously the primary
+              flow. Hidden in forgot-password mode (no OAuth path). */}
+          {mode !== 'forgot' && (
+            <button
+              type="button"
+              onClick={handleGoogleSignIn}
+              disabled={loading}
+              aria-label={googleLabel}
+              style={{
+                width: '100%', padding: '0 14px',
+                background: 'transparent',
+                border: '1px solid var(--border)', borderRadius: 12,
+                color: TEXT, fontSize: 13, fontWeight: 500,
+                cursor: loading ? 'wait' : 'pointer',
+                fontFamily: 'inherit', minHeight: 42,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                opacity: loading ? 0.6 : 1,
+                transition: 'opacity 150ms ease, border-color 150ms ease, background 150ms ease',
+              }}
+            >
+              <GoogleG />
+              {googleLabel}
+            </button>
+          )}
         </div>
 
         {/* Mode switcher — all tap targets at 44 px minimum (iOS HIG). */}
@@ -464,7 +448,7 @@ export default function AuthScreen({ onAuth }) {
               type="button"
               onClick={() => { setMode('register'); setError(''); setMessage('') }}
               style={{
-                background: 'none', border: 'none', color: ACCENT,
+                background: 'none', border: 'none', color: TEXT,
                 fontSize: 15, fontWeight: 600, cursor: 'pointer',
                 fontFamily: 'inherit', padding: '10px 16px', minHeight: 44,
                 letterSpacing: '-0.01em',
