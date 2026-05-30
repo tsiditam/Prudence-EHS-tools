@@ -298,24 +298,21 @@ export default function AuthScreen({ onAuth }) {
         animation: 'auth-fadeUp .5s ease',
       }}>
         {/* Header — custom AtmosFlow logo image + tagline + cyan underline.
-            File lives at /icons/atmosflow-logo.png. width: 100% fills the
-            content frame so the wordmark inside the PNG (which is
-            surrounded by transparent padding on all four sides in the
-            source file) scales up to its maximum visible size. height:
-            auto preserves aspect ratio. Cleanest long-term fix is to
-            re-export the PNG with the canvas cropped tight to the
-            wordmark — then height: 64-80 would render the same visible
-            size without the CSS having to compensate. */}
-        <div style={{ textAlign: 'center', paddingTop: 40, paddingBottom: 16 }}>
+            File lives at /icons/atmosflow-logo.png. PNG was server-side
+            trimmed from 2000x2000 → 799x147 (the actual wordmark
+            bounding box) so the CSS no longer compensates for transparent
+            padding — height: 64 renders the wordmark at ~348 px wide
+            via the natural 5.44:1 aspect. */}
+        <div style={{ textAlign: 'center', paddingTop: 72, paddingBottom: 24 }}>
           <img
             src="/icons/atmosflow-logo.png"
             alt="AtmosFlow"
             style={{
               display: 'block',
               margin: '0 auto',
-              width: '100%',
-              height: 'auto',
-              maxWidth: 360,
+              height: 64,
+              width: 'auto',
+              maxWidth: '100%',
             }}
           />
           <div style={{
