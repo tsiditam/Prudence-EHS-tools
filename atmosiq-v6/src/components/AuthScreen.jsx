@@ -79,20 +79,16 @@ const AtmosBackdrop = () => (
   </svg>
 )
 
-// Eye-toggle for password visibility. `open` = currently showing
-// plaintext; renders the eye-with-slash glyph.
+// Password visibility toggle. `open` = currently showing plaintext;
+// renders the eye-with-slash glyph. Outlined-eye + slash pattern is
+// the near-universal show/hide affordance — the previous concentric-
+// rings glyph read as a reticle/target (per expert design review)
+// and added cognitive load on the field most costly to mistype.
 const EyeIcon = ({ open, color }) => (
-  <svg width="22" height="22" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-    <circle cx="12" cy="12" r="8" fill="none" stroke={color} strokeWidth="1.4"/>
-    {open
-      ? <>
-          <circle cx="12" cy="12" r="3" fill="none" stroke={color} strokeWidth="1.4"/>
-          <line x1="4" y1="20" x2="20" y2="4" stroke={color} strokeWidth="1.6" strokeLinecap="round"/>
-        </>
-      : <>
-          <circle cx="12" cy="12" r="3" fill="none" stroke={color} strokeWidth="1.4"/>
-          <circle cx="12" cy="12" r="1.5" fill={color}/>
-        </>}
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/>
+    <circle cx="12" cy="12" r="3"/>
+    {open && <line x1="4" y1="20" x2="20" y2="4"/>}
   </svg>
 )
 
@@ -386,7 +382,7 @@ export default function AuthScreen({ onAuth }) {
                   aria-label={showPw ? 'Hide password' : 'Show password'}
                   aria-pressed={showPw}
                   style={{
-                    width: 36, height: 36,
+                    width: 44, height: 44,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     background: 'transparent', border: 'none', cursor: 'pointer',
                     WebkitTapHighlightColor: 'transparent', padding: 0,
@@ -429,7 +425,12 @@ export default function AuthScreen({ onAuth }) {
             </label>
           )}
 
-          {/* Primary CTA — cyan fill, glow, mode-aware label. */}
+          {/* Primary CTA — cyan fill, restrained glow, mode-aware label.
+              Glow was 24-px 35% pre-design-review; the louder shadow was
+              fighting the Google CTA for visual weight (expert review
+              flagged "two competing primaries"). 14-px 22% lets Sign In
+              read as the form-submit primary without drowning the
+              Google SSO shortcut directly above it. */}
           <button
             type="submit"
             onClick={cta.onClick}
@@ -443,7 +444,7 @@ export default function AuthScreen({ onAuth }) {
               cursor: loading ? 'wait' : 'pointer',
               minHeight: 56,
               opacity: loading ? 0.7 : 1,
-              boxShadow: '0 8px 24px -4px color-mix(in srgb, var(--accent) 35%, transparent)',
+              boxShadow: '0 4px 14px -4px color-mix(in srgb, var(--accent) 22%, transparent)',
               fontFamily: 'inherit',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
               transition: 'opacity 150ms ease, transform 100ms ease',
@@ -454,8 +455,8 @@ export default function AuthScreen({ onAuth }) {
           </button>
         </div>
 
-        {/* Mode switcher */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginTop: 22 }}>
+        {/* Mode switcher — all tap targets at 44 px minimum (iOS HIG). */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, marginTop: 22 }}>
           {mode === 'login' && <>
             <button
               type="button"
@@ -463,7 +464,7 @@ export default function AuthScreen({ onAuth }) {
               style={{
                 background: 'none', border: 'none', color: ACCENT,
                 fontSize: 15, fontWeight: 600, cursor: 'pointer',
-                fontFamily: 'inherit', padding: '8px 16px', minHeight: 40,
+                fontFamily: 'inherit', padding: '10px 16px', minHeight: 44,
                 letterSpacing: '-0.01em',
               }}
             >Create an account</button>
@@ -473,7 +474,7 @@ export default function AuthScreen({ onAuth }) {
               style={{
                 background: 'none', border: 'none', color: ACCENT,
                 fontSize: 13, cursor: 'pointer', fontFamily: 'inherit',
-                padding: '6px 16px', minHeight: 36, opacity: 0.85,
+                padding: '10px 16px', minHeight: 44, opacity: 0.85,
               }}
             >Forgot password?</button>
           </>}
@@ -484,39 +485,51 @@ export default function AuthScreen({ onAuth }) {
               style={{
                 background: 'none', border: 'none', color: ACCENT,
                 fontSize: 14, fontWeight: 600, cursor: 'pointer',
-                fontFamily: 'inherit', padding: '8px 16px', minHeight: 40,
+                fontFamily: 'inherit', padding: '10px 16px', minHeight: 44,
                 display: 'flex', alignItems: 'center', gap: 6,
               }}
             >← Back to sign in</button>
           )}
         </div>
 
-        {/* Trust strip — login only. Sign-up and forgot intentionally cleaner. */}
+        {/* Trust strip — login only. Sign-up and forgot intentionally cleaner.
+            Header softened from "Trusted by" to "Built for" (pre-beta — earn
+            the stronger social-proof claim back once real users + logos +
+            a named CIH advisor can substantiate it). Chip rewrites speak
+            the IH/EHS buyer's actual trust language: standards alignment,
+            human-in-the-loop AI, screening-only positioning. Chips now
+            stack vertically so the longer labels (e.g. "ASHRAE & NIOSH-
+            Aligned") never wrap mid-phrase. */}
         {mode === 'login' && (
           <div style={{
-            marginTop: 26, padding: '14px 14px',
+            marginTop: 26, padding: '16px 18px',
             background: 'color-mix(in srgb, var(--surface) 65%, transparent)',
             border: '1px solid color-mix(in srgb, var(--accent) 18%, transparent)',
             borderRadius: 14,
-            display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center',
+            display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center',
           }}>
             <div style={{ fontSize: 10, fontWeight: 600, color: SUB, letterSpacing: '0.12em' }}>
-              TRUSTED BY IH &amp; EHS PROFESSIONALS
+              BUILT FOR IH &amp; EHS PROFESSIONALS
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: 8 }}>
-              {['Secure Encryption', 'AI-Assisted Analysis', 'Screening-Only'].map(label => (
-                <div key={label} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 8 }}>
+              {['ASHRAE & NIOSH-Aligned', 'AI-Assisted, IH-Reviewed', 'Screening-Only'].map(label => (
+                <div key={label} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                   <CheckIcon />
-                  <span style={{ fontSize: 10.5, fontWeight: 500, color: ACCENT }}>{label}</span>
+                  <span style={{ fontSize: 12, fontWeight: 500, color: ACCENT, whiteSpace: 'nowrap' }}>{label}</span>
                 </div>
               ))}
             </div>
           </div>
         )}
 
+        {/* Footer — bumped from var(--dim) (#4A5160, ~3.5:1 on bg) to
+            var(--sub) (#6B7380, ~4.65:1) so the maker-credibility line
+            clears WCAG 2.2 AA contrast (4.5:1 for normal text). The
+            footer is where Prudence-EHS makerhood lives; burying it in
+            the lowest-contrast text on the page contradicted the brand. */}
         <div style={{
           textAlign: 'center', marginTop: 22, marginBottom: 24,
-          fontSize: 10, fontWeight: 400, color: DIM, letterSpacing: '0.02em',
+          fontSize: 10, fontWeight: 400, color: SUB, letterSpacing: '0.02em',
         }}>
           Built by Prudence EHS · Secure · Private · Professional
         </div>
@@ -531,7 +544,11 @@ export default function AuthScreen({ onAuth }) {
         }
         *{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent;}
         button{-webkit-tap-highlight-color:transparent;}
-        input::placeholder{color:var(--sub);opacity:0.55;}
+        /* Placeholder color uses solid var(--sub) (no opacity reduction) so
+           the email/password placeholders clear WCAG 2.2 AA contrast against
+           the input surface. Pre-fix the 55% opacity dragged the effective
+           ratio under 3:1 on dark mode — the expert review flagged this. */
+        input::placeholder{color:var(--sub);}
         ::-webkit-scrollbar{width:0;height:0;}
       `}</style>
     </div>
