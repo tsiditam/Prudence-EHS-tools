@@ -7,7 +7,7 @@
  *
  * Visual surface redesigned to the Phase 2 sign-in spec
  * (Figma 6tSbrfaF1LDfnBrwz3up9h): production AtmosFlow logo,
- * "FIELD-GRADE IAQ INTELLIGENCE" tagline, atmospheric SVG backdrop,
+ * "FIELD-GRADE INDOOR AIR QUALITY SCREENING INTELLIGENCE PLATFORM" tagline, atmospheric SVG backdrop,
  * floating-label inputs with cyan focus ring + glow, trust strip,
  * cyan-glow Sign In CTA, inline alert iconography. All flow logic
  * (login / register / forgot, Google OAuth, ToS gate, password
@@ -271,10 +271,12 @@ export default function AuthScreen({ onAuth }) {
   }
 
   // Per-mode microcopy. Tagline doubles as the mode indicator —
-  // "FIELD-GRADE IAQ INTELLIGENCE" on the default login view,
-  // "CREATE YOUR ACCOUNT" or "RESET YOUR PASSWORD" on the alt modes.
+  // Per-mode microcopy. Tagline doubles as the mode indicator —
+  // "FIELD-GRADE INDOOR AIR QUALITY SCREENING INTELLIGENCE PLATFORM" on
+  // the default login view, "CREATE YOUR ACCOUNT" or "RESET YOUR
+  // PASSWORD" on the alt modes.
   const tagline = mode === 'login'
-    ? 'FIELD-GRADE INDOOR ENVIRONMENTAL QUALITY INTELLIGENCE'
+    ? 'FIELD-GRADE INDOOR AIR QUALITY SCREENING INTELLIGENCE PLATFORM'
     : mode === 'register' ? 'CREATE YOUR ACCOUNT' : 'RESET YOUR PASSWORD'
   const cta = mode === 'login'
     ? { label: loading ? 'Signing in…' : 'Sign In', onClick: handleLogin }
