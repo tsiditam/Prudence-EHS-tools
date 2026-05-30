@@ -260,17 +260,25 @@ export default function AuthScreen({ onAuth }) {
         maxWidth: 400, margin: '0 auto', padding: '0 24px',
         animation: 'auth-fadeUp .5s ease',
       }}>
-        {/* Header — wordmark + tagline + cyan underline.
-            Logo icon dropped per founder direction; the wordmark
-            carries brand recognition on its own. Top padding bumped
-            from 56 → 88 so the wordmark has breathing room from the
-            iOS status bar without the logo as a vertical anchor. */}
+        {/* Header — custom AtmosFlow logo image + tagline + cyan underline.
+            The image file lives at /icons/atmosflow-logo.png (drop it into
+            atmosiq-v6/public/icons/ — Vite copies the public/ tree to the
+            web root verbatim). An <img> with explicit width + height
+            prevents CLS during fetch. If the file is missing in dev, the
+            alt-text "AtmosFlow" renders so the auth screen still labels
+            the brand. */}
         <div style={{ textAlign: 'center', paddingTop: 88, paddingBottom: 30 }}>
-          <div style={{
-            fontFamily: "'Sora', 'Inter', system-ui, sans-serif",
-            fontSize: 40, fontWeight: 700, letterSpacing: '-0.045em',
-            color: TEXT, lineHeight: 1.05,
-          }}>AtmosFlow</div>
+          <img
+            src="/icons/atmosflow-logo.png"
+            alt="AtmosFlow"
+            style={{
+              display: 'block',
+              margin: '0 auto',
+              height: 56,
+              width: 'auto',
+              maxWidth: '100%',
+            }}
+          />
           <div style={{
             fontSize: 11, fontWeight: 600, color: ACCENT,
             marginTop: 18, letterSpacing: '0.16em',
