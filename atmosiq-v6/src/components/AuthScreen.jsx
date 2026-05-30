@@ -267,7 +267,8 @@ export default function AuthScreen({ onAuth }) {
             iOS status bar without the logo as a vertical anchor. */}
         <div style={{ textAlign: 'center', paddingTop: 88, paddingBottom: 30 }}>
           <div style={{
-            fontSize: 40, fontWeight: 700, letterSpacing: '-0.055em',
+            fontFamily: "'Sora', 'Inter', system-ui, sans-serif",
+            fontSize: 40, fontWeight: 700, letterSpacing: '-0.045em',
             color: TEXT, lineHeight: 1.05,
           }}>AtmosFlow</div>
           <div style={{
@@ -441,42 +442,69 @@ export default function AuthScreen({ onAuth }) {
           )}
         </div>
 
-        {/* Mode switcher — all tap targets at 44 px minimum (iOS HIG). */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, marginTop: 22 }}>
-          {mode === 'login' && <>
+        {/* Mode switcher — login mode renders Create-an-account and
+            Forgot user-ID/Password as a single-line pair separated by
+            a pipe, both bold white underlined in Sora per founder
+            direction. Each side is its own button with a 44-px tap
+            target. Register / forgot modes keep the dedicated
+            back-to-sign-in link below. */}
+        {mode === 'login' && (
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            gap: 6, marginTop: 22, flexWrap: 'wrap',
+          }}>
             <button
               type="button"
               onClick={() => { setMode('register'); setError(''); setMessage('') }}
               style={{
                 background: 'none', border: 'none', color: TEXT,
-                fontSize: 15, fontWeight: 600, cursor: 'pointer',
-                fontFamily: 'inherit', padding: '10px 16px', minHeight: 44,
-                letterSpacing: '-0.01em',
+                fontFamily: "'Sora', 'Inter', system-ui, sans-serif",
+                fontSize: 17, fontWeight: 700, letterSpacing: '-0.01em',
+                textDecoration: 'underline', textUnderlineOffset: 4,
+                textDecorationThickness: 2,
+                cursor: 'pointer', padding: '10px 4px', minHeight: 44,
+                WebkitTapHighlightColor: 'transparent',
               }}
             >Create an account</button>
+            <span style={{
+              color: TEXT,
+              fontFamily: "'Sora', 'Inter', system-ui, sans-serif",
+              fontSize: 17, fontWeight: 700,
+              userSelect: 'none', padding: '0 2px',
+            }}>|</span>
             <button
               type="button"
               onClick={() => { setMode('forgot'); setError(''); setMessage('') }}
               style={{
-                background: 'none', border: 'none', color: ACCENT,
-                fontSize: 13, cursor: 'pointer', fontFamily: 'inherit',
-                padding: '10px 16px', minHeight: 44, opacity: 0.85,
+                background: 'none', border: 'none', color: TEXT,
+                fontFamily: "'Sora', 'Inter', system-ui, sans-serif",
+                fontSize: 17, fontWeight: 700, letterSpacing: '-0.01em',
+                textDecoration: 'underline', textUnderlineOffset: 4,
+                textDecorationThickness: 2,
+                cursor: 'pointer', padding: '10px 4px', minHeight: 44,
+                WebkitTapHighlightColor: 'transparent',
               }}
-            >Forgot password?</button>
-          </>}
-          {(mode === 'register' || mode === 'forgot') && (
+            >Forgot user ID/Password</button>
+          </div>
+        )}
+        {(mode === 'register' || mode === 'forgot') && (
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 22 }}>
             <button
               type="button"
               onClick={() => { setMode('login'); setError(''); setMessage('') }}
               style={{
-                background: 'none', border: 'none', color: ACCENT,
-                fontSize: 14, fontWeight: 600, cursor: 'pointer',
-                fontFamily: 'inherit', padding: '10px 16px', minHeight: 44,
+                background: 'none', border: 'none', color: TEXT,
+                fontFamily: "'Sora', 'Inter', system-ui, sans-serif",
+                fontSize: 15, fontWeight: 700, letterSpacing: '-0.01em',
+                textDecoration: 'underline', textUnderlineOffset: 4,
+                textDecorationThickness: 2,
+                cursor: 'pointer', padding: '10px 16px', minHeight: 44,
                 display: 'flex', alignItems: 'center', gap: 6,
+                WebkitTapHighlightColor: 'transparent',
               }}
             >← Back to sign in</button>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Trust strip — login only. Sign-up and forgot intentionally cleaner.
             Header softened from "Trusted by" to "Built for" (pre-beta — earn
