@@ -451,7 +451,8 @@ export default function AuthScreen({ onAuth }) {
         {mode === 'login' && (
           <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            gap: 6, marginTop: 22, flexWrap: 'wrap',
+            gap: 6, marginTop: 22,
+            whiteSpace: 'nowrap',
           }}>
             <button
               type="button"
@@ -459,17 +460,18 @@ export default function AuthScreen({ onAuth }) {
               style={{
                 background: 'none', border: 'none', color: TEXT,
                 fontFamily: "'Sora', 'Inter', system-ui, sans-serif",
-                fontSize: 17, fontWeight: 700, letterSpacing: '-0.01em',
+                fontSize: 15, fontWeight: 700, letterSpacing: '-0.01em',
                 textDecoration: 'underline', textUnderlineOffset: 4,
                 textDecorationThickness: 2,
                 cursor: 'pointer', padding: '10px 4px', minHeight: 44,
+                whiteSpace: 'nowrap',
                 WebkitTapHighlightColor: 'transparent',
               }}
             >Create an account</button>
             <span style={{
               color: TEXT,
               fontFamily: "'Sora', 'Inter', system-ui, sans-serif",
-              fontSize: 17, fontWeight: 700,
+              fontSize: 15, fontWeight: 700,
               userSelect: 'none', padding: '0 2px',
             }}>|</span>
             <button
@@ -478,10 +480,11 @@ export default function AuthScreen({ onAuth }) {
               style={{
                 background: 'none', border: 'none', color: TEXT,
                 fontFamily: "'Sora', 'Inter', system-ui, sans-serif",
-                fontSize: 17, fontWeight: 700, letterSpacing: '-0.01em',
+                fontSize: 15, fontWeight: 700, letterSpacing: '-0.01em',
                 textDecoration: 'underline', textUnderlineOffset: 4,
                 textDecorationThickness: 2,
                 cursor: 'pointer', padding: '10px 4px', minHeight: 44,
+                whiteSpace: 'nowrap',
                 WebkitTapHighlightColor: 'transparent',
               }}
             >Forgot user ID/Password</button>
