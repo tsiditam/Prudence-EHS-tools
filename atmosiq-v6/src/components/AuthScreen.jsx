@@ -297,31 +297,34 @@ export default function AuthScreen({ onAuth }) {
         maxWidth: 400, margin: '0 auto', padding: '0 24px',
         animation: 'auth-fadeUp .5s ease',
       }}>
-        {/* Header — custom AtmosFlow logo image + tagline + cyan underline.
-            File lives at /icons/atmosflow-logo.png. PNG was server-side
-            trimmed from 2000x2000 → 799x147 (the actual wordmark
-            bounding box) so the CSS no longer compensates for transparent
-            padding — height: 64 renders the wordmark at ~348 px wide
-            via the natural 5.44:1 aspect. */}
-        <div style={{ textAlign: 'center', paddingTop: 72, paddingBottom: 24 }}>
+        {/* Header — intentional 8-px vertical rhythm.
+            Logo at 52 px tall · 24 px gap to tagline · 8 px to underline.
+            Top padding 48 (safe-area-inset-top adds OS-defined space
+            above, so 48 here is enough breathing room — total ~88-100 px
+            from device top). Bottom padding 32 separates the brand
+            block from the form below.
+            PNG is the trimmed 799x147 wordmark; at height: 52 it renders
+            ~283 px wide (52 * 5.44), comfortably proportional inside the
+            345 px content frame without hugging the edges. */}
+        <div style={{ textAlign: 'center', paddingTop: 48, paddingBottom: 32 }}>
           <img
             src="/icons/atmosflow-logo.png"
             alt="AtmosFlow"
             style={{
               display: 'block',
               margin: '0 auto',
-              height: 64,
+              height: 52,
               width: 'auto',
               maxWidth: '100%',
             }}
           />
           <div style={{
             fontSize: 11, fontWeight: 600, color: ACCENT,
-            marginTop: 18, letterSpacing: '0.16em',
+            marginTop: 24, letterSpacing: '0.16em',
             lineHeight: 1.5, maxWidth: 320,
             marginLeft: 'auto', marginRight: 'auto',
           }}>{tagline}</div>
-          <div style={{ width: 44, height: 2, background: ACCENT, borderRadius: 1, margin: '10px auto 0' }} />
+          <div style={{ width: 44, height: 2, background: ACCENT, borderRadius: 1, margin: '8px auto 0' }} />
         </div>
 
         {/* Status banners */}
