@@ -54,8 +54,23 @@ const SHORT_LABEL = { co2: 'CO₂', tempRh: 'Temp / RH', pm: 'PM', co: 'CO', tvo
 
 const fmtRange = (s, e) => (s && e ? `${dayjs(s).format('MMM D, HH:mm')} – ${dayjs(e).format('MMM D, HH:mm')}` : 'Row order (no timestamps)')
 const fmtInterval = (sec) => (sec == null ? '—' : sec >= 3600 ? `${(sec / 3600).toFixed(1)} h` : sec >= 60 ? `${Math.round(sec / 60)} min` : `${Math.round(sec)} s`)
-// Compact average: integers above 100 (e.g. CO₂ ppm), one decimal below.
-const fmtAvg = (v) => (v == null || !Number.isFinite(v) ? '—' : Math.abs(v) >= 100 ? String(Math.round(v)) : String(Math.round(v * 10) / 10))
+// Compact average. Adaptive precision so sub-unit magnitudes (HCHO in
+// mg/m³, where indoor readings sit near 0.02) don't collapse to "0":
+//   ≥ 100  → integer (CO₂ ppm)
+//   ≥ 1    → 1 decimal (CO ppm, PM µg/m³, temp °C, RH %)
+//   ≥ 0.1  → 2 decimals
+//   > 0    → 3 decimals (HCHO mg/m³ ≈ 0.020)
+// JS Number→String strips trailing zeros, so "0.3" stays "0.3" — no
+// 0.30 noise.
+const fmtAvg = (v) => {
+  if (v == null || !Number.isFinite(v)) return '—'
+  const a = Math.abs(v)
+  if (a === 0)  return '0'
+  if (a >= 100) return String(Math.round(v))
+  if (a >= 1)   return String(Math.round(v * 10) / 10)
+  if (a >= 0.1) return String(Math.round(v * 100) / 100)
+  return String(Math.round(v * 1000) / 1000)
+}
 // TVOC cross-unit equivalent (isobutylene-equiv) so both mass- and
 // volume-based readers see a familiar number. µg/m³ stays the canonical
 // scored unit; this line is informational only.
