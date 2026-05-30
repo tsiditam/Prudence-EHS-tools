@@ -30,6 +30,28 @@ describe('Formaldehyde (HCHO) detection', () => {
     expect(r.params).toContain('hcho')
     expect(r.units.hcho).toBe('ppb')
     expect(Math.round(r.summary.stats.hcho.mean)).toBe(30)
+    // Native ppb data carries no source-unit override.
+    expect(r.units.hchoSource).toBeUndefined()
+  })
+  it('normalizes mg/m³ HCHO logs to ppb at parse time and records source unit', () => {
+    // 0.020 mg/m³ ≈ 16 ppb (NIOSH REL); 0.040 ≈ 33; 0.025 ≈ 20. Mean ≈ 23 ppb.
+    const r = parseSensorCsv('Timestamp,HCHO (mg/m3)\n2026-05-01 09:00,0.020\n2026-05-01 09:05,0.040\n2026-05-01 09:10,0.025')
+    expect(r.units.hcho).toBe('ppb')              // display unit
+    expect(r.units.hchoSource).toBe('mg/m³')      // provenance
+    expect(Math.round(r.summary.stats.hcho.mean)).toBe(23)
+    expect(Math.round(r.summary.stats.hcho.min)).toBe(16)
+    expect(Math.round(r.summary.stats.hcho.max)).toBe(33)
+    // Stored point values are ppb-normalized.
+    const meanFromPoints = r.points.reduce((a, p) => a + (p.hcho || 0), 0) / r.points.length
+    expect(Math.round(meanFromPoints)).toBe(23)
+  })
+  it('normalizes µg/m³ HCHO logs to ppb at parse time', () => {
+    // 25 µg/m³ ≈ 20 ppb; 50 ≈ 41; round-trip stays consistent.
+    const r = parseSensorCsv('Timestamp,HCHO (ug/m3)\n2026-05-01 09:00,25\n2026-05-01 09:05,50')
+    expect(r.units.hcho).toBe('ppb')
+    expect(r.units.hchoSource).toBe('µg/m³')
+    expect(Math.round(r.summary.stats.hcho.min)).toBe(20)
+    expect(Math.round(r.summary.stats.hcho.max)).toBe(41)
   })
 })
 

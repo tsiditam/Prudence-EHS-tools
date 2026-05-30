@@ -75,9 +75,8 @@ export const STD = {
     // `con` (NIOSH 1000) and `act` (1500) are screening trigger points;
     // `diff` is the 700 ppm-above-outdoor ventilation surrogate (ASHRAE
     // 62.1 / Persily 2021 — CO₂ indexes ventilation per occupant, NOT a
-    // health/contaminant limit). `well` is the WELL v2 enhanced-air target
-    // surfaced as a comfort/ventilation reference, not a regulatory limit.
-    co2: { base: 420, diff: 700, con: 1000, act: 1500, well: 800 },
+    // health/contaminant limit).
+    co2: { base: 420, diff: 700, con: 1000, act: 1500 },
     oa: {
       office:        { pp: 5,   ps: 0.06 },
       classroom:     { pp: 15,  ps: 0.12 },

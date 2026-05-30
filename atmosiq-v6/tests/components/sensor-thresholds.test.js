@@ -20,12 +20,13 @@ describe('categoryOf / CATEGORY', () => {
 })
 
 describe('paramReference', () => {
-  it('CO₂ → WELL 800 primary, NIOSH 1000 secondary, ventilation-surrogate note', () => {
+  it('CO₂ → NIOSH 1000 primary, ASHRAE 62.1 ventilation surrogate secondary', () => {
     const r = paramReference('co2', { unit: 'ppm' })
-    expect(r.limit).toBe(800)
-    expect(r.limitLabel).toBe('WELL v2')
-    expect(r.refs.join(' ')).toMatch(/WELL v2: <800 ppm/)
+    expect(r.limit).toBe(1000)
+    expect(r.limitLabel).toBe('NIOSH')
     expect(r.refs.join(' ')).toMatch(/NIOSH: <1000 ppm/)
+    expect(r.refs.join(' ')).toMatch(/ASHRAE 62\.1.*ventilation surrogate.*above outdoor/)
+    expect(r.refs.join(' ')).not.toMatch(/WELL/)
     expect(r.note).toMatch(/ventilation/i)
   })
 
@@ -76,9 +77,11 @@ describe('paramReference', () => {
 describe('exceedance', () => {
   it('peak-only excursion over a limit reads as warn', () => {
     const ref = paramReference('co2', { unit: 'ppm' })
-    const r = exceedance('co2', { mean: 667, max: 909 }, ref)
+    // Bumped max from 909 → 1100 after the CO₂ primary limit moved
+    // from WELL 800 → NIOSH 1000; 909 no longer exceeds.
+    const r = exceedance('co2', { mean: 667, max: 1100 }, ref)
     expect(r.level).toBe('warn')
-    expect(r.message).toMatch(/Peak 909 ppm exceeded WELL v2/)
+    expect(r.message).toMatch(/Peak 1100 ppm exceeded NIOSH/)
   })
 
   it('sustained mean over a limit reads as danger', () => {

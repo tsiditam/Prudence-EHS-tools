@@ -125,11 +125,12 @@ describe('summarizeLoggerForContext', () => {
     expect(co2.min).toBe(600)
     expect(co2.max).toBe(1200)
     expect(co2.n).toBe(8)
-    // 6 of 8 points exceed the WELL v2 800 ppm screening limit
-    // (850, 950, 1100, 1200, 1050, 900) → 75.0%.
-    expect(co2.pct_over_limit).toBe(75)
-    expect(co2.limit).toBe(800)
-    expect(co2.limit_label).toBe('WELL v2')
+    // 3 of 8 points exceed the NIOSH 1000 ppm screening limit
+    // (1100, 1200, 1050) → 37.5%. (Primary CO₂ reference moved from
+    // WELL v2 800 → NIOSH 1000 — see sensorThresholds.js.)
+    expect(co2.pct_over_limit).toBe(37.5)
+    expect(co2.limit).toBe(1000)
+    expect(co2.limit_label).toBe('NIOSH')
     expect(co2.refs.length).toBeGreaterThan(0)
     // Global time range present
     expect(out.time_range).not.toBeNull()
