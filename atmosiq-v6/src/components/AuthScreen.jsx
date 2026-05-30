@@ -39,7 +39,44 @@ const SUB = V3.TEXT_TERTIARY
 const DIM = V3.TEXT_MUTED
 const ERR = V3.SEVERITY.critical
 
-// Official Google 4-color G mark (aria-hidden — label is on the button).
+// AtmosFlow brand mark — wordmark with the "o" in "Flow" replaced by
+// an inline cyan brain icon. Inlined as SVG (vs. an external <img>
+// reference) so the auth screen renders the brand without any asset-
+// upload dependency. Sora Bold for the wordmark; brain icon scaled
+// to the lowercase x-height of the surrounding text so it sits inline
+// rather than floating above or below the baseline.
+const BrainGlyph = ({ size = 32 }) => (
+  <svg width={size} height={size} viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style={{ display: 'block' }}>
+    <g stroke="#0A0A0A" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round">
+      <path d="M 38 14 C 28 14, 18 18, 14 28 C 11 32, 12 38, 16 42 C 13 46, 13 52, 18 56 C 24 62, 32 64, 38 62 Z" fill="var(--accent)"/>
+      <path d="M 42 14 C 52 14, 62 18, 66 28 C 69 32, 68 38, 64 42 C 67 46, 67 52, 62 56 C 56 62, 48 64, 42 62 Z" fill="var(--accent)"/>
+      <path d="M 22 22 Q 26 26, 22 30 Q 18 34, 24 38" fill="none"/>
+      <path d="M 28 22 Q 32 28, 27 34 Q 22 40, 28 46" fill="none"/>
+      <path d="M 20 46 Q 24 50, 22 56" fill="none"/>
+      <path d="M 58 22 Q 54 26, 58 30 Q 62 34, 56 38" fill="none"/>
+      <path d="M 52 22 Q 48 28, 53 34 Q 58 40, 52 46" fill="none"/>
+      <path d="M 60 46 Q 56 50, 58 56" fill="none"/>
+    </g>
+  </svg>
+)
+
+const AtmosFlowMark = () => (
+  <div style={{
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    fontFamily: "'Sora', 'Inter', system-ui, sans-serif",
+    fontSize: 44, fontWeight: 700,
+    color: 'var(--text)',
+    letterSpacing: '-0.045em',
+    lineHeight: 1,
+    gap: 1,
+  }}>
+    <span>AtmosFl</span>
+    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', height: 44, width: 36, margin: '0 -2px' }}>
+      <BrainGlyph size={36} />
+    </span>
+    <span>w</span>
+  </div>
+)
 const GoogleG = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
     <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -260,25 +297,15 @@ export default function AuthScreen({ onAuth }) {
         maxWidth: 400, margin: '0 auto', padding: '0 24px',
         animation: 'auth-fadeUp .5s ease',
       }}>
-        {/* Header — custom AtmosFlow logo image + tagline + cyan underline.
-            The image file lives at /icons/atmosflow-logo.png (drop it into
-            atmosiq-v6/public/icons/ — Vite copies the public/ tree to the
-            web root verbatim). An <img> with explicit width + height
-            prevents CLS during fetch. If the file is missing in dev, the
-            alt-text "AtmosFlow" renders so the auth screen still labels
-            the brand. */}
+        {/* Header — inline AtmosFlow brand mark (wordmark with brain
+            icon replacing the "o" in "Flow") + tagline + cyan underline.
+            Mark is inline SVG so it renders without any external asset
+            dependency. To swap for a custom PNG/SVG later, replace
+            <AtmosFlowMark /> with <img src="/icons/atmosflow-logo.png"
+            alt="AtmosFlow" style={{height:56,...}} /> and drop the file
+            into atmosiq-v6/public/icons/. */}
         <div style={{ textAlign: 'center', paddingTop: 88, paddingBottom: 30 }}>
-          <img
-            src="/icons/atmosflow-logo.png"
-            alt="AtmosFlow"
-            style={{
-              display: 'block',
-              margin: '0 auto',
-              height: 56,
-              width: 'auto',
-              maxWidth: '100%',
-            }}
-          />
+          <AtmosFlowMark />
           <div style={{
             fontSize: 11, fontWeight: 600, color: ACCENT,
             marginTop: 18, letterSpacing: '0.16em',
