@@ -1935,6 +1935,37 @@ export default function MobileApp() {
 
   // ── Results renderer ──
   const renderResults = (archived) => {
+    // Pre-Assessment Memo / archived report without scoring data — render
+    // a friendly fallback instead of returning null. The EmptyReportRender
+    // guard at the view layer otherwise converts the null into a
+    // user-facing crash. The engine emits reports without scoring data
+    // when no measurements were recorded — these are valid deliverables
+    // (the "Pre-Assessment Memo" path documented in CLAUDE.md), not bugs.
+    if (archived && viewRpt && (!comp || !zoneScores.length)) {
+      const facilityName = viewRpt.facility || bldg.fn || 'Untitled Assessment'
+      const ts = viewRpt.ts ? new Date(viewRpt.ts).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : ''
+      const hasNarrative = narrative && typeof narrative === 'string' && narrative.trim().length > 0
+      return (
+        <div style={{padding: '20px 16px 120px'}}>
+          <GlassCard>
+            <div style={{...V3.T.micro, color: 'var(--accent)', marginBottom: 8}}>PRE-ASSESSMENT MEMO</div>
+            <div style={{...V3.T.h1, marginBottom: 4}}>{facilityName}</div>
+            {ts && <div style={{...V3.T.bodyDim, marginBottom: 16}}>Created {ts}</div>}
+            <div style={{...V3.T.body, color: V3.TEXT_SECONDARY}}>
+              This report contains no scoring data — no zone measurements have been recorded. The engine has rendered a pre-assessment memo for planning use. Open the source assessment to add measurements and generate a full scored report.
+            </div>
+          </GlassCard>
+          {hasNarrative && (
+            <div style={{marginTop: 16}}>
+              <GlassCard>
+                <div style={{...V3.T.micro, color: V3.TEXT_TERTIARY, marginBottom: 8}}>NOTES</div>
+                <div style={{...V3.T.body, whiteSpace: 'pre-wrap'}}>{narrative}</div>
+              </GlassCard>
+            </div>
+          )}
+        </div>
+      )
+    }
     if (!comp || !zoneScores.length) return null
     const zs = zoneScores[selZone]
     // Logger timelines flagged "Include in report". When viewing a saved
