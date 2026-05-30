@@ -459,63 +459,66 @@ class ReportErrorBoundary extends Component {
 function DeferredRender({ render }) { return render() }
 
 // Full-screen "writing your report" overlay shown while a DOCX is generated.
-// A red pen (no hand) sweeps left→right tracing a glowing cyan signature that
-// inks in beneath the nib, looping, with a determinate progress bar that fills
-// over `durationMs` so the wait reads as bounded.
+// Cycling status phrases (Claude-Code-style) in blue, with three small
+// cascading dots to the left. A determinate progress bar fills over
+// `durationMs` so the engineered wait reads as bounded.
+//
+// The 12s / 8s engineered wait is preserved — the audit framed it as a
+// labor-illusion loading state (Norton & Buell 2009), not engagement
+// theater. New visual, same timing semantics.
 function ReportWritingOverlay({ label, durationMs }) {
-  const INK = '#22d3ee'
+  const BLUE = '#60A5FA'
+  // Phrases are deliberately scoped to report ASSEMBLY (composing,
+  // citing, formatting, polishing). No verbs that imply analysis,
+  // diagnosis, or causation — that would conflict with the
+  // screening-only positioning (CLAUDE.md).
+  const PHRASES = [
+    'Composing findings…',
+    'Citing standards…',
+    'Cross-checking sampling plan…',
+    'Verifying calibration metadata…',
+    'Assembling appendices…',
+    'Drafting executive summary…',
+    'Polishing recommendations…',
+    'Formatting deliverable…',
+    'Tightening the prose…',
+    'Finalizing…',
+  ]
+  const [idx, setIdx] = useState(0)
+  useEffect(() => {
+    const t = setInterval(() => setIdx(i => (i + 1) % PHRASES.length), 1800)
+    return () => clearInterval(t)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   return createPortal(
     <div role="status" aria-live="polite" aria-label={label}
       style={{ position:'fixed', inset:0, zIndex:4000, background:'rgba(8,10,14,0.94)',
         backdropFilter:'blur(10px)', WebkitBackdropFilter:'blur(10px)', display:'flex',
         flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'0 36px', fontFamily:'inherit' }}>
       <style>{`
-        @keyframes rwoInk {
-          0%{stroke-dashoffset:var(--len);opacity:0} 8%{opacity:1}
-          62%{stroke-dashoffset:0;opacity:1} 86%{stroke-dashoffset:0;opacity:1} 100%{stroke-dashoffset:0;opacity:0}
-        }
-        @keyframes rwoPen {
-          0%{transform:translate(0px,0px);opacity:0} 8%{opacity:1}
-          20%{transform:translate(26px,-13px)} 32%{transform:translate(52px,3px)}
-          44%{transform:translate(78px,-13px)} 56%{transform:translate(104px,3px)}
-          62%{transform:translate(132px,-9px);opacity:1} 86%{transform:translate(132px,-9px);opacity:1}
-          100%{transform:translate(132px,-9px);opacity:0}
-        }
         @keyframes rwoBar { from{width:0%} to{width:100%} }
         @keyframes rwoIn  { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:none} }
-        @keyframes rwoDots{ 0%,20%{opacity:.25} 50%{opacity:1} 80%,100%{opacity:.25} }
+        @keyframes rwoDot { 0%,80%,100%{opacity:.22;transform:translateY(0)} 40%{opacity:1;transform:translateY(-3px)} }
+        @keyframes rwoPhrase { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
       `}</style>
-      <div style={{ animation:'rwoIn .4s ease both', display:'flex', flexDirection:'column', alignItems:'center', width:'100%', maxWidth:340 }}>
-        <svg width="240" height="170" viewBox="0 0 240 170" fill="none" aria-hidden="true">
-          {/* glowing cyan signature — inks in left→right beneath the nib, loops */}
-          <path d="M36 128 q 11 -19 24 -2 q 10 14 21 2 q 11 -19 24 -2 q 10 15 22 2 q 11 -15 21 -5"
-            stroke={INK} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" fill="none"
-            strokeDasharray="250"
-            style={{ ['--len']:'250px', strokeDashoffset:250,
-              filter:`drop-shadow(0 0 4px ${INK}) drop-shadow(0 0 9px rgba(34,211,238,0.7))`,
-              animation:'rwoInk 3.6s ease-in-out infinite' }} />
-          {/* red pen, no hand — nib anchored at the line start, sweeps right with the ink */}
-          <g transform="translate(36,128)">
-            <g style={{ animation:'rwoPen 3.6s ease-in-out infinite' }}>
-              <g transform="rotate(33)">
-                <path d="M-8 -20 L8 -20 L0 0 Z" fill="#ef4444"/>
-                <path d="M-3 -7 L3 -7 L0 0 Z" fill="#7f1d1d"/>
-                <rect x="-9" y="-26" width="18" height="6" rx="2" fill="#b91c1c"/>
-                <rect x="-9" y="-88" width="18" height="64" rx="7" fill="#ef4444"/>
-                <rect x="-9" y="-88" width="18" height="14" rx="7" fill="#f87171"/>
-                <rect x="3" y="-82" width="4.5" height="34" rx="2.2" fill="rgba(255,255,255,0.92)"/>
-              </g>
-            </g>
-          </g>
-        </svg>
-        <div style={{ fontSize:16, fontWeight:700, color:'var(--text, #fff)', marginTop:6, textAlign:'center', letterSpacing:'-0.2px' }}>
-          {label}<span style={{ animation:'rwoDots 1.4s infinite' }}>…</span>
+      <div style={{ animation:'rwoIn .4s ease both', display:'flex', flexDirection:'column', alignItems:'center', width:'100%', maxWidth:440 }}>
+        <div style={{ fontSize:11, color:'var(--sub, #9aa7b4)', marginBottom:22, textAlign:'center', letterSpacing:'0.14em', textTransform:'uppercase', fontWeight:600 }}>
+          {label}
         </div>
-        <div style={{ fontSize:12.5, color:'var(--sub, #9aa7b4)', marginTop:6, textAlign:'center', lineHeight:1.5 }}>
-          Assembling findings, recommendations, and citations.
+        <div style={{ display:'flex', alignItems:'center', gap:12, minHeight:28, width:'100%', justifyContent:'center' }}>
+          {/* three small cascading dots — "small animation to the left" */}
+          <span aria-hidden="true" style={{ display:'inline-flex', alignItems:'center', gap:4, flexShrink:0 }}>
+            <span style={{ width:5, height:5, borderRadius:'50%', background:BLUE, boxShadow:`0 0 6px ${BLUE}`, animation:'rwoDot 1.3s ease-in-out infinite', animationDelay:'0s' }} />
+            <span style={{ width:5, height:5, borderRadius:'50%', background:BLUE, boxShadow:`0 0 6px ${BLUE}`, animation:'rwoDot 1.3s ease-in-out infinite', animationDelay:'0.18s' }} />
+            <span style={{ width:5, height:5, borderRadius:'50%', background:BLUE, boxShadow:`0 0 6px ${BLUE}`, animation:'rwoDot 1.3s ease-in-out infinite', animationDelay:'0.36s' }} />
+          </span>
+          {/* cycling phrase in blue — `key` replays the slide-in on each tick */}
+          <span key={idx} style={{ color:BLUE, fontSize:17, fontWeight:500, letterSpacing:'-0.2px', animation:'rwoPhrase .3s ease-out both' }}>
+            {PHRASES[idx]}
+          </span>
         </div>
-        <div style={{ width:'100%', height:6, borderRadius:99, background:'rgba(255,255,255,0.08)', marginTop:20, overflow:'hidden' }}>
-          <div style={{ height:'100%', borderRadius:99, background:INK, boxShadow:`0 0 8px ${INK}`, animation:`rwoBar ${durationMs}ms linear both` }}/>
+        <div style={{ width:'100%', height:3, borderRadius:99, background:'rgba(255,255,255,0.08)', marginTop:28, overflow:'hidden' }}>
+          <div style={{ height:'100%', borderRadius:99, background:BLUE, boxShadow:`0 0 6px ${BLUE}`, animation:`rwoBar ${durationMs}ms linear both` }}/>
         </div>
       </div>
     </div>,
