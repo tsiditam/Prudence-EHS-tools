@@ -85,9 +85,9 @@ export function paramReference(param, opts = {}) {
       out.refs = [`${STD.v.ref}: ${STD.t.rh.min}–${STD.t.rh.max}% RH`]
       break
     case 'co2':
-      out.limit = STD.v.co2.well
-      out.limitLabel = 'WELL v2'
-      out.refs = [`WELL v2: <${STD.v.co2.well} ppm`, `NIOSH: <${STD.v.co2.con} ppm`]
+      out.limit = STD.v.co2.con
+      out.limitLabel = 'NIOSH'
+      out.refs = [`NIOSH: <${STD.v.co2.con} ppm`, `${STD.v.ref} ventilation surrogate (Δ${STD.v.co2.diff} ppm above outdoor)`]
       out.note = 'CO₂ indexes ventilation per occupant (ASHRAE 62.1 / Persily 2021), not a health limit.'
       break
     case 'pm25':
