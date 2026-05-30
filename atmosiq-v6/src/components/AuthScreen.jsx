@@ -299,15 +299,21 @@ export default function AuthScreen({ onAuth }) {
       }}>
         {/* Header — custom AtmosFlow logo image + tagline + cyan underline.
             File lives at /icons/atmosflow-logo.png (public/icons/ is served
-            verbatim by Vite). Explicit height prevents CLS during fetch. */}
-        <div style={{ textAlign: 'center', paddingTop: 88, paddingBottom: 30 }}>
+            verbatim by Vite). Height bumped to 200 because the PNG canvas
+            carries significant transparent padding around the actual
+            wordmark — the visible mark only fills ~30% of the canvas
+            vertically. At 200 px rendered, the wordmark itself shows at
+            ~60 px tall (matching the prior Sora text wordmark scale).
+            maxWidth: 100% caps the natural width at the content frame so
+            iPhone SE doesn't overflow. */}
+        <div style={{ textAlign: 'center', paddingTop: 60, paddingBottom: 24 }}>
           <img
             src="/icons/atmosflow-logo.png"
             alt="AtmosFlow"
             style={{
               display: 'block',
               margin: '0 auto',
-              height: 64,
+              height: 200,
               width: 'auto',
               maxWidth: '100%',
             }}
