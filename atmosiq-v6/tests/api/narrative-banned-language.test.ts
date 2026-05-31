@@ -93,4 +93,28 @@ describe('POST /api/narrative — banned-language gate', () => {
     expect(r._body.language_review).toBe('passed')
     expect(r._body.banned_language).toEqual([])
   })
+
+  it('passes a reasoning-engine narrative (hypotheses, epistemic tags, sampling linkage, IH-Review closing)', async () => {
+    // Representative Screening Narrative Mode output. Uses the reasoning
+    // engine's intended vocabulary — "consistent with", "an indicator
+    // of", epistemic tags, and the standing IH-Review notice — none of
+    // which should trip the banned-language scanner, because the
+    // context-aware bans only fire near clinical/causal terms.
+    anthropicText = [
+      'Assessment context: Zone B, office, 2026-05-31.',
+      '',
+      'Hypothesis: under-ventilation in Zone B. Observed fact: CO2 ran elevated relative to the outdoor reference. Reasonable inference: the gap is an indicator of insufficient outdoor air delivery per occupant, consistent with a ventilation deficiency rather than a contaminant source. Pathway note: occupant load -> inadequate outdoor-air supply -> CO2 accumulation at the breathing zone.',
+      'Sampling linkage: a timed CO2 decay test with the space at known occupancy would increase confidence; a measured outdoor-air delivery rate at or above the per-occupancy reference would decrease it.',
+      '',
+      'Recommended next steps: confirm supply-air balance and occupancy denominator.',
+      'Data gap: no outdoor CO2 baseline and no HVAC operating-status note were recorded.',
+      '',
+      'IH Review Required — screening output; not a compliance determination or causation finding.',
+    ].join('\n')
+    const r = makeRes()
+    await handler(makeReq(), r)
+    expect(r._status).toBe(200)
+    expect(r._body.language_review).toBe('passed')
+    expect(r._body.banned_language).toEqual([])
+  })
 })

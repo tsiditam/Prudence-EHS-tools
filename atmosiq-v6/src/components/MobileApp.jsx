@@ -31,6 +31,7 @@ import PricingSheet from './pricing/PricingSheet'
 import { I, iconForEmoji } from './Icons'
 import { isOtherChoice } from '../utils/choiceOther'
 import * as V3 from '../styles/tokens'
+import Markdown from './Markdown'
 import { GLASS, RADII, RHYTHM, stack as sgStack } from '../styles/soft-glass'
 import GlassCard from './ui/GlassCard'
 import ScrollHintTabs from './ui/ScrollHintTabs'
@@ -1959,7 +1960,7 @@ export default function MobileApp() {
             <div style={{marginTop: 16}}>
               <GlassCard>
                 <div style={{...V3.T.micro, color: V3.TEXT_TERTIARY, marginBottom: 8}}>NOTES</div>
-                <div style={{...V3.T.body, whiteSpace: 'pre-wrap'}}>{narrative}</div>
+                <Markdown style={{...V3.T.body}}>{narrative}</Markdown>
               </GlassCard>
             </div>
           )}
@@ -2769,7 +2770,7 @@ export default function MobileApp() {
                 <FeedbackButton label="Flag" onClick={()=>openFeedback('AI narrative')} />
               </div>
             </div>
-            <div style={{fontSize:13,color:SUB,lineHeight:1.8,whiteSpace:'pre-wrap'}}>{narrative}</div>
+            <Markdown style={{fontSize:13,color:SUB,lineHeight:1.8}}>{narrative}</Markdown>
             <div style={{marginTop:14,padding:'10px 12px',background:`${mix('warn', 3)}`,border:`1px solid ${mix('warn', 9)}`,borderRadius:10}}>
               <div style={{fontSize:11,color:WARN,fontWeight:600,marginBottom:3}}>Professional review required</div>
               <div style={{fontSize:11,color:DIM,lineHeight:1.5}}>This narrative was generated from deterministic scoring output. Review, edit, and approve before including in any client deliverable or report.</div>

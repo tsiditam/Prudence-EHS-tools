@@ -104,7 +104,11 @@ async function callAnthropic(apiKey, system, payload) {
     },
     body: JSON.stringify({
       model: ANTHROPIC_MODEL,
-      max_tokens: 1000,
+      // The reasoning-engine narrative (hypotheses + epistemic tags +
+      // sampling linkage + data-gap section) runs longer than the old
+      // 2-3 paragraph block; 2000 leaves headroom so it isn't truncated
+      // mid-output.
+      max_tokens: 2000,
       temperature: 0.7,
       system,
       messages: [{
