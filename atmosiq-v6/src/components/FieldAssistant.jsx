@@ -327,9 +327,9 @@ function ToolStatus({ tool }) {
           // Layered drop-shadows form the neon halo; the glow keyframe
           // animates this property so the aura breathes with the flicker.
           filter: `drop-shadow(0 0 2px ${NEON_CYAN}) drop-shadow(0 0 6px ${NEON_CYAN})`,
-          animation: 'faBrainFlicker 1.6s steps(1, end) infinite, faBrainGlow 1.6s ease-in-out infinite',
+          animation: 'faBrainFlicker 0.85s steps(1, end) infinite, faBrainGlow 0.85s ease-in-out infinite',
         }}>
-        <I n="brain" s={22} c="currentColor" w={1.8} />
+        <I n="brain" s={18} c="currentColor" w={1.8} />
       </span>
       <span style={{ fontSize: 13, color: SUB, lineHeight: 1.4, fontStyle: 'italic' }}>
         Thinking
