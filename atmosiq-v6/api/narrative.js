@@ -104,11 +104,10 @@ async function callAnthropic(apiKey, system, payload) {
     },
     body: JSON.stringify({
       model: ANTHROPIC_MODEL,
-      // The reasoning-engine narrative (hypotheses + epistemic tags +
-      // sampling linkage + data-gap section) runs longer than the old
-      // 2-3 paragraph block; 2000 leaves headroom so it isn't truncated
-      // mid-output.
-      max_tokens: 2000,
+      // The narrative is a short screening summary (~100-180 words); the
+      // deep reasoning lives in the Jasper chat, not the report. Keep a
+      // modest ceiling so the summary stays concise and can't balloon.
+      max_tokens: 800,
       temperature: 0.7,
       system,
       messages: [{
