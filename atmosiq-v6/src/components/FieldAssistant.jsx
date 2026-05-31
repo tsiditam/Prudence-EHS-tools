@@ -278,35 +278,31 @@ function describeTool(tool) {
  */
 function ToolStatus({ tool }) {
   const status = describeTool(tool)
-  // Tool-running state keeps the bubble + spinner (it carries a status
-  // line that reads better inside a contained surface). The plain
-  // "thinking" state is bubble-less: a neon-cyan brain that flickers
-  // while the system reasons, sitting directly on the sheet canvas.
+  // Both states are bubble-less — no background, no border — so the
+  // indicator flows on the sheet canvas instead of jumping into a card.
+  // Tool-running keeps a small spinner + status line ("Searching…");
+  // the plain "thinking" state is the neon-cyan brain that flickers
+  // while the system reasons.
   if (status) {
     return (
-      <div className="jasper-msg-in" style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 12 }}>
-        <div style={{
-          padding: '10px 14px',
-          borderRadius: 14, background: SURFACE,
-          border: `1px solid ${BORDER}`,
-          display: 'flex', alignItems: 'center', gap: 10,
-          maxWidth: '85%',
-        }}>
-          {/* Small inline spinner. CSS rotation only — no JS. */}
-          <span
-            aria-hidden="true"
-            style={{
-              width: 12, height: 12, borderRadius: '50%',
-              border: `1.5px solid ${BORDER}`,
-              borderTopColor: ACCENT,
-              animation: 'faSpin 0.9s linear infinite',
-              flexShrink: 0,
-            }}
-          />
-          <span style={{ fontSize: 13, color: SUB, lineHeight: 1.4, fontStyle: 'italic' }}>
-            {status}
-          </span>
-        </div>
+      <div
+        className="jasper-msg-in"
+        role="status"
+        style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 14, padding: '2px 2px' }}>
+        {/* Small inline spinner. CSS rotation only — no JS. */}
+        <span
+          aria-hidden="true"
+          style={{
+            width: 13, height: 13, borderRadius: '50%',
+            border: `1.5px solid ${BORDER}`,
+            borderTopColor: ACCENT,
+            animation: 'faSpin 0.9s linear infinite',
+            flexShrink: 0,
+          }}
+        />
+        <span style={{ fontSize: 13, color: SUB, lineHeight: 1.4, fontStyle: 'italic' }}>
+          {status}
+        </span>
       </div>
     )
   }
