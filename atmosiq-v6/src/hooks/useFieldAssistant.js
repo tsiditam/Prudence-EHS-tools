@@ -37,6 +37,56 @@ export const MAX_PHOTOS_PER_REQUEST = 5
 export const MAX_PHOTO_BYTES = 2_000_000 // ~2MB decoded
 const ALLOWED_PHOTO_MIME = ['image/jpeg', 'image/png', 'image/webp']
 
+// Perceived-effort delay. A genuinely complex question reads as more
+// considered when the answer doesn't snap back instantly, so we hold
+// the "thinking" indicator (the neon brain) for a beat scaled to how
+// involved the question looks. Pure client-side UX — the model, the
+// prompt, and the answer content are untouched.
+const THINK_DELAY_BASE_MS = 250    // floor for any question
+const THINK_DELAY_MAX_MS = 2600    // cap so it never feels broken
+
+// Score a question 0..1 on surface complexity, using cheap text
+// heuristics only (no model call):
+//   • length — longer questions tend to need fuller answers
+//   • multi-part — several "?", "and", commas, or list markers
+//   • analytical intent — compare / explain why / walk me through / etc.
+export function questionComplexity(text) {
+  const t = (text || '').toLowerCase().trim()
+  if (!t) return 0
+  let score = 0
+  // Length: ramps to ~0.4 by ~280 chars.
+  score += Math.min(t.length / 280, 1) * 0.4
+  // Multi-part signals.
+  const questionMarks = (t.match(/\?/g) || []).length
+  if (questionMarks >= 2) score += 0.15
+  const parts = (t.match(/\band\b|,|;|\n|•|(\b\d\.)/g) || []).length
+  score += Math.min(parts / 5, 1) * 0.2
+  // Analytical / open-ended intent.
+  const ANALYTICAL = /\b(compare|contrast|explain why|walk me through|step[- ]by[- ]step|pros and cons|trade-?offs?|in detail|implications?|why (?:does|do|is|are|would)|how (?:does|do|would|should)|what (?:if|are the)|relationship between|difference between|break ?down|elaborate|comprehensive|thorough)\b/
+  if (ANALYTICAL.test(t)) score += 0.3
+  return Math.min(score, 1)
+}
+
+// Map a complexity score to a hold duration. Simple questions barely
+// pause; complex ones hold up to the cap.
+export function thinkDelayMs(text) {
+  const c = questionComplexity(text)
+  return Math.round(THINK_DELAY_BASE_MS + c * (THINK_DELAY_MAX_MS - THINK_DELAY_BASE_MS))
+}
+
+// Abortable sleep — resolves early (rejects with an AbortError) if the
+// user cancels the in-flight turn during the hold.
+function abortableDelay(ms, signal) {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) { reject(new DOMException('Aborted', 'AbortError')); return }
+    const id = setTimeout(resolve, ms)
+    signal?.addEventListener('abort', () => {
+      clearTimeout(id)
+      reject(new DOMException('Aborted', 'AbortError'))
+    }, { once: true })
+  })
+}
+
 function makeMessage(role, content, extras = {}) {
   return {
     id: (typeof crypto !== 'undefined' && crypto.randomUUID)
@@ -387,6 +437,20 @@ export function useFieldAssistant() {
 
     const ctrl = new AbortController()
     inFlight.current = ctrl
+
+    // Perceived-effort hold: keep the neon-brain "thinking" indicator
+    // up for a beat scaled to how complex the question looks, so a
+    // detailed answer doesn't snap back instantly. The user message is
+    // already on screen and `sending` is true, so the brain shows
+    // during this window. Abortable — tapping Stop cancels it. The
+    // network request hasn't fired yet, so nothing is wasted on cancel.
+    try {
+      await abortableDelay(thinkDelayMs(trimmed), ctrl.signal)
+    } catch {
+      // Aborted during the hold — bail cleanly. `stop()` already
+      // cleared inFlight + sending.
+      return
+    }
 
     // Snapshot the attached-photo list so the user can attach more
     // while the response streams without re-sending the originals.

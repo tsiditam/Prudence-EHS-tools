@@ -12,8 +12,14 @@
  * jsdom env so fetch / TextDecoder / ReadableStream exist.
  */
 // @vitest-environment jsdom
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
+
+// Restore global spies (notably fetch) between tests. Without this the
+// per-test `mockResolvedValueOnce` queues leak across tests, so a later
+// test consumes an earlier test's queued response and the SSE frames
+// land on the wrong stream.
+afterEach(() => { vi.restoreAllMocks() })
 
 vi.mock('../../src/utils/supabaseClient', () => ({
   supabase: {
@@ -94,12 +100,15 @@ describe('useFieldAssistant — activeTool + stop', () => {
 
   it('tool_call (completion) frame clears activeTool', async () => {
     const { response, push, close } = makeControllableSseResponse()
-    vi.spyOn(global, 'fetch').mockResolvedValueOnce(response as unknown as Response)
+    const fetchMock = vi.spyOn(global, 'fetch').mockResolvedValueOnce(response as unknown as Response)
     const { result } = renderHook(() => useFieldAssistant())
 
     let sendPromise: Promise<unknown> | undefined
     await act(async () => { sendPromise = Promise.resolve(result.current.sendMessage('hi')) })
     await waitFor(() => expect(result.current.sending).toBe(true))
+    // The perceived-effort hold runs before fetch; wait for the request
+    // to actually fire before pushing SSE frames.
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled())
 
     await act(async () => {
       push('meta', { conversation_id: 'c2', message_id: 'm2' })
@@ -123,12 +132,13 @@ describe('useFieldAssistant — activeTool + stop', () => {
 
   it('stop() aborts the in-flight fetch and flips sending to false', async () => {
     const { response, push, close } = makeControllableSseResponse()
-    vi.spyOn(global, 'fetch').mockResolvedValueOnce(response as unknown as Response)
+    const fetchMock = vi.spyOn(global, 'fetch').mockResolvedValueOnce(response as unknown as Response)
     const { result } = renderHook(() => useFieldAssistant())
 
     let sendPromise: Promise<unknown> | undefined
     await act(async () => { sendPromise = Promise.resolve(result.current.sendMessage('hi')) })
     await waitFor(() => expect(result.current.sending).toBe(true))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled())
 
     await act(async () => {
       push('meta', { conversation_id: 'c3', message_id: 'm3' })
@@ -153,12 +163,13 @@ describe('useFieldAssistant — activeTool + stop', () => {
 
   it('done frame clears activeTool even if no completion fired', async () => {
     const { response, push, close } = makeControllableSseResponse()
-    vi.spyOn(global, 'fetch').mockResolvedValueOnce(response as unknown as Response)
+    const fetchMock = vi.spyOn(global, 'fetch').mockResolvedValueOnce(response as unknown as Response)
     const { result } = renderHook(() => useFieldAssistant())
 
     let sendPromise: Promise<unknown> | undefined
     await act(async () => { sendPromise = Promise.resolve(result.current.sendMessage('hi')) })
     await waitFor(() => expect(result.current.sending).toBe(true))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled())
 
     await act(async () => {
       push('meta', { conversation_id: 'c4', message_id: 'm4' })

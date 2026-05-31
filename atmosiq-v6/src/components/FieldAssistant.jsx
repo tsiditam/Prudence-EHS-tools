@@ -341,9 +341,11 @@ function ToolStatus({ tool }) {
         className="jasper-brain"
         style={{
           display: 'inline-flex',
-          // Glow halo on the whole mark; the trace layer carries the
-          // bright stroke, so the aura breathes as the neon fills in.
-          filter: `drop-shadow(0 0 3px ${NEON_CYAN}) drop-shadow(0 0 7px ${NEON_CYAN})`,
+          // Tight glow that hugs the strokes. A wider blur blooms into
+          // the gaps between grooves and reads as a tinted box around
+          // the icon; keeping it to ~1.5px traces the neon edge only,
+          // so just the brain shows.
+          filter: `drop-shadow(0 0 1.5px ${NEON_CYAN})`,
         }}>
         <svg
           width={18}
