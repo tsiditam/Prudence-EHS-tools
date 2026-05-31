@@ -18,7 +18,7 @@
 const { createClient } = require('@supabase/supabase-js')
 const { auditLog } = require('./_audit')
 const { hasUnlimitedUsage } = require('../lib/unlimited-usage')
-const { scan: scanBannedLanguage } = require('./_banned-language')
+const { scan: scanBannedLanguage, scanStyle } = require('./_banned-language')
 
 const PER_MINUTE_LIMIT = 10
 const PER_DAY_LIMIT = 100
@@ -105,6 +105,7 @@ async function callAnthropic(apiKey, system, payload) {
     body: JSON.stringify({
       model: ANTHROPIC_MODEL,
       max_tokens: 1000,
+      temperature: 0.7,
       system,
       messages: [{
         role: 'user',
@@ -198,6 +199,7 @@ async function handler(req, res) {
   // report, while the flags travel in the response + audit log so the
   // failure is observable.
   const bannedLanguage = text ? scanBannedLanguage(text) : []
+  const styleFlags = text ? scanStyle(text) : []
   const languageReview = bannedLanguage.length > 0 ? 'failed' : 'passed'
 
   const inputTokens = data.usage && typeof data.usage.input_tokens === 'number' ? data.usage.input_tokens : null
@@ -232,6 +234,7 @@ async function handler(req, res) {
       plan,
       language_review: languageReview,
       banned_language_count: bannedLanguage.length,
+      style_flag_count: styleFlags.length,
     },
     req,
   })
@@ -240,6 +243,7 @@ async function handler(req, res) {
     narrative: text,
     language_review: languageReview,
     banned_language: bannedLanguage,
+      style_flags: styleFlags,
     usage: { input_tokens: inputTokens, output_tokens: outputTokens, estimated_cost_usd: cost },
   })
 }
