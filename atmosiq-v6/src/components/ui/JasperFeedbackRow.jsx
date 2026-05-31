@@ -68,7 +68,10 @@ export default function JasperFeedbackRow({ dbId, rating, submitFeedback }) {
     WebkitTapHighlightColor: 'transparent',
   })
   return (
-    <div data-testid="jasper-feedback-row" style={{ marginTop: 6, width: '100%' }}>
+    // display:contents so the thumbs flow inline with the Copy/Share
+    // actions in the parent action row, while the reason input below
+    // can still claim its own full-width line (flexBasis:100%).
+    <div data-testid="jasper-feedback-row" style={{ display: 'contents' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
         <button
           type="button"
@@ -91,7 +94,7 @@ export default function JasperFeedbackRow({ dbId, rating, submitFeedback }) {
       </div>
       {reasonOpen && (
         <div data-testid="jasper-feedback-reason" style={{
-          marginTop: 6, display: 'flex', alignItems: 'center', gap: 6,
+          marginTop: 6, flexBasis: '100%', display: 'flex', alignItems: 'center', gap: 6,
           padding: '6px 8px', borderRadius: 8,
           background: SURFACE, border: `1px solid ${BORDER}`,
         }}>
