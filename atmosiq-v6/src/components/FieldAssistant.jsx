@@ -310,8 +310,26 @@ function ToolStatus({ tool }) {
   // --accent) so the glow reads as an intentional "thinking" signal in
   // both light and dark themes. The flicker + glow pulse live in
   // faBrainFlicker / faBrainGlow keyframes at the bottom of this file;
-  // prefers-reduced-motion there falls back to a steady icon.
+  // Neon runs THROUGH the brain's grooves: a dim base outline sits
+  // underneath, and a bright cyan layer traces each stroke on in
+  // sequence (stroke-dashoffset), holds fully lit, then loops. The
+  // brain therefore wakes from dim → fully energized continuously
+  // while the system thinks. pathLength="100" normalizes every path
+  // so they trace at a uniform rate regardless of true length.
   const NEON_CYAN = '#22E0F2'
+  const BRAIN_PATHS = [
+    'M12 18V5',
+    'M15 13a4.17 4.17 0 0 1-3-4 4.17 4.17 0 0 1-3 4',
+    'M17.598 6.5A3 3 0 1 0 12 5a3 3 0 1 0-5.598 1.5',
+    'M17.997 5.125a4 4 0 0 1 2.526 5.77',
+    'M18 18a4 4 0 0 0 2-7.464',
+    'M19.967 17.483A4 4 0 1 1 12 18a4 4 0 1 1-7.967-.517',
+    'M6 18a4 4 0 0 1-2-7.464',
+    'M6.003 5.125a4 4 0 0 0-2.526 5.77',
+  ]
+  // One full run-through, staggered across the paths.
+  const TRACE_DURATION = 2.6
+  const TRACE_STAGGER = 0.12
   return (
     <div
       className="jasper-msg-in"
@@ -323,13 +341,42 @@ function ToolStatus({ tool }) {
         className="jasper-brain"
         style={{
           display: 'inline-flex',
-          color: NEON_CYAN,
-          // Layered drop-shadows form the neon halo; the glow keyframe
-          // animates this property so the aura breathes with the flicker.
-          filter: `drop-shadow(0 0 2px ${NEON_CYAN}) drop-shadow(0 0 6px ${NEON_CYAN})`,
-          animation: 'faBrainFlicker 2.3s steps(1, end) infinite, faBrainGlow 2.3s ease-in-out infinite',
+          // Glow halo on the whole mark; the trace layer carries the
+          // bright stroke, so the aura breathes as the neon fills in.
+          filter: `drop-shadow(0 0 3px ${NEON_CYAN}) drop-shadow(0 0 7px ${NEON_CYAN})`,
         }}>
-        <I n="brain" s={18} c="currentColor" w={1.8} />
+        <svg
+          width={18}
+          height={18}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke={NEON_CYAN}
+          strokeWidth={1.8}
+          strokeLinecap="round"
+          strokeLinejoin="round">
+          {/* Dim base layer — the unlit neon tube. Always faintly
+              visible so the brain reads as "off / idle" before the
+              run-through energizes it. */}
+          <g stroke={NEON_CYAN} opacity={0.22}>
+            {BRAIN_PATHS.map((d, i) => <path key={`base-${i}`} d={d} />)}
+          </g>
+          {/* Bright trace layer — neon races through each groove. */}
+          <g className="jasper-brain-trace">
+            {BRAIN_PATHS.map((d, i) => (
+              <path
+                key={`trace-${i}`}
+                d={d}
+                pathLength="100"
+                style={{
+                  strokeDasharray: 100,
+                  strokeDashoffset: 100,
+                  animation: `jasperBrainTrace ${TRACE_DURATION}s ease-in-out infinite`,
+                  animationDelay: `${i * TRACE_STAGGER}s`,
+                }}
+              />
+            ))}
+          </g>
+        </svg>
       </span>
       <span style={{ fontSize: 13, color: SUB, lineHeight: 1.4, fontStyle: 'italic' }}>
         Thinking
@@ -1857,30 +1904,23 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
           from { opacity: 0; transform: scale(0.8); }
           to   { opacity: 1; transform: scale(1); }
         }
-        /* Neon-brain "thinking" indicator. faBrainFlicker drives the
-           irregular on/off flicker of a real neon tube (uneven steps,
-           a couple of stutters), while faBrainGlow breathes the halo
-           intensity so the aura never sits perfectly static. */
-        @keyframes faBrainFlicker {
-          0%, 100% { opacity: 1; }
-          8%       { opacity: 0.45; }
-          10%      { opacity: 1; }
-          24%      { opacity: 1; }
-          26%      { opacity: 0.35; }
-          28%      { opacity: 1; }
-          52%      { opacity: 0.7; }
-          54%      { opacity: 1; }
-          72%      { opacity: 0.4; }
-          75%      { opacity: 1; }
+        /* Neon-brain "thinking" indicator. The bright trace layer draws
+           through each groove (stroke-dashoffset 100 → 0), holds fully
+           lit, then fades the stroke back so the loop restarts from the
+           dim base. Per-path animation-delay staggers the fill so the
+           neon appears to RUN through the brain rather than every groove
+           lighting at once. */
+        @keyframes jasperBrainTrace {
+          0%   { stroke-dashoffset: 100; opacity: 0.35; }
+          45%  { stroke-dashoffset: 0;   opacity: 1; }
+          80%  { stroke-dashoffset: 0;   opacity: 1; }
+          100% { stroke-dashoffset: 0;   opacity: 0.15; }
         }
-        @keyframes faBrainGlow {
-          0%, 100% { filter: drop-shadow(0 0 2px #22E0F2) drop-shadow(0 0 6px #22E0F2); }
-          50%      { filter: drop-shadow(0 0 4px #22E0F2) drop-shadow(0 0 12px #22E0F2); }
-        }
-        /* Respect motion sensitivity: hold the brain lit + steady. */
+        /* Respect motion sensitivity: hold the brain fully lit + steady. */
         @media (prefers-reduced-motion: reduce) {
-          .jasper-brain {
+          .jasper-brain-trace path {
             animation: none !important;
+            stroke-dashoffset: 0 !important;
             opacity: 1 !important;
           }
         }
