@@ -384,6 +384,7 @@ export default function SettingsScreen({ profile, onEditProfile, onLogout, onClo
       {/* ── Help ── */}
       <Group title="Help">
         <Row first label="Help & FAQ" sub="Methodology, scoring, workflow, limitations" action={() => onNavigate?.('help')} />
+        <Row label="Take the product tour" sub="A 60-second walkthrough of AtmosFlow's features" action={() => onNavigate?.('tour')} />
       </Group>
 
       {/* ── Sites — saved site library + re-assessment reminders ── */}
