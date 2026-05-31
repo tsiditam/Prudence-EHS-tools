@@ -189,26 +189,59 @@ async function handler(req: import('http').IncomingMessage & {
     }
 
     // Pull messages + any feedback in one round-trip. The
-    // PostgREST `*` join syntax leans on the FK we declared in
+    // PostgREST `*` join syntax leans on the FK declared in
     // migration 015 (field_assistant_feedback.message_id →
     // field_assistant_messages.id). One row per message; the
     // feedback array is empty or single-element due to the
     // UNIQUE(message_id).
-    const { data: messages, error: msgErr } = await supabase
+    //
+    // Resilience: loading a conversation must NOT depend on the
+    // feedback relationship being present. If migration 015 hasn't
+    // landed on this environment (or PostgREST's schema cache is
+    // stale), the embedded join errors. Rather than 500 — which
+    // silently blocks the user from opening ANY past conversation —
+    // we fall back to the core columns and serve the transcript with
+    // ratings degraded to null. The thumbs row simply won't pre-fill;
+    // the conversation still opens.
+    let messages: Array<Partial<MessageRow> & {
+      field_assistant_feedback?: { rating?: string; reason?: string | null }[]
+    }> | null = null
+
+    const joined = await supabase
       .from('field_assistant_messages')
       .select('id, role, content, context_view, created_at, field_assistant_feedback ( rating, reason )')
       .eq('conversation_id', id)
       .eq('user_id', user.id)
       .order('created_at', { ascending: true })
-    if (msgErr) {
-      console.error('[fa-history] get messages failed:', msgErr.message)
-      res.status(500).json({ error: 'query_failed' })
-      return
+
+    if (joined.error) {
+      // The join failed — almost always a missing/uncached feedback
+      // relationship. Retry WITHOUT it so the transcript still loads.
+      console.warn(
+        '[fa-history] feedback join failed, retrying without it:',
+        joined.error.message,
+      )
+      const bare = await supabase
+        .from('field_assistant_messages')
+        .select('id, role, content, context_view, created_at')
+        .eq('conversation_id', id)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true })
+      if (bare.error) {
+        // Even the core fetch failed — that's a genuine error.
+        console.error('[fa-history] get messages failed:', bare.error.message)
+        res.status(500).json({ error: 'query_failed' })
+        return
+      }
+      messages = bare.data
+    } else {
+      messages = joined.data
     }
 
     // Flatten the embedded feedback array into top-level
     // feedback_rating / feedback_reason fields so the client
-    // doesn't need to unpack the join shape.
+    // doesn't need to unpack the join shape. When the fallback path
+    // ran, field_assistant_feedback is absent and both fields are null.
     const flat = (messages || []).map((m) => {
       const raw = m as { field_assistant_feedback?: { rating?: string; reason?: string | null }[] } & MessageRow
       const fb = Array.isArray(raw.field_assistant_feedback) && raw.field_assistant_feedback[0]

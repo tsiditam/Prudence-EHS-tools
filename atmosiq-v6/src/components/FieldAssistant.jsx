@@ -36,6 +36,7 @@ import { STD } from '../constants/standards'
 import JasperContextChip from './ui/JasperContextChip'
 import JasperSuggestionCard from './ui/JasperSuggestionCard'
 import JasperFeedbackRow from './ui/JasperFeedbackRow'
+import JasperMessageActions from './ui/JasperMessageActions'
 import {
   JASPER_SPRING,
   JASPER_DURATION,
@@ -207,12 +208,24 @@ function MessageBubble({
           </div>
         )}
       </div>
-      {!isUser && !streaming && dbId && submitFeedback && (
-        <JasperFeedbackRow
-          dbId={dbId}
-          rating={feedbackRating || null}
-          submitFeedback={submitFeedback}
-        />
+      {/* Action cluster under a settled assistant turn. Copy / Share
+          only need the response text, so they appear whenever content
+          exists; the feedback thumbs additionally require the persisted
+          row id (dbId) + submitFeedback wiring. */}
+      {!isUser && !streaming && typeof content === 'string' && content.trim() && (
+        <div style={{
+          marginTop: 6, width: '100%',
+          display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 4,
+        }}>
+          <JasperMessageActions text={content} />
+          {dbId && submitFeedback && (
+            <JasperFeedbackRow
+              dbId={dbId}
+              rating={feedbackRating || null}
+              submitFeedback={submitFeedback}
+            />
+          )}
+        </div>
       )}
     </div>
   )
@@ -265,50 +278,62 @@ function describeTool(tool) {
  */
 function ToolStatus({ tool }) {
   const status = describeTool(tool)
-  return (
-    <div className="jasper-msg-in" style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 12 }}>
-      <div style={{
-        padding: status ? '10px 14px' : '12px 16px',
-        borderRadius: 14, background: SURFACE,
-        border: `1px solid ${BORDER}`,
-        display: 'flex', alignItems: 'center', gap: status ? 10 : 4,
-        maxWidth: '85%',
-      }}>
-        {status ? (
-          <>
-            {/* Small inline spinner. CSS rotation only — no JS. */}
-            <span
-              aria-hidden="true"
-              style={{
-                width: 12, height: 12, borderRadius: '50%',
-                border: `1.5px solid ${BORDER}`,
-                borderTopColor: ACCENT,
-                animation: 'faSpin 0.9s linear infinite',
-                flexShrink: 0,
-              }}
-            />
-            <span style={{ fontSize: 13, color: SUB, lineHeight: 1.4, fontStyle: 'italic' }}>
-              {status}
-            </span>
-          </>
-        ) : (
-          <>
-            {/* Contextual thinking verb — softens the indicator and
-                makes the wait feel intentional, matching the
-                "Searching… / Looking up…" verbs that appear once a
-                tool kicks in. */}
-            <span style={{ fontSize: 13, color: SUB, lineHeight: 1.4, fontStyle: 'italic', marginRight: 4 }}>
-              Thinking
-            </span>
-            {[0, 1, 2].map(i => (
-              <span key={i} style={{
-                width: 6, height: 6, borderRadius: 3, background: DIM,
-                animation: `faDot 1.2s ${i * 0.15}s ease-in-out infinite`,
-              }} />
-            ))}
-          </>
-        )}
+  // Both states are bubble-less — no background, no border — so the
+  // indicator flows on the sheet canvas instead of jumping into a card.
+  // Tool-running keeps a small spinner + status line ("Searching…");
+  // the plain "thinking" state is the neon-cyan brain that flickers
+  // while the system reasons.
+  if (status) {
+    return (
+      <div
+        className="jasper-msg-in"
+        role="status"
+        style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 14, padding: '2px 2px' }}>
+        {/* Small inline spinner. CSS rotation only — no JS. */}
+        <span
+          aria-hidden="true"
+          style={{
+            width: 13, height: 13, borderRadius: '50%',
+            border: `1.5px solid ${BORDER}`,
+            borderTopColor: ACCENT,
+            animation: 'faSpin 0.9s linear infinite',
+            flexShrink: 0,
+          }}
+        />
+        <span style={{ fontSize: 13, color: SUB, lineHeight: 1.4, fontStyle: 'italic' }}>
+          {status}
+        </span>
       </div>
+    )
+  }
+  // Bubble-less neon brain. NEON_CYAN is hard-coded (not the themeable
+  // --accent) so the glow reads as an intentional "thinking" signal in
+  // both light and dark themes. The flicker + glow pulse live in
+  // faBrainFlicker / faBrainGlow keyframes at the bottom of this file;
+  // prefers-reduced-motion there falls back to a steady icon.
+  const NEON_CYAN = '#22E0F2'
+  return (
+    <div
+      className="jasper-msg-in"
+      role="status"
+      aria-label="Thinking"
+      style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 14, padding: '2px 2px' }}>
+      <span
+        aria-hidden="true"
+        className="jasper-brain"
+        style={{
+          display: 'inline-flex',
+          color: NEON_CYAN,
+          // Layered drop-shadows form the neon halo; the glow keyframe
+          // animates this property so the aura breathes with the flicker.
+          filter: `drop-shadow(0 0 2px ${NEON_CYAN}) drop-shadow(0 0 6px ${NEON_CYAN})`,
+          animation: 'faBrainFlicker 2.3s steps(1, end) infinite, faBrainGlow 2.3s ease-in-out infinite',
+        }}>
+        <I n="brain" s={18} c="currentColor" w={1.8} />
+      </span>
+      <span style={{ fontSize: 13, color: SUB, lineHeight: 1.4, fontStyle: 'italic' }}>
+        Thinking
+      </span>
     </div>
   )
 }
@@ -878,6 +903,12 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
           maxWidth: 640,
           marginLeft: 'auto',
           marginRight: 'auto',
+          // Fabrica is the chat's typeface. Set once on the sheet; every
+          // descendant uses fontFamily:'inherit', so the whole AI surface
+          // (messages, composer, intro, action rows) picks it up. Falls
+          // back to the Inter stack via --font-jasper until the licensed
+          // Fabrica files are dropped into public/fonts/.
+          fontFamily: 'var(--font-jasper)',
           // Atmospheric surface — token-driven (jasper-tokens.js).
           // The same gradient is available to any future AI surface.
           background: jasperAtmosphere(),
@@ -1825,6 +1856,33 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
         @keyframes faStopIn {
           from { opacity: 0; transform: scale(0.8); }
           to   { opacity: 1; transform: scale(1); }
+        }
+        /* Neon-brain "thinking" indicator. faBrainFlicker drives the
+           irregular on/off flicker of a real neon tube (uneven steps,
+           a couple of stutters), while faBrainGlow breathes the halo
+           intensity so the aura never sits perfectly static. */
+        @keyframes faBrainFlicker {
+          0%, 100% { opacity: 1; }
+          8%       { opacity: 0.45; }
+          10%      { opacity: 1; }
+          24%      { opacity: 1; }
+          26%      { opacity: 0.35; }
+          28%      { opacity: 1; }
+          52%      { opacity: 0.7; }
+          54%      { opacity: 1; }
+          72%      { opacity: 0.4; }
+          75%      { opacity: 1; }
+        }
+        @keyframes faBrainGlow {
+          0%, 100% { filter: drop-shadow(0 0 2px #22E0F2) drop-shadow(0 0 6px #22E0F2); }
+          50%      { filter: drop-shadow(0 0 4px #22E0F2) drop-shadow(0 0 12px #22E0F2); }
+        }
+        /* Respect motion sensitivity: hold the brain lit + steady. */
+        @media (prefers-reduced-motion: reduce) {
+          .jasper-brain {
+            animation: none !important;
+            opacity: 1 !important;
+          }
         }
         ${JASPER_KEYFRAMES_CSS}
       `}</style>

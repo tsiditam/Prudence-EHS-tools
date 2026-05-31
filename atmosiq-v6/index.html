@@ -45,6 +45,20 @@
          numeric inputs is preserved via component-level transforms
          where needed. */
       input,select,textarea{font-size:16px;}
+      /* Fabrica — used for the AtmosFlow AI (Jasper) chat surface only.
+         Commercial font: drop the licensed web files into
+         public/fonts/ (fabrica.woff2 + fabrica.woff) and they load
+         automatically. Until the files exist the browser silently
+         falls back to the Inter stack in --font-jasper, so the chat
+         never renders blank. font-display:swap avoids a blocking FOIT. */
+      @font-face{
+        font-family:'Fabrica';
+        src:url('/fonts/fabrica.woff2') format('woff2'),
+            url('/fonts/fabrica.woff') format('woff');
+        font-weight:100 900;
+        font-style:normal;
+        font-display:swap;
+      }
       /* Notion-style system stack with Inter as the cross-platform anchor.
          Inter is loaded below; the system fallbacks (SF Pro on iOS/Mac,
          Segoe UI on Windows, Roboto on Android) keep the app feeling
@@ -64,6 +78,10 @@
            Future cleanup can migrate the call sites to var(--font-sans)
            and delete this alias. */
         --font-mono:var(--font-sans);
+        /* Fabrica drives the AtmosFlow AI (Jasper) chat surface; Inter
+           stack is the fallback until the licensed font files land in
+           public/fonts/ (see the @font-face above). */
+        --font-jasper:'Fabrica',var(--font-sans);
 
         /* Theme palette — dark is the default. Values match the in-app
            MobileApp.jsx constants so unmigrated components render

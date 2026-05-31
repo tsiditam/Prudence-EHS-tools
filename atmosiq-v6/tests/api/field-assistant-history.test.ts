@@ -22,12 +22,18 @@ let conversations: Conv[] = []
 let messages: Msg[] = []
 let nextUser: { id: string; email: string } | null = null
 let nextAuthError: { message: string } | null = null
+// When true, any messages SELECT that embeds the feedback relationship
+// resolves to an error — simulating a missing/uncached field_assistant_
+// feedback FK (e.g. migration 015 not applied). The bare-column retry
+// still succeeds. Exercises the resilient fallback in action=get.
+let failFeedbackJoin = false
 
 function resetState() {
   conversations = []
   messages = []
   nextUser = { id: 'user-1', email: 'a@b.com' }
   nextAuthError = null
+  failFeedbackJoin = false
 }
 
 function makeChain(table: string): any {
@@ -38,8 +44,9 @@ function makeChain(table: string): any {
     orderAsc: false,
     limitN: null as null | number,
   }
+  let selectStr = ''
   const chain: any = {
-    select: () => chain,
+    select: (s = '') => { selectStr = String(s); return chain },
     eq: (col: string, val: unknown) => { ctx.filters[col] = val; return chain },
     in: (col: string, values: string[]) => { ctx.inFilter = { col, values }; return chain },
     order: (col: string, opts: { ascending: boolean }) => {
@@ -57,7 +64,19 @@ function makeChain(table: string): any {
       return { data: null, error: null }
     },
     // Awaiting the chain (without .single()) resolves to the array form.
-    then: (onFulfilled: (v: { data: unknown[]; error: null }) => unknown) => {
+    then: (onFulfilled: (v: { data: unknown[] | null; error: { message: string } | null }) => unknown) => {
+      // Simulate a failed embedded feedback join (missing/uncached FK).
+      // PostgREST surfaces this as a query error on the SELECT that
+      // requested the relationship; the handler must retry without it.
+      if (
+        table === 'field_assistant_messages' &&
+        failFeedbackJoin &&
+        selectStr.includes('field_assistant_feedback')
+      ) {
+        return Promise.resolve(
+          onFulfilled({ data: null, error: { message: 'could not find a relationship' } }),
+        )
+      }
       let rows: unknown[]
       if (table === 'field_assistant_conversations') {
         rows = conversations.filter((c) =>
@@ -211,6 +230,32 @@ describe('/api/field-assistant-history', () => {
     const body = res._body as { conversation: { id: string }; messages: Array<{ id: string; content: string }> }
     expect(body.conversation.id).toBe('c1')
     expect(body.messages.map((m) => m.content)).toEqual(['A', 'B'])
+  })
+
+  it('action=get falls back to a bare fetch when the feedback join fails', async () => {
+    // Resilience contract: a missing/uncached field_assistant_feedback
+    // relationship must NOT 500 the conversation load (that bug silently
+    // blocked opening ANY past conversation). The transcript still
+    // returns; ratings degrade to null.
+    failFeedbackJoin = true
+    conversations = [
+      { id: 'c1', user_id: 'user-1', title: 'mine', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' },
+    ]
+    messages = [
+      { id: 'm1', conversation_id: 'c1', user_id: 'user-1', role: 'user',      content: 'A', context_view: null, created_at: '2026-01-01T00:00:01Z' },
+      { id: 'm2', conversation_id: 'c1', user_id: 'user-1', role: 'assistant', content: 'B', context_view: null, created_at: '2026-01-01T00:00:02Z' },
+    ]
+    const res = makeRes()
+    await handler(
+      { method: 'GET', headers: { authorization: 'Bearer ok' }, query: { action: 'get', id: 'c1' } } as any,
+      res,
+    )
+    expect(res._status).toBe(200)
+    const body = res._body as { conversation: { id: string }; messages: Array<{ content: string; feedback_rating: string | null }> }
+    expect(body.conversation.id).toBe('c1')
+    expect(body.messages.map((m) => m.content)).toEqual(['A', 'B'])
+    // Ratings degrade to null on the fallback path.
+    expect(body.messages.every((m) => m.feedback_rating === null)).toBe(true)
   })
 
   it('action=get for a foreign conversation returns 404', async () => {
