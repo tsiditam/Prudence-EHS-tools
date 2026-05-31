@@ -36,6 +36,7 @@ import { STD } from '../constants/standards'
 import JasperContextChip from './ui/JasperContextChip'
 import JasperSuggestionCard from './ui/JasperSuggestionCard'
 import JasperFeedbackRow from './ui/JasperFeedbackRow'
+import JasperMessageActions from './ui/JasperMessageActions'
 import {
   JASPER_SPRING,
   JASPER_DURATION,
@@ -207,12 +208,24 @@ function MessageBubble({
           </div>
         )}
       </div>
-      {!isUser && !streaming && dbId && submitFeedback && (
-        <JasperFeedbackRow
-          dbId={dbId}
-          rating={feedbackRating || null}
-          submitFeedback={submitFeedback}
-        />
+      {/* Action cluster under a settled assistant turn. Copy / Share
+          only need the response text, so they appear whenever content
+          exists; the feedback thumbs additionally require the persisted
+          row id (dbId) + submitFeedback wiring. */}
+      {!isUser && !streaming && typeof content === 'string' && content.trim() && (
+        <div style={{
+          marginTop: 6, width: '100%',
+          display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 4,
+        }}>
+          <JasperMessageActions text={content} />
+          {dbId && submitFeedback && (
+            <JasperFeedbackRow
+              dbId={dbId}
+              rating={feedbackRating || null}
+              submitFeedback={submitFeedback}
+            />
+          )}
+        </div>
       )}
     </div>
   )
