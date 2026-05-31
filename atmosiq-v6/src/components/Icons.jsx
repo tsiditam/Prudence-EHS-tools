@@ -18,7 +18,7 @@ import {
   Target, Calendar, MapPin, Gauge, Users, Mic, Eye, DoorClosed, Filter, Cloud,
   Wrench, Barcode, AlertCircle, ScrollText, LayoutTemplate, SquarePen, Info,
   Settings, HelpCircle, MoreHorizontal, Sun, Moon, LogOut, Sparkles, Paperclip,
-  Image, X, ArrowUp, ThumbsUp, ThumbsDown, Copy, Share2, Brain,
+  Image, X, ArrowUp, ThumbsUp, ThumbsDown, Copy, Share, Brain,
 } from 'lucide-react'
 
 // Premium icon set — Lucide (the set Obsidian ships), wrapped behind the
@@ -39,7 +39,7 @@ const LUCIDE = {
   draft: SquarePen, guidance: Info, gear: Settings, help: HelpCircle,
   dots: MoreHorizontal, sun: Sun, moon: Moon, logout: LogOut, sparkle: Sparkles,
   paperclip: Paperclip, image: Image, x: X, arrowUp: ArrowUp,
-  thumbsUp: ThumbsUp, thumbsDown: ThumbsDown, copy: Copy, share: Share2,
+  thumbsUp: ThumbsUp, thumbsDown: ThumbsDown, copy: Copy, share: Share,
   brain: Brain,
 }
 
