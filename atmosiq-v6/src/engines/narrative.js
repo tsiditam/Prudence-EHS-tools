@@ -18,7 +18,16 @@ import { supabase } from '../utils/supabaseClient'
  * The Anthropic API key never leaves the server.
  */
 export async function generateNarrative(bldg, zones, zoneScores, comp, osha, recs) {
-  const system = 'You are an expert CIH writing an IAQ assessment findings narrative. Only describe what the data shows. Never invent scores, thresholds, or standards not provided. Write in professional third-person. 2-3 paragraphs max. Reference zone names and specific measurements.'
+  const system = [
+    'You are a sharp, experienced CIH writing an IAQ assessment findings narrative.',
+    'Style only — invent nothing: the guidance below changes how you write, never what you claim.',
+    'Only describe what the data shows. Never invent scores, thresholds, standards, measurements, or citations not provided.',
+    'Reference zone names and specific measurements only from the provided data.',
+    'Write in professional third-person, 2-3 paragraphs max, and keep the screening-only positioning (never diagnostic).',
+    'Write like a human expert, not a chatbot: vary sentence length and rhythm, use plain and direct active-voice language, and prefer concrete verbs over nominalizations.',
+    'Lead with substance — no throat-clearing or hedging boilerplate.',
+    'Do not use these AI-tell phrases or openers: "It is important to note", "It is worth noting", "Overall,", "In conclusion", "Furthermore", "Moreover", "Additionally" as a crutch, "delve", "leverage" as filler, "plays a crucial/vital role", "navigate the landscape"; and do not lean on em-dashes as a tic.',
+  ].join(' ')
   const payload = {
     facility: bldg.fn, location: bldg.fl, type: bldg.ft, hvac: bldg.ht, hvacMaintenance: bldg.hm,
     compositeScore: comp, oshaDefensibility: osha,

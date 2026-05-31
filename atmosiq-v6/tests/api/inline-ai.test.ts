@@ -230,4 +230,56 @@ describe('/api/inline-ai — validation gate', () => {
       expect(res.statusCode).not.toBe(405)
     }
   })
+
+  it('sends a moderate temperature + humanized system prompt to the model', async () => {
+    const handler = await loadHandler()
+    handler.__test.setSupabase(makeSupabaseMock())
+    const captured: Array<{ url: string; body: string }> = []
+    handler.__test.setFetch(vi.fn(async (url: string, init: { body: string }) => {
+      captured.push({ url, body: init.body })
+      // Fail upstream after capture so the handler short-circuits.
+      return { ok: false, status: 500, text: async () => 'upstream_stub' }
+    }) as unknown as typeof fetch)
+    const res = makeRes()
+    await handler(
+      { method: 'POST', headers: { authorization: 'Bearer ok' }, body: { action: 'improve', text: 'co2 high in room 3' } },
+      res,
+    )
+    expect(captured.length).toBe(1)
+    const sent = JSON.parse(captured[0].body) as { temperature: number; system: string }
+    // Moderate temperature — human variety without drifting facts.
+    expect(sent.temperature).toBe(0.6)
+    // Anti-robotic guidance is baked into the system prompt.
+    expect(sent.system).toContain('not like a chatbot')
+    expect(sent.system).toContain('It is important to note')
+    // Drop-straight-into-textarea contract is preserved.
+    expect(sent.system).toContain('Return ONLY the rewritten text')
+  })
+
+  it('keeps the invent-nothing guardrail in every action prompt', async () => {
+    const handler = await loadHandler()
+    handler.__test.setSupabase(makeSupabaseMock())
+    const captured: Array<{ body: string }> = []
+    handler.__test.setFetch(vi.fn(async (_url: string, init: { body: string }) => {
+      captured.push({ body: init.body })
+      return { ok: false, status: 500, text: async () => 'upstream_stub' }
+    }) as unknown as typeof fetch)
+    const guardrails: Record<string, string> = {
+      improve: 'Do not invent',
+      expand: 'do not invent',
+      concise: 'Preserve every fact',
+      professional: 'Do not invent',
+    }
+    for (const action of Object.keys(guardrails)) {
+      captured.length = 0
+      const res = makeRes()
+      await handler(
+        { method: 'POST', headers: { authorization: 'Bearer ok' }, body: { action, text: 'A real note' } },
+        res,
+      )
+      const sent = JSON.parse(captured[0].body) as { system: string }
+      expect(sent.system).toContain(guardrails[action])
+      expect(sent.system).toContain('Return ONLY the rewritten text')
+    }
+  })
 })

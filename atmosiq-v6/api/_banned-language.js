@@ -141,4 +141,40 @@ function scan(text) {
   return hits
 }
 
-module.exports = { TONE_BANNED_TERMS, CONTEXT_AWARE_BANS, scan }
+// Style-only AI-tell phrases. SEPARATE from the tone/context banned
+// patterns above: these are NOT a defensibility suppressor. They flag
+// robotic/chatbot tells so a humanized narrative can be surfaced for
+// review without being thrown away. Keep terms conservative (lowercase
+// substrings) to avoid false positives.
+const AI_TELL_PATTERNS = [
+  { term: 'it is important to note', why: 'throat-clearing AI tell', category: 'ai_tell' },
+  { term: 'it is worth noting', why: 'throat-clearing AI tell', category: 'ai_tell' },
+  { term: 'overall,', why: 'formulaic AI opener', category: 'ai_tell' },
+  { term: 'in conclusion', why: 'formulaic AI opener', category: 'ai_tell' },
+  { term: 'furthermore', why: 'AI connective crutch', category: 'ai_tell' },
+  { term: 'moreover', why: 'AI connective crutch', category: 'ai_tell' },
+  { term: 'additionally,', why: 'AI connective crutch', category: 'ai_tell' },
+  { term: 'delve', why: 'AI filler verb', category: 'ai_tell' },
+  { term: 'navigate the landscape', why: 'AI cliche', category: 'ai_tell' },
+  { term: 'plays a crucial role', why: 'AI cliche', category: 'ai_tell' },
+  { term: 'plays a vital role', why: 'AI cliche', category: 'ai_tell' },
+]
+
+/**
+ * Style scanner — mirrors scan() but iterates AI_TELL_PATTERNS. It is
+ * NON-SUPPRESSING: callers surface its hits for review; they must NOT
+ * gate suppression on it. Returns an array of { term, why, category }.
+ */
+function scanStyle(text) {
+  if (!text || typeof text !== 'string') return []
+  const lower = text.toLowerCase()
+  const hits = []
+  for (const pattern of AI_TELL_PATTERNS) {
+    if (lower.includes(pattern.term)) {
+      hits.push({ term: pattern.term, why: pattern.why, category: pattern.category })
+    }
+  }
+  return hits
+}
+
+module.exports = { TONE_BANNED_TERMS, CONTEXT_AWARE_BANS, scan, scanStyle, AI_TELL_PATTERNS }

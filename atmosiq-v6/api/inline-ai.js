@@ -57,11 +57,34 @@ const VALID_ACTIONS = new Set(['improve', 'expand', 'concise', 'professional'])
 // fast, deterministic rewrites without over-thinking. Every prompt
 // ends with "Return ONLY the rewritten text" so the UI can drop the
 // streamed output directly into the textarea without parsing.
+//
+// Voice: write like a sharp human industrial hygienist, not a chatbot.
+// The HUMAN_VOICE block is appended to every action so the
+// anti-robotic rules stay consistent. Humanizing is STYLE ONLY — it
+// never loosens the "preserve every fact / invent nothing" guardrail.
+const HUMAN_VOICE = `Write like a sharp, experienced industrial hygienist talking shop — not like a chatbot. Vary sentence length and rhythm; avoid a templated cadence. Plain, direct language; active voice; concrete verbs, not nominalizations. Lead with the substance — no throat-clearing or hedging boilerplate. Never use AI-tell phrases: "It is important to note", "It is worth noting", "Overall,", "In conclusion", "Furthermore", "Moreover", "Additionally" as a crutch, "delve", "leverage" as filler, "plays a crucial/vital role", "navigate the landscape". Don't overuse em-dashes as a tic.`
+
 const SYSTEM_PROMPTS = {
-  improve: `You improve industrial-hygiene field observations. Keep every fact from the original — measurements, locations, occupant counts, observations. Make the language clearer and more professional. Do not invent new measurements, occupant counts, or technical findings. Return ONLY the rewritten text — no preamble, no quotation marks, no markdown formatting.`,
-  expand: `You expand brief industrial-hygiene field observations into more detailed professional notes. Add reasonable supporting context (e.g. why something matters, what an IH would typically check next), but do not invent specific measurements, occupant counts, or facts not stated in the original. Return ONLY the rewritten text — no preamble, no quotation marks, no markdown formatting.`,
-  concise: `You make industrial-hygiene field observations more concise. Preserve every fact (measurements, locations, occupant counts, observations) — drop only filler words and redundant phrasing. Return ONLY the rewritten text — no preamble, no quotation marks, no markdown formatting.`,
-  professional: `You rewrite industrial-hygiene field observations in professional consultant-grade language suitable for an IAQ report. Use neutral technical tone. Preserve every fact from the original. Do not invent measurements, occupant counts, or technical findings not present. Return ONLY the rewritten text — no preamble, no quotation marks, no markdown formatting.`,
+  improve: `You improve industrial-hygiene field observations. Keep every fact from the original — measurements, locations, occupant counts, observations. Make the language clearer and tighter. Do not invent new measurements, occupant counts, or technical findings. ${HUMAN_VOICE}
+
+Example —
+Robotic: "It is important to note that the CO2 levels in Room 3 were observed to be elevated, which may potentially indicate that ventilation could be insufficient in this particular area."
+Human: "CO2 ran high in Room 3, which points to under-ventilation there."
+
+Return ONLY the rewritten text — no preamble, no quotation marks, no markdown formatting.`,
+  expand: `You expand brief industrial-hygiene field observations into fuller field notes. Add reasonable supporting context (e.g. why something matters, what an IH would typically check next), but do not invent specific measurements, occupant counts, or facts not stated in the original. ${HUMAN_VOICE}
+
+Return ONLY the rewritten text — no preamble, no quotation marks, no markdown formatting.`,
+  concise: `You make industrial-hygiene field observations more concise. Preserve every fact (measurements, locations, occupant counts, observations) — drop only filler words and redundant phrasing. ${HUMAN_VOICE}
+
+Return ONLY the rewritten text — no preamble, no quotation marks, no markdown formatting.`,
+  professional: `You rewrite industrial-hygiene field observations in consultant-grade language suitable for an IAQ report. Keep it neutral and technical, but readable — not stiff. Preserve every fact from the original. Do not invent measurements, occupant counts, or technical findings not present. ${HUMAN_VOICE}
+
+Example —
+Robotic: "Furthermore, it should be noted that visible water staining was identified on the ceiling tiles, which plays a crucial role in the overall moisture assessment of the space."
+Human: "Visible water staining on the ceiling tiles was noted and warrants follow-up."
+
+Return ONLY the rewritten text — no preamble, no quotation marks, no markdown formatting.`,
 }
 
 // ── Test injection hooks (mirrors api/narrative.js pattern) ────────
@@ -240,6 +263,9 @@ async function handler(req, res) {
       body: JSON.stringify({
         model: ANTHROPIC_MODEL,
         max_tokens: MAX_OUTPUT_TOKENS,
+        // Moderate temperature — enough variety to break the robotic
+        // cadence, low enough that facts in the source stay intact.
+        temperature: 0.6,
         system,
         stream: true,
         messages: [{ role: 'user', content: userMessage }],

@@ -287,6 +287,10 @@ async function callAnthropicStream(
     body: JSON.stringify({
       model: ANTHROPIC_MODEL,
       max_tokens: MAX_OUTPUT_TOKENS,
+      // Moderate temperature so answers read like a human IH, not a
+      // chatbot. Kept below 1.0 because facts, citations, and the
+      // four-section format must stay intact — humanizing is style only.
+      temperature: 0.7,
       stream: true,
       system: systemBlocks,
       messages,
