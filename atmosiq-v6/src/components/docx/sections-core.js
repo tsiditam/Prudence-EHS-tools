@@ -6,6 +6,7 @@
 import { Paragraph, TextRun, HeadingLevel, AlignmentType, SectionType, PageBreak, ImageRun, Table, TableRow, TableCell, WidthType, ShadingType, BorderStyle } from 'docx'
 import { FONTS, COLORS, SEV_COLORS, scoreColor, riskLabel } from './styles'
 import { buildTable, kvTable, borderlessLayoutTable, dataCell, headerCell } from './tables'
+import { markdownToDocx } from './markdownToDocx'
 import { base64ToUint8Array, inferImageType, isImageDataUrl } from './images'
 import { inferCitationsFromContext, filterManifestByRegistration } from '../../engine/report/citation-tracker'
 import { LETTER_BODY_PAGE } from './page-setup'
@@ -195,7 +196,9 @@ export function buildExecutiveSummary(ctx) {
   if (ctx.narrative) {
     children.push(aiReviewRequiredBanner())
     children.push(p('', { after: 80 }))
-    children.push(p(ctx.narrative, { size: 22, color: COLORS.sub, after: 120 }))
+    // Render the AI narrative's markdown (headings / bullets / tables)
+    // into real docx blocks rather than a single flat paragraph.
+    children.push(...markdownToDocx(ctx.narrative, { color: COLORS.sub }))
   } else if (ctx.comp) {
     const worst = ctx.zoneScores?.reduce((a, b) => a.tot < b.tot ? a : b, ctx.zoneScores[0])
     const worstCat = worst?.cats?.reduce((a, b) => (a.s / a.mx) < (b.s / b.mx) ? a : b)

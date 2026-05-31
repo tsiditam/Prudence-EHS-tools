@@ -37,6 +37,7 @@ import JasperContextChip from './ui/JasperContextChip'
 import JasperSuggestionCard from './ui/JasperSuggestionCard'
 import JasperFeedbackRow from './ui/JasperFeedbackRow'
 import JasperMessageActions from './ui/JasperMessageActions'
+import Markdown from './Markdown'
 import {
   JASPER_SPRING,
   JASPER_DURATION,
@@ -181,7 +182,9 @@ function MessageBubble({
     color: TEXT,
     fontSize: 15,
     lineHeight: 1.65,
-    whiteSpace: 'pre-wrap',
+    // No whiteSpace:'pre-wrap' — the assistant message renders through
+    // <Markdown>, which owns block layout (and honors single newlines
+    // via remark-breaks). User messages keep pre-wrap (userStyle).
     wordBreak: 'break-word',
     // No background, no border, no radius — flow with the sheet
     // surface so the response feels like the canvas, not a card.
@@ -197,7 +200,11 @@ function MessageBubble({
       marginBottom: isUser ? 12 : 18,
     }}>
       <div style={isUser ? userStyle : assistantStyle}>
-        {content}
+        {/* Assistant responses render markdown (headings/bullets/tables).
+            User messages stay plain — they're what the assessor typed. */}
+        {!isUser && typeof content === 'string'
+          ? <Markdown>{content}</Markdown>
+          : content}
         {isUser && Array.isArray(photos) && photos.length > 0 && (
           <div style={{
             marginTop: 6, display: 'flex', alignItems: 'center', gap: 4,

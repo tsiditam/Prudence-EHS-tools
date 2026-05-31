@@ -26,6 +26,7 @@
 
 import { useMemo, useState } from 'react'
 import { runPreReviewChecks, summarizeIssues } from '../utils/preReviewValidator'
+import Markdown from './Markdown'
 
 const SEVERITY_META = {
   blocking: {
@@ -369,9 +370,9 @@ function IssueRow({
         <div style={{
           padding: '0 12px 12px 30px',
           fontSize: 12, color: 'var(--sub)', lineHeight: 1.55,
-          whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+          wordBreak: 'break-word',
         }}>
-          <div>{issue.detail}</div>
+          <Markdown>{issue.detail}</Markdown>
 
           {/* When the IH has overridden this blocker, show the
               justification + a Remove-override link. */}

@@ -16,6 +16,7 @@ import { Document, Packer, Paragraph, TextRun, AlignmentType, HeadingLevel } fro
 import { BODY_SECTION_PROPERTIES, LETTER_BODY_PAGE } from './docx/page-setup'
 import { DOCX_STYLES } from './docx/styles'
 import { buildCoverPage } from './docx/sections-core'
+import { markdownToDocx } from './docx/markdownToDocx'
 import { buildSamplingPlan, buildRecommendations } from './docx/sections-recommendations'
 import { buildAppendixB, buildFooter } from './docx/sections-appendix'
 import { buildTechnicalMetadata, buildFindingsRegister, buildCategoryScoresSummary, buildDataGapRegister, buildInstrumentLog, buildOutdoorBaseline } from './docx/sections-technical'
@@ -464,14 +465,6 @@ export async function getNarrativeDocxBlob({ facility, narrative, profile, ts })
     ? ` · ${profile.certs.join(', ')}`
     : ''
 
-  // Split the narrative on blank lines so each paragraph renders as
-  // its own Paragraph block (single \n inside a paragraph would lose
-  // the line break in Word; \n\n becomes a real paragraph break).
-  const paragraphs = String(narrative || '')
-    .split(/\n{2,}/)
-    .map(p => p.trim())
-    .filter(Boolean)
-
   const children = [
     new Paragraph({
       alignment: AlignmentType.LEFT,
@@ -497,10 +490,10 @@ export async function getNarrativeDocxBlob({ facility, narrative, profile, ts })
         new TextRun({ text: 'This narrative was generated from deterministic scoring output. Review, edit, and approve before including in any client deliverable.', color: 'B45309', size: 18, font: 'Inter' }),
       ],
     }),
-    ...paragraphs.map(p => new Paragraph({
-      spacing: { after: 160 },
-      children: [new TextRun({ text: p, size: 22, font: 'Inter' })],
-    })),
+    // Render the narrative's markdown (headings / bullets / tables) as
+    // real docx blocks. This file uses the Inter face, so pass it
+    // through.
+    ...markdownToDocx(String(narrative || ''), { font: 'Inter' }),
   ]
 
   const doc = new Document({
