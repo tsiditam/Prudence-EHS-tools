@@ -40,6 +40,67 @@ const ON_ACCENT = 'var(--on-accent)'
 // `mix(name, pct)` for legacy `${TOKEN}HEX_ALPHA` sites is imported
 // from utils/theme above.
 
+// ─── Presentational components ───
+// Hoisted to module scope (NOT defined inside SettingsScreen). When these
+// lived inside the render function, every state change — a live BLE reading,
+// a theme tap, a keystroke in the password/admin field — gave them a fresh
+// function identity, so React unmounted and remounted the entire settings
+// tree on each render. That produced the visible flicker ("shake") and made
+// text inputs lose focus mid-type. They close over only module-level tokens,
+// so hoisting is behavior-preserving.
+
+// v2.8 UI pass — inset-grouped lists (Apple HIG), no per-row card chrome,
+// no colored icon tile on every row, no restating subtitles. Status earns
+// space by exception. "Sign out" is plain text; only "Delete account" is
+// destructive. Notion-style "Danger zone" group anchors the bottom.
+const Group = ({ title, right, children }) => (
+  <div style={{marginTop:24}}>
+    {(title || right) && (
+      <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',padding:'0 4px 10px'}}>
+        {title && <div style={V3.T.micro}>{title}</div>}
+        {right}
+      </div>
+    )}
+    <div style={{background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.lg,overflow:'hidden'}}>
+      {children}
+    </div>
+  </div>
+)
+
+// Plain list row. No colored icon tile by default. `value` is right-aligned
+// (system mono for technical values). `tone='danger'` paints the label red
+// for destructive Tier-3 actions. The borderTop on rows after the first is
+// the hairline divider inside the group container.
+const Row = ({ label, sub, value, action, tone, first }) => (
+  <button
+    onClick={action}
+    disabled={!action}
+    style={{
+      width:'100%',padding:'14px 16px',background:'transparent',border:'none',
+      borderTop: first ? 'none' : `1px solid ${BORDER}`,
+      cursor: action ? 'pointer' : 'default',textAlign:'left',
+      display:'flex',alignItems:'center',gap:12,fontFamily:'inherit',minHeight:52,
+    }}>
+    <div style={{flex:1,minWidth:0}}>
+      <div style={{fontSize:14,fontWeight:600,color: tone==='danger' ? DANGER : TEXT}}>{label}</div>
+      {sub && <div style={{fontSize:11,color:DIM,marginTop:2,lineHeight:1.4,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{sub}</div>}
+    </div>
+    {value && <span style={{fontSize:12,color:SUB,fontFamily:"var(--font-mono)",marginRight: action ? 6 : 0,flexShrink:0}}>{value}</span>}
+    {action && <span style={{color:DIM,fontSize:13,flexShrink:0}}>›</span>}
+  </button>
+)
+
+// Subtle exception pill. Used only when state is NOT fine.
+const ExceptionPill = ({ tone='warn', text }) => (
+  <span style={{
+    fontSize:10,fontWeight:600,fontFamily:"var(--font-mono)",
+    color: tone==='warn' ? WARN : DANGER,
+    padding:'3px 8px',borderRadius:6,
+    background: tone==='warn' ? mix('warn', 6) : mix('danger', 6),
+    border: `1px solid ${tone==='warn' ? mix('warn', 14) : mix('danger', 14)}`,
+  }}>{text}</span>
+)
+
 // `credits` prop intentionally dropped in billing-architecture
 // Phase 1 — the Manage Subscription row's subtitle now comes from
 // subscriptionState.getSubscriptionRowSubtitle, not from a numeric
@@ -93,60 +154,6 @@ export default function SettingsScreen({ profile, onEditProfile, onLogout, onClo
       return total > 1048576 ? `${(total / 1048576).toFixed(1)} MB` : `${Math.round(total / 1024)} KB`
     } catch { return '—' }
   })()
-
-  // ─── Components ───
-  // v2.8 UI pass — inset-grouped lists (Apple HIG), no per-row card chrome,
-  // no colored icon tile on every row, no restating subtitles. Status earns
-  // space by exception. "Sign out" is plain text; only "Delete account" is
-  // destructive. Notion-style "Danger zone" group anchors the bottom.
-
-  const Group = ({ title, right, children }) => (
-    <div style={{marginTop:24}}>
-      {(title || right) && (
-        <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',padding:'0 4px 10px'}}>
-          {title && <div style={V3.T.micro}>{title}</div>}
-          {right}
-        </div>
-      )}
-      <div style={{background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.lg,overflow:'hidden'}}>
-        {children}
-      </div>
-    </div>
-  )
-
-  // Plain list row. No colored icon tile by default. `value` is right-aligned
-  // (system mono for technical values). `tone='danger'` paints the label red
-  // for destructive Tier-3 actions. The borderTop on rows after the first is
-  // the hairline divider inside the group container.
-  const Row = ({ label, sub, value, action, tone, first }) => (
-    <button
-      onClick={action}
-      disabled={!action}
-      style={{
-        width:'100%',padding:'14px 16px',background:'transparent',border:'none',
-        borderTop: first ? 'none' : `1px solid ${BORDER}`,
-        cursor: action ? 'pointer' : 'default',textAlign:'left',
-        display:'flex',alignItems:'center',gap:12,fontFamily:'inherit',minHeight:52,
-      }}>
-      <div style={{flex:1,minWidth:0}}>
-        <div style={{fontSize:14,fontWeight:600,color: tone==='danger' ? DANGER : TEXT}}>{label}</div>
-        {sub && <div style={{fontSize:11,color:DIM,marginTop:2,lineHeight:1.4,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{sub}</div>}
-      </div>
-      {value && <span style={{fontSize:12,color:SUB,fontFamily:"var(--font-mono)",marginRight: action ? 6 : 0,flexShrink:0}}>{value}</span>}
-      {action && <span style={{color:DIM,fontSize:13,flexShrink:0}}>›</span>}
-    </button>
-  )
-
-  // Subtle exception pill. Used only when state is NOT fine.
-  const ExceptionPill = ({ tone='warn', text }) => (
-    <span style={{
-      fontSize:10,fontWeight:600,fontFamily:"var(--font-mono)",
-      color: tone==='warn' ? WARN : DANGER,
-      padding:'3px 8px',borderRadius:6,
-      background: tone==='warn' ? mix('warn', 6) : mix('danger', 6),
-      border: `1px solid ${tone==='warn' ? mix('warn', 14) : mix('danger', 14)}`,
-    }}>{text}</span>
-  )
 
   const calOk = profile?.iaq_cal_status?.includes('within manufacturer')
   const pidOk = profile?.pid_cal_status?.includes('calibrated')
@@ -428,12 +435,31 @@ export default function SettingsScreen({ profile, onEditProfile, onLogout, onClo
             src/utils/subscriptionState.js for the new model and the
             pricing-architecture prompt for the Phase 2+ tier rollout. */}
       </Group>
+      {/* Admin access is a fixed-position modal overlay, NOT inline
+          content. Rendering it inline used to grow the page and reflow
+          the sections above it (Legal/About), so a tap aimed at the
+          version pill could land on the Terms of Service row instead.
+          A fixed overlay never shifts the page layout. */}
       {showAdminInput && (
-        <div style={{padding:'14px 16px',background:CARD,border:`1px solid ${mix('warn', 14)}`,borderRadius:10,marginTop:8}}>
-          <div style={{fontSize:12,fontWeight:600,color:WARN,marginBottom:8}}>Admin Access</div>
-          <div style={{display:'flex',gap:8}}>
-            <input value={adminCode} onChange={e=>setAdminCode(e.target.value)} placeholder="Enter admin secret" type="password" style={{flex:1,padding:'10px 14px',background:BG,border:`1px solid ${BORDER}`,borderRadius:8,color:TEXT,fontSize:13,fontFamily:'inherit',outline:'none'}} />
-            <button onClick={() => { if (adminCode) { onActivateAdmin?.(adminCode); setShowAdminInput(false); setAdminCode('') } }} style={{padding:'10px 16px',background:mix('warn', 8),border:`1px solid ${mix('warn', 19)}`,borderRadius:8,color:WARN,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Activate</button>
+        <div
+          onClick={(e) => { if (e.target === e.currentTarget) { setShowAdminInput(false); setAdminCode('') } }}
+          style={{position:'fixed',inset:0,background:'#000000CC',zIndex:340,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}
+        >
+          <div style={{width:'100%',maxWidth:380,padding:'20px',background:CARD,border:`1px solid ${mix('warn', 14)}`,borderRadius:14,boxShadow:'0 12px 60px rgba(0,0,0,0.5)'}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
+              <div style={{fontSize:13,fontWeight:700,color:WARN}}>Admin Access</div>
+              <button onClick={() => { setShowAdminInput(false); setAdminCode('') }} style={{background:'none',border:'none',color:DIM,fontSize:18,lineHeight:1,cursor:'pointer',fontFamily:'inherit',padding:'0 4px'}} aria-label="Close">×</button>
+            </div>
+            <input
+              autoFocus
+              value={adminCode}
+              onChange={e=>setAdminCode(e.target.value)}
+              onKeyDown={e=>{ if (e.key === 'Enter' && adminCode) { onActivateAdmin?.(adminCode); setShowAdminInput(false); setAdminCode('') } }}
+              placeholder="Enter admin secret"
+              type="password"
+              style={{width:'100%',padding:'12px 14px',background:BG,border:`1px solid ${BORDER}`,borderRadius:8,color:TEXT,fontSize:14,fontFamily:'inherit',outline:'none',marginBottom:10,boxSizing:'border-box'}}
+            />
+            <button onClick={() => { if (adminCode) { onActivateAdmin?.(adminCode); setShowAdminInput(false); setAdminCode('') } }} style={{width:'100%',padding:'12px 16px',background:mix('warn', 8),border:`1px solid ${mix('warn', 19)}`,borderRadius:8,color:WARN,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>Activate</button>
           </div>
         </div>
       )}
