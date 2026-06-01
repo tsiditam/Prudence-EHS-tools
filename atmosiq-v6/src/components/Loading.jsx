@@ -28,13 +28,18 @@ const reducedMotion = typeof window !== 'undefined'
   && window.matchMedia
   && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
-// One full disintegrate→reform pass. "Slowly" per the brief.
-const CYCLE_MS = 4200
+// One full disintegrate→reform pass. Sized to fill the whole brand
+// hold (below) so the mark finishes drawing back together exactly as
+// the splash begins fading to reveal the app — one slow breath.
+const CYCLE_MS = 6400
 
 export default function Loading({ onDone, fast }) {
   const [fadeOut, setFadeOut] = useState(false)
   const canvasRef = useRef(null)
-  const duration = fast ? 400 : 5000
+  // ~7 s brand hold for first opens: one full CYCLE_MS dissolve/reform
+  // pass, then the 600 ms fade. Returning users (`fast`) still skip
+  // straight through in 400 ms.
+  const duration = fast ? 400 : CYCLE_MS + 600
 
   // Splash lifecycle (fade then unmount) — independent of the canvas.
   useEffect(() => {
