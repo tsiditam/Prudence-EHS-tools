@@ -307,10 +307,12 @@ export default function AuthScreen({ onAuth }) {
             block from the form below.
             PNG is the trimmed 799x147 wordmark; at height: 52 it renders
             ~283 px wide (52 * 5.44), comfortably proportional inside the
-            345 px content frame without hugging the edges. */}
+            345 px content frame without hugging the edges.
+            Updated to the vector SVG wordmark (viewBox 2934x766, ~3.83:1);
+            at height: 52 it renders ~199 px wide and stays crisp on retina. */}
         <div style={{ textAlign: 'center', paddingTop: 48, paddingBottom: 32 }}>
           <img
-            src="/icons/atmosflow-logo.png"
+            src="/icons/atmosflow-logo.svg"
             alt="AtmosFlow"
             style={{
               display: 'block',
