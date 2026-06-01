@@ -410,7 +410,8 @@ function JasperIntroPanel({ onAccept, onNavigate }) {
     <div style={{ padding: '12px 4px 4px' }}>
       <div className="jasper-stagger"
         style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, ...reveal(0) }}>
-        <JasperBrainIcon size={40} />
+        {/* Brain mark omitted here — the sheet header already shows it,
+            so repeating it on the welcome line read as redundant. */}
         <div style={{ fontSize: 15, color: TEXT, lineHeight: 1.45, fontWeight: 600 }}>
           <span role="img" aria-label="waving hand">👋</span> Welcome to AtmosFlow AI — your indoor air quality assistant.
         </div>
