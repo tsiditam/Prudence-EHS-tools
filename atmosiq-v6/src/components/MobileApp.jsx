@@ -3068,9 +3068,12 @@ export default function MobileApp() {
                     className={menuClosing ? 'af-drawer-out' : 'af-drawer-in'}
                     style={{
                       position:'fixed', top:0, left:0, bottom:0,
-                      width:'86vw', maxWidth:340, zIndex:1010,
+                      width:'64vw', maxWidth:256, zIndex:1010,
                       display:'flex', flexDirection:'column',
-                      background:'var(--surface)',
+                      // Midnight black — a fixed near-black panel rather
+                      // than var(--surface), so the drawer reads as a deep
+                      // slab over the dimmed page in both themes.
+                      background:'#06070C',
                       borderRight:`1px solid ${BORDER}`,
                       boxShadow:'8px 0 40px rgba(0,0,0,0.55), 1px 0 0 rgba(255,255,255,0.04)',
                       // Clear the status bar / notch at the top and the home
