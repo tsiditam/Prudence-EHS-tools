@@ -428,12 +428,31 @@ export default function SettingsScreen({ profile, onEditProfile, onLogout, onClo
             src/utils/subscriptionState.js for the new model and the
             pricing-architecture prompt for the Phase 2+ tier rollout. */}
       </Group>
+      {/* Admin access is a fixed-position modal overlay, NOT inline
+          content. Rendering it inline used to grow the page and reflow
+          the sections above it (Legal/About), so a tap aimed at the
+          version pill could land on the Terms of Service row instead.
+          A fixed overlay never shifts the page layout. */}
       {showAdminInput && (
-        <div style={{padding:'14px 16px',background:CARD,border:`1px solid ${mix('warn', 14)}`,borderRadius:10,marginTop:8}}>
-          <div style={{fontSize:12,fontWeight:600,color:WARN,marginBottom:8}}>Admin Access</div>
-          <div style={{display:'flex',gap:8}}>
-            <input value={adminCode} onChange={e=>setAdminCode(e.target.value)} placeholder="Enter admin secret" type="password" style={{flex:1,padding:'10px 14px',background:BG,border:`1px solid ${BORDER}`,borderRadius:8,color:TEXT,fontSize:13,fontFamily:'inherit',outline:'none'}} />
-            <button onClick={() => { if (adminCode) { onActivateAdmin?.(adminCode); setShowAdminInput(false); setAdminCode('') } }} style={{padding:'10px 16px',background:mix('warn', 8),border:`1px solid ${mix('warn', 19)}`,borderRadius:8,color:WARN,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Activate</button>
+        <div
+          onClick={(e) => { if (e.target === e.currentTarget) { setShowAdminInput(false); setAdminCode('') } }}
+          style={{position:'fixed',inset:0,background:'#000000CC',zIndex:340,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}
+        >
+          <div style={{width:'100%',maxWidth:380,padding:'20px',background:CARD,border:`1px solid ${mix('warn', 14)}`,borderRadius:14,boxShadow:'0 12px 60px rgba(0,0,0,0.5)'}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
+              <div style={{fontSize:13,fontWeight:700,color:WARN}}>Admin Access</div>
+              <button onClick={() => { setShowAdminInput(false); setAdminCode('') }} style={{background:'none',border:'none',color:DIM,fontSize:18,lineHeight:1,cursor:'pointer',fontFamily:'inherit',padding:'0 4px'}} aria-label="Close">×</button>
+            </div>
+            <input
+              autoFocus
+              value={adminCode}
+              onChange={e=>setAdminCode(e.target.value)}
+              onKeyDown={e=>{ if (e.key === 'Enter' && adminCode) { onActivateAdmin?.(adminCode); setShowAdminInput(false); setAdminCode('') } }}
+              placeholder="Enter admin secret"
+              type="password"
+              style={{width:'100%',padding:'12px 14px',background:BG,border:`1px solid ${BORDER}`,borderRadius:8,color:TEXT,fontSize:14,fontFamily:'inherit',outline:'none',marginBottom:10,boxSizing:'border-box'}}
+            />
+            <button onClick={() => { if (adminCode) { onActivateAdmin?.(adminCode); setShowAdminInput(false); setAdminCode('') } }} style={{width:'100%',padding:'12px 16px',background:mix('warn', 8),border:`1px solid ${mix('warn', 19)}`,borderRadius:8,color:WARN,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>Activate</button>
           </div>
         </div>
       )}
