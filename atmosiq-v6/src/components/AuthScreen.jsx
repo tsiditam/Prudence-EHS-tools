@@ -139,21 +139,23 @@ const Spinner = () => (
 // Floating-label field. Module-level so React preserves DOM identity
 // across renders — defining this inside AuthScreen would re-create the
 // component on every keystroke and steal focus from the active input.
-function Field({ name, label, type, value, onChange, autoComplete, placeholder, focusedField, setFocusedField, clearError, trailing, onKeyDown }) {
+function Field({ name, label, type, value, onChange, autoComplete, placeholder, focusedField, setFocusedField, clearError, trailing, onKeyDown, style }) {
   const focused = focusedField === name
   return (
-    <div style={{ position: 'relative' }}>
+    <div style={{ position: 'relative', ...style }}>
       <div
         style={{
           width: '100%',
-          padding: '11px 20px',
-          background: SURFACE,
-          border: `1.5px solid ${focused ? ACCENT : 'var(--border)'}`,
+          padding: '10px 18px',
+          background: 'color-mix(in srgb, var(--surface) 55%, transparent)',
+          border: `1px solid ${focused ? ACCENT : 'color-mix(in srgb, var(--border) 70%, transparent)'}`,
           borderRadius: 14,
-          minHeight: 64,
-          display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 4,
-          boxShadow: focused ? '0 0 0 4px color-mix(in srgb, var(--accent) 15%, transparent)' : 'none',
-          transition: 'border-color 150ms ease, box-shadow 150ms ease',
+          minHeight: 58,
+          display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 3,
+          boxShadow: focused
+            ? '0 0 0 4px color-mix(in srgb, var(--accent) 14%, transparent), 0 8px 22px -12px color-mix(in srgb, var(--accent) 45%, transparent)'
+            : 'inset 0 1px 0 color-mix(in srgb, #fff 3%, transparent)',
+          transition: 'border-color 160ms ease, box-shadow 200ms ease, background 160ms ease',
           boxSizing: 'border-box',
         }}
       >
@@ -285,6 +287,16 @@ export default function AuthScreen({ onAuth }) {
       : { label: loading ? 'Sending…' : 'Send Reset Link', onClick: handleForgot }
   const googleLabel = mode === 'register' ? 'Sign up with Google' : 'Continue with Google'
 
+  // Staggered entrance — each element rises + fades in sequence (logo →
+  // tagline → fields → CTA → rest) so the screen assembles itself in
+  // ~300 ms and reads as "alive" rather than painted-in-one-frame.
+  // Reduced-motion users get an instant render (delay+duration zeroed in
+  // the keyframe block below).
+  const rise = (delay) => ({
+    animation: 'auth-rise .55s cubic-bezier(.22,.7,.2,1) both',
+    animationDelay: `${delay}ms`,
+  })
+
   return (
     <div data-auth-version="phase2-redesign" style={{
       minHeight: '100vh', background: BG, color: TEXT, fontFamily: 'inherit',
@@ -297,38 +309,41 @@ export default function AuthScreen({ onAuth }) {
       <div style={{
         position: 'relative', zIndex: 1,
         maxWidth: 400, margin: '0 auto', padding: '0 24px',
-        animation: 'auth-fadeUp .5s ease',
       }}>
-        {/* Header — intentional 8-px vertical rhythm.
-            Logo at 52 px tall · 24 px gap to tagline · 8 px to underline.
-            Top padding 48 (safe-area-inset-top adds OS-defined space
-            above, so 48 here is enough breathing room — total ~88-100 px
-            from device top). Bottom padding 32 separates the brand
-            block from the form below.
-            PNG is the trimmed 799x147 wordmark; at height: 52 it renders
-            ~283 px wide (52 * 5.44), comfortably proportional inside the
-            345 px content frame without hugging the edges.
-            Updated to the vector SVG wordmark (viewBox 2934x766, ~3.83:1);
-            at height: 52 it renders ~199 px wide and stays crisp on retina. */}
-        <div style={{ textAlign: 'center', paddingTop: 48, paddingBottom: 32 }}>
+        {/* Header — tightened vertical rhythm (~20% shorter than the
+            prior 48/32 block) so the brand sits closer to the form and
+            the action isn't pushed below a tall marketing gap. A soft
+            cyan ambient glow sits behind the mark for atmosphere. */}
+        <div style={{ position: 'relative', textAlign: 'center', paddingTop: 26, paddingBottom: 22 }}>
+          <div aria-hidden="true" style={{
+            position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)',
+            width: 300, height: 190,
+            background: 'radial-gradient(60% 60% at 50% 42%, color-mix(in srgb, var(--accent) 22%, transparent) 0%, transparent 72%)',
+            filter: 'blur(26px)', pointerEvents: 'none', zIndex: 0,
+            animation: 'auth-glow 1s ease both',
+          }} />
           <img
             src="/icons/atmosflow-logo.svg"
             alt="AtmosFlow"
             style={{
+              position: 'relative', zIndex: 1,
               display: 'block',
               margin: '0 auto',
-              height: 52,
+              height: 50,
               width: 'auto',
               maxWidth: '100%',
+              ...rise(0),
             }}
           />
-          <div style={{
-            fontSize: 11, fontWeight: 600, color: ACCENT,
-            marginTop: 24, letterSpacing: '0.16em',
-            lineHeight: 1.5, maxWidth: 320,
-            marginLeft: 'auto', marginRight: 'auto',
-          }}>{tagline}</div>
-          <div style={{ width: 44, height: 2, background: ACCENT, borderRadius: 1, margin: '8px auto 0' }} />
+          <div style={{ position: 'relative', zIndex: 1, ...rise(90) }}>
+            <div style={{
+              fontSize: 11, fontWeight: 600, color: ACCENT,
+              marginTop: 18, letterSpacing: '0.16em',
+              lineHeight: 1.5, maxWidth: 320,
+              marginLeft: 'auto', marginRight: 'auto',
+            }}>{tagline}</div>
+            <div style={{ width: 44, height: 2, background: ACCENT, borderRadius: 1, margin: '8px auto 0' }} />
+          </div>
         </div>
 
         {/* Status banners */}
@@ -365,6 +380,7 @@ export default function AuthScreen({ onAuth }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <Field
             name="email"
+            style={rise(170)}
             label="EMAIL ADDRESS"
             type="email"
             value={email}
@@ -379,6 +395,7 @@ export default function AuthScreen({ onAuth }) {
           {mode !== 'forgot' && (
             <Field
               name="password"
+              style={rise(230)}
               label={mode === 'register' ? 'PASSWORD · 8+ CHARACTERS' : 'PASSWORD'}
               type={showPw ? 'text' : 'password'}
               value={password}
@@ -411,6 +428,7 @@ export default function AuthScreen({ onAuth }) {
           {mode === 'register' && (
             <Field
               name="confirmPw"
+              style={rise(280)}
               label="CONFIRM PASSWORD"
               type={showPw ? 'text' : 'password'}
               value={confirmPw}
@@ -439,26 +457,31 @@ export default function AuthScreen({ onAuth }) {
             </label>
           )}
 
-          {/* Primary CTA — cyan fill, restrained glow, mode-aware label.
-              Sized down (56→48 h, 16→15 font) per founder direction so
-              the CTA reads as confident rather than oversized. */}
+          {/* Primary CTA — floats above the plane: bright cyan with a
+              subtle top-highlight gradient, an inset sheen, a soft cyan
+              ambient glow, and a tactile press (lift on hover, depress on
+              :active — see .auth-cta in the style block). This is the one
+              element meant to feel desirable, not just functional. */}
           <button
             type="submit"
+            className="auth-cta"
             onClick={cta.onClick}
             disabled={loading}
             aria-busy={loading}
             style={{
-              width: '100%', padding: '12px 0', marginTop: 6,
-              background: ACCENT, border: 'none', borderRadius: 14,
+              width: '100%', padding: '13px 0', marginTop: 10,
+              background: 'linear-gradient(180deg, color-mix(in srgb, var(--accent-fill) 86%, #ffffff 14%) 0%, var(--accent-fill) 100%)',
+              border: 'none', borderRadius: 14,
               color: 'var(--on-accent-fill, #07080C)',
               fontSize: 15, fontWeight: 700, letterSpacing: '-0.01em',
               cursor: loading ? 'wait' : 'pointer',
-              minHeight: 48,
-              opacity: loading ? 0.7 : 1,
-              boxShadow: '0 3px 10px -3px color-mix(in srgb, var(--accent) 22%, transparent)',
+              minHeight: 50,
+              opacity: loading ? 0.75 : 1,
+              boxShadow: '0 10px 26px -8px color-mix(in srgb, var(--accent) 55%, transparent), 0 3px 8px -3px rgba(0,0,0,0.45), inset 0 1px 0 color-mix(in srgb, #ffffff 38%, transparent)',
               fontFamily: 'inherit',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-              transition: 'opacity 150ms ease, transform 100ms ease',
+              transition: 'transform 130ms cubic-bezier(.2,.7,.2,1), box-shadow 220ms ease, opacity 150ms ease',
+              ...rise(300),
             }}
           >
             {loading && <Spinner />}
@@ -472,19 +495,21 @@ export default function AuthScreen({ onAuth }) {
           {mode !== 'forgot' && (
             <button
               type="button"
+              className="auth-quiet"
               onClick={handleGoogleSignIn}
               disabled={loading}
               aria-label={googleLabel}
               style={{
                 width: '100%', padding: '0 14px',
                 background: 'transparent',
-                border: '1px solid var(--border)', borderRadius: 12,
+                border: '1px solid color-mix(in srgb, var(--border) 60%, transparent)', borderRadius: 12,
                 color: TEXT, fontSize: 13, fontWeight: 500,
                 cursor: loading ? 'wait' : 'pointer',
-                fontFamily: 'inherit', minHeight: 42,
+                fontFamily: 'inherit', minHeight: 44,
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
                 opacity: loading ? 0.6 : 1,
-                transition: 'opacity 150ms ease, border-color 150ms ease, background 150ms ease',
+                transition: 'opacity 150ms ease, border-color 160ms ease, background 160ms ease, transform 130ms cubic-bezier(.2,.7,.2,1)',
+                ...rise(360),
               }}
             >
               <GoogleG />
@@ -502,8 +527,9 @@ export default function AuthScreen({ onAuth }) {
         {mode === 'login' && (
           <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            gap: 0, marginTop: 22,
+            gap: 0, marginTop: 20,
             whiteSpace: 'nowrap',
+            ...rise(380),
           }}>
             <button
               type="button"
@@ -570,21 +596,26 @@ export default function AuthScreen({ onAuth }) {
             Aligned") never wrap mid-phrase. */}
         {mode === 'login' && (
           <div style={{
-            marginTop: 26, padding: '16px 18px',
-            background: 'color-mix(in srgb, var(--surface) 65%, transparent)',
-            border: '1px solid color-mix(in srgb, var(--accent) 18%, transparent)',
-            borderRadius: 14,
-            display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center',
+            marginTop: 24,
+            display: 'flex', flexDirection: 'column', gap: 11, alignItems: 'center',
+            ...rise(420),
           }}>
             <div style={{ fontSize: 10, fontWeight: 600, color: SUB, letterSpacing: '0.12em' }}>
               BUILT FOR IH &amp; EHS PROFESSIONALS
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 8 }}>
-              {['ASHRAE & NIOSH-Aligned', 'AI-Assisted, IH-Reviewed', 'Screening-Only'].map(label => (
-                <div key={label} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                  <CheckIcon />
-                  <span style={{ fontSize: 12, fontWeight: 500, color: ACCENT, whiteSpace: 'nowrap' }}>{label}</span>
-                </div>
+            {/* Standards-body trust signals as lightweight pills —
+                cleaner than a bordered card, reads at a glance. Each pill
+                glows cyan when touched/hovered (.auth-pill in the style
+                block). */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 8, maxWidth: 360 }}>
+              {['NIOSH', 'ASHRAE', 'AIHA'].map(label => (
+                <span key={label} className="auth-pill" style={{
+                  fontSize: 11, fontWeight: 600, letterSpacing: '0.02em',
+                  color: ACCENT, whiteSpace: 'nowrap',
+                  padding: '6px 12px', borderRadius: 999,
+                  background: 'color-mix(in srgb, var(--accent) 8%, transparent)',
+                  border: '1px solid color-mix(in srgb, var(--accent) 22%, transparent)',
+                }}>{label}</span>
               ))}
             </div>
           </div>
@@ -596,8 +627,9 @@ export default function AuthScreen({ onAuth }) {
             footer is where Prudence-EHS makerhood lives; burying it in
             the lowest-contrast text on the page contradicted the brand. */}
         <div style={{
-          textAlign: 'center', marginTop: 22, marginBottom: 24,
+          textAlign: 'center', marginTop: 20, marginBottom: 24,
           fontSize: 10, fontWeight: 400, color: SUB, letterSpacing: '0.02em',
+          ...rise(460),
         }}>
           Built by Prudence EHS · Secure · Private · Professional
         </div>
@@ -605,10 +637,23 @@ export default function AuthScreen({ onAuth }) {
 
       <style>{`
         @keyframes auth-fadeUp{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}
+        @keyframes auth-rise{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
+        @keyframes auth-glow{from{opacity:0;}to{opacity:1;}}
         @keyframes auth-spin{from{transform:rotate(0);}to{transform:rotate(360deg);}}
         @keyframes auth-banner{from{opacity:0;transform:translateY(-8px);}to{opacity:1;transform:translateY(0);}}
+        /* Tactile primary CTA — lifts on hover, depresses on press, with
+           the cyan ambient glow swelling/contracting to sell the depth. */
+        .auth-cta:hover:not(:disabled){transform:translateY(-1.5px);box-shadow:0 14px 34px -8px color-mix(in srgb, var(--accent) 65%, transparent), 0 4px 10px -3px rgba(0,0,0,0.5), inset 0 1px 0 color-mix(in srgb, #ffffff 46%, transparent);}
+        .auth-cta:active:not(:disabled){transform:translateY(1px) scale(.992);box-shadow:0 5px 14px -6px color-mix(in srgb, var(--accent) 50%, transparent), inset 0 1px 0 color-mix(in srgb, #ffffff 22%, transparent);}
+        .auth-quiet:hover:not(:disabled){border-color:color-mix(in srgb, var(--accent) 38%, transparent);background:color-mix(in srgb, var(--accent) 5%, transparent);}
+        .auth-quiet:active:not(:disabled){transform:scale(.99);}
+        /* Trust pills glow cyan when touched (and on hover). :active is
+           held while a finger is down, so the pill lights up under touch. */
+        .auth-pill{transition:box-shadow .2s ease, border-color .2s ease, background .2s ease, transform .12s ease;}
+        .auth-pill:hover{border-color:color-mix(in srgb, var(--accent) 45%, transparent);box-shadow:0 0 10px color-mix(in srgb, var(--accent) 38%, transparent);}
+        .auth-pill:active{border-color:color-mix(in srgb, var(--accent) 70%, transparent);background:color-mix(in srgb, var(--accent) 16%, transparent);box-shadow:0 0 16px color-mix(in srgb, var(--accent) 60%, transparent), 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent);transform:scale(.97);}
         @media (prefers-reduced-motion: reduce){
-          *,*:before,*:after{animation-duration:0.01ms !important;animation-iteration-count:1 !important;transition-duration:0.01ms !important;}
+          *,*:before,*:after{animation-duration:0.01ms !important;animation-delay:0ms !important;animation-iteration-count:1 !important;transition-duration:0.01ms !important;}
         }
         *{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent;}
         button{-webkit-tap-highlight-color:transparent;}
