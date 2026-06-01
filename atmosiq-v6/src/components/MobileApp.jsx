@@ -573,6 +573,9 @@ export default function MobileApp() {
   // ── Local UI state (truly component-local; not shared) ──
   const [loading, setLoading] = useState(true)
   const [isReturning, setIsReturning] = useState(false)
+  // Plays the 7 s brand intro exactly once per browser cache, on the
+  // first *interactive* sign-in (see handleLogin + the render gate).
+  const [welcomeAnim, setWelcomeAnim] = useState(false)
   const [welcomeDone, setWelcomeDone] = useState(!!sessionStorage.getItem('aiq_welcomed'))
   const [userMode, setUserMode] = useState(getMode())
   const [needsModeSelect, setNeedsModeSelect] = useState(false)
@@ -784,6 +787,9 @@ export default function MobileApp() {
         if (activeProfile) setProfile(activeProfile)
       }
       setProfileChecked(true)
+      // Bootstrap done — drop the neutral cover. Returning users with a
+      // cached session land straight in the app with no brand animation.
+      setLoading(false)
     })()
   }, [])
 
@@ -853,6 +859,11 @@ export default function MobileApp() {
   }, [])
 
   const handleLogin = async (userOrProfile) => {
+    // First interactive sign-in per browser cache plays the brand intro
+    // once. The flag lives in localStorage, so clearing the cache replays
+    // it; returning users with a cached session are auto-resolved in the
+    // bootstrap effect (never reaching handleLogin), so they never see it.
+    try { if (!localStorage.getItem('aiq_intro_seen')) setWelcomeAnim(true) } catch { /* private mode */ }
     if (userOrProfile?.email && supabase) {
       trackEvent('login_completed', {})
       const p = await Storage.getProfile()
@@ -1667,12 +1678,17 @@ export default function MobileApp() {
   const dtSecs = [...new Set(dtVis.map(q=>q.sec))]
   const zSecs = [...new Set(zVis.map(q=>q.sec))]
 
-  if (loading) return <Loading fast={isReturning} onDone={() => setLoading(false)} />
+  // Brief neutral cover while the cached session resolves — no brand
+  // animation here. The intro plays only on first interactive sign-in
+  // (welcomeAnim gate below), so returning users don't sit through it.
+  if (loading) return <div style={{position:'fixed',inset:0,background:'#000',zIndex:9999}} aria-hidden="true" />
   // Auth gate: Supabase login when configured, local profiles when not
   if (profileChecked && !profile) {
     if (supabase) return <AuthScreen onAuth={handleLogin} />
     return <ProfileScreen onLogin={handleLogin} />
   }
+  // First interactive sign-in per cache → 7 s brand intro, then the app.
+  if (welcomeAnim) return <Loading onDone={() => { try { localStorage.setItem('aiq_intro_seen','1') } catch { /* private mode */ } ; setWelcomeAnim(false) }} />
   // Mode selection — FM mode paused; auto-select IH for all users
   const hasModeSet = localStorage.getItem(KEYS.userMode)
   if (profile && (!hasModeSet || hasModeSet === 'fm')) {
