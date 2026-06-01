@@ -25,7 +25,9 @@
     "accept:v2.3": "node scripts/acceptance/run-v23.mjs",
     "accept:v2.4": "npm run render:acceptance && node scripts/acceptance-check.mjs --config scripts/acceptance/v2.4.json",
     "accept:v2.5": "npm run render:acceptance && node scripts/acceptance-check.mjs --config scripts/acceptance/v2.5.json",
-    "accept:v2.6": "npm run render:acceptance && node scripts/acceptance-check.mjs --config scripts/acceptance/v2.6.json"
+    "accept:v2.6": "npm run render:acceptance && node scripts/acceptance-check.mjs --config scripts/acceptance/v2.6.json",
+    "db:migrate": "node scripts/db-migrate.mjs",
+    "db:migrate:status": "node scripts/db-migrate.mjs --dry-run"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -68,6 +70,7 @@
     "@vitejs/plugin-react": "^4.3.0",
     "eslint": "^9.18.0",
     "jsdom": "^29.1.1",
+    "pg": "^8.13.1",
     "tsx": "^4.21.0",
     "typescript": "^6.0.3",
     "vite": "^5.4.0",

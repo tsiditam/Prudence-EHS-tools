@@ -1,0 +1,69 @@
+name: DB migrate (AtmosFlow)
+
+# Applies any pending Supabase migrations the moment a migration file
+# lands on main. This is the deploy step that closes the drift gap:
+# migrations used to be applied by hand, so anything not run by a human
+# went missing (011, 016–021), silently 500-ing the Templates and Sites
+# panels in production. Now main is the source of truth — merge a
+# migration and it ships.
+#
+# Runs in parallel with Vercel's build (Vercel deploys the SPA/API;
+# this deploys the schema). The runner is idempotent and forward-only:
+# it tracks applied versions in public.schema_migrations and only
+# applies what's pending, each migration in its own transaction.
+#
+# Required repository secret:
+#   SUPABASE_DB_URL — Postgres connection string for the atmosflow
+#                     project (Supabase dashboard → Project Settings →
+#                     Database → Connection string → URI, with the
+#                     database password filled in). Use the session
+#                     pooler URI for CI.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'atmosiq-v6/supabase/migrations/**'
+  # Manual trigger for re-runs / first-time baseline.
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'apply (default) or dry-run or baseline'
+        required: false
+        default: 'apply'
+        type: choice
+        options: [apply, dry-run, baseline]
+
+# Never run two migration jobs at once against the same database.
+concurrency:
+  group: db-migrate-production
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: atmosiq-v6
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: atmosiq-v6/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Apply pending migrations
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          MODE="${{ github.event.inputs.mode }}"
+          case "$MODE" in
+            dry-run)  npm run db:migrate:status ;;
+            baseline) node scripts/db-migrate.mjs --baseline ;;
+            *)        npm run db:migrate ;;
+          esac
