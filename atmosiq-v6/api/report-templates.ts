@@ -30,7 +30,12 @@
  */
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import { discoverTokens, TemplateRenderError } from '../lib/report-templates/render'
+// NOTE: ../lib/report-templates/render pulls in docxtemplater + pizzip at
+// module load. Only the `upload` action needs token discovery, so it is
+// imported lazily inside handleUpload (see below) — `list` and `delete`
+// must not drag those heavy deps into their cold start. This mirrors the
+// CLAUDE.md "Jasper hot path stays lean" rule (pitfall #5): keeping the
+// DOCX bundle off the light paths avoids cold-start 500s on Vercel.
 
 const MAX_TEMPLATE_BYTES = 5 * 1024 * 1024 // 5 MB
 const MAX_NAME_LEN = 120
@@ -89,18 +94,31 @@ async function handler(req: Req, res: Res) {
     return
   }
 
-  const supabase = getSupabase()
-  const { data: { user }, error: authErr } = await supabase.auth.getUser(
-    authHeader.replace('Bearer ', ''),
-  )
-  if (authErr || !user) {
-    res.status(401).json({ error: 'invalid_token' })
-    return
-  }
+  // Everything past this point can throw at runtime (Supabase init on a
+  // missing env var, an unexpected client error). Without this guard those
+  // throws surface as a bare Vercel 500 with no JSON body — which is what
+  // the Settings panel reported as "Failed to load templates (500)". Catch
+  // them and return a JSON error with a stable diagnostic `code` so the
+  // failing stage is identifiable from the response alone.
+  try {
+    const supabase = getSupabase()
+    const { data: { user }, error: authErr } = await supabase.auth.getUser(
+      authHeader.replace('Bearer ', ''),
+    )
+    if (authErr || !user) {
+      res.status(401).json({ error: 'invalid_token' })
+      return
+    }
 
-  if (action === 'upload') return handleUpload(supabase, user.id, body, res)
-  if (action === 'list')   return handleList(supabase, user.id, res)
-  if (action === 'delete') return handleDelete(supabase, user.id, body, res)
+    if (action === 'upload') { await handleUpload(supabase, user.id, body, res); return }
+    if (action === 'list')   { await handleList(supabase, user.id, res); return }
+    if (action === 'delete') { await handleDelete(supabase, user.id, body, res); return }
+  } catch (err) {
+    console.error('[report-templates] unhandled error:', (err as Error)?.message)
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'server_error', code: 'rt_init' })
+    }
+  }
 }
 
 async function handleUpload(
@@ -135,6 +153,9 @@ async function handleUpload(
   }
 
   // Discover tokens (also serves as a "is this actually a .docx?" check).
+  // Lazy import: docxtemplater + pizzip only load on the upload path, never
+  // for list/delete (see the import note at the top of this file).
+  const { discoverTokens, TemplateRenderError } = await import('../lib/report-templates/render')
   let tokens: { found: string[]; unknown: string[] }
   try {
     tokens = discoverTokens(buffer)
