@@ -15,8 +15,9 @@ import ReactDOM from 'react-dom/client'
 import App from './App'
 import ErrorBoundary from './components/ErrorBoundary'
 import EarlyAccessPage from './components/EarlyAccessPage'
+import { Toaster } from 'sonner'
 import { initSentryClient } from '../lib/sentry-client'
-import { bootTheme } from './utils/theme'
+import { bootTheme, getTheme } from './utils/theme'
 
 initSentryClient()
 bootTheme()
@@ -27,6 +28,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <ErrorBoundary>
       {isEarlyAccess ? <EarlyAccessPage /> : <App />}
+      <Toaster theme={getTheme()} richColors closeButton position="top-center" />
     </ErrorBoundary>
   </React.StrictMode>
 )
