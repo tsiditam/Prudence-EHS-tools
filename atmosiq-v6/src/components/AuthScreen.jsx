@@ -102,6 +102,34 @@ const AtmosBackdrop = () => (
   </svg>
 )
 
+// Ambient air-flow — faint cyan currents drifting across the lower
+// canvas. Each line is a gentle wave whose dashes flow along it
+// (animated stroke-dashoffset), reading as moving air and reinforcing
+// the Air / Flow brand language. Anchored to the bottom, behind all
+// content, pointer-transparent; holds still under prefers-reduced-motion.
+const AirFlow = () => {
+  const lines = [
+    { y: 60,  w: 1.2, o: 0.16, dur: 9 },
+    { y: 150, w: 0.9, o: 0.11, dur: 13 },
+    { y: 240, w: 0.8, o: 0.09, dur: 11 },
+    { y: 320, w: 1.0, o: 0.07, dur: 16 },
+  ]
+  return (
+    <svg width="100%" height="44%" viewBox="0 0 393 380" preserveAspectRatio="none" aria-hidden="true"
+      style={{ position: 'absolute', left: 0, right: 0, bottom: 0, pointerEvents: 'none', zIndex: 0 }}>
+      {lines.map((l, i) => (
+        <path
+          key={i}
+          d={`M-40 ${l.y} C 60 ${l.y - 24}, 150 ${l.y + 24}, 240 ${l.y} S 420 ${l.y - 24}, 470 ${l.y}`}
+          fill="none" stroke="var(--accent)" strokeWidth={l.w} strokeLinecap="round"
+          strokeDasharray="6 16" opacity={l.o}
+          style={{ animation: `auth-flow ${l.dur}s linear infinite` }}
+        />
+      ))}
+    </svg>
+  )
+}
+
 // Password visibility toggle. `open` = currently showing plaintext;
 // renders the eye-with-slash glyph. Outlined-eye + slash pattern is
 // the near-universal show/hide affordance — the previous concentric-
@@ -133,6 +161,37 @@ const Spinner = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style={{animation:'auth-spin 1.2s linear infinite'}}>
     <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="2.5" opacity="0.2"/>
     <path d="M21 12 a9 9 0 0 0 -9 -9" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
+  </svg>
+)
+
+// ── Lower-panel iconography ──────────────────────────────────────────
+// Small line icons for the "what's inside" feature row + the data-trust
+// line that fill the space below the trust pills.
+const FeatWalk = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <rect x="5" y="4" width="14" height="17" rx="2"/>
+    <path d="M9 4V3.2A1.2 1.2 0 0 1 10.2 2h3.6A1.2 1.2 0 0 1 15 3.2V4"/>
+    <path d="M8.5 10h7M8.5 14h5"/>
+  </svg>
+)
+const FeatScore = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M4 19a8 8 0 0 1 16 0"/>
+    <path d="M12 19l4-5"/>
+    <circle cx="12" cy="19" r="1.5" fill="var(--accent)" stroke="none"/>
+  </svg>
+)
+const FeatReport = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M7 3h7l5 5v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/>
+    <path d="M14 3v5h5"/>
+    <path d="M9 13h6M9 16.5h4"/>
+  </svg>
+)
+const LockIcon = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <rect x="5" y="11" width="14" height="9" rx="2"/>
+    <path d="M8 11V7a4 4 0 0 1 8 0v4"/>
   </svg>
 )
 
@@ -305,6 +364,7 @@ export default function AuthScreen({ onAuth }) {
       paddingBottom: 'env(safe-area-inset-bottom, 20px)',
     }}>
       <AtmosBackdrop />
+      <AirFlow />
 
       <div style={{
         position: 'relative', zIndex: 1,
@@ -621,6 +681,41 @@ export default function AuthScreen({ onAuth }) {
           </div>
         )}
 
+        {/* What's inside — a quiet 3-up value row so the moment before
+            sign-in communicates what the platform actually does. */}
+        {mode === 'login' && (
+          <div style={{ marginTop: 22, display: 'flex', justifyContent: 'center', gap: 16, ...rise(470) }}>
+            {[
+              { Icon: FeatWalk, l1: 'Guided', l2: 'walkthrough' },
+              { Icon: FeatScore, l1: 'Deterministic', l2: 'scoring' },
+              { Icon: FeatReport, l1: 'Report-ready', l2: 'output' },
+            ].map(({ Icon, l1, l2 }) => (
+              <div key={l1} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7, width: 92 }}>
+                <span style={{
+                  display: 'inline-flex', width: 36, height: 36, borderRadius: 11,
+                  alignItems: 'center', justifyContent: 'center',
+                  background: 'color-mix(in srgb, var(--accent) 8%, transparent)',
+                  border: '1px solid color-mix(in srgb, var(--accent) 16%, transparent)',
+                }}><Icon /></span>
+                <span style={{ fontSize: 10.5, fontWeight: 600, color: SUB, textAlign: 'center', lineHeight: 1.32, letterSpacing: '0.02em' }}>
+                  {l1}<br />{l2}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Data-trust line — concrete reassurance for the EHS buyer at
+            the moment of sign-in. */}
+        {mode === 'login' && (
+          <div style={{ marginTop: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, ...rise(510) }}>
+            <LockIcon />
+            <span style={{ fontSize: 10.5, color: DIM, letterSpacing: '0.02em', lineHeight: 1.4, textAlign: 'center' }}>
+              Encrypted in transit &amp; at rest · You own your data · Never sold
+            </span>
+          </div>
+        )}
+
         {/* Footer — bumped from var(--dim) (#4A5160, ~3.5:1 on bg) to
             var(--sub) (#6B7380, ~4.65:1) so the maker-credibility line
             clears WCAG 2.2 AA contrast (4.5:1 for normal text). The
@@ -629,7 +724,7 @@ export default function AuthScreen({ onAuth }) {
         <div style={{
           textAlign: 'center', marginTop: 20, marginBottom: 24,
           fontSize: 10, fontWeight: 400, color: SUB, letterSpacing: '0.02em',
-          ...rise(460),
+          ...rise(540),
         }}>
           Built by Prudence EHS · Secure · Private · Professional
         </div>
@@ -639,6 +734,9 @@ export default function AuthScreen({ onAuth }) {
         @keyframes auth-fadeUp{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}
         @keyframes auth-rise{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
         @keyframes auth-glow{from{opacity:0;}to{opacity:1;}}
+        /* Air-flow currents: dashes drift along each wave. -220 is a
+           multiple of the 22px dash period, so the loop is seamless. */
+        @keyframes auth-flow{from{stroke-dashoffset:0;}to{stroke-dashoffset:-220;}}
         @keyframes auth-spin{from{transform:rotate(0);}to{transform:rotate(360deg);}}
         @keyframes auth-banner{from{opacity:0;transform:translateY(-8px);}to{opacity:1;transform:translateY(0);}}
         /* Tactile primary CTA — lifts on hover, depresses on press, with
