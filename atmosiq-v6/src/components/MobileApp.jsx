@@ -2959,15 +2959,16 @@ export default function MobileApp() {
                 aria-label="Open menu"
                 aria-haspopup="menu"
                 aria-expanded={showHomeMenu}
-                style={{width:30,height:30,marginLeft:-4,background:'transparent',border:'none',padding:0,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',WebkitTapHighlightColor:'transparent'}}>
-                <I n="menu" s={20} c={ACCENT} w={2.4} />
+                style={{width:24,height:24,marginLeft:-2,background:'transparent',border:'none',padding:0,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',WebkitTapHighlightColor:'transparent'}}>
+                <I n="menu" s={17} c={ACCENT} w={2.2} />
               </button>
-              {/* Wordmark sits to the right of the hamburger, scaled down
-                  to align with the icon's optical height. */}
+              {/* Wordmark to the right of the menu — sized to dominate the
+                  bar (Kalshi-style), with the small thin hamburger beside
+                  it. ~30px tall fills most of the 48px header height. */}
               <img
                 src="/icons/atmosflow-logo.svg"
                 alt="AtmosFlow"
-                style={{height:18,width:'auto',marginLeft:6,display:'block'}}
+                style={{height:30,width:'auto',marginLeft:10,display:'block'}}
               />
               </>
             )}
