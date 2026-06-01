@@ -112,11 +112,14 @@
         /* Brighter cyan reserved for emphasis — filled primary CTAs and
            active/selected highlights. Toned down from the old #22D3EE
            aqua but kept a step brighter than --accent so filled buttons
-           still pop. Invariant across modes. --on-accent-fill is the
-           paired foreground — always dark, because light text on cyan
-           this bright fails WCAG AA. */
+           still pop. The fill itself is invariant across modes; the
+           paired foreground --on-accent-fill diverges: WHITE in dark
+           mode (per product direction — the inscription on the cyan CTA
+           reads white on dark surfaces) and dark in light mode below.
+           Note: white on #39C0D9 is ~1.9:1, under WCAG AA — accepted
+           intentionally for the dark-mode look; flag for any a11y audit. */
         --accent-fill:#39C0D9;
-        --on-accent-fill:#07080C;
+        --on-accent-fill:#FFFFFF;
       }
       [data-theme="light"]{
         /* Premium Light palette — replaces pure-white with a three-step
@@ -144,8 +147,10 @@
         --sub:#475569;
         --dim:#5B6675;
         --on-accent:#07080C;
-        /* --accent-fill / --on-accent-fill stay invariant across
-           modes (emphasis cyan + dark text on filled CTAs). */
+        /* --accent-fill (emphasis cyan) is invariant. --on-accent-fill
+           stays DARK in light mode — black text on the cyan CTA is the
+           correct, high-contrast pairing against a near-white page
+           (dark mode flips it to white above). */
         --accent-fill:#39C0D9;
         --on-accent-fill:#07080C;
         /* Semantic colors diverge in light mode: the vivid dark-mode
