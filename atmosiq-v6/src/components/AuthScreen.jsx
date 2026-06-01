@@ -603,12 +603,13 @@ export default function AuthScreen({ onAuth }) {
             <div style={{ fontSize: 10, fontWeight: 600, color: SUB, letterSpacing: '0.12em' }}>
               BUILT FOR IH &amp; EHS PROFESSIONALS
             </div>
-            {/* Trust signals as lightweight pills rather than a bordered
-                card — cleaner, less visual weight, reads at a glance.
-                Screening-Only stays present per the platform's positioning. */}
+            {/* Standards-body trust signals as lightweight pills —
+                cleaner than a bordered card, reads at a glance. Each pill
+                glows cyan when touched/hovered (.auth-pill in the style
+                block). */}
             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 8, maxWidth: 360 }}>
-              {['ASHRAE', 'NIOSH', 'Screening-Only'].map(label => (
-                <span key={label} style={{
+              {['NIOSH', 'ASHRAE', 'AIHA'].map(label => (
+                <span key={label} className="auth-pill" style={{
                   fontSize: 11, fontWeight: 600, letterSpacing: '0.02em',
                   color: ACCENT, whiteSpace: 'nowrap',
                   padding: '6px 12px', borderRadius: 999,
@@ -646,6 +647,11 @@ export default function AuthScreen({ onAuth }) {
         .auth-cta:active:not(:disabled){transform:translateY(1px) scale(.992);box-shadow:0 5px 14px -6px color-mix(in srgb, var(--accent) 50%, transparent), inset 0 1px 0 color-mix(in srgb, #ffffff 22%, transparent);}
         .auth-quiet:hover:not(:disabled){border-color:color-mix(in srgb, var(--accent) 38%, transparent);background:color-mix(in srgb, var(--accent) 5%, transparent);}
         .auth-quiet:active:not(:disabled){transform:scale(.99);}
+        /* Trust pills glow cyan when touched (and on hover). :active is
+           held while a finger is down, so the pill lights up under touch. */
+        .auth-pill{transition:box-shadow .2s ease, border-color .2s ease, background .2s ease, transform .12s ease;}
+        .auth-pill:hover{border-color:color-mix(in srgb, var(--accent) 45%, transparent);box-shadow:0 0 10px color-mix(in srgb, var(--accent) 38%, transparent);}
+        .auth-pill:active{border-color:color-mix(in srgb, var(--accent) 70%, transparent);background:color-mix(in srgb, var(--accent) 16%, transparent);box-shadow:0 0 16px color-mix(in srgb, var(--accent) 60%, transparent), 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent);transform:scale(.97);}
         @media (prefers-reduced-motion: reduce){
           *,*:before,*:after{animation-duration:0.01ms !important;animation-delay:0ms !important;animation-iteration-count:1 !important;transition-duration:0.01ms !important;}
         }
