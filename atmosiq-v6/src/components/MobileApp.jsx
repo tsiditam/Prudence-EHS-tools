@@ -691,20 +691,24 @@ export default function MobileApp() {
   // gear icon in the Home header; Settings is now one entry inside the
   // dropdown.
   const [showHomeMenu, setShowHomeMenu] = useState(false)
+  // Slide-out latch — kept true for the duration of the exit animation
+  // so the Kalshi-style drawer can translate back off-screen before it
+  // unmounts (rather than vanishing instantly). closeMenu() sets this,
+  // then a timer clears showHomeMenu once the keyframe has played.
+  const [menuClosing, setMenuClosing] = useState(false)
   // Feedback sheet: holds the context string of where it was opened from
   // (menu, AI narrative, findings…) or null when closed.
   const [feedbackCtx, setFeedbackCtx] = useState(null)
   const openFeedback = (ctx) => setFeedbackCtx(ctx || 'General feedback')
-  // Ref + cached rect for the hamburger menu's anchoring. When the menu
-  // opens, we cache the button's bounding rect so the portal'd menu can
-  // position itself with `position: fixed`. Portaling is required
-  // because the header has `backdrop-filter: blur(24px)` which creates
-  // a containing block for fixed-positioned descendants — any backdrop
-  // rendered as a descendant of the header is clipped to the header's
-  // bounds, so taps below the header strip never reach it. Portaling
-  // to document.body escapes that containing block.
+  // Ref to the hamburger button. The drawer itself is a full-height,
+  // left-anchored panel (position:fixed; left:0) portaled to
+  // document.body, so it no longer needs the button's bounding rect —
+  // but the ref is retained for focus/aria wiring. Portaling is still
+  // required because the header has `backdrop-filter: blur(24px)`, which
+  // creates a containing block for fixed-positioned descendants; a scrim
+  // rendered inside the header would clip to the header strip and leave
+  // the page below tap-unreachable. document.body escapes that.
   const menuButtonRef = useRef(null)
-  const [menuAnchor, setMenuAnchor] = useState(null)
   // Home menu sub-mode. 'main' shows the canonical menu items; 'demos'
   // shows the demo picker (Office Building / Data Center / FM Sample
   // Check). Consolidates what was three separate flat menu entries
@@ -2945,17 +2949,7 @@ export default function MobileApp() {
               <>
               <button
                 ref={menuButtonRef}
-                onClick={(e)=>{
-                  // Cache the rect when opening so the portal'd menu
-                  // can render with `position: fixed` anchored to the
-                  // button. Reading at toggle-time (not on every render)
-                  // avoids layout thrash.
-                  if (!showHomeMenu) {
-                    const r = e.currentTarget.getBoundingClientRect()
-                    setMenuAnchor({ top: r.bottom + 8, left: r.left })
-                  }
-                  setShowHomeMenu(v=>!v)
-                }}
+                onClick={()=>{ setMenuClosing(false); setShowHomeMenu(true) }}
                 aria-label="Open menu"
                 aria-haspopup="menu"
                 aria-expanded={showHomeMenu}
@@ -3021,102 +3015,154 @@ export default function MobileApp() {
                 // Exit.
                 { label: 'Sign out',     icon: 'logout', onClick: handleLogout, divider: true, danger: true },
               ]
-              const closeMenu = () => { setShowHomeMenu(false); setHomeMenuMode('main') }
-              // The menu + backdrop are portaled to document.body so they
+              // Slide-out close: latch `menuClosing` so the drawer plays
+              // its exit keyframe, then unmount once it has translated
+              // off-screen. 220ms matches the drawerOut duration below.
+              const closeMenu = () => {
+                setMenuClosing(true)
+                setTimeout(() => { setShowHomeMenu(false); setHomeMenuMode('main'); setMenuClosing(false) }, 220)
+              }
+              // Account-header derivations. `name` is the assessor's saved
+              // name, but falls back to their email for brand-new profiles
+              // (see handleLogin), so strip an "@…" tail before deriving
+              // initials / title so a fresh account doesn't render an email
+              // address as its display name.
+              const displayName = profile?.name || 'Assessor'
+              const cleanName = displayName.includes('@') ? displayName.split('@')[0] : displayName
+              const initials = (cleanName.trim().split(/\s+/).map(s => s[0]).filter(Boolean).slice(0, 2).join('') || 'A').toUpperCase()
+              const planLabel = isEnterprise(profile)
+                ? (profile?.plan === 'enterprise' ? 'Enterprise plan' : profile?.plan === 'team' ? 'Team plan' : 'Pro access')
+                : 'Beta access'
+              // The drawer + scrim are portaled to document.body so they
               // escape the header's containing block. The header has
-              // `backdrop-filter: blur(24px)` which (per CSS spec)
-              // creates a containing block for `position: fixed`
-              // descendants — without the portal, the backdrop's
-              // `inset: 0` would clip to the header strip, leaving the
-              // page below tap-unreachable. The anchor coordinates come
-              // from the hamburger button's bounding rect, cached on
-              // open.
-              const anchor = menuAnchor || { top: 60, left: 12 }
+              // `backdrop-filter: blur(24px)` which (per CSS spec) creates
+              // a containing block for `position: fixed` descendants —
+              // without the portal, the scrim's `inset: 0` would clip to
+              // the header strip, leaving the page below tap-unreachable.
               return createPortal(
                 <>
-                  {/* Full-viewport backdrop. Sits at z-1000 — well above
-                      the header (100), bottom nav (100), floating CTA
-                      (90), and any sheet/modal stack. Both onClick and
-                      onPointerDown handlers so iOS catches the first
-                      touch even if the click event is swallowed by a
-                      tap-cancel on scroll-jitter. */}
+                  {/* Scrim — full-viewport dim behind the drawer. z-1000,
+                      above header (100), bottom nav (100), floating CTA
+                      (90). Both onClick + onPointerDown so iOS catches the
+                      first touch even if the click is swallowed by a
+                      tap-cancel on scroll-jitter. Fades in/out with the
+                      drawer slide. */}
                   <div
                     onClick={closeMenu}
                     onPointerDown={closeMenu}
+                    className={menuClosing ? 'af-scrim-out' : 'af-scrim-in'}
                     style={{
                       position:'fixed', inset:0, zIndex:1000,
-                      background:'rgba(0,0,0,0.22)',
-                      backdropFilter:'blur(6px)',
-                      WebkitBackdropFilter:'blur(6px)',
+                      background:'rgba(0,0,0,0.5)',
+                      backdropFilter:'blur(2px)',
+                      WebkitBackdropFilter:'blur(2px)',
                     }} />
-                  {/* Menu — position:fixed anchored to the cached
-                      button rect. Soft-glass surface matches the rest
-                      of v3.3. z-1010 so it sits above its own backdrop. */}
-                  <div role="menu" style={{
-                    position:'fixed',
-                    top: anchor.top, left: anchor.left,
-                    minWidth:240, zIndex:1010, padding:6,
-                    ...GLASS.elevated,
-                    // Notion-like frosted translucency: drop the elevated
-                    // surface's near-opaque 96% fill to ~70% and lean on a
-                    // heavier backdrop blur, so the page reads softly
-                    // through the menu instead of behind a solid block.
-                    background:'color-mix(in srgb, var(--card) 70%, transparent)',
-                    backdropFilter:'blur(30px) saturate(180%)',
-                    WebkitBackdropFilter:'blur(30px) saturate(180%)',
-                    borderRadius: RADII.sheet,
-                    boxShadow:
-                      'inset 0 1px 0 rgba(255,255,255,0.06), ' +
-                      '0 12px 32px rgba(0,0,0,0.55), ' +
-                      '0 2px 6px rgba(0,0,0,0.30)',
-                    animation:'fadeUp .15s ease',
-                  }}>
-                    {homeMenuMode === 'demos' && (
-                      // Submenu header — back button to return to the
-                      // main menu without closing the popover.
+                  {/* Drawer — full-height panel anchored to the left edge,
+                      sliding in from off-screen (Kalshi pattern). z-1010 so
+                      it sits above its own scrim. Solid surface (not glass)
+                      so the dense item list stays legible over the dimmed
+                      page. Caps at 340px on wide screens; 86vw on phones. */}
+                  <div
+                    role="menu"
+                    aria-label="Main menu"
+                    className={menuClosing ? 'af-drawer-out' : 'af-drawer-in'}
+                    style={{
+                      position:'fixed', top:0, left:0, bottom:0,
+                      width:'64vw', maxWidth:256, zIndex:1010,
+                      display:'flex', flexDirection:'column',
+                      // Midnight black — a fixed near-black panel rather
+                      // than var(--surface), so the drawer reads as a deep
+                      // slab over the dimmed page in both themes.
+                      background:'#06070C',
+                      borderRight:`1px solid ${BORDER}`,
+                      boxShadow:'8px 0 40px rgba(0,0,0,0.55), 1px 0 0 rgba(255,255,255,0.04)',
+                      // Clear the status bar / notch at the top and the home
+                      // indicator at the bottom.
+                      paddingTop:'calc(env(safe-area-inset-top) + 14px)',
+                      paddingBottom:'env(safe-area-inset-bottom)',
+                    }}>
+                    {/* Account header — status line + tappable profile row
+                        (→ Settings), mirroring Kalshi's "Exchange is open"
+                        + Deposit row. */}
+                    <div style={{padding:'2px 18px 14px', borderBottom:`1px solid ${BORDER}`, flexShrink:0}}>
+                      <div style={{fontSize:13, fontWeight:600, color:SUB, letterSpacing:'-0.01em', marginBottom:14}}>
+                        {planLabel}
+                      </div>
                       <button
-                        role="menuitem"
-                        onClick={() => setHomeMenuMode('main')}
+                        onClick={() => { closeMenu(); setView('settings') }}
+                        aria-label="Account settings"
                         style={{
-                          width:'100%',padding:'10px 14px 12px',background:'transparent',border:'none',borderRadius:10,
-                          cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:10,
-                          fontFamily:'inherit',color:SUB,fontSize:12,fontWeight:600,minHeight:36,letterSpacing:'0.3px',
-                          textTransform:'uppercase',
-                          borderBottom:`1px solid ${BORDER}`,marginBottom:4,borderRadius:0,
+                          width:'100%', background:'transparent', border:'none', padding:0, cursor:'pointer',
+                          display:'flex', alignItems:'center', gap:13, textAlign:'left', fontFamily:'inherit',
                         }}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={SUB} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                          <polyline points="15 18 9 12 15 6" />
+                        <div style={{
+                          width:46, height:46, borderRadius:'50%', flexShrink:0,
+                          background:mix('accent', 12), border:`1px solid ${mix('accent', 28)}`,
+                          display:'flex', alignItems:'center', justifyContent:'center',
+                          color:ACCENT, fontSize:17, fontWeight:700, letterSpacing:'0.02em',
+                        }}>{initials}</div>
+                        <div style={{flex:1, minWidth:0}}>
+                          <div style={{fontSize:17, fontWeight:700, color:TEXT, letterSpacing:'-0.02em', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{cleanName}</div>
+                          <div style={{fontSize:13, color:SUB, marginTop:2}}>View account & settings</div>
+                        </div>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={DIM} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <polyline points="9 18 15 12 9 6" />
                         </svg>
-                        <span>Demos</span>
                       </button>
-                    )}
-                    {(homeMenuMode === 'demos' ? demoItems : mainItems).map(item => (
-                      <button
-                        key={item.label}
-                        role="menuitem"
-                        onClick={() => {
-                          if (item.submenu) { setHomeMenuMode(item.submenu); return }
-                          closeMenu()
-                          item.onClick()
-                        }}
-                        style={{
-                          width:'100%',padding:'12px 14px',background:'transparent',border:'none',borderRadius:10,
-                          cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,
-                          fontFamily:'inherit',color:item.danger?DANGER:TEXT,fontSize:14,fontWeight:500,minHeight:44,
-                          transition:'background 0.12s',
-                          ...(item.divider?{marginTop:6,paddingTop:14,borderTop:`1px solid ${BORDER}`,borderRadius:0}:{}),
-                        }}
-                        onMouseEnter={e => { e.currentTarget.style.background = SURFACE }}
-                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}>
-                        <I n={item.icon} s={18} c={item.danger?DANGER:SUB} w={1.6} />
-                        <span style={{flex:1}}>{item.label}</span>
-                        {item.submenu && (
+                    </div>
+
+                    {/* Scrollable item list. The existing mainItems /
+                        demoItems arrays drive this verbatim — only the row
+                        styling changes (full-width, larger touch target),
+                        so every destination + the Demos submenu behave
+                        exactly as before. */}
+                    <div style={{flex:1, overflowY:'auto', padding:'8px 0', WebkitOverflowScrolling:'touch'}}>
+                      {homeMenuMode === 'demos' && (
+                        // Submenu header — back button to return to the
+                        // main list without closing the drawer.
+                        <button
+                          role="menuitem"
+                          onClick={() => setHomeMenuMode('main')}
+                          style={{
+                            width:'100%', padding:'8px 20px 12px', background:'transparent', border:'none',
+                            cursor:'pointer', textAlign:'left', display:'flex', alignItems:'center', gap:10,
+                            fontFamily:'inherit', color:SUB, fontSize:12, fontWeight:600, minHeight:36,
+                            letterSpacing:'0.3px', textTransform:'uppercase',
+                          }}>
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={SUB} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                            <polyline points="9 18 15 12 9 6" />
+                            <polyline points="15 18 9 12 15 6" />
                           </svg>
-                        )}
-                      </button>
-                    ))}
+                          <span>Demos</span>
+                        </button>
+                      )}
+                      {(homeMenuMode === 'demos' ? demoItems : mainItems).map(item => (
+                        <button
+                          key={item.label}
+                          role="menuitem"
+                          onClick={() => {
+                            if (item.submenu) { setHomeMenuMode(item.submenu); return }
+                            closeMenu()
+                            item.onClick()
+                          }}
+                          style={{
+                            width:'100%', padding:'13px 20px', background:'transparent', border:'none',
+                            cursor:'pointer', textAlign:'left', display:'flex', alignItems:'center', gap:16,
+                            fontFamily:'inherit', color:item.danger?DANGER:TEXT, fontSize:15, fontWeight:500, minHeight:52,
+                            transition:'background 0.12s',
+                            ...(item.divider?{marginTop:8, paddingTop:18, borderTop:`1px solid ${BORDER}`}:{}),
+                          }}
+                          onMouseEnter={e => { e.currentTarget.style.background = mix('accent', 6) }}
+                          onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}>
+                          <I n={item.icon} s={20} c={item.danger?DANGER:SUB} w={1.7} />
+                          <span style={{flex:1}}>{item.label}</span>
+                          {item.submenu && (
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={DIM} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                              <polyline points="9 18 15 12 9 6" />
+                            </svg>
+                          )}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </>,
                 document.body
@@ -4572,10 +4618,22 @@ export default function MobileApp() {
         .fa-zone-in{animation:faZoneIn .26s cubic-bezier(.22,1,.36,1) both;}
         .fa-breathe{animation:faBreathe 3.6s ease-in-out infinite;}
         .fa-airflow{animation:faDrift 22s ease-in-out infinite;}
+        /* Kalshi-style left drawer — slides in from off-screen and back
+           out before unmount, with the scrim fading in step. */
+        @keyframes drawerIn{from{transform:translateX(-100%);}to{transform:translateX(0);}}
+        @keyframes drawerOut{from{transform:translateX(0);}to{transform:translateX(-100%);}}
+        @keyframes scrimOut{from{opacity:1;}to{opacity:0;}}
+        .af-drawer-in{animation:drawerIn .26s cubic-bezier(.22,1,.36,1);}
+        .af-drawer-out{animation:drawerOut .22s ease-in forwards;}
+        .af-scrim-in{animation:fadeIn .26s ease;}
+        .af-scrim-out{animation:scrimOut .22s ease forwards;}
         @media (prefers-reduced-motion: reduce){
           .fa-zone-in{animation:none;}
           .fa-breathe{animation:none;opacity:.55;}
           .fa-airflow{animation:none;}
+          .af-drawer-in,.af-drawer-out{animation:none;}
+          .af-scrim-in{animation:none;}
+          .af-scrim-out{animation:none;opacity:0;}
         }
         *{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent;}
         button{font-family:inherit;-webkit-tap-highlight-color:transparent;}
