@@ -607,7 +607,7 @@ export default function AuthScreen({ onAuth }) {
                 card — cleaner, less visual weight, reads at a glance.
                 Screening-Only stays present per the platform's positioning. */}
             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 8, maxWidth: 360 }}>
-              {['ASHRAE', 'NIOSH', 'AI-Assisted', 'IH-Reviewed', 'Screening-Only'].map(label => (
+              {['ASHRAE', 'NIOSH', 'Screening-Only'].map(label => (
                 <span key={label} style={{
                   fontSize: 11, fontWeight: 600, letterSpacing: '0.02em',
                   color: ACCENT, whiteSpace: 'nowrap',
