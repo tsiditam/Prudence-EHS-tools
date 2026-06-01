@@ -2965,11 +2965,22 @@ export default function MobileApp() {
               {/* Wordmark to the right of the menu (Kalshi-style), with the
                   small thin hamburger beside it. Uses the tagline-free
                   variant (no "Indoor Air Quality Intelligence" strap) for a
-                  cleaner header; the full lockup stays on the auth screen. */}
+                  cleaner header; the full lockup stays on the auth screen.
+                  Two variants swap by theme (CSS in index.html): white
+                  text on dark, black text on light — the brain mark stays
+                  cyan in both so the white wordmark never vanishes on the
+                  light header. */}
               <img
+                className="af-wordmark af-wordmark-dark"
                 src="/icons/atmosflow-wordmark.svg"
                 alt="AtmosFlow"
                 style={{height:24,width:'auto',marginLeft:10,display:'block'}}
+              />
+              <img
+                className="af-wordmark af-wordmark-light"
+                src="/icons/atmosflow-wordmark-light.svg"
+                alt="AtmosFlow"
+                style={{height:24,width:'auto',marginLeft:10,display:'none'}}
               />
               </>
             )}
