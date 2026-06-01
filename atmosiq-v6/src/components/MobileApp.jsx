@@ -2902,13 +2902,12 @@ export default function MobileApp() {
       <OfflineBanner />
       <header style={{position:'fixed',top:0,left:0,right:0,zIndex:100,background:`${mix('bg', 95)}`,backdropFilter:'blur(24px) saturate(1.4)',WebkitBackdropFilter:'blur(24px) saturate(1.4)',borderBottom:`1px solid ${BORDER}`,paddingTop:'env(safe-area-inset-top, 0px)'}}>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',height:48,padding:`0 ${padX}px`,maxWidth:contentMax,margin:'0 auto'}}>
-          {/* Left cluster — hamburger menu (with its dropdown). The
-              "AtmosFlow" wordmark used to live here; it's been removed
-              so the menu sits flush at the left edge and the right
-              cluster (status pills + avatar) reads as the identity
-              column. The relative positioning anchors the dropdown
-              menu below to this left cluster instead of the right
-              one, so the popover now opens DOWN-LEFT from the
+          {/* Left cluster — hamburger menu (with its dropdown) followed
+              by the "AtmosFlow" wordmark to its right. The hamburger is
+              a bare icon (no bubble/border) so it sits flush at the left
+              edge; the wordmark is scaled to the icon's height. The
+              relative positioning anchors the dropdown menu below to
+              this left cluster, so the popover opens DOWN-LEFT from the
               hamburger rather than down-right. */}
           <div style={{position:'relative',display:'flex',alignItems:'center'}}>
             {/* Back to dashboard — shown on every screen except the
@@ -2927,6 +2926,7 @@ export default function MobileApp() {
               </button>
             )}
             {profile && view==='dash' && (
+              <>
               <button
                 ref={menuButtonRef}
                 onClick={(e)=>{
@@ -2943,9 +2943,17 @@ export default function MobileApp() {
                 aria-label="Open menu"
                 aria-haspopup="menu"
                 aria-expanded={showHomeMenu}
-                style={{width:36,height:36,borderRadius:10,background:showHomeMenu ? CARD : 'transparent',border:`1px solid ${BORDER}`,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                <I n="menu" s={22} c={ACCENT} w={2.6} />
+                style={{width:30,height:30,marginLeft:-4,background:'transparent',border:'none',padding:0,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',WebkitTapHighlightColor:'transparent'}}>
+                <I n="menu" s={20} c={ACCENT} w={2.4} />
               </button>
+              {/* Wordmark sits to the right of the hamburger, scaled down
+                  to align with the icon's optical height. */}
+              <img
+                src="/icons/atmosflow-logo.svg"
+                alt="AtmosFlow"
+                style={{height:18,width:'auto',marginLeft:6,display:'block'}}
+              />
+              </>
             )}
             {showHomeMenu && (() => {
               // Demo entries by user mode. For FM users there's only
