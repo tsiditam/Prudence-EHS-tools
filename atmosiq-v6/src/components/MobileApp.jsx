@@ -92,7 +92,7 @@ import SearchView from './SearchView'
 import FieldAssistant from './FieldAssistant'
 import SimilarAssessmentsPanel from './SimilarAssessmentsPanel'
 import VoiceCommandModal from './VoiceCommandModal'
-import JasperRobotIcon from './JasperRobotIcon'
+import JasperBrainIcon from './JasperBrainIcon'
 import PendingSyncIndicator from './PendingSyncIndicator'
 import OfflineBanner from './OfflineBanner'
 import JasperWatchPanel from './JasperWatchPanel'
@@ -4464,7 +4464,7 @@ export default function MobileApp() {
                       }} />
                     )}
                     {isJasper ? (
-                      <JasperRobotIcon size={22} color={isActive ? 'var(--accent)' : V3.TEXT_TERTIARY} />
+                      <JasperBrainIcon size={22} />
                     ) : (
                       <I n={t.icon} s={20} c={isActive?'var(--accent)':V3.TEXT_TERTIARY} w={isActive?2:1.7} />
                     )}

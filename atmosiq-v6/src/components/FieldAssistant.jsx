@@ -23,9 +23,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { I } from './Icons'
 import STO from '../utils/storage'
-// Jasper brand mark: monitor → robot. See JasperRobotIcon.jsx for the
-// cyan→orange→red gradient + filled silhouette spec.
-import JasperRobotIcon from './JasperRobotIcon'
+import JasperBrainIcon from './JasperBrainIcon'
 import VoiceInputButton, { appendWithSpace } from './VoiceInputButton'
 import { useFieldAssistant } from '../hooks/useFieldAssistant'
 import { mix } from '../utils/theme'
@@ -412,7 +410,7 @@ function JasperIntroPanel({ onAccept, onNavigate }) {
     <div style={{ padding: '12px 4px 4px' }}>
       <div className="jasper-stagger"
         style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, ...reveal(0) }}>
-        <JasperRobotIcon size={40} color="var(--accent)" />
+        <JasperBrainIcon size={40} />
         <div style={{ fontSize: 15, color: TEXT, lineHeight: 1.45, fontWeight: 600 }}>
           <span role="img" aria-label="waving hand">👋</span> Welcome to AtmosFlow AI — your indoor air quality assistant.
         </div>
@@ -993,7 +991,7 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
-            <JasperRobotIcon size={22} color="var(--accent)" />
+            <JasperBrainIcon size={24} />
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ fontSize: 15, fontWeight: 700, color: TEXT, lineHeight: 1.2 }}>AtmosFlow AI</div>
               <div style={{
