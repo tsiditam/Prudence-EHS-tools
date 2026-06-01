@@ -2962,13 +2962,14 @@ export default function MobileApp() {
                 style={{width:24,height:24,marginLeft:-2,background:'transparent',border:'none',padding:0,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',WebkitTapHighlightColor:'transparent'}}>
                 <I n="menu" s={17} c={ACCENT} w={2.2} />
               </button>
-              {/* Wordmark to the right of the menu — sized to dominate the
-                  bar (Kalshi-style), with the small thin hamburger beside
-                  it. ~30px tall fills most of the 48px header height. */}
+              {/* Wordmark to the right of the menu (Kalshi-style), with the
+                  small thin hamburger beside it. Uses the tagline-free
+                  variant (no "Indoor Air Quality Intelligence" strap) for a
+                  cleaner header; the full lockup stays on the auth screen. */}
               <img
-                src="/icons/atmosflow-logo.svg"
+                src="/icons/atmosflow-wordmark.svg"
                 alt="AtmosFlow"
-                style={{height:30,width:'auto',marginLeft:10,display:'block'}}
+                style={{height:24,width:'auto',marginLeft:10,display:'block'}}
               />
               </>
             )}
