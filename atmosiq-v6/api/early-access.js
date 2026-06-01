@@ -2,23 +2,44 @@
  * Vercel Serverless Function — /api/early-access
  * Handles early access form submissions.
  * Stores in Supabase, sends notification email via Resend.
+ *
+ * Rate limiting: DB-backed (counts rows in early_access_signups by IP
+ * within a rolling 1-hour window). Replaces the in-memory Map that was
+ * ineffective across separate serverless instances.
  */
 
 const { createClient } = require('@supabase/supabase-js')
 
-// In-memory rate limit (per serverless instance — not perfect but sufficient)
-const rateLimits = new Map()
+const MAX_PER_IP_PER_HOUR = 3
+const WINDOW_MS = 60 * 60 * 1000
 
-function isRateLimited(ip) {
-  const now = Date.now()
-  const windowMs = 60 * 60 * 1000 // 1 hour
-  const key = ip || 'unknown'
-  const entries = rateLimits.get(key) || []
-  const recent = entries.filter(ts => now - ts < windowMs)
-  if (recent.length >= 3) return true
-  recent.push(now)
-  rateLimits.set(key, recent)
-  return false
+let _supabaseClient = null
+function getSupabase() {
+  if (_supabaseClient) return _supabaseClient
+  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !key) return null
+  return createClient(url, key)
+}
+
+async function isRateLimited(supabase, ip) {
+  if (!ip || !supabase) return false
+  try {
+    const since = new Date(Date.now() - WINDOW_MS).toISOString()
+    const { count, error } = await supabase
+      .from('early_access_signups')
+      .select('*', { count: 'exact', head: true })
+      .eq('ip', ip)
+      .gte('submitted_at', since)
+    if (error) {
+      console.error('[early-access] rate limit check failed:', error.message)
+      return false // fail open — don't block legitimate signups on DB error
+    }
+    return (count || 0) >= MAX_PER_IP_PER_HOUR
+  } catch (err) {
+    console.error('[early-access] rate limit check threw:', err && err.message)
+    return false
+  }
 }
 
 function sanitize(str) {
@@ -30,20 +51,23 @@ function validateEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 }
 
-module.exports = async function handler(req, res) {
+async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  // Rate limit
-  const ip = req.headers['x-forwarded-for']?.split(',')[0] || req.socket?.remoteAddress
-  if (isRateLimited(ip)) {
+  const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim()
+    || (req.socket && req.socket.remoteAddress)
+    || null
+
+  const supabase = getSupabase()
+
+  if (await isRateLimited(supabase, ip)) {
     return res.status(429).json({ error: 'Too many requests. Please try again later.' })
   }
 
   const { name, email, company, title, volume, painpoint, source } = req.body || {}
 
-  // Validate required fields
   const errors = []
   if (!name || !sanitize(name)) errors.push('Name is required')
   if (!email || !validateEmail(email)) errors.push('Valid email is required')
@@ -69,14 +93,9 @@ module.exports = async function handler(req, res) {
     ip: ip || null,
   }
 
-  // Store in Supabase
-  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   let stored = false
-
-  if (supabaseUrl && serviceKey) {
+  if (supabase) {
     try {
-      const supabase = createClient(supabaseUrl, serviceKey)
       await supabase.from('early_access_signups').insert(submission)
       stored = true
     } catch (err) {
@@ -88,7 +107,6 @@ module.exports = async function handler(req, res) {
     console.log('Early access submission (not stored in DB):', JSON.stringify(submission))
   }
 
-  // Send notification email via Resend
   const resendKey = process.env.RESEND_API_KEY
   if (resendKey) {
     try {
@@ -122,4 +140,13 @@ module.exports = async function handler(req, res) {
   }
 
   return res.status(200).json({ success: true, id: submission.id })
+}
+
+module.exports = handler
+module.exports.__test = {
+  MAX_PER_IP_PER_HOUR,
+  WINDOW_MS,
+  isRateLimited,
+  setSupabase(mock) { _supabaseClient = mock },
+  resetSupabase() { _supabaseClient = null },
 }
