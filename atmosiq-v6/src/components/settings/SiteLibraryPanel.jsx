@@ -151,7 +151,9 @@ export default function SiteLibraryPanel() {
 
   return (
     <div style={{maxWidth: 620, margin: '0 auto'}}>
-      <div style={{...V3.T.h2, marginBottom: 6}}>Sites</div>
+      {/* No "Sites" heading here — the Settings Group wrapper already
+          renders the section's "SITES" label, so an in-panel <h2>Sites</h2>
+          duplicated it. */}
       <div style={{...V3.T.bodyDim, marginBottom: 16}}>
         Your saved site library. AtmosFlow uses these to remind you when a
         site is due for re-assessment (annually by default) and to
