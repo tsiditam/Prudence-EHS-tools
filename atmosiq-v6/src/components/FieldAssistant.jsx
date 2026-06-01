@@ -23,9 +23,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { I } from './Icons'
 import STO from '../utils/storage'
-// Jasper brand mark: monitor → robot. See JasperRobotIcon.jsx for the
-// cyan→orange→red gradient + filled silhouette spec.
-import JasperRobotIcon from './JasperRobotIcon'
 import VoiceInputButton, { appendWithSpace } from './VoiceInputButton'
 import { useFieldAssistant } from '../hooks/useFieldAssistant'
 import { mix } from '../utils/theme'
@@ -276,6 +273,60 @@ function describeTool(tool) {
   return friendly ? `Running ${friendly}…` : 'Working…'
 }
 
+// AtmosFlow AI identity mark — the same neon brain the "thinking"
+// indicator (ToolStatus) animates, reused as the chat's icon. A dim
+// base outline sits under a bright cyan layer that traces each groove
+// in sequence (jasperBrainTrace keyframe in the style block), so the
+// mark continuously wakes from dim → fully energized. Paths mirror
+// ToolStatus's brain. `glow` is OFF here by design — the chat icon uses
+// flat neon strokes with no drop-shadow halo (the thinking indicator
+// keeps its glow); pass glow only if a halo is wanted.
+const NEON_BRAIN_CYAN = '#22E0F2'
+const NEON_BRAIN_PATHS = [
+  'M12 18V5',
+  'M15 13a4.17 4.17 0 0 1-3-4 4.17 4.17 0 0 1-3 4',
+  'M17.598 6.5A3 3 0 1 0 12 5a3 3 0 1 0-5.598 1.5',
+  'M17.997 5.125a4 4 0 0 1 2.526 5.77',
+  'M18 18a4 4 0 0 0 2-7.464',
+  'M19.967 17.483A4 4 0 1 1 12 18a4 4 0 1 1-7.967-.517',
+  'M6 18a4 4 0 0 1-2-7.464',
+  'M6.003 5.125a4 4 0 0 0-2.526 5.77',
+]
+function NeonBrain({ size = 22, glow = false, ariaLabel }) {
+  return (
+    <span
+      aria-hidden={ariaLabel ? undefined : 'true'}
+      aria-label={ariaLabel}
+      role={ariaLabel ? 'img' : undefined}
+      style={{
+        display: 'inline-flex', flexShrink: 0,
+        ...(glow ? { filter: `drop-shadow(0 0 1.5px ${NEON_BRAIN_CYAN})` } : null),
+      }}>
+      <svg
+        width={size} height={size} viewBox="0 0 24 24" fill="none"
+        stroke={NEON_BRAIN_CYAN} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+        {/* Dim base — the unlit neon tube, always faintly visible. */}
+        <g stroke={NEON_BRAIN_CYAN} opacity={0.22}>
+          {NEON_BRAIN_PATHS.map((d, i) => <path key={`b-${i}`} d={d} />)}
+        </g>
+        {/* Bright trace — neon races through each groove in sequence. */}
+        <g className="jasper-brain-trace">
+          {NEON_BRAIN_PATHS.map((d, i) => (
+            <path
+              key={`t-${i}`} d={d} pathLength="100"
+              style={{
+                strokeDasharray: 100, strokeDashoffset: 100,
+                animation: 'jasperBrainTrace 2.6s ease-in-out infinite',
+                animationDelay: `${i * 0.12}s`,
+              }}
+            />
+          ))}
+        </g>
+      </svg>
+    </span>
+  )
+}
+
 /**
  * Thinking / tool-status indicator. When the agent is between
  * tokens (no active tool), renders the classic 3-dot pulse. When
@@ -412,7 +463,7 @@ function JasperIntroPanel({ onAccept, onNavigate }) {
     <div style={{ padding: '12px 4px 4px' }}>
       <div className="jasper-stagger"
         style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, ...reveal(0) }}>
-        <JasperRobotIcon size={40} color="var(--accent)" />
+        <NeonBrain size={40} />
         <div style={{ fontSize: 15, color: TEXT, lineHeight: 1.45, fontWeight: 600 }}>
           <span role="img" aria-label="waving hand">👋</span> Welcome to AtmosFlow AI — your indoor air quality assistant.
         </div>
@@ -993,7 +1044,7 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
-            <JasperRobotIcon size={22} color="var(--accent)" />
+            <NeonBrain size={24} />
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ fontSize: 15, fontWeight: 700, color: TEXT, lineHeight: 1.2 }}>AtmosFlow AI</div>
               <div style={{
