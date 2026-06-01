@@ -573,6 +573,9 @@ export default function MobileApp() {
   // ── Local UI state (truly component-local; not shared) ──
   const [loading, setLoading] = useState(true)
   const [isReturning, setIsReturning] = useState(false)
+  // Plays the 7 s brand intro exactly once per browser cache, on the
+  // first *interactive* sign-in (see handleLogin + the render gate).
+  const [welcomeAnim, setWelcomeAnim] = useState(false)
   const [welcomeDone, setWelcomeDone] = useState(!!sessionStorage.getItem('aiq_welcomed'))
   const [userMode, setUserMode] = useState(getMode())
   const [needsModeSelect, setNeedsModeSelect] = useState(false)
@@ -784,6 +787,9 @@ export default function MobileApp() {
         if (activeProfile) setProfile(activeProfile)
       }
       setProfileChecked(true)
+      // Bootstrap done — drop the neutral cover. Returning users with a
+      // cached session land straight in the app with no brand animation.
+      setLoading(false)
     })()
   }, [])
 
@@ -853,6 +859,11 @@ export default function MobileApp() {
   }, [])
 
   const handleLogin = async (userOrProfile) => {
+    // First interactive sign-in per browser cache plays the brand intro
+    // once. The flag lives in localStorage, so clearing the cache replays
+    // it; returning users with a cached session are auto-resolved in the
+    // bootstrap effect (never reaching handleLogin), so they never see it.
+    try { if (!localStorage.getItem('aiq_intro_seen')) setWelcomeAnim(true) } catch { /* private mode */ }
     if (userOrProfile?.email && supabase) {
       trackEvent('login_completed', {})
       const p = await Storage.getProfile()
@@ -1667,12 +1678,17 @@ export default function MobileApp() {
   const dtSecs = [...new Set(dtVis.map(q=>q.sec))]
   const zSecs = [...new Set(zVis.map(q=>q.sec))]
 
-  if (loading) return <Loading fast={isReturning} onDone={() => setLoading(false)} />
+  // Brief neutral cover while the cached session resolves — no brand
+  // animation here. The intro plays only on first interactive sign-in
+  // (welcomeAnim gate below), so returning users don't sit through it.
+  if (loading) return <div style={{position:'fixed',inset:0,background:'#000',zIndex:9999}} aria-hidden="true" />
   // Auth gate: Supabase login when configured, local profiles when not
   if (profileChecked && !profile) {
     if (supabase) return <AuthScreen onAuth={handleLogin} />
     return <ProfileScreen onLogin={handleLogin} />
   }
+  // First interactive sign-in per cache → 7 s brand intro, then the app.
+  if (welcomeAnim) return <Loading onDone={() => { try { localStorage.setItem('aiq_intro_seen','1') } catch { /* private mode */ } ; setWelcomeAnim(false) }} />
   // Mode selection — FM mode paused; auto-select IH for all users
   const hasModeSet = localStorage.getItem(KEYS.userMode)
   if (profile && (!hasModeSet || hasModeSet === 'fm')) {
@@ -2902,13 +2918,12 @@ export default function MobileApp() {
       <OfflineBanner />
       <header style={{position:'fixed',top:0,left:0,right:0,zIndex:100,background:`${mix('bg', 95)}`,backdropFilter:'blur(24px) saturate(1.4)',WebkitBackdropFilter:'blur(24px) saturate(1.4)',borderBottom:`1px solid ${BORDER}`,paddingTop:'env(safe-area-inset-top, 0px)'}}>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',height:48,padding:`0 ${padX}px`,maxWidth:contentMax,margin:'0 auto'}}>
-          {/* Left cluster — hamburger menu (with its dropdown). The
-              "AtmosFlow" wordmark used to live here; it's been removed
-              so the menu sits flush at the left edge and the right
-              cluster (status pills + avatar) reads as the identity
-              column. The relative positioning anchors the dropdown
-              menu below to this left cluster instead of the right
-              one, so the popover now opens DOWN-LEFT from the
+          {/* Left cluster — hamburger menu (with its dropdown) followed
+              by the "AtmosFlow" wordmark to its right. The hamburger is
+              a bare icon (no bubble/border) so it sits flush at the left
+              edge; the wordmark is scaled to the icon's height. The
+              relative positioning anchors the dropdown menu below to
+              this left cluster, so the popover opens DOWN-LEFT from the
               hamburger rather than down-right. */}
           <div style={{position:'relative',display:'flex',alignItems:'center'}}>
             {/* Back to dashboard — shown on every screen except the
@@ -2927,6 +2942,7 @@ export default function MobileApp() {
               </button>
             )}
             {profile && view==='dash' && (
+              <>
               <button
                 ref={menuButtonRef}
                 onClick={(e)=>{
@@ -2943,9 +2959,19 @@ export default function MobileApp() {
                 aria-label="Open menu"
                 aria-haspopup="menu"
                 aria-expanded={showHomeMenu}
-                style={{width:36,height:36,borderRadius:10,background:showHomeMenu ? CARD : 'transparent',border:`1px solid ${BORDER}`,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                <I n="menu" s={22} c={ACCENT} w={2.6} />
+                style={{width:24,height:24,marginLeft:-2,background:'transparent',border:'none',padding:0,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',WebkitTapHighlightColor:'transparent'}}>
+                <I n="menu" s={17} c={ACCENT} w={2.2} />
               </button>
+              {/* Wordmark to the right of the menu (Kalshi-style), with the
+                  small thin hamburger beside it. Uses the tagline-free
+                  variant (no "Indoor Air Quality Intelligence" strap) for a
+                  cleaner header; the full lockup stays on the auth screen. */}
+              <img
+                src="/icons/atmosflow-wordmark.svg"
+                alt="AtmosFlow"
+                style={{height:24,width:'auto',marginLeft:10,display:'block'}}
+              />
+              </>
             )}
             {showHomeMenu && (() => {
               // Demo entries by user mode. For FM users there's only
