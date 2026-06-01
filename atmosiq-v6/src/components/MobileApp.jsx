@@ -3103,7 +3103,7 @@ export default function MobileApp() {
                         }}>{initials}</div>
                         <div style={{flex:1, minWidth:0}}>
                           <div style={{fontSize:17, fontWeight:700, color:TEXT, letterSpacing:'-0.02em', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{cleanName}</div>
-                          <div style={{fontSize:13, color:SUB, marginTop:2}}>View account & settings</div>
+                          <div style={{fontSize:13, color:SUB, marginTop:2}}>Account</div>
                         </div>
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={DIM} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                           <polyline points="9 18 15 12 9 6" />
