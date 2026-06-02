@@ -31,10 +31,21 @@
     },
     {
       "id": "MONOLITH-REWIRED",
-      "label": "App.jsx imports the extracted modules (no inline standards)",
+      "label": "App shell imports the extracted modules (no inline standards)",
       "checks": [
-        { "type": "grep_matches", "pattern": "from './constants/standards.js'", "paths": ["src/App.jsx"] },
-        { "type": "grep_excludes", "pattern": "^const STD = \\{", "paths": ["src/App.jsx"] }
+        { "type": "grep_matches", "pattern": "from '../constants/standards.js'", "paths": ["src/components/MobileApp.jsx"] },
+        { "type": "grep_excludes", "pattern": "^const STD = \\{", "paths": ["src/components/MobileApp.jsx"] }
+      ]
+    },
+    {
+      "id": "UI-SHELL",
+      "label": "Slim App root + MobileApp shell + Icons + bottom nav",
+      "checks": [
+        { "type": "file_exists", "path": "src/components/MobileApp.jsx" },
+        { "type": "file_exists", "path": "src/components/Icons.jsx" },
+        { "type": "grep_matches", "pattern": "export default function App", "paths": ["src/App.jsx"] },
+        { "type": "grep_matches", "pattern": "Bottom navigation", "paths": ["src/components/MobileApp.jsx"] },
+        { "type": "grep_excludes", "pattern": "Outfit:wght", "paths": ["src/components/MobileApp.jsx"] }
       ]
     },
     {
