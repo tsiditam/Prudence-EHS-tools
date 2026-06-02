@@ -343,7 +343,7 @@ function ToolStatus({ tool }) {
             flexShrink: 0,
           }}
         />
-        <span style={{ fontSize: 10, color: THINKING_CYAN, fontFamily: THINKING_FONT, fontWeight: 700, lineHeight: 1.4, letterSpacing: '0.2px' }}>
+        <span style={{ fontSize: 12, color: THINKING_CYAN, fontFamily: THINKING_FONT, fontWeight: 700, lineHeight: 1.4, letterSpacing: '0.2px' }}>
           {status}
         </span>
       </div>
@@ -426,7 +426,7 @@ function ToolStatus({ tool }) {
       <span
         key={phraseIdx}
         aria-hidden="true"
-        style={{ fontSize: 10, color: THINKING_CYAN, fontFamily: THINKING_FONT, fontWeight: 700, lineHeight: 1.4, letterSpacing: '0.2px', animation: 'fadeIn .35s ease' }}>
+        style={{ fontSize: 12, color: THINKING_CYAN, fontFamily: THINKING_FONT, fontWeight: 700, lineHeight: 1.4, letterSpacing: '0.2px', animation: 'fadeIn .35s ease' }}>
         {THINKING_PHRASES[phraseIdx]}…
       </span>
     </div>
