@@ -57,6 +57,14 @@ const SUB = 'var(--sub)'
 const DIM = 'var(--dim)'
 const DANGER = 'var(--danger)'
 
+// Serif face for AtmosFlow AI response copy — gives Jasper's answers
+// an editorial, "considered" feel distinct from the sans UI chrome and
+// the user's own (sans) messages. System serif first (New York on
+// iOS/Mac, the platform AtmosFlow ships to), then broadly available
+// fallbacks. Applied only to the assistant message container; code
+// spans/blocks keep their monospace (Markdown sets that itself).
+const RESPONSE_SERIF = "ui-serif, 'New York', Georgia, Cambria, 'Times New Roman', serif"
+
 // Phase 1 redesign: suggestion cards carry a category label + icon so
 // the empty state reads as a curated launchpad (Claude / ChatGPT
 // pattern) rather than a flat list of strings. Categories are
@@ -178,6 +186,9 @@ function MessageBubble({
     width: '100%',
     padding: '2px 2px 4px',
     color: TEXT,
+    // Serif for the response body (see RESPONSE_SERIF). Cascades into
+    // the <Markdown> output via inherit; code keeps its own monospace.
+    fontFamily: RESPONSE_SERIF,
     fontSize: 15,
     lineHeight: 1.65,
     // No whiteSpace:'pre-wrap' — the assistant message renders through
