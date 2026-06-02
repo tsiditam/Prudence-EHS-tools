@@ -1,0 +1,123 @@
+{
+  "feature": "HydroScan Phase 0–1 — scaffold, design system & engine extraction",
+  "criteria": [
+    {
+      "id": "DESIGN-TOKENS",
+      "label": "Design-token system ported (tokens + marlow + soft-glass)",
+      "checks": [
+        { "type": "file_exists", "path": "src/styles/tokens.js" },
+        { "type": "file_exists", "path": "src/styles/marlow-tokens.js" },
+        { "type": "grep_matches", "pattern": "accent:#0D9488", "paths": ["index.html"] }
+      ]
+    },
+    {
+      "id": "ENGINE-EXTRACTED",
+      "label": "Compliance + causal engine extracted to typed modules",
+      "checks": [
+        { "type": "file_exists", "path": "src/engine/index.ts" },
+        { "type": "file_exists", "path": "src/engine/evaluate.ts" },
+        { "type": "file_exists", "path": "src/engine/causal-chains.ts" },
+        { "type": "file_exists", "path": "src/types/engine.ts" }
+      ]
+    },
+    {
+      "id": "STANDARDS-MANIFEST",
+      "label": "Hardcoded standards manifest is the single source of truth",
+      "checks": [
+        { "type": "file_exists", "path": "src/constants/standards.js" },
+        { "type": "grep_matches", "pattern": "STANDARDS_MANIFEST", "paths": ["src/constants/standards.js"] },
+        { "type": "grep_matches", "pattern": "isManifestStandard", "paths": ["src/constants/standards.js"] }
+      ]
+    },
+    {
+      "id": "MONOLITH-REWIRED",
+      "label": "App shell imports the extracted modules (no inline standards)",
+      "checks": [
+        { "type": "grep_matches", "pattern": "from '../constants/standards.js'", "paths": ["src/components/MobileApp.jsx"] },
+        { "type": "grep_excludes", "pattern": "^const STD = \\{", "paths": ["src/components/MobileApp.jsx"] }
+      ]
+    },
+    {
+      "id": "UI-SHELL",
+      "label": "Slim App root + MobileApp shell + Icons + bottom nav",
+      "checks": [
+        { "type": "file_exists", "path": "src/components/MobileApp.jsx" },
+        { "type": "file_exists", "path": "src/components/Icons.jsx" },
+        { "type": "grep_matches", "pattern": "export default function App", "paths": ["src/App.jsx"] },
+        { "type": "grep_matches", "pattern": "Bottom navigation", "paths": ["src/components/MobileApp.jsx"] },
+        { "type": "grep_excludes", "pattern": "Outfit:wght", "paths": ["src/components/MobileApp.jsx"] }
+      ]
+    },
+    {
+      "id": "ENGINE-TESTS",
+      "label": "Engine golden fixtures + manifest-integrity tests pass",
+      "checks": [
+        { "type": "file_exists", "path": "tests/engine/manifest-integrity.test.ts" },
+        { "type": "npm_script_passes", "script": "test" }
+      ]
+    },
+    {
+      "id": "TS-CONFIG",
+      "label": "TypeScript config present (@/* alias, bundler resolution)",
+      "checks": [
+        { "type": "file_exists", "path": "tsconfig.json" },
+        { "type": "file_exists", "path": "tsconfig.check.json" },
+        { "type": "grep_matches", "pattern": "\"@/\\*\"", "paths": ["tsconfig.json"] }
+      ]
+    },
+    {
+      "id": "API-IMPORT-GUARDRAIL",
+      "label": "API-graph .js→.ts import guardrail script present and clean",
+      "checks": [
+        { "type": "file_exists", "path": "scripts/check-api-js-imports.mjs" },
+        { "type": "npm_script_passes", "script": "lint:imports" }
+      ]
+    },
+    {
+      "id": "ACCEPTANCE-RUNNER",
+      "label": "Acceptance runner present",
+      "checks": [
+        { "type": "file_exists", "path": "scripts/acceptance-check.mjs" }
+      ]
+    },
+    {
+      "id": "ESLINT-CONFIG",
+      "label": "ESLint flat config present",
+      "checks": [
+        { "type": "file_exists", "path": "eslint.config.mjs" }
+      ]
+    },
+    {
+      "id": "VITE-PORT",
+      "label": "Vite dev server pinned to port 3003",
+      "checks": [
+        { "type": "grep_matches", "pattern": "port:\\s*3003", "paths": ["vite.config.js"] }
+      ]
+    },
+    {
+      "id": "VERSION-SOT",
+      "label": "Version source-of-truth present (app/engine/manifest)",
+      "checks": [
+        { "type": "file_exists", "path": "src/version.js" },
+        { "type": "grep_matches", "pattern": "ENGINE_VERSION", "paths": ["src/version.js"] },
+        { "type": "grep_matches", "pattern": "STANDARDS_MANIFEST_VERSION", "paths": ["src/version.js"] }
+      ]
+    },
+    {
+      "id": "ENV-SCAFFOLD",
+      "label": "Environment variables documented (all required keys)",
+      "checks": [
+        { "type": "file_exists", "path": "docs/ENVIRONMENT.md" },
+        { "type": "grep_matches", "pattern": "ANTHROPIC_API_KEY", "paths": ["docs/ENVIRONMENT.md"] },
+        { "type": "grep_matches", "pattern": "SUPABASE_SERVICE_ROLE_KEY", "paths": ["docs/ENVIRONMENT.md"] }
+      ]
+    },
+    {
+      "id": "BUILD-GREEN",
+      "label": "Production build succeeds",
+      "checks": [
+        { "type": "npm_script_passes", "script": "build" }
+      ]
+    }
+  ]
+}
