@@ -4465,20 +4465,17 @@ export default function MobileApp() {
               {id:'incident-log',label:'Incidents',icon:'alert'},
               {id:'sensor-data',label:'Logger Studio',icon:'chart'},
             ] : [
+              // Five-tab consultant nav. AtmosFlow AI sits in the centre
+              // slot (its breathing-glow tab reads as the hub); Projects
+              // and Logger Studio flank it, Home and Reports anchor the
+              // ends. Internal ids are unchanged (jasper stays 'jasper',
+              // Projects routes to the existing 'projects' view) so no
+              // shipped event/table names move.
               {id:'dash',label:'Home',icon:'home'},
-              {id:'history',label:'Reports',icon:'report',badge:((index.drafts||[]).length+(index.reports||[]).length)||null},
-              // AtmosFlow AI replaces the previous Search tab. The
-              // brain-on-chip silhouette + same TEXT_TERTIARY →
-              // accent treatment as every other tab so the row reads
-              // as one cohesive nav. Labeled "AtmosFlow AI" to match
-              // the assistant sheet's header — one consistent name
-              // across every surface (the internal id stays 'jasper'
-              // to avoid touching shipped event/table names).
+              {id:'projects',label:'Projects',icon:'bldg'},
               {id:'jasper',label:'AtmosFlow AI',icon:'jasper'},
-              // Logger Studio takes the 4th slot. Settings stays reachable
-              // from the header avatar + hamburger menu, so it doesn't need a
-              // permanent nav tab; the analyzer is the higher-frequency lane.
               {id:'sensor-data',label:'Logger Studio',icon:'chart'},
+              {id:'history',label:'Reports',icon:'report',badge:((index.drafts||[]).length+(index.reports||[]).length)||null},
             ]).map(t=>{
               const isJasper = t.id === 'jasper'
               const isActive = isJasper ? faOpen : (view === t.id)
@@ -4516,7 +4513,7 @@ export default function MobileApp() {
                     )}
                     {t.badge>0&&<div style={{position:'absolute',top:-4,right:-8,minWidth:15,height:15,borderRadius:V3.R.pill,background:'var(--accent)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,fontWeight:700,color:'var(--on-accent-fill)',fontFamily:'var(--font-mono)',padding:'0 4px'}}>{t.badge}</div>}
                   </div>
-                  <span style={{fontSize:10,fontWeight:isActive?600:500,color:isActive?'var(--accent)':V3.TEXT_TERTIARY,letterSpacing:'0.2px',transition:'color 160ms ease'}}>{t.label}</span>
+                  <span style={{fontSize:10,fontWeight:isActive?600:500,color:isActive?'var(--accent)':V3.TEXT_TERTIARY,letterSpacing:'0.1px',whiteSpace:'nowrap',transition:'color 160ms ease'}}>{t.label}</span>
                 </button>
               )
             })}
