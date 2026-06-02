@@ -60,14 +60,12 @@ const DANGER = 'var(--danger)'
 // "Thinking" status treatment — the indicator shown while the agent is
 // reasoning cycles through these phrases instead of a static "Thinking".
 // Wording stays screening-safe (research / analyze / cross-reference —
-// never "diagnose" or "determine"). Rendered in Architype Aubette Bold
-// when its licensed file is present; until then it falls back to Krona
-// One (a free geometric Google Font wired in index.html as a close
-// stand-in — single 400 weight, so 700 here is browser-synthesized),
-// then the bold jasper stack. Colour is the bright thinking-cyan that
+// never "diagnose" or "determine"). Rendered in Bitcount Grid Single
+// (a free pixel/dot-matrix Google Font, loaded in index.html), then the
+// bold jasper stack as fallback. Colour is the bright thinking-cyan that
 // matches the neon brain.
 const THINKING_CYAN = '#22E0F2'
-const THINKING_FONT = "'Architype Aubette', 'Krona One', var(--font-jasper)"
+const THINKING_FONT = "'Bitcount Grid Single', var(--font-jasper)"
 const THINKING_PHRASES = [
   'Searching standards manifest',
   'Analyzing data',
@@ -345,7 +343,7 @@ function ToolStatus({ tool }) {
             flexShrink: 0,
           }}
         />
-        <span style={{ fontSize: 8, color: THINKING_CYAN, fontFamily: THINKING_FONT, fontWeight: 700, lineHeight: 1.4, letterSpacing: '0.2px' }}>
+        <span style={{ fontSize: 10, color: THINKING_CYAN, fontFamily: THINKING_FONT, fontWeight: 700, lineHeight: 1.4, letterSpacing: '0.2px' }}>
           {status}
         </span>
       </div>
@@ -428,7 +426,7 @@ function ToolStatus({ tool }) {
       <span
         key={phraseIdx}
         aria-hidden="true"
-        style={{ fontSize: 8, color: THINKING_CYAN, fontFamily: THINKING_FONT, fontWeight: 700, lineHeight: 1.4, letterSpacing: '0.2px', animation: 'fadeIn .35s ease' }}>
+        style={{ fontSize: 10, color: THINKING_CYAN, fontFamily: THINKING_FONT, fontWeight: 700, lineHeight: 1.4, letterSpacing: '0.2px', animation: 'fadeIn .35s ease' }}>
         {THINKING_PHRASES[phraseIdx]}…
       </span>
     </div>

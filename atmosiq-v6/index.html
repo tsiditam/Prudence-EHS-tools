@@ -60,21 +60,6 @@
         font-style:normal;
         font-display:swap;
       }
-      /* Architype Aubette — display face for the AtmosFlow AI "thinking"
-         status phrases only (Searching standards manifest…, Analyzing
-         data…). Commercial font (Monotype / The Foundry), same
-         deferred-asset pattern as Fabrica: drop the licensed web files
-         into public/fonts/ (architype-aubette.woff2 + .woff) and they
-         load automatically. Until then the status line falls back to the
-         bold --font-jasper stack, so it never renders blank. */
-      @font-face{
-        font-family:'Architype Aubette';
-        src:url('/fonts/architype-aubette.woff2') format('woff2'),
-            url('/fonts/architype-aubette.woff') format('woff');
-        font-weight:700;
-        font-style:normal;
-        font-display:swap;
-      }
       /* Notion-style system stack with Inter as the cross-platform anchor.
          Inter is loaded below; the system fallbacks (SF Pro on iOS/Mac,
          Segoe UI on Windows, Roboto on Android) keep the app feeling
@@ -202,7 +187,7 @@
       [data-theme="light"] .af-wordmark-dark{display:none!important;}
       [data-theme="light"] .af-wordmark-light{display:block!important;}
     </style>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Krona+One&family=Sora:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Bitcount+Grid+Single:wght@400;700&family=Inter:wght@300;400;500;600;700;800;900&family=Sora:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   </head>
   <body>
     <div id="root"></div>
