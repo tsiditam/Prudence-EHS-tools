@@ -3065,15 +3065,15 @@ export default function MobileApp() {
                   <div
                     role="menu"
                     aria-label="Main menu"
-                    className={menuClosing ? 'af-drawer-out' : 'af-drawer-in'}
+                    className={`af-drawer-surface ${menuClosing ? 'af-drawer-out' : 'af-drawer-in'}`}
                     style={{
                       position:'fixed', top:0, left:0, bottom:0,
                       width:'64vw', maxWidth:256, zIndex:1010,
                       display:'flex', flexDirection:'column',
-                      // Midnight black — a fixed near-black panel rather
-                      // than var(--surface), so the drawer reads as a deep
-                      // slab over the dimmed page in both themes.
-                      background:'#06070C',
+                      // Surface is theme-aware (see .af-drawer-surface in
+                      // the global style block): midnight black in dark
+                      // mode, light --card in light mode. The contents use
+                      // the theme tokens below so they invert with it.
                       borderRight:`1px solid ${BORDER}`,
                       boxShadow:'8px 0 40px rgba(0,0,0,0.55), 1px 0 0 rgba(255,255,255,0.04)',
                       // Clear the status bar / notch at the top and the home
@@ -3103,7 +3103,7 @@ export default function MobileApp() {
                         }}>{initials}</div>
                         <div style={{flex:1, minWidth:0}}>
                           <div style={{fontSize:17, fontWeight:700, color:TEXT, letterSpacing:'-0.02em', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{cleanName}</div>
-                          <div style={{fontSize:13, color:SUB, marginTop:2}}>View account & settings</div>
+                          <div style={{fontSize:13, color:SUB, marginTop:2}}>Account</div>
                         </div>
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={DIM} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                           <polyline points="9 18 15 12 9 6" />
@@ -4625,6 +4625,12 @@ export default function MobileApp() {
         @keyframes scrimOut{from{opacity:1;}to{opacity:0;}}
         .af-drawer-in{animation:drawerIn .26s cubic-bezier(.22,1,.36,1);}
         .af-drawer-out{animation:drawerOut .22s ease-in forwards;}
+        /* Theme-aware drawer surface: midnight black in dark mode, the
+           light --card surface in light mode. Driven by CSS (not inline)
+           so it flips with [data-theme="light"] on <html>; the contents
+           use var(--text)/--sub/--border and invert with it. */
+        .af-drawer-surface{background:#06070C;}
+        [data-theme="light"] .af-drawer-surface{background:var(--card);}
         .af-scrim-in{animation:fadeIn .26s ease;}
         .af-scrim-out{animation:scrimOut .22s ease forwards;}
         @media (prefers-reduced-motion: reduce){
