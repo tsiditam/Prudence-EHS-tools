@@ -60,12 +60,12 @@ const DANGER = 'var(--danger)'
 // "Thinking" status treatment — the indicator shown while the agent is
 // reasoning cycles through these phrases instead of a static "Thinking".
 // Wording stays screening-safe (research / analyze / cross-reference —
-// never "diagnose" or "determine"). Rendered in Architype Rubette Bold
+// never "diagnose" or "determine"). Rendered in Architype Aubette Bold
 // (see the @font-face in index.html; falls back to the bold jasper stack
 // until the licensed file is dropped in) and the bright thinking-cyan
 // that matches the neon brain.
 const THINKING_CYAN = '#22E0F2'
-const THINKING_FONT = "'Architype Rubette', var(--font-jasper)"
+const THINKING_FONT = "'Architype Aubette', var(--font-jasper)"
 const THINKING_PHRASES = [
   'Searching standards manifest',
   'Analyzing data',
