@@ -57,6 +57,25 @@ const SUB = 'var(--sub)'
 const DIM = 'var(--dim)'
 const DANGER = 'var(--danger)'
 
+// "Thinking" status treatment — the indicator shown while the agent is
+// reasoning cycles through these phrases instead of a static "Thinking".
+// Wording stays screening-safe (research / analyze / cross-reference —
+// never "diagnose" or "determine"). Rendered in Architype Rubette Bold
+// (see the @font-face in index.html; falls back to the bold jasper stack
+// until the licensed file is dropped in) and the bright thinking-cyan
+// that matches the neon brain.
+const THINKING_CYAN = '#22E0F2'
+const THINKING_FONT = "'Architype Rubette', var(--font-jasper)"
+const THINKING_PHRASES = [
+  'Searching standards manifest',
+  'Analyzing data',
+  'Researching standards',
+  'Cross-referencing thresholds',
+  'Reviewing measurements',
+  'Consulting the corpus',
+  'Synthesizing findings',
+]
+
 // Serif face for AtmosFlow AI response copy — gives Jasper's answers
 // an editorial, "considered" feel distinct from the sans UI chrome and
 // the user's own (sans) messages. System serif first (New York on
@@ -293,6 +312,14 @@ function describeTool(tool) {
  * way so the rhythm of the conversation doesn't jump.
  */
 function ToolStatus({ tool }) {
+  // Cycle the "thinking" phrases on a steady cadence. The hook runs on
+  // every render (before the tool-status early-return below) so hook
+  // order stays stable whether or not a tool is active.
+  const [phraseIdx, setPhraseIdx] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => setPhraseIdx(i => (i + 1) % THINKING_PHRASES.length), 1900)
+    return () => clearInterval(id)
+  }, [])
   const status = describeTool(tool)
   // Both states are bubble-less — no background, no border — so the
   // indicator flows on the sheet canvas instead of jumping into a card.
@@ -316,7 +343,7 @@ function ToolStatus({ tool }) {
             flexShrink: 0,
           }}
         />
-        <span style={{ fontSize: 13, color: SUB, lineHeight: 1.4, fontStyle: 'italic' }}>
+        <span style={{ fontSize: 13, color: THINKING_CYAN, fontFamily: THINKING_FONT, fontWeight: 700, lineHeight: 1.4, letterSpacing: '0.2px' }}>
           {status}
         </span>
       </div>
@@ -396,8 +423,11 @@ function ToolStatus({ tool }) {
           </g>
         </svg>
       </span>
-      <span style={{ fontSize: 13, color: SUB, lineHeight: 1.4, fontStyle: 'italic' }}>
-        Thinking
+      <span
+        key={phraseIdx}
+        aria-hidden="true"
+        style={{ fontSize: 13, color: THINKING_CYAN, fontFamily: THINKING_FONT, fontWeight: 700, lineHeight: 1.4, letterSpacing: '0.2px', animation: 'fadeIn .35s ease' }}>
+        {THINKING_PHRASES[phraseIdx]}…
       </span>
     </div>
   )
