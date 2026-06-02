@@ -2,21 +2,133 @@
   Prudence Safety & Environmental Consulting, LLC
   Copyright (c) 2026 Prudence Safety & Environmental Consulting, LLC
   All rights reserved.
+
+  This software is the proprietary information of Prudence Safety
+  & Environmental Consulting, LLC. Unauthorized copying, modification,
+  distribution, or use is strictly prohibited.
+
   Contact: tsidi@prudenceehs.com
 -->
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#080A0E" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#07080C" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="HydroScan" />
+    <meta name="description" content="Drinking-water quality intelligence by Prudence EHS. Field assessment, lab compliance screening, causal analysis, and defensible reports." />
     <link rel="manifest" href="/manifest.json" />
+    <link rel="icon" type="image/svg+xml" href="/icons/icon-192.svg" />
     <link rel="apple-touch-icon" href="/icons/icon-192.png" />
-    <title>HydroScan Beta — by Prudence EHS</title>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <title>HydroScan — by Prudence EHS</title>
+    <style>
+      html,body{
+        margin:0;
+        background:#07080C;
+        /* Lock the mobile viewport: no rubber-band bounce, no horizontal
+           overflow, no double-tap zoom. With maximum-scale=1 above and the
+           16px input-font rule below, the page only scrolls vertically. */
+        overscroll-behavior:none;
+        overflow-x:hidden;
+        touch-action:pan-y;
+        -webkit-text-size-adjust:100%;
+        text-size-adjust:100%;
+      }
+      /* iOS Safari auto-zooms when a focused input's font-size is under
+         16px. Floor every form control at 16px so focusing a field doesn't
+         yank the viewport. */
+      input,select,textarea{font-size:16px;}
+      /* Fabrica — used for the HydroScan AI (Marlow) chat surface only.
+         Commercial font: drop the licensed web files into public/fonts/
+         (fabrica.woff2 + fabrica.woff) and they load automatically. Until
+         the files exist the browser falls back to the Inter stack in
+         --font-marlow, so the chat never renders blank. */
+      @font-face{
+        font-family:'Fabrica';
+        src:url('/fonts/fabrica.woff2') format('woff2'),
+            url('/fonts/fabrica.woff') format('woff');
+        font-weight:100 900;
+        font-style:normal;
+        font-display:swap;
+      }
+      /* Inter-anchored system stack. Inter is loaded below; system
+         fallbacks (SF Pro, Segoe UI, Roboto) keep the app native if Inter
+         fails to load. cv11 flips Inter to its single-storey 'a'. */
+      :root{
+        --font-sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI Variable','Segoe UI',system-ui,ui-sans-serif,'Helvetica Neue',Arial,sans-serif,'Apple Color Emoji','Segoe UI Emoji';
+        --font-mono:var(--font-sans);
+        /* Fabrica drives the HydroScan AI (Marlow) chat surface; Inter is
+           the fallback until the licensed files land in public/fonts/. */
+        --font-marlow:'Fabrica',var(--font-sans);
+
+        /* Theme palette — dark is the default. Surface ladder ported from
+           AtmosFlow; the accent channel is HydroScan teal. Components opt
+           into theming by referencing var(--bg) etc. rather than hex. */
+        --bg:#07080C;
+        --surface:#0D0E14;
+        --card:#111318;
+        --raised:#161922;
+        --border:#1C1E26;
+        /* Restrained primary teal — HydroScan's brand hue. Header controls,
+           icon outlines, text accents, default active states. The brighter
+           --accent-fill is reserved for filled-CTA / active emphasis. */
+        --accent:#0D9488;
+        --accent-dim:#0B7C72;
+        --text:#ECEEF2;
+        --sub:#8B93A5;
+        --dim:#6B7380;
+        --warn:#FBBF24;
+        --danger:#EF4444;
+        --success:#22C55E;
+        --on-accent:#07080C;
+        /* Brighter teal for emphasis — filled primary CTAs and active
+           highlights. White inscription on dark surfaces (per direction);
+           flips dark in light mode below. */
+        --accent-fill:#14B8A6;
+        --on-accent-fill:#FFFFFF;
+      }
+      [data-theme="light"]{
+        /* Premium light palette — three-step surface ladder so hierarchy
+           reads in light mode the same as dark. The teal carries text,
+           icons, borders; the brighter #14B8A6 fills emphasis CTAs. */
+        --bg:#FAFAFB;
+        --surface:#F4F5F7;
+        --card:#FFFFFF;
+        --raised:#D6F5F0;
+        --border:#A8E0D8;
+        --accent:#0D9488;
+        --accent-dim:#0F766E;
+        --text:#0F172A;
+        --sub:#475569;
+        --dim:#5B6675;
+        --on-accent:#07080C;
+        --accent-fill:#14B8A6;
+        --on-accent-fill:#07080C;
+        /* Semantic colors use darker stops in light mode so they stay
+           legible as foreground text on the near-white page. */
+        --warn:#9A4A08;
+        --danger:#B91C1C;
+        --success:#15703A;
+      }
+      body{
+        font-family:var(--font-sans);
+        /* cv11 = single-storey 'a', ss03 = higher-contrast curves, tnum =
+           tabular numerals (set globally because HydroScan is a lab-readout
+           product — every value, MCL, and date benefits from alignment). */
+        font-feature-settings:'cv11','ss03','tnum';
+        -webkit-font-smoothing:antialiased;
+        -moz-osx-font-smoothing:grayscale;
+        text-rendering:optimizeLegibility;
+      }
+      /* Header wordmark theme swap: the dark-theme wordmark has white text
+         (invisible on the light header); show the black-text variant under
+         [data-theme="light"]. */
+      [data-theme="light"] .hs-wordmark-dark{display:none!important;}
+      [data-theme="light"] .hs-wordmark-light{display:block!important;}
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Bitcount+Grid+Single:wght@400;700&family=Inter:wght@300;400;500;600;700;800;900&family=Sora:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   </head>
   <body>
     <div id="root"></div>

@@ -1,6 +1,50 @@
 {
-  "feature": "HydroScan Phase 0 — scaffold & tooling parity",
+  "feature": "HydroScan Phase 0–1 — scaffold, design system & engine extraction",
   "criteria": [
+    {
+      "id": "DESIGN-TOKENS",
+      "label": "Design-token system ported (tokens + marlow + soft-glass)",
+      "checks": [
+        { "type": "file_exists", "path": "src/styles/tokens.js" },
+        { "type": "file_exists", "path": "src/styles/marlow-tokens.js" },
+        { "type": "grep_matches", "pattern": "accent:#0D9488", "paths": ["index.html"] }
+      ]
+    },
+    {
+      "id": "ENGINE-EXTRACTED",
+      "label": "Compliance + causal engine extracted to typed modules",
+      "checks": [
+        { "type": "file_exists", "path": "src/engine/index.ts" },
+        { "type": "file_exists", "path": "src/engine/evaluate.ts" },
+        { "type": "file_exists", "path": "src/engine/causal-chains.ts" },
+        { "type": "file_exists", "path": "src/types/engine.ts" }
+      ]
+    },
+    {
+      "id": "STANDARDS-MANIFEST",
+      "label": "Hardcoded standards manifest is the single source of truth",
+      "checks": [
+        { "type": "file_exists", "path": "src/constants/standards.js" },
+        { "type": "grep_matches", "pattern": "STANDARDS_MANIFEST", "paths": ["src/constants/standards.js"] },
+        { "type": "grep_matches", "pattern": "isManifestStandard", "paths": ["src/constants/standards.js"] }
+      ]
+    },
+    {
+      "id": "MONOLITH-REWIRED",
+      "label": "App.jsx imports the extracted modules (no inline standards)",
+      "checks": [
+        { "type": "grep_matches", "pattern": "from './constants/standards.js'", "paths": ["src/App.jsx"] },
+        { "type": "grep_excludes", "pattern": "^const STD = \\{", "paths": ["src/App.jsx"] }
+      ]
+    },
+    {
+      "id": "ENGINE-TESTS",
+      "label": "Engine golden fixtures + manifest-integrity tests pass",
+      "checks": [
+        { "type": "file_exists", "path": "tests/engine/manifest-integrity.test.ts" },
+        { "type": "npm_script_passes", "script": "test" }
+      ]
+    },
     {
       "id": "TS-CONFIG",
       "label": "TypeScript config present (@/* alias, bundler resolution)",
