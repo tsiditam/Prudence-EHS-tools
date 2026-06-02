@@ -60,12 +60,12 @@ const DANGER = 'var(--danger)'
 // "Thinking" status treatment — the indicator shown while the agent is
 // reasoning cycles through these phrases instead of a static "Thinking".
 // Wording stays screening-safe (research / analyze / cross-reference —
-// never "diagnose" or "determine"). Rendered in Architype Rubette Bold
-// (see the @font-face in index.html; falls back to the bold jasper stack
-// until the licensed file is dropped in) and the bright thinking-cyan
-// that matches the neon brain.
+// never "diagnose" or "determine"). Rendered in Bitcount Grid Single
+// (a free pixel/dot-matrix Google Font, loaded in index.html), then the
+// bold jasper stack as fallback. Colour is the bright thinking-cyan that
+// matches the neon brain.
 const THINKING_CYAN = '#22E0F2'
-const THINKING_FONT = "'Architype Rubette', var(--font-jasper)"
+const THINKING_FONT = "'Bitcount Grid Single', var(--font-jasper)"
 const THINKING_PHRASES = [
   'Searching standards manifest',
   'Analyzing data',
@@ -343,7 +343,7 @@ function ToolStatus({ tool }) {
             flexShrink: 0,
           }}
         />
-        <span style={{ fontSize: 13, color: THINKING_CYAN, fontFamily: THINKING_FONT, fontWeight: 700, lineHeight: 1.4, letterSpacing: '0.2px' }}>
+        <span style={{ fontSize: 12, color: THINKING_CYAN, fontFamily: THINKING_FONT, fontWeight: 700, lineHeight: 1.4, letterSpacing: '0.2px' }}>
           {status}
         </span>
       </div>
@@ -426,7 +426,7 @@ function ToolStatus({ tool }) {
       <span
         key={phraseIdx}
         aria-hidden="true"
-        style={{ fontSize: 13, color: THINKING_CYAN, fontFamily: THINKING_FONT, fontWeight: 700, lineHeight: 1.4, letterSpacing: '0.2px', animation: 'fadeIn .35s ease' }}>
+        style={{ fontSize: 12, color: THINKING_CYAN, fontFamily: THINKING_FONT, fontWeight: 700, lineHeight: 1.4, letterSpacing: '0.2px', animation: 'fadeIn .35s ease' }}>
         {THINKING_PHRASES[phraseIdx]}…
       </span>
     </div>
