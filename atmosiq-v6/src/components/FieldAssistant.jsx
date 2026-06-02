@@ -61,11 +61,13 @@ const DANGER = 'var(--danger)'
 // reasoning cycles through these phrases instead of a static "Thinking".
 // Wording stays screening-safe (research / analyze / cross-reference —
 // never "diagnose" or "determine"). Rendered in Architype Aubette Bold
-// (see the @font-face in index.html; falls back to the bold jasper stack
-// until the licensed file is dropped in) and the bright thinking-cyan
-// that matches the neon brain.
+// when its licensed file is present; until then it falls back to Krona
+// One (a free geometric Google Font wired in index.html as a close
+// stand-in — single 400 weight, so 700 here is browser-synthesized),
+// then the bold jasper stack. Colour is the bright thinking-cyan that
+// matches the neon brain.
 const THINKING_CYAN = '#22E0F2'
-const THINKING_FONT = "'Architype Aubette', var(--font-jasper)"
+const THINKING_FONT = "'Architype Aubette', 'Krona One', var(--font-jasper)"
 const THINKING_PHRASES = [
   'Searching standards manifest',
   'Analyzing data',
