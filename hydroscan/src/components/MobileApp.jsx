@@ -14,6 +14,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import LandingPage from './LandingPage'
 import { Logo, I } from './Icons'
+import MarlowAssistant from './MarlowAssistant'
 import { R } from '../styles/tokens'
 import { trackEvent } from '../utils/supabaseClient'
 
@@ -1134,29 +1135,12 @@ export default function MobileApp() {
         ::-webkit-scrollbar{width:4px;height:0;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:#1A2030;border-radius:2px;}
       `}</style>
 
-      {/* Marlow AI — placeholder sheet (full assistant lands in Phase 2) */}
-      {marlowOpen&&(
-        <div onClick={()=>setMarlowOpen(false)} style={{position:"fixed",inset:0,zIndex:260,background:"#000000DD",display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
-          <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:640,background:"var(--card)",border:`1px solid var(--border)`,borderRadius:"20px 20px 0 0",padding:"24px 22px 40px",animation:"slideUp .3s ease",background:"radial-gradient(140% 90% at 50% 0%, color-mix(in srgb, var(--accent) 9%, var(--card)) 0%, var(--card) 55%)"}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-              <div style={{display:"flex",alignItems:"center",gap:10}}>
-                <div style={{width:36,height:36,borderRadius:11,background:"color-mix(in srgb, var(--accent) 14%, transparent)",border:"1px solid color-mix(in srgb, var(--accent) 30%, transparent)",display:"flex",alignItems:"center",justifyContent:"center"}}><I n="pulse" s={20} c="var(--accent)" /></div>
-                <div>
-                  <div style={{fontFamily:"var(--font-marlow)",fontSize:18,fontWeight:700,color:"var(--text)"}}>Marlow</div>
-                  <div style={{fontSize:11,color:"var(--sub)",fontFamily:"'DM Mono'"}}>HydroScan water-quality AI</div>
-                </div>
-              </div>
-              <button onClick={()=>setMarlowOpen(false)} style={{width:32,height:32,borderRadius:8,border:`1px solid var(--border)`,background:"transparent",color:"var(--sub)",fontSize:16,cursor:"pointer"}}>×</button>
-            </div>
-            <div style={{fontSize:14,lineHeight:1.7,color:"var(--sub)"}}>
-              Marlow is HydroScan's in-app assistant. It will help interpret your results, look up MCLs and sampling methods, and draft report language — grounded strictly in the hardcoded standards manifest, never inventing a value.
-            </div>
-            <div style={{marginTop:14,padding:"12px 14px",borderRadius:R.md,background:"color-mix(in srgb, var(--accent) 7%, transparent)",border:"1px solid color-mix(in srgb, var(--accent) 22%, transparent)",fontSize:12.5,color:"var(--text)",fontWeight:600}}>
-              ⚡ Streaming chat is arriving in the next build. Every answer will close with “Water Professional Review Required.”
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Marlow AI — streaming water-quality assistant (Phase 2) */}
+      <MarlowAssistant
+        open={marlowOpen}
+        onClose={()=>setMarlowOpen(false)}
+        context={{ view, source, building, findings: evaluation?.findings, tier: evaluation?.tier, samplingPlan }}
+      />
 
       {/* Bottom navigation — token-driven primary nav (AtmosFlow pattern) */}
       {!showTour&&(()=>{
