@@ -689,7 +689,7 @@ export default function MobileApp() {
                       <span style={{display:"block",fontSize:15,fontWeight:700,color:"var(--text)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</span>
                       <span style={{display:"block",fontSize:12,color:"var(--sub)",marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.location||p.siteType}</span>
                     </span>
-                    <span style={{display:"inline-flex",alignItems:"center",padding:"4px 10px",borderRadius:R.sm,background:`${m.tone}14`,border:`1px solid ${m.tone}38`,color:m.tone,fontSize:10.5,fontWeight:700,letterSpacing:.3,textTransform:"uppercase",whiteSpace:"nowrap",flexShrink:0}}>{m.label}</span>
+                    <span style={{display:"inline-flex",alignItems:"center",padding:"6px 14px",borderRadius:999,background:"color-mix(in srgb, var(--accent) 12%, transparent)",border:"1px solid color-mix(in srgb, var(--accent) 40%, transparent)",color:"var(--accent)",fontSize:12,fontWeight:700,letterSpacing:.4,textTransform:"uppercase",whiteSpace:"nowrap",flexShrink:0}}>{m.label}</span>
                     <span style={{color:"var(--dim)",fontSize:18,flexShrink:0}}>›</span>
                   </button>
                 );})}
