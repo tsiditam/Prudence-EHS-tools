@@ -54,7 +54,14 @@ const COST_OUTPUT_PER_M = 15
 const COST_CACHE_READ_PER_M = 0.3
 const COST_CACHE_WRITE_PER_M = 3.75
 
-const MAX_OUTPUT_TOKENS = 800
+// Output ceiling per model turn. Raised from 800 — at 800 a full
+// four-section answer with a comparison table would hit the cap and the
+// reply visibly cut off mid-sentence (stop_reason "max_tokens"). This is
+// a ceiling, not a target: the "tight responses" style guidance keeps
+// most answers short, so short replies cost the same; only genuinely
+// long ones use the extra headroom. ~2k tokens ≈ 1,400 words, enough for
+// the longest legitimate IH answer.
+const MAX_OUTPUT_TOKENS = 2048
 const MAX_USER_MESSAGE_LEN = 4000
 const TITLE_TRUNCATE_LEN = 80
 // Cap conversation history sent to the model. Going further back hurts
