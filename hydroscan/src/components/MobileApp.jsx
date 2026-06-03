@@ -1340,9 +1340,12 @@ export default function MobileApp() {
         *{box-sizing:border-box;margin:0;}button{font-family:inherit;}
         .tap{transition:transform .12s ease,border-color .15s ease,background .15s ease,opacity .15s ease;}
         .tap:active{transform:scale(.985);}
-        @keyframes aiGlow{0%,100%{box-shadow:0 0 12px 2px color-mix(in srgb, var(--accent-fill) 45%, transparent);}50%{box-shadow:0 0 26px 7px color-mix(in srgb, var(--accent-fill) 78%, transparent);}}
-        @keyframes aiFloat{0%,100%{transform:translateY(0);}50%{transform:translateY(-3px);}}
-        .ai-orb{animation:aiGlow 2.8s ease-in-out infinite,aiFloat 3.6s ease-in-out infinite;will-change:transform,box-shadow;}
+        @keyframes aiCurrent{to{stroke-dashoffset:-28;}}
+        @keyframes aiHaloPulse{0%,100%{opacity:.45;transform:scale(.9);}50%{opacity:.95;transform:scale(1.1);}}
+        .ai-halo{animation:aiHaloPulse 2.6s ease-in-out infinite;will-change:opacity,transform;}
+        .ai-brain{filter:drop-shadow(0 0 5px rgba(46,255,160,.6));}
+        .ai-brain .ai-base svg path{opacity:.4;}
+        .ai-brain .ai-current svg path{stroke-dasharray:5 8;stroke-linecap:round;animation:aiCurrent 1.1s linear infinite;}
         .hero-card{transition:box-shadow .3s ease,border-color .25s ease;-webkit-tap-highlight-color:transparent;}
         .hero-card:active{border-color:var(--accent-fill);box-shadow:0 0 0 1px var(--accent-fill),0 0 34px 2px color-mix(in srgb, var(--accent-fill) 65%, transparent);}
         @keyframes chipPulse{0%,100%{opacity:1;}50%{opacity:.45;}}
@@ -1379,9 +1382,11 @@ export default function MobileApp() {
                 const col=t.active?"var(--accent)":"var(--dim)";
                 if(t.ai){
                   return (
-                    <button key={t.k} onClick={t.onTap} aria-label="HydroScan AI" style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"0 4px 8px",background:"transparent",border:"none",cursor:"pointer",fontFamily:"inherit"}}>
-                      <div className="ai-orb" style={{width:46,height:46,marginTop:-16,borderRadius:16,display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#0D9488,#14B8A6)",border:"1px solid color-mix(in srgb, var(--accent-fill) 60%, transparent)"}}>
-                        <I n="brain" s={24} c="#FFFFFF" w={2} />
+                    <button key={t.k} onClick={t.onTap} aria-label="HydroScan AI" style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"9px 4px 10px",background:"transparent",border:"none",cursor:"pointer",fontFamily:"inherit"}}>
+                      <div className="ai-brain" style={{position:"relative",width:30,height:24,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                        <span className="ai-halo" style={{position:"absolute",inset:-9,borderRadius:"50%",background:"radial-gradient(circle, rgba(46,255,160,0.5) 0%, rgba(46,255,160,0) 70%)",pointerEvents:"none"}} />
+                        <span className="ai-base" style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center"}}><I n="brain" s={27} c="#2EFFA0" w={2} /></span>
+                        <span className="ai-current" style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center"}}><I n="brain" s={27} c="#2EFFA0" w={2} /></span>
                       </div>
                       <span style={{fontSize:10.5,fontWeight:700,color:"var(--accent)",letterSpacing:"0.2px"}}>HydroScan AI</span>
                     </button>
