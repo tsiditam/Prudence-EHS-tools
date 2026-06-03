@@ -34,7 +34,7 @@ import { getAnthropicKey } from '../lib/env'
 const ANTHROPIC_MODEL = 'claude-sonnet-4-6'
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
 const MAX_OUTPUT_TOKENS = 900
-const MAX_TOOL_ROUNDS = 4
+const MAX_TOOL_ROUNDS = 3
 const MAX_HISTORY_TURNS = 20
 const MAX_USER_MESSAGE_LEN = 4000
 
