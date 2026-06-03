@@ -1,6 +1,42 @@
 {
-  "feature": "HydroScan Phase 0–5 — scaffold, design system, engine, Marlow AI, engine v1.1, DOCX reports & accounts",
+  "feature": "HydroScan Phase 0–6 — full platform: design, engine, Marlow AI, reports, accounts & billing",
   "criteria": [
+    {
+      "id": "BILLING-ENDPOINTS",
+      "label": "Stripe checkout / webhook / credits endpoints + price resolver",
+      "checks": [
+        { "type": "file_exists", "path": "api/checkout.js" },
+        { "type": "file_exists", "path": "api/webhook.js" },
+        { "type": "file_exists", "path": "api/credits.js" },
+        { "type": "file_exists", "path": "lib/stripe-prices.js" },
+        { "type": "grep_matches", "pattern": "stripe_webhook_events", "paths": ["api/webhook.js"] }
+      ]
+    },
+    {
+      "id": "PRICING-UI",
+      "label": "Pricing tiers + sheet wired into the app",
+      "checks": [
+        { "type": "file_exists", "path": "src/components/pricing/tiers.js" },
+        { "type": "file_exists", "path": "src/components/pricing/PricingSheet.jsx" },
+        { "type": "grep_matches", "pattern": "PricingSheet", "paths": ["src/components/MobileApp.jsx"] }
+      ]
+    },
+    {
+      "id": "BILLING-MIGRATION",
+      "label": "Billing migration (credits ledger + webhook idempotency)",
+      "checks": [
+        { "type": "file_exists", "path": "supabase/migrations/002_billing.sql" },
+        { "type": "grep_matches", "pattern": "billing_credits", "paths": ["supabase/migrations/002_billing.sql"] }
+      ]
+    },
+    {
+      "id": "BILLING-TESTS",
+      "label": "Billing tests pass (idempotency, credit consume, checkout validation)",
+      "checks": [
+        { "type": "file_exists", "path": "tests/api/billing.test.ts" },
+        { "type": "npm_script_passes", "script": "test" }
+      ]
+    },
     {
       "id": "AUTH-GATE",
       "label": "Supabase auth context + login screen gating the app",

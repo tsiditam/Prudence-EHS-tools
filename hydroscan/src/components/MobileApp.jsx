@@ -15,6 +15,7 @@ import { useMediaQuery } from '../hooks/useMediaQuery'
 import LandingPage from './LandingPage'
 import { Logo, I } from './Icons'
 import MarlowAssistant from './MarlowAssistant'
+import PricingSheet from './pricing/PricingSheet'
 import { buildReportModel } from '../report/report-model'
 import { R } from '../styles/tokens'
 import storage from '../utils/storage'
@@ -88,6 +89,7 @@ export default function MobileApp() {
   const [view, setView] = useState("dash");
   const [navOpen, setNavOpen] = useState(false);
   const [marlowOpen, setMarlowOpen] = useState(false); // Phase 2 — Marlow AI assistant
+  const [pricingOpen, setPricingOpen] = useState(false); // Phase 6 — plans/pricing
   const [aboutOpen, setAboutOpen] = useState(false);
   const [panel, setPanel] = useState(null); // about|settings|privacy|faq|feedback
   const [tosAccepted, setTosAccepted] = useState(false);
@@ -443,6 +445,7 @@ export default function MobileApp() {
       {navOpen&&<div onClick={()=>setNavOpen(false)} style={{position:"fixed",inset:0,background:"#000000AA",zIndex:150}}><div onClick={e=>e.stopPropagation()} style={{position:"absolute",top:50,left:0,width:230,background:"#0C1017",borderRight:"1px solid #1A2030",borderRadius:"0 0 14px 0",padding:"10px 6px",boxShadow:"20px 0 60px #00000080",animation:"slideRight .2s ease"}}>
         {PLAT_MODULES.map(m=><div key={m.id} style={{padding:"11px 12px",borderRadius:8,display:"flex",alignItems:"center",gap:10,background:m.on?"#14B8A610":"transparent",opacity:m.on?1:.3,marginBottom:2}}><span style={{fontSize:18}}>{m.i}</span><span style={{fontSize:14,fontWeight:m.on?600:400,color:m.on?"#14B8A6":"#5E6578"}}>{m.n}</span></div>)}
         <div style={{borderTop:"1px solid #1A2030",margin:"8px 0",padding:"8px 12px",display:"flex",flexDirection:"column",gap:4}}>
+          <button onClick={()=>{setPricingOpen(true);setNavOpen(false);}} style={{background:"none",border:"none",color:"#14B8A6",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",padding:"6px 0",display:"flex",alignItems:"center",gap:8}}><I n="bolt" s={14} c="#14B8A6" />Plans & Pricing</button>
           {[{k:"settings",l:"Settings",i:"user"},{k:"about",l:"About",i:"drop"},{k:"faq",l:"FAQ & Glossary",i:"alert"},{k:"privacy",l:"Privacy Policy",i:"shield"}].map(it=><button key={it.k} onClick={()=>{setPanel(it.k);setNavOpen(false);}} style={{background:"none",border:"none",color:"#5E6578",fontSize:12,cursor:"pointer",fontFamily:"inherit",padding:"6px 0",display:"flex",alignItems:"center",gap:8}}><I n={it.i} s={14} c="#5E6578" />{it.l}</button>)}
           <button onClick={()=>{setShowTos(true);setNavOpen(false);}} style={{background:"none",border:"none",color:"#5E6578",fontSize:12,cursor:"pointer",fontFamily:"inherit",padding:"6px 0",display:"flex",alignItems:"center",gap:8}}><I n="shield" s={14} c="#5E6578" />Terms of Service</button>
           <button onClick={()=>{setTourStep(0);setShowTour(true);setNavOpen(false);}} style={{background:"none",border:"none",color:"#5E6578",fontSize:12,cursor:"pointer",fontFamily:"inherit",padding:"6px 0",display:"flex",alignItems:"center",gap:8}}><I n="home" s={14} c="#5E6578" />How to Use</button>
@@ -1206,6 +1209,9 @@ export default function MobileApp() {
         select option{background:#0C1017;color:#9CA3B4;}
         ::-webkit-scrollbar{width:4px;height:0;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:#1A2030;border-radius:2px;}
       `}</style>
+
+      {/* Plans & pricing (Phase 6) */}
+      <PricingSheet open={pricingOpen} onClose={()=>setPricingOpen(false)} currentPlan="free" />
 
       {/* Marlow AI — streaming water-quality assistant (Phase 2) */}
       <MarlowAssistant
