@@ -433,12 +433,7 @@ export default function MobileApp() {
           <div><div style={{fontSize:15,fontWeight:600,lineHeight:1.1}}>Hydro<span style={{color:"#14B8A6",fontWeight:800}}>Scan</span></div><div style={{fontSize:11,color:"#8B95A8",fontFamily:"var(--font-mono)"}}>by Prudence EHS</div></div>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
-          <div style={{textAlign:"right",lineHeight:1.2}}>
-            <div style={{fontSize:11,fontWeight:600,color:"#F0F4F8",fontFamily:"var(--font-mono)"}}>{clock.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}</div>
-            <div style={{fontSize:9,color:"#5E6578",fontFamily:"var(--font-mono)"}}>{clock.toLocaleDateString([],{month:"short",day:"numeric",year:"numeric"})}</div>
-          </div>
-          <button onClick={()=>{setTourStep(0);setShowTour(true);}} style={{width:30,height:30,borderRadius:8,border:"1px solid #1A2030",background:"transparent",color:"#5E6578",fontSize:13,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"var(--font-mono)"}}>?</button>
-          {view!=="dash"&&<button onClick={()=>setView("dash")} style={{background:"#1A2535",border:"1.5px solid #14B8A640",borderRadius:8,color:"#E2E8F0",fontSize:14,fontWeight:600,padding:"8px 16px",cursor:"pointer",fontFamily:"inherit"}}>← Home</button>}
+          {view!=="dash"&&<button onClick={()=>setView("dash")} className="tap" style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:8,color:"var(--text)",fontSize:14,fontWeight:600,padding:"8px 16px",cursor:"pointer",fontFamily:"inherit"}}>← Home</button>}
         </div>
       </header>
 
@@ -509,7 +504,8 @@ export default function MobileApp() {
                 {Row({label:"Analyze Lab Results",icon:"flask",tone:"#8B5CF6",onClick:()=>{setActiveProjectId(null);startLab();}})}
                 {Row({label:"Generate Chain of Custody",icon:"clip",tone:"#22C55E",onClick:()=>{setActiveProjectId(null);initCOC();}})}
                 {div}
-                {Row({label:"Settings",icon:"user",active:panel==="settings",onClick:()=>setPanel("settings")})}
+                {Row({label:"Settings",icon:"gear",active:panel==="settings",onClick:()=>setPanel("settings")})}
+                {Row({label:"Guided Tour",icon:"help",onClick:()=>{setTourStep(0);setShowTour(true);}})}
                 {Row({label:"About Prudence EHS",icon:"drop",onClick:()=>setAboutOpen(true)})}
               </>);
             })()}
@@ -1328,7 +1324,6 @@ export default function MobileApp() {
           {k:"projects",label:"Projects",icon:"bldg",active:view==="projects"&&!marlowOpen,onTap:()=>{setMarlowOpen(false);setPanel(null);setView("projects");}},
           {k:"assess",label:"Assess",icon:"search",active:ASSESS_VIEWS.includes(view)&&!marlowOpen,onTap:()=>{setMarlowOpen(false);setPanel(null);setView("smart");}},
           {k:"reports",label:"Reports",icon:"clip",active:REPORT_VIEWS.includes(view)&&!marlowOpen,onTap:()=>{setMarlowOpen(false);setPanel(null);setView(evaluation?"labresults":"labentry");}},
-          {k:"settings",label:"Settings",icon:"user",active:panel==="settings",onTap:()=>{setMarlowOpen(false);setPanel("settings");}},
         ];
         return (
           <nav style={{position:"fixed",left:0,right:0,bottom:0,zIndex:120,display:"flex",justifyContent:"center",background:"color-mix(in srgb, var(--surface) 92%, transparent)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderTop:`1px solid var(--border)`,paddingBottom:"env(safe-area-inset-bottom,0px)"}}>
