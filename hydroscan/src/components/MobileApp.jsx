@@ -30,6 +30,8 @@ import {
   buildWaterCausalChains,
   generateSamplingPlan,
   generateRecommendations,
+  applyStateOverlay,
+  buildReadiness,
   fD,
   tierColor,
   tierLabel,
@@ -128,6 +130,7 @@ export default function MobileApp() {
   ];
   const [history, setHistory] = useState([]); // [{ts, sourceId, results, tier, findings}]
   const [selState, setSelState] = useState(""); // state code for state-specific standards
+  const [stateExceed, setStateExceed] = useState([]); // Phase 3 state-overlay exceedances
   const [coc, setCoc] = useState(null); // chain of custody form data
 
   // COC helpers
@@ -275,6 +278,10 @@ export default function MobileApp() {
   // Lab results evaluation
   const runEvaluation = () => {
     const ev = evaluateResults(labResults);
+    // State-limit overlay (Phase 3): surface stricter-than-federal exceedances
+    // for the selected state, in addition to the federal evaluation.
+    const stateEx = applyStateOverlay(labResults, selState);
+    setStateExceed(stateEx);
     setEvaluation(ev);
     const cc = buildWaterCausalChains({...source,...building}, ev.findings);
     setChains(cc);
@@ -860,6 +867,22 @@ export default function MobileApp() {
               <div style={{fontSize:32,fontWeight:800,color:tierColor(evaluation.tier),fontFamily:"'Sora'",letterSpacing:"-1px"}}>{tierLabel(evaluation.tier)}</div>
               <div style={{fontSize:13,color:"#8B95A8",fontFamily:"'DM Mono'",marginTop:8}}>{evaluation.findings.length} parameters · {evaluation.findings.filter(f=>f.violations.length>0).length} violations · {evaluation.findings.filter(f=>f.advisories.length>0).length} advisories</div>
             </div>
+
+            {/* Phase 3 — state-limit overlay (advisory) */}
+            {stateExceed.length>0&&(
+              <div style={{marginBottom:14,padding:"12px 14px",borderRadius:R.md,background:"color-mix(in srgb, var(--warn) 10%, transparent)",border:"1px solid color-mix(in srgb, var(--warn) 30%, transparent)"}}>
+                <div style={{fontSize:11,fontWeight:700,letterSpacing:1,textTransform:"uppercase",color:"var(--warn)",marginBottom:6}}>State limit exceedances · {selState}</div>
+                {stateExceed.map((x,i)=>(<div key={i} style={{fontSize:12.5,color:"var(--text)",lineHeight:1.6}}>• {x.parameter}: {x.value} {x.unit} exceeds {x.program} limit of {x.stateLimit} {x.unit}{x.stricterThanFederal?" (stricter than federal)":""}</div>))}
+              </div>
+            )}
+
+            {/* Phase 3 — readiness gate (advisory; never blocks issuance) */}
+            {(()=>{ const rd=buildReadiness({assessor,source,building,labResults,evaluation}); if(!rd.blockers.length) return null; return (
+              <div style={{marginBottom:14,padding:"12px 14px",borderRadius:R.md,background:"var(--surface)",border:"1px solid var(--border)"}}>
+                <div style={{fontSize:11,fontWeight:700,letterSpacing:1,textTransform:"uppercase",color:rd.ready?"var(--accent)":"var(--warn)",marginBottom:6}}>Readiness — {rd.ready?"no blocking gaps":"review gaps"} <span style={{color:"var(--dim)",fontWeight:600}}>(advisory)</span></div>
+                {rd.blockers.map((b,i)=>(<div key={i} style={{fontSize:12,color:"var(--sub)",lineHeight:1.6}}>• <span style={{color:b.tier==="hard"?"var(--warn)":"var(--sub)"}}>{b.message}</span> <span style={{color:"var(--dim)"}}>— {b.fixLocation}</span></div>))}
+              </div>
+            );})()}
 
             {/* Tabs */}
             <div style={{display:"flex",gap:4,padding:4,background:"#0C1017",borderRadius:10,border:"1px solid #1A2030",marginBottom:14,overflowX:"auto",scrollbarWidth:"none"}}>

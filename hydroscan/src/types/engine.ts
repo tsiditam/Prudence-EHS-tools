@@ -61,6 +61,22 @@ export interface Finding {
   violations: Violation[]
   advisories: Advisory[]
   notes: string[]
+  // Defensibility propagation (Phase 3): every finding is screening-level;
+  // field-meter-derived values (pH, chlorine read in the field vs. lab) are
+  // additionally flagged qualitative-only so the report can caveat them.
+  screening_only?: boolean
+  qualitative_only?: boolean
+}
+
+/** A state-program exceedance surfaced by the state-limit overlay. */
+export interface StateExceedance {
+  state: string
+  program: string
+  parameter: string
+  value: number
+  stateLimit: number
+  unit: string
+  stricterThanFederal: boolean
 }
 
 export interface ComplianceResult {
@@ -73,6 +89,10 @@ export interface CausalChain {
   type: string
   evidence: string[]
   confidence: 'Strong' | 'Moderate' | 'Preliminary'
+  /** Weighted-evidence score (0–1) behind the confidence label. */
+  confidenceScore?: number
+  /** What additional data would raise confidence (screening transparency). */
+  dataGaps?: string[]
   severity: Severity
   recommendation: string
 }

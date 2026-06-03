@@ -1,6 +1,34 @@
 {
-  "feature": "HydroScan Phase 0–2 — scaffold, design system, engine & Marlow AI",
+  "feature": "HydroScan Phase 0–3 — scaffold, design system, engine, Marlow AI & engine v1.1",
   "criteria": [
+    {
+      "id": "ENGINE-V11",
+      "label": "Engine bumped to v1.1 (Phase 3 improvements)",
+      "checks": [
+        { "type": "grep_matches", "pattern": "ENGINE_VERSION = '1\\.1", "paths": ["src/version.js"] }
+      ]
+    },
+    {
+      "id": "PHASE3-MODULES",
+      "label": "Tier precedence, state overlay, LSI, citation tracker, readiness & defensibility present",
+      "checks": [
+        { "type": "file_exists", "path": "src/engine/tier.ts" },
+        { "type": "file_exists", "path": "src/engine/state-overlay.ts" },
+        { "type": "file_exists", "path": "src/engine/lsi.ts" },
+        { "type": "file_exists", "path": "src/engine/citation-tracker.ts" },
+        { "type": "file_exists", "path": "src/engine/readiness.ts" },
+        { "type": "file_exists", "path": "src/engine/defensibility.ts" },
+        { "type": "grep_matches", "pattern": "escalateTier", "paths": ["src/engine/evaluate.ts"] }
+      ]
+    },
+    {
+      "id": "PHASE3-TESTS",
+      "label": "Phase 3 versioned engine tests pass",
+      "checks": [
+        { "type": "file_exists", "path": "tests/engine/phase3.test.ts" },
+        { "type": "npm_script_passes", "script": "test" }
+      ]
+    },
     {
       "id": "MARLOW-ENDPOINT",
       "label": "Marlow streaming SSE endpoint present (Anthropic, no docx deps)",
