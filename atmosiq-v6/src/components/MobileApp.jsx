@@ -4040,7 +4040,7 @@ export default function MobileApp() {
                       default `sm` TactileButton (padding/font/min-height
                       overrides) so both fit on one row of the card. */}
                   <div style={{display:'flex',gap:10}}>
-                    <TactileButton variant="primary" size="sm" pill onClick={startNew} icon={<I n="play" s={11} c={PRIMARY_CTA_ICON} w={2} />} style={{padding:'8px 12px',fontSize:11,minHeight:30}}>
+                    <TactileButton variant="primary" size="sm" pill onClick={startNew} style={{padding:'8px 12px',fontSize:11,minHeight:30}}>
                       Start survey
                     </TactileButton>
                     {/* Report an incident is a secondary action here, so
@@ -4053,7 +4053,6 @@ export default function MobileApp() {
                       size="sm"
                       pill
                       onClick={()=>setView('incident-form')}
-                      icon={<I n="alert" s={11} c="var(--accent)" w={1.8} />}
                       style={{
                         padding:'8px 12px',
                         fontSize:11,
