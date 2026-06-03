@@ -199,6 +199,24 @@ export default function MobileApp() {
   const showMilestone = (icon, title, sub, nextFn) => { haptic("success"); setMilestone({icon,title,sub}); setTimeout(()=>{setMilestone(null);nextFn();},1400); };
   const acceptTos = async () => { await STO.set("hydroscan-tos", true); setTosAccepted(true); setShowTos(false); haptic("success"); };
   const saveUserSettings = async (s) => { setUserSettings(s); await STO.set("hydroscan-settings", s); haptic("success"); };
+  // Read + downscale a profile photo to a small data URL, then persist it.
+  const setAvatar = (url) => setUserSettings(p=>{ const next={...p,avatar:url}; STO.set("hydroscan-settings", next); return next; });
+  const readAvatar = (file) => {
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const max=256; let w=img.width, h=img.height; const scale=Math.min(1,max/Math.max(w,h)); w=Math.round(w*scale); h=Math.round(h*scale);
+        try { const c=document.createElement("canvas"); c.width=w; c.height=h; c.getContext("2d").drawImage(img,0,0,w,h); setAvatar(c.toDataURL("image/jpeg",0.85)); }
+        catch { setAvatar(String(reader.result)); }
+        haptic("success");
+      };
+      img.onerror = () => setAvatar(String(reader.result));
+      img.src = String(reader.result);
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Question navigation helpers
   const setAF = (k,v) => setAssessor(p=>({...p,[k]:v}));
@@ -496,9 +514,15 @@ export default function MobileApp() {
               return (<>
                 <div style={{padding:"0 18px 14px"}}>
                   <div style={{fontSize:11,fontWeight:700,letterSpacing:.6,textTransform:"uppercase",color:"var(--dim)",marginBottom:12}}>HydroScan</div>
-                  <button className="tap" onClick={()=>go(()=>setPanel("settings"))} style={{display:"flex",alignItems:"center",gap:12,width:"100%",background:"none",border:"none",cursor:"pointer",fontFamily:"inherit",textAlign:"left",padding:0}}>
-                    <span style={{width:44,height:44,borderRadius:999,background:"color-mix(in srgb, var(--accent) 16%, transparent)",border:"1px solid color-mix(in srgb, var(--accent) 35%, transparent)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><Logo s={26}/></span>
-                    <span style={{flex:1,minWidth:0}}><span style={{display:"block",fontSize:16,fontWeight:700,color:"var(--text)"}}>Prudence EHS</span><span style={{display:"block",fontSize:12.5,color:"var(--sub)"}}>Account &amp; settings</span></span>
+                  <button className="tap" onClick={()=>go(()=>setPanel("profile"))} style={{display:"flex",alignItems:"center",gap:12,width:"100%",background:"none",border:"none",cursor:"pointer",fontFamily:"inherit",textAlign:"left",padding:0}}>
+                    <span style={{width:44,height:44,borderRadius:999,overflow:"hidden",background:"color-mix(in srgb, var(--accent) 16%, transparent)",border:"1px solid color-mix(in srgb, var(--accent) 35%, transparent)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                      {userSettings.avatar
+                        ? <img src={userSettings.avatar} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+                        : (userSettings.name?.trim()
+                            ? <span style={{fontSize:16,fontWeight:700,color:"var(--accent)"}}>{(userSettings.name.trim().split(/\s+/).slice(0,2).map(w=>(w.replace(/[^A-Za-z]/g,"")[0]||"")).join("")||"•").toUpperCase()}</span>
+                            : <Logo s={26}/>)}
+                    </span>
+                    <span style={{flex:1,minWidth:0}}><span style={{display:"block",fontSize:16,fontWeight:700,color:"var(--text)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{userSettings.name?.trim()||"Your name"}</span><span style={{display:"block",fontSize:12.5,color:"var(--sub)"}}>Account</span></span>
                     <span style={{color:"var(--dim)",fontSize:18}}>›</span>
                   </button>
                 </div>
@@ -595,6 +619,19 @@ export default function MobileApp() {
           </div>}
 
           {panel==="profile"&&<div>
+            <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:18}}>
+              <label className="tap" style={{cursor:"pointer",flexShrink:0,display:"block"}}>
+                <span style={{width:64,height:64,borderRadius:999,overflow:"hidden",background:"color-mix(in srgb, var(--accent) 14%, transparent)",border:"1px solid var(--border)",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                  {userSettings.avatar ? <img src={userSettings.avatar} alt="Profile" style={{width:"100%",height:"100%",objectFit:"cover"}}/> : <I n="user" s={26} c="var(--accent)"/>}
+                </span>
+                <input type="file" accept="image/*" onChange={e=>{readAvatar(e.target.files&&e.target.files[0]); e.target.value="";}} style={{display:"none"}} />
+              </label>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:13,fontWeight:700,color:"var(--text)"}}>Profile photo</div>
+                <div style={{fontSize:12,color:"var(--sub)",marginTop:2,lineHeight:1.5}}>Tap the circle to {userSettings.avatar?"change":"upload"} a photo. It appears on your account.</div>
+                {userSettings.avatar && <button onClick={()=>setAvatar("")} style={{marginTop:6,background:"none",border:"none",color:"var(--danger)",fontSize:12,cursor:"pointer",fontFamily:"inherit",padding:0}}>Remove photo</button>}
+              </div>
+            </div>
             <div style={{fontSize:13,color:"var(--sub)",marginBottom:16}}>These defaults auto-populate when you start assessments.</div>
             {[{k:"name",l:"Your Name & Credentials",ph:"e.g. T. Tamakloe, CSP"},{k:"firm",l:"Company",ph:"e.g. Prudence Safety & Environmental Consulting"},{k:"phone",l:"Phone",ph:"Contact number"},{k:"instrument",l:"Field Meter",ph:"e.g. Hach HQ40d"},{k:"calDate",l:"Meter Calibration Date",ph:"e.g. 2026-03-01"}].map(f=><div key={f.k} style={{marginBottom:12}}><div style={{fontSize:12,fontWeight:600,color:"var(--text)",marginBottom:4}}>{f.l}</div><input value={userSettings[f.k]||""} onChange={e=>setUserSettings(p=>({...p,[f.k]:e.target.value}))} placeholder={f.ph} style={{width:"100%",padding:"12px 14px",background:"var(--surface)",border:"1px solid var(--border)",borderRadius:8,color:"var(--text)",fontSize:14,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}} /></div>)}
             <button onClick={()=>{saveUserSettings(userSettings);setPanel("settings");}} style={{width:"100%",padding:"14px 0",background:"linear-gradient(135deg,#0D9488,#14B8A6)",border:"none",borderRadius:10,color:"#fff",fontSize:15,fontWeight:700,cursor:"pointer",fontFamily:"inherit",marginTop:8}}>Save Profile</button>
