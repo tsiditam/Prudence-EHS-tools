@@ -189,6 +189,10 @@ const confColor = (conf) => conf === 'Strong' ? '#22C55E'
   : conf === 'Moderate' ? '#FBBF24'
   : '#8AA4CC'
 const ON_ACCENT = 'var(--on-accent)'
+// Serif stack for the "Ready to start a survey?" co-pilot card heading +
+// body — system serif first (New York on iOS/Mac, the platform AtmosFlow
+// ships to), then broad fallbacks.
+const SERIF = "ui-serif, 'New York', Georgia, 'Times New Roman', serif"
 
 // Map a saved profile instrument's coarse calStatus → the assessment's
 // calibration-status option. Best-guess only — the assessor confirms it
@@ -4014,15 +4018,18 @@ export default function MobileApp() {
                     <I n="airflow" s={18} c="var(--accent)" w={1.8} />
                     <div style={V3.T.micro}>AtmosFlow · Field co-pilot</div>
                   </div>
-                  <div style={{...V3.T.h1, marginBottom:6}}>Ready to start a walkthrough?</div>
-                  <div style={{...V3.T.bodyDim, maxWidth:560, marginBottom:20}}>
+                  <div style={{...V3.T.h1, fontFamily:SERIF, fontWeight:700, marginBottom:6}}>Ready to start a survey?</div>
+                  <div style={{...V3.T.bodyDim, fontFamily:SERIF, fontWeight:700, maxWidth:560, marginBottom:20}}>
                     Capture field observations, instrument readings, and zone notes.
                     AtmosFlow organizes them into a screening-level professional
                     assessment with severity, confidence, and recommended actions.
                   </div>
-                  <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
-                    <TactileButton variant="primary" size="sm" pill onClick={startNew} icon={<I n="play" s={13} c={PRIMARY_CTA_ICON} w={2} />}>
-                      Start walkthrough
+                  {/* Two compact pills side by side — ~25% smaller than the
+                      default `sm` TactileButton (padding/font/min-height
+                      overrides) so both fit on one row of the card. */}
+                  <div style={{display:'flex',gap:10}}>
+                    <TactileButton variant="primary" size="sm" pill onClick={startNew} icon={<I n="play" s={11} c={PRIMARY_CTA_ICON} w={2} />} style={{padding:'8px 12px',fontSize:11,minHeight:30}}>
+                      Start survey
                     </TactileButton>
                     {/* Report an incident is a secondary action here, so
                         its accent border + tint are toned down (30%→16%
@@ -4034,8 +4041,11 @@ export default function MobileApp() {
                       size="sm"
                       pill
                       onClick={()=>setView('incident-form')}
-                      icon={<I n="alert" s={13} c="var(--accent)" w={1.8} />}
+                      icon={<I n="alert" s={11} c="var(--accent)" w={1.8} />}
                       style={{
+                        padding:'8px 12px',
+                        fontSize:11,
+                        minHeight:30,
                         background:'color-mix(in srgb, var(--accent) 7%, transparent)',
                         border:'1px solid color-mix(in srgb, var(--accent) 16%, transparent)',
                         boxShadow:'inset 0 1px 0 rgba(255,255,255,0.03), 0 1px 2px rgba(0,0,0,0.20)',
