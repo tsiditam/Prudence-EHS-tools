@@ -1,6 +1,31 @@
 {
-  "feature": "HydroScan Phase 0–3 — scaffold, design system, engine, Marlow AI & engine v1.1",
+  "feature": "HydroScan Phase 0–4 — scaffold, design system, engine, Marlow AI, engine v1.1 & DOCX reports",
   "criteria": [
+    {
+      "id": "REPORT-DOCX",
+      "label": "DOCX report builder + model present and wired to a download",
+      "checks": [
+        { "type": "file_exists", "path": "src/report/DocxReport.ts" },
+        { "type": "file_exists", "path": "src/report/report-model.ts" },
+        { "type": "grep_matches", "pattern": "getReportDocxBlob", "paths": ["src/components/MobileApp.jsx"] }
+      ]
+    },
+    {
+      "id": "REPORT-DEFENSIBLE",
+      "label": "Report carries draft watermark + manifest-gated bibliography",
+      "checks": [
+        { "type": "grep_matches", "pattern": "watermark", "paths": ["src/report/DocxReport.ts"] },
+        { "type": "grep_matches", "pattern": "bibliographyFor", "paths": ["src/report/report-model.ts"] }
+      ]
+    },
+    {
+      "id": "REPORT-TESTS",
+      "label": "DOCX model + packing tests pass",
+      "checks": [
+        { "type": "file_exists", "path": "tests/api/report-docx.test.ts" },
+        { "type": "npm_script_passes", "script": "test" }
+      ]
+    },
     {
       "id": "ENGINE-V11",
       "label": "Engine bumped to v1.1 (Phase 3 improvements)",
