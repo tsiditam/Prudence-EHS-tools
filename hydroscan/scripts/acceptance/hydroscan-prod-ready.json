@@ -2,6 +2,43 @@
   "feature": "HydroScan Phase 0–4 — scaffold, design system, engine, Marlow AI, engine v1.1 & DOCX reports",
   "criteria": [
     {
+      "id": "NARRATIVE-ENDPOINT",
+      "label": "Streaming narrative endpoint (Anthropic, SSE, no docx deps)",
+      "checks": [
+        { "type": "file_exists", "path": "api/water-narrative.ts" },
+        { "type": "grep_matches", "pattern": "text/event-stream", "paths": ["api/water-narrative.ts"] },
+        { "type": "grep_matches", "pattern": "claude-sonnet-4-6", "paths": ["api/water-narrative.ts"] },
+        { "type": "grep_excludes", "pattern": "(from|require).{0,30}(docx|docxtemplater|pizzip)", "paths": ["api/water-narrative.ts", "src/constants/narrative-prompt.js", "src/constants/narrative-language-guard.js"] }
+      ]
+    },
+    {
+      "id": "NARRATIVE-MANIFEST-BOUND",
+      "label": "Narrative prompt is screening-only + manifest-bound",
+      "checks": [
+        { "type": "file_exists", "path": "src/constants/narrative-prompt.js" },
+        { "type": "file_exists", "path": "src/constants/narrative-language-guard.js" },
+        { "type": "grep_matches", "pattern": "Water Professional Review Required", "paths": ["src/constants/narrative-prompt.js"] }
+      ]
+    },
+    {
+      "id": "NARRATIVE-UI",
+      "label": "Narrative hook + Results tab + woven into the report",
+      "checks": [
+        { "type": "file_exists", "path": "src/hooks/useNarrative.js" },
+        { "type": "file_exists", "path": "src/report/markdownToDocx.ts" },
+        { "type": "grep_matches", "pattern": "useNarrative", "paths": ["src/components/MobileApp.jsx"] },
+        { "type": "grep_matches", "pattern": "markdownToParagraphs", "paths": ["src/report/DocxReport.ts"] }
+      ]
+    },
+    {
+      "id": "NARRATIVE-TESTS",
+      "label": "Narrative guard/parse/inject tests pass",
+      "checks": [
+        { "type": "file_exists", "path": "tests/api/narrative.test.ts" },
+        { "type": "npm_script_passes", "script": "test" }
+      ]
+    },
+    {
       "id": "REPORT-DOCX",
       "label": "DOCX report builder + model present and wired to a download",
       "checks": [

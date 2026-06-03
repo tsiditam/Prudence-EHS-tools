@@ -18,6 +18,7 @@ import {
   Table, TableRow, TableCell, WidthType, BorderStyle, Header, Footer, PageNumber,
 } from 'docx'
 import type { ReportModel } from './report-model'
+import { markdownToParagraphs } from './markdownToDocx'
 
 const ACCENT = '0D9488'
 const MUTED = '6B7380'
@@ -37,6 +38,12 @@ function bullet(text: string) {
 }
 function kv(label: string, value: string) {
   return new Paragraph({ spacing: { after: 30 }, children: [new TextRun({ text: `${label}: `, bold: true }), new TextRun({ text: value || '—' })] })
+}
+// AI narrative block: an italic "review required" note followed by the prose.
+function aiBlock(md?: string): Paragraph[] {
+  if (!md || !md.trim()) return []
+  const note = new Paragraph({ spacing: { after: 40 }, children: [new TextRun({ text: 'AI-generated narrative — professional review required.', italics: true, color: MUTED, size: 16 })] })
+  return [note, ...markdownToParagraphs(md, { size: 20 })]
 }
 
 const cellBorder = { style: BorderStyle.SINGLE, size: 2, color: 'D9DEE5' }
@@ -90,6 +97,12 @@ export function buildReportDocument(model: ReportModel): Document {
     p(m.screeningNotice, { italics: true, color: MUTED }),
   )
 
+  // ── Executive Summary (AI narrative) ──
+  if (m.narrative?.executiveSummary) {
+    sections.push(h1('Executive Summary'))
+    sections.push(...aiBlock(m.narrative.executiveSummary))
+  }
+
   // ── Scope & Limitations + DQO ──
   sections.push(h1('1. Scope, Methodology & Data Quality Objectives'))
   sections.push(p('This screening evaluates entered laboratory and field results against the hardcoded HydroScan standards manifest (EPA SDWA 40 CFR 141, WHO GDWQ, LCRR, PFAS NPDWR, ASHRAE 188). Tier classifications are advisory and do not constitute a regulatory compliance determination.'))
@@ -110,6 +123,7 @@ export function buildReportDocument(model: ReportModel): Document {
 
   // ── Findings Register ──
   sections.push(h1('3. Results & Findings Register'))
+  if (m.narrative?.keyFindings) sections.push(...aiBlock(m.narrative.keyFindings))
   if (m.findings.length) {
     sections.push(table(
       ['Parameter', 'Result', 'Unit', 'Reference', 'Status'],
@@ -128,6 +142,7 @@ export function buildReportDocument(model: ReportModel): Document {
 
   // ── Causal-chain analysis ──
   sections.push(h1('4. Causal-Chain Analysis'))
+  if (m.narrative?.causal) sections.push(...aiBlock(m.narrative.causal))
   if (m.chains.length) {
     m.chains.forEach((c) => {
       sections.push(h2(`${c.type} — ${c.confidence} confidence${c.confidenceScore != null ? ` (${c.confidenceScore})` : ''}`))
@@ -156,6 +171,7 @@ export function buildReportDocument(model: ReportModel): Document {
 
   // ── Recommendations ──
   sections.push(h1('6. Recommendations'))
+  if (m.narrative?.recommended) sections.push(...aiBlock(m.narrative.recommended))
   const recGroups: Array<[string, string[]]> = [
     ['Immediate', m.recommendations.immediate],
     ['Short-term (≤ 30 days)', m.recommendations.shortTerm],

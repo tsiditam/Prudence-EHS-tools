@@ -12,6 +12,8 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useMediaQuery } from '../hooks/useMediaQuery'
+import { useNarrative } from '../hooks/useNarrative'
+import { buildNarrativePayload } from '../constants/narrative-prompt.js'
 import LandingPage from './LandingPage'
 import { Logo, I } from './Icons'
 import MarlowAssistant from './MarlowAssistant'
@@ -122,6 +124,7 @@ export default function MobileApp() {
   const [samplingPlan, setSamplingPlan] = useState([]);
   const [recs, setRecs] = useState(null);
   const [rTab, setRTab] = useState("compliance");
+  const narrative = useNarrative(); // narrative layer (AI prose, streamed)
   const [showGuide, setShowGuide] = useState(null); // key from COLLECTION_GUIDES
   const [showTour, setShowTour] = useState(false);
   const [tourStep, setTourStep] = useState(0);
@@ -229,9 +232,9 @@ export default function MobileApp() {
   const [smart, setSmart] = useState({source:"",building:"",trigger:"",concerns:[]});
   const [showDeepen, setShowDeepen] = useState(false);
 
-  const startSmart = () => { if(!tosAccepted){setShowTos(true);return;} trackEvent('assessment_started',{type:'quick'}); setSmart({source:"",building:"",trigger:"",concerns:[]}); setSamplingPlan([]); setShowDeepen(false); setView("smart"); };
-  const startField = () => { if(!tosAccepted){setShowTos(true);return;} trackEvent('assessment_started',{type:'field'}); setMode("field"); setAssessor({}); setAqi(0); setSource({}); setSqi(0); setBuilding({}); setBqi(0); setPhotos({}); setLabResults([]); setEvaluation(null); setChains([]); setSamplingPlan([]); setRecs(null); setView("assessor"); };
-  const startLab = () => { if(!tosAccepted){setShowTos(true);return;} trackEvent('assessment_started',{type:'lab'}); setMode("lab"); setLabResults([]); setSource({}); setBuilding({}); setEvaluation(null); setChains([]); setRecs(null); setView("labentry"); };
+  const startSmart = () => { if(!tosAccepted){setShowTos(true);return;} trackEvent('assessment_started',{type:'quick'}); setSmart({source:"",building:"",trigger:"",concerns:[]}); setSamplingPlan([]); setShowDeepen(false); narrative.reset(); setView("smart"); };
+  const startField = () => { if(!tosAccepted){setShowTos(true);return;} trackEvent('assessment_started',{type:'field'}); setMode("field"); setAssessor({}); setAqi(0); setSource({}); setSqi(0); setBuilding({}); setBqi(0); setPhotos({}); setLabResults([]); setEvaluation(null); setChains([]); setSamplingPlan([]); setRecs(null); narrative.reset(); setView("assessor"); };
+  const startLab = () => { if(!tosAccepted){setShowTos(true);return;} trackEvent('assessment_started',{type:'lab'}); setMode("lab"); setLabResults([]); setSource({}); setBuilding({}); setEvaluation(null); setChains([]); setRecs(null); narrative.reset(); setView("labentry"); };
 
   // Projects: load with a brief skeleton beat; launch a lifecycle step into the
   // existing flow it corresponds to (preserves all engine/business logic).
@@ -354,7 +357,7 @@ export default function MobileApp() {
     if (reporting) return;
     setReporting(true);
     try {
-      const model = buildReportModel({ assessor, source, building, labResults, evaluation, chains, samplingPlan, recs, stateExceed, selState, coc });
+      const model = buildReportModel({ assessor, source, building, labResults, evaluation, chains, samplingPlan, recs, stateExceed, selState, coc, narrative: (narrative.done && narrative.sections) ? narrative.sections : null });
       // Lazy-load the docx builder so its weight stays out of the initial bundle.
       const { getReportDocxBlob } = await import('../report/DocxReport');
       const blob = await getReportDocxBlob(model);
@@ -1069,7 +1072,7 @@ export default function MobileApp() {
 
             {/* Tabs */}
             <div style={{display:"flex",gap:4,padding:4,background:"var(--card)",borderRadius:10,border:"1px solid var(--border)",marginBottom:14,overflowX:"auto",scrollbarWidth:"none"}}>
-              {[["compliance","shield","Compliance"],["chains","chain","Root Cause"],["actions","bolt","Actions"],["trending","chart","Trending"]].map(([k,ic,l])=><button key={k} onClick={()=>{setRTab(k);haptic("light");}} style={{flex:"0 0 auto",padding:"10px 16px",borderRadius:8,border:"none",background:rTab===k?"#14B8A615":"transparent",color:rTab===k?"#14B8A6":"var(--dim)",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:6}}><I n={ic} s={16} c={rTab===k?"#14B8A6":"var(--dim)"} />{l}</button>)}
+              {[["compliance","shield","Compliance"],["chains","chain","Root Cause"],["actions","bolt","Actions"],["narrative","brain","Narrative"],["trending","chart","Trending"]].map(([k,ic,l])=><button key={k} onClick={()=>{setRTab(k);haptic("light");}} style={{flex:"0 0 auto",padding:"10px 16px",borderRadius:8,border:"none",background:rTab===k?"#14B8A615":"transparent",color:rTab===k?"#14B8A6":"var(--dim)",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:6}}><I n={ic} s={16} c={rTab===k?"#14B8A6":"var(--dim)"} />{l}</button>)}
             </div>
 
             {/* COMPLIANCE TAB */}
@@ -1152,6 +1155,36 @@ export default function MobileApp() {
                     </a>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* NARRATIVE TAB — AI prose interpretation (narrative layer) */}
+            {rTab==="narrative"&&(
+              <div style={{display:"flex",flexDirection:"column",gap:12,animation:"fadeUp .3s ease"}}>
+                {(()=>{const payload=()=>buildNarrativePayload({evaluation,source,building,chains,recs,samplingPlan,selState});return (!narrative.text && !narrative.streaming) ? (
+                  <div style={{padding:"24px 18px",textAlign:"center",background:"var(--card)",border:"1px solid var(--border)",borderRadius:R.lg}}>
+                    <I n="brain" s={28} c="var(--accent)"/>
+                    <div style={{fontSize:15,fontWeight:700,color:"var(--text)",marginTop:10}}>AI findings narrative</div>
+                    <div style={{fontSize:13,color:"var(--sub)",lineHeight:1.55,margin:"6px auto 16px",maxWidth:360}}>A short, screening-only prose interpretation of this assessment. It cites only your engine&apos;s findings — it never invents a limit — and is woven into the DOCX report.</div>
+                    <button onClick={()=>{haptic("light");narrative.run(payload());}} className="tap" style={{...btnPrimary,margin:"0 auto"}}><I n="brain" s={16} c="var(--on-accent-fill)"/>Generate narrative</button>
+                  </div>
+                ) : (
+                  <>
+                    <div style={{display:"flex",gap:10,padding:"11px 14px",background:"color-mix(in srgb, var(--warn) 12%, transparent)",border:"1px solid color-mix(in srgb, var(--warn) 30%, transparent)",borderRadius:R.md}}>
+                      <I n="alert" s={16} c="var(--warn)" w={2}/>
+                      <div style={{fontSize:12,color:"var(--text)",lineHeight:1.5}}>AI-generated · <strong style={{color:"var(--warn)"}}>Water Professional Review Required</strong>. Review and edit before any deliverable.</div>
+                    </div>
+                    {narrative.review&&narrative.review.level!=="pass"&&(
+                      <div style={{fontSize:12,color:narrative.review.level==="block"?"var(--danger)":"var(--warn)",padding:"8px 12px",background:"var(--surface)",border:"1px solid var(--border)",borderRadius:R.sm}}>Flagged language ({narrative.review.level}) — review before use: {narrative.review.flags.map(f=>f.term).join(", ")}</div>
+                    )}
+                    <div style={{padding:"16px",background:"var(--card)",border:"1px solid var(--border)",borderRadius:R.lg,display:"flex",flexDirection:"column",gap:3}}>
+                      {narrative.text.split("\n").map((ln,i)=>{const t=ln.trim();if(!t)return <div key={i} style={{height:6}}/>;if(t.startsWith("## "))return <div key={i} style={{fontSize:12,fontWeight:700,color:"var(--accent)",textTransform:"uppercase",letterSpacing:.5,marginTop:i?12:0}}>{t.slice(3)}</div>;const isBullet=t.startsWith("- ")||t.startsWith("* ");const body=isBullet?t.slice(2):t;const parts=body.split(/(\*\*[^*]+\*\*)/g).map((pp,j)=>pp.startsWith("**")&&pp.endsWith("**")?<strong key={j} style={{color:"var(--text)"}}>{pp.slice(2,-2)}</strong>:<span key={j}>{pp}</span>);return <div key={i} style={{display:"flex",gap:8,fontSize:14,color:"var(--text)",lineHeight:1.65}}>{isBullet&&<span style={{color:"var(--accent)",flexShrink:0}}>•</span>}<span>{parts}</span></div>;})}
+                      {narrative.streaming&&<span style={{opacity:.5,color:"var(--accent)"}}>▍</span>}
+                    </div>
+                    {narrative.error&&<div style={{fontSize:12.5,color:"var(--danger)"}}>{narrative.error}</div>}
+                    {narrative.done&&<button onClick={()=>{haptic("light");narrative.run(payload());}} style={{alignSelf:"flex-start",background:"none",border:"1px solid var(--border)",borderRadius:R.md,color:"var(--sub)",fontSize:12.5,fontWeight:600,padding:"8px 14px",cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:6}}><I n="refresh" s={14} c="var(--sub)"/>Regenerate</button>}
+                  </>
+                );})()}
               </div>
             )}
 
