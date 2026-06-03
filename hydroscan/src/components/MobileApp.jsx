@@ -1347,6 +1347,10 @@ export default function MobileApp() {
         .ai-brain svg path{stroke:url(#aiBrainGrad);}
         .ai-brain .ai-base svg path{opacity:.95;}
         .ai-brain .ai-current svg path{opacity:.6;stroke-dasharray:5 8;stroke-linecap:round;animation:aiCurrent 2.8s linear infinite;}
+        .navbubble[data-active]{background:color-mix(in srgb, var(--accent) 16%, transparent);box-shadow:0 0 16px color-mix(in srgb, var(--accent) 26%, transparent);}
+        .navtab{transition:transform .1s ease;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
+        .navtab:active{transform:scale(.92);}
+        .navtab:active .navbubble{background:color-mix(in srgb, var(--accent) 14%, transparent);box-shadow:0 0 18px color-mix(in srgb, var(--accent) 24%, transparent);}
         .hero-card{transition:box-shadow .3s ease,border-color .25s ease;-webkit-tap-highlight-color:transparent;}
         .hero-card:active{border-color:var(--accent-fill);box-shadow:0 0 0 1px var(--accent-fill),0 0 34px 2px color-mix(in srgb, var(--accent-fill) 65%, transparent);}
         @keyframes chipPulse{0%,100%{opacity:1;}50%{opacity:.45;}}
@@ -1385,8 +1389,8 @@ export default function MobileApp() {
                 const col=t.active?"var(--accent)":"var(--dim)";
                 if(t.ai){
                   return (
-                    <button key={t.k} onClick={t.onTap} aria-label="HydroScan AI" style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"9px 4px 10px",background:"transparent",border:"none",cursor:"pointer",fontFamily:"inherit"}}>
-                      <div className="ai-brain" style={{position:"relative",width:30,height:24,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                    <button key={t.k} onClick={()=>{haptic("light");t.onTap();}} aria-label="HydroScan AI" className="tap navtab" style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"9px 4px 10px",background:"transparent",border:"none",cursor:"pointer",fontFamily:"inherit"}}>
+                      <div className="ai-brain" style={{position:"relative",width:30,height:28,display:"flex",alignItems:"center",justifyContent:"center"}}>
                         <span className="ai-halo" style={{position:"absolute",inset:-9,borderRadius:"50%",background:"radial-gradient(circle, rgba(20,184,166,0.5) 0%, rgba(20,184,166,0) 70%)",pointerEvents:"none"}} />
                         <span className="ai-base" style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center"}}><I n="brain" s={27} c="var(--accent-fill)" w={2} /></span>
                         <span className="ai-current" style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center"}}><I n="brain" s={27} c="var(--accent-fill)" w={2} /></span>
@@ -1396,14 +1400,10 @@ export default function MobileApp() {
                   );
                 }
                 return (
-                  <button key={t.k} onClick={t.onTap} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"9px 4px 10px",background:"transparent",border:"none",cursor:"pointer",fontFamily:"inherit"}}>
-                    {t.accent?(
-                      <div style={{width:34,height:34,marginTop:-2,borderRadius:11,display:"flex",alignItems:"center",justifyContent:"center",background:t.active?"var(--accent-fill)":"color-mix(in srgb, var(--accent) 16%, transparent)",border:t.active?"none":"1px solid color-mix(in srgb, var(--accent) 32%, transparent)",boxShadow:t.active?"0 4px 14px color-mix(in srgb, var(--accent) 45%, transparent)":"none"}}>
-                        <I n={t.icon} s={18} c={t.active?"var(--on-accent-fill)":"var(--accent)"} w={2} />
-                      </div>
-                    ):(
+                  <button key={t.k} onClick={()=>{haptic("light");t.onTap();}} className="tap navtab" style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"9px 4px 10px",background:"transparent",border:"none",cursor:"pointer",fontFamily:"inherit"}}>
+                    <span className="navbubble" data-active={t.active?"1":undefined} style={{display:"flex",alignItems:"center",justifyContent:"center",width:46,height:28,borderRadius:999,transition:"background .18s ease, box-shadow .18s ease"}}>
                       <I n={t.icon} s={20} c={col} w={1.9} />
-                    )}
+                    </span>
                     <span style={{fontSize:10.5,fontWeight:t.active?700:500,color:col,letterSpacing:"0.2px"}}>{t.label}</span>
                   </button>
                 );
