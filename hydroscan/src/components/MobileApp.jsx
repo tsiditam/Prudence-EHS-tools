@@ -17,6 +17,9 @@ import { Logo, I } from './Icons'
 import MarlowAssistant from './MarlowAssistant'
 import { buildReportModel } from '../report/report-model'
 import { R } from '../styles/tokens'
+import storage from '../utils/storage'
+import { persistAssessment, loadHistory } from '../utils/cloudStorage'
+import { useAuth } from '../contexts/AuthContext'
 import { trackEvent } from '../utils/supabaseClient'
 
 // ── Domain data & engine (Phase 1 extraction) ──
@@ -54,12 +57,10 @@ const PLAT_MODULES = [
 ];
 
 /* ─── STORAGE HELPERS ────────────────────────────────────────────── */
-const STO = {
-  get: async(k)=>{try{const r=await window.storage.get(k);return r?JSON.parse(r.value):null;}catch{return null;}},
-  set: async(k,v)=>{try{await window.storage.set(k,JSON.stringify(v));return true;}catch{return false;}},
-  del: async(k)=>{try{await window.storage.delete(k);}catch{}},
-  hasVisited: async()=>{const v=await STO.get("hydroscan-visited");if(!v)await STO.set("hydroscan-visited",true);return!!v;},
-};
+// Storage: real localStorage-backed wrapper (replaces the old window.storage
+// bridge shim, which no-opped on the web). Cloud sync is layered on top via
+// cloudStorage when the user is signed in.
+const STO = storage
 
 
 /* ─── Particles Effect ───────────────────────────────────────────── */
@@ -80,6 +81,7 @@ function AboutPanel({open,onClose}){const[v,setV]=useState(false);const[s,setS]=
 /* ═══════════════════════════════════════════════════════════════════ */
 export default function MobileApp() {
   const { isDesktop, isStandalone } = useMediaQuery()
+  const { user, profile, signOut, saveProfile } = useAuth()
   if (isDesktop && !isStandalone) return <LandingPage isDesktop={true} />
 
   const [isReturning, setIsReturning] = useState(false);
@@ -163,8 +165,9 @@ export default function MobileApp() {
       const us = await STO.get("hydroscan-settings");
       if (us) setUserSettings(us);
       await refreshIndex();
-      const h = await STO.get("hydroscan-history") || [];
-      setHistory(h);
+      // Cloud history when signed in, else local (cloudStorage facade).
+      const h = await loadHistory();
+      setHistory(Array.isArray(h) ? h : []);
     })();
   }, []);
 
@@ -173,6 +176,18 @@ export default function MobileApp() {
     setIndex(idx);
   };
 
+  // Prefill assessor defaults from the signed-in user's profile.
+  useEffect(() => {
+    if (!profile) return;
+    setUserSettings(p => ({
+      name: p.name || profile.full_name || "",
+      firm: p.firm || profile.firm || "",
+      phone: p.phone || profile.phone || "",
+      instrument: p.instrument || profile.instrument || "",
+      calDate: p.calDate || profile.calibration_date || "",
+    }));
+  }, [profile]);
+
   // Save evaluation to history for trending
   const saveToHistory = async (ev, src) => {
     trackEvent('assessment_completed', { tier: ev.tier, param_count: ev.findings.length, violations: ev.findings.filter(f=>f.violations.length>0).length });
@@ -180,12 +195,14 @@ export default function MobileApp() {
     const updated = [...history, entry].slice(-50);
     setHistory(updated);
     await STO.set("hydroscan-history", updated);
+    // Mirror to the cloud when signed in (best-effort; offline-safe).
+    try { await persistAssessment(entry, { mode, source, building, labResults }); } catch { /* offline / signed out */ }
   };
 
   const haptic = (type) => { try { if(navigator.vibrate) navigator.vibrate(type==="heavy"?[30,20,30]:type==="success"?[10,30,10,30,10]:12); } catch{} };
   const showMilestone = (icon, title, sub, nextFn) => { haptic("success"); setMilestone({icon,title,sub}); setTimeout(()=>{setMilestone(null);nextFn();},1400); };
   const acceptTos = async () => { await STO.set("hydroscan-tos", true); setTosAccepted(true); setShowTos(false); haptic("success"); };
-  const saveUserSettings = async (s) => { setUserSettings(s); await STO.set("hydroscan-settings", s); haptic("success"); };
+  const saveUserSettings = async (s) => { setUserSettings(s); await STO.set("hydroscan-settings", s); if (user) { try { await saveProfile(s); } catch { /* offline */ } } haptic("success"); };
 
   // Question navigation helpers
   const setAF = (k,v) => setAssessor(p=>({...p,[k]:v}));
@@ -474,6 +491,7 @@ export default function MobileApp() {
             <div style={{fontSize:13,color:"#8B95A8",marginBottom:16}}>These defaults auto-populate when you start assessments.</div>
             {[{k:"name",l:"Your Name & Credentials",ph:"e.g. T. Tamakloe, CSP"},{k:"firm",l:"Company",ph:"e.g. Prudence Safety & Environmental Consulting"},{k:"phone",l:"Phone",ph:"Contact number"},{k:"instrument",l:"Field Meter",ph:"e.g. Hach HQ40d"},{k:"calDate",l:"Meter Calibration Date",ph:"e.g. 2026-03-01"}].map(f=><div key={f.k} style={{marginBottom:12}}><div style={{fontSize:12,fontWeight:600,color:"#C8D0DC",marginBottom:4}}>{f.l}</div><input value={userSettings[f.k]||""} onChange={e=>setUserSettings(p=>({...p,[f.k]:e.target.value}))} placeholder={f.ph} style={{width:"100%",padding:"12px 14px",background:"#12161D",border:"1px solid #1A2030",borderRadius:8,color:"#F0F4F8",fontSize:14,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}} /></div>)}
             <button onClick={()=>{saveUserSettings(userSettings);setPanel(null);}} style={{width:"100%",padding:"14px 0",background:"linear-gradient(135deg,#0D9488,#14B8A6)",border:"none",borderRadius:10,color:"#fff",fontSize:15,fontWeight:700,cursor:"pointer",fontFamily:"inherit",marginTop:8}}>Save Settings</button>
+            {user&&<div style={{marginTop:14,padding:"12px 14px",borderRadius:R.md,background:"var(--surface)",border:"1px solid var(--border)",display:"flex",alignItems:"center",justifyContent:"space-between"}}><div style={{fontSize:12.5,color:"var(--sub)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>Signed in · {user.email}</div><button onClick={()=>signOut()} style={{background:"none",border:"1px solid var(--border)",borderRadius:R.sm,color:"var(--accent)",fontSize:12,fontWeight:700,padding:"6px 12px",cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>Sign Out</button></div>}
             <div style={{textAlign:"center",marginTop:16}}><button onClick={async()=>{if(confirm("Clear all data?")){await STO.del("hydroscan-idx");await STO.del("hydroscan-visited");await STO.del("hydroscan-tos");await STO.del("hydroscan-settings");await STO.del("hydroscan-history");location.reload();}}} style={{background:"none",border:"none",color:"#EF4444",fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>Clear All Data & Reset</button></div>
           </div>}
 

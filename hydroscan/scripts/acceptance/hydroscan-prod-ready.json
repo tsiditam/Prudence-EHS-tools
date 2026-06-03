@@ -1,6 +1,34 @@
 {
-  "feature": "HydroScan Phase 0–4 — scaffold, design system, engine, Marlow AI, engine v1.1 & DOCX reports",
+  "feature": "HydroScan Phase 0–5 — scaffold, design system, engine, Marlow AI, engine v1.1, DOCX reports & accounts",
   "criteria": [
+    {
+      "id": "AUTH-GATE",
+      "label": "Supabase auth context + login screen gating the app",
+      "checks": [
+        { "type": "file_exists", "path": "src/contexts/AuthContext.jsx" },
+        { "type": "file_exists", "path": "src/components/AuthScreen.jsx" },
+        { "type": "grep_matches", "pattern": "AuthProvider", "paths": ["src/App.jsx"] }
+      ]
+    },
+    {
+      "id": "CLOUD-PERSIST",
+      "label": "Cloud/local persistence facade wired to assessments",
+      "checks": [
+        { "type": "file_exists", "path": "src/utils/storage.js" },
+        { "type": "file_exists", "path": "src/utils/supabaseStorage.js" },
+        { "type": "file_exists", "path": "src/utils/cloudStorage.js" },
+        { "type": "file_exists", "path": "src/utils/profiles.js" },
+        { "type": "grep_matches", "pattern": "persistAssessment", "paths": ["src/components/MobileApp.jsx"] }
+      ]
+    },
+    {
+      "id": "AUTH-TESTS",
+      "label": "Storage facade graceful-degradation tests pass",
+      "checks": [
+        { "type": "file_exists", "path": "tests/components/cloud-storage.test.ts" },
+        { "type": "npm_script_passes", "script": "test" }
+      ]
+    },
     {
       "id": "REPORT-DOCX",
       "label": "DOCX report builder + model present and wired to a download",
