@@ -33,6 +33,8 @@ export interface ReportAssessment {
   stateExceed?: StateExceedance[]
   selState?: string
   coc?: any
+  /** Optional AI narrative sections (the narrative layer), woven into the DOCX. */
+  narrative?: { executiveSummary?: string; keyFindings?: string; causal?: string; recommended?: string } | null
 }
 
 function reportId(now: Date): string {
@@ -102,6 +104,7 @@ export function buildReportModel(a: ReportAssessment) {
     recommendations: a.recs || { immediate: [], shortTerm: [], longTerm: [], monitoring: [] },
     stateExceedances: a.stateExceed || [],
     coc: a.coc || null,
+    narrative: a.narrative || null,
     bibliography: bibliographyFor(findings),
     readiness: buildReadiness({ assessor, source, building, labResults: a.labResults, evaluation: a.evaluation }),
   }
