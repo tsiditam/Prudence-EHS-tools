@@ -635,7 +635,7 @@ export default function MobileApp() {
                   <I n={TOUR[tourStep].icon} s={38} c={TOUR[tourStep].color} w={1.8} />
                 </div>
               </div>
-              <div style={{fontSize:24,fontWeight:800,fontFamily:"var(--font-sans)",letterSpacing:"-0.5px",marginBottom:6}}>{TOUR[tourStep].title}</div>
+              <div style={{fontSize:26,fontWeight:700,fontFamily:"var(--font-serif)",letterSpacing:"-0.4px",marginBottom:6}}>{TOUR[tourStep].title}</div>
               <div style={{fontSize:14,color:"#14B8A6",fontFamily:"var(--font-mono)",marginBottom:16}}>{TOUR[tourStep].sub}</div>
               <div style={{fontSize:15,color:"#8B95A8",lineHeight:1.75}}>{TOUR[tourStep].body}</div>
             </div>
@@ -662,7 +662,7 @@ export default function MobileApp() {
                 <I n="drop" s={16} c="var(--accent)"/>
                 <span style={{fontSize:12,fontWeight:700,letterSpacing:1.2,textTransform:"uppercase",color:"var(--accent)"}}>HydroScan · Field Co-Pilot</span>
               </div>
-              <h1 style={{fontFamily:"var(--font-serif)",fontSize:34,fontWeight:600,letterSpacing:"-0.4px",lineHeight:1.1,margin:"0 0 14px"}}>Ready to begin sampling?</h1>
+              <h1 style={{fontFamily:"var(--font-serif)",fontSize:34,fontWeight:700,letterSpacing:"-0.4px",lineHeight:1.1,margin:"0 0 14px"}}>Ready to begin sampling?</h1>
               <p style={{fontFamily:"var(--font-serif)",fontSize:16,color:"var(--sub)",lineHeight:1.6,margin:"0 0 22px",maxWidth:460}}>Capture field observations, water readings, and site notes. HydroScan organizes them into a screening-level assessment with compliance findings, sampling plans, and recommended actions.</p>
               <div style={{display:"flex",flexDirection:"column",gap:10,alignItems:"flex-start"}}>
                 <button onClick={()=>{setActiveProjectId(null);startField();}} className="tap" style={{display:"inline-flex",alignItems:"center",gap:10,padding:"14px 26px",borderRadius:999,border:"none",background:"var(--accent-fill)",color:"var(--on-accent-fill)",fontSize:15.5,fontWeight:700,cursor:"pointer",fontFamily:"inherit",boxShadow:"0 6px 22px rgba(13,148,136,0.45)"}}><I n="play" s={19} c="var(--on-accent-fill)"/>Start sampling</button>
