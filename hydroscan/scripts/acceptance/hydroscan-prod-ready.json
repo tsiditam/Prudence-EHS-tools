@@ -1,6 +1,42 @@
 {
-  "feature": "HydroScan Phase 0–1 — scaffold, design system & engine extraction",
+  "feature": "HydroScan Phase 0–2 — scaffold, design system, engine & Marlow AI",
   "criteria": [
+    {
+      "id": "MARLOW-ENDPOINT",
+      "label": "Marlow streaming SSE endpoint present (Anthropic, no docx deps)",
+      "checks": [
+        { "type": "file_exists", "path": "api/water-assistant.ts" },
+        { "type": "grep_matches", "pattern": "text/event-stream", "paths": ["api/water-assistant.ts"] },
+        { "type": "grep_matches", "pattern": "claude-sonnet-4-6", "paths": ["api/water-assistant.ts"] },
+        { "type": "grep_excludes", "pattern": "(from|require).{0,20}(docxtemplater|pizzip)", "paths": ["api/water-assistant.ts", "src/constants/water-assistant-tools.js", "src/constants/water-knowledge-base.js"] }
+      ]
+    },
+    {
+      "id": "MARLOW-MANIFEST-BOUND",
+      "label": "Marlow tools + prompt are manifest-grounded (no invented values)",
+      "checks": [
+        { "type": "file_exists", "path": "src/constants/water-knowledge-base.js" },
+        { "type": "grep_matches", "pattern": "from './standards.js'", "paths": ["src/constants/water-knowledge-base.js", "src/constants/water-assistant-corpus.js"] },
+        { "type": "grep_matches", "pattern": "Water Professional Review Required", "paths": ["src/constants/water-assistant-prompt.js"] }
+      ]
+    },
+    {
+      "id": "MARLOW-UI",
+      "label": "Marlow chat UI + SSE hook wired into the shell",
+      "checks": [
+        { "type": "file_exists", "path": "src/components/MarlowAssistant.jsx" },
+        { "type": "file_exists", "path": "src/hooks/useWaterAssistant.js" },
+        { "type": "grep_matches", "pattern": "MarlowAssistant", "paths": ["src/components/MobileApp.jsx"] }
+      ]
+    },
+    {
+      "id": "MARLOW-TESTS",
+      "label": "Marlow tool-dispatch + bundle-isolation tests pass",
+      "checks": [
+        { "type": "file_exists", "path": "tests/api/water-assistant-bundle.test.ts" },
+        { "type": "npm_script_passes", "script": "test" }
+      ]
+    },
     {
       "id": "DESIGN-TOKENS",
       "label": "Design-token system ported (tokens + marlow + soft-glass)",
