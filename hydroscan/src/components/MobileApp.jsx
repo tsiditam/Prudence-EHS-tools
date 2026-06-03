@@ -657,7 +657,7 @@ export default function MobileApp() {
         {view==="dash"&&(
           <div style={{paddingTop:18,paddingBottom:96}}>
             {/* Hero — field co-pilot */}
-            <div style={{position:"relative",borderRadius:22,background:"var(--card)",border:"1px solid var(--border)",borderTop:"2px solid var(--accent)",padding:"24px 22px",marginBottom:28,overflow:"hidden",animation:"fadeUp .4s ease"}}>
+            <div className="hero-card" onTouchStart={()=>{}} style={{position:"relative",borderRadius:22,background:"var(--card)",border:"1.5px solid var(--accent-fill)",padding:"24px 22px",marginBottom:28,boxShadow:"0 0 16px -3px color-mix(in srgb, var(--accent-fill) 42%, transparent)",animation:"fadeUp .4s ease"}}>
               <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
                 <I n="drop" s={16} c="var(--accent)"/>
                 <span style={{fontSize:12,fontWeight:700,letterSpacing:1.2,textTransform:"uppercase",color:"var(--accent)"}}>HydroScan · Field Co-Pilot</span>
@@ -1340,6 +1340,8 @@ export default function MobileApp() {
         *{box-sizing:border-box;margin:0;}button{font-family:inherit;}
         .tap{transition:transform .12s ease,border-color .15s ease,background .15s ease,opacity .15s ease;}
         .tap:active{transform:scale(.985);}
+        .hero-card{transition:box-shadow .3s ease,border-color .25s ease;-webkit-tap-highlight-color:transparent;}
+        .hero-card:active{border-color:var(--accent-fill);box-shadow:0 0 0 1px var(--accent-fill),0 0 34px 2px color-mix(in srgb, var(--accent-fill) 65%, transparent);}
         @keyframes chipPulse{0%,100%{opacity:1;}50%{opacity:.45;}}
         .shim{background:linear-gradient(90deg,var(--surface) 25%,var(--border) 37%,var(--surface) 63%);background-size:400% 100%;animation:shimmer 1.4s ease infinite;}
         @keyframes shimmer{0%{background-position:100% 0;}100%{background-position:-100% 0;}}
