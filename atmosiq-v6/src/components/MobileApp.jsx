@@ -190,9 +190,13 @@ const confColor = (conf) => conf === 'Strong' ? '#22C55E'
   : '#8AA4CC'
 const ON_ACCENT = 'var(--on-accent)'
 // Serif stack for the "Ready to start a survey?" co-pilot card heading +
-// body — system serif first (New York on iOS/Mac, the platform AtmosFlow
-// ships to), then broad fallbacks.
-const SERIF = "ui-serif, 'New York', Georgia, 'Times New Roman', serif"
+// body. Target look is Claude's chat-response serif, which is Tiempos
+// Text (Anthropic's commercial face) — a low-contrast, bookish reading
+// serif. Tiempos isn't licensed here, so it's the primary for a clean
+// upgrade if dropped in later, with Lora (loaded via Google Fonts) as the
+// closest free stand-in, then system-serif fallbacks. Heading runs bold;
+// body stays regular weight.
+const SERIF = "'Tiempos Text', 'Lora', ui-serif, Georgia, 'Times New Roman', serif"
 
 // Map a saved profile instrument's coarse calStatus → the assessment's
 // calibration-status option. Best-guess only — the assessor confirms it
@@ -4019,7 +4023,7 @@ export default function MobileApp() {
                     <div style={V3.T.micro}>AtmosFlow · Field co-pilot</div>
                   </div>
                   <div style={{...V3.T.h1, fontFamily:SERIF, fontWeight:700, marginBottom:6}}>Ready to start a survey?</div>
-                  <div style={{...V3.T.bodyDim, fontFamily:SERIF, fontWeight:700, maxWidth:560, marginBottom:20}}>
+                  <div style={{...V3.T.bodyDim, fontFamily:SERIF, fontWeight:400, maxWidth:560, marginBottom:20}}>
                     Capture field observations, instrument readings, and zone notes.
                     AtmosFlow organizes them into a screening-level professional
                     assessment with severity, confidence, and recommended actions.
