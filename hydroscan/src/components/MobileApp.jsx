@@ -1343,9 +1343,9 @@ export default function MobileApp() {
         @keyframes aiCurrent{to{stroke-dashoffset:-28;}}
         @keyframes aiHaloPulse{0%,100%{opacity:.45;transform:scale(.9);}50%{opacity:.95;transform:scale(1.1);}}
         .ai-halo{animation:aiHaloPulse 2.6s ease-in-out infinite;will-change:opacity,transform;}
-        .ai-brain{filter:drop-shadow(0 0 5px rgba(46,255,160,.6));}
+        .ai-brain{filter:drop-shadow(0 0 5px rgba(20,184,166,.65));}
         .ai-brain .ai-base svg path{opacity:.4;}
-        .ai-brain .ai-current svg path{stroke-dasharray:5 8;stroke-linecap:round;animation:aiCurrent 1.1s linear infinite;}
+        .ai-brain .ai-current svg path{stroke-dasharray:5 8;stroke-linecap:round;animation:aiCurrent 2.8s linear infinite;}
         .hero-card{transition:box-shadow .3s ease,border-color .25s ease;-webkit-tap-highlight-color:transparent;}
         .hero-card:active{border-color:var(--accent-fill);box-shadow:0 0 0 1px var(--accent-fill),0 0 34px 2px color-mix(in srgb, var(--accent-fill) 65%, transparent);}
         @keyframes chipPulse{0%,100%{opacity:1;}50%{opacity:.45;}}
@@ -1384,11 +1384,11 @@ export default function MobileApp() {
                   return (
                     <button key={t.k} onClick={t.onTap} aria-label="HydroScan AI" style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"9px 4px 10px",background:"transparent",border:"none",cursor:"pointer",fontFamily:"inherit"}}>
                       <div className="ai-brain" style={{position:"relative",width:30,height:24,display:"flex",alignItems:"center",justifyContent:"center"}}>
-                        <span className="ai-halo" style={{position:"absolute",inset:-9,borderRadius:"50%",background:"radial-gradient(circle, rgba(46,255,160,0.5) 0%, rgba(46,255,160,0) 70%)",pointerEvents:"none"}} />
-                        <span className="ai-base" style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center"}}><I n="brain" s={27} c="#2EFFA0" w={2} /></span>
-                        <span className="ai-current" style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center"}}><I n="brain" s={27} c="#2EFFA0" w={2} /></span>
+                        <span className="ai-halo" style={{position:"absolute",inset:-9,borderRadius:"50%",background:"radial-gradient(circle, rgba(20,184,166,0.5) 0%, rgba(20,184,166,0) 70%)",pointerEvents:"none"}} />
+                        <span className="ai-base" style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center"}}><I n="brain" s={27} c="var(--accent-fill)" w={2} /></span>
+                        <span className="ai-current" style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center"}}><I n="brain" s={27} c="var(--accent-fill)" w={2} /></span>
                       </div>
-                      <span style={{fontSize:10.5,fontWeight:700,color:"var(--accent)",letterSpacing:"0.2px"}}>HydroScan AI</span>
+                      <span style={{fontSize:10.5,fontWeight:t.active?700:500,color:col,letterSpacing:"0.2px"}}>HydroScan AI</span>
                     </button>
                   );
                 }
