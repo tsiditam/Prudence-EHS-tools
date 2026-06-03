@@ -17,7 +17,7 @@ import { Logo, I } from './Icons'
 import MarlowAssistant from './MarlowAssistant'
 import { buildReportModel } from '../report/report-model'
 import { R, btnPrimary } from '../styles/tokens'
-import { ProjectCard, QuickActionCard, RegulatoryAlertCard, ReferenceStandardChip, MarlowFloatingButton, ProjectsSkeleton } from './workspace'
+import { ProjectCard, QuickActionCard, ReferenceStandardChip, MarlowFloatingButton, ProjectsSkeleton } from './workspace'
 import { listProjects, createProject, deleteProject, updateProject, WORKFLOW_STEPS, SITE_TYPES } from '../utils/projects'
 import { trackEvent } from '../utils/supabaseClient'
 
@@ -526,6 +526,15 @@ export default function MobileApp() {
             <div style={{fontSize:13,color:"#8B95A8",marginBottom:16}}>These defaults auto-populate when you start assessments.</div>
             {[{k:"name",l:"Your Name & Credentials",ph:"e.g. T. Tamakloe, CSP"},{k:"firm",l:"Company",ph:"e.g. Prudence Safety & Environmental Consulting"},{k:"phone",l:"Phone",ph:"Contact number"},{k:"instrument",l:"Field Meter",ph:"e.g. Hach HQ40d"},{k:"calDate",l:"Meter Calibration Date",ph:"e.g. 2026-03-01"}].map(f=><div key={f.k} style={{marginBottom:12}}><div style={{fontSize:12,fontWeight:600,color:"#C8D0DC",marginBottom:4}}>{f.l}</div><input value={userSettings[f.k]||""} onChange={e=>setUserSettings(p=>({...p,[f.k]:e.target.value}))} placeholder={f.ph} style={{width:"100%",padding:"12px 14px",background:"#12161D",border:"1px solid #1A2030",borderRadius:8,color:"#F0F4F8",fontSize:14,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}} /></div>)}
             <button onClick={()=>{saveUserSettings(userSettings);setPanel(null);}} style={{width:"100%",padding:"14px 0",background:"linear-gradient(135deg,#0D9488,#14B8A6)",border:"none",borderRadius:10,color:"#fff",fontSize:15,fontWeight:700,cursor:"pointer",fontFamily:"inherit",marginTop:8}}>Save Settings</button>
+
+            <div style={{height:1,background:"var(--border)",margin:"18px 0"}} />
+            <div style={{fontSize:11,fontWeight:700,letterSpacing:1,textTransform:"uppercase",color:"var(--dim)",marginBottom:8}}>Reference</div>
+            <button onClick={()=>{setPanel(null);setView("reference");}} className="tap" style={{width:"100%",display:"flex",alignItems:"center",gap:12,padding:"14px 16px",background:"var(--card)",border:"1px solid var(--border)",borderRadius:R.lg,cursor:"pointer",fontFamily:"inherit",textAlign:"left"}}>
+              <span style={{width:36,height:36,borderRadius:R.md,background:"color-mix(in srgb, var(--accent) 12%, transparent)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><I n="shield" s={18} c="var(--accent)"/></span>
+              <span style={{flex:1}}><span style={{display:"block",fontSize:14,fontWeight:700,color:"var(--text)"}}>Reference Library</span><span style={{display:"block",fontSize:12,color:"var(--sub)",marginTop:1}}>Standards &amp; methods · EPA, WHO, ASHRAE</span></span>
+              <span style={{color:"var(--dim)",fontSize:18}}>→</span>
+            </button>
+
             <div style={{textAlign:"center",marginTop:16}}><button onClick={async()=>{if(confirm("Clear all data?")){await STO.del("hydroscan-idx");await STO.del("hydroscan-visited");await STO.del("hydroscan-tos");await STO.del("hydroscan-settings");await STO.del("hydroscan-history");location.reload();}}} style={{background:"none",border:"none",color:"#EF4444",fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>Clear All Data & Reset</button></div>
           </div>}
 
@@ -614,17 +623,7 @@ export default function MobileApp() {
               ))}
             </div>
 
-            {/* Regulatory update */}
-            <div style={{marginBottom:24,animation:"fadeUp .4s .1s ease both"}}><RegulatoryAlertCard onDetails={()=>setView("reference")}/></div>
-
-            {/* Reference library preview */}
-            <button onClick={()=>setView("reference")} className="tap" style={{width:"100%",display:"flex",alignItems:"center",gap:12,padding:"14px 16px",background:"var(--card)",border:"1px solid var(--border)",borderRadius:R.lg,cursor:"pointer",fontFamily:"inherit",textAlign:"left"}}>
-              <span style={{width:36,height:36,borderRadius:R.md,background:"color-mix(in srgb, var(--accent) 12%, transparent)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><I n="shield" s={18} c="var(--accent)"/></span>
-              <span style={{flex:1}}><span style={{display:"block",fontSize:14,fontWeight:700,color:"var(--text)"}}>Reference Library</span><span style={{display:"block",fontSize:12,color:"var(--sub)",marginTop:1}}>Standards &amp; methods · EPA, WHO, ASHRAE</span></span>
-              <span style={{color:"var(--dim)",fontSize:18}}>→</span>
-            </button>
-
-            <div style={{textAlign:"center",fontSize:11,color:"var(--dim)",marginTop:22,lineHeight:1.6}}>Standards-driven · professional review required.<br/>Outputs support professional judgment; not a substitute for regulatory or legal review.</div>
+            <div style={{textAlign:"center",fontSize:11,color:"var(--dim)",marginTop:8,lineHeight:1.6}}>Standards-driven · professional review required.<br/>Outputs support professional judgment; not a substitute for regulatory or legal review.</div>
           </div>
         )}
 
@@ -662,6 +661,7 @@ export default function MobileApp() {
         {/* ═══ REFERENCE LIBRARY ═══ */}
         {view==="reference"&&(
           <div style={{paddingTop:24,paddingBottom:96}}>
+            <button onClick={()=>{setView("dash");setPanel("settings");}} style={{background:"none",border:"none",color:"var(--sub)",fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:12,display:"flex",alignItems:"center",gap:4}}>← Settings</button>
             <h1 style={{fontSize:24,fontWeight:800,letterSpacing:"-0.6px",margin:"0 0 6px"}}>Reference Library</h1>
             <p style={{fontSize:13.5,color:"var(--sub)",lineHeight:1.55,margin:"0 0 20px",maxWidth:460}}>Built for field professionals managing building water systems, private wells, and regulated contaminants.</p>
 
@@ -1279,7 +1279,7 @@ export default function MobileApp() {
         const REPORT_VIEWS=["labentry","labresults","coc"];
         const NAV=[
           {k:"home",label:"Home",icon:"home",active:view==="dash"&&!marlowOpen,onTap:()=>{setMarlowOpen(false);setPanel(null);setView("dash");}},
-          {k:"projects",label:"Projects",icon:"bldg",active:(view==="projects"||view==="reference")&&!marlowOpen,onTap:()=>{setMarlowOpen(false);setPanel(null);setView("projects");}},
+          {k:"projects",label:"Projects",icon:"bldg",active:view==="projects"&&!marlowOpen,onTap:()=>{setMarlowOpen(false);setPanel(null);setView("projects");}},
           {k:"assess",label:"Assess",icon:"search",active:ASSESS_VIEWS.includes(view)&&!marlowOpen,onTap:()=>{setMarlowOpen(false);setPanel(null);setView("smart");}},
           {k:"reports",label:"Reports",icon:"clip",active:REPORT_VIEWS.includes(view)&&!marlowOpen,onTap:()=>{setMarlowOpen(false);setPanel(null);setView(evaluation?"labresults":"labentry");}},
           {k:"settings",label:"Settings",icon:"user",active:panel==="settings",onTap:()=>{setMarlowOpen(false);setPanel("settings");}},
