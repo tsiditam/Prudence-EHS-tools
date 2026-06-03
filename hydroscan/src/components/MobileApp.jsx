@@ -434,7 +434,7 @@ export default function MobileApp() {
       {/* Header */}
       <header style={{position:"sticky",top:0,zIndex:100,height:"calc(50px + env(safe-area-inset-top,0px))",boxSizing:"border-box",background:"#080A0EDD",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderBottom:"1px solid #1A2030",padding:"env(safe-area-inset-top,0px) 16px 0",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
-          <button aria-label="Menu" onClick={()=>setNavOpen(!navOpen)} className="tap" style={{width:38,height:38,borderRadius:10,background:"var(--card)",border:"1px solid var(--border)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",padding:0}}><Logo s={30} /></button>
+          <button aria-label="Menu" onClick={()=>setNavOpen(!navOpen)} className="tap" style={{background:"none",border:"none",padding:"4px 4px 4px 0",margin:0,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}><I n="menu" s={26} c="var(--accent)" w={2.2} /></button>
           <div><div style={{fontSize:15,fontWeight:600,lineHeight:1.1}}>Hydro<span style={{color:"#14B8A6",fontWeight:800}}>Scan</span></div><div style={{fontSize:11,color:"#8B95A8",fontFamily:"var(--font-mono)"}}>by Prudence EHS</div></div>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
@@ -1369,7 +1369,6 @@ export default function MobileApp() {
         const NAV=[
           {k:"home",label:"Home",icon:"home",active:view==="dash"&&!marlowOpen,onTap:()=>{setMarlowOpen(false);setPanel(null);setView("dash");}},
           {k:"projects",label:"Projects",icon:"bldg",active:view==="projects"&&!marlowOpen,onTap:()=>{setMarlowOpen(false);setPanel(null);setView("projects");}},
-          {k:"assess",label:"Assess",icon:"search",active:ASSESS_VIEWS.includes(view)&&!marlowOpen,onTap:()=>{setMarlowOpen(false);setPanel(null);setView("smart");}},
           {k:"reports",label:"Reports",icon:"clip",active:REPORT_VIEWS.includes(view)&&!marlowOpen,onTap:()=>{setMarlowOpen(false);setPanel(null);setView(evaluation?"labresults":"labentry");}},
         ];
         return (
