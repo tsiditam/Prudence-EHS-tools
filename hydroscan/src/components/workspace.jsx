@@ -75,6 +75,8 @@ export function WorkflowStepCard({ step, state, onClick }) {
 
 export function ProjectCard({ project, expanded, onToggle, onStep, onDelete }) {
   const m = statusMeta(project.status)
+  const stepState = (k) => (project.steps && project.steps[k]) || 'todo'
+  const nextStep = WORKFLOW_STEPS.find((s) => stepState(s.key) !== 'done') || WORKFLOW_STEPS[WORKFLOW_STEPS.length - 1]
   return (
     <div style={{ ...panel({ dense: true }), padding: 0, overflow: 'hidden' }}>
       <button className="tap" onClick={onToggle} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer', padding: '14px 16px', fontFamily: 'inherit' }}>
@@ -94,11 +96,11 @@ export function ProjectCard({ project, expanded, onToggle, onStep, onDelete }) {
       </button>
       {expanded && (
         <div style={{ padding: '0 16px 16px', animation: 'fadeIn .2s ease' }}>
-          <button className="tap" onClick={() => onStep(m.step)} style={{ ...btnPrimary, width: '100%', marginBottom: 12 }}>
+          <button className="tap" onClick={() => onStep(nextStep.key, project.id)} style={{ ...btnPrimary, width: '100%', marginBottom: 12 }}>
             <I n="bolt" s={15} c="var(--on-accent-fill)" />{m.next}
           </button>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {WORKFLOW_STEPS.map((s) => <WorkflowStepCard key={s.key} step={s} state={(project.steps && project.steps[s.key]) || 'todo'} onClick={() => onStep(s.key)} />)}
+            {WORKFLOW_STEPS.map((s) => <WorkflowStepCard key={s.key} step={s} state={stepState(s.key)} onClick={() => onStep(s.key, project.id)} />)}
           </div>
           {onDelete && <button onClick={onDelete} style={{ marginTop: 12, background: 'none', border: 'none', color: 'var(--danger)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Delete project</button>}
         </div>

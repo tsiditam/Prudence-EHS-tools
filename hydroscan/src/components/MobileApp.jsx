@@ -18,7 +18,7 @@ import MarlowAssistant from './MarlowAssistant'
 import { buildReportModel } from '../report/report-model'
 import { R, btnPrimary } from '../styles/tokens'
 import { ProjectCard, QuickActionCard, RegulatoryAlertCard, ReferenceStandardChip, MarlowFloatingButton, ProjectsSkeleton } from './workspace'
-import { listProjects, createProject, deleteProject, SITE_TYPES } from '../utils/projects'
+import { listProjects, createProject, deleteProject, updateProject, WORKFLOW_STEPS, SITE_TYPES } from '../utils/projects'
 import { trackEvent } from '../utils/supabaseClient'
 
 // ── Domain data & engine (Phase 1 extraction) ──
@@ -94,6 +94,7 @@ export default function MobileApp() {
   const [projects, setProjects] = useState([]);
   const [projectsLoading, setProjectsLoading] = useState(true);
   const [expandedProj, setExpandedProj] = useState(null);
+  const [activeProjectId, setActiveProjectId] = useState(null); // project whose lifecycle a launched flow advances
   const [newProj, setNewProj] = useState(null); // {name,siteType,location} while creating
   const [tosAccepted, setTosAccepted] = useState(false);
   const [showTos, setShowTos] = useState(false);
@@ -146,6 +147,7 @@ export default function MobileApp() {
     const samples = samplingPlan.length > 0 ? samplingPlan.map((sp,i)=>({id:`S-${String(i+1).padStart(3,"0")}`,location:"",matrix:"Drinking Water",datetime:"",container:"",preservative:"",analyses:sp.params||sp.test,notes:""})) : [{id:"S-001",location:"",matrix:"Drinking Water",datetime:"",container:"",preservative:"",analyses:"",notes:""}];
     setCoc({project:source.src_type?.includes("well")?"Private Well Assessment":"Building Water Assessment",client:"",siteAddr:"",sampler:assessor.a_name||"",samplerCo:"Prudence Safety & Environmental Consulting, LLC",samplerPhone:"",samplerEmail:"",labName:"",labAcct:"",labAccred:"",labISO:"",dataPackage:source.dqo_data_pkg||"Summary report only",turnaround:"Standard (10 business days)",tempOnReceipt:"",specialInstructions:source.dqo_rationale||"",tamperSeals:"Yes",qcSamples:{fieldBlank:false,tripBlank:false,duplicate:false,equipBlank:false},samples,custody:[{from:assessor.a_name||"",fromDate:new Date().toISOString().slice(0,16),to:"",toDate:""}]});
     setView("coc");
+    advanceProject(["coc"]);
   };
   const updateCocSample = (idx,field,val) => setCoc(p=>({...p,samples:p.samples.map((s,i)=>i===idx?{...s,[field]:val}:s)}));
   const addCocSample = () => setCoc(p=>({...p,samples:[...p.samples,{id:`S-${String(p.samples.length+1).padStart(3,"0")}`,location:"",matrix:"Drinking Water",datetime:"",container:"",preservative:"",analyses:"",notes:""}]}));
@@ -233,14 +235,33 @@ export default function MobileApp() {
   // Projects: load with a brief skeleton beat; launch a lifecycle step into the
   // existing flow it corresponds to (preserves all engine/business logic).
   useEffect(()=>{ const t=setTimeout(()=>{ setProjects(listProjects()); setProjectsLoading(false); }, 420); return ()=>clearTimeout(t); },[]);
-  const launchStep = (stepKey) => {
+  const launchStep = (stepKey, projId) => {
     haptic("light");
+    setActiveProjectId(projId || null); // bind subsequent flow completion to this project
     if(stepKey==="walkthrough") startField();
     else if(stepKey==="sampling") startSmart();
     else if(stepKey==="coc") initCOC();
     else if(stepKey==="lab") startLab();
     else if(evaluation) setView("labresults");
     else startLab();
+  };
+
+  // Auto-advance the active project's lifecycle when a flow completes. Marks the
+  // given steps done, activates the next incomplete step, and derives the
+  // workflow status (so the status chip + recommended next action stay correct).
+  const STEP_STATUS = { walkthrough:'draft', sampling:'field_active', coc:'lab_pending', lab:'lab_pending', review:'lab_received', report:'review_ready', final:'report_draft' };
+  const advanceProject = (doneKeys) => {
+    if(!activeProjectId) return;
+    const cur = listProjects().find(p=>p.id===activeProjectId);
+    if(!cur) return;
+    const steps = {...(cur.steps||{})};
+    doneKeys.forEach(k=>{ steps[k]='done'; });
+    const order = WORKFLOW_STEPS.map(s=>s.key);
+    const nextKey = order.find(k=>steps[k]!=='done');
+    if(nextKey) steps[nextKey]='active';
+    const status = nextKey ? STEP_STATUS[nextKey] : 'complete';
+    updateProject(activeProjectId, { steps, status });
+    setProjects(listProjects());
   };
   const createNewProject = () => {
     if(!newProj) return;
@@ -293,6 +314,7 @@ export default function MobileApp() {
     // Pre-fill source data for later use
     setSource({src_type: isWell ? "Private well — drilled" : "Public water system", src_trigger: smart.trigger});
     setBuilding({b_type: smart.building});
+    advanceProject(["walkthrough","sampling"]);
     haptic("success");
     setView("smartresults");
   };
@@ -302,6 +324,7 @@ export default function MobileApp() {
   const finishBuilding = () => {
     const sp = generateSamplingPlan({...source,...building});
     setSamplingPlan(sp);
+    advanceProject(["walkthrough","sampling"]);
     showMilestone("clip","Field Assessment Complete",`${sp.length} sampling recommendation${sp.length!==1?"s":""}`,()=>{setView("fieldresults");});
   };
 
@@ -321,6 +344,7 @@ export default function MobileApp() {
     setMilestone({icon:"chart",title:"Evaluation Complete",sub:`${ev.findings.length} parameters analyzed`});
     setTimeout(()=>{setMilestone(null);setRTab("compliance");setView("labresults");},1400);
     saveToHistory(ev, {...source,...building});
+    advanceProject(["lab","review"]);
   };
 
   // Phase 4 — generate the DOCX Water Quality Assessment Report (client-side)
@@ -339,6 +363,7 @@ export default function MobileApp() {
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(()=>URL.revokeObjectURL(url), 1000);
       trackEvent('report_generated', { tier: evaluation?.tier, parameters: evaluation?.findings?.length });
+      advanceProject(["report"]);
       haptic("success");
     } catch (e) {
       haptic("error");
@@ -573,9 +598,9 @@ export default function MobileApp() {
             {/* Primary actions */}
             <div style={{fontSize:11,fontWeight:700,letterSpacing:1,textTransform:"uppercase",color:"var(--dim)",marginBottom:10}}>What are you working on?</div>
             <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:26,animation:"fadeUp .4s .05s ease both"}}>
-              <QuickActionCard primary icon="search" title="Start New Assessment" sub="Field walkthrough → sampling plan" onClick={startField}/>
-              <QuickActionCard icon="flask" tone="#8B5CF6" title="Analyze Lab Results" sub="Enter results → compliance → risk analysis" onClick={startLab}/>
-              <QuickActionCard icon="clip" tone="#22C55E" title="Generate Chain of Custody" sub="Auto-filled · print-ready · free" onClick={initCOC}/>
+              <QuickActionCard primary icon="search" title="Start New Assessment" sub="Field walkthrough → sampling plan" onClick={()=>{setActiveProjectId(null);startField();}}/>
+              <QuickActionCard icon="flask" tone="#8B5CF6" title="Analyze Lab Results" sub="Enter results → compliance → risk analysis" onClick={()=>{setActiveProjectId(null);startLab();}}/>
+              <QuickActionCard icon="clip" tone="#22C55E" title="Generate Chain of Custody" sub="Auto-filled · print-ready · free" onClick={()=>{setActiveProjectId(null);initCOC();}}/>
             </div>
 
             {/* Recent projects */}
