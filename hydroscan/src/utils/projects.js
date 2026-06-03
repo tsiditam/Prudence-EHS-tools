@@ -28,11 +28,11 @@ export const WORKFLOW_STEPS = [
 // green = complete, grey = draft. (Purple is reserved for lab/science chrome.)
 export const STATUS_META = {
   draft: { label: 'Draft', tone: '#8B93A5', next: 'Start field walkthrough', step: 'walkthrough' },
-  field_active: { label: 'Field Assessment', tone: '#14B8A6', next: 'Build sampling plan', step: 'sampling' },
+  field_active: { label: 'Field Assessment', tone: '#5E9E3F', next: 'Build sampling plan', step: 'sampling' },
   lab_pending: { label: 'Lab Results Pending', tone: '#FBBF24', next: 'Enter lab results', step: 'lab' },
-  lab_received: { label: 'Lab Results Received', tone: '#14B8A6', next: 'Run compliance review', step: 'review' },
+  lab_received: { label: 'Lab Results Received', tone: '#5E9E3F', next: 'Run compliance review', step: 'review' },
   review_ready: { label: 'Review Ready', tone: '#22D3EE', next: 'Generate report', step: 'report' },
-  report_draft: { label: 'Draft Report Ready', tone: '#14B8A6', next: 'Final review', step: 'final' },
+  report_draft: { label: 'Draft Report Ready', tone: '#5E9E3F', next: 'Final review', step: 'final' },
   complete: { label: 'Complete', tone: '#22C55E', next: 'View report', step: 'report' },
 }
 

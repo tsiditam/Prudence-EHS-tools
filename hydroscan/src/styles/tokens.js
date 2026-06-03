@@ -82,16 +82,19 @@ export const RAISED = 'var(--raised)'
 // semantic emphasis (active states, key links). Subtle is for
 // dividers within a panel; default is for panel edges; strong is
 // for top-of-card emphasis or selected tab underline tracks.
-export const BORDER_SUBTLE  = 'rgba(255,255,255,0.04)'
-export const BORDER_DEFAULT = 'rgba(255,255,255,0.07)'
-export const BORDER_STRONG  = 'rgba(255,255,255,0.12)'
-export const BORDER_ACCENT  = 'rgba(34,211,238,0.35)'
+// Theme-aware (was fixed white-alpha, which is invisible on the light page).
+// All three resolve to var(--border) so panel/divider edges read in both
+// themes; emphasis hierarchy now comes from surface contrast, not border alpha.
+export const BORDER_SUBTLE  = 'var(--border)'
+export const BORDER_DEFAULT = 'var(--border)'
+export const BORDER_STRONG  = 'var(--border)'
+export const BORDER_ACCENT  = 'color-mix(in srgb, var(--accent) 35%, transparent)'
 
 // Text ladder. Primary for body and titles; secondary for supporting
 // labels; tertiary for metadata; muted for legal-fine-print and
 // the "not the focus" tone used in field cards.
 export const TEXT_PRIMARY   = 'var(--text)'
-export const TEXT_SECONDARY = '#A8B0BD'
+export const TEXT_SECONDARY = 'var(--sub)'
 export const TEXT_TERTIARY  = 'var(--sub)'
 export const TEXT_MUTED     = 'var(--dim)'
 

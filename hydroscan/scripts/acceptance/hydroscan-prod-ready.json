@@ -133,7 +133,7 @@
       "checks": [
         { "type": "file_exists", "path": "src/styles/tokens.js" },
         { "type": "file_exists", "path": "src/styles/marlow-tokens.js" },
-        { "type": "grep_matches", "pattern": "accent:#0D9488", "paths": ["index.html"] }
+        { "type": "grep_matches", "pattern": "accent-fill:#77B258", "paths": ["index.html"] }
       ]
     },
     {
