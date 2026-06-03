@@ -429,7 +429,7 @@ export default function MobileApp() {
       {/* Header */}
       <header style={{position:"sticky",top:0,zIndex:100,height:50,background:"#080A0EDD",backdropFilter:"blur(20px)",borderBottom:"1px solid #1A2030",padding:"0 16px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
-          <button onClick={()=>setNavOpen(!navOpen)} style={{width:38,height:38,borderRadius:10,background:"#080A0E",display:"flex",alignItems:"center",justifyContent:"center",border:"none",cursor:"pointer",padding:0}}><Logo s={34} /></button>
+          <button aria-label="Menu" onClick={()=>setNavOpen(!navOpen)} className="tap" style={{width:38,height:38,borderRadius:10,background:"var(--card)",border:"1px solid var(--border)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",padding:0}}><Logo s={30} /></button>
           <div><div style={{fontSize:15,fontWeight:600,lineHeight:1.1}}>Hydro<span style={{color:"#14B8A6",fontWeight:800}}>Scan</span></div><div style={{fontSize:11,color:"#8B95A8",fontFamily:"var(--font-mono)"}}>by Prudence EHS</div></div>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
@@ -475,16 +475,54 @@ export default function MobileApp() {
       )}
 
       {/* Nav Drawer */}
-      {navOpen&&<div onClick={()=>setNavOpen(false)} style={{position:"fixed",inset:0,background:"#000000AA",zIndex:150}}><div onClick={e=>e.stopPropagation()} style={{position:"absolute",top:50,left:0,width:230,background:"#0C1017",borderRight:"1px solid #1A2030",borderRadius:"0 0 14px 0",padding:"10px 6px",boxShadow:"20px 0 60px #00000080",animation:"slideRight .2s ease"}}>
-        {PLAT_MODULES.map(m=><div key={m.id} style={{padding:"11px 12px",borderRadius:8,display:"flex",alignItems:"center",gap:10,background:m.on?"#14B8A610":"transparent",opacity:m.on?1:.3,marginBottom:2}}><span style={{fontSize:18}}>{m.i}</span><span style={{fontSize:14,fontWeight:m.on?600:400,color:m.on?"#14B8A6":"#5E6578"}}>{m.n}</span></div>)}
-        <div style={{borderTop:"1px solid #1A2030",margin:"8px 0",padding:"8px 12px",display:"flex",flexDirection:"column",gap:4}}>
-          {[{k:"settings",l:"Settings",i:"user"},{k:"about",l:"About",i:"drop"},{k:"faq",l:"FAQ & Glossary",i:"alert"},{k:"privacy",l:"Privacy Policy",i:"shield"}].map(it=><button key={it.k} onClick={()=>{setPanel(it.k);setNavOpen(false);}} style={{background:"none",border:"none",color:"#5E6578",fontSize:12,cursor:"pointer",fontFamily:"inherit",padding:"6px 0",display:"flex",alignItems:"center",gap:8}}><I n={it.i} s={14} c="#5E6578" />{it.l}</button>)}
-          <button onClick={()=>{setShowTos(true);setNavOpen(false);}} style={{background:"none",border:"none",color:"#5E6578",fontSize:12,cursor:"pointer",fontFamily:"inherit",padding:"6px 0",display:"flex",alignItems:"center",gap:8}}><I n="shield" s={14} c="#5E6578" />Terms of Service</button>
-          <button onClick={()=>{setTourStep(0);setShowTour(true);setNavOpen(false);}} style={{background:"none",border:"none",color:"#5E6578",fontSize:12,cursor:"pointer",fontFamily:"inherit",padding:"6px 0",display:"flex",alignItems:"center",gap:8}}><I n="home" s={14} c="#5E6578" />How to Use</button>
-          <button onClick={()=>{setPanel("feedback");setFeedbackSent(false);setFeedbackText("");setNavOpen(false);}} style={{background:"none",border:"none",color:"#14B8A6",fontSize:12,cursor:"pointer",fontFamily:"inherit",padding:"6px 0",display:"flex",alignItems:"center",gap:8}}><I n="send" s={14} c="#14B8A6" />Send Feedback</button>
-          <div onClick={()=>{setAboutOpen(true);setNavOpen(false);}} style={{padding:"6px 0",fontSize:12,color:"#14B8A6",cursor:"pointer",borderTop:"1px solid #1A2030",marginTop:6,paddingTop:8,display:"flex",alignItems:"center",gap:8}}><I n="shield" s={14} c="#14B8A6"/>About Prudence EHS</div>
+      {navOpen&&(
+        <div onClick={()=>setNavOpen(false)} style={{position:"fixed",inset:0,zIndex:200,background:"#000000B0",backdropFilter:"blur(2px)",WebkitBackdropFilter:"blur(2px)",animation:"fadeIn .2s ease"}}>
+          <div onClick={e=>e.stopPropagation()} style={{position:"absolute",top:0,left:0,bottom:0,width:"min(86vw,312px)",background:"var(--bg)",borderRight:"1px solid var(--border)",boxShadow:"24px 0 70px #00000090",animation:"drawerIn .26s cubic-bezier(.16,1,.3,1)",display:"flex",flexDirection:"column",overflowY:"auto",paddingTop:"calc(env(safe-area-inset-top,0px) + 16px)",paddingBottom:"calc(env(safe-area-inset-bottom,0px) + 24px)"}}>
+            {(()=>{
+              const ASSESS_VIEWS=["smart","smartresults","assessor","source","building","fieldresults"];
+              const REPORT_VIEWS=["labentry","labresults","coc"];
+              const go=(fn)=>{fn();setNavOpen(false);};
+              const Row=({label,icon,tone,active,danger,onClick})=>(
+                <button className="tap" onClick={()=>go(onClick)} style={{display:"flex",alignItems:"center",gap:14,width:"100%",background:active?"color-mix(in srgb, var(--accent) 10%, transparent)":"transparent",border:"none",cursor:"pointer",fontFamily:"inherit",textAlign:"left",padding:"13px 18px"}}>
+                  <I n={icon} s={20} c={danger?"var(--danger)":active?"var(--accent)":(tone||"var(--sub)")}/>
+                  <span style={{flex:1,fontSize:15.5,fontWeight:active?700:500,color:danger?"var(--danger)":active?"var(--accent)":"var(--text)"}}>{label}</span>
+                  {active&&<span style={{width:6,height:6,borderRadius:999,background:"var(--accent)"}}/>}
+                </button>
+              );
+              const div=(<div style={{height:1,background:"var(--border)",margin:"6px 14px"}}/>);
+              return (<>
+                <div style={{padding:"0 18px 14px"}}>
+                  <div style={{fontSize:11,fontWeight:700,letterSpacing:.6,textTransform:"uppercase",color:"var(--dim)",marginBottom:12}}>HydroScan</div>
+                  <button className="tap" onClick={()=>go(()=>setPanel("settings"))} style={{display:"flex",alignItems:"center",gap:12,width:"100%",background:"none",border:"none",cursor:"pointer",fontFamily:"inherit",textAlign:"left",padding:0}}>
+                    <span style={{width:44,height:44,borderRadius:999,background:"color-mix(in srgb, var(--accent) 16%, transparent)",border:"1px solid color-mix(in srgb, var(--accent) 35%, transparent)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><Logo s={26}/></span>
+                    <span style={{flex:1,minWidth:0}}><span style={{display:"block",fontSize:16,fontWeight:700,color:"var(--text)"}}>Prudence EHS</span><span style={{display:"block",fontSize:12.5,color:"var(--sub)"}}>Account &amp; settings</span></span>
+                    <span style={{color:"var(--dim)",fontSize:18}}>›</span>
+                  </button>
+                </div>
+                {div}
+                {Row({label:"Home",icon:"home",active:view==="dash",onClick:()=>setView("dash")})}
+                {Row({label:"Projects",icon:"bldg",active:view==="projects",onClick:()=>setView("projects")})}
+                {Row({label:"Assess",icon:"search",active:ASSESS_VIEWS.includes(view),onClick:()=>setView("smart")})}
+                {Row({label:"Reports",icon:"clip",active:REPORT_VIEWS.includes(view),onClick:()=>setView(evaluation?"labresults":"labentry")})}
+                {Row({label:"Ask Marlow AI",icon:"pulse",onClick:()=>setMarlowOpen(true)})}
+                {div}
+                {Row({label:"Analyze Lab Results",icon:"flask",tone:"#8B5CF6",onClick:()=>{setActiveProjectId(null);startLab();}})}
+                {Row({label:"Generate Chain of Custody",icon:"clip",tone:"#22C55E",onClick:()=>{setActiveProjectId(null);initCOC();}})}
+                {div}
+                {Row({label:"Settings",icon:"user",active:panel==="settings",onClick:()=>setPanel("settings")})}
+                {Row({label:"Reference Library",icon:"shield",active:view==="reference",onClick:()=>setView("reference")})}
+                {Row({label:"How to Use",icon:"home",onClick:()=>{setTourStep(0);setShowTour(true);}})}
+                {Row({label:"Send Feedback",icon:"send",onClick:()=>{setPanel("feedback");setFeedbackSent(false);setFeedbackText("");}})}
+                {Row({label:"FAQ & Glossary",icon:"alert",onClick:()=>setPanel("faq")})}
+                {Row({label:"Privacy Policy",icon:"shield",onClick:()=>setPanel("privacy")})}
+                {Row({label:"Terms of Service",icon:"shield",onClick:()=>setShowTos(true)})}
+                {div}
+                {Row({label:"About Prudence EHS",icon:"drop",onClick:()=>setAboutOpen(true)})}
+              </>);
+            })()}
+          </div>
         </div>
-      </div></div>}
+      )}
 
       {/* Terms of Service */}
       {showTos&&<div style={{position:"fixed",inset:0,background:"#000000DD",zIndex:400,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={()=>tosAccepted&&setShowTos(false)}>
@@ -608,8 +646,6 @@ export default function MobileApp() {
             <div style={{fontSize:11,fontWeight:700,letterSpacing:1,textTransform:"uppercase",color:"var(--dim)",marginBottom:10}}>What are you working on?</div>
             <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:26,animation:"fadeUp .4s .05s ease both"}}>
               <QuickActionCard primary icon="search" title="Start New Assessment" sub="Field walkthrough → sampling plan" onClick={()=>{setActiveProjectId(null);startField();}}/>
-              <QuickActionCard icon="flask" tone="#8B5CF6" title="Analyze Lab Results" sub="Enter results → compliance → risk analysis" onClick={()=>{setActiveProjectId(null);startLab();}}/>
-              <QuickActionCard icon="clip" tone="#22C55E" title="Generate Chain of Custody" sub="Auto-filled · print-ready · free" onClick={()=>{setActiveProjectId(null);initCOC();}}/>
             </div>
 
             {/* Recent projects */}
@@ -1249,6 +1285,7 @@ export default function MobileApp() {
         @keyframes milestoneBar{from{width:0;}to{width:48px;}}
         @keyframes slideUp{from{transform:translateY(100%);}to{transform:translateY(0);}}
         @keyframes slideRight{from{opacity:0;transform:translateX(-16px);}to{opacity:1;transform:translateX(0);}}
+        @keyframes drawerIn{from{transform:translateX(-100%);}to{transform:translateX(0);}}
         @keyframes float{0%,100%{transform:translateY(0);}50%{transform:translateY(-12px);}}
         *{box-sizing:border-box;margin:0;}button{font-family:inherit;}
         .tap{transition:transform .12s ease,border-color .15s ease,background .15s ease,opacity .15s ease;}
