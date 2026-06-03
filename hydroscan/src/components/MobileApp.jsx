@@ -18,7 +18,7 @@ import MarlowAssistant from './MarlowAssistant'
 import { buildReportModel } from '../report/report-model'
 import { R, btnPrimary } from '../styles/tokens'
 import { ProjectCard, QuickActionCard, ReferenceStandardChip, MarlowFloatingButton, ProjectsSkeleton } from './workspace'
-import { listProjects, createProject, deleteProject, updateProject, WORKFLOW_STEPS, SITE_TYPES } from '../utils/projects'
+import { listProjects, createProject, deleteProject, updateProject, statusMeta, WORKFLOW_STEPS, SITE_TYPES } from '../utils/projects'
 import { trackEvent } from '../utils/supabaseClient'
 
 // ── Domain data & engine (Phase 1 extraction) ──
@@ -656,34 +656,45 @@ export default function MobileApp() {
         {/* ═══ DASHBOARD ═══ */}
         {view==="dash"&&(
           <div style={{paddingTop:18,paddingBottom:96}}>
-            {/* Command center header */}
-            <div style={{marginBottom:18,animation:"fadeUp .4s ease"}}>
-              <div style={{fontSize:12,color:"var(--dim)",fontWeight:600,letterSpacing:.3}}>{new Date().toLocaleDateString(undefined,{weekday:"long",month:"short",day:"numeric"})}</div>
-              <h1 style={{fontSize:25,fontWeight:800,letterSpacing:"-0.7px",margin:"4px 0 0"}}>{(()=>{const h=new Date().getHours();return h<12?"Good morning":h<18?"Good afternoon":"Good evening";})()}</h1>
-              <p style={{fontSize:13.5,color:"var(--sub)",lineHeight:1.55,margin:"6px 0 0",maxWidth:440}}>Drinking water assessments, sampling plans, lab review, and compliance-ready reports.</p>
+            {/* Hero — field co-pilot */}
+            <div style={{position:"relative",borderRadius:22,background:"var(--card)",border:"1px solid var(--border)",borderTop:"2px solid var(--accent)",padding:"24px 22px",marginBottom:28,overflow:"hidden",animation:"fadeUp .4s ease"}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
+                <I n="drop" s={16} c="var(--accent)"/>
+                <span style={{fontSize:12,fontWeight:700,letterSpacing:1.2,textTransform:"uppercase",color:"var(--accent)"}}>HydroScan · Field Co-Pilot</span>
+              </div>
+              <h1 style={{fontSize:32,fontWeight:800,letterSpacing:"-0.8px",lineHeight:1.08,margin:"0 0 12px"}}>Ready to begin sampling?</h1>
+              <p style={{fontSize:14.5,color:"var(--sub)",lineHeight:1.6,margin:"0 0 22px",maxWidth:460}}>Capture field observations, water readings, and site notes. HydroScan organizes them into a screening-level assessment with compliance findings, sampling plans, and recommended actions.</p>
+              <div style={{display:"flex",flexDirection:"column",gap:10,alignItems:"flex-start"}}>
+                <button onClick={()=>{setActiveProjectId(null);startField();}} className="tap" style={{display:"inline-flex",alignItems:"center",gap:10,padding:"14px 26px",borderRadius:999,border:"none",background:"var(--accent-fill)",color:"var(--on-accent-fill)",fontSize:15.5,fontWeight:700,cursor:"pointer",fontFamily:"inherit",boxShadow:"0 6px 22px rgba(13,148,136,0.45)"}}><I n="play" s={19} c="var(--on-accent-fill)"/>Start sampling</button>
+                <button onClick={()=>{setActiveProjectId(null);startSmart();}} className="tap" style={{display:"inline-flex",alignItems:"center",gap:10,padding:"13px 24px",borderRadius:999,border:"1px solid color-mix(in srgb, var(--accent) 45%, transparent)",background:"transparent",color:"var(--accent)",fontSize:15,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}><I n="bolt" s={18} c="var(--accent)"/>Quick assessment</button>
+              </div>
             </div>
 
-            {/* Primary actions */}
-            <div style={{fontSize:11,fontWeight:700,letterSpacing:1,textTransform:"uppercase",color:"var(--dim)",marginBottom:10}}>What are you working on?</div>
-            <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:26,animation:"fadeUp .4s .05s ease both"}}>
-              <QuickActionCard primary icon="search" title="Start New Assessment" sub="Field walkthrough → sampling plan" onClick={()=>{setActiveProjectId(null);startField();}}/>
+            {/* Recent reports */}
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+              <div style={{fontSize:11,fontWeight:700,letterSpacing:1,textTransform:"uppercase",color:"var(--dim)"}}>Recent Reports{realProjects.length?` · ${realProjects.length}`:""}</div>
+              {realProjects.length>0&&<button onClick={()=>setView("projects")} style={{background:"none",border:"none",color:"var(--accent)",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>View all →</button>}
             </div>
-
-            {/* Recent projects */}
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-              <div style={{fontSize:11,fontWeight:700,letterSpacing:1,textTransform:"uppercase",color:"var(--dim)"}}>Recent Projects</div>
-              <button onClick={()=>setView("projects")} style={{background:"none",border:"none",color:"var(--accent)",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>View all →</button>
-            </div>
-            <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:26}}>
-              {projectsLoading?<ProjectsSkeleton n={2}/>:realProjects.length===0?(
-                <div style={{padding:"22px 16px",textAlign:"center",background:"var(--card)",border:"1px dashed var(--border)",borderRadius:R.lg}}>
-                  <div style={{fontSize:13.5,fontWeight:600,color:"var(--text)"}}>No active projects yet</div>
-                  <div style={{fontSize:12,color:"var(--sub)",marginTop:3}}>Start a new assessment to create your first project.</div>
-                </div>
-              ):realProjects.slice(0,3).map(p=>(
-                <ProjectCard key={p.id} project={p} expanded={expandedProj===p.id} onToggle={()=>setExpandedProj(expandedProj===p.id?null:p.id)} onStep={launchStep}/>
-              ))}
-            </div>
+            {projectsLoading?<ProjectsSkeleton n={2}/>:realProjects.length===0?(
+              <div style={{padding:"22px 16px",textAlign:"center",background:"var(--card)",border:"1px dashed var(--border)",borderRadius:R.lg}}>
+                <div style={{fontSize:13.5,fontWeight:600,color:"var(--text)"}}>No reports yet</div>
+                <div style={{fontSize:12,color:"var(--sub)",marginTop:3}}>Start sampling to create your first assessment.</div>
+              </div>
+            ):(
+              <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                {realProjects.slice(0,5).map(p=>{const m=statusMeta(p.status);return(
+                  <button key={p.id} onClick={()=>{setView("projects");setExpandedProj(p.id);}} className="tap" style={{display:"flex",alignItems:"center",gap:12,width:"100%",textAlign:"left",padding:"14px 16px",background:"var(--card)",border:"1px solid var(--border)",borderRadius:R.lg,cursor:"pointer",fontFamily:"inherit"}}>
+                    <span style={{width:40,height:40,borderRadius:11,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",background:`${m.tone}14`,border:`1px solid ${m.tone}30`}}><I n="clip" s={19} c={m.tone}/></span>
+                    <span style={{flex:1,minWidth:0}}>
+                      <span style={{display:"block",fontSize:15,fontWeight:700,color:"var(--text)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</span>
+                      <span style={{display:"block",fontSize:12,color:"var(--sub)",marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.location||p.siteType}</span>
+                    </span>
+                    <span style={{display:"inline-flex",alignItems:"center",padding:"4px 10px",borderRadius:R.sm,background:`${m.tone}14`,border:`1px solid ${m.tone}38`,color:m.tone,fontSize:10.5,fontWeight:700,letterSpacing:.3,textTransform:"uppercase",whiteSpace:"nowrap",flexShrink:0}}>{m.label}</span>
+                    <span style={{color:"var(--dim)",fontSize:18,flexShrink:0}}>›</span>
+                  </button>
+                );})}
+              </div>
+            )}
           </div>
         )}
 
