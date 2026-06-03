@@ -886,10 +886,18 @@ export default function MobileApp() {
         {view==="labresults"&&evaluation&&(
           <div style={{paddingTop:28,paddingBottom:100,animation:"fadeUp .4s ease"}}>
             {/* Tier Hero */}
-            <div style={{textAlign:"center",padding:"28px 20px",background:tierBg(evaluation.tier),border:`1.5px solid ${tierColor(evaluation.tier)}40`,borderRadius:18,marginBottom:14}}>
-              <div style={{fontSize:12,color:"#8B95A8",textTransform:"uppercase",fontFamily:"var(--font-mono)",letterSpacing:2,marginBottom:10}}>Water Quality Classification</div>
-              <div style={{fontSize:32,fontWeight:800,color:tierColor(evaluation.tier),fontFamily:"var(--font-sans)",letterSpacing:"-1px"}}>{tierLabel(evaluation.tier)}</div>
-              <div style={{fontSize:13,color:"#8B95A8",fontFamily:"var(--font-mono)",marginTop:8}}>{evaluation.findings.length} parameters · {evaluation.findings.filter(f=>f.violations.length>0).length} violations · {evaluation.findings.filter(f=>f.advisories.length>0).length} advisories</div>
+            <div style={{textAlign:"center",padding:"26px 20px",background:tierBg(evaluation.tier),border:`1.5px solid ${tierColor(evaluation.tier)}40`,borderRadius:R.lg,marginBottom:10}}>
+              <div style={{fontSize:11,color:"var(--sub)",textTransform:"uppercase",fontFamily:"var(--font-mono)",letterSpacing:2,marginBottom:10}}>Water Quality Classification</div>
+              <div style={{fontSize:30,fontWeight:800,color:tierColor(evaluation.tier),letterSpacing:"-1px"}}>{tierLabel(evaluation.tier)}</div>
+            </div>
+            {/* Quick stats */}
+            <div style={{display:"flex",gap:8,marginBottom:14}}>
+              {(()=>{const vc=evaluation.findings.filter(f=>f.violations.length>0).length;const ac=evaluation.findings.filter(f=>f.advisories.length>0).length;return [[evaluation.findings.length,"PARAMETERS","var(--accent)"],[vc,"VIOLATIONS",vc?"var(--danger)":"var(--sub)"],[ac,"ADVISORIES",ac?"var(--warn)":"var(--sub)"]];})().map(([n,l,c],i)=>(
+                <div key={i} style={{flex:1,textAlign:"center",padding:"13px 6px",background:"var(--card)",border:"1px solid var(--border)",borderRadius:R.md}}>
+                  <div style={{fontSize:22,fontWeight:800,fontFamily:"var(--font-mono)",color:c}}>{n}</div>
+                  <div style={{fontSize:9,fontWeight:700,letterSpacing:1,color:"var(--dim)",marginTop:2}}>{l}</div>
+                </div>
+              ))}
             </div>
 
             {/* Phase 3 — state-limit overlay (advisory) */}
@@ -926,15 +934,18 @@ export default function MobileApp() {
                   const hasA = f.advisories.length > 0;
                   const color = hasV ? "#EF4444" : hasA ? "#FBBF24" : "#22C55E";
                   return (
-                    <div key={i} style={{padding:"14px 16px",background:"#0C1017",border:`1px solid ${color}25`,borderRadius:12}}>
-                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
-                        <span style={{fontSize:14,fontWeight:600,color:"#E2E8F0"}}>{f.param.name}</span>
-                        <span style={{fontSize:14,fontWeight:800,fontFamily:"var(--font-mono)",color}}>{f.qualifier==="P"||f.qualifier==="A"?(f.qualifier==="P"?"DETECTED":"NOT DETECTED"):`${f.value} ${f.param.unit}`}</span>
+                    <div key={i} style={{padding:"13px 15px",background:"var(--card)",border:`1px solid ${color}25`,borderRadius:R.md}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
+                        <span style={{fontSize:14,fontWeight:600,color:"var(--text)",paddingTop:2}}>{f.param.name}</span>
+                        <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:5,flexShrink:0}}>
+                          <span style={{fontSize:14,fontWeight:800,fontFamily:"var(--font-mono)",color}}>{f.qualifier==="P"||f.qualifier==="A"?(f.qualifier==="P"?"DETECTED":"NOT DETECTED"):`${f.value} ${f.param.unit}`}</span>
+                          <span style={{display:"inline-flex",alignItems:"center",gap:5,fontSize:10,fontWeight:700,letterSpacing:.5,textTransform:"uppercase",color,background:`${color}1A`,border:`1px solid ${color}55`,borderRadius:999,padding:"3px 9px",whiteSpace:"nowrap"}}><span style={{width:5,height:5,borderRadius:999,background:color}} />{hasV?"Violation":hasA?"Advisory":"Within limits"}</span>
+                        </div>
                       </div>
-                      {f.violations.map((v,j)=><div key={j} style={{fontSize:13,color:sevColor(v.severity),lineHeight:1.5,paddingLeft:10,borderLeft:`2px solid ${sevColor(v.severity)}40`,marginTop:6}}>{v.desc} <span style={{fontSize:11,color:"#5E6578"}}>({v.std}: {v.threshold})</span></div>)}
-                      {f.advisories.map((a,j)=><div key={j} style={{fontSize:13,color:sevColor(a.severity),lineHeight:1.5,paddingLeft:10,borderLeft:`2px solid ${sevColor(a.severity)}40`,marginTop:6}}>{a.desc}</div>)}
-                      {!hasV&&!hasA&&f.notes.map((n,j)=><div key={j} style={{fontSize:12,color:"#5E6578",marginTop:4}}>{n}</div>)}
-                      {f.param.health&&<div style={{fontSize:11,color:"#3A4050",marginTop:4}}>{f.param.health}</div>}
+                      {f.violations.map((v,j)=><div key={j} style={{fontSize:13,color:sevColor(v.severity),lineHeight:1.5,paddingLeft:10,borderLeft:`2px solid ${sevColor(v.severity)}40`,marginTop:8}}>{v.desc} <span style={{fontSize:11,color:"var(--dim)"}}>({v.std}: {v.threshold})</span></div>)}
+                      {f.advisories.map((a,j)=><div key={j} style={{fontSize:13,color:sevColor(a.severity),lineHeight:1.5,paddingLeft:10,borderLeft:`2px solid ${sevColor(a.severity)}40`,marginTop:8}}>{a.desc}</div>)}
+                      {!hasV&&!hasA&&f.notes.map((n,j)=><div key={j} style={{fontSize:12,color:"var(--dim)",marginTop:6}}>{n}</div>)}
+                      {f.param.health&&<div style={{fontSize:11,color:"var(--dim)",opacity:.7,marginTop:4}}>{f.param.health}</div>}
                     </div>
                   );
                 })}
