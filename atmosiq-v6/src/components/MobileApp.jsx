@@ -190,9 +190,13 @@ const confColor = (conf) => conf === 'Strong' ? '#22C55E'
   : '#8AA4CC'
 const ON_ACCENT = 'var(--on-accent)'
 // Serif stack for the "Ready to start a survey?" co-pilot card heading +
-// body — system serif first (New York on iOS/Mac, the platform AtmosFlow
-// ships to), then broad fallbacks.
-const SERIF = "ui-serif, 'New York', Georgia, 'Times New Roman', serif"
+// body. Target look is Claude's chat-response serif, which is Tiempos
+// Text (Anthropic's commercial face) — a low-contrast, bookish reading
+// serif. Tiempos isn't licensed here, so it's the primary for a clean
+// upgrade if dropped in later, with Lora (loaded via Google Fonts) as the
+// closest free stand-in, then system-serif fallbacks. Heading runs bold;
+// body stays regular weight.
+const SERIF = "'Tiempos Text', 'Lora', ui-serif, Georgia, 'Times New Roman', serif"
 
 // Map a saved profile instrument's coarse calStatus → the assessment's
 // calibration-status option. Best-guess only — the assessor confirms it
@@ -4013,13 +4017,21 @@ export default function MobileApp() {
                     compliance form to field activity. The two CTAs use
                     TactileButton primary/secondary so the press feels
                     physical, with a light haptic on touch. */
-                <GlassCard style={{padding:'28px 26px', marginBottom:RHYTHM.section}}>
+                <GlassCard style={{
+                  padding:'28px 26px',
+                  marginBottom:RHYTHM.section,
+                  // Cyan neon outline (matches the HydroScan co-pilot card):
+                  // a bright accent edge with a soft outer glow + faint
+                  // inner sheen. Overrides the GlassCard base border/shadow.
+                  border:'1px solid color-mix(in srgb, var(--accent-fill) 75%, transparent)',
+                  boxShadow:'0 0 18px color-mix(in srgb, var(--accent) 30%, transparent), 0 0 6px color-mix(in srgb, var(--accent) 42%, transparent), inset 0 0 14px color-mix(in srgb, var(--accent) 6%, transparent), 0 4px 14px rgba(0,0,0,0.35)',
+                }}>
                   <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
                     <I n="airflow" s={18} c="var(--accent)" w={1.8} />
                     <div style={V3.T.micro}>AtmosFlow · Field co-pilot</div>
                   </div>
                   <div style={{...V3.T.h1, fontFamily:SERIF, fontWeight:700, marginBottom:6}}>Ready to start a survey?</div>
-                  <div style={{...V3.T.bodyDim, fontFamily:SERIF, fontWeight:700, maxWidth:560, marginBottom:20}}>
+                  <div style={{...V3.T.bodyDim, fontFamily:SERIF, fontWeight:400, maxWidth:560, marginBottom:20}}>
                     Capture field observations, instrument readings, and zone notes.
                     AtmosFlow organizes them into a screening-level professional
                     assessment with severity, confidence, and recommended actions.
@@ -4028,7 +4040,7 @@ export default function MobileApp() {
                       default `sm` TactileButton (padding/font/min-height
                       overrides) so both fit on one row of the card. */}
                   <div style={{display:'flex',gap:10}}>
-                    <TactileButton variant="primary" size="sm" pill onClick={startNew} icon={<I n="play" s={11} c={PRIMARY_CTA_ICON} w={2} />} style={{padding:'8px 12px',fontSize:11,minHeight:30}}>
+                    <TactileButton variant="primary" size="sm" pill onClick={startNew} style={{padding:'8px 12px',fontSize:11,minHeight:30}}>
                       Start survey
                     </TactileButton>
                     {/* Report an incident is a secondary action here, so
@@ -4041,7 +4053,6 @@ export default function MobileApp() {
                       size="sm"
                       pill
                       onClick={()=>setView('incident-form')}
-                      icon={<I n="alert" s={11} c="var(--accent)" w={1.8} />}
                       style={{
                         padding:'8px 12px',
                         fontSize:11,
