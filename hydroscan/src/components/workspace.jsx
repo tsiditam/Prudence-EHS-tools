@@ -35,7 +35,7 @@ export function StatusChip({ status, pulse = true }) {
   )
 }
 
-export function ReferenceStandardChip({ label, icon, tone = '#14B8A6' }) {
+export function ReferenceStandardChip({ label, icon, tone = 'var(--accent)' }) {
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 11px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: R.pill, fontSize: 11.5, color: 'var(--sub)', fontWeight: 500 }}>
       {icon && <I n={icon} s={13} c={tone} />}{label}
@@ -43,7 +43,7 @@ export function ReferenceStandardChip({ label, icon, tone = '#14B8A6' }) {
   )
 }
 
-export function QuickActionCard({ icon, title, sub, tone = '#14B8A6', onClick, primary }) {
+export function QuickActionCard({ icon, title, sub, tone = 'var(--accent)', onClick, primary }) {
   return (
     <button className="tap" onClick={onClick} style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', textAlign: 'left', padding: primary ? '18px' : '15px 16px', borderRadius: R.lg, cursor: 'pointer', fontFamily: 'inherit', background: primary ? 'var(--accent-fill)' : 'var(--card)', border: primary ? 'none' : '1px solid var(--border)' }}>
       <span style={{ width: primary ? 46 : 40, height: primary ? 46 : 40, flexShrink: 0, borderRadius: R.md, display: 'flex', alignItems: 'center', justifyContent: 'center', background: primary ? 'rgba(0,0,0,0.16)' : `${tone}14`, border: primary ? 'none' : `1px solid ${tone}25` }}>
@@ -61,7 +61,7 @@ export function QuickActionCard({ icon, title, sub, tone = '#14B8A6', onClick, p
 export function WorkflowStepCard({ step, state, onClick }) {
   const done = state === 'done'
   const active = state === 'active'
-  const tone = done ? '#22C55E' : active ? '#14B8A6' : '#6B7380'
+  const tone = done ? 'var(--success)' : active ? 'var(--accent)' : 'var(--dim)'
   return (
     <button className="tap" onClick={onClick} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', padding: '10px 12px', background: active ? 'color-mix(in srgb, var(--accent) 8%, transparent)' : 'var(--surface)', border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`, borderRadius: R.md, cursor: 'pointer', fontFamily: 'inherit' }}>
       <span style={{ width: 26, height: 26, flexShrink: 0, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', background: `${tone}1A`, border: `1px solid ${tone}40` }}>
@@ -110,7 +110,7 @@ export function ProjectCard({ project, expanded, onToggle, onStep, onDelete }) {
 }
 
 export function RegulatoryAlertCard({ onDetails }) {
-  const tone = '#FBBF24'
+  const tone = 'var(--warn)'
   return (
     <div style={{ ...panel({}), borderTop: `2px solid ${tone}`, padding: '16px 18px' }}>
       <div style={{ display: 'flex', gap: 12 }}>
@@ -130,7 +130,7 @@ export function RegulatoryAlertCard({ onDetails }) {
 
 export function MarlowFloatingButton({ onClick }) {
   return (
-    <button aria-label="Ask Marlow" onClick={onClick} className="tap" style={{ position: 'fixed', right: 16, bottom: 'calc(74px + env(safe-area-inset-bottom,0px))', zIndex: 115, width: 56, height: 56, borderRadius: 18, border: '1px solid color-mix(in srgb, var(--accent) 45%, transparent)', background: 'var(--accent-fill)', boxShadow: '0 8px 24px rgba(13,148,136,0.4)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit' }}>
+    <button aria-label="Ask Marlow" onClick={onClick} className="tap" style={{ position: 'fixed', right: 16, bottom: 'calc(74px + env(safe-area-inset-bottom,0px))', zIndex: 115, width: 56, height: 56, borderRadius: 18, border: '1px solid color-mix(in srgb, var(--accent) 45%, transparent)', background: 'var(--accent-fill)', boxShadow: '0 8px 24px rgba(119,178,88,0.4)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit' }}>
       <I n="pulse" s={26} c="var(--on-accent-fill)" />
     </button>
   )

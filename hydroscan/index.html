@@ -66,54 +66,87 @@
            "old style" serif that carries weight at large sizes. */
         --font-serif:'Fraunces',Georgia,'Times New Roman',serif;
 
-        /* Theme palette — dark is the default. Surface ladder ported from
-           AtmosFlow; the accent channel is HydroScan teal. Components opt
-           into theming by referencing var(--bg) etc. rather than hex. */
+        /* Theme palette — LIGHT is the default (toggle to dark in Settings).
+           Brand hue is leaf green #77B258: the vivid fill (--accent-fill)
+           paints the hero CTA, the HydroScan-AI brain, and glowing outlines;
+           --accent is an auto-darkened green so small text/icons stay legible
+           on the near-white page. Components reference var(--*) rather than
+           hex so the whole app flips with the [data-theme="dark"] block. */
+        --bg:#FAFAFB;
+        --surface:#F4F5F7;
+        --card:#FFFFFF;
+        --raised:#EAF3E4;
+        --border:#D9E2EC;
+        --accent:#4C7A2F;          /* readable deep green — text, icons, borders */
+        --accent-dim:#3C6225;
+        --accent-fill:#77B258;     /* vivid brand green — filled CTAs, brain, glow */
+        --on-accent:#FFFFFF;       /* ink on a solid --accent fill */
+        --on-accent-fill:#0A1F07;  /* ink on the vivid green fill */
+        --cta1:#3F7A2E;            /* deep-green CTA gradient (white inscription) */
+        --cta2:#4C8A37;
+        --text:#0F172A;
+        --sub:#475569;
+        --dim:#5B6675;
+        --warn:#9A4A08;
+        --danger:#B91C1C;
+        --success:#15703A;
+        --success-deep:#0F5A2E;
+        --sev-high:#C2410C;        /* short-term / high-severity orange */
+        --accent2:#6D28D9;         /* lab / Legionella violet */
+        --accent2-deep:#5B21B6;
+        /* Component tokens — surfaces/text/borders for the legacy screens
+           (field walkthrough, lab entry, COC, modals) authored against fixed
+           dark hexes. Light values here; dark mirrors the original hexes
+           below so dark mode is unchanged. */
+        --c-card:#FFFFFF;
+        --c-surface:#EEF1F5;
+        --c-border:#DCE3EB;
+        --c-border2:#C3CDD9;
+        --c-text:#0F172A;
+        --c-text2:#334155;
+        --c-sub:#5B6675;
+        --c-dim:#8A94A3;
+        --c-faint:#AEB8C4;
+        --header-bg:rgba(255,255,255,0.88);
+        --scrim-full:rgba(247,248,250,0.96);
+      }
+      [data-theme="dark"]{
+        /* Dark palette — same green brand, brighter --accent for legibility
+           on near-black. Component tokens equal the original hardcoded hexes
+           so the dark UI renders exactly as it did before light mode landed. */
         --bg:#07080C;
         --surface:#0D0E14;
         --card:#111318;
         --raised:#161922;
         --border:#1C1E26;
-        /* Restrained primary teal — HydroScan's brand hue. Header controls,
-           icon outlines, text accents, default active states. The brighter
-           --accent-fill is reserved for filled-CTA / active emphasis. */
-        --accent:#0D9488;
-        --accent-dim:#0B7C72;
+        --accent:#86C166;          /* bright green — text/icons on dark */
+        --accent-dim:#5E9E3F;
+        --accent-fill:#77B258;     /* vivid brand green (same as light) */
+        --on-accent:#06140B;
+        --on-accent-fill:#06140B;
+        --cta1:#3F7A2E;
+        --cta2:#4C8A37;
         --text:#ECEEF2;
         --sub:#8B93A5;
         --dim:#6B7380;
         --warn:#FBBF24;
         --danger:#EF4444;
         --success:#22C55E;
-        --on-accent:#07080C;
-        /* Brighter teal for emphasis — filled primary CTAs and active
-           highlights. White inscription on dark surfaces (per direction);
-           flips dark in light mode below. */
-        --accent-fill:#14B8A6;
-        --on-accent-fill:#FFFFFF;
-      }
-      [data-theme="light"]{
-        /* Premium light palette — three-step surface ladder so hierarchy
-           reads in light mode the same as dark. The teal carries text,
-           icons, borders; the brighter #14B8A6 fills emphasis CTAs. */
-        --bg:#FAFAFB;
-        --surface:#F4F5F7;
-        --card:#FFFFFF;
-        --raised:#D6F5F0;
-        --border:#A8E0D8;
-        --accent:#0D9488;
-        --accent-dim:#0F766E;
-        --text:#0F172A;
-        --sub:#475569;
-        --dim:#5B6675;
-        --on-accent:#07080C;
-        --accent-fill:#14B8A6;
-        --on-accent-fill:#07080C;
-        /* Semantic colors use darker stops in light mode so they stay
-           legible as foreground text on the near-white page. */
-        --warn:#9A4A08;
-        --danger:#B91C1C;
-        --success:#15703A;
+        --success-deep:#16A34A;
+        --sev-high:#FB923C;
+        --accent2:#8B5CF6;
+        --accent2-deep:#6D28D9;
+        --c-card:#0C1017;
+        --c-surface:#12161D;
+        --c-border:#1A2030;
+        --c-border2:#2A3040;
+        --c-text:#F0F4F8;
+        --c-text2:#C8D0DC;
+        --c-sub:#8B95A8;
+        --c-dim:#5E6578;
+        --c-faint:#3A4050;
+        --header-bg:rgba(8,10,14,0.87);
+        --scrim-full:rgba(8,10,14,0.96);
       }
       body{
         font-family:var(--font-sans);
@@ -125,12 +158,20 @@
         -moz-osx-font-smoothing:grayscale;
         text-rendering:optimizeLegibility;
       }
-      /* Header wordmark theme swap: the dark-theme wordmark has white text
-         (invisible on the light header); show the black-text variant under
-         [data-theme="light"]. */
-      [data-theme="light"] .hs-wordmark-dark{display:none!important;}
-      [data-theme="light"] .hs-wordmark-light{display:block!important;}
+      /* Header wordmark theme swap: light is the default, so show the
+         black-text wordmark by default and the white-text variant only
+         under [data-theme="dark"]. */
+      .hs-wordmark-dark{display:none!important;}
+      .hs-wordmark-light{display:block!important;}
+      [data-theme="dark"] .hs-wordmark-dark{display:block!important;}
+      [data-theme="dark"] .hs-wordmark-light{display:none!important;}
     </style>
+    <script>
+      /* Apply the saved theme before first paint so there's no flash of the
+         wrong palette. Mirrors the storage wrapper's key/JSON encoding
+         (localStorage 'hydroscan:hydroscan-theme'); defaults to light. */
+      (function(){try{var t=localStorage.getItem('hydroscan:hydroscan-theme');var m=t?JSON.parse(t):'light';document.documentElement.setAttribute('data-theme',m==='dark'?'dark':'light');}catch(e){document.documentElement.setAttribute('data-theme','light');}})();
+    </script>
     <link href="https://fonts.googleapis.com/css2?family=Bitcount+Grid+Single:wght@400;700&family=Inter:wght@300;400;500;600;700;800;900&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Sora:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   </head>
   <body>
