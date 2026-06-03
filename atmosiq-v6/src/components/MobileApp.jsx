@@ -190,10 +190,13 @@ const confColor = (conf) => conf === 'Strong' ? '#22C55E'
   : '#8AA4CC'
 const ON_ACCENT = 'var(--on-accent)'
 // Serif stack for the "Ready to start a survey?" co-pilot card heading +
-// body — Playfair Display (high-contrast Didone, loaded in index.html) to
-// match the HydroScan co-pilot card, then system-serif fallbacks. The
-// heading runs bold; the body stays regular weight (HydroScan's look).
-const SERIF = "'Playfair Display', ui-serif, Georgia, 'Times New Roman', serif"
+// body. Target look is Claude's chat-response serif, which is Tiempos
+// Text (Anthropic's commercial face) — a low-contrast, bookish reading
+// serif. Tiempos isn't licensed here, so it's the primary in the stack
+// for a clean upgrade if dropped in later, with Lora (loaded via Google
+// Fonts) as the closest free stand-in, then system-serif fallbacks. The
+// heading runs bold; the body stays regular weight.
+const SERIF = "'Tiempos Text', 'Lora', ui-serif, Georgia, 'Times New Roman', serif"
 
 // Map a saved profile instrument's coarse calStatus → the assessment's
 // calibration-status option. Best-guess only — the assessor confirms it
