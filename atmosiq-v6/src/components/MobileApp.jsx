@@ -4475,16 +4475,14 @@ export default function MobileApp() {
               {id:'incident-log',label:'Incidents',icon:'alert'},
               {id:'sensor-data',label:'Logger Studio',icon:'chart'},
             ] : [
-              // Five-tab consultant nav. AtmosFlow AI sits in the centre
-              // slot (its breathing-glow tab reads as the hub); Projects
-              // and Logger Studio flank it, Home and Reports anchor the
-              // ends. Internal ids are unchanged (jasper stays 'jasper',
-              // Projects routes to the existing 'projects' view) so no
-              // shipped event/table names move.
+              // Three-tab consultant nav: Home, AtmosFlow AI (centre — its
+              // breathing-glow tab reads as the hub), Reports. Projects and
+              // Logger Studio were removed from the bar per product call;
+              // both stay reachable from the hamburger drawer menu, so no
+              // destinations are orphaned. jasper id unchanged so shipped
+              // event/table names don't move.
               {id:'dash',label:'Home',icon:'home'},
-              {id:'projects',label:'Projects',icon:'bldg'},
               {id:'jasper',label:'AtmosFlow AI',icon:'jasper'},
-              {id:'sensor-data',label:'Logger Studio',icon:'chart'},
               {id:'history',label:'Reports',icon:'report',badge:((index.drafts||[]).length+(index.reports||[]).length)||null},
             ]).map(t=>{
               const isJasper = t.id === 'jasper'
