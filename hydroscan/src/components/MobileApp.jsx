@@ -17,7 +17,7 @@ import { Logo, I } from './Icons'
 import MarlowAssistant from './MarlowAssistant'
 import { buildReportModel } from '../report/report-model'
 import { R, btnPrimary } from '../styles/tokens'
-import { ProjectCard, QuickActionCard, ReferenceStandardChip, MarlowFloatingButton, ProjectsSkeleton } from './workspace'
+import { ProjectCard, QuickActionCard, ReferenceStandardChip, ProjectsSkeleton } from './workspace'
 import { listProjects, createProject, deleteProject, updateProject, statusMeta, WORKFLOW_STEPS, SITE_TYPES } from '../utils/projects'
 import { trackEvent } from '../utils/supabaseClient'
 
@@ -1340,6 +1340,9 @@ export default function MobileApp() {
         *{box-sizing:border-box;margin:0;}button{font-family:inherit;}
         .tap{transition:transform .12s ease,border-color .15s ease,background .15s ease,opacity .15s ease;}
         .tap:active{transform:scale(.985);}
+        @keyframes aiGlow{0%,100%{box-shadow:0 0 12px 2px color-mix(in srgb, var(--accent-fill) 45%, transparent);}50%{box-shadow:0 0 26px 7px color-mix(in srgb, var(--accent-fill) 78%, transparent);}}
+        @keyframes aiFloat{0%,100%{transform:translateY(0);}50%{transform:translateY(-3px);}}
+        .ai-orb{animation:aiGlow 2.8s ease-in-out infinite,aiFloat 3.6s ease-in-out infinite;will-change:transform,box-shadow;}
         .hero-card{transition:box-shadow .3s ease,border-color .25s ease;-webkit-tap-highlight-color:transparent;}
         .hero-card:active{border-color:var(--accent-fill);box-shadow:0 0 0 1px var(--accent-fill),0 0 34px 2px color-mix(in srgb, var(--accent-fill) 65%, transparent);}
         @keyframes chipPulse{0%,100%{opacity:1;}50%{opacity:.45;}}
@@ -1352,8 +1355,6 @@ export default function MobileApp() {
         ::-webkit-scrollbar{width:4px;height:0;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:#1A2030;border-radius:2px;}
       `}</style>
 
-      {/* Marlow floating assistant button (redesign) */}
-      {!showTour && !marlowOpen && <MarlowFloatingButton onClick={()=>setMarlowOpen(true)} />}
 
       {/* Marlow AI — streaming water-quality assistant (Phase 2) */}
       <MarlowAssistant
@@ -1368,7 +1369,7 @@ export default function MobileApp() {
         const REPORT_VIEWS=["labentry","labresults","coc"];
         const NAV=[
           {k:"home",label:"Home",icon:"home",active:view==="dash"&&!marlowOpen,onTap:()=>{setMarlowOpen(false);setPanel(null);setView("dash");}},
-          {k:"projects",label:"Projects",icon:"bldg",active:view==="projects"&&!marlowOpen,onTap:()=>{setMarlowOpen(false);setPanel(null);setView("projects");}},
+          {k:"ai",label:"HydroScan AI",ai:true,active:marlowOpen,onTap:()=>setMarlowOpen(true)},
           {k:"reports",label:"Reports",icon:"clip",active:REPORT_VIEWS.includes(view)&&!marlowOpen,onTap:()=>{setMarlowOpen(false);setPanel(null);setView(evaluation?"labresults":"labentry");}},
         ];
         return (
@@ -1376,6 +1377,16 @@ export default function MobileApp() {
             <div style={{width:"100%",maxWidth:620,display:"flex",alignItems:"stretch"}}>
               {NAV.map(t=>{
                 const col=t.active?"var(--accent)":"var(--dim)";
+                if(t.ai){
+                  return (
+                    <button key={t.k} onClick={t.onTap} aria-label="HydroScan AI" style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"0 4px 8px",background:"transparent",border:"none",cursor:"pointer",fontFamily:"inherit"}}>
+                      <div className="ai-orb" style={{width:46,height:46,marginTop:-16,borderRadius:16,display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#0D9488,#14B8A6)",border:"1px solid color-mix(in srgb, var(--accent-fill) 60%, transparent)"}}>
+                        <I n="brain" s={24} c="#FFFFFF" w={2} />
+                      </div>
+                      <span style={{fontSize:10.5,fontWeight:700,color:"var(--accent)",letterSpacing:"0.2px"}}>HydroScan AI</span>
+                    </button>
+                  );
+                }
                 return (
                   <button key={t.k} onClick={t.onTap} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"9px 4px 10px",background:"transparent",border:"none",cursor:"pointer",fontFamily:"inherit"}}>
                     {t.accent?(
