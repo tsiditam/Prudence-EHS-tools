@@ -15,6 +15,7 @@ import { useMediaQuery } from '../hooks/useMediaQuery'
 import LandingPage from './LandingPage'
 import { Logo, I } from './Icons'
 import MarlowAssistant from './MarlowAssistant'
+import { buildReportModel } from '../report/report-model'
 import { R } from '../styles/tokens'
 import { trackEvent } from '../utils/supabaseClient'
 
@@ -291,6 +292,31 @@ export default function MobileApp() {
     setMilestone({icon:"chart",title:"Evaluation Complete",sub:`${ev.findings.length} parameters analyzed`});
     setTimeout(()=>{setMilestone(null);setRTab("compliance");setView("labresults");},1400);
     saveToHistory(ev, {...source,...building});
+  };
+
+  // Phase 4 — generate the DOCX Water Quality Assessment Report (client-side)
+  const [reporting, setReporting] = useState(false);
+  const generateReport = async () => {
+    if (reporting) return;
+    setReporting(true);
+    try {
+      const model = buildReportModel({ assessor, source, building, labResults, evaluation, chains, samplingPlan, recs, stateExceed, selState, coc });
+      // Lazy-load the docx builder so its weight stays out of the initial bundle.
+      const { getReportDocxBlob } = await import('../report/DocxReport');
+      const blob = await getReportDocxBlob(model);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = `${model.meta.reportId}.docx`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url), 1000);
+      trackEvent('report_generated', { tier: evaluation?.tier, parameters: evaluation?.findings?.length });
+      haptic("success");
+    } catch (e) {
+      haptic("error");
+      alert("Could not generate the report. Please try again.");
+    } finally {
+      setReporting(false);
+    }
   };
 
   // Add lab result row
@@ -883,6 +909,11 @@ export default function MobileApp() {
                 {rd.blockers.map((b,i)=>(<div key={i} style={{fontSize:12,color:"var(--sub)",lineHeight:1.6}}>• <span style={{color:b.tier==="hard"?"var(--warn)":"var(--sub)"}}>{b.message}</span> <span style={{color:"var(--dim)"}}>— {b.fixLocation}</span></div>))}
               </div>
             );})()}
+
+            {/* Phase 4 — DOCX report drafting */}
+            <button onClick={generateReport} disabled={reporting} style={{width:"100%",marginBottom:14,padding:"13px 0",borderRadius:R.md,border:"none",cursor:reporting?"default":"pointer",background:reporting?"var(--border)":"var(--accent-fill)",color:reporting?"var(--dim)":"var(--on-accent-fill)",fontSize:14,fontWeight:700,fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+              <I n="download" s={17} c={reporting?"var(--dim)":"var(--on-accent-fill)"} />{reporting?"Generating…":"Generate Report (DOCX)"}
+            </button>
 
             {/* Tabs */}
             <div style={{display:"flex",gap:4,padding:4,background:"#0C1017",borderRadius:10,border:"1px solid #1A2030",marginBottom:14,overflowX:"auto",scrollbarWidth:"none"}}>
