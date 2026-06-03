@@ -55,7 +55,7 @@ export default function AuthScreen() {
         <div style={{ textAlign: 'center', marginBottom: 22 }}>
           <Logo s={56} />
           <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.5px', marginTop: 8 }}>Hydro<span style={{ color: 'var(--accent)' }}>Scan</span></div>
-          <div style={{ fontSize: 12, color: 'var(--sub)', fontFamily: "'DM Mono'", marginTop: 4 }}>Drinking Water Quality Intelligence</div>
+          <div style={{ fontSize: 12, color: 'var(--sub)', fontFamily: "var(--font-mono)", marginTop: 4 }}>Drinking Water Quality Intelligence</div>
         </div>
 
         <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: R.lg, padding: 22 }}>

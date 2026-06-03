@@ -126,7 +126,7 @@ export default function MarlowAssistant({ open, onClose, context }) {
             </div>
             <div>
               <div style={{ fontFamily: 'var(--font-marlow)', fontSize: 18, fontWeight: 700, color: 'var(--text)' }}>Marlow</div>
-              <div style={{ fontSize: 11, color: 'var(--sub)', fontFamily: "'DM Mono'" }}>HydroScan water-quality AI</div>
+              <div style={{ fontSize: 11, color: 'var(--sub)', fontFamily: "var(--font-mono)" }}>HydroScan water-quality AI</div>
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
