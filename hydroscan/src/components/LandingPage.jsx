@@ -106,17 +106,17 @@ function PhoneMockup() {
       <div style={styles.phoneScreen}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
           <DropLogo s={28} />
-          <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 16, color: '#E2E8F0' }}>HydroScan</span>
+          <span style={{ fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 16, color: '#E2E8F0' }}>HydroScan</span>
         </div>
         <div style={{ background: 'linear-gradient(135deg, rgba(13,148,136,0.15), rgba(34,211,238,0.08))', borderRadius: 10, padding: '12px 14px', marginBottom: 10 }}>
-          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: '#5EEAD4', marginBottom: 4 }}>WATER QUALITY SCORE</div>
-          <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 28, fontWeight: 700, color: '#22D3EE' }}>92.4</div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: '#5EEAD4', marginBottom: 4 }}>WATER QUALITY SCORE</div>
+          <div style={{ fontFamily: "var(--font-sans)", fontSize: 28, fontWeight: 700, color: '#22D3EE' }}>92.4</div>
           <div style={{ fontSize: 10, color: '#64748B', marginTop: 2 }}>EPA Compliant</div>
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
           {['pH 7.2', 'Cl 0.8', 'Turb 0.3'].map(v => (
             <div key={v} style={{ flex: 1, background: 'rgba(139,92,246,0.1)', borderRadius: 6, padding: '6px 4px', textAlign: 'center' }}>
-              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: '#A78BFA' }}>{v}</div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: '#A78BFA' }}>{v}</div>
             </div>
           ))}
         </div>
@@ -304,7 +304,7 @@ export default function LandingPage({ isDesktop }) {
         <div style={styles.footerInner}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
             <DropLogo s={28} />
-            <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 600, fontSize: 16, color: '#94A3B8' }}>HydroScan</span>
+            <span style={{ fontFamily: "var(--font-sans)", fontWeight: 600, fontSize: 16, color: '#94A3B8' }}>HydroScan</span>
           </div>
           <p style={{ color: '#475569', fontSize: 13, margin: 0, lineHeight: 1.6 }}>
             Prudence Safety & Environmental Consulting, LLC<br />
@@ -342,7 +342,7 @@ const styles = {
     minHeight: '100vh',
     background: '#050507',
     color: '#E2E8F0',
-    fontFamily: "'Inter', sans-serif",
+    fontFamily: "var(--font-sans)",
     position: 'relative',
     overflow: 'hidden',
   },
@@ -391,7 +391,7 @@ const styles = {
     alignItems: 'center',
   },
   navBrand: {
-    fontFamily: "'Space Grotesk', sans-serif",
+    fontFamily: "var(--font-sans)",
     fontWeight: 700,
     fontSize: 20,
     background: 'linear-gradient(135deg, #0D9488, #22D3EE)',
@@ -420,7 +420,7 @@ const styles = {
   },
   badge: {
     display: 'inline-block',
-    fontFamily: "'DM Mono', monospace",
+    fontFamily: "var(--font-mono)",
     fontSize: 12,
     fontWeight: 500,
     color: '#5EEAD4',
@@ -433,7 +433,7 @@ const styles = {
     textTransform: 'uppercase',
   },
   heroTitle: {
-    fontFamily: "'Space Grotesk', sans-serif",
+    fontFamily: "var(--font-sans)",
     fontSize: 'clamp(40px, 6vw, 72px)',
     fontWeight: 800,
     lineHeight: 1.08,
@@ -462,7 +462,7 @@ const styles = {
 
   /* CTAs */
   ctaPrimary: {
-    fontFamily: "'Space Grotesk', sans-serif",
+    fontFamily: "var(--font-sans)",
     fontSize: 15,
     fontWeight: 600,
     color: '#050507',
@@ -475,7 +475,7 @@ const styles = {
     boxShadow: '0 0 24px rgba(13,148,136,0.3)',
   },
   ctaSecondary: {
-    fontFamily: "'Space Grotesk', sans-serif",
+    fontFamily: "var(--font-sans)",
     fontSize: 15,
     fontWeight: 600,
     color: '#94A3B8',
@@ -496,7 +496,7 @@ const styles = {
     padding: '80px 32px',
   },
   sectionTitle: {
-    fontFamily: "'Space Grotesk', sans-serif",
+    fontFamily: "var(--font-sans)",
     fontSize: 'clamp(28px, 4vw, 42px)',
     fontWeight: 700,
     textAlign: 'center',
@@ -537,7 +537,7 @@ const styles = {
     marginBottom: 16,
   },
   featureTitle: {
-    fontFamily: "'Space Grotesk', sans-serif",
+    fontFamily: "var(--font-sans)",
     fontSize: 18,
     fontWeight: 600,
     margin: '0 0 8px',
@@ -564,7 +564,7 @@ const styles = {
     borderRadius: 14,
   },
   statValue: {
-    fontFamily: "'Space Grotesk', sans-serif",
+    fontFamily: "var(--font-sans)",
     fontSize: 42,
     fontWeight: 800,
     display: 'block',
@@ -575,7 +575,7 @@ const styles = {
     backgroundClip: 'text',
   },
   statLabel: {
-    fontFamily: "'DM Mono', monospace",
+    fontFamily: "var(--font-mono)",
     fontSize: 12,
     color: '#64748B',
     letterSpacing: '0.04em',
@@ -609,7 +609,7 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontFamily: "'Space Grotesk', sans-serif",
+    fontFamily: "var(--font-sans)",
     fontWeight: 700,
     fontSize: 15,
     color: '#5EEAD4',

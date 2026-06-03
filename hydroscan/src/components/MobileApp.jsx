@@ -71,9 +71,9 @@ const ABOUT_BIO={
   website:"https://prudencesafety.com",
 };
 
-function AboutTrustBadge({onClick}){const[h,setH]=useState(false);return(<button onClick={onClick} onMouseEnter={()=>setH(true)} onMouseLeave={()=>setH(false)} style={{display:"inline-flex",alignItems:"center",gap:8,background:h?"rgba(20,184,166,0.08)":"rgba(20,184,166,0.04)",border:`1px solid rgba(20,184,166,${h?0.25:0.12})`,borderRadius:8,padding:"10px 16px",cursor:"pointer",transition:"all 0.25s ease",transform:h?"translateY(-1px)":"none",width:"100%"}}><svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#14B8A6" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.25C17.25 22.15 21 17.25 21 12V7l-9-5z"/><path d="M9 12l2 2 4-4"/></svg><span style={{fontFamily:"monospace",fontSize:12,color:"rgba(255,255,255,0.7)",textAlign:"left",flex:1}}>{ABOUT_BIO.oneLiner}</span><span style={{fontSize:12,color:"#14B8A6",opacity:h?1:0.5}}>→</span></button>);}
+function AboutTrustBadge({onClick}){const[h,setH]=useState(false);return(<button onClick={onClick} onMouseEnter={()=>setH(true)} onMouseLeave={()=>setH(false)} style={{display:"inline-flex",alignItems:"center",gap:8,background:h?"rgba(20,184,166,0.08)":"rgba(20,184,166,0.04)",border:`1px solid rgba(20,184,166,${h?0.25:0.12})`,borderRadius:8,padding:"10px 16px",cursor:"pointer",transition:"all 0.25s ease",transform:h?"translateY(-1px)":"none",width:"100%"}}><svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#14B8A6" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.25C17.25 22.15 21 17.25 21 12V7l-9-5z"/><path d="M9 12l2 2 4-4"/></svg><span style={{fontFamily:"var(--font-mono)",fontSize:12,color:"rgba(255,255,255,0.7)",textAlign:"left",flex:1}}>{ABOUT_BIO.oneLiner}</span><span style={{fontSize:12,color:"#14B8A6",opacity:h?1:0.5}}>→</span></button>);}
 
-function AboutPanel({open,onClose}){const[v,setV]=useState(false);const[s,setS]=useState(false);useEffect(()=>{if(open){setV(true);setTimeout(()=>setS(true),30);}else{setS(false);setTimeout(()=>setV(false),350);}},[open]);if(!v)return null;return(<div onClick={onClose} style={{position:"fixed",inset:0,zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",background:s?"rgba(0,0,0,0.7)":"rgba(0,0,0,0)",backdropFilter:s?"blur(8px)":"blur(0)",transition:"all 0.35s ease",padding:20}}><div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:560,maxHeight:"85vh",overflowY:"auto",background:"#0C0E13",border:"1px solid rgba(20,184,166,0.1)",borderRadius:16,opacity:s?1:0,transform:s?"translateY(0) scale(1)":"translateY(16px) scale(0.97)",transition:"all 0.35s cubic-bezier(0.16,1,0.3,1)",boxShadow:"0 24px 80px rgba(0,0,0,0.5)"}}><div style={{padding:"28px 28px 20px",display:"flex",justifyContent:"space-between",alignItems:"flex-start",borderBottom:"1px solid rgba(255,255,255,0.06)"}}><div><div style={{fontSize:11,fontWeight:600,letterSpacing:2.5,textTransform:"uppercase",color:"#14B8A6"}}>About Prudence</div><div style={{fontSize:12,color:"rgba(255,255,255,0.35)",marginTop:2}}>Safety & Environmental Consulting</div></div><button onClick={onClose} style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:8,width:34,height:34,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"rgba(255,255,255,0.4)"}}>✕</button></div><div style={{padding:"24px 28px 20px"}}>{ABOUT_BIO.paragraphs.map((p,i)=>(<p key={i} style={{fontSize:14,lineHeight:1.75,color:i===0?"rgba(255,255,255,0.85)":"rgba(255,255,255,0.65)",margin:0,marginBottom:i<2?18:0}}>{i===0?<><strong style={{color:"#fff",fontWeight:600}}>Tsidi Tamakloe, CSP</strong>{p.substring(p.indexOf(" is the founder"))}</>:p}</p>))}</div><div style={{padding:"16px 28px 24px",borderTop:"1px solid rgba(255,255,255,0.06)",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12}}><span style={{fontFamily:"monospace",fontSize:11,color:"rgba(255,255,255,0.25)"}}>CSP · BCSP #38426</span><a href={ABOUT_BIO.website} target="_blank" rel="noopener noreferrer" style={{fontSize:13,color:"#14B8A6",textDecoration:"none",padding:"6px 14px",borderRadius:6,border:"1px solid rgba(20,184,166,0.2)",background:"rgba(20,184,166,0.06)"}}>prudencesafety.com ↗</a></div></div></div>);}
+function AboutPanel({open,onClose}){const[v,setV]=useState(false);const[s,setS]=useState(false);useEffect(()=>{if(open){setV(true);setTimeout(()=>setS(true),30);}else{setS(false);setTimeout(()=>setV(false),350);}},[open]);if(!v)return null;return(<div onClick={onClose} style={{position:"fixed",inset:0,zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",background:s?"rgba(0,0,0,0.7)":"rgba(0,0,0,0)",backdropFilter:s?"blur(8px)":"blur(0)",transition:"all 0.35s ease",padding:20}}><div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:560,maxHeight:"85vh",overflowY:"auto",background:"#0C0E13",border:"1px solid rgba(20,184,166,0.1)",borderRadius:16,opacity:s?1:0,transform:s?"translateY(0) scale(1)":"translateY(16px) scale(0.97)",transition:"all 0.35s cubic-bezier(0.16,1,0.3,1)",boxShadow:"0 24px 80px rgba(0,0,0,0.5)"}}><div style={{padding:"28px 28px 20px",display:"flex",justifyContent:"space-between",alignItems:"flex-start",borderBottom:"1px solid rgba(255,255,255,0.06)"}}><div><div style={{fontSize:11,fontWeight:600,letterSpacing:2.5,textTransform:"uppercase",color:"#14B8A6"}}>About Prudence</div><div style={{fontSize:12,color:"rgba(255,255,255,0.35)",marginTop:2}}>Safety & Environmental Consulting</div></div><button onClick={onClose} style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:8,width:34,height:34,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"rgba(255,255,255,0.4)"}}>✕</button></div><div style={{padding:"24px 28px 20px"}}>{ABOUT_BIO.paragraphs.map((p,i)=>(<p key={i} style={{fontSize:14,lineHeight:1.75,color:i===0?"rgba(255,255,255,0.85)":"rgba(255,255,255,0.65)",margin:0,marginBottom:i<2?18:0}}>{i===0?<><strong style={{color:"#fff",fontWeight:600}}>Tsidi Tamakloe, CSP</strong>{p.substring(p.indexOf(" is the founder"))}</>:p}</p>))}</div><div style={{padding:"16px 28px 24px",borderTop:"1px solid rgba(255,255,255,0.06)",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12}}><span style={{fontFamily:"var(--font-mono)",fontSize:11,color:"rgba(255,255,255,0.25)"}}>CSP · BCSP #38426</span><a href={ABOUT_BIO.website} target="_blank" rel="noopener noreferrer" style={{fontSize:13,color:"#14B8A6",textDecoration:"none",padding:"6px 14px",borderRadius:6,border:"1px solid rgba(20,184,166,0.2)",background:"rgba(20,184,166,0.06)"}}>prudencesafety.com ↗</a></div></div></div>);}
 
 /* ═══════════════════════════════════════════════════════════════════ */
 /* MAIN COMPONENT                                                      */
@@ -334,25 +334,25 @@ export default function MobileApp() {
     <div style={{paddingTop:12,paddingBottom:100}}>
       <div style={{marginBottom:20}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-          <span style={{fontSize:12,color:"#8B95A8",fontFamily:"'DM Mono'"}}>{qIdx+1} of {visQs.length}</span>
-          <span style={{fontSize:12,color:"#14B8A6",fontFamily:"'DM Mono'",fontWeight:600}}>{progress}%</span>
+          <span style={{fontSize:12,color:"#8B95A8",fontFamily:"var(--font-mono)"}}>{qIdx+1} of {visQs.length}</span>
+          <span style={{fontSize:12,color:"#14B8A6",fontFamily:"var(--font-mono)",fontWeight:600}}>{progress}%</span>
         </div>
         <div style={{height:4,background:"#12161D",borderRadius:2,overflow:"hidden"}}>
           <div style={{height:"100%",width:`${progress}%`,background:"linear-gradient(90deg,#0D9488,#14B8A6)",borderRadius:2,transition:"width .4s ease",boxShadow:"0 0 8px #14B8A640"}} />
         </div>
       </div>
       <div style={{display:"flex",gap:6,marginBottom:24,flexWrap:"wrap"}}>
-        {secs.map((s,i)=><span key={s} style={{padding:"7px 14px",borderRadius:20,fontSize:12,fontWeight:600,fontFamily:"'DM Mono'",background:i===secIdx?"#14B8A615":"transparent",color:i===secIdx?"#14B8A6":i<secIdx?"#8B95A8":"#3A4050",border:`1px solid ${i===secIdx?"#14B8A630":"transparent"}`}}>{s}</span>)}
+        {secs.map((s,i)=><span key={s} style={{padding:"7px 14px",borderRadius:20,fontSize:12,fontWeight:600,fontFamily:"var(--font-mono)",background:i===secIdx?"#14B8A615":"transparent",color:i===secIdx?"#14B8A6":i<secIdx?"#8B95A8":"#3A4050",border:`1px solid ${i===secIdx?"#14B8A630":"transparent"}`}}>{s}</span>)}
       </div>
       <div key={q.id} style={{animation:"fadeUp .4s cubic-bezier(.22,1,.36,1)"}}>
         <div style={{width:52,height:52,borderRadius:14,background:"#14B8A610",border:"1px solid #14B8A620",display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,marginBottom:18}}>{q.ic}</div>
         <h2 style={{fontSize:26,fontWeight:700,lineHeight:1.25,margin:0,marginBottom:8,letterSpacing:"-0.5px"}}>{q.q}</h2>
-        {q.ref&&<div style={{display:"inline-flex",gap:7,padding:"7px 14px",background:"#0C1017",border:"1px solid #1A2030",borderRadius:8,marginBottom:20,marginTop:6}}><span style={{fontSize:13,color:"#14B8A6"}}>📐</span><span style={{fontSize:12,color:"#8B95A8",fontFamily:"'DM Mono'",lineHeight:1.4}}>{q.ref}</span></div>}
+        {q.ref&&<div style={{display:"inline-flex",gap:7,padding:"7px 14px",background:"#0C1017",border:"1px solid #1A2030",borderRadius:8,marginBottom:20,marginTop:6}}><span style={{fontSize:13,color:"#14B8A6"}}>📐</span><span style={{fontSize:12,color:"#8B95A8",fontFamily:"var(--font-mono)",lineHeight:1.4}}>{q.ref}</span></div>}
         {!q.ref&&<div style={{height:16}} />}
 
-        {q.t==="text"&&<input type="text" value={data[q.id]||""} onChange={e=>setField(q.id,e.target.value)} placeholder={q.ph||"Type..."} autoFocus onKeyDown={e=>{if(e.key==="Enter"&&data[q.id])goNext();}} style={{width:"100%",padding:"16px 18px",background:"#0C1017",border:"1.5px solid #1A2030",borderRadius:12,color:"#F0F4F8",fontSize:17,fontFamily:"'Outfit'",fontWeight:500,outline:"none",boxSizing:"border-box"}} onFocus={e=>e.target.style.borderColor="#14B8A6"} onBlur={e=>e.target.style.borderColor="#1A2030"} />}
-        {q.t==="num"&&<div style={{position:"relative"}}><input type="number" value={data[q.id]||""} onChange={e=>setField(q.id,e.target.value)} placeholder={q.ph||"Enter..."} autoFocus onKeyDown={e=>{if(e.key==="Enter"&&data[q.id])goNext();}} style={{width:"100%",padding:"16px 18px",paddingRight:q.u?70:18,background:"#0C1017",border:"1.5px solid #1A2030",borderRadius:12,color:"#F0F4F8",fontSize:17,fontFamily:"'Outfit'",fontWeight:500,outline:"none",boxSizing:"border-box"}} onFocus={e=>e.target.style.borderColor="#14B8A6"} onBlur={e=>e.target.style.borderColor="#1A2030"} />{q.u&&<span style={{position:"absolute",right:16,top:"50%",transform:"translateY(-50%)",color:"#5E6578",fontSize:14,fontFamily:"'DM Mono'"}}>{q.u}</span>}</div>}
-        {q.t==="ch"&&<div style={{display:"flex",flexDirection:"column",gap:8}}>{q.opts.map((o,i)=>{const sel=data[q.id]===o;return(<button key={o} onClick={()=>{haptic("light");setField(q.id,o);setTimeout(goNext,250);}} style={{padding:"15px 18px",textAlign:"left",background:sel?"#14B8A612":"#0C1017",border:`1.5px solid ${sel?"#14B8A6":"#1A2030"}`,borderRadius:12,color:sel?"#14B8A6":"#E2E8F0",fontSize:16,fontFamily:"'Outfit'",fontWeight:500,cursor:"pointer",display:"flex",alignItems:"center",gap:12,animation:`fadeUp .3s ${i*.04}s cubic-bezier(.22,1,.36,1) both`}}><div style={{width:22,height:22,borderRadius:"50%",border:`2px solid ${sel?"#14B8A6":"#2A3040"}`,background:sel?"#14B8A6":"transparent",display:"flex",alignItems:"center",justifyContent:"center"}}>{sel&&<svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 5L4.5 7.5L8 3" stroke="#080A0E" strokeWidth="1.5" fill="none"/></svg>}</div>{o}</button>);})}</div>}
+        {q.t==="text"&&<input type="text" value={data[q.id]||""} onChange={e=>setField(q.id,e.target.value)} placeholder={q.ph||"Type..."} autoFocus onKeyDown={e=>{if(e.key==="Enter"&&data[q.id])goNext();}} style={{width:"100%",padding:"16px 18px",background:"#0C1017",border:"1.5px solid #1A2030",borderRadius:12,color:"#F0F4F8",fontSize:17,fontFamily:"var(--font-sans)",fontWeight:500,outline:"none",boxSizing:"border-box"}} onFocus={e=>e.target.style.borderColor="#14B8A6"} onBlur={e=>e.target.style.borderColor="#1A2030"} />}
+        {q.t==="num"&&<div style={{position:"relative"}}><input type="number" value={data[q.id]||""} onChange={e=>setField(q.id,e.target.value)} placeholder={q.ph||"Enter..."} autoFocus onKeyDown={e=>{if(e.key==="Enter"&&data[q.id])goNext();}} style={{width:"100%",padding:"16px 18px",paddingRight:q.u?70:18,background:"#0C1017",border:"1.5px solid #1A2030",borderRadius:12,color:"#F0F4F8",fontSize:17,fontFamily:"var(--font-sans)",fontWeight:500,outline:"none",boxSizing:"border-box"}} onFocus={e=>e.target.style.borderColor="#14B8A6"} onBlur={e=>e.target.style.borderColor="#1A2030"} />{q.u&&<span style={{position:"absolute",right:16,top:"50%",transform:"translateY(-50%)",color:"#5E6578",fontSize:14,fontFamily:"var(--font-mono)"}}>{q.u}</span>}</div>}
+        {q.t==="ch"&&<div style={{display:"flex",flexDirection:"column",gap:8}}>{q.opts.map((o,i)=>{const sel=data[q.id]===o;return(<button key={o} onClick={()=>{haptic("light");setField(q.id,o);setTimeout(goNext,250);}} style={{padding:"15px 18px",textAlign:"left",background:sel?"#14B8A612":"#0C1017",border:`1.5px solid ${sel?"#14B8A6":"#1A2030"}`,borderRadius:12,color:sel?"#14B8A6":"#E2E8F0",fontSize:16,fontFamily:"var(--font-sans)",fontWeight:500,cursor:"pointer",display:"flex",alignItems:"center",gap:12,animation:`fadeUp .3s ${i*.04}s cubic-bezier(.22,1,.36,1) both`}}><div style={{width:22,height:22,borderRadius:"50%",border:`2px solid ${sel?"#14B8A6":"#2A3040"}`,background:sel?"#14B8A6":"transparent",display:"flex",alignItems:"center",justifyContent:"center"}}>{sel&&<svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 5L4.5 7.5L8 3" stroke="#080A0E" strokeWidth="1.5" fill="none"/></svg>}</div>{o}</button>);})}</div>}
         {q.t==="multi"&&<div style={{display:"flex",flexWrap:"wrap",gap:8}}>{q.opts.map((o,i)=>{const sel=(data[q.id]||[]).includes(o);return(<button key={o} onClick={()=>{haptic("light");setField(q.id,sel?(data[q.id]||[]).filter(x=>x!==o):[...(data[q.id]||[]),o]);}} style={{padding:"12px 16px",background:sel?"#14B8A612":"#0C1017",border:`1.5px solid ${sel?"#14B8A6":"#1A2030"}`,borderRadius:10,color:sel?"#14B8A6":"#C8D0DC",fontSize:14,cursor:"pointer",fontFamily:"inherit",animation:`fadeUp .25s ${i*.03}s cubic-bezier(.22,1,.36,1) both`}}>{sel?"✓ ":""}{o}</button>);})}</div>}
         {q.t==="ta"&&<textarea value={data[q.id]||""} onChange={e=>setField(q.id,e.target.value)} placeholder={q.ph||"Describe..."} rows={3} style={{width:"100%",padding:"14px 16px",background:"#0C1017",border:"1.5px solid #1A2030",borderRadius:12,color:"#F0F4F8",fontSize:15,fontFamily:"inherit",outline:"none",resize:"vertical",boxSizing:"border-box"}} onFocus={e=>e.target.style.borderColor="#14B8A6"} onBlur={e=>e.target.style.borderColor="#1A2030"} />}
         {q.photo&&<div style={{marginTop:12,fontSize:12,color:"#5E6578"}}>📷 Photo capture available on deployed version</div>}
@@ -370,42 +370,40 @@ export default function MobileApp() {
   );};
 
   return (
-    <div style={{minHeight:"100vh",background:"var(--bg)",color:"var(--text)",fontFamily:"var(--font-sans)"}}>
-      <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
-      <div style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:0}}><div style={{position:"absolute",top:"-20%",left:"-10%",width:"50%",height:"50%",background:"radial-gradient(circle,#14B8A606 0%,transparent 70%)",filter:"blur(60px)"}} /><div style={{position:"absolute",inset:0,backgroundImage:"radial-gradient(circle at 1px 1px, #14B8A606 1px, transparent 0)",backgroundSize:"32px 32px"}} /></div>
+    <div style={{minHeight:"100vh",background:"var(--bg)",color:"var(--text)",fontFamily:"var(--font-sans)"}}>      <div style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:0}}><div style={{position:"absolute",top:"-20%",left:"-10%",width:"50%",height:"50%",background:"radial-gradient(circle,#14B8A606 0%,transparent 70%)",filter:"blur(60px)"}} /><div style={{position:"absolute",inset:0,backgroundImage:"radial-gradient(circle at 1px 1px, #14B8A606 1px, transparent 0)",backgroundSize:"32px 32px"}} /></div>
 
       {/* Header */}
       <header style={{position:"sticky",top:0,zIndex:100,height:50,background:"#080A0EDD",backdropFilter:"blur(20px)",borderBottom:"1px solid #1A2030",padding:"0 16px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
           <button onClick={()=>setNavOpen(!navOpen)} style={{width:38,height:38,borderRadius:10,background:"#080A0E",display:"flex",alignItems:"center",justifyContent:"center",border:"none",cursor:"pointer",padding:0}}><Logo s={34} /></button>
-          <div><div style={{fontSize:15,fontWeight:600,lineHeight:1.1}}>Hydro<span style={{color:"#14B8A6",fontWeight:800}}>Scan</span></div><div style={{fontSize:11,color:"#8B95A8",fontFamily:"'DM Mono'"}}>by Prudence EHS</div></div>
+          <div><div style={{fontSize:15,fontWeight:600,lineHeight:1.1}}>Hydro<span style={{color:"#14B8A6",fontWeight:800}}>Scan</span></div><div style={{fontSize:11,color:"#8B95A8",fontFamily:"var(--font-mono)"}}>by Prudence EHS</div></div>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
           <div style={{textAlign:"right",lineHeight:1.2}}>
-            <div style={{fontSize:11,fontWeight:600,color:"#F0F4F8",fontFamily:"'DM Mono'"}}>{clock.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}</div>
-            <div style={{fontSize:9,color:"#5E6578",fontFamily:"'DM Mono'"}}>{clock.toLocaleDateString([],{month:"short",day:"numeric",year:"numeric"})}</div>
+            <div style={{fontSize:11,fontWeight:600,color:"#F0F4F8",fontFamily:"var(--font-mono)"}}>{clock.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}</div>
+            <div style={{fontSize:9,color:"#5E6578",fontFamily:"var(--font-mono)"}}>{clock.toLocaleDateString([],{month:"short",day:"numeric",year:"numeric"})}</div>
           </div>
-          <button onClick={()=>{setTourStep(0);setShowTour(true);}} style={{width:30,height:30,borderRadius:8,border:"1px solid #1A2030",background:"transparent",color:"#5E6578",fontSize:13,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'DM Mono'"}}>?</button>
+          <button onClick={()=>{setTourStep(0);setShowTour(true);}} style={{width:30,height:30,borderRadius:8,border:"1px solid #1A2030",background:"transparent",color:"#5E6578",fontSize:13,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"var(--font-mono)"}}>?</button>
           {view!=="dash"&&<button onClick={()=>setView("dash")} style={{background:"#1A2535",border:"1.5px solid #14B8A640",borderRadius:8,color:"#E2E8F0",fontSize:14,fontWeight:600,padding:"8px 16px",cursor:"pointer",fontFamily:"inherit"}}>← Home</button>}
         </div>
       </header>
 
       {/* Milestone */}
-      {milestone&&<div style={{position:"fixed",inset:0,background:"#080A0EF0",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",animation:"fadeIn .3s ease"}}><div style={{textAlign:"center",animation:"milestoneIn .5s cubic-bezier(.22,1,.36,1)"}}><div style={{marginBottom:16,display:"flex",justifyContent:"center"}}><div style={{width:72,height:72,borderRadius:20,background:"#14B8A612",border:"1.5px solid #14B8A630",display:"flex",alignItems:"center",justifyContent:"center"}}><I n={milestone.icon} s={36} c="#14B8A6" w={2} /></div></div><div style={{fontSize:24,fontWeight:800,color:"#F0F4F8",fontFamily:"'Sora'",letterSpacing:"-0.5px"}}>{milestone.title}</div><div style={{fontSize:14,color:"#14B8A6",fontFamily:"'DM Mono'",marginTop:8}}>{milestone.sub}</div><div style={{width:48,height:3,background:"linear-gradient(90deg,#14B8A6,#0D9488)",borderRadius:2,margin:"16px auto 0",animation:"milestoneBar 1.2s ease"}} /></div></div>}
+      {milestone&&<div style={{position:"fixed",inset:0,background:"#080A0EF0",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",animation:"fadeIn .3s ease"}}><div style={{textAlign:"center",animation:"milestoneIn .5s cubic-bezier(.22,1,.36,1)"}}><div style={{marginBottom:16,display:"flex",justifyContent:"center"}}><div style={{width:72,height:72,borderRadius:20,background:"#14B8A612",border:"1.5px solid #14B8A630",display:"flex",alignItems:"center",justifyContent:"center"}}><I n={milestone.icon} s={36} c="#14B8A6" w={2} /></div></div><div style={{fontSize:24,fontWeight:800,color:"#F0F4F8",fontFamily:"var(--font-sans)",letterSpacing:"-0.5px"}}>{milestone.title}</div><div style={{fontSize:14,color:"#14B8A6",fontFamily:"var(--font-mono)",marginTop:8}}>{milestone.sub}</div><div style={{width:48,height:3,background:"linear-gradient(90deg,#14B8A6,#0D9488)",borderRadius:2,margin:"16px auto 0",animation:"milestoneBar 1.2s ease"}} /></div></div>}
 
       {/* Collection Guide Overlay */}
       {showGuide&&COLLECTION_GUIDES[showGuide]&&(
         <div style={{position:"fixed",inset:0,background:"#000000DD",zIndex:250,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={()=>setShowGuide(null)}>
           <div onClick={e=>e.stopPropagation()} style={{background:"#0C1017",border:"1px solid #1A2030",borderRadius:"20px 20px 0 0",width:"100%",maxWidth:640,maxHeight:"88vh",overflow:"auto",padding:"24px 20px 40px",animation:"slideUp .3s ease"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-              <div style={{fontSize:18,fontWeight:700,fontFamily:"'Sora'"}}>{COLLECTION_GUIDES[showGuide].title}</div>
+              <div style={{fontSize:18,fontWeight:700,fontFamily:"var(--font-sans)"}}>{COLLECTION_GUIDES[showGuide].title}</div>
               <button onClick={()=>setShowGuide(null)} style={{width:32,height:32,borderRadius:8,border:"1px solid #1A2030",background:"transparent",color:"#8B95A8",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
             </div>
-            <div style={{fontSize:12,color:"#14B8A6",fontFamily:"'DM Mono'",marginBottom:20}}>{COLLECTION_GUIDES[showGuide].std}</div>
+            <div style={{fontSize:12,color:"#14B8A6",fontFamily:"var(--font-mono)",marginBottom:20}}>{COLLECTION_GUIDES[showGuide].std}</div>
 
             {COLLECTION_GUIDES[showGuide].steps.map((step,i) => (
               <div key={i} style={{display:"flex",gap:14,marginBottom:14}}>
-                <div style={{width:36,height:36,borderRadius:10,background:"#14B8A610",border:"1px solid #14B8A620",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0,fontWeight:800,color:"#14B8A6",fontFamily:"'DM Mono'"}}>{step.n}</div>
+                <div style={{width:36,height:36,borderRadius:10,background:"#14B8A610",border:"1px solid #14B8A620",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0,fontWeight:800,color:"#14B8A6",fontFamily:"var(--font-mono)"}}>{step.n}</div>
                 <div style={{flex:1}}>
                   <div style={{fontSize:14,color:"#E2E8F0",lineHeight:1.6}}>{step.text}</div>
                 </div>
@@ -438,10 +436,10 @@ export default function MobileApp() {
       {showTos&&<div style={{position:"fixed",inset:0,background:"#000000DD",zIndex:400,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={()=>tosAccepted&&setShowTos(false)}>
         <div onClick={e=>e.stopPropagation()} style={{background:"#0C1017",border:"1px solid #1A2030",borderRadius:"20px 20px 0 0",width:"100%",maxWidth:640,maxHeight:"90vh",overflow:"auto",padding:"28px 24px 40px",animation:"slideUp .3s ease"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-            <div style={{fontSize:20,fontWeight:800,fontFamily:"'Sora'"}}>Terms of Service</div>
+            <div style={{fontSize:20,fontWeight:800,fontFamily:"var(--font-sans)"}}>Terms of Service</div>
             {tosAccepted&&<button onClick={()=>setShowTos(false)} style={{width:32,height:32,borderRadius:8,border:"1px solid #1A2030",background:"transparent",color:"#8B95A8",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>}
           </div>
-          <div style={{fontSize:12,color:"#8B95A8",fontFamily:"'DM Mono'",marginBottom:20}}>Last updated: April 2026 · HydroScan by Prudence Safety & Environmental Consulting, LLC</div>
+          <div style={{fontSize:12,color:"#8B95A8",fontFamily:"var(--font-mono)",marginBottom:20}}>Last updated: April 2026 · HydroScan by Prudence Safety & Environmental Consulting, LLC</div>
           {[
             {t:"1. Intellectual Property",b:"HydroScan, including its compliance engine, standards database, PFAS Hazard Index calculation, causal chain analysis, sampling plan generator, collection guides, and all associated documentation, is the proprietary intellectual property of Prudence Safety & Environmental Consulting, LLC (\"PSEC\"). All rights reserved."},
             {t:"2. License Grant",b:"PSEC grants you a limited, non-exclusive, non-transferable, revocable license to use HydroScan for professional water quality assessment purposes. You may not sublicense, resell, or white-label the platform without a separate written agreement."},
@@ -452,7 +450,7 @@ export default function MobileApp() {
             {t:"7. Indemnification",b:"You agree to indemnify and hold harmless PSEC from claims arising from your use of HydroScan or your professional activities conducted using the platform."},
             {t:"8. Governing Law",b:"These Terms are governed by the laws of the State of Maryland. Disputes shall be resolved in Montgomery County, Maryland."},
           ].map((s,i)=><div key={i} style={{marginBottom:14}}><div style={{fontSize:14,fontWeight:700,color:"#F0F4F8",marginBottom:3}}>{s.t}</div><div style={{fontSize:13,color:"#8B95A8",lineHeight:1.7}}>{s.b}</div></div>)}
-          {!tosAccepted?<button onClick={acceptTos} style={{width:"100%",padding:"16px 0",background:"linear-gradient(135deg,#0D9488,#14B8A6)",border:"none",borderRadius:12,color:"#fff",fontSize:16,fontWeight:700,cursor:"pointer",fontFamily:"inherit",marginTop:12}}>I Accept These Terms</button>:<div style={{textAlign:"center",fontSize:13,color:"#22C55E",fontFamily:"'DM Mono'"}}>✓ Accepted</div>}
+          {!tosAccepted?<button onClick={acceptTos} style={{width:"100%",padding:"16px 0",background:"linear-gradient(135deg,#0D9488,#14B8A6)",border:"none",borderRadius:12,color:"#fff",fontSize:16,fontWeight:700,cursor:"pointer",fontFamily:"inherit",marginTop:12}}>I Accept These Terms</button>:<div style={{textAlign:"center",fontSize:13,color:"#22C55E",fontFamily:"var(--font-mono)"}}>✓ Accepted</div>}
         </div>
       </div>}
 
@@ -460,14 +458,14 @@ export default function MobileApp() {
       {panel&&<div style={{position:"fixed",inset:0,background:"#000000DD",zIndex:250,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={()=>setPanel(null)}>
         <div onClick={e=>e.stopPropagation()} style={{background:"#0C1017",border:"1px solid #1A2030",borderRadius:"20px 20px 0 0",width:"100%",maxWidth:640,maxHeight:"88vh",overflow:"auto",padding:"24px 20px 40px",animation:"slideUp .3s ease"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-            <div style={{fontSize:18,fontWeight:700,fontFamily:"'Sora'"}}>{panel==="about"?"About":panel==="settings"?"Settings":panel==="privacy"?"Privacy Policy":panel==="faq"?"FAQ & Glossary":"Send Feedback"}</div>
+            <div style={{fontSize:18,fontWeight:700,fontFamily:"var(--font-sans)"}}>{panel==="about"?"About":panel==="settings"?"Settings":panel==="privacy"?"Privacy Policy":panel==="faq"?"FAQ & Glossary":"Send Feedback"}</div>
             <button onClick={()=>setPanel(null)} style={{width:32,height:32,borderRadius:8,border:"1px solid #1A2030",background:"transparent",color:"#8B95A8",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
           </div>
 
           {panel==="about"&&<div>
-            <div style={{textAlign:"center",marginBottom:24}}><Logo s={56} /><div style={{fontSize:28,fontWeight:800,fontFamily:"'Sora'",marginTop:8}}>Hydro<span style={{color:"#14B8A6"}}>Scan</span></div><div style={{fontSize:12,color:"#8B95A8",fontFamily:"'DM Mono'",marginTop:4}}>by Prudence EHS · v{VER}</div></div>
+            <div style={{textAlign:"center",marginBottom:24}}><Logo s={56} /><div style={{fontSize:28,fontWeight:800,fontFamily:"var(--font-sans)",marginTop:8}}>Hydro<span style={{color:"#14B8A6"}}>Scan</span></div><div style={{fontSize:12,color:"#8B95A8",fontFamily:"var(--font-mono)",marginTop:4}}>by Prudence EHS · v{VER}</div></div>
             <div style={{fontSize:14,color:"#8B95A8",lineHeight:1.7,marginBottom:16}}>HydroScan is a standards-driven drinking water assessment platform. It evaluates lab results against EPA, WHO, and state-specific standards, generates hypothesis-driven sampling plans, and provides defensible documentation for private wells and building water systems.</div>
-            {[{l:"Developed by",v:"Prudence Safety & Environmental Consulting, LLC"},{l:"Location",v:"Germantown, MD"},{l:"Website",v:"prudencesafety.com"},{l:"Standards",v:"EPA SDWA MCLs · PFAS NPDWR 2024 · Lead & Copper Rule · WHO GDWQ · ASHRAE 188 · EPA 3Ts"},{l:"Parameters",v:"50+ including 6 PFAS with Hazard Index calculation"}].map((r,i)=><div key={i} style={{display:"flex",gap:12,marginBottom:8,fontSize:13}}><span style={{color:"#5E6578",fontFamily:"'DM Mono'",fontSize:11,minWidth:85,flexShrink:0}}>{r.l}</span><span style={{color:"#C8D0DC",lineHeight:1.5}}>{r.v}</span></div>)}
+            {[{l:"Developed by",v:"Prudence Safety & Environmental Consulting, LLC"},{l:"Location",v:"Germantown, MD"},{l:"Website",v:"prudencesafety.com"},{l:"Standards",v:"EPA SDWA MCLs · PFAS NPDWR 2024 · Lead & Copper Rule · WHO GDWQ · ASHRAE 188 · EPA 3Ts"},{l:"Parameters",v:"50+ including 6 PFAS with Hazard Index calculation"}].map((r,i)=><div key={i} style={{display:"flex",gap:12,marginBottom:8,fontSize:13}}><span style={{color:"#5E6578",fontFamily:"var(--font-mono)",fontSize:11,minWidth:85,flexShrink:0}}>{r.l}</span><span style={{color:"#C8D0DC",lineHeight:1.5}}>{r.v}</span></div>)}
           </div>}
 
           {panel==="settings"&&<div>
@@ -485,7 +483,7 @@ export default function MobileApp() {
             <div style={{fontSize:14,fontWeight:700,color:"#14B8A6",marginBottom:12}}>Frequently Asked Questions</div>
             {[{q:"What does HydroScan do?",a:"It helps you figure out what to test in your water, how to collect samples correctly, and what your lab results mean — all based on EPA and WHO standards."},{q:"Do I need to be an expert to use it?",a:"No. The Quick Assessment asks 4 simple questions and gives you a sampling plan. If you need deeper analysis, the full professional walkthrough is one tap away."},{q:"Does it replace a water quality professional?",a:"No. HydroScan is a tool that helps professionals work faster and helps non-experts understand their results. For health complaints or legal situations, a CIH or qualified EHS professional should review the findings."},{q:"What is an MCL?",a:"Maximum Contaminant Level — the highest level of a contaminant allowed in drinking water, set by the EPA. If your result is above the MCL, it's a violation that needs action."},{q:"What are PFAS?",a:"Per- and polyfluoroalkyl substances, also called 'forever chemicals.' They're found near military bases, airports, and industrial sites. EPA set limits for 6 PFAS compounds in 2024."},{q:"Is my data private?",a:"Yes. Everything stays on your device. We don't collect, store, or sell any of your data."}].map((f,i)=><div key={i} style={{marginBottom:12,padding:"14px 16px",background:"#12161D",borderRadius:10}}><div style={{fontSize:14,fontWeight:600,color:"#E2E8F0",marginBottom:4}}>{f.q}</div><div style={{fontSize:13,color:"#8B95A8",lineHeight:1.6}}>{f.a}</div></div>)}
             <div style={{fontSize:14,fontWeight:700,color:"#14B8A6",marginTop:20,marginBottom:12}}>Glossary</div>
-            {[{t:"MCL",d:"Maximum Contaminant Level — legal limit for contaminants in drinking water"},{t:"MCLG",d:"Maximum Contaminant Level Goal — non-enforceable health goal (zero for carcinogens)"},{t:"Action Level",d:"Concentration that triggers required treatment (e.g., Lead at 15 µg/L)"},{t:"PFAS",d:"Per- and polyfluoroalkyl substances — 'forever chemicals' regulated since 2024"},{t:"Hazard Index",d:"EPA method for evaluating health risk from a mixture of PFAS compounds"},{t:"COC",d:"Chain of Custody — document tracking sample handling from collection to lab"},{t:"SMCL",d:"Secondary MCL — aesthetic guideline (taste, odor, color), not health-based"},{t:"ppt",d:"Parts per trillion — unit used for PFAS (1 ppt = 1 nanogram per liter)"},{t:"NTU",d:"Nephelometric Turbidity Units — measures water cloudiness"},{t:"CIH",d:"Certified Industrial Hygienist — gold standard credential for IH professionals"}].map((g,i)=><div key={i} style={{display:"flex",gap:10,marginBottom:6,fontSize:13}}><span style={{color:"#14B8A6",fontWeight:700,fontFamily:"'DM Mono'",fontSize:12,minWidth:65,flexShrink:0}}>{g.t}</span><span style={{color:"#8B95A8",lineHeight:1.5}}>{g.d}</span></div>)}
+            {[{t:"MCL",d:"Maximum Contaminant Level — legal limit for contaminants in drinking water"},{t:"MCLG",d:"Maximum Contaminant Level Goal — non-enforceable health goal (zero for carcinogens)"},{t:"Action Level",d:"Concentration that triggers required treatment (e.g., Lead at 15 µg/L)"},{t:"PFAS",d:"Per- and polyfluoroalkyl substances — 'forever chemicals' regulated since 2024"},{t:"Hazard Index",d:"EPA method for evaluating health risk from a mixture of PFAS compounds"},{t:"COC",d:"Chain of Custody — document tracking sample handling from collection to lab"},{t:"SMCL",d:"Secondary MCL — aesthetic guideline (taste, odor, color), not health-based"},{t:"ppt",d:"Parts per trillion — unit used for PFAS (1 ppt = 1 nanogram per liter)"},{t:"NTU",d:"Nephelometric Turbidity Units — measures water cloudiness"},{t:"CIH",d:"Certified Industrial Hygienist — gold standard credential for IH professionals"}].map((g,i)=><div key={i} style={{display:"flex",gap:10,marginBottom:6,fontSize:13}}><span style={{color:"#14B8A6",fontWeight:700,fontFamily:"var(--font-mono)",fontSize:12,minWidth:65,flexShrink:0}}>{g.t}</span><span style={{color:"#8B95A8",lineHeight:1.5}}>{g.d}</span></div>)}
           </div>}
 
           {panel==="feedback"&&<div>
@@ -515,8 +513,8 @@ export default function MobileApp() {
                   <I n={TOUR[tourStep].icon} s={38} c={TOUR[tourStep].color} w={1.8} />
                 </div>
               </div>
-              <div style={{fontSize:24,fontWeight:800,fontFamily:"'Sora','Outfit',sans-serif",letterSpacing:"-0.5px",marginBottom:6}}>{TOUR[tourStep].title}</div>
-              <div style={{fontSize:14,color:"#14B8A6",fontFamily:"'DM Mono'",marginBottom:16}}>{TOUR[tourStep].sub}</div>
+              <div style={{fontSize:24,fontWeight:800,fontFamily:"var(--font-sans)",letterSpacing:"-0.5px",marginBottom:6}}>{TOUR[tourStep].title}</div>
+              <div style={{fontSize:14,color:"#14B8A6",fontFamily:"var(--font-mono)",marginBottom:16}}>{TOUR[tourStep].sub}</div>
               <div style={{fontSize:15,color:"#8B95A8",lineHeight:1.75}}>{TOUR[tourStep].body}</div>
             </div>
           </div>
@@ -547,7 +545,7 @@ export default function MobileApp() {
                   <div style={{width:52,height:52,borderRadius:16,background:"#080A0E",display:"flex",alignItems:"center",justifyContent:"center"}}><Logo s={48} /></div>
                   <div>
                     <h1 style={{fontSize:34,fontWeight:800,lineHeight:1,margin:0,letterSpacing:"-1.5px"}}>Hydro<span style={{color:"#14B8A6"}}>Scan</span></h1>
-                    <div style={{fontSize:11,color:"#5E6578",fontFamily:"'DM Mono'",marginTop:3}}>by Prudence EHS · v{VER}</div>
+                    <div style={{fontSize:11,color:"#5E6578",fontFamily:"var(--font-mono)",marginTop:3}}>by Prudence EHS · v{VER}</div>
                   </div>
                 </div>
                 <p style={{fontSize:14,color:"#8B95A8",lineHeight:1.6,maxWidth:420}}>Standards-driven drinking water assessment. Field walkthrough to sampling plan. Lab results to compliance analysis. Private wells and building water systems.</p>
@@ -560,16 +558,16 @@ export default function MobileApp() {
             {history.length > 0 && (
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:16,animation:"fadeUp .5s .1s ease both"}}>
                 <div style={{padding:"14px 10px",background:"#0C1017",border:"1px solid #1A2030",borderRadius:12,textAlign:"center"}}>
-                  <div style={{fontSize:22,fontWeight:800,fontFamily:"'DM Mono'",color:"#14B8A6"}}>{history.length}</div>
-                  <div style={{fontSize:10,color:"#5E6578",fontFamily:"'DM Mono'"}}>Evaluations</div>
+                  <div style={{fontSize:22,fontWeight:800,fontFamily:"var(--font-mono)",color:"#14B8A6"}}>{history.length}</div>
+                  <div style={{fontSize:10,color:"#5E6578",fontFamily:"var(--font-mono)"}}>Evaluations</div>
                 </div>
                 <div style={{padding:"14px 10px",background:"#0C1017",border:"1px solid #1A2030",borderRadius:12,textAlign:"center"}}>
-                  <div style={{fontSize:22,fontWeight:800,fontFamily:"'DM Mono'",color:history.filter(h=>h.tier==="immediate").length?"#EF4444":"#22C55E"}}>{history.filter(h=>h.tier==="immediate"||h.tier==="advisory").length}</div>
-                  <div style={{fontSize:10,color:"#5E6578",fontFamily:"'DM Mono'"}}>Flagged</div>
+                  <div style={{fontSize:22,fontWeight:800,fontFamily:"var(--font-mono)",color:history.filter(h=>h.tier==="immediate").length?"#EF4444":"#22C55E"}}>{history.filter(h=>h.tier==="immediate"||h.tier==="advisory").length}</div>
+                  <div style={{fontSize:10,color:"#5E6578",fontFamily:"var(--font-mono)"}}>Flagged</div>
                 </div>
                 <div style={{padding:"14px 10px",background:"#0C1017",border:"1px solid #1A2030",borderRadius:12,textAlign:"center"}}>
-                  <div style={{fontSize:22,fontWeight:800,fontFamily:"'DM Mono'",color:"#8B95A8"}}>{history.reduce((a,h)=>a+h.violations.length,0)}</div>
-                  <div style={{fontSize:10,color:"#5E6578",fontFamily:"'DM Mono'"}}>Violations</div>
+                  <div style={{fontSize:22,fontWeight:800,fontFamily:"var(--font-mono)",color:"#8B95A8"}}>{history.reduce((a,h)=>a+h.violations.length,0)}</div>
+                  <div style={{fontSize:10,color:"#5E6578",fontFamily:"var(--font-mono)"}}>Violations</div>
                 </div>
               </div>
             )}
@@ -595,7 +593,7 @@ export default function MobileApp() {
             <button onClick={initCOC} style={{width:"100%",padding:"16px 18px",marginBottom:16,background:"#0C1017",border:"1.5px solid #14B8A620",borderRadius:14,cursor:"pointer",textAlign:"left",display:"flex",alignItems:"center",gap:12,animation:"fadeUp .5s .18s ease both"}}>
               <div style={{width:40,height:40,borderRadius:11,background:"#14B8A610",display:"flex",alignItems:"center",justifyContent:"center"}}><I n="clip" s={20} c="#14B8A6" /></div>
               <div style={{flex:1}}><div style={{fontSize:14,fontWeight:700}}>Chain of Custody Form</div><div style={{fontSize:11,color:"#5E6578",marginTop:2}}>Generate · Print · Free</div></div>
-              <span style={{fontSize:11,color:"#22C55E",fontWeight:600,fontFamily:"'DM Mono'"}}>FREE</span>
+              <span style={{fontSize:11,color:"#22C55E",fontWeight:600,fontFamily:"var(--font-mono)"}}>FREE</span>
             </button>
 
             {/* PFAS regulatory alert */}
@@ -611,7 +609,7 @@ export default function MobileApp() {
 
             {/* Capabilities grid */}
             <div style={{animation:"fadeUp .5s .25s ease both"}}>
-              <div style={{fontSize:11,fontWeight:600,color:"#5E6578",textTransform:"uppercase",letterSpacing:2,fontFamily:"'DM Mono'",marginBottom:10}}>Capabilities</div>
+              <div style={{fontSize:11,fontWeight:600,color:"#5E6578",textTransform:"uppercase",letterSpacing:2,fontFamily:"var(--font-mono)",marginBottom:10}}>Capabilities</div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
                 {[
                   {i:"shield",l:"EPA SDWA MCLs",c:"#14B8A6"},{i:"drop",l:"PFAS (6 compounds + HI)",c:"#14B8A6"},
@@ -628,7 +626,7 @@ export default function MobileApp() {
             </div>
 
             {/* Standards badges */}
-            <div style={{display:"flex",flexWrap:"wrap",gap:5,marginTop:16,animation:"fadeUp .5s .3s ease both"}}>{["EPA SDWA","PFAS NPDWR 2024","Lead & Copper Rule","WHO GDWQ","ASHRAE 188","EPA 3Ts","AIHA"].map(s=><span key={s} style={{padding:"3px 9px",background:"#14B8A608",border:"1px solid #14B8A615",borderRadius:18,fontSize:11,fontFamily:"'DM Mono'",color:"#14B8A680"}}>{s}</span>)}</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:5,marginTop:16,animation:"fadeUp .5s .3s ease both"}}>{["EPA SDWA","PFAS NPDWR 2024","Lead & Copper Rule","WHO GDWQ","ASHRAE 188","EPA 3Ts","AIHA"].map(s=><span key={s} style={{padding:"3px 9px",background:"#14B8A608",border:"1px solid #14B8A615",borderRadius:18,fontSize:11,fontFamily:"var(--font-mono)",color:"#14B8A680"}}>{s}</span>)}</div>
           </div>
         )}
 
@@ -758,10 +756,10 @@ export default function MobileApp() {
         {/* ═══ FIELD RESULTS — SAMPLING PLAN ═══ */}
         {view==="fieldresults"&&(
           <div style={{paddingTop:28,paddingBottom:100,animation:"fadeUp .4s ease"}}>
-            <div style={{fontSize:12,fontWeight:600,color:"#14B8A6",textTransform:"uppercase",letterSpacing:2,fontFamily:"'DM Mono'",marginBottom:12}}>Sampling Recommendations</div>
+            <div style={{fontSize:12,fontWeight:600,color:"#14B8A6",textTransform:"uppercase",letterSpacing:2,fontFamily:"var(--font-mono)",marginBottom:12}}>Sampling Recommendations</div>
             <div style={{padding:"12px 16px",background:"#0C1017",border:"1px solid #1A2030",borderRadius:12,marginBottom:16}}>
               <div style={{fontSize:15,fontWeight:700}}>{source.src_type?.includes("well")?"Private Well":"Building"} — {building.b_type||"Assessment"}</div>
-              <div style={{fontSize:12,color:"#5E6578",fontFamily:"'DM Mono'",marginTop:4}}>{clock.toLocaleDateString()} · {assessor.a_name || "Assessor"} · {samplingPlan.length} recommendation{samplingPlan.length!==1?"s":""}</div>
+              <div style={{fontSize:12,color:"#5E6578",fontFamily:"var(--font-mono)",marginTop:4}}>{clock.toLocaleDateString()} · {assessor.a_name || "Assessor"} · {samplingPlan.length} recommendation{samplingPlan.length!==1?"s":""}</div>
             </div>
 
             {samplingPlan.length===0?(
@@ -781,7 +779,7 @@ export default function MobileApp() {
                 <div style={{fontSize:13,color:"#8B95A8",lineHeight:1.6,marginBottom:6}}><strong style={{color:"#C8D0DC"}}>Method:</strong> {sp.method}</div>
                 <div style={{fontSize:13,color:"#8B95A8",lineHeight:1.6,marginBottom:6}}><strong style={{color:"#C8D0DC"}}>Hold/Preservation:</strong> {sp.hold}</div>
                 {sp.notes&&<div style={{fontSize:12,color:"#5E6578",lineHeight:1.5,padding:"8px 12px",background:"#12161D",borderRadius:8,marginTop:6}}>{sp.notes}</div>}
-                <div style={{fontSize:11,color:"#14B8A6",fontFamily:"'DM Mono'",marginTop:6}}>{sp.std}</div>
+                <div style={{fontSize:11,color:"#14B8A6",fontFamily:"var(--font-mono)",marginTop:6}}>{sp.std}</div>
               </div>
             ))}
 
@@ -815,7 +813,7 @@ export default function MobileApp() {
         {/* ═══ LAB ENTRY ═══ */}
         {view==="labentry"&&(
           <div style={{paddingTop:28,paddingBottom:100,animation:"fadeUp .4s ease"}}>
-            <div style={{fontSize:12,fontWeight:600,color:"#8B5CF6",textTransform:"uppercase",letterSpacing:2,fontFamily:"'DM Mono'",marginBottom:12}}>Lab Results Entry</div>
+            <div style={{fontSize:12,fontWeight:600,color:"#8B5CF6",textTransform:"uppercase",letterSpacing:2,fontFamily:"var(--font-mono)",marginBottom:12}}>Lab Results Entry</div>
 
             {/* State-specific standards selector */}
             <div style={{marginBottom:16,padding:"14px 16px",background:"#0C1017",border:"1px solid #1A2030",borderRadius:12}}>
@@ -824,7 +822,7 @@ export default function MobileApp() {
                 <option value="">Federal (EPA) standards only</option>
                 {Object.entries(STATE_STDS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
               </select>
-              {selState&&<div style={{fontSize:11,color:"#FBBF24",fontFamily:"'DM Mono'",marginTop:6}}>State standards will be applied in addition to federal MCLs where stricter</div>}
+              {selState&&<div style={{fontSize:11,color:"#FBBF24",fontFamily:"var(--font-mono)",marginTop:6}}>State standards will be applied in addition to federal MCLs where stricter</div>}
             </div>
 
             {/* PDF upload note */}
@@ -862,14 +860,14 @@ export default function MobileApp() {
                     <div key={r.id} style={{display:"flex",alignItems:"center",gap:8,marginBottom:6,padding:"10px 12px",background:"#0C1017",border:"1px solid #1A2030",borderRadius:10}}>
                       <div style={{flex:1,minWidth:0}}>
                         <div style={{fontSize:13,fontWeight:600,color:"#E2E8F0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{param.name}</div>
-                        <div style={{fontSize:10,color:"#5E6578",fontFamily:"'DM Mono'"}}>{ref?`Limit: ${typeof param.smcl==="object"?`${param.smcl.min}–${param.smcl.max}`:ref} ${param.unit}`:param.unit}</div>
+                        <div style={{fontSize:10,color:"#5E6578",fontFamily:"var(--font-mono)"}}>{ref?`Limit: ${typeof param.smcl==="object"?`${param.smcl.min}–${param.smcl.max}`:ref} ${param.unit}`:param.unit}</div>
                       </div>
                       {param.unit==="P/A"?(
                         <div style={{display:"flex",gap:4}}>
                           {["A","P"].map(v=><button key={v} onClick={()=>updateLabResult(r.id,"qualifier",v)} style={{padding:"6px 12px",borderRadius:6,background:r.qualifier===v?(v==="P"?"#EF444420":"#22C55E20"):"#12161D",border:`1px solid ${r.qualifier===v?(v==="P"?"#EF4444":"#22C55E"):"#1A2030"}`,color:r.qualifier===v?(v==="P"?"#EF4444":"#22C55E"):"#8B95A8",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>{v==="A"?"Absent":"Present"}</button>)}
                         </div>
                       ):(
-                        <input type="number" value={r.value} onChange={e=>updateLabResult(r.id,"value",e.target.value)} placeholder="Result" style={{width:90,padding:"8px 10px",background:"#12161D",border:"1px solid #1A2030",borderRadius:6,color:"#F0F4F8",fontSize:14,fontFamily:"'DM Mono'",outline:"none",textAlign:"right"}} />
+                        <input type="number" value={r.value} onChange={e=>updateLabResult(r.id,"value",e.target.value)} placeholder="Result" style={{width:90,padding:"8px 10px",background:"#12161D",border:"1px solid #1A2030",borderRadius:6,color:"#F0F4F8",fontSize:14,fontFamily:"var(--font-mono)",outline:"none",textAlign:"right"}} />
                       )}
                       <button onClick={()=>removeLabResult(r.id)} style={{background:"none",border:"none",color:"#3A4050",fontSize:16,cursor:"pointer",padding:"4px"}}>×</button>
                     </div>
@@ -889,9 +887,9 @@ export default function MobileApp() {
           <div style={{paddingTop:28,paddingBottom:100,animation:"fadeUp .4s ease"}}>
             {/* Tier Hero */}
             <div style={{textAlign:"center",padding:"28px 20px",background:tierBg(evaluation.tier),border:`1.5px solid ${tierColor(evaluation.tier)}40`,borderRadius:18,marginBottom:14}}>
-              <div style={{fontSize:12,color:"#8B95A8",textTransform:"uppercase",fontFamily:"'DM Mono'",letterSpacing:2,marginBottom:10}}>Water Quality Classification</div>
-              <div style={{fontSize:32,fontWeight:800,color:tierColor(evaluation.tier),fontFamily:"'Sora'",letterSpacing:"-1px"}}>{tierLabel(evaluation.tier)}</div>
-              <div style={{fontSize:13,color:"#8B95A8",fontFamily:"'DM Mono'",marginTop:8}}>{evaluation.findings.length} parameters · {evaluation.findings.filter(f=>f.violations.length>0).length} violations · {evaluation.findings.filter(f=>f.advisories.length>0).length} advisories</div>
+              <div style={{fontSize:12,color:"#8B95A8",textTransform:"uppercase",fontFamily:"var(--font-mono)",letterSpacing:2,marginBottom:10}}>Water Quality Classification</div>
+              <div style={{fontSize:32,fontWeight:800,color:tierColor(evaluation.tier),fontFamily:"var(--font-sans)",letterSpacing:"-1px"}}>{tierLabel(evaluation.tier)}</div>
+              <div style={{fontSize:13,color:"#8B95A8",fontFamily:"var(--font-mono)",marginTop:8}}>{evaluation.findings.length} parameters · {evaluation.findings.filter(f=>f.violations.length>0).length} violations · {evaluation.findings.filter(f=>f.advisories.length>0).length} advisories</div>
             </div>
 
             {/* Phase 3 — state-limit overlay (advisory) */}
@@ -931,7 +929,7 @@ export default function MobileApp() {
                     <div key={i} style={{padding:"14px 16px",background:"#0C1017",border:`1px solid ${color}25`,borderRadius:12}}>
                       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
                         <span style={{fontSize:14,fontWeight:600,color:"#E2E8F0"}}>{f.param.name}</span>
-                        <span style={{fontSize:14,fontWeight:800,fontFamily:"'DM Mono'",color}}>{f.qualifier==="P"||f.qualifier==="A"?(f.qualifier==="P"?"DETECTED":"NOT DETECTED"):`${f.value} ${f.param.unit}`}</span>
+                        <span style={{fontSize:14,fontWeight:800,fontFamily:"var(--font-mono)",color}}>{f.qualifier==="P"||f.qualifier==="A"?(f.qualifier==="P"?"DETECTED":"NOT DETECTED"):`${f.value} ${f.param.unit}`}</span>
                       </div>
                       {f.violations.map((v,j)=><div key={j} style={{fontSize:13,color:sevColor(v.severity),lineHeight:1.5,paddingLeft:10,borderLeft:`2px solid ${sevColor(v.severity)}40`,marginTop:6}}>{v.desc} <span style={{fontSize:11,color:"#5E6578"}}>({v.std}: {v.threshold})</span></div>)}
                       {f.advisories.map((a,j)=><div key={j} style={{fontSize:13,color:sevColor(a.severity),lineHeight:1.5,paddingLeft:10,borderLeft:`2px solid ${sevColor(a.severity)}40`,marginTop:6}}>{a.desc}</div>)}
@@ -956,7 +954,7 @@ export default function MobileApp() {
                     <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
                       <I n="chain" s={16} c={sevColor(ch.severity)} />
                       <span style={{fontSize:15,fontWeight:700,color:sevColor(ch.severity)}}>{ch.type}</span>
-                      <span style={{fontSize:11,padding:"2px 8px",borderRadius:4,background:`${sevColor(ch.severity)}15`,color:sevColor(ch.severity),fontFamily:"'DM Mono'",fontWeight:600}}>{ch.confidence}</span>
+                      <span style={{fontSize:11,padding:"2px 8px",borderRadius:4,background:`${sevColor(ch.severity)}15`,color:sevColor(ch.severity),fontFamily:"var(--font-mono)",fontWeight:600}}>{ch.confidence}</span>
                     </div>
                     {ch.evidence.map((e,j)=><div key={j} style={{fontSize:13,color:"#C8D0DC",lineHeight:1.6,paddingLeft:12,borderLeft:"2px solid #1A2030",marginBottom:4}}>{e}</div>)}
                     <div style={{marginTop:8,padding:"10px 14px",background:"#12161D",borderRadius:8,fontSize:13,color:"#8B95A8",lineHeight:1.6}}><strong style={{color:"#14B8A6"}}>Recommendation:</strong> {ch.recommendation}</div>
@@ -1007,7 +1005,7 @@ export default function MobileApp() {
                   <div style={{padding:32,textAlign:"center",background:"#0C1017",borderRadius:14,border:"1px solid #1A2030"}}>
                     <I n="chart" s={28} c="#5E6578" /><div style={{fontSize:15,fontWeight:600,marginTop:10,marginBottom:4}}>Not Enough Data for Trends</div>
                     <div style={{fontSize:13,color:"#8B95A8",lineHeight:1.5}}>After two or more evaluations, this tab will show how your water quality parameters are changing over time. Each evaluation is automatically saved.</div>
-                    <div style={{fontSize:12,color:"#5E6578",fontFamily:"'DM Mono'",marginTop:10}}>{history.length} evaluation{history.length!==1?"s":""} on record</div>
+                    <div style={{fontSize:12,color:"#5E6578",fontFamily:"var(--font-mono)",marginTop:10}}>{history.length} evaluation{history.length!==1?"s":""} on record</div>
                   </div>
                 ) : (
                   <div>
@@ -1032,7 +1030,7 @@ export default function MobileApp() {
                           <div key={pid} style={{padding:"14px 16px",background:"#0C1017",border:"1px solid #1A2030",borderRadius:12,marginBottom:8}}>
                             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
                               <span style={{fontSize:14,fontWeight:600,color:"#E2E8F0"}}>{param.name}</span>
-                              <span style={{fontSize:12,fontFamily:"'DM Mono'",color:trend>0?"#EF4444":trend<0?"#22C55E":"#8B95A8"}}>{trend>0?"↑":"↓"} {Math.abs(trend).toFixed(2)} {param.unit}</span>
+                              <span style={{fontSize:12,fontFamily:"var(--font-mono)",color:trend>0?"#EF4444":trend<0?"#22C55E":"#8B95A8"}}>{trend>0?"↑":"↓"} {Math.abs(trend).toFixed(2)} {param.unit}</span>
                             </div>
                             {/* Simple sparkline bar chart */}
                             <div style={{display:"flex",gap:3,alignItems:"flex-end",height:48,marginBottom:6}}>
@@ -1043,7 +1041,7 @@ export default function MobileApp() {
                               })}
                             </div>
                             {limit && <div style={{height:1,background:"#EF444440",marginBottom:4}} />}
-                            <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"#5E6578",fontFamily:"'DM Mono'"}}>
+                            <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"#5E6578",fontFamily:"var(--font-mono)"}}>
                               <span>{new Date(points[0].ts).toLocaleDateString([],{month:"short",year:"2-digit"})}</span>
                               {limit&&<span style={{color:"#EF444480"}}>Limit: {limit} {param.unit}</span>}
                               <span>{new Date(points[points.length-1].ts).toLocaleDateString([],{month:"short",year:"2-digit"})}</span>
@@ -1068,8 +1066,8 @@ export default function MobileApp() {
           <div style={{paddingTop:28,paddingBottom:100,animation:"fadeUp .4s ease"}} id="coc-form">
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
               <div>
-                <div style={{fontSize:12,fontWeight:600,color:"#14B8A6",textTransform:"uppercase",letterSpacing:2,fontFamily:"'DM Mono'"}}>Chain of Custody</div>
-                <div style={{fontSize:11,color:"#5E6578",fontFamily:"'DM Mono'",marginTop:2}}>Drinking Water Samples</div>
+                <div style={{fontSize:12,fontWeight:600,color:"#14B8A6",textTransform:"uppercase",letterSpacing:2,fontFamily:"var(--font-mono)"}}>Chain of Custody</div>
+                <div style={{fontSize:11,color:"#5E6578",fontFamily:"var(--font-mono)",marginTop:2}}>Drinking Water Samples</div>
               </div>
               <button onClick={()=>window.print()} style={{padding:"8px 16px",background:"#14B8A615",border:"1px solid #14B8A630",borderRadius:8,color:"#14B8A6",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:6}}><I n="download" s={14} c="#14B8A6" />Print</button>
             </div>
@@ -1077,8 +1075,8 @@ export default function MobileApp() {
             {/* Header */}
             <div style={{padding:"16px 20px",background:"#0C1017",border:"1px solid #1A2030",borderRadius:"14px 14px 0 0",display:"flex",alignItems:"center",gap:12}}>
               <Logo s={32} />
-              <div><div style={{fontSize:16,fontWeight:800}}>Hydro<span style={{color:"#14B8A6"}}>Scan</span></div><div style={{fontSize:10,color:"#5E6578",fontFamily:"'DM Mono'"}}>Chain of Custody · Prudence EHS</div></div>
-              <div style={{marginLeft:"auto",textAlign:"right",fontSize:10,color:"#5E6578",fontFamily:"'DM Mono'"}}>{clock.toLocaleDateString()}<br/>{clock.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}</div>
+              <div><div style={{fontSize:16,fontWeight:800}}>Hydro<span style={{color:"#14B8A6"}}>Scan</span></div><div style={{fontSize:10,color:"#5E6578",fontFamily:"var(--font-mono)"}}>Chain of Custody · Prudence EHS</div></div>
+              <div style={{marginLeft:"auto",textAlign:"right",fontSize:10,color:"#5E6578",fontFamily:"var(--font-mono)"}}>{clock.toLocaleDateString()}<br/>{clock.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}</div>
             </div>
 
             {/* Project Info */}
@@ -1087,7 +1085,7 @@ export default function MobileApp() {
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
                 {[{k:"project",l:"Project"},{k:"client",l:"Client"},{k:"siteAddr",l:"Site Address",span:true},{k:"sampler",l:"Sampler"},{k:"samplerCo",l:"Company"},{k:"samplerPhone",l:"Phone"},{k:"samplerEmail",l:"Email"},{k:"labName",l:"Laboratory"},{k:"labAcct",l:"Lab Acct #"},{k:"labAccred",l:"Lab Accreditation (NELAP/TNI)"},{k:"labISO",l:"ISO/IEC 17025?"},{k:"turnaround",l:"TAT"},{k:"dataPackage",l:"Data Package Level"}].map(f=>(
                   <div key={f.k} style={f.span?{gridColumn:"1/-1"}:{}}>
-                    <div style={{fontSize:9,color:"#5E6578",fontFamily:"'DM Mono'",marginBottom:2}}>{f.l}</div>
+                    <div style={{fontSize:9,color:"#5E6578",fontFamily:"var(--font-mono)",marginBottom:2}}>{f.l}</div>
                     {f.k==="turnaround"?<select value={coc[f.k]} onChange={e=>setCoc(p=>({...p,[f.k]:e.target.value}))} style={{width:"100%",padding:"7px 8px",background:"#12161D",border:"1px solid #1A2030",borderRadius:5,color:"#F0F4F8",fontSize:12,fontFamily:"inherit"}}><option>Rush (24h)</option><option>Expedited (3 days)</option><option>Standard (10 days)</option></select>
                     :f.k==="dataPackage"?<select value={coc[f.k]} onChange={e=>setCoc(p=>({...p,[f.k]:e.target.value}))} style={{width:"100%",padding:"7px 8px",background:"#12161D",border:"1px solid #1A2030",borderRadius:5,color:"#F0F4F8",fontSize:12,fontFamily:"inherit"}}><option>Summary report only</option><option>Level II — QC summary</option><option>Level III — full QC + raw data</option><option>Level IV — complete + calibrations</option></select>
                     :f.k==="labISO"?<select value={coc[f.k]||""} onChange={e=>setCoc(p=>({...p,[f.k]:e.target.value}))} style={{width:"100%",padding:"7px 8px",background:"#12161D",border:"1px solid #1A2030",borderRadius:5,color:"#F0F4F8",fontSize:12,fontFamily:"inherit"}}><option value="">Not verified</option><option>Yes — ISO/IEC 17025</option><option>No</option></select>
@@ -1107,8 +1105,8 @@ export default function MobileApp() {
               </div>
               {!coc.qcSamples?.fieldBlank&&!coc.qcSamples?.tripBlank&&<div style={{fontSize:11,color:"#EF4444",lineHeight:1.5,padding:"6px 10px",background:"#EF444408",borderRadius:6}}>⚠ No QC samples selected. Without blanks, sample integrity cannot be verified. Results may be challenged in legal proceedings.</div>}
               <div style={{display:"flex",gap:8,marginTop:8}}>
-                <div style={{flex:1}}><div style={{fontSize:9,color:"#5E6578",fontFamily:"'DM Mono'",marginBottom:2}}>Tamper-Evident Seals</div><select value={coc.tamperSeals||""} onChange={e=>setCoc(p=>({...p,tamperSeals:e.target.value}))} style={{width:"100%",padding:"7px 8px",background:"#12161D",border:"1px solid #1A2030",borderRadius:5,color:"#F0F4F8",fontSize:12,fontFamily:"inherit"}}><option>Yes — applied to all bottles</option><option>Yes — applied to cooler only</option><option>No seals used</option></select></div>
-                <div style={{flex:1}}><div style={{fontSize:9,color:"#5E6578",fontFamily:"'DM Mono'",marginBottom:2}}>Seal Condition on Receipt</div><select value={coc.sealCondition||""} onChange={e=>setCoc(p=>({...p,sealCondition:e.target.value}))} style={{width:"100%",padding:"7px 8px",background:"#12161D",border:"1px solid #1A2030",borderRadius:5,color:"#F0F4F8",fontSize:12,fontFamily:"inherit"}}><option value="">Lab use</option><option>Intact</option><option>Broken / compromised</option></select></div>
+                <div style={{flex:1}}><div style={{fontSize:9,color:"#5E6578",fontFamily:"var(--font-mono)",marginBottom:2}}>Tamper-Evident Seals</div><select value={coc.tamperSeals||""} onChange={e=>setCoc(p=>({...p,tamperSeals:e.target.value}))} style={{width:"100%",padding:"7px 8px",background:"#12161D",border:"1px solid #1A2030",borderRadius:5,color:"#F0F4F8",fontSize:12,fontFamily:"inherit"}}><option>Yes — applied to all bottles</option><option>Yes — applied to cooler only</option><option>No seals used</option></select></div>
+                <div style={{flex:1}}><div style={{fontSize:9,color:"#5E6578",fontFamily:"var(--font-mono)",marginBottom:2}}>Seal Condition on Receipt</div><select value={coc.sealCondition||""} onChange={e=>setCoc(p=>({...p,sealCondition:e.target.value}))} style={{width:"100%",padding:"7px 8px",background:"#12161D",border:"1px solid #1A2030",borderRadius:5,color:"#F0F4F8",fontSize:12,fontFamily:"inherit"}}><option value="">Lab use</option><option>Intact</option><option>Broken / compromised</option></select></div>
               </div>
             </div>
 
@@ -1122,15 +1120,15 @@ export default function MobileApp() {
                 <div key={i} style={{padding:"10px 12px",background:"#12161D",borderRadius:8,marginBottom:5,position:"relative"}}>
                   <button onClick={()=>removeCocSample(i)} style={{position:"absolute",top:6,right:6,background:"none",border:"none",color:"#3A4050",fontSize:13,cursor:"pointer"}}>×</button>
                   <div style={{display:"grid",gridTemplateColumns:"70px 1fr 1fr",gap:5,marginBottom:5}}>
-                    <div><div style={{fontSize:8,color:"#5E6578",fontFamily:"'DM Mono'"}}>ID</div><input value={s.id} onChange={e=>updateCocSample(i,"id",e.target.value)} style={{width:"100%",padding:"5px 6px",background:"#0C1017",border:"1px solid #1A2030",borderRadius:4,color:"#14B8A6",fontSize:11,fontFamily:"'DM Mono'",fontWeight:700,outline:"none",boxSizing:"border-box"}} /></div>
-                    <div><div style={{fontSize:8,color:"#5E6578",fontFamily:"'DM Mono'"}}>Collected</div><input type="datetime-local" value={s.datetime} onChange={e=>updateCocSample(i,"datetime",e.target.value)} style={{width:"100%",padding:"5px 6px",background:"#0C1017",border:"1px solid #1A2030",borderRadius:4,color:"#F0F4F8",fontSize:11,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}} /></div>
-                    <div><div style={{fontSize:8,color:"#5E6578",fontFamily:"'DM Mono'"}}>Matrix</div><select value={s.matrix} onChange={e=>updateCocSample(i,"matrix",e.target.value)} style={{width:"100%",padding:"5px 6px",background:"#0C1017",border:"1px solid #1A2030",borderRadius:4,color:"#F0F4F8",fontSize:11,fontFamily:"inherit"}}><option>Drinking Water</option><option>Groundwater</option><option>Surface Water</option></select></div>
+                    <div><div style={{fontSize:8,color:"#5E6578",fontFamily:"var(--font-mono)"}}>ID</div><input value={s.id} onChange={e=>updateCocSample(i,"id",e.target.value)} style={{width:"100%",padding:"5px 6px",background:"#0C1017",border:"1px solid #1A2030",borderRadius:4,color:"#14B8A6",fontSize:11,fontFamily:"var(--font-mono)",fontWeight:700,outline:"none",boxSizing:"border-box"}} /></div>
+                    <div><div style={{fontSize:8,color:"#5E6578",fontFamily:"var(--font-mono)"}}>Collected</div><input type="datetime-local" value={s.datetime} onChange={e=>updateCocSample(i,"datetime",e.target.value)} style={{width:"100%",padding:"5px 6px",background:"#0C1017",border:"1px solid #1A2030",borderRadius:4,color:"#F0F4F8",fontSize:11,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}} /></div>
+                    <div><div style={{fontSize:8,color:"#5E6578",fontFamily:"var(--font-mono)"}}>Matrix</div><select value={s.matrix} onChange={e=>updateCocSample(i,"matrix",e.target.value)} style={{width:"100%",padding:"5px 6px",background:"#0C1017",border:"1px solid #1A2030",borderRadius:4,color:"#F0F4F8",fontSize:11,fontFamily:"inherit"}}><option>Drinking Water</option><option>Groundwater</option><option>Surface Water</option></select></div>
                   </div>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5,marginBottom:5}}>
-                    <div><div style={{fontSize:8,color:"#5E6578",fontFamily:"'DM Mono'"}}>Location</div><input value={s.location} onChange={e=>updateCocSample(i,"location",e.target.value)} placeholder="Kitchen cold, first draw" style={{width:"100%",padding:"5px 6px",background:"#0C1017",border:"1px solid #1A2030",borderRadius:4,color:"#F0F4F8",fontSize:11,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}} /></div>
-                    <div><div style={{fontSize:8,color:"#5E6578",fontFamily:"'DM Mono'"}}>Container / Preservative</div><input value={s.preservative} onChange={e=>updateCocSample(i,"preservative",e.target.value)} placeholder="250mL HDPE / HNO₃" style={{width:"100%",padding:"5px 6px",background:"#0C1017",border:"1px solid #1A2030",borderRadius:4,color:"#F0F4F8",fontSize:11,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}} /></div>
+                    <div><div style={{fontSize:8,color:"#5E6578",fontFamily:"var(--font-mono)"}}>Location</div><input value={s.location} onChange={e=>updateCocSample(i,"location",e.target.value)} placeholder="Kitchen cold, first draw" style={{width:"100%",padding:"5px 6px",background:"#0C1017",border:"1px solid #1A2030",borderRadius:4,color:"#F0F4F8",fontSize:11,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}} /></div>
+                    <div><div style={{fontSize:8,color:"#5E6578",fontFamily:"var(--font-mono)"}}>Container / Preservative</div><input value={s.preservative} onChange={e=>updateCocSample(i,"preservative",e.target.value)} placeholder="250mL HDPE / HNO₃" style={{width:"100%",padding:"5px 6px",background:"#0C1017",border:"1px solid #1A2030",borderRadius:4,color:"#F0F4F8",fontSize:11,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}} /></div>
                   </div>
-                  <div><div style={{fontSize:8,color:"#5E6578",fontFamily:"'DM Mono'"}}>Analyses Requested</div><input value={s.analyses} onChange={e=>updateCocSample(i,"analyses",e.target.value)} placeholder="Lead, Copper, pH — EPA 200.8" style={{width:"100%",padding:"5px 6px",background:"#0C1017",border:"1px solid #1A2030",borderRadius:4,color:"#F0F4F8",fontSize:11,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}} /></div>
+                  <div><div style={{fontSize:8,color:"#5E6578",fontFamily:"var(--font-mono)"}}>Analyses Requested</div><input value={s.analyses} onChange={e=>updateCocSample(i,"analyses",e.target.value)} placeholder="Lead, Copper, pH — EPA 200.8" style={{width:"100%",padding:"5px 6px",background:"#0C1017",border:"1px solid #1A2030",borderRadius:4,color:"#F0F4F8",fontSize:11,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}} /></div>
                 </div>
               ))}
             </div>
@@ -1140,8 +1138,8 @@ export default function MobileApp() {
               <div style={{fontSize:10,fontWeight:700,color:"#14B8A6",textTransform:"uppercase",letterSpacing:1.5,marginBottom:6}}>Instructions & Receipt</div>
               <textarea value={coc.specialInstructions} onChange={e=>setCoc(p=>({...p,specialInstructions:e.target.value}))} placeholder="Stagnation: 8 hrs. First-draw per EPA 3Ts. Include field blank." rows={2} style={{width:"100%",padding:"8px 10px",background:"#12161D",border:"1px solid #1A2030",borderRadius:5,color:"#F0F4F8",fontSize:12,fontFamily:"inherit",outline:"none",resize:"vertical",boxSizing:"border-box",marginBottom:6}} />
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
-                <div><div style={{fontSize:9,color:"#5E6578",fontFamily:"'DM Mono'"}}>Temp on Receipt (°C)</div><input value={coc.tempOnReceipt||""} onChange={e=>setCoc(p=>({...p,tempOnReceipt:e.target.value}))} placeholder="Lab use" style={{width:"100%",padding:"7px 8px",background:"#12161D",border:"1px solid #1A2030",borderRadius:5,color:"#F0F4F8",fontSize:12,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}} /></div>
-                <div><div style={{fontSize:9,color:"#5E6578",fontFamily:"'DM Mono'"}}>Cooler Intact?</div><select value={coc.coolerIntegrity||""} onChange={e=>setCoc(p=>({...p,coolerIntegrity:e.target.value}))} style={{width:"100%",padding:"7px 8px",background:"#12161D",border:"1px solid #1A2030",borderRadius:5,color:"#F0F4F8",fontSize:12,fontFamily:"inherit"}}><option value="">Lab use</option><option>Intact — ice present</option><option>Intact — no ice</option><option>Compromised</option></select></div>
+                <div><div style={{fontSize:9,color:"#5E6578",fontFamily:"var(--font-mono)"}}>Temp on Receipt (°C)</div><input value={coc.tempOnReceipt||""} onChange={e=>setCoc(p=>({...p,tempOnReceipt:e.target.value}))} placeholder="Lab use" style={{width:"100%",padding:"7px 8px",background:"#12161D",border:"1px solid #1A2030",borderRadius:5,color:"#F0F4F8",fontSize:12,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}} /></div>
+                <div><div style={{fontSize:9,color:"#5E6578",fontFamily:"var(--font-mono)"}}>Cooler Intact?</div><select value={coc.coolerIntegrity||""} onChange={e=>setCoc(p=>({...p,coolerIntegrity:e.target.value}))} style={{width:"100%",padding:"7px 8px",background:"#12161D",border:"1px solid #1A2030",borderRadius:5,color:"#F0F4F8",fontSize:12,fontFamily:"inherit"}}><option value="">Lab use</option><option>Intact — ice present</option><option>Intact — no ice</option><option>Compromised</option></select></div>
               </div>
             </div>
 
@@ -1153,10 +1151,10 @@ export default function MobileApp() {
               </div>
               {coc.custody.map((c,i)=>(
                 <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,padding:"8px 10px",background:"#12161D",borderRadius:6,marginBottom:4}}>
-                  <div><div style={{fontSize:8,color:"#5E6578",fontFamily:"'DM Mono'"}}>Relinquished By</div><input value={c.from} onChange={e=>updateCustody(i,"from",e.target.value)} placeholder="Name / Signature" style={{width:"100%",padding:"5px 6px",background:"#0C1017",border:"1px solid #1A2030",borderRadius:4,color:"#F0F4F8",fontSize:11,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}} /></div>
-                  <div><div style={{fontSize:8,color:"#5E6578",fontFamily:"'DM Mono'"}}>Date/Time</div><input type="datetime-local" value={c.fromDate} onChange={e=>updateCustody(i,"fromDate",e.target.value)} style={{width:"100%",padding:"5px 6px",background:"#0C1017",border:"1px solid #1A2030",borderRadius:4,color:"#F0F4F8",fontSize:11,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}} /></div>
-                  <div><div style={{fontSize:8,color:"#5E6578",fontFamily:"'DM Mono'"}}>Received By</div><input value={c.to} onChange={e=>updateCustody(i,"to",e.target.value)} placeholder="Name / Signature" style={{width:"100%",padding:"5px 6px",background:"#0C1017",border:"1px solid #1A2030",borderRadius:4,color:"#F0F4F8",fontSize:11,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}} /></div>
-                  <div><div style={{fontSize:8,color:"#5E6578",fontFamily:"'DM Mono'"}}>Date/Time</div><input type="datetime-local" value={c.toDate} onChange={e=>updateCustody(i,"toDate",e.target.value)} style={{width:"100%",padding:"5px 6px",background:"#0C1017",border:"1px solid #1A2030",borderRadius:4,color:"#F0F4F8",fontSize:11,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}} /></div>
+                  <div><div style={{fontSize:8,color:"#5E6578",fontFamily:"var(--font-mono)"}}>Relinquished By</div><input value={c.from} onChange={e=>updateCustody(i,"from",e.target.value)} placeholder="Name / Signature" style={{width:"100%",padding:"5px 6px",background:"#0C1017",border:"1px solid #1A2030",borderRadius:4,color:"#F0F4F8",fontSize:11,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}} /></div>
+                  <div><div style={{fontSize:8,color:"#5E6578",fontFamily:"var(--font-mono)"}}>Date/Time</div><input type="datetime-local" value={c.fromDate} onChange={e=>updateCustody(i,"fromDate",e.target.value)} style={{width:"100%",padding:"5px 6px",background:"#0C1017",border:"1px solid #1A2030",borderRadius:4,color:"#F0F4F8",fontSize:11,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}} /></div>
+                  <div><div style={{fontSize:8,color:"#5E6578",fontFamily:"var(--font-mono)"}}>Received By</div><input value={c.to} onChange={e=>updateCustody(i,"to",e.target.value)} placeholder="Name / Signature" style={{width:"100%",padding:"5px 6px",background:"#0C1017",border:"1px solid #1A2030",borderRadius:4,color:"#F0F4F8",fontSize:11,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}} /></div>
+                  <div><div style={{fontSize:8,color:"#5E6578",fontFamily:"var(--font-mono)"}}>Date/Time</div><input type="datetime-local" value={c.toDate} onChange={e=>updateCustody(i,"toDate",e.target.value)} style={{width:"100%",padding:"5px 6px",background:"#0C1017",border:"1px solid #1A2030",borderRadius:4,color:"#F0F4F8",fontSize:11,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}} /></div>
                 </div>
               ))}
               <div style={{fontSize:9,color:"#3A4050",marginTop:6}}>Signatures confirm unbroken custody from collection to laboratory receipt.</div>
