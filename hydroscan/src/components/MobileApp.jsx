@@ -545,10 +545,10 @@ export default function MobileApp() {
                   <div style={{width:52,height:52,borderRadius:16,background:"#080A0E",display:"flex",alignItems:"center",justifyContent:"center"}}><Logo s={48} /></div>
                   <div>
                     <h1 style={{fontSize:34,fontWeight:800,lineHeight:1,margin:0,letterSpacing:"-1.5px"}}>Hydro<span style={{color:"#14B8A6"}}>Scan</span></h1>
-                    <div style={{fontSize:11,color:"#5E6578",fontFamily:"var(--font-mono)",marginTop:3}}>by Prudence EHS · v{VER}</div>
+                    <div style={{fontSize:11,color:"var(--dim)",fontFamily:"var(--font-mono)",marginTop:3}}>by Prudence EHS · v{VER}</div>
                   </div>
                 </div>
-                <p style={{fontSize:14,color:"#8B95A8",lineHeight:1.6,maxWidth:420}}>Standards-driven drinking water assessment. Field walkthrough to sampling plan. Lab results to compliance analysis. Private wells and building water systems.</p>
+                <p style={{fontSize:14,color:"var(--sub)",lineHeight:1.6,maxWidth:420}}>Standards-driven drinking water assessment. Field walkthrough to sampling plan. Lab results to compliance analysis. Private wells and building water systems.</p>
               </div>
             </div>
 
@@ -557,42 +557,42 @@ export default function MobileApp() {
             {/* Quick stats from history */}
             {history.length > 0 && (
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:16,animation:"fadeUp .5s .1s ease both"}}>
-                <div style={{padding:"14px 10px",background:"#0C1017",border:"1px solid #1A2030",borderRadius:12,textAlign:"center"}}>
+                <div style={{padding:"14px 10px",background:"var(--card)",border:"1px solid var(--border)",borderRadius:12,textAlign:"center"}}>
                   <div style={{fontSize:22,fontWeight:800,fontFamily:"var(--font-mono)",color:"#14B8A6"}}>{history.length}</div>
-                  <div style={{fontSize:10,color:"#5E6578",fontFamily:"var(--font-mono)"}}>Evaluations</div>
+                  <div style={{fontSize:9,fontWeight:700,letterSpacing:1,textTransform:"uppercase",color:"var(--dim)"}}>Evaluations</div>
                 </div>
-                <div style={{padding:"14px 10px",background:"#0C1017",border:"1px solid #1A2030",borderRadius:12,textAlign:"center"}}>
+                <div style={{padding:"14px 10px",background:"var(--card)",border:"1px solid var(--border)",borderRadius:12,textAlign:"center"}}>
                   <div style={{fontSize:22,fontWeight:800,fontFamily:"var(--font-mono)",color:history.filter(h=>h.tier==="immediate").length?"#EF4444":"#22C55E"}}>{history.filter(h=>h.tier==="immediate"||h.tier==="advisory").length}</div>
-                  <div style={{fontSize:10,color:"#5E6578",fontFamily:"var(--font-mono)"}}>Flagged</div>
+                  <div style={{fontSize:9,fontWeight:700,letterSpacing:1,textTransform:"uppercase",color:"var(--dim)"}}>Flagged</div>
                 </div>
-                <div style={{padding:"14px 10px",background:"#0C1017",border:"1px solid #1A2030",borderRadius:12,textAlign:"center"}}>
-                  <div style={{fontSize:22,fontWeight:800,fontFamily:"var(--font-mono)",color:"#8B95A8"}}>{history.reduce((a,h)=>a+h.violations.length,0)}</div>
-                  <div style={{fontSize:10,color:"#5E6578",fontFamily:"var(--font-mono)"}}>Violations</div>
+                <div style={{padding:"14px 10px",background:"var(--card)",border:"1px solid var(--border)",borderRadius:12,textAlign:"center"}}>
+                  <div style={{fontSize:22,fontWeight:800,fontFamily:"var(--font-mono)",color:"var(--sub)"}}>{history.reduce((a,h)=>a+h.violations.length,0)}</div>
+                  <div style={{fontSize:9,fontWeight:700,letterSpacing:1,textTransform:"uppercase",color:"var(--dim)"}}>Violations</div>
                 </div>
               </div>
             )}
 
             {/* Mode selector — larger visual cards */}
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16,animation:"fadeUp .5s .15s ease both"}}>
-              <button onClick={startSmart} style={{padding:"24px 16px",background:"#0C1017",border:"1.5px solid #14B8A630",borderRadius:16,cursor:"pointer",textAlign:"center",position:"relative",overflow:"hidden"}}>
+              <button onClick={startSmart} style={{padding:"24px 16px",background:"var(--card)",border:"1.5px solid #14B8A630",borderRadius:16,cursor:"pointer",textAlign:"center",position:"relative",overflow:"hidden"}}>
                 <div style={{position:"absolute",inset:0,opacity:.08}}><Particles /></div>
                 <div style={{position:"relative",zIndex:1}}>
                   <div style={{width:48,height:48,borderRadius:14,background:"#14B8A615",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 12px"}}><I n="search" s={24} c="#14B8A6" /></div>
                   <div style={{fontSize:15,fontWeight:700,marginBottom:4}}>Field Assessment</div>
-                  <div style={{fontSize:11,color:"#5E6578",lineHeight:1.4}}>Walkthrough → Observations → Sampling Plan</div>
+                  <div style={{fontSize:11,color:"var(--dim)",lineHeight:1.4}}>Walkthrough → Observations → Sampling Plan</div>
                 </div>
               </button>
-              <button onClick={startLab} style={{padding:"24px 16px",background:"#0C1017",border:"1.5px solid #8B5CF630",borderRadius:16,cursor:"pointer",textAlign:"center"}}>
+              <button onClick={startLab} style={{padding:"24px 16px",background:"var(--card)",border:"1.5px solid #8B5CF630",borderRadius:16,cursor:"pointer",textAlign:"center"}}>
                 <div style={{width:48,height:48,borderRadius:14,background:"#8B5CF615",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 12px"}}><I n="flask" s={24} c="#8B5CF6" /></div>
                 <div style={{fontSize:15,fontWeight:700,marginBottom:4}}>Lab Results</div>
-                <div style={{fontSize:11,color:"#5E6578",lineHeight:1.4}}>Enter Results → Compliance → Risk Analysis</div>
+                <div style={{fontSize:11,color:"var(--dim)",lineHeight:1.4}}>Enter Results → Compliance → Risk Analysis</div>
               </button>
             </div>
 
             {/* Chain of Custody Form */}
-            <button onClick={initCOC} style={{width:"100%",padding:"16px 18px",marginBottom:16,background:"#0C1017",border:"1.5px solid #14B8A620",borderRadius:14,cursor:"pointer",textAlign:"left",display:"flex",alignItems:"center",gap:12,animation:"fadeUp .5s .18s ease both"}}>
+            <button onClick={initCOC} style={{width:"100%",padding:"16px 18px",marginBottom:16,background:"var(--card)",border:"1.5px solid #14B8A620",borderRadius:14,cursor:"pointer",textAlign:"left",display:"flex",alignItems:"center",gap:12,animation:"fadeUp .5s .18s ease both"}}>
               <div style={{width:40,height:40,borderRadius:11,background:"#14B8A610",display:"flex",alignItems:"center",justifyContent:"center"}}><I n="clip" s={20} c="#14B8A6" /></div>
-              <div style={{flex:1}}><div style={{fontSize:14,fontWeight:700}}>Chain of Custody Form</div><div style={{fontSize:11,color:"#5E6578",marginTop:2}}>Generate · Print · Free</div></div>
+              <div style={{flex:1}}><div style={{fontSize:14,fontWeight:700}}>Chain of Custody Form</div><div style={{fontSize:11,color:"var(--dim)",marginTop:2}}>Generate · Print · Free</div></div>
               <span style={{fontSize:11,color:"#22C55E",fontWeight:600,fontFamily:"var(--font-mono)"}}>FREE</span>
             </button>
 
@@ -602,24 +602,24 @@ export default function MobileApp() {
                 <I n="alert" s={18} c="#FBBF24" w={2} />
                 <div>
                   <div style={{fontSize:13,fontWeight:700,color:"#FBBF24",marginBottom:3}}>PFAS Regulation Active</div>
-                  <div style={{fontSize:12,color:"#8B95A8",lineHeight:1.5}}>EPA finalized MCLs for 6 PFAS compounds (Apr 2024). PFOA/PFOS at 4 ppt. Compliance by 2031. HydroScan evaluates all 6 + Hazard Index for mixtures.</div>
+                  <div style={{fontSize:12,color:"var(--sub)",lineHeight:1.5}}>EPA finalized MCLs for 6 PFAS compounds (Apr 2024). PFOA/PFOS at 4 ppt. Compliance by 2031. HydroScan evaluates all 6 + Hazard Index for mixtures.</div>
                 </div>
               </div>
             </div>
 
             {/* Capabilities grid */}
             <div style={{animation:"fadeUp .5s .25s ease both"}}>
-              <div style={{fontSize:11,fontWeight:600,color:"#5E6578",textTransform:"uppercase",letterSpacing:2,fontFamily:"var(--font-mono)",marginBottom:10}}>Capabilities</div>
+              <div style={{fontSize:11,fontWeight:600,color:"var(--dim)",textTransform:"uppercase",letterSpacing:2,fontFamily:"var(--font-mono)",marginBottom:10}}>Capabilities</div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
                 {[
                   {i:"shield",l:"EPA SDWA MCLs",c:"#14B8A6"},{i:"drop",l:"PFAS (6 compounds + HI)",c:"#14B8A6"},
                   {i:"pipe",l:"Lead & Copper Rule",c:"#FB923C"},{i:"bacteria",l:"Microbial Analysis",c:"#EF4444"},
                   {i:"bldg",l:"ASHRAE 188 Legionella",c:"#8B5CF6"},{i:"well",l:"Private Well Assessment",c:"#0D9488"},
-                  {i:"chart",l:"Historical Trending",c:"#FBBF24"},{i:"clip",l:"Collection Guides",c:"#8B95A8"},
+                  {i:"chart",l:"Historical Trending",c:"#FBBF24"},{i:"clip",l:"Collection Guides",c:"var(--sub)"},
                 ].map((cap,idx)=>(
-                  <div key={idx} style={{display:"flex",alignItems:"center",gap:8,padding:"10px 12px",background:"#0C1017",borderRadius:10,border:"1px solid #1A2030"}}>
+                  <div key={idx} style={{display:"flex",alignItems:"center",gap:8,padding:"10px 12px",background:"var(--card)",borderRadius:10,border:"1px solid var(--border)"}}>
                     <I n={cap.i} s={16} c={cap.c} />
-                    <span style={{fontSize:12,color:"#C8D0DC",fontWeight:500}}>{cap.l}</span>
+                    <span style={{fontSize:12,color:"var(--text)",fontWeight:500}}>{cap.l}</span>
                   </div>
                 ))}
               </div>
