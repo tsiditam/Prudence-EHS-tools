@@ -684,8 +684,6 @@ export default function MobileApp() {
                 <ProjectCard key={p.id} project={p} expanded={expandedProj===p.id} onToggle={()=>setExpandedProj(expandedProj===p.id?null:p.id)} onStep={launchStep}/>
               ))}
             </div>
-
-            <div style={{textAlign:"center",fontSize:11,color:"var(--dim)",marginTop:8,lineHeight:1.6}}>Standards-driven · professional review required.<br/>Outputs support professional judgment; not a substitute for regulatory or legal review.</div>
           </div>
         )}
 
