@@ -13,7 +13,7 @@
 import {
   Droplet, FlaskConical, ShieldCheck, TriangleAlert, Check, Building2,
   BarChart3, ClipboardList, Clock, Search, Zap, User, Send, Home, Wrench,
-  Biohazard, Container, RefreshCw, Download, Link, Activity, Settings, CircleHelp, PlayCircle,
+  Biohazard, Container, RefreshCw, Download, Link, Activity, Settings, CircleHelp, PlayCircle, Menu,
 } from 'lucide-react'
 
 // HydroScan Logo — water drop with pulse/analysis line (brand mark, kept SVG).
@@ -64,6 +64,7 @@ const ICONS = {
   gear: Settings,
   help: CircleHelp,
   play: PlayCircle,
+  menu: Menu,
 };
 
 export const I = ({ n, s = 18, c = 'currentColor', w = 1.8 }) => {
