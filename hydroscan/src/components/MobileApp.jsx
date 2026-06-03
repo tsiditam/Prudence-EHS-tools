@@ -1343,9 +1343,10 @@ export default function MobileApp() {
         @keyframes aiCurrent{to{stroke-dashoffset:-28;}}
         @keyframes aiHaloPulse{0%,100%{opacity:.45;transform:scale(.9);}50%{opacity:.95;transform:scale(1.1);}}
         .ai-halo{animation:aiHaloPulse 2.6s ease-in-out infinite;will-change:opacity,transform;}
-        .ai-brain{filter:drop-shadow(0 0 5px rgba(20,184,166,.65));}
-        .ai-brain .ai-base svg path{opacity:.4;}
-        .ai-brain .ai-current svg path{stroke-dasharray:5 8;stroke-linecap:round;animation:aiCurrent 2.8s linear infinite;}
+        .ai-brain{filter:drop-shadow(0 0 5px rgba(20,184,166,.6));}
+        .ai-brain svg path{stroke:url(#aiBrainGrad);}
+        .ai-brain .ai-base svg path{opacity:.95;}
+        .ai-brain .ai-current svg path{opacity:.6;stroke-dasharray:5 8;stroke-linecap:round;animation:aiCurrent 2.8s linear infinite;}
         .hero-card{transition:box-shadow .3s ease,border-color .25s ease;-webkit-tap-highlight-color:transparent;}
         .hero-card:active{border-color:var(--accent-fill);box-shadow:0 0 0 1px var(--accent-fill),0 0 34px 2px color-mix(in srgb, var(--accent-fill) 65%, transparent);}
         @keyframes chipPulse{0%,100%{opacity:1;}50%{opacity:.45;}}
@@ -1377,6 +1378,8 @@ export default function MobileApp() {
         ];
         return (
           <nav style={{position:"fixed",left:0,right:0,bottom:0,zIndex:120,display:"flex",justifyContent:"center",background:"color-mix(in srgb, var(--surface) 92%, transparent)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderTop:`1px solid var(--border)`,paddingBottom:"env(safe-area-inset-bottom,0px)"}}>
+            {/* Two-tone gradient for the HydroScan AI brain (pale → teal), like AtmosFlow */}
+            <svg aria-hidden="true" width="0" height="0" style={{position:"absolute",width:0,height:0}}><defs><linearGradient id="aiBrainGrad" gradientUnits="userSpaceOnUse" x1="2" y1="3" x2="22" y2="21"><stop offset="0%" stopColor="#EAFDF8"/><stop offset="48%" stopColor="#5EEAD4"/><stop offset="100%" stopColor="#0D9488"/></linearGradient></defs></svg>
             <div style={{width:"100%",maxWidth:620,display:"flex",alignItems:"stretch"}}>
               {NAV.map(t=>{
                 const col=t.active?"var(--accent)":"var(--dim)";
