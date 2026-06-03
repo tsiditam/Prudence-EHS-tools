@@ -634,49 +634,49 @@ export default function MobileApp() {
         {view==="smart"&&(
           <div style={{paddingTop:28,paddingBottom:100,animation:"fadeUp .4s ease"}}>
             <div style={{fontSize:20,fontWeight:800,marginBottom:4}}>Quick Assessment</div>
-            <div style={{fontSize:13,color:"#8B95A8",marginBottom:24}}>Answer 4 questions. Get a sampling plan and collection guide.</div>
+            <div style={{fontSize:13,color:"var(--sub)",marginBottom:24}}>Answer 4 questions. Get a sampling plan and collection guide.</div>
 
             {/* Q1: Water Source */}
             <div style={{marginBottom:20}}>
-              <div style={{fontSize:13,fontWeight:700,color:"#E2E8F0",marginBottom:8}}>1. Where does the water come from?</div>
+              <div style={{fontSize:13,fontWeight:700,color:"var(--text)",marginBottom:8}}>1. Where does the water come from?</div>
               <div style={{display:"flex",flexDirection:"column",gap:6}}>
                 {["Public water (city/county)","Private well","Not sure"].map(o=>(
-                  <button key={o} onClick={()=>setSmart(p=>({...p,source:o==="Private well"?"Private well":"Public water"}))} style={{padding:"14px 16px",textAlign:"left",background:smart.source===(o==="Private well"?"Private well":"Public water")&&(o!=="Not sure"||!smart.source)?"#14B8A612":"#0C1017",border:`1.5px solid ${smart.source===(o==="Private well"?"Private well":"Public water")&&o!=="Not sure"?"#14B8A6":"#1A2030"}`,borderRadius:12,color:smart.source===(o==="Private well"?"Private well":"Public water")&&o!=="Not sure"?"#14B8A6":"#C8D0DC",fontSize:15,cursor:"pointer",fontFamily:"inherit",fontWeight:500}}>{o}</button>
+                  <button key={o} onClick={()=>setSmart(p=>({...p,source:o==="Private well"?"Private well":"Public water"}))} style={{padding:"14px 16px",textAlign:"left",background:smart.source===(o==="Private well"?"Private well":"Public water")&&(o!=="Not sure"||!smart.source)?"#14B8A612":"var(--card)",border:`1.5px solid ${smart.source===(o==="Private well"?"Private well":"Public water")&&o!=="Not sure"?"#14B8A6":"var(--border)"}`,borderRadius:12,color:smart.source===(o==="Private well"?"Private well":"Public water")&&o!=="Not sure"?"#14B8A6":"var(--text)",fontSize:15,cursor:"pointer",fontFamily:"inherit",fontWeight:500}}>{o}</button>
                 ))}
               </div>
             </div>
 
             {/* Q2: Building Type */}
             <div style={{marginBottom:20}}>
-              <div style={{fontSize:13,fontWeight:700,color:"#E2E8F0",marginBottom:8}}>2. What type of building?</div>
+              <div style={{fontSize:13,fontWeight:700,color:"var(--text)",marginBottom:8}}>2. What type of building?</div>
               <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
                 {["Home","Pre-1986 home","School / Daycare","Apartment complex","Office / Commercial","Healthcare","Other"].map(o=>{const sel=smart.building===o;return(
-                  <button key={o} onClick={()=>setSmart(p=>({...p,building:o}))} style={{padding:"10px 16px",background:sel?"#14B8A612":"#0C1017",border:`1.5px solid ${sel?"#14B8A6":"#1A2030"}`,borderRadius:10,color:sel?"#14B8A6":"#C8D0DC",fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>{o}</button>
+                  <button key={o} onClick={()=>setSmart(p=>({...p,building:o}))} style={{padding:"10px 16px",background:sel?"#14B8A612":"var(--card)",border:`1.5px solid ${sel?"#14B8A6":"var(--border)"}`,borderRadius:10,color:sel?"#14B8A6":"var(--text)",fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>{o}</button>
                 );})}
               </div>
             </div>
 
             {/* Q3: Trigger */}
             <div style={{marginBottom:20}}>
-              <div style={{fontSize:13,fontWeight:700,color:"#E2E8F0",marginBottom:8}}>3. Why are you testing?</div>
+              <div style={{fontSize:13,fontWeight:700,color:"var(--text)",marginBottom:8}}>3. Why are you testing?</div>
               <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
                 {["Routine / annual","Buying or selling property","Someone got sick","Water looks/tastes/smells wrong","Contamination nearby","Required by regulation","Just want to know"].map(o=>{const sel=smart.trigger===o;return(
-                  <button key={o} onClick={()=>setSmart(p=>({...p,trigger:o}))} style={{padding:"10px 16px",background:sel?"#14B8A612":"#0C1017",border:`1.5px solid ${sel?"#14B8A6":"#1A2030"}`,borderRadius:10,color:sel?"#14B8A6":"#C8D0DC",fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>{o}</button>
+                  <button key={o} onClick={()=>setSmart(p=>({...p,trigger:o}))} style={{padding:"10px 16px",background:sel?"#14B8A612":"var(--card)",border:`1.5px solid ${sel?"#14B8A6":"var(--border)"}`,borderRadius:10,color:sel?"#14B8A6":"var(--text)",fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>{o}</button>
                 );})}
               </div>
             </div>
 
             {/* Q4: Concerns */}
             <div style={{marginBottom:24}}>
-              <div style={{fontSize:13,fontWeight:700,color:"#E2E8F0",marginBottom:4}}>4. Any specific concerns? <span style={{fontWeight:400,color:"#5E6578"}}>(select all that apply)</span></div>
+              <div style={{fontSize:13,fontWeight:700,color:"var(--text)",marginBottom:4}}>4. Any specific concerns? <span style={{fontWeight:400,color:"var(--dim)"}}>(select all that apply)</span></div>
               <div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:8}}>
                 {["Lead worry","PFAS concern","Bad taste/smell","Discoloration","Staining","Illness","Skin irritation","None — just testing"].map(o=>{const sel=(smart.concerns||[]).includes(o);return(
-                  <button key={o} onClick={()=>setSmart(p=>({...p,concerns:sel?p.concerns.filter(x=>x!==o):o==="None — just testing"?["None — just testing"]:[...(p.concerns||[]).filter(x=>x!=="None — just testing"),o]}))} style={{padding:"10px 16px",background:sel?"#14B8A612":"#0C1017",border:`1.5px solid ${sel?"#14B8A6":"#1A2030"}`,borderRadius:10,color:sel?"#14B8A6":"#C8D0DC",fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>{sel?"✓ ":""}{o}</button>
+                  <button key={o} onClick={()=>setSmart(p=>({...p,concerns:sel?p.concerns.filter(x=>x!==o):o==="None — just testing"?["None — just testing"]:[...(p.concerns||[]).filter(x=>x!=="None — just testing"),o]}))} style={{padding:"10px 16px",background:sel?"#14B8A612":"var(--card)",border:`1.5px solid ${sel?"#14B8A6":"var(--border)"}`,borderRadius:10,color:sel?"#14B8A6":"var(--text)",fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>{sel?"✓ ":""}{o}</button>
                 );})}
               </div>
             </div>
 
-            <button onClick={generateSmartPlan} disabled={!smart.source||!smart.trigger} style={{width:"100%",padding:"16px 0",background:smart.source&&smart.trigger?"linear-gradient(135deg,#0D9488,#14B8A6)":"#1A2030",border:"none",borderRadius:12,color:smart.source&&smart.trigger?"#fff":"#5E6578",fontSize:16,fontWeight:700,cursor:smart.source&&smart.trigger?"pointer":"default",fontFamily:"inherit",boxShadow:smart.source&&smart.trigger?"0 4px 20px #14B8A630":"none"}}>Generate Sampling Plan →</button>
+            <button onClick={generateSmartPlan} disabled={!smart.source||!smart.trigger} style={{width:"100%",padding:"16px 0",background:smart.source&&smart.trigger?"linear-gradient(135deg,#0D9488,#14B8A6)":"var(--border)",border:"none",borderRadius:12,color:smart.source&&smart.trigger?"#fff":"var(--dim)",fontSize:16,fontWeight:700,cursor:smart.source&&smart.trigger?"pointer":"default",fontFamily:"inherit",boxShadow:smart.source&&smart.trigger?"0 4px 20px #14B8A630":"none"}}>Generate Sampling Plan →</button>
           </div>
         )}
 
@@ -687,17 +687,17 @@ export default function MobileApp() {
               <I n="check" s={20} c="#22C55E" />
               <div style={{fontSize:18,fontWeight:700}}>Your Sampling Plan</div>
             </div>
-            <div style={{fontSize:13,color:"#8B95A8",marginBottom:16}}>{samplingPlan.length} test{samplingPlan.length!==1?"s":""} recommended based on your answers</div>
+            <div style={{fontSize:13,color:"var(--sub)",marginBottom:16}}>{samplingPlan.length} test{samplingPlan.length!==1?"s":""} recommended based on your answers</div>
 
             {samplingPlan.map((sp,i)=>(
-              <div key={i} style={{padding:14,background:"#0C1017",border:"1px solid #1A2030",borderRadius:14,marginBottom:8}}>
+              <div key={i} style={{padding:14,background:"var(--card)",border:"1px solid var(--border)",borderRadius:14,marginBottom:8}}>
                 <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
                   <I n="flask" s={16} c="#14B8A6" />
-                  <div style={{fontSize:15,fontWeight:700,color:"#E2E8F0"}}>{sp.test}</div>
+                  <div style={{fontSize:15,fontWeight:700,color:"var(--text)"}}>{sp.test}</div>
                 </div>
-                <div style={{fontSize:13,color:"#C8D0DC",lineHeight:1.6,marginBottom:6}}><strong>What to test:</strong> {sp.params}</div>
-                <div style={{fontSize:13,color:"#8B95A8",lineHeight:1.5,marginBottom:6}}><strong>How to collect:</strong> {sp.notes}</div>
-                <div style={{fontSize:12,color:"#5E6578",lineHeight:1.5}}><strong>Hold time:</strong> {sp.hold}</div>
+                <div style={{fontSize:13,color:"var(--text)",lineHeight:1.6,marginBottom:6}}><strong>What to test:</strong> {sp.params}</div>
+                <div style={{fontSize:13,color:"var(--sub)",lineHeight:1.5,marginBottom:6}}><strong>How to collect:</strong> {sp.notes}</div>
+                <div style={{fontSize:12,color:"var(--dim)",lineHeight:1.5}}><strong>Hold time:</strong> {sp.hold}</div>
                 {sp.guide&&COLLECTION_GUIDES[sp.guide]&&(
                   <button onClick={()=>setShowGuide(sp.guide)} style={{marginTop:8,padding:"8px 14px",background:"#14B8A608",border:"1px solid #14B8A620",borderRadius:8,color:"#14B8A6",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:6}}><I n="clip" s={14} c="#14B8A6" />Step-by-step collection guide</button>
                 )}
@@ -706,16 +706,16 @@ export default function MobileApp() {
 
             {/* COC Form */}
             <button onClick={initCOC} style={{width:"100%",padding:"14px 16px",marginTop:12,background:"#14B8A608",border:"1px solid #14B8A625",borderRadius:12,cursor:"pointer",textAlign:"left",display:"flex",alignItems:"center",gap:10}}>
-              <I n="clip" s={18} c="#14B8A6" /><div style={{flex:1}}><div style={{fontSize:14,fontWeight:600,color:"#14B8A6"}}>Chain of Custody Form</div><div style={{fontSize:11,color:"#5E6578"}}>Auto-filled from your plan · printable · free</div></div>
+              <I n="clip" s={18} c="#14B8A6" /><div style={{flex:1}}><div style={{fontSize:14,fontWeight:600,color:"#14B8A6"}}>Chain of Custody Form</div><div style={{fontSize:11,color:"var(--dim)"}}>Auto-filled from your plan · printable · free</div></div>
             </button>
 
             {/* Contextual Deepen Prompts — data-driven */}
             <div style={{marginTop:20}}>
-              <div style={{fontSize:12,fontWeight:600,color:"#5E6578",textTransform:"uppercase",letterSpacing:1.5,marginBottom:10}}>Strengthen Your Assessment</div>
+              <div style={{fontSize:12,fontWeight:600,color:"var(--dim)",textTransform:"uppercase",letterSpacing:1.5,marginBottom:10}}>Strengthen Your Assessment</div>
 
               {/* Always show */}
-              <button onClick={()=>{setMode("field");setView("assessor");}} style={{width:"100%",padding:"14px 16px",marginBottom:6,background:"#0C1017",border:"1px solid #1A2030",borderRadius:12,cursor:"pointer",textAlign:"left",display:"flex",alignItems:"center",gap:10}}>
-                <I n="search" s={18} c="#8B95A8" /><div style={{flex:1}}><div style={{fontSize:13,fontWeight:600,color:"#C8D0DC"}}>Full Professional Walkthrough</div><div style={{fontSize:11,color:"#5E6578"}}>Detailed source, building, plumbing, and field testing assessment</div></div><span style={{color:"#5E6578",fontSize:12}}>→</span>
+              <button onClick={()=>{setMode("field");setView("assessor");}} style={{width:"100%",padding:"14px 16px",marginBottom:6,background:"var(--card)",border:"1px solid var(--border)",borderRadius:12,cursor:"pointer",textAlign:"left",display:"flex",alignItems:"center",gap:10}}>
+                <I n="search" s={18} c="var(--sub)" /><div style={{flex:1}}><div style={{fontSize:13,fontWeight:600,color:"var(--text)"}}>Full Professional Walkthrough</div><div style={{fontSize:11,color:"var(--dim)"}}>Detailed source, building, plumbing, and field testing assessment</div></div><span style={{color:"var(--dim)",fontSize:12}}>→</span>
               </button>
 
               {/* Contextual — lead risk */}
@@ -743,7 +743,7 @@ export default function MobileApp() {
             {/* Lab Results entry */}
             <div style={{display:"flex",gap:8,marginTop:16}}>
               <button onClick={startLab} style={{flex:1,padding:"14px 0",background:"linear-gradient(135deg,#6D28D9,#8B5CF6)",border:"none",borderRadius:10,color:"#fff",fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Enter Lab Results →</button>
-              <button onClick={()=>setView("dash")} style={{padding:"14px 20px",background:"transparent",border:"1px solid #1A2030",borderRadius:10,color:"#8B95A8",fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>Done</button>
+              <button onClick={()=>setView("dash")} style={{padding:"14px 20px",background:"transparent",border:"1px solid var(--border)",borderRadius:10,color:"var(--sub)",fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>Done</button>
             </div>
           </div>
         )}
@@ -757,41 +757,41 @@ export default function MobileApp() {
         {view==="fieldresults"&&(
           <div style={{paddingTop:28,paddingBottom:100,animation:"fadeUp .4s ease"}}>
             <div style={{fontSize:12,fontWeight:600,color:"#14B8A6",textTransform:"uppercase",letterSpacing:2,fontFamily:"var(--font-mono)",marginBottom:12}}>Sampling Recommendations</div>
-            <div style={{padding:"12px 16px",background:"#0C1017",border:"1px solid #1A2030",borderRadius:12,marginBottom:16}}>
+            <div style={{padding:"12px 16px",background:"var(--card)",border:"1px solid var(--border)",borderRadius:12,marginBottom:16}}>
               <div style={{fontSize:15,fontWeight:700}}>{source.src_type?.includes("well")?"Private Well":"Building"} — {building.b_type||"Assessment"}</div>
-              <div style={{fontSize:12,color:"#5E6578",fontFamily:"var(--font-mono)",marginTop:4}}>{clock.toLocaleDateString()} · {assessor.a_name || "Assessor"} · {samplingPlan.length} recommendation{samplingPlan.length!==1?"s":""}</div>
+              <div style={{fontSize:12,color:"var(--dim)",fontFamily:"var(--font-mono)",marginTop:4}}>{clock.toLocaleDateString()} · {assessor.a_name || "Assessor"} · {samplingPlan.length} recommendation{samplingPlan.length!==1?"s":""}</div>
             </div>
 
             {samplingPlan.length===0?(
-              <div style={{padding:32,textAlign:"center",background:"#0C1017",borderRadius:14,border:"1px solid #1A2030"}}>
+              <div style={{padding:32,textAlign:"center",background:"var(--card)",borderRadius:14,border:"1px solid var(--border)"}}>
                 <div style={{fontSize:28,marginBottom:10}}>✓</div>
                 <div style={{fontSize:15,fontWeight:600,marginBottom:4}}>No Specific Sampling Triggers</div>
-                <div style={{fontSize:13,color:"#8B95A8",lineHeight:1.5}}>The field walkthrough did not identify conditions requiring targeted sampling beyond routine testing.</div>
+                <div style={{fontSize:13,color:"var(--sub)",lineHeight:1.5}}>The field walkthrough did not identify conditions requiring targeted sampling beyond routine testing.</div>
               </div>
             ):samplingPlan.map((sp,i)=>(
-              <div key={i} style={{padding:16,background:"#0C1017",border:"1px solid #1A2030",borderRadius:14,marginBottom:10}}>
+              <div key={i} style={{padding:16,background:"var(--card)",border:"1px solid var(--border)",borderRadius:14,marginBottom:10}}>
                 <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
                   <I n="flask" s={16} c="#14B8A6" />
-                  <div style={{fontSize:15,fontWeight:700,color:"#E2E8F0"}}>{sp.test}</div>
+                  <div style={{fontSize:15,fontWeight:700,color:"var(--text)"}}>{sp.test}</div>
                 </div>
                 <div style={{fontSize:12,color:"#FB923C",fontWeight:600,marginBottom:6}}>Trigger: {sp.trigger}</div>
-                <div style={{fontSize:13,color:"#8B95A8",lineHeight:1.6,marginBottom:6}}><strong style={{color:"#C8D0DC"}}>Parameters:</strong> {sp.params}</div>
-                <div style={{fontSize:13,color:"#8B95A8",lineHeight:1.6,marginBottom:6}}><strong style={{color:"#C8D0DC"}}>Method:</strong> {sp.method}</div>
-                <div style={{fontSize:13,color:"#8B95A8",lineHeight:1.6,marginBottom:6}}><strong style={{color:"#C8D0DC"}}>Hold/Preservation:</strong> {sp.hold}</div>
-                {sp.notes&&<div style={{fontSize:12,color:"#5E6578",lineHeight:1.5,padding:"8px 12px",background:"#12161D",borderRadius:8,marginTop:6}}>{sp.notes}</div>}
+                <div style={{fontSize:13,color:"var(--sub)",lineHeight:1.6,marginBottom:6}}><strong style={{color:"var(--text)"}}>Parameters:</strong> {sp.params}</div>
+                <div style={{fontSize:13,color:"var(--sub)",lineHeight:1.6,marginBottom:6}}><strong style={{color:"var(--text)"}}>Method:</strong> {sp.method}</div>
+                <div style={{fontSize:13,color:"var(--sub)",lineHeight:1.6,marginBottom:6}}><strong style={{color:"var(--text)"}}>Hold/Preservation:</strong> {sp.hold}</div>
+                {sp.notes&&<div style={{fontSize:12,color:"var(--dim)",lineHeight:1.5,padding:"8px 12px",background:"var(--surface)",borderRadius:8,marginTop:6}}>{sp.notes}</div>}
                 <div style={{fontSize:11,color:"#14B8A6",fontFamily:"var(--font-mono)",marginTop:6}}>{sp.std}</div>
               </div>
             ))}
 
             {/* Sample Collection Guides */}
             {samplingPlan.length>0&&(
-              <div style={{marginTop:12,padding:"14px 16px",background:"#0C1017",border:"1px solid #14B8A620",borderRadius:14}}>
+              <div style={{marginTop:12,padding:"14px 16px",background:"var(--card)",border:"1px solid #14B8A620",borderRadius:14}}>
                 <div style={{fontSize:13,fontWeight:700,color:"#14B8A6",marginBottom:10}}>📋 Sample Collection Guides</div>
                 <div style={{display:"flex",flexDirection:"column",gap:6}}>
                   {Object.entries(COLLECTION_GUIDES).map(([k,g])=>(
-                    <button key={k} onClick={()=>setShowGuide(k)} style={{padding:"12px 16px",background:"#12161D",border:"1px solid #1A2030",borderRadius:10,cursor:"pointer",textAlign:"left",display:"flex",alignItems:"center",gap:10}}>
+                    <button key={k} onClick={()=>setShowGuide(k)} style={{padding:"12px 16px",background:"var(--surface)",border:"1px solid var(--border)",borderRadius:10,cursor:"pointer",textAlign:"left",display:"flex",alignItems:"center",gap:10}}>
                       <I n="clip" s={16} c="#14B8A6" />
-                      <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600,color:"#E2E8F0"}}>{g.title}</div><div style={{fontSize:11,color:"#5E6578"}}>{g.std}</div></div>
+                      <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600,color:"var(--text)"}}>{g.title}</div><div style={{fontSize:11,color:"var(--dim)"}}>{g.std}</div></div>
                       <span style={{color:"#14B8A6",fontSize:13}}>View →</span>
                     </button>
                   ))}
@@ -800,12 +800,12 @@ export default function MobileApp() {
             )}
 
             <button onClick={initCOC} style={{width:"100%",padding:"14px 16px",marginTop:16,background:"#14B8A608",border:"1px solid #14B8A625",borderRadius:12,cursor:"pointer",textAlign:"left",display:"flex",alignItems:"center",gap:10}}>
-              <I n="clip" s={18} c="#14B8A6" /><div style={{flex:1}}><div style={{fontSize:14,fontWeight:600,color:"#14B8A6"}}>Generate Chain of Custody Form</div><div style={{fontSize:11,color:"#5E6578"}}>Auto-populates from sampling plan · printable</div></div>
+              <I n="clip" s={18} c="#14B8A6" /><div style={{flex:1}}><div style={{fontSize:14,fontWeight:600,color:"#14B8A6"}}>Generate Chain of Custody Form</div><div style={{fontSize:11,color:"var(--dim)"}}>Auto-populates from sampling plan · printable</div></div>
             </button>
 
             <div style={{display:"flex",gap:8,marginTop:10}}>
               <button onClick={startLab} style={{flex:1,padding:"14px 0",background:"linear-gradient(135deg,#6D28D9,#8B5CF6)",border:"none",borderRadius:10,color:"#fff",fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Enter Lab Results →</button>
-              <button onClick={()=>setView("dash")} style={{padding:"14px 20px",background:"transparent",border:"1px solid #1A2030",borderRadius:10,color:"#8B95A8",fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>Done</button>
+              <button onClick={()=>setView("dash")} style={{padding:"14px 20px",background:"transparent",border:"1px solid var(--border)",borderRadius:10,color:"var(--sub)",fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>Done</button>
             </div>
           </div>
         )}
@@ -816,9 +816,9 @@ export default function MobileApp() {
             <div style={{fontSize:12,fontWeight:600,color:"#8B5CF6",textTransform:"uppercase",letterSpacing:2,fontFamily:"var(--font-mono)",marginBottom:12}}>Lab Results Entry</div>
 
             {/* State-specific standards selector */}
-            <div style={{marginBottom:16,padding:"14px 16px",background:"#0C1017",border:"1px solid #1A2030",borderRadius:12}}>
-              <div style={{fontSize:12,fontWeight:600,color:"#C8D0DC",marginBottom:6}}>Jurisdiction (for state-specific standards)</div>
-              <select value={selState} onChange={e=>setSelState(e.target.value)} style={{width:"100%",padding:"10px 14px",background:"#12161D",border:"1px solid #1A2030",borderRadius:8,color:"#F0F4F8",fontSize:14,fontFamily:"inherit"}}>
+            <div style={{marginBottom:16,padding:"14px 16px",background:"var(--card)",border:"1px solid var(--border)",borderRadius:12}}>
+              <div style={{fontSize:12,fontWeight:600,color:"var(--text)",marginBottom:6}}>Jurisdiction (for state-specific standards)</div>
+              <select value={selState} onChange={e=>setSelState(e.target.value)} style={{width:"100%",padding:"10px 14px",background:"var(--surface)",border:"1px solid var(--border)",borderRadius:8,color:"#F0F4F8",fontSize:14,fontFamily:"inherit"}}>
                 <option value="">Federal (EPA) standards only</option>
                 {Object.entries(STATE_STDS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
               </select>
@@ -832,7 +832,7 @@ export default function MobileApp() {
 
             {/* Quick-add presets */}
             <div style={{marginBottom:16}}>
-              <div style={{fontSize:12,fontWeight:600,color:"#C8D0DC",marginBottom:8}}>Quick Add Test Panels</div>
+              <div style={{fontSize:12,fontWeight:600,color:"var(--text)",marginBottom:8}}>Quick Add Test Panels</div>
               <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
                 {Object.entries(QUICK_ADD).map(([k,v])=>(
                   <button key={k} onClick={()=>v.ids.forEach(id=>addLabParam(id))} style={{padding:"8px 14px",borderRadius:20,background:"#8B5CF610",border:"1px solid #8B5CF625",color:"#8B5CF6",fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>{v.label}</button>
@@ -842,8 +842,8 @@ export default function MobileApp() {
 
             {/* Individual parameter add */}
             <div style={{marginBottom:16}}>
-              <div style={{fontSize:12,fontWeight:600,color:"#C8D0DC",marginBottom:8}}>Add Individual Parameters</div>
-              <select onChange={e=>{if(e.target.value)addLabParam(e.target.value);e.target.value="";}} style={{width:"100%",padding:"12px 14px",background:"#0C1017",border:"1px solid #1A2030",borderRadius:10,color:"#F0F4F8",fontSize:14,fontFamily:"inherit"}}>
+              <div style={{fontSize:12,fontWeight:600,color:"var(--text)",marginBottom:8}}>Add Individual Parameters</div>
+              <select onChange={e=>{if(e.target.value)addLabParam(e.target.value);e.target.value="";}} style={{width:"100%",padding:"12px 14px",background:"var(--card)",border:"1px solid var(--border)",borderRadius:10,color:"#F0F4F8",fontSize:14,fontFamily:"inherit"}}>
                 <option value="">Select parameter...</option>
                 {CATS.map(cat=><optgroup key={cat} label={cat}>{ALL_PARAMS.filter(p=>p.cat===cat).map(p=><option key={p.id} value={p.id} disabled={labResults.some(r=>r.id===p.id)}>{p.name} ({p.unit})</option>)}</optgroup>)}
               </select>
@@ -852,32 +852,32 @@ export default function MobileApp() {
             {/* Results table */}
             {labResults.length>0&&(
               <div style={{marginBottom:16}}>
-                <div style={{fontSize:12,fontWeight:600,color:"#C8D0DC",marginBottom:8}}>Results ({labResults.length})</div>
+                <div style={{fontSize:12,fontWeight:600,color:"var(--text)",marginBottom:8}}>Results ({labResults.length})</div>
                 {labResults.map(r=>{
                   const param = PARAM_MAP[r.id]; if(!param) return null;
                   const ref = param.mcl||param.al||param.mrdl||(param.smcl&&typeof param.smcl==="number"?param.smcl:null);
                   return (
-                    <div key={r.id} style={{display:"flex",alignItems:"center",gap:8,marginBottom:6,padding:"10px 12px",background:"#0C1017",border:"1px solid #1A2030",borderRadius:10}}>
+                    <div key={r.id} style={{display:"flex",alignItems:"center",gap:8,marginBottom:6,padding:"10px 12px",background:"var(--card)",border:"1px solid var(--border)",borderRadius:10}}>
                       <div style={{flex:1,minWidth:0}}>
-                        <div style={{fontSize:13,fontWeight:600,color:"#E2E8F0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{param.name}</div>
-                        <div style={{fontSize:10,color:"#5E6578",fontFamily:"var(--font-mono)"}}>{ref?`Limit: ${typeof param.smcl==="object"?`${param.smcl.min}–${param.smcl.max}`:ref} ${param.unit}`:param.unit}</div>
+                        <div style={{fontSize:13,fontWeight:600,color:"var(--text)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{param.name}</div>
+                        <div style={{fontSize:10,color:"var(--dim)",fontFamily:"var(--font-mono)"}}>{ref?`Limit: ${typeof param.smcl==="object"?`${param.smcl.min}–${param.smcl.max}`:ref} ${param.unit}`:param.unit}</div>
                       </div>
                       {param.unit==="P/A"?(
                         <div style={{display:"flex",gap:4}}>
-                          {["A","P"].map(v=><button key={v} onClick={()=>updateLabResult(r.id,"qualifier",v)} style={{padding:"6px 12px",borderRadius:6,background:r.qualifier===v?(v==="P"?"#EF444420":"#22C55E20"):"#12161D",border:`1px solid ${r.qualifier===v?(v==="P"?"#EF4444":"#22C55E"):"#1A2030"}`,color:r.qualifier===v?(v==="P"?"#EF4444":"#22C55E"):"#8B95A8",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>{v==="A"?"Absent":"Present"}</button>)}
+                          {["A","P"].map(v=><button key={v} onClick={()=>updateLabResult(r.id,"qualifier",v)} style={{padding:"6px 12px",borderRadius:6,background:r.qualifier===v?(v==="P"?"#EF444420":"#22C55E20"):"var(--surface)",border:`1px solid ${r.qualifier===v?(v==="P"?"#EF4444":"#22C55E"):"var(--border)"}`,color:r.qualifier===v?(v==="P"?"#EF4444":"#22C55E"):"var(--sub)",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>{v==="A"?"Absent":"Present"}</button>)}
                         </div>
                       ):(
-                        <input type="number" value={r.value} onChange={e=>updateLabResult(r.id,"value",e.target.value)} placeholder="Result" style={{width:90,padding:"8px 10px",background:"#12161D",border:"1px solid #1A2030",borderRadius:6,color:"#F0F4F8",fontSize:14,fontFamily:"var(--font-mono)",outline:"none",textAlign:"right"}} />
+                        <input type="number" value={r.value} onChange={e=>updateLabResult(r.id,"value",e.target.value)} placeholder="Result" style={{width:90,padding:"8px 10px",background:"var(--surface)",border:"1px solid var(--border)",borderRadius:6,color:"#F0F4F8",fontSize:14,fontFamily:"var(--font-mono)",outline:"none",textAlign:"right"}} />
                       )}
-                      <button onClick={()=>removeLabResult(r.id)} style={{background:"none",border:"none",color:"#3A4050",fontSize:16,cursor:"pointer",padding:"4px"}}>×</button>
+                      <button onClick={()=>removeLabResult(r.id)} style={{background:"none",border:"none",color:"var(--dim)",fontSize:16,cursor:"pointer",padding:"4px"}}>×</button>
                     </div>
                   );
                 })}
               </div>
             )}
 
-            <button onClick={runEvaluation} disabled={labResults.length===0||labResults.every(r=>!r.value&&!r.qualifier)} style={{width:"100%",padding:"16px 0",background:labResults.length>0?"linear-gradient(135deg,#0D9488,#14B8A6)":"#1A2030",border:"none",borderRadius:12,color:labResults.length>0?"#fff":"#5E6578",fontSize:16,fontWeight:700,cursor:labResults.length>0?"pointer":"default",fontFamily:"inherit",boxShadow:labResults.length>0?"0 4px 20px #14B8A630":"none"}}>
-              <I n="shield" s={18} c={labResults.length>0?"#fff":"#5E6578"} /> Evaluate Results
+            <button onClick={runEvaluation} disabled={labResults.length===0||labResults.every(r=>!r.value&&!r.qualifier)} style={{width:"100%",padding:"16px 0",background:labResults.length>0?"linear-gradient(135deg,#0D9488,#14B8A6)":"var(--border)",border:"none",borderRadius:12,color:labResults.length>0?"#fff":"var(--dim)",fontSize:16,fontWeight:700,cursor:labResults.length>0?"pointer":"default",fontFamily:"inherit",boxShadow:labResults.length>0?"0 4px 20px #14B8A630":"none"}}>
+              <I n="shield" s={18} c={labResults.length>0?"#fff":"var(--dim)"} /> Evaluate Results
             </button>
           </div>
         )}
@@ -922,8 +922,8 @@ export default function MobileApp() {
             </button>
 
             {/* Tabs */}
-            <div style={{display:"flex",gap:4,padding:4,background:"#0C1017",borderRadius:10,border:"1px solid #1A2030",marginBottom:14,overflowX:"auto",scrollbarWidth:"none"}}>
-              {[["compliance","shield","Compliance"],["chains","chain","Root Cause"],["actions","bolt","Actions"],["trending","chart","Trending"]].map(([k,ic,l])=><button key={k} onClick={()=>{setRTab(k);haptic("light");}} style={{flex:"0 0 auto",padding:"10px 16px",borderRadius:8,border:"none",background:rTab===k?"#14B8A615":"transparent",color:rTab===k?"#14B8A6":"#5E6578",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:6}}><I n={ic} s={16} c={rTab===k?"#14B8A6":"#5E6578"} />{l}</button>)}
+            <div style={{display:"flex",gap:4,padding:4,background:"var(--card)",borderRadius:10,border:"1px solid var(--border)",marginBottom:14,overflowX:"auto",scrollbarWidth:"none"}}>
+              {[["compliance","shield","Compliance"],["chains","chain","Root Cause"],["actions","bolt","Actions"],["trending","chart","Trending"]].map(([k,ic,l])=><button key={k} onClick={()=>{setRTab(k);haptic("light");}} style={{flex:"0 0 auto",padding:"10px 16px",borderRadius:8,border:"none",background:rTab===k?"#14B8A615":"transparent",color:rTab===k?"#14B8A6":"var(--dim)",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:6}}><I n={ic} s={16} c={rTab===k?"#14B8A6":"var(--dim)"} />{l}</button>)}
             </div>
 
             {/* COMPLIANCE TAB */}
@@ -956,19 +956,19 @@ export default function MobileApp() {
             {rTab==="chains"&&(
               <div style={{display:"flex",flexDirection:"column",gap:10}}>
                 {chains.length===0?(
-                  <div style={{padding:32,textAlign:"center",background:"#0C1017",borderRadius:14,border:"1px solid #1A2030"}}>
-                    <I n="chain" s={28} c="#5E6578" /><div style={{fontSize:15,fontWeight:600,marginTop:10,marginBottom:4}}>No Causal Chains Identified</div>
-                    <div style={{fontSize:13,color:"#8B95A8",lineHeight:1.5}}>The data did not produce correlated multi-factor findings. This may indicate isolated issues or compliant results.</div>
+                  <div style={{padding:32,textAlign:"center",background:"var(--card)",borderRadius:14,border:"1px solid var(--border)"}}>
+                    <I n="chain" s={28} c="var(--dim)" /><div style={{fontSize:15,fontWeight:600,marginTop:10,marginBottom:4}}>No Causal Chains Identified</div>
+                    <div style={{fontSize:13,color:"var(--sub)",lineHeight:1.5}}>The data did not produce correlated multi-factor findings. This may indicate isolated issues or compliant results.</div>
                   </div>
                 ):chains.map((ch,i)=>(
-                  <div key={i} style={{padding:16,background:"#0C1017",border:`1px solid ${sevColor(ch.severity)}25`,borderRadius:14}}>
+                  <div key={i} style={{padding:16,background:"var(--card)",border:`1px solid ${sevColor(ch.severity)}25`,borderRadius:14}}>
                     <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
                       <I n="chain" s={16} c={sevColor(ch.severity)} />
                       <span style={{fontSize:15,fontWeight:700,color:sevColor(ch.severity)}}>{ch.type}</span>
                       <span style={{fontSize:11,padding:"2px 8px",borderRadius:4,background:`${sevColor(ch.severity)}15`,color:sevColor(ch.severity),fontFamily:"var(--font-mono)",fontWeight:600}}>{ch.confidence}</span>
                     </div>
-                    {ch.evidence.map((e,j)=><div key={j} style={{fontSize:13,color:"#C8D0DC",lineHeight:1.6,paddingLeft:12,borderLeft:"2px solid #1A2030",marginBottom:4}}>{e}</div>)}
-                    <div style={{marginTop:8,padding:"10px 14px",background:"#12161D",borderRadius:8,fontSize:13,color:"#8B95A8",lineHeight:1.6}}><strong style={{color:"#14B8A6"}}>Recommendation:</strong> {ch.recommendation}</div>
+                    {ch.evidence.map((e,j)=><div key={j} style={{fontSize:13,color:"var(--text)",lineHeight:1.6,paddingLeft:12,borderLeft:"2px solid var(--border)",marginBottom:4}}>{e}</div>)}
+                    <div style={{marginTop:8,padding:"10px 14px",background:"var(--surface)",borderRadius:8,fontSize:13,color:"var(--sub)",lineHeight:1.6}}><strong style={{color:"#14B8A6"}}>Recommendation:</strong> {ch.recommendation}</div>
                   </div>
                 ))}
               </div>
@@ -977,12 +977,12 @@ export default function MobileApp() {
             {/* ACTIONS TAB */}
             {rTab==="actions"&&recs&&(
               <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                {[{k:"immediate",l:"Immediate Actions",c:"#EF4444",i:"alert"},{k:"shortTerm",l:"Short-Term (30 Days)",c:"#FB923C",i:"bolt"},{k:"longTerm",l:"Long-Term",c:"#14B8A6",i:"pipe"},{k:"monitoring",l:"Ongoing Monitoring",c:"#8B95A8",i:"refresh"}].map(cat=>{
+                {[{k:"immediate",l:"Immediate Actions",c:"#EF4444",i:"alert"},{k:"shortTerm",l:"Short-Term (30 Days)",c:"#FB923C",i:"bolt"},{k:"longTerm",l:"Long-Term",c:"#14B8A6",i:"pipe"},{k:"monitoring",l:"Ongoing Monitoring",c:"var(--sub)",i:"refresh"}].map(cat=>{
                   if(!recs[cat.k]?.length) return null;
                   return (
-                    <div key={cat.k} style={{padding:14,background:"#0C1017",border:"1px solid #1A2030",borderRadius:12}}>
+                    <div key={cat.k} style={{padding:14,background:"var(--card)",border:"1px solid var(--border)",borderRadius:12}}>
                       <div style={{fontSize:14,fontWeight:700,color:cat.c,marginBottom:8,display:"flex",alignItems:"center",gap:6}}><I n={cat.i} s={16} c={cat.c} />{cat.l}</div>
-                      {recs[cat.k].map((r,j)=><div key={j} style={{fontSize:14,color:"#C8D0DC",lineHeight:1.6,marginBottom:6,paddingLeft:12,borderLeft:`2px solid ${cat.c}30`}}>{r}</div>)}
+                      {recs[cat.k].map((r,j)=><div key={j} style={{fontSize:14,color:"var(--text)",lineHeight:1.6,marginBottom:6,paddingLeft:12,borderLeft:`2px solid ${cat.c}30`}}>{r}</div>)}
                     </div>
                   );
                 })}
@@ -991,17 +991,17 @@ export default function MobileApp() {
                 {(evaluation.tier==="immediate"||evaluation.tier==="advisory"||chains.length>0)&&(
                   <div style={{padding:16,background:"#8B5CF610",border:"1px solid #8B5CF625",borderRadius:14,marginTop:6}}>
                     <div style={{fontSize:14,fontWeight:700,color:"#8B5CF6",marginBottom:6}}>Professional Review Recommended</div>
-                    <div style={{fontSize:13,color:"#C8D0DC",lineHeight:1.6,marginBottom:12}}>
+                    <div style={{fontSize:13,color:"var(--text)",lineHeight:1.6,marginBottom:12}}>
                       {evaluation.tier==="immediate"?"MCL violations or acute health risks were identified. A CIH or qualified EHS professional should review findings and oversee remediation.":"Advisory or monitoring findings were identified. Professional review is recommended for treatment decisions."}
                     </div>
-                    <a href="https://www.aiha.org/consultants-directory" target="_blank" rel="noopener noreferrer" style={{display:"flex",alignItems:"center",gap:10,padding:"12px 16px",background:"#0C1017",border:"1px solid #1A2030",borderRadius:10,textDecoration:"none",cursor:"pointer",marginBottom:6}}>
+                    <a href="https://www.aiha.org/consultants-directory" target="_blank" rel="noopener noreferrer" style={{display:"flex",alignItems:"center",gap:10,padding:"12px 16px",background:"var(--card)",border:"1px solid var(--border)",borderRadius:10,textDecoration:"none",cursor:"pointer",marginBottom:6}}>
                       <I n="search" s={18} c="#8B5CF6" />
-                      <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600,color:"#E2E8F0"}}>AIHA Consultants Directory</div><div style={{fontSize:12,color:"#8B95A8"}}>Find CIHs and OEHS professionals by state</div></div>
+                      <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600,color:"var(--text)"}}>AIHA Consultants Directory</div><div style={{fontSize:12,color:"var(--sub)"}}>Find CIHs and OEHS professionals by state</div></div>
                       <span style={{color:"#8B5CF6"}}>→</span>
                     </a>
-                    <a href="https://www.epa.gov/safewater/labs" target="_blank" rel="noopener noreferrer" style={{display:"flex",alignItems:"center",gap:10,padding:"12px 16px",background:"#0C1017",border:"1px solid #1A2030",borderRadius:10,textDecoration:"none",cursor:"pointer"}}>
+                    <a href="https://www.epa.gov/safewater/labs" target="_blank" rel="noopener noreferrer" style={{display:"flex",alignItems:"center",gap:10,padding:"12px 16px",background:"var(--card)",border:"1px solid var(--border)",borderRadius:10,textDecoration:"none",cursor:"pointer"}}>
                       <I n="flask" s={18} c="#14B8A6" />
-                      <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600,color:"#E2E8F0"}}>Find Certified Lab</div><div style={{fontSize:12,color:"#8B95A8"}}>EPA-certified drinking water laboratories</div></div>
+                      <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600,color:"var(--text)"}}>Find Certified Lab</div><div style={{fontSize:12,color:"var(--sub)"}}>EPA-certified drinking water laboratories</div></div>
                       <span style={{color:"#14B8A6"}}>→</span>
                     </a>
                   </div>
@@ -1013,20 +1013,20 @@ export default function MobileApp() {
             {rTab==="trending"&&(
               <div style={{display:"flex",flexDirection:"column",gap:10,animation:"fadeUp .3s ease"}}>
                 {history.length < 2 ? (
-                  <div style={{padding:32,textAlign:"center",background:"#0C1017",borderRadius:14,border:"1px solid #1A2030"}}>
-                    <I n="chart" s={28} c="#5E6578" /><div style={{fontSize:15,fontWeight:600,marginTop:10,marginBottom:4}}>Not Enough Data for Trends</div>
-                    <div style={{fontSize:13,color:"#8B95A8",lineHeight:1.5}}>After two or more evaluations, this tab will show how your water quality parameters are changing over time. Each evaluation is automatically saved.</div>
-                    <div style={{fontSize:12,color:"#5E6578",fontFamily:"var(--font-mono)",marginTop:10}}>{history.length} evaluation{history.length!==1?"s":""} on record</div>
+                  <div style={{padding:32,textAlign:"center",background:"var(--card)",borderRadius:14,border:"1px solid var(--border)"}}>
+                    <I n="chart" s={28} c="var(--dim)" /><div style={{fontSize:15,fontWeight:600,marginTop:10,marginBottom:4}}>Not Enough Data for Trends</div>
+                    <div style={{fontSize:13,color:"var(--sub)",lineHeight:1.5}}>After two or more evaluations, this tab will show how your water quality parameters are changing over time. Each evaluation is automatically saved.</div>
+                    <div style={{fontSize:12,color:"var(--dim)",fontFamily:"var(--font-mono)",marginTop:10}}>{history.length} evaluation{history.length!==1?"s":""} on record</div>
                   </div>
                 ) : (
                   <div>
-                    <div style={{fontSize:13,color:"#8B95A8",marginBottom:12}}>Showing {history.length} evaluations over time. Parameters that appeared in multiple tests are tracked below.</div>
+                    <div style={{fontSize:13,color:"var(--sub)",marginBottom:12}}>Showing {history.length} evaluations over time. Parameters that appeared in multiple tests are tracked below.</div>
                     {(() => {
                       // Find parameters that appear in multiple history entries
                       const paramCounts = {};
                       history.forEach(h => (h.results||[]).forEach(r => { paramCounts[r.id] = (paramCounts[r.id]||0) + 1; }));
                       const tracked = Object.entries(paramCounts).filter(([_,c]) => c >= 2).map(([id]) => id);
-                      if (!tracked.length) return <div style={{padding:20,textAlign:"center",color:"#5E6578"}}>No parameters tested more than once yet.</div>;
+                      if (!tracked.length) return <div style={{padding:20,textAlign:"center",color:"var(--dim)"}}>No parameters tested more than once yet.</div>;
                       return tracked.slice(0,10).map(pid => {
                         const param = PARAM_MAP[pid]; if (!param) return null;
                         const points = history.filter(h => (h.results||[]).some(r => r.id === pid && r.value)).map(h => {
@@ -1038,10 +1038,10 @@ export default function MobileApp() {
                         const maxVal = Math.max(...points.map(p => p.value), limit || 0);
                         const trend = points[points.length-1].value - points[0].value;
                         return (
-                          <div key={pid} style={{padding:"14px 16px",background:"#0C1017",border:"1px solid #1A2030",borderRadius:12,marginBottom:8}}>
+                          <div key={pid} style={{padding:"14px 16px",background:"var(--card)",border:"1px solid var(--border)",borderRadius:12,marginBottom:8}}>
                             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                              <span style={{fontSize:14,fontWeight:600,color:"#E2E8F0"}}>{param.name}</span>
-                              <span style={{fontSize:12,fontFamily:"var(--font-mono)",color:trend>0?"#EF4444":trend<0?"#22C55E":"#8B95A8"}}>{trend>0?"↑":"↓"} {Math.abs(trend).toFixed(2)} {param.unit}</span>
+                              <span style={{fontSize:14,fontWeight:600,color:"var(--text)"}}>{param.name}</span>
+                              <span style={{fontSize:12,fontFamily:"var(--font-mono)",color:trend>0?"#EF4444":trend<0?"#22C55E":"var(--sub)"}}>{trend>0?"↑":"↓"} {Math.abs(trend).toFixed(2)} {param.unit}</span>
                             </div>
                             {/* Simple sparkline bar chart */}
                             <div style={{display:"flex",gap:3,alignItems:"flex-end",height:48,marginBottom:6}}>
@@ -1052,7 +1052,7 @@ export default function MobileApp() {
                               })}
                             </div>
                             {limit && <div style={{height:1,background:"#EF444440",marginBottom:4}} />}
-                            <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"#5E6578",fontFamily:"var(--font-mono)"}}>
+                            <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"var(--dim)",fontFamily:"var(--font-mono)"}}>
                               <span>{new Date(points[0].ts).toLocaleDateString([],{month:"short",year:"2-digit"})}</span>
                               {limit&&<span style={{color:"#EF444480"}}>Limit: {limit} {param.unit}</span>}
                               <span>{new Date(points[points.length-1].ts).toLocaleDateString([],{month:"short",year:"2-digit"})}</span>
@@ -1067,7 +1067,7 @@ export default function MobileApp() {
             )}
 
             <div style={{display:"flex",gap:8,marginTop:20}}>
-              <button onClick={()=>setView("dash")} style={{flex:1,padding:"14px 0",background:"transparent",border:"1px solid #1A2030",borderRadius:10,color:"#8B95A8",fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>← Dashboard</button>
+              <button onClick={()=>setView("dash")} style={{flex:1,padding:"14px 0",background:"transparent",border:"1px solid var(--border)",borderRadius:10,color:"var(--sub)",fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>← Dashboard</button>
             </div>
           </div>
         )}
