@@ -16,7 +16,9 @@ import LandingPage from './LandingPage'
 import { Logo, I } from './Icons'
 import MarlowAssistant from './MarlowAssistant'
 import { buildReportModel } from '../report/report-model'
-import { R } from '../styles/tokens'
+import { R, btnPrimary } from '../styles/tokens'
+import { ProjectCard, QuickActionCard, RegulatoryAlertCard, ReferenceStandardChip, MarlowFloatingButton, ProjectsSkeleton } from './workspace'
+import { listProjects, createProject, deleteProject, SITE_TYPES } from '../utils/projects'
 import { trackEvent } from '../utils/supabaseClient'
 
 // ── Domain data & engine (Phase 1 extraction) ──
@@ -88,6 +90,11 @@ export default function MobileApp() {
   const [marlowOpen, setMarlowOpen] = useState(false); // Phase 2 — Marlow AI assistant
   const [aboutOpen, setAboutOpen] = useState(false);
   const [panel, setPanel] = useState(null); // about|settings|privacy|faq|feedback
+  // Project-centered workspace (redesign)
+  const [projects, setProjects] = useState([]);
+  const [projectsLoading, setProjectsLoading] = useState(true);
+  const [expandedProj, setExpandedProj] = useState(null);
+  const [newProj, setNewProj] = useState(null); // {name,siteType,location} while creating
   const [tosAccepted, setTosAccepted] = useState(false);
   const [showTos, setShowTos] = useState(false);
   const [feedbackText, setFeedbackText] = useState("");
@@ -222,6 +229,28 @@ export default function MobileApp() {
   const startSmart = () => { if(!tosAccepted){setShowTos(true);return;} trackEvent('assessment_started',{type:'quick'}); setSmart({source:"",building:"",trigger:"",concerns:[]}); setSamplingPlan([]); setShowDeepen(false); setView("smart"); };
   const startField = () => { if(!tosAccepted){setShowTos(true);return;} trackEvent('assessment_started',{type:'field'}); setMode("field"); setAssessor({}); setAqi(0); setSource({}); setSqi(0); setBuilding({}); setBqi(0); setPhotos({}); setLabResults([]); setEvaluation(null); setChains([]); setSamplingPlan([]); setRecs(null); setView("assessor"); };
   const startLab = () => { if(!tosAccepted){setShowTos(true);return;} trackEvent('assessment_started',{type:'lab'}); setMode("lab"); setLabResults([]); setSource({}); setBuilding({}); setEvaluation(null); setChains([]); setRecs(null); setView("labentry"); };
+
+  // Projects: load with a brief skeleton beat; launch a lifecycle step into the
+  // existing flow it corresponds to (preserves all engine/business logic).
+  useEffect(()=>{ const t=setTimeout(()=>{ setProjects(listProjects()); setProjectsLoading(false); }, 420); return ()=>clearTimeout(t); },[]);
+  const launchStep = (stepKey) => {
+    haptic("light");
+    if(stepKey==="walkthrough") startField();
+    else if(stepKey==="sampling") startSmart();
+    else if(stepKey==="coc") initCOC();
+    else if(stepKey==="lab") startLab();
+    else if(evaluation) setView("labresults");
+    else startLab();
+  };
+  const createNewProject = () => {
+    if(!newProj) return;
+    const p = createProject(newProj);
+    setProjects(listProjects());
+    setNewProj(null);
+    setExpandedProj(p.id);
+    setView("projects");
+    haptic("success");
+  };
 
   // Smart sampling plan — generates from just 4 answers
   const generateSmartPlan = () => {
@@ -533,100 +562,106 @@ export default function MobileApp() {
 
         {/* ═══ DASHBOARD ═══ */}
         {view==="dash"&&(
-          <div style={{paddingTop:20,paddingBottom:80}}>
-            {/* Hero with water ripple effect */}
-            <div style={{position:"relative",padding:"36px 24px 28px",background:"linear-gradient(180deg,#14B8A610 0%,transparent 100%)",borderRadius:20,border:"1px solid #14B8A615",marginBottom:20,overflow:"hidden",animation:"fadeUp .5s ease"}}>
-              {/* Ripple rings */}
-              <div style={{position:"absolute",top:-40,right:-40,width:160,height:160,borderRadius:"50%",border:"1.5px solid #14B8A612"}} />
-              <div style={{position:"absolute",top:-20,right:-20,width:120,height:120,borderRadius:"50%",border:"1px solid #14B8A610"}} />
-              <div style={{position:"absolute",bottom:-30,left:-30,width:100,height:100,borderRadius:"50%",border:"1px solid #14B8A608"}} />
-              <div style={{position:"relative",zIndex:1}}>
-                <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:14}}>
-                  <div style={{width:52,height:52,borderRadius:16,background:"#080A0E",display:"flex",alignItems:"center",justifyContent:"center"}}><Logo s={48} /></div>
-                  <div>
-                    <h1 style={{fontSize:34,fontWeight:800,lineHeight:1,margin:0,letterSpacing:"-1.5px"}}>Hydro<span style={{color:"#14B8A6"}}>Scan</span></h1>
-                    <div style={{fontSize:11,color:"var(--dim)",fontFamily:"var(--font-mono)",marginTop:3}}>by Prudence EHS · v{VER}</div>
-                  </div>
-                </div>
-                <p style={{fontSize:14,color:"var(--sub)",lineHeight:1.6,maxWidth:420}}>Standards-driven drinking water assessment. Field walkthrough to sampling plan. Lab results to compliance analysis. Private wells and building water systems.</p>
-              </div>
+          <div style={{paddingTop:18,paddingBottom:96}}>
+            {/* Command center header */}
+            <div style={{marginBottom:18,animation:"fadeUp .4s ease"}}>
+              <div style={{fontSize:12,color:"var(--dim)",fontWeight:600,letterSpacing:.3}}>{new Date().toLocaleDateString(undefined,{weekday:"long",month:"short",day:"numeric"})}</div>
+              <h1 style={{fontSize:25,fontWeight:800,letterSpacing:"-0.7px",margin:"4px 0 0"}}>{(()=>{const h=new Date().getHours();return h<12?"Good morning":h<18?"Good afternoon":"Good evening";})()}</h1>
+              <p style={{fontSize:13.5,color:"var(--sub)",lineHeight:1.55,margin:"6px 0 0",maxWidth:440}}>Drinking water assessments, sampling plans, lab review, and compliance-ready reports.</p>
             </div>
 
-            <div style={{marginBottom:16,animation:"fadeUp .5s .05s ease both"}}><AboutTrustBadge onClick={()=>setAboutOpen(true)}/></div>
+            {/* Primary actions */}
+            <div style={{fontSize:11,fontWeight:700,letterSpacing:1,textTransform:"uppercase",color:"var(--dim)",marginBottom:10}}>What are you working on?</div>
+            <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:26,animation:"fadeUp .4s .05s ease both"}}>
+              <QuickActionCard primary icon="search" title="Start New Assessment" sub="Field walkthrough → sampling plan" onClick={startField}/>
+              <QuickActionCard icon="flask" tone="#8B5CF6" title="Analyze Lab Results" sub="Enter results → compliance → risk analysis" onClick={startLab}/>
+              <QuickActionCard icon="clip" tone="#22C55E" title="Generate Chain of Custody" sub="Auto-filled · print-ready · free" onClick={initCOC}/>
+            </div>
 
-            {/* Quick stats from history */}
-            {history.length > 0 && (
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:16,animation:"fadeUp .5s .1s ease both"}}>
-                <div style={{padding:"14px 10px",background:"var(--card)",border:"1px solid var(--border)",borderRadius:12,textAlign:"center"}}>
-                  <div style={{fontSize:22,fontWeight:800,fontFamily:"var(--font-mono)",color:"#14B8A6"}}>{history.length}</div>
-                  <div style={{fontSize:9,fontWeight:700,letterSpacing:1,textTransform:"uppercase",color:"var(--dim)"}}>Evaluations</div>
-                </div>
-                <div style={{padding:"14px 10px",background:"var(--card)",border:"1px solid var(--border)",borderRadius:12,textAlign:"center"}}>
-                  <div style={{fontSize:22,fontWeight:800,fontFamily:"var(--font-mono)",color:history.filter(h=>h.tier==="immediate").length?"#EF4444":"#22C55E"}}>{history.filter(h=>h.tier==="immediate"||h.tier==="advisory").length}</div>
-                  <div style={{fontSize:9,fontWeight:700,letterSpacing:1,textTransform:"uppercase",color:"var(--dim)"}}>Flagged</div>
-                </div>
-                <div style={{padding:"14px 10px",background:"var(--card)",border:"1px solid var(--border)",borderRadius:12,textAlign:"center"}}>
-                  <div style={{fontSize:22,fontWeight:800,fontFamily:"var(--font-mono)",color:"var(--sub)"}}>{history.reduce((a,h)=>a+h.violations.length,0)}</div>
-                  <div style={{fontSize:9,fontWeight:700,letterSpacing:1,textTransform:"uppercase",color:"var(--dim)"}}>Violations</div>
+            {/* Recent projects */}
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+              <div style={{fontSize:11,fontWeight:700,letterSpacing:1,textTransform:"uppercase",color:"var(--dim)"}}>Recent Projects</div>
+              <button onClick={()=>setView("projects")} style={{background:"none",border:"none",color:"var(--accent)",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>View all →</button>
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:26}}>
+              {projectsLoading?<ProjectsSkeleton n={3}/>:projects.slice(0,3).map(p=>(
+                <ProjectCard key={p.id} project={p} expanded={expandedProj===p.id} onToggle={()=>setExpandedProj(expandedProj===p.id?null:p.id)} onStep={launchStep}/>
+              ))}
+            </div>
+
+            {/* Regulatory update */}
+            <div style={{marginBottom:24,animation:"fadeUp .4s .1s ease both"}}><RegulatoryAlertCard onDetails={()=>setView("reference")}/></div>
+
+            {/* Reference library preview */}
+            <button onClick={()=>setView("reference")} className="tap" style={{width:"100%",display:"flex",alignItems:"center",gap:12,padding:"14px 16px",background:"var(--card)",border:"1px solid var(--border)",borderRadius:R.lg,cursor:"pointer",fontFamily:"inherit",textAlign:"left"}}>
+              <span style={{width:36,height:36,borderRadius:R.md,background:"color-mix(in srgb, var(--accent) 12%, transparent)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><I n="shield" s={18} c="var(--accent)"/></span>
+              <span style={{flex:1}}><span style={{display:"block",fontSize:14,fontWeight:700,color:"var(--text)"}}>Reference Library</span><span style={{display:"block",fontSize:12,color:"var(--sub)",marginTop:1}}>Standards &amp; methods · EPA, WHO, ASHRAE</span></span>
+              <span style={{color:"var(--dim)",fontSize:18}}>→</span>
+            </button>
+
+            <div style={{textAlign:"center",fontSize:11,color:"var(--dim)",marginTop:22,lineHeight:1.6}}>Standards-driven · professional review required.<br/>Outputs support professional judgment; not a substitute for regulatory or legal review.</div>
+          </div>
+        )}
+
+        {/* ═══ PROJECTS ═══ */}
+        {view==="projects"&&(
+          <div style={{paddingTop:24,paddingBottom:96}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+              <h1 style={{fontSize:24,fontWeight:800,letterSpacing:"-0.6px",margin:0}}>Projects</h1>
+              {!newProj&&<button onClick={()=>setNewProj({name:"",siteType:"Commercial Building",location:""})} className="tap" style={{...btnPrimary,padding:"9px 14px",minHeight:0}}>+ New Project</button>}
+            </div>
+
+            {newProj&&(
+              <div style={{padding:"16px",background:"var(--card)",border:"1px solid var(--border)",borderRadius:R.lg,marginBottom:16,animation:"fadeUp .25s ease"}}>
+                <div style={{fontSize:13,fontWeight:700,marginBottom:12}}>New Project</div>
+                <input value={newProj.name} onChange={e=>setNewProj({...newProj,name:e.target.value})} placeholder="Project name (e.g. Lincoln High School)" style={{width:"100%",padding:"12px 14px",background:"var(--surface)",border:"1px solid var(--border)",borderRadius:R.md,color:"var(--text)",fontSize:15,outline:"none",boxSizing:"border-box",fontFamily:"inherit",marginBottom:10}}/>
+                <select value={newProj.siteType} onChange={e=>setNewProj({...newProj,siteType:e.target.value})} style={{width:"100%",padding:"12px 14px",background:"var(--surface)",border:"1px solid var(--border)",borderRadius:R.md,color:"var(--text)",fontSize:15,outline:"none",boxSizing:"border-box",fontFamily:"inherit",marginBottom:10}}>{SITE_TYPES.map(t=><option key={t} value={t}>{t}</option>)}</select>
+                <input value={newProj.location} onChange={e=>setNewProj({...newProj,location:e.target.value})} placeholder="Location (city, state)" style={{width:"100%",padding:"12px 14px",background:"var(--surface)",border:"1px solid var(--border)",borderRadius:R.md,color:"var(--text)",fontSize:15,outline:"none",boxSizing:"border-box",fontFamily:"inherit",marginBottom:12}}/>
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={createNewProject} disabled={!newProj.name.trim()} className="tap" style={{...btnPrimary,flex:1,opacity:newProj.name.trim()?1:.5}}>Create Project</button>
+                  <button onClick={()=>setNewProj(null)} style={{padding:"10px 16px",background:"transparent",border:"1px solid var(--border)",borderRadius:R.md,color:"var(--sub)",fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>Cancel</button>
                 </div>
               </div>
             )}
 
-            {/* Mode selector — larger visual cards */}
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16,animation:"fadeUp .5s .15s ease both"}}>
-              <button onClick={startSmart} style={{padding:"24px 16px",background:"var(--card)",border:"1.5px solid #14B8A630",borderRadius:16,cursor:"pointer",textAlign:"center",position:"relative",overflow:"hidden"}}>
-                <div style={{position:"absolute",inset:0,opacity:.08}}><Particles /></div>
-                <div style={{position:"relative",zIndex:1}}>
-                  <div style={{width:48,height:48,borderRadius:14,background:"#14B8A615",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 12px"}}><I n="search" s={24} c="#14B8A6" /></div>
-                  <div style={{fontSize:15,fontWeight:700,marginBottom:4}}>Field Assessment</div>
-                  <div style={{fontSize:11,color:"var(--dim)",lineHeight:1.4}}>Walkthrough → Observations → Sampling Plan</div>
-                </div>
-              </button>
-              <button onClick={startLab} style={{padding:"24px 16px",background:"var(--card)",border:"1.5px solid #8B5CF630",borderRadius:16,cursor:"pointer",textAlign:"center"}}>
-                <div style={{width:48,height:48,borderRadius:14,background:"#8B5CF615",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 12px"}}><I n="flask" s={24} c="#8B5CF6" /></div>
-                <div style={{fontSize:15,fontWeight:700,marginBottom:4}}>Lab Results</div>
-                <div style={{fontSize:11,color:"var(--dim)",lineHeight:1.4}}>Enter Results → Compliance → Risk Analysis</div>
-              </button>
-            </div>
-
-            {/* Chain of Custody Form */}
-            <button onClick={initCOC} style={{width:"100%",padding:"16px 18px",marginBottom:16,background:"var(--card)",border:"1.5px solid #14B8A620",borderRadius:14,cursor:"pointer",textAlign:"left",display:"flex",alignItems:"center",gap:12,animation:"fadeUp .5s .18s ease both"}}>
-              <div style={{width:40,height:40,borderRadius:11,background:"#14B8A610",display:"flex",alignItems:"center",justifyContent:"center"}}><I n="clip" s={20} c="#14B8A6" /></div>
-              <div style={{flex:1}}><div style={{fontSize:14,fontWeight:700}}>Chain of Custody Form</div><div style={{fontSize:11,color:"var(--dim)",marginTop:2}}>Generate · Print · Free</div></div>
-              <span style={{fontSize:11,color:"#22C55E",fontWeight:600,fontFamily:"var(--font-mono)"}}>FREE</span>
-            </button>
-
-            {/* PFAS regulatory alert */}
-            <div style={{padding:"14px 16px",background:"#FBBF2408",border:"1px solid #FBBF2420",borderRadius:14,marginBottom:16,animation:"fadeUp .5s .2s ease both"}}>
-              <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
-                <I n="alert" s={18} c="#FBBF24" w={2} />
-                <div>
-                  <div style={{fontSize:13,fontWeight:700,color:"#FBBF24",marginBottom:3}}>PFAS Regulation Active</div>
-                  <div style={{fontSize:12,color:"var(--sub)",lineHeight:1.5}}>EPA finalized MCLs for 6 PFAS compounds (Apr 2024). PFOA/PFOS at 4 ppt. Compliance by 2031. HydroScan evaluates all 6 + Hazard Index for mixtures.</div>
-                </div>
+            {projectsLoading?<ProjectsSkeleton n={4}/>:projects.length===0?(
+              <div style={{textAlign:"center",padding:"48px 20px",color:"var(--sub)"}}><I n="clip" s={30} c="var(--dim)"/><div style={{fontSize:15,fontWeight:600,color:"var(--text)",marginTop:12}}>No projects yet</div><div style={{fontSize:13,marginTop:4}}>Create a project to organize a site assessment end to end.</div></div>
+            ):(
+              <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                {projects.map(p=><ProjectCard key={p.id} project={p} expanded={expandedProj===p.id} onToggle={()=>setExpandedProj(expandedProj===p.id?null:p.id)} onStep={launchStep} onDelete={()=>{ if(confirm("Delete this project? This cannot be undone.")){ setProjects(deleteProject(p.id)); setExpandedProj(null);} }}/>)}
               </div>
+            )}
+          </div>
+        )}
+
+        {/* ═══ REFERENCE LIBRARY ═══ */}
+        {view==="reference"&&(
+          <div style={{paddingTop:24,paddingBottom:96}}>
+            <h1 style={{fontSize:24,fontWeight:800,letterSpacing:"-0.6px",margin:"0 0 6px"}}>Reference Library</h1>
+            <p style={{fontSize:13.5,color:"var(--sub)",lineHeight:1.55,margin:"0 0 20px",maxWidth:460}}>Built for field professionals managing building water systems, private wells, and regulated contaminants.</p>
+
+            <div style={{fontSize:11,fontWeight:700,letterSpacing:1,textTransform:"uppercase",color:"var(--dim)",marginBottom:10}}>Capabilities</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:24}}>
+              {[
+                {i:"shield",l:"EPA SDWA MCLs",c:"#14B8A6"},{i:"drop",l:"PFAS (6 compounds + HI)",c:"#14B8A6"},
+                {i:"pipe",l:"Lead & Copper Rule",c:"#FB923C"},{i:"bacteria",l:"Microbial Analysis",c:"#EF4444"},
+                {i:"bldg",l:"ASHRAE 188 Legionella",c:"#8B5CF6"},{i:"well",l:"Private Well Assessment",c:"#0D9488"},
+                {i:"chart",l:"Historical Trending",c:"#FBBF24"},{i:"clip",l:"Collection Guides",c:"var(--sub)"},
+              ].map((cap,idx)=>(
+                <div key={idx} style={{display:"flex",alignItems:"center",gap:8,padding:"12px",background:"var(--card)",borderRadius:R.md,border:"1px solid var(--border)"}}>
+                  <I n={cap.i} s={16} c={cap.c} />
+                  <span style={{fontSize:12,color:"var(--text)",fontWeight:500}}>{cap.l}</span>
+                </div>
+              ))}
             </div>
 
-            {/* Capabilities grid */}
-            <div style={{animation:"fadeUp .5s .25s ease both"}}>
-              <div style={{fontSize:11,fontWeight:600,color:"var(--dim)",textTransform:"uppercase",letterSpacing:2,fontFamily:"var(--font-mono)",marginBottom:10}}>Capabilities</div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
-                {[
-                  {i:"shield",l:"EPA SDWA MCLs",c:"#14B8A6"},{i:"drop",l:"PFAS (6 compounds + HI)",c:"#14B8A6"},
-                  {i:"pipe",l:"Lead & Copper Rule",c:"#FB923C"},{i:"bacteria",l:"Microbial Analysis",c:"#EF4444"},
-                  {i:"bldg",l:"ASHRAE 188 Legionella",c:"#8B5CF6"},{i:"well",l:"Private Well Assessment",c:"#0D9488"},
-                  {i:"chart",l:"Historical Trending",c:"#FBBF24"},{i:"clip",l:"Collection Guides",c:"var(--sub)"},
-                ].map((cap,idx)=>(
-                  <div key={idx} style={{display:"flex",alignItems:"center",gap:8,padding:"10px 12px",background:"var(--card)",borderRadius:10,border:"1px solid var(--border)"}}>
-                    <I n={cap.i} s={16} c={cap.c} />
-                    <span style={{fontSize:12,color:"var(--text)",fontWeight:500}}>{cap.l}</span>
-                  </div>
-                ))}
-              </div>
+            <div style={{fontSize:11,fontWeight:700,letterSpacing:1,textTransform:"uppercase",color:"var(--dim)",marginBottom:10}}>Standards &amp; Methods</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:24}}>
+              {[["EPA SDWA","shield"],["PFAS NPDWR 2024","drop"],["Lead & Copper Rule","pipe"],["WHO GDWQ","drop"],["ASHRAE 188","bldg"],["EPA 3Ts","clip"],["AIHA","check"]].map(([s,ic])=><ReferenceStandardChip key={s} label={s} icon={ic}/>)}
             </div>
 
-            {/* Standards badges */}
-            <div style={{display:"flex",flexWrap:"wrap",gap:5,marginTop:16,animation:"fadeUp .5s .3s ease both"}}>{["EPA SDWA","PFAS NPDWR 2024","Lead & Copper Rule","WHO GDWQ","ASHRAE 188","EPA 3Ts","AIHA"].map(s=><span key={s} style={{padding:"3px 9px",background:"#14B8A608",border:"1px solid #14B8A615",borderRadius:18,fontSize:11,fontFamily:"var(--font-mono)",color:"#14B8A680"}}>{s}</span>)}</div>
+            <div style={{marginBottom:16}}><AboutTrustBadge onClick={()=>setAboutOpen(true)}/></div>
+            <div style={{fontSize:11,color:"var(--dim)",lineHeight:1.6,padding:"12px 14px",background:"var(--surface)",border:"1px solid var(--border)",borderRadius:R.md}}>HydroScan is standards-driven and supports professional judgment. It is not a substitute for regulatory determinations or legal review. Professional review is required before action.</div>
           </div>
         )}
 
@@ -1191,12 +1226,20 @@ export default function MobileApp() {
         @keyframes slideRight{from{opacity:0;transform:translateX(-16px);}to{opacity:1;transform:translateX(0);}}
         @keyframes float{0%,100%{transform:translateY(0);}50%{transform:translateY(-12px);}}
         *{box-sizing:border-box;margin:0;}button{font-family:inherit;}
+        .tap{transition:transform .12s ease,border-color .15s ease,background .15s ease,opacity .15s ease;}
+        .tap:active{transform:scale(.985);}
+        @keyframes chipPulse{0%,100%{opacity:1;}50%{opacity:.45;}}
+        .shim{background:linear-gradient(90deg,var(--surface) 25%,var(--border) 37%,var(--surface) 63%);background-size:400% 100%;animation:shimmer 1.4s ease infinite;}
+        @keyframes shimmer{0%{background-position:100% 0;}100%{background-position:-100% 0;}}
         input::placeholder,textarea::placeholder{color:#3A4050;}
         input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appearance:none;}
         input[type=number]{-moz-appearance:textfield;}
         select option{background:#0C1017;color:#9CA3B4;}
         ::-webkit-scrollbar{width:4px;height:0;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:#1A2030;border-radius:2px;}
       `}</style>
+
+      {/* Marlow floating assistant button (redesign) */}
+      {!showTour && !marlowOpen && <MarlowFloatingButton onClick={()=>setMarlowOpen(true)} />}
 
       {/* Marlow AI — streaming water-quality assistant (Phase 2) */}
       <MarlowAssistant
@@ -1211,9 +1254,9 @@ export default function MobileApp() {
         const REPORT_VIEWS=["labentry","labresults","coc"];
         const NAV=[
           {k:"home",label:"Home",icon:"home",active:view==="dash"&&!marlowOpen,onTap:()=>{setMarlowOpen(false);setPanel(null);setView("dash");}},
+          {k:"projects",label:"Projects",icon:"bldg",active:(view==="projects"||view==="reference")&&!marlowOpen,onTap:()=>{setMarlowOpen(false);setPanel(null);setView("projects");}},
           {k:"assess",label:"Assess",icon:"search",active:ASSESS_VIEWS.includes(view)&&!marlowOpen,onTap:()=>{setMarlowOpen(false);setPanel(null);setView("smart");}},
           {k:"reports",label:"Reports",icon:"clip",active:REPORT_VIEWS.includes(view)&&!marlowOpen,onTap:()=>{setMarlowOpen(false);setPanel(null);setView(evaluation?"labresults":"labentry");}},
-          {k:"marlow",label:"Marlow",icon:"pulse",active:marlowOpen,onTap:()=>setMarlowOpen(true),accent:true},
           {k:"settings",label:"Settings",icon:"user",active:panel==="settings",onTap:()=>{setMarlowOpen(false);setPanel("settings");}},
         ];
         return (
