@@ -4017,7 +4017,15 @@ export default function MobileApp() {
                     compliance form to field activity. The two CTAs use
                     TactileButton primary/secondary so the press feels
                     physical, with a light haptic on touch. */
-                <GlassCard style={{padding:'28px 26px', marginBottom:RHYTHM.section}}>
+                <GlassCard style={{
+                  padding:'28px 26px',
+                  marginBottom:RHYTHM.section,
+                  // Cyan neon outline (matches the HydroScan co-pilot card):
+                  // a bright accent edge with a soft outer glow + faint
+                  // inner sheen. Overrides the GlassCard base border/shadow.
+                  border:'1px solid color-mix(in srgb, var(--accent-fill) 75%, transparent)',
+                  boxShadow:'0 0 18px color-mix(in srgb, var(--accent) 30%, transparent), 0 0 6px color-mix(in srgb, var(--accent) 42%, transparent), inset 0 0 14px color-mix(in srgb, var(--accent) 6%, transparent), 0 4px 14px rgba(0,0,0,0.35)',
+                }}>
                   <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
                     <I n="airflow" s={18} c="var(--accent)" w={1.8} />
                     <div style={V3.T.micro}>AtmosFlow · Field co-pilot</div>
