@@ -510,13 +510,6 @@ export default function MobileApp() {
                 {Row({label:"Generate Chain of Custody",icon:"clip",tone:"#22C55E",onClick:()=>{setActiveProjectId(null);initCOC();}})}
                 {div}
                 {Row({label:"Settings",icon:"user",active:panel==="settings",onClick:()=>setPanel("settings")})}
-                {Row({label:"Reference Library",icon:"shield",active:view==="reference",onClick:()=>setView("reference")})}
-                {Row({label:"How to Use",icon:"home",onClick:()=>{setTourStep(0);setShowTour(true);}})}
-                {Row({label:"Send Feedback",icon:"send",onClick:()=>{setPanel("feedback");setFeedbackSent(false);setFeedbackText("");}})}
-                {Row({label:"FAQ & Glossary",icon:"alert",onClick:()=>setPanel("faq")})}
-                {Row({label:"Privacy Policy",icon:"shield",onClick:()=>setPanel("privacy")})}
-                {Row({label:"Terms of Service",icon:"shield",onClick:()=>setShowTos(true)})}
-                {div}
                 {Row({label:"About Prudence EHS",icon:"drop",onClick:()=>setAboutOpen(true)})}
               </>);
             })()}
@@ -550,8 +543,11 @@ export default function MobileApp() {
       {panel&&<div style={{position:"fixed",inset:0,background:"#000000DD",zIndex:250,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={()=>setPanel(null)}>
         <div onClick={e=>e.stopPropagation()} style={{background:"#0C1017",border:"1px solid #1A2030",borderRadius:"20px 20px 0 0",width:"100%",maxWidth:640,maxHeight:"88vh",overflow:"auto",padding:"24px 20px 40px",animation:"slideUp .3s ease"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-            <div style={{fontSize:18,fontWeight:700,fontFamily:"var(--font-sans)"}}>{panel==="about"?"About":panel==="settings"?"Settings":panel==="privacy"?"Privacy Policy":panel==="faq"?"FAQ & Glossary":"Send Feedback"}</div>
-            <button onClick={()=>setPanel(null)} style={{width:32,height:32,borderRadius:8,border:"1px solid #1A2030",background:"transparent",color:"#8B95A8",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+            <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
+              {panel!=="settings"&&<button aria-label="Back to Settings" onClick={()=>setPanel("settings")} style={{width:32,height:32,borderRadius:8,border:"1px solid var(--border)",background:"transparent",color:"var(--sub)",fontSize:18,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>‹</button>}
+              <div style={{fontSize:18,fontWeight:700,fontFamily:"var(--font-sans)"}}>{panel==="about"?"About":panel==="settings"?"Settings":panel==="profile"?"Profile":panel==="privacy"?"Privacy Policy":panel==="faq"?"FAQ & Glossary":"Send Feedback"}</div>
+            </div>
+            <button onClick={()=>setPanel(null)} style={{width:32,height:32,borderRadius:8,border:"1px solid var(--border)",background:"transparent",color:"var(--sub)",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
           </div>
 
           {panel==="about"&&<div>
@@ -561,19 +557,32 @@ export default function MobileApp() {
           </div>}
 
           {panel==="settings"&&<div>
-            <div style={{fontSize:13,color:"#8B95A8",marginBottom:16}}>These defaults auto-populate when you start assessments.</div>
-            {[{k:"name",l:"Your Name & Credentials",ph:"e.g. T. Tamakloe, CSP"},{k:"firm",l:"Company",ph:"e.g. Prudence Safety & Environmental Consulting"},{k:"phone",l:"Phone",ph:"Contact number"},{k:"instrument",l:"Field Meter",ph:"e.g. Hach HQ40d"},{k:"calDate",l:"Meter Calibration Date",ph:"e.g. 2026-03-01"}].map(f=><div key={f.k} style={{marginBottom:12}}><div style={{fontSize:12,fontWeight:600,color:"#C8D0DC",marginBottom:4}}>{f.l}</div><input value={userSettings[f.k]||""} onChange={e=>setUserSettings(p=>({...p,[f.k]:e.target.value}))} placeholder={f.ph} style={{width:"100%",padding:"12px 14px",background:"#12161D",border:"1px solid #1A2030",borderRadius:8,color:"#F0F4F8",fontSize:14,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}} /></div>)}
-            <button onClick={()=>{saveUserSettings(userSettings);setPanel(null);}} style={{width:"100%",padding:"14px 0",background:"linear-gradient(135deg,#0D9488,#14B8A6)",border:"none",borderRadius:10,color:"#fff",fontSize:15,fontWeight:700,cursor:"pointer",fontFamily:"inherit",marginTop:8}}>Save Settings</button>
+            <div style={{fontSize:13,color:"var(--sub)",marginBottom:16}}>Manage your profile, references, and app information.</div>
+            <div style={{display:"flex",flexDirection:"column",gap:8}}>
+              {[
+                {l:"Profile",sub:"Assessor defaults for assessments",i:"user",act:()=>setPanel("profile")},
+                {l:"Reference Library",sub:"Standards & methods — EPA, WHO, ASHRAE",i:"shield",act:()=>{setPanel(null);setView("reference");}},
+                {l:"How to Use",sub:"Guided product tour",i:"home",act:()=>{setTourStep(0);setShowTour(true);setPanel(null);}},
+                {l:"Send Feedback",sub:"Report bugs or suggest features",i:"send",act:()=>{setFeedbackSent(false);setFeedbackText("");setPanel("feedback");}},
+                {l:"FAQ & Glossary",sub:"Common questions and terms",i:"alert",act:()=>setPanel("faq")},
+                {l:"Privacy Policy",sub:"How your data is handled",i:"shield",act:()=>setPanel("privacy")},
+                {l:"Terms of Service",sub:"Usage terms",i:"shield",act:()=>{setPanel(null);setShowTos(true);}},
+                {l:"About",sub:"HydroScan & Prudence EHS",i:"drop",act:()=>setPanel("about")},
+              ].map((s,i)=>(
+                <button key={i} onClick={s.act} className="tap" style={{width:"100%",display:"flex",alignItems:"center",gap:12,padding:"13px 14px",background:"var(--card)",border:"1px solid var(--border)",borderRadius:R.lg,cursor:"pointer",fontFamily:"inherit",textAlign:"left"}}>
+                  <span style={{width:36,height:36,borderRadius:R.md,background:"color-mix(in srgb, var(--accent) 12%, transparent)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><I n={s.i} s={18} c="var(--accent)"/></span>
+                  <span style={{flex:1,minWidth:0}}><span style={{display:"block",fontSize:14,fontWeight:700,color:"var(--text)"}}>{s.l}</span><span style={{display:"block",fontSize:12,color:"var(--sub)",marginTop:1}}>{s.sub}</span></span>
+                  <span style={{color:"var(--dim)",fontSize:18,flexShrink:0}}>›</span>
+                </button>
+              ))}
+            </div>
+            <div style={{textAlign:"center",marginTop:20}}><button onClick={async()=>{if(confirm("Clear all data?")){await STO.del("hydroscan-idx");await STO.del("hydroscan-visited");await STO.del("hydroscan-tos");await STO.del("hydroscan-settings");await STO.del("hydroscan-history");location.reload();}}} style={{background:"none",border:"none",color:"#EF4444",fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>Clear All Data & Reset</button></div>
+          </div>}
 
-            <div style={{height:1,background:"var(--border)",margin:"18px 0"}} />
-            <div style={{fontSize:11,fontWeight:700,letterSpacing:1,textTransform:"uppercase",color:"var(--dim)",marginBottom:8}}>Reference</div>
-            <button onClick={()=>{setPanel(null);setView("reference");}} className="tap" style={{width:"100%",display:"flex",alignItems:"center",gap:12,padding:"14px 16px",background:"var(--card)",border:"1px solid var(--border)",borderRadius:R.lg,cursor:"pointer",fontFamily:"inherit",textAlign:"left"}}>
-              <span style={{width:36,height:36,borderRadius:R.md,background:"color-mix(in srgb, var(--accent) 12%, transparent)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><I n="shield" s={18} c="var(--accent)"/></span>
-              <span style={{flex:1}}><span style={{display:"block",fontSize:14,fontWeight:700,color:"var(--text)"}}>Reference Library</span><span style={{display:"block",fontSize:12,color:"var(--sub)",marginTop:1}}>Standards &amp; methods · EPA, WHO, ASHRAE</span></span>
-              <span style={{color:"var(--dim)",fontSize:18}}>→</span>
-            </button>
-
-            <div style={{textAlign:"center",marginTop:16}}><button onClick={async()=>{if(confirm("Clear all data?")){await STO.del("hydroscan-idx");await STO.del("hydroscan-visited");await STO.del("hydroscan-tos");await STO.del("hydroscan-settings");await STO.del("hydroscan-history");location.reload();}}} style={{background:"none",border:"none",color:"#EF4444",fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>Clear All Data & Reset</button></div>
+          {panel==="profile"&&<div>
+            <div style={{fontSize:13,color:"var(--sub)",marginBottom:16}}>These defaults auto-populate when you start assessments.</div>
+            {[{k:"name",l:"Your Name & Credentials",ph:"e.g. T. Tamakloe, CSP"},{k:"firm",l:"Company",ph:"e.g. Prudence Safety & Environmental Consulting"},{k:"phone",l:"Phone",ph:"Contact number"},{k:"instrument",l:"Field Meter",ph:"e.g. Hach HQ40d"},{k:"calDate",l:"Meter Calibration Date",ph:"e.g. 2026-03-01"}].map(f=><div key={f.k} style={{marginBottom:12}}><div style={{fontSize:12,fontWeight:600,color:"var(--text)",marginBottom:4}}>{f.l}</div><input value={userSettings[f.k]||""} onChange={e=>setUserSettings(p=>({...p,[f.k]:e.target.value}))} placeholder={f.ph} style={{width:"100%",padding:"12px 14px",background:"var(--surface)",border:"1px solid var(--border)",borderRadius:8,color:"var(--text)",fontSize:14,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}} /></div>)}
+            <button onClick={()=>{saveUserSettings(userSettings);setPanel("settings");}} style={{width:"100%",padding:"14px 0",background:"linear-gradient(135deg,#0D9488,#14B8A6)",border:"none",borderRadius:10,color:"#fff",fontSize:15,fontWeight:700,cursor:"pointer",fontFamily:"inherit",marginTop:8}}>Save Profile</button>
           </div>}
 
           {panel==="privacy"&&<div>
