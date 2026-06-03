@@ -94,6 +94,7 @@ export default function MobileApp() {
   const [projects, setProjects] = useState([]);
   const [projectsLoading, setProjectsLoading] = useState(true);
   const [expandedProj, setExpandedProj] = useState(null);
+  const [drawerDemosOpen, setDrawerDemosOpen] = useState(false); // Demos dropdown in the drawer
   const [activeProjectId, setActiveProjectId] = useState(null); // project whose lifecycle a launched flow advances
   const [newProj, setNewProj] = useState(null); // {name,siteType,location} while creating
   const [tosAccepted, setTosAccepted] = useState(false);
@@ -423,6 +424,10 @@ export default function MobileApp() {
     </div>
   );};
 
+  // Real (user) projects vs seeded demo projects (housed in the Demos view).
+  const realProjects = projects.filter(p=>!p.seed);
+  const demoProjects = projects.filter(p=>p.seed);
+
   return (
     <div style={{minHeight:"100vh",background:"var(--bg)",color:"var(--text)",fontFamily:"var(--font-sans)"}}>      <div style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:0}}><div style={{position:"absolute",top:"-20%",left:"-10%",width:"50%",height:"50%",background:"radial-gradient(circle,#14B8A606 0%,transparent 70%)",filter:"blur(60px)"}} /><div style={{position:"absolute",inset:0,backgroundImage:"radial-gradient(circle at 1px 1px, #14B8A606 1px, transparent 0)",backgroundSize:"32px 32px"}} /></div>
 
@@ -504,6 +509,17 @@ export default function MobileApp() {
                 {Row({label:"Analyze Lab Results",icon:"flask",tone:"#8B5CF6",onClick:()=>{setActiveProjectId(null);startLab();}})}
                 {Row({label:"Generate Chain of Custody",icon:"clip",tone:"#22C55E",onClick:()=>{setActiveProjectId(null);initCOC();}})}
                 {div}
+                <button className="tap" onClick={()=>setDrawerDemosOpen(o=>!o)} style={{display:"flex",alignItems:"center",gap:14,width:"100%",background:view==="demos"?"color-mix(in srgb, var(--accent) 10%, transparent)":"transparent",border:"none",cursor:"pointer",fontFamily:"inherit",textAlign:"left",padding:"13px 18px"}}>
+                  <I n="play" s={20} c={view==="demos"?"var(--accent)":"var(--sub)"}/>
+                  <span style={{flex:1,fontSize:15.5,fontWeight:view==="demos"?700:500,color:view==="demos"?"var(--accent)":"var(--text)"}}>Demos</span>
+                  <span style={{color:"var(--dim)",fontSize:16,lineHeight:1,transform:drawerDemosOpen?"rotate(90deg)":"none",transition:"transform .2s ease"}}>›</span>
+                </button>
+                {drawerDemosOpen && demoProjects.map(p=>(
+                  <button key={p.id} className="tap" onClick={()=>{setView("demos");setExpandedProj(p.id);setNavOpen(false);}} style={{display:"flex",alignItems:"center",gap:10,width:"100%",background:"transparent",border:"none",cursor:"pointer",fontFamily:"inherit",textAlign:"left",padding:"9px 18px 9px 32px"}}>
+                    <span style={{width:5,height:5,borderRadius:999,background:"var(--accent)",flexShrink:0}}/>
+                    <span style={{flex:1,minWidth:0,fontSize:13.5,color:"var(--sub)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</span>
+                  </button>
+                ))}
                 {Row({label:"Settings",icon:"gear",active:panel==="settings",onClick:()=>setPanel("settings")})}
                 {Row({label:"Guided Tour",icon:"help",onClick:()=>{setTourStep(0);setShowTour(true);}})}
                 {Row({label:"About Prudence EHS",icon:"drop",onClick:()=>setAboutOpen(true)})}
@@ -659,7 +675,12 @@ export default function MobileApp() {
               <button onClick={()=>setView("projects")} style={{background:"none",border:"none",color:"var(--accent)",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>View all →</button>
             </div>
             <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:26}}>
-              {projectsLoading?<ProjectsSkeleton n={3}/>:projects.slice(0,3).map(p=>(
+              {projectsLoading?<ProjectsSkeleton n={2}/>:realProjects.length===0?(
+                <div style={{padding:"22px 16px",textAlign:"center",background:"var(--card)",border:"1px dashed var(--border)",borderRadius:R.lg}}>
+                  <div style={{fontSize:13.5,fontWeight:600,color:"var(--text)"}}>No active projects yet</div>
+                  <div style={{fontSize:12,color:"var(--sub)",marginTop:3}}>Start a new assessment to create your first project.</div>
+                </div>
+              ):realProjects.slice(0,3).map(p=>(
                 <ProjectCard key={p.id} project={p} expanded={expandedProj===p.id} onToggle={()=>setExpandedProj(expandedProj===p.id?null:p.id)} onStep={launchStep}/>
               ))}
             </div>
@@ -689,11 +710,26 @@ export default function MobileApp() {
               </div>
             )}
 
-            {projectsLoading?<ProjectsSkeleton n={4}/>:projects.length===0?(
-              <div style={{textAlign:"center",padding:"48px 20px",color:"var(--sub)"}}><I n="clip" s={30} c="var(--dim)"/><div style={{fontSize:15,fontWeight:600,color:"var(--text)",marginTop:12}}>No projects yet</div><div style={{fontSize:13,marginTop:4}}>Create a project to organize a site assessment end to end.</div></div>
+            {projectsLoading?<ProjectsSkeleton n={4}/>:realProjects.length===0?(
+              <div style={{textAlign:"center",padding:"48px 20px",color:"var(--sub)"}}><I n="clip" s={30} c="var(--dim)"/><div style={{fontSize:15,fontWeight:600,color:"var(--text)",marginTop:12}}>No projects yet</div><div style={{fontSize:13,marginTop:4}}>Create a project to organize a site assessment end to end.</div><div style={{fontSize:12.5,color:"var(--accent)",marginTop:12,cursor:"pointer"}} onClick={()=>setView("demos")}>See sample projects in Demos →</div></div>
             ):(
               <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                {projects.map(p=><ProjectCard key={p.id} project={p} expanded={expandedProj===p.id} onToggle={()=>setExpandedProj(expandedProj===p.id?null:p.id)} onStep={launchStep} onDelete={()=>{ if(confirm("Delete this project? This cannot be undone.")){ setProjects(deleteProject(p.id)); setExpandedProj(null);} }}/>)}
+                {realProjects.map(p=><ProjectCard key={p.id} project={p} expanded={expandedProj===p.id} onToggle={()=>setExpandedProj(expandedProj===p.id?null:p.id)} onStep={launchStep} onDelete={()=>{ if(confirm("Delete this project? This cannot be undone.")){ setProjects(deleteProject(p.id)); setExpandedProj(null);} }}/>)}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ═══ DEMOS ═══ */}
+        {view==="demos"&&(
+          <div style={{paddingTop:24,paddingBottom:96}}>
+            <h1 style={{fontSize:24,fontWeight:800,letterSpacing:"-0.6px",margin:"0 0 6px"}}>Demos</h1>
+            <p style={{fontSize:13.5,color:"var(--sub)",lineHeight:1.55,margin:"0 0 20px",maxWidth:460}}>Sample projects showing a full HydroScan workflow — explore the lifecycle end to end, then start your own from Home.</p>
+            {projectsLoading?<ProjectsSkeleton n={3}/>:demoProjects.length===0?(
+              <div style={{textAlign:"center",padding:"48px 20px",color:"var(--sub)"}}><I n="play" s={30} c="var(--dim)"/><div style={{fontSize:15,fontWeight:600,color:"var(--text)",marginTop:12}}>No demos available</div></div>
+            ):(
+              <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                {demoProjects.map(p=><ProjectCard key={p.id} project={p} expanded={expandedProj===p.id} onToggle={()=>setExpandedProj(expandedProj===p.id?null:p.id)} onStep={launchStep} onDelete={()=>{ if(confirm("Remove this demo project?")){ setProjects(deleteProject(p.id)); setExpandedProj(null);} }}/>)}
               </div>
             )}
           </div>
