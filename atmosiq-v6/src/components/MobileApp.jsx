@@ -2140,7 +2140,15 @@ export default function MobileApp() {
               zero on the wrapper because the hero composes three
               vertical zones (intro, denominator line, optional
               advisory) each with their own padding rhythm. */}
-          <GlassCard accent={sevPillTone} style={{padding:0}}>
+          {/* Full-perimeter neon outline in the severity colour (matches
+              the Home co-pilot card's neon treatment, but tinted to the
+              card's own severity so a Critical card glows red, not cyan).
+              Replaces the top-only accent rail. */}
+          <GlassCard style={{
+            padding:0,
+            border:`1px solid color-mix(in srgb, ${sevPillTone} 80%, transparent)`,
+            boxShadow:`0 0 18px color-mix(in srgb, ${sevPillTone} 28%, transparent), 0 0 6px color-mix(in srgb, ${sevPillTone} 42%, transparent), inset 0 0 14px color-mix(in srgb, ${sevPillTone} 7%, transparent), 0 4px 14px rgba(0,0,0,0.35)`,
+          }}>
             <div style={{padding:'22px 24px 8px',display:'flex',alignItems:'flex-start',gap:18}}>
               <div style={{flexShrink:0}}>
                 {userMode !== 'fm' ? (
