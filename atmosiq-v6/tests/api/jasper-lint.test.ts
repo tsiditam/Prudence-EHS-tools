@@ -9,11 +9,13 @@
 import { describe, it, expect } from 'vitest'
 import * as lintNs from '../../api/_jasper-lint.js'
 
-const { lintJasperOutput, SAFE_FALLBACK, buildRevisionInstruction } = lintNs as unknown as {
-  lintJasperOutput: (t: string) => Array<{ term: string }>
-  SAFE_FALLBACK: string
-  buildRevisionInstruction: (hits: Array<{ recommendedFix?: string }>) => string
-}
+const { lintJasperOutput, checkUnbackedThresholds, SAFE_FALLBACK, buildRevisionInstruction } =
+  lintNs as unknown as {
+    lintJasperOutput: (t: string) => Array<{ term: string }>
+    checkUnbackedThresholds: (t: string, opts?: { retrievalUsed?: boolean }) => Array<{ term: string }>
+    SAFE_FALLBACK: string
+    buildRevisionInstruction: (hits: Array<{ recommendedFix?: string }>) => string
+  }
 
 describe('jasper output linter', () => {
   it('trips on direct causation (engine mirror)', () => {
@@ -68,5 +70,33 @@ describe('jasper output linter', () => {
     expect(instr).toMatch(/REVISION REQUIRED/)
     expect(instr).toMatch(/IH Review Required/)
     expect(instr).toMatch(/Do not assert causation\./)
+  })
+})
+
+describe('jasper tool-backed threshold post-check', () => {
+  it('flags a framework + concentration when no retrieval tool ran', () => {
+    expect(checkUnbackedThresholds('Per Mølhave, 500 µg/m³ is the concern tier.', { retrievalUsed: false }).length)
+      .toBeGreaterThan(0)
+    expect(checkUnbackedThresholds('The OSHA PEL is 0.75 ppm 8-hr TWA.', { retrievalUsed: false }).length)
+      .toBeGreaterThan(0)
+    expect(checkUnbackedThresholds('EPA NAAQS PM2.5 is 35 µg/m³.', { retrievalUsed: false }).length)
+      .toBeGreaterThan(0)
+  })
+
+  it('does NOT flag when a retrieval tool ran this turn', () => {
+    expect(checkUnbackedThresholds('Per the tool, OSHA PEL is 0.75 ppm.', { retrievalUsed: true })).toEqual([])
+    expect(checkUnbackedThresholds('Mølhave tier 200–3000 µg/m³.', { retrievalUsed: true })).toEqual([])
+  })
+
+  it('does NOT flag standard citations or years (no concentration unit)', () => {
+    expect(checkUnbackedThresholds('Per ASHRAE 62.1-2025 §6.2.2.1, increase outdoor air.', { retrievalUsed: false }))
+      .toEqual([])
+    expect(checkUnbackedThresholds('ASHRAE 55-2023 governs thermal comfort.', { retrievalUsed: false })).toEqual([])
+    expect(checkUnbackedThresholds('The EPA finalized the PM2.5 NAAQS revision in 2024.', { retrievalUsed: false }))
+      .toEqual([])
+  })
+
+  it('does NOT flag a bare concentration with no framework nearby', () => {
+    expect(checkUnbackedThresholds('The reading was 900 µg/m³ on the PID.', { retrievalUsed: false })).toEqual([])
   })
 })

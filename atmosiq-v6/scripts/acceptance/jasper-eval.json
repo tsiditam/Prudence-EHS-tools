@@ -1,0 +1,22 @@
+{
+  "feature": "Jasper output quality (P1 eval)",
+  "minManualScore": 0.6,
+  "scenarios": [
+    {
+      "id": "JASPER-EVAL-A",
+      "label": "CO2 1500/415, OA min, symptoms, drain-pan water — no causation verdict",
+      "prompt": "3rd-floor open office. CO2 1500 ppm, outdoor 415 ppm, HVAC OA damper at minimum, occupants reporting symptoms, standing water in the drain pan. What does this tell us?",
+      "tool_calls": ["search_standards_corpus"],
+      "next_step_manual_score": 0.8,
+      "answer": "## Assessment context\n- 3rd-floor open office; indoor CO₂ 1500 ppm against 415 ppm outdoor (≈1085 ppm differential); OA damper at minimum; occupant symptoms reported; standing water in the HVAC drain pan.\n- Missing: outdoor-air CFM, occupancy count/denominator, HVAC runtime/operating mode, moisture reading on materials near the drain pan.\n\n## Screening interpretation\n- The ~1085 ppm indoor–outdoor CO₂ differential is a ventilation-adequacy indicator, not a toxic exposure; per ASHRAE 62.1 it points to outdoor-air delivery lagging occupancy with the damper at minimum.\n- Standing water in the drain pan is a moisture source worth documenting; on its own it does not establish a reason for the reported symptoms.\n\n## Recommended next steps\n1. Measure delivered outdoor-air CFM and compare it against the ASHRAE 62.1 breathing-zone rate for the occupancy.\n2. Capture occupancy count and HVAC operating mode at the time of the CO₂ reading to anchor the differential.\n3. Document the drain-pan moisture (photo plus a moisture reading on adjacent materials) and route it to maintenance.\n\n## Defensibility note\nCO₂ here is screening evidence of ventilation adequacy only; symptom causation and any moisture or microbial determination need more data and a qualified industrial hygienist.\n\nIH Review Required"
+    },
+    {
+      "id": "JASPER-EVAL-B",
+      "label": "CO2 1700 / TVOC 900 rising, renovation + chemicals — TVOC screening, tool-backed, unit-correct",
+      "prompt": "Same zone now: CO2 1700 (was 1180), TVOC 900 µg/m³ (was 680), recent renovation, cleaning chemicals on site. Interpret.",
+      "tool_calls": ["search_standards_corpus"],
+      "next_step_manual_score": 0.85,
+      "answer": "## Assessment context\n- Same 3rd-floor zone; CO₂ 1700 ppm (up from 1180) and TVOC 900 µg/m³ (up from 680); recent renovation; cleaning chemicals staged on-site.\n- Missing: VOC speciation, SDS for the staged products, renovation material list, ventilation runtime since the renovation.\n\n## Screening interpretation\n- Rising CO₂ and TVOC track together, in line with reduced outdoor-air dilution after the renovation; TVOC at 900 µg/m³ is a screening number from a non-speciating PID, not a health threshold.\n- Against the 1991 TVOC dose-response tiers (search_standards_corpus), 900 µg/m³ falls in the 200–3000 µg/m³ multifactorial band — symptoms possible alongside other factors, not a conclusion on its own. It also exceeds the general/LEED 500 µg/m³ building-acceptance target, which is a reason to speciate before reading anything into it.\n\n## Recommended next steps\n1. Pull the SDS for every staged cleaning product and renovation material to identify the candidate VOC constituents.\n2. Speciate the VOCs via EPA TO-15 (Summa canister) or TO-17 (sorbent tube), then evaluate each compound against its own PEL/TLV/REL.\n3. Re-measure CO₂ and TVOC after restoring outdoor-air delivery to separate the ventilation signal from any source signal.\n\n## Defensibility note\nTVOC is a non-speciated screening number; any health interpretation needs speciation and a qualified industrial hygienist. No causal or compliance call is made here.\n\nIH Review Required"
+    }
+  ]
+}

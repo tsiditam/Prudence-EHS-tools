@@ -115,6 +115,54 @@ function lintJasperOutput(text) {
   return hits
 }
 
+// ── Tool-backed threshold post-check ───────────────────────────────────
+// A numeric exposure limit / threshold / advisory tier must come from a
+// tool result this turn. We detect a NAMED FRAMEWORK adjacent to a
+// CONCENTRATION VALUE (a number carrying an exposure/concentration unit)
+// and flag it when no retrieval tool ran this turn. We deliberately key
+// on concentration UNITS, not bare numbers, so standard citations
+// ("ASHRAE 62.1-2025 §6.2.2.1", "55-2023") and years are NOT flagged —
+// only fabricated/ recalled threshold values are.
+const THRESHOLD_FRAMEWORK = /\b(m[oôöø]lhave|ashrae|niosh|osha|acgih|epa|naaqs|leed)\b/i
+// Trailing lookahead (not \b): units ending in ³ are non-word chars, so a
+// \b after them fails when followed by a space — use a not-alphanumeric
+// guard instead so "500 µg/m³ is…" still matches.
+const CONCENTRATION_VALUE =
+  /\b\d[\d,]*(?:\.\d+)?\s?(?:ppb|ppm|µg\/m³|µg\/m3|ug\/m³|ug\/m3|mg\/m³|mg\/m3|f\/cc|fibers?\/cc|cfu\/m³|cfu\/m3|pci\/l)(?![a-z0-9])/gi
+
+/**
+ * Flag numeric thresholds that are NOT backed by a retrieval tool call
+ * this turn. Returns [] when opts.retrievalUsed is true (a
+ * lookup_exposure_limit / search_standards_corpus call satisfies the
+ * backing requirement coarsely, per the rule). Each hit shape matches
+ * lintJasperOutput's so callers can treat them uniformly.
+ */
+function checkUnbackedThresholds(text, opts = {}) {
+  if (!text || typeof text !== 'string') return []
+  if (opts.retrievalUsed) return []
+  const hits = []
+  CONCENTRATION_VALUE.lastIndex = 0
+  let m
+  while ((m = CONCENTRATION_VALUE.exec(text)) !== null) {
+    if (m[0].length === 0) {
+      CONCENTRATION_VALUE.lastIndex++
+      continue
+    }
+    const idx = m.index
+    const win = text.slice(Math.max(0, idx - 60), Math.min(text.length, idx + m[0].length + 60))
+    if (THRESHOLD_FRAMEWORK.test(win)) {
+      hits.push({
+        term: m[0],
+        snippet: snippetAround(text, idx, m[0].length),
+        category: 'Jasper §unbacked threshold',
+        recommendedFix:
+          'Every numeric exposure limit / threshold / advisory tier must come from a tool result this turn (lookup_exposure_limit or search_standards_corpus). If no tool returned the value, state it is not available and recommend confirming against the assessor’s reference rather than recalling a number.',
+      })
+    }
+  }
+  return hits
+}
+
 /**
  * Build a single user-turn revision instruction naming the violated
  * rules, for the temperature-0 retry. The added system-style nudge is
@@ -155,4 +203,10 @@ const SAFE_FALLBACK = [
   'IH Review Required',
 ].join('\n')
 
-module.exports = { lintJasperOutput, buildRevisionInstruction, SAFE_FALLBACK, JASPER_BANS }
+module.exports = {
+  lintJasperOutput,
+  checkUnbackedThresholds,
+  buildRevisionInstruction,
+  SAFE_FALLBACK,
+  JASPER_BANS,
+}

@@ -40,7 +40,7 @@ import { FIELD_ASSISTANT_TOOLS, dispatchTool } from '../src/constants/field-assi
 import { scrubPii } from '../lib/sentry.js'
 import { auditLog } from './_audit.js'
 import { hasUnlimitedUsage } from '../lib/unlimited-usage.js'
-import { lintJasperOutput, buildRevisionInstruction, SAFE_FALLBACK } from './_jasper-lint.js'
+import { lintJasperOutput, checkUnbackedThresholds, buildRevisionInstruction, SAFE_FALLBACK } from './_jasper-lint.js'
 
 // ── Quota / model / pricing ────────────────────────────────────────
 const PER_MINUTE_LIMIT = 15
@@ -714,6 +714,10 @@ async function enforceJasperOutputSafety(
   systemBlocks: unknown,
   result: Awaited<ReturnType<typeof runAgentLoop>>,
   res: VercelLikeResponse,
+  // Whether a retrieval tool (lookup_exposure_limit / search_standards_corpus)
+  // ran THIS turn — satisfies the tool-backed-threshold requirement. Stays
+  // constant across the retry (the retry reuses the turn's tool results).
+  retrievalUsed: boolean,
 ): Promise<{
   finalText: string
   lint: LintOutcome
@@ -722,7 +726,12 @@ async function enforceJasperOutputSafety(
   extraCacheRead: number
   extraCacheCreate: number
 }> {
-  const firstHits = lintJasperOutput(result.text)
+  // Combine prohibited-language hits with unbacked-threshold hits.
+  const lintFor = (text: string) => [
+    ...lintJasperOutput(text),
+    ...checkUnbackedThresholds(text, { retrievalUsed }),
+  ]
+  const firstHits = lintFor(result.text)
   const lint: LintOutcome = {
     tripped: firstHits.length > 0,
     phrases: Array.from(new Set(firstHits.map((h: { term: string }) => h.term))),
@@ -764,7 +773,7 @@ async function enforceJasperOutputSafety(
     : zero
 
   let finalText: string
-  if (retry && retry.text && lintJasperOutput(retry.text).length === 0) {
+  if (retry && retry.text && lintFor(retry.text).length === 0) {
     finalText = retry.text
     lint.retry_fixed = true
   } else {
@@ -1086,10 +1095,14 @@ async function handler(req: VercelLikeRequest, res: VercelLikeResponse): Promise
   }
   const latencyMs = Date.now() - agentStartedAt
 
-  // Deterministic output-safety enforcement: lint the assembled answer,
-  // retry once at temp 0 on a hit, fall back if still unsafe, and emit a
-  // `replace` event so the client swaps the already-streamed bubble.
-  const safety = await enforceJasperOutputSafety(apiKey, systemBlocks, result, res)
+  // Deterministic output-safety enforcement: lint the assembled answer +
+  // check that any numeric threshold is tool-backed, retry once at temp 0
+  // on a hit, fall back if still unsafe, and emit a `replace` event so the
+  // client swaps the already-streamed bubble.
+  const retrievalUsed = result.toolCalls.some(
+    (tc) => tc.name === 'lookup_exposure_limit' || tc.name === 'search_standards_corpus',
+  )
+  const safety = await enforceJasperOutputSafety(apiKey, systemBlocks, result, res, retrievalUsed)
   const finalText = safety.finalText
   // Fold retry token usage into the totals so cost + ledger reflect reality.
   const totalInputTokens = (result.inputTokens || 0) + safety.extraInput
