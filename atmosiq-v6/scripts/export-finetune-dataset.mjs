@@ -12,9 +12,14 @@
  *      honoured here so flipped users drop out immediately.
  *   2. Only conversations that still exist (cascade-deleted rows
  *      are excluded by the inner-join shape).
- *   3. Assistant turns rated 'down' are EXCLUDED unless the caller
- *      passes --include-negatives (which is the right mode for
- *      preference-pair / DPO training later).
+ *   3. Conversations containing a 'down'-rated turn are EXCLUDED
+ *      (whole conversation) unless the caller passes
+ *      --include-negatives (the right mode for preference-pair / DPO
+ *      training later).
+ *   4. Conversations with ANY output-linter hit are EXCLUDED
+ *      unconditionally — sourced from the jasper_asked audit rows
+ *      (details.lint.tripped). We must not train on the defects the
+ *      linter just corrected, even via --include-negatives.
  *
  * Per-row schema (one JSON object per line):
  *   {
@@ -99,7 +104,7 @@ function printHelp() {
  */
 export function buildTrainingRows({
   messages, feedbackByMessageId, consentingUserIds,
-  includeNegatives, systemPrompt,
+  includeNegatives, systemPrompt, excludedConversationIds = new Set(),
 }) {
   const out = []
   let lastUserByConv = new Map()
@@ -109,6 +114,13 @@ export function buildTrainingRows({
       // turn can't be paired with someone else's assistant turn
       // later (defensive — query orders by conv id then time, so
       // this shouldn't matter, but cheap insurance).
+      lastUserByConv.delete(m.conversation_id)
+      continue
+    }
+    // Conversation-level exclusion: drop the WHOLE conversation when it
+    // had a lint hit (the defect we just fixed — never train on it) or a
+    // thumbs-down (see main(); skipped when --include-negatives).
+    if (excludedConversationIds.has(m.conversation_id)) {
       lastUserByConv.delete(m.conversation_id)
       continue
     }
@@ -195,17 +207,54 @@ async function main() {
     for (const f of (feedback || [])) feedbackByMessageId.set(f.message_id, f)
   }
 
+  // Lint-tripped conversations — never train on a turn the output linter
+  // flagged (the defect we just fixed). Sourced from the jasper_asked
+  // audit rows (details.lint.tripped), keyed by target_id = conversation.
+  // This exclusion is UNCONDITIONAL (not affected by --include-negatives).
+  const lintTrippedConvIds = new Set()
+  {
+    let aq = supabase
+      .from('audit_log')
+      .select('target_id, details, created_at')
+      .eq('action', 'jasper_asked')
+      .eq('target_type', 'field_assistant_conversation')
+    if (args.since) aq = aq.gte('created_at', args.since)
+    const { data: auditRows, error: aErr } = await aq
+    if (aErr) { console.error('audit query failed:', aErr.message); process.exit(1) }
+    for (const r of (auditRows || [])) {
+      if (r && r.target_id && r.details && r.details.lint && r.details.lint.tripped) {
+        lintTrippedConvIds.add(r.target_id)
+      }
+    }
+  }
+
+  // Thumbs-down conversations — exclude the WHOLE conversation unless the
+  // caller wants negatives (DPO). buildTrainingRows still drops individual
+  // 👎 turns by default; the spec escalates that to the whole conversation.
+  const downConvIds = new Set()
+  for (const m of (messages || [])) {
+    if (m.role !== 'assistant') continue
+    const fb = feedbackByMessageId.get(m.id)
+    if (fb && fb.rating === 'down') downConvIds.add(m.conversation_id)
+  }
+
+  const excludedConversationIds = new Set(lintTrippedConvIds)
+  if (!args.includeNegatives) for (const id of downConvIds) excludedConversationIds.add(id)
+
   const rows = buildTrainingRows({
     messages: messages || [],
     feedbackByMessageId,
     consentingUserIds,
     includeNegatives: args.includeNegatives,
     systemPrompt: null,
+    excludedConversationIds,
   })
 
   console.log(`Eligible training rows: ${rows.length}`)
   console.log(`  Users in dataset: ${consentingUserIds.size} / ${userIds.length} (rest opted out)`)
   console.log(`  👎 rows included: ${args.includeNegatives ? 'yes' : 'no'}`)
+  console.log(`  Excluded conversations: ${excludedConversationIds.size} (lint-tripped ${lintTrippedConvIds.size}` +
+    `${args.includeNegatives ? '' : `, 👎 ${downConvIds.size}`})`)
   console.log(`  Since: ${args.since || 'beginning of time'}`)
 
   if (args.dryRun) {

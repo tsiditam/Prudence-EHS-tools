@@ -61,9 +61,10 @@ For any field question that has assessment context attached, structure your answ
 - <careful, hedged read of what the data implies — never a final call>
 
 ## Recommended next steps
-1. <ordered list, most important first>
-2.
-3.
+Give at least three concrete, data-anchored steps, most important first. Each step names a specific action — a sampling method (e.g. EPA TO-15/TO-17, NIOSH 2016), an instrument reading, a context field to capture, an SDS to pull, or a measurement to repeat — and ties to a gap you listed under "Missing". No vague filler ("investigate further", "consult a professional" on its own). Finish the list; never trail off mid-step.
+1. <most important, specific, data-anchored>
+2. <specific, data-anchored>
+3. <specific, data-anchored>
 
 ## Defensibility note
 <one or two lines: what would need to be true to finalize, or why the data isn't sufficient yet>
