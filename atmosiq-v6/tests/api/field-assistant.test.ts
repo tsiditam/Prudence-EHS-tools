@@ -200,6 +200,15 @@ function defaultStreamEvents(text: string, inputTokens = 4100, cacheRead = 3900,
   ]
 }
 
+// Non-streaming JSON response — used to mock the temperature-0 revision
+// retry (callAnthropicOnce reads .json(), not the SSE stream).
+function makeJsonResponse(obj: unknown): Response {
+  return new Response(JSON.stringify(obj), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  }) as Response
+}
+
 // ─── Req / Res helpers ──────────────────────────────────────────────
 function makeReq(body: unknown, headers: Record<string, string> = {}): any {
   return {
@@ -267,6 +276,19 @@ function sseEvents(captured: CapturedRes): { event: string; data: any }[] {
 import * as handlerMod from '../../api/field-assistant'
 const fnHandler = (handlerMod as any).default
 const t = (handlerMod as any).__test as typeof import('../../api/field-assistant').__test
+
+// The _audit module is mocked (vi.mock above) — auditLog is a vi.fn().
+// Import it here to inspect the recorded `jasper_asked` details (lint
+// telemetry) from the linter tests.
+import { auditLog as mockedAuditLog } from '../../api/_audit'
+function lastAuditDetails(): any {
+  const calls = (mockedAuditLog as any).mock?.calls || []
+  for (let i = calls.length - 1; i >= 0; i--) {
+    const arg = calls[i][0]
+    if (arg && arg.action === 'jasper_asked') return arg.details
+  }
+  return undefined
+}
 
 beforeEach(() => {
   resetState()
@@ -514,5 +536,99 @@ describe('field-assistant tool-use', () => {
     expect(events.filter((e) => e.event === 'tool_call').length).toBe(t.MAX_TOOL_ROUNDS)
     // Final done event still fires
     expect(events.find((e) => e.event === 'done')).toBeDefined()
+  })
+})
+
+// ─── Output linter: retry + replace + safe persistence ──────────────
+// The streamed answer is linted after assembly. On a hit the handler
+// retries once at temperature 0 (non-streamed JSON) and emits a `replace`
+// event; only the clean / fallback text is ever persisted.
+
+describe('field-assistant output linter', () => {
+  it('does not retry or emit replace for a clean answer', async () => {
+    // beforeEach mock streams 'OK.' which is clean.
+    const { res, captured } = makeRes()
+    await fnHandler(makeReq({ message: 'What is CO2 ventilation?' }), res as any)
+    const events = sseEvents(captured)
+    expect(events.some((e) => e.event === 'replace')).toBe(false)
+    const assistant = messages.find((m) => m.role === 'assistant')
+    expect(assistant?.content).toBe('OK.')
+  })
+
+  it('lints a causation answer, retries at temp 0, and persists only the clean text', async () => {
+    const seen: { stream: boolean }[] = []
+    t.setFetch(((_url: string, init: any) => {
+      const body = JSON.parse(init.body)
+      seen.push({ stream: !!body.stream })
+      if (body.stream) {
+        // pass 1 — prohibited causation phrasing (already streamed to UI)
+        return Promise.resolve(
+          makeStreamingResponse(defaultStreamEvents('The occupant symptoms are caused by the HVAC mold.')),
+        )
+      }
+      // retry (stream:false) — clean four-section answer
+      return Promise.resolve(
+        makeJsonResponse({
+          content: [{
+            type: 'text',
+            text: '## Screening interpretation\n- Elevated readings are a ventilation indicator only.\n\nIH Review Required',
+          }],
+          usage: { input_tokens: 120, output_tokens: 30, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 },
+          stop_reason: 'end_turn',
+        }),
+      )
+    }) as any)
+
+    const { res, captured } = makeRes()
+    await fnHandler(makeReq({ message: 'Why are the occupants sick?' }), res as any)
+
+    // The retry fired (stream:true then stream:false).
+    expect(seen).toEqual([{ stream: true }, { stream: false }])
+    // A replace event carried the corrected text to the client.
+    const events = sseEvents(captured)
+    const replaceEv = events.find((e) => e.event === 'replace')
+    expect(replaceEv).toBeDefined()
+    expect(replaceEv!.data.text).not.toMatch(/caused by/i)
+    // The persisted assistant turn is clean, and the bad phrase reaches
+    // NO persisted row.
+    const assistant = messages.find((m) => m.role === 'assistant')
+    expect(assistant?.content).not.toMatch(/caused by/i)
+    expect(messages.some((m) => /caused by/i.test(m.content))).toBe(false)
+    // Audit telemetry recorded the lint hit + successful retry.
+    const det = lastAuditDetails()
+    expect(det?.lint?.tripped).toBe(true)
+    expect(det?.lint?.retried).toBe(true)
+    expect(det?.lint?.retry_fixed).toBe(true)
+  })
+
+  it('substitutes the safe fallback when the retry still trips', async () => {
+    t.setFetch(((_url: string, init: any) => {
+      const body = JSON.parse(init.body)
+      if (body.stream) {
+        return Promise.resolve(makeStreamingResponse(defaultStreamEvents('This is caused by mold.')))
+      }
+      // retry still prohibited
+      return Promise.resolve(
+        makeJsonResponse({
+          content: [{ type: 'text', text: 'Still caused by mold; the hypothesis is strong.' }],
+          usage: { input_tokens: 50, output_tokens: 10 },
+          stop_reason: 'end_turn',
+        }),
+      )
+    }) as any)
+
+    const { res, captured } = makeRes()
+    await fnHandler(makeReq({ message: 'why?' }), res as any)
+
+    const events = sseEvents(captured)
+    const replaceEv = events.find((e) => e.event === 'replace')
+    expect(replaceEv).toBeDefined()
+    expect(replaceEv!.data.text).toMatch(/IH Review Required/)
+    const assistant = messages.find((m) => m.role === 'assistant')
+    expect(assistant?.content).toMatch(/IH Review Required/)
+    expect(assistant?.content).not.toMatch(/caused by/i)
+    expect(messages.some((m) => /caused by/i.test(m.content))).toBe(false)
+    const det = lastAuditDetails()
+    expect(det?.lint?.fallback_used).toBe(true)
   })
 })

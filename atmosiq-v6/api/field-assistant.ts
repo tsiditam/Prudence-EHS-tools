@@ -40,6 +40,7 @@ import { FIELD_ASSISTANT_TOOLS, dispatchTool } from '../src/constants/field-assi
 import { scrubPii } from '../lib/sentry.js'
 import { auditLog } from './_audit.js'
 import { hasUnlimitedUsage } from '../lib/unlimited-usage.js'
+import { lintJasperOutput, buildRevisionInstruction, SAFE_FALLBACK } from './_jasper-lint.js'
 
 // ── Quota / model / pricing ────────────────────────────────────────
 const PER_MINUTE_LIMIT = 15
@@ -54,7 +55,10 @@ const COST_OUTPUT_PER_M = 15
 const COST_CACHE_READ_PER_M = 0.3
 const COST_CACHE_WRITE_PER_M = 3.75
 
-const MAX_OUTPUT_TOKENS = 800
+// Raised from 800 → 1800: real four-section answers were truncating
+// mid-sentence in "Recommended next steps". Output bills at $15/M, so the
+// extra ~1000-token headroom adds at most ~$0.015 per turn worst case.
+const MAX_OUTPUT_TOKENS = 1800
 const MAX_USER_MESSAGE_LEN = 4000
 const TITLE_TRUNCATE_LEN = 80
 // Cap conversation history sent to the model. Going further back hurts
@@ -287,10 +291,10 @@ async function callAnthropicStream(
     body: JSON.stringify({
       model: ANTHROPIC_MODEL,
       max_tokens: MAX_OUTPUT_TOKENS,
-      // Moderate temperature so answers read like a human IH, not a
-      // chatbot. Kept below 1.0 because facts, citations, and the
-      // four-section format must stay intact — humanizing is style only.
-      temperature: 0.7,
+      // Low temperature: this is a defensibility tool. We want consistent,
+      // conservative output, not creative variance. Facts, citations, and
+      // the four-section format must stay intact across runs.
+      temperature: 0.2,
       stream: true,
       system: systemBlocks,
       messages,
@@ -494,7 +498,14 @@ async function runAgentLoop(
   initialMessages: Array<{ role: string; content: unknown }>,
   res: VercelLikeResponse,
   toolCtx: ToolDispatchContext,
-): Promise<StreamResult & { rounds: number; toolCalls: Array<{ name: string; input: unknown; resultStatus: string }> }> {
+): Promise<StreamResult & {
+  rounds: number
+  toolCalls: Array<{ name: string; input: unknown; resultStatus: string }>
+  // Final message history (incl. tool_use / tool_result blocks) so the
+  // output-safety retry can append a revision turn and reuse tool results
+  // without re-running the agent loop.
+  messages: Array<{ role: string; content: unknown }>
+}> {
   const messages: Array<{ role: string; content: unknown }> = initialMessages.slice()
   const toolCalls: Array<{ name: string; input: unknown; resultStatus: string }> = []
   let combinedText = ''
@@ -624,7 +635,147 @@ async function runAgentLoop(
     toolUses: [],
     rounds,
     toolCalls,
+    messages,
   }
+}
+
+// ── Output safety: buffered revision + linter ──────────────────────────
+// Non-streamed single model call at a fixed temperature, used only for
+// the output-safety retry. tool_choice 'none' forces a textual final
+// answer (no tool use), and the full tool array is still sent because the
+// message history contains tool_use/tool_result blocks.
+async function callAnthropicOnce(
+  apiKey: string,
+  systemBlocks: unknown,
+  messages: unknown,
+  opts: { temperature: number; maxTokens: number },
+): Promise<{ text: string; inputTokens: number; outputTokens: number; cacheRead: number; cacheCreate: number }> {
+  const fetchFn = getFetch()
+  const upstream = (await fetchFn('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: ANTHROPIC_MODEL,
+      max_tokens: opts.maxTokens,
+      temperature: opts.temperature,
+      stream: false,
+      system: systemBlocks,
+      messages,
+      tools: FIELD_ASSISTANT_TOOLS,
+      tool_choice: { type: 'none' },
+    }),
+  })) as Response
+  if (!upstream.ok) {
+    const errText = await upstream.text().catch(() => '')
+    throw new Error(`upstream_${upstream.status}: ${errText || 'no_body'}`)
+  }
+  const data: any = await upstream.json().catch(() => null)
+  const blocks: any[] = data && Array.isArray(data.content) ? data.content : []
+  const text = blocks
+    .filter((b) => b && b.type === 'text' && typeof b.text === 'string')
+    .map((b) => b.text)
+    .join('')
+  const u = (data && data.usage) || {}
+  return {
+    text,
+    inputTokens: u.input_tokens || 0,
+    outputTokens: u.output_tokens || 0,
+    cacheRead: u.cache_read_input_tokens || 0,
+    cacheCreate: u.cache_creation_input_tokens || 0,
+  }
+}
+
+interface LintOutcome {
+  tripped: boolean
+  phrases: string[]
+  retried: boolean
+  retry_fixed: boolean
+  fallback_used: boolean
+}
+
+/**
+ * Deterministic output linter for the streamed Jasper answer. Runs on the
+ * fully-assembled text AFTER the stream completes and BEFORE persistence.
+ *
+ * The answer was already streamed token-by-token and cannot be un-sent, so
+ * on a lint hit we: (1) retry once at temperature 0 with a revision
+ * instruction appended to the loop's message history, (2) re-lint, and if
+ * it still trips, substitute a screening-safe fallback. The final text is
+ * emitted to the client via a `replace` SSE event (the client swaps the
+ * rendered bubble) and ONLY the clean/fallback text is persisted. Retry
+ * token usage is returned so the ledger/cost reflect reality.
+ */
+async function enforceJasperOutputSafety(
+  apiKey: string,
+  systemBlocks: unknown,
+  result: Awaited<ReturnType<typeof runAgentLoop>>,
+  res: VercelLikeResponse,
+): Promise<{
+  finalText: string
+  lint: LintOutcome
+  extraInput: number
+  extraOutput: number
+  extraCacheRead: number
+  extraCacheCreate: number
+}> {
+  const firstHits = lintJasperOutput(result.text)
+  const lint: LintOutcome = {
+    tripped: firstHits.length > 0,
+    phrases: Array.from(new Set(firstHits.map((h: { term: string }) => h.term))),
+    retried: false,
+    retry_fixed: false,
+    fallback_used: false,
+  }
+  const zero = { extraInput: 0, extraOutput: 0, extraCacheRead: 0, extraCacheCreate: 0 }
+  if (firstHits.length === 0) {
+    return { finalText: result.text, lint, ...zero }
+  }
+
+  console.warn('[field-assistant] output lint tripped:', lint.phrases.join(', '))
+  lint.retried = true
+
+  const revisionMessages = [
+    ...result.messages,
+    { role: 'assistant', content: result.text },
+    { role: 'user', content: buildRevisionInstruction(firstHits) },
+  ]
+
+  let retry: Awaited<ReturnType<typeof callAnthropicOnce>> | null = null
+  try {
+    retry = await callAnthropicOnce(apiKey, systemBlocks, revisionMessages, {
+      temperature: 0,
+      maxTokens: MAX_OUTPUT_TOKENS,
+    })
+  } catch (err) {
+    console.error('[field-assistant] revision call failed:', err instanceof Error ? err.message : String(err))
+  }
+
+  const extra = retry
+    ? {
+        extraInput: retry.inputTokens,
+        extraOutput: retry.outputTokens,
+        extraCacheRead: retry.cacheRead,
+        extraCacheCreate: retry.cacheCreate,
+      }
+    : zero
+
+  let finalText: string
+  if (retry && retry.text && lintJasperOutput(retry.text).length === 0) {
+    finalText = retry.text
+    lint.retry_fixed = true
+  } else {
+    finalText = SAFE_FALLBACK
+    lint.fallback_used = true
+  }
+
+  // The violating text was already streamed; tell the client to replace
+  // the rendered bubble with the corrected / fallback answer.
+  writeSse(res, 'replace', { text: finalText })
+  return { finalText, lint, ...extra }
 }
 
 interface TurnTelemetry {
@@ -935,19 +1086,33 @@ async function handler(req: VercelLikeRequest, res: VercelLikeResponse): Promise
   }
   const latencyMs = Date.now() - agentStartedAt
 
-  const cost = estimateCost(result.inputTokens, result.outputTokens, result.cacheCreate, result.cacheRead)
+  // Deterministic output-safety enforcement: lint the assembled answer,
+  // retry once at temp 0 on a hit, fall back if still unsafe, and emit a
+  // `replace` event so the client swaps the already-streamed bubble.
+  const safety = await enforceJasperOutputSafety(apiKey, systemBlocks, result, res)
+  const finalText = safety.finalText
+  // Fold retry token usage into the totals so cost + ledger reflect reality.
+  const totalInputTokens = (result.inputTokens || 0) + safety.extraInput
+  const totalOutputTokens = (result.outputTokens || 0) + safety.extraOutput
+  const totalCacheRead = (result.cacheRead || 0) + safety.extraCacheRead
+  const totalCacheCreate = (result.cacheCreate || 0) + safety.extraCacheCreate
+
+  const cost = estimateCost(totalInputTokens, totalOutputTokens, totalCacheCreate, totalCacheRead)
 
   // Persist assistant turn + ledger row + audit log. Failures logged
   // but never block the response — the assessor already has the text.
+  // NOTE: finalText (clean / fallback) is persisted, never the violating
+  // text — the lint contract is that prohibited phrasing never reaches
+  // field_assistant_messages.
   try {
     await persistTurn(
-      supabase, conversationId, user.id, 'assistant', result.text,
+      supabase, conversationId, user.id, 'assistant', finalText,
       contextView as string | null,
       assistantTurnId,
       {
         model: ANTHROPIC_MODEL,
-        inputTokens: result.inputTokens,
-        outputTokens: result.outputTokens,
+        inputTokens: totalInputTokens,
+        outputTokens: totalOutputTokens,
         toolRounds: result.rounds,
         latencyMs,
       },
@@ -956,7 +1121,7 @@ async function handler(req: VercelLikeRequest, res: VercelLikeResponse): Promise
     const msg = err instanceof Error ? err.message : String(err)
     console.error('[field-assistant] assistant-turn persist failed:', msg)
   }
-  await recordGeneration(supabase, user.id, result.inputTokens, result.outputTokens, cost)
+  await recordGeneration(supabase, user.id, totalInputTokens, totalOutputTokens, cost)
 
   // Compute remaining-quota figure for the day so the UI can show a
   // "N of M today" footer. Counts the just-inserted row so the number
@@ -984,10 +1149,10 @@ async function handler(req: VercelLikeRequest, res: VercelLikeResponse): Promise
     target_id: conversationId,
     details: {
       model: ANTHROPIC_MODEL,
-      input_tokens: result.inputTokens,
-      output_tokens: result.outputTokens,
-      cache_read_input_tokens: result.cacheRead,
-      cache_creation_input_tokens: result.cacheCreate,
+      input_tokens: totalInputTokens,
+      output_tokens: totalOutputTokens,
+      cache_read_input_tokens: totalCacheRead,
+      cache_creation_input_tokens: totalCacheCreate,
       estimated_cost_usd: cost,
       stop_reason: result.stopReason,
       context_view: contextView,
@@ -996,6 +1161,8 @@ async function handler(req: VercelLikeRequest, res: VercelLikeResponse): Promise
       tool_calls: result.toolCalls.map((t) => ({ name: t.name, status: t.resultStatus })),
       vision_usages: visionUsages,
       photos_attached: photoIndex.length,
+      // Output-linter telemetry so we can measure leakage + retry efficacy.
+      lint: safety.lint,
     },
     req,
   })
