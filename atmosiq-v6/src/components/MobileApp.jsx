@@ -4058,7 +4058,20 @@ export default function MobileApp() {
                       default `sm` TactileButton (padding/font/min-height
                       overrides) so both fit on one row of the card. */}
                   <div style={{display:'flex',gap:10}}>
-                    <TactileButton variant="primary" size="sm" pill onClick={startNew} style={{padding:'8px 12px',fontSize:11,minHeight:30}}>
+                    {/* Start survey CTA is tinted green ("go" / start) per
+                        product direction, overriding the default cyan
+                        accent-fill. background uses the theme-aware
+                        --success (vivid green in dark, deep green in light);
+                        white text is kept on the green in BOTH themes (the
+                        light-mode --on-accent-fill is near-black, which would
+                        be unreadable on green) — same intentional white-on-
+                        fill contrast call as the cyan CTA. */}
+                    <TactileButton variant="primary" size="sm" pill onClick={startNew} style={{
+                      padding:'8px 12px',fontSize:11,minHeight:30,
+                      background:'var(--success)',
+                      color:'#FFFFFF',
+                      boxShadow:'inset 0 1px 0 rgba(255,255,255,0.22), 0 1px 2px rgba(0,0,0,0.20), 0 8px 18px color-mix(in srgb, var(--success) 34%, transparent)',
+                    }}>
                       Start survey
                     </TactileButton>
                     {/* Report an incident is a secondary action here, so
