@@ -2693,11 +2693,10 @@ export default function MobileApp() {
               )})}
             </div>
           )})}
-          {userMode !== 'fm' && oshaResult?.flag&&<div style={{padding:16,background:'#EF444412',border:`1px solid #EF444428`,borderRadius:10}}>
-            <div style={{fontSize:13,fontWeight:700,color:'#EF4444',marginBottom:6}}>OSHA-Relevant Conditions</div>
-            <div style={{fontSize:11,color:DIM,marginBottom:12,lineHeight:1.5}}>These items may warrant OSHA-related review and are not a determination of citation or violation.</div>
-            {oshaResult.fl.map((f,i)=><div key={i} style={{fontSize:13,color:SUB,lineHeight:1.6,marginBottom:i<oshaResult.fl.length-1?6:0}}>{f}</div>)}
-          </div>}
+          {/* The "OSHA-Relevant Conditions" advisory card was removed per
+              product direction — it is no longer surfaced on any report.
+              (The engine still computes oshaResult.fl; it is simply not
+              rendered here. Data Gaps below is unaffected.) */}
           {oshaResult?.gaps?.length>0&&<div style={{padding:16,background:'#FBBF2410',border:`1px solid #FBBF2428`,borderRadius:10}}>
             <div style={{fontSize:13,fontWeight:700,color:'#FBBF24',marginBottom:10}}>Data Gaps</div>
             {oshaResult.gaps.map((g,i)=><div key={i} style={{fontSize:13,color:SUB,lineHeight:1.6,marginBottom:i<oshaResult.gaps.length-1?6:0}}>{g}</div>)}
