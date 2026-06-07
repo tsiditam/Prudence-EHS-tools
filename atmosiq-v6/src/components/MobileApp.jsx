@@ -4070,7 +4070,9 @@ export default function MobileApp() {
                       padding:'8px 12px',fontSize:11,minHeight:30,
                       background:'var(--success)',
                       color:'#FFFFFF',
-                      boxShadow:'inset 0 1px 0 rgba(255,255,255,0.22), 0 1px 2px rgba(0,0,0,0.20), 0 8px 18px color-mix(in srgb, var(--success) 34%, transparent)',
+                      // No colored glow — flat fill with only the inset
+                      // sheen + a faint drop shadow for tactile depth.
+                      boxShadow:'inset 0 1px 0 rgba(255,255,255,0.22), 0 1px 2px rgba(0,0,0,0.20)',
                     }}>
                       Start survey
                     </TactileButton>
