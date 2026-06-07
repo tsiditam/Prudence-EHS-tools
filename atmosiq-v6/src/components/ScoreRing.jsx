@@ -11,7 +11,13 @@
  */
 
 import { useState, useEffect } from 'react'
-export default function ScoreRing({ value, max=100, color, size=130 }) {
+// `onClick` is optional. When provided, the ring becomes an interactive
+// control (the v3 design treats the composite ScoreRing as a tap target
+// that drills into the score breakdown) — it gets button semantics, a
+// pointer cursor, and keyboard activation. When omitted, the ring renders
+// as inert presentation exactly as before, so every existing call site
+// (ReportView, LandingPage, the operator hero) is unchanged.
+export default function ScoreRing({ value, max=100, color, size=130, onClick, ariaLabel }) {
   const [a, setA] = useState(0)
   useEffect(()=>{
     // Honor prefers-reduced-motion — snap to the final value instead of
@@ -28,8 +34,16 @@ export default function ScoreRing({ value, max=100, color, size=130 }) {
     return ()=>{ if(raf) cancelAnimationFrame(raf); clearTimeout(failsafe) }
   },[value])
   const r=(size-10)/2,circ=2*Math.PI*r,off=circ-(a/max)*circ
+  const interactive = typeof onClick === 'function'
+  const interactiveProps = interactive ? {
+    role: 'button',
+    tabIndex: 0,
+    'aria-label': ariaLabel || `Score ${Math.round(value)} of ${max}. View score breakdown.`,
+    onClick,
+    onKeyDown: e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(e) } },
+  } : {}
   return (
-    <div style={{position:'relative',width:size,height:size}}>
+    <div {...interactiveProps} style={{position:'relative',width:size,height:size,...(interactive?{cursor:'pointer'}:null)}}>
       <svg width={size} height={size} style={{transform:'rotate(-90deg)'}}>
         <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="var(--border)" strokeWidth="5" />
         <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth="5" strokeDasharray={circ} strokeDashoffset={off} strokeLinecap="round" style={{filter:'drop-shadow(0 0 5px '+color+'50)'}} />
