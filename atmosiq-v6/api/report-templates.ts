@@ -30,12 +30,18 @@
  */
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-// NOTE: ../lib/report-templates/render pulls in docxtemplater + pizzip at
-// module load. Only the `upload` action needs token discovery, so it is
-// imported lazily inside handleUpload (see below) — `list` and `delete`
-// must not drag those heavy deps into their cold start. This mirrors the
-// CLAUDE.md "Jasper hot path stays lean" rule (pitfall #5): keeping the
-// DOCX bundle off the light paths avoids cold-start 500s on Vercel.
+import { discoverTokens, TemplateRenderError } from '../lib/report-templates/render'
+// NOTE: render.ts pulls in docxtemplater + pizzip at module load. This used
+// to be a lazy `await import()` inside handleUpload to keep list/delete cold
+// starts lean — but Vercel's file tracer did not reliably bundle the
+// dynamically-imported module + its deps into this function, so the upload
+// path threw MODULE_NOT_FOUND at runtime, surfaced as the opaque
+// `server_error` / `rt_init` in the Settings panel. A static import is traced
+// deterministically (same pattern as the report-templates-render function,
+// which bundles docxtemplater fine), so the upload path can resolve it. The
+// extra cold-start weight on list/delete is acceptable for this low-traffic
+// Settings endpoint — this is NOT the Jasper hot path that CLAUDE.md
+// pitfall #5 guards.
 
 const MAX_TEMPLATE_BYTES = 5 * 1024 * 1024 // 5 MB
 const MAX_NAME_LEN = 120
@@ -153,9 +159,9 @@ async function handleUpload(
   }
 
   // Discover tokens (also serves as a "is this actually a .docx?" check).
-  // Lazy import: docxtemplater + pizzip only load on the upload path, never
-  // for list/delete (see the import note at the top of this file).
-  const { discoverTokens, TemplateRenderError } = await import('../lib/report-templates/render')
+  // discoverTokens / TemplateRenderError are statically imported at the top
+  // so Vercel bundles render.ts (+ docxtemplater / pizzip) into this
+  // function — see the import note there.
   let tokens: { found: string[]; unknown: string[] }
   try {
     tokens = discoverTokens(buffer)
