@@ -251,7 +251,7 @@ export default function ReportTemplatesPanel() {
             borderTop: `1px solid ${BORDER}`,
           }}
         >
-          No templates saved yet. Upload a .docx with {'{{tokens}}'} and Jasper will fill it from the active assessment.
+          No templates saved yet.
         </div>
       )}
 
