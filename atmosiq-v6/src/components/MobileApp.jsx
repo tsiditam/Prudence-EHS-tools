@@ -41,7 +41,6 @@ import StatusPill from './ui/StatusPill'
 import TactileButton from './ui/TactileButton'
 import BottomSheet from './ui/BottomSheet'
 import Loading from './Loading'
-import ScoreRing from './ScoreRing'
 import CountUp from './ui/CountUp'
 import PhotoCapture from './PhotoCapture'
 import CollaboratorsBar from './CollaboratorsBar'
@@ -2082,7 +2081,10 @@ export default function MobileApp() {
             still navigates to the Narrative tab — so no
             functionality is lost, only redundant header chrome. ── */}
         <div style={{marginBottom:18}}>
-          <div style={{...V3.T.h1, fontSize:30, lineHeight:'36px', marginBottom:4, overflow:'hidden', textOverflow:'ellipsis'}}>{bldg.fn||'Assessment'}</div>
+          {/* Property name in the editorial serif (matches the v3
+              prototype's Lora .prop-name) so the lead screen reads as a
+              consultant document, not a dashboard. */}
+          <div style={{...V3.T.h1, fontFamily:SERIF, fontWeight:600, fontSize:28, lineHeight:'34px', letterSpacing:'-0.5px', marginBottom:4, overflow:'hidden', textOverflow:'ellipsis'}}>{bldg.fn||'Assessment'}</div>
           {bldg.fl && <div style={{...V3.T.h1Sub}}>{bldg.fl}</div>}
           {/* Senior-design metadata row: semantic status dot + counts.
               The report is persisted on this view, so the dot reads
@@ -2144,71 +2146,65 @@ export default function MobileApp() {
               zero on the wrapper because the hero composes three
               vertical zones (intro, denominator line, optional
               advisory) each with their own padding rhythm. */}
-          {/* Full-perimeter neon outline in the severity colour (matches
-              the Home co-pilot card's neon treatment, but tinted to the
-              card's own severity so a Critical card glows red, not cyan).
-              Replaces the top-only accent rail. */}
+          {/* ── Assessment card — the v3 "acard" lead card from the
+              AtmosFlow Redesign v3 prototype: a severity-tinted gradient
+              surface carrying the badges, a serif diagnosis line, the
+              supporting screening sentence, and a footer score readout
+              (composite indicator + thin severity bar). The composite
+              stays a screening indicator — the serif diagnosis keeps the
+              "(Screening)" framing and the bar is labelled /100, not a
+              compliance verdict. Tapping the footer drills into the
+              per-zone / per-category breakdown. ── */}
           <GlassCard style={{
             padding:0,
-            border:`1px solid color-mix(in srgb, ${sevPillTone} 80%, transparent)`,
-            boxShadow:`0 0 18px color-mix(in srgb, ${sevPillTone} 28%, transparent), 0 0 6px color-mix(in srgb, ${sevPillTone} 42%, transparent), inset 0 0 14px color-mix(in srgb, ${sevPillTone} 7%, transparent), 0 4px 14px rgba(0,0,0,0.35)`,
+            background:`linear-gradient(135deg, color-mix(in srgb, ${sevPillTone} 9%, transparent) 0%, var(--card) 72%)`,
+            border:`1px solid color-mix(in srgb, ${sevPillTone} 45%, transparent)`,
+            boxShadow:`0 0 18px color-mix(in srgb, ${sevPillTone} 14%, transparent), 0 4px 14px rgba(0,0,0,0.35)`,
           }}>
-            <div style={{padding:'22px 24px 8px',display:'flex',alignItems:'flex-start',gap:18}}>
-              <div style={{flexShrink:0}}>
-                {userMode !== 'fm' ? (
-                  // Tap the composite ring to drill into the per-zone /
-                  // per-category breakdown (v3 treats the ScoreRing as an
-                  // affordance). Lands on the Findings tab and scrolls the
-                  // Assessed Zones panel into view; smooth scroll honours
-                  // prefers-reduced-motion.
-                  <ScoreRing value={comp.tot} color={comp.rc} size={84}
-                    ariaLabel={`Composite indicator ${comp.tot} of 100. View the per-zone score breakdown.`}
-                    onClick={()=>{
-                      haptic('light')
-                      supabase && trackEvent('score_breakdown_open', { source: 'hero_ring' })
-                      setRTab('overview')
-                      let reduce = false
-                      try { reduce = typeof window!=='undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches } catch { reduce = false }
-                      setTimeout(()=>{ document.getElementById('result-zones-anchor')?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' }) }, 60)
-                    }} />
-                ) : (
-                  <div style={{width:60,height:60,borderRadius:V3.R.lg,background:`${comp.rc}15`,border:`2px solid ${comp.rc}40`,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                    <I n={comp.tot>=70?'check':'alert'} s={26} c={comp.rc} w={2} />
-                  </div>
-                )}
+            <div style={{padding:'18px 20px'}}>
+              {/* Badges — severity + measurement confidence. */}
+              <div style={{display:'flex',gap:8,marginBottom:12,flexWrap:'wrap'}}>
+                <StatusPill tone={sevPillTone}>{sevPillLabel}</StatusPill>
+                {measConf && <StatusPill tone={confTone}>{confLabel}</StatusPill>}
               </div>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{display:'flex',gap:8,marginBottom:10,flexWrap:'wrap'}}>
-                  <StatusPill tone={sevPillTone}>{sevPillLabel}</StatusPill>
-                  {measConf && <StatusPill tone={confTone}>{confLabel}</StatusPill>}
-                </div>
-                {/* Headline runs at 18 Bold -1 per the v3 Figma HeroCard
-                    spec — heavier than V3.T.h2 (18 SemiBold -0.2) so it
-                    anchors the hero next to the ScoreRing's visual mass.
-                    Tighter -1 letter-spacing gives the optical density
-                    that reads as a confident screening conclusion rather
-                    than a sub-headline. */}
-                <div style={{...V3.T.h2, fontWeight:700, letterSpacing:'-1px', lineHeight:'24px', marginBottom:6}}>{headline}</div>
-                <div style={{...V3.T.bodyDim, marginBottom:0}}>
-                  {comp.tot < 30 ? 'Building-related symptom cluster identified. Immediate corrective action recommended.'
-                    : comp.tot < 50 ? 'Targeted investigation and corrective action warranted.'
-                    : comp.tot < 70 ? 'Targeted improvements recommended; conditions trending outside accepted range.'
-                    : 'Conditions within acceptable range; continue routine monitoring.'}
-                </div>
+              {/* Serif diagnosis — the screening indicator named in the
+                  editorial serif (matches the prototype's Lora .diag). */}
+              <div style={{fontFamily:SERIF, fontSize:18, fontWeight:600, lineHeight:'24px', color:V3.TEXT_PRIMARY, marginBottom:8, textWrap:'pretty'}}>{headline}</div>
+              <div style={{...V3.T.bodyDim, lineHeight:'20px'}}>
+                {comp.tot < 30 ? 'Building-related symptom cluster identified. Immediate corrective action recommended.'
+                  : comp.tot < 50 ? 'Targeted investigation and corrective action warranted.'
+                  : comp.tot < 70 ? 'Targeted improvements recommended; conditions trending outside accepted range.'
+                  : 'Conditions within acceptable range; continue routine monitoring.'}
               </div>
-            </div>
-
-            {/* Zone-count summary — a single low-emphasis denominator
-                line replaces the earlier three-up score strip (Zone
-                Average / Lowest Zone / Zones Assessed). Numeric
-                composite scores are still computed by the engine and
-                surface in the operator dashboard + DOCX, but the hero
-                leads with the severity pill + narrative, not a
-                /100 readout. Keeps the screening-only positioning:
-                scores are an internal indicator, the conclusion is
-                the headline. */}
-            <div style={{padding:'12px 24px 18px',textAlign:'center',...V3.T.captionDim}}>
-              {comp.count} {userMode === 'fm' ? 'area' : 'zone'}{comp.count!==1?'s':''} assessed
+              {/* Footer score readout. Consultant view shows the composite
+                  indicator + a thin severity-toned /100 bar; tapping drills
+                  into the per-zone breakdown. FM mode keeps a plain count. */}
+              {userMode !== 'fm' ? (
+                <button
+                  onClick={()=>{
+                    haptic('light')
+                    supabase && trackEvent('score_breakdown_open', { source: 'hero_score' })
+                    setRTab('overview')
+                    let reduce = false
+                    try { reduce = typeof window!=='undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches } catch { reduce = false }
+                    setTimeout(()=>{ document.getElementById('result-zones-anchor')?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' }) }, 60)
+                  }}
+                  aria-label={`Composite indicator ${comp.tot} of 100. View the per-zone score breakdown.`}
+                  {...pressFeedback('soft')}
+                  style={{display:'flex',alignItems:'center',gap:12,marginTop:14,paddingTop:14,width:'100%',cursor:'pointer',fontFamily:'inherit',textAlign:'left',background:'none',border:'none',borderTop:`1px solid ${V3.BORDER_SUBTLE}`,...pressFeedback.style}}>
+                  <span style={{fontFamily:'var(--font-mono)',fontSize:22,fontWeight:600,color:sevPillTone,lineHeight:1}}>{comp.tot}</span>
+                  <span style={{fontFamily:'var(--font-mono)',fontSize:11,color:V3.TEXT_TERTIARY}}>/100</span>
+                  <span style={{flex:1,height:3,background:V3.BORDER_DEFAULT,borderRadius:2,overflow:'hidden'}}>
+                    <span style={{display:'block',height:'100%',width:`${Math.max(0,Math.min(100,comp.tot))}%`,background:sevPillTone,borderRadius:2,transition:'width .9s cubic-bezier(.2,.8,.3,1)'}} />
+                  </span>
+                  <span style={{...V3.T.captionDim,whiteSpace:'nowrap'}}>{comp.count} {comp.count===1?'zone':'zones'}</span>
+                  <span style={{color:V3.TEXT_TERTIARY,fontSize:13}}>›</span>
+                </button>
+              ) : (
+                <div style={{marginTop:14,paddingTop:14,borderTop:`1px solid ${V3.BORDER_SUBTLE}`,...V3.T.captionDim}}>
+                  {comp.count} area{comp.count!==1?'s':''} assessed
+                </div>
+              )}
             </div>
             {measConf?.overall === 'Low' && (
               <div style={{
@@ -2229,7 +2225,7 @@ export default function MobileApp() {
               hero's surface vocabulary. Sits to the right on tablet,
               stacks below on phone. */}
           <GlassCard>
-            <div style={{...V3.T.h3, marginBottom:14}}>Next recommended steps</div>
+            <div style={{...V3.T.h3, marginBottom:14}}>Next Recommended Steps</div>
             <div style={{display:'flex',flexDirection:'column',gap:12}}>
               {(() => {
                 const items = []
