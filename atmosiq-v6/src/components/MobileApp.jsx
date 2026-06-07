@@ -2156,7 +2156,21 @@ export default function MobileApp() {
             <div style={{padding:'22px 24px 8px',display:'flex',alignItems:'flex-start',gap:18}}>
               <div style={{flexShrink:0}}>
                 {userMode !== 'fm' ? (
-                  <ScoreRing value={comp.tot} color={comp.rc} size={84} />
+                  // Tap the composite ring to drill into the per-zone /
+                  // per-category breakdown (v3 treats the ScoreRing as an
+                  // affordance). Lands on the Findings tab and scrolls the
+                  // Assessed Zones panel into view; smooth scroll honours
+                  // prefers-reduced-motion.
+                  <ScoreRing value={comp.tot} color={comp.rc} size={84}
+                    ariaLabel={`Composite indicator ${comp.tot} of 100. View the per-zone score breakdown.`}
+                    onClick={()=>{
+                      haptic('light')
+                      supabase && trackEvent('score_breakdown_open', { source: 'hero_ring' })
+                      setRTab('overview')
+                      let reduce = false
+                      try { reduce = typeof window!=='undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches } catch { reduce = false }
+                      setTimeout(()=>{ document.getElementById('result-zones-anchor')?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' }) }, 60)
+                    }} />
                 ) : (
                   <div style={{width:60,height:60,borderRadius:V3.R.lg,background:`${comp.rc}15`,border:`2px solid ${comp.rc}40`,display:'flex',alignItems:'center',justifyContent:'center'}}>
                     <I n={comp.tot>=70?'check':'alert'} s={26} c={comp.rc} w={2} />
@@ -2578,7 +2592,7 @@ export default function MobileApp() {
                   for the detailed drilldown below. Current focus is
                   visually called out with a Current focus sub-label
                   and a raised background on the row. ── */}
-              <div style={V3.panel({ dense: true })}>
+              <div id="result-zones-anchor" style={V3.panel({ dense: true })}>
                 <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12,padding:'4px 4px 0'}}>
                   <div style={{display:'flex',alignItems:'baseline',gap:8}}>
                     <div style={V3.T.h3}>Assessed Zones</div>
