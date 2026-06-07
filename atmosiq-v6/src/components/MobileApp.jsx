@@ -2657,7 +2657,7 @@ export default function MobileApp() {
                 </div>
               )
             }
-            const pct=Math.round((cat.s/cat.mx)*100);const bc=pct>=80?'#22C55E':pct>=60?'#FBBF24':pct>=40?'#FB923C':'#EF4444';const pctLabel=pct>=80?'Within range':pct>=60?'Moderate concern':pct>=40?'Significant concern':'Critical concern';const fmLabel=pct>=70?'Pass':pct>=40?'Needs attention':'Action needed';const fmColor=pct>=70?'#22C55E':pct>=40?'#FBBF24':'#EF4444';const findings=cat.r.filter(r => !(r.sev === 'pass' && pct < 70));return(
+            const pct=Math.round((cat.s/cat.mx)*100);const bc=pct>=80?'#22C55E':pct>=60?'#FBBF24':pct>=40?'#FB923C':'#EF4444';const pctLabel=pct>=80?'Within range':pct>=60?'Moderate concern':pct>=40?'Significant concern':'Critical concern';const fmLabel=pct>=70?'Pass':pct>=40?'Needs attention':'Action needed';const fmColor=pct>=70?'#22C55E':pct>=40?'#FBBF24':'#EF4444';const SEV_RANK={critical:0,high:1,medium:2,low:3,info:4,pass:5};const findings=cat.r.filter(r => !(r.sev === 'pass' && pct < 70)).sort((a,b)=>(SEV_RANK[a.sev]??9)-(SEV_RANK[b.sev]??9));return(
             <div key={cat.l} style={{padding:'16px 18px',background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.md}}>
               {/* Category header — single row, mono score + concern
                   text inline, with a thin progress bar below. Replaces
@@ -2677,14 +2677,17 @@ export default function MobileApp() {
               {userMode !== 'fm' && <div style={{height:3,background:V3.BORDER_DEFAULT,borderRadius:2,overflow:'hidden',marginBottom:14}}>
                 <div style={{height:'100%',width:`${pct}%`,background:bc,borderRadius:2,transition:'width .8s ease'}} />
               </div>}
+              {/* Findings are sorted most-severe-first and the per-row
+                  severity text pill (HIGH/MEDIUM/CRITICAL/INFO) is replaced
+                  by a small colour-coded dot — less label noise, easier to
+                  scan. The dot carries the severity for screen readers via
+                  role="img" + aria-label so the cue isn't colour-only. */}
               {findings.map((r,i)=>{const s=sv(r.sev);const sevLabel=r.sev.charAt(0).toUpperCase()+r.sev.slice(1);return(
-                <div key={i} style={{paddingTop: i === 0 ? 0 : 12, paddingBottom: i < findings.length - 1 ? 12 : 0, borderTop: i === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`}}>
-                  <div style={{display:'flex',alignItems:'flex-start',gap:10}}>
-                    <span style={{...V3.pill(s.c), marginTop:1, flexShrink:0}}>{sevLabel}</span>
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{...V3.T.body, lineHeight:'20px'}}>{r.t}</div>
-                      {r.std && <div style={{...V3.T.captionDim, marginTop:4, fontFamily:'var(--font-mono)', fontSize:11}}>{r.std}</div>}
-                    </div>
+                <div key={i} style={{display:'flex',alignItems:'flex-start',gap:10,paddingTop: i === 0 ? 0 : 11, paddingBottom: i < findings.length - 1 ? 11 : 0, borderTop: i === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`}}>
+                  <span role="img" aria-label={`${sevLabel} severity`} style={{width:7,height:7,borderRadius:'50%',background:s.c,flexShrink:0,marginTop:7}} />
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{...V3.T.body, lineHeight:'20px'}}>{r.t}</div>
+                    {r.std && <div style={{...V3.T.captionDim, marginTop:4, fontFamily:'var(--font-mono)', fontSize:11}}>{r.std}</div>}
                   </div>
                 </div>
               )})}
