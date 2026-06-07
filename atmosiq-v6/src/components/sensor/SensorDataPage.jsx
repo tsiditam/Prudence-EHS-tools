@@ -527,8 +527,20 @@ export default function SensorDataPage({ value, onChange, onBack, reports = [], 
             CSV or XLSX exports from TSI Q-Trak, HOBO, Aeroqual, GrayWolf, Airthings, and most loggers. AtmosFlow detects timestamp, CO₂, temperature, RH, PM, TVOC and CO columns automatically.
           </div>
           {error && <InlineError style={{ marginBottom: 14 }}>{error}</InlineError>}
-          <TactileButton variant="primary" size="lg" pill disabled={busy} onClick={() => pickFor({ role: 'indoor', label: 'Indoor' })} icon={<I n="upload" s={15} c="var(--on-accent-fill)" w={2} />}>
-            {busy ? 'Reading…' : 'Upload Logger Data'}
+          {/* ~30%-smaller red upload CTA (per product direction). Sizes
+              are 0.7× the `lg` variant (pad 16/22→11/15, font 15→11,
+              minH 52→36, icon 15→11); background uses the theme-aware
+              --danger with white text + a soft red glow, overriding the
+              primary variant's cyan accent-fill + glow. */}
+          <TactileButton variant="primary" size="lg" pill disabled={busy} onClick={() => pickFor({ role: 'indoor', label: 'Indoor' })} icon={<I n="upload" s={11} c="#FFFFFF" w={2} />} style={{
+            padding: '11px 15px',
+            fontSize: 11,
+            minHeight: 36,
+            background: 'var(--danger)',
+            color: '#FFFFFF',
+            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.22), 0 1px 2px rgba(0,0,0,0.20), 0 8px 18px color-mix(in srgb, var(--danger) 30%, transparent)',
+          }}>
+            {busy ? 'Reading…' : 'Upload Data'}
           </TactileButton>
         </GlassCard>
       )}

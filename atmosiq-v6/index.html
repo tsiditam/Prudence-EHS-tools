@@ -122,17 +122,21 @@
         --on-accent-fill:#FFFFFF;
       }
       [data-theme="light"]{
-        /* Premium Light palette — replaces pure-white with a three-step
-           surface ladder so hierarchy reads in light mode the same way
-           it does in dark. bg is a warm off-white, surface is a tier
-           lower, card stays pure white so cards lift visually off the
-           page. The restrained cyan (#2EA7BF) carries text, icons, and
-           borders; the brighter #39C0D9 fills emphasis CTAs. NOTE: even
-           the darker accent on near-white is ~2.6:1, still below WCAG AA
-           4.5:1 for body text — accepted intentionally for brand
-           consistency; flag for any future accessibility audit. */
-        --bg:#FAFAFB;
-        --surface:#F4F5F7;
+        /* Premium Light palette — a neutral cool-grey (slate) page,
+           tuned from the v3 prototype's "Clinical Light" theme but with
+           the blue pulled out for a calmer, less-tinted read (not the
+           prior warm off-white). Three-step surface ladder so hierarchy
+           reads in light mode the same way it does in dark: bg is the
+           slate tint, surface a tier lower, card stays pure white so
+           cards lift off the page. Borders are neutral cool-grey to keep
+           card edges clean; the restrained cyan (#2EA7BF) is reserved for
+           text, icons, and active states, and the brighter #39C0D9 fills
+           emphasis CTAs. NOTE: the darker accent on near-white is
+           ~2.6:1, below WCAG AA 4.5:1 for body text — accepted
+           intentionally for brand consistency; flag for any future
+           accessibility audit. */
+        --bg:#EEF1F4;
+        --surface:#E4E8EC;
         --card:#FFFFFF;
         /* Light-mode raised surface for "selected" / "focused" rows.
            A pale cyan tint (the brand's light tint) so selected/active
@@ -140,7 +144,12 @@
            rather than the previous neutral off-white. Subtle enough to
            stay a background, not a fill. */
         --raised:#DDF7FB;
-        --border:#B6E0E8;
+        /* Neutral cool-grey card edge (was a cyan-tinted #B6E0E8). The
+           v3 Clinical-Light mockups use a clean near-neutral border so
+           white cards read crisp against the cool page rather than
+           cyan-outlined. Cyan still carries active/selected states via
+           --accent and the pale --raised tint. */
+        --border:#D6DBE1;
         --accent:#2EA7BF;
         --accent-dim:#155E75;
         --text:#0F172A;
