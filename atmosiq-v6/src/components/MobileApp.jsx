@@ -4563,7 +4563,7 @@ export default function MobileApp() {
                     ) : (
                       <I n={t.icon} s={20} c={isActive?'var(--accent)':V3.TEXT_TERTIARY} w={isActive?2:1.7} />
                     )}
-                    {t.badge>0&&<div style={{position:'absolute',top:-4,right:-8,minWidth:15,height:15,borderRadius:V3.R.pill,background:'var(--accent)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,fontWeight:700,color:'var(--on-accent-fill)',fontFamily:'var(--font-mono)',padding:'0 4px'}}>{t.badge}</div>}
+                    {t.badge>0&&<div style={{position:'absolute',top:-4,right:-8,minWidth:15,height:15,borderRadius:V3.R.pill,background:'var(--danger)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,fontWeight:700,color:'#FFFFFF',fontFamily:'var(--font-mono)',padding:'0 4px'}}>{t.badge}</div>}
                   </div>
                   <span style={{fontSize:10,fontWeight:isActive?600:500,color:isActive?'var(--accent)':V3.TEXT_TERTIARY,letterSpacing:'0.1px',whiteSpace:'nowrap',transition:'color 160ms ease'}}>{t.label}</span>
                 </button>
