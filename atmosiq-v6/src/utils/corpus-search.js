@@ -1,30 +1,35 @@
 /**
- * Prudence EHS — TF-IDF corpus search
+ * Prudence EHS — hybrid corpus search (TF-IDF cosine + BM25 + synonyms)
  * Copyright (c) 2026 Prudence Safety & Environmental Consulting, LLC
  * All rights reserved.
  *
- * Pure-JS TF-IDF + cosine-similarity retrieval over the curated
- * STANDARDS_CORPUS. Designed as the L3 retrieval primitive for the
- * Field Assistant agent (Jasper) — Claude calls a `search_standards_corpus`
- * tool, the tool dispatches here, this returns the top-k matching
- * chunks with their citations.
+ * Pure-JS hybrid retrieval over the curated STANDARDS_CORPUS — the L3.5
+ * retrieval primitive for the Field Assistant agent (Jasper). Claude
+ * calls a `search_standards_corpus` tool, the tool dispatches here, this
+ * returns the top-k matching chunks with their citations.
  *
- * Why TF-IDF (not embeddings) for v1:
+ * Scoring is a blend: TF-IDF cosine (0..1) + a saturated BM25 lexical
+ * signal (0..1), over a query expanded with curated IAQ synonyms and
+ * acronyms (see SYNONYMS / PHRASE_SYNONYMS).
+ *
+ * Why this (not an embedding model):
  *   • Zero external dependencies — runs in the Vercel serverless
- *     function, no embedding API key, no vector DB.
- *   • Deterministic — same query always returns same ranking, useful
- *     for testing and audit.
- *   • Fast — ~40 chunks × ~200 tokens ≈ 8K-vector dot products per
- *     query, sub-millisecond.
- *   • Forward-compatible — when we add Voyage/OpenAI embeddings in
- *     L3.5, the same `searchCorpus(query, k)` interface stays; only
- *     the internal scoring changes.
+ *     function, no embedding API key, no vector DB, no per-query network
+ *     call. Keeps the Jasper hot path lean.
+ *   • Deterministic — same query always returns the same ranking, useful
+ *     for testing and audit (and so the offline eval gate stays valid).
+ *   • Fast — a few-thousand-term dot product + BM25 per query,
+ *     sub-millisecond over ~40 chunks.
+ *   • A query-time embedding/hybrid model (Voyage/OpenAI) remains a
+ *     future option behind the same `searchCorpus(query, k)` interface
+ *     — deferred because it adds a key, latency, cost, and breaks
+ *     offline determinism.
  *
- * Quality limits (TF-IDF):
- *   • Lexical match only — "extended outdoor air" won't match a chunk
- *     about "ventilation rate procedure" unless the words overlap.
- *     Mitigated by rich `tags` arrays on each chunk (acronyms +
- *     synonyms) which the indexer includes in the doc vector.
+ * Recall:
+ *   • Synonym/acronym expansion closes the lexical gap — e.g. "extended
+ *     outdoor air" now retrieves the ventilation-rate-procedure chunk,
+ *     and "DCV" / "CoC" / "SBS" / "ECAi" resolve to their concepts.
+ *   • Tag tokens are still weighted 2× in the doc vector.
  *   • Stop words filtered minimally — we keep "co2" (lowercased) but
  *     drop "the", "of", "is", etc.
  *
@@ -125,6 +130,80 @@ function tfVector(tokens) {
   return tf
 }
 
+// ── Synonym / acronym query expansion (L3.5 hybrid) ───────────────────
+// Curated, deterministic, offline. Maps IAQ acronyms and key terms to
+// their expanded forms so a query phrased with an acronym (or a synonym)
+// still retrieves the chunk that spells the concept out. Expansion is
+// ADDITIVE and query-side only — it never mutates the corpus index, so
+// it can't change L2-normalization or doc vectors. Keep entries
+// conservative: each expansion should be unambiguous in IAQ practice.
+const SYNONYMS = {
+  dcv: ['demand', 'controlled', 'ventilation'],
+  oa: ['outdoor', 'air'],
+  rh: ['relative', 'humidity', 'moisture'],
+  coc: ['chain', 'custody', 'laboratory'],
+  iaq: ['indoor', 'air', 'quality'],
+  voc: ['volatile', 'organic', 'compound'],
+  vocs: ['volatile', 'organic', 'compound'],
+  tvoc: ['total', 'volatile', 'organic', 'compound'],
+  mvoc: ['microbial', 'volatile', 'organic', 'compound'],
+  sbs: ['sick', 'building', 'syndrome'],
+  bri: ['building', 'related', 'illness'],
+  pel: ['permissible', 'exposure', 'limit'],
+  tlv: ['threshold', 'limit', 'value'],
+  rel: ['recommended', 'exposure', 'limit'],
+  idlh: ['immediately', 'dangerous', 'life', 'health'],
+  naaqs: ['national', 'ambient', 'air', 'quality', 'standard'],
+  pcm: ['phase', 'contrast', 'microscopy'],
+  tem: ['transmission', 'electron', 'microscopy'],
+  ecai: ['equivalent', 'clean', 'airflow', 'infection'],
+  co2: ['carbon', 'dioxide'],
+  rrp: ['renovation', 'repair', 'painting', 'lead'],
+  ahu: ['air', 'handling', 'unit'],
+  hcho: ['formaldehyde'],
+}
+
+// Phrase-level synonyms — scanned against the lowercased query string so
+// multi-word concepts expand too (e.g. the documented "extended outdoor
+// air" → "ventilation rate procedure" gap).
+const PHRASE_SYNONYMS = [
+  ['extended outdoor air', ['ventilation', 'rate', 'procedure']],
+  ['outdoor air', ['ventilation', 'rate']],
+  ['fresh air', ['outdoor', 'air', 'ventilation']],
+  ['make-up air', ['outdoor', 'air']],
+  ['makeup air', ['outdoor', 'air']],
+  ['chain of custody', ['coc', 'laboratory', 'sample']],
+]
+
+/**
+ * Expand a query string with curated synonyms/acronyms. Returns the
+ * original query plus any expansion words appended (so downstream
+ * tokenization/scoring picks them up). Pure + deterministic.
+ */
+export function expandQuery(query) {
+  if (!query || typeof query !== 'string') return query || ''
+  const extra = []
+  for (const t of tokenize(query)) {
+    const syn = SYNONYMS[t]
+    if (syn) extra.push(...syn)
+  }
+  const lower = ' ' + query.toLowerCase() + ' '
+  for (const [phrase, words] of PHRASE_SYNONYMS) {
+    if (lower.includes(phrase)) extra.push(...words)
+  }
+  return extra.length ? `${query} ${extra.join(' ')}` : query
+}
+
+// ── BM25 lexical scoring (blended with TF-IDF cosine) ─────────────────
+const BM25_K1 = 1.5
+const BM25_B = 0.75
+// Saturation constant — maps a raw BM25 score into [0, 1) via
+// s / (s + BM25_SAT) so it blends with the 0..1 cosine and preserves the
+// cosine-scale threshold semantics callers rely on.
+const BM25_SAT = 8
+// Blend weight: final = (1-λ)·cosine + λ·bm25Normalized.
+const HYBRID_LAMBDA = 0.5
+
 // ── Build the index once at module load ──────────────────────────────
 // Recomputed only if the corpus is mutated, which it isn't at runtime.
 
@@ -157,10 +236,42 @@ function buildIndex(corpus) {
     for (const [term, w] of vec.entries()) vec.set(term, w / norm)
     return vec
   })
-  return { idf, docVectors, N }
+  // BM25 stats (separate from the L2-normalized TF-IDF vectors above).
+  const docTermFreqs = docTokens.map(tfVector)
+  const docLengths = docTokens.map((t) => t.length)
+  const avgDocLen = N > 0 ? docLengths.reduce((a, b) => a + b, 0) / N : 0
+  // BM25 idf: ln(1 + (N - df + 0.5)/(df + 0.5)) — always >= 0.
+  const idfBm25 = new Map()
+  for (const [term, freq] of df.entries()) {
+    idfBm25.set(term, Math.log(1 + (N - freq + 0.5) / (freq + 0.5)))
+  }
+  return { idf, docVectors, N, docTermFreqs, docLengths, avgDocLen, df, idfBm25 }
 }
 
 const _INDEX = buildIndex(STANDARDS_CORPUS)
+
+/**
+ * BM25 score of a doc (by index) for a set of query tokens. Each distinct
+ * query term contributes once (idf-weighted, TF-saturated, length-
+ * normalized). Returns a raw non-negative score.
+ */
+function bm25Score(queryTokens, i) {
+  const tf = _INDEX.docTermFreqs[i]
+  const dl = _INDEX.docLengths[i]
+  const avgdl = _INDEX.avgDocLen || 1
+  let score = 0
+  const seen = new Set()
+  for (const term of queryTokens) {
+    if (seen.has(term)) continue
+    seen.add(term)
+    const f = tf.get(term) || 0
+    if (f === 0) continue
+    const idf = _INDEX.idfBm25.get(term) || 0
+    const denom = f + BM25_K1 * (1 - BM25_B + BM25_B * (dl / avgdl))
+    score += (idf * (f * (BM25_K1 + 1))) / denom
+  }
+  return score
+}
 
 /**
  * Build a normalized TF-IDF vector for a query string using the
@@ -215,11 +326,20 @@ function cosineSimilarity(a, b) {
 export function searchCorpus(query, opts = {}) {
   const k = typeof opts.k === 'number' && opts.k > 0 ? Math.min(opts.k, 10) : 3
   const threshold = typeof opts.threshold === 'number' ? opts.threshold : 0.05
-  const qVec = queryVector(query, _INDEX.idf)
+  // Synonym/acronym expansion (L3.5): additive, query-side only.
+  const expanded = expandQuery(query)
+  const qVec = queryVector(expanded, _INDEX.idf)
   if (!qVec) return []
+  const qTokens = tokenize(expanded)
   const scored = []
   for (let i = 0; i < _INDEX.docVectors.length; i++) {
-    const score = cosineSimilarity(qVec, _INDEX.docVectors[i])
+    // Hybrid score: blend TF-IDF cosine (0..1) with a saturated BM25
+    // signal (0..1). Both bounded so the score stays on the cosine scale
+    // and the threshold semantics are preserved.
+    const cos = cosineSimilarity(qVec, _INDEX.docVectors[i])
+    const bm = bm25Score(qTokens, i)
+    const bmN = bm / (bm + BM25_SAT)
+    const score = (1 - HYBRID_LAMBDA) * cos + HYBRID_LAMBDA * bmN
     if (score >= threshold) {
       scored.push({ chunk: STANDARDS_CORPUS[i], score })
     }
@@ -234,6 +354,12 @@ export const __test = {
   buildIndex,
   queryVector,
   cosineSimilarity,
+  expandQuery,
+  bm25Score,
   _INDEX,
   STOPWORDS,
+  SYNONYMS,
+  PHRASE_SYNONYMS,
+  HYBRID_LAMBDA,
+  BM25_SAT,
 }

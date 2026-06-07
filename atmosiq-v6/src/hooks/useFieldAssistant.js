@@ -654,6 +654,25 @@ export function useFieldAssistant() {
                 }
               })()
             }
+          } else if (frame.event === 'replace') {
+            // The server-side output linter caught prohibited phrasing in
+            // the streamed answer and replaced it (corrected retry, or a
+            // screening-safe fallback). The bad text was already rendered
+            // token-by-token, so swap the assistant bubble's content
+            // wholesale. Persistence only ever stores this clean text.
+            if (typeof frame.data?.text === 'string') {
+              const clean = frame.data.text
+              assistantText = clean
+              if (!assistantMsgId) {
+                const msg = makeMessage('assistant', clean, receivedAssistantDbId ? { dbId: receivedAssistantDbId } : {})
+                assistantMsgId = msg.id
+                setMessages((prev) => [...prev, msg])
+              } else {
+                const id = assistantMsgId
+                setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, content: clean } : m)))
+              }
+            }
+            setActiveTool(null)
           } else if (frame.event === 'done') {
             if (frame.data?.quota) receivedQuota = frame.data.quota
             setActiveTool(null)

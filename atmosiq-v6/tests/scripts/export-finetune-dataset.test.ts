@@ -135,4 +135,30 @@ describe('buildTrainingRows', () => {
     })
     expect(rows[0].messages[0].content).toBe('custom system prompt')
   })
+
+  it('excludes whole conversations listed in excludedConversationIds (lint-tripped)', () => {
+    const messages = makeMessages()
+    const rows = buildTrainingRows({
+      messages,
+      feedbackByMessageId: new Map(),
+      consentingUserIds: CONSENTING,
+      includeNegatives: true, // even in DPO mode, an excluded conv is dropped
+      systemPrompt: null,
+      excludedConversationIds: new Set(['c-1']),
+    })
+    // c-1 dropped by exclusion; c-3 remains (c-2 opted out).
+    expect(rows.map((r: any) => r.metadata.conversation_id)).toEqual(['c-3'])
+  })
+
+  it('defaults excludedConversationIds to empty (backward compatible)', () => {
+    const messages = makeMessages()
+    const rows = buildTrainingRows({
+      messages,
+      feedbackByMessageId: new Map(),
+      consentingUserIds: CONSENTING,
+      includeNegatives: true,
+      systemPrompt: null,
+    })
+    expect(rows).toHaveLength(2)
+  })
 })
