@@ -11,12 +11,7 @@ import { base64ToUint8Array, inferImageType, isImageDataUrl } from './images'
 import { inferCitationsFromContext, filterManifestByRegistration } from '../../engine/report/citation-tracker'
 import { LETTER_BODY_PAGE } from './page-setup'
 
-const p = (text, opts = {}) => new Paragraph({
-  children: [new TextRun({ text, font: FONTS.body, size: opts.size || 22, color: opts.color || COLORS.body, bold: opts.bold, italics: opts.italics })],
-  alignment: opts.align || AlignmentType.LEFT,
-  spacing: { after: opts.after !== undefined ? opts.after : 120 },
-  ...(opts.heading ? { heading: opts.heading } : {}),
-})
+import { p } from './paragraphs'
 
 const bullet = (text, opts = {}) => new Paragraph({
   children: [new TextRun({ text, font: FONTS.body, size: 20, color: opts.color || COLORS.sub })],
@@ -158,20 +153,6 @@ export function buildCoverPage(ctx) {
   }
 }
 
-export function buildTransparencyPanel(ctx) {
-  return [
-    p('Assessment Transparency', { bold: true, size: 20, color: '334155', after: 80 }),
-    kvTable([
-      ['Workflow version', `AtmosFlow v${ctx.version}`],
-      ['Standards referenced', ctx.standardsManifest ? Object.entries(ctx.standardsManifest).filter(([k]) => k !== 'engineVersion' && k !== 'manifestUpdated').map(([k, v]) => `${k} ${v}`).join(', ') : 'See standards manifest'],
-      ['Calibration recorded', ctx.calibration],
-      ['Professional review', 'Draft — requires IH review before distribution'],
-      ['Confidence level', ctx.confidence],
-      ['Completeness', `${ctx.completeness}% — ${ctx.zoneCount} zone${ctx.zoneCount !== 1 ? 's' : ''} assessed`],
-    ]),
-  ]
-}
-
 export function buildExecutiveSummary(ctx) {
   const children = [
     p('Executive Summary', { heading: HeadingLevel.HEADING_2 }),
@@ -251,161 +232,5 @@ export function buildExecutiveSummary(ctx) {
     }
   }
 
-  return children
-}
-
-export function buildScopeMethodology(ctx) {
-  const children = [
-    p('Scope and Methodology', { heading: HeadingLevel.HEADING_2 }),
-    p(`Purpose: This assessment was conducted to evaluate indoor air quality conditions${ctx.reason ? ` in response to ${ctx.reason.toLowerCase()}` : ''} at ${ctx.facilityName}.`, { size: 22, color: COLORS.sub }),
-    p(`Areas assessed: ${ctx.zoneNames.join(', ') || 'See zone findings below'}.`, { size: 22, color: COLORS.sub }),
-    p('Assessment activities: Visual inspection, real-time direct-reading instrument measurements, occupant complaint documentation, HVAC system evaluation, and moisture/mold screening.', { size: 22, color: COLORS.sub }),
-    p('Instrumentation', { heading: HeadingLevel.HEADING_3 }),
-  ]
-
-  const instRows = [[ctx.instrument || 'IAQ meter', ctx.instrumentSerial || '—', ctx.calibration]]
-  if (ctx.pidMeter) instRows.push([ctx.pidMeter, '—', ctx.pidCal || '—'])
-  children.push(buildTable(
-    [{ text: 'Instrument', width: 40 }, { text: 'Identifier', width: 30 }, { text: 'Calibration', width: 30 }],
-    instRows
-  ))
-
-  children.push(p('Standards and References', { heading: HeadingLevel.HEADING_3 }))
-  // v2.7 Fix 1: filter the bibliography by what is actually cited in
-  // body text. The CitationTracker (src/engine/report/citation-tracker.ts)
-  // walks ctx, infers which standards are referenced, and partitions
-  // the manifest into in-body vs future-method-only (sampling plan).
-  if (ctx.standardsManifest) {
-    const registration = inferCitationsFromContext(ctx)
-    const { bodyManifest, futureMethodManifest } = filterManifestByRegistration(ctx.standardsManifest, registration)
-    const bodyEntries = Object.entries(bodyManifest)
-    if (bodyEntries.length > 0) {
-      const bodyText = bodyEntries.map(([k, v]) => `${k} (${v})`).join(', ')
-      children.push(p(bodyText + '.', { size: 20, color: COLORS.sub }))
-    } else {
-      // Defensive fallback — should not occur in practice. If it does,
-      // we surface a transparent note rather than dumping every
-      // standard in the database.
-      children.push(p('No standards were referenced in the body of this report.', { size: 20, color: COLORS.sub, italics: true }))
-    }
-    const futureEntries = Object.entries(futureMethodManifest)
-    if (futureEntries.length > 0) {
-      children.push(p('Future-method references (sampling plan recommendations only)', { heading: HeadingLevel.HEADING_3 }))
-      children.push(p('The following standards are referenced in recommended future sampling work and are listed for the recipient\'s convenience. They were not invoked in the body findings of this report.', { size: 18, color: COLORS.muted, italics: true, after: 80 }))
-      const futureText = futureEntries.map(([k, v]) => `${k} (${v})`).join(', ')
-      children.push(p(futureText + '.', { size: 20, color: COLORS.sub }))
-    }
-  } else {
-    children.push(p('ASHRAE 62.1, ASHRAE 55, OSHA PELs, EPA NAAQS, WHO Air Quality Guidelines.', { size: 20, color: COLORS.sub }))
-  }
-
-  children.push(p('Limitations', { heading: HeadingLevel.HEADING_3 }))
-  children.push(p('This assessment represents conditions observed at the time of the site visit and may not reflect all temporal, seasonal, or operational variations. Findings are based on direct-reading instrumentation and visual observations. Laboratory analysis was not performed unless specifically noted.', { size: 20, color: COLORS.sub }))
-
-  return children
-}
-
-export function buildBuildingContext(ctx) {
-  const bldg = ctx.building
-  const pre = ctx.presurvey
-  const children = [
-    p('Building and Complaint Context', { heading: HeadingLevel.HEADING_2 }),
-    p(`${ctx.reason ? `Assessment triggered by ${ctx.reason.toLowerCase()}. ` : ''}${ctx.facilityName} is a ${(bldg.ft || 'commercial').toLowerCase()} facility${bldg.ba ? ` constructed in approximately ${bldg.ba}` : ''}${bldg.rn ? `, with renovations reported ${bldg.rn.toLowerCase()}` : ''}. The building is served by ${bldg.ht ? `a ${bldg.ht.toLowerCase()} system` : 'mechanical ventilation'}${bldg.hm ? `, with last reported HVAC maintenance ${bldg.hm.toLowerCase()}` : ''}. ${pre?.ps_complaint_narrative ? 'Occupant concerns were reported prior to this assessment, as summarized below.' : 'No formal occupant complaints were reported prior to this assessment.'}`, { size: 22, color: COLORS.sub }),
-  ]
-
-  const pairs = [
-    ['Building type', bldg.ft || '—'],
-    ['Year built / renovated', `${bldg.ba || '—'}${bldg.rn ? ` (last renovated: ${bldg.rn})` : ''}`],
-    ['HVAC system', bldg.ht || '—'],
-    ['Last HVAC maintenance', bldg.hm || '—'],
-    ['Filter type / condition', `${bldg.fm || '—'} / ${bldg.fc || '—'}`],
-    ['Outside air damper', bldg.od || '—'],
-    ['Supply airflow', bldg.sa || '—'],
-    ['Building pressure', bldg.bld_pressure || '—'],
-  ]
-  if (pre?.ps_complaint_narrative) pairs.push(['Reported concerns', pre.ps_complaint_narrative])
-  if (pre?.ps_water_history === 'Yes — recurring') pairs.push(['Water/moisture history', pre.ps_water_detail || 'Recurring water intrusion reported'])
-  children.push(kvTable(pairs))
-
-  return children
-}
-
-export function buildFindingsDashboard(ctx) {
-  if (!ctx.comp) return []
-  const children = [
-    p('Overall Findings Dashboard', { heading: HeadingLevel.HEADING_2 }),
-  ]
-
-  // Score cards as table
-  children.push(buildTable(
-    [{ text: 'Composite', align: AlignmentType.CENTER }, { text: 'Average', align: AlignmentType.CENTER }, { text: 'Worst Zone', align: AlignmentType.CENTER }],
-    [[
-      { text: `${ctx.comp.tot}`, bold: true, size: 36, color: scoreColor(ctx.comp.tot), align: AlignmentType.CENTER },
-      { text: `${ctx.comp.avg}`, bold: true, size: 36, color: scoreColor(ctx.comp.avg), align: AlignmentType.CENTER },
-      { text: `${ctx.comp.worst}`, bold: true, size: 36, color: scoreColor(ctx.comp.worst), align: AlignmentType.CENTER },
-    ]]
-  ))
-
-  const desc = ctx.comp.tot >= 70
-    ? 'overall acceptable indoor air quality, with localized areas that may warrant targeted follow-up as detailed in the zone sections below.'
-    : ctx.comp.tot >= 50
-      ? 'moderate indoor air quality concerns across one or more zones. Targeted investigation and corrective action would be warranted in the areas identified below.'
-      : 'significant indoor air quality concerns that would warrant prioritized remediation as detailed in the zone sections and recommendations register below.'
-
-  children.push(p(`Conditions observed during the assessment window suggest ${desc} The composite score of ${ctx.comp.tot}/100 reflects a weighted evaluation across ventilation, contaminant levels, HVAC system conditions, occupant complaints, and environmental factors.`, { size: 22, color: COLORS.sub }))
-
-  return children
-}
-
-export function buildTransmittalLetter(ctx) {
-  const recipient = ctx.client?.contact_name || 'Property Management'
-  const org = ctx.client?.organization || ctx.facilityName
-  const trigger = ctx.reason ? ` in response to ${ctx.reason.toLowerCase()}` : ''
-  const scorePreview = ctx.comp ? ` The composite assessment score of ${ctx.comp.tot}/100 (${ctx.comp.risk}) reflects conditions observed across ${ctx.zoneCount} assessed zone${ctx.zoneCount !== 1 ? 's' : ''}.` : ''
-  return [
-    p(ctx.reportDate, { size: 22, color: COLORS.body, after: 200 }),
-    p(recipient, { size: 22, bold: true, color: COLORS.text, after: 40 }),
-    p(org, { size: 22, color: COLORS.body, after: 40 }),
-    p(ctx.address, { size: 22, color: COLORS.body, after: 200 }),
-    p('Re: Indoor Air Quality Assessment Report', { size: 22, bold: true, color: COLORS.text, after: 200 }),
-    // P1: Introduction with trigger
-    p(`${ctx.firmName} was retained to conduct an indoor air quality assessment at ${ctx.facilityName}${trigger}. This report presents the findings, analysis, and recommendations resulting from our assessment conducted on ${ctx.assessDate}.`, { size: 22, color: COLORS.body }),
-    // P2: Scope summary
-    p(`The assessment encompassed ${ctx.zoneCount} zone${ctx.zoneCount !== 1 ? 's' : ''} and included direct-reading instrumentation, visual inspection, HVAC system evaluation, and occupant complaint documentation. Findings are referenced against published ASHRAE, OSHA, NIOSH, EPA, and WHO standards as identified in the attached standards manifest.`, { size: 22, color: COLORS.body }),
-    // P3: Findings preview
-    p(`Detailed findings, scored evaluations, and tiered recommendations are presented in the body of this report.${scorePreview} Priority corrective actions, where applicable, are summarized in the Executive Summary.`, { size: 22, color: COLORS.body }),
-    // P4: Limitations and continued service
-    p('This report is intended for the sole use of the addressee and should not be distributed without written authorization from PSEC. The conclusions herein are based on conditions observed at the time of assessment and should be interpreted in context with professional judgment. We remain available for follow-up consultation, additional sampling, or clarification of any findings.', { size: 22, color: COLORS.body, after: 300 }),
-    p('Respectfully submitted,', { size: 22, color: COLORS.body, after: 200 }),
-    p(ctx.assessor, { size: 22, bold: true, color: COLORS.text, after: 40 }),
-    ...(ctx.assessorCerts?.length > 0 ? [p(ctx.assessorCerts.join(', '), { size: 20, color: COLORS.sub, after: 40 })] : []),
-    p(ctx.firmName, { size: 20, color: COLORS.sub, after: 40 }),
-    p(`${ctx.firmEmail} | ${ctx.firmPhone}`, { size: 20, color: COLORS.sub }),
-  ]
-}
-
-export function buildTableOfContents(ctx) {
-  const sections = [
-    'Executive Summary',
-    'Scope and Methodology',
-    'Building and Complaint Context',
-    'Overall Findings Dashboard',
-    'Zone-by-Zone Findings',
-  ]
-  if (ctx.causalChains?.length > 0) sections.push('Causal Chain Analysis')
-  if (ctx.samplingPlan?.plan?.length > 0) sections.push('Recommended Sampling Plan')
-  if (ctx.recs && ((ctx.recs.imm||[]).length || (ctx.recs.eng||[]).length || (ctx.recs.adm||[]).length || (ctx.recs.mon||[]).length)) sections.push('Recommendations Register')
-  sections.push('Limitations and Professional Judgment')
-  if (ctx.calibrationLog?.length > 0) sections.push('Equipment & Calibration Log')
-  if (ctx.zones?.some(z => z.mapX != null) && ctx.floorPlan) sections.push('Spatial Risk Summary')
-  sections.push('Appendix A — Raw Measurement Snapshot')
-  sections.push('Appendix B — Transparent Scoring Summary')
-
-  const children = [
-    p('Table of Contents', { heading: HeadingLevel.HEADING_2 }),
-  ]
-  sections.forEach((s, i) => {
-    children.push(p(`${i + 1}.  ${s}`, { size: 22, color: COLORS.body, after: 60 }))
-  })
   return children
 }

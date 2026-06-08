@@ -92,7 +92,7 @@ export default function ProjectsScreen({ onBack, onOpen }) {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 6 }}>
         <div>
           <h2 style={{ ...V3.T.h1, margin: 0 }}>Projects</h2>
-          <div style={{ ...V3.T.h1Sub, marginTop: 4 }}>Site engagement workspaces — one per building, property, or client site.</div>
+          <div style={{ ...V3.T.h1Sub, marginTop: 4 }}>Site engagement workspaces, one per building, property, or client site.</div>
         </div>
       </div>
 

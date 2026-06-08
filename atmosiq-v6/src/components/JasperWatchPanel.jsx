@@ -69,12 +69,12 @@ export default function JasperWatchPanel({ data, context }) {
           JASPER WATCH
         </div>
         <div style={{ fontSize: 9, color: DIM, fontFamily: 'var(--font-mono)' }}>
-          Advisory — not a finding
+          Advisory, not a finding
         </div>
       </div>
       <div style={{ fontSize: 10, color: SUB, marginBottom: 10, lineHeight: 1.5 }}>
         Live signals from your current readings against the standards manifest.
-        Deterministic — no AI judgment. The full scoring engine still runs at finalization.
+        Deterministic, no AI judgment. The full scoring engine still runs at finalization.
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {advisories.map(adv => (

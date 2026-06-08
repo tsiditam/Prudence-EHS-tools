@@ -48,7 +48,7 @@ export default function OfflineBanner() {
   const offline = !online
   const bg = offline ? 'var(--warn, #F59E0B)' : 'var(--success, #22C55E)'
   const fg = offline ? '#000' : '#fff'
-  const label = offline ? 'Offline — changes will sync when reconnected.' : 'Back online — syncing.'
+  const label = offline ? 'Offline. Changes will sync when reconnected.' : 'Back online, syncing.'
 
   return (
     <div

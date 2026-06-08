@@ -178,7 +178,7 @@ export default function Co2OaCalculator({ co2, co2o, onApply, onCo2Change, onCo2
       )}
 
       <div style={{ fontSize: 11, color: DIM, lineHeight: 1.5, fontFamily: 'inherit' }}>
-        Steady-state mass-balance with G = 0.0084 cfm/person (sedentary adult, 1.2 met). Per ASHRAE 62.1-2019 Appendix C; Persily 2017. <strong style={{ color: SUB }}>Estimate only</strong> — verify with a balometer measurement at the OA diffuser for compliance documentation.
+        Steady-state mass-balance with G = 0.0084 cfm/person (sedentary adult, 1.2 met). Per ASHRAE 62.1-2019 Appendix C; Persily 2017. <strong style={{ color: SUB }}>Estimate only</strong>: verify with a balometer measurement at the OA diffuser for compliance documentation.
       </div>
     </div>
   )

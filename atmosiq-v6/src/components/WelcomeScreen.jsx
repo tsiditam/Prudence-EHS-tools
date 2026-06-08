@@ -22,12 +22,12 @@ const slides = [
   {
     icon: 'wind',
     title: 'Guided Field Assessment',
-    body: 'Walk through a structured IAQ assessment one question at a time. Instrument readings, photos, and observations — captured zone by zone with auto-save.',
+    body: 'Walk through a structured IAQ assessment one question at a time. Instrument readings, photos, and observations, captured zone by zone with auto-save.',
   },
   {
     icon: 'pulse',
     title: 'Deterministic Scoring',
-    body: 'Every finding is scored against recognized ventilation, comfort, and exposure standards. Five categories, worst-zone weighting, and full traceability — no black-box AI.',
+    body: 'Every finding is scored against recognized ventilation, comfort, and exposure standards. Five categories, worst-zone weighting, and full traceability, with no black-box AI.',
   },
   {
     icon: 'chain',
@@ -37,7 +37,7 @@ const slides = [
   {
     icon: 'report',
     title: 'Report-Ready Output',
-    body: 'Structured findings, tiered recommendations, sampling plans, and professional narratives — generated from your field data and ready for review before you leave the building.',
+    body: 'Structured findings, tiered recommendations, sampling plans, and professional narratives, generated from your field data and ready for review before you leave the building.',
   },
 ]
 

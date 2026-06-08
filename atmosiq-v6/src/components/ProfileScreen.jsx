@@ -32,7 +32,7 @@ const EXP_OPTS = ['1–3 years','3–5 years','5–10 years','10–20 years','20
 // InstrumentEditView in MobileApp can reuse them without drift.
 export const IAQ_OPTS = ['TSI Q-Trak 7575','TSI Q-Trak 7515','TSI IAQ-Calc 7545','Graywolf AdvancedSense Pro','Graywolf IQ-610','Testo 400','Testo 440','Kanomax IAQ-2000','Other']
 export const PID_OPTS = ['RAE Systems MiniRAE 3000','RAE Systems ppbRAE 3000','Ion Science Tiger','Ion Science Cub','Honeywell ToxiRAE Pro PID','Other']
-export const CAL_OPTS = ['Calibrated within manufacturer spec','Calibrated — overdue for recertification','Field-zeroed only','Not calibrated','Unknown']
+export const CAL_OPTS = ['Calibrated within manufacturer spec','Calibrated, overdue for recertification','Field-zeroed only','Not calibrated','Unknown']
 export const PID_CAL_OPTS = ['Bump-tested and calibrated','Bump-tested only','Not calibrated','N/A']
 
 const inp = { width:'100%',padding:'14px 16px',background:BG,border:`1px solid ${BORDER}`,borderRadius:8,color:TEXT,fontSize:15,fontFamily:'inherit',fontWeight:500,outline:'none',boxSizing:'border-box',transition:'border-color 0.15s' }

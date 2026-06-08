@@ -56,7 +56,7 @@ export default function PendingSyncIndicator() {
   } else if (hasError) {
     bg = '#EF4444'   // red-500
     fg = '#FFFFFF'
-    label = `Sync had errors — ${state.queueDepth} pending`
+    label = `Sync had errors: ${state.queueDepth} pending`
   } else {
     bg = '#F59E0B'   // amber-500
     fg = '#000000'

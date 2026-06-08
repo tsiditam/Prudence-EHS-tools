@@ -24,6 +24,7 @@ import {
   checkboxRow, ruledBlock, transferTable, labUseOnly,
   buildSubmittingPartyFields, buildClientFields,
   buildSamplingConditionFields, buildDestinationLabFields,
+  autotableColumns, autotableColumnStyles,
 } from './formSections'
 
 const FORM_ID = 'AF-COC-V'
@@ -57,18 +58,6 @@ function emptySampleRows() {
   return rows
 }
 
-function autotableColumns() {
-  return SAMPLE_COLUMNS.map((c) => ({ header: c.header, dataKey: c.dataKey }))
-}
-
-function autotableColumnStyles() {
-  const styles = {}
-  for (const c of SAMPLE_COLUMNS) {
-    styles[c.dataKey] = { cellWidth: c.width }
-  }
-  return styles
-}
-
 export function generateTvocCoCBlob({ profile } = {}) {
   const doc = new jsPDF({ unit: 'pt', format: 'letter' })
 
@@ -92,9 +81,9 @@ export function generateTvocCoCBlob({ profile } = {}) {
   autoTable(doc, {
     startY: y,
     margin: { left: MARGIN, right: MARGIN },
-    columns: autotableColumns(),
+    columns: autotableColumns(SAMPLE_COLUMNS),
     body: emptySampleRows(),
-    columnStyles: autotableColumnStyles(),
+    columnStyles: autotableColumnStyles(SAMPLE_COLUMNS),
     styles: {
       font: FONT_FAMILY, fontSize: SZ_BODY_SMALL,
       cellPadding: 3,

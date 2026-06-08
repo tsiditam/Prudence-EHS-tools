@@ -214,7 +214,7 @@ export default function V21InternalPanel({
               {z.categories.flatMap(c => c.findings).length > 0 && (
                 <details style={{ marginTop: 8 }}>
                   <summary style={{ fontSize: 10, color: SUB, cursor: 'pointer' }}>
-                    {z.categories.flatMap(c => c.findings).length} finding(s) — show
+                    {z.categories.flatMap(c => c.findings).length} finding(s): show
                   </summary>
                   <div style={{ marginTop: 6 }}>
                     {z.categories.flatMap(c =>

@@ -15,11 +15,9 @@
 import { Document, Packer, Paragraph, TextRun, AlignmentType, HeadingLevel } from 'docx'
 import { BODY_SECTION_PROPERTIES, LETTER_BODY_PAGE } from './docx/page-setup'
 import { DOCX_STYLES } from './docx/styles'
-import { buildCoverPage } from './docx/sections-core'
 import { markdownToDocx } from './docx/markdownToDocx'
-import { buildSamplingPlan, buildRecommendations } from './docx/sections-recommendations'
-import { buildAppendixB, buildFooter } from './docx/sections-appendix'
-import { buildTechnicalMetadata, buildFindingsRegister, buildCategoryScoresSummary, buildDataGapRegister, buildInstrumentLog, buildOutdoorBaseline } from './docx/sections-technical'
+import { buildFooter } from './docx/sections-appendix'
+import { buildTechnicalHeader, buildScopeConditions, buildInstrumentation, buildBenchmarksUsed, buildResults, buildFlaggedIndicators, buildAnalystNotes, buildLimitationsCompact } from './docx/sections-technical'
 import { buildClientDocx } from './docx/sections-v21client'
 import { buildLabResultsAppendix } from './docx/sections-lab-results'
 import { buildSensorGraphsAppendix } from './docx/sections-sensor'
@@ -373,26 +371,25 @@ async function buildConsultantDocument(ctx, data) {
 
 async function generateTechnicalDocx(ctx) {
   const mainChildren = [
-    ...buildTechnicalMetadata(ctx),
-    ...buildFindingsRegister(ctx),
-    ...buildCategoryScoresSummary(ctx),
-    ...buildDataGapRegister(ctx),
-    ...buildInstrumentLog(ctx),
-    ...buildOutdoorBaseline(ctx),
-    ...buildSamplingPlan(ctx),
-    ...buildRecommendations(ctx),
-    ...buildAppendixB(ctx),
+    ...buildTechnicalHeader(ctx),
+    ...buildScopeConditions(ctx),
+    ...buildInstrumentation(ctx),
+    ...buildBenchmarksUsed(ctx),
+    ...buildResults(ctx),
+    ...buildFlaggedIndicators(ctx),
+    ...buildAnalystNotes(ctx),
+    ...buildLimitationsCompact(ctx),
     ...buildFooter(ctx),
   ]
 
   const doc = new Document({
     creator: 'AtmosFlow — Prudence EHS',
-    title: `IAQ Technical Report — ${ctx.facilityName}`,
-    description: 'Indoor Air Quality Technical Assessment Report — Structured Findings',
+    title: `IAQ Technical Report (Internal) — ${ctx.facilityName}`,
+    description: 'Indoor Air Quality Technical Assessment — Internal Use',
     styles: DOCX_STYLES,
     sections: [
-      buildCoverPage(ctx),
       {
+        // One section, no cover page — lean internal-triage layout.
         // v2.5.1 — explicit Letter portrait + 1-inch margins.
         properties: BODY_SECTION_PROPERTIES,
         children: mainChildren,

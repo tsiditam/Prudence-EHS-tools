@@ -6,45 +6,7 @@ import { Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx'
 import { FONTS, COLORS, scoreColor } from './styles'
 import { buildTable } from './tables'
 
-const p = (text, opts = {}) => new Paragraph({
-  children: [new TextRun({ text, font: FONTS.body, size: opts.size || 22, color: opts.color || COLORS.body, bold: opts.bold, italics: opts.italics })],
-  alignment: opts.align || AlignmentType.LEFT,
-  spacing: { after: opts.after !== undefined ? opts.after : 120 },
-  ...(opts.heading ? { heading: opts.heading } : {}),
-})
-
-export function buildAppendixA(ctx) {
-  const children = [
-    p('Appendix A — Raw Measurement Snapshot', { heading: HeadingLevel.HEADING_2 }),
-    p('The following table presents direct-reading instrument measurements obtained during the assessment. Values represent point-in-time readings at the locations indicated and should be interpreted in context with building conditions, occupancy, and weather at the time of assessment.', { size: 18, color: COLORS.muted, after: 160 }),
-  ]
-
-  const rows = (ctx.zones || []).map((z, zi) => {
-    const fmt = (v, o) => {
-      if (!v) return '—'
-      return o ? `${v} (out: ${o})` : `${v}`
-    }
-    return [
-      { text: z.zn || `Zone ${zi + 1}`, bold: true },
-      { text: fmt(z.co2, z.co2o), mono: true, align: AlignmentType.CENTER },
-      { text: fmt(z.tf, z.tfo), mono: true, align: AlignmentType.CENTER },
-      { text: fmt(z.rh, z.rho), mono: true, align: AlignmentType.CENTER },
-      { text: fmt(z.pm, z.pmo), mono: true, align: AlignmentType.CENTER },
-      { text: z.co || '—', mono: true, align: AlignmentType.CENTER },
-      { text: fmt(z.tv, z.tvo), mono: true, align: AlignmentType.CENTER },
-      { text: z.hc || '—', mono: true, align: AlignmentType.CENTER },
-    ]
-  })
-
-  children.push(buildTable(
-    ['Zone', 'CO₂ (ppm)', 'Temp (°F)', 'RH (%)', 'PM2.5 (µg/m³)', 'CO (ppm)', 'TVOCs (µg/m³)', 'HCHO (ppm)'],
-    rows
-  ))
-
-  children.push(p('Reference thresholds: CO₂ differential >700 ppm above outdoor (ASHRAE 62.1) · Temp 68–79°F (ASHRAE 55) · RH 30–60% · PM2.5 <35 µg/m³ (EPA 24-hr) · CO <35 ppm (NIOSH REL) · TVOCs <500 µg/m³ (concern) · HCHO <0.016 ppm (NIOSH REL)', { size: 16, color: COLORS.light, after: 200 }))
-
-  return children
-}
+import { p } from './paragraphs'
 
 export function buildAppendixB(ctx) {
   const children = [

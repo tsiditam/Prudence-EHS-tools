@@ -29,6 +29,7 @@ import {
   checkboxRow, ruledBlock, transferTable, labUseOnly,
   buildSubmittingPartyFields, buildClientFields,
   buildSamplingConditionFields, buildDestinationLabFields,
+  autotableColumns, autotableColumnStyles,
 } from './formSections'
 
 const FORM_ID = 'AF-COC-M'
@@ -59,20 +60,6 @@ function emptySampleRows() {
   return rows
 }
 
-// Auto-table column definitions in the shape jspdf-autotable expects.
-function autotableColumns() {
-  return SAMPLE_COLUMNS.map((c) => ({ header: c.header, dataKey: c.dataKey }))
-}
-
-function autotableColumnStyles() {
-  // Map dataKey → { cellWidth } so the row totals match CONTENT_W (540pt).
-  const styles = {}
-  for (const c of SAMPLE_COLUMNS) {
-    styles[c.dataKey] = { cellWidth: c.width }
-  }
-  return styles
-}
-
 export function generateMoldCoCBlob({ profile } = {}) {
   // Letter portrait, points unit, identical to the existing
   // generate-sample-report-pdf script for layout consistency.
@@ -98,9 +85,9 @@ export function generateMoldCoCBlob({ profile } = {}) {
   autoTable(doc, {
     startY: y,
     margin: { left: MARGIN, right: MARGIN },
-    columns: autotableColumns(),
+    columns: autotableColumns(SAMPLE_COLUMNS),
     body: emptySampleRows(),
-    columnStyles: autotableColumnStyles(),
+    columnStyles: autotableColumnStyles(SAMPLE_COLUMNS),
     styles: {
       font: FONT_FAMILY, fontSize: SZ_BODY_SMALL,
       cellPadding: 3,

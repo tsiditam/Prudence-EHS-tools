@@ -209,7 +209,7 @@ function mapInstrumentCalStatus(inst) {
   if (s === 'bump') return 'Field-zeroed only'
   if (s === 'factory' || s === 'field') {
     if (!inst.lastCalDate) return 'Unknown'
-    return isOutOfCal(inst) ? 'Calibrated — overdue for recertification' : 'Calibrated within manufacturer spec'
+    return isOutOfCal(inst) ? 'Calibrated, overdue for recertification' : 'Calibrated within manufacturer spec'
   }
   return 'Unknown'
 }
@@ -401,7 +401,7 @@ function PhotoNotFeasible({ existing, onSave, onClear }) {
   if (marked) {
     return (
       <div style={{marginTop:10, fontSize:12, color:'var(--sub)', lineHeight:1.5}}>
-        Photo capture marked <strong>not feasible</strong> — “{existing.reason}”.{' '}
+        Photo capture marked <strong>not feasible</strong>: “{existing.reason}”.{' '}
         <button type="button" onClick={onClear} style={link}>Undo</button>
       </div>
     )
@@ -415,7 +415,7 @@ function PhotoNotFeasible({ existing, onSave, onClear }) {
         value={reason}
         onChange={e=>setReason(e.target.value)}
         rows={2}
-        placeholder="Why can't a photo be captured for this zone? (required — e.g. tenant denied access, energized equipment)"
+        placeholder="Why can't a photo be captured for this zone? (required, e.g. tenant denied access, energized equipment)"
         style={{width:'100%', padding:'12px 14px', background:'var(--card)', border:'1.5px solid var(--border)', borderRadius:12, color:'var(--text)', fontSize:14, fontFamily:'inherit', outline:'none', boxSizing:'border-box', resize:'vertical'}}
       />
       <div style={{display:'flex', gap:8, marginTop:8}}>
@@ -449,7 +449,7 @@ class ReportErrorBoundary extends Component {
       <div style={{ padding: '40px 24px', maxWidth: 620, margin: '0 auto', fontFamily: 'inherit' }}>
         <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text)', marginBottom: 8 }}>Couldn’t open this report</div>
         <div style={{ fontSize: 14, color: 'var(--sub)', marginBottom: 16, lineHeight: 1.5 }}>
-          The report errored while rendering. These details were also sent to Sentry — please copy or screenshot them so this can be fixed.
+          The report errored while rendering. These details were also sent to Sentry. Please copy or screenshot them so this can be fixed.
         </div>
         <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 12, lineHeight: 1.5, background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12, padding: 14, color: 'var(--danger)', maxHeight: 300, overflow: 'auto', margin: 0 }}>
           {String(e?.name || 'Error')}: {String(e?.message || e)}{'\n\n'}{String(e?.stack || '').slice(0, 1400)}
@@ -1030,11 +1030,11 @@ export default function MobileApp() {
   // chat message stays a short prompt. Charges credits up front, gated
   // on balance like the other paid actions.
   const launchReview = (kind, content) => {
-    if (!content || !content.trim()) { setReviewError('Nothing to review — no report content was found.'); return }
+    if (!content || !content.trim()) { setReviewError('Nothing to review, no report content was found.'); return }
     if (!PAYWALL_DISABLED && credits < REVIEW_CREDIT_COST) { setReviewChooserOpen(false); setShowPricing(true); return }
     consumeCredit(REVIEW_CREDIT_COST, 'discrepancy_scan', viewRpt?.id || draftId || '')
     setReviewPayload({ kind, content, instructions: REVIEW_INSTRUCTIONS })
-    setReviewPrefill('Review this report for discrepancies — compare the narrative against the underlying data and flag any inconsistencies, missing defensibility items, or unfilled placeholders.')
+    setReviewPrefill('Review this report for discrepancies: compare the narrative against the underlying data and flag any inconsistencies, missing defensibility items, or unfilled placeholders.')
     setReviewChooserOpen(false)
     setReviewError(null)
     setFaOpen(true)
@@ -1076,7 +1076,7 @@ export default function MobileApp() {
     try {
       const text = await extractDocxText(file)
       setReviewBusy(false)
-      if (!text || text.length < 20) { setReviewError('Could not read text from that file — make sure it is a .docx report.'); return }
+      if (!text || text.length < 20) { setReviewError('Could not read text from that file. Make sure it is a .docx report.'); return }
       launchReview('docx', `Uploaded document: ${file.name}\n\n${text}`)
     } catch (err) {
       setReviewBusy(false)
@@ -1481,7 +1481,7 @@ export default function MobileApp() {
    *   3. Direct download as a last resort (desktop)
    */
   const handleShare = async () => {
-    const title = `IAQ Assessment Report — ${bldg.fn || 'Assessment'}`
+    const title = `IAQ Assessment Report: ${bldg.fn || 'Assessment'}`
     const filteredPhotos = (() => {
       const sel = selectedPhotos && Object.values(selectedPhotos).some(Boolean) ? selectedPhotos : null
       if (!sel) return photos
@@ -1512,7 +1512,7 @@ export default function MobileApp() {
     if (navigator.share && navigator.canShare?.({ files: [file] })) {
       try { await navigator.share({ title, files: [file] }) } catch { /* user cancelled */ }
     } else if (navigator.share) {
-      const text = `${bldg.fn || 'Facility'} — IAQ screening assessment\n${zoneScores?.length || 0} zone${(zoneScores?.length || 0) === 1 ? '' : 's'} assessed`
+      const text = `${bldg.fn || 'Facility'}: IAQ screening assessment\n${zoneScores?.length || 0} zone${(zoneScores?.length || 0) === 1 ? '' : 's'} assessed`
       try { await navigator.share({ title, text }) } catch { /* user cancelled */ }
     } else {
       const url = URL.createObjectURL(blob)
@@ -1561,7 +1561,7 @@ export default function MobileApp() {
     })
     if (!supabase) throw new Error('You need to be signed in to send for review.')
     const session = await Storage.getSession()
-    if (!session?.access_token) throw new Error('Session expired — please sign in again.')
+    if (!session?.access_token) throw new Error('Session expired. Please sign in again.')
     const reportId = viewRpt?.id || draftId || ('rpt-' + Date.now())
     const resp = await fetch('/api/peer-review', {
       method: 'POST',
@@ -1605,7 +1605,7 @@ export default function MobileApp() {
     }
     trackEvent('narrative_shared', { facility: bldg.fn || '', word_count: String(narrative).split(/\s+/).length })
     const file = new File([blob], fileName, { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' })
-    const title = `IAQ Findings Narrative — ${bldg.fn || 'Assessment'}`
+    const title = `IAQ Findings Narrative: ${bldg.fn || 'Assessment'}`
     if (navigator.share && navigator.canShare?.({ files: [file] })) {
       try { await navigator.share({ title, files: [file] }) } catch { /* user cancelled */ }
     } else if (navigator.share) {
@@ -1770,7 +1770,7 @@ export default function MobileApp() {
 
           {extraTop}
 
-          {q.t==='text'&&<><input type="text" autoComplete={q.ac||'off'} value={data[q.id]||''} onChange={e=>setField(q.id, q.ac==='street-address' ? e.target.value.replace(/[^A-Za-z0-9\s,.#/'&-]/g,'') : e.target.value)} placeholder={q.ph||'Type...'} autoFocus onKeyDown={e=>{if(e.key==='Enter'&&data[q.id]&&!addrInvalid)goNext()}} style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${addrInvalid?WARN:BORDER}`,borderRadius:14,color:TEXT,fontSize:17,fontFamily:'inherit',fontWeight:500,outline:'none',boxSizing:'border-box'}} onFocus={e=>e.target.style.borderColor=addrInvalid?WARN:ACCENT} onBlur={e=>e.target.style.borderColor=addrInvalid?WARN:BORDER} />{addrInvalid&&<div style={{fontSize:13,color:WARN,marginTop:8,fontFamily:'inherit'}}>Enter a valid address — letters required (e.g. a street name or campus ID).</div>}</>}
+          {q.t==='text'&&<><input type="text" autoComplete={q.ac||'off'} value={data[q.id]||''} onChange={e=>setField(q.id, q.ac==='street-address' ? e.target.value.replace(/[^A-Za-z0-9\s,.#/'&-]/g,'') : e.target.value)} placeholder={q.ph||'Type...'} autoFocus onKeyDown={e=>{if(e.key==='Enter'&&data[q.id]&&!addrInvalid)goNext()}} style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${addrInvalid?WARN:BORDER}`,borderRadius:14,color:TEXT,fontSize:17,fontFamily:'inherit',fontWeight:500,outline:'none',boxSizing:'border-box'}} onFocus={e=>e.target.style.borderColor=addrInvalid?WARN:ACCENT} onBlur={e=>e.target.style.borderColor=addrInvalid?WARN:BORDER} />{addrInvalid&&<div style={{fontSize:13,color:WARN,marginTop:8,fontFamily:'inherit'}}>Enter a valid address: letters required (e.g. a street name or campus ID).</div>}</>}
           {q.t==='num'&&(() => {
             // Map wizard field id → canonical BLE metric. Only the
             // CO2 fields wire to BLE in this PR; adding RH / temp /
@@ -1996,7 +1996,7 @@ export default function MobileApp() {
             <div style={{...V3.T.h1, marginBottom: 4}}>{facilityName}</div>
             {ts && <div style={{...V3.T.bodyDim, marginBottom: 16}}>Created {ts}</div>}
             <div style={{...V3.T.body, color: V3.TEXT_SECONDARY}}>
-              This report contains no scoring data — no zone measurements have been recorded. The engine has rendered a pre-assessment memo for planning use. Open the source assessment to add measurements and generate a full scored report.
+              This report contains no scoring data. No zone measurements have been recorded. The engine has rendered a pre-assessment memo for planning use. Open the source assessment to add measurements and generate a full scored report.
             </div>
           </GlassCard>
           {hasNarrative && (
@@ -2110,7 +2110,7 @@ export default function MobileApp() {
         {/* ── Legacy / Standards Badge ── */}
         {viewRpt && !viewRpt.standardsManifest && (
           <div style={{padding:'8px 14px',background:`${V3.SEVERITY.medium}10`,border:`1px solid ${V3.SEVERITY.medium}28`,borderRadius:V3.R.md,marginBottom:10,fontSize:11,color:WARN}}>
-            Legacy v1.x scoring — standards manifest not embedded
+            Legacy v1.x scoring: standards manifest not embedded
           </div>
         )}
 
@@ -2519,7 +2519,7 @@ export default function MobileApp() {
                       <div style={{...V3.T.body, marginTop:4, lineHeight:'20px'}}>{keyDesc}</div>
                     </>
                   ) : (
-                    <div style={V3.T.bodyDim}>No category scored yet — capture field data to surface the worst-zone indicator.</div>
+                    <div style={V3.T.bodyDim}>No category scored yet. Capture field data to surface the worst-zone indicator.</div>
                   )}
                 </div>
               </div>
@@ -2653,7 +2653,7 @@ export default function MobileApp() {
                     <span style={V3.T.bodyStrong}>{cat.l}</span>
                     <span style={V3.pill(V3.TEXT_TERTIARY)}>Not Scored</span>
                   </div>
-                  <div style={{...V3.T.captionDim, marginTop:6}}>Data gap — documentation not provided for this category</div>
+                  <div style={{...V3.T.captionDim, marginTop:6}}>Data gap: documentation not provided for this category</div>
                 </div>
               )
             }
@@ -2704,7 +2704,7 @@ export default function MobileApp() {
           {/* Mold Findings — parallel panel, not in composite */}
           {moldResults.length>0&&<div style={{padding:16,background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,marginTop:10}}>
             <div style={{fontSize:14,fontWeight:600,color:TEXT,marginBottom:3}}>Mold Findings</div>
-            <div style={{fontSize:11,color:DIM,marginBottom:12,lineHeight:1.5}}>Parallel assessment — not included in composite score. Drives IICRC S520 Conditions assessment.</div>
+            <div style={{fontSize:11,color:DIM,marginBottom:12,lineHeight:1.5}}>Parallel assessment, not included in composite score. Drives IICRC S520 Conditions assessment.</div>
             {moldResults.map((m,i)=>{const moldColor=m.condition>=3?DANGER:m.condition>=2?WARN:SUB;return(
               <div key={i} style={{marginBottom:i<moldResults.length-1?12:0}}>
                 <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:3,flexWrap:'wrap'}}>
@@ -2740,7 +2740,7 @@ export default function MobileApp() {
         })()}
 
         {rTab==='rootcause'&&<div style={{display:'flex',flexDirection:'column',gap:12}}>
-          <div style={{fontSize:11,color:DIM,lineHeight:1.5,marginBottom:4}}>Concern pathways are based on correlation of field observations, measurements, and occupant reports. They support — but do not confirm — root-cause determination.</div>
+          <div style={{fontSize:11,color:DIM,lineHeight:1.5,marginBottom:4}}>Concern pathways are based on correlation of field observations, measurements, and occupant reports. They support, but do not confirm, root-cause determination.</div>
           {causalChains.length===0?<div style={{padding:36,textAlign:'center',background:CARD,borderRadius:10,border:`1px solid ${BORDER}`}}><I n="chain" s={24} c={DIM} w={1.4} /><div style={{fontSize:14,fontWeight:600,marginTop:12,marginBottom:4,color:SUB}}>No concern pathways identified</div><div style={{fontSize:12,color:DIM,lineHeight:1.5}}>No correlated multi-factor findings in this assessment.</div></div>
           :causalChains.map((ch,i)=>{const confLabel=ch.confidence==='Strong'?'High':ch.confidence==='Moderate'?'Moderate':'Possible';const cc=confColor(ch.confidence);return(
             <div key={i} style={{padding:'16px 16px 18px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12}}>
@@ -3396,7 +3396,7 @@ export default function MobileApp() {
           the sheet without finalizing), so onClose just sets the
           prompt state back to false without finishing. */}
       {zonePrompt && (
-        <BottomSheet title="Zone complete" onClose={()=>setZonePrompt(false)} ariaLabel="Zone complete — add another or finish">
+        <BottomSheet title="Zone complete" onClose={()=>setZonePrompt(false)} ariaLabel="Zone complete, add another or finish">
           <div style={{...V3.T.bodyDim, margin:'4px 0 18px'}}>Add another zone to this assessment, or wrap up and review findings?</div>
           <div style={{display:'flex',flexDirection:'column',gap:10}}>
             <TactileButton
@@ -3430,7 +3430,7 @@ export default function MobileApp() {
       {connectionToast && (
         <div style={{position:'fixed',top:'calc(56px + env(safe-area-inset-top, 0px))',left:'50%',transform:'translateX(-50%)',zIndex:300,padding:'10px 20px',borderRadius:8,background:connectionToast==='offline'?'#F59E0B':'#22C55E',color:'#000',fontSize:12,fontWeight:600,fontFamily:'inherit',boxShadow:'0 4px 20px rgba(0,0,0,0.4)',animation:'fadeUp .3s ease',display:'flex',alignItems:'center',gap:8}}>
           <div style={{width:6,height:6,borderRadius:'50%',background:connectionToast==='offline'?'#92400E':'#166534'}} />
-          {connectionToast==='offline'?'You\'re offline — changes will sync when reconnected':'Back online — syncing data'}
+          {connectionToast==='offline'?'You\'re offline. Changes will sync when reconnected':'Back online, syncing data'}
         </div>
       )}
 
@@ -3453,7 +3453,7 @@ export default function MobileApp() {
           </div>
           <div style={{display:'flex',flexDirection:'column',gap:10,fontSize:13,color:SUB,lineHeight:1.6,marginBottom:18}}>
             {[
-              { label: 'Advisory use only', body: 'All outputs generated by AtmosFlow are advisory and intended to support — not replace — professional judgment by a qualified industrial hygienist or EHS professional.' },
+              { label: 'Advisory use only', body: 'All outputs generated by AtmosFlow are advisory and intended to support, not replace, professional judgment by a qualified industrial hygienist or EHS professional.' },
               { label: 'Scoring methodology', body: 'Scoring applies deterministic rules informed by recognized ventilation, comfort, and exposure standards. It does not constitute a compliance certification or regulatory determination.' },
               { label: 'Assessor responsibility', body: 'You are responsible for interpreting findings, reviewing all generated outputs, and exercising professional judgment before any deliverable is shared with clients or used for decision-making.' },
               { label: 'Report review', body: 'AI-generated narratives and automated findings require professional review before client delivery. AtmosFlow does not provide legal, regulatory, or medical advice.' },
@@ -3466,7 +3466,7 @@ export default function MobileApp() {
           </div>
           <div style={{display:'flex',gap:10,flexDirection:'column'}}>
             <TactileButton variant="primary" fullWidth size="lg" onClick={proceedAfterDisclaimer} haptic="success">
-              I understand — begin walkthrough
+              I understand, begin walkthrough
             </TactileButton>
             <TactileButton variant="ghost" fullWidth onClick={()=>setShowDisclaimer(false)}>
               Not yet
@@ -3556,7 +3556,7 @@ export default function MobileApp() {
           title="Unlock mission-critical IAQ features"
           onClose={()=>setShowPremiumGate(false)}
           maxWidth={420}
-          ariaLabel="Data Center module — premium gate"
+          ariaLabel="Data Center module, premium gate"
         >
           <div style={{...V3.T.bodyDim, margin:'4px 0 14px', lineHeight:1.65}}>
             The Data Center module activates specialized analytical logic for ASHRAE TC 9.9 thermal ranges and ANSI/ISA-71.04 corrosion tracking. Required for documenting compliance in facilities with high-value hardware and mission-critical uptime requirements.
@@ -3669,7 +3669,7 @@ export default function MobileApp() {
         >
           <div style={{...V3.T.bodyDim, lineHeight:1.6, margin:'4px 0 16px'}}>
             Pulls make/model, serial, and last-cal date from your profile. The
-            calibration status is mapped automatically — confirm it on the
+            calibration status is mapped automatically. Confirm it on the
             instrument step before finalizing.
           </div>
           {savedInstruments.length === 0 ? (
@@ -3701,7 +3701,7 @@ export default function MobileApp() {
           ariaLabel="Discrepancies check on the report"
         >
           <div style={{...V3.T.bodyDim, lineHeight:1.6, margin:'4px 0 16px'}}>
-            AtmosFlow AI scans for internal inconsistencies — narrative vs data,
+            AtmosFlow AI scans for internal inconsistencies: narrative vs data,
             missing defensibility items, and unfilled placeholders. A screening
             QA aid, not a substitute for professional review.{!PAYWALL_DISABLED ? ` Uses ${REVIEW_CREDIT_COST} credits.` : ''}
           </div>
@@ -3770,7 +3770,7 @@ export default function MobileApp() {
           <BottomSheet title="Send graphs to a report" onClose={()=>setGraphTargetOpen(false)} maxWidth={420} ariaLabel="Choose a report to receive the logger charts">
             <div style={{fontSize:13,color:SUB,margin:'4px 0 16px',lineHeight:1.55}}>The charts marked “Include in report” will be attached to the report you pick and embed in its Word export.</div>
             {drafts.length === 0 && reports.length === 0 ? (
-              <div style={{fontSize:13,color:SUB,padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:V3.R.md,lineHeight:1.55}}>No reports yet — start an assessment first, then send the charts to it.</div>
+              <div style={{fontSize:13,color:SUB,padding:'14px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:V3.R.md,lineHeight:1.55}}>No reports yet. Start an assessment first, then send the charts to it.</div>
             ) : (
               <div style={{display:'flex',flexDirection:'column',gap:10}}>
                 {drafts.length > 0 && <div style={V3.T.micro}>Drafts</div>}
@@ -4214,7 +4214,7 @@ export default function MobileApp() {
           <div style={{marginBottom:18}}>
             <div style={{fontSize:11,fontWeight:600,color:ACCENT,fontFamily:"var(--font-mono)",letterSpacing:'0.5px',marginBottom:6}}>STEP 2 OF 3 · HVAC EQUIPMENT</div>
             <div style={{fontSize:22,fontWeight:700,color:TEXT,letterSpacing:'-0.4px',marginBottom:6}}>Capture HVAC equipment</div>
-            <div style={{fontSize:13,color:SUB,lineHeight:1.5}}>List the HVAC units serving the assessed area (AHU, RTU, FCU, ERV, etc.). Each captured unit becomes selectable when you map zones in the next step. <strong style={{color:TEXT,fontWeight:600}}>You can skip this step</strong> — equipment-scoped recommendations will surface as building-wide actions until equipment is identified.</div>
+            <div style={{fontSize:13,color:SUB,lineHeight:1.5}}>List the HVAC units serving the assessed area (AHU, RTU, FCU, ERV, etc.). Each captured unit becomes selectable when you map zones in the next step. <strong style={{color:TEXT,fontWeight:600}}>You can skip this step</strong>, equipment-scoped recommendations will surface as building-wide actions until equipment is identified.</div>
           </div>
 
           {/* Equipment list */}
@@ -4245,13 +4245,13 @@ export default function MobileApp() {
                 <div style={{fontSize:12,fontWeight:600,color:SUB,marginBottom:6}}>Type *</div>
                 <select value={eqForm.type||''} onChange={e=>setEqForm(p=>({...p,type:e.target.value}))} style={{width:'100%',padding:'12px 14px',background:BG,border:`1px solid ${BORDER}`,borderRadius:8,color:TEXT,fontSize:14,fontFamily:'inherit',boxSizing:'border-box'}}>
                   <option value="">Select type…</option>
-                  <option value="AHU">AHU — Air Handling Unit</option>
-                  <option value="RTU">RTU — Rooftop Unit</option>
-                  <option value="FCU">FCU — Fan Coil Unit</option>
+                  <option value="AHU">AHU: Air Handling Unit</option>
+                  <option value="RTU">RTU: Rooftop Unit</option>
+                  <option value="FCU">FCU: Fan Coil Unit</option>
                   <option value="VRF_INDOOR">VRF Indoor Unit</option>
-                  <option value="ERV">ERV — Energy Recovery Ventilator</option>
-                  <option value="MAU">MAU — Makeup Air Unit</option>
-                  <option value="DOAS">DOAS — Dedicated Outdoor Air System</option>
+                  <option value="ERV">ERV: Energy Recovery Ventilator</option>
+                  <option value="MAU">MAU: Makeup Air Unit</option>
+                  <option value="DOAS">DOAS: Dedicated Outdoor Air System</option>
                   <option value="OTHER">Other</option>
                 </select>
               </div>
@@ -4284,7 +4284,7 @@ export default function MobileApp() {
           {/* Continue / Skip */}
           <div style={{display:'flex',gap:10,marginTop:18}}>
             <button onClick={()=>{setView('quickstart'); setQsqi(qsVis.length-1)}} style={{flex:0,padding:'14px 22px',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:10,color:SUB,fontSize:14,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>← Back</button>
-            <button onClick={finishEquipment} style={{flex:1,padding:'14px 22px',background:ACCENT,border:'none',borderRadius:10,color:ON_ACCENT,fontSize:15,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>{(equipment||[]).length === 0 ? 'Skip — Continue to Zones →' : 'Continue to Zones →'}</button>
+            <button onClick={finishEquipment} style={{flex:1,padding:'14px 22px',background:ACCENT,border:'none',borderRadius:10,color:ON_ACCENT,fontSize:15,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>{(equipment||[]).length === 0 ? 'Skip, Continue to Zones →' : 'Continue to Zones →'}</button>
           </div>
         </div>}
 

@@ -31,11 +31,11 @@ import { useEffect, useRef, useState } from 'react'
 export const FEATURE_TOUR_STEPS = [
   {
     title: 'Welcome to AtmosFlow',
-    body: 'A 60-second tour of how the app works. Tap Next to move through it — you can skip now and replay any time from Settings → Help.',
+    body: 'A 60-second tour of how the app works. Tap Next to move through it. You can skip now and replay any time from Settings → Help.',
   },
   {
     title: 'Start an assessment',
-    body: 'Tap New Assessment and AtmosFlow guides you one question at a time. Add a zone for each room or area you’re evaluating — an office, a server room, a lobby.',
+    body: 'Tap New Assessment and AtmosFlow guides you one question at a time. Add a zone for each room or area you’re evaluating: an office, a server room, a lobby.',
   },
   {
     title: 'Set up your meter',

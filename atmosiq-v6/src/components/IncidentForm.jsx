@@ -175,7 +175,7 @@ export default function IncidentForm({ onCancel, onSaved }) {
       </div>
       <h2 style={{ fontSize: 22, fontWeight: 700, color: TEXT, marginBottom: 4, letterSpacing: '-0.3px' }}>Incident Response</h2>
       <div style={{ fontSize: 12, color: SUB, marginBottom: 4 }}>
-        Fast capture of an indoor air event. Documentation only — not a substitute for emergency services or a full IAQ assessment.
+        Fast capture of an indoor air event. Documentation only, not a substitute for emergency services or a full IAQ assessment.
       </div>
 
       {/* Section: Trigger */}
@@ -274,7 +274,7 @@ export default function IncidentForm({ onCancel, onSaved }) {
 
       {/* Section: Actions taken */}
       <div style={sectionHeader}>Actions already taken</div>
-      <div style={{ fontSize: 11, color: DIM, marginBottom: 8 }}>Descriptive — what's been done on-site. AtmosFlow does not prescribe emergency actions.</div>
+      <div style={{ fontSize: 11, color: DIM, marginBottom: 8 }}>Descriptive: what's been done on-site. AtmosFlow does not prescribe emergency actions.</div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
         {ACTIONS.map(a => (
           <Chip key={a} label={a} selected={form.actions_taken.includes(a)} onClick={() => toggle('actions_taken', a)} />

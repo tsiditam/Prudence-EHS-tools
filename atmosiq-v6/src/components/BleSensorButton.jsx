@@ -80,7 +80,7 @@ export default function BleSensorButton({
           !supported
             ? 'Bluetooth not available in this browser'
             : sessionUseful
-              ? `Connected: ${session.deviceName} — tap to insert latest reading`
+              ? `Connected: ${session.deviceName}. Tap to insert latest reading`
               : ariaLabel
         }
         disabled={!interactive}
@@ -270,9 +270,9 @@ function UnsupportedView({ onClose }) {
         Your browser doesn't support Web Bluetooth. To pair Aranet4 and other IAQ sensors directly to AtmosFlow, use one of these:
       </div>
       <ul style={{ margin: '0 0 14px', padding: '0 0 0 18px', color: 'var(--sub)', fontSize: 13, lineHeight: 1.65 }}>
-        <li><strong style={{ color: 'var(--text)' }}>Android phone or tablet</strong> — Chrome works out of the box.</li>
-        <li><strong style={{ color: 'var(--text)' }}>iPhone or iPad</strong> — install the free <a href="https://apps.apple.com/app/bluefy-web-ble-browser/id1492822055" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)' }}>Bluefy browser</a> and open AtmosFlow inside it.</li>
-        <li><strong style={{ color: 'var(--text)' }}>Mac / Windows / Linux desktop</strong> — Chrome or Edge.</li>
+        <li><strong style={{ color: 'var(--text)' }}>Android phone or tablet</strong>: Chrome works out of the box.</li>
+        <li><strong style={{ color: 'var(--text)' }}>iPhone or iPad</strong>: install the free <a href="https://apps.apple.com/app/bluefy-web-ble-browser/id1492822055" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)' }}>Bluefy browser</a> and open AtmosFlow inside it.</li>
+        <li><strong style={{ color: 'var(--text)' }}>Mac / Windows / Linux desktop</strong>: Chrome or Edge.</li>
       </ul>
       <button
         type="button"
@@ -370,7 +370,7 @@ function ActiveSessionView({ metric, session, onInsert, onPairDifferent, onClose
           </>
         ) : (
           <div style={{ fontSize: 13, color: 'var(--sub)' }}>
-            No reading yet — tap Refresh.
+            No reading yet. Tap Refresh.
           </div>
         )}
       </div>
@@ -706,11 +706,11 @@ function friendlyBleError(code) {
   switch (code) {
     case 'cancelled':           return 'Pairing cancelled.'
     case 'unsupported':         return 'Bluetooth not supported in this browser.'
-    case 'NotFoundError':       return 'Device not found — make sure it\'s on and nearby.'
+    case 'NotFoundError':       return 'Device not found. Make sure it\'s on and nearby.'
     case 'SecurityError':       return 'Bluetooth blocked. Check site permissions.'
     case 'NetworkError':        return 'Bluetooth connection failed. Try again.'
     case 'NotSupportedError':   return 'This device isn\'t supported on this OS.'
-    case 'short_payload':       return 'Received an incomplete reading — try refreshing.'
+    case 'short_payload':       return 'Received an incomplete reading. Try refreshing.'
     case 'read_failed':         return 'Failed to read the device. Try refreshing.'
     case 'not_connected':       return 'Not connected yet.'
     default:                    return code ? `Error: ${code}` : 'Something went wrong.'

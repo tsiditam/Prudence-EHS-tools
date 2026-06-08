@@ -455,11 +455,6 @@ export const inputFocusHandlers = {}
 
 export const btnPressHandlers = {}
 
-export const sevBadge = (sev) => {
-  const colors = { critical: '#EF4444', high: '#FB923C', medium: '#FBBF24', low: '#22D3EE', pass: '#22C55E', info: '#8B5CF6' }
-  return { padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600, background: (colors[sev] || '#5E6578') + '20', color: colors[sev] || '#5E6578' }
-}
-
 export const sectionHeaderStyle = (dk) => ({
   fontSize: dk ? 14 : 13, fontWeight: 600, color: CSS.accent,
   marginBottom: 8, marginTop: dk ? 24 : 16,

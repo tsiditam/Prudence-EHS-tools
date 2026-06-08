@@ -17,8 +17,8 @@ import STO from '../../utils/storage'
 import { SENSOR_FIELDS } from '../../constants/questions'
 import { SENSOR_PARAMS, sensorAveragesToFields } from '../../utils/sensorParser'
 import { mix } from '../../utils/theme'
+import { paramLabel } from './sensorHelpers'
 
-const paramLabel = (key) => SENSOR_PARAMS.find((p) => p.key === key)?.label || key
 const fieldUnit = (id) => SENSOR_FIELDS.find((f) => f.id === id)?.u || ''
 const zoneTitle = (z, i) => (z && String(z.zn || '').trim()) || `Zone ${i + 1}`
 

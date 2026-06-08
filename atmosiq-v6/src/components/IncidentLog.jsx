@@ -32,13 +32,7 @@ const STATUS_FILTERS = [
   { id: 'all', label: 'All' },
 ]
 
-const SEVERITY_COLOR = {
-  minor: DIM,
-  moderate: WARN,
-  significant: WARN,
-  severe: DANGER,
-  critical: DANGER,
-}
+import { SEVERITY_COLOR } from './incidentConstants'
 
 const STATUS_LABEL = {
   open: 'Open',

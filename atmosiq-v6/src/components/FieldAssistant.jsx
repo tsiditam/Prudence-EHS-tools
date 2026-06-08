@@ -454,7 +454,7 @@ function JasperIntroPanel({ onAccept, onNavigate }) {
         {/* Brain mark omitted here — the sheet header already shows it,
             so repeating it on the welcome line read as redundant. */}
         <div style={{ fontSize: 15, color: TEXT, lineHeight: 1.45, fontWeight: 600 }}>
-          <span role="img" aria-label="waving hand">👋</span> Welcome to AtmosFlow AI — your indoor air quality assistant.
+          <span role="img" aria-label="waving hand">👋</span> Welcome to AtmosFlow AI, your indoor air quality assistant.
         </div>
       </div>
 
@@ -463,7 +463,7 @@ function JasperIntroPanel({ onAccept, onNavigate }) {
         color: SUB, fontSize: 13, lineHeight: 1.55,
       }}>
         <li className="jasper-stagger" style={{ marginBottom: 10, ...reveal(500) }}>
-          I'm an AI screening assistant — I won't make compliance, causation,
+          I'm an AI screening assistant. I won't make compliance, causation,
           or final IAQ calls. Those go to a qualified professional.
         </li>
         <li className="jasper-stagger" style={{ marginBottom: 10, ...reveal(1000) }}>
@@ -1146,7 +1146,7 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
                     tone={c.tone}
                     icon={c.icon}
                     onClick={isFacility ? openAssessmentPicker : undefined}
-                    ariaLabel={isFacility ? `${c.label} — tap to switch assessment` : undefined}
+                    ariaLabel={isFacility ? `${c.label}: tap to switch assessment` : undefined}
                   />
                 </span>
               )

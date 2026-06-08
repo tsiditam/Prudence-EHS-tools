@@ -28,21 +28,7 @@ const DIM = 'var(--dim)'
 const ACCENT = 'var(--accent)'
 const DANGER = 'var(--danger)'
 
-async function getAuthHeader() {
-  try {
-    const session = await (await import('../../utils/cloudStorage')).default.getSession()
-    return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : null
-  } catch {
-    return null
-  }
-}
-
-function fmtDate(iso) {
-  if (!iso) return ''
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
-}
+import { getAuthHeader, fmtDate } from './settingsHelpers'
 
 function nextDueLabel(site) {
   if (site.disabled_at) return 'Reminders paused'
@@ -155,10 +141,9 @@ export default function SiteLibraryPanel() {
           renders the section's "SITES" label, so an in-panel <h2>Sites</h2>
           duplicated it. */}
       <div style={{...V3.T.bodyDim, marginBottom: 16}}>
-        Your saved site library. AtmosFlow uses these to remind you when a
-        site is due for re-assessment (annually by default) and to
-        pre-fill the building profile when you start a follow-up
-        walkthrough at the same location.
+        Saved sites. AtmosFlow reminds you when each is due for
+        re-assessment (annually by default) and pre-fills the building
+        profile on a follow-up visit to the same location.
       </div>
 
       {error && (

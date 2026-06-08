@@ -21,12 +21,7 @@ import { Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx'
 import { FONTS, COLORS } from './styles'
 import { getContextualStandards } from '../../engines/contextualStandards.js'
 
-const p = (text, opts = {}) => new Paragraph({
-  children: [new TextRun({ text, font: FONTS.body, size: opts.size || 22, color: opts.color || COLORS.body, bold: opts.bold, italics: opts.italics })],
-  alignment: opts.align || AlignmentType.LEFT,
-  spacing: { after: opts.after !== undefined ? opts.after : 120 },
-  ...(opts.heading ? { heading: opts.heading } : {}),
-})
+import { p } from './paragraphs'
 
 /**
  * Build the Standards Currency section.

@@ -47,7 +47,7 @@ function Harness() {
   return <SensorDataPage value={value} onChange={setValue} />
 }
 async function upload(container, file) {
-  await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Upload Logger Data/i })) })
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Upload Data/i })) })
   const input = container.querySelector('input[type="file"]')
   await act(async () => { fireEvent.change(input, { target: { files: [file] } }) })
   await act(async () => {})

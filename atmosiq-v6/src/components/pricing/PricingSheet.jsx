@@ -109,7 +109,7 @@ export default function PricingSheet({ profile, credits = 0, onClose, contentMax
               color: isAnnual ? ACCENT : SUB, fontSize: 12, fontWeight: 600,
               cursor: 'pointer', fontFamily: 'inherit', minHeight: 36,
             }}
-          >Annual — Save {annualSavingsPercent()}%</button>
+          >Annual: Save {annualSavingsPercent()}%</button>
         </div>
 
         {TIERS.map(tier => {
@@ -140,7 +140,7 @@ export default function PricingSheet({ profile, credits = 0, onClose, contentMax
               )}
               <div>
                 <div style={{ fontSize: 15, fontWeight: 700, color: TEXT }}>
-                  {tier.name} <span style={{ fontWeight: 500, color: SUB }}>— {tier.credits} credit{tier.credits !== 1 ? 's' : ''}/mo</span>
+                  {tier.name} <span style={{ fontWeight: 500, color: SUB }}>· {tier.credits} credit{tier.credits !== 1 ? 's' : ''}/mo</span>
                 </div>
                 <div style={{ fontSize: 11, color: DIM, marginTop: 2 }}>{tier.blurb}</div>
                 {isAnnual && tier.id !== 'free' && (

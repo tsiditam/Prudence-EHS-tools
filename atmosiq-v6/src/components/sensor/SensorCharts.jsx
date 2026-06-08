@@ -19,11 +19,16 @@ import {
 import dayjs from 'dayjs'
 import { normalizeForCompare, SENSOR_PARAMS } from '../../utils/sensorParser'
 import { STD } from '../../constants/standards'
+import { paramLabel } from './sensorHelpers'
 
 // Resolved palettes (no CSS vars — see header). DARK mirrors the app's
 // dark tokens; LIGHT is the white-document palette used for report images.
 export const DARK_PALETTE = { axis: '#8B93A5', grid: '#2A2E38', text: '#ECEEF2', card: '#111318' }
 export const LIGHT_PALETTE = { axis: '#475569', grid: '#CBD5E1', text: '#0F172A', card: '#FFFFFF' }
+
+// Resolved palette for the live theme (Recharts needs hex, not CSS vars).
+// Shared by LoggerGraphsTab + SensorDataPage.
+export const currentPalette = () => (typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'light' ? LIGHT_PALETTE : DARK_PALETTE)
 
 // Distinct, contrast-safe series colours so series read without relying
 // on a single hue (works on both dark + white backgrounds).
@@ -219,7 +224,6 @@ export function TVOCTimelineChart({ data, hasTs = true, units = {}, palette = DA
   return <Shell width={width} height={height}>{inner}</Shell>
 }
 
-const paramLabel = (k) => SENSOR_PARAMS.find((p) => p.key === k)?.label || k
 
 // Multi-parameter comparison: each selected parameter scaled to 0–100% of
 // its own range so trends of different magnitudes read together. The

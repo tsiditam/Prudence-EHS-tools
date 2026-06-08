@@ -31,9 +31,7 @@ const STATUSES = [
   { id: 'escalated', label: 'Escalated', color: DANGER },
 ]
 
-const SEVERITY_COLOR = {
-  minor: DIM, moderate: WARN, significant: WARN, severe: DANGER, critical: DANGER,
-}
+import { SEVERITY_COLOR } from './incidentConstants'
 
 function Section({ title, children }) {
   return (
