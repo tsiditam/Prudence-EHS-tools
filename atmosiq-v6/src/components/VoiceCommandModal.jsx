@@ -248,8 +248,8 @@ export default function VoiceCommandModal({ open, onCancel, onSubmit }) {
                 ? 'Microphone permission denied. Enable it in browser settings.'
                 : 'Voice input failed. Try again.'
         ) : listening ? (
-          hasText ? 'Pause when done — I\'ll send automatically.' : 'Listening… speak your question.'
-        ) : hasText ? 'Ready — tap Send, or the mic to add more.' : 'Tap the mic to retry.'}
+          hasText ? 'Pause when done. I\'ll send automatically.' : 'Listening… speak your question.'
+        ) : hasText ? 'Ready. Tap Send, or the mic to add more.' : 'Tap the mic to retry.'}
       </div>
 
       {/* Live transcript */}

@@ -51,7 +51,7 @@ const ERROR_MESSAGES = {
   unsupported: 'Voice input not supported in this browser.',
   'not-allowed': 'Microphone permission denied. Enable it in browser settings.',
   'service-not-allowed': 'Microphone access blocked. Check browser settings.',
-  'no-speech': 'No speech detected — try again.',
+  'no-speech': 'No speech detected. Try again.',
   'audio-capture': 'No microphone found.',
   network: 'Voice input requires network. Try again when online.',
 }

@@ -119,7 +119,7 @@ function CollaboratorChip({ collaborator, size, offsetLeft, onClick }) {
   // — it surfaces both name and the zone they're on without any
   // custom popover infrastructure. Modern phones long-press on a
   // chip to reveal it.
-  const title = zone ? `${name} — viewing ${zone}` : name
+  const title = zone ? `${name}: viewing ${zone}` : name
 
   // Wrap the avatar in a small badge container so the avatar can use
   // its own circular border without us double-bordering.
