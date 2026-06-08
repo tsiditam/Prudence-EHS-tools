@@ -353,6 +353,172 @@ const PAGE_STYLES = `
   }
 `
 
+// ── Modern stylesheet ─────────────────────────────────────────────────
+// Restyles the SAME semantic classes the classic renderers emit, so the
+// modern report is a pure CSS swap (no parallel markup / data path).
+const MODERN_STYLES = `
+  @import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+  :root{
+    --blue:#2563EB; --ink:#1B2A41; --ink2:#334155; --slate:#475569; --ink3:#64748B;
+    --border:#CBD5E1; --rule:#E8EDF3; --groupbg:#F8FAFC; --r-fg:#991B1B;
+    --serif:'Newsreader',Georgia,'Times New Roman',serif;
+    --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    --mono:'DM Mono','SFMono-Regular',Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--sans);font-size:11pt;color:var(--slate);line-height:1.65;
+    padding:0.85in 0.95in;max-width:8.5in;margin:0 auto;background:#fff;
+    font-feature-settings:'kern' on,'liga' on,'tnum' on}
+  h1{font-family:var(--serif);font-size:26pt;font-weight:600;color:var(--ink);letter-spacing:-0.01em;margin-bottom:6px;line-height:1.1}
+  h2{font-family:var(--serif);font-size:16pt;font-weight:600;color:var(--ink);letter-spacing:-0.005em;
+    margin:30px 0 14px;padding-bottom:7px;border-bottom:2px solid var(--ink);page-break-after:avoid}
+  h3{font-family:var(--mono);font-size:8pt;font-weight:500;text-transform:uppercase;letter-spacing:0.12em;color:var(--ink3);margin:20px 0 9px}
+  h4{font-family:var(--serif);font-size:13pt;font-weight:600;color:var(--ink);margin:18px 0 6px}
+  p{margin-bottom:10px;line-height:1.65;color:var(--slate)}
+  ul,ol{margin:8px 0 13px 22px}
+  li{margin-bottom:5px;line-height:1.6;color:var(--ink2)}
+  strong{color:var(--ink2);font-weight:600}
+  a{color:var(--blue);text-decoration:none}
+
+  .section{margin-bottom:24px}
+  .divider{border-bottom:1px solid var(--rule);margin:16px 0}
+  .callout{background:linear-gradient(90deg,#EFF4FE,#fff 60%);border-left:3px solid var(--blue);padding:14px 18px;border-radius:0 6px 6px 0;margin:13px 0}
+
+  table{width:100%;border-collapse:collapse;font-family:var(--sans);font-size:9pt;margin:8px 0 16px}
+  th{font-family:var(--mono);font-size:7.5pt;text-transform:uppercase;letter-spacing:0.07em;color:var(--ink3);
+    text-align:left;font-weight:500;padding:7px 10px;border-bottom:2px solid var(--ink);background:transparent}
+  td{padding:8px 10px;border-bottom:1px solid var(--rule);font-size:9pt;color:var(--ink2);vertical-align:top}
+  table.data-table th{background:var(--ink);color:#E7ECF3;border:none}
+  table.data-table td{border:none;border-bottom:1px solid var(--rule)}
+  table.data-table tbody tr:nth-child(even) td{background:#FCFDFE}
+
+  .cover{position:relative;text-align:left;padding:0.9in 0 0.7in;border-bottom:none;margin-bottom:0.4in;page-break-after:always}
+  .cover::before{content:'';position:absolute;top:-0.85in;left:-0.95in;right:-0.95in;height:10px;background:linear-gradient(90deg,var(--blue),var(--ink))}
+  .cover-firm{font-family:var(--serif);font-size:13pt;font-weight:600;color:var(--ink);margin-bottom:6px}
+  .cover-firm-sub{font-family:var(--mono);font-size:8pt;letter-spacing:0.12em;text-transform:uppercase;color:var(--ink3);margin-bottom:56px}
+  .cover-title{font-family:var(--serif);font-size:34pt;font-weight:500;color:var(--ink);letter-spacing:-0.015em;margin:0;line-height:1.05}
+  .cover-rule{width:54px;height:3px;background:var(--blue);margin:26px 0}
+  .cover-meta{font-family:var(--sans);font-size:10.5pt;color:var(--ink2);line-height:1.9}
+  .cover-meta strong{color:var(--ink);font-weight:600}
+  .cover-status{display:inline-block;font-family:var(--mono);padding:5px 13px;background:var(--groupbg);color:var(--ink);
+    border:1px solid var(--border);border-radius:3px;font-size:8pt;font-weight:500;margin-top:20px;letter-spacing:0.06em;text-transform:uppercase}
+  .cover-methodology{font-family:var(--serif);font-style:italic;font-size:10.5pt;color:var(--ink3);margin-top:0.35in}
+  .draft-notice{font-family:var(--mono);padding:10px 14px;background:#FEF2F2;border:1px solid #FCA5A5;border-radius:5px;
+    font-size:8.5pt;color:var(--r-fg);margin-top:20px;line-height:1.5;letter-spacing:0.02em}
+  .draft-watermark{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-28deg);
+    font-family:var(--serif);font-size:96pt;color:rgba(153,27,27,0.06);font-weight:600;pointer-events:none;z-index:0;letter-spacing:8px}
+
+  .toc{margin:18px 0 26px;padding:0;background:transparent;border:none;page-break-after:avoid}
+  .toc-title{font-family:var(--serif);font-size:14pt;font-weight:600;color:var(--ink);margin-bottom:12px;padding-bottom:7px;border-bottom:1px solid var(--rule)}
+  .toc-list{list-style:none;margin:0;padding:0}
+  .toc-list li{padding:6px 0;font-size:10pt;border-bottom:1.5px dotted var(--border);color:var(--ink)}
+  .toc-list li.level-2{padding-left:22px;font-size:9.5pt;color:var(--ink3)}
+  .toc-list a{color:var(--ink);text-decoration:none}
+
+  .verbatim{padding:13px 18px;background:var(--groupbg);border-left:3px solid var(--blue);border-radius:0 5px 5px 0;
+    margin-bottom:16px;font-family:var(--serif);font-size:11pt;line-height:1.6;font-style:italic;color:var(--ink2)}
+
+  .exec-meta-list{margin:8px 0 20px;padding:0;list-style:none}
+  .exec-meta-list li{display:flex;gap:12px;padding:6px 0;border-bottom:1px solid var(--rule)}
+  .exec-meta-list li:last-child{border-bottom:none}
+  .exec-meta-list .label{font-family:var(--mono);font-size:7.5pt;text-transform:uppercase;letter-spacing:0.08em;
+    color:var(--ink3);font-weight:500;min-width:150px;border:none;padding:0;margin:0}
+  .exec-meta-list .value{color:var(--ink);font-weight:500;flex:1;font-size:10pt}
+
+  .finding-group{margin:13px 0 16px}
+  .finding-group-name{font-family:var(--serif);font-weight:600;color:var(--ink);font-size:12pt;margin-bottom:7px}
+  .finding-group-list{margin:0 0 0 18px;padding:0;list-style:disc}
+  .finding-group-list li{margin-bottom:5px;line-height:1.6;text-align:left}
+  .finding-group-list .lead-term{font-weight:600;color:var(--ink)}
+  .findings-consolidated{margin:0 0 0 18px}
+
+  .exec-block{margin-bottom:18px;border:1px solid var(--border);border-radius:7px;overflow:hidden}
+  .exec-block-header{font-family:var(--mono);background:var(--ink);color:#E7ECF3;font-weight:500;font-size:8pt;
+    text-transform:uppercase;letter-spacing:0.1em;padding:9px 16px}
+  .exec-block-body{padding:14px 18px;background:#fff;font-size:10pt}
+  .exec-block-body ul{margin-left:20px}
+
+  .letter{margin:0 0 30px;font-size:10.5pt;line-height:1.6}
+  .letter-date{margin-bottom:22px;font-family:var(--mono);font-size:9pt;color:var(--ink3)}
+  .letter-recipient{margin-bottom:20px;line-height:1.5;color:var(--ink2)}
+  .letter-recipient .org{font-weight:600;color:var(--ink)}
+  .letter-re-block{margin-bottom:20px;line-height:1.6}
+  .letter-re-block .re-label{font-weight:600;color:var(--ink);display:inline-block;min-width:40px}
+  .letter-re-block .re-text{font-weight:600;color:var(--ink)}
+  .letter-project-line{margin-top:6px;font-family:var(--mono);font-size:9pt;color:var(--ink2);letter-spacing:0.02em}
+  .letter-salutation{margin:20px 0 13px}
+  .letter-body{margin-bottom:13px;line-height:1.65;color:var(--ink2)}
+  .letter-closing{margin:26px 0 6px;color:var(--ink2)}
+  .letter-firm{margin-bottom:0.5in;font-family:var(--serif);font-weight:600;font-style:italic;color:var(--ink)}
+  .letter-signatories{display:flex;gap:0.4in;flex-wrap:wrap}
+  .signature-line{flex:1;min-width:230px;margin-bottom:16px}
+  .signature-image-area{height:0.5in;margin-bottom:4px}
+  .signature-rule{margin-bottom:5px;border-bottom:1px solid var(--ink);height:1px;width:80%}
+  .signature-name{font-family:var(--serif);font-size:11pt;font-weight:600;color:var(--ink)}
+  .signature-title{font-size:9.5pt;color:var(--slate)}
+  .signature-meta{font-family:var(--mono);font-size:8pt;color:var(--ink3);margin-top:2px}
+
+  .opinion-card{padding:16px 20px;background:linear-gradient(90deg,#EFF4FE,#fff 60%);border:none;border-left:3px solid var(--blue);
+    border-radius:0 6px 6px 0;margin:0 0 20px;page-break-inside:avoid}
+  .opinion-tier{font-family:var(--mono);font-size:7.5pt;font-weight:500;color:var(--blue);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:7px}
+  .opinion-text{font-family:var(--serif);font-size:11.5pt;line-height:1.5;color:var(--ink);font-weight:400}
+
+  .finding{margin:0 0 16px;padding-bottom:10px;page-break-inside:avoid}
+  .finding-narrative{margin:0 0 8px;line-height:1.65;color:var(--ink2)}
+  .finding-observation{margin:4px 0 8px;padding:7px 12px;background:var(--groupbg);border-left:3px solid var(--blue);border-radius:0 4px 4px 0;font-size:9.5pt;line-height:1.5}
+  .finding-observation-label{font-family:var(--mono);font-size:7.5pt;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink3);font-weight:500}
+  .finding-observation-value{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--ink);font-weight:500;font-size:11pt}
+  .finding-source{font-family:var(--mono);font-size:8pt;color:var(--ink3);font-style:normal}
+  .finding-limitations{margin:8px 0 8px 22px;padding-left:12px;border-left:1px solid var(--rule)}
+  .finding-limitations-label{font-family:var(--mono);font-size:7.5pt;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink3);font-style:normal;margin-bottom:4px;font-weight:500}
+  .finding-limitations-list{margin:0 0 0 16px;padding:0}
+  .finding-limitations-list li{font-size:9pt;font-style:normal;color:var(--ink3);margin-bottom:3px;line-height:1.5;text-align:left}
+  .finding-actions{margin:10px 0 0 22px}
+  .finding-actions-label{font-family:var(--mono);font-size:7.5pt;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink3);margin-bottom:4px;font-weight:500}
+  .finding-actions-list{margin:0 0 0 16px;padding:0}
+  .finding-actions-list li{font-size:9pt;margin-bottom:4px;line-height:1.5;text-align:left;color:var(--ink2)}
+  .zone-description{font-size:9.5pt;color:var(--slate);margin-bottom:8px}
+  .zone-sampling{font-family:var(--mono);font-size:8.5pt;color:var(--ink3);margin-bottom:12px;font-style:normal}
+
+  .zone-card{border:1px solid var(--border);border-top:none;border-radius:0 0 7px 7px;padding:20px 22px 16px;margin-bottom:20px;page-break-inside:avoid;position:relative}
+  .zone-name{font-family:var(--serif);font-size:13pt;font-weight:600;color:#fff;background:var(--ink);
+    margin:-20px -22px 14px;padding:11px 22px;border-radius:5px 5px 0 0}
+  .label{font-family:var(--mono);font-size:7.5pt;font-weight:500;color:var(--ink3);text-transform:uppercase;letter-spacing:0.1em;
+    margin:14px 0 6px;padding-bottom:0;border-bottom:none}
+
+  .signatory{padding:22px 24px;background:var(--groupbg);border:1px solid var(--border);border-top:3px solid var(--blue);border-radius:6px;margin-top:28px;page-break-inside:avoid}
+  .signatory-row{display:flex;gap:0.4in;margin-bottom:14px}
+  .signatory-block{flex:1}
+  .signatory-name{font-family:var(--serif);font-size:12pt;font-weight:600;color:var(--ink);margin-bottom:3px}
+  .signatory-creds{font-family:var(--mono);font-size:8.5pt;color:var(--slate);margin-bottom:6px}
+  .signatory-meta{font-size:8.5pt;color:var(--ink3);line-height:1.55}
+
+  .methodology-instrument{margin-bottom:12px}
+
+  .rec-table{width:100%;border-collapse:collapse;margin:8px 0 16px;border:none}
+  .rec-table th{font-family:var(--mono);background:var(--ink);color:#E7ECF3;text-align:left;font-size:7.5pt;font-weight:500;
+    text-transform:uppercase;letter-spacing:0.07em;padding:8px 12px;border:none}
+  .rec-table td{padding:9px 12px;border:none;border-bottom:1px solid var(--rule);font-size:9pt;color:var(--ink2);vertical-align:top;line-height:1.5}
+  .rec-table tr.priority-row td{font-family:var(--mono);background:var(--groupbg);font-weight:500;color:var(--ink3);
+    text-transform:uppercase;letter-spacing:0.1em;font-size:7.5pt;padding:6px 12px;border-bottom:1px solid var(--border)}
+  .rec-table .col-priority{width:16%;font-weight:600;color:var(--ink)}
+  .rec-table .col-timeframe{width:14%;font-family:var(--mono);color:var(--ink2);font-size:8.5pt}
+  .rec-table .col-action{width:50%}
+  .rec-table .col-ref{width:20%;font-family:var(--mono);font-size:8pt;color:var(--ink3)}
+
+  .footer{margin-top:0.4in;padding-top:14px;border-top:1px solid var(--rule);font-family:var(--mono);font-size:7.5pt;color:var(--ink3);text-align:center;line-height:1.7}
+  .pg-break{page-break-before:always}
+
+  @page{margin:0.85in 0.95in}
+  @media print{
+    body{padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    h2{page-break-after:avoid}
+    .zone-card,.signatory,.opinion-card,.exec-block,.letter,.rec-table{page-break-inside:avoid}
+    .draft-watermark{position:fixed}
+    *,*::before,*::after{animation-delay:-99s !important;animation-duration:.001s !important;transition:none !important}
+  }
+`
+
 export function generateClientReportHTML(result, options = {}) {
   if (result.kind === 'pre_assessment_memo') {
     return generateMemoHTML(result.memo, result.reasons || [])
@@ -360,7 +526,24 @@ export function generateClientReportHTML(result, options = {}) {
   return generateFullClientHTML(result.report, options)
 }
 
-function generateFullClientHTML(report, options) {
+/**
+ * "Modern" consultant report — identical content and defensibility to the
+ * classic renderer (same validated ClientReport, same body renderers), but
+ * restyled with the editorial design system: Newsreader (serif) headings,
+ * Inter body, DM Mono labels/data; brand-blue + clinical-neutral palette;
+ * a light table system (no heavy grid borders), navy zone-header bars, a
+ * dotted-leader table of contents, a blue-rail "Overall Professional
+ * Opinion" callout, and grouped recommendation rows. Only the stylesheet
+ * differs from classic, so there is no parallel data path to drift.
+ */
+export function generateModernClientReportHTML(result, options = {}) {
+  if (result.kind === 'pre_assessment_memo') {
+    return generateMemoHTML(result.memo, result.reasons || [])
+  }
+  return generateFullClientHTML(result.report, options, MODERN_STYLES)
+}
+
+function generateFullClientHTML(report, options, styles = PAGE_STYLES) {
   // Defensive: validate the report at render time. If anything internal leaks,
   // the renderer throws rather than silently producing a non-defensible report.
   const allFindings = [] // ClientReport itself doesn't carry findings; permissions
@@ -376,7 +559,7 @@ function generateFullClientHTML(report, options) {
 <head>
   <meta charset="utf-8">
   <title>${esc(cover.title)} — ${esc(cover.facility)}</title>
-  <style>${PAGE_STYLES}</style>
+  <style>${styles}</style>
 </head>
 <body>
   ${showWatermark ? '<div class="draft-watermark">DRAFT</div>' : ''}
