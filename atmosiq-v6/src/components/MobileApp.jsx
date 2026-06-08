@@ -1441,7 +1441,14 @@ export default function MobileApp() {
         else if (docxType === 'technical') await generateTechnicalOnly(reportData)
         else await generateDocx(reportData)
       } else {
-        printReport(reportData)
+        // Web (HTML) consultant report — play the same pen-writing beat
+        // as the DOCX path before the file is produced, then download.
+        // docxType carries the style choice here: 'modern' = new editorial
+        // layout, anything else = classic.
+        const style = docxType === 'modern' ? 'modern' : 'classic'
+        setGenWriting({ label: 'Writing your consultant report', durationMs: 15000 })
+        await new Promise(res => setTimeout(res, 15000))
+        printReport(reportData, { style })
       }
       emitEvent('report_exported', {
         target_id: draftId || null,
@@ -3736,11 +3743,15 @@ export default function MobileApp() {
           <div style={{display:'flex',flexDirection:'column',gap:10}}>
             <GlassCard onClick={()=>{setDocxPicker(false);handleExport('docx','consultant')}} dense style={{padding:'14px 16px'}}>
               <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:3}}>Consultant Report</div>
-              <div style={{fontSize:12,color:SUB,lineHeight:1.55}}>Narrative format with executive summary, interpretation, and recommendations. For client delivery.</div>
+              <div style={{fontSize:12,color:SUB,lineHeight:1.55}}>Modern editorial Word layout — serif headings, clean tables, navy zone bars. Executive summary, interpretation, and recommendations for client delivery.</div>
             </GlassCard>
             <GlassCard onClick={()=>{setDocxPicker(false);handleExport('docx','technical')}} dense style={{padding:'14px 16px'}}>
               <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:3}}>Technical Report</div>
               <div style={{fontSize:12,color:SUB,lineHeight:1.55}}>Structured findings register, score matrix, instrument log, and data gaps. For peer review and engineering.</div>
+            </GlassCard>
+            <GlassCard onClick={()=>{setDocxPicker(false);handleExport('web','modern')}} dense style={{padding:'14px 16px'}}>
+              <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:3}}>Consultant Report — Web (HTML)</div>
+              <div style={{fontSize:12,color:SUB,lineHeight:1.55}}>The modern editorial layout as a print-ready web page. Open in a browser to print or save as PDF.</div>
             </GlassCard>
           </div>
           <div style={{marginTop:14}}>

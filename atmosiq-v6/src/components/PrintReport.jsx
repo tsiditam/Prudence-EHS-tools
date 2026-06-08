@@ -16,7 +16,7 @@
 
 import { legacyToAssessmentScore, deriveAssessmentMeta } from '../engine/bridge'
 import { renderClientReport } from '../engine/report/client'
-import { generateClientReportHTML } from './print/client-html'
+import { generateClientReportHTML, generateModernClientReportHTML } from './print/client-html'
 import { actionLine } from '../utils/recFormatting'
 
 export function selectReportTemplate(data) {
@@ -40,7 +40,7 @@ function esc(str) {
  * approved professional-opinion language and per-finding intent
  * templates from the phrase library.
  */
-export function generatePrintHTML(data) {
+export function generatePrintHTML(data, opts = {}) {
   const { building, presurvey, zones, zoneScores, comp, profile } = data
   const meta = deriveAssessmentMeta({
     profile,
@@ -57,7 +57,11 @@ export function generatePrintHTML(data) {
   const result = renderClientReport(score, {
     includeAssessmentIndexAppendix: !!data.includeAssessmentIndexAppendix,
   })
-  return generateClientReportHTML(result)
+  // Same validated ClientReport, two stylesheets. 'modern' = the editorial
+  // design; anything else = the established 'classic' layout.
+  return opts.style === 'modern'
+    ? generateModernClientReportHTML(result)
+    : generateClientReportHTML(result)
 }
 
 export function generateLegacyPrintHTML(data) {
@@ -851,13 +855,14 @@ export function generateLegacyPrintHTML(data) {
 </html>`
 }
 
-export function printReport(data) {
-  const html = generatePrintHTML(data)
+export function printReport(data, opts = {}) {
+  const html = generatePrintHTML(data, opts)
   const blob = new Blob([html], { type: 'text/html' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `AtmosFlow-Report-${data.building?.fn || 'Assessment'}.html`
+  const styleTag = opts.style === 'modern' ? '-Modern' : ''
+  a.download = `AtmosFlow-Report${styleTag}-${data.building?.fn || 'Assessment'}.html`
   a.style.display = 'none'
   document.body.appendChild(a)
   a.click()
