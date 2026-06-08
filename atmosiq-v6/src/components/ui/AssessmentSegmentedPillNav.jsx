@@ -39,10 +39,10 @@ if (typeof document !== 'undefined' && !document.getElementById('aspn-style')) {
 // icon+label reads on the colour; the white pill flips to dark ink + a
 // hairline border so it stays defined on any background.
 const ACTIVE_TONES = [
-  { bg: '#DC2626', fg: '#FFFFFF', border: 'none', shadow: '0 6px 16px color-mix(in srgb, #EF4444 38%, transparent), inset 0 1px 0 rgba(255,255,255,0.20)' }, // red
-  { bg: '#D97706', fg: '#FFFFFF', border: 'none', shadow: '0 6px 16px color-mix(in srgb, #F59E0B 38%, transparent), inset 0 1px 0 rgba(255,255,255,0.20)' }, // amber
-  { bg: '#16A34A', fg: '#FFFFFF', border: 'none', shadow: '0 6px 16px color-mix(in srgb, #22C55E 38%, transparent), inset 0 1px 0 rgba(255,255,255,0.20)' }, // green
-  { bg: '#FFFFFF', fg: '#1B2A41', border: '1px solid #CBD5E1', shadow: '0 6px 16px rgba(15,23,42,0.22), inset 0 1px 0 rgba(255,255,255,0.6)' }, // white
+  { bg: '#DC2626', fg: '#FFFFFF', border: 'none', shadow: 'inset 0 1px 0 rgba(255,255,255,0.20)' }, // red
+  { bg: '#D97706', fg: '#FFFFFF', border: 'none', shadow: 'inset 0 1px 0 rgba(255,255,255,0.20)' }, // amber
+  { bg: '#16A34A', fg: '#FFFFFF', border: 'none', shadow: 'inset 0 1px 0 rgba(255,255,255,0.20)' }, // green
+  { bg: '#FFFFFF', fg: '#1B2A41', border: '1px solid #CBD5E1', shadow: 'inset 0 1px 0 rgba(255,255,255,0.6)' }, // white
 ]
 
 const PILL_H = 41 // ~15% smaller than the original 48
