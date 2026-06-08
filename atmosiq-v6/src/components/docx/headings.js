@@ -17,7 +17,7 @@ const RULE_COLOR = '2563EB'
 
 export function sectionHeading2(text) {
   return new Paragraph({
-    children: [new TextRun({ text: text || '', font: FONTS.body, size: 28, bold: true, color: HEADING_COLOR })],
+    children: [new TextRun({ text: text || '', font: FONTS.heading, size: 28, bold: true, color: HEADING_COLOR })],
     heading: HeadingLevel.HEADING_2,
     spacing: { before: 360, after: 160 },
     border: { bottom: { style: BorderStyle.SINGLE, size: 12, color: RULE_COLOR, space: 4 } },

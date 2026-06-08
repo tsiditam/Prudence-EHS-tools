@@ -4,7 +4,13 @@
  */
 
 export const FONTS = {
-  body: 'Cambria',
+  // Modern editorial pairing — sans body (Inter), serif display / headings
+  // (Newsreader), mono for codes/labels (DM Mono). Word substitutes a local
+  // equivalent (Calibri / Cambria / Consolas) when a font isn't installed,
+  // so the report still renders cleanly offline.
+  body: 'Inter',
+  heading: 'Newsreader',
+  mono: 'DM Mono',
 }
 
 export const COLORS = {

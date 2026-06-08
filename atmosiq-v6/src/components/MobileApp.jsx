@@ -3743,20 +3743,11 @@ export default function MobileApp() {
           <div style={{display:'flex',flexDirection:'column',gap:10}}>
             <GlassCard onClick={()=>{setDocxPicker(false);handleExport('docx','consultant')}} dense style={{padding:'14px 16px'}}>
               <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:3}}>Consultant Report</div>
-              <div style={{fontSize:12,color:SUB,lineHeight:1.55}}>Narrative format with executive summary, interpretation, and recommendations. For client delivery.</div>
+              <div style={{fontSize:12,color:SUB,lineHeight:1.55}}>Modern editorial Word layout — serif headings, clean tables, navy zone bars. Executive summary, interpretation, and recommendations for client delivery.</div>
             </GlassCard>
             <GlassCard onClick={()=>{setDocxPicker(false);handleExport('docx','technical')}} dense style={{padding:'14px 16px'}}>
               <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:3}}>Technical Report</div>
               <div style={{fontSize:12,color:SUB,lineHeight:1.55}}>Structured findings register, score matrix, instrument log, and data gaps. For peer review and engineering.</div>
-            </GlassCard>
-            <div style={{...V3.T.micro, marginTop:6}}>Web · print-ready HTML</div>
-            <GlassCard onClick={()=>{setDocxPicker(false);handleExport('web','classic')}} dense style={{padding:'14px 16px'}}>
-              <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:3}}>Consultant Report — Classic</div>
-              <div style={{fontSize:12,color:SUB,lineHeight:1.55}}>The established slate &amp; blue layout (Source Serif). Open in a browser to print or save as PDF.</div>
-            </GlassCard>
-            <GlassCard onClick={()=>{setDocxPicker(false);handleExport('web','modern')}} dense style={{padding:'14px 16px'}}>
-              <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:3}}>Consultant Report — Modern</div>
-              <div style={{fontSize:12,color:SUB,lineHeight:1.55}}>The new editorial layout — Newsreader serif, clinical palette, navy zone bars. Same content and defensibility.</div>
             </GlassCard>
           </div>
           <div style={{marginTop:14}}>

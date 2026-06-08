@@ -28,7 +28,8 @@ import {
 // guidance. PRIMARY (slate-900) for headings + dark text. ACCENT
 // (blue-600) for accent cells + rules. FILL (slate-50) for soft
 // backgrounds. SOFT_BORDER (slate-200) for hairline rules.
-// Outlines render in BLACK throughout (set via blackBorder below).
+// Table outlines render as light hairlines (modern clean-table style;
+// the name blackBorder is kept for its many call sites).
 const SLATE = '1E293B'
 const ACCENT_BLUE = '2563EB'
 const SLATE_FILL = 'F8FAFC'
@@ -39,7 +40,7 @@ const CYAN = ACCENT_BLUE
 const CYAN_DARK = SLATE
 const CYAN_LIGHT = SLATE_SOFT
 const CYAN_FILL = SLATE_FILL
-const NAVY = ACCENT_BLUE
+const NAVY = '1B2A41'
 const NAVY_DARK = SLATE
 const NAVY_LIGHT = SLATE_SOFT
 
@@ -49,7 +50,7 @@ const noBorder = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' }
 // previously-named cyanBorder/lightBorder constants are kept as
 // aliases pointing to the same black border to minimize churn at
 // every call site.
-const blackBorder = { style: BorderStyle.SINGLE, size: 6, color: '000000' }
+const blackBorder = { style: BorderStyle.SINGLE, size: 4, color: 'CBD5E1' }
 const cyanBorder = blackBorder
 const lightBorder = blackBorder
 const navyBorder = blackBorder
@@ -114,7 +115,11 @@ function heading2(text) {
   return [sectionHeading2(text)]
 }
 
-const heading3 = (text) => p(text, { heading: HeadingLevel.HEADING_3, bold: true, size: 24, color: CYAN_DARK, after: 100 })
+const heading3 = (text) => new Paragraph({
+  children: [new TextRun({ text: text || '', font: FONTS.heading, size: 24, bold: true, color: CYAN_DARK })],
+  heading: HeadingLevel.HEADING_3,
+  spacing: { after: 100 },
+})
 
 function actionLine(action) {
   const priority = PRIORITY_LABEL[action.priority] || action.priority
