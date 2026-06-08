@@ -99,7 +99,7 @@ export default function SimilarAssessmentsPanel({ currentAssessment, onOpenPastA
         <>
           <div style={{ fontSize: 11, color: SUB, lineHeight: 1.55, marginBottom: 10 }}>
             {matches.length} similar past assessment{matches.length === 1 ? '' : 's'}
-            {typeLabel ? ` (${typeLabel})` : ''} — advisory only; based on your own historical
+            {typeLabel ? ` (${typeLabel})` : ''}. Advisory only; based on your own historical
             findings. Compare with caution; every building is different.
           </div>
 

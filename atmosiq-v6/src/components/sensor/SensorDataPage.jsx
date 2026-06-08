@@ -477,7 +477,7 @@ export default function SensorDataPage({ value, onChange, onBack, reports = [], 
             </div>
           )}
           <GraphCard
-            def={{ id: `zones-${activeZoneParam}`, title: `Zone Comparison — ${SENSOR_PARAMS.find((s) => s.key === activeZoneParam)?.label || activeZoneParam}`, series: zoneOverlay.zones.map((z) => z.label), refKey: activeZoneParam, Chart: MultiZoneChart }}
+            def={{ id: `zones-${activeZoneParam}`, title: `Zone Comparison: ${SENSOR_PARAMS.find((s) => s.key === activeZoneParam)?.label || activeZoneParam}`, series: zoneOverlay.zones.map((z) => z.label), refKey: activeZoneParam, Chart: MultiZoneChart }}
             data={data}
             state={graphsState[`zones-${activeZoneParam}`] || {}}
             onState={(patch) => setGraph(`zones-${activeZoneParam}`, patch)}
@@ -916,7 +916,7 @@ function OccupancyEditor({ windows, range, onChange }) {
   const remove = (id) => onChange(list.filter((w) => w.id !== id))
 
   const inStyle = { padding: '8px 10px', background: 'var(--surface)', border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT, fontSize: 13, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }
-  const summary = list.length ? `${list.length} period${list.length > 1 ? 's' : ''}` : 'None yet — mark occupied / unoccupied windows'
+  const summary = list.length ? `${list.length} period${list.length > 1 ? 's' : ''}` : 'None yet. Mark occupied / unoccupied windows'
   return (
     <CollapsibleCard title="Occupancy periods" summary={summary} defaultOpen={list.length > 0}>
       {list.length > 0 && (
@@ -949,7 +949,7 @@ function OccupancyEditor({ windows, range, onChange }) {
         <TactileButton variant="secondary" size="sm" onClick={addManual}>Add period</TactileButton>
       </div>
       <div style={{ ...V3.T.captionDim, marginTop: 8, lineHeight: 1.5 }}>
-        Shading marks occupied (green) vs unoccupied (grey) periods on every timeline and the report image — context for interpretation, not a measurement.
+        Shading marks occupied (green) vs unoccupied (grey) periods on every timeline and the report image, context for interpretation, not a measurement.
       </div>
     </CollapsibleCard>
   )
@@ -968,7 +968,7 @@ function DatasetManager({ datasets, onPickFor, onRemove, busy }) {
     onPickFor({ role, label: l })
     setLabel('')
   }
-  const summary = extras.length ? `${extras.length} added · ${extras.map((d) => d.label).join(', ')}` : 'Indoor only — add outdoor baseline or zones'
+  const summary = extras.length ? `${extras.length} added · ${extras.map((d) => d.label).join(', ')}` : 'Indoor only. Add outdoor baseline or zones'
   return (
     <CollapsibleCard title="Compare datasets" summary={summary} defaultOpen={extras.length > 0}>
       {extras.length > 0 && (

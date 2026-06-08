@@ -246,7 +246,7 @@ export default function VoiceCommandModal({ open, onCancel, onSubmit }) {
               ? 'Voice commands are not supported in this browser.'
               : error === 'not-allowed'
                 ? 'Microphone permission denied. Enable it in browser settings.'
-                : 'Voice input failed — try again.'
+                : 'Voice input failed. Try again.'
         ) : listening ? (
           hasText ? 'Pause when done — I\'ll send automatically.' : 'Listening… speak your question.'
         ) : hasText ? 'Ready — tap Send, or the mic to add more.' : 'Tap the mic to retry.'}

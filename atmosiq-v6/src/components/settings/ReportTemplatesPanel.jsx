@@ -176,7 +176,7 @@ export default function ReportTemplatesPanel() {
             Upload a template
           </div>
           <div style={{ fontSize: 11, color: DIM, marginTop: 2 }}>
-            .docx with {'{{tokens}}'} — Jasper fills literal data only, never invents.
+            .docx with {'{{tokens}}'}. Jasper fills literal data only, never invents.
           </div>
         </div>
         <button

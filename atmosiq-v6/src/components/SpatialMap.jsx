@@ -83,7 +83,7 @@ export default function SpatialMap({ zones, zoneScores, floorPlan, onUpdateZone,
         <div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: ACCENT, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>← Back to Results</button>
           <div style={{ fontSize: 20, fontWeight: 700, color: TEXT, marginTop: 4 }}>Spatial Risk Map</div>
-          <div style={{ fontSize: 11, color: SUB }}>Optional — drag zones onto the floor plan</div>
+          <div style={{ fontSize: 11, color: SUB }}>Optional: drag zones onto the floor plan</div>
         </div>
       </div>
 

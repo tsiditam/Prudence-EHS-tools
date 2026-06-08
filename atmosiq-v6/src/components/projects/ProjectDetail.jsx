@@ -296,7 +296,7 @@ export default function ProjectDetail({ id, onBack, profile, onOpenReport }) {
             </select>
           </div>
           {(project.documents || []).length === 0 ? (
-            <EmptyHint>No documents yet. Upload PDFs, DOCX, lab results, HVAC docs, building plans, or prior IAQ reports — they stay tied to this site.</EmptyHint>
+            <EmptyHint>No documents yet. Upload PDFs, DOCX, lab results, HVAC docs, building plans, or prior IAQ reports. They stay tied to this site.</EmptyHint>
           ) : (
             <div style={sgStack('tight')}>
               {project.documents.map(d => (
@@ -333,7 +333,7 @@ export default function ProjectDetail({ id, onBack, profile, onOpenReport }) {
             <TactileButton variant="secondary" size="sm" onClick={() => evInputRef.current?.click()} icon={<I n="upload" s={14} c="var(--accent)" />}>Add photos</TactileButton>
           } />
           {(project.evidence || []).length === 0 ? (
-            <EmptyHint>No evidence photos yet. Add site photos — water damage, HVAC conditions, surfaces — kept with this engagement.</EmptyHint>
+            <EmptyHint>No evidence photos yet. Add site photos (water damage, HVAC conditions, surfaces) kept with this engagement.</EmptyHint>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
               {project.evidence.map(ev => (
