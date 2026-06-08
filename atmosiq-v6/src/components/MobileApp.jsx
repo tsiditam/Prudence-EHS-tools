@@ -34,7 +34,7 @@ import * as V3 from '../styles/tokens'
 import Markdown from './Markdown'
 import { GLASS, RADII, RHYTHM, stack as sgStack } from '../styles/soft-glass'
 import GlassCard from './ui/GlassCard'
-import ScrollHintTabs from './ui/ScrollHintTabs'
+import AssessmentSegmentedPillNav from './ui/AssessmentSegmentedPillNav'
 import FeedbackSheet from './ui/FeedbackSheet'
 import FeedbackButton from './ui/FeedbackButton'
 import StatusPill from './ui/StatusPill'
@@ -2323,21 +2323,17 @@ export default function MobileApp() {
             707, 822; visible labels are reconciled with the workflow
             grammar used on Home (Findings / Pathways / Sampling /
             Narrative / Actions / Review). ── */}
-        <ScrollHintTabs id="result-tabs-anchor" style={{marginBottom:16}}>
-          {[...(userMode === 'fm'
+        <AssessmentSegmentedPillNav
+          id="result-tabs-anchor"
+          style={{marginBottom:16}}
+          active={rTab}
+          onChange={(k)=>{ setRTab(k); haptic('light') }}
+          tabs={[...(userMode === 'fm'
             ? [['overview','findings','Findings'],['narrative','notes','Narrative'],['actions','check','Actions'],['readiness','shield','Review']]
             : [['overview','findings','Findings'],['rootcause','chain','Pathways'],['sampling','flask','Sampling'],['narrative','notes','Narrative'],['actions','check','Actions'],['readiness','shield','Review']]),
             ...(hasLoggerData ? [['logger','chart','Logger']] : [])
-          ].map(([k,ic,l])=>{
-            const isActive = rTab===k
-            return (
-              <button key={k} onClick={()=>{setRTab(k);haptic('light')}} {...pressFeedback()} style={{...V3.tabItem(isActive), ...pressFeedback.style}}>
-                <I n={ic} s={15} c={isActive?'var(--accent)':V3.TEXT_TERTIARY} w={isActive?1.9:1.6} />
-                <span>{l}</span>
-              </button>
-            )
-          })}
-        </ScrollHintTabs>
+          ].map(([tid,icon,label])=>({ id:tid, icon, label }))}
+        />
 
         {rTab==='readiness' && (
           <ReadinessPanel
