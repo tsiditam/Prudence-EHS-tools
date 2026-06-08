@@ -509,6 +509,18 @@ const MODERN_STYLES = `
   .footer{margin-top:0.4in;padding-top:14px;border-top:1px solid var(--rule);font-family:var(--mono);font-size:7.5pt;color:var(--ink3);text-align:center;line-height:1.7}
   .pg-break{page-break-before:always}
 
+  /* On-screen, fill narrow viewports (phones / tablets). The 0.6in page
+     margins are for print; on a small screen they read as huge gutters,
+     so collapse them to a slim screen padding and let the body span the
+     full viewport. Print + desktop keep the page margins above. */
+  @media screen and (max-width:840px){
+    body{padding:22px 16px;max-width:100%}
+    .cover{padding:0.45in 0 0.4in}
+    .cover::before{top:-22px;left:-16px;right:-16px}
+    .cover-title{font-size:27pt}
+    .cover-firm-sub{margin-bottom:36px}
+    h1{font-size:22pt}
+  }
   @page{margin:0.6in 0.6in}
   @media print{
     body{padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
