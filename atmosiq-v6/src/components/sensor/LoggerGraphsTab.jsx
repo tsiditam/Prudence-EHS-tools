@@ -21,14 +21,9 @@ import * as V3 from '../../styles/tokens'
 import GlassCard from '../ui/GlassCard'
 import dayjs from 'dayjs'
 import { SENSOR_PARAMS, normalizeSensorData, primaryDataset } from '../../utils/sensorParser'
-import { GRAPH_DEFS, MultiParameterChart, DARK_PALETTE, LIGHT_PALETTE } from './SensorCharts'
+import { GRAPH_DEFS, MultiParameterChart, currentPalette } from './SensorCharts'
+import { fmtRange, paramLabel } from './sensorHelpers'
 
-// Charts pass resolved hex (Recharts emits SVG attributes where var() won't
-// resolve), so pick the palette from the live theme — same as Logger Studio.
-const currentPalette = () => (typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'light' ? LIGHT_PALETTE : DARK_PALETTE)
-
-const fmtRange = (s, e) => (s && e ? `${dayjs(s).format('MMM D, HH:mm')} – ${dayjs(e).format('MMM D, HH:mm')}` : 'Row order (no timestamps)')
-const paramLabel = (k) => SENSOR_PARAMS.find((p) => p.key === k)?.label || k
 
 const CARD = 'var(--card)', BORDER = 'var(--border)', SUB = 'var(--sub)', ACCENT = 'var(--accent)', SURFACE = 'var(--surface)'
 

@@ -360,3 +360,17 @@ export function buildDestinationLabFields() {
     { label: 'Total samples', value: '', w: 0.3 },
   ]
 }
+
+// Generic jspdf-autotable column transforms shared by the CoC forms.
+// `columns` is each form's local SAMPLE_COLUMNS ([{ header, dataKey, width }]).
+export function autotableColumns(columns) {
+  return columns.map((c) => ({ header: c.header, dataKey: c.dataKey }))
+}
+
+export function autotableColumnStyles(columns) {
+  const styles = {}
+  for (const c of columns) {
+    styles[c.dataKey] = { cellWidth: c.width }
+  }
+  return styles
+}

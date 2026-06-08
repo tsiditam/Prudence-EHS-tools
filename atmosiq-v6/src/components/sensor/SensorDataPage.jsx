@@ -28,7 +28,8 @@ import { parseSensorRows, SENSOR_PARAMS, TVOC_REFERENCES, ppbToUgm3, ugm3ToPpb, 
 import SendToReportSheet from './SendToReportSheet'
 import { splitCsvLine } from '../../utils/labResultsParser'
 import { xlsxToRows } from '../../utils/sensorXlsx'
-import { GRAPH_DEFS, REF_LINE_DEFS, MultiParameterChart, Co2DifferentialChart, MultiZoneChart, LIGHT_PALETTE, DARK_PALETTE, SERIES } from './SensorCharts'
+import { GRAPH_DEFS, REF_LINE_DEFS, MultiParameterChart, Co2DifferentialChart, MultiZoneChart, LIGHT_PALETTE, DARK_PALETTE, SERIES, currentPalette } from './SensorCharts'
+import { fmtRange } from './sensorHelpers'
 import { paramReference, exceedance, categoryOf, CATEGORY } from '../../utils/sensorThresholds'
 import { chartStats, chartPrimaryParam } from '../../utils/sensorAnalytics'
 import Sparkline from '../ui/Sparkline'
@@ -39,9 +40,6 @@ import dayjs from 'dayjs'
 
 const csvToRows = (text) => text.split(/\r\n?|\n/).filter((l) => l.trim().length > 0).map(splitCsvLine)
 
-// Charts pass resolved hex (Recharts emits SVG attributes where var()
-// won't resolve), so pick the palette from the live theme.
-const currentPalette = () => (typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'light' ? LIGHT_PALETTE : DARK_PALETTE)
 
 const MAX_FILE_BYTES = 8 * 1024 * 1024 // 8 MB
 const TEXT = 'var(--text)', SUB = 'var(--sub)', DIM = 'var(--dim)', CARD = 'var(--card)', BORDER = 'var(--border)', ACCENT = 'var(--accent)'
@@ -52,7 +50,6 @@ const QUALITY_TONE = { ok: V3.STATUS.ready, minor: '#FBBF24', uncertain: '#FBBF2
 // long); falls back to the full title for anything unmapped.
 const SHORT_LABEL = { co2: 'CO₂', tempRh: 'Temp / RH', pm: 'PM', co: 'CO', tvoc: 'TVOC', hcho: 'Formaldehyde' }
 
-const fmtRange = (s, e) => (s && e ? `${dayjs(s).format('MMM D, HH:mm')} – ${dayjs(e).format('MMM D, HH:mm')}` : 'Row order (no timestamps)')
 const fmtInterval = (sec) => (sec == null ? '—' : sec >= 3600 ? `${(sec / 3600).toFixed(1)} h` : sec >= 60 ? `${Math.round(sec / 60)} min` : `${Math.round(sec)} s`)
 // Compact average. Adaptive precision so sub-unit magnitudes (HCHO in
 // mg/m³, where indoor readings sit near 0.02) don't collapse to "0":
