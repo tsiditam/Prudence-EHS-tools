@@ -2166,7 +2166,7 @@ export default function MobileApp() {
             padding:0,
             background:`linear-gradient(135deg, color-mix(in srgb, ${sevPillTone} 9%, transparent) 0%, var(--card) 72%)`,
             border:`1px solid color-mix(in srgb, ${sevPillTone} 45%, transparent)`,
-            boxShadow:`0 0 18px color-mix(in srgb, ${sevPillTone} 14%, transparent), 0 4px 14px rgba(0,0,0,0.35)`,
+            boxShadow:`0 4px 14px rgba(0,0,0,0.35)`,
           }}>
             <div style={{padding:'18px 20px'}}>
               {/* Badges — severity + measurement confidence. */}
@@ -4051,7 +4051,7 @@ export default function MobileApp() {
                   // a bright accent edge with a soft outer glow + faint
                   // inner sheen. Overrides the GlassCard base border/shadow.
                   border:'1px solid color-mix(in srgb, var(--accent-fill) 75%, transparent)',
-                  boxShadow:'0 0 18px color-mix(in srgb, var(--accent) 30%, transparent), 0 0 6px color-mix(in srgb, var(--accent) 42%, transparent), inset 0 0 14px color-mix(in srgb, var(--accent) 6%, transparent), 0 4px 14px rgba(0,0,0,0.35)',
+                  boxShadow:'0 4px 14px rgba(0,0,0,0.35)',
                 }}>
                   <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
                     <I n="airflow" s={18} c="var(--accent)" w={1.8} />
