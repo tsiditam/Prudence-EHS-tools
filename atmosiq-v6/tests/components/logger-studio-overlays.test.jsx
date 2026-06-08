@@ -70,7 +70,7 @@ describe('Logger Studio multi-file flow', () => {
     const { container } = render(<Harness />)
 
     // 1) Indoor upload (default target). Compare datasets lives under Analysis.
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Upload Logger Data/i })) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Upload Data/i })) })
     await changeFile(container, makeFile(INDOOR, 'indoor.csv'))
     await act(async () => { fireEvent.click(screen.getByRole('tab', { name: 'Analysis' })) })
     expect(screen.getByText('Compare datasets')).toBeTruthy()
