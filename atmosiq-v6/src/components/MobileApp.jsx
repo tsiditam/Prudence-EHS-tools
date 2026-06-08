@@ -1441,9 +1441,14 @@ export default function MobileApp() {
         else if (docxType === 'technical') await generateTechnicalOnly(reportData)
         else await generateDocx(reportData)
       } else {
-        // Web (HTML) consultant report. docxType carries the style choice
-        // here: 'modern' = new editorial layout, anything else = classic.
-        printReport(reportData, { style: docxType === 'modern' ? 'modern' : 'classic' })
+        // Web (HTML) consultant report — play the same pen-writing beat
+        // as the DOCX path before the file is produced, then download.
+        // docxType carries the style choice here: 'modern' = new editorial
+        // layout, anything else = classic.
+        const style = docxType === 'modern' ? 'modern' : 'classic'
+        setGenWriting({ label: 'Writing your consultant report', durationMs: 15000 })
+        await new Promise(res => setTimeout(res, 15000))
+        printReport(reportData, { style })
       }
       emitEvent('report_exported', {
         target_id: draftId || null,
