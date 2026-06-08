@@ -3556,7 +3556,7 @@ export default function MobileApp() {
           title="Unlock mission-critical IAQ features"
           onClose={()=>setShowPremiumGate(false)}
           maxWidth={420}
-          ariaLabel="Data Center module — premium gate"
+          ariaLabel="Data Center module, premium gate"
         >
           <div style={{...V3.T.bodyDim, margin:'4px 0 14px', lineHeight:1.65}}>
             The Data Center module activates specialized analytical logic for ASHRAE TC 9.9 thermal ranges and ANSI/ISA-71.04 corrosion tracking. Required for documenting compliance in facilities with high-value hardware and mission-critical uptime requirements.
