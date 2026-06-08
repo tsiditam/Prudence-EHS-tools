@@ -35,14 +35,7 @@ const ACCENT = 'var(--accent)'
 const DOCX_MIME =
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 
-async function getAuthHeader() {
-  try {
-    const session = await (await import('../../utils/cloudStorage')).default.getSession()
-    return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : null
-  } catch {
-    return null
-  }
-}
+import { getAuthHeader, fmtDate } from './settingsHelpers'
 
 function fmtSize(bytes) {
   if (!bytes) return '—'
@@ -51,12 +44,6 @@ function fmtSize(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-function fmtDate(iso) {
-  if (!iso) return ''
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
-}
 
 async function fileToBase64(file) {
   return new Promise((resolve, reject) => {

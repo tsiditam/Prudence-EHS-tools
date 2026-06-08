@@ -28,21 +28,7 @@ const DIM = 'var(--dim)'
 const ACCENT = 'var(--accent)'
 const DANGER = 'var(--danger)'
 
-async function getAuthHeader() {
-  try {
-    const session = await (await import('../../utils/cloudStorage')).default.getSession()
-    return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : null
-  } catch {
-    return null
-  }
-}
-
-function fmtDate(iso) {
-  if (!iso) return ''
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
-}
+import { getAuthHeader, fmtDate } from './settingsHelpers'
 
 function nextDueLabel(site) {
   if (site.disabled_at) return 'Reminders paused'
