@@ -3904,22 +3904,6 @@ export default function MobileApp() {
                       </div>
                     </div>
 
-                    {/* Headline + screening framing. The earlier
-                        "Screening in progress / Awaiting field data"
-                        pill row was removed — those states are
-                        already conveyed by the In Progress pill in
-                        the header and the body copy below, so the
-                        extra pills read as redundant chrome. */}
-                    <div style={{padding:'20px 24px 4px',...V3.T.h2}}>
-                      Continue capturing field data to refine the screening assessment
-                    </div>
-                    <div style={{padding:'0 24px 20px',...V3.T.bodyDim, maxWidth:640}}>
-                      Severity, confidence, and recommended actions will populate as findings,
-                      measurements, and zone observations are entered. Outputs are
-                      screening-level — they identify risk indicators, not regulatory
-                      determinations.
-                    </div>
-
                     {/* Workflow tabs. Visual stage indicator until the
                         per-stage detail views ship — every tab resumes
                         the draft so users can pick up where they left
