@@ -3749,6 +3749,10 @@ export default function MobileApp() {
               <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:3}}>Technical Report</div>
               <div style={{fontSize:12,color:SUB,lineHeight:1.55}}>Structured findings register, score matrix, instrument log, and data gaps. For peer review and engineering.</div>
             </GlassCard>
+            <GlassCard onClick={()=>{setDocxPicker(false);handleExport('web','modern')}} dense style={{padding:'14px 16px'}}>
+              <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:3}}>Consultant Report — Web (HTML)</div>
+              <div style={{fontSize:12,color:SUB,lineHeight:1.55}}>The modern editorial layout as a print-ready web page. Open in a browser to print or save as PDF.</div>
+            </GlassCard>
           </div>
           <div style={{marginTop:14}}>
             <TactileButton variant="ghost" fullWidth onClick={()=>setDocxPicker(false)}>Cancel</TactileButton>
