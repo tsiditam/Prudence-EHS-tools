@@ -59,13 +59,15 @@ const SURFACE_STYLE = {
   display: 'flex',
   alignItems: 'center',
   borderRadius: 999,
-  // Dark translucent glass — a deeper dark fill over the blur so the dock
-  // reads as a solid-feeling dark capsule you can still see a little
-  // through. Specular top edge + saturation keep it glassy.
-  background: 'rgba(16,17,21,0.58)',
+  // Dark translucent glass — the dock is always-dark chrome (it does NOT
+  // theme-flip). The fill must stay dark enough that it doesn't wash out
+  // to mid-grey over a LIGHT-mode page (which made the white icons/labels
+  // disappear); 0.86 keeps it a true dark capsule on any background while
+  // the blur + specular edge keep it glassy/translucent.
+  background: 'rgba(16,17,21,0.86)',
   backdropFilter: 'blur(22px) saturate(190%)',
   WebkitBackdropFilter: 'blur(22px) saturate(190%)',
-  border: '1px solid rgba(255,255,255,0.14)',
+  border: '1px solid rgba(255,255,255,0.16)',
   boxShadow:
     '0 8px 28px rgba(0,0,0,0.40), ' +
     'inset 0 1px 0 rgba(255,255,255,0.22), ' +   // specular top edge
