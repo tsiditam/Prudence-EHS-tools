@@ -4346,9 +4346,10 @@ export default function MobileApp() {
               <button
                 onClick={startNew}
                 aria-label="Start new assessment"
-                style={{...V3.iconBox(V3.STATUS.draft),padding:0,cursor:'pointer',fontFamily:'inherit',WebkitTapHighlightColor:'transparent'}}
+                className="af-glass-control"
+                style={{width:32,height:32,flexShrink:0,borderRadius:V3.R.md,display:'inline-flex',alignItems:'center',justifyContent:'center',padding:0,cursor:'pointer',fontFamily:'inherit',WebkitTapHighlightColor:'transparent'}}
               >
-                <I n="draft" s={15} c={V3.STATUS.draft} w={1.6} />
+                <I n="draft" s={15} c="var(--accent)" w={1.7} />
               </button>
               <div style={{flex:1,minWidth:0}}>
                 <div style={V3.T.bodyStrong}>No drafts in progress</div>
