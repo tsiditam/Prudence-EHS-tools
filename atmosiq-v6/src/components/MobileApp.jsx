@@ -4028,23 +4028,26 @@ export default function MobileApp() {
                     }}>
                       Start survey
                     </TactileButton>
-                    {/* Report an incident is a secondary action here, so
-                        its accent border + tint are toned down (30%→16%
-                        border, 12%→7% fill) to calm the neon-bright halo
-                        the default secondary variant gave it on the dark
-                        co-pilot card. */}
+                    {/* Report an incident — secondary action, restyled to
+                        the shared glass-pill language (.af-glass-control:
+                        translucent glass + bright rim in dark, white capsule
+                        in light) with cyan text, matching the dock + header
+                        controls. Inline bg/border/shadow are cleared so the
+                        class provides the glass; the variant's are dropped. */}
                     <TactileButton
                       variant="secondary"
                       size="sm"
                       pill
+                      className="af-glass-control"
                       onClick={()=>setView('incident-form')}
                       style={{
                         padding:'8px 12px',
                         fontSize:11,
                         minHeight:30,
-                        background:'color-mix(in srgb, var(--accent) 7%, transparent)',
-                        border:'1px solid color-mix(in srgb, var(--accent) 16%, transparent)',
-                        boxShadow:'inset 0 1px 0 rgba(255,255,255,0.03), 0 1px 2px rgba(0,0,0,0.20)',
+                        color:'var(--accent)',
+                        background:undefined,
+                        border:undefined,
+                        boxShadow:undefined,
                       }}
                     >
                       Report an incident
