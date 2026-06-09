@@ -2975,7 +2975,7 @@ export default function MobileApp() {
           sync time; this banner is the binary "are we connected"
           signal. */}
       <OfflineBanner />
-      <header style={{position:'fixed',top:0,left:0,right:0,zIndex:100,background:`${mix('bg', 95)}`,backdropFilter:'blur(24px) saturate(1.4)',WebkitBackdropFilter:'blur(24px) saturate(1.4)',borderBottom:`1px solid ${BORDER}`,paddingTop:'env(safe-area-inset-top, 0px)'}}>
+      <header style={{position:'fixed',top:0,left:0,right:0,zIndex:100,background:'transparent',paddingTop:'env(safe-area-inset-top, 0px)'}}>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',height:48,padding:`0 ${padX}px`,maxWidth:contentMax,margin:'0 auto'}}>
           {/* Left cluster — hamburger menu (with its dropdown) followed
               by the "AtmosFlow" wordmark to its right. The hamburger is
@@ -2995,9 +2995,9 @@ export default function MobileApp() {
               <button
                 onClick={()=>{setView('dash');setViewRpt(null)}}
                 aria-label="Back to dashboard"
-                style={{display:'flex',alignItems:'center',gap:3,height:36,padding:'0 10px 0 2px',background:'transparent',border:'none',borderRadius:10,cursor:'pointer',fontFamily:'inherit',color:ACCENT,WebkitTapHighlightColor:'transparent'}}>
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={ACCENT} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6" /></svg>
-                <span style={{fontSize:16,fontWeight:600,letterSpacing:'-0.01em'}}>Home</span>
+                style={{display:'flex',alignItems:'center',gap:3,height:36,padding:'0 14px 0 9px',...GLASS.subtle,borderRadius:999,boxSizing:'border-box',cursor:'pointer',fontFamily:'inherit',color:ACCENT,WebkitTapHighlightColor:'transparent'}}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={ACCENT} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6" /></svg>
+                <span style={{fontSize:15,fontWeight:600,letterSpacing:'-0.01em'}}>Home</span>
               </button>
             )}
             {profile && view==='dash' && (
@@ -3008,8 +3008,19 @@ export default function MobileApp() {
                 aria-label="Open menu"
                 aria-haspopup="menu"
                 aria-expanded={showHomeMenu}
-                style={{width:24,height:24,marginLeft:-2,background:'transparent',border:'none',padding:0,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',WebkitTapHighlightColor:'transparent'}}>
-                <I n="menu" s={17} c={ACCENT} w={2.2} />
+                style={{
+                  // Circular glass "bubble" button with a staggered
+                  // (descending) hamburger in cyan.
+                  width:40, height:40, borderRadius:'50%',
+                  ...GLASS.subtle,
+                  padding:0, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
+                  boxSizing:'border-box', WebkitTapHighlightColor:'transparent',
+                }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+                  <line x1="4" y1="7"  x2="20" y2="7" />
+                  <line x1="4" y1="12" x2="15" y2="12" />
+                  <line x1="4" y1="17" x2="11" y2="17" />
+                </svg>
               </button>
               {/* Wordmark to the right of the menu (Kalshi-style), with the
                   small thin hamburger beside it. Uses the tagline-free
@@ -3266,7 +3277,7 @@ export default function MobileApp() {
                   padding:0, boxSizing:'border-box',
                   WebkitTapHighlightColor:'transparent',
                 }}>
-                <I n="dots" s={20} c={TEXT} w={2} />
+                <I n="dots" s={20} c={ACCENT} w={2} />
               </button>
             )}
           </div>
