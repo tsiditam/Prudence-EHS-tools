@@ -4621,8 +4621,11 @@ export default function MobileApp() {
            light --card surface in light mode. Driven by CSS (not inline)
            so it flips with [data-theme="light"] on <html>; the contents
            use var(--text)/--sub/--border and invert with it. */
-        .af-drawer-surface{background:#06070C;}
-        [data-theme="light"] .af-drawer-surface{background:var(--card);}
+        /* Drawer surface — tied to the shared --bg token so the sliding
+           menu is the SAME background color as the rest of the app in
+           every palette (grayish black in dark, beige in light). No
+           separate per-mode literal, so it can never drift out of sync. */
+        .af-drawer-surface{background:var(--bg);}
         .af-scrim-in{animation:fadeIn .26s ease;}
         .af-scrim-out{animation:scrimOut .22s ease forwards;}
         @media (prefers-reduced-motion: reduce){
