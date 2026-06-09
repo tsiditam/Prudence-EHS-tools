@@ -3234,7 +3234,7 @@ export default function MobileApp() {
                           }}
                           onMouseEnter={e => { e.currentTarget.style.background = mix('accent', 6) }}
                           onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}>
-                          <I n={item.icon} s={20} c={item.danger?DANGER:SUB} w={1.7} />
+                          <I n={item.icon} s={20} c={item.danger?DANGER:ACCENT} w={1.7} />
                           <span style={{flex:1}}>{item.label}</span>
                           {item.submenu && (
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={DIM} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -3251,7 +3251,8 @@ export default function MobileApp() {
             })()}
           </div>
           <div style={{display:'flex',alignItems:'center',gap:8}}>
-            {isAssessing&&<span style={{fontSize:10,color:ACCENT,fontFamily:"var(--font-mono)",background:`${mix('accent', 4)}`,padding:'3px 10px',borderRadius:4,border:`1px solid ${mix('accent', 13)}`,letterSpacing:'0.5px'}}>SAVING</span>}
+            {/* The "SAVING" pill was removed from the top-right per design;
+                autosave still runs, it's just no longer surfaced here. */}
             {/* Subscription-status pill — exception-only. In beta
                 the helper returns null. Phase 2+ surfaces it on
                 diverging state (payment failed, plan cancelling,
