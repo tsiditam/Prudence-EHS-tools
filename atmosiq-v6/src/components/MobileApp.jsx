@@ -4436,13 +4436,14 @@ export default function MobileApp() {
           {id:'incident-log',label:'Incidents',icon:'alert'},
           {id:'sensor-data',label:'Logger Studio',icon:'chart'},
         ] : [
-          // Three-tab consultant dock: Home, AtmosFlow AI (centre hub),
-          // Reports. Projects + Logger Studio stay in the drawer menu so
-          // no destinations are orphaned. jasper id unchanged so shipped
+          // Consultant dock: Home, AtmosFlow AI (centre hub), Reports,
+          // Logger Studio. Projects stays in the drawer menu so no
+          // destinations are orphaned. jasper id unchanged so shipped
           // event/table names don't move.
           {id:'dash',label:'Home',icon:'home'},
           {id:'jasper',label:'AtmosFlow AI',icon:'jasper'},
           {id:'history',label:'Reports',icon:'report',badge:((index.drafts||[]).length+(index.reports||[]).length)||null},
+          {id:'sensor-data',label:'Logger Studio',icon:'chart'},
         ]).map(t => {
           const isJasper = t.id === 'jasper'
           const active = isJasper ? faOpen : (view === t.id)
