@@ -42,7 +42,9 @@ if (typeof document !== 'undefined' && !document.getElementById('jasper-brain-kf
   document.head.appendChild(s)
 }
 
-export default function JasperBrainIcon({ size = 22, glow = false, ariaLabel }) {
+// `animate` (default true) runs the groove-trace loop. Pass animate={false}
+// for a static, fully-lit brain (e.g. as a plain menu icon).
+export default function JasperBrainIcon({ size = 22, glow = false, animate = true, ariaLabel }) {
   return (
     <span
       aria-hidden={ariaLabel ? undefined : 'true'}
@@ -65,9 +67,12 @@ export default function JasperBrainIcon({ size = 22, glow = false, ariaLabel }) 
             <path
               key={`t-${i}`} d={d} pathLength="100"
               style={{
-                strokeDasharray: 100, strokeDashoffset: 100,
-                animation: 'jasperBrainTrace 2.6s ease-in-out infinite',
-                animationDelay: `${i * 0.12}s`,
+                strokeDasharray: 100,
+                strokeDashoffset: animate ? 100 : 0,
+                ...(animate ? {
+                  animation: 'jasperBrainTrace 2.6s ease-in-out infinite',
+                  animationDelay: `${i * 0.12}s`,
+                } : null),
               }}
             />
           ))}
