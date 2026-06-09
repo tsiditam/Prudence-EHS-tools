@@ -59,15 +59,17 @@ const SURFACE_STYLE = {
   display: 'flex',
   alignItems: 'center',
   borderRadius: 999,
-  // Faint neutral tint only — the look comes from the blur, not a fill.
-  background: 'rgba(255,255,255,0.10)',
-  backdropFilter: 'blur(36px) saturate(190%)',
-  WebkitBackdropFilter: 'blur(36px) saturate(190%)',
-  border: '1px solid rgba(255,255,255,0.18)',
+  // Barely-there tint + a lighter blur so it reads as clear glass, not
+  // frost — content stays legible THROUGH it. Glassiness comes from the
+  // bright specular edges + high saturation, not from a milky fill.
+  background: 'rgba(255,255,255,0.045)',
+  backdropFilter: 'blur(18px) saturate(210%)',
+  WebkitBackdropFilter: 'blur(18px) saturate(210%)',
+  border: '1px solid rgba(255,255,255,0.22)',
   boxShadow:
-    '0 8px 30px rgba(0,0,0,0.28), ' +
-    'inset 0 1px 0 rgba(255,255,255,0.35), ' +   // bright specular top edge
-    'inset 0 -1px 1px rgba(0,0,0,0.10)',          // faint lower contact shade
+    '0 8px 26px rgba(0,0,0,0.22), ' +
+    'inset 0 1px 0 rgba(255,255,255,0.45), ' +   // bright specular top edge
+    'inset 0 -1px 1px rgba(0,0,0,0.08)',          // faint lower contact shade
 }
 
 const press = (e) => { e.currentTarget.style.transform = 'scale(0.93)' }
