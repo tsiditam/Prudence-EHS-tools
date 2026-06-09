@@ -4561,7 +4561,11 @@ export default function MobileApp() {
         }
         .af-content-surface{
           position:fixed; inset:0; z-index:2; overflow-y:auto;
-          -webkit-overflow-scrolling:touch;
+          /* NOTE: deliberately NO -webkit-overflow-scrolling:touch here.
+             On iOS that creates a momentum scroll layer that drags this
+             container's position:fixed descendants (the header + dock) along
+             with the scroll, so the floating dock would stick mid-page.
+             Modern iOS keeps momentum scrolling without it. */
           transform:none; transform-origin:center;
           border-radius:0;
           transition:transform 320ms cubic-bezier(0.22,1,0.36,1),
