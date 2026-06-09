@@ -59,17 +59,18 @@ const SURFACE_STYLE = {
   display: 'flex',
   alignItems: 'center',
   borderRadius: 999,
-  // Barely-there tint + a lighter blur so it reads as clear glass, not
-  // frost — content stays legible THROUGH it. Glassiness comes from the
-  // bright specular edges + high saturation, not from a milky fill.
-  background: 'rgba(255,255,255,0.045)',
-  backdropFilter: 'blur(18px) saturate(210%)',
-  WebkitBackdropFilter: 'blur(18px) saturate(210%)',
-  border: '1px solid rgba(255,255,255,0.22)',
+  // Slight DARK tint (Instagram-style) over a light blur — translucent
+  // enough to stay glassy and see content through it, but tinted dark so
+  // the white icons sit on a consistent surface. Glassiness still comes
+  // from the bright specular edge + saturation.
+  background: 'rgba(18,19,23,0.34)',
+  backdropFilter: 'blur(20px) saturate(200%)',
+  WebkitBackdropFilter: 'blur(20px) saturate(200%)',
+  border: '1px solid rgba(255,255,255,0.16)',
   boxShadow:
-    '0 8px 26px rgba(0,0,0,0.22), ' +
-    'inset 0 1px 0 rgba(255,255,255,0.45), ' +   // bright specular top edge
-    'inset 0 -1px 1px rgba(0,0,0,0.08)',          // faint lower contact shade
+    '0 8px 26px rgba(0,0,0,0.30), ' +
+    'inset 0 1px 0 rgba(255,255,255,0.30), ' +   // specular top edge
+    'inset 0 -1px 1px rgba(0,0,0,0.10)',          // faint lower contact shade
 }
 
 const press = (e) => { e.currentTarget.style.transform = 'scale(0.93)' }
