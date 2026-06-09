@@ -2998,7 +2998,7 @@ export default function MobileApp() {
     { label: 'Dashboard',    icon: 'home',      view: 'dash',        onClick: () => { setView('dash'); setViewRpt(null) } },
     { label: 'Assessments',  icon: 'clip',      view: 'projects',    onClick: () => setView('projects') },
     { label: 'Reports',      icon: 'report',    view: 'history',     onClick: () => setView('history') },
-    { label: 'AtmosFlow AI', icon: 'jasper',    onClick: () => { supabase && trackEvent('jasper_open', { source: 'side_menu' }); setFaOpen(true) } },
+    { label: 'AtmosFlow AI', icon: 'jasper', renderIcon: () => <JasperBrainIcon size={20} animate={false} />, onClick: () => { supabase && trackEvent('jasper_open', { source: 'side_menu' }); setFaOpen(true) } },
     { label: 'Settings',     icon: 'gear',      view: 'settings',    onClick: () => setView('settings') },
     { label: 'Help',         icon: 'help',      view: 'help',        onClick: () => setView('help') },
   ]
@@ -3054,7 +3054,7 @@ export default function MobileApp() {
           backdropFilter: active ? 'blur(12px) saturate(160%)' : 'none',
           WebkitTapHighlightColor:'transparent',
         }}>
-        <I n={item.icon} s={19} c="var(--accent)" w={1.7} />
+        {item.renderIcon ? item.renderIcon() : <I n={item.icon} s={19} c="var(--accent)" w={1.7} />}
         <span style={{flex:1}}>{item.label}</span>
       </button>
     )
