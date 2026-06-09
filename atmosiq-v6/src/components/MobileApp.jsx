@@ -3010,7 +3010,8 @@ export default function MobileApp() {
               <button
                 onClick={()=>{setView('dash');setViewRpt(null)}}
                 aria-label="Back to home"
-                style={{display:'flex',alignItems:'center',gap:3,height:36,padding:'0 14px 0 9px',...GLASS.subtle,borderRadius:999,boxSizing:'border-box',cursor:'pointer',fontFamily:'inherit',color:ACCENT,WebkitTapHighlightColor:'transparent'}}>
+                className="af-glass-control af-menu-trigger"
+                style={{display:'flex',alignItems:'center',gap:3,height:36,padding:'0 14px 0 9px',borderRadius:999,boxSizing:'border-box',cursor:'pointer',fontFamily:'inherit',color:ACCENT,WebkitTapHighlightColor:'transparent'}}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={ACCENT} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6" /></svg>
                 <span style={{fontSize:15,fontWeight:600,letterSpacing:'-0.01em',maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{
                   ((isAssessing || view==='results' || view==='report') && bldg?.fn)
@@ -3027,11 +3028,12 @@ export default function MobileApp() {
                 aria-label="Open menu"
                 aria-haspopup="menu"
                 aria-expanded={showHomeMenu}
+                className="af-glass-control af-menu-trigger"
                 style={{
                   // Circular glass "bubble" button with a staggered
-                  // (descending) hamburger in cyan.
+                  // (descending) hamburger in cyan. Glass via .af-glass-control
+                  // so it matches the bottom dock + other header controls.
                   width:40, height:40, borderRadius:'50%',
-                  ...GLASS.subtle,
                   padding:0, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
                   boxSizing:'border-box', WebkitTapHighlightColor:'transparent',
                 }}>
@@ -3281,7 +3283,7 @@ export default function MobileApp() {
             {profile && view!=='dash' && (
               <button
                 type="button"
-                className="af-menu-trigger"
+                className="af-menu-trigger af-glass-control"
                 onClick={(e) => {
                   const r = e.currentTarget.getBoundingClientRect()
                   setActionsAnchor({ top: r.bottom + 8, right: Math.max(8, window.innerWidth - r.right) })
@@ -3292,7 +3294,6 @@ export default function MobileApp() {
                 aria-expanded={actionsOpen}
                 style={{
                   width:36, height:36, borderRadius:'50%',
-                  ...GLASS.subtle,
                   cursor:'pointer', display:'flex',
                   alignItems:'center', justifyContent:'center',
                   padding:0, boxSizing:'border-box',
@@ -4674,6 +4675,25 @@ export default function MobileApp() {
         .af-menu-item.is-active{color:var(--accent);}
         .af-menu-trigger{transition:transform 140ms ease, opacity 140ms ease;}
         .af-menu-trigger:active{transform:scale(0.92);}
+        /* ── Shared glass control ──
+           Same liquid-glass language as the bottom dock (AtmosFlowFloatingDock):
+           near-clear translucent fill + light blur + a bright specular rim in
+           dark mode, flipping to a white capsule in light mode. Applied to the
+           header controls (back/title pill, hamburger, kebab) so the header and
+           the nav speak one material. Shape (border-radius) is left to each
+           control's inline style. */
+        .af-glass-control{
+          background:rgba(255,255,255,0.05);
+          -webkit-backdrop-filter:blur(14px) saturate(200%);
+          backdrop-filter:blur(14px) saturate(200%);
+          border:1px solid rgba(255,255,255,0.22);
+          box-shadow:0 4px 16px rgba(0,0,0,0.26), inset 0 1px 0 rgba(255,255,255,0.42), inset 0 0 0 1px rgba(255,255,255,0.04);
+        }
+        [data-theme="light"] .af-glass-control{
+          background:rgba(255,255,255,0.92);
+          border-color:rgba(15,23,42,0.10);
+          box-shadow:0 4px 14px rgba(15,23,42,0.12), inset 0 1px 0 rgba(255,255,255,0.7);
+        }
         @media (prefers-reduced-motion: reduce){
           .af-menu,.af-menu-backdrop,.af-menu-item,.af-menu-trigger{transition:none !important;}
           .af-menu{transform:none !important;}
