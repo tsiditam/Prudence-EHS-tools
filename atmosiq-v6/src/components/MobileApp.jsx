@@ -4573,8 +4573,17 @@ export default function MobileApp() {
         }
         .af-content-surface.is-open{
           transform:translateX(280px) scale(0.96);
-          border-radius:28px; overflow:hidden;
-          box-shadow:0 20px 60px rgba(0,0,0,0.35);
+          /* Curve the LEFT corners (the edge facing the menu); the right
+             corners ride off-screen so they stay square. */
+          border-top-left-radius:28px; border-bottom-left-radius:28px;
+          border-top-right-radius:0; border-bottom-right-radius:0;
+          overflow:hidden;
+          /* Lifted drop shadow + a bright glass rim down the left edge so
+             the exposed side reads as a pane of glass, not a flat block. */
+          box-shadow:0 20px 60px rgba(0,0,0,0.35),
+                     inset 2px 0 0 rgba(255,255,255,0.14),
+                     inset 8px 0 16px -8px rgba(255,255,255,0.10),
+                     inset 0 1px 0 rgba(255,255,255,0.05);
         }
         /* Dimmed tap-to-close cover over the content card while open. */
         .af-content-cover{ position:fixed; inset:0; z-index:240; background:rgba(0,0,0,0.18); cursor:pointer; }
