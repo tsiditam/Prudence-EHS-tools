@@ -3039,9 +3039,7 @@ export default function MobileApp() {
         onClick={() => go(item.onClick)}
         aria-current={active ? 'page' : undefined}
         style={{
-          // Claude-style soft rounded "glass pill" highlight on the active
-          // row: generous radius + a translucent cyan-tinted glass fill with
-          // a hairline ring + top sheen. Icons stay blue (cyan) on every row.
+          // Active row: cyan-tinted glass pill (colors unchanged per request).
           width:'100%', display:'flex', alignItems:'center', gap:13, padding:'13px 14px',
           margin:'2px 0', borderRadius:16, border:'none', cursor:'pointer', textAlign:'left',
           fontFamily:'inherit', fontSize:15, fontWeight:active?600:500,
@@ -4578,12 +4576,12 @@ export default function MobileApp() {
           border-top-left-radius:28px; border-bottom-left-radius:28px;
           border-top-right-radius:0; border-bottom-right-radius:0;
           overflow:hidden;
-          /* Lifted drop shadow + a bright glass rim down the left edge so
-             the exposed side reads as a pane of glass, not a flat block. */
-          box-shadow:0 20px 60px rgba(0,0,0,0.35),
-                     inset 2px 0 0 rgba(255,255,255,0.14),
-                     inset 8px 0 16px -8px rgba(255,255,255,0.10),
-                     inset 0 1px 0 rgba(255,255,255,0.05);
+          /* Claude-style clean card edge: a soft shadow that falls LEFT onto
+             the menu (so the card reads as lifted above it) + a faint hairline
+             outline. No bright glowing rim. */
+          box-shadow:-12px 0 48px rgba(0,0,0,0.45),
+                     0 18px 50px rgba(0,0,0,0.40),
+                     inset 0 0 0 1px rgba(255,255,255,0.07);
         }
         /* Dimmed tap-to-close cover over the content card while open. */
         .af-content-cover{ position:fixed; inset:0; z-index:240; background:rgba(0,0,0,0.18); cursor:pointer; }
