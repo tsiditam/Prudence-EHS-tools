@@ -43,8 +43,11 @@ if (typeof document !== 'undefined' && !document.getElementById('affd-style')) {
   document.head.appendChild(s)
 }
 
-const PILL_H = 62 // active pill height (+15% length); capsule ≈ 76px tall
-const DOT_H = 44 // inactive icon-only circle — narrower so the row reads light
+// "Width" here = the dock's thickness (its vertical dimension); "length"
+// = the horizontal span. Tuned thinner (shorter pills) + longer (wider
+// gaps/padding) so the capsule reads as a slim, elongated glass bar.
+const PILL_H = 32 // active pill height — slim (−30%)
+const DOT_H = 28 // inactive icon-only circle
 
 export default function AtmosFlowFloatingDock({ tabs, maxWidth, ariaLabel = 'Primary' }) {
   return (
@@ -70,10 +73,11 @@ export default function AtmosFlowFloatingDock({ tabs, maxWidth, ariaLabel = 'Pri
           pointerEvents: 'auto',
           display: 'flex',
           alignItems: 'center',
-          gap: 4,
-          maxWidth: maxWidth || 420,
+          gap: 8,
+          maxWidth: maxWidth || 460,
           // Don't stretch full-width — hug the tabs but cap on tablets.
-          padding: 6,
+          // Slim vertical padding (thin) + roomy horizontal padding (long).
+          padding: '5px 12px',
           borderRadius: 999,
           // Dark translucent glass (see header note — deliberately not themed).
           // Tuned toward Instagram's lighter, blurrier dock: more
@@ -141,7 +145,7 @@ export default function AtmosFlowFloatingDock({ tabs, maxWidth, ariaLabel = 'Pri
               <span style={{ position: 'relative', display: 'inline-flex' }}>
                 {t.renderIcon
                   ? t.renderIcon(on)
-                  : <I n={t.icon} s={22} c={on ? '#FFFFFF' : '#A1A1AA'} w={on ? 2 : 1.7} />}
+                  : <I n={t.icon} s={18} c={on ? '#FFFFFF' : '#A1A1AA'} w={on ? 2 : 1.7} />}
                 {t.badge > 0 && (
                   <span
                     aria-hidden="true"
@@ -159,7 +163,7 @@ export default function AtmosFlowFloatingDock({ tabs, maxWidth, ariaLabel = 'Pri
                 )}
               </span>
               {on && (
-                <span style={{ fontSize: 13, fontWeight: 600, letterSpacing: '-0.01em', color: '#FFFFFF', whiteSpace: 'nowrap' }}>
+                <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: '-0.01em', color: '#FFFFFF', whiteSpace: 'nowrap' }}>
                   {t.label}
                 </span>
               )}

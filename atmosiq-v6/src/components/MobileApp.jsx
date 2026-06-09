@@ -4464,11 +4464,11 @@ export default function MobileApp() {
                         assistant reads as "alive". Pointer-transparent;
                         calms under prefers-reduced-motion. */}
                     <span className="fa-breathe" aria-hidden="true" style={{
-                      position:'absolute', top:'50%', left:'50%', width:42, height:42,
-                      marginTop:-21, marginLeft:-21, borderRadius:'50%', pointerEvents:'none',
+                      position:'absolute', top:'50%', left:'50%', width:34, height:34,
+                      marginTop:-17, marginLeft:-17, borderRadius:'50%', pointerEvents:'none',
                       background:'radial-gradient(circle, color-mix(in srgb, var(--accent) 62%, transparent), color-mix(in srgb, var(--accent) 28%, transparent) 48%, transparent 78%)',
                     }} />
-                    <JasperBrainIcon size={22} />
+                    <JasperBrainIcon size={18} />
                   </span>
                 )
               : undefined,
