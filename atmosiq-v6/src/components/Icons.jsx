@@ -18,7 +18,7 @@ import {
   Target, Calendar, MapPin, Gauge, Users, Mic, Eye, DoorClosed, Filter, Cloud,
   Wrench, Barcode, AlertCircle, ScrollText, LayoutTemplate, SquarePen, Info,
   Settings, HelpCircle, MoreHorizontal, Sun, Moon, LogOut, Sparkles, Paperclip,
-  Image, X, ArrowUp, ThumbsUp, ThumbsDown, Copy, Share, Brain,
+  Image, X, ArrowUp, ThumbsUp, ThumbsDown, Copy, Share, Brain, ChartLine,
 } from 'lucide-react'
 
 // Premium icon set — Lucide (the set Obsidian ships), wrapped behind the
@@ -27,6 +27,7 @@ import {
 const LUCIDE = {
   findings: ClipboardCheck, chain: Link2, flask: FlaskConical, pulse: Activity,
   bolt: Zap, play: Play, check: Check, bldg: Building2, chart: BarChart3,
+  chartLine: ChartLine,
   wind: Wind, airflow: Wind, home: Home, clip: Clipboard, clock: Clock,
   search: Search, shield: ShieldCheck, user: User, download: Download,
   upload: Upload, send: Send, refresh: RefreshCw, alert: AlertTriangle,

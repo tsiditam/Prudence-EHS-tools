@@ -3087,7 +3087,7 @@ export default function MobileApp() {
                 { label: 'Search',       icon: 'search', onClick: () => setView('search') },
                 { label: 'Projects',     icon: 'bldg',   onClick: () => setView('projects') },
                 { label: 'Sampling forms', icon: 'flask', onClick: () => setView('sampling-forms') },
-                { label: 'Logger Studio', icon: 'chart', onClick: () => setView('sensor-data') },
+                { label: 'Logger Studio', icon: 'chartLine', onClick: () => setView('sensor-data') },
                 { label: 'Ask AtmosFlow AI', icon: 'mic', onClick: () => { supabase && trackEvent('jasper_open', { source: 'menu_voice' }); setVoiceCmdOpen(true) } },
                 // App & account — configure, manage, and learn. The
                 // light/dark toggle lives in Settings; it isn't duplicated here.
@@ -4028,23 +4028,26 @@ export default function MobileApp() {
                     }}>
                       Start survey
                     </TactileButton>
-                    {/* Report an incident is a secondary action here, so
-                        its accent border + tint are toned down (30%→16%
-                        border, 12%→7% fill) to calm the neon-bright halo
-                        the default secondary variant gave it on the dark
-                        co-pilot card. */}
+                    {/* Report an incident — secondary action, restyled to
+                        the shared glass-pill language (.af-glass-control:
+                        translucent glass + bright rim in dark, white capsule
+                        in light) with cyan text, matching the dock + header
+                        controls. Inline bg/border/shadow are cleared so the
+                        class provides the glass; the variant's are dropped. */}
                     <TactileButton
                       variant="secondary"
                       size="sm"
                       pill
+                      className="af-glass-control"
                       onClick={()=>setView('incident-form')}
                       style={{
                         padding:'8px 12px',
                         fontSize:11,
                         minHeight:30,
-                        background:'color-mix(in srgb, var(--accent) 7%, transparent)',
-                        border:'1px solid color-mix(in srgb, var(--accent) 16%, transparent)',
-                        boxShadow:'inset 0 1px 0 rgba(255,255,255,0.03), 0 1px 2px rgba(0,0,0,0.20)',
+                        color:'var(--accent)',
+                        background:undefined,
+                        border:undefined,
+                        boxShadow:undefined,
                       }}
                     >
                       Report an incident
@@ -4343,9 +4346,10 @@ export default function MobileApp() {
               <button
                 onClick={startNew}
                 aria-label="Start new assessment"
-                style={{...V3.iconBox(V3.STATUS.draft),padding:0,cursor:'pointer',fontFamily:'inherit',WebkitTapHighlightColor:'transparent'}}
+                className="af-glass-control"
+                style={{width:32,height:32,flexShrink:0,borderRadius:V3.R.md,display:'inline-flex',alignItems:'center',justifyContent:'center',padding:0,cursor:'pointer',fontFamily:'inherit',WebkitTapHighlightColor:'transparent'}}
               >
-                <I n="draft" s={15} c={V3.STATUS.draft} w={1.6} />
+                <I n="draft" s={15} c="var(--accent)" w={1.7} />
               </button>
               <div style={{flex:1,minWidth:0}}>
                 <div style={V3.T.bodyStrong}>No drafts in progress</div>
@@ -4485,14 +4489,14 @@ export default function MobileApp() {
           {id:'dash',label:'Home',icon:'home'},
           {id:'properties',label:'Buildings',icon:'bldg'},
           {id:'incident-log',label:'Incidents',icon:'alert'},
-          {id:'sensor-data',label:'Logger Studio',icon:'chart'},
+          {id:'sensor-data',label:'Logger Studio',icon:'chartLine'},
         ] : [
           // Consultant dock: Home, Reports, Logger Studio, Account.
           // Projects stays in the drawer menu so no destinations are
           // orphaned. AtmosFlow AI rides in the aux pill below.
           {id:'dash',label:'Home',icon:'home'},
           {id:'history',label:'Reports',icon:'report',badge:((index.drafts||[]).length+(index.reports||[]).length)||null},
-          {id:'sensor-data',label:'Logger Studio',icon:'chart'},
+          {id:'sensor-data',label:'Logger Studio',icon:'chartLine'},
           {id:'account',label:'Account',icon:'user'},
         ]).map(mkTab)
 

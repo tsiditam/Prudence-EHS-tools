@@ -211,7 +211,7 @@ function AnalyzingCard({ fileName, phase }) {
         @keyframes sdScan { 0%{transform:translateX(-110%)} 100%{transform:translateX(320%)} }
       `}</style>
       <div style={{ width: 60, height: 60, borderRadius: 16, margin: '0 auto 18px', background: 'color-mix(in srgb, var(--accent) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--accent) 28%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'sdPulse 1.4s ease-in-out infinite' }}>
-        <I n="chart" s={26} c={ACCENT} w={1.8} />
+        <I n="chartLine" s={26} c={ACCENT} w={1.8} />
       </div>
       <div style={{ ...V3.T.h3, marginBottom: 6 }}>Analyzing logger data</div>
       <div style={{ ...V3.T.bodyDim, maxWidth: 360, margin: '0 auto 20px', minHeight: 20 }}>
