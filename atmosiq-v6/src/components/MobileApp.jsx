@@ -65,6 +65,7 @@ import ProjectDetail from './projects/ProjectDetail'
 import { getOrCreateProjectByName } from '../utils/projectStore'
 import { KEYS } from '../utils/storageKeys'
 import SettingsScreen from './SettingsScreen'
+import AccountScreen from './AccountScreen'
 import FeatureTour from './FeatureTour'
 import { printReport, generatePrintHTML } from './PrintReport'
 // v2.6.1 — DocxReport is a static import. Earlier `await import('./DocxReport')`
@@ -4401,11 +4402,12 @@ export default function MobileApp() {
         {view==='sensor-data'&&<SensorDataPage value={sensorData} onChange={setSensorData} reports={index.drafts||[]} currentReportId={draftId} currentZones={zones} onApplyAverages={applyAveragesToReport} onBack={()=>setView(comp?'results':'dash')} />}
         {view==='projects'&&<ProjectsScreen onBack={()=>setView('dash')} onOpen={(pid)=>{setProjectBackView('projects');setActiveProjectId(pid);setView('project-detail')}} />}
         {view==='project-detail'&&<ProjectDetail id={activeProjectId} profile={profile} onBack={()=>setView(projectBackView)} onOpenReport={(r)=>openReport(r)} />}
-        {view==='settings'&&<SettingsScreen profile={profile} onEditProfile={()=>{sessionStorage.setItem('aiq_welcomed','1');setWelcomeDone(true);setProfile({...profile,isNew:true});setView('dash')}} onLogout={handleLogout} onClose={()=>setView('dash')} onNavigate={(v)=>{if(v==='pricing'){setShowPricing(true)}else if(v==='tour'){setView('dash');setShowTour(true)}else{setView(v)}}} adminActive={!!adminSecret} onActivateAdmin={(secret)=>{setAdminSecret(secret);setView('admin')}} />}
+        {view==='settings'&&<SettingsScreen onNavigate={(v)=>{if(v==='pricing'){setShowPricing(true)}else if(v==='tour'){setView('dash');setShowTour(true)}else{setView(v)}}} adminActive={!!adminSecret} onActivateAdmin={(secret)=>{setAdminSecret(secret);setView('admin')}} />}
+        {view==='account'&&<AccountScreen profile={profile} onEditProfile={()=>{sessionStorage.setItem('aiq_welcomed','1');setWelcomeDone(true);setProfile({...profile,isNew:true});setView('dash')}} onLogout={handleLogout} onNavigate={(v)=>setView(v)} />}
         {view==='tos'&&<TermsOfService onBack={()=>setView('settings')} />}
         {view==='privacy'&&<PrivacyPolicy onBack={()=>setView('settings')} />}
         {view==='help'&&<HelpView onBack={()=>setView('settings')} />}
-        {view==='instrument-edit'&&<InstrumentEditView profile={profile} onSave={(updated)=>{setProfile(updated);setView('settings')}} onCancel={()=>setView('settings')} />}
+        {view==='instrument-edit'&&<InstrumentEditView profile={profile} onSave={(updated)=>{setProfile(updated);setView('account')}} onCancel={()=>setView('account')} />}
         {view==='admin'&&adminSecret&&<AdminDashboard onBack={()=>setView('settings')} adminSecret={adminSecret} />}
         {view==='incident-form'&&<IncidentForm onCancel={()=>setView('dash')} onSaved={(inc)=>{setCurrentIncident(inc);setView('incident-detail')}} />}
         {view==='incident-log'&&<IncidentLog profile={profile} onBack={()=>setView('dash')} onNewIncident={()=>setView('incident-form')} onView={(inc)=>{setCurrentIncident(inc);setView('incident-detail')}} />}
@@ -4444,7 +4446,7 @@ export default function MobileApp() {
           {id:'jasper',label:'AtmosFlow AI',icon:'jasper'},
           {id:'history',label:'Reports',icon:'report',badge:((index.drafts||[]).length+(index.reports||[]).length)||null},
           {id:'sensor-data',label:'Logger Studio',icon:'chart'},
-          {id:'settings',label:'Account',icon:'user'},
+          {id:'account',label:'Account',icon:'user'},
         ]).map(t => {
           const isJasper = t.id === 'jasper'
           const active = isJasper ? faOpen : (view === t.id)
