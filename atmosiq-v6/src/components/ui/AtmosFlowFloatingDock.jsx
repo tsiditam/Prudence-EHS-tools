@@ -59,18 +59,17 @@ const SURFACE_STYLE = {
   display: 'flex',
   alignItems: 'center',
   borderRadius: 999,
-  // Slight DARK tint (Instagram-style) over a light blur — translucent
-  // enough to stay glassy and see content through it, but tinted dark so
-  // the white icons sit on a consistent surface. Glassiness still comes
-  // from the bright specular edge + saturation.
-  background: 'rgba(18,19,23,0.34)',
-  backdropFilter: 'blur(20px) saturate(200%)',
-  WebkitBackdropFilter: 'blur(20px) saturate(200%)',
-  border: '1px solid rgba(255,255,255,0.16)',
+  // Dark translucent glass — a deeper dark fill over the blur so the dock
+  // reads as a solid-feeling dark capsule you can still see a little
+  // through. Specular top edge + saturation keep it glassy.
+  background: 'rgba(16,17,21,0.58)',
+  backdropFilter: 'blur(22px) saturate(190%)',
+  WebkitBackdropFilter: 'blur(22px) saturate(190%)',
+  border: '1px solid rgba(255,255,255,0.14)',
   boxShadow:
-    '0 8px 26px rgba(0,0,0,0.30), ' +
-    'inset 0 1px 0 rgba(255,255,255,0.30), ' +   // specular top edge
-    'inset 0 -1px 1px rgba(0,0,0,0.10)',          // faint lower contact shade
+    '0 8px 28px rgba(0,0,0,0.40), ' +
+    'inset 0 1px 0 rgba(255,255,255,0.22), ' +   // specular top edge
+    'inset 0 -1px 1px rgba(0,0,0,0.12)',          // faint lower contact shade
 }
 
 const press = (e) => { e.currentTarget.style.transform = 'scale(0.93)' }
