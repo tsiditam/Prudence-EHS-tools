@@ -4,46 +4,73 @@
  * All rights reserved.
  *
  * AnimatedPageTransition — Notion-style page transitions for the main
- * view content. Calm, iOS-like: pages fade + slide + scale subtly into
- * place. Used to wrap the view-content region; pass `pageKey` (the
- * current view id) so a change remounts the inner node and replays the
- * enter animation, and `mode` for direction:
+ * view content. Calm, iOS-like: pages glide (fade + slide + scale) into
+ * place, and — crucially — the OUTGOING page eases out at the same time
+ * the incoming one eases in (a crossfade), which is what makes Notion's
+ * transitions feel continuous rather than an abrupt swap.
  *
- *   mode="forward"  new page slides in from the right (drill-in)
- *   mode="back"     new page slides in from the left  (going back)
+ *   mode="forward"  new slides in from the right; old eases out to left
+ *   mode="back"     new slides in from the left;  old eases out to right
  *   mode="tab"      soft fade + slight scale (top-level dock tabs)
  *   mode="up"       fade + subtle upward motion (default / unknown)
  *
- * Implementation notes (why CSS, not Framer Motion):
- *  - Framer Motion isn't a dependency here and the codebase is pure
- *    inline-style + CSS transitions; a keyframe-driven enter animation
- *    matches the idiom and stays lightweight (transform + opacity only,
- *    compositor-friendly / 60fps).
- *  - The enter runs via `animation` with `animation-fill-mode: backwards`
- *    (NOT forwards). That means once the animation ends the element
- *    reverts to its base style — `transform: none` — so it never leaves
- *    a lingering identity transform that would turn this wrapper into the
- *    containing block for any `position: fixed` descendant (modals,
- *    bottom sheets). The transform only exists for the ~260ms it runs.
- *  - prefers-reduced-motion disables the animation entirely.
- *  - No layout shift: transforms/opacity don't reflow; the node keeps its
- *    place in normal flow.
+ * How the crossfade works without Framer Motion / AnimatePresence:
+ *  - We always render the live `children` (current view) as the incoming
+ *    layer, keyed by pageKey so it remounts and replays its enter anim.
+ *  - On a pageKey change we snapshot the PREVIOUS render (held in a ref)
+ *    and mount it as an absolutely-positioned outgoing layer that plays
+ *    an exit animation, then drop it after the run. The snapshot is
+ *    frozen — fine, the old page is leaving and needn't stay interactive.
+ *  - useLayoutEffect commits the outgoing overlay before paint, so the
+ *    new page never flashes in alone.
+ *
+ * Safety / polish:
+ *  - Enter uses animation-fill-mode: backwards and exit uses forwards,
+ *    but BOTH layers carry a transform only while animating; the incoming
+ *    layer reverts to transform:none when done, so this wrapper never
+ *    becomes a lingering containing block for fixed modals/sheets. (The
+ *    dock + app-shell overlays render outside this wrapper anyway.)
+ *  - The outgoing layer is position:absolute / inset:0 / pointer-events
+ *    none, so there's no layout shift and it can't steal taps.
+ *  - prefers-reduced-motion disables all of it.
  */
+import { useState, useRef, useLayoutEffect } from 'react'
+
+const ENTER_MS = 300
+const EXIT_MS = 260
 
 if (typeof document !== 'undefined' && !document.getElementById('affp-style')) {
   const s = document.createElement('style')
   s.id = 'affp-style'
   s.textContent = `
-.affp { animation-duration: 280ms; animation-timing-function: cubic-bezier(0.22,1,0.36,1); animation-fill-mode: backwards; will-change: transform, opacity; }
-.affp-forward { animation-name: affpForward; }
-.affp-back { animation-name: affpBack; }
-.affp-tab { animation-name: affpTab; animation-duration: 240ms; }
-.affp-up { animation-name: affpUp; animation-duration: 240ms; }
-@keyframes affpForward { from { opacity: 0; transform: translate3d(16px,0,0) scale(0.985); } to { opacity: 1; transform: translate3d(0,0,0) scale(1); } }
-@keyframes affpBack { from { opacity: 0; transform: translate3d(-16px,0,0) scale(0.99); } to { opacity: 1; transform: translate3d(0,0,0) scale(1); } }
-@keyframes affpTab { from { opacity: 0; transform: scale(0.985); } to { opacity: 1; transform: scale(1); } }
-@keyframes affpUp { from { opacity: 0; transform: translate3d(0,8px,0); } to { opacity: 1; transform: translate3d(0,0,0); } }
-@media (prefers-reduced-motion: reduce) { .affp { animation: none !important; } }
+.affp-in, .affp-out { animation-timing-function: cubic-bezier(0.22,1,0.36,1); will-change: transform, opacity; }
+.affp-in  { animation-duration: ${ENTER_MS}ms; animation-fill-mode: backwards; }
+.affp-out { animation-duration: ${EXIT_MS}ms; animation-fill-mode: forwards; position: absolute; inset: 0; pointer-events: none; }
+
+.affp-in.affp-forward { animation-name: affpInForward; }
+.affp-in.affp-back    { animation-name: affpInBack; }
+.affp-in.affp-tab     { animation-name: affpInTab; animation-duration: 260ms; }
+.affp-in.affp-up      { animation-name: affpInUp; animation-duration: 260ms; }
+
+.affp-out.affp-forward { animation-name: affpOutForward; }
+.affp-out.affp-back    { animation-name: affpOutBack; }
+.affp-out.affp-tab     { animation-name: affpOutTab; }
+.affp-out.affp-up      { animation-name: affpOutUp; }
+
+@keyframes affpInForward { from { opacity: 0; transform: translate3d(22px,0,0) scale(0.985); } to { opacity: 1; transform: translate3d(0,0,0) scale(1); } }
+@keyframes affpInBack    { from { opacity: 0; transform: translate3d(-22px,0,0) scale(0.985); } to { opacity: 1; transform: translate3d(0,0,0) scale(1); } }
+@keyframes affpInTab     { from { opacity: 0; transform: scale(0.985); } to { opacity: 1; transform: scale(1); } }
+@keyframes affpInUp      { from { opacity: 0; transform: translate3d(0,10px,0); } to { opacity: 1; transform: translate3d(0,0,0); } }
+
+@keyframes affpOutForward { from { opacity: 1; transform: translate3d(0,0,0) scale(1); } to { opacity: 0; transform: translate3d(-16px,0,0) scale(0.99); } }
+@keyframes affpOutBack    { from { opacity: 1; transform: translate3d(0,0,0) scale(1); } to { opacity: 0; transform: translate3d(16px,0,0) scale(0.99); } }
+@keyframes affpOutTab     { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(0.99); } }
+@keyframes affpOutUp      { from { opacity: 1; transform: translate3d(0,0,0); } to { opacity: 0; transform: translate3d(0,-6px,0); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .affp-in, .affp-out { animation: none !important; }
+  .affp-out { display: none !important; }
+}
 `
   document.head.appendChild(s)
 }
@@ -52,14 +79,35 @@ const MODES = new Set(['forward', 'back', 'tab', 'up'])
 
 export default function AnimatedPageTransition({ pageKey, mode = 'up', children, style }) {
   const m = MODES.has(mode) ? mode : 'up'
-  // Keying the inner node by pageKey is what replays the enter animation:
-  // a new key remounts the node, and a freshly-mounted element runs its
-  // CSS animation once. (No AnimatePresence/exit pass — keeping the old
-  // node mounted to animate it out isn't worth the weight here; the enter
-  // alone reads as the Notion-style transition.)
+  // Last committed render, snapshotted so it can play out as the outgoing
+  // layer on the next page change.
+  const last = useRef({ key: pageKey, node: children })
+  const [outgoing, setOutgoing] = useState(null)
+  const timerRef = useRef(null)
+
+  useLayoutEffect(() => {
+    if (last.current.key !== pageKey) {
+      // Mount the previous render as the exit layer, then drop it.
+      setOutgoing({ key: last.current.key, node: last.current.node, mode: m })
+      clearTimeout(timerRef.current)
+      timerRef.current = setTimeout(() => setOutgoing(null), EXIT_MS + 30)
+    }
+    last.current = { key: pageKey, node: children }
+    // children intentionally excluded: we only re-snapshot/animate on a
+    // pageKey change, not on every in-page re-render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageKey])
+
   return (
-    <div key={pageKey} className={`affp affp-${m}`} style={style}>
-      {children}
+    <div style={{ position: 'relative', ...style }}>
+      {outgoing && (
+        <div key={`out-${outgoing.key}`} className={`affp-out affp-${outgoing.mode}`} aria-hidden="true">
+          {outgoing.node}
+        </div>
+      )}
+      <div key={`in-${pageKey}`} className={`affp-in affp-${m}`}>
+        {children}
+      </div>
     </div>
   )
 }
