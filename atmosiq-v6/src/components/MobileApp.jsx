@@ -3008,8 +3008,19 @@ export default function MobileApp() {
                 aria-label="Open menu"
                 aria-haspopup="menu"
                 aria-expanded={showHomeMenu}
-                style={{width:24,height:24,marginLeft:-2,background:'transparent',border:'none',padding:0,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',WebkitTapHighlightColor:'transparent'}}>
-                <I n="menu" s={17} c={ACCENT} w={2.2} />
+                style={{
+                  // Circular glass "bubble" button with a staggered
+                  // (descending) hamburger in cyan.
+                  width:40, height:40, borderRadius:'50%',
+                  ...GLASS.subtle,
+                  padding:0, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
+                  boxSizing:'border-box', WebkitTapHighlightColor:'transparent',
+                }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+                  <line x1="4" y1="7"  x2="20" y2="7" />
+                  <line x1="4" y1="12" x2="15" y2="12" />
+                  <line x1="4" y1="17" x2="11" y2="17" />
+                </svg>
               </button>
               {/* Wordmark to the right of the menu (Kalshi-style), with the
                   small thin hamburger beside it. Uses the tagline-free
