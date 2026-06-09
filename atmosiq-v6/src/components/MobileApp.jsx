@@ -35,6 +35,7 @@ import Markdown from './Markdown'
 import { GLASS, RADII, RHYTHM, stack as sgStack } from '../styles/soft-glass'
 import GlassCard from './ui/GlassCard'
 import AssessmentSegmentedPillNav from './ui/AssessmentSegmentedPillNav'
+import AtmosFlowFloatingDock from './ui/AtmosFlowFloatingDock'
 import FeedbackSheet from './ui/FeedbackSheet'
 import FeedbackButton from './ui/FeedbackButton'
 import StatusPill from './ui/StatusPill'
@@ -64,6 +65,7 @@ import ProjectDetail from './projects/ProjectDetail'
 import { getOrCreateProjectByName } from '../utils/projectStore'
 import { KEYS } from '../utils/storageKeys'
 import SettingsScreen from './SettingsScreen'
+import AccountScreen from './AccountScreen'
 import FeatureTour from './FeatureTour'
 import { printReport, generatePrintHTML } from './PrintReport'
 // v2.6.1 — DocxReport is a static import. Earlier `await import('./DocxReport')`
@@ -3113,15 +3115,15 @@ export default function MobileApp() {
                       paddingBottom:'env(safe-area-inset-bottom)',
                     }}>
                     {/* Account header — status line + tappable profile row
-                        (→ Settings), mirroring Kalshi's "Exchange is open"
+                        (→ Account page), mirroring Kalshi's "Exchange is open"
                         + Deposit row. */}
                     <div style={{padding:'2px 18px 14px', borderBottom:`1px solid ${BORDER}`, flexShrink:0}}>
                       <div style={{fontSize:13, fontWeight:600, color:SUB, letterSpacing:'-0.01em', marginBottom:14}}>
                         {planLabel}
                       </div>
                       <button
-                        onClick={() => { closeMenu(); setView('settings') }}
-                        aria-label="Account settings"
+                        onClick={() => { closeMenu(); setView('account') }}
+                        aria-label="Account"
                         style={{
                           width:'100%', background:'transparent', border:'none', padding:0, cursor:'pointer',
                           display:'flex', alignItems:'center', gap:13, textAlign:'left', fontFamily:'inherit',
@@ -4066,10 +4068,11 @@ export default function MobileApp() {
             <div style={{
               position: 'fixed',
               left: 0, right: 0,
-              // Sits above the bottom-nav (height ~64) + safe-area inset
-              // so the CTA never overlaps the nav. zIndex below the nav
-              // (100) so a stray full-bleed dropdown can't trap focus.
-              bottom: `calc(72px + env(safe-area-inset-bottom, 0px))`,
+              // Sits above the floating glass dock (≈62px tall, lifted
+              // 18px off the bottom edge) + safe-area inset so the CTA
+              // never overlaps the dock. zIndex below the dock (100) so a
+              // stray full-bleed dropdown can't trap focus.
+              bottom: `calc(env(safe-area-inset-bottom, 0px) + 92px)`,
               zIndex: 90,
               display: 'flex',
               justifyContent: 'center',
@@ -4399,11 +4402,12 @@ export default function MobileApp() {
         {view==='sensor-data'&&<SensorDataPage value={sensorData} onChange={setSensorData} reports={index.drafts||[]} currentReportId={draftId} currentZones={zones} onApplyAverages={applyAveragesToReport} onBack={()=>setView(comp?'results':'dash')} />}
         {view==='projects'&&<ProjectsScreen onBack={()=>setView('dash')} onOpen={(pid)=>{setProjectBackView('projects');setActiveProjectId(pid);setView('project-detail')}} />}
         {view==='project-detail'&&<ProjectDetail id={activeProjectId} profile={profile} onBack={()=>setView(projectBackView)} onOpenReport={(r)=>openReport(r)} />}
-        {view==='settings'&&<SettingsScreen profile={profile} onEditProfile={()=>{sessionStorage.setItem('aiq_welcomed','1');setWelcomeDone(true);setProfile({...profile,isNew:true});setView('dash')}} onLogout={handleLogout} onClose={()=>setView('dash')} onNavigate={(v)=>{if(v==='pricing'){setShowPricing(true)}else if(v==='tour'){setView('dash');setShowTour(true)}else{setView(v)}}} adminActive={!!adminSecret} onActivateAdmin={(secret)=>{setAdminSecret(secret);setView('admin')}} />}
+        {view==='settings'&&<SettingsScreen onNavigate={(v)=>{if(v==='pricing'){setShowPricing(true)}else if(v==='tour'){setView('dash');setShowTour(true)}else{setView(v)}}} adminActive={!!adminSecret} onActivateAdmin={(secret)=>{setAdminSecret(secret);setView('admin')}} />}
+        {view==='account'&&<AccountScreen profile={profile} onEditProfile={()=>{sessionStorage.setItem('aiq_welcomed','1');setWelcomeDone(true);setProfile({...profile,isNew:true});setView('dash')}} onLogout={handleLogout} onNavigate={(v)=>setView(v)} />}
         {view==='tos'&&<TermsOfService onBack={()=>setView('settings')} />}
         {view==='privacy'&&<PrivacyPolicy onBack={()=>setView('settings')} />}
         {view==='help'&&<HelpView onBack={()=>setView('settings')} />}
-        {view==='instrument-edit'&&<InstrumentEditView profile={profile} onSave={(updated)=>{setProfile(updated);setView('settings')}} onCancel={()=>setView('settings')} />}
+        {view==='instrument-edit'&&<InstrumentEditView profile={profile} onSave={(updated)=>{setProfile(updated);setView('account')}} onCancel={()=>setView('account')} />}
         {view==='admin'&&adminSecret&&<AdminDashboard onBack={()=>setView('settings')} adminSecret={adminSecret} />}
         {view==='incident-form'&&<IncidentForm onCancel={()=>setView('dash')} onSaved={(inc)=>{setCurrentIncident(inc);setView('incident-detail')}} />}
         {view==='incident-log'&&<IncidentLog profile={profile} onBack={()=>setView('dash')} onNewIncident={()=>setView('incident-form')} onView={(inc)=>{setCurrentIncident(inc);setView('incident-detail')}} />}
@@ -4421,68 +4425,60 @@ export default function MobileApp() {
           v3 visual: top hairline + top accent rail above the active
           tab (instrument-panel cue, replaces the earlier scale 1.06
           "lift"), icon stays at its base size, label sits below. */}
-      {!isAssessing && !milestone && (
-        <nav style={{position:'fixed',bottom:0,left:0,right:0,zIndex:100,background:BG,borderTop:`1px solid ${V3.BORDER_DEFAULT}`,paddingBottom:'env(safe-area-inset-bottom, 0px)',isolation:'isolate',transform:'translateZ(0)',WebkitTransform:'translateZ(0)'}}>
-          <div style={{display:'flex',justifyContent:'space-around',alignItems:'stretch',height:56,maxWidth:contentMax,margin:'0 auto'}}>
-            {(userMode === 'fm' ? [
-              {id:'dash',label:'Home',icon:'home'},
-              {id:'properties',label:'Buildings',icon:'bldg'},
-              {id:'incident-log',label:'Incidents',icon:'alert'},
-              {id:'sensor-data',label:'Logger Studio',icon:'chart'},
-            ] : [
-              // Three-tab consultant nav: Home, AtmosFlow AI (centre — its
-              // breathing-glow tab reads as the hub), Reports. Projects and
-              // Logger Studio were removed from the bar per product call;
-              // both stay reachable from the hamburger drawer menu, so no
-              // destinations are orphaned. jasper id unchanged so shipped
-              // event/table names don't move.
-              {id:'dash',label:'Home',icon:'home'},
-              {id:'jasper',label:'AtmosFlow AI',icon:'jasper'},
-              {id:'history',label:'Reports',icon:'report',badge:((index.drafts||[]).length+(index.reports||[]).length)||null},
-            ]).map(t=>{
-              const isJasper = t.id === 'jasper'
-              const isActive = isJasper ? faOpen : (view === t.id)
-              const onClick = isJasper
-                ? () => { haptic('light'); supabase && trackEvent('jasper_open', { source: 'bottom_nav' }); setFaOpen(true) }
-                : () => { haptic('light'); supabase && trackEvent('page_view', { tab: t.id }); setView(t.id); if (t.id === 'dash') setViewRpt(null) }
-              return (
-                <button
-                  key={t.id}
-                  onClick={onClick}
-                  {...pressFeedback('soft')}
-                  style={{flex:1,background:'none',border:'none',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:4,paddingTop:6,fontFamily:'inherit',position:'relative',...pressFeedback.style}}>
-                  {/* Top accent rail — only on the active tab. Cyan
-                      hairline tucked under the nav's top border so the
-                      visual is "this lane is lit", not a button glow.
-                      For Jasper, the rail lights up while the
-                      FieldAssistant sheet is open. */}
-                  <div style={{position:'absolute',top:0,left:'20%',right:'20%',height:2,background:isActive?'var(--accent)':'transparent',borderRadius:'0 0 2px 2px',transition:'background 160ms ease'}} />
-                  <div style={{position:'relative',display:'flex'}}>
-                    {/* Ambient breathing glow behind the AI tab so the
-                        assistant reads as "alive" / inviting. Sits behind
-                        the icon, pointer-transparent; calms under
-                        prefers-reduced-motion (static soft glow). */}
-                    {isJasper && (
-                      <span className="fa-breathe" aria-hidden="true" style={{
-                        position:'absolute', top:'50%', left:'50%', width:46, height:46,
-                        marginTop:-23, marginLeft:-23, borderRadius:'50%', pointerEvents:'none',
-                        background:'radial-gradient(circle, color-mix(in srgb, var(--accent) 62%, transparent), color-mix(in srgb, var(--accent) 28%, transparent) 48%, transparent 78%)',
-                      }} />
-                    )}
-                    {isJasper ? (
-                      <JasperBrainIcon size={22} />
-                    ) : (
-                      <I n={t.icon} s={20} c={isActive?'var(--accent)':V3.TEXT_TERTIARY} w={isActive?2:1.7} />
-                    )}
-                    {t.badge>0&&<div style={{position:'absolute',top:-4,right:-8,minWidth:15,height:15,borderRadius:V3.R.pill,background:'var(--danger)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,fontWeight:700,color:'#FFFFFF',fontFamily:'var(--font-mono)',padding:'0 4px'}}>{t.badge}</div>}
-                  </div>
-                  <span style={{fontSize:10,fontWeight:isActive?600:500,color:isActive?'var(--accent)':V3.TEXT_TERTIARY,letterSpacing:'0.1px',whiteSpace:'nowrap',transition:'color 160ms ease'}}>{t.label}</span>
-                </button>
-              )
-            })}
-          </div>
-        </nav>
-      )}
+      {!isAssessing && !milestone && (() => {
+        // Floating glass capsule dock (Instagram / visionOS style) — see
+        // AtmosFlowFloatingDock. AtmosFlow AI is no longer a tab inside the
+        // oval dock; it now sits in its own circular glass pill beside the
+        // dock (the `aux` slot) so the assistant reads as a distinct,
+        // always-reachable action. Routing/behavior + the jasper event
+        // names are preserved exactly.
+        const mkTab = (t) => ({
+          id: t.id,
+          label: t.label,
+          icon: t.icon,
+          badge: t.badge,
+          active: view === t.id,
+          onClick: () => { haptic('light'); supabase && trackEvent('page_view', { tab: t.id }); setView(t.id); if (t.id === 'dash') setViewRpt(null) },
+        })
+        const navTabs = (userMode === 'fm' ? [
+          {id:'dash',label:'Home',icon:'home'},
+          {id:'properties',label:'Buildings',icon:'bldg'},
+          {id:'incident-log',label:'Incidents',icon:'alert'},
+          {id:'sensor-data',label:'Logger Studio',icon:'chart'},
+        ] : [
+          // Consultant dock: Home, Reports, Logger Studio, Account.
+          // Projects stays in the drawer menu so no destinations are
+          // orphaned. AtmosFlow AI rides in the aux pill below.
+          {id:'dash',label:'Home',icon:'home'},
+          {id:'history',label:'Reports',icon:'report',badge:((index.drafts||[]).length+(index.reports||[]).length)||null},
+          {id:'sensor-data',label:'Logger Studio',icon:'chart'},
+          {id:'account',label:'Account',icon:'user'},
+        ]).map(mkTab)
+
+        // AtmosFlow AI — its own circular pill beside the oval dock. Keeps
+        // the breathing-glow brain mark and the jasper event name.
+        const aux = userMode === 'fm' ? null : {
+          id: 'jasper',
+          label: 'AtmosFlow AI',
+          active: faOpen,
+          onClick: () => { haptic('light'); supabase && trackEvent('jasper_open', { source: 'bottom_nav' }); setFaOpen(true) },
+          renderIcon: () => (
+            <span style={{ position:'relative', display:'inline-flex', alignItems:'center', justifyContent:'center' }}>
+              {/* Ambient breathing glow behind the AI mark so the assistant
+                  reads as "alive". Pointer-transparent; calms under
+                  prefers-reduced-motion. */}
+              <span className="fa-breathe" aria-hidden="true" style={{
+                position:'absolute', top:'50%', left:'50%', width:34, height:34,
+                marginTop:-17, marginLeft:-17, borderRadius:'50%', pointerEvents:'none',
+                background:'radial-gradient(circle, color-mix(in srgb, var(--accent) 62%, transparent), color-mix(in srgb, var(--accent) 28%, transparent) 48%, transparent 78%)',
+              }} />
+              <JasperBrainIcon size={18} />
+            </span>
+          ),
+        }
+
+        return <AtmosFlowFloatingDock tabs={navTabs} aux={aux} maxWidth={contentMax} />
+      })()}
 
       {/* The floating Field-Assistant FAB was retired when Jasper
           moved into the bottom-nav tab — two launchers for the same
