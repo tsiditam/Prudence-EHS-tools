@@ -22,13 +22,12 @@
  *     ]}
  *   />
  *
- * The dock chrome is INTENTIONALLY dark glass in both themes — like the
- * iOS/Instagram dock it's brand chrome that floats over content, so it
- * stays a single dark surface rather than flipping with [data-theme].
- * The white icon/label + cyan accent read on this dark glass in dark and
- * light mode alike, so there's no light-mode contrast regression. The
- * accent (var(--accent)) is the only themed token and cyan reads on dark
- * in both palettes.
+ * The dock chrome is dark glass in DARK mode and flips to a white capsule
+ * in LIGHT mode (via the [data-theme="light"] .affd-dock overrides in the
+ * injected stylesheet below) so it stays consistent with the light theme.
+ * Active icon + label are cyan (var(--accent-fill)) in both modes; the
+ * active pill is a frosted-white fill on dark glass and a faint cyan tint
+ * on the white light-mode capsule.
  */
 import { I } from '../Icons'
 
@@ -39,7 +38,13 @@ if (typeof document !== 'undefined' && !document.getElementById('affd-style')) {
   s.id = 'affd-style'
   s.textContent =
     '.affd-dock::-webkit-scrollbar{display:none}' +
-    '@media (prefers-reduced-motion: reduce){.affd-dock button{transition:none !important}}'
+    '@media (prefers-reduced-motion: reduce){.affd-dock button{transition:none !important}}' +
+    // Light mode: flip the dock from dark glass to a white capsule so it
+    // matches the light theme; the active pill becomes a faint cyan tint
+    // with a cyan ring. Labels/icons are already cyan (--accent-fill), so
+    // they read on white. !important beats the inline dark-glass styles.
+    '[data-theme="light"] .affd-dock{background:rgba(255,255,255,0.92)!important;border-color:rgba(15,23,42,0.10)!important;box-shadow:0 0 0 1px rgba(15,23,42,0.09),0 2px 8px rgba(15,23,42,0.18),0 10px 24px rgba(15,23,42,0.24),inset 0 1px 0 rgba(255,255,255,0.7)!important;}' +
+    '[data-theme="light"] .affd-tab-on{background:color-mix(in srgb, var(--accent) 12%, #ffffff)!important;box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--accent) 38%, transparent)!important;}'
   document.head.appendChild(s)
 }
 
@@ -50,21 +55,28 @@ const PILL_H = 39 // active pill height (+15%)
 const DOT_H = 33 // inactive icon-only circle
 
 // Shared capsule glass — used by both the main oval dock and the
-// standalone circular aux pill so they read as one material. Dark
-// translucent glass, deliberately not themed (see header note).
+// standalone circular aux pill so they read as one material. iOS-26-style
+// "Liquid Glass": near-transparent, heavily blurred, with a bright
+// specular top edge so the content behind reads THROUGH the dock instead
+// of being masked by a dark slab. Deliberately not themed (see header).
 const SURFACE_STYLE = {
   pointerEvents: 'auto',
   display: 'flex',
   alignItems: 'center',
   borderRadius: 999,
-  background: 'rgba(16,17,21,0.62)',
-  backdropFilter: 'blur(30px) saturate(180%)',
-  WebkitBackdropFilter: 'blur(30px) saturate(180%)',
-  border: '1px solid rgba(255,255,255,0.10)',
+  // Dark translucent glass — the dock is always-dark chrome (it does NOT
+  // theme-flip). The fill must stay dark enough that it doesn't wash out
+  // to mid-grey over a LIGHT-mode page (which made the white icons/labels
+  // disappear); 0.86 keeps it a true dark capsule on any background while
+  // the blur + specular edge keep it glassy/translucent.
+  background: 'rgba(16,17,21,0.86)',
+  backdropFilter: 'blur(22px) saturate(190%)',
+  WebkitBackdropFilter: 'blur(22px) saturate(190%)',
+  border: '1px solid rgba(255,255,255,0.16)',
   boxShadow:
-    '0 8px 30px rgba(0,0,0,0.45), ' +
-    '0 2px 8px rgba(0,0,0,0.30), ' +
-    'inset 0 1px 0 rgba(255,255,255,0.06)',
+    '0 8px 28px rgba(0,0,0,0.40), ' +
+    'inset 0 1px 0 rgba(255,255,255,0.22), ' +   // specular top edge
+    'inset 0 -1px 1px rgba(0,0,0,0.12)',          // faint lower contact shade
 }
 
 const press = (e) => { e.currentTarget.style.transform = 'scale(0.93)' }
@@ -80,6 +92,7 @@ function DockButton({ t, solo }) {
   return (
     <button
       key={t.id}
+      className={on ? 'affd-tab affd-tab-on' : 'affd-tab'}
       role="tab"
       aria-selected={on}
       aria-current={on ? 'page' : undefined}
@@ -129,7 +142,7 @@ function DockButton({ t, solo }) {
       <span style={{ position: 'relative', display: 'inline-flex' }}>
         {t.renderIcon
           ? t.renderIcon(on)
-          : <I n={t.icon} s={18} c={on ? '#FFFFFF' : '#A1A1AA'} w={on ? 2 : 1.7} />}
+          : <I n={t.icon} s={18} c={on ? 'var(--accent-fill)' : '#A1A1AA'} w={on ? 2 : 1.7} />}
         {t.badge > 0 && (
           <span
             aria-hidden="true"
@@ -147,7 +160,7 @@ function DockButton({ t, solo }) {
         )}
       </span>
       {showLabel && (
-        <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: '-0.01em', color: '#FFFFFF', whiteSpace: 'nowrap' }}>
+        <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: '-0.01em', color: 'var(--accent-fill)', whiteSpace: 'nowrap' }}>
           {t.label}
         </span>
       )}
