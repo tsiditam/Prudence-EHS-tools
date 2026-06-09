@@ -64,18 +64,19 @@ const SURFACE_STYLE = {
   display: 'flex',
   alignItems: 'center',
   borderRadius: 999,
-  // Dark translucent glass — the dock is always-dark chrome (it does NOT
-  // theme-flip). The fill must stay dark enough that it doesn't wash out
-  // to mid-grey over a LIGHT-mode page (which made the white icons/labels
-  // disappear); 0.86 keeps it a true dark capsule on any background while
-  // the blur + specular edge keep it glassy/translucent.
-  background: 'rgba(16,17,21,0.86)',
-  backdropFilter: 'blur(22px) saturate(190%)',
-  WebkitBackdropFilter: 'blur(22px) saturate(190%)',
-  border: '1px solid rgba(255,255,255,0.16)',
+  // Dark mode: translucent "liquid glass" (Claude-iOS style) — a faint
+  // light frost over the page, heavily blurred so content reads THROUGH
+  // the pill, with a bright specular top edge. Light mode is handled
+  // separately by the [data-theme="light"] .affd-dock override (white
+  // capsule), so this translucent fill only applies in dark mode where it
+  // sits on the grayish-black page and the cyan/grey glyphs stay legible.
+  background: 'rgba(255,255,255,0.07)',
+  backdropFilter: 'blur(32px) saturate(185%)',
+  WebkitBackdropFilter: 'blur(32px) saturate(185%)',
+  border: '1px solid rgba(255,255,255,0.14)',
   boxShadow:
-    '0 8px 28px rgba(0,0,0,0.40), ' +
-    'inset 0 1px 0 rgba(255,255,255,0.22), ' +   // specular top edge
+    '0 8px 30px rgba(0,0,0,0.38), ' +
+    'inset 0 1px 0 rgba(255,255,255,0.26), ' +   // specular top edge
     'inset 0 -1px 1px rgba(0,0,0,0.12)',          // faint lower contact shade
 }
 
