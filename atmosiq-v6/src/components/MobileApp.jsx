@@ -2995,9 +2995,9 @@ export default function MobileApp() {
               <button
                 onClick={()=>{setView('dash');setViewRpt(null)}}
                 aria-label="Back to dashboard"
-                style={{display:'flex',alignItems:'center',gap:3,height:36,padding:'0 10px 0 2px',background:'transparent',border:'none',borderRadius:10,cursor:'pointer',fontFamily:'inherit',color:ACCENT,WebkitTapHighlightColor:'transparent'}}>
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={ACCENT} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6" /></svg>
-                <span style={{fontSize:16,fontWeight:600,letterSpacing:'-0.01em'}}>Home</span>
+                style={{display:'flex',alignItems:'center',gap:3,height:36,padding:'0 14px 0 9px',...GLASS.subtle,borderRadius:999,boxSizing:'border-box',cursor:'pointer',fontFamily:'inherit',color:ACCENT,WebkitTapHighlightColor:'transparent'}}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={ACCENT} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6" /></svg>
+                <span style={{fontSize:15,fontWeight:600,letterSpacing:'-0.01em'}}>Home</span>
               </button>
             )}
             {profile && view==='dash' && (
