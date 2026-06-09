@@ -2982,8 +2982,100 @@ export default function MobileApp() {
   const zcq = zVis[zqi]
   const isAssessing = ['quickstart','zone','details'].includes(view)
 
+  // ── Layered side menu (Claude-style) ───────────────────────────────
+  // The menu lives BEHIND the app; opening it transforms the whole content
+  // surface into a floating card shifted right + scaled down, revealing the
+  // menu underneath. `showHomeMenu` is the open flag (still toggled by the
+  // header hamburger). A `go()` helper closes the menu then runs the action.
+  const closeSideMenu = () => setShowHomeMenu(false)
+  const go = (fn) => { setShowHomeMenu(false); haptic('light'); fn && fn() }
+  // Primary destinations + a secondary "More" group so nothing is orphaned.
+  // Each item highlights when its view is active.
+  const sideMenuPrimary = [
+    { label: 'Dashboard',    icon: 'home',      view: 'dash',        onClick: () => { setView('dash'); setViewRpt(null) } },
+    { label: 'Assessments',  icon: 'clip',      view: 'projects',    onClick: () => setView('projects') },
+    { label: 'Reports',      icon: 'report',    view: 'history',     onClick: () => setView('history') },
+    { label: 'AtmosFlow AI', icon: 'jasper',    onClick: () => { supabase && trackEvent('jasper_open', { source: 'side_menu' }); setFaOpen(true) } },
+    { label: 'Settings',     icon: 'gear',      view: 'settings',    onClick: () => setView('settings') },
+    { label: 'Help',         icon: 'help',      view: 'help',        onClick: () => setView('help') },
+  ]
+  const sideMenuMore = [
+    { label: 'Search',        icon: 'search',  view: 'search',        onClick: () => setView('search') },
+    { label: 'Logger Studio', icon: 'chartLine', view: 'sensor-data', onClick: () => setView('sensor-data') },
+    { label: 'Sampling forms', icon: 'flask',  view: 'sampling-forms', onClick: () => setView('sampling-forms') },
+    ...(userMode === 'fm'
+      ? [{ label: 'Sample Air Quality Check', icon: 'play', onClick: () => runDemo() }]
+      : [
+          { label: 'Demo · Office Building', icon: 'play', onClick: () => runDemo() },
+          { label: 'Demo · Data Center',     icon: 'play', onClick: () => runDemo('dc') },
+        ]),
+    { label: 'Send feedback', icon: 'flag',    onClick: () => openFeedback('Menu') },
+    { label: 'Trash',         icon: 'trash',   view: 'trash',         onClick: () => setView('trash') },
+  ]
+  // Edge-swipe to open / swipe-left or tap to close. Discrete thresholds
+  // (no live finger-follow) so it stays simple + iOS-Safari safe; the CSS
+  // transition supplies the smoothness.
+  const swipeRef = useRef(null)
+  const onShellTouchStart = (e) => { const t = e.touches[0]; swipeRef.current = { x: t.clientX, y: t.clientY } }
+  const onShellTouchEnd = (e) => {
+    const s = swipeRef.current; swipeRef.current = null
+    if (!s) return
+    const t = e.changedTouches[0]
+    const dx = t.clientX - s.x, dy = t.clientY - s.y
+    if (Math.abs(dy) > Math.abs(dx)) return // vertical scroll — ignore
+    if (!showHomeMenu && s.x < 28 && dx > 60) setShowHomeMenu(true)
+    else if (showHomeMenu && dx < -50) setShowHomeMenu(false)
+  }
+
+  const sideMenuRow = (item) => {
+    const active = item.view && view === item.view
+    return (
+      <button
+        key={item.label}
+        onClick={() => go(item.onClick)}
+        aria-current={active ? 'page' : undefined}
+        style={{
+          width:'100%', display:'flex', alignItems:'center', gap:13, padding:'12px 14px',
+          margin:'1px 0', borderRadius:12, border:'none', cursor:'pointer', textAlign:'left',
+          fontFamily:'inherit', fontSize:15, fontWeight:active?600:500,
+          color: active ? 'var(--accent)' : '#E7E9EE',
+          background: active ? 'color-mix(in srgb, var(--accent) 14%, transparent)' : 'transparent',
+          WebkitTapHighlightColor:'transparent',
+        }}>
+        <I n={item.icon} s={19} c={active ? 'var(--accent)' : '#9AA3B2'} w={1.7} />
+        <span style={{flex:1}}>{item.label}</span>
+      </button>
+    )
+  }
+
   return (
-    <div style={{minHeight:'100vh',background:BG,color:TEXT,fontFamily:"'inherit', system-ui, sans-serif"}}>
+    <>
+    {profile && (
+      <nav className="af-sidemenu" aria-label="Main menu" aria-hidden={!showHomeMenu}>
+        <button
+          onClick={() => go(() => setView('account'))}
+          aria-label="Account"
+          style={{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'4px 6px 16px',marginBottom:6,background:'transparent',border:'none',borderBottom:'1px solid rgba(255,255,255,0.07)',cursor:'pointer',textAlign:'left',fontFamily:'inherit'}}>
+          <div style={{width:42,height:42,borderRadius:'50%',flexShrink:0,background:'color-mix(in srgb, var(--accent) 14%, transparent)',border:'1px solid color-mix(in srgb, var(--accent) 30%, transparent)',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--accent)',fontSize:16,fontWeight:700}}>
+            {((profile?.name||'A').replace(/@.*/,'').trim().split(/\s+/).map(s=>s[0]).filter(Boolean).slice(0,2).join('')||'A').toUpperCase()}
+          </div>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:15,fontWeight:700,color:'#F3F5F8',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{(profile?.name||'Assessor').replace(/@.*/,'')}</div>
+            <div style={{fontSize:12,color:'#8B93A5',marginTop:1}}>Account</div>
+          </div>
+        </button>
+        <div style={{flex:1,overflowY:'auto',WebkitOverflowScrolling:'touch'}}>
+          {sideMenuPrimary.map(sideMenuRow)}
+          <div style={{height:1,background:'rgba(255,255,255,0.07)',margin:'10px 8px'}} />
+          {sideMenuMore.map(sideMenuRow)}
+        </div>
+      </nav>
+    )}
+    <div
+      className={profile && showHomeMenu ? 'af-content-surface is-open' : 'af-content-surface'}
+      onTouchStart={onShellTouchStart}
+      onTouchEnd={onShellTouchEnd}
+      style={{minHeight:'100vh',background:BG,color:TEXT,fontFamily:"'inherit', system-ui, sans-serif"}}>
       {/* Global offline banner — sits above the header so the
           offline state is impossible to miss. PendingSyncIndicator
           below stays as the source-of-truth for queue depth + last
@@ -3065,196 +3157,6 @@ export default function MobileApp() {
               />
               </>
             )}
-            {showHomeMenu && (() => {
-              // Demo entries by user mode. For FM users there's only
-              // one demo (Sample Air Quality Check); for everyone else
-              // the two scored demos (Office Building, Data Center)
-              // share the picker. runDemo() with no arg defaults to
-              // 'office' inside the handler.
-              const demoItems = userMode === 'fm'
-                ? [{ label: 'Sample Air Quality Check', icon: 'play', onClick: () => runDemo() }]
-                : [
-                    { label: 'Office Building', icon: 'play', onClick: () => runDemo() },
-                    { label: 'Data Center',     icon: 'play', onClick: () => runDemo('dc') },
-                  ]
-              // Ordered by the assessor's natural flow rather than a flat
-              // ranking: the work you open the app to do first, then the
-              // app/account housekeeping, then the exit. `divider: true`
-              // draws a separator above an item, so it also marks each new
-              // group's first entry.
-              const mainItems = [
-                // Work — the tools an assessment runs on.
-                { label: 'Search',       icon: 'search', onClick: () => setView('search') },
-                { label: 'Projects',     icon: 'bldg',   onClick: () => setView('projects') },
-                { label: 'Sampling forms', icon: 'flask', onClick: () => setView('sampling-forms') },
-                { label: 'Logger Studio', icon: 'chartLine', onClick: () => setView('sensor-data') },
-                { label: 'Ask AtmosFlow AI', icon: 'mic', onClick: () => { supabase && trackEvent('jasper_open', { source: 'menu_voice' }); setVoiceCmdOpen(true) } },
-                // App & account — configure, manage, and learn. The
-                // light/dark toggle lives in Settings; it isn't duplicated here.
-                { label: 'Settings',     icon: 'gear',   onClick: () => setView('settings'), divider: true },
-                { label: 'Trash',        icon: 'trash',  onClick: () => setView('trash') },
-                // Single Demos entry — opens the sub-picker instead of
-                // running a demo directly. The "submenu" flag tells the
-                // click handler to stay open + switch mode rather than close.
-                { label: 'Demos', icon: 'play', submenu: 'demos' },
-                { label: 'Send feedback', icon: 'flag', onClick: () => openFeedback('Menu') },
-                { label: 'Help & Support', icon: 'help', onClick: () => { window.location.href = 'mailto:support@prudenceehs.com?subject=AtmosFlow%20support' } },
-                // Exit.
-                { label: 'Sign out',     icon: 'logout', onClick: handleLogout, divider: true, danger: true },
-              ]
-              // Slide-out close: latch `menuClosing` so the drawer plays
-              // its exit keyframe, then unmount once it has translated
-              // off-screen. 220ms matches the drawerOut duration below.
-              const closeMenu = () => {
-                setMenuClosing(true)
-                setTimeout(() => { setShowHomeMenu(false); setHomeMenuMode('main'); setMenuClosing(false) }, 220)
-              }
-              // Account-header derivations. `name` is the assessor's saved
-              // name, but falls back to their email for brand-new profiles
-              // (see handleLogin), so strip an "@…" tail before deriving
-              // initials / title so a fresh account doesn't render an email
-              // address as its display name.
-              const displayName = profile?.name || 'Assessor'
-              const cleanName = displayName.includes('@') ? displayName.split('@')[0] : displayName
-              const initials = (cleanName.trim().split(/\s+/).map(s => s[0]).filter(Boolean).slice(0, 2).join('') || 'A').toUpperCase()
-              const planLabel = isEnterprise(profile)
-                ? (profile?.plan === 'enterprise' ? 'Enterprise plan' : profile?.plan === 'team' ? 'Team plan' : 'Pro access')
-                : 'Beta access'
-              // The drawer + scrim are portaled to document.body so they
-              // escape the header's containing block. The header has
-              // `backdrop-filter: blur(24px)` which (per CSS spec) creates
-              // a containing block for `position: fixed` descendants —
-              // without the portal, the scrim's `inset: 0` would clip to
-              // the header strip, leaving the page below tap-unreachable.
-              return createPortal(
-                <>
-                  {/* Scrim — full-viewport dim behind the drawer. z-1000,
-                      above header (100), bottom nav (100), floating CTA
-                      (90). Both onClick + onPointerDown so iOS catches the
-                      first touch even if the click is swallowed by a
-                      tap-cancel on scroll-jitter. Fades in/out with the
-                      drawer slide. */}
-                  <div
-                    onClick={closeMenu}
-                    onPointerDown={closeMenu}
-                    className={menuClosing ? 'af-scrim-out' : 'af-scrim-in'}
-                    style={{
-                      position:'fixed', inset:0, zIndex:1000,
-                      background:'rgba(0,0,0,0.5)',
-                      backdropFilter:'blur(2px)',
-                      WebkitBackdropFilter:'blur(2px)',
-                    }} />
-                  {/* Drawer — full-height panel anchored to the left edge,
-                      sliding in from off-screen (Kalshi pattern). z-1010 so
-                      it sits above its own scrim. Solid surface (not glass)
-                      so the dense item list stays legible over the dimmed
-                      page. Caps at 340px on wide screens; 86vw on phones. */}
-                  <div
-                    role="menu"
-                    aria-label="Main menu"
-                    className={`af-drawer-surface ${menuClosing ? 'af-drawer-out' : 'af-drawer-in'}`}
-                    style={{
-                      position:'fixed', top:0, left:0, bottom:0,
-                      width:'64vw', maxWidth:256, zIndex:1010,
-                      display:'flex', flexDirection:'column',
-                      // Surface is theme-aware (see .af-drawer-surface in
-                      // the global style block): midnight black in dark
-                      // mode, light --card in light mode. The contents use
-                      // the theme tokens below so they invert with it.
-                      borderRight:`1px solid ${BORDER}`,
-                      boxShadow:'8px 0 40px rgba(0,0,0,0.55), 1px 0 0 rgba(255,255,255,0.04)',
-                      // Clear the status bar / notch at the top and the home
-                      // indicator at the bottom.
-                      paddingTop:'calc(env(safe-area-inset-top) + 14px)',
-                      paddingBottom:'env(safe-area-inset-bottom)',
-                    }}>
-                    {/* Account header — status line + tappable profile row
-                        (→ Account page), mirroring Kalshi's "Exchange is open"
-                        + Deposit row. */}
-                    <div style={{padding:'2px 18px 14px', borderBottom:`1px solid ${BORDER}`, flexShrink:0}}>
-                      <div style={{fontSize:13, fontWeight:600, color:SUB, letterSpacing:'-0.01em', marginBottom:14}}>
-                        {planLabel}
-                      </div>
-                      <button
-                        onClick={() => { closeMenu(); setView('account') }}
-                        aria-label="Account"
-                        style={{
-                          width:'100%', background:'transparent', border:'none', padding:0, cursor:'pointer',
-                          display:'flex', alignItems:'center', gap:13, textAlign:'left', fontFamily:'inherit',
-                        }}>
-                        <div style={{
-                          width:46, height:46, borderRadius:'50%', flexShrink:0,
-                          background:mix('accent', 12), border:`1px solid ${mix('accent', 28)}`,
-                          display:'flex', alignItems:'center', justifyContent:'center',
-                          color:ACCENT, fontSize:17, fontWeight:700, letterSpacing:'0.02em',
-                        }}>{initials}</div>
-                        <div style={{flex:1, minWidth:0}}>
-                          <div style={{fontSize:17, fontWeight:700, color:TEXT, letterSpacing:'-0.02em', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{cleanName}</div>
-                          <div style={{fontSize:13, color:SUB, marginTop:2}}>Account</div>
-                        </div>
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={DIM} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                          <polyline points="9 18 15 12 9 6" />
-                        </svg>
-                      </button>
-                    </div>
-
-                    {/* Scrollable item list. The existing mainItems /
-                        demoItems arrays drive this verbatim — only the row
-                        styling changes (full-width, larger touch target),
-                        so every destination + the Demos submenu behave
-                        exactly as before. */}
-                    <div style={{flex:1, overflowY:'auto', padding:'8px 0', WebkitOverflowScrolling:'touch'}}>
-                      {homeMenuMode === 'demos' && (
-                        // Submenu header — back button to return to the
-                        // main list without closing the drawer.
-                        <button
-                          role="menuitem"
-                          onClick={() => setHomeMenuMode('main')}
-                          style={{
-                            width:'100%', padding:'8px 20px 12px', background:'transparent', border:'none',
-                            cursor:'pointer', textAlign:'left', display:'flex', alignItems:'center', gap:10,
-                            fontFamily:'inherit', color:SUB, fontSize:12, fontWeight:600, minHeight:36,
-                            letterSpacing:'0.3px', textTransform:'uppercase',
-                          }}>
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={SUB} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                            <polyline points="15 18 9 12 15 6" />
-                          </svg>
-                          <span>Demos</span>
-                        </button>
-                      )}
-                      {(homeMenuMode === 'demos' ? demoItems : mainItems).map(item => (
-                        <button
-                          key={item.label}
-                          role="menuitem"
-                          onClick={() => {
-                            if (item.submenu) { setHomeMenuMode(item.submenu); return }
-                            closeMenu()
-                            item.onClick()
-                          }}
-                          style={{
-                            width:'100%', padding:'13px 20px', background:'transparent', border:'none',
-                            cursor:'pointer', textAlign:'left', display:'flex', alignItems:'center', gap:16,
-                            fontFamily:'inherit', color:item.danger?DANGER:TEXT, fontSize:15, fontWeight:500, minHeight:52,
-                            transition:'background 0.12s',
-                            ...(item.divider?{marginTop:8, paddingTop:18, borderTop:`1px solid ${BORDER}`}:{}),
-                          }}
-                          onMouseEnter={e => { e.currentTarget.style.background = mix('accent', 6) }}
-                          onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}>
-                          <I n={item.icon} s={20} c={item.danger?DANGER:ACCENT} w={1.7} />
-                          <span style={{flex:1}}>{item.label}</span>
-                          {item.submenu && (
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={DIM} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                              <polyline points="9 18 15 12 9 6" />
-                            </svg>
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </>,
-                document.body
-              )
-            })()}
           </div>
           <div style={{display:'flex',alignItems:'center',gap:8}}>
             {/* The "SAVING" pill was removed from the top-right per design;
@@ -4635,6 +4537,36 @@ export default function MobileApp() {
            every palette (grayish black in dark, beige in light). No
            separate per-mode literal, so it can never drift out of sync. */
         .af-drawer-surface{background:var(--bg);}
+        /* ── Claude-style layered side menu ──
+           The menu sits BEHIND the content. Opening transforms the content
+           surface into a floating card (shift right + scale down + rounded
+           + shadow), revealing the menu beneath. The surface is a fixed
+           viewport scroll container so the fixed header/dock move WITH the
+           card when it transforms. */
+        .af-sidemenu{
+          position:fixed; top:0; left:0; bottom:0; width:280px; z-index:1;
+          background:#0E0F13; display:flex; flex-direction:column;
+          padding:calc(env(safe-area-inset-top, 0px) + 20px) 14px calc(env(safe-area-inset-bottom, 0px) + 18px);
+          overflow:hidden;
+        }
+        .af-content-surface{
+          position:fixed; inset:0; z-index:2; overflow-y:auto;
+          -webkit-overflow-scrolling:touch;
+          transform:none; transform-origin:center;
+          border-radius:0;
+          transition:transform 320ms cubic-bezier(0.22,1,0.36,1),
+                     border-radius 320ms cubic-bezier(0.22,1,0.36,1),
+                     box-shadow 320ms ease;
+          will-change:transform;
+        }
+        .af-content-surface.is-open{
+          transform:translateX(280px) scale(0.96);
+          border-radius:28px; overflow:hidden;
+          box-shadow:0 20px 60px rgba(0,0,0,0.35);
+        }
+        /* Dimmed tap-to-close cover over the content card while open. */
+        .af-content-cover{ position:fixed; inset:0; z-index:240; background:rgba(0,0,0,0.18); cursor:pointer; }
+        @media (prefers-reduced-motion: reduce){ .af-content-surface{ transition:none; } }
         .af-scrim-in{animation:fadeIn .26s ease;}
         .af-scrim-out{animation:scrimOut .22s ease forwards;}
         /* ── Notion-style dropdown / action-menu animation ──
@@ -4719,6 +4651,11 @@ export default function MobileApp() {
         ::-webkit-scrollbar{width:0;height:0;}
         body{overscroll-behavior:none;}
       `}</style>
+      {/* Tap the dimmed content card to close the side menu (Claude-style). */}
+      {profile && showHomeMenu && (
+        <div className="af-content-cover" onClick={closeSideMenu} onPointerDown={closeSideMenu} aria-hidden="true" />
+      )}
     </div>
+    </>
   )
 }
