@@ -43,7 +43,7 @@ if (typeof document !== 'undefined' && !document.getElementById('affd-style')) {
   document.head.appendChild(s)
 }
 
-const PILL_H = 48 // inner tab height; capsule ≈ 62px tall with padding
+const PILL_H = 54 // inner tab height; capsule ≈ 68px tall with padding
 
 export default function AtmosFlowFloatingDock({ tabs, maxWidth, ariaLabel = 'Primary' }) {
   return (
@@ -112,10 +112,10 @@ export default function AtmosFlowFloatingDock({ tabs, maxWidth, ariaLabel = 'Pri
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: on ? 8 : 0,
+                gap: on ? 6 : 0,
                 height: PILL_H,
-                minWidth: on ? undefined : PILL_H,
-                padding: on ? '0 18px' : 0,
+                minWidth: on ? undefined : 48,
+                padding: on ? '0 12px' : 0,
                 borderRadius: 999,
                 border: 'none',
                 cursor: 'pointer',
