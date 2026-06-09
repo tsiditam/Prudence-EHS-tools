@@ -4444,6 +4444,7 @@ export default function MobileApp() {
           {id:'jasper',label:'AtmosFlow AI',icon:'jasper'},
           {id:'history',label:'Reports',icon:'report',badge:((index.drafts||[]).length+(index.reports||[]).length)||null},
           {id:'sensor-data',label:'Logger Studio',icon:'chart'},
+          {id:'settings',label:'Account',icon:'user'},
         ]).map(t => {
           const isJasper = t.id === 'jasper'
           const active = isJasper ? faOpen : (view === t.id)

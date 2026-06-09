@@ -43,7 +43,8 @@ if (typeof document !== 'undefined' && !document.getElementById('affd-style')) {
   document.head.appendChild(s)
 }
 
-const PILL_H = 54 // inner tab height; capsule ≈ 68px tall with padding
+const PILL_H = 62 // active pill height (+15% length); capsule ≈ 76px tall
+const DOT_H = 44 // inactive icon-only circle — narrower so the row reads light
 
 export default function AtmosFlowFloatingDock({ tabs, maxWidth, ariaLabel = 'Primary' }) {
   return (
@@ -69,16 +70,18 @@ export default function AtmosFlowFloatingDock({ tabs, maxWidth, ariaLabel = 'Pri
           pointerEvents: 'auto',
           display: 'flex',
           alignItems: 'center',
-          gap: 6,
+          gap: 4,
           maxWidth: maxWidth || 420,
           // Don't stretch full-width — hug the tabs but cap on tablets.
-          padding: 7,
+          padding: 6,
           borderRadius: 999,
           // Dark translucent glass (see header note — deliberately not themed).
-          background: 'rgba(12,13,16,0.78)',
-          backdropFilter: 'blur(24px) saturate(160%)',
-          WebkitBackdropFilter: 'blur(24px) saturate(160%)',
-          border: '1px solid rgba(255,255,255,0.08)',
+          // Tuned toward Instagram's lighter, blurrier dock: more
+          // see-through fill + a heavier blur so content reads through it.
+          background: 'rgba(16,17,21,0.62)',
+          backdropFilter: 'blur(30px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(30px) saturate(180%)',
+          border: '1px solid rgba(255,255,255,0.10)',
           boxShadow:
             '0 8px 30px rgba(0,0,0,0.45), ' +
             '0 2px 8px rgba(0,0,0,0.30), ' +
@@ -112,10 +115,10 @@ export default function AtmosFlowFloatingDock({ tabs, maxWidth, ariaLabel = 'Pri
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: on ? 6 : 0,
-                height: PILL_H,
-                minWidth: on ? undefined : 48,
-                padding: on ? '0 12px' : 0,
+                gap: on ? 5 : 0,
+                height: on ? PILL_H : DOT_H,
+                minWidth: on ? undefined : DOT_H,
+                padding: on ? '0 10px' : 0,
                 borderRadius: 999,
                 border: 'none',
                 cursor: 'pointer',
@@ -131,6 +134,7 @@ export default function AtmosFlowFloatingDock({ tabs, maxWidth, ariaLabel = 'Pri
                   'background 220ms cubic-bezier(0.34,1.4,0.64,1), ' +
                   'box-shadow 220ms ease, padding 220ms cubic-bezier(0.34,1.4,0.64,1), ' +
                   'gap 220ms cubic-bezier(0.34,1.4,0.64,1), ' +
+                  'height 220ms cubic-bezier(0.34,1.4,0.64,1), ' +
                   'transform 130ms cubic-bezier(0.22,1,0.36,1)',
               }}
             >
