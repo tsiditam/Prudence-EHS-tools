@@ -3115,15 +3115,15 @@ export default function MobileApp() {
                       paddingBottom:'env(safe-area-inset-bottom)',
                     }}>
                     {/* Account header — status line + tappable profile row
-                        (→ Settings), mirroring Kalshi's "Exchange is open"
+                        (→ Account page), mirroring Kalshi's "Exchange is open"
                         + Deposit row. */}
                     <div style={{padding:'2px 18px 14px', borderBottom:`1px solid ${BORDER}`, flexShrink:0}}>
                       <div style={{fontSize:13, fontWeight:600, color:SUB, letterSpacing:'-0.01em', marginBottom:14}}>
                         {planLabel}
                       </div>
                       <button
-                        onClick={() => { closeMenu(); setView('settings') }}
-                        aria-label="Account settings"
+                        onClick={() => { closeMenu(); setView('account') }}
+                        aria-label="Account"
                         style={{
                           width:'100%', background:'transparent', border:'none', padding:0, cursor:'pointer',
                           display:'flex', alignItems:'center', gap:13, textAlign:'left', fontFamily:'inherit',
