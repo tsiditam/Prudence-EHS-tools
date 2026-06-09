@@ -722,6 +722,9 @@ export default function MobileApp() {
   // gear icon in the Home header; Settings is now one entry inside the
   // dropdown.
   const [showHomeMenu, setShowHomeMenu] = useState(false)
+  // Side-menu edge-swipe gesture state (kept at the top with the other
+  // hooks so it always runs before any conditional early return).
+  const swipeRef = useRef(null)
   // Slide-out latch — kept true for the duration of the exit animation
   // so the Kalshi-style drawer can translate back off-screen before it
   // unmounts (rather than vanishing instantly). closeMenu() sets this,
@@ -3014,8 +3017,9 @@ export default function MobileApp() {
   ]
   // Edge-swipe to open / swipe-left or tap to close. Discrete thresholds
   // (no live finger-follow) so it stays simple + iOS-Safari safe; the CSS
-  // transition supplies the smoothness.
-  const swipeRef = useRef(null)
+  // transition supplies the smoothness. (swipeRef is declared with the
+  // other hooks at the top of the component — it must run before the
+  // component's earlier conditional returns, or hook order breaks.)
   const onShellTouchStart = (e) => { const t = e.touches[0]; swipeRef.current = { x: t.clientX, y: t.clientY } }
   const onShellTouchEnd = (e) => {
     const s = swipeRef.current; swipeRef.current = null
