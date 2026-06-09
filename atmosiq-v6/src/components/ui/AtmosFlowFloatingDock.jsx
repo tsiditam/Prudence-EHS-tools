@@ -50,21 +50,24 @@ const PILL_H = 39 // active pill height (+15%)
 const DOT_H = 33 // inactive icon-only circle
 
 // Shared capsule glass — used by both the main oval dock and the
-// standalone circular aux pill so they read as one material. Dark
-// translucent glass, deliberately not themed (see header note).
+// standalone circular aux pill so they read as one material. iOS-26-style
+// "Liquid Glass": near-transparent, heavily blurred, with a bright
+// specular top edge so the content behind reads THROUGH the dock instead
+// of being masked by a dark slab. Deliberately not themed (see header).
 const SURFACE_STYLE = {
   pointerEvents: 'auto',
   display: 'flex',
   alignItems: 'center',
   borderRadius: 999,
-  background: 'rgba(16,17,21,0.62)',
-  backdropFilter: 'blur(30px) saturate(180%)',
-  WebkitBackdropFilter: 'blur(30px) saturate(180%)',
-  border: '1px solid rgba(255,255,255,0.10)',
+  // Faint neutral tint only — the look comes from the blur, not a fill.
+  background: 'rgba(255,255,255,0.10)',
+  backdropFilter: 'blur(36px) saturate(190%)',
+  WebkitBackdropFilter: 'blur(36px) saturate(190%)',
+  border: '1px solid rgba(255,255,255,0.18)',
   boxShadow:
-    '0 8px 30px rgba(0,0,0,0.45), ' +
-    '0 2px 8px rgba(0,0,0,0.30), ' +
-    'inset 0 1px 0 rgba(255,255,255,0.06)',
+    '0 8px 30px rgba(0,0,0,0.28), ' +
+    'inset 0 1px 0 rgba(255,255,255,0.35), ' +   // bright specular top edge
+    'inset 0 -1px 1px rgba(0,0,0,0.10)',          // faint lower contact shade
 }
 
 const press = (e) => { e.currentTarget.style.transform = 'scale(0.93)' }
