@@ -13,8 +13,6 @@ import { VER, BUILD_SHA } from '../constants/standards'
 import { mix } from '../utils/theme'
 import * as V3 from '../styles/tokens'
 import { Group, Row, ExceptionPill } from './settings/SettingsList'
-import ReportTemplatesPanel from './settings/ReportTemplatesPanel'
-import SiteLibraryPanel from './settings/SiteLibraryPanel'
 
 // Theme tokens. These are CSS-variable references defined in
 // index.html (:root for dark, [data-theme="light"] for light), so the
@@ -160,15 +158,7 @@ export default function SettingsScreen({ onNavigate, onActivateAdmin, adminActiv
         <Row label="Take the product tour" sub="A 60-second walkthrough of AtmosFlow's features" action={() => onNavigate?.('tour')} />
       </Group>
 
-      {/* ── Sites — saved site library + re-assessment reminders ── */}
-      <Group title="Sites">
-        <SiteLibraryPanel />
-      </Group>
-
-      {/* ── Report Templates — user-uploaded .docx renderable via Jasper ── */}
-      <Group title="Report Templates">
-        <ReportTemplatesPanel />
-      </Group>
+      {/* Sites + Report Templates sections removed per product call. */}
 
       {/* ── Legal ── */}
       <Group title="Legal">
