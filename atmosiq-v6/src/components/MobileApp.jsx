@@ -760,6 +760,21 @@ export default function MobileApp() {
   // Header ⋯ overflow — opens a context action menu (Senior top-bar design).
   const [actionsOpen, setActionsOpen] = useState(false)
   const [actionsAnchor, setActionsAnchor] = useState(null)
+  // Drives the .af-menu `is-open` class for the action menu: toggled on one
+  // frame after mount (enter transition) and off to play the close
+  // animation before the menu unmounts.
+  const [actionsVis, setActionsVis] = useState(false)
+  useEffect(() => {
+    if (actionsOpen) {
+      const r = requestAnimationFrame(() => setActionsVis(true))
+      return () => cancelAnimationFrame(r)
+    }
+    setActionsVis(false)
+  }, [actionsOpen])
+  const closeActions = useCallback(() => {
+    setActionsVis(false)
+    setTimeout(() => setActionsOpen(false), 190)
+  }, [])
   // A Readiness "Fix" that targets a zone field — held until the zone's
   // question list (zVis) recomputes for the new zone, then an effect lands
   // zqi exactly on the target question.
@@ -2986,18 +3001,23 @@ export default function MobileApp() {
               hamburger rather than down-right. */}
           <div style={{position:'relative',display:'flex',alignItems:'center'}}>
             {/* Back to dashboard — shown on every screen except the
-                dashboard root, per the Senior top-bar design
-                (‹ · title · ⋯ · avatar). Routes Home rather than a
-                one-step history pop, so the label names the
-                destination. Global nav lives on the dashboard
-                hamburger + the bottom nav. */}
+                dashboard root. The chevron always routes Home; the label
+                names the CURRENT page (context over branding, Notion/
+                Linear style) — the AtmosFlow wordmark only lives on the
+                home dashboard. On an assessment / its results the label is
+                the facility name. */}
             {profile && view!=='dash' && (
               <button
                 onClick={()=>{setView('dash');setViewRpt(null)}}
-                aria-label="Back to dashboard"
-                style={{display:'flex',alignItems:'center',gap:3,height:36,padding:'0 14px 0 9px',...GLASS.subtle,borderRadius:999,boxSizing:'border-box',cursor:'pointer',fontFamily:'inherit',color:ACCENT,WebkitTapHighlightColor:'transparent'}}>
+                aria-label="Back to home"
+                className="af-glass-control af-menu-trigger"
+                style={{display:'flex',alignItems:'center',gap:3,height:36,padding:'0 14px 0 9px',borderRadius:999,boxSizing:'border-box',cursor:'pointer',fontFamily:'inherit',color:ACCENT,WebkitTapHighlightColor:'transparent'}}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={ACCENT} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6" /></svg>
-                <span style={{fontSize:15,fontWeight:600,letterSpacing:'-0.01em'}}>Home</span>
+                <span style={{fontSize:15,fontWeight:600,letterSpacing:'-0.01em',maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{
+                  ((isAssessing || view==='results' || view==='report') && bldg?.fn)
+                    ? bldg.fn
+                    : ({history:'Reports',settings:'Settings',account:'Account','sensor-data':'Logger Studio',properties:'Buildings','incident-log':'Incidents','incident-form':'New Incident','incident-detail':'Incident',projects:'Projects','project-detail':'Project',trash:'Trash',search:'Search',help:'Help','sampling-forms':'Sampling Forms','instrument-edit':'Instruments',equipment:'Instruments',spatial:'Floor Plan',tos:'Terms of Service',privacy:'Privacy Policy',admin:'Admin',results:'Assessment',report:'Report'}[view] || 'Home')
+                }</span>
               </button>
             )}
             {profile && view==='dash' && (
@@ -3008,11 +3028,12 @@ export default function MobileApp() {
                 aria-label="Open menu"
                 aria-haspopup="menu"
                 aria-expanded={showHomeMenu}
+                className="af-glass-control af-menu-trigger"
                 style={{
                   // Circular glass "bubble" button with a staggered
-                  // (descending) hamburger in cyan.
+                  // (descending) hamburger in cyan. Glass via .af-glass-control
+                  // so it matches the bottom dock + other header controls.
                   width:40, height:40, borderRadius:'50%',
-                  ...GLASS.subtle,
                   padding:0, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
                   boxSizing:'border-box', WebkitTapHighlightColor:'transparent',
                 }}>
@@ -3219,7 +3240,7 @@ export default function MobileApp() {
                           }}
                           onMouseEnter={e => { e.currentTarget.style.background = mix('accent', 6) }}
                           onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}>
-                          <I n={item.icon} s={20} c={item.danger?DANGER:SUB} w={1.7} />
+                          <I n={item.icon} s={20} c={item.danger?DANGER:ACCENT} w={1.7} />
                           <span style={{flex:1}}>{item.label}</span>
                           {item.submenu && (
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={DIM} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -3236,7 +3257,8 @@ export default function MobileApp() {
             })()}
           </div>
           <div style={{display:'flex',alignItems:'center',gap:8}}>
-            {isAssessing&&<span style={{fontSize:10,color:ACCENT,fontFamily:"var(--font-mono)",background:`${mix('accent', 4)}`,padding:'3px 10px',borderRadius:4,border:`1px solid ${mix('accent', 13)}`,letterSpacing:'0.5px'}}>SAVING</span>}
+            {/* The "SAVING" pill was removed from the top-right per design;
+                autosave still runs, it's just no longer surfaced here. */}
             {/* Subscription-status pill — exception-only. In beta
                 the helper returns null. Phase 2+ surfaces it on
                 diverging state (payment failed, plan cancelling,
@@ -3261,6 +3283,7 @@ export default function MobileApp() {
             {profile && view!=='dash' && (
               <button
                 type="button"
+                className="af-menu-trigger af-glass-control"
                 onClick={(e) => {
                   const r = e.currentTarget.getBoundingClientRect()
                   setActionsAnchor({ top: r.bottom + 8, right: Math.max(8, window.innerWidth - r.right) })
@@ -3271,7 +3294,6 @@ export default function MobileApp() {
                 aria-expanded={actionsOpen}
                 style={{
                   width:36, height:36, borderRadius:'50%',
-                  ...GLASS.subtle,
                   cursor:'pointer', display:'flex',
                   alignItems:'center', justifyContent:'center',
                   padding:0, boxSizing:'border-box',
@@ -3295,7 +3317,7 @@ export default function MobileApp() {
           placeholder actions. */}
       {actionsOpen && (() => {
         const onResults = view==='results' || view==='report'
-        const close = () => setActionsOpen(false)
+        const close = closeActions
         const items = onResults ? [
           { label:'Generate reports',         icon:'notes',    onClick:()=>setDocxPicker(true) },
           { label:'Share',                    icon:'send',     onClick:()=>handleShare() },
@@ -3316,37 +3338,20 @@ export default function MobileApp() {
         return createPortal(
           <>
             <div
+              className={actionsVis ? 'af-menu-backdrop is-open' : 'af-menu-backdrop'}
               onClick={close}
-              onPointerDown={close}
-              style={{position:'fixed',inset:0,zIndex:1000,background:'rgba(0,0,0,0.22)',backdropFilter:'blur(6px)',WebkitBackdropFilter:'blur(6px)'}} />
-            <div role="menu" aria-label="Screen actions" style={{
-              position:'fixed',
-              top: anchor.top, right: anchor.right,
-              minWidth:220, zIndex:1010, padding:6,
-              ...GLASS.elevated,
-              background:'color-mix(in srgb, var(--card) 70%, transparent)',
-              backdropFilter:'blur(30px) saturate(180%)',
-              WebkitBackdropFilter:'blur(30px) saturate(180%)',
-              borderRadius: RADII.sheet,
-              boxShadow:
-                'inset 0 1px 0 rgba(255,255,255,0.06), ' +
-                '0 12px 32px rgba(0,0,0,0.55), ' +
-                '0 2px 6px rgba(0,0,0,0.30)',
-              animation:'fadeUp .15s ease',
-            }}>
+              onPointerDown={close} />
+            <div
+              role="menu"
+              aria-label="Screen actions"
+              className={actionsVis ? 'af-menu is-open' : 'af-menu'}
+              style={{ top: anchor.top, right: anchor.right, minWidth: 220 }}>
               {items.map(item => (
                 <button
                   key={item.label}
                   role="menuitem"
-                  onClick={()=>{ close(); item.onClick() }}
-                  style={{
-                    width:'100%',padding:'12px 14px',background:'transparent',border:'none',borderRadius:10,
-                    cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,
-                    fontFamily:'inherit',color:TEXT,fontSize:14,fontWeight:500,minHeight:44,
-                    transition:'background 0.12s',
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.background = SURFACE }}
-                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}>
+                  className="af-menu-item"
+                  onClick={()=>{ close(); item.onClick() }}>
                   <I n={item.icon} s={18} c={SUB} w={1.6} />
                   <span style={{flex:1}}>{item.label}</span>
                 </button>
@@ -4621,10 +4626,78 @@ export default function MobileApp() {
            light --card surface in light mode. Driven by CSS (not inline)
            so it flips with [data-theme="light"] on <html>; the contents
            use var(--text)/--sub/--border and invert with it. */
-        .af-drawer-surface{background:#06070C;}
-        [data-theme="light"] .af-drawer-surface{background:var(--card);}
+        /* Drawer surface — tied to the shared --bg token so the sliding
+           menu is the SAME background color as the rest of the app in
+           every palette (grayish black in dark, beige in light). No
+           separate per-mode literal, so it can never drift out of sync. */
+        .af-drawer-surface{background:var(--bg);}
         .af-scrim-in{animation:fadeIn .26s ease;}
         .af-scrim-out{animation:scrimOut .22s ease forwards;}
+        /* ── Notion-style dropdown / action-menu animation ──
+           Reusable classes for the three-dot / action menus: soft fade +
+           slight scale + subtle vertical lift, over a blurred glass surface.
+           The .is-open class is toggled on (one frame after mount) for the
+           enter transition and toggled off to play the close BEFORE unmount.
+           Theme-aware glass so it reads in dark (grayish black) + light
+           (beige) — same translucency the spec calls for. */
+        .af-menu-backdrop{
+          position:fixed; inset:0; z-index:1000;
+          background:rgba(0,0,0,0.22);
+          -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px);
+          opacity:0; transition:opacity 160ms ease;
+        }
+        .af-menu-backdrop.is-open{opacity:1;}
+        .af-menu{
+          position:fixed; z-index:1010; padding:8px;
+          background:color-mix(in srgb, var(--card) 86%, transparent);
+          -webkit-backdrop-filter:blur(18px) saturate(180%);
+          backdrop-filter:blur(18px) saturate(180%);
+          border:1px solid rgba(255,255,255,0.08);
+          border-radius:18px;
+          box-shadow:0 18px 45px rgba(0,0,0,0.35);
+          transform-origin:top right;
+          will-change:opacity, transform;
+          opacity:0; transform:translateY(-6px) scale(0.96); pointer-events:none;
+          transition:opacity 160ms ease, transform 180ms cubic-bezier(0.22,1,0.36,1);
+        }
+        .af-menu.is-open{opacity:1; transform:translateY(0) scale(1); pointer-events:auto;}
+        [data-theme="light"] .af-menu{border-color:rgba(15,23,42,0.10); box-shadow:0 18px 45px rgba(15,23,42,0.18);}
+        .af-menu-item{
+          display:flex; align-items:center; gap:14px;
+          width:100%; padding:12px 14px; min-height:44px;
+          background:transparent; border:none; border-radius:12px;
+          text-align:left; cursor:pointer; font-family:inherit;
+          color:var(--text); font-size:14px; font-weight:500;
+          transition:background 140ms ease, transform 140ms ease;
+        }
+        .af-menu-item:hover{background:color-mix(in srgb, var(--text) 8%, transparent);}
+        .af-menu-item:active{transform:scale(0.98);}
+        .af-menu-item.is-active{color:var(--accent);}
+        .af-menu-trigger{transition:transform 140ms ease, opacity 140ms ease;}
+        .af-menu-trigger:active{transform:scale(0.92);}
+        /* ── Shared glass control ──
+           Same liquid-glass language as the bottom dock (AtmosFlowFloatingDock):
+           near-clear translucent fill + light blur + a bright specular rim in
+           dark mode, flipping to a white capsule in light mode. Applied to the
+           header controls (back/title pill, hamburger, kebab) so the header and
+           the nav speak one material. Shape (border-radius) is left to each
+           control's inline style. */
+        .af-glass-control{
+          background:rgba(255,255,255,0.05);
+          -webkit-backdrop-filter:blur(14px) saturate(200%);
+          backdrop-filter:blur(14px) saturate(200%);
+          border:1px solid rgba(255,255,255,0.22);
+          box-shadow:0 4px 16px rgba(0,0,0,0.26), inset 0 1px 0 rgba(255,255,255,0.42), inset 0 0 0 1px rgba(255,255,255,0.04);
+        }
+        [data-theme="light"] .af-glass-control{
+          background:rgba(255,255,255,0.92);
+          border-color:rgba(15,23,42,0.10);
+          box-shadow:0 4px 14px rgba(15,23,42,0.12), inset 0 1px 0 rgba(255,255,255,0.7);
+        }
+        @media (prefers-reduced-motion: reduce){
+          .af-menu,.af-menu-backdrop,.af-menu-item,.af-menu-trigger{transition:none !important;}
+          .af-menu{transform:none !important;}
+        }
         @media (prefers-reduced-motion: reduce){
           .fa-zone-in{animation:none;}
           .fa-breathe{animation:none;opacity:.55;}

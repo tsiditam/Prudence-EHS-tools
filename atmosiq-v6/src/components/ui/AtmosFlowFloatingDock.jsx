@@ -64,19 +64,20 @@ const SURFACE_STYLE = {
   display: 'flex',
   alignItems: 'center',
   borderRadius: 999,
-  // Dark translucent glass — the dock is always-dark chrome (it does NOT
-  // theme-flip). The fill must stay dark enough that it doesn't wash out
-  // to mid-grey over a LIGHT-mode page (which made the white icons/labels
-  // disappear); 0.86 keeps it a true dark capsule on any background while
-  // the blur + specular edge keep it glassy/translucent.
-  background: 'rgba(16,17,21,0.86)',
-  backdropFilter: 'blur(22px) saturate(190%)',
-  WebkitBackdropFilter: 'blur(22px) saturate(190%)',
-  border: '1px solid rgba(255,255,255,0.16)',
+  // Dark mode: clear "liquid glass" (Claude-iOS style). Glassy, not
+  // frosty — so a LIGHT blur (heavy blur = frost), a barely-there tint,
+  // boosted saturation (refracts the colour behind it), and a crisp bright
+  // specular rim so it reads as a reflective glass edge rather than a milky
+  // diffuse panel. Light mode is the white-capsule override below.
+  background: 'rgba(255,255,255,0.02)',
+  backdropFilter: 'blur(14px) saturate(220%)',
+  WebkitBackdropFilter: 'blur(14px) saturate(220%)',
+  border: '1px solid rgba(255,255,255,0.24)',
   boxShadow:
-    '0 8px 28px rgba(0,0,0,0.40), ' +
-    'inset 0 1px 0 rgba(255,255,255,0.22), ' +   // specular top edge
-    'inset 0 -1px 1px rgba(0,0,0,0.12)',          // faint lower contact shade
+    '0 8px 28px rgba(0,0,0,0.34), ' +
+    'inset 0 1px 0 rgba(255,255,255,0.48), ' +   // crisp specular top rim
+    'inset 0 0 0 1px rgba(255,255,255,0.05), ' +  // faint full-edge glass line
+    'inset 0 -1px 1px rgba(0,0,0,0.10)',          // faint lower contact shade
 }
 
 const press = (e) => { e.currentTarget.style.transform = 'scale(0.93)' }
@@ -117,17 +118,15 @@ function DockButton({ t, solo }) {
         border: 'none',
         cursor: 'pointer',
         fontFamily: 'inherit',
-        // Active inner pill: frosted glass — translucent white fill
-        // + its own backdrop blur (blurs the dock glass + content
-        // behind it) + a glassy meniscus (bright top edge, faint
-        // bottom shade) and a cyan accent ring.
+        // Active inner pill: clear glass — a light translucent gradient,
+        // a LIGHT blur (not frosty), and a crisp bright top rim + cyan ring.
         background: on
-          ? 'linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.08))'
+          ? 'linear-gradient(180deg, rgba(255,255,255,0.16), rgba(255,255,255,0.05))'
           : 'transparent',
-        backdropFilter: on ? 'blur(14px) saturate(180%)' : 'none',
-        WebkitBackdropFilter: on ? 'blur(14px) saturate(180%)' : 'none',
+        backdropFilter: on ? 'blur(7px) saturate(210%)' : 'none',
+        WebkitBackdropFilter: on ? 'blur(7px) saturate(210%)' : 'none',
         boxShadow: on
-          ? 'inset 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent), inset 0 1px 0 rgba(255,255,255,0.28), inset 0 -1px 1px rgba(0,0,0,0.12)'
+          ? 'inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent), inset 0 1px 0 rgba(255,255,255,0.42), inset 0 -1px 1px rgba(0,0,0,0.10)'
           : 'none',
         WebkitTapHighlightColor: 'transparent',
         touchAction: 'manipulation',
