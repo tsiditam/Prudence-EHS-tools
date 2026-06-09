@@ -136,7 +136,7 @@ function DockButton({ t, solo }) {
       <span style={{ position: 'relative', display: 'inline-flex' }}>
         {t.renderIcon
           ? t.renderIcon(on)
-          : <I n={t.icon} s={18} c={on ? '#FFFFFF' : '#A1A1AA'} w={on ? 2 : 1.7} />}
+          : <I n={t.icon} s={18} c={on ? 'var(--accent)' : '#A1A1AA'} w={on ? 2 : 1.7} />}
         {t.badge > 0 && (
           <span
             aria-hidden="true"
