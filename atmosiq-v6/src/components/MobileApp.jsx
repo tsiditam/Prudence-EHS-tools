@@ -191,14 +191,11 @@ const confColor = (conf) => conf === 'Strong' ? '#22C55E'
   : conf === 'Moderate' ? '#FBBF24'
   : '#8AA4CC'
 const ON_ACCENT = 'var(--on-accent)'
-// Serif stack for the "Ready to start a survey?" co-pilot card heading +
-// body. Target look is Claude's chat-response serif, which is Tiempos
-// Text (Anthropic's commercial face) — a low-contrast, bookish reading
-// serif. Tiempos isn't licensed here, so it's the primary for a clean
-// upgrade if dropped in later, with Lora (loaded via Google Fonts) as the
-// closest free stand-in, then system-serif fallbacks. Heading runs bold;
-// body stays regular weight.
-const SERIF = "'Tiempos Text', 'Lora', ui-serif, Georgia, 'Times New Roman', serif"
+// Hero heading font. Was an editorial serif (Tiempos/Lora); switched to
+// the app's sans (var(--font-sans), Inter) so the result acard + Home
+// co-pilot headings read consistently with the rest of the glass/cyan UI
+// rather than as an editorial outlier.
+const SERIF = 'var(--font-sans)'
 
 // Map a saved profile instrument's coarse calStatus → the assessment's
 // calibration-status option. Best-guess only — the assessor confirms it
