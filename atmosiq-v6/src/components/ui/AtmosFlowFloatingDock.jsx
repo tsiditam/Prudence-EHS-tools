@@ -46,8 +46,8 @@ if (typeof document !== 'undefined' && !document.getElementById('affd-style')) {
 // "Width" here = the dock's thickness (its vertical dimension); "length"
 // = the horizontal span. Tuned thinner (shorter pills) + longer (wider
 // gaps/padding) so the capsule reads as a slim, elongated glass bar.
-const PILL_H = 32 // active pill height — slim (−30%)
-const DOT_H = 28 // inactive icon-only circle
+const PILL_H = 34 // active pill height — slim (+5%)
+const DOT_H = 29 // inactive icon-only circle
 
 export default function AtmosFlowFloatingDock({ tabs, maxWidth, ariaLabel = 'Primary' }) {
   return (
