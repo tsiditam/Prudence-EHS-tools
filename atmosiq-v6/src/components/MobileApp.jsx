@@ -3087,7 +3087,7 @@ export default function MobileApp() {
                 { label: 'Search',       icon: 'search', onClick: () => setView('search') },
                 { label: 'Projects',     icon: 'bldg',   onClick: () => setView('projects') },
                 { label: 'Sampling forms', icon: 'flask', onClick: () => setView('sampling-forms') },
-                { label: 'Logger Studio', icon: 'chart', onClick: () => setView('sensor-data') },
+                { label: 'Logger Studio', icon: 'chartLine', onClick: () => setView('sensor-data') },
                 { label: 'Ask AtmosFlow AI', icon: 'mic', onClick: () => { supabase && trackEvent('jasper_open', { source: 'menu_voice' }); setVoiceCmdOpen(true) } },
                 // App & account — configure, manage, and learn. The
                 // light/dark toggle lives in Settings; it isn't duplicated here.
@@ -4485,14 +4485,14 @@ export default function MobileApp() {
           {id:'dash',label:'Home',icon:'home'},
           {id:'properties',label:'Buildings',icon:'bldg'},
           {id:'incident-log',label:'Incidents',icon:'alert'},
-          {id:'sensor-data',label:'Logger Studio',icon:'chart'},
+          {id:'sensor-data',label:'Logger Studio',icon:'chartLine'},
         ] : [
           // Consultant dock: Home, Reports, Logger Studio, Account.
           // Projects stays in the drawer menu so no destinations are
           // orphaned. AtmosFlow AI rides in the aux pill below.
           {id:'dash',label:'Home',icon:'home'},
           {id:'history',label:'Reports',icon:'report',badge:((index.drafts||[]).length+(index.reports||[]).length)||null},
-          {id:'sensor-data',label:'Logger Studio',icon:'chart'},
+          {id:'sensor-data',label:'Logger Studio',icon:'chartLine'},
           {id:'account',label:'Account',icon:'user'},
         ]).map(mkTab)
 
