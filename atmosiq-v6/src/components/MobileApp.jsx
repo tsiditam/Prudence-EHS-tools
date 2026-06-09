@@ -3277,7 +3277,7 @@ export default function MobileApp() {
                   padding:0, boxSizing:'border-box',
                   WebkitTapHighlightColor:'transparent',
                 }}>
-                <I n="dots" s={20} c={TEXT} w={2} />
+                <I n="dots" s={20} c={ACCENT} w={2} />
               </button>
             )}
           </div>
