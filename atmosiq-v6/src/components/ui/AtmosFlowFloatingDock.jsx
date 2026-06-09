@@ -22,13 +22,12 @@
  *     ]}
  *   />
  *
- * The dock chrome is INTENTIONALLY dark glass in both themes — like the
- * iOS/Instagram dock it's brand chrome that floats over content, so it
- * stays a single dark surface rather than flipping with [data-theme].
- * The white icon/label + cyan accent read on this dark glass in dark and
- * light mode alike, so there's no light-mode contrast regression. The
- * accent (var(--accent)) is the only themed token and cyan reads on dark
- * in both palettes.
+ * The dock chrome is dark glass in DARK mode and flips to a white capsule
+ * in LIGHT mode (via the [data-theme="light"] .affd-dock overrides in the
+ * injected stylesheet below) so it stays consistent with the light theme.
+ * Active icon + label are cyan (var(--accent-fill)) in both modes; the
+ * active pill is a frosted-white fill on dark glass and a faint cyan tint
+ * on the white light-mode capsule.
  */
 import { I } from '../Icons'
 
@@ -39,7 +38,13 @@ if (typeof document !== 'undefined' && !document.getElementById('affd-style')) {
   s.id = 'affd-style'
   s.textContent =
     '.affd-dock::-webkit-scrollbar{display:none}' +
-    '@media (prefers-reduced-motion: reduce){.affd-dock button{transition:none !important}}'
+    '@media (prefers-reduced-motion: reduce){.affd-dock button{transition:none !important}}' +
+    // Light mode: flip the dock from dark glass to a white capsule so it
+    // matches the light theme; the active pill becomes a faint cyan tint
+    // with a cyan ring. Labels/icons are already cyan (--accent-fill), so
+    // they read on white. !important beats the inline dark-glass styles.
+    '[data-theme="light"] .affd-dock{background:rgba(255,255,255,0.92)!important;border-color:rgba(15,23,42,0.10)!important;box-shadow:0 8px 26px rgba(15,23,42,0.14),inset 0 1px 0 rgba(255,255,255,0.7)!important;}' +
+    '[data-theme="light"] .affd-tab-on{background:color-mix(in srgb, var(--accent) 12%, #ffffff)!important;box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--accent) 38%, transparent)!important;}'
   document.head.appendChild(s)
 }
 
@@ -87,6 +92,7 @@ function DockButton({ t, solo }) {
   return (
     <button
       key={t.id}
+      className={on ? 'affd-tab affd-tab-on' : 'affd-tab'}
       role="tab"
       aria-selected={on}
       aria-current={on ? 'page' : undefined}
