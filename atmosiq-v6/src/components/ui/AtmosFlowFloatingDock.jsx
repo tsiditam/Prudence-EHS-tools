@@ -69,14 +69,14 @@ const SURFACE_STYLE = {
   // boosted saturation (refracts the colour behind it), and a crisp bright
   // specular rim so it reads as a reflective glass edge rather than a milky
   // diffuse panel. Light mode is the white-capsule override below.
-  background: 'rgba(255,255,255,0.04)',
+  background: 'rgba(255,255,255,0.02)',
   backdropFilter: 'blur(14px) saturate(220%)',
   WebkitBackdropFilter: 'blur(14px) saturate(220%)',
-  border: '1px solid rgba(255,255,255,0.22)',
+  border: '1px solid rgba(255,255,255,0.24)',
   boxShadow:
-    '0 8px 28px rgba(0,0,0,0.36), ' +
-    'inset 0 1px 0 rgba(255,255,255,0.45), ' +   // crisp specular top rim
-    'inset 0 0 0 1px rgba(255,255,255,0.04), ' +  // faint full-edge glass line
+    '0 8px 28px rgba(0,0,0,0.34), ' +
+    'inset 0 1px 0 rgba(255,255,255,0.48), ' +   // crisp specular top rim
+    'inset 0 0 0 1px rgba(255,255,255,0.05), ' +  // faint full-edge glass line
     'inset 0 -1px 1px rgba(0,0,0,0.10)',          // faint lower contact shade
 }
 
