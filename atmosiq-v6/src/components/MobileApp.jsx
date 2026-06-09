@@ -36,6 +36,7 @@ import { GLASS, RADII, RHYTHM, stack as sgStack } from '../styles/soft-glass'
 import GlassCard from './ui/GlassCard'
 import AssessmentSegmentedPillNav from './ui/AssessmentSegmentedPillNav'
 import AtmosFlowFloatingDock from './ui/AtmosFlowFloatingDock'
+import AnimatedPageTransition from './ui/AnimatedPageTransition'
 import FeedbackSheet from './ui/FeedbackSheet'
 import FeedbackButton from './ui/FeedbackButton'
 import StatusPill from './ui/StatusPill'
@@ -606,6 +607,27 @@ export default function MobileApp() {
   const PAYWALL_DISABLED = true
   // views: dash|quickstart|zone|details|results|history|drafts|report
   const [view, setView] = useState('dash')
+  // ── Notion-style page-transition direction tracker ──
+  // Classifies each view change so AnimatedPageTransition can pick the
+  // right enter animation: top-level dock destinations are "tab" (soft
+  // fade+scale); drilling into a detail page is "forward" (slide from
+  // right); returning to the page we came from is "back" (slide from
+  // left). Computed during render (guarded so it only updates on an
+  // actual view change) so the direction is correct the instant the new
+  // page mounts. A ref-held stack approximates a nav stack without
+  // touching routing.
+  const navRef = useRef({ stack: ['dash'], dir: 'up' })
+  {
+    const TAB_VIEWS = new Set(['dash', 'history', 'sensor-data', 'account', 'properties', 'incident-log'])
+    const st = navRef.current.stack
+    const cur = st[st.length - 1]
+    if (view !== cur) {
+      if (TAB_VIEWS.has(view)) { navRef.current.dir = 'tab'; navRef.current.stack = [view] }
+      else if (st.length >= 2 && st[st.length - 2] === view) { navRef.current.dir = 'back'; st.pop() }
+      else { navRef.current.dir = 'forward'; st.push(view) }
+    }
+  }
+  const navDir = navRef.current.dir
   const [activeProjectId, setActiveProjectId] = useState(null)
   // Where the project workspace returns to — 'projects' (IH list) or
   // 'properties' (FM Buildings portfolio), set when navigating in.
@@ -3796,6 +3818,7 @@ export default function MobileApp() {
       })()}
 
       <div style={{maxWidth:contentMax,margin:'0 auto',padding:`0 ${padX}px`,position:'relative',zIndex:1}}>
+       <AnimatedPageTransition pageKey={view} mode={navDir}>
 
         {view==='dash'&&(() => {
           // ── v3 Home — premium dark, expert-grade. Surfaces situational
@@ -4414,6 +4437,8 @@ export default function MobileApp() {
         {view==='incident-detail'&&currentIncident&&<IncidentDetail incident={currentIncident} profile={profile} onBack={()=>setView('incident-log')} onChange={setCurrentIncident} onDeleted={()=>{setCurrentIncident(null);setView('incident-log')}} />}
         {view==='properties'&&<PropertyDashboard onBack={()=>setView('dash')} onNavigate={(target,arg)=>{if(target==='building'){openBuildingProject(arg)}else{setView(target)}}} assessmentIndex={index} />}
         {view==='spatial'&&<SpatialMap zones={zones} zoneScores={zoneScores} floorPlan={floorPlan} onUploadFloorPlan={setFloorPlan} onUpdateZone={(zi, update)=>{const z=[...zones];z[zi]={...z[zi],...update};setZones(z)}} onClose={()=>{runScoring();setView('results')}} />}
+
+       </AnimatedPageTransition>
       </div>
 
       {/* ── Bottom Tab Bar (v3) ──
