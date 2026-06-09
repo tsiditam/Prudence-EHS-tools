@@ -3001,18 +3001,22 @@ export default function MobileApp() {
               hamburger rather than down-right. */}
           <div style={{position:'relative',display:'flex',alignItems:'center'}}>
             {/* Back to dashboard — shown on every screen except the
-                dashboard root, per the Senior top-bar design
-                (‹ · title · ⋯ · avatar). Routes Home rather than a
-                one-step history pop, so the label names the
-                destination. Global nav lives on the dashboard
-                hamburger + the bottom nav. */}
+                dashboard root. The chevron always routes Home; the label
+                names the CURRENT page (context over branding, Notion/
+                Linear style) — the AtmosFlow wordmark only lives on the
+                home dashboard. On an assessment / its results the label is
+                the facility name. */}
             {profile && view!=='dash' && (
               <button
                 onClick={()=>{setView('dash');setViewRpt(null)}}
-                aria-label="Back to dashboard"
+                aria-label="Back to home"
                 style={{display:'flex',alignItems:'center',gap:3,height:36,padding:'0 14px 0 9px',...GLASS.subtle,borderRadius:999,boxSizing:'border-box',cursor:'pointer',fontFamily:'inherit',color:ACCENT,WebkitTapHighlightColor:'transparent'}}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={ACCENT} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6" /></svg>
-                <span style={{fontSize:15,fontWeight:600,letterSpacing:'-0.01em'}}>Home</span>
+                <span style={{fontSize:15,fontWeight:600,letterSpacing:'-0.01em',maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{
+                  ((isAssessing || view==='results' || view==='report') && bldg?.fn)
+                    ? bldg.fn
+                    : ({history:'Reports',settings:'Settings',account:'Account','sensor-data':'Logger Studio',properties:'Buildings','incident-log':'Incidents','incident-form':'New Incident','incident-detail':'Incident',projects:'Projects','project-detail':'Project',trash:'Trash',search:'Search',help:'Help','sampling-forms':'Sampling Forms','instrument-edit':'Instruments',equipment:'Instruments',spatial:'Floor Plan',tos:'Terms of Service',privacy:'Privacy Policy',admin:'Admin',results:'Assessment',report:'Report'}[view] || 'Home')
+                }</span>
               </button>
             )}
             {profile && view==='dash' && (
