@@ -133,7 +133,12 @@ function DockButton({ t, solo }) {
           'transform 130ms cubic-bezier(0.22,1,0.36,1)',
       }}
     >
-      <span style={{ position: 'relative', display: 'inline-flex' }}>
+      <span style={{
+        position: 'relative',
+        display: 'inline-flex',
+        // Neon glow on the selected icon.
+        filter: on ? 'drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 75%, transparent)) drop-shadow(0 0 2px color-mix(in srgb, var(--accent) 95%, transparent))' : 'none',
+      }}>
         {t.renderIcon
           ? t.renderIcon(on)
           : <I n={t.icon} s={18} c={on ? 'var(--accent)' : '#A1A1AA'} w={on ? 2 : 1.7} />}
@@ -154,7 +159,11 @@ function DockButton({ t, solo }) {
         )}
       </span>
       {showLabel && (
-        <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: '-0.01em', color: 'var(--accent)', whiteSpace: 'nowrap' }}>
+        <span style={{
+          fontSize: 12, fontWeight: 600, letterSpacing: '-0.01em', color: 'var(--accent)', whiteSpace: 'nowrap',
+          // Neon glow on the selected label.
+          textShadow: '0 0 8px color-mix(in srgb, var(--accent) 65%, transparent), 0 0 2px color-mix(in srgb, var(--accent) 90%, transparent)',
+        }}>
           {t.label}
         </span>
       )}
