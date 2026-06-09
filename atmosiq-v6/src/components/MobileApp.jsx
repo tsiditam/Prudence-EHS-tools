@@ -3039,14 +3039,22 @@ export default function MobileApp() {
         onClick={() => go(item.onClick)}
         aria-current={active ? 'page' : undefined}
         style={{
-          width:'100%', display:'flex', alignItems:'center', gap:13, padding:'12px 14px',
-          margin:'1px 0', borderRadius:12, border:'none', cursor:'pointer', textAlign:'left',
+          // Claude-style soft rounded "glass pill" highlight on the active
+          // row: generous radius + a translucent cyan-tinted glass fill with
+          // a hairline ring + top sheen. Icons stay blue (cyan) on every row.
+          width:'100%', display:'flex', alignItems:'center', gap:13, padding:'13px 14px',
+          margin:'2px 0', borderRadius:16, border:'none', cursor:'pointer', textAlign:'left',
           fontFamily:'inherit', fontSize:15, fontWeight:active?600:500,
           color: active ? 'var(--accent)' : '#E7E9EE',
-          background: active ? 'color-mix(in srgb, var(--accent) 14%, transparent)' : 'transparent',
+          background: active ? 'color-mix(in srgb, var(--accent) 16%, transparent)' : 'transparent',
+          boxShadow: active
+            ? 'inset 0 0 0 1px color-mix(in srgb, var(--accent) 26%, transparent), inset 0 1px 0 rgba(255,255,255,0.06)'
+            : 'none',
+          WebkitBackdropFilter: active ? 'blur(12px) saturate(160%)' : 'none',
+          backdropFilter: active ? 'blur(12px) saturate(160%)' : 'none',
           WebkitTapHighlightColor:'transparent',
         }}>
-        <I n={item.icon} s={19} c={active ? 'var(--accent)' : '#9AA3B2'} w={1.7} />
+        <I n={item.icon} s={19} c="var(--accent)" w={1.7} />
         <span style={{flex:1}}>{item.label}</span>
       </button>
     )
@@ -4549,7 +4557,7 @@ export default function MobileApp() {
            card when it transforms. */
         .af-sidemenu{
           position:fixed; top:0; left:0; bottom:0; width:280px; z-index:1;
-          background:#0E0F13; display:flex; flex-direction:column;
+          background:#070809; display:flex; flex-direction:column;
           padding:calc(env(safe-area-inset-top, 0px) + 20px) 14px calc(env(safe-area-inset-bottom, 0px) + 18px);
           overflow:hidden;
         }
