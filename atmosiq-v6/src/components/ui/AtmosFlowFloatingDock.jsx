@@ -154,7 +154,7 @@ function DockButton({ t, solo }) {
         )}
       </span>
       {showLabel && (
-        <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: '-0.01em', color: '#FFFFFF', whiteSpace: 'nowrap' }}>
+        <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: '-0.01em', color: 'var(--accent)', whiteSpace: 'nowrap' }}>
           {t.label}
         </span>
       )}
