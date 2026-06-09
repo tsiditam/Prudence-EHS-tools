@@ -49,7 +49,113 @@ if (typeof document !== 'undefined' && !document.getElementById('affd-style')) {
 const PILL_H = 39 // active pill height (+15%)
 const DOT_H = 33 // inactive icon-only circle
 
-export default function AtmosFlowFloatingDock({ tabs, maxWidth, ariaLabel = 'Primary' }) {
+// Shared capsule glass — used by both the main oval dock and the
+// standalone circular aux pill so they read as one material. Dark
+// translucent glass, deliberately not themed (see header note).
+const SURFACE_STYLE = {
+  pointerEvents: 'auto',
+  display: 'flex',
+  alignItems: 'center',
+  borderRadius: 999,
+  background: 'rgba(16,17,21,0.62)',
+  backdropFilter: 'blur(30px) saturate(180%)',
+  WebkitBackdropFilter: 'blur(30px) saturate(180%)',
+  border: '1px solid rgba(255,255,255,0.10)',
+  boxShadow:
+    '0 8px 30px rgba(0,0,0,0.45), ' +
+    '0 2px 8px rgba(0,0,0,0.30), ' +
+    'inset 0 1px 0 rgba(255,255,255,0.06)',
+}
+
+const press = (e) => { e.currentTarget.style.transform = 'scale(0.93)' }
+const release = (e) => { e.currentTarget.style.transform = 'scale(1)' }
+
+// One tab/button — used for the destination tabs inside the oval dock
+// and for the aux (AtmosFlow AI) button inside its own circular pill.
+// `solo` keeps the button a fixed-diameter circle even when "active"
+// (the aux button never grows a label).
+function DockButton({ t, solo }) {
+  const on = !!t.active
+  const showLabel = on && !solo
+  return (
+    <button
+      key={t.id}
+      role="tab"
+      aria-selected={on}
+      aria-current={on ? 'page' : undefined}
+      aria-label={t.label}
+      title={t.label}
+      onClick={t.onClick}
+      onPointerDown={press}
+      onPointerUp={release}
+      onPointerLeave={release}
+      onPointerCancel={release}
+      style={{
+        position: 'relative',
+        flexShrink: 0,
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: showLabel ? 8 : 0,
+        height: on ? PILL_H : DOT_H,
+        minWidth: solo ? PILL_H : (on ? undefined : DOT_H),
+        padding: showLabel ? '0 24px' : 0,
+        borderRadius: 999,
+        border: 'none',
+        cursor: 'pointer',
+        fontFamily: 'inherit',
+        // Active inner pill: frosted glass — translucent white fill
+        // + its own backdrop blur (blurs the dock glass + content
+        // behind it) + a glassy meniscus (bright top edge, faint
+        // bottom shade) and a cyan accent ring.
+        background: on
+          ? 'linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.08))'
+          : 'transparent',
+        backdropFilter: on ? 'blur(14px) saturate(180%)' : 'none',
+        WebkitBackdropFilter: on ? 'blur(14px) saturate(180%)' : 'none',
+        boxShadow: on
+          ? 'inset 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent), inset 0 1px 0 rgba(255,255,255,0.28), inset 0 -1px 1px rgba(0,0,0,0.12)'
+          : 'none',
+        WebkitTapHighlightColor: 'transparent',
+        touchAction: 'manipulation',
+        transition:
+          'background 220ms cubic-bezier(0.34,1.4,0.64,1), ' +
+          'box-shadow 220ms ease, padding 220ms cubic-bezier(0.34,1.4,0.64,1), ' +
+          'gap 220ms cubic-bezier(0.34,1.4,0.64,1), ' +
+          'height 220ms cubic-bezier(0.34,1.4,0.64,1), ' +
+          'transform 130ms cubic-bezier(0.22,1,0.36,1)',
+      }}
+    >
+      <span style={{ position: 'relative', display: 'inline-flex' }}>
+        {t.renderIcon
+          ? t.renderIcon(on)
+          : <I n={t.icon} s={18} c={on ? '#FFFFFF' : '#A1A1AA'} w={on ? 2 : 1.7} />}
+        {t.badge > 0 && (
+          <span
+            aria-hidden="true"
+            style={{
+              position: 'absolute', top: -4, right: -8,
+              minWidth: 15, height: 15, borderRadius: 999,
+              background: 'var(--danger)', color: '#FFFFFF',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 9, fontWeight: 700, fontFamily: 'var(--font-mono)',
+              padding: '0 4px',
+            }}
+          >
+            {t.badge}
+          </span>
+        )}
+      </span>
+      {showLabel && (
+        <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: '-0.01em', color: '#FFFFFF', whiteSpace: 'nowrap' }}>
+          {t.label}
+        </span>
+      )}
+    </button>
+  )
+}
+
+export default function AtmosFlowFloatingDock({ tabs, aux, maxWidth, ariaLabel = 'Primary' }) {
   return (
     <nav
       aria-label={ariaLabel}
@@ -62,122 +168,38 @@ export default function AtmosFlowFloatingDock({ tabs, maxWidth, ariaLabel = 'Pri
         zIndex: 100,
         display: 'flex',
         justifyContent: 'center',
+        alignItems: 'center',
+        gap: 12, // space between the oval dock and the circular aux pill
         padding: '0 14px',
-        pointerEvents: 'none', // wrapper is transparent; capsule re-enables
+        pointerEvents: 'none', // wrapper is transparent; capsules re-enable
       }}
     >
       <div
         className="affd-dock"
         role="tablist"
         style={{
-          pointerEvents: 'auto',
-          display: 'flex',
-          alignItems: 'center',
+          ...SURFACE_STYLE,
           gap: 14,
           maxWidth: maxWidth || 460,
           // Don't stretch full-width — hug the tabs but cap on tablets.
           // Slim vertical padding (thin) + roomy horizontal padding (long).
           padding: '5px 12px',
-          borderRadius: 999,
-          // Dark translucent glass (see header note — deliberately not themed).
-          // Tuned toward Instagram's lighter, blurrier dock: more
-          // see-through fill + a heavier blur so content reads through it.
-          background: 'rgba(16,17,21,0.62)',
-          backdropFilter: 'blur(30px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(30px) saturate(180%)',
-          border: '1px solid rgba(255,255,255,0.10)',
-          boxShadow:
-            '0 8px 30px rgba(0,0,0,0.45), ' +
-            '0 2px 8px rgba(0,0,0,0.30), ' +
-            'inset 0 1px 0 rgba(255,255,255,0.06)',
           overflowX: 'auto',
           overflowY: 'hidden',
           scrollbarWidth: 'none',
           WebkitOverflowScrolling: 'touch',
         }}
       >
-        {(tabs || []).map((t) => {
-          const on = !!t.active
-          const press = (e) => { e.currentTarget.style.transform = 'scale(0.93)' }
-          const release = (e) => { e.currentTarget.style.transform = 'scale(1)' }
-          return (
-            <button
-              key={t.id}
-              role="tab"
-              aria-selected={on}
-              aria-current={on ? 'page' : undefined}
-              aria-label={t.label}
-              title={t.label}
-              onClick={t.onClick}
-              onPointerDown={press}
-              onPointerUp={release}
-              onPointerLeave={release}
-              onPointerCancel={release}
-              style={{
-                position: 'relative',
-                flexShrink: 0,
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: on ? 8 : 0,
-                height: on ? PILL_H : DOT_H,
-                minWidth: on ? undefined : DOT_H,
-                padding: on ? '0 24px' : 0,
-                borderRadius: 999,
-                border: 'none',
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-                // Active inner pill: frosted glass — translucent white fill
-                // + its own backdrop blur (blurs the dock glass + content
-                // behind it) + a glassy meniscus (bright top edge, faint
-                // bottom shade) and a cyan accent ring.
-                background: on
-                  ? 'linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.08))'
-                  : 'transparent',
-                backdropFilter: on ? 'blur(14px) saturate(180%)' : 'none',
-                WebkitBackdropFilter: on ? 'blur(14px) saturate(180%)' : 'none',
-                boxShadow: on
-                  ? 'inset 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent), inset 0 1px 0 rgba(255,255,255,0.28), inset 0 -1px 1px rgba(0,0,0,0.12)'
-                  : 'none',
-                WebkitTapHighlightColor: 'transparent',
-                touchAction: 'manipulation',
-                transition:
-                  'background 220ms cubic-bezier(0.34,1.4,0.64,1), ' +
-                  'box-shadow 220ms ease, padding 220ms cubic-bezier(0.34,1.4,0.64,1), ' +
-                  'gap 220ms cubic-bezier(0.34,1.4,0.64,1), ' +
-                  'height 220ms cubic-bezier(0.34,1.4,0.64,1), ' +
-                  'transform 130ms cubic-bezier(0.22,1,0.36,1)',
-              }}
-            >
-              <span style={{ position: 'relative', display: 'inline-flex' }}>
-                {t.renderIcon
-                  ? t.renderIcon(on)
-                  : <I n={t.icon} s={18} c={on ? '#FFFFFF' : '#A1A1AA'} w={on ? 2 : 1.7} />}
-                {t.badge > 0 && (
-                  <span
-                    aria-hidden="true"
-                    style={{
-                      position: 'absolute', top: -4, right: -8,
-                      minWidth: 15, height: 15, borderRadius: 999,
-                      background: 'var(--danger)', color: '#FFFFFF',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 9, fontWeight: 700, fontFamily: 'var(--font-mono)',
-                      padding: '0 4px',
-                    }}
-                  >
-                    {t.badge}
-                  </span>
-                )}
-              </span>
-              {on && (
-                <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: '-0.01em', color: '#FFFFFF', whiteSpace: 'nowrap' }}>
-                  {t.label}
-                </span>
-              )}
-            </button>
-          )
-        })}
+        {(tabs || []).map((t) => <DockButton key={t.id} t={t} />)}
       </div>
+      {/* Standalone circular AtmosFlow AI pill — its own glass capsule
+          beside the oval dock so the assistant reads as a distinct,
+          always-reachable action rather than just another tab. */}
+      {aux && (
+        <div className="affd-dock" style={{ ...SURFACE_STYLE, padding: 5 }}>
+          <DockButton t={aux} solo />
+        </div>
+      )}
     </nav>
   )
 }
