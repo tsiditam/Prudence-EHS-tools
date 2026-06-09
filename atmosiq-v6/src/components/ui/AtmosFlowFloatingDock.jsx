@@ -127,10 +127,17 @@ export default function AtmosFlowFloatingDock({ tabs, maxWidth, ariaLabel = 'Pri
                 border: 'none',
                 cursor: 'pointer',
                 fontFamily: 'inherit',
-                // Active inner pill: white 12% fill + a cyan accent ring.
-                background: on ? 'rgba(255,255,255,0.12)' : 'transparent',
+                // Active inner pill: frosted glass — translucent white fill
+                // + its own backdrop blur (blurs the dock glass + content
+                // behind it) + a glassy meniscus (bright top edge, faint
+                // bottom shade) and a cyan accent ring.
+                background: on
+                  ? 'linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.08))'
+                  : 'transparent',
+                backdropFilter: on ? 'blur(14px) saturate(180%)' : 'none',
+                WebkitBackdropFilter: on ? 'blur(14px) saturate(180%)' : 'none',
                 boxShadow: on
-                  ? 'inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent), inset 0 1px 0 rgba(255,255,255,0.10)'
+                  ? 'inset 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent), inset 0 1px 0 rgba(255,255,255,0.28), inset 0 -1px 1px rgba(0,0,0,0.12)'
                   : 'none',
                 WebkitTapHighlightColor: 'transparent',
                 touchAction: 'manipulation',
