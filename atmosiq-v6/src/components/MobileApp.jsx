@@ -2996,7 +2996,7 @@ export default function MobileApp() {
   // Each item highlights when its view is active.
   const sideMenuPrimary = [
     { label: 'Dashboard',    icon: 'home',      view: 'dash',        onClick: () => { setView('dash'); setViewRpt(null) } },
-    { label: 'Assessments',  icon: 'clip',      view: 'projects',    onClick: () => setView('projects') },
+    { label: 'Projects',     icon: 'bldg',      view: 'projects',    onClick: () => setView('projects') },
     { label: 'Reports',      icon: 'report',    view: 'history',     onClick: () => setView('history') },
     { label: 'AtmosFlow AI', icon: 'jasper', renderIcon: () => <JasperBrainIcon size={20} animate={false} />, onClick: () => { supabase && trackEvent('jasper_open', { source: 'side_menu' }); setFaOpen(true) } },
     { label: 'Settings',     icon: 'gear',      view: 'settings',    onClick: () => setView('settings') },
