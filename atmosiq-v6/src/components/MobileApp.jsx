@@ -795,6 +795,30 @@ export default function MobileApp() {
   // UI is hidden whenever there's no profile (auth screen), during a
   // milestone overlay, or while another full-screen modal is up.
   const [faOpen, setFaOpen] = useState(false)
+  // Light project-portfolio index for the AI — refreshed each time the
+  // assistant opens so it can answer "what projects do I have" from any
+  // view. Minimal fields only; capped at the 20 most-recent.
+  const [aiProjectsIndex, setAiProjectsIndex] = useState(null)
+  useEffect(() => {
+    if (!faOpen) return
+    let alive = true
+    import('../utils/projectStore').then(m => m.getProjects()).then(list => {
+      if (!alive) return
+      const idx = [...(list || [])]
+        .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+        .slice(0, 20)
+        .map(p => ({
+          id: p.id,
+          name: p.name || null,
+          client: p.client || null,
+          status: p.status || null,
+          updated_at: p.updatedAt || null,
+          assessments: (p.linkedReportIds || []).length,
+        }))
+      setAiProjectsIndex(idx)
+    }).catch(() => {})
+    return () => { alive = false }
+  }, [faOpen])
   // Voice-command modal state. When the user submits a transcribed
   // question, we drop the transcript into `voicePrefill` and open
   // the Jasper sheet; FieldAssistant's initialMessage prop picks it
@@ -4602,9 +4626,13 @@ export default function MobileApp() {
             index,
             incident: currentIncident,
             report_review: reviewPayload || null,
-            // Project workspace context — only when the assessor is inside
-            // a project, so unrelated chats aren't biased toward it.
-            project_workspace: view === 'project-detail' ? activeProjectSummary : null,
+            // Project workspace context — attached while the assessor is in
+            // the project's orbit (the workspace itself, or a tool opened
+            // from it), so unrelated chats aren't biased toward it.
+            project_workspace: (view === 'project-detail' || toolReturn === 'project-detail') ? activeProjectSummary : null,
+            // Portfolio index — always attached so the AI can answer
+            // project questions from any view.
+            projects_index: aiProjectsIndex,
           })}
         />
       )}

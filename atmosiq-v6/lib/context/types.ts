@@ -213,6 +213,11 @@ export interface JasperContextInput extends RawAssessmentState {
    * (client / recipient) of a single assessment.
    */
   project_workspace?: Record<string, unknown> | null
+  /**
+   * Light index of the assessor's project workspaces (most recent first)
+   * so the AI can answer project-portfolio questions from any view.
+   */
+  projects_index?: Array<Record<string, unknown>> | null
 }
 
 /**
@@ -267,4 +272,6 @@ export type JasperContext = AssessmentContext & {
    * knows which site engagement the conversation is about.
    */
   readonly project_workspace: Record<string, unknown> | null
+  /** Light project-portfolio index (passthrough) — most recent first. */
+  readonly projects_index: Array<Record<string, unknown>> | null
 }

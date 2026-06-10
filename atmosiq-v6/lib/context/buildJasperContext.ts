@@ -98,5 +98,6 @@ export function buildJasperContext(state: JasperContextInput): JasperContext {
     incident: state.incident ?? null,
     report_review: state.report_review ?? null,
     project_workspace: state.project_workspace ?? null,
+    projects_index: state.projects_index ?? null,
   }
 }
