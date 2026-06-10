@@ -17,6 +17,7 @@
 import { legacyToAssessmentScore, deriveAssessmentMeta } from '../engine/bridge'
 import { renderClientReport } from '../engine/report/client'
 import { generateClientReportHTML, generateModernClientReportHTML } from './print/client-html'
+import { generateModernSummaryHTML } from './print/modern-summary'
 import { actionLine } from '../utils/recFormatting'
 
 export function selectReportTemplate(data) {
@@ -41,6 +42,12 @@ function esc(str) {
  * templates from the phrase library.
  */
 export function generatePrintHTML(data, opts = {}) {
+  // 'modern_summary' is the concise, plain-language, sample-styled screening
+  // summary authored at the presentation layer from RAW assessment data —
+  // it does not run the engine ClientReport prose path.
+  if (opts.style === 'modern_summary') {
+    return generateModernSummaryHTML(data, opts)
+  }
   const { building, presurvey, zones, zoneScores, comp, profile } = data
   const meta = deriveAssessmentMeta({
     profile,
@@ -861,7 +868,7 @@ export function printReport(data, opts = {}) {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  const styleTag = opts.style === 'modern' ? '-Modern' : ''
+  const styleTag = opts.style === 'modern_summary' ? '-Summary' : opts.style === 'modern' ? '-Modern' : ''
   a.download = `AtmosFlow-Report${styleTag}-${data.building?.fn || 'Assessment'}.html`
   a.style.display = 'none'
   document.body.appendChild(a)

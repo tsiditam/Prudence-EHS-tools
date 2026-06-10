@@ -22,6 +22,8 @@ import { buildClientDocx } from './docx/sections-v21client'
 import { buildLabResultsAppendix } from './docx/sections-lab-results'
 import { buildSensorGraphsAppendix } from './docx/sections-sensor'
 import { buildMethodologyCurrency } from './docx/sections-methodology-currency'
+import { buildConceptualSiteModelSection } from './docx/sections-conceptual-model'
+import { buildParameterExplainers, buildReportedConcernsSection, buildFindingsConfidenceRegister } from './docx/sections-cih-reasoning'
 import { buildCalibrationAppendix } from './docx/calibration-appendix'
 import { legacyToAssessmentScore, deriveAssessmentMeta } from '../engine/bridge'
 import { renderClientReport } from '../engine/report/client'
@@ -287,8 +289,22 @@ async function buildConsultantDocument(ctx, data) {
   //   • Environmental Evidence Graphs — report-ready IAQ timelines the
   //     assessor flagged on the Sensor Data screen (→ Appendix H).
   // Each builder returns null when it has nothing to render.
+  // The "CIH reasoning" report style (data.reportStyle === 'cih') adds four
+  // body sections, all derived from data the engine already emits (no
+  // engine edits): parameter explainers, the reported-concerns → evidence
+  // map, the Conceptual Site Model (source → pathway → receptor chains from
+  // causalChains), and a findings register carrying the engine's per-zone
+  // data confidence. Standard style omits all four.
+  const cihSections = data.reportStyle === 'cih'
+    ? [
+        buildParameterExplainers(data.zones),
+        buildReportedConcernsSection(data.presurvey, data.zones, data.zoneScores),
+        buildConceptualSiteModelSection(data.causalChains),
+        buildFindingsConfidenceRegister(data.zoneScores),
+      ]
+    : []
   const supplemental = {
-    bodySections: [buildMethodologyCurrency()].filter(Boolean),
+    bodySections: [buildMethodologyCurrency(), ...cihSections].filter(Boolean),
     appendices: [
       buildLabResultsAppendix(data.labResults),
       buildSensorGraphsAppendix(data.sensorData),

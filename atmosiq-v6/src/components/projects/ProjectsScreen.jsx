@@ -156,7 +156,7 @@ export default function ProjectsScreen({ onBack, onOpen, onReportIncident }) {
       {projects === null ? (
         <div style={{ ...V3.T.bodyDim, textAlign: 'center', padding: '40px 0' }}>Loading…</div>
       ) : filtered.length === 0 ? (
-        <GlassCard style={{ textAlign: 'center', padding: '36px 24px' }}>
+        <GlassCard style={{ textAlign: 'center', padding: '36px 24px', ...(list.length === 0 ? { border: '1px solid color-mix(in srgb, var(--accent) 45%, transparent)' } : null) }}>
           <div style={{ width: 52, height: 52, borderRadius: 14, margin: '0 auto 14px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'color-mix(in srgb, var(--accent) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--accent) 22%, transparent)' }}>
             <I n="bldg" s={24} c="var(--accent)" w={1.8} />
           </div>
