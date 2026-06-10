@@ -3063,6 +3063,7 @@ export default function MobileApp() {
     { key: 'tools', label: 'Tools', items: [
       { label: 'Logger Studio',  icon: 'chartLine', view: 'sensor-data',    onClick: () => setView('sensor-data') },
       { label: 'Sampling forms', icon: 'flask',     view: 'sampling-forms', onClick: () => setView('sampling-forms') },
+      { label: 'Incidents',      icon: 'alert',     view: 'incident-log',   onClick: () => setView('incident-log') },
       { label: 'Search',         icon: 'search',    view: 'search',         onClick: () => setView('search') },
     ] },
     { key: 'resources', label: 'Resources', items: (userMode === 'fm'
