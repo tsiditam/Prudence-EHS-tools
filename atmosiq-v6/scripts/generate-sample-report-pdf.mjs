@@ -103,24 +103,24 @@ function hr(y = doc.y, color = RULE, w = 0.75) {
 function ensure(h) { if (doc.y + h > BOTTOM_LIMIT) doc.addPage() }
 function h1(text) {
   ensure(60)
-  doc.fillColor(SLATE).font('Helvetica-Bold').fontSize(17).text(text, { width: CONTENT_W })
+  doc.fillColor(SLATE).font('Helvetica-Bold').fontSize(17).text(text, MARGIN, doc.y, { width: CONTENT_W })
   doc.moveDown(0.5)
 }
 function h2(text) {
   ensure(46)
   doc.moveDown(0.3)
-  doc.fillColor(ACCENT).font('Helvetica-Bold').fontSize(10.5).text(text.toUpperCase(), { characterSpacing: 0.8, width: CONTENT_W })
+  doc.fillColor(ACCENT).font('Helvetica-Bold').fontSize(10.5).text(text.toUpperCase(), MARGIN, doc.y, { characterSpacing: 0.8, width: CONTENT_W })
   doc.moveDown(0.25)
   hr(doc.y)
   doc.moveDown(0.45)
 }
 function h3(text) {
   ensure(34)
-  doc.fillColor(ACCENT_DK).font('Helvetica-Bold').fontSize(10).text(text, { width: CONTENT_W })
+  doc.fillColor(ACCENT_DK).font('Helvetica-Bold').fontSize(10).text(text, MARGIN, doc.y, { width: CONTENT_W })
   doc.moveDown(0.2)
 }
 function p(text, opts = {}) {
-  doc.fillColor(INK).font('Helvetica').fontSize(10).text(text, { align: 'justify', lineGap: 2.5, width: CONTENT_W, ...opts })
+  doc.fillColor(INK).font('Helvetica').fontSize(10).text(text, MARGIN, doc.y, { align: 'justify', lineGap: 2.5, width: CONTENT_W, ...opts })
   doc.moveDown(0.45)
 }
 function bullets(items) {
@@ -180,6 +180,9 @@ function table(columns, rows, opts = {}) {
     doc.y = y + rowH
     hr(doc.y, RULE, 0.4)
   })
+  // Cells leave doc.x at the last column's offset; reset so following
+  // headings / paragraphs start at the left margin (not drifting right).
+  doc.x = MARGIN
   doc.moveDown(0.6)
 }
 
