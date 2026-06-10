@@ -65,9 +65,15 @@ charts; the peak-CO₂ bar still renders from grab readings).
 - **Per-parameter outcomes** are deterministic threshold comparisons framed as
   *screening indicators* — never compliance verdicts.
 - **Banned-language gate**: `/api/report-pdf` runs `api/_banned-language.js`
-  over every prose field and returns `422` on any hit, so no
-  compliance/medical/causation claim can reach a PDF. The deterministic
-  narrative library is written to pass this gate (regression-tested).
+  over the **AtmosFlow-authored narrative** (the library + any future AI
+  refinement) and returns `422` on any hit, so AtmosFlow's own prose can never
+  overreach. It deliberately does **not** scan the sacred engine's
+  finding/recommendation strings — those legitimately use screening phrases
+  like "elevated risk of G2 …" (ANSI/ISA) and are already governed by the
+  engine's CIH validation; blocking the client's report on the engine's
+  authoritative wording would be wrong (and, with no edit UI yet, would
+  dead-end the user). The deterministic library is regression-tested to pass
+  the gate.
 - **Missing data is disclosed** ("Not documented in project record."), never
   invented (QA/QC, photos, references).
 

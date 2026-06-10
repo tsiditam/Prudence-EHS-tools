@@ -21,7 +21,16 @@
 const { renderReportPdf } = require('../lib/report/render-pdf.js')
 const { scan } = require('./_banned-language.js')
 
-// Every prose field the renderer prints — flattened for the language scan.
+// Flatten the AUTHORED narrative for the language scan.
+//
+// The gate governs the prose AtmosFlow writes (the narrative library and any
+// future AI refinement) — that text must never overreach. It deliberately
+// does NOT scan engine-authored content (finding strings from scoring.js,
+// recommendations, causal chains, reported concerns): that is the sacred
+// engine's authoritative screening output, already governed by the engine's
+// own CIH validation, and a descriptive word like "violation" in an engine
+// finding must not block the client's report. (No edit UI exists yet, so a
+// hard block on engine text would dead-end the user.)
 function collectProse(model) {
   const out = []
   const push = (v) => { if (typeof v === 'string' && v.trim()) out.push(v) }
@@ -32,14 +41,11 @@ function collectProse(model) {
   push(model.methodology && model.methodology.referenceFramework)
   ;(model.methodology && model.methodology.bullets || []).forEach(push)
   push(model.results && model.results.intro)
+  push(model.results && model.results.perParamIntro)
   ;(model.results && model.results.parameters || []).forEach(p => (p.body || []).forEach(push))
-  ;(model.findings && model.findings.rows || []).forEach(r => push(r.f))
-  ;(model.reportedConcerns && model.reportedConcerns.rows || []).forEach(r => push(r.e))
-  ;(model.conceptualModel && model.conceptualModel.rows || []).forEach(r => push(r[1]))
-  ;(model.workingHypotheses && model.workingHypotheses.items || []).forEach(push)
-  ;['immediate', 'shortTerm', 'mediumTerm'].forEach(k => (model.recommendations && model.recommendations[k] || []).forEach(push))
   ;(model.limitations || []).forEach(push)
   push(model.review && model.review.statement)
+  push(model.about && model.about.text)
   return out
 }
 

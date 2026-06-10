@@ -43,12 +43,26 @@ describe('POST /api/report-pdf', () => {
     expect(res.body.slice(0, 5).toString()).toBe('%PDF-')
   })
 
-  it('422-blocks a model containing banned compliance/causation language', async () => {
+  it('422-blocks banned language in AtmosFlow-AUTHORED narrative', async () => {
     const bad = { ...goodModel, execSummary: 'The elevated CO2 was caused by the HVAC system and the building is noncompliant with OSHA.' }
     const res = await run({ method: 'POST', body: { model: bad } })
     expect(res.statusCode).toBe(422)
     const j = JSON.parse(res.body)
     expect(j.error).toBe('banned_language')
     expect(j.hits.length).toBeGreaterThan(0)
+  })
+
+  it('does NOT block engine-authored finding/recommendation text (e.g. "elevated risk", "violation")', async () => {
+    // The sacred engine legitimately uses screening phrases like "elevated
+    // risk of G2 …" (ANSI/ISA) or "violation" in a finding string. These pass
+    // through to the report and must NOT block it.
+    const m = {
+      ...goodModel,
+      findings: { intro: 'Findings.', rows: [{ z: 'A', sev: 'elevated', conf: 'Moderate', f: 'Screening indicators consistent with elevated risk of G2 or worse; verification requires reactivity coupons. Possible violation of design intent noted.' }] },
+      recommendations: { immediate: ['Correct to avoid a potential violation of the building O&M intent.'], shortTerm: [], mediumTerm: [] },
+    }
+    const res = await run({ method: 'POST', body: { model: m } })
+    expect(res.statusCode).toBe(200)
+    expect(res.headers['content-type']).toBe('application/pdf')
   })
 })
