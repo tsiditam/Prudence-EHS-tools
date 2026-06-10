@@ -62,7 +62,7 @@ function ProjectCard({ project, onOpen }) {
   )
 }
 
-export default function ProjectsScreen({ onBack, onOpen, onStartSurvey, onReportIncident }) {
+export default function ProjectsScreen({ onBack, onOpen, onReportIncident }) {
   const [projects, setProjects] = useState(null)
   const [filter, setFilter] = useState('all')
   const [showCreate, setShowCreate] = useState(false)
@@ -98,31 +98,21 @@ export default function ProjectsScreen({ onBack, onOpen, onStartSurvey, onReport
         </div>
       </div>
 
-      {/* Action row — mirrors the Home co-pilot pairing: green primary
-          (Start survey) + glass secondary (New project / site). Projects is
-          the landing page now, so the survey CTA lives here too. */}
+      {/* Action row — AtmosFlow is project-centric: every engagement begins
+          with a Project, so "New project" is the single primary (green) CTA.
+          Assessment creation has moved into the project workspace; it is no
+          longer offered globally here. "Report an incident" stays as a glass
+          secondary for the off-workflow safety action. */}
       <div style={{ marginTop: 14, marginBottom: 16, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-        {onStartSurvey && (
-          <TactileButton
-            variant="primary"
-            size="sm"
-            pill
-            onClick={onStartSurvey}
-            style={{ background: 'var(--success)', color: '#FFFFFF', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.22), 0 1px 2px rgba(0,0,0,0.20)' }}
-          >
-            Start survey
-          </TactileButton>
-        )}
         <TactileButton
-          variant="secondary"
+          variant="primary"
           size="sm"
           pill
-          className="af-glass-control"
           onClick={() => setShowCreate(true)}
-          icon={<I n="bldg" s={14} c="var(--accent)" />}
-          style={{ color: 'var(--accent)', background: undefined, border: undefined, boxShadow: undefined }}
+          icon={<I n="bldg" s={14} c="#FFFFFF" />}
+          style={{ background: 'var(--success)', color: '#FFFFFF', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.22), 0 1px 2px rgba(0,0,0,0.20)' }}
         >
-          New project / site
+          New project
         </TactileButton>
         {onReportIncident && (
           <TactileButton
@@ -170,11 +160,23 @@ export default function ProjectsScreen({ onBack, onOpen, onStartSurvey, onReport
           <div style={{ width: 52, height: 52, borderRadius: 14, margin: '0 auto 14px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'color-mix(in srgb, var(--accent) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--accent) 22%, transparent)' }}>
             <I n="bldg" s={24} c="var(--accent)" w={1.8} />
           </div>
-          <div style={{ ...V3.T.h3, marginBottom: 6 }}>{list.length === 0 ? 'No projects yet' : 'No projects in this status'}</div>
+          <div style={{ ...V3.T.h3, marginBottom: 6 }}>{list.length === 0 ? 'Start with a project' : 'No projects in this status'}</div>
           <div style={{ ...V3.T.bodyDim, maxWidth: 360, margin: '0 auto' }}>
             {list.length === 0
-              ? 'Create a site workspace to keep assessments, documents, photos, and notes for one building in one place.'
+              ? 'Every engagement begins with a project. Create one to hold its assessments, logger data, sampling forms, findings, reports, and photos in one place.'
               : 'Try a different status filter, or create a new project.'}
+          </div>
+          <div style={{ marginTop: 18, display: 'flex', justifyContent: 'center' }}>
+            <TactileButton
+              variant="primary"
+              size="sm"
+              pill
+              onClick={() => setShowCreate(true)}
+              icon={<I n="bldg" s={14} c="#FFFFFF" />}
+              style={{ background: 'var(--success)', color: '#FFFFFF', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.22), 0 1px 2px rgba(0,0,0,0.20)' }}
+            >
+              New project
+            </TactileButton>
           </div>
         </GlassCard>
       ) : (
