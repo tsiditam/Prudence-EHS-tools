@@ -69,6 +69,7 @@ import SettingsScreen from './SettingsScreen'
 import AccountScreen from './AccountScreen'
 import FeatureTour from './FeatureTour'
 import { printReport, generatePrintHTML } from './PrintReport'
+import { downloadReportPdf } from '../utils/downloadReportPdf'
 // v2.6.1 — DocxReport is a static import. Earlier `await import('./DocxReport')`
 // triggered "'text/html' is not a valid JavaScript MIME type" errors when a
 // user's cached index.html referenced a chunk hash that no longer existed
@@ -1578,6 +1579,13 @@ export default function MobileApp() {
         if (docxType === 'consultant' || docxType === 'consultant_cih') await generateConsultantOnly(reportData)
         else if (docxType === 'technical') await generateTechnicalOnly(reportData)
         else await generateDocx(reportData)
+      } else if (format === 'pdf') {
+        // Fixed AtmosFlow PDF report — the exact sample design, real data.
+        // Built model client-side, laid out by the shared pdfkit renderer
+        // server-side (/api/report-pdf). docxType carries the mode.
+        const mode = docxType === 'final' ? 'final' : 'draft'
+        setGenWriting({ label: 'Generating your AtmosFlow report', durationMs: 8000 })
+        await downloadReportPdf(reportData, { mode })
       } else {
         // Web (HTML) consultant report — play the same pen-writing beat
         // as the DOCX path before the file is produced, then download.
@@ -3893,9 +3901,9 @@ export default function MobileApp() {
               <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:3}}>Consultant Report — Web (HTML)</div>
               <div style={{fontSize:12,color:SUB,lineHeight:1.55}}>The modern editorial layout as a print-ready web page. Open in a browser to print or save as PDF.</div>
             </GlassCard>
-            <GlassCard onClick={()=>{setDocxPicker(false);handleExport('web','modern_summary')}} dense style={{padding:'14px 16px'}}>
-              <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:3}}>Modern Summary (concise)</div>
-              <div style={{fontSize:12,color:SUB,lineHeight:1.55}}>A short, plain-language screening summary in the modern AtmosFlow design — cover, at-a-glance snapshot, key findings, logger charts, and next steps. Open in a browser to print or save as PDF.</div>
+            <GlassCard onClick={()=>{setDocxPicker(false);handleExport('pdf','atmosflow')}} dense style={{padding:'14px 16px'}}>
+              <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:3}}>AtmosFlow Report (PDF)</div>
+              <div style={{fontSize:12,color:SUB,lineHeight:1.55}}>The fixed AtmosFlow IAQ report — cover, executive summary, findings-at-a-glance, measurement results, per-parameter interpretation, logger charts, recommendations, QA/QC, limitations, and appendices. Draft watermark + "IH Review Required" until a qualified professional finalizes it.</div>
             </GlassCard>
           </div>
           <div style={{marginTop:14}}>

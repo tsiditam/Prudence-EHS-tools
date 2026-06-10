@@ -22,6 +22,7 @@
 
 import { STD } from '../constants/standards'
 import { actionLine } from '../utils/recFormatting'
+import * as NL from './narrativeLibrary'
 
 // Zone measurement keys (question ids) → model parameter keys.
 const PARAMS = [
@@ -225,5 +226,193 @@ export function buildReportModel(data = {}, opts = {}) {
     limitations: buildLimitations(data),
     references: collectReferences(findings, data.causalChains || []),
     composite: data.comp || null,
+  }
+}
+
+// ── Render-model assembly (Report JSON + narrative library → renderer) ──
+
+const OUTCOME_TO_SEV = { acceptable: 'ok', advisory: 'advisory', elevated: 'elevated', priority: 'priority' }
+const ENGINE_SEV_TO_SEV = { critical: 'priority', high: 'elevated', medium: 'advisory', low: 'ok', pass: 'ok', info: 'ok' }
+const REF_BASIS = {
+  'ASHRAE 62.1-2025': 'Ventilation and Acceptable Indoor Air Quality. Ventilation-indicator basis for CO2 (prescribes airflow, not a CO2 limit).',
+  'ASHRAE 55-2023': 'Thermal Environmental Conditions for Human Occupancy. Comfort envelope for temperature and relative humidity.',
+  'US EPA NAAQS': 'National Ambient Air Quality Standards. CO 9 ppm (8-hr); PM2.5 35 µg/m³ (24-hr). Outdoor/population standards, cited for context.',
+  'OSHA PELs (29 CFR 1910.1000)': 'Permissible Exposure Limits. CO PEL 50 ppm (8-hr TWA); CO2 PEL 5,000 ppm (industrial context).',
+}
+const titleCaseKey = (k) => String(k).replace(/^z\d+-/, '').replace(/[_-]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+
+function modeChrome(mode, reportId, firm, client) {
+  if (mode === 'sample') return { headerLabel: 'Sample — Evaluation Use Only', watermark: 'SAMPLE', coverStatusChip: 'Sample — Evaluation Use Only', footerNote: `${reportId}  ·  Sample — for evaluation use only`, coverDisclaimer: 'This document is a sample produced to illustrate AtmosFlow report structure and tone.' }
+  if (mode === 'final') return { headerLabel: 'Confidential — Final', watermark: null, coverStatusChip: 'Final', footerNote: `${reportId}  ·  Confidential — prepared for ${client || 'the client'}`, coverDisclaimer: null }
+  return { headerLabel: 'Draft — IH Review Required', watermark: 'DRAFT', coverStatusChip: 'Draft — IH Review Required', footerNote: `${reportId}  ·  Draft — pending professional review`, coverDisclaimer: 'This draft has not been finalized and should not be distributed as a professional opinion.' }
+}
+
+/**
+ * Assemble the renderer model from raw assessment data: builds the Report
+ * JSON (buildReportModel) and clothes it in controlled narrative from the
+ * library. Output feeds renderReportPdf (lib/report/render-pdf.js) verbatim.
+ * Deterministic and complete without AI; an optional AI pass may later refine
+ * the prose under the banned-language gate, never changing facts.
+ */
+export function assembleRenderModel(data = {}, opts = {}) {
+  const rd = buildReportModel(data, opts)
+  const meta = rd.reportMeta
+  const params = rd.parameters
+  const mode = meta.mode
+  const firm = meta.companyName
+  const reportId = meta.reportId
+  const client = (data.presurvey && (data.presurvey.ps_recipient_org || data.presurvey.ps_recipient_name)) || null
+  const chrome = modeChrome(mode, reportId, firm, client)
+
+  // Findings at a glance (per parameter).
+  const findingsAtGlance = Object.values(params).map(pp => ({
+    parameter: pp.label, range: `${pp.range} ${pp.unit}`, basis: pp.basis, outcome: OUTCOME_TO_SEV[pp.outcome] || 'ok',
+  }))
+
+  // Measurement results rows (+ site mean).
+  const resultsRows = rd.zones.map(z => ({
+    id: z.id, use: z.use || '', co2: z.co2, co: z.co, t: z.temperature, rh: z.relativeHumidity, pm: z.pm25, tvoc: z.tvoc,
+    sev: OUTCOME_TO_SEV[z.outcome] || 'ok',
+  }))
+  if (resultsRows.length) {
+    resultsRows.push({
+      id: 'Site mean', use: '',
+      co2: params.co2 ? params.co2.mean : null, co: params.co ? params.co.mean : null, t: params.temperature ? params.temperature.mean : null,
+      rh: params.relativeHumidity ? params.relativeHumidity.mean : null, pm: params.pm25 ? params.pm25.mean : null, tvoc: params.tvoc ? params.tvoc.mean : null,
+      sev: 'ok', __bold: true,
+    })
+  }
+
+  // Per-parameter interpretation (what it is + observed), thermal combined.
+  const interp = []
+  if (params.co2) interp.push({ title: 'Carbon dioxide (CO2) — ventilation indicator', body: [`What it is and why we measure it: ${NL.WHAT_IS.co2}`, NL.OBSERVED.co2(params.co2, params.co2.outcome)] })
+  if (params.co) interp.push({ title: 'Carbon monoxide (CO)', body: [`What it is and why we measure it: ${NL.WHAT_IS.co}`, NL.OBSERVED.co(params.co, params.co.outcome)] })
+  if (params.temperature || params.relativeHumidity) {
+    const body = [`What it is and why we measure it: ${NL.WHAT_IS.tempRh}`]
+    if (params.temperature) body.push(NL.OBSERVED.temperature(params.temperature, params.temperature.outcome))
+    if (params.relativeHumidity) body.push(NL.OBSERVED.relativeHumidity(params.relativeHumidity, params.relativeHumidity.outcome))
+    interp.push({ title: 'Thermal comfort — temperature & relative humidity', body })
+  }
+  if (params.pm25) interp.push({ title: 'Fine particulate (PM2.5)', body: [`What it is and why we measure it: ${NL.WHAT_IS.pm25}`, NL.OBSERVED.pm25(params.pm25, params.pm25.outcome)] })
+  if (params.tvoc) interp.push({ title: 'Total volatile organic compounds (TVOC)', body: [`What it is and why we measure it: ${NL.WHAT_IS.tvoc}`, NL.OBSERVED.tvoc(params.tvoc, params.tvoc.outcome)] })
+
+  // Logger Studio chart images (real assessments embed the PNGs).
+  const imageCharts = rd.charts.filter(c => c.type === 'image')
+  const src = (data.sensorData && data.sensorData.fileName) || null
+  const loggerImages = imageCharts.length ? {
+    disclaimer: 'The following timelines were generated from uploaded sensor logger data for screening and documentation purposes. Interpretation should be reviewed by a qualified IAQ professional; AtmosFlow does not make compliance determinations.',
+    dataSource: src ? `Data source: ${src}` : null,
+    images: imageCharts.map(c => ({ title: c.title, imageDataUrl: c.imageDataUrl, caption: c.caption })),
+  } : null
+
+  // Peak-CO2-by-zone bar (walkthrough data).
+  const bar = rd.charts.find(c => c.type === 'barCo2ByZone')
+  const co2Bars = bar && bar.data.length > 1 ? {
+    data: bar.data.map(b => ({ zone: b.zone, value: b.value, outcome: OUTCOME_TO_SEV[b.outcome] || 'ok' })),
+    threshold: bar.threshold, thresholdLabel: `ASHRAE 62.1 advisory (${bar.threshold} ppm)`,
+    caption: 'Highest CO2 reading per area against the ASHRAE 62.1 ventilation indicator. Bar color reflects the screening outcome.',
+  } : null
+
+  // Findings table.
+  const findingRows = rd.findings.map(f => ({
+    z: f.zone, sev: ENGINE_SEV_TO_SEV[f.severity] || 'advisory', conf: f.confidence || '—', f: f.text,
+  }))
+
+  // Conceptual site model + hypotheses from the primary causal chain.
+  const chains = (data.causalChains || []).filter(Boolean)
+  const primary = chains[0]
+  const conceptualModel = primary ? {
+    intro: 'Following standard IAQ investigation logic, the primary finding is expressed as a source → pathway → receptor chain with its supporting evidence and confidence.',
+    heading: `${primary.type || primary.name || 'Primary finding'}${primary.zone ? ` — ${primary.zone}` : ''}`,
+    rows: [
+      ['Pathway / concern', primary.type || primary.name || '—'],
+      ['Receptor (location)', primary.zone || (Array.isArray(primary.contributingZones) ? primary.contributingZones.join(', ') : '—')],
+      ['Source & mechanism', primary.rootCause || '—'],
+      ['Evidence', Array.isArray(primary.evidence) ? primary.evidence.join('; ') : (primary.evidence || '—')],
+      ['Confidence', primary.confidence || (primary.causationSupported ? 'Supported' : 'Screening') ],
+    ],
+  } : null
+  const workingHypotheses = chains.length ? {
+    intro: 'The screening data support the hypotheses below. None is a confirmed cause; each names the verification it requires.',
+    items: chains.slice(0, 4).map(c => `${c.rootCause || c.name || c.type}${c.refutableBy ? ` Verification: ${c.refutableBy}` : ''}`),
+  } : null
+
+  // QA/QC as bullet strings; limitations already paragraph strings.
+  const qaQc = rd.qaQc.map(q => `${q.label}: ${q.value}`)
+
+  // References as [ref, basis] pairs.
+  const references = rd.references.map(ref => [ref, REF_BASIS[ref] || 'Referenced in screening interpretation.'])
+
+  // Photos.
+  let photos = null
+  const pObj = data.photos || {}
+  const pItems = []
+  Object.keys(pObj).forEach(k => (pObj[k] || []).forEach(ph => { if (ph && ph.src && pItems.length < 8) pItems.push({ title: titleCaseKey(k), sub: '', imageDataUrl: ph.src }) }))
+  if (pItems.length) photos = { intro: 'Field photographs captured during the assessment.', items: pItems }
+  else photos = { intro: 'No project photographs were uploaded.', items: [] }
+
+  const flagged = rd.findings.length
+  const elevatedZones = [...new Set(rd.findings.filter(f => f.severity === 'critical' || f.severity === 'high').map(f => f.zone))]
+
+  const review = mode === 'final'
+    ? { statement: 'The undersigned has reviewed the measurements, findings, and recommendations and accepts responsibility for the professional interpretation presented in this report.', signatureName: meta.assessorName, signatureTitle: meta.assessorCredentials || 'Reviewing Professional', signatureFirm: firm, signatureMeta: `Report ID ${reportId}  ·  ${meta.reportDate}` }
+    : { statement: 'This report was generated by AtmosFlow from the assessment data and requires review by a qualified industrial hygienist or EHS professional before issuance. IH Review Required.', signatureName: meta.assessorName, signatureTitle: meta.assessorCredentials || 'Preparing Assessor', signatureFirm: firm, signatureMeta: `Report ID ${reportId}  ·  ${meta.reportDate}  ·  Draft` }
+
+  return {
+    meta: {
+      docTitle: `AtmosFlow — IAQ Assessment Report — ${meta.facilityName}`,
+      reportTitle: 'Screening-Level IAQ Assessment Report',
+      coverSubtitle: 'Direct-reading evaluation of carbon dioxide, comfort, and particulate / VOC indicators',
+      coverRows: [
+        ['Facility', meta.facilityName], ['Address', meta.address || '—'], ['Scope', meta.scope || `${rd.projectSummary.numberOfZones} area(s)`],
+        ['Assessment date', meta.assessmentDate], ['Assessor of record', `${meta.assessorName}${meta.assessorCredentials ? `, ${meta.assessorCredentials}` : ''}`], ['Report ID', reportId],
+      ],
+      coverFooter: 'Screening-level evaluation — not a regulatory exposure determination, OSHA compliance certification, or medical evaluation.',
+      firm, brandColor: meta.brandColor,
+      ...chrome,
+    },
+    execSummary: NL.buildExecSummary({ firm, facility: meta.facilityName, date: meta.assessmentDate, numberOfZones: rd.projectSummary.numberOfZones, purpose: rd.projectSummary.assessmentPurpose, flaggedCount: flagged, topOutcome: null }),
+    findingsAtGlance,
+    showSeverityLegend: true,
+    severityLegendNote: NL.SEVERITY_LEGEND_NOTE,
+    overallStatement: NL.buildOverallStatement({ flaggedCount: flagged, elevatedZones }),
+    scope: {
+      paras: [
+        `The assessment covered ${rd.projectSummary.numberOfZones} zone${rd.projectSummary.numberOfZones === 1 ? '' : 's'} at ${meta.facilityName}${rd.projectSummary.buildingDescription ? ` (${rd.projectSummary.buildingDescription})` : ''}${rd.projectSummary.hvacDescription ? `, served by ${rd.projectSummary.hvacDescription}` : ''}. ${rd.projectSummary.assessmentPurpose ? `The assessment was prompted by ${String(rd.projectSummary.assessmentPurpose).toLowerCase()}.` : ''}`.trim(),
+        'The objective was a screening characterization of indoor air quality indicators to confirm whether observed conditions fall within recognized comfort and ventilation references, identify any zones warranting follow-up, and provide a defensible, prioritized action list.',
+      ],
+      showFloorPlanSchematic: false,
+    },
+    methodology: {
+      bullets: NL.methodologyBullets(data.presurvey && data.presurvey.ps_inst_iaq, data.presurvey && data.presurvey.ps_inst_iaq_cal_status),
+      referenceFramework: NL.REFERENCE_FRAMEWORK,
+    },
+    results: {
+      intro: 'The table below summarizes representative occupied-hours readings by zone, with the site arithmetic mean for context. Values are direct-reading grab measurements unless otherwise noted.',
+      rows: resultsRows,
+      note: resultsRows.length ? 'Site mean is the arithmetic mean of the measured zones. Outcome reflects the zone’s governing parameter.' : null,
+      perParamIntro: 'Each indicator below is introduced briefly — what it is and why it is measured — followed by what was observed at this site.',
+      parameters: interp,
+    },
+    loggerImages,
+    co2Bars,
+    findings: findingRows.length ? {
+      intro: 'Findings are screening observations, ranked by recommended response and carried with a confidence rating. No finding constitutes a regulatory exposure determination.',
+      rows: findingRows,
+    } : null,
+    conceptualModel,
+    workingHypotheses,
+    recommendations: {
+      intro: 'Recommendations follow a verify-before-invest ladder: confirm the suspected cause, correct it, re-test, and only then consider permanent monitoring or capital changes.',
+      immediate: rd.recommendations.immediate,
+      shortTerm: rd.recommendations.shortTerm,
+      mediumTerm: rd.recommendations.mediumTerm,
+    },
+    qaQc,
+    limitations: rd.limitations,
+    review,
+    references,
+    about: { title: 'Appendix B — About AtmosFlow', text: NL.ABOUT_ATMOSFLOW },
+    photos,
   }
 }
