@@ -2993,7 +2993,7 @@ export default function MobileApp() {
   // Each item highlights when its view is active.
   const sideMenuPrimary = [
     { label: 'Dashboard',    icon: 'home',      view: 'dash',        onClick: () => { setView('dash'); setViewRpt(null) } },
-    { label: 'Assessments',  icon: 'clip',      view: 'projects',    onClick: () => setView('projects') },
+    { label: 'Projects',     icon: 'bldg',      view: 'projects',    onClick: () => setView('projects') },
     { label: 'Reports',      icon: 'report',    view: 'history',     onClick: () => setView('history') },
     { label: 'AtmosFlow AI', icon: 'jasper', renderIcon: () => <JasperBrainIcon size={20} animate={false} />, onClick: () => { supabase && trackEvent('jasper_open', { source: 'side_menu' }); setFaOpen(true) } },
     { label: 'Settings',     icon: 'gear',      view: 'settings',    onClick: () => setView('settings') },
@@ -3059,18 +3059,26 @@ export default function MobileApp() {
     <>
     {profile && (
       <nav className="af-sidemenu" aria-label="Main menu" aria-hidden={!showHomeMenu}>
-        <button
-          onClick={() => go(() => setView('account'))}
-          aria-label="Account"
-          style={{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'4px 6px 16px',marginBottom:6,background:'transparent',border:'none',borderBottom:'1px solid rgba(255,255,255,0.07)',cursor:'pointer',textAlign:'left',fontFamily:'inherit'}}>
-          <div style={{width:42,height:42,borderRadius:'50%',flexShrink:0,background:'color-mix(in srgb, var(--accent) 14%, transparent)',border:'1px solid color-mix(in srgb, var(--accent) 30%, transparent)',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--accent)',fontSize:16,fontWeight:700}}>
+        {/* Header — bold AtmosFlow wordmark left + a glass circular avatar
+            right (Claude mobile style); the avatar opens the Account page. */}
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,padding:'2px 4px 16px',marginBottom:6,borderBottom:'1px solid rgba(255,255,255,0.07)'}}>
+          <span style={{fontSize:23,fontWeight:800,letterSpacing:'-0.03em',color:'#F3F5F8'}}>AtmosFlow</span>
+          <button
+            onClick={() => go(() => setView('account'))}
+            aria-label="Account"
+            style={{
+              width:40, height:40, borderRadius:'50%', flexShrink:0,
+              display:'flex', alignItems:'center', justifyContent:'center',
+              background:'rgba(255,255,255,0.06)',
+              backdropFilter:'blur(12px) saturate(160%)', WebkitBackdropFilter:'blur(12px) saturate(160%)',
+              border:'1px solid rgba(255,255,255,0.16)',
+              boxShadow:'inset 0 1px 0 rgba(255,255,255,0.12)',
+              color:'var(--accent)', fontSize:14, fontWeight:700, letterSpacing:'0.02em',
+              cursor:'pointer', fontFamily:'inherit', WebkitTapHighlightColor:'transparent',
+            }}>
             {((profile?.name||'A').replace(/@.*/,'').trim().split(/\s+/).map(s=>s[0]).filter(Boolean).slice(0,2).join('')||'A').toUpperCase()}
-          </div>
-          <div style={{flex:1,minWidth:0}}>
-            <div style={{fontSize:15,fontWeight:700,color:'#F3F5F8',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{(profile?.name||'Assessor').replace(/@.*/,'')}</div>
-            <div style={{fontSize:12,color:'#8B93A5',marginTop:1}}>Account</div>
-          </div>
-        </button>
+          </button>
+        </div>
         <div style={{flex:1,overflowY:'auto',WebkitOverflowScrolling:'touch'}}>
           {sideMenuPrimary.map(sideMenuRow)}
           <div style={{height:1,background:'rgba(255,255,255,0.07)',margin:'10px 8px'}} />
@@ -3142,26 +3150,8 @@ export default function MobileApp() {
                   <line x1="4" y1="17" x2="11" y2="17" />
                 </svg>
               </button>
-              {/* Wordmark to the right of the menu (Kalshi-style), with the
-                  small thin hamburger beside it. Uses the tagline-free
-                  variant (no "Indoor Air Quality Intelligence" strap) for a
-                  cleaner header; the full lockup stays on the auth screen.
-                  Two variants swap by theme (CSS in index.html): white
-                  text on dark, black text on light — the brain mark stays
-                  cyan in both so the white wordmark never vanishes on the
-                  light header. */}
-              <img
-                className="af-wordmark af-wordmark-dark"
-                src="/icons/atmosflow-wordmark.svg"
-                alt="AtmosFlow"
-                style={{height:24,width:'auto',marginLeft:10,display:'block'}}
-              />
-              <img
-                className="af-wordmark af-wordmark-light"
-                src="/icons/atmosflow-wordmark-light.svg"
-                alt="AtmosFlow"
-                style={{height:24,width:'auto',marginLeft:10,display:'none'}}
-              />
+              {/* AtmosFlow wordmark removed from the home header per design —
+                  just the hamburger remains; branding lives in the side menu. */}
               </>
             )}
           </div>
@@ -4002,74 +3992,6 @@ export default function MobileApp() {
           )
         })()}
 
-        {/* ── Floating Continue walkthrough CTA ─────────────────────
-            When the user has an active draft, a soft-glass action bar
-            stickies to the bottom of the dash view above the bottom
-            nav, always in thumb-reach regardless of scroll position.
-            `drafts[0]` is the same expression the dash IIFE uses to
-            derive its local `activeDraft`; computed inline here
-            because the IIFE's locals aren't visible at this scope. ── */}
-        {(() => {
-          // `drafts` lives inside the dash IIFE, but `index` is the
-          // outer-scope storage hook (line 309) — `index.drafts` is the
-          // same array the IIFE reads from. Pull from there directly.
-          const fab = view === 'dash' ? ((index?.drafts || [])[0] || null) : null
-          if (!fab) return null
-          return (
-            <div style={{
-              position: 'fixed',
-              left: 0, right: 0,
-              // Sits above the floating glass dock (≈62px tall, lifted
-              // 18px off the bottom edge) + safe-area inset so the CTA
-              // never overlaps the dock. zIndex below the dock (100) so a
-              // stray full-bleed dropdown can't trap focus.
-              bottom: `calc(env(safe-area-inset-bottom, 0px) + 92px)`,
-              zIndex: 90,
-              display: 'flex',
-              justifyContent: 'center',
-              pointerEvents: 'none',
-              padding: '0 14px',
-            }}>
-              <div style={{
-                ...GLASS.elevated,
-                maxWidth: contentMax,
-                width: '100%',
-                borderRadius: RADII.sheet,
-                padding: '10px 12px',
-                pointerEvents: 'auto',
-                display: 'flex',
-                gap: 10,
-                alignItems: 'center',
-                boxShadow:
-                  '0 -6px 20px rgba(0,0,0,0.32), ' +
-                  '0 12px 28px rgba(0,0,0,0.42), ' +
-                  'inset 0 1px 0 rgba(255,255,255,0.06)',
-              }}>
-                <div style={{flex:1,minWidth:0,padding:'0 6px'}}>
-                  <div style={{...V3.T.captionDim, marginBottom:2}}>Active walkthrough</div>
-                  <div style={{...V3.T.bodyStrong, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
-                    {fab.facility || 'Untitled Assessment'}
-                  </div>
-                </div>
-                <TactileButton
-                  variant="primary"
-                  size="sm"
-                  pill
-                  onClick={()=>resumeDraft(fab.id)}
-                  iconRight={<I n="play" s={11} c={PRIMARY_CTA_ICON} w={2} />}
-                  // Drop the primary variant's accent glow on this floating
-                  // bar — it bled a cyan halo onto the page behind the bar.
-                  // Keep the inner highlight + subtle dark drop for depth.
-                  // Tightened padding + min-height to make the pill more compact
-                  // so it doesn't dominate the Active Walkthrough card.
-                  style={{padding:'6px 14px', minHeight:32, fontSize:12, boxShadow:'inset 0 1px 0 rgba(255,255,255,0.22), 0 1px 2px rgba(0,0,0,0.20)'}}
-                >
-                  Continue
-                </TactileButton>
-              </div>
-            </div>
-          )
-        })()}
 
         {view==='quickstart'&&qscq&&renderQuestion(qscq,mergedData,setQSField,qsqi,qsVis,()=>{if(qsqi<qsVis.length-1)setQsqi(qsqi+1)},()=>{if(qsqi>0)setQsqi(qsqi-1)},(i)=>setQsqi(Math.max(0,Math.min(i,qsVis.length-1))),finishQuickStart,'→ HVAC Equipment',qsSecs)}
 
