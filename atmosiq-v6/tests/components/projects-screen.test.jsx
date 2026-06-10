@@ -18,7 +18,16 @@ describe('ProjectsScreen', () => {
   it('renders the heading and empty state with no projects', async () => {
     render(<ProjectsScreen onBack={() => {}} onOpen={() => {}} />)
     expect(screen.getByText('Projects')).toBeTruthy()
-    await waitFor(() => expect(screen.getByText(/No projects yet/i)).toBeTruthy())
+    // Project-centric IA: the empty state recommends creating a project.
+    await waitFor(() => expect(screen.getByText(/Start with a project/i)).toBeTruthy())
+  })
+
+  it('makes "New project" the primary CTA and offers no Start survey action', async () => {
+    render(<ProjectsScreen onBack={() => {}} onOpen={() => {}} />)
+    // "New project" is the action; assessment creation has moved into the
+    // project workspace, so no global "Start survey" CTA appears here.
+    await waitFor(() => expect(screen.getAllByText(/New project/i).length).toBeGreaterThan(0))
+    expect(screen.queryByText(/Start survey/i)).toBeNull()
   })
 })
 
@@ -29,9 +38,19 @@ describe('ProjectDetail', () => {
     await waitFor(() => expect(screen.getByText('Meridian Tower')).toBeTruthy())
     // Client appears in both the header and the Overview metadata row.
     expect(screen.getAllByText('Demo LLC').length).toBeGreaterThan(0)
-    // Overview tab default — site details section is present
-    expect(screen.getByText(/Site details/i)).toBeTruthy()
+    // Overview tab default — the Status section is present
+    expect(screen.getByText(/Status/i)).toBeTruthy()
     expect(screen.getAllByText(/Active/i).length).toBeGreaterThan(0)
+  })
+
+  it('surfaces a contextual "New assessment" action when onNewAssessment is provided', async () => {
+    const p = await createProject({ name: 'Atlas Plant', client: 'Atlas Co', siteType: 'Industrial', status: 'active' })
+    const seeds = []
+    render(<ProjectDetail id={p.id} profile={{ name: 'J. Smith' }} onBack={() => {}} onNewAssessment={(s) => seeds.push(s)} />)
+    const btn = await screen.findByText('New assessment')
+    btn.click()
+    // Launching from the workspace seeds the assessment with the site identity.
+    expect(seeds[0]).toMatchObject({ name: 'Atlas Plant' })
   })
 
   it('shows a not-found message for a missing project id', async () => {

@@ -662,6 +662,11 @@ export default function MobileApp() {
   const [clock, setClock] = useState(new Date())
   const [showPricing, setShowPricing] = useState(false)
   const [showDisclaimer, setShowDisclaimer] = useState(false)
+  // When a new assessment is launched from a Project workspace, seed the
+  // building name/address so the walkthrough opens pre-bound to that site
+  // and re-links to it on finalize (matched by name via the existing
+  // getOrCreateProjectByName auto-link). null = launched globally.
+  const [assessmentSeed, setAssessmentSeed] = useState(null)
   const [connectionToast, setConnectionToast] = useState(null)
 
   // Connection toast + offline-queue auto-drain triggers.
@@ -1212,8 +1217,9 @@ export default function MobileApp() {
     }
   }
 
-  const startNew = () => {
+  const startNew = (seed = null) => {
     if (!PAYWALL_DISABLED && credits < 1) { setShowPricing(true); return }
+    setAssessmentSeed(seed && (seed.name || seed.address) ? { name: seed.name || '', address: seed.address || '' } : null)
     setShowDisclaimer(true)
   }
 
@@ -1227,7 +1233,8 @@ export default function MobileApp() {
     setCurrentSiteId(null)  // PR 1: fresh assessments aren't bound to a site
     // Auto-fill from profile
     const psFill = profile ? Profiles.toPresurvey(profile) : {}
-    setPresurvey(psFill); setBldg({}); setQsqi(0); setDqi(0); setSensorData(null)
+    // Pre-bind to the originating Project when launched from its workspace.
+    setPresurvey(psFill); setBldg(assessmentSeed ? { name: assessmentSeed.name, address: assessmentSeed.address } : {}); setAssessmentSeed(null); setQsqi(0); setDqi(0); setSensorData(null)
     setZones([{}]); setCurZone(0); setZqi(0); setPhotos({}); setEquipment([])
     setZoneScores([]); setComp(null); setOshaResult(null); setRecs(null); setNarrative(null); setSamplingPlan(null); setCausalChains([])
     setView('quickstart')
@@ -4468,8 +4475,8 @@ export default function MobileApp() {
         {view==='trash'&&<TrashView onRecover={async(id)=>{await Backup.recover(id);await refreshIndex()}} onDelete={async(id)=>{await Backup.permanentDelete(id)}} />}
         {view==='sampling-forms'&&<SamplingFormsView profile={profile} onBack={exitTool} />}
         {view==='sensor-data'&&<SensorDataPage value={sensorData} onChange={setSensorData} reports={index.drafts||[]} currentReportId={draftId} currentZones={zones} onApplyAverages={applyAveragesToReport} onBack={()=>{ if (toolReturn) { exitTool() } else if (comp) { setView('results') } else { goHome() } }} />}
-        {view==='projects'&&<ProjectsScreen onStartSurvey={startNew} onReportIncident={()=>setView('incident-form')} onOpen={(pid)=>{setProjectBackView('projects');setActiveProjectId(pid);setView('project-detail')}} />}
-        {view==='project-detail'&&<ProjectDetail id={activeProjectId} profile={profile} onBack={()=>setView(projectBackView)} onOpenReport={(r)=>openReport(r)} onOpenLogger={()=>{setToolReturn('project-detail');setView('sensor-data')}} onOpenSampling={()=>{setToolReturn('project-detail');setView('sampling-forms')}} onAskAI={()=>{ supabase && trackEvent('jasper_open', { source: 'project_workspace' }); setFaOpen(true) }} />}
+        {view==='projects'&&<ProjectsScreen onReportIncident={()=>setView('incident-form')} onOpen={(pid)=>{setProjectBackView('projects');setActiveProjectId(pid);setView('project-detail')}} />}
+        {view==='project-detail'&&<ProjectDetail id={activeProjectId} profile={profile} onBack={()=>setView(projectBackView)} onNewAssessment={(seed)=>startNew(seed)} onOpenReport={(r)=>openReport(r)} onOpenLogger={()=>{setToolReturn('project-detail');setView('sensor-data')}} onOpenSampling={()=>{setToolReturn('project-detail');setView('sampling-forms')}} onAskAI={()=>{ supabase && trackEvent('jasper_open', { source: 'project_workspace' }); setFaOpen(true) }} />}
         {view==='settings'&&<SettingsScreen onNavigate={(v)=>{if(v==='pricing'){setShowPricing(true)}else if(v==='tour'){setView('dash');setShowTour(true)}else{setView(v)}}} adminActive={!!adminSecret} onActivateAdmin={(secret)=>{setAdminSecret(secret);setView('admin')}} />}
         {view==='account'&&<AccountScreen profile={profile} onEditProfile={()=>{sessionStorage.setItem('aiq_welcomed','1');setWelcomeDone(true);setProfile({...profile,isNew:true});goHome()}} onLogout={handleLogout} onNavigate={(v)=>setView(v)} />}
         {view==='tos'&&<TermsOfService onBack={()=>setView('settings')} />}

@@ -72,7 +72,7 @@ function MetaRow({ label, children }) {
   )
 }
 
-export default function ProjectDetail({ id, onBack, profile, onOpenReport, onOpenLogger, onOpenSampling, onAskAI }) {
+export default function ProjectDetail({ id, onBack, profile, onNewAssessment, onOpenReport, onOpenLogger, onOpenSampling, onAskAI }) {
   const [project, setProject] = useState(null)
   const [missing, setMissing] = useState(false)
   const [tab, setTab] = useState('overview')
@@ -175,6 +175,11 @@ export default function ProjectDetail({ id, onBack, profile, onOpenReport, onOpe
 
   const handleDelete = async () => { await deleteProject(id); onBack?.() }
 
+  // Launch a new assessment seeded with this site's identity so the
+  // walkthrough opens pre-bound to the project (and re-links on finalize,
+  // matched by name). Keeps assessment creation inside the workspace.
+  const startNewAssessment = () => onNewAssessment?.({ name: project.name, address: project.address })
+
   const linkedReports = (project.linkedReportIds || [])
     .map(rid => reportsIndex.find(r => r.id === rid) || { id: rid, facility: 'Assessment', ts: null, missing: true })
   const linkable = reportsIndex.filter(r => !(project.linkedReportIds || []).includes(r.id))
@@ -199,6 +204,20 @@ export default function ProjectDetail({ id, onBack, profile, onOpenReport, onOpe
           <StatusPill tone={tone}>{STATUS_LABEL[project.status] || project.status}</StatusPill>
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 16 }}>
+          {/* Primary contextual action — assessments are created here, inside
+              the project workspace, not globally on the Projects screen. */}
+          {onNewAssessment && (
+            <TactileButton
+              variant="primary"
+              size="sm"
+              pill
+              onClick={startNewAssessment}
+              icon={<I n="findings" s={14} c="#FFFFFF" />}
+              style={{ background: 'var(--success)', color: '#FFFFFF', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.22), 0 1px 2px rgba(0,0,0,0.20)' }}
+            >
+              New assessment
+            </TactileButton>
+          )}
           <TactileButton variant="secondary" size="sm" onClick={() => { setDocCategory(''); docInputRef.current?.click() }} icon={<I n="upload" s={14} c="var(--accent)" />}>Upload</TactileButton>
           {onAskAI && <TactileButton variant="secondary" size="sm" onClick={onAskAI} icon={<I n="mic" s={14} c="var(--accent)" />}>Ask AtmosFlow AI</TactileButton>}
           <TactileButton variant="ghost" size="sm" onClick={() => setShowEdit(true)} icon={<I n="draft" s={14} c={V3.TEXT_SECONDARY} />}>Edit details</TactileButton>
@@ -372,10 +391,15 @@ export default function ProjectDetail({ id, onBack, profile, onOpenReport, onOpe
       {tab === 'assessments' && (
         <div>
           <SectionHead title="Linked assessments" count={linkedReports.length} action={
-            <TactileButton variant="secondary" size="sm" onClick={() => setShowLink(true)} icon={<I n="chain" s={14} c="var(--accent)" />}>Link</TactileButton>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <TactileButton variant="secondary" size="sm" onClick={() => setShowLink(true)} icon={<I n="chain" s={14} c="var(--accent)" />}>Link</TactileButton>
+              {onNewAssessment && (
+                <TactileButton variant="primary" size="sm" onClick={startNewAssessment} icon={<I n="findings" s={14} c="#FFFFFF" />} style={{ background: 'var(--success)', color: '#FFFFFF' }}>New</TactileButton>
+              )}
+            </div>
           } />
           {linkedReports.length === 0 ? (
-            <EmptyHint>No assessments linked yet. Tap “Link” to associate an in-app assessment with this site.</EmptyHint>
+            <EmptyHint>No assessments yet. Tap “New” to start an assessment for this site, or “Link” to associate an existing one.</EmptyHint>
           ) : (
             <div style={sgStack('tight')}>
               {linkedReports.map(r => (
