@@ -3062,18 +3062,26 @@ export default function MobileApp() {
     <>
     {profile && (
       <nav className="af-sidemenu" aria-label="Main menu" aria-hidden={!showHomeMenu}>
-        <button
-          onClick={() => go(() => setView('account'))}
-          aria-label="Account"
-          style={{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'4px 6px 16px',marginBottom:6,background:'transparent',border:'none',borderBottom:'1px solid rgba(255,255,255,0.07)',cursor:'pointer',textAlign:'left',fontFamily:'inherit'}}>
-          <div style={{width:42,height:42,borderRadius:'50%',flexShrink:0,background:'color-mix(in srgb, var(--accent) 14%, transparent)',border:'1px solid color-mix(in srgb, var(--accent) 30%, transparent)',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--accent)',fontSize:16,fontWeight:700}}>
+        {/* Header — bold AtmosFlow wordmark left + a glass circular avatar
+            right (Claude mobile style); the avatar opens the Account page. */}
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,padding:'2px 4px 16px',marginBottom:6,borderBottom:'1px solid rgba(255,255,255,0.07)'}}>
+          <span style={{fontSize:23,fontWeight:800,letterSpacing:'-0.03em',color:'#F3F5F8'}}>AtmosFlow</span>
+          <button
+            onClick={() => go(() => setView('account'))}
+            aria-label="Account"
+            style={{
+              width:40, height:40, borderRadius:'50%', flexShrink:0,
+              display:'flex', alignItems:'center', justifyContent:'center',
+              background:'rgba(255,255,255,0.06)',
+              backdropFilter:'blur(12px) saturate(160%)', WebkitBackdropFilter:'blur(12px) saturate(160%)',
+              border:'1px solid rgba(255,255,255,0.16)',
+              boxShadow:'inset 0 1px 0 rgba(255,255,255,0.12)',
+              color:'var(--accent)', fontSize:14, fontWeight:700, letterSpacing:'0.02em',
+              cursor:'pointer', fontFamily:'inherit', WebkitTapHighlightColor:'transparent',
+            }}>
             {((profile?.name||'A').replace(/@.*/,'').trim().split(/\s+/).map(s=>s[0]).filter(Boolean).slice(0,2).join('')||'A').toUpperCase()}
-          </div>
-          <div style={{flex:1,minWidth:0}}>
-            <div style={{fontSize:15,fontWeight:700,color:'#F3F5F8',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{(profile?.name||'Assessor').replace(/@.*/,'')}</div>
-            <div style={{fontSize:12,color:'#8B93A5',marginTop:1}}>Account</div>
-          </div>
-        </button>
+          </button>
+        </div>
         <div style={{flex:1,overflowY:'auto',WebkitOverflowScrolling:'touch'}}>
           {sideMenuPrimary.map(sideMenuRow)}
           <div style={{height:1,background:'rgba(255,255,255,0.07)',margin:'10px 8px'}} />
