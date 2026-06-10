@@ -67,6 +67,7 @@ import { getOrCreateProjectByName } from '../utils/projectStore'
 import { KEYS } from '../utils/storageKeys'
 import SettingsScreen from './SettingsScreen'
 import AccountScreen from './AccountScreen'
+import { getInitials } from './ProfileAvatar'
 import FeatureTour from './FeatureTour'
 import { printReport, generatePrintHTML } from './PrintReport'
 import { downloadReportPdf } from '../utils/downloadReportPdf'
@@ -4530,9 +4531,26 @@ export default function MobileApp() {
           label: t.label,
           icon: t.icon,
           badge: t.badge,
+          ...(t.renderIcon ? { renderIcon: t.renderIcon } : {}),
           active: view === t.id,
           onClick: () => { haptic('light'); supabase && trackEvent('page_view', { tab: t.id }); setToolReturn(null); setView(t.id); if (t.id === 'dash' || t.id === 'projects') setViewRpt(null) },
         })
+        // Account dock tab shows the assessor's circular profile photo
+        // (Instagram-style); falls back to initials on an accent tint when no
+        // avatar_url is set. The active state lights the ring in accent.
+        const accountAvatarIcon = (on) => (
+          <span aria-hidden="true" style={{
+            width: 22, height: 22, borderRadius: '50%', overflow: 'hidden', flexShrink: 0,
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            border: `1.5px solid ${on ? 'var(--accent-fill)' : 'color-mix(in srgb, var(--accent) 30%, transparent)'}`,
+            background: profile?.avatar_url ? 'transparent' : 'linear-gradient(135deg, color-mix(in srgb, var(--accent) 28%, transparent), color-mix(in srgb, var(--accent) 8%, transparent))',
+            color: on ? 'var(--accent-fill)' : 'var(--text)', fontSize: 9, fontWeight: 700, letterSpacing: '-0.2px',
+          }}>
+            {profile?.avatar_url
+              ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+              : <span>{getInitials(profile)}</span>}
+          </span>
+        )
         const navTabs = (userMode === 'fm' ? [
           {id:'dash',label:'Home',icon:'home'},
           {id:'properties',label:'Buildings',icon:'bldg'},
@@ -4541,10 +4559,11 @@ export default function MobileApp() {
         ] : [
           // Consultant dock = the two workflow anchors; AtmosFlow AI rides
           // in the aux pill beside it. Logger Studio lives in the menu's
-          // Tools group; Account behind the menu avatar — so the dock and
-          // menu reinforce the same primaries instead of competing.
+          // Tools group, so the dock and menu reinforce the same primaries
+          // instead of competing. Account is a dock tab (also in the menu).
           {id:'projects',label:'Projects',icon:'bldg'},
           {id:'history',label:'Reports',icon:'report',badge:((index.drafts||[]).length+(index.reports||[]).length)||null},
+          {id:'account',label:'Account',icon:'user',renderIcon:accountAvatarIcon},
         ]).map(mkTab)
 
         // AtmosFlow AI — its own circular pill beside the oval dock. Keeps
