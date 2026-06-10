@@ -4494,7 +4494,7 @@ export default function MobileApp() {
         {view==='projects'&&<ProjectsScreen onReportIncident={()=>setView('incident-form')} onOpen={(pid)=>{setProjectBackView('projects');setActiveProjectId(pid);setView('project-detail')}} />}
         {view==='project-detail'&&<ProjectDetail id={activeProjectId} profile={profile} onBack={()=>setView(projectBackView)} onNewAssessment={(seed)=>startNew(seed)} onOpenReport={(r)=>openReport(r)} onOpenLogger={()=>{setToolReturn('project-detail');setView('sensor-data')}} onOpenSampling={()=>{setToolReturn('project-detail');setView('sampling-forms')}} onAskAI={()=>{ supabase && trackEvent('jasper_open', { source: 'project_workspace' }); setFaOpen(true) }} />}
         {view==='settings'&&<SettingsScreen onNavigate={(v)=>{if(v==='pricing'){setShowPricing(true)}else if(v==='tour'){setView('dash');setShowTour(true)}else{setView(v)}}} adminActive={!!adminSecret} onActivateAdmin={(secret)=>{setAdminSecret(secret);setView('admin')}} />}
-        {view==='account'&&<AccountScreen profile={profile} onEditProfile={()=>{sessionStorage.setItem('aiq_welcomed','1');setWelcomeDone(true);setProfile({...profile,isNew:true});goHome()}} onLogout={handleLogout} onNavigate={(v)=>setView(v)} />}
+        {view==='account'&&<AccountScreen profile={profile} onEditProfile={()=>{sessionStorage.setItem('aiq_welcomed','1');setWelcomeDone(true);setProfile({...profile,isNew:true});setView('dash');setViewRpt(null)}} onLogout={handleLogout} onNavigate={(v)=>setView(v)} />}
         {view==='tos'&&<TermsOfService onBack={()=>setView('settings')} />}
         {view==='privacy'&&<PrivacyPolicy onBack={()=>setView('settings')} />}
         {view==='help'&&<HelpView onBack={()=>setView('settings')} />}
