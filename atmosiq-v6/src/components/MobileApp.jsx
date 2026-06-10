@@ -3215,9 +3215,11 @@ export default function MobileApp() {
               border:'1px solid rgba(255,255,255,0.16)',
               boxShadow:'inset 0 1px 0 rgba(255,255,255,0.12)',
               color:'var(--accent)', fontSize:14, fontWeight:700, letterSpacing:'0.02em',
-              cursor:'pointer', fontFamily:'inherit', WebkitTapHighlightColor:'transparent',
+              cursor:'pointer', fontFamily:'inherit', overflow:'hidden', WebkitTapHighlightColor:'transparent',
             }}>
-            {((profile?.name||'A').replace(/@.*/,'').trim().split(/\s+/).map(s=>s[0]).filter(Boolean).slice(0,2).join('')||'A').toUpperCase()}
+            {profile?.avatar_url
+              ? <img src={profile.avatar_url} alt="" aria-hidden="true" style={{width:'100%',height:'100%',objectFit:'cover',display:'block'}} />
+              : getInitials(profile)}
           </button>
         </div>
         {/* ── Project switcher ── persistent context chip: shows the
