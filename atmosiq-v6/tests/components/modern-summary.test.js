@@ -25,6 +25,9 @@ describe('generateModernSummaryHTML', () => {
     expect(html.startsWith('<!DOCTYPE html>')).toBe(true)
     expect(html).toContain('Indoor Air Quality Summary')
     expect(html).toContain('At a Glance')
+    expect(html).toContain('Findings at a Glance')      // per-parameter table (Report Model)
+    expect(html).toContain('Peak CO2 by Zone')          // inline-SVG bar chart
+    expect(html).toContain('<svg')
     expect(html).toContain('What We Found')
     expect(html).toContain('Recommended Next Steps')
     expect(html).toContain(DEMO_BUILDING.fn) // site name surfaced

@@ -22,6 +22,11 @@
  */
 
 import { actionLine } from '../../utils/recFormatting'
+import { summarizeParameters, peakCo2ByZone } from '../../report/reportModel'
+
+// Screening-outcome palette (matches the sample design + reportModel tiers).
+const OUTCOME_TONE = { acceptable: '#15803D', advisory: '#B45309', elevated: '#C2410C' }
+const OUTCOME_LABEL = { acceptable: 'Acceptable', advisory: 'Advisory', elevated: 'Elevated' }
 
 function esc(v) {
   if (v === null || v === undefined) return ''
@@ -100,6 +105,31 @@ function styles(accent) {
   `
 }
 
+// Crisp inline-SVG bar chart of peak CO2 per zone (prints sharp; no canvas).
+function co2BarSvg(bars, threshold) {
+  const W = 640, H = 220, L = 46, R = 14, T = 16, B = 38
+  const pw = W - L - R, ph = H - T - B
+  const yMax = Math.max(threshold * 1.15, ...bars.map(b => b.value)) || 1
+  const y = v => T + ph - (v / yMax) * ph
+  const n = bars.length, slot = pw / n, bw = Math.min(54, slot * 0.6)
+  const ticks = [0, Math.round(yMax / 2), Math.round(yMax)]
+  const grid = ticks.map(t => `<line x1="${L}" y1="${y(t).toFixed(1)}" x2="${W - R}" y2="${y(t).toFixed(1)}" stroke="#E2E8F0" stroke-width="0.6"/><text x="${L - 6}" y="${(y(t) + 3).toFixed(1)}" text-anchor="end" font-size="9" fill="#64748B">${t}</text>`).join('')
+  const ty = y(threshold)
+  const thr = `<line x1="${L}" y1="${ty.toFixed(1)}" x2="${W - R}" y2="${ty.toFixed(1)}" stroke="#C2410C" stroke-width="1" stroke-dasharray="4 3"/><text x="${W - R}" y="${(ty - 4).toFixed(1)}" text-anchor="end" font-size="8.5" fill="#C2410C">ASHRAE 62.1 advisory (${threshold} ppm)</text>`
+  const cols = bars.map((b, i) => {
+    const cx = L + slot * i + (slot - bw) / 2
+    const by = y(b.value), bh = T + ph - by
+    const fill = OUTCOME_TONE[b.outcome] || '#0E7490'
+    const label = String(b.zone).length > 9 ? String(b.zone).slice(0, 9) + '…' : b.zone
+    return `<rect x="${cx.toFixed(1)}" y="${by.toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" rx="2" fill="${fill}"/>`
+      + `<text x="${(cx + bw / 2).toFixed(1)}" y="${(by - 4).toFixed(1)}" text-anchor="middle" font-size="8.5" fill="#0F172A" font-weight="600">${b.value}</text>`
+      + `<text x="${(cx + bw / 2).toFixed(1)}" y="${(H - B + 13).toFixed(1)}" text-anchor="middle" font-size="8" fill="#64748B">${esc(label)}</text>`
+  }).join('')
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Peak CO2 by zone" style="max-width:100%;border:1px solid #E2E8F0;border-radius:8px;background:#fff">`
+    + `<line x1="${L}" y1="${T}" x2="${L}" y2="${T + ph}" stroke="#475569" stroke-width="0.6"/><line x1="${L}" y1="${T + ph}" x2="${W - R}" y2="${T + ph}" stroke="#475569" stroke-width="0.6"/>`
+    + grid + cols + thr + `</svg>`
+}
+
 export function generateModernSummaryHTML(data, opts = {}) {
   const bldg = data.building || {}
   const ps = data.presurvey || {}
@@ -122,6 +152,13 @@ export function generateModernSummaryHTML(data, opts = {}) {
   findings.sort((a, b) => (sevRank[a.sev] ?? 9) - (sevRank[b.sev] ?? 9))
 
   const measured = EXPLAINERS.filter(e => zones.some(z => z && e.keys.some(k => z[k] !== undefined && z[k] !== null && String(z[k]).trim() !== '')))
+
+  // Per-parameter findings-at-a-glance + peak-CO2 bar — derived deterministically
+  // by the Report Model compiler (range/mean/outcome from STD thresholds).
+  const params = summarizeParameters(zones)
+  const paramRows = Object.values(params)
+  const co2Bars = peakCo2ByZone(zones, zoneScores)
+  const outcomeChip = (oc) => `<span class="sev" style="background:${OUTCOME_TONE[oc] || '#475569'}">${OUTCOME_LABEL[oc] || oc}</span>`
 
   const recs = data.recs || {}
   const recLines = (arr) => (arr || []).map(r => typeof r === 'string' ? r : actionLine(r)).filter(Boolean)
@@ -176,6 +213,20 @@ export function generateModernSummaryHTML(data, opts = {}) {
       </div>
     </div>
   </div>
+
+  ${paramRows.length ? `
+  <h2>Findings at a Glance</h2>
+  <table class="t"><thead><tr><th>Parameter</th><th style="width:110px">Site range</th><th style="width:180px">Reference basis</th><th style="width:110px">Screening outcome</th></tr></thead><tbody>
+    ${paramRows.map(p => `<tr><td>${esc(p.label)}</td><td>${esc(p.range)} ${esc(p.unit)}</td><td style="color:var(--faint)">${esc(p.basis)}</td><td>${outcomeChip(p.outcome)}</td></tr>`).join('')}
+  </tbody></table>
+  <p style="font-size:8.5pt;color:var(--faint)">Outcomes are screening indicators (threshold comparison against recognized references), not compliance determinations.</p>
+  ` : ''}
+
+  ${co2Bars.length > 1 ? `
+  <h2>Peak CO2 by Zone</h2>
+  ${co2BarSvg(co2Bars, 1000)}
+  <p class="cap" style="font-size:8.5pt;color:var(--faint);font-style:italic;margin-top:4px">Highest CO2 reading per area against the ASHRAE 62.1 ventilation indicator. Bar color reflects the screening outcome.</p>
+  ` : ''}
 
   ${findings.length ? `
   <h2>What We Found</h2>
