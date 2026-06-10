@@ -48,6 +48,7 @@ export const ROUTES = {
   'sampling-forms': { label: 'Sampling forms', reachedBy: ['hamburger'] },
   'sensor-data': { label: 'Sensor data', reachedBy: ['hamburger', 'flow'] },
   projects: { label: 'Projects / site folders', reachedBy: ['hamburger'] },
+  account: { label: 'Account / profile', reachedBy: ['bottom-nav', 'hamburger'] },
   properties: { label: 'Buildings portfolio (FM)', reachedBy: ['bottom-nav'] },
   'incident-log': { label: 'Incident log (FM)', reachedBy: ['bottom-nav'] },
 
