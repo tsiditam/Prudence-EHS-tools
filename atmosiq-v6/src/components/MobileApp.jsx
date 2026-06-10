@@ -661,6 +661,9 @@ export default function MobileApp() {
   // Where the project workspace returns to — 'projects' (IH list) or
   // 'properties' (FM Buildings portfolio), set when navigating in.
   const [projectBackView, setProjectBackView] = useState('projects')
+  // Bumped from the header ⋯ overflow's "Edit details" item; ProjectDetail
+  // watches it and opens its edit sheet (the sheet state lives in the child).
+  const [projectEditNonce, setProjectEditNonce] = useState(0)
   const [milestone, setMilestone] = useState(null)
   const [clock, setClock] = useState(new Date())
   const [showPricing, setShowPricing] = useState(false)
@@ -3335,7 +3338,10 @@ export default function MobileApp() {
                 Linear style) — the AtmosFlow wordmark only lives on the
                 home dashboard. On an assessment / its results the label is
                 the facility name. */}
-            {profile && view!=='dash' && view!=='projects' && (
+            {/* project-detail owns its own single "Projects" back control in
+                the body, so the global header back pill is suppressed there to
+                avoid two stacked back affordances. */}
+            {profile && view!=='dash' && view!=='projects' && view!=='project-detail' && (
               <button
                 onClick={()=>{ if ((view==='sensor-data'||view==='sampling-forms') && toolReturn) { setView(toolReturn); setToolReturn(null) } else { setView('projects'); setViewRpt(null) } }}
                 aria-label="Back"
@@ -3451,6 +3457,11 @@ export default function MobileApp() {
           // the user has toggled at least one graph "Include in report".
           ...(view==='sensor-data' && sensorData?.graphs && Object.values(sensorData.graphs).some(g => g && g.include)
             ? [{ label:'Send graphs to a report', icon:'send', onClick:()=>{ close(); setGraphTargetOpen(true) } }]
+            : []),
+          // Project workspace: "Edit details" lives here (top-right overflow)
+          // rather than as a header button inside the project card.
+          ...(view==='project-detail'
+            ? [{ label:'Edit details', icon:'draft', onClick:()=>setProjectEditNonce(n=>n+1) }]
             : []),
           { label:'Search',             icon:'search', onClick:()=>setView('search') },
           { label:'Ask AtmosFlow AI', icon:'mic',    onClick:()=>{ supabase && trackEvent('jasper_open',{source:'header_actions'}); setVoiceCmdOpen(true) } },
@@ -4502,7 +4513,7 @@ export default function MobileApp() {
         {view==='sampling-forms'&&<SamplingFormsView profile={profile} onBack={exitTool} />}
         {view==='sensor-data'&&<SensorDataPage value={sensorData} onChange={setSensorData} reports={index.drafts||[]} currentReportId={draftId} currentZones={zones} onApplyAverages={applyAveragesToReport} onBack={()=>{ if (toolReturn) { exitTool() } else if (comp) { setView('results') } else { goHome() } }} />}
         {view==='projects'&&<ProjectsScreen onReportIncident={()=>setView('incident-form')} onOpen={(pid)=>{setProjectBackView('projects');setActiveProjectId(pid);setView('project-detail')}} />}
-        {view==='project-detail'&&<ProjectDetail id={activeProjectId} profile={profile} onBack={()=>setView(projectBackView)} onNewAssessment={(seed)=>startNew(seed)} onOpenReport={(r)=>openReport(r)} onOpenLogger={()=>{setToolReturn('project-detail');setView('sensor-data')}} onOpenSampling={()=>{setToolReturn('project-detail');setView('sampling-forms')}} onAskAI={()=>{ supabase && trackEvent('jasper_open', { source: 'project_workspace' }); setFaOpen(true) }} />}
+        {view==='project-detail'&&<ProjectDetail id={activeProjectId} profile={profile} editSignal={projectEditNonce} onBack={()=>setView(projectBackView)} onNewAssessment={(seed)=>startNew(seed)} onOpenReport={(r)=>openReport(r)} onOpenLogger={()=>{setToolReturn('project-detail');setView('sensor-data')}} onOpenSampling={()=>{setToolReturn('project-detail');setView('sampling-forms')}} onAskAI={()=>{ supabase && trackEvent('jasper_open', { source: 'project_workspace' }); setFaOpen(true) }} />}
         {view==='settings'&&<SettingsScreen onNavigate={(v)=>{if(v==='pricing'){setShowPricing(true)}else if(v==='tour'){setView('dash');setShowTour(true)}else{setView(v)}}} adminActive={!!adminSecret} onActivateAdmin={(secret)=>{setAdminSecret(secret);setView('admin')}} />}
         {view==='account'&&<AccountScreen profile={profile} onEditProfile={()=>{sessionStorage.setItem('aiq_welcomed','1');setWelcomeDone(true);setProfile({...profile,isNew:true});setView('dash');setViewRpt(null)}} onLogout={handleLogout} onNavigate={(v)=>setView(v)} />}
         {view==='tos'&&<TermsOfService onBack={()=>setView('settings')} />}

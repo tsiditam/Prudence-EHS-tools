@@ -51,6 +51,11 @@ export default function AssessmentSegmentedPillNav({
   id,
   style,
   ariaLabel = 'Assessment sections',
+  // When true, every tab shows its label (not just the active one) so the
+  // destinations are identifiable. Used by the project workspace, where the
+  // nine sections need names; the assessment result tabs leave it off and
+  // stay icon-only-when-inactive.
+  showLabels = false,
 }) {
   return (
     <div
@@ -73,6 +78,7 @@ export default function AssessmentSegmentedPillNav({
     >
       {(tabs || []).map((t) => {
         const on = active === t.id
+        const labelled = on || showLabels
         const fg = on ? 'var(--accent-fill)' : '#A1A1AA'
         const press = (e) => { e.currentTarget.style.transform = 'scale(0.95)' }
         const release = (e) => { e.currentTarget.style.transform = 'scale(1)' }
@@ -94,10 +100,10 @@ export default function AssessmentSegmentedPillNav({
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: on ? 7 : 0,
+              gap: labelled ? 7 : 0,
               height: PILL_H,
-              minWidth: on ? undefined : 49,
-              padding: on ? '0 17px' : 0,
+              minWidth: labelled ? undefined : 49,
+              padding: labelled ? '0 17px' : 0,
               borderRadius: 999,
               cursor: 'pointer',
               fontFamily: 'inherit',
@@ -108,7 +114,7 @@ export default function AssessmentSegmentedPillNav({
             }}
           >
             <I n={t.icon} s={16} c={fg} w={on ? 2 : 1.8} />
-            {on && (
+            {labelled && (
               <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: '-0.01em', whiteSpace: 'nowrap' }}>
                 {t.label}
               </span>

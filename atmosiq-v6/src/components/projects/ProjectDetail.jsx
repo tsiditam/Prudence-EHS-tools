@@ -72,7 +72,7 @@ function MetaRow({ label, children }) {
   )
 }
 
-export default function ProjectDetail({ id, onBack, profile, onNewAssessment, onOpenReport, onOpenLogger, onOpenSampling, onAskAI }) {
+export default function ProjectDetail({ id, onBack, profile, editSignal, onNewAssessment, onOpenReport, onOpenLogger, onOpenSampling, onAskAI }) {
   const [project, setProject] = useState(null)
   const [missing, setMissing] = useState(false)
   const [tab, setTab] = useState('overview')
@@ -96,6 +96,10 @@ export default function ProjectDetail({ id, onBack, profile, onNewAssessment, on
 
   useEffect(() => { refresh() }, [refresh])
   useEffect(() => { (async () => { const idx = await STO.getIndex(); setReportsIndex(idx?.reports || []) })() }, [])
+
+  // The header ⋯ overflow's "Edit details" lives in the app shell; it bumps
+  // `editSignal` to open the edit sheet here (skip the initial 0/undefined).
+  useEffect(() => { if (editSignal) setShowEdit(true) }, [editSignal])
 
   // Logger tab data — lazily scan the project's linked assessments for
   // attached Logger Studio data (reports persist the whole sensorData
@@ -188,51 +192,60 @@ export default function ProjectDetail({ id, onBack, profile, onNewAssessment, on
     <div style={{ paddingTop: 16, paddingBottom: 120, maxWidth: 760, margin: '0 auto' }}>
       <button onClick={onBack} style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', padding: 0, marginBottom: 12 }}>← Projects</button>
 
-      {/* ── Header identity card ───────────────────────────────────── */}
-      <GlassCard accent={tone} style={{ padding: '20px 22px', marginBottom: 14 }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={V3.T.h1}>{project.name}</div>
-            {project.client && <div style={{ ...V3.T.h1Sub, marginTop: 4, color: V3.TEXT_SECONDARY }}>{project.client}</div>}
-            {project.address && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
-                <I n="location" s={13} c={DIM} w={1.8} />
-                <span style={{ ...V3.T.caption, color: DIM }}>{project.address}</span>
-              </div>
-            )}
+      {/* ── Header identity card ───────────────────────────────────────
+          Compact: title + client + address only. Status shows in exactly
+          two places — this card's color-mapped top border (accent={tone},
+          mapped from project.status by STATUS_TONE: active=green,
+          draft=gray, follow-up=amber, closed=dim gray) and the Status
+          selector below. No standalone status badge or action buttons here,
+          so real content sits closer to the top. */}
+      <GlassCard accent={tone} style={{ padding: '15px 18px', marginBottom: 14 }}>
+        <div style={V3.T.h1}>{project.name}</div>
+        {project.client && <div style={{ ...V3.T.h1Sub, marginTop: 3, color: V3.TEXT_SECONDARY }}>{project.client}</div>}
+        {project.address && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 7 }}>
+            <I n="location" s={13} c={DIM} w={1.8} />
+            <span style={{ ...V3.T.caption, color: DIM }}>{project.address}</span>
           </div>
-          <StatusPill tone={tone}>{STATUS_LABEL[project.status] || project.status}</StatusPill>
-        </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 16 }}>
-          {/* Primary contextual action — assessments are created here, inside
-              the project workspace, not globally on the Projects screen. */}
-          {onNewAssessment && (
-            <TactileButton
-              variant="primary"
-              size="sm"
-              pill
-              onClick={startNewAssessment}
-              icon={<I n="findings" s={14} c="#FFFFFF" />}
-              style={{ background: 'var(--success)', color: '#FFFFFF', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.22), 0 1px 2px rgba(0,0,0,0.20)' }}
-            >
-              New assessment
-            </TactileButton>
-          )}
-          <TactileButton variant="secondary" size="sm" onClick={() => { setDocCategory(''); docInputRef.current?.click() }} icon={<I n="upload" s={14} c="var(--accent)" />}>Upload</TactileButton>
-          {onAskAI && <TactileButton variant="secondary" size="sm" onClick={onAskAI} icon={<I n="mic" s={14} c="var(--accent)" />}>Ask AtmosFlow AI</TactileButton>}
-          <TactileButton variant="ghost" size="sm" onClick={() => setShowEdit(true)} icon={<I n="draft" s={14} c={V3.TEXT_SECONDARY} />}>Edit details</TactileButton>
-        </div>
+        )}
       </GlassCard>
 
       {/* ── Section nav — same liquid-glass pill control as the result
-          tabs, so the project workspace speaks the app's language. */}
+          tabs, labelled here so all nine project sections are identifiable.
+          These tabs navigate WITHIN this project; the bottom floating bar is
+          GLOBAL app navigation — the two are intentionally separate. */}
       <AssessmentSegmentedPillNav
         tabs={TABS}
         active={tab}
         onChange={setTab}
+        showLabels
         ariaLabel="Project sections"
         style={{ margin: '0 0 12px' }}
       />
+
+      {/* ── Primary action area — project-level actions, available across
+          tabs. Tiered: New assessment is the single full-width primary
+          (green); Upload + Ask AtmosFlow AI share a secondary row. Edit
+          details moved to the header ⋯ overflow menu. */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
+        {onNewAssessment && (
+          <TactileButton
+            variant="primary"
+            size="lg"
+            pill
+            fullWidth
+            onClick={startNewAssessment}
+            icon={<I n="findings" s={15} c="#FFFFFF" />}
+            style={{ background: 'var(--success)', color: '#FFFFFF', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.22), 0 1px 2px rgba(0,0,0,0.20)' }}
+          >
+            New assessment
+          </TactileButton>
+        )}
+        <div style={{ display: 'flex', gap: 10 }}>
+          <TactileButton variant="secondary" size="md" onClick={() => { setDocCategory(''); docInputRef.current?.click() }} icon={<I n="upload" s={14} c="var(--accent)" />} style={{ flex: 1 }}>Upload</TactileButton>
+          {onAskAI && <TactileButton variant="secondary" size="md" onClick={onAskAI} icon={<I n="mic" s={14} c="var(--accent)" />} style={{ flex: 1 }}>Ask AtmosFlow AI</TactileButton>}
+        </div>
+      </div>
 
       {error && (
         <div style={{ padding: '10px 14px', marginBottom: 14, background: 'color-mix(in srgb, var(--danger) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--danger) 30%, transparent)', borderRadius: V3.R.md, color: 'var(--danger)', fontSize: 13 }}>{error}</div>
@@ -272,19 +285,40 @@ export default function ProjectDetail({ id, onBack, profile, onNewAssessment, on
 
           <GlassCard>
             <SectionHead title="Contents" />
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 18 }}>
+            {/* Each count is a tappable target that navigates to the matching
+                section tab. Counts stay live; pressed state on pointer-down. */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               {[
-                ['findings', (project.linkedReportIds || []).length, 'Assessments'],
-                ['paperclip', (project.documents || []).length, 'Documents'],
-                ['image', (project.evidence || []).length, 'Photos'],
-                ['notes', (project.notes || []).length, 'Notes'],
-              ].map(([icon, n, label]) => (
-                <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <I n={icon} s={16} c={V3.TEXT_TERTIARY} w={1.8} />
-                  <span style={{ ...V3.N.md }}>{n}</span>
-                  <span style={{ ...V3.T.caption, color: DIM }}>{label}</span>
-                </div>
-              ))}
+                ['findings', (project.linkedReportIds || []).length, 'Assessments', 'assessments'],
+                ['paperclip', (project.documents || []).length, 'Documents', 'documents'],
+                ['image', (project.evidence || []).length, 'Photos', 'evidence'],
+                ['notes', (project.notes || []).length, 'Notes', 'notes'],
+              ].map(([icon, n, label, target]) => {
+                const press = (e) => { e.currentTarget.style.transform = 'scale(0.97)' }
+                const release = (e) => { e.currentTarget.style.transform = 'scale(1)' }
+                return (
+                  <button
+                    key={label}
+                    onClick={() => setTab(target)}
+                    aria-label={`${label}: ${n}. Open ${label}`}
+                    onPointerDown={press}
+                    onPointerUp={release}
+                    onPointerLeave={release}
+                    onPointerCancel={release}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 9, padding: '12px 14px',
+                      borderRadius: V3.R.md, background: 'var(--surface)', border: `1px solid ${V3.BORDER_DEFAULT}`,
+                      cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', WebkitTapHighlightColor: 'transparent',
+                      transition: 'transform 130ms cubic-bezier(.22,1,.36,1)',
+                    }}
+                  >
+                    <I n={icon} s={16} c="var(--accent)" w={1.8} />
+                    <span style={{ ...V3.N.md }}>{n}</span>
+                    <span style={{ ...V3.T.caption, color: DIM, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+                    <span style={{ color: DIM, fontSize: 13, flexShrink: 0 }}>›</span>
+                  </button>
+                )
+              })}
             </div>
           </GlassCard>
         </div>
