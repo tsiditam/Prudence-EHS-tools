@@ -71,6 +71,7 @@ import { getInitials } from './ProfileAvatar'
 import FeatureTour from './FeatureTour'
 import { printReport, generatePrintHTML } from './PrintReport'
 import { downloadReportPdf } from '../utils/downloadReportPdf'
+import { ensureLoggerChartImages } from '../utils/loggerChartImages'
 // v2.6.1 — DocxReport is a static import. Earlier `await import('./DocxReport')`
 // triggered "'text/html' is not a valid JavaScript MIME type" errors when a
 // user's cached index.html referenced a chunk hash that no longer existed
@@ -1564,7 +1565,13 @@ export default function MobileApp() {
     // 'consultant_cih' is the Consultant report in the CIH-reasoning style:
     // same pipeline, plus a Conceptual Site Model section (reportStyle flag).
     const reportStyle = docxType === 'consultant_cih' ? 'cih' : undefined
-    const reportData = { building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, escalationTriggers: esc, floorPlan, sensorData, labResults: viewRpt?.labResults || null, assessmentContext, reportStyle }
+    // Guarantee every "Include in report" logger timeline carries a usable PNG
+    // before any format embeds it. The on-screen capture is unreliable on iOS
+    // Safari (and the results-tab toggle never captured at all), so re-render
+    // the included charts from their data points here — a self-contained-SVG
+    // raster that every export (DOCX, AtmosFlow PDF, Web) then embeds.
+    const sensorDataForReport = await ensureLoggerChartImages(sensorData)
+    const reportData = { building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, escalationTriggers: esc, floorPlan, sensorData: sensorDataForReport, labResults: viewRpt?.labResults || null, assessmentContext, reportStyle }
     trackEvent('report_exported', { format: docxType || format, facility: bldg.fn || '', score: comp?.tot, zones: zones.length, has_narrative: !!narrative, photos: Object.values(filteredPhotos).flat().length })
 
     try {

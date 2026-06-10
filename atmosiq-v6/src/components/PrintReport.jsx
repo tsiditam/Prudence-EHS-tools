@@ -18,6 +18,8 @@ import { legacyToAssessmentScore, deriveAssessmentMeta } from '../engine/bridge'
 import { renderClientReport } from '../engine/report/client'
 import { generateClientReportHTML, generateModernClientReportHTML } from './print/client-html'
 import { generateModernSummaryHTML } from './print/modern-summary'
+import { extractIncludedLoggerGraphs } from './print/logger-graphs-html'
+import { primaryDataset } from '../utils/sensorParser'
 import { actionLine } from '../utils/recFormatting'
 
 export function selectReportTemplate(data) {
@@ -64,11 +66,18 @@ export function generatePrintHTML(data, opts = {}) {
   const result = renderClientReport(score, {
     includeAssessmentIndexAppendix: !!data.includeAssessmentIndexAppendix,
   })
+  // Environmental Evidence Graphs ride alongside the engine ClientReport
+  // (additive — not part of the engine prose path), so the included logger
+  // timelines embed in the Web report exactly as they do in the DOCX/PDF.
+  const clientOpts = {
+    loggerGraphs: extractIncludedLoggerGraphs(data.sensorData),
+    loggerDataSource: (primaryDataset(data.sensorData) || {}).fileName || null,
+  }
   // Same validated ClientReport, two stylesheets. 'modern' = the editorial
   // design; anything else = the established 'classic' layout.
   return opts.style === 'modern'
-    ? generateModernClientReportHTML(result)
-    : generateClientReportHTML(result)
+    ? generateModernClientReportHTML(result, clientOpts)
+    : generateClientReportHTML(result, clientOpts)
 }
 
 export function generateLegacyPrintHTML(data) {

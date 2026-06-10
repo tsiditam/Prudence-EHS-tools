@@ -16,6 +16,7 @@
  */
 
 import { validateClientReport } from '../../engine/report/validators'
+import { renderLoggerGraphsSectionHtml } from './logger-graphs-html'
 
 const esc = (str) => {
   if (str === null || str === undefined) return ''
@@ -612,6 +613,8 @@ function generateFullClientHTML(report, options, styles = PAGE_STYLES) {
   <p>${esc(report.limitationsAndProfessionalJudgment)}</p>
 
   ${renderSignatoryBlock(report.signatoryBlock)}
+
+  ${renderLoggerGraphsSectionHtml(options.loggerGraphs, { dataSource: options.loggerDataSource })}
 
   ${renderAppendices(report.appendix)}
 
