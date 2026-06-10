@@ -62,7 +62,7 @@ function ProjectCard({ project, onOpen }) {
   )
 }
 
-export default function ProjectsScreen({ onBack, onOpen }) {
+export default function ProjectsScreen({ onBack, onOpen, onStartSurvey, onReportIncident }) {
   const [projects, setProjects] = useState(null)
   const [filter, setFilter] = useState('all')
   const [showCreate, setShowCreate] = useState(false)
@@ -85,9 +85,11 @@ export default function ProjectsScreen({ onBack, onOpen }) {
 
   return (
     <div style={{ paddingTop: 16, paddingBottom: 120, maxWidth: 760, margin: '0 auto' }}>
-      <div style={{ marginBottom: 8 }}>
-        <button onClick={onBack} style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>← Home</button>
-      </div>
+      {onBack && (
+        <div style={{ marginBottom: 8 }}>
+          <button onClick={onBack} style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>← Home</button>
+        </div>
+      )}
 
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 6 }}>
         <div>
@@ -96,17 +98,45 @@ export default function ProjectsScreen({ onBack, onOpen }) {
         </div>
       </div>
 
-      <div style={{ marginTop: 14, marginBottom: 16 }}>
+      {/* Action row — mirrors the Home co-pilot pairing: green primary
+          (Start survey) + glass secondary (New project / site). Projects is
+          the landing page now, so the survey CTA lives here too. */}
+      <div style={{ marginTop: 14, marginBottom: 16, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        {onStartSurvey && (
+          <TactileButton
+            variant="primary"
+            size="sm"
+            pill
+            onClick={onStartSurvey}
+            style={{ background: 'var(--success)', color: '#FFFFFF', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.22), 0 1px 2px rgba(0,0,0,0.20)' }}
+          >
+            Start survey
+          </TactileButton>
+        )}
         <TactileButton
-          variant="primary"
+          variant="secondary"
           size="sm"
           pill
+          className="af-glass-control"
           onClick={() => setShowCreate(true)}
-          icon={<I n="bldg" s={14} c="#FFFFFF" />}
-          style={{ background: 'var(--success)', color: '#FFFFFF', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.22), 0 1px 2px rgba(0,0,0,0.20)' }}
+          icon={<I n="bldg" s={14} c="var(--accent)" />}
+          style={{ color: 'var(--accent)', background: undefined, border: undefined, boxShadow: undefined }}
         >
           New project / site
         </TactileButton>
+        {onReportIncident && (
+          <TactileButton
+            variant="secondary"
+            size="sm"
+            pill
+            className="af-glass-control"
+            onClick={onReportIncident}
+            icon={<I n="alert" s={14} c="var(--accent)" />}
+            style={{ color: 'var(--accent)', background: undefined, border: undefined, boxShadow: undefined }}
+          >
+            Report an incident
+          </TactileButton>
+        )}
       </div>
 
       {/* Status filter chips */}

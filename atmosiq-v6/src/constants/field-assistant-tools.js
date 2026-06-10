@@ -559,7 +559,7 @@ export async function dispatchTool(name, input, ctx = {}) {
           message: `Unsupported action_type "${actionType}". Supported: ${[...allowed].join(', ')}.`,
         }
       }
-      const allowedTargets = new Set(['dash', 'history', 'settings', 'search', 'trash', 'incident-log', 'results'])
+      const allowedTargets = new Set(['dash', 'projects', 'history', 'settings', 'search', 'trash', 'incident-log', 'results'])
       const allowedTabs = new Set(['overview', 'findings', 'pathways', 'sampling', 'narrative', 'actions'])
       const action = { type: actionType }
       if (actionType === 'navigate') {

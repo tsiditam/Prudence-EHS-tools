@@ -28,14 +28,21 @@ import {
   PROJECT_STATUSES, DOCUMENT_CATEGORIES, MAX_INLINE_FILE_BYTES,
 } from '../../utils/projectStore'
 import ProjectForm from './ProjectForm'
+import AssessmentSegmentedPillNav from '../ui/AssessmentSegmentedPillNav'
 import { STATUS_TONE, STATUS_LABEL, fileIcon, fmtBytes, fmtDate, fmtDateTime, fileToDataUrl, downloadDataUrl } from './projectsTheme'
 
 const DIM = V3.TEXT_MUTED
+// Project workspace sections (projects-centric IA). Rendered as the same
+// liquid-glass pill nav the assessment results use — icon-only inactive
+// pills keep nine sections scannable on a phone.
 const TABS = [
   { id: 'overview', label: 'Overview', icon: 'clip' },
+  { id: 'building', label: 'Building', icon: 'bldg' },
   { id: 'assessments', label: 'Assessments', icon: 'findings' },
+  { id: 'logger', label: 'Logger', icon: 'chartLine' },
+  { id: 'sampling', label: 'Sampling', icon: 'flask' },
+  { id: 'evidence', label: 'Photos', icon: 'image' },
   { id: 'documents', label: 'Documents', icon: 'paperclip' },
-  { id: 'evidence', label: 'Evidence', icon: 'image' },
   { id: 'notes', label: 'Notes', icon: 'notes' },
   { id: 'activity', label: 'Activity', icon: 'clock' },
 ]
@@ -65,7 +72,7 @@ function MetaRow({ label, children }) {
   )
 }
 
-export default function ProjectDetail({ id, onBack, profile, onOpenReport }) {
+export default function ProjectDetail({ id, onBack, profile, onOpenReport, onOpenLogger, onOpenSampling, onAskAI }) {
   const [project, setProject] = useState(null)
   const [missing, setMissing] = useState(false)
   const [tab, setTab] = useState('overview')
@@ -89,6 +96,36 @@ export default function ProjectDetail({ id, onBack, profile, onOpenReport }) {
 
   useEffect(() => { refresh() }, [refresh])
   useEffect(() => { (async () => { const idx = await STO.getIndex(); setReportsIndex(idx?.reports || []) })() }, [])
+
+  // Logger tab data — lazily scan the project's linked assessments for
+  // attached Logger Studio data (reports persist the whole sensorData
+  // object). null = not scanned yet; [] = scanned, none found.
+  const [loggerLinked, setLoggerLinked] = useState(null)
+  useEffect(() => {
+    if (tab !== 'logger' || loggerLinked !== null || !project) return
+    let alive = true
+    ;(async () => {
+      const out = []
+      for (const rid of (project.linkedReportIds || [])) {
+        try {
+          const rec = await STO.get(rid)
+          const graphs = rec?.sensorData?.graphs
+          const all = graphs ? Object.values(graphs).filter(g => g) : []
+          if (all.length > 0) {
+            out.push({
+              id: rid,
+              facility: rec?.building?.fn || 'Assessment',
+              ts: rec?.ts || null,
+              graphCount: all.length,
+              includedCount: all.filter(g => g.include).length,
+            })
+          }
+        } catch { /* unreadable record — skip */ }
+      }
+      if (alive) setLoggerLinked(out)
+    })()
+    return () => { alive = false }
+  }, [tab, loggerLinked, project])
 
   if (missing) {
     return (
@@ -163,27 +200,20 @@ export default function ProjectDetail({ id, onBack, profile, onOpenReport }) {
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 16 }}>
           <TactileButton variant="secondary" size="sm" onClick={() => { setDocCategory(''); docInputRef.current?.click() }} icon={<I n="upload" s={14} c="var(--accent)" />}>Upload</TactileButton>
+          {onAskAI && <TactileButton variant="secondary" size="sm" onClick={onAskAI} icon={<I n="mic" s={14} c="var(--accent)" />}>Ask AtmosFlow AI</TactileButton>}
           <TactileButton variant="ghost" size="sm" onClick={() => setShowEdit(true)} icon={<I n="draft" s={14} c={V3.TEXT_SECONDARY} />}>Edit details</TactileButton>
         </div>
       </GlassCard>
 
-      {/* ── Tab strip ──────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', gap: 4, overflowX: 'auto', marginBottom: 16, borderBottom: `1px solid ${V3.BORDER_SUBTLE}`, WebkitOverflowScrolling: 'touch' }}>
-        {TABS.map(t => {
-          const active = tab === t.id
-          return (
-            <button key={t.id} onClick={() => setTab(t.id)} style={{
-              flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6, padding: '10px 12px',
-              background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-              fontSize: 13, fontWeight: 600, color: active ? 'var(--accent)' : V3.TEXT_SECONDARY,
-              borderBottom: `2px solid ${active ? 'var(--accent)' : 'transparent'}`, marginBottom: -1,
-            }}>
-              <I n={t.icon} s={15} c={active ? 'var(--accent)' : V3.TEXT_TERTIARY} w={1.8} />
-              {t.label}
-            </button>
-          )
-        })}
-      </div>
+      {/* ── Section nav — same liquid-glass pill control as the result
+          tabs, so the project workspace speaks the app's language. */}
+      <AssessmentSegmentedPillNav
+        tabs={TABS}
+        active={tab}
+        onChange={setTab}
+        ariaLabel="Project sections"
+        style={{ margin: '0 0 12px' }}
+      />
 
       {error && (
         <div style={{ padding: '10px 14px', marginBottom: 14, background: 'color-mix(in srgb, var(--danger) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--danger) 30%, transparent)', borderRadius: V3.R.md, color: 'var(--danger)', fontSize: 13 }}>{error}</div>
@@ -196,18 +226,6 @@ export default function ProjectDetail({ id, onBack, profile, onOpenReport }) {
       {/* ── Overview ───────────────────────────────────────────────── */}
       {tab === 'overview' && (
         <div style={sgStack('base')}>
-          <GlassCard>
-            <SectionHead title="Site details" />
-            <MetaRow label="Client">{project.client}</MetaRow>
-            <MetaRow label="Site type">{project.siteType}</MetaRow>
-            <MetaRow label="Assessor(s)">{(project.assessors || []).join(', ')}</MetaRow>
-            <MetaRow label="Created">{fmtDate(project.createdAt)}</MetaRow>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, padding: '10px 0' }}>
-              <span style={{ ...V3.T.caption, color: DIM }}>Last updated</span>
-              <span style={{ ...V3.T.body }}>{fmtDate(project.updatedAt)}</span>
-            </div>
-          </GlassCard>
-
           <GlassCard>
             <SectionHead title="Status" />
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
@@ -249,6 +267,103 @@ export default function ProjectDetail({ id, onBack, profile, onOpenReport }) {
                 </div>
               ))}
             </div>
+          </GlassCard>
+        </div>
+      )}
+
+      {/* ── Building ───────────────────────────────────────────────── */}
+      {tab === 'building' && (
+        <div style={sgStack('base')}>
+          <GlassCard>
+            <SectionHead title="Building information" action={
+              <TactileButton variant="ghost" size="sm" onClick={() => setShowEdit(true)} icon={<I n="draft" s={14} c={V3.TEXT_SECONDARY} />}>Edit</TactileButton>
+            } />
+            <MetaRow label="Client">{project.client}</MetaRow>
+            <MetaRow label="Site type">{project.siteType}</MetaRow>
+            <MetaRow label="Address">{project.address}</MetaRow>
+            <MetaRow label="Assessor(s)">{(project.assessors || []).join(', ')}</MetaRow>
+            <MetaRow label="Created">{fmtDate(project.createdAt)}</MetaRow>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, padding: '10px 0' }}>
+              <span style={{ ...V3.T.caption, color: DIM }}>Last updated</span>
+              <span style={{ ...V3.T.body }}>{fmtDate(project.updatedAt)}</span>
+            </div>
+          </GlassCard>
+          <GlassCard>
+            <SectionHead title="Building profile" />
+            <div style={V3.T.bodyDim}>
+              The detailed building profile (HVAC, occupancy, envelope) is captured inside each
+              assessment walkthrough and pre-fills on a follow-up visit to this site.
+            </div>
+          </GlassCard>
+        </div>
+      )}
+
+      {/* ── Logger data ────────────────────────────────────────────── */}
+      {tab === 'logger' && (
+        <div style={sgStack('base')}>
+          {loggerLinked === null ? (
+            <EmptyHint>Scanning linked assessments for logger data…</EmptyHint>
+          ) : loggerLinked.length > 0 && (
+            <div>
+              <SectionHead title="Logger data in this project" count={loggerLinked.length} />
+              <div style={sgStack('tight')}>
+                {loggerLinked.map(l => {
+                  const idxEntry = reportsIndex.find(r => r.id === l.id)
+                  return (
+                    <GlassCard key={l.id} dense onClick={idxEntry ? () => onOpenReport?.(idxEntry) : undefined}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <I n="chartLine" s={18} c="var(--accent)" w={1.8} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ ...V3.T.bodyStrong, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.facility}</div>
+                          <div style={V3.T.captionDim}>
+                            {l.ts ? `${fmtDate(l.ts)} · ` : ''}{l.graphCount} graph{l.graphCount === 1 ? '' : 's'}{l.includedCount ? ` · ${l.includedCount} in report` : ''}
+                          </div>
+                        </div>
+                        <span style={{ color: DIM, fontSize: 13 }}>›</span>
+                      </div>
+                    </GlassCard>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+          <GlassCard style={{ textAlign: 'center', padding: '32px 24px' }}>
+            <div style={{ width: 52, height: 52, borderRadius: 14, margin: '0 auto 14px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'color-mix(in srgb, var(--accent) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--accent) 22%, transparent)' }}>
+              <I n="chartLine" s={24} c="var(--accent)" w={1.8} />
+            </div>
+            <div style={{ ...V3.T.h3, marginBottom: 6 }}>
+              {loggerLinked && loggerLinked.length > 0 ? 'Add more logger data' : 'Logger data'}
+            </div>
+            <div style={{ ...V3.T.bodyDim, maxWidth: 380, margin: '0 auto 16px' }}>
+              Upload logger exports in Logger Studio and send the charts and averages into this
+              site's assessments — they show up here once attached.
+            </div>
+            {onOpenLogger && (
+              <TactileButton variant="secondary" size="sm" pill onClick={onOpenLogger} icon={<I n="chartLine" s={14} c="var(--accent)" />}>
+                Open Logger Studio
+              </TactileButton>
+            )}
+          </GlassCard>
+        </div>
+      )}
+
+      {/* ── Sampling forms ─────────────────────────────────────────── */}
+      {tab === 'sampling' && (
+        <div style={sgStack('base')}>
+          <GlassCard style={{ textAlign: 'center', padding: '32px 24px' }}>
+            <div style={{ width: 52, height: 52, borderRadius: 14, margin: '0 auto 14px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'color-mix(in srgb, var(--accent) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--accent) 22%, transparent)' }}>
+              <I n="flask" s={24} c="var(--accent)" w={1.8} />
+            </div>
+            <div style={{ ...V3.T.h3, marginBottom: 6 }}>Sampling forms</div>
+            <div style={{ ...V3.T.bodyDim, maxWidth: 380, margin: '0 auto 16px' }}>
+              Generate field sampling and chain-of-custody forms for this site's assessments.
+              Completed forms can be uploaded to Documents to keep them with the engagement.
+            </div>
+            {onOpenSampling && (
+              <TactileButton variant="secondary" size="sm" pill onClick={onOpenSampling} icon={<I n="flask" s={14} c="var(--accent)" />}>
+                Open sampling forms
+              </TactileButton>
+            )}
           </GlassCard>
         </div>
       )}
@@ -329,7 +444,7 @@ export default function ProjectDetail({ id, onBack, profile, onOpenReport }) {
       {/* ── Evidence ───────────────────────────────────────────────── */}
       {tab === 'evidence' && (
         <div>
-          <SectionHead title="Evidence / photos" count={(project.evidence || []).length} action={
+          <SectionHead title="Photos" count={(project.evidence || []).length} action={
             <TactileButton variant="secondary" size="sm" onClick={() => evInputRef.current?.click()} icon={<I n="upload" s={14} c="var(--accent)" />}>Add photos</TactileButton>
           } />
           {(project.evidence || []).length === 0 ? (
