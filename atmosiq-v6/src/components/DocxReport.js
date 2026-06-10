@@ -22,6 +22,7 @@ import { buildClientDocx } from './docx/sections-v21client'
 import { buildLabResultsAppendix } from './docx/sections-lab-results'
 import { buildSensorGraphsAppendix } from './docx/sections-sensor'
 import { buildMethodologyCurrency } from './docx/sections-methodology-currency'
+import { buildConceptualSiteModelSection } from './docx/sections-conceptual-model'
 import { buildCalibrationAppendix } from './docx/calibration-appendix'
 import { legacyToAssessmentScore, deriveAssessmentMeta } from '../engine/bridge'
 import { renderClientReport } from '../engine/report/client'
@@ -287,8 +288,15 @@ async function buildConsultantDocument(ctx, data) {
   //   • Environmental Evidence Graphs — report-ready IAQ timelines the
   //     assessor flagged on the Sensor Data screen (→ Appendix H).
   // Each builder returns null when it has nothing to render.
+  // The "CIH reasoning" report style (data.reportStyle === 'cih') adds a
+  // Conceptual Site Model body section — each screening hypothesis as a
+  // source → pathway → receptor chain with evidence + confidence, derived
+  // from the engine's existing causalChains output. Standard style omits it.
+  const conceptualModel = data.reportStyle === 'cih'
+    ? buildConceptualSiteModelSection(data.causalChains)
+    : null
   const supplemental = {
-    bodySections: [buildMethodologyCurrency()].filter(Boolean),
+    bodySections: [buildMethodologyCurrency(), conceptualModel].filter(Boolean),
     appendices: [
       buildLabResultsAppendix(data.labResults),
       buildSensorGraphsAppendix(data.sensorData),

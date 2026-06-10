@@ -1559,7 +1559,10 @@ export default function MobileApp() {
       comp, zoneScores, recs, narrative, samplingPlan, causalChains,
       profile, draftId,
     })
-    const reportData = { building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, escalationTriggers: esc, floorPlan, sensorData, labResults: viewRpt?.labResults || null, assessmentContext }
+    // 'consultant_cih' is the Consultant report in the CIH-reasoning style:
+    // same pipeline, plus a Conceptual Site Model section (reportStyle flag).
+    const reportStyle = docxType === 'consultant_cih' ? 'cih' : undefined
+    const reportData = { building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, escalationTriggers: esc, floorPlan, sensorData, labResults: viewRpt?.labResults || null, assessmentContext, reportStyle }
     trackEvent('report_exported', { format: docxType || format, facility: bldg.fn || '', score: comp?.tot, zones: zones.length, has_narrative: !!narrative, photos: Object.values(filteredPhotos).flat().length })
 
     try {
@@ -1572,7 +1575,7 @@ export default function MobileApp() {
         const label = docxType === 'technical' ? 'Writing your technical report' : 'Writing your consultant report'
         setGenWriting({ label, durationMs: ms })
         await new Promise(res => setTimeout(res, ms))
-        if (docxType === 'consultant') await generateConsultantOnly(reportData)
+        if (docxType === 'consultant' || docxType === 'consultant_cih') await generateConsultantOnly(reportData)
         else if (docxType === 'technical') await generateTechnicalOnly(reportData)
         else await generateDocx(reportData)
       } else {
@@ -3880,6 +3883,10 @@ export default function MobileApp() {
             <GlassCard onClick={()=>{setDocxPicker(false);handleExport('docx','consultant')}} dense style={{padding:'14px 16px'}}>
               <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:3}}>Consultant Report</div>
               <div style={{fontSize:12,color:SUB,lineHeight:1.55}}>Modern editorial Word layout — serif headings, clean tables, navy zone bars. Executive summary, interpretation, and recommendations for client delivery.</div>
+            </GlassCard>
+            <GlassCard onClick={()=>{setDocxPicker(false);handleExport('docx','consultant_cih')}} dense style={{padding:'14px 16px'}}>
+              <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:3}}>Consultant Report — CIH Reasoning</div>
+              <div style={{fontSize:12,color:SUB,lineHeight:1.55}}>The consultant report plus a Conceptual Site Model — each screening hypothesis written as a source → pathway → receptor chain with evidence and a confidence rating, the way a senior industrial hygienist reasons.</div>
             </GlassCard>
             <GlassCard onClick={()=>{setDocxPicker(false);handleExport('docx','technical')}} dense style={{padding:'14px 16px'}}>
               <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:3}}>Technical Report</div>
