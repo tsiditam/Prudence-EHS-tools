@@ -76,6 +76,26 @@ const ZONES = [
 ]
 const OUTDOOR = { co2: 432, co: 0.3, t: 58.0, rh: 55, pm: 12, tvoc: 50 }
 
+// Continuous CO2 log (1-min) captured in Zone 8-D during a six-person
+// meeting — the series AtmosFlow Logger Studio charts. Fictitious.
+const LOGGER_CO2 = [
+  { x: '13:10', v: 765 }, { x: '13:13', v: 802 }, { x: '13:16', v: 868 },
+  { x: '13:19', v: 941 }, { x: '13:22', v: 1008 }, { x: '13:25', v: 1074 },
+  { x: '13:28', v: 1129 }, { x: '13:31', v: 1176 }, { x: '13:34', v: 1206 },
+  { x: '13:37', v: 1229 }, { x: '13:40', v: 1244 }, { x: '13:43', v: 1247 },
+  { x: '13:46', v: 1181 }, { x: '13:49', v: 1042 }, { x: '13:52', v: 904 },
+  { x: '13:55', v: 818 },
+]
+const CO2_INDICATOR = OUTDOOR.co2 + 700 // ASHRAE ventilation indicator basis
+
+// Site photographs — sample placeholders (a live report embeds field photos).
+const PHOTOS = [
+  { title: 'Interior conference room (8-D)', sub: 'Windowless; logged during a six-person meeting' },
+  { title: 'Rooftop fresh-air intake', sub: 'Outdoor reference / economizer station' },
+  { title: 'Copy / print room (8-F)', sub: 'Laser printers; limited local exhaust' },
+  { title: 'Break room (12-B)', sub: 'Shared return air; intermittent cooking' },
+]
+
 const mean = (k) => Math.round(ZONES.reduce((s, z) => s + z[k], 0) / ZONES.length * 10) / 10
 const range = (k) => [Math.min(...ZONES.map(z => z[k])), Math.max(...ZONES.map(z => z[k]))]
 const MEAN = { co2: Math.round(mean('co2')), co: mean('co'), t: mean('t'), rh: Math.round(mean('rh')), pm: Math.round(mean('pm')), tvoc: Math.round(mean('tvoc')) }
@@ -192,6 +212,167 @@ function chip(label, color, x, y, w = 70) {
   doc.restore()
 }
 
+// ─── Figures: charts, floor plan, photo placeholders ───────────────
+function ensureFig(h) { if (doc.y + h > BOTTOM_LIMIT) doc.addPage() }
+function figTitle(t) {
+  doc.fillColor(ACCENT_DK).font('Helvetica-Bold').fontSize(9.5).text(t, MARGIN, doc.y, { width: CONTENT_W })
+  doc.moveDown(0.3)
+}
+function figCaption(t) {
+  doc.moveDown(0.2)
+  doc.fillColor(FAINT).font('Helvetica-Oblique').fontSize(8.5).text(t, MARGIN, doc.y, { width: CONTENT_W, lineGap: 1.5 })
+  doc.x = MARGIN
+  doc.moveDown(0.7)
+}
+
+// Line chart (e.g. a Logger Studio CO2 time series).
+function lineChart({ title, points, yMin, yMax, yTicks = 4, threshold, thresholdLabel, xTickEvery = 3, height = 200 }) {
+  ensureFig(height + 44)
+  figTitle(title)
+  const top = doc.y
+  const axisL = MARGIN + 42
+  const axisR = MARGIN + CONTENT_W
+  const plotTop = top + 8
+  const plotBot = top + height - 22
+  const plotH = plotBot - plotTop
+  const plotW = axisR - axisL
+  const yToPix = v => plotBot - ((v - yMin) / (yMax - yMin)) * plotH
+  const xToPix = i => axisL + (i / (points.length - 1)) * plotW
+  doc.save()
+  for (let g = 0; g <= yTicks; g++) {
+    const val = yMin + (yMax - yMin) * g / yTicks
+    const yy = yToPix(val)
+    doc.lineWidth(0.4).strokeColor(RULE).moveTo(axisL, yy).lineTo(axisR, yy).stroke()
+    doc.fillColor(FAINT).font('Helvetica').fontSize(7).text(String(Math.round(val)), MARGIN, yy - 4, { width: 36, align: 'right', lineBreak: false })
+  }
+  if (threshold != null) {
+    const ty = yToPix(threshold)
+    doc.dash(3, { space: 2 }).lineWidth(0.9).strokeColor(SEV.elevated.color).moveTo(axisL, ty).lineTo(axisR, ty).stroke().undash()
+    doc.fillColor(SEV.elevated.color).font('Helvetica-Bold').fontSize(6.8).text(thresholdLabel || '', axisL + 3, ty - 9, { lineBreak: false })
+  }
+  // area fill under the line
+  doc.moveTo(xToPix(0), plotBot)
+  points.forEach((pt, i) => doc.lineTo(xToPix(i), yToPix(pt.v)))
+  doc.lineTo(xToPix(points.length - 1), plotBot).closePath()
+  doc.fillColor(ACCENT).fillOpacity(0.10).fill()
+  doc.fillOpacity(1)
+  // line
+  doc.lineWidth(1.4).strokeColor(ACCENT)
+  points.forEach((pt, i) => { const X = xToPix(i), Y = yToPix(pt.v); if (i === 0) doc.moveTo(X, Y); else doc.lineTo(X, Y) })
+  doc.stroke()
+  points.forEach((pt, i) => { doc.circle(xToPix(i), yToPix(pt.v), 1.5).fillColor(ACCENT).fill() })
+  // axes + x labels
+  doc.lineWidth(0.6).strokeColor(SOFT).moveTo(axisL, plotTop).lineTo(axisL, plotBot).lineTo(axisR, plotBot).stroke()
+  doc.fillColor(FAINT).font('Helvetica').fontSize(6.8)
+  points.forEach((pt, i) => { if (i % xTickEvery === 0 || i === points.length - 1) doc.text(pt.x, xToPix(i) - 14, plotBot + 4, { width: 28, align: 'center', lineBreak: false }) })
+  doc.restore()
+  doc.x = MARGIN
+  doc.y = top + height
+}
+
+// Bar chart (e.g. peak CO2 by zone).
+function barChart({ title, bars, yMin = 0, yMax, yTicks = 4, threshold, thresholdLabel, height = 190 }) {
+  ensureFig(height + 44)
+  figTitle(title)
+  const top = doc.y
+  const axisL = MARGIN + 42
+  const axisR = MARGIN + CONTENT_W
+  const plotTop = top + 8
+  const plotBot = top + height - 24
+  const plotH = plotBot - plotTop
+  const plotW = axisR - axisL
+  const yToPix = v => plotBot - ((v - yMin) / (yMax - yMin)) * plotH
+  doc.save()
+  for (let g = 0; g <= yTicks; g++) {
+    const val = yMin + (yMax - yMin) * g / yTicks
+    const yy = yToPix(val)
+    doc.lineWidth(0.4).strokeColor(RULE).moveTo(axisL, yy).lineTo(axisR, yy).stroke()
+    doc.fillColor(FAINT).font('Helvetica').fontSize(7).text(String(Math.round(val)), MARGIN, yy - 4, { width: 36, align: 'right', lineBreak: false })
+  }
+  const n = bars.length, slot = plotW / n, bw = slot * 0.56
+  bars.forEach((b, i) => {
+    const x = axisL + slot * i + (slot - bw) / 2
+    const y = yToPix(b.value)
+    doc.rect(x, y, bw, plotBot - y).fillColor(b.color || ACCENT).fill()
+    doc.fillColor(INK).font('Helvetica-Bold').fontSize(6.4).text(String(b.value), x - 5, y - 9, { width: bw + 10, align: 'center', lineBreak: false })
+    doc.fillColor(FAINT).font('Helvetica').fontSize(6.8).text(b.label, x - 6, plotBot + 4, { width: bw + 12, align: 'center', lineBreak: false })
+  })
+  if (threshold != null) {
+    const ty = yToPix(threshold)
+    doc.dash(3, { space: 2 }).lineWidth(0.9).strokeColor(SEV.elevated.color).moveTo(axisL, ty).lineTo(axisR, ty).stroke().undash()
+    doc.fillColor(SEV.elevated.color).font('Helvetica-Bold').fontSize(6.8).text(thresholdLabel || '', axisL + 3, ty - 9, { lineBreak: false })
+  }
+  doc.lineWidth(0.6).strokeColor(SOFT).moveTo(axisL, plotTop).lineTo(axisL, plotBot).lineTo(axisR, plotBot).stroke()
+  doc.restore()
+  doc.x = MARGIN
+  doc.y = top + height
+}
+
+// Schematic floor plan with sampling-location markers.
+function floorPlan({ height = 250 }) {
+  ensureFig(height + 30)
+  figTitle('Figure 1 — Representative sampling locations (Floor 8 schematic)')
+  const top = doc.y
+  const x0 = MARGIN + 6, y0 = top + 4
+  const w = CONTENT_W - 12, h = height - 44
+  doc.save()
+  doc.lineWidth(1.2).strokeColor(SLATE).rect(x0, y0, w, h).stroke()
+  const room = (fx, fy, fw, fh, label, fill, marker) => {
+    const rx = x0 + fx * w, ry = y0 + fy * h, rw = fw * w, rh = fh * h
+    doc.rect(rx, ry, rw, rh).fillColor(fill).fillOpacity(1).fill()
+    doc.lineWidth(0.6).strokeColor(RULE).rect(rx, ry, rw, rh).stroke()
+    doc.fillColor(SLATE).font('Helvetica-Bold').fontSize(7.5).text(label, rx + 5, ry + 5, { width: rw - 10, lineBreak: false })
+    if (marker) {
+      const mx = rx + 14, my = ry + rh - 14
+      doc.circle(mx, my, 3.4).fillColor(ACCENT).fill()
+      doc.fillColor(ACCENT_DK).font('Helvetica-Bold').fontSize(6.6).text(marker, mx + 7, my - 4, { width: rw - 24, lineBreak: false })
+    }
+  }
+  // Top band
+  room(0, 0, 0.50, 0.40, '8-B  Open office', CARD, 'S1')
+  room(0.50, 0, 0.28, 0.40, '8-A  Reception', '#FFFFFF')
+  room(0.78, 0, 0.22, 0.40, '8-F  Copy / print', CARD, 'S3')
+  // Corridor
+  room(0, 0.40, 1.0, 0.16, 'Corridor', ZEBRA)
+  // Bottom band
+  room(0, 0.56, 0.34, 0.44, '8-C  Open office', '#FFFFFF')
+  room(0.34, 0.56, 0.20, 0.44, 'Core (elev. / WC)', '#E2E8F0')
+  room(0.54, 0.56, 0.46, 0.44, '8-D  Interior conference', CARD, 'S2 (logger)')
+  doc.restore()
+  // Legend
+  const ly = y0 + h + 8
+  doc.circle(MARGIN + 4, ly + 4, 3.2).fillColor(ACCENT).fill()
+  doc.fillColor(SOFT).font('Helvetica').fontSize(8).text('Direct-reading sampling location (S#)    ·    S2 = continuous logger station    ·    Not to scale; layout is schematic.', MARGIN + 14, ly, { width: CONTENT_W - 14, lineBreak: false })
+  doc.x = MARGIN
+  doc.y = ly + 18
+}
+
+// Photo placeholders (a live report embeds the assessor's field photos).
+function photoGrid(items) {
+  const gap = 14, colW = (CONTENT_W - gap) / 2, frameH = 96, cardH = frameH + 30
+  for (let i = 0; i < items.length; i += 2) {
+    ensureFig(cardH + 8)
+    const top = doc.y
+    for (let j = 0; j < 2 && i + j < items.length; j++) {
+      const it = items[i + j]
+      const x = MARGIN + j * (colW + gap)
+      doc.roundedRect(x, top, colW, frameH, 6).fillColor(ZEBRA).fill()
+      doc.lineWidth(0.6).strokeColor(RULE).roundedRect(x, top, colW, frameH, 6).stroke()
+      // simple "image" glyph: sun + two mountains
+      doc.save()
+      doc.circle(x + colW - 26, top + 24, 7).fillColor('#94A3B8').fill()
+      const by = top + frameH - 14, bx = x + 14, bw = colW - 28
+      doc.fillColor('#CBD5E1').moveTo(bx, by).lineTo(bx + bw * 0.34, by - 34).lineTo(bx + bw * 0.60, by).closePath().fill()
+      doc.fillColor('#B6C2D1').moveTo(bx + bw * 0.42, by).lineTo(bx + bw * 0.72, by - 46).lineTo(bx + bw, by).closePath().fill()
+      doc.restore()
+      doc.fillColor(SLATE).font('Helvetica-Bold').fontSize(8).text(`Photo ${i + j + 1}. ${it.title}`, x, top + frameH + 5, { width: colW, lineBreak: false })
+      doc.fillColor(FAINT).font('Helvetica').fontSize(7).text(it.sub, x, top + frameH + 16, { width: colW, lineBreak: false })
+    }
+    doc.x = MARGIN
+    doc.y = top + cardH + 8
+  }
+}
+
 // Running header + footer, stamped on every page except the cover.
 // Temporarily lifts the page's bottom margin so footer text drawn in the
 // margin band doesn't trip pdfkit's auto-pagination (which would re-enter
@@ -297,6 +478,9 @@ function buildContent() {
   p(`The assessment covered ${REPORT.floors.toLowerCase()} of ${REPORT.facility}, a multi-tenant Class-A office building served by a central variable-air-volume (VAV) HVAC system with rooftop air handlers and perimeter VAV boxes. Eight zones were selected to represent a cross-section of use types: perimeter and interior offices, open workstations, a conference room, a copy/print room, an executive suite, and a break room. Occupancy at the time of assessment ranged from 1 to 6 persons per zone. Outdoor conditions were mild and dry (≈58 °F, 55% RH), with light wind from the northwest.`)
   p('The objective was a screening characterization of indoor air quality indicators to (a) confirm whether observed conditions fall within recognized comfort and ventilation references, (b) identify any zones warranting follow-up, and (c) provide a defensible, prioritized action list. The assessment did not include integrated time-weighted-average sampling, microbial sampling, or destructive investigation.')
 
+  floorPlan({ height: 250 })
+  figCaption('Schematic of Floor 8 showing the spaces sampled and the direct-reading locations (S1–S3). The interior conference room (8-D) has no operable window and was the continuous-logger station.')
+
   h2('2. Methodology & Instrumentation')
   h3('Direct-reading instrumentation')
   bullets([
@@ -335,20 +519,44 @@ function buildContent() {
   doc.moveDown(0.8)
 
   h2('Per-Parameter Interpretation')
+  p('Each indicator below is introduced briefly — what it is and why it is measured — followed by what was observed at this site and how it compares to recognized references.')
   h3('Carbon dioxide (CO2) — ventilation indicator')
-  p(`Outdoor baseline averaged ${OUTDOOR.co2} ppm. Indoor concentrations ranged ${RNG.co2[0]}–${RNG.co2[1]} ppm (site mean ${MEAN.co2} ppm). ASHRAE 62.1 prescribes ventilation rates rather than a CO2 limit; an indoor-to-outdoor differential above roughly 700 ppm is commonly used as an indicator of under-ventilation relative to occupant load. The conference-room peak of ${RNG.co2[1]} ppm in Zone 8-D — captured during a six-person meeting — represents ${RNG.co2[1] - OUTDOOR.co2} ppm above outdoor baseline, exceeding the indicator by ~115 ppm during the measurement window. All other zones remained within the indicator range.`)
+  p('What it is and why we measure it: Carbon dioxide is produced by people as they breathe and builds up indoors when the supply of outdoor air does not keep pace with the number of occupants. At the concentrations typical of offices it is not itself a health hazard, but it is the most practical real-time indicator of ventilation adequacy — elevated levels usually accompany "stuffiness" complaints and signal that a space is receiving too little fresh air for its occupant load.')
+  p(`Observed: Outdoor baseline averaged ${OUTDOOR.co2} ppm. Indoor concentrations ranged ${RNG.co2[0]}–${RNG.co2[1]} ppm (site mean ${MEAN.co2} ppm). ASHRAE 62.1 prescribes ventilation rates rather than a CO2 limit; an indoor-to-outdoor differential above roughly 700 ppm is commonly used as an indicator of under-ventilation relative to occupant load. The conference-room peak of ${RNG.co2[1]} ppm in Zone 8-D — captured during a six-person meeting — represents ${RNG.co2[1] - OUTDOOR.co2} ppm above outdoor baseline, exceeding the indicator by ~115 ppm during the measurement window. All other zones remained within the indicator range.`)
 
   h3('Carbon monoxide (CO)')
-  p(`CO was uniformly low (${RNG.co[0]}–${RNG.co[1]} ppm) and well below the US EPA NAAQS (9 ppm, 8-hour) and the OSHA PEL (50 ppm, 8-hour TWA). The slightly higher break-room reading (Zone 12-B, 1.1 ppm) is consistent with intermittent toaster/appliance use and is not of concern at this level.`)
+  p('What it is and why we measure it: Carbon monoxide is a colorless, odorless gas formed by incomplete combustion — vehicle exhaust, gas-fired appliances, and generators. Because it is an acute hazard that reduces the blood’s ability to carry oxygen, even low indoor readings are screened to rule out combustion sources migrating into occupied space (for example from loading docks, an attached garage, or a flue that is not venting properly).')
+  p(`Observed: CO was uniformly low (${RNG.co[0]}–${RNG.co[1]} ppm) and well below the US EPA NAAQS (9 ppm, 8-hour) and the OSHA PEL (50 ppm, 8-hour TWA). The slightly higher break-room reading (Zone 12-B, 1.1 ppm) is consistent with intermittent toaster/appliance use and is not of concern at this level.`)
 
   h3('Thermal comfort — temperature & relative humidity')
-  p(`Temperatures (${RNG.t[0]}–${RNG.t[1]} °F) and relative humidity (${RNG.rh[0]}–${RNG.rh[1]}%) fell within the ASHRAE 55 comfort envelope for the season and clothing assumptions. The interior conference room trended to the warm/humid edge during occupancy, consistent with the elevated CO2 and reduced air exchange noted above.`)
+  p('What it is and why we measure it: Dry-bulb temperature and relative humidity together define the thermal environment, which is the single most common driver of occupant comfort complaints. Relative humidity also affects air quality: sustained high humidity can support microbial growth, while very low humidity contributes to dryness and irritation of the eyes and airways. Both are screened against the ASHRAE 55 comfort envelope.')
+  p(`Observed: Temperatures (${RNG.t[0]}–${RNG.t[1]} °F) and relative humidity (${RNG.rh[0]}–${RNG.rh[1]}%) fell within the ASHRAE 55 comfort envelope for the season and clothing assumptions. The interior conference room trended to the warm/humid edge during occupancy, consistent with the elevated CO2 and reduced air exchange noted above.`)
 
   h3('Fine particulate (PM2.5)')
-  p(`PM2.5 ranged ${RNG.pm[0]}–${RNG.pm[1]} µg/m³ (site mean ${MEAN.pm} µg/m³), below the US EPA NAAQS 24-hour standard of 35 µg/m³. The copy/print room (Zone 8-F, 18 µg/m³) and break room (Zone 12-B, 16 µg/m³) were advisory-tier relative to quieter office zones, attributable to laser-printer and cooking activity respectively. These are local, intermittent sources rather than a building-wide condition.`)
+  p('What it is and why we measure it: PM2.5 refers to airborne particles 2.5 micrometers and smaller — fine enough to be inhaled deep into the lungs. Indoor sources include cooking, printing, and outdoor particles drawn in through the ventilation system. It is measured as an indicator of particulate exposure and of how effectively the building’s air filtration is performing.')
+  p(`Observed: PM2.5 ranged ${RNG.pm[0]}–${RNG.pm[1]} µg/m³ (site mean ${MEAN.pm} µg/m³), below the US EPA NAAQS 24-hour standard of 35 µg/m³. The copy/print room (Zone 8-F, 18 µg/m³) and break room (Zone 12-B, 16 µg/m³) were advisory-tier relative to quieter office zones, attributable to laser-printer and cooking activity respectively. These are local, intermittent sources rather than a building-wide condition.`)
 
   h3('Total volatile organic compounds (TVOC)')
-  p(`TVOC ranged ${RNG.tvoc[0]}–${RNG.tvoc[1]} µg/m³ (isobutylene-equivalent; site mean ${MEAN.tvoc} µg/m³). Per the Mølhave (1991) advisory framework, the copy/print room (610 µg/m³) and conference room (520 µg/m³) fall in the lower "multifactorial exposure range," where irritation or comfort complaints become possible in sensitive individuals but no specific health effect is established. TVOC by photoionization is a non-specific comfort indicator only; it does not identify individual compounds or establish toxicological significance.`)
+  p('What it is and why we measure it: Total volatile organic compounds (TVOC) is a combined measure of the many gas-phase chemicals that off-gas from furnishings, finishes, adhesives, cleaning products, and office equipment. It is a non-specific screening indicator — it does not identify individual compounds — but elevated readings often accompany odor or irritation complaints and point to a source worth investigating.')
+  p(`Observed: TVOC ranged ${RNG.tvoc[0]}–${RNG.tvoc[1]} µg/m³ (isobutylene-equivalent; site mean ${MEAN.tvoc} µg/m³). Per the Mølhave (1991) advisory framework, the copy/print room (610 µg/m³) and conference room (520 µg/m³) fall in the lower "multifactorial exposure range," where irritation or comfort complaints become possible in sensitive individuals but no specific health effect is established. TVOC by photoionization is a non-specific comfort indicator only; it does not identify individual compounds or establish toxicological significance.`)
+
+  // Logger Studio charts
+  doc.addPage()
+  h1('3.1 Continuous Logger Data (Logger Studio)')
+  p('Beyond the grab readings above, a data logger captured CO2 at one-minute intervals in the interior conference room (Zone 8-D) across a six-person meeting. AtmosFlow Logger Studio charts the series and overlays the ventilation-indicator threshold. The trend shows concentrations climbing through the occupied period and recovering once the room cleared — the signature of outdoor-air delivery lagging occupant load.')
+  lineChart({
+    title: 'Figure 2 — CO2 trend, Zone 8-D conference room (1-min logger)',
+    points: LOGGER_CO2, yMin: 600, yMax: 1300,
+    threshold: CO2_INDICATOR, thresholdLabel: `Ventilation indicator ≈ ${CO2_INDICATOR} ppm`,
+    xTickEvery: 3, height: 205,
+  })
+  figCaption(`Logger Studio export. Peak ${RNG.co2[1].toLocaleString()} ppm at ~13:43 during the meeting; baseline recovery within roughly ten minutes of adjournment.`)
+  barChart({
+    title: 'Figure 3 — Peak CO2 by zone vs. ventilation indicator',
+    bars: ZONES.map(z => ({ label: z.id, value: z.co2, color: SEV[z.sev].color })),
+    yMin: 0, yMax: 1400, threshold: CO2_INDICATOR, thresholdLabel: 'Indicator', height: 195,
+  })
+  figCaption('Across the eight zones, only the interior conference room (8-D) exceeds the ventilation indicator; every other space falls below it.')
 
   // 4. FINDINGS
   doc.addPage()
@@ -448,6 +656,12 @@ function buildContent() {
   doc.moveDown(0.5)
   h2('Appendix B — About This Sample')
   p('AtmosFlow is a screening-only IAQ assessment platform: it captures field observations and direct-reading measurements, screens them against recognized references, and assembles a consultant-grade, defensible report for review by a qualified industrial hygienist or EHS professional. It identifies risk indicators and produces prioritized follow-up — it does not make regulatory classifications or compliance determinations. This sample uses fictitious data to illustrate structure and tone. Learn more at atmosflow.net.')
+
+  // APPENDIX C — PHOTOGRAPHS
+  doc.addPage()
+  h1('Appendix C — Site Photographs')
+  p('The photographs below are sample placeholders. A live AtmosFlow report embeds the assessor’s geotagged field photos — each tied to the zone and finding it documents (for example, the windowless conference room, the rooftop intake, and the print-room printers referenced in Sections 3 and 4).')
+  photoGrid(PHOTOS)
 }
 
 // ─── Render one pass to a file; resolves with the page count ───────
