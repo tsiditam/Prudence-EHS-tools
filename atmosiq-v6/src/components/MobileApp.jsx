@@ -1583,7 +1583,7 @@ export default function MobileApp() {
         // as the DOCX path before the file is produced, then download.
         // docxType carries the style choice here: 'modern' = new editorial
         // layout, anything else = classic.
-        const style = docxType === 'modern' ? 'modern' : 'classic'
+        const style = docxType === 'modern_summary' ? 'modern_summary' : docxType === 'modern' ? 'modern' : 'classic'
         setGenWriting({ label: 'Writing your consultant report', durationMs: 15000 })
         await new Promise(res => setTimeout(res, 15000))
         printReport(reportData, { style })
@@ -3895,6 +3895,10 @@ export default function MobileApp() {
             <GlassCard onClick={()=>{setDocxPicker(false);handleExport('web','modern')}} dense style={{padding:'14px 16px'}}>
               <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:3}}>Consultant Report — Web (HTML)</div>
               <div style={{fontSize:12,color:SUB,lineHeight:1.55}}>The modern editorial layout as a print-ready web page. Open in a browser to print or save as PDF.</div>
+            </GlassCard>
+            <GlassCard onClick={()=>{setDocxPicker(false);handleExport('web','modern_summary')}} dense style={{padding:'14px 16px'}}>
+              <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:3}}>Modern Summary (concise)</div>
+              <div style={{fontSize:12,color:SUB,lineHeight:1.55}}>A short, plain-language screening summary in the modern AtmosFlow design — cover, at-a-glance snapshot, key findings, logger charts, and next steps. Open in a browser to print or save as PDF.</div>
             </GlassCard>
           </div>
           <div style={{marginTop:14}}>
