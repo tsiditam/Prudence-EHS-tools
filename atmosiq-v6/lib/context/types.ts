@@ -206,6 +206,13 @@ export interface JasperContextInput extends RawAssessmentState {
   report_review?: unknown
   /** Draft / report index — used as facility-name fallback when bldg isn't hydrated. */
   index?: { drafts?: Array<{ facility?: string }>; reports?: unknown[] }
+  /**
+   * Summary of the Project / Site workspace the assessor is currently
+   * working in (set when the project-detail view is open). Distinct from
+   * AssessmentContext.project, which is the report-engagement metadata
+   * (client / recipient) of a single assessment.
+   */
+  project_workspace?: Record<string, unknown> | null
 }
 
 /**
@@ -254,4 +261,10 @@ export type JasperContext = AssessmentContext & {
   readonly incident: unknown
   /** Discrepancy-scan payload (passthrough from MobileApp state). */
   readonly report_review: unknown
+  /**
+   * Project / Site workspace summary (passthrough) — present when the
+   * assessor opened Jasper from inside a project workspace, so the AI
+   * knows which site engagement the conversation is about.
+   */
+  readonly project_workspace: Record<string, unknown> | null
 }

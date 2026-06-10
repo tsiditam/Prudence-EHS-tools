@@ -629,6 +629,32 @@ export default function MobileApp() {
   }
   const navDir = navRef.current.dir
   const [activeProjectId, setActiveProjectId] = useState(null)
+  // Summary of the open Project/Site workspace — loaded when a project is
+  // opened and handed to Jasper's context (project_workspace) so the AI
+  // knows which site engagement the conversation is about.
+  const [activeProjectSummary, setActiveProjectSummary] = useState(null)
+  useEffect(() => {
+    if (!activeProjectId) { setActiveProjectSummary(null); return }
+    let alive = true
+    import('../utils/projectStore').then(m => m.getProject(activeProjectId)).then(p => {
+      if (!alive || !p) return
+      setActiveProjectSummary({
+        id: p.id,
+        name: p.name || null,
+        client: p.client || null,
+        site_type: p.siteType || null,
+        address: p.address || null,
+        status: p.status || null,
+        counts: {
+          assessments: (p.linkedReportIds || []).length,
+          documents: (p.documents || []).length,
+          photos: (p.evidence || []).length,
+          notes: (p.notes || []).length,
+        },
+      })
+    }).catch(() => {})
+    return () => { alive = false }
+  }, [activeProjectId])
   // Where the project workspace returns to — 'projects' (IH list) or
   // 'properties' (FM Buildings portfolio), set when navigating in.
   const [projectBackView, setProjectBackView] = useState('projects')
@@ -4551,6 +4577,9 @@ export default function MobileApp() {
             index,
             incident: currentIncident,
             report_review: reviewPayload || null,
+            // Project workspace context — only when the assessor is inside
+            // a project, so unrelated chats aren't biased toward it.
+            project_workspace: view === 'project-detail' ? activeProjectSummary : null,
           })}
         />
       )}

@@ -97,6 +97,36 @@ export default function ProjectDetail({ id, onBack, profile, onOpenReport, onOpe
   useEffect(() => { refresh() }, [refresh])
   useEffect(() => { (async () => { const idx = await STO.getIndex(); setReportsIndex(idx?.reports || []) })() }, [])
 
+  // Logger tab data — lazily scan the project's linked assessments for
+  // attached Logger Studio data (reports persist the whole sensorData
+  // object). null = not scanned yet; [] = scanned, none found.
+  const [loggerLinked, setLoggerLinked] = useState(null)
+  useEffect(() => {
+    if (tab !== 'logger' || loggerLinked !== null || !project) return
+    let alive = true
+    ;(async () => {
+      const out = []
+      for (const rid of (project.linkedReportIds || [])) {
+        try {
+          const rec = await STO.get(rid)
+          const graphs = rec?.sensorData?.graphs
+          const all = graphs ? Object.values(graphs).filter(g => g) : []
+          if (all.length > 0) {
+            out.push({
+              id: rid,
+              facility: rec?.building?.fn || 'Assessment',
+              ts: rec?.ts || null,
+              graphCount: all.length,
+              includedCount: all.filter(g => g.include).length,
+            })
+          }
+        } catch { /* unreadable record — skip */ }
+      }
+      if (alive) setLoggerLinked(out)
+    })()
+    return () => { alive = false }
+  }, [tab, loggerLinked, project])
+
   if (missing) {
     return (
       <div style={{ paddingTop: 16, paddingBottom: 120, maxWidth: 760, margin: '0 auto' }}>
@@ -271,14 +301,42 @@ export default function ProjectDetail({ id, onBack, profile, onOpenReport, onOpe
       {/* ── Logger data ────────────────────────────────────────────── */}
       {tab === 'logger' && (
         <div style={sgStack('base')}>
+          {loggerLinked === null ? (
+            <EmptyHint>Scanning linked assessments for logger data…</EmptyHint>
+          ) : loggerLinked.length > 0 && (
+            <div>
+              <SectionHead title="Logger data in this project" count={loggerLinked.length} />
+              <div style={sgStack('tight')}>
+                {loggerLinked.map(l => {
+                  const idxEntry = reportsIndex.find(r => r.id === l.id)
+                  return (
+                    <GlassCard key={l.id} dense onClick={idxEntry ? () => onOpenReport?.(idxEntry) : undefined}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <I n="chartLine" s={18} c="var(--accent)" w={1.8} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ ...V3.T.bodyStrong, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.facility}</div>
+                          <div style={V3.T.captionDim}>
+                            {l.ts ? `${fmtDate(l.ts)} · ` : ''}{l.graphCount} graph{l.graphCount === 1 ? '' : 's'}{l.includedCount ? ` · ${l.includedCount} in report` : ''}
+                          </div>
+                        </div>
+                        <span style={{ color: DIM, fontSize: 13 }}>›</span>
+                      </div>
+                    </GlassCard>
+                  )
+                })}
+              </div>
+            </div>
+          )}
           <GlassCard style={{ textAlign: 'center', padding: '32px 24px' }}>
             <div style={{ width: 52, height: 52, borderRadius: 14, margin: '0 auto 14px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'color-mix(in srgb, var(--accent) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--accent) 22%, transparent)' }}>
               <I n="chartLine" s={24} c="var(--accent)" w={1.8} />
             </div>
-            <div style={{ ...V3.T.h3, marginBottom: 6 }}>Logger data</div>
+            <div style={{ ...V3.T.h3, marginBottom: 6 }}>
+              {loggerLinked && loggerLinked.length > 0 ? 'Add more logger data' : 'Logger data'}
+            </div>
             <div style={{ ...V3.T.bodyDim, maxWidth: 380, margin: '0 auto 16px' }}>
               Upload logger exports in Logger Studio and send the charts and averages into this
-              site's assessments. Per-project logger sessions land here in a future update.
+              site's assessments — they show up here once attached.
             </div>
             {onOpenLogger && (
               <TactileButton variant="secondary" size="sm" pill onClick={onOpenLogger} icon={<I n="chartLine" s={14} c="var(--accent)" />}>

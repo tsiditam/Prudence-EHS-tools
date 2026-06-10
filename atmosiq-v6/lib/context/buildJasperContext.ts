@@ -97,5 +97,6 @@ export function buildJasperContext(state: JasperContextInput): JasperContext {
     logger_studio: base.logger_data_summary,
     incident: state.incident ?? null,
     report_review: state.report_review ?? null,
+    project_workspace: state.project_workspace ?? null,
   }
 }
