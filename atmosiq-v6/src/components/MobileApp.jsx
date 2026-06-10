@@ -603,7 +603,10 @@ export default function MobileApp() {
   // dormant.
   const PAYWALL_DISABLED = true
   // views: dash|quickstart|zone|details|results|history|drafts|report
-  const [view, setView] = useState('dash')
+  // Projects is the default landing (projects-centric nav redesign); the
+  // legacy dashboard remains reachable from the side menu's Home-less
+  // deep links until it's fully retired.
+  const [view, setView] = useState('projects')
   // ── Notion-style page-transition direction tracker ──
   // Classifies each view change so AnimatedPageTransition can pick the
   // right enter animation: top-level dock destinations are "tab" (soft
@@ -613,7 +616,7 @@ export default function MobileApp() {
   // actual view change) so the direction is correct the instant the new
   // page mounts. A ref-held stack approximates a nav stack without
   // touching routing.
-  const navRef = useRef({ stack: ['dash'], dir: 'up' })
+  const navRef = useRef({ stack: ['projects'], dir: 'up' })
   {
     const TAB_VIEWS = new Set(['dash', 'history', 'sensor-data', 'account', 'properties', 'incident-log'])
     const st = navRef.current.stack
@@ -722,6 +725,17 @@ export default function MobileApp() {
   // Which secondary side-menu groups (Tools/Resources/Support) are expanded.
   // Collapsed by default so the menu opens calm — just the primaries + Trash.
   const [menuGroupsOpen, setMenuGroupsOpen] = useState({ tools: false, resources: false, support: false })
+  // Project switcher (top of the side menu). Loads the project list each
+  // time the menu opens so the recents are fresh; `menuSwitcherOpen`
+  // expands the inline recents list under the chip.
+  const [menuProjects, setMenuProjects] = useState([])
+  const [menuSwitcherOpen, setMenuSwitcherOpen] = useState(false)
+  useEffect(() => {
+    if (!showHomeMenu) { setMenuSwitcherOpen(false); return }
+    let alive = true
+    import('../utils/projectStore').then(m => m.getProjects()).then(p => { if (alive) setMenuProjects(p || []) }).catch(() => {})
+    return () => { alive = false }
+  }, [showHomeMenu])
   // Side-menu edge-swipe gesture state (kept at the top with the other
   // hooks so it always runs before any conditional early return).
   const swipeRef = useRef(null)
@@ -2994,12 +3008,11 @@ export default function MobileApp() {
   const go = (fn) => { setShowHomeMenu(false); haptic('light'); fn && fn() }
   // Primary destinations + a secondary "More" group so nothing is orphaned.
   // Each item highlights when its view is active.
-  // Primary navigation — the workflow anchors, always visible. (Home stays
-  // for now because the "Start survey" action still lives on the dashboard;
-  // Projects-as-landing is the next increment once that flow is rehomed.)
+  // Primary navigation — the three workflow anchors, always visible.
+  // (Home/dashboard was dropped from nav: Projects is the landing and the
+  // Start-survey flow now also lives on the Projects screen.)
   const sideMenuPrimary = [
-    { label: 'Home',         icon: 'home',      view: 'dash',        onClick: () => { setView('dash'); setViewRpt(null) } },
-    { label: 'Projects',     icon: 'bldg',      view: 'projects',    onClick: () => setView('projects') },
+    { label: 'Projects',     icon: 'bldg',      view: 'projects',    onClick: () => { setView('projects'); setViewRpt(null) } },
     { label: 'Reports',      icon: 'report',    view: 'history',     onClick: () => setView('history') },
     { label: 'AtmosFlow AI', icon: 'jasper', renderIcon: () => <JasperBrainIcon size={20} animate={false} />, onClick: () => { supabase && trackEvent('jasper_open', { source: 'side_menu' }); setFaOpen(true) } },
   ]
@@ -3115,6 +3128,65 @@ export default function MobileApp() {
             {((profile?.name||'A').replace(/@.*/,'').trim().split(/\s+/).map(s=>s[0]).filter(Boolean).slice(0,2).join('')||'A').toUpperCase()}
           </button>
         </div>
+        {/* ── Project switcher ── persistent context chip: shows the
+            project you're working in (or "All projects"), and expands an
+            inline recents list. Selecting a project opens its workspace. */}
+        {(() => {
+          const current = activeProjectId ? menuProjects.find(p => p.id === activeProjectId) : null
+          const recents = [...menuProjects].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).slice(0, 5)
+          const openProject = (id) => go(() => { setProjectBackView('projects'); setActiveProjectId(id); setView('project-detail') })
+          return (
+            <div style={{marginBottom:8}}>
+              <button
+                onClick={() => setMenuSwitcherOpen(o => !o)}
+                aria-expanded={menuSwitcherOpen}
+                aria-label="Switch project"
+                style={{
+                  width:'100%', display:'flex', alignItems:'center', gap:10, padding:'11px 12px',
+                  borderRadius:14, border:'1px solid rgba(255,255,255,0.10)', cursor:'pointer', textAlign:'left',
+                  fontFamily:'inherit', background:'rgba(255,255,255,0.05)',
+                  boxShadow:'inset 0 1px 0 rgba(255,255,255,0.08)',
+                  WebkitTapHighlightColor:'transparent',
+                }}>
+                <span style={{width:8,height:8,borderRadius:'50%',flexShrink:0,background:'var(--accent)'}} />
+                <span style={{flex:1,minWidth:0,fontSize:14,fontWeight:600,color:'#F3F5F8',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
+                  {current ? current.name : 'All projects'}
+                </span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9AA3B2" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
+                  style={{transform: menuSwitcherOpen ? 'rotate(180deg)' : 'none', transition:'transform 180ms cubic-bezier(.22,1,.36,1)', flexShrink:0}}>
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </button>
+              {menuSwitcherOpen && (
+                <div style={{marginTop:4, padding:'2px 0 4px'}}>
+                  {recents.map(p => (
+                    <button key={p.id} onClick={() => openProject(p.id)} style={{
+                      width:'100%', display:'flex', alignItems:'center', gap:10, padding:'10px 12px 10px 22px',
+                      borderRadius:12, border:'none', background:'transparent', cursor:'pointer', textAlign:'left',
+                      fontFamily:'inherit', fontSize:14, fontWeight: p.id === activeProjectId ? 600 : 500,
+                      color: p.id === activeProjectId ? 'var(--accent)' : '#D9DEE6',
+                      WebkitTapHighlightColor:'transparent',
+                    }}>
+                      <I n="bldg" s={15} c={p.id === activeProjectId ? 'var(--accent)' : '#8B93A5'} w={1.7} />
+                      <span style={{flex:1,minWidth:0,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{p.name}</span>
+                    </button>
+                  ))}
+                  {recents.length === 0 && (
+                    <div style={{padding:'10px 12px 8px 22px', fontSize:13, color:'#8B93A5'}}>No projects yet</div>
+                  )}
+                  <button onClick={() => go(() => setView('projects'))} style={{
+                    width:'100%', display:'flex', alignItems:'center', gap:10, padding:'10px 12px 10px 22px',
+                    borderRadius:12, border:'none', background:'transparent', cursor:'pointer', textAlign:'left',
+                    fontFamily:'inherit', fontSize:13, fontWeight:600, color:'var(--accent)',
+                    WebkitTapHighlightColor:'transparent',
+                  }}>
+                    All projects ›
+                  </button>
+                </div>
+              )}
+            </div>
+          )
+        })()}
         <div style={{flex:1,overflowY:'auto',WebkitOverflowScrolling:'touch'}}>
           {sideMenuPrimary.map(sideMenuRow)}
           {sideMenuGroups.map(g => (
@@ -3162,21 +3234,21 @@ export default function MobileApp() {
                 Linear style) — the AtmosFlow wordmark only lives on the
                 home dashboard. On an assessment / its results the label is
                 the facility name. */}
-            {profile && view!=='dash' && (
+            {profile && view!=='dash' && view!=='projects' && (
               <button
-                onClick={()=>{setView('dash');setViewRpt(null)}}
-                aria-label="Back to home"
+                onClick={()=>{setView('projects');setViewRpt(null)}}
+                aria-label="Back to projects"
                 className="af-glass-control af-menu-trigger"
                 style={{display:'flex',alignItems:'center',gap:3,height:36,padding:'0 14px 0 9px',borderRadius:999,boxSizing:'border-box',cursor:'pointer',fontFamily:'inherit',color:ACCENT,WebkitTapHighlightColor:'transparent'}}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={ACCENT} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6" /></svg>
                 <span style={{fontSize:15,fontWeight:600,letterSpacing:'-0.01em',maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{
                   ((isAssessing || view==='results' || view==='report') && bldg?.fn)
                     ? bldg.fn
-                    : ({history:'Reports',settings:'Settings',account:'Account','sensor-data':'Logger Studio',properties:'Buildings','incident-log':'Incidents','incident-form':'New Incident','incident-detail':'Incident',projects:'Projects','project-detail':'Project',trash:'Trash',search:'Search',help:'Help','sampling-forms':'Sampling Forms','instrument-edit':'Instruments',equipment:'Instruments',spatial:'Floor Plan',tos:'Terms of Service',privacy:'Privacy Policy',admin:'Admin',results:'Assessment',report:'Report'}[view] || 'Home')
+                    : ({dash:'Home',history:'Reports',settings:'Settings',account:'Account','sensor-data':'Logger Studio',properties:'Buildings','incident-log':'Incidents','incident-form':'New Incident','incident-detail':'Incident','project-detail':'Project',trash:'Trash',search:'Search',help:'Help','sampling-forms':'Sampling Forms','instrument-edit':'Instruments',equipment:'Instruments',spatial:'Floor Plan',tos:'Terms of Service',privacy:'Privacy Policy',admin:'Admin',results:'Assessment',report:'Report'}[view] || 'Projects')
                 }</span>
               </button>
             )}
-            {profile && view==='dash' && (
+            {profile && (view==='dash' || view==='projects') && (
               <>
               <button
                 ref={menuButtonRef}
@@ -4323,7 +4395,7 @@ export default function MobileApp() {
         {view==='trash'&&<TrashView onRecover={async(id)=>{await Backup.recover(id);await refreshIndex()}} onDelete={async(id)=>{await Backup.permanentDelete(id)}} />}
         {view==='sampling-forms'&&<SamplingFormsView profile={profile} onBack={()=>setView('dash')} />}
         {view==='sensor-data'&&<SensorDataPage value={sensorData} onChange={setSensorData} reports={index.drafts||[]} currentReportId={draftId} currentZones={zones} onApplyAverages={applyAveragesToReport} onBack={()=>setView(comp?'results':'dash')} />}
-        {view==='projects'&&<ProjectsScreen onBack={()=>setView('dash')} onOpen={(pid)=>{setProjectBackView('projects');setActiveProjectId(pid);setView('project-detail')}} />}
+        {view==='projects'&&<ProjectsScreen onStartSurvey={startNew} onOpen={(pid)=>{setProjectBackView('projects');setActiveProjectId(pid);setView('project-detail')}} />}
         {view==='project-detail'&&<ProjectDetail id={activeProjectId} profile={profile} onBack={()=>setView(projectBackView)} onOpenReport={(r)=>openReport(r)} />}
         {view==='settings'&&<SettingsScreen onNavigate={(v)=>{if(v==='pricing'){setShowPricing(true)}else if(v==='tour'){setView('dash');setShowTour(true)}else{setView(v)}}} adminActive={!!adminSecret} onActivateAdmin={(secret)=>{setAdminSecret(secret);setView('admin')}} />}
         {view==='account'&&<AccountScreen profile={profile} onEditProfile={()=>{sessionStorage.setItem('aiq_welcomed','1');setWelcomeDone(true);setProfile({...profile,isNew:true});setView('dash')}} onLogout={handleLogout} onNavigate={(v)=>setView(v)} />}
@@ -4363,7 +4435,7 @@ export default function MobileApp() {
           icon: t.icon,
           badge: t.badge,
           active: view === t.id,
-          onClick: () => { haptic('light'); supabase && trackEvent('page_view', { tab: t.id }); setView(t.id); if (t.id === 'dash') setViewRpt(null) },
+          onClick: () => { haptic('light'); supabase && trackEvent('page_view', { tab: t.id }); setView(t.id); if (t.id === 'dash' || t.id === 'projects') setViewRpt(null) },
         })
         const navTabs = (userMode === 'fm' ? [
           {id:'dash',label:'Home',icon:'home'},
@@ -4371,13 +4443,12 @@ export default function MobileApp() {
           {id:'incident-log',label:'Incidents',icon:'alert'},
           {id:'sensor-data',label:'Logger Studio',icon:'chartLine'},
         ] : [
-          // Consultant dock: Home, Reports, Logger Studio, Account.
-          // Projects stays in the drawer menu so no destinations are
-          // orphaned. AtmosFlow AI rides in the aux pill below.
-          {id:'dash',label:'Home',icon:'home'},
+          // Consultant dock = the two workflow anchors; AtmosFlow AI rides
+          // in the aux pill beside it. Logger Studio lives in the menu's
+          // Tools group; Account behind the menu avatar — so the dock and
+          // menu reinforce the same primaries instead of competing.
+          {id:'projects',label:'Projects',icon:'bldg'},
           {id:'history',label:'Reports',icon:'report',badge:((index.drafts||[]).length+(index.reports||[]).length)||null},
-          {id:'sensor-data',label:'Logger Studio',icon:'chartLine'},
-          {id:'account',label:'Account',icon:'user'},
         ]).map(mkTab)
 
         // AtmosFlow AI — its own circular pill beside the oval dock. Keeps
