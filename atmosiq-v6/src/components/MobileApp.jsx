@@ -3158,10 +3158,10 @@ export default function MobileApp() {
           width:'100%', display:'flex', alignItems:'center', gap:13, padding:'13px 14px',
           margin:'2px 0', borderRadius:16, border:'none', cursor:'pointer', textAlign:'left',
           fontFamily:'inherit', fontSize:15, fontWeight:active?600:500,
-          color: active ? 'var(--accent)' : '#E7E9EE',
+          color: active ? 'var(--accent)' : 'var(--text)',
           background: active ? 'color-mix(in srgb, var(--accent) 16%, transparent)' : 'transparent',
           boxShadow: active
-            ? 'inset 0 0 0 1px color-mix(in srgb, var(--accent) 26%, transparent), inset 0 1px 0 rgba(255,255,255,0.06)'
+            ? 'inset 0 0 0 1px color-mix(in srgb, var(--accent) 26%, transparent), inset 0 1px 0 var(--m-inset)'
             : 'none',
           WebkitBackdropFilter: active ? 'blur(12px) saturate(160%)' : 'none',
           backdropFilter: active ? 'blur(12px) saturate(160%)' : 'none',
@@ -3187,8 +3187,8 @@ export default function MobileApp() {
           marginTop:6, background:'transparent', border:'none', cursor:'pointer', textAlign:'left',
           fontFamily:'inherit', WebkitTapHighlightColor:'transparent',
         }}>
-        <span style={{flex:1, fontSize:11, fontWeight:700, letterSpacing:'0.6px', textTransform:'uppercase', color:'#7C8696'}}>{g.label}</span>
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7C8696" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
+        <span style={{flex:1, fontSize:11, fontWeight:700, letterSpacing:'0.6px', textTransform:'uppercase', color:'var(--sub)'}}>{g.label}</span>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--sub)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
           style={{transform: open ? 'rotate(90deg)' : 'rotate(0deg)', transition:'transform 180ms cubic-bezier(.22,1,.36,1)'}}>
           <polyline points="9 18 15 12 9 6" />
         </svg>
@@ -3202,18 +3202,18 @@ export default function MobileApp() {
       <nav className="af-sidemenu" aria-label="Main menu" aria-hidden={!showHomeMenu}>
         {/* Header — bold AtmosFlow wordmark left + a glass circular avatar
             right (Claude mobile style); the avatar opens the Account page. */}
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,padding:'2px 4px 16px',marginBottom:6,borderBottom:'1px solid rgba(255,255,255,0.07)'}}>
-          <span style={{fontSize:23,fontWeight:800,letterSpacing:'-0.03em',color:'#F3F5F8'}}>AtmosFlow</span>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,padding:'2px 4px 16px',marginBottom:6,borderBottom:'1px solid var(--m-hair)'}}>
+          <span style={{fontSize:23,fontWeight:800,letterSpacing:'-0.03em',color:'var(--text)'}}>AtmosFlow</span>
           <button
             onClick={() => go(() => setView('account'))}
             aria-label="Account"
             style={{
               width:40, height:40, borderRadius:'50%', flexShrink:0,
               display:'flex', alignItems:'center', justifyContent:'center',
-              background:'rgba(255,255,255,0.06)',
+              background:'var(--m-ctl)',
               backdropFilter:'blur(12px) saturate(160%)', WebkitBackdropFilter:'blur(12px) saturate(160%)',
-              border:'1px solid rgba(255,255,255,0.16)',
-              boxShadow:'inset 0 1px 0 rgba(255,255,255,0.12)',
+              border:'1px solid var(--m-border)',
+              boxShadow:'inset 0 1px 0 var(--m-inset)',
               color:'var(--accent)', fontSize:14, fontWeight:700, letterSpacing:'0.02em',
               cursor:'pointer', fontFamily:'inherit', overflow:'hidden', WebkitTapHighlightColor:'transparent',
             }}>
@@ -3237,16 +3237,16 @@ export default function MobileApp() {
                 aria-label="Switch project"
                 style={{
                   width:'100%', display:'flex', alignItems:'center', gap:10, padding:'11px 12px',
-                  borderRadius:14, border:'1px solid rgba(255,255,255,0.10)', cursor:'pointer', textAlign:'left',
-                  fontFamily:'inherit', background:'rgba(255,255,255,0.05)',
-                  boxShadow:'inset 0 1px 0 rgba(255,255,255,0.08)',
+                  borderRadius:14, border:'1px solid var(--m-border)', cursor:'pointer', textAlign:'left',
+                  fontFamily:'inherit', background:'var(--m-ctl)',
+                  boxShadow:'inset 0 1px 0 var(--m-inset)',
                   WebkitTapHighlightColor:'transparent',
                 }}>
                 <span style={{width:8,height:8,borderRadius:'50%',flexShrink:0,background:'var(--accent)'}} />
-                <span style={{flex:1,minWidth:0,fontSize:14,fontWeight:600,color:'#F3F5F8',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
+                <span style={{flex:1,minWidth:0,fontSize:14,fontWeight:600,color:'var(--text)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
                   {current ? current.name : 'All projects'}
                 </span>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9AA3B2" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--sub)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
                   style={{transform: menuSwitcherOpen ? 'rotate(180deg)' : 'none', transition:'transform 180ms cubic-bezier(.22,1,.36,1)', flexShrink:0}}>
                   <polyline points="6 9 12 15 18 9" />
                 </svg>
@@ -3258,15 +3258,15 @@ export default function MobileApp() {
                       width:'100%', display:'flex', alignItems:'center', gap:10, padding:'10px 12px 10px 22px',
                       borderRadius:12, border:'none', background:'transparent', cursor:'pointer', textAlign:'left',
                       fontFamily:'inherit', fontSize:14, fontWeight: p.id === activeProjectId ? 600 : 500,
-                      color: p.id === activeProjectId ? 'var(--accent)' : '#D9DEE6',
+                      color: p.id === activeProjectId ? 'var(--accent)' : 'var(--text)',
                       WebkitTapHighlightColor:'transparent',
                     }}>
-                      <I n="bldg" s={15} c={p.id === activeProjectId ? 'var(--accent)' : '#8B93A5'} w={1.7} />
+                      <I n="bldg" s={15} c={p.id === activeProjectId ? 'var(--accent)' : 'var(--sub)'} w={1.7} />
                       <span style={{flex:1,minWidth:0,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{p.name}</span>
                     </button>
                   ))}
                   {recents.length === 0 && (
-                    <div style={{padding:'10px 12px 8px 22px', fontSize:13, color:'#8B93A5'}}>No projects yet</div>
+                    <div style={{padding:'10px 12px 8px 22px', fontSize:13, color:'var(--sub)'}}>No projects yet</div>
                   )}
                   <button onClick={() => go(() => setView('projects'))} style={{
                     width:'100%', display:'flex', alignItems:'center', gap:10, padding:'10px 12px 10px 22px',
@@ -3291,11 +3291,11 @@ export default function MobileApp() {
           ))}
         </div>
         {/* Trash — isolated at the bottom, muted (rare / destructive). */}
-        <div style={{borderTop:'1px solid rgba(255,255,255,0.07)', marginTop:6, paddingTop:6}}>
+        <div style={{borderTop:'1px solid var(--m-hair)', marginTop:6, paddingTop:6}}>
           <button
             onClick={() => go(sideMenuTrash.onClick)}
-            style={{width:'100%',display:'flex',alignItems:'center',gap:13,padding:'12px 14px',borderRadius:14,border:'none',background:'transparent',cursor:'pointer',textAlign:'left',fontFamily:'inherit',fontSize:14,fontWeight:500,color:'#8B93A5',WebkitTapHighlightColor:'transparent'}}>
-            <I n="trash" s={18} c="#8B93A5" w={1.6} />
+            style={{width:'100%',display:'flex',alignItems:'center',gap:13,padding:'12px 14px',borderRadius:14,border:'none',background:'transparent',cursor:'pointer',textAlign:'left',fontFamily:'inherit',fontSize:14,fontWeight:500,color:'var(--sub)',WebkitTapHighlightColor:'transparent'}}>
+            <I n="trash" s={18} c="var(--sub)" w={1.6} />
             <span style={{flex:1}}>Trash</span>
           </button>
         </div>
@@ -4723,6 +4723,21 @@ export default function MobileApp() {
           background:#070809; display:flex; flex-direction:column;
           padding:calc(env(safe-area-inset-top, 0px) + 20px) 14px calc(env(safe-area-inset-bottom, 0px) + 18px);
           overflow:hidden;
+          /* Menu-scoped glass tokens — kept dark by default; the light-theme
+             override below flips the surface white and the translucent
+             borders/insets to dark so the menu reads correctly in light mode.
+             Text/icons use the global --text / --sub tokens (already themed). */
+          --m-hair:rgba(255,255,255,0.07);
+          --m-border:rgba(255,255,255,0.14);
+          --m-ctl:rgba(255,255,255,0.06);
+          --m-inset:rgba(255,255,255,0.10);
+        }
+        [data-theme="light"] .af-sidemenu{
+          background:#FFFFFF;
+          --m-hair:rgba(15,23,42,0.08);
+          --m-border:rgba(15,23,42,0.12);
+          --m-ctl:rgba(15,23,42,0.045);
+          --m-inset:rgba(15,23,42,0.04);
         }
         .af-content-surface{
           position:fixed; inset:0; z-index:2; overflow-y:auto;
