@@ -964,6 +964,14 @@ export default function MobileApp() {
   // the dashboard. Used by every exit-to-home flow so the two modes don't
   // fork at each call site.
   const goHome = () => { setView(userMode === 'fm' ? 'dash' : 'projects'); setViewRpt(null) }
+  // Where a tool (Logger Studio / Sampling forms) should return to. Set to
+  // 'project-detail' when the tool is opened from inside a project
+  // workspace so one tap goes straight back to that project; cleared when
+  // the tool is entered from the menu/dock instead.
+  const [toolReturn, setToolReturn] = useState(null)
+  const exitTool = () => {
+    if (toolReturn) { setView(toolReturn); setToolReturn(null) } else goHome()
+  }
 
   const handleLogin = async (userOrProfile) => {
     // First interactive sign-in per browser cache plays the brand intro
@@ -3061,8 +3069,8 @@ export default function MobileApp() {
   // isolated at the bottom (rare/destructive, low salience).
   const sideMenuGroups = [
     { key: 'tools', label: 'Tools', items: [
-      { label: 'Logger Studio',  icon: 'chartLine', view: 'sensor-data',    onClick: () => setView('sensor-data') },
-      { label: 'Sampling forms', icon: 'flask',     view: 'sampling-forms', onClick: () => setView('sampling-forms') },
+      { label: 'Logger Studio',  icon: 'chartLine', view: 'sensor-data',    onClick: () => { setToolReturn(null); setView('sensor-data') } },
+      { label: 'Sampling forms', icon: 'flask',     view: 'sampling-forms', onClick: () => { setToolReturn(null); setView('sampling-forms') } },
       { label: 'Incidents',      icon: 'alert',     view: 'incident-log',   onClick: () => setView('incident-log') },
       { label: 'Search',         icon: 'search',    view: 'search',         onClick: () => setView('search') },
     ] },
@@ -3277,8 +3285,8 @@ export default function MobileApp() {
                 the facility name. */}
             {profile && view!=='dash' && view!=='projects' && (
               <button
-                onClick={()=>{setView('projects');setViewRpt(null)}}
-                aria-label="Back to projects"
+                onClick={()=>{ if ((view==='sensor-data'||view==='sampling-forms') && toolReturn) { setView(toolReturn); setToolReturn(null) } else { setView('projects'); setViewRpt(null) } }}
+                aria-label="Back"
                 className="af-glass-control af-menu-trigger"
                 style={{display:'flex',alignItems:'center',gap:3,height:36,padding:'0 14px 0 9px',borderRadius:999,boxSizing:'border-box',cursor:'pointer',fontFamily:'inherit',color:ACCENT,WebkitTapHighlightColor:'transparent'}}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={ACCENT} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6" /></svg>
@@ -4434,10 +4442,10 @@ export default function MobileApp() {
           )}
         </div>}
         {view==='trash'&&<TrashView onRecover={async(id)=>{await Backup.recover(id);await refreshIndex()}} onDelete={async(id)=>{await Backup.permanentDelete(id)}} />}
-        {view==='sampling-forms'&&<SamplingFormsView profile={profile} onBack={goHome} />}
-        {view==='sensor-data'&&<SensorDataPage value={sensorData} onChange={setSensorData} reports={index.drafts||[]} currentReportId={draftId} currentZones={zones} onApplyAverages={applyAveragesToReport} onBack={()=>setView(comp?'results':'dash')} />}
+        {view==='sampling-forms'&&<SamplingFormsView profile={profile} onBack={exitTool} />}
+        {view==='sensor-data'&&<SensorDataPage value={sensorData} onChange={setSensorData} reports={index.drafts||[]} currentReportId={draftId} currentZones={zones} onApplyAverages={applyAveragesToReport} onBack={()=>{ if (toolReturn) { exitTool() } else if (comp) { setView('results') } else { goHome() } }} />}
         {view==='projects'&&<ProjectsScreen onStartSurvey={startNew} onReportIncident={()=>setView('incident-form')} onOpen={(pid)=>{setProjectBackView('projects');setActiveProjectId(pid);setView('project-detail')}} />}
-        {view==='project-detail'&&<ProjectDetail id={activeProjectId} profile={profile} onBack={()=>setView(projectBackView)} onOpenReport={(r)=>openReport(r)} onOpenLogger={()=>setView('sensor-data')} onOpenSampling={()=>setView('sampling-forms')} onAskAI={()=>{ supabase && trackEvent('jasper_open', { source: 'project_workspace' }); setFaOpen(true) }} />}
+        {view==='project-detail'&&<ProjectDetail id={activeProjectId} profile={profile} onBack={()=>setView(projectBackView)} onOpenReport={(r)=>openReport(r)} onOpenLogger={()=>{setToolReturn('project-detail');setView('sensor-data')}} onOpenSampling={()=>{setToolReturn('project-detail');setView('sampling-forms')}} onAskAI={()=>{ supabase && trackEvent('jasper_open', { source: 'project_workspace' }); setFaOpen(true) }} />}
         {view==='settings'&&<SettingsScreen onNavigate={(v)=>{if(v==='pricing'){setShowPricing(true)}else if(v==='tour'){setView('dash');setShowTour(true)}else{setView(v)}}} adminActive={!!adminSecret} onActivateAdmin={(secret)=>{setAdminSecret(secret);setView('admin')}} />}
         {view==='account'&&<AccountScreen profile={profile} onEditProfile={()=>{sessionStorage.setItem('aiq_welcomed','1');setWelcomeDone(true);setProfile({...profile,isNew:true});goHome()}} onLogout={handleLogout} onNavigate={(v)=>setView(v)} />}
         {view==='tos'&&<TermsOfService onBack={()=>setView('settings')} />}
@@ -4476,7 +4484,7 @@ export default function MobileApp() {
           icon: t.icon,
           badge: t.badge,
           active: view === t.id,
-          onClick: () => { haptic('light'); supabase && trackEvent('page_view', { tab: t.id }); setView(t.id); if (t.id === 'dash' || t.id === 'projects') setViewRpt(null) },
+          onClick: () => { haptic('light'); supabase && trackEvent('page_view', { tab: t.id }); setToolReturn(null); setView(t.id); if (t.id === 'dash' || t.id === 'projects') setViewRpt(null) },
         })
         const navTabs = (userMode === 'fm' ? [
           {id:'dash',label:'Home',icon:'home'},
