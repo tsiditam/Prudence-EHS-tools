@@ -48,10 +48,11 @@ describe('JasperWatchPanel', () => {
     expect(panel.textContent).toMatch(/outdoor CO₂ reading/)
   })
 
-  it('renders the "Advisory — not a finding" framing', () => {
+  it('renders the "Advisory, not a finding" framing', () => {
     render(<JasperWatchPanel data={{ co: 55 }} />)
     const panel = screen.getByTestId('jasper-watch-panel')
-    expect(panel.textContent).toMatch(/Advisory — not a finding/)
+    // Copy intentionally uses a comma, not an em dash (style(ui) em-dash removal).
+    expect(panel.textContent).toMatch(/Advisory, not a finding/)
     expect(panel.textContent).toMatch(/full scoring engine still runs/i)
   })
 

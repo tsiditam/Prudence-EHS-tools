@@ -99,6 +99,7 @@ describe('Logger Studio multi-file flow', () => {
     await act(async () => { fireEvent.click(screen.getByRole('tab', { name: /Report/ })) })
     expect(screen.getByText('Indoor vs Outdoor CO₂')).toBeTruthy()
     expect(screen.getByText('Est. outdoor air')).toBeTruthy()
-    expect(screen.getByText(/Zone Comparison —/)).toBeTruthy()
+    // Title uses a colon, not an em dash (style(ui) em-dash removal).
+    expect(screen.getByText(/Zone Comparison:/)).toBeTruthy()
   })
 })
