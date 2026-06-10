@@ -3886,7 +3886,7 @@ export default function MobileApp() {
             </GlassCard>
             <GlassCard onClick={()=>{setDocxPicker(false);handleExport('docx','consultant_cih')}} dense style={{padding:'14px 16px'}}>
               <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:3}}>Consultant Report — CIH Reasoning</div>
-              <div style={{fontSize:12,color:SUB,lineHeight:1.55}}>The consultant report plus a Conceptual Site Model — each screening hypothesis written as a source → pathway → receptor chain with evidence and a confidence rating, the way a senior industrial hygienist reasons.</div>
+              <div style={{fontSize:12,color:SUB,lineHeight:1.55}}>The consultant report plus the reasoning record: plain-language parameter explainers, reported concerns mapped to screening evidence, a source → pathway → receptor Conceptual Site Model, and a findings register with per-zone data confidence.</div>
             </GlassCard>
             <GlassCard onClick={()=>{setDocxPicker(false);handleExport('docx','technical')}} dense style={{padding:'14px 16px'}}>
               <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:3}}>Technical Report</div>
