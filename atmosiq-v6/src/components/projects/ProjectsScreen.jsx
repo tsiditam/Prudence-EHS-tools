@@ -186,7 +186,7 @@ export default function ProjectsScreen({ onBack, onOpen, onReportIncident }) {
       )}
 
       {showCreate && (
-        <BottomSheet title="New project / site" onClose={() => setShowCreate(false)}>
+        <BottomSheet title="New project / site" tone="deep" onClose={() => setShowCreate(false)}>
           <ProjectForm submitLabel="Create project" onSubmit={handleCreate} onCancel={() => setShowCreate(false)} />
         </BottomSheet>
       )}

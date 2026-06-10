@@ -92,6 +92,11 @@
         --bg:#1C1B19;
         --surface:#232220;
         --card:#2A2926;
+        /* Deep surface — the near-black used by the slide-out side menu.
+           Opt-in via the BottomSheet `tone="deep"` prop for sheets that
+           should read as a dark stage rather than a raised card. Flips to
+           white in light mode below (mirrors the menu). */
+        --surface-deep:#070809;
         --raised:#322F2C;
         --border:#3A3834;
         /* Restrained primary cyan — darker and a touch less saturated
@@ -138,6 +143,7 @@
         --bg:#F8F4EB;
         --surface:#E4E8EC;
         --card:#FFFFFF;
+        --surface-deep:#FFFFFF;
         /* Light-mode raised surface for "selected" / "focused" rows.
            A pale cyan tint (the brand's light tint) so selected/active
            rows read as an accent highlight against pure-white cards,
