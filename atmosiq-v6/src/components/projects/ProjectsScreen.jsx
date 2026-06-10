@@ -97,7 +97,14 @@ export default function ProjectsScreen({ onBack, onOpen }) {
       </div>
 
       <div style={{ marginTop: 14, marginBottom: 16 }}>
-        <TactileButton variant="primary" size="lg" fullWidth onClick={() => setShowCreate(true)} icon={<I n="bldg" s={16} c="var(--on-accent-fill)" />}>
+        <TactileButton
+          variant="primary"
+          size="sm"
+          pill
+          onClick={() => setShowCreate(true)}
+          icon={<I n="bldg" s={14} c="#FFFFFF" />}
+          style={{ background: 'var(--success)', color: '#FFFFFF', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.22), 0 1px 2px rgba(0,0,0,0.20)' }}
+        >
           New project / site
         </TactileButton>
       </div>
@@ -106,14 +113,19 @@ export default function ProjectsScreen({ onBack, onOpen }) {
       <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4, marginBottom: 14, WebkitOverflowScrolling: 'touch' }}>
         {['all', ...PROJECT_STATUSES].map(s => {
           const active = filter === s
-          const tone = s === 'all' ? 'var(--accent)' : (STATUS_TONE[s] || V3.STATUS.draft)
+          // Unified glass + cyan pill, matching the app's nav/segmented
+          // pills (subtle neutral glass when idle, cyan-tinted glass + cyan
+          // text + ring when active) rather than the old per-status tones.
           return (
             <button key={s} onClick={() => setFilter(s)} style={{
-              flexShrink: 0, padding: '7px 14px', borderRadius: V3.R.pill, cursor: 'pointer', fontFamily: 'inherit',
-              fontSize: 12, fontWeight: 600, letterSpacing: '0.2px',
-              background: active ? `color-mix(in srgb, ${tone} 16%, transparent)` : 'transparent',
-              border: `1px solid ${active ? `color-mix(in srgb, ${tone} 45%, transparent)` : V3.BORDER_DEFAULT}`,
-              color: active ? tone : V3.TEXT_SECONDARY,
+              flexShrink: 0, padding: '7px 14px', borderRadius: 999, cursor: 'pointer', fontFamily: 'inherit',
+              fontSize: 12, fontWeight: 600, letterSpacing: '0.2px', border: 'none',
+              background: active ? 'color-mix(in srgb, var(--accent) 16%, transparent)' : 'color-mix(in srgb, var(--text) 8%, transparent)',
+              boxShadow: active
+                ? 'inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent), inset 0 1px 0 rgba(255,255,255,0.06)'
+                : 'inset 0 1px 0 rgba(255,255,255,0.04)',
+              color: active ? 'var(--accent)' : 'var(--sub)',
+              WebkitTapHighlightColor: 'transparent',
             }}>
               {s === 'all' ? 'All' : STATUS_LABEL[s]}
             </button>
