@@ -719,6 +719,9 @@ export default function MobileApp() {
   // gear icon in the Home header; Settings is now one entry inside the
   // dropdown.
   const [showHomeMenu, setShowHomeMenu] = useState(false)
+  // Which secondary side-menu groups (Tools/Resources/Support) are expanded.
+  // Collapsed by default so the menu opens calm — just the primaries + Trash.
+  const [menuGroupsOpen, setMenuGroupsOpen] = useState({ tools: false, resources: false, support: false })
   // Side-menu edge-swipe gesture state (kept at the top with the other
   // hooks so it always runs before any conditional early return).
   const swipeRef = useRef(null)
@@ -2991,27 +2994,37 @@ export default function MobileApp() {
   const go = (fn) => { setShowHomeMenu(false); haptic('light'); fn && fn() }
   // Primary destinations + a secondary "More" group so nothing is orphaned.
   // Each item highlights when its view is active.
+  // Primary navigation — the workflow anchors, always visible. (Home stays
+  // for now because the "Start survey" action still lives on the dashboard;
+  // Projects-as-landing is the next increment once that flow is rehomed.)
   const sideMenuPrimary = [
-    { label: 'Dashboard',    icon: 'home',      view: 'dash',        onClick: () => { setView('dash'); setViewRpt(null) } },
+    { label: 'Home',         icon: 'home',      view: 'dash',        onClick: () => { setView('dash'); setViewRpt(null) } },
     { label: 'Projects',     icon: 'bldg',      view: 'projects',    onClick: () => setView('projects') },
     { label: 'Reports',      icon: 'report',    view: 'history',     onClick: () => setView('history') },
     { label: 'AtmosFlow AI', icon: 'jasper', renderIcon: () => <JasperBrainIcon size={20} animate={false} />, onClick: () => { supabase && trackEvent('jasper_open', { source: 'side_menu' }); setFaOpen(true) } },
-    { label: 'Settings',     icon: 'gear',      view: 'settings',    onClick: () => setView('settings') },
-    { label: 'Help',         icon: 'help',      view: 'help',        onClick: () => setView('help') },
   ]
-  const sideMenuMore = [
-    { label: 'Search',        icon: 'search',  view: 'search',        onClick: () => setView('search') },
-    { label: 'Logger Studio', icon: 'chartLine', view: 'sensor-data', onClick: () => setView('sensor-data') },
-    { label: 'Sampling forms', icon: 'flask',  view: 'sampling-forms', onClick: () => setView('sampling-forms') },
-    ...(userMode === 'fm'
+  // Secondary navigation — grouped + collapsible (Linear/Arc/Notion style)
+  // so the menu leads with the primaries and tucks the rest away. Trash is
+  // isolated at the bottom (rare/destructive, low salience).
+  const sideMenuGroups = [
+    { key: 'tools', label: 'Tools', items: [
+      { label: 'Logger Studio',  icon: 'chartLine', view: 'sensor-data',    onClick: () => setView('sensor-data') },
+      { label: 'Sampling forms', icon: 'flask',     view: 'sampling-forms', onClick: () => setView('sampling-forms') },
+      { label: 'Search',         icon: 'search',    view: 'search',         onClick: () => setView('search') },
+    ] },
+    { key: 'resources', label: 'Resources', items: (userMode === 'fm'
       ? [{ label: 'Sample Air Quality Check', icon: 'play', onClick: () => runDemo() }]
       : [
           { label: 'Demo · Office Building', icon: 'play', onClick: () => runDemo() },
           { label: 'Demo · Data Center',     icon: 'play', onClick: () => runDemo('dc') },
-        ]),
-    { label: 'Send feedback', icon: 'flag',    onClick: () => openFeedback('Menu') },
-    { label: 'Trash',         icon: 'trash',   view: 'trash',         onClick: () => setView('trash') },
+        ]) },
+    { key: 'support', label: 'Support', items: [
+      { label: 'Settings',      icon: 'gear', view: 'settings', onClick: () => setView('settings') },
+      { label: 'Help',          icon: 'help', view: 'help',     onClick: () => setView('help') },
+      { label: 'Send feedback', icon: 'flag',                   onClick: () => openFeedback('Menu') },
+    ] },
   ]
+  const sideMenuTrash = { label: 'Trash', icon: 'trash', view: 'trash', onClick: () => setView('trash') }
   // Edge-swipe to open / swipe-left or tap to close. Discrete thresholds
   // (no live finger-follow) so it stays simple + iOS-Safari safe; the CSS
   // transition supplies the smoothness. (swipeRef is declared with the
@@ -3055,6 +3068,29 @@ export default function MobileApp() {
     )
   }
 
+  // Collapsible section header (Tools / Resources / Support) — uppercase
+  // label + a chevron that rotates open. Toggles the group's expanded state.
+  const sideMenuGroupHeader = (g) => {
+    const open = menuGroupsOpen[g.key]
+    return (
+      <button
+        key={`h-${g.key}`}
+        onClick={() => setMenuGroupsOpen(m => ({ ...m, [g.key]: !m[g.key] }))}
+        aria-expanded={open}
+        style={{
+          width:'100%', display:'flex', alignItems:'center', gap:8, padding:'11px 14px 7px',
+          marginTop:6, background:'transparent', border:'none', cursor:'pointer', textAlign:'left',
+          fontFamily:'inherit', WebkitTapHighlightColor:'transparent',
+        }}>
+        <span style={{flex:1, fontSize:11, fontWeight:700, letterSpacing:'0.6px', textTransform:'uppercase', color:'#7C8696'}}>{g.label}</span>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7C8696" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
+          style={{transform: open ? 'rotate(90deg)' : 'rotate(0deg)', transition:'transform 180ms cubic-bezier(.22,1,.36,1)'}}>
+          <polyline points="9 18 15 12 9 6" />
+        </svg>
+      </button>
+    )
+  }
+
   return (
     <>
     {profile && (
@@ -3081,8 +3117,21 @@ export default function MobileApp() {
         </div>
         <div style={{flex:1,overflowY:'auto',WebkitOverflowScrolling:'touch'}}>
           {sideMenuPrimary.map(sideMenuRow)}
-          <div style={{height:1,background:'rgba(255,255,255,0.07)',margin:'10px 8px'}} />
-          {sideMenuMore.map(sideMenuRow)}
+          {sideMenuGroups.map(g => (
+            <div key={g.key}>
+              {sideMenuGroupHeader(g)}
+              {menuGroupsOpen[g.key] && g.items.map(sideMenuRow)}
+            </div>
+          ))}
+        </div>
+        {/* Trash — isolated at the bottom, muted (rare / destructive). */}
+        <div style={{borderTop:'1px solid rgba(255,255,255,0.07)', marginTop:6, paddingTop:6}}>
+          <button
+            onClick={() => go(sideMenuTrash.onClick)}
+            style={{width:'100%',display:'flex',alignItems:'center',gap:13,padding:'12px 14px',borderRadius:14,border:'none',background:'transparent',cursor:'pointer',textAlign:'left',fontFamily:'inherit',fontSize:14,fontWeight:500,color:'#8B93A5',WebkitTapHighlightColor:'transparent'}}>
+            <I n="trash" s={18} c="#8B93A5" w={1.6} />
+            <span style={{flex:1}}>Trash</span>
+          </button>
         </div>
       </nav>
     )}
