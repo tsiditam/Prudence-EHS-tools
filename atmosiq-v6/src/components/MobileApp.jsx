@@ -3873,9 +3873,10 @@ export default function MobileApp() {
         </BottomSheet>
       )}
 
-      {/* ── DOCX Report Type Picker — bottom sheet ─────────────────
-          Mobile-first soft-glass sheet. Two mutually-exclusive options
-          (consultant or technical) as tactile soft-glass cards. */}
+      {/* ── Report Type Picker — bottom sheet ──────────────────────
+          Mobile-first soft-glass sheet. Consultant DOCX variants + the
+          web (HTML) layouts, including the concise Modern Summary that
+          replaced the legacy Technical Report. */}
       {docxPicker && (
         <BottomSheet title="Generate Report" onClose={()=>setDocxPicker(false)} ariaLabel="Choose report format">
           <div style={{fontSize:13,color:SUB,margin:'4px 0 16px',lineHeight:1.55}}>Choose which report to generate.</div>
@@ -3887,10 +3888,6 @@ export default function MobileApp() {
             <GlassCard onClick={()=>{setDocxPicker(false);handleExport('docx','consultant_cih')}} dense style={{padding:'14px 16px'}}>
               <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:3}}>Consultant Report — CIH Reasoning</div>
               <div style={{fontSize:12,color:SUB,lineHeight:1.55}}>The consultant report plus the reasoning record: plain-language parameter explainers, reported concerns mapped to screening evidence, a source → pathway → receptor Conceptual Site Model, and a findings register with per-zone data confidence.</div>
-            </GlassCard>
-            <GlassCard onClick={()=>{setDocxPicker(false);handleExport('docx','technical')}} dense style={{padding:'14px 16px'}}>
-              <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:3}}>Technical Report</div>
-              <div style={{fontSize:12,color:SUB,lineHeight:1.55}}>Structured findings register, score matrix, instrument log, and data gaps. For peer review and engineering.</div>
             </GlassCard>
             <GlassCard onClick={()=>{setDocxPicker(false);handleExport('web','modern')}} dense style={{padding:'14px 16px'}}>
               <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:3}}>Consultant Report — Web (HTML)</div>
