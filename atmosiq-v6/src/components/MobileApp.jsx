@@ -947,9 +947,23 @@ export default function MobileApp() {
   // Listen for Supabase auth changes
   useEffect(() => {
     return Storage.onAuthChange((event, session) => {
-      if (event === 'SIGNED_OUT') { setProfile(null); setView('dash') }
+      if (event === 'SIGNED_OUT') { setProfile(null); setView('projects') }
     })
   }, [])
+  // FM users' home remains the dashboard — once after login, redirect the
+  // Projects landing default to dash for them (one-shot so a later manual
+  // visit to Projects isn't yanked back).
+  const fmLandedRef = useRef(false)
+  useEffect(() => {
+    if (!fmLandedRef.current && profile && userMode === 'fm') {
+      fmLandedRef.current = true
+      setView(v => (v === 'projects' ? 'dash' : v))
+    }
+  }, [profile, userMode])
+  // "Go home" — the consultant home is the Projects landing; FM home stays
+  // the dashboard. Used by every exit-to-home flow so the two modes don't
+  // fork at each call site.
+  const goHome = () => { setView(userMode === 'fm' ? 'dash' : 'projects'); setViewRpt(null) }
 
   const handleLogin = async (userOrProfile) => {
     // First interactive sign-in per browser cache plays the brand intro
@@ -977,7 +991,7 @@ export default function MobileApp() {
   }
   const handleLogout = async () => {
     if (supabase) await Storage.signOut()
-    setProfile(null); setView('dash')
+    setProfile(null); setView('projects')
   }
 
   // Auto-save draft
@@ -4297,7 +4311,7 @@ export default function MobileApp() {
           onOpenReport={(r)=>openReport(r)}
           onResumeDraft={(id)=>resumeDraft(id)}
           onOpenIncident={(inc)=>{setCurrentIncident(inc);setView('incident-detail')}}
-          onNavigate={(v)=>setView(v)}
+          onNavigate={(v)=> v==='dash' ? goHome() : setView(v)}
         />}
 
         {view==='history'&&<div style={{paddingTop:28,paddingBottom:100,maxWidth:contentMax,margin:'0 auto'}}>
@@ -4419,19 +4433,19 @@ export default function MobileApp() {
           )}
         </div>}
         {view==='trash'&&<TrashView onRecover={async(id)=>{await Backup.recover(id);await refreshIndex()}} onDelete={async(id)=>{await Backup.permanentDelete(id)}} />}
-        {view==='sampling-forms'&&<SamplingFormsView profile={profile} onBack={()=>setView('dash')} />}
+        {view==='sampling-forms'&&<SamplingFormsView profile={profile} onBack={goHome} />}
         {view==='sensor-data'&&<SensorDataPage value={sensorData} onChange={setSensorData} reports={index.drafts||[]} currentReportId={draftId} currentZones={zones} onApplyAverages={applyAveragesToReport} onBack={()=>setView(comp?'results':'dash')} />}
-        {view==='projects'&&<ProjectsScreen onStartSurvey={startNew} onOpen={(pid)=>{setProjectBackView('projects');setActiveProjectId(pid);setView('project-detail')}} />}
+        {view==='projects'&&<ProjectsScreen onStartSurvey={startNew} onReportIncident={()=>setView('incident-form')} onOpen={(pid)=>{setProjectBackView('projects');setActiveProjectId(pid);setView('project-detail')}} />}
         {view==='project-detail'&&<ProjectDetail id={activeProjectId} profile={profile} onBack={()=>setView(projectBackView)} onOpenReport={(r)=>openReport(r)} onOpenLogger={()=>setView('sensor-data')} onOpenSampling={()=>setView('sampling-forms')} onAskAI={()=>{ supabase && trackEvent('jasper_open', { source: 'project_workspace' }); setFaOpen(true) }} />}
         {view==='settings'&&<SettingsScreen onNavigate={(v)=>{if(v==='pricing'){setShowPricing(true)}else if(v==='tour'){setView('dash');setShowTour(true)}else{setView(v)}}} adminActive={!!adminSecret} onActivateAdmin={(secret)=>{setAdminSecret(secret);setView('admin')}} />}
-        {view==='account'&&<AccountScreen profile={profile} onEditProfile={()=>{sessionStorage.setItem('aiq_welcomed','1');setWelcomeDone(true);setProfile({...profile,isNew:true});setView('dash')}} onLogout={handleLogout} onNavigate={(v)=>setView(v)} />}
+        {view==='account'&&<AccountScreen profile={profile} onEditProfile={()=>{sessionStorage.setItem('aiq_welcomed','1');setWelcomeDone(true);setProfile({...profile,isNew:true});goHome()}} onLogout={handleLogout} onNavigate={(v)=>setView(v)} />}
         {view==='tos'&&<TermsOfService onBack={()=>setView('settings')} />}
         {view==='privacy'&&<PrivacyPolicy onBack={()=>setView('settings')} />}
         {view==='help'&&<HelpView onBack={()=>setView('settings')} />}
         {view==='instrument-edit'&&<InstrumentEditView profile={profile} onSave={(updated)=>{setProfile(updated);setView('account')}} onCancel={()=>setView('account')} />}
         {view==='admin'&&adminSecret&&<AdminDashboard onBack={()=>setView('settings')} adminSecret={adminSecret} />}
-        {view==='incident-form'&&<IncidentForm onCancel={()=>setView('dash')} onSaved={(inc)=>{setCurrentIncident(inc);setView('incident-detail')}} />}
-        {view==='incident-log'&&<IncidentLog profile={profile} onBack={()=>setView('dash')} onNewIncident={()=>setView('incident-form')} onView={(inc)=>{setCurrentIncident(inc);setView('incident-detail')}} />}
+        {view==='incident-form'&&<IncidentForm onCancel={goHome} onSaved={(inc)=>{setCurrentIncident(inc);setView('incident-detail')}} />}
+        {view==='incident-log'&&<IncidentLog profile={profile} onBack={goHome} onNewIncident={()=>setView('incident-form')} onView={(inc)=>{setCurrentIncident(inc);setView('incident-detail')}} />}
         {view==='incident-detail'&&currentIncident&&<IncidentDetail incident={currentIncident} profile={profile} onBack={()=>setView('incident-log')} onChange={setCurrentIncident} onDeleted={()=>{setCurrentIncident(null);setView('incident-log')}} />}
         {view==='properties'&&<PropertyDashboard onBack={()=>setView('dash')} onNavigate={(target,arg)=>{if(target==='building'){openBuildingProject(arg)}else{setView(target)}}} assessmentIndex={index} />}
         {view==='spatial'&&<SpatialMap zones={zones} zoneScores={zoneScores} floorPlan={floorPlan} onUploadFloorPlan={setFloorPlan} onUpdateZone={(zi, update)=>{const z=[...zones];z[zi]={...z[zi],...update};setZones(z)}} onClose={()=>{runScoring();setView('results')}} />}
@@ -4525,7 +4539,7 @@ export default function MobileApp() {
       {profile && faOpen && (
         <FieldAssistant
           onClose={() => { setFaOpen(false); setVoicePrefill(null); setReviewPrefill(null); setReviewPayload(null) }}
-          onNavigate={(v) => { setFaOpen(false); setVoicePrefill(null); setReviewPrefill(null); setReviewPayload(null); setView(v) }}
+          onNavigate={(v) => { setFaOpen(false); setVoicePrefill(null); setReviewPrefill(null); setReviewPayload(null); if (v === 'dash') goHome(); else setView(v) }}
           initialMessage={voicePrefill || reviewPrefill}
           onAction={(action) => {
             // Agentic action executor. Jasper proposes via
@@ -4541,7 +4555,9 @@ export default function MobileApp() {
               // tab_target field. Set rTab BEFORE setView so the
               // tab is correct when results mount.
               if (action.tab_target) setRTab(action.tab_target)
-              setView(target)
+              // 'dash' from the model means "home" — consultants' home is
+              // the Projects landing; FM keeps the dashboard.
+              setView(target === 'dash' && userMode !== 'fm' ? 'projects' : target)
               setFaOpen(false)
               setVoicePrefill(null)
               return true

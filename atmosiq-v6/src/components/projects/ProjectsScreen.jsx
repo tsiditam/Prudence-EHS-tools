@@ -62,7 +62,7 @@ function ProjectCard({ project, onOpen }) {
   )
 }
 
-export default function ProjectsScreen({ onBack, onOpen, onStartSurvey }) {
+export default function ProjectsScreen({ onBack, onOpen, onStartSurvey, onReportIncident }) {
   const [projects, setProjects] = useState(null)
   const [filter, setFilter] = useState('all')
   const [showCreate, setShowCreate] = useState(false)
@@ -124,6 +124,19 @@ export default function ProjectsScreen({ onBack, onOpen, onStartSurvey }) {
         >
           New project / site
         </TactileButton>
+        {onReportIncident && (
+          <TactileButton
+            variant="secondary"
+            size="sm"
+            pill
+            className="af-glass-control"
+            onClick={onReportIncident}
+            icon={<I n="alert" s={14} c="var(--accent)" />}
+            style={{ color: 'var(--accent)', background: undefined, border: undefined, boxShadow: undefined }}
+          >
+            Report an incident
+          </TactileButton>
+        )}
       </div>
 
       {/* Status filter chips */}
