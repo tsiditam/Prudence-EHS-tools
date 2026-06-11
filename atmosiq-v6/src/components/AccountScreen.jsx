@@ -18,6 +18,7 @@ import { useBleSession } from '../hooks/useBleSession'
 import { isBleSupported } from '../utils/bleDrivers'
 import { useTheme, mix } from '../utils/theme'
 import ProfileAvatar from './ProfileAvatar'
+import { I } from './Icons'
 import * as V3 from '../styles/tokens'
 import { Group, Row, ExceptionPill } from './settings/SettingsList'
 
@@ -74,29 +75,37 @@ export default function AccountScreen({ profile, onEditProfile, onLogout, onNavi
             <div style={{ fontSize: 14, fontWeight: 600, color: TEXT }}>Theme</div>
             <div style={{ fontSize: 11, color: DIM, marginTop: 2, lineHeight: 1.4 }}>In-app only · landing &amp; install screens stay dark</div>
           </div>
-          <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-            {[{ v: 'dark', l: 'Dark' }, { v: 'light', l: 'Light' }].map(o => {
-              const sel = themeMode === o.v
-              return (
-                <button
-                  key={o.v}
-                  onClick={() => setThemeMode(o.v)}
-                  aria-pressed={sel}
-                  style={{
-                    padding: '6px 12px',
-                    background: sel ? mix('accent', 9) : 'transparent',
-                    border: `1px solid ${sel ? ACCENT : BORDER}`,
-                    borderRadius: 8,
-                    color: sel ? ACCENT : SUB,
-                    fontSize: 12,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    fontFamily: 'inherit',
-                    transition: 'all .15s ease',
-                  }}>{o.l}</button>
-              )
-            })}
-          </div>
+          {/* Theme — a single dark↔light toggle (cyan track when light, white
+              knob). The knob carries a moon (dark) / sun (light) glyph so the
+              active mode is unambiguous without separate labels. */}
+          {(() => {
+            const isLight = themeMode === 'light'
+            return (
+              <button
+                onClick={() => setThemeMode(isLight ? 'dark' : 'light')}
+                role="switch"
+                aria-checked={isLight}
+                aria-label="Light mode"
+                style={{
+                  position: 'relative', width: 52, height: 30, flexShrink: 0,
+                  boxSizing: 'border-box', borderRadius: 15, padding: 0, cursor: 'pointer',
+                  background: isLight ? ACCENT : 'var(--surface)',
+                  border: `1px solid ${isLight ? ACCENT : BORDER}`,
+                  transition: 'background .2s ease, border-color .2s ease',
+                  WebkitTapHighlightColor: 'transparent',
+                }}>
+                <span style={{
+                  position: 'absolute', top: 2, left: isLight ? 24 : 2,
+                  width: 24, height: 24, borderRadius: '50%', background: '#FFFFFF',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.30)',
+                  transition: 'left .2s cubic-bezier(.22,1,.36,1)',
+                }}>
+                  <I n={isLight ? 'sun' : 'moon'} s={14} c={isLight ? ACCENT : SUB} w={2} />
+                </span>
+              </button>
+            )
+          })()}
         </div>
         {!showPasswordChange ? (
           <Row label="Change Password" action={() => setShowPasswordChange(true)} />
