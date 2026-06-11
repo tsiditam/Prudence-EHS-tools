@@ -42,6 +42,11 @@ export default function BottomSheet({
   children,
   maxWidth = 560,
   ariaLabel,
+  // Surface tone. Default is the raised soft-glass card (GLASS.elevated).
+  // `tone="deep"` swaps the card background for the near-black side-menu
+  // surface (--surface-deep, theme-aware) so the sheet reads as a dark
+  // stage; the glass blur, border, and drop shadow are preserved.
+  tone = 'elevated',
 }) {
   // Lock body scroll while the sheet is open. Keeps the underlying
   // page from drifting when the user swipes inside the sheet on iOS.
@@ -88,6 +93,7 @@ export default function BottomSheet({
       <div
         style={{
           ...GLASS.elevated,
+          ...(tone === 'deep' ? { background: 'var(--surface-deep)' } : null),
           width: '100%',
           maxWidth,
           borderTopLeftRadius: RADII.sheet,

@@ -87,7 +87,19 @@ export default function ProjectForm({ initial = {}, submitLabel = 'Create projec
         <textarea style={{ ...inputStyle, minHeight: 80, resize: 'vertical' }} value={description} onChange={e => setDescription(e.target.value)} placeholder="Scope, reason for engagement, context…" />
       </div>
       <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
-        <TactileButton variant="primary" size="lg" fullWidth disabled={!canSubmit} onClick={submit}>{submitLabel}</TactileButton>
+        <TactileButton
+          variant="primary"
+          size="lg"
+          pill
+          fullWidth
+          disabled={!canSubmit}
+          onClick={submit}
+          haptic="success"
+          // Green pill matches the launching "New project" CTA on the
+          // Projects screen — a deliberate, affirmative action color
+          // distinct from the cyan-fill used for screen-level emphasis.
+          style={{ background: 'var(--success)', color: '#FFFFFF', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.22), 0 1px 2px rgba(0,0,0,0.20)' }}
+        >{submitLabel}</TactileButton>
         {onCancel && <TactileButton variant="ghost" size="lg" onClick={onCancel}>Cancel</TactileButton>}
       </div>
     </div>

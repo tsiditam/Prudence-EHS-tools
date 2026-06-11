@@ -71,6 +71,7 @@ import { getInitials } from './ProfileAvatar'
 import FeatureTour from './FeatureTour'
 import { printReport, generatePrintHTML } from './PrintReport'
 import { downloadReportPdf } from '../utils/downloadReportPdf'
+import { ensureLoggerChartImages } from '../utils/loggerChartImages'
 // v2.6.1 — DocxReport is a static import. Earlier `await import('./DocxReport')`
 // triggered "'text/html' is not a valid JavaScript MIME type" errors when a
 // user's cached index.html referenced a chunk hash that no longer existed
@@ -660,6 +661,9 @@ export default function MobileApp() {
   // Where the project workspace returns to — 'projects' (IH list) or
   // 'properties' (FM Buildings portfolio), set when navigating in.
   const [projectBackView, setProjectBackView] = useState('projects')
+  // Bumped from the header ⋯ overflow's "Edit details" item; ProjectDetail
+  // watches it and opens its edit sheet (the sheet state lives in the child).
+  const [projectEditNonce, setProjectEditNonce] = useState(0)
   const [milestone, setMilestone] = useState(null)
   const [clock, setClock] = useState(new Date())
   const [showPricing, setShowPricing] = useState(false)
@@ -1564,7 +1568,13 @@ export default function MobileApp() {
     // 'consultant_cih' is the Consultant report in the CIH-reasoning style:
     // same pipeline, plus a Conceptual Site Model section (reportStyle flag).
     const reportStyle = docxType === 'consultant_cih' ? 'cih' : undefined
-    const reportData = { building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, escalationTriggers: esc, floorPlan, sensorData, labResults: viewRpt?.labResults || null, assessmentContext, reportStyle }
+    // Guarantee every "Include in report" logger timeline carries a usable PNG
+    // before any format embeds it. The on-screen capture is unreliable on iOS
+    // Safari (and the results-tab toggle never captured at all), so re-render
+    // the included charts from their data points here — a self-contained-SVG
+    // raster that every export (DOCX, AtmosFlow PDF, Web) then embeds.
+    const sensorDataForReport = await ensureLoggerChartImages(sensorData)
+    const reportData = { building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, escalationTriggers: esc, floorPlan, sensorData: sensorDataForReport, labResults: viewRpt?.labResults || null, assessmentContext, reportStyle }
     trackEvent('report_exported', { format: docxType || format, facility: bldg.fn || '', score: comp?.tot, zones: zones.length, has_narrative: !!narrative, photos: Object.values(filteredPhotos).flat().length })
 
     try {
@@ -3158,10 +3168,10 @@ export default function MobileApp() {
           width:'100%', display:'flex', alignItems:'center', gap:13, padding:'13px 14px',
           margin:'2px 0', borderRadius:16, border:'none', cursor:'pointer', textAlign:'left',
           fontFamily:'inherit', fontSize:15, fontWeight:active?600:500,
-          color: active ? 'var(--accent)' : '#E7E9EE',
+          color: active ? 'var(--accent)' : 'var(--text)',
           background: active ? 'color-mix(in srgb, var(--accent) 16%, transparent)' : 'transparent',
           boxShadow: active
-            ? 'inset 0 0 0 1px color-mix(in srgb, var(--accent) 26%, transparent), inset 0 1px 0 rgba(255,255,255,0.06)'
+            ? 'inset 0 0 0 1px color-mix(in srgb, var(--accent) 26%, transparent), inset 0 1px 0 var(--m-inset)'
             : 'none',
           WebkitBackdropFilter: active ? 'blur(12px) saturate(160%)' : 'none',
           backdropFilter: active ? 'blur(12px) saturate(160%)' : 'none',
@@ -3187,8 +3197,8 @@ export default function MobileApp() {
           marginTop:6, background:'transparent', border:'none', cursor:'pointer', textAlign:'left',
           fontFamily:'inherit', WebkitTapHighlightColor:'transparent',
         }}>
-        <span style={{flex:1, fontSize:11, fontWeight:700, letterSpacing:'0.6px', textTransform:'uppercase', color:'#7C8696'}}>{g.label}</span>
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7C8696" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
+        <span style={{flex:1, fontSize:11, fontWeight:700, letterSpacing:'0.6px', textTransform:'uppercase', color:'var(--sub)'}}>{g.label}</span>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--sub)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
           style={{transform: open ? 'rotate(90deg)' : 'rotate(0deg)', transition:'transform 180ms cubic-bezier(.22,1,.36,1)'}}>
           <polyline points="9 18 15 12 9 6" />
         </svg>
@@ -3202,18 +3212,18 @@ export default function MobileApp() {
       <nav className="af-sidemenu" aria-label="Main menu" aria-hidden={!showHomeMenu}>
         {/* Header — bold AtmosFlow wordmark left + a glass circular avatar
             right (Claude mobile style); the avatar opens the Account page. */}
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,padding:'2px 4px 16px',marginBottom:6,borderBottom:'1px solid rgba(255,255,255,0.07)'}}>
-          <span style={{fontSize:23,fontWeight:800,letterSpacing:'-0.03em',color:'#F3F5F8'}}>AtmosFlow</span>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,padding:'2px 4px 16px',marginBottom:6,borderBottom:'1px solid var(--m-hair)'}}>
+          <span style={{fontSize:23,fontWeight:800,letterSpacing:'-0.03em',color:'var(--text)'}}>AtmosFlow</span>
           <button
             onClick={() => go(() => setView('account'))}
             aria-label="Account"
             style={{
               width:40, height:40, borderRadius:'50%', flexShrink:0,
               display:'flex', alignItems:'center', justifyContent:'center',
-              background:'rgba(255,255,255,0.06)',
+              background:'var(--m-ctl)',
               backdropFilter:'blur(12px) saturate(160%)', WebkitBackdropFilter:'blur(12px) saturate(160%)',
-              border:'1px solid rgba(255,255,255,0.16)',
-              boxShadow:'inset 0 1px 0 rgba(255,255,255,0.12)',
+              border:'1px solid var(--m-border)',
+              boxShadow:'inset 0 1px 0 var(--m-inset)',
               color:'var(--accent)', fontSize:14, fontWeight:700, letterSpacing:'0.02em',
               cursor:'pointer', fontFamily:'inherit', overflow:'hidden', WebkitTapHighlightColor:'transparent',
             }}>
@@ -3237,16 +3247,16 @@ export default function MobileApp() {
                 aria-label="Switch project"
                 style={{
                   width:'100%', display:'flex', alignItems:'center', gap:10, padding:'11px 12px',
-                  borderRadius:14, border:'1px solid rgba(255,255,255,0.10)', cursor:'pointer', textAlign:'left',
-                  fontFamily:'inherit', background:'rgba(255,255,255,0.05)',
-                  boxShadow:'inset 0 1px 0 rgba(255,255,255,0.08)',
+                  borderRadius:14, border:'1px solid var(--m-border)', cursor:'pointer', textAlign:'left',
+                  fontFamily:'inherit', background:'var(--m-ctl)',
+                  boxShadow:'inset 0 1px 0 var(--m-inset)',
                   WebkitTapHighlightColor:'transparent',
                 }}>
                 <span style={{width:8,height:8,borderRadius:'50%',flexShrink:0,background:'var(--accent)'}} />
-                <span style={{flex:1,minWidth:0,fontSize:14,fontWeight:600,color:'#F3F5F8',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
+                <span style={{flex:1,minWidth:0,fontSize:14,fontWeight:600,color:'var(--text)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
                   {current ? current.name : 'All projects'}
                 </span>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9AA3B2" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--sub)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
                   style={{transform: menuSwitcherOpen ? 'rotate(180deg)' : 'none', transition:'transform 180ms cubic-bezier(.22,1,.36,1)', flexShrink:0}}>
                   <polyline points="6 9 12 15 18 9" />
                 </svg>
@@ -3258,15 +3268,15 @@ export default function MobileApp() {
                       width:'100%', display:'flex', alignItems:'center', gap:10, padding:'10px 12px 10px 22px',
                       borderRadius:12, border:'none', background:'transparent', cursor:'pointer', textAlign:'left',
                       fontFamily:'inherit', fontSize:14, fontWeight: p.id === activeProjectId ? 600 : 500,
-                      color: p.id === activeProjectId ? 'var(--accent)' : '#D9DEE6',
+                      color: p.id === activeProjectId ? 'var(--accent)' : 'var(--text)',
                       WebkitTapHighlightColor:'transparent',
                     }}>
-                      <I n="bldg" s={15} c={p.id === activeProjectId ? 'var(--accent)' : '#8B93A5'} w={1.7} />
+                      <I n="bldg" s={15} c={p.id === activeProjectId ? 'var(--accent)' : 'var(--sub)'} w={1.7} />
                       <span style={{flex:1,minWidth:0,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{p.name}</span>
                     </button>
                   ))}
                   {recents.length === 0 && (
-                    <div style={{padding:'10px 12px 8px 22px', fontSize:13, color:'#8B93A5'}}>No projects yet</div>
+                    <div style={{padding:'10px 12px 8px 22px', fontSize:13, color:'var(--sub)'}}>No projects yet</div>
                   )}
                   <button onClick={() => go(() => setView('projects'))} style={{
                     width:'100%', display:'flex', alignItems:'center', gap:10, padding:'10px 12px 10px 22px',
@@ -3291,11 +3301,11 @@ export default function MobileApp() {
           ))}
         </div>
         {/* Trash — isolated at the bottom, muted (rare / destructive). */}
-        <div style={{borderTop:'1px solid rgba(255,255,255,0.07)', marginTop:6, paddingTop:6}}>
+        <div style={{borderTop:'1px solid var(--m-hair)', marginTop:6, paddingTop:6}}>
           <button
             onClick={() => go(sideMenuTrash.onClick)}
-            style={{width:'100%',display:'flex',alignItems:'center',gap:13,padding:'12px 14px',borderRadius:14,border:'none',background:'transparent',cursor:'pointer',textAlign:'left',fontFamily:'inherit',fontSize:14,fontWeight:500,color:'#8B93A5',WebkitTapHighlightColor:'transparent'}}>
-            <I n="trash" s={18} c="#8B93A5" w={1.6} />
+            style={{width:'100%',display:'flex',alignItems:'center',gap:13,padding:'12px 14px',borderRadius:14,border:'none',background:'transparent',cursor:'pointer',textAlign:'left',fontFamily:'inherit',fontSize:14,fontWeight:500,color:'var(--sub)',WebkitTapHighlightColor:'transparent'}}>
+            <I n="trash" s={18} c="var(--sub)" w={1.6} />
             <span style={{flex:1}}>Trash</span>
           </button>
         </div>
@@ -3328,7 +3338,10 @@ export default function MobileApp() {
                 Linear style) — the AtmosFlow wordmark only lives on the
                 home dashboard. On an assessment / its results the label is
                 the facility name. */}
-            {profile && view!=='dash' && view!=='projects' && (
+            {/* project-detail owns its own single "Projects" back control in
+                the body, so the global header back pill is suppressed there to
+                avoid two stacked back affordances. */}
+            {profile && view!=='dash' && view!=='projects' && view!=='project-detail' && (
               <button
                 onClick={()=>{ if ((view==='sensor-data'||view==='sampling-forms') && toolReturn) { setView(toolReturn); setToolReturn(null) } else { setView('projects'); setViewRpt(null) } }}
                 aria-label="Back"
@@ -3444,6 +3457,11 @@ export default function MobileApp() {
           // the user has toggled at least one graph "Include in report".
           ...(view==='sensor-data' && sensorData?.graphs && Object.values(sensorData.graphs).some(g => g && g.include)
             ? [{ label:'Send graphs to a report', icon:'send', onClick:()=>{ close(); setGraphTargetOpen(true) } }]
+            : []),
+          // Project workspace: "Edit details" lives here (top-right overflow)
+          // rather than as a header button inside the project card.
+          ...(view==='project-detail'
+            ? [{ label:'Edit details', icon:'draft', onClick:()=>setProjectEditNonce(n=>n+1) }]
             : []),
           { label:'Search',             icon:'search', onClick:()=>setView('search') },
           { label:'Ask AtmosFlow AI', icon:'mic',    onClick:()=>{ supabase && trackEvent('jasper_open',{source:'header_actions'}); setVoiceCmdOpen(true) } },
@@ -4495,7 +4513,7 @@ export default function MobileApp() {
         {view==='sampling-forms'&&<SamplingFormsView profile={profile} onBack={exitTool} />}
         {view==='sensor-data'&&<SensorDataPage value={sensorData} onChange={setSensorData} reports={index.drafts||[]} currentReportId={draftId} currentZones={zones} onApplyAverages={applyAveragesToReport} onBack={()=>{ if (toolReturn) { exitTool() } else if (comp) { setView('results') } else { goHome() } }} />}
         {view==='projects'&&<ProjectsScreen onReportIncident={()=>setView('incident-form')} onOpen={(pid)=>{setProjectBackView('projects');setActiveProjectId(pid);setView('project-detail')}} />}
-        {view==='project-detail'&&<ProjectDetail id={activeProjectId} profile={profile} onBack={()=>setView(projectBackView)} onNewAssessment={(seed)=>startNew(seed)} onOpenReport={(r)=>openReport(r)} onOpenLogger={()=>{setToolReturn('project-detail');setView('sensor-data')}} onOpenSampling={()=>{setToolReturn('project-detail');setView('sampling-forms')}} onAskAI={()=>{ supabase && trackEvent('jasper_open', { source: 'project_workspace' }); setFaOpen(true) }} />}
+        {view==='project-detail'&&<ProjectDetail id={activeProjectId} profile={profile} editSignal={projectEditNonce} onBack={()=>setView(projectBackView)} onNewAssessment={(seed)=>startNew(seed)} onOpenReport={(r)=>openReport(r)} onOpenLogger={()=>{setToolReturn('project-detail');setView('sensor-data')}} onOpenSampling={()=>{setToolReturn('project-detail');setView('sampling-forms')}} onAskAI={()=>{ supabase && trackEvent('jasper_open', { source: 'project_workspace' }); setFaOpen(true) }} />}
         {view==='settings'&&<SettingsScreen onNavigate={(v)=>{if(v==='pricing'){setShowPricing(true)}else if(v==='tour'){setView('dash');setShowTour(true)}else{setView(v)}}} adminActive={!!adminSecret} onActivateAdmin={(secret)=>{setAdminSecret(secret);setView('admin')}} />}
         {view==='account'&&<AccountScreen profile={profile} onEditProfile={()=>{sessionStorage.setItem('aiq_welcomed','1');setWelcomeDone(true);setProfile({...profile,isNew:true});setView('dash');setViewRpt(null)}} onLogout={handleLogout} onNavigate={(v)=>setView(v)} />}
         {view==='tos'&&<TermsOfService onBack={()=>setView('settings')} />}
@@ -4723,6 +4741,21 @@ export default function MobileApp() {
           background:#070809; display:flex; flex-direction:column;
           padding:calc(env(safe-area-inset-top, 0px) + 20px) 14px calc(env(safe-area-inset-bottom, 0px) + 18px);
           overflow:hidden;
+          /* Menu-scoped glass tokens — kept dark by default; the light-theme
+             override below flips the surface white and the translucent
+             borders/insets to dark so the menu reads correctly in light mode.
+             Text/icons use the global --text / --sub tokens (already themed). */
+          --m-hair:rgba(255,255,255,0.07);
+          --m-border:rgba(255,255,255,0.14);
+          --m-ctl:rgba(255,255,255,0.06);
+          --m-inset:rgba(255,255,255,0.10);
+        }
+        [data-theme="light"] .af-sidemenu{
+          background:#FFFFFF;
+          --m-hair:rgba(15,23,42,0.08);
+          --m-border:rgba(15,23,42,0.12);
+          --m-ctl:rgba(15,23,42,0.045);
+          --m-inset:rgba(15,23,42,0.04);
         }
         .af-content-surface{
           position:fixed; inset:0; z-index:2; overflow-y:auto;
