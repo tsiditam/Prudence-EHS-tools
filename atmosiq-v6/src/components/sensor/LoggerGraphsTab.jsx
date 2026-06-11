@@ -25,7 +25,7 @@ import { GRAPH_DEFS, MultiParameterChart, currentPalette } from './SensorCharts'
 import { fmtRange, paramLabel } from './sensorHelpers'
 
 
-const CARD = 'var(--card)', BORDER = 'var(--border)', SUB = 'var(--sub)', ACCENT = 'var(--accent)', SURFACE = 'var(--surface)'
+const CARD = 'var(--card)', BORDER = 'var(--border)', SUB = 'var(--sub)', ACCENT = 'var(--accent)', SURFACE = 'var(--surface)', DANGER = 'var(--danger)'
 
 function EmptyNote() {
   return (
@@ -95,20 +95,21 @@ export default function LoggerGraphsTab({ sensorData, editable = false, onToggle
           <div style={{ padding: '16px 18px 8px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
               <div style={V3.T.bodyStrong}>{title}</div>
-              {editable && onToggleInclude ? (
-                // Inline include/exclude switch — lets the assessor drop a
-                // graph from the report (or add it back) right from this tab,
-                // mirroring Logger Studio's "Include in report" control.
+              {onToggleInclude ? (
+                // Inline include/exclude switch — a red (on) / grey (off)
+                // toggle with a white knob, so the assessor can add a graph to
+                // the report or drop it right from this tab. Mirrors Logger
+                // Studio's "Include in report" control.
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', flexShrink: 0 }}>
-                  <span style={{ ...V3.T.caption, color: inReport ? ACCENT : SUB }}>In report</span>
+                  <span style={{ ...V3.T.caption, color: inReport ? DANGER : SUB }}>In report</span>
                   <span onClick={() => onToggleInclude(id, !inReport, { title, series })} role="switch" aria-checked={inReport} aria-label={`Include ${title} in report`} tabIndex={0}
                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggleInclude(id, !inReport, { title, series }) } }}
-                    style={{ width: 40, height: 24, borderRadius: 12, background: inReport ? ACCENT : SURFACE, border: `1px solid ${inReport ? ACCENT : BORDER}`, position: 'relative', transition: 'background .2s, border-color .2s', flexShrink: 0 }}>
-                    <span style={{ position: 'absolute', top: 2, left: inReport ? 18 : 2, width: 18, height: 18, borderRadius: '50%', background: inReport ? 'var(--on-accent-fill)' : SUB, transition: 'left .2s' }} />
+                    style={{ width: 44, height: 26, borderRadius: 13, boxSizing: 'border-box', background: inReport ? DANGER : SURFACE, border: `1px solid ${inReport ? DANGER : BORDER}`, position: 'relative', transition: 'background .2s, border-color .2s', flexShrink: 0 }}>
+                    <span style={{ position: 'absolute', top: 2, left: inReport ? 20 : 2, width: 20, height: 20, borderRadius: '50%', background: '#FFFFFF', boxShadow: '0 1px 2px rgba(0,0,0,0.3)', transition: 'left .2s' }} />
                   </span>
                 </label>
               ) : inReport ? (
-                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.4px', textTransform: 'uppercase', color: 'var(--accent)', background: 'color-mix(in srgb, var(--accent) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--accent) 24%, transparent)', borderRadius: 6, padding: '2px 7px', flexShrink: 0 }}>In report</span>
+                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.4px', textTransform: 'uppercase', color: DANGER, background: 'color-mix(in srgb, var(--danger) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--danger) 24%, transparent)', borderRadius: 6, padding: '2px 7px', flexShrink: 0 }}>In report</span>
               ) : null}
             </div>
             <div style={{ ...V3.T.captionDim, marginTop: 2 }}>
