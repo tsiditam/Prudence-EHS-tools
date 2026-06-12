@@ -1,0 +1,105 @@
+{
+  "feature": "Causal Pathway -> Knowledge Graph (foundation, staged PR 1)",
+  "criteria": [
+    {
+      "id": "KG-MIGRATION-EXISTS",
+      "label": "Supabase migration adds kg_nodes and kg_edges",
+      "checks": [
+        { "type": "file_exists", "path": "supabase/migrations/023_knowledge_graph.sql" },
+        { "type": "grep_matches", "pattern": "create table if not exists public\\.kg_nodes", "paths": ["supabase/migrations/023_knowledge_graph.sql"] },
+        { "type": "grep_matches", "pattern": "create table if not exists public\\.kg_edges", "paths": ["supabase/migrations/023_knowledge_graph.sql"] }
+      ]
+    },
+    {
+      "id": "KG-ANCHOR-ASSESSMENTS",
+      "label": "Graph is anchored on assessments(id), not a non-existent projects table",
+      "checks": [
+        { "type": "grep_matches", "pattern": "assessment_id\\s+text not null references public\\.assessments", "paths": ["supabase/migrations/023_knowledge_graph.sql"], "minCount": 2 }
+      ]
+    },
+    {
+      "id": "KG-RLS-ENABLED",
+      "label": "Row Level Security enabled on both tables with owner-only read policies",
+      "checks": [
+        { "type": "grep_matches", "pattern": "enable row level security", "paths": ["supabase/migrations/023_knowledge_graph.sql"], "minCount": 2 },
+        { "type": "grep_matches", "pattern": "create policy kg_(nodes|edges)_read", "paths": ["supabase/migrations/023_knowledge_graph.sql"], "minCount": 2 },
+        { "type": "grep_matches", "pattern": "where user_id = auth\\.uid\\(\\)", "paths": ["supabase/migrations/023_knowledge_graph.sql"], "minCount": 2 }
+      ]
+    },
+    {
+      "id": "KG-UNIQUE-CONSTRAINTS",
+      "label": "Database-level uniqueness on nodes and edges",
+      "checks": [
+        { "type": "grep_matches", "pattern": "create unique index if not exists idx_kg_nodes_assessment_entity_unique", "paths": ["supabase/migrations/023_knowledge_graph.sql"] },
+        { "type": "grep_matches", "pattern": "create unique index if not exists idx_kg_edges_unique", "paths": ["supabase/migrations/023_knowledge_graph.sql"] }
+      ]
+    },
+    {
+      "id": "KG-TRANSACTIONAL-REBUILD",
+      "label": "Rebuild is transactional with a per-assessment advisory lock, writer restricted to service role",
+      "checks": [
+        { "type": "grep_matches", "pattern": "pg_advisory_xact_lock\\(hashtext", "paths": ["supabase/migrations/023_knowledge_graph.sql"] },
+        { "type": "grep_matches", "pattern": "grant execute on function public\\.kg_rebuild.*to service_role", "paths": ["supabase/migrations/023_knowledge_graph.sql"] }
+      ]
+    },
+    {
+      "id": "KG-NO-NUMERIC-CONFIDENCE",
+      "label": "No numeric confidence_score anywhere; confidence is categorical",
+      "checks": [
+        { "type": "grep_excludes", "pattern": "confidence_score", "paths": ["supabase/migrations/023_knowledge_graph.sql", "src/types/knowledgeGraph.ts", "src/services/knowledgeGraphBuilder.ts", "src/services/knowledgeGraphService.ts"] },
+        { "type": "grep_matches", "pattern": "validated', 'provisional', 'qualitative'", "paths": ["supabase/migrations/023_knowledge_graph.sql"], "minCount": 2 }
+      ]
+    },
+    {
+      "id": "KG-TYPES",
+      "label": "TypeScript graph types exist",
+      "checks": [
+        { "type": "file_exists", "path": "src/types/knowledgeGraph.ts" },
+        { "type": "grep_matches", "pattern": "export type KGConfidence", "paths": ["src/types/knowledgeGraph.ts"] }
+      ]
+    },
+    {
+      "id": "KG-BUILDER",
+      "label": "Pure builder: version-stamped, deterministically ordered, derived projection",
+      "checks": [
+        { "type": "file_exists", "path": "src/services/knowledgeGraphBuilder.ts" },
+        { "type": "grep_matches", "pattern": "export function buildKnowledgeGraphFromAssessment", "paths": ["src/services/knowledgeGraphBuilder.ts"] },
+        { "type": "grep_matches", "pattern": "engine_version|ruleset_version", "paths": ["src/services/knowledgeGraphBuilder.ts"], "minCount": 2 },
+        { "type": "grep_matches", "pattern": "\\.sort\\(", "paths": ["src/services/knowledgeGraphBuilder.ts"], "minCount": 2 }
+      ]
+    },
+    {
+      "id": "KG-STANDARD-FRAMING",
+      "label": "Standards carry framing metadata so CO2 is never presented as a health limit",
+      "checks": [
+        { "type": "grep_matches", "pattern": "is_health_limit: false", "paths": ["src/services/knowledgeGraphBuilder.ts"], "minCount": 1 },
+        { "type": "grep_matches", "pattern": "ventilation-adequacy indicator", "paths": ["src/services/knowledgeGraphBuilder.ts"] }
+      ]
+    },
+    {
+      "id": "KG-CONTRADICTS-DETERMINISTIC",
+      "label": "CONTRADICTS_FINDING is emitted only from engine-flagged conflicts",
+      "checks": [
+        { "type": "grep_matches", "pattern": "CONTRADICTS_FINDING", "paths": ["src/services/knowledgeGraphBuilder.ts"], "minCount": 1 }
+      ]
+    },
+    {
+      "id": "KG-SERVICE",
+      "label": "Service exposes a single service-role rebuild path plus RLS-scoped reads",
+      "checks": [
+        { "type": "file_exists", "path": "src/services/knowledgeGraphService.ts" },
+        { "type": "grep_matches", "pattern": "export async function rebuildAssessmentGraph", "paths": ["src/services/knowledgeGraphService.ts"] },
+        { "type": "grep_matches", "pattern": "rpc\\('kg_rebuild'", "paths": ["src/services/knowledgeGraphService.ts"] }
+      ]
+    },
+    {
+      "id": "KG-TESTS-PASS",
+      "label": "Builder + service unit tests pass (spec section 19 tests 1-7)",
+      "checks": [
+        { "type": "file_exists", "path": "tests/services/knowledgeGraphBuilder.test.ts" },
+        { "type": "file_exists", "path": "tests/services/knowledgeGraphService.test.ts" },
+        { "type": "npm_script_passes", "script": "test:kg" }
+      ]
+    }
+  ]
+}
