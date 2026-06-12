@@ -19,6 +19,7 @@
 import { useMemo } from 'react'
 import { I } from './Icons'
 import { buildGraphContext } from '../../lib/context/graphContext'
+import KnowledgeGraphView from './KnowledgeGraphView'
 
 const CARD = 'var(--card)'
 const BORDER = 'var(--border)'
@@ -99,8 +100,9 @@ export default function EvidenceMap({ zones, zoneScores, causalChains, recs, ass
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <KnowledgeGraphView zones={zones} zoneScores={zoneScores} causalChains={causalChains} recs={recs} assessmentId={assessmentId} />
       <div style={{ fontSize: 11, color: DIM, lineHeight: 1.5, marginBottom: 4 }}>
-        Each finding is shown with the measurements, observations, and occupant reports that support or conflict with it, plus the standards it references. Relationships are derived from deterministic scoring — they support, but do not confirm, interpretation. Every finding requires IH review.
+        The graph above shows each finding with the measurements, observations, and occupant reports that support or conflict with it, plus the standards, pathways, and recommendations it links to. The cards below list the same relationships. Everything is derived from deterministic scoring — it supports, but does not confirm, interpretation. Every finding requires IH review.
       </div>
 
       {findings.map((f, i) => (

@@ -61,7 +61,7 @@ export default function DevEvidenceMapPreview() {
           </p>
         </div>
 
-        <h2 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 10px', color: 'var(--text)' }}>Evidence Map (§13)</h2>
+        <h2 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 10px', color: 'var(--text)' }}>Knowledge Graph + Evidence Map (§13–14)</h2>
         <EvidenceMap {...FIXTURE} assessmentId="dev-test-1" />
 
         <h2 style={{ fontSize: 14, fontWeight: 700, margin: '28px 0 10px', color: 'var(--text)' }}>Report Evidence Traceability Matrix (§17)</h2>

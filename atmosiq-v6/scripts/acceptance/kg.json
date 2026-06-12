@@ -126,6 +126,17 @@
       ]
     },
     {
+      "id": "KG-NETWORK-VIEW",
+      "label": "Node-link knowledge-graph visualization renders nodes and edges (§14)",
+      "checks": [
+        { "type": "file_exists", "path": "src/components/KnowledgeGraphView.jsx" },
+        { "type": "grep_matches", "pattern": "buildKnowledgeGraphFromAssessment", "paths": ["src/components/KnowledgeGraphView.jsx"] },
+        { "type": "grep_matches", "pattern": "relationship_type", "paths": ["src/components/KnowledgeGraphView.jsx"] },
+        { "type": "grep_matches", "pattern": "KnowledgeGraphView", "paths": ["src/components/EvidenceMap.jsx"] },
+        { "type": "file_exists", "path": "tests/components/KnowledgeGraphView.test.tsx" }
+      ]
+    },
+    {
       "id": "KG-DEV-PREVIEW",
       "label": "Non-prod /dev/evidence-map preview (Evidence Map + traceability) + CIH sample renderer",
       "checks": [

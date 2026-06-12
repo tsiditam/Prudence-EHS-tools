@@ -30,10 +30,12 @@ const scored = {
 describe('EvidenceMap', () => {
   it('renders a scored finding with its standard, framing badge, and IH review flag', () => {
     render(<EvidenceMap {...(scored as never)} />)
-    expect(screen.getByText(/ventilation rate appears inadequate/)).toBeTruthy()
-    expect(screen.getByText('ASHRAE 62.1-2025')).toBeTruthy()
+    // Finding text + standard label appear in both the graph (node title) and
+    // the card, so assert presence rather than uniqueness.
+    expect(screen.getAllByText(/ventilation rate appears inadequate/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText('ASHRAE 62.1-2025').length).toBeGreaterThan(0)
     expect(screen.getByText(/not a health limit/i)).toBeTruthy()
-    expect(screen.getByText('IH Review Required')).toBeTruthy()
+    expect(screen.getAllByText('IH Review Required').length).toBeGreaterThan(0)
   })
 
   it('shows the empty state on a pre-engine draft', () => {
