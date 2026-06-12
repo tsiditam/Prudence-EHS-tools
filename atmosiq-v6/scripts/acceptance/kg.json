@@ -119,7 +119,7 @@
       "checks": [
         { "type": "file_exists", "path": "src/components/docx/sections-traceability.js" },
         { "type": "grep_matches", "pattern": "export function buildEvidenceTraceabilityMatrix", "paths": ["src/components/docx/sections-traceability.js"] },
-        { "type": "grep_matches", "pattern": "not a health limit", "paths": ["src/components/docx/sections-traceability.js"] },
+        { "type": "grep_matches", "pattern": "not a health limit", "paths": ["src/services/reportTraceability.ts"] },
         { "type": "grep_matches", "pattern": "requires industrial-hygienist review", "paths": ["src/components/docx/sections-traceability.js"] },
         { "type": "grep_matches", "pattern": "buildEvidenceTraceabilityMatrix\\(buildGraphContext", "paths": ["src/components/DocxReport.js"] },
         { "type": "file_exists", "path": "tests/engine/sections-traceability.test.ts" }
@@ -127,11 +127,14 @@
     },
     {
       "id": "KG-DEV-PREVIEW",
-      "label": "Non-prod /dev/evidence-map preview + CIH sample renderer exist",
+      "label": "Non-prod /dev/evidence-map preview (Evidence Map + traceability) + CIH sample renderer",
       "checks": [
         { "type": "file_exists", "path": "src/components/dev/DevEvidenceMapPreview.jsx" },
+        { "type": "file_exists", "path": "src/components/dev/ReportTraceabilityCard.jsx" },
+        { "type": "file_exists", "path": "src/services/reportTraceability.ts" },
         { "type": "grep_matches", "pattern": "/dev/evidence-map", "paths": ["src/main.jsx"] },
         { "type": "grep_matches", "pattern": "atmosflow\\.net", "paths": ["src/main.jsx"] },
+        { "type": "grep_matches", "pattern": "ReportTraceabilityCard", "paths": ["src/components/dev/DevEvidenceMapPreview.jsx"] },
         { "type": "file_exists", "path": "scripts/dev/render-kg-traceability-sample.test.ts" }
       ]
     },

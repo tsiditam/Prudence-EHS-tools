@@ -14,6 +14,7 @@
  * Pure preview harness — no engine access, no persistence, no auth.
  */
 import EvidenceMap from '../EvidenceMap'
+import ReportTraceabilityCard from './ReportTraceabilityCard'
 
 // Spec Test 1 fixture: CO2 ~1,800 ppm, OA damper closed/minimum, weak supply
 // airflow, occupant symptoms — enough to populate supporting evidence,
@@ -52,13 +53,22 @@ export default function DevEvidenceMapPreview() {
       <div style={{ maxWidth: 720, margin: '0 auto' }}>
         <div style={{ marginBottom: 18 }}>
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.6px', textTransform: 'uppercase', color: 'var(--warn)' }}>Non-production preview</div>
-          <h1 style={{ fontSize: 20, fontWeight: 700, margin: '6px 0 4px' }}>Evidence Map (§13) — Test 1 fixture</h1>
+          <h1 style={{ fontSize: 20, fontWeight: 700, margin: '6px 0 4px' }}>Knowledge Graph — Test 1 fixture</h1>
           <p style={{ fontSize: 12, color: 'var(--sub)', lineHeight: 1.5, margin: 0 }}>
-            Rendered from the deterministic knowledge-graph projection for a CO₂ ventilation concern.
-            This route exists only on preview/dev hosts; it is not reachable in production.
+            Both surfaces below are rendered from the same deterministic knowledge-graph projection
+            for a CO₂ ventilation concern. This route exists only on preview/dev hosts; it is not
+            reachable in production.
           </p>
         </div>
+
+        <h2 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 10px', color: 'var(--text)' }}>Evidence Map (§13)</h2>
         <EvidenceMap {...FIXTURE} assessmentId="dev-test-1" />
+
+        <h2 style={{ fontSize: 14, fontWeight: 700, margin: '28px 0 10px', color: 'var(--text)' }}>Report Evidence Traceability Matrix (§17)</h2>
+        <p style={{ fontSize: 11, color: 'var(--dim)', lineHeight: 1.5, margin: '0 0 12px' }}>
+          Identical to the table rendered in the consultant CIH-reasoning DOCX export.
+        </p>
+        <ReportTraceabilityCard {...FIXTURE} assessmentId="dev-test-1" />
       </div>
     </div>
   )

@@ -21,32 +21,13 @@ import { AlignmentType } from 'docx'
 import { COLORS, SEV_COLORS } from './styles'
 import { p } from './paragraphs'
 import { buildTable } from './tables'
+import { traceabilityRows } from '../../services/reportTraceability'
+
+// Re-exported so the pure row projection has one import site for tests and
+// the on-screen preview card; the DOCX matrix and the web view stay identical.
+export { traceabilityRows }
 
 const SEV_LABEL = { critical: 'Critical', high: 'High', medium: 'Medium', low: 'Low' }
-const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : '—')
-const join = (arr) => (arr && arr.length ? arr.join('; ') : '—')
-
-// Annotate a standard with its screening framing so a reference can never be
-// read as a health/compliance limit in the deliverable (CO2 / ASHRAE 62.1).
-const standardCell = (s) =>
-  s.is_health_limit ? s.label : `${s.label} (screening reference — not a health limit)`
-
-/**
- * Pure projection: graph context -> traceability rows. One row per finding,
- * each carrying its supporting / conflicting evidence labels, framed
- * standards, severity, and the categorical confidence the engine assigned.
- */
-export function traceabilityRows(graphContext) {
-  const findings = (graphContext && Array.isArray(graphContext.findings)) ? graphContext.findings : []
-  return findings.map((f) => ({
-    finding: String(f.finding || '').slice(0, 180),
-    severity: f.severity || null,
-    supporting: join((f.supported_by || []).map((e) => e.label)),
-    conflicting: join((f.contradicted_by || []).map((e) => e.label)),
-    standards: join((f.standards || []).map(standardCell)),
-    confidence: cap(f.confidence),
-  }))
-}
 
 export function buildEvidenceTraceabilityMatrix(graphContext) {
   const rows = traceabilityRows(graphContext)
