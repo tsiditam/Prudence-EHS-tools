@@ -33,14 +33,6 @@ import { STATUS_TONE, STATUS_LABEL, fileIcon, fmtBytes, fmtDate, fmtDateTime, fi
 
 const DIM = V3.TEXT_MUTED
 
-// Green primary-CTA bubble tint (shared with the Projects screen). The CTA
-// stays solid green; the .bubble-btn class adds the glass sheen + press.
-const GREEN_BUBBLE = {
-  '--bubble-bg': 'linear-gradient(180deg, var(--success), color-mix(in srgb, var(--success) 82%, #00140a))',
-  '--bubble-glow': 'rgba(34,197,94,0.42)',
-  '--bubble-border': 'color-mix(in srgb, var(--success) 55%, transparent)',
-  color: '#FFFFFF',
-}
 // Project workspace sections (projects-centric IA). Rendered as the same
 // liquid-glass pill nav the assessment results use — icon-only inactive
 // pills keep nine sections scannable on a phone.
@@ -204,7 +196,7 @@ export default function ProjectDetail({ id, onBack, profile, editSignal, onNewAs
       {/* ── Header identity card ───────────────────────────────────────
           Compact: title + client + address only. Status shows in exactly
           two places — this card's color-mapped top border (accent={tone},
-          mapped from project.status by STATUS_TONE: active=green,
+          mapped from project.status by STATUS_TONE: active=cyan,
           draft=gray, follow-up=amber, closed=dim gray) and the Status
           selector below. No standalone status badge or action buttons here,
           so real content sits closer to the top. */}
@@ -214,7 +206,8 @@ export default function ProjectDetail({ id, onBack, profile, editSignal, onNewAs
         {project.address && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 7 }}>
             <I n="location" s={13} c={DIM} w={1.8} />
-            <span style={{ ...V3.T.caption, color: DIM }}>{project.address}</span>
+            {/* Contrast floor (Rule 5): address text uses --sub, not --dim. */}
+            <span style={{ ...V3.T.caption, color: V3.TEXT_TERTIARY }}>{project.address}</span>
           </div>
         )}
       </GlassCard>
@@ -234,7 +227,7 @@ export default function ProjectDetail({ id, onBack, profile, editSignal, onNewAs
 
       {/* ── Primary action area — project-level actions, available across
           tabs. Tiered: New assessment is the single full-width primary
-          (green); Upload + Ask AtmosFlow AI share a secondary row. Edit
+          (cyan); Upload + Ask AtmosFlow AI share a secondary row. Edit
           details moved to the header ⋯ overflow menu. */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
         {onNewAssessment && (
@@ -246,8 +239,7 @@ export default function ProjectDetail({ id, onBack, profile, editSignal, onNewAs
             bubble
             haptic="success"
             onClick={startNewAssessment}
-            icon={<I n="findings" s={15} c="#FFFFFF" />}
-            style={GREEN_BUBBLE}
+            icon={<I n="findings" s={15} c="var(--on-accent-fill)" />}
           >
             New assessment
           </TactileButton>
@@ -439,7 +431,7 @@ export default function ProjectDetail({ id, onBack, profile, editSignal, onNewAs
             <div style={{ display: 'flex', gap: 8 }}>
               <TactileButton variant="secondary" size="sm" onClick={() => setShowLink(true)} icon={<I n="chain" s={14} c="var(--accent)" />}>Link</TactileButton>
               {onNewAssessment && (
-                <TactileButton variant="primary" size="sm" onClick={startNewAssessment} icon={<I n="findings" s={14} c="#FFFFFF" />} style={{ background: 'var(--success)', color: '#FFFFFF' }}>New</TactileButton>
+                <TactileButton variant="primary" size="sm" onClick={startNewAssessment} icon={<I n="findings" s={14} c="var(--on-accent-fill)" />}>New</TactileButton>
               )}
             </div>
           } />

@@ -1426,7 +1426,7 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
 
             {!pickerLoading && pickerIndex.reports.length === 0 && pickerIndex.drafts.length === 0 && (
               <div style={{ padding: '20px 4px', color: SUB, fontSize: 13, lineHeight: 1.6 }}>
-                No saved assessments yet. Once you have drafts or finalized reports, they'll show up here so you can ask Jasper about any of them.
+                No saved assessments yet. Once you have drafts or finalized reports, they'll show up here so you can ask AtmosFlow AI about any of them.
               </div>
             )}
 

@@ -95,10 +95,9 @@ export default function ProjectForm({ initial = {}, submitLabel = 'Create projec
           disabled={!canSubmit}
           onClick={submit}
           haptic="success"
-          // Green pill matches the launching "New project" CTA on the
-          // Projects screen — a deliberate, affirmative action color
-          // distinct from the cyan-fill used for screen-level emphasis.
-          style={{ background: 'var(--success)', color: '#FFFFFF', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.22), 0 1px 2px rgba(0,0,0,0.20)' }}
+          // Standard cyan primary (variant accent-fill), matching the
+          // "New project" CTA on the Projects screen. Green is reserved for
+          // the safe / severity scale, not chrome (ANSI Z535 discipline).
         >{submitLabel}</TactileButton>
         {onCancel && <TactileButton variant="ghost" size="lg" onClick={onCancel}>Cancel</TactileButton>}
       </div>
