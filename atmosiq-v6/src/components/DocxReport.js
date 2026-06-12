@@ -24,6 +24,8 @@ import { buildSensorGraphsAppendix } from './docx/sections-sensor'
 import { buildMethodologyCurrency } from './docx/sections-methodology-currency'
 import { buildConceptualSiteModelSection } from './docx/sections-conceptual-model'
 import { buildParameterExplainers, buildReportedConcernsSection, buildFindingsConfidenceRegister } from './docx/sections-cih-reasoning'
+import { buildEvidenceTraceabilityMatrix } from './docx/sections-traceability'
+import { buildGraphContext } from '../../lib/context/graphContext'
 import { buildCalibrationAppendix } from './docx/calibration-appendix'
 import { legacyToAssessmentScore, deriveAssessmentMeta } from '../engine/bridge'
 import { renderClientReport } from '../engine/report/client'
@@ -301,6 +303,13 @@ async function buildConsultantDocument(ctx, data) {
         buildReportedConcernsSection(data.presurvey, data.zones, data.zoneScores),
         buildConceptualSiteModelSection(data.causalChains),
         buildFindingsConfidenceRegister(data.zoneScores),
+        // Evidence Traceability Matrix (§17): finding -> evidence -> standard
+        // chain of custody, derived from the same knowledge-graph projection
+        // the Evidence Map UI and Jasper read. Null when no flagged findings.
+        buildEvidenceTraceabilityMatrix(buildGraphContext({
+          id: data.id, zones: data.zones, zoneScores: data.zoneScores,
+          causalChains: data.causalChains, recs: data.recs,
+        })),
       ]
     : []
   const supplemental = {

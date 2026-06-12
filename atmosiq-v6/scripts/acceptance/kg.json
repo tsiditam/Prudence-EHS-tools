@@ -114,6 +114,18 @@
       ]
     },
     {
+      "id": "KG-REPORT-TRACEABILITY",
+      "label": "Evidence Traceability Matrix renders in the CIH report style, framed and IH-gated (§17)",
+      "checks": [
+        { "type": "file_exists", "path": "src/components/docx/sections-traceability.js" },
+        { "type": "grep_matches", "pattern": "export function buildEvidenceTraceabilityMatrix", "paths": ["src/components/docx/sections-traceability.js"] },
+        { "type": "grep_matches", "pattern": "not a health limit", "paths": ["src/components/docx/sections-traceability.js"] },
+        { "type": "grep_matches", "pattern": "requires industrial-hygienist review", "paths": ["src/components/docx/sections-traceability.js"] },
+        { "type": "grep_matches", "pattern": "buildEvidenceTraceabilityMatrix\\(buildGraphContext", "paths": ["src/components/DocxReport.js"] },
+        { "type": "file_exists", "path": "tests/engine/sections-traceability.test.ts" }
+      ]
+    },
+    {
       "id": "KG-TESTS-PASS",
       "label": "Builder + service + graph-context unit tests pass (§19 tests 1-7, §16)",
       "checks": [
