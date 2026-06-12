@@ -15,7 +15,6 @@ import ReactDOM from 'react-dom/client'
 import App from './App'
 import ErrorBoundary from './components/ErrorBoundary'
 import EarlyAccessPage from './components/EarlyAccessPage'
-import DevEvidenceMapPreview from './components/dev/DevEvidenceMapPreview'
 import DevPreviewButton from './components/dev/DevPreviewButton'
 import { Toaster } from 'sonner'
 import { initSentryClient } from '../lib/sentry-client'
@@ -33,10 +32,14 @@ const PROD_HOSTS = new Set(['atmosflow.net', 'www.atmosflow.net'])
 const isDevHost = !PROD_HOSTS.has(window.location.hostname)
 const isDevEvidenceMap = isDevHost && window.location.pathname === '/dev/evidence-map'
 
+// Lazy so the preview (and the demo data + engine pipeline it pulls in) never
+// lands in the production bundle — it loads only when the dev route is hit.
+const DevEvidenceMapPreview = React.lazy(() => import('./components/dev/DevEvidenceMapPreview'))
+
 const root = isEarlyAccess
   ? <EarlyAccessPage />
   : isDevEvidenceMap
-    ? <DevEvidenceMapPreview />
+    ? <React.Suspense fallback={null}><DevEvidenceMapPreview /></React.Suspense>
     : <App />
 
 ReactDOM.createRoot(document.getElementById('root')).render(

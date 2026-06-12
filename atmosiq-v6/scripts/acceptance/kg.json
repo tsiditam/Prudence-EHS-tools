@@ -148,6 +148,7 @@
         { "type": "grep_matches", "pattern": "/dev/evidence-map", "paths": ["src/main.jsx"] },
         { "type": "grep_matches", "pattern": "atmosflow\\.net", "paths": ["src/main.jsx"] },
         { "type": "grep_matches", "pattern": "ReportTraceabilityCard", "paths": ["src/components/dev/DevEvidenceMapPreview.jsx"] },
+        { "type": "grep_matches", "pattern": "DEMO_ZONES|buildCausalChains", "paths": ["src/components/dev/DevEvidenceMapPreview.jsx"] },
         { "type": "file_exists", "path": "scripts/dev/render-kg-traceability-sample.test.ts" }
       ]
     },
