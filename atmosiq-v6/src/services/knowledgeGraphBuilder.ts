@@ -296,6 +296,28 @@ export function pathwayConfidence(text: string | undefined): KGConfidence {
 
 interface AnyRec { [k: string]: any }
 
+const hasVal = (v: unknown) => v !== undefined && v !== null && String(v).trim() !== ''
+
+// Zone reading fields → measurement evidence, with the finding category each
+// bears on. Mirrors the engine's own parameter set (scoring.js / standards).
+const MEAS_FIELDS: Array<{ f: string; parameter: string; label: string; unit: string; cat: string }> = [
+  { f: 'co2', parameter: 'co2', label: 'CO₂', unit: 'ppm', cat: 'Ventilation' },
+  { f: 'co', parameter: 'co', label: 'CO', unit: 'ppm', cat: 'Contaminants' },
+  { f: 'pm', parameter: 'pm25', label: 'PM2.5', unit: 'µg/m³', cat: 'Contaminants' },
+  { f: 'tv', parameter: 'tvoc', label: 'TVOC', unit: 'µg/m³', cat: 'Contaminants' },
+  { f: 'hc', parameter: 'hcho', label: 'Formaldehyde', unit: 'ppm', cat: 'Contaminants' },
+  { f: 'rh', parameter: 'rh', label: 'Relative humidity', unit: '%', cat: 'Environment' },
+  { f: 'tf', parameter: 'temperature', label: 'Temperature', unit: '°F', cat: 'Environment' },
+]
+
+// Zone categorical fields → observation evidence, gated on a concerning value.
+const OBS_FIELDS: Array<{ f: string; cat: string; label: (v: string) => string; when: (v: string) => boolean }> = [
+  { f: 'od', cat: 'Ventilation', label: (v) => `Outdoor-air damper: ${v}`, when: (v) => /clos|min|stuck|inoper/i.test(v) },
+  { f: 'sa', cat: 'Ventilation', label: (v) => `Supply airflow: ${v}`, when: (v) => /weak|reduced|no airflow/i.test(v) },
+  { f: 'wd', cat: 'Environment', label: (v) => `Water intrusion: ${v}`, when: (v) => !/^none/i.test(v) },
+  { f: 'mi', cat: 'Environment', label: (v) => `Visible mold / discoloration: ${v}`, when: (v) => !/^none/i.test(v) },
+]
+
 export function assessmentToGraphModel(args: {
   assessmentId: string
   assessment: AnyRec
@@ -344,6 +366,42 @@ export function assessmentToGraphModel(args: {
       })
     })
 
+    // Evidence nodes derived from the zone's captured fields, linked to the
+    // findings whose category they bear on. The deterministic scorer does not
+    // tag finding provenance, so evidence is associated by category family
+    // (the same heuristic the Findings tab uses). This populates the
+    // supporting-evidence layer the Evidence Map and traceability matrix read.
+    const findingsInCat = (label: string) =>
+      findings!.filter((f) => f.findingType === slug(label)).map((f) => f.key)
+
+    const measurements = MEAS_FIELDS
+      .filter((m) => hasVal(z[m.f]))
+      .map((m) => ({
+        key: `${m.parameter}_reading`,
+        parameter: m.parameter,
+        parameterLabel: m.label,
+        label: `${m.label} ${z[m.f]} ${m.unit}`,
+        supportsFindings: findingsInCat(m.cat),
+      }))
+
+    const observations = OBS_FIELDS
+      .filter((o) => typeof z[o.f] === 'string' && z[o.f].trim() !== '' && o.when(z[o.f]))
+      .map((o) => ({
+        key: `obs_${o.f}`,
+        label: o.label(String(z[o.f])),
+        supportsFindings: findingsInCat(o.cat),
+      }))
+    const odors: string[] = Array.isArray(z.ot) ? z.ot : []
+    if (odors.some((o) => /musty|earthy/i.test(o))) {
+      observations.push({ key: 'obs_odor_musty', label: 'Musty / earthy odor reported', supportsFindings: findingsInCat('Environment') })
+    }
+
+    // Occupant-reported symptoms corroborate (associate with) the zone's findings.
+    const symptoms: string[] = Array.isArray(z.sy) ? z.sy : []
+    const complaints = symptoms.length
+      ? [{ key: 'occupant_symptoms', label: `Occupant-reported symptoms: ${symptoms.join(', ')}`, associatedFindings: findings!.map((f) => f.key) }]
+      : []
+
     // Pathways from the causal-chain engine (already structured).
     const zoneChains = causalChains.filter((c) => (c.zone || '') === zoneName)
     const pathways = zoneChains.map((c) => {
@@ -371,7 +429,7 @@ export function assessmentToGraphModel(args: {
         }
       })
 
-    return { id: zoneId, name: zoneName, findings, pathways, recommendations }
+    return { id: zoneId, name: zoneName, findings, measurements, observations, complaints, pathways, recommendations }
   })
 
   return {

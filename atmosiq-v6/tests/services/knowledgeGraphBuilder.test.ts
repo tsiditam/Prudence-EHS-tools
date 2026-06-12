@@ -245,6 +245,30 @@ describe('adapter: assessmentToGraphModel', () => {
   })
 })
 
+// ── Adapter — evidence derivation from zone fields ──────────────────────────
+describe('adapter: evidence derivation from zone fields', () => {
+  const assessment = { building: { fn: 'Acme' }, zones: [{ id: 'z1', zn: 'Conf A', co2: '1800', od: 'Closed / minimum', sy: ['Headache', 'Eye irritation'] }] }
+  const engineResults = {
+    zoneScores: [{ zoneName: 'Conf A', cats: [{ l: 'Ventilation', r: [{ t: 'CO2 1800 ppm — inadequate', std: 'ASHRAE 62.1-2025', sev: 'high' }] }] }],
+    causalChains: [], recommendations: [],
+  }
+  const g = buildKnowledgeGraphFromAssessment({ assessmentId: 'rpt-ev', assessment, engineResults, ...V })
+
+  it('emits measurement, observation and complaint nodes from zone fields', () => {
+    expect(g.nodes.some((n) => n.node_type === 'measurement')).toBe(true)
+    expect(g.nodes.some((n) => n.node_type === 'observation')).toBe(true)
+    expect(g.nodes.some((n) => n.node_type === 'complaint')).toBe(true)
+  })
+  it('links the category-matched evidence to the ventilation finding', () => {
+    const finding = g.nodes.find((n) => n.node_type === 'finding')!
+    const supports = g.edges.filter((e) =>
+      e.target_entity_key === finding.entity_key &&
+      (e.relationship_type === 'SUPPORTS_FINDING' || e.relationship_type === 'ASSOCIATED_WITH'))
+    // co2 measurement + OA-damper observation + occupant symptoms
+    expect(supports.length).toBeGreaterThanOrEqual(3)
+  })
+})
+
 // ── helpers ─────────────────────────────────────────────────────────────────
 describe('helpers', () => {
   it('slug normalizes', () => {

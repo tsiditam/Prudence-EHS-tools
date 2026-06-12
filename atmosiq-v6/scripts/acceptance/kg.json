@@ -126,6 +126,16 @@
       ]
     },
     {
+      "id": "KG-DEV-PREVIEW",
+      "label": "Non-prod /dev/evidence-map preview + CIH sample renderer exist",
+      "checks": [
+        { "type": "file_exists", "path": "src/components/dev/DevEvidenceMapPreview.jsx" },
+        { "type": "grep_matches", "pattern": "/dev/evidence-map", "paths": ["src/main.jsx"] },
+        { "type": "grep_matches", "pattern": "atmosflow\\.net", "paths": ["src/main.jsx"] },
+        { "type": "file_exists", "path": "scripts/dev/render-kg-traceability-sample.test.ts" }
+      ]
+    },
+    {
       "id": "KG-TESTS-PASS",
       "label": "Builder + service + graph-context unit tests pass (§19 tests 1-7, §16)",
       "checks": [

@@ -23,6 +23,7 @@
     "accept:jasper-eval": "node scripts/eval-jasper.mjs --config scripts/acceptance/jasper-eval.json",
     "test:kg": "vitest run tests/services/knowledgeGraphBuilder.test.ts tests/services/knowledgeGraphService.test.ts tests/lib/graphContext.test.ts tests/components/EvidenceMap.test.tsx tests/engine/sections-traceability.test.ts",
     "accept:kg": "node scripts/acceptance-check.mjs --config scripts/acceptance/kg.json",
+    "render:kg-sample": "RENDER_KG_SAMPLE=1 vitest run scripts/dev/render-kg-traceability-sample.test.ts",
     "render:acceptance": "VITEST_RENDER_FIXTURES=1 vitest run scripts/render-acceptance-fixture.test.ts",
     "render:acceptance:v2.3": "VITEST_RENDER_FIXTURES=1 vitest run scripts/acceptance/render-acceptance-fixture.test.ts",
     "accept:v2.3": "node scripts/acceptance/run-v23.mjs",
