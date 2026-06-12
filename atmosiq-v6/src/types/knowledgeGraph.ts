@@ -217,3 +217,48 @@ export interface KGModel {
   standards?: KGModelStandard[]
   zones: KGModelZone[]
 }
+
+// ── Scoped graph context (the LLM-facing projection, §16) ───────────────────
+//
+// A compact, relationship-resolved summary of the graph for one assessment,
+// suitable for embedding in the Jasper context block. It nests each finding's
+// supporting/conflicting evidence, linked standards (with framing flags),
+// pathways, recommendations, and missing data, so the model reasons over the
+// engine's actual relationships instead of a flat fact dump — without shipping
+// the verbose node/edge arrays. It originates no facts.
+
+export interface KGContextEvidence {
+  kind: KGNodeType
+  label: string
+  confidence?: KGConfidence
+}
+
+export interface KGContextStandard {
+  label: string
+  is_health_limit: boolean
+  framing: string
+}
+
+export interface KGContextFinding {
+  finding: string
+  type?: string | null
+  severity?: string | null
+  confidence: KGConfidence
+  ih_review_required: boolean
+  supported_by: KGContextEvidence[]
+  contradicted_by: KGContextEvidence[]
+  standards: KGContextStandard[]
+  pathways: Array<{ pathway: string; confidence: KGConfidence }>
+  recommendations: string[]
+  missing_data: string[]
+}
+
+export interface KGContext {
+  engine_version: string
+  ruleset_version: string
+  node_count: number
+  edge_count: number
+  findings: KGContextFinding[]
+  /** Grounding rules the model must honor when reading the graph. */
+  guidance: string[]
+}

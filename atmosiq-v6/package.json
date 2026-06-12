@@ -21,7 +21,7 @@
     "accept:pricing-rollout": "node scripts/acceptance-check.mjs --config scripts/acceptance/pricing-rollout.json",
     "accept:go-live": "node scripts/acceptance-check.mjs --config scripts/acceptance/go-live.json",
     "accept:jasper-eval": "node scripts/eval-jasper.mjs --config scripts/acceptance/jasper-eval.json",
-    "test:kg": "vitest run tests/services/knowledgeGraphBuilder.test.ts tests/services/knowledgeGraphService.test.ts",
+    "test:kg": "vitest run tests/services/knowledgeGraphBuilder.test.ts tests/services/knowledgeGraphService.test.ts tests/lib/graphContext.test.ts",
     "accept:kg": "node scripts/acceptance-check.mjs --config scripts/acceptance/kg.json",
     "render:acceptance": "VITEST_RENDER_FIXTURES=1 vitest run scripts/render-acceptance-fixture.test.ts",
     "render:acceptance:v2.3": "VITEST_RENDER_FIXTURES=1 vitest run scripts/acceptance/render-acceptance-fixture.test.ts",

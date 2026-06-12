@@ -93,11 +93,22 @@
       ]
     },
     {
+      "id": "KG-JASPER-CONTEXT",
+      "label": "Scoped graph context is derived and attached to the Jasper context (§16)",
+      "checks": [
+        { "type": "file_exists", "path": "lib/context/graphContext.ts" },
+        { "type": "grep_matches", "pattern": "export function buildGraphContext", "paths": ["lib/context/graphContext.ts"] },
+        { "type": "grep_matches", "pattern": "ventilation-adequacy indicator", "paths": ["lib/context/graphContext.ts"] },
+        { "type": "grep_matches", "pattern": "knowledge_graph: buildGraphContext", "paths": ["lib/context/buildJasperContext.ts"] }
+      ]
+    },
+    {
       "id": "KG-TESTS-PASS",
-      "label": "Builder + service unit tests pass (spec section 19 tests 1-7)",
+      "label": "Builder + service + graph-context unit tests pass (§19 tests 1-7, §16)",
       "checks": [
         { "type": "file_exists", "path": "tests/services/knowledgeGraphBuilder.test.ts" },
         { "type": "file_exists", "path": "tests/services/knowledgeGraphService.test.ts" },
+        { "type": "file_exists", "path": "tests/lib/graphContext.test.ts" },
         { "type": "npm_script_passes", "script": "test:kg" }
       ]
     }

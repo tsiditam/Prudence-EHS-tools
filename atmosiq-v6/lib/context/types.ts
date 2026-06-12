@@ -34,6 +34,7 @@
  */
 
 import type { LoggerContextSummary } from '../jasper/logger-context-summary'
+import type { KGContext } from '../../src/types/knowledgeGraph'
 
 /** A single finalization / defensibility blocker or gap detail. */
 export interface ReadinessBlockerDetail {
@@ -274,4 +275,11 @@ export type JasperContext = AssessmentContext & {
   readonly project_workspace: Record<string, unknown> | null
   /** Light project-portfolio index (passthrough) — most recent first. */
   readonly projects_index: Array<Record<string, unknown>> | null
+  /**
+   * Scoped knowledge-graph projection for the current assessment (KG
+   * stage 2, §16): findings with their supporting/conflicting evidence,
+   * framed standards, pathways, recommendations, and missing data. Null
+   * before the engine has produced zone scores. Derived, never authored.
+   */
+  readonly knowledge_graph: KGContext | null
 }
