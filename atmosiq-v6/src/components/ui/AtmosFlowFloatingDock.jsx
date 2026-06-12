@@ -39,6 +39,13 @@ if (typeof document !== 'undefined' && !document.getElementById('affd-style')) {
   s.textContent =
     '.affd-dock::-webkit-scrollbar{display:none}' +
     '@media (prefers-reduced-motion: reduce){.affd-dock button{transition:none !important}}' +
+    // Tactile tap-glow: a cyan ripple that blooms from the centre of a dock
+    // tab (and the circular Jasper pill) on press, plus a cyan focus ring.
+    // Layered behind the icon (z-index:-1) so it never washes out the glyph.
+    '.affd-tab{isolation:isolate;}' +
+    '.affd-tab::after{content:"";position:absolute;inset:0;border-radius:inherit;z-index:-1;background:radial-gradient(circle at 50% 50%, rgba(57,192,217,0.32), transparent 60%);opacity:0;transform:scale(.8);pointer-events:none;}' +
+    '.affd-tab:focus-visible{outline:none;box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent)!important;}' +
+    '@media (prefers-reduced-motion: no-preference){.affd-tab::after{transition:opacity 220ms ease, transform 220ms ease;}.affd-tab:active::after{opacity:1;transform:scale(1.12);}}' +
     // Light mode: flip the dock from dark glass to a white capsule so it
     // matches the light theme; the active pill becomes a faint cyan tint
     // with a cyan ring. Labels/icons are already cyan (--accent-fill), so

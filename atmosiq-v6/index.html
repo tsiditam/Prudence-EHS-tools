@@ -125,6 +125,19 @@
            intentionally for the dark-mode look; flag for any a11y audit. */
         --accent-fill:#39C0D9;
         --on-accent-fill:#FFFFFF;
+        /* ── Liquid-glass "bubble" controls (iOS-26-style tactile buttons) ──
+           Shared surface/press tokens consumed by the global .bubble-btn
+           class. --bubble-bg is the fill (a control overrides it for a tint,
+           e.g. the green New-project CTA); the rest define the glass border,
+           the cyan tap-glow, the resting layered shadow, the inset
+           specular + contact shades, and the press-down scale. Flipped for
+           light mode below. */
+        --bubble-bg:linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.03));
+        --bubble-border:rgba(255,255,255,0.18);
+        --bubble-glow:rgba(57,192,217,0.32);
+        --bubble-shadow:0 10px 26px rgba(0,0,0,0.34);
+        --bubble-inset:inset 0 1px 0 rgba(255,255,255,0.30), inset 0 -7px 16px rgba(0,0,0,0.22);
+        --bubble-press-scale:0.96;
       }
       [data-theme="light"]{
         /* Premium Light palette — a neutral cool-grey (slate) page,
@@ -177,6 +190,14 @@
         --warn:#9A4A08;
         --danger:#B91C1C;
         --success:#15703A;
+        /* Bubble controls flip to a near-white capsule with soft slate
+           shadows (mirrors the dock / glass controls in light mode). */
+        --bubble-bg:linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,255,255,0.86));
+        --bubble-border:rgba(15,23,42,0.10);
+        --bubble-glow:rgba(46,167,191,0.26);
+        --bubble-shadow:0 8px 22px rgba(15,23,42,0.16);
+        --bubble-inset:inset 0 1px 0 rgba(255,255,255,0.85), inset 0 -6px 14px rgba(15,23,42,0.06);
+        --bubble-press-scale:0.96;
       }
       body{
         font-family:var(--font-sans);

@@ -4879,6 +4879,57 @@ export default function MobileApp() {
           border-color:rgba(15,23,42,0.10);
           box-shadow:0 4px 14px rgba(15,23,42,0.12), inset 0 1px 0 rgba(255,255,255,0.7);
         }
+        /* ── Liquid-glass "bubble" button (iOS-26 tactile control) ──
+           A reusable, token-driven surface for primary CTAs, filter / nav
+           pills, and circular icon buttons. The surface, glass border, layered
+           shadow and inset highlights come from the --bubble-* tokens (themed
+           in index.html); a control tints itself by overriding --bubble-bg /
+           --bubble-glow inline. The surface props use !important so the class
+           reliably governs any element it's added to (the codebase is
+           inline-styled) — the per-control tint rides on custom properties, so
+           there is no conflict. Press / hover / ripple are gated behind
+           prefers-reduced-motion: no-preference. */
+        .bubble-btn{
+          position:relative; isolation:isolate;
+          border-radius:var(--bubble-radius, 999px) !important;
+          background:var(--bubble-bg) !important;
+          border:1px solid var(--bubble-border) !important;
+          box-shadow:var(--bubble-shadow), var(--bubble-inset) !important;
+          -webkit-backdrop-filter:blur(16px) saturate(180%);
+          backdrop-filter:blur(16px) saturate(180%);
+          -webkit-tap-highlight-color:transparent; touch-action:manipulation;
+          transform:translateZ(0);
+        }
+        /* Soft radial sheen from the top-left — the "bubble" read. z-index:-1
+           keeps it above the fill but below the label/icon. */
+        .bubble-btn::before{
+          content:""; position:absolute; inset:0; border-radius:inherit; z-index:-1;
+          background:radial-gradient(120% 100% at 26% 12%, rgba(255,255,255,0.22), transparent 46%);
+          pointer-events:none;
+        }
+        /* Cyan tap-glow — expands from centre on press, fades fast. */
+        .bubble-btn::after{
+          content:""; position:absolute; inset:0; border-radius:inherit; z-index:-1;
+          background:radial-gradient(circle at 50% 50%, var(--bubble-glow), transparent 60%);
+          opacity:0; transform:scale(.8); pointer-events:none;
+        }
+        .bubble-btn:disabled, .bubble-btn[aria-disabled="true"]{ opacity:.5; filter:saturate(.7); }
+        .bubble-btn:focus-visible{
+          outline:none;
+          box-shadow:var(--bubble-shadow), var(--bubble-inset), 0 0 0 3px color-mix(in srgb, var(--accent) 50%, transparent) !important;
+        }
+        @media (prefers-reduced-motion: no-preference){
+          .bubble-btn{
+            transition:transform 180ms cubic-bezier(.2,.8,.2,1), box-shadow 180ms cubic-bezier(.2,.8,.2,1), background 180ms ease, border-color 180ms ease, filter 180ms ease;
+          }
+          .bubble-btn::after{ transition:opacity 220ms ease, transform 220ms ease; }
+          .bubble-btn:not(:disabled):hover{ transform:translateY(-1px); filter:brightness(1.06); }
+          .bubble-btn:not(:disabled):active{
+            transform:translateY(1px) scale(var(--bubble-press-scale, .96)) !important;
+            box-shadow:0 5px 14px rgba(0,0,0,0.34), inset 0 2px 8px rgba(0,0,0,0.30), inset 0 1px 1px rgba(255,255,255,0.16) !important;
+          }
+          .bubble-btn:not(:disabled):active::after{ opacity:1; transform:scale(1.08); }
+        }
         @media (prefers-reduced-motion: reduce){
           .af-menu,.af-menu-backdrop,.af-menu-item,.af-menu-trigger{transition:none !important;}
           .af-menu{transform:none !important;}

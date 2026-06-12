@@ -96,6 +96,12 @@ export default function TactileButton({
   // Pass haptic={false} to silence; pass 'heavy' or 'success' for
   // confirmatory taps (e.g. "Issue report under documented judgment").
   haptic,
+  // iOS-26 "liquid glass" surface. When set, the button adopts the global
+  // .bubble-btn class (token-driven glass + radial sheen + cyan tap-glow +
+  // CSS press/hover/focus), tinted per-variant via --bubble-* custom
+  // properties. The JS transform press is dropped so CSS :active owns it.
+  bubble = false,
+  className,
   style,
   children,
   ...rest
@@ -106,13 +112,17 @@ export default function TactileButton({
   const fontSize = size === 'lg' ? 15 : size === 'sm' ? 13 : 14
   const minH = size === 'lg' ? 52 : size === 'sm' ? 38 : 48
 
+  // Per-variant bubble tint — only the fill colour + glow change; the glass
+  // structure (border, shadow, sheen, press) is shared. ghost falls through
+  // to the neutral --bubble-* token defaults.
+  const bubbleVars = bubble ? { ...(BUBBLE_TINT[variant] || {}), '--bubble-radius': `${pill ? 999 : R.md}px` } : null
+
   const composed = {
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
     padding: `${padY}px ${padX}px`,
-    borderRadius: pill ? R.pill : R.md,
     fontSize,
     fontWeight: 700,
     letterSpacing: '-0.1px',
@@ -120,10 +130,13 @@ export default function TactileButton({
     fontFamily: 'inherit',
     minHeight: minH,
     opacity: disabled ? 0.5 : 1,
-    transition: tapTransition,
     width: fullWidth ? '100%' : undefined,
-    color: TEXT_PRIMARY,
-    ...v,
+    // Bubble mode: the .bubble-btn class owns radius/surface/transition; keep
+    // only the variant TEXT colour. Classic mode: inline radius + variant
+    // surface + tap transition as before.
+    ...(bubble
+      ? { color: v.color || TEXT_PRIMARY, ...bubbleVars }
+      : { borderRadius: pill ? R.pill : R.md, transition: tapTransition, color: TEXT_PRIMARY, ...v }),
     ...tapResetStyle,
     ...style,
   }
@@ -137,6 +150,8 @@ export default function TactileButton({
 
   const handlers = disabled
     ? {}
+    : bubble
+    ? { onClick, onPointerDown: () => fireHaptic(hapticKind) }
     : {
         onClick,
         onPointerDown: (e) => {
@@ -149,11 +164,33 @@ export default function TactileButton({
         onPointerCancel:(e) => { e.currentTarget.style.transform = 'scale(1)' },
       }
 
+  const cls = [bubble ? 'bubble-btn' : '', className].filter(Boolean).join(' ') || undefined
+
   return (
-    <button type={type} disabled={disabled} style={composed} {...handlers} {...rest}>
+    <button type={type} disabled={disabled} className={cls} style={composed} {...handlers} {...rest}>
       {icon}
       <span>{children}</span>
       {iconRight}
     </button>
   )
+}
+
+// Per-variant bubble tint (custom properties consumed by .bubble-btn).
+const BUBBLE_TINT = {
+  primary: {
+    '--bubble-bg': 'linear-gradient(180deg, var(--accent-fill), color-mix(in srgb, var(--accent-fill) 82%, #001417))',
+    '--bubble-glow': 'rgba(57,192,217,0.42)',
+    '--bubble-border': 'color-mix(in srgb, var(--accent-fill) 55%, transparent)',
+  },
+  secondary: {
+    '--bubble-bg': 'linear-gradient(180deg, color-mix(in srgb, var(--accent) 20%, transparent), color-mix(in srgb, var(--accent) 7%, transparent))',
+    '--bubble-glow': 'rgba(57,192,217,0.34)',
+    '--bubble-border': 'color-mix(in srgb, var(--accent) 34%, transparent)',
+  },
+  danger: {
+    '--bubble-bg': 'linear-gradient(180deg, color-mix(in srgb, var(--danger) 22%, transparent), color-mix(in srgb, var(--danger) 8%, transparent))',
+    '--bubble-glow': 'rgba(239,68,68,0.34)',
+    '--bubble-border': 'color-mix(in srgb, var(--danger) 34%, transparent)',
+  },
+  ghost: {},
 }

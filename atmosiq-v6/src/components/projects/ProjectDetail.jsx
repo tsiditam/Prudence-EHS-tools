@@ -32,6 +32,15 @@ import AssessmentSegmentedPillNav from '../ui/AssessmentSegmentedPillNav'
 import { STATUS_TONE, STATUS_LABEL, fileIcon, fmtBytes, fmtDate, fmtDateTime, fileToDataUrl, downloadDataUrl } from './projectsTheme'
 
 const DIM = V3.TEXT_MUTED
+
+// Green primary-CTA bubble tint (shared with the Projects screen). The CTA
+// stays solid green; the .bubble-btn class adds the glass sheen + press.
+const GREEN_BUBBLE = {
+  '--bubble-bg': 'linear-gradient(180deg, var(--success), color-mix(in srgb, var(--success) 82%, #00140a))',
+  '--bubble-glow': 'rgba(34,197,94,0.42)',
+  '--bubble-border': 'color-mix(in srgb, var(--success) 55%, transparent)',
+  color: '#FFFFFF',
+}
 // Project workspace sections (projects-centric IA). Rendered as the same
 // liquid-glass pill nav the assessment results use — icon-only inactive
 // pills keep nine sections scannable on a phone.
@@ -234,16 +243,18 @@ export default function ProjectDetail({ id, onBack, profile, editSignal, onNewAs
             size="lg"
             pill
             fullWidth
+            bubble
+            haptic="success"
             onClick={startNewAssessment}
             icon={<I n="findings" s={15} c="#FFFFFF" />}
-            style={{ background: 'var(--success)', color: '#FFFFFF', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.22), 0 1px 2px rgba(0,0,0,0.20)' }}
+            style={GREEN_BUBBLE}
           >
             New assessment
           </TactileButton>
         )}
         <div style={{ display: 'flex', gap: 10 }}>
-          <TactileButton variant="secondary" size="md" onClick={() => { setDocCategory(''); docInputRef.current?.click() }} icon={<I n="upload" s={14} c="var(--accent)" />} style={{ flex: 1 }}>Upload</TactileButton>
-          {onAskAI && <TactileButton variant="secondary" size="md" onClick={onAskAI} icon={<I n="mic" s={14} c="var(--accent)" />} style={{ flex: 1 }}>Ask AtmosFlow AI</TactileButton>}
+          <TactileButton variant="secondary" size="md" pill bubble onClick={() => { setDocCategory(''); docInputRef.current?.click() }} icon={<I n="upload" s={14} c="var(--accent)" />} style={{ flex: 1, color: 'var(--accent)' }}>Upload</TactileButton>
+          {onAskAI && <TactileButton variant="secondary" size="md" pill bubble onClick={onAskAI} icon={<I n="mic" s={14} c="var(--accent)" />} style={{ flex: 1, color: 'var(--accent)' }}>Ask AtmosFlow AI</TactileButton>}
         </div>
       </div>
 

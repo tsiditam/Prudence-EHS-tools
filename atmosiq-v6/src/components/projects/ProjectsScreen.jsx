@@ -23,6 +23,20 @@ import { STATUS_TONE, STATUS_LABEL, fmtDate } from './projectsTheme'
 
 const DIM = V3.TEXT_MUTED
 
+// Green "New project" bubble tint. The CTA stays solid green; the global
+// .bubble-btn class (via TactileButton `bubble`) adds the glass sheen,
+// tactile press, and cyan/green tap-glow on top.
+const GREEN_BUBBLE = {
+  '--bubble-bg': 'linear-gradient(180deg, var(--success), color-mix(in srgb, var(--success) 82%, #00140a))',
+  '--bubble-glow': 'rgba(34,197,94,0.42)',
+  '--bubble-border': 'color-mix(in srgb, var(--success) 55%, transparent)',
+  color: '#FFFFFF',
+}
+
+// Filter pills carry a lighter shadow than a full CTA so the chip row doesn't
+// read as a row of floating buttons.
+const FILTER_BUBBLE_BASE = { '--bubble-shadow': '0 2px 8px rgba(0,0,0,0.20)', '--bubble-inset': 'inset 0 1px 0 rgba(255,255,255,0.10)' }
+
 function CountChip({ icon, n, label }) {
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: V3.TEXT_TERTIARY, fontSize: 12 }}>
@@ -108,9 +122,11 @@ export default function ProjectsScreen({ onBack, onOpen, onReportIncident }) {
           variant="primary"
           size="sm"
           pill
+          bubble
+          haptic="success"
           onClick={() => setShowCreate(true)}
           icon={<I n="bldg" s={14} c="#FFFFFF" />}
-          style={{ background: 'var(--success)', color: '#FFFFFF', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.22), 0 1px 2px rgba(0,0,0,0.20)' }}
+          style={GREEN_BUBBLE}
         >
           New project
         </TactileButton>
@@ -119,10 +135,10 @@ export default function ProjectsScreen({ onBack, onOpen, onReportIncident }) {
             variant="secondary"
             size="sm"
             pill
-            className="af-glass-control"
+            bubble
             onClick={onReportIncident}
             icon={<I n="alert" s={14} c="var(--accent)" />}
-            style={{ color: 'var(--accent)', background: undefined, border: undefined, boxShadow: undefined }}
+            style={{ color: 'var(--accent)' }}
           >
             Report an incident
           </TactileButton>
@@ -137,15 +153,21 @@ export default function ProjectsScreen({ onBack, onOpen, onReportIncident }) {
           // pills (subtle neutral glass when idle, cyan-tinted glass + cyan
           // text + ring when active) rather than the old per-status tones.
           return (
-            <button key={s} onClick={() => setFilter(s)} style={{
-              flexShrink: 0, padding: '7px 14px', borderRadius: 999, cursor: 'pointer', fontFamily: 'inherit',
-              fontSize: 12, fontWeight: 600, letterSpacing: '0.2px', border: 'none',
-              background: active ? 'color-mix(in srgb, var(--accent) 16%, transparent)' : 'color-mix(in srgb, var(--text) 8%, transparent)',
-              boxShadow: active
-                ? 'inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent), inset 0 1px 0 rgba(255,255,255,0.06)'
-                : 'inset 0 1px 0 rgba(255,255,255,0.04)',
+            <button key={s} onClick={() => setFilter(s)} className="bubble-btn" aria-pressed={active} style={{
+              flexShrink: 0, padding: '7px 14px', cursor: 'pointer', fontFamily: 'inherit',
+              fontSize: 12, fontWeight: 600, letterSpacing: '0.2px',
               color: active ? 'var(--accent)' : 'var(--sub)',
-              WebkitTapHighlightColor: 'transparent',
+              ...FILTER_BUBBLE_BASE,
+              ...(active
+                ? {
+                    '--bubble-bg': 'linear-gradient(180deg, color-mix(in srgb, var(--accent) 22%, transparent), color-mix(in srgb, var(--accent) 8%, transparent))',
+                    '--bubble-border': 'color-mix(in srgb, var(--accent) 36%, transparent)',
+                    '--bubble-glow': 'rgba(57,192,217,0.34)',
+                  }
+                : {
+                    '--bubble-bg': 'linear-gradient(180deg, color-mix(in srgb, var(--text) 9%, transparent), color-mix(in srgb, var(--text) 3%, transparent))',
+                    '--bubble-border': 'color-mix(in srgb, var(--text) 12%, transparent)',
+                  }),
             }}>
               {s === 'all' ? 'All' : STATUS_LABEL[s]}
             </button>
@@ -171,9 +193,11 @@ export default function ProjectsScreen({ onBack, onOpen, onReportIncident }) {
               variant="primary"
               size="sm"
               pill
+              bubble
+              haptic="success"
               onClick={() => setShowCreate(true)}
               icon={<I n="bldg" s={14} c="#FFFFFF" />}
-              style={{ background: 'var(--success)', color: '#FFFFFF', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.22), 0 1px 2px rgba(0,0,0,0.20)' }}
+              style={GREEN_BUBBLE}
             >
               New project
             </TactileButton>
