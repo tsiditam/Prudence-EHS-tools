@@ -31,6 +31,7 @@
  */
 
 import { buildAssessmentContext } from './buildAssessmentContext'
+import { buildGraphContext } from './graphContext'
 import type { JasperContext, JasperContextInput } from './types'
 
 /**
@@ -99,5 +100,10 @@ export function buildJasperContext(state: JasperContextInput): JasperContext {
     report_review: state.report_review ?? null,
     project_workspace: state.project_workspace ?? null,
     projects_index: state.projects_index ?? null,
+
+    // Scoped knowledge-graph projection (KG stage 2, §16). Derived from the
+    // engine outputs already on state; null on pre-engine drafts. Defensive
+    // by construction — buildGraphContext never throws.
+    knowledge_graph: buildGraphContext(state as Record<string, unknown>),
   }
 }

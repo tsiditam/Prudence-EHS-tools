@@ -15,6 +15,8 @@ import ReactDOM from 'react-dom/client'
 import App from './App'
 import ErrorBoundary from './components/ErrorBoundary'
 import EarlyAccessPage from './components/EarlyAccessPage'
+import DevEvidenceMapPreview from './components/dev/DevEvidenceMapPreview'
+import DevPreviewButton from './components/dev/DevPreviewButton'
 import { Toaster } from 'sonner'
 import { initSentryClient } from '../lib/sentry-client'
 import { bootTheme, getTheme } from './utils/theme'
@@ -24,10 +26,24 @@ bootTheme()
 
 const isEarlyAccess = window.location.pathname === '/early-access'
 
+// Non-production preview routes. Reachable on localhost and Vercel preview
+// (*.vercel.app) deploys for eyeballing surfaces in isolation; never on the
+// production host. Gated on hostname so prod can't surface them by accident.
+const PROD_HOSTS = new Set(['atmosflow.net', 'www.atmosflow.net'])
+const isDevHost = !PROD_HOSTS.has(window.location.hostname)
+const isDevEvidenceMap = isDevHost && window.location.pathname === '/dev/evidence-map'
+
+const root = isEarlyAccess
+  ? <EarlyAccessPage />
+  : isDevEvidenceMap
+    ? <DevEvidenceMapPreview />
+    : <App />
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <ErrorBoundary>
-      {isEarlyAccess ? <EarlyAccessPage /> : <App />}
+      {root}
+      {isDevHost && !isDevEvidenceMap && <DevPreviewButton />}
       <Toaster theme={getTheme()} richColors closeButton position="top-center" />
     </ErrorBoundary>
   </React.StrictMode>
