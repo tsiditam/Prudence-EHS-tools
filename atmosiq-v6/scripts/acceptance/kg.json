@@ -130,6 +130,8 @@
       "label": "Non-prod /dev/evidence-map preview (Evidence Map + traceability) + CIH sample renderer",
       "checks": [
         { "type": "file_exists", "path": "src/components/dev/DevEvidenceMapPreview.jsx" },
+        { "type": "file_exists", "path": "src/components/dev/DevPreviewButton.jsx" },
+        { "type": "grep_matches", "pattern": "DevPreviewButton", "paths": ["src/main.jsx"] },
         { "type": "file_exists", "path": "src/components/dev/ReportTraceabilityCard.jsx" },
         { "type": "file_exists", "path": "src/services/reportTraceability.ts" },
         { "type": "grep_matches", "pattern": "/dev/evidence-map", "paths": ["src/main.jsx"] },

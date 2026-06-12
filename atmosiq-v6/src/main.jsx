@@ -16,6 +16,7 @@ import App from './App'
 import ErrorBoundary from './components/ErrorBoundary'
 import EarlyAccessPage from './components/EarlyAccessPage'
 import DevEvidenceMapPreview from './components/dev/DevEvidenceMapPreview'
+import DevPreviewButton from './components/dev/DevPreviewButton'
 import { Toaster } from 'sonner'
 import { initSentryClient } from '../lib/sentry-client'
 import { bootTheme, getTheme } from './utils/theme'
@@ -42,6 +43,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <ErrorBoundary>
       {root}
+      {isDevHost && !isDevEvidenceMap && <DevPreviewButton />}
       <Toaster theme={getTheme()} richColors closeButton position="top-center" />
     </ErrorBoundary>
   </React.StrictMode>
