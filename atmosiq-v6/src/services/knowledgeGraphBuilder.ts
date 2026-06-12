@@ -298,6 +298,18 @@ interface AnyRec { [k: string]: any }
 
 const hasVal = (v: unknown) => v !== undefined && v !== null && String(v).trim() !== ''
 
+// Defensive coercion — engine outputs are loosely typed at runtime and a
+// non-array (or a grouped recommendations object) must never throw here. The
+// graph is a non-essential projection; bad shapes degrade to empty, not crash.
+const asArr = (v: unknown): AnyRec[] => (Array.isArray(v) ? (v as AnyRec[]) : [])
+const asRecArr = (v: unknown): AnyRec[] => {
+  if (Array.isArray(v)) return v as AnyRec[]
+  if (v && typeof v === 'object') {
+    return Object.values(v as Record<string, unknown>).flatMap((x) => (Array.isArray(x) ? (x as AnyRec[]) : []))
+  }
+  return []
+}
+
 // Zone reading fields → measurement evidence, with the finding category each
 // bears on. Mirrors the engine's own parameter set (scoring.js / standards).
 const MEAS_FIELDS: Array<{ f: string; parameter: string; label: string; unit: string; cat: string }> = [
@@ -327,10 +339,13 @@ export function assessmentToGraphModel(args: {
 }): KGModel {
   const { assessmentId, assessment, engineResults, engineVersion, rulesetVersion } = args
   const building = assessment.building || assessment.bldg || null
-  const zonesIn: AnyRec[] = assessment.zones || []
-  const zoneScores: AnyRec[] = engineResults.zoneScores || engineResults.zone_scores || []
-  const causalChains: AnyRec[] = engineResults.causalChains || engineResults.causal_chains || []
-  const recsIn: AnyRec[] = engineResults.recommendations || engineResults.recs || []
+  const zonesIn: AnyRec[] = asArr(assessment.zones)
+  const zoneScores: AnyRec[] = asArr(engineResults.zoneScores ?? engineResults.zone_scores)
+  const causalChains: AnyRec[] = asArr(engineResults.causalChains ?? engineResults.causal_chains)
+  // Recommendations may arrive as a flat array, a grouped object
+  // ({ immediate: [...], shortTerm: [...] }), or be absent — coerce to a flat
+  // array so a non-array shape can never throw on .filter (prod report crash).
+  const recsIn: AnyRec[] = asRecArr(engineResults.recommendations ?? engineResults.recs)
 
   const standards = new Map<string, KGModelStandard>()
   const noteStandard = (std?: string): string | undefined => {
@@ -347,9 +362,9 @@ export function assessmentToGraphModel(args: {
 
     // Findings: non-pass category rows from the deterministic scorer.
     const findings: KGModel['zones'][number]['findings'] = []
-    const cats: AnyRec[] = zs.cats || []
+    const cats: AnyRec[] = asArr(zs.cats)
     cats.forEach((cat) => {
-      const rows: AnyRec[] = cat.r || []
+      const rows: AnyRec[] = asArr(cat.r)
       rows.forEach((r, ri) => {
         const sev = r.sev || 'info'
         if (sev === 'pass' || sev === 'info') return // not a finding

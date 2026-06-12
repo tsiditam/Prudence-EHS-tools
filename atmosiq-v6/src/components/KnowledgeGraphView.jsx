@@ -60,10 +60,15 @@ export default function KnowledgeGraphView({ zones, zoneScores, causalChains, re
   const [focus, setFocus] = useState(null)
 
   const { nodes, edges, width, height, posByKey } = useMemo(() => {
+    try {
     const graph = buildKnowledgeGraphFromAssessment({
       assessmentId: assessmentId || 'preview',
-      assessment: { zones: zones || [] },
-      engineResults: { zoneScores: zoneScores || [], causalChains: causalChains || [], recommendations: recs || [] },
+      assessment: { zones: Array.isArray(zones) ? zones : [] },
+      engineResults: {
+        zoneScores: Array.isArray(zoneScores) ? zoneScores : [],
+        causalChains: Array.isArray(causalChains) ? causalChains : [],
+        recommendations: recs,
+      },
       engineVersion: ENGINE_VERSION, rulesetVersion: ENGINE_VERSION,
     })
     // Bucket nodes by tier (already sorted by entity_key → stable layout).
@@ -86,6 +91,11 @@ export default function KnowledgeGraphView({ zones, zoneScores, causalChains, re
       })
     }
     return { nodes: graph.nodes, edges: graph.edges, width: w, height: h, posByKey: pos }
+    } catch {
+      // Graph is a non-essential projection — never let a bad input shape
+      // crash the surrounding report view.
+      return { nodes: [], edges: [], width: 320, height: 120, posByKey: new Map() }
+    }
   }, [zones, zoneScores, causalChains, recs, assessmentId])
 
   // The builder always emits structural assessment/zone nodes; only show the
