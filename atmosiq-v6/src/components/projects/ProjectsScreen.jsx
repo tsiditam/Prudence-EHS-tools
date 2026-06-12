@@ -23,15 +23,10 @@ import { STATUS_TONE, STATUS_LABEL, fmtDate } from './projectsTheme'
 
 const DIM = V3.TEXT_MUTED
 
-// Green "New project" bubble tint. The CTA stays solid green; the global
-// .bubble-btn class (via TactileButton `bubble`) adds the glass sheen,
-// tactile press, and cyan/green tap-glow on top.
-const GREEN_BUBBLE = {
-  '--bubble-bg': 'linear-gradient(180deg, var(--success), color-mix(in srgb, var(--success) 82%, #00140a))',
-  '--bubble-glow': 'rgba(34,197,94,0.42)',
-  '--bubble-border': 'color-mix(in srgb, var(--success) 55%, transparent)',
-  color: '#FFFFFF',
-}
+// "New project" uses the standard cyan primary bubble (TactileButton
+// variant="primary" bubble — BUBBLE_TINT.primary). Brand-token discipline:
+// the CTA is differentiated by fill and weight, not by hue. Green is off the
+// table for chrome — it's reserved for the safe / severity scale (ANSI Z535).
 
 // Filter pills carry a lighter shadow than a full CTA so the chip row doesn't
 // read as a row of floating buttons.
@@ -42,7 +37,9 @@ function CountChip({ icon, n, label }) {
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: V3.TEXT_TERTIARY, fontSize: 12 }}>
       <I n={icon} s={13} c={V3.TEXT_TERTIARY} w={1.8} />
       <span style={{ ...V3.N.sm, color: V3.TEXT_SECONDARY }}>{n}</span>
-      <span style={{ color: DIM }}>{label}</span>
+      {/* Contrast floor (Rule 5): meaningful labels use --sub (~5.6:1 on the
+          app bg), not --dim (~3.6:1, fails AA 4.5 for small text). */}
+      <span style={{ color: V3.TEXT_TERTIARY }}>{label}</span>
     </span>
   )
 }
@@ -59,7 +56,7 @@ function ProjectCard({ project, onOpen }) {
           {project.address && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 5 }}>
               <I n="location" s={12} c={DIM} w={1.8} />
-              <span style={{ ...V3.T.caption, color: DIM, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.address}</span>
+              <span style={{ ...V3.T.caption, color: V3.TEXT_TERTIARY, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.address}</span>
             </div>
           )}
         </div>
@@ -70,7 +67,7 @@ function ProjectCard({ project, onOpen }) {
         <CountChip icon="paperclip" n={(project.documents || []).length} label="docs" />
         <CountChip icon="image" n={(project.evidence || []).length} label="photos" />
         <CountChip icon="notes" n={(project.notes || []).length} label="notes" />
-        <span style={{ marginLeft: 'auto', ...V3.T.caption, color: DIM }}>Updated {fmtDate(project.updatedAt)}</span>
+        <span style={{ marginLeft: 'auto', ...V3.T.caption, color: V3.TEXT_TERTIARY }}>Updated {fmtDate(project.updatedAt)}</span>
       </div>
     </GlassCard>
   )
@@ -113,7 +110,7 @@ export default function ProjectsScreen({ onBack, onOpen, onReportIncident }) {
       </div>
 
       {/* Action row — AtmosFlow is project-centric: every engagement begins
-          with a Project, so "New project" is the single primary (green) CTA.
+          with a Project, so "New project" is the single primary (cyan) CTA.
           Assessment creation has moved into the project workspace; it is no
           longer offered globally here. "Report an incident" stays as a glass
           secondary for the off-workflow safety action. */}
@@ -125,8 +122,7 @@ export default function ProjectsScreen({ onBack, onOpen, onReportIncident }) {
           bubble
           haptic="success"
           onClick={() => setShowCreate(true)}
-          icon={<I n="bldg" s={14} c="#FFFFFF" />}
-          style={GREEN_BUBBLE}
+          icon={<I n="bldg" s={14} c="var(--on-accent-fill)" />}
         >
           New project
         </TactileButton>
@@ -196,8 +192,7 @@ export default function ProjectsScreen({ onBack, onOpen, onReportIncident }) {
               bubble
               haptic="success"
               onClick={() => setShowCreate(true)}
-              icon={<I n="bldg" s={14} c="#FFFFFF" />}
-              style={GREEN_BUBBLE}
+              icon={<I n="bldg" s={14} c="var(--on-accent-fill)" />}
             >
               New project
             </TactileButton>

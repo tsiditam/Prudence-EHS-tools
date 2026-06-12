@@ -3200,7 +3200,12 @@ export default function MobileApp() {
           backdropFilter: active ? 'blur(12px) saturate(160%)' : 'none',
           WebkitTapHighlightColor:'transparent',
         }}>
-        {item.renderIcon ? item.renderIcon() : <I n={item.icon} s={19} c="var(--accent)" w={1.7} />}
+        {/* Accent discipline (Rule 2): cyan marks the active row only; inactive
+            icons are muted (var(--sub)) so the selected item reads and the
+            accent keeps its meaning. Matches the dock, Trash, and the project
+            switcher, which already dim their inactive icons. renderIcon items
+            (the AtmosFlow AI brain) keep their own identity mark. */}
+        {item.renderIcon ? item.renderIcon() : <I n={item.icon} s={19} c={active ? 'var(--accent)' : 'var(--sub)'} w={1.7} />}
         <span style={{flex:1}}>{item.label}</span>
       </button>
     )
@@ -4170,18 +4175,14 @@ export default function MobileApp() {
                       default `sm` TactileButton (padding/font/min-height
                       overrides) so both fit on one row of the card. */}
                   <div style={{display:'flex',gap:10}}>
-                    {/* Start survey CTA is tinted green ("go" / start) per
-                        product direction, overriding the default cyan
-                        accent-fill. background uses the theme-aware
-                        --success (vivid green in dark, deep green in light);
-                        white text is kept on the green in BOTH themes (the
-                        light-mode --on-accent-fill is near-black, which would
-                        be unreadable on green) — same intentional white-on-
-                        fill contrast call as the cyan CTA. */}
+                    {/* Start survey is the standard cyan primary (variant
+                        accent-fill + theme-aware --on-accent-fill text). Green
+                        ("go") was dropped per the brand-token pass: green is
+                        reserved for the safe / severity scale (ANSI Z535), not
+                        chrome or generic CTAs. The primary is differentiated by
+                        fill and weight, not by hue. */}
                     <TactileButton variant="primary" size="sm" pill onClick={startNew} style={{
                       padding:'8px 12px',fontSize:11,minHeight:30,
-                      background:'var(--success)',
-                      color:'#FFFFFF',
                       // No colored glow — flat fill with only the inset
                       // sheen + a faint drop shadow for tactile depth.
                       boxShadow:'inset 0 1px 0 rgba(255,255,255,0.22), 0 1px 2px rgba(0,0,0,0.20)',

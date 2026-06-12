@@ -313,7 +313,7 @@ export default function ReportTemplatesPanel() {
                       Tokens found ({(t.tokens_found || []).length})
                     </div>
                     {(t.tokens_found || []).length === 0 ? (
-                      <div style={{ color: DIM }}>— none —</div>
+                      <div style={{ color: DIM }}>None</div>
                     ) : (
                       (t.tokens_found || []).map((tok) => (
                         <div key={tok} style={{ fontFamily: 'monospace', color: SUCCESS, fontSize: 11 }}>
@@ -327,7 +327,7 @@ export default function ReportTemplatesPanel() {
                       Unknown tokens ({(t.tokens_missing || []).length})
                     </div>
                     {(t.tokens_missing || []).length === 0 ? (
-                      <div style={{ color: DIM }}>— none —</div>
+                      <div style={{ color: DIM }}>None</div>
                     ) : (
                       <>
                         <div style={{ color: WARN, marginBottom: 4 }}>

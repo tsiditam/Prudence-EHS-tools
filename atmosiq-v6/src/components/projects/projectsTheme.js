@@ -12,7 +12,13 @@ import * as V3 from '../../styles/tokens'
 
 export const STATUS_TONE = {
   draft: V3.STATUS.draft,
-  active: V3.STATUS.inProgress,
+  // Active = brand cyan. ANSI Z535 discipline: green is reserved for the
+  // safe / severity scale, so an active project no longer reads green (which
+  // signals "safe / pass"). Hardcoded to the --accent hex (#2EA7BF, the same
+  // value in dark and light) rather than var(--accent) because the status
+  // pills compose `${tone}NN` alpha suffixes, which require a hex literal,
+  // not a CSS variable.
+  active: '#2EA7BF',
   'follow-up': V3.SEVERITY.medium,
   closed: V3.STATUS.archived,
 }
