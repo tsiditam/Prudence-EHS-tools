@@ -19,18 +19,19 @@ import DevPreviewButton from './components/dev/DevPreviewButton'
 import { Toaster } from 'sonner'
 import { initSentryClient } from '../lib/sentry-client'
 import { bootTheme, getTheme } from './utils/theme'
+import { isKnowledgeGraphEnabled } from './utils/featureFlags'
 
 initSentryClient()
 bootTheme()
 
 const isEarlyAccess = window.location.pathname === '/early-access'
 
-// Non-production preview routes. Reachable on localhost and Vercel preview
-// (*.vercel.app) deploys for eyeballing surfaces in isolation; never on the
-// production host. Gated on hostname so prod can't surface them by accident.
-const PROD_HOSTS = new Set(['atmosflow.net', 'www.atmosflow.net'])
-const isDevHost = !PROD_HOSTS.has(window.location.hostname)
-const isDevEvidenceMap = isDevHost && window.location.pathname === '/dev/evidence-map'
+// Knowledge Graph surfaces (the /dev preview, the KG Preview button, and the
+// in-app Evidence tab) share one gate. Enabled on preview/localhost; OFF on
+// the production host until merged; flip on a live demo with ?kg=1. See
+// src/utils/featureFlags.js.
+const kgEnabled = isKnowledgeGraphEnabled()
+const isDevEvidenceMap = kgEnabled && window.location.pathname === '/dev/evidence-map'
 
 // Lazy so the preview (and the demo data + engine pipeline it pulls in) never
 // lands in the production bundle — it loads only when the dev route is hit.
@@ -46,7 +47,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <ErrorBoundary>
       {root}
-      {isDevHost && !isDevEvidenceMap && <DevPreviewButton />}
+      {kgEnabled && !isDevEvidenceMap && <DevPreviewButton />}
       <Toaster theme={getTheme()} richColors closeButton position="top-center" />
     </ErrorBoundary>
   </React.StrictMode>

@@ -126,6 +126,26 @@
       ]
     },
     {
+      "id": "KG-FEATURE-FLAG",
+      "label": "KG surfaces gate on one feature flag; Evidence tab OFF on production by default",
+      "checks": [
+        { "type": "file_exists", "path": "src/utils/featureFlags.js" },
+        { "type": "grep_matches", "pattern": "export function isKnowledgeGraphEnabled", "paths": ["src/utils/featureFlags.js"] },
+        { "type": "grep_matches", "pattern": "atmosflow\\.net", "paths": ["src/utils/featureFlags.js"] },
+        { "type": "grep_matches", "pattern": "KG_EVIDENCE_ENABLED\\s*&&\\s*rTab===.evidence.", "paths": ["src/components/MobileApp.jsx"] },
+        { "type": "grep_matches", "pattern": "isKnowledgeGraphEnabled", "paths": ["src/main.jsx", "src/components/MobileApp.jsx"], "minCount": 2 },
+        { "type": "file_exists", "path": "tests/lib/featureFlags.test.ts" }
+      ]
+    },
+    {
+      "id": "KG-DOCS",
+      "label": "Knowledge Graph feature is documented",
+      "checks": [
+        { "type": "file_min_size", "path": "docs/KNOWLEDGE_GRAPH.md", "minBytes": 2000 },
+        { "type": "grep_matches", "pattern": "Feature flag|isKnowledgeGraphEnabled", "paths": ["docs/KNOWLEDGE_GRAPH.md"] }
+      ]
+    },
+    {
       "id": "KG-NETWORK-VIEW",
       "label": "Node-link knowledge-graph visualization renders nodes and edges (§14)",
       "checks": [
@@ -146,7 +166,7 @@
         { "type": "file_exists", "path": "src/components/dev/ReportTraceabilityCard.jsx" },
         { "type": "file_exists", "path": "src/services/reportTraceability.ts" },
         { "type": "grep_matches", "pattern": "/dev/evidence-map", "paths": ["src/main.jsx"] },
-        { "type": "grep_matches", "pattern": "atmosflow\\.net", "paths": ["src/main.jsx"] },
+        { "type": "grep_matches", "pattern": "isKnowledgeGraphEnabled", "paths": ["src/main.jsx"] },
         { "type": "grep_matches", "pattern": "ReportTraceabilityCard", "paths": ["src/components/dev/DevEvidenceMapPreview.jsx"] },
         { "type": "grep_matches", "pattern": "DEMO_ZONES|buildCausalChains", "paths": ["src/components/dev/DevEvidenceMapPreview.jsx"] },
         { "type": "file_exists", "path": "scripts/dev/render-kg-traceability-sample.test.ts" }
