@@ -103,6 +103,17 @@
       ]
     },
     {
+      "id": "KG-EVIDENCE-MAP-UI",
+      "label": "Read-only Evidence Map tab renders findings, framed standards, and IH review (§13)",
+      "checks": [
+        { "type": "file_exists", "path": "src/components/EvidenceMap.jsx" },
+        { "type": "grep_matches", "pattern": "not a health limit", "paths": ["src/components/EvidenceMap.jsx"] },
+        { "type": "grep_matches", "pattern": "IH Review Required", "paths": ["src/components/EvidenceMap.jsx"] },
+        { "type": "grep_matches", "pattern": "rTab==='evidence'", "paths": ["src/components/MobileApp.jsx"] },
+        { "type": "file_exists", "path": "tests/components/EvidenceMap.test.tsx" }
+      ]
+    },
+    {
       "id": "KG-TESTS-PASS",
       "label": "Builder + service + graph-context unit tests pass (§19 tests 1-7, §16)",
       "checks": [
