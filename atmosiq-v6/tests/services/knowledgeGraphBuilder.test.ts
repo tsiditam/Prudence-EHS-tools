@@ -269,6 +269,33 @@ describe('adapter: evidence derivation from zone fields', () => {
   })
 })
 
+// ── Defensive: non-array engine outputs must never throw (prod crash regression)
+describe('adapter: tolerates non-array / grouped engine outputs', () => {
+  it('flattens a grouped recommendations object instead of throwing on .filter', () => {
+    const g = buildKnowledgeGraphFromAssessment({
+      assessmentId: 'rpt-x',
+      assessment: { zones: [{ id: 'z1', zn: 'A', co2: '1800' }] },
+      engineResults: {
+        zoneScores: [{ zoneName: 'A', cats: [{ l: 'Ventilation', r: [{ t: 'CO2 high', std: 'ASHRAE 62.1-2025', sev: 'high' }] }] }],
+        causalChains: [],
+        recommendations: { immediate: ['Fix OA delivery'], shortTerm: ['Monitor CO2'] }, // grouped object
+      },
+      ...V,
+    })
+    expect(g.nodes.some((n) => n.node_type === 'recommendation')).toBe(true)
+    expect(g.nodes.some((n) => n.node_type === 'finding')).toBe(true)
+  })
+
+  it('does not throw on undefined / wrong-typed engine outputs', () => {
+    expect(() => buildKnowledgeGraphFromAssessment({
+      assessmentId: 'rpt-y',
+      assessment: { zones: undefined },
+      engineResults: { zoneScores: 'oops' as never, causalChains: null as never, recommendations: 42 as never },
+      ...V,
+    })).not.toThrow()
+  })
+})
+
 // ── helpers ─────────────────────────────────────────────────────────────────
 describe('helpers', () => {
   it('slug normalizes', () => {
