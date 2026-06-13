@@ -324,6 +324,15 @@ export default function ProjectDetail({ id, onBack, profile, editSignal, onNewAs
               })}
             </div>
           </GlassCard>
+
+          {/* ── Danger zone — delete the whole site workspace. Lives on the
+              Overview tab (the first thing you see) so it's discoverable;
+              the confirmation sheet explains that linked assessments survive. ── */}
+          <GlassCard>
+            <SectionHead title="Danger zone" />
+            <div style={{ ...V3.T.captionDim, marginBottom: 12, lineHeight: 1.5 }}>Deleting removes this site workspace and everything in it. Linked assessments are not deleted.</div>
+            <TactileButton variant="ghost" size="sm" onClick={() => setConfirmDelete(true)} icon={<I n="trash" s={14} c="var(--danger)" />} style={{ color: 'var(--danger)' }}>Delete project</TactileButton>
+          </GlassCard>
         </div>
       )}
 
@@ -583,9 +592,6 @@ export default function ProjectDetail({ id, onBack, profile, editSignal, onNewAs
               ))}
             </div>
           )}
-          <div style={{ marginTop: 20, paddingTop: 16, borderTop: `1px solid ${V3.BORDER_SUBTLE}` }}>
-            <TactileButton variant="ghost" size="sm" onClick={() => setConfirmDelete(true)} icon={<I n="trash" s={14} c="var(--danger)" />} style={{ color: 'var(--danger)' }}>Delete project</TactileButton>
-          </div>
         </div>
       )}
 

@@ -17,7 +17,7 @@ import StatusPill from '../ui/StatusPill'
 import TactileButton from '../ui/TactileButton'
 import BottomSheet from '../ui/BottomSheet'
 import { I } from '../Icons'
-import { getProjects, createProject, PROJECT_STATUSES } from '../../utils/projectStore'
+import { getProjects, createProject, deleteProject, PROJECT_STATUSES } from '../../utils/projectStore'
 import ProjectForm from './ProjectForm'
 import { STATUS_TONE, STATUS_LABEL, fmtDate } from './projectsTheme'
 
@@ -44,9 +44,12 @@ function CountChip({ icon, n, label }) {
   )
 }
 
-function ProjectCard({ project, onOpen }) {
+function ProjectCard({ project, onOpen, onRequestDelete }) {
   const tone = STATUS_TONE[project.status] || V3.STATUS.draft
   const meta = [project.client, project.siteType].filter(Boolean).join(' · ')
+  // Stop propagation so the destructive control never triggers the card's
+  // open-on-tap; the actual delete still goes through the confirm sheet.
+  const requestDelete = (e) => { e.stopPropagation(); onRequestDelete(project) }
   return (
     <GlassCard onClick={() => onOpen(project.id)} style={{ padding: '16px 18px' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
@@ -60,7 +63,18 @@ function ProjectCard({ project, onOpen }) {
             </div>
           )}
         </div>
-        <StatusPill tone={tone} dim>{STATUS_LABEL[project.status] || project.status}</StatusPill>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+          <StatusPill tone={tone} dim>{STATUS_LABEL[project.status] || project.status}</StatusPill>
+          <button
+            type="button"
+            onClick={requestDelete}
+            onPointerDown={(e) => e.stopPropagation()}
+            aria-label={`Delete ${project.name || 'project'}`}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, borderRadius: 9, border: 'none', background: 'transparent', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+          >
+            <I n="trash" s={15} c="var(--danger)" w={1.8} />
+          </button>
+        </div>
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, marginTop: 14, paddingTop: 12, borderTop: `1px solid ${V3.BORDER_SUBTLE}` }}>
         <CountChip icon="findings" n={(project.linkedReportIds || []).length} label="assess." />
@@ -77,6 +91,7 @@ export default function ProjectsScreen({ onBack, onOpen, onReportIncident }) {
   const [projects, setProjects] = useState(null)
   const [filter, setFilter] = useState('all')
   const [showCreate, setShowCreate] = useState(false)
+  const [pendingDelete, setPendingDelete] = useState(null) // the project awaiting delete confirmation
 
   const load = useCallback(async () => {
     setProjects(await getProjects())
@@ -89,6 +104,14 @@ export default function ProjectsScreen({ onBack, onOpen, onReportIncident }) {
     setShowCreate(false)
     await load()
     onOpen?.(project.id)
+  }
+
+  const handleDelete = async () => {
+    const target = pendingDelete
+    setPendingDelete(null)
+    if (!target) return
+    await deleteProject(target.id)
+    await load()
   }
 
   const list = projects || []
@@ -200,13 +223,23 @@ export default function ProjectsScreen({ onBack, onOpen, onReportIncident }) {
         </GlassCard>
       ) : (
         <div style={sgStack('base')}>
-          {filtered.map(p => <ProjectCard key={p.id} project={p} onOpen={onOpen} />)}
+          {filtered.map(p => <ProjectCard key={p.id} project={p} onOpen={onOpen} onRequestDelete={setPendingDelete} />)}
         </div>
       )}
 
       {showCreate && (
         <BottomSheet title="New project / site" tone="deep" onClose={() => setShowCreate(false)}>
           <ProjectForm submitLabel="Create project" onSubmit={handleCreate} onCancel={() => setShowCreate(false)} />
+        </BottomSheet>
+      )}
+
+      {pendingDelete && (
+        <BottomSheet title={`Delete ${pendingDelete.name || 'project'}?`} onClose={() => setPendingDelete(null)}>
+          <div style={{ ...V3.T.bodyDim, marginBottom: 16 }}>This permanently removes the site workspace and all documents, photos, notes, and links stored in it. Linked assessments themselves are not deleted.</div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <TactileButton variant="danger" size="lg" fullWidth haptic="heavy" onClick={handleDelete}>Delete project</TactileButton>
+            <TactileButton variant="ghost" size="lg" onClick={() => setPendingDelete(null)}>Cancel</TactileButton>
+          </div>
         </BottomSheet>
       )}
     </div>

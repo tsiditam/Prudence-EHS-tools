@@ -6,7 +6,7 @@
  *     default Overview tab.
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { render, screen, cleanup, waitFor } from '@testing-library/react'
+import { render, screen, cleanup, waitFor, fireEvent } from '@testing-library/react'
 import ProjectsScreen from '../../src/components/projects/ProjectsScreen'
 import ProjectDetail from '../../src/components/projects/ProjectDetail'
 import { createProject } from '../../src/utils/projectStore'
@@ -28,6 +28,22 @@ describe('ProjectsScreen', () => {
     // project workspace, so no global "Start survey" CTA appears here.
     await waitFor(() => expect(screen.getAllByText(/New project/i).length).toBeGreaterThan(0))
     expect(screen.queryByText(/Start survey/i)).toBeNull()
+  })
+
+  it('deletes a project from the list via the row trash action (with confirm)', async () => {
+    await createProject({ name: 'Trashable Co', status: 'draft' })
+    let opened = false
+    render(<ProjectsScreen onBack={() => {}} onOpen={() => { opened = true }} />)
+    await waitFor(() => expect(screen.getByText('Trashable Co')).toBeTruthy())
+
+    // The row trash control must NOT open the project — it asks first.
+    fireEvent.click(screen.getByLabelText('Delete Trashable Co'))
+    expect(opened).toBe(false)
+    await waitFor(() => expect(screen.getByText(/Linked assessments themselves are not deleted/i)).toBeTruthy())
+
+    // Confirm → project is removed from the list.
+    fireEvent.click(screen.getByText('Delete project'))
+    await waitFor(() => expect(screen.queryByText('Trashable Co')).toBeNull())
   })
 })
 
@@ -56,5 +72,22 @@ describe('ProjectDetail', () => {
   it('shows a not-found message for a missing project id', async () => {
     render(<ProjectDetail id="nope" onBack={() => {}} />)
     await waitFor(() => expect(screen.getByText(/could not be found/i)).toBeTruthy())
+  })
+
+  it('offers Delete project in the Overview danger zone and confirms', async () => {
+    const p = await createProject({ name: 'Closable Site', status: 'active' })
+    let backed = false
+    render(<ProjectDetail id={p.id} profile={{ name: 'J. Smith' }} onBack={() => { backed = true }} />)
+    await waitFor(() => expect(screen.getByText('Closable Site')).toBeTruthy())
+
+    // Discoverable on the default Overview tab now (not buried in Activity).
+    expect(screen.getByText('Danger zone')).toBeTruthy()
+    fireEvent.click(screen.getByText('Delete project')) // danger-zone button (unique pre-sheet)
+    await waitFor(() => expect(screen.getByText(/Linked assessments themselves are not deleted/i)).toBeTruthy())
+
+    // Sheet adds a second "Delete project" — confirm via the last one.
+    const confirmBtns = screen.getAllByText('Delete project')
+    fireEvent.click(confirmBtns[confirmBtns.length - 1])
+    await waitFor(() => expect(backed).toBe(true))
   })
 })
