@@ -131,6 +131,7 @@
       "checks": [
         { "type": "file_exists", "path": "src/utils/featureFlags.js" },
         { "type": "grep_matches", "pattern": "export function isKnowledgeGraphEnabled", "paths": ["src/utils/featureFlags.js"] },
+        { "type": "grep_matches", "pattern": "export const KG_KILL_SWITCH", "paths": ["src/utils/featureFlags.js"] },
         { "type": "grep_matches", "pattern": "atmosflow\\.net", "paths": ["src/utils/featureFlags.js"] },
         { "type": "grep_matches", "pattern": "KG_EVIDENCE_ENABLED\\s*&&\\s*rTab===.evidence.", "paths": ["src/components/MobileApp.jsx"] },
         { "type": "grep_matches", "pattern": "isKnowledgeGraphEnabled", "paths": ["src/main.jsx", "src/components/MobileApp.jsx"], "minCount": 2 },
