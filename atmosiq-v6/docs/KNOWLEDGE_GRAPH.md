@@ -83,7 +83,22 @@ The Evidence Map tab renders the §14 graph at the top and the §13 cards below.
 ## Feature flag
 
 All KG surfaces gate on **`isKnowledgeGraphEnabled()`**
-(`src/utils/featureFlags.js`). Resolution order (first decisive rule wins):
+(`src/utils/featureFlags.js`).
+
+### Master kill switch
+
+`KG_KILL_SWITCH` (top of `featureFlags.js`) is the single, unambiguous off
+control. While **`true`**, every KG surface is OFF **everywhere** — production
+*and* preview/localhost — regardless of host, `?kg=`, or localStorage. It
+overrides all other resolution. Set it to **`false`** to resume the staged
+rollout below. Nothing else needs to change to disable or re-enable the feature.
+
+> **Current state: `KG_KILL_SWITCH = true` (engaged — the feature is fully
+> dark).** Flip to `false` to bring back the staged rollout.
+
+### Staged resolution (when the kill switch is lifted)
+
+`resolveKgFlag()` decides, first decisive rule wins:
 
 1. URL **`?kg=1`** / **`?kg=0`** → persisted to `localStorage`, then applied
 2. `localStorage['af.kgEvidence']` = `'1'` | `'0'`

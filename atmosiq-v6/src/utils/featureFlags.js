@@ -26,6 +26,21 @@
 const PROD_HOSTS = new Set(['atmosflow.net', 'www.atmosflow.net'])
 export const KG_STORAGE_KEY = 'af.kgEvidence'
 
+/**
+ * Master kill switch for the Knowledge Graph.
+ *
+ * While `true`, EVERY KG surface (the Evidence result tab, the node-link
+ * graph, the /dev preview, the KG Preview button) is OFF everywhere —
+ * production AND preview/localhost — regardless of host, `?kg=`, or
+ * localStorage. It overrides all other resolution.
+ *
+ * Set to `false` to resume the staged rollout (preview-on, prod-off-by-
+ * default with `?kg=1` opt-in). This single boolean is the unambiguous
+ * "turn it all off" control; nothing else needs to change to disable or
+ * re-enable the feature.
+ */
+export const KG_KILL_SWITCH = true
+
 /** True when the host is the live production domain. */
 export function isProdHost(hostname) {
   return PROD_HOSTS.has(String(hostname || '').toLowerCase())
@@ -52,7 +67,21 @@ function readKgParam(search) {
 }
 
 /**
- * Resolve whether the Knowledge Graph surfaces are enabled.
+ * Whether the Knowledge Graph surfaces are enabled. The kill switch wins over
+ * everything; otherwise this delegates to host/URL/localStorage resolution.
+ * Call sites (main.jsx, MobileApp.jsx) use this.
+ * @param {object} [env] Injection seam for tests (see resolveKgFlag).
+ * @returns {boolean}
+ */
+export function isKnowledgeGraphEnabled(env = {}) {
+  if (KG_KILL_SWITCH) return false
+  return resolveKgFlag(env)
+}
+
+/**
+ * Pure resolution (host default + sticky URL/localStorage overrides), ignoring
+ * the kill switch. Exposed for tests and for any future surface that wants the
+ * "would this be on if not killed?" answer.
  *
  * @param {object} [env] Injection seam for tests.
  * @param {string} [env.hostname] defaults to window.location.hostname
@@ -60,7 +89,7 @@ function readKgParam(search) {
  * @param {Storage|null} [env.storage] defaults to a guarded window.localStorage
  * @returns {boolean}
  */
-export function isKnowledgeGraphEnabled(env = {}) {
+export function resolveKgFlag(env = {}) {
   const hostname = env.hostname ?? (typeof window !== 'undefined' ? window.location.hostname : '')
   const search = env.search ?? (typeof window !== 'undefined' ? window.location.search : '')
   const storage = env.storage !== undefined ? env.storage : safeLocalStorage()
