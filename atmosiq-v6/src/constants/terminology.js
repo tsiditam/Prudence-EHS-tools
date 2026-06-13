@@ -117,3 +117,11 @@ export function t(key) {
 
 export function isFM() { return getMode() === 'fm' }
 export function isIH() { return getMode() === 'ih' }
+
+// The home view for a given mode. Facility-Manager mode lands on the legacy
+// 'dash' co-pilot home; everyone else (IH / CSP / consultant) lands on the
+// project-centric 'projects' home (the current design). Single source of
+// truth so every "go home" path agrees.
+export function homeView(mode = getMode()) {
+  return mode === 'fm' ? 'dash' : 'projects'
+}
