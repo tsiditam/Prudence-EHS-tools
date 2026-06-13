@@ -26,8 +26,10 @@ import RoleBadge from '../ui/RoleBadge'
 import InlineError from '../ui/InlineError'
 import { parseSensorRows, SENSOR_PARAMS, TVOC_REFERENCES, ppbToUgm3, ugm3ToPpb, HCHO_MW, normalizeSensorData, primaryDataset, alignDatasets, sensorAveragesToFields, detectDatasetRole, SENSOR_DATA_VERSION, withDisplayTempUnit } from '../../utils/sensorParser'
 import SendToReportSheet from './SendToReportSheet'
+import ProjectSpreadsheetPicker from './ProjectSpreadsheetPicker'
 import { splitCsvLine } from '../../utils/labResultsParser'
 import { xlsxToRows } from '../../utils/sensorXlsx'
+import { dataUrlToText, dataUrlToFile } from '../../utils/dataUrl'
 import { GRAPH_DEFS, REF_LINE_DEFS, MultiParameterChart, Co2DifferentialChart, MultiZoneChart, LIGHT_PALETTE, DARK_PALETTE, SERIES, currentPalette } from './SensorCharts'
 import { fmtRange } from './sensorHelpers'
 import { paramReference, exceedance, categoryOf, CATEGORY } from '../../utils/sensorThresholds'
@@ -225,10 +227,11 @@ function AnalyzingCard({ fileName, phase }) {
   )
 }
 
-export default function SensorDataPage({ value, onChange, onBack, reports = [], currentReportId = null, currentZones = [], onApplyAverages }) {
+export default function SensorDataPage({ value, onChange, onBack, reports = [], currentReportId = null, currentProjectId = null, currentZones = [], onApplyAverages }) {
   const fileRef = useRef(null)
   const [busy, setBusy] = useState(false)
   const [sendOpen, setSendOpen] = useState(false)
+  const [pickerOpen, setPickerOpen] = useState(false)
   const [error, setError] = useState(null)
   const [sourceRows, setSourceRows] = useState(null) // kept for re-mapping this session
   const [mapOpen, setMapOpen] = useState(false)
@@ -264,6 +267,7 @@ export default function SensorDataPage({ value, onChange, onBack, reports = [], 
   )
 
   const pickFor = (target) => { setPendingTarget(target); setError(null); fileRef.current?.click() }
+  const pickProjectFor = (target) => { setPendingTarget(target); setError(null); setPickerOpen(true) }
 
   const stopAnalyzing = () => {
     if (analyzeTimer.current) { clearTimeout(analyzeTimer.current); analyzeTimer.current = null }
@@ -287,6 +291,56 @@ export default function SensorDataPage({ value, onChange, onBack, reports = [], 
   // Cancel any pending reveal timers on unmount.
   useEffect(() => () => stopAnalyzing(), [])
 
+  // Shared ingest: parsed 2D rows → envelope, used by both the file picker and
+  // the "load from project" path so the slotting / animation / telemetry stay
+  // identical regardless of source. Returns false (and sets an error) when the
+  // rows don't parse into a usable dataset. `source` is for telemetry only.
+  const ingestRows = (rows, fileName, target, source = 'file') => {
+    const parsed = parseSensorRows(rows, { fileName })
+    if (!parsed) { setError('Could not find a timestamp + parameter columns in that file. Check the export or adjust the mapping.'); return false }
+    const tgt = target || { role: 'indoor', label: 'Indoor' }
+    // The generic uploader lands in the indoor primary slot by default; honor a
+    // clear outdoor/indoor signal from the filename or column headers instead
+    // of silently labeling the data indoor. Explicit "add outdoor baseline /
+    // zone" picks keep the user's chosen role.
+    const detectedRole = detectDatasetRole(parsed.fileName, (parsed.columns || []).map((c) => c.raw))
+    const role = tgt.role === 'indoor' && detectedRole ? detectedRole : tgt.role
+    const label = role === 'outdoor' ? 'Outdoor' : role === 'indoor' ? 'Indoor' : ((tgt.label || '').trim() || 'Zone')
+    emitEvent('logger_imported', {
+      target_id: currentReportId || null,
+      target_type: 'assessment',
+      details: {
+        file_name: parsed.fileName || fileName,
+        role,
+        parameters: Array.isArray(parsed.params) ? parsed.params : [],
+        rows: Array.isArray(rows) ? rows.length : 0,
+        source,
+      },
+    })
+    if (!env) {
+      // First load — establish the envelope. This dataset takes the 'primary'
+      // slot (it's the only data) with its detected role + label.
+      const ds = { id: 'primary', role, label, ...parsed }
+      setSourceRows(rows)
+      onChange(normalizeSensorData({ version: SENSOR_DATA_VERSION, datasets: [ds], graphs: {} }))
+      startAnalyzing()
+    } else if (role === 'indoor') {
+      // Replacing / setting the primary indoor dataset. The reveal animation +
+      // re-mapping source rows apply to the primary only.
+      const ds = { id: primary?.id || 'primary', role: 'indoor', label: 'Indoor', ...parsed }
+      const nextDatasets = env.datasets.length ? env.datasets.map((d) => (d.id === ds.id ? ds : d)) : [ds]
+      setSourceRows(rows)
+      onChange({ ...env, datasets: nextDatasets })
+      startAnalyzing()
+    } else {
+      // Additional dataset (outdoor baseline / named zone), including a
+      // detected-outdoor file dropped on the generic uploader.
+      const ds = { id: `ds-${Date.now()}`, role, label, ...parsed }
+      onChange({ ...env, datasets: [...env.datasets, ds] })
+    }
+    return true
+  }
+
   const onPick = async (e) => {
     const file = e.target.files && e.target.files[0]
     if (e.target) e.target.value = ''
@@ -299,49 +353,29 @@ export default function SensorDataPage({ value, onChange, onBack, reports = [], 
     setBusy(true)
     try {
       const rows = isXlsx ? await xlsxToRows(file) : csvToRows(await file.text())
-      const parsed = parseSensorRows(rows, { fileName: file.name })
-      if (!parsed) { setError('Could not find a timestamp + parameter columns in that file. Check the export or adjust the mapping.'); setBusy(false); return }
-      const target = pendingTarget || { role: 'indoor', label: 'Indoor' }
-      // The generic uploader lands in the indoor primary slot by default;
-      // honor a clear outdoor/indoor signal from the filename or column
-      // headers instead of silently labeling the data indoor. Explicit
-      // "add outdoor baseline / zone" picks keep the user's chosen role.
-      const detectedRole = detectDatasetRole(parsed.fileName, (parsed.columns || []).map((c) => c.raw))
-      const role = target.role === 'indoor' && detectedRole ? detectedRole : target.role
-      const label = role === 'outdoor' ? 'Outdoor' : role === 'indoor' ? 'Indoor' : ((target.label || '').trim() || 'Zone')
-      emitEvent('logger_imported', {
-        target_id: currentReportId || null,
-        target_type: 'assessment',
-        details: {
-          file_name: parsed.fileName || file.name,
-          role,
-          parameters: Array.isArray(parsed.params) ? parsed.params : [],
-          rows: Array.isArray(rows) ? rows.length : 0,
-        },
-      })
-      if (!env) {
-        // First upload — establish the envelope. This dataset takes the
-        // 'primary' slot (it's the only data) with its detected role + label.
-        const ds = { id: 'primary', role, label, ...parsed }
-        setSourceRows(rows)
-        onChange(normalizeSensorData({ version: SENSOR_DATA_VERSION, datasets: [ds], graphs: {} }))
-        startAnalyzing()
-      } else if (role === 'indoor') {
-        // Replacing / setting the primary indoor dataset. The reveal
-        // animation + re-mapping source rows apply to the primary only.
-        const ds = { id: primary?.id || 'primary', role: 'indoor', label: 'Indoor', ...parsed }
-        const nextDatasets = env.datasets.length ? env.datasets.map((d) => (d.id === ds.id ? ds : d)) : [ds]
-        setSourceRows(rows)
-        onChange({ ...env, datasets: nextDatasets })
-        startAnalyzing()
-      } else {
-        // Additional dataset (outdoor baseline / named zone), including a
-        // detected-outdoor file dropped on the generic uploader.
-        const ds = { id: `ds-${Date.now()}`, role, label, ...parsed }
-        onChange({ ...env, datasets: [...env.datasets, ds] })
-      }
+      ingestRows(rows, file.name, pendingTarget || { role: 'indoor', label: 'Indoor' }, 'file')
     } catch (err) {
       setError((err && err.message) || 'Could not read that file.')
+    }
+    setBusy(false)
+  }
+
+  // Load a spreadsheet already stored in a project's Documents — decode the
+  // stored data URL and run it through the same parse + ingest pipeline as a
+  // file upload (no re-upload needed).
+  const importFromProjectDoc = async (doc) => {
+    setPickerOpen(false)
+    if (!doc || !doc.dataUrl) { setError('That document has no readable data.'); return }
+    setError(null)
+    setBusy(true)
+    try {
+      const isXlsx = /\.xlsx$/i.test(doc.name || '') || /sheet|excel|openxml/i.test(doc.type || '')
+      const rows = isXlsx
+        ? await xlsxToRows(dataUrlToFile(doc.dataUrl, doc.name, doc.type))
+        : csvToRows(dataUrlToText(doc.dataUrl))
+      ingestRows(rows, doc.name || 'project-spreadsheet', pendingTarget || { role: 'indoor', label: 'Indoor' }, 'project_document')
+    } catch (err) {
+      setError((err && err.message) || 'Could not read that spreadsheet.')
     }
     setBusy(false)
   }
@@ -539,6 +573,14 @@ export default function SensorDataPage({ value, onChange, onBack, reports = [], 
           }}>
             {busy ? 'Reading…' : 'Upload Data'}
           </TactileButton>
+          <div style={{ marginTop: 12 }}>
+            <GhostButton disabled={busy} onClick={() => pickProjectFor({ role: 'indoor', label: 'Indoor' })} style={{ minHeight: 36 }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <I n="bldg" s={13} c="var(--accent)" w={1.8} /> Load from project
+              </span>
+            </GhostButton>
+          </div>
+          <div style={{ ...V3.T.captionDim, marginTop: 8 }}>Or import a CSV/XLSX already saved to a project&apos;s Documents.</div>
         </GlassCard>
       )}
 
@@ -659,7 +701,7 @@ export default function SensorDataPage({ value, onChange, onBack, reports = [], 
               )}
 
               {/* Compare datasets — add an outdoor baseline or named zones. */}
-              <DatasetManager datasets={datasets} onPickFor={pickFor} onRemove={removeDataset} busy={busy} />
+              <DatasetManager datasets={datasets} onPickFor={pickFor} onPickProjectFor={pickProjectFor} onRemove={removeDataset} busy={busy} />
 
               {/* Occupancy — tag occupied / unoccupied periods that shade every chart. */}
               {occRange && <OccupancyEditor windows={occWindows} range={occRange} onChange={setOccupancy} />}
@@ -699,6 +741,14 @@ export default function SensorDataPage({ value, onChange, onBack, reports = [], 
           currentZones={currentZones}
           onApply={onApplyAverages}
           onClose={() => setSendOpen(false)}
+        />
+      )}
+
+      {pickerOpen && (
+        <ProjectSpreadsheetPicker
+          currentProjectId={currentProjectId}
+          onPick={importFromProjectDoc}
+          onClose={() => setPickerOpen(false)}
         />
       )}
     </div>
@@ -958,16 +1008,14 @@ function OccupancyEditor({ windows, range, onChange }) {
 // Manage the additional datasets (outdoor baseline + named zones) compared
 // against the primary indoor logger. The primary itself is shown above in
 // the file-summary card; this lists only the extras + the add control.
-function DatasetManager({ datasets, onPickFor, onRemove, busy }) {
+function DatasetManager({ datasets, onPickFor, onPickProjectFor, onRemove, busy }) {
   const extras = datasets.filter((d) => d.role !== 'indoor')
   const hasOutdoor = datasets.some((d) => d.role === 'outdoor')
   const [role, setRole] = useState('zone')
   const [label, setLabel] = useState('')
-  const add = () => {
-    const l = role === 'outdoor' ? 'Outdoor' : (label.trim() || 'Zone')
-    onPickFor({ role, label: l })
-    setLabel('')
-  }
+  const targetFor = () => ({ role, label: role === 'outdoor' ? 'Outdoor' : (label.trim() || 'Zone') })
+  const add = () => { onPickFor(targetFor()); setLabel('') }
+  const addFromProject = () => { onPickProjectFor && onPickProjectFor(targetFor()); setLabel('') }
   const summary = extras.length ? `${extras.length} added · ${extras.map((d) => d.label).join(', ')}` : 'Indoor only. Add outdoor baseline or zones'
   return (
     <CollapsibleCard title="Compare datasets" summary={summary} defaultOpen={extras.length > 0}>
@@ -997,6 +1045,11 @@ function DatasetManager({ datasets, onPickFor, onRemove, busy }) {
         <TactileButton variant="secondary" size="sm" disabled={busy} onClick={add} icon={<I n="upload" s={13} c={ACCENT} w={2} />}>
           {busy ? 'Reading…' : 'Add file'}
         </TactileButton>
+        <GhostButton disabled={busy} onClick={addFromProject} style={{ minHeight: 32, padding: '6px 10px' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <I n="bldg" s={13} c={ACCENT} w={1.8} /> From project
+          </span>
+        </GhostButton>
       </div>
       <div style={{ ...V3.T.captionDim, marginTop: 8, lineHeight: 1.5 }}>
         Add an outdoor CO₂ baseline to estimate ventilation, or upload zone files to compare the same parameter across locations.

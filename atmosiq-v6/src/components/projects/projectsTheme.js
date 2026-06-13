@@ -30,13 +30,22 @@ export const STATUS_LABEL = {
   closed: 'Closed',
 }
 
+// Shared spreadsheet detection — matches CSV / XLS / XLSX by MIME or filename.
+// Single source of truth so the file glyph and the Logger "load from project"
+// filter never drift.
+export const SPREADSHEET_RE = /sheet|csv|xlsx?|excel|spreadsheet/i
+
+export function isSpreadsheetDoc(doc = {}) {
+  return SPREADSHEET_RE.test(`${doc.type || ''} ${doc.name || ''}`)
+}
+
 // Map a MIME type / filename to one of the available <I> glyph names.
 export function fileIcon(type = '', name = '') {
   const t = `${type} ${name}`.toLowerCase()
   if (/image|\.png|\.jpe?g|\.gif|\.webp|\.heic/.test(t)) return 'image'
   if (/pdf/.test(t)) return 'report'
   if (/word|docx?|\.doc/.test(t)) return 'notes'
-  if (/sheet|csv|xlsx?|excel/.test(t)) return 'flask'
+  if (SPREADSHEET_RE.test(t)) return 'flask'
   return 'paperclip'
 }
 
