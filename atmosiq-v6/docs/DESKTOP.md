@@ -33,9 +33,9 @@ desktop PWA window ≥1024 also gets the desktop layout.
    **`MobileApp`** shell (wrapped in the Auth/Storage/Assessment providers).
 
 > The legacy desktop assessment wizard that used to live in `App.jsx` (with
-> `HistoryView` / `ReportView` / `src/components/DesktopSidebar.jsx`) is
-> superseded by routing desktop into `MobileApp`. It is currently unreachable
-> and slated for removal in a follow-up cleanup.
+> `HistoryView` / `ReportView` / `src/components/DesktopSidebar.jsx`) was
+> superseded by routing desktop into `MobileApp` and has been **removed**;
+> `App.jsx` is now a thin entry router.
 
 ## Desktop shell (`src/components/MobileApp.jsx`)
 
@@ -87,7 +87,5 @@ unchanged**:
 
 ## Follow-ups (not in this change)
 
-- Remove the dead legacy wizard + `HistoryView` / `ReportView` /
-  `src/components/DesktopSidebar.jsx` and prune their now-unused imports.
 - Per-screen desktop compositions (e.g., split-pane results: zone list +
   zone detail side-by-side) building on this shell.
