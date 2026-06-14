@@ -12,7 +12,6 @@
 
 import { useState } from 'react'
 import { useMediaQuery } from './hooks/useMediaQuery'
-import LandingPage from './components/LandingPage'
 import MobileApp from './components/MobileApp'
 import PeerReviewLanding, { PEER_REVIEW_TOKEN_PARAM } from './components/PeerReviewLanding'
 import { AssessmentProvider } from './contexts/AssessmentContext.jsx'
@@ -24,24 +23,20 @@ import { StorageProvider } from './contexts/StorageContext.jsx'
 // mobile and desktop. At >=1024 it renders the persistent desktop sidebar (see
 // useMediaQuery().isDesktop + components/desktop/DesktopSidebar); below that,
 // the mobile bottom dock. This router only decides the ENTRY point: a
-// peer-review magic link, the desktop marketing landing (first visit), or the
+// peer-review magic link, the HTML marketing landing (first visit), or the
 // app itself.
 //
 // (The previous desktop-only assessment wizard that lived here — together with
 // HistoryView / ReportView / components/DesktopSidebar — was superseded by
 // routing desktop into MobileApp and has been removed.)
 export default function App() {
-  const { isDesktop, isStandalone } = useMediaQuery()
-  // Desktop shows the marketing landing on first visit; its CTAs enter the
-  // app. Sticky (localStorage) so returning desktop visitors go straight in.
-  // Mobile never reaches this. Declared before any return (hooks-safe).
-  const [enterApp, setEnterApp] = useState(() => {
+  const { isStandalone } = useMediaQuery()
+  // New visitors (non-PWA) see the marketing landing page at /atmosflow-landing.html.
+  // The landing page's "Sign In" link sets af_desktop_entered and navigates back to /,
+  // so returning visitors and authenticated users go straight to the app.
+  const [enterApp] = useState(() => {
     try { return localStorage.getItem('af_desktop_entered') === '1' } catch { return false }
   })
-  const goToApp = () => {
-    try { localStorage.setItem('af_desktop_entered', '1') } catch { /* private mode */ }
-    setEnterApp(true)
-  }
 
   // Peer-review magic link — resolved before auth so an un-authenticated
   // reviewer (the colleague the assessor sent the report to) can record their
@@ -51,10 +46,11 @@ export default function App() {
     : null
   if (reviewToken) return <PeerReviewLanding token={reviewToken} />
 
-  // Desktop browser, first visit → marketing landing; its CTAs enter the app.
-  // Installed desktop PWA (standalone) skips straight in.
-  if (isDesktop && !isStandalone && !enterApp) {
-    return <LandingPage onStartNew={goToApp} onStartDemo={goToApp} isDesktop={true} />
+  // First visit (non-PWA) → redirect to the standalone HTML marketing landing.
+  // Installed PWA (standalone) and returning users skip straight to the app.
+  if (!isStandalone && !enterApp) {
+    window.location.replace('/atmosflow-landing.html')
+    return null
   }
 
   // The app — single responsive shell for mobile and desktop.
