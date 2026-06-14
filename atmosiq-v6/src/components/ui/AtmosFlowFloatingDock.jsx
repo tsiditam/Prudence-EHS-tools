@@ -6,14 +6,16 @@
  * AtmosFlowFloatingDock — a premium Instagram/visionOS-style floating
  * glass capsule dock that replaces the edge-attached bottom tab bar.
  *
- *   • Floats above the bottom safe area (never hugs the screen edge).
+ *   • Sits at the bottom-bar position, just above the safe area.
+ *   • Responsive width: full-bleed with side margins, capped at the
+ *     content width; tabs spread evenly across the bar.
  *   • One large rounded-999 capsule with dark translucent glass + blur,
  *     a hairline border, and a soft lifted shadow.
  *   • Active tab carries its own inner rounded pill (white 12% fill +
  *     a cyan accent ring) and shows icon + label; inactive tabs are
  *     icon-only. The active pill expands/collapses with a spring so
  *     switching tabs reads as the selection gliding between lanes.
- *   • No underline, no bottom indicator, not full-bleed.
+ *   • No underline, no bottom indicator.
  *
  *   <AtmosFlowFloatingDock
  *     maxWidth={contentMax}
@@ -186,43 +188,47 @@ export default function AtmosFlowFloatingDock({ tabs, aux, maxWidth, ariaLabel =
         position: 'fixed',
         left: 0,
         right: 0,
-        // Lift off the bottom edge + clear the iPhone home indicator.
-        bottom: 'calc(env(safe-area-inset-bottom, 0px) + 18px)',
+        // Seated at the bottom-bar position, just clearing the iPhone home
+        // indicator (no large float gap).
+        bottom: 'calc(env(safe-area-inset-bottom, 0px) + 8px)',
         zIndex: 100,
         display: 'flex',
         justifyContent: 'center',
-        alignItems: 'center',
-        gap: 12, // space between the oval dock and the circular aux pill
-        padding: '0 14px',
+        // Responsive full-bleed with side margins, capped at the content width.
+        padding: '0 16px',
         pointerEvents: 'none', // wrapper is transparent; capsules re-enable
       }}
     >
-      <div
-        className="affd-dock"
-        role="tablist"
-        style={{
-          ...SURFACE_STYLE,
-          gap: 14,
-          maxWidth: maxWidth || 460,
-          // Don't stretch full-width — hug the tabs but cap on tablets.
-          // Slim vertical padding (thin) + roomy horizontal padding (long).
-          padding: '5px 12px',
-          overflowX: 'auto',
-          overflowY: 'hidden',
-          scrollbarWidth: 'none',
-          WebkitOverflowScrolling: 'touch',
-        }}
-      >
-        {(tabs || []).map((t) => <DockButton key={t.id} t={t} />)}
-      </div>
-      {/* Standalone circular AtmosFlow AI pill — its own glass capsule
-          beside the oval dock so the assistant reads as a distinct,
-          always-reachable action rather than just another tab. */}
-      {aux && (
-        <div className="affd-dock" style={{ ...SURFACE_STYLE, padding: 5 }}>
-          <DockButton t={aux} solo />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', maxWidth: maxWidth || 460 }}>
+        <div
+          className="affd-dock"
+          role="tablist"
+          style={{
+            ...SURFACE_STYLE,
+            // Stretch to fill the available width (minus the aux pill) and
+            // spread the tabs evenly so it reads as a full-width bottom bar.
+            flex: 1,
+            minWidth: 0,
+            justifyContent: 'space-around',
+            gap: 14,
+            padding: '5px 12px',
+            overflowX: 'auto',
+            overflowY: 'hidden',
+            scrollbarWidth: 'none',
+            WebkitOverflowScrolling: 'touch',
+          }}
+        >
+          {(tabs || []).map((t) => <DockButton key={t.id} t={t} />)}
         </div>
-      )}
+        {/* Standalone circular AtmosFlow AI pill — its own glass capsule
+            beside the oval dock so the assistant reads as a distinct,
+            always-reachable action rather than just another tab. */}
+        {aux && (
+          <div className="affd-dock" style={{ ...SURFACE_STYLE, padding: 5, flexShrink: 0 }}>
+            <DockButton t={aux} solo />
+          </div>
+        )}
+      </div>
     </nav>
   )
 }
