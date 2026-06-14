@@ -4852,8 +4852,14 @@ export default function MobileApp() {
           box-shadow:0 18px 45px rgba(0,0,0,0.35);
           transform-origin:top right;
           will-change:opacity, transform;
-          opacity:0; transform:translateY(-6px) scale(0.96); pointer-events:none;
-          transition:opacity 160ms ease, transform 180ms cubic-bezier(0.22,1,0.36,1);
+          /* Expands out of its anchor corner: scales up from 0.9 with a springy
+             overshoot so the panel "grows" rather than just fading in. The
+             springy curve is gated behind reduced-motion below. */
+          opacity:0; transform:translateY(-4px) scale(0.9); pointer-events:none;
+          transition:opacity 160ms ease, transform 200ms ease;
+        }
+        @media (prefers-reduced-motion: no-preference){
+          .af-menu{transition:opacity 180ms ease, transform 300ms cubic-bezier(.34,1.5,.64,1);}
         }
         .af-menu.is-open{opacity:1; transform:translateY(0) scale(1); pointer-events:auto;}
         [data-theme="light"] .af-menu{border-color:rgba(15,23,42,0.10); box-shadow:0 18px 45px rgba(15,23,42,0.18);}
@@ -4868,8 +4874,26 @@ export default function MobileApp() {
         .af-menu-item:hover{background:color-mix(in srgb, var(--text) 8%, transparent);}
         .af-menu-item:active{transform:scale(0.98);}
         .af-menu-item.is-active{color:var(--accent);}
-        .af-menu-trigger{transition:transform 140ms ease, opacity 140ms ease;}
+        /* Header glass controls (back pill, hamburger, kebab). Base = a plain
+           press scale (also the reduced-motion fallback). The bloom + spring
+           below are gated behind prefers-reduced-motion: no-preference. */
+        .af-menu-trigger{position:relative; isolation:isolate; transition:transform 140ms ease, opacity 140ms ease;}
         .af-menu-trigger:active{transform:scale(0.92);}
+        /* Cyan bloom that expands out of the control on press — sits behind the
+           icon (z-index:-1) and haloes past the edge as it scales up. */
+        .af-menu-trigger::after{
+          content:""; position:absolute; inset:0; border-radius:inherit; z-index:-1;
+          background:radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--accent) 42%, transparent), transparent 62%);
+          opacity:0; transform:scale(.65); pointer-events:none;
+        }
+        @media (prefers-reduced-motion: no-preference){
+          /* iOS-26 "liquid" tap: near-instant press-IN, springy overshoot on
+             release, with the bloom expanding from centre. */
+          .af-menu-trigger{transition:transform 360ms cubic-bezier(.34,1.56,.64,1), filter 200ms ease;}
+          .af-menu-trigger::after{transition:opacity 260ms ease, transform 340ms cubic-bezier(.34,1.56,.64,1);}
+          .af-menu-trigger:not(:disabled):active{transition:transform 120ms cubic-bezier(.4,0,.2,1) !important; transform:scale(0.9) !important; filter:brightness(1.1);}
+          .af-menu-trigger:not(:disabled):active::after{opacity:1; transform:scale(1.32);}
+        }
         /* ── Shared glass control ──
            Same liquid-glass language as the bottom dock (AtmosFlowFloatingDock):
            near-clear translucent fill + light blur + a bright specular rim in
