@@ -1029,12 +1029,12 @@ export default function MobileApp() {
   // bigger swell than the wide back pill). drop-shadow is used for the glow so
   // it layers on top of the control's own glass box-shadow instead of
   // replacing it, and stays theme-neutral (brand cyan reads on both themes).
-  const triggerFx = (key, peak = 1.16) => {
+  const triggerFx = (key, peak = 1.3) => {
     const on = pressedTrigger === key
     if (reduceMotion) return { transform: on ? 'scale(0.97)' : 'scale(1)', transition: 'transform 90ms ease' }
     return {
       transform: on ? `scale(${peak})` : 'scale(1)',
-      filter: on ? 'brightness(1.08) drop-shadow(0 0 13px rgba(57,192,217,0.6))' : 'none',
+      filter: on ? 'brightness(1.1) drop-shadow(0 0 17px rgba(57,192,217,0.66))' : 'none',
       // Quick ease-out on the way up (tracks the finger), springy overshoot on
       // the way back so the release reads "liquid", not snapped.
       transition: on
@@ -3421,7 +3421,7 @@ export default function MobileApp() {
                 {...triggerPress('back')}
                 aria-label="Back"
                 className="af-glass-control af-menu-trigger"
-                style={{display:'flex',alignItems:'center',gap:3,height:36,padding:'0 14px 0 9px',borderRadius:999,boxSizing:'border-box',cursor:'pointer',fontFamily:'inherit',color:ACCENT,WebkitTapHighlightColor:'transparent', ...triggerFx('back', 1.05)}}>
+                style={{display:'flex',alignItems:'center',gap:3,height:36,padding:'0 14px 0 9px',borderRadius:999,boxSizing:'border-box',cursor:'pointer',fontFamily:'inherit',color:ACCENT,WebkitTapHighlightColor:'transparent', ...triggerFx('back', 1.1)}}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={ACCENT} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6" /></svg>
                 <span style={{fontSize:15,fontWeight:600,letterSpacing:'-0.01em',maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{
                   ((isAssessing || view==='results' || view==='report') && bldg?.fn)
@@ -3447,7 +3447,7 @@ export default function MobileApp() {
                   width:40, height:40, borderRadius:'50%',
                   padding:0, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
                   boxSizing:'border-box', WebkitTapHighlightColor:'transparent',
-                  ...triggerFx('menu', 1.16),
+                  ...triggerFx('menu', 1.3),
                 }}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
                   <line x1="4" y1="7"  x2="20" y2="7" />
@@ -3503,7 +3503,7 @@ export default function MobileApp() {
                   alignItems:'center', justifyContent:'center',
                   padding:0, boxSizing:'border-box',
                   WebkitTapHighlightColor:'transparent',
-                  ...triggerFx('kebab', 1.16),
+                  ...triggerFx('kebab', 1.3),
                 }}>
                 <I n="dots" s={20} c={ACCENT} w={2} />
               </button>
