@@ -1006,6 +1006,32 @@ export default function MobileApp() {
   // the dashboard. Used by every exit-to-home flow so the two modes don't
   // fork at each call site.
   const goHome = () => { setView(userMode === 'fm' ? 'dash' : 'projects'); setViewRpt(null) }
+
+  // Fluid "liquid-glass" tap for the header glass controls (hamburger, kebab,
+  // back pill). Fired on pointerdown so the swell + expanding cyan glow ring
+  // play their FULL duration even on a quick tap (a CSS :active effect would
+  // be cut off the instant the finger lifts) and survive the React re-render
+  // when the menu opens (Web Animations runs on the DOM node, not className).
+  // Skipped under reduced-motion / where WAAPI is unavailable.
+  const fluidTap = (e) => {
+    const el = e.currentTarget
+    try {
+      if (typeof el.animate !== 'function') return
+      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+      // Keep the control's resolved glass shadow as the base so the glow ring
+      // layers on top without flicker; all keyframes carry the same shadow
+      // count (3 glass + 2 ring) so box-shadow interpolates smoothly.
+      const base = getComputedStyle(el).boxShadow
+      const ringOff = '0 0 0 0 rgba(57,192,217,0), 0 0 0 0 rgba(57,192,217,0)'
+      const ringOn = '0 0 0 8px rgba(57,192,217,0.22), 0 0 30px 6px rgba(57,192,217,0.55)'
+      el.animate([
+        { transform: 'scale(1)',    boxShadow: `${base}, ${ringOff}`, offset: 0 },
+        { transform: 'scale(1.16)', boxShadow: `${base}, ${ringOn}`,  offset: 0.32 },
+        { transform: 'scale(0.97)', boxShadow: `${base}, ${ringOff}`, offset: 0.64 },
+        { transform: 'scale(1)',    boxShadow: `${base}, ${ringOff}`, offset: 1 },
+      ], { duration: 520, easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)' })
+    } catch { /* WAAPI best-effort */ }
+  }
   // Where a tool (Logger Studio / Sampling forms) should return to. Set to
   // 'project-detail' when the tool is opened from inside a project
   // workspace so one tap goes straight back to that project; cleared when
@@ -3381,6 +3407,7 @@ export default function MobileApp() {
             {profile && view!=='dash' && view!=='projects' && view!=='project-detail' && (
               <button
                 onClick={()=>{ if ((view==='sensor-data'||view==='sampling-forms') && toolReturn) { setView(toolReturn); setToolReturn(null) } else { setView('projects'); setViewRpt(null) } }}
+                onPointerDown={fluidTap}
                 aria-label="Back"
                 className="af-glass-control af-menu-trigger"
                 style={{display:'flex',alignItems:'center',gap:3,height:36,padding:'0 14px 0 9px',borderRadius:999,boxSizing:'border-box',cursor:'pointer',fontFamily:'inherit',color:ACCENT,WebkitTapHighlightColor:'transparent'}}>
@@ -3397,6 +3424,7 @@ export default function MobileApp() {
               <button
                 ref={menuButtonRef}
                 onClick={()=>{ setMenuClosing(false); setShowHomeMenu(true) }}
+                onPointerDown={fluidTap}
                 aria-label="Open menu"
                 aria-haspopup="menu"
                 aria-expanded={showHomeMenu}
@@ -3453,6 +3481,7 @@ export default function MobileApp() {
                   setActionsAnchor({ top: r.bottom + 8, right: Math.max(8, window.innerWidth - r.right) })
                   setActionsOpen(true)
                 }}
+                onPointerDown={fluidTap}
                 aria-label="More actions"
                 aria-haspopup="menu"
                 aria-expanded={actionsOpen}
@@ -4874,26 +4903,14 @@ export default function MobileApp() {
         .af-menu-item:hover{background:color-mix(in srgb, var(--text) 8%, transparent);}
         .af-menu-item:active{transform:scale(0.98);}
         .af-menu-item.is-active{color:var(--accent);}
-        /* Header glass controls (back pill, hamburger, kebab). Base = a plain
-           press scale (also the reduced-motion fallback). The bloom + spring
-           below are gated behind prefers-reduced-motion: no-preference. */
-        .af-menu-trigger{position:relative; isolation:isolate; transition:transform 140ms ease, opacity 140ms ease;}
-        .af-menu-trigger:active{transform:scale(0.92);}
-        /* Cyan bloom that expands out of the control on press — sits behind the
-           icon (z-index:-1) and haloes past the edge as it scales up. */
-        .af-menu-trigger::after{
-          content:""; position:absolute; inset:0; border-radius:inherit; z-index:-1;
-          background:radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--accent) 42%, transparent), transparent 62%);
-          opacity:0; transform:scale(.65); pointer-events:none;
-        }
-        @media (prefers-reduced-motion: no-preference){
-          /* iOS-26 "liquid" tap: near-instant press-IN, springy overshoot on
-             release, with the bloom expanding from centre. */
-          .af-menu-trigger{transition:transform 360ms cubic-bezier(.34,1.56,.64,1), filter 200ms ease;}
-          .af-menu-trigger::after{transition:opacity 260ms ease, transform 340ms cubic-bezier(.34,1.56,.64,1);}
-          .af-menu-trigger:not(:disabled):active{transition:transform 120ms cubic-bezier(.4,0,.2,1) !important; transform:scale(0.9) !important; filter:brightness(1.1);}
-          .af-menu-trigger:not(:disabled):active::after{opacity:1; transform:scale(1.32);}
-        }
+        /* Header glass controls (back pill, hamburger, kebab). The rich
+           "liquid" tap — a springy swell + an expanding cyan glow ring — is
+           driven on pointerdown by fluidTap() (Web Animations API) so it
+           plays its FULL duration on a quick tap and survives the re-render
+           when the menu opens. This is just the resting transition + a plain
+           reduced-motion press fallback. */
+        .af-menu-trigger{position:relative; transition:transform 140ms ease, opacity 140ms ease;}
+        @media (prefers-reduced-motion: reduce){ .af-menu-trigger:active{transform:scale(0.94);} }
         /* ── Shared glass control ──
            Same liquid-glass language as the bottom dock (AtmosFlowFloatingDock):
            near-clear translucent fill + light blur + a bright specular rim in
