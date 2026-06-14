@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>AtmosFlow: Indoor Air Quality Investigation Intelligence</title>
 <meta name="description" content="Transform field observations, logger data, and building information into defensible findings, sampling plans, and draft reports. Deterministic logic first. AI second. Your review always.">
 <meta name="theme-color" content="#22D3EE">
@@ -40,7 +40,7 @@ body{
   color:var(--ink);background:var(--paper);line-height:1.6;
   -webkit-font-smoothing:antialiased;
 }
-.container{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+.container{max-width:var(--maxw);margin:0 auto;padding:0 max(24px,env(safe-area-inset-right)) 0 max(24px,env(safe-area-inset-left))}
 .eyebrow{font-size:.74rem;font-weight:600;letter-spacing:.13em;text-transform:uppercase;color:var(--teal)}
 .eyebrow.light{color:#7FE3FF}
 h1,h2,h3{letter-spacing:-.025em;line-height:1.08;font-weight:800}
@@ -210,7 +210,7 @@ footer{background:var(--ink);color:#fff}
 .foot-col h4{font-size:.72rem;text-transform:uppercase;letter-spacing:.1em;color:#6E7B8C;margin-bottom:14px;font-weight:600}
 .foot-col a{display:block;color:#C4CCD6;font-size:.92rem;margin-bottom:10px}
 .foot-col a:hover{color:#fff}
-.foot-bottom{border-top:1px solid var(--line);padding:22px 0;color:#6E7B8C;font-size:.82rem;display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.foot-bottom{border-top:1px solid var(--line);padding:22px 0 calc(22px + env(safe-area-inset-bottom,0px));color:#6E7B8C;font-size:.82rem;display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
 
 /* reveal */
 .reveal{opacity:0;transform:translateY(16px);transition:opacity .6s ease, transform .6s ease}

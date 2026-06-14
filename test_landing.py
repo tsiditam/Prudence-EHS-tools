@@ -102,6 +102,7 @@ p=P(); p.feed(html)
 
 check("Exactly one <h1>", p.h1==1, f"count={p.h1}")
 check("Viewport meta present", p.viewport)
+check("iOS safe-area handled (viewport-fit + insets)", 'viewport-fit=cover' in html and 'env(safe-area-inset-bottom' in html)
 check("All images have alt text", p.imgs_no_alt==0, f"missing={p.imgs_no_alt}")
 missing=[a for a in p.anchors if a not in p.ids]
 check("All in-page anchors resolve to an id", not missing, f"missing={missing}")
