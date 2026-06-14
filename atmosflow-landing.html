@@ -228,7 +228,7 @@ footer{background:var(--ink);color:#fff}
       <a class="navlink" href="#who">Who it's for</a>
     </nav>
     <div class="nav-cta">
-      <a class="btn btn-primary btn-sm" href="#beta">Request Beta Access</a>
+      <a class="btn btn-primary btn-sm" href="/early-access">Request Beta Access</a>
       <button class="menu-btn" id="menuBtn" aria-label="Menu" aria-expanded="false"><span></span><span></span><span></span></button>
     </div>
   </div>
@@ -242,7 +242,7 @@ footer{background:var(--ink);color:#fff}
       <h1>Indoor Air Quality Investigation Intelligence</h1>
       <p class="lead">Transform field observations, logger data, and building information into defensible findings, sampling plans, and draft reports.</p>
       <div class="hero-actions">
-        <a class="btn btn-primary" href="#beta">Request Beta Access</a>
+        <a class="btn btn-primary" href="/early-access">Request Beta Access</a>
         <a class="btn btn-ghost" href="/atmosflow-sample-report.pdf" target="_blank" rel="noopener">See a sample report</a>
       </div>
       <div class="trust">
@@ -449,27 +449,11 @@ footer{background:var(--ink);color:#fff}
         <p class="lead">AtmosFlow is currently accepting a limited number of beta users. Tell us a little about your work and we will be in touch.</p>
       </div>
       <div>
-        <div class="form" id="betaForm">
-          <div class="field"><label for="bn">Name</label><input id="bn" type="text" placeholder="Your name" autocomplete="name"></div>
-          <div class="field"><label for="be">Email</label><input id="be" type="email" placeholder="you@firm.com" autocomplete="email"></div>
-          <div class="field"><label for="bo">Organization</label><input id="bo" type="text" placeholder="Your organization" autocomplete="organization"></div>
-          <div class="field"><label for="brole">Role</label><select id="brole">
-            <option value="">Select your role</option>
-            <option>Industrial Hygienist</option>
-            <option>EHS Professional</option>
-            <option>Consultant</option>
-            <option>Facility Professional</option>
-            <option>Other</option>
-          </select></div>
-          <div class="err" id="betaErr"></div>
-          <button class="btn btn-primary" type="button" onclick="submitBeta()">Request Early Access</button>
-          <div class="fine">Screening, not compliance. You stay in control of every conclusion.</div>
+        <a class="btn btn-primary" href="/early-access" style="font-size:1.05rem;padding:16px 30px">Request Beta Access</a>
+        <div class="trust-tags" style="margin-top:18px">
+          <span>About a minute</span><span>Limited spots</span><span>No commitment</span>
         </div>
-        <div class="form-ok" id="betaOk">
-          <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
-          <h3>You are on the list.</h3>
-          <p>Thanks for your interest. We will reach out as beta spots open up.</p>
-        </div>
+        <div class="fine" style="text-align:left;margin-top:18px">Screening, not compliance. You stay in control of every conclusion.</div>
       </div>
     </div>
   </div>
@@ -551,22 +535,6 @@ nl.querySelectorAll('a').forEach(function(a){a.addEventListener('click',function
 var io=new IntersectionObserver(function(es){es.forEach(function(en){if(en.isIntersecting){en.target.classList.add('in');io.unobserve(en.target);}})},{threshold:.12});
 document.querySelectorAll('.reveal:not(.in)').forEach(function(el){io.observe(el)});
 
-// beta form
-function submitBeta(){
-  var n=document.getElementById('bn').value.trim();
-  var e=document.getElementById('be').value.trim();
-  var o=document.getElementById('bo').value.trim();
-  var r=document.getElementById('brole').value;
-  var err=document.getElementById('betaErr');
-  var re=/^[^@\s]+@[^@\s]+\.[^@\s]+$/;
-  if(!n){err.textContent='Please enter your name.';return;}
-  if(!re.test(e)){err.textContent='Please enter a valid email address.';return;}
-  if(!o){err.textContent='Please enter your organization.';return;}
-  if(!r){err.textContent='Please select your role.';return;}
-  err.textContent='';
-  document.getElementById('betaForm').style.display='none';
-  document.getElementById('betaOk').classList.add('show');
-}
 </script>
 </body>
 </html>
