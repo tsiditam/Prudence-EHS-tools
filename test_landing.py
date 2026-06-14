@@ -62,6 +62,20 @@ html_text = re.sub(r'data:image/[^;]+;base64,[A-Za-z0-9+/=]+', '', html)
 check("No FAA reference in copy", "FAA" not in html_text)
 check("Trust line present", "Built by EHS professionals." in html)
 
+# ---------- field-to-report value section ----------
+check("Field-to-report eyebrow present", "Field-to-Report Workflow" in html)
+check("Field-to-report title present", "Better Data Collection. Faster Report Drafting." in html)
+check("Professional-review-in-control line present", "Professional review remains in control." in html)
+check("90% claim limited to report drafting", "Up to 90% reduction in report drafting time" in html)
+check("Drafting-time disclaimer present", "Time savings apply to report drafting and preparation after the assessment information has been collected." in html)
+_low = html.lower()
+_bad = ['90% faster','faster inspection','faster field assessment','inspections 90','field assessment 90','inspection 90% faster']
+check("No exaggerated field/inspection speed claims", not any(p in _low for p in _bad))
+check("Data collection separated from drafting time", ("captured in a structured workflow" in html) and ("fraction of the traditional drafting time" in html))
+for _t in ["Guided IAQ Walkthrough","Structured Field Inputs","Faster Draft Reports"]:
+    check(f"Support card present: {_t}", _t in html)
+check("Field-to-report section is responsive", ".ftr-grid{grid-template-columns:1fr" in html)
+
 # ---------- assets ----------
 check("Logos + favicon embedded", html.count('data:image/png;base64,')>=3)
 check("Favicon linked", 'rel="icon"' in html)
