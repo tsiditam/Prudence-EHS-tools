@@ -4016,9 +4016,8 @@ export default function MobileApp() {
       )}
 
       {/* ── Report Type Picker — bottom sheet ──────────────────────
-          Mobile-first soft-glass sheet. Consultant DOCX variants + the
-          web (HTML) layouts, including the concise Modern Summary that
-          replaced the legacy Technical Report. */}
+          Mobile-first soft-glass sheet. Two deliverables: the
+          Consultant Report (DOCX) and the AtmosFlow Report (PDF). */}
       {docxPicker && (
         <BottomSheet title="Generate Report" onClose={()=>setDocxPicker(false)} ariaLabel="Choose report format">
           <div style={{fontSize:13,color:SUB,margin:'4px 0 16px',lineHeight:1.55}}>Choose which report to generate.</div>
@@ -4026,14 +4025,6 @@ export default function MobileApp() {
             <GlassCard onClick={()=>{setDocxPicker(false);handleExport('docx','consultant')}} dense style={{padding:'14px 16px'}}>
               <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:3}}>Consultant Report</div>
               <div style={{fontSize:12,color:SUB,lineHeight:1.55}}>Modern editorial Word layout — serif headings, clean tables, navy zone bars. Executive summary, interpretation, and recommendations for client delivery.</div>
-            </GlassCard>
-            <GlassCard onClick={()=>{setDocxPicker(false);handleExport('docx','consultant_cih')}} dense style={{padding:'14px 16px'}}>
-              <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:3}}>Consultant Report — CIH Reasoning</div>
-              <div style={{fontSize:12,color:SUB,lineHeight:1.55}}>The consultant report plus the reasoning record: plain-language parameter explainers, reported concerns mapped to screening evidence, a source → pathway → receptor Conceptual Site Model, and a findings register with per-zone data confidence.</div>
-            </GlassCard>
-            <GlassCard onClick={()=>{setDocxPicker(false);handleExport('web','modern')}} dense style={{padding:'14px 16px'}}>
-              <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:3}}>Consultant Report — Web (HTML)</div>
-              <div style={{fontSize:12,color:SUB,lineHeight:1.55}}>The modern editorial layout as a print-ready web page. Open in a browser to print or save as PDF.</div>
             </GlassCard>
             <GlassCard onClick={()=>{setDocxPicker(false);handleExport('pdf','atmosflow')}} dense style={{padding:'14px 16px'}}>
               <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:3}}>AtmosFlow Report (PDF)</div>
