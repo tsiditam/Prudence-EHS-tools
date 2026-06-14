@@ -83,6 +83,18 @@ header.scrolled{border-bottom-color:var(--hair);box-shadow:0 1px 0 rgba(11,18,32
 .app-screen img{width:100%;border-radius:16px;box-shadow:var(--shadow);display:block}
 .app-screen figcaption{font-size:.72rem;color:var(--slate);margin-top:10px;line-height:1.5;text-align:center}
 @media(max-width:600px){.app-screens{grid-template-columns:1fr}}
+.slideshow{position:relative}
+.slides .slide{width:100%;display:none}
+.slides .slide.active{display:block;border-radius:inherit}
+.slide-nav{position:absolute;top:50%;transform:translateY(-50%);width:40px;height:40px;border-radius:50%;border:1px solid var(--hair);background:rgba(255,255,255,.92);color:var(--ink);font-size:1.5rem;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 14px rgba(11,18,32,.12);transition:background .15s ease,transform .15s ease;z-index:2}
+.slide-nav:hover{background:#fff;transform:translateY(-50%) scale(1.06)}
+.slide-nav:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+.slide-nav.prev{left:12px}
+.slide-nav.next{right:12px}
+.slide-dots{display:flex;gap:8px;justify-content:center;margin-top:16px}
+.slide-dots button{width:9px;height:9px;border-radius:50%;border:none;background:var(--hair);cursor:pointer;padding:0;transition:background .15s ease,transform .15s ease}
+.slide-dots button.active{background:var(--cyan);transform:scale(1.25)}
+.slideshow[data-single="true"] .slide-nav,.slideshow[data-single="true"] .slide-dots{display:none}
 .btn-ghost{color:var(--ink);font-weight:600;font-size:.9rem;padding:8px 14px;border-radius:8px;border:1.5px solid var(--hair);transition:background .15s ease,border-color .15s ease;text-decoration:none}
 .btn-ghost:hover{background:var(--mist);border-color:var(--slate)}
 .menu-btn{display:none;background:none;border:none;cursor:pointer;padding:8px}
@@ -302,8 +314,14 @@ footer{background:var(--ink);color:#fff}
     </div>
 
     <div class="reveal in" id="sample">
-      <div class="frame">
-        <img src="/ss-logger-studio.jpeg" alt="AtmosFlow Logger Studio: CO2 trend chart, 7-day data, mean 684 ppm, peak 896 ppm, with report export controls" style="width:100%;display:block;border-radius:inherit">
+      <div class="slideshow" id="heroSlides">
+        <div class="frame slides">
+          <img class="slide active" src="/ss-logger-studio.jpeg" alt="AtmosFlow Logger Studio: CO2 trend chart, 7-day data, mean 684 ppm, peak 896 ppm, with report export controls">
+          <!-- To add a screenshot: copy the <img class="slide"> line above, change src + alt, and drop the file in atmosiq-v6/public/ -->
+          <button class="slide-nav prev" type="button" aria-label="Previous screenshot">&#8249;</button>
+          <button class="slide-nav next" type="button" aria-label="Next screenshot">&#8250;</button>
+        </div>
+        <div class="slide-dots" aria-label="Choose screenshot"></div>
       </div>
     </div>
   </div>
@@ -628,6 +646,36 @@ function submitBeta(){
 // gentle scroll reveal
 var io=new IntersectionObserver(function(es){es.forEach(function(en){if(en.isIntersecting){en.target.classList.add('in');io.unobserve(en.target);}})},{threshold:.12});
 document.querySelectorAll('.reveal:not(.in)').forEach(function(el){io.observe(el)});
+
+// hero slideshow
+(function(){
+  var root=document.getElementById('heroSlides'); if(!root) return;
+  var slides=Array.prototype.slice.call(root.querySelectorAll('.slide'));
+  var dotsWrap=root.querySelector('.slide-dots');
+  var idx=0, timer=null;
+  if(slides.length<2){ root.setAttribute('data-single','true'); return; }
+  slides.forEach(function(s,i){
+    var b=document.createElement('button'); b.type='button';
+    b.setAttribute('aria-label','Show screenshot '+(i+1));
+    if(i===0) b.className='active';
+    b.addEventListener('click',function(){go(i);reset();});
+    dotsWrap.appendChild(b);
+  });
+  var dots=Array.prototype.slice.call(dotsWrap.children);
+  function go(n){
+    idx=(n+slides.length)%slides.length;
+    slides.forEach(function(s,i){s.classList.toggle('active',i===idx);});
+    dots.forEach(function(d,i){d.classList.toggle('active',i===idx);});
+  }
+  root.querySelector('.slide-nav.prev').addEventListener('click',function(){go(idx-1);reset();});
+  root.querySelector('.slide-nav.next').addEventListener('click',function(){go(idx+1);reset();});
+  var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function start(){ if(!reduce) timer=setInterval(function(){go(idx+1);},5000); }
+  function reset(){ if(timer)clearInterval(timer); start(); }
+  root.addEventListener('mouseenter',function(){if(timer)clearInterval(timer);});
+  root.addEventListener('mouseleave',function(){reset();});
+  start();
+})();
 </script>
 </body>
 </html>
