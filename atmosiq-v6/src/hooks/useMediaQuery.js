@@ -19,7 +19,7 @@ export function useMediaQuery() {
     const w = window.innerWidth
     const h = window.innerHeight
     return {
-      isDesktop: w >= 1024 && !standalone,
+      isDesktop: w >= 1024,
       isTablet: w >= 768,
       isTabletLand: w >= 768 && w > h,
       isMobile: w < 768,
@@ -35,7 +35,7 @@ export function useMediaQuery() {
       const w = window.innerWidth
       const h = window.innerHeight
       setState({
-        isDesktop: w >= 1024 && !isStandalone,
+        isDesktop: w >= 1024,
         isTablet: w >= 768,
         isTabletLand: w >= 768 && w > h,
         isMobile: w < 768,
