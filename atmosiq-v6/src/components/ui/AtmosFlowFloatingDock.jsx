@@ -16,6 +16,9 @@
  *     icon-only. The active pill expands/collapses with a spring so
  *     switching tabs reads as the selection gliding between lanes.
  *   • No underline, no bottom indicator.
+ *   • Fluid "magnetic" magnification on fine-pointer devices: tabs scale
+ *     by pointer proximity as you glide across (macOS/Fiverr-style),
+ *     without changing the selected route. Off on touch + reduced-motion.
  *
  *   <AtmosFlowFloatingDock
  *     maxWidth={contentMax}
@@ -31,6 +34,7 @@
  * active pill is a frosted-white fill on dark glass and a faint cyan tint
  * on the white light-mode capsule.
  */
+import { useEffect, useRef } from 'react'
 import { I } from '../Icons'
 
 // Hide the (rare) horizontal scrollbar should the dock ever overflow on a
@@ -47,6 +51,10 @@ if (typeof document !== 'undefined' && !document.getElementById('affd-style')) {
     '.affd-tab{isolation:isolate;}' +
     '.affd-tab::after{content:"";position:absolute;inset:0;border-radius:inherit;z-index:-1;background:radial-gradient(circle at 50% 50%, rgba(57,192,217,0.32), transparent 60%);opacity:0;transform:scale(.8);pointer-events:none;}' +
     '.affd-tab:focus-visible{outline:none;box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent)!important;}' +
+    // Tap feedback for coarse-pointer (touch) devices, where the magnetic
+    // hover magnification is disabled. (On fine pointers the JS sets an
+    // inline transform that takes precedence over this.)
+    '.affd-tab:active{transform:scale(0.96);}' +
     '@media (prefers-reduced-motion: no-preference){.affd-tab::after{transition:opacity 220ms ease, transform 220ms ease;}.affd-tab:active::after{opacity:1;transform:scale(1.12);}}' +
     // Light mode: flip the dock from dark glass to a white capsule so it
     // matches the light theme; the active pill becomes a faint cyan tint
@@ -89,9 +97,6 @@ const SURFACE_STYLE = {
     'inset 0 -1px 1px rgba(0,0,0,0.10)',          // faint lower contact shade
 }
 
-const press = (e) => { e.currentTarget.style.transform = 'scale(0.93)' }
-const release = (e) => { e.currentTarget.style.transform = 'scale(1)' }
-
 // One tab/button — used for the destination tabs inside the oval dock
 // and for the aux (AtmosFlow AI) button inside its own circular pill.
 // `solo` keeps the button a fixed-diameter circle even when "active"
@@ -109,13 +114,11 @@ function DockButton({ t, solo }) {
       aria-label={t.label}
       title={t.label}
       onClick={t.onClick}
-      onPointerDown={press}
-      onPointerUp={release}
-      onPointerLeave={release}
-      onPointerCancel={release}
       style={{
         position: 'relative',
         flexShrink: 0,
+        transformOrigin: 'center bottom',
+        willChange: 'transform',
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -181,6 +184,47 @@ function DockButton({ t, solo }) {
 }
 
 export default function AtmosFlowFloatingDock({ tabs, aux, maxWidth, ariaLabel = 'Primary' }) {
+  // Fluid "magnetic" magnification (macOS/Fiverr-style). On fine-pointer
+  // devices each tab scales by its distance to the pointer as it glides
+  // across the bar — pure pointer math (not :hover), rAF-throttled. It never
+  // changes the selected route (selection stays click/tap-driven), and it is
+  // disabled on coarse pointers and under reduced-motion.
+  const tablistRef = useRef(null)
+  useEffect(() => {
+    const el = tablistRef.current
+    if (!el || typeof window === 'undefined' || !window.matchMedia) return
+    const fine = window.matchMedia('(pointer: fine)')
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)')
+    let raf = 0
+    let px = null // latest pointer X, or null when the pointer is away
+    const compute = () => {
+      raf = 0
+      el.querySelectorAll('.affd-tab').forEach((btn) => {
+        if (px == null) { btn.style.transform = ''; return }
+        const r = btn.getBoundingClientRect()
+        const d = Math.abs(px - (r.left + r.width / 2))
+        // Piecewise falloff: 0px->1.28, 40px->1.15, 80px->1.05, >=120px->1.
+        let s
+        if (d < 40) s = 1.28 + (1.15 - 1.28) * (d / 40)
+        else if (d < 80) s = 1.15 + (1.05 - 1.15) * ((d - 40) / 40)
+        else if (d < 120) s = 1.05 + (1.0 - 1.05) * ((d - 80) / 40)
+        else s = 1
+        const ty = d >= 120 ? 0 : -6 * (1 - d / 120) // lift up to -6px
+        btn.style.transform = `translateY(${ty.toFixed(2)}px) scale(${s.toFixed(3)})`
+      })
+    }
+    const schedule = () => { if (!raf) raf = requestAnimationFrame(compute) }
+    const onMove = (e) => { if (!fine.matches || reduce.matches) return; px = e.clientX; schedule() }
+    const onLeave = () => { px = null; schedule() }
+    el.addEventListener('pointermove', onMove)
+    el.addEventListener('pointerleave', onLeave)
+    return () => {
+      el.removeEventListener('pointermove', onMove)
+      el.removeEventListener('pointerleave', onLeave)
+      if (raf) cancelAnimationFrame(raf)
+    }
+  }, [tabs])
+
   return (
     <nav
       aria-label={ariaLabel}
@@ -203,21 +247,21 @@ export default function AtmosFlowFloatingDock({ tabs, aux, maxWidth, ariaLabel =
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', maxWidth: maxWidth || 460 }}>
         <div
+          ref={tablistRef}
           className="affd-dock"
           role="tablist"
           style={{
             ...SURFACE_STYLE,
-            // Stretch to fill the available width (minus the aux pill) and
-            // spread the tabs evenly so it reads as a full-width bottom bar.
+            // Stretch to fill the available width and spread the tabs evenly
+            // so it reads as a full-width bottom bar.
             flex: 1,
             minWidth: 0,
             justifyContent: 'space-around',
             gap: 14,
             padding: '5px 12px',
-            overflowX: 'auto',
-            overflowY: 'hidden',
-            scrollbarWidth: 'none',
-            WebkitOverflowScrolling: 'touch',
+            // Visible so magnetically magnified icons can rise above the
+            // capsule edge (macOS-dock style) without being clipped.
+            overflow: 'visible',
           }}
         >
           {(tabs || []).map((t) => <DockButton key={t.id} t={t} />)}
