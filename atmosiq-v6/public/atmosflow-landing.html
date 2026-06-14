@@ -73,7 +73,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{ou
 header{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.82);backdrop-filter:blur(10px);border-bottom:1px solid transparent;transition:border-color .2s ease, box-shadow .2s ease}
 header.scrolled{border-bottom-color:var(--hair);box-shadow:0 1px 0 rgba(11,18,32,.02)}
 .nav{display:flex;align-items:center;justify-content:space-between;height:72px}
-.nav-logo img{height:34px;width:auto;display:block}
+.nav-logo img{height:52px;width:auto;display:block}
 .nav-links{display:flex;align-items:center;gap:30px}
 .nav-links a.navlink{color:var(--slate);font-weight:500;font-size:.95rem}
 .nav-links a.navlink:hover{color:var(--ink)}
@@ -279,11 +279,8 @@ footer{background:var(--ink);color:#fff}
       <a class="navlink" href="#defensible">Defensibility</a>
       <a class="navlink" href="#who">Who it's for</a>
       <a class="navlink" href="#faq">FAQ</a>
-      <a class="navlink" href="#" id="mobileSignIn">Sign In</a>
     </nav>
     <div class="nav-cta">
-      <a class="btn btn-ghost" href="#" id="desktopSignIn">Sign In</a>
-      <a class="btn btn-primary" href="#beta">Join the Beta</a>
       <button class="menu-btn" id="menuBtn" aria-label="Menu" aria-expanded="false"><span></span><span></span><span></span></button>
     </div>
   </div>
@@ -631,11 +628,6 @@ function submitBeta(){
 // gentle scroll reveal
 var io=new IntersectionObserver(function(es){es.forEach(function(en){if(en.isIntersecting){en.target.classList.add('in');io.unobserve(en.target);}})},{threshold:.12});
 document.querySelectorAll('.reveal:not(.in)').forEach(function(el){io.observe(el)});
-
-// sign-in → enter the app
-function signIn(e){if(e)e.preventDefault();try{localStorage.setItem('af_desktop_entered','1')}catch(err){}window.location.href='/';}
-document.getElementById('desktopSignIn').addEventListener('click',signIn);
-document.getElementById('mobileSignIn').addEventListener('click',signIn);
 </script>
 </body>
 </html>
