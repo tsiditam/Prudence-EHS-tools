@@ -134,6 +134,26 @@ header.scrolled{border-bottom-color:var(--hair);box-shadow:0 1px 0 rgba(11,18,32
 .why-card h3{margin-bottom:9px}
 .why-card p{font-size:.95rem}
 
+/* field-to-report value section */
+.ftr-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:48px;align-items:center}
+.ftr-copy .ftr-note{margin-top:20px;display:inline-flex;align-items:center;gap:9px;font-weight:600;font-size:.95rem;color:var(--ink)}
+.ftr-copy .ftr-note::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--cyan);flex:0 0 auto}
+.ftr-copy .btn{margin-top:24px}
+.metric-card{background:#fff;border:1px solid var(--hair);border-radius:var(--radius);padding:30px 30px 26px;box-shadow:var(--shadow)}
+.metric-label{font-size:.72rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--teal)}
+.metric-rows{margin:20px 0 6px}
+.metric-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
+.metric-row .mr-k{font-size:.9rem;font-weight:500;color:var(--slate)}
+.metric-row .mr-v{font-size:1.6rem;font-weight:800;letter-spacing:-.02em;color:var(--ink)}
+.metric-row .mr-v.af{color:var(--teal)}
+.metric-bar{height:10px;border-radius:999px;background:var(--mist);border:1px solid var(--hair);overflow:hidden;margin-bottom:18px}
+.metric-bar span{display:block;height:100%;border-radius:999px}
+.metric-bar.trad span{background:#C4CCD6}
+.metric-bar.af span{background:var(--cyan)}
+.metric-badge{display:inline-block;margin-top:6px;font-size:.84rem;font-weight:700;color:var(--teal);background:var(--breath);border:1px solid #BDEBFB;border-radius:999px;padding:8px 14px}
+.metric-fine{font-size:.8rem;color:var(--slate);margin-top:16px;line-height:1.5}
+.ftr-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:54px}
+
 /* before / after */
 .ba-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:50px}
 .ba-card{border-radius:var(--radius);padding:32px;border:1px solid var(--hair)}
@@ -201,6 +221,8 @@ footer{background:var(--ink);color:#fff}
   .why-grid{grid-template-columns:1fr}
   .roles{grid-template-columns:1fr 1fr}
   .ba-grid,.cta-card{grid-template-columns:1fr;gap:28px}
+  .ftr-grid{grid-template-columns:1fr;gap:32px}
+  .ftr-cards{grid-template-columns:1fr}
   .nav-links{display:none}
   .nav-links.open{display:flex;position:absolute;top:74px;left:0;right:0;flex-direction:column;background:#fff;border-bottom:1px solid var(--hair);padding:18px 24px;gap:16px;align-items:flex-start}
   .menu-btn{display:block}
@@ -228,7 +250,7 @@ footer{background:var(--ink);color:#fff}
       <a class="navlink" href="#who">Who it's for</a>
     </nav>
     <div class="nav-cta">
-      <a class="btn btn-primary btn-sm" href="#beta">Request Beta Access</a>
+      <a class="btn btn-primary btn-sm" href="/early-access">Request Beta Access</a>
       <button class="menu-btn" id="menuBtn" aria-label="Menu" aria-expanded="false"><span></span><span></span><span></span></button>
     </div>
   </div>
@@ -242,7 +264,7 @@ footer{background:var(--ink);color:#fff}
       <h1>Indoor Air Quality Investigation Intelligence</h1>
       <p class="lead">Transform field observations, logger data, and building information into defensible findings, sampling plans, and draft reports.</p>
       <div class="hero-actions">
-        <a class="btn btn-primary" href="#beta">Request Beta Access</a>
+        <a class="btn btn-primary" href="/early-access">Request Beta Access</a>
         <a class="btn btn-ghost" href="/atmosflow-sample-report.pdf" target="_blank" rel="noopener">See a sample report</a>
       </div>
       <div class="trust">
@@ -348,6 +370,49 @@ footer{background:var(--ink);color:#fff}
   </div>
 </section>
 
+<!-- FIELD TO REPORT -->
+<section id="value">
+  <div class="container">
+    <div class="ftr-grid">
+      <div class="ftr-copy reveal">
+        <span class="eyebrow">Field-to-Report Workflow</span>
+        <h2 style="margin-top:14px">Better Data Collection. Faster Report Drafting.</h2>
+        <p class="lead" style="margin-top:18px">AtmosFlow guides users through the IAQ assessment process so key building details, field observations, occupant concerns, HVAC information, photos, logger data, and investigation notes are captured in a structured workflow. Once the assessment is complete, AtmosFlow helps transform that information into findings, charts, pathways, recommendations, and a draft report in a fraction of the traditional drafting time.</p>
+        <div class="ftr-note">Professional review remains in control.</div>
+        <a class="btn btn-primary" href="/early-access">Request Beta Access</a>
+      </div>
+      <div class="metric-card reveal">
+        <div class="metric-label">Report Drafting Time</div>
+        <div class="metric-rows">
+          <div class="metric-row"><span class="mr-k">Traditional Workflow</span><span class="mr-v">10 Hours</span></div>
+          <div class="metric-bar trad"><span style="width:100%"></span></div>
+          <div class="metric-row"><span class="mr-k">AtmosFlow</span><span class="mr-v af">1 Hour</span></div>
+          <div class="metric-bar af"><span style="width:10%"></span></div>
+        </div>
+        <span class="metric-badge">Up to 90% reduction in report drafting time</span>
+        <p class="metric-fine">Time savings apply to report drafting and preparation after the assessment information has been collected. Field assessment duration varies based on project scope, site conditions, and required observations.</p>
+      </div>
+    </div>
+    <div class="ftr-cards">
+      <div class="why-card reveal">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4V3h6v1"/><path d="M9 12l2 2 4-4"/></svg></div>
+        <h3>Guided IAQ Walkthrough</h3>
+        <p>Helps users collect the information needed for a complete IAQ screening assessment.</p>
+      </div>
+      <div class="why-card reveal">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></div>
+        <h3>Structured Field Inputs</h3>
+        <p>Captures building details, HVAC observations, occupant concerns, photos, logger files, and field notes in one workflow.</p>
+      </div>
+      <div class="why-card reveal">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg></div>
+        <h3>Faster Draft Reports</h3>
+        <p>Transforms assessment information into organized findings, charts, causal pathways, recommendations, and draft reports.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- WHY -->
 <section id="why">
   <div class="container">
@@ -449,27 +514,11 @@ footer{background:var(--ink);color:#fff}
         <p class="lead">AtmosFlow is currently accepting a limited number of beta users. Tell us a little about your work and we will be in touch.</p>
       </div>
       <div>
-        <div class="form" id="betaForm">
-          <div class="field"><label for="bn">Name</label><input id="bn" type="text" placeholder="Your name" autocomplete="name"></div>
-          <div class="field"><label for="be">Email</label><input id="be" type="email" placeholder="you@firm.com" autocomplete="email"></div>
-          <div class="field"><label for="bo">Organization</label><input id="bo" type="text" placeholder="Your organization" autocomplete="organization"></div>
-          <div class="field"><label for="brole">Role</label><select id="brole">
-            <option value="">Select your role</option>
-            <option>Industrial Hygienist</option>
-            <option>EHS Professional</option>
-            <option>Consultant</option>
-            <option>Facility Professional</option>
-            <option>Other</option>
-          </select></div>
-          <div class="err" id="betaErr"></div>
-          <button class="btn btn-primary" type="button" onclick="submitBeta()">Request Early Access</button>
-          <div class="fine">Screening, not compliance. You stay in control of every conclusion.</div>
+        <a class="btn btn-primary" href="/early-access" style="font-size:1.05rem;padding:16px 30px">Request Beta Access</a>
+        <div class="trust-tags" style="margin-top:18px">
+          <span>About a minute</span><span>Limited spots</span><span>No commitment</span>
         </div>
-        <div class="form-ok" id="betaOk">
-          <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
-          <h3>You are on the list.</h3>
-          <p>Thanks for your interest. We will reach out as beta spots open up.</p>
-        </div>
+        <div class="fine" style="text-align:left;margin-top:18px">Screening, not compliance. You stay in control of every conclusion.</div>
       </div>
     </div>
   </div>
@@ -551,22 +600,6 @@ nl.querySelectorAll('a').forEach(function(a){a.addEventListener('click',function
 var io=new IntersectionObserver(function(es){es.forEach(function(en){if(en.isIntersecting){en.target.classList.add('in');io.unobserve(en.target);}})},{threshold:.12});
 document.querySelectorAll('.reveal:not(.in)').forEach(function(el){io.observe(el)});
 
-// beta form
-function submitBeta(){
-  var n=document.getElementById('bn').value.trim();
-  var e=document.getElementById('be').value.trim();
-  var o=document.getElementById('bo').value.trim();
-  var r=document.getElementById('brole').value;
-  var err=document.getElementById('betaErr');
-  var re=/^[^@\s]+@[^@\s]+\.[^@\s]+$/;
-  if(!n){err.textContent='Please enter your name.';return;}
-  if(!re.test(e)){err.textContent='Please enter a valid email address.';return;}
-  if(!o){err.textContent='Please enter your organization.';return;}
-  if(!r){err.textContent='Please select your role.';return;}
-  err.textContent='';
-  document.getElementById('betaForm').style.display='none';
-  document.getElementById('betaOk').classList.add('show');
-}
 </script>
 </body>
 </html>

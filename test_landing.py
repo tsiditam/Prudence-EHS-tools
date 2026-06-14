@@ -46,8 +46,9 @@ check("No em dash anywhere", '—' not in html, "U+2014")
 check("Headline present", "Indoor Air Quality Investigation Intelligence" in html)
 check("Subheadline present", "defensible findings, sampling plans, and draft reports" in html)
 rba = len(re.findall(r'>\s*Request Beta Access\s*<', html))
-check("Primary CTA 'Request Beta Access' appears >= 2 times", rba>=2, f"count={rba}")
-check("Beta form CTA 'Request Early Access' present", "Request Early Access" in html)
+check("Primary CTA 'Request Beta Access' appears >= 3 times", rba>=3, f"count={rba}")
+ea = html.count('href="/early-access"')
+check("All beta CTAs link to /early-access", ea>=3, f"count={ea}")
 check("Secondary CTA 'See a sample report' present", "See a sample report" in html)
 check("Sample report links the PDF", "/atmosflow-sample-report.pdf" in html)
 check("Product showcase heading present", "One Platform. Every Stage of the Investigation." in html)
@@ -60,6 +61,20 @@ check("Screening-not-compliance line present", "Screening, not compliance." in h
 html_text = re.sub(r'data:image/[^;]+;base64,[A-Za-z0-9+/=]+', '', html)
 check("No FAA reference in copy", "FAA" not in html_text)
 check("Trust line present", "Built by EHS professionals." in html)
+
+# ---------- field-to-report value section ----------
+check("Field-to-report eyebrow present", "Field-to-Report Workflow" in html)
+check("Field-to-report title present", "Better Data Collection. Faster Report Drafting." in html)
+check("Professional-review-in-control line present", "Professional review remains in control." in html)
+check("90% claim limited to report drafting", "Up to 90% reduction in report drafting time" in html)
+check("Drafting-time disclaimer present", "Time savings apply to report drafting and preparation after the assessment information has been collected." in html)
+_low = html.lower()
+_bad = ['90% faster','faster inspection','faster field assessment','inspections 90','field assessment 90','inspection 90% faster']
+check("No exaggerated field/inspection speed claims", not any(p in _low for p in _bad))
+check("Data collection separated from drafting time", ("captured in a structured workflow" in html) and ("fraction of the traditional drafting time" in html))
+for _t in ["Guided IAQ Walkthrough","Structured Field Inputs","Faster Draft Reports"]:
+    check(f"Support card present: {_t}", _t in html)
+check("Field-to-report section is responsive", ".ftr-grid{grid-template-columns:1fr" in html)
 
 # ---------- assets ----------
 check("Logos + favicon embedded", html.count('data:image/png;base64,')>=3)
@@ -90,7 +105,7 @@ check("Viewport meta present", p.viewport)
 check("All images have alt text", p.imgs_no_alt==0, f"missing={p.imgs_no_alt}")
 missing=[a for a in p.anchors if a not in p.ids]
 check("All in-page anchors resolve to an id", not missing, f"missing={missing}")
-check("Beta form has 4 fields (name,email,org,role)", p.inputs==3 and p.selects==1, f"inputs={p.inputs} selects={p.selects}")
+check("Inline beta form removed (CTAs route to /early-access)", 'id="betaForm"' not in html)
 check("Mobile menu button exposes aria-expanded", p.menu_aria)
 check("Hero slideshow has 4 slides", p.slides==4, f"count={p.slides}")
 
@@ -101,9 +116,6 @@ check("Sticky nav + scroll behavior", 'scrolled' in html and "addEventListener('
 check("Mobile menu wired", 'menuBtn' in html and 'navlinks' in html)
 check("Hero slideshow wired (autoplay/controls)", 'heroSlides' in html and 'slide-nav' in html)
 check("Scroll reveal wired", 'IntersectionObserver' in html and "classList.add('in')" in html)
-check("Form validates email", '@' in html and 'test(e)' in html)
-check("Form shows success state", 'betaOk' in html and "classList.add('show')" in html)
-check("Email input type=email + autocomplete", 'type="email"' in html and 'autocomplete="email"' in html)
 
 # ---------- report ----------
 passed=sum(1 for _,ok,_ in results if ok)
