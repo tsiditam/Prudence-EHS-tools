@@ -845,6 +845,11 @@ export default function MobileApp() {
   // Header ⋯ overflow — opens a context action menu (Senior top-bar design).
   const [actionsOpen, setActionsOpen] = useState(false)
   const [actionsAnchor, setActionsAnchor] = useState(null)
+  // Which header glass control (hamburger / kebab / back) is currently held.
+  // Drives a sustained "liquid" expand: the control grows + glows while
+  // pressed and springs back on release (state-driven so it persists through
+  // the re-render when the menu opens). null = none pressed.
+  const [pressedTrigger, setPressedTrigger] = useState(null)
   // Drives the .af-menu `is-open` class for the action menu: toggled on one
   // frame after mount (enter transition) and off to play the close
   // animation before the menu unmounts.
@@ -1007,30 +1012,36 @@ export default function MobileApp() {
   // fork at each call site.
   const goHome = () => { setView(userMode === 'fm' ? 'dash' : 'projects'); setViewRpt(null) }
 
-  // Fluid "liquid-glass" tap for the header glass controls (hamburger, kebab,
-  // back pill). Fired on pointerdown so the swell + expanding cyan glow ring
-  // play their FULL duration even on a quick tap (a CSS :active effect would
-  // be cut off the instant the finger lifts) and survive the React re-render
-  // when the menu opens (Web Animations runs on the DOM node, not className).
-  // Skipped under reduced-motion / where WAAPI is unavailable.
-  const fluidTap = (e) => {
-    const el = e.currentTarget
-    try {
-      if (typeof el.animate !== 'function') return
-      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-      // Keep the control's resolved glass shadow as the base so the glow ring
-      // layers on top without flicker; all keyframes carry the same shadow
-      // count (3 glass + 2 ring) so box-shadow interpolates smoothly.
-      const base = getComputedStyle(el).boxShadow
-      const ringOff = '0 0 0 0 rgba(57,192,217,0), 0 0 0 0 rgba(57,192,217,0)'
-      const ringOn = '0 0 0 8px rgba(57,192,217,0.22), 0 0 30px 6px rgba(57,192,217,0.55)'
-      el.animate([
-        { transform: 'scale(1)',    boxShadow: `${base}, ${ringOff}`, offset: 0 },
-        { transform: 'scale(1.16)', boxShadow: `${base}, ${ringOn}`,  offset: 0.32 },
-        { transform: 'scale(0.97)', boxShadow: `${base}, ${ringOff}`, offset: 0.64 },
-        { transform: 'scale(1)',    boxShadow: `${base}, ${ringOff}`, offset: 1 },
-      ], { duration: 520, easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)' })
-    } catch { /* WAAPI best-effort */ }
+  // Sustained "liquid-glass" press for the header glass controls (hamburger,
+  // kebab, back pill). While held, the control grows and a cyan glow blooms;
+  // it holds at that size for as long as the finger is down, then springs
+  // back on release. State-driven (not CSS :active or a one-shot animation)
+  // so the expand persists for a press-and-hold and survives the re-render
+  // when the menu opens. Reduced-motion gets a plain instant press.
+  const reduceMotion = (() => { try { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) } catch { return false } })()
+  const triggerPress = (key) => ({
+    onPointerDown: () => setPressedTrigger(key),
+    onPointerUp:    () => setPressedTrigger((k) => (k === key ? null : k)),
+    onPointerLeave: () => setPressedTrigger((k) => (k === key ? null : k)),
+    onPointerCancel:() => setPressedTrigger((k) => (k === key ? null : k)),
+  })
+  // peak = how much the control swells while held (icon buttons can take a
+  // bigger swell than the wide back pill). drop-shadow is used for the glow so
+  // it layers on top of the control's own glass box-shadow instead of
+  // replacing it, and stays theme-neutral (brand cyan reads on both themes).
+  const triggerFx = (key, peak = 1.16) => {
+    const on = pressedTrigger === key
+    if (reduceMotion) return { transform: on ? 'scale(0.97)' : 'scale(1)', transition: 'transform 90ms ease' }
+    return {
+      transform: on ? `scale(${peak})` : 'scale(1)',
+      filter: on ? 'brightness(1.08) drop-shadow(0 0 13px rgba(57,192,217,0.6))' : 'none',
+      // Quick ease-out on the way up (tracks the finger), springy overshoot on
+      // the way back so the release reads "liquid", not snapped.
+      transition: on
+        ? 'transform 200ms cubic-bezier(.2,.85,.3,1), filter 200ms ease'
+        : 'transform 460ms cubic-bezier(.34,1.56,.64,1), filter 360ms ease',
+      willChange: 'transform',
+    }
   }
   // Where a tool (Logger Studio / Sampling forms) should return to. Set to
   // 'project-detail' when the tool is opened from inside a project
@@ -3407,10 +3418,10 @@ export default function MobileApp() {
             {profile && view!=='dash' && view!=='projects' && view!=='project-detail' && (
               <button
                 onClick={()=>{ if ((view==='sensor-data'||view==='sampling-forms') && toolReturn) { setView(toolReturn); setToolReturn(null) } else { setView('projects'); setViewRpt(null) } }}
-                onPointerDown={fluidTap}
+                {...triggerPress('back')}
                 aria-label="Back"
                 className="af-glass-control af-menu-trigger"
-                style={{display:'flex',alignItems:'center',gap:3,height:36,padding:'0 14px 0 9px',borderRadius:999,boxSizing:'border-box',cursor:'pointer',fontFamily:'inherit',color:ACCENT,WebkitTapHighlightColor:'transparent'}}>
+                style={{display:'flex',alignItems:'center',gap:3,height:36,padding:'0 14px 0 9px',borderRadius:999,boxSizing:'border-box',cursor:'pointer',fontFamily:'inherit',color:ACCENT,WebkitTapHighlightColor:'transparent', ...triggerFx('back', 1.05)}}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={ACCENT} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6" /></svg>
                 <span style={{fontSize:15,fontWeight:600,letterSpacing:'-0.01em',maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{
                   ((isAssessing || view==='results' || view==='report') && bldg?.fn)
@@ -3424,7 +3435,7 @@ export default function MobileApp() {
               <button
                 ref={menuButtonRef}
                 onClick={()=>{ setMenuClosing(false); setShowHomeMenu(true) }}
-                onPointerDown={fluidTap}
+                {...triggerPress('menu')}
                 aria-label="Open menu"
                 aria-haspopup="menu"
                 aria-expanded={showHomeMenu}
@@ -3436,6 +3447,7 @@ export default function MobileApp() {
                   width:40, height:40, borderRadius:'50%',
                   padding:0, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
                   boxSizing:'border-box', WebkitTapHighlightColor:'transparent',
+                  ...triggerFx('menu', 1.16),
                 }}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
                   <line x1="4" y1="7"  x2="20" y2="7" />
@@ -3481,7 +3493,7 @@ export default function MobileApp() {
                   setActionsAnchor({ top: r.bottom + 8, right: Math.max(8, window.innerWidth - r.right) })
                   setActionsOpen(true)
                 }}
-                onPointerDown={fluidTap}
+                {...triggerPress('kebab')}
                 aria-label="More actions"
                 aria-haspopup="menu"
                 aria-expanded={actionsOpen}
@@ -3491,6 +3503,7 @@ export default function MobileApp() {
                   alignItems:'center', justifyContent:'center',
                   padding:0, boxSizing:'border-box',
                   WebkitTapHighlightColor:'transparent',
+                  ...triggerFx('kebab', 1.16),
                 }}>
                 <I n="dots" s={20} c={ACCENT} w={2} />
               </button>
@@ -4903,14 +4916,13 @@ export default function MobileApp() {
         .af-menu-item:hover{background:color-mix(in srgb, var(--text) 8%, transparent);}
         .af-menu-item:active{transform:scale(0.98);}
         .af-menu-item.is-active{color:var(--accent);}
-        /* Header glass controls (back pill, hamburger, kebab). The rich
-           "liquid" tap — a springy swell + an expanding cyan glow ring — is
-           driven on pointerdown by fluidTap() (Web Animations API) so it
-           plays its FULL duration on a quick tap and survives the re-render
-           when the menu opens. This is just the resting transition + a plain
-           reduced-motion press fallback. */
-        .af-menu-trigger{position:relative; transition:transform 140ms ease, opacity 140ms ease;}
-        @media (prefers-reduced-motion: reduce){ .af-menu-trigger:active{transform:scale(0.94);} }
+        /* Header glass controls (back pill, hamburger, kebab). The sustained
+           "liquid" press — grow + glow while held, spring back on release — is
+           driven by React state (pressedTrigger) via triggerFx() inline styles
+           so it holds for a press-and-hold and survives the re-render when the
+           menu opens. position:relative is kept for stacking; the transform /
+           transition / filter all come from the inline style. */
+        .af-menu-trigger{position:relative;}
         /* ── Shared glass control ──
            Same liquid-glass language as the bottom dock (AtmosFlowFloatingDock):
            near-clear translucent fill + light blur + a bright specular rim in
