@@ -26,7 +26,7 @@ def ratio(a,b):
     L1,L2 = lum(a),lum(b); hi,lo = max(L1,L2),min(L1,L2)
     return (hi+0.05)/(lo+0.05)
 
-check("Primary button: navy text on cyan >= 4.5", ratio('#0B1220','#00C2FF')>=4.5, f"{ratio('#0B1220','#00C2FF'):.2f}")
+check("Primary button: navy text on cyan >= 4.5", ratio('#0B1220','#22D3EE')>=4.5, f"{ratio('#0B1220','#22D3EE'):.2f}")
 check("Body slate on white >= 4.5", ratio('#515C6B','#FFFFFF')>=4.5, f"{ratio('#515C6B','#FFFFFF'):.2f}")
 check("Body slate on mist panel >= 4.5", ratio('#515C6B','#F7F8FA')>=4.5, f"{ratio('#515C6B','#F7F8FA'):.2f}")
 check("Ink on white >= 4.5", ratio('#0B1220','#FFFFFF')>=4.5, f"{ratio('#0B1220','#FFFFFF'):.2f}")
@@ -34,7 +34,7 @@ check("Teal label on white >= 4.5", ratio('#0E7490','#FFFFFF')>=4.5, f"{ratio('#
 check("Light eyebrow on ink section >= 4.5", ratio('#7FE3FF','#0B1220')>=4.5, f"{ratio('#7FE3FF','#0B1220'):.2f}")
 check("Footer link on ink >= 4.5", ratio('#C4CCD6','#0B1220')>=4.5, f"{ratio('#C4CCD6','#0B1220'):.2f}")
 # guard: white text must NOT sit on cyan anywhere (would fail)
-check("No white-on-cyan button (would fail contrast)", ratio('#FFFFFF','#00C2FF')<4.5, "guard")
+check("No white-on-cyan button (would fail contrast)", ratio('#FFFFFF','#22D3EE')<4.5, "guard")
 
 # ---------- typography ----------
 check("No mono font family referenced", ('jetbrains' not in html.lower()) and ('monospace' not in html.lower()))
