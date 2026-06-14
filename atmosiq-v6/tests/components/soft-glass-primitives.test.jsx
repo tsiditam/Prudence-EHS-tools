@@ -23,6 +23,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import BottomSheet from '../../src/components/ui/BottomSheet'
 import TactileButton from '../../src/components/ui/TactileButton'
+import GhostButton from '../../src/components/ui/GhostButton'
 import GlassCard from '../../src/components/ui/GlassCard'
 import StatusPill from '../../src/components/ui/StatusPill'
 
@@ -128,6 +129,46 @@ describe('TactileButton', () => {
       render(<TactileButton variant="primary" onClick={() => {}}>X</TactileButton>)
       fireEvent.pointerDown(screen.getByText('X').closest('button'))
     }).not.toThrow()
+  })
+})
+
+describe('fluid press (iOS-26 tap)', () => {
+  afterEach(() => { cleanup() })
+
+  it('TactileButton (classic) presses to a sub-1 scale on pointerdown and springs back on pointerup', () => {
+    render(<TactileButton variant="primary" onClick={() => {}}>Tap</TactileButton>)
+    const btn = screen.getByText('Tap').closest('button')
+    fireEvent.pointerDown(btn)
+    expect(btn.style.transform).toBe('scale(0.96)')
+    fireEvent.pointerUp(btn)
+    expect(btn.style.transform).toBe('scale(1)')
+  })
+
+  it('TactileButton resets the press when the pointer leaves mid-press', () => {
+    render(<TactileButton variant="secondary" onClick={() => {}}>Hold</TactileButton>)
+    const btn = screen.getByText('Hold').closest('button')
+    fireEvent.pointerDown(btn)
+    expect(btn.style.transform).toBe('scale(0.96)')
+    fireEvent.pointerLeave(btn)
+    expect(btn.style.transform).toBe('scale(1)')
+  })
+
+  it('bubble variant leaves the press transform to CSS (no inline scale)', () => {
+    render(<TactileButton variant="primary" bubble onClick={() => {}}>Bub</TactileButton>)
+    const btn = screen.getByText('Bub').closest('button')
+    fireEvent.pointerDown(btn)
+    // CSS :active owns the press for bubble buttons — no inline transform.
+    expect(btn.style.transform).toBe('')
+    expect(btn.className).toContain('bubble-btn')
+  })
+
+  it('GhostButton gets the same fluid press feedback', () => {
+    render(<GhostButton onClick={() => {}}>Ghost</GhostButton>)
+    const btn = screen.getByText('Ghost').closest('button')
+    fireEvent.pointerDown(btn)
+    expect(btn.style.transform).toBe('scale(0.96)')
+    fireEvent.pointerUp(btn)
+    expect(btn.style.transform).toBe('scale(1)')
   })
 })
 

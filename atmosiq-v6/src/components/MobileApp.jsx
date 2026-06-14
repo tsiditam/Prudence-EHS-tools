@@ -850,6 +850,11 @@ export default function MobileApp() {
   // Header ⋯ overflow — opens a context action menu (Senior top-bar design).
   const [actionsOpen, setActionsOpen] = useState(false)
   const [actionsAnchor, setActionsAnchor] = useState(null)
+  // Which header glass control (hamburger / kebab / back) is currently held.
+  // Drives a sustained "liquid" expand: the control grows + glows while
+  // pressed and springs back on release (state-driven so it persists through
+  // the re-render when the menu opens). null = none pressed.
+  const [pressedTrigger, setPressedTrigger] = useState(null)
   // Drives the .af-menu `is-open` class for the action menu: toggled on one
   // frame after mount (enter transition) and off to play the close
   // animation before the menu unmounts.
@@ -1011,6 +1016,41 @@ export default function MobileApp() {
   // the dashboard. Used by every exit-to-home flow so the two modes don't
   // fork at each call site.
   const goHome = () => { setView(homeView(userMode)); setViewRpt(null) }
+
+  // Sustained "liquid-glass" press for the header glass controls (hamburger,
+  // kebab, back pill). While held, the control grows and a cyan glow blooms;
+  // it holds at that size for as long as the finger is down, then springs
+  // back on release. State-driven (not CSS :active or a one-shot animation)
+  // so the expand persists for a press-and-hold and survives the re-render
+  // when the menu opens. Reduced-motion gets a plain instant press.
+  const reduceMotion = (() => { try { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) } catch { return false } })()
+  const triggerPress = (key) => ({
+    onPointerDown: () => setPressedTrigger(key),
+    onPointerUp:    () => setPressedTrigger((k) => (k === key ? null : k)),
+    onPointerLeave: () => setPressedTrigger((k) => (k === key ? null : k)),
+    onPointerCancel:() => setPressedTrigger((k) => (k === key ? null : k)),
+  })
+  // peak = how much the control swells while held (icon buttons can take a
+  // bigger swell than the wide back pill). The glow is an INSET (internal)
+  // box-shadow rather than an outer drop-shadow so the header's overflow can't
+  // clip it — it blooms inside the control. Brand cyan reads on both themes;
+  // boxShadow is left undefined when idle so the .af-glass-control glass
+  // shadow shows through.
+  const triggerFx = (key, peak = 1.3) => {
+    const on = pressedTrigger === key
+    if (reduceMotion) return { transform: on ? 'scale(0.97)' : 'scale(1)', transition: 'transform 90ms ease' }
+    return {
+      transform: on ? `scale(${peak})` : 'scale(1)',
+      boxShadow: on ? 'inset 0 0 18px rgba(57,192,217,0.72), inset 0 0 7px rgba(57,192,217,0.6)' : undefined,
+      filter: on ? 'brightness(1.12)' : 'none',
+      // Quick ease-out on the way up (tracks the finger), springy overshoot on
+      // the way back so the release reads "liquid", not snapped.
+      transition: on
+        ? 'transform 200ms cubic-bezier(.2,.85,.3,1), box-shadow 180ms ease, filter 200ms ease'
+        : 'transform 460ms cubic-bezier(.34,1.56,.64,1), box-shadow 320ms ease, filter 360ms ease',
+      willChange: 'transform',
+    }
+  }
   // Where a tool (Logger Studio / Sampling forms) should return to. Set to
   // 'project-detail' when the tool is opened from inside a project
   // workspace so one tap goes straight back to that project; cleared when
@@ -3394,9 +3434,10 @@ export default function MobileApp() {
             {profile && view!=='dash' && view!=='projects' && view!=='project-detail' && (
               <button
                 onClick={()=>{ if ((view==='sensor-data'||view==='sampling-forms') && toolReturn) { setView(toolReturn); setToolReturn(null) } else { setView('projects'); setViewRpt(null) } }}
+                {...triggerPress('back')}
                 aria-label="Back"
                 className="af-glass-control af-menu-trigger"
-                style={{display:'flex',alignItems:'center',gap:3,height:36,padding:'0 14px 0 9px',borderRadius:999,boxSizing:'border-box',cursor:'pointer',fontFamily:'inherit',color:ACCENT,WebkitTapHighlightColor:'transparent'}}>
+                style={{display:'flex',alignItems:'center',gap:3,height:36,padding:'0 14px 0 9px',borderRadius:999,boxSizing:'border-box',cursor:'pointer',fontFamily:'inherit',color:ACCENT,WebkitTapHighlightColor:'transparent', ...triggerFx('back', 1.1)}}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={ACCENT} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6" /></svg>
                 <span style={{fontSize:15,fontWeight:600,letterSpacing:'-0.01em',maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{
                   ((isAssessing || view==='results' || view==='report') && bldg?.fn)
@@ -3410,6 +3451,7 @@ export default function MobileApp() {
               <button
                 ref={menuButtonRef}
                 onClick={()=>{ setMenuClosing(false); setShowHomeMenu(true) }}
+                {...triggerPress('menu')}
                 aria-label="Open menu"
                 aria-haspopup="menu"
                 aria-expanded={showHomeMenu}
@@ -3421,6 +3463,7 @@ export default function MobileApp() {
                   width:40, height:40, borderRadius:'50%',
                   padding:0, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
                   boxSizing:'border-box', WebkitTapHighlightColor:'transparent',
+                  ...triggerFx('menu', 1.3),
                 }}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
                   <line x1="4" y1="7"  x2="20" y2="7" />
@@ -3466,6 +3509,7 @@ export default function MobileApp() {
                   setActionsAnchor({ top: r.bottom + 8, right: Math.max(8, window.innerWidth - r.right) })
                   setActionsOpen(true)
                 }}
+                {...triggerPress('kebab')}
                 aria-label="More actions"
                 aria-haspopup="menu"
                 aria-expanded={actionsOpen}
@@ -3475,6 +3519,7 @@ export default function MobileApp() {
                   alignItems:'center', justifyContent:'center',
                   padding:0, boxSizing:'border-box',
                   WebkitTapHighlightColor:'transparent',
+                  ...triggerFx('kebab', 1.3),
                 }}>
                 <I n="dots" s={20} c={ACCENT} w={2} />
               </button>
@@ -4865,8 +4910,14 @@ export default function MobileApp() {
           box-shadow:0 18px 45px rgba(0,0,0,0.35);
           transform-origin:top right;
           will-change:opacity, transform;
-          opacity:0; transform:translateY(-6px) scale(0.96); pointer-events:none;
-          transition:opacity 160ms ease, transform 180ms cubic-bezier(0.22,1,0.36,1);
+          /* Expands out of its anchor corner: scales up from 0.9 with a springy
+             overshoot so the panel "grows" rather than just fading in. The
+             springy curve is gated behind reduced-motion below. */
+          opacity:0; transform:translateY(-4px) scale(0.9); pointer-events:none;
+          transition:opacity 160ms ease, transform 200ms ease;
+        }
+        @media (prefers-reduced-motion: no-preference){
+          .af-menu{transition:opacity 180ms ease, transform 300ms cubic-bezier(.34,1.5,.64,1);}
         }
         .af-menu.is-open{opacity:1; transform:translateY(0) scale(1); pointer-events:auto;}
         [data-theme="light"] .af-menu{border-color:rgba(15,23,42,0.10); box-shadow:0 18px 45px rgba(15,23,42,0.18);}
@@ -4881,8 +4932,13 @@ export default function MobileApp() {
         .af-menu-item:hover{background:color-mix(in srgb, var(--text) 8%, transparent);}
         .af-menu-item:active{transform:scale(0.98);}
         .af-menu-item.is-active{color:var(--accent);}
-        .af-menu-trigger{transition:transform 140ms ease, opacity 140ms ease;}
-        .af-menu-trigger:active{transform:scale(0.92);}
+        /* Header glass controls (back pill, hamburger, kebab). The sustained
+           "liquid" press — grow + glow while held, spring back on release — is
+           driven by React state (pressedTrigger) via triggerFx() inline styles
+           so it holds for a press-and-hold and survives the re-render when the
+           menu opens. position:relative is kept for stacking; the transform /
+           transition / filter all come from the inline style. */
+        .af-menu-trigger{position:relative;}
         /* ── Shared glass control ──
            Same liquid-glass language as the bottom dock (AtmosFlowFloatingDock):
            near-clear translucent fill + light blur + a bright specular rim in
@@ -4942,12 +4998,16 @@ export default function MobileApp() {
           box-shadow:var(--bubble-shadow), var(--bubble-inset), 0 0 0 3px color-mix(in srgb, var(--accent) 50%, transparent) !important;
         }
         @media (prefers-reduced-motion: no-preference){
+          /* Fluid press: the transform springs back on RELEASE (slight
+             overshoot, iOS-26 "liquid" settle); the :active rule below swaps
+             in a near-instant press-IN so the surface tracks the finger. */
           .bubble-btn{
-            transition:transform 180ms cubic-bezier(.2,.8,.2,1), box-shadow 180ms cubic-bezier(.2,.8,.2,1), background 180ms ease, border-color 180ms ease, filter 180ms ease;
+            transition:transform 340ms cubic-bezier(.34,1.56,.64,1), box-shadow 200ms cubic-bezier(.2,.8,.2,1), background 180ms ease, border-color 180ms ease, filter 180ms ease;
           }
-          .bubble-btn::after{ transition:opacity 220ms ease, transform 220ms ease; }
+          .bubble-btn::after{ transition:opacity 240ms ease, transform 240ms cubic-bezier(.34,1.56,.64,1); }
           .bubble-btn:not(:disabled):hover{ transform:translateY(-1px); filter:brightness(1.06); }
           .bubble-btn:not(:disabled):active{
+            transition:transform 110ms cubic-bezier(.4,0,.2,1), box-shadow 110ms cubic-bezier(.4,0,.2,1) !important;
             transform:translateY(1px) scale(var(--bubble-press-scale, .96)) !important;
             box-shadow:0 5px 14px rgba(0,0,0,0.34), inset 0 2px 8px rgba(0,0,0,0.30), inset 0 1px 1px rgba(255,255,255,0.16) !important;
           }
