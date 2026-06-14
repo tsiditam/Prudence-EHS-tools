@@ -137,15 +137,15 @@ function DockButton({ t, solo }) {
           : 'none',
         WebkitTapHighlightColor: 'transparent',
         touchAction: 'manipulation',
-        // Selection glide: the active pill expands/collapses smoothly and a
-        // bit slower (380ms on a soft decelerate curve, not the prior bouncy
+        // Selection glide: the active pill expands/collapses smoothly and
+        // slowly (450ms on a soft decelerate curve, not the prior bouncy
         // overshoot) so switching tabs reads as a calm slide between lanes.
         // The press scale stays quick (130ms) so taps still feel responsive.
         transition:
-          'background 380ms cubic-bezier(0.32,0.72,0,1), ' +
-          'box-shadow 380ms cubic-bezier(0.32,0.72,0,1), padding 380ms cubic-bezier(0.32,0.72,0,1), ' +
-          'gap 380ms cubic-bezier(0.32,0.72,0,1), ' +
-          'height 380ms cubic-bezier(0.32,0.72,0,1), ' +
+          'background 450ms cubic-bezier(0.32,0.72,0,1), ' +
+          'box-shadow 450ms cubic-bezier(0.32,0.72,0,1), padding 450ms cubic-bezier(0.32,0.72,0,1), ' +
+          'gap 450ms cubic-bezier(0.32,0.72,0,1), ' +
+          'height 450ms cubic-bezier(0.32,0.72,0,1), ' +
           'transform 130ms cubic-bezier(0.22,1,0.36,1)',
       }}
     >
