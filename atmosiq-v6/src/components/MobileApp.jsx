@@ -36,6 +36,7 @@ import { GLASS, RADII, RHYTHM, stack as sgStack } from '../styles/soft-glass'
 import GlassCard from './ui/GlassCard'
 import AssessmentSegmentedPillNav from './ui/AssessmentSegmentedPillNav'
 import AtmosFlowFloatingDock from './ui/AtmosFlowFloatingDock'
+import JasperFloatingButton from './JasperFloatingButton'
 import AnimatedPageTransition from './ui/AnimatedPageTransition'
 import FeedbackSheet from './ui/FeedbackSheet'
 import FeedbackButton from './ui/FeedbackButton'
@@ -4686,38 +4687,30 @@ export default function MobileApp() {
           {id:'incident-log',label:'Incidents',icon:'alert'},
           {id:'sensor-data',label:'Logger Studio',icon:'chartLine'},
         ] : [
-          // Consultant dock = the two workflow anchors; AtmosFlow AI rides
-          // in the aux pill beside it. Logger Studio lives in the menu's
-          // Tools group, so the dock and menu reinforce the same primaries
-          // instead of competing. Account is a dock tab (also in the menu).
+          // Consultant dock = the workflow anchors + global Search. AtmosFlow
+          // AI is detached from the dock and floats on the right edge (see
+          // JasperFloatingButton below). Logger Studio lives in the menu's
+          // Tools group. Account is a dock tab (also in the menu).
           {id:'projects',label:'Projects',icon:'bldg'},
+          {id:'search',label:'Search',icon:'search'},
           {id:'history',label:'Reports',icon:'report',badge:((index.drafts||[]).length+(index.reports||[]).length)||null},
           {id:'account',label:'Account',icon:'user',renderIcon:accountAvatarIcon},
         ]).map(mkTab)
 
-        // AtmosFlow AI — its own circular pill beside the oval dock. Keeps
-        // the breathing-glow brain mark and the jasper event name.
-        const aux = userMode === 'fm' ? null : {
-          id: 'jasper',
-          label: 'AtmosFlow AI',
-          active: faOpen,
-          onClick: () => { haptic('light'); supabase && trackEvent('jasper_open', { source: 'bottom_nav' }); setFaOpen(true) },
-          renderIcon: () => (
-            <span style={{ position:'relative', display:'inline-flex', alignItems:'center', justifyContent:'center' }}>
-              {/* Ambient breathing glow behind the AI mark so the assistant
-                  reads as "alive". Pointer-transparent; calms under
-                  prefers-reduced-motion. */}
-              <span className="fa-breathe" aria-hidden="true" style={{
-                position:'absolute', top:'50%', left:'50%', width:34, height:34,
-                marginTop:-17, marginLeft:-17, borderRadius:'50%', pointerEvents:'none',
-                background:'radial-gradient(circle, color-mix(in srgb, var(--accent) 62%, transparent), color-mix(in srgb, var(--accent) 28%, transparent) 48%, transparent 78%)',
-              }} />
-              <JasperBrainIcon size={18} />
-            </span>
-          ),
-        }
-
-        return <AtmosFlowFloatingDock tabs={navTabs} aux={aux} maxWidth={contentMax} />
+        return (
+          <>
+            <AtmosFlowFloatingDock tabs={navTabs} maxWidth={contentMax} />
+            {/* AtmosFlow AI — detached from the dock, floating against the
+                right edge. Shrinks/grows with scroll (Instagram-style).
+                Consultant mode only, matching the prior aux-pill gating. */}
+            {userMode !== 'fm' && (
+              <JasperFloatingButton
+                active={faOpen}
+                onClick={() => { haptic('light'); supabase && trackEvent('jasper_open', { source: 'floating_button' }); setFaOpen(true) }}
+              />
+            )}
+          </>
+        )
       })()}
 
       {/* The floating Field-Assistant FAB was retired when Jasper

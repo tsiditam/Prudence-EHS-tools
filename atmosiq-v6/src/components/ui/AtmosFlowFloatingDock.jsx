@@ -188,9 +188,11 @@ export default function AtmosFlowFloatingDock({ tabs, aux, maxWidth, ariaLabel =
         position: 'fixed',
         left: 0,
         right: 0,
-        // Seated at the very bottom, right against the safe-area inset
-        // (home indicator) with no extra float gap.
-        bottom: 'env(safe-area-inset-bottom, 0px)',
+        // Sit low at the very bottom (Fiverr-style). Cap the safe-area
+        // inset at 12px so a large bottom inset (e.g. Safari's bottom
+        // toolbar region) can't push the dock up the screen, while still
+        // keeping it off the home indicator on installed PWAs.
+        bottom: 'min(env(safe-area-inset-bottom, 0px), 12px)',
         zIndex: 100,
         display: 'flex',
         justifyContent: 'center',
