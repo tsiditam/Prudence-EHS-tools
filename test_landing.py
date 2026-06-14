@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-AtmosFlow landing page acceptance tests.
+AtmosFlow landing page (v2) acceptance tests.
 Static + DOM-level checks. No browser required.
 Run: python3 test_landing.py
 Exit 0 = all pass.
@@ -26,33 +26,43 @@ def ratio(a,b):
     L1,L2 = lum(a),lum(b); hi,lo = max(L1,L2),min(L1,L2)
     return (hi+0.05)/(lo+0.05)
 
-check("Primary button: navy text on cyan >= 4.5", ratio('#0B1220','#06B6D4')>=4.5, f"{ratio('#0B1220','#06B6D4'):.2f}")
+check("Primary button: navy text on cyan >= 4.5", ratio('#0B1220','#00C2FF')>=4.5, f"{ratio('#0B1220','#00C2FF'):.2f}")
 check("Body slate on white >= 4.5", ratio('#515C6B','#FFFFFF')>=4.5, f"{ratio('#515C6B','#FFFFFF'):.2f}")
-check("Body slate on mist panel >= 4.5", ratio('#515C6B','#F5F8FA')>=4.5, f"{ratio('#515C6B','#F5F8FA'):.2f}")
+check("Body slate on mist panel >= 4.5", ratio('#515C6B','#F7F8FA')>=4.5, f"{ratio('#515C6B','#F7F8FA'):.2f}")
 check("Ink on white >= 4.5", ratio('#0B1220','#FFFFFF')>=4.5, f"{ratio('#0B1220','#FFFFFF'):.2f}")
 check("Teal label on white >= 4.5", ratio('#0E7490','#FFFFFF')>=4.5, f"{ratio('#0E7490','#FFFFFF'):.2f}")
-check("Footer muted on ink >= 4.5", ratio('#C4CCD6','#0B1220')>=4.5, f"{ratio('#C4CCD6','#0B1220'):.2f}")
+check("Light eyebrow on ink section >= 4.5", ratio('#7FE3FF','#0B1220')>=4.5, f"{ratio('#7FE3FF','#0B1220'):.2f}")
+check("Footer link on ink >= 4.5", ratio('#C4CCD6','#0B1220')>=4.5, f"{ratio('#C4CCD6','#0B1220'):.2f}")
 # guard: white text must NOT sit on cyan anywhere (would fail)
-check("No white-on-cyan button (would fail contrast)", ratio('#FFFFFF','#06B6D4')<4.5, "guard")
+check("No white-on-cyan button (would fail contrast)", ratio('#FFFFFF','#00C2FF')<4.5, "guard")
 
 # ---------- typography ----------
 check("No mono font family referenced", ('jetbrains' not in html.lower()) and ('monospace' not in html.lower()))
 check("Inter is loaded", 'family=Inter' in html)
 check("OpenType features set (cv11/ss03/tnum)", all(t in html for t in ['cv11','ss03','tnum']))
 
-# ---------- copy discipline ----------
+# ---------- copy / positioning ----------
 check("No em dash anywhere", '—' not in html, "U+2014")
-primary = len(re.findall(r'>\s*Join the Beta\s*<', html))
-check("Primary CTA 'Join the Beta' appears >= 3 times", primary>=3, f"count={primary}")
-banned = [b for b in ["Get Started","Request Access","Sign Up","Sign up","See How It Works","Try for free","Learn More"] if b in html]
-check("No competing CTA verbs", not banned, f"found={banned}")
+check("Headline present", "Indoor Air Quality Investigation Intelligence" in html)
+check("Subheadline present", "defensible findings, sampling plans, and draft reports" in html)
+rba = len(re.findall(r'>\s*Request Beta Access\s*<', html))
+check("Primary CTA 'Request Beta Access' appears >= 2 times", rba>=2, f"count={rba}")
+check("Beta form CTA 'Request Early Access' present", "Request Early Access" in html)
 check("Secondary CTA 'See a sample report' present", "See a sample report" in html)
-check("Positioning line present", "people who write and sign IAQ reports" in html)
-check("Defensibility headline present", "AI-Assisted, Expert-Reviewed." in html)
+check("Sample report links the PDF", "/atmosflow-sample-report.pdf" in html)
+check("Product showcase heading present", "One Platform. Every Stage of the Investigation." in html)
+check("Workflow heading present", "How AtmosFlow Works" in html)
+check("Before/after heading present", "Reduce Investigation Friction" in html)
+check("Audience heading present", "Who Uses AtmosFlow?" in html)
+check("Founder heading present", "Built by a Practitioner" in html)
 check("Screening-not-compliance line present", "Screening, not compliance." in html)
+# strip embedded base64 blobs so random letters inside them don't trip text checks
+html_text = re.sub(r'data:image/[^;]+;base64,[A-Za-z0-9+/=]+', '', html)
+check("No FAA reference in copy", "FAA" not in html_text)
+check("Trust line present", "Built by EHS professionals." in html)
 
 # ---------- assets ----------
-check("Light logo embedded", html.count('data:image/png;base64,')>=3)
+check("Logos + favicon embedded", html.count('data:image/png;base64,')>=3)
 check("Favicon linked", 'rel="icon"' in html)
 check("Social/OG meta present", 'property="og:title"' in html and 'name="twitter:card"' in html)
 
@@ -61,7 +71,7 @@ class P(HTMLParser):
     def __init__(s):
         super().__init__(); s.h1=0; s.ids=set(); s.anchors=[]
         s.inputs=0; s.selects=0; s.imgs_no_alt=0
-        s.faq_btn=0; s.ans_region=0; s.viewport=False; s.menu_aria=False
+        s.slides=0; s.viewport=False; s.menu_aria=False
     def handle_starttag(s, tag, attrs):
         d=dict(attrs)
         if tag=='h1': s.h1+=1
@@ -70,9 +80,8 @@ class P(HTMLParser):
         if tag=='input': s.inputs+=1
         if tag=='select': s.selects+=1
         if tag=='img' and not d.get('alt'): s.imgs_no_alt+=1
-        if tag=='button' and 'aria-controls' in d and 'aria-expanded' in d: s.faq_btn+=1
+        if tag=='img' and 'slide' in d.get('class',''): s.slides+=1
         if tag=='button' and d.get('id')=='menuBtn' and 'aria-expanded' in d: s.menu_aria=True
-        if tag=='div' and d.get('role')=='region': s.ans_region+=1
         if tag=='meta' and d.get('name')=='viewport': s.viewport=True
 p=P(); p.feed(html)
 
@@ -81,16 +90,17 @@ check("Viewport meta present", p.viewport)
 check("All images have alt text", p.imgs_no_alt==0, f"missing={p.imgs_no_alt}")
 missing=[a for a in p.anchors if a not in p.ids]
 check("All in-page anchors resolve to an id", not missing, f"missing={missing}")
-check("Beta form has 3 inputs (name,email,role)", p.inputs==2 and p.selects==1, f"inputs={p.inputs} selects={p.selects}")
-check("FAQ buttons have aria-expanded + aria-controls (5)", p.faq_btn==5, f"count={p.faq_btn}")
+check("Beta form has 4 fields (name,email,org,role)", p.inputs==3 and p.selects==1, f"inputs={p.inputs} selects={p.selects}")
 check("Mobile menu button exposes aria-expanded", p.menu_aria)
-check("FAQ answers are aria regions (5)", p.ans_region==5, f"count={p.ans_region}")
+check("Hero slideshow has 4 slides", p.slides==4, f"count={p.slides}")
 
 # ---------- behavior / quality floor ----------
 check("Reduced-motion respected", 'prefers-reduced-motion' in html)
 check("Focus-visible styles present", 'focus-visible' in html)
-check("Sticky nav + scroll behavior", 'scrolled' in html and 'addEventListener(\'scroll\'' in html)
+check("Sticky nav + scroll behavior", 'scrolled' in html and "addEventListener('scroll'" in html)
 check("Mobile menu wired", 'menuBtn' in html and 'navlinks' in html)
+check("Hero slideshow wired (autoplay/controls)", 'heroSlides' in html and 'slide-nav' in html)
+check("Scroll reveal wired", 'IntersectionObserver' in html and "classList.add('in')" in html)
 check("Form validates email", '@' in html and 'test(e)' in html)
 check("Form shows success state", 'betaOk' in html and "classList.add('show')" in html)
 check("Email input type=email + autocomplete", 'type="email"' in html and 'autocomplete="email"' in html)
@@ -99,7 +109,7 @@ check("Email input type=email + autocomplete", 'type="email"' in html and 'autoc
 passed=sum(1 for _,ok,_ in results if ok)
 total=len(results)
 print("="*64)
-print(f"AtmosFlow landing page acceptance suite  ({passed}/{total} passed)")
+print(f"AtmosFlow landing page v2 acceptance suite  ({passed}/{total} passed)")
 print("="*64)
 for name,ok,detail in results:
     mark="PASS" if ok else "FAIL"

@@ -19,7 +19,11 @@
       "Bash(cp \"/root/.claude/uploads/bbd6f55c-cadf-5fbc-9e6d-8561440a094b/94a6ed9c-IMG_4439.jpeg\" /home/user/Prudence-EHS-tools/atmosiq-v6/public/ss-projects-nav.jpeg)",
       "Bash(cp \"/root/.claude/uploads/bbd6f55c-cadf-5fbc-9e6d-8561440a094b/07c3c2e2-IMG_4363.jpeg\" /home/user/Prudence-EHS-tools/atmosiq-v6/public/ss-multiparam.jpeg)",
       "Bash(cp \"/root/.claude/uploads/bbd6f55c-cadf-5fbc-9e6d-8561440a094b/1255a258-IMG_4440.jpeg\" /home/user/Prudence-EHS-tools/atmosiq-v6/public/ss-formaldehyde.jpeg)",
-      "Bash(python3 -c \"import os;[print\\(os.path.basename\\(p\\), os.path.getsize\\(p\\)//1024,'KB'\\) for p in ['/home/user/Prudence-EHS-tools/atmosiq-v6/public/ss-projects-nav.jpeg','/home/user/Prudence-EHS-tools/atmosiq-v6/public/ss-multiparam.jpeg','/home/user/Prudence-EHS-tools/atmosiq-v6/public/ss-formaldehyde.jpeg']]\")"
+      "Bash(python3 -c \"import os;[print\\(os.path.basename\\(p\\), os.path.getsize\\(p\\)//1024,'KB'\\) for p in ['/home/user/Prudence-EHS-tools/atmosiq-v6/public/ss-projects-nav.jpeg','/home/user/Prudence-EHS-tools/atmosiq-v6/public/ss-multiparam.jpeg','/home/user/Prudence-EHS-tools/atmosiq-v6/public/ss-formaldehyde.jpeg']]\")",
+      "Bash(cp \"/root/.claude/uploads/bbd6f55c-cadf-5fbc-9e6d-8561440a094b/759144ce-IMG_0407.jpeg\" /home/user/Prudence-EHS-tools/atmosiq-v6/public/ss-zone-findings.jpeg)",
+      "Bash(cp \"/root/.claude/uploads/bbd6f55c-cadf-5fbc-9e6d-8561440a094b/23be1ebb-IMG_0406.jpeg\" /home/user/Prudence-EHS-tools/atmosiq-v6/public/ss-pro-assessment.jpeg)",
+      "Bash(cp \"/root/.claude/uploads/bbd6f55c-cadf-5fbc-9e6d-8561440a094b/d3890663-IMG_0405.png\" /home/user/Prudence-EHS-tools/atmosiq-v6/public/ss-session-averages.png)",
+      "Bash(cp \"/root/.claude/uploads/bbd6f55c-cadf-5fbc-9e6d-8561440a094b/b6eec41f-IMG_0402.jpeg\" /home/user/Prudence-EHS-tools/atmosiq-v6/public/ss-co-tvoc.jpeg)"
     ]
   }
 }
