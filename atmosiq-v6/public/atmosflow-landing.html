@@ -78,6 +78,11 @@ header.scrolled{border-bottom-color:var(--hair);box-shadow:0 1px 0 rgba(11,18,32
 .nav-links a.navlink{color:var(--slate);font-weight:500;font-size:.95rem}
 .nav-links a.navlink:hover{color:var(--ink)}
 .nav-cta{display:flex;align-items:center;gap:14px}
+.app-screens{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:40px}
+.app-screen{margin:0}
+.app-screen img{width:100%;border-radius:16px;box-shadow:var(--shadow);display:block}
+.app-screen figcaption{font-size:.72rem;color:var(--slate);margin-top:10px;line-height:1.5;text-align:center}
+@media(max-width:600px){.app-screens{grid-template-columns:1fr}}
 .btn-ghost{color:var(--ink);font-weight:600;font-size:.9rem;padding:8px 14px;border-radius:8px;border:1.5px solid var(--hair);transition:background .15s ease,border-color .15s ease;text-decoration:none}
 .btn-ghost:hover{background:var(--mist);border-color:var(--slate)}
 .menu-btn{display:none;background:none;border:none;cursor:pointer;padding:8px}
@@ -300,35 +305,7 @@ footer{background:var(--ink);color:#fff}
 
     <div class="reveal in" id="sample">
       <div class="frame">
-        <div class="frame-bar"><i></i><i></i><i></i><span class="url">atmosflow.net / report / draft</span></div>
-        <div class="report">
-          <div class="report-head">
-            <div>
-              <div class="report-title">IAQ Screening Report</div>
-              <div class="report-sub">Draft · sample preview</div>
-            </div>
-            <span class="badge">Screening, not compliance</span>
-          </div>
-          <div class="chips">
-            <div class="chip"><div class="k">CO₂</div><div class="v">1,180<small>ppm</small></div></div>
-            <div class="chip flag"><div class="k">PM2.5</div><div class="v">38<small>µg/m³</small></div></div>
-            <div class="chip"><div class="k">RH</div><div class="v">58<small>%</small></div></div>
-            <div class="chip"><div class="k">CO</div><div class="v">2<small>ppm</small></div></div>
-            <div class="chip"><div class="k">TVOC</div><div class="v">0.6<small>ppm</small></div></div>
-            <div class="chip"><div class="k">Temp</div><div class="v">74<small>°F</small></div></div>
-          </div>
-          <div class="pathway">
-            <div class="lbl">Possible causal pathway</div>
-            <div class="flow">
-              <span class="node">Occupant complaints</span><span class="arrow">→</span>
-              <span class="node">Low fresh-air rate</span><span class="arrow">→</span>
-              <span class="node">Elevated CO₂</span>
-            </div>
-          </div>
-          <div class="report-foot">
-            <span class="review-stamp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg> Requires professional review</span>
-          </div>
-        </div>
+        <img src="/ss-logger-studio.jpeg" alt="AtmosFlow Logger Studio: CO2 trend chart, 7-day data, mean 684 ppm, peak 896 ppm, with report export controls" style="width:100%;display:block;border-radius:inherit">
       </div>
     </div>
   </div>
@@ -428,6 +405,16 @@ footer{background:var(--ink);color:#fff}
         <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg></div>
         <div><h3>Expert review at the center</h3><p>Final conclusions and sign-off stay with your credentialed professional.</p></div>
       </div>
+    </div>
+    <div class="app-screens reveal" style="grid-column:1/-1">
+      <figure class="app-screen">
+        <img src="/ss-assessment.jpeg" alt="AtmosFlow Professional Assessment panel: HVAC system deficiency as primary driver, occupant symptoms reported, causal chain, High confidence, Screening non-compliance label">
+        <figcaption>Causal chain and confidence rating, visible to the assessor, signed off by your credentialed professional</figcaption>
+      </figure>
+      <figure class="app-screen">
+        <img src="/ss-findings.jpeg" alt="AtmosFlow Detailed Findings: 3rd Floor Open Office ventilation score 10/25 Significant concern, CO2 1180 ppm with ASHRAE and Persily 2021 citations">
+        <figcaption>Zone scoring with cited standards, no invented thresholds, every reference traceable</figcaption>
+      </figure>
     </div>
   </div>
 </section>
