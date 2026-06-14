@@ -4929,12 +4929,16 @@ export default function MobileApp() {
           box-shadow:var(--bubble-shadow), var(--bubble-inset), 0 0 0 3px color-mix(in srgb, var(--accent) 50%, transparent) !important;
         }
         @media (prefers-reduced-motion: no-preference){
+          /* Fluid press: the transform springs back on RELEASE (slight
+             overshoot, iOS-26 "liquid" settle); the :active rule below swaps
+             in a near-instant press-IN so the surface tracks the finger. */
           .bubble-btn{
-            transition:transform 180ms cubic-bezier(.2,.8,.2,1), box-shadow 180ms cubic-bezier(.2,.8,.2,1), background 180ms ease, border-color 180ms ease, filter 180ms ease;
+            transition:transform 340ms cubic-bezier(.34,1.56,.64,1), box-shadow 200ms cubic-bezier(.2,.8,.2,1), background 180ms ease, border-color 180ms ease, filter 180ms ease;
           }
-          .bubble-btn::after{ transition:opacity 220ms ease, transform 220ms ease; }
+          .bubble-btn::after{ transition:opacity 240ms ease, transform 240ms cubic-bezier(.34,1.56,.64,1); }
           .bubble-btn:not(:disabled):hover{ transform:translateY(-1px); filter:brightness(1.06); }
           .bubble-btn:not(:disabled):active{
+            transition:transform 110ms cubic-bezier(.4,0,.2,1), box-shadow 110ms cubic-bezier(.4,0,.2,1) !important;
             transform:translateY(1px) scale(var(--bubble-press-scale, .96)) !important;
             box-shadow:0 5px 14px rgba(0,0,0,0.34), inset 0 2px 8px rgba(0,0,0,0.30), inset 0 1px 1px rgba(255,255,255,0.16) !important;
           }

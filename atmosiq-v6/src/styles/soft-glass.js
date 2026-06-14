@@ -99,10 +99,15 @@ export const SPRING = {
   gentle: 'cubic-bezier(0.34, 1.4, 0.64, 1)',
   bounce: 'cubic-bezier(0.16, 1.2, 0.3, 1)',
   settle: 'cubic-bezier(0.4, 0, 0.2, 1)',
+  // Springier overshoot for the release of a press — the button "settles"
+  // back past its rest size and eases in, the iOS-26 "liquid" tap read.
+  bouncy: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
   // Duration aliases keep transitions consistent across primitives.
   durFast: '140ms',
   durMed:  '220ms',
   durSlow: '320ms',
+  // Longer settle so the spring overshoot on release has room to read.
+  durSettle: '360ms',
 }
 
 // ── Radii ────────────────────────────────────────────────────────────
@@ -150,6 +155,24 @@ export const tapTransition = `transform ${SPRING.durFast} ${SPRING.gentle}, opac
 export const tapResetStyle = {
   WebkitTapHighlightColor: 'transparent',
   touchAction: 'manipulation',
+}
+
+// ── Fluid press (iOS-26 "liquid" tap) ────────────────────────────────
+// Two-stage feel: a quick, near-instant press-IN so the surface tracks the
+// finger, then a springy, slightly-overshooting press-OUT on release so the
+// button settles back rather than snapping. Spread the matching scale on
+// pointerdown (PRESS_SCALE) / pointerup (1). Reduced-motion callers should
+// swap both transitions for 'none' so the state change is instant.
+export const pressInTransition = `transform 110ms ${SPRING.settle}`
+export const pressOutTransition = `transform ${SPRING.durSettle} ${SPRING.bouncy}`
+export const PRESS_SCALE = 0.96
+
+// True when the user asked the OS to minimize motion. Cheap to call per press.
+export const prefersReducedMotion = () => {
+  try {
+    return typeof window !== 'undefined' && !!window.matchMedia &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  } catch { return false }
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────

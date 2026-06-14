@@ -24,7 +24,7 @@
  * mass rather than a state change.
  */
 
-import { SPRING, tapResetStyle, tapTransition } from '../../styles/soft-glass'
+import { tapResetStyle, tapTransition, pressInTransition, pressOutTransition, PRESS_SCALE, prefersReducedMotion } from '../../styles/soft-glass'
 import { R, TEXT_PRIMARY, TEXT_SECONDARY } from '../../styles/tokens'
 
 // Lightweight haptic firing — duration pattern matches MobileApp.jsx's
@@ -148,20 +148,29 @@ export default function TactileButton({
     ? null
     : (haptic || (variant === 'ghost' ? null : 'light'))
 
+  // Fluid press (iOS-26 "liquid" tap): the surface tracks the finger down
+  // near-instantly, then springs back with a slight overshoot on release.
+  // Reduced-motion users get an instant scale (feedback without the spring).
+  const reduced = prefersReducedMotion()
+  const pressDown = (e) => {
+    e.currentTarget.style.transition = reduced ? 'none' : pressInTransition
+    e.currentTarget.style.transform = `scale(${PRESS_SCALE})`
+  }
+  const pressUp = (e) => {
+    e.currentTarget.style.transition = reduced ? 'none' : pressOutTransition
+    e.currentTarget.style.transform = 'scale(1)'
+  }
+
   const handlers = disabled
     ? {}
     : bubble
     ? { onClick, onPointerDown: () => fireHaptic(hapticKind) }
     : {
         onClick,
-        onPointerDown: (e) => {
-          e.currentTarget.style.transform = 'scale(0.97)'
-          e.currentTarget.style.transition = `transform ${SPRING.durFast} ${SPRING.gentle}`
-          fireHaptic(hapticKind)
-        },
-        onPointerUp:    (e) => { e.currentTarget.style.transform = 'scale(1)' },
-        onPointerLeave: (e) => { e.currentTarget.style.transform = 'scale(1)' },
-        onPointerCancel:(e) => { e.currentTarget.style.transform = 'scale(1)' },
+        onPointerDown: (e) => { pressDown(e); fireHaptic(hapticKind) },
+        onPointerUp:    pressUp,
+        onPointerLeave: pressUp,
+        onPointerCancel:pressUp,
       }
 
   const cls = [bubble ? 'bubble-btn' : '', className].filter(Boolean).join(' ') || undefined
