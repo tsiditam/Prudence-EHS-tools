@@ -82,7 +82,7 @@ import { generateDocx, generateConsultantOnly, generateTechnicalOnly, getConsult
 import { DEMO_PRESURVEY, DEMO_BUILDING, DEMO_ZONES, DEMO_EQUIPMENT } from '../constants/demoData'
 import { DEMO_FM_PRESURVEY, DEMO_FM_BUILDING, DEMO_FM_ZONES } from '../constants/demoDataFM'
 import { DEMO_DC_PRESURVEY, DEMO_DC_BUILDING, DEMO_DC_ZONES } from '../constants/demoDataDC'
-import { getMode, setMode as persistMode, isFM, t } from '../constants/terminology'
+import { getMode, setMode as persistMode, isFM, t, homeView } from '../constants/terminology'
 import { evaluateEscalation, hasActiveEscalation } from '../engines/escalation'
 import { getBuildingProfile } from '../engines/buildingProfiles'
 import ModeSelector from './ModeSelector'
@@ -597,6 +597,11 @@ export default function MobileApp() {
   const [userMode, setUserMode] = useState(getMode())
   const [needsModeSelect, setNeedsModeSelect] = useState(false)
   const [profileChecked, setProfileChecked] = useState(false)
+  // True while the saved-profile picker / editor is open (reached from the
+  // Account screen). Decouples that flow from the legacy 'dash' view so it
+  // returns to the correct home (projects for IH/CSP) after a profile is
+  // selected or saved — instead of stranding the user on the old co-pilot home.
+  const [editingProfile, setEditingProfile] = useState(false)
   // Paywall pause — set to false to re-enable the (legacy) credits
   // gate. When true: startNew + requestNarrative skip the credits
   // check, and consumeCredit no-ops so we don't spam analytics or hit
@@ -1010,7 +1015,7 @@ export default function MobileApp() {
   // "Go home" — the consultant home is the Projects landing; FM home stays
   // the dashboard. Used by every exit-to-home flow so the two modes don't
   // fork at each call site.
-  const goHome = () => { setView(userMode === 'fm' ? 'dash' : 'projects'); setViewRpt(null) }
+  const goHome = () => { setView(homeView(userMode)); setViewRpt(null) }
 
   // Sustained "liquid-glass" press for the header glass controls (hamburger,
   // kebab, back pill). While held, the control grows and a cyan glow blooms;
@@ -1917,10 +1922,18 @@ export default function MobileApp() {
     persistMode('ih')
     setUserMode('ih')
   }
-  // New user — show welcome then profile setup
-  if (profile?.isNew && view === 'dash') {
+  // New user — show welcome then profile setup. Also the host for the saved-
+  // profile picker / editor reached from Account (editingProfile), which used
+  // to piggyback on the legacy 'dash' view and leave the user there.
+  if (profile?.isNew && (view === 'dash' || editingProfile)) {
     if (!welcomeDone) return <WelcomeScreen onComplete={() => { sessionStorage.setItem('aiq_welcomed', '1'); setWelcomeDone(true) }} />
-    return <ProfileScreen onLogin={async (p) => { if (supabase) await Storage.saveProfile(p); setProfile(p) }} />
+    return <ProfileScreen onLogin={async (p) => {
+      if (supabase) await Storage.saveProfile(p)
+      setProfile(p)
+      // When this was the Account "select / edit profile" flow, return to the
+      // correct home (projects for IH/CSP) rather than stranding on 'dash'.
+      if (editingProfile) { setEditingProfile(false); goHome() }
+    }} />
   }
 
   const handleModeSwitch = (m) => { persistMode(m); setUserMode(m) }
@@ -4593,7 +4606,7 @@ export default function MobileApp() {
         {view==='projects'&&<ProjectsScreen onReportIncident={()=>setView('incident-form')} onOpen={(pid)=>{setProjectBackView('projects');setActiveProjectId(pid);setView('project-detail')}} />}
         {view==='project-detail'&&<ProjectDetail id={activeProjectId} profile={profile} editSignal={projectEditNonce} onBack={()=>setView(projectBackView)} onNewAssessment={(seed)=>startNew(seed)} onOpenReport={(r)=>openReport(r)} onOpenLogger={()=>{setToolReturn('project-detail');setView('sensor-data')}} onOpenSampling={()=>{setToolReturn('project-detail');setView('sampling-forms')}} onAskAI={()=>{ supabase && trackEvent('jasper_open', { source: 'project_workspace' }); setFaOpen(true) }} />}
         {view==='settings'&&<SettingsScreen onNavigate={(v)=>{if(v==='pricing'){setShowPricing(true)}else if(v==='tour'){setView('dash');setShowTour(true)}else{setView(v)}}} adminActive={!!adminSecret} onActivateAdmin={(secret)=>{setAdminSecret(secret);setView('admin')}} />}
-        {view==='account'&&<AccountScreen profile={profile} onEditProfile={()=>{sessionStorage.setItem('aiq_welcomed','1');setWelcomeDone(true);setProfile({...profile,isNew:true});setView('dash');setViewRpt(null)}} onLogout={handleLogout} onNavigate={(v)=>setView(v)} />}
+        {view==='account'&&<AccountScreen profile={profile} onEditProfile={()=>{sessionStorage.setItem('aiq_welcomed','1');setWelcomeDone(true);setProfile({...profile,isNew:true});setEditingProfile(true);setViewRpt(null)}} onLogout={handleLogout} onNavigate={(v)=>setView(v)} />}
         {view==='tos'&&<TermsOfService onBack={()=>setView('settings')} />}
         {view==='privacy'&&<PrivacyPolicy onBack={()=>setView('settings')} />}
         {view==='help'&&<HelpView onBack={()=>setView('settings')} />}
