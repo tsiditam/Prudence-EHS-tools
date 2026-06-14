@@ -103,6 +103,7 @@ import OfflineBanner from './OfflineBanner'
 import JasperWatchPanel from './JasperWatchPanel'
 import ReadinessPanel from './ReadinessPanel'
 import EvidenceMap from './EvidenceMap'
+import DesktopSidebar, { SIDEBAR_W } from './desktop/DesktopSidebar'
 import { isKnowledgeGraphEnabled } from '../utils/featureFlags'
 
 // Knowledge Graph Evidence tab is staged behind a flag — on for preview/
@@ -547,10 +548,11 @@ function ReportWritingOverlay({ label, durationMs }) {
 }
 
 export default function MobileApp() {
-  const { isTablet, isTabletLand } = useMediaQuery()
-  // Responsive layout: phone=620, tablet portrait=860, tablet landscape=1080
-  const contentMax = isTabletLand ? 1080 : isTablet ? 860 : 620
-  const padX = isTablet ? 28 : 20
+  const { isTablet, isTabletLand, isDesktop } = useMediaQuery()
+  // Responsive layout: phone=620, tablet portrait=860, tablet landscape=1080,
+  // desktop (>=1024, persistent left sidebar)=1280. padX widens to match.
+  const contentMax = isDesktop ? 1280 : isTabletLand ? 1080 : isTablet ? 860 : 620
+  const padX = isDesktop ? 40 : isTablet ? 28 : 20
 
   // ── Shared state from context providers ──
   // Auth: profile/credits/admin live in AuthContext so other route components
@@ -3401,18 +3403,34 @@ export default function MobileApp() {
         </div>
       </nav>
     )}
+    {/* Desktop (>=1024px): persistent left navigation rail replacing the
+        mobile bottom dock + hamburger drawer. Fed the same destination data
+        as the mobile side menu so the IA is single-source. */}
+    {profile && isDesktop && (
+      <DesktopSidebar
+        primary={sideMenuPrimary}
+        groups={sideMenuGroups}
+        trash={sideMenuTrash}
+        activeView={view}
+        groupsOpen={menuGroupsOpen}
+        onToggleGroup={(k) => setMenuGroupsOpen(m => ({ ...m, [k]: !m[k] }))}
+        profile={profile}
+        onSelect={(it) => go(it.onClick)}
+        onAccount={() => go(() => setView('account'))}
+      />
+    )}
     <div
       className={profile && showHomeMenu ? 'af-content-surface is-open' : 'af-content-surface'}
       onTouchStart={onShellTouchStart}
       onTouchEnd={onShellTouchEnd}
-      style={{minHeight:'100vh',background:BG,color:TEXT,fontFamily:"'inherit', system-ui, sans-serif"}}>
+      style={{minHeight:'100vh',background:BG,color:TEXT,fontFamily:"'inherit', system-ui, sans-serif",paddingLeft: profile && isDesktop ? SIDEBAR_W : 0}}>
       {/* Global offline banner — sits above the header so the
           offline state is impossible to miss. PendingSyncIndicator
           below stays as the source-of-truth for queue depth + last
           sync time; this banner is the binary "are we connected"
           signal. */}
       <OfflineBanner />
-      <header style={{position:'fixed',top:0,left:0,right:0,zIndex:100,background:'transparent',paddingTop:'env(safe-area-inset-top, 0px)'}}>
+      <header style={{position:'fixed',top:0,left: profile && isDesktop ? SIDEBAR_W : 0,right:0,zIndex:100,background:'transparent',paddingTop:'env(safe-area-inset-top, 0px)'}}>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',height:48,padding:`0 ${padX}px`,maxWidth:contentMax,margin:'0 auto'}}>
           {/* Left cluster — hamburger menu (with its dropdown) followed
               by the "AtmosFlow" wordmark to its right. The hamburger is
@@ -3446,7 +3464,7 @@ export default function MobileApp() {
                 }</span>
               </button>
             )}
-            {profile && (view==='dash' || view==='projects') && (
+            {profile && !isDesktop && (view==='dash' || view==='projects') && (
               <>
               <button
                 ref={menuButtonRef}
@@ -4630,7 +4648,7 @@ export default function MobileApp() {
           v3 visual: top hairline + top accent rail above the active
           tab (instrument-panel cue, replaces the earlier scale 1.06
           "lift"), icon stays at its base size, label sits below. */}
-      {!isAssessing && !milestone && (() => {
+      {!isAssessing && !milestone && !isDesktop && (() => {
         // Floating glass capsule dock (Instagram / visionOS style) — see
         // AtmosFlowFloatingDock. AtmosFlow AI is no longer a tab inside the
         // oval dock; it now sits in its own circular glass pill beside the

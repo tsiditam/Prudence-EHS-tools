@@ -50,6 +50,16 @@ const STEP_LABELS = ['Pre-Survey', 'Building', 'Zones', 'Review']
 export default function App() {
   const { isDesktop, isStandalone } = useMediaQuery()
   const dk = isDesktop
+  // Desktop shows the marketing landing on first visit; its CTAs enter the
+  // app. Sticky (localStorage) so returning desktop visitors go straight in.
+  // Mobile never reaches this. Declared before any early return (hooks-safe).
+  const [enterApp, setEnterApp] = useState(() => {
+    try { return localStorage.getItem('af_desktop_entered') === '1' } catch { return false }
+  })
+  const goToApp = () => {
+    try { localStorage.setItem('af_desktop_entered', '1') } catch { /* private mode */ }
+    setEnterApp(true)
+  }
 
   // Habit-loop PR 4 — peer review magic-link. Resolved BEFORE auth
   // so an un-authenticated reviewer (the colleague the assessor sent
@@ -61,11 +71,20 @@ export default function App() {
     : null
   if (reviewToken) return <PeerReviewLanding token={reviewToken} />
 
-  // Desktop browsers → marketing landing page only (no app access)
-  if (dk && !isStandalone) return <LandingPage onStartNew={() => {}} onStartDemo={() => {}} isDesktop={true} />
+  // Desktop browsers: marketing landing on first visit; its CTAs enter the
+  // app. Installed desktop PWA (standalone) skips straight in.
+  if (dk && !isStandalone && !enterApp) {
+    return <LandingPage onStartNew={goToApp} onStartDemo={goToApp} isDesktop={true} />
+  }
 
-  // Mobile users get the v5-style one-question-at-a-time experience
-  if (!dk) return (
+  // The app — the modern MobileApp shell is the single app surface for BOTH
+  // mobile and desktop. At >=1024 it renders the persistent desktop sidebar
+  // (replacing the bottom dock; see useMediaQuery().isDesktop and
+  // components/desktop/DesktopSidebar); below 1024 it renders the mobile dock.
+  // NOTE: the legacy desktop assessment wizard below (and HistoryView /
+  // ReportView / components/DesktopSidebar) is now superseded and
+  // unreachable — slated for removal in a follow-up cleanup.
+  return (
     <AuthProvider>
       <StorageProvider>
         <AssessmentProvider>
