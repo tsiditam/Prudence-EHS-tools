@@ -188,9 +188,9 @@ export default function AtmosFlowFloatingDock({ tabs, aux, maxWidth, ariaLabel =
         position: 'fixed',
         left: 0,
         right: 0,
-        // Seated at the bottom-bar position, just clearing the iPhone home
-        // indicator (no large float gap).
-        bottom: 'calc(env(safe-area-inset-bottom, 0px) + 8px)',
+        // Seated at the very bottom, right against the safe-area inset
+        // (home indicator) with no extra float gap.
+        bottom: 'env(safe-area-inset-bottom, 0px)',
         zIndex: 100,
         display: 'flex',
         justifyContent: 'center',
