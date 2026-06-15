@@ -149,15 +149,19 @@ header.scrolled{border-bottom-color:var(--hair);box-shadow:0 1px 0 rgba(11,18,32
 .metric-card{background:#FFFFFF;border:1px solid rgba(15,23,42,.06);border-radius:32px;padding:32px 32px 28px;box-shadow:0 20px 60px rgba(15,23,42,.08);transition:transform .25s ease}
 .metric-label{font-size:.72rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--teal)}
 .metric-block{position:relative;margin-top:22px}
-.metric-block .mr-k{font-size:.9rem;font-weight:500;color:var(--slate)}
-.metric-block .mr-v{font-weight:700;letter-spacing:-.03em;line-height:1.04;font-variant-numeric:tabular-nums;margin:2px 0 10px}
-.metric-block .mr-v.trad{font-size:clamp(2.4rem,7vw,3.5rem);color:#475569}
-.metric-block .mr-v.af{font-size:clamp(3.1rem,9.5vw,4.5rem);font-weight:800;color:#0B1220}
-.metric-bar{height:10px;border-radius:999px;background:#E5E7EB;overflow:hidden}
+.metric-block .mr-k{font-size:.78rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--slate)}
+.metric-block .mr-v{letter-spacing:-.02em;line-height:1.1;margin:4px 0 12px;font-weight:700}
+.metric-block .mr-v.trad{font-size:clamp(1.25rem,3.4vw,1.6rem);color:#475569}
+.metric-block .mr-v.af{font-size:clamp(1.6rem,4.6vw,2.15rem);font-weight:800;color:#0B1220}
+.metric-bar{height:12px;border-radius:999px;background:#E5E7EB;overflow:hidden}
 .metric-bar .bar-fill{display:block;height:100%;width:0;border-radius:999px}
 .metric-bar.trad .bar-fill{background:#CBD5E1;transition:width 1200ms cubic-bezier(0,0,.2,1)}
 .metric-bar.af .bar-fill{background:linear-gradient(90deg,#22D3EE,#67E8F9);transition:width 500ms cubic-bezier(0,0,.2,1) 250ms}
-.af-glow{position:absolute;left:-10px;top:24px;width:200px;height:90px;max-width:70%;pointer-events:none;border-radius:999px;background:radial-gradient(circle,rgba(34,211,238,.12),transparent 70%)}
+.bar-foot{display:flex;justify-content:space-between;align-items:center;margin-top:8px}
+.bar-foot .bar-label{font-size:.74rem;font-weight:600;color:var(--slate)}
+.bar-foot .af-status{font-size:.74rem;font-weight:600;color:var(--teal)}
+.bar-foot .af-status.working{color:var(--slate);opacity:.8}
+.af-glow{position:absolute;left:-10px;top:18px;width:200px;height:90px;max-width:70%;pointer-events:none;border-radius:999px;background:radial-gradient(circle,rgba(34,211,238,.12),transparent 70%)}
 .metric-block.af.pulse .af-glow{animation:afGlow 300ms ease-out 1}
 @keyframes afGlow{0%{opacity:.85;transform:scale(.96)}50%{opacity:1;transform:scale(1.07)}100%{opacity:.85;transform:scale(1)}}
 .metric-badge{display:inline-block;margin-top:24px;font-size:.84rem;font-weight:700;color:#0B1220;background:linear-gradient(90deg,rgba(34,211,238,.12),rgba(34,211,238,.05));border:1px solid rgba(34,211,238,.25);border-radius:999px;padding:9px 16px;box-shadow:0 8px 24px rgba(34,211,238,.10);transition:opacity .35s ease,transform .35s ease}
@@ -396,26 +400,28 @@ footer{background:var(--ink);color:#fff}
     <div class="ftr-grid">
       <div class="ftr-copy reveal">
         <span class="eyebrow">Field-to-Report Workflow</span>
-        <h2 style="margin-top:14px">Better Data Collection. Faster Report Drafting.</h2>
-        <p class="lead" style="margin-top:18px">AtmosFlow guides users through the IAQ assessment process so key building details, field observations, occupant concerns, HVAC information, photos, logger data, and investigation notes are captured in a structured workflow. Once the assessment is complete, AtmosFlow helps transform that information into findings, charts, pathways, recommendations, and a draft report in a fraction of the traditional drafting time.</p>
+        <h2 style="margin-top:14px">Guided Assessment. Draft Reports in Minutes.</h2>
+        <p class="lead" style="margin-top:18px">AtmosFlow guides users through the IAQ assessment process so key building details, field observations, occupant concerns, HVAC information, photos, logger data, and investigation notes are captured in a structured workflow. Once the assessment information is collected, AtmosFlow helps transform that information into findings, charts, pathways, recommendations, and a structured draft report in minutes.</p>
         <div class="ftr-note">Professional review remains in control.</div>
         <a class="btn btn-primary" href="/early-access">Request Beta Access</a>
       </div>
-      <div class="metric-card reveal" id="draftMetric" role="group" aria-label="Report drafting time: Traditional workflow about 10 hours versus AtmosFlow about 1 hour, up to 90% reduction">
+      <div class="metric-card reveal" id="draftMetric" role="group" aria-label="Report drafting time: hours of manual drafting versus minutes to a structured draft with AtmosFlow">
         <div class="metric-label">Report Drafting Time</div>
         <div class="metric-block trad">
           <div class="mr-k">Traditional Workflow</div>
-          <div class="mr-v trad" data-count="10" data-suffix=" Hours">10 Hours</div>
+          <div class="mr-v trad">Hours of manual drafting</div>
           <div class="metric-bar trad"><span class="bar-fill" data-fill="100" style="width:100%"></span></div>
+          <div class="bar-foot"><span class="bar-label">Hours</span></div>
         </div>
         <div class="metric-block af">
           <span class="af-glow" aria-hidden="true"></span>
           <div class="mr-k">AtmosFlow</div>
-          <div class="mr-v af" data-count="1" data-suffix=" Hour">1 Hour</div>
-          <div class="metric-bar af"><span class="bar-fill" data-fill="10" style="width:10%"></span></div>
+          <div class="mr-v af">Minutes to structured draft</div>
+          <div class="metric-bar af"><span class="bar-fill" data-fill="14" style="width:14%"></span></div>
+          <div class="bar-foot"><span class="bar-label">Minutes</span><span class="af-status" data-final="Structured draft ready">Structured draft ready</span></div>
         </div>
-        <span class="metric-badge">Up to 90% reduction in report drafting time</span>
-        <p class="metric-fine">Time savings apply to report drafting and preparation after the assessment information has been collected. Field assessment duration varies based on project scope, site conditions, and required observations.</p>
+        <span class="metric-badge">Draft reports in minutes, not hours</span>
+        <p class="metric-fine">Time savings apply to report drafting and preparation after assessment information has been collected. Field assessment duration varies based on project scope, site conditions, and required observations. Professional review remains in control.</p>
       </div>
     </div>
     <div class="ftr-cards">
@@ -479,7 +485,7 @@ footer{background:var(--ink);color:#fff}
       </div>
       <div class="ba-card after reveal">
         <div class="ba-h">After AtmosFlow</div>
-        <ul><li><span class="mk yes"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#22D3EE" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="8" x="3" y="3" rx="2"/><path d="M7 11v4a2 2 0 0 0 2 2h4"/><rect width="8" height="8" x="13" y="13" rx="2"/></svg></span>Unified workflow</li><li><span class="mk yes"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#22D3EE" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M13 17V9"/><path d="M18 17V5"/><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M8 17v-3"/></svg></span>Automated visualizations</li><li><span class="mk yes"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#22D3EE" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m8 11 2 2 4-4"/><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></span>Structured findings</li><li><span class="mk yes"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#22D3EE" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg></span>Draft reports</li><li><span class="mk yes"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#22D3EE" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg></span>Up to 90% Faster Report Drafting</li></ul>
+        <ul><li><span class="mk yes"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#22D3EE" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="8" x="3" y="3" rx="2"/><path d="M7 11v4a2 2 0 0 0 2 2h4"/><rect width="8" height="8" x="13" y="13" rx="2"/></svg></span>Unified workflow</li><li><span class="mk yes"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#22D3EE" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M13 17V9"/><path d="M18 17V5"/><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M8 17v-3"/></svg></span>Automated visualizations</li><li><span class="mk yes"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#22D3EE" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m8 11 2 2 4-4"/><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></span>Structured findings</li><li><span class="mk yes"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#22D3EE" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg></span>Draft reports</li><li><span class="mk yes"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#22D3EE" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg></span>Faster report drafting</li></ul>
       </div>
     </div>
   </div>
@@ -638,34 +644,20 @@ document.querySelectorAll('.reveal:not(.in)').forEach(function(el){io.observe(el
   var card=document.getElementById('draftMetric'); if(!card) return;
   var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if(reduce) return; // final state is already in the markup
-  var nums=card.querySelectorAll('.mr-v');
   var bars=card.querySelectorAll('.bar-fill');
   var badge=card.querySelector('.metric-badge');
   var afBlock=card.querySelector('.metric-block.af');
-  function setNum(el,v){el.textContent=v+(el.getAttribute('data-suffix')||'');}
-  // Pre-set to zero before the card is reached (it sits below the fold).
-  nums.forEach(function(n){setNum(n,0);});
+  var status=card.querySelector('.af-status');
+  // Pre-set before the card is reached (it sits below the fold).
   bars.forEach(function(b){b.style.width='0%';});
+  if(status){status.textContent='Drafting\u2026';status.classList.add('working');}
   if(badge){badge.style.opacity='0';badge.style.transform='translateY(8px)';}
-  function countUp(el,target,dur,delay){
-    var start=null;
-    function step(t){
-      if(start===null)start=t;
-      var p=Math.min((t-start)/dur,1), eased=1-Math.pow(1-p,3);
-      setNum(el,Math.round(eased*target));
-      if(p<1)requestAnimationFrame(step); else setNum(el,target);
-    }
-    setTimeout(function(){requestAnimationFrame(step);},delay||0);
-  }
   var done=false;
   function run(){
     if(done)return; done=true;
     bars.forEach(function(b){ void b.offsetWidth; b.style.width=b.getAttribute('data-fill')+'%'; });
-    nums.forEach(function(n){
-      var target=parseInt(n.getAttribute('data-count'),10);
-      if(n.classList.contains('af')) countUp(n,target,500,250); else countUp(n,target,1200,0);
-    });
-    setTimeout(function(){ if(afBlock) afBlock.classList.add('pulse'); },760); // one-time glow at ~1 Hour
+    setTimeout(function(){ if(afBlock) afBlock.classList.add('pulse'); },760); // one-time glow as the draft lands
+    setTimeout(function(){ if(status){status.textContent=status.getAttribute('data-final');status.classList.remove('working');} },900);
     setTimeout(function(){ if(badge){badge.style.opacity='1';badge.style.transform='translateY(0)';} },1300);
   }
   var mio=new IntersectionObserver(function(es){es.forEach(function(en){if(en.isIntersecting){run();mio.disconnect();}})},{threshold:.4});
