@@ -69,7 +69,11 @@ check("Professional-review-in-control line present", "Professional review remain
 check("90% claim limited to report drafting", "Up to 90% reduction in report drafting time" in html)
 check("Drafting-time disclaimer present", "Time savings apply to report drafting and preparation after the assessment information has been collected." in html)
 _low = html.lower()
-_bad = ['90% faster','faster inspection','faster field assessment','inspections 90','field assessment 90','inspection 90% faster']
+# Guard: no claim that the FIELD inspection/assessment/investigation is faster.
+# "90% faster report drafting" is allowed (drafting is the established claim);
+# a bare "90% faster" tied to inspections/field work is not.
+_bad = ['faster inspection','faster investigation','faster field','faster field assessment',
+        'inspections 90','field assessment 90','inspection 90% faster','90% faster inspection']
 check("No exaggerated field/inspection speed claims", not any(p in _low for p in _bad))
 check("Data collection separated from drafting time", ("captured in a structured workflow" in html) and ("fraction of the traditional drafting time" in html))
 for _t in ["Guided IAQ Walkthrough","Structured Field Inputs","Faster Draft Reports"]:
@@ -83,6 +87,9 @@ check("Thin-line (1.75) navy icons", html.count('stroke-width="1.75"')>=10 and '
 check("Cyan accent elements on icons", html.count('stroke="#22D3EE"')>=10)
 check("No leftover emoji feature icons", not any(e in html for e in ['📊','🔍','📁','📄','🛡️','🏢']))
 check("Before/After rows use distinct Lucide icons, not generic X/check", ('M18 6L6 18M6 6l12 12' not in html) and ('M4 14a1 1 0 0 1-.78-1.63' in html) and ('M8 13h2' in html))
+check("Before/After uses upgraded icons (chart-column, notebook-pen, clock-3)", all(p in html for p in ['M18 17V9','M21.378 5.626','M12 6v6h4']))
+check("After-list value prop wording (drafting, not field investigations)", ("Up to 90% Faster Report Drafting" in html) and ("Faster investigations" not in html))
+check("Before/After markers are 48px gradient chips", '.mk{flex:0 0 auto;width:48px' in html and '.mk.no{background:linear-gradient(180deg,#FFFFFF,#F7FBFF)' in html)
 
 # ---------- assets ----------
 check("Logos + favicon embedded", html.count('data:image/png;base64,')>=3)
