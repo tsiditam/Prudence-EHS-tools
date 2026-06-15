@@ -152,22 +152,18 @@ header.scrolled{border-bottom-color:var(--hair);box-shadow:0 1px 0 rgba(11,18,32
 .metric-block .mr-k{font-size:.78rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--slate)}
 .metric-block .mr-v{letter-spacing:-.02em;line-height:1.1;margin:4px 0 12px;font-weight:700}
 .metric-block .mr-v.trad{font-size:clamp(1.25rem,3.4vw,1.6rem);color:#475569}
-.metric-block .mr-v.af{font-size:clamp(1.6rem,4.6vw,2.15rem);font-weight:800;color:#0B1220}
+.metric-block .mr-v.af{font-size:clamp(2rem,6vw,3rem);font-weight:800;color:#0B1220;line-height:1.04}
 .metric-bar{height:12px;border-radius:999px;background:#E5E7EB;overflow:hidden}
 .metric-bar .bar-fill{display:block;height:100%;width:0;border-radius:999px}
 .metric-bar.trad .bar-fill{background:#CBD5E1;transition:width 1200ms cubic-bezier(0,0,.2,1)}
 .metric-bar.af .bar-fill{background:linear-gradient(90deg,#22D3EE,#67E8F9);transition:width 500ms cubic-bezier(0,0,.2,1) 250ms}
-.bar-foot{display:flex;justify-content:space-between;align-items:center;margin-top:8px}
-.bar-foot .bar-label{font-size:.74rem;font-weight:600;color:var(--slate)}
-.bar-foot .af-status{font-size:.74rem;font-weight:600;color:var(--teal)}
-.bar-foot .af-status.working{color:var(--slate);opacity:.8}
-.af-glow{position:absolute;left:-10px;top:18px;width:200px;height:90px;max-width:70%;pointer-events:none;border-radius:999px;background:radial-gradient(circle,rgba(34,211,238,.12),transparent 70%)}
-.metric-block.af.pulse .af-glow{animation:afGlow 300ms ease-out 1}
-@keyframes afGlow{0%{opacity:.85;transform:scale(.96)}50%{opacity:1;transform:scale(1.07)}100%{opacity:.85;transform:scale(1)}}
+.af-glow{position:absolute;left:-10px;top:18px;width:200px;height:90px;max-width:70%;pointer-events:none;border-radius:999px;background:radial-gradient(circle,rgba(34,211,238,.12),transparent 70%);opacity:.85}
+.metric-block.af.glow-in .af-glow{animation:afGlowIn 800ms cubic-bezier(.16,1,.3,1) 1}
+@keyframes afGlowIn{0%{opacity:.4;transform:scale(.85)}55%{opacity:1;transform:scale(1.12)}100%{opacity:.85;transform:scale(1)}}
 .metric-badge{display:inline-block;margin-top:24px;font-size:.84rem;font-weight:700;color:#0B1220;background:linear-gradient(90deg,rgba(34,211,238,.12),rgba(34,211,238,.05));border:1px solid rgba(34,211,238,.25);border-radius:999px;padding:9px 16px;box-shadow:0 8px 24px rgba(34,211,238,.10);transition:opacity .35s ease,transform .35s ease}
 .metric-fine{font-size:.8rem;color:var(--slate);margin-top:16px;line-height:1.5}
 @media(hover:hover) and (min-width:921px){.metric-card:hover{transform:translateY(-2px)}}
-@media(prefers-reduced-motion:reduce){.metric-card,.metric-bar .bar-fill,.metric-badge{transition:none}.metric-block.af.pulse .af-glow{animation:none}}
+@media(prefers-reduced-motion:reduce){.metric-card,.metric-bar .bar-fill,.metric-badge{transition:none}.metric-block.af.glow-in .af-glow{animation:none}}
 .ftr-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:54px}
 
 /* before / after */
@@ -411,16 +407,14 @@ footer{background:var(--ink);color:#fff}
           <div class="mr-k">Traditional Workflow</div>
           <div class="mr-v trad">Hours of manual drafting</div>
           <div class="metric-bar trad"><span class="bar-fill" data-fill="100" style="width:100%"></span></div>
-          <div class="bar-foot"><span class="bar-label">Hours</span></div>
         </div>
         <div class="metric-block af">
           <span class="af-glow" aria-hidden="true"></span>
           <div class="mr-k">AtmosFlow</div>
-          <div class="mr-v af">Minutes to structured draft</div>
+          <div class="mr-v af">Draft Report<br>in Minutes</div>
           <div class="metric-bar af"><span class="bar-fill" data-fill="14" style="width:14%"></span></div>
-          <div class="bar-foot"><span class="bar-label">Minutes</span><span class="af-status" data-final="Structured draft ready">Structured draft ready</span></div>
         </div>
-        <span class="metric-badge">Draft reports in minutes, not hours</span>
+        <span class="metric-badge">Structured draft reports in minutes</span>
         <p class="metric-fine">Time savings apply to report drafting and preparation after assessment information has been collected. Field assessment duration varies based on project scope, site conditions, and required observations. Professional review remains in control.</p>
       </div>
     </div>
@@ -645,18 +639,15 @@ document.querySelectorAll('.reveal:not(.in)').forEach(function(el){io.observe(el
   var bars=card.querySelectorAll('.bar-fill');
   var badge=card.querySelector('.metric-badge');
   var afBlock=card.querySelector('.metric-block.af');
-  var status=card.querySelector('.af-status');
   // Pre-set before the card is reached (it sits below the fold).
   bars.forEach(function(b){b.style.width='0%';});
-  if(status){status.textContent='Drafting\u2026';status.classList.add('working');}
   if(badge){badge.style.opacity='0';badge.style.transform='translateY(8px)';}
   var done=false;
   function run(){
     if(done)return; done=true;
-    bars.forEach(function(b){ void b.offsetWidth; b.style.width=b.getAttribute('data-fill')+'%'; });
-    setTimeout(function(){ if(afBlock) afBlock.classList.add('pulse'); },760); // one-time glow as the draft lands
-    setTimeout(function(){ if(status){status.textContent=status.getAttribute('data-final');status.classList.remove('working');} },900);
-    setTimeout(function(){ if(badge){badge.style.opacity='1';badge.style.transform='translateY(0)';} },1300);
+    bars.forEach(function(b){ void b.offsetWidth; b.style.width=b.getAttribute('data-fill')+'%'; }); // 1) bars fill
+    setTimeout(function(){ if(afBlock) afBlock.classList.add('glow-in'); },720);  // 2) glow expands, then 3) settles
+    setTimeout(function(){ if(badge){badge.style.opacity='1';badge.style.transform='translateY(0)';} },1500); // 4) badge fades in
   }
   var mio=new IntersectionObserver(function(es){es.forEach(function(en){if(en.isIntersecting){run();mio.disconnect();}})},{threshold:.4});
   mio.observe(card);
