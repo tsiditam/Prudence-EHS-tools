@@ -4678,12 +4678,12 @@ export default function MobileApp() {
           {id:'incident-log',label:'Incidents',icon:'alert'},
           {id:'sensor-data',label:'Logger Studio',icon:'chartLine'},
         ] : [
-          // Consultant dock = the workflow anchors + global Search. AtmosFlow
+          // Consultant dock = the workflow anchors + Logger Studio. AtmosFlow
           // AI is detached from the dock and floats on the right edge (see
-          // JasperFloatingButton below). Logger Studio lives in the menu's
-          // Tools group. Account is a dock tab (also in the menu).
+          // JasperFloatingButton below). Account is a dock tab (also in the
+          // menu).
           {id:'projects',label:'Projects',icon:'bldg'},
-          {id:'search',label:'Search',icon:'search'},
+          {id:'sensor-data',label:'Logger Studio',icon:'chartLine'},
           {id:'history',label:'Reports',icon:'report',badge:((index.drafts||[]).length+(index.reports||[]).length)||null},
           {id:'account',label:'Account',icon:'user',renderIcon:accountAvatarIcon},
         ]).map(mkTab)
