@@ -82,6 +82,7 @@ check("Icon containers have cyan-tinted border", "rgba(34,211,238,.18)" in html)
 check("Thin-line (1.75) navy icons", html.count('stroke-width="1.75"')>=10 and 'stroke="#0B1220"' in html)
 check("Cyan accent elements on icons", html.count('stroke="#22D3EE"')>=10)
 check("No leftover emoji feature icons", not any(e in html for e in ['📊','🔍','📁','📄','🛡️','🏢']))
+check("Before/After rows use distinct Lucide icons, not generic X/check", ('M18 6L6 18M6 6l12 12' not in html) and ('M4 14a1 1 0 0 1-.78-1.63' in html) and ('M8 13h2' in html))
 
 # ---------- assets ----------
 check("Logos + favicon embedded", html.count('data:image/png;base64,')>=3)
