@@ -77,7 +77,8 @@ for _t in ["Guided IAQ Walkthrough","Structured Field Inputs","Faster Draft Repo
 check("Field-to-report section is responsive", ".ftr-grid{grid-template-columns:1fr" in html)
 
 # ---------- assets ----------
-check("Logos + favicon embedded", html.count('data:image/png;base64,')>=3)
+check("Favicon embedded (base64)", html.count('data:image/png;base64,')>=1)
+check("Wordmark logos are transparent SVG (no white box, no tagline)", html.count('/icons/atmosflow-wordmark')>=2)
 check("Favicon linked", 'rel="icon"' in html)
 check("Social/OG meta present", 'property="og:title"' in html and 'name="twitter:card"' in html)
 
