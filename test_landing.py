@@ -159,19 +159,18 @@ missing=[a for a in p.anchors if a not in p.ids]
 check("All in-page anchors resolve to an id", not missing, f"missing={missing}")
 check("Inline beta form removed (CTAs route to /early-access)", 'id="betaForm"' not in html)
 check("Mobile menu button exposes aria-expanded", p.menu_aria)
-check("Hero slideshow has 4 slides", p.slides==4, f"count={p.slides}")
 
 # ---------- behavior / quality floor ----------
 check("Reduced-motion respected", 'prefers-reduced-motion' in html)
 check("Focus-visible styles present", 'focus-visible' in html)
 check("Sticky nav + scroll behavior", 'scrolled' in html and "addEventListener('scroll'" in html)
 check("Mobile menu wired", 'menuBtn' in html and 'navlinks' in html)
+check("Hero is single-column (no mockup slideshow)", ('heroSlides' not in html) and ('hero-grid{max-width:760px;margin:0 auto;text-align:center' in html))
 check("Mobile menu is a frosted drawer panel", all(x in html for x in ['border-radius:0 0 28px 28px','rgba(255,255,255,0.86)','backdrop-filter:blur(18px)']))
 check("Hamburger morphs to X", 'aria-expanded="true"] span:nth-child(1)' in html)
 check("Drawer has in-menu CTA + sample report", 'class="drawer-cta"' in html)
 check("Mobile menu has overlay/backdrop", 'id="navOverlay"' in html)
 check("Menu closes on Escape + locks body scroll", ("e.key==='Escape'" in html) and ('document.body.style.overflow' in html))
-check("Hero slideshow wired (autoplay/controls)", 'heroSlides' in html and 'slide-nav' in html)
 check("Scroll reveal wired", 'IntersectionObserver' in html and "classList.add('in')" in html)
 
 # ---------- report ----------
