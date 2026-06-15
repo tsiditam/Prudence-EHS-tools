@@ -56,7 +56,6 @@ check("Workflow heading present", "How AtmosFlow Works" in html)
 check("Before/after heading present", "Reduce Investigation Friction" in html)
 check("Audience heading present", "Who Uses AtmosFlow?" in html)
 check("Founder heading present", "Built by a Practitioner" in html)
-check("Screening-not-compliance line present", "Screening, not compliance." in html)
 # strip embedded base64 blobs so random letters inside them don't trip text checks
 html_text = re.sub(r'data:image/[^;]+;base64,[A-Za-z0-9+/=]+', '', html)
 check("No FAA reference in copy", "FAA" not in html_text)
@@ -64,10 +63,11 @@ check("Trust line present", "Built by EHS professionals." in html)
 
 # ---------- field-to-report value section ----------
 check("Field-to-report eyebrow present", "Field-to-Report Workflow" in html)
-check("Field-to-report title present", "Better Data Collection. Faster Report Drafting." in html)
+check("Field-to-report title present", "Guided Assessment. Draft Reports in Minutes." in html)
 check("Professional-review-in-control line present", "Professional review remains in control." in html)
-check("90% claim limited to report drafting", "Up to 90% reduction in report drafting time" in html)
-check("Drafting-time disclaimer present", "Time savings apply to report drafting and preparation after the assessment information has been collected." in html)
+check("No '90%' claim anywhere on the page", "90%" not in html)
+check("No '1 Hour' / '10 Hours' numeric claim", ("1 Hour" not in html) and ("10 Hours" not in html))
+check("Drafting-time disclaimer present", "Time savings apply to report drafting and preparation after assessment information has been collected." in html)
 _low = html.lower()
 # Guard: no claim that the FIELD inspection/assessment/investigation is faster.
 # "90% faster report drafting" is allowed (drafting is the established claim);
@@ -75,10 +75,18 @@ _low = html.lower()
 _bad = ['faster inspection','faster investigation','faster field','faster field assessment',
         'inspections 90','field assessment 90','inspection 90% faster','90% faster inspection']
 check("No exaggerated field/inspection speed claims", not any(p in _low for p in _bad))
-check("Data collection separated from drafting time", ("captured in a structured workflow" in html) and ("fraction of the traditional drafting time" in html))
+check("Data collection separated from drafting time", ("captured in a structured workflow" in html) and ("a structured draft report in minutes" in html))
 for _t in ["Guided IAQ Walkthrough","Structured Field Inputs","Faster Draft Reports"]:
     check(f"Support card present: {_t}", _t in html)
 check("Field-to-report section is responsive", ".ftr-grid{grid-template-columns:1fr" in html)
+check("Metric card premium styling (32px radius, soft shadow)", '.metric-card{background:#FFFFFF;border:1px solid rgba(15,23,42,.06);border-radius:32px' in html)
+check("Metric bars animate from data-fill (full vs short)", ('data-fill="100"' in html) and ('data-fill="14"' in html))
+check("Metric uses Hours vs Minutes, no numeric counters", ('data-count' not in html) and ('Hours of manual drafting' in html) and ('Minutes to structured draft' in html))
+check("Metric badge: 'minutes, not hours'", "Draft reports in minutes, not hours" in html)
+check("Metric status text animates (Drafting -> Structured draft ready)", 'data-final="Structured draft ready"' in html)
+check("Metric animates once on scroll (IntersectionObserver)", "getElementById('draftMetric')" in html)
+check("AtmosFlow bar gradient + premium badge gradient", ('linear-gradient(90deg,#22D3EE,#67E8F9)' in html) and ('linear-gradient(90deg,rgba(34,211,238,.12),rgba(34,211,238,.05))' in html))
+check("Metric one-time glow + reduced-motion guard", ('@keyframes afGlow' in html) and ("matchMedia('(prefers-reduced-motion: reduce)')" in html))
 
 # ---------- premium icon system (Lucide, monochromatic + cyan accent) ----------
 check("Premium icon containers (white/cyan gradient)", "linear-gradient(180deg,#FFFFFF,#F7FBFF)" in html)
@@ -88,7 +96,7 @@ check("Cyan accent elements on icons", html.count('stroke="#22D3EE"')>=10)
 check("No leftover emoji feature icons", not any(e in html for e in ['📊','🔍','📁','📄','🛡️','🏢']))
 check("Before/After rows use distinct Lucide icons, not generic X/check", ('M18 6L6 18M6 6l12 12' not in html) and ('M4 14a1 1 0 0 1-.78-1.63' in html) and ('M8 13h2' in html))
 check("Before/After uses upgraded icons (chart-column, notebook-pen, clock-3)", all(p in html for p in ['M18 17V9','M21.378 5.626','M12 6v6h4']))
-check("After-list value prop wording (drafting, not field investigations)", ("Up to 90% Faster Report Drafting" in html) and ("Faster investigations" not in html))
+check("Before/After says 'Faster report drafting' (no 90%, no field-speed)", ("Faster report drafting" in html) and ("Faster investigations" not in html) and ("Up to 90% Faster Report Drafting" not in html))
 check("Before/After markers are 48px gradient chips", '.mk{flex:0 0 auto;width:48px' in html and '.mk.no{background:linear-gradient(180deg,#FFFFFF,#F7FBFF)' in html)
 
 # ---------- assets ----------
