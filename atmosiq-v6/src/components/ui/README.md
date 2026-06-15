@@ -153,6 +153,83 @@ Behavior:
 - Spring entrance (220–320ms with `SPRING.bounce`).
 - `prefers-reduced-motion: reduce` disables the entrance animation.
 
+### `<AtmosFlowFloatingDock>` — `AtmosFlowFloatingDock.jsx`
+
+The floating glass bottom navigation. A full-bleed liquid-glass capsule
+(dark glass in dark mode, white capsule in light mode) that sits low at the
+bottom edge and spreads its tabs evenly like a real bottom bar. The
+AtmosFlow AI launcher is **not** in the dock — it floats separately on the
+right via `JasperFloatingButton` (below).
+
+```jsx
+<AtmosFlowFloatingDock
+  maxWidth={contentMax}
+  tabs={[
+    { id: 'projects', label: 'Projects', icon: 'bldg', active: view === 'projects', onClick },
+    { id: 'sensor-data', label: 'Logger Studio', icon: 'chartLine', active: view === 'sensor-data', onClick },
+    { id: 'history', label: 'Reports', icon: 'report', active: view === 'history', onClick, badge: 3 },
+    { id: 'account', label: 'Account', icon: 'user', active: view === 'account', onClick, renderIcon },
+  ]}
+/>
+```
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| `tabs` | `array` | – | `{ id, label, icon, active, onClick, badge?, renderIcon? }` per tab |
+| `maxWidth` | `number` | `460` | Caps the bar width (pass the page content width) |
+| `ariaLabel` | `string` | `'Primary'` | `aria-label` for the `<nav>` |
+
+**Magnetic glide (macOS/Fiverr-style).** As the pointer moves across the
+bar, each tab scales by its distance to the pointer. The proximity curve is
+a pure, exported, unit-tested function:
+
+```js
+import { dockMagnet } from './AtmosFlowFloatingDock'
+dockMagnet(0)   // { scale: 1.28, lift: -6 }
+dockMagnet(40)  // { scale: 1.15, ... }
+dockMagnet(80)  // { scale: 1.05, ... }
+dockMagnet(120) // { scale: 1,    lift: 0 }  (and beyond)
+```
+
+Behavior:
+- **Works on mouse AND touch.** Pointer events drive it, so a hovering mouse
+  *or* a finger dragged across the dock both magnify the tabs. (`touch-action:
+  none` on the bar lets a finger drag glide instead of scrolling.)
+- **Glide never selects.** A tap navigates; a drag past a 10px threshold is a
+  glide, and the click it would emit is swallowed in the capture phase so the
+  route never changes mid-glide. Selection is click/tap-only.
+- **Sits low + safe-area aware:** `bottom: min(env(safe-area-inset-bottom),
+  12px)` so a large inset (e.g. Safari's bottom toolbar region) can't push it
+  up the screen, while still clearing the home indicator on installed PWAs.
+- **No layout shift:** transforms only, `transform-origin: bottom`, `overflow:
+  visible` so magnified icons rise above the capsule without clipping.
+- `prefers-reduced-motion: reduce` disables the magnetic effect entirely
+  (tabs keep a subtle `:active` tap scale).
+
+### `<JasperFloatingButton>` — `JasperFloatingButton.jsx`
+
+The AtmosFlow AI launcher, detached from the dock and floated on the right
+edge. Liquid-glass circle with the breathing-glow brain mark.
+
+```jsx
+{userMode !== 'fm' && (
+  <JasperFloatingButton active={faOpen} onClick={openJasper} />
+)}
+```
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| `onClick` | `function` | – | Opens the assistant |
+| `active` | `boolean` | `false` | Reflects open state (`aria-pressed`) |
+| `label` | `string` | `'AtmosFlow AI'` | Accessible name |
+
+Behavior:
+- **Instagram-style scroll response:** full size (60px) at the top / while
+  scrolling up; shrinks (46px) while scrolling down so it stays out of the
+  way while reading. `requestAnimationFrame`-throttled scroll listener.
+- Dark-glass in dark mode, white capsule in light mode (mirrors the dock).
+- `prefers-reduced-motion: reduce` calms the glow + transitions.
+
 ### AtmosFlow AI primitives (Jasper)
 
 Extracted from `FieldAssistant.jsx` during the Phase 4 design-system
@@ -238,6 +315,20 @@ When converting a legacy modal / panel / button:
 - `StatusPill`: tone color contract, lg-size padding.
 
 20 tests; run with `npm test -- --run tests/components/soft-glass-primitives`.
+
+`tests/components/AtmosFlowFloatingDock.test.jsx` pins:
+
+- `dockMagnet()`: the proximity curve breakpoints (0→1.28, 40→1.15,
+  80→1.05, ≥120→1), the -6→0 lift, monotonic falloff, ≥120px clamp, and
+  sign symmetry.
+- Rendering/a11y: `tablist`/`tab` roles, active tab `aria-selected` +
+  `aria-current` + visible label, tap navigation.
+- Magnetic glide: a pointer glide writes an inline transform and clears it
+  on leave; `prefers-reduced-motion` disables it.
+- Tap vs glide: a drag swallows its click (never selects); a tap navigates.
+
+`tests/components/JasperFloatingButton.test.jsx` pins: accessible launcher
+fires `onClick`; full size at top; shrinks scrolling down, grows scrolling up.
 
 ## Surfaces migrated so far
 
