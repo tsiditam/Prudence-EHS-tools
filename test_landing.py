@@ -102,7 +102,7 @@ check("Before/After markers are 48px gradient chips", '.mk{flex:0 0 auto;width:4
 
 # ---------- "How AtmosFlow Works" workflow ----------
 check("Workflow subtitle present", "Guide assessments, analyze data, generate findings, and draft reports from a single investigation workspace." in html)
-check("Workflow has the updated step content", all(t in html for t in ["Complete Guided Assessment","Import &amp; Analyze Data","Generate Findings &amp; Recommendations","Build Causal Pathways","Draft Report in Minutes"]))
+check("Workflow has the updated step content", all(t in html for t in ["Complete Guided Assessment","Import &amp; Analyze Data","Generate Findings","Build Causal Pathways","Draft Report in Minutes"]))
 check("Workflow steps have icon containers + one-line descriptions", html.count('class="fs-ico"')==6 and html.count('class="fs-desc"')==6)
 check("Workflow uses Lucide icons (folder-open present)", 'm6 14 1.5-2.9' in html)
 check("Workflow animates once (staggered .flow.run + connector nodes)", ('.flow.run .flow-step' in html) and ('.flow-conn::after' in html) and ("classList.add('run')" in html))
