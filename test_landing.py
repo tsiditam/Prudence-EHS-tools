@@ -81,12 +81,13 @@ for _t in ["Guided IAQ Walkthrough","Structured Field Inputs","Faster Draft Repo
 check("Field-to-report section is responsive", ".ftr-grid{grid-template-columns:1fr" in html)
 check("Metric card premium styling (32px radius, soft shadow)", '.metric-card{background:#FFFFFF;border:1px solid rgba(15,23,42,.06);border-radius:32px' in html)
 check("Metric bars animate from data-fill (full vs short)", ('data-fill="100"' in html) and ('data-fill="14"' in html))
-check("Metric uses Hours vs Minutes, no numeric counters", ('data-count' not in html) and ('Hours of manual drafting' in html) and ('Minutes to structured draft' in html))
-check("Metric badge: 'minutes, not hours'", "Draft reports in minutes, not hours" in html)
-check("Metric status text animates (Drafting -> Structured draft ready)", 'data-final="Structured draft ready"' in html)
+check("Metric uses Hours vs Minutes, no numeric counters", ('data-count' not in html) and ('Hours of manual drafting' in html))
+check("AtmosFlow outcome is the prominent 'Draft Report in Minutes'", "Draft Report<br>in Minutes" in html)
+check("Metric badge reinforces a structured draft", "Structured draft reports in minutes" in html)
+check("Metric bar labels cleaned up (no small Hours/Minutes foot labels)", 'bar-foot' not in html)
 check("Metric animates once on scroll (IntersectionObserver)", "getElementById('draftMetric')" in html)
 check("AtmosFlow bar gradient + premium badge gradient", ('linear-gradient(90deg,#22D3EE,#67E8F9)' in html) and ('linear-gradient(90deg,rgba(34,211,238,.12),rgba(34,211,238,.05))' in html))
-check("Metric one-time glow + reduced-motion guard", ('@keyframes afGlow' in html) and ("matchMedia('(prefers-reduced-motion: reduce)')" in html))
+check("Metric one-time glow + reduced-motion guard", ('@keyframes afGlowIn' in html) and ("matchMedia('(prefers-reduced-motion: reduce)')" in html))
 
 # ---------- premium icon system (Lucide, monochromatic + cyan accent) ----------
 check("Premium icon containers (white/cyan gradient)", "linear-gradient(180deg,#FFFFFF,#F7FBFF)" in html)
@@ -98,6 +99,15 @@ check("Before/After rows use distinct Lucide icons, not generic X/check", ('M18 
 check("Before/After uses upgraded icons (chart-column, notebook-pen, clock-3)", all(p in html for p in ['M18 17V9','M21.378 5.626','M12 6v6h4']))
 check("Before/After says 'Faster report drafting' (no 90%, no field-speed)", ("Faster report drafting" in html) and ("Faster investigations" not in html) and ("Up to 90% Faster Report Drafting" not in html))
 check("Before/After markers are 48px gradient chips", '.mk{flex:0 0 auto;width:48px' in html and '.mk.no{background:linear-gradient(180deg,#FFFFFF,#F7FBFF)' in html)
+
+# ---------- "How AtmosFlow Works" workflow ----------
+check("Workflow subtitle present", "Guide assessments, analyze data, generate findings, and draft reports from a single investigation workspace." in html)
+check("Workflow has the updated step content", all(t in html for t in ["Complete Guided Assessment","Import &amp; Analyze Data","Generate Findings","Build Causal Pathways","Draft Report in Minutes"]))
+check("Workflow steps have icon containers + one-line descriptions", html.count('class="fs-ico"')==6 and html.count('class="fs-desc"')==6)
+check("Workflow uses Lucide icons (folder-open present)", 'm6 14 1.5-2.9' in html)
+check("Workflow animates once (staggered .flow.run + connector nodes)", ('.flow.run .flow-step' in html) and ('.flow-conn::after' in html) and ("classList.add('run')" in html))
+check("Workflow final step emphasized", ('class="flow-step final"' in html) and ('.flow-step.final' in html))
+check("Workflow steps 1-6 have product thumbnails (lazy)", html.count('class="fs-thumb"')==6 and html.count('loading="lazy"')>=6 and ("/ss-guided-assessment.png" in html) and ("/ss-report.jpeg" in html))
 
 # ---------- assets ----------
 check("Favicon embedded (base64)", html.count('data:image/png;base64,')>=1)
