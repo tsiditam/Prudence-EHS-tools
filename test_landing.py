@@ -114,6 +114,24 @@ check("Favicon embedded (base64)", html.count('data:image/png;base64,')>=1)
 check("Wordmark logos are transparent SVG (no white box, no tagline)", html.count('/icons/atmosflow-wordmark')>=2)
 check("Favicon linked", 'rel="icon"' in html)
 check("Social/OG meta present", 'property="og:title"' in html and 'name="twitter:card"' in html)
+check("OG image + twitter image present for rich link previews", ('property="og:image"' in html) and ('name="twitter:image"' in html) and ('/ss-report.jpeg' in html))
+
+# ---------- trust / standards zone ----------
+check("Trust section present", 'id="trust"' in html and "Built on the standards you already cite." in html)
+check("Standards strip cites the referenced frameworks", all(s in html for s in ['ASHRAE 62.1','ASHRAE 55','NIOSH RELs','US EPA','>WHO<']))
+check("Data/defensibility reassurance present", all(t in html for t in ['Your data stays yours','Transparent, deterministic logic','You own every conclusion']))
+check("Sample report featured prominently in trust band", "See exactly what AtmosFlow produces." in html)
+check("Logger compatibility line present", "Works with CSV and XLSX exports from common IAQ data loggers." in html)
+
+# ---------- FAQ ----------
+check("FAQ section present", 'id="faq"' in html and "Common questions" in html)
+check("FAQ uses native details/summary accordion", html.count('<details>')>=5 and html.count('<summary>')>=5)
+check("FAQ covers the screening-only positioning", "Is AtmosFlow a compliance or regulatory tool?" in html)
+check("FAQ does not over-claim compliance", "AtmosFlow is a screening and reporting workspace." in html)
+
+# ---------- founder credential + pricing signal ----------
+check("Founder credential (CSP) shown without naming employer", ("CSP" in html) and ("Tsidi Tamakloe" in html))
+check("Pricing signal present (founding-member)", "Founding-member pricing" in html and "founding-member pricing at launch" in html)
 
 # ---------- structure / DOM ----------
 class P(HTMLParser):
