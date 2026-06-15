@@ -76,6 +76,13 @@ for _t in ["Guided IAQ Walkthrough","Structured Field Inputs","Faster Draft Repo
     check(f"Support card present: {_t}", _t in html)
 check("Field-to-report section is responsive", ".ftr-grid{grid-template-columns:1fr" in html)
 
+# ---------- premium icon system (Lucide, monochromatic + cyan accent) ----------
+check("Premium icon containers (white/cyan gradient)", "linear-gradient(180deg,#FFFFFF,#F7FBFF)" in html)
+check("Icon containers have cyan-tinted border", "rgba(34,211,238,.18)" in html)
+check("Thin-line (1.75) navy icons", html.count('stroke-width="1.75"')>=10 and 'stroke="#0B1220"' in html)
+check("Cyan accent elements on icons", html.count('stroke="#22D3EE"')>=10)
+check("No leftover emoji feature icons", not any(e in html for e in ['📊','🔍','📁','📄','🛡️','🏢']))
+
 # ---------- assets ----------
 check("Logos + favicon embedded", html.count('data:image/png;base64,')>=3)
 check("Favicon linked", 'rel="icon"' in html)
