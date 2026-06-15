@@ -100,6 +100,14 @@ check("Before/After uses upgraded icons (chart-column, notebook-pen, clock-3)", 
 check("Before/After says 'Faster report drafting' (no 90%, no field-speed)", ("Faster report drafting" in html) and ("Faster investigations" not in html) and ("Up to 90% Faster Report Drafting" not in html))
 check("Before/After markers are 48px gradient chips", '.mk{flex:0 0 auto;width:48px' in html and '.mk.no{background:linear-gradient(180deg,#FFFFFF,#F7FBFF)' in html)
 
+# ---------- "How AtmosFlow Works" workflow ----------
+check("Workflow subtitle present", "Guide assessments, analyze data, generate findings, and draft reports from a single investigation workspace." in html)
+check("Workflow has the updated step content", all(t in html for t in ["Complete Guided Assessment","Import &amp; Analyze Data","Generate Findings &amp; Recommendations","Build Causal Pathways","Draft Report in Minutes"]))
+check("Workflow steps have icon containers + one-line descriptions", html.count('class="fs-ico"')==6 and html.count('class="fs-desc"')==6)
+check("Workflow uses Lucide icons (folder-open present)", 'm6 14 1.5-2.9' in html)
+check("Workflow animates once (staggered .flow.run + connector nodes)", ('.flow.run .flow-step' in html) and ('.flow-conn::after' in html) and ("classList.add('run')" in html))
+check("Workflow final step emphasized", ('class="flow-step final"' in html) and ('.flow-step.final' in html))
+
 # ---------- assets ----------
 check("Favicon embedded (base64)", html.count('data:image/png;base64,')>=1)
 check("Wordmark logos are transparent SVG (no white box, no tagline)", html.count('/icons/atmosflow-wordmark')>=2)
