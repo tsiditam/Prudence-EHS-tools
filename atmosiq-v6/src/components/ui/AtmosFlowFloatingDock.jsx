@@ -16,9 +16,10 @@
  *     icon-only. The active pill expands/collapses with a spring so
  *     switching tabs reads as the selection gliding between lanes.
  *   • No underline, no bottom indicator.
- *   • Fluid "magnetic" magnification on fine-pointer devices: tabs scale
- *     by pointer proximity as you glide across (macOS/Fiverr-style),
- *     without changing the selected route. Off on touch + reduced-motion.
+ *   • Fluid "magnetic" magnification (macOS/Fiverr-style): tabs scale by
+ *     pointer proximity as you glide across. Works for a hovering mouse AND
+ *     a finger dragged across the dock on touch; a tap still navigates, a
+ *     glide never selects. Disabled only under reduced-motion.
  *
  *   <AtmosFlowFloatingDock
  *     maxWidth={contentMax}
@@ -141,7 +142,10 @@ function DockButton({ t, solo }) {
           ? 'inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent), inset 0 1px 0 rgba(255,255,255,0.42), inset 0 -1px 1px rgba(0,0,0,0.10)'
           : 'none',
         WebkitTapHighlightColor: 'transparent',
-        touchAction: 'manipulation',
+        // 'none' so a finger dragged across the dock drives the magnetic
+        // glide (continuous pointermove) instead of being claimed for a
+        // scroll gesture. Taps still navigate.
+        touchAction: 'none',
         // Selection glide: the active pill expands/collapses smoothly and
         // slowly (450ms on a soft decelerate curve, not the prior bouncy
         // overshoot) so switching tabs reads as a calm slide between lanes.
@@ -183,44 +187,74 @@ function DockButton({ t, solo }) {
   )
 }
 
+// Pure proximity -> { scale, lift } mapping for the magnetic dock, exported
+// for unit tests. `distance` is (pointerX - tabCenterX) in CSS px (sign
+// irrelevant). Piecewise falloff: 0px -> 1.28, 40px -> 1.15, 80px -> 1.05,
+// >=120px -> 1.0; the tab also lifts from 0 to -6px as the pointer nears.
+export function dockMagnet(distance) {
+  const d = Math.abs(distance)
+  let scale
+  if (d >= 120) scale = 1
+  else if (d >= 80) scale = 1.05 + (1.0 - 1.05) * ((d - 80) / 40)
+  else if (d >= 40) scale = 1.15 + (1.05 - 1.15) * ((d - 40) / 40)
+  else scale = 1.28 + (1.15 - 1.28) * (d / 40)
+  const lift = d >= 120 ? 0 : -6 * (1 - d / 120)
+  return { scale, lift }
+}
+
 export default function AtmosFlowFloatingDock({ tabs, aux, maxWidth, ariaLabel = 'Primary' }) {
-  // Fluid "magnetic" magnification (macOS/Fiverr-style). On fine-pointer
-  // devices each tab scales by its distance to the pointer as it glides
-  // across the bar — pure pointer math (not :hover), rAF-throttled. It never
-  // changes the selected route (selection stays click/tap-driven), and it is
-  // disabled on coarse pointers and under reduced-motion.
+  // Fluid "magnetic" magnification (macOS/Fiverr-style). Each tab scales by
+  // its distance to the pointer as it glides across the bar — pure pointer
+  // math (not :hover), rAF-throttled, so it works for BOTH a hovering mouse
+  // and a finger dragged across the dock on touch. It never changes the
+  // selected route: a tap navigates, but a glide (a drag past a small
+  // threshold) is swallowed so sliding across icons never selects one.
+  // Disabled only under prefers-reduced-motion.
   const tablistRef = useRef(null)
   useEffect(() => {
     const el = tablistRef.current
     if (!el || typeof window === 'undefined' || !window.matchMedia) return
-    const fine = window.matchMedia('(pointer: fine)')
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)')
     let raf = 0
-    let px = null // latest pointer X, or null when the pointer is away
+    let px = null       // pointer X while gliding (hover or drag); null = away
+    let downX = null    // pointer X at press, for tap-vs-drag discrimination
+    let dragged = false // moved far enough to count as a glide, not a tap
     const compute = () => {
       raf = 0
       el.querySelectorAll('.affd-tab').forEach((btn) => {
         if (px == null) { btn.style.transform = ''; return }
         const r = btn.getBoundingClientRect()
-        const d = Math.abs(px - (r.left + r.width / 2))
-        // Piecewise falloff: 0px->1.28, 40px->1.15, 80px->1.05, >=120px->1.
-        let s
-        if (d < 40) s = 1.28 + (1.15 - 1.28) * (d / 40)
-        else if (d < 80) s = 1.15 + (1.05 - 1.15) * ((d - 40) / 40)
-        else if (d < 120) s = 1.05 + (1.0 - 1.05) * ((d - 80) / 40)
-        else s = 1
-        const ty = d >= 120 ? 0 : -6 * (1 - d / 120) // lift up to -6px
-        btn.style.transform = `translateY(${ty.toFixed(2)}px) scale(${s.toFixed(3)})`
+        const { scale, lift } = dockMagnet(px - (r.left + r.width / 2))
+        btn.style.transform = `translateY(${lift.toFixed(2)}px) scale(${scale.toFixed(3)})`
       })
     }
     const schedule = () => { if (!raf) raf = requestAnimationFrame(compute) }
-    const onMove = (e) => { if (!fine.matches || reduce.matches) return; px = e.clientX; schedule() }
-    const onLeave = () => { px = null; schedule() }
+    const onDown = (e) => { if (reduce.matches) return; downX = e.clientX; dragged = false; px = e.clientX; schedule() }
+    const onMove = (e) => {
+      if (reduce.matches) return
+      // Touch fires pointermove only while pressed; mouse fires it on hover.
+      if (downX != null && Math.abs(e.clientX - downX) > 10) dragged = true
+      px = e.clientX
+      schedule()
+    }
+    const release = () => { downX = null; px = null; schedule() } // touch lift / cancel
+    const onLeave = () => { if (downX == null) { px = null; schedule() } } // mouse left the bar
+    // A glide (drag) must never select a tab: swallow the click it would emit,
+    // in the CAPTURE phase so React's delegated onClick never runs.
+    const onClickCapture = (e) => { if (dragged) { e.preventDefault(); e.stopPropagation(); dragged = false } }
+    el.addEventListener('pointerdown', onDown)
     el.addEventListener('pointermove', onMove)
+    el.addEventListener('pointerup', release)
+    el.addEventListener('pointercancel', release)
     el.addEventListener('pointerleave', onLeave)
+    el.addEventListener('click', onClickCapture, true)
     return () => {
+      el.removeEventListener('pointerdown', onDown)
       el.removeEventListener('pointermove', onMove)
+      el.removeEventListener('pointerup', release)
+      el.removeEventListener('pointercancel', release)
       el.removeEventListener('pointerleave', onLeave)
+      el.removeEventListener('click', onClickCapture, true)
       if (raf) cancelAnimationFrame(raf)
     }
   }, [tabs])
@@ -262,6 +296,8 @@ export default function AtmosFlowFloatingDock({ tabs, aux, maxWidth, ariaLabel =
             // Visible so magnetically magnified icons can rise above the
             // capsule edge (macOS-dock style) without being clipped.
             overflow: 'visible',
+            // Capture finger drags for the touch glide rather than scrolling.
+            touchAction: 'none',
           }}
         >
           {(tabs || []).map((t) => <DockButton key={t.id} t={t} />)}
