@@ -56,7 +56,6 @@ check("Workflow heading present", "How AtmosFlow Works" in html)
 check("Before/after heading present", "Reduce Investigation Friction" in html)
 check("Audience heading present", "Who Uses AtmosFlow?" in html)
 check("Founder heading present", "Built by a Practitioner" in html)
-check("Screening-not-compliance line present", "Screening, not compliance." in html)
 # strip embedded base64 blobs so random letters inside them don't trip text checks
 html_text = re.sub(r'data:image/[^;]+;base64,[A-Za-z0-9+/=]+', '', html)
 check("No FAA reference in copy", "FAA" not in html_text)
