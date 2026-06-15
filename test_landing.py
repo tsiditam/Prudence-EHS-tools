@@ -79,6 +79,12 @@ check("Data collection separated from drafting time", ("captured in a structured
 for _t in ["Guided IAQ Walkthrough","Structured Field Inputs","Faster Draft Reports"]:
     check(f"Support card present: {_t}", _t in html)
 check("Field-to-report section is responsive", ".ftr-grid{grid-template-columns:1fr" in html)
+check("Metric card premium styling (32px radius, soft shadow)", '.metric-card{background:#FFFFFF;border:1px solid rgba(15,23,42,.06);border-radius:32px' in html)
+check("Metric bars animate from data-fill (100/10)", ('data-fill="100"' in html) and ('data-fill="10"' in html))
+check("Metric numbers count up (data-count 10/1)", ('data-count="10"' in html) and ('data-count="1"' in html))
+check("Metric animates once on scroll (IntersectionObserver)", "getElementById('draftMetric')" in html)
+check("AtmosFlow bar gradient + premium badge gradient", ('linear-gradient(90deg,#22D3EE,#67E8F9)' in html) and ('linear-gradient(90deg,rgba(34,211,238,.12),rgba(34,211,238,.05))' in html))
+check("Metric one-time glow + reduced-motion guard", ('@keyframes afGlow' in html) and ("matchMedia('(prefers-reduced-motion: reduce)')" in html))
 
 # ---------- premium icon system (Lucide, monochromatic + cyan accent) ----------
 check("Premium icon containers (white/cyan gradient)", "linear-gradient(180deg,#FFFFFF,#F7FBFF)" in html)
