@@ -4641,11 +4641,11 @@ export default function MobileApp() {
           tab (instrument-panel cue, replaces the earlier scale 1.06
           "lift"), icon stays at its base size, label sits below. */}
       {!isAssessing && !milestone && !isDesktop && (() => {
-        // Flat Instagram-style bottom tab bar — see AtmosFlowFloatingDock
-        // (full-bleed bar, icon-only, monochrome, no glass/magnification).
-        // AtmosFlow AI is not a tab in the bar; it floats on the right edge
-        // (JasperFloatingButton below). Routing/behavior + the jasper event
-        // names are preserved exactly.
+        // Floating frosted-glass capsule dock (Instagram / iOS-26 Liquid
+        // Glass) — see AtmosFlowFloatingDock. Icon-only, monochrome, with a
+        // soft highlight tile behind the active destination. AtmosFlow AI is
+        // not a tab; it floats on the right edge (JasperFloatingButton below).
+        // Routing/behavior + the jasper event names are preserved exactly.
         const mkTab = (t) => ({
           id: t.id,
           label: t.label,
@@ -4656,17 +4656,16 @@ export default function MobileApp() {
           onClick: () => { haptic('light'); supabase && trackEvent('page_view', { tab: t.id }); setToolReturn(null); setView(t.id); if (t.id === 'dash' || t.id === 'projects') setViewRpt(null) },
         })
         // Account tab = the assessor's circular profile photo, Instagram's
-        // profile destination. Monochrome to match the bar: the ring goes
-        // solid foreground (var(--text), thicker) when active, a hairline
-        // (var(--border)) when inactive. Falls back to initials on a neutral
-        // tint when no avatar_url is set.
-        const accountAvatarIcon = (on) => (
+        // profile destination. A plain neutral circle with a hairline edge;
+        // the dock's highlight tile behind it is the active cue (so no colored
+        // ring). Falls back to initials on a neutral tint when no avatar_url.
+        const accountAvatarIcon = () => (
           <span aria-hidden="true" style={{
-            width: 26, height: 26, borderRadius: '50%', overflow: 'hidden', flexShrink: 0,
+            width: 27, height: 27, borderRadius: '50%', overflow: 'hidden', flexShrink: 0,
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            border: on ? '2px solid var(--text)' : '1.5px solid var(--border)',
+            border: '1px solid var(--border)',
             background: profile?.avatar_url ? 'transparent' : 'var(--surface)',
-            color: on ? 'var(--text)' : 'var(--sub)', fontSize: 10, fontWeight: 700, letterSpacing: '-0.2px',
+            color: 'var(--sub)', fontSize: 10, fontWeight: 700, letterSpacing: '-0.2px',
           }}>
             {profile?.avatar_url
               ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
