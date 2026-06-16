@@ -53,7 +53,7 @@ ea = html.count('href="/early-access"')
 check("All beta CTAs link to /early-access", ea>=3, f"count={ea}")
 check("Secondary CTA 'See a sample report' present", "See a sample report" in html)
 check("Sample report links the PDF", "/atmosflow-sample-report.pdf" in html)
-check("Product showcase heading present", "One Platform. Every Stage of the Investigation." in html)
+check("Product showcase heading present", "See AtmosFlow in action." in html)
 check("Workflow heading present", "How AtmosFlow Works" in html)
 check("Before/after heading present", "Reduce Investigation Friction" in html)
 check("Audience heading present", "Who Uses AtmosFlow?" in html)
@@ -80,8 +80,7 @@ _bad = ['faster inspection','faster investigation','faster field','faster field 
         'inspections 90','field assessment 90','inspection 90% faster','90% faster inspection']
 check("No exaggerated field/inspection speed claims", not any(p in _low for p in _bad))
 check("Data collection separated from drafting time", ("captured in a structured workflow" in html) and ("a structured draft report in minutes" in html))
-for _t in ["Guided IAQ Walkthrough","Structured Field Inputs","Faster Draft Reports"]:
-    check(f"Support card present: {_t}", _t in html)
+check("Field-to-report is payoff-only (pipeline-retelling cards removed)", '<div class="ftr-cards">' not in html)
 check("Field-to-report section is responsive", ".ftr-grid{grid-template-columns:1fr" in html)
 check("Metric card premium styling (32px radius, soft shadow)", '.metric-card{background:#FFFFFF;border:1px solid rgba(15,23,42,.06);border-radius:32px' in html)
 check("Metric bars animate from data-fill (full vs short)", ('data-fill="100"' in html) and ('data-fill="14"' in html))
@@ -123,7 +122,8 @@ check("OG image + twitter image present for rich link previews", ('property="og:
 # ---------- trust / standards zone ----------
 check("Trust section present", 'id="trust"' in html and "Built on the standards you already cite." in html)
 check("Standards strip cites the referenced frameworks", all(s in html for s in ['ASHRAE 62.1','ASHRAE 55','NIOSH RELs','US EPA','>WHO<']))
-check("Data/defensibility reassurance present", all(t in html for t in ['Your data stays yours','Transparent, deterministic logic','You own every conclusion']))
+check("Data/defensibility reassurance present (WHY merged in)", all(t in html for t in ['Your data stays yours','Deterministic first, AI second','You own every conclusion']))
+check("WHY section merged into TRUST (no standalone duplicate)", ('id="why"' not in html) and ('Defensible by design.' not in html))
 check("Sample report featured prominently in trust band", "See exactly what AtmosFlow produces." in html)
 check("Logger compatibility line present", "Works with CSV and XLSX exports from common IAQ data loggers." in html)
 
