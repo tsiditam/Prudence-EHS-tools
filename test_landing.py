@@ -61,7 +61,7 @@ check("Founder heading present", "Built by a Practitioner" in html)
 # strip embedded base64 blobs so random letters inside them don't trip text checks
 html_text = re.sub(r'data:image/[^;]+;base64,[A-Za-z0-9+/=]+', '', html)
 check("No FAA reference in copy", "FAA" not in html_text)
-check("Hero social proof: founder credential trust line", ("Certified Safety Professional" in html) and ("BCSP #38426" in html) and ("AIHA and ASSP" in html))
+check("Hero social proof: experience-led trust line (not credential bragging)", ("experienced EHS professional" in html) and ("13+ years" in html) and ("Certified Safety Professional" not in html) and ("BCSP" not in html))
 check("Hero CTA hierarchy: one primary button + quiet secondary link", ('class="link-cta"' in html) and (html.count('class="btn btn-ghost"')==1))
 check("Standards badges surfaced near the hero", 'class="hero-std"' in html and "Built on the standards you cite" in html)
 
