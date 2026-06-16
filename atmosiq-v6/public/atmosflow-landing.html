@@ -86,37 +86,26 @@ header.scrolled{border-bottom-color:var(--hair);box-shadow:0 1px 0 rgba(11,18,32
 
 /* hero */
 .hero{padding-top:clamp(48px,7vw,88px);padding-bottom:clamp(56px,8vw,100px)}
-.hero-grid{display:grid;grid-template-columns:1.02fr .98fr;gap:60px;align-items:center}
+.hero-grid{max-width:760px;margin:0 auto;text-align:center}
 .hero h1{font-size:clamp(2.5rem,5.4vw,4rem);margin:18px 0 0;background:linear-gradient(180deg,#0B1220,#243244);-webkit-background-clip:text;background-clip:text}
-.hero .lead{margin-top:22px}
-.hero-actions{display:flex;gap:14px;margin-top:34px;flex-wrap:wrap}
+.hero .lead{margin-top:22px;margin-left:auto;margin-right:auto}
+.hero-actions{display:flex;justify-content:center;gap:14px;margin-top:34px;flex-wrap:wrap}
 .trust{margin-top:34px}
-.trust-line{display:flex;align-items:center;gap:10px;color:var(--ink);font-weight:600;font-size:.92rem}
+.trust-line{display:flex;justify-content:center;align-items:center;gap:10px;color:var(--ink);font-weight:600;font-size:.92rem}
 .trust-line .dot{width:8px;height:8px;border-radius:50%;background:var(--cyan)}
 .hero-actions{align-items:center}
 .link-cta{display:inline-flex;align-items:center;gap:6px;font-weight:600;font-size:.95rem;color:var(--teal)}
 .link-cta:hover{color:var(--ink)}
 .link-cta svg{transition:transform .15s ease}
 .link-cta:hover svg{transform:translateX(2px)}
-.hero-std{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:24px}
+.hero-std{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:8px;margin-top:24px}
 .hero-std .hero-std-label{font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--slate);margin-right:2px}
 .hero-std span:not(.hero-std-label){font-size:.78rem;font-weight:700;color:var(--ink);background:var(--mist);border:1px solid var(--hair);border-radius:999px;padding:5px 11px}
-.trust-tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.trust-tags{display:flex;justify-content:center;flex-wrap:wrap;gap:8px;margin-top:14px}
 .trust-tags span{font-size:.78rem;font-weight:500;color:var(--slate);background:var(--mist);border:1px solid var(--hair);padding:6px 11px;border-radius:999px}
 
 /* signature frame + slideshow */
 .frame{background:var(--paper);border:1px solid var(--hair);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;position:relative}
-.slideshow{position:relative}
-.slides .slide{width:100%;display:none;aspect-ratio:4/3;object-fit:cover;object-position:top center;background:#0B1220}
-.slides .slide.active{display:block}
-.slide-nav{position:absolute;top:50%;transform:translateY(-50%);width:40px;height:40px;border-radius:50%;border:1px solid var(--hair);background:rgba(255,255,255,.92);color:var(--ink);font-size:1.5rem;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 14px rgba(11,18,32,.16);transition:background .15s ease,transform .15s ease;z-index:2}
-.slide-nav:hover{background:#fff;transform:translateY(-50%) scale(1.06)}
-.slide-nav.prev{left:12px}
-.slide-nav.next{right:12px}
-.slide-dots{display:flex;gap:8px;justify-content:center;margin-top:16px}
-.slide-dots button{width:9px;height:9px;border-radius:50%;border:none;background:var(--hair);cursor:pointer;padding:0;transition:background .15s ease,transform .15s ease}
-.slide-dots button.active{background:var(--cyan);transform:scale(1.25)}
-.slideshow[data-single="true"] .slide-nav,.slideshow[data-single="true"] .slide-dots{display:none}
 
 /* generic section heads */
 .section-mist{background:var(--mist)}
@@ -254,7 +243,6 @@ footer{background:var(--ink);color:#fff}
 .reveal.in{opacity:1;transform:none}
 
 @media (max-width:920px){
-  .hero-grid{grid-template-columns:1fr;gap:42px}
   .why-grid{grid-template-columns:1fr}
   .roles{grid-template-columns:1fr 1fr}
   .ba-grid,.cta-card{grid-template-columns:1fr;gap:28px}
@@ -340,19 +328,6 @@ footer{background:var(--ink);color:#fff}
         <div class="trust-tags">
           <span>Industrial Hygienists</span><span>EHS Teams</span><span>Consultants</span><span>Facility Professionals</span>
         </div>
-      </div>
-    </div>
-    <div class="hero-media reveal in">
-      <div class="slideshow" id="heroSlides">
-        <div class="frame slides">
-          <img class="slide active" src="/ss-pro-assessment.jpeg" alt="AtmosFlow professional assessment showing a primary driver, contributing cause, High confidence, and a screening non-compliance label">
-          <img class="slide" src="/ss-zone-findings.jpeg" alt="AtmosFlow detailed findings for a zone scored 92 of 100 with ventilation, contaminants, HVAC, and environment sub-scores">
-          <img class="slide" src="/ss-session-averages.png" alt="AtmosFlow Logger Studio session averages with temperature, relative humidity, and carbon monoxide tiles">
-          <img class="slide" src="/ss-co-tvoc.jpeg" alt="AtmosFlow Logger Studio charts for Carbon Monoxide, Total VOCs, and a multi-parameter comparison over time">
-          <button class="slide-nav prev" type="button" aria-label="Previous screenshot">&#8249;</button>
-          <button class="slide-nav next" type="button" aria-label="Next screenshot">&#8250;</button>
-        </div>
-        <div class="slide-dots" aria-label="Choose screenshot"></div>
       </div>
     </div>
   </div>
@@ -727,35 +702,6 @@ ov.addEventListener('click',function(){setMenu(false)});
 nl.querySelectorAll('a').forEach(function(a){a.addEventListener('click',function(){setMenu(false)})});
 document.addEventListener('keydown',function(e){if(e.key==='Escape'&&nl.classList.contains('open'))setMenu(false)});
 
-// hero slideshow
-(function(){
-  var root=document.getElementById('heroSlides'); if(!root) return;
-  var slides=Array.prototype.slice.call(root.querySelectorAll('.slide'));
-  var dotsWrap=root.querySelector('.slide-dots');
-  var idx=0, timer=null;
-  if(slides.length<2){ root.setAttribute('data-single','true'); return; }
-  slides.forEach(function(s,i){
-    var b=document.createElement('button'); b.type='button';
-    b.setAttribute('aria-label','Show screenshot '+(i+1));
-    if(i===0) b.className='active';
-    b.addEventListener('click',function(){go(i);reset();});
-    dotsWrap.appendChild(b);
-  });
-  var dots=Array.prototype.slice.call(dotsWrap.children);
-  function go(n){
-    idx=(n+slides.length)%slides.length;
-    slides.forEach(function(s,i){s.classList.toggle('active',i===idx);});
-    dots.forEach(function(d,i){d.classList.toggle('active',i===idx);});
-  }
-  root.querySelector('.slide-nav.prev').addEventListener('click',function(){go(idx-1);reset();});
-  root.querySelector('.slide-nav.next').addEventListener('click',function(){go(idx+1);reset();});
-  var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  function start(){ if(!reduce) timer=setInterval(function(){go(idx+1);},4500); }
-  function reset(){ if(timer)clearInterval(timer); start(); }
-  root.addEventListener('mouseenter',function(){if(timer)clearInterval(timer);});
-  root.addEventListener('mouseleave',function(){reset();});
-  start();
-})();
 
 // scroll reveal
 var io=new IntersectionObserver(function(es){es.forEach(function(en){if(en.isIntersecting){en.target.classList.add('in');io.unobserve(en.target);}})},{threshold:.12});
