@@ -93,6 +93,14 @@ header.scrolled{border-bottom-color:var(--hair);box-shadow:0 1px 0 rgba(11,18,32
 .trust{margin-top:34px}
 .trust-line{display:flex;align-items:center;gap:10px;color:var(--ink);font-weight:600;font-size:.92rem}
 .trust-line .dot{width:8px;height:8px;border-radius:50%;background:var(--cyan)}
+.hero-actions{align-items:center}
+.link-cta{display:inline-flex;align-items:center;gap:6px;font-weight:600;font-size:.95rem;color:var(--teal)}
+.link-cta:hover{color:var(--ink)}
+.link-cta svg{transition:transform .15s ease}
+.link-cta:hover svg{transform:translateX(2px)}
+.hero-std{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:24px}
+.hero-std .hero-std-label{font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--slate);margin-right:2px}
+.hero-std span:not(.hero-std-label){font-size:.78rem;font-weight:700;color:var(--ink);background:var(--mist);border:1px solid var(--hair);border-radius:999px;padding:5px 11px}
 .trust-tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
 .trust-tags span{font-size:.78rem;font-weight:500;color:var(--slate);background:var(--mist);border:1px solid var(--hair);padding:6px 11px;border-radius:999px}
 
@@ -316,15 +324,19 @@ footer{background:var(--ink);color:#fff}
 <section class="hero" id="top">
   <div class="container hero-grid">
     <div class="hero-copy reveal in">
-      <span class="eyebrow">IAQ investigation platform</span>
-      <h1>Indoor Air Quality Investigation Intelligence</h1>
-      <p class="lead">Transform field observations, logger data, and building information into defensible findings, sampling plans, and draft reports.</p>
+      <span class="eyebrow">Indoor air quality investigation platform</span>
+      <h1>From field data to a defensible IAQ draft report in minutes.</h1>
+      <p class="lead">AtmosFlow turns field observations, logger data, and building information into structured findings, sampling plans, and draft reports &mdash; with your professional review on every conclusion.</p>
       <div class="hero-actions">
         <a class="btn btn-primary" href="/early-access">Request Beta Access</a>
-        <a class="btn btn-ghost" href="/atmosflow-sample-report.pdf" target="_blank" rel="noopener">See a sample report</a>
+        <a class="link-cta" href="/atmosflow-sample-report.pdf" target="_blank" rel="noopener">See a sample report <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
+      </div>
+      <div class="hero-std" aria-label="Referenced standards">
+        <span class="hero-std-label">Built on the standards you cite</span>
+        <span>ASHRAE 62.1</span><span>ASHRAE 55</span><span>NIOSH RELs</span><span>EPA</span><span>WHO</span>
       </div>
       <div class="trust">
-        <div class="trust-line"><span class="dot"></span> Built by EHS professionals.</div>
+        <div class="trust-line"><span class="dot"></span> Built by a Certified Safety Professional (CSP, BCSP #38426) with 13+ years in industrial hygiene across federal, healthcare, manufacturing, and commercial settings. Active AIHA and ASSP member.</div>
         <div class="trust-tags">
           <span>Industrial Hygienists</span><span>EHS Teams</span><span>Consultants</span><span>Facility Professionals</span>
         </div>

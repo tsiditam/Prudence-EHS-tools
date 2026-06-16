@@ -43,8 +43,10 @@ check("OpenType features set (cv11/ss03/tnum)", all(t in html for t in ['cv11','
 
 # ---------- copy / positioning ----------
 check("No em dash anywhere", '—' not in html, "U+2014")
-check("Headline present", "Indoor Air Quality Investigation Intelligence" in html)
-check("Subheadline present", "defensible findings, sampling plans, and draft reports" in html)
+check("Brand + category present in title/meta", "Indoor Air Quality Investigation Intelligence" in html)
+check("Hero headline leads with the outcome", "From field data to a defensible IAQ draft report in minutes." in html)
+check("Exactly one outcome <h1> (category moved to kicker)", '<h1>From field data to a defensible IAQ draft report in minutes.</h1>' in html)
+check("Subheadline present", "findings, sampling plans, and draft reports" in html)
 rba = len(re.findall(r'>\s*Request Beta Access\s*<', html))
 check("Primary CTA 'Request Beta Access' appears >= 3 times", rba>=3, f"count={rba}")
 ea = html.count('href="/early-access"')
@@ -59,7 +61,9 @@ check("Founder heading present", "Built by a Practitioner" in html)
 # strip embedded base64 blobs so random letters inside them don't trip text checks
 html_text = re.sub(r'data:image/[^;]+;base64,[A-Za-z0-9+/=]+', '', html)
 check("No FAA reference in copy", "FAA" not in html_text)
-check("Trust line present", "Built by EHS professionals." in html)
+check("Hero social proof: founder credential trust line", ("Certified Safety Professional" in html) and ("BCSP #38426" in html) and ("AIHA and ASSP" in html))
+check("Hero CTA hierarchy: one primary button + quiet secondary link", ('class="link-cta"' in html) and (html.count('class="btn btn-ghost"')==1))
+check("Standards badges surfaced near the hero", 'class="hero-std"' in html and "Built on the standards you cite" in html)
 
 # ---------- field-to-report value section ----------
 check("Field-to-report eyebrow present", "Field-to-Report Workflow" in html)
