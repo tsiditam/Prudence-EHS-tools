@@ -40,14 +40,19 @@ if (typeof document !== 'undefined' && !document.getElementById('affd-style')) {
   const s = document.createElement('style')
   s.id = 'affd-style'
   s.textContent =
+    // Dark mode: the selected glyph is bright cyan (--accent-fill). Exposed as
+    // a CSS var on the capsule so the active <I> can read it; light mode flips
+    // it back to the monochrome foreground in the override below.
+    '.affd-dock{--affd-active-icon: var(--accent-fill);}' +
     '.affd-tab{transition:transform 130ms cubic-bezier(0.22,1,0.36,1), background 200ms ease;}' +
     '.affd-tab:active{transform:scale(0.92);}' +
     '.affd-tab:focus-visible{outline:none;box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent)!important;}' +
     '@media (prefers-reduced-motion: reduce){.affd-tab{transition:none!important;}.affd-tab:active{transform:none;}}' +
-    // Light mode: flip the dark frosted capsule to a white frosted one, and
-    // the active tile to a bright frosted tile with a soft shadow. !important
-    // beats the inline dark-mode styles.
-    '[data-theme="light"] .affd-dock{background:rgba(255,255,255,0.62)!important;border-color:rgba(15,23,42,0.07)!important;box-shadow:0 1px 0 rgba(255,255,255,0.6) inset,0 10px 30px rgba(15,23,42,0.20),0 2px 8px rgba(15,23,42,0.10)!important;}' +
+    // Light mode: flip the dark frosted capsule to a white frosted one, the
+    // active tile to a bright frosted tile, and the selected glyph back to the
+    // monochrome foreground (cyan-on-white would clash). !important beats the
+    // inline dark-mode styles.
+    '[data-theme="light"] .affd-dock{--affd-active-icon: var(--text);background:rgba(255,255,255,0.62)!important;border-color:rgba(15,23,42,0.07)!important;box-shadow:0 1px 0 rgba(255,255,255,0.6) inset,0 10px 30px rgba(15,23,42,0.20),0 2px 8px rgba(15,23,42,0.10)!important;}' +
     '[data-theme="light"] .affd-tab-on{background:rgba(255,255,255,0.92)!important;box-shadow:0 1px 3px rgba(15,23,42,0.14),inset 0 0 0 1px rgba(15,23,42,0.04)!important;}'
   document.head.appendChild(s)
 }
@@ -91,7 +96,7 @@ function DockTab({ t }) {
       <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
         {t.renderIcon
           ? t.renderIcon(on)
-          : <I n={t.icon} s={ICON} c={on ? 'var(--text)' : 'var(--sub)'} w={on ? 2.2 : 1.85} />}
+          : <I n={t.icon} s={ICON} c={on ? 'var(--affd-active-icon)' : 'var(--sub)'} w={on ? 2.2 : 1.85} />}
         {t.badge > 0 && (
           <span
             aria-hidden="true"
@@ -123,9 +128,10 @@ export default function AtmosFlowFloatingDock({ tabs, aux, maxWidth, ariaLabel =
         position: 'fixed',
         left: 0,
         right: 0,
-        // Float just above the bottom edge, clearing the home indicator on
-        // installed PWAs / notched phones.
-        bottom: 'calc(env(safe-area-inset-bottom, 0px) + 10px)',
+        // Sit low, ~1cm nearer the bottom edge than the previous float. We
+        // drop most of the safe-area lift (keeping a small floor so it still
+        // clears the home indicator) so the capsule rides near the very bottom.
+        bottom: 'max(env(safe-area-inset-bottom, 0px) - 28px, 6px)',
         zIndex: 100,
         display: 'flex',
         justifyContent: 'center',
