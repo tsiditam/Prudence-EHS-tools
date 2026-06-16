@@ -25,7 +25,9 @@
       "Bash(cp \"/root/.claude/uploads/bbd6f55c-cadf-5fbc-9e6d-8561440a094b/d3890663-IMG_0405.png\" /home/user/Prudence-EHS-tools/atmosiq-v6/public/ss-session-averages.png)",
       "Bash(cp \"/root/.claude/uploads/bbd6f55c-cadf-5fbc-9e6d-8561440a094b/b6eec41f-IMG_0402.jpeg\" /home/user/Prudence-EHS-tools/atmosiq-v6/public/ss-co-tvoc.jpeg)",
       "Bash(cd /home/user/Prudence-EHS-tools *)",
-      "Bash(cp \"/root/.claude/uploads/bbd6f55c-cadf-5fbc-9e6d-8561440a094b/f2cd0168-ScreenRecording_06162026_070847_1.mp4\" atmosiq-v6/public/atmosflow-demo.mp4 && ls -lh atmosiq-v6/public/atmosflow-demo.mp4 && grep -n 'PRODUCT SHOWCASE\\\\|See AtmosFlow in action\\\\|class=\"showcase\"\\\\|id=\"product\"' atmosflow-landing.html)"
+      "Bash(cp \"/root/.claude/uploads/bbd6f55c-cadf-5fbc-9e6d-8561440a094b/f2cd0168-ScreenRecording_06162026_070847_1.mp4\" atmosiq-v6/public/atmosflow-demo.mp4 && ls -lh atmosiq-v6/public/atmosflow-demo.mp4 && grep -n 'PRODUCT SHOWCASE\\\\|See AtmosFlow in action\\\\|class=\"showcase\"\\\\|id=\"product\"' atmosflow-landing.html)",
+      "Bash(git checkout *)",
+      "Bash(git pull *)"
     ]
   }
 }
