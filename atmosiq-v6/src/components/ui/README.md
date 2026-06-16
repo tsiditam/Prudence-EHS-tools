@@ -155,14 +155,13 @@ Behavior:
 
 ### `<AtmosFlowFloatingDock>` — `AtmosFlowFloatingDock.jsx`
 
-The bottom tab bar, rebuilt to match **Instagram's bottom navigation**: a
-flat, full-bleed bar pinned to the very bottom edge — the same solid color as
-the page (`var(--bg)`) with a single hairline (`var(--border)`) along its top.
-Destinations are icon-only and spread evenly; there are no labels, no active
-pill, no glass/blur, no brand accent, and no magnification. The component name
-is kept for back-compat (it's no longer a *floating* capsule). The AtmosFlow
-AI launcher is **not** in the bar — it floats separately on the right via
-`JasperFloatingButton` (below).
+The bottom navigation, built to match the **Instagram (iOS-26 "Liquid Glass")
+floating tab bar**: a floating, rounded, frosted-glass **capsule** that hovers
+just above the bottom edge with side margins (not a flat edge-to-edge bar).
+Destinations are icon-only and spread evenly; the active one sits inside a soft,
+neutral rounded-rect highlight tile. Monochrome throughout — no labels, no brand
+accent, no magnification. The AtmosFlow AI launcher is **not** in the capsule —
+it floats separately on the right via `JasperFloatingButton` (below).
 
 ```jsx
 <AtmosFlowFloatingDock
@@ -179,29 +178,29 @@ AI launcher is **not** in the bar — it floats separately on the right via
 | Prop | Type | Default | Description |
 |---|---|---|---|
 | `tabs` | `array` | – | `{ id, label, icon, active, onClick, badge?, renderIcon? }` per tab |
-| `maxWidth` | `number` | `460` | Caps the bar width (pass the page content width) |
+| `maxWidth` | `number` | `460` | Caps the capsule width (pass the page content width) |
 | `ariaLabel` | `string` | `'Primary'` | `aria-label` for the `<nav>` |
 
 Behavior:
-- **Flat, full-bleed, edge-attached.** `position: fixed; left/right/bottom: 0`,
-  `background: var(--bg)`, `border-top: 1px solid var(--border)`. The icon row
-  is capped at `maxWidth` and centered so destinations stay grouped on wide
-  (tablet/web) screens.
-- **Icon-only, monochrome active cue.** Inactive icons are muted
-  (`var(--sub)`, lighter stroke); the active icon is full-contrast
-  (`var(--text)`, heavier stroke) — Instagram's outline→filled distinction
-  expressed with the app's stroke icon set. No labels, no accent tint.
+- **Floating frosted-glass capsule.** `position: fixed` floating above the
+  bottom edge (`bottom: calc(env(safe-area-inset-bottom) + 10px)`) with side
+  margins; rounded-999 capsule with heavy `backdrop-filter` blur, a translucent
+  tint, a hairline edge, and a soft lifted shadow. Capped at `maxWidth` and
+  centered.
+- **Soft highlight tile = active cue.** The active destination sits inside a
+  lighter, neutral rounded-rect tile on the glass. Icons are monochrome —
+  active glyph full-contrast (`var(--text)`, heavier stroke), inactive muted
+  (`var(--sub)`). No labels, no brand accent, no underline.
 - **Account = profile avatar.** The account tab passes `renderIcon` to draw a
-  circular avatar; its ring goes solid foreground (`var(--text)`) when active,
-  a hairline (`var(--border)`) when inactive.
-- **Safe-area aware:** `padding-bottom: env(safe-area-inset-bottom)` keeps the
-  icon row off the home indicator on installed PWAs / notched phones.
-- **Tap feedback only.** A quick press-dim (`opacity` + slight `scale`) on tap,
-  exactly Instagram's; `prefers-reduced-motion: reduce` removes it.
-- **Theme-aware:** built from CSS vars, so it flips automatically — white bar +
-  dark glyphs in light mode, near-black bar + light glyphs in dark mode.
+  plain circular avatar (hairline edge); the highlight tile behind it marks it
+  active (no colored ring).
+- **Tap feedback only.** A quick press-scale on tap; `prefers-reduced-motion:
+  reduce` removes it. No magnification / glide.
+- **Theme-aware:** dark frosted capsule + light glyphs in dark mode; a white
+  frosted capsule + dark glyphs in light mode (via `[data-theme="light"]`
+  overrides). The active tile flips to a bright frosted tile in light mode.
 
-`aux` (an optional extra destination) is folded **inline** into the bar —
+`aux` (an optional extra destination) is folded **inline** into the capsule —
 Instagram keeps every destination in the one bar, never a detached side pill.
 
 ### `<JasperFloatingButton>` — `JasperFloatingButton.jsx`
