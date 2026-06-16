@@ -29,6 +29,7 @@
  * capsule in LIGHT mode (via the [data-theme="light"] overrides injected
  * below). Glyphs use theme CSS vars so they read in both appearances.
  */
+import { useEffect, useRef } from 'react'
 import { I } from '../Icons'
 
 const ICON = 25   // glyph size — Instagram tab icons sit around 24–26px
@@ -47,7 +48,16 @@ if (typeof document !== 'undefined' && !document.getElementById('affd-style')) {
     '.affd-tab{transition:transform 130ms cubic-bezier(0.22,1,0.36,1), background 200ms ease;}' +
     '.affd-tab:active{transform:scale(0.92);}' +
     '.affd-tab:focus-visible{outline:none;box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent)!important;}' +
-    '@media (prefers-reduced-motion: reduce){.affd-tab{transition:none!important;}.affd-tab:active{transform:none;}}' +
+    // Scroll contract/expand: while the page is scrolling the dock gets
+    // `is-contracted`, which subtly scales the capsule down, tightens the gap +
+    // padding, and scales the icons down. Removing the class eases it back to
+    // its DEFAULT size. CSS transitions cover only transform / gap / padding /
+    // icon-scale; base width, height, layout, colors, and position are
+    // untouched. (gap/padding are set inline, so the override needs !important.)
+    '.affd-ico{transition:transform 280ms cubic-bezier(.22,1,.36,1);}' +
+    '.affd-dock.is-contracted{transform:scale(0.94);gap:2px!important;padding:4px!important;}' +
+    '.affd-dock.is-contracted .affd-ico{transform:scale(0.86);}' +
+    '@media (prefers-reduced-motion: reduce){.affd-tab{transition:none!important;}.affd-tab:active{transform:none;}.affd-dock,.affd-ico{transition:none!important;}}' +
     // Light mode: flip the dark frosted capsule to a white frosted one, the
     // active tile to a bright frosted tile, and the selected glyph back to the
     // monochrome foreground (cyan-on-white would clash). !important beats the
@@ -93,7 +103,7 @@ function DockTab({ t }) {
           : 'none',
       }}
     >
-      <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+      <span className="affd-ico" style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
         {t.renderIcon
           ? t.renderIcon(on)
           : <I n={t.icon} s={ICON} c={on ? 'var(--affd-active-icon)' : 'var(--sub)'} w={on ? 2.2 : 1.85} />}
@@ -121,6 +131,28 @@ export default function AtmosFlowFloatingDock({ tabs, aux, maxWidth, ariaLabel =
   // `aux` (an optional extra destination) is folded inline — the Instagram bar
   // keeps every destination in the one capsule, never a detached side pill.
   const items = [...(tabs || []), ...(aux ? [aux] : [])]
+
+  // Contract while scrolling, expand when it stops. We only toggle the
+  // `is-contracted` class on the capsule (all sizing lives in CSS); add it on
+  // any scroll, then remove it ~180ms after the last scroll event so the dock
+  // smoothly returns to its default size. Capture-phase so it catches the
+  // app's inner scroll container as well as window. Skipped under
+  // reduced-motion (the dock just stays at its default size).
+  const dockRef = useRef(null)
+  useEffect(() => {
+    const el = dockRef.current
+    if (!el || typeof window === 'undefined') return
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    let idle = 0
+    const onScroll = () => {
+      if (!el.classList.contains('is-contracted')) el.classList.add('is-contracted')
+      clearTimeout(idle)
+      idle = setTimeout(() => el.classList.remove('is-contracted'), 180)
+    }
+    window.addEventListener('scroll', onScroll, { passive: true, capture: true })
+    return () => { window.removeEventListener('scroll', onScroll, { capture: true }); clearTimeout(idle) }
+  }, [])
+
   return (
     <nav
       aria-label={ariaLabel}
@@ -140,6 +172,7 @@ export default function AtmosFlowFloatingDock({ tabs, aux, maxWidth, ariaLabel =
       }}
     >
       <div
+        ref={dockRef}
         className="affd-dock"
         role="tablist"
         style={{
@@ -150,6 +183,10 @@ export default function AtmosFlowFloatingDock({ tabs, aux, maxWidth, ariaLabel =
           width: '100%',
           maxWidth: maxWidth || 460,
           padding: 6,
+          // Transition ONLY the contract/expand properties so the dock eases
+          // between its default and contracted sizes (class toggled on scroll).
+          transition: 'transform 280ms cubic-bezier(.22,1,.36,1), gap 280ms cubic-bezier(.22,1,.36,1), padding 280ms cubic-bezier(.22,1,.36,1)',
+          transformOrigin: 'center bottom',
           // Floating frosted-glass capsule (dark-mode value here; the
           // light-mode flip is in the injected stylesheet above).
           borderRadius: 999,
