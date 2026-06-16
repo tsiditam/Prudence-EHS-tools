@@ -43,23 +43,27 @@ check("OpenType features set (cv11/ss03/tnum)", all(t in html for t in ['cv11','
 
 # ---------- copy / positioning ----------
 check("No em dash anywhere", '—' not in html, "U+2014")
-check("Headline present", "Indoor Air Quality Investigation Intelligence" in html)
-check("Subheadline present", "defensible findings, sampling plans, and draft reports" in html)
+check("Brand + category present in title/meta", "Indoor Air Quality Investigation Intelligence" in html)
+check("Hero headline leads with the outcome", "From field data to a defensible IAQ draft report in minutes." in html)
+check("Exactly one outcome <h1> (category moved to kicker)", '<h1>From field data to a defensible IAQ draft report in minutes.</h1>' in html)
+check("Subheadline present", "findings, sampling plans, and draft reports" in html)
 rba = len(re.findall(r'>\s*Request Beta Access\s*<', html))
 check("Primary CTA 'Request Beta Access' appears >= 3 times", rba>=3, f"count={rba}")
 ea = html.count('href="/early-access"')
 check("All beta CTAs link to /early-access", ea>=3, f"count={ea}")
 check("Secondary CTA 'See a sample report' present", "See a sample report" in html)
 check("Sample report links the PDF", "/atmosflow-sample-report.pdf" in html)
-check("Product showcase heading present", "One Platform. Every Stage of the Investigation." in html)
+check("Product showcase heading present", "See AtmosFlow in action." in html)
 check("Workflow heading present", "How AtmosFlow Works" in html)
 check("Before/after heading present", "Reduce Investigation Friction" in html)
 check("Audience heading present", "Who Uses AtmosFlow?" in html)
-check("Founder heading present", "Built by a Practitioner" in html)
+check("Founder heading present", "A Note from the Founder" in html)
 # strip embedded base64 blobs so random letters inside them don't trip text checks
 html_text = re.sub(r'data:image/[^;]+;base64,[A-Za-z0-9+/=]+', '', html)
 check("No FAA reference in copy", "FAA" not in html_text)
-check("Trust line present", "Built by EHS professionals." in html)
+check("Hero social proof: experience-led trust line (not credential bragging)", ("Built by an EHS professional" in html) and ("13+ years of experience" in html) and ("Certified Safety Professional" not in html) and ("BCSP" not in html))
+check("Hero CTA hierarchy: one primary button + quiet secondary link", ('class="link-cta"' in html) and (html.count('class="btn btn-ghost"')==1))
+check("Standards badges surfaced near the hero", 'class="hero-std"' in html and "Built on the standards you cite" in html)
 
 # ---------- field-to-report value section ----------
 check("Field-to-report eyebrow present", "Field-to-Report Workflow" in html)
@@ -76,8 +80,7 @@ _bad = ['faster inspection','faster investigation','faster field','faster field 
         'inspections 90','field assessment 90','inspection 90% faster','90% faster inspection']
 check("No exaggerated field/inspection speed claims", not any(p in _low for p in _bad))
 check("Data collection separated from drafting time", ("captured in a structured workflow" in html) and ("a structured draft report in minutes" in html))
-for _t in ["Guided IAQ Walkthrough","Structured Field Inputs","Faster Draft Reports"]:
-    check(f"Support card present: {_t}", _t in html)
+check("Field-to-report is payoff-only (pipeline-retelling cards removed)", '<div class="ftr-cards">' not in html)
 check("Field-to-report section is responsive", ".ftr-grid{grid-template-columns:1fr" in html)
 check("Metric card premium styling (32px radius, soft shadow)", '.metric-card{background:#FFFFFF;border:1px solid rgba(15,23,42,.06);border-radius:32px' in html)
 check("Metric bars animate from data-fill (full vs short)", ('data-fill="100"' in html) and ('data-fill="14"' in html))
@@ -119,7 +122,8 @@ check("OG image + twitter image present for rich link previews", ('property="og:
 # ---------- trust / standards zone ----------
 check("Trust section present", 'id="trust"' in html and "Built on the standards you already cite." in html)
 check("Standards strip cites the referenced frameworks", all(s in html for s in ['ASHRAE 62.1','ASHRAE 55','NIOSH RELs','US EPA','>WHO<']))
-check("Data/defensibility reassurance present", all(t in html for t in ['Your data stays yours','Transparent, deterministic logic','You own every conclusion']))
+check("Data/defensibility reassurance present (WHY merged in)", all(t in html for t in ['Your data stays yours','Deterministic first, AI second','You own every conclusion']))
+check("WHY section merged into TRUST (no standalone duplicate)", ('id="why"' not in html) and ('Defensible by design.' not in html))
 check("Sample report featured prominently in trust band", "See exactly what AtmosFlow produces." in html)
 check("Logger compatibility line present", "Works with CSV and XLSX exports from common IAQ data loggers." in html)
 
@@ -130,7 +134,7 @@ check("FAQ covers the screening-only positioning", "Is AtmosFlow a compliance or
 check("FAQ does not over-claim compliance", "AtmosFlow is a screening and reporting workspace." in html)
 
 # ---------- founder credential + pricing signal ----------
-check("Founder credential (CSP) shown without naming employer", ("CSP" in html) and ("Tsidi Tamakloe" in html))
+check("Founder note present and signed", ("Tsidi Tamakloe" in html) and ("Founder, AtmosFlow" in html) and ("built from real-world experience" in html))
 check("Pricing signal present (founding-member)", "Founding-member pricing" in html and "founding-member pricing at launch" in html)
 
 # ---------- structure / DOM ----------

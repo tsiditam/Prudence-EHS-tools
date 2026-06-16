@@ -93,6 +93,14 @@ header.scrolled{border-bottom-color:var(--hair);box-shadow:0 1px 0 rgba(11,18,32
 .trust{margin-top:34px}
 .trust-line{display:flex;justify-content:center;align-items:center;gap:10px;color:var(--ink);font-weight:600;font-size:.92rem}
 .trust-line .dot{width:8px;height:8px;border-radius:50%;background:var(--cyan)}
+.hero-actions{align-items:center}
+.link-cta{display:inline-flex;align-items:center;gap:6px;font-weight:600;font-size:.95rem;color:var(--teal)}
+.link-cta:hover{color:var(--ink)}
+.link-cta svg{transition:transform .15s ease}
+.link-cta:hover svg{transform:translateX(2px)}
+.hero-std{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:8px;margin-top:24px}
+.hero-std .hero-std-label{font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--slate);margin-right:2px}
+.hero-std span:not(.hero-std-label){font-size:.78rem;font-weight:700;color:var(--ink);background:var(--mist);border:1px solid var(--hair);border-radius:999px;padding:5px 11px}
 .trust-tags{display:flex;justify-content:center;flex-wrap:wrap;gap:8px;margin-top:14px}
 .trust-tags span{font-size:.78rem;font-weight:500;color:var(--slate);background:var(--mist);border:1px solid var(--hair);padding:6px 11px;border-radius:999px}
 
@@ -198,7 +206,9 @@ header.scrolled{border-bottom-color:var(--hair);box-shadow:0 1px 0 rgba(11,18,32
 .founder{max-width:760px;margin:0 auto;background:#fff;border:1px solid var(--hair);border-radius:var(--radius);padding:38px;box-shadow:var(--shadow-sm);text-align:center}
 .founder h3{margin:12px 0 14px;font-size:1.5rem}
 .founder p{font-size:1.05rem;font-style:italic;max-width:60ch;margin:0 auto}
-.founder .sig{margin-top:16px;font-size:.85rem;color:var(--slate);font-style:normal}
+.founder-note{text-align:left;margin-top:18px;display:flex;flex-direction:column;gap:14px}
+.founder-note p{color:var(--slate);font-size:1.02rem;line-height:1.7}
+.founder .sig{margin-top:18px;font-size:.9rem;color:var(--slate);font-style:normal}
 .founder .sig b{color:var(--ink)}
 
 /* beta cta + form */
@@ -284,7 +294,7 @@ footer{background:var(--ink);color:#fff}
     <nav class="nav-links" id="navlinks">
       <a class="navlink" href="#product">Product</a>
       <a class="navlink" href="#how">How it works</a>
-      <a class="navlink" href="#why">Why AtmosFlow</a>
+      <a class="navlink" href="#trust">Why AtmosFlow</a>
       <a class="navlink" href="#who">Who it's for</a>
       <a class="navlink" href="#faq">FAQ</a>
       <div class="drawer-cta">
@@ -304,18 +314,42 @@ footer{background:var(--ink);color:#fff}
 <section class="hero" id="top">
   <div class="container hero-grid">
     <div class="hero-copy reveal in">
-      <span class="eyebrow">IAQ investigation platform</span>
-      <h1>Indoor Air Quality Investigation Intelligence</h1>
-      <p class="lead">Transform field observations, logger data, and building information into defensible findings, sampling plans, and draft reports.</p>
+      <span class="eyebrow">Indoor air quality investigation platform</span>
+      <h1>From field data to a defensible IAQ draft report in minutes.</h1>
+      <p class="lead">AtmosFlow turns field observations, logger data, and building information into structured findings, sampling plans, and draft reports &mdash; with your professional review on every conclusion.</p>
       <div class="hero-actions">
         <a class="btn btn-primary" href="/early-access">Request Beta Access</a>
-        <a class="btn btn-ghost" href="/atmosflow-sample-report.pdf" target="_blank" rel="noopener">See a sample report</a>
+        <a class="link-cta" href="/atmosflow-sample-report.pdf" target="_blank" rel="noopener">See a sample report <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
+      </div>
+      <div class="hero-std" aria-label="Referenced standards">
+        <span class="hero-std-label">Built on the standards you cite</span>
+        <span>ASHRAE 62.1</span><span>ASHRAE 55</span><span>NIOSH RELs</span><span>EPA</span><span>WHO</span>
       </div>
       <div class="trust">
-        <div class="trust-line"><span class="dot"></span> Built by EHS professionals.</div>
+        <div class="trust-line"><span class="dot"></span> Built by an EHS professional with 13+ years of experience delivering indoor air quality assessments across federal agencies, healthcare facilities, laboratories, and commercial buildings.</div>
         <div class="trust-tags">
           <span>Industrial Hygienists</span><span>EHS Teams</span><span>Consultants</span><span>Facility Professionals</span>
         </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- BEFORE / AFTER -->
+<section class="section-mist">
+  <div class="container">
+    <div class="head-center reveal">
+      <span class="eyebrow">Before and after</span>
+      <h2 style="margin-top:14px">Reduce Investigation Friction</h2>
+    </div>
+    <div class="ba-grid">
+      <div class="ba-card before reveal">
+        <div class="ba-h">Before AtmosFlow</div>
+        <ul><li><span class="mk no"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#515C6B" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="M8 13h2"/><path d="M14 13h2"/><path d="M8 17h2"/><path d="M14 17h2"/></svg></span>Multiple spreadsheets</li><li><span class="mk no"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#515C6B" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg></span>Manual chart creation</li><li><span class="mk no"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#515C6B" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M13.4 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7.4"/><path d="M2 6h4"/><path d="M2 10h4"/><path d="M2 14h4"/><path d="M2 18h4"/><path d="M21.378 5.626a1 1 0 1 0-3.004-3.004l-5.01 5.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z"/></svg></span>Scattered notes</li><li><span class="mk no"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#515C6B" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2h-4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V8"/><path d="M16.706 2.706A2.4 2.4 0 0 0 15 2v5a1 1 0 0 0 1 1h5a2.4 2.4 0 0 0-.706-1.706z"/><path d="M5 7a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h8a2 2 0 0 0 1.732-1"/></svg></span>Separate reports</li><li><span class="mk no"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#515C6B" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6h4"/></svg></span>Hours of documentation</li></ul>
+      </div>
+      <div class="ba-card after reveal">
+        <div class="ba-h">After AtmosFlow</div>
+        <ul><li><span class="mk yes"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#22D3EE" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="8" x="3" y="3" rx="2"/><path d="M7 11v4a2 2 0 0 0 2 2h4"/><rect width="8" height="8" x="13" y="13" rx="2"/></svg></span>Unified workflow</li><li><span class="mk yes"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#22D3EE" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M13 17V9"/><path d="M18 17V5"/><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M8 17v-3"/></svg></span>Automated visualizations</li><li><span class="mk yes"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#22D3EE" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m8 11 2 2 4-4"/><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></span>Structured findings</li><li><span class="mk yes"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#22D3EE" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg></span>Draft reports</li><li><span class="mk yes"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#22D3EE" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg></span>Faster report drafting</li></ul>
       </div>
     </div>
   </div>
@@ -326,14 +360,13 @@ footer{background:var(--ink);color:#fff}
   <div class="container">
     <div class="head-center reveal">
       <span class="eyebrow">Product</span>
-      <h2 style="margin-top:14px">One Platform. Every Stage of the Investigation.</h2>
+      <h2 style="margin-top:14px">See AtmosFlow in action.</h2>
     </div>
     <div class="showcase">
         <article class="show-card reveal">
           <img class="shot" src="/ss-projects-nav.jpeg" alt="AtmosFlow Projects workspace with side navigation for Projects, Reports, AtmosFlow AI, Logger Studio, Sampling forms, and Incidents">
           <div class="show-body">
-            <div class="show-step">Step 1</div>
-            <h3>Upload Project Data</h3>
+            <h3>Project workspace</h3>
             <p>Capture observations, occupant concerns, HVAC conditions, photos, and assessment notes in one project workspace.</p>
             
           </div>
@@ -341,8 +374,7 @@ footer{background:var(--ink);color:#fff}
         <article class="show-card reveal">
           <img class="shot" src="/ss-co-tvoc.jpeg" alt="AtmosFlow Logger Studio charts for Carbon Monoxide, Total VOCs, and a multi-parameter comparison over time">
           <div class="show-body">
-            <div class="show-step">Step 2</div>
-            <h3>Analyze Logger Data</h3>
+            <h3>Logger Studio</h3>
             <p>Import raw IAQ data and instantly generate charts, summaries, and trends.</p>
             
           </div>
@@ -350,8 +382,7 @@ footer{background:var(--ink);color:#fff}
         <article class="show-card reveal">
           <img class="shot" src="/ss-zone-findings.jpeg" alt="AtmosFlow detailed findings for a zone scored 92 of 100 with ventilation, contaminants, HVAC, complaints, and environment sub-scores and ASHRAE citations">
           <div class="show-body">
-            <div class="show-step">Step 3</div>
-            <h3>Surface Findings</h3>
+            <h3>Scored findings</h3>
             <p>Identify conditions requiring further investigation, scored against cited screening references.</p>
             
           </div>
@@ -359,8 +390,7 @@ footer{background:var(--ink);color:#fff}
         <article class="show-card reveal">
           <img class="shot" src="/ss-pro-assessment.jpeg" alt="AtmosFlow professional assessment showing a primary driver, likely contributing cause, overall assessment, High confidence, and a screening non-compliance label">
           <div class="show-body">
-            <div class="show-step">Step 4</div>
-            <h3>Map Causal Pathways</h3>
+            <h3>Professional assessment</h3>
             <p>Connect environmental conditions, symptoms, and building observations into a defensible pathway.</p>
             
           </div>
@@ -368,8 +398,7 @@ footer{background:var(--ink);color:#fff}
         <article class="show-card reveal">
           <img class="shot" src="/ss-session-averages.png" alt="AtmosFlow Logger Studio session averages with report-ready temperature, relative humidity, and carbon monoxide tiles">
           <div class="show-body">
-            <div class="show-step">Step 5</div>
-            <h3>Generate Draft Reports</h3>
+            <h3>Report-ready output</h3>
             <p>Turn investigation data into structured professional documentation.</p>
             <a class="more" href="/atmosflow-sample-report.pdf" target="_blank" rel="noopener">See a sample report</a>
           </div>
@@ -430,23 +459,6 @@ footer{background:var(--ink);color:#fff}
         <p class="metric-fine">Time savings apply to report drafting and preparation after assessment information has been collected. Field assessment duration varies based on project scope, site conditions, and required observations. Professional review remains in control.</p>
       </div>
     </div>
-    <div class="ftr-cards">
-      <div class="why-card reveal">
-        <div class="ico"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#0B1220" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3" stroke="#22D3EE"/></svg></div>
-        <h3>Guided IAQ Walkthrough</h3>
-        <p>Helps users collect the information needed for a complete IAQ screening assessment.</p>
-      </div>
-      <div class="why-card reveal">
-        <div class="ico"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#0B1220" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4" stroke="#22D3EE"/><path d="M12 16h4" stroke="#22D3EE"/><path d="M8 11h.01" stroke="#22D3EE"/><path d="M8 16h.01" stroke="#22D3EE"/></svg></div>
-        <h3>Structured Field Inputs</h3>
-        <p>Captures building details, HVAC observations, occupant concerns, photos, logger files, and field notes in one workflow.</p>
-      </div>
-      <div class="why-card reveal">
-        <div class="ico"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#0B1220" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M16 22h2a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v3.5"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><circle cx="8" cy="16" r="6"/><path d="M9.5 17.5 8 16.25V14" stroke="#22D3EE"/></svg></div>
-        <h3>Faster Draft Reports</h3>
-        <p>Transforms assessment information into organized findings, charts, causal pathways, recommendations, and draft reports.</p>
-      </div>
-    </div>
     <p class="compat reveal">Works with CSV and XLSX exports from common IAQ data loggers.</p>
   </div>
 </section>
@@ -474,8 +486,8 @@ footer{background:var(--ink);color:#fff}
       </div>
       <div class="why-card reveal">
         <div class="ico"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#0B1220" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18" stroke="#22D3EE"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></svg></div>
-        <h3>Transparent, deterministic logic</h3>
-        <p>A rules-based engine produces consistent, repeatable screening results you can trace back to the inputs.</p>
+        <h3>Deterministic first, AI second</h3>
+        <p>A rules-based screening engine runs first for consistent, repeatable results; AI assists with drafting and summaries, never the conclusion.</p>
       </div>
       <div class="why-card reveal">
         <div class="ico"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#0B1220" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9" stroke="#22D3EE"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"/></svg></div>
@@ -489,53 +501,6 @@ footer{background:var(--ink);color:#fff}
         <p>Review a complete sample IAQ report, from executive summary through findings and recommendations.</p>
       </div>
       <a class="btn btn-primary" href="/atmosflow-sample-report.pdf" target="_blank" rel="noopener">See a sample report</a>
-    </div>
-  </div>
-</section>
-
-<!-- WHY -->
-<section id="why">
-  <div class="container">
-    <div class="head-center reveal">
-      <span class="eyebrow">Why AtmosFlow</span>
-      <h2 style="margin-top:14px">Defensible by design.</h2>
-    </div>
-    <div class="why-grid">
-        <div class="why-card reveal">
-          <div class="ico"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#0B1220" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m3 17 2 2 4-4" stroke="#22D3EE"/><path d="m3 7 2 2 4-4" stroke="#22D3EE"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></svg></div>
-          <h3>Deterministic First</h3>
-          <p>Rules-based screening engine designed for consistency and repeatability.</p>
-        </div>
-        <div class="why-card reveal">
-          <div class="ico"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#0B1220" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .962 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.582a.5.5 0 0 1 0 .962L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.962 0Z"/><path d="M20 3v4" stroke="#22D3EE"/><path d="M22 5h-4" stroke="#22D3EE"/><path d="M4 17v2" stroke="#22D3EE"/><path d="M5 18H3" stroke="#22D3EE"/></svg></div>
-          <h3>AI Assisted</h3>
-          <p>Generate narratives, summarize findings, and accelerate documentation.</p>
-        </div>
-        <div class="why-card reveal">
-          <div class="ico"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#0B1220" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C10.5 3.8 13 5 15 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4" stroke="#22D3EE"/></svg></div>
-          <h3>Professional Review</h3>
-          <p>Maintain expert oversight and final decision-making authority.</p>
-        </div>
-    </div>
-  </div>
-</section>
-
-<!-- BEFORE / AFTER -->
-<section class="section-mist">
-  <div class="container">
-    <div class="head-center reveal">
-      <span class="eyebrow">Before and after</span>
-      <h2 style="margin-top:14px">Reduce Investigation Friction</h2>
-    </div>
-    <div class="ba-grid">
-      <div class="ba-card before reveal">
-        <div class="ba-h">Before AtmosFlow</div>
-        <ul><li><span class="mk no"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#515C6B" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="M8 13h2"/><path d="M14 13h2"/><path d="M8 17h2"/><path d="M14 17h2"/></svg></span>Multiple spreadsheets</li><li><span class="mk no"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#515C6B" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg></span>Manual chart creation</li><li><span class="mk no"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#515C6B" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M13.4 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7.4"/><path d="M2 6h4"/><path d="M2 10h4"/><path d="M2 14h4"/><path d="M2 18h4"/><path d="M21.378 5.626a1 1 0 1 0-3.004-3.004l-5.01 5.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z"/></svg></span>Scattered notes</li><li><span class="mk no"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#515C6B" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2h-4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V8"/><path d="M16.706 2.706A2.4 2.4 0 0 0 15 2v5a1 1 0 0 0 1 1h5a2.4 2.4 0 0 0-.706-1.706z"/><path d="M5 7a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h8a2 2 0 0 0 1.732-1"/></svg></span>Separate reports</li><li><span class="mk no"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#515C6B" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6h4"/></svg></span>Hours of documentation</li></ul>
-      </div>
-      <div class="ba-card after reveal">
-        <div class="ba-h">After AtmosFlow</div>
-        <ul><li><span class="mk yes"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#22D3EE" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="8" x="3" y="3" rx="2"/><path d="M7 11v4a2 2 0 0 0 2 2h4"/><rect width="8" height="8" x="13" y="13" rx="2"/></svg></span>Unified workflow</li><li><span class="mk yes"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#22D3EE" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M13 17V9"/><path d="M18 17V5"/><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M8 17v-3"/></svg></span>Automated visualizations</li><li><span class="mk yes"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#22D3EE" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m8 11 2 2 4-4"/><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></span>Structured findings</li><li><span class="mk yes"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#22D3EE" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg></span>Draft reports</li><li><span class="mk yes"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#22D3EE" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg></span>Faster report drafting</li></ul>
-      </div>
     </div>
   </div>
 </section>
@@ -572,18 +537,6 @@ footer{background:var(--ink);color:#fff}
   </div>
 </section>
 
-<!-- FOUNDER -->
-<section class="section-mist">
-  <div class="container">
-    <div class="founder reveal">
-      <span class="eyebrow">From the founder</span>
-      <h3>Built by a Practitioner</h3>
-      <p>AtmosFlow was created by a Certified Safety Professional (CSP) who wanted a better way to organize indoor air quality investigations, analyze environmental data, and prepare professional reports.</p>
-      <div class="sig"><b>Tsidi Tamakloe</b>, CSP &middot; Founder, Prudence EHS</div>
-    </div>
-  </div>
-</section>
-
 <!-- FAQ -->
 <section id="faq">
   <div class="container">
@@ -616,6 +569,24 @@ footer{background:var(--ink);color:#fff}
         <summary>Is my data private?</summary>
         <div class="faq-a"><p>Yes. Your projects, photos, and logger files are stored privately to your account, and you can export your data at any time.</p></div>
       </details>
+    </div>
+  </div>
+</section>
+
+<!-- FOUNDER -->
+<section class="section-mist">
+  <div class="container">
+    <div class="founder reveal">
+      <span class="eyebrow">Our mission</span>
+      <h3>A Note from the Founder</h3>
+      <div class="founder-note">
+        <p>For more than 13 years, I’ve worked as an EHS professional across federal facilities, healthcare environments, laboratories, and commercial buildings. Over the last decade, I’ve conducted indoor air quality investigations in these settings and repeatedly encountered the same challenge: too much time spent organizing data, analyzing spreadsheets, and writing reports, and not enough time focused on understanding the problem and helping clients.</p>
+        <p>I built AtmosFlow because I believed there had to be a better way.</p>
+        <p>My vision was simple: create a platform that helps EHS and industrial hygiene professionals spend less time on administrative work and more time applying their expertise. AtmosFlow streamlines data organization, accelerates environmental analysis, and helps transform raw information into clear, professional reports in minutes.</p>
+        <p>AtmosFlow wasn’t built in a boardroom. It was built from real-world experience and shaped by the challenges practitioners face every day in the field.</p>
+        <p>Together, we’re helping professionals spend less time on paperwork and more time making workplaces healthier, safer, and better informed. Thank you for being part of that mission.</p>
+      </div>
+      <div class="sig"><b>Tsidi Tamakloe</b><br>Founder, AtmosFlow</div>
     </div>
   </div>
 </section>

@@ -73,8 +73,9 @@ async function handler(req, res) {
   if (!email || !validateEmail(email)) errors.push('Valid email is required')
   if (!company || !sanitize(company)) errors.push('Company is required')
   if (!title || !sanitize(title)) errors.push('Title is required')
-  if (!volume) errors.push('Investigation volume is required')
-  if (!source) errors.push('Referral source is required')
+  // volume / painpoint / source are optional — captured during onboarding,
+  // not required to request access (kept here so existing records still store
+  // them if a client ever sends them).
 
   if (errors.length > 0) {
     return res.status(400).json({ error: errors.join('. ') })
@@ -124,9 +125,9 @@ async function handler(req, res) {
               <tr><td style="padding:4px 12px 4px 0;color:#666;">Email</td><td>${submission.email}</td></tr>
               <tr><td style="padding:4px 12px 4px 0;color:#666;">Company</td><td>${submission.company}</td></tr>
               <tr><td style="padding:4px 12px 4px 0;color:#666;">Title</td><td>${submission.title}</td></tr>
-              <tr><td style="padding:4px 12px 4px 0;color:#666;">Volume</td><td>${submission.volume} investigations/month</td></tr>
-              <tr><td style="padding:4px 12px 4px 0;color:#666;">Pain Point</td><td>${submission.painpoint || '—'}</td></tr>
-              <tr><td style="padding:4px 12px 4px 0;color:#666;">Source</td><td>${submission.source}</td></tr>
+              ${submission.volume ? `<tr><td style="padding:4px 12px 4px 0;color:#666;">Volume</td><td>${submission.volume} investigations/month</td></tr>` : ''}
+              ${submission.painpoint ? `<tr><td style="padding:4px 12px 4px 0;color:#666;">Pain Point</td><td>${submission.painpoint}</td></tr>` : ''}
+              ${submission.source ? `<tr><td style="padding:4px 12px 4px 0;color:#666;">Source</td><td>${submission.source}</td></tr>` : ''}
             </table>
             <p style="color:#999;font-size:12px;margin-top:16px;">Submitted ${submission.submitted_at}</p>
           `,
