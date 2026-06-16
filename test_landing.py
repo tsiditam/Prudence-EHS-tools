@@ -57,11 +57,11 @@ check("Product showcase heading present", "One Platform. Every Stage of the Inve
 check("Workflow heading present", "How AtmosFlow Works" in html)
 check("Before/after heading present", "Reduce Investigation Friction" in html)
 check("Audience heading present", "Who Uses AtmosFlow?" in html)
-check("Founder heading present", "Built by a Practitioner" in html)
+check("Founder heading present", "A Note from the Founder" in html)
 # strip embedded base64 blobs so random letters inside them don't trip text checks
 html_text = re.sub(r'data:image/[^;]+;base64,[A-Za-z0-9+/=]+', '', html)
 check("No FAA reference in copy", "FAA" not in html_text)
-check("Hero social proof: experience-led trust line (not credential bragging)", ("experienced EHS professional" in html) and ("13+ years" in html) and ("Certified Safety Professional" not in html) and ("BCSP" not in html))
+check("Hero social proof: experience-led trust line (not credential bragging)", ("Built by an EHS professional" in html) and ("13+ years of experience" in html) and ("Certified Safety Professional" not in html) and ("BCSP" not in html))
 check("Hero CTA hierarchy: one primary button + quiet secondary link", ('class="link-cta"' in html) and (html.count('class="btn btn-ghost"')==1))
 check("Standards badges surfaced near the hero", 'class="hero-std"' in html and "Built on the standards you cite" in html)
 
@@ -134,7 +134,7 @@ check("FAQ covers the screening-only positioning", "Is AtmosFlow a compliance or
 check("FAQ does not over-claim compliance", "AtmosFlow is a screening and reporting workspace." in html)
 
 # ---------- founder credential + pricing signal ----------
-check("Founder credential (CSP) shown without naming employer", ("CSP" in html) and ("Tsidi Tamakloe" in html))
+check("Founder note present and signed", ("Tsidi Tamakloe" in html) and ("Founder, AtmosFlow" in html) and ("built from real-world experience" in html))
 check("Pricing signal present (founding-member)", "Founding-member pricing" in html and "founding-member pricing at launch" in html)
 
 # ---------- structure / DOM ----------
