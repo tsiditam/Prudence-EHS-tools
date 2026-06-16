@@ -58,6 +58,7 @@ check("Demo video embedded (self-hosted mp4)", ('src="/atmosflow-demo.mp4"' in h
 check("Demo video autoplays muted, loops, inline", 'autoplay muted loop playsinline' in html)
 check("Demo video has accessible label + fallback link", ('aria-label="Screen recording' in html) and ('Watch the AtmosFlow demo' in html))
 check("Demo video respects reduced motion", 'removeAttribute("autoplay")' in html)
+check("Demo video has an iPhone-style device skin on a gradient stage", all(c in html for c in ['class="demo-stage"','class="device"','class="frame"','class="screen"','class="island"']))
 check("Workflow heading present", "How AtmosFlow Works" in html)
 check("Before/after heading present", "Reduce Investigation Friction" in html)
 check("Audience heading present", "Who Uses AtmosFlow?" in html)
