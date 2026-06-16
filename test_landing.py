@@ -140,7 +140,7 @@ check("FAQ covers the screening-only positioning", "Is AtmosFlow a compliance or
 check("FAQ does not over-claim compliance", "AtmosFlow is a screening and reporting workspace." in html)
 
 # ---------- founder credential + pricing signal ----------
-check("Founder note present and signed", ("Tsidi Tamakloe" in html) and ("Founder, AtmosFlow" in html) and ("It was built in the field" in html))
+check("Founder note present and signed", ("Tsidi Tamakloe" in html) and ("Founder, AtmosFlow" in html) and ("Help the professionals who protect people" in html))
 check("Pricing signal present (founding-member)", "Founding-member pricing" in html and "founding-member pricing at launch" in html)
 
 # ---------- structure / DOM ----------
