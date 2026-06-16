@@ -155,11 +155,14 @@ Behavior:
 
 ### `<AtmosFlowFloatingDock>` — `AtmosFlowFloatingDock.jsx`
 
-The floating glass bottom navigation. A full-bleed liquid-glass capsule
-(dark glass in dark mode, white capsule in light mode) that sits low at the
-bottom edge and spreads its tabs evenly like a real bottom bar. The
-AtmosFlow AI launcher is **not** in the dock — it floats separately on the
-right via `JasperFloatingButton` (below).
+The bottom tab bar, rebuilt to match **Instagram's bottom navigation**: a
+flat, full-bleed bar pinned to the very bottom edge — the same solid color as
+the page (`var(--bg)`) with a single hairline (`var(--border)`) along its top.
+Destinations are icon-only and spread evenly; there are no labels, no active
+pill, no glass/blur, no brand accent, and no magnification. The component name
+is kept for back-compat (it's no longer a *floating* capsule). The AtmosFlow
+AI launcher is **not** in the bar — it floats separately on the right via
+`JasperFloatingButton` (below).
 
 ```jsx
 <AtmosFlowFloatingDock
@@ -179,32 +182,27 @@ right via `JasperFloatingButton` (below).
 | `maxWidth` | `number` | `460` | Caps the bar width (pass the page content width) |
 | `ariaLabel` | `string` | `'Primary'` | `aria-label` for the `<nav>` |
 
-**Magnetic glide (macOS/Fiverr-style).** As the pointer moves across the
-bar, each tab scales by its distance to the pointer. The proximity curve is
-a pure, exported, unit-tested function:
-
-```js
-import { dockMagnet } from './AtmosFlowFloatingDock'
-dockMagnet(0)   // { scale: 1.28, lift: -6 }
-dockMagnet(40)  // { scale: 1.15, ... }
-dockMagnet(80)  // { scale: 1.05, ... }
-dockMagnet(120) // { scale: 1,    lift: 0 }  (and beyond)
-```
-
 Behavior:
-- **Works on mouse AND touch.** Pointer events drive it, so a hovering mouse
-  *or* a finger dragged across the dock both magnify the tabs. (`touch-action:
-  none` on the bar lets a finger drag glide instead of scrolling.)
-- **Glide never selects.** A tap navigates; a drag past a 10px threshold is a
-  glide, and the click it would emit is swallowed in the capture phase so the
-  route never changes mid-glide. Selection is click/tap-only.
-- **Sits low + safe-area aware:** `bottom: min(env(safe-area-inset-bottom),
-  12px)` so a large inset (e.g. Safari's bottom toolbar region) can't push it
-  up the screen, while still clearing the home indicator on installed PWAs.
-- **No layout shift:** transforms only, `transform-origin: bottom`, `overflow:
-  visible` so magnified icons rise above the capsule without clipping.
-- `prefers-reduced-motion: reduce` disables the magnetic effect entirely
-  (tabs keep a subtle `:active` tap scale).
+- **Flat, full-bleed, edge-attached.** `position: fixed; left/right/bottom: 0`,
+  `background: var(--bg)`, `border-top: 1px solid var(--border)`. The icon row
+  is capped at `maxWidth` and centered so destinations stay grouped on wide
+  (tablet/web) screens.
+- **Icon-only, monochrome active cue.** Inactive icons are muted
+  (`var(--sub)`, lighter stroke); the active icon is full-contrast
+  (`var(--text)`, heavier stroke) — Instagram's outline→filled distinction
+  expressed with the app's stroke icon set. No labels, no accent tint.
+- **Account = profile avatar.** The account tab passes `renderIcon` to draw a
+  circular avatar; its ring goes solid foreground (`var(--text)`) when active,
+  a hairline (`var(--border)`) when inactive.
+- **Safe-area aware:** `padding-bottom: env(safe-area-inset-bottom)` keeps the
+  icon row off the home indicator on installed PWAs / notched phones.
+- **Tap feedback only.** A quick press-dim (`opacity` + slight `scale`) on tap,
+  exactly Instagram's; `prefers-reduced-motion: reduce` removes it.
+- **Theme-aware:** built from CSS vars, so it flips automatically — white bar +
+  dark glyphs in light mode, near-black bar + light glyphs in dark mode.
+
+`aux` (an optional extra destination) is folded **inline** into the bar —
+Instagram keeps every destination in the one bar, never a detached side pill.
 
 ### `<JasperFloatingButton>` — `JasperFloatingButton.jsx`
 
@@ -318,14 +316,11 @@ When converting a legacy modal / panel / button:
 
 `tests/components/AtmosFlowFloatingDock.test.jsx` pins:
 
-- `dockMagnet()`: the proximity curve breakpoints (0→1.28, 40→1.15,
-  80→1.05, ≥120→1), the -6→0 lift, monotonic falloff, ≥120px clamp, and
-  sign symmetry.
-- Rendering/a11y: `tablist`/`tab` roles, active tab `aria-selected` +
-  `aria-current` + visible label, tap navigation.
-- Magnetic glide: a pointer glide writes an inline transform and clears it
-  on leave; `prefers-reduced-motion` disables it.
-- Tap vs glide: a drag swallows its click (never selects); a tap navigates.
+- Rendering/a11y: `tablist`/`tab` roles, every tab named via `aria-label`,
+  active tab `aria-selected` + `aria-current`.
+- Icon-only: no visible text labels are rendered (Instagram style).
+- Navigation: a tap fires the tab's `onClick`.
+- `aux`: an optional extra destination is folded inline into the bar.
 
 `tests/components/JasperFloatingButton.test.jsx` pins: accessible launcher
 fires `onClick`; full size at top; shrinks scrolling down, grows scrolling up.

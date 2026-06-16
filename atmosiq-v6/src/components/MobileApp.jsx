@@ -4641,11 +4641,10 @@ export default function MobileApp() {
           tab (instrument-panel cue, replaces the earlier scale 1.06
           "lift"), icon stays at its base size, label sits below. */}
       {!isAssessing && !milestone && !isDesktop && (() => {
-        // Floating glass capsule dock (Instagram / visionOS style) — see
-        // AtmosFlowFloatingDock. AtmosFlow AI is no longer a tab inside the
-        // oval dock; it now sits in its own circular glass pill beside the
-        // dock (the `aux` slot) so the assistant reads as a distinct,
-        // always-reachable action. Routing/behavior + the jasper event
+        // Flat Instagram-style bottom tab bar — see AtmosFlowFloatingDock
+        // (full-bleed bar, icon-only, monochrome, no glass/magnification).
+        // AtmosFlow AI is not a tab in the bar; it floats on the right edge
+        // (JasperFloatingButton below). Routing/behavior + the jasper event
         // names are preserved exactly.
         const mkTab = (t) => ({
           id: t.id,
@@ -4656,16 +4655,18 @@ export default function MobileApp() {
           active: view === t.id,
           onClick: () => { haptic('light'); supabase && trackEvent('page_view', { tab: t.id }); setToolReturn(null); setView(t.id); if (t.id === 'dash' || t.id === 'projects') setViewRpt(null) },
         })
-        // Account dock tab shows the assessor's circular profile photo
-        // (Instagram-style); falls back to initials on an accent tint when no
-        // avatar_url is set. The active state lights the ring in accent.
+        // Account tab = the assessor's circular profile photo, Instagram's
+        // profile destination. Monochrome to match the bar: the ring goes
+        // solid foreground (var(--text), thicker) when active, a hairline
+        // (var(--border)) when inactive. Falls back to initials on a neutral
+        // tint when no avatar_url is set.
         const accountAvatarIcon = (on) => (
           <span aria-hidden="true" style={{
-            width: 22, height: 22, borderRadius: '50%', overflow: 'hidden', flexShrink: 0,
+            width: 26, height: 26, borderRadius: '50%', overflow: 'hidden', flexShrink: 0,
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            border: `1.5px solid ${on ? 'var(--accent-fill)' : 'color-mix(in srgb, var(--accent) 30%, transparent)'}`,
-            background: profile?.avatar_url ? 'transparent' : 'linear-gradient(135deg, color-mix(in srgb, var(--accent) 28%, transparent), color-mix(in srgb, var(--accent) 8%, transparent))',
-            color: on ? 'var(--accent-fill)' : 'var(--text)', fontSize: 9, fontWeight: 700, letterSpacing: '-0.2px',
+            border: on ? '2px solid var(--text)' : '1.5px solid var(--border)',
+            background: profile?.avatar_url ? 'transparent' : 'var(--surface)',
+            color: on ? 'var(--text)' : 'var(--sub)', fontSize: 10, fontWeight: 700, letterSpacing: '-0.2px',
           }}>
             {profile?.avatar_url
               ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
