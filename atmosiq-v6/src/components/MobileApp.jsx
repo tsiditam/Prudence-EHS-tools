@@ -1650,7 +1650,7 @@ export default function MobileApp() {
         // Built model client-side, laid out by the shared pdfkit renderer
         // server-side (/api/report-pdf). docxType carries the mode.
         const mode = docxType === 'final' ? 'final' : 'draft'
-        setGenWriting({ label: 'Generating your AtmosFlow report', durationMs: 8000 })
+        setGenWriting({ label: 'Generating your AtmosFlow report', durationMs: 10000 })
         await downloadReportPdf(reportData, { mode })
       } else {
         // Web (HTML) consultant report — play the same pen-writing beat
