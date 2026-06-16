@@ -13,17 +13,14 @@ const C = {
   text: '#F1F5F9', sub: '#94A3B8', err: '#F87171',
 }
 
-const INVESTIGATION_OPTIONS = ['1–2', '3–5', '6–10', '10+']
-const SOURCE_OPTIONS = ['LinkedIn', 'Colleague/Referral', 'AIHA/ASSP', 'Web Search', 'Other']
-
+// Kept intentionally short — landing pages with 5 or fewer fields convert
+// markedly better. Everything else (investigation volume, pain points,
+// referral source) is deferred to onboarding.
 const FIELDS = [
   { id: 'name', label: 'Full Name', type: 'text', required: true, ph: 'Jane Smith, CIH' },
-  { id: 'email', label: 'Email', type: 'email', required: true, ph: 'jane@firm.com' },
+  { id: 'email', label: 'Work Email', type: 'email', required: true, ph: 'jane@firm.com' },
   { id: 'company', label: 'Company / Organization', type: 'text', required: true, ph: 'Prudence EHS' },
   { id: 'title', label: 'Title / Role', type: 'text', required: true, ph: 'Senior Industrial Hygienist' },
-  { id: 'volume', label: 'IAQ Investigations per Month', type: 'select', required: true, opts: INVESTIGATION_OPTIONS },
-  { id: 'painpoint', label: 'Biggest Pain Point in Your Current IAQ Workflow', type: 'textarea', required: false, ph: 'e.g. Report turnaround time, inconsistent scoring...', max: 500 },
-  { id: 'source', label: 'How Did You Hear About AtmosFlow?', type: 'select', required: true, opts: SOURCE_OPTIONS },
 ]
 
 const inputStyle = {
@@ -108,7 +105,7 @@ export default function EarlyAccessPage() {
       {/* Headline */}
       <h1 style={{ fontSize: 28, fontWeight: 700, color: '#fff', margin: '0 0 8px', fontFamily: "'inherit', system-ui, sans-serif", letterSpacing: '-0.5px' }}>Early Access</h1>
       <p style={{ fontSize: 14, color: C.sub, lineHeight: 1.6, textAlign: 'center', maxWidth: 460, margin: '0 0 32px' }}>
-        AtmosFlow is currently onboarding a limited group of IH/EHS professionals. Request access below.
+        AtmosFlow is currently onboarding a limited group of IH/EHS professionals. It takes about a minute &mdash; we&rsquo;ll be in touch.
       </p>
 
       {/* Form */}
