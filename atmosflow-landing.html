@@ -280,6 +280,10 @@ footer{background:var(--ink);color:#fff}
 .faq details[open] summary::after{transform:rotate(-135deg)}
 .faq-a{padding:0 22px 20px}
 @media (max-width:680px){.sample-band{flex-direction:column;align-items:flex-start}}
+.demo-wrap{margin:0 auto 50px;display:flex;flex-direction:column;align-items:center;gap:14px}
+.demo-video{width:min(320px,78vw);border-radius:34px;overflow:hidden;border:1px solid var(--hair);box-shadow:var(--shadow);background:#0B1220;aspect-ratio:1320/2868}
+.demo-vid{display:block;width:100%;height:100%;object-fit:cover}
+.demo-cap{text-align:center;color:var(--slate);font-size:.9rem}
 @media (prefers-reduced-motion:reduce){
   *{animation:none!important;scroll-behavior:auto!important}
   .reveal{opacity:1;transform:none;transition:none}
@@ -361,6 +365,15 @@ footer{background:var(--ink);color:#fff}
     <div class="head-center reveal">
       <span class="eyebrow">Product</span>
       <h2 style="margin-top:14px">See AtmosFlow in action.</h2>
+    </div>
+    <div class="demo-wrap reveal">
+      <div class="demo-video">
+        <video class="demo-vid" autoplay muted loop playsinline controls preload="metadata" aria-label="Screen recording of AtmosFlow, from project setup through a draft report">
+          <source src="/atmosflow-demo.mp4" type="video/mp4">
+          <a href="/atmosflow-demo.mp4">Watch the AtmosFlow demo</a>
+        </video>
+      </div>
+      <p class="demo-cap">A quick walkthrough, from project to draft report.</p>
     </div>
     <div class="showcase">
         <article class="show-card reveal">
@@ -695,6 +708,10 @@ document.querySelectorAll('.reveal:not(.in)').forEach(function(el){io.observe(el
   mio.observe(card);
 })();
 
+</script>
+<script>
+(function(){var v=document.querySelector(".demo-vid");
+if(v&&window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches){v.removeAttribute("autoplay");try{v.pause();}catch(e){}}})();
 </script>
 </body>
 </html>
