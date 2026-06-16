@@ -44,8 +44,8 @@ check("OpenType features set (cv11/ss03/tnum)", all(t in html for t in ['cv11','
 # ---------- copy / positioning ----------
 check("No em dash anywhere", '—' not in html, "U+2014")
 check("Brand + category present in title/meta", "Indoor Air Quality Investigation Intelligence" in html)
-check("Hero headline leads with the outcome", "From field data to a defensible IAQ draft report in minutes." in html)
-check("Exactly one outcome <h1> (category moved to kicker)", '<h1>From field data to a defensible IAQ draft report in minutes.</h1>' in html)
+check("Hero headline leads with the outcome", ("From field data to a defensible IAQ draft report" in html) and ('<span class="accent">in minutes</span>.' in html))
+check("Exactly one outcome <h1> with cyan-accented 'in minutes'", '<h1>From field data to a defensible IAQ draft report <span class="accent">in minutes</span>.</h1>' in html)
 check("Subheadline present", "findings, sampling plans, and draft reports" in html)
 rba = len(re.findall(r'>\s*Request Beta Access\s*<', html))
 check("Primary CTA 'Request Beta Access' appears >= 3 times", rba>=3, f"count={rba}")
