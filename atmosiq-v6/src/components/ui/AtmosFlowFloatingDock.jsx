@@ -29,7 +29,7 @@
  * capsule in LIGHT mode (via the [data-theme="light"] overrides injected
  * below). Glyphs use theme CSS vars so they read in both appearances.
  */
-import { useEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 import { I } from '../Icons'
 
 const ICON = 25   // glyph size — Instagram tab icons sit around 24–26px
@@ -45,8 +45,25 @@ if (typeof document !== 'undefined' && !document.getElementById('affd-style')) {
     // a CSS var on the capsule so the active <I> can read it; light mode flips
     // it back to the monochrome foreground in the override below.
     '.affd-dock{--affd-active-icon: var(--accent-fill);}' +
-    '.affd-tab{transition:transform 130ms cubic-bezier(0.22,1,0.36,1), background 200ms ease;}' +
+    // Icons/text sit ABOVE the selector bubble (which is z-index:1 on the
+    // glass). Press feedback unchanged.
+    '.affd-tab{position:relative;z-index:2;transition:transform 130ms cubic-bezier(0.22,1,0.36,1), background 200ms ease;}' +
     '.affd-tab:active{transform:scale(0.92);}' +
+    // The single sliding "selector bubble": a floating frosted-glass pill that
+    // glides behind the active destination. Width + X are driven by CSS vars
+    // the component measures from the active tab (see the layout effect below),
+    // so it tracks equal- OR unequal-width items. It sits ABOVE the capsule
+    // background (z-index:1) and BELOW the glyphs (.affd-tab is z-index:2).
+    // Soft iOS-style easing: quick acceleration, gentle settle. (dark-mode
+    // values here; the light-mode flip is in the override block below.)
+    '.affd-selector{position:absolute;top:50%;left:0;height:' + TILE_H + 'px;' +
+      'width:var(--bubble-width,64px);border-radius:999px;' +
+      'transform:translate3d(var(--bubble-x,0px),-50%,0);' +
+      'background:rgba(255,255,255,0.14);' +
+      'box-shadow:inset 0 1px 0 rgba(255,255,255,0.22),inset 0 0 0 1px rgba(255,255,255,0.10),0 8px 22px rgba(0,0,0,0.22);' +
+      'backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);' +
+      'pointer-events:none;z-index:1;opacity:0;' +
+      'transition:transform 420ms cubic-bezier(0.22,1,0.36,1), width 320ms cubic-bezier(0.22,1,0.36,1), opacity 200ms ease;}' +
     '.affd-tab:focus-visible{outline:none;box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent)!important;}' +
     // Scroll contract/expand: while the page is scrolling the dock gets
     // `is-contracted`, which subtly scales the capsule down, tightens the gap +
@@ -57,13 +74,13 @@ if (typeof document !== 'undefined' && !document.getElementById('affd-style')) {
     '.affd-ico{transition:transform 280ms cubic-bezier(.22,1,.36,1);}' +
     '.affd-dock.is-contracted{transform:scale(0.94);gap:2px!important;padding:4px!important;}' +
     '.affd-dock.is-contracted .affd-ico{transform:scale(0.86);}' +
-    '@media (prefers-reduced-motion: reduce){.affd-tab{transition:none!important;}.affd-tab:active{transform:none;}.affd-dock,.affd-ico{transition:none!important;}}' +
+    '@media (prefers-reduced-motion: reduce){.affd-tab{transition:none!important;}.affd-tab:active{transform:none;}.affd-dock,.affd-ico,.affd-selector{transition:none!important;}}' +
     // Light mode: flip the dark frosted capsule to a white frosted one, the
     // active tile to a bright frosted tile, and the selected glyph back to the
     // monochrome foreground (cyan-on-white would clash). !important beats the
     // inline dark-mode styles.
     '[data-theme="light"] .affd-dock{--affd-active-icon: var(--text);background:rgba(255,255,255,0.62)!important;border-color:rgba(15,23,42,0.07)!important;box-shadow:0 1px 0 rgba(255,255,255,0.6) inset,0 10px 30px rgba(15,23,42,0.20),0 2px 8px rgba(15,23,42,0.10)!important;}' +
-    '[data-theme="light"] .affd-tab-on{background:rgba(255,255,255,0.92)!important;box-shadow:0 1px 3px rgba(15,23,42,0.14),inset 0 0 0 1px rgba(15,23,42,0.04)!important;}'
+    '[data-theme="light"] .affd-selector{background:rgba(255,255,255,0.92);box-shadow:0 1px 3px rgba(15,23,42,0.14),inset 0 0 0 1px rgba(15,23,42,0.04);}'
   document.head.appendChild(s)
 }
 
@@ -93,14 +110,10 @@ function DockTab({ t }) {
         cursor: 'pointer',
         fontFamily: 'inherit',
         WebkitTapHighlightColor: 'transparent',
-        // Active highlight tile: a lighter frosted rounded-rect on the glass
-        // (dark-mode value here; light-mode override above). Inactive is clear.
-        background: on
-          ? 'rgba(255,255,255,0.14)'
-          : 'transparent',
-        boxShadow: on
-          ? 'inset 0 0 0 1px rgba(255,255,255,0.10), inset 0 1px 0 rgba(255,255,255,0.18)'
-          : 'none',
+        // No per-tab tile: the active cue is now the single sliding selector
+        // bubble that glides behind the active glyph (rendered once on the
+        // capsule, positioned by the component). Buttons stay transparent.
+        background: 'transparent',
       }}
     >
       <span className="affd-ico" style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -153,6 +166,39 @@ export default function AtmosFlowFloatingDock({ tabs, aux, maxWidth, ariaLabel =
     return () => { window.removeEventListener('scroll', onScroll, { capture: true }); clearTimeout(idle) }
   }, [])
 
+  // Drive the sliding selector bubble. We measure the active tab with
+  // offsetLeft / offsetWidth (layout-box metrics, immune to the capsule's
+  // contract `scale()` transform — getBoundingClientRect would be double-scaled
+  // during scroll) and publish them as the `--bubble-x` / `--bubble-width` CSS
+  // vars the `.affd-selector` rule reads. The first placement snaps without a
+  // transition (no glide-from-zero flash on load); every later move animates.
+  // A ResizeObserver on the capsule recomputes on window resize AND across the
+  // whole scroll contract/expand tween (padding changes the content box each
+  // frame), so the bubble always tracks the active tab.
+  const activeId = items.find((t) => t.active)?.id
+  const placedRef = useRef(false)
+  useLayoutEffect(() => {
+    const dock = dockRef.current
+    if (!dock || typeof window === 'undefined') return
+    const place = () => {
+      const bubble = dock.querySelector('.affd-selector')
+      if (!bubble) return
+      const active = dock.querySelector('[role="tab"][aria-selected="true"]')
+      if (!active) { bubble.style.opacity = '0'; return }
+      const snap = !placedRef.current
+      if (snap) bubble.style.transition = 'none'
+      dock.style.setProperty('--bubble-x', active.offsetLeft + 'px')
+      dock.style.setProperty('--bubble-width', active.offsetWidth + 'px')
+      bubble.style.opacity = '1'
+      if (snap) { void bubble.offsetWidth; bubble.style.transition = ''; placedRef.current = true }
+    }
+    place()
+    let ro
+    if (typeof ResizeObserver !== 'undefined') { ro = new ResizeObserver(place); ro.observe(dock) }
+    window.addEventListener('resize', place)
+    return () => { if (ro) ro.disconnect(); window.removeEventListener('resize', place) }
+  }, [activeId, items.length])
+
   return (
     <nav
       aria-label={ariaLabel}
@@ -177,6 +223,8 @@ export default function AtmosFlowFloatingDock({ tabs, aux, maxWidth, ariaLabel =
         role="tablist"
         style={{
           pointerEvents: 'auto',
+          // Positioning context for the absolutely-positioned selector bubble.
+          position: 'relative',
           display: 'flex',
           alignItems: 'center',
           gap: 4,
@@ -199,6 +247,9 @@ export default function AtmosFlowFloatingDock({ tabs, aux, maxWidth, ariaLabel =
             'inset 0 1px 0 rgba(255,255,255,0.16)',
         }}
       >
+        {/* Single sliding selector bubble — sits behind the glyphs, glides to
+            the active tab. Positioned via CSS vars set in the layout effect. */}
+        <div className="affd-selector" aria-hidden="true" />
         {items.map((t) => <DockTab key={t.id} t={t} />)}
       </div>
     </nav>
