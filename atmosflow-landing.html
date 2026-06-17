@@ -310,6 +310,21 @@ footer{background:var(--ink);color:#fff}
   *{animation:none!important;scroll-behavior:auto!important}
   .reveal{opacity:1;transform:none;transition:none}
 }
+
+/* testimonials (beta social proof) */
+.tq-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+.tq-card{background:#fff;border:1px solid var(--hair);border-radius:var(--radius-sm);padding:32px;box-shadow:var(--shadow-sm)}
+.tq-quote{font-size:1.18rem;font-weight:700;line-height:1.35;letter-spacing:-.01em;color:var(--ink);margin:0 0 16px}
+.tq-body{font-size:1rem;line-height:1.65;color:var(--slate);margin:0 0 24px}
+.tq-body strong{color:var(--ink);font-weight:600}
+.tq-attr{border-top:1px solid var(--hair);padding-top:16px}
+.tq-name{font-size:.98rem;font-weight:700;color:var(--ink);margin:0}
+.tq-role{font-size:.9rem;color:var(--slate);margin:2px 0 0}
+@media (max-width:720px){
+  .tq-grid{grid-template-columns:1fr;gap:16px}
+  .tq-card{padding:26px}
+  .tq-quote{font-size:1.08rem}
+}
 </style>
 </head>
 <body>
@@ -636,6 +651,62 @@ footer{background:var(--ink);color:#fff}
         <p>Thank you for being part of the mission.</p>
       </div>
       <div class="sig"><b>Tsidi Tamakloe, CSP</b><br>Founder, AtmosFlow</div>
+    </div>
+  </div>
+</section>
+
+<!-- TESTIMONIALS -->
+<!--
+  Placed between the founder note and the beta CTA: the founder's "why" builds
+  maker credibility, peer/authority proof immediately follows, then the ask.
+  On a beta page the #1 hesitation is "is this proven / do credible peers trust
+  it?", so the social proof sits at the decision point, right before the CTA.
+
+  EMPLOYER LINE: each card has a "named employer" line (active) and a
+  "sector-only" line (commented). Get a signed testimonial release before using
+  a named employer, or switch to the sector-only line (uncomment it, delete the
+  named line).
+-->
+<section id="testimonials">
+  <div class="container">
+    <div class="head-center reveal">
+      <span class="eyebrow">From the beta</span>
+      <h2 style="margin-top:14px">What early testers are saying</h2>
+    </div>
+    <div class="tq-grid">
+
+      <!-- Card 1 -->
+      <figure class="tq-card reveal">
+        <p class="tq-quote">"A revolutionary tool that completely streamlines the IAQ process."</p>
+        <blockquote class="tq-body">
+          Being part of the initial beta test was incredible. This platform <strong>completely streamlines the IAQ assessment process</strong> from start to finish. But the real cherry on top? The final reports. The <strong>quality is radically impressive</strong>, and the execution is flawless.
+        </blockquote>
+        <figcaption class="tq-attr">
+          <p class="tq-name">Yvette C.</p>
+          <!-- NAMED EMPLOYER (requires signed release): -->
+          <p class="tq-role">Regional Safety Engineer, Amazon Web Services</p>
+          <!-- SECTOR-ONLY (no release needed) - uncomment to use, delete line above:
+          <p class="tq-role">Regional Safety Engineer, Fortune 100 technology firm</p>
+          -->
+        </figcaption>
+      </figure>
+
+      <!-- Card 2 -->
+      <figure class="tq-card reveal">
+        <p class="tq-quote">"The future industry standard for IAQ investigations."</p>
+        <blockquote class="tq-body">
+          It's an <strong>invaluable tool</strong>, and having been part of the early testing, I can confidently say it will be the <strong>foundation for all of my future IAQ investigations</strong>.
+        </blockquote>
+        <figcaption class="tq-attr">
+          <p class="tq-name">Ahmed F., CSP, CHMM</p>
+          <!-- NAMED EMPLOYER (requires signed release): -->
+          <p class="tq-role">Memorial Sloan Kettering Hospital</p>
+          <!-- SECTOR-ONLY (no release needed) - uncomment to use, delete line above:
+          <p class="tq-role">Senior Safety Professional, major academic medical center</p>
+          -->
+        </figcaption>
+      </figure>
+
     </div>
   </div>
 </section>
