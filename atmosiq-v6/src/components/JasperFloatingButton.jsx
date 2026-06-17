@@ -16,6 +16,9 @@
 import { useEffect, useRef, useState } from 'react'
 import JasperBrainIcon from './JasperBrainIcon'
 
+// How far the button can be dragged up/down from its resting spot (~1cm).
+const DRAG_RANGE = 38
+
 if (typeof document !== 'undefined' && !document.getElementById('jfb-style')) {
   const s = document.createElement('style')
   s.id = 'jfb-style'
@@ -51,11 +54,42 @@ export default function JasperFloatingButton({ onClick, active, label = 'AtmosFl
   const size = shrunk ? 46 : 60
   const glyph = shrunk ? 17 : 22
 
+  // Vertical drag: let the user nudge the button up/down by ~1cm (≈38px) each
+  // way. We track a translateY offset and clamp it. A small move threshold
+  // distinguishes a drag from a tap so dragging doesn't fire onClick.
+  const [dragY, setDragY] = useState(0)
+  const drag = useRef({ active: false, startY: 0, startOffset: 0, moved: false })
+  const onPointerDown = (e) => {
+    drag.current = { active: true, startY: e.clientY, startOffset: dragY, moved: false }
+    try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* no-op */ }
+  }
+  const onPointerMove = (e) => {
+    const d = drag.current
+    if (!d.active) return
+    const dy = e.clientY - d.startY
+    if (Math.abs(dy) > 4) d.moved = true
+    const next = Math.max(-DRAG_RANGE, Math.min(DRAG_RANGE, d.startOffset + dy))
+    setDragY(next)
+  }
+  const endDrag = (e) => {
+    drag.current.active = false
+    try { e.currentTarget.releasePointerCapture(e.pointerId) } catch { /* no-op */ }
+  }
+  const handleClick = (e) => {
+    // Suppress the tap action if the pointer was dragged.
+    if (drag.current.moved) { e.preventDefault(); return }
+    onClick?.(e)
+  }
+
   return (
     <button
       type="button"
       className="jfb-btn"
-      onClick={onClick}
+      onClick={handleClick}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={endDrag}
+      onPointerCancel={endDrag}
       aria-label={label}
       title={label}
       aria-pressed={active || undefined}
@@ -73,14 +107,20 @@ export default function JasperFloatingButton({ onClick, active, label = 'AtmosFl
         justifyContent: 'center',
         padding: 0,
         cursor: 'pointer',
-        border: '1px solid rgba(255,255,255,0.24)',
+        // No visible ring: transparent border keeps the 1px geometry (so the
+        // light-mode hairline override still applies) without the white outline.
+        border: '1px solid transparent',
         background: 'rgba(255,255,255,0.04)',
         backdropFilter: 'blur(14px) saturate(200%)',
         WebkitBackdropFilter: 'blur(14px) saturate(200%)',
         boxShadow: '0 8px 28px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.45), inset 0 -1px 1px rgba(0,0,0,0.10)',
+        // Drag offset (clamped ±~1cm). Size still animates; the drag follows
+        // the pointer instantly.
+        transform: `translateY(${dragY}px)`,
         transition: 'width 280ms cubic-bezier(.22,1,.36,1), height 280ms cubic-bezier(.22,1,.36,1)',
         WebkitTapHighlightColor: 'transparent',
-        touchAction: 'manipulation',
+        // Vertical drag needs the browser to NOT claim the gesture for scroll.
+        touchAction: 'none',
       }}
     >
       <span
