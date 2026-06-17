@@ -116,6 +116,7 @@ check("Workflow steps have icon containers + one-line descriptions", html.count(
 check("Workflow uses Lucide icons (folder-open present)", 'm6 14 1.5-2.9' in html)
 check("Workflow animates once (staggered .flow.run + connector nodes)", ('.flow.run .flow-step' in html) and ('.flow-conn::after' in html) and ("classList.add('run')" in html))
 check("Workflow final step emphasized", ('class="flow-step final"' in html) and ('.flow-step.final' in html))
+check("Workflow has a looping current that lights the final card", all(k in html for k in ['@keyframes currentFlow','@keyframes cardGlow','.flow.run .flow-conn::before{animation:currentFlow','.flow.run .flow-step.final{animation:cardGlow']))
 check("Workflow steps 1-6 have product thumbnails (lazy)", html.count('class="fs-thumb"')==6 and html.count('loading="lazy"')>=6 and ("/ss-guided-assessment.png" in html) and ("/ss-report.jpeg" in html))
 
 # ---------- assets ----------

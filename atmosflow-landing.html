@@ -145,7 +145,16 @@ header.scrolled{border-bottom-color:var(--hair);box-shadow:0 1px 0 rgba(11,18,32
 .flow.run .flow-conn::after{transform:translate(-50%,-50%) scale(1);transition:transform .3s ease;transition-delay:calc(var(--i)*110ms + 420ms)}
 .flow-step.final{border-color:rgba(34,211,238,.4);box-shadow:0 0 0 1px rgba(34,211,238,.10),0 12px 32px -18px rgba(34,211,238,.28)}
 .flow-step.final .fs-ico{border-color:rgba(34,211,238,.45);box-shadow:0 0 16px rgba(34,211,238,.22)}
-@media(prefers-reduced-motion:reduce){.flow-step{opacity:1;transform:none}.flow-conn{transform:scaleY(1)}.flow-conn::after{transform:translate(-50%,-50%) scale(1)}.flow.run .flow-step,.flow.run .flow-conn,.flow.run .flow-conn::after{transition:none}}
+.flow-conn::before{content:"";position:absolute;left:50%;top:-8px;width:6px;height:6px;border-radius:50%;background:#9BEEFB;box-shadow:0 0 12px 3px rgba(34,211,238,.85);transform:translateX(-50%);opacity:0;pointer-events:none}
+@keyframes currentFlow{0%{top:-8px;opacity:0}1%{opacity:1}9%{top:calc(100% + 2px);opacity:1}10%{top:calc(100% + 2px);opacity:0}100%{opacity:0}}
+@keyframes nodeGlow{0%,16%{box-shadow:0 0 10px rgba(34,211,238,.6);background:#22D3EE}6%{box-shadow:0 0 20px 5px rgba(103,232,249,.95);background:#9BEEFB}100%{box-shadow:0 0 10px rgba(34,211,238,.6);background:#22D3EE}}
+@keyframes cardGlow{0%,44%{box-shadow:0 0 0 1px rgba(34,211,238,.10),0 12px 32px -18px rgba(34,211,238,.28)}56%{box-shadow:0 0 0 1px rgba(34,211,238,.55),0 0 44px -2px rgba(34,211,238,.6),0 12px 34px -14px rgba(34,211,238,.5)}74%{box-shadow:0 0 0 1px rgba(34,211,238,.22),0 0 20px -6px rgba(34,211,238,.35),0 12px 32px -16px rgba(34,211,238,.32)}100%{box-shadow:0 0 0 1px rgba(34,211,238,.10),0 12px 32px -18px rgba(34,211,238,.28)}}
+@keyframes icoGlow{0%,44%{box-shadow:0 0 16px rgba(34,211,238,.22)}56%{box-shadow:0 0 28px 5px rgba(34,211,238,.6)}74%{box-shadow:0 0 18px 2px rgba(34,211,238,.3)}100%{box-shadow:0 0 16px rgba(34,211,238,.22)}}
+.flow.run .flow-conn::before{animation:currentFlow 4.5s linear infinite;animation-delay:calc(var(--i)*0.45s)}
+.flow.run .flow-conn::after{animation:nodeGlow 4.5s ease-in-out infinite;animation-delay:calc(var(--i)*0.45s)}
+.flow.run .flow-step.final{animation:cardGlow 4.5s ease-in-out infinite}
+.flow.run .flow-step.final .fs-ico{animation:icoGlow 4.5s ease-in-out infinite}
+@media(prefers-reduced-motion:reduce){.flow-step{opacity:1;transform:none}.flow-conn{transform:scaleY(1)}.flow-conn::after{transform:translate(-50%,-50%) scale(1)}.flow.run .flow-step,.flow.run .flow-conn,.flow.run .flow-conn::after{transition:none}.flow-conn::before{display:none}.flow.run .flow-conn::before,.flow.run .flow-conn::after,.flow.run .flow-step.final,.flow.run .flow-step.final .fs-ico{animation:none}}
 
 /* why (3 col) */
 .why-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
