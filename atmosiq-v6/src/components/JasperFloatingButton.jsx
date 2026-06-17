@@ -20,7 +20,7 @@ if (typeof document !== 'undefined' && !document.getElementById('jfb-style')) {
   const s = document.createElement('style')
   s.id = 'jfb-style'
   s.textContent =
-    '@keyframes jfbBreathe{0%,100%{opacity:.4;transform:translate(-50%,-50%) scale(.82)}50%{opacity:.95;transform:translate(-50%,-50%) scale(1.3)}}' +
+    '@keyframes jfbBreathe{0%,100%{opacity:.4;transform:translate(-50%,-50%) scale(.82) rotate(0deg)}50%{opacity:.95;transform:translate(-50%,-50%) scale(1.3) rotate(180deg)}}' +
     '.jfb-btn:focus-visible{outline:none;box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent), 0 8px 28px rgba(0,0,0,0.34)!important;}' +
     // Light mode: flip the dark glass to a white capsule, matching the dock.
     '[data-theme="light"] .jfb-btn{background:rgba(255,255,255,0.92)!important;border-color:rgba(15,23,42,0.10)!important;box-shadow:0 0 0 1px rgba(15,23,42,0.09),0 2px 8px rgba(15,23,42,0.18),0 10px 24px rgba(15,23,42,0.24),inset 0 1px 0 rgba(255,255,255,0.7)!important;}' +
@@ -94,7 +94,17 @@ export default function JasperFloatingButton({ onClick, active, label = 'AtmosFl
           height: size,
           borderRadius: '50%',
           pointerEvents: 'none',
-          background: 'radial-gradient(circle, color-mix(in srgb, var(--accent) 62%, transparent), color-mix(in srgb, var(--accent) 26%, transparent) 48%, transparent 78%)',
+          // Base centering transform so the glow stays put even when the
+          // breathe animation is disabled under reduced-motion (the keyframe
+          // otherwise owns the translate).
+          transform: 'translate(-50%, -50%)',
+          // Multi-colored aura — cyan → purple → orange swept around the disc
+          // (conic), then faded to nothing at the edge with a radial mask so it
+          // still reads as a soft glow, not a hard ring. The brain glyph itself
+          // stays neon cyan; only this halo is multi-hue.
+          background: 'conic-gradient(from 0deg, #22E0F2, #A855F7, #FF8A00, #22E0F2)',
+          WebkitMaskImage: 'radial-gradient(circle, #000 0%, #000 36%, transparent 72%)',
+          maskImage: 'radial-gradient(circle, #000 0%, #000 36%, transparent 72%)',
           animation: 'jfbBreathe 3.4s ease-in-out infinite',
         }}
       />
