@@ -41,6 +41,7 @@ import AnimatedPageTransition from './ui/AnimatedPageTransition'
 import FeedbackSheet from './ui/FeedbackSheet'
 import FeedbackButton from './ui/FeedbackButton'
 import StatusPill from './ui/StatusPill'
+import ScoreRing from './ScoreRing'
 import TactileButton from './ui/TactileButton'
 import BottomSheet from './ui/BottomSheet'
 import Loading from './Loading'
@@ -2412,23 +2413,33 @@ export default function MobileApp() {
             boxShadow:`0 4px 14px rgba(0,0,0,0.35)`,
           }}>
             <div style={{padding:'18px 20px'}}>
-              {/* Badges — severity + measurement confidence. */}
-              <div style={{display:'flex',gap:8,marginBottom:12,flexWrap:'wrap'}}>
-                <StatusPill tone={sevPillTone}>{sevPillLabel}</StatusPill>
-                {measConf && <StatusPill tone={confTone}>{confLabel}</StatusPill>}
+              {/* Score + situational summary. The animated ScoreRing carries
+                  the composite (severity-toned) on the left; the badges and
+                  serif diagnosis sit beside it. */}
+              <div style={{display:'flex',gap:16,alignItems:'center'}}>
+                <div style={{flexShrink:0}} aria-hidden="true">
+                  <ScoreRing value={comp.tot} color={sevPillTone} size={isTablet?120:104} />
+                </div>
+                <div style={{minWidth:0,flex:1}}>
+                  {/* Badges — severity + measurement confidence. */}
+                  <div style={{display:'flex',gap:8,marginBottom:10,flexWrap:'wrap'}}>
+                    <StatusPill tone={sevPillTone}>{sevPillLabel}</StatusPill>
+                    {measConf && <StatusPill tone={confTone}>{confLabel}</StatusPill>}
+                  </div>
+                  {/* Serif diagnosis — the screening indicator named in the
+                      editorial serif (matches the prototype's Lora .diag). */}
+                  <div style={{fontFamily:SERIF, fontSize:18, fontWeight:600, lineHeight:'24px', color:V3.TEXT_PRIMARY, textWrap:'pretty'}}>{headline}</div>
+                </div>
               </div>
-              {/* Serif diagnosis — the screening indicator named in the
-                  editorial serif (matches the prototype's Lora .diag). */}
-              <div style={{fontFamily:SERIF, fontSize:18, fontWeight:600, lineHeight:'24px', color:V3.TEXT_PRIMARY, marginBottom:8, textWrap:'pretty'}}>{headline}</div>
-              <div style={{...V3.T.bodyDim, lineHeight:'20px'}}>
+              <div style={{...V3.T.bodyDim, lineHeight:'20px', marginTop:12}}>
                 {comp.tot < 30 ? 'Building-related symptom cluster identified. Immediate corrective action recommended.'
                   : comp.tot < 50 ? 'Targeted investigation and corrective action warranted.'
                   : comp.tot < 70 ? 'Targeted improvements recommended; conditions trending outside accepted range.'
                   : 'Conditions within acceptable range; continue routine monitoring.'}
               </div>
-              {/* Footer score readout. Consultant view shows the composite
-                  indicator + a thin severity-toned /100 bar; tapping drills
-                  into the per-zone breakdown. FM mode keeps a plain count. */}
+              {/* Footer — the composite number now lives in the ring above, so
+                  the footer carries the zone denominator + the drill-in to the
+                  per-zone / per-category breakdown. FM mode keeps a plain count. */}
               {userMode !== 'fm' ? (
                 <button
                   onClick={()=>{
@@ -2441,13 +2452,9 @@ export default function MobileApp() {
                   }}
                   aria-label={`Composite indicator ${comp.tot} of 100. View the per-zone score breakdown.`}
                   {...pressFeedback('soft')}
-                  style={{display:'flex',alignItems:'center',gap:12,marginTop:14,paddingTop:14,width:'100%',cursor:'pointer',fontFamily:'inherit',textAlign:'left',background:'none',border:'none',borderTop:`1px solid ${V3.BORDER_SUBTLE}`,...pressFeedback.style}}>
-                  <span style={{fontFamily:'var(--font-mono)',fontSize:22,fontWeight:600,color:sevPillTone,lineHeight:1}}>{comp.tot}</span>
-                  <span style={{fontFamily:'var(--font-mono)',fontSize:11,color:V3.TEXT_TERTIARY}}>/100</span>
-                  <span style={{flex:1,height:3,background:V3.BORDER_DEFAULT,borderRadius:2,overflow:'hidden'}}>
-                    <span style={{display:'block',height:'100%',width:`${Math.max(0,Math.min(100,comp.tot))}%`,background:sevPillTone,borderRadius:2,transition:'width .9s cubic-bezier(.2,.8,.3,1)'}} />
-                  </span>
-                  <span style={{...V3.T.captionDim,whiteSpace:'nowrap'}}>{comp.count} {comp.count===1?'zone':'zones'}</span>
+                  style={{display:'flex',alignItems:'center',gap:8,marginTop:14,paddingTop:14,width:'100%',cursor:'pointer',fontFamily:'inherit',textAlign:'left',background:'none',border:'none',borderTop:`1px solid ${V3.BORDER_SUBTLE}`,...pressFeedback.style}}>
+                  <span style={{flex:1,...V3.T.captionDim}}>{comp.count} {comp.count===1?'zone':'zones'} assessed</span>
+                  <span style={{...V3.T.captionDim,whiteSpace:'nowrap'}}>View breakdown</span>
                   <span style={{color:V3.TEXT_TERTIARY,fontSize:13}}>›</span>
                 </button>
               ) : (
