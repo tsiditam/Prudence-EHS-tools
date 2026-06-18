@@ -96,7 +96,7 @@ check("Metric badge reinforces a structured draft", "Structured draft reports in
 check("Metric bar labels cleaned up (no small Hours/Minutes foot labels)", 'bar-foot' not in html)
 check("Metric animates once on scroll (IntersectionObserver)", "getElementById('draftMetric')" in html)
 check("AtmosFlow bar gradient + premium badge gradient", ('linear-gradient(90deg,#22D3EE,#67E8F9)' in html) and ('linear-gradient(90deg,rgba(34,211,238,.12),rgba(34,211,238,.05))' in html))
-check("Traditional bar crawls slowly to imply a slow workflow", '.metric-bar.trad .bar-fill{background:#CBD5E1;transition:width 7000ms linear}' in html)
+check("Traditional bar crawls slowly to imply a slow workflow", '.metric-bar.trad .bar-fill{background:#CBD5E1;transition:width 10000ms linear}' in html)
 check("Metric one-time glow + reduced-motion guard", ('@keyframes afGlowIn' in html) and ("matchMedia('(prefers-reduced-motion: reduce)')" in html))
 
 # ---------- premium icon system (Lucide, monochromatic + cyan accent) ----------
