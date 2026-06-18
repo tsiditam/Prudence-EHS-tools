@@ -2407,7 +2407,9 @@ export default function MobileApp() {
               per-zone / per-category breakdown. ── */}
           <GlassCard style={{
             padding:0,
-            background:`linear-gradient(135deg, color-mix(in srgb, ${sevPillTone} 9%, transparent) 0%, var(--card) 72%)`,
+            // Flat card surface — no severity-tinted glow. The colored outline
+            // (border) stays as the severity cue.
+            background:'var(--card)',
             border:`1px solid color-mix(in srgb, ${sevPillTone} 45%, transparent)`,
             boxShadow:`0 4px 14px rgba(0,0,0,0.35)`,
           }}>
