@@ -1,0 +1,32 @@
+/* TypewriterText — inherits the headline's font; only the accent color and the
+   blinking cursor are ours. Cursor blink is pure CSS, so it never triggers a
+   React re-render. */
+.tw {
+  font: inherit;
+  white-space: nowrap;
+}
+.tw-cursor {
+  display: inline-block;
+  margin-left: 1px;
+  font-weight: inherit;
+  animation: tw-blink 1s steps(1, end) infinite;
+}
+@keyframes tw-blink {
+  0%, 50% { opacity: 1; }
+  50.01%, 100% { opacity: 0; }
+}
+/* Visually-hidden, stable phrase for assistive tech (no rapid-change spam). */
+.tw-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tw-cursor { animation: none; }
+}
