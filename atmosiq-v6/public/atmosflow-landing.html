@@ -89,6 +89,10 @@ header.scrolled{border-bottom-color:var(--hair);box-shadow:0 1px 0 rgba(11,18,32
 .hero-grid{max-width:760px;margin:0 auto;text-align:center}
 .hero h1{font-size:clamp(2.5rem,5.4vw,4rem);margin:18px 0 0;background:linear-gradient(180deg,#0B1220,#243244);-webkit-background-clip:text;background-clip:text}
 .hero h1 .accent{color:var(--cyan);-webkit-text-fill-color:#22D3EE}
+.tw-cursor{display:inline-block;margin-left:1px;font-weight:inherit;animation:tw-blink 1s steps(1,end) infinite}
+@keyframes tw-blink{0%,50%{opacity:1}50.01%,100%{opacity:0}}
+.tw-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+@media (prefers-reduced-motion:reduce){.tw-cursor{animation:none}}
 .hero .lead{margin-top:22px;margin-left:auto;margin-right:auto}
 .hero-actions{display:flex;justify-content:center;gap:14px;margin-top:34px;flex-wrap:wrap}
 .trust{margin-top:34px}
@@ -378,7 +382,7 @@ footer{background:var(--ink);color:#fff}
   <div class="container hero-grid">
     <div class="hero-copy reveal in">
       <span class="eyebrow">Indoor air quality investigation platform</span>
-      <h1>From field data to a defensible IAQ draft report <span class="accent">in minutes</span>.</h1>
+      <h1>From field data to a defensible IAQ draft report <span class="accent tw" id="heroTw"><span class="tw-anim" aria-hidden="true">in minutes</span><span class="tw-cursor" aria-hidden="true">|</span><span class="tw-sr">in minutes</span></span>.</h1>
       <p class="lead">AtmosFlow turns field observations, logger data, and building information into structured findings, sampling plans, and draft reports &mdash; with your professional review on every conclusion.</p>
       <div class="hero-actions">
         <a class="btn btn-primary" href="/early-access">Request Beta Access</a>
@@ -882,6 +886,21 @@ v.addEventListener("click",function(){try{v.paused?v.play():v.pause();}catch(e){
     var s=null; function tick(t){ if(!s)s=t; var p=Math.min((t-s)/1400,1); if(num)num.textContent=Math.round(p*T); if(p<1)requestAnimationFrame(tick); else if(num)num.textContent=T; } requestAnimationFrame(tick); }
   var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){run();io.disconnect();}})},{threshold:.4});
   io.observe(ring);
+})();
+</script>
+<script>
+(function(){
+  var wrap=document.getElementById('heroTw'); if(!wrap) return;
+  var el=wrap.querySelector('.tw-anim'); if(!el) return;
+  if(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches){el.textContent='in minutes';return;}
+  var text='in minutes',TYPE=50,DEL=30,HOLD=3000,PAUSE=500,i=text.length,phase='holding',timer;
+  function step(){
+    if(phase==='typing'){el.textContent=text.slice(0,i+1);i++;if(i>=text.length){phase='holding';timer=setTimeout(step,HOLD);}else{timer=setTimeout(step,TYPE);}}
+    else if(phase==='holding'){phase='deleting';timer=setTimeout(step,DEL);}
+    else if(phase==='deleting'){i--;el.textContent=text.slice(0,i);if(i<=0){phase='pausing';timer=setTimeout(step,PAUSE);}else{timer=setTimeout(step,DEL);}}
+    else if(phase==='pausing'){phase='typing';i=0;timer=setTimeout(step,TYPE);}
+  }
+  timer=setTimeout(step,HOLD);
 })();
 </script>
 </body>
