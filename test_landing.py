@@ -131,6 +131,7 @@ check("Favicon embedded (base64)", html.count('data:image/png;base64,')>=1)
 check("Wordmark logos are transparent SVG (no white box, no tagline)", html.count('/icons/atmosflow-wordmark')>=2)
 check("Favicon linked", 'rel="icon"' in html)
 check("Social/OG meta present", 'property="og:title"' in html and 'name="twitter:card"' in html)
+check("Marketing conversion agent widget loaded (deferred, non-blocking)", '<script defer src="/marketing-agent.js"></script>' in html)
 check("OG image + twitter image present for rich link previews", ('property="og:image"' in html) and ('name="twitter:image"' in html) and ('/ss-report.jpeg' in html))
 
 # ---------- trust / standards zone ----------
