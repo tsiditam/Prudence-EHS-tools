@@ -140,20 +140,17 @@
         --bubble-press-scale:0.96;
       }
       [data-theme="light"]{
-        /* Premium Light palette — a neutral cool-grey (slate) page,
-           tuned from the v3 prototype's "Clinical Light" theme but with
-           the blue pulled out for a calmer, less-tinted read (not the
-           prior warm off-white). Three-step surface ladder so hierarchy
-           reads in light mode the same way it does in dark: bg is the
-           slate tint, surface a tier lower, card stays pure white so
-           cards lift off the page. Borders are neutral cool-grey to keep
-           card edges clean; the restrained cyan (#2EA7BF) is reserved for
-           text, icons, and active states, and the brighter #39C0D9 fills
-           emphasis CTAs. NOTE: the darker accent on near-white is
-           ~2.6:1, below WCAG AA 4.5:1 for body text — accepted
-           intentionally for brand consistency; flag for any future
-           accessibility audit. */
-        --bg:#F8F4EB;
+        /* Premium Light palette — a clean WHITE page (was a warm beige
+           #F8F4EB). The surface ladder still reads: bg is pure white,
+           surface is a cool-grey tier for grouped / selected areas, and
+           cards stay white, lifting off the page via the neutral border +
+           soft shadow rather than a bg/card tint gap. The restrained cyan
+           (#2EA7BF) is reserved for text, icons, and active states, and
+           the brighter #39C0D9 fills emphasis CTAs. NOTE: the darker
+           accent on white is ~2.6:1, below WCAG AA 4.5:1 for body text —
+           accepted intentionally for brand consistency; flag for any
+           future accessibility audit. */
+        --bg:#FFFFFF;
         --surface:#E4E8EC;
         --card:#FFFFFF;
         --surface-deep:#FFFFFF;
