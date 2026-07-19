@@ -366,10 +366,12 @@ footer{background:var(--ink);color:#fff}
       <a class="navlink" href="#faq">FAQ</a>
       <div class="drawer-cta">
         <a class="btn btn-primary" href="/early-access">Request Beta Access</a>
+        <a class="btn btn-ghost af-app-entry" href="/">Sign In</a>
         <a class="btn btn-ghost" href="/atmosflow-sample-report.pdf" target="_blank" rel="noopener">See a sample report</a>
       </div>
     </nav>
     <div class="nav-cta">
+      <a class="btn btn-ghost btn-sm af-app-entry" href="/">Sign In</a>
       <a class="btn btn-primary btn-sm" href="/early-access">Request Beta Access</a>
       <button class="menu-btn" id="menuBtn" aria-label="Menu" aria-expanded="false"><span></span><span></span><span></span></button>
     </div>
@@ -835,6 +837,15 @@ mb.addEventListener('click',function(){setMenu(!nl.classList.contains('open'))})
 ov.addEventListener('click',function(){setMenu(false)});
 nl.querySelectorAll('a').forEach(function(a){a.addEventListener('click',function(){setMenu(false)})});
 document.addEventListener('keydown',function(e){if(e.key==='Escape'&&nl.classList.contains('open'))setMenu(false)});
+
+// App entry: the "Sign In" links flip the returning-visitor flag so the
+// SPA at / loads the app shell (which shows the auth screen) instead of
+// redirecting straight back to this marketing landing page.
+document.querySelectorAll('.af-app-entry').forEach(function(a){
+  a.addEventListener('click',function(){
+    try{localStorage.setItem('af_desktop_entered','1')}catch(e){}
+  });
+});
 
 
 // scroll reveal
