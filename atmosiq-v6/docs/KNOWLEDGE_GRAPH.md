@@ -122,11 +122,73 @@ Precedence is deliberate: the cohort marker is **enable-only** and sits *below*
 the user's own choice — a prior `?kg=0` / `af.kgEvidence='0'` still wins, and a
 non-cohort user simply falls through to the host default (prod off). The
 `KG_KILL_SWITCH` still overrides everything, so cohort rollout only takes effect
-once the switch is lifted. Wiring the profile flag into boot is the follow-up
-step; this ships the resolution mechanism (pure + unit-tested) first.
+once the switch is lifted.
+
+**Membership source of truth:** the `profiles.kg_beta` boolean (migration
+`025_profile_kg_beta.sql`). At boot `AuthContext` reads the server profile and
+calls `applyKgCohort(profile.kg_beta === true)`, so the client marker is always
+re-derived from the server flag (self-healing). `kg_beta` is **operator-set via
+the service role only** — `saveProfile()` never writes it, and RLS blocks a user
+from editing their own row's `kg_beta`, so no one can self-enroll.
 
 To enable on production for a demo: visit `https://atmosflow.net/?kg=1` once.
 To turn it back off: `https://atmosflow.net/?kg=0`.
+
+### Enrolling beta users — operator runbook (SQL)
+
+Run these in the **Supabase SQL editor** (service role — it bypasses RLS; the
+app's anon/user role cannot write `kg_beta`). Prerequisite: migration `025`
+applied.
+
+```sql
+-- Enroll a user by email
+update public.profiles p
+   set kg_beta = true
+  from auth.users u
+ where u.id = p.id
+   and lower(u.email) = lower('assessor@example.com');
+
+-- Enroll by profile id (== auth user id)
+update public.profiles set kg_beta = true
+ where id = '00000000-0000-0000-0000-000000000000';
+
+-- Who is currently in the cohort?
+select p.id, u.email, p.kg_beta
+  from public.profiles p
+  join auth.users u on u.id = p.id
+ where p.kg_beta = true
+ order by u.email;
+
+-- Count enrolled
+select count(*) from public.profiles where kg_beta = true;
+
+-- Un-enroll one user by email
+update public.profiles p
+   set kg_beta = false
+  from auth.users u
+ where u.id = p.id
+   and lower(u.email) = lower('assessor@example.com');
+
+-- Roll the whole cohort back (kill-switch of last resort for enrollment)
+update public.profiles set kg_beta = false where kg_beta = true;
+```
+
+**After enrolling**, the change is *sticky, next-load*: the user picks it up the
+next time the app boots (`AuthContext` writes `af.kgCohort` from their profile),
+exactly like `?kg=1`. Ask them to reload / reopen the app. Nothing appears until
+`KG_KILL_SWITCH` is lifted **and** the user is enrolled.
+
+**Verify** an enrolled user got it: in their browser DevTools →
+Application → Local Storage, `af.kgCohort === '1'` after a reload; once the kill
+switch is off they'll see the **Evidence** result tab and the KG surfaces.
+
+**Note:** a user who explicitly opted out (`?kg=0`, persisted as
+`af.kgEvidence='0'`) still wins over enrollment by design; to override, have them
+visit `?kg=1` or clear that key.
+
+> An admin-UI toggle for `kg_beta` is a possible follow-up; for a small Phase-0
+> cohort this SQL runbook is the intended path (no new write endpoint / admin
+> auth surface to review).
 
 ## Eyeballing it (no auth)
 

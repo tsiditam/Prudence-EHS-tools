@@ -8,6 +8,15 @@ import STO from '../utils/storage'
 import Storage from '../utils/cloudStorage'
 import { supabase, trackEvent } from '../utils/supabaseClient'
 import Profiles from '../utils/profiles'
+import { applyKgCohort } from '../utils/featureFlags'
+
+// Sync the client-side KG beta-cohort marker to the server profile's kg_beta
+// flag. Enable-only + sticky: it flips `af.kgCohort` so the Knowledge Graph
+// turns on for cohort members on the NEXT load (same model as ?kg=1), and
+// self-heals to off for non-members. Never touches the user's own ?kg= choice.
+function syncKgCohort(serverProfile) {
+  try { applyKgCohort(serverProfile?.kg_beta === true) } catch { /* non-fatal */ }
+}
 
 const AuthContext = createContext(null)
 
@@ -63,6 +72,7 @@ export function AuthProvider({ children }) {
       trackEvent('login_completed', {})
       sendAuditBeacon('user.signin').catch(() => {})
       const p = await Storage.getProfile()
+      syncKgCohort(p)
       if (p) setProfile(p)
       else setProfile({ id: userOrProfile.id, name: userOrProfile.email, isNew: true })
       Storage.fullSync()
@@ -88,6 +98,7 @@ export function AuthProvider({ children }) {
         const user = await Storage.getUser()
         if (user) {
           const p = await Storage.getProfile()
+          syncKgCohort(p)
           if (p) setProfile(p)
           else setProfile({ id: user.id, name: user.email, isNew: true })
           Storage.processSyncQueue()
