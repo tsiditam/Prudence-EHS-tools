@@ -1,0 +1,195 @@
+/**
+ * Indoor Environmental Monitoring Report — DOCX layer.
+ *
+ * The content rules live in tests/lib/monitoringReportModel.test.ts. What is
+ * verified here is that the model actually becomes a document: sections are
+ * built in the right order, empty sections are omitted rather than rendered
+ * blank, appendices are lettered, a broken chart cannot abort generation, and
+ * the packed file is a real .docx.
+ */
+import { describe, it, expect } from 'vitest'
+import { Packer } from 'docx'
+import {
+  buildMonitoringSections,
+  monitoringReportChildren,
+  buildParameterSection,
+  buildReferenceSection,
+  buildEventsAppendix,
+  buildRawStatisticsAppendix,
+} from '../../src/components/docx/sections-monitoring'
+import {
+  buildMonitoringReportDocument,
+  monitoringReportFileName,
+} from '../../src/components/docx/monitoring-report'
+import { buildMonitoringReportModel } from '../../src/utils/monitoringReportModel'
+import { createMonitoringSession } from '../../src/utils/monitoringSession'
+
+const T0 = Date.UTC(2026, 6, 15)
+const MIN = 60_000
+const PNG =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
+
+function dataset() {
+  const points = []
+  for (let i = 0; i < 288; i++) {
+    const hour = (i / 6) % 24
+    const occupied = hour >= 8 && hour < 18
+    points.push({ t: T0 + i * 10 * MIN, co2: occupied ? 1100 : 480, temp: occupied ? 73 : 70, pm25: occupied ? 7.5 : 4.2 })
+  }
+  return {
+    fileName: 'qtrak.csv',
+    params: ['co2', 'temp', 'pm25'],
+    units: { co2: 'ppm', temp: '°F', pm25: 'µg/m³' },
+    points,
+    summary: { count: points.length, start: points[0].t, end: points[points.length - 1].t },
+    quality: { flags: [{ level: 'minor', msg: 'Irregular sampling intervals.' }] },
+  }
+}
+
+const session = (over = {}) =>
+  createMonitoringSession({
+    objective: 'Document indoor environmental conditions.',
+    location: { building: 'Meridian Commerce Tower', room: 'Suite 300' },
+    instrument: { make: 'TSI', model: 'Q-Trak XP', serial: 'QT-1' },
+    calibration: { date: '2026-03-12' },
+    assessor: { name: 'T. Tamakloe', credentials: 'CSP' },
+    client: { preparedFor: 'Meridian Property Group' },
+    datasets: [{ ...dataset(), role: 'indoor' }],
+    events: [{ id: 'e1', t: T0 + 300 * MIN, type: 'cleaning', note: 'After hours.' }],
+    ...over,
+  })
+
+const model = (over = {}, opts = {}) =>
+  buildMonitoringReportModel(session(over), {
+    generatedAt: '2026-07-31T14:20:00.000Z',
+    datasetHash: 'a19dd790',
+    softwareVersion: '6.0.0',
+    charts: { co2: PNG },
+    ...opts,
+  })
+
+describe('section assembly', () => {
+  it('builds the body in report order', () => {
+    const { body } = buildMonitoringSections(model())
+    const titles = body.map((s) => s.title)
+    expect(titles[0]).toBe('Indoor Environmental Monitoring Report')
+    expect(titles).toEqual(
+      expect.arrayContaining([
+        'Monitoring objective',
+        'Location & instrument',
+        'Key dataset highlights',
+        'Screening reference values',
+        'Carbon dioxide',
+        'Temperature',
+        'Dataset integrity',
+        'Limitations',
+        'Report metadata',
+      ]),
+    )
+    // Limitations must never be buried after the metadata block.
+    expect(titles.indexOf('Limitations')).toBeLessThan(titles.indexOf('Report metadata'))
+  })
+
+  it('letters the appendices, and keeps raw statistics out of the client edition', () => {
+    const client = buildMonitoringSections(model())
+    expect(client.appendices.map((a) => a.title)).toEqual(['Monitoring events'])
+
+    const technical = buildMonitoringSections(model({}, { edition: 'technical' }))
+    expect(technical.appendices.map((a) => a.title)).toEqual(['Monitoring events', 'Raw statistics'])
+
+    const children = monitoringReportChildren(model({}, { edition: 'technical' }))
+    const text = JSON.stringify(children)
+    expect(text).toContain('Appendix A — Monitoring events')
+    expect(text).toContain('Appendix B — Raw statistics')
+  })
+
+  it('omits a section with no data rather than rendering an empty heading', () => {
+    const bare = buildMonitoringReportModel(createMonitoringSession(), {})
+    const { body, appendices } = buildMonitoringSections(bare)
+    const titles = body.map((s) => s.title)
+    expect(titles).not.toContain('Monitoring objective')
+    expect(titles).not.toContain('Key dataset highlights')
+    expect(titles).not.toContain('Screening reference values')
+    expect(appendices).toEqual([]) // no events, no technical appendix
+    // The disclaimers still ship — they are not conditional on data.
+    expect(titles).toContain('Limitations')
+  })
+
+  it('returns empty structures for a null model instead of throwing', () => {
+    expect(buildMonitoringSections(null)).toEqual({ body: [], appendices: [] })
+    expect(buildParameterSection(null)).toBeNull()
+    expect(buildReferenceSection({})).toBeNull()
+    expect(buildEventsAppendix({})).toBeNull()
+    expect(buildRawStatisticsAppendix({})).toBeNull()
+  })
+})
+
+describe('parameter section', () => {
+  const entry = model().parameters.find((x) => x.param === 'co2')
+  const section = buildParameterSection(entry)
+
+  it('never lowercases an acronym in the opening line', () => {
+    const pm = buildParameterSection(model().parameters.find((x) => x.param === 'pm25'))
+    const text = JSON.stringify(pm.children)
+    expect(text).toContain('measured PM2.5')
+    expect(text).not.toContain('measured pm2.5')
+  })
+
+  it('labels reference-table rows for a reader', () => {
+    const text = JSON.stringify(buildReferenceSection(model()).children)
+    expect(text).toContain('Carbon dioxide')
+    expect(text).not.toMatch(/"co2"/)
+  })
+
+  it('renders status, strip, chart, statement and insights', () => {
+    const text = JSON.stringify(section.children)
+    expect(section.title).toBe('Carbon dioxide')
+    expect(text).toContain('Status: ')
+    expect(text).toContain('Monitoring insights')
+    expect(text).toContain('Figure 1.')
+  })
+
+  it('survives an unreadable chart rather than aborting the report', () => {
+    const broken = buildParameterSection({ ...entry, chart: 'data:image/png;base64,@@@not-base64@@@' })
+    expect(broken).toBeTruthy()
+    expect(broken.children.length).toBeGreaterThan(2)
+  })
+
+  it('renders without a chart at all', () => {
+    const noChart = buildParameterSection({ ...entry, chart: null })
+    expect(noChart.children.length).toBeGreaterThan(2)
+    expect(JSON.stringify(noChart.children)).not.toContain('Figure 1.')
+  })
+})
+
+describe('document packaging', () => {
+  it('packs a real .docx', async () => {
+    const doc = buildMonitoringReportDocument(model())
+    const buf = await Packer.toBuffer(doc)
+    expect(buf.length).toBeGreaterThan(2000)
+    // A .docx is a zip: the local file header magic is "PK\x03\x04".
+    expect(buf[0]).toBe(0x50)
+    expect(buf[1]).toBe(0x4b)
+  }, 30_000)
+
+  it('packs the technical edition too', async () => {
+    const buf = await Packer.toBuffer(buildMonitoringReportDocument(model({}, { edition: 'technical' })))
+    expect(buf.length).toBeGreaterThan(2000)
+  }, 30_000)
+
+  it('names the file from the site and edition, safely for any OS', () => {
+    // The em-dash in "Tower — Suite 300" is stripped and the surrounding
+    // whitespace collapses to a single hyphen, not a doubled one.
+    expect(monitoringReportFileName(model())).toBe(
+      'AtmosFlow-Monitoring-Report-Meridian-Commerce-Tower-Suite-300.docx',
+    )
+    expect(monitoringReportFileName(model({}, { edition: 'technical' }))).toContain('-Technical.docx')
+    // No characters that break a filesystem.
+    expect(monitoringReportFileName(model())).not.toMatch(/[/\\:*?"<>|]/)
+  })
+
+  it('falls back to a usable name when the site is unknown', () => {
+    const bare = buildMonitoringReportModel(createMonitoringSession(), {})
+    expect(monitoringReportFileName(bare)).toBe('AtmosFlow-Monitoring-Report-Monitoring.docx')
+  })
+})

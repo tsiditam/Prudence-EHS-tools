@@ -121,6 +121,13 @@ export function formatTimestamp(ms, opts = {}) {
   return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}, ${h}:${min} ${hour24 >= 12 ? 'PM' : 'AM'}`
 }
 
+/** "Jul 31, 2026" — a calendar date with no time of day, same offset rules. */
+export function formatDateOnly(ms, opts = {}) {
+  if (!isNum(ms)) return null
+  const d = new Date(ms + (isNum(opts.utcOffsetMin) ? opts.utcOffsetMin : 0) * 60000)
+  return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}`
+}
+
 /** Site-local hour (0–23) for a timestamp, without host-timezone dependency. */
 function localHour(ms, utcOffsetMin = 0) {
   if (!isNum(ms)) return null
