@@ -101,13 +101,29 @@ rollout below. Nothing else needs to change to disable or re-enable the feature.
 `resolveKgFlag()` decides, first decisive rule wins:
 
 1. URL **`?kg=1`** / **`?kg=0`** → persisted to `localStorage`, then applied
-2. `localStorage['af.kgEvidence']` = `'1'` | `'0'`
-3. default: **ON** for non-production hosts, **OFF** for `atmosflow.net`
+2. `localStorage['af.kgEvidence']` = `'1'` | `'0'` — the user's explicit choice
+3. `localStorage['af.kgCohort']` = `'1'` — the server-driven beta cohort
+4. default: **ON** for non-production hosts, **OFF** for `atmosflow.net`
 
 So preview / localhost builds get it automatically; production hides it by
 default; the owner can flip it on for a live demo with `?kg=1` (sticky) and off
 again with `?kg=0` — no redeploy. The flag controls the in-app Evidence tab,
 the `/dev/evidence-map` preview, and the floating **KG Preview** button.
+
+### Beta-cohort rollout (Phase 0)
+
+`applyKgCohort(enabled)` lets the app boot enable the KG for a **beta cohort**
+of production users without a redeploy and without them typing `?kg=1`. When a
+user's profile opts them into the KG beta, boot calls `applyKgCohort(true)`,
+which writes `localStorage['af.kgCohort']='1'`; on the next load `resolveKgFlag`
+turns the KG **on** for that user (production included).
+
+Precedence is deliberate: the cohort marker is **enable-only** and sits *below*
+the user's own choice — a prior `?kg=0` / `af.kgEvidence='0'` still wins, and a
+non-cohort user simply falls through to the host default (prod off). The
+`KG_KILL_SWITCH` still overrides everything, so cohort rollout only takes effect
+once the switch is lifted. Wiring the profile flag into boot is the follow-up
+step; this ships the resolution mechanism (pure + unit-tested) first.
 
 To enable on production for a demo: visit `https://atmosflow.net/?kg=1` once.
 To turn it back off: `https://atmosflow.net/?kg=0`.

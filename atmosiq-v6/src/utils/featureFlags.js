@@ -13,18 +13,32 @@
  *
  * Resolution order (first decisive rule wins):
  *   1. URL  ?kg=1 / ?kg=0  → persisted to localStorage, then applied
- *   2. localStorage 'af.kgEvidence' = '1' | '0'
- *   3. default: ON for non-production hosts, OFF for atmosflow.net
+ *   2. localStorage 'af.kgEvidence' = '1' | '0'  (the user's explicit choice)
+ *   3. localStorage 'af.kgCohort' = '1'          (server-driven beta cohort)
+ *   4. default: ON for non-production hosts, OFF for atmosflow.net
  *
  * This means: preview/localhost get it automatically; production hides it by
  * default but the owner can flip it on for a live demo with ?kg=1 (sticky) and
  * off again with ?kg=0 — no redeploy. Every function is pure and injectable so
  * the resolution logic is unit-tested without a browser; all window access is
  * guarded for SSR / privacy-mode where localStorage can throw.
+ *
+ * Cohort rollout (Phase 0): `applyKgCohort(enabled)` lets the app boot mark a
+ * user as part of the KG beta cohort (from their profile) by writing the
+ * `af.kgCohort` key. That key ENABLES the KG on production for that user
+ * WITHOUT a redeploy and without them typing ?kg=1 — but it never overrides an
+ * explicit user choice (a prior ?kg=0 / persisted 'af.kgEvidence=0' still wins),
+ * and it is enable-only (it can turn the feature ON for a cohort member, never
+ * force it OFF for a non-member — non-members simply fall through to the host
+ * default). The master KG_KILL_SWITCH still overrides everything.
  */
 
 const PROD_HOSTS = new Set(['atmosflow.net', 'www.atmosflow.net'])
 export const KG_STORAGE_KEY = 'af.kgEvidence'
+// Server-driven beta-cohort marker, written by applyKgCohort() at app boot.
+// Distinct from KG_STORAGE_KEY so a cohort default never clobbers — nor is
+// clobbered by — the user's own explicit ?kg= choice.
+export const KG_COHORT_STORAGE_KEY = 'af.kgCohort'
 
 /**
  * Master kill switch for the Knowledge Graph.
@@ -101,15 +115,55 @@ export function resolveKgFlag(env = {}) {
     return fromUrl
   }
 
-  // 2. Persisted override from a prior ?kg= visit.
+  // 2. Persisted override from a prior ?kg= visit — the user's explicit choice,
+  //    which beats the server-driven cohort default below.
   try {
     const saved = storage && storage.getItem(KG_STORAGE_KEY)
     if (saved === '1') return true
     if (saved === '0') return false
   } catch {
+    /* storage read blocked — fall through to cohort / host default */
+  }
+
+  // 3. Server-driven beta cohort (written by applyKgCohort at boot). Enable-only:
+  //    '1' turns the KG on (including on production) for a cohort member; any
+  //    other value / absence falls through to the host default.
+  try {
+    if (storage && storage.getItem(KG_COHORT_STORAGE_KEY) === '1') return true
+  } catch {
     /* storage read blocked — fall through to host default */
   }
 
-  // 3. Default: on everywhere except the production host.
+  // 4. Default: on everywhere except the production host.
   return !isProdHost(hostname)
+}
+
+/**
+ * Mark (or unmark) the current browser as part of the KG beta cohort.
+ *
+ * Called at app boot from the authenticated user's profile: when the profile
+ * opts the user into the KG beta, pass `true` and the `af.kgCohort` key is
+ * written so `resolveKgFlag` enables the KG on the NEXT load (same sticky model
+ * as ?kg=1). Pass `false` to clear the marker. It never touches KG_STORAGE_KEY,
+ * so it can neither override nor be overridden by the user's own ?kg= choice.
+ *
+ * Pure and guarded like the rest of this module; a blocked/absent storage is a
+ * silent no-op. Returns the boolean it applied (for tests / call-site logging).
+ *
+ * @param {boolean} enabled  whether the user is in the KG beta cohort
+ * @param {object}  [env]    injection seam for tests
+ * @param {Storage|null} [env.storage] defaults to a guarded window.localStorage
+ * @returns {boolean}
+ */
+export function applyKgCohort(enabled, env = {}) {
+  const storage = env.storage !== undefined ? env.storage : safeLocalStorage()
+  const on = enabled === true
+  try {
+    if (!storage) return on
+    if (on) storage.setItem(KG_COHORT_STORAGE_KEY, '1')
+    else storage.removeItem(KG_COHORT_STORAGE_KEY)
+  } catch {
+    /* storage blocked — cohort marker simply won't persist this session */
+  }
+  return on
 }
