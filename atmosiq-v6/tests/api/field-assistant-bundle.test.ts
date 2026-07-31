@@ -75,4 +75,25 @@ describe('Jasper hot-path bundle', () => {
     expect(bundle).toMatch(/\bdocxtemplater\b/)
     expect(bundle).toMatch(/renderTemplate/)
   })
+
+  // Knowledge Graph must stay CLIENT-SIDE on the Jasper path (KG activation,
+  // Phase 0 production-readiness). The client builds the Jasper context —
+  // including the KG graph projection via buildGraphContext() — and SENDS it to
+  // the handler; the serverless function must never import the KG builder.
+  // Pulling it in would put the whole deterministic graph projector on every
+  // Jasper cold-start (the same class of regression as the docxtemplater cases
+  // above). docs/KNOWLEDGE_GRAPH.md pins this contract explicitly.
+  it('does NOT pull the KG context builder into /api/field-assistant', { timeout: 30_000 }, async () => {
+    const bundle = await bundleHandler('api/field-assistant.ts')
+    expect(bundle).not.toMatch(/buildGraphContext/)
+    expect(bundle).not.toMatch(/graphContext/)
+  })
+
+  it('does NOT pull the KG projector into /api/field-assistant', { timeout: 30_000 }, async () => {
+    const bundle = await bundleHandler('api/field-assistant.ts')
+    // The builder's public entry point — its presence would mean the whole
+    // knowledgeGraphBuilder module got walked into the handler bundle.
+    expect(bundle).not.toMatch(/buildKnowledgeGraphFromAssessment/)
+    expect(bundle).not.toMatch(/knowledgeGraphBuilder/)
+  })
 })
