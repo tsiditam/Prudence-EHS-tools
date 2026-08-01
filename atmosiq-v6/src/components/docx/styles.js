@@ -4,11 +4,26 @@
  */
 
 export const FONTS = {
-  // Modern editorial pairing — sans body (Inter), serif display / headings
-  // (Newsreader), mono for codes/labels (DM Mono). Word substitutes a local
-  // equivalent (Calibri / Cambria / Consolas) when a font isn't installed,
-  // so the report still renders cleanly offline.
-  body: 'Inter',
+  // The body face is APTOS, the Microsoft 365 default since 2024.
+  //
+  // OOXML has no font stack: `w:rFonts` names ONE family, and a reader that
+  // does not have it substitutes something of its own choosing. So the only
+  // way a generated document looks the way it was designed is to name a face
+  // the reader already has. Inter — the product's screen font — is not
+  // installed with Word, so every recipient without it saw an arbitrary
+  // substitution, which is why generated reports did not match the reviewed
+  // design on other people's machines.
+  //
+  // Aptos is not universal either: perpetual Office builds (2019/2021),
+  // LibreOffice and Pages will still substitute. But it is present for the
+  // audience that actually opens these files, and that is the whole of the
+  // improvement being claimed here.
+  //
+  // Serif display (Newsreader) and mono (DM Mono) are unchanged. Neither
+  // ships with Word, so both still substitute; changing them is a
+  // typographic decision rather than a rendering fix, and belongs to
+  // whoever owns the visual system.
+  body: 'Aptos',
   heading: 'Newsreader',
   mono: 'DM Mono',
 }

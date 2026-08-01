@@ -45,6 +45,19 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 export const CHART_SIZE = { width: 920, height: 360 }
 
 /**
+ * The figure's label font, led by the document's own body face.
+ *
+ * The figure is rasterized in the browser and dropped into a document set in
+ * Aptos, so its axis labels and captions sit on the same page as body text in
+ * that face. A different family here reads as two documents spliced together.
+ *
+ * Unlike the DOCX layer this CAN be a stack, because it resolves in a browser
+ * rather than through `w:rFonts`: Aptos where the machine has it, then the
+ * product's screen font, then the platform grotesques.
+ */
+export const CHART_FONT = 'Aptos, Inter, Helvetica, Arial, sans-serif'
+
+/**
  * A "nice" axis: rounded bounds and a step that yields ~5–7 gridlines, so the
  * y-axis reads 400/600/800 rather than 437/611/785.
  */
@@ -115,7 +128,7 @@ export function drawMonitoringChart(ctx, spec = {}) {
   const pts = (spec.points || []).filter((p) => p && isNum(p.t) && isNum(p.v))
   const W = spec.width || CHART_SIZE.width
   const H = spec.height || CHART_SIZE.height
-  const font = spec.font || 'Inter, Helvetica, Arial, sans-serif'
+  const font = spec.font || CHART_FONT
   const offset = isNum(spec.utcOffsetMin) ? spec.utcOffsetMin : 0
   const C = CHART_COLORS
 
