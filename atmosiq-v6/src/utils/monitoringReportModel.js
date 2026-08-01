@@ -423,11 +423,6 @@ export function buildMonitoringReportModel(session, opts = {}) {
     statementNote:
       'Values are reported for screening and documentation; interpretation should be reviewed by a qualified indoor air quality professional.',
 
-    // The standing foot-of-report notice. Shorter than §Limitations and
-    // serving a different purpose: the itemized section is the report's
-    // limitations, this is the notice that travels with any page of it.
-    disclaimer: DISCLAIMER,
-
     metadata: [
       {
         label: 'Report version',
@@ -461,12 +456,6 @@ export function buildMonitoringReportModel(session, opts = {}) {
  * platform's screening-only positioning rests on, so it must not vary with
  * the data.
  */
-export const DISCLAIMER = {
-  lead: 'Screening & documentation only.',
-  text:
-    'This report presents measured environmental data compared to commonly referenced screening values. It does not constitute a compliance or regulatory determination, a health assessment, or a professional opinion on causation, and it is not a substitute for evaluation by a qualified indoor air quality professional. CO₂ is presented as an indicator of ventilation adequacy, not as a health-based exposure limit.',
-}
-
 export const LIMITATIONS = [
   'This report presents measured indoor environmental data compared to commonly referenced screening values selected by the assessor. It is provided for screening and documentation purposes.',
   'This report does not constitute a compliance or regulatory determination, a health assessment, or a professional opinion on causation, and it is not a substitute for evaluation by a qualified indoor air quality professional.',

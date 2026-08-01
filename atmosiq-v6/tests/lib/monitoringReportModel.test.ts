@@ -14,13 +14,13 @@ import {
   summaryStrip,
   MONITORING_REPORT_VERSION,
   LIMITATIONS,
-  DISCLAIMER,
   loggingLabel,
   intervalLabel,
   calibrationLabel,
   figureCaption,
 } from '../../src/utils/monitoringReportModel.js'
 import { CAL_VALIDITY_DAYS } from '../../src/utils/instrumentRegistry.js'
+import { monitoringReportChildren } from '../../src/components/docx/sections-monitoring.js'
 import { createMonitoringSession } from '../../src/utils/monitoringSession.js'
 import { parameterStats } from '../../src/utils/monitoringStats.js'
 import { STD } from '../../src/constants/standards.js'
@@ -366,16 +366,33 @@ describe('figure captions', () => {
   })
 })
 
-describe('the standing notice', () => {
-  it('ships on every report and holds the screening-only line', () => {
+describe('the screening-only boundary', () => {
+  it('is stated once, in §Limitations, and stated completely', () => {
+    // The foot-of-report notice was removed; §Limitations is now the only
+    // place this language appears. So it has to carry ALL of it — this test
+    // is what stops the claims quietly narrowing to whatever the section
+    // happens to say after a future edit.
     const model = build()
-    expect(model.disclaimer).toBe(DISCLAIMER)
-    expect(model.disclaimer.lead).toBeTruthy()
-    expect(scan(DISCLAIMER.text)).toEqual([])
+    expect(model.disclaimer).toBeUndefined()
+
+    const all = model.limitations.join(' ')
+    expect(all).toMatch(/screening and documentation purposes/i)
+    expect(all).toMatch(/not constitute a compliance or regulatory determination/i)
+    expect(all).toMatch(/health assessment/i)
+    expect(all).toMatch(/professional opinion on causation/i)
+    expect(all).toMatch(/not a substitute for evaluation by a qualified indoor air quality professional/i)
+    expect(all).toMatch(/ventilation adequacy/i)
+    expect(all).toMatch(/not as a health-based exposure limit/i)
+
+    expect(scan(all)).toEqual([])
     expect(scan(model.statementNote)).toEqual([])
-    // The two claims the platform's positioning rests on.
-    expect(DISCLAIMER.text).toMatch(/not constitute a compliance or regulatory determination/i)
-    expect(DISCLAIMER.text).toMatch(/ventilation adequacy/i)
+  })
+
+  it('never repeats itself in the colophon', () => {
+    // Saying the same thing twice in one document weakens it rather than
+    // reinforcing it, and invites the two copies to drift apart.
+    const children = JSON.stringify(monitoringReportChildren(build()))
+    expect(children).not.toContain('Screening & documentation only')
   })
 })
 
