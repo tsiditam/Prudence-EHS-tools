@@ -10,27 +10,43 @@
  * Carried over from the reviewed design, and deliberately restrained: this
  * should read like an engineering or forensic report, not marketing collateral.
  *
+ *   • A MASTHEAD carrying the mark, the product and the firm above a heavy
+ *     rule, with an optional badge (SAMPLE, DRAFT) at the right.
  *   • NUMBERED SECTIONS (01, 02, 03 …). The numerals are not decoration —
  *     they tell a reader the document follows a methodology, and they let a
- *     figure caption or a cover letter cite "§05" unambiguously.
+ *     figure caption or a cover letter cite "§05" unambiguously. The numeral
+ *     sits in a tinted box, as in the reviewed design.
  *   • A single restrained teal accent, used only for the section numerals,
- *     rules, and the insights panel. Never on body text.
+ *     the callout and insights rules, and the highlight ticks. Never on body
+ *     text.
+ *   • META GRIDS — small uppercase label above a bold value, several across —
+ *     wherever the content is a set of short facts rather than a table. The
+ *     cover block, dataset integrity and the report footer all use it.
+ *   • A PARAMETER CARD: header, summary strip, figure, statement and insights
+ *     bounded by one hairline rule, so each parameter reads as one object
+ *     rather than five loose blocks.
  *   • The SUMMARY STRIP renders as large figures under small uppercase
- *     labels, so mean / maximum / 95th / % above / time above are readable
- *     at a glance rather than buried in a data table.
- *   • A STATUS CHIP: tinted fill, colored label, following the severity of
+ *     labels, with the unit set smaller and quieter than the number.
+ *   • A STATUS CHIP: tinted fill, coloured label, following the severity of
  *     the status itself.
  *   • A MONITORING INSIGHTS panel: tinted block with an accent left rule, so
  *     the deterministic observations read as a distinct element.
  *
- * Word has no CSS, so a "pill" is a shaded single-cell table and a "chip" is
- * a shaded cell — the structure survives, which is what matters in print.
+ * ── Working within Word ────────────────────────────────────────────────
+ * Word has no CSS, so a "pill" is a shaded single-cell table, a "card" is a
+ * bordered one, and a "grid" is a borderless table with two paragraphs per
+ * cell. The structure survives, which is what matters in print.
+ *
+ * Nesting is kept to a single level throughout: the parameter card holds its
+ * header and strip as nested tables, but its prose blocks use paragraph
+ * indents rather than another table. Deeply nested tables are where Word and
+ * iOS Quick Look start to disagree about widths, and this document is read on
+ * both.
  */
 
 import {
   Paragraph,
   TextRun,
-  HeadingLevel,
   AlignmentType,
   ImageRun,
   Table,
@@ -41,8 +57,9 @@ import {
 } from 'docx'
 import { FONTS, COLORS } from './styles'
 import { CONTENT_WIDTH_DXA } from './page-setup'
-import { buildTable, kvTable } from './tables'
 import { base64ToUint8Array, inferImageType, isImageDataUrl } from './images'
+import { BRAND_MARK_PNG } from './brand-mark'
+import { CHART_SIZE } from '../../utils/monitoringChart'
 
 /**
  * The report's palette. Neutrals come from the shared report tokens so the
@@ -51,10 +68,33 @@ import { base64ToUint8Array, inferImageType, isImageDataUrl } from './images'
  * not to read as marketing).
  */
 const ACCENT = '0E7490'
+const ACCENT_2 = '0891B2'
 const ACCENT_TINT = 'F0F9FB'
 const INK = COLORS.text
+const BODY = COLORS.body
 const MUTED = COLORS.muted
-const HAIR = COLORS.border
+const FAINT = '8A929E'
+const HAIR = 'E7EBEF'
+const HAIR_2 = 'D7DCE2'
+
+/**
+ * Type scale, in half-points, derived from the reviewed design's ratios
+ * rather than its pixel values — a 940 px screen mockup and a 6.5 in column
+ * are different measures, and copying px to pt would set the whole document
+ * a third too large.
+ */
+const TYPE = {
+  title: 56, //  28 pt — the report title
+  h2: 23, //  11.5 pt — section headings
+  body: 20, //  10 pt — running text
+  small: 19, //  9.5 pt — intros, table body, card values
+  fine: 17, //  8.5 pt — captions, disclaimer
+  label: 15, //  7.5 pt — uppercase keys
+  eyebrow: 16, //  8 pt
+  brand: 22, //  11 pt — the wordmark
+  figure: 32, //  16 pt — summary strip values
+  paramName: 24, //  12 pt — parameter card header
+}
 
 // Status tones. Semantic, and separate from the accent.
 const TONES = {
@@ -71,65 +111,261 @@ const p = (text, opts = {}) =>
         italics: !!opts.italics,
         bold: !!opts.bold,
         color: opts.color,
-        size: opts.size,
+        size: opts.size ?? TYPE.body,
         font: FONTS.body,
       }),
     ],
     spacing: { after: opts.after ?? 120, before: opts.before ?? 0 },
     alignment: opts.align,
+    indent: opts.indent,
   })
 
 const noBorder = { style: 'none', size: 0, color: 'FFFFFF' }
-const hairBorder = { style: 'single', size: 1, color: HAIR }
+const noBorders = { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder }
+const hair = (color = HAIR) => ({ style: 'single', size: 1, color })
+
+/** A borderless table used purely for layout, sized in absolute twips. */
+function layoutTable(rows, widths, opts = {}) {
+  return new Table({
+    rows,
+    width: { size: opts.width || CONTENT_WIDTH_DXA, type: WidthType.DXA },
+    columnWidths: widths,
+    borders: opts.borders || {
+      ...noBorders,
+      insideHorizontal: noBorder,
+      insideVertical: noBorder,
+    },
+  })
+}
 
 /**
- * A numbered section heading — "01  Monitoring objective" with the numeral in
- * the accent and a hairline rule beneath, mirroring the reviewed design.
- * Pass `num = null` for an unnumbered heading (appendices).
+ * A numbered section heading — "01  Monitoring objective", the numeral in a
+ * tinted box, with a hairline rule beneath.
+ * Pass `num = null` for an unnumbered heading (appendices, the footer).
  */
 export function sectionHeading(num, title) {
   const children = []
   if (num != null) {
     children.push(
-      new TextRun({ text: String(num).padStart(2, '0'), bold: true, size: 18, color: ACCENT, font: FONTS.body }),
-      new TextRun({ text: '   ', size: 18, font: FONTS.body }),
+      new TextRun({
+        text: ` ${String(num).padStart(2, '0')} `,
+        bold: true,
+        size: TYPE.label + 2,
+        color: ACCENT,
+        font: FONTS.body,
+        shading: { type: ShadingType.CLEAR, fill: ACCENT_TINT },
+      }),
+      new TextRun({ text: '   ', size: TYPE.h2, font: FONTS.body }),
     )
   }
-  children.push(new TextRun({ text: title, bold: true, size: 26, color: INK, font: FONTS.body }))
+  children.push(new TextRun({ text: title, bold: true, size: TYPE.h2, color: INK, font: FONTS.body }))
   return new Paragraph({
     children,
-    spacing: { before: 360, after: 140 },
-    border: { bottom: { style: 'single', size: 1, color: HAIR } },
+    spacing: { before: 380, after: 150 },
+    border: { bottom: hair() },
   })
 }
 
-const h3 = (text) =>
-  new Paragraph({
-    children: [new TextRun({ text, bold: true, size: 18, color: MUTED, font: FONTS.body })],
-    spacing: { before: 200, after: 80 },
+/** Small uppercase key — the label above a value in a meta grid or a card. */
+const keyRun = (text) =>
+  new TextRun({
+    text: String(text || '').toUpperCase(),
+    bold: true,
+    size: TYPE.label,
+    color: FAINT,
+    font: FONTS.body,
   })
 
-/** The status chip — a shaded cell whose colour follows the status tone. */
-export function statusChip(status) {
+/**
+ * A meta grid: small uppercase label above a bold value, `cols` across.
+ * Used by the cover block, dataset integrity, and the report footer — every
+ * place the content is a handful of short facts rather than a real table.
+ */
+export function metaGrid(pairs, cols = 3) {
+  const items = (pairs || []).filter((x) => x && x.label)
+  if (!items.length) return null
+  const width = Math.floor(CONTENT_WIDTH_DXA / cols)
+  const rows = []
+  for (let i = 0; i < items.length; i += cols) {
+    const slice = items.slice(i, i + cols)
+    // The last row is padded so Word does not stretch a lone cell across the
+    // full width and break the grid's alignment with the rows above it.
+    while (slice.length < cols) slice.push(null)
+    rows.push(
+      new TableRow({
+        children: slice.map(
+          (item) =>
+            new TableCell({
+              children: item
+                ? [
+                    new Paragraph({ children: [keyRun(item.label)], spacing: { after: 30 } }),
+                    new Paragraph({
+                      children: [
+                        new TextRun({
+                          text: String(item.value ?? '—'),
+                          bold: true,
+                          size: TYPE.small,
+                          color: INK,
+                          font: FONTS.body,
+                        }),
+                      ],
+                      spacing: { after: 0 },
+                    }),
+                  ]
+                : [p('', { after: 0 })],
+              width: { size: width, type: WidthType.DXA },
+              borders: noBorders,
+              margins: { top: 60, bottom: 140, left: 0, right: 200 },
+            }),
+        ),
+      }),
+    )
+  }
+  return layoutTable(rows, Array.from({ length: cols }, () => width))
+}
+
+/**
+ * A tinted panel with an accent left rule. The callout (§01) and the
+ * Monitoring Insights block are the same object with different contents, so
+ * they are built from one helper and cannot drift apart.
+ *
+ * `inset` pulls the panel in from both edges, which is how the insights block
+ * sits INSIDE the parameter card rather than straddling its border. The left
+ * inset is an empty spacer COLUMN rather than a table indent: `w:tblInd` is
+ * honoured by Word but silently dropped by several other readers, and a
+ * panel whose accent rule lands on top of the card's border reads as a
+ * rendering fault. A spacer column measures the same everywhere.
+ */
+function accentPanel(children, inset = 0) {
+  const panelWidth = CONTENT_WIDTH_DXA - inset * 2
+  const cells = []
+  if (inset > 0) {
+    cells.push(
+      new TableCell({
+        children: [p('', { after: 0, size: 2 })],
+        width: { size: inset, type: WidthType.DXA },
+        borders: noBorders,
+        margins: { top: 0, bottom: 0, left: 0, right: 0 },
+      }),
+    )
+  }
+  cells.push(
+    new TableCell({
+      children,
+      shading: { type: ShadingType.CLEAR, fill: ACCENT_TINT },
+      borders: {
+        top: hair(HAIR_2),
+        bottom: hair(HAIR_2),
+        right: hair(HAIR_2),
+        left: { style: 'single', size: 12, color: ACCENT },
+      },
+      margins: { top: 150, bottom: 150, left: 180, right: 180 },
+      width: { size: panelWidth, type: WidthType.DXA },
+    }),
+  )
+  const widths = inset > 0 ? [inset, panelWidth] : [panelWidth]
+  return new Table({
+    width: { size: widths.reduce((a, b) => a + b, 0), type: WidthType.DXA },
+    columnWidths: widths,
+    borders: { ...noBorders, insideHorizontal: noBorder, insideVertical: noBorder },
+    rows: [new TableRow({ children: cells })],
+  })
+}
+
+/** §01's objective, set as a callout rather than a loose paragraph. */
+export function calloutPanel(text) {
+  if (!text) return null
+  return accentPanel([p(text, { size: TYPE.small, after: 0 })])
+}
+
+/** The Monitoring Insights panel — tinted block with an accent left rule. */
+export function insightsPanel(items, inset = 0) {
+  if (!items || !items.length) return null
+  return accentPanel([
+    new Paragraph({
+      children: [
+        new TextRun({ text: 'MONITORING INSIGHTS', bold: true, size: TYPE.label, color: ACCENT, font: FONTS.body }),
+      ],
+      spacing: { after: 110 },
+    }),
+    ...items.map(
+      (i, idx) =>
+        new Paragraph({
+          children: [new TextRun({ text: i.text, size: TYPE.small, color: BODY, font: FONTS.body })],
+          bullet: { level: 0 },
+          spacing: { after: idx === items.length - 1 ? 0 : 70 },
+        }),
+    ),
+  ], inset)
+}
+
+/**
+ * The status chip — a shaded run whose colour follows the status tone.
+ *
+ * A run rather than a shaded single-cell table: the tint then hugs the label
+ * the way a pill does, and the header row stops carrying the empty paragraph
+ * Word inserts after every nested table, which was adding a visible band of
+ * dead space under each parameter name.
+ */
+export function statusChip(status, align = AlignmentType.RIGHT) {
   if (!status) return null
   const tone = TONES[status.tone] || TONES.warn
+  return new Paragraph({
+    children: [
+      new TextRun({
+        text: `  ${status.label}  `,
+        bold: true,
+        size: TYPE.eyebrow,
+        color: tone.text,
+        font: FONTS.body,
+        shading: { type: ShadingType.CLEAR, fill: tone.fill },
+      }),
+    ],
+    alignment: align,
+    spacing: { after: 0 },
+  })
+}
+
+/**
+ * The card header: the parameter's short name and sampling metadata on the
+ * left, its status chip on the right.
+ */
+function parameterHead(entry) {
+  const left = [
+    new Paragraph({
+      children: [
+        new TextRun({ text: entry.shortLabel || entry.label, bold: true, size: TYPE.paramName, color: INK, font: FONTS.body }),
+        ...(entry.headMeta
+          ? [
+              new TextRun({ text: '   ', size: TYPE.small, font: FONTS.body }),
+              new TextRun({ text: entry.headMeta, size: TYPE.fine, color: MUTED, font: FONTS.body }),
+            ]
+          : []),
+      ],
+      spacing: { after: 0 },
+    }),
+  ]
+  const chip = statusChip(entry.status)
+  const widths = [Math.round(CONTENT_WIDTH_DXA * 0.62), Math.round(CONTENT_WIDTH_DXA * 0.38)]
   return new Table({
-    width: { size: 2600, type: WidthType.DXA },
-    columnWidths: [2600],
+    width: { size: CONTENT_WIDTH_DXA, type: WidthType.DXA },
+    columnWidths: widths,
     rows: [
       new TableRow({
         children: [
           new TableCell({
-            children: [
-              new Paragraph({
-                children: [new TextRun({ text: status.label, bold: true, size: 18, color: tone.text, font: FONTS.body })],
-                alignment: AlignmentType.CENTER,
-                spacing: { after: 0 },
-              }),
-            ],
-            shading: { type: ShadingType.CLEAR, fill: tone.fill },
-            borders: { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder },
-            margins: { top: 70, bottom: 70, left: 120, right: 120 },
+            children: left,
+            width: { size: widths[0], type: WidthType.DXA },
+            borders: { ...noBorders, bottom: hair() },
+            margins: { top: 140, bottom: 140, left: 200, right: 80 },
+            verticalAlign: 'center',
+          }),
+          new TableCell({
+            children: [chip || p('', { after: 0 })],
+            width: { size: widths[1], type: WidthType.DXA },
+            borders: { ...noBorders, bottom: hair() },
+            margins: { top: 140, bottom: 140, left: 80, right: 200 },
+            verticalAlign: 'center',
           }),
         ],
       }),
@@ -138,7 +374,9 @@ export function statusChip(status) {
 }
 
 /**
- * The summary strip: large figures under small uppercase labels.
+ * The summary strip: large figures under small uppercase labels, the unit set
+ * smaller and quieter than the number it belongs to.
+ *
  * `emphasis` tiles (time above / % above a reference) take the warn colour so
  * the exposure figures carry from across the page.
  */
@@ -151,31 +389,38 @@ export function summaryStripTable(tiles) {
     rows: [
       new TableRow({
         children: tiles.map(
-          (t) =>
+          (t, i) =>
             new TableCell({
               children: [
-                new Paragraph({
-                  children: [
-                    new TextRun({ text: String(t.label).toUpperCase(), bold: true, size: 13, color: MUTED, font: FONTS.body }),
-                  ],
-                  spacing: { after: 40 },
-                }),
+                new Paragraph({ children: [keyRun(t.label)], spacing: { after: 40 } }),
                 new Paragraph({
                   children: [
                     new TextRun({
                       text: String(t.value),
                       bold: true,
-                      size: 28,
+                      size: TYPE.figure,
                       color: t.emphasis ? TONES.warn.text : INK,
                       font: FONTS.body,
                     }),
+                    ...(t.unit
+                      ? [
+                          new TextRun({ text: ' ', size: TYPE.fine, font: FONTS.body }),
+                          new TextRun({ text: t.unit, bold: true, size: TYPE.fine, color: MUTED, font: FONTS.body }),
+                        ]
+                      : []),
                   ],
                   spacing: { after: 0 },
                 }),
               ],
               width: { size: width, type: WidthType.DXA },
-              borders: { top: hairBorder, bottom: hairBorder, left: noBorder, right: noBorder },
-              margins: { top: 110, bottom: 110, left: 110, right: 110 },
+              borders: {
+                ...noBorders,
+                bottom: hair(),
+                // Hairline dividers between tiles, none on the outer edges —
+                // the card's own border closes those sides.
+                right: i === tiles.length - 1 ? noBorder : hair(),
+              },
+              margins: { top: 130, bottom: 130, left: i === 0 ? 200 : 120, right: 120 },
             }),
         ),
       }),
@@ -183,23 +428,15 @@ export function summaryStripTable(tiles) {
   })
 }
 
-/** The Monitoring Insights panel — tinted block with an accent left rule. */
-export function insightsPanel(items) {
-  if (!items || !items.length) return null
-  const children = [
-    new Paragraph({
-      children: [new TextRun({ text: 'MONITORING INSIGHTS', bold: true, size: 14, color: ACCENT, font: FONTS.body })],
-      spacing: { after: 100 },
-    }),
-    ...items.map(
-      (i) =>
-        new Paragraph({
-          children: [new TextRun({ text: i.text, size: 19, color: COLORS.body, font: FONTS.body })],
-          bullet: { level: 0 },
-          spacing: { after: 60 },
-        }),
-    ),
-  ]
+/**
+ * The parameter card — header, strip, figure, statement and insights inside
+ * one hairline rule.
+ *
+ * The prose blocks use paragraph indents rather than another nested table:
+ * one level of nesting is reliable in both Word and iOS Quick Look, two is
+ * where their width calculations start to diverge.
+ */
+function parameterCard(children) {
   return new Table({
     width: { size: CONTENT_WIDTH_DXA, type: WidthType.DXA },
     columnWidths: [CONTENT_WIDTH_DXA],
@@ -208,14 +445,8 @@ export function insightsPanel(items) {
         children: [
           new TableCell({
             children,
-            shading: { type: ShadingType.CLEAR, fill: ACCENT_TINT },
-            borders: {
-              top: noBorder,
-              bottom: noBorder,
-              right: noBorder,
-              left: { style: 'single', size: 12, color: ACCENT },
-            },
-            margins: { top: 140, bottom: 140, left: 160, right: 160 },
+            borders: { top: hair(HAIR_2), bottom: hair(HAIR_2), left: hair(HAIR_2), right: hair(HAIR_2) },
+            margins: { top: 0, bottom: 0, left: 0, right: 0 },
           }),
         ],
       }),
@@ -223,52 +454,310 @@ export function insightsPanel(items) {
   })
 }
 
-// The embedded chart matches the capture aspect used elsewhere in the report.
-const IMG_W = 600
-const IMG_H = Math.round(600 * (284 / 664))
+/**
+ * A data table in the report's own style: no header fill, an uppercase muted
+ * header over a rule, and hairline row separators.
+ *
+ * Deliberately not `tables.js#buildTable`, which shades its header to match
+ * the consultant report. This document has its own reviewed visual system,
+ * and the two should be free to differ without either having to bend.
+ */
+export function dataTable(headers, rows, widths) {
+  const cols = headers.length
+  const colWidths =
+    widths && widths.length === cols
+      ? widths.map((w) => Math.round((w / 100) * CONTENT_WIDTH_DXA))
+      : Array.from({ length: cols }, () => Math.floor(CONTENT_WIDTH_DXA / cols))
 
-/** Cover: masthead rule, accent eyebrow, title, subtitle, site, meta grid. */
+  const headerRow = new TableRow({
+    tableHeader: true,
+    children: headers.map(
+      (h, i) =>
+        new TableCell({
+          children: [new Paragraph({ children: [keyRun(h)], spacing: { after: 0 } })],
+          width: { size: colWidths[i], type: WidthType.DXA },
+          borders: { ...noBorders, bottom: hair(HAIR_2) },
+          margins: { top: 0, bottom: 90, left: i === 0 ? 0 : 120, right: 120 },
+        }),
+    ),
+  })
+
+  const bodyRows = rows.map(
+    (row) =>
+      new TableRow({
+        children: row.map((cell, i) => {
+          const spec = cell && typeof cell === 'object' && !Array.isArray(cell) ? cell : { text: cell }
+          return new TableCell({
+            children: [
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: String(spec.text ?? '—'),
+                    bold: !!spec.bold,
+                    size: TYPE.small,
+                    color: spec.muted ? MUTED : INK,
+                    font: FONTS.body,
+                  }),
+                ],
+                spacing: { after: 0 },
+              }),
+            ],
+            width: { size: colWidths[i], type: WidthType.DXA },
+            borders: { ...noBorders, bottom: hair() },
+            margins: { top: 100, bottom: 100, left: i === 0 ? 0 : 120, right: 120 },
+          })
+        }),
+      }),
+  )
+
+  return new Table({
+    width: { size: CONTENT_WIDTH_DXA, type: WidthType.DXA },
+    columnWidths: colWidths,
+    rows: [headerRow, ...bodyRows],
+  })
+}
+
+/**
+ * A definition card — an uppercase title over label/value pairs, the value
+ * hard against the card's inner right edge.
+ *
+ * The pairs are a nested two-column table rather than a tab stop. A right tab
+ * stop expresses the same intent in fewer objects, but tab handling is one of
+ * the places Word, Pages and the iOS previewer disagree; a table column is
+ * the same everywhere, and this list is read as a spec sheet where a value
+ * that has drifted out of its column looks like an error in the data.
+ */
+function definitionCard(title, rows, width) {
+  const inner = width - 400
+  const labelW = Math.round(inner * 0.44)
+  const valueW = inner - labelW
+
+  const children = [
+    new Paragraph({
+      children: [
+        new TextRun({ text: String(title).toUpperCase(), bold: true, size: TYPE.label, color: MUTED, font: FONTS.body }),
+      ],
+      spacing: { after: 140 },
+    }),
+    new Table({
+      width: { size: inner, type: WidthType.DXA },
+      columnWidths: [labelW, valueW],
+      borders: { ...noBorders, insideHorizontal: noBorder, insideVertical: noBorder },
+      rows: rows.map(
+        (r) =>
+          new TableRow({
+            children: [
+              new TableCell({
+                children: [
+                  new Paragraph({
+                    children: [new TextRun({ text: r.label, size: TYPE.fine, color: MUTED, font: FONTS.body })],
+                    spacing: { after: 0 },
+                  }),
+                ],
+                width: { size: labelW, type: WidthType.DXA },
+                borders: noBorders,
+                margins: { top: 50, bottom: 50, left: 0, right: 60 },
+              }),
+              new TableCell({
+                children: [
+                  new Paragraph({
+                    children: [
+                      new TextRun({ text: String(r.value ?? '—'), bold: true, size: TYPE.fine, color: INK, font: FONTS.body }),
+                    ],
+                    alignment: AlignmentType.RIGHT,
+                    spacing: { after: 0 },
+                  }),
+                ],
+                width: { size: valueW, type: WidthType.DXA },
+                borders: noBorders,
+                margins: { top: 50, bottom: 50, left: 60, right: 0 },
+              }),
+            ],
+          }),
+      ),
+    }),
+  ]
+
+  return new TableCell({
+    children,
+    width: { size: width, type: WidthType.DXA },
+    borders: { top: hair(HAIR_2), bottom: hair(HAIR_2), left: hair(HAIR_2), right: hair(HAIR_2) },
+    // Bottom margin is small because Word requires a paragraph after a nested
+    // table, and that empty paragraph already supplies most of the gap.
+    margins: { top: 170, bottom: 40, left: 200, right: 200 },
+  })
+}
+
+/** A highlight row: an accent tick, then the fact. */
+function tickRow(text) {
+  return new Paragraph({
+    children: [
+      new TextRun({ text: '✓', bold: true, size: TYPE.small, color: ACCENT_2, font: FONTS.body }),
+      new TextRun({ text: '\t', font: FONTS.body }),
+      new TextRun({ text, size: TYPE.body, color: BODY, font: FONTS.body }),
+    ],
+    // Hanging indent so a wrapped line aligns under the text, not the tick.
+    indent: { left: 340, hanging: 340 },
+    tabStops: [{ type: 'left', position: 340 }],
+    spacing: { after: 110 },
+  })
+}
+
+// The figure, sized to the card's inner width. Height follows the chart's own
+// aspect so a change to the canvas never silently stretches the image.
+const IMG_W = 570
+const IMG_H = Math.round((IMG_W * CHART_SIZE.height) / CHART_SIZE.width)
+const CARD_PAD = { left: 200, right: 200 }
+
+/**
+ * Cover: masthead, accent eyebrow, title, subtitle, site line, meta grid.
+ */
 export function buildCoverSection(model) {
   const c = (model && model.cover) || {}
-  const out = [
-    // Masthead — firm identity above a heavy rule, as on the reviewed design.
+  const out = [buildMasthead(model)]
+
+  out.push(
     new Paragraph({
       children: [
-        new TextRun({ text: 'AtmosFlow', bold: true, size: 22, color: INK, font: FONTS.body }),
-        new TextRun({ text: '   Prudence Safety & Environmental Consulting, LLC', size: 16, color: MUTED, font: FONTS.body }),
+        new TextRun({
+          text: 'INDOOR ENVIRONMENTAL MONITORING',
+          bold: true,
+          size: TYPE.eyebrow,
+          color: ACCENT,
+          font: FONTS.body,
+        }),
       ],
-      spacing: { after: 80 },
-      border: { bottom: { style: 'single', size: 8, color: INK } },
-    }),
-    new Paragraph({
-      children: [
-        new TextRun({ text: 'INDOOR ENVIRONMENTAL MONITORING', bold: true, size: 15, color: ACCENT, font: FONTS.body }),
-      ],
-      spacing: { before: 320, after: 100 },
+      spacing: { before: 340, after: 110 },
     }),
     // Built from explicit runs rather than HeadingLevel.TITLE: Word's built-in
     // Title style overrides the document theme with its own face and colour
     // (Calibri Light, blue), which is why the title did not match the rest of
     // the report.
     new Paragraph({
-      children: [new TextRun({ text: model.title, bold: true, size: 52, color: INK, font: FONTS.body })],
+      children: [new TextRun({ text: model.title, bold: true, size: TYPE.title, color: INK, font: FONTS.body })],
       spacing: { after: 60 },
     }),
-    p(model.subtitle, { color: MUTED, size: 24, after: 180 }),
-  ]
-  if (c.site) out.push(p(c.site, { bold: true, size: 26, after: 200 }))
+    p(model.subtitle, { color: MUTED, size: TYPE.body, after: 130 }),
+  )
 
-  const rows = [
-    ['Prepared for', c.preparedFor],
-    ['Prepared by', c.preparedBy],
-    ['Report date', c.reportDate],
-    ['Monitoring period', c.periodStart && c.periodEnd ? `${c.periodStart} – ${c.periodEnd}` : null],
-    ['Duration', c.duration],
-    ['Parameters', (c.parameters || []).join(' · ')],
-  ].filter(([, v]) => v)
+  if (c.site || c.address) {
+    out.push(
+      new Paragraph({
+        children: [
+          ...(c.site ? [new TextRun({ text: c.site, bold: true, size: TYPE.body, color: BODY, font: FONTS.body })] : []),
+          ...(c.address
+            ? [
+                new TextRun({ text: c.site ? '  ·  ' : '', size: TYPE.body, color: MUTED, font: FONTS.body }),
+                new TextRun({ text: c.address, size: TYPE.body, color: MUTED, font: FONTS.body }),
+              ]
+            : []),
+        ],
+        spacing: { after: 240 },
+      }),
+    )
+  }
 
-  if (rows.length) out.push(kvTable(rows))
+  const facts = [
+    { label: 'Prepared for', value: c.preparedFor },
+    { label: 'Prepared by', value: c.preparedBy },
+    { label: 'Report date', value: c.reportDate },
+    {
+      label: 'Monitoring period',
+      value: c.period || (c.periodStart && c.periodEnd ? `${c.periodStart} – ${c.periodEnd}` : null),
+    },
+    { label: 'Duration', value: c.duration },
+    { label: 'Parameters', value: (c.parameters || []).join(' · ') },
+  ].filter((x) => x.value)
+
+  if (facts.length) {
+    out.push(new Paragraph({ children: [], border: { bottom: hair() }, spacing: { after: 160 } }))
+    out.push(metaGrid(facts, 3))
+  }
   return { title: model.title, children: out }
+}
+
+/**
+ * The masthead: mark, product and firm above a heavy rule, with an optional
+ * badge at the right.
+ */
+export function buildMasthead(model) {
+  const c = (model && model.cover) || {}
+  const firm = c.company || 'Prudence Safety & Environmental Consulting, LLC'
+  const badge = model && model.badge
+
+  const brand = []
+  const nameRuns = []
+  // The mark rides inline with the wordmark; if the raster is ever
+  // unreadable the masthead still sets, without the logo.
+  if (isImageDataUrl(BRAND_MARK_PNG)) {
+    try {
+      nameRuns.push(
+        new ImageRun({
+          data: base64ToUint8Array(BRAND_MARK_PNG),
+          transformation: { width: 20, height: 20 },
+          type: inferImageType(BRAND_MARK_PNG),
+        }),
+        new TextRun({ text: '  ', size: TYPE.brand, font: FONTS.body }),
+      )
+    } catch {
+      /* the masthead must never be the reason a report fails to build */
+    }
+  }
+  nameRuns.push(new TextRun({ text: 'AtmosFlow', bold: true, size: TYPE.brand, color: INK, font: FONTS.body }))
+  brand.push(new Paragraph({ children: nameRuns, spacing: { after: 20 } }))
+  brand.push(
+    new Paragraph({
+      children: [new TextRun({ text: firm, size: TYPE.label, color: MUTED, font: FONTS.body })],
+      indent: { left: 380 },
+      spacing: { after: 0 },
+    }),
+  )
+
+  const right = badge
+    ? [
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: ` ${String(badge).toUpperCase()} `,
+              bold: true,
+              size: TYPE.label,
+              color: TONES.warn.text,
+              font: FONTS.body,
+              shading: { type: ShadingType.CLEAR, fill: TONES.warn.fill },
+            }),
+          ],
+          alignment: AlignmentType.RIGHT,
+          spacing: { after: 0 },
+        }),
+      ]
+    : [p('', { after: 0 })]
+
+  const widths = [Math.round(CONTENT_WIDTH_DXA * 0.66), Math.round(CONTENT_WIDTH_DXA * 0.34)]
+  const heavyRule = { style: 'single', size: 12, color: INK }
+  return new Table({
+    width: { size: CONTENT_WIDTH_DXA, type: WidthType.DXA },
+    columnWidths: widths,
+    rows: [
+      new TableRow({
+        children: [
+          new TableCell({
+            children: brand,
+            width: { size: widths[0], type: WidthType.DXA },
+            borders: { ...noBorders, bottom: heavyRule },
+            margins: { top: 0, bottom: 140, left: 0, right: 100 },
+            verticalAlign: 'center',
+          }),
+          new TableCell({
+            children: right,
+            width: { size: widths[1], type: WidthType.DXA },
+            borders: { ...noBorders, bottom: heavyRule },
+            margins: { top: 0, bottom: 140, left: 100, right: 0 },
+            verticalAlign: 'center',
+          }),
+        ],
+      }),
+    ],
+  })
 }
 
 /** §01 Monitoring objective — why monitoring was performed. */
@@ -276,49 +765,47 @@ export function buildObjectiveSection(model, num) {
   if (!model || !model.objective) return null
   return {
     title: 'Monitoring objective',
-    children: [sectionHeading(num, 'Monitoring objective'), p(model.objective)],
+    children: [sectionHeading(num, 'Monitoring objective'), calloutPanel(model.objective), p('', { after: 60 })],
   }
 }
 
-/** §02 Location and instrument, as the two tables an IH report expects. */
+/** §02 Location and instrument, as the two cards the reviewed design uses. */
 export function buildLocationInstrumentSection(model, num) {
   const loc = (model && model.location) || []
   const inst = (model && model.instrument) || []
   if (!loc.length && !inst.length) return null
 
   const out = [sectionHeading(num, 'Location & instrument')]
-  if (loc.length) {
-    out.push(h3('MONITORING LOCATION'))
-    out.push(kvTable(loc.map((r) => [r.label, r.value])))
-  }
-  if (inst.length) {
-    out.push(h3('INSTRUMENT CONFIGURATION'))
-    out.push(kvTable(inst.map((r) => [r.label, r.value])))
-  }
+
+  const cards = []
+  const half = Math.floor(CONTENT_WIDTH_DXA / 2)
+  // Side by side when both are present; full width when only one is, so a
+  // lone card never sits in a half-empty row.
+  const width = loc.length && inst.length ? half - 60 : CONTENT_WIDTH_DXA
+  if (loc.length) cards.push(definitionCard('Monitoring location', loc, width))
+  if (inst.length) cards.push(definitionCard('Instrument configuration', inst, width))
+
+  const widths = cards.length === 2 ? [half, half] : [CONTENT_WIDTH_DXA]
+  out.push(
+    layoutTable([new TableRow({ children: cards })], widths, {
+      borders: { ...noBorders, insideHorizontal: noBorder, insideVertical: noBorder },
+    }),
+  )
+
   // An undocumented calibration is stated, never left to inference.
   if (model && model.calibrationNote) {
-    out.push(p(model.calibrationNote, { italics: true, color: MUTED, size: 18, before: 100 }))
+    out.push(p(model.calibrationNote, { italics: true, color: MUTED, size: TYPE.fine, before: 140 }))
   }
   return { title: 'Location & instrument', children: out }
 }
 
-/** §03 Key dataset highlights. */
+/** §03 Key dataset highlights — accent ticks, not bullets. */
 export function buildHighlightsSection(model, num) {
   const items = (model && model.highlights) || []
   if (!items.length) return null
   return {
     title: 'Key dataset highlights',
-    children: [
-      sectionHeading(num, 'Key dataset highlights'),
-      ...items.map(
-        (i) =>
-          new Paragraph({
-            children: [new TextRun({ text: i.text, size: 21, color: COLORS.body, font: FONTS.body })],
-            bullet: { level: 0 },
-            spacing: { after: 90 },
-          }),
-      ),
-    ],
+    children: [sectionHeading(num, 'Key dataset highlights'), ...items.map((i) => tickRow(i.text))],
   }
 }
 
@@ -334,52 +821,53 @@ export function buildReferenceSection(model, num) {
     sectionHeading(num, 'Screening reference values'),
     p('Each parameter is compared to the screening reference selected for this monitoring session.', {
       color: MUTED,
-      size: 18,
+      size: TYPE.small,
+      after: 160,
     }),
-    buildTable(
+    dataTable(
       ['Parameter', 'Reference profile', 'Screening value', 'Source'],
-      rows.map((r) => [r.label || r.param, r.profile, r.value, r.source || '—']),
+      rows.map((r) => [
+        { text: r.label || r.param, bold: true },
+        { text: r.profile },
+        { text: r.value },
+        { text: r.source || '—', muted: true },
+      ]),
+      [18, 22, 20, 40],
     ),
   ]
 
   // Framing that must travel with the reference wherever it is cited.
   const notes = [...new Set(rows.map((r) => r.note).filter(Boolean))]
-  notes.forEach((n) => out.push(p(n, { italics: true, color: MUTED, size: 18, before: 80 })))
+  notes.forEach((n) => out.push(p(n, { italics: true, color: MUTED, size: TYPE.fine, before: 130 })))
 
   return { title: 'Screening reference values', children: out }
 }
 
 /**
- * One parameter: numbered heading, status chip, summary strip, chart,
- * the deterministic statement, and the Monitoring Insights panel.
+ * One parameter: numbered heading, an intro, then the card holding the
+ * header, summary strip, figure, statement and Monitoring Insights.
  */
 export function buildParameterSection(entry, num) {
   if (!entry) return null
-  const out = [sectionHeading(num, entry.label)]
+  const title = entry.titleLabel || entry.label
+  const out = [sectionHeading(num, title)]
 
   // `midLabel` keeps acronyms intact ("PM2.5", not "pm2.5").
   out.push(
     p(
       `The following section summarizes measured ${entry.midLabel || entry.label} over the monitoring period and compares the observations to the selected screening reference.`,
-      { color: MUTED, size: 18 },
+      { color: MUTED, size: TYPE.small, after: 150 },
     ),
   )
 
-  const chip = statusChip(entry.status)
-  if (chip) {
-    out.push(chip)
-    out.push(p('', { after: 60 }))
-  }
+  const card = [parameterHead(entry)]
 
   const strip = summaryStripTable(entry.strip)
-  if (strip) {
-    out.push(strip)
-    out.push(p('', { after: 60 }))
-  }
+  if (strip) card.push(strip)
 
   if (isImageDataUrl(entry.chart)) {
     try {
-      out.push(
+      card.push(
         new Paragraph({
           children: [
             new ImageRun({
@@ -388,18 +876,24 @@ export function buildParameterSection(entry, num) {
               type: inferImageType(entry.chart),
             }),
           ],
-          spacing: { before: 120, after: 60 },
+          indent: CARD_PAD,
+          spacing: { before: 200, after: 100 },
         }),
       )
-      const refNote =
-        entry.reference && (entry.reference.band || entry.reference.limit != null)
-          ? ' Reference shown as listed in Screening reference values.'
-          : ''
-      out.push(
-        p(`Figure ${entry.figureNumber}. ${entry.label} over the monitoring period.${refNote}`, {
-          color: MUTED,
-          size: 18,
-          after: 140,
+      card.push(
+        new Paragraph({
+          children: [
+            new TextRun({ text: `Figure ${entry.figureNumber}.`, bold: true, size: TYPE.fine, color: BODY, font: FONTS.body }),
+            new TextRun({
+              text: ` ${stripFigurePrefix(entry.caption, entry.figureNumber)}`,
+              size: TYPE.fine,
+              color: MUTED,
+              font: FONTS.body,
+            }),
+          ],
+          indent: CARD_PAD,
+          border: { top: hair() },
+          spacing: { before: 60, after: 160 },
         }),
       )
     } catch {
@@ -407,15 +901,37 @@ export function buildParameterSection(entry, num) {
     }
   }
 
-  if (entry.statement) out.push(p(entry.statement, { after: 140 }))
-
-  const panel = insightsPanel(entry.insights)
-  if (panel) {
-    out.push(panel)
-    out.push(p('', { after: 60 }))
+  if (entry.statement) {
+    card.push(
+      new Paragraph({
+        children: [
+          new TextRun({ text: entry.statement, bold: true, size: TYPE.small, color: INK, font: FONTS.body }),
+          ...(entry.statementNote
+            ? [new TextRun({ text: ` ${entry.statementNote}`, size: TYPE.small, color: BODY, font: FONTS.body })]
+            : []),
+        ],
+        indent: CARD_PAD,
+        spacing: { before: isImageDataUrl(entry.chart) ? 0 : 200, after: 160 },
+      }),
+    )
   }
 
-  return { title: entry.label, children: out }
+  const panel = insightsPanel(entry.insights, CARD_PAD.left)
+  if (panel) {
+    card.push(panel)
+    card.push(p('', { after: 0, size: 8 }))
+  }
+
+  out.push(parameterCard(card))
+  out.push(p('', { after: 100 }))
+  return { title, children: out }
+}
+
+/** Strip the "Figure N." prefix so the renderer can set it in its own run. */
+function stripFigurePrefix(caption, num) {
+  const text = String(caption || '')
+  const prefix = `Figure ${num}.`
+  return text.startsWith(prefix) ? text.slice(prefix.length).trim() : text
 }
 
 /** Dataset integrity — coverage, gaps, cadence. */
@@ -424,7 +940,7 @@ export function buildDataQualitySection(model, num) {
   if (!rows.length) return null
   return {
     title: 'Dataset integrity',
-    children: [sectionHeading(num, 'Dataset integrity'), kvTable(rows.map((r) => [r.label, r.value]))],
+    children: [sectionHeading(num, 'Dataset integrity'), metaGrid(rows, 3)],
   }
 }
 
@@ -434,7 +950,10 @@ export function buildLimitationsSection(model, num) {
   if (!items.length) return null
   return {
     title: 'Limitations',
-    children: [sectionHeading(num, 'Limitations'), ...items.map((t) => p(t, { size: 18, after: 110 }))],
+    children: [
+      sectionHeading(num, 'Limitations'),
+      ...items.map((t) => p(t, { size: TYPE.fine, color: BODY, after: 120 })),
+    ],
   }
 }
 
@@ -445,8 +964,16 @@ export function buildEventsAppendix(model) {
   return {
     title: 'Monitoring events',
     children: [
-      p('Events annotated by the assessor during the monitoring period.', { color: MUTED, size: 18 }),
-      buildTable(['Timestamp', 'Event', 'Notes'], rows.map((r) => [r.time || '—', r.label || '—', r.note || '—'])),
+      p('Events annotated by the assessor during the monitoring period. Corresponding markers (▲) are shown on the parameter figures.', {
+        color: MUTED,
+        size: TYPE.small,
+        after: 160,
+      }),
+      dataTable(
+        ['Timestamp', 'Event', 'Notes'],
+        rows.map((r) => [{ text: r.time || '—' }, { text: r.label || '—', bold: true }, { text: r.note || '—', muted: true }]),
+        [22, 24, 54],
+      ),
     ],
   }
 }
@@ -458,23 +985,53 @@ export function buildRawStatisticsAppendix(model) {
   return {
     title: 'Raw statistics',
     children: [
-      p('Descriptive statistics for each monitored parameter.', { color: MUTED, size: 18 }),
-      buildTable(
+      p('Descriptive statistics for each monitored parameter.', { color: MUTED, size: TYPE.small, after: 160 }),
+      dataTable(
         ['Parameter', 'Unit', 'Mean', 'Median', 'Min', 'Max', 'Std dev', '95th', 'n', 'Coverage'],
-        rows.map((r) => [r.label, r.unit, r.mean, r.median, r.min, r.max, r.stdDev, r.p95, r.count, r.coverage]),
+        rows.map((r) => [
+          { text: r.label, bold: true },
+          { text: r.unit, muted: true },
+          { text: r.mean },
+          { text: r.median },
+          { text: r.min },
+          { text: r.max },
+          { text: r.stdDev },
+          { text: r.p95 },
+          { text: r.count },
+          { text: r.coverage },
+        ]),
+        [17, 8, 9, 9, 8, 9, 9, 8, 9, 14],
       ),
     ],
   }
 }
 
-/** Report metadata — the traceability block. */
-export function buildMetadataSection(model, num) {
+/**
+ * The report footer — the traceability block and the standing notice.
+ *
+ * Rendered unnumbered, below the appendices: it is the colophon of the
+ * document, not a section of its argument.
+ */
+export function buildMetadataSection(model) {
   const rows = (model && model.metadata) || []
-  if (!rows.length) return null
-  return {
-    title: 'Report metadata',
-    children: [sectionHeading(num, 'Report metadata'), kvTable(rows.map((r) => [r.label, r.value]))],
+  const disc = (model && model.disclaimer) || null
+  if (!rows.length && !disc) return null
+
+  const children = [new Paragraph({ children: [], border: { bottom: hair(HAIR_2) }, spacing: { before: 420, after: 200 } })]
+  const grid = metaGrid(rows, 2)
+  if (grid) children.push(grid)
+  if (disc) {
+    children.push(
+      new Paragraph({
+        children: [
+          new TextRun({ text: disc.lead, bold: true, size: TYPE.fine, color: BODY, font: FONTS.body }),
+          new TextRun({ text: ` ${disc.text}`, size: TYPE.fine, color: MUTED, font: FONTS.body }),
+        ],
+        spacing: { before: 180, after: 0 },
+      }),
+    )
   }
+  return { title: 'Report metadata', children, footer: true }
 }
 
 /**
@@ -497,10 +1054,11 @@ export function buildMonitoringSections(model) {
     (n) => buildLocationInstrumentSection(model, n),
     (n) => buildHighlightsSection(model, n),
     (n) => buildReferenceSection(model, n),
-    ...(model.parameters || []).map((entry) => (n) => buildParameterSection(entry, n)),
+    ...(model.parameters || []).map((entry) => (n) =>
+      buildParameterSection({ ...entry, statementNote: model.statementNote }, n),
+    ),
     (n) => buildDataQualitySection(model, n),
     (n) => buildLimitationsSection(model, n),
-    (n) => buildMetadataSection(model, n),
   ]
 
   const body = [cover]
@@ -516,6 +1074,10 @@ export function buildMonitoringSections(model) {
     }
   })
 
+  // The footer carries no number and is emitted after the appendices.
+  const footer = buildMetadataSection(model)
+  if (footer) body.push(footer)
+
   const appendices = [
     buildEventsAppendix(model),
     buildRawStatisticsAppendix(model), // null on the Client edition
@@ -528,10 +1090,12 @@ export function buildMonitoringSections(model) {
 export function monitoringReportChildren(model) {
   const { body, appendices } = buildMonitoringSections(model)
   const out = []
-  body.forEach((s) => out.push(...s.children))
+  body.filter((s) => !s.footer).forEach((s) => out.push(...s.children))
   appendices.forEach((s, i) => {
     out.push(sectionHeading(null, `Appendix ${String.fromCharCode(65 + i)} — ${s.title}`))
     out.push(...s.children)
   })
+  // The colophon closes the document, after the appendices.
+  body.filter((s) => s.footer).forEach((s) => out.push(...s.children))
   return out
 }

@@ -14,7 +14,13 @@ import {
   summaryStrip,
   MONITORING_REPORT_VERSION,
   LIMITATIONS,
+  DISCLAIMER,
+  loggingLabel,
+  intervalLabel,
+  calibrationLabel,
+  figureCaption,
 } from '../../src/utils/monitoringReportModel.js'
+import { CAL_VALIDITY_DAYS } from '../../src/utils/instrumentRegistry.js'
 import { createMonitoringSession } from '../../src/utils/monitoringSession.js'
 import { parameterStats } from '../../src/utils/monitoringStats.js'
 import { STD } from '../../src/constants/standards.js'
@@ -110,9 +116,16 @@ describe('summary strip', () => {
     expect(keys).not.toContain('p95')
   })
 
-  it('carries units on the measured values', () => {
+  it('carries the unit beside the figure, not inside it', () => {
+    // Separate fields so the renderer can set the unit smaller and quieter
+    // than the number; joining them here would take that decision away.
     const st = parameterStats(pts([500, 1200, 700]), 'co2', { reference: { limit: 1000 } })!
-    expect(summaryStrip('co2', st, { limit: 1000 } as never, { co2: 'ppm' })[0].value).toMatch(/ppm$/)
+    const strip = summaryStrip('co2', st, { limit: 1000 } as never, { co2: 'ppm' })
+    expect(strip[0].value).not.toMatch(/ppm/)
+    expect(strip[0].unit).toBe('ppm')
+    // A percentage carries its own unit, and a duration carries none.
+    expect(strip.find((t: any) => t.key === 'pctAbove')!.unit).toBe('%')
+    expect(strip.find((t: any) => t.key === 'timeAbove')!.unit).toBe('')
   })
 })
 
@@ -132,7 +145,11 @@ describe('the assembled report', () => {
     expect(model.cover.duration).toMatch(/h/)
     // A report DATE carries no time of day.
     expect(model.cover.reportDate).toBe('Jul 31, 2026')
-    expect(model.cover.parameters).toEqual(['Carbon dioxide', 'Temperature'])
+    // The cover lists what was measured in the compact form, so the row reads
+    // as a set of symbols rather than a wrapped line of full names.
+    expect(model.cover.parameters).toEqual(['CO₂', 'Temp'])
+    // And the period is one range, not two timestamps run together.
+    expect(model.cover.period).toMatch(/^[A-Z][a-z]{2} \d+ – \d+, \d{4}$/)
   })
 
   it('includes the location and instrument tables, omitting blank fields', () => {
@@ -169,10 +186,14 @@ describe('the assembled report', () => {
 
   it('stamps the traceability metadata the report promises', () => {
     const meta = Object.fromEntries(model.metadata.map((m: any) => [m.label, m.value]))
-    expect(meta['Dataset SHA-256']).toBe('a19dd790c8f4')
-    expect(meta['Software']).toBe('6.0.0')
+    // The hash travels with what it covers: two datasets can share a prefix,
+    // not a reading count.
+    expect(meta['Dataset SHA-256']).toBe('a19dd790c8f4 (432 readings)')
+    expect(meta['Software']).toBe('AtmosFlow 6.0.0')
     expect(meta['Report version']).toContain(MONITORING_REPORT_VERSION)
-    expect(meta['Edition']).toBe('Client')
+    expect(meta['Report version']).toContain('Client Edition')
+    // Generated is legible, not a raw ISO string with milliseconds.
+    expect(meta['Generated']).toBe('2026-07-31 14:20 UTC')
   })
 
   it('uses one statistics pass, so the strip and the prose cannot disagree', () => {
@@ -260,6 +281,101 @@ describe('defensibility', () => {
     strings.forEach((text) => {
       expect(scan(text), `banned language in: "${text}"`).toEqual([])
     })
+  })
+})
+
+describe('sampling cadence', () => {
+  it('reads as an instrument spec in the header and as prose in the table', () => {
+    expect(loggingLabel(60)).toBe('1-min logging')
+    expect(loggingLabel(600)).toBe('10-min logging')
+    expect(loggingLabel(30)).toBe('30-sec logging')
+    expect(intervalLabel(60)).toBe('1 minute')
+    expect(intervalLabel(600)).toBe('10 minutes')
+    expect(intervalLabel(1)).toBe('1 second')
+  })
+
+  it('says nothing rather than guessing when the cadence is unknown', () => {
+    for (const bad of [null, undefined, NaN, 0, -60]) {
+      expect(loggingLabel(bad as never)).toBeNull()
+      expect(intervalLabel(bad as never)).toBeNull()
+    }
+  })
+
+  it('falls back to seconds for a cadence that is not a whole number of minutes', () => {
+    expect(loggingLabel(90)).toBe('90-sec logging')
+    expect(intervalLabel(90)).toBe('90 seconds')
+  })
+})
+
+describe('calibration currency', () => {
+  const gen = '2026-08-01T00:00:00.000Z'
+
+  it('states where the calibration stands, not just when it happened', () => {
+    expect(calibrationLabel('2026-03-12', gen)).toBe('2026-03-12 · current')
+  })
+
+  it('says past due once the live gate window has elapsed', () => {
+    // The window is the gate's own constant — a second copy of that number is
+    // exactly how a gate and the report describing it drift apart.
+    const stale = new Date(Date.parse(gen) - (CAL_VALIDITY_DAYS + 1) * 86400000).toISOString().slice(0, 10)
+    expect(calibrationLabel(stale, gen)).toBe(`${stale} · past due`)
+  })
+
+  it('makes no claim it cannot verify', () => {
+    // Unreadable date, no reference date, or a calibration in the future: the
+    // date is reported unchanged rather than annotated with a guess.
+    expect(calibrationLabel('sometime last spring', gen)).toBe('sometime last spring')
+    expect(calibrationLabel('2026-03-12', undefined as never)).toBe('2026-03-12')
+    expect(calibrationLabel('2027-01-01', gen)).toBe('2027-01-01')
+    expect(calibrationLabel('', gen)).toBeNull()
+  })
+})
+
+describe('figure captions', () => {
+  const base = { figureNumber: 3, shortLabel: 'CO₂' }
+
+  it('names the reference in the form the figure draws it', () => {
+    expect(figureCaption({ ...base, reference: { limit: 1000, unit: 'ppm' } }, {})).toBe(
+      'Figure 3. CO₂ over the monitoring period. Dashed line = 1,000 ppm screening reference.',
+    )
+    expect(
+      figureCaption({ ...base, shortLabel: 'Temp', reference: { band: [68, 76], unit: '°F' } }, {}),
+    ).toContain('Shaded band = 68–76 °F comfort range.')
+  })
+
+  it('claims only the marks the figure actually carries', () => {
+    const both = figureCaption({ ...base, reference: { limit: 1000, unit: 'ppm' } }, {
+      hasOccupancy: true,
+      hasEvents: true,
+    })
+    expect(both).toContain('Shaded columns = marked occupied hours; ▲ = logged events (Appendix A).')
+
+    const occOnly = figureCaption(base, { hasOccupancy: true })
+    expect(occOnly).toContain('Shaded columns = marked occupied hours.')
+    expect(occOnly).not.toContain('logged events')
+
+    const evOnly = figureCaption(base, { hasEvents: true })
+    expect(evOnly).toContain('▲ = logged events (Appendix A).')
+    expect(evOnly).not.toContain('occupied hours')
+  })
+
+  it('omits the reference clause entirely when no reference was resolved', () => {
+    const none = figureCaption(base, {})
+    expect(none).toBe('Figure 3. CO₂ over the monitoring period.')
+    expect(figureCaption(null as never, {})).toBe('')
+  })
+})
+
+describe('the standing notice', () => {
+  it('ships on every report and holds the screening-only line', () => {
+    const model = build()
+    expect(model.disclaimer).toBe(DISCLAIMER)
+    expect(model.disclaimer.lead).toBeTruthy()
+    expect(scan(DISCLAIMER.text)).toEqual([])
+    expect(scan(model.statementNote)).toEqual([])
+    // The two claims the platform's positioning rests on.
+    expect(DISCLAIMER.text).toMatch(/not constitute a compliance or regulatory determination/i)
+    expect(DISCLAIMER.text).toMatch(/ventilation adequacy/i)
   })
 })
 

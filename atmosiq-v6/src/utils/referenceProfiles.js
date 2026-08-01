@@ -253,8 +253,26 @@ export function referenceTableRows(resolvedByParam) {
     .map((r) => ({
       param: r.param,
       profile: r.label,
-      value: r.band ? `${r.band[0]}–${r.band[1]} ${r.unit}`.trim() : `${r.limit} ${r.unit}`.trim(),
+      value: referenceValueLabel(r),
       source: r.source,
       note: r.note,
     }))
+}
+
+/**
+ * A resolved reference as it is printed — "1,000 ppm", "30–60 %".
+ *
+ * Thousands separators, but never added precision: a reference is a CITED
+ * value, so 35 stays "35" and is not dressed up as "35.0" to match the
+ * precision readings are reported at.
+ */
+export function referenceValueLabel(resolved) {
+  const r = resolved || {}
+  const n = (v) =>
+    isNum(v)
+      ? v.toLocaleString('en-US', { maximumFractionDigits: 2 })
+      : String(v)
+  if (r.band) return `${n(r.band[0])}–${n(r.band[1])} ${r.unit || ''}`.trim()
+  if (isNum(r.limit)) return `${n(r.limit)} ${r.unit || ''}`.trim()
+  return ''
 }

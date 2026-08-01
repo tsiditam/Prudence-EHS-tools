@@ -36,6 +36,15 @@ export const CHART_COLORS = {
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 /**
+ * The figure's drawing size, in CSS pixels.
+ *
+ * Exported because the DOCX layer sizes the embedded image from it: deriving
+ * the printed height from this aspect means changing the canvas can never
+ * silently stretch the figure on the page.
+ */
+export const CHART_SIZE = { width: 920, height: 360 }
+
+/**
  * A "nice" axis: rounded bounds and a step that yields ~5–7 gridlines, so the
  * y-axis reads 400/600/800 rather than 437/611/785.
  */
@@ -104,8 +113,8 @@ function dayTicks(t0, t1, utcOffsetMin) {
  */
 export function drawMonitoringChart(ctx, spec = {}) {
   const pts = (spec.points || []).filter((p) => p && isNum(p.t) && isNum(p.v))
-  const W = spec.width || 900
-  const H = spec.height || 380
+  const W = spec.width || CHART_SIZE.width
+  const H = spec.height || CHART_SIZE.height
   const font = spec.font || 'Inter, Helvetica, Arial, sans-serif'
   const offset = isNum(spec.utcOffsetMin) ? spec.utcOffsetMin : 0
   const C = CHART_COLORS
@@ -301,8 +310,8 @@ export function drawMonitoringChart(ctx, spec = {}) {
  */
 export function renderMonitoringChart(spec = {}) {
   if (typeof document === 'undefined' || !document.createElement) return null
-  const W = spec.width || 900
-  const H = spec.height || 380
+  const W = spec.width || CHART_SIZE.width
+  const H = spec.height || CHART_SIZE.height
   // 2× for a figure that stays crisp when Word scales it onto the page.
   const dpr = spec.scale || 2
   try {

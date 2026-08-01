@@ -80,7 +80,9 @@ describe('section assembly', () => {
         'Location & instrument',
         'Key dataset highlights',
         'Screening reference values',
-        'Carbon dioxide',
+        // Parameter sections take the formal heading: the quantity in full,
+        // with its symbol, so a reader who knows only one of the two finds it.
+        'Carbon dioxide (CO₂)',
         'Temperature',
         'Dataset integrity',
         'Limitations',
@@ -89,6 +91,21 @@ describe('section assembly', () => {
     )
     // Limitations must never be buried after the metadata block.
     expect(titles.indexOf('Limitations')).toBeLessThan(titles.indexOf('Report metadata'))
+  })
+
+  it('closes the document with the colophon, after the appendices', () => {
+    const m = model({}, { edition: 'technical' })
+    const { body } = buildMonitoringSections(m)
+    const footer = body.find((s) => s.footer)
+    expect(footer.title).toBe('Report metadata')
+    expect(footer.num).toBeUndefined() // the colophon carries no section number
+
+    // In the flattened output the footer follows the appendices, not the
+    // numbered body — a traceability block above Appendix B would read as a
+    // section of the argument rather than the end of the document.
+    const text = JSON.stringify(monitoringReportChildren(m))
+    expect(text).toContain('DATASET SHA-256') // meta-grid keys render as small caps
+    expect(text.indexOf('Appendix B')).toBeLessThan(text.indexOf('DATASET SHA-256'))
   })
 
   it('letters the appendices, and keeps raw statistics out of the client edition', () => {
@@ -144,15 +161,39 @@ describe('parameter section', () => {
 
   it('renders status, strip, chart, statement and insights', () => {
     const text = JSON.stringify(section.children)
-    expect(section.title).toBe('Carbon dioxide')
+    expect(section.title).toBe('Carbon dioxide (CO₂)')
     // The status renders as a tinted chip carrying the label itself, not a
     // "Status:" prefix line.
     expect(text).toContain(entry.status.label)
     expect(text).toContain('MONITORING INSIGHTS')
     expect(text).toContain('Figure 1.')
     // The summary strip renders its labels as small caps above the figures.
-    expect(text).toContain('95TH PERCENTILE')
-    expect(text).toContain('TIME ABOVE REFERENCE')
+    expect(text).toContain('95TH PCT')
+    expect(text).toContain('TIME ABOVE')
+    // The parameter header carries the short name and the sampling cadence.
+    expect(text).toContain('CO₂')
+    expect(text).toContain('10-min logging')
+  })
+
+  it('describes only the marks the figure actually carries', () => {
+    // A caption that explains occupancy shading on a chart with no marked
+    // occupancy teaches the reader to distrust the captions.
+    const withMarks = model().parameters.find((x) => x.param === 'co2')
+    expect(withMarks.caption).toContain('Dashed line = 1,000 ppm screening reference')
+    expect(withMarks.caption).toContain('logged events (Appendix A)')
+
+    const bare = buildMonitoringReportModel(
+      createMonitoringSession({ datasets: [{ ...dataset(), role: 'indoor' }] }),
+      {},
+    ).parameters.find((x) => x.param === 'co2')
+    expect(bare.caption).not.toContain('occupied hours')
+    expect(bare.caption).not.toContain('logged events')
+  })
+
+  it('sets the statement lead and its standing note as one paragraph', () => {
+    const text = JSON.stringify(buildParameterSection({ ...entry, statementNote: 'NOTE-SENTINEL' }).children)
+    expect(text).toContain('NOTE-SENTINEL')
+    expect(text).toContain(entry.statement.slice(0, 40))
   })
 
   it('numbers the body sections in an unbroken sequence', () => {
@@ -160,7 +201,8 @@ describe('parameter section', () => {
     // so numbering is applied after empty sections are dropped.
     const { body } = buildMonitoringSections(model())
     expect(body[0].num).toBeUndefined() // the cover is unnumbered
-    const nums = body.slice(1).map((s) => s.num)
+    // The colophon is excluded: it is the end of the document, not a section.
+    const nums = body.slice(1).filter((s) => !s.footer).map((s) => s.num)
     expect(nums).toEqual([...Array(nums.length).keys()].map((i) => i + 1))
   })
 
@@ -171,7 +213,8 @@ describe('parameter section', () => {
       {},
     )
     const { body } = buildMonitoringSections(sparse)
-    const nums = body.slice(1).map((s) => s.num)
+    // The colophon is excluded: it is the end of the document, not a section.
+    const nums = body.slice(1).filter((s) => !s.footer).map((s) => s.num)
     expect(nums).toEqual([...Array(nums.length).keys()].map((i) => i + 1))
     expect(body.some((s) => s.title === 'Monitoring objective')).toBe(false)
   })

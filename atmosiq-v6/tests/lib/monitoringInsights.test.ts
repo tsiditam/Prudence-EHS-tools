@@ -19,6 +19,10 @@ import {
   formatValue,
   formatTimestamp,
   proseName,
+  proseNameShort,
+  proseNameTitle,
+  formatDateRange,
+  formatGeneratedAt,
   parameterStatement,
   monitoringInsights,
   datasetHighlights,
@@ -310,5 +314,62 @@ describe('the language boundary (machine-enforced)', () => {
     everyString.forEach((text) => {
       expect(forbidden.test(text), `causal or compliance claim in: "${text}"`).toBe(false)
     })
+  })
+})
+
+describe('parameter naming', () => {
+  it('offers a short form for chips and captions, and a formal one for headings', () => {
+    expect(proseNameShort('co2')).toBe('CO₂')
+    expect(proseNameTitle('co2')).toBe('Carbon dioxide (CO₂)')
+    expect(proseNameShort('temp')).toBe('Temp')
+    // A quantity whose name IS its symbol does not repeat itself.
+    expect(proseNameTitle('temp')).toBe('Temperature')
+    expect(proseNameShort('pm25')).toBe('PM2.5')
+    expect(proseNameTitle('pm25')).toBe('Particulate matter (PM2.5)')
+  })
+
+  it('falls back to the raw key for a parameter it has never seen', () => {
+    expect(proseNameShort('radon')).toBe('radon')
+    expect(proseNameTitle('radon')).toBe('radon')
+  })
+
+  it('every known parameter has all four forms', () => {
+    for (const k of ['co2', 'pm25', 'pm10', 'tvoc', 'hcho', 'co', 'temp', 'rh', 'press']) {
+      for (const name of [proseName(k), proseNameShort(k), proseNameTitle(k)]) {
+        expect(typeof name).toBe('string')
+        expect(name.length).toBeGreaterThan(0)
+        expect(name).not.toBe(k) // a raw key never reaches a client's page
+      }
+    }
+  })
+})
+
+describe('cover date formatting', () => {
+  const d = (y: number, m: number, day: number, h = 0) => Date.UTC(y, m, day, h)
+
+  it('collapses a range to what actually differs', () => {
+    expect(formatDateRange(d(2026, 6, 15), d(2026, 6, 18))).toBe('Jul 15 – 18, 2026')
+    expect(formatDateRange(d(2026, 6, 28), d(2026, 7, 2))).toBe('Jul 28 – Aug 2, 2026')
+    expect(formatDateRange(d(2026, 11, 30), d(2027, 0, 2))).toBe('Dec 30, 2026 – Jan 2, 2027')
+    // A single-day campaign is one date, not a range from itself to itself.
+    expect(formatDateRange(d(2026, 6, 15, 2), d(2026, 6, 15, 20))).toBe('Jul 15, 2026')
+  })
+
+  it('follows the declared site offset, not the host timezone', () => {
+    // Midnight UTC on the 15th is still the 14th at a -05:00 site.
+    expect(formatDateRange(d(2026, 6, 15), d(2026, 6, 18), { utcOffsetMin: -300 })).toBe('Jul 14 – 17, 2026')
+  })
+
+  it('returns nothing rather than a half-formed range', () => {
+    expect(formatDateRange(NaN, d(2026, 6, 18))).toBeNull()
+    expect(formatDateRange(undefined as never, undefined as never)).toBeNull()
+  })
+
+  it('stamps generation legibly, and in UTC', () => {
+    expect(formatGeneratedAt('2026-07-31T14:20:00.000Z')).toBe('2026-07-31 14:20 UTC')
+    expect(formatGeneratedAt('2026-01-05T04:07:00.000Z')).toBe('2026-01-05 04:07 UTC')
+    // An unparseable stamp is passed through rather than turned into a lie.
+    expect(formatGeneratedAt('not a date')).toBe('not a date')
+    expect(formatGeneratedAt(null as never)).toBeNull()
   })
 })

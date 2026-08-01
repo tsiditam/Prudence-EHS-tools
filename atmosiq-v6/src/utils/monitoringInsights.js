@@ -39,16 +39,20 @@ const isNum = (v) => v != null && Number.isFinite(v)
 // `mid` is the form used mid-sentence: common nouns lowercase, but an
 // acronym or trade designation keeps its case ("PM2.5", "TVOC") — otherwise
 // the text reads either shouted or misspelled.
+// `short` is the column-width form used on chips, figure captions and the
+// cover's parameter list; `title` is the formal section heading, which names
+// the quantity in full and carries its symbol so a reader who knows only one
+// of the two still finds the section.
 const PROSE = {
-  co2: { name: 'Carbon dioxide', mid: 'carbon dioxide', concentration: true },
-  pm25: { name: 'PM2.5', mid: 'PM2.5', concentration: true },
-  pm10: { name: 'PM10', mid: 'PM10', concentration: true },
-  tvoc: { name: 'TVOC', mid: 'TVOC', concentration: true },
-  hcho: { name: 'Formaldehyde', mid: 'formaldehyde', concentration: true },
-  co: { name: 'Carbon monoxide', mid: 'carbon monoxide', concentration: true },
-  temp: { name: 'Temperature', mid: 'temperature', concentration: false },
-  rh: { name: 'Relative humidity', mid: 'relative humidity', concentration: false },
-  press: { name: 'Barometric pressure', mid: 'barometric pressure', concentration: false },
+  co2: { name: 'Carbon dioxide', mid: 'carbon dioxide', short: 'CO₂', title: 'Carbon dioxide (CO₂)', concentration: true },
+  pm25: { name: 'PM2.5', mid: 'PM2.5', short: 'PM2.5', title: 'Particulate matter (PM2.5)', concentration: true },
+  pm10: { name: 'PM10', mid: 'PM10', short: 'PM10', title: 'Particulate matter (PM10)', concentration: true },
+  tvoc: { name: 'TVOC', mid: 'TVOC', short: 'TVOC', title: 'Total volatile organic compounds (TVOC)', concentration: true },
+  hcho: { name: 'Formaldehyde', mid: 'formaldehyde', short: 'HCHO', title: 'Formaldehyde (HCHO)', concentration: true },
+  co: { name: 'Carbon monoxide', mid: 'carbon monoxide', short: 'CO', title: 'Carbon monoxide (CO)', concentration: true },
+  temp: { name: 'Temperature', mid: 'temperature', short: 'Temp', title: 'Temperature', concentration: false },
+  rh: { name: 'Relative humidity', mid: 'relative humidity', short: 'RH', title: 'Relative humidity', concentration: false },
+  press: { name: 'Barometric pressure', mid: 'barometric pressure', short: 'Pressure', title: 'Barometric pressure', concentration: false },
 }
 
 // Reported decimal places. Resolution the instrument and the reader actually
@@ -66,6 +70,18 @@ export function proseName(param) {
 export function proseNameMid(param) {
   const spec = PROSE[param]
   return (spec && (spec.mid || spec.name)) || param
+}
+
+/** Compact display name — chips, figure captions, the cover parameter list. */
+export function proseNameShort(param) {
+  const spec = PROSE[param]
+  return (spec && (spec.short || spec.name)) || param
+}
+
+/** Formal section heading, naming the quantity in full with its symbol. */
+export function proseNameTitle(param) {
+  const spec = PROSE[param]
+  return (spec && (spec.title || spec.name)) || param
 }
 
 /**
@@ -126,6 +142,41 @@ export function formatDateOnly(ms, opts = {}) {
   if (!isNum(ms)) return null
   const d = new Date(ms + (isNum(opts.utcOffsetMin) ? opts.utcOffsetMin : 0) * 60000)
   return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}`
+}
+
+/**
+ * A monitoring period as one compact range — "Jul 15 – 18, 2026".
+ *
+ * The cover states WHEN monitoring ran, not when each end of it fell to the
+ * minute; the exact bounds are in §Dataset integrity and in the figures. The
+ * month and year collapse only when both ends share them.
+ */
+export function formatDateRange(startMs, endMs, opts = {}) {
+  if (!isNum(startMs) || !isNum(endMs)) return null
+  const off = (isNum(opts.utcOffsetMin) ? opts.utcOffsetMin : 0) * 60000
+  const a = new Date(startMs + off)
+  const b = new Date(endMs + off)
+  const [am, ad, ay] = [a.getUTCMonth(), a.getUTCDate(), a.getUTCFullYear()]
+  const [bm, bd, by] = [b.getUTCMonth(), b.getUTCDate(), b.getUTCFullYear()]
+  if (ay !== by) return `${MONTHS[am]} ${ad}, ${ay} – ${MONTHS[bm]} ${bd}, ${by}`
+  if (am !== bm) return `${MONTHS[am]} ${ad} – ${MONTHS[bm]} ${bd}, ${by}`
+  if (ad !== bd) return `${MONTHS[am]} ${ad} – ${bd}, ${by}`
+  return `${MONTHS[am]} ${ad}, ${ay}`
+}
+
+/**
+ * A generation timestamp in the report's own format — "2026-08-01 00:20 UTC".
+ *
+ * Deliberately UTC and deliberately unambiguous: this line exists so two
+ * copies of a report can be told apart, which an ISO string with a trailing
+ * "Z" and three decimal places does less legibly than it looks.
+ */
+export function formatGeneratedAt(iso) {
+  const ms = typeof iso === 'string' && iso ? Date.parse(iso) : NaN
+  if (!isNum(ms)) return typeof iso === 'string' ? iso : null
+  const d = new Date(ms)
+  const two = (n) => String(n).padStart(2, '0')
+  return `${d.getUTCFullYear()}-${two(d.getUTCMonth() + 1)}-${two(d.getUTCDate())} ${two(d.getUTCHours())}:${two(d.getUTCMinutes())} UTC`
 }
 
 /** Site-local hour (0–23) for a timestamp, without host-timezone dependency. */
