@@ -9,7 +9,7 @@
  * rather than a real canvas.
  */
 import { describe, it, expect } from 'vitest'
-import { niceScale, axisFormat, drawMonitoringChart, renderMonitoringCharts } from '../../src/utils/monitoringChart'
+import { niceScale, axisFormat, axisDecimals, drawMonitoringChart, renderMonitoringCharts } from '../../src/utils/monitoringChart'
 
 const T0 = Date.UTC(2026, 6, 15)
 const MIN = 60_000
@@ -78,6 +78,40 @@ describe('axisFormat', () => {
   it('keeps whole steps whole, with thousands separators', () => {
     expect(axisFormat(1000, 250)).toBe('1,000')
     expect(axisFormat(30, 5)).toBe('30')
+  })
+
+  it('follows the step down to sub-unit magnitudes', () => {
+    // A formaldehyde axis in mg/m³ steps by 0.005. Two fixed decimals would
+    // print 0.00, 0.01, 0.01, 0.02 — adjacent gridlines carrying the SAME
+    // label, off which no value can be read.
+    expect(axisDecimals(0.005)).toBe(3)
+    expect(axisFormat(0.005, 0.005)).toBe('0.005')
+    expect(axisFormat(0.01, 0.005)).toBe('0.010')
+    expect(axisDecimals(0.05)).toBe(2)
+    expect(axisDecimals(0.0025)).toBe(4)
+  })
+
+  it('is immune to the float noise a step of 2.5e-3 carries', () => {
+    // niceScale builds its step as a multiplier times a power of ten, which
+    // at small magnitudes yields 0.0025000000000000005. Counting decimals off
+    // the string form would give sixteen places.
+    expect(axisDecimals(2.5 * Math.pow(10, -3))).toBe(4)
+    expect(axisDecimals(2 * Math.pow(10, -2))).toBe(2)
+  })
+
+  it('never labels two adjacent gridlines identically, at any magnitude', () => {
+    for (const [lo, hi] of [[0.004, 0.05], [0.02, 0.4], [332, 1897], [65.8, 83.2], [3, 40]]) {
+      const s = niceScale(lo, hi)
+      const labels: string[] = []
+      for (let v = s.min; v <= s.max + 1e-9; v += s.step) labels.push(axisFormat(v, s.step))
+      expect(new Set(labels).size, `duplicate label in [${lo}, ${hi}]`).toBe(labels.length)
+    }
+  })
+
+  it('says nothing sensible about a nonsense step rather than throwing', () => {
+    expect(axisDecimals(0)).toBe(0)
+    expect(axisDecimals(NaN)).toBe(0)
+    expect(axisDecimals(undefined as never)).toBe(0)
   })
 })
 

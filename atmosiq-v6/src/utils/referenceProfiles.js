@@ -48,6 +48,13 @@ const CO2_NOTE =
   'CO₂ indexes ventilation per occupant (ASHRAE 62.1 / Persily 2021), not a health limit.'
 const TVOC_NOTE =
   'TVOC has no consensus health limit; the Mølhave 1991 value is a multifactorial-exposure advisory tier (isobutylene-referenced).'
+// A NAAQS is an ambient-air standard with a statistical FORM — a percentile
+// or exceedance count averaged over three years of regulatory monitoring —
+// and it applies outdoors. Comparing one indoor monitoring session to the
+// number is a screening comparison, not the standard's own test, and saying
+// so is the difference between a reference and an implied determination.
+const PM_NAAQS_NOTE =
+  'US EPA NAAQS are ambient-air standards evaluated over multi-year monitoring records; comparison here is a screening reference only, not an application of the standard.'
 
 /**
  * The catalogue. Each profile declares how to resolve its value in the logged
@@ -89,8 +96,13 @@ const PROFILES = {
   ],
 
   pm25: [
-    { id: 'epa', label: 'EPA 24-hour', source: 'US EPA NAAQS', resolve: () => ({ limit: STD.c.pm25.epa }) },
+    { id: 'epa', label: 'EPA 24-hour', source: 'US EPA NAAQS', note: PM_NAAQS_NOTE, resolve: () => ({ limit: STD.c.pm25.epa }) },
     { id: 'who', label: 'WHO 24-hour (2021)', source: 'WHO Global Air Quality Guidelines 2021', resolve: () => ({ limit: STD.c.pm25.who }) },
+  ],
+
+  pm10: [
+    { id: 'epa', label: 'EPA 24-hour', source: 'US EPA NAAQS', note: PM_NAAQS_NOTE, resolve: () => ({ limit: STD.c.pm10.epa }) },
+    { id: 'who', label: 'WHO 24-hour (2021)', source: 'WHO Global Air Quality Guidelines 2021', resolve: () => ({ limit: STD.c.pm10.who }) },
   ],
 
   co: [

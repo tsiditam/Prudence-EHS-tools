@@ -74,8 +74,30 @@ export function niceScale(min, max, targetTicks = 7) {
  * record is a defect, not a cosmetic one.
  */
 export function axisFormat(v, step) {
-  const decimals = Number.isInteger(step) ? 0 : step < 1 ? 2 : 1
+  const decimals = axisDecimals(step)
   return v.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
+}
+
+/**
+ * Exactly the decimal places a step needs, derived from the step itself.
+ *
+ * A fixed two places is right for a 2.5 step and wrong for a 0.005 one — a
+ * formaldehyde axis in mg/m³ would then print 0.00, 0.01, 0.01, 0.02, with
+ * adjacent gridlines carrying the SAME label. Reading a value off an axis
+ * whose labels repeat is not possible, so the precision follows the step.
+ *
+ * Computed from the exponent rather than the string form: `niceScale` builds
+ * its step as a multiplier times a power of ten, and at small magnitudes that
+ * arithmetic leaves float noise (2.5e-3 becomes 0.0025000000000000005) that a
+ * string-length count would turn into sixteen decimal places.
+ */
+export function axisDecimals(step) {
+  if (!isNum(step) || step <= 0) return 0
+  const exp = Math.floor(Math.log10(step))
+  // The 2.5-style multiplier needs one place more than its magnitude implies.
+  const base = step / Math.pow(10, exp)
+  const extra = Math.abs(base - Math.round(base)) < 1e-9 ? 0 : 1
+  return Math.max(0, -exp + extra)
 }
 
 /** Site-local calendar day label, offset-explicit (no host-timezone reliance). */

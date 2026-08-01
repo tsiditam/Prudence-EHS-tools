@@ -252,6 +252,50 @@ function hchoSourceToPpb(v, sourceUnit) {
   return v
 }
 
+/**
+ * TVOC's canonical unit for a given source unit — the unit every downstream
+ * consumer will read it in.
+ *
+ * There are TWO canonical units, not one, and that is deliberate.
+ *
+ * A PID reports TVOC by volume (ppb / ppm) against a reference compound; a
+ * photometric or gravimetric instrument reports it by mass (µg/m³ / mg/m³).
+ * Converting BETWEEN those bases requires assuming a response factor —
+ * isobutylene, by convention — and that assumption belongs to the reading's
+ * interpretation, not to its transcription. Baking it in at parse time would
+ * overwrite what the instrument actually measured with an inference, and no
+ * downstream consumer could tell the two apart afterwards.
+ *
+ * Contrast HCHO, which normalizes across bases freely: formaldehyde has one
+ * molecular weight (30.03), so µg/m³ ↔ ppb is physics, not an assumption.
+ *
+ * So the normalization here is only ever a decimal prefix shift WITHIN a
+ * basis — ppm → ppb, mg/m³ → µg/m³. Both are exact, both preserve what was
+ * measured, and both put the reading on the scale a reader expects to see it
+ * on: "194 ppb", not "0.194 ppm".
+ *
+ * The reference still travels the other way. `tvocToUnit` projects the
+ * Mølhave value INTO whichever canonical unit the data landed in, which is
+ * the safe direction: the measurement stays as measured and the published
+ * value is the thing that moves.
+ */
+export function tvocCanonicalUnit(sourceUnit) {
+  const u = String(sourceUnit || '').toLowerCase()
+  if (u.includes('ppm')) return 'ppb'
+  if (/mg\/m/.test(u)) return 'µg/m³'
+  return null // already canonical, or a unit we must not silently reinterpret
+}
+
+/**
+ * A TVOC reading in its canonical unit. Exact ×1000 within a basis; identity
+ * for anything else, so an unrecognized unit passes through unchanged rather
+ * than being mangled into a plausible-looking wrong number.
+ */
+export function tvocSourceToCanonical(v, sourceUnit) {
+  if (v == null || !Number.isFinite(v)) return v
+  return tvocCanonicalUnit(sourceUnit) ? v * 1000 : v
+}
+
 // Map a logger parameter onto the per-zone reading field id (SENSOR_FIELDS)
 // it can populate. Indoor only — the outdoor fields (co2o, tfo, …) and HCHO
 // have no logger source and stay manual. TVOC is handled separately because
@@ -369,6 +413,16 @@ export function parseSensorRows(rows, opts = {}) {
     units.hcho = 'ppb'
   }
 
+  // TVOC normalization: a decimal prefix shift within the reading's own
+  // basis (ppm → ppb, mg/m³ → µg/m³), never across bases — see
+  // tvocCanonicalUnit. Source unit stashed for provenance, as with HCHO.
+  const tvocCanonical = units.tvoc ? tvocCanonicalUnit(units.tvoc) : null
+  const tvocSource = tvocCanonical ? units.tvoc : null
+  if (tvocCanonical) {
+    units.tvocSource = tvocSource
+    units.tvoc = tvocCanonical
+  }
+
   // Build points; first param column wins if a param repeats.
   const seen = new Set()
   const activeParams = paramCols.filter((c) => (seen.has(c.param) ? false : seen.add(c.param)))
@@ -384,6 +438,7 @@ export function parseSensorRows(rows, opts = {}) {
     activeParams.forEach((c) => {
       let n = toNumber(cells[c.i])
       if (n != null && c.param === 'hcho' && hchoSource) n = hchoSourceToPpb(n, hchoSource)
+      if (n != null && c.param === 'tvoc' && tvocSource) n = tvocSourceToCanonical(n, tvocSource)
       pt[c.param] = n
       if (n != null) any = true
     })

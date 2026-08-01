@@ -108,8 +108,36 @@ export function unitOf(param, units = {}) {
 /** Number with the parameter's reported precision and thousands separators. */
 export function formatValue(v, param) {
   if (!isNum(v)) return null
-  const d = DECIMALS[param] != null ? DECIMALS[param] : 1
+  const declared = DECIMALS[param] != null ? DECIMALS[param] : 1
+  const d = precisionFor(v, declared)
   return v.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d })
+}
+
+/**
+ * The declared precision, widened only far enough to keep a reading from
+ * rounding away to nothing.
+ *
+ * DECIMALS is set per parameter for the unit each is USUALLY logged in, and
+ * for that unit it is right: CO₂ reads "789 ppm", not "789.34 ppm". But the
+ * same parameter can arrive in a unit two or three orders of magnitude
+ * smaller — TVOC in ppm from a PID, formaldehyde in mg/m³ from a Q-Trak —
+ * and there the declared precision prints a real measurement as "0".
+ *
+ * A report that states the mean was "0 mg/m³" when it was 0.020 is not
+ * imprecise, it is false, and this platform's entire value is that its
+ * numbers can be relied on.
+ *
+ * So the widening is deliberately minimal: precision is raised ONLY when the
+ * declared value would round to zero, and then only to two significant
+ * figures. Every reading that already prints as a non-zero number keeps
+ * exactly the precision it has today — over-claiming precision on a
+ * measurement is its own kind of defect.
+ */
+function precisionFor(v, declared) {
+  const a = Math.abs(v)
+  if (a === 0) return declared
+  if (Number(a.toFixed(declared)) !== 0) return declared
+  return Math.max(declared, 1 - Math.floor(Math.log10(a)))
 }
 
 /** "5 h 20 m" / "30 h" / "45 m" / "0 m" — the form a client reads faster than seconds. */

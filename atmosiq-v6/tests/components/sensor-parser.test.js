@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { classifyHeader, parseSensorCsv, downsample, detectUnit, normalizeForCompare, sensorAveragesToFields, ppbToUgm3, ugm3ToPpb, HCHO_MW, inferTempUnit, detectDatasetRole, convertTempValue, withDisplayTempUnit } from '../../src/utils/sensorParser'
+import { classifyHeader, parseSensorCsv, downsample, detectUnit, normalizeForCompare, sensorAveragesToFields, ppbToUgm3, ugm3ToPpb, HCHO_MW, inferTempUnit, detectDatasetRole, convertTempValue, withDisplayTempUnit, tvocCanonicalUnit, tvocSourceToCanonical } from '../../src/utils/sensorParser'
 
 describe('Formaldehyde (HCHO) detection', () => {
   it('classifies HCHO / formaldehyde / CH2O headers as the hcho param', () => {
@@ -291,12 +291,16 @@ describe('sensorAveragesToFields', () => {
     expect(details.find((d) => d.field === 'tv').note).toMatch(/ppb→µg\/m³ @ Isobutylene/)
   })
 
-  it('uses the selected reference compound and ppm scaling for TVOC', () => {
+  it('uses the selected reference compound, whatever unit the log arrived in', () => {
     const r = parseSensorCsv('Timestamp,TVOC (ppm)\n2026-05-01 09:00,1\n2026-05-01 09:05,1')
-    // 1 ppm = 1000 ppb × 92.14 / 24.45 ≈ 3769 µg/m³ (toluene)
+    // 1 ppm = 1000 ppb × 92.14 / 24.45 ≈ 3769 µg/m³ (toluene). The VALUE is
+    // unchanged by parse-time normalization — only the note is, because the
+    // parser now does the ppm→ppb prefix shift and this function is handed
+    // ppb. One conversion instead of two, and the mass bridge still happens
+    // exactly once, here, where the reference compound is chosen.
     const { fields, details } = sensorAveragesToFields(r, { tvocRef: 'toluene' })
     expect(fields.tv).toBe('3769')
-    expect(details.find((d) => d.field === 'tv').note).toMatch(/ppm→µg\/m³ @ Toluene/)
+    expect(details.find((d) => d.field === 'tv').note).toMatch(/ppb→µg\/m³ @ Toluene/)
   })
 
   it('skips TVOC when the unit is not interpretable as ppb/ppm/µg/m³', () => {
@@ -324,5 +328,75 @@ describe('downsample', () => {
     expect(out.length).toBeLessThanOrEqual(801)
     expect(out[0].v).toBe(0)
     expect(out[out.length - 1].v).toBe(4999)
+  })
+})
+
+describe('TVOC normalization at parse time', () => {
+  it('shifts ppm to ppb, so a PID log reads 194 ppb rather than 0.194 ppm', () => {
+    const r = parseSensorCsv('Timestamp,TVOC (ppm)\n2026-05-01 09:00,0.194\n2026-05-01 09:05,0.340\n2026-05-01 09:10,0.090')
+    expect(r.units.tvoc).toBe('ppb')
+    expect(r.units.tvocSource).toBe('ppm') // provenance, so the CSV can be audited
+    expect(r.summary.stats.tvoc.min).toBeCloseTo(90, 6)
+    expect(r.summary.stats.tvoc.max).toBeCloseTo(340, 6)
+    expect(r.points.map((p) => p.tvoc)).toEqual([194, 340, 90])
+  })
+
+  it('shifts mg/m³ to µg/m³, keeping a mass reading on a mass scale', () => {
+    const r = parseSensorCsv('Timestamp,TVOC (mg/m3)\n2026-05-01 09:00,0.5\n2026-05-01 09:05,1.2')
+    expect(r.units.tvoc).toBe('µg/m³')
+    expect(r.units.tvocSource).toBe('mg/m³')
+    expect(r.points.map((p) => p.tvoc)).toEqual([500, 1200])
+  })
+
+  it('NEVER crosses between the volume and mass bases', () => {
+    // A PID reports against a reference compound; a photometric instrument
+    // reports mass. Bridging them assumes a response factor, and that
+    // assumption belongs to interpreting the reading, not transcribing it —
+    // baking it in here would overwrite what the instrument measured with an
+    // inference no downstream consumer could detect.
+    expect(tvocCanonicalUnit('ppb')).toBeNull()
+    expect(tvocCanonicalUnit('µg/m³')).toBeNull()
+    expect(tvocCanonicalUnit('index')).toBeNull()
+    expect(tvocCanonicalUnit('')).toBeNull()
+
+    const ppb = parseSensorCsv('Timestamp,TVOC (ppb)\n2026-05-01 09:00,194')
+    expect(ppb.units.tvoc).toBe('ppb')
+    expect(ppb.units.tvocSource).toBeUndefined() // already canonical
+    expect(ppb.points[0].tvoc).toBe(194)
+
+    const ug = parseSensorCsv('Timestamp,TVOC (ug/m3)\n2026-05-01 09:00,443')
+    expect(ug.units.tvoc).toBe('µg/m³')
+    expect(ug.units.tvocSource).toBeUndefined()
+    expect(ug.points[0].tvoc).toBe(443)
+  })
+
+  it('changes the scale, never the measurement', () => {
+    // The shift is an exact ×1000 within one basis, so the same air logged in
+    // either unit must produce identical statistics once normalized.
+    const inPpm = parseSensorCsv('Timestamp,TVOC (ppm)\n2026-05-01 09:00,0.194\n2026-05-01 09:05,0.34')
+    const inPpb = parseSensorCsv('Timestamp,TVOC (ppb)\n2026-05-01 09:00,194\n2026-05-01 09:05,340')
+    expect(inPpm.summary.stats.tvoc.mean).toBeCloseTo(inPpb.summary.stats.tvoc.mean, 6)
+    expect(inPpm.units.tvoc).toBe(inPpb.units.tvoc)
+  })
+
+  it('passes an unrecognized unit through untouched rather than guessing', () => {
+    // A bare air-quality index is not convertible to anything. Mangling it
+    // into a plausible-looking number would be worse than leaving it alone.
+    expect(tvocSourceToCanonical(42, 'index')).toBe(42)
+    expect(tvocSourceToCanonical(null, 'ppm')).toBeNull()
+    expect(tvocSourceToCanonical(NaN, 'ppm')).toBeNaN()
+    const r = parseSensorCsv('Timestamp,TVOC (index)\n2026-05-01 09:00,42\n2026-05-01 09:05,55')
+    expect(r.points.map((p) => p.tvoc)).toEqual([42, 55])
+  })
+
+  it('still fills the zone reading field, which is µg/m³', () => {
+    // The ppm branch of sensorAveragesToFields is now unreachable for fresh
+    // parses; the normalized ppb value must still convert for the assessment.
+    const r = parseSensorCsv('Timestamp,TVOC (ppm)\n2026-05-01 09:00,0.2\n2026-05-01 09:05,0.2')
+    const { details } = sensorAveragesToFields(r, { stat: 'mean', tvocRef: 'isobutylene' })
+    const tv = details.find((d) => d.param === 'tvoc')
+    expect(tv).toBeTruthy()
+    expect(tv.value).toBeGreaterThan(400) // 200 ppb isobutylene-equiv ≈ 459 µg/m³
+    expect(tv.note).toContain('ppb→µg/m³')
   })
 })
