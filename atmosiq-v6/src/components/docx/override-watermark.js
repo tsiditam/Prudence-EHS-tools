@@ -16,6 +16,7 @@
  */
 
 import { Header, Footer, Paragraph, TextRun, AlignmentType, BorderStyle } from 'docx'
+import { FONTS } from './styles'
 
 const OVERRIDE_HEADER_TEXT = 'ISSUED UNDER DOCUMENTED PROFESSIONAL JUDGMENT'
 const OVERRIDE_FOOTER_TEXT = 'Issued under documented professional judgment by the reviewing industrial hygienist — see cover page for justification.'
@@ -36,7 +37,7 @@ function buildOverrideHeader(ihOverride) {
             text: OVERRIDE_HEADER_TEXT,
             color: OVERRIDE_COLOR,
             size: 18,
-            font: 'Inter',
+            font: FONTS.body,
             bold: true,
           }),
         ],
@@ -56,7 +57,7 @@ function buildOverrideFooter(ihOverride) {
             text: OVERRIDE_FOOTER_TEXT,
             color: OVERRIDE_COLOR,
             size: 16,
-            font: 'Inter',
+            font: FONTS.body,
             italics: true,
           }),
         ],
@@ -92,7 +93,7 @@ export function buildOverrideCoverNoticeParagraph(ihOverride, mutations) {
         text: 'ISSUED UNDER DOCUMENTED PROFESSIONAL JUDGMENT',
         color: OVERRIDE_COLOR,
         size: 22,
-        font: 'Inter',
+        font: FONTS.body,
         bold: true,
       }),
     ],
@@ -113,7 +114,7 @@ export function buildOverrideCoverNoticeParagraph(ihOverride, mutations) {
           'weight this report\'s conclusions accordingly.',
         color: OVERRIDE_COLOR,
         size: 18,
-        font: 'Inter',
+        font: FONTS.body,
       }),
     ],
   })
@@ -125,7 +126,7 @@ export function buildOverrideCoverNoticeParagraph(ihOverride, mutations) {
         text: 'Defensibility requirements issued under documented professional judgment:',
         color: OVERRIDE_COLOR,
         size: 18,
-        font: 'Inter',
+        font: FONTS.body,
         bold: true,
       }),
     ],
@@ -133,24 +134,24 @@ export function buildOverrideCoverNoticeParagraph(ihOverride, mutations) {
   const triggersBody = mutationLines.length > 0
     ? mutationLines.map(line => new Paragraph({
         spacing: { after: 20 },
-        children: [new TextRun({ text: line, color: OVERRIDE_COLOR, size: 16, font: 'Inter' })],
+        children: [new TextRun({ text: line, color: OVERRIDE_COLOR, size: 16, font: FONTS.body })],
       }))
     : [new Paragraph({
-        children: [new TextRun({ text: '(no mutations recorded)', color: OVERRIDE_COLOR, italics: true, size: 16, font: 'Inter' })],
+        children: [new TextRun({ text: '(no mutations recorded)', color: OVERRIDE_COLOR, italics: true, size: 16, font: FONTS.body })],
       })]
 
   const justificationBlock = new Paragraph({
     spacing: { before: 120, after: 40 },
     children: [
-      new TextRun({ text: 'Assessor justification: ', color: OVERRIDE_COLOR, size: 18, font: 'Inter', bold: true }),
-      new TextRun({ text: `"${justification}"`, color: OVERRIDE_COLOR, size: 18, font: 'Inter', italics: true }),
+      new TextRun({ text: 'Assessor justification: ', color: OVERRIDE_COLOR, size: 18, font: FONTS.body, bold: true }),
+      new TextRun({ text: `"${justification}"`, color: OVERRIDE_COLOR, size: 18, font: FONTS.body, italics: true }),
     ],
   })
 
   const timestamp = new Paragraph({
     spacing: { before: 40, after: 240 },
     children: [
-      new TextRun({ text: `Override applied at: ${overriddenAt}`, color: OVERRIDE_COLOR, size: 16, font: 'Inter' }),
+      new TextRun({ text: `Override applied at: ${overriddenAt}`, color: OVERRIDE_COLOR, size: 16, font: FONTS.body }),
     ],
   })
 
