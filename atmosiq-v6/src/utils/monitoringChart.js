@@ -19,19 +19,35 @@
 
 const isNum = (v) => v != null && Number.isFinite(v)
 
-/** The figure's palette — the reviewed report colours. */
+/**
+ * The figure's palette — the report's five colours and nothing else.
+ *
+ * Cyan carries the data, amber the reference, green the comfort range, and
+ * everything structural is a neutral grey. Restraint is the point: a figure
+ * whose gridlines compete with its trend line is harder to read, not richer.
+ */
 export const CHART_COLORS = {
   ink: '#0B1220',
-  muted: '#8A929E',
-  hair: '#E7EBEF',
+  muted: '#6B7480', // axis labels — darker than the old #8A929E, so they read
+  hair: '#EEF1F4', // gridlines — softer, so they recede behind the data
   line: '#0891B2',
-  fillTop: 'rgba(8,145,178,0.20)',
-  fillBottom: 'rgba(8,145,178,0.02)',
-  band: 'rgba(15,23,42,0.045)',
+  fillTop: 'rgba(8,145,178,0.16)',
+  fillBottom: 'rgba(8,145,178,0.01)',
+  band: 'rgba(15,23,42,0.035)',
   reference: '#B45309',
-  comfort: 'rgba(14,159,110,0.07)',
+  comfort: 'rgba(14,159,110,0.06)',
   comfortLine: '#0E9F6E',
 }
+
+/**
+ * Line weights, in CSS pixels.
+ *
+ * The trend is drawn THINNER than the reference it is measured against. That
+ * inverts the usual instinct and is deliberate: the reference is the one mark
+ * a reader must not miss, and a hairline trend reads as data rather than as
+ * decoration — the difference between a chart and a logger screenshot.
+ */
+const STROKE = { trend: 1.35, reference: 1.8, grid: 1, event: 1 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
@@ -137,10 +153,10 @@ export function drawMonitoringChart(ctx, spec = {}) {
   ctx.fillRect(0, 0, W, H)
   if (pts.length < 2) return
 
-  const padL = 62
-  const padR = 18
-  const padT = 26
-  const padB = 34
+  const padL = 70
+  const padR = 26
+  const padT = 34
+  const padB = 42
   const x0 = padL
   const x1 = W - padR
   const y0 = padT
@@ -172,19 +188,19 @@ export function drawMonitoringChart(ctx, spec = {}) {
   })
 
   // Gridlines + y labels
-  ctx.font = `11px ${font}`
+  ctx.font = `12px ${font}`
   ctx.textBaseline = 'middle'
   ctx.textAlign = 'right'
   for (let v = scale.min; v <= scale.max + 1e-9; v += scale.step) {
     const y = Y(v)
     ctx.strokeStyle = C.hair
-    ctx.lineWidth = 1
+    ctx.lineWidth = STROKE.grid
     ctx.beginPath()
     ctx.moveTo(x0, y)
     ctx.lineTo(x1, y)
     ctx.stroke()
     ctx.fillStyle = C.muted
-    ctx.fillText(axisFormat(v, scale.step), x0 - 10, y)
+    ctx.fillText(axisFormat(v, scale.step), x0 - 14, y)
   }
 
   // Day ticks
@@ -193,7 +209,7 @@ export function drawMonitoringChart(ctx, spec = {}) {
   ctx.fillStyle = C.muted
   dayTicks(t0, t1, offset).forEach((t) => {
     const x = X(Math.min(Math.max(t, t0), t1))
-    ctx.fillText(dayLabel(t, offset), x, y1 + 9)
+    ctx.fillText(dayLabel(t, offset), x, y1 + 13)
   })
 
   // Comfort band, or the upper reference line.
@@ -201,8 +217,8 @@ export function drawMonitoringChart(ctx, spec = {}) {
     ctx.fillStyle = C.comfort
     ctx.fillRect(x0, Y(spec.band[1]), x1 - x0, Y(spec.band[0]) - Y(spec.band[1]))
     ctx.strokeStyle = C.comfortLine
-    ctx.globalAlpha = 0.55
-    ctx.lineWidth = 1
+    ctx.globalAlpha = 0.6
+    ctx.lineWidth = STROKE.reference
     ctx.setLineDash([5, 4])
     ;[spec.band[0], spec.band[1]].forEach((b) => {
       ctx.beginPath()
@@ -215,13 +231,13 @@ export function drawMonitoringChart(ctx, spec = {}) {
     if (spec.referenceLabel) {
       ctx.textAlign = 'left'
       ctx.textBaseline = 'bottom'
-      ctx.font = `10px ${font}`
+      ctx.font = `10.5px ${font}`
       ctx.fillStyle = C.muted
       ctx.fillText(spec.referenceLabel, x0 + 5, Y(spec.band[1]) - 4)
     }
   } else if (isNum(spec.limit)) {
     ctx.strokeStyle = C.reference
-    ctx.lineWidth = 1.4
+    ctx.lineWidth = STROKE.reference
     ctx.setLineDash([5, 4])
     ctx.beginPath()
     ctx.moveTo(x0, Y(spec.limit))
@@ -255,8 +271,9 @@ export function drawMonitoringChart(ctx, spec = {}) {
   ctx.moveTo(X(pts[0].t), Y(pts[0].v))
   pts.forEach((p) => ctx.lineTo(X(p.t), Y(p.v)))
   ctx.strokeStyle = C.line
-  ctx.lineWidth = 1.8
+  ctx.lineWidth = STROKE.trend
   ctx.lineJoin = 'round'
+  ctx.lineCap = 'round'
   ctx.stroke()
 
   // Annotated events — a dashed rule and a caret, labelled above the plot.
@@ -283,7 +300,7 @@ export function drawMonitoringChart(ctx, spec = {}) {
     if (e.label) {
       ctx.textAlign = 'center'
       ctx.textBaseline = 'bottom'
-      ctx.font = `9.5px ${font}`
+      ctx.font = `10px ${font}`
       ctx.fillStyle = C.muted
       ctx.fillText(e.label, x, y0 - 8)
     }
@@ -304,7 +321,7 @@ export function drawMonitoringChart(ctx, spec = {}) {
   ctx.arc(px, py, 3.4, 0, Math.PI * 2)
   ctx.stroke()
   ctx.fillStyle = C.ink
-  ctx.font = `600 10.5px ${font}`
+  ctx.font = `600 11px ${font}`
   const right = px > W - 110
   ctx.textAlign = right ? 'right' : 'left'
   ctx.textBaseline = 'bottom'
@@ -341,6 +358,97 @@ export function renderMonitoringChart(spec = {}) {
   }
 }
 
+/** The sparkline's drawing size, in CSS pixels. */
+export const SPARK_SIZE = { width: 132, height: 26 }
+
+/**
+ * A sparkline: the shape of the series, with no axis and no scale.
+ *
+ * It sits under a summary figure and answers one question a single number
+ * cannot — was that mean steady, or the midpoint of something swinging? It
+ * carries no labels ON PURPOSE. A tiny chart with a readable axis invites
+ * being read as a chart, and this one is 26 pixels tall; the real figure is
+ * two inches below it and is where any value should be read from.
+ */
+export function drawSparkline(ctx, spec = {}) {
+  const pts = (spec.points || []).filter(isNum)
+  const W = spec.width || SPARK_SIZE.width
+  const H = spec.height || SPARK_SIZE.height
+  ctx.clearRect(0, 0, W, H)
+  if (pts.length < 2) return
+
+  const lo = Math.min(...pts)
+  const hi = Math.max(...pts)
+  const pad = 3
+  const span = hi - lo || 1
+  const X = (i) => (i / (pts.length - 1)) * W
+  const Y = (v) => H - pad - ((v - lo) / span) * (H - pad * 2)
+
+  const grad = ctx.createLinearGradient(0, 0, 0, H)
+  grad.addColorStop(0, CHART_COLORS.fillTop)
+  grad.addColorStop(1, CHART_COLORS.fillBottom)
+  ctx.beginPath()
+  ctx.moveTo(X(0), Y(pts[0]))
+  pts.forEach((v, i) => ctx.lineTo(X(i), Y(v)))
+  ctx.lineTo(W, H)
+  ctx.lineTo(0, H)
+  ctx.closePath()
+  ctx.fillStyle = grad
+  ctx.fill()
+
+  ctx.beginPath()
+  ctx.moveTo(X(0), Y(pts[0]))
+  pts.forEach((v, i) => ctx.lineTo(X(i), Y(v)))
+  ctx.strokeStyle = CHART_COLORS.line
+  ctx.lineWidth = 1.1
+  ctx.lineJoin = 'round'
+  ctx.lineCap = 'round'
+  ctx.stroke()
+}
+
+/**
+ * Evenly resample a series to `n` points, preserving its extremes.
+ *
+ * A sparkline is ~130 px wide, so drawing 4,000 readings into it wastes bytes
+ * and renders as a solid block. Bucketing keeps the shape; carrying each
+ * bucket's mean would flatten exactly the peaks the strip is reporting, so
+ * the value furthest from the running mean wins each bucket.
+ */
+export function sparkSeries(points, param, n = 64) {
+  const vals = (points || []).map((p) => (p ? p[param] : null)).filter(isNum)
+  if (vals.length <= n) return vals
+  const mean = vals.reduce((a, b) => a + b, 0) / vals.length
+  const size = vals.length / n
+  const out = []
+  for (let i = 0; i < n; i++) {
+    const slice = vals.slice(Math.floor(i * size), Math.max(Math.floor((i + 1) * size), Math.floor(i * size) + 1))
+    let pick = slice[0]
+    slice.forEach((v) => { if (Math.abs(v - mean) > Math.abs(pick - mean)) pick = v })
+    out.push(pick)
+  }
+  return out
+}
+
+/** A sparkline as a PNG data URL, or null where no canvas exists. */
+export function renderSparkline(points, opts = {}) {
+  if (typeof document === 'undefined' || !document.createElement) return null
+  const W = opts.width || SPARK_SIZE.width
+  const H = opts.height || SPARK_SIZE.height
+  const dpr = opts.scale || 3 // small marks need more of it to stay crisp
+  try {
+    const canvas = document.createElement('canvas')
+    canvas.width = W * dpr
+    canvas.height = H * dpr
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return null
+    ctx.scale(dpr, dpr)
+    drawSparkline(ctx, { points, width: W, height: H })
+    return canvas.toDataURL('image/png')
+  } catch {
+    return null
+  }
+}
+
 /**
  * Figures for every parameter in a report model, keyed by parameter — the
  * shape `buildMonitoringReportModel` accepts as `opts.charts`.
@@ -369,6 +477,25 @@ export function renderMonitoringCharts(params, points, opts = {}) {
       width: opts.width,
       height: opts.height,
     })
+    if (url) out[entry.param] = url
+  })
+  return out
+}
+
+/**
+ * Sparklines for every parameter, keyed the same way as the figures.
+ *
+ * Kept separate from `renderMonitoringCharts` rather than folded into it:
+ * they are different marks with different jobs, and a caller that wants the
+ * figures without the strip decoration should not have to pay for both.
+ */
+export function renderSparklines(params, points, opts = {}) {
+  const out = {}
+  ;(params || []).forEach((entry) => {
+    if (!entry || !entry.param) return
+    const series = sparkSeries(points, entry.param, opts.samples)
+    if (series.length < 2) return
+    const url = renderSparkline(series, opts)
     if (url) out[entry.param] = url
   })
   return out

@@ -10,6 +10,8 @@
 import { describe, it, expect } from 'vitest'
 import { Packer } from 'docx'
 import {
+  overviewCard,
+  splitObservation,
   buildMonitoringSections,
   monitoringReportChildren,
   buildParameterSection,
@@ -22,7 +24,7 @@ import {
   monitoringReportFileName,
   attachMonitoringCharts,
 } from '../../src/components/docx/monitoring-report'
-import { buildMonitoringReportModel } from '../../src/utils/monitoringReportModel'
+import { buildMonitoringReportModel, statusFor } from '../../src/utils/monitoringReportModel'
 import { createMonitoringSession } from '../../src/utils/monitoringSession'
 
 const T0 = Date.UTC(2026, 6, 15)
@@ -59,6 +61,8 @@ const session = (over = {}) =>
     events: [{ id: 'e1', t: T0 + 300 * MIN, type: 'cleaning', note: 'After hours.' }],
     ...over,
   })
+
+const statusForProbe = (pctAbove) => statusFor({ pctAbove }, { limit: 1000 })
 
 const model = (over = {}, opts = {}) =>
   buildMonitoringReportModel(session(over), {
@@ -165,7 +169,7 @@ describe('parameter section', () => {
     // The status renders as a tinted chip carrying the label itself, not a
     // "Status:" prefix line.
     expect(text).toContain(entry.status.label)
-    expect(text).toContain('MONITORING INSIGHTS')
+    expect(text).toContain('KEY OBSERVATIONS')
     expect(text).toContain('Figure 1.')
     // The summary strip renders its labels as small caps above the figures.
     expect(text).toContain('95TH PCT')
@@ -287,5 +291,99 @@ describe('figures', () => {
     const bare = buildMonitoringReportModel(createMonitoringSession(), {})
     expect(attachMonitoringCharts(bare, createMonitoringSession(), {})).toBe(bare)
     expect(attachMonitoringCharts(null, null, {})).toBeNull()
+  })
+})
+
+describe('the cover’s at-a-glance panel', () => {
+  it('lists every parameter that has a resolved status', () => {
+    const m = model()
+    const text = JSON.stringify(overviewCard(m.overview))
+    expect(text).toContain('OVERALL MONITORING SUMMARY')
+    m.overview.forEach((o) => {
+      expect(text, `missing ${o.param}`).toContain(o.label)
+      expect(text).toContain(o.status.label)
+    })
+    expect(m.overview.length).toBeGreaterThan(1)
+  })
+
+  it('cannot tell a different story from the parameter sections', () => {
+    // The panel is built from the SAME status object each section renders, so
+    // a cover claiming "Within Reference" over a section reading otherwise is
+    // not a mistake this can make.
+    const m = model()
+    m.overview.forEach((o) => {
+      const section = m.parameters.find((p) => p.param === o.param)
+      expect(o.status).toBe(section.status)
+    })
+  })
+
+  it('omits a parameter with no resolved reference rather than inventing one', () => {
+    const m = model()
+    const withoutRef = m.parameters.filter((p) => !p.status).map((p) => p.param)
+    withoutRef.forEach((param) => {
+      expect(m.overview.some((o) => o.param === param)).toBe(false)
+    })
+  })
+
+  it('renders nothing at all when no parameter has a status', () => {
+    expect(overviewCard([])).toBeNull()
+    expect(overviewCard(null)).toBeNull()
+    expect(overviewCard([{ param: 'co2', label: 'Carbon dioxide' }])).toBeNull()
+  })
+})
+
+describe('key observations', () => {
+  it('sets the phrase a reader scans for apart, without rewording the sentence', () => {
+    // Presentation only. The split must never change what the model produced —
+    // lead + rest recombine to exactly the original text.
+    const cases = [
+      'Highest concentration recorded on Jul 17, 8:10 AM (1,789 ppm).',
+      'Overnight readings (22:00–05:00) averaged 595 ppm.',
+      'Readings were above the selected screening reference for 19 h 30 m.',
+      'The selected screening reference was not exceeded during the monitoring period.',
+    ]
+    cases.forEach((text) => {
+      const { lead, rest } = splitObservation(text)
+      expect(lead.length).toBeGreaterThan(0)
+      expect(`${lead} ${rest}`.trim().replace(/\s+/g, ' ')).toBe(text)
+    })
+  })
+
+  it('leaves a short sentence whole rather than splitting it awkwardly', () => {
+    const { lead, rest } = splitObservation('No gaps recorded.')
+    expect(lead).toBe('No gaps recorded.')
+    expect(rest).toBe('')
+  })
+
+  it('survives empty and non-string input', () => {
+    expect(splitObservation('')).toEqual({ lead: '', rest: '' })
+    expect(splitObservation(null)).toEqual({ lead: '', rest: '' })
+  })
+})
+
+describe('the status colour scale', () => {
+  it('gives a section heading the dot its status carries', () => {
+    const entry = model().parameters.find((x) => x.param === 'co2')
+    const text = JSON.stringify(buildParameterSection(entry, 5).children)
+    // The dot is what lets a reader flip through and see which parameters
+    // need a second look without reading a word.
+    expect(text).toContain('●')
+  })
+
+  it('scales in four steps while the words stay the locked three', () => {
+    const tones = new Set()
+    const labels = new Set()
+    ;[0, 3, 10, 40].forEach((pctAbove) => {
+      const s = statusForProbe(pctAbove)
+      tones.add(s.tone)
+      labels.add(s.label)
+    })
+    expect(tones.size).toBe(4)
+    // "Elevated" and "Investigation Recommended" would be interpretations of
+    // what a measurement means; these say only where it sat.
+    labels.forEach((l) => {
+      expect(l).not.toMatch(/elevated|investigat/i)
+    })
+    expect([...labels].sort()).toEqual(['Above Reference', 'Review Suggested', 'Within Reference'])
   })
 })
