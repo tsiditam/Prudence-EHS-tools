@@ -144,9 +144,35 @@ describe('parameter section', () => {
   it('renders status, strip, chart, statement and insights', () => {
     const text = JSON.stringify(section.children)
     expect(section.title).toBe('Carbon dioxide')
-    expect(text).toContain('Status: ')
-    expect(text).toContain('Monitoring insights')
+    // The status renders as a tinted chip carrying the label itself, not a
+    // "Status:" prefix line.
+    expect(text).toContain(entry.status.label)
+    expect(text).toContain('MONITORING INSIGHTS')
     expect(text).toContain('Figure 1.')
+    // The summary strip renders its labels as small caps above the figures.
+    expect(text).toContain('95TH PERCENTILE')
+    expect(text).toContain('TIME ABOVE REFERENCE')
+  })
+
+  it('numbers the body sections in an unbroken sequence', () => {
+    // A report that skipped from 03 to 05 would look like a page went missing,
+    // so numbering is applied after empty sections are dropped.
+    const { body } = buildMonitoringSections(model())
+    expect(body[0].num).toBeUndefined() // the cover is unnumbered
+    const nums = body.slice(1).map((s) => s.num)
+    expect(nums).toEqual([...Array(nums.length).keys()].map((i) => i + 1))
+  })
+
+  it('keeps the numbering unbroken when sections are omitted', () => {
+    // No objective and no events: the sections that remain still run 01,02,03…
+    const sparse = buildMonitoringReportModel(
+      createMonitoringSession({ datasets: [{ ...dataset(), role: 'indoor' }] }),
+      {},
+    )
+    const { body } = buildMonitoringSections(sparse)
+    const nums = body.slice(1).map((s) => s.num)
+    expect(nums).toEqual([...Array(nums.length).keys()].map((i) => i + 1))
+    expect(body.some((s) => s.title === 'Monitoring objective')).toBe(false)
   })
 
   it('survives an unreadable chart rather than aborting the report', () => {
