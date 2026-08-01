@@ -42,14 +42,18 @@ const isPpm = (u) => norm(u).includes('ppm')
 const isPpb = (u) => norm(u).includes('ppb')
 
 // HCHO published value (ppm) → the unit the log used.
-function hchoToUnit(ppm, unit) {
+// Exported so the Indoor Environmental Monitoring Report's reference
+// profiles can project ALTERNATE published values (EPA RfC, WHO 30-min,
+// OSHA PEL) into the logged unit without duplicating this conversion.
+export function hchoToUnit(ppm, unit) {
   if (isPpb(unit)) return ppm * 1000
   if (isMg(unit)) return ppbToUgm3(ppm * 1000, HCHO_MW) / 1000
   if (isUg(unit)) return ppbToUgm3(ppm * 1000, HCHO_MW)
   return ppm // ppm (default)
 }
-// TVOC published value (µg/m³) → the unit the log used.
-function tvocToUnit(ugm3, unit) {
+// TVOC published value (µg/m³) → the unit the log used. Exported for the
+// monitoring report's reference profiles (see hchoToUnit above).
+export function tvocToUnit(ugm3, unit) {
   if (isMg(unit)) return ugm3 / 1000
   if (isUg(unit)) return ugm3
   const ppb = ugm3ToPpb(ugm3, ISOBUTYLENE_MW)
