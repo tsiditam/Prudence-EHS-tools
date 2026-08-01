@@ -103,7 +103,18 @@ export const STD = {
     // WHO 30-minute guideline (0.081 ppm ≈ 0.1 mg/m³, formaldehyde).
     co:   { osha: 50,   niosh: 35,    epa: 9 },
     hcho: { osha: 0.75, niosh: 0.016, al: 0.5, epaRfc: 0.008, who: 0.081 },
+    // Particulates, µg/m³, both on a 24-HOUR basis so the EPA and WHO
+    // entries for a given size fraction are directly comparable.
+    //   pm25.epa  35 — EPA 24-hour NAAQS (40 CFR 50.18)
+    //   pm25.who  15 — WHO 2021 AQG, 24-hour mean
+    //   pm10.epa 150 — EPA 24-hour NAAQS (40 CFR 50.6)
+    //   pm10.who  45 — WHO 2021 AQG, 24-hour mean
+    // Each NAAQS carries a statistical FORM (percentile / exceedance count
+    // averaged over three years) that a single monitoring session cannot
+    // evaluate. The form caveat travels with the profile, not with the
+    // number — see PM_NAAQS_NOTE in referenceProfiles.js.
     pm25: { epa: 35,    who: 15 },
+    pm10: { epa: 150,   who: 45 },
     // TVOC `con` is 500 µg/m³ — the Mølhave 1991 multifactorial-exposure
     // advisory tier (≈219 ppb isobutylene-equiv). Advisory only: TVOC has
     // no consensus health limit; always carry the Mølhave disclaimer.

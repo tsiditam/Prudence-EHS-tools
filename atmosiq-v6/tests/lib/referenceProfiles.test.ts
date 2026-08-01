@@ -194,3 +194,68 @@ describe('the selection drives the whole chain (not just the label)', () => {
     expect(sWho).not.toMatch(/throughout the monitoring period\.$/)
   })
 })
+
+describe('PM10', () => {
+  it('offers EPA and WHO 24-hour references, resolved from the manifest', () => {
+    const ids = profilesFor('pm10').map((p) => p.id)
+    expect(ids).toEqual(['epa', 'who'])
+    expect(resolveReference('pm10', 'epa')!.limit).toBe(STD.c.pm10.epa)
+    expect(resolveReference('pm10', 'who')!.limit).toBe(STD.c.pm10.who)
+    // Nothing is hardcoded in the profile layer: the numbers ARE the manifest.
+    expect(STD.c.pm10.epa).toBe(150)
+    expect(STD.c.pm10.who).toBe(45)
+  })
+
+  it('states both size fractions on the same averaging basis', () => {
+    // 24-hour throughout, so PM2.5 and PM10 in one report are comparable and
+    // an annual guideline never sits beside a daily one unlabelled.
+    profilesFor('pm10').forEach((p) => expect(p.label).toMatch(/24-hour/))
+    profilesFor('pm25').forEach((p) => expect(p.label).toMatch(/24-hour/))
+  })
+
+  it('is stricter under WHO than under EPA, for both fractions', () => {
+    expect(STD.c.pm10.who).toBeLessThan(STD.c.pm10.epa)
+    expect(STD.c.pm25.who).toBeLessThan(STD.c.pm25.epa)
+    // And the coarse fraction's limit always sits above the fine one's.
+    expect(STD.c.pm10.epa).toBeGreaterThan(STD.c.pm25.epa)
+    expect(STD.c.pm10.who).toBeGreaterThan(STD.c.pm25.who)
+  })
+
+  it('carries the NAAQS form caveat on every EPA particulate profile', () => {
+    // A NAAQS is an ambient standard with a statistical form evaluated over
+    // years of regulatory monitoring. Comparing one indoor session to the
+    // number is a screening comparison, and the profile has to say so or the
+    // report implies a determination it never made.
+    ;['pm25', 'pm10'].forEach((param) => {
+      const epa = profilesFor(param).find((p) => p.id === 'epa')!
+      expect(epa.note, `missing NAAQS caveat on ${param}/epa`).toMatch(/screening reference only/i)
+      expect(epa.note).toMatch(/ambient-air/i)
+    })
+  })
+
+  it('drives the whole chain, not just the label', () => {
+    // 60 µg/m³ throughout: above the WHO guideline, below the EPA standard.
+    const stats = (limit: number) =>
+      parameterStats(pts([60, 60, 60, 60, 60], 'pm10'), 'pm10', { reference: { limit } })!
+
+    const epa = stats(resolveReference('pm10', 'epa')!.limit!)
+    const who = stats(resolveReference('pm10', 'who')!.limit!)
+    expect(epa.pctAbove).toBe(0)
+    expect(who.pctAbove).toBe(100)
+
+    const epaText = parameterStatement('pm10', epa, { limit: STD.c.pm10.epa }, { units: { pm10: 'µg/m³' } })!
+    const whoText = parameterStatement('pm10', who, { limit: STD.c.pm10.who }, { units: { pm10: 'µg/m³' } })!
+    expect(epaText).toContain('throughout the monitoring period')
+    expect(whoText).not.toContain('throughout the monitoring period')
+    // The cited value appears at its authored precision, not the reading's.
+    expect(epaText).toContain('150 µg/m³')
+    expect(whoText).toContain('45 µg/m³')
+  })
+
+  it('appears in the reference table under a name a client reads', () => {
+    const rows = referenceTableRows(resolveReferences(['pm10'], { pm10: 'epa' }, { units: { pm10: 'µg/m³' } }))
+    expect(rows).toHaveLength(1)
+    expect(rows[0].value).toBe('150 µg/m³')
+    expect(rows[0].source).toBe('US EPA NAAQS')
+  })
+})
