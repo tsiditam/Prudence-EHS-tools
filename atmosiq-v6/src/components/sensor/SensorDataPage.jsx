@@ -97,6 +97,19 @@ const hchoSourceLabel = (meanPpb, sourceUnit) => {
   return null
 }
 
+// TVOC source-unit provenance. The parser shifts ppm→ppb and mg/m³→µg/m³ at
+// parse time so the card reads "194 ppb" rather than "0.194 ppm"; this line
+// reports the value in the unit the CSV actually declared, so the shift can
+// be audited. Returns null when no shift happened.
+const tvocSourceLabel = (mean, sourceUnit) => {
+  if (!sourceUnit || mean == null || !Number.isFinite(mean)) return null
+  const u = String(sourceUnit).toLowerCase()
+  // Both normalizations are an exact ×1000, so the inverse is an exact ÷1000.
+  if (u.includes('ppm')) return `Source: ${(mean / 1000).toFixed(3)} ppm`
+  if (/mg\/m/.test(u)) return `Source: ${(mean / 1000).toFixed(3)} mg/m³`
+  return null
+}
+
 // Exceedance tones reuse the app's risk palette (danger red / caution
 // amber) rather than the parameter hue, so a flag reads as a real cue.
 const EXC_TONE = { danger: V3.DANGER, warn: '#FB923C' }
@@ -105,12 +118,17 @@ const EXC_TONE = { danger: V3.DANGER, warn: '#FB923C' }
 // tabular numerals, a gauge against the screening reference, the observed
 // range, the reference line(s), and a screening exceedance flag when the
 // values sit above a reference. Screening only — never a determination.
-function ParamCard({ param, stats, unit, points, ts, hchoSourceUnit }) {
+function ParamCard({ param, stats, unit, points, ts, hchoSourceUnit, tvocSourceUnit }) {
   const spec = SENSOR_PARAMS.find((s) => s.key === param)
   const color = SERIES[param] || 'var(--accent)'
   const ref = paramReference(param, { unit, ts })
   const exc = exceedance(param, stats, ref)
-  const equiv = param === 'tvoc' ? tvocEquivLabel(stats.mean, unit)
+  // TVOC shows its isobutylene equivalent, plus the source unit when the
+  // parser shifted the prefix (ppm→ppb, mg/m³→µg/m³) so the reading can be
+  // audited against the CSV it came from.
+  const equiv = param === 'tvoc'
+    ? [tvocEquivLabel(stats.mean, unit), tvocSourceLabel(stats.mean, tvocSourceUnit)].filter(Boolean).join(' · ')
+      || null
     : param === 'hcho' ? hchoSourceLabel(stats.mean, hchoSourceUnit) : null
   return (
     <GlassCard style={{ marginTop: 10 }}>
@@ -662,7 +680,7 @@ export default function SensorDataPage({ value, onChange, onBack, reports = [], 
                     <div key={cat.id} style={{ marginTop: 16 }}>
                       <div style={{ ...V3.T.micro, color: SUB, marginBottom: 2 }}>{cat.label}</div>
                       {ps.map((p) => (
-                        <ParamCard key={p} param={p} stats={data.summary.stats[p]} unit={data.units[p] || ''} points={data.points.map((pt) => pt[p])} ts={data.summary.start} hchoSourceUnit={data.units.hchoSource} />
+                        <ParamCard key={p} param={p} stats={data.summary.stats[p]} unit={data.units[p] || ''} points={data.points.map((pt) => pt[p])} ts={data.summary.start} hchoSourceUnit={data.units.hchoSource} tvocSourceUnit={data.units.tvocSource} />
                       ))}
                     </div>
                   )
