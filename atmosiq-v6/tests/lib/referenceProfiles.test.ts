@@ -259,3 +259,56 @@ describe('PM10', () => {
     expect(rows[0].source).toBe('US EPA NAAQS')
   })
 })
+
+describe('TVOC in the unit the instrument logged', () => {
+  const tvocPts = (unit: string, scale: number) => {
+    const out: any[] = []
+    for (let i = 0; i < 30; i++) out.push({ t: T0 + i * 10 * MIN, tvoc: (i % 3 === 0 ? 340 : 90) * scale })
+    return out
+  }
+
+  it('projects the Mølhave value into ppb — the unit a PID usually reports', () => {
+    // 500 µg/m³ isobutylene-referenced ≈ 219 ppb. A ppb-logging instrument is
+    // never compared against the µg/m³ number.
+    const ppb = resolveReference('tvoc', 'molhave', { unit: 'ppb' })!
+    expect(ppb.limit).toBeGreaterThan(210)
+    expect(ppb.limit).toBeLessThan(225)
+    expect(ppb.unit).toBe('ppb')
+    expect(referenceTableRows({ tvoc: ppb })[0].value).toMatch(/^\d+ ppb$/)
+  })
+
+  it('carries the Mølhave caveat whichever unit is in play', () => {
+    ;['ppb', 'ppm', 'µg/m³', 'mg/m³'].forEach((unit) => {
+      const r = resolveReference('tvoc', 'molhave', { unit })!
+      expect(r.note, `missing caveat in ${unit}`).toMatch(/no consensus health limit/i)
+      expect(r.limit, `unusable limit in ${unit}`).toBeGreaterThan(0)
+    })
+  })
+
+  it('reports the same air the same way, whatever unit it arrived in', () => {
+    // One atmosphere, three units. The share of readings above the reference
+    // is a property of the AIR, so it must not depend on the instrument's
+    // choice of units — that equality is what proves the conversion is
+    // applied to the reference and the readings consistently.
+    const share = (unit: string, scale: number) => {
+      const ref = resolveReference('tvoc', 'molhave', { unit })!
+      return parameterStats(tvocPts(unit, scale), 'tvoc', { reference: { limit: ref.limit } })!.pctAbove
+    }
+    const inPpb = share('ppb', 1)
+    expect(share('µg/m³', 2.283)).toBeCloseTo(inPpb, 5)
+    expect(share('ppm', 0.001)).toBeCloseTo(inPpb, 5)
+    expect(inPpb).toBeGreaterThan(0)
+  })
+
+  it('states the reference in the reader’s unit, at its own precision', () => {
+    const say = (unit: string, scale: number) => {
+      const ref = resolveReference('tvoc', 'molhave', { unit })!
+      const st = parameterStats(tvocPts(unit, scale), 'tvoc', { reference: { limit: ref.limit } })!
+      return parameterStatement('tvoc', st, { limit: ref.limit }, { units: { tvoc: unit } })!
+    }
+    expect(say('ppb', 1)).toMatch(/\(\d+ ppb\)/)
+    expect(say('µg/m³', 2.283)).toContain('(500 µg/m³)')
+    // A sub-unit magnitude must not collapse the cited value to "0 ppm".
+    expect(say('ppm', 0.001)).toMatch(/\(0\.2\d? ppm\)/)
+  })
+})
