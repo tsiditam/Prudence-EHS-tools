@@ -246,7 +246,14 @@ export function buildCoverSection(model) {
       ],
       spacing: { before: 320, after: 100 },
     }),
-    new Paragraph({ text: model.title, heading: HeadingLevel.TITLE, spacing: { after: 40 } }),
+    // Built from explicit runs rather than HeadingLevel.TITLE: Word's built-in
+    // Title style overrides the document theme with its own face and colour
+    // (Calibri Light, blue), which is why the title did not match the rest of
+    // the report.
+    new Paragraph({
+      children: [new TextRun({ text: model.title, bold: true, size: 52, color: INK, font: FONTS.body })],
+      spacing: { after: 60 },
+    }),
     p(model.subtitle, { color: MUTED, size: 24, after: 180 }),
   ]
   if (c.site) out.push(p(c.site, { bold: true, size: 26, after: 200 }))

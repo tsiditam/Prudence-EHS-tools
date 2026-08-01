@@ -234,6 +234,10 @@ export function buildMonitoringReportModel(session, opts = {}) {
     edition,
     title: 'Indoor Environmental Monitoring Report',
     subtitle: 'Monitoring Summary',
+    // The site offset every formatted time in this model was rendered at, so
+    // a downstream renderer (the figures) labels its axis the same way rather
+    // than re-deriving it and disagreeing with the tables.
+    utcOffsetMin,
 
     cover: {
       site: [str(obj(s.location).building), str(obj(s.location).room)].filter(Boolean).join(' — '),

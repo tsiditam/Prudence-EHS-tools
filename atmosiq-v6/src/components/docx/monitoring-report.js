@@ -17,6 +17,8 @@ import { BODY_SECTION_PROPERTIES, LETTER_BODY_PAGE } from './page-setup'
 import { reportSectionAttachments } from './report-chrome'
 import { monitoringReportChildren } from './sections-monitoring'
 import { buildMonitoringReportModel, MONITORING_REPORT_VERSION } from '../../utils/monitoringReportModel'
+import { renderMonitoringCharts } from '../../utils/monitoringChart'
+import { primaryDataset } from '../../utils/monitoringSession'
 
 /** File name for a generated report — safe for every OS. */
 export function monitoringReportFileName(model, ext = 'docx') {
@@ -61,11 +63,49 @@ export function buildMonitoringReportDocument(model, opts = {}) {
 }
 
 /**
+ * Draw each parameter's figure and attach it to the model.
+ *
+ * Done here rather than in the model so the model stays pure and testable
+ * without a canvas, but done by DEFAULT rather than on request: a caller who
+ * forgets to pass `charts` should still get a report with its figures, not a
+ * silently text-only one.
+ *
+ * Returns the model unchanged where charts were supplied, or where no canvas
+ * is available (a server-side render, for instance) — the sections omit a
+ * missing figure rather than reserving a blank.
+ */
+export function attachMonitoringCharts(model, session, opts = {}) {
+  if (!model || (opts.charts && Object.keys(opts.charts).length)) return model
+  const params = (model.parameters || []).map((p) => ({
+    param: p.param,
+    unit: p.unit,
+    reference: p.reference ? { limit: p.reference.limit, band: p.reference.band } : null,
+  }))
+  if (!params.length) return model
+
+  const dataset = primaryDataset(session)
+  const charts = renderMonitoringCharts(params, (dataset && dataset.points) || [], {
+    occupancy: (session && session.occupancySchedule) || [],
+    events: ((session && session.events) || []).map((e) => ({ t: e.t, label: e.label })),
+    utcOffsetMin: model.utcOffsetMin,
+    width: opts.chartWidth,
+    height: opts.chartHeight,
+  })
+  if (!Object.keys(charts).length) return model
+
+  return {
+    ...model,
+    parameters: model.parameters.map((p) => (charts[p.param] ? { ...p, chart: charts[p.param] } : p)),
+  }
+}
+
+/**
  * Build the report and return it as a Blob, without downloading.
  * Used by the share path and by the PDF step.
  */
 export async function getMonitoringReportBlob(session, opts = {}) {
-  const model = opts.model || buildMonitoringReportModel(session, opts)
+  const built = opts.model || buildMonitoringReportModel(session, opts)
+  const model = attachMonitoringCharts(built, session, opts)
   const doc = buildMonitoringReportDocument(model, opts)
   return { blob: await Packer.toBlob(doc), model }
 }

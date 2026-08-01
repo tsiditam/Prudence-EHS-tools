@@ -20,6 +20,7 @@ import {
 import {
   buildMonitoringReportDocument,
   monitoringReportFileName,
+  attachMonitoringCharts,
 } from '../../src/components/docx/monitoring-report'
 import { buildMonitoringReportModel } from '../../src/utils/monitoringReportModel'
 import { createMonitoringSession } from '../../src/utils/monitoringSession'
@@ -217,5 +218,31 @@ describe('document packaging', () => {
   it('falls back to a usable name when the site is unknown', () => {
     const bare = buildMonitoringReportModel(createMonitoringSession(), {})
     expect(monitoringReportFileName(bare)).toBe('AtmosFlow-Monitoring-Report-Monitoring.docx')
+  })
+})
+
+describe('figures', () => {
+  it('leaves supplied charts alone', () => {
+    const m = model()
+    expect(attachMonitoringCharts(m, session(), { charts: { co2: PNG } })).toBe(m)
+  })
+
+  it('degrades to a text-only report where no canvas exists', () => {
+    // Node test env has no canvas. The report must still build — the sections
+    // omit a missing figure rather than reserving a blank.
+    const m = buildMonitoringReportModel(session(), { generatedAt: '2026-07-31T14:20:00.000Z' })
+    const out = attachMonitoringCharts(m, session(), {})
+    expect(out.parameters.every((p) => !p.chart)).toBe(true)
+  })
+
+  it('carries the site offset on the model, so figures label the same clock as the tables', () => {
+    const m = buildMonitoringReportModel(session({ utcOffsetMin: -300 }), {})
+    expect(m.utcOffsetMin).toBe(-300)
+  })
+
+  it('does not throw on a model with no parameters', () => {
+    const bare = buildMonitoringReportModel(createMonitoringSession(), {})
+    expect(attachMonitoringCharts(bare, createMonitoringSession(), {})).toBe(bare)
+    expect(attachMonitoringCharts(null, null, {})).toBeNull()
   })
 })
