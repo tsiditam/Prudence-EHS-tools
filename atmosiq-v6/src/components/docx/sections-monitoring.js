@@ -60,7 +60,7 @@ import {
 import { FONTS, COLORS } from './styles'
 import { CONTENT_WIDTH_DXA } from './page-setup'
 import { base64ToUint8Array, inferImageType, isImageDataUrl } from './images'
-import { CHART_SIZE } from '../../utils/monitoringChart'
+import { CHART_SIZE, SPARK_SIZE } from '../../utils/monitoringChart'
 
 /**
  * The report's palette. Neutrals come from the shared report tokens so the
@@ -70,13 +70,14 @@ import { CHART_SIZE } from '../../utils/monitoringChart'
  */
 const ACCENT = '0E7490'
 const ACCENT_2 = '0891B2'
-const ACCENT_TINT = 'F0F9FB'
+const ACCENT_TINT = 'F4FAFB'
 const INK = COLORS.text
-const BODY = COLORS.body
-const MUTED = COLORS.muted
-const FAINT = '8A929E'
-const HAIR = 'E7EBEF'
-const HAIR_2 = 'D7DCE2'
+const BODY = '3A424E' // lighter than COLORS.body: body text recedes, headings lead
+const MUTED = '6B7480'
+const FAINT = '9AA3AE'
+const HAIR = 'EEF1F4' // softer rules — fewer borders competing for attention
+const HAIR_2 = 'E2E6EB'
+const WASH = 'F7F9FA' // the subtle grey a card sits on
 
 /**
  * Type scale, in half-points, derived from the reviewed design's ratios
@@ -85,22 +86,39 @@ const HAIR_2 = 'D7DCE2'
  * a third too large.
  */
 const TYPE = {
-  title: 56, //  28 pt — the report title
-  h2: 23, //  11.5 pt — section headings
+  title: 64, //  32 pt — the report title, given room to lead
+  h2: 24, //  12 pt — section headings
   body: 20, //  10 pt — running text
   small: 19, //  9.5 pt — intros, table body, card values
-  fine: 17, //  8.5 pt — captions, disclaimer
+  fine: 17, //  8.5 pt — captions
   label: 15, //  7.5 pt — uppercase keys
   eyebrow: 16, //  8 pt
-  figure: 32, //  16 pt — summary strip values
-  paramName: 24, //  12 pt — parameter card header
+  figure: 36, //  18 pt — summary strip values, the number you read first
+  paramName: 26, //  13 pt — parameter card header
+  coverFact: 21, //  10.5 pt — the cover's meta values
 }
 
-// Status tones. Semantic, and separate from the accent.
+// Vertical rhythm. Named rather than sprinkled, because "premium reports have
+// more whitespace than you think they need" is only true if the amounts are
+// consistent — irregular gaps read as mistakes, not generosity.
+const GAP = { tight: 90, base: 180, loose: 300, section: 520 }
+
+/**
+ * Status tones — a four-step visual scale in FIVE colours.
+ *
+ * The design brief asked for green / yellow / orange / red. Amber at two
+ * intensities does the work of yellow and orange, which keeps the whole
+ * document inside one restrained palette: cyan, grey, green, amber, red. A
+ * sixth hue would be the first step back toward a chart that looks busy.
+ *
+ * The LABEL a tone carries is decided in the model, not here — these are only
+ * the colours the reader takes in before reading the word.
+ */
 const TONES = {
-  ok: { text: '0E7A55', fill: 'ECFAF3' },
-  warn: { text: '8A5106', fill: 'FDF5EA' },
-  review: { text: 'A62121', fill: 'FDEFEF' },
+  ok: { text: '0E7A55', fill: 'EDFAF3', dot: '0E9F6E' },
+  notice: { text: '8A6206', fill: 'FEF9EC', dot: 'D9A21B' },
+  warn: { text: '8A5106', fill: 'FDF3E8', dot: 'C2740B' },
+  review: { text: 'A62121', fill: 'FDEFEF', dot: 'DC2626' },
 }
 
 const p = (text, opts = {}) =>
@@ -143,7 +161,7 @@ function layoutTable(rows, widths, opts = {}) {
  * tinted box, with a hairline rule beneath.
  * Pass `num = null` for an unnumbered heading (appendices, the footer).
  */
-export function sectionHeading(num, title) {
+export function sectionHeading(num, title, status) {
   const children = []
   if (num != null) {
     children.push(
@@ -158,10 +176,14 @@ export function sectionHeading(num, title) {
       new TextRun({ text: '   ', size: TYPE.h2, font: FONTS.body }),
     )
   }
+  if (status) {
+    const tone = TONES[status.tone] || TONES.warn
+    children.push(new TextRun({ text: '● ', bold: true, size: TYPE.h2, color: tone.dot, font: FONTS.body }))
+  }
   children.push(new TextRun({ text: title, bold: true, size: TYPE.h2, color: INK, font: FONTS.body }))
   return new Paragraph({
     children,
-    spacing: { before: 380, after: 150 },
+    spacing: { before: GAP.section, after: 200 },
     border: { bottom: hair() },
   })
 }
@@ -278,24 +300,53 @@ export function calloutPanel(text) {
   return accentPanel([p(text, { size: TYPE.small, after: 0 })])
 }
 
+/**
+ * Split a generated observation into the phrase a reader scans for and the
+ * rest of the sentence.
+ *
+ * Purely presentational — the sentence is unchanged, only its first clause is
+ * set in a heavier weight. Splitting on the first comma or preposition keeps
+ * the lead short without ever rewording what the model produced, which is the
+ * line this file must not cross.
+ */
+export function splitObservation(text) {
+  const s = String(text || '').trim()
+  if (!s) return { lead: '', rest: '' }
+  const m = s.match(/^(.{8,44}?)(\s+(?:on|for|during|within|averaged|were|was)\b|,\s)/)
+  if (!m) return { lead: s, rest: '' }
+  return { lead: m[1].trim(), rest: s.slice(m[1].length).trim() }
+}
+
 /** The Monitoring Insights panel — tinted block with an accent left rule. */
 export function insightsPanel(items, inset = 0) {
   if (!items || !items.length) return null
   return accentPanel([
     new Paragraph({
       children: [
-        new TextRun({ text: 'MONITORING INSIGHTS', bold: true, size: TYPE.label, color: ACCENT, font: FONTS.body }),
+        new TextRun({ text: 'KEY OBSERVATIONS', bold: true, size: TYPE.label, color: ACCENT, font: FONTS.body }),
       ],
-      spacing: { after: 110 },
+      spacing: { after: 170 },
     }),
-    ...items.map(
-      (i, idx) =>
+    // Each observation is a labelled fact rather than a bullet of prose: the
+    // lead phrase is what a reader scans for, and setting it apart lets them
+    // find "how long above the reference" without reading the sentence first.
+    ...items.flatMap((i, idx) => {
+      const split = splitObservation(i.text)
+      const last = idx === items.length - 1
+      return [
         new Paragraph({
-          children: [new TextRun({ text: i.text, size: TYPE.small, color: BODY, font: FONTS.body })],
-          bullet: { level: 0 },
-          spacing: { after: idx === items.length - 1 ? 0 : 70 },
+          children: [
+            new TextRun({ text: '▪  ', bold: true, size: TYPE.label, color: ACCENT_2, font: FONTS.body }),
+            new TextRun({ text: split.lead, bold: true, size: TYPE.small, color: INK, font: FONTS.body }),
+            ...(split.rest
+              ? [new TextRun({ text: ` ${split.rest}`, size: TYPE.small, color: BODY, font: FONTS.body })]
+              : []),
+          ],
+          indent: { left: 260, hanging: 260 },
+          spacing: { after: last ? 0 : 150 },
         }),
-    ),
+      ]
+    }),
   ], inset)
 }
 
@@ -312,17 +363,91 @@ export function statusChip(status, align = AlignmentType.RIGHT) {
   const tone = TONES[status.tone] || TONES.warn
   return new Paragraph({
     children: [
-      new TextRun({
-        text: `  ${status.label}  `,
-        bold: true,
-        size: TYPE.eyebrow,
-        color: tone.text,
-        font: FONTS.body,
-        shading: { type: ShadingType.CLEAR, fill: tone.fill },
-      }),
+      // The dot carries the tone at full strength; the tinted pill behind the
+      // label would be too pale on its own to read across a room.
+      new TextRun({ text: '  ● ', bold: true, size: TYPE.eyebrow, color: tone.dot, font: FONTS.body,
+        shading: { type: ShadingType.CLEAR, fill: tone.fill } }),
+      new TextRun({ text: `${status.label}  `, bold: true, size: TYPE.eyebrow, color: tone.text, font: FONTS.body,
+        shading: { type: ShadingType.CLEAR, fill: tone.fill } }),
     ],
     alignment: align,
     spacing: { after: 0 },
+  })
+}
+
+/**
+ * The cover's at-a-glance panel: every parameter and where it sat, one line
+ * each, colour first.
+ *
+ * This is the single highest-value element on the page. A client who reads
+ * nothing else should still close the document knowing what it found, and a
+ * column of coloured dots delivers that in about a second — which is roughly
+ * how long a busy reader gives a cover page.
+ */
+export function overviewCard(items) {
+  const rows = (items || []).filter((x) => x && x.status)
+  if (!rows.length) return null
+
+  const nameW = Math.round(CONTENT_WIDTH_DXA * 0.52)
+  const statusW = CONTENT_WIDTH_DXA - nameW
+
+  const header = new TableRow({
+    children: [
+      new TableCell({
+        children: [new Paragraph({
+          children: [new TextRun({
+            text: 'OVERALL MONITORING SUMMARY', bold: true, size: TYPE.label, color: ACCENT, font: FONTS.body,
+          })],
+          spacing: { after: 0 },
+        })],
+        columnSpan: 2,
+        shading: { type: ShadingType.CLEAR, fill: WASH },
+        borders: { ...noBorders, bottom: hair(HAIR_2) },
+        margins: { top: 190, bottom: 150, left: 240, right: 240 },
+      }),
+    ],
+  })
+
+  const body = rows.map((r, i) => {
+    const tone = TONES[r.status.tone] || TONES.warn
+    const last = i === rows.length - 1
+    const cell = (children, extra = {}) => new TableCell({
+      children,
+      borders: { ...noBorders, bottom: last ? noBorder : hair() },
+      margins: { top: 130, bottom: 130, left: 240, right: 240, ...extra },
+    })
+    return new TableRow({
+      children: [
+        cell([new Paragraph({
+          children: [
+            new TextRun({ text: '● ', bold: true, size: TYPE.body, color: tone.dot, font: FONTS.body }),
+            new TextRun({ text: r.label, size: TYPE.body, color: INK, font: FONTS.body }),
+          ],
+          spacing: { after: 0 },
+        })]),
+        new TableCell({
+          children: [new Paragraph({
+            children: [new TextRun({
+              text: r.status.label, bold: true, size: TYPE.small, color: tone.text, font: FONTS.body,
+            })],
+            alignment: AlignmentType.RIGHT,
+            spacing: { after: 0 },
+          })],
+          borders: { ...noBorders, bottom: last ? noBorder : hair() },
+          margins: { top: 130, bottom: 130, left: 240, right: 240 },
+        }),
+      ],
+    })
+  })
+
+  return new Table({
+    width: { size: CONTENT_WIDTH_DXA, type: WidthType.DXA },
+    columnWidths: [nameW, statusW],
+    borders: {
+      top: hair(HAIR_2), bottom: hair(HAIR_2), left: hair(HAIR_2), right: hair(HAIR_2),
+      insideHorizontal: noBorder, insideVertical: noBorder,
+    },
+    rows: [header, ...body],
   })
 }
 
@@ -392,20 +517,20 @@ export function summaryStripTable(tiles) {
           (t, i) =>
             new TableCell({
               children: [
-                new Paragraph({ children: [keyRun(t.label)], spacing: { after: 40 } }),
+                new Paragraph({ children: [keyRun(t.label)], spacing: { after: 70 } }),
                 new Paragraph({
                   children: [
                     new TextRun({
                       text: String(t.value),
                       bold: true,
-                      size: TYPE.figure,
+                      size: t.compact ? TYPE.paramName : TYPE.figure,
                       color: t.emphasis ? TONES.warn.text : INK,
                       font: FONTS.body,
                     }),
                     ...(t.unit
                       ? [
                           new TextRun({ text: ' ', size: TYPE.fine, font: FONTS.body }),
-                          new TextRun({ text: t.unit, bold: true, size: TYPE.fine, color: MUTED, font: FONTS.body }),
+                          new TextRun({ text: t.unit, size: TYPE.fine, color: MUTED, font: FONTS.body }),
                         ]
                       : []),
                   ],
@@ -420,12 +545,55 @@ export function summaryStripTable(tiles) {
                 // the card's own border closes those sides.
                 right: i === tiles.length - 1 ? noBorder : hair(),
               },
-              margins: { top: 130, bottom: 130, left: i === 0 ? 200 : 120, right: 120 },
+              // Generous padding is what makes a table row read as a card.
+              margins: { top: 210, bottom: 210, left: i === 0 ? 240 : 170, right: 170 },
             }),
         ),
       }),
     ],
   })
+}
+
+/**
+ * The sparkline that sits under the strip: the SHAPE of the series.
+ *
+ * A mean says where the readings sat; it cannot say whether they were steady
+ * or the midpoint of something swinging. The mark is deliberately unlabelled
+ * and unscaled — the figure two inches below is where a value should be read.
+ */
+function sparkRow(dataUrl) {
+  if (!isImageDataUrl(dataUrl)) return null
+  try {
+    return new Table({
+      width: { size: CONTENT_WIDTH_DXA, type: WidthType.DXA },
+      columnWidths: [CONTENT_WIDTH_DXA],
+      rows: [
+        new TableRow({
+          children: [
+            new TableCell({
+              children: [
+                new Paragraph({
+                  children: [
+                    new ImageRun({
+                      data: base64ToUint8Array(dataUrl),
+                      transformation: { width: SPARK_W, height: SPARK_H },
+                      type: inferImageType(dataUrl),
+                    }),
+                  ],
+                  spacing: { after: 0 },
+                }),
+              ],
+              borders: { ...noBorders, bottom: hair() },
+              margins: { top: 120, bottom: 120, left: 240, right: 240 },
+              verticalAlign: 'center',
+            }),
+          ],
+        }),
+      ],
+    })
+  } catch {
+    return null // an unreadable mark must not abort the report
+  }
 }
 
 /**
@@ -469,21 +637,29 @@ export function dataTable(headers, rows, widths) {
       ? widths.map((w) => Math.round((w / 100) * CONTENT_WIDTH_DXA))
       : Array.from({ length: cols }, () => Math.floor(CONTENT_WIDTH_DXA / cols))
 
+  // A tinted header band rather than a rule: it separates the header from the
+  // data without adding another line to a page that is trying to have fewer.
   const headerRow = new TableRow({
     tableHeader: true,
     children: headers.map(
       (h, i) =>
         new TableCell({
-          children: [new Paragraph({ children: [keyRun(h)], spacing: { after: 0 } })],
+          children: [new Paragraph({
+            children: [new TextRun({
+              text: String(h || '').toUpperCase(), bold: true, size: TYPE.label, color: ACCENT, font: FONTS.body,
+            })],
+            spacing: { after: 0 },
+          })],
           width: { size: colWidths[i], type: WidthType.DXA },
-          borders: { ...noBorders, bottom: hair(HAIR_2) },
-          margins: { top: 0, bottom: 90, left: i === 0 ? 0 : 120, right: 120 },
+          shading: { type: ShadingType.CLEAR, fill: ACCENT_TINT },
+          borders: noBorders,
+          margins: { top: 130, bottom: 130, left: i === 0 ? 200 : 140, right: 140 },
         }),
     ),
   })
 
   const bodyRows = rows.map(
-    (row) =>
+    (row, r) =>
       new TableRow({
         children: row.map((cell, i) => {
           const spec = cell && typeof cell === 'object' && !Array.isArray(cell) ? cell : { text: cell }
@@ -503,8 +679,12 @@ export function dataTable(headers, rows, widths) {
               }),
             ],
             width: { size: colWidths[i], type: WidthType.DXA },
-            borders: { ...noBorders, bottom: hair() },
-            margins: { top: 100, bottom: 100, left: i === 0 ? 0 : 120, right: 120 },
+            // Alternating wash instead of row rules — the eye tracks a band
+            // across a wide table more reliably than it tracks a hairline,
+            // and it removes one more border from the page.
+            shading: r % 2 === 1 ? { type: ShadingType.CLEAR, fill: WASH } : undefined,
+            borders: noBorders,
+            margins: { top: 150, bottom: 150, left: i === 0 ? 200 : 140, right: 140 },
           })
         }),
       }),
@@ -513,6 +693,7 @@ export function dataTable(headers, rows, widths) {
   return new Table({
     width: { size: CONTENT_WIDTH_DXA, type: WidthType.DXA },
     columnWidths: colWidths,
+    borders: { ...noBorders, insideHorizontal: noBorder, insideVertical: noBorder },
     rows: [headerRow, ...bodyRows],
   })
 }
@@ -606,6 +787,10 @@ function tickRow(text) {
 // The figure, sized to the card's inner width. Height follows the chart's own
 // aspect so a change to the canvas never silently stretches the image.
 const IMG_W = 570
+// The sparkline prints at its drawing size — it is a mark, not a figure, and
+// scaling it up would invite reading values off it.
+const SPARK_W = SPARK_SIZE.width
+const SPARK_H = SPARK_SIZE.height
 const IMG_H = Math.round((IMG_W * CHART_SIZE.height) / CHART_SIZE.width)
 const CARD_PAD = { left: 200, right: 200 }
 
@@ -662,24 +847,20 @@ export function buildCoverSection(model) {
       children: [new TextRun({ text: model.title, bold: true, size: TYPE.title, color: INK, font: FONTS.body })],
       spacing: { after: 60 },
     }),
-    p(model.subtitle, { color: MUTED, size: TYPE.body, after: 130 }),
+    p(model.subtitle, { color: MUTED, size: TYPE.h2, after: GAP.base }),
   )
 
+  // Site identity, stacked rather than run together: the building leads, the
+  // street address sits under it as context.
   if (c.site || c.address) {
-    out.push(
-      new Paragraph({
-        children: [
-          ...(c.site ? [new TextRun({ text: c.site, bold: true, size: TYPE.body, color: BODY, font: FONTS.body })] : []),
-          ...(c.address
-            ? [
-                new TextRun({ text: c.site ? '  ·  ' : '', size: TYPE.body, color: MUTED, font: FONTS.body }),
-                new TextRun({ text: c.address, size: TYPE.body, color: MUTED, font: FONTS.body }),
-              ]
-            : []),
-        ],
-        spacing: { after: 240 },
-      }),
-    )
+    const runs = []
+    if (c.site) runs.push(new TextRun({ text: c.site, bold: true, size: TYPE.coverFact, color: INK, font: FONTS.body }))
+    if (c.address) {
+      runs.push(new TextRun({
+        text: c.address, size: TYPE.body, color: MUTED, font: FONTS.body, break: c.site ? 1 : 0,
+      }))
+    }
+    out.push(new Paragraph({ children: runs, spacing: { after: GAP.loose } }))
   }
 
   const facts = [
@@ -695,9 +876,19 @@ export function buildCoverSection(model) {
   ].filter((x) => x.value)
 
   if (facts.length) {
-    out.push(new Paragraph({ children: [], border: { bottom: hair() }, spacing: { after: 160 } }))
+    out.push(new Paragraph({ children: [], border: { bottom: hair() }, spacing: { after: GAP.base } }))
     out.push(metaGrid(facts, 3))
   }
+
+  // The at-a-glance panel closes the cover. It comes LAST rather than first
+  // because a reader needs to know whose building and which dates before a
+  // column of statuses means anything — but it is the thing they leave with.
+  const overview = overviewCard(model && model.overview)
+  if (overview) {
+    out.push(p('', { after: GAP.loose, size: 8 }))
+    out.push(overview)
+  }
+
   return { title: model.title, children: out }
 }
 
@@ -791,13 +982,19 @@ export function buildReferenceSection(model, num) {
 export function buildParameterSection(entry, num) {
   if (!entry) return null
   const title = entry.titleLabel || entry.label
-  const out = [sectionHeading(num, title)]
+  // The section heading carries the STATUS dot rather than a decorative
+  // glyph. An abstract lozenge is the same shape whatever it sits beside, so
+  // it aids scanning only in the sense that it is visible; a coloured dot
+  // lets a reader flip through the report and see which parameters need a
+  // second look without reading a word. The card header below carries no dot,
+  // because its status chip is already on that line.
+  const out = [sectionHeading(num, title, entry.status)]
 
   // `midLabel` keeps acronyms intact ("PM2.5", not "pm2.5").
   out.push(
     p(
       `The following section summarizes measured ${entry.midLabel || entry.label} over the monitoring period and compares the observations to the selected screening reference.`,
-      { color: MUTED, size: TYPE.small, after: 150 },
+      { color: MUTED, size: TYPE.small, after: GAP.base },
     ),
   )
 
@@ -805,6 +1002,9 @@ export function buildParameterSection(entry, num) {
 
   const strip = summaryStripTable(entry.strip)
   if (strip) card.push(strip)
+
+  const spark = sparkRow(entry.spark)
+  if (spark) card.push(spark)
 
   if (isImageDataUrl(entry.chart)) {
     try {
@@ -818,7 +1018,7 @@ export function buildParameterSection(entry, num) {
             }),
           ],
           indent: CARD_PAD,
-          spacing: { before: 200, after: 100 },
+          spacing: { before: GAP.loose, after: 140 },
         }),
       )
       card.push(
@@ -834,7 +1034,7 @@ export function buildParameterSection(entry, num) {
           ],
           indent: CARD_PAD,
           border: { top: hair() },
-          spacing: { before: 60, after: 160 },
+          spacing: { before: 90, after: GAP.loose },
         }),
       )
     } catch {
@@ -852,7 +1052,7 @@ export function buildParameterSection(entry, num) {
             : []),
         ],
         indent: CARD_PAD,
-        spacing: { before: isImageDataUrl(entry.chart) ? 0 : 200, after: 160 },
+        spacing: { before: isImageDataUrl(entry.chart) ? 0 : GAP.loose, after: GAP.loose },
       }),
     )
   }
@@ -860,11 +1060,11 @@ export function buildParameterSection(entry, num) {
   const panel = insightsPanel(entry.insights, CARD_PAD.left)
   if (panel) {
     card.push(panel)
-    card.push(p('', { after: 0, size: 8 }))
+    card.push(p('', { after: GAP.tight, size: 8 }))
   }
 
   out.push(parameterCard(card))
-  out.push(p('', { after: 100 }))
+  out.push(p('', { after: GAP.section, size: 8 }))
   return { title, children: out }
 }
 
