@@ -1,393 +1,1898 @@
 {
   "feature": "AtmosFlow Production Readiness (Group A)",
   "criteria": [
-    { "id": "BUILD-01", "label": "TypeScript typecheck passes", "checks": [{ "type": "npm_script_passes", "script": "typecheck" }] },
-    { "id": "BUILD-02", "label": "Test suite passes", "checks": [{ "type": "npm_script_passes", "script": "test" }] },
-    { "id": "BUILD-03", "label": "Lint passes with zero warnings", "checks": [{ "type": "npm_script_passes", "script": "lint" }] },
-
-    { "id": "WEBHOOK-IDEMPOTENCY-TABLE", "label": "stripe_webhook_events table migration exists", "checks": [
-      { "type": "grep_matches", "pattern": "CREATE TABLE.*stripe_webhook_events", "paths": ["supabase/migrations/", "migrations/", "db/"] }
-    ]},
-    { "id": "WEBHOOK-IDEMPOTENCY-CHECK", "label": "Webhook handler checks for already-processed event", "checks": [
-      { "type": "grep_matches", "pattern": "stripe_webhook_events", "paths": ["api/webhook.ts", "api/webhook.js", "pages/api/webhook.ts"] }
-    ]},
-    { "id": "WEBHOOK-IDEMPOTENCY-TEST", "label": "Webhook idempotency test exists", "checks": [
-      { "type": "file_exists", "path": "tests/api/webhook-idempotency.test.ts" }
-    ]},
-
-    { "id": "DELETE-ACCOUNT-PURGES-PII", "label": "Account deletion calls purge across all PII tables", "checks": [
-      { "type": "grep_matches", "pattern": "analytics_events", "paths": ["api/delete-account.ts", "api/delete-account.js"] },
-      { "type": "grep_matches", "pattern": "credits_ledger", "paths": ["api/delete-account.ts", "api/delete-account.js"] },
-      { "type": "grep_matches", "pattern": "purchases", "paths": ["api/delete-account.ts", "api/delete-account.js"] },
-      { "type": "grep_matches", "pattern": "deleteUser", "paths": ["api/delete-account.ts", "api/delete-account.js"] }
-    ]},
-    { "id": "DELETION-AUDIT-TABLE", "label": "deletion_audit table migration exists", "checks": [
-      { "type": "grep_matches", "pattern": "CREATE TABLE.*deletion_audit", "paths": ["supabase/migrations/", "migrations/", "db/"] }
-    ]},
-    { "id": "DELETE-ACCOUNT-TEST", "label": "Account deletion test exists", "checks": [
-      { "type": "file_exists", "path": "tests/api/delete-account.test.ts" }
-    ]},
-
-    { "id": "PASSWORD-RESET-VERIFY-SCRIPT", "label": "Password reset verification script exists", "checks": [
-      { "type": "file_exists", "path": "scripts/verify-password-reset.ts" }
-    ]},
-    { "id": "PASSWORD-RESET-TEST", "label": "Password reset test exists", "checks": [
-      { "type": "file_exists", "path": "tests/api/password-reset.test.ts" }
-    ]},
-
-    { "id": "NARRATIVE-RATE-LIMIT-TABLE", "label": "narrative_generations tracking table exists", "checks": [
-      { "type": "grep_matches", "pattern": "CREATE TABLE.*narrative_generations", "paths": ["supabase/migrations/", "migrations/", "db/"] }
-    ]},
-    { "id": "NARRATIVE-RATE-LIMIT-CODE", "label": "Narrative endpoint enforces rate limit", "checks": [
-      { "type": "grep_matches", "pattern": "(rate_limit|rateLimit|429)", "paths": ["api/narrative.ts", "api/narrative.js"] }
-    ]},
-    { "id": "NARRATIVE-RATE-LIMIT-TEST", "label": "Narrative rate limit test exists", "checks": [
-      { "type": "file_exists", "path": "tests/api/narrative-rate-limit.test.ts" }
-    ]},
-
-    { "id": "PHOTO-BLOB-STORE", "label": "Photo blob store + compaction layer wired into supabaseStorage", "checks": [
-      { "type": "file_exists", "path": "src/utils/photoBlobStore.js" },
-      { "type": "file_exists", "path": "src/utils/photoCompaction.js" },
-      { "type": "grep_matches", "pattern": "compactPhotos", "paths": ["src/utils/supabaseStorage.js"] },
-      { "type": "grep_matches", "pattern": "expandPhotos", "paths": ["src/utils/supabaseStorage.js"] },
-      { "type": "grep_matches", "pattern": "purgeAssessmentPhotos", "paths": ["src/utils/supabaseStorage.js"] },
-      { "type": "file_exists", "path": "tests/lib/photo-blob-store.test.ts" },
-      { "type": "file_exists", "path": "tests/lib/photo-compaction.test.ts" },
-      { "type": "file_exists", "path": "tests/lib/supabase-storage-photo-compaction.test.ts" }
-    ]},
-
-    { "id": "OFFLINE-SYNC-INDICATOR", "label": "Pending-sync indicator exists and queue state is observable", "checks": [
-      { "type": "file_exists", "path": "src/components/PendingSyncIndicator.jsx" },
-      { "type": "file_exists", "path": "src/hooks/useSyncState.js" },
-      { "type": "grep_matches", "pattern": "getSyncState", "paths": ["src/utils/supabaseStorage.js"] },
-      { "type": "grep_matches", "pattern": "getQueueDepth", "paths": ["src/utils/supabaseStorage.js"] },
-      { "type": "grep_matches", "pattern": "PendingSyncIndicator", "paths": ["src/components/MobileApp.jsx"] },
-      { "type": "file_exists", "path": "tests/lib/sync-state.test.ts" },
-      { "type": "file_exists", "path": "tests/components/PendingSyncIndicator.test.tsx" }
-    ]},
-
-    { "id": "LAB-RESULTS-IMPORT", "label": "Lab Results CSV import + Appendix G renderer", "checks": [
-      { "type": "file_exists", "path": "src/utils/labResultsParser.js" },
-      { "type": "file_exists", "path": "src/components/LabResultsImport.jsx" },
-      { "type": "file_exists", "path": "src/components/docx/sections-lab-results.js" },
-      { "type": "grep_matches", "pattern": "buildLabResultsAppendix", "paths": ["src/components/DocxReport.js"] },
-      { "type": "grep_matches", "pattern": "LabResultsImport", "paths": ["src/components/SamplingFormsView.jsx"] },
-      { "type": "grep_matches", "pattern": "labResults: viewRpt", "paths": ["src/components/MobileApp.jsx"] },
-      { "type": "file_exists", "path": "tests/lib/lab-results-parser.test.ts" },
-      { "type": "file_exists", "path": "tests/engine/lab-results-appendix.test.ts" }
-    ]},
-
-    { "id": "RESURVEY-SCHEDULE", "label": "Re-survey Schedule section is rendered in the consultant DOCX", "checks": [
-      { "type": "file_exists", "path": "src/engines/resurveySchedule.js" },
-      { "type": "file_exists", "path": "src/components/docx/sections-resurvey.js" },
-      { "type": "grep_matches", "pattern": "buildResurveySchedule", "paths": ["src/components/docx/sections-v21client.js"] },
-      { "type": "file_exists", "path": "tests/engine/resurvey-schedule.test.ts" },
-      { "type": "file_exists", "path": "tests/engine/sections-resurvey.test.ts" }
-    ]},
-
-    { "id": "OFFLINE-SW-APP-SHELL", "label": "Service worker precaches the app shell + skips /api/ from caching", "checks": [
-      { "type": "file_exists", "path": "scripts/build-precache-manifest.mjs" },
-      { "type": "grep_matches", "pattern": "precacheManifestPlugin", "paths": ["vite.config.js"] },
-      { "type": "grep_matches", "pattern": "precache-manifest.json", "paths": ["public/sw.js"] },
-      { "type": "grep_matches", "pattern": "isApiRequest", "paths": ["public/sw.js"] },
-      { "type": "grep_matches", "pattern": "networkFirstWithShellFallback", "paths": ["public/sw.js"] },
-      { "type": "file_exists", "path": "tests/scripts/build-precache-manifest.test.ts" }
-    ]},
-
-    { "id": "CROSS-ASSESSMENT-MEMORY", "label": "Cross-assessment similarity + Past Patterns panel (Play 2)", "checks": [
-      { "type": "file_exists", "path": "src/utils/assessmentSimilarity.js" },
-      { "type": "file_exists", "path": "src/hooks/useSimilarAssessments.js" },
-      { "type": "file_exists", "path": "src/components/SimilarAssessmentsPanel.jsx" },
-      { "type": "grep_matches", "pattern": "SimilarAssessmentsPanel", "paths": ["src/components/MobileApp.jsx"] },
-      { "type": "file_exists", "path": "tests/lib/assessment-similarity.test.ts" },
-      { "type": "file_exists", "path": "tests/components/SimilarAssessmentsPanel.test.tsx" }
-    ]},
-
-    { "id": "PHOTO-ANALYSIS-AI", "label": "Multimodal photo analysis endpoint + IH-Review-Required render path", "checks": [
-      { "type": "file_exists", "path": "api/photo-analyze.js" },
-      { "type": "file_exists", "path": "src/utils/photoAnalysis.js" },
-      { "type": "grep_matches", "pattern": "ih_review_required", "paths": ["api/photo-analyze.js"] },
-      { "type": "grep_matches", "pattern": "Never invent a citation", "paths": ["api/photo-analyze.js"] },
-      { "type": "grep_matches", "pattern": "analyzePhoto", "paths": ["src/components/PhotoCapture.jsx"] },
-      { "type": "grep_matches", "pattern": "AI-PROPOSED", "paths": ["src/components/docx/sections-v21client.js"] },
-      { "type": "file_exists", "path": "tests/api/photo-analyze.test.ts" },
-      { "type": "file_exists", "path": "tests/lib/photo-analysis.test.ts" }
-    ]},
-
-    { "id": "JASPER-WATCH-LIVE-ADVISOR", "label": "Live deterministic advisor surfaces reading-vs-threshold flags during sensor entry (Play 3a)", "checks": [
-      { "type": "file_exists", "path": "src/engines/liveAdvisor.js" },
-      { "type": "file_exists", "path": "src/components/JasperWatchPanel.jsx" },
-      { "type": "grep_matches", "pattern": "JasperWatchPanel", "paths": ["src/components/MobileApp.jsx"] },
-      { "type": "grep_matches", "pattern": "evaluateLive", "paths": ["src/components/JasperWatchPanel.jsx"] },
-      { "type": "file_exists", "path": "tests/engine/live-advisor.test.ts" },
-      { "type": "file_exists", "path": "tests/components/JasperWatchPanel.test.tsx" }
-    ]},
-
-    { "id": "STANDARDS-CURRENCY", "label": "Standards Currency layer surfaces ASHRAE 241 / EPA PM2.5 annual / ACGIH TLV references without engine touch", "checks": [
-      { "type": "file_exists", "path": "src/engines/contextualStandards.js" },
-      { "type": "file_exists", "path": "src/components/docx/sections-methodology-currency.js" },
-      { "type": "grep_matches", "pattern": "ASHRAE 241", "paths": ["src/constants/standards.js"] },
-      { "type": "grep_matches", "pattern": "EPA PM2.5 Annual NAAQS Revision", "paths": ["src/constants/standards.js"] },
-      { "type": "grep_matches", "pattern": "ACGIH TLVs and BEIs", "paths": ["src/constants/standards.js"] },
-      { "type": "grep_matches", "pattern": "buildMethodologyCurrency", "paths": ["src/components/DocxReport.js"] },
-      { "type": "file_exists", "path": "tests/engine/contextual-standards.test.ts" },
-      { "type": "file_exists", "path": "tests/engine/sections-methodology-currency.test.ts" }
-    ]},
-
-    { "id": "CALIBRATION-APPENDIX-MAPPER", "label": "Calibration appendix B+E mapper exists and is wired into DocxReport", "checks": [
-      { "type": "file_exists", "path": "src/components/docx/calibration-appendix.js" },
-      { "type": "grep_matches", "pattern": "buildCalibrationAppendix", "paths": ["src/components/DocxReport.js"] },
-      { "type": "grep_matches", "pattern": "augmentWithCalibrationAppendices", "paths": ["src/components/DocxReport.js"] },
-      { "type": "file_exists", "path": "tests/engine/calibration-appendix.test.ts" },
-      { "type": "file_exists", "path": "tests/engine/calibration-appendix-augment.test.ts" }
-    ]},
-
-    { "id": "NARRATIVE-AI-REVIEW-BANNER", "label": "Executive Summary AI narrative is wrapped in a hard 'IH Review Required' banner", "checks": [
-      { "type": "grep_matches", "pattern": "IH REVIEW REQUIRED", "paths": ["src/components/docx/sections-core.js"] },
-      { "type": "grep_matches", "pattern": "aiReviewRequiredBanner", "paths": ["src/components/docx/sections-core.js"] },
-      { "type": "file_exists", "path": "tests/engine/ai-review-required-banner.test.ts" }
-    ]},
-
-    { "id": "INSTRUMENT-LOG-IMPORT", "label": "Instrument log CSV/XLSX import aggregates time-series into spot readings via the Logger Studio parser (Play 4a)", "checks": [
-      { "type": "file_exists", "path": "src/components/InstrumentLogImport.jsx" },
-      { "type": "grep_matches", "pattern": "InstrumentLogImport", "paths": ["src/components/MobileApp.jsx"] },
-      { "type": "grep_matches", "pattern": "parseSensorCsv|parseSensorRows", "paths": ["src/components/InstrumentLogImport.jsx"] },
-      { "type": "grep_matches", "pattern": "xlsxToRows", "paths": ["src/components/InstrumentLogImport.jsx"] },
-      { "type": "file_exists", "path": "tests/components/InstrumentLogImport.test.tsx" }
-    ]},
-
-    { "id": "JASPER-L2-TOOL-USE", "label": "Field Assistant (Jasper) Layer-2 tool use — primary-source IAQ knowledge base wired into the agent loop", "checks": [
-      { "type": "file_exists", "path": "src/constants/iaq-knowledge-base.js" },
-      { "type": "file_exists", "path": "src/constants/field-assistant-tools.js" },
-      { "type": "grep_matches", "pattern": "FIELD_ASSISTANT_TOOLS", "paths": ["api/field-assistant.ts"] },
-      { "type": "grep_matches", "pattern": "dispatchTool", "paths": ["api/field-assistant.ts"] },
-      { "type": "grep_matches", "pattern": "lookup_exposure_limit", "paths": ["src/constants/field-assistant-tools.js"] },
-      { "type": "grep_matches", "pattern": "lookup_sampling_method", "paths": ["src/constants/field-assistant-tools.js"] },
-      { "type": "grep_matches", "pattern": "lookup_health_effects", "paths": ["src/constants/field-assistant-tools.js"] },
-      { "type": "grep_matches", "pattern": "1910.1048", "paths": ["src/constants/iaq-knowledge-base.js"] },
-      { "type": "grep_matches", "pattern": "ACGIH TLVs and BEIs 2025", "paths": ["src/constants/iaq-knowledge-base.js"] },
-      { "type": "file_exists", "path": "tests/lib/iaq-knowledge-base.test.ts" },
-      { "type": "file_exists", "path": "tests/lib/field-assistant-tools.test.ts" }
-    ]},
-
-    { "id": "JASPER-L3-CORPUS-SEARCH", "label": "Field Assistant (Jasper) Layer-3 corpus search — TF-IDF retrieval over curated IAQ standards corpus", "checks": [
-      { "type": "file_exists", "path": "src/constants/standards-corpus.js" },
-      { "type": "file_exists", "path": "src/utils/corpus-search.js" },
-      { "type": "grep_matches", "pattern": "search_standards_corpus", "paths": ["src/constants/field-assistant-tools.js"] },
-      { "type": "grep_matches", "pattern": "searchCorpus", "paths": ["src/utils/corpus-search.js"] },
-      { "type": "grep_matches", "pattern": "STANDARDS_CORPUS", "paths": ["src/constants/standards-corpus.js"] },
-      { "type": "grep_matches", "pattern": "iicrc-s520-conditions", "paths": ["src/constants/standards-corpus.js"] },
-      { "type": "grep_matches", "pattern": "ashrae-241-2023", "paths": ["src/constants/standards-corpus.js"] },
-      { "type": "grep_matches", "pattern": "molhave-tvoc-framework", "paths": ["src/constants/standards-corpus.js"] },
-      { "type": "file_exists", "path": "tests/lib/corpus-search.test.ts" }
-    ]},
-
-    { "id": "JASPER-L4-VISION-TOOL", "label": "Field Assistant (Jasper) Layer-4 vision tool — multimodal photo analysis wired into the agent loop", "checks": [
-      { "type": "grep_matches", "pattern": "analyze_photo", "paths": ["src/constants/field-assistant-tools.js"] },
-      { "type": "grep_matches", "pattern": "parsePhotoDataUrl", "paths": ["src/constants/field-assistant-tools.js"] },
-      { "type": "grep_matches", "pattern": "ih_review_required", "paths": ["src/constants/field-assistant-tools.js"] },
-      { "type": "grep_matches", "pattern": "MAX_PHOTOS_PER_REQUEST", "paths": ["api/field-assistant.ts"] },
-      { "type": "grep_matches", "pattern": "ToolDispatchContext", "paths": ["api/field-assistant.ts"] },
-      { "type": "grep_matches", "pattern": "Available photos in this conversation", "paths": ["api/field-assistant.ts"] },
-      { "type": "grep_matches", "pattern": "vision_usages", "paths": ["api/field-assistant.ts"] }
-    ]},
-
-    { "id": "JASPER-L4-VISION-UI", "label": "Field Assistant (Jasper) Layer-4 vision UI — photo attach + send wired through the hook", "checks": [
-      { "type": "grep_matches", "pattern": "attachPhoto", "paths": ["src/hooks/useFieldAssistant.js"] },
-      { "type": "grep_matches", "pattern": "MAX_PHOTOS_PER_REQUEST", "paths": ["src/hooks/useFieldAssistant.js"] },
-      { "type": "grep_matches", "pattern": "photos: photosPayload", "paths": ["src/hooks/useFieldAssistant.js"] },
-      { "type": "grep_matches", "pattern": "Attach photo", "paths": ["src/components/FieldAssistant.jsx"] },
-      { "type": "grep_matches", "pattern": "data-testid=\"photo-file-input\"", "paths": ["src/components/FieldAssistant.jsx"] },
-      { "type": "grep_matches", "pattern": "paperclip", "paths": ["src/components/Icons.jsx"] },
-      { "type": "file_exists", "path": "tests/lib/useFieldAssistant-photos.test.ts" },
-      { "type": "file_exists", "path": "tests/components/FieldAssistant-photos.test.tsx" }
-    ]},
-
-    { "id": "SENTRY-PACKAGE", "label": "Sentry package installed", "checks": [
-      { "type": "grep_matches", "pattern": "@sentry/", "paths": ["package.json"] }
-    ]},
-    { "id": "SENTRY-INIT-CALLED", "label": "Sentry.init is called in code", "checks": [
-      { "type": "grep_matches", "pattern": "Sentry\\.init", "paths": ["src/", "api/", "lib/"] }
-    ]},
-    { "id": "SENTRY-PII-SCRUB", "label": "beforeSend hook scrubs PII", "checks": [
-      { "type": "grep_matches", "pattern": "beforeSend", "paths": ["src/", "lib/"] }
-    ]},
-    { "id": "SENTRY-DOCS", "label": "Sentry documentation exists", "checks": [
-      { "type": "file_exists", "path": "docs/SENTRY.md" }
-    ]},
-
-    { "id": "SMOKE-TEST-SCRIPT", "label": "Production smoke test script exists", "checks": [
-      { "type": "file_min_size", "path": "scripts/smoke-test-production.ts", "minBytes": 2000 }
-    ]},
-    { "id": "SMOKE-TEST-CI", "label": "Smoke test CI workflow exists", "checks": [
-      { "type": "file_exists", "path": ".github/workflows/smoke-test.yml" }
-    ]},
-    { "id": "SMOKE-TEST-USES-STRIPE-TEST-MODE", "label": "Smoke test uses Stripe test mode (never production)", "checks": [
-      { "type": "grep_matches", "pattern": "STRIPE_TEST_SECRET_KEY", "paths": ["scripts/smoke-test-production.ts", ".github/workflows/smoke-test.yml"] }
-    ]},
-
-    { "id": "ENGINE-MERGE-READINESS-SCRIPT", "label": "Engine merge readiness diagnostic script exists", "checks": [
-      { "type": "file_exists", "path": "scripts/engine-merge-readiness.ts" }
-    ]},
-
-    { "id": "DOCS-PROD-READY", "label": "Production readiness documentation exists", "checks": [
-      { "type": "file_exists", "path": "docs/PRODUCTION_READINESS.md" }
-    ]},
-
-    { "id": "AI-TRAINING-CONSENT", "label": "AI fine-tuning consent migration + helper exist", "checks": [
-      { "type": "file_exists", "path": "supabase/migrations/015_ai_training_consent.sql" },
-      { "type": "grep_matches", "pattern": "ai_training_consent", "paths": ["supabase/migrations/015_ai_training_consent.sql"] },
-      { "type": "file_exists", "path": "lib/ai-training-consent.ts" },
-      { "type": "grep_matches", "pattern": "userConsentsToTraining", "paths": ["lib/ai-training-consent.ts"] }
-    ]},
-    { "id": "FEEDBACK-WRITE-PATH", "label": "AI feedback endpoint + UI primitive exist", "checks": [
-      { "type": "file_exists", "path": "api/field-assistant-feedback.ts" },
-      { "type": "grep_matches", "pattern": "field_assistant_feedback", "paths": ["api/field-assistant-feedback.ts"] },
-      { "type": "file_exists", "path": "src/components/ui/JasperFeedbackRow.jsx" },
-      { "type": "grep_matches", "pattern": "thumbsUp|thumbsDown", "paths": ["src/components/ui/JasperFeedbackRow.jsx"] }
-    ]},
-    { "id": "EXPORT-PIPELINE", "label": "Fine-tune dataset export script exists", "checks": [
-      { "type": "file_exists", "path": "scripts/export-finetune-dataset.mjs" },
-      { "type": "grep_matches", "pattern": "buildTrainingRows", "paths": ["scripts/export-finetune-dataset.mjs"] },
-      { "type": "grep_matches", "pattern": "include-negatives", "paths": ["scripts/export-finetune-dataset.mjs"] }
-    ]},
-    { "id": "REPORT-TEMPLATES", "label": "User-template DOCX render path exists", "checks": [
-      { "type": "file_exists", "path": "supabase/migrations/016_report_templates.sql" },
-      { "type": "grep_matches", "pattern": "report_templates", "paths": ["supabase/migrations/016_report_templates.sql"] },
-      { "type": "file_exists", "path": "lib/report-templates/token-registry.ts" },
-      { "type": "file_exists", "path": "lib/report-templates/render.ts" },
-      { "type": "file_exists", "path": "api/report-templates.ts" },
-      { "type": "file_exists", "path": "api/report-templates-render.ts" },
-      { "type": "grep_matches", "pattern": "generate_report", "paths": ["src/constants/field-assistant-tools.js"] },
-      { "type": "file_exists", "path": "src/components/settings/ReportTemplatesPanel.jsx" }
-    ]},
-    { "id": "API-JS-IMPORT-GUARDRAIL", "label": "Lint-time guardrail blocks .js → .ts imports on the API path", "checks": [
-      { "type": "file_exists", "path": "scripts/check-api-js-imports.mjs" },
-      { "type": "grep_matches", "pattern": "findApiJsTsLandmines", "paths": ["scripts/check-api-js-imports.mjs"] },
-      { "type": "file_exists", "path": "tests/scripts/check-api-js-imports.test.ts" },
-      { "type": "npm_script_passes", "script": "lint:imports" }
-    ]},
-    { "id": "JASPER-HOT-PATH-LEAN", "label": "Jasper handler does not bundle docxtemplater (architectural test)", "checks": [
-      { "type": "file_exists", "path": "tests/api/field-assistant-bundle.test.ts" },
-      { "type": "grep_matches", "pattern": "does NOT pull docxtemplater", "paths": ["tests/api/field-assistant-bundle.test.ts"] },
-      { "type": "grep_matches", "pattern": "render_proposed", "paths": ["src/constants/field-assistant-tools.js", "api/field-assistant.ts", "src/hooks/useFieldAssistant.js"] },
-      { "type": "grep_matches", "pattern": "fa_init_", "paths": ["api/field-assistant.ts"] }
-    ]},
-    { "id": "JASPER-LOGGER-CONTEXT", "label": "Logger Studio session summary flows into Jasper context", "checks": [
-      { "type": "file_exists", "path": "lib/jasper/logger-context-summary.ts" },
-      { "type": "grep_matches", "pattern": "summarizeLoggerForContext", "paths": ["lib/jasper/logger-context-summary.ts", "lib/context/buildAssessmentContext.ts"] },
-      { "type": "grep_matches", "pattern": "logger_studio", "paths": ["lib/context/buildJasperContext.ts", "src/constants/field-assistant-prompt.js"] },
-      { "type": "file_exists", "path": "tests/lib/logger-context-summary.test.ts" }
-    ]},
-    { "id": "SHARED-CONTEXT", "label": "Shared assessment-context builder + types exist (connectivity layer PR A)", "checks": [
-      { "type": "file_exists", "path": "lib/context/types.ts" },
-      { "type": "file_exists", "path": "lib/context/buildAssessmentContext.ts" },
-      { "type": "grep_matches", "pattern": "export function buildAssessmentContext", "paths": ["lib/context/buildAssessmentContext.ts"] },
-      { "type": "grep_matches", "pattern": "export interface AssessmentContext", "paths": ["lib/context/types.ts"] },
-      { "type": "file_exists", "path": "tests/lib/buildAssessmentContext.test.ts" }
-    ]},
-    { "id": "JASPER-CONTEXT-BUILDER", "label": "Jasper context driven by buildJasperContext (connectivity layer PR B)", "checks": [
-      { "type": "file_exists", "path": "lib/context/buildJasperContext.ts" },
-      { "type": "grep_matches", "pattern": "export function buildJasperContext", "paths": ["lib/context/buildJasperContext.ts"] },
-      { "type": "grep_matches", "pattern": "buildJasperContext", "paths": ["src/components/MobileApp.jsx"] },
-      { "type": "file_exists", "path": "tests/lib/buildJasperContext.test.ts" },
-      { "type": "grep_matches", "pattern": "parity guard", "paths": ["tests/lib/buildJasperContext.test.ts"] }
-    ]},
-    { "id": "DOCX-USES-CONTEXT", "label": "DOCX renderer accepts AssessmentContext as a parallel data source (connectivity layer PR C)", "checks": [
-      { "type": "grep_matches", "pattern": "assessmentContext", "paths": ["src/components/DocxReport.js"] },
-      { "type": "grep_matches", "pattern": "buildAssessmentContext", "paths": ["src/components/MobileApp.jsx"] },
-      { "type": "file_exists", "path": "tests/components/DocxReport-context.test.ts" },
-      { "type": "grep_matches", "pattern": "Parity test for DocxReport", "paths": ["tests/components/DocxReport-context.test.ts"] }
-    ]},
-    { "id": "EVENT-SPINE", "label": "Typed event spine emits product-flow events into audit_log (connectivity layer PR D)", "checks": [
-      { "type": "file_exists", "path": "lib/events/types.ts" },
-      { "type": "file_exists", "path": "lib/events/emit.ts" },
-      { "type": "file_exists", "path": "api/events.ts" },
-      { "type": "grep_matches", "pattern": "export type EventName", "paths": ["lib/events/types.ts"] },
-      { "type": "grep_matches", "pattern": "export async function emitEvent", "paths": ["lib/events/emit.ts"] },
-      { "type": "grep_matches", "pattern": "emitEvent\\('engine_ran'", "paths": ["src/components/MobileApp.jsx"] },
-      { "type": "grep_matches", "pattern": "emitEvent\\('report_exported'", "paths": ["src/components/MobileApp.jsx"] },
-      { "type": "file_exists", "path": "tests/api/events.test.ts" }
-    ]},
-    { "id": "EVENT-SPINE-WIRED", "label": "All 6 EventName emit sites wired across browser + server (connectivity layer PR E)", "checks": [
-      { "type": "grep_matches", "pattern": "emitEvent\\('logger_imported'", "paths": ["src/components/sensor/SensorDataPage.jsx"] },
-      { "type": "grep_matches", "pattern": "'jasper_asked'", "paths": ["api/field-assistant.ts"] },
-      { "type": "grep_matches", "pattern": "'photo_analyzed'", "paths": ["api/field-assistant.ts"] },
-      { "type": "grep_matches", "pattern": "'narrative_generated'", "paths": ["api/narrative.js"] }
-    ]},
-    { "id": "MODULE-CONTRACTS-DEFINED", "label": "Typed module contracts capture the input/output of each AI surface (connectivity layer PR E)", "checks": [
-      { "type": "file_exists", "path": "lib/contracts/photo-analysis.ts" },
-      { "type": "file_exists", "path": "lib/contracts/narrative.ts" },
-      { "type": "file_exists", "path": "lib/contracts/report-render.ts" },
-      { "type": "file_exists", "path": "lib/contracts/jasper-turn.ts" },
-      { "type": "file_exists", "path": "lib/contracts/index.ts" },
-      { "type": "grep_matches", "pattern": "export interface AnalyzePhotoOk", "paths": ["lib/contracts/photo-analysis.ts"] },
-      { "type": "grep_matches", "pattern": "export interface NarrativeOk", "paths": ["lib/contracts/narrative.ts"] },
-      { "type": "grep_matches", "pattern": "export interface ReportRenderInput", "paths": ["lib/contracts/report-render.ts"] },
-      { "type": "grep_matches", "pattern": "export interface JasperTurnRequest", "paths": ["lib/contracts/jasper-turn.ts"] }
-    ]},
-    { "id": "SITE-LIBRARY", "label": "Site library + sites API exist (habit-loop PR 1)", "checks": [
-      { "type": "grep_matches", "pattern": "CREATE TABLE.*sites", "paths": ["supabase/migrations/"] },
-      { "type": "file_exists", "path": "api/sites.ts" },
-      { "type": "file_exists", "path": "src/components/settings/SiteLibraryPanel.jsx" },
-      { "type": "file_exists", "path": "tests/api/sites.test.ts" },
-      { "type": "grep_matches", "pattern": "SiteLibraryPanel", "paths": ["src/components/SettingsScreen.jsx"] }
-    ]},
-    { "id": "REASSESSMENT-REMINDER", "label": "Re-assessment reminder loop wired end-to-end (habit-loop PR 1)", "checks": [
-      { "type": "grep_matches", "pattern": "enqueueReassessmentReminder", "paths": ["lib/email-triggers.ts"] },
-      { "type": "grep_matches", "pattern": "reassessment\\.reminder", "paths": ["lib/email-sequences.ts"] },
-      { "type": "grep_matches", "pattern": "assessment_finalized", "paths": ["lib/events/types.ts", "api/events.ts", "src/components/MobileApp.jsx"] },
-      { "type": "grep_matches", "pattern": "email_preferences", "paths": ["src/components/ProfileScreen.jsx"] },
-      { "type": "file_exists", "path": "src/components/SaveSitePrompt.jsx" },
-      { "type": "file_exists", "path": "src/utils/siteLink.js" }
-    ]},
-    { "id": "CALIBRATION-EXPIRY-REMINDER", "label": "Calibration-expiry email loop wired end-to-end (habit-loop PR 2)", "checks": [
-      { "type": "file_exists", "path": "lib/calibration/banner-state.ts" },
-      { "type": "file_exists", "path": "scripts/cron-calibration-expiry.ts" },
-      { "type": "file_exists", "path": "api/cron-calibration-expiry.ts" },
-      { "type": "grep_matches", "pattern": "enqueueCalibrationReminder", "paths": ["lib/email-triggers.ts"] },
-      { "type": "grep_matches", "pattern": "calibration\\.expiring", "paths": ["lib/email-sequences.ts"] },
-      { "type": "grep_matches", "pattern": "calibration\\.expired", "paths": ["lib/email-sequences.ts"] },
-      { "type": "grep_matches", "pattern": "cron-calibration-expiry", "paths": ["vercel.json"] },
-      { "type": "grep_matches", "pattern": "calibration_expiry", "paths": ["src/components/ProfileScreen.jsx"] },
-      { "type": "file_exists", "path": "tests/lib/calibration-banner-state.test.ts" },
-      { "type": "file_exists", "path": "tests/scripts/cron-calibration-expiry.test.ts" }
-    ]},
-    { "id": "PORTFOLIO-DIGEST", "label": "Quarterly portfolio digest email loop wired end-to-end (habit-loop PR 3)", "checks": [
-      { "type": "file_exists", "path": "lib/portfolio/digest-stats.ts" },
-      { "type": "file_exists", "path": "scripts/cron-portfolio-digest.ts" },
-      { "type": "file_exists", "path": "api/cron-portfolio-digest.ts" },
-      { "type": "grep_matches", "pattern": "enqueuePortfolioDigest", "paths": ["lib/email-triggers.ts"] },
-      { "type": "grep_matches", "pattern": "portfolio\\.digest", "paths": ["lib/email-sequences.ts"] },
-      { "type": "grep_matches", "pattern": "cron-portfolio-digest", "paths": ["vercel.json"] },
-      { "type": "grep_matches", "pattern": "portfolio_digest", "paths": ["src/components/ProfileScreen.jsx"] },
-      { "type": "grep_matches", "pattern": "computeDigestStats", "paths": ["lib/portfolio/digest-stats.ts", "scripts/cron-portfolio-digest.ts"] },
-      { "type": "file_exists", "path": "tests/lib/digest-stats.test.ts" },
-      { "type": "file_exists", "path": "tests/scripts/cron-portfolio-digest.test.ts" }
-    ]},
-    { "id": "PEER-REVIEW", "label": "Peer review send + magic-link respond loop wired end-to-end (habit-loop PR 4)", "checks": [
-      { "type": "grep_matches", "pattern": "CREATE TABLE.*peer_reviews", "paths": ["supabase/migrations/"] },
-      { "type": "file_exists", "path": "lib/peer-review/types.ts" },
-      { "type": "file_exists", "path": "api/peer-review.ts" },
-      { "type": "file_exists", "path": "api/peer-review-respond.ts" },
-      { "type": "file_exists", "path": "src/components/PeerReviewModal.jsx" },
-      { "type": "file_exists", "path": "src/components/PeerReviewLanding.jsx" },
-      { "type": "grep_matches", "pattern": "peer_review\\.request", "paths": ["lib/email-sequences.ts"] },
-      { "type": "grep_matches", "pattern": "peer_review\\.completed", "paths": ["lib/email-sequences.ts"] },
-      { "type": "grep_matches", "pattern": "peer_review_requested", "paths": ["lib/events/types.ts", "src/components/MobileApp.jsx"] },
-      { "type": "grep_matches", "pattern": "peer_review_completed", "paths": ["lib/events/types.ts", "api/peer-review-respond.ts"] },
-      { "type": "grep_matches", "pattern": "PeerReviewLanding", "paths": ["src/App.jsx"] },
-      { "type": "file_exists", "path": "tests/api/peer-review.test.ts" },
-      { "type": "file_exists", "path": "tests/api/peer-review-respond.test.ts" },
-      { "type": "file_exists", "path": "tests/components/PeerReviewLanding.test.tsx" }
-    ]},
-    { "id": "SAMPLING-RESULTS-REMINDER", "label": "Sampling-results-outstanding reminder loop wired end-to-end (habit-loop PR 5)", "checks": [
-      { "type": "grep_matches", "pattern": "enqueueSamplingResultsReminder", "paths": ["lib/email-triggers.ts"] },
-      { "type": "grep_matches", "pattern": "cancelSamplingResultsReminder", "paths": ["lib/email-triggers.ts"] },
-      { "type": "grep_matches", "pattern": "sampling_results\\.reminder", "paths": ["lib/email-sequences.ts"] },
-      { "type": "grep_matches", "pattern": "lab_results_attached", "paths": ["lib/events/types.ts", "api/events.ts", "src/components/LabResultsImport.jsx"] },
-      { "type": "grep_matches", "pattern": "sampling_plan_size", "paths": ["api/events.ts", "src/components/MobileApp.jsx"] },
-      { "type": "grep_matches", "pattern": "sampling_results_outstanding", "paths": ["src/components/ProfileScreen.jsx"] }
-    ]}
+    {
+      "id": "BUILD-01",
+      "label": "TypeScript typecheck passes",
+      "checks": [
+        {
+          "type": "npm_script_passes",
+          "script": "typecheck"
+        }
+      ]
+    },
+    {
+      "id": "BUILD-02",
+      "label": "Test suite passes",
+      "checks": [
+        {
+          "type": "npm_script_passes",
+          "script": "test"
+        }
+      ]
+    },
+    {
+      "id": "BUILD-03",
+      "label": "Lint passes with zero warnings",
+      "checks": [
+        {
+          "type": "npm_script_passes",
+          "script": "lint"
+        }
+      ]
+    },
+    {
+      "id": "WEBHOOK-IDEMPOTENCY-TABLE",
+      "label": "stripe_webhook_events table migration exists",
+      "checks": [
+        {
+          "type": "grep_matches",
+          "pattern": "CREATE TABLE.*stripe_webhook_events",
+          "paths": [
+            "supabase/migrations/",
+            "migrations/",
+            "db/"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "WEBHOOK-IDEMPOTENCY-CHECK",
+      "label": "Webhook handler checks for already-processed event",
+      "checks": [
+        {
+          "type": "grep_matches",
+          "pattern": "stripe_webhook_events",
+          "paths": [
+            "api/webhook.ts",
+            "api/webhook.js",
+            "pages/api/webhook.ts"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "WEBHOOK-IDEMPOTENCY-TEST",
+      "label": "Webhook idempotency test exists",
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": "tests/api/webhook-idempotency.test.ts"
+        }
+      ]
+    },
+    {
+      "id": "DELETE-ACCOUNT-PURGES-PII",
+      "label": "Account deletion calls purge across all PII tables",
+      "checks": [
+        {
+          "type": "grep_matches",
+          "pattern": "analytics_events",
+          "paths": [
+            "api/delete-account.ts",
+            "api/delete-account.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "credits_ledger",
+          "paths": [
+            "api/delete-account.ts",
+            "api/delete-account.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "purchases",
+          "paths": [
+            "api/delete-account.ts",
+            "api/delete-account.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "deleteUser",
+          "paths": [
+            "api/delete-account.ts",
+            "api/delete-account.js"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "DELETION-AUDIT-TABLE",
+      "label": "deletion_audit table migration exists",
+      "checks": [
+        {
+          "type": "grep_matches",
+          "pattern": "CREATE TABLE.*deletion_audit",
+          "paths": [
+            "supabase/migrations/",
+            "migrations/",
+            "db/"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "DELETE-ACCOUNT-TEST",
+      "label": "Account deletion test exists",
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": "tests/api/delete-account.test.ts"
+        }
+      ]
+    },
+    {
+      "id": "PASSWORD-RESET-VERIFY-SCRIPT",
+      "label": "Password reset verification script exists",
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": "scripts/verify-password-reset.ts"
+        }
+      ]
+    },
+    {
+      "id": "PASSWORD-RESET-TEST",
+      "label": "Password reset test exists",
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": "tests/api/password-reset.test.ts"
+        }
+      ]
+    },
+    {
+      "id": "NARRATIVE-RATE-LIMIT-TABLE",
+      "label": "narrative_generations tracking table exists",
+      "checks": [
+        {
+          "type": "grep_matches",
+          "pattern": "CREATE TABLE.*narrative_generations",
+          "paths": [
+            "supabase/migrations/",
+            "migrations/",
+            "db/"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "NARRATIVE-RATE-LIMIT-CODE",
+      "label": "Narrative endpoint enforces rate limit",
+      "checks": [
+        {
+          "type": "grep_matches",
+          "pattern": "(rate_limit|rateLimit|429)",
+          "paths": [
+            "api/narrative.ts",
+            "api/narrative.js"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "NARRATIVE-RATE-LIMIT-TEST",
+      "label": "Narrative rate limit test exists",
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": "tests/api/narrative-rate-limit.test.ts"
+        }
+      ]
+    },
+    {
+      "id": "PHOTO-BLOB-STORE",
+      "label": "Photo blob store + compaction layer wired into supabaseStorage",
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": "src/utils/photoBlobStore.js"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/utils/photoCompaction.js"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "compactPhotos",
+          "paths": [
+            "src/utils/supabaseStorage.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "expandPhotos",
+          "paths": [
+            "src/utils/supabaseStorage.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "purgeAssessmentPhotos",
+          "paths": [
+            "src/utils/supabaseStorage.js"
+          ]
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/lib/photo-blob-store.test.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/lib/photo-compaction.test.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/lib/supabase-storage-photo-compaction.test.ts"
+        }
+      ]
+    },
+    {
+      "id": "OFFLINE-SYNC-INDICATOR",
+      "label": "Pending-sync indicator exists and queue state is observable",
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": "src/components/PendingSyncIndicator.jsx"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/hooks/useSyncState.js"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "getSyncState",
+          "paths": [
+            "src/utils/supabaseStorage.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "getQueueDepth",
+          "paths": [
+            "src/utils/supabaseStorage.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "PendingSyncIndicator",
+          "paths": [
+            "src/components/MobileApp.jsx"
+          ]
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/lib/sync-state.test.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/components/PendingSyncIndicator.test.tsx"
+        }
+      ]
+    },
+    {
+      "id": "LAB-RESULTS-IMPORT",
+      "label": "Lab Results CSV import + Appendix G renderer",
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": "src/utils/labResultsParser.js"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/components/LabResultsImport.jsx"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/components/docx/sections-lab-results.js"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "buildLabResultsAppendix",
+          "paths": [
+            "src/components/DocxReport.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "LabResultsImport",
+          "paths": [
+            "src/components/SamplingFormsView.jsx"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "labResults: viewRpt",
+          "paths": [
+            "src/components/MobileApp.jsx"
+          ]
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/lib/lab-results-parser.test.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/engine/lab-results-appendix.test.ts"
+        }
+      ]
+    },
+    {
+      "id": "RESURVEY-SCHEDULE",
+      "label": "Re-survey Schedule section is rendered in the consultant DOCX",
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": "src/engines/resurveySchedule.js"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/components/docx/sections-resurvey.js"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "buildResurveySchedule",
+          "paths": [
+            "src/components/docx/sections-v21client.js"
+          ]
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/engine/resurvey-schedule.test.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/engine/sections-resurvey.test.ts"
+        }
+      ]
+    },
+    {
+      "id": "OFFLINE-SW-APP-SHELL",
+      "label": "Service worker precaches the app shell + skips /api/ from caching",
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": "scripts/build-precache-manifest.mjs"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "precacheManifestPlugin",
+          "paths": [
+            "vite.config.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "precache-manifest.json",
+          "paths": [
+            "public/sw.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "isApiRequest",
+          "paths": [
+            "public/sw.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "networkFirstWithShellFallback",
+          "paths": [
+            "public/sw.js"
+          ]
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/scripts/build-precache-manifest.test.ts"
+        }
+      ]
+    },
+    {
+      "id": "CROSS-ASSESSMENT-MEMORY",
+      "label": "Cross-assessment similarity + Past Patterns panel (Play 2)",
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": "src/utils/assessmentSimilarity.js"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/hooks/useSimilarAssessments.js"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/components/SimilarAssessmentsPanel.jsx"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "SimilarAssessmentsPanel",
+          "paths": [
+            "src/components/MobileApp.jsx"
+          ]
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/lib/assessment-similarity.test.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/components/SimilarAssessmentsPanel.test.tsx"
+        }
+      ]
+    },
+    {
+      "id": "PHOTO-ANALYSIS-AI",
+      "label": "Multimodal photo analysis endpoint + IH-Review-Required render path",
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": "api/photo-analyze.js"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/utils/photoAnalysis.js"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "ih_review_required",
+          "paths": [
+            "api/photo-analyze.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "Never invent a citation",
+          "paths": [
+            "api/photo-analyze.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "analyzePhoto",
+          "paths": [
+            "src/components/PhotoCapture.jsx"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "AI-PROPOSED",
+          "paths": [
+            "src/components/docx/sections-v21client.js"
+          ]
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/api/photo-analyze.test.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/lib/photo-analysis.test.ts"
+        }
+      ]
+    },
+    {
+      "id": "JASPER-WATCH-LIVE-ADVISOR",
+      "label": "Live deterministic advisor surfaces reading-vs-threshold flags during sensor entry (Play 3a)",
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": "src/engines/liveAdvisor.js"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/components/JasperWatchPanel.jsx"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "JasperWatchPanel",
+          "paths": [
+            "src/components/MobileApp.jsx"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "evaluateLive",
+          "paths": [
+            "src/components/JasperWatchPanel.jsx"
+          ]
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/engine/live-advisor.test.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/components/JasperWatchPanel.test.tsx"
+        }
+      ]
+    },
+    {
+      "id": "STANDARDS-CURRENCY",
+      "label": "Standards Currency layer surfaces ASHRAE 241 / EPA PM2.5 annual / ACGIH TLV references without engine touch",
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": "src/engines/contextualStandards.js"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/components/docx/sections-methodology-currency.js"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "ASHRAE 241",
+          "paths": [
+            "src/constants/standards.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "EPA PM2.5 Annual NAAQS Revision",
+          "paths": [
+            "src/constants/standards.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "ACGIH TLVs and BEIs",
+          "paths": [
+            "src/constants/standards.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "buildMethodologyCurrency",
+          "paths": [
+            "src/components/DocxReport.js"
+          ]
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/engine/contextual-standards.test.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/engine/sections-methodology-currency.test.ts"
+        }
+      ]
+    },
+    {
+      "id": "CALIBRATION-APPENDIX-MAPPER",
+      "label": "Calibration appendix B+E mapper exists and is wired into DocxReport",
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": "src/components/docx/calibration-appendix.js"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "buildCalibrationAppendix",
+          "paths": [
+            "src/components/DocxReport.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "augmentWithCalibrationAppendices",
+          "paths": [
+            "src/components/DocxReport.js"
+          ]
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/engine/calibration-appendix.test.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/engine/calibration-appendix-augment.test.ts"
+        }
+      ]
+    },
+    {
+      "id": "NARRATIVE-AI-REVIEW-BANNER",
+      "label": "Executive Summary AI narrative is wrapped in a hard 'IH Review Required' banner",
+      "checks": [
+        {
+          "type": "grep_matches",
+          "pattern": "IH REVIEW REQUIRED",
+          "paths": [
+            "src/components/docx/sections-core.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "aiReviewRequiredBanner",
+          "paths": [
+            "src/components/docx/sections-core.js"
+          ]
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/engine/ai-review-required-banner.test.ts"
+        }
+      ]
+    },
+    {
+      "id": "INSTRUMENT-LOG-IMPORT",
+      "label": "Instrument log CSV/XLSX import aggregates time-series into spot readings via the Logger Studio parser (Play 4a)",
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": "src/components/InstrumentLogImport.jsx"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "InstrumentLogImport",
+          "paths": [
+            "src/components/MobileApp.jsx"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "parseSensorCsv|parseSensorRows",
+          "paths": [
+            "src/components/InstrumentLogImport.jsx"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "xlsxToRows",
+          "paths": [
+            "src/components/InstrumentLogImport.jsx"
+          ]
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/components/InstrumentLogImport.test.tsx"
+        }
+      ]
+    },
+    {
+      "id": "JASPER-L2-TOOL-USE",
+      "label": "Field Assistant (Jasper) Layer-2 tool use \u2014 primary-source IAQ knowledge base wired into the agent loop",
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": "src/constants/iaq-knowledge-base.js"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/constants/field-assistant-tools.js"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "FIELD_ASSISTANT_TOOLS",
+          "paths": [
+            "api/field-assistant.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "dispatchTool",
+          "paths": [
+            "api/field-assistant.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "lookup_exposure_limit",
+          "paths": [
+            "src/constants/field-assistant-tools.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "lookup_sampling_method",
+          "paths": [
+            "src/constants/field-assistant-tools.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "lookup_health_effects",
+          "paths": [
+            "src/constants/field-assistant-tools.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "1910.1048",
+          "paths": [
+            "src/constants/iaq-knowledge-base.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "ACGIH TLVs and BEIs 2025",
+          "paths": [
+            "src/constants/iaq-knowledge-base.js"
+          ]
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/lib/iaq-knowledge-base.test.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/lib/field-assistant-tools.test.ts"
+        }
+      ]
+    },
+    {
+      "id": "JASPER-L3-CORPUS-SEARCH",
+      "label": "Field Assistant (Jasper) Layer-3 corpus search \u2014 TF-IDF retrieval over curated IAQ standards corpus",
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": "src/constants/standards-corpus.js"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/utils/corpus-search.js"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "search_standards_corpus",
+          "paths": [
+            "src/constants/field-assistant-tools.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "searchCorpus",
+          "paths": [
+            "src/utils/corpus-search.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "STANDARDS_CORPUS",
+          "paths": [
+            "src/constants/standards-corpus.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "iicrc-s520-conditions",
+          "paths": [
+            "src/constants/standards-corpus.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "ashrae-241-2023",
+          "paths": [
+            "src/constants/standards-corpus.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "molhave-tvoc-framework",
+          "paths": [
+            "src/constants/standards-corpus.js"
+          ]
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/lib/corpus-search.test.ts"
+        }
+      ]
+    },
+    {
+      "id": "JASPER-L4-VISION-TOOL",
+      "label": "Field Assistant (Jasper) Layer-4 vision tool \u2014 multimodal photo analysis wired into the agent loop",
+      "checks": [
+        {
+          "type": "grep_matches",
+          "pattern": "analyze_photo",
+          "paths": [
+            "src/constants/field-assistant-tools.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "parsePhotoDataUrl",
+          "paths": [
+            "src/constants/field-assistant-tools.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "ih_review_required",
+          "paths": [
+            "src/constants/field-assistant-tools.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "MAX_PHOTOS_PER_REQUEST",
+          "paths": [
+            "api/field-assistant.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "ToolDispatchContext",
+          "paths": [
+            "api/field-assistant.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "Available photos in this conversation",
+          "paths": [
+            "api/field-assistant.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "vision_usages",
+          "paths": [
+            "api/field-assistant.ts"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "JASPER-L4-VISION-UI",
+      "label": "Field Assistant (Jasper) Layer-4 vision UI \u2014 photo attach + send wired through the hook",
+      "checks": [
+        {
+          "type": "grep_matches",
+          "pattern": "attachPhoto",
+          "paths": [
+            "src/hooks/useFieldAssistant.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "MAX_PHOTOS_PER_REQUEST",
+          "paths": [
+            "src/hooks/useFieldAssistant.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "photos: photosPayload",
+          "paths": [
+            "src/hooks/useFieldAssistant.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "Attach photo",
+          "paths": [
+            "src/components/FieldAssistant.jsx"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "data-testid=\"photo-file-input\"",
+          "paths": [
+            "src/components/FieldAssistant.jsx"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "paperclip",
+          "paths": [
+            "src/components/Icons.jsx"
+          ]
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/lib/useFieldAssistant-photos.test.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/components/FieldAssistant-photos.test.tsx"
+        }
+      ]
+    },
+    {
+      "id": "SENTRY-PACKAGE",
+      "label": "Sentry package installed",
+      "checks": [
+        {
+          "type": "grep_matches",
+          "pattern": "@sentry/",
+          "paths": [
+            "package.json"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "SENTRY-INIT-CALLED",
+      "label": "Sentry.init is called in code",
+      "checks": [
+        {
+          "type": "grep_matches",
+          "pattern": "Sentry\\.init",
+          "paths": [
+            "src/",
+            "api/",
+            "lib/"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "SENTRY-PII-SCRUB",
+      "label": "beforeSend hook scrubs PII",
+      "checks": [
+        {
+          "type": "grep_matches",
+          "pattern": "beforeSend",
+          "paths": [
+            "src/",
+            "lib/"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "SENTRY-DOCS",
+      "label": "Sentry documentation exists",
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": "docs/SENTRY.md"
+        }
+      ]
+    },
+    {
+      "id": "SMOKE-TEST-SCRIPT",
+      "label": "Production smoke test script exists",
+      "checks": [
+        {
+          "type": "file_min_size",
+          "path": "scripts/smoke-test-production.ts",
+          "minBytes": 2000
+        }
+      ]
+    },
+    {
+      "id": "SMOKE-TEST-CI",
+      "label": "Smoke test CI workflow exists",
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": ".github/workflows/smoke-test.yml"
+        }
+      ]
+    },
+    {
+      "id": "SMOKE-TEST-USES-STRIPE-TEST-MODE",
+      "label": "Smoke test uses Stripe test mode (never production)",
+      "checks": [
+        {
+          "type": "grep_matches",
+          "pattern": "STRIPE_TEST_SECRET_KEY",
+          "paths": [
+            "scripts/smoke-test-production.ts",
+            ".github/workflows/smoke-test.yml"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ENGINE-MERGE-READINESS-SCRIPT",
+      "label": "Engine merge readiness diagnostic script exists",
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": "scripts/engine-merge-readiness.ts"
+        }
+      ]
+    },
+    {
+      "id": "DOCS-PROD-READY",
+      "label": "Production readiness documentation exists",
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": "docs/PRODUCTION_READINESS.md"
+        }
+      ]
+    },
+    {
+      "id": "AI-TRAINING-CONSENT",
+      "label": "AI fine-tuning consent migration + helper exist",
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": "supabase/migrations/015_ai_training_consent.sql"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "ai_training_consent",
+          "paths": [
+            "supabase/migrations/015_ai_training_consent.sql"
+          ]
+        },
+        {
+          "type": "file_exists",
+          "path": "lib/ai-training-consent.ts"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "userConsentsToTraining",
+          "paths": [
+            "lib/ai-training-consent.ts"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "FEEDBACK-WRITE-PATH",
+      "label": "AI feedback endpoint + UI primitive exist",
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": "api/field-assistant-feedback.ts"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "field_assistant_feedback",
+          "paths": [
+            "api/field-assistant-feedback.ts"
+          ]
+        },
+        {
+          "type": "file_exists",
+          "path": "src/components/ui/JasperFeedbackRow.jsx"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "thumbsUp|thumbsDown",
+          "paths": [
+            "src/components/ui/JasperFeedbackRow.jsx"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "EXPORT-PIPELINE",
+      "label": "Fine-tune dataset export script exists",
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": "scripts/export-finetune-dataset.mjs"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "buildTrainingRows",
+          "paths": [
+            "scripts/export-finetune-dataset.mjs"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "include-negatives",
+          "paths": [
+            "scripts/export-finetune-dataset.mjs"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "REPORT-TEMPLATES",
+      "label": "User-template DOCX render path exists",
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": "supabase/migrations/016_report_templates.sql"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "report_templates",
+          "paths": [
+            "supabase/migrations/016_report_templates.sql"
+          ]
+        },
+        {
+          "type": "file_exists",
+          "path": "lib/report-templates/token-registry.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "lib/report-templates/render.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "api/report-templates.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "api/report-templates-render.ts"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "generate_report",
+          "paths": [
+            "src/constants/field-assistant-tools.js"
+          ]
+        },
+        {
+          "type": "file_exists",
+          "path": "src/components/settings/ReportTemplatesPanel.jsx"
+        }
+      ]
+    },
+    {
+      "id": "API-JS-IMPORT-GUARDRAIL",
+      "label": "Lint-time guardrail blocks .js \u2192 .ts imports on the API path",
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": "scripts/check-api-js-imports.mjs"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "findApiJsTsLandmines",
+          "paths": [
+            "scripts/check-api-js-imports.mjs"
+          ]
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/scripts/check-api-js-imports.test.ts"
+        },
+        {
+          "type": "npm_script_passes",
+          "script": "lint:imports"
+        }
+      ]
+    },
+    {
+      "id": "JASPER-HOT-PATH-LEAN",
+      "label": "Jasper handler does not bundle docxtemplater (architectural test)",
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": "tests/api/field-assistant-bundle.test.ts"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "does NOT pull docxtemplater",
+          "paths": [
+            "tests/api/field-assistant-bundle.test.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "render_proposed",
+          "paths": [
+            "src/constants/field-assistant-tools.js",
+            "api/field-assistant.ts",
+            "src/hooks/useFieldAssistant.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "fa_init_",
+          "paths": [
+            "api/field-assistant.ts"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "JASPER-LOGGER-CONTEXT",
+      "label": "Logger Studio session summary flows into Jasper context",
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": "lib/jasper/logger-context-summary.ts"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "summarizeLoggerForContext",
+          "paths": [
+            "lib/jasper/logger-context-summary.ts",
+            "lib/context/buildAssessmentContext.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "logger_studio",
+          "paths": [
+            "lib/context/buildJasperContext.ts",
+            "src/constants/field-assistant-prompt.js"
+          ]
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/lib/logger-context-summary.test.ts"
+        }
+      ]
+    },
+    {
+      "id": "SHARED-CONTEXT",
+      "label": "Shared assessment-context builder + types exist (connectivity layer PR A)",
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": "lib/context/types.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "lib/context/buildAssessmentContext.ts"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "export function buildAssessmentContext",
+          "paths": [
+            "lib/context/buildAssessmentContext.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "export interface AssessmentContext",
+          "paths": [
+            "lib/context/types.ts"
+          ]
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/lib/buildAssessmentContext.test.ts"
+        }
+      ]
+    },
+    {
+      "id": "JASPER-CONTEXT-BUILDER",
+      "label": "Jasper context driven by buildJasperContext (connectivity layer PR B)",
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": "lib/context/buildJasperContext.ts"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "export function buildJasperContext",
+          "paths": [
+            "lib/context/buildJasperContext.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "buildJasperContext",
+          "paths": [
+            "src/components/MobileApp.jsx"
+          ]
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/lib/buildJasperContext.test.ts"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "parity guard",
+          "paths": [
+            "tests/lib/buildJasperContext.test.ts"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "DOCX-USES-CONTEXT",
+      "label": "DOCX renderer accepts AssessmentContext as a parallel data source (connectivity layer PR C)",
+      "checks": [
+        {
+          "type": "grep_matches",
+          "pattern": "assessmentContext",
+          "paths": [
+            "src/components/DocxReport.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "buildAssessmentContext",
+          "paths": [
+            "src/components/MobileApp.jsx"
+          ]
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/components/DocxReport-context.test.ts"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "Parity test for DocxReport",
+          "paths": [
+            "tests/components/DocxReport-context.test.ts"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "EVENT-SPINE",
+      "label": "Typed event spine emits product-flow events into audit_log (connectivity layer PR D)",
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": "lib/events/types.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "lib/events/emit.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "api/events.ts"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "export type EventName",
+          "paths": [
+            "lib/events/types.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "export async function emitEvent",
+          "paths": [
+            "lib/events/emit.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "emitEvent\\('engine_ran'",
+          "paths": [
+            "src/components/MobileApp.jsx"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "emitEvent\\('report_exported'",
+          "paths": [
+            "src/components/MobileApp.jsx"
+          ]
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/api/events.test.ts"
+        }
+      ]
+    },
+    {
+      "id": "EVENT-SPINE-WIRED",
+      "label": "All 6 EventName emit sites wired across browser + server (connectivity layer PR E)",
+      "checks": [
+        {
+          "type": "grep_matches",
+          "pattern": "emitEvent\\('logger_imported'",
+          "paths": [
+            "src/components/sensor/SensorDataPage.jsx"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "'jasper_asked'",
+          "paths": [
+            "api/field-assistant.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "'photo_analyzed'",
+          "paths": [
+            "api/field-assistant.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "'narrative_generated'",
+          "paths": [
+            "api/narrative.js"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "MODULE-CONTRACTS-DEFINED",
+      "label": "Typed module contracts capture the input/output of each AI surface (connectivity layer PR E)",
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": "lib/contracts/photo-analysis.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "lib/contracts/narrative.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "lib/contracts/report-render.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "lib/contracts/jasper-turn.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "lib/contracts/index.ts"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "export interface AnalyzePhotoOk",
+          "paths": [
+            "lib/contracts/photo-analysis.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "export interface NarrativeOk",
+          "paths": [
+            "lib/contracts/narrative.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "export interface ReportRenderInput",
+          "paths": [
+            "lib/contracts/report-render.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "export interface JasperTurnRequest",
+          "paths": [
+            "lib/contracts/jasper-turn.ts"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "SITE-LIBRARY",
+      "label": "Site library + sites API exist (habit-loop PR 1)",
+      "checks": [
+        {
+          "type": "grep_matches",
+          "pattern": "CREATE TABLE.*sites",
+          "paths": [
+            "supabase/migrations/"
+          ]
+        },
+        {
+          "type": "file_exists",
+          "path": "api/sites.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/components/settings/SiteLibraryPanel.jsx"
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/api/sites.test.ts"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "SiteLibraryPanel",
+          "paths": [
+            "src/components/SettingsScreen.jsx"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "REASSESSMENT-REMINDER",
+      "label": "Re-assessment reminder loop wired end-to-end (habit-loop PR 1)",
+      "checks": [
+        {
+          "type": "grep_matches",
+          "pattern": "enqueueReassessmentReminder",
+          "paths": [
+            "lib/email-triggers.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "reassessment\\.reminder",
+          "paths": [
+            "lib/email-sequences.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "assessment_finalized",
+          "paths": [
+            "lib/events/types.ts",
+            "api/events.ts",
+            "src/components/MobileApp.jsx"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "email_preferences",
+          "paths": [
+            "src/components/ProfileScreen.jsx"
+          ]
+        },
+        {
+          "type": "file_exists",
+          "path": "src/components/SaveSitePrompt.jsx"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/utils/siteLink.js"
+        }
+      ]
+    },
+    {
+      "id": "CALIBRATION-EXPIRY-REMINDER",
+      "label": "Calibration-expiry email loop wired end-to-end (habit-loop PR 2)",
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": "lib/calibration/banner-state.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "scripts/cron-calibration-expiry.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "api/cron-calibration-expiry.ts"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "enqueueCalibrationReminder",
+          "paths": [
+            "lib/email-triggers.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "calibration\\.expiring",
+          "paths": [
+            "lib/email-sequences.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "calibration\\.expired",
+          "paths": [
+            "lib/email-sequences.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "cron-calibration-expiry",
+          "paths": [
+            "vercel.json"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "calibration_expiry",
+          "paths": [
+            "src/components/ProfileScreen.jsx"
+          ]
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/lib/calibration-banner-state.test.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/scripts/cron-calibration-expiry.test.ts"
+        }
+      ]
+    },
+    {
+      "id": "PORTFOLIO-DIGEST",
+      "label": "Quarterly portfolio digest email loop wired end-to-end (habit-loop PR 3)",
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": "lib/portfolio/digest-stats.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "scripts/cron-portfolio-digest.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "api/cron-portfolio-digest.ts"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "enqueuePortfolioDigest",
+          "paths": [
+            "lib/email-triggers.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "portfolio\\.digest",
+          "paths": [
+            "lib/email-sequences.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "cron-portfolio-digest",
+          "paths": [
+            "vercel.json"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "portfolio_digest",
+          "paths": [
+            "src/components/ProfileScreen.jsx"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "computeDigestStats",
+          "paths": [
+            "lib/portfolio/digest-stats.ts",
+            "scripts/cron-portfolio-digest.ts"
+          ]
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/lib/digest-stats.test.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/scripts/cron-portfolio-digest.test.ts"
+        }
+      ]
+    },
+    {
+      "id": "PEER-REVIEW",
+      "label": "Peer review send + magic-link respond loop wired end-to-end (habit-loop PR 4)",
+      "checks": [
+        {
+          "type": "grep_matches",
+          "pattern": "CREATE TABLE.*peer_reviews",
+          "paths": [
+            "supabase/migrations/"
+          ]
+        },
+        {
+          "type": "file_exists",
+          "path": "lib/peer-review/types.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "api/peer-review.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "api/peer-review-respond.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/components/PeerReviewModal.jsx"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/components/PeerReviewLanding.jsx"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "peer_review\\.request",
+          "paths": [
+            "lib/email-sequences.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "peer_review\\.completed",
+          "paths": [
+            "lib/email-sequences.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "peer_review_requested",
+          "paths": [
+            "lib/events/types.ts",
+            "src/components/MobileApp.jsx"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "peer_review_completed",
+          "paths": [
+            "lib/events/types.ts",
+            "api/peer-review-respond.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "PeerReviewLanding",
+          "paths": [
+            "src/App.jsx"
+          ]
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/api/peer-review.test.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/api/peer-review-respond.test.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/components/PeerReviewLanding.test.tsx"
+        }
+      ]
+    },
+    {
+      "id": "SAMPLING-RESULTS-REMINDER",
+      "label": "Sampling-results-outstanding reminder loop wired end-to-end (habit-loop PR 5)",
+      "checks": [
+        {
+          "type": "grep_matches",
+          "pattern": "enqueueSamplingResultsReminder",
+          "paths": [
+            "lib/email-triggers.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "cancelSamplingResultsReminder",
+          "paths": [
+            "lib/email-triggers.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "sampling_results\\.reminder",
+          "paths": [
+            "lib/email-sequences.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "lab_results_attached",
+          "paths": [
+            "lib/events/types.ts",
+            "api/events.ts",
+            "src/components/LabResultsImport.jsx"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "sampling_plan_size",
+          "paths": [
+            "api/events.ts",
+            "src/components/MobileApp.jsx"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "sampling_results_outstanding",
+          "paths": [
+            "src/components/ProfileScreen.jsx"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "IEMR-LOGGER-REPORT",
+      "label": "Indoor Environmental Monitoring Report generates from Logger Studio end-to-end",
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": "src/utils/monitoringStats.js"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/utils/monitoringInsights.js"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/utils/referenceProfiles.js"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/utils/monitoringSession.js"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/utils/monitoringReportModel.js"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/utils/monitoringChart.js"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/utils/datasetHash.js"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/components/docx/sections-monitoring.js"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/components/docx/monitoring-report.js"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/components/sensor/MonitoringReportSheet.jsx"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "MonitoringReportSheet",
+          "paths": [
+            "src/components/sensor/SensorDataPage.jsx"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "generateMonitoringReport",
+          "paths": [
+            "src/components/sensor/MonitoringReportSheet.jsx"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "occupiedWindows",
+          "paths": [
+            "src/components/sensor/MonitoringReportSheet.jsx"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "hashDataset",
+          "paths": [
+            "src/components/sensor/MonitoringReportSheet.jsx"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "Above Reference",
+          "paths": [
+            "src/utils/monitoringReportModel.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "ventilation adequacy",
+          "paths": [
+            "src/utils/monitoringReportModel.js"
+          ]
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/lib/monitoringReportModel.test.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/lib/datasetHash.test.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/components/monitoring-report-docx.test.js"
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/components/MonitoringReportSheet.test.tsx"
+        }
+      ]
+    }
   ]
 }

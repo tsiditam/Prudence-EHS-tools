@@ -187,6 +187,26 @@ export function normalizeMonitoringSession(raw) {
   return session
 }
 
+/**
+ * The MARKED OCCUPIED windows out of a mixed occupied/unoccupied list.
+ *
+ * `occupancySchedule` means "when the space was occupied", and every
+ * occupied-vs-unoccupied statistic in the report is computed against it.
+ * Logger Studio's editor, however, lets an assessor tag periods either way —
+ * so handing its list over unfiltered would enter an UNOCCUPIED window as
+ * occupied and invert the meaning of the occupied mean, the difference
+ * bullet, and the shaded columns on every figure.
+ *
+ * A window with no `kind` is treated as occupied: windows saved before the
+ * editor grew the occupied/unoccupied distinction only ever meant occupied,
+ * and silently dropping them would quietly delete an assessor's markup.
+ */
+export function occupiedWindows(windows) {
+  return arr(windows).filter(
+    (w) => w && isNum(w.start) && isNum(w.end) && w.end > w.start && (w.kind == null || w.kind === 'occupied'),
+  )
+}
+
 /** Add an event, keeping the list in chronological order. */
 export function addEvent(session, event) {
   const e = normalizeEvent(event)
