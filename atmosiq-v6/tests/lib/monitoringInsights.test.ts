@@ -373,3 +373,40 @@ describe('cover date formatting', () => {
     expect(formatGeneratedAt(null as never)).toBeNull()
   })
 })
+
+describe('sub-unit magnitudes', () => {
+  it('never rounds a real reading away to zero', () => {
+    // DECIMALS is set for the unit each parameter is USUALLY logged in, and
+    // for that unit it is right. But the same parameter arrives two or three
+    // orders of magnitude smaller from other instruments — TVOC in ppm from
+    // a PID, formaldehyde in mg/m³ from a Q-Trak — and the declared precision
+    // then prints a real measurement as "0". A report stating the mean was
+    // "0 mg/m³" when it was 0.020 is not imprecise, it is false.
+    expect(formatValue(0.194, 'tvoc')).toBe('0.19') // ppm from a PID
+    expect(formatValue(0.0201, 'hcho')).toBe('0.020') // mg/m³
+    expect(formatValue(0.0163, 'hcho')).toBe('0.016') // ppm
+    expect(formatValue(0.00042, 'co2')).toBe('0.00042')
+  })
+
+  it('leaves every reading that already prints as a number exactly alone', () => {
+    // Over-claiming precision on a measurement is its own kind of defect, so
+    // the widening applies ONLY where the declared precision would destroy
+    // the value.
+    expect(formatValue(194, 'tvoc')).toBe('194')
+    expect(formatValue(443, 'tvoc')).toBe('443')
+    expect(formatValue(16.3, 'hcho')).toBe('16')
+    expect(formatValue(0.42, 'co')).toBe('0.4') // 1 dp is this sensor's resolution
+    expect(formatValue(0.62, 'pm25')).toBe('0.6')
+    expect(formatValue(512.4, 'co2')).toBe('512')
+    expect(formatValue(1789.4, 'co2')).toBe('1,789')
+    expect(formatValue(69.94, 'temp')).toBe('69.9')
+    expect(formatValue(42.3, 'rh')).toBe('42')
+  })
+
+  it('handles zero and negatives without inventing precision', () => {
+    expect(formatValue(0, 'tvoc')).toBe('0')
+    expect(formatValue(0, 'temp')).toBe('0.0')
+    expect(formatValue(-0.0201, 'hcho')).toBe('-0.020')
+    expect(formatValue(null as never, 'co2')).toBeNull()
+  })
+})
