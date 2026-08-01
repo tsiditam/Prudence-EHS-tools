@@ -416,3 +416,64 @@ describe('degraded inputs', () => {
     expect(model.parameters.map((x: any) => x.param)).toEqual(['co2'])
   })
 })
+
+describe('PM10 as a reported parameter', () => {
+  const pm10Dataset = () => {
+    const points: any[] = []
+    for (let i = 0; i < 3 * 24 * 6; i++) {
+      const hour = (i / 6) % 24
+      points.push({ t: T0 + i * 10 * MIN, pm10: hour >= 8 && hour < 18 ? 180 : 22 })
+    }
+    return {
+      fileName: 'dusttrak.csv',
+      params: ['pm10'],
+      units: { pm10: 'µg/m³' },
+      points,
+      summary: { count: points.length, start: points[0].t, end: points[points.length - 1].t },
+      quality: { flags: [] },
+    }
+  }
+
+  const model = () =>
+    buildMonitoringReportModel(
+      createMonitoringSession({ datasets: [{ ...pm10Dataset(), role: 'indoor' }] }),
+      { generatedAt: '2026-08-01T00:00:00.000Z' },
+    )
+
+  it('becomes a full parameter section, named as a client would read it', () => {
+    const pm = model().parameters.find((x: any) => x.param === 'pm10')!
+    expect(pm.titleLabel).toBe('Particulate matter (PM10)')
+    expect(pm.shortLabel).toBe('PM10')
+    expect(pm.unit).toBe('µg/m³')
+    // The acronym survives the mid-sentence form.
+    expect(pm.midLabel).toBe('PM10')
+    expect(pm.strip.length).toBe(5)
+    expect(pm.statement).toBeTruthy()
+    expect(pm.insights.length).toBeGreaterThan(0)
+  })
+
+  it('resolves a reference by default, and reports against it', () => {
+    const pm = model().parameters.find((x: any) => x.param === 'pm10')!
+    expect(pm.reference.limit).toBe(150)
+    // Occupied hours sit at 180 µg/m³ — above the EPA screening value.
+    expect(pm.status.label).toBe('Review Suggested')
+    expect(pm.stats.pctAbove).toBeGreaterThan(0)
+  })
+
+  it('carries the NAAQS form caveat into the report’s reference table', () => {
+    const row = model().referenceRows.find((r: any) => r.param === 'pm10')!
+    expect(row.label).toBe('PM10')
+    expect(row.value).toBe('150 µg/m³')
+    expect(row.note).toMatch(/screening reference only/i)
+  })
+
+  it('says nothing a measurement cannot support', () => {
+    const m = model()
+    const strings = [
+      ...m.highlights.map((h: any) => h.text),
+      ...m.parameters.flatMap((x: any) => [x.statement, ...x.insights.map((i: any) => i.text)]),
+    ].filter(Boolean)
+    expect(strings.length).toBeGreaterThan(3)
+    strings.forEach((t: string) => expect(scan(t), `banned language in: "${t}"`).toEqual([]))
+  })
+})

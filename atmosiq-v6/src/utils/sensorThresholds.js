@@ -99,6 +99,11 @@ export function paramReference(param, opts = {}) {
       out.limitLabel = 'EPA 24-h'
       out.refs = [`EPA 24-h: ${STD.c.pm25.epa} µg/m³`, `WHO 24-h: ${STD.c.pm25.who} µg/m³`]
       break
+    case 'pm10':
+      out.limit = STD.c.pm10.epa
+      out.limitLabel = 'EPA 24-h'
+      out.refs = [`EPA 24-h: ${STD.c.pm10.epa} µg/m³`, `WHO 24-h: ${STD.c.pm10.who} µg/m³`]
+      break
     case 'co':
       out.limit = STD.c.co.epa
       out.limitLabel = 'EPA NAAQS 8-h'
