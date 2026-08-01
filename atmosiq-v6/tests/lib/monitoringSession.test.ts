@@ -21,6 +21,7 @@ import {
   recordGeneratedReport,
   defaultReferenceProfiles,
   eventTypeLabel,
+  occupiedWindows,
 } from '../../src/utils/monitoringSession.js'
 import { parametersWithProfiles } from '../../src/utils/referenceProfiles.js'
 
@@ -229,5 +230,42 @@ describe('recordGeneratedReport', () => {
     let s = recordGeneratedReport(createMonitoringSession(), { id: 'a' })
     s = recordGeneratedReport(s, { id: 'b' })
     expect(s.reports.map((r: any) => r.id)).toEqual(['a', 'b'])
+  })
+})
+
+describe('occupiedWindows', () => {
+  const W = (over: any = {}) => ({ start: 1_000, end: 2_000, ...over })
+
+  it('keeps only the windows marked occupied', () => {
+    // Logger Studio's editor tags periods either way. `occupancySchedule`
+    // means "when the space was occupied", so an unoccupied window entered
+    // there would invert the occupied mean, the difference bullet, and the
+    // shaded columns on every figure.
+    const mixed = [
+      W({ kind: 'occupied', label: 'Business hours' }),
+      W({ start: 3_000, end: 4_000, kind: 'unoccupied', label: 'Overnight' }),
+      W({ start: 5_000, end: 6_000, kind: 'occupied' }),
+    ]
+    expect(occupiedWindows(mixed).map((w: any) => w.start)).toEqual([1_000, 5_000])
+  })
+
+  it('treats an unlabelled window as occupied', () => {
+    // Windows saved before the editor grew the distinction only ever meant
+    // occupied; dropping them would quietly delete an assessor's markup.
+    expect(occupiedWindows([W()])).toHaveLength(1)
+    expect(occupiedWindows([W({ kind: null })])).toHaveLength(1)
+  })
+
+  it('drops windows that cannot describe a period', () => {
+    expect(occupiedWindows([W({ end: 500 })])).toEqual([]) // ends before it starts
+    expect(occupiedWindows([W({ end: 1_000 })])).toEqual([]) // zero length
+    expect(occupiedWindows([W({ start: null })])).toEqual([])
+    expect(occupiedWindows([W({ start: NaN })])).toEqual([])
+  })
+
+  it('returns an empty list rather than throwing on junk', () => {
+    expect(occupiedWindows(null as never)).toEqual([])
+    expect(occupiedWindows('nope' as never)).toEqual([])
+    expect(occupiedWindows([null, 3, undefined] as never)).toEqual([])
   })
 })

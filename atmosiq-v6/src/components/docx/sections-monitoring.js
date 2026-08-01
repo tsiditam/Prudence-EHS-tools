@@ -10,8 +10,10 @@
  * Carried over from the reviewed design, and deliberately restrained: this
  * should read like an engineering or forensic report, not marketing collateral.
  *
- *   • A MASTHEAD carrying the mark, the product and the firm above a heavy
- *     rule, with an optional badge (SAMPLE, DRAFT) at the right.
+ *   • NO MASTHEAD. The report opens on its own title. Firm identity is
+ *     carried by the running header, where it repeats on every page without
+ *     competing with the title for the top of page one. An optional badge
+ *     (SAMPLE, DRAFT) sits above the eyebrow.
  *   • NUMBERED SECTIONS (01, 02, 03 …). The numerals are not decoration —
  *     they tell a reader the document follows a methodology, and they let a
  *     figure caption or a cover letter cite "§05" unambiguously. The numeral
@@ -58,7 +60,6 @@ import {
 import { FONTS, COLORS } from './styles'
 import { CONTENT_WIDTH_DXA } from './page-setup'
 import { base64ToUint8Array, inferImageType, isImageDataUrl } from './images'
-import { BRAND_MARK_PNG } from './brand-mark'
 import { CHART_SIZE } from '../../utils/monitoringChart'
 
 /**
@@ -91,7 +92,6 @@ const TYPE = {
   fine: 17, //  8.5 pt — captions, disclaimer
   label: 15, //  7.5 pt — uppercase keys
   eyebrow: 16, //  8 pt
-  brand: 22, //  11 pt — the wordmark
   figure: 32, //  16 pt — summary strip values
   paramName: 24, //  12 pt — parameter card header
 }
@@ -610,11 +610,36 @@ const IMG_H = Math.round((IMG_W * CHART_SIZE.height) / CHART_SIZE.width)
 const CARD_PAD = { left: 200, right: 200 }
 
 /**
- * Cover: masthead, accent eyebrow, title, subtitle, site line, meta grid.
+ * Cover: accent eyebrow, title, subtitle, site line, meta grid.
+ *
+ * The report opens on its own title rather than on a brand block. Firm
+ * identity is carried by the running header, where it repeats on every page
+ * without competing with the title for the top of page one.
  */
 export function buildCoverSection(model) {
   const c = (model && model.cover) || {}
-  const out = [buildMasthead(model)]
+  const out = []
+
+  // A badge (SAMPLE, DRAFT) marks a copy ON the document rather than only in
+  // its file name, so one that escapes its context still says what it is.
+  if (model && model.badge) {
+    out.push(
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: ` ${String(model.badge).toUpperCase()} `,
+            bold: true,
+            size: TYPE.label,
+            color: TONES.warn.text,
+            font: FONTS.body,
+            shading: { type: ShadingType.CLEAR, fill: TONES.warn.fill },
+          }),
+        ],
+        alignment: AlignmentType.RIGHT,
+        spacing: { after: 160 },
+      }),
+    )
+  }
 
   out.push(
     new Paragraph({
@@ -627,7 +652,7 @@ export function buildCoverSection(model) {
           font: FONTS.body,
         }),
       ],
-      spacing: { before: 340, after: 110 },
+      spacing: { before: 0, after: 110 },
     }),
     // Built from explicit runs rather than HeadingLevel.TITLE: Word's built-in
     // Title style overrides the document theme with its own face and colour
@@ -674,90 +699,6 @@ export function buildCoverSection(model) {
     out.push(metaGrid(facts, 3))
   }
   return { title: model.title, children: out }
-}
-
-/**
- * The masthead: mark, product and firm above a heavy rule, with an optional
- * badge at the right.
- */
-export function buildMasthead(model) {
-  const c = (model && model.cover) || {}
-  const firm = c.company || 'Prudence Safety & Environmental Consulting, LLC'
-  const badge = model && model.badge
-
-  const brand = []
-  const nameRuns = []
-  // The mark rides inline with the wordmark; if the raster is ever
-  // unreadable the masthead still sets, without the logo.
-  if (isImageDataUrl(BRAND_MARK_PNG)) {
-    try {
-      nameRuns.push(
-        new ImageRun({
-          data: base64ToUint8Array(BRAND_MARK_PNG),
-          transformation: { width: 20, height: 20 },
-          type: inferImageType(BRAND_MARK_PNG),
-        }),
-        new TextRun({ text: '  ', size: TYPE.brand, font: FONTS.body }),
-      )
-    } catch {
-      /* the masthead must never be the reason a report fails to build */
-    }
-  }
-  nameRuns.push(new TextRun({ text: 'AtmosFlow', bold: true, size: TYPE.brand, color: INK, font: FONTS.body }))
-  brand.push(new Paragraph({ children: nameRuns, spacing: { after: 20 } }))
-  brand.push(
-    new Paragraph({
-      children: [new TextRun({ text: firm, size: TYPE.label, color: MUTED, font: FONTS.body })],
-      indent: { left: 380 },
-      spacing: { after: 0 },
-    }),
-  )
-
-  const right = badge
-    ? [
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: ` ${String(badge).toUpperCase()} `,
-              bold: true,
-              size: TYPE.label,
-              color: TONES.warn.text,
-              font: FONTS.body,
-              shading: { type: ShadingType.CLEAR, fill: TONES.warn.fill },
-            }),
-          ],
-          alignment: AlignmentType.RIGHT,
-          spacing: { after: 0 },
-        }),
-      ]
-    : [p('', { after: 0 })]
-
-  const widths = [Math.round(CONTENT_WIDTH_DXA * 0.66), Math.round(CONTENT_WIDTH_DXA * 0.34)]
-  const heavyRule = { style: 'single', size: 12, color: INK }
-  return new Table({
-    width: { size: CONTENT_WIDTH_DXA, type: WidthType.DXA },
-    columnWidths: widths,
-    rows: [
-      new TableRow({
-        children: [
-          new TableCell({
-            children: brand,
-            width: { size: widths[0], type: WidthType.DXA },
-            borders: { ...noBorders, bottom: heavyRule },
-            margins: { top: 0, bottom: 140, left: 0, right: 100 },
-            verticalAlign: 'center',
-          }),
-          new TableCell({
-            children: right,
-            width: { size: widths[1], type: WidthType.DXA },
-            borders: { ...noBorders, bottom: heavyRule },
-            margins: { top: 0, bottom: 140, left: 100, right: 0 },
-            verticalAlign: 'center',
-          }),
-        ],
-      }),
-    ],
-  })
 }
 
 /** §01 Monitoring objective — why monitoring was performed. */
@@ -1007,30 +948,23 @@ export function buildRawStatisticsAppendix(model) {
 }
 
 /**
- * The report footer — the traceability block and the standing notice.
+ * The report footer — the traceability block.
  *
  * Rendered unnumbered, below the appendices: it is the colophon of the
  * document, not a section of its argument.
+ *
+ * It carries no standing notice of its own. The screening-only language is
+ * stated once, in §Limitations, where it is itemized in full — repeating a
+ * condensed version here said the same thing twice in one document, which
+ * weakens rather than reinforces it.
  */
 export function buildMetadataSection(model) {
   const rows = (model && model.metadata) || []
-  const disc = (model && model.disclaimer) || null
-  if (!rows.length && !disc) return null
+  if (!rows.length) return null
 
   const children = [new Paragraph({ children: [], border: { bottom: hair(HAIR_2) }, spacing: { before: 420, after: 200 } })]
   const grid = metaGrid(rows, 2)
   if (grid) children.push(grid)
-  if (disc) {
-    children.push(
-      new Paragraph({
-        children: [
-          new TextRun({ text: disc.lead, bold: true, size: TYPE.fine, color: BODY, font: FONTS.body }),
-          new TextRun({ text: ` ${disc.text}`, size: TYPE.fine, color: MUTED, font: FONTS.body }),
-        ],
-        spacing: { before: 180, after: 0 },
-      }),
-    )
-  }
   return { title: 'Report metadata', children, footer: true }
 }
 

@@ -26,6 +26,7 @@ import RoleBadge from '../ui/RoleBadge'
 import InlineError from '../ui/InlineError'
 import { parseSensorRows, SENSOR_PARAMS, TVOC_REFERENCES, ppbToUgm3, ugm3ToPpb, HCHO_MW, normalizeSensorData, primaryDataset, alignDatasets, sensorAveragesToFields, detectDatasetRole, SENSOR_DATA_VERSION, withDisplayTempUnit } from '../../utils/sensorParser'
 import SendToReportSheet from './SendToReportSheet'
+import MonitoringReportSheet from './MonitoringReportSheet'
 import ProjectSpreadsheetPicker from './ProjectSpreadsheetPicker'
 import { splitCsvLine } from '../../utils/labResultsParser'
 import { xlsxToRows } from '../../utils/sensorXlsx'
@@ -231,6 +232,7 @@ export default function SensorDataPage({ value, onChange, onBack, reports = [], 
   const fileRef = useRef(null)
   const [busy, setBusy] = useState(false)
   const [sendOpen, setSendOpen] = useState(false)
+  const [iemrOpen, setIemrOpen] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [error, setError] = useState(null)
   const [sourceRows, setSourceRows] = useState(null) // kept for re-mapping this session
@@ -723,6 +725,24 @@ export default function SensorDataPage({ value, onChange, onBack, reports = [], 
 
           {mode === 'report' && (
             <>
+              {/* The standalone deliverable. Offered above the graph list
+                  because it is a different product from flagging graphs for
+                  an assessment report: this one needs no assessment at all. */}
+              {data.hasTimestamps && data.params.length > 0 && (
+                <GlassCard style={{ marginTop: 14 }}>
+                  <div style={V3.T.micro}>Standalone deliverable</div>
+                  <div style={{ ...V3.T.bodyStrong, marginTop: 6 }}>Indoor Environmental Monitoring Report</div>
+                  <div style={{ ...V3.T.captionDim, marginTop: 4, lineHeight: 1.5 }}>
+                    A report from this logger data alone — summary statistics, figures, the event log and your
+                    selected screening references. No assessment or score required.
+                  </div>
+                  <TactileButton variant="primary" fullWidth size="md" onClick={() => setIemrOpen(true)}
+                    icon={<I n="report" s={16} c="#FFFFFF" />} style={{ marginTop: 12 }}>
+                    Generate report
+                  </TactileButton>
+                </GlassCard>
+              )}
+
               {chartTabs.length === 0 ? emptyCharts : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 14 }}>
                   {chartTabs.map((t) => <div key={t.key}>{renderChartBlock(t, 'report')}</div>)}
@@ -741,6 +761,15 @@ export default function SensorDataPage({ value, onChange, onBack, reports = [], 
           currentZones={currentZones}
           onApply={onApplyAverages}
           onClose={() => setSendOpen(false)}
+        />
+      )}
+
+      {iemrOpen && (
+        <MonitoringReportSheet
+          data={data}
+          occupancyWindows={occWindows}
+          events={(env && env.events) || []}
+          onClose={() => setIemrOpen(false)}
         />
       )}
 
