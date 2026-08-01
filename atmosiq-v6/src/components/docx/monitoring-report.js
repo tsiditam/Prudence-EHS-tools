@@ -17,7 +17,7 @@ import { BODY_SECTION_PROPERTIES, LETTER_BODY_PAGE } from './page-setup'
 import { reportSectionAttachments } from './report-chrome'
 import { monitoringReportChildren } from './sections-monitoring'
 import { buildMonitoringReportModel, MONITORING_REPORT_VERSION } from '../../utils/monitoringReportModel'
-import { renderMonitoringCharts } from '../../utils/monitoringChart'
+import { renderMonitoringCharts, renderSparklines } from '../../utils/monitoringChart'
 import { primaryDataset } from '../../utils/monitoringSession'
 
 /** File name for a generated report — safe for every OS. */
@@ -43,6 +43,13 @@ export function buildMonitoringReportDocument(model, opts = {}) {
   const chrome = reportSectionAttachments({
     firm: opts.firm || 'Prudence EHS',
     clientName: opts.clientName || (model && model.cover && model.cover.preparedFor) || '',
+    title: (model && model.title) || 'Indoor Environmental Monitoring Report',
+    // The facts that repeat on every page, so a sheet on its own still says
+    // what it belongs to.
+    ribbon: (model && model.ribbon) || [],
+    // This document is ONE section, so the page total is NUMPAGES. Asking for
+    // SECTIONPAGES here is what left "Page 6 of " with the total missing.
+    sectionRelativeTotal: false,
   })
 
   return new Document({
@@ -84,18 +91,26 @@ export function attachMonitoringCharts(model, session, opts = {}) {
   if (!params.length) return model
 
   const dataset = primaryDataset(session)
-  const charts = renderMonitoringCharts(params, (dataset && dataset.points) || [], {
+  const points = (dataset && dataset.points) || []
+  const charts = renderMonitoringCharts(params, points, {
     occupancy: (session && session.occupancySchedule) || [],
     events: ((session && session.events) || []).map((e) => ({ t: e.t, label: e.label })),
     utcOffsetMin: model.utcOffsetMin,
     width: opts.chartWidth,
     height: opts.chartHeight,
   })
-  if (!Object.keys(charts).length) return model
+  // The strip's sparklines come from the same pass, so a report can never end
+  // up with figures but no shape marks (or the reverse).
+  const sparks = renderSparklines(params, points)
+  if (!Object.keys(charts).length && !Object.keys(sparks).length) return model
 
   return {
     ...model,
-    parameters: model.parameters.map((p) => (charts[p.param] ? { ...p, chart: charts[p.param] } : p)),
+    parameters: model.parameters.map((p) => ({
+      ...p,
+      chart: charts[p.param] || p.chart || null,
+      spark: sparks[p.param] || p.spark || null,
+    })),
   }
 }
 

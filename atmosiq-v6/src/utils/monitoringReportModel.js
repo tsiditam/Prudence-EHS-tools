@@ -71,14 +71,21 @@ const obj = (v) => (v && typeof v === 'object' ? v : {})
 export function statusFor(stats, reference) {
   if (!stats || !reference) return null
 
+  // TONE is a four-step visual scale; the LABEL stays the locked three-term
+  // vocabulary. A reader takes the colour in before the words, so the extra
+  // gradation is worth having — but the words are what the report is held to,
+  // and "Elevated" or "Investigation Recommended" would be an interpretation
+  // of what a measurement means rather than a statement of where it sat.
   if (isNum(reference.limit) && isNum(stats.pctAbove)) {
     if (stats.pctAbove === 0) return { id: 'within', label: 'Within Reference', tone: 'ok' }
+    if (stats.pctAbove <= 5) return { id: 'above', label: 'Above Reference', tone: 'notice' }
     if (stats.pctAbove <= 15) return { id: 'above', label: 'Above Reference', tone: 'warn' }
     return { id: 'review', label: 'Review Suggested', tone: 'review' }
   }
 
   if (reference.band && isNum(stats.pctInBand)) {
     if (stats.pctInBand >= 97) return { id: 'within', label: 'Within Reference', tone: 'ok' }
+    if (stats.pctInBand >= 93) return { id: 'outside', label: 'Outside Reference', tone: 'notice' }
     if (stats.pctInBand >= 90) return { id: 'outside', label: 'Outside Reference', tone: 'warn' }
     return { id: 'review', label: 'Review Suggested', tone: 'review' }
   }
@@ -107,7 +114,10 @@ export function summaryStrip(param, stats, reference, units) {
       { key: 'max', label: 'Maximum', ...val(stats.max) },
       { key: 'min', label: 'Minimum', ...val(stats.min) },
       { key: 'pctInBand', label: '% In Band', ...pctOf(stats.pctInBand) },
-      { key: 'timeOutside', label: 'Time Outside', value: formatDuration(stats.timeOutsideSec) || '—', unit: '', emphasis: stats.timeOutsideSec > 0 },
+      // A duration is a compound value ("19 h 30 m"), not a number, so it is
+      // flagged for the renderer to set a step smaller — at the figure size a
+      // measurement uses, it wraps out of its tile.
+      { key: 'timeOutside', label: 'Time Outside', value: formatDuration(stats.timeOutsideSec) || '—', unit: '', compact: true, emphasis: stats.timeOutsideSec > 0 },
     ]
   }
 
@@ -116,7 +126,7 @@ export function summaryStrip(param, stats, reference, units) {
     { key: 'max', label: 'Maximum', ...val(stats.max) },
     { key: 'p95', label: '95th pct', ...val(stats.p95) },
     { key: 'pctAbove', label: '% Above', ...pctOf(stats.pctAbove), emphasis: stats.pctAbove > 0 },
-    { key: 'timeAbove', label: 'Time Above', value: formatDuration(stats.timeAboveSec) || '—', unit: '', emphasis: stats.timeAboveSec > 0 },
+    { key: 'timeAbove', label: 'Time Above', value: formatDuration(stats.timeAboveSec) || '—', unit: '', compact: true, emphasis: stats.timeAboveSec > 0 },
   ]
 }
 
@@ -275,6 +285,7 @@ export function buildMonitoringReportModel(session, opts = {}) {
 
   const events = arr(s.events)
   const charts = obj(opts.charts)
+  const sparklines = obj(opts.sparklines)
 
   const occupancy = arr(s.occupancySchedule)
   const covProbe = params.length ? statsByParam[params[0]] && statsByParam[params[0]].coverage : null
@@ -311,6 +322,9 @@ export function buildMonitoringReportModel(session, opts = {}) {
         statement: parameterStatement(param, stats, refShape, { units }),
         insights: monitoringInsights(param, stats, refShape, { points, events, utcOffsetMin, units }),
         chart: charts[param] || null,
+        // The series' shape, for the summary strip: a mean tells you where the
+        // readings sat, not whether they were steady or swinging around it.
+        spark: sparklines[param] || null,
         stats,
       }
       entry.caption = figureCaption(entry, {
@@ -327,6 +341,13 @@ export function buildMonitoringReportModel(session, opts = {}) {
 
   const summary = obj(dataset.summary)
   const cov = parameters.length ? parameters[0].stats.coverage : null
+
+  // The cover's at-a-glance panel: every monitored parameter and where it
+  // sat, in one column. Built from the SAME status each parameter section
+  // carries, so the cover cannot tell a different story from page six.
+  const overview = parameters
+    .filter((x) => x.status)
+    .map((x) => ({ param: x.param, label: x.label, status: x.status }))
 
   const model = {
     version: MONITORING_REPORT_VERSION,
@@ -363,6 +384,17 @@ export function buildMonitoringReportModel(session, opts = {}) {
     // marked ON the document rather than only in the file name, so a copy
     // that escapes its context still says what it is.
     badge: str(opts.badge) || null,
+
+    // Every monitored parameter and its status, for the cover panel.
+    overview,
+
+    // The short facts the running header repeats on every page, so a sheet
+    // pulled out of the binder still says what it belongs to.
+    ribbon: [
+      str(obj(s.client).preparedFor),
+      [str(obj(s.location).building), str(obj(s.location).room)].filter(Boolean).join(' · '),
+      formatDateRange(summary.start, summary.end, { utcOffsetMin }),
+    ].filter(Boolean),
 
     objective: str(s.objective),
 

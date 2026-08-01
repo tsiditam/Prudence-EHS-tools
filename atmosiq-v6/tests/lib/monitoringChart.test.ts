@@ -9,7 +9,10 @@
  * rather than a real canvas.
  */
 import { describe, it, expect } from 'vitest'
-import { niceScale, axisFormat, drawMonitoringChart, renderMonitoringCharts } from '../../src/utils/monitoringChart'
+import {
+  niceScale, axisFormat, drawMonitoringChart, renderMonitoringCharts,
+  drawSparkline, sparkSeries, renderSparklines,
+} from '../../src/utils/monitoringChart'
 
 const T0 = Date.UTC(2026, 6, 15)
 const MIN = 60_000
@@ -148,5 +151,46 @@ describe('renderMonitoringCharts', () => {
   it('skips a parameter with too few readings to plot', () => {
     const out = renderMonitoringCharts([{ param: 'co2' }], [{ t: T0, co2: 500 }])
     expect(out.co2).toBeUndefined()
+  })
+})
+
+describe('sparklines', () => {
+  it('keeps the extremes when it resamples', () => {
+    // Bucketing by mean would flatten exactly the peaks the strip is
+    // reporting, so each bucket keeps the value furthest from the average.
+    const points = Array.from({ length: 400 }, (_, i) => ({ t: T0 + i, co2: i === 200 ? 1789 : 480 }))
+    const out = sparkSeries(points, 'co2', 32)
+    expect(out.length).toBe(32)
+    expect(Math.max(...out)).toBe(1789)
+  })
+
+  it('passes a short series through untouched', () => {
+    const points = [{ t: 1, co2: 400 }, { t: 2, co2: 500 }]
+    expect(sparkSeries(points, 'co2', 64)).toEqual([400, 500])
+  })
+
+  it('ignores gaps rather than drawing them as zero', () => {
+    const points = [{ t: 1, co2: 400 }, { t: 2 }, { t: 3, co2: 500 }]
+    expect(sparkSeries(points, 'co2')).toEqual([400, 500])
+  })
+
+  it('draws a shape with no axis, no labels and no scale', () => {
+    // A 26-pixel-tall chart with a readable axis invites being read as a
+    // chart; the real figure is two inches below and is where any value
+    // should be read from.
+    const ctx = stubCtx()
+    drawSparkline(ctx, { points: [1, 5, 2, 8, 3] })
+    expect(ctx.text()).toEqual([])
+    expect(ctx.calls.some((c: any) => c.fn === 'stroke')).toBe(true)
+  })
+
+  it('draws nothing for a series too short to have a shape', () => {
+    const ctx = stubCtx()
+    drawSparkline(ctx, { points: [5] })
+    expect(ctx.calls.some((c: any) => c.fn === 'stroke')).toBe(false)
+  })
+
+  it('degrades to no marks rather than throwing where no canvas exists', () => {
+    expect(renderSparklines([{ param: 'co2' }], [{ t: 1, co2: 400 }, { t: 2, co2: 500 }])).toEqual({})
   })
 })
