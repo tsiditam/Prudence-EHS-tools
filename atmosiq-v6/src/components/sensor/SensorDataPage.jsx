@@ -32,7 +32,7 @@ import { splitCsvLine } from '../../utils/labResultsParser'
 import { xlsxToRows } from '../../utils/sensorXlsx'
 import { dataUrlToText, dataUrlToFile } from '../../utils/dataUrl'
 import { GRAPH_DEFS, REF_LINE_DEFS, MultiParameterChart, Co2DifferentialChart, MultiZoneChart, LIGHT_PALETTE, DARK_PALETTE, SERIES, currentPalette } from './SensorCharts'
-import { fmtRange } from './sensorHelpers'
+import { fmtRange, paramLabel } from './sensorHelpers'
 import { paramReference, exceedance, categoryOf, CATEGORY } from '../../utils/sensorThresholds'
 import { chartStats, chartPrimaryParam } from '../../utils/sensorAnalytics'
 import Sparkline from '../ui/Sparkline'
@@ -267,6 +267,18 @@ export default function SensorDataPage({ value, onChange, onBack, reports = [], 
     () => !!onApplyAverages && sensorAveragesToFields(value, { stat: 'mean', tvocRef: 'isobutylene' }).details.length > 0,
     [value, onApplyAverages]
   )
+  // Why nothing in this log is fillable, named parameter by parameter. Shown
+  // beside the disabled action so the user learns what the log is missing
+  // rather than wondering where the button went.
+  const unmappableSummary = useMemo(() => {
+    const { details, skipped } = sensorAveragesToFields(value, { stat: 'mean', tvocRef: 'isobutylene' })
+    const filled = new Set(details.map((d) => d.param))
+    const reasons = new Map(skipped.map((s) => [s.param, s.reason]))
+    const parts = ((primary && primary.params) || [])
+      .filter((p) => !filled.has(p))
+      .map((p) => (reasons.has(p) ? `${paramLabel(p)} was skipped (${reasons.get(p)})` : `${paramLabel(p)} has no zone field`))
+    return parts.length ? `${parts.join('; ')}.` : 'this log carries none of them.'
+  }, [value, primary])
 
   const pickFor = (target) => { setPendingTarget(target); setError(null); fileRef.current?.click() }
   const pickProjectFor = (target) => { setPendingTarget(target); setError(null); setPickerOpen(true) }
@@ -655,11 +667,25 @@ export default function SensorDataPage({ value, onChange, onBack, reports = [], 
                     </div>
                   )
                 })}
-                {canSendAverages && (
-                  <TactileButton variant="secondary" fullWidth size="md" onClick={() => setSendOpen(true)}
-                    icon={<I n="report" s={16} c={ACCENT} />} style={{ marginTop: 16 }}>
-                    Send averages to a report
-                  </TactileButton>
+                {/* Hidden only when there is nowhere to send averages at all.
+                    When a target EXISTS but nothing in this log maps to a
+                    zone reading, the action stays visible and disabled with
+                    the reason — a button that silently disappears reads as a
+                    missing feature rather than an unmet precondition. */}
+                {!!onApplyAverages && (
+                  <>
+                    <TactileButton variant="secondary" fullWidth size="md" disabled={!canSendAverages}
+                      onClick={() => setSendOpen(true)}
+                      icon={<I n="report" s={16} c={ACCENT} />} style={{ marginTop: 16 }}>
+                      Send averages to a report
+                    </TactileButton>
+                    {!canSendAverages && (
+                      <div style={{ ...V3.T.captionDim, marginTop: 8, lineHeight: 1.5 }}>
+                        Nothing in this log maps to a zone reading. Assessment zones take CO₂, PM2.5, temperature,
+                        relative humidity, CO and TVOC; {unmappableSummary}
+                      </div>
+                    )}
+                  </>
                 )}
               </>
             )
@@ -727,21 +753,41 @@ export default function SensorDataPage({ value, onChange, onBack, reports = [], 
             <>
               {/* The standalone deliverable. Offered above the graph list
                   because it is a different product from flagging graphs for
-                  an assessment report: this one needs no assessment at all. */}
-              {data.hasTimestamps && data.params.length > 0 && (
-                <GlassCard style={{ marginTop: 14 }}>
-                  <div style={V3.T.micro}>Standalone deliverable</div>
-                  <div style={{ ...V3.T.bodyStrong, marginTop: 6 }}>Indoor Environmental Monitoring Report</div>
-                  <div style={{ ...V3.T.captionDim, marginTop: 4, lineHeight: 1.5 }}>
-                    A report from this logger data alone — summary statistics, figures, the event log and your
-                    selected screening references. No assessment or score required.
+                  an assessment report: this one needs no assessment at all.
+
+                  The card is ALWAYS shown once a log is loaded. When the
+                  report can't be built the button is disabled and says why —
+                  an option that silently vanishes reads as a missing feature,
+                  and the user never learns that a one-click column mapping is
+                  all that stands between them and the report. */}
+              <GlassCard style={{ marginTop: 14 }}>
+                <div style={V3.T.micro}>Standalone deliverable</div>
+                <div style={{ ...V3.T.bodyStrong, marginTop: 6 }}>Indoor Environmental Monitoring Report</div>
+                <div style={{ ...V3.T.captionDim, marginTop: 4, lineHeight: 1.5 }}>
+                  A report from this logger data alone — summary statistics, figures, the event log and your
+                  selected screening references. No assessment or score required.
+                </div>
+                <TactileButton variant="primary" fullWidth size="md" disabled={!data.hasTimestamps}
+                  onClick={() => setIemrOpen(true)}
+                  icon={<I n="report" s={16} c="#FFFFFF" />} style={{ marginTop: 12 }}>
+                  Generate report
+                </TactileButton>
+                {!data.hasTimestamps && (
+                  <div style={{ ...V3.T.captionDim, marginTop: 8, lineHeight: 1.5 }}>
+                    This report needs real timestamps: coverage, time above a reference, the hour-of-day profile and
+                    every figure&apos;s x-axis are all measured against the clock. No timestamp column was detected in{' '}
+                    {data.fileName || 'this log'}.{' '}
+                    <button
+                      type="button"
+                      onClick={() => { setMode('overview'); setMapOpen(true) }}
+                      style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', color: 'var(--accent)', textDecoration: 'underline', cursor: 'pointer' }}
+                    >
+                      Set your date/time column
+                    </button>{' '}
+                    and it will appear.
                   </div>
-                  <TactileButton variant="primary" fullWidth size="md" onClick={() => setIemrOpen(true)}
-                    icon={<I n="report" s={16} c="#FFFFFF" />} style={{ marginTop: 12 }}>
-                    Generate report
-                  </TactileButton>
-                </GlassCard>
-              )}
+                )}
+              </GlassCard>
 
               {chartTabs.length === 0 ? emptyCharts : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 14 }}>
