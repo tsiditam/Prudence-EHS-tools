@@ -134,6 +134,16 @@ export interface AssessmentContext {
     readonly engine_version: string
     readonly generated_at: string
     readonly view: string | null
+    /**
+     * Report lifecycle — what kind of report this is and where it is in
+     * its life. Exposed here so Jasper, the DOCX path and any future
+     * consumer read the state from the one builder rather than each
+     * re-deriving it from the legacy `status` column.
+     *
+     * See src/constants/reportLifecycle.js for the state machine.
+     */
+    readonly report_profile: string
+    readonly report_status: string
   }
   readonly project: {
     readonly client: string | null

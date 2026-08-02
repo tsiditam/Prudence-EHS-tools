@@ -27,6 +27,7 @@
  */
 
 import { ENGINE_VERSION } from '../../src/version.js'
+import { resolveLifecycle } from '../../src/constants/reportLifecycle.js'
 import { buildReadinessVerdict } from '../../src/engines/readiness-verdict.js'
 import { summarizeLoggerForContext } from '../jasper/logger-context-summary'
 import type {
@@ -169,6 +170,8 @@ export function buildAssessmentContext(state: RawAssessmentState): AssessmentCon
     logger_data_summary = null
   }
 
+  const lifecycle = resolveLifecycle(s as Record<string, unknown>)
+
   return {
     meta: {
       id: firstStr((s as { id?: unknown }).id),
@@ -177,6 +180,11 @@ export function buildAssessmentContext(state: RawAssessmentState): AssessmentCon
       engine_version: ENGINE_VERSION,
       generated_at: new Date().toISOString(),
       view: firstStr(s.view),
+      // Tolerant of records predating the lifecycle: resolveLifecycle
+      // derives the state from the legacy `status` column when the
+      // explicit fields are absent.
+      report_profile: lifecycle.profile,
+      report_status: lifecycle.status,
     },
     project: {
       client:

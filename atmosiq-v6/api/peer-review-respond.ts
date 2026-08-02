@@ -12,9 +12,13 @@
  *       | 404 { error: 'invalid_token' }
  *       | 410 { error: 'expired' } | 409 { error: 'already_reviewed' }
  *
- *   POST { token, status, notes? }
+ *   POST { token, status, notes?, reviewer_credentials?,
+ *          reviewer_organization? }
  *     Records the reviewer's response. status ∈ {approved,
  *     changes_requested, commented}. Notes optional (capped 4000).
+ *     An `approved` response mints an approval id and carries the
+ *     assessment to "Professionally Reviewed" — the other outcomes are
+ *     feedback, not sign-off, and change no report state.
  *     Once accepted, sends the completion email to the assessor
  *     SYNCHRONOUSLY and emits a peer_review_completed event.
  *     → 200 { ok: true, status }
@@ -29,6 +33,7 @@
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { getTemplate, type UserContext } from '../lib/email-sequences'
+import { canTransition, resolveLifecycle } from '../src/constants/reportLifecycle.js'
 
 const APP_URL = 'atmosflow.net'
 const FROM = process.env.RESEND_FROM_ADDRESS || 'support@prudenceehs.com'
@@ -53,7 +58,28 @@ interface PostBody {
   token?: unknown
   status?: unknown
   notes?: unknown
+  reviewer_credentials?: unknown
+  reviewer_organization?: unknown
 }
+
+/** Trim, cap, and normalise an optional free-text reviewer field. */
+function trimField(v: unknown, max = 120): string | null {
+  return typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : null
+}
+
+/**
+ * A short, human-quotable approval reference.
+ *
+ * Derived from the review row's own uuid rather than a counter or a
+ * random value, so the same approval always yields the same id — an
+ * audit reference that changed on retry would be worthless. Year-prefixed
+ * because that is how these get cited in correspondence.
+ */
+function mintApprovalId(reviewId: string, at: Date = new Date()): string {
+  const suffix = String(reviewId).replace(/-/g, '').slice(0, 6).toUpperCase()
+  return `APR-${at.getUTCFullYear()}-${suffix}`
+}
+
 type Req = import('http').IncomingMessage & {
   method?: string
   url?: string
@@ -83,6 +109,7 @@ async function handler(req: Req, res: Res) {
 interface PeerReviewRow {
   id: string
   assessor_id: string
+  report_id: string | null
   facility_name: string | null
   reviewer_name: string
   reviewer_email: string
@@ -153,11 +180,16 @@ async function handlePost(req: Req, res: Res) {
     return
   }
   const notes = rawNotes.trim().slice(0, MAX_NOTES_LEN) || null
+  // Reviewer identity. A professionally reviewed report prints WHO
+  // reviewed it and under what credentials — without these the cover
+  // can only say "reviewed", which is the weaker claim.
+  const credentials = trimField(body.reviewer_credentials)
+  const organization = trimField(body.reviewer_organization)
 
   const supabase = getSupabase()
   const { data: existing, error: selErr } = await supabase
     .from('peer_reviews')
-    .select('id, assessor_id, facility_name, reviewer_name, reviewer_email, message, status, expires_at, reviewed_at, created_at')
+    .select('id, assessor_id, report_id, facility_name, reviewer_name, reviewer_email, message, status, expires_at, reviewed_at, created_at')
     .eq('token', token)
     .maybeSingle()
   if (selErr) { res.status(500).json({ error: 'query_failed' }); return }
@@ -175,11 +207,60 @@ async function handlePost(req: Req, res: Res) {
   // Update — only the columns the reviewer is allowed to set. RLS is
   // bypassed by the service role; we enforce the boundary in code.
   const now = new Date().toISOString()
+  // An APPROVED review is the event that carries a report to
+  // "Professionally Reviewed", so it mints the approval id the cover
+  // will quote. The other outcomes (changes_requested, commented) are
+  // feedback, not sign-off, and mint nothing.
+  const approvalId = status === 'approved' ? mintApprovalId(row.id) : null
   const { error: updErr } = await supabase
     .from('peer_reviews')
-    .update({ status, reviewer_notes: notes, reviewed_at: now })
+    .update({
+      status,
+      reviewer_notes: notes,
+      reviewed_at: now,
+      reviewer_credentials: credentials,
+      reviewer_organization: organization,
+      approval_id: approvalId,
+    })
     .eq('token', token)
   if (updErr) { res.status(500).json({ error: 'update_failed' }); return }
+
+  // Carry the approval onto the assessment itself. Best-effort and
+  // deliberately non-fatal: the reviewer has already responded, and
+  // failing their request because a denormalised column did not update
+  // would lose the response entirely. The peer_reviews row remains the
+  // record of truth either way.
+  if (status === 'approved' && row.report_id) {
+    try {
+      const { data: asmt } = await supabase
+        .from('assessments')
+        .select('report_profile, report_status, status')
+        .eq('id', row.report_id)
+        .maybeSingle()
+      const current = resolveLifecycle((asmt || {}) as Record<string, unknown>)
+      // Only advance a report the lifecycle actually permits to advance.
+      // A report already Final must not be dragged back to Reviewed by a
+      // late approval, and an approval arriving for a report in an
+      // unexpected state should leave that state alone rather than
+      // overwrite it.
+      if (canTransition(current.profile, current.status, 'reviewed').ok) {
+        await supabase
+          .from('assessments')
+          .update({
+            report_status: 'reviewed',
+            // Reviewers are not required to be AtmosFlow users — that is
+            // the point of the token-gated flow — so reviewer_id stays
+            // null and the identity lives on the peer_reviews row.
+            review_date: now,
+            approval_id: approvalId,
+            approval_notes: notes,
+          })
+          .eq('id', row.report_id)
+      }
+    } catch {
+      // Non-fatal — see above.
+    }
+  }
 
   // ── Notify the assessor synchronously via Resend ────────────────
   const { data: assessorProfile } = await supabase

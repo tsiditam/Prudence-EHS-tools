@@ -120,10 +120,25 @@ const EXPECTED_TOP_KEYS = [
   'readiness_verdict', 'report_draft_state',
 ].sort()
 
+/**
+ * `meta` is pinned too, not just the top level.
+ *
+ * The top-level guard alone is shallower than it looks: adding a field
+ * inside `meta` — the block every consumer reads FIRST — passed silently.
+ * That was discovered when the report-lifecycle fields were added here
+ * and the guard did not fire. A drift guard that misses the most-read
+ * sub-object is not doing the job CLAUDE.md describes.
+ */
+const EXPECTED_META_KEYS = [
+  'id', 'draft_id', 'mode', 'engine_version', 'generated_at', 'view',
+  'report_profile', 'report_status',
+].sort()
+
 describe('buildAssessmentContext', () => {
   it('produces a valid skeleton from empty state (no throws, every section present)', () => {
     const ctx = buildAssessmentContext({})
     expect(Object.keys(ctx).sort()).toEqual(EXPECTED_TOP_KEYS)
+    expect(Object.keys(ctx.meta).sort()).toEqual(EXPECTED_META_KEYS)
     expect(ctx.meta.mode).toBe('SCREENING')
     expect(ctx.meta.engine_version).toBe(ENGINE_VERSION)
     expect(ctx.meta.generated_at).toMatch(/^\d{4}-\d{2}-\d{2}T/)
@@ -241,5 +256,32 @@ describe('buildAssessmentContext', () => {
     const empty = buildAssessmentContext({})
     expect(Object.keys(full).sort()).toEqual(EXPECTED_TOP_KEYS)
     expect(Object.keys(empty).sort()).toEqual(EXPECTED_TOP_KEYS)
+  })
+})
+
+describe('report lifecycle on the context', () => {
+  it('defaults an empty record to a screening draft', () => {
+    const ctx = buildAssessmentContext({})
+    expect(ctx.meta.report_profile).toBe('screening')
+    expect(ctx.meta.report_status).toBe('draft')
+  })
+
+  it('reads the explicit lifecycle fields when present', () => {
+    const ctx = buildAssessmentContext({
+      reportProfile: 'professional', reportStatus: 'reviewed',
+    } as never)
+    expect(ctx.meta.report_profile).toBe('professional')
+    expect(ctx.meta.report_status).toBe('reviewed')
+  })
+
+  it('derives the state from the legacy status column for older records', () => {
+    // Records written before migration 027 carry only `status`.
+    expect(buildAssessmentContext({ status: 'complete' } as never).meta.report_status).toBe('final')
+    expect(buildAssessmentContext({ status: 'draft' } as never).meta.report_status).toBe('draft')
+  })
+
+  it('falls back rather than propagating an invalid stored value', () => {
+    const ctx = buildAssessmentContext({ reportStatus: 'nonsense', status: 'complete' } as never)
+    expect(ctx.meta.report_status).toBe('final')
   })
 })
