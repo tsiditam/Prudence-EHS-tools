@@ -23,6 +23,10 @@
 import { STD } from '../constants/standards'
 import { actionLine } from '../utils/recFormatting'
 import * as NL from './narrativeLibrary'
+import {
+  REPORT_PROFILES, REPORT_STATUS, DEFAULT_PROFILE, DEFAULT_STATUS,
+  reportChrome, resolveLifecycle, statusLabel, SCREENING_LIMITATION,
+} from '../constants/reportLifecycle'
 
 // Zone measurement keys (question ids) → model parameter keys.
 const PARAMS = [
@@ -185,6 +189,24 @@ export function buildReportModel(data = {}, opts = {}) {
   const now = new Date()
   const fmt = (d) => d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
   const findings = collectFindings(zoneScores)
+  // Lifecycle: explicit opts win, then whatever the stored record
+  // carries, then the legacy `status` column, then screening/draft.
+  //
+  // One backward-compatibility rule. A caller that explicitly passes the
+  // legacy `mode` ('draft' | 'final') and no profile is the CONSULTANT
+  // report path (api/report-pdf.js, src/utils/downloadReportPdf.js) —
+  // that deliverable has always carried the professional accountability
+  // statement, and quietly reclassifying it as screening would swap the
+  // signature block on a shipped document. Only genuinely new callers
+  // fall through to the screening default.
+  const legacyModeCaller = opts.mode === 'draft' || opts.mode === 'final'
+  const LIFECYCLE = resolveLifecycle({
+    report_profile:
+      opts.reportProfile || data.report_profile || data.reportProfile ||
+      (legacyModeCaller ? REPORT_PROFILES.PROFESSIONAL : undefined),
+    report_status: opts.reportStatus || data.report_status || data.reportStatus,
+    status: data.status,
+  })
 
   const graphs = (data.sensorData && data.sensorData.graphs)
     ? Object.values(data.sensorData.graphs)
@@ -208,6 +230,14 @@ export function buildReportModel(data = {}, opts = {}) {
       companyName: profile.firm || 'Prudence Safety & Environmental Consulting, LLC',
       reportId: data.id || `AIQ-${Date.now().toString(36).toUpperCase().slice(-6)}`,
       mode: opts.mode || 'draft', // 'draft' | 'final' | 'sample'
+      // Report lifecycle. `mode` above is the legacy switch and is kept
+      // because 'sample' has no lifecycle equivalent (it is a marketing
+      // artifact, not a report); profile + status drive everything else.
+      // Resolved from opts, then from the record, then defaults — so a
+      // caller that knows nothing about the lifecycle still renders.
+      reportProfile: LIFECYCLE.profile,
+      reportStatus: LIFECYCLE.status,
+      reviewer: opts.reviewer || data.reviewer || null,
       brandColor: opts.brandColor || profile.brandColor || '#0E7490',
     },
     projectSummary: {
@@ -241,10 +271,118 @@ const REF_BASIS = {
 }
 const titleCaseKey = (k) => String(k).replace(/^z\d+-/, '').replace(/[_-]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 
-function modeChrome(mode, reportId, firm, client) {
-  if (mode === 'sample') return { headerLabel: 'Sample — Evaluation Use Only', watermark: 'SAMPLE', coverStatusChip: 'Sample — Evaluation Use Only', footerNote: `${reportId}  ·  Sample — for evaluation use only`, coverDisclaimer: 'This document is a sample produced to illustrate AtmosFlow report structure and tone.' }
-  if (mode === 'final') return { headerLabel: 'Confidential — Final', watermark: null, coverStatusChip: 'Final', footerNote: `${reportId}  ·  Confidential — prepared for ${client || 'the client'}`, coverDisclaimer: null }
-  return { headerLabel: 'Draft — IH Review Required', watermark: 'DRAFT', coverStatusChip: 'Draft — IH Review Required', footerNote: `${reportId}  ·  Draft — pending professional review`, coverDisclaimer: 'This draft has not been finalized and should not be distributed as a professional opinion.' }
+/**
+ * Document chrome — header, watermark, cover chip, footer, disclaimer.
+ *
+ * A thin adapter over `reportChrome` in src/constants/reportLifecycle.js,
+ * which is the single source of truth. Two things are resolved here that
+ * the lifecycle module deliberately does not know about:
+ *
+ *   • 'sample' is NOT a lifecycle state. It is a marketing artifact that
+ *     illustrates report structure, and it has no profile, no status and
+ *     no reviewer. It stays a mode and is handled first, unchanged.
+ *
+ *   • The legacy `mode: 'final'` opt is still honoured. Callers that
+ *     predate the lifecycle pass it, and silently demoting their report
+ *     to a draft would be a visible regression in shipped code paths
+ *     (api/report-pdf.js, src/utils/downloadReportPdf.js).
+ */
+function modeChrome(mode, reportId, firm, client, profile, status, reviewer) {
+  if (mode === 'sample') {
+    return {
+      headerLabel: 'Sample — Evaluation Use Only',
+      watermark: 'SAMPLE',
+      coverStatusChip: 'Sample — Evaluation Use Only',
+      footerNote: `${reportId}  ·  Sample — for evaluation use only`,
+      coverDisclaimer: 'This document is a sample produced to illustrate AtmosFlow report structure and tone.',
+    }
+  }
+  // A caller still saying mode:'final' means Final, whatever the record's
+  // status column happens to hold.
+  const effectiveStatus = mode === 'final' ? REPORT_STATUS.FINAL : status
+  return reportChrome(profile, effectiveStatus, { reportId, client, reviewer })
+}
+
+/**
+ * The signature / review block on the closing page.
+ *
+ * This is where the old "IH Review Required" sentence lived, and it was
+ * wrong in the same way the watermark was: it told every reader that the
+ * document in their hands still needed a professional before it could be
+ * issued, including for screening work that was never going to have one.
+ *
+ * What replaces it depends on what the report actually is:
+ *
+ *   • SCREENING — the limitation statement. It states the scope honestly
+ *     (measured conditions vs the selected criteria) without implying the
+ *     document is unfinished and without claiming a compliance
+ *     determination. The screening-only positioning rests here now.
+ *   • PROFESSIONAL / COMPLIANCE, once reviewed — the reviewer's
+ *     acceptance, signed with THEIR name, credentials and organization,
+ *     plus the approval id and review date. Falls back to the assessor
+ *     only when no reviewer record exists.
+ *   • Anything still in draft or review — says so plainly, without
+ *     asserting the report is defective.
+ */
+function buildReviewBlock({ profile, status, reviewer, meta, firm, reportId, mode }) {
+  const stamp = `Report ID ${reportId}  ·  ${meta.reportDate}`
+  const r = reviewer || {}
+  const reviewed = status === REPORT_STATUS.REVIEWED || status === REPORT_STATUS.FINAL
+
+  // A sample is a marketing artifact, not a report in a lifecycle. Its
+  // signature block must agree with its cover — saying "Sample" on the
+  // header and "Draft" on the signature reads as a mistake.
+  if (mode === 'sample') {
+    return {
+      statement: SCREENING_LIMITATION,
+      signatureName: meta.assessorName,
+      signatureTitle: meta.assessorCredentials || 'Assessor of Record',
+      signatureFirm: firm,
+      signatureMeta: `${stamp}  ·  Sample`,
+    }
+  }
+
+  if (profile === REPORT_PROFILES.SCREENING) {
+    return {
+      statement: SCREENING_LIMITATION,
+      signatureName: meta.assessorName,
+      signatureTitle: meta.assessorCredentials || 'Assessor of Record',
+      signatureFirm: firm,
+      signatureMeta: reviewed ? stamp : `${stamp}  ·  ${statusLabel(profile, status)}`,
+    }
+  }
+
+  if (reviewed && r.name) {
+    const approval = r.approvalId ? `  ·  Approval ${r.approvalId}` : ''
+    const on = r.reviewDate ? `  ·  Reviewed ${r.reviewDate}` : ''
+    return {
+      statement: 'The undersigned has reviewed the measurements, findings, and recommendations and accepts responsibility for the professional interpretation presented in this report.',
+      signatureName: r.name,
+      signatureTitle: r.credentials || 'Reviewing Professional',
+      signatureFirm: r.organization || firm,
+      signatureMeta: `${stamp}${on}${approval}`,
+    }
+  }
+
+  if (reviewed) {
+    // Final without a recorded reviewer: the assessor signs their own
+    // work. Do NOT claim a professional review that has no record.
+    return {
+      statement: 'The undersigned has reviewed the measurements, findings, and recommendations and accepts responsibility for the professional interpretation presented in this report.',
+      signatureName: meta.assessorName,
+      signatureTitle: meta.assessorCredentials || 'Assessor of Record',
+      signatureFirm: firm,
+      signatureMeta: stamp,
+    }
+  }
+
+  return {
+    statement: 'This report is in preparation and has not completed professional review. It should not be distributed as a professional opinion in its current form.',
+    signatureName: meta.assessorName,
+    signatureTitle: meta.assessorCredentials || 'Preparing Assessor',
+    signatureFirm: firm,
+    signatureMeta: `${stamp}  ·  ${statusLabel(profile, status)}`,
+  }
 }
 
 /**
@@ -262,7 +400,10 @@ export function assembleRenderModel(data = {}, opts = {}) {
   const firm = meta.companyName
   const reportId = meta.reportId
   const client = (data.presurvey && (data.presurvey.ps_recipient_org || data.presurvey.ps_recipient_name)) || null
-  const chrome = modeChrome(mode, reportId, firm, client)
+  const reportProfile = meta.reportProfile || DEFAULT_PROFILE
+  const reportStatus = meta.reportStatus || DEFAULT_STATUS
+  const reviewer = meta.reviewer || null
+  const chrome = modeChrome(mode, reportId, firm, client, reportProfile, reportStatus, reviewer)
 
   // Findings at a glance (per parameter).
   const findingsAtGlance = Object.values(params).map(pp => ({
@@ -354,9 +495,15 @@ export function assembleRenderModel(data = {}, opts = {}) {
   const flagged = rd.findings.length
   const elevatedZones = [...new Set(rd.findings.filter(f => f.severity === 'critical' || f.severity === 'high').map(f => f.zone))]
 
-  const review = mode === 'final'
-    ? { statement: 'The undersigned has reviewed the measurements, findings, and recommendations and accepts responsibility for the professional interpretation presented in this report.', signatureName: meta.assessorName, signatureTitle: meta.assessorCredentials || 'Reviewing Professional', signatureFirm: firm, signatureMeta: `Report ID ${reportId}  ·  ${meta.reportDate}` }
-    : { statement: 'This report was generated by AtmosFlow from the assessment data and requires review by a qualified industrial hygienist or EHS professional before issuance. IH Review Required.', signatureName: meta.assessorName, signatureTitle: meta.assessorCredentials || 'Preparing Assessor', signatureFirm: firm, signatureMeta: `Report ID ${reportId}  ·  ${meta.reportDate}  ·  Draft` }
+  const review = buildReviewBlock({
+    profile: reportProfile,
+    status: mode === 'final' ? REPORT_STATUS.FINAL : reportStatus,
+    reviewer,
+    meta,
+    firm,
+    reportId,
+    mode,
+  })
 
   return {
     meta: {
@@ -369,6 +516,10 @@ export function assembleRenderModel(data = {}, opts = {}) {
       ],
       coverFooter: 'Screening-level evaluation — not a regulatory exposure determination, OSHA compliance certification, or medical evaluation.',
       firm, brandColor: meta.brandColor,
+      // Carried onto the assembled model so downstream consumers (the
+      // PDF renderer, the UI status badge, the client portal) read the
+      // lifecycle from the model rather than re-deriving it.
+      reportProfile, reportStatus, reviewer,
       ...chrome,
     },
     execSummary: NL.buildExecSummary({ firm, facility: meta.facilityName, date: meta.assessmentDate, numberOfZones: rd.projectSummary.numberOfZones, purpose: rd.projectSummary.assessmentPurpose, flaggedCount: flagged, topOutcome: null }),

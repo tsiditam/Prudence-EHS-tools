@@ -37,11 +37,15 @@ describe('assembleRenderModel', () => {
     expect(m.meta.coverRows.find(r => r[0] === 'Facility')[1]).toBe(DEMO_BUILDING.fn)
   })
 
-  it('applies Draft chrome (watermark + IH-review review statement)', () => {
+  it('applies Draft chrome (watermark + not-yet-reviewed statement)', () => {
     const m = assembleRenderModel(demoData(), { mode: 'draft' })
     expect(m.meta.watermark).toBe('DRAFT')
     expect(m.meta.headerLabel).toMatch(/Draft/)
-    expect(m.review.statement).toMatch(/IH Review Required/i)
+    // Reworded with the report lifecycle: a draft says it has not
+    // completed review, without the blanket "IH Review Required" stamp
+    // that made every AtmosFlow report read as unfinished.
+    expect(m.review.statement).toMatch(/has not completed professional review/i)
+    expect(m.review.statement).not.toMatch(/IH Review Required/i)
   })
 
   it('applies Final chrome (no watermark + accountable review statement)', () => {
