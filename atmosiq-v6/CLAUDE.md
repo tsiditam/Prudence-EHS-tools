@@ -143,10 +143,31 @@ Read these directories first when investigating any task:
   copy, or report content that claims compliance certification,
   professional opinion (without licensed-professional sign-off), or
   definitive causation. The MSA recital language depends on this.
-- **Preserve calibration gating.** The instrument-calibration gate that
-  blocks report generation when calibration is stale (270 days,
-  configurable by device class) is a competitive moat and a litigation
-  defense. Do not bypass or weaken it.
+- **Preserve calibration gating.** The instrument-calibration gate is a
+  competitive moat and a litigation defense. Do not bypass or weaken it.
+  Described precisely, because the report appendix asserts this to
+  clients and previously overstated it:
+  - **Validity is 365 days** (`CAL_VALIDITY_DAYS`, defined in BOTH
+    `src/utils/instrumentRegistry.js` and `lib/calibration/banner-state.ts`
+    — keep them in step). Earlier revisions of this file said 270; 365 is
+    the correct and confirmed figure (product decision, 2026-08). It is
+    NOT configurable by device class today; per-class override is
+    roadmap only.
+  - **Where it bites:** `MobileApp.finishAssessment` interrupts
+    finalization when instrument make/model, serial, calibration date or
+    status is missing, or calibration is older than 365 days. It lists
+    what is missing and stops.
+  - **What it is not:** a hard block. The assessor can acknowledge and
+    proceed in one click (`finishAssessment(true)`), and **no
+    justification is captured** when they do. Report EXPORT
+    (`handleExport` / `executeExport`) is not gated at all.
+  - **Separately**, the engine's calibration data-gap trigger fires on
+    the ABSENCE of any calibration record — not on an expired one — and
+    surfaces as a cover notice plus a "Limitations on Reliance" entry
+    (engine v2.9+).
+  - Any client-facing text describing this must not promise a hard
+    block or an override path that records a justification. Neither
+    exists. See `tests/engine/calibration-qa-notes.test.ts`.
 - **The engine is sacred.** Do not modify any file under `src/engine/`
   or `src/engines/scoring.js`. Do not change scoring logic, threshold
   constants, or scoring contracts. If you think the engine needs to

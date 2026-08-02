@@ -15,10 +15,11 @@
  * helper without updating this one, the test fails.
  *
  * Defensibility note: CAL_VALIDITY_DAYS is a CIH-defensibility
- * threshold (the in-app finalization gate uses 365 days; CLAUDE.md
- * mentions 270 days as the documented value — that discrepancy is
- * tracked there). This module preserves the live 365-day behavior
- * to keep the cron's signal consistent with the dashboard banner.
+ * threshold. 365 days is the confirmed methodology figure (product
+ * decision, 2026-08); an earlier revision of CLAUDE.md said 270 and has
+ * been corrected to match. Keep this value in step with
+ * src/utils/instrumentRegistry.js — the cron's signal has to agree with
+ * the dashboard banner.
  */
 
 export const CAL_VALIDITY_DAYS = 365

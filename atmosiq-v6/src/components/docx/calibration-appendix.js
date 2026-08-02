@@ -17,14 +17,18 @@
  * src/utils/instrumentRegistry.js — the same helper the dashboard
  * exception banner uses — so the in-app warning and the rendered
  * report agree on what "expiring" means. The 365-day validity figure
- * lives in instrumentRegistry.js and is the single source of truth
- * (CLAUDE.md mentions 270-day; that figure is a methodology-spec
- * follow-up, not a code change in scope here).
+ * lives in instrumentRegistry.js and is the single source of truth;
+ * 365 is the confirmed methodology figure (product decision, 2026-08),
+ * and CLAUDE.md has been corrected to match.
  *
  * WHAT CALIBRATION STATE ACTUALLY DOES, since the QA notes below have
  * to state it accurately:
- *   • EXPIRED / EXPIRING — surfaces here and in the in-app banner.
- *     No effect on issuance. There is no block and no override path.
+ *   • EXPIRED (>CAL_VALIDITY_DAYS) or MISSING metadata — interrupts
+ *     finalization in MobileApp.finishAssessment with a warning listing
+ *     what is missing. The assessor can acknowledge and proceed
+ *     (finishAssessment(true)); it is a speed bump, not a hard block,
+ *     and NO justification is captured when they do.
+ *   • EXPIRING — surfaces here and in the in-app banner only.
  *   • NO RECORD AT ALL — additionally fires the engine's calibration
  *     data-gap trigger, which puts a warning on the cover and in the
  *     "Limitations on Reliance" section (engine v2.9+).
@@ -170,10 +174,12 @@ export function buildCalibrationAppendix(presurvey, opts = {}) {
   // not, and both were corrected in 2026-08:
   //
   //   1. "AtmosFlow blocks report finalization when any listed
-  //      instrument is past validity." It never did. Nothing gates
-  //      report generation on calibration state — expiry produces this
-  //      appendix row and an in-app banner, and that is all. (The
-  //      engine's calibration trigger fires on the ABSENCE of a record,
+  //      instrument is past validity." Overstated. Stale calibration
+  //      INTERRUPTS finalization (MobileApp.finishAssessment) with a
+  //      warning, but the assessor can acknowledge and proceed in one
+  //      click — so "blocks" promised a hard control that is really a
+  //      speed bump. Report EXPORT is not gated at all. (The engine's
+  //      calibration data-gap trigger fires on the ABSENCE of a record,
   //      not on an expired one.)
   //
   //   2. "Finalization was permitted only via the documented override
@@ -188,8 +194,9 @@ export function buildCalibrationAppendix(presurvey, opts = {}) {
   const qaNotes = []
   qaNotes.push(
     `Calibration validity: ${CAL_VALIDITY_DAYS} days from the most recent calibration date. `
-    + 'Calibration status is recorded here for the reader\'s assessment of the measurements; it does not gate report issuance. '
-    + 'The assessor of record determines whether the instrument record supports the conclusions drawn.',
+    + 'Instruments outside validity, or without a recorded calibration, interrupt assessment finalization '
+    + 'with a warning the assessor must acknowledge before proceeding; the assessor of record determines '
+    + 'whether the instrument record supports the conclusions drawn.',
   )
   const anyExpiring = calibrationRecords.some(r => r.status.startsWith('EXPIRING'))
   const anyExpired = calibrationRecords.some(r => r.status.startsWith('EXPIRED'))

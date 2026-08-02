@@ -5,9 +5,11 @@
  * Two of them were not, and shipped for some time:
  *
  *   1. "AtmosFlow blocks report finalization when any listed instrument
- *      is past validity." It never did. Nothing gates report generation
- *      on calibration state — expiry produces an appendix row and an
- *      in-app banner, and that is all.
+ *      is past validity." Overstated. Stale calibration INTERRUPTS
+ *      finalization (MobileApp.finishAssessment) with a warning listing
+ *      what is missing — but the assessor acknowledges and proceeds in
+ *      one click, and report EXPORT is not gated at all. "Blocks"
+ *      promised a hard control that is really a speed bump.
  *
  *   2. "Finalization was permitted only via the documented override
  *      path." Doubly untrue: finalization was never blocked, and the
@@ -70,7 +72,12 @@ describe('what the notes do say', () => {
   it('states the validity window and that it does not gate issuance', () => {
     const text = textFor(daysAgo(30))
     expect(text).toMatch(/Calibration validity: \d+ days/)
-    expect(text).toMatch(/does not gate report issuance/i)
+    // States the interrupt accurately: it stops you and makes you look,
+    // it does not prevent you. Understating it is as wrong as
+    // overstating it — CLAUDE.md calls this gate a litigation defense,
+    // and a note saying it does nothing would invite its removal.
+    expect(text).toMatch(/interrupt assessment finalization/i)
+    expect(text).toMatch(/acknowledge before proceeding/i)
     // The judgement is the assessor's, which is the standing product
     // position — AtmosFlow surfaces, the credentialed assessor decides.
     expect(text).toMatch(/assessor of record determines/i)
