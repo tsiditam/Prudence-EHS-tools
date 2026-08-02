@@ -83,3 +83,54 @@ describe('Phase 3 — report chrome', () => {
     expect(xml).toContain('w:start="1"')
   })
 })
+
+describe('the monitoring report opts in to different chrome', () => {
+  it('keeps the consultant footer wording untouched when no title is given', async () => {
+    // The consultant deliverable has shipped with this exact line. Restyling
+    // it is not a side effect this shared function gets to have.
+    const { footer } = await packWithChrome({ clientName: 'Acme Property Group' })
+    expect(footer).toContain('CONFIDENTIAL — Prepared for Acme Property Group')
+    expect(footer).not.toContain('Confidential   ·')
+  })
+
+  it('takes the understated three-part line only when the report names itself', async () => {
+    const { footer } = await packWithChrome({
+      title: 'Indoor Environmental Monitoring Report',
+      clientName: 'Acme Property Group',
+    })
+    expect(footer).toContain('Indoor Environmental Monitoring Report')
+    expect(footer).toContain('Confidential')
+    expect(footer).toContain('Prepared for Acme Property Group')
+    expect(footer).not.toContain('CONFIDENTIAL —')
+  })
+
+  it('asks for NUMPAGES in a single-section document, and SECTIONPAGES otherwise', async () => {
+    // SECTIONPAGES is a field many readers never resolve, and an unresolved
+    // field renders as NOTHING — which is how a single-section report ends up
+    // printing "Page 6 of " with the total simply missing.
+    const single = await packWithChrome({ sectionRelativeTotal: false })
+    expect(single.footer).toContain('NUMPAGES')
+    expect(single.footer).not.toContain('SECTIONPAGES')
+
+    const multi = await packWithChrome({})
+    expect(multi.footer).toContain('SECTIONPAGES')
+  })
+
+  it('replaces the firm/project header with the ribbon when one is supplied', async () => {
+    // A page pulled out of the binder on its own should still say what it is.
+    const { header } = await packWithChrome({
+      firm: 'Prudence EHS LLC',
+      projectNumber: 'PSEC-1',
+      ribbon: ['Meridian Property Group', 'Meridian Tower · Suite 300', 'Jul 15 – 18, 2026'],
+    })
+    expect(header).toContain('Meridian Property Group')
+    expect(header).toContain('Jul 15 – 18, 2026')
+    expect(header).toContain('AtmosFlow')
+    expect(header).not.toContain('Project No.')
+  })
+
+  it('ignores an empty ribbon rather than emitting a blank header', async () => {
+    const { header } = await packWithChrome({ firm: 'PSEC', ribbon: [] })
+    expect(header).toContain('PSEC')
+  })
+})

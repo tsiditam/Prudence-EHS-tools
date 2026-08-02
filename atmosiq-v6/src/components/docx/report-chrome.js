@@ -23,26 +23,64 @@ const CHROME_GRAY = '64748B'
 const HAIRLINE = 'E2E8F0'
 const CHROME_SIZE = 16 // 8pt
 
-export function buildReportHeader({ firm, projectNumber } = {}) {
-  const right = projectNumber ? `Project No. ${projectNumber}` : ''
+/**
+ * The running header.
+ *
+ * `ribbon` replaces the firm/project line with a set of short facts — the
+ * project, the building, the dates. A page pulled out of the binder on its
+ * own should still say what it is; without that, page 6 of a monitoring
+ * report is a chart of numbers belonging to nobody.
+ */
+export function buildReportHeader({ firm, projectNumber, ribbon } = {}) {
+  const facts = (ribbon || []).filter(Boolean)
+  const children = facts.length
+    ? [
+        new TextRun({ text: facts.join('   ·   '), font: FONTS.body, size: CHROME_SIZE, color: CHROME_GRAY }),
+        new TextRun({ text: '\t', font: FONTS.body, size: CHROME_SIZE }),
+        new TextRun({ text: 'AtmosFlow', font: FONTS.body, size: CHROME_SIZE, color: CHROME_GRAY, bold: true }),
+      ]
+    : [
+        new TextRun({ text: firm || '', font: FONTS.body, size: CHROME_SIZE, color: CHROME_GRAY }),
+        new TextRun({ text: '\t', font: FONTS.body, size: CHROME_SIZE }),
+        new TextRun({
+          text: projectNumber ? `Project No. ${projectNumber}` : '',
+          font: FONTS.body, size: CHROME_SIZE, color: CHROME_GRAY,
+        }),
+      ]
   return new Header({
     children: [new Paragraph({
       tabStops: [{ type: TabStopType.RIGHT, position: CONTENT_WIDTH_DXA }],
       border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: HAIRLINE, space: 2 } },
       spacing: { after: 60 },
-      children: [
-        new TextRun({ text: firm || '', font: FONTS.body, size: CHROME_SIZE, color: CHROME_GRAY }),
-        new TextRun({ text: '\t', font: FONTS.body, size: CHROME_SIZE }),
-        new TextRun({ text: right, font: FONTS.body, size: CHROME_SIZE, color: CHROME_GRAY }),
-      ],
+      children,
     })],
   })
 }
 
-export function buildReportFooter({ clientName } = {}) {
-  const left = clientName
-    ? `CONFIDENTIAL — Prepared for ${clientName}`
-    : 'CONFIDENTIAL — For client use only'
+/**
+ * The running footer.
+ *
+ * ── Why the page total is a choice ─────────────────────────────────────
+ * `TOTAL_PAGES_IN_SECTION` emits the SECTIONPAGES field. The consultant
+ * report needs it, because its cover is a section of its own and must not be
+ * counted. But SECTIONPAGES is one of the fields many readers never resolve,
+ * and an unresolved field renders as NOTHING — which is why a single-section
+ * report shows "Page 6 of " with the total simply missing.
+ *
+ * So a single-section document asks for NUMPAGES instead, via
+ * `sectionRelativeTotal: false`. Same intent, a field every reader knows.
+ */
+export function buildReportFooter({ clientName, title, sectionRelativeTotal = true } = {}) {
+  // The understated three-part line is OPT-IN, taken only when a caller names
+  // the report. Without a title this returns the original wording verbatim:
+  // the consultant deliverable has shipped with that footer, and restyling
+  // someone else's paid report is not a side effect this function gets to
+  // have.
+  const left = title
+    ? [title, 'Confidential', clientName ? `Prepared for ${clientName}` : null].filter(Boolean).join('   ·   ')
+    : clientName
+      ? `CONFIDENTIAL — Prepared for ${clientName}`
+      : 'CONFIDENTIAL — For client use only'
   return new Footer({
     children: [new Paragraph({
       tabStops: [{ type: TabStopType.RIGHT, position: CONTENT_WIDTH_DXA }],
@@ -52,9 +90,10 @@ export function buildReportFooter({ clientName } = {}) {
         new TextRun({ text: left, font: FONTS.body, size: CHROME_SIZE, color: CHROME_GRAY }),
         new TextRun({ text: '\t', font: FONTS.body, size: CHROME_SIZE }),
         new TextRun({
-          // Section-relative total so the cover (its own section) is not
-          // counted; the body restarts at page 1 (see DocxReport.js).
-          children: ['Page ', PageNumber.CURRENT, ' of ', PageNumber.TOTAL_PAGES_IN_SECTION],
+          children: [
+            'Page ', PageNumber.CURRENT, ' of ',
+            sectionRelativeTotal ? PageNumber.TOTAL_PAGES_IN_SECTION : PageNumber.TOTAL_PAGES,
+          ],
           font: FONTS.body, size: CHROME_SIZE, color: CHROME_GRAY,
         }),
       ],
@@ -66,9 +105,11 @@ export function buildReportFooter({ clientName } = {}) {
  * Object suitable for spreading into a docx Section's options:
  *   { headers: { default: Header }, footers: { default: Footer } }
  */
-export function reportSectionAttachments({ firm, projectNumber, clientName } = {}) {
+export function reportSectionAttachments({
+  firm, projectNumber, clientName, title, ribbon, sectionRelativeTotal = true,
+} = {}) {
   return {
-    headers: { default: buildReportHeader({ firm, projectNumber }) },
-    footers: { default: buildReportFooter({ clientName }) },
+    headers: { default: buildReportHeader({ firm, projectNumber, ribbon }) },
+    footers: { default: buildReportFooter({ clientName, title, sectionRelativeTotal }) },
   }
 }
