@@ -31,6 +31,7 @@
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { getTemplate, type UserContext } from '../lib/email-sequences'
+import { canTransition, resolveLifecycle } from '../src/constants/reportLifecycle.js'
 
 const APP_URL = process.env.RESEND_FROM_ADDRESS ? 'atmosflow.net' : 'atmosflow.net'
 const FROM = process.env.RESEND_FROM_ADDRESS || 'support@prudenceehs.com'
@@ -219,6 +220,30 @@ async function handleSend(
   }
   type Inserted = { id: string; token: string; expires_at: string; status: string }
   const row = inserted as Inserted
+
+  // Sending for review IS the draft → in_review transition. Without this
+  // the report would sit at Draft while a reviewer held it, and the
+  // approval could never advance it: draft → reviewed is not a legal
+  // single step, by design (a report cannot be reviewed before it has
+  // been sent). Best-effort and non-fatal — the review request has been
+  // created and the email is about to go out; failing the send because a
+  // status column did not move would be the wrong trade.
+  try {
+    const { data: asmt } = await supabase
+      .from('assessments')
+      .select('report_profile, report_status, status')
+      .eq('id', reportId)
+      .maybeSingle()
+    const current = resolveLifecycle((asmt || {}) as Record<string, unknown>)
+    if (canTransition(current.profile, current.status, 'in_review').ok) {
+      await supabase
+        .from('assessments')
+        .update({ report_status: 'in_review' })
+        .eq('id', reportId)
+    }
+  } catch {
+    // Non-fatal — see above.
+  }
 
   // ── Build the email + send via Resend ───────────────────────────
   const respondUrl = `https://${APP_URL}/?review_token=${encodeURIComponent(row.token)}`

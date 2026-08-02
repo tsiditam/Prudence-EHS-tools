@@ -4038,7 +4038,7 @@ export default function MobileApp() {
             </GlassCard>
             <GlassCard onClick={()=>{setDocxPicker(false);handleExport('pdf','atmosflow')}} dense style={{padding:'14px 16px'}}>
               <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:3}}>AtmosFlow Report (PDF)</div>
-              <div style={{fontSize:12,color:SUB,lineHeight:1.55}}>The fixed AtmosFlow IAQ report — cover, executive summary, findings-at-a-glance, measurement results, per-parameter interpretation, logger charts, recommendations, QA/QC, limitations, and appendices. Draft watermark + "IH Review Required" until a qualified professional finalizes it.</div>
+              <div style={{fontSize:12,color:SUB,lineHeight:1.55}}>The fixed AtmosFlow IAQ report — cover, executive summary, findings-at-a-glance, measurement results, per-parameter interpretation, logger charts, recommendations, QA/QC, limitations, and appendices. Carries a draft watermark until you mark it final; a report sent for professional review is signed by the reviewer.</div>
             </GlassCard>
           </div>
           <div style={{marginTop:14}}>

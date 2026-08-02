@@ -18,6 +18,21 @@ import STO from './storage'
 import { KEYS } from './storageKeys'
 import * as Sentry from '@sentry/react'
 import { compactPhotos, expandPhotos, purgeAssessmentPhotos } from './photoCompaction'
+import { resolveLifecycle, toLegacyStatus } from '../constants/reportLifecycle'
+
+/**
+ * Lifecycle for a cloud row, tolerant of rows written before migration
+ * 027 (which carry neither lifecycle column — resolveLifecycle derives
+ * the state from the legacy `status` instead).
+ */
+function cloudLifecycle(a) {
+  const payload = (a && a.payload && typeof a.payload === 'object') ? a.payload : {}
+  return resolveLifecycle({
+    report_profile: a.report_profile ?? payload.reportProfile,
+    report_status: a.report_status ?? payload.reportStatus,
+    status: a.status ?? payload.status,
+  })
+}
 
 const SYNC_QUEUE_KEY = KEYS.syncQueue
 const SYNC_STATE_KEY = KEYS.syncState
@@ -75,6 +90,18 @@ export function fromCloudRow(a) {
       ...a.payload,
       id: a.id ?? a.payload.id,
       status: a.status ?? a.payload.status,
+      // Lifecycle from the columns, falling back to whatever the payload
+      // carried — a row written before migration 027 has neither, and
+      // resolveLifecycle derives it from the legacy status instead.
+      //
+      // Mapped onto reportProfile / reportStatus EXPLICITLY, never
+      // spread: resolveLifecycle returns { profile, status }, and
+      // `profile` is already taken on the app shape by the ASSESSOR
+      // profile (name, certs, firm). Spreading would replace the
+      // assessor with the string 'screening' and blank the signature
+      // block on every report.
+      reportProfile: cloudLifecycle(a).profile,
+      reportStatus: cloudLifecycle(a).status,
       photos: a.photos ?? a.payload.photos ?? {},
       ts: a.updated_at ?? a.payload.ts,
     }
@@ -85,6 +112,8 @@ export function fromCloudRow(a) {
   const out = {
     id: a.id,
     status: a.status,
+    reportProfile: cloudLifecycle(a).profile,
+    reportStatus: cloudLifecycle(a).status,
     presurvey: a.presurvey || {},
     building: a.building || {},
     zones: a.zones || [],
@@ -452,10 +481,19 @@ const SupaStorage = {
       try {
         const { data: { user } } = await supabase.auth.getUser()
         if (user) {
+          // Lifecycle + the legacy status column, written together. The
+          // legacy column keeps its 'draft' | 'complete' vocabulary
+          // because six read sites below (and every older client) split
+          // drafts from reports on it; report_status carries the real
+          // four-state lifecycle. toLegacyStatus is total, so the two
+          // can never disagree.
+          const lifecycle = resolveLifecycle(assessment)
           const row = {
             id: assessment.id,
             user_id: user.id,
-            status: assessment.status || 'draft',
+            status: assessment.status || toLegacyStatus(lifecycle.status),
+            report_profile: lifecycle.profile,
+            report_status: lifecycle.status,
             facility_name: assessment.building?.fn || assessment.bldg?.fn,
             facility_address: assessment.building?.fl || assessment.bldg?.fl,
             presurvey: assessment.presurvey || {},

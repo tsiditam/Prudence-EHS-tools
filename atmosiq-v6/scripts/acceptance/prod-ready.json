@@ -603,26 +603,26 @@
       ]
     },
     {
-      "id": "NARRATIVE-AI-REVIEW-BANNER",
-      "label": "Executive Summary AI narrative is wrapped in a hard 'IH Review Required' banner",
+      "id": "NARRATIVE-AI-PROVENANCE-BANNER",
+      "label": "Executive Summary AI narrative carries a hard AI-provenance banner",
       "checks": [
         {
           "type": "grep_matches",
-          "pattern": "IH REVIEW REQUIRED",
+          "pattern": "VERIFY BEFORE ISSUE",
           "paths": [
             "src/components/docx/sections-core.js"
           ]
         },
         {
           "type": "grep_matches",
-          "pattern": "aiReviewRequiredBanner",
+          "pattern": "aiProvenanceBanner",
           "paths": [
             "src/components/docx/sections-core.js"
           ]
         },
         {
           "type": "file_exists",
-          "path": "tests/engine/ai-review-required-banner.test.ts"
+          "path": "tests/engine/ai-provenance-banner.test.ts"
         }
       ]
     },

@@ -16,7 +16,12 @@ export const TERMINOLOGY = {
     samplingPlan: 'Sampling Plan',
     causalChain: 'Causal Chain Analysis',
     composite: 'Composite Score',
-    findingReview: 'IH Review Required',
+    // FINDING-level escalation: this particular finding warrants a
+    // professional look. Distinct from the report's lifecycle status
+    // (src/constants/reportLifecycle.js) and from the AI-provenance
+    // banner — reworded off "IH Review Required" so a single flagged
+    // finding no longer reads as a verdict on the whole document.
+    findingReview: 'Professional Review Recommended',
     report: 'Report',
     findings: 'Findings',
     recommendation: 'Recommendation',

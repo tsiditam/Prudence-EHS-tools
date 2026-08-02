@@ -18,6 +18,7 @@
  */
 import { useMemo } from 'react'
 import { I } from './Icons'
+import { t } from '../constants/terminology'
 import { buildGraphContext } from '../../lib/context/graphContext'
 import KnowledgeGraphView from './KnowledgeGraphView'
 
@@ -196,11 +197,15 @@ export default function EvidenceMap({ zones, zoneScores, causalChains, recs, ass
             </div>
           )}
 
-          {/* ── IH review flag ── */}
+          {/* ── Finding-level professional-review flag ──
+              The stored field keeps its name (it is a KG node contract
+              and a Jasper tool-schema field); only the label changes.
+              Sourced from the terminology dictionary so IH and FM modes
+              stay in step. */}
           {f.ih_review_required && (
             <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 7 }}>
               <I n="shield" s={12} c={WARN} w={1.8} />
-              <span style={{ fontSize: 11, color: WARN, fontWeight: 700, letterSpacing: '0.3px' }}>IH Review Required</span>
+              <span style={{ fontSize: 11, color: WARN, fontWeight: 700, letterSpacing: '0.3px' }}>{t('findingReview')}</span>
             </div>
           )}
         </div>
