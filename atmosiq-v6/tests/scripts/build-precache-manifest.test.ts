@@ -14,7 +14,33 @@
  * unit-tested here — keeps this file free of tmpdir setup.
  */
 import { describe, it, expect } from 'vitest'
-import { extractAssetUrls, buildPrecacheList, STATIC_PRECACHE } from '../../scripts/build-precache-manifest.mjs'
+import {
+  extractAssetUrls, buildPrecacheList, STATIC_PRECACHE, isPrecacheExcluded,
+} from '../../scripts/build-precache-manifest.mjs'
+
+describe('isPrecacheExcluded', () => {
+  // The asset walk precaches every emitted chunk so lazily-loaded report
+  // dependencies are ready offline. pdf.js is the exception: ~460 kB used
+  // only when someone attaches a PDF. Precaching it would make every user
+  // download it on service-worker install, undoing the dynamic import.
+  it('keeps the PDF engine out of the precache', () => {
+    expect(isPrecacheExcluded('/assets/pdf-DeWlx49F.js')).toBe(true)
+    expect(isPrecacheExcluded('/assets/pdfText-BXet6P2p.js')).toBe(true)
+    expect(isPrecacheExcluded('/assets/pdf.worker-B1D2UnXD.mjs')).toBe(true)
+  })
+
+  it('still precaches the chunks the app needs offline', () => {
+    // jsPDF / html2canvas / DOMPurify back report export — a core action.
+    expect(isPrecacheExcluded('/assets/index-C9Bbjp0Y.js')).toBe(false)
+    expect(isPrecacheExcluded('/assets/html2canvas.esm-CBrSDip1.js')).toBe(false)
+    expect(isPrecacheExcluded('/assets/purify.es-8E279hYE.js')).toBe(false)
+    expect(isPrecacheExcluded('/assets/index.es-B4r4xYJl.js')).toBe(false)
+  })
+
+  it('does not exclude an unrelated chunk that merely contains "pdf"', () => {
+    expect(isPrecacheExcluded('/assets/report-pdf-helpers-abc123.js')).toBe(false)
+  })
+})
 
 describe('extractAssetUrls', () => {
   it('returns [] for empty / non-string input', () => {

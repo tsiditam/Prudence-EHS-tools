@@ -20,12 +20,13 @@
  * re-prompt if the disclaimer text materially changes.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { I } from './Icons'
 import STO from '../utils/storage'
 import JasperBrainIcon from './JasperBrainIcon'
 import VoiceInputButton, { appendWithSpace } from './VoiceInputButton'
-import { useFieldAssistant } from '../hooks/useFieldAssistant'
+import { useFieldAssistant, MAX_PHOTOS_PER_REQUEST } from '../hooks/useFieldAssistant'
+import { ATTACHMENT_ACCEPT, MAX_ATTACHMENTS_PER_REQUEST } from '../utils/chatAttachments'
 import { mix } from '../utils/theme'
 import { STD } from '../constants/standards'
 // Phase 4 — design-system primitives + tokens extracted out of this
@@ -56,6 +57,17 @@ const TEXT = 'var(--text)'
 const SUB = 'var(--sub)'
 const DIM = 'var(--dim)'
 const DANGER = 'var(--danger)'
+
+// What each parsed attachment is called on its chip. The kind is decided
+// by the file's CONTENT, not its name, so this is what tells the user
+// whether their "results.csv" was read as logger data or as lab results.
+const ATTACHMENT_KIND_LABEL = {
+  sensor: 'Logger data',
+  lab: 'Lab results',
+  pdf: 'PDF',
+  docx: 'Word report',
+  text: 'Document',
+}
 
 // "Thinking" status treatment — the indicator shown while the agent is
 // reasoning cycles through these phrases instead of a static "Thinking".
@@ -175,7 +187,7 @@ function buildContextChips(context) {
 }
 
 function MessageBubble({
-  role, content, photos,
+  role, content, photos, files,
   // Feedback wiring — only populated for assistant turns. dbId is
   // the field_assistant_messages row id, threaded from the SSE
   // meta event's assistant_message_id. submitFeedback comes from
@@ -233,13 +245,20 @@ function MessageBubble({
         {!isUser && typeof content === 'string'
           ? <Markdown>{content}</Markdown>
           : content}
-        {isUser && Array.isArray(photos) && photos.length > 0 && (
+        {isUser && ((Array.isArray(photos) && photos.length > 0) || (Array.isArray(files) && files.length > 0)) && (
           <div style={{
             marginTop: 6, display: 'flex', alignItems: 'center', gap: 4,
             fontSize: 11, color: SUB, fontFamily: 'var(--font-mono)', opacity: 0.8,
           }}>
             <I n="paperclip" s={11} c={SUB} w={1.6} />
-            <span>{photos.length} photo{photos.length === 1 ? '' : 's'} attached</span>
+            <span>
+              {[
+                photos && photos.length ? `${photos.length} photo${photos.length === 1 ? '' : 's'}` : null,
+                // Named rather than counted: which file was asked about
+                // is the thing worth being able to see later.
+                ...(files || []).map((f) => f.name),
+              ].filter(Boolean).join(' · ')}
+            </span>
           </div>
         )}
       </div>
@@ -751,6 +770,12 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
     stop,
     attachPhoto,
     removePhoto,
+    attachments,
+    attachAny,
+    removeAttachment,
+    pendingResize,
+    confirmResize,
+    cancelResize,
     listConversations,
     loadConversation,
     deleteConversation,
@@ -823,14 +848,90 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
   }, [context, overrideAssessment])
   const contextChips = useMemo(() => buildContextChips(effectiveContext), [effectiveContext])
 
+  // Every intake route — paperclip, drop, paste — funnels through the
+  // same call, so a CSV behaves identically however it arrived.
+  const takeFiles = useCallback(
+    async (files) => {
+      for (const file of files) {
+        if (!file) continue
+        // Sequential rather than parallel: a photo may open the resize
+        // prompt, and two prompts racing each other would lose one.
+        await attachAny(file)
+      }
+    },
+    [attachAny],
+  )
+
   const onPickPhotos = async (e) => {
     const files = Array.from(e.target.files || [])
     // Reset the input so re-picking the same file fires onChange again.
     if (e.target) e.target.value = ''
-    for (const file of files) {
-      await attachPhoto(file)
-    }
+    await takeFiles(files)
   }
+
+  // ── Drag and drop ────────────────────────────────────────────────
+  // Counted rather than boolean: dragging across a child element fires
+  // dragleave on the parent, so a naive flag flickers the overlay off
+  // while the pointer is still inside the sheet.
+  const [dragDepth, setDragDepth] = useState(0)
+  const dragging = dragDepth > 0 && introAccepted && !sending
+  const attachSlotsFull =
+    attachedPhotos.length >= MAX_PHOTOS_PER_REQUEST &&
+    attachments.length >= MAX_ATTACHMENTS_PER_REQUEST
+
+  const hasFiles = (e) => {
+    const dt = e.dataTransfer
+    if (!dt) return false
+    if (dt.types && Array.from(dt.types).includes('Files')) return true
+    return !!(dt.files && dt.files.length)
+  }
+
+  const onDragEnter = useCallback((e) => {
+    if (!hasFiles(e)) return
+    e.preventDefault()
+    setDragDepth((d) => d + 1)
+  }, [])
+
+  const onDragOver = useCallback((e) => {
+    if (!hasFiles(e)) return
+    // Without preventDefault the browser navigates to the dropped file.
+    e.preventDefault()
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'
+  }, [])
+
+  const onDragLeave = useCallback((e) => {
+    if (!hasFiles(e)) return
+    e.preventDefault()
+    setDragDepth((d) => Math.max(0, d - 1))
+  }, [])
+
+  const onDrop = useCallback(
+    async (e) => {
+      if (!hasFiles(e)) return
+      e.preventDefault()
+      setDragDepth(0)
+      if (!introAccepted || sending) return
+      await takeFiles(Array.from(e.dataTransfer.files || []))
+    },
+    [introAccepted, sending, takeFiles],
+  )
+
+  // ── Clipboard paste ──────────────────────────────────────────────
+  // Screenshotting a psychrometric chart and pressing Cmd+V is the
+  // fastest path there is; it should not require finding the paperclip.
+  const onPaste = useCallback(
+    async (e) => {
+      const items = e.clipboardData && e.clipboardData.files
+      if (!items || !items.length) return
+      const files = Array.from(items)
+      if (!files.length) return
+      // Only swallow the event when we actually take something, so
+      // pasting text into the composer still works normally.
+      e.preventDefault()
+      await takeFiles(files)
+    },
+    [takeFiles],
+  )
 
   const acceptIntro = () => {
     try { window.localStorage.setItem(INTRO_FLAG_KEY, new Date().toISOString()) } catch { /* ignore quota / private-mode */ }
@@ -989,6 +1090,14 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
       />
       <div
         onClick={(e) => e.stopPropagation()}
+        // Drop and paste are bound to the whole sheet, not the composer:
+        // aiming at a 40px textarea while holding a file is fiddly, and
+        // anywhere inside the chat is an unambiguous target.
+        onDragEnter={onDragEnter}
+        onDragOver={onDragOver}
+        onDragLeave={onDragLeave}
+        onDrop={onDrop}
+        onPaste={onPaste}
         className="jasper-sheet"
         style={{
           position: 'fixed',
@@ -1021,6 +1130,34 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
           boxSizing: 'border-box',
           overflow: 'hidden',
         }}>
+        {/* Drop target overlay. Covers the sheet while a file is over
+            it so there is no question about where to let go.
+            pointerEvents:none — the overlay must not intercept the
+            drop it is advertising, or dragleave fires on the element
+            underneath and the overlay flickers. */}
+        {dragging && (
+          <div
+            data-testid="drop-overlay"
+            style={{
+              position: 'absolute', inset: 8,
+              zIndex: 12, pointerEvents: 'none',
+              borderRadius: 16,
+              border: `2px dashed ${ACCENT}`,
+              background: 'color-mix(in srgb, var(--accent) 10%, transparent)',
+              display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'center', gap: 8,
+              backdropFilter: 'blur(2px)',
+              WebkitBackdropFilter: 'blur(2px)',
+            }}
+          >
+            <I n="upload" s={26} c={ACCENT} w={1.8} />
+            <div style={{ fontSize: 14, fontWeight: 700, color: TEXT }}>Drop to attach</div>
+            <div style={{ fontSize: 11.5, color: SUB, textAlign: 'center', padding: '0 24px', lineHeight: 1.45 }}>
+              Photos, reports (DOCX/PDF), logger exports (CSV/XLSX), or lab results
+            </div>
+          </div>
+        )}
+
         {/* Drag handle — Phase-3: brightened from BORDER to SUB
             with a 5px height and a subtle drop shadow so the
             affordance reads at a glance instead of disappearing
@@ -1598,6 +1735,7 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
                 role={m.role}
                 content={m.content}
                 photos={m.photos}
+                files={m.files}
                 dbId={m.dbId}
                 feedbackRating={m.feedbackRating}
                 submitFeedback={submitFeedback}
@@ -1720,14 +1858,23 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
                     alt={p.label || 'attached photo'}
                     style={{ width: 32, height: 32, borderRadius: 4, objectFit: 'cover', display: 'block' }}
                   />
-                  <span
-                    style={{
-                      fontSize: 11, color: SUB, maxWidth: 140,
-                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                    }}
-                    title={p.label || ''}
-                  >
-                    {p.label || 'photo'}
+                  <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                    <span
+                      style={{
+                        fontSize: 11, color: SUB, maxWidth: 140,
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      }}
+                      title={p.label || ''}
+                    >
+                      {p.label || 'photo'}
+                    </span>
+                    {/* When the file was altered to fit, say so on the
+                        chip. An evidence photo that quietly changed
+                        between the camera and the report is exactly the
+                        thing this product cannot do. */}
+                    {p.note && (
+                      <span style={{ fontSize: 10, color: DIM, whiteSpace: 'nowrap' }}>{p.note}</span>
+                    )}
                   </span>
                   <button
                     type="button"
@@ -1750,14 +1897,118 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
             </div>
           )}
 
+          {/* Staged data files — logger exports, lab results, PDFs.
+              Rendered as text rows rather than thumbnails because
+              there is nothing to look at; what matters is what the
+              file turned out to CONTAIN, which is the second line. */}
+          {attachments.length > 0 && (
+            <div
+              data-testid="attached-files"
+              style={{
+                display: 'flex', flexDirection: 'column', gap: 6,
+                padding: '10px 12px 0',
+              }}
+            >
+              {attachments.map((a) => (
+                <div
+                  key={a.id}
+                  style={{
+                    position: 'relative',
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    padding: '7px 30px 7px 9px',
+                    background: CARD, border: `1px solid ${BORDER}`,
+                    borderRadius: 8, minWidth: 0,
+                  }}
+                >
+                  <I n={a.kind === 'sensor' ? 'chartLine' : a.kind === 'lab' ? 'flask' : 'notes'} s={15} c={ACCENT} w={1.8} />
+                  <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
+                    <span
+                      style={{
+                        fontSize: 12, color: TEXT,
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      }}
+                      title={a.name}
+                    >
+                      {a.name}
+                    </span>
+                    <span style={{ fontSize: 10.5, color: DIM, whiteSpace: 'nowrap' }}>
+                      {ATTACHMENT_KIND_LABEL[a.kind] || 'File'} · {a.summary}
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeAttachment(a.id)}
+                    aria-label={`Remove ${a.name}`}
+                    disabled={sending}
+                    style={{
+                      position: 'absolute', top: '50%', right: 4, transform: 'translateY(-50%)',
+                      width: 22, height: 22, borderRadius: 11,
+                      background: 'transparent', border: 'none',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      cursor: sending ? 'not-allowed' : 'pointer',
+                      color: DIM,
+                    }}
+                  >
+                    <I n="x" s={12} c={DIM} w={2} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Resize confirmation. A photo over the send limit is held
+              here rather than resized on arrival: the pixels are
+              evidence, and altering them is the assessor's call. */}
+          {pendingResize && (
+            <div
+              data-testid="resize-prompt"
+              style={{
+                margin: '10px 12px 0', padding: '10px 12px',
+                background: CARD, border: `1px solid ${BORDER}`,
+                borderRadius: 10,
+              }}
+            >
+              <div style={{ fontSize: 12, color: TEXT, lineHeight: 1.45 }}>
+                {pendingResize.reason}
+              </div>
+              <div style={{ fontSize: 11, color: DIM, marginTop: 4, lineHeight: 1.45 }}>
+                Resizing reduces the image before sending. The original file on your device is not changed.
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                <button
+                  type="button"
+                  onClick={confirmResize}
+                  style={{
+                    padding: '6px 12px', borderRadius: 8, border: 'none',
+                    background: ACCENT, color: '#fff', fontSize: 12, fontWeight: 600,
+                    fontFamily: 'inherit', cursor: 'pointer',
+                  }}
+                >
+                  Resize and attach
+                </button>
+                <button
+                  type="button"
+                  onClick={cancelResize}
+                  style={{
+                    padding: '6px 12px', borderRadius: 8,
+                    border: `1px solid ${BORDER}`, background: 'transparent',
+                    color: SUB, fontSize: 12, fontFamily: 'inherit', cursor: 'pointer',
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Hidden file input — the visible paperclip button below
-              drives it. multiple + accept restrict to the formats
-              the backend parses; the hook validates again before
-              the actual upload. */}
+              drives it. The accept list covers photos plus the data
+              files the browser parses locally (logger exports, lab
+              results, PDFs); the hook validates again before send. */}
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/jpeg,image/png,image/webp"
+            accept={ATTACHMENT_ACCEPT}
             multiple
             onChange={onPickPhotos}
             style={{ display: 'none' }}
@@ -1805,12 +2056,15 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                disabled={sending || !introAccepted || attachedPhotos.length >= 5}
-                aria-label="Attach photo"
+                // Full only when BOTH lanes are full — a user who has
+                // five photos staged can still attach a logger export.
+                disabled={sending || !introAccepted || attachSlotsFull}
+                aria-label="Attach photo or file"
+                title="Attach a photo, report (DOCX/PDF), logger export, or lab results"
                 style={{
                   width: 36, height: 36, borderRadius: 10,
                   background: 'transparent', border: 'none',
-                  cursor: sending || !introAccepted || attachedPhotos.length >= 5 ? 'not-allowed' : 'pointer',
+                  cursor: sending || !introAccepted || attachSlotsFull ? 'not-allowed' : 'pointer',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontFamily: 'inherit', flexShrink: 0,
                   opacity: sending || !introAccepted ? 0.55 : 1,

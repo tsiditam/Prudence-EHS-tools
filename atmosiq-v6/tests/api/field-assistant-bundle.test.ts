@@ -96,4 +96,20 @@ describe('Jasper hot-path bundle', () => {
     expect(bundle).not.toMatch(/buildKnowledgeGraphFromAssessment/)
     expect(bundle).not.toMatch(/knowledgeGraphBuilder/)
   })
+
+  // File attachments are parsed in the BROWSER and only a bounded digest is
+  // sent, precisely so no CSV / XLSX / PDF parser reaches this cold-start
+  // path. Server-side parsing would be the docxtemplater mistake with a
+  // different library, so the boundary is pinned here rather than trusted.
+  it('does NOT pull any attachment parser into /api/field-assistant', { timeout: 30_000 }, async () => {
+    const bundle = await bundleHandler('api/field-assistant.ts')
+    expect(bundle).not.toMatch(/pdfjs-dist/)
+    expect(bundle).not.toMatch(/\bGlobalWorkerOptions\b/)
+    expect(bundle).not.toMatch(/chatAttachments/)
+    expect(bundle).not.toMatch(/parseSensorCsv/)
+    expect(bundle).not.toMatch(/parseLabResultsCsv/)
+    expect(bundle).not.toMatch(/xlsxToRows/)
+    // jszip backs the XLSX reader; it has no business on the chat path.
+    expect(bundle).not.toMatch(/\bjszip\b/i)
+  })
 })

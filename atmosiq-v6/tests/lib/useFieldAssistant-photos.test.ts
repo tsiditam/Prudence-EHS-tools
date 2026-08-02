@@ -78,15 +78,37 @@ describe('useFieldAssistant — photo attach', () => {
     expect(result.current.error).toMatch(/JPEG|PNG|WebP/i)
   })
 
-  it('rejects files larger than MAX_PHOTO_BYTES', async () => {
+  // Behaviour change: an oversized photo used to be rejected outright
+  // with "resize and retry", which on a phone in the field is not an
+  // instruction anyone can follow. It is now HELD and the user is asked,
+  // because resizing rewrites an evidence photo and that is their call.
+  it('holds a photo larger than MAX_PHOTO_BYTES for confirmation instead of rejecting it', async () => {
     const { result } = renderHook(() => useFieldAssistant())
-    let r: { ok: boolean } | undefined
+    let r: { ok: boolean; pending?: boolean } | undefined
     await act(async () => {
       r = await result.current.attachPhoto(makeFile('big.jpg', 'image/jpeg', MAX_PHOTO_BYTES + 1))
     })
     expect(r?.ok).toBe(false)
+    expect(r?.pending).toBe(true)
+    // Nothing staged and — importantly — no error surfaced: this is a
+    // question, not a failure.
     expect(result.current.attachedPhotos).toHaveLength(0)
-    expect(result.current.error).toMatch(/MB limit/i)
+    expect(result.current.error).toBeNull()
+    expect(result.current.pendingResize).toBeTruthy()
+    expect(result.current.pendingResize.reason).toMatch(/larger than/i)
+  })
+
+  it('discards the held photo when the user declines the resize', async () => {
+    const { result } = renderHook(() => useFieldAssistant())
+    await act(async () => {
+      await result.current.attachPhoto(makeFile('big.jpg', 'image/jpeg', MAX_PHOTO_BYTES + 1))
+    })
+    expect(result.current.pendingResize).toBeTruthy()
+    act(() => {
+      result.current.cancelResize()
+    })
+    expect(result.current.pendingResize).toBeNull()
+    expect(result.current.attachedPhotos).toHaveLength(0)
   })
 
   it('rejects more than MAX_PHOTOS_PER_REQUEST staged photos', async () => {

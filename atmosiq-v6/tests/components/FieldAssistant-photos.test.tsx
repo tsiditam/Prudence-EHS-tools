@@ -42,14 +42,26 @@ function fileFromString(name: string, type: string, content = 'tiny'): File {
 describe('FieldAssistant — L4 photo attach UI', () => {
   it('renders the paperclip attach button', () => {
     render(<FieldAssistant onClose={() => {}} context={{}} />)
-    expect(screen.getByLabelText('Attach photo')).toBeTruthy()
+    // Relabelled from "Attach photo" when the control started accepting
+    // logger exports, lab results and PDFs as well — the old label named
+    // a subset of what the button now does.
+    expect(screen.getByLabelText('Attach photo or file')).toBeTruthy()
   })
 
-  it('renders the hidden file input with the expected accept types', () => {
+  it('renders the hidden file input accepting photos and data files', () => {
     const { container } = render(<FieldAssistant onClose={() => {}} context={{}} />)
     const fileInput = container.querySelector('[data-testid="photo-file-input"]') as HTMLInputElement
     expect(fileInput).toBeTruthy()
-    expect(fileInput.accept).toBe('image/jpeg,image/png,image/webp')
+    // Still every photo format the vision path can take...
+    expect(fileInput.accept).toContain('image/jpeg')
+    expect(fileInput.accept).toContain('image/png')
+    expect(fileInput.accept).toContain('image/webp')
+    // ...plus HEIC, so an iPhone pick from Files is not greyed out.
+    expect(fileInput.accept).toContain('image/heic')
+    // ...and the data files parsed in the browser.
+    expect(fileInput.accept).toContain('.csv')
+    expect(fileInput.accept).toContain('.xlsx')
+    expect(fileInput.accept).toContain('.pdf')
     expect(fileInput.multiple).toBe(true)
   })
 
