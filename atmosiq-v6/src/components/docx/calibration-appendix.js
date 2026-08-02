@@ -21,6 +21,14 @@
  * (CLAUDE.md mentions 270-day; that figure is a methodology-spec
  * follow-up, not a code change in scope here).
  *
+ * WHAT CALIBRATION STATE ACTUALLY DOES, since the QA notes below have
+ * to state it accurately:
+ *   • EXPIRED / EXPIRING — surfaces here and in the in-app banner.
+ *     No effect on issuance. There is no block and no override path.
+ *   • NO RECORD AT ALL — additionally fires the engine's calibration
+ *     data-gap trigger, which puts a warning on the cover and in the
+ *     "Limitations on Reliance" section (engine v2.9+).
+ *
  * Inputs that are missing or empty silently omit a row. The renderer
  * gates on instrumentRows.length > 0 / calibrationRecords.length > 0,
  * so callers that pass an empty presurvey get no appendix at all
@@ -155,20 +163,59 @@ export function buildCalibrationAppendix(presurvey, opts = {}) {
     return { appendixB: null, appendixE: null }
   }
 
+  // ── QA notes ────────────────────────────────────────────────────
+  //
+  // These sentences are client-facing assertions about AtmosFlow's own
+  // controls, so they have to be literally true. Two previously were
+  // not, and both were corrected in 2026-08:
+  //
+  //   1. "AtmosFlow blocks report finalization when any listed
+  //      instrument is past validity." It never did. Nothing gates
+  //      report generation on calibration state — expiry produces this
+  //      appendix row and an in-app banner, and that is all. (The
+  //      engine's calibration trigger fires on the ABSENCE of a record,
+  //      not on an expired one.)
+  //
+  //   2. "Finalization was permitted only via the documented override
+  //      path." Doubly untrue: finalization was never blocked, so
+  //      nothing needed permitting — and the override path it named is
+  //      unreachable. `data.ihOverride` (DocxReport.js) is populated by
+  //      no caller, because the preflight modal that set it was removed
+  //      by product decision.
+  //
+  // Claiming a control that does not exist is worse than claiming none:
+  // it invites a reader to rely on a safeguard that was never applied.
   const qaNotes = []
   qaNotes.push(
-    `Calibration validity: ${CAL_VALIDITY_DAYS} days from the most recent calibration date. AtmosFlow blocks report finalization when any listed instrument is past validity.`,
+    `Calibration validity: ${CAL_VALIDITY_DAYS} days from the most recent calibration date. `
+    + 'Calibration status is recorded here for the reader\'s assessment of the measurements; it does not gate report issuance. '
+    + 'The assessor of record determines whether the instrument record supports the conclusions drawn.',
   )
   const anyExpiring = calibrationRecords.some(r => r.status.startsWith('EXPIRING'))
   const anyExpired = calibrationRecords.some(r => r.status.startsWith('EXPIRED'))
   const anyUnrecorded = calibrationRecords.some(r => r.status === 'Date not recorded')
   if (anyExpired) {
-    qaNotes.push('One or more instruments listed below are PAST calibration validity. Finalization was permitted only via the documented override path; downstream interpretation should treat affected measurements as screening-only.')
+    qaNotes.push(
+      'One or more instruments listed below are PAST calibration validity. '
+      + 'Measurements obtained with those instruments should be treated as screening-only, '
+      + 'and any conclusion resting on them re-confirmed with an instrument within validity.',
+    )
   } else if (anyExpiring) {
     qaNotes.push('One or more instruments are within the calibration warning window. Schedule recalibration before the next assessment.')
   }
   if (anyUnrecorded) {
-    qaNotes.push('One or more instruments have no recorded calibration date. Calibration provenance for the affected measurements cannot be verified from this assessment record.')
+    // This is the one calibration condition that DOES have a
+    // report-level consequence: the engine's calibration trigger reads
+    // the same presurvey fields (bridge/legacy.ts:654) and, when no
+    // record exists at all, raises a data gap that surfaces on the cover
+    // and in "Limitations on Reliance". Pointing there is accurate and
+    // saves the reader correlating two sections.
+    qaNotes.push(
+      'One or more instruments have no recorded calibration date. Calibration provenance for the '
+      + 'affected measurements cannot be verified from this assessment record. Where no instrument '
+      + 'has a documented calibration record, this is also reported as a data gap on the cover and '
+      + 'under "Limitations on Reliance".',
+    )
   }
 
   return {
