@@ -161,7 +161,7 @@ const features = [
   { icon: 'chain', color: C.violet, title: 'Root Cause Chains', desc: 'Damper closed → inadequate OA → elevated CO2 → occupant symptoms. The engine connects related findings into evidence-weighted causal chains instead of listing them as separate items.' },
   { icon: 'flask', color: C.emerald, title: 'Hypothesis-Driven Sampling', desc: 'Sampling recommendations generated only when walkthrough findings indicate a specific concern. AIHA, EPA Compendium, NIOSH methods — with required controls and outdoor baselines flagged automatically.' },
   { icon: 'pulse', color: C.rose, title: '100-Point Scoring', desc: 'Five categories. Worst-zone weighting so one bad area can\'t hide behind good averages. Every deduction traces to a measurement, a standard, and a threshold.' },
-  { icon: 'send', color: C.indigo, title: 'AI Narratives (You Review)', desc: 'Professional findings text generated from deterministic output. The AI describes only what the engine found — never invents findings. Labeled "IH Review Required." The CIH signs the report, not the AI.' },
+  { icon: 'send', color: C.indigo, title: 'AI Narratives (You Review)', desc: 'Professional findings text generated from deterministic output. The AI describes only what the engine found — never invents findings. Labeled as AI-assisted so you verify it before issuing. The CIH signs the report, not the AI.' },
 ]
 
 const steps = [

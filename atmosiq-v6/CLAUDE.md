@@ -383,7 +383,29 @@ Run tests after any change to `src/engine/`, `src/engines/`, `src/components/doc
 
 - Hardcoded standards thresholds inside scoring logic (thresholds live
   in `src/constants/standards.js`, not in scoring code paths)
-- AI-generated narrative without an "IH Review Required" label
+- AI-generated narrative without an AI-provenance label. The label is a
+  statement about WHO WROTE the text, not about whether the report is
+  finished — a client-facing paragraph written by a model must stay
+  distinguishable from one the assessor wrote, in every lifecycle state.
+  Two enforcement points, both guarded by tests:
+  - **DOCX**: `aiProvenanceBanner()` in
+    `src/components/docx/sections-core.js` renders
+    "AI-ASSISTED NARRATIVE — VERIFY BEFORE ISSUE" immediately before any
+    AI narrative, and nothing for deterministic prose.
+    (`tests/engine/ai-provenance-banner.test.ts`, acceptance
+    `NARRATIVE-AI-PROVENANCE-BANNER`.)
+  - **Chat**: every Jasper answer ends with `AI_DISCLAIMER_LINE`
+    ("AI-assisted response — verify before use.") from
+    `api/_jasper-lint.js`, which REWRITES non-conforming output. The
+    literal is duplicated in `src/constants/field-assistant-prompt.js`
+    because the two live on different module systems;
+    `tests/api/jasper-disclaimer.test.ts` stops them drifting.
+  Both were reworded off "IH Review Required" — that phrase stamped
+  every report and every chat answer as pending review, which was the
+  problem the report lifecycle set out to fix. The screening-only
+  boundary does NOT rest on either label: in the report it is the
+  limitation statement, and in chat the required "## Defensibility note"
+  section.
 - TVOC interpretation without Mølhave 1991 advisory tier disclaimer
 - ASHRAE 62.1 cited as a CO₂ contaminant limit (it isn't — see Persily
   2021)

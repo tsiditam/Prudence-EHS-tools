@@ -23,6 +23,29 @@
 
 const { scan } = require('./_banned-language')
 
+/**
+ * The line every Jasper answer closes with.
+ *
+ * A GENERIC AI disclaimer, not a review verdict. The previous line —
+ * "IH Review Required" — stamped every answer, including a pure
+ * standards lookup, as pending industrial-hygienist review, which was
+ * both untrue and the same "everything is unfinished" problem the report
+ * lifecycle removed.
+ *
+ * Dropping it costs nothing in defensibility: the screening-only
+ * boundary is carried STRUCTURALLY by the required "## Defensibility
+ * note" section (see SAFE_FALLBACK below), not by this line. What this
+ * line does that the app's persistent UI footer cannot is travel — into
+ * stored history, and with any text the assessor copies into a report.
+ *
+ * Duplicated as a literal in src/constants/field-assistant-prompt.js
+ * because this module is CommonJS on the serverless path and that one is
+ * an ES module; requiring across the boundary is the exact interop trap
+ * that has bitten this handler before. tests/api/jasper-disclaimer.test.ts
+ * asserts the two cannot drift apart.
+ */
+const AI_DISCLAIMER_LINE = 'AI-assisted response — verify before use.'
+
 // Clear negation / disclaimer context — when present in the window around
 // a match, the Jasper-specific ban is treated as a safe disclaimer.
 const NEGATION =
@@ -176,7 +199,7 @@ function buildRevisionInstruction(hits) {
   const fixLines = fixes.map((f) => `- ${f}`).join('\n')
   return [
     'REVISION REQUIRED — your previous answer used prohibited language and cannot be sent as written.',
-    'Rewrite the FULL four-section answer (## Assessment context, ## Screening interpretation, ## Recommended next steps, ## Defensibility note) and end with the literal line "IH Review Required".',
+    `Rewrite the FULL four-section answer (## Assessment context, ## Screening interpretation, ## Recommended next steps, ## Defensibility note) and end with the literal line "${AI_DISCLAIMER_LINE}".`,
     'Apply every correction below:',
     fixLines,
     'Do not assert causation, compliance, or any health/medical determination — not even a negative one. Do not assign scores or rate hypothesis strength. Attach confidence only to instrument/measurement reliability, never to a cause or source. Output only the corrected answer.',
@@ -200,10 +223,11 @@ const SAFE_FALLBACK = [
   '## Defensibility note',
   'The Field Assistant provides screening-level support only; causal, compliance, and health determinations require a licensed professional.',
   '',
-  'IH Review Required',
+  AI_DISCLAIMER_LINE,
 ].join('\n')
 
 module.exports = {
+  AI_DISCLAIMER_LINE,
   lintJasperOutput,
   checkUnbackedThresholds,
   buildRevisionInstruction,

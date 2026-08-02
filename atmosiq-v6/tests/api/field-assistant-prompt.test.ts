@@ -4,7 +4,7 @@
  * Pins two things:
  *   1. The non-negotiable guardrails survive any edit — the You may /
  *      You may not lists, the four-section answer format, the literal
- *      "IH Review Required" line, the "AI · Review required" framing,
+ *      generic AI-assisted disclaimer line, the "AI · Review required" framing,
  *      and the verbatim push-back boundary.
  *   2. The anti-robotic / human-voice style guidance is present and is
  *      explicitly marked style-only so it never loosens a factual rule.
@@ -32,8 +32,13 @@ describe('field-assistant role prompt — preserved guardrails', () => {
     expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain('Defensibility note')
   })
 
-  it('keeps the literal IH Review Required line', () => {
-    expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain('IH Review Required')
+  it('keeps a literal closing disclaimer line', () => {
+    // Reworded from "IH Review Required" to a generic AI disclaimer: the
+    // old line stamped even a pure standards lookup as pending IH
+    // review. The exact string is pinned in
+    // tests/api/jasper-disclaimer.test.ts against the linter's copy.
+    expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain('AI-assisted response — verify before use.')
+    expect(FIELD_ASSISTANT_ROLE_PROMPT).not.toContain('IH Review Required')
   })
 
   it('keeps the AI · Review required output-labeling framing', () => {
