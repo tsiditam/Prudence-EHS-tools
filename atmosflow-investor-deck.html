@@ -25,12 +25,13 @@
   --ease:cubic-bezier(.22,.61,.36,1);
 }
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%}
+html{height:100%;overflow:hidden}
 body{
   font-family:var(--sans);
   background:#05070c;
   color:var(--ink);
-  overflow:hidden;
+  position:fixed;inset:0;
+  overflow:hidden;overscroll-behavior:none;
   -webkit-font-smoothing:antialiased;
   text-rendering:optimizeLegibility;
 }
@@ -40,8 +41,8 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 #viewport{position:fixed;inset:0;overflow:hidden;
   background:
     radial-gradient(120% 90% at 50% -10%, #0d1526 0%, #070a12 55%, #05070c 100%);}
-#stage{width:1280px;height:720px;position:absolute;top:50%;left:50%;transform-origin:center center;
-  transform:translate(-50%,-50%);
+#stage{width:1280px;height:720px;position:absolute;top:0;left:0;transform-origin:center center;
+  will-change:transform;
   border-radius:18px;overflow:hidden;box-shadow:0 40px 120px -30px rgba(0,0,0,.75);}
 
 /* ---------- Slides ---------- */
@@ -940,13 +941,16 @@ kbd{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.16);borde
     var vh = Math.round(vp ? vp.height : window.innerHeight);
     var portrait = vh > vw;
     var rotate = portrait && vw < 700;           // phone held upright → rotate the deck to fill
-    var s, tf;
+    // Pixel-based centring (transform-origin is the stage centre at 640,360).
+    // Translation is origin-independent, so this reliably centres on iOS Safari,
+    // where a left:50% + translate(-50%) on an oversized box misplaces the element.
+    var cx = Math.round(vw/2 - 640), cy = Math.round(vh/2 - 360), s, tf;
     if(rotate){
       s = Math.min(vw/720, vh/1280) * 0.996;
-      tf = 'translate(-50%,-50%) rotate(90deg) scale('+s+')';
+      tf = 'translate('+cx+'px,'+cy+'px) rotate(90deg) scale('+s+')';
     } else {
       s = Math.min(vw/1280, vh/720) * 0.992;     // small safety margin so nothing clips panel chrome
-      tf = 'translate(-50%,-50%) scale('+s+')';
+      tf = 'translate('+cx+'px,'+cy+'px) scale('+s+')';
     }
     stage.style.transform = tf;
     rotated = rotate;
