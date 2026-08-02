@@ -167,10 +167,14 @@ server-side revalidation) should read from:
   existing pure helpers (`buildReadinessVerdict`,
   `summarizeLoggerForContext`, `ENGINE_VERSION`). Engine outputs
   (composite, zoneScores, recs, narrative) pass through unchanged.
-- **Drift guard:** `tests/lib/buildAssessmentContext.test.ts` pins
-  the top-level key set against a golden fixture. If you add a field
-  to the context, update the fixture; a failing snapshot means a
-  consumer-breaking change.
+- **Drift guard:** `tests/lib/buildAssessmentContext.test.ts` pins the
+  top-level key set AND the `meta` key set against a golden fixture. If
+  you add a field to either, update the fixture; a failing snapshot means
+  a consumer-breaking change. (`meta` was added to the guard in the
+  report-lifecycle work: pinning only the top level let fields be added
+  inside `meta` — the block every consumer reads first — completely
+  undetected. Other sub-objects are still unpinned; widen the guard if you
+  touch them.)
 
 When adding a new AI / report / export consumer, read from the
 builder's output — do NOT hand-build a bespoke data pull (the
@@ -222,6 +226,20 @@ When working on report generation, these patterns are non-negotiable:
   may still emit a Pre-Assessment Memo instead of a full consultant
   report when it has no measurements — that is the engine's own behavior
   and a deliverable, not a finalization gate.
+- **Report lifecycle: labeling ≠ issuance.** A report carries a profile
+  (screening | professional | compliance) and a status (draft →
+  in_review → reviewed → final); see `src/constants/reportLifecycle.js`.
+  A **compliance** report cannot be *labelled* Final without a recorded
+  reviewer approval (`canTransition`). That is NOT a re-introduction of
+  the issuance block removed above, and should not be read as one:
+  nothing gates report GENERATION on status — `downloadReportPdf.js`,
+  `DocxReport.js` and `api/report-pdf.js` never read `report_status`, so
+  any report can be generated, downloaded and sent at any point. The
+  constraint is only on what the platform will *assert*: it will not
+  claim a professional review that has no record. Same principle as
+  migration 027's backfill, which marks legacy reports Final but never
+  "Professionally Reviewed". `canTransition` is enforced in exactly two
+  places, both in the peer-review API.
 - **Journal citations must be verified.** Title, journal, volume,
   issue, pages, year — all from primary sources. Flag unverified
   entries with TODO and exclude from generated reports.

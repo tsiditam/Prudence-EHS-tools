@@ -57,7 +57,7 @@ export const REVIEW_INSTRUCTIONS = [
   '- If you find issues, group them by severity (High / Medium / Low). For each: state the specific discrepancy, where it appears, and a short suggested fix — quote the conflicting values.',
   '- If you find none, say so plainly and note what you checked.',
   '- Keep it scannable. Do not rewrite the report; only flag issues.',
-  '- End with a one-line reminder that this is a screening QA aid requiring professional review (IH Review Required).',
+  '- End with the line "AI-assisted response — verify before use." — this is a screening QA aid, not sign-off.',
 ].join('\n')
 
 export const REVIEW_CREDIT_COST = 3

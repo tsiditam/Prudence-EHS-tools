@@ -33,7 +33,7 @@ const GRAPH_GUIDANCE: string[] = [
   'Confidence is categorical (validated, provisional, qualitative). Never convert it to a number or overstate it.',
   'Standards with is_health_limit=false are screening references, not health or compliance limits. ASHRAE 62.1 / CO2 is a ventilation-adequacy indicator, never a contaminant or exposure limit.',
   'contradicted_by evidence means the engine flagged a conflicting signal. Surface it; never suppress it.',
-  'Every finding requires industrial-hygienist review. End any interpretation with the "IH Review Required" label.',
+  'Findings are screening indicators that a qualified professional interprets. Close any interpretation with the AI-assisted disclaimer line.',
 ]
 
 /** Resolve an insert-shaped graph into the compact, finding-nested summary. */
