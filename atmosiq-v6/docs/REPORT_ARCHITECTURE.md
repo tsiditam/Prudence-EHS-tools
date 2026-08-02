@@ -69,9 +69,10 @@ Every `ConditionType` has an entry in `PHRASE_LIBRARY` with:
 3. Run tests — the exhaustiveness test will fail until the entry exists
 4. Add scoring logic in `src/engines/scoring.js` that produces findings of this type
 
-## Refusal-to-Issue
+## Data-Gap Warnings (was: Refusal-to-Issue)
 
-`report.client()` returns a `PreAssessmentMemo` instead of a report when ANY trigger fires:
+Six triggers evaluate the evidentiary basis of an assessment. Any one
+firing is enough — the check is OR, not a threshold:
 
 1. No zones have instrument measurements
 2. >50% of zone×category cells are insufficient
@@ -79,6 +80,25 @@ Every `ConditionType` has an entry in `PHRASE_LIBRARY` with:
 4. No calibration records for any instrument
 5. No credentials on assessor and no reviewing professional
 6. All findings at insufficient_data confidence
+
+**Up to engine v2.8** a fired trigger REFUSED to issue: `report.client()`
+returned a `PreAssessmentMemo` *instead of* the report.
+
+**From v2.9** the full report always issues. Fired triggers are carried
+on the result as `dataGapWarnings` and rendered as a cover notice plus a
+"Limitations on Reliance — Identified Data Gaps" section placed before
+the findings, listing each trigger description verbatim.
+
+The trigger logic is unchanged, and nothing is suppressed — every
+description that would have appeared in the memo appears in the report.
+`shouldRefuseToIssue` still reports `refuse: true`; nothing acts on it as
+a refusal any more, and the name is historical.
+`buildPreAssessmentMemo` is retained and buildable on demand but is never
+produced automatically.
+
+Rationale: withholding the deliverable does not improve the data. It
+leaves the assessor with nothing to hand a client and nothing showing
+what to fix.
 
 ## Instrument Accuracy
 

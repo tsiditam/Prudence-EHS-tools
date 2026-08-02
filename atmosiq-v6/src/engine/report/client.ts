@@ -20,7 +20,11 @@ import type { ParameterKey, ParameterRangeSet } from './parameter-ranges'
 import { lookupParameterProse } from './parameter-prose'
 import { ENGINE_VERSION } from '../types/citation'
 import { evaluateSiteOpinion, OPINION_TIER_LANGUAGE, CONFIDENCE_TIER_LANGUAGE } from './professional-opinion'
-import { shouldRefuseToIssue, buildPreAssessmentMemo } from './pre-assessment-memo'
+// buildPreAssessmentMemo is intentionally NOT imported here: since v2.9
+// the memo is never produced automatically. It stays exported from
+// './pre-assessment-memo' and re-exported by './index' for callers that
+// want one deliberately.
+import { shouldRefuseToIssue } from './pre-assessment-memo'
 import {
   TRANSMITTAL_PARAGRAPH, SCOPE_PARAGRAPH, LIMITATIONS_PARAGRAPH,
   DATA_CENTER_CONTEXT_PARAGRAPH, ASSESSMENT_INDEX_DISCLAIMER,
@@ -61,15 +65,29 @@ export function renderClientReport(
   score: AssessmentScore,
   options: ClientRenderOptions = {},
 ): ClientReportResult {
-  // Check refusal-to-issue first
-  const refusal = shouldRefuseToIssue(score)
-  if (refusal.refuse) {
-    return {
-      kind: 'pre_assessment_memo',
-      memo: buildPreAssessmentMemo(score, refusal.reasons),
-      reasons: refusal.reasons,
-    }
-  }
+  // ── Data-gap evaluation (v2.9) ──────────────────────────────────
+  //
+  // Up to v2.8 a fired trigger REFUSED to issue: this returned a
+  // Pre-Assessment Memo instead of the report, on the reasoning that
+  // the engine should not lend a professional report's authority to
+  // findings that cannot support it.
+  //
+  // That reasoning is sound about AUTHORITY and wrong about DELIVERY.
+  // Withholding the deliverable does not make the data better; it
+  // leaves the assessor with nothing to hand a client, and nothing to
+  // show them what to go and fix. Product decision (2026-08): always
+  // issue the full report, and carry the fired triggers into it as a
+  // prominent, document-borne limitation on reliance.
+  //
+  // Nothing is suppressed. Every trigger description that would have
+  // appeared in the memo now appears in the report — on the cover and
+  // in a dedicated front section — so the disclosure travels with the
+  // document rather than replacing it.
+  //
+  // buildPreAssessmentMemo remains exported and tested; it is simply
+  // no longer reached automatically. A caller wanting a memo can still
+  // build one deliberately.
+  const dataGaps = shouldRefuseToIssue(score)
 
   const meta = score.meta
   const siteOpinion = evaluateSiteOpinion(score.zones)
@@ -612,7 +630,14 @@ export function renderClientReport(
   // clientFacingSafe is false.
   const validation = validateReportContent(report)
 
-  return { kind: 'report', report, validation }
+  return {
+    kind: 'report',
+    report,
+    validation,
+    // Empty array when no trigger fired — an absent field would be
+    // ambiguous between "evaluated, nothing found" and "not evaluated".
+    dataGapWarnings: dataGaps.reasons,
+  }
 }
 
 /**

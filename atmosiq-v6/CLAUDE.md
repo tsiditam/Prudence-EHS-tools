@@ -10,8 +10,9 @@ identifies risk indicators and produces sampling plans but never makes
 definitive regulatory classifications or compliance determinations.
 Maintain that positioning in any code, copy, or documentation you generate.
 
-Live at atmosflow.net. Engine version is currently **2.6** (post
-v2.5 residual defect cleanup + v2.6 hypothesis and causal-chain restoration).
+Live at atmosflow.net. Engine version is currently **2.9** (v2.9 changed report-issuance
+gating from refuse-to-issue to issue-with-warnings; see the engine
+override note under Working principles).
 
 ## Stack
 
@@ -151,6 +152,28 @@ Read these directories first when investigating any task:
   constants, or scoring contracts. If you think the engine needs to
   change to complete a task, you have misunderstood the task — stop
   and report.
+
+  **One override has been granted (2026-08, engine v2.9.0).** Report
+  ISSUANCE gating changed: a fired data-gap trigger no longer returns a
+  Pre-Assessment Memo INSTEAD of the report. `renderClientReport` now
+  always issues the full report and carries the fired triggers on the
+  result as `dataGapWarnings`, rendered as a cover notice plus a
+  "Limitations on Reliance — Identified Data Gaps" section before the
+  findings. Product rationale: withholding the deliverable does not
+  improve the data — it leaves the assessor with nothing to hand a
+  client and nothing showing what to fix.
+
+  Scope of the override, so it is not read wider than it is: it touched
+  `report/client.ts` (guard clause → warnings) and `report/types.ts`
+  (result shape). Scoring, thresholds, contracts and trigger LOGIC are
+  unchanged — `evaluateRefusalTriggers` and `shouldRefuseToIssue` still
+  evaluate exactly as before, and `shouldRefuseToIssue` still reports
+  `refuse: true`; nothing acts on it as a refusal any more. The name is
+  historical. `buildPreAssessmentMemo` is retained, exported and tested,
+  but is never produced automatically. Covered by
+  `tests/engine/data-gap-warning.test.ts`; the trigger logic itself is
+  still covered by `tests/engine/refusal-to-issue.test.ts`, which was
+  not modified.
 
 ## Assessment context (connectivity layer)
 
