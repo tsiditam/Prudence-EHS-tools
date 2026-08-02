@@ -77,7 +77,12 @@ const MAX_PHOTO_BYTES = 2_000_000 // ~2MB per photo, base64-decoded estimate
 // no CSV/XLSX/PDF parser is on this function's cold-start path. See
 // src/utils/chatAttachments.js for why that split exists.
 const MAX_ATTACHMENTS_PER_REQUEST = 3
-const MAX_ATTACHMENT_CHARS = 4000
+// Sized for a DOCUMENT digest (a report's extracted text), which is the
+// largest kind the client produces; a logger or lab digest is complete
+// at a fraction of this. Mirrors MAX_DOCUMENT_DIGEST_CHARS in
+// src/utils/chatAttachments.js — the client bounds it first, and this is
+// the backstop against a client that does not.
+const MAX_ATTACHMENT_CHARS = 12_000
 
 interface VercelLikeRequest {
   method?: string

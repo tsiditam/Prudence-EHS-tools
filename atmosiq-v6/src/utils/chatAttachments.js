@@ -70,10 +70,28 @@ export const MAX_ATTACHMENT_BYTES = 25_000_000
  */
 export const MAX_DIGEST_CHARS = 4000
 
+/**
+ * Character ceiling for a DOCUMENT digest (PDF, .docx, plain text).
+ *
+ * Larger than the structured budget above, and for a specific reason: a
+ * logger or lab digest is COMPLETE at 4,000 characters — it is a summary
+ * by construction, and more room would add nothing. A report is the
+ * opposite; its content is the whole point. A real AtmosFlow monitoring
+ * report extracts to ~10,000 characters, so the structured budget would
+ * hand the model the cover page and the first two sections and silently
+ * drop the findings — which is precisely the part someone uploading a
+ * report wants read.
+ *
+ * Still bounded: three documents at this size is ~9k tokens, which sits
+ * comfortably against the history cap rather than crowding it out.
+ */
+export const MAX_DOCUMENT_DIGEST_CHARS = 12_000
+
 const TEXT_EXT = /\.(txt|md|log)$/i
 const CSV_EXT = /\.(csv|tsv)$/i
 const XLSX_EXT = /\.(xlsx|xlsm)$/i
 const PDF_EXT = /\.pdf$/i
+const DOCX_EXT = /\.docx$/i
 
 const IMAGE_MIME = /^image\//
 
@@ -96,6 +114,9 @@ export function classifyAttachment(file) {
 
   if (IMAGE_MIME.test(type) || /\.(jpe?g|png|webp|gif|heic|heif)$/i.test(name)) return 'image'
   if (PDF_EXT.test(name) || type === 'application/pdf') return 'pdf'
+  // .docx before .xlsx: both are zip-of-XML and both carry a
+  // "…officedocument…" MIME type, so the more specific test goes first.
+  if (DOCX_EXT.test(name) || type.includes('wordprocessingml')) return 'docx'
   if (XLSX_EXT.test(name) || type.includes('spreadsheetml')) return 'sensor'
   // A CSV could be either a logger export or a lab report. Which one it is
   // cannot be known from the name, so both parsers are tried against the
@@ -105,10 +126,33 @@ export function classifyAttachment(file) {
   return null
 }
 
-/** The accept attribute for the composer's file input. */
+/**
+ * The accept attribute for the composer's file input.
+ *
+ * Carries BOTH the MIME type and the extension for every data format,
+ * because the mobile pickers disagree about which one they honour: iOS
+ * greys out anything it does not believe is accepted, and it matches on
+ * UTI (resolved from the MIME type) rather than on a bare extension —
+ * so an extension-only list leaves a Word report untappable in the Files
+ * app. Android's picker leans the other way and matches extensions more
+ * reliably. Listing both is what makes the picker usable on a phone,
+ * which is where these files actually get attached.
+ *
+ * `application/octet-stream` is included deliberately: iOS serves a
+ * Files-app pick as octet-stream more often than not, and omitting it
+ * hides exactly the documents this feature exists to accept. The real
+ * gate is `classifyAttachment` plus the parser, which run on content and
+ * name — the accept list only decides what the picker will offer.
+ */
 export const ATTACHMENT_ACCEPT = [
   'image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif',
-  '.csv', '.tsv', '.xlsx', '.xlsm', '.pdf', '.txt', '.md', '.log',
+  'text/csv', '.csv',
+  'text/tab-separated-values', '.tsv',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', '.xlsx', '.xlsm',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document', '.docx',
+  'application/pdf', '.pdf',
+  'text/plain', '.txt', '.md', '.log',
+  'application/octet-stream',
 ].join(',')
 
 const isNum = (v) => typeof v === 'number' && Number.isFinite(v)
@@ -241,9 +285,9 @@ export function buildTextDigest(text, fileName, opts = {}) {
   // Collapse the runs of whitespace PDF extraction leaves behind, so the
   // budget is spent on words rather than layout.
   const clean = raw.replace(/[ \t ]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim()
-  const limit = isNum(opts.maxChars) ? opts.maxChars : MAX_DIGEST_CHARS - 400
+  const limit = isNum(opts.maxChars) ? opts.maxChars : MAX_DOCUMENT_DIGEST_CHARS - 400
   return {
-    kind: opts.kind === 'pdf' ? 'pdf' : 'text',
+    kind: opts.kind === 'pdf' || opts.kind === 'docx' ? opts.kind : 'text',
     name: fileName || null,
     pages: isNum(opts.pages) ? opts.pages : null,
     chars: clean.length,
@@ -300,14 +344,20 @@ export function digestToPrompt(digest) {
     if (digest.unmappedColumns.length) L.push(`Unmapped columns: ${digest.unmappedColumns.join(', ')}`)
     for (const w of digest.warnings) L.push(`Note: ${w}`)
   } else {
-    L.push(`[Attached ${digest.kind === 'pdf' ? 'PDF' : 'document'}${name}]`)
+    const label = digest.kind === 'pdf' ? 'PDF' : digest.kind === 'docx' ? 'Word document' : 'document'
+    L.push(`[Attached ${label}${name}]`)
     if (digest.pages) L.push(`${digest.pages} page${digest.pages === 1 ? '' : 's'}`)
     L.push(digest.truncated ? 'Extracted text (truncated):' : 'Extracted text:')
     L.push(digest.text)
   }
 
   const out = L.join('\n')
-  return out.length > MAX_DIGEST_CHARS ? `${out.slice(0, MAX_DIGEST_CHARS - 3)}...` : out
+  // Structured digests are complete well inside the small budget;
+  // documents get the larger one because their content IS the payload.
+  const cap = digest.kind === 'sensor' || digest.kind === 'lab'
+    ? MAX_DIGEST_CHARS
+    : MAX_DOCUMENT_DIGEST_CHARS
+  return out.length > cap ? `${out.slice(0, cap - 3)}...` : out
 }
 
 /**
@@ -323,6 +373,8 @@ export function digestSummaryLine(digest) {
     return `${digest.rowCount} results · ${digest.sampleCount} sample${digest.sampleCount === 1 ? '' : 's'}`
   }
   if (digest.kind === 'pdf') return digest.pages ? `${digest.pages} page${digest.pages === 1 ? '' : 's'}` : 'PDF'
+  const words = digest.text ? digest.text.split(/\s+/).filter(Boolean).length : 0
+  if (digest.kind === 'docx') return `${words.toLocaleString('en-US')} words read`
   return `${digest.chars.toLocaleString('en-US')} characters`
 }
 
@@ -372,6 +424,7 @@ export function pickCsvDigest(csvText, fileName) {
  * @param {File} file
  * @param {object} [deps]
  * @param {(file: File) => Promise<{text: string, pages: number}>} [deps.readPdfText]
+ * @param {(file: File) => Promise<{text: string}>} [deps.readDocxText]
  * @returns {Promise<{ok: true, digest: object} | {ok: false, error: string}>}
  */
 export async function digestForFile(file, deps = {}) {
@@ -420,6 +473,20 @@ export async function digestForFile(file, deps = {}) {
         }
       }
       return { ok: true, digest: buildTextDigest(text, name, { kind: 'pdf', pages }) }
+    }
+
+    if (kind === 'docx') {
+      if (typeof deps.readDocxText !== 'function') {
+        return { ok: false, error: 'Word document reading is unavailable in this context.' }
+      }
+      const { text } = await deps.readDocxText(file)
+      if (!text || !text.trim()) {
+        return {
+          ok: false,
+          error: `No readable text found in ${name || 'that document'}. A report that is only images has no text to read.`,
+        }
+      }
+      return { ok: true, digest: buildTextDigest(text, name, { kind: 'docx' }) }
     }
 
     if (kind === 'text') {

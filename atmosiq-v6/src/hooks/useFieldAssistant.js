@@ -434,19 +434,21 @@ export function useFieldAssistant() {
       setError(msg)
       return { ok: false, error: msg }
     }
-    // pdf.js is a megabyte, so it is fetched only once a PDF actually
-    // arrives — see src/utils/pdfText.js.
+    // Readers are fetched only when the matching file actually arrives:
+    // pdf.js is a megabyte (see src/utils/pdfText.js), and the .docx
+    // reader pulls jszip.
+    const kind = classifyAttachment(file)
     let readPdfText
-    if (classifyAttachment(file) === 'pdf') {
-      try {
-        ;({ readPdfText } = await import('../utils/pdfText'))
-      } catch {
-        const msg = 'Could not load the PDF reader. Check your connection and try again.'
-        setError(msg)
-        return { ok: false, error: msg }
-      }
+    let readDocxText
+    try {
+      if (kind === 'pdf') ({ readPdfText } = await import('../utils/pdfText'))
+      if (kind === 'docx') ({ readDocxText } = await import('../utils/docxText'))
+    } catch {
+      const msg = `Could not load the ${kind === 'pdf' ? 'PDF' : 'Word document'} reader. Check your connection and try again.`
+      setError(msg)
+      return { ok: false, error: msg }
     }
-    const result = await digestForFile(file, { readPdfText })
+    const result = await digestForFile(file, { readPdfText, readDocxText })
     if (!result.ok) {
       setError(result.error)
       return result
@@ -567,7 +569,7 @@ export function useFieldAssistant() {
       const kind = classifyAttachment(file)
       if (kind === 'image') return attachPhoto(file)
       if (kind) return attachFile(file)
-      const msg = `${(file && file.name) || 'That file'} isn't a supported type. Attach a photo, logger export (CSV/XLSX), lab results, or a PDF.`
+      const msg = `${(file && file.name) || 'That file'} isn't a supported type. Attach a photo, a report (DOCX/PDF), a logger export (CSV/XLSX), or lab results.`
       setError(msg)
       return { ok: false, error: msg }
     },

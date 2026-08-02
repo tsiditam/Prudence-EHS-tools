@@ -19,6 +19,7 @@ import {
   pickCsvDigest,
   digestForFile,
   MAX_DIGEST_CHARS,
+  MAX_DOCUMENT_DIGEST_CHARS,
   MAX_ATTACHMENT_BYTES,
   ATTACHMENT_ACCEPT,
 } from '../../src/utils/chatAttachments'
@@ -71,11 +72,45 @@ describe('classifyAttachment', () => {
     expect(classifyAttachment(null as any)).toBeNull()
   })
 
+  it('routes a Word report to the docx reader, not the spreadsheet one', () => {
+    // Both are zip-of-XML with a "…officedocument…" MIME type, so the
+    // order of the checks is what keeps a report out of the CSV parser.
+    expect(classifyAttachment({ name: 'IEMR-Northgate.docx', type: '' })).toBe('docx')
+    expect(classifyAttachment({
+      name: 'report.docx',
+      type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    })).toBe('docx')
+    expect(classifyAttachment({
+      name: 'log.xlsx',
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    })).toBe('sensor')
+  })
+
   it('offers the data formats in the picker, not just images', () => {
     expect(ATTACHMENT_ACCEPT).toContain('.csv')
     expect(ATTACHMENT_ACCEPT).toContain('.xlsx')
     expect(ATTACHMENT_ACCEPT).toContain('.pdf')
+    expect(ATTACHMENT_ACCEPT).toContain('.docx')
     expect(ATTACHMENT_ACCEPT).toContain('image/jpeg')
+  })
+
+  // iOS matches the accept list on UTI, resolved from the MIME type, and
+  // greys out anything it does not think is accepted. An extension-only
+  // list therefore leaves a report untappable in the Files app — which is
+  // exactly where a phone user goes to find one.
+  it('carries a MIME type alongside every extension, so mobile pickers offer the file', () => {
+    for (const mime of [
+      'text/csv',
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'text/plain',
+      // iOS commonly serves a Files-app pick as octet-stream; without it
+      // the picker hides the documents this feature exists to accept.
+      'application/octet-stream',
+    ]) {
+      expect(ATTACHMENT_ACCEPT, `missing ${mime}`).toContain(mime)
+    }
   })
 })
 
@@ -161,16 +196,36 @@ describe('buildLabDigest', () => {
 })
 
 describe('digestToPrompt', () => {
-  it('holds the character budget however large the input', () => {
+  // Two budgets, deliberately. A structured digest is COMPLETE at the
+  // small one — it is a summary by construction. A document's content is
+  // the payload, and a real monitoring report extracts to ~10,000
+  // characters, so holding it to the structured budget would hand over
+  // the cover page and drop the findings.
+  it('holds the structured budget however large the source data', () => {
     const rows = Array.from({ length: 5000 }, (_, i) => ({
       sampleId: `S-${i}`, location: `Room ${i}`, analyte: `Analyte ${i}`,
       result: '1', units: 'spores/m3', detectionLimit: '50',
     }))
     const lab = digestToPrompt(buildLabDigest({ laboratory: 'X', rows, unmappedColumns: [], warnings: [] }, 'l.csv'))
     expect(lab.length).toBeLessThanOrEqual(MAX_DIGEST_CHARS)
+  })
 
+  it('holds the document budget however large the document', () => {
     const text = digestToPrompt(buildTextDigest('x'.repeat(500_000), 'big.txt'))
-    expect(text.length).toBeLessThanOrEqual(MAX_DIGEST_CHARS)
+    expect(text.length).toBeLessThanOrEqual(MAX_DOCUMENT_DIGEST_CHARS)
+  })
+
+  it('gives a report room the structured budget would not', () => {
+    // ~8,300 characters — the range a real AtmosFlow monitoring report
+    // extracts to (measured: 10,472). It must survive whole rather than
+    // being cut to a third.
+    const body = Array.from({ length: 100 }, (_, i) =>
+      `Finding ${i}: readings were logged at five-minute intervals throughout the period.`).join('\n')
+    const digest: any = buildTextDigest(body, 'report.docx', { kind: 'docx' })
+    expect(body.length).toBeGreaterThan(MAX_DIGEST_CHARS)
+    expect(body.length).toBeLessThan(MAX_DOCUMENT_DIGEST_CHARS)
+    expect(digest.truncated).toBe(false)
+    expect(digestToPrompt(digest)).toContain('Finding 99')
   })
 
   it('marks truncated text as truncated instead of presenting it as whole', () => {
@@ -221,6 +276,22 @@ describe('digestForFile', () => {
     const r: any = await digestForFile(fakeFile('scan.pdf', 'application/pdf'), { readPdfText })
     expect(r.ok).toBe(false)
     expect(r.error).toMatch(/OCR/i)
+  })
+
+  it('reads a Word report through the injected reader', async () => {
+    const readDocxText = async () => ({ text: 'Findings\nCO2 averaged 940 ppm during occupied hours.' })
+    const r: any = await digestForFile(fakeFile('IEMR.docx', ''), { readDocxText })
+    expect(r.ok).toBe(true)
+    expect(r.digest.kind).toBe('docx')
+    expect(r.digest.text).toContain('940 ppm')
+    expect(digestToPrompt(r.digest)).toContain('[Attached Word document — IEMR.docx]')
+  })
+
+  it('says so when a Word report has no readable text', async () => {
+    const readDocxText = async () => ({ text: '  \n ' })
+    const r: any = await digestForFile(fakeFile('scan.docx', ''), { readDocxText })
+    expect(r.ok).toBe(false)
+    expect(r.error).toMatch(/no readable text/i)
   })
 
   it('refuses an unsupported type by name', async () => {

@@ -65,6 +65,7 @@ const ATTACHMENT_KIND_LABEL = {
   sensor: 'Logger data',
   lab: 'Lab results',
   pdf: 'PDF',
+  docx: 'Word report',
   text: 'Document',
 }
 
@@ -1152,7 +1153,7 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
             <I n="upload" s={26} c={ACCENT} w={1.8} />
             <div style={{ fontSize: 14, fontWeight: 700, color: TEXT }}>Drop to attach</div>
             <div style={{ fontSize: 11.5, color: SUB, textAlign: 'center', padding: '0 24px', lineHeight: 1.45 }}>
-              Photos, logger exports (CSV/XLSX), lab results, or PDFs
+              Photos, reports (DOCX/PDF), logger exports (CSV/XLSX), or lab results
             </div>
           </div>
         )}
@@ -2059,7 +2060,7 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
                 // five photos staged can still attach a logger export.
                 disabled={sending || !introAccepted || attachSlotsFull}
                 aria-label="Attach photo or file"
-                title="Attach a photo, logger export, lab results, or PDF"
+                title="Attach a photo, report (DOCX/PDF), logger export, or lab results"
                 style={{
                   width: 36, height: 36, borderRadius: 10,
                   background: 'transparent', border: 'none',
