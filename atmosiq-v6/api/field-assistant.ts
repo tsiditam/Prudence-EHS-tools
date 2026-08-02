@@ -72,6 +72,12 @@ const MAX_TOOL_ROUNDS = 4
 // ~4.5MB hobby-tier limit and protect against accidental large uploads.
 const MAX_PHOTOS_PER_REQUEST = 5
 const MAX_PHOTO_BYTES = 2_000_000 // ~2MB per photo, base64-decoded estimate
+// Data-file attachments (logger CSV/XLSX, lab results, PDF). The FILE is
+// never uploaded — the browser parses it and sends a bounded digest, so
+// no CSV/XLSX/PDF parser is on this function's cold-start path. See
+// src/utils/chatAttachments.js for why that split exists.
+const MAX_ATTACHMENTS_PER_REQUEST = 3
+const MAX_ATTACHMENT_CHARS = 4000
 
 interface VercelLikeRequest {
   method?: string
@@ -241,6 +247,7 @@ async function ensureConversation(
 function buildSystemBlocks(
   context: RequestContext,
   photoIndex: Array<{ id: string; label: string | null }> = [],
+  attachmentIndex: Array<{ name: string; kind: string }> = [],
 ) {
   const baseContext = context
     ? `Current assessor context (passed at request time, do not assume any other state):\n${JSON.stringify(
@@ -255,7 +262,21 @@ function buildSystemBlocks(
           .map((p) => `  - id: "${p.id}"${p.label ? `  (label: "${p.label}")` : ''}`)
           .join('\n')}`
       : '\n\nNo photos are attached to this conversation. analyze_photo will return no_photos_attached if called.'
-  const contextBlock = baseContext + photoBlock
+  // Files are summarised, not stored: the digest is inlined into this
+  // turn's user message, so it is readable now but is NOT retrievable on
+  // a later turn. Saying so keeps the model from offering to "look again"
+  // at something it can no longer see.
+  const attachmentBlock =
+    attachmentIndex.length > 0
+      ? `\n\nThe assessor attached ${attachmentIndex.length} file${
+          attachmentIndex.length === 1 ? '' : 's'
+        } to THIS message; a summary of each is included at the end of their message:\n${attachmentIndex
+          .map((a) => `  - ${a.name} (${a.kind})`)
+          .join(
+            '\n',
+          )}\nThese summaries are available for this turn only. Report what the data shows; do not score it, classify it against a compliance threshold, or state a cause.`
+      : ''
+  const contextBlock = baseContext + photoBlock + attachmentBlock
   return [
     { type: 'text', text: FIELD_ASSISTANT_ROLE_PROMPT, cache_control: { type: 'ephemeral' } },
     { type: 'text', text: STANDARDS_FOR_AGENT, cache_control: { type: 'ephemeral' } },
@@ -266,12 +287,21 @@ function buildSystemBlocks(
   ]
 }
 
-function buildAnthropicMessages(history: FaMessageRow[], userMessage: string) {
+function buildAnthropicMessages(
+  history: FaMessageRow[],
+  userMessage: string,
+  attachmentText = '',
+) {
   // Drop the oldest turns past the cap so the prompt size stays bounded.
   const trimmed = history.slice(-MAX_HISTORY_TURNS * 2)
+  // Attachment digests ride in the USER turn rather than the system
+  // prompt: they are content the user supplied with this message, not
+  // instructions, and the cached system prefix must stay byte-identical
+  // across a session or every turn pays a cache miss.
+  const content = attachmentText ? `${userMessage}\n\n${attachmentText}` : userMessage
   return [
     ...trimmed.map((m) => ({ role: m.role, content: m.content })),
-    { role: 'user' as const, content: userMessage },
+    { role: 'user' as const, content },
   ]
 }
 
@@ -912,6 +942,7 @@ async function handler(req: VercelLikeRequest, res: VercelLikeResponse): Promise
     message?: string
     context?: RequestContext
     photos?: Array<{ id?: string; dataUrl?: string; label?: string }>
+    attachments?: Array<{ id?: string; name?: string; kind?: string; text?: string }>
   }
   const userMessage = typeof body.message === 'string' ? body.message.trim() : ''
   if (!userMessage) {
@@ -951,6 +982,33 @@ async function handler(req: VercelLikeRequest, res: VercelLikeResponse): Promise
       photoIndex.push({ id: p.id, label })
     }
   }
+
+  // Data-file digests. Bounded on count and characters so a malformed or
+  // hostile client cannot push an unbounded blob into the prompt.
+  const attachmentIndex: Array<{ name: string; kind: string }> = []
+  const attachmentTexts: string[] = []
+  if (Array.isArray(body.attachments) && body.attachments.length > 0) {
+    if (body.attachments.length > MAX_ATTACHMENTS_PER_REQUEST) {
+      res.status(400).json({
+        error: `attachments array exceeds ${MAX_ATTACHMENTS_PER_REQUEST} entries`,
+      })
+      return
+    }
+    for (const a of body.attachments) {
+      if (!a || typeof a.text !== 'string' || !a.text.trim()) continue
+      if (a.text.length > MAX_ATTACHMENT_CHARS) {
+        res.status(400).json({
+          error: `attachment ${a.name || a.id || ''} exceeds ${MAX_ATTACHMENT_CHARS} characters`.trim(),
+        })
+        return
+      }
+      const name = typeof a.name === 'string' && a.name ? a.name.slice(0, 200) : 'attachment'
+      const kind = typeof a.kind === 'string' && a.kind ? a.kind.slice(0, 32) : 'file'
+      attachmentIndex.push({ name, kind })
+      attachmentTexts.push(a.text)
+    }
+  }
+  const attachmentText = attachmentTexts.join('\n\n')
 
   // Plan lookup (free tier has tighter cap)
   let plan = 'free'
@@ -1051,15 +1109,22 @@ async function handler(req: VercelLikeRequest, res: VercelLikeResponse): Promise
   // Persist the user turn before calling upstream so any handler crash
   // still leaves the message in history.
   try {
-    await persistTurn(supabase, conversationId, user.id, 'user', userMessage, contextView as string | null, userTurnId)
+    // The digest itself is deliberately NOT persisted — it can be
+    // kilobytes per turn and the file can be re-attached. A one-line note
+    // is stored so a reloaded conversation still shows what the question
+    // was asked about.
+    const persistedUserText = attachmentIndex.length
+      ? `${userMessage}\n\n[Attached: ${attachmentIndex.map((a) => `${a.name} (${a.kind})`).join(', ')}]`
+      : userMessage
+    await persistTurn(supabase, conversationId, user.id, 'user', persistedUserText, contextView as string | null, userTurnId)
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     console.error('[field-assistant] user-turn persist failed:', msg)
   }
 
   // Call Anthropic and pump the stream (with tool-use loop)
-  const systemBlocks = buildSystemBlocks(body.context, photoIndex)
-  const initialMessages = buildAnthropicMessages(history, userMessage)
+  const systemBlocks = buildSystemBlocks(body.context, photoIndex, attachmentIndex)
+  const initialMessages = buildAnthropicMessages(history, userMessage, attachmentText)
 
   // Collect L4 vision usage so we can write per-photo audit details
   // and add the per-photo cost to the ledger row.

@@ -15,6 +15,19 @@
 
 import { useCallback, useRef, useState } from 'react'
 import { supabase } from '../utils/supabaseClient'
+import {
+  digestForFile,
+  digestSummaryLine,
+  digestToPrompt,
+  classifyAttachment,
+  MAX_ATTACHMENTS_PER_REQUEST,
+} from '../utils/chatAttachments'
+import {
+  needsProcessing,
+  isOversizeOnly,
+  processImage,
+  formatBytes,
+} from '../utils/imageAttachments'
 
 const ENDPOINT = '/api/field-assistant'
 
@@ -36,6 +49,8 @@ function friendlyError(msg) {
 export const MAX_PHOTOS_PER_REQUEST = 5
 export const MAX_PHOTO_BYTES = 2_000_000 // ~2MB decoded
 const ALLOWED_PHOTO_MIME = ['image/jpeg', 'image/png', 'image/webp']
+
+export { MAX_ATTACHMENTS_PER_REQUEST }
 
 // Perceived-effort delay. A genuinely complex question reads as more
 // considered when the answer doesn't snap back instantly, so we hold
@@ -171,6 +186,16 @@ export function useFieldAssistant() {
   // the current count even when called multiple times in the same act
   // cycle (React state updates aren't visible inside the same closure).
   const photosRef = useRef([])
+  // Data files staged for the next message — logger CSVs, lab results,
+  // PDFs. Each entry: { id, name, kind, digest, summary }. Only the
+  // DIGEST is ever sent; the file itself never leaves the browser.
+  const [attachments, setAttachments] = useState([])
+  const attachmentsRef = useRef([])
+  // A photo too large to send, waiting on the user's answer to "resize
+  // this?". Held rather than resized on arrival because the photo is
+  // evidence, and rewriting someone's evidence is their call to make.
+  // Shape: { file, sizeLabel, reason }
+  const [pendingResize, setPendingResize] = useState(null)
   const inFlight = useRef(null)
 
   const reset = useCallback(() => {
@@ -183,6 +208,9 @@ export function useFieldAssistant() {
     setQuota(null)
     photosRef.current = []
     setAttachedPhotos([])
+    attachmentsRef.current = []
+    setAttachments([])
+    setPendingResize(null)
     setActiveTool(null)
     setProposedActions([])
     setRenderedReports([])
@@ -351,24 +379,153 @@ export function useFieldAssistant() {
     }
   }, [])
 
+  /** Push a ready dataUrl onto the staged-photo list. */
+  const stagePhoto = useCallback((dataUrl, label, sizeBytes, note) => {
+    const id =
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? `photo-${crypto.randomUUID().slice(0, 8)}`
+        : `photo-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+    const entry = { id, dataUrl, label: label || null, sizeBytes, note: note || null }
+    photosRef.current = [...photosRef.current, entry]
+    setAttachedPhotos(photosRef.current)
+    setError(null)
+    return { ok: true, id }
+  }, [])
+
   /**
-   * Stage a File for the next message. Validates MIME type + size up
-   * front so the user sees a useful error instead of a backend 400.
+   * Resize the photo the user was asked about, then stage it.
+   *
+   * Only reachable from an explicit confirmation — `attachPhoto` never
+   * calls this on its own.
+   */
+  const confirmResize = useCallback(async () => {
+    const pending = pendingResize
+    if (!pending || !pending.file) return { ok: false, error: 'nothing_pending' }
+    setPendingResize(null)
+    try {
+      const out = await processImage(pending.file, { maxBytes: MAX_PHOTO_BYTES })
+      return stagePhoto(
+        out.dataUrl,
+        pending.file.name || null,
+        out.bytes,
+        `resized ${formatBytes(out.originalBytes)} → ${formatBytes(out.bytes)}`,
+      )
+    } catch (err) {
+      const msg = (err && err.message) || 'Could not process that photo.'
+      setError(msg)
+      return { ok: false, error: msg }
+    }
+  }, [pendingResize, stagePhoto])
+
+  /** Discard the photo awaiting a resize decision. */
+  const cancelResize = useCallback(() => setPendingResize(null), [])
+
+  /**
+   * Stage a data file — logger CSV/XLSX, lab results, PDF, or text.
+   *
+   * Parsing happens here, in the browser, and only the digest is kept.
+   * The file itself is never uploaded: see `src/utils/chatAttachments.js`
+   * for why that is a deliberate architectural choice and not a shortcut.
+   */
+  const attachFile = useCallback(async (file) => {
+    if (!file) return { ok: false, error: 'no_file' }
+    if (attachmentsRef.current.length >= MAX_ATTACHMENTS_PER_REQUEST) {
+      const msg = `Maximum ${MAX_ATTACHMENTS_PER_REQUEST} files per message.`
+      setError(msg)
+      return { ok: false, error: msg }
+    }
+    // pdf.js is a megabyte, so it is fetched only once a PDF actually
+    // arrives — see src/utils/pdfText.js.
+    let readPdfText
+    if (classifyAttachment(file) === 'pdf') {
+      try {
+        ;({ readPdfText } = await import('../utils/pdfText'))
+      } catch {
+        const msg = 'Could not load the PDF reader. Check your connection and try again.'
+        setError(msg)
+        return { ok: false, error: msg }
+      }
+    }
+    const result = await digestForFile(file, { readPdfText })
+    if (!result.ok) {
+      setError(result.error)
+      return result
+    }
+    const id =
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? `file-${crypto.randomUUID().slice(0, 8)}`
+        : `file-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+    const entry = {
+      id,
+      name: file.name || 'Attachment',
+      kind: result.digest.kind,
+      digest: result.digest,
+      summary: digestSummaryLine(result.digest),
+    }
+    attachmentsRef.current = [...attachmentsRef.current, entry]
+    setAttachments(attachmentsRef.current)
+    setError(null)
+    return { ok: true, id }
+  }, [])
+
+  const removeAttachment = useCallback((id) => {
+    attachmentsRef.current = attachmentsRef.current.filter((a) => a.id !== id)
+    setAttachments(attachmentsRef.current)
+  }, [])
+
+  const clearAttachments = useCallback(() => {
+    attachmentsRef.current = []
+    setAttachments([])
+  }, [])
+
+  /**
+   * Stage a photo for the next message.
+   *
+   * Anything the chat API cannot accept as-is — a HEIC from an iPhone, a
+   * 4 MB camera JPEG — is not rejected outright. It is held in
+   * `pendingResize` and the UI asks. That keeps the common field case
+   * working while leaving the decision to alter an evidence photo with
+   * the person who took it.
    */
   const attachPhoto = useCallback(async (file, label) => {
     if (!file) return { ok: false, error: 'no_file' }
-    if (!ALLOWED_PHOTO_MIME.includes(file.type)) {
-      const msg = 'Only JPEG, PNG, and WebP photos are supported.'
-      setError(msg)
-      return { ok: false, error: msg }
-    }
-    if (file.size > MAX_PHOTO_BYTES) {
-      const msg = `Photo exceeds the ${Math.round(MAX_PHOTO_BYTES / 1_000_000)}MB limit. Resize and retry.`
-      setError(msg)
-      return { ok: false, error: msg }
-    }
     if (photosRef.current.length >= MAX_PHOTOS_PER_REQUEST) {
       const msg = `Maximum ${MAX_PHOTOS_PER_REQUEST} photos per message.`
+      setError(msg)
+      return { ok: false, error: msg }
+    }
+    if (needsProcessing(file, MAX_PHOTO_BYTES)) {
+      // A format the API can't take (HEIC) has to be converted whatever
+      // the user thinks, so there is nothing to ask about — convert and
+      // report it on the chip. Only a SIZE problem is a real choice,
+      // because that is the case where the pixels change.
+      if (isOversizeOnly(file, MAX_PHOTO_BYTES)) {
+        setPendingResize({
+          file,
+          sizeLabel: formatBytes(file.size),
+          reason: `${file.name || 'This photo'} is ${formatBytes(file.size)} — larger than the ${Math.round(
+            MAX_PHOTO_BYTES / 1_000_000,
+          )} MB limit.`,
+        })
+        return { ok: false, pending: true }
+      }
+      try {
+        const out = await processImage(file, { maxBytes: MAX_PHOTO_BYTES })
+        // A HEIC over the budget is both converted and shrunk; say both,
+        // so the chip never understates what happened to the image.
+        const note =
+          out.bytes < file.size * 0.9
+            ? `converted to JPEG · ${formatBytes(file.size)} → ${formatBytes(out.bytes)}`
+            : 'converted to JPEG'
+        return stagePhoto(out.dataUrl, label || file.name || null, out.bytes, note)
+      } catch (err) {
+        const msg = (err && err.message) || 'Could not read that image.'
+        setError(msg)
+        return { ok: false, error: msg }
+      }
+    }
+    if (!ALLOWED_PHOTO_MIME.includes(file.type)) {
+      const msg = 'Only JPEG, PNG, and WebP photos are supported.'
       setError(msg)
       return { ok: false, error: msg }
     }
@@ -380,21 +537,12 @@ export function useFieldAssistant() {
       setError(msg)
       return { ok: false, error: msg }
     }
-    const id =
-      typeof crypto !== 'undefined' && crypto.randomUUID
-        ? `photo-${crypto.randomUUID().slice(0, 8)}`
-        : `photo-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
-    const entry = {
-      id,
+    return stagePhoto(
       dataUrl,
-      label: typeof label === 'string' && label ? label.slice(0, 200) : file.name || null,
-      sizeBytes: file.size,
-    }
-    photosRef.current = [...photosRef.current, entry]
-    setAttachedPhotos(photosRef.current)
-    setError(null)
-    return { ok: true, id }
-  }, [])
+      typeof label === 'string' && label ? label.slice(0, 200) : file.name || null,
+      file.size,
+    )
+  }, [stagePhoto])
 
   const removePhoto = useCallback((id) => {
     photosRef.current = photosRef.current.filter((p) => p.id !== id)
@@ -405,6 +553,26 @@ export function useFieldAssistant() {
     photosRef.current = []
     setAttachedPhotos([])
   }, [])
+
+  /**
+   * Stage any dropped, pasted, or picked file.
+   *
+   * Routes on what the file IS rather than on which control it arrived
+   * through, so drag-and-drop, paste and the paperclip all behave
+   * identically — a user should not have to know that a CSV goes in one
+   * place and a photo in another.
+   */
+  const attachAny = useCallback(
+    async (file) => {
+      const kind = classifyAttachment(file)
+      if (kind === 'image') return attachPhoto(file)
+      if (kind) return attachFile(file)
+      const msg = `${(file && file.name) || 'That file'} isn't a supported type. Attach a photo, logger export (CSV/XLSX), lab results, or a PDF.`
+      setError(msg)
+      return { ok: false, error: msg }
+    },
+    [attachPhoto, attachFile],
+  )
 
   const sendMessage = useCallback(async (text, context) => {
     const trimmed = (text || '').trim()
@@ -417,7 +585,11 @@ export function useFieldAssistant() {
     setError(null)
     setSending(true)
     const photosAttached = attachedPhotos.map((p) => ({ id: p.id, label: p.label }))
-    const userMsg = makeMessage('user', trimmed, photosAttached.length ? { photos: photosAttached } : {})
+    const filesAttached = attachments.map((a) => ({ id: a.id, name: a.name, kind: a.kind }))
+    const userMsg = makeMessage('user', trimmed, {
+      ...(photosAttached.length ? { photos: photosAttached } : {}),
+      ...(filesAttached.length ? { files: filesAttached } : {}),
+    })
     setMessages((prev) => [...prev, userMsg])
 
     let token = null
@@ -458,6 +630,11 @@ export function useFieldAssistant() {
     const photosPayload = photosToSend.length
       ? photosToSend.map((p) => ({ id: p.id, dataUrl: p.dataUrl, label: p.label }))
       : undefined
+    // Only the digests travel — never the parsed file, and never its rows.
+    const filesToSend = attachments.slice()
+    const attachmentsPayload = filesToSend.length
+      ? filesToSend.map((a) => ({ id: a.id, name: a.name, kind: a.kind, text: digestToPrompt(a.digest) }))
+      : undefined
 
     let res
     try {
@@ -469,6 +646,7 @@ export function useFieldAssistant() {
           message: trimmed,
           context,
           ...(photosPayload ? { photos: photosPayload } : {}),
+          ...(attachmentsPayload ? { attachments: attachmentsPayload } : {}),
         }),
         signal: ctrl.signal,
       })
@@ -701,6 +879,12 @@ export function useFieldAssistant() {
       photosRef.current = []
       setAttachedPhotos([])
     }
+    // Same for data files: the digest has been delivered, so holding the
+    // chips would silently re-send them on the next turn.
+    if (filesToSend.length > 0 && !upstreamError) {
+      attachmentsRef.current = []
+      setAttachments([])
+    }
 
     if (upstreamError && !assistantText) {
       setError(upstreamError)
@@ -710,7 +894,10 @@ export function useFieldAssistant() {
 
     inFlight.current = null
     setSending(false)
-  }, [conversationId, sending, attachedPhotos])
+    // `attachments` belongs here for the same reason `attachedPhotos`
+    // does: without it the callback closes over an empty list and the
+    // staged files are silently dropped from the request.
+  }, [conversationId, sending, attachedPhotos, attachments])
 
   // Stop the in-flight stream. The AbortController triggers an
   // AbortError in the fetch which is caught silently by the
@@ -739,6 +926,14 @@ export function useFieldAssistant() {
     attachPhoto,
     removePhoto,
     clearPhotos,
+    attachments,
+    attachFile,
+    attachAny,
+    removeAttachment,
+    clearAttachments,
+    pendingResize,
+    confirmResize,
+    cancelResize,
     listConversations,
     loadConversation,
     deleteConversation,

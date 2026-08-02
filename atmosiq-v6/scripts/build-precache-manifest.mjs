@@ -108,6 +108,31 @@ export function buildPrecacheList(html) {
  * URLs relative to dist root with a leading slash. Errors swallowed
  * — a missing directory yields an empty array.
  */
+/**
+ * Chunks deliberately kept OUT of the precache.
+ *
+ * The walk below exists to catch lazy chunks the app will almost
+ * certainly need — jsPDF, html2canvas, DOMPurify all back report export,
+ * which is a core action worth having ready offline. A feature that most
+ * sessions never touch is the opposite case: precaching it makes every
+ * user pay its download on service-worker install and cancels out the
+ * dynamic import that was added to avoid exactly that.
+ *
+ * pdf.js is ~460 kB and is loaded only when someone attaches a PDF to
+ * the assistant. It stays on-demand. (Its worker is a `.mjs` and is
+ * already outside the extension filter below.)
+ */
+export const PRECACHE_EXCLUDE = Object.freeze([
+  /^\/assets\/pdf-[^/]*\.js$/,
+  /^\/assets\/pdfText-[^/]*\.js$/,
+  /^\/assets\/pdf\.worker[^/]*$/,
+])
+
+/** Whether an emitted asset URL is excluded from the precache list. */
+export function isPrecacheExcluded(url) {
+  return PRECACHE_EXCLUDE.some((re) => re.test(url))
+}
+
 export async function listEmittedAssets(distDir) {
   const out = []
   async function walk(dir, prefix) {
@@ -126,7 +151,7 @@ export async function listEmittedAssets(distDir) {
   }
   await walk(join(distDir, 'assets'), '/assets/')
   await walk(join(distDir, 'icons'), '/icons/')
-  return out.sort()
+  return out.filter((url) => !isPrecacheExcluded(url)).sort()
 }
 
 /**
