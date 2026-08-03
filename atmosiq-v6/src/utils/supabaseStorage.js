@@ -19,6 +19,7 @@ import { KEYS } from './storageKeys'
 import * as Sentry from '@sentry/react'
 import { compactPhotos, expandPhotos, purgeAssessmentPhotos } from './photoCompaction'
 import { resolveLifecycle, toLegacyStatus } from '../constants/reportLifecycle'
+import { normalizeAcknowledgement } from './calibrationAcknowledgement'
 
 /**
  * Lifecycle for a cloud row, tolerant of rows written before migration
@@ -102,6 +103,9 @@ export function fromCloudRow(a) {
       // block on every report.
       reportProfile: cloudLifecycle(a).profile,
       reportStatus: cloudLifecycle(a).status,
+      calibrationAcknowledgement: normalizeAcknowledgement(
+        a.calibration_acknowledgement ?? a.payload.calibrationAcknowledgement,
+      ),
       photos: a.photos ?? a.payload.photos ?? {},
       ts: a.updated_at ?? a.payload.ts,
     }
@@ -129,6 +133,13 @@ export function fromCloudRow(a) {
   out.comp = composite
   out.composite = composite
   if (a.updated_at) out.ts = a.updated_at
+  // Emitted ONLY when the cloud actually has one. This object is spread
+  // over a local copy, so an unconditional key would push `null` onto a
+  // report whose acknowledgement had not synced up yet — silently
+  // destroying the one record of a professional judgement. Absent means
+  // "the cloud has nothing to say", not "there was no acknowledgement".
+  const ack = normalizeAcknowledgement(a.calibration_acknowledgement)
+  if (ack) out.calibrationAcknowledgement = ack
   return out
 }
 
@@ -494,6 +505,11 @@ const SupaStorage = {
             status: assessment.status || toLegacyStatus(lifecycle.status),
             report_profile: lifecycle.profile,
             report_status: lifecycle.status,
+            // Instrument-exception record. Null when the assessment was
+            // finalized with complete calibration metadata — which is
+            // the true statement, not a missing value.
+            calibration_acknowledgement:
+              normalizeAcknowledgement(assessment.calibrationAcknowledgement) || null,
             facility_name: assessment.building?.fn || assessment.bldg?.fn,
             facility_address: assessment.building?.fl || assessment.bldg?.fl,
             presurvey: assessment.presurvey || {},

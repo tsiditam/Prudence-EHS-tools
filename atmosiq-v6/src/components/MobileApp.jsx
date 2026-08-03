@@ -18,6 +18,9 @@ import { supabase, trackEvent } from '../utils/supabaseClient'
 import Backup from '../utils/backup'
 import { groupActions } from '../utils/recFormatting'
 import { getCalibrationBannerState, loadInstruments, isOutOfCal } from '../utils/instrumentRegistry'
+import {
+  buildCalibrationAcknowledgement, validateJustification, MAX_JUSTIFICATION_LEN,
+} from '../utils/calibrationAcknowledgement'
 import { extractDocxText, REVIEW_INSTRUCTIONS, REVIEW_CREDIT_COST } from '../utils/reportReview'
 import { getRiskBand } from '../engines/riskBands'
 import { getSubscriptionBannerState, BILLING_MODE } from '../utils/subscriptionState'
@@ -758,6 +761,15 @@ export default function MobileApp() {
   const [delConf, setDelConf] = useState(null)
   const [zonePrompt, setZonePrompt] = useState(false)
   const [calWarning, setCalWarning] = useState(null)
+  // Calibration acknowledgement — the record left when an assessor
+  // finalizes past the instrument interrupt. See
+  // src/utils/calibrationAcknowledgement.js for why this ADDS an audit
+  // artifact rather than suppressing the warning (the old IH
+  // score-override did the latter and was deleted in engine v2.9).
+  const [calAckOpen, setCalAckOpen] = useState(false)
+  const [calAckText, setCalAckText] = useState('')
+  const [calAckError, setCalAckError] = useState(null)
+  const [calAck, setCalAck] = useState(null)
   // Saved profile instruments + the picker that lets the assessor pull
   // make/serial/cal into the assessment instead of retyping them.
   const [instPickerOpen, setInstPickerOpen] = useState(false)
@@ -1477,7 +1489,7 @@ export default function MobileApp() {
     return { zScores, composite, osha, recommendations, sp, cc, mold, mc }
   }
 
-  const finishAssessment = async (bypassCalWarning) => {
+  const finishAssessment = async (bypassCalWarning, acknowledgement) => {
     // Backend validation: prevent Data Center save without Enterprise tier
     if (bldg.ft === 'Data Center' && !isEnterprise(profile)) {
       setShowPremiumGate(true); return
@@ -1496,6 +1508,22 @@ export default function MobileApp() {
       if (missing.length > 0) { setCalWarning(missing); return }
     }
     setCalWarning(null)
+    // Carry whatever the interrupt captured (null on the clean path).
+    const calibrationAcknowledgement = acknowledgement || calAck || null
+    // Append-only copy in audit_log. The assessment row is mutable and
+    // deletable; an acknowledgement that disappears with the record it
+    // explains is not an audit trail. actor_id is derived server-side
+    // from the session, so the identity here cannot be spoofed.
+    if (calibrationAcknowledgement) {
+      emitEvent('calibration_exception_acknowledged', {
+        target_id: draftId || null,
+        target_type: 'assessment',
+        details: {
+          items: calibrationAcknowledgement.items,
+          justification: calibrationAcknowledgement.justification,
+        },
+      })
+    }
     const { zScores, composite, osha, recommendations, sp, cc } = runScoring()
     setSelZone(0); setNarrative(null)
     trackEvent('score_generated', { composite: composite?.tot, avg: composite?.avg, worst: composite?.worst, risk: composite?.risk, osha_flag: !!osha?.flag, confidence: osha?.conf || 'unknown', data_gaps: (osha?.gaps||[]).length })
@@ -1513,7 +1541,7 @@ export default function MobileApp() {
     // PR 1: stamp the report with the bound site_id when present
     // (deep-link hydration or a previous "Save site" finalize).
     // siteLink.findMostRecentReportForSite uses this on the next round.
-    const report = { id:rid, ts:new Date().toISOString(), ver:VER, presurvey, building:bldg, zones, equipment, photos, floorPlan, sensorData, zoneScores:zScores, comp:composite, oshaEvals:[osha], recs:recommendations, samplingPlan:sp, causalChains:cc, standardsManifest:STANDARDS_MANIFEST, site_id: currentSiteId || null }
+    const report = { id:rid, ts:new Date().toISOString(), ver:VER, presurvey, building:bldg, zones, equipment, photos, floorPlan, sensorData, zoneScores:zScores, comp:composite, oshaEvals:[osha], recs:recommendations, samplingPlan:sp, causalChains:cc, standardsManifest:STANDARDS_MANIFEST, site_id: currentSiteId || null, calibrationAcknowledgement }
     await STO.set(rid, report)
     await STO.addReportToIndex({ id:rid, ts:report.ts, facility:bldg.fn, score:composite?.tot })
     await STO.removeFromIndex(rid, 'dft')
@@ -1620,6 +1648,7 @@ export default function MobileApp() {
       view, presurvey, bldg, zones, curZone, photos: filteredPhotos, sensorData,
       comp, zoneScores, recs, narrative, samplingPlan, causalChains,
       profile, draftId,
+      calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null,
     })
     // 'consultant_cih' is the Consultant report in the CIH-reasoning style:
     // same pipeline, plus a Conceptual Site Model section (reportStyle flag).
@@ -1630,7 +1659,7 @@ export default function MobileApp() {
     // the included charts from their data points here — a self-contained-SVG
     // raster that every export (DOCX, AtmosFlow PDF, Web) then embeds.
     const sensorDataForReport = await ensureLoggerChartImages(sensorData)
-    const reportData = { building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, escalationTriggers: esc, floorPlan, sensorData: sensorDataForReport, labResults: viewRpt?.labResults || null, assessmentContext, reportStyle }
+    const reportData = { building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, escalationTriggers: esc, floorPlan, sensorData: sensorDataForReport, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, assessmentContext, reportStyle }
     trackEvent('report_exported', { format: docxType || format, facility: bldg.fn || '', score: comp?.tot, zones: zones.length, has_narrative: !!narrative, photos: Object.values(filteredPhotos).flat().length })
 
     try {
@@ -1715,8 +1744,9 @@ export default function MobileApp() {
       view, presurvey, bldg, zones, curZone, photos: filteredPhotos, sensorData,
       comp, zoneScores, recs, narrative, samplingPlan, causalChains,
       profile, draftId,
+      calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null,
     })
-    const reportData = { building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, floorPlan, sensorData, labResults: viewRpt?.labResults || null, ts: viewRpt?.ts, assessmentContext }
+    const reportData = { building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, floorPlan, sensorData, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, ts: viewRpt?.ts, assessmentContext }
     let blob, fileName
     try {
       const built = await getConsultantDocxBlob(reportData)
@@ -1765,8 +1795,9 @@ export default function MobileApp() {
       view, presurvey, bldg, zones, curZone, photos: filteredPhotos, sensorData,
       comp, zoneScores, recs, narrative, samplingPlan, causalChains,
       profile, draftId,
+      calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null,
     })
-    const reportData = { building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, floorPlan, sensorData, labResults: viewRpt?.labResults || null, ts: viewRpt?.ts, assessmentContext }
+    const reportData = { building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, floorPlan, sensorData, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, ts: viewRpt?.ts, assessmentContext }
     const built = await getConsultantDocxBlob(reportData)
     // Blob → base64 (strip the data: prefix).
     const base64 = await new Promise((resolve, reject) => {
@@ -3950,9 +3981,63 @@ export default function MobileApp() {
                 Use a saved instrument
               </TactileButton>
             )}
-            <TactileButton variant="ghost" fullWidth onClick={()=>{setCalWarning(null);finishAssessment(true)}}>
-              Continue without
-            </TactileButton>
+            {/* Proceeding is allowed — a credentialed assessor owns
+                defensibility and AtmosFlow never hard-blocks the
+                deliverable. What changed: it is now RECORDED. An
+                interrupt nobody writes down is indistinguishable, after
+                the fact, from an interrupt that never fired. */}
+            {!calAckOpen ? (
+              <TactileButton variant="ghost" fullWidth onClick={()=>setCalAckOpen(true)}>
+                Continue without
+              </TactileButton>
+            ) : (
+              <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                <label htmlFor="cal-ack-justification" style={{...V3.T.captionDim, textAlign:'left'}}>
+                  Why are you finalizing without this? This is recorded on the report and in the audit log.
+                </label>
+                <textarea
+                  id="cal-ack-justification"
+                  data-testid="cal-ack-justification"
+                  value={calAckText}
+                  onChange={(e)=>setCalAckText(e.target.value)}
+                  rows={3}
+                  maxLength={MAX_JUSTIFICATION_LEN}
+                  placeholder="e.g. Instrument calibrated 2026-01-10; certificate is in the project file and will be attached to the issued report."
+                  style={{
+                    width:'100%', boxSizing:'border-box', padding:'10px 12px',
+                    borderRadius:RADII.md, border:`1px solid ${BORDER}`,
+                    background:'var(--surface)', color:TEXT, fontSize:13,
+                    fontFamily:'inherit', lineHeight:1.5, resize:'vertical',
+                  }}
+                />
+                {calAckError && (
+                  <div role="alert" style={{fontSize:11,color:WARN,lineHeight:1.5,textAlign:'left'}}>{calAckError}</div>
+                )}
+                <TactileButton
+                  variant="ghost"
+                  fullWidth
+                  data-testid="cal-ack-confirm"
+                  disabled={!validateJustification(calAckText).ok}
+                  onClick={()=>{
+                    const check = validateJustification(calAckText)
+                    if (!check.ok) { setCalAckError(check.reason); return }
+                    const ack = buildCalibrationAcknowledgement({
+                      items: calWarning,
+                      justification: calAckText,
+                      assessor: { name: profile?.name, credentials: profile?.certs },
+                    })
+                    setCalAck(ack)
+                    setCalAckError(null)
+                    setCalAckOpen(false)
+                    setCalAckText('')
+                    setCalWarning(null)
+                    finishAssessment(true, ack)
+                  }}
+                >
+                  Record and finalize
+                </TactileButton>
+              </div>
+            )}
           </div>
           <div style={{textAlign:'center',marginTop:12,fontSize:10,color:DIM,lineHeight:1.5}}>Instrument metadata strengthens OSHA defensibility and professional credibility of assessment findings.</div>
         </BottomSheet>
@@ -4787,6 +4872,7 @@ export default function MobileApp() {
             photos, sensorData,
             comp, zoneScores, recs, narrative, samplingPlan, causalChains,
             profile, draftId,
+            calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null,
             index,
             incident: currentIncident,
             report_review: reviewPayload || null,

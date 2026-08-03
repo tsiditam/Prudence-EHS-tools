@@ -117,7 +117,7 @@ function fullState() {
 const EXPECTED_TOP_KEYS = [
   'meta', 'project', 'building', 'zones', 'walkthrough_findings',
   'logger_data_summary', 'photos', 'engine_outputs',
-  'readiness_verdict', 'report_draft_state',
+  'readiness_verdict', 'report_draft_state', 'calibration_acknowledgement',
 ].sort()
 
 /**
@@ -149,6 +149,43 @@ describe('buildAssessmentContext', () => {
     expect(ctx.readiness_verdict).toBeNull()
     expect(ctx.logger_data_summary).toBeNull()
     expect(ctx.report_draft_state).toBeNull()
+    expect(ctx.calibration_acknowledgement).toBeNull()
+  })
+
+  it('normalizes a calibration acknowledgement to snake_case, or null when absent', () => {
+    expect(buildAssessmentContext(fullState()).calibration_acknowledgement).toBeNull()
+
+    const ctx = buildAssessmentContext({
+      ...fullState(),
+      calibrationAcknowledgement: {
+        version: 1,
+        items: ['IAQ meter: calibration date not recorded'],
+        justification: 'Rental unit; vendor certificate to follow within five business days.',
+        assessorName: 'Tsidi Tamakloe',
+        assessorCredentials: 'CSP',
+        acknowledgedAt: '2026-08-02T12:00:00.000Z',
+      },
+    })
+    expect(ctx.calibration_acknowledgement).toEqual({
+      version: 1,
+      items: ['IAQ meter: calibration date not recorded'],
+      justification: 'Rental unit; vendor certificate to follow within five business days.',
+      assessor_name: 'Tsidi Tamakloe',
+      assessor_credentials: 'CSP',
+      acknowledged_at: '2026-08-02T12:00:00.000Z',
+    })
+  })
+
+  it('drops an unusable acknowledgement rather than exposing a hollow one', () => {
+    // A record with no justification is not an acknowledgement — it is
+    // the undocumented dismissal this feature exists to replace. Better
+    // to report nothing than to report a professional judgement that
+    // carries no reasoning.
+    const ctx = buildAssessmentContext({
+      ...fullState(),
+      calibrationAcknowledgement: { version: 1, items: ['x'], justification: '   ' },
+    })
+    expect(ctx.calibration_acknowledgement).toBeNull()
   })
 
   it('maps project + building identity from presurvey / bldg / client', () => {

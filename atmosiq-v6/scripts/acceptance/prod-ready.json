@@ -603,6 +603,71 @@
       ]
     },
     {
+      "id": "CALIBRATION-ACKNOWLEDGEMENT",
+      "label": "Finalizing past the calibration interrupt records a written, auditable justification",
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": "src/utils/calibrationAcknowledgement.js"
+        },
+        {
+          "type": "file_exists",
+          "path": "supabase/migrations/028_calibration_acknowledgement.sql"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "validateJustification",
+          "paths": [
+            "src/components/MobileApp.jsx"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "buildCalibrationAcknowledgement",
+          "paths": [
+            "src/components/MobileApp.jsx"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "calibration_exception_acknowledged",
+          "paths": [
+            "lib/events/types.ts",
+            "src/components/MobileApp.jsx"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "calibration_acknowledgement",
+          "paths": [
+            "src/utils/supabaseStorage.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "acknowledgementNotes",
+          "paths": [
+            "src/components/docx/calibration-appendix.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "calibration_acknowledgement",
+          "paths": [
+            "lib/context/types.ts"
+          ]
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/lib/calibrationAcknowledgement.test.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/scripts/migration-028-calibration-acknowledgement.test.ts"
+        }
+      ]
+    },
+    {
       "id": "NARRATIVE-AI-PROVENANCE-BANNER",
       "label": "Executive Summary AI narrative carries a hard AI-provenance banner",
       "checks": [

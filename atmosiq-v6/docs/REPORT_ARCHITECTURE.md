@@ -100,6 +100,32 @@ Rationale: withholding the deliverable does not improve the data. It
 leaves the assessor with nothing to hand a client and nothing showing
 what to fix.
 
+### The calibration acknowledgement (trigger 4's counterpart in the UI)
+
+`MobileApp.finishAssessment` separately interrupts finalization when
+instrument metadata is missing or calibration is older than
+`CAL_VALIDITY_DAYS` (365). Until 2026-08 the assessor could dismiss that
+interrupt in one click and nothing was written down — an interrupt nobody
+records is indistinguishable, after the fact, from one that never fired.
+
+Proceeding now requires a written justification, captured as a
+calibration acknowledgement (`src/utils/calibrationAcknowledgement.js`):
+
+| Where | What |
+| --- | --- |
+| DB | `assessments.calibration_acknowledgement` jsonb (migration 028, **never backfilled**) |
+| Audit | `audit_log` action `calibration_exception_acknowledged` (append-only copy) |
+| Context | `AssessmentContext.calibration_acknowledgement` |
+| Report | Appendix E QA notes — who, when, and the justification verbatim |
+
+It **adds** disclosure and removes none. An acknowledged gap still fires
+trigger 4, still appears under "Limitations on Reliance", and still
+prints its own appendix row. This is the opposite of the deleted IH
+score-override (`consultantReportOverride.js`), which mutated the score
+so triggers stopped firing — post-v2.9 that would delete a real
+disclosure rather than explain it, which is why it was removed outright
+rather than re-pointed.
+
 ## Instrument Accuracy
 
 The engine maintains accuracy specs for common instruments. When a measurement falls within the instrument's stated uncertainty band of a reference threshold, the finding is downgraded to qualitative and `definitiveConclusionAllowed` is set to false.
@@ -245,7 +271,7 @@ subsection emits two paragraphs:
 | B | `AppendixB` | Sampling locations and methodology detail (instruments + zones) |
 | C | `AppendixC` | Photo documentation (optional; empty when no photos) |
 | D | `AppendixD` | Standards & citations + the **single** engine-version line |
-| E | `AppendixE` | Quality assurance & instrument calibration records |
+| E | `AppendixE` | Quality assurance & instrument calibration records (+ the calibration acknowledgement, when one exists) |
 | F | `AppendixF` | Glossary of terms and abbreviations |
 
 Renderers live in `src/components/docx/sections-v21client.js`

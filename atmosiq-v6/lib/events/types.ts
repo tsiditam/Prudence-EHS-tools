@@ -60,6 +60,16 @@ export type EventName =
    * this fires.
    */
   | 'lab_results_attached'
+  /**
+   * An assessor finalized past the instrument-calibration interrupt and
+   * recorded why. details: { items, justification }.
+   *
+   * Written to audit_log as well as onto the assessment row on purpose:
+   * the row is mutable and deletable, and an acknowledgement that
+   * disappears with the record it excuses is not an audit trail. This
+   * is the append-only copy.
+   */
+  | 'calibration_exception_acknowledged'
 
 export const KNOWN_EVENTS: readonly EventName[] = [
   'logger_imported',
@@ -72,6 +82,7 @@ export const KNOWN_EVENTS: readonly EventName[] = [
   'peer_review_requested',
   'peer_review_completed',
   'lab_results_attached',
+  'calibration_exception_acknowledged',
 ] as const
 
 /** Optional caller-supplied input for one event. */

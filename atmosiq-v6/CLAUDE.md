@@ -157,17 +157,34 @@ Read these directories first when investigating any task:
     finalization when instrument make/model, serial, calibration date or
     status is missing, or calibration is older than 365 days. It lists
     what is missing and stops.
-  - **What it is not:** a hard block. The assessor can acknowledge and
-    proceed in one click (`finishAssessment(true)`), and **no
-    justification is captured** when they do. Report EXPORT
+  - **What it is not:** a hard block. The assessor can proceed
+    (`finishAssessment(true, acknowledgement)`). Report EXPORT
     (`handleExport` / `executeExport`) is not gated at all.
+  - **What proceeding costs (2026-08):** a written justification. The
+    interrupt's "Continue without" button opens a required textarea
+    (`validateJustification`, min 20 chars) and builds a calibration
+    ACKNOWLEDGEMENT — `src/utils/calibrationAcknowledgement.js`. It is
+    persisted on `assessments.calibration_acknowledgement` (migration
+    028, jsonb, never backfilled), emitted append-only to `audit_log` as
+    `calibration_exception_acknowledged`, exposed on the assessment
+    context as `calibration_acknowledgement`, and printed verbatim in the
+    appendix E QA notes with who / when / why.
+    The acknowledgement **ADDS an audit artifact and removes nothing.**
+    An acknowledged gap still fires the engine's data-gap trigger, still
+    appears under "Limitations on Reliance", and still prints its own
+    appendix row. Do not confuse it with the deleted IH score-override
+    (`consultantReportOverride.js`), which mutated the score so triggers
+    stopped firing — post-v2.9 that would DELETE a real disclosure.
   - **Separately**, the engine's calibration data-gap trigger fires on
     the ABSENCE of any calibration record — not on an expired one — and
     surfaces as a cover notice plus a "Limitations on Reliance" entry
     (engine v2.9+).
   - Any client-facing text describing this must not promise a hard
-    block or an override path that records a justification. Neither
-    exists. See `tests/engine/calibration-qa-notes.test.ts`.
+    block — that does not exist — and must not describe the
+    acknowledgement as resolving, waiving or excusing the gap. It
+    records who accepted it and on what reasoning; that is all. See
+    `tests/engine/calibration-qa-notes.test.ts` and
+    `tests/lib/calibrationAcknowledgement.test.ts`.
 - **The engine is sacred.** Do not modify any file under `src/engine/`
   or `src/engines/scoring.js`. Do not change scoring logic, threshold
   constants, or scoring contracts. If you think the engine needs to

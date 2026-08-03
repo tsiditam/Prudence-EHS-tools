@@ -33,26 +33,65 @@ import { watermarkSectionAttachments, buildCoverNoticeParagraph } from './docx/w
 import { reportSectionAttachments } from './docx/report-chrome'
 import { DATA_GAP_MESSAGES } from './docx/canonical-content'
 import { getCalibrationBannerState } from '../utils/instrumentRegistry'
-import { applyOverrideToScore } from '../utils/consultantReportOverride'
-import { buildOverrideCoverNoticeParagraph, buildOverrideSectionAttachments } from './docx/override-watermark'
 
 /**
- * Spread-merge calibration appendices into a ClientReport result.
+ * Merge the calibration mapper's appendices B + E into a ClientReport.
  *
- * The engine (src/engine/report/client.ts) declares appendixB +
- * appendixE as optional readonly fields on ClientReportAppendix but
- * never populates them. The DOCX renderer at sections-v21client.js
- * gates rendering on `if (ap.appendixB)`, so without this layer the
- * appendices are silently absent from the client deliverable —
- * calibration data exists in presurvey but the client never sees it.
- * This layer fills the gap from presurvey without touching engine code.
+ * ── Why this is a MERGE and not a fallback ─────────────────────────
  *
- * Engine output wins when present (forward-compat with a future
- * engine version that populates these fields itself).
+ * This layer used to read `existing.appendixE || appendixE` on the
+ * belief — stated in its own header, and encoded in
+ * `tests/engine/calibration-appendix-augment.test.ts` via a fake engine
+ * result that omitted both — that the engine declares appendix B/E but
+ * never populates them. It populates BOTH, unconditionally
+ * (`buildAppendixB` / `buildAppendixE` in src/engine/report/client.ts).
+ *
+ * So the fallback never fired, and every note the mapper produced was
+ * dead in the issued document: the validity statement, the expired-
+ * instrument warning, the unrecorded-calibration data-gap pointer, and
+ * the calibration acknowledgement. Reading a generated DOCX is what
+ * surfaced it; no assertion could, because the assertions supplied an
+ * engine result that did not resemble the real one.
+ *
+ * ── What each side contributes ─────────────────────────────────────
+ *
+ * The engine's appendices carry structure the mapper does not have:
+ * appendix B's per-zone sampling table, and the house-style headings.
+ * The mapper carries everything DERIVED FROM THE DATA: the rendered
+ * calibration status ("EXPIRED — 31 days overdue", "Date not
+ * recorded" — the engine prints a bare em-dash), the state-dependent QA
+ * notes, and the acknowledgement.
+ *
+ * Two specific overrides, both about truthfulness rather than taste:
+ *
+ *   • Appendix E's DESCRIPTION. The engine's constant reads
+ *     "Calibration was verified to be within manufacturer
+ *     specification at the time of survey." AtmosFlow verifies no such
+ *     thing — it records a date the assessor typed, and prints that
+ *     sentence even when no date exists at all. Claiming a control that
+ *     was never applied is the exact failure `calibration-appendix.js`
+ *     and `tests/engine/calibration-qa-notes.test.ts` exist to prevent.
+ *   • Instrument STATUS cells. "Date not recorded" tells a reader
+ *     something; "—" reads as a formatting artifact.
+ *
+ * QA notes are unioned, engine-first: its three notes are generic and
+ * true statements about field method, and the mapper's are the
+ * data-derived ones that must follow them.
+ *
+ * The engine is untouched — this is the rendering-augmentation layer
+ * the mapper has always lived in.
+ *
+ * `calibrationAcknowledgement` — the record left when the assessor
+ * finalized past the calibration interrupt — flows through to appendix
+ * E's QA notes. It is threaded here rather than read from `presurvey`
+ * because it is a decision ABOUT the presurvey, not part of it: the
+ * presurvey can be edited afterwards; the acknowledgement must not be.
  */
-export function augmentWithCalibrationAppendices(result, presurvey) {
+export function augmentWithCalibrationAppendices(result, presurvey, opts = {}) {
   if (!result || result.kind === 'pre_assessment_memo' || !result.report) return result
-  const { appendixB, appendixE } = buildCalibrationAppendix(presurvey)
+  const { appendixB, appendixE } = buildCalibrationAppendix(presurvey, {
+    calibrationAcknowledgement: opts.calibrationAcknowledgement,
+  })
   if (!appendixB && !appendixE) return result
   const existing = result.report.appendix || {}
   return {
@@ -61,10 +100,54 @@ export function augmentWithCalibrationAppendices(result, presurvey) {
       ...result.report,
       appendix: {
         ...existing,
-        appendixB: existing.appendixB || appendixB || undefined,
-        appendixE: existing.appendixE || appendixE || undefined,
+        appendixB: mergeAppendixB(existing.appendixB, appendixB),
+        appendixE: mergeAppendixE(existing.appendixE, appendixE),
       },
     },
+  }
+}
+
+/** Union preserving order, first occurrence wins. */
+function unionNotes(...lists) {
+  const seen = new Set()
+  const out = []
+  for (const list of lists) {
+    for (const note of Array.isArray(list) ? list : []) {
+      const key = String(note || '').trim()
+      if (!key || seen.has(key)) continue
+      seen.add(key)
+      out.push(note)
+    }
+  }
+  return out
+}
+
+function mergeAppendixB(engine, mapped) {
+  if (!engine) return mapped || undefined
+  if (!mapped) return engine
+  return {
+    ...engine,
+    // Mapper rows carry the rendered calibration status; engine rows
+    // carry a bare em-dash. Same instruments either way — both derive
+    // from the same presurvey fields via the same two slots.
+    instrumentRows: mapped.instrumentRows?.length ? mapped.instrumentRows : engine.instrumentRows,
+    // Only the engine builds the per-zone sampling table.
+    zoneRows: engine.zoneRows?.length ? engine.zoneRows : mapped.zoneRows,
+  }
+}
+
+function mergeAppendixE(engine, mapped) {
+  if (!engine) return mapped || undefined
+  if (!mapped) return engine
+  return {
+    ...engine,
+    // See the header: the engine's constant asserts a verification that
+    // never happens.
+    description: mapped.description || engine.description,
+    calibrationRecords: mapped.calibrationRecords?.length
+      ? mapped.calibrationRecords
+      : engine.calibrationRecords,
+    qaNotes: unionNotes(engine.qaNotes, mapped.qaNotes),
   }
 }
 
@@ -256,18 +339,25 @@ async function buildConsultantDocument(ctx, data) {
     { meta, presurvey: data.presurvey, building: data.building },
   )
 
-  // IH professional-judgment override: the SPA's preflight modal
-  // surfaced the engine's refusal triggers, the IH typed a
-  // justification, and elected to issue under override. We mutate the
-  // engine's INPUT (the score) to bypass the requested triggers, leaving
-  // the engine itself untouched. The cover notice below records what
-  // was overridden so the deliverable speaks plainly to its reader.
-  let overrideMutations = []
-  if (data.ihOverride && Array.isArray(data.ihOverride.triggers) && data.ihOverride.triggers.length > 0) {
-    const result = applyOverrideToScore(score, data.ihOverride)
-    score = result.score
-    overrideMutations = result.mutations
-  }
+  // ── The IH score-override path was REMOVED (engine v2.9) ────────
+  //
+  // It existed to bypass the engine's refusal-to-issue: it mutated the
+  // score so the refusal triggers stopped firing, and a cover notice
+  // recorded what had been overridden. Since v2.9 the engine does not
+  // refuse — it always issues, carrying the fired triggers as
+  // `dataGapWarnings` rendered on the cover and under "Limitations on
+  // Reliance".
+  //
+  // That makes the old mechanism not merely unused but WRONG. Flipping
+  // `hasCalibrationRecords` (its calibration branch) would stop trigger
+  // 4 firing, which would now DELETE a real data gap from the issued
+  // report rather than disclose it. There is no longer anything to
+  // bypass, and suppressing a disclosure is the opposite of the intent.
+  //
+  // What the assessor actually needs — a record when they proceed past
+  // the calibration interrupt — is served by the calibration
+  // ACKNOWLEDGEMENT (src/utils/calibrationAcknowledgement.js), which
+  // adds an audit artifact instead of removing a warning.
   const engineResult = renderClientReport(score, {
     includeAssessmentIndexAppendix: !!data.includeAssessmentIndexAppendix,
   })
@@ -275,7 +365,9 @@ async function buildConsultantDocument(ctx, data) {
   // optional readonly fields but does not populate them today; this layer
   // fills them from presurvey data and preserves engine output if a future
   // engine version starts emitting them itself. No engine files modified.
-  const result = augmentWithCalibrationAppendices(engineResult, data.presurvey)
+  const result = augmentWithCalibrationAppendices(engineResult, data.presurvey, {
+    calibrationAcknowledgement: data.calibrationAcknowledgement,
+  })
 
   // Supplemental sections are folded into the canonical model by
   // buildClientDocx (sections-supplemental.js) rather than appended after
@@ -334,24 +426,16 @@ async function buildConsultantDocument(ctx, data) {
   const sectionWatermark = watermarkSectionAttachments(watermarkConfig)
   const coverNotice = buildCoverNoticeParagraph(watermarkConfig)
 
-  // IH override watermark — independent of free-tier watermark, fires
-  // only when data.ihOverride was attached upstream by the preflight
-  // modal. The cover notice is prepended (visible before the report
-  // title); the per-page header/footer marks every page.
-  const overrideAttachments = buildOverrideSectionAttachments(data.ihOverride)
-  const overrideNoticeBlocks = buildOverrideCoverNoticeParagraph(data.ihOverride, overrideMutations)
-
   const coverChildren = [
-    ...overrideNoticeBlocks,
     ...(cover.children || []),
     ...(coverNotice ? [coverNotice] : []),
   ]
 
   // Formal running header/footer (firm · project no. / "Confidential —
   // Prepared for {client}" · Page X of Y). Used as the BASE of the body
-  // merge so the free-tier watermark and IH-override attachments still
-  // take precedence for their slots when present (their whole-object
-  // spread replaces this chrome). Paid reports — which previously had
+  // merge so the free-tier watermark attachments still take precedence
+  // for their slots when present (their whole-object spread replaces
+  // this chrome). Paid reports — which previously had
   // no running header/footer — get the formal chrome.
   const reportChrome = reportSectionAttachments({
     firm: meta.issuingFirm?.name,
@@ -361,17 +445,15 @@ async function buildConsultantDocument(ctx, data) {
       || ctx.facilityName,
   })
 
-  // Cover keeps only the watermark/override attachments (no formal
-  // running chrome on the title page); the body gets the chrome with
-  // watermark/override layered on top.
+  // Cover keeps only the watermark attachments (no formal running
+  // chrome on the title page); the body gets the chrome with the
+  // watermark layered on top.
   const coverAttachments = {
     ...sectionWatermark,
-    ...overrideAttachments,
   }
   const bodyAttachments = {
     ...reportChrome,
     ...sectionWatermark,
-    ...overrideAttachments,
   }
 
   return new Document({

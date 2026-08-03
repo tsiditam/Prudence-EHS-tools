@@ -161,6 +161,56 @@ describe('fromCloudRow — payload preference (lossless restore)', () => {
   })
 })
 
+describe('fromCloudRow — calibration acknowledgement', () => {
+  const ACK = {
+    version: 1,
+    items: ['IAQ meter: calibration date not recorded'],
+    justification: 'Rental unit; vendor certificate to follow within five business days.',
+    assessorName: 'Tsidi Tamakloe',
+    assessorCredentials: 'CSP',
+    acknowledgedAt: '2026-08-02T12:00:00.000Z',
+  }
+
+  it('normalizes the column onto the app shape', () => {
+    const out = fromCloudRow({ ...cloudRow(), calibration_acknowledgement: ACK })
+    expect(out.calibrationAcknowledgement).toEqual(ACK)
+  })
+
+  it('prefers the column over a stale copy inside the payload', () => {
+    // The column is the authoritative record; the payload snapshot can
+    // predate an acknowledgement written by a later client.
+    const out = fromCloudRow({
+      id: 'A-1', status: 'complete', updated_at: 't',
+      calibration_acknowledgement: ACK,
+      payload: { id: 'A-1', calibrationAcknowledgement: { ...ACK, justification: 'stale' } },
+    })
+    expect(out.calibrationAcknowledgement.justification).toBe(ACK.justification)
+  })
+
+  it('restores an acknowledgement carried only by the payload (pre-028 rows)', () => {
+    const out = fromCloudRow({
+      id: 'A-1', status: 'complete', updated_at: 't',
+      payload: { id: 'A-1', calibrationAcknowledgement: ACK },
+    })
+    expect(out.calibrationAcknowledgement).toEqual(ACK)
+  })
+
+  it('does not clobber a local acknowledgement when the cloud row has none', () => {
+    // fromCloudRow's output is spread over the local copy. An
+    // unconditional null key would destroy the only record of a
+    // professional judgement that had not synced up yet.
+    const norm = fromCloudRow(cloudRow())
+    expect('calibrationAcknowledgement' in norm).toBe(false)
+    const merged = { ...{ id: 'A-1', calibrationAcknowledgement: ACK }, ...norm }
+    expect(merged.calibrationAcknowledgement).toEqual(ACK)
+  })
+
+  it('drops a stored record with no reasoning rather than surfacing a hollow one', () => {
+    const out = fromCloudRow({ ...cloudRow(), calibration_acknowledgement: { items: ['x'] } })
+    expect('calibrationAcknowledgement' in out).toBe(false)
+  })
+})
+
 describe('getRemoteAssessment — cloud-bypass fetch', () => {
   it('is exported and resolves null when no cloud is configured (offline-safe)', async () => {
     // jsdom has no VITE_SUPABASE_URL, so supabase is null → isOnline() false.

@@ -5,13 +5,20 @@
  * not the full `data` object) and emits the AppendixB + AppendixE
  * structures that sections-v21client.js renders.
  *
- * Lives outside src/engine/ on purpose. The TypeScript engine declares
- * appendixB / appendixE as optional readonly fields on
- * ClientReportAppendix but does not populate them today, so this is a
- * report-rendering augmentation layer — not engine work, no scoring
- * touched. The augmentation site is DocxReport.js, which spread-merges
- * the output into result.report.appendix before buildClientDocx reads
- * it.
+ * Lives outside src/engine/ on purpose: this is a report-rendering
+ * augmentation layer — not engine work, no scoring touched. The
+ * augmentation site is `augmentWithCalibrationAppendices` in
+ * DocxReport.js, which merges this output into result.report.appendix
+ * before buildClientDocx reads it.
+ *
+ * The engine DOES build its own appendix B + E (buildAppendixB /
+ * buildAppendixE in src/engine/report/client.ts) — an earlier version of
+ * this comment said it did not, and the augmentation deferred to the
+ * engine on that basis, which made everything below dead in the issued
+ * document. What this module contributes over the engine's version is
+ * everything derived from the data rather than constant: the rendered
+ * calibration status, the state-dependent QA notes, and the calibration
+ * acknowledgement. See the merge rules in DocxReport.js.
  *
  * Calibration status is derived from getCalibrationBannerState() in
  * src/utils/instrumentRegistry.js — the same helper the dashboard
@@ -25,9 +32,10 @@
  * to state it accurately:
  *   • EXPIRED (>CAL_VALIDITY_DAYS) or MISSING metadata — interrupts
  *     finalization in MobileApp.finishAssessment with a warning listing
- *     what is missing. The assessor can acknowledge and proceed
- *     (finishAssessment(true)); it is a speed bump, not a hard block,
- *     and NO justification is captured when they do.
+ *     what is missing. The assessor can proceed, but only by recording
+ *     a written acknowledgement (see calibrationAcknowledgement.js):
+ *     it is a speed bump, not a hard block, and the acknowledgement is
+ *     rendered verbatim in the QA notes below.
  *   • EXPIRING — surfaces here and in the in-app banner only.
  *   • NO RECORD AT ALL — additionally fires the engine's calibration
  *     data-gap trigger, which puts a warning on the cover and in the
@@ -40,6 +48,7 @@
  */
 
 import { CAL_VALIDITY_DAYS, getCalibrationBannerState } from '../../utils/instrumentRegistry'
+import { acknowledgementNotes } from '../../utils/calibrationAcknowledgement'
 
 /**
  * Render a presurvey calibration-status field plus a calibration date
@@ -116,6 +125,9 @@ function calibrationRecord(meter, serial, calDate, calStatus, now) {
  * @param {object} presurvey  the assessment's presurvey object (data.presurvey)
  * @param {object} [opts]
  * @param {Date}   [opts.now]  injectable clock for testing
+ * @param {object} [opts.calibrationAcknowledgement] the record left when
+ *   the assessor finalized past the calibration interrupt. Rendered as
+ *   the final QA note; adds disclosure, never removes one.
  * @returns {{
  *   appendixB: { title: string, description: string, instrumentRows: Array, zoneRows: Array } | null,
  *   appendixE: { title: string, description: string, calibrationRecords: Array, qaNotes: Array } | null,
@@ -163,7 +175,14 @@ export function buildCalibrationAppendix(presurvey, opts = {}) {
   const instrumentRows = [iaqRow, pidRow].filter(Boolean)
   const calibrationRecords = [iaqRec, pidRec].filter(Boolean)
 
-  if (instrumentRows.length === 0 && calibrationRecords.length === 0) {
+  const ackNotes = acknowledgementNotes(opts.calibrationAcknowledgement)
+
+  // Nothing to say at all. Note the acknowledgement check: the interrupt
+  // that produces an acknowledgement fires on MISSING instrument
+  // metadata, which is exactly the case that yields zero rows — so
+  // returning early on rows alone would drop the acknowledgement in the
+  // one situation it most needs printing.
+  if (instrumentRows.length === 0 && calibrationRecords.length === 0 && ackNotes.length === 0) {
     return { appendixB: null, appendixE: null }
   }
 
@@ -176,18 +195,21 @@ export function buildCalibrationAppendix(presurvey, opts = {}) {
   //   1. "AtmosFlow blocks report finalization when any listed
   //      instrument is past validity." Overstated. Stale calibration
   //      INTERRUPTS finalization (MobileApp.finishAssessment) with a
-  //      warning, but the assessor can acknowledge and proceed in one
-  //      click — so "blocks" promised a hard control that is really a
-  //      speed bump. Report EXPORT is not gated at all. (The engine's
-  //      calibration data-gap trigger fires on the ABSENCE of a record,
-  //      not on an expired one.)
+  //      warning, but the assessor may proceed — so "blocks" promised a
+  //      hard control that is really a speed bump. Report EXPORT is not
+  //      gated at all. (The engine's calibration data-gap trigger fires
+  //      on the ABSENCE of a record, not on an expired one.)
   //
   //   2. "Finalization was permitted only via the documented override
   //      path." Doubly untrue: finalization was never blocked, so
   //      nothing needed permitting — and the override path it named is
-  //      unreachable. `data.ihOverride` (DocxReport.js) is populated by
-  //      no caller, because the preflight modal that set it was removed
-  //      by product decision.
+  //      unreachable — and the machinery behind it has since been
+  //      deleted outright (engine v2.9 removed the refusal it existed to
+  //      bypass, which made it a suppression mechanism rather than a
+  //      disclosure one). What replaces it is the calibration
+  //      ACKNOWLEDGEMENT rendered below: proceeding past the interrupt
+  //      now requires a written justification, and that justification is
+  //      reproduced here verbatim.
   //
   // Claiming a control that does not exist is worse than claiming none:
   // it invites a reader to rely on a safeguard that was never applied.
@@ -195,8 +217,9 @@ export function buildCalibrationAppendix(presurvey, opts = {}) {
   qaNotes.push(
     `Calibration validity: ${CAL_VALIDITY_DAYS} days from the most recent calibration date. `
     + 'Instruments outside validity, or without a recorded calibration, interrupt assessment finalization '
-    + 'with a warning the assessor must acknowledge before proceeding; the assessor of record determines '
-    + 'whether the instrument record supports the conclusions drawn.',
+    + 'with a warning. Proceeding requires a written acknowledgement from the assessor of record, which is '
+    + 'reproduced in these notes when one was given; the assessor of record determines whether the '
+    + 'instrument record supports the conclusions drawn.',
   )
   const anyExpiring = calibrationRecords.some(r => r.status.startsWith('EXPIRING'))
   const anyExpired = calibrationRecords.some(r => r.status.startsWith('EXPIRED'))
@@ -225,8 +248,16 @@ export function buildCalibrationAppendix(presurvey, opts = {}) {
     )
   }
 
+  // The acknowledgement, when one exists, is the LAST note — after the
+  // gaps it responds to, so a reader meets the problem before the
+  // explanation. It never replaces a gap note; both appear.
+  qaNotes.push(...ackNotes)
+
   return {
-    appendixB: {
+    // Appendix B is a table of instruments. With no instruments there is
+    // no table, so it stays null even when the acknowledgement forced
+    // appendix E into existence.
+    appendixB: instrumentRows.length === 0 ? null : {
       title: 'Appendix B — Sampling Locations and Methodology',
       description: 'Instruments deployed during the assessment, the parameters they measured, and the calibration provenance for each unit.',
       instrumentRows,
@@ -234,7 +265,9 @@ export function buildCalibrationAppendix(presurvey, opts = {}) {
     },
     appendixE: {
       title: 'Appendix E — Quality Assurance and Instrument Calibration',
-      description: 'Per-instrument calibration records and QA notes supporting the defensibility of the measurements reported in the body of this report.',
+      description: calibrationRecords.length > 0
+        ? 'Per-instrument calibration records and QA notes supporting the defensibility of the measurements reported in the body of this report.'
+        : 'No instrument calibration records were available for this assessment. The QA notes below document the calibration control and the exception recorded against it.',
       calibrationRecords,
       qaNotes,
     },
