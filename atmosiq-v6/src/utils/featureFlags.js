@@ -31,6 +31,15 @@
  * and it is enable-only (it can turn the feature ON for a cohort member, never
  * force it OFF for a non-member — non-members simply fall through to the host
  * default). The master KG_KILL_SWITCH still overrides everything.
+ *
+ * Desktop-only surface: the Knowledge Graph is a wide, node-link + evidence-map
+ * experience that does not fit a phone viewport, so it ships to DESKTOP only.
+ * `isKnowledgeGraphEnabled()` answers the rollout question (host / URL / cohort);
+ * the viewport question is a SEPARATE gate, `isDesktopViewport()`, applied at
+ * each surface (main.jsx for the /dev preview + KG Preview button; MobileApp's
+ * reactive `isDesktop` from useMediaQuery for the in-app Evidence tab). Keeping
+ * the two orthogonal means the resolution contract below is unchanged and the
+ * desktop breakpoint lives in one shared constant (KG_DESKTOP_MIN_WIDTH).
  */
 
 const PROD_HOSTS = new Set(['atmosflow.net', 'www.atmosflow.net'])
@@ -39,6 +48,15 @@ export const KG_STORAGE_KEY = 'af.kgEvidence'
 // Distinct from KG_STORAGE_KEY so a cohort default never clobbers — nor is
 // clobbered by — the user's own explicit ?kg= choice.
 export const KG_COHORT_STORAGE_KEY = 'af.kgCohort'
+
+/**
+ * Minimum viewport width (px) at which the Knowledge Graph surfaces are shown.
+ * The KG is a desktop-only experience; below this width the feature stays off
+ * regardless of the rollout flag. Matches the `isDesktop` breakpoint used by
+ * `useMediaQuery` (src/hooks/useMediaQuery.js) so the module gate and the
+ * reactive in-app gate agree.
+ */
+export const KG_DESKTOP_MIN_WIDTH = 1024
 
 /**
  * Master kill switch for the Knowledge Graph.
@@ -52,12 +70,35 @@ export const KG_COHORT_STORAGE_KEY = 'af.kgCohort'
  * default with `?kg=1` opt-in). This single boolean is the unambiguous
  * "turn it all off" control; nothing else needs to change to disable or
  * re-enable the feature.
+ *
+ * Current state: LIFTED (`false`) — the staged rollout is active, and every KG
+ * surface is additionally gated to DESKTOP viewports (see KG_DESKTOP_MIN_WIDTH
+ * and isDesktopViewport). Set back to `true` to take the feature fully dark
+ * again on every device.
  */
-export const KG_KILL_SWITCH = true
+export const KG_KILL_SWITCH = false
 
 /** True when the host is the live production domain. */
 export function isProdHost(hostname) {
   return PROD_HOSTS.has(String(hostname || '').toLowerCase())
+}
+
+/**
+ * True when the current viewport is desktop-width (>= KG_DESKTOP_MIN_WIDTH).
+ *
+ * The Knowledge Graph is a desktop-only surface. This is the VIEWPORT gate, kept
+ * separate from the rollout flag (isKnowledgeGraphEnabled) so the two compose:
+ * a surface shows only when the feature is rolled out AND the viewport qualifies.
+ * Pure and injectable for tests; guarded so a missing `window` (SSR) reads as
+ * not-desktop rather than throwing.
+ *
+ * @param {object} [env] Injection seam for tests.
+ * @param {number} [env.width] defaults to window.innerWidth (0 when no window).
+ * @returns {boolean}
+ */
+export function isDesktopViewport(env = {}) {
+  const width = env.width ?? (typeof window !== 'undefined' ? window.innerWidth : 0)
+  return Number(width) >= KG_DESKTOP_MIN_WIDTH
 }
 
 function safeLocalStorage() {

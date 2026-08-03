@@ -6,7 +6,7 @@
  * fallback) AND the master kill switch on isKnowledgeGraphEnabled.
  */
 import { describe, it, expect } from 'vitest'
-import { isKnowledgeGraphEnabled, resolveKgFlag, applyKgCohort, isProdHost, KG_KILL_SWITCH, KG_STORAGE_KEY, KG_COHORT_STORAGE_KEY } from '../../src/utils/featureFlags.js'
+import { isKnowledgeGraphEnabled, resolveKgFlag, applyKgCohort, isProdHost, isDesktopViewport, KG_KILL_SWITCH, KG_DESKTOP_MIN_WIDTH, KG_STORAGE_KEY, KG_COHORT_STORAGE_KEY } from '../../src/utils/featureFlags.js'
 
 // Minimal in-memory Storage stub (full Storage surface for the type).
 function memStorage(seed: Record<string, string> = {}): Storage {
@@ -131,19 +131,42 @@ describe('resolveKgFlag — storage unavailable', () => {
 })
 
 describe('isKnowledgeGraphEnabled — master kill switch', () => {
-  it('is currently ENGAGED (feature off everywhere)', () => {
-    expect(KG_KILL_SWITCH).toBe(true)
+  it('is currently LIFTED (staged rollout active)', () => {
+    expect(KG_KILL_SWITCH).toBe(false)
   })
-  it('forces OFF regardless of host, ?kg=1, or persisted opt-in while engaged', () => {
-    expect(isKnowledgeGraphEnabled({ hostname: 'foo.vercel.app', search: '', storage: memStorage() })).toBe(false)
-    expect(isKnowledgeGraphEnabled({ hostname: 'localhost', search: '?kg=1', storage: memStorage() })).toBe(false)
-    expect(isKnowledgeGraphEnabled({ hostname: 'atmosflow.net', search: '?kg=1', storage: memStorage({ [KG_STORAGE_KEY]: '1' }) })).toBe(false)
-    // the beta cohort marker does not escape the kill switch either
-    expect(isKnowledgeGraphEnabled({ hostname: 'atmosflow.net', search: '', storage: memStorage({ [KG_COHORT_STORAGE_KEY]: '1' }) })).toBe(false)
+  it('delegates to resolveKgFlag when the switch is lifted', () => {
+    // With the switch off, the rollout gate === host/URL/cohort resolution.
+    expect(isKnowledgeGraphEnabled({ hostname: 'foo.vercel.app', search: '', storage: memStorage() })).toBe(true)
+    expect(isKnowledgeGraphEnabled({ hostname: 'atmosflow.net', search: '', storage: memStorage() })).toBe(false)
+    expect(isKnowledgeGraphEnabled({ hostname: 'atmosflow.net', search: '?kg=1', storage: memStorage() })).toBe(true)
+    expect(isKnowledgeGraphEnabled({ hostname: 'atmosflow.net', search: '', storage: memStorage({ [KG_COHORT_STORAGE_KEY]: '1' }) })).toBe(true)
   })
-  it('would delegate to resolveKgFlag when the kill switch is lifted', () => {
-    // Documents the wiring: with the switch off, the public flag === resolution.
-    // (resolveKgFlag is exhaustively covered above.)
-    expect(typeof resolveKgFlag).toBe('function')
+})
+
+describe('isDesktopViewport — desktop-only surface gate', () => {
+  it('the breakpoint matches the useMediaQuery isDesktop threshold (1024)', () => {
+    expect(KG_DESKTOP_MIN_WIDTH).toBe(1024)
+  })
+  it('is true at or above the desktop breakpoint', () => {
+    expect(isDesktopViewport({ width: KG_DESKTOP_MIN_WIDTH })).toBe(true)
+    expect(isDesktopViewport({ width: 1280 })).toBe(true)
+    expect(isDesktopViewport({ width: 1920 })).toBe(true)
+  })
+  it('is false below the desktop breakpoint (phones / small tablets)', () => {
+    expect(isDesktopViewport({ width: KG_DESKTOP_MIN_WIDTH - 1 })).toBe(false)
+    expect(isDesktopViewport({ width: 768 })).toBe(false)
+    expect(isDesktopViewport({ width: 375 })).toBe(false)
+  })
+  it('reads as not-desktop when no window / width is available (SSR-safe)', () => {
+    expect(isDesktopViewport({ width: 0 })).toBe(false)
+    expect(isDesktopViewport({ width: undefined })).toBe(false)
+  })
+  it('composes with the rollout gate — feature shows only when BOTH pass', () => {
+    // The two gates are orthogonal: isKnowledgeGraphEnabled answers "rolled out
+    // here?" and isDesktopViewport answers "does this viewport qualify?". A
+    // surface ANDs them (main.jsx statically, MobileApp via the reactive hook).
+    const rolledOut = isKnowledgeGraphEnabled({ hostname: 'localhost', search: '', storage: memStorage() })
+    expect(rolledOut && isDesktopViewport({ width: 1440 })).toBe(true)
+    expect(rolledOut && isDesktopViewport({ width: 600 })).toBe(false)
   })
 })

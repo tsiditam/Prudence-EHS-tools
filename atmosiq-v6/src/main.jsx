@@ -19,7 +19,7 @@ import DevPreviewButton from './components/dev/DevPreviewButton'
 import { Toaster } from 'sonner'
 import { initSentryClient } from '../lib/sentry-client'
 import { bootTheme, getTheme } from './utils/theme'
-import { isKnowledgeGraphEnabled } from './utils/featureFlags'
+import { isKnowledgeGraphEnabled, isDesktopViewport } from './utils/featureFlags'
 
 initSentryClient()
 bootTheme()
@@ -27,10 +27,11 @@ bootTheme()
 const isEarlyAccess = window.location.pathname === '/early-access'
 
 // Knowledge Graph surfaces (the /dev preview, the KG Preview button, and the
-// in-app Evidence tab) share one gate. Enabled on preview/localhost; OFF on
-// the production host until merged; flip on a live demo with ?kg=1. See
-// src/utils/featureFlags.js.
-const kgEnabled = isKnowledgeGraphEnabled()
+// in-app Evidence tab) share one rollout gate. Enabled on preview/localhost;
+// OFF on the production host by default; flip on a live demo with ?kg=1. See
+// src/utils/featureFlags.js. The KG is a desktop-only experience, so every
+// surface additionally requires a desktop-width viewport.
+const kgEnabled = isKnowledgeGraphEnabled() && isDesktopViewport()
 const isDevEvidenceMap = kgEnabled && window.location.pathname === '/dev/evidence-map'
 
 // Lazy so the preview (and the demo data + engine pipeline it pulls in) never
