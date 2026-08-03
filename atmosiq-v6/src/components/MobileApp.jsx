@@ -2613,7 +2613,7 @@ export default function MobileApp() {
           onChange={(k)=>{ setRTab(k); haptic('light') }}
           tabs={[...(userMode === 'fm'
             ? [['overview','findings','Findings'],['narrative','notes','Narrative'],['actions','check','Actions'],['readiness','shield','Review']]
-            : [['overview','findings','Findings'],['rootcause','chain','Pathways'],...(KG_EVIDENCE_ENABLED?[['evidence','search','Evidence']]:[]),['sampling','flask','Sampling'],['narrative','notes','Narrative'],['actions','check','Actions'],['readiness','shield','Review']]),
+            : [['overview','findings','Findings'],['rootcause','chain','Pathways'],...(KG_EVIDENCE_ENABLED&&isDesktop?[['evidence','search','Evidence']]:[]),['sampling','flask','Sampling'],['narrative','notes','Narrative'],['actions','check','Actions'],['readiness','shield','Review']]),
             ...(hasLoggerData ? [['logger','chart','Logger']] : [])
           ].map(([tid,icon,label])=>({ id:tid, icon, label }))}
         />
@@ -3065,7 +3065,7 @@ export default function MobileApp() {
           )})}
         </div>}
 
-        {KG_EVIDENCE_ENABLED&&rTab==='evidence'&&<EvidenceMap zones={zones} zoneScores={zoneScores} causalChains={causalChains} recs={recs} assessmentId={viewRpt?.id} />}
+        {KG_EVIDENCE_ENABLED&&rTab==='evidence'&&isDesktop&&<EvidenceMap zones={zones} zoneScores={zoneScores} causalChains={causalChains} recs={recs} assessmentId={viewRpt?.id} />}
 
         {rTab==='sampling'&&<div style={{display:'flex',flexDirection:'column',gap:14}}>
           {(!samplingPlan||samplingPlan.plan.length===0)?<div style={{padding:36,textAlign:'center',background:CARD,borderRadius:10,border:`1px solid ${BORDER}`}}><I n="flask" s={24} c={DIM} w={1.4} /><div style={{fontSize:14,fontWeight:600,marginTop:12,marginBottom:4,color:SUB}}>No sampling indicated</div><div style={{fontSize:12,color:DIM,lineHeight:1.5}}>No hypotheses requiring confirmatory sampling.</div></div>

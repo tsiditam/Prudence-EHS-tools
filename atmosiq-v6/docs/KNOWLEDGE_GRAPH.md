@@ -8,9 +8,12 @@ requirements around them. It powers an on-screen **Evidence Map**, a node-link
 matrix** — all reading the *same* projection, so the screen, the AI, and the
 deliverable can never disagree.
 
-> **Status:** staged and **gated behind a feature flag**. ON for preview /
-> localhost builds; **OFF on `atmosflow.net`** until the PR is reviewed and
-> merged. See [Feature flag](#feature-flag).
+> **Status:** live behind a feature flag, **desktop only**. The master kill
+> switch is **lifted**, so the staged rollout is active: ON for preview /
+> localhost builds and available on `atmosflow.net` via `?kg=1` / the beta
+> cohort. Every surface additionally requires a **desktop-width viewport**
+> (≥ 1024 px) — the KG does not render on phones. See
+> [Feature flag](#feature-flag).
 
 ## First principle
 
@@ -82,19 +85,34 @@ The Evidence Map tab renders the §14 graph at the top and the §13 cards below.
 
 ## Feature flag
 
-All KG surfaces gate on **`isKnowledgeGraphEnabled()`**
-(`src/utils/featureFlags.js`).
+All KG surfaces gate on two orthogonal predicates in
+`src/utils/featureFlags.js`:
+
+1. **`isKnowledgeGraphEnabled()`** — the *rollout* gate (kill switch + host /
+   URL / cohort resolution, below).
+2. **`isDesktopViewport()`** — the *viewport* gate. The KG is a wide node-link +
+   evidence-map experience, so it ships to **desktop only** (viewport
+   ≥ `KG_DESKTOP_MIN_WIDTH`, 1024 px — the same breakpoint `useMediaQuery`
+   calls `isDesktop`). A surface renders only when **both** pass.
+
+`main.jsx` ANDs the two statically for the `/dev/evidence-map` route and the KG
+Preview button; `MobileApp.jsx` ANDs the module-level rollout flag with the
+**reactive** `isDesktop` from `useMediaQuery`, so the in-app Evidence tab
+appears/disappears live as the window crosses 1024 px and never shows on a
+phone.
 
 ### Master kill switch
 
 `KG_KILL_SWITCH` (top of `featureFlags.js`) is the single, unambiguous off
 control. While **`true`**, every KG surface is OFF **everywhere** — production
-*and* preview/localhost — regardless of host, `?kg=`, or localStorage. It
-overrides all other resolution. Set it to **`false`** to resume the staged
-rollout below. Nothing else needs to change to disable or re-enable the feature.
+*and* preview/localhost, desktop *and* mobile — regardless of host, `?kg=`,
+viewport, or localStorage. It overrides all other resolution. Set it to
+**`false`** to resume the staged rollout below. Nothing else needs to change to
+disable or re-enable the feature.
 
-> **Current state: `KG_KILL_SWITCH = true` (engaged — the feature is fully
-> dark).** Flip to `false` to bring back the staged rollout.
+> **Current state: `KG_KILL_SWITCH = false` (lifted — staged rollout active,
+> desktop only).** Flip to `true` to take the feature fully dark again on every
+> device.
 
 ### Staged resolution (when the kill switch is lifted)
 
