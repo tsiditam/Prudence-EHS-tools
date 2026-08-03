@@ -186,6 +186,63 @@ function checkUnbackedThresholds(text, opts = {}) {
   return hits
 }
 
+// ── Threshold-question detection (pre-answer tool forcing) ──────────────
+// checkUnbackedThresholds runs AFTER the answer streams and retracts it if a
+// number isn't tool-backed. That retraction is jarring, so we prevent it at
+// the source: when the USER's question is asking for a numeric limit, the
+// handler forces a retrieval tool call on the first model turn, making the
+// answer's numbers tool-backed (retrievalUsed=true) so the post-check passes.
+//
+// Strong intent: exposure-limit acronyms/terms that are ALWAYS a numeric ask.
+const THRESHOLD_INTENT_STRONG =
+  /\b(pel|tlv|rel|idlh|twa|stel|ceiling limit|action level|permissible exposure|recommended exposure|threshold limit value|naaqs)\b/i
+// Weaker intent: a standards framework named alongside a value-ish word.
+const THRESHOLD_FRAMEWORK_Q = /\b(ashrae|niosh|osha|acgih|epa|naaqs|leed|m[oôöø]lhave)\b/i
+const THRESHOLD_VALUE_WORD =
+  /\b(limit|threshold|guideline|standard|concentration|ppm|ppb|µg|ug\/m|mg\/m|exposure)\b/i
+// A direct "what's the (max/safe/acceptable) ... limit/level/concentration" ask.
+const THRESHOLD_ASK =
+  /\b(what(?:'?s| is| are)?|maximum|max|safe|acceptable|recommended|allowable|permissible|normal|typical)\b[\s\S]{0,48}\b(limit|level|threshold|guideline|concentration|value)\b/i
+
+/**
+ * True when the user's message reads like a request for a numeric exposure
+ * limit / threshold / guideline value. Used to force a retrieval tool call
+ * up front. False positives are cheap (one extra tool call); false negatives
+ * fall through to the graceful verify-note path below.
+ * @param {string} text
+ * @returns {boolean}
+ */
+function looksLikeThresholdQuestion(text) {
+  if (!text || typeof text !== 'string') return false
+  if (THRESHOLD_INTENT_STRONG.test(text)) return true
+  if (THRESHOLD_FRAMEWORK_Q.test(text) && THRESHOLD_VALUE_WORD.test(text)) return true
+  if (THRESHOLD_ASK.test(text)) return true
+  return false
+}
+
+// Appended (not substituted) when an answer states a numeric threshold that
+// wasn't tool-backed this turn AND carries no prohibited language. The answer
+// is useful and usually correct; this flags the figures as unverified rather
+// than retracting the whole response to SAFE_FALLBACK.
+const THRESHOLD_VERIFY_NOTE =
+  '_The numeric limit(s) above were not confirmed against a primary-source lookup in this session — verify against the cited standard (29 CFR 1910.1000, NIOSH Pocket Guide, ACGIH TLVs/BEIs, ASHRAE, or EPA) before relying on them._'
+
+/**
+ * Append the verify-the-numbers note ABOVE the trailing disclaimer line so
+ * the answer still ends with the disclaimer (the SPA styles that line).
+ * @param {string} text
+ * @returns {string}
+ */
+function withThresholdVerifyNote(text) {
+  if (typeof text !== 'string') return text
+  const trimmed = text.replace(/\s+$/, '')
+  if (trimmed.endsWith(AI_DISCLAIMER_LINE)) {
+    const body = trimmed.slice(0, trimmed.length - AI_DISCLAIMER_LINE.length).replace(/\s+$/, '')
+    return `${body}\n\n${THRESHOLD_VERIFY_NOTE}\n\n${AI_DISCLAIMER_LINE}`
+  }
+  return `${trimmed}\n\n${THRESHOLD_VERIFY_NOTE}\n\n${AI_DISCLAIMER_LINE}`
+}
+
 /**
  * Build a single user-turn revision instruction naming the violated
  * rules, for the temperature-0 retry. The added system-style nudge is
@@ -230,6 +287,9 @@ module.exports = {
   AI_DISCLAIMER_LINE,
   lintJasperOutput,
   checkUnbackedThresholds,
+  looksLikeThresholdQuestion,
+  THRESHOLD_VERIFY_NOTE,
+  withThresholdVerifyNote,
   buildRevisionInstruction,
   SAFE_FALLBACK,
   JASPER_BANS,

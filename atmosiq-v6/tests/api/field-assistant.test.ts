@@ -632,3 +632,60 @@ describe('field-assistant output linter', () => {
     expect(det?.lint?.fallback_used).toBe(true)
   })
 })
+
+// ─── Threshold questions: force a lookup + graceful degradation ──────
+// A numeric-limit question forces a tool call up front (so the value is
+// tool-backed). If a number still slips through unbacked, the answer is
+// KEPT with a verify note rather than retracted to the screening fallback.
+describe('field-assistant threshold handling', () => {
+  it('forces a tool call on a threshold-shaped question', async () => {
+    const bodies: any[] = []
+    t.setFetch(((_url: string, init: any) => {
+      bodies.push(JSON.parse(init.body))
+      return Promise.resolve(makeStreamingResponse(defaultStreamEvents('OK.')))
+    }) as any)
+    const { res } = makeRes()
+    await fnHandler(makeReq({ message: 'What is the OSHA PEL for carbon monoxide?' }), res as any)
+    expect(bodies[0].tool_choice).toEqual({ type: 'any' })
+  })
+
+  it('does NOT force a tool call on a conceptual question', async () => {
+    const bodies: any[] = []
+    t.setFetch(((_url: string, init: any) => {
+      bodies.push(JSON.parse(init.body))
+      return Promise.resolve(makeStreamingResponse(defaultStreamEvents('OK.')))
+    }) as any)
+    const { res } = makeRes()
+    await fnHandler(makeReq({ message: 'Explain demand-controlled ventilation.' }), res as any)
+    expect(bodies[0].tool_choice).toBeUndefined()
+  })
+
+  it('keeps an unbacked-threshold answer and appends a verify note (no fallback, no retry)', async () => {
+    const seen: { stream: boolean }[] = []
+    t.setFetch(((_url: string, init: any) => {
+      seen.push({ stream: !!JSON.parse(init.body).stream })
+      return Promise.resolve(
+        makeStreamingResponse(
+          defaultStreamEvents('Per OSHA, the PEL for CO is 50 ppm.\n\nAI-assisted response — verify before use.'),
+        ),
+      )
+    }) as any)
+
+    const { res, captured } = makeRes()
+    await fnHandler(makeReq({ message: 'tell me about CO limits' }), res as any)
+
+    // Only the streaming turn ran — no temperature-0 retry.
+    expect(seen).toEqual([{ stream: true }])
+    const replaceEv = sseEvents(captured).find((e) => e.event === 'replace')
+    expect(replaceEv).toBeDefined()
+    expect(replaceEv!.data.text).toMatch(/50 ppm/) // answer preserved
+    expect(replaceEv!.data.text).toMatch(/not confirmed against a primary-source lookup/)
+    expect(replaceEv!.data.text).not.toMatch(/I withheld the drafted answer/) // NOT the fallback
+    // Persisted turn is the kept answer, not the screening fallback.
+    const assistant = messages.find((m) => m.role === 'assistant')
+    expect(assistant?.content).toMatch(/50 ppm/)
+    const det = lastAuditDetails()
+    expect(det?.lint?.threshold_caveat).toBe(true)
+    expect(det?.lint?.fallback_used).toBe(false)
+  })
+})

@@ -9,12 +9,18 @@
 import { describe, it, expect } from 'vitest'
 import * as lintNs from '../../api/_jasper-lint.js'
 
-const { lintJasperOutput, checkUnbackedThresholds, SAFE_FALLBACK, buildRevisionInstruction } =
-  lintNs as unknown as {
+const {
+  lintJasperOutput, checkUnbackedThresholds, SAFE_FALLBACK, buildRevisionInstruction,
+  looksLikeThresholdQuestion, withThresholdVerifyNote, THRESHOLD_VERIFY_NOTE, AI_DISCLAIMER_LINE,
+} = lintNs as unknown as {
     lintJasperOutput: (t: string) => Array<{ term: string }>
     checkUnbackedThresholds: (t: string, opts?: { retrievalUsed?: boolean }) => Array<{ term: string }>
     SAFE_FALLBACK: string
     buildRevisionInstruction: (hits: Array<{ recommendedFix?: string }>) => string
+    looksLikeThresholdQuestion: (t: string) => boolean
+    withThresholdVerifyNote: (t: string) => string
+    THRESHOLD_VERIFY_NOTE: string
+    AI_DISCLAIMER_LINE: string
   }
 
 describe('jasper output linter', () => {
@@ -98,5 +104,59 @@ describe('jasper tool-backed threshold post-check', () => {
 
   it('does NOT flag a bare concentration with no framework nearby', () => {
     expect(checkUnbackedThresholds('The reading was 900 µg/m³ on the PID.', { retrievalUsed: false })).toEqual([])
+  })
+})
+
+describe('looksLikeThresholdQuestion (pre-answer tool forcing)', () => {
+  it('matches exposure-limit acronym asks', () => {
+    for (const q of [
+      'What is the OSHA PEL for carbon monoxide?',
+      'TLV for benzene?',
+      'whats the NIOSH REL on formaldehyde',
+      'IDLH for hydrogen sulfide',
+      'What is the NAAQS for PM2.5?',
+    ]) expect(looksLikeThresholdQuestion(q)).toBe(true)
+  })
+
+  it('matches framework + value-word asks', () => {
+    expect(looksLikeThresholdQuestion('What is the ASHRAE CO2 limit?')).toBe(true)
+    expect(looksLikeThresholdQuestion('EPA radon concentration guideline')).toBe(true)
+  })
+
+  it('matches a direct "safe/acceptable level" ask', () => {
+    expect(looksLikeThresholdQuestion('What is a safe level of radon?')).toBe(true)
+    expect(looksLikeThresholdQuestion('acceptable TVOC concentration for an office')).toBe(true)
+  })
+
+  it('does NOT match conceptual / non-numeric questions', () => {
+    for (const q of [
+      'Explain demand-controlled ventilation.',
+      'How does CO2 build up in a conference room?',
+      'What is ASHRAE 62.1?',
+      'Why might occupants report headaches?',
+    ]) expect(looksLikeThresholdQuestion(q)).toBe(false)
+  })
+
+  it('is defensive about non-string input', () => {
+    expect(looksLikeThresholdQuestion(undefined as unknown as string)).toBe(false)
+    expect(looksLikeThresholdQuestion('')).toBe(false)
+  })
+})
+
+describe('withThresholdVerifyNote', () => {
+  it('inserts the verify note ABOVE the trailing disclaimer line', () => {
+    const answer = `The OSHA PEL for CO is 50 ppm.\n\n${AI_DISCLAIMER_LINE}`
+    const out = withThresholdVerifyNote(answer)
+    expect(out).toContain('50 ppm')                      // answer preserved
+    expect(out).toContain(THRESHOLD_VERIFY_NOTE)         // note added
+    expect(out.trim().endsWith(AI_DISCLAIMER_LINE)).toBe(true) // disclaimer still last
+    // Note sits before the disclaimer, not after it.
+    expect(out.indexOf(THRESHOLD_VERIFY_NOTE)).toBeLessThan(out.lastIndexOf(AI_DISCLAIMER_LINE))
+  })
+
+  it('appends note + disclaimer when the answer lacks a trailing disclaimer', () => {
+    const out = withThresholdVerifyNote('Per OSHA, the PEL is 50 ppm.')
+    expect(out).toContain(THRESHOLD_VERIFY_NOTE)
+    expect(out.trim().endsWith(AI_DISCLAIMER_LINE)).toBe(true)
   })
 })
