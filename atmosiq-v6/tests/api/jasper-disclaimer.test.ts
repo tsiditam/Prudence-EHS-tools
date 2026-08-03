@@ -74,21 +74,25 @@ describe('the two copies cannot drift apart', () => {
   })
 })
 
-describe('the screening-only boundary is unchanged', () => {
+describe('the medical-diagnosis boundary is intact', () => {
+  // Product decision 2026-08 (full removal): compliance / causation / safe-
+  // unsafe refusals were lifted on the chat path; the ONE hard boundary that
+  // remains is medical diagnosis. These pins guard that remaining line.
   it('the four-section contract still requires a defensibility note', () => {
     expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain('## Defensibility note')
     expect(SAFE_FALLBACK).toContain('## Defensibility note')
   })
 
-  it('the fallback still says a licensed professional owns the determinations', () => {
-    // This sentence — not the closing line — is what carries the
-    // screening-only positioning the MSA recitals depend on.
+  it('the fallback says diagnosing a medical condition needs a licensed professional', () => {
     expect(SAFE_FALLBACK).toMatch(
-      /screening-level support only; causal, compliance, and health determinations require a licensed professional/i,
+      /diagnosing a medical condition is not — that requires a licensed medical professional/i,
     )
+    // And it makes clear compliance / interpretation ARE in scope.
+    expect(SAFE_FALLBACK).toMatch(/compliance discussion/i)
   })
 
-  it('the prompt still refuses causation, compliance and health calls', () => {
+  it('the prompt keeps the medical-diagnosis refusal', () => {
     expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain('# You may not')
+    expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain('Diagnose a medical condition')
   })
 })

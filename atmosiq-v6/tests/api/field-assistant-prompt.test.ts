@@ -72,10 +72,23 @@ describe('field-assistant role prompt — broad IAQ scope + citations', () => {
     expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain('Every substantive factual claim you make carries a source')
   })
 
-  it('still forbids fabricating standards / values (the moat is intact)', () => {
+  it('allows compliance, causation, and safe/unsafe conclusions (full removal)', () => {
+    // Product decision 2026-08: the professional-boundary refusals for
+    // compliance / causation / safe-unsafe were removed. These are now in the
+    // "You may" list, governed by evidence proportionality in the prompt.
+    expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain('Assess regulatory compliance against a cited standard')
+    expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain('Suggest the likely cause(s)')
+    expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain('Offer a safe / unsafe / acceptable / not-acceptable conclusion')
+    expect(FIELD_ASSISTANT_ROLE_PROMPT).not.toContain('Determine OSHA / EPA / state regulatory compliance')
+    expect(FIELD_ASSISTANT_ROLE_PROMPT).not.toContain('Attribute causation between an exposure and a symptom')
+  })
+
+  it('keeps the medical-diagnosis boundary and the no-fabrication rule', () => {
     expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain('# You may not')
-    expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain('Determine OSHA / EPA / state regulatory compliance')
-    expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain('Attribute causation between an exposure and a symptom')
+    expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain('Diagnose a medical condition')
+    expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain(
+      'Invent measurements, observations, calibration records, instrument serials, sample IDs, standard names, section numbers, threshold values, or citations.',
+    )
   })
 })
 

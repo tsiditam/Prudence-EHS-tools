@@ -555,23 +555,25 @@ describe('field-assistant output linter', () => {
     expect(assistant?.content).toBe('OK.')
   })
 
-  it('lints a causation answer, retries at temp 0, and persists only the clean text', async () => {
+  it('lints a MEDICAL-diagnosis answer, retries at temp 0, and persists only the clean text', async () => {
     const seen: { stream: boolean }[] = []
     t.setFetch(((_url: string, init: any) => {
       const body = JSON.parse(init.body)
       seen.push({ stream: !!body.stream })
       if (body.stream) {
-        // pass 1 — prohibited causation phrasing (already streamed to UI)
+        // pass 1 — clinical (medical) attribution, already streamed to UI
         return Promise.resolve(
-          makeStreamingResponse(defaultStreamEvents('The occupant symptoms are caused by the HVAC mold.')),
+          makeStreamingResponse(
+            defaultStreamEvents('The occupant symptoms are consistent with hypersensitivity pneumonitis from the mold.'),
+          ),
         )
       }
-      // retry (stream:false) — clean four-section answer
+      // retry (stream:false) — clean four-section answer (environmental only)
       return Promise.resolve(
         makeJsonResponse({
           content: [{
             type: 'text',
-            text: '## Screening interpretation\n- Elevated readings are a ventilation indicator only.\n\nAI-assisted response — verify before use.',
+            text: '## Screening interpretation\n- Elevated readings are a ventilation indicator only; refer occupants to occupational health for any symptoms.\n\nAI-assisted response — verify before use.',
           }],
           usage: { input_tokens: 120, output_tokens: 30, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 },
           stop_reason: 'end_turn',
@@ -588,12 +590,12 @@ describe('field-assistant output linter', () => {
     const events = sseEvents(captured)
     const replaceEv = events.find((e) => e.event === 'replace')
     expect(replaceEv).toBeDefined()
-    expect(replaceEv!.data.text).not.toMatch(/caused by/i)
-    // The persisted assistant turn is clean, and the bad phrase reaches
+    expect(replaceEv!.data.text).not.toMatch(/pneumonitis/i)
+    // The persisted assistant turn is clean, and the clinical phrase reaches
     // NO persisted row.
     const assistant = messages.find((m) => m.role === 'assistant')
-    expect(assistant?.content).not.toMatch(/caused by/i)
-    expect(messages.some((m) => /caused by/i.test(m.content))).toBe(false)
+    expect(assistant?.content).not.toMatch(/pneumonitis/i)
+    expect(messages.some((m) => /pneumonitis/i.test(m.content))).toBe(false)
     // Audit telemetry recorded the lint hit + successful retry.
     const det = lastAuditDetails()
     expect(det?.lint?.tripped).toBe(true)
@@ -601,16 +603,16 @@ describe('field-assistant output linter', () => {
     expect(det?.lint?.retry_fixed).toBe(true)
   })
 
-  it('substitutes the safe fallback when the retry still trips', async () => {
+  it('substitutes the safe fallback when the retry still trips the medical boundary', async () => {
     t.setFetch(((_url: string, init: any) => {
       const body = JSON.parse(init.body)
       if (body.stream) {
-        return Promise.resolve(makeStreamingResponse(defaultStreamEvents('This is caused by mold.')))
+        return Promise.resolve(makeStreamingResponse(defaultStreamEvents('The occupants have a building-related illness.')))
       }
-      // retry still prohibited
+      // retry still asserts a clinical/medical determination
       return Promise.resolve(
         makeJsonResponse({
-          content: [{ type: 'text', text: 'Still caused by mold; the hypothesis is strong.' }],
+          content: [{ type: 'text', text: 'This remains a building-related illness in the occupants.' }],
           usage: { input_tokens: 50, output_tokens: 10 },
           stop_reason: 'end_turn',
         }),
@@ -618,7 +620,7 @@ describe('field-assistant output linter', () => {
     }) as any)
 
     const { res, captured } = makeRes()
-    await fnHandler(makeReq({ message: 'why?' }), res as any)
+    await fnHandler(makeReq({ message: 'are they sick from the building?' }), res as any)
 
     const events = sseEvents(captured)
     const replaceEv = events.find((e) => e.event === 'replace')
@@ -626,8 +628,8 @@ describe('field-assistant output linter', () => {
     expect(replaceEv!.data.text).toMatch(/verify before use/)
     const assistant = messages.find((m) => m.role === 'assistant')
     expect(assistant?.content).toMatch(/verify before use/)
-    expect(assistant?.content).not.toMatch(/caused by/i)
-    expect(messages.some((m) => /caused by/i.test(m.content))).toBe(false)
+    expect(assistant?.content).not.toMatch(/building-related illness/i)
+    expect(messages.some((m) => /building-related illness/i.test(m.content))).toBe(false)
     const det = lastAuditDetails()
     expect(det?.lint?.fallback_used).toBe(true)
   })

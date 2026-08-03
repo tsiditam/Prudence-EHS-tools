@@ -23,26 +23,32 @@ const {
     AI_DISCLAIMER_LINE: string
   }
 
-describe('jasper output linter', () => {
-  it('trips on direct causation (engine mirror)', () => {
-    expect(lintJasperOutput('The symptoms are caused by the HVAC mold.').length).toBeGreaterThan(0)
+describe('jasper output linter — medical-diagnosis boundary only', () => {
+  // ALLOWED now on the chat path (product decision 2026-08): compliance,
+  // causation likelihood, and safe/unsafe conclusions are governed by the
+  // role prompt, not hard-blocked by the linter.
+  it('does NOT block compliance language', () => {
+    expect(lintJasperOutput('At 8 ppm this is compliant with the OSHA PEL for CO.')).toEqual([])
+    expect(lintJasperOutput('That reading exceeds the standard and is noncompliant.')).toEqual([])
   })
 
-  it('trips on negated causation ("not caused by")', () => {
-    expect(lintJasperOutput('The symptoms are not caused by the ventilation.').length).toBeGreaterThan(0)
+  it('does NOT block hedged causation, likelihood, or hypothesis strength', () => {
+    expect(lintJasperOutput('The elevated CO2 is likely caused by undersized outdoor-air delivery.')).toEqual([])
+    expect(lintJasperOutput('The most likely source is the standing water in the drain pan.')).toEqual([])
+    expect(lintJasperOutput('The mold hypothesis is strong given the moisture.')).toEqual([])
   })
 
-  it('trips on hypothesis-strength rating', () => {
-    expect(lintJasperOutput('The mold hypothesis is strong given the moisture.').length).toBeGreaterThan(0)
-    expect(lintJasperOutput('This remains a weak hypothesis.').length).toBeGreaterThan(0)
+  it('does NOT block an evidence-based safe/unsafe conclusion', () => {
+    expect(lintJasperOutput('Given the measurements, the space is unsafe for occupancy until ventilation is restored.')).toEqual([])
   })
 
-  it('trips on confidence applied to a source/cause', () => {
-    expect(lintJasperOutput('The likely source is the standing water in the drain pan.').length).toBeGreaterThan(0)
-    expect(lintJasperOutput('CO2 is probably the cause of the complaints.').length).toBeGreaterThan(0)
+  // STILL BLOCKED: medical diagnosis / clinical attribution.
+  it('blocks clinical attribution of illness / syndrome', () => {
+    expect(lintJasperOutput('These symptoms are consistent with hypersensitivity pneumonitis.').length).toBeGreaterThan(0)
+    expect(lintJasperOutput('The readings indicate a respiratory illness in the occupants.').length).toBeGreaterThan(0)
   })
 
-  it('trips on building-related symptoms and sick building', () => {
+  it('blocks building-related illness / symptoms and sick building', () => {
     expect(lintJasperOutput('These appear to be building-related symptoms.').length).toBeGreaterThan(0)
     expect(lintJasperOutput('This is consistent with a sick building.').length).toBeGreaterThan(0)
   })
