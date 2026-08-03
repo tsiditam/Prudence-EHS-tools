@@ -7,18 +7,19 @@
  * had NO output-level enforcement — only role-prompt instructions — and
  * prohibited phrasing was reaching users.
  *
- * This module ADDS enforcement on the chat path. It REUSES the engine
- * mirror's scan() (do NOT duplicate that list here, and do NOT add Jasper
- * terms into _banned-language.js — that would break the parity test) and
- * layers Jasper-specific context-aware bans on top: causal-confidence,
- * hypothesis-strength rating, and building-related / sick-building
- * attribution that the engine list does not fully cover for chat.
+ * This module enforces the chat path. It REUSES the engine mirror's scan()
+ * (do NOT duplicate that list here, and do NOT add Jasper terms into
+ * _banned-language.js — that would break the parity test) but, per the
+ * 2026-08 product decision, keeps only its CLINICAL / MEDICAL categories on
+ * the chat path and layers the building-related / sick-building medical bans
+ * on top. Compliance, causation (hedged), and safe/unsafe conclusions are
+ * NO LONGER blocked here — they are governed by the role prompt. The one hard
+ * chat boundary that remains is medical diagnosis / clinical attribution.
+ * (The report path via api/narrative.js still applies scan() in full.)
  *
- * Jasper-specific bans are context-aware and exempt clear negation /
- * disclaimer language (e.g. "this does NOT establish a building-related
- * illness") so we enforce on assertive misuse without blocking safe
- * screening disclaimers. This is additive enforcement; it does not relax
- * any existing engine guardrail.
+ * The medical bans are context-aware and exempt clear negation / disclaimer
+ * language (e.g. "this does NOT establish a building-related illness") so we
+ * enforce on assertive misuse without blocking safe disclaimers.
  */
 
 const { scan } = require('./_banned-language')
@@ -51,43 +52,21 @@ const AI_DISCLAIMER_LINE = 'AI-assisted response — verify before use.'
 const NEGATION =
   /\b(?:not|no|never|cannot|can't|isn't|aren't|doesn't|don't|does not|do not|is not|are not|without|rather than|avoid|should not|must not|requires? (?:medical|a licensed|physician|clinical))\b/i
 
-// Cause / source / hypothesis context used by the confidence ban.
-const CAUSAL_CONTEXT =
-  /\b(caus\w*|source|origin|attribut\w*|hypothes[ie]s|due to|responsible for|stems?\s+from|results?\s+from)\b/i
-
+// Chat-path boundary (product decision 2026-08): the AtmosFlow AI assistant
+// may discuss compliance, causation (hedged), and safe/unsafe conclusions per
+// its role prompt. The linter now hard-blocks ONLY medical diagnosis /
+// clinical attribution. These two Jasper-specific bans cover the clinical
+// attribution the shared engine mirror does not fully catch for chat.
+// (The causal-confidence and hypothesis-strength bans were removed — rating
+// the likelihood of a CAUSE is now allowed with appropriate uncertainty.)
 const JASPER_BANS = [
-  {
-    id: 'hypothesis-strength',
-    // "the mold hypothesis is strong", "hypothesis remains weak", etc.
-    pattern: /\bhypothes[ie]s\b[\s\S]{0,25}\b(strong|weak|likely|probable|confirmed|solid|robust|strengthen\w*|weaken\w*)\b/gi,
-    category: 'Jasper §causal hypothesis strength',
-    recommendedFix:
-      'Do not rate the strength of a causal hypothesis. Present observations and recommend confirmatory steps.',
-  },
-  {
-    id: 'strong-hypothesis',
-    // "strong hypothesis", "weak hypothesis"
-    pattern: /\b(strong|weak|likely|probable|solid|robust)\b[\s\S]{0,15}\bhypothes[ie]s\b/gi,
-    category: 'Jasper §causal hypothesis strength',
-    recommendedFix:
-      'Do not rate the strength of a causal hypothesis. Present observations and recommend confirmatory steps.',
-  },
-  {
-    id: 'confidence-on-cause',
-    // confidence word adjacent to a cause / source / hypothesis
-    pattern: /\b(strongly|strong|likely|probable|probably|high(?:ly)?\s+(?:likely|probable))\b/gi,
-    requiredContext: CAUSAL_CONTEXT,
-    category: 'Jasper §confidence on causation',
-    recommendedFix:
-      'Attach confidence to instrument / measurement reliability, not to a cause, source, or hypothesis.',
-  },
   {
     id: 'building-related',
     pattern: /\bbuilding[-\s]related\s+(?:illness|illnesses|sickness|symptoms?)\b/gi,
     allowedContext: [NEGATION],
     category: 'Jasper §building-related attribution',
     recommendedFix:
-      'Do not assert building-related illness/symptoms — that is a medical determination. Describe environmental conditions only.',
+      'Do not assert building-related illness/symptoms — that is a medical determination. Describe environmental conditions and recommend a medical referral instead.',
   },
   {
     id: 'sick-building',
@@ -95,9 +74,19 @@ const JASPER_BANS = [
     allowedContext: [NEGATION],
     category: 'Jasper §sick building attribution',
     recommendedFix:
-      'Do not assert sick building syndrome; describe environmental conditions and recommend medical referral if warranted.',
+      'Do not assert sick building syndrome; describe environmental conditions and recommend a medical referral if warranted.',
   },
 ]
+
+// Engine-mirror categories kept on the CHAT path. The shared mirror
+// (_banned-language.js) is parity-locked to the REPORT engine and still runs
+// in full on api/narrative.js; here we keep only its clinical / medical
+// attribution categories, so compliance, causation, and safety language pass.
+const CHAT_KEPT_ENGINE_CATEGORIES = new Set([
+  '§10 Clinical attribution',
+  '§10 Health attribution',
+  '§10 Clinical syndrome attribution',
+])
 
 function snippetAround(text, idx, len) {
   const start = Math.max(0, idx - 40)
@@ -106,13 +95,19 @@ function snippetAround(text, idx, len) {
 }
 
 /**
- * Lint a fully-assembled Jasper answer. Returns an array of
- * { term, snippet, category, recommendedFix } hits — the engine mirror's
- * hits PLUS the Jasper-specific ones. Empty array means clean.
+ * Lint a fully-assembled Jasper CHAT answer for the one hard boundary that
+ * remains: medical diagnosis / clinical attribution. Returns an array of
+ * { term, snippet, category, recommendedFix } hits. Empty array means clean.
+ *
+ * Reuses the shared engine mirror but keeps ONLY its clinical/health
+ * categories (compliance, tone, definitive, and confidence hits are dropped
+ * for chat — those are governed by the role prompt now), then adds the
+ * Jasper-specific medical bans. The report path (api/narrative.js) still
+ * applies the full mirror via scan().
  */
 function lintJasperOutput(text) {
   if (!text || typeof text !== 'string') return []
-  const hits = scan(text) // engine mirror (shared tone + context bans)
+  const hits = scan(text).filter((h) => CHAT_KEPT_ENGINE_CATEGORIES.has(h.category))
 
   for (const ban of JASPER_BANS) {
     ban.pattern.lastIndex = 0
@@ -255,30 +250,31 @@ function buildRevisionInstruction(hits) {
   ).slice(0, 6)
   const fixLines = fixes.map((f) => `- ${f}`).join('\n')
   return [
-    'REVISION REQUIRED — your previous answer used prohibited language and cannot be sent as written.',
+    'REVISION REQUIRED — your previous answer read as a medical diagnosis / clinical attribution and cannot be sent as written.',
     `Rewrite the FULL four-section answer (## Assessment context, ## Screening interpretation, ## Recommended next steps, ## Defensibility note) and end with the literal line "${AI_DISCLAIMER_LINE}".`,
     'Apply every correction below:',
     fixLines,
-    'Do not assert causation, compliance, or any health/medical determination — not even a negative one. Do not assign scores or rate hypothesis strength. Attach confidence only to instrument/measurement reliability, never to a cause or source. Output only the corrected answer.',
+    'Do not diagnose a medical condition or attribute a person’s illness/symptoms to the exposure as a clinical determination (no sick-building-syndrome or building-related-illness diagnosis) — describe the environmental conditions and recommend a medical / occupational-health referral instead. Compliance, causation (hedged), and safe/unsafe conclusions are allowed when the evidence supports them; keep every standard and number citation-backed. Output only the corrected answer.',
   ].join('\n')
 }
 
-// Screening-safe fallback used only when the retry STILL trips. Keeps the
-// four-section contract and the literal closing line.
+// Fallback used only when the retry STILL trips the ONE remaining hard
+// boundary — medical diagnosis / clinical attribution. Keeps the four-section
+// contract and the literal closing line.
 const SAFE_FALLBACK = [
   '## Assessment context',
-  '- I withheld the drafted answer to this question to stay within the Field Assistant’s screening-only role.',
+  '- I held back part of the drafted answer because it read as a medical diagnosis, which this assistant does not provide.',
   '',
   '## Screening interpretation',
-  '- The drafted response used language that could be read as a causation, compliance, or health determination — which the Field Assistant must not make — so it was not sent.',
+  '- The draft attributed a person’s illness or symptoms to a clinical condition. I can interpret the environmental data, discuss the applicable standards and compliance, and give a professional read of what the measurements mean — but diagnosing a person is a licensed clinician’s call.',
   '',
   '## Recommended next steps',
-  '1. Re-ask focused on observations and measurements (e.g. "what are the screening indicators for X?").',
-  '2. Use the engine’s scores and the sampling plan for any risk classification.',
-  '3. Have a qualified industrial hygienist interpret any causal or health question.',
+  '1. Re-ask the ENVIRONMENTAL question — what the readings mean, which standard applies, or the likely environmental cause — and I’ll answer it.',
+  '2. For the health/medical question, refer the occupant to an occupational-health or medical professional.',
+  '3. Document the environmental findings and the recommended referral.',
   '',
   '## Defensibility note',
-  'The Field Assistant provides screening-level support only; causal, compliance, and health determinations require a licensed professional.',
+  'Environmental interpretation, compliance discussion, and evidence-based conclusions are in scope; diagnosing a medical condition is not — that requires a licensed medical professional.',
   '',
   AI_DISCLAIMER_LINE,
 ].join('\n')
