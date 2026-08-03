@@ -22,7 +22,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { createRequire } from 'node:module'
-import { FIELD_ASSISTANT_ROLE_PROMPT } from '../../src/constants/field-assistant-prompt.js'
+import { FIELD_ASSISTANT_ROLE_PROMPT, AI_DISCLAIMER_LINE as PROMPT_DISCLAIMER } from '../../src/constants/field-assistant-prompt.js'
 
 const require = createRequire(import.meta.url)
 const { AI_DISCLAIMER_LINE, SAFE_FALLBACK, buildRevisionInstruction } =
@@ -48,6 +48,14 @@ describe('the two copies cannot drift apart', () => {
     // the prompt asked for a different string, every answer would be
     // rewritten — a silent, expensive, invisible failure.
     expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain(AI_DISCLAIMER_LINE)
+  })
+
+  it('the SPA-exported copy the chat renderer styles matches the linter literal', () => {
+    // FieldAssistant.jsx imports AI_DISCLAIMER_LINE from the prompt module
+    // to peel the closing line off the message body and render it italic +
+    // smaller. If that copy drifted, the renderer would fail to detect the
+    // line and it would render as plain body text.
+    expect(PROMPT_DISCLAIMER).toBe(AI_DISCLAIMER_LINE)
   })
 
   it('the safe fallback closes with the same line', () => {
