@@ -760,7 +760,17 @@ export default function AuthScreen({ onAuth }) {
            the input surface. Pre-fix the 55% opacity dragged the effective
            ratio under 3:1 on dark mode — the expert review flagged this. */
         input::placeholder{color:var(--sub);}
-        ::-webkit-scrollbar{width:0;height:0;}
+        /* Scrollbars: hidden on touch for the clean mobile look; a slim,
+           theme-aware scrollbar on desktop (fine pointer) so the content
+           doesn't look cut off at the fold. */
+        @media (pointer: coarse){*{scrollbar-width:none;}::-webkit-scrollbar{width:0;height:0;}}
+        @media (pointer: fine){
+          *{scrollbar-width:thin;scrollbar-color:var(--border) transparent;}
+          ::-webkit-scrollbar{width:10px;height:10px;}
+          ::-webkit-scrollbar-thumb{background:var(--border);border-radius:8px;border:3px solid transparent;background-clip:content-box;}
+          ::-webkit-scrollbar-thumb:hover{background:var(--sub);background-clip:content-box;}
+          ::-webkit-scrollbar-track{background:transparent;}
+        }
       `}</style>
     </div>
   )

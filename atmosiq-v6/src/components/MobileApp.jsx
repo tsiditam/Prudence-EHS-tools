@@ -4783,20 +4783,22 @@ export default function MobileApp() {
         ]).map(mkTab)
 
         return (
-          <>
-            <AtmosFlowFloatingDock tabs={navTabs} maxWidth={contentMax} />
-            {/* AtmosFlow AI — detached from the dock, floating against the
-                right edge. Shrinks/grows with scroll (Instagram-style).
-                Consultant mode only, matching the prior aux-pill gating. */}
-            {userMode !== 'fm' && (
-              <JasperFloatingButton
-                active={faOpen}
-                onClick={() => { haptic('light'); supabase && trackEvent('jasper_open', { source: 'floating_button' }); setFaOpen(true) }}
-              />
-            )}
-          </>
+          <AtmosFlowFloatingDock tabs={navTabs} maxWidth={contentMax} />
         )
       })()}
+
+      {/* AtmosFlow AI — detached floating launcher. On mobile it floats above
+          the bottom dock; on desktop (no dock) it sits lower against the
+          bottom-right edge. Rendered outside the dock's !isDesktop gate so it
+          appears in both layouts. Consultant mode only, and hidden during the
+          assessment / milestone flows just like the dock. */}
+      {!isAssessing && !milestone && userMode !== 'fm' && (
+        <JasperFloatingButton
+          active={faOpen}
+          bottomOffset={isDesktop ? 24 : 78}
+          onClick={() => { haptic('light'); supabase && trackEvent('jasper_open', { source: 'floating_button' }); setFaOpen(true) }}
+        />
+      )}
 
       {/* The floating Field-Assistant FAB was retired when Jasper
           moved into the bottom-nav tab — two launchers for the same
@@ -5128,7 +5130,18 @@ export default function MobileApp() {
         input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appearance:none;}
         input[type=number]{-moz-appearance:textfield;}
         select option{background:${CARD};color:${SUB};}
-        ::-webkit-scrollbar{width:0;height:0;}
+        /* Scrollbars: hidden on touch for the clean mobile look; a slim,
+           theme-aware scrollbar on desktop (fine pointer) so long screens
+           don't look cut off at the fold. The content always scrolled, but
+           desktop users had no visible affordance that it did. */
+        @media (pointer: coarse){*{scrollbar-width:none;}::-webkit-scrollbar{width:0;height:0;}}
+        @media (pointer: fine){
+          *{scrollbar-width:thin;scrollbar-color:var(--border) transparent;}
+          ::-webkit-scrollbar{width:10px;height:10px;}
+          ::-webkit-scrollbar-thumb{background:var(--border);border-radius:8px;border:3px solid transparent;background-clip:content-box;}
+          ::-webkit-scrollbar-thumb:hover{background:var(--sub);background-clip:content-box;}
+          ::-webkit-scrollbar-track{background:transparent;}
+        }
         body{overscroll-behavior:none;}
       `}</style>
       {/* Tap the dimmed content card to close the side menu (Claude-style). */}

@@ -37,6 +37,8 @@ import JasperSuggestionCard from './ui/JasperSuggestionCard'
 import JasperFeedbackRow from './ui/JasperFeedbackRow'
 import JasperMessageActions from './ui/JasperMessageActions'
 import Markdown from './Markdown'
+import { AI_DISCLAIMER_LINE } from '../constants/field-assistant-prompt'
+import { splitTrailingDisclaimer } from '../utils/jasperDisclaimer'
 import {
   JASPER_SPRING,
   JASPER_DURATION,
@@ -186,7 +188,8 @@ function buildContextChips(context) {
   return out
 }
 
-function MessageBubble({
+// Exported for tests (render assertion on the styled trailing disclaimer).
+export function MessageBubble({
   role, content, photos, files,
   // Feedback wiring — only populated for assistant turns. dbId is
   // the field_assistant_messages row id, threaded from the SSE
@@ -229,6 +232,22 @@ function MessageBubble({
     // No background, no border, no radius — flow with the sheet
     // surface so the response feels like the canvas, not a card.
   }
+  // The trailing AI-assistance disclaimer renders smaller + italic +
+  // muted so it reads as a footnote label, distinct from the answer body.
+  const disclaimerStyle = {
+    marginTop: 10,
+    fontSize: 12,
+    fontStyle: 'italic',
+    color: SUB,
+    lineHeight: 1.4,
+    letterSpacing: '0.1px',
+  }
+  // Peel the closing disclaimer line off assistant content so it can be
+  // styled separately. Body still renders through <Markdown>; the stored
+  // `content` is untouched, so Copy / Share still carry the plain line.
+  const { body, disclaimer } = (!isUser && typeof content === 'string')
+    ? splitTrailingDisclaimer(content, AI_DISCLAIMER_LINE)
+    : { body: content, disclaimer: null }
   return (
     <div className="jasper-msg-in" style={{
       display: 'flex',
@@ -243,7 +262,10 @@ function MessageBubble({
         {/* Assistant responses render markdown (headings/bullets/tables).
             User messages stay plain — they're what the assessor typed. */}
         {!isUser && typeof content === 'string'
-          ? <Markdown>{content}</Markdown>
+          ? <>
+              {body && <Markdown>{body}</Markdown>}
+              {disclaimer && <div style={disclaimerStyle}>{disclaimer}</div>}
+            </>
           : content}
         {isUser && ((Array.isArray(photos) && photos.length > 0) || (Array.isArray(files) && files.length > 0)) && (
           <div style={{
