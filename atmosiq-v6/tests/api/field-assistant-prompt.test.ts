@@ -52,6 +52,33 @@ describe('field-assistant role prompt — preserved guardrails', () => {
   })
 })
 
+describe('field-assistant role prompt — broad IAQ scope + citations', () => {
+  it('answers any indoor-air-quality question, not just assessment-tied ones', () => {
+    // Topical scope was widened (product decision): Jasper answers general
+    // IAQ questions with or without an assessment loaded. The professional-
+    // boundary "You may not" list is unchanged and still pinned above.
+    expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain('Answer ANY indoor-air-quality question')
+    expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain('an active assessment is never a prerequisite')
+  })
+
+  it('does not re-narrow to assessment-only support (no blanket out-of-scope redirect)', () => {
+    expect(FIELD_ASSISTANT_ROLE_PROMPT).not.toContain('If a question is outside IAQ / EHS scope, briefly say so and redirect.')
+    expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain('Any indoor-air-quality or EHS question is in scope')
+  })
+
+  it('keeps a hard citations / no-hallucination rule on every answer', () => {
+    expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain('# Citations & no fabrication (hard rule)')
+    expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain('No hallucinations')
+    expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain('Every substantive factual claim you make carries a source')
+  })
+
+  it('still forbids fabricating standards / values (the moat is intact)', () => {
+    expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain('# You may not')
+    expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain('Determine OSHA / EPA / state regulatory compliance')
+    expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain('Attribute causation between an exposure and a symptom')
+  })
+})
+
 describe('field-assistant role prompt — human-voice style', () => {
   it('carries the anti-robotic / human-voice style guidance', () => {
     expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain('not like a chatbot')
