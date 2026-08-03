@@ -10,8 +10,9 @@ identifies risk indicators and produces sampling plans but never makes
 definitive regulatory classifications or compliance determinations.
 Maintain that positioning in any code, copy, or documentation you generate.
 
-Live at atmosflow.net. Engine version is currently **2.6** (post
-v2.5 residual defect cleanup + v2.6 hypothesis and causal-chain restoration).
+Live at atmosflow.net. Engine version is currently **2.9** (v2.9 changed report-issuance
+gating from refuse-to-issue to issue-with-warnings; see the engine
+override note under Working principles).
 
 ## Stack
 
@@ -142,15 +143,75 @@ Read these directories first when investigating any task:
   copy, or report content that claims compliance certification,
   professional opinion (without licensed-professional sign-off), or
   definitive causation. The MSA recital language depends on this.
-- **Preserve calibration gating.** The instrument-calibration gate that
-  blocks report generation when calibration is stale (270 days,
-  configurable by device class) is a competitive moat and a litigation
-  defense. Do not bypass or weaken it.
+- **Preserve calibration gating.** The instrument-calibration gate is a
+  competitive moat and a litigation defense. Do not bypass or weaken it.
+  Described precisely, because the report appendix asserts this to
+  clients and previously overstated it:
+  - **Validity is 365 days** (`CAL_VALIDITY_DAYS`, defined in BOTH
+    `src/utils/instrumentRegistry.js` and `lib/calibration/banner-state.ts`
+    — keep them in step). Earlier revisions of this file said 270; 365 is
+    the correct and confirmed figure (product decision, 2026-08). It is
+    NOT configurable by device class today; per-class override is
+    roadmap only.
+  - **Where it bites:** `MobileApp.finishAssessment` interrupts
+    finalization when instrument make/model, serial, calibration date or
+    status is missing, or calibration is older than 365 days. It lists
+    what is missing and stops.
+  - **What it is not:** a hard block. The assessor can proceed
+    (`finishAssessment(true, acknowledgement)`). Report EXPORT
+    (`handleExport` / `executeExport`) is not gated at all.
+  - **What proceeding costs (2026-08):** a written justification. The
+    interrupt's "Continue without" button opens a required textarea
+    (`validateJustification`, min 20 chars) and builds a calibration
+    ACKNOWLEDGEMENT — `src/utils/calibrationAcknowledgement.js`. It is
+    persisted on `assessments.calibration_acknowledgement` (migration
+    028, jsonb, never backfilled), emitted append-only to `audit_log` as
+    `calibration_exception_acknowledged`, exposed on the assessment
+    context as `calibration_acknowledgement`, and printed verbatim in the
+    appendix E QA notes with who / when / why.
+    The acknowledgement **ADDS an audit artifact and removes nothing.**
+    An acknowledged gap still fires the engine's data-gap trigger, still
+    appears under "Limitations on Reliance", and still prints its own
+    appendix row. Do not confuse it with the deleted IH score-override
+    (`consultantReportOverride.js`), which mutated the score so triggers
+    stopped firing — post-v2.9 that would DELETE a real disclosure.
+  - **Separately**, the engine's calibration data-gap trigger fires on
+    the ABSENCE of any calibration record — not on an expired one — and
+    surfaces as a cover notice plus a "Limitations on Reliance" entry
+    (engine v2.9+).
+  - Any client-facing text describing this must not promise a hard
+    block — that does not exist — and must not describe the
+    acknowledgement as resolving, waiving or excusing the gap. It
+    records who accepted it and on what reasoning; that is all. See
+    `tests/engine/calibration-qa-notes.test.ts` and
+    `tests/lib/calibrationAcknowledgement.test.ts`.
 - **The engine is sacred.** Do not modify any file under `src/engine/`
   or `src/engines/scoring.js`. Do not change scoring logic, threshold
   constants, or scoring contracts. If you think the engine needs to
   change to complete a task, you have misunderstood the task — stop
   and report.
+
+  **One override has been granted (2026-08, engine v2.9.0).** Report
+  ISSUANCE gating changed: a fired data-gap trigger no longer returns a
+  Pre-Assessment Memo INSTEAD of the report. `renderClientReport` now
+  always issues the full report and carries the fired triggers on the
+  result as `dataGapWarnings`, rendered as a cover notice plus a
+  "Limitations on Reliance — Identified Data Gaps" section before the
+  findings. Product rationale: withholding the deliverable does not
+  improve the data — it leaves the assessor with nothing to hand a
+  client and nothing showing what to fix.
+
+  Scope of the override, so it is not read wider than it is: it touched
+  `report/client.ts` (guard clause → warnings) and `report/types.ts`
+  (result shape). Scoring, thresholds, contracts and trigger LOGIC are
+  unchanged — `evaluateRefusalTriggers` and `shouldRefuseToIssue` still
+  evaluate exactly as before, and `shouldRefuseToIssue` still reports
+  `refuse: true`; nothing acts on it as a refusal any more. The name is
+  historical. `buildPreAssessmentMemo` is retained, exported and tested,
+  but is never produced automatically. Covered by
+  `tests/engine/data-gap-warning.test.ts`; the trigger logic itself is
+  still covered by `tests/engine/refusal-to-issue.test.ts`, which was
+  not modified.
 
 ## Assessment context (connectivity layer)
 
@@ -167,10 +228,14 @@ server-side revalidation) should read from:
   existing pure helpers (`buildReadinessVerdict`,
   `summarizeLoggerForContext`, `ENGINE_VERSION`). Engine outputs
   (composite, zoneScores, recs, narrative) pass through unchanged.
-- **Drift guard:** `tests/lib/buildAssessmentContext.test.ts` pins
-  the top-level key set against a golden fixture. If you add a field
-  to the context, update the fixture; a failing snapshot means a
-  consumer-breaking change.
+- **Drift guard:** `tests/lib/buildAssessmentContext.test.ts` pins the
+  top-level key set AND the `meta` key set against a golden fixture. If
+  you add a field to either, update the fixture; a failing snapshot means
+  a consumer-breaking change. (`meta` was added to the guard in the
+  report-lifecycle work: pinning only the top level let fields be added
+  inside `meta` — the block every consumer reads first — completely
+  undetected. Other sub-objects are still unpinned; widen the guard if you
+  touch them.)
 
 When adding a new AI / report / export consumer, read from the
 builder's output — do NOT hand-build a bespoke data pull (the
@@ -222,6 +287,20 @@ When working on report generation, these patterns are non-negotiable:
   may still emit a Pre-Assessment Memo instead of a full consultant
   report when it has no measurements — that is the engine's own behavior
   and a deliverable, not a finalization gate.
+- **Report lifecycle: labeling ≠ issuance.** A report carries a profile
+  (screening | professional | compliance) and a status (draft →
+  in_review → reviewed → final); see `src/constants/reportLifecycle.js`.
+  A **compliance** report cannot be *labelled* Final without a recorded
+  reviewer approval (`canTransition`). That is NOT a re-introduction of
+  the issuance block removed above, and should not be read as one:
+  nothing gates report GENERATION on status — `downloadReportPdf.js`,
+  `DocxReport.js` and `api/report-pdf.js` never read `report_status`, so
+  any report can be generated, downloaded and sent at any point. The
+  constraint is only on what the platform will *assert*: it will not
+  claim a professional review that has no record. Same principle as
+  migration 027's backfill, which marks legacy reports Final but never
+  "Professionally Reviewed". `canTransition` is enforced in exactly two
+  places, both in the peer-review API.
 - **Journal citations must be verified.** Title, journal, volume,
   issue, pages, year — all from primary sources. Flag unverified
   entries with TODO and exclude from generated reports.
@@ -383,7 +462,29 @@ Run tests after any change to `src/engine/`, `src/engines/`, `src/components/doc
 
 - Hardcoded standards thresholds inside scoring logic (thresholds live
   in `src/constants/standards.js`, not in scoring code paths)
-- AI-generated narrative without an "IH Review Required" label
+- AI-generated narrative without an AI-provenance label. The label is a
+  statement about WHO WROTE the text, not about whether the report is
+  finished — a client-facing paragraph written by a model must stay
+  distinguishable from one the assessor wrote, in every lifecycle state.
+  Two enforcement points, both guarded by tests:
+  - **DOCX**: `aiProvenanceBanner()` in
+    `src/components/docx/sections-core.js` renders
+    "AI-ASSISTED NARRATIVE — VERIFY BEFORE ISSUE" immediately before any
+    AI narrative, and nothing for deterministic prose.
+    (`tests/engine/ai-provenance-banner.test.ts`, acceptance
+    `NARRATIVE-AI-PROVENANCE-BANNER`.)
+  - **Chat**: every Jasper answer ends with `AI_DISCLAIMER_LINE`
+    ("AI-assisted response — verify before use.") from
+    `api/_jasper-lint.js`, which REWRITES non-conforming output. The
+    literal is duplicated in `src/constants/field-assistant-prompt.js`
+    because the two live on different module systems;
+    `tests/api/jasper-disclaimer.test.ts` stops them drifting.
+  Both were reworded off "IH Review Required" — that phrase stamped
+  every report and every chat answer as pending review, which was the
+  problem the report lifecycle set out to fix. The screening-only
+  boundary does NOT rest on either label: in the report it is the
+  limitation statement, and in chat the required "## Defensibility note"
+  section.
 - TVOC interpretation without Mølhave 1991 advisory tier disclaimer
 - ASHRAE 62.1 cited as a CO₂ contaminant limit (it isn't — see Persily
   2021)

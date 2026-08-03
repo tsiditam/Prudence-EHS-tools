@@ -6,7 +6,7 @@
  *   • A scored finding renders with its supporting evidence.
  *   • A referenced standard framed is_health_limit=false shows the
  *     "screening reference — not a health limit" badge (CO2 / ASHRAE 62.1).
- *   • Every finding shows the IH Review Required flag.
+ *   • Every finding shows the professional-review flag.
  *   • A pre-engine draft (no zone scores) shows the empty state.
  */
 import { describe, it, expect, afterEach } from 'vitest'
@@ -28,14 +28,17 @@ const scored = {
 }
 
 describe('EvidenceMap', () => {
-  it('renders a scored finding with its standard, framing badge, and IH review flag', () => {
+  it('renders a scored finding with its standard, framing badge, and professional-review flag', () => {
     render(<EvidenceMap {...(scored as never)} />)
     // Finding text + standard label appear in both the graph (node title) and
     // the card, so assert presence rather than uniqueness.
     expect(screen.getAllByText(/ventilation rate appears inadequate/).length).toBeGreaterThan(0)
     expect(screen.getAllByText('ASHRAE 62.1-2025').length).toBeGreaterThan(0)
     expect(screen.getByText(/not a health limit/i)).toBeTruthy()
-    expect(screen.getAllByText('IH Review Required').length).toBeGreaterThan(0)
+    // Label reworded with the report lifecycle and now sourced from the
+    // terminology dictionary; the underlying `ih_review_required` FIELD
+    // keeps its name (stored KG contract).
+    expect(screen.getAllByText('Professional Review Recommended').length).toBeGreaterThan(0)
   })
 
   it('shows the empty state on a pre-engine draft', () => {

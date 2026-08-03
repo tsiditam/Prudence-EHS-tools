@@ -109,7 +109,7 @@ describe('POST /api/narrative — banned-language gate', () => {
       'Recommended next steps: confirm supply-air balance and occupancy denominator.',
       'Data gap: no outdoor CO2 baseline and no HVAC operating-status note were recorded.',
       '',
-      'IH Review Required — screening output; not a compliance determination or causation finding.',
+      'AI-assisted narrative — verify before issue; screening output, not a compliance determination or causation finding.',
     ].join('\n')
     const r = makeRes()
     await handler(makeReq(), r)

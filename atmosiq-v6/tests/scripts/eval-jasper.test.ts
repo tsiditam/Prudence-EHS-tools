@@ -29,7 +29,7 @@ const GOOD = [
   '## Defensibility note',
   'Screening evidence only; causation needs more data and a qualified IH.',
   '',
-  'IH Review Required',
+  'AI-assisted response — verify before use.',
 ].join('\n')
 
 describe('eval scorer — good fixture passes all dimensions', () => {
@@ -52,13 +52,13 @@ describe('eval scorer — each dimension catches its failure', () => {
   })
 
   it('value_fidelity: framework + concentration with no retrieval tool fails', () => {
-    const a = 'Per Mølhave, 500 µg/m³ is the concern tier. IH Review Required'
+    const a = 'Per Mølhave, 500 µg/m³ is the concern tier. AI-assisted response — verify before use.'
     expect(scoreValueFidelity(a, []).pass).toBe(false)
     expect(scoreValueFidelity(a, ['search_standards_corpus']).pass).toBe(true)
   })
 
   it('leakage: prohibited causation phrasing fails', () => {
-    expect(scoreLeakage('The symptoms are caused by the HVAC. IH Review Required').pass).toBe(false)
+    expect(scoreLeakage('The symptoms are caused by the HVAC. AI-assisted response — verify before use.').pass).toBe(false)
   })
 
   it('next_step: fewer than 3 steps or low manual score fails', () => {

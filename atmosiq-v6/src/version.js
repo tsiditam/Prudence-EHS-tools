@@ -31,7 +31,12 @@
 export const BUILD_SHA = (typeof __BUILD_SHA__ !== 'undefined' && __BUILD_SHA__) || 'dev'
 
 export const APP_VERSION = '6.0.0-beta'
-export const ENGINE_VERSION = '2.8.0'
+// 2.9.0 — report-issuance gating changed: a fired data-gap trigger now
+// issues the FULL report carrying a prominent limitation-on-reliance
+// warning, instead of substituting a Pre-Assessment Memo. Bumped per the
+// "report-finalization gating" rule above; scoring, thresholds and
+// contracts are unchanged.
+export const ENGINE_VERSION = '2.9.0'
 export const STANDARDS_MANIFEST_DATE = '2026-04-25'
 
 // Tagged form retained for backward compat with consumers that store

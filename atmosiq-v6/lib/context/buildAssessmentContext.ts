@@ -28,10 +28,12 @@
 
 import { ENGINE_VERSION } from '../../src/version.js'
 import { resolveLifecycle } from '../../src/constants/reportLifecycle.js'
+import { normalizeAcknowledgement } from '../../src/utils/calibrationAcknowledgement.js'
 import { buildReadinessVerdict } from '../../src/engines/readiness-verdict.js'
 import { summarizeLoggerForContext } from '../jasper/logger-context-summary'
 import type {
   AssessmentContext,
+  CalibrationAcknowledgementSummary,
   FindingSummary,
   PhotoIndexEntry,
   RawAssessmentState,
@@ -172,6 +174,29 @@ export function buildAssessmentContext(state: RawAssessmentState): AssessmentCon
 
   const lifecycle = resolveLifecycle(s as Record<string, unknown>)
 
+  // snake_case here, camelCase in the storage shape: the context is a
+  // published contract read by Jasper and the report path, and every
+  // other field in it is snake_case. Renaming at this seam is cheaper
+  // than one inconsistent key forever.
+  const ack = normalizeAcknowledgement(s.calibrationAcknowledgement) as {
+    version: number
+    items: string[]
+    justification: string
+    assessorName: string | null
+    assessorCredentials: string | null
+    acknowledgedAt: string | null
+  } | null
+  const calibration_acknowledgement: CalibrationAcknowledgementSummary | null = ack
+    ? {
+        version: ack.version,
+        items: ack.items,
+        justification: ack.justification,
+        assessor_name: ack.assessorName,
+        assessor_credentials: ack.assessorCredentials,
+        acknowledged_at: ack.acknowledgedAt,
+      }
+    : null
+
   return {
     meta: {
       id: firstStr((s as { id?: unknown }).id),
@@ -227,5 +252,6 @@ export function buildAssessmentContext(state: RawAssessmentState): AssessmentCon
           last_exported_at: firstStr(s.reportDraftState.last_exported_at),
         }
       : null,
+    calibration_acknowledgement,
   }
 }

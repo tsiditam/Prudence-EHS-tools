@@ -47,12 +47,6 @@ export interface WatermarkConfig {
   readonly badge?: string
 }
 
-/** IH professional-judgment override payload. */
-export interface IhOverride {
-  readonly triggers?: ReadonlyArray<string>
-  readonly justification?: string
-}
-
 /** Standards manifest snapshot. */
 export type StandardsManifest = unknown
 
@@ -103,7 +97,6 @@ export interface ReportRenderInput {
   readonly userMode?: string
   readonly escalationTriggers?: unknown
   readonly watermarkConfig?: WatermarkConfig | null
-  readonly ihOverride?: IhOverride | null
   /**
    * Render the optional Assessment Index Appendix (ClientReport
    * renderer toggle, see src/engine/report/client.ts).

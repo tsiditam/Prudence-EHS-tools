@@ -108,7 +108,7 @@
       "checks": [
         { "type": "file_exists", "path": "src/components/EvidenceMap.jsx" },
         { "type": "grep_matches", "pattern": "not a health limit", "paths": ["src/components/EvidenceMap.jsx"] },
-        { "type": "grep_matches", "pattern": "IH Review Required", "paths": ["src/components/EvidenceMap.jsx"] },
+        { "type": "grep_matches", "pattern": "findingReview", "paths": ["src/components/EvidenceMap.jsx"] },
         { "type": "grep_matches", "pattern": "rTab==='evidence'", "paths": ["src/components/MobileApp.jsx"] },
         { "type": "file_exists", "path": "tests/components/EvidenceMap.test.tsx" }
       ]

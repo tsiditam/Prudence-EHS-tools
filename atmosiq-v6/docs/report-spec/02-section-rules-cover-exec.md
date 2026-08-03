@@ -8,11 +8,20 @@
 - Site name, address
 - Assessment date, report date
 - Assessor name and credentials
-- Reviewer name (blank if draft) with signoff line
-- Report ID, version, status
-- Status label: "Draft — For Professional Review" OR "Final Reviewed Report"
+- Reviewer name (blank until reviewed) with signoff line
+- Report ID, version, report profile, report status
+- Status label: from `statusLabel(profile, status)` in
+  `src/constants/reportLifecycle.js` — "Draft" | "Draft — Pending
+  Professional Review" | "In Review" | "Professionally Reviewed" | "Final".
+  A SCREENING report shows plain "Draft"/"Final": it never had a
+  professional reviewer to be pending on.
 - Platform version (small text)
-- Statement: "This report was generated using a structured assessment workflow and requires review by a qualified professional before external reliance unless marked Final Reviewed Report."
+- Statement: profile-dependent. A **screening** report carries the
+  limitation statement (`SCREENING_LIMITATION`) — scope stated honestly,
+  no claim that the document is unfinished and no compliance
+  determination. A **professional / compliance** report carries the
+  reviewer's accountability statement once reviewed, and a
+  not-yet-reviewed notice before that.
 - Distribution: "CONFIDENTIAL — FOR CLIENT USE ONLY"
 
 ### Generation Rules

@@ -32,7 +32,7 @@ const SAMPLE = [
   '| --- | --- | --- |',
   '| Under-ventilation | CO2 decay test | OA rate at reference |',
   '',
-  'IH Review Required — screening output; not a compliance determination or causation finding.',
+  'AI-assisted narrative — verify before issue; screening output, not a compliance determination or causation finding.',
 ].join('\n')
 
 describe('markdownToDocx', () => {
@@ -52,7 +52,7 @@ describe('markdownToDocx', () => {
     expect(/<w:b\b/.test(xml)).toBe(true) // **elevated** → bold run
     expect(xml.includes('<w:tbl>')).toBe(true) // GFM table → Word table
     expect(xml).toContain('Under-ventilation')
-    expect(xml).toContain('IH Review Required')
+    expect(xml).toContain('AI-assisted narrative')
   })
 
   it('honors the font option (Inter for the narrative-share doc)', async () => {

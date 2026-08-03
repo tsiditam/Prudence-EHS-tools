@@ -571,7 +571,7 @@ describe('field-assistant output linter', () => {
         makeJsonResponse({
           content: [{
             type: 'text',
-            text: '## Screening interpretation\n- Elevated readings are a ventilation indicator only.\n\nIH Review Required',
+            text: '## Screening interpretation\n- Elevated readings are a ventilation indicator only.\n\nAI-assisted response — verify before use.',
           }],
           usage: { input_tokens: 120, output_tokens: 30, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 },
           stop_reason: 'end_turn',
@@ -623,9 +623,9 @@ describe('field-assistant output linter', () => {
     const events = sseEvents(captured)
     const replaceEv = events.find((e) => e.event === 'replace')
     expect(replaceEv).toBeDefined()
-    expect(replaceEv!.data.text).toMatch(/IH Review Required/)
+    expect(replaceEv!.data.text).toMatch(/verify before use/)
     const assistant = messages.find((m) => m.role === 'assistant')
-    expect(assistant?.content).toMatch(/IH Review Required/)
+    expect(assistant?.content).toMatch(/verify before use/)
     expect(assistant?.content).not.toMatch(/caused by/i)
     expect(messages.some((m) => /caused by/i.test(m.content))).toBe(false)
     const det = lastAuditDetails()

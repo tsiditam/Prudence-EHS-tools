@@ -130,7 +130,9 @@ export function projectGraph(model: KGModel): KGGraphInsert {
       // Every finding connects to an IH review flag (spec 12.10 / guardrails).
       if (f.ihReviewRequired ?? true) {
         const rKey = ek.review(zone.id, f.key)
-        addNode(rKey, 'review_flag', 'IH Review Required', FACT_NODE_CONFIDENCE, { zone_id: zone.id })
+        // Display label only — the `ihReviewRequired` FIELD keeps its
+        // name (stored KG contract + Jasper tool schema).
+        addNode(rKey, 'review_flag', 'Professional Review Recommended', FACT_NODE_CONFIDENCE, { zone_id: zone.id })
         addEdge(fKey, 'REQUIRES_REVIEW', rKey)
       }
       for (const sk of f.standards || []) addEdge(fKey, 'LINKED_TO_STANDARD', ek.standard(sk))

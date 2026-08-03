@@ -11,10 +11,13 @@ const STORAGE_KEY = KEYS.instruments
 // ── Calibration thresholds (methodology config) ──────────────────────────
 //
 // CAL_VALIDITY_DAYS — how long a calibration is considered current.
-// Calibrations older than this are treated as expired and block
-// finalization (see MobileApp.finishAssessment guard). Per-device-class
-// override is on the roadmap; today the value is uniform across sensor
-// types. Keep aligned with isOutOfCal() below.
+// Calibrations older than this are treated as expired and INTERRUPT
+// finalization (MobileApp.finishAssessment): the assessor is shown what
+// is missing and must acknowledge before proceeding. It is not a hard
+// block — finishAssessment(true) continues — and report export is not
+// gated at all. Per-device-class override is on the roadmap; today the
+// value is uniform across sensor types. Keep aligned with isOutOfCal()
+// below, and with lib/calibration/banner-state.ts.
 //
 // CAL_WARN_DAYS — how many days before expiry the dashboard surfaces a
 // pre-expiry warning banner. Banner renders when daysToExpiry is in
@@ -22,11 +25,9 @@ const STORAGE_KEY = KEYS.instruments
 //
 // Provenance: AtmosFlow defensibility hardening spec (calibration
 // warnings); resilience-engineering principle (Hollnagel) — surface
-// only what diverges from expected state. CLAUDE.md describes the
-// gate as 270-day; live code has been at 365 since the original
-// instrument-registry implementation. The 365 value is preserved here
-// to keep finalization-gate behavior unchanged; reconciling the
-// CLAUDE.md figure with live code is a separate methodology workstream.
+// only what diverges from expected state. 365 days is the confirmed
+// methodology figure (product decision, 2026-08); an earlier revision of
+// CLAUDE.md said 270 and has been corrected to match.
 export const CAL_VALIDITY_DAYS = 365
 export const CAL_WARN_DAYS = 30
 

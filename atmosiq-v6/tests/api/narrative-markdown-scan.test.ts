@@ -48,7 +48,7 @@ describe('banned-language scan with markdown formatting', () => {
       '## Data Gaps',
       '- No outdoor CO2 baseline was recorded.',
       '',
-      'IH Review Required — screening output; not a compliance determination or causation finding.',
+      'AI-assisted narrative — verify before issue; screening output, not a compliance determination or causation finding.',
     ].join('\n')
     expect(scan(md)).toEqual([])
   })

@@ -43,13 +43,13 @@ describe('jasper output linter', () => {
 
   it('does NOT over-block safe screening disclaimers', () => {
     const ok =
-      'CO2 at 1500 ppm is a ventilation indicator. This screening does not establish a building-related illness. IH Review Required'
+      'CO2 at 1500 ppm is a ventilation indicator. This screening does not establish a building-related illness. AI-assisted response — verify before use.'
     expect(lintJasperOutput(ok)).toEqual([])
   })
 
   it('does NOT block confidence about instrument reliability', () => {
     const ok =
-      'The Q-Trak reading is highly reliable. Recommend confirmatory sampling before any interpretation. IH Review Required'
+      'The Q-Trak reading is highly reliable. Recommend confirmatory sampling before any interpretation. AI-assisted response — verify before use.'
     expect(lintJasperOutput(ok)).toEqual([])
   })
 
@@ -58,7 +58,7 @@ describe('jasper output linter', () => {
     expect(SAFE_FALLBACK).toMatch(/## Screening interpretation/)
     expect(SAFE_FALLBACK).toMatch(/## Recommended next steps/)
     expect(SAFE_FALLBACK).toMatch(/## Defensibility note/)
-    expect(SAFE_FALLBACK.trim()).toMatch(/IH Review Required$/)
+    expect(SAFE_FALLBACK.trim()).toMatch(/verify before use\.$/)
     expect(lintJasperOutput(SAFE_FALLBACK)).toEqual([])
   })
 
@@ -68,7 +68,7 @@ describe('jasper output linter', () => {
       { recommendedFix: 'Do not rate hypothesis strength.' },
     ])
     expect(instr).toMatch(/REVISION REQUIRED/)
-    expect(instr).toMatch(/IH Review Required/)
+    expect(instr).toMatch(/verify before use/)
     expect(instr).toMatch(/Do not assert causation\./)
   })
 })

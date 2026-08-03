@@ -115,6 +115,30 @@ export interface EngineOutputs {
   readonly causal_chains: unknown
 }
 
+/**
+ * The record an assessor leaves when they finalize past the
+ * instrument-calibration interrupt (see
+ * `src/utils/calibrationAcknowledgement.js`).
+ *
+ * Kept as a top-level context field rather than folded into `meta`
+ * because it is professional judgement, not report metadata — the one
+ * boundary AtmosFlow does not blur. A consumer must be able to tell at a
+ * glance that these words came from a named human, not from a
+ * calculation.
+ *
+ * Null is the normal case and means exactly "no exception was
+ * acknowledged". It never means "calibration was fine" — that question
+ * is answered by the instrument records themselves.
+ */
+export interface CalibrationAcknowledgementSummary {
+  readonly version: number
+  readonly items: readonly string[]
+  readonly justification: string
+  readonly assessor_name: string | null
+  readonly assessor_credentials: string | null
+  readonly acknowledged_at: string | null
+}
+
 /** Report-draft state — which deliverable, what options, last export. */
 export interface ReportDraftState {
   readonly format: string | null
@@ -169,6 +193,7 @@ export interface AssessmentContext {
   readonly engine_outputs: EngineOutputs | null
   readonly readiness_verdict: ReadinessVerdict | null
   readonly report_draft_state: ReportDraftState | null
+  readonly calibration_acknowledgement: CalibrationAcknowledgementSummary | null
 }
 
 /**
@@ -202,6 +227,7 @@ export interface RawAssessmentState {
   draftId?: string | null
   assessmentMode?: string
   reportDraftState?: Partial<ReportDraftState>
+  calibrationAcknowledgement?: unknown
 }
 
 /**

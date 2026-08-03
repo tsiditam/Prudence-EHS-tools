@@ -10,7 +10,7 @@
  * response), the `tool_calls` made that turn, and a `next_step_manual_score`.
  * We score four dimensions per scenario, reusing the production linter:
  *   1. truncation     — ends on a complete sentence, all four sections +
- *                       "IH Review Required" present.
+ *                       the AI-assisted disclaimer line present.
  *   2. value_fidelity — every framework-adjacent concentration is tool-backed
  *                       (api/_jasper-lint.js checkUnbackedThresholds).
  *   3. leakage        — the output linter (lintJasperOutput) does not trip.
@@ -27,7 +27,13 @@ import { argv, exit } from 'node:process'
 import { createRequire } from 'node:module'
 
 const require = createRequire(import.meta.url)
-const { lintJasperOutput, checkUnbackedThresholds } = require('../api/_jasper-lint.js')
+// The disclaimer line comes FROM the linter rather than being restated
+// here, so the eval can never grade against a different string than the
+// one the chat path actually enforces.
+const { lintJasperOutput, checkUnbackedThresholds, AI_DISCLAIMER_LINE } = require('../api/_jasper-lint.js')
+const DISCLAIMER_RE = new RegExp(
+  `${AI_DISCLAIMER_LINE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`,
+)
 
 const SECTIONS = [
   '## Assessment context',
@@ -42,10 +48,10 @@ export function scoreTruncation(answer) {
   const text = String(answer || '')
   const reasons = []
   for (const s of SECTIONS) if (!text.includes(s)) reasons.push(`missing section "${s}"`)
-  if (!/IH Review Required\s*$/.test(text.trim())) reasons.push('does not end with "IH Review Required"')
+  if (!DISCLAIMER_RE.test(text.trim())) reasons.push(`does not end with "${AI_DISCLAIMER_LINE}"`)
   // Complete-sentence check: the body before the closing line should end on
   // terminal punctuation (not a mid-sentence cutoff).
-  const beforeClose = text.replace(/IH Review Required\s*$/, '').trim()
+  const beforeClose = text.replace(DISCLAIMER_RE, '').trim()
   if (beforeClose && !/[.!?:)\]"”]$/.test(beforeClose)) reasons.push('body ends mid-sentence (truncation)')
   return { pass: reasons.length === 0, reasons }
 }

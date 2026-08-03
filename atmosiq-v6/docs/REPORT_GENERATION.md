@@ -47,17 +47,48 @@ AtmosFlow · Appendix C Site Photographs.
 **Sections with no model data are omitted** (e.g. no logger ⇒ no logger
 charts; the peak-CO₂ bar still renders from grab readings).
 
-## Export modes
+## Report profile + lifecycle
 
-`assembleRenderModel(data, { mode })` — `'draft'` (default) | `'final'` |
-`'sample'`:
+Chrome is driven by `src/constants/reportLifecycle.js` — the single source
+of truth for what state a report is in and how it presents itself. A report
+has a **profile** (what kind of work it represents) and a **status** (where
+it is in its life):
 
-- **Draft** — `DRAFT` watermark, header "Draft — IH Review Required",
-  signature block states the report needs qualified-professional review
-  before issuance ("IH Review Required").
-- **Final** — no watermark, accountable review statement ("The undersigned
-  has reviewed…"). Intended to follow reviewer approval.
-- **Sample** — `SAMPLE` watermark, evaluation-use disclaimer.
+```
+draft → in_review → reviewed → final
+```
+
+`assembleRenderModel(data, { reportProfile, reportStatus, reviewer })`.
+
+| Profile | Draft | Reviewed / Final |
+|---|---|---|
+| **screening** (default) | `DRAFT` watermark, header "Draft" | no watermark, no pending language; carries the limitation statement |
+| **professional** | `DRAFT`, "Draft — Pending Professional Review" | signed by the REVIEWER (name, credentials, organization, approval id, review date) |
+| **compliance** | as professional | as professional; cannot be labelled Final without a recorded approval |
+
+A **screening report reaches Final without a reviewer** — that is the point.
+It is a record of measurements, not a professional opinion, so its closing
+statement is the scope limitation rather than an accountability claim.
+
+### Two things that are NOT lifecycle states
+
+- **`mode: 'sample'`** — a marketing artifact illustrating report
+  structure. No profile, no status, no reviewer. Handled first and
+  unchanged.
+- **Legacy `mode: 'draft' | 'final'`** — still honoured. A caller passing
+  it (`api/report-pdf.js`, `src/utils/downloadReportPdf.js`) is the
+  consultant path, which has always carried the professional
+  accountability statement, so those callers resolve to the
+  **professional** profile. `mode: 'final'` renders exactly as it did
+  before the lifecycle existed.
+
+### Storage
+
+`assessments.report_profile` / `report_status` (migration 027). The legacy
+`assessments.status` column keeps its `draft | complete` vocabulary —
+`src/utils/supabaseStorage.js` splits drafts from reports on it in six
+places — and `toLegacyStatus` / `fromLegacyStatus` bridge the two. Rows
+predating the migration resolve from the legacy column.
 
 ## Defensibility / guardrails (reused, not rebuilt)
 

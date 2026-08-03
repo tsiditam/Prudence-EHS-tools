@@ -37,6 +37,13 @@ const SLATE_SOFT = 'E2E8F0'
 const SLATE_BODY = '334155'
 // Backward-compat aliases for any helpers still using the old names
 const CYAN = ACCENT_BLUE
+/**
+ * The colour reserved for the document's most serious statements: the
+ * draft cover notice, the data-gap reliance limitation, and the memo
+ * notice. Previously hardcoded at each of the three sites.
+ */
+const NOTICE_COLOR = 'C2410C'
+
 const CYAN_DARK = SLATE
 const CYAN_LIGHT = SLATE_SOFT
 const CYAN_FILL = SLATE_FILL
@@ -175,7 +182,7 @@ function buildCoverPage(cover, reviewStatus, projectNumber) {
       p(REVIEW_STATUS_LABEL[reviewStatus] || cover.status, { align: AlignmentType.CENTER, bold: true, size: 22, color: CYAN_DARK, after: 200 }),
       // Methodology line italic
       p(cover.methodologyLine, { align: AlignmentType.CENTER, italics: true, size: 18, color: COLORS.muted, after: 400 }),
-      ...(cover.draftNotice ? [p(cover.draftNotice, { align: AlignmentType.CENTER, italics: true, size: 20, color: 'C2410C' })] : []),
+      ...(cover.draftNotice ? [p(cover.draftNotice, { align: AlignmentType.CENTER, italics: true, size: 20, color: NOTICE_COLOR })] : []),
     ],
   }
 }
@@ -1261,6 +1268,47 @@ export function buildDataGapsSection(dataGaps) {
   return out
 }
 
+/**
+ * Limitations on Reliance — the engine's fired data-gap triggers.
+ *
+ * Up to engine v2.8 a fired trigger REFUSED to issue: the reader got a
+ * Pre-Assessment Memo instead of a report. From v2.9 the report always
+ * issues and these warnings ride in it (product decision, 2026-08).
+ *
+ * That trade only holds if the disclosure is genuinely hard to miss, so
+ * this sits immediately after the transmittal — before any finding — and
+ * set in the notice colour. It is
+ * DISTINCT from `buildDataGapsSection` further down: that one lists
+ * scientific gaps derived from the assessment and is a normal
+ * back-of-report section. This one states that the assessment's own
+ * evidentiary basis is thin enough that the engine would previously have
+ * declined to issue at all.
+ *
+ * Each trigger description is rendered VERBATIM from the engine. They are
+ * already written as user-facing sentences that name the fix location,
+ * and paraphrasing them here would let the two drift.
+ */
+export function buildRelianceLimitation(warnings) {
+  if (!Array.isArray(warnings) || warnings.length === 0) return []
+  const out = [...heading2('Limitations on Reliance — Identified Data Gaps')]
+  out.push(p(
+    'The following gaps were identified in the evidence supporting this assessment. '
+    + 'This report is issued so the measured data and observations are available for use and '
+    + 'so the gaps below can be addressed; until they are, the findings should be relied on '
+    + 'accordingly and treated as screening-level only.',
+    // Same amber-red the draft notice and memo notice use, so the
+    // three most serious statements in the document read as one voice.
+    { size: 20, color: NOTICE_COLOR, bold: true, after: 120 },
+  ))
+  for (const w of warnings) out.push(bullet(w))
+  out.push(p(
+    'Resolving these gaps and re-issuing is recommended before this report is relied on for '
+    + 'a decision with cost, health, or regulatory consequence.',
+    { size: 20, color: COLORS.sub, before: 120 },
+  ))
+  return out
+}
+
 // Disclaimer — standalone, distinct from the Limitations section.
 export function buildDisclaimer() {
   const out = [...heading2('Disclaimer')]
@@ -1316,7 +1364,20 @@ export function buildClientDocx(result, options = {}) {
   }
   const report = result.report
   const photos = options.photos || {}
-  const cover = buildCoverPage(report.cover, report.reviewStatus, report.transmittalLetter?.projectNumber || report.meta?.projectNumber)
+  // Cover notice. Appended to (not replacing) any existing draft notice
+  // so a draft with data gaps states both.
+  const gapCount = Array.isArray(result.dataGapWarnings) ? result.dataGapWarnings.length : 0
+  const coverForRender = gapCount > 0
+    ? {
+        ...report.cover,
+        draftNotice: [
+          report.cover?.draftNotice,
+          `Notice: ${gapCount} data gap${gapCount === 1 ? '' : 's'} identified in the supporting evidence. `
+          + 'See "Limitations on Reliance" before relying on the findings.',
+        ].filter(Boolean).join('  '),
+      }
+    : report.cover
+  const cover = buildCoverPage(coverForRender, report.reviewStatus, report.transmittalLetter?.projectNumber || report.meta?.projectNumber)
 
   // Supplemental sections (standards currency body section + lab / sensor
   // appendices) are assembled here — inside the canonical model — so they
@@ -1329,6 +1390,13 @@ export function buildClientDocx(result, options = {}) {
   // Phase 2 — splice the canonical additive sections into the TOC at
   // their rendered positions (Document Control is front-matter and
   // intentionally not listed).
+  if (Array.isArray(result.dataGapWarnings) && result.dataGapWarnings.length > 0) {
+    tocEntries = spliceTocEntry(
+      tocEntries,
+      { anchorId: 'reliance-limitation', title: 'Limitations on Reliance — Identified Data Gaps', level: 1 },
+      { before: /Scope/i },
+    )
+  }
   tocEntries = spliceTocEntry(tocEntries, { anchorId: 'benchmarks', title: 'Standards, Guidelines, and Benchmark Types', level: 1 }, { after: /Sampling Methodology/i })
   // Instrument Accuracy sits between Sampling Methodology and Benchmarks
   // (when present).
@@ -1345,6 +1413,10 @@ export function buildClientDocx(result, options = {}) {
 
   const main = [
     ...buildTransmittal(report),
+    // Engine data-gap warnings (v2.9). Sits before any finding: from
+    // v2.9 the report always issues, so the reader must meet the
+    // evidentiary caveat before the results rather than after them.
+    ...buildRelianceLimitation(result.dataGapWarnings),
     ...buildDocumentControl(report),
     ...buildTableOfContents(report, tocEntries),
     ...buildMethodologyDisclosure(report),
@@ -1516,7 +1588,7 @@ function buildCapturedFieldPhotos(report, photos) {
 function buildMemoDocx(memo, reasons) {
   const cover = buildCoverPage(memo.cover, 'draft_pending_professional_review', memo.meta?.projectNumber)
   const main = [
-    p(`Notice: ${memo.notice}`, { italics: true, color: 'C2410C', after: 240 }),
+    p(`Notice: ${memo.notice}`, { italics: true, color: NOTICE_COLOR, after: 240 }),
     ...heading2('Purpose'),
     p(memo.purposeStatement),
     ...heading2('Identified Data Gaps'),

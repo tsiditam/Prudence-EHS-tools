@@ -9,8 +9,9 @@ generated → draft → reviewed → final
 
 ### Draft State (default on generation)
 - `reportStatus: "draft"`
-- Header: "DRAFT — FOR PROFESSIONAL REVIEW"
-- Cover: "Draft — Pending Professional Review"
+- Header / cover: "Draft — Pending Professional Review" for the
+  **professional** and **compliance** profiles; plain "Draft" for
+  **screening**, which has no professional reviewer pending.
 - Reviewer block: blank with instruction text
 - QA checklist: appended to report
 - Distribution: restricted to internal review
@@ -24,7 +25,7 @@ generated → draft → reviewed → final
 
 ### Final State (after reviewer approval)
 - `reportStatus: "final"`
-- Cover: "Final Reviewed Report"
+- Cover: "Professionally Reviewed" (then "Final" once issued)
 - Header: firm name only (no draft warning)
 - Reviewer signoff block: completed with name, title, date
 - Statement removed: "requires review by a qualified professional"
@@ -57,11 +58,19 @@ The app currently does not have a reviewer workflow UI. For now:
 
 | Element | Draft | Final |
 |---------|-------|-------|
-| Cover status | "Draft — Pending Professional Review" | "Final Reviewed Report" |
-| Page header | "DRAFT — FOR PROFESSIONAL REVIEW" | Firm name only |
+| Cover status | "Draft" (screening) / "Draft — Pending Professional Review" | "Final" |
+| Page header | "Draft" / "Draft — Pending Professional Review" | "Confidential — Final" |
 | Reviewer block | Blank with instructions | Completed |
 | QA checklist | Appended | Not present |
-| AI narrative disclaimer | Present | Removed (reviewer has approved) |
+| AI narrative disclaimer | Present | **Present** — see below |
+
+> **Corrected 2026-08 (report lifecycle).** This table previously said the
+> AI narrative disclaimer was *removed* once a reviewer approved. It is
+> not. The banner is a statement about **who wrote the text**, and a
+> reviewer signing the report does not change the fact that a model
+> drafted that paragraph. It renders in every lifecycle state whenever
+> `ctx.narrative` is AI-generated, and never for deterministic prose.
+> See `aiProvenanceBanner()` in `src/components/docx/sections-core.js`.
 | Distribution statement | "Internal review only" | "Confidential — for client use only" |
 | Software version | Shown in transparency panel | Shown in transparency panel |
 | Disclaimer statement | "requires review by qualified professional" | "Reviewed and approved by..." |

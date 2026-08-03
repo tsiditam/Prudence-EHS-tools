@@ -24,7 +24,26 @@ export interface ClientRenderOptions {
 }
 
 export type ClientReportResult =
-  | { kind: 'report'; report: ClientReport; validation: ReportValidation }
+  | {
+      kind: 'report'
+      report: ClientReport
+      validation: ReportValidation
+      /**
+       * Fired data-gap triggers (v2.9). Empty when the assessment has
+       * none.
+       *
+       * Up to v2.8 any fired trigger produced a `pre_assessment_memo`
+       * INSTEAD of a report. It now produces the report WITH these
+       * warnings, rendered on the cover and in a dedicated front
+       * section — the disclosure travels with the deliverable rather
+       * than replacing it. See `evaluateRefusalTriggers`.
+       */
+      dataGapWarnings: ReadonlyArray<string>
+    }
+  /**
+   * Retained and still buildable via `buildPreAssessmentMemo`, but no
+   * longer produced automatically by `renderClientReport`.
+   */
   | { kind: 'pre_assessment_memo'; memo: PreAssessmentMemo; reasons: ReadonlyArray<string> }
 
 export type { ReportValidation, ValidationIssue, ValidationSeverity, BlockedTermHit } from './cih-validation'

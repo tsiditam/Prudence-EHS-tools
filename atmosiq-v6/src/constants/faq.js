@@ -97,7 +97,7 @@ export const FAQ_SECTIONS = [
       },
       {
         q: 'Is the scoring deterministic or AI-driven?',
-        a: 'Scoring is fully deterministic. Identical inputs produce identical outputs. No AI is involved in the score, the risk classification, or the recommendation severity. AI is used only for narrative drafting, and that output is clearly labeled "IH Review Required."',
+        a: 'Scoring is fully deterministic. Identical inputs produce identical outputs. No AI is involved in the score, the risk classification, or the recommendation severity. AI is used only for narrative drafting, and that output is clearly labeled as AI-assisted so you can verify it before issuing.',
       },
     ],
   },
@@ -148,7 +148,7 @@ export const FAQ_SECTIONS = [
       },
       {
         q: 'What does the AI actually do?',
-        a: 'AI is used to draft professional narrative text from the deterministic engine\'s output. The AI describes what the engine found; it does not invent findings, change scores, or add recommendations. AI-generated narrative is labeled "IH Review Required" and the qualified professional signs the report, not the AI.',
+        a: 'AI is used to draft professional narrative text from the deterministic engine\'s output. The AI describes what the engine found; it does not invent findings, change scores, or add recommendations. AI-generated narrative is labeled as AI-assisted, and the qualified professional signs the report, not the AI.',
       },
       {
         q: 'Can the AI add findings the engine didn\'t identify?',
