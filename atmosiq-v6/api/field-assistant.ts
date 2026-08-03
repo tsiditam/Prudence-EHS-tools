@@ -40,7 +40,7 @@ import { FIELD_ASSISTANT_TOOLS, dispatchTool } from '../src/constants/field-assi
 import { scrubPii } from '../lib/sentry.js'
 import { auditLog } from './_audit.js'
 import { hasUnlimitedUsage } from '../lib/unlimited-usage.js'
-import { lintJasperOutput, checkUnbackedThresholds, buildRevisionInstruction, SAFE_FALLBACK } from './_jasper-lint.js'
+import { lintJasperOutput, checkUnbackedThresholds, looksLikeThresholdQuestion, withThresholdVerifyNote, buildRevisionInstruction, SAFE_FALLBACK } from './_jasper-lint.js'
 
 // ── Quota / model / pricing ────────────────────────────────────────
 const PER_MINUTE_LIMIT = 15
@@ -314,6 +314,10 @@ async function callAnthropicStream(
   apiKey: string,
   systemBlocks: unknown,
   messages: unknown,
+  // When set (e.g. { type: 'any' }), forces the model to call a tool this
+  // turn. Used to make threshold questions retrieve a tool-backed value so
+  // the answer isn't retracted by the post-answer threshold check.
+  toolChoice?: unknown,
 ): Promise<Response> {
   const fetchFn = getFetch()
   return fetchFn('https://api.anthropic.com/v1/messages', {
@@ -334,6 +338,7 @@ async function callAnthropicStream(
       system: systemBlocks,
       messages,
       tools: FIELD_ASSISTANT_TOOLS,
+      ...(toolChoice ? { tool_choice: toolChoice } : {}),
     }),
   }) as Promise<Response>
 }
@@ -533,6 +538,9 @@ async function runAgentLoop(
   initialMessages: Array<{ role: string; content: unknown }>,
   res: VercelLikeResponse,
   toolCtx: ToolDispatchContext,
+  // forceToolFirstTurn: on round 1, require the model to call a tool (used for
+  // threshold questions so a lookup runs before the number is stated).
+  opts?: { forceToolFirstTurn?: boolean },
 ): Promise<StreamResult & {
   rounds: number
   toolCalls: Array<{ name: string; input: unknown; resultStatus: string }>
@@ -553,7 +561,12 @@ async function runAgentLoop(
 
   while (rounds < MAX_TOOL_ROUNDS) {
     rounds += 1
-    const upstream = await callAnthropicStream(apiKey, systemBlocks, messages)
+    // Force a tool call on the FIRST turn only when asked (threshold
+    // questions); later turns stay 'auto' so the model can answer once it
+    // has the tool result.
+    const toolChoice =
+      rounds === 1 && opts?.forceToolFirstTurn ? { type: 'any' } : undefined
+    const upstream = await callAnthropicStream(apiKey, systemBlocks, messages, toolChoice)
     if (!upstream.ok) {
       const errText = await upstream.text().catch(() => '')
       throw new Error(`upstream_${upstream.status}: ${errText || 'no_body'}`)
@@ -730,6 +743,9 @@ interface LintOutcome {
   retried: boolean
   retry_fixed: boolean
   fallback_used: boolean
+  // True when an unbacked-threshold-only answer was kept + annotated with the
+  // verify note (graceful path) instead of retried/replaced with the fallback.
+  threshold_caveat: boolean
 }
 
 /**
@@ -761,22 +777,41 @@ async function enforceJasperOutputSafety(
   extraCacheRead: number
   extraCacheCreate: number
 }> {
-  // Combine prohibited-language hits with unbacked-threshold hits.
+  // Two hit classes, handled differently:
+  //  • prohibited-language (causation / compliance / health / hypothesis /
+  //    banned tone) — the defensibility moat: retry, else SAFE_FALLBACK.
+  //  • unbacked-threshold — a number that wasn't tool-backed this turn. NOT a
+  //    forbidden claim; retracting the whole answer to the screening-only
+  //    fallback is the wrong cure. Keep the answer and append a verify note.
   const lintFor = (text: string) => [
     ...lintJasperOutput(text),
     ...checkUnbackedThresholds(text, { retrievalUsed }),
   ]
-  const firstHits = lintFor(result.text)
+  const prohibitedHits = lintJasperOutput(result.text)
+  const thresholdHits = checkUnbackedThresholds(result.text, { retrievalUsed })
+  const firstHits = [...prohibitedHits, ...thresholdHits]
   const lint: LintOutcome = {
     tripped: firstHits.length > 0,
     phrases: Array.from(new Set(firstHits.map((h: { term: string }) => h.term))),
     retried: false,
     retry_fixed: false,
     fallback_used: false,
+    threshold_caveat: false,
   }
   const zero = { extraInput: 0, extraOutput: 0, extraCacheRead: 0, extraCacheCreate: 0 }
   if (firstHits.length === 0) {
     return { finalText: result.text, lint, ...zero }
+  }
+
+  // Threshold-only miss (no prohibited language): keep the useful answer and
+  // flag the numbers to verify. No retry — the retry runs with
+  // tool_choice:'none' and so cannot tool-back a value anyway.
+  if (prohibitedHits.length === 0) {
+    console.warn('[field-assistant] unbacked threshold — kept answer + verify note:', lint.phrases.join(', '))
+    const finalText = withThresholdVerifyNote(result.text)
+    lint.threshold_caveat = true
+    writeSse(res, 'replace', { text: finalText })
+    return { finalText, lint, ...zero }
   }
 
   console.warn('[field-assistant] output lint tripped:', lint.phrases.join(', '))
@@ -1155,7 +1190,11 @@ async function handler(req: VercelLikeRequest, res: VercelLikeResponse): Promise
   const agentStartedAt = Date.now()
   let result: Awaited<ReturnType<typeof runAgentLoop>>
   try {
-    result = await runAgentLoop(apiKey, systemBlocks, initialMessages, res, toolCtx)
+    // Threshold questions ("OSHA PEL for CO?", "ASHRAE CO₂ limit?") force a
+    // retrieval tool call up front so the stated value is tool-backed and the
+    // post-answer threshold check doesn't retract the answer.
+    const forceToolFirstTurn = looksLikeThresholdQuestion(userMessage)
+    result = await runAgentLoop(apiKey, systemBlocks, initialMessages, res, toolCtx, { forceToolFirstTurn })
   } catch (err) {
     const raw = err instanceof Error ? err.message : 'agent_loop_failed'
     const msg = friendlyUpstreamError(raw)
