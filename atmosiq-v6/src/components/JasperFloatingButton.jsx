@@ -31,7 +31,7 @@ if (typeof document !== 'undefined' && !document.getElementById('jfb-style')) {
   document.head.appendChild(s)
 }
 
-export default function JasperFloatingButton({ onClick, active, label = 'AtmosFlow AI' }) {
+export default function JasperFloatingButton({ onClick, active, label = 'AtmosFlow AI', bottomOffset = 78 }) {
   // Instagram-style scroll response: shrink while scrolling down, grow back
   // when scrolling up or near the top.
   const [shrunk, setShrunk] = useState(false)
@@ -96,8 +96,9 @@ export default function JasperFloatingButton({ onClick, active, label = 'AtmosFl
       style={{
         position: 'fixed',
         right: 16,
-        // Float above the bottom dock, clearing the safe-area inset.
-        bottom: 'calc(env(safe-area-inset-bottom, 0px) + 78px)',
+        // Float above the bottom dock (mobile) or near the bottom-right edge
+        // (desktop, where there is no dock), clearing the safe-area inset.
+        bottom: `calc(env(safe-area-inset-bottom, 0px) + ${bottomOffset}px)`,
         zIndex: 101,
         width: size,
         height: size,

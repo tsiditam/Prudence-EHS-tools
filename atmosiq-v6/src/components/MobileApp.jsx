@@ -4783,20 +4783,22 @@ export default function MobileApp() {
         ]).map(mkTab)
 
         return (
-          <>
-            <AtmosFlowFloatingDock tabs={navTabs} maxWidth={contentMax} />
-            {/* AtmosFlow AI — detached from the dock, floating against the
-                right edge. Shrinks/grows with scroll (Instagram-style).
-                Consultant mode only, matching the prior aux-pill gating. */}
-            {userMode !== 'fm' && (
-              <JasperFloatingButton
-                active={faOpen}
-                onClick={() => { haptic('light'); supabase && trackEvent('jasper_open', { source: 'floating_button' }); setFaOpen(true) }}
-              />
-            )}
-          </>
+          <AtmosFlowFloatingDock tabs={navTabs} maxWidth={contentMax} />
         )
       })()}
+
+      {/* AtmosFlow AI — detached floating launcher. On mobile it floats above
+          the bottom dock; on desktop (no dock) it sits lower against the
+          bottom-right edge. Rendered outside the dock's !isDesktop gate so it
+          appears in both layouts. Consultant mode only, and hidden during the
+          assessment / milestone flows just like the dock. */}
+      {!isAssessing && !milestone && userMode !== 'fm' && (
+        <JasperFloatingButton
+          active={faOpen}
+          bottomOffset={isDesktop ? 24 : 78}
+          onClick={() => { haptic('light'); supabase && trackEvent('jasper_open', { source: 'floating_button' }); setFaOpen(true) }}
+        />
+      )}
 
       {/* The floating Field-Assistant FAB was retired when Jasper
           moved into the bottom-nav tab — two launchers for the same
