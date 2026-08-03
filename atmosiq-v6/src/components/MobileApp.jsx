@@ -5130,7 +5130,18 @@ export default function MobileApp() {
         input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appearance:none;}
         input[type=number]{-moz-appearance:textfield;}
         select option{background:${CARD};color:${SUB};}
-        ::-webkit-scrollbar{width:0;height:0;}
+        /* Scrollbars: hidden on touch for the clean mobile look; a slim,
+           theme-aware scrollbar on desktop (fine pointer) so long screens
+           don't look cut off at the fold. The content always scrolled, but
+           desktop users had no visible affordance that it did. */
+        @media (pointer: coarse){*{scrollbar-width:none;}::-webkit-scrollbar{width:0;height:0;}}
+        @media (pointer: fine){
+          *{scrollbar-width:thin;scrollbar-color:var(--border) transparent;}
+          ::-webkit-scrollbar{width:10px;height:10px;}
+          ::-webkit-scrollbar-thumb{background:var(--border);border-radius:8px;border:3px solid transparent;background-clip:content-box;}
+          ::-webkit-scrollbar-thumb:hover{background:var(--sub);background-clip:content-box;}
+          ::-webkit-scrollbar-track{background:transparent;}
+        }
         body{overscroll-behavior:none;}
       `}</style>
       {/* Tap the dimmed content card to close the side menu (Claude-style). */}
