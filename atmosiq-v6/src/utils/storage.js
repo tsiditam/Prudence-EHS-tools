@@ -93,6 +93,31 @@ const STO = {
     const all = (await this.get(KEYS.incidents)) || []
     await this.set(KEYS.incidents, all.filter(x => x.id !== id))
   },
+
+  // ── Mold assessments (mold userMode) ───────────────────────────
+  // Same collection pattern as incidents: one local array under
+  // KEYS.moldAssessments, upsert-by-id, newest first. Kept entirely
+  // separate from the IAQ reports/drafts index. Each record stores the
+  // captured INPUT (presurvey + areas) — the screening result is a
+  // deterministic, disposable projection re-run from it on open, so a
+  // record can never drift from the engine.
+  async getMoldAssessments() {
+    return (await this.get(KEYS.moldAssessments)) || []
+  },
+  async saveMoldAssessment(rec) {
+    const all = (await this.get(KEYS.moldAssessments)) || []
+    const now = new Date().toISOString()
+    const i = all.findIndex(x => x.id === rec.id)
+    if (i >= 0) all[i] = { ...all[i], ...rec, updated_at: now }
+    else all.unshift({ ...rec, created_at: rec.created_at || now, updated_at: now })
+    await this.set(KEYS.moldAssessments, all)
+    return all[i >= 0 ? i : 0]
+  },
+  async deleteMoldAssessment(id) {
+    const all = (await this.get(KEYS.moldAssessments)) || []
+    await this.set(KEYS.moldAssessments, all.filter(x => x.id !== id))
+  },
+
   async _migrateComplaints() {
     if (await this.get(KEYS.complaintsMigrated)) return
     const keys = await this.keys(COMPLAINTS_PREFIX)

@@ -441,7 +441,33 @@ on this codebase. Watch for them.
 - Composite scoring math reconciliation (separate workstream)
 - UI redesign (separate plan; result tabs / demo cards / bottom nav
   redesigned in commit `c1ed1c8`, broader UI system pass deferred)
-- Mold module build-out (spec phase, not implementation)
+- Mold module: the **foundation has landed** — a parallel, deterministic
+  screening engine (`src/engines/mold/*`, IICRC S520 water Category +
+  remediation Condition + comparative indoor/outdoor spore screening),
+  `src/constants/moldStandards.js`, `src/types/mold.ts`, the intake schema
+  (`src/constants/moldQuestions.js`) + demo (`demoDataMold.js`), and a read-only
+  result surface `src/components/MoldScreeningView.jsx` that **mirrors the IAQ
+  result tabs** (reuses `AssessmentSegmentedPillNav`: Findings / Conditions /
+  Spores / Review + a persistent Screening-only banner), with a
+  `/dev/mold-screening` preview (`src/components/dev/DevMoldPreview.jsx`). Staged
+  behind `MOLD_KILL_SWITCH` (now **lifted** → preview-on, prod-off-by-default,
+  `?mold=1` opt-in). Mold is now its **own `userMode`**: `terminology.js`
+  registers `'mold'`, and `MobileApp.jsx` EARLY-RETURNS the isolated
+  `src/components/MoldModeScreen.jsx` (home → intake → result) when
+  `userMode==='mold'` && the flag is on — so the IAQ shell/nav never mounts in
+  mold mode and IH/FM are untouched. Entered from Settings → *Assessment mode →
+  Mold screening (beta)* (gated); exits back to IH. Docs: `docs/MOLD_MODULE.md`;
+  gates: `npm run test:mold` / `accept:mold`. Screening only — no health
+  verdict, categorical severity, every finding requires professional review.
+  Assessments **persist** — `STO.get/save/deleteMoldAssessment`
+  (`KEYS.moldAssessments`), a local collection like incidents, kept OUT of the
+  IAQ reports/drafts index; the record stores the captured INPUT and the result
+  is re-derived on open. A screening produces a standalone **DOCX report**
+  (`src/components/docx/sections-mold.js` + `mold-report.js`, reusing the shared
+  report chrome; `MoldModeScreen` dynamic-imports `generateMoldReport`). **Still
+  out of scope** (next increment): **cloud sync** of mold assessments (local-only
+  today). The engine is versioned independently (`MOLD_ENGINE_VERSION`) and
+  imports nothing from the sacred IAQ engine.
 - Marketing copy on prudenceehs.com or atmosflow positioning pages
 - FedRAMP MFA enforcement, FIPS-140 crypto, SSP authoring (handled by
   separate FedRAMP workstream; see `docs/PRODUCTION_READINESS.md`)

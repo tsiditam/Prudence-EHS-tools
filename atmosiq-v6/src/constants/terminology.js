@@ -1,7 +1,11 @@
 /**
  * AtmosFlow Terminology Dictionary + Mode Infrastructure
- * Runtime-switchable view layer: 'ih' (Industrial Hygienist) | 'fm' (Facility Manager)
- * Scoring engine is mode-agnostic — same inputs, same outputs regardless of mode.
+ * Runtime-switchable view layer: 'ih' (Industrial Hygienist) | 'fm' (Facility
+ * Manager) | 'mold' (Mold screening — its own module with a parallel engine).
+ * The IAQ scoring engine is mode-agnostic across 'ih'/'fm'; 'mold' does NOT use
+ * it — mold mode renders a self-contained screen (MoldModeScreen) driven by the
+ * separate mold screening engine (src/engines/mold). Missing mold keys fall
+ * back to the 'ih' dictionary via t().
  */
 
 import { KEYS } from '../utils/storageKeys'
@@ -79,6 +83,22 @@ export const TERMINOLOGY = {
     deviceLabel: 'Device',
     calibrationLabel: 'Device Status',
   },
+  // Mold screening mode. Only the terms that differ from 'ih' are listed; t()
+  // falls back to the 'ih' dictionary for the rest. Mold mode is a
+  // self-contained screen, so most IAQ terms never surface here.
+  mold: {
+    assessment: 'Mold Assessment',
+    zone: 'Area',
+    zones: 'Areas',
+    report: 'Mold Screening Report',
+    findings: 'Findings',
+    findingReview: 'Professional Review Recommended',
+    dashboard: 'Mold Assessments',
+    newAssessment: 'New Mold Screening',
+    demoAssessment: 'Open Demo Assessment',
+    deviceLabel: 'Instrument',
+    calibrationLabel: 'Calibration Status',
+  },
 }
 
 export const FM_TRAFFIC_LIGHT = {
@@ -123,10 +143,14 @@ export function t(key) {
 export function isFM() { return getMode() === 'fm' }
 export function isIH() { return getMode() === 'ih' }
 
-// The home view for a given mode. Facility-Manager mode lands on the legacy
-// 'dash' co-pilot home; everyone else (IH / CSP / consultant) lands on the
-// project-centric 'projects' home (the current design). Single source of
+export function isMold() { return getMode() === 'mold' }
+
+// The home view for a given mode. Mold mode lands on its own self-contained
+// 'mold' view (MoldModeScreen, early-returned by MobileApp). Facility-Manager
+// mode lands on the legacy 'dash' co-pilot home; everyone else (IH / CSP /
+// consultant) lands on the project-centric 'projects' home. Single source of
 // truth so every "go home" path agrees.
 export function homeView(mode = getMode()) {
+  if (mode === 'mold') return 'mold'
   return mode === 'fm' ? 'dash' : 'projects'
 }

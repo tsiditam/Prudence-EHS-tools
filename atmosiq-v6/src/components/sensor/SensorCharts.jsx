@@ -60,6 +60,26 @@ function Shell({ width, height = 240, children }) {
 
 const axis = (pal) => ({ stroke: pal.axis, tick: { fill: pal.axis, fontSize: 11, fontFamily: 'var(--font-sans)' }, tickLine: false, axisLine: { stroke: pal.grid } })
 
+// Shared config for the time X-axis of every timeline. Centralised so all nine
+// charts stay identical AND so the overlap guard below can't be forgotten on a
+// new chart.
+//
+// `minTickGap` is the fix for garbled/overlapping x-axis labels: the timestamps
+// are wide ("Aug 1 03:24" ≈ 60px), and Recharts' 5px default lets a wide
+// desktop axis pack a dozen-plus of them until they collide into an unreadable
+// smear (the wider the axis, the more it crams in — so it bites hardest on
+// desktop). A gap on the order of a label width keeps adjacent labels from
+// touching at any width — Recharts simply shows fewer on a phone, more on a
+// monitor — and is robust even when the tick font hasn't been measured yet.
+// `preserveStartEnd` pins the first and last timestamps so the axis always
+// states its full range.
+export const X_AXIS_MIN_TICK_GAP = 64
+export const timeAxis = (pal, hasTs) => ({
+  dataKey: 't', type: 'number', domain: ['dataMin', 'dataMax'], scale: 'time',
+  tickFormatter: fmtTime(hasTs), minTickGap: X_AXIS_MIN_TICK_GAP, interval: 'preserveStartEnd',
+  ...axis(pal),
+})
+
 // Y-axis title — unit only (the chart card already names the parameter), set
 // in the app font so chart type matches the rest of the UI. `right` flips it
 // for the secondary axis on dual-axis charts. Generous default `width` so the
@@ -111,7 +131,7 @@ export function HCHOTimelineChart({ data, hasTs = true, units = {}, palette = DA
     <LineChart data={data} {...(width ? { width: w, height: h } : {})} margin={{ top: 8, right: 16, bottom: 4, left: 4 }}>
       <CartesianGrid stroke={pal.grid} strokeOpacity={0.5} vertical={false} />
       {occupancyAreas(occupancy)}
-      <XAxis dataKey="t" type="number" domain={['dataMin', 'dataMax']} scale="time" tickFormatter={fmtTime(hasTs)} {...axis(pal)} />
+      <XAxis {...timeAxis(pal, hasTs)} />
       <YAxis {...axis(pal)} width={54} label={yLabel(pal, units.hcho || 'ppb')} />
       <Tooltip content={<ChartTooltip hasTs={hasTs} units={units} pal={pal} />} />
       <Line type="monotone" dataKey="hcho" name="Formaldehyde" stroke={SERIES.hcho} strokeWidth={2} dot={false} connectNulls isAnimationActive={!width} />
@@ -126,7 +146,7 @@ export function CO2TimelineChart({ data, hasTs = true, units = {}, palette = DAR
     <LineChart data={data} {...(width ? { width: w, height: h } : {})} margin={{ top: 8, right: 16, bottom: 4, left: 4 }}>
       <CartesianGrid stroke={pal.grid} strokeOpacity={0.5} vertical={false} />
       {occupancyAreas(occupancy)}
-      <XAxis dataKey="t" type="number" domain={['dataMin', 'dataMax']} scale="time" tickFormatter={fmtTime(hasTs)} {...axis(pal)} />
+      <XAxis {...timeAxis(pal, hasTs)} />
       <YAxis {...axis(pal)} width={52} label={yLabel(pal, 'ppm')} />
       {showRefs && refLine(pal, { key: 'co2adv', y: STD.v.co2.con, color: SERIES.co2, opacity: 0.55, label: `${STD.v.co2.con} ppm · ${STD.v.ref} advisory` })}
       <Tooltip content={<ChartTooltip hasTs={hasTs} units={units} pal={pal} />} />
@@ -142,7 +162,7 @@ export function TempHumidityChart({ data, hasTs = true, units = {}, palette = DA
     <LineChart data={data} {...(width ? { width: w, height: h } : {})} margin={{ top: 8, right: 12, bottom: 4, left: 4 }}>
       <CartesianGrid stroke={pal.grid} strokeOpacity={0.5} vertical={false} />
       {occupancyAreas(occupancy, 'temp')}
-      <XAxis dataKey="t" type="number" domain={['dataMin', 'dataMax']} scale="time" tickFormatter={fmtTime(hasTs)} {...axis(pal)} />
+      <XAxis {...timeAxis(pal, hasTs)} />
       <YAxis yAxisId="temp" {...axis(pal)} width={48} label={yLabel(pal, units.temp || '°F')} />
       <YAxis yAxisId="rh" orientation="right" domain={[0, 100]} {...axis(pal)} width={44} label={yLabel(pal, '%', { right: true })} />
       {showRefs && (
@@ -164,7 +184,7 @@ export function PMTimelineChart({ data, hasTs = true, units = {}, palette = DARK
     <LineChart data={data} {...(width ? { width: w, height: h } : {})} margin={{ top: 8, right: 16, bottom: 4, left: 4 }}>
       <CartesianGrid stroke={pal.grid} strokeOpacity={0.5} vertical={false} />
       {occupancyAreas(occupancy)}
-      <XAxis dataKey="t" type="number" domain={['dataMin', 'dataMax']} scale="time" tickFormatter={fmtTime(hasTs)} {...axis(pal)} />
+      <XAxis {...timeAxis(pal, hasTs)} />
       <YAxis {...axis(pal)} width={54} label={yLabel(pal, units.pm25 || 'µg/m³')} />
       {showRefs && [
         refLine(pal, { key: 'pmepa', y: STD.c.pm25.epa, color: SERIES.pm25, opacity: 0.5, label: `EPA 24-h ${STD.c.pm25.epa} µg/m³` }),
@@ -185,7 +205,7 @@ export function COTimelineChart({ data, hasTs = true, units = {}, palette = DARK
     <LineChart data={data} {...(width ? { width: w, height: h } : {})} margin={{ top: 8, right: 16, bottom: 4, left: 4 }}>
       <CartesianGrid stroke={pal.grid} strokeOpacity={0.5} vertical={false} />
       {occupancyAreas(occupancy)}
-      <XAxis dataKey="t" type="number" domain={['dataMin', 'dataMax']} scale="time" tickFormatter={fmtTime(hasTs)} {...axis(pal)} />
+      <XAxis {...timeAxis(pal, hasTs)} />
       <YAxis {...axis(pal)} width={52} label={yLabel(pal, units.co || 'ppm')} />
       {showRefs && [
         refLine(pal, { key: 'coosha', y: STD.c.co.osha, color: SERIES.co, opacity: 0.55, label: `OSHA PEL ${STD.c.co.osha} (8-h TWA)` }),
@@ -211,7 +231,7 @@ export function TVOCTimelineChart({ data, hasTs = true, units = {}, palette = DA
     <LineChart data={data} {...(width ? { width: w, height: h } : {})} margin={{ top: 8, right: 16, bottom: 4, left: 4 }}>
       <CartesianGrid stroke={pal.grid} strokeOpacity={0.5} vertical={false} />
       {occupancyAreas(occupancy)}
-      <XAxis dataKey="t" type="number" domain={['dataMin', 'dataMax']} scale="time" tickFormatter={fmtTime(hasTs)} {...axis(pal)} />
+      <XAxis {...timeAxis(pal, hasTs)} />
       <YAxis {...axis(pal)} width={54} label={yLabel(pal, units.tvoc || 'ppb')} />
       {showTiers && [
         refLine(pal, { key: 'tvoccon', y: STD.c.tvoc.con, color: SERIES.tvoc, opacity: 0.5, label: `Mølhave ${STD.c.tvoc.con} µg/m³ (advisory)` }),
@@ -258,7 +278,7 @@ export function MultiParameterChart({ data, params = [], hasTs = true, units = {
     <LineChart data={nd} {...(width ? { width: w, height: h } : {})} margin={{ top: 8, right: 16, bottom: 4, left: 4 }}>
       <CartesianGrid stroke={pal.grid} strokeOpacity={0.5} vertical={false} />
       {occupancyAreas(occupancy)}
-      <XAxis dataKey="t" type="number" domain={['dataMin', 'dataMax']} scale="time" tickFormatter={fmtTime(hasTs)} {...axis(pal)} />
+      <XAxis {...timeAxis(pal, hasTs)} />
       <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} {...axis(pal)} width={52} label={yLabel(pal, '% of range')} />
       <Tooltip content={<MultiTooltip hasTs={hasTs} units={units} pal={pal} />} />
       <Legend wrapperStyle={{ fontSize: 11, color: pal.axis, fontFamily: 'var(--font-sans)' }} />
@@ -279,7 +299,7 @@ export function Co2DifferentialChart({ points = [], hasTs = true, palette = DARK
     <LineChart data={points} {...(width ? { width: w, height: h } : {})} margin={{ top: 8, right: 16, bottom: 4, left: 4 }}>
       <CartesianGrid stroke={pal.grid} strokeOpacity={0.5} vertical={false} />
       {occupancyAreas(occupancy, 'abs')}
-      <XAxis dataKey="t" type="number" domain={['dataMin', 'dataMax']} scale="time" tickFormatter={fmtTime(hasTs)} {...axis(pal)} />
+      <XAxis {...timeAxis(pal, hasTs)} />
       <YAxis yAxisId="abs" {...axis(pal)} width={54} label={yLabel(pal, 'ppm')} />
       <YAxis yAxisId="diff" orientation="right" {...axis(pal)} width={54} label={yLabel(pal, 'Δ ppm', { right: true })} />
       {showRefs && refLine(pal, { key: 'co2diff', y: STD.v.co2.diff, color: SERIES.rh, opacity: 0.6, yAxisId: 'diff', label: `${STD.v.co2.diff} ppm above outdoor · ${STD.v.ref}` })}
@@ -307,7 +327,7 @@ export function MultiZoneChart({ points = [], zones = [], param = 'co2', units =
     <LineChart data={points} {...(width ? { width: w, height: h } : {})} margin={{ top: 8, right: 16, bottom: 4, left: 4 }}>
       <CartesianGrid stroke={pal.grid} strokeOpacity={0.5} vertical={false} />
       {occupancyAreas(occupancy)}
-      <XAxis dataKey="t" type="number" domain={['dataMin', 'dataMax']} scale="time" tickFormatter={fmtTime(hasTs)} {...axis(pal)} />
+      <XAxis {...timeAxis(pal, hasTs)} />
       <YAxis {...axis(pal)} width={54} label={yLabel(pal, unit || paramLabel(param))} />
       {showRefs && param === 'co2' && refLine(pal, { key: 'co2adv', y: STD.v.co2.con, color: pal.axis, opacity: 0.45, label: `${STD.v.co2.con} ppm · ${STD.v.ref} advisory` })}
       <Tooltip content={<ChartTooltip hasTs={hasTs} units={tipUnits} pal={pal} />} />

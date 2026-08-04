@@ -13,6 +13,7 @@ import { VER, BUILD_SHA } from '../constants/standards'
 import { mix } from '../utils/theme'
 import * as V3 from '../styles/tokens'
 import { Group, Row, ExceptionPill } from './settings/SettingsList'
+import { isMoldModuleEnabled } from '../utils/featureFlags'
 
 // Theme tokens. These are CSS-variable references defined in
 // index.html (:root for dark, [data-theme="light"] for light), so the
@@ -95,6 +96,15 @@ export default function SettingsScreen({ onNavigate, onActivateAdmin, adminActiv
           page (AccountScreen), reached from the bottom dock's Account
           tab. Settings now keeps only app/data/methodology/legal
           concerns. */}
+
+      {/* ── Assessment mode ── Mold is its own mode (parallel screening
+          engine); entering it hands off to the isolated MoldModeScreen.
+          Gated by the staged flag, so it only appears on preview / opt-in. */}
+      {isMoldModuleEnabled() && (
+        <Group title="Assessment mode">
+          <Row first label="Mold screening (beta)" value="Enter mold mode" action={() => onNavigate?.('mold')} />
+        </Group>
+      )}
 
       {/* ── Methodology ── */}
       <Group title="Methodology">

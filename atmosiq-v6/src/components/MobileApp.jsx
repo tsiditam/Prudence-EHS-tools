@@ -109,7 +109,8 @@ import JasperWatchPanel from './JasperWatchPanel'
 import ReadinessPanel from './ReadinessPanel'
 import EvidenceMap from './EvidenceMap'
 import DesktopSidebar, { SIDEBAR_W } from './desktop/DesktopSidebar'
-import { isKnowledgeGraphEnabled } from '../utils/featureFlags'
+import { isKnowledgeGraphEnabled, isMoldModuleEnabled } from '../utils/featureFlags'
+import MoldModeScreen from './MoldModeScreen'
 
 // Knowledge Graph Evidence tab is staged behind a flag — on for preview/
 // localhost, off on the production host until merged (?kg=1 to demo). Resolved
@@ -1972,6 +1973,20 @@ export default function MobileApp() {
   }
 
   const handleModeSwitch = (m) => { persistMode(m); setUserMode(m) }
+
+  // Mold mode is its own self-contained experience — a parallel screening
+  // engine with its own intake + result surface, sharing none of the IAQ
+  // zone/scoring/nav machinery. So it renders in ISOLATION here (an early
+  // return in the same guard zone as the Welcome/Profile screens above), which
+  // keeps the IAQ shell/nav from ever mounting in mold mode. Gated by
+  // isMoldModuleEnabled(); a persisted 'mold' mode seen with the flag off falls
+  // back to IH rather than stranding the user on a hidden mode.
+  if (userMode === 'mold') {
+    if (isMoldModuleEnabled()) {
+      return <MoldModeScreen profile={profile} onExit={() => { handleModeSwitch('ih'); setView(homeView('ih')) }} />
+    }
+    persistMode('ih'); setUserMode('ih')
+  }
 
 
   // ── Question renderer (shared across quick start, zone, details) ──
@@ -4709,7 +4724,7 @@ export default function MobileApp() {
         {view==='sensor-data'&&<SensorDataPage value={sensorData} onChange={setSensorData} reports={index.drafts||[]} currentReportId={draftId} currentProjectId={toolReturn==='project-detail' ? activeProjectId : null} currentZones={zones} onApplyAverages={applyAveragesToReport} onBack={()=>{ if (toolReturn) { exitTool() } else if (comp) { setView('results') } else { goHome() } }} />}
         {view==='projects'&&<ProjectsScreen onReportIncident={()=>setView('incident-form')} onOpen={(pid)=>{setProjectBackView('projects');setActiveProjectId(pid);setView('project-detail')}} />}
         {view==='project-detail'&&<ProjectDetail id={activeProjectId} profile={profile} editSignal={projectEditNonce} onBack={()=>setView(projectBackView)} onNewAssessment={(seed)=>startNew(seed)} onOpenReport={(r)=>openReport(r)} onOpenLogger={()=>{setToolReturn('project-detail');setView('sensor-data')}} onOpenSampling={()=>{setToolReturn('project-detail');setView('sampling-forms')}} onAskAI={()=>{ supabase && trackEvent('jasper_open', { source: 'project_workspace' }); setFaOpen(true) }} />}
-        {view==='settings'&&<SettingsScreen onNavigate={(v)=>{if(v==='pricing'){setShowPricing(true)}else if(v==='tour'){setView('dash');setShowTour(true)}else{setView(v)}}} adminActive={!!adminSecret} onActivateAdmin={(secret)=>{setAdminSecret(secret);setView('admin')}} />}
+        {view==='settings'&&<SettingsScreen onNavigate={(v)=>{if(v==='pricing'){setShowPricing(true)}else if(v==='tour'){setView('dash');setShowTour(true)}else if(v==='mold'){handleModeSwitch('mold')}else{setView(v)}}} adminActive={!!adminSecret} onActivateAdmin={(secret)=>{setAdminSecret(secret);setView('admin')}} />}
         {view==='account'&&<AccountScreen profile={profile} onEditProfile={()=>{sessionStorage.setItem('aiq_welcomed','1');setWelcomeDone(true);setProfile({...profile,isNew:true});setEditingProfile(true);setViewRpt(null)}} onLogout={handleLogout} onNavigate={(v)=>setView(v)} />}
         {view==='tos'&&<TermsOfService onBack={()=>setView('settings')} />}
         {view==='privacy'&&<PrivacyPolicy onBack={()=>setView('settings')} />}

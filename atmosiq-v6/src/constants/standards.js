@@ -57,6 +57,18 @@ export const STANDARDS_MANIFEST = {
   'ASHRAE 241': '2023 (infectious aerosol control; bibliographic reference)',
   'EPA PM2.5 Annual NAAQS Revision': '2024 (89 FR 16202; primary annual lowered to 9 µg/m³)',
   'ACGIH TLVs and BEIs': '2025 edition (bibliographic reference)',
+  // Mold screening module (src/engines/mold/*). These are the references the
+  // mold module frames its SCREENING output against — a water-damage/mold
+  // methodology bibliography, NOT health limits. There is no health-based
+  // numeric exposure limit for airborne mold spores (IOM 2004; ACMT 2025), so
+  // none of these establish a pass/fail threshold; they scope classification
+  // (IICRC S520) and comparative interpretation (AIHA; EPA) only. See
+  // src/constants/moldStandards.js for the framing each entry carries.
+  'IICRC S520 Mold Remediation': '2024 (water-damage Category + remediation Condition classification)',
+  'AIHA Recognition/Evaluation/Control of Mold': '2020 (comparative indoor/outdoor screening methodology)',
+  'EPA Mold Remediation in Schools and Commercial Buildings': '2008 (moisture-control screening guidance)',
+  'IOM Damp Indoor Spaces and Health': '2004 (no health-based airborne spore limit; screening, not a verdict)',
+  'ACMT Position — Mold': '2025 (spore counts are not health proof)',
   engineVersion: ENGINE_VERSION,
   manifestUpdated: STANDARDS_MANIFEST_DATE,
 }

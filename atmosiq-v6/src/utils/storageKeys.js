@@ -55,6 +55,11 @@ export const KEYS = {
   premiumOverride: 'atmosflow:premiumOverride',
   instruments: 'atmosflow:instruments',
   labCsvTemplates: 'atmosflow:lab_csv_templates',
+  // Saved mold screening assessments (mold userMode). A single local array,
+  // stored + read via STO.get/saveMold/deleteMoldAssessment — deliberately its
+  // own collection, kept OUT of the IAQ reports/drafts index (KEYS.index) so
+  // the two never mix. See storage.js and src/engines/mold.
+  moldAssessments: 'atmosflow:moldAssessments',
 }
 
 // Per-building complaint lists are stored under a building-scoped key.

@@ -16,10 +16,11 @@ import App from './App'
 import ErrorBoundary from './components/ErrorBoundary'
 import EarlyAccessPage from './components/EarlyAccessPage'
 import DevPreviewButton from './components/dev/DevPreviewButton'
+import MoldPreviewButton from './components/dev/MoldPreviewButton'
 import { Toaster } from 'sonner'
 import { initSentryClient } from '../lib/sentry-client'
 import { bootTheme, getTheme } from './utils/theme'
-import { isKnowledgeGraphEnabled, isDesktopViewport } from './utils/featureFlags'
+import { isKnowledgeGraphEnabled, isDesktopViewport, isMoldModuleEnabled } from './utils/featureFlags'
 
 initSentryClient()
 bootTheme()
@@ -34,15 +35,24 @@ const isEarlyAccess = window.location.pathname === '/early-access'
 const kgEnabled = isKnowledgeGraphEnabled() && isDesktopViewport()
 const isDevEvidenceMap = kgEnabled && window.location.pathname === '/dev/evidence-map'
 
-// Lazy so the preview (and the demo data + engine pipeline it pulls in) never
+// Mold module preview. Staged behind isMoldModuleEnabled() (preview-on,
+// prod-off-by-default, ?mold=1 opt-in). NOT desktop-gated — the card-based
+// screening surface works on any viewport (field work happens on phones).
+const moldEnabled = isMoldModuleEnabled()
+const isDevMold = moldEnabled && window.location.pathname === '/dev/mold-screening'
+
+// Lazy so each preview (and the demo data + engine pipeline it pulls in) never
 // lands in the production bundle — it loads only when the dev route is hit.
 const DevEvidenceMapPreview = React.lazy(() => import('./components/dev/DevEvidenceMapPreview'))
+const DevMoldPreview = React.lazy(() => import('./components/dev/DevMoldPreview'))
 
 const root = isEarlyAccess
   ? <EarlyAccessPage />
   : isDevEvidenceMap
     ? <React.Suspense fallback={null}><DevEvidenceMapPreview /></React.Suspense>
-    : <App />
+    : isDevMold
+      ? <React.Suspense fallback={null}><DevMoldPreview /></React.Suspense>
+      : <App />
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
