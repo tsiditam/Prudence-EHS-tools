@@ -20,6 +20,7 @@
  */
 import { useState } from 'react'
 import AssessmentSegmentedPillNav from './ui/AssessmentSegmentedPillNav'
+import { I } from './Icons'
 
 const CARD = 'var(--card)'
 const BORDER = 'var(--border)'
@@ -47,6 +48,15 @@ const CATEGORY_LABEL = {
   spore_screening: 'Spore screening',
   hvac: 'HVAC',
 }
+// Domain SVG icons per finding category (the app's line-icon set), matching how
+// EvidenceMap tags evidence kinds — the custom `mold` glyph is a spore cluster.
+const CATEGORY_ICON = {
+  water_damage: 'moisture',
+  moisture: 'droplet',
+  visible_growth: 'mold',
+  spore_screening: 'flask',
+  hvac: 'hvac',
+}
 const CONDITION_TONE = { 1: SUCCESS, 2: WARN, 3: DANGER }
 const CATEGORY_TONE = { 1: ACCENT, 2: WARN, 3: DANGER }
 const SPORE = {
@@ -71,9 +81,6 @@ function Pill({ tone, children, title }) {
     </span>
   )
 }
-function Dot({ tone }) {
-  return <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: '50%', background: tone, flexShrink: 0, display: 'inline-block' }} />
-}
 function Card({ children, style }) {
   return <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 14, ...style }}>{children}</div>
 }
@@ -97,7 +104,7 @@ function FindingsTab({ findings, zones }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
               <Pill tone={sev.c}>{sev.l}</Pill>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, color: SUB, fontWeight: 600 }}>
-                <Dot tone={sev.c} />{CATEGORY_LABEL[f.category] || f.category}
+                <I n={CATEGORY_ICON[f.category] || 'clip'} s={13} c={sev.c} w={1.8} />{CATEGORY_LABEL[f.category] || f.category}
               </span>
               <span style={{ marginLeft: 'auto', fontSize: 11, color: DIM }}>{labelFor(zones, f.zoneId)}</span>
             </div>

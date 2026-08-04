@@ -22,7 +22,7 @@
  */
 import { useEffect, useState } from 'react'
 import * as V3 from '../styles/tokens'
-import { I } from './Icons'
+import { I, iconForEmoji } from './Icons'
 import GlassCard from './ui/GlassCard'
 import TactileButton from './ui/TactileButton'
 import GhostButton from './ui/GhostButton'
@@ -47,14 +47,23 @@ function condOk(cond, answers) {
   return true
 }
 
+// Field label with the app's SVG line icon (resolved from the question's emoji
+// via iconForEmoji), matching how the IAQ intake renders — never a raw emoji.
+function FieldLabel({ icon, children, req }) {
+  return (
+    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: SUB, marginBottom: 6 }}>
+      {icon ? <I n={icon} s={13} c={SUB} w={1.8} /> : null}
+      <span>{children}</span>{req ? <span style={{ color: WARN }}>*</span> : null}
+    </label>
+  )
+}
+
 function MoldField({ q, answers, onChange }) {
   if (!condOk(q.cond, answers)) return null
   const value = answers[q.id] ?? ''
   return (
     <div style={{ marginBottom: 12 }}>
-      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: SUB, marginBottom: 6 }}>
-        {q.ic ? `${q.ic} ` : ''}{q.q}{q.req ? <span style={{ color: WARN }}> *</span> : null}
-      </label>
+      <FieldLabel icon={iconForEmoji(q.ic)} req={q.req}>{q.q}</FieldLabel>
       {q.t === 'ch' ? (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {(q.opts || []).map((o) => (
@@ -252,7 +261,7 @@ export default function MoldModeScreen({ onExit, profile }) {
             {zones.length > 1 && <GhostButton onClick={() => removeZone(i)} style={{ padding: '4px 10px', minHeight: 30 }}>Remove</GhostButton>}
           </div>
           <div style={{ marginBottom: 12 }}>
-            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: SUB, marginBottom: 6 }}>🏷️ Area name</label>
+            <FieldLabel icon="flag">Area name</FieldLabel>
             <input value={z.label} placeholder="e.g. Break Room" onChange={(e) => setZone(i, 'label', e.target.value)} style={inp} />
           </div>
           {Q_MOLD_ZONE.map((q) => (
