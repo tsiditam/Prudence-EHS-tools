@@ -7,10 +7,12 @@ categorical **findings** — all sourced, all screening-only, none a health
 verdict. It is a *parallel* system to the IAQ engine: it shares zones, photos,
 lab ingest, report chrome and calibration, but never touches IAQ scoring.
 
-> **Status:** foundation + screening surface **+ in-app mold mode** landed;
-> **staged** (`MOLD_KILL_SWITCH` lifted → preview-on, prod-off-by-default,
-> `?mold=1` opt-in). Mold is now its **own `userMode`**: enter it from
-> Settings → *Assessment mode → Mold screening (beta)*, which hands off to the
+> **Status:** foundation + screening surface **+ in-app mold mode** landed and
+> **live as a Beta** — `MOLD_KILL_SWITCH` lifted and the flag defaults ON on
+> every host, **production included** (`resolveMoldFlag` passes `defaultOn`); a
+> user can still hide it per-browser with `?mold=0`. Mold is its **own
+> `userMode`**: enter it from Settings → *Assessment mode → Mold screening
+> (Beta)*, which hands off to the
 > isolated `MoldModeScreen` (home → intake → result). The engine, standards,
 > intake schema, demo, `MoldScreeningView`, the `/dev/mold-screening` preview,
 > and the mode itself all ship now, assessments **persist** (save / list /

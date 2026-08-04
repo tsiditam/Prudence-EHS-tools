@@ -30,21 +30,26 @@ describe('isMoldModuleEnabled — master kill switch (lifted; staged rollout act
   it('the switch is LIFTED', () => {
     expect(MOLD_KILL_SWITCH).toBe(false)
   })
-  it('delegates to resolveMoldFlag — preview on, prod off-by-default, opt-in/cohort on', () => {
+  it('delegates to resolveMoldFlag — on everywhere by default (Beta); opt-out hides it', () => {
     expect(isMoldModuleEnabled({ hostname: 'localhost', search: '', storage: memStorage() })).toBe(true)
     expect(isMoldModuleEnabled({ hostname: 'foo.vercel.app', search: '', storage: memStorage() })).toBe(true)
-    expect(isMoldModuleEnabled({ hostname: 'atmosflow.net', search: '', storage: memStorage() })).toBe(false)
-    expect(isMoldModuleEnabled({ hostname: 'atmosflow.net', search: '?mold=1', storage: memStorage() })).toBe(true)
-    expect(isMoldModuleEnabled({ hostname: 'atmosflow.net', search: '', storage: memStorage({ [MOLD_COHORT_STORAGE_KEY]: '1' }) })).toBe(true)
+    expect(isMoldModuleEnabled({ hostname: 'atmosflow.net', search: '', storage: memStorage() })).toBe(true)
+    expect(isMoldModuleEnabled({ hostname: 'atmosflow.net', search: '?mold=0', storage: memStorage() })).toBe(false)
   })
 })
 
 describe('resolveMoldFlag — the staged contract for when the switch lifts', () => {
-  it('is ON for non-production hosts, OFF for atmosflow.net by default', () => {
+  it('is ON everywhere by default — production included (Beta rollout)', () => {
     expect(resolveMoldFlag({ hostname: 'localhost', search: '', storage: memStorage() })).toBe(true)
-    expect(resolveMoldFlag({ hostname: 'atmosflow.net', search: '', storage: memStorage() })).toBe(false)
+    expect(resolveMoldFlag({ hostname: 'atmosflow.net', search: '', storage: memStorage() })).toBe(true)
   })
-  it('?mold=1 enables on production and persists (sticky)', () => {
+  it('?mold=0 hides it per-browser and persists (sticky opt-out)', () => {
+    const storage = memStorage()
+    expect(resolveMoldFlag({ hostname: 'atmosflow.net', search: '?mold=0', storage })).toBe(false)
+    expect(storage.getItem(MOLD_STORAGE_KEY)).toBe('0')
+    expect(resolveMoldFlag({ hostname: 'atmosflow.net', search: '', storage })).toBe(false)
+  })
+  it('?mold=1 stays on and persists (sticky)', () => {
     const storage = memStorage()
     expect(resolveMoldFlag({ hostname: 'atmosflow.net', search: '?mold=1', storage })).toBe(true)
     expect(storage.getItem(MOLD_STORAGE_KEY)).toBe('1')

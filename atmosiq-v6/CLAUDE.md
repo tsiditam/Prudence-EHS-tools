@@ -448,15 +448,18 @@ on this codebase. Watch for them.
   (`src/constants/moldQuestions.js`) + demo (`demoDataMold.js`), and a read-only
   result surface `src/components/MoldScreeningView.jsx` that **mirrors the IAQ
   result tabs** (reuses `AssessmentSegmentedPillNav`: Findings / Conditions /
-  Spores / Review + a persistent Screening-only banner), with a
-  `/dev/mold-screening` preview (`src/components/dev/DevMoldPreview.jsx`). Staged
-  behind `MOLD_KILL_SWITCH` (now **lifted** → preview-on, prod-off-by-default,
-  `?mold=1` opt-in). Mold is now its **own `userMode`**: `terminology.js`
-  registers `'mold'`, and `MobileApp.jsx` EARLY-RETURNS the isolated
-  `src/components/MoldModeScreen.jsx` (home → intake → result) when
-  `userMode==='mold'` && the flag is on — so the IAQ shell/nav never mounts in
-  mold mode and IH/FM are untouched. Entered from Settings → *Assessment mode →
-  Mold screening (beta)* (gated); exits back to IH. Docs: `docs/MOLD_MODULE.md`;
+  Spores / Review). Like the IAQ module, the screening basis + limitation live
+  in the Review tab and the report (Basis and limitations), NOT a banner, with a
+  per-finding "Professional review recommended" flag; there is also a
+  `/dev/mold-screening` preview. **Live as a Beta**: `MOLD_KILL_SWITCH` lifted
+  and the flag defaults ON on every host incl. production
+  (`resolveMoldFlag` → `defaultOn`); `?mold=0` hides it per-browser. Mold is its
+  **own `userMode`**: `terminology.js` registers `'mold'`, and `MobileApp.jsx`
+  EARLY-RETURNS the isolated `src/components/MoldModeScreen.jsx` (home → intake →
+  result) when `userMode==='mold'` && the flag is on — so the IAQ shell/nav never
+  mounts in mold mode and IH/FM are untouched. Entered from Settings →
+  *Assessment mode → Mold screening (Beta)*; exits back to IH. Docs:
+  `docs/MOLD_MODULE.md`;
   gates: `npm run test:mold` / `accept:mold`. Screening only — no health
   verdict, categorical severity, every finding requires professional review.
   Assessments **persist** — `STO.get/save/deleteMoldAssessment`
