@@ -7,11 +7,14 @@ categorical **findings** — all sourced, all screening-only, none a health
 verdict. It is a *parallel* system to the IAQ engine: it shares zones, photos,
 lab ingest, report chrome and calibration, but never touches IAQ scoring.
 
-> **Status:** foundation landed, **staged dark** behind `MOLD_KILL_SWITCH`
-> (`src/utils/featureFlags.js`, currently `true`). The engine, standards, intake
-> schema, demo fixture, tests and acceptance gate ship now; the mold *mode UI*
-> and the *DOCX report* are the next, separately-reviewable increments. Nothing
-> is wired into the running app yet, so the live IH/FM product is unchanged.
+> **Status:** foundation **+ read-only screening surface** landed; **staged**
+> (`MOLD_KILL_SWITCH` lifted → preview-on, prod-off-by-default, `?mold=1`
+> opt-in). The engine, standards, intake schema, demo fixture, the
+> `MoldScreeningView` surface (mirroring the IAQ result tabs) and its
+> `/dev/mold-screening` preview all ship now. The live IH/FM product is
+> unaffected — there is **no in-app mold mode entry yet**; the `userMode:'mold'`
+> intake wiring and the DOCX report are the next, separately-reviewable
+> increments.
 
 ## First principle
 
@@ -47,6 +50,8 @@ design, and enforced by tests:
 | Mapper | `src/engines/mold/buildInput.js` | `buildMoldInput(state)` — pure intake → engine input; keeps schema + engine in step |
 | Demo | `src/constants/demoDataMold.js` | Realistic fixture exercising every path |
 | Flag | `src/utils/featureFlags.js` | `isMoldModuleEnabled()` / `MOLD_KILL_SWITCH`, via the shared `resolveStagedFlag()` |
+| Surface | `src/components/MoldScreeningView.jsx` | Read-only result surface; reuses `AssessmentSegmentedPillNav` so it mirrors the IAQ result tabs (Findings / Conditions / Spores / Review) with a persistent screening banner |
+| Preview | `src/components/dev/DevMoldPreview.jsx` + `MoldPreviewButton.jsx` | Non-prod `/dev/mold-screening` — demo → real engine → surface; wired lazily in `main.jsx` |
 | Manifest | `src/constants/standards.js` | S520 / AIHA / EPA / IOM / ACMT added to `STANDARDS_MANIFEST` (bibliographic) |
 
 ### The engine is four classifiers + an orchestrator
@@ -105,15 +110,30 @@ encoded and test-guarded (`tests/engine/mold-standards.test.ts`,
 `isMoldModuleEnabled()` resolves through the **shared** `resolveStagedFlag()`
 (the same algorithm the Knowledge Graph uses — one resolution path, no second
 copy), with its own keys (`af.moldModule`, `af.moldCohort`) and URL param
-(`?mold=1`). `MOLD_KILL_SWITCH` starts `true`, so the module is off everywhere
-until the mode UI + report land. Lift the switch to resume the staged rollout
-(preview-on, prod-off-by-default, `?mold=1` opt-in, beta cohort).
+(`?mold=1`). `MOLD_KILL_SWITCH` is now **lifted** (`false`): the staged rollout
+is active — the screening surface + `/dev/mold-screening` preview are on for
+preview/localhost, off on `atmosflow.net` by default, opt-in via `?mold=1`
+(sticky) or the beta cohort. The live IH/FM product is unaffected (no in-app
+mold mode entry yet). `main.jsx` mounts the preview lazily so it never enters the
+production bundle.
+
+## UI — mirrors the IAQ module
+
+`MoldScreeningView` reuses `AssessmentSegmentedPillNav` — the very component the
+IAQ assessment result screen uses — so the mold result reads as the same product:
+a persistent **Screening only** banner above a segmented pill-nav with
+**Findings / Conditions / Spores / Review** tabs. Findings show categorical
+severity pills (`observation | screening_indicator | elevated_indicator`), each
+tagged *Requires professional review*; Conditions shows per-zone S520
+Condition + water Category + spore outcome; Spores shows the comparative detail
+and the no-health-limit note; Review holds limitations + cited standards. Theme-
+aware and responsive. It is the surface a future `userMode: 'mold'` will mount.
 
 ## Tests & acceptance
 
 - `npm run test:mold` — classifiers, `assessMold` determinism + demo
   end-to-end, screening-only invariants, the feature flag, standards framing,
-  and the intake/mapper drift guard.
+  the intake/mapper drift guard, and the `MoldScreeningView` + preview surfaces.
 - `npm run accept:mold` — the executable acceptance gate
   (`scripts/acceptance/mold.json`), including a check that the mold engine never
   imports the sacred IAQ engine and never uses health-verdict language.
@@ -123,9 +143,13 @@ until the mode UI + report land. Lift the switch to resume the staged rollout
 These are scoped follow-ons, each its own reviewable change — bundling them here
 would mean an unreviewable diff and would touch the live IH/FM product:
 
-1. **Mold mode UI** — a `userMode: 'mold'` peer to `'ih'`/`'fm'` in
-   `MobileApp.jsx` (home view, nav, result tabs, intake), driving the engine
-   from captured fields via `buildMoldInput`. Gated by `isMoldModuleEnabled()`.
+1. **In-app mold mode** — a `userMode: 'mold'` peer to `'ih'`/`'fm'` in
+   `MobileApp.jsx` (mode selection, home view, nav, the mold intake flow), which
+   drives the engine from captured fields via `buildMoldInput` and mounts the
+   already-built `MoldScreeningView` as the result screen. Gated by
+   `isMoldModuleEnabled()`. (The result surface + preview already exist; this is
+   the mode-entry + intake wiring, which needs a product call on labels and
+   whether mold is its own mode vs. a section of an IAQ assessment.)
 2. **DOCX mold report** — `src/components/docx/sections-mold.js`: a moisture
    Conceptual Site Model, S520 Category/Condition tables, the spore-screening
    comparison, findings, and the limitations/disclaimer, wired into

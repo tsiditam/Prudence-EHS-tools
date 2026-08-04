@@ -445,12 +445,17 @@ on this codebase. Watch for them.
   screening engine (`src/engines/mold/*`, IICRC S520 water Category +
   remediation Condition + comparative indoor/outdoor spore screening),
   `src/constants/moldStandards.js`, `src/types/mold.ts`, the intake schema
-  (`src/constants/moldQuestions.js`) + demo (`demoDataMold.js`), staged dark
-  behind `MOLD_KILL_SWITCH` (`src/utils/featureFlags.js`). Docs:
-  `docs/MOLD_MODULE.md`; gates: `npm run test:mold` / `accept:mold`. Screening
-  only — no health verdict, categorical severity, every finding requires
-  professional review. **Still out of scope** (next, separate increments): the
-  `userMode: 'mold'` UI wiring in `MobileApp.jsx` and the DOCX mold report
+  (`src/constants/moldQuestions.js`) + demo (`demoDataMold.js`), and a read-only
+  result surface `src/components/MoldScreeningView.jsx` that **mirrors the IAQ
+  result tabs** (reuses `AssessmentSegmentedPillNav`: Findings / Conditions /
+  Spores / Review + a persistent Screening-only banner), with a
+  `/dev/mold-screening` preview (`src/components/dev/DevMoldPreview.jsx`). Staged
+  behind `MOLD_KILL_SWITCH` (now **lifted** → preview-on, prod-off-by-default,
+  `?mold=1` opt-in). Docs: `docs/MOLD_MODULE.md`; gates: `npm run test:mold` /
+  `accept:mold`. Screening only — no health verdict, categorical severity, every
+  finding requires professional review. **Still out of scope** (next, separate
+  increments, both needing a product call): the in-app `userMode: 'mold'`
+  mode-entry + intake wiring in `MobileApp.jsx`, and the DOCX mold report
   (`sections-mold.js`). The engine is versioned independently
   (`MOLD_ENGINE_VERSION`) and imports nothing from the sacred IAQ engine.
 - Marketing copy on prudenceehs.com or atmosflow positioning pages

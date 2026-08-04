@@ -92,14 +92,15 @@ export const KG_KILL_SWITCH = false
 /**
  * Master kill switch for the mold screening module.
  *
- * Starts ENGAGED (`true`): the module currently ships as a dark FOUNDATION —
- * deterministic screening engine (src/engines/mold/*), intake schema, standards,
- * demo data and tests — with NO UI surface wired into the app yet. So it is off
- * everywhere, on every host and viewport, regardless of `?mold=` or localStorage.
- * Lift to `false` once the mold mode UI + DOCX report land to resume the staged
- * rollout (preview-on, prod-off-by-default with `?mold=1` opt-in).
+ * LIFTED (`false`) — the staged rollout is active. The read-only mold screening
+ * surface (MoldScreeningView, mirroring the IAQ result tabs) and its
+ * /dev/mold-screening preview are ON for preview/localhost and OFF on
+ * atmosflow.net by default; opt in on production with `?mold=1` (sticky) or the
+ * beta cohort. The live IH/FM product is unaffected — there is no in-app mold
+ * mode entry yet (the userMode:'mold' intake wiring + DOCX report are the next
+ * increments). Set back to `true` to take every mold surface dark again.
  */
-export const MOLD_KILL_SWITCH = true
+export const MOLD_KILL_SWITCH = false
 
 /** True when the host is the live production domain. */
 export function isProdHost(hostname) {

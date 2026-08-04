@@ -26,15 +26,16 @@ function memStorage(seed: Record<string, string> = {}): Storage {
   } as Storage
 }
 
-describe('isMoldModuleEnabled — master kill switch (foundation ships dark)', () => {
-  it('the switch is ENGAGED — module off everywhere', () => {
-    expect(MOLD_KILL_SWITCH).toBe(true)
+describe('isMoldModuleEnabled — master kill switch (lifted; staged rollout active)', () => {
+  it('the switch is LIFTED', () => {
+    expect(MOLD_KILL_SWITCH).toBe(false)
   })
-  it('forces OFF regardless of host, ?mold=1, or persisted opt-in', () => {
-    expect(isMoldModuleEnabled({ hostname: 'localhost', search: '?mold=1', storage: memStorage() })).toBe(false)
-    expect(isMoldModuleEnabled({ hostname: 'foo.vercel.app', search: '', storage: memStorage() })).toBe(false)
-    expect(isMoldModuleEnabled({ hostname: 'atmosflow.net', search: '', storage: memStorage({ [MOLD_STORAGE_KEY]: '1' }) })).toBe(false)
-    expect(isMoldModuleEnabled({ hostname: 'atmosflow.net', search: '', storage: memStorage({ [MOLD_COHORT_STORAGE_KEY]: '1' }) })).toBe(false)
+  it('delegates to resolveMoldFlag — preview on, prod off-by-default, opt-in/cohort on', () => {
+    expect(isMoldModuleEnabled({ hostname: 'localhost', search: '', storage: memStorage() })).toBe(true)
+    expect(isMoldModuleEnabled({ hostname: 'foo.vercel.app', search: '', storage: memStorage() })).toBe(true)
+    expect(isMoldModuleEnabled({ hostname: 'atmosflow.net', search: '', storage: memStorage() })).toBe(false)
+    expect(isMoldModuleEnabled({ hostname: 'atmosflow.net', search: '?mold=1', storage: memStorage() })).toBe(true)
+    expect(isMoldModuleEnabled({ hostname: 'atmosflow.net', search: '', storage: memStorage({ [MOLD_COHORT_STORAGE_KEY]: '1' }) })).toBe(true)
   })
 })
 

@@ -99,6 +99,29 @@
       ]
     },
     {
+      "id": "MOLD-UI",
+      "label": "Read-only screening surface mirrors the IAQ result tabs, gated + preview-wired",
+      "checks": [
+        { "type": "file_exists", "path": "src/components/MoldScreeningView.jsx" },
+        { "type": "file_exists", "path": "src/components/dev/DevMoldPreview.jsx" },
+        { "type": "file_exists", "path": "src/components/dev/MoldPreviewButton.jsx" },
+        { "type": "grep_matches", "pattern": "AssessmentSegmentedPillNav", "paths": ["src/components/MoldScreeningView.jsx"] },
+        { "type": "grep_matches", "pattern": "Screening only", "paths": ["src/components/MoldScreeningView.jsx"] },
+        { "type": "grep_matches", "pattern": "Requires professional review", "paths": ["src/components/MoldScreeningView.jsx"] },
+        { "type": "grep_matches", "pattern": "isMoldModuleEnabled", "paths": ["src/main.jsx"] },
+        { "type": "grep_matches", "pattern": "/dev/mold-screening", "paths": ["src/main.jsx", "src/components/dev/MoldPreviewButton.jsx"], "minCount": 2 },
+        { "type": "file_exists", "path": "tests/components/MoldScreeningView.test.tsx" }
+      ]
+    },
+    {
+      "id": "MOLD-UI-NO-HEALTH-VERDICT",
+      "label": "Screening surface uses categorical severity, never a health verdict",
+      "checks": [
+        { "type": "grep_excludes", "pattern": "safe to occupy|mold is safe|no health risk", "paths": ["src/components/MoldScreeningView.jsx"] },
+        { "type": "grep_matches", "pattern": "screening_indicator|elevated_indicator|observation", "paths": ["src/components/MoldScreeningView.jsx"] }
+      ]
+    },
+    {
       "id": "MOLD-DOCS",
       "label": "Mold module architecture is documented",
       "checks": [
