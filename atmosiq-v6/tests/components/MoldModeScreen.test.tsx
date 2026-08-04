@@ -18,15 +18,14 @@ describe('MoldModeScreen', () => {
     expect(screen.getByText('Mold Assessment')).toBeTruthy()
     expect(screen.getByText(/New mold screening/)).toBeTruthy()
     expect(screen.getByText(/Open the demo assessment/)).toBeTruthy()
-    expect(screen.getByText('Screening only')).toBeTruthy()
+    expect(screen.getByText(/Method — IICRC S520/)).toBeTruthy()
   })
 
-  it('opens the demo through the real engine and shows the screening result', () => {
+  it('opens the demo through the real engine and shows the result surface', () => {
     render(<MoldModeScreen onExit={() => {}} />)
     fireEvent.click(screen.getByText(/Open the demo assessment/))
-    // MoldScreeningView surface (persistent disclaimer + professional-review flags).
-    expect(screen.getByText('Screening only')).toBeTruthy()
-    expect(screen.getAllByText('Requires professional review').length).toBeGreaterThan(0)
+    // MoldScreeningView surface — per-finding review flags (no banner).
+    expect(screen.getAllByText('Professional review recommended').length).toBeGreaterThan(0)
   })
 
   it('runs an intake assessment end to end', () => {
@@ -55,7 +54,7 @@ describe('MoldModeScreen', () => {
     expect(await screen.findByText(/Mold — Break Room/)).toBeTruthy()
     // Reopen → recomputed result surface.
     fireEvent.click(screen.getByLabelText(/Open Mold — Break Room/))
-    expect(screen.getByText('Screening only')).toBeTruthy()
+    expect(screen.getAllByText('Professional review recommended').length).toBeGreaterThan(0)
     // Home → delete.
     fireEvent.click(screen.getByText('Home'))
     fireEvent.click(screen.getByLabelText(/Delete Mold — Break Room/))

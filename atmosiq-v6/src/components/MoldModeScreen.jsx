@@ -188,11 +188,11 @@ export default function MoldModeScreen({ onExit, profile }) {
       <div style={{ paddingTop: 16, paddingBottom: 120, maxWidth: 820, margin: '0 auto' }}>
         <Header onExit={onExit} sub="Moisture & mold screening — IICRC S520. Screening only." />
         <GlassCard style={{ marginTop: 16 }}>
-          <div style={{ ...V3.T.micro }}>Screening only</div>
+          <div style={{ ...V3.T.micro }}>Method — IICRC S520</div>
           <div style={{ ...V3.T.bodyDim, marginTop: 6, lineHeight: 1.5 }}>
-            Mold screening identifies conditions warranting further evaluation (water-damage Category, remediation
-            Condition, comparative spore screening). It is not a determination of occupant health risk, contamination
-            extent, or clearance — those are confirmed by a qualified professional.
+            This assessment classifies water-damage Category and remediation Condition and screens spores
+            comparatively to identify conditions warranting further evaluation. Classification and interpretation
+            are confirmed by a qualified professional.
           </div>
         </GlassCard>
         <TactileButton variant="primary" size="lg" fullWidth onClick={startNew} icon={<I n="findings" s={16} c="#FFFFFF" />} style={{ marginTop: 16 }}>
@@ -231,7 +231,7 @@ export default function MoldModeScreen({ onExit, profile }) {
   if (stage === 'result') {
     return (
       <div style={{ paddingTop: 16, paddingBottom: 120, maxWidth: 820, margin: '0 auto' }}>
-        <Header onExit={onExit} sub="Screening result" />
+        <Header onExit={onExit} sub="Assessment result" />
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', margin: '12px 0 16px' }}>
           <TactileButton variant="secondary" size="sm" onClick={save} icon={<I n="check" s={14} c={ACCENT} />}>Save assessment</TactileButton>
           <TactileButton variant="secondary" size="sm" onClick={downloadReport} disabled={downloading} icon={<I n="download" s={14} c={ACCENT} />}>{downloading ? 'Generating…' : 'Download report (.docx)'}</TactileButton>

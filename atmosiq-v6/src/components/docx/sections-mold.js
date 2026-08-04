@@ -87,10 +87,6 @@ export function moldReportChildren(result, meta = {}) {
     ['Method', 'IICRC S520 — screening (mold engine v' + (result?.version || '—') + ')'],
   ]))
 
-  // Screening-only disclaimer — first thing after the header, always.
-  children.push(sectionHeading2('Screening only'))
-  children.push(p(result?.disclaimer || MOLD_SCREENING_DISCLAIMER, { italics: true }))
-
   // Per-zone classification.
   const cRows = conditionRows(result, zones)
   if (cRows.length) {
@@ -103,13 +99,13 @@ export function moldReportChildren(result, meta = {}) {
 
   // Findings.
   const fRows = findingRows(result, zones)
-  children.push(sectionHeading2(`Screening findings (${fRows.length})`))
+  children.push(sectionHeading2(`Findings (${fRows.length})`))
   if (fRows.length) {
     children.push(buildTable(
       [{ text: 'Severity', width: 20 }, { text: 'Category', width: 18 }, { text: 'Area', width: 20 }, { text: 'Finding', width: 42 }],
       fRows,
     ))
-    children.push(p('Every finding is a screening indicator requiring qualified-professional review; none is a determination of occupant health risk, contamination extent, or clearance.', { italics: true, size: 18, after: 80 }))
+    children.push(p('Each finding is a screening indicator recommended for qualified-professional review; none is a determination of occupant health risk, contamination extent, or clearance.', { italics: true, size: 18, after: 80 }))
   } else {
     children.push(p('No screening indicators were raised.'))
   }
@@ -125,11 +121,11 @@ export function moldReportChildren(result, meta = {}) {
     children.push(p(NO_HEALTH_LIMIT_NOTE, { italics: true, size: 18 }))
   }
 
-  // Limitations.
-  if ((result?.limitations || []).length) {
-    children.push(sectionHeading2('Limitations'))
-    for (const l of result.limitations) children.push(p('• ' + l, { size: 20, after: 60 }))
-  }
+  // Basis and limitations — where the assessment's screening scope is stated
+  // (the IAQ report's "Limitations on Reliance" pattern), rather than a banner.
+  children.push(sectionHeading2('Basis and limitations'))
+  children.push(p(result?.disclaimer || MOLD_SCREENING_DISCLAIMER, { italics: true }))
+  for (const l of (result?.limitations || [])) children.push(p('• ' + l, { size: 20, after: 60 }))
 
   // Standards referenced.
   if ((result?.standardsCited || []).length) {

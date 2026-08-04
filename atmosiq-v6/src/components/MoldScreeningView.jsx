@@ -116,7 +116,7 @@ function FindingsTab({ findings, zones }) {
             )}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginTop: 10, flexWrap: 'wrap' }}>
               {f.standardRefs?.length > 0 && <div style={{ fontSize: 10.5, color: DIM }}>{f.standardRefs.join(' · ')}</div>}
-              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.4px', textTransform: 'uppercase', color: ACCENT }}>Requires professional review</span>
+              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.4px', textTransform: 'uppercase', color: ACCENT }}>Professional review recommended</span>
             </div>
           </Card>
         )
@@ -174,9 +174,15 @@ function SporesTab({ sporeScreening, zones }) {
   )
 }
 
-function ReviewTab({ limitations, standardsCited }) {
+function ReviewTab({ disclaimer, limitations, standardsCited }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {disclaimer && (
+        <div>
+          <div style={LABEL}>Basis</div>
+          <Card><div style={{ fontSize: 12.5, color: SUB, lineHeight: 1.55 }}>{disclaimer}</div></Card>
+        </div>
+      )}
       <div>
         <div style={LABEL}>Limitations</div>
         {limitations.length ? (
@@ -209,25 +215,20 @@ export default function MoldScreeningView({ result, zones = [] }) {
 
   return (
     <section aria-label="Mold screening result" style={{ display: 'flex', flexDirection: 'column' }}>
-      {/* Persistent screening-only disclaimer — stays in view across tabs. */}
-      {disclaimer && (
-        <div role="note" style={{ background: `${WARN}14`, border: `1px solid ${WARN}59`, borderRadius: 12, padding: '12px 14px', marginBottom: 6 }}>
-          <div style={{ ...LABEL, color: WARN, marginBottom: 4 }}>Screening only</div>
-          <div style={{ fontSize: 12.5, color: SUB, lineHeight: 1.55 }}>{disclaimer}</div>
-        </div>
-      )}
-
-      <AssessmentSegmentedPillNav tabs={TABS} active={tab} onChange={setTab} ariaLabel="Mold screening sections" />
+      {/* No persistent banner — the assessment's basis + limitations live in the
+          Review tab (and the report), the same way the IAQ module carries them.
+          Per-finding "Professional review recommended" is the always-visible cue. */}
+      <AssessmentSegmentedPillNav tabs={TABS} active={tab} onChange={setTab} ariaLabel="Mold assessment sections" />
 
       {tab === 'findings' && (
         <div>
-          <div style={LABEL}>Screening findings · {findings.length}</div>
+          <div style={LABEL}>Findings · {findings.length}</div>
           <FindingsTab findings={findings} zones={zones} />
         </div>
       )}
       {tab === 'conditions' && <ConditionsTab conditions={conditions} waterByZone={waterByZone} sporeByZone={sporeByZone} zones={zones} />}
       {tab === 'spores' && <SporesTab sporeScreening={sporeScreening} zones={zones} />}
-      {tab === 'review' && <ReviewTab limitations={limitations} standardsCited={standardsCited} />}
+      {tab === 'review' && <ReviewTab disclaimer={disclaimer} limitations={limitations} standardsCited={standardsCited} />}
     </section>
   )
 }
