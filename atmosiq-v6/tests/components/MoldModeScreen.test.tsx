@@ -1,0 +1,46 @@
+// @vitest-environment jsdom
+/**
+ * MoldModeScreen — the self-contained in-app mold mode (userMode: 'mold').
+ * Pins the home → intake → result flow: screening-only framing on the home, the
+ * demo path running the real engine into the result surface, an intake
+ * assessment reaching a result end-to-end, and exiting the mode.
+ */
+import { describe, it, expect, afterEach, vi } from 'vitest'
+import { render, screen, fireEvent, cleanup } from '@testing-library/react'
+import MoldModeScreen from '../../src/components/MoldModeScreen'
+
+afterEach(cleanup)
+
+describe('MoldModeScreen', () => {
+  it('renders the mold home with screening-only framing and entry points', () => {
+    render(<MoldModeScreen onExit={() => {}} />)
+    expect(screen.getByText('Mold Assessment')).toBeTruthy()
+    expect(screen.getByText(/New mold screening/)).toBeTruthy()
+    expect(screen.getByText(/Open the demo assessment/)).toBeTruthy()
+    expect(screen.getByText('Screening only')).toBeTruthy()
+  })
+
+  it('opens the demo through the real engine and shows the screening result', () => {
+    render(<MoldModeScreen onExit={() => {}} />)
+    fireEvent.click(screen.getByText(/Open the demo assessment/))
+    // MoldScreeningView surface (persistent disclaimer + professional-review flags).
+    expect(screen.getByText('Screening only')).toBeTruthy()
+    expect(screen.getAllByText('Requires professional review').length).toBeGreaterThan(0)
+  })
+
+  it('runs an intake assessment end to end', () => {
+    render(<MoldModeScreen onExit={() => {}} />)
+    fireEvent.click(screen.getByText(/New mold screening/))
+    expect(screen.getByText('Assessment context')).toBeTruthy()
+    expect(screen.getByText('Area 1')).toBeTruthy()
+    fireEvent.click(screen.getByText(/Run screening/))
+    expect(screen.getByText(/Edit inputs/)).toBeTruthy() // reached the result stage
+  })
+
+  it('exits mold mode via the header control', () => {
+    const onExit = vi.fn()
+    render(<MoldModeScreen onExit={onExit} />)
+    fireEvent.click(screen.getByLabelText('Exit mold mode'))
+    expect(onExit).toHaveBeenCalled()
+  })
+})

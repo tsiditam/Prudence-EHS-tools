@@ -122,6 +122,19 @@
       ]
     },
     {
+      "id": "MOLD-MODE",
+      "label": "Mold is its own userMode — isolated in-app screen, registered + gated",
+      "checks": [
+        { "type": "file_exists", "path": "src/components/MoldModeScreen.jsx" },
+        { "type": "grep_matches", "pattern": "mold:", "paths": ["src/constants/terminology.js"] },
+        { "type": "grep_matches", "pattern": "mode === 'mold'", "paths": ["src/constants/terminology.js"] },
+        { "type": "grep_matches", "pattern": "userMode === 'mold'", "paths": ["src/components/MobileApp.jsx"] },
+        { "type": "grep_matches", "pattern": "isMoldModuleEnabled", "paths": ["src/components/MobileApp.jsx", "src/components/SettingsScreen.jsx"], "minCount": 2 },
+        { "type": "grep_matches", "pattern": "assessMold|buildMoldInput", "paths": ["src/components/MoldModeScreen.jsx"], "minCount": 2 },
+        { "type": "file_exists", "path": "tests/components/MoldModeScreen.test.tsx" }
+      ]
+    },
+    {
       "id": "MOLD-DOCS",
       "label": "Mold module architecture is documented",
       "checks": [

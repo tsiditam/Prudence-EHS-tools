@@ -451,12 +451,17 @@ on this codebase. Watch for them.
   Spores / Review + a persistent Screening-only banner), with a
   `/dev/mold-screening` preview (`src/components/dev/DevMoldPreview.jsx`). Staged
   behind `MOLD_KILL_SWITCH` (now **lifted** → preview-on, prod-off-by-default,
-  `?mold=1` opt-in). Docs: `docs/MOLD_MODULE.md`; gates: `npm run test:mold` /
-  `accept:mold`. Screening only — no health verdict, categorical severity, every
-  finding requires professional review. **Still out of scope** (next, separate
-  increments, both needing a product call): the in-app `userMode: 'mold'`
-  mode-entry + intake wiring in `MobileApp.jsx`, and the DOCX mold report
-  (`sections-mold.js`). The engine is versioned independently
+  `?mold=1` opt-in). Mold is now its **own `userMode`**: `terminology.js`
+  registers `'mold'`, and `MobileApp.jsx` EARLY-RETURNS the isolated
+  `src/components/MoldModeScreen.jsx` (home → intake → result) when
+  `userMode==='mold'` && the flag is on — so the IAQ shell/nav never mounts in
+  mold mode and IH/FM are untouched. Entered from Settings → *Assessment mode →
+  Mold screening (beta)* (gated); exits back to IH. Docs: `docs/MOLD_MODULE.md`;
+  gates: `npm run test:mold` / `accept:mold`. Screening only — no health
+  verdict, categorical severity, every finding requires professional review.
+  **Still out of scope** (next, separate increments): **persistence** of mold
+  assessments (they're in-memory within `MoldModeScreen` today) and the DOCX
+  mold report (`sections-mold.js`). The engine is versioned independently
   (`MOLD_ENGINE_VERSION`) and imports nothing from the sacred IAQ engine.
 - Marketing copy on prudenceehs.com or atmosflow positioning pages
 - FedRAMP MFA enforcement, FIPS-140 crypto, SSP authoring (handled by
