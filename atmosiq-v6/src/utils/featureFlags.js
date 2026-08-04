@@ -40,6 +40,11 @@
  * reactive `isDesktop` from useMediaQuery for the in-app Evidence tab). Keeping
  * the two orthogonal means the resolution contract below is unchanged and the
  * desktop breakpoint lives in one shared constant (KG_DESKTOP_MIN_WIDTH).
+ *
+ * More than one feature is staged the same way (the Knowledge Graph and the
+ * mold module), so the resolution ALGORITHM lives once in `resolveStagedFlag()`
+ * and each feature is a thin wrapper binding its own URL param + storage keys.
+ * There is deliberately no second copy of the host/URL/cohort logic to drift.
  */
 
 const PROD_HOSTS = new Set(['atmosflow.net', 'www.atmosflow.net'])
@@ -48,6 +53,12 @@ export const KG_STORAGE_KEY = 'af.kgEvidence'
 // Distinct from KG_STORAGE_KEY so a cohort default never clobbers — nor is
 // clobbered by — the user's own explicit ?kg= choice.
 export const KG_COHORT_STORAGE_KEY = 'af.kgCohort'
+
+// Mold screening module — staged behind its own keys, resolved by the SAME
+// algorithm as the KG flag (resolveStagedFlag). Kept distinct so the two
+// features roll out independently.
+export const MOLD_STORAGE_KEY = 'af.moldModule'
+export const MOLD_COHORT_STORAGE_KEY = 'af.moldCohort'
 
 /**
  * Minimum viewport width (px) at which the Knowledge Graph surfaces are shown.
@@ -77,6 +88,18 @@ export const KG_DESKTOP_MIN_WIDTH = 1024
  * again on every device.
  */
 export const KG_KILL_SWITCH = false
+
+/**
+ * Master kill switch for the mold screening module.
+ *
+ * Starts ENGAGED (`true`): the module currently ships as a dark FOUNDATION —
+ * deterministic screening engine (src/engines/mold/*), intake schema, standards,
+ * demo data and tests — with NO UI surface wired into the app yet. So it is off
+ * everywhere, on every host and viewport, regardless of `?mold=` or localStorage.
+ * Lift to `false` once the mold mode UI + DOCX report land to resume the staged
+ * rollout (preview-on, prod-off-by-default with `?mold=1` opt-in).
+ */
+export const MOLD_KILL_SWITCH = true
 
 /** True when the host is the live production domain. */
 export function isProdHost(hostname) {
@@ -109,10 +132,16 @@ function safeLocalStorage() {
   }
 }
 
-function readKgParam(search) {
+/**
+ * Read a boolean flag override from a query string
+ * (`?<name>=1|0|on|off|true|false`). Shared by every staged feature so the URL
+ * grammar is identical across flags.
+ * @returns {boolean|null} null when absent / malformed.
+ */
+function readFlagParam(search, name) {
   if (!search) return null
   try {
-    const v = new URLSearchParams(search).get('kg')
+    const v = new URLSearchParams(search).get(name)
     if (v === '1' || v === 'on' || v === 'true') return true
     if (v === '0' || v === 'off' || v === 'false') return false
   } catch {
@@ -122,10 +151,84 @@ function readKgParam(search) {
 }
 
 /**
+ * The ONE staged-rollout resolution algorithm, shared by every feature flag
+ * (Knowledge Graph, mold, …) so there is never a second copy to drift.
+ *
+ * Order (first decisive rule wins):
+ *   1. URL ?<param>=1/0 → persisted to `storageKey`, then applied
+ *   2. localStorage[storageKey] = '1' | '0'  (the user's explicit choice)
+ *   3. localStorage[cohortKey]  = '1'         (server-driven beta cohort)
+ *   4. default: ON for non-production hosts, OFF for atmosflow.net
+ *
+ * Pure + injectable; every storage access guarded for SSR / privacy-mode.
+ *
+ * @param {object} env  { hostname?, search?, storage? } injection seam for tests
+ * @param {{ param: string, storageKey: string, cohortKey: string }} keys
+ * @returns {boolean}
+ */
+export function resolveStagedFlag(env, keys) {
+  const hostname = env.hostname ?? (typeof window !== 'undefined' ? window.location.hostname : '')
+  const search = env.search ?? (typeof window !== 'undefined' ? window.location.search : '')
+  const storage = env.storage !== undefined ? env.storage : safeLocalStorage()
+
+  // 1. Explicit URL override — persist so it survives navigation within the SPA.
+  const fromUrl = readFlagParam(search, keys.param)
+  if (fromUrl !== null) {
+    try { storage && storage.setItem(keys.storageKey, fromUrl ? '1' : '0') } catch { /* ignore */ }
+    return fromUrl
+  }
+  // 2. Persisted override from a prior ?<param>= visit — the user's explicit
+  //    choice, which beats the server-driven cohort default below.
+  try {
+    const saved = storage && storage.getItem(keys.storageKey)
+    if (saved === '1') return true
+    if (saved === '0') return false
+  } catch {
+    /* storage read blocked — fall through to cohort / host default */
+  }
+  // 3. Server-driven beta cohort. Enable-only: '1' turns the feature on
+  //    (production included); any other value / absence falls through.
+  try {
+    if (storage && storage.getItem(keys.cohortKey) === '1') return true
+  } catch {
+    /* storage read blocked — fall through to host default */
+  }
+  // 4. Default: on everywhere except the production host.
+  return !isProdHost(hostname)
+}
+
+/**
+ * Mark (or unmark) the current browser as part of a feature's beta cohort by
+ * writing its `cohortKey`. Enable-only and never touches the user's explicit
+ * `storageKey` choice, so it can neither override nor be overridden by a
+ * `?<param>=` opt-out. Guarded no-op when storage is unavailable; returns the
+ * boolean it applied (for tests / call-site logging).
+ *
+ * @param {boolean} enabled
+ * @param {string}  cohortKey
+ * @param {object}  [env]  injection seam ({ storage? })
+ * @returns {boolean}
+ */
+export function applyCohort(enabled, cohortKey, env = {}) {
+  const storage = env.storage !== undefined ? env.storage : safeLocalStorage()
+  const on = enabled === true
+  try {
+    if (!storage) return on
+    if (on) storage.setItem(cohortKey, '1')
+    else storage.removeItem(cohortKey)
+  } catch {
+    /* storage blocked — cohort marker simply won't persist this session */
+  }
+  return on
+}
+
+// ── Knowledge Graph flag (thin wrapper over the shared resolver) ────────────
+
+/**
  * Whether the Knowledge Graph surfaces are enabled. The kill switch wins over
  * everything; otherwise this delegates to host/URL/localStorage resolution.
  * Call sites (main.jsx, MobileApp.jsx) use this.
- * @param {object} [env] Injection seam for tests (see resolveKgFlag).
+ * @param {object} [env] Injection seam for tests (see resolveStagedFlag).
  * @returns {boolean}
  */
 export function isKnowledgeGraphEnabled(env = {}) {
@@ -134,77 +237,59 @@ export function isKnowledgeGraphEnabled(env = {}) {
 }
 
 /**
- * Pure resolution (host default + sticky URL/localStorage overrides), ignoring
- * the kill switch. Exposed for tests and for any future surface that wants the
+ * Pure KG resolution (host default + sticky URL/localStorage overrides),
+ * ignoring the kill switch. Exposed for tests and for any surface that wants the
  * "would this be on if not killed?" answer.
- *
  * @param {object} [env] Injection seam for tests.
- * @param {string} [env.hostname] defaults to window.location.hostname
- * @param {string} [env.search]   defaults to window.location.search
- * @param {Storage|null} [env.storage] defaults to a guarded window.localStorage
  * @returns {boolean}
  */
 export function resolveKgFlag(env = {}) {
-  const hostname = env.hostname ?? (typeof window !== 'undefined' ? window.location.hostname : '')
-  const search = env.search ?? (typeof window !== 'undefined' ? window.location.search : '')
-  const storage = env.storage !== undefined ? env.storage : safeLocalStorage()
-
-  // 1. Explicit URL override — persist so it survives navigation within the SPA.
-  const fromUrl = readKgParam(search)
-  if (fromUrl !== null) {
-    try { storage && storage.setItem(KG_STORAGE_KEY, fromUrl ? '1' : '0') } catch { /* ignore */ }
-    return fromUrl
-  }
-
-  // 2. Persisted override from a prior ?kg= visit — the user's explicit choice,
-  //    which beats the server-driven cohort default below.
-  try {
-    const saved = storage && storage.getItem(KG_STORAGE_KEY)
-    if (saved === '1') return true
-    if (saved === '0') return false
-  } catch {
-    /* storage read blocked — fall through to cohort / host default */
-  }
-
-  // 3. Server-driven beta cohort (written by applyKgCohort at boot). Enable-only:
-  //    '1' turns the KG on (including on production) for a cohort member; any
-  //    other value / absence falls through to the host default.
-  try {
-    if (storage && storage.getItem(KG_COHORT_STORAGE_KEY) === '1') return true
-  } catch {
-    /* storage read blocked — fall through to host default */
-  }
-
-  // 4. Default: on everywhere except the production host.
-  return !isProdHost(hostname)
+  return resolveStagedFlag(env, { param: 'kg', storageKey: KG_STORAGE_KEY, cohortKey: KG_COHORT_STORAGE_KEY })
 }
 
 /**
- * Mark (or unmark) the current browser as part of the KG beta cohort.
- *
- * Called at app boot from the authenticated user's profile: when the profile
- * opts the user into the KG beta, pass `true` and the `af.kgCohort` key is
- * written so `resolveKgFlag` enables the KG on the NEXT load (same sticky model
- * as ?kg=1). Pass `false` to clear the marker. It never touches KG_STORAGE_KEY,
- * so it can neither override nor be overridden by the user's own ?kg= choice.
- *
- * Pure and guarded like the rest of this module; a blocked/absent storage is a
- * silent no-op. Returns the boolean it applied (for tests / call-site logging).
- *
- * @param {boolean} enabled  whether the user is in the KG beta cohort
- * @param {object}  [env]    injection seam for tests
- * @param {Storage|null} [env.storage] defaults to a guarded window.localStorage
+ * Mark (or unmark) the current browser as part of the KG beta cohort. Called at
+ * app boot from the authenticated user's profile (writes `af.kgCohort`).
+ * @param {boolean} enabled
+ * @param {object}  [env] injection seam for tests
  * @returns {boolean}
  */
 export function applyKgCohort(enabled, env = {}) {
-  const storage = env.storage !== undefined ? env.storage : safeLocalStorage()
-  const on = enabled === true
-  try {
-    if (!storage) return on
-    if (on) storage.setItem(KG_COHORT_STORAGE_KEY, '1')
-    else storage.removeItem(KG_COHORT_STORAGE_KEY)
-  } catch {
-    /* storage blocked — cohort marker simply won't persist this session */
-  }
-  return on
+  return applyCohort(enabled, KG_COHORT_STORAGE_KEY, env)
+}
+
+// ── Mold module flag (staged dark; same resolver, own keys) ─────────────────
+
+/**
+ * Whether the mold screening module is enabled. The module is FOUNDATION-only
+ * today (engine + intake + standards, no UI wiring), so MOLD_KILL_SWITCH starts
+ * `true` and this returns false everywhere. When the mold mode UI + report land,
+ * flip the switch to resume the staged rollout.
+ * @param {object} [env] Injection seam for tests (see resolveStagedFlag).
+ * @returns {boolean}
+ */
+export function isMoldModuleEnabled(env = {}) {
+  if (MOLD_KILL_SWITCH) return false
+  return resolveMoldFlag(env)
+}
+
+/**
+ * Pure mold resolution (ignores the kill switch). Exposed for tests and for the
+ * future mode-selection surface.
+ * @param {object} [env] Injection seam for tests.
+ * @returns {boolean}
+ */
+export function resolveMoldFlag(env = {}) {
+  return resolveStagedFlag(env, { param: 'mold', storageKey: MOLD_STORAGE_KEY, cohortKey: MOLD_COHORT_STORAGE_KEY })
+}
+
+/**
+ * Mark (or unmark) the current browser as part of the mold beta cohort
+ * (writes `af.moldCohort`).
+ * @param {boolean} enabled
+ * @param {object}  [env] injection seam for tests
+ * @returns {boolean}
+ */
+export function applyMoldCohort(enabled, env = {}) {
+  return applyCohort(enabled, MOLD_COHORT_STORAGE_KEY, env)
 }

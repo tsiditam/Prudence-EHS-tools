@@ -1,0 +1,119 @@
+{
+  "feature": "Mold screening module (foundation, staged dark)",
+  "criteria": [
+    {
+      "id": "MOLD-ENGINE-EXISTS",
+      "label": "Parallel mold screening engine with a deterministic orchestrator",
+      "checks": [
+        { "type": "file_exists", "path": "src/engines/mold/index.js" },
+        { "type": "file_exists", "path": "src/engines/mold/waterCategory.js" },
+        { "type": "file_exists", "path": "src/engines/mold/remediationCondition.js" },
+        { "type": "file_exists", "path": "src/engines/mold/moistureIndicators.js" },
+        { "type": "file_exists", "path": "src/engines/mold/sporeScreening.js" },
+        { "type": "file_exists", "path": "src/engines/mold/buildInput.js" },
+        { "type": "grep_matches", "pattern": "export function assessMold", "paths": ["src/engines/mold/index.js"] }
+      ]
+    },
+    {
+      "id": "MOLD-ENGINE-SACRED",
+      "label": "Mold engine is parallel — it never imports the IAQ scoring engine",
+      "checks": [
+        { "type": "grep_excludes", "pattern": "engines/scoring|/engine/report|/engine/bridge|scoring-legacy", "paths": ["src/engines/mold/index.js", "src/engines/mold/waterCategory.js", "src/engines/mold/remediationCondition.js", "src/engines/mold/moistureIndicators.js", "src/engines/mold/sporeScreening.js", "src/engines/mold/buildInput.js"] }
+      ]
+    },
+    {
+      "id": "MOLD-VERSIONED",
+      "label": "Mold engine is versioned independently of ENGINE_VERSION",
+      "checks": [
+        { "type": "grep_matches", "pattern": "export const MOLD_ENGINE_VERSION", "paths": ["src/version.js"] },
+        { "type": "grep_matches", "pattern": "MOLD_ENGINE_VERSION", "paths": ["src/engines/mold/index.js"] }
+      ]
+    },
+    {
+      "id": "MOLD-S520-CLASSIFICATION",
+      "label": "IICRC S520 water Category + remediation Condition classifications defined and sourced",
+      "checks": [
+        { "type": "grep_matches", "pattern": "export const WATER_CATEGORIES", "paths": ["src/constants/moldStandards.js"] },
+        { "type": "grep_matches", "pattern": "export const REMEDIATION_CONDITIONS", "paths": ["src/constants/moldStandards.js"] },
+        { "type": "grep_matches", "pattern": "IICRC S520", "paths": ["src/constants/moldStandards.js"] }
+      ]
+    },
+    {
+      "id": "MOLD-NO-HEALTH-VERDICT",
+      "label": "No health verdict / pass-fail language in the engine or standards framing",
+      "checks": [
+        { "type": "grep_excludes", "pattern": "safe to occupy|acceptable exposure level|\\bis safe\\b|no observed health risk", "paths": ["src/engines/mold/index.js", "src/engines/mold/sporeScreening.js", "src/constants/moldStandards.js"] }
+      ]
+    },
+    {
+      "id": "MOLD-SPORE-COMPARATIVE",
+      "label": "Spore screening is comparative with the explicit no-health-limit note (IOM/ACMT)",
+      "checks": [
+        { "type": "grep_matches", "pattern": "[Cc]omparative", "paths": ["src/constants/moldStandards.js"] },
+        { "type": "grep_matches", "pattern": "health-based numeric exposure limit", "paths": ["src/constants/moldStandards.js"] }
+      ]
+    },
+    {
+      "id": "MOLD-SCREENING-DISCLAIMER",
+      "label": "Standing screening-only disclaimer defined and carried on the result",
+      "checks": [
+        { "type": "grep_matches", "pattern": "Screening only", "paths": ["src/constants/moldStandards.js"] },
+        { "type": "grep_matches", "pattern": "disclaimer: MOLD_SCREENING_DISCLAIMER", "paths": ["src/engines/mold/index.js"] }
+      ]
+    },
+    {
+      "id": "MOLD-TYPES",
+      "label": "Typed, readonly domain model for the screening result",
+      "checks": [
+        { "type": "file_exists", "path": "src/types/mold.ts" },
+        { "type": "grep_matches", "pattern": "interface MoldScreeningResult", "paths": ["src/types/mold.ts"] },
+        { "type": "grep_matches", "pattern": "readonly", "paths": ["src/types/mold.ts"], "minCount": 5 }
+      ]
+    },
+    {
+      "id": "MOLD-INTAKE",
+      "label": "Declarative intake schema, pure input mapper, and demo fixture",
+      "checks": [
+        { "type": "file_exists", "path": "src/constants/moldQuestions.js" },
+        { "type": "file_exists", "path": "src/constants/demoDataMold.js" },
+        { "type": "grep_matches", "pattern": "export const Q_MOLD_ZONE", "paths": ["src/constants/moldQuestions.js"] },
+        { "type": "grep_matches", "pattern": "export function buildMoldInput", "paths": ["src/engines/mold/buildInput.js"] }
+      ]
+    },
+    {
+      "id": "MOLD-FEATURE-FLAG",
+      "label": "Staged behind its own flag using the shared resolver (no parallel flag logic)",
+      "checks": [
+        { "type": "grep_matches", "pattern": "export function isMoldModuleEnabled", "paths": ["src/utils/featureFlags.js"] },
+        { "type": "grep_matches", "pattern": "export const MOLD_KILL_SWITCH", "paths": ["src/utils/featureFlags.js"] },
+        { "type": "grep_matches", "pattern": "export function resolveStagedFlag", "paths": ["src/utils/featureFlags.js"] }
+      ]
+    },
+    {
+      "id": "MOLD-STANDARDS-MANIFEST",
+      "label": "Mold bibliography added to the standards manifest",
+      "checks": [
+        { "type": "grep_matches", "pattern": "IICRC S520 Mold Remediation", "paths": ["src/constants/standards.js"] },
+        { "type": "grep_matches", "pattern": "IOM Damp Indoor Spaces and Health", "paths": ["src/constants/standards.js"] },
+        { "type": "grep_matches", "pattern": "ACMT Position", "paths": ["src/constants/standards.js"] }
+      ]
+    },
+    {
+      "id": "MOLD-DOCS",
+      "label": "Mold module architecture is documented",
+      "checks": [
+        { "type": "file_min_size", "path": "docs/MOLD_MODULE.md", "minBytes": 3000 },
+        { "type": "grep_matches", "pattern": "S520|screening-only|Condition", "paths": ["docs/MOLD_MODULE.md"] }
+      ]
+    },
+    {
+      "id": "MOLD-TESTS-PASS",
+      "label": "Mold engine + flag + standards + intake unit tests pass",
+      "checks": [
+        { "type": "file_exists", "path": "tests/engine/mold-engine.test.ts" },
+        { "type": "file_exists", "path": "tests/lib/moldFeatureFlags.test.ts" },
+        { "type": "npm_script_passes", "script": "test:mold" }
+      ]
+    }
+  ]
+}

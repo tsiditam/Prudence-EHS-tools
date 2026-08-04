@@ -441,7 +441,18 @@ on this codebase. Watch for them.
 - Composite scoring math reconciliation (separate workstream)
 - UI redesign (separate plan; result tabs / demo cards / bottom nav
   redesigned in commit `c1ed1c8`, broader UI system pass deferred)
-- Mold module build-out (spec phase, not implementation)
+- Mold module: the **foundation has landed** — a parallel, deterministic
+  screening engine (`src/engines/mold/*`, IICRC S520 water Category +
+  remediation Condition + comparative indoor/outdoor spore screening),
+  `src/constants/moldStandards.js`, `src/types/mold.ts`, the intake schema
+  (`src/constants/moldQuestions.js`) + demo (`demoDataMold.js`), staged dark
+  behind `MOLD_KILL_SWITCH` (`src/utils/featureFlags.js`). Docs:
+  `docs/MOLD_MODULE.md`; gates: `npm run test:mold` / `accept:mold`. Screening
+  only — no health verdict, categorical severity, every finding requires
+  professional review. **Still out of scope** (next, separate increments): the
+  `userMode: 'mold'` UI wiring in `MobileApp.jsx` and the DOCX mold report
+  (`sections-mold.js`). The engine is versioned independently
+  (`MOLD_ENGINE_VERSION`) and imports nothing from the sacred IAQ engine.
 - Marketing copy on prudenceehs.com or atmosflow positioning pages
 - FedRAMP MFA enforcement, FIPS-140 crypto, SSP authoring (handled by
   separate FedRAMP workstream; see `docs/PRODUCTION_READINESS.md`)

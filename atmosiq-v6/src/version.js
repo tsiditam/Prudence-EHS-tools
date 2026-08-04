@@ -39,6 +39,16 @@ export const APP_VERSION = '6.0.0-beta'
 export const ENGINE_VERSION = '2.9.0'
 export const STANDARDS_MANIFEST_DATE = '2026-04-25'
 
+// Mold screening engine (src/engines/mold/*) — versioned INDEPENDENTLY of the
+// IAQ ENGINE_VERSION above. The mold module is a parallel, deterministic
+// screening path (IICRC S520 water-damage Category + remediation Condition,
+// comparative indoor/outdoor spore screening); it never shares scoring code
+// with the IAQ engine, so it carries its own semantic version. Bump on any
+// change to mold classification logic, thresholds, or the assessMold() result
+// shape. 0.x while the module is staged dark behind MOLD_KILL_SWITCH.
+export const MOLD_ENGINE_VERSION = '0.1.0'
+export const MOLD_ENGINE_VERSION_TAG = `atmosflow-mold-${MOLD_ENGINE_VERSION}`
+
 // Tagged form retained for backward compat with consumers that store
 // the prefixed string in report metadata (src/engine/report/internal.ts,
 // src/engine/report/pre-assessment-memo.ts).
