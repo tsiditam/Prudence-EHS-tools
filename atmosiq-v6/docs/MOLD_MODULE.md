@@ -13,10 +13,10 @@ lab ingest, report chrome and calibration, but never touches IAQ scoring.
 > Settings → *Assessment mode → Mold screening (beta)*, which hands off to the
 > isolated `MoldModeScreen` (home → intake → result). The engine, standards,
 > intake schema, demo, `MoldScreeningView`, the `/dev/mold-screening` preview,
-> and the mode itself all ship now, and assessments **persist** (save / list /
-> reopen / delete). The live IH/FM product is unaffected (mold renders in
-> isolation, gated). **Cloud sync** of saved mold assessments and the **DOCX
-> mold report** are the next, separately-reviewable increments.
+> and the mode itself all ship now, assessments **persist** (save / list /
+> reopen / delete), and a screening produces a standalone **DOCX report**. The
+> live IH/FM product is unaffected (mold renders in isolation, gated). **Cloud
+> sync** of saved mold assessments is the next, separately-reviewable increment.
 
 ## First principle
 
@@ -57,6 +57,7 @@ design, and enforced by tests:
 | Mode | `src/components/MoldModeScreen.jsx` | The isolated `userMode:'mold'` screen (home → intake → result); early-returned by `MobileApp.jsx` so the IAQ shell/nav never mounts in mold mode |
 | Terminology | `src/constants/terminology.js` | `'mold'` registered as a mode (vocab + `homeView`); entered from a flag-gated Settings row |
 | Persistence | `src/utils/storage.js` + `storageKeys.js` | `get/save/deleteMoldAssessment` — a local collection (`KEYS.moldAssessments`), same pattern as incidents, kept OUT of the IAQ reports/drafts index. Stores the captured INPUT; the result is re-derived on open |
+| DOCX report | `src/components/docx/sections-mold.js` + `mold-report.js` | Standalone Word deliverable (S520 classification table, findings, spore screening, limitations, standards, screening-only disclaimer), reusing the shared report chrome/styles/tables. `MoldModeScreen` dynamic-imports `generateMoldReport` so docx stays off its static graph. Pure row-builders unit-test content without packing a `.docx` |
 | Manifest | `src/constants/standards.js` | S520 / AIHA / EPA / IOM / ACMT added to `STANDARDS_MANIFEST` (bibliographic) |
 
 ### The engine is four classifiers + an orchestrator
@@ -151,13 +152,10 @@ would mean an unreviewable diff and would touch the live IH/FM product:
 1. **Cloud sync** — saved mold assessments are local-only today (localStorage,
    same as incidents). Syncing them to Supabase (schema + RLS + an API + the
    sync queue) is a separate workstream, deliberately not bundled here.
-2. **DOCX mold report** — `src/components/docx/sections-mold.js`: a moisture
-   Conceptual Site Model, S520 Category/Condition tables, the spore-screening
-   comparison, findings, and the limitations/disclaimer, wired into
-   `DocxReport.js` by mode.
-3. **Lab-ingest wiring** — feed spore-trap rows from the existing lab-results
-   pipeline (`sections-lab-results.js`) into `assessMold`.
-4. **Calibration** — route the moisture meter / thermo-hygrometer through the
+2. **Lab-ingest wiring** — feed spore-trap rows from the existing lab-results
+   pipeline (`sections-lab-results.js`) into `assessMold` (today the demo
+   carries spores; the intake flow leaves them to the lab path).
+3. **Calibration** — route the moisture meter / thermo-hygrometer through the
    existing calibration-acknowledgement gate.
 
 The moisture numeric references are widely-cited building-science *screening*

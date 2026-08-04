@@ -91,7 +91,7 @@ const deriveTitle = (zones) => {
 }
 const fmtDate = (iso) => { try { return new Date(iso).toLocaleDateString() } catch { return '' } }
 
-export default function MoldModeScreen({ onExit }) {
+export default function MoldModeScreen({ onExit, profile }) {
   const [stage, setStage] = useState('home') // home | intake | result
   const [presurvey, setPresurvey] = useState({})
   const [zones, setZones] = useState([newZone(1)])
@@ -152,6 +152,27 @@ export default function MoldModeScreen({ onExit }) {
   }
   const remove = async (id) => { await STO.deleteMoldAssessment(id); if (editingId === id) setEditingId(null); refresh() }
 
+  const [downloading, setDownloading] = useState(false)
+  const downloadReport = async () => {
+    if (!result) return
+    setDownloading(true)
+    try {
+      // Dynamic import so the docx packager only loads when a report is
+      // actually generated (keeps it off the mold screen's static graph).
+      const { generateMoldReport } = await import('./docx/mold-report')
+      const site = deriveTitle(zones).replace(/^Mold — /, '')
+      await generateMoldReport(result, {
+        title: 'Mold Screening Report',
+        site,
+        preparedBy: profile?.assessorName || profile?.name || '',
+        preparedFor: presurvey?.mps_prepared_for || '',
+        date: new Date().toLocaleDateString(),
+        zones: resultZones,
+      })
+    } catch { /* best-effort; download failures are non-fatal */ }
+    setDownloading(false)
+  }
+
   // Home ---------------------------------------------------------------------
   if (stage === 'home') {
     return (
@@ -204,6 +225,7 @@ export default function MoldModeScreen({ onExit }) {
         <Header onExit={onExit} sub="Screening result" />
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', margin: '12px 0 16px' }}>
           <TactileButton variant="secondary" size="sm" onClick={save} icon={<I n="check" s={14} c={ACCENT} />}>Save assessment</TactileButton>
+          <TactileButton variant="secondary" size="sm" onClick={downloadReport} disabled={downloading} icon={<I n="download" s={14} c={ACCENT} />}>{downloading ? 'Generating…' : 'Download report (.docx)'}</TactileButton>
           <GhostButton onClick={() => setStage('intake')}>Edit inputs</GhostButton>
           <GhostButton onClick={() => { setResult(null); setStage('home') }}>Home</GhostButton>
           {savedMsg && <span role="status" style={{ fontSize: 12, fontWeight: 700, color: ACCENT }}>{savedMsg}</span>}

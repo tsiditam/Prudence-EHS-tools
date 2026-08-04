@@ -462,10 +462,12 @@ on this codebase. Watch for them.
   Assessments **persist** — `STO.get/save/deleteMoldAssessment`
   (`KEYS.moldAssessments`), a local collection like incidents, kept OUT of the
   IAQ reports/drafts index; the record stores the captured INPUT and the result
-  is re-derived on open. **Still out of scope** (next, separate increments):
-  **cloud sync** of mold assessments (local-only today) and the DOCX mold report
-  (`sections-mold.js`). The engine is versioned independently
-  (`MOLD_ENGINE_VERSION`) and imports nothing from the sacred IAQ engine.
+  is re-derived on open. A screening produces a standalone **DOCX report**
+  (`src/components/docx/sections-mold.js` + `mold-report.js`, reusing the shared
+  report chrome; `MoldModeScreen` dynamic-imports `generateMoldReport`). **Still
+  out of scope** (next increment): **cloud sync** of mold assessments (local-only
+  today). The engine is versioned independently (`MOLD_ENGINE_VERSION`) and
+  imports nothing from the sacred IAQ engine.
 - Marketing copy on prudenceehs.com or atmosflow positioning pages
 - FedRAMP MFA enforcement, FIPS-140 crypto, SSP authoring (handled by
   separate FedRAMP workstream; see `docs/PRODUCTION_READINESS.md`)

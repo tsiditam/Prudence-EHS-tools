@@ -147,6 +147,20 @@
       ]
     },
     {
+      "id": "MOLD-REPORT",
+      "label": "Standalone DOCX mold screening report, reusing shared report chrome",
+      "checks": [
+        { "type": "file_exists", "path": "src/components/docx/sections-mold.js" },
+        { "type": "file_exists", "path": "src/components/docx/mold-report.js" },
+        { "type": "grep_matches", "pattern": "export function moldReportChildren", "paths": ["src/components/docx/sections-mold.js"] },
+        { "type": "grep_matches", "pattern": "export function buildMoldReportDocument", "paths": ["src/components/docx/mold-report.js"] },
+        { "type": "grep_matches", "pattern": "reportSectionAttachments|DOCX_STYLES", "paths": ["src/components/docx/mold-report.js"], "minCount": 2 },
+        { "type": "grep_matches", "pattern": "MOLD_SCREENING_DISCLAIMER|disclaimer", "paths": ["src/components/docx/sections-mold.js"] },
+        { "type": "grep_matches", "pattern": "generateMoldReport", "paths": ["src/components/MoldModeScreen.jsx"] },
+        { "type": "file_exists", "path": "tests/engine/mold-report.test.ts" }
+      ]
+    },
+    {
       "id": "MOLD-DOCS",
       "label": "Mold module architecture is documented",
       "checks": [

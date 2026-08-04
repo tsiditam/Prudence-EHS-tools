@@ -1983,7 +1983,7 @@ export default function MobileApp() {
   // back to IH rather than stranding the user on a hidden mode.
   if (userMode === 'mold') {
     if (isMoldModuleEnabled()) {
-      return <MoldModeScreen onExit={() => { handleModeSwitch('ih'); setView(homeView('ih')) }} />
+      return <MoldModeScreen profile={profile} onExit={() => { handleModeSwitch('ih'); setView(homeView('ih')) }} />
     }
     persistMode('ih'); setUserMode('ih')
   }
