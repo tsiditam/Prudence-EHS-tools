@@ -135,6 +135,18 @@
       ]
     },
     {
+      "id": "MOLD-PERSISTENCE",
+      "label": "Mold assessments persist as their own collection, separate from the IAQ index",
+      "checks": [
+        { "type": "grep_matches", "pattern": "moldAssessments:", "paths": ["src/utils/storageKeys.js"] },
+        { "type": "grep_matches", "pattern": "async saveMoldAssessment", "paths": ["src/utils/storage.js"] },
+        { "type": "grep_matches", "pattern": "async getMoldAssessments", "paths": ["src/utils/storage.js"] },
+        { "type": "grep_matches", "pattern": "async deleteMoldAssessment", "paths": ["src/utils/storage.js"] },
+        { "type": "grep_matches", "pattern": "STO.saveMoldAssessment|STO.getMoldAssessments", "paths": ["src/components/MoldModeScreen.jsx"], "minCount": 2 },
+        { "type": "file_exists", "path": "tests/lib/moldStorage.test.ts" }
+      ]
+    },
+    {
       "id": "MOLD-DOCS",
       "label": "Mold module architecture is documented",
       "checks": [

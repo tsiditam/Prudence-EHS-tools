@@ -5,11 +5,12 @@
  * demo path running the real engine into the result surface, an intake
  * assessment reaching a result end-to-end, and exiting the mode.
  */
-import { describe, it, expect, afterEach, vi } from 'vitest'
-import { render, screen, fireEvent, cleanup } from '@testing-library/react'
+import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest'
+import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react'
 import MoldModeScreen from '../../src/components/MoldModeScreen'
 
 afterEach(cleanup)
+beforeEach(() => localStorage.clear())
 
 describe('MoldModeScreen', () => {
   it('renders the mold home with screening-only framing and entry points', () => {
@@ -42,5 +43,33 @@ describe('MoldModeScreen', () => {
     render(<MoldModeScreen onExit={onExit} />)
     fireEvent.click(screen.getByLabelText('Exit mold mode'))
     expect(onExit).toHaveBeenCalled()
+  })
+
+  it('saves an assessment, lists it on home, reopens it, and deletes it', async () => {
+    render(<MoldModeScreen onExit={() => {}} />)
+    fireEvent.click(screen.getByText(/Open the demo assessment/)) // → result
+    fireEvent.click(screen.getByText(/Save assessment/))
+    await screen.findByText('Saved')                              // persisted + list refreshed
+    fireEvent.click(screen.getByText('Home'))
+    // Saved list shows the record (title derived from the first area).
+    expect(await screen.findByText(/Mold — Break Room/)).toBeTruthy()
+    // Reopen → recomputed result surface.
+    fireEvent.click(screen.getByLabelText(/Open Mold — Break Room/))
+    expect(screen.getByText('Screening only')).toBeTruthy()
+    // Home → delete.
+    fireEvent.click(screen.getByText('Home'))
+    fireEvent.click(screen.getByLabelText(/Delete Mold — Break Room/))
+    await waitFor(() => expect(screen.queryByText(/Mold — Break Room/)).toBeNull())
+  })
+
+  it('persists across a remount (reads back from storage)', async () => {
+    const { unmount } = render(<MoldModeScreen onExit={() => {}} />)
+    fireEvent.click(screen.getByText(/Open the demo assessment/))
+    fireEvent.click(screen.getByText(/Save assessment/))
+    await screen.findByText('Saved')
+    unmount()
+    render(<MoldModeScreen onExit={() => {}} />) // fresh mount → loads from storage
+    expect(await screen.findByText(/Saved assessments/)).toBeTruthy()
+    expect(screen.getByText(/Mold — Break Room/)).toBeTruthy()
   })
 })

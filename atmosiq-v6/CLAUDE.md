@@ -459,9 +459,12 @@ on this codebase. Watch for them.
   Mold screening (beta)* (gated); exits back to IH. Docs: `docs/MOLD_MODULE.md`;
   gates: `npm run test:mold` / `accept:mold`. Screening only — no health
   verdict, categorical severity, every finding requires professional review.
-  **Still out of scope** (next, separate increments): **persistence** of mold
-  assessments (they're in-memory within `MoldModeScreen` today) and the DOCX
-  mold report (`sections-mold.js`). The engine is versioned independently
+  Assessments **persist** — `STO.get/save/deleteMoldAssessment`
+  (`KEYS.moldAssessments`), a local collection like incidents, kept OUT of the
+  IAQ reports/drafts index; the record stores the captured INPUT and the result
+  is re-derived on open. **Still out of scope** (next, separate increments):
+  **cloud sync** of mold assessments (local-only today) and the DOCX mold report
+  (`sections-mold.js`). The engine is versioned independently
   (`MOLD_ENGINE_VERSION`) and imports nothing from the sacred IAQ engine.
 - Marketing copy on prudenceehs.com or atmosflow positioning pages
 - FedRAMP MFA enforcement, FIPS-140 crypto, SSP authoring (handled by
