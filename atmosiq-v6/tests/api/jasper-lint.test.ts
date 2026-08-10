@@ -37,9 +37,24 @@ describe('jasper output linter', () => {
     expect(lintJasperOutput('This remains a weak hypothesis.').length).toBeGreaterThan(0)
   })
 
-  it('trips on confidence applied to a source/cause', () => {
-    expect(lintJasperOutput('The likely source is the standing water in the drain pan.').length).toBeGreaterThan(0)
+  it('trips on confidence applied to a causal attribution', () => {
+    // Confidence attached to an explicit cause/attribution — the moat.
     expect(lintJasperOutput('CO2 is probably the cause of the complaints.').length).toBeGreaterThan(0)
+    expect(lintJasperOutput('The elevated readings are likely caused by the HVAC recirculation.').length).toBeGreaterThan(0)
+    expect(lintJasperOutput('This is strongly attributable to the water intrusion.').length).toBeGreaterThan(0)
+    expect(lintJasperOutput('The mold is likely responsible for the odor complaints.').length).toBeGreaterThan(0)
+  })
+
+  it('does NOT trip on hedged identification of a physical source/origin (screening)', () => {
+    // Identifying the probable source/origin of moisture or a contaminant is
+    // core screening (IICRC S520 water classification) and the exact hedged
+    // language the role prompt asks for — not an exposure→symptom cause.
+    // Previously these tripped confidence-on-cause and, on retry, forced the
+    // SAFE_FALLBACK refusal.
+    expect(lintJasperOutput('The likely source is the standing water in the drain pan.')).toEqual([])
+    expect(lintJasperOutput('The most probable source is under-ventilation during peak occupancy.')).toEqual([])
+    expect(lintJasperOutput('Water intrusion is the likely origin given the staining pattern.')).toEqual([])
+    expect(lintJasperOutput('A strong musty odor was noted near the return-air source register.')).toEqual([])
   })
 
   it('trips on building-related symptoms and sick building', () => {

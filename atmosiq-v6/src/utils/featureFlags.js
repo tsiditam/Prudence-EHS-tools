@@ -92,13 +92,11 @@ export const KG_KILL_SWITCH = false
 /**
  * Master kill switch for the mold screening module.
  *
- * LIFTED (`false`) — the staged rollout is active. The read-only mold screening
- * surface (MoldScreeningView, mirroring the IAQ result tabs) and its
- * /dev/mold-screening preview are ON for preview/localhost and OFF on
- * atmosflow.net by default; opt in on production with `?mold=1` (sticky) or the
- * beta cohort. The live IH/FM product is unaffected — there is no in-app mold
- * mode entry yet (the userMode:'mold' intake wiring + DOCX report are the next
- * increments). Set back to `true` to take every mold surface dark again.
+ * LIFTED (`false`) — the module has shipped as a labeled **Beta** and is ON
+ * everywhere by default, PRODUCTION INCLUDED (resolveMoldFlag passes
+ * `defaultOn: true`). Users can still hide it per-browser with `?mold=0`
+ * (sticky) / `af.moldModule='0'`. Set this back to `true` to take every mold
+ * surface fully dark again on every host.
  */
 export const MOLD_KILL_SWITCH = false
 
@@ -194,7 +192,11 @@ export function resolveStagedFlag(env, keys) {
   } catch {
     /* storage read blocked — fall through to host default */
   }
-  // 4. Default: on everywhere except the production host.
+  // 4. Default. Most staged features are on everywhere EXCEPT production (so a
+  //    merge never exposes them live). A feature that has shipped can opt into
+  //    being on everywhere — production included — with `defaultOn: true`; the
+  //    explicit URL / storage opt-out in steps 1–2 still turns it off per user.
+  if (keys.defaultOn) return true
   return !isProdHost(hostname)
 }
 
@@ -281,7 +283,10 @@ export function isMoldModuleEnabled(env = {}) {
  * @returns {boolean}
  */
 export function resolveMoldFlag(env = {}) {
-  return resolveStagedFlag(env, { param: 'mold', storageKey: MOLD_STORAGE_KEY, cohortKey: MOLD_COHORT_STORAGE_KEY })
+  // Mold has shipped as a labeled Beta, so it is ON everywhere by default —
+  // production included (defaultOn) — while `?mold=0` / af.moldModule='0' still
+  // lets a user hide it, and MOLD_KILL_SWITCH still turns it fully off.
+  return resolveStagedFlag(env, { param: 'mold', storageKey: MOLD_STORAGE_KEY, cohortKey: MOLD_COHORT_STORAGE_KEY, defaultOn: true })
 }
 
 /**
