@@ -410,6 +410,46 @@ describe('calibration integrity vs the monitoring period', () => {
   })
 })
 
+describe('below-detection-limit flagging (screening floor)', () => {
+  function hchoDataset(maxPpb: number) {
+    const points: any[] = []
+    for (let i = 0; i < 60; i++) points.push({ t: T0 + i * 10 * MIN, hcho: maxPpb * (0.5 + 0.5 * (i / 59)) })
+    return {
+      fileName: 'graywolf.csv',
+      params: ['hcho'],
+      units: { hcho: 'ppb' },
+      points,
+      summary: { count: points.length, start: points[0].t, end: points[points.length - 1].t },
+    }
+  }
+  const buildHcho = (maxPpb: number) =>
+    buildMonitoringReportModel(session({ datasets: [{ ...hchoDataset(maxPpb), role: 'indoor' }] }), {
+      generatedAt: '2026-07-31T14:20:00.000Z',
+    })
+
+  it('flags a formaldehyde series that tops out below the detection floor', () => {
+    // The reviewer gap: HCHO max ~0.044 ppb presented as a measured value.
+    const model = buildHcho(0.05)
+    const hcho: any = model.parameters.find((x: any) => x.param === 'hcho')
+    expect(hcho.belowDetection).toBe(true)
+    expect(hcho.detectionNote).toMatch(/detection floor/i)
+    expect(hcho.detectionNote).toMatch(/qualitative only/i)
+    expect(model.qualitativeOnly).toBe(true)
+    expect(model.dataQualityNotes).toHaveLength(1)
+    // The caveat is client-facing prose — it must pass the scanner.
+    expect(scan(hcho.detectionNote)).toEqual([])
+  })
+
+  it('does not flag a plausible formaldehyde series', () => {
+    const model = buildHcho(18) // ~9–18 ppb, an ordinary indoor range
+    const hcho: any = model.parameters.find((x: any) => x.param === 'hcho')
+    expect(hcho.belowDetection).toBe(false)
+    expect(hcho.detectionNote).toBeNull()
+    expect(model.dataQualityNotes).toHaveLength(0)
+    expect(model.qualitativeOnly).toBe(false)
+  })
+})
+
 describe('figure captions', () => {
   const base = { figureNumber: 3, shortLabel: 'CO₂' }
 

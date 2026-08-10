@@ -156,3 +156,50 @@ export function exceedance(param, stats, ref) {
   }
   return { level: null, message: null }
 }
+
+/**
+ * Conservative SCREENING detection floors.
+ *
+ * The concentration below which a whole-series field reading for this analyte
+ * sits at or under the usable range of common direct-reading IAQ instruments
+ * and should be treated as NON-QUANTITATIVE. These are generic screening
+ * floors, NOT a specific instrument's published limit of detection — the
+ * report says so and directs the assessor to confirm against their
+ * instrument's LOD. Seeded conservatively; add an analyte only where a
+ * sub-floor series is physically implausible for field instruments (a
+ * genuinely near-zero reading, e.g. indoor CO, must not be false-flagged).
+ *
+ * `ppb` is the floor in ppb (canonical for gas-phase trace analytes); `mw` is
+ * the molecular weight used to project it into a µg/m³ or mg/m³ logged unit.
+ */
+export const SCREENING_DETECTION_FLOORS = {
+  // Indoor formaldehyde is essentially always at least a few ppb, and field
+  // HCHO sensors resolve ~1 ppb; a series topping out below 1 ppb is at the
+  // instrument's noise floor, not a measured concentration.
+  hcho: { ppb: 1, mw: HCHO_MW },
+}
+
+// Project a ppb floor into the unit the data was logged in. Returns null when
+// the unit is not a recognised concentration unit (no guessed comparison).
+function floorInUnit(floorPpb, mw, unit) {
+  if (isPpb(unit)) return floorPpb
+  if (isPpm(unit)) return floorPpb / 1000
+  if (isUg(unit)) return ppbToUgm3(floorPpb, mw)
+  if (isMg(unit)) return ppbToUgm3(floorPpb, mw) / 1000
+  return null
+}
+
+/**
+ * True when a parameter's ENTIRE series sits at/below its conservative
+ * screening detection floor — i.e. even the maximum reading is sub-floor, so
+ * the data is non-quantitative. Given the parameter, its max reading, and the
+ * unit it was logged in. Params with no floor, a non-finite max, or an
+ * unconvertible unit return false (no claim is made).
+ */
+export function belowScreeningFloor(param, maxValue, unit) {
+  const def = SCREENING_DETECTION_FLOORS[param]
+  if (!def || maxValue == null || !Number.isFinite(maxValue)) return false
+  const floor = floorInUnit(def.ppb, def.mw, unit)
+  if (floor == null) return false
+  return maxValue < floor
+}

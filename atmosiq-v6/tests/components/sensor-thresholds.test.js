@@ -2,10 +2,34 @@
  * sensorThresholds — screening reference resolution for Logger Studio.
  */
 import { describe, it, expect } from 'vitest'
-import { categoryOf, CATEGORY, paramReference, exceedance } from '../../src/utils/sensorThresholds'
+import { categoryOf, CATEGORY, paramReference, exceedance, belowScreeningFloor, SCREENING_DETECTION_FLOORS } from '../../src/utils/sensorThresholds'
 
 const winter = Date.UTC(2026, 0, 15) // January → winter band
 const summer = Date.UTC(2026, 6, 15) // July → summer band
+
+describe('belowScreeningFloor — sub-detection screening floor', () => {
+  it('has a conservative formaldehyde floor and no false-positive-prone analytes', () => {
+    expect(SCREENING_DETECTION_FLOORS.hcho.ppb).toBe(1)
+    // CO / TVOC can legitimately read near zero — they must NOT carry a floor.
+    expect(SCREENING_DETECTION_FLOORS.co).toBeUndefined()
+    expect(SCREENING_DETECTION_FLOORS.tvoc).toBeUndefined()
+  })
+
+  it('flags a whole HCHO series below the floor, across logged units', () => {
+    expect(belowScreeningFloor('hcho', 0.05, 'ppb')).toBe(true)      // 0.05 < 1 ppb
+    expect(belowScreeningFloor('hcho', 5, 'ppb')).toBe(false)        // 5 ppb is real
+    expect(belowScreeningFloor('hcho', 0.0005, 'ppm')).toBe(true)    // <0.001 ppm (1 ppb)
+    expect(belowScreeningFloor('hcho', 0.5, 'µg/m³')).toBe(true)     // <~1.23 µg/m³ (1 ppb)
+    expect(belowScreeningFloor('hcho', 5, 'µg/m³')).toBe(false)
+  })
+
+  it('makes no claim without a floor, a finite max, or a convertible unit', () => {
+    expect(belowScreeningFloor('co2', 0, 'ppm')).toBe(false)         // no floor for CO2
+    expect(belowScreeningFloor('hcho', null, 'ppb')).toBe(false)
+    expect(belowScreeningFloor('hcho', NaN, 'ppb')).toBe(false)
+    expect(belowScreeningFloor('hcho', 0.05, 'weird')).toBe(false)   // unconvertible unit
+  })
+})
 
 describe('categoryOf / CATEGORY', () => {
   it('buckets parameters into the three sections', () => {

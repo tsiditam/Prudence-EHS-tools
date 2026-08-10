@@ -1064,6 +1064,21 @@ export function buildParameterSection(entry, num) {
     )
   }
 
+  // A whole series at/below the screening detection floor is non-quantitative;
+  // the caveat rides with the parameter so a reader can't take the printed
+  // figures as measured concentrations.
+  if (entry.detectionNote) {
+    card.push(
+      new Paragraph({
+        children: [
+          new TextRun({ text: entry.detectionNote, bold: true, size: TYPE.small, color: TONES.review.text, font: FONTS.body }),
+        ],
+        indent: CARD_PAD,
+        spacing: { before: GAP.tight, after: GAP.loose },
+      }),
+    )
+  }
+
   const panel = insightsPanel(entry.insights, CARD_PAD.left)
   if (panel) {
     card.push(panel)

@@ -52,6 +52,7 @@ import {
 import { CAL_VALIDITY_DAYS } from './instrumentRegistry'
 import { resolveReferences, referenceTableRows, referenceValueLabel } from './referenceProfiles'
 import { outdoorDataset, primaryDataset } from './monitoringSession'
+import { belowScreeningFloor } from './sensorThresholds'
 
 /** Report format version, stamped into the metadata block. */
 export const MONITORING_REPORT_VERSION = 'v1.0'
@@ -384,6 +385,10 @@ export function buildMonitoringReportModel(session, opts = {}) {
       const refShape = ref ? { limit: ref.limit, band: ref.band } : null
       figure += 1
       const unit = unitOf(param, units)
+      // A whole series at/below the analyte's conservative screening detection
+      // floor is non-quantitative — flag it so the printed figures are not read
+      // as measured concentrations (e.g. HCHO topping out below ~1 ppb).
+      const belowDetection = belowScreeningFloor(param, stats.max, unit)
       const entry = {
         param,
         label: proseName(param),
@@ -415,6 +420,10 @@ export function buildMonitoringReportModel(session, opts = {}) {
         hasOccupancy: occupancy.length > 0,
         hasEvents: events.length > 0,
       })
+      entry.belowDetection = belowDetection
+      entry.detectionNote = belowDetection
+        ? `${proseNameTitle(param)} readings across the monitoring period fall at or below a conservative screening detection floor (a generic screening floor, not the instrument's published limit of detection); treat these values as qualitative only and confirm against the instrument's stated detection limit before reporting them as measured concentrations.`
+        : null
       return entry
     })
 
@@ -526,9 +535,13 @@ export function buildMonitoringReportModel(session, opts = {}) {
     calibrationStatus: calIntegrity.status,
     calibrationAlert,
     // Report-level posture: true when the calibration record cannot vouch for
-    // the data. Consumers (and the below-detection work) fold their own
-    // qualitative signals into the deliverable's caveats.
-    qualitativeOnly: calIntegrity.qualitativeOnly,
+    // the data, OR any parameter's whole series sits below its screening
+    // detection floor. Either makes at least part of the deliverable
+    // qualitative rather than quantitative.
+    qualitativeOnly: calIntegrity.qualitativeOnly || parameters.some((x) => x.belowDetection),
+    // The per-parameter detection caveats, aggregated for any consumer that
+    // wants them in one place (they also render with their parameter).
+    dataQualityNotes: parameters.filter((x) => x.detectionNote).map((x) => x.detectionNote),
 
     highlights,
     // The table is read by a client: rows show "Carbon dioxide", not "co2".
