@@ -113,24 +113,37 @@ export const STD = {
     // standard (9 ppm). hcho `epaRfc` is the EPA IRIS chronic inhalation
     // reference concentration (~8 ppb ≈ 0.0098 mg/m³) and `who` is the
     // WHO 30-minute guideline (0.081 ppm ≈ 0.1 mg/m³, formaldehyde).
-    co:   { osha: 50,   niosh: 35,    epa: 9 },
+    // `well` is the WELL Building Standard v2 (feature A01) CO performance
+    // threshold, 9 ppm — a green-building certification target, not a
+    // regulatory limit (see WELL_NOTE in referenceProfiles.js).
+    co:   { osha: 50,   niosh: 35,    epa: 9,  well: 9 },
     hcho: { osha: 0.75, niosh: 0.016, al: 0.5, epaRfc: 0.008, who: 0.081 },
-    // Particulates, µg/m³, both on a 24-HOUR basis so the EPA and WHO
-    // entries for a given size fraction are directly comparable.
-    //   pm25.epa  35 — EPA 24-hour NAAQS (40 CFR 50.18)
-    //   pm25.who  15 — WHO 2021 AQG, 24-hour mean
-    //   pm10.epa 150 — EPA 24-hour NAAQS (40 CFR 50.6)
-    //   pm10.who  45 — WHO 2021 AQG, 24-hour mean
+    // Particulates, µg/m³. The `epa`/`who` entries are on a 24-HOUR basis so
+    // a given size fraction is directly comparable; `epaAnnual`/`whoAnnual`
+    // are the ANNUAL-mean guidelines (a short session cannot evaluate an
+    // annual mean — see PM_ANNUAL_NOTE). `well` is the WELL v2 (A01)
+    // performance target.
+    //   pm25.epa        35 — EPA 24-hour NAAQS (40 CFR 50.18)
+    //   pm25.who        15 — WHO 2021 AQG, 24-hour mean
+    //   pm25.epaAnnual   9 — EPA primary ANNUAL NAAQS (2024; 89 FR 16202)
+    //   pm25.whoAnnual   5 — WHO 2021 AQG, annual mean
+    //   pm25.well       15 — WELL v2 (A01) performance target
+    //   pm10.epa       150 — EPA 24-hour NAAQS (40 CFR 50.6)
+    //   pm10.who        45 — WHO 2021 AQG, 24-hour mean
+    //   pm10.whoAnnual  15 — WHO 2021 AQG, annual mean
+    //   pm10.well       50 — WELL v2 (A01) performance target
     // Each NAAQS carries a statistical FORM (percentile / exceedance count
     // averaged over three years) that a single monitoring session cannot
     // evaluate. The form caveat travels with the profile, not with the
     // number — see PM_NAAQS_NOTE in referenceProfiles.js.
-    pm25: { epa: 35,    who: 15 },
-    pm10: { epa: 150,   who: 45 },
+    pm25: { epa: 35,    who: 15,   epaAnnual: 9,  whoAnnual: 5,  well: 15 },
+    pm10: { epa: 150,   who: 45,   whoAnnual: 15, well: 50 },
     // TVOC `con` is 500 µg/m³ — the Mølhave 1991 multifactorial-exposure
     // advisory tier (≈219 ppb isobutylene-equiv). Advisory only: TVOC has
-    // no consensus health limit; always carry the Mølhave disclaimer.
-    tvoc: { con: 500,   act: 3000 },
+    // no consensus health limit; always carry the Mølhave disclaimer. `well`
+    // is the WELL v2 (A01) continuous-monitoring TVOC target, 500 µg/m³ (a
+    // green-building target, numerically coincident with Mølhave's tier).
+    tvoc: { con: 500,   act: 3000, well: 500 },
   },
 }
 
