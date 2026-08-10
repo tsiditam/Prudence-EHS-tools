@@ -51,9 +51,32 @@ const AI_DISCLAIMER_LINE = 'AI-assisted response — verify before use.'
 const NEGATION =
   /\b(?:not|no|never|cannot|can't|isn't|aren't|doesn't|don't|does not|do not|is not|are not|without|rather than|avoid|should not|must not|requires? (?:medical|a licensed|physician|clinical))\b/i
 
-// Cause / source / hypothesis context used by the confidence ban.
-const CAUSAL_CONTEXT =
-  /\b(caus\w*|source|origin|attribut\w*|hypothes[ie]s|due to|responsible for|stems?\s+from|results?\s+from)\b/i
+// Confidence-on-CAUSATION context used by the confidence ban.
+//
+// The defensibility line is exposure→symptom/effect causation, NOT
+// physical-source identification. Identifying the probable source or
+// origin of moisture or a contaminant is core screening (IICRC S520 water
+// classification is exactly this) and is the hedged language the role
+// prompt asks the assistant to write ("the most probable source is…").
+// The OLD context tripped on any confidence word merely co-occurring with
+// the bare noun "source"/"origin"/"cause" anywhere in a ~180-char window,
+// so every substantive hedged screening answer tripped — and, on the
+// retry, tripped again → the SAFE_FALLBACK refusal.
+//
+// This context instead requires a confidence word to sit within a TIGHT
+// bridge (≤24 chars, either order) of a genuine causal ATTRIBUTION — an
+// explicit causal verb/phrase or "the cause". So "probably the cause of
+// the complaints" / "likely caused by the HVAC" / "responsible for the
+// symptoms" still trip, while "probable source", "likely origin", and
+// "strong indicator" do not. "caused by" itself remains a hard tone-ban
+// in the engine mirror (scan()), independent of this.
+const CONFIDENCE_WORD = String.raw`(?:strongly|strong|likely|probable|probably)`
+const CAUSAL_ATTRIBUTION = String.raw`(?:caus\w*|attribut\w*|due to|responsible for|stems?\s+from|results?\s+from|the cause)`
+const CONFIDENCE_ON_CAUSE_CONTEXT = new RegExp(
+  `\\b${CONFIDENCE_WORD}\\b[\\s\\S]{0,24}\\b${CAUSAL_ATTRIBUTION}\\b` +
+    `|\\b${CAUSAL_ATTRIBUTION}\\b[\\s\\S]{0,24}\\b${CONFIDENCE_WORD}\\b`,
+  'i',
+)
 
 const JASPER_BANS = [
   {
@@ -76,7 +99,7 @@ const JASPER_BANS = [
     id: 'confidence-on-cause',
     // confidence word adjacent to a cause / source / hypothesis
     pattern: /\b(strongly|strong|likely|probable|probably|high(?:ly)?\s+(?:likely|probable))\b/gi,
-    requiredContext: CAUSAL_CONTEXT,
+    requiredContext: CONFIDENCE_ON_CAUSE_CONTEXT,
     category: 'Jasper §confidence on causation',
     recommendedFix:
       'Attach confidence to instrument / measurement reliability, not to a cause, source, or hypothesis.',
