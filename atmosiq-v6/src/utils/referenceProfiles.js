@@ -55,6 +55,23 @@ const TVOC_NOTE =
 // so is the difference between a reference and an implied determination.
 const PM_NAAQS_NOTE =
   'US EPA NAAQS are ambient-air standards evaluated over multi-year monitoring records; comparison here is a screening reference only, not an application of the standard.'
+// An annual-mean guideline (WHO annual, EPA annual PM2.5) is, by construction,
+// an average over a year. A monitoring session of hours or days cannot evaluate
+// it — the comparison is a screening reference against the guideline LEVEL, not
+// a determination against the guideline as written.
+const PM_ANNUAL_NOTE =
+  'This is an annual-mean air quality guideline; a short monitoring session cannot evaluate an annual average, so comparison here is a screening reference against the guideline level only, not an application of the standard.'
+// WHO Global Air Quality Guidelines are health-based recommendations, not US
+// regulatory standards — worth stating so a WHO comparison is not read as a
+// compliance test.
+const WHO_NOTE =
+  'WHO Global Air Quality Guidelines (2021) are health-based recommendations, not US regulatory standards; comparison here is a screening reference.'
+// WELL v2 thresholds are green-building certification performance targets, not
+// health-based regulatory limits, and WELL is revised by periodic addenda — so
+// the value should be confirmed against the current WELL v2 documentation
+// before it is asserted to a client.
+const WELL_NOTE =
+  'WELL Building Standard v2 (feature A01) thresholds are green-building certification performance targets, not health-based regulatory limits; confirm against the current WELL v2 documentation before relying on them.'
 
 /**
  * The catalogue. Each profile declares how to resolve its value in the logged
@@ -97,18 +114,24 @@ const PROFILES = {
 
   pm25: [
     { id: 'epa', label: 'EPA 24-hour', source: 'US EPA NAAQS', note: PM_NAAQS_NOTE, resolve: () => ({ limit: STD.c.pm25.epa }) },
-    { id: 'who', label: 'WHO 24-hour (2021)', source: 'WHO Global Air Quality Guidelines 2021', resolve: () => ({ limit: STD.c.pm25.who }) },
+    { id: 'who', label: 'WHO 24-hour (2021)', source: 'WHO Global Air Quality Guidelines 2021', note: WHO_NOTE, resolve: () => ({ limit: STD.c.pm25.who }) },
+    { id: 'epa-annual', label: 'EPA annual (2024)', source: 'US EPA NAAQS (2024 revision; 89 FR 16202)', note: PM_ANNUAL_NOTE, resolve: () => ({ limit: STD.c.pm25.epaAnnual }) },
+    { id: 'who-annual', label: 'WHO annual (2021)', source: 'WHO Global Air Quality Guidelines 2021', note: `${WHO_NOTE} ${PM_ANNUAL_NOTE}`, resolve: () => ({ limit: STD.c.pm25.whoAnnual }) },
+    { id: 'well', label: 'WELL v2 performance', source: 'WELL Building Standard v2 (A01)', note: WELL_NOTE, resolve: () => ({ limit: STD.c.pm25.well }) },
   ],
 
   pm10: [
     { id: 'epa', label: 'EPA 24-hour', source: 'US EPA NAAQS', note: PM_NAAQS_NOTE, resolve: () => ({ limit: STD.c.pm10.epa }) },
-    { id: 'who', label: 'WHO 24-hour (2021)', source: 'WHO Global Air Quality Guidelines 2021', resolve: () => ({ limit: STD.c.pm10.who }) },
+    { id: 'who', label: 'WHO 24-hour (2021)', source: 'WHO Global Air Quality Guidelines 2021', note: WHO_NOTE, resolve: () => ({ limit: STD.c.pm10.who }) },
+    { id: 'who-annual', label: 'WHO annual (2021)', source: 'WHO Global Air Quality Guidelines 2021', note: `${WHO_NOTE} ${PM_ANNUAL_NOTE}`, resolve: () => ({ limit: STD.c.pm10.whoAnnual }) },
+    { id: 'well', label: 'WELL v2 performance', source: 'WELL Building Standard v2 (A01)', note: WELL_NOTE, resolve: () => ({ limit: STD.c.pm10.well }) },
   ],
 
   co: [
     { id: 'epa-naaqs', label: 'EPA NAAQS 8-hour', source: 'US EPA NAAQS', resolve: () => ({ limit: STD.c.co.epa }) },
     { id: 'niosh-rel', label: 'NIOSH REL', source: 'NIOSH Pocket Guide', resolve: () => ({ limit: STD.c.co.niosh }) },
     { id: 'osha-pel', label: 'OSHA PEL', source: '29 CFR 1910.1000', resolve: () => ({ limit: STD.c.co.osha }) },
+    { id: 'well', label: 'WELL v2 performance', source: 'WELL Building Standard v2 (A01)', note: WELL_NOTE, resolve: () => ({ limit: STD.c.co.well }) },
   ],
 
   tvoc: [
@@ -125,6 +148,16 @@ const PROFILES = {
       source: 'Mølhave 1991',
       note: TVOC_NOTE,
       resolve: (ctx) => ({ limit: round(tvocToUnit(STD.c.tvoc.act, ctx && ctx.unit), isPpm(ctx && ctx.unit) ? 2 : 0) }),
+    },
+    {
+      id: 'well',
+      label: 'WELL v2 performance (500 µg/m³)',
+      source: 'WELL Building Standard v2 (A01)',
+      // Must still carry the "no consensus health limit" TVOC disclaimer (the
+      // standing anti-pattern) — WELL's 500 µg/m³ is a certification target, not
+      // a health limit.
+      note: 'TVOC has no consensus health limit; the WELL Building Standard v2 (A01) 500 µg/m³ figure is a green-building certification performance target, not a health-based limit — confirm against the current WELL v2 documentation.',
+      resolve: (ctx) => ({ limit: round(tvocToUnit(STD.c.tvoc.well, ctx && ctx.unit), isPpm(ctx && ctx.unit) ? 2 : 0) }),
     },
     // Offered deliberately: with no consensus health limit, an assessor may
     // reasonably choose to chart TVOC without any reference line rather than

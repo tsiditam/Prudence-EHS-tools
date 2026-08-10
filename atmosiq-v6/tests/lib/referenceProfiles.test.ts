@@ -19,6 +19,9 @@ import {
 import { parameterStats } from '../../src/utils/monitoringStats.js'
 import { parameterStatement } from '../../src/utils/monitoringInsights.js'
 import { STD } from '../../src/constants/standards.js'
+import * as mirrorNs from '../../api/_banned-language.js'
+const mirror: any = (mirrorNs as any).default ?? mirrorNs
+const { scan } = mirror
 
 const T0 = Date.UTC(2026, 6, 15)
 const MIN = 60_000
@@ -27,10 +30,11 @@ const pts = (values: number[], param = 'pm25') =>
 
 describe('catalogue', () => {
   it('offers the alternatives an assessor actually chooses between', () => {
-    expect(profilesFor('pm25').map((p) => p.id)).toEqual(['epa', 'who'])
-    expect(profilesFor('co').map((p) => p.id)).toEqual(['epa-naaqs', 'niosh-rel', 'osha-pel'])
+    expect(profilesFor('pm25').map((p) => p.id)).toEqual(['epa', 'who', 'epa-annual', 'who-annual', 'well'])
+    expect(profilesFor('pm10').map((p) => p.id)).toEqual(['epa', 'who', 'who-annual', 'well'])
+    expect(profilesFor('co').map((p) => p.id)).toEqual(['epa-naaqs', 'niosh-rel', 'osha-pel', 'well'])
     expect(profilesFor('co2').map((p) => p.id)).toContain('outdoor-differential')
-    expect(profilesFor('tvoc').map((p) => p.id)).toContain('none')
+    expect(profilesFor('tvoc').map((p) => p.id)).toEqual(['molhave', 'molhave-action', 'well', 'none'])
   })
 
   it('has a default for every parameter it covers', () => {
@@ -198,7 +202,7 @@ describe('the selection drives the whole chain (not just the label)', () => {
 describe('PM10', () => {
   it('offers EPA and WHO 24-hour references, resolved from the manifest', () => {
     const ids = profilesFor('pm10').map((p) => p.id)
-    expect(ids).toEqual(['epa', 'who'])
+    expect(ids).toEqual(['epa', 'who', 'who-annual', 'well'])
     expect(resolveReference('pm10', 'epa')!.limit).toBe(STD.c.pm10.epa)
     expect(resolveReference('pm10', 'who')!.limit).toBe(STD.c.pm10.who)
     // Nothing is hardcoded in the profile layer: the numbers ARE the manifest.
@@ -206,11 +210,37 @@ describe('PM10', () => {
     expect(STD.c.pm10.who).toBe(45)
   })
 
-  it('states both size fractions on the same averaging basis', () => {
-    // 24-hour throughout, so PM2.5 and PM10 in one report are comparable and
-    // an annual guideline never sits beside a daily one unlabelled.
-    profilesFor('pm10').forEach((p) => expect(p.label).toMatch(/24-hour/))
-    profilesFor('pm25').forEach((p) => expect(p.label).toMatch(/24-hour/))
+  it('never sets an annual guideline beside a daily one unlabelled', () => {
+    // Both size fractions still offer a 24-hour EPA/WHO reference, and every
+    // averaging basis is spelled out in the label so a daily and an annual
+    // guideline are never confused — the point of stating the basis.
+    for (const param of ['pm10', 'pm25']) {
+      const labels = profilesFor(param).map((p) => p.label)
+      expect(labels.some((l) => /24-hour/.test(l))).toBe(true)
+      expect(labels.some((l) => /annual/i.test(l))).toBe(true)
+      // No PM profile is left ambiguous about its basis.
+      labels.forEach((l) => expect(/24-hour|annual|performance/i.test(l), l).toBe(true))
+    }
+  })
+
+  it('resolves the annual and WELL PM references from the manifest', () => {
+    expect(resolveReference('pm25', 'epa-annual')!.limit).toBe(STD.c.pm25.epaAnnual)
+    expect(resolveReference('pm25', 'who-annual')!.limit).toBe(STD.c.pm25.whoAnnual)
+    expect(resolveReference('pm25', 'well')!.limit).toBe(STD.c.pm25.well)
+    expect(resolveReference('pm10', 'who-annual')!.limit).toBe(STD.c.pm10.whoAnnual)
+    expect(resolveReference('pm10', 'well')!.limit).toBe(STD.c.pm10.well)
+    // The values the manifest was verified to carry.
+    expect(STD.c.pm25.epaAnnual).toBe(9)
+    expect(STD.c.pm25.whoAnnual).toBe(5)
+    expect(STD.c.pm10.whoAnnual).toBe(15)
+  })
+
+  it('every new reference carries a screening-framing note that passes the scanner', () => {
+    for (const [param, id] of [['pm25', 'epa-annual'], ['pm25', 'who-annual'], ['pm25', 'well'], ['co', 'well'], ['tvoc', 'well']] as const) {
+      const r = resolveReference(param, id, { unit: param === 'tvoc' ? 'µg/m³' : (param === 'co' ? 'ppm' : 'µg/m³') })!
+      expect(r.note, `${param}/${id} note`).toBeTruthy()
+      expect(scan(r.note as string), `banned language in ${param}/${id}`).toEqual([])
+    }
   })
 
   it('is stricter under WHO than under EPA, for both fractions', () => {
