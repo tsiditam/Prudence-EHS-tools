@@ -17,6 +17,7 @@ import {
   loggingLabel,
   intervalLabel,
   calibrationLabel,
+  calibrationIntegrity,
   figureCaption,
 } from '../../src/utils/monitoringReportModel.js'
 import { CAL_VALIDITY_DAYS } from '../../src/utils/instrumentRegistry.js'
@@ -322,12 +323,159 @@ describe('calibration currency', () => {
   })
 
   it('makes no claim it cannot verify', () => {
-    // Unreadable date, no reference date, or a calibration in the future: the
-    // date is reported unchanged rather than annotated with a guess.
+    // Unreadable date or no reference date: the date is reported unchanged
+    // rather than annotated with a guess.
     expect(calibrationLabel('sometime last spring', gen)).toBe('sometime last spring')
     expect(calibrationLabel('2026-03-12', undefined as never)).toBe('2026-03-12')
-    expect(calibrationLabel('2027-01-01', gen)).toBe('2027-01-01')
     expect(calibrationLabel('', gen)).toBeNull()
+  })
+
+  it('never prints a future/post-dated calibration bare — it flags it for review', () => {
+    // A date AFTER the reference cannot be "current"; printing it bare reads as
+    // verified. It is marked for review instead (the period check carries why).
+    expect(calibrationLabel('2027-01-01', gen)).toBe('2027-01-01 · verify date')
+  })
+})
+
+describe('calibration integrity vs the monitoring period', () => {
+  // Period: 2026-06-01 → 2026-06-04.
+  const start = Date.UTC(2026, 5, 1)
+  const end = Date.UTC(2026, 5, 4)
+
+  it('passes a calibration that precedes the window and is still current', () => {
+    const r = calibrationIntegrity('2026-05-15', start, end)
+    expect(r.status).toBe('ok')
+    expect(r.qualitativeOnly).toBe(false)
+    expect(r.note).toBeNull()
+  })
+
+  it('flags a calibration dated AFTER the monitoring period (the reviewer gap)', () => {
+    // The exact failure from the reviewed report: cal 2026-10-30, data in June.
+    const r = calibrationIntegrity('2026-10-30', start, end)
+    expect(r.status).toBe('post_dates_period')
+    expect(r.qualitativeOnly).toBe(true)
+    expect(r.note).toMatch(/after the monitoring period/i)
+    expect(r.note).toMatch(/qualitative only/i)
+  })
+
+  it('flags a calibration whose validity had lapsed before the window began', () => {
+    // > CAL_VALIDITY_DAYS before start.
+    const staleIso = new Date(start - (CAL_VALIDITY_DAYS + 30) * 86400000).toISOString().slice(0, 10)
+    const r = calibrationIntegrity(staleIso, start, end)
+    expect(r.status).toBe('expired_before_period')
+    expect(r.qualitativeOnly).toBe(true)
+    expect(r.note).toMatch(/qualitative only/i)
+  })
+
+  it('flags a calibration that lapsed part-way through the window', () => {
+    // Validity expires between start and end.
+    const midIso = new Date(start - (CAL_VALIDITY_DAYS - 1) * 86400000).toISOString().slice(0, 10)
+    const r = calibrationIntegrity(midIso, start, end)
+    expect(r.status).toBe('lapsed_mid_period')
+    expect(r.qualitativeOnly).toBe(true)
+  })
+
+  it('states the absence plainly when no calibration was documented', () => {
+    const r = calibrationIntegrity('', start, end)
+    expect(r.status).toBe('absent')
+    expect(r.qualitativeOnly).toBe(true)
+    expect(r.note).toMatch(/not documented/i)
+  })
+
+  it('makes no currency claim it cannot verify (unreadable date or no period)', () => {
+    expect(calibrationIntegrity('not a date', start, end).status).toBe('unverifiable')
+    expect(calibrationIntegrity('2026-05-15', NaN, NaN).status).toBe('unverifiable')
+    expect(calibrationIntegrity('2026-05-15', NaN, NaN).note).toBeNull()
+  })
+
+  it('every anomaly note passes the banned-language scanner', () => {
+    for (const cal of ['2026-10-30', new Date(start - (CAL_VALIDITY_DAYS + 30) * 86400000).toISOString().slice(0, 10), '']) {
+      const { note } = calibrationIntegrity(cal, start, end)
+      if (note) expect(scan(note), `banned language in: "${note}"`).toEqual([])
+    }
+  })
+
+  it('surfaces the anomaly on the assembled model (note + status + prominence)', () => {
+    const model = build({ calibration: { date: '2027-11-01', dueDate: '' } })
+    expect(model.calibrationStatus).toBe('post_dates_period')
+    expect(model.calibrationAlert).toBe(true)
+    expect(model.qualitativeOnly).toBe(true)
+    expect(model.calibrationNote).toMatch(/after the monitoring period/i)
+    // A clean calibration stays silent and non-alerting.
+    const ok = build()
+    expect(ok.calibrationStatus).toBe('ok')
+    expect(ok.calibrationAlert).toBe(false)
+    expect(ok.qualitativeOnly).toBe(false)
+    expect(ok.calibrationNote).toBeNull()
+  })
+})
+
+describe('below-detection-limit flagging (screening floor)', () => {
+  function hchoDataset(maxPpb: number) {
+    const points: any[] = []
+    for (let i = 0; i < 60; i++) points.push({ t: T0 + i * 10 * MIN, hcho: maxPpb * (0.5 + 0.5 * (i / 59)) })
+    return {
+      fileName: 'graywolf.csv',
+      params: ['hcho'],
+      units: { hcho: 'ppb' },
+      points,
+      summary: { count: points.length, start: points[0].t, end: points[points.length - 1].t },
+    }
+  }
+  const buildHcho = (maxPpb: number) =>
+    buildMonitoringReportModel(session({ datasets: [{ ...hchoDataset(maxPpb), role: 'indoor' }] }), {
+      generatedAt: '2026-07-31T14:20:00.000Z',
+    })
+
+  it('flags a formaldehyde series that tops out below the detection floor', () => {
+    // The reviewer gap: HCHO max ~0.044 ppb presented as a measured value.
+    const model = buildHcho(0.05)
+    const hcho: any = model.parameters.find((x: any) => x.param === 'hcho')
+    expect(hcho.belowDetection).toBe(true)
+    expect(hcho.detectionNote).toMatch(/detection floor/i)
+    expect(hcho.detectionNote).toMatch(/qualitative only/i)
+    expect(model.qualitativeOnly).toBe(true)
+    expect(model.dataQualityNotes).toHaveLength(1)
+    // The caveat is client-facing prose — it must pass the scanner.
+    expect(scan(hcho.detectionNote)).toEqual([])
+  })
+
+  it('does not flag a plausible formaldehyde series', () => {
+    const model = buildHcho(18) // ~9–18 ppb, an ordinary indoor range
+    const hcho: any = model.parameters.find((x: any) => x.param === 'hcho')
+    expect(hcho.belowDetection).toBe(false)
+    expect(hcho.detectionNote).toBeNull()
+    expect(model.dataQualityNotes).toHaveLength(0)
+    expect(model.qualitativeOnly).toBe(false)
+  })
+})
+
+describe('outdoor baseline absence', () => {
+  it('notes the missing outdoor baseline when CO₂/PM2.5 are present', () => {
+    // The fixture monitors CO₂ with no outdoor dataset.
+    const model = build()
+    expect(model.outdoorBaselineNote).toMatch(/no outdoor .*reference measurements/i)
+    expect(model.outdoorBaselineNote).toMatch(/ventilation comparison/i)
+    expect(scan(model.outdoorBaselineNote)).toEqual([])
+    // It does NOT mutate the fixed standing limitations set.
+    expect(model.limitations).toEqual(LIMITATIONS)
+  })
+
+  it('stays silent when an outdoor dataset was captured', () => {
+    const model = build({ datasets: [{ ...dataset(), role: 'indoor' }, { ...dataset(), role: 'outdoor' }] })
+    expect(model.outdoorBaselineNote).toBeNull()
+  })
+
+  it('stays silent when no differential-dependent parameter is monitored', () => {
+    const tempOnly = {
+      fileName: 't.csv',
+      params: ['temp'],
+      units: { temp: '°F' },
+      points: [{ t: T0, temp: 72 }, { t: T0 + 600_000, temp: 73 }],
+      summary: { count: 2, start: T0, end: T0 + 600_000 },
+    }
+    const model = build({ datasets: [{ ...tempOnly, role: 'indoor' }] })
+    expect(model.outdoorBaselineNote).toBeNull()
   })
 })
 

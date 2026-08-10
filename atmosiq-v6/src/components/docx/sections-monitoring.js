@@ -924,9 +924,16 @@ export function buildLocationInstrumentSection(model, num) {
     }),
   )
 
-  // An undocumented calibration is stated, never left to inference.
+  // An undocumented — or anomalous — calibration is stated, never left to
+  // inference. A record that does not cover the monitoring window (future/
+  // post-dated, or lapsed mid-session) is a defensibility-critical flag, so it
+  // is set prominently; a plain "not documented" note stays a quiet disclosure.
   if (model && model.calibrationNote) {
-    out.push(p(model.calibrationNote, { italics: true, color: MUTED, size: TYPE.fine, before: 140 }))
+    out.push(
+      model.calibrationAlert
+        ? p(model.calibrationNote, { bold: true, color: TONES.review.text, size: TYPE.fine, before: 140 })
+        : p(model.calibrationNote, { italics: true, color: MUTED, size: TYPE.fine, before: 140 }),
+    )
   }
   return { title: 'Location & instrument', children: out }
 }
@@ -1057,6 +1064,21 @@ export function buildParameterSection(entry, num) {
     )
   }
 
+  // A whole series at/below the screening detection floor is non-quantitative;
+  // the caveat rides with the parameter so a reader can't take the printed
+  // figures as measured concentrations.
+  if (entry.detectionNote) {
+    card.push(
+      new Paragraph({
+        children: [
+          new TextRun({ text: entry.detectionNote, bold: true, size: TYPE.small, color: TONES.review.text, font: FONTS.body }),
+        ],
+        indent: CARD_PAD,
+        spacing: { before: GAP.tight, after: GAP.loose },
+      }),
+    )
+  }
+
   const panel = insightsPanel(entry.insights, CARD_PAD.left)
   if (panel) {
     card.push(panel)
@@ -1085,15 +1107,23 @@ export function buildDataQualitySection(model, num) {
   }
 }
 
-/** Limitations and disclaimer — fixed prose, never generated from data. */
+/**
+ * Limitations and disclaimer — the standing fixed prose, plus any
+ * data-conditional limitation the model surfaced (a missing outdoor baseline).
+ * The fixed set is never altered; conditional notes are appended so a reader
+ * sees, in one place, both the standing scope and what this session could not
+ * evaluate.
+ */
 export function buildLimitationsSection(model, num) {
   const items = (model && model.limitations) || []
-  if (!items.length) return null
+  const conditional = [model && model.outdoorBaselineNote].filter(Boolean)
+  if (!items.length && !conditional.length) return null
   return {
     title: 'Limitations',
     children: [
       sectionHeading(num, 'Limitations'),
       ...items.map((t) => p(t, { size: TYPE.fine, color: BODY, after: 120 })),
+      ...conditional.map((t) => p(t, { size: TYPE.fine, color: BODY, after: 120 })),
     ],
   }
 }
