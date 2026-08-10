@@ -1107,15 +1107,23 @@ export function buildDataQualitySection(model, num) {
   }
 }
 
-/** Limitations and disclaimer — fixed prose, never generated from data. */
+/**
+ * Limitations and disclaimer — the standing fixed prose, plus any
+ * data-conditional limitation the model surfaced (a missing outdoor baseline).
+ * The fixed set is never altered; conditional notes are appended so a reader
+ * sees, in one place, both the standing scope and what this session could not
+ * evaluate.
+ */
 export function buildLimitationsSection(model, num) {
   const items = (model && model.limitations) || []
-  if (!items.length) return null
+  const conditional = [model && model.outdoorBaselineNote].filter(Boolean)
+  if (!items.length && !conditional.length) return null
   return {
     title: 'Limitations',
     children: [
       sectionHeading(num, 'Limitations'),
       ...items.map((t) => p(t, { size: TYPE.fine, color: BODY, after: 120 })),
+      ...conditional.map((t) => p(t, { size: TYPE.fine, color: BODY, after: 120 })),
     ],
   }
 }

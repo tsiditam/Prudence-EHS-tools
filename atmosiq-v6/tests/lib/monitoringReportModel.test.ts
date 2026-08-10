@@ -450,6 +450,35 @@ describe('below-detection-limit flagging (screening floor)', () => {
   })
 })
 
+describe('outdoor baseline absence', () => {
+  it('notes the missing outdoor baseline when CO₂/PM2.5 are present', () => {
+    // The fixture monitors CO₂ with no outdoor dataset.
+    const model = build()
+    expect(model.outdoorBaselineNote).toMatch(/no outdoor .*reference measurements/i)
+    expect(model.outdoorBaselineNote).toMatch(/ventilation comparison/i)
+    expect(scan(model.outdoorBaselineNote)).toEqual([])
+    // It does NOT mutate the fixed standing limitations set.
+    expect(model.limitations).toEqual(LIMITATIONS)
+  })
+
+  it('stays silent when an outdoor dataset was captured', () => {
+    const model = build({ datasets: [{ ...dataset(), role: 'indoor' }, { ...dataset(), role: 'outdoor' }] })
+    expect(model.outdoorBaselineNote).toBeNull()
+  })
+
+  it('stays silent when no differential-dependent parameter is monitored', () => {
+    const tempOnly = {
+      fileName: 't.csv',
+      params: ['temp'],
+      units: { temp: '°F' },
+      points: [{ t: T0, temp: 72 }, { t: T0 + 600_000, temp: 73 }],
+      summary: { count: 2, start: T0, end: T0 + 600_000 },
+    }
+    const model = build({ datasets: [{ ...tempOnly, role: 'indoor' }] })
+    expect(model.outdoorBaselineNote).toBeNull()
+  })
+})
+
 describe('figure captions', () => {
   const base = { figureNumber: 3, shortLabel: 'CO₂' }
 

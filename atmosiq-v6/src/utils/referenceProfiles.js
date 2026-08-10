@@ -47,7 +47,7 @@ const isMg = (u) => /mg/.test(norm(u))
 const CO2_NOTE =
   'CO₂ indexes ventilation per occupant (ASHRAE 62.1 / Persily 2021), not a health limit.'
 const TVOC_NOTE =
-  'TVOC has no consensus health limit; the Mølhave 1991 value is a multifactorial-exposure advisory tier (isobutylene-referenced).'
+  'TVOC has no consensus health limit; the Mølhave 1991 value is a multifactorial-exposure advisory tier defined as 500 µg/m³, shown here converted to the logged unit on an isobutylene-equivalent basis — any ppb figure is a unit conversion of that µg/m³ tier, not a separately published ppb limit.'
 // A NAAQS is an ambient-air standard with a statistical FORM — a percentile
 // or exceedance count averaged over three years of regulatory monitoring —
 // and it applies outdoors. Comparing one indoor monitoring session to the

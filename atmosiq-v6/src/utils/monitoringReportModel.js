@@ -453,6 +453,25 @@ export function buildMonitoringReportModel(session, opts = {}) {
     calIntegrity.status === 'expired_before_period' ||
     calIntegrity.status === 'lapsed_mid_period'
 
+  // No outdoor baseline was captured, yet a parameter whose interpretation
+  // leans on an indoor/outdoor differential is present. The report states the
+  // absence so a reader does not assume the differential was evaluated — the
+  // CO₂ ventilation comparison and the PM2.5 indoor/outdoor ratio both need a
+  // paired outdoor reference the session did not collect.
+  const hasCo2 = params.includes('co2')
+  const hasPm25 = params.includes('pm25')
+  const outdoorBaselineNote =
+    !outdoor && (hasCo2 || hasPm25)
+      ? 'No outdoor (background) reference measurements were collected for this monitoring session. ' +
+        `Without a paired outdoor baseline, ${[
+          hasCo2 ? 'the CO₂ ventilation comparison (ASHRAE 62.1 / Persily 2021)' : null,
+          hasPm25 ? 'the PM2.5 indoor/outdoor ratio' : null,
+        ]
+          .filter(Boolean)
+          .join(' and ')} could not be calculated; these parameters are interpreted on an ` +
+        'absolute-concentration basis only.'
+      : null
+
   const model = {
     version: MONITORING_REPORT_VERSION,
     edition,
@@ -542,6 +561,10 @@ export function buildMonitoringReportModel(session, opts = {}) {
     // The per-parameter detection caveats, aggregated for any consumer that
     // wants them in one place (they also render with their parameter).
     dataQualityNotes: parameters.filter((x) => x.detectionNote).map((x) => x.detectionNote),
+    // Stated when no outdoor baseline was captured but a differential-dependent
+    // parameter (CO₂ / PM2.5) is present; null otherwise. Renders under the
+    // standing limitations without altering that fixed set.
+    outdoorBaselineNote,
 
     highlights,
     // The table is read by a client: rows show "Carbon dioxide", not "co2".
