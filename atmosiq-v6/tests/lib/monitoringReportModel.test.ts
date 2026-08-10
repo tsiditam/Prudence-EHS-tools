@@ -17,6 +17,7 @@ import {
   loggingLabel,
   intervalLabel,
   calibrationLabel,
+  calibrationIntegrity,
   figureCaption,
 } from '../../src/utils/monitoringReportModel.js'
 import { CAL_VALIDITY_DAYS } from '../../src/utils/instrumentRegistry.js'
@@ -322,12 +323,90 @@ describe('calibration currency', () => {
   })
 
   it('makes no claim it cannot verify', () => {
-    // Unreadable date, no reference date, or a calibration in the future: the
-    // date is reported unchanged rather than annotated with a guess.
+    // Unreadable date or no reference date: the date is reported unchanged
+    // rather than annotated with a guess.
     expect(calibrationLabel('sometime last spring', gen)).toBe('sometime last spring')
     expect(calibrationLabel('2026-03-12', undefined as never)).toBe('2026-03-12')
-    expect(calibrationLabel('2027-01-01', gen)).toBe('2027-01-01')
     expect(calibrationLabel('', gen)).toBeNull()
+  })
+
+  it('never prints a future/post-dated calibration bare — it flags it for review', () => {
+    // A date AFTER the reference cannot be "current"; printing it bare reads as
+    // verified. It is marked for review instead (the period check carries why).
+    expect(calibrationLabel('2027-01-01', gen)).toBe('2027-01-01 · verify date')
+  })
+})
+
+describe('calibration integrity vs the monitoring period', () => {
+  // Period: 2026-06-01 → 2026-06-04.
+  const start = Date.UTC(2026, 5, 1)
+  const end = Date.UTC(2026, 5, 4)
+
+  it('passes a calibration that precedes the window and is still current', () => {
+    const r = calibrationIntegrity('2026-05-15', start, end)
+    expect(r.status).toBe('ok')
+    expect(r.qualitativeOnly).toBe(false)
+    expect(r.note).toBeNull()
+  })
+
+  it('flags a calibration dated AFTER the monitoring period (the reviewer gap)', () => {
+    // The exact failure from the reviewed report: cal 2026-10-30, data in June.
+    const r = calibrationIntegrity('2026-10-30', start, end)
+    expect(r.status).toBe('post_dates_period')
+    expect(r.qualitativeOnly).toBe(true)
+    expect(r.note).toMatch(/after the monitoring period/i)
+    expect(r.note).toMatch(/qualitative only/i)
+  })
+
+  it('flags a calibration whose validity had lapsed before the window began', () => {
+    // > CAL_VALIDITY_DAYS before start.
+    const staleIso = new Date(start - (CAL_VALIDITY_DAYS + 30) * 86400000).toISOString().slice(0, 10)
+    const r = calibrationIntegrity(staleIso, start, end)
+    expect(r.status).toBe('expired_before_period')
+    expect(r.qualitativeOnly).toBe(true)
+    expect(r.note).toMatch(/qualitative only/i)
+  })
+
+  it('flags a calibration that lapsed part-way through the window', () => {
+    // Validity expires between start and end.
+    const midIso = new Date(start - (CAL_VALIDITY_DAYS - 1) * 86400000).toISOString().slice(0, 10)
+    const r = calibrationIntegrity(midIso, start, end)
+    expect(r.status).toBe('lapsed_mid_period')
+    expect(r.qualitativeOnly).toBe(true)
+  })
+
+  it('states the absence plainly when no calibration was documented', () => {
+    const r = calibrationIntegrity('', start, end)
+    expect(r.status).toBe('absent')
+    expect(r.qualitativeOnly).toBe(true)
+    expect(r.note).toMatch(/not documented/i)
+  })
+
+  it('makes no currency claim it cannot verify (unreadable date or no period)', () => {
+    expect(calibrationIntegrity('not a date', start, end).status).toBe('unverifiable')
+    expect(calibrationIntegrity('2026-05-15', NaN, NaN).status).toBe('unverifiable')
+    expect(calibrationIntegrity('2026-05-15', NaN, NaN).note).toBeNull()
+  })
+
+  it('every anomaly note passes the banned-language scanner', () => {
+    for (const cal of ['2026-10-30', new Date(start - (CAL_VALIDITY_DAYS + 30) * 86400000).toISOString().slice(0, 10), '']) {
+      const { note } = calibrationIntegrity(cal, start, end)
+      if (note) expect(scan(note), `banned language in: "${note}"`).toEqual([])
+    }
+  })
+
+  it('surfaces the anomaly on the assembled model (note + status + prominence)', () => {
+    const model = build({ calibration: { date: '2027-11-01', dueDate: '' } })
+    expect(model.calibrationStatus).toBe('post_dates_period')
+    expect(model.calibrationAlert).toBe(true)
+    expect(model.qualitativeOnly).toBe(true)
+    expect(model.calibrationNote).toMatch(/after the monitoring period/i)
+    // A clean calibration stays silent and non-alerting.
+    const ok = build()
+    expect(ok.calibrationStatus).toBe('ok')
+    expect(ok.calibrationAlert).toBe(false)
+    expect(ok.qualitativeOnly).toBe(false)
+    expect(ok.calibrationNote).toBeNull()
   })
 })
 

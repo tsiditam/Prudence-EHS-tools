@@ -201,8 +201,92 @@ export function calibrationLabel(dateStr, referenceIso) {
   const ref = referenceIso ? Date.parse(referenceIso) : NaN
   if (!isNum(cal) || !isNum(ref)) return date
   const days = Math.floor((ref - cal) / 86400000)
-  if (days < 0) return date
+  // A calibration dated AFTER the reference is not "current" — it is an
+  // anomaly (a future/typo date, or one that post-dates this report). Never
+  // print it bare, which reads as verified; mark it for review instead. The
+  // period-based check in calibrationIntegrity() carries the detail.
+  if (days < 0) return `${date} · verify date`
   return `${date} · ${days <= CAL_VALIDITY_DAYS ? 'current' : 'past due'}`
+}
+
+const DAY_MS = 86400000
+
+/**
+ * Calibration integrity against the MONITORING PERIOD — the check the report
+ * was missing. calibrationLabel() only ever compared the calibration date to
+ * report-generation time, so an instrument calibrated AFTER the data was
+ * collected (a future-dated or transposed date) printed as an ordinary date
+ * with no flag. A calibration on record cannot establish accuracy for
+ * readings taken before it, so this is defensibility-critical.
+ *
+ * Pure and screening-safe: it states where the calibration date sits relative
+ * to the monitoring window and recommends a qualitative-only reading when the
+ * record cannot vouch for the data. It never asserts the data is wrong — only
+ * that the calibration record does not cover it.
+ *
+ * @param {string} calDateStr  session.calibration.date
+ * @param {number} periodStartMs  dataset.summary.start (epoch ms)
+ * @param {number} periodEndMs    dataset.summary.end (epoch ms)
+ * @returns {{status:string, qualitativeOnly:boolean, note:(string|null)}}
+ */
+export function calibrationIntegrity(calDateStr, periodStartMs, periodEndMs) {
+  const date = str(calDateStr).trim()
+  if (!date) {
+    return {
+      status: 'absent',
+      qualitativeOnly: true,
+      note: 'Instrument calibration was not documented for this monitoring session. Measurements should be interpreted accordingly.',
+    }
+  }
+  const cal = Date.parse(date)
+  if (!isNum(cal) || !isNum(periodStartMs)) {
+    // Nothing to compare against — do not manufacture a currency claim.
+    return { status: 'unverifiable', qualitativeOnly: false, note: null }
+  }
+  const end = isNum(periodEndMs) ? periodEndMs : periodStartMs
+
+  // The calibration on record was performed AFTER monitoring began. It cannot
+  // establish instrument accuracy for data collected before it.
+  if (cal > periodStartMs) {
+    const afterEnd = cal > end
+    return {
+      status: 'post_dates_period',
+      qualitativeOnly: true,
+      note:
+        `The recorded instrument calibration date (${date}) falls after the monitoring period ` +
+        `${afterEnd ? 'ended' : 'began'}. A calibration on record cannot establish instrument ` +
+        'accuracy for data collected before it — confirm the pre-monitoring calibration date. ' +
+        'Until it is resolved, these measurements should be treated as qualitative only.',
+    }
+  }
+
+  // The calibration had already exceeded its validity window before monitoring
+  // began.
+  const expiry = cal + CAL_VALIDITY_DAYS * DAY_MS
+  if (expiry < periodStartMs) {
+    return {
+      status: 'expired_before_period',
+      qualitativeOnly: true,
+      note:
+        `The recorded instrument calibration (${date}) had exceeded its ${CAL_VALIDITY_DAYS}-day ` +
+        'validity window before the monitoring period began. Measurements should be treated as ' +
+        'qualitative only pending a valid calibration record.',
+    }
+  }
+
+  // The calibration lapsed part-way through the monitoring window.
+  if (expiry < end) {
+    return {
+      status: 'lapsed_mid_period',
+      qualitativeOnly: true,
+      note:
+        `The recorded instrument calibration (${date}) exceeded its ${CAL_VALIDITY_DAYS}-day ` +
+        'validity window during the monitoring period. Readings collected after the lapse should ' +
+        'be treated as qualitative only.',
+    }
+  }
+
+  return { status: 'ok', qualitativeOnly: false, note: null }
 }
 
 /**
@@ -349,6 +433,17 @@ export function buildMonitoringReportModel(session, opts = {}) {
     .filter((x) => x.status)
     .map((x) => ({ param: x.param, label: x.label, status: x.status }))
 
+  // Calibration integrity against the monitoring period (not report-gen time).
+  // Absence, a future/post-dated record, or a lapse during the window each
+  // set a qualitative-only posture and a reader-facing note.
+  const calIntegrity = calibrationIntegrity(obj(s.calibration).date, summary.start, summary.end)
+  // Anomalies (a record that exists but does not cover the data) are surfaced
+  // prominently; a plain "not documented" note stays a quiet disclosure.
+  const calibrationAlert =
+    calIntegrity.status === 'post_dates_period' ||
+    calIntegrity.status === 'expired_before_period' ||
+    calIntegrity.status === 'lapsed_mid_period'
+
   const model = {
     version: MONITORING_REPORT_VERSION,
     edition,
@@ -417,14 +512,23 @@ export function buildMonitoringReportModel(session, opts = {}) {
       ['Calibration due', obj(s.calibration).dueDate],
     ].filter(([, v]) => str(v).trim()).map(([label, value]) => ({ label, value: str(value) })),
 
-    // Calibration is never silently absent. When it was documented it appears
-    // in the instrument table above; when it was not, the report SAYS SO
-    // rather than leaving a reader to assume it was verified. Surfacing the
-    // gap in the deliverable is the platform's standing posture — advisory,
-    // visible, and never quietly dropped.
-    calibrationNote: str(obj(s.calibration).date).trim()
-      ? null
-      : 'Instrument calibration was not documented for this monitoring session. Measurements should be interpreted accordingly.',
+    // Calibration is never silently absent OR silently anomalous. When it was
+    // documented and covers the monitoring window it appears in the instrument
+    // table above with no note; when it was not documented, or the recorded
+    // date does not cover the data (future/post-dated, or lapsed mid-window),
+    // the report SAYS SO rather than leaving a reader to assume it was
+    // verified. Surfacing the gap in the deliverable is the platform's standing
+    // posture — advisory, visible, and never quietly dropped.
+    calibrationNote: calIntegrity.note,
+    // The integrity verdict ('ok' | 'absent' | 'post_dates_period' |
+    // 'expired_before_period' | 'lapsed_mid_period' | 'unverifiable') and
+    // whether it should be surfaced prominently vs. as a quiet disclosure.
+    calibrationStatus: calIntegrity.status,
+    calibrationAlert,
+    // Report-level posture: true when the calibration record cannot vouch for
+    // the data. Consumers (and the below-detection work) fold their own
+    // qualitative signals into the deliverable's caveats.
+    qualitativeOnly: calIntegrity.qualitativeOnly,
 
     highlights,
     // The table is read by a client: rows show "Carbon dioxide", not "co2".

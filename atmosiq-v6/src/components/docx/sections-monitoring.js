@@ -924,9 +924,16 @@ export function buildLocationInstrumentSection(model, num) {
     }),
   )
 
-  // An undocumented calibration is stated, never left to inference.
+  // An undocumented — or anomalous — calibration is stated, never left to
+  // inference. A record that does not cover the monitoring window (future/
+  // post-dated, or lapsed mid-session) is a defensibility-critical flag, so it
+  // is set prominently; a plain "not documented" note stays a quiet disclosure.
   if (model && model.calibrationNote) {
-    out.push(p(model.calibrationNote, { italics: true, color: MUTED, size: TYPE.fine, before: 140 }))
+    out.push(
+      model.calibrationAlert
+        ? p(model.calibrationNote, { bold: true, color: TONES.review.text, size: TYPE.fine, before: 140 })
+        : p(model.calibrationNote, { italics: true, color: MUTED, size: TYPE.fine, before: 140 }),
+    )
   }
   return { title: 'Location & instrument', children: out }
 }
