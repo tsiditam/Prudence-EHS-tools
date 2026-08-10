@@ -101,6 +101,28 @@ interface VercelLikeResponse {
 type FaMessageRow = { role: 'user' | 'assistant'; content: string; created_at: string }
 type RequestContext = Record<string, unknown> | undefined
 
+// ── Chat-path output-enforcement posture ───────────────────────────
+// 'enforce' = the full screening moat: prohibited-language hits from the
+// linter (causation / compliance / health / hypothesis-strength bans + the
+// shared engine tone mirror) trigger a temperature-0 retry and, if the
+// retry still trips, the SAFE_FALLBACK screening refusal replaces the answer.
+//
+// 'observe' (product decision 2026-08, owner Tsidi Tamakloe, CSP) does NOT
+// block on those hits. The Field Assistant serves a credentialed IH/EHS
+// audience, so it gives a direct professional read instead of a refusal; any
+// prohibited-language hits are still recorded to the lint telemetry
+// (`lint.observed_phrases`) for tuning, but the model's own text is kept.
+//
+// INTEGRITY GUARDS ARE UNCHANGED IN BOTH MODES — these are factual/provenance
+// rules, not screening-positioning: (1) a numeric exposure limit must be
+// tool-backed this turn, else the answer is kept and a verify note appended
+// (never fabricated), and (2) every answer keeps the AI-assisted provenance
+// line. This posture applies ONLY to the chat path; the report/narrative
+// deliverable path (api/narrative.js → api/_banned-language.js, the engine
+// mirror) is untouched. Flip to 'enforce' to restore the full chat moat.
+type JasperEnforcement = 'enforce' | 'observe'
+let _enforcement: JasperEnforcement = 'observe'
+
 // ── Test injection hooks (mirrors api/narrative.js pattern) ────────
 let _supabase: SupabaseClient | null = null
 let _fetch: typeof fetch | null = null
@@ -746,6 +768,11 @@ interface LintOutcome {
   // True when an unbacked-threshold-only answer was kept + annotated with the
   // verify note (graceful path) instead of retried/replaced with the fallback.
   threshold_caveat: boolean
+  // The active enforcement posture for this turn (see _enforcement).
+  enforcement: JasperEnforcement
+  // Prohibited-language phrases the linter flagged but did NOT act on because
+  // the posture was 'observe' — recorded for tuning/telemetry only.
+  observed_phrases: string[]
 }
 
 /**
@@ -783,11 +810,18 @@ async function enforceJasperOutputSafety(
   //  • unbacked-threshold — a number that wasn't tool-backed this turn. NOT a
   //    forbidden claim; retracting the whole answer to the screening-only
   //    fallback is the wrong cure. Keep the answer and append a verify note.
+  const enforcing = _enforcement === 'enforce'
   const lintFor = (text: string) => [
-    ...lintJasperOutput(text),
+    ...(enforcing ? lintJasperOutput(text) : []),
     ...checkUnbackedThresholds(text, { retrievalUsed }),
   ]
-  const prohibitedHits = lintJasperOutput(result.text)
+  // In 'observe' posture prohibited-language hits are recorded but never
+  // acted on — the assistant's own text is kept. The tool-backed-threshold
+  // check runs in BOTH postures (it is an integrity guard, not a screening
+  // one), so a fabricated numeric limit is still caught and annotated.
+  const rawProhibited = lintJasperOutput(result.text)
+  const prohibitedHits = enforcing ? rawProhibited : []
+  const observedHits = enforcing ? [] : rawProhibited
   const thresholdHits = checkUnbackedThresholds(result.text, { retrievalUsed })
   const firstHits = [...prohibitedHits, ...thresholdHits]
   const lint: LintOutcome = {
@@ -797,6 +831,8 @@ async function enforceJasperOutputSafety(
     retry_fixed: false,
     fallback_used: false,
     threshold_caveat: false,
+    enforcement: _enforcement,
+    observed_phrases: Array.from(new Set(observedHits.map((h: { term: string }) => h.term))),
   }
   const zero = { extraInput: 0, extraOutput: 0, extraCacheRead: 0, extraCacheCreate: 0 }
   if (firstHits.length === 0) {
@@ -1351,6 +1387,12 @@ export const __test = {
   },
   setFetch(mock: unknown) {
     _fetch = mock as typeof fetch
+  },
+  setEnforcement(mode: JasperEnforcement) {
+    _enforcement = mode
+  },
+  resetEnforcement() {
+    _enforcement = 'observe'
   },
   resetSupabase() {
     _supabase = null

@@ -295,6 +295,7 @@ beforeEach(() => {
   vi.useFakeTimers()
   vi.setSystemTime(now)
   t.setSupabase(makeSupabaseMock())
+  t.resetEnforcement()
   t.setFetch(((_url: string, _init: any) =>
     Promise.resolve(makeStreamingResponse(defaultStreamEvents('OK.')))) as any)
   process.env.ANTHROPIC_API_KEY = 'test-key'
@@ -556,6 +557,7 @@ describe('field-assistant output linter', () => {
   })
 
   it('lints a causation answer, retries at temp 0, and persists only the clean text', async () => {
+    t.setEnforcement('enforce') // opt into the full screening moat for this test
     const seen: { stream: boolean }[] = []
     t.setFetch(((_url: string, init: any) => {
       const body = JSON.parse(init.body)
@@ -602,6 +604,7 @@ describe('field-assistant output linter', () => {
   })
 
   it('substitutes the safe fallback when the retry still trips', async () => {
+    t.setEnforcement('enforce') // opt into the full screening moat for this test
     t.setFetch(((_url: string, init: any) => {
       const body = JSON.parse(init.body)
       if (body.stream) {
@@ -630,6 +633,40 @@ describe('field-assistant output linter', () => {
     expect(messages.some((m) => /caused by/i.test(m.content))).toBe(false)
     const det = lastAuditDetails()
     expect(det?.lint?.fallback_used).toBe(true)
+  })
+
+  it("default 'observe' posture keeps a causation answer (no retry, no fallback) and records it as observed", async () => {
+    // Default posture is 'observe' (beforeEach resets it). Prohibited-language
+    // hits are recorded but not acted on — the assistant's own text is kept.
+    const seen: { stream: boolean }[] = []
+    t.setFetch(((_url: string, init: any) => {
+      seen.push({ stream: !!JSON.parse(init.body).stream })
+      return Promise.resolve(
+        makeStreamingResponse(
+          defaultStreamEvents(
+            'The occupant symptoms are caused by the HVAC mold.\n\nAI-assisted response — verify before use.',
+          ),
+        ),
+      )
+    }) as any)
+
+    const { res, captured } = makeRes()
+    await fnHandler(makeReq({ message: 'Why are the occupants sick?' }), res as any)
+
+    // Only the streaming turn ran — no temperature-0 retry.
+    expect(seen).toEqual([{ stream: true }])
+    // No replace event: the streamed text stands.
+    expect(sseEvents(captured).some((e) => e.event === 'replace')).toBe(false)
+    // The causation phrasing is PERSISTED (it was not retracted).
+    const assistant = messages.find((m) => m.role === 'assistant')
+    expect(assistant?.content).toMatch(/caused by/i)
+    // Telemetry: not blocked, but recorded as observed for tuning.
+    const det = lastAuditDetails()
+    expect(det?.lint?.enforcement).toBe('observe')
+    expect(det?.lint?.fallback_used).toBe(false)
+    expect(det?.lint?.retried).toBe(false)
+    expect(Array.isArray(det?.lint?.observed_phrases)).toBe(true)
+    expect(det?.lint?.observed_phrases.length).toBeGreaterThan(0)
   })
 })
 

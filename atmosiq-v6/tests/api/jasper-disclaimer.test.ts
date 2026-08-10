@@ -74,9 +74,13 @@ describe('the two copies cannot drift apart', () => {
   })
 })
 
-describe('the screening-only boundary is unchanged', () => {
-  it('the four-section contract still requires a defensibility note', () => {
-    expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain('## Defensibility note')
+describe('the enforce-mode fallback still carries the screening boundary', () => {
+  it('the reversible SAFE_FALLBACK keeps its defensibility note', () => {
+    // The chat role prompt no longer MANDATES the four-section/defensibility-
+    // note shape (interpretive posture, product decision 2026-08). The
+    // SAFE_FALLBACK — used only when output enforcement is flipped back to
+    // 'enforce' — still carries the screening boundary, so restoring the moat
+    // is a one-line change with its positioning intact.
     expect(SAFE_FALLBACK).toContain('## Defensibility note')
   })
 
