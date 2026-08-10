@@ -2,11 +2,17 @@
  * Tests for the Jasper (Field Assistant) role + style system prompt.
  *
  * Pins two things:
- *   1. The non-negotiable guardrails survive any edit — the You may /
- *      You may not lists, the four-section answer format, the literal
- *      generic AI-assisted disclaimer line, the "AI · Review required" framing,
- *      and the verbatim push-back boundary.
- *   2. The anti-robotic / human-voice style guidance is present and is
+ *   1. The INTEGRITY guardrails survive any edit — invent-nothing,
+ *      tool-backed numeric thresholds, no overriding the engine, the
+ *      literal AI-assisted disclaimer line, and the "AI · Review required"
+ *      framing. These are factual/provenance rules, not screening-
+ *      positioning, and are never loosened.
+ *   2. The interpretive posture (product decision 2026-08, owner Tsidi
+ *      Tamakloe, CSP): the assistant gives a DIRECT professional read to a
+ *      credentialed audience rather than deflecting cause/compliance/health
+ *      questions. The former hard prohibitions on those are intentionally
+ *      GONE; this test pins that they stay gone.
+ *   3. The anti-robotic / human-voice style guidance is present and is
  *      explicitly marked style-only so it never loosens a factual rule.
  */
 
@@ -25,11 +31,13 @@ describe('field-assistant role prompt — preserved guardrails', () => {
     )
   })
 
-  it('keeps the four-section answer format', () => {
+  it('keeps the four-section shape available as a default (not mandated)', () => {
     expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain('Assessment context')
-    expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain('Screening interpretation')
+    expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain('Interpretation')
     expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain('Recommended next steps')
-    expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain('Defensibility note')
+    expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain('What would confirm it')
+    // It is a tool, not a mandate — the assistant leads with the answer.
+    expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain('is a tool, not a mandate')
   })
 
   it('keeps a literal closing disclaimer line', () => {
@@ -45,10 +53,15 @@ describe('field-assistant role prompt — preserved guardrails', () => {
     expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain('AI · Review required')
   })
 
-  it('keeps the push-back boundary verbatim line', () => {
-    expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain(
-      "I'm the field assistant, not the engine. Finalize the walkthrough and AtmosFlow's deterministic scoring will produce the number. That's the artifact that holds up under review.",
+  it('does not impersonate the engine, but no longer refuses to interpret', () => {
+    // The old verbatim "I'm the field assistant, not the engine" refusal is
+    // gone. The retained boundary is only against presenting a read AS the
+    // engine's final scored artifact; a provisional read is explicitly allowed.
+    expect(FIELD_ASSISTANT_ROLE_PROMPT).not.toContain(
+      "I'm the field assistant, not the engine. Finalize the walkthrough",
     )
+    expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain('provisional read of where a zone is likely to score')
+    expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain("don't impersonate the engine")
   })
 })
 
@@ -72,10 +85,21 @@ describe('field-assistant role prompt — broad IAQ scope + citations', () => {
     expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain('Every substantive factual claim you make carries a source')
   })
 
-  it('still forbids fabricating standards / values (the moat is intact)', () => {
+  it('keeps the integrity moat (no fabrication, tool-backed numbers, no engine override)', () => {
     expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain('# You may not')
-    expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain('Determine OSHA / EPA / state regulatory compliance')
-    expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain('Attribute causation between an exposure and a symptom')
+    // Numbers must be tool-backed; you may name a standard, not recall its value.
+    expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain('you did not retrieve from a tool THIS turn')
+    // The deterministic engine / calibration gate cannot be overridden or mutated.
+    expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain('Override or silently mutate the deterministic engine')
+  })
+
+  it('grants direct interpretive latitude (the former prohibitions are gone)', () => {
+    // Product decision 2026-08: the assistant interprets for its credentialed
+    // reader instead of deflecting. The old blanket prohibitions are removed.
+    expect(FIELD_ASSISTANT_ROLE_PROMPT).not.toContain('Determine OSHA / EPA / state regulatory compliance')
+    expect(FIELD_ASSISTANT_ROLE_PROMPT).not.toContain('Attribute causation between an exposure and a symptom')
+    expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain('Offer a direct professional interpretation')
+    expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain('do not withhold the interpretation')
   })
 })
 
