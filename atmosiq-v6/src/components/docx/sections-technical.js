@@ -19,6 +19,7 @@
 
 import { Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle } from 'docx'
 import { FONTS, COLORS, SEV_COLORS, scoreColor, riskLabel } from './styles'
+import { isIaqScoreVisible } from '../../utils/featureFlags'
 import { buildTable, kvTable } from './tables'
 import { BENCHMARK_ROWS } from './canonical-content'
 
@@ -149,7 +150,9 @@ export function buildBenchmarksUsed(ctx) {
 export function buildResults(ctx) {
   const children = [p('Results', { heading: HeadingLevel.HEADING_2 })]
 
-  // 5a. Per-zone category score matrix.
+  // 5a. Per-zone category score matrix (score-display gated; the figure panel
+  // below and the rest of the technical section still render regardless).
+  if (isIaqScoreVisible()) {
   const matrixRows = (ctx.zoneScores || []).map(zs => {
     const cols = [{ text: zs.zoneName, bold: true, size: 18 }]
     zs.cats.forEach(cat => {
@@ -179,6 +182,7 @@ export function buildResults(ctx) {
     if (ctx.comp) {
       children.push(p(`Composite ${ctx.comp.tot}/100 (${ctx.comp.risk}). Confidence: ${ctx.confidence}.`, { size: 16, color: COLORS.muted, after: 160 }))
     }
+  }
   }
 
   // 5b. Compact figure panel — per-zone indoor / outdoor / delta readings.
