@@ -109,13 +109,18 @@ import JasperWatchPanel from './JasperWatchPanel'
 import ReadinessPanel from './ReadinessPanel'
 import EvidenceMap from './EvidenceMap'
 import DesktopSidebar, { SIDEBAR_W } from './desktop/DesktopSidebar'
-import { isKnowledgeGraphEnabled, isMoldModuleEnabled } from '../utils/featureFlags'
+import { isKnowledgeGraphEnabled, isMoldModuleEnabled, isIaqScoreVisible } from '../utils/featureFlags'
 import MoldModeScreen from './MoldModeScreen'
 
 // Knowledge Graph Evidence tab is staged behind a flag — on for preview/
 // localhost, off on the production host until merged (?kg=1 to demo). Resolved
 // once at module load. See src/utils/featureFlags.js.
 const KG_EVIDENCE_ENABLED = isKnowledgeGraphEnabled()
+// Whether the composite IAQ score (0–100) and risk band are shown. Default
+// hidden; `?score=1` restores per-browser. The engine still computes the score
+// internally (findings, severity colour, sorting, persistence all unaffected);
+// this governs display only. Resolved once at module load like KG above.
+const IAQ_SCORE_VISIBLE = isIaqScoreVisible()
 import { buildJasperContext } from '../../lib/context/buildJasperContext'
 import { buildAssessmentContext } from '../../lib/context/buildAssessmentContext'
 import { emitEvent } from '../../lib/events/emit'
@@ -2465,13 +2470,17 @@ export default function MobileApp() {
                   the composite (severity-toned) on the left; the badges and
                   serif diagnosis sit beside it. */}
               <div style={{display:'flex',gap:16,alignItems:'center'}}>
-                <div style={{flexShrink:0}} aria-hidden="true">
-                  <ScoreRing value={comp.tot} color={sevPillTone} size={isTablet?120:104} />
-                </div>
+                {IAQ_SCORE_VISIBLE && (
+                  <div style={{flexShrink:0}} aria-hidden="true">
+                    <ScoreRing value={comp.tot} color={sevPillTone} size={isTablet?120:104} />
+                  </div>
+                )}
                 <div style={{minWidth:0,flex:1}}>
-                  {/* Badges — severity + measurement confidence. */}
+                  {/* Badges — severity + measurement confidence. The severity
+                      band pill is part of the scoring feature, so it is gated
+                      with the composite score; the confidence badge is not. */}
                   <div style={{display:'flex',gap:8,marginBottom:10,flexWrap:'wrap'}}>
-                    <StatusPill tone={sevPillTone}>{sevPillLabel}</StatusPill>
+                    {IAQ_SCORE_VISIBLE && <StatusPill tone={sevPillTone}>{sevPillLabel}</StatusPill>}
                     {measConf && <StatusPill tone={confTone}>{confLabel}</StatusPill>}
                   </div>
                   {/* Serif diagnosis — the screening indicator named in the
@@ -2498,7 +2507,7 @@ export default function MobileApp() {
                     try { reduce = typeof window!=='undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches } catch { reduce = false }
                     setTimeout(()=>{ document.getElementById('result-zones-anchor')?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' }) }, 60)
                   }}
-                  aria-label={`Composite indicator ${comp.tot} of 100. View the per-zone score breakdown.`}
+                  aria-label={IAQ_SCORE_VISIBLE ? `Composite indicator ${comp.tot} of 100. View the per-zone score breakdown.` : 'View the per-zone findings breakdown.'}
                   {...pressFeedback('soft')}
                   style={{display:'flex',alignItems:'center',gap:8,marginTop:14,paddingTop:14,width:'100%',cursor:'pointer',fontFamily:'inherit',textAlign:'left',background:'none',border:'none',borderTop:`1px solid ${V3.BORDER_SUBTLE}`,...pressFeedback.style}}>
                   <span style={{flex:1,...V3.T.captionDim}}>{comp.count} {comp.count===1?'zone':'zones'} assessed</span>
@@ -2797,14 +2806,16 @@ export default function MobileApp() {
                           <div style={{...V3.T.bodyStrong, fontSize:17, lineHeight:'22px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{keyCat.l}</div>
                         </div>
                         <div style={{textAlign:'right',flexShrink:0}}>
-                          <div style={{display:'flex',alignItems:'baseline',gap:1,justifyContent:'flex-end'}}>
-                            <span style={{fontFamily:'var(--font-mono)', fontSize:32, lineHeight:'34px', fontWeight:600, color:keyTone, letterSpacing:'-0.5px'}}>{keyPct ?? '—'}</span>
-                            {keyPct !== null && <span style={{...V3.N.sm, fontSize:13, color:V3.TEXT_TERTIARY}}>/100</span>}
-                          </div>
+                          {IAQ_SCORE_VISIBLE && (
+                            <div style={{display:'flex',alignItems:'baseline',gap:1,justifyContent:'flex-end'}}>
+                              <span style={{fontFamily:'var(--font-mono)', fontSize:32, lineHeight:'34px', fontWeight:600, color:keyTone, letterSpacing:'-0.5px'}}>{keyPct ?? '—'}</span>
+                              {keyPct !== null && <span style={{...V3.N.sm, fontSize:13, color:V3.TEXT_TERTIARY}}>/100</span>}
+                            </div>
+                          )}
                           <div style={{...V3.T.caption, color:keyTone, marginTop:2, textAlign:'right'}}>{keyConcernLabel}</div>
                         </div>
                       </div>
-                      {keyPct !== null && (
+                      {IAQ_SCORE_VISIBLE && keyPct !== null && (
                         <>
                           <div style={{...V3.gaugeTrack, height:8}}>
                             <div style={{...V3.gaugeDot(keyPct, keyTone), top:-5, width:16, height:16}} />
@@ -2914,11 +2925,17 @@ export default function MobileApp() {
                       </div>
                       {isTablet && <div style={{...V3.N.md, color:V3.TEXT_SECONDARY}}>{findingCount}</div>}
                       <div style={{textAlign:'right'}}>
-                        <span style={{...V3.N.md, color:z.rc}}><CountUp value={z.tot} /></span>
-                        <span style={V3.N.sm}>/100</span>
+                        {IAQ_SCORE_VISIBLE ? (
+                          <>
+                            <span style={{...V3.N.md, color:z.rc}}><CountUp value={z.tot} /></span>
+                            <span style={V3.N.sm}>/100</span>
+                          </>
+                        ) : (
+                          <span style={{...V3.T.captionDim}}>{findingCount} {findingCount===1?'finding':'findings'}</span>
+                        )}
                       </div>
                       <div style={{textAlign:'right',display:'flex',justifyContent:'flex-end',alignItems:'center',gap:8}}>
-                        <span style={V3.pill(z.rc)}>{z.risk}</span>
+                        {IAQ_SCORE_VISIBLE && <span style={V3.pill(z.rc)}>{z.risk}</span>}
                         <span style={{color:V3.TEXT_TERTIARY,fontSize:13}}>›</span>
                       </div>
                     </button>
@@ -2937,14 +2954,14 @@ export default function MobileApp() {
               <div key={selZone} className="fa-zone-in" style={{display:isTablet?'grid':'flex',gridTemplateColumns:isTablet?'1fr 1fr':'none',flexDirection:'column',gap:10}}>
                 <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 16px',background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.md}}>
                   <div style={{...V3.T.bodyStrong}}>{zs.zoneName}</div>
-                  {userMode === 'fm' ? (
+                  {IAQ_SCORE_VISIBLE && (userMode === 'fm' ? (
                     <span style={V3.pill(zs.rc)}>{zs.risk}</span>
                   ) : (
                     <div style={{display:'flex',alignItems:'baseline',gap:2}}>
                       <span style={{...V3.N.lg, color:zs.rc, fontSize:22, lineHeight:'26px'}}>{zs.tot}</span>
                       <span style={V3.N.sm}>/100</span>
                     </div>
-                  )}
+                  ))}
                 </div>
           {zs.cats.map((cat,ci)=>{
             if (cat.s === null || cat.status === 'DATA_GAP' || cat.status === 'INSUFFICIENT') {
