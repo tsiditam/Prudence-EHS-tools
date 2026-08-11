@@ -11,7 +11,7 @@ import { assembleRenderModel } from '../../src/report/reportModel.js'
 import * as NL from '../../src/report/narrativeLibrary.js'
 import { scoreZone, compositeScore } from '../../src/engines/scoring.js'
 import { buildCausalChains } from '../../src/engines/causalChains.js'
-import { DEMO_BUILDING, DEMO_ZONES, DEMO_PRESURVEY } from '../../src/constants/demoData.js'
+import { DEMO_FINDINGS_BUILDING as DEMO_BUILDING, DEMO_FINDINGS_ZONES as DEMO_ZONES, DEMO_FINDINGS_PRESURVEY as DEMO_PRESURVEY } from '../../src/constants/demoDataFindings'
 const require = createRequire(import.meta.url)
 const { scan } = require('../../api/_banned-language.js')
 

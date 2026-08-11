@@ -20,14 +20,14 @@ import EvidenceMap from '../EvidenceMap'
 import ReportTraceabilityCard from './ReportTraceabilityCard'
 import { scoreZone, genRecs } from '../../engines/scoring'
 import { buildCausalChains } from '../../engines/causalChains'
-import { DEMO_BUILDING, DEMO_ZONES, DEMO_EQUIPMENT } from '../../constants/demoData'
+import { DEMO_CLEAN_BUILDING, DEMO_CLEAN_ZONES, DEMO_CLEAN_EQUIPMENT } from '../../constants/demoDataClean'
 import { DEMO_FM_BUILDING, DEMO_FM_ZONES } from '../../constants/demoDataFM'
-import { DEMO_DC_BUILDING, DEMO_DC_ZONES } from '../../constants/demoDataDC'
+import { DEMO_FINDINGS_BUILDING, DEMO_FINDINGS_ZONES, DEMO_FINDINGS_EQUIPMENT } from '../../constants/demoDataFindings'
 
 const DEMOS = [
-  { key: 'ih', label: 'Commercial (IH)', bldg: DEMO_BUILDING, zones: DEMO_ZONES, equipment: DEMO_EQUIPMENT },
+  { key: 'clean', label: 'Well-Run Office', bldg: DEMO_CLEAN_BUILDING, zones: DEMO_CLEAN_ZONES, equipment: DEMO_CLEAN_EQUIPMENT },
   { key: 'fm', label: 'Facility (FM)', bldg: DEMO_FM_BUILDING, zones: DEMO_FM_ZONES, equipment: [] },
-  { key: 'dc', label: 'Data Center', bldg: DEMO_DC_BUILDING, zones: DEMO_DC_ZONES, equipment: [] },
+  { key: 'findings', label: 'Building w/ Findings', bldg: DEMO_FINDINGS_BUILDING, zones: DEMO_FINDINGS_ZONES, equipment: DEMO_FINDINGS_EQUIPMENT },
 ]
 
 // Run the same deterministic pipeline loadDemo() runs, producing the inputs

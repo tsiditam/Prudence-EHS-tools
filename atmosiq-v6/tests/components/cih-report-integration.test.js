@@ -12,7 +12,7 @@ import JSZip from 'jszip'
 import { getConsultantDocxBlob } from '../../src/components/DocxReport.js'
 import { scoreZone, compositeScore } from '../../src/engines/scoring.js'
 import { buildCausalChains } from '../../src/engines/causalChains.js'
-import { DEMO_BUILDING, DEMO_ZONES, DEMO_PRESURVEY } from '../../src/constants/demoData.js'
+import { DEMO_FINDINGS_BUILDING as DEMO_BUILDING, DEMO_FINDINGS_ZONES as DEMO_ZONES, DEMO_FINDINGS_PRESURVEY as DEMO_PRESURVEY } from '../../src/constants/demoDataFindings'
 
 async function docXml(extra) {
   const zoneScores = DEMO_ZONES.map(z => scoreZone(z, DEMO_BUILDING))

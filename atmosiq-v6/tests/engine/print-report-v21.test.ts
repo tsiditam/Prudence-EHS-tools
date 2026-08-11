@@ -12,7 +12,7 @@ import { generateClientReportHTML } from '../../src/components/print/client-html
 import { legacyToAssessmentScore, deriveAssessmentMeta } from '../../src/engine/bridge'
 import { renderClientReport } from '../../src/engine/report/client'
 import { scoreZone, compositeScore } from '../../src/engines/scoring'
-import { DEMO_PRESURVEY, DEMO_BUILDING, DEMO_ZONES } from '../../src/constants/demoData'
+import { DEMO_FINDINGS_PRESURVEY as DEMO_PRESURVEY, DEMO_FINDINGS_BUILDING as DEMO_BUILDING, DEMO_FINDINGS_ZONES as DEMO_ZONES } from '../../src/constants/demoDataFindings'
 import {
   TRANSMITTAL_PARAGRAPH, SCOPE_PARAGRAPH, LIMITATIONS_PARAGRAPH,
   COVER_METHODOLOGY_LINE,

@@ -21,7 +21,7 @@
 import { describe, it, expect } from 'vitest'
 import { assembleRenderModel } from '../../src/report/reportModel.js'
 import { scoreZone, compositeScore } from '../../src/engines/scoring.js'
-import { DEMO_BUILDING, DEMO_ZONES, DEMO_PRESURVEY } from '../../src/constants/demoData.js'
+import { DEMO_FINDINGS_BUILDING as DEMO_BUILDING, DEMO_FINDINGS_ZONES as DEMO_ZONES, DEMO_FINDINGS_PRESURVEY as DEMO_PRESURVEY } from '../../src/constants/demoDataFindings'
 import {
   REPORT_PROFILES, REPORT_STATUS, REPORT_PROFILE_VALUES, REPORT_STATUS_VALUES,
   SCREENING_LIMITATION,

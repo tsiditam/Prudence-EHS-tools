@@ -13,7 +13,7 @@ import { describe, it, expect } from 'vitest'
 import { parseRecLocation } from '../../src/components/docx/sections-recommendations.js'
 // @ts-expect-error — JS module without TS types
 import { genRecs, scoreZone, compositeScore } from '../../src/engines/scoring.js'
-import { DEMO_BUILDING, DEMO_ZONES } from '../../src/constants/demoData.js'
+import { DEMO_FINDINGS_BUILDING as DEMO_BUILDING, DEMO_FINDINGS_ZONES as DEMO_ZONES } from '../../src/constants/demoDataFindings'
 
 describe('parseRecLocation — legacy string-array path', () => {
   it('extracts zone name from "Zone Name: action" prefix', () => {
@@ -54,7 +54,7 @@ describe('parseRecLocation — legacy string-array path', () => {
   })
 })
 
-describe('genRecs on Meridian demo — every Immediate rec has location', () => {
+describe('genRecs on the findings demo — every Immediate rec has location', () => {
   it('all Immediate recommendations parse to a non-empty location', () => {
     const zoneScores = (DEMO_ZONES as any[]).map((z: any) => scoreZone(z, DEMO_BUILDING))
     compositeScore(zoneScores) // side-effect-free composite call
