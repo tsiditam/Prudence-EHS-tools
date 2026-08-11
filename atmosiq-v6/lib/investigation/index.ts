@@ -20,3 +20,8 @@ export * from './evidenceStrength'
 export * from './confidence'
 export * from './summary'
 export * from './version'
+// Stage 2 — reference registry, domain rule engines, escalation, orchestrator.
+export * from './references'
+export * from './escalation'
+export * from './assess'
+export type { ZoneObservation, InvestigationContext } from './rules/common'
