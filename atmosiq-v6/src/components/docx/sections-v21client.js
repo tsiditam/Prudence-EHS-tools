@@ -18,6 +18,7 @@ import { base64ToUint8Array } from './images'
 import { buildResurveySchedule } from './sections-resurvey'
 import { sectionHeading2 } from './headings'
 import { assembleSupplementalSections, mergeSupplementalTocEntries } from './sections-supplemental'
+import { isIaqScoreVisible } from '../../utils/featureFlags'
 import {
   BENCHMARK_TABLE_HEADERS, BENCHMARK_ROWS, BENCHMARK_INTRO, BENCHMARK_FOOTNOTE,
   DISCLAIMER_PARAGRAPHS, CONCLUSIONS_CLOSING, certificationStatement, FIRM_NAME,
@@ -1129,6 +1130,9 @@ function buildSignatory(report) {
 }
 
 function buildAssessmentIndexAppendix(idx) {
+  // The Assessment Index appendix is entirely composite scores + tiers; when
+  // the score display is off, omit the whole appendix.
+  if (!isIaqScoreVisible()) return []
   const out = [
     new Paragraph({ children: [new PageBreak()] }),
     ...heading2('Appendix — Assessment Index (Informational Only)'),
