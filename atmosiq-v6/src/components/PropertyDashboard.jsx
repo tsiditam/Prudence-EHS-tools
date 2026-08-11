@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react'
 import { I } from './Icons'
 import { FM_TRAFFIC_LIGHT } from '../constants/terminology'
 import { mix } from '../utils/theme'
+import { isIaqScoreVisible } from '../utils/featureFlags'
 import { KEYS, complaintsKey } from '../utils/storageKeys'
 
 const BG = 'var(--bg)', CARD = 'var(--card)', BORDER = 'var(--border)', ACCENT = 'var(--accent)'
@@ -135,7 +136,7 @@ export default function PropertyDashboard({ onBack, onNavigate, assessmentIndex 
             </div>
             {b.address && <div style={{ fontSize: 10, color: DIM, marginBottom: 6 }}>{b.address}</div>}
             <div style={{ display: 'flex', gap: 12, fontSize: 10, color: SUB }}>
-              {b.score != null && <span>Score: {b.score}</span>}
+              {isIaqScoreVisible() && b.score != null && <span>Score: {b.score}</span>}
               {b.openComplaints > 0 && <span style={{ color: WARN }}>{b.openComplaints} open complaints</span>}
               {b.daysSince != null && <span>{b.daysSince > 90 ? <span style={{ color: WARN }}>Overdue ({b.daysSince}d)</span> : `${b.daysSince}d ago`}</span>}
             </div>

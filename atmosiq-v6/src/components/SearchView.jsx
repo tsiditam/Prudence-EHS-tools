@@ -13,6 +13,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import STO from '../utils/storage'
 import { FAQ_SECTIONS } from '../constants/faq'
 import { I } from './Icons'
+import { isIaqScoreVisible } from '../utils/featureFlags'
 import { mix } from '../utils/theme'
 
 const CARD = 'var(--card)'
@@ -95,7 +96,7 @@ export default function SearchView({ index, onOpenReport, onResumeDraft, onOpenI
     }))
     const finalized = (index?.reports || []).map(r => ({
       kind: 'report', id: r.id, title: r.facility || 'Untitled report',
-      subtitle: `Finalized · score ${r.score ?? '—'}`,
+      subtitle: isIaqScoreVisible() ? `Finalized · score ${r.score ?? '—'}` : 'Finalized',
       haystack: `${r.facility || ''} ${r.building?.fn || ''} report finalized`.toLowerCase(),
       raw: r,
     }))

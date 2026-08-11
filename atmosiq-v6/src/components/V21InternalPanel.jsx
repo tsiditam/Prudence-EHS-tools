@@ -17,6 +17,7 @@ import { legacyToAssessmentScore, deriveAssessmentMeta } from '../engine/bridge'
 import { renderInternalReport } from '../engine/report/internal'
 import { ENGINE_VERSION } from '../version'
 import { mix } from '../utils/theme'
+import { isIaqScoreVisible } from '../utils/featureFlags'
 
 const SURFACE = 'var(--surface)'
 const CARD = 'var(--card)'
@@ -133,8 +134,8 @@ export default function V21InternalPanel({
       <div style={{ padding: 12, background: CARD, border: `1px solid ${BORDER}`, borderRadius: 10, marginBottom: 12 }}>
         <Section label="Site rollup">
           <Grid>
-            <Stat label="Site score" value={report.siteScore ?? '—'} suffix={report.siteScore != null ? '/100' : ''} />
-            <Stat label="Tier" value={report.siteTier ?? '—'} />
+            {isIaqScoreVisible() && <Stat label="Site score" value={report.siteScore ?? '—'} suffix={report.siteScore != null ? '/100' : ''} />}
+            {isIaqScoreVisible() && <Stat label="Tier" value={report.siteTier ?? '—'} />}
             <Stat label="Confidence" value={CONFIDENCE_LABEL[report.confidenceBand]} />
             <Stat label="Engine" value={report.engineVersion} mono />
           </Grid>
@@ -188,13 +189,13 @@ export default function V21InternalPanel({
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
                 <span style={{ fontSize: 12, fontWeight: 700, color: TEXT }}>{z.zoneName}</span>
                 <span style={{ fontSize: 10, color: DIM, fontFamily: "var(--font-mono), monospace" }}>{z.zoneId}</span>
-                <span style={{ marginLeft: 'auto', fontSize: 11, color: TEXT, fontFamily: "var(--font-mono), monospace" }}>
+                {isIaqScoreVisible() && <span style={{ marginLeft: 'auto', fontSize: 11, color: TEXT, fontFamily: "var(--font-mono), monospace" }}>
                   {z.composite ?? '—'}{z.composite != null ? '/100' : ''}
-                </span>
-                <span style={{
+                </span>}
+                {isIaqScoreVisible() && <span style={{
                   padding: '1px 6px', fontSize: 9, fontWeight: 700, borderRadius: 3,
                   background: `${tierColorByLabel(z.tier)}18`, color: tierColorByLabel(z.tier),
-                }}>{z.tier ?? 'N/A'}</span>
+                }}>{z.tier ?? 'N/A'}</span>}
               </div>
               <div style={{ fontSize: 10, color: SUB, marginBottom: 8 }}>
                 {CONFIDENCE_LABEL[z.confidence]}
