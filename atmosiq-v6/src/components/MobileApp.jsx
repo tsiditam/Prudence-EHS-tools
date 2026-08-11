@@ -2812,7 +2812,7 @@ export default function MobileApp() {
                               {keyPct !== null && <span style={{...V3.N.sm, fontSize:13, color:V3.TEXT_TERTIARY}}>/100</span>}
                             </div>
                           )}
-                          <div style={{...V3.T.caption, color:keyTone, marginTop:2, textAlign:'right'}}>{keyConcernLabel}</div>
+                          {IAQ_SCORE_VISIBLE && <div style={{...V3.T.caption, color:keyTone, marginTop:2, textAlign:'right'}}>{keyConcernLabel}</div>}
                         </div>
                       </div>
                       {IAQ_SCORE_VISIBLE && keyPct !== null && (
@@ -2911,7 +2911,7 @@ export default function MobileApp() {
                 <div style={{display:'grid',gridTemplateColumns: isTablet ? '2fr 1fr 1fr 1.4fr' : '2fr 1fr 1.4fr', gap:12, padding:'8px 8px', borderBottom:`1px solid ${V3.BORDER_DEFAULT}`}}>
                   <div style={V3.T.micro}>Zone</div>
                   {isTablet && <div style={V3.T.micro}>Findings</div>}
-                  <div style={{...V3.T.micro, textAlign:'right'}}>Score</div>
+                  <div style={{...V3.T.micro, textAlign:'right'}}>{IAQ_SCORE_VISIBLE ? 'Score' : 'Findings'}</div>
                   <div style={{...V3.T.micro, textAlign:'right'}}>Status</div>
                 </div>
                 {zoneScores.map((z, i) => {
@@ -2969,7 +2969,7 @@ export default function MobileApp() {
                 <div key={cat.l} style={{padding:'14px 18px',background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.md}}>
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                     <span style={V3.T.bodyStrong}>{cat.l}</span>
-                    <span style={V3.pill(V3.TEXT_TERTIARY)}>Not Scored</span>
+                    <span style={V3.pill(V3.TEXT_TERTIARY)}>{IAQ_SCORE_VISIBLE ? 'Not Scored' : 'No data'}</span>
                   </div>
                   <div style={{...V3.T.captionDim, marginTop:6}}>Data gap: documentation not provided for this category</div>
                 </div>
@@ -2983,16 +2983,16 @@ export default function MobileApp() {
                   printed the cat label and used two micro headings. */}
               <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',gap:12,marginBottom:userMode==='fm'?12:8}}>
                 <div style={{...V3.T.bodyStrong, fontSize:15}}>{cat.l}</div>
-                {userMode === 'fm' ? (
+                {IAQ_SCORE_VISIBLE && (userMode === 'fm' ? (
                   <span style={V3.pill(fmColor)}>{cat.s===null?'No data':fmLabel}</span>
                 ) : (
                   <div style={{display:'flex',alignItems:'baseline',gap:6}}>
                     <span style={{...V3.N.md, color:bc, fontSize:15}}><CountUp value={cat.s} /><span style={{color:V3.TEXT_TERTIARY, fontWeight:500}}>/{cat.mx}</span></span>
                     <span style={V3.T.captionDim}>· {pctLabel}</span>
                   </div>
-                )}
+                ))}
               </div>
-              {userMode !== 'fm' && <div style={{height:3,background:V3.BORDER_DEFAULT,borderRadius:2,overflow:'hidden',marginBottom:14}}>
+              {IAQ_SCORE_VISIBLE && userMode !== 'fm' && <div style={{height:3,background:V3.BORDER_DEFAULT,borderRadius:2,overflow:'hidden',marginBottom:14}}>
                 <div style={{height:'100%',width:`${pct}%`,background:bc,borderRadius:2,transition:'width .8s ease'}} />
               </div>}
               {/* Findings are sorted most-severe-first and the per-row
@@ -4443,7 +4443,7 @@ export default function MobileApp() {
                               <div style={{...V3.T.bodyStrong, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{r.facility || 'Untitled'}</div>
                               <div style={{...V3.T.captionDim, fontFamily:'var(--font-mono)'}}>{fD(r.ts)}</div>
                             </div>
-                            <StatusPill tone={band.color} dim>{band.label}</StatusPill>
+                            {IAQ_SCORE_VISIBLE && <StatusPill tone={band.color} dim>{band.label}</StatusPill>}
                             <span style={{color:V3.TEXT_TERTIARY,fontSize:13}}>›</span>
                           </div>
                         </GlassCard>
@@ -4725,7 +4725,7 @@ export default function MobileApp() {
                         <span style={{...V3.T.captionDim, fontFamily:'var(--font-mono)'}}>{fD(r.ts)}</span>
                       </div>
                     </div>
-                    <span style={V3.pill(band.color)}>{band.label}</span>
+                    {IAQ_SCORE_VISIBLE && <span style={V3.pill(band.color)}>{band.label}</span>}
                     <button onClick={e=>{e.stopPropagation();setDelConf({id:r.id,name:r.facility,type:'rpt'})}} style={{width:36,height:36,background:'transparent',border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.md,color:V3.TEXT_TERTIARY,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'inherit',flexShrink:0}}>
                       <I n="trash" s={13} c={V3.TEXT_TERTIARY} w={1.4} />
                     </button>

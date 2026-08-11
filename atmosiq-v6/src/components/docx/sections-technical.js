@@ -274,9 +274,10 @@ export function buildAnalystNotes(ctx) {
   let critHigh = 0
   zs.forEach(z => z.cats.forEach(c => c.r.forEach(r => { if (r.sev === 'critical' || r.sev === 'high') critHigh++ })))
 
+  const showScore = isIaqScoreVisible()
   const triage = worstZone
-    ? `${worstZone.zoneName} drives the composite (${worstZone.tot ?? '—'}/100${worstCat ? `; weakest category ${worstCat.l} at ${worstCat.s}/${worstCat.mx}` : ''}). ${critHigh} critical/high indicator${critHigh !== 1 ? 's' : ''} flagged.`
-    : 'No scored zones — capture field measurements before triage.'
+    ? `${worstZone.zoneName} drives the assessment${showScore ? ` (composite ${worstZone.tot ?? '—'}/100${worstCat ? `; weakest category ${worstCat.l} at ${worstCat.s}/${worstCat.mx}` : ''})` : worstCat ? ` (weakest area: ${worstCat.l})` : ''}. ${critHigh} critical/high indicator${critHigh !== 1 ? 's' : ''} flagged.`
+    : 'No zones with data — capture field measurements before triage.'
 
   const followUp = tot == null
     ? 'Schedule a field visit to capture baseline measurements before drawing conclusions.'

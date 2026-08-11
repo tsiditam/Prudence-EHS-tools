@@ -95,7 +95,9 @@ describe('SimilarAssessmentsPanel', () => {
     const panel = screen.getByTestId('similar-assessments-panel')
     expect(panel.textContent).toMatch(/3 similar past assessments/)
     expect(panel.textContent).toMatch(/Commercial Office/)
-    expect(panel.textContent).toMatch(/68\/100/)
+    // The composite avg-score chip is hidden by default (scoring feature
+    // removed from the client experience; gated behind isIaqScoreVisible()).
+    expect(panel.textContent).not.toMatch(/68\/100/)
     expect(panel.textContent).toMatch(/Mold rate/i)
     expect(panel.textContent).toMatch(/33%/)
     expect(panel.textContent).toMatch(/Inspect supply diffuser drip pan/)

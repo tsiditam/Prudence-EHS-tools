@@ -31,6 +31,7 @@
  */
 
 import { useSimilarAssessments } from '../hooks/useSimilarAssessments'
+import { isIaqScoreVisible } from '../utils/featureFlags'
 
 const CARD = 'var(--card)'
 const BORDER = 'var(--border)'
@@ -105,7 +106,7 @@ export default function SimilarAssessmentsPanel({ currentAssessment, onOpenPastA
 
           {/* Pattern summary chips — avg score, common recs, mold rate */}
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-            {patterns.averageScore !== null && (
+            {isIaqScoreVisible() && patterns.averageScore !== null && (
               <div
                 title="Average composite score across the similar past assessments"
                 style={{ padding: '4px 10px', borderRadius: 999, background: SURFACE, border: `1px solid ${BORDER}`, fontSize: 11, color: TEXT }}
@@ -182,7 +183,7 @@ export default function SimilarAssessmentsPanel({ currentAssessment, onOpenPastA
                     </div>
                   </div>
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    {typeof score === 'number' && (
+                    {isIaqScoreVisible() && typeof score === 'number' && (
                       <div style={{ fontSize: 12, fontWeight: 700, color: scoreColor(score) }}>{score}/100</div>
                     )}
                     <div style={{ fontSize: 9, color: ACCENT, fontFamily: 'var(--font-mono)' }}>

@@ -7,6 +7,7 @@
 import { useState, useRef } from 'react'
 import { I } from './Icons'
 import { mix } from '../utils/theme'
+import { isIaqScoreVisible } from '../utils/featureFlags'
 
 const CARD = 'var(--card)', BORDER = 'var(--border)', ACCENT = 'var(--accent)'
 const TEXT = 'var(--text)', SUB = 'var(--sub)', DIM = 'var(--dim)', BG = 'var(--bg)'
@@ -153,7 +154,7 @@ export default function SpatialMap({ zones, zoneScores, floorPlan, onUpdateZone,
         <div style={{ padding: 14, background: CARD, border: `1px solid ${BORDER}`, borderRadius: 10, marginBottom: 12 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: TEXT }}>{zones[selectedPin]?.zn}</div>
-            <span style={{ fontSize: 18, fontWeight: 800, color: pinColor(zoneScores[selectedPin].tot), fontFamily: "var(--font-mono)" }}>{zoneScores[selectedPin].tot}/100</span>
+            {isIaqScoreVisible() && <span style={{ fontSize: 18, fontWeight: 800, color: pinColor(zoneScores[selectedPin].tot), fontFamily: "var(--font-mono)" }}>{zoneScores[selectedPin].tot}/100</span>}
           </div>
           <div style={{ fontSize: 10, color: DIM, marginBottom: 8 }}>Top Risk Factors</div>
           {getTopFindings(selectedPin).map((f, i) => (
