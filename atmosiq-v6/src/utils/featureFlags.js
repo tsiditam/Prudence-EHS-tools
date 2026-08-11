@@ -60,6 +60,15 @@ export const KG_COHORT_STORAGE_KEY = 'af.kgCohort'
 export const MOLD_STORAGE_KEY = 'af.moldModule'
 export const MOLD_COHORT_STORAGE_KEY = 'af.moldCohort'
 
+// AtmosFlow 3.0 Investigation Decision Framework (engine >= 3.0) — staged behind
+// its own keys, resolved by the SAME algorithm as the other flags. When ON, NEW
+// assessments are stamped with the >= 3.0 engineVersion and dispatch to the
+// evidence-based Investigation Decision Framework instead of the 0-100 scoring
+// engine (see lib/investigation/engineSelection.ts + dispatch.ts). Historical
+// (< 3.0) assessments are unaffected regardless of the flag.
+export const INVESTIGATION_STORAGE_KEY = 'af.investigationEngine'
+export const INVESTIGATION_COHORT_STORAGE_KEY = 'af.investigationCohort'
+
 /**
  * Minimum viewport width (px) at which the Knowledge Graph surfaces are shown.
  * The KG is a desktop-only experience; below this width the feature stays off
@@ -99,6 +108,23 @@ export const KG_KILL_SWITCH = false
  * surface fully dark again on every host.
  */
 export const MOLD_KILL_SWITCH = false
+
+/**
+ * Master kill switch for the AtmosFlow 3.0 Investigation Decision Framework.
+ *
+ * Currently `true` — the framework is FOUNDATION + rule engines + routing spine
+ * only (lib/investigation/*), with the UI/report renderer for the evidence-based
+ * output still to land (migration stages 6–7). While `true`, every host —
+ * production AND preview/localhost — keeps stamping NEW assessments with the
+ * legacy engine version and running the 0–100 scoring engine, regardless of
+ * host, `?ide=`, or localStorage. It overrides all other resolution.
+ *
+ * Set to `false` only when the v3 result renderer exists, to begin the staged
+ * rollout (preview-on, prod-off-by-default with `?ide=1` opt-in). Turning it on
+ * NEVER reinterprets historical (< 3.0) assessments — they always route to the
+ * legacy engine by their frozen engineVersion.
+ */
+export const INVESTIGATION_KILL_SWITCH = true
 
 /** True when the host is the live production domain. */
 export function isProdHost(hostname) {
@@ -298,4 +324,44 @@ export function resolveMoldFlag(env = {}) {
  */
 export function applyMoldCohort(enabled, env = {}) {
   return applyCohort(enabled, MOLD_COHORT_STORAGE_KEY, env)
+}
+
+// ── Investigation Decision Framework flag (staged dark; same resolver) ───────
+
+/**
+ * Whether the AtmosFlow 3.0 Investigation Decision Framework is enabled for NEW
+ * assessments. The kill switch wins over everything; while it is `true` this
+ * returns false everywhere and new assessments stay on the legacy engine.
+ * @param {object} [env] Injection seam for tests (see resolveStagedFlag).
+ * @returns {boolean}
+ */
+export function isInvestigationFrameworkEnabled(env = {}) {
+  if (INVESTIGATION_KILL_SWITCH) return false
+  return resolveInvestigationFrameworkFlag(env)
+}
+
+/**
+ * Pure Investigation-framework resolution (ignores the kill switch). Exposed for
+ * tests and for the future rollout. Default is preview-on / production-off (no
+ * `defaultOn`), matching the KG staging posture.
+ * @param {object} [env] Injection seam for tests.
+ * @returns {boolean}
+ */
+export function resolveInvestigationFrameworkFlag(env = {}) {
+  return resolveStagedFlag(env, {
+    param: 'ide',
+    storageKey: INVESTIGATION_STORAGE_KEY,
+    cohortKey: INVESTIGATION_COHORT_STORAGE_KEY,
+  })
+}
+
+/**
+ * Mark (or unmark) the current browser as part of the Investigation-framework
+ * beta cohort (writes `af.investigationCohort`).
+ * @param {boolean} enabled
+ * @param {object}  [env] injection seam for tests
+ * @returns {boolean}
+ */
+export function applyInvestigationCohort(enabled, env = {}) {
+  return applyCohort(enabled, INVESTIGATION_COHORT_STORAGE_KEY, env)
 }

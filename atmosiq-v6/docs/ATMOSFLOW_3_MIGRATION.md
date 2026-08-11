@@ -84,7 +84,8 @@ sequenced so each is independently shippable and verifiable.
 |---|---|---|---|
 | **1** | Framework core: types, time-basis + reference-applicability engines, evidence-strength/confidence/summary, version routing, legacy pin, docs | 1–2, 4–13, 16–19, 24 (types), 35 | ✅ **Landed** |
 | **2** | Reference registry (typed `ReferenceValue` + parity guard); domain rule engines (ventilation, contaminants, moisture/microbial, HVAC, thermal, sources/pathways, occupant) producing `InvestigationFinding[]`; escalation registry; next-best-action generation; zone/building orchestrator + conservative summary | 5, 11, 14–17, 20 | ✅ **Landed** |
-| 3 | Version-routed dispatch at the report/dashboard boundary so engine ≥ 3.0 assessments call `assessBuildingV3` instead of `scoreZone`/`compositeScore`; **no** 0–100 output for engine ≥ 3.0 | 3, 18 | Planned (next) |
+| **3** | Version-routed dispatch **spine** (`dispatch.ts`, dependency-injected so `lib/` never imports the sacred engine) + new-assessment engine-version selection (`engineSelection.ts`) + `INVESTIGATION_FRAMEWORK` feature flag, **staged dark** (`INVESTIGATION_KILL_SWITCH = true`, prod stays 2.x). The seam Stages 6–7 call. | 3 | ✅ **Landed (dark)** |
+| 6/7 | Consume the dispatch result in the dashboard + report renderer so engine ≥ 3.0 assessments actually render the evidence-based output; lift the kill switch to begin rollout | 18, 21, 22 | Planned |
 | 4 | Data model: nullable/version-scoped score columns; persist findings/hypotheses/actions; migrations + rollback | 28 | Planned |
 | 5 | API: return domain findings/status/strength/confidence/priority/applicability/hypotheses/gaps/actions/summary; version legacy responses | 29 | Planned |
 | 6 | UI: replace score gauges with Assessment Overview + domain cards; legacy-assessment "Engine 2.x" labelling | 21, 35 | Planned |

@@ -25,3 +25,6 @@ export * from './references'
 export * from './escalation'
 export * from './assess'
 export type { ZoneObservation, InvestigationContext } from './rules/common'
+// Stage 3 — version-routed dispatch + engine-version selection.
+export * from './dispatch'
+export * from './engineSelection'
