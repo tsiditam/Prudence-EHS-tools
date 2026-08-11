@@ -17,6 +17,7 @@
 
 import { validateClientReport } from '../../engine/report/validators'
 import { renderLoggerGraphsSectionHtml } from './logger-graphs-html'
+import { isIaqScoreVisible } from '../../utils/featureFlags'
 
 const esc = (str) => {
   if (str === null || str === undefined) return ''
@@ -1090,6 +1091,9 @@ function renderSignatoryBlock(sig) {
 }
 
 function renderAssessmentIndexAppendix(idx) {
+  // The Assessment Index appendix is entirely composite scores + tiers; when
+  // the score display is off, omit the whole appendix.
+  if (!isIaqScoreVisible()) return ''
   return `<div class="pg-break"></div>
     <h2 id="appendix-assessment-index">Appendix — Assessment Index (Informational Only)</h2>
     <p><em>${esc(idx.disclaimer)}</em></p>

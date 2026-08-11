@@ -23,6 +23,7 @@
 
 import { actionLine } from '../../utils/recFormatting'
 import { summarizeParameters, peakCo2ByZone } from '../../report/reportModel'
+import { isIaqScoreVisible } from '../../utils/featureFlags'
 
 // Screening-outcome palette (matches the sample design + reportModel tiers).
 const OUTCOME_TONE = { acceptable: '#15803D', advisory: '#B45309', elevated: '#C2410C' }
@@ -136,6 +137,9 @@ export function generateModernSummaryHTML(data, opts = {}) {
   const zones = data.zones || []
   const zoneScores = data.zoneScores || []
   const comp = data.comp || null
+  // Composite score + risk band are display-gated (default hidden). Findings,
+  // parameters, and recommendations still render regardless.
+  const showScore = isIaqScoreVisible()
   const profile = data.profile || {}
   const accent = opts.brandColor || profile.brandColor || '#0E7490'
   const firm = profile.firm || 'Prudence Safety & Environmental Consulting, LLC'
@@ -204,11 +208,11 @@ export function generateModernSummaryHTML(data, opts = {}) {
   <h2>At a Glance</h2>
   <div class="card accent">
     <div class="snap">
-      ${comp ? `<div class="score"><b>${comp.tot}</b><span>of 100</span></div>` : ''}
+      ${showScore && comp ? `<div class="score"><b>${comp.tot}</b><span>of 100</span></div>` : ''}
       <div style="flex:1;min-width:220px">
         <p style="color:var(--ink);font-weight:500;margin-bottom:6px">${snapshotLine(comp ? comp.tot : null)}</p>
         <div style="font-size:9.5pt;color:var(--faint)">
-          ${zones.length} area${zones.length === 1 ? '' : 's'} screened${comp && comp.risk ? ` · overall: <strong style="color:var(--accent-dk)">${esc(comp.risk)}</strong>` : ''}${findings.length ? ` · ${findings.length} item${findings.length === 1 ? '' : 's'} flagged` : ' · no items flagged'}
+          ${zones.length} area${zones.length === 1 ? '' : 's'} screened${showScore && comp && comp.risk ? ` · overall: <strong style="color:var(--accent-dk)">${esc(comp.risk)}</strong>` : ''}${findings.length ? ` · ${findings.length} item${findings.length === 1 ? '' : 's'} flagged` : ' · no items flagged'}
         </div>
       </div>
     </div>
