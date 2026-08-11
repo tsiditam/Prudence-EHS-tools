@@ -28,3 +28,5 @@ export type { ZoneObservation, InvestigationContext } from './rules/common'
 // Stage 3 — version-routed dispatch + engine-version selection.
 export * from './dispatch'
 export * from './engineSelection'
+// Stage 4 — persistence contract (assessments.investigation jsonb shape).
+export * from './persistence'
