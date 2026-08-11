@@ -1,14 +1,16 @@
 import { describe, it, expect } from 'vitest'
 import { scoreZone, compositeScore } from '../engines/scoring'
-import { DEMO_BUILDING, DEMO_ZONES } from '../constants/demoData'
+import { DEMO_CLEAN_BUILDING, DEMO_CLEAN_ZONES } from '../constants/demoDataClean'
 import { DEMO_FM_BUILDING, DEMO_FM_ZONES } from '../constants/demoDataFM'
-import { DEMO_DC_BUILDING, DEMO_DC_ZONES } from '../constants/demoDataDC'
+import { DEMO_FINDINGS_BUILDING, DEMO_FINDINGS_ZONES } from '../constants/demoDataFindings'
 
-describe('IH Demo — Meridian Commerce Tower', () => {
-  const scores = DEMO_ZONES.map(z => scoreZone(z, DEMO_BUILDING))
+const FORBIDDEN = ['SYSTEM FAILURE', 'SYNERGISTIC', 'TOXICITY', 'System Integrity Override', 'emergency']
+
+describe('Demo A — Lakeside Professional Center (well-run office)', () => {
+  const scores = DEMO_CLEAN_ZONES.map(z => scoreZone(z, DEMO_CLEAN_BUILDING))
   const comp = compositeScore(scores)
 
-  it('produces valid zone scores', () => {
+  it('produces valid zone scores in range', () => {
     scores.forEach(zs => {
       expect(zs.tot).not.toBeNull()
       expect(zs.tot).not.toBeNaN()
@@ -18,22 +20,30 @@ describe('IH Demo — Meridian Commerce Tower', () => {
   })
 
   it('no forbidden language in any finding', () => {
-    const forbidden = ['SYSTEM FAILURE', 'SYNERGISTIC', 'TOXICITY', 'System Integrity Override', 'emergency']
     scores.forEach(zs => zs.cats.forEach(c => c.r.forEach(r => {
-      forbidden.forEach(f => expect(r.t).not.toContain(f))
+      FORBIDDEN.forEach(f => expect(r.t).not.toContain(f))
     })))
   })
 
-  it('HVAC gate5 fires (standing water in drain pan)', () => {
-    const hvac0 = scores[0].cats.find(c => c.l === 'HVAC')
-    expect(hvac0.gate5).toBe(true)
-    expect(scores[0].tot).toBeLessThanOrEqual(40)
+  it('clean HVAC: no gate5, full category credit', () => {
+    scores.forEach(zs => {
+      const hvac = zs.cats.find(c => c.l === 'HVAC')
+      expect(hvac.gate5).toBeFalsy()
+      expect(hvac.s).toBe(hvac.mx)
+    })
   })
 
-  it('composite score is valid', () => {
+  it('no occupant complaints in either zone', () => {
+    scores.forEach(zs => {
+      const comp = zs.cats.find(c => c.l === 'Complaints')
+      expect(comp.s).toBe(comp.mx)
+    })
+  })
+
+  it('composite is a low-risk, weighted-mean result (no critical override)', () => {
     expect(comp.tot).not.toBeNull()
-    expect(comp.tot).not.toBeNaN()
-    expect(comp.risk).toBeDefined()
+    expect(comp.logic).toBe('weighted-mean-of-zones')
+    expect(comp.risk).toBe('Low Risk')
   })
 
   it('no null/NaN in any category score', () => {
@@ -59,9 +69,8 @@ describe('FM Demo — Greenfield Office Park', () => {
   })
 
   it('no forbidden language in any finding', () => {
-    const forbidden = ['SYSTEM FAILURE', 'SYNERGISTIC', 'TOXICITY', 'System Integrity Override', 'emergency']
     scores.forEach(zs => zs.cats.forEach(c => c.r.forEach(r => {
-      forbidden.forEach(f => expect(r.t).not.toContain(f))
+      FORBIDDEN.forEach(f => expect(r.t).not.toContain(f))
     })))
   })
 
@@ -81,52 +90,51 @@ describe('FM Demo — Greenfield Office Park', () => {
   })
 })
 
-describe('DC Demo — Hizinburg Data Center', () => {
-  const scores = DEMO_DC_ZONES.map(z => scoreZone(z, DEMO_DC_BUILDING))
+describe('Demo B — Harborview Corporate Center (building with findings)', () => {
+  const scores = DEMO_FINDINGS_ZONES.map(z => scoreZone(z, DEMO_FINDINGS_BUILDING))
   const comp = compositeScore(scores)
 
-  it('produces valid zone scores', () => {
+  it('produces valid zone scores in range', () => {
     scores.forEach(zs => {
       expect(zs.tot).not.toBeNull()
       expect(zs.tot).not.toBeNaN()
+      expect(zs.tot).toBeGreaterThanOrEqual(0)
+      expect(zs.tot).toBeLessThanOrEqual(100)
     })
   })
 
   it('no forbidden language in any finding', () => {
-    const forbidden = ['SYSTEM FAILURE', 'SYNERGISTIC', 'TOXICITY', 'System Integrity Override', 'emergency', 'Critical Concern Override', 'Class 8 exceeded', 'EPA BASE']
     scores.forEach(zs => zs.cats.forEach(c => c.r.forEach(r => {
-      forbidden.forEach(f => expect(r.t).not.toContain(f))
+      FORBIDDEN.forEach(f => expect(r.t).not.toContain(f))
     })))
   })
 
-  it('HVAC scores full credit with maintenance current + clean filter', () => {
+  it('critical HVAC gate5 fires (standing water in drain pan)', () => {
+    const hvac0 = scores[0].cats.find(c => c.l === 'HVAC')
+    expect(hvac0.gate5).toBe(true)
+    expect(scores[0].tot).toBeLessThanOrEqual(40)
+  })
+
+  it('occupant complaints present in both zones', () => {
     scores.forEach(zs => {
-      const hvac = zs.cats.find(c => c.l === 'HVAC')
-      if (hvac.s !== null && !hvac.suppressed) {
-        expect(hvac.s).toBe(hvac.mx)
-      }
+      const comp = zs.cats.find(c => c.l === 'Complaints')
+      expect(comp.s).toBeLessThan(comp.mx)
     })
   })
 
-  it('G3 corrosion produces screening finding (not Critical Override) on Data Hall B', () => {
-    const hallB = scores.find(zs => zs.zoneName === 'Data Hall B — Expansion')
-    const contCat = hallB.cats.find(c => c.l === 'Contaminants')
-    const screeningFinding = contCat.r.find(r => r.t.includes('Screening indicators'))
-    expect(screeningFinding).toBeDefined()
-    expect(screeningFinding.sev).toBe('medium') // screening data = medium, not high or critical
-    expect(screeningFinding.std).toContain('(screening)')
-    // Critical Override does NOT fire on screening data
-    expect(contCat.r.every(r => !r.t.includes('Critical Concern Override'))).toBe(true)
+  it('composite reflects the worst-zone Critical override', () => {
+    expect(comp.tot).not.toBeNull()
+    expect(comp.logic).toBe('worst-zone-override')
+    expect(comp.risk).toBe('Critical')
   })
 
-  it('no definitive G-class or ISO Class assertions in any finding', () => {
-    const banned = ['G3 — Harsh', 'GX — Severe', 'Class 8 exceeded', 'Critical Concern Override']
-    scores.forEach(zs => zs.cats.forEach(c => c.r.forEach(r => {
-      banned.forEach(b => expect(r.t).not.toContain(b))
-    })))
-  })
-
-  it('composite uses weighted mean (no Critical Override in screening mode)', () => {
-    expect(comp.logic).toBe('weighted-mean-of-zones')
+  it('no null/NaN in any category score', () => {
+    scores.forEach(zs => zs.cats.forEach(c => {
+      if (c.s !== null) {
+        expect(c.s).not.toBeNaN()
+        expect(c.s).toBeGreaterThanOrEqual(0)
+        expect(c.s).toBeLessThanOrEqual(c.mx)
+      }
+    }))
   })
 })

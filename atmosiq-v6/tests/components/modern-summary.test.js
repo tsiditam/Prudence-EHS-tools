@@ -6,7 +6,7 @@
 import { describe, it, expect } from 'vitest'
 import { generateModernSummaryHTML } from '../../src/components/print/modern-summary'
 import { scoreZone, compositeScore } from '../../src/engines/scoring.js'
-import { DEMO_BUILDING, DEMO_ZONES, DEMO_PRESURVEY } from '../../src/constants/demoData.js'
+import { DEMO_FINDINGS_BUILDING as DEMO_BUILDING, DEMO_FINDINGS_ZONES as DEMO_ZONES, DEMO_FINDINGS_PRESURVEY as DEMO_PRESURVEY } from '../../src/constants/demoDataFindings'
 
 function demoData(extra) {
   const zoneScores = DEMO_ZONES.map(z => scoreZone(z, DEMO_BUILDING))

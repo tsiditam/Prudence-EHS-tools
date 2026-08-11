@@ -84,9 +84,9 @@ import { ensureLoggerChartImages } from '../utils/loggerChartImages'
 // Bundling the docx renderer into the main chunk eliminates that failure
 // mode for the most common user action — exporting a report.
 import { generateDocx, generateConsultantOnly, generateTechnicalOnly, getConsultantDocxBlob, getNarrativeDocxBlob } from './DocxReport'
-import { DEMO_PRESURVEY, DEMO_BUILDING, DEMO_ZONES, DEMO_EQUIPMENT } from '../constants/demoData'
+import { DEMO_CLEAN_PRESURVEY, DEMO_CLEAN_BUILDING, DEMO_CLEAN_ZONES, DEMO_CLEAN_EQUIPMENT } from '../constants/demoDataClean'
 import { DEMO_FM_PRESURVEY, DEMO_FM_BUILDING, DEMO_FM_ZONES } from '../constants/demoDataFM'
-import { DEMO_DC_PRESURVEY, DEMO_DC_BUILDING, DEMO_DC_ZONES } from '../constants/demoDataDC'
+import { DEMO_FINDINGS_PRESURVEY, DEMO_FINDINGS_BUILDING, DEMO_FINDINGS_ZONES, DEMO_FINDINGS_EQUIPMENT } from '../constants/demoDataFindings'
 import { getMode, setMode as persistMode, isFM, t, homeView } from '../constants/terminology'
 import { evaluateEscalation, hasActiveEscalation } from '../engines/escalation'
 import { getBuildingProfile } from '../engines/buildingProfiles'
@@ -1322,11 +1322,11 @@ export default function MobileApp() {
 
   const runDemo = (type) => {
     const demos = {
-      ih: { bldg: DEMO_BUILDING, zones: DEMO_ZONES, pre: DEMO_PRESURVEY, equipment: DEMO_EQUIPMENT },
+      clean: { bldg: DEMO_CLEAN_BUILDING, zones: DEMO_CLEAN_ZONES, pre: DEMO_CLEAN_PRESURVEY, equipment: DEMO_CLEAN_EQUIPMENT },
       fm: { bldg: DEMO_FM_BUILDING, zones: DEMO_FM_ZONES, pre: DEMO_FM_PRESURVEY, equipment: [] },
-      dc: { bldg: DEMO_DC_BUILDING, zones: DEMO_DC_ZONES, pre: DEMO_DC_PRESURVEY, equipment: [] },
+      findings: { bldg: DEMO_FINDINGS_BUILDING, zones: DEMO_FINDINGS_ZONES, pre: DEMO_FINDINGS_PRESURVEY, equipment: DEMO_FINDINGS_EQUIPMENT },
     }
-    const pick = type || (userMode === 'fm' ? 'fm' : 'ih')
+    const pick = type || (userMode === 'fm' ? 'fm' : 'clean')
     const { bldg: demoBldg, zones: demoZones, pre: demoPre, equipment: demoEq } = demos[pick]
     trackEvent('assessment_mode_selected', { mode: 'demo', demoType: pick, userMode })
     setBldg(demoBldg); setZones(demoZones); setPresurvey(demoPre); setPhotos({}); setEquipment(demoEq || [])
@@ -3290,8 +3290,8 @@ export default function MobileApp() {
     { key: 'resources', label: 'Resources', items: (userMode === 'fm'
       ? [{ label: 'Sample Air Quality Check', icon: 'play', onClick: () => runDemo() }]
       : [
-          { label: 'Demo · Office Building', icon: 'play', onClick: () => runDemo() },
-          { label: 'Demo · Data Center',     icon: 'play', onClick: () => runDemo('dc') },
+          { label: 'Demo · Well-Run Office',      icon: 'play', onClick: () => runDemo('clean') },
+          { label: 'Demo · Building w/ Findings', icon: 'play', onClick: () => runDemo('findings') },
         ]) },
     { key: 'support', label: 'Support', items: [
       { label: 'Settings',      icon: 'gear', view: 'settings', onClick: () => setView('settings') },

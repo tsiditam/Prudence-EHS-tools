@@ -11,7 +11,7 @@ import {
   collectFindings, recommendationsByTimeframe, buildQaQc, buildLimitations,
 } from '../../src/report/reportModel'
 import { scoreZone, compositeScore } from '../../src/engines/scoring.js'
-import { DEMO_BUILDING, DEMO_ZONES, DEMO_PRESURVEY } from '../../src/constants/demoData.js'
+import { DEMO_FINDINGS_BUILDING as DEMO_BUILDING, DEMO_FINDINGS_ZONES as DEMO_ZONES, DEMO_FINDINGS_PRESURVEY as DEMO_PRESURVEY } from '../../src/constants/demoDataFindings'
 
 const Z = [
   { zn: 'Open Office', co2: '760', tf: '72', rh: '45', pm: '8', co: '0.4', tv: '210' },

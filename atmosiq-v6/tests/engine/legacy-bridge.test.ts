@@ -5,7 +5,7 @@ import { renderClientReport } from '../../src/engine/report/client'
 import { renderInternalReport } from '../../src/engine/report/internal'
 import { assertNoInternalFields } from '../../src/engine/report/validators'
 import { scoreZone, compositeScore } from '../../src/engines/scoring'
-import { DEMO_PRESURVEY, DEMO_BUILDING, DEMO_ZONES } from '../../src/constants/demoData'
+import { DEMO_FINDINGS_PRESURVEY as DEMO_PRESURVEY, DEMO_FINDINGS_BUILDING as DEMO_BUILDING, DEMO_FINDINGS_ZONES as DEMO_ZONES } from '../../src/constants/demoDataFindings'
 import type { AssessmentMeta } from '../../src/engine/types/domain'
 
 const META: AssessmentMeta = {
