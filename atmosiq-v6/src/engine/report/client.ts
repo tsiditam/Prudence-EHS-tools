@@ -114,7 +114,7 @@ export function renderClientReport(
     facility: meta.siteName,
     location: meta.siteAddress,
     date: meta.assessmentDate,
-    preparedBy: `${meta.preparingAssessor.fullName}, ${meta.preparingAssessor.credentials.join(', ')} — ${meta.issuingFirm.name}`,
+    preparedBy: `${meta.preparingAssessor.fullName}, ${meta.preparingAssessor.credentials.join(', ')} - ${meta.issuingFirm.name}`,
     status: meta.reviewStatus,
     methodologyLine: COVER_METHODOLOGY_LINE,
     draftNotice: showWatermark ? DRAFT_COVER_NOTICE : undefined,
@@ -498,7 +498,7 @@ export function renderClientReport(
   // build a preliminary report with a stub Appendix D, run the
   // walker, then replace Appendix D with the populated version.
   const appendixDStub: AppendixD = {
-    title: 'APPENDIX D — Standards and Citations',
+    title: 'APPENDIX D - Standards and Citations',
     description: '',
     citations: [],
     displayLines: [],
@@ -546,17 +546,17 @@ export function renderClientReport(
       : []),
     { anchorId: 'recommendations-register', title: 'Recommendations Register', level: 1 },
     { anchorId: 'limitations-and-professional-judgment', title: 'Limitations and Professional Judgment', level: 1 },
-    { anchorId: 'appendix-a', title: 'Appendix A — Per-Zone Measurement Tabulation', level: 1 },
-    { anchorId: 'appendix-b', title: 'Appendix B — Sampling Locations and Methodology', level: 1 },
-    { anchorId: 'appendix-c', title: 'Appendix C — Photo Documentation', level: 1 },
-    { anchorId: 'appendix-d', title: 'Appendix D — Standards and Citations', level: 1 },
-    { anchorId: 'appendix-e', title: 'Appendix E — Quality Assurance and Calibration', level: 1 },
-    { anchorId: 'appendix-f', title: 'Appendix F — Glossary', level: 1 },
+    { anchorId: 'appendix-a', title: 'Appendix A - Per-Zone Measurement Tabulation', level: 1 },
+    { anchorId: 'appendix-b', title: 'Appendix B - Sampling Locations and Methodology', level: 1 },
+    { anchorId: 'appendix-c', title: 'Appendix C - Photo Documentation', level: 1 },
+    { anchorId: 'appendix-d', title: 'Appendix D - Standards and Citations', level: 1 },
+    { anchorId: 'appendix-e', title: 'Appendix E - Quality Assurance and Calibration', level: 1 },
+    { anchorId: 'appendix-f', title: 'Appendix F - Glossary', level: 1 },
   ]
   if (options.includeAssessmentIndexAppendix) {
     tocEntries.push({
       anchorId: 'appendix-assessment-index',
-      title: 'Appendix — Assessment Index (Informational Only)',
+      title: 'Appendix - Assessment Index (Informational Only)',
       level: 1,
     })
   }
@@ -604,7 +604,7 @@ export function renderClientReport(
     proseCitations,
   })
   const appendixD: AppendixD = {
-    title: 'APPENDIX D — Standards and Citations',
+    title: 'APPENDIX D - Standards and Citations',
     description:
       'Authoritative regulatory, consensus-standard, peer-reviewed, and manufacturer references invoked in this report. Each entry below is the canonical bibliographic reference for an in-text citation appearing in Results subsections, findings, or recommended actions. The engine-version footer at the bottom of this appendix is the single canonical record of the platform build that produced this report.',
     citations: collectedCitations.map(c => ({
@@ -830,7 +830,7 @@ function buildAppendixA(
     }
   }
   return {
-    title: 'APPENDIX A — Per-Zone Measurement Tabulation',
+    title: 'APPENDIX A - Per-Zone Measurement Tabulation',
     description:
       'Direct-reading instrument measurements recorded in each zone during the assessment, with outdoor reference values where collected. Values are rounded to instrument precision; refer to Appendix E for instrument calibration records.',
     rows,
@@ -859,7 +859,7 @@ function buildAppendixB(
     }
   })
   return {
-    title: 'APPENDIX B — Sampling Locations and Methodology Detail',
+    title: 'APPENDIX B - Sampling Locations and Methodology Detail',
     description:
       'Per-instrument and per-zone documentation supporting reproducibility of the field measurements summarized in the Results section. Sample locations within each zone were selected to be representative of the occupied space.',
     instrumentRows,
@@ -875,7 +875,7 @@ function buildAppendixE(meta: ClientReport['meta']): AppendixE {
     status: inst.calibrationStatus ?? '',
   }))
   return {
-    title: 'APPENDIX E — Quality Assurance and Instrument Calibration',
+    title: 'APPENDIX E - Quality Assurance and Instrument Calibration',
     description:
       'Calibration records and quality-assurance notes for the direct-reading instruments used in this assessment. Calibration was verified to be within manufacturer specification at the time of survey.',
     calibrationRecords,
@@ -889,7 +889,7 @@ function buildAppendixE(meta: ClientReport['meta']): AppendixE {
 
 function buildAppendixF(): AppendixF {
   return {
-    title: 'APPENDIX F — Glossary of Terms and Abbreviations',
+    title: 'APPENDIX F - Glossary of Terms and Abbreviations',
     description: 'Selected terms and abbreviations used in this report.',
     entries: [
       { term: 'ASHRAE 55', definition: 'Thermal Environmental Conditions for Human Occupancy.' },

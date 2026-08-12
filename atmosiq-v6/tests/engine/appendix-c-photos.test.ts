@@ -14,7 +14,7 @@ import { describe, it, expect } from 'vitest'
 import { buildAppendixC } from '../../src/engine/report/appendix-c'
 import type { AssessmentPhoto } from '../../src/engine/report/appendix-c'
 
-describe('v2.5 §5 — Appendix C deterministic builder', () => {
+describe('v2.5 §5 - Appendix C deterministic builder', () => {
   it('returns the deterministic no-photo sentence when no photos exist', () => {
     const result = buildAppendixC([])
     expect(result.photos).toHaveLength(0)
@@ -41,9 +41,9 @@ describe('v2.5 §5 — Appendix C deterministic builder', () => {
       { caption: 'Zone A photo', zoneName: 'Zone A' },
     ]
     const result = buildAppendixC(photos)
-    expect(result.photos[0].caption).toContain('Building — Building photo')
-    expect(result.photos[1].caption).toContain('Zone A — Zone A photo')
-    expect(result.photos[2].caption).toContain('Zone B — Zone B photo')
+    expect(result.photos[0].caption).toContain('Building - Building photo')
+    expect(result.photos[1].caption).toContain('Zone A - Zone A photo')
+    expect(result.photos[2].caption).toContain('Zone B - Zone B photo')
   })
 
   it('captions building-level photos with the literal label "Building"', () => {
@@ -51,7 +51,7 @@ describe('v2.5 §5 — Appendix C deterministic builder', () => {
       { caption: 'Roof inspection', zoneName: null },
     ]
     const result = buildAppendixC(photos)
-    expect(result.photos[0].caption).toBe('Photo 1: Building — Roof inspection')
+    expect(result.photos[0].caption).toBe('Photo 1: Building - Roof inspection')
     expect(result.photos[0].zoneName).toBe('Building')
   })
 
@@ -60,7 +60,7 @@ describe('v2.5 §5 — Appendix C deterministic builder', () => {
       { caption: 'Filter image', zoneName: 'Mechanical Room' },
     ]
     const result = buildAppendixC(photos)
-    expect(result.photos[0].caption).toBe('Photo 1: Mechanical Room — Filter image')
+    expect(result.photos[0].caption).toBe('Photo 1: Mechanical Room - Filter image')
     expect(result.photos[0].zoneName).toBe('Mechanical Room')
   })
 

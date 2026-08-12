@@ -21,7 +21,7 @@ export function evalOSHA(d, tot) {
   if (d.cx === 'Yes — complaints reported' && tot < 70) fl.push('Documented complaint pattern with concurrent hazard indicators')
   if (d.co2 && +d.co2 > STD.v.co2.con) fl.push('Ventilation-related concern pattern')
   if (d.wd === 'Active leak' || d.wd === 'Extensive damage' || (d.mi && !['None','Suspected discoloration'].includes(d.mi))) fl.push('Water/mold indicators present')
-  if (d.sr === 'Yes — clear pattern' && (d.ac === 'More than 10' || d.ac === '6-10')) fl.push('Building-related symptom pattern — widespread')
+  if (d.sr === 'Yes — clear pattern' && (d.ac === 'More than 10' || d.ac === '6-10')) fl.push('Building-related symptom pattern - widespread')
   if (d.co && +d.co > STD.c.co.osha) fl.push('CO measurement above OSHA PEL threshold')
   if (d.hc && +d.hc > STD.c.hcho.osha) fl.push('Formaldehyde measurement above OSHA PEL threshold')
   const suff = evaluateAllSufficiency(d)
@@ -64,7 +64,7 @@ const EQ_RULES = {
   filter_replace_high: { bucket: 'eng', text: 'Replace or service air filters. Inspect filter housing for bypass or damage.' },
   comprehensive_hvac_overdue: { bucket: 'eng', text: 'Schedule comprehensive HVAC inspection within 24–72 hours when occupant symptoms are active.' },
   comprehensive_hvac_high: { bucket: 'eng', text: 'Schedule comprehensive HVAC inspection.' },
-  comprehensive_hvac_assessment: { bucket: 'eng', text: 'Conduct comprehensive HVAC system assessment — inspect filter condition, measure supply airflow, and evaluate drain pan and condensate management.' },
+  comprehensive_hvac_assessment: { bucket: 'eng', text: 'Conduct comprehensive HVAC system assessment - inspect filter condition, measure supply airflow, and evaluate drain pan and condensate management.' },
 }
 
 // Build a zone-name → list-of-equipment-IDs map. Equipment IDs are
@@ -145,7 +145,7 @@ export function genRecs(zoneScores, bldg, opts = {}) {
         // Immediate action carries its provenance (the dedup phase below
         // merges these when the same system action surfaces from several zones).
         if (r.t.includes('No supply airflow')) pushBuilding('imm', 'Request immediate HVAC service to restore airflow.', [zs.zoneName])
-        if (r.t.includes('No filtration') || r.t.includes('no filter')) pushBuilding('imm', 'Request immediate HVAC service — no filtration installed.', [zs.zoneName])
+        if (r.t.includes('No filtration') || r.t.includes('no filter')) pushBuilding('imm', 'Request immediate HVAC service - no filtration installed.', [zs.zoneName])
         if (r.t.includes('Drain pan')) trigger('drainpan_immediate', zs.zoneName)
         if (r.t.includes('water') || r.t.includes('leak')) pushZone('imm', zs.zoneName, 'Arrest water intrusion. Assess materials within 48 hours.')
         if (r.t.toLowerCase().includes('occupant') && r.t.includes('symptom')) pushZone('imm', zs.zoneName, 'Document symptom patterns using NIOSH IEQ questionnaire or equivalent structured instrument. Evaluate ventilation immediately.')
@@ -163,7 +163,7 @@ export function genRecs(zoneScores, bldg, opts = {}) {
         if (r.t.includes('ilter condition') || r.t.includes('filtration')) trigger('filter_replace_high', zs.zoneName)
         if (r.t.includes('Temperature') || r.t.includes('comfort range')) pushZone('eng', zs.zoneName, 'Evaluate thermostat settings and HVAC zoning for thermal comfort.')
         if (r.t.includes('occupant') || r.t.includes('symptom')) pushZone('adm', zs.zoneName, 'Document affected occupants using NIOSH IEQ questionnaire or equivalent structured symptom instrument.')
-        if (r.t.includes('resolve')) pushZone('adm', zs.zoneName, 'Building-related symptom pattern — investigate ventilation and source pathways.')
+        if (r.t.includes('resolve')) pushZone('adm', zs.zoneName, 'Building-related symptom pattern - investigate ventilation and source pathways.')
       }
     }))
     // Pattern-driven recs (water / mold / drain pan / filter / pressure / symptom cluster)
@@ -176,7 +176,7 @@ export function genRecs(zoneScores, bldg, opts = {}) {
     if (hasWater) pushZone('imm', zs.zoneName, 'Repair water intrusion source. Assess affected materials within 48 hours per IICRC S500.')
     if (hasMold) {
       pushZone('eng', zs.zoneName, 'Remediate visible mold per IICRC S520 / EPA Mold Remediation in Schools and Commercial Buildings. For areas <10 sq ft (Level I), trained maintenance staff with PPE (N95, gloves, eye protection) may perform cleanup.')
-      pushZone('eng', zs.zoneName, 'Post-remediation verification per IICRC S520 — visual clearance and clearance air sampling before reoccupancy.')
+      pushZone('eng', zs.zoneName, 'Post-remediation verification per IICRC S520 - visual clearance and clearance air sampling before reoccupancy.')
     }
     if (hasDrainPan) {
       trigger('drainpan_clean', zs.zoneName)
@@ -258,7 +258,7 @@ export function genRecs(zoneScores, bldg, opts = {}) {
     if (unmapped.length > 0) {
       buckets[def.bucket].push({
         scope: 'building',
-        text: `HVAC equipment not yet identified — ${def.text}`,
+        text: `HVAC equipment not yet identified - ${def.text}`,
         affectedZoneIds: unmapped,
         affectedZoneNames: unmapped,
       })
@@ -315,7 +315,7 @@ export function evalMold(d) {
   else if (d.mi.includes('Moderate')) { condition = (sqft && sqft >= 10) ? 3 : 2; triggered = condition >= 2 }
   else if (d.mi.includes('Small'))    { condition = (sqft && sqft >= 10) ? 2 : 1; triggered = condition >= 2 }
   else                                { condition = 1; triggered = false }
-  return { condition, label: `IICRC S520 Condition ${condition}`, sqft, investigationTriggered: triggered, visual: d.mi, caveat: 'Visual observation only — not confirmed by sampling' }
+  return { condition, label: `IICRC S520 Condition ${condition}`, sqft, investigationTriggered: triggered, visual: d.mi, caveat: 'Visual observation only - not confirmed by sampling' }
 }
 
 // Gap 3: SBS pattern detection — complaints alone can trigger causal chains

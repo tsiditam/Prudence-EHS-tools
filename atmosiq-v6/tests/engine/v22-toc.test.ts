@@ -45,7 +45,7 @@ function buildScore(opts: { includeAppendix?: boolean } = {}) {
   return renderClientReport(score, { includeAssessmentIndexAppendix: !!opts.includeAppendix })
 }
 
-describe('v2.2 §5 — Table of Contents on ClientReport', () => {
+describe('v2.2 §5 - Table of Contents on ClientReport', () => {
   it('Populated by default', () => {
     const result = buildScore()
     if (result.kind !== 'report') throw new Error('Expected report')
@@ -76,12 +76,12 @@ describe('v2.2 §5 — Table of Contents on ClientReport', () => {
       'Zone Findings',
       'Recommendations Register',
       'Limitations and Professional Judgment',
-      'Appendix A — Per-Zone Measurement Tabulation',
-      'Appendix B — Sampling Locations and Methodology',
-      'Appendix C — Photo Documentation',
-      'Appendix D — Standards and Citations',
-      'Appendix E — Quality Assurance and Calibration',
-      'Appendix F — Glossary',
+      'Appendix A - Per-Zone Measurement Tabulation',
+      'Appendix B - Sampling Locations and Methodology',
+      'Appendix C - Photo Documentation',
+      'Appendix D - Standards and Citations',
+      'Appendix E - Quality Assurance and Calibration',
+      'Appendix F - Glossary',
     ])
   })
 
@@ -114,7 +114,7 @@ describe('v2.2 §5 — Table of Contents on ClientReport', () => {
   })
 })
 
-describe('v2.2 §5 — HTML rendering', () => {
+describe('v2.2 §5 - HTML rendering', () => {
   it('Includes <nav class="toc"> with all TOC entries', () => {
     const result = buildScore()
     if (result.kind !== 'report') return
@@ -148,7 +148,7 @@ describe('v2.2 §5 — HTML rendering', () => {
   })
 })
 
-describe('v2.2 §5 — DOCX rendering', () => {
+describe('v2.2 §5 - DOCX rendering', () => {
   it('DOCX with TOC packs to a non-empty buffer', async () => {
     const result = buildScore()
     if (result.kind !== 'report') return

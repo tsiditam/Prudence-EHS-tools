@@ -43,7 +43,7 @@ export function evaluatePermissions(finding: Finding): FindingPermissions {
   const causationSupported = definitiveConclusionAllowed && finding.causationSupported
 
   if (finding.causationSupported && !definitiveConclusionAllowed) {
-    rationale.push('Causation chain exists but finding is not definitive — causal language blocked.')
+    rationale.push('Causation chain exists but finding is not definitive - causal language blocked.')
   } else if (causationSupported) {
     rationale.push('Causation supported: finding is definitive and part of a recognized causal chain.')
   }
@@ -52,7 +52,7 @@ export function evaluatePermissions(finding: Finding): FindingPermissions {
   const regulatoryConclusionAllowed = definitiveConclusionAllowed && finding.regulatoryConclusionAllowed
 
   if (finding.regulatoryConclusionAllowed && !definitiveConclusionAllowed) {
-    rationale.push('Regulatory threshold exceeded but finding is not definitive — regulatory language blocked.')
+    rationale.push('Regulatory threshold exceeded but finding is not definitive - regulatory language blocked.')
   } else if (regulatoryConclusionAllowed) {
     rationale.push('Regulatory conclusion permitted: definitive evidence with value exceeding regulatory limit beyond instrument uncertainty.')
   }

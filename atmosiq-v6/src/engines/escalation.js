@@ -76,10 +76,10 @@ export function evaluateEscalation(assessment, complaints, history) {
   const odors = observations.odors || []
 
   if (odors.includes('Sewer / sulfur')) {
-    triggers.push({ rule: 'Q1_sewer_sulfur_odor', severity: 'critical', rationale: 'Sewer or sulfur odor reported. Possible sewer gas infiltration, hydrogen sulfide, or plumbing trap failure — immediate professional evaluation recommended.' })
+    triggers.push({ rule: 'Q1_sewer_sulfur_odor', severity: 'critical', rationale: 'Sewer or sulfur odor reported. Possible sewer gas infiltration, hydrogen sulfide, or plumbing trap failure - immediate professional evaluation recommended.' })
   }
   if (odors.includes('Combustion / smoky')) {
-    triggers.push({ rule: 'Q2_indoor_combustion_odor', severity: 'critical', rationale: 'Combustion or smoky odor reported indoors. Possible CO or combustion byproduct infiltration — evaluate immediately.' })
+    triggers.push({ rule: 'Q2_indoor_combustion_odor', severity: 'critical', rationale: 'Combustion or smoky odor reported indoors. Possible CO or combustion byproduct infiltration - evaluate immediately.' })
   }
   const moldVals = ['Suspected small (< 10 sq ft)', 'Suspected large (10-100 sq ft)', 'Suspected extensive (> 100 sq ft)']
   if (moldVals.includes(observations.visibleMold)) {
@@ -87,7 +87,7 @@ export function evaluateEscalation(assessment, complaints, history) {
   }
   const waterSigns = ['Old staining', 'Active leak', 'Recent event']
   if (waterSigns.includes(observations.waterMoisture) && odors.includes('Musty / earthy')) {
-    triggers.push({ rule: 'Q4_moisture_plus_musty', severity: 'high', rationale: 'Water intrusion or staining combined with musty odor. Hidden mold growth is likely — IICRC S520 professional assessment recommended.' })
+    triggers.push({ rule: 'Q4_moisture_plus_musty', severity: 'high', rationale: 'Water intrusion or staining combined with musty odor. Hidden mold growth is likely - IICRC S520 professional assessment recommended.' })
   }
   const chemOdors = odors.filter(o => o.startsWith('Chemical'))
   const respiratorySymptoms = ['Cough', 'Shortness of breath', 'Throat irritation']
@@ -114,17 +114,17 @@ export function evaluateEscalation(assessment, complaints, history) {
     triggers.push({ rule: 'C1_active_construction', severity: 'high', rationale: 'Active construction or renovation in occupied building. Professional IAQ monitoring recommended for duration of activity.' })
   }
   if (bYear && bYear < 1980 && (isConstruction || isRecentReno)) {
-    triggers.push({ rule: 'C2_pre1980_renovation_asbestos_risk', severity: 'critical', rationale: 'Building constructed before 1980 with active or recent renovation. Asbestos-containing materials may be disturbed — AHERA-compliant inspection recommended.' })
+    triggers.push({ rule: 'C2_pre1980_renovation_asbestos_risk', severity: 'critical', rationale: 'Building constructed before 1980 with active or recent renovation. Asbestos-containing materials may be disturbed - AHERA-compliant inspection recommended.' })
   }
   if (bYear && bYear < 1978 && subtypes.includes('Paint disturbance')) {
-    triggers.push({ rule: 'C3_pre1978_lead_paint_risk', severity: 'critical', rationale: 'Building constructed before 1978 with paint disturbance activity. Lead-based paint risk — EPA RRP-certified contractor required under 40 CFR Part 745.' })
+    triggers.push({ rule: 'C3_pre1978_lead_paint_risk', severity: 'critical', rationale: 'Building constructed before 1978 with paint disturbance activity. Lead-based paint risk - EPA RRP-certified contractor required under 40 CFR Part 745.' })
   }
   const silicaActivities = ['Concrete cutting', 'Masonry work', 'Drywall demolition']
   if (subtypes.some(s => silicaActivities.includes(s))) {
-    triggers.push({ rule: 'C4_silica_generating_activity', severity: 'high', rationale: 'Construction activity involves respirable crystalline silica generation. OSHA 29 CFR 1926.1153 compliance required — professional exposure monitoring recommended.' })
+    triggers.push({ rule: 'C4_silica_generating_activity', severity: 'high', rationale: 'Construction activity involves respirable crystalline silica generation. OSHA 29 CFR 1926.1153 compliance required - professional exposure monitoring recommended.' })
   }
   if (activity.includes('Water damage') && building.fm_dryout_documented !== 'Yes') {
-    triggers.push({ rule: 'C5_water_event_without_dryout', severity: 'high', rationale: 'Water damage event without documented dry-out within 48–72 hours. Hidden mold growth is likely — IICRC S520 assessment recommended.' })
+    triggers.push({ rule: 'C5_water_event_without_dryout', severity: 'high', rationale: 'Water damage event without documented dry-out within 48–72 hours. Hidden mold growth is likely - IICRC S520 assessment recommended.' })
   }
 
   return triggers

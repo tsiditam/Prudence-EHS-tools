@@ -36,7 +36,7 @@ async function packWithChrome(opts: { firm?: string; projectNumber?: string; cli
   }
 }
 
-describe('Phase 3 — report chrome', () => {
+describe('Phase 3 - report chrome', () => {
   it('header carries firm name and project number', async () => {
     const { header } = await packWithChrome({ firm: 'Prudence EHS LLC', projectNumber: 'PSEC-2026-0007' })
     expect(header).toContain('Prudence EHS LLC')
@@ -45,7 +45,7 @@ describe('Phase 3 — report chrome', () => {
 
   it('footer carries the confidential/client line and live page-number fields', async () => {
     const { footer } = await packWithChrome({ clientName: 'Acme Property Group' })
-    expect(footer).toContain('CONFIDENTIAL — Prepared for Acme Property Group')
+    expect(footer).toContain('CONFIDENTIAL - Prepared for Acme Property Group')
     expect(footer).toContain('Page ')
     // Live Word field codes, not baked-in numbers. SECTIONPAGES (not
     // NUMPAGES) so the cover section is excluded from the total.
@@ -55,7 +55,7 @@ describe('Phase 3 — report chrome', () => {
 
   it('falls back to a generic confidential line when no client is provided', async () => {
     const { footer } = await packWithChrome({})
-    expect(footer).toContain('CONFIDENTIAL — For client use only')
+    expect(footer).toContain('CONFIDENTIAL - For client use only')
   })
 
   it('omits the project label when no project number is provided', async () => {
@@ -89,7 +89,7 @@ describe('the monitoring report opts in to different chrome', () => {
     // The consultant deliverable has shipped with this exact line. Restyling
     // it is not a side effect this shared function gets to have.
     const { footer } = await packWithChrome({ clientName: 'Acme Property Group' })
-    expect(footer).toContain('CONFIDENTIAL — Prepared for Acme Property Group')
+    expect(footer).toContain('CONFIDENTIAL - Prepared for Acme Property Group')
     expect(footer).not.toContain('Confidential   ·')
   })
 
@@ -101,7 +101,7 @@ describe('the monitoring report opts in to different chrome', () => {
     expect(footer).toContain('Indoor Environmental Monitoring Report')
     expect(footer).toContain('Confidential')
     expect(footer).toContain('Prepared for Acme Property Group')
-    expect(footer).not.toContain('CONFIDENTIAL —')
+    expect(footer).not.toContain('CONFIDENTIAL -')
   })
 
   it('asks for NUMPAGES in a single-section document, and SECTIONPAGES otherwise', async () => {

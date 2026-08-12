@@ -64,9 +64,9 @@ function checkCo2Ventilation(data) {
       id: 'co2-action',
       severity: 'critical',
       parameter: PARAM.co2,
-      observation: `CO₂ at ${co2} ppm${delta !== null ? ` (Δ${delta} ppm above outdoor)` : ''} — exceeds 1,500 ppm action threshold.`,
+      observation: `CO₂ at ${co2} ppm${delta !== null ? ` (Δ${delta} ppm above outdoor)` : ''} - exceeds 1,500 ppm action threshold.`,
       suggestion: 'Verify outdoor-air damper position and AHU set-points. Consider immediate ventilation increase pending fix; document occupancy + HVAC mode.',
-      reference: 'ASHRAE 62.1-2025 (Persily 2022 — CO₂ as ventilation indicator)',
+      reference: 'ASHRAE 62.1-2025 (Persily 2022 - CO₂ as ventilation indicator)',
     }
   }
   if (co2 >= STD.v.co2.con) {
@@ -75,7 +75,7 @@ function checkCo2Ventilation(data) {
       id: 'co2-concern',
       severity: 'warn',
       parameter: PARAM.co2,
-      observation: `CO₂ at ${co2} ppm${delta !== null ? ` (Δ${delta} ppm above outdoor)` : ''} — likely under-ventilated for current occupancy.`,
+      observation: `CO₂ at ${co2} ppm${delta !== null ? ` (Δ${delta} ppm above outdoor)` : ''} - likely under-ventilated for current occupancy.`,
       suggestion: 'Consider outdoor-air measurement (CFM/person) and compare with ASHRAE 62.1 design rate for the space type.',
       reference: 'ASHRAE 62.1-2025',
     }
@@ -98,7 +98,7 @@ function checkOutdoorBaseline(data) {
       severity: 'info',
       parameter: PARAM.co2,
       observation: 'Indoor CO₂ entered without outdoor baseline.',
-      suggestion: 'Capture an outdoor CO₂ reading (~400-450 ppm typical). The Δ is the defensible signal — a single indoor value alone is hard to interpret.',
+      suggestion: 'Capture an outdoor CO₂ reading (~400-450 ppm typical). The Δ is the defensible signal - a single indoor value alone is hard to interpret.',
       reference: 'ASHRAE 62.1-2025 §7.2.2',
     }
   }
@@ -113,7 +113,7 @@ function checkCO(data) {
       id: 'co-pel',
       severity: 'critical',
       parameter: PARAM.co,
-      observation: `CO at ${co} ppm — at or above OSHA PEL (${STD.c.co.osha} ppm).`,
+      observation: `CO at ${co} ppm - at or above OSHA PEL (${STD.c.co.osha} ppm).`,
       suggestion: 'Evacuate or ventilate immediately. Locate combustion source (vehicle, generator, furnace, water heater). Continuous monitoring while remediation proceeds.',
       reference: '29 CFR 1910.1000 (OSHA Z-1 PELs)',
     }
@@ -123,7 +123,7 @@ function checkCO(data) {
       id: 'co-niosh',
       severity: 'warn',
       parameter: PARAM.co,
-      observation: `CO at ${co} ppm — at or above NIOSH REL (${STD.c.co.niosh} ppm).`,
+      observation: `CO at ${co} ppm - at or above NIOSH REL (${STD.c.co.niosh} ppm).`,
       suggestion: 'Identify the source. Consider continuous CO logging over a representative occupancy period.',
       reference: 'NIOSH Pocket Guide to Chemical Hazards',
     }
@@ -133,7 +133,7 @@ function checkCO(data) {
       id: 'co-rising',
       severity: 'info',
       parameter: PARAM.co,
-      observation: `CO at ${co} ppm — half of NIOSH REL.`,
+      observation: `CO at ${co} ppm - half of NIOSH REL.`,
       suggestion: 'Worth noting. If reading is rising over the walkthrough, consider continuous monitoring.',
       reference: 'NIOSH Pocket Guide to Chemical Hazards',
     }
@@ -149,7 +149,7 @@ function checkHCHO(data) {
       id: 'hcho-pel',
       severity: 'critical',
       parameter: PARAM.hcho,
-      observation: `Formaldehyde at ${hc} ppm — at or above OSHA PEL (${STD.c.hcho.osha} ppm).`,
+      observation: `Formaldehyde at ${hc} ppm - at or above OSHA PEL (${STD.c.hcho.osha} ppm).`,
       suggestion: 'Identify the source (new finishes, mobile homes, combustion). Evacuate sensitive occupants pending source isolation.',
       reference: '29 CFR 1910.1048 (Formaldehyde standard)',
     }
@@ -159,7 +159,7 @@ function checkHCHO(data) {
       id: 'hcho-action',
       severity: 'warn',
       parameter: PARAM.hcho,
-      observation: `Formaldehyde at ${hc} ppm — at or above OSHA Action Level (${STD.c.hcho.al} ppm).`,
+      observation: `Formaldehyde at ${hc} ppm - at or above OSHA Action Level (${STD.c.hcho.al} ppm).`,
       suggestion: 'Consider sorbent-tube confirmation (NIOSH 2016 DNPH) and source survey.',
       reference: '29 CFR 1910.1048 §IV (Action Level)',
     }
@@ -169,9 +169,9 @@ function checkHCHO(data) {
       id: 'hcho-niosh',
       severity: 'info',
       parameter: PARAM.hcho,
-      observation: `Formaldehyde at ${hc} ppm — above NIOSH REL ceiling (${STD.c.hcho.niosh} ppm).`,
+      observation: `Formaldehyde at ${hc} ppm - above NIOSH REL ceiling (${STD.c.hcho.niosh} ppm).`,
       suggestion: 'NIOSH REL is health-protective; a single spot reading above it does not establish exposure, but a sorbent-tube TWA is the defensible confirmation.',
-      reference: 'NIOSH Pocket Guide — Formaldehyde',
+      reference: 'NIOSH Pocket Guide - Formaldehyde',
     }
   }
   return null
@@ -187,7 +187,7 @@ function checkPM25(data) {
       id: 'pm25-epa-24hr',
       severity: 'warn',
       parameter: PARAM.pm25,
-      observation: `Indoor PM2.5 at ${pm} µg/m³ — above EPA 24-hr NAAQS (${STD.c.pm25.epa} µg/m³).`,
+      observation: `Indoor PM2.5 at ${pm} µg/m³ - above EPA 24-hr NAAQS (${STD.c.pm25.epa} µg/m³).`,
       suggestion: 'Identify source (wildfire smoke, infiltration, cooking, construction). Confirm HVAC filtration MERV rating.',
       reference: 'EPA NAAQS PM2.5 (24-hr standard)',
     })
@@ -196,7 +196,7 @@ function checkPM25(data) {
       id: 'pm25-who',
       severity: 'info',
       parameter: PARAM.pm25,
-      observation: `Indoor PM2.5 at ${pm} µg/m³ — above WHO 2021 guideline (${STD.c.pm25.who} µg/m³).`,
+      observation: `Indoor PM2.5 at ${pm} µg/m³ - above WHO 2021 guideline (${STD.c.pm25.who} µg/m³).`,
       suggestion: 'Note the WHO guideline is more health-protective than the EPA NAAQS. Consider source survey + filter upgrade.',
       reference: 'WHO Air Quality Guidelines 2021',
     })
@@ -206,9 +206,9 @@ function checkPM25(data) {
       id: 'pm25-io-ratio',
       severity: 'warn',
       parameter: PARAM.pm25,
-      observation: `Indoor:outdoor PM2.5 ratio is ${(pm / pmo).toFixed(1)}× (indoor ${pm}, outdoor ${pmo}) — indoor source likely.`,
+      observation: `Indoor:outdoor PM2.5 ratio is ${(pm / pmo).toFixed(1)}× (indoor ${pm}, outdoor ${pmo}) - indoor source likely.`,
       suggestion: 'High I/O ratio indicates indoor PM generation. Survey for cooking, candles, printers, deteriorated dampers, building materials.',
-      reference: 'Chen & Zhao 2011 — I/O ratio interpretation',
+      reference: 'Chen & Zhao 2011 - I/O ratio interpretation',
     })
   }
   return advisories
@@ -222,9 +222,9 @@ function checkTVOC(data) {
       id: 'tvoc-action',
       severity: 'warn',
       parameter: PARAM.tvoc,
-      observation: `TVOC at ${tv} µg/m³ — at or above Mølhave action tier (${STD.c.tvoc.act} µg/m³).`,
+      observation: `TVOC at ${tv} µg/m³ - at or above Mølhave action tier (${STD.c.tvoc.act} µg/m³).`,
       suggestion: 'TVOC is advisory only (Mølhave 1991). Confirm with speciated sampling: EPA TO-15 (Summa) or TO-17 (sorbent tube). Survey for solvents, finishes, cleaners.',
-      reference: 'Mølhave 1991 — TVOC advisory tiers',
+      reference: 'Mølhave 1991 - TVOC advisory tiers',
     }
   }
   if (tv >= STD.c.tvoc.con) {
@@ -232,9 +232,9 @@ function checkTVOC(data) {
       id: 'tvoc-concern',
       severity: 'info',
       parameter: PARAM.tvoc,
-      observation: `TVOC at ${tv} µg/m³ — at or above Mølhave concern tier (${STD.c.tvoc.con} µg/m³).`,
+      observation: `TVOC at ${tv} µg/m³ - at or above Mølhave concern tier (${STD.c.tvoc.con} µg/m³).`,
       suggestion: 'Mølhave tiers are advisory; speciation tells you which compounds. Worth noting if multiple zones show similar elevation.',
-      reference: 'Mølhave 1991 — TVOC advisory tiers',
+      reference: 'Mølhave 1991 - TVOC advisory tiers',
     }
   }
   return null
@@ -254,8 +254,8 @@ function checkTempRh(data) {
         id: 'temp-comfort',
         severity: 'info',
         parameter: PARAM.temp,
-        observation: `Temperature at ${tf}°F — outside ASHRAE 55 comfort range (67-82°F).`,
-        suggestion: 'Confirm thermostat set-point and recent HVAC service. The full seasonal range applies in scoring — this is a heads-up only.',
+        observation: `Temperature at ${tf}°F - outside ASHRAE 55 comfort range (67-82°F).`,
+        suggestion: 'Confirm thermostat set-point and recent HVAC service. The full seasonal range applies in scoring - this is a heads-up only.',
         reference: 'ASHRAE 55-2023',
       })
     }
@@ -266,7 +266,7 @@ function checkTempRh(data) {
         id: 'rh-comfort',
         severity: rh > 70 ? 'warn' : 'info',
         parameter: PARAM.rh,
-        observation: `Relative humidity at ${rh}% — outside ASHRAE 55 range (${STD.t.rh.min}-${STD.t.rh.max}%).`,
+        observation: `Relative humidity at ${rh}% - outside ASHRAE 55 range (${STD.t.rh.min}-${STD.t.rh.max}%).`,
         suggestion: rh > 70
           ? 'High RH (>70%) sustained for >48h supports mold growth on porous surfaces. Check dehumidification, building envelope, and HVAC drain pan.'
           : 'Low RH can drive respiratory discomfort and increased respiratory-virus transmission. Check humidifier operation if present.',

@@ -113,7 +113,7 @@ describe('Engine v2.8.0 — equipment-scoped recommendations', () => {
     const { zoneScores, zones, equipment, bldg } = meridianFixture('unmapped')
     const recs = genRecs(zoneScores, bldg, { zones, equipment })
     const fallback = recs.imm.find((a: any) =>
-      a.scope === 'building' && a.text.startsWith('HVAC equipment not yet identified —') && a.text.endsWith(drainPanText)
+      a.scope === 'building' && a.text.startsWith('HVAC equipment not yet identified -') && a.text.endsWith(drainPanText)
     )
     expect(fallback).toBeDefined()
     expect(new Set(fallback.affectedZoneNames)).toEqual(new Set(['3rd Floor Open Office', 'Conference Room B']))
@@ -130,7 +130,7 @@ describe('Engine v2.8.0 — equipment-scoped recommendations', () => {
     expect(equipScoped[0].equipmentLabel).toBe('AHU-1')
     expect(equipScoped[0].affectedZoneNames).toEqual(['3rd Floor Open Office'])
     const fallback = recs.imm.find((a: any) =>
-      a.scope === 'building' && a.text.startsWith('HVAC equipment not yet identified —') && a.text.endsWith(drainPanText)
+      a.scope === 'building' && a.text.startsWith('HVAC equipment not yet identified -') && a.text.endsWith(drainPanText)
     )
     expect(fallback).toBeDefined()
     expect(fallback.affectedZoneNames).toEqual(['Conference Room B'])

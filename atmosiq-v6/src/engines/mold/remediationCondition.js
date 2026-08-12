@@ -39,7 +39,7 @@ export function classifyCondition(ev = {}) {
       basis.push('Comparative spore screening indicates possible amplification (settled spores)')
       conditionId = 2
     } else if (ev.mustyOdor && ev.moistureElevated) {
-      basis.push('Musty odor with elevated moisture — possible hidden growth / settled spores')
+      basis.push('Musty odor with elevated moisture - possible hidden growth / settled spores')
       conditionId = 2
     }
   }

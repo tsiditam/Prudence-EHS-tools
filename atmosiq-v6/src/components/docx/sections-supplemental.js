@@ -70,7 +70,7 @@ export function assembleSupplementalSections(supplemental, opts = {}) {
   let code = nextAppendixLetter(opts.engineTocEntries)
   for (const ap of appendices) {
     const letter = String.fromCharCode(code++)
-    const title = `Appendix ${letter} — ${ap.title}`
+    const title = `Appendix ${letter} - ${ap.title}`
     appendixChildren.push(headingFn(title), ...ap.children)
     appendixTocEntries.push({ anchorId: slug(title), title, level: 1 })
   }

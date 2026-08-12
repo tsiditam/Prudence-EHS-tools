@@ -51,16 +51,16 @@ function formatLongDate(iso) {
 const REVIEW_STATUS_LABEL = {
   draft_pending_professional_review: 'Draft — Pending Professional Review',
   reviewed_by_qualified_professional: 'Reviewed by Qualified Professional',
-  final_issued_to_client: 'Final — Issued to Client',
+  final_issued_to_client: 'Final - Issued to Client',
 }
 
 const PAGE_STYLES = `
-  /* v2.2 visual upgrade — slate/blue palette per consultant-report
+  /* v2.2 visual upgrade - slate/blue palette per consultant-report
      design guidance. Source Serif 4 body (Google Fonts) with
      Cambria fallback. Section + divider + callout pattern.
      Recommendations register stays as a table for column-level
      defensibility (Priority / Timeframe / Action / Reference). */
-  /* Source Serif 4 import — Google Fonts. Cambria fallback for offline
+  /* Source Serif 4 import - Google Fonts. Cambria fallback for offline
      rendering / print drivers without network access. */
   @import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700&display=swap');
 
@@ -105,7 +105,7 @@ const PAGE_STYLES = `
   }
 
   table { width: 100%; border-collapse: collapse; font-family: Cambria, 'Times New Roman', serif; margin: 8px 0 18px; }
-  /* Major data tables — cyan band headers, BLACK cell borders (CTSI). */
+  /* Major data tables - cyan band headers, BLACK cell borders (CTSI). */
   table.data-table th {
     background: #2563EB; color: #fff; text-transform: uppercase; letter-spacing: 0.6px;
     font-size: 10pt; font-weight: 700; padding: 9px 10px; text-align: left; border: 1px solid #000;
@@ -167,7 +167,7 @@ const PAGE_STYLES = `
     margin-bottom: 18px; font-size: 12pt; line-height: 1.75; font-style: italic;
   }
 
-  /* ── Executive Summary metadata — simple Label:Value list ── */
+  /* ── Executive Summary metadata - simple Label:Value list ── */
   /* Per design guidance, replaces the 4×4 banded table with a
      vertical list. Reads cleanly without visual noise. */
   .exec-meta-list { margin: 8px 0 22px; padding: 0; list-style: none; }
@@ -201,7 +201,7 @@ const PAGE_STYLES = `
   }
 
   /* ── Executive Summary narrative blocks (Scope/Results/Obs/Recs) ── */
-  /* These ARE bands by design — they're sub-sections WITHIN the
+  /* These ARE bands by design - they're sub-sections WITHIN the
      executive summary, the CTSI "card" pattern. The user-listed
      top-level h2 sections (Methodology Disclosure, Scope and
      Methodology, Sampling Methodology, etc.) are plain headings. */
@@ -250,7 +250,7 @@ const PAGE_STYLES = `
   }
   .opinion-text { font-size: 12pt; line-height: 1.7; color: #1f2937; font-weight: 600; }
 
-  /* ── v2.3 §3 — RenderedFinding inline layout ── */
+  /* ── v2.3 §3 - RenderedFinding inline layout ── */
   .finding {
     margin: 0 0 18px 0; padding-bottom: 12px;
     page-break-inside: avoid;
@@ -345,7 +345,7 @@ const PAGE_STYLES = `
 
   @page {
     margin: 0.85in 0.95in;
-    @bottom-center { content: "Indoor Air Quality Evaluation — PSEC Project " counter(page) " of " counter(pages); font-family: Cambria, serif; font-size: 9pt; color: #5C6F7E; }
+    @bottom-center { content: "Indoor Air Quality Evaluation - PSEC Project " counter(page) " of " counter(pages); font-family: Cambria, serif; font-size: 9pt; color: #5C6F7E; }
   }
   @media print {
     body { padding: 0; font-size: 11pt; }
@@ -573,7 +573,7 @@ function generateFullClientHTML(report, options, styles = PAGE_STYLES) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>${esc(cover.title)} — ${esc(cover.facility)}</title>
+  <title>${esc(cover.title)} - ${esc(cover.facility)}</title>
   <style>${styles}</style>
 </head>
 <body>
@@ -689,7 +689,7 @@ function renderAppendices(ap) {
     const lines = Array.isArray(ap.appendixD.displayLines) && ap.appendixD.displayLines.length > 0
       ? ap.appendixD.displayLines
       : (ap.appendixD.citations || []).map(c =>
-          `${c.source}${c.edition && c.edition !== 'current' ? ` (${c.edition})` : ''}${c.authority ? ` — ${c.authority}` : ''}`,
+          `${c.source}${c.edition && c.edition !== 'current' ? ` (${c.edition})` : ''}${c.authority ? ` - ${c.authority}` : ''}`,
         )
     if (lines.length > 0) {
       out.push('<ul class="citations">')
@@ -836,7 +836,7 @@ function renderExecSummary(summary) {
             : ''))
 
   const recBlock = summary.recommendations && summary.recommendations.length > 0
-    ? block('Recommendations', `<ul>${summary.recommendations.map(a => `<li><strong>${esc(PRIORITY_LABEL[a.priority] || a.priority)}</strong> (${esc(a.timeframe)}): ${esc(a.action)}${a.standardReference ? ` <em>— ${esc(a.standardReference)}</em>` : ''}</li>`).join('')}</ul>`)
+    ? block('Recommendations', `<ul>${summary.recommendations.map(a => `<li><strong>${esc(PRIORITY_LABEL[a.priority] || a.priority)}</strong> (${esc(a.timeframe)}): ${esc(a.action)}${a.standardReference ? ` <em>- ${esc(a.standardReference)}</em>` : ''}</li>`).join('')}</ul>`)
     : ''
 
   return `${metadataList}${opinionCard}${scopeBlock}${resultsBlock}${findingsBlock}${recBlock}`
@@ -958,7 +958,7 @@ function renderInlineFinding(rf) {
   const actions = rf.recommendedActions && rf.recommendedActions.length > 0
     ? `<div class="finding-actions">
          <div class="finding-actions-label">Recommended actions:</div>
-         <ul class="finding-actions-list">${rf.recommendedActions.map(a => `<li><strong>${esc(PRIORITY_LABEL[a.priority] || a.priority)}</strong> (${esc(a.timeframe)}): ${esc(a.action)}${a.standardReference ? ` <em>— ${esc(a.standardReference)}</em>` : ''}</li>`).join('')}</ul>
+         <ul class="finding-actions-list">${rf.recommendedActions.map(a => `<li><strong>${esc(PRIORITY_LABEL[a.priority] || a.priority)}</strong> (${esc(a.timeframe)}): ${esc(a.action)}${a.standardReference ? ` <em>- ${esc(a.standardReference)}</em>` : ''}</li>`).join('')}</ul>
        </div>`
     : ''
   return `<div class="finding">
@@ -1020,7 +1020,7 @@ function renderRecommendedSamplingPlan(plan) {
       ? `<div class="hypothesis-basis"><strong>Basis:</strong><ul>${h.basis.map(b => `<li>${esc(b)}</li>`).join('')}</ul></div>`
       : ''
     const sampling = Array.isArray(h.suggestedSampling) && h.suggestedSampling.length > 0
-      ? `<div class="hypothesis-sampling"><strong>Suggested sampling:</strong><ul>${h.suggestedSampling.map(s => `<li><strong>${esc(s.parameter)}</strong> — ${esc(s.method)}. <em>${esc(s.rationale)}</em></li>`).join('')}</ul></div>`
+      ? `<div class="hypothesis-sampling"><strong>Suggested sampling:</strong><ul>${h.suggestedSampling.map(s => `<li><strong>${esc(s.parameter)}</strong> - ${esc(s.method)}. <em>${esc(s.rationale)}</em></li>`).join('')}</ul></div>`
       : ''
     return `<article class="hypothesis">
       <h3>${esc(h.name)} <span class="confidence">(${esc(tier(h.cihConfidenceTier))})</span></h3>
@@ -1095,7 +1095,7 @@ function renderAssessmentIndexAppendix(idx) {
   // the score display is off, omit the whole appendix.
   if (!isIaqScoreVisible()) return ''
   return `<div class="pg-break"></div>
-    <h2 id="appendix-assessment-index">Appendix — Assessment Index (Informational Only)</h2>
+    <h2 id="appendix-assessment-index">Appendix - Assessment Index (Informational Only)</h2>
     <p><em>${esc(idx.disclaimer)}</em></p>
     <table>
       <tr><th>Zone</th><th>Index</th><th>Tier</th></tr>
@@ -1109,7 +1109,7 @@ function generateMemoHTML(memo, reasons) {
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Pre-Assessment Memo — ${esc(memo.cover.facility)}</title>
+  <title>Pre-Assessment Memo - ${esc(memo.cover.facility)}</title>
   <style>${PAGE_STYLES}</style>
 </head>
 <body>

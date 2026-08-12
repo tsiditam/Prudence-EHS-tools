@@ -47,13 +47,13 @@ describe('assembleSupplementalSections', () => {
           { title: 'Environmental Evidence Graphs', children: ['graph'] },
         ],
       },
-      { headingFn: H, engineTocEntries: [{ title: 'Appendix F — Glossary', level: 1 }] },
+      { headingFn: H, engineTocEntries: [{ title: 'Appendix F - Glossary', level: 1 }] },
     )
-    expect(supp.appendixChildren[0]).toEqual({ __heading: 'Appendix G — Laboratory Analytical Results' })
-    expect(supp.appendixChildren[2]).toEqual({ __heading: 'Appendix H — Environmental Evidence Graphs' })
+    expect(supp.appendixChildren[0]).toEqual({ __heading: 'Appendix G - Laboratory Analytical Results' })
+    expect(supp.appendixChildren[2]).toEqual({ __heading: 'Appendix H - Environmental Evidence Graphs' })
     expect(supp.appendixTocEntries.map((e) => e.title)).toEqual([
-      'Appendix G — Laboratory Analytical Results',
-      'Appendix H — Environmental Evidence Graphs',
+      'Appendix G - Laboratory Analytical Results',
+      'Appendix H - Environmental Evidence Graphs',
     ])
     expect(supp.bodyChildren[0]).toEqual({ __heading: 'Standards Currency' })
     expect(supp.bodyTocEntries[0].title).toBe('Standards Currency')
@@ -62,7 +62,7 @@ describe('assembleSupplementalSections', () => {
   it('skips sections that have no children (so absent data consumes no letter)', () => {
     const supp = assembleSupplementalSections(
       { bodySections: [{ title: 'Empty', children: [] }], appendices: [{ title: 'Empty Apx', children: [] }] },
-      { headingFn: H, engineTocEntries: [{ title: 'Appendix F — Glossary', level: 1 }] },
+      { headingFn: H, engineTocEntries: [{ title: 'Appendix F - Glossary', level: 1 }] },
     )
     expect(supp.bodyChildren).toEqual([])
     expect(supp.appendixChildren).toEqual([])
@@ -71,9 +71,9 @@ describe('assembleSupplementalSections', () => {
   it('only the present appendix gets the first free letter (sensor alone → G)', () => {
     const supp = assembleSupplementalSections(
       { appendices: [{ title: 'Environmental Evidence Graphs', children: ['graph'] }] },
-      { headingFn: H, engineTocEntries: [{ title: 'Appendix F — Glossary', level: 1 }] },
+      { headingFn: H, engineTocEntries: [{ title: 'Appendix F - Glossary', level: 1 }] },
     )
-    expect(supp.appendixChildren[0]).toEqual({ __heading: 'Appendix G — Environmental Evidence Graphs' })
+    expect(supp.appendixChildren[0]).toEqual({ __heading: 'Appendix G - Environmental Evidence Graphs' })
   })
 })
 
@@ -81,22 +81,22 @@ describe('mergeSupplementalTocEntries', () => {
   const ENGINE = [
     { title: 'Executive Summary', level: 1 },
     { title: 'Limitations and Professional Judgment', level: 1 },
-    { title: 'Appendix A — Per-Zone Measurement Tabulation', level: 1 },
-    { title: 'Appendix F — Glossary', level: 1 },
+    { title: 'Appendix A - Per-Zone Measurement Tabulation', level: 1 },
+    { title: 'Appendix F - Glossary', level: 1 },
   ]
 
   it('inserts body entries after Limitations and appendix entries after the last appendix', () => {
     const supp = {
       bodyTocEntries: [{ title: 'Standards Currency', level: 1 }],
-      appendixTocEntries: [{ title: 'Appendix G — Laboratory Analytical Results', level: 1 }],
+      appendixTocEntries: [{ title: 'Appendix G - Laboratory Analytical Results', level: 1 }],
     }
     expect(mergeSupplementalTocEntries(ENGINE, supp).map((e) => e.title)).toEqual([
       'Executive Summary',
       'Limitations and Professional Judgment',
       'Standards Currency',
-      'Appendix A — Per-Zone Measurement Tabulation',
-      'Appendix F — Glossary',
-      'Appendix G — Laboratory Analytical Results',
+      'Appendix A - Per-Zone Measurement Tabulation',
+      'Appendix F - Glossary',
+      'Appendix G - Laboratory Analytical Results',
     ])
   })
 
@@ -135,12 +135,12 @@ describe('buildClientDocx end-to-end with supplemental sections', () => {
 
     // Each appears at least twice: once in the TOC, once as the section heading.
     expect((text.match(/Standards Currency/g) || []).length).toBeGreaterThanOrEqual(2)
-    expect((text.match(/Appendix G — Laboratory Analytical Results/g) || []).length).toBeGreaterThanOrEqual(2)
-    expect((text.match(/Appendix H — Environmental Evidence Graphs/g) || []).length).toBeGreaterThanOrEqual(2)
+    expect((text.match(/Appendix G - Laboratory Analytical Results/g) || []).length).toBeGreaterThanOrEqual(2)
+    expect((text.match(/Appendix H - Environmental Evidence Graphs/g) || []).length).toBeGreaterThanOrEqual(2)
 
     // Ordering: Standards Currency precedes Appendix G which precedes Appendix H.
-    expect(text.lastIndexOf('Standards Currency')).toBeLessThan(text.lastIndexOf('Appendix G — Laboratory Analytical Results'))
-    expect(text.lastIndexOf('Appendix G — Laboratory Analytical Results')).toBeLessThan(text.lastIndexOf('Appendix H — Environmental Evidence Graphs'))
+    expect(text.lastIndexOf('Standards Currency')).toBeLessThan(text.lastIndexOf('Appendix G - Laboratory Analytical Results'))
+    expect(text.lastIndexOf('Appendix G - Laboratory Analytical Results')).toBeLessThan(text.lastIndexOf('Appendix H - Environmental Evidence Graphs'))
   })
 
   it('omits supplemental sections entirely when no data is attached', () => {

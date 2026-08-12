@@ -69,7 +69,7 @@ export const CONTAMINANTS_PHRASES: Partial<Record<ConditionType, PhraseLibraryEn
   tvoc_screening_elevated: {
     conditionType: 'tvoc_screening_elevated',
     intentTemplate:
-      'Total volatile organic compounds (TVOCs) were elevated during screening. TVOC is a screening indicator only — no regulatory limit exists for total VOCs, and TVOC measurement does not identify individual compounds. TO-17 speciation is recommended if source investigation is warranted.',
+      'Total volatile organic compounds (TVOCs) were elevated during screening. TVOC is a screening indicator only - no regulatory limit exists for total VOCs, and TVOC measurement does not identify individual compounds. TO-17 speciation is recommended if source investigation is warranted.',
     bannedAlternatives: ['TVOC exceeds limit', 'VOC violation', 'unsafe VOC levels', 'toxic VOCs confirmed'],
     definitiveConclusionRequires: ['laboratory_speciation'],
     causationSupportRequires: ['laboratory_speciation'],

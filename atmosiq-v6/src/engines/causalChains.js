@@ -36,10 +36,10 @@ export function buildCausalChains(zones, bldg, zoneScores) {
         evidence: ev, confidence: ev.length >= 3 ? 'Strong' : 'Moderate' })
       chains.push({ zone: zName, type: 'Microbial / Bioaerosol (Screening)',
         rootCause: 'Hidden moisture or microbial amplification cannot be ruled out without moisture mapping and bioaerosol sampling.',
-        evidence: [...ev, 'Hypothesis — requires confirmatory investigation'], confidence: 'Possible' })
+        evidence: [...ev, 'Hypothesis - requires confirmatory investigation'], confidence: 'Possible' })
       chains.push({ zone: zName, type: 'VOC Source (Screening)',
         rootCause: 'New materials, cleaning products, or adjacent processes may be contributing VOCs not captured by walkthrough.',
-        evidence: [...ev, 'Hypothesis — requires TVOC/speciation sampling'], confidence: 'Possible' })
+        evidence: [...ev, 'Hypothesis - requires TVOC/speciation sampling'], confidence: 'Possible' })
     }
 
     // Ventilation deficiency chain (measurement-based)
@@ -103,7 +103,7 @@ export function buildCausalChains(zones, bldg, zoneScores) {
         chains.push({ zone: zName, type: 'Gaseous Corrosion Risk (Screening)', rootCause: 'Elevated humidity combined with screening indicators of gaseous contamination creates conditions consistent with accelerated creep corrosion risk on circuit board surfaces. Definitive G-class determination requires 30-day passive copper+silver reactivity coupon deployment per ANSI/ISA 71.04-2013.', evidence: ev, confidence: 'Low (screening-only data)', refutableBy: 'Coupon results returning G1 (<300 Å Cu, <200 Å Ag per month). Particle count data showing ISO Class within target. Outdoor air screening showing no upwind sulfur sources.', std: 'ANSI/ISA 71.04-2013 (screening); ASHRAE TC 9.9' })
       }
       if (hasCorrosion && !hasHighRH) {
-        chains.push({ zone: zName, type: 'Gaseous Contamination Concern (Screening)', rootCause: 'Screening indicators suggest gaseous corrosion environment may exceed G1 (mild). Source investigation recommended — evaluate outdoor air ingress, gas-phase filter media condition, and adjacent-space process changes.', evidence: [`Screening indicator: ${d.gaseous_corrosion} (assessor-selected, not coupon-measured)`, 'RH currently within ASHRAE TC 9.9 control range'], confidence: 'Low (screening-only data)', refutableBy: 'Coupon results returning G1 (<300 Å Cu, <200 Å Ag per month).', std: 'ANSI/ISA 71.04-2013 (screening)' })
+        chains.push({ zone: zName, type: 'Gaseous Contamination Concern (Screening)', rootCause: 'Screening indicators suggest gaseous corrosion environment may exceed G1 (mild). Source investigation recommended - evaluate outdoor air ingress, gas-phase filter media condition, and adjacent-space process changes.', evidence: [`Screening indicator: ${d.gaseous_corrosion} (assessor-selected, not coupon-measured)`, 'RH currently within ASHRAE TC 9.9 control range'], confidence: 'Low (screening-only data)', refutableBy: 'Coupon results returning G1 (<300 Å Cu, <200 Å Ag per month).', std: 'ANSI/ISA 71.04-2013 (screening)' })
       }
     }
   })

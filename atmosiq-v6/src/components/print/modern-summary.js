@@ -47,11 +47,11 @@ const FLAGGED = new Set(['critical', 'high', 'medium'])
 // Plain-language parameter explainers — rendered only for parameters the
 // assessment actually captured (zone keys). Educational context, not findings.
 const EXPLAINERS = [
-  { keys: ['co2'], label: 'Carbon dioxide (CO2)', text: 'Builds up indoors when fresh-air supply does not keep pace with the number of people. It is not a hazard at office levels — it is the practical indicator of whether a space is well ventilated for its occupancy.' },
+  { keys: ['co2'], label: 'Carbon dioxide (CO2)', text: 'Builds up indoors when fresh-air supply does not keep pace with the number of people. It is not a hazard at office levels - it is the practical indicator of whether a space is well ventilated for its occupancy.' },
   { keys: ['co'], label: 'Carbon monoxide (CO)', text: 'A colorless, odorless gas from combustion (engines, gas appliances). Even low readings are screened to rule out combustion sources reaching occupied space.' },
-  { keys: ['tf', 'rh'], label: 'Temperature & humidity', text: 'The thermal environment — the most common driver of comfort complaints. Humidity also matters: too high can support mold, too low causes dryness and irritation.' },
+  { keys: ['tf', 'rh'], label: 'Temperature & humidity', text: 'The thermal environment - the most common driver of comfort complaints. Humidity also matters: too high can support mold, too low causes dryness and irritation.' },
   { keys: ['pm'], label: 'Fine particulate (PM2.5)', text: 'Tiny airborne particles from cooking, printing, or outdoor air. Measured as an indicator of particulate levels and how well filtration is working.' },
-  { keys: ['tv', 'tvoc'], label: 'Total VOCs (TVOC)', text: 'A combined, non-specific reading of gases that off-gas from furnishings, cleaning products, and equipment. It flags that a source is present and worth investigating — it does not identify a specific chemical or a health risk on its own.' },
+  { keys: ['tv', 'tvoc'], label: 'Total VOCs (TVOC)', text: 'A combined, non-specific reading of gases that off-gas from furnishings, cleaning products, and equipment. It flags that a source is present and worth investigating - it does not identify a specific chemical or a health risk on its own.' },
 ]
 
 function snapshotLine(tot) {
@@ -182,13 +182,13 @@ export function generateModernSummaryHTML(data, opts = {}) {
   return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>IAQ Summary — ${esc(bldg.fn) || 'Assessment'}</title>
+<title>IAQ Summary - ${esc(bldg.fn) || 'Assessment'}</title>
 <style>${styles(accent)}</style></head><body>
 
   <div class="band">
     <div class="firm">${esc(firm)}</div>
     <div class="wm">AtmosFlow</div>
-    <div style="font-size:10pt;opacity:.92;margin-top:2px">Indoor Air Quality — Screening Summary</div>
+    <div style="font-size:10pt;opacity:.92;margin-top:2px">Indoor Air Quality - Screening Summary</div>
   </div>
 
   <div class="title">Indoor Air Quality Summary</div>
@@ -266,7 +266,7 @@ export function generateModernSummaryHTML(data, opts = {}) {
 
   <div class="footer">
     ${esc(firm)} · Report ${esc(reportId)} · Generated ${now}<br>
-    Prepared with AtmosFlow — screening summary for client review.
+    Prepared with AtmosFlow - screening summary for client review.
   </div>
 
 </body></html>`

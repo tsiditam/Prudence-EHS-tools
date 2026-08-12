@@ -43,8 +43,8 @@ export function buildMoldReportDocument(result, meta = {}) {
   })
 
   return new Document({
-    creator: 'AtmosFlow — Prudence EHS',
-    title: `${title}${meta.site ? ` — ${meta.site}` : ''}`,
+    creator: 'AtmosFlow - Prudence EHS',
+    title: `${title}${meta.site ? ` - ${meta.site}` : ''}`,
     description: `Mold Screening Report (mold engine v${version})`,
     styles: DOCX_STYLES,
     sections: [

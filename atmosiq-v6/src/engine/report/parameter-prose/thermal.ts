@@ -15,8 +15,8 @@ export const TEMPERATURE_PROSE: ParameterProse = {
   parameter: 'Temperature',
   standardsBackground: TEMPERATURE_BACKGROUND,
   applicableStandards: [
-    { source: 'ASHRAE Standard 55-2020 — Thermal Environmental Conditions for Human Occupancy', authority: 'consensus', edition: '2020' },
-    { source: 'ASHRAE Technical Committee 9.9 — Thermal Guidelines for Data Processing Environments', authority: 'consensus', edition: 'current' },
+    { source: 'ASHRAE Standard 55-2020 - Thermal Environmental Conditions for Human Occupancy', authority: 'consensus', edition: '2020' },
+    { source: 'ASHRAE Technical Committee 9.9 - Thermal Guidelines for Data Processing Environments', authority: 'consensus', edition: 'current' },
   ],
   summaryTemplate(range) {
     if (range.count === 0) return 'Temperature was not measured during this assessment.'
@@ -34,8 +34,8 @@ export const RH_PROSE: ParameterProse = {
   parameter: 'Relative Humidity',
   standardsBackground: RH_BACKGROUND,
   applicableStandards: [
-    { source: 'ASHRAE Standard 55-2020 — Thermal Environmental Conditions for Human Occupancy', authority: 'consensus', edition: '2020' },
-    { source: 'NYC DOHMH — Guidelines on Assessment and Remediation of Fungi', authority: 'advisory', edition: 'current' },
+    { source: 'ASHRAE Standard 55-2020 - Thermal Environmental Conditions for Human Occupancy', authority: 'consensus', edition: '2020' },
+    { source: 'NYC DOHMH - Guidelines on Assessment and Remediation of Fungi', authority: 'advisory', edition: 'current' },
   ],
   summaryTemplate(range) {
     if (range.count === 0) return 'Relative humidity was not measured during this assessment.'

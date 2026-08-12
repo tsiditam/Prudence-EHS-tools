@@ -67,20 +67,20 @@ import { acknowledgementNotes } from '../../utils/calibrationAcknowledgement'
 export function renderCalibrationStatus(calDate, calStatus, now = new Date()) {
   if (!calDate) {
     return calStatus && calStatus !== 'Unknown' && calStatus !== 'Not recorded'
-      ? `${calStatus} — date not recorded`
+      ? `${calStatus} - date not recorded`
       : 'Date not recorded'
   }
   const banner = getCalibrationBannerState('meter', calDate, now)
   if (!banner) {
     const daysSince = Math.floor((now.getTime() - new Date(calDate).getTime()) / 86400000)
     const remaining = CAL_VALIDITY_DAYS - daysSince
-    return `Current — ${remaining} days remaining`
+    return `Current - ${remaining} days remaining`
   }
   if (banner.kind === 'expired') {
-    return `EXPIRED — ${Math.abs(banner.daysToExpiry)} days overdue`
+    return `EXPIRED - ${Math.abs(banner.daysToExpiry)} days overdue`
   }
   if (banner.kind === 'expiring') {
-    return `EXPIRING — ${banner.daysToExpiry} days remaining`
+    return `EXPIRING - ${banner.daysToExpiry} days remaining`
   }
   return 'Date not recorded'
 }
@@ -258,13 +258,13 @@ export function buildCalibrationAppendix(presurvey, opts = {}) {
     // no table, so it stays null even when the acknowledgement forced
     // appendix E into existence.
     appendixB: instrumentRows.length === 0 ? null : {
-      title: 'Appendix B — Sampling Locations and Methodology',
+      title: 'Appendix B - Sampling Locations and Methodology',
       description: 'Instruments deployed during the assessment, the parameters they measured, and the calibration provenance for each unit.',
       instrumentRows,
       zoneRows: [],
     },
     appendixE: {
-      title: 'Appendix E — Quality Assurance and Instrument Calibration',
+      title: 'Appendix E - Quality Assurance and Instrument Calibration',
       description: calibrationRecords.length > 0
         ? 'Per-instrument calibration records and QA notes supporting the defensibility of the measurements reported in the body of this report.'
         : 'No instrument calibration records were available for this assessment. The QA notes below document the calibration control and the exception recorded against it.',

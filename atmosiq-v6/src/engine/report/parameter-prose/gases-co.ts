@@ -13,12 +13,12 @@ export const CO_PROSE: ParameterProse = {
   parameter: 'Carbon Monoxide (CO)',
   standardsBackground: CO_BACKGROUND,
   applicableStandards: [
-    { source: '29 CFR 1910.1000 Table Z-1 — CO PEL 50 ppm 8-hr TWA', authority: 'regulatory', edition: 'current' },
-    { source: 'NIOSH Recommended Exposure Limit — CO 35 ppm 8-hr TWA, Ceiling 200 ppm', authority: 'consensus', edition: 'current' },
-    { source: 'ACGIH Threshold Limit Value — CO 25 ppm 8-hr TWA', authority: 'consensus', edition: 'current' },
-    { source: 'ASHRAE Standard 62.1 — CO Screening Reference 9 ppm', authority: 'consensus', edition: 'current' },
-    { source: 'EPA NAAQS — CO 9 ppm 8-hour primary standard', authority: 'regulatory', edition: 'current' },
-    { source: 'OSH Act Section 5(a)(1) — General Duty Clause', authority: 'regulatory', edition: 'current' },
+    { source: '29 CFR 1910.1000 Table Z-1 - CO PEL 50 ppm 8-hr TWA', authority: 'regulatory', edition: 'current' },
+    { source: 'NIOSH Recommended Exposure Limit - CO 35 ppm 8-hr TWA, Ceiling 200 ppm', authority: 'consensus', edition: 'current' },
+    { source: 'ACGIH Threshold Limit Value - CO 25 ppm 8-hr TWA', authority: 'consensus', edition: 'current' },
+    { source: 'ASHRAE Standard 62.1 - CO Screening Reference 9 ppm', authority: 'consensus', edition: 'current' },
+    { source: 'EPA NAAQS - CO 9 ppm 8-hour primary standard', authority: 'regulatory', edition: 'current' },
+    { source: 'OSH Act Section 5(a)(1) - General Duty Clause', authority: 'regulatory', edition: 'current' },
   ],
   summaryTemplate(range) {
     if (range.count === 0) return 'Carbon monoxide was not measured during this assessment.'

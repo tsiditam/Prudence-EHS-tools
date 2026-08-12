@@ -80,7 +80,7 @@ export function buildScopeConditions(ctx) {
       ['Assessment date', ctx.assessDate],
       ['Address', ctx.address],
       ['Facility type', bldg.ft || 'Not recorded'],
-      ['Zones assessed', `${ctx.zoneCount} — ${(ctx.zoneNames || []).join(', ') || 'none'}`],
+      ['Zones assessed', `${ctx.zoneCount} - ${(ctx.zoneNames || []).join(', ') || 'none'}`],
       ['Occupancy', occStr],
       ['HVAC type', bldg.ht || ps.ht || 'Not recorded'],
       ['Outdoor weather', weather],
@@ -135,7 +135,7 @@ export function buildBenchmarksUsed(ctx) {
     ])
 
   if (rows.length === 0) {
-    children.push(p('No parameters measured — benchmarks not applicable for this assessment.', { italics: true, color: COLORS.muted }))
+    children.push(p('No parameters measured - benchmarks not applicable for this assessment.', { italics: true, color: COLORS.muted }))
   } else {
     children.push(buildTable(
       [{ text: 'Parameter', width: 24 }, { text: 'Benchmark', width: 30 }, { text: 'Source', width: 22 }, { text: 'Type', width: 24 }],
@@ -209,7 +209,7 @@ export function buildResults(ctx) {
     })
   })
   if (figRows.length > 0) {
-    children.push(p('Figure Panel — Key Measurements (indoor vs outdoor)', { size: 18, bold: true, color: COLORS.body, after: 80 }))
+    children.push(p('Figure Panel - Key Measurements (indoor vs outdoor)', { size: 18, bold: true, color: COLORS.body, after: 80 }))
     children.push(buildTable(
       [{ text: 'Zone', width: 24 }, { text: 'Param', width: 14 }, { text: 'Indoor', width: 20 }, { text: 'Outdoor', width: 20 }, { text: 'Δ', width: 12 }],
       figRows
@@ -257,11 +257,11 @@ export function buildFlaggedIndicators(ctx) {
 // ── 7. Analyst Notes (internal-only) — candid triage / follow-up / priority ──
 export function buildAnalystNotes(ctx) {
   const tot = ctx.comp ? ctx.comp.tot : null
-  const priority = tot == null ? 'P3 — Review (no composite)'
-    : tot < 30 ? 'P1 — Critical'
-    : tot < 50 ? 'P2 — High'
-    : tot < 70 ? 'P3 — Moderate'
-    : 'P4 — Routine'
+  const priority = tot == null ? 'P3 - Review (no composite)'
+    : tot < 30 ? 'P1 - Critical'
+    : tot < 50 ? 'P2 - High'
+    : tot < 70 ? 'P3 - Moderate'
+    : 'P4 - Routine'
   const priColor = tot == null ? COLORS.muted : tot < 30 ? RED : tot < 50 ? AMBER : tot < 70 ? (SEV_COLORS.medium || AMBER) : (SEV_COLORS.pass || COLORS.body)
 
   const zs = ctx.zoneScores || []
@@ -277,7 +277,7 @@ export function buildAnalystNotes(ctx) {
   const showScore = isIaqScoreVisible()
   const triage = worstZone
     ? `${worstZone.zoneName} drives the assessment${showScore ? ` (composite ${worstZone.tot ?? '—'}/100${worstCat ? `; weakest category ${worstCat.l} at ${worstCat.s}/${worstCat.mx}` : ''})` : worstCat ? ` (weakest area: ${worstCat.l})` : ''}. ${critHigh} critical/high indicator${critHigh !== 1 ? 's' : ''} flagged.`
-    : 'No zones with data — capture field measurements before triage.'
+    : 'No zones with data - capture field measurements before triage.'
 
   const followUp = tot == null
     ? 'Schedule a field visit to capture baseline measurements before drawing conclusions.'
@@ -309,7 +309,7 @@ export function buildLimitationsCompact(ctx) {
     : 'Requires CIH review and sign-off before any external distribution.'
   return [
     p('Limitations & IH Review', { heading: HeadingLevel.HEADING_2 }),
-    p('Screening-level only: identifies risk indicators against published benchmarks — not a compliance determination, certified measurement, or professional opinion.', { size: 16, color: COLORS.sub, after: 40 }),
+    p('Screening-level only: identifies risk indicators against published benchmarks - not a compliance determination, certified measurement, or professional opinion.', { size: 16, color: COLORS.sub, after: 40 }),
     p('Point-in-time data; uncalibrated instruments or documented data gaps reduce defensibility.', { size: 16, color: COLORS.sub, after: 40 }),
     new Paragraph({
       spacing: { after: 60 },

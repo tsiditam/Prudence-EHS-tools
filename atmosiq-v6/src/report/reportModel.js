@@ -162,7 +162,7 @@ export function buildQaQc(presurvey = {}) {
     { label: 'Instrument', value: f(presurvey.ps_inst_iaq) },
     { label: 'Serial number', value: f(presurvey.ps_inst_iaq_serial) },
     { label: 'Calibration', value: presurvey.ps_inst_iaq_cal_status ? `${presurvey.ps_inst_iaq_cal_status}${presurvey.ps_inst_iaq_cal ? ` (${presurvey.ps_inst_iaq_cal})` : ''}` : NA },
-    { label: 'Assessor review', value: 'Draft — requires qualified-professional review before issuance.' },
+    { label: 'Assessor review', value: 'Draft - requires qualified-professional review before issuance.' },
   ]
 }
 
@@ -219,7 +219,7 @@ export function buildReportModel(data = {}, opts = {}) {
 
   return {
     reportMeta: {
-      reportTitle: 'Indoor Air Quality — Screening Summary',
+      reportTitle: 'Indoor Air Quality - Screening Summary',
       facilityName: bldg.fn || 'Facility',
       address: bldg.fl || '',
       scope: (zones.length ? `${zones.length} area${zones.length === 1 ? '' : 's'}` : ''),
@@ -290,10 +290,10 @@ const titleCaseKey = (k) => String(k).replace(/^z\d+-/, '').replace(/[_-]+/g, ' 
 function modeChrome(mode, reportId, firm, client, profile, status, reviewer) {
   if (mode === 'sample') {
     return {
-      headerLabel: 'Sample — Evaluation Use Only',
+      headerLabel: 'Sample - Evaluation Use Only',
       watermark: 'SAMPLE',
-      coverStatusChip: 'Sample — Evaluation Use Only',
-      footerNote: `${reportId}  ·  Sample — for evaluation use only`,
+      coverStatusChip: 'Sample - Evaluation Use Only',
+      footerNote: `${reportId}  ·  Sample - for evaluation use only`,
       coverDisclaimer: 'This document is a sample produced to illustrate AtmosFlow report structure and tone.',
     }
   }
@@ -426,13 +426,13 @@ export function assembleRenderModel(data = {}, opts = {}) {
 
   // Per-parameter interpretation (what it is + observed), thermal combined.
   const interp = []
-  if (params.co2) interp.push({ title: 'Carbon dioxide (CO2) — ventilation indicator', body: [`What it is and why we measure it: ${NL.WHAT_IS.co2}`, NL.OBSERVED.co2(params.co2, params.co2.outcome)] })
+  if (params.co2) interp.push({ title: 'Carbon dioxide (CO2) - ventilation indicator', body: [`What it is and why we measure it: ${NL.WHAT_IS.co2}`, NL.OBSERVED.co2(params.co2, params.co2.outcome)] })
   if (params.co) interp.push({ title: 'Carbon monoxide (CO)', body: [`What it is and why we measure it: ${NL.WHAT_IS.co}`, NL.OBSERVED.co(params.co, params.co.outcome)] })
   if (params.temperature || params.relativeHumidity) {
     const body = [`What it is and why we measure it: ${NL.WHAT_IS.tempRh}`]
     if (params.temperature) body.push(NL.OBSERVED.temperature(params.temperature, params.temperature.outcome))
     if (params.relativeHumidity) body.push(NL.OBSERVED.relativeHumidity(params.relativeHumidity, params.relativeHumidity.outcome))
-    interp.push({ title: 'Thermal comfort — temperature & relative humidity', body })
+    interp.push({ title: 'Thermal comfort - temperature & relative humidity', body })
   }
   if (params.pm25) interp.push({ title: 'Fine particulate (PM2.5)', body: [`What it is and why we measure it: ${NL.WHAT_IS.pm25}`, NL.OBSERVED.pm25(params.pm25, params.pm25.outcome)] })
   if (params.tvoc) interp.push({ title: 'Total volatile organic compounds (TVOC)', body: [`What it is and why we measure it: ${NL.WHAT_IS.tvoc}`, NL.OBSERVED.tvoc(params.tvoc, params.tvoc.outcome)] })
@@ -464,7 +464,7 @@ export function assembleRenderModel(data = {}, opts = {}) {
   const primary = chains[0]
   const conceptualModel = primary ? {
     intro: 'Following standard IAQ investigation logic, the primary finding is expressed as a source → pathway → receptor chain with its supporting evidence and confidence.',
-    heading: `${primary.type || primary.name || 'Primary finding'}${primary.zone ? ` — ${primary.zone}` : ''}`,
+    heading: `${primary.type || primary.name || 'Primary finding'}${primary.zone ? ` - ${primary.zone}` : ''}`,
     rows: [
       ['Pathway / concern', primary.type || primary.name || '—'],
       ['Receptor (location)', primary.zone || (Array.isArray(primary.contributingZones) ? primary.contributingZones.join(', ') : '—')],
@@ -507,14 +507,14 @@ export function assembleRenderModel(data = {}, opts = {}) {
 
   return {
     meta: {
-      docTitle: `AtmosFlow — IAQ Assessment Report — ${meta.facilityName}`,
+      docTitle: `AtmosFlow - IAQ Assessment Report - ${meta.facilityName}`,
       reportTitle: 'Screening-Level IAQ Assessment Report',
       coverSubtitle: 'Direct-reading evaluation of carbon dioxide, comfort, and particulate / VOC indicators',
       coverRows: [
         ['Facility', meta.facilityName], ['Address', meta.address || '—'], ['Scope', meta.scope || `${rd.projectSummary.numberOfZones} area(s)`],
         ['Assessment date', meta.assessmentDate], ['Assessor of record', `${meta.assessorName}${meta.assessorCredentials ? `, ${meta.assessorCredentials}` : ''}`], ['Report ID', reportId],
       ],
-      coverFooter: 'Screening-level evaluation — not a regulatory exposure determination, OSHA compliance certification, or medical evaluation.',
+      coverFooter: 'Screening-level evaluation - not a regulatory exposure determination, OSHA compliance certification, or medical evaluation.',
       firm, brandColor: meta.brandColor,
       // Carried onto the assembled model so downstream consumers (the
       // PDF renderer, the UI status badge, the client portal) read the
@@ -542,7 +542,7 @@ export function assembleRenderModel(data = {}, opts = {}) {
       intro: 'The table below summarizes representative occupied-hours readings by zone, with the site arithmetic mean for context. Values are direct-reading grab measurements unless otherwise noted.',
       rows: resultsRows,
       note: resultsRows.length ? 'Site mean is the arithmetic mean of the measured zones. Outcome reflects the zone’s governing parameter.' : null,
-      perParamIntro: 'Each indicator below is introduced briefly — what it is and why it is measured — followed by what was observed at this site.',
+      perParamIntro: 'Each indicator below is introduced briefly - what it is and why it is measured - followed by what was observed at this site.',
       parameters: interp,
     },
     loggerImages,
@@ -563,7 +563,7 @@ export function assembleRenderModel(data = {}, opts = {}) {
     limitations: rd.limitations,
     review,
     references,
-    about: { title: 'Appendix B — About AtmosFlow', text: NL.ABOUT_ATMOSFLOW },
+    about: { title: 'Appendix B - About AtmosFlow', text: NL.ABOUT_ATMOSFLOW },
     photos,
   }
 }

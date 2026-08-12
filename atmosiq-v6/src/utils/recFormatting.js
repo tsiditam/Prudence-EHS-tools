@@ -13,7 +13,7 @@
  * re-implementing the legacy string-prefix parser.
  */
 
-const HVAC_FALLBACK_PREFIX = 'HVAC equipment not yet identified — '
+const HVAC_FALLBACK_PREFIX = 'HVAC equipment not yet identified - '
 
 /**
  * Coerce a legacy "ZoneName: action text" string into the new

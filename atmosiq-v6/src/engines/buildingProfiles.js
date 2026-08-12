@@ -26,7 +26,7 @@ export const BUILDING_PROFILES = {
     additionalFields: {
       data_hall: [
         { id: 'gaseous_corrosion', sec: 'Data Center', q: 'ISA-71.04 gaseous corrosion classification?', t: 'ch', ic: '⚗️',
-          opts: ['G1 — Mild', 'G2 — Moderate', 'G3 — Harsh', 'GX — Severe', 'Not assessed'],
+          opts: ['G1 - Mild', 'G2 - Moderate', 'G3 - Harsh', 'GX - Severe', 'Not assessed'],
           ref: 'ANSI/ISA 71.04-2013' },
         { id: 'dp_temp', sec: 'Data Center', q: 'Dew point temperature?', t: 'num', ic: '💧', u: '°F',
           ph: 'e.g. 42', ref: 'ASHRAE TC 9.9: 41.9–59°F recommended' },
@@ -36,7 +36,7 @@ export const BUILDING_PROFILES = {
       ],
       battery_room: [
         { id: 'h2_monitoring', sec: 'Battery Room', q: 'Hydrogen monitoring in place?', t: 'ch', ic: '⚠️',
-          opts: ['Yes — continuous monitor', 'Yes — periodic checks', 'No', 'Unknown'],
+          opts: ['Yes - continuous monitor', 'Yes - periodic checks', 'No', 'Unknown'],
           ref: 'IEEE 1635; NFPA 855' },
         { id: 'h2_ppm', sec: 'Battery Room', q: 'Hydrogen concentration (if measured)?', t: 'num', sk: 1, ic: '⚠️', u: 'ppm',
           ph: 'e.g. 500', ref: 'H₂ LEL = 40,000 ppm (4% vol); IEEE 1635 ceiling = 2% (20,000 ppm)' },
@@ -172,7 +172,7 @@ export const BUILDING_PROFILES = {
     rhOverrides: { default: { min: 30, max: 60, label: 'ASHRAE 55' } },
     contextFindings: [
       { condition: (z) => z.zone_subtype === 'conference' && z.co2 && +z.co2 > 1000,
-        text: 'Conference room CO₂ elevated during occupancy. Verify dedicated outdoor air supply — conference rooms often lack adequate OA for peak occupancy.',
+        text: 'Conference room CO₂ elevated during occupancy. Verify dedicated outdoor air supply - conference rooms often lack adequate OA for peak occupancy.',
         sev: 'medium', std: 'ASHRAE 62.1-2025' },
     ],
   },

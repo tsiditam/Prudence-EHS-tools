@@ -66,7 +66,7 @@ export function scoreZone(z, bldg) {
   // Data hall screening findings — walkthrough indicators, not definitive classifications
   if (d.zone_subtype === 'data_hall') {
     if (d.gaseous_corrosion && (d.gaseous_corrosion.includes('G3') || d.gaseous_corrosion.includes('GX'))) {
-      cats.find(c => c.l === 'Contaminants')?.r.push({ t: 'Screening indicators consistent with elevated risk of G2 or worse environment per ANSI/ISA 71.04-2013 methodology. Gaseous corrosion severity is professional judgment based on visual/olfactory indicators — not instrument measurement. Definitive classification requires 30-day passive copper+silver reactivity coupon deployment per the standard.', std: 'ANSI/ISA 71.04-2013 (screening)', sev: 'medium' })
+      cats.find(c => c.l === 'Contaminants')?.r.push({ t: 'Screening indicators consistent with elevated risk of G2 or worse environment per ANSI/ISA 71.04-2013 methodology. Gaseous corrosion severity is professional judgment based on visual/olfactory indicators - not instrument measurement. Definitive classification requires 30-day passive copper+silver reactivity coupon deployment per the standard.', std: 'ANSI/ISA 71.04-2013 (screening)', sev: 'medium' })
     }
     if (d.iso_class === 'ISO Class 8') {
       cats.find(c => c.l === 'Contaminants')?.r.push({ t: 'Particle conditions observed during walkthrough may indicate elevated particulate levels. ISO Class cannot be determined from walkthrough data alone. Definitive classification per ISO 14644-1:2015 requires particle counter deployment at standard size thresholds (≥0.5 µm, ≥1 µm, ≥5 µm).', std: 'ISO 14644-1:2015 (screening)', sev: 'medium' })
@@ -142,39 +142,39 @@ function scoreVent(d, achOverride) {
   if (d.cfm_person) {
     const cfm = +d.cfm_person, req = STD.v.oa[d.su]?.pp || 5
     // Gap 11: value equal to minimum = "at minimum", not "marginally above"
-    if (cfm < req * 0.5)      { s = 0;  r.push({ t: `OA delivery ${cfm} cfm/person — critically below ASHRAE 62.1 minimum (${req})`, std: 'ASHRAE 62.1-2025', sev: 'critical' }) }
-    else if (cfm < req)       { s = 10; r.push({ t: `OA delivery ${cfm} cfm/person — below ASHRAE 62.1 minimum (${req})`, std: 'ASHRAE 62.1-2025', sev: 'high' }) }
-    else if (cfm === req)     { s = 20; r.push({ t: `OA delivery ${cfm} cfm/person — at ASHRAE 62.1 minimum (${req}). Area component (Ra×Az) not captured — ventilation calc incomplete.`, std: 'ASHRAE 62.1-2025', sev: 'medium' }) }
-    else if (cfm < req * 1.2) { s = 20; r.push({ t: `OA delivery ${cfm} cfm/person — marginally above minimum (${req})`, std: 'ASHRAE 62.1-2025', sev: 'medium' }) }
-    else                      { r.push({ t: `OA delivery ${cfm} cfm/person — exceeds ASHRAE 62.1 minimum (${req})`, std: 'ASHRAE 62.1-2025', sev: 'pass' }) }
-    if (d.co2) r.push({ t: `CO₂ ${d.co2} ppm — confirmatory ventilation indicator, not a contaminant limit (no ASHRAE indoor-CO₂ limit; Persily 2021).`, std: co2Ref, sev: 'info' })
+    if (cfm < req * 0.5)      { s = 0;  r.push({ t: `OA delivery ${cfm} cfm/person - critically below ASHRAE 62.1 minimum (${req})`, std: 'ASHRAE 62.1-2025', sev: 'critical' }) }
+    else if (cfm < req)       { s = 10; r.push({ t: `OA delivery ${cfm} cfm/person - below ASHRAE 62.1 minimum (${req})`, std: 'ASHRAE 62.1-2025', sev: 'high' }) }
+    else if (cfm === req)     { s = 20; r.push({ t: `OA delivery ${cfm} cfm/person - at ASHRAE 62.1 minimum (${req}). Area component (Ra×Az) not captured - ventilation calc incomplete.`, std: 'ASHRAE 62.1-2025', sev: 'medium' }) }
+    else if (cfm < req * 1.2) { s = 20; r.push({ t: `OA delivery ${cfm} cfm/person - marginally above minimum (${req})`, std: 'ASHRAE 62.1-2025', sev: 'medium' }) }
+    else                      { r.push({ t: `OA delivery ${cfm} cfm/person - exceeds ASHRAE 62.1 minimum (${req})`, std: 'ASHRAE 62.1-2025', sev: 'pass' }) }
+    if (d.co2) r.push({ t: `CO₂ ${d.co2} ppm - confirmatory ventilation indicator, not a contaminant limit (no ASHRAE indoor-CO₂ limit; Persily 2021).`, std: co2Ref, sev: 'info' })
   } else if (d.ach) {
     const ach = +d.ach, achMin = achOverride?.min || ((d.su === 'healthcare' || d.su === 'lab') ? 6 : 4)
     const achStd = achOverride?.label || 'CDC/ASHRAE 170'
-    if (ach < achMin * 0.5) { s = 5;  r.push({ t: `ACH ${ach} — critically below minimum (${achMin})`, std: achStd, sev: 'critical' }) }
-    else if (ach < achMin)  { s = 12; r.push({ t: `ACH ${ach} — below minimum (${achMin})`, std: achStd, sev: 'high' }) }
-    else if (ach === achMin){ s = 20; r.push({ t: `ACH ${ach} — at minimum (${achMin})`, std: achStd, sev: 'medium' }) }
-    else                    { r.push({ t: `ACH ${ach} — meets or exceeds minimum (${achMin})`, std: achStd, sev: 'pass' }) }
-    if (d.co2) r.push({ t: `CO₂ ${d.co2} ppm — confirmatory ventilation indicator, not a contaminant limit (no ASHRAE indoor-CO₂ limit; Persily 2021).`, std: co2Ref, sev: 'info' })
+    if (ach < achMin * 0.5) { s = 5;  r.push({ t: `ACH ${ach} - critically below minimum (${achMin})`, std: achStd, sev: 'critical' }) }
+    else if (ach < achMin)  { s = 12; r.push({ t: `ACH ${ach} - below minimum (${achMin})`, std: achStd, sev: 'high' }) }
+    else if (ach === achMin){ s = 20; r.push({ t: `ACH ${ach} - at minimum (${achMin})`, std: achStd, sev: 'medium' }) }
+    else                    { r.push({ t: `ACH ${ach} - meets or exceeds minimum (${achMin})`, std: achStd, sev: 'pass' }) }
+    if (d.co2) r.push({ t: `CO₂ ${d.co2} ppm - confirmatory ventilation indicator, not a contaminant limit (no ASHRAE indoor-CO₂ limit; Persily 2021).`, std: co2Ref, sev: 'info' })
   } else if (d.co2) {
     const v = +d.co2, o = d.co2o ? +d.co2o : STD.v.co2.base, df = v - o
     const hasOutdoor = !!d.co2o
-    if (v > STD.v.co2.act)                              { s = 0;  r.push({ t: 'CO₂ ' + v + ' ppm — severely elevated, indicating significant ventilation inadequacy. ' + co2Caveat, std: co2Ref, sev: 'critical' }) }
-    else if (df > STD.v.co2.diff || v > STD.v.co2.con) { s = 10; r.push({ t: 'CO₂ ' + v + ' ppm (Δ' + df + ' ppm above outdoor) — ventilation rate appears inadequate for occupant load. ' + co2Caveat, std: co2Ref, sev: 'high' }) }
-    else if (hasOutdoor ? df > 500 : v > 800)           { s = 20; r.push({ t: 'CO₂ ' + v + ' ppm' + (hasOutdoor ? ' (Δ' + df + ' ppm above outdoor ' + o + ')' : '') + ' — ventilation approaching concern for sedentary occupancy. ' + co2Caveat, std: co2Ref, sev: 'medium' }) }
-    else if (!hasOutdoor && v > 800)                    { s = 20; r.push({ t: 'CO₂ ' + v + ' ppm — approaching concern (no outdoor baseline for differential). ' + co2Caveat, std: co2Ref, sev: 'low' }) }
-    else r.push({ t: 'CO₂ ' + v + ' ppm' + (hasOutdoor ? ' (Δ' + df + ' ppm)' : '') + ' — within screening range for ventilation adequacy. ' + co2Caveat, std: co2Ref, sev: 'pass' })
-    r.push({ t: 'Ventilation scored from CO₂ only — Limited Confidence. CO₂ is a ventilation indicator and should not be interpreted as a contaminant measurement.', sev: 'info' })
+    if (v > STD.v.co2.act)                              { s = 0;  r.push({ t: 'CO₂ ' + v + ' ppm - severely elevated, indicating significant ventilation inadequacy. ' + co2Caveat, std: co2Ref, sev: 'critical' }) }
+    else if (df > STD.v.co2.diff || v > STD.v.co2.con) { s = 10; r.push({ t: 'CO₂ ' + v + ' ppm (Δ' + df + ' ppm above outdoor) - ventilation rate appears inadequate for occupant load. ' + co2Caveat, std: co2Ref, sev: 'high' }) }
+    else if (hasOutdoor ? df > 500 : v > 800)           { s = 20; r.push({ t: 'CO₂ ' + v + ' ppm' + (hasOutdoor ? ' (Δ' + df + ' ppm above outdoor ' + o + ')' : '') + ' - ventilation approaching concern for sedentary occupancy. ' + co2Caveat, std: co2Ref, sev: 'medium' }) }
+    else if (!hasOutdoor && v > 800)                    { s = 20; r.push({ t: 'CO₂ ' + v + ' ppm - approaching concern (no outdoor baseline for differential). ' + co2Caveat, std: co2Ref, sev: 'low' }) }
+    else r.push({ t: 'CO₂ ' + v + ' ppm' + (hasOutdoor ? ' (Δ' + df + ' ppm)' : '') + ' - within screening range for ventilation adequacy. ' + co2Caveat, std: co2Ref, sev: 'pass' })
+    r.push({ t: 'Ventilation scored from CO₂ only - Limited Confidence. CO₂ is a ventilation indicator and should not be interpreted as a contaminant measurement.', sev: 'info' })
   } else {
     let f = 0
     if (d.sa === 'No airflow detected') f += 3
     else if (d.sa === 'Weak / reduced') f += 2
     if (d.od === 'Closed / minimum' || d.od === 'Stuck / inoperable') f += 2
     if (d.cx === 'Yes — complaints reported' && (d.sy || []).some(s => ['Headache','Fatigue','Concentration issues'].includes(s))) f += 1
-    if (f >= 4)      { s = 5;  r.push({ t: 'No airflow data — ventilation inadequacy inferred', sev: 'high' }) }
-    else if (f >= 2) { s = 12; r.push({ t: 'No airflow data — ventilation concern from observations', sev: 'medium' }) }
-    else if (f >= 1) { s = 18; r.push({ t: 'No airflow data — minor indicators observed', sev: 'low' }) }
-    else r.push({ t: 'No airflow data — no ventilation concerns from indicators', sev: 'pass' })
+    if (f >= 4)      { s = 5;  r.push({ t: 'No airflow data - ventilation inadequacy inferred', sev: 'high' }) }
+    else if (f >= 2) { s = 12; r.push({ t: 'No airflow data - ventilation concern from observations', sev: 'medium' }) }
+    else if (f >= 1) { s = 18; r.push({ t: 'No airflow data - minor indicators observed', sev: 'low' }) }
+    else r.push({ t: 'No airflow data - no ventilation concerns from indicators', sev: 'pass' })
   }
   return { s, mx: 25, l: 'Ventilation', r }
 }
@@ -187,32 +187,32 @@ function scoreCont(d) {
     if (isDataHall) {
       if (v > 10) { dd += ho ? 6 : 4; r.push({ t: 'Indoor PM2.5 mass concentration of ' + v + ' µg/m³ measured during walkthrough. Elevated relative to typical data hall MERV-filtered conditions (<10 µg/m³).' + (ho ? '' : ' Without concurrent outdoor PM2.5 measurement, indoor elevation cannot be attributed to building sources.') + ' Particle count data at ISO 14644-1 size thresholds not captured; ISO Class cannot be determined from mass measurement alone.', std:'ISO 14644-1:2015 (screening)', sev:'medium' }) }
     } else {
-      if (v > STD.c.pm25.epa)      { dd += ho ? 12 : 8; r.push({ t: 'PM2.5 ' + v + ' µg/m³ — exceeds EPA 24-hr standard' + (ho?'':' (no outdoor baseline)'), std:'EPA NAAQS', sev:'high' }) }
-      else if (v > STD.c.pm25.who) { dd += ho ? 6  : 4; r.push({ t: 'PM2.5 ' + v + ' µg/m³ — exceeds WHO guideline' + (ho?'':' (no outdoor baseline)'), std:'WHO AQG', sev:'medium' }) }
+      if (v > STD.c.pm25.epa)      { dd += ho ? 12 : 8; r.push({ t: 'PM2.5 ' + v + ' µg/m³ - exceeds EPA 24-hr standard' + (ho?'':' (no outdoor baseline)'), std:'EPA NAAQS', sev:'high' }) }
+      else if (v > STD.c.pm25.who) { dd += ho ? 6  : 4; r.push({ t: 'PM2.5 ' + v + ' µg/m³ - exceeds WHO guideline' + (ho?'':' (no outdoor baseline)'), std:'WHO AQG', sev:'medium' }) }
     }
     if (ho && +d.pmo > 0) {
       const ioRatio = Math.round((v / +d.pmo) * 100) / 100
       if (ioRatio > 2) r.push({ t: 'Indoor/outdoor PM2.5 ratio: ' + ioRatio + ' (>2.0 indicates significant indoor particulate source)', std: 'Chen & Zhao, Atmospheric Environment 2011', sev: 'medium' })
       else if (ioRatio > 1) r.push({ t: 'Indoor/outdoor PM2.5 ratio: ' + ioRatio + ' (>1.0 indicates indoor contribution)', std: 'Chen & Zhao, Atmospheric Environment 2011', sev: 'info' })
-      else r.push({ t: 'Indoor/outdoor PM2.5 ratio: ' + ioRatio + ' (≤1.0 — no significant indoor source)', sev: 'pass' })
+      else r.push({ t: 'Indoor/outdoor PM2.5 ratio: ' + ioRatio + ' (≤1.0 - no significant indoor source)', sev: 'pass' })
     }
   }
   if (d.co) {
     const v = +d.co
-    if (v > STD.c.co.osha)       { dd += 25; r.push({ t: 'CO ' + v + ' ppm — EXCEEDS OSHA PEL', std:'OSHA', sev:'critical' }) }
-    else if (v > STD.c.co.niosh) { dd += 12; r.push({ t: 'CO ' + v + ' — exceeds NIOSH REL', std:'NIOSH', sev:'high' }) }
+    if (v > STD.c.co.osha)       { dd += 25; r.push({ t: 'CO ' + v + ' ppm - EXCEEDS OSHA PEL', std:'OSHA', sev:'critical' }) }
+    else if (v > STD.c.co.niosh) { dd += 12; r.push({ t: 'CO ' + v + ' - exceeds NIOSH REL', std:'NIOSH', sev:'high' }) }
   }
   if (d.hc) {
     const v = +d.hc
-    if (v > STD.c.hcho.osha)       { dd += 25; r.push({ t: 'Formaldehyde ' + v + ' ppm — exceeds OSHA PEL', std:'29 CFR 1910.1048', sev:'critical' }) }
-    else if (v > STD.c.hcho.al)    { dd += 12; r.push({ t: 'Formaldehyde ' + v + ' ppm — exceeds OSHA action level', std:'29 CFR 1910.1048', sev:'high' }) }
-    else if (v > STD.c.hcho.niosh) { dd += 6;  r.push({ t: 'Formaldehyde ' + v + ' ppm — exceeds NIOSH REL Ceiling (' + STD.c.hcho.niosh + ' ppm, health-protective recommendation) but below OSHA Action Level (' + STD.c.hcho.al + ' ppm) and PEL (' + STD.c.hcho.osha + ' ppm TWA). This is not a regulatory violation.', std:'NIOSH REL; 29 CFR 1910.1048', sev:'medium' }) }
+    if (v > STD.c.hcho.osha)       { dd += 25; r.push({ t: 'Formaldehyde ' + v + ' ppm - exceeds OSHA PEL', std:'29 CFR 1910.1048', sev:'critical' }) }
+    else if (v > STD.c.hcho.al)    { dd += 12; r.push({ t: 'Formaldehyde ' + v + ' ppm - exceeds OSHA action level', std:'29 CFR 1910.1048', sev:'high' }) }
+    else if (v > STD.c.hcho.niosh) { dd += 6;  r.push({ t: 'Formaldehyde ' + v + ' ppm - exceeds NIOSH REL Ceiling (' + STD.c.hcho.niosh + ' ppm, health-protective recommendation) but below OSHA Action Level (' + STD.c.hcho.al + ' ppm) and PEL (' + STD.c.hcho.osha + ' ppm TWA). This is not a regulatory violation.', std:'NIOSH REL; 29 CFR 1910.1048', sev:'medium' }) }
   }
   if (d.tv) {
     const v = +d.tv, ho = !!d.tvo
-    const tvocCaveat = ' TVOC is a screening indicator only — no regulatory limit exists for total VOCs and TVOC measurement does not identify individual compounds that drive toxicological assessment. TO-17 speciation (thermal desorption GC/MS) is the appropriate analytical method for compound identification. Mølhave (1991) tiers are advisory.'
-    if (v > STD.c.tvoc.act)      { dd += ho?15:10; r.push({ t:'TVOCs '+v+' µg/m³ — significantly elevated. TO-17 speciation recommended to identify individual compounds.'+tvocCaveat, sev:'high' }) }
-    else if (v > STD.c.tvoc.con) { dd += ho?7:5;   r.push({ t:'TVOCs '+v+' µg/m³ — elevated. Consider TO-17 speciation if source investigation warranted.'+tvocCaveat, sev:'medium' }) }
+    const tvocCaveat = ' TVOC is a screening indicator only - no regulatory limit exists for total VOCs and TVOC measurement does not identify individual compounds that drive toxicological assessment. TO-17 speciation (thermal desorption GC/MS) is the appropriate analytical method for compound identification. Mølhave (1991) tiers are advisory.'
+    if (v > STD.c.tvoc.act)      { dd += ho?15:10; r.push({ t:'TVOCs '+v+' µg/m³ - significantly elevated. TO-17 speciation recommended to identify individual compounds.'+tvocCaveat, sev:'high' }) }
+    else if (v > STD.c.tvoc.con) { dd += ho?7:5;   r.push({ t:'TVOCs '+v+' µg/m³ - elevated. Consider TO-17 speciation if source investigation warranted.'+tvocCaveat, sev:'medium' }) }
   }
   if (d.op === 'Strong / overpowering')    { dd += 10; r.push({ t:'Strong odor: '+((d.ot||[]).join(', ')||'?'), sev:'high' }) }
   else if (d.op === 'Moderate persistent') { dd += 5;  r.push({ t:'Moderate odor', sev:'medium' }) }
@@ -220,24 +220,24 @@ function scoreCont(d) {
   // Mold indicators
   if (d.mi && d.mi !== 'None' && d.mi !== 'Suspected discoloration') {
     const moldJurisdiction = ' Consult applicable state and local regulations for jurisdiction-specific mold remediation requirements.'
-    if (d.mi.includes('Extensive')) { dd += 15; r.push({ t:'Extensive visible mold ('+d.mi+') — IICRC S520 Condition 3 likely. EPA Mold Remediation Level III or higher. Professional remediation contractor required.'+moldJurisdiction, std:'IICRC S520; EPA Mold Remediation', sev:'critical' }) }
-    else if (d.mi.includes('Moderate')) { dd += 10; r.push({ t:'Moderate visible mold ('+d.mi+') — IICRC S520 Condition 2 likely. EPA Level II (10–30 sq ft). Trained personnel with PPE (N95, gloves, eye protection) required.'+moldJurisdiction, std:'IICRC S520; EPA Mold Remediation', sev:'high' }) }
-    else if (d.mi.includes('Small')) { dd += 5; r.push({ t:'Small area mold ('+d.mi+') — IICRC S520 Condition 1 or 2. EPA Level I (<10 sq ft). Trained maintenance staff with PPE may perform cleanup.'+moldJurisdiction, std:'IICRC S520; EPA Mold Remediation', sev:'medium' }) }
+    if (d.mi.includes('Extensive')) { dd += 15; r.push({ t:'Extensive visible mold ('+d.mi+') - IICRC S520 Condition 3 likely. EPA Mold Remediation Level III or higher. Professional remediation contractor required.'+moldJurisdiction, std:'IICRC S520; EPA Mold Remediation', sev:'critical' }) }
+    else if (d.mi.includes('Moderate')) { dd += 10; r.push({ t:'Moderate visible mold ('+d.mi+') - IICRC S520 Condition 2 likely. EPA Level II (10–30 sq ft). Trained personnel with PPE (N95, gloves, eye protection) required.'+moldJurisdiction, std:'IICRC S520; EPA Mold Remediation', sev:'high' }) }
+    else if (d.mi.includes('Small')) { dd += 5; r.push({ t:'Small area mold ('+d.mi+') - IICRC S520 Condition 1 or 2. EPA Level I (<10 sq ft). Trained maintenance staff with PPE may perform cleanup.'+moldJurisdiction, std:'IICRC S520; EPA Mold Remediation', sev:'medium' }) }
   }
   // Battery room H₂ hazard-atmosphere assessment (parallel to IAQ scoring)
   if (d.zone_subtype === 'battery_room' && d.h2_ppm) {
     const h2 = +d.h2_ppm
-    if (h2 >= 20000)      { dd += 25; r.push({ t:'H₂ '+h2+' ppm — exceeds IEEE 1635 absolute ceiling (2% / 20,000 ppm). Immediate evacuation and ventilation required.', std:'IEEE 1635; NFPA 855', sev:'critical' }) }
-    else if (h2 >= 10000) { dd += 20; r.push({ t:'H₂ '+h2+' ppm — exceeds 25% LEL (10,000 ppm). Evacuate and investigate ventilation failure.', std:'IEEE 1635; NFPA 855', sev:'critical' }) }
-    else if (h2 >= 4000)  { dd += 12; r.push({ t:'H₂ '+h2+' ppm — exceeds 10% LEL (4,000 ppm). Enhanced monitoring and ventilation controls required.', std:'IEEE 1635; NFPA 855', sev:'high' }) }
-    else if (h2 > 0)      { dd += 3;  r.push({ t:'H₂ '+h2+' ppm — detectable but below 10% LEL. Continue monitoring.', std:'IEEE 1635', sev:'low' }) }
+    if (h2 >= 20000)      { dd += 25; r.push({ t:'H₂ '+h2+' ppm - exceeds IEEE 1635 absolute ceiling (2% / 20,000 ppm). Immediate evacuation and ventilation required.', std:'IEEE 1635; NFPA 855', sev:'critical' }) }
+    else if (h2 >= 10000) { dd += 20; r.push({ t:'H₂ '+h2+' ppm - exceeds 25% LEL (10,000 ppm). Evacuate and investigate ventilation failure.', std:'IEEE 1635; NFPA 855', sev:'critical' }) }
+    else if (h2 >= 4000)  { dd += 12; r.push({ t:'H₂ '+h2+' ppm - exceeds 10% LEL (4,000 ppm). Enhanced monitoring and ventilation controls required.', std:'IEEE 1635; NFPA 855', sev:'high' }) }
+    else if (h2 > 0)      { dd += 3;  r.push({ t:'H₂ '+h2+' ppm - detectable but below 10% LEL. Continue monitoring.', std:'IEEE 1635', sev:'low' }) }
   }
   // Multiple Contaminant Exceedance: multiple Tier 1 contaminants exceeding OSHA PEL
   let tier1Count = 0
   if (d.co && +d.co > STD.c.co.osha) tier1Count++
   if (d.hc && +d.hc > STD.c.hcho.osha) tier1Count++
   const synergistic = tier1Count >= 2
-  if (synergistic) { dd = 25; r.push({ t:'Multiple Contaminant Exceedance: More than one Tier 1 contaminant exceeds OSHA PELs — Immediate Follow-Up Sampling Required', sev:'critical' }) }
+  if (synergistic) { dd = 25; r.push({ t:'Multiple Contaminant Exceedance: More than one Tier 1 contaminant exceeds OSHA PELs - Immediate Follow-Up Sampling Required', sev:'critical' }) }
   if (!r.length) r.push({ t:'No contaminant concerns', sev:'pass' })
   return { s: Math.max(0, 25 - dd), mx: 25, l: 'Contaminants', r, synergistic }
 }
@@ -249,12 +249,12 @@ function scoreHVAC(d) {
   if (d.hm === 'Within 6 months')     r.push({ t:'HVAC maintenance current', sev:'pass' })
   else if (d.hm === '6-12 months ago'){ s -= 3;  r.push({ t:'HVAC maintenance 6–12 months ago', sev:'low' }) }
   else if (d.hm === 'Over 12 months') { s -= 5;  r.push({ t:'HVAC maintenance overdue (>12 months)', sev:'medium' }) }
-  else if (d.hm === 'Unknown')        { adminGap = true; r.push({ t:'HVAC maintenance history unknown — Data Gap (confidence reduced, not scored as deficiency)', sev:'info' }) }
+  else if (d.hm === 'Unknown')        { adminGap = true; r.push({ t:'HVAC maintenance history unknown - Data Gap (confidence reduced, not scored as deficiency)', sev:'info' }) }
   // Physical/Hygiene (high impact)
-  if (d.fc === 'Heavily loaded' || d.fc === 'Damaged / Bypass') { s -= 10; r.push({ t:'Filter condition: '+d.fc.toLowerCase()+' — degraded filtration performance', sev:'high' }) }
-  if (d.fm === 'No filter')           { s -= 15; gate5 = true; r.push({ t:'No filtration installed — Major HVAC Deficiency', sev:'critical' }) }
-  if (d.sa === 'No airflow detected') { s -= 20; gate5 = true; r.push({ t:'No supply airflow detected — Critical HVAC Condition Identified', sev:'critical' }) }
-  if (d.dp === 'Standing water' || d.dp === 'Bio growth observed') { s -= 15; gate5 = true; r.push({ t:'Drain pan: '+d.dp.toLowerCase()+' — Critical Moisture/Hygiene Deficiency. Evaluate for Legionella risk per ASHRAE Standard 188 if building lacks a Water Management Program.', std:'ASHRAE 188', sev:'critical' }) }
+  if (d.fc === 'Heavily loaded' || d.fc === 'Damaged / Bypass') { s -= 10; r.push({ t:'Filter condition: '+d.fc.toLowerCase()+' - degraded filtration performance', sev:'high' }) }
+  if (d.fm === 'No filter')           { s -= 15; gate5 = true; r.push({ t:'No filtration installed - Major HVAC Deficiency', sev:'critical' }) }
+  if (d.sa === 'No airflow detected') { s -= 20; gate5 = true; r.push({ t:'No supply airflow detected - Critical HVAC Condition Identified', sev:'critical' }) }
+  if (d.dp === 'Standing water' || d.dp === 'Bio growth observed') { s -= 15; gate5 = true; r.push({ t:'Drain pan: '+d.dp.toLowerCase()+' - Critical Moisture/Hygiene Deficiency. Evaluate for Legionella risk per ASHRAE Standard 188 if building lacks a Water Management Program.', std:'ASHRAE 188', sev:'critical' }) }
   // Critical HVAC Condition Override — cap at 30% of max
   if (gate5) { s = Math.min(s, Math.round(20 * 0.3)); r.push({ t:'Critical HVAC Condition Identified: active physical deficiency caps category at 30%', sev:'critical' }) }
   s = Math.max(0, s)
@@ -288,8 +288,8 @@ function scoreEnv(d, rhOverride, tempOverride) {
     const tOMax = tempOverride?.oMax ?? STD.t.temp[ssn].oMax
     const tLabel = tempOverride?.label || 'ASHRAE 55'
     const tStd = tempOverride ? tempOverride.label : STD.t.ref
-    if (t < tMin || t > tMax)        { dd += 5; r.push({ t:'Temperature '+t+'°F — outside '+tMin+'–'+tMax+'°F range (per '+tLabel+')', std:tStd, sev:'high' }) }
-    else if (t < tOMin || t > tOMax) { dd += 2; r.push({ t:'Temperature '+t+'°F — outside optimal '+tOMin+'–'+tOMax+'°F (per '+tLabel+')', std:tStd, sev:'low' }) }
+    if (t < tMin || t > tMax)        { dd += 5; r.push({ t:'Temperature '+t+'°F - outside '+tMin+'–'+tMax+'°F range (per '+tLabel+')', std:tStd, sev:'high' }) }
+    else if (t < tOMin || t > tOMax) { dd += 2; r.push({ t:'Temperature '+t+'°F - outside optimal '+tOMin+'–'+tOMax+'°F (per '+tLabel+')', std:tStd, sev:'low' }) }
   } else if (d.tc === 'Too hot' || d.tc === 'Too cold') { dd += 4; r.push({ t:'Thermal discomfort: '+d.tc.toLowerCase(), sev:'medium' }) }
   // RH scoring with building-profile override (e.g., data_hall: 20-60%)
   const rhMin = rhOverride?.min ?? STD.t.rh.min
@@ -297,7 +297,7 @@ function scoreEnv(d, rhOverride, tempOverride) {
   const rhLabel = rhOverride?.label || 'recommended range'
   if (d.rh) {
     const v = +d.rh
-    if (v < rhMin || v > rhMax) { dd += 4; r.push({ t:'RH '+v+'% — outside '+rhMin+'–'+rhMax+'% '+rhLabel, std: rhOverride ? rhOverride.label : STD.t.ref, sev:v>70||v<20?'high':'medium' }) }
+    if (v < rhMin || v > rhMax) { dd += 4; r.push({ t:'RH '+v+'% - outside '+rhMin+'–'+rhMax+'% '+rhLabel, std: rhOverride ? rhOverride.label : STD.t.ref, sev:v>70||v<20?'high':'medium' }) }
   } else if (d.hp === 'Too humid / stuffy' || d.hp === 'Too dry') { dd += 3; r.push({ t:'Humidity concern: '+d.hp.toLowerCase(), sev:'medium' }) }
   if (d.wd === 'Extensive damage')  { dd += 15; r.push({ t:'Extensive water damage', sev:'critical' }) }
   else if (d.wd === 'Active leak')  { dd += 10; r.push({ t:'Active water intrusion', sev:'high' }) }

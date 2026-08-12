@@ -1256,7 +1256,7 @@ export function monitoringReportChildren(model) {
   const out = []
   body.filter((s) => !s.footer).forEach((s) => out.push(...s.children))
   appendices.forEach((s, i) => {
-    out.push(sectionHeading(null, `Appendix ${String.fromCharCode(65 + i)} — ${s.title}`))
+    out.push(sectionHeading(null, `Appendix ${String.fromCharCode(65 + i)} - ${s.title}`))
     out.push(...s.children)
   })
   // The colophon closes the document, after the appendices.

@@ -69,7 +69,7 @@ export function renderInternalReport(score: AssessmentScore): InternalReport {
   for (const z of score.zones) {
     for (const c of z.categories) {
       if (c.status === 'insufficient' || c.status === 'data_gap') {
-        missingDataFlags.push(`${z.zoneName}: ${c.category} — ${c.status}`)
+        missingDataFlags.push(`${z.zoneName}: ${c.category} - ${c.status}`)
       }
     }
   }

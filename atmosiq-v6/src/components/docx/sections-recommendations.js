@@ -180,7 +180,7 @@ export function buildLimitations(ctx) {
 
   items.forEach(item => children.push(bullet(item)))
 
-  children.push(p('Targeted follow-up assessment is recommended to confirm findings, evaluate the effectiveness of any corrective actions implemented, and address identified data gaps. This report is intended to support — not replace — professional judgment by a qualified industrial hygienist or EHS professional.', { size: 22, color: COLORS.sub, after: 200 }))
+  children.push(p('Targeted follow-up assessment is recommended to confirm findings, evaluate the effectiveness of any corrective actions implemented, and address identified data gaps. This report is intended to support - not replace - professional judgment by a qualified industrial hygienist or EHS professional.', { size: 22, color: COLORS.sub, after: 200 }))
 
   return children
 }
