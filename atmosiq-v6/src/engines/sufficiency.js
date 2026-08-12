@@ -77,8 +77,10 @@ export function evaluateCategorySufficiency(categoryName, zoneData) {
   }
 
   let optMet = 0
+  const unmetOptional = []
   for (const k of optKeys) {
     if (hasValue(zoneData, k)) { optMet++; present.push(spec.optional[k]) }
+    else { unmetOptional.push(spec.optional[k]) }
   }
 
   const totalFields = reqKeys.length + optKeys.length
@@ -87,14 +89,25 @@ export function evaluateCategorySufficiency(categoryName, zoneData) {
   const reqSufficiency = reqKeys.length > 0 ? reqMet / reqKeys.length : 1
   const isInsufficient = reqSufficiency < spec.minSufficiencyForScoring
 
+  // When sufficiency < 1 but the category is still scorable, the score is
+  // capped by *optional* inputs that weren't captured (not a missing
+  // requirement). Surface those so a capped category never reads as
+  // "capped with no stated reason" in the structured output. Additive:
+  // does not change sufficiency, maxAwardable, or `reason` semantics.
+  const capReason = (!isInsufficient && sufficiency < 1 && unmetOptional.length)
+    ? `Score capped: optional inputs not captured (${unmetOptional.join(', ')})`
+    : null
+
   return {
     sufficiency,
     reqSufficiency,
     present,
     missing,
+    unmetOptional,
     isInsufficient,
     maxAwardable: isInsufficient ? 0 : Math.round(sufficiency * spec.maxPoints),
     reason: isInsufficient ? `Missing required inputs: ${missing.join(', ')}` : null,
+    capReason,
   }
 }
 
