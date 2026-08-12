@@ -226,7 +226,7 @@ export function buildAssessmentContext(state: RawAssessmentState): AssessmentCon
     building: {
       name: firstStr(building.fn, building.name, presurvey.ps_site_name),
       address: firstStr(building.address, building.addr, presurvey.ps_site_address),
-      type: firstStr(building.type, building.facilityType, presurvey.ps_facility_type),
+      type: firstStr(building.type, building.facilityType, building.ft, presurvey.ps_facility_type),
       sqft: firstStr(building.sqft, building.area, presurvey.ps_sqft),
       profile: firstStr(building.profile, building.buildingProfile),
     },

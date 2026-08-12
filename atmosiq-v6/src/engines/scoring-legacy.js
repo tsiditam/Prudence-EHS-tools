@@ -267,7 +267,17 @@ export function genRecs(zoneScores, bldg, opts = {}) {
 
   // ── Building-scoped tail ──
   if (bldg.hm === 'Unknown') pushBuilding('adm', 'Establish preventive HVAC maintenance schedule.')
-  pushBuilding('mon', 'Conduct periodic reassessment to verify corrective action effectiveness.')
+  // Monitoring wording depends on whether the screening surfaced any actual
+  // deficiency. "Verify corrective action effectiveness" only fits when there
+  // is a corrective action to verify — i.e. a critical/high/medium finding
+  // (the same severities that drive corrective recs above). On a clean
+  // screening where every finding is pass/info/low, that phrasing is a
+  // template mismatch, so use a baseline-reassessment phrasing instead.
+  const hasDeficiency = zoneScores.some(zs =>
+    (zs.cats || []).some(c => (c.r || []).some(r => r.sev === 'critical' || r.sev === 'high' || r.sev === 'medium')))
+  pushBuilding('mon', hasDeficiency
+    ? 'Conduct periodic reassessment to verify corrective action effectiveness.'
+    : 'Conduct periodic baseline reassessment to confirm conditions remain within screening ranges; no corrective actions are currently indicated.')
 
   // Dedup within each bucket — key off scope, equipment/zone id, and text.
   // When duplicates collapse (e.g. a building/system action surfaced from
