@@ -42,7 +42,7 @@ export const VENTILATION_PHRASES: Partial<Record<ConditionType, PhraseLibraryEnt
     regulatoryConclusionRequires: ['documented_8hr_twa'],
     defaultLimitations: [
       'Ventilation adequacy was assessed using CO₂ as a surrogate indicator, not direct airflow measurement.',
-      'CO₂ is a ventilation effectiveness indicator, not an air quality contaminant (Persily, ASHRAE Journal 2021).',
+      'CO₂ is a ventilation indicator, not a contaminant limit; no ASHRAE indoor-CO₂ limit exists (Persily 2021).',
     ],
     defaultRecommendedActions: [
       {

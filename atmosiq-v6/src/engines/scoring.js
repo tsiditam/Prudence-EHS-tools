@@ -138,7 +138,7 @@ export function compositeScore(zoneScores) {
 function scoreVent(d, achOverride) {
   let s = 25, r = []
   const co2Ref = 'ASHRAE Position Document on Indoor CO₂ (2022)'
-  const co2Caveat = 'CO₂ is a ventilation effectiveness indicator, not an air quality contaminant. No current ASHRAE standard establishes an indoor CO₂ limit (Persily, ASHRAE Journal 2021). The 700 ppm indoor-outdoor differential is a sedentary-office bioeffluent perception threshold from a since-removed informative appendix.'
+  const co2Caveat = 'CO₂ is a ventilation indicator, not a contaminant limit; no ASHRAE indoor-CO₂ limit exists (Persily 2021).'
   if (d.cfm_person) {
     const cfm = +d.cfm_person, req = STD.v.oa[d.su]?.pp || 5
     // Gap 11: value equal to minimum = "at minimum", not "marginally above"
@@ -147,7 +147,7 @@ function scoreVent(d, achOverride) {
     else if (cfm === req)     { s = 20; r.push({ t: `OA delivery ${cfm} cfm/person — at ASHRAE 62.1 minimum (${req}). Area component (Ra×Az) not captured — ventilation calc incomplete.`, std: 'ASHRAE 62.1-2025', sev: 'medium' }) }
     else if (cfm < req * 1.2) { s = 20; r.push({ t: `OA delivery ${cfm} cfm/person — marginally above minimum (${req})`, std: 'ASHRAE 62.1-2025', sev: 'medium' }) }
     else                      { r.push({ t: `OA delivery ${cfm} cfm/person — exceeds ASHRAE 62.1 minimum (${req})`, std: 'ASHRAE 62.1-2025', sev: 'pass' }) }
-    if (d.co2) r.push({ t: `CO₂ ${d.co2} ppm (confirmatory ventilation indicator). ${co2Caveat}`, std: co2Ref, sev: 'info' })
+    if (d.co2) r.push({ t: `CO₂ ${d.co2} ppm — confirmatory ventilation indicator, not a contaminant limit (no ASHRAE indoor-CO₂ limit; Persily 2021).`, std: co2Ref, sev: 'info' })
   } else if (d.ach) {
     const ach = +d.ach, achMin = achOverride?.min || ((d.su === 'healthcare' || d.su === 'lab') ? 6 : 4)
     const achStd = achOverride?.label || 'CDC/ASHRAE 170'
@@ -155,7 +155,7 @@ function scoreVent(d, achOverride) {
     else if (ach < achMin)  { s = 12; r.push({ t: `ACH ${ach} — below minimum (${achMin})`, std: achStd, sev: 'high' }) }
     else if (ach === achMin){ s = 20; r.push({ t: `ACH ${ach} — at minimum (${achMin})`, std: achStd, sev: 'medium' }) }
     else                    { r.push({ t: `ACH ${ach} — meets or exceeds minimum (${achMin})`, std: achStd, sev: 'pass' }) }
-    if (d.co2) r.push({ t: `CO₂ ${d.co2} ppm (confirmatory ventilation indicator). ${co2Caveat}`, std: co2Ref, sev: 'info' })
+    if (d.co2) r.push({ t: `CO₂ ${d.co2} ppm — confirmatory ventilation indicator, not a contaminant limit (no ASHRAE indoor-CO₂ limit; Persily 2021).`, std: co2Ref, sev: 'info' })
   } else if (d.co2) {
     const v = +d.co2, o = d.co2o ? +d.co2o : STD.v.co2.base, df = v - o
     const hasOutdoor = !!d.co2o
