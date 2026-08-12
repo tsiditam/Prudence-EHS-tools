@@ -1805,21 +1805,32 @@ export default function MobileApp() {
     })
     const reportData = { building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, floorPlan, sensorData, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, ts: viewRpt?.ts, assessmentContext }
     const built = await getConsultantDocxBlob(reportData)
-    // Blob → base64 (strip the data: prefix).
-    const base64 = await new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = () => {
-        const result = String(reader.result || '')
-        const idx = result.indexOf(',')
-        resolve(idx >= 0 ? result.slice(idx + 1) : result)
-      }
-      reader.onerror = () => reject(reader.error || new Error('read_failed'))
-      reader.readAsDataURL(built.blob)
-    })
+    // Size pre-check. The DOCX is uploaded to Storage and attached to the
+    // review email by the server; keep it under a cap that leaves the
+    // outbound email (base64 adds ~33%) safely below Resend's ~40 MB limit.
+    const EMAIL_DOCX_LIMIT_BYTES = 20 * 1024 * 1024
+    if (built.blob.size > EMAIL_DOCX_LIMIT_BYTES) {
+      const mb = (built.blob.size / (1024 * 1024)).toFixed(1)
+      throw new Error(`This report is ${mb} MB — too large to email for peer review (limit 20 MB; photos are the usual cause). Deselect or compress photos, or download the report and send it to your reviewer manually.`)
+    }
     if (!supabase) throw new Error('You need to be signed in to send for review.')
     const session = await Storage.getSession()
     if (!session?.access_token) throw new Error('Session expired. Please sign in again.')
+    const userId = session.user?.id
+    if (!userId) throw new Error('Session expired. Please sign in again.')
     const reportId = viewRpt?.id || draftId || ('rpt-' + Date.now())
+    // Upload the DOCX to Storage and send only its path — keeps the request
+    // body tiny so it never trips Vercel's ~4.5 MB body limit. Path is scoped
+    // to the user's own folder (bucket RLS + server-side prefix check).
+    const uid = (typeof crypto !== 'undefined' && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+    const docxPath = `${userId}/${uid}.docx`
+    const { error: upErr } = await supabase.storage.from('peer-review-attachments').upload(docxPath, built.blob, {
+      contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      upsert: false,
+    })
+    if (upErr) throw new Error(`Could not stage the report for review: ${upErr.message || 'upload failed'}. Please try again.`)
     const resp = await fetch('/api/peer-review', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
@@ -1829,11 +1840,25 @@ export default function MobileApp() {
         facility_name: bldg.fn || null,
         reviewer_name, reviewer_email, message,
         file_name: built.fileName,
-        docx_base64: base64,
+        docx_path: docxPath,
       }),
     })
     const json = await resp.json().catch(() => ({}))
-    if (!resp.ok) throw new Error(json.error || 'Send failed.')
+    if (!resp.ok) {
+      // Prefer the handler's own error code; otherwise the failure came from
+      // the platform (413 body-too-large, 5xx, timeout) with no JSON body —
+      // surface the status so it's diagnosable instead of a bare "Send failed."
+      const detail = json.error
+        ? String(json.error)
+        : resp.status === 413
+          ? 'the report is too large to email (20 MB limit).'
+          : resp.status === 401
+            ? 'your session expired — sign in and try again.'
+            : resp.status >= 500
+              ? 'the review service is temporarily unavailable. Please try again shortly.'
+              : `unexpected error (HTTP ${resp.status}).`
+      throw new Error(`Send failed — ${detail}`)
+    }
     emitEvent('peer_review_requested', {
       target_id: json.id || null,
       target_type: 'peer_review',
