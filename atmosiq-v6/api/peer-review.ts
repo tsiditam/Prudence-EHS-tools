@@ -40,7 +40,12 @@ const RESEND_API = 'https://api.resend.com/emails'
 const MAX_MESSAGE_LEN = 2000
 const MAX_NAME_LEN = 200
 const MAX_EMAIL_LEN = 254
-const MAX_DOCX_BYTES = 8 * 1024 * 1024  // 8 MB attachment cap
+// Attachment cap. The DOCX now arrives via Storage (not the request body),
+// so the ~4.5 MB Vercel body limit no longer applies. This cap keeps the
+// outbound Resend email comfortably under its ~40 MB total-size limit once
+// the attachment is base64-encoded (~+33%).
+const MAX_DOCX_BYTES = 20 * 1024 * 1024
+const ATTACHMENT_BUCKET = 'peer-review-attachments'
 
 let _supabaseClient: SupabaseClient | null = null
 function getSupabase(): SupabaseClient {
@@ -60,6 +65,7 @@ interface ActionBody {
   reviewer_name?: unknown
   reviewer_email?: unknown
   message?: unknown
+  docx_path?: unknown
   docx_base64?: unknown
   file_name?: unknown
   id?: unknown
@@ -174,19 +180,43 @@ async function handleSend(
   const reviewerEmail = clampStr(body.reviewer_email, MAX_EMAIL_LEN)
   const message = clampStr(body.message, MAX_MESSAGE_LEN)
   const fileName = clampStr(body.file_name, MAX_NAME_LEN) || 'AtmosFlow-Report.docx'
-  const base64 = typeof body.docx_base64 === 'string' ? body.docx_base64 : ''
+  const docxPath = clampStr(body.docx_path, 512)
+  const base64Legacy = typeof body.docx_base64 === 'string' ? body.docx_base64 : ''
 
   if (!reportId)     { res.status(400).json({ error: 'report_id_required' }); return }
   if (!reviewerName) { res.status(400).json({ error: 'reviewer_name_required' }); return }
   if (!reviewerEmail) { res.status(400).json({ error: 'reviewer_email_required' }); return }
   if (!isValidEmail(reviewerEmail)) { res.status(400).json({ error: 'reviewer_email_invalid' }); return }
-  if (!base64) { res.status(400).json({ error: 'docx_required' }); return }
+  if (!docxPath && !base64Legacy) { res.status(400).json({ error: 'docx_required' }); return }
 
-  // Strip a data: URL prefix if the client included one, then size-check.
-  const stripped = base64.replace(/^data:[^;]+;base64,/, '')
+  // Resolve the DOCX to a base64 attachment. Preferred path: the client
+  // uploaded it to Storage and passed the path, so it never touched the
+  // request body (which Vercel caps at ~4.5 MB). Legacy path: an older
+  // client still inlined docx_base64 — accept it for backward compat.
+  let stripped: string
+  if (docxPath) {
+    // The service-role client bypasses RLS, so enforce ownership here:
+    // the path must live under the caller's own {user_id}/ prefix.
+    if (!docxPath.startsWith(`${authUser.id}/`)) {
+      res.status(403).json({ error: 'forbidden_path' })
+      return
+    }
+    const { data: dl, error: dlErr } = await supabase.storage.from(ATTACHMENT_BUCKET).download(docxPath)
+    if (dlErr || !dl) {
+      console.error('[peer-review] storage download failed:', dlErr?.message)
+      res.status(500).json({ error: 'storage_download_failed' })
+      return
+    }
+    stripped = Buffer.from(await dl.arrayBuffer()).toString('base64')
+  } else {
+    // Strip a data: URL prefix if the (legacy) client included one.
+    stripped = base64Legacy.replace(/^data:[^;]+;base64,/, '')
+  }
+
   // base64 → bytes ≈ stripped.length * 3 / 4
   const approxBytes = Math.floor(stripped.length * 3 / 4)
   if (approxBytes > MAX_DOCX_BYTES) {
+    if (docxPath) await supabase.storage.from(ATTACHMENT_BUCKET).remove([docxPath]).catch(() => {})
     res.status(413).json({ error: 'docx_too_large', max_bytes: MAX_DOCX_BYTES })
     return
   }
@@ -295,6 +325,13 @@ async function handleSend(
     } catch (err) {
       console.error('[peer-review] resend threw:', err instanceof Error ? err.message : err)
     }
+  }
+
+  // The attachment has been delivered to Resend; the Storage copy is
+  // transient, so remove it. Best-effort — a leftover object is harmless
+  // (owner-only, and re-sending rebuilds + re-uploads a fresh one).
+  if (docxPath) {
+    await supabase.storage.from(ATTACHMENT_BUCKET).remove([docxPath]).catch(() => {})
   }
 
   res.status(200).json({

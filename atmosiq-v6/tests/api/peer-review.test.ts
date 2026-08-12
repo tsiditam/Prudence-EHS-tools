@@ -65,10 +65,14 @@ function makeMockSupabase(opts: {
   authError?: { message: string } | null
   profileName?: string | null
   initialReviews?: PeerReviewRow[]
+  storageDownloadError?: { message: string } | null
+  storageDownloadBytes?: number
 } = {}) {
   const reviews: PeerReviewRow[] = [...(opts.initialReviews || [])]
   const inserts: PeerReviewRow[] = []
   const updates: Array<{ id?: string; patch: Partial<PeerReviewRow>; filters: Record<string, unknown> }> = []
+  const downloads: string[] = []
+  const removed: string[] = []
   let nextId = reviews.length + 100
   const user = opts.user === undefined ? { id: 'user-1', email: 'a@b.test' } : opts.user
 
@@ -145,7 +149,7 @@ function makeMockSupabase(opts: {
   }
 
   return {
-    state: { reviews, inserts, updates },
+    state: { reviews, inserts, updates, downloads, removed },
     auth: {
       getUser: async () => ({ data: { user: user as unknown }, error: opts.authError ?? null }),
     },
@@ -153,6 +157,22 @@ function makeMockSupabase(opts: {
       if (table === 'peer_reviews') return reviewsChain()
       if (table === 'profiles')     return profilesChain()
       throw new Error('unexpected table: ' + table)
+    },
+    storage: {
+      from() {
+        return {
+          async download(path: string) {
+            downloads.push(path)
+            if (opts.storageDownloadError) return { data: null, error: opts.storageDownloadError }
+            const bytes = new Uint8Array(opts.storageDownloadBytes ?? 3)
+            return { data: { arrayBuffer: async () => bytes.buffer }, error: null }
+          },
+          async remove(paths: string[]) {
+            removed.push(...paths)
+            return { data: null, error: null }
+          },
+        }
+      },
     },
   }
 }
@@ -232,6 +252,37 @@ describe('/api/peer-review — send', () => {
     await handler(makeReq({ auth: 'Bearer t', body: { ...validBody, docx_base64: big } }), res as never)
     expect(res._statusCode).toBe(413)
     expect((res._body as { error: string }).error).toBe('docx_too_large')
+  })
+
+  it('docx_path: downloads from storage, sends, and cleans up the object', async () => {
+    const sb = makeMockSupabase()
+    __test.setSupabase(sb as never)
+
+    const res = makeRes()
+    const path = 'user-1/abc-123.docx'
+    const { docx_base64: _omit, ...noBase64 } = validBody
+    await handler(makeReq({ auth: 'Bearer t', body: { ...noBase64, docx_path: path } }), res as never)
+    expect(res._statusCode).toBe(200)
+    expect(sb.state.downloads).toEqual([path])   // fetched from storage
+    expect(sb.state.removed).toEqual([path])      // cleaned up after send
+  })
+
+  it('docx_path: rejects a path outside the caller\'s folder (403)', async () => {
+    __test.setSupabase(makeMockSupabase() as never)
+    const res = makeRes()
+    const { docx_base64: _omit, ...noBase64 } = validBody
+    await handler(makeReq({ auth: 'Bearer t', body: { ...noBase64, docx_path: 'someone-else/x.docx' } }), res as never)
+    expect(res._statusCode).toBe(403)
+    expect((res._body as { error: string }).error).toBe('forbidden_path')
+  })
+
+  it('docx_path: storage download failure → 500', async () => {
+    __test.setSupabase(makeMockSupabase({ storageDownloadError: { message: 'not found' } }) as never)
+    const res = makeRes()
+    const { docx_base64: _omit, ...noBase64 } = validBody
+    await handler(makeReq({ auth: 'Bearer t', body: { ...noBase64, docx_path: 'user-1/x.docx' } }), res as never)
+    expect(res._statusCode).toBe(500)
+    expect((res._body as { error: string }).error).toBe('storage_download_failed')
   })
 
   it('happy path: inserts a row, calls Resend with attachment, returns id', async () => {
