@@ -1805,6 +1805,16 @@ export default function MobileApp() {
     })
     const reportData = { building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, floorPlan, sensorData, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, ts: viewRpt?.ts, assessmentContext }
     const built = await getConsultantDocxBlob(reportData)
+    // Size pre-check. The DOCX is base64-encoded into the JSON request body
+    // (~+33%), and Vercel caps a serverless request body at ~4.5 MB — the
+    // platform rejects anything larger with a non-JSON 413 before the
+    // function runs, which otherwise surfaces only as a bare "Send failed."
+    // Catch it here with an actionable message. ~3.2 MB DOCX ≈ 4.3 MB body.
+    const EMAIL_DOCX_LIMIT_BYTES = Math.floor((4.5 * 1024 * 1024 * 0.95) / (4 / 3))
+    if (built.blob.size > EMAIL_DOCX_LIMIT_BYTES) {
+      const mb = (built.blob.size / (1024 * 1024)).toFixed(1)
+      throw new Error(`This report is ${mb} MB — too large to email for peer review (limit ~3 MB; photos are the usual cause). Deselect or compress photos, or download the report and send it to your reviewer manually.`)
+    }
     // Blob → base64 (strip the data: prefix).
     const base64 = await new Promise((resolve, reject) => {
       const reader = new FileReader()
@@ -1833,7 +1843,21 @@ export default function MobileApp() {
       }),
     })
     const json = await resp.json().catch(() => ({}))
-    if (!resp.ok) throw new Error(json.error || 'Send failed.')
+    if (!resp.ok) {
+      // Prefer the handler's own error code; otherwise the failure came from
+      // the platform (413 body-too-large, 5xx, timeout) with no JSON body —
+      // surface the status so it's diagnosable instead of a bare "Send failed."
+      const detail = json.error
+        ? String(json.error)
+        : resp.status === 413
+          ? 'the report is too large to email (server limit ~4.5 MB).'
+          : resp.status === 401
+            ? 'your session expired — sign in and try again.'
+            : resp.status >= 500
+              ? 'the review service is temporarily unavailable. Please try again shortly.'
+              : `unexpected error (HTTP ${resp.status}).`
+      throw new Error(`Send failed — ${detail}`)
+    }
     emitEvent('peer_review_requested', {
       target_id: json.id || null,
       target_type: 'peer_review',
