@@ -37,8 +37,8 @@ import { buildTable } from './tables'
 const PARAM_EXPLAINERS = [
   { keys: ['co2'], label: 'Carbon dioxide (CO2)', text: 'Carbon dioxide is produced by people as they breathe and accumulates indoors when outdoor-air supply does not keep pace with occupancy. At typical office concentrations it is not itself a health hazard; it is used as a practical real-time indicator of ventilation adequacy relative to occupant load.' },
   { keys: ['co'], label: 'Carbon monoxide (CO)', text: 'Carbon monoxide is a colorless, odorless gas produced by incomplete combustion (vehicle exhaust, gas-fired appliances, generators). Because it is an acute hazard, even low indoor readings are screened to rule out combustion sources migrating into occupied space.' },
-  { keys: ['tf', 'rh'], label: 'Temperature & relative humidity', text: 'Temperature and relative humidity together define the thermal environment — the most common driver of occupant comfort complaints. Sustained high humidity can also support microbial growth, while very low humidity contributes to dryness and irritation. Both are screened against the ASHRAE 55 comfort envelope.' },
-  { keys: ['pm'], label: 'Fine particulate (PM2.5)', text: 'PM2.5 refers to airborne particles 2.5 micrometers and smaller — fine enough to be inhaled deep into the lungs. Indoor sources include cooking, printing, and outdoor particles drawn in through ventilation. It is measured as an indicator of particulate exposure and filtration performance.' },
+  { keys: ['tf', 'rh'], label: 'Temperature & relative humidity', text: 'Temperature and relative humidity together define the thermal environment - the most common driver of occupant comfort complaints. Sustained high humidity can also support microbial growth, while very low humidity contributes to dryness and irritation. Both are screened against the ASHRAE 55 comfort envelope.' },
+  { keys: ['pm'], label: 'Fine particulate (PM2.5)', text: 'PM2.5 refers to airborne particles 2.5 micrometers and smaller - fine enough to be inhaled deep into the lungs. Indoor sources include cooking, printing, and outdoor particles drawn in through ventilation. It is measured as an indicator of particulate exposure and filtration performance.' },
   { keys: ['tvoc'], label: 'Total volatile organic compounds (TVOC)', text: 'TVOC is a combined, non-specific measure of the many gas-phase chemicals that off-gas from furnishings, finishes, adhesives, cleaning products, and office equipment. It does not identify individual compounds or indicate health risk by itself; elevated readings point to a source worth investigating.' },
 ]
 
@@ -84,14 +84,14 @@ export function buildReportedConcernsSection(presurvey, zones, zoneScores) {
   if (ps.ps_reason === 'Occupant complaint(s)') {
     const detail = [ps.ps_complaint_severity, ps.ps_complaint_timeline, ps.ps_affected_areas ? `areas: ${ps.ps_affected_areas}` : null].filter(Boolean).join(' · ')
     rows.push({
-      concern: `Occupant complaint(s) triggered this assessment${ps.ps_complaint_narrative ? ` — "${String(ps.ps_complaint_narrative).slice(0, 160)}"` : ''}`,
+      concern: `Occupant complaint(s) triggered this assessment${ps.ps_complaint_narrative ? ` - "${String(ps.ps_complaint_narrative).slice(0, 160)}"` : ''}`,
       where: detail || 'Site-wide (see Trigger Event)',
       evidence: scores.some(s => flaggedCategories(s).length) ? 'See flagged zones below and the Results section' : 'No screening category flagged site-wide',
     })
   }
   if (ps.ps_reason === 'Odor event') {
     rows.push({
-      concern: `Odor event triggered this assessment${ps.ps_odor_describe ? ` — "${String(ps.ps_odor_describe).slice(0, 160)}"` : ''}`,
+      concern: `Odor event triggered this assessment${ps.ps_odor_describe ? ` - "${String(ps.ps_odor_describe).slice(0, 160)}"` : ''}`,
       where: ps.ps_odor_pattern || 'Pattern not recorded',
       evidence: scores.some(s => flaggedCategories(s).length) ? 'See flagged zones below and the Results section' : 'No screening category flagged site-wide',
     })
@@ -113,7 +113,7 @@ export function buildReportedConcernsSection(presurvey, zones, zoneScores) {
 
   const out = [
     p(
-      'Occupant-reported concerns are mapped to the screening evidence that does — or does not — corroborate them. Reports are subjective and direct measurement; they are not findings in themselves, and an unsupported concern is recorded as such rather than dismissed.',
+      'Occupant-reported concerns are mapped to the screening evidence that does - or does not - corroborate them. Reports are subjective and direct measurement; they are not findings in themselves, and an unsupported concern is recorded as such rather than dismissed.',
       { size: 20, color: COLORS.sub, align: AlignmentType.JUSTIFIED, after: 200 },
     ),
     buildTable(
@@ -158,7 +158,7 @@ export function buildFindingsConfidenceRegister(zoneScores) {
 
   const out = [
     p(
-      'Every flagged screening finding is listed with its severity, the reference cited, and the data-sufficiency confidence the scoring engine assigned to its zone (High / Medium / Low — driven by how complete the underlying measurements were, not by the severity of the finding). Findings in lower-confidence zones warrant verification before remedial investment.',
+      'Every flagged screening finding is listed with its severity, the reference cited, and the data-sufficiency confidence the scoring engine assigned to its zone (High / Medium / Low - driven by how complete the underlying measurements were, not by the severity of the finding). Findings in lower-confidence zones warrant verification before remedial investment.',
       { size: 20, color: COLORS.sub, align: AlignmentType.JUSTIFIED, after: 200 },
     ),
     buildTable(

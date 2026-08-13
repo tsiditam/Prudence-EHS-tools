@@ -36,7 +36,7 @@ export function buildAppendixC(
 ): AppendixC {
   if (!photos || photos.length === 0) {
     return {
-      title: 'APPENDIX C — Photo Documentation',
+      title: 'APPENDIX C - Photo Documentation',
       description: NO_PHOTOS_NARRATIVE,
       photos: [],
     }
@@ -58,7 +58,7 @@ export function buildAppendixC(
     const n = idx + 1
     const zoneLabel = photo.zoneName ?? 'Building'
     return {
-      caption: `Photo ${n}: ${zoneLabel} — ${photo.caption}`,
+      caption: `Photo ${n}: ${zoneLabel} - ${photo.caption}`,
       zoneName: zoneLabel,
       relativePath: photo.relativePath ?? `(image: ${photo.relativePath ?? `photo-${n}.jpg`})`,
     }
@@ -68,7 +68,7 @@ export function buildAppendixC(
     `${photos.length} photograph${photos.length === 1 ? ' was' : 's were'} documented during the assessment, organized below by zone. Building-level photographs appear first, followed by zone-scoped photographs in alphabetical order. Where image embedding is not available, captions cross-reference the field photo set delivered separately.`
 
   return {
-    title: 'APPENDIX C — Photo Documentation',
+    title: 'APPENDIX C - Photo Documentation',
     description,
     photos: captionedPhotos,
   }

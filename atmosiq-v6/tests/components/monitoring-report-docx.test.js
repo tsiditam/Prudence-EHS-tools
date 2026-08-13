@@ -121,8 +121,8 @@ describe('section assembly', () => {
 
     const children = monitoringReportChildren(model({}, { edition: 'technical' }))
     const text = JSON.stringify(children)
-    expect(text).toContain('Appendix A — Monitoring events')
-    expect(text).toContain('Appendix B — Raw statistics')
+    expect(text).toContain('Appendix A - Monitoring events')
+    expect(text).toContain('Appendix B - Raw statistics')
   })
 
   it('omits a section with no data rather than rendering an empty heading', () => {

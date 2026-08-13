@@ -20,7 +20,7 @@ export function generateSamplingPlan(zones, bldg) {
     if (d.mi && d.mi !== 'None') {
       plan.push({ zone:zName, type:'Bioaerosol', priority:d.mi.includes('Extensive')?'critical':'high',
         hypothesis:'Visible mold indicators ('+d.mi+') suggest fungal amplification',
-        method:'Non-culturable spore trap air sampling (Air-O-Cell or equivalent) as primary screening — captures both viable and non-viable spores. Surface tape/swab at growth locations. Follow with culturable sampling (Andersen impactor) if genus/species identification is needed for remediation protocol.',
+        method:'Non-culturable spore trap air sampling (Air-O-Cell or equivalent) as primary screening - captures both viable and non-viable spores. Surface tape/swab at growth locations. Follow with culturable sampling (Andersen impactor) if genus/species identification is needed for remediation protocol.',
         controls:'Outdoor control sample REQUIRED for comparison. Minimum one unaffected indoor control recommended.',
         standard:'AIHA Field Guide for Bioaerosol Assessment · ACGIH Bioaerosols Guidelines' })
     }
@@ -40,7 +40,7 @@ export function generateSamplingPlan(zones, bldg) {
     }
     if (d.hc && +d.hc > STD.c.hcho.niosh) {
       plan.push({ zone:zName, type:'Formaldehyde', priority:'high',
-        hypothesis:'Elevated real-time HCHO ('+d.hc+' ppm) — confirm with integrated method',
+        hypothesis:'Elevated real-time HCHO ('+d.hc+' ppm) - confirm with integrated method',
         method:'NIOSH 2016 (DNPH cartridge, 2-4 hr TWA) or passive badge (8-hr TWA)',
         controls:'Outdoor sample. Note: new furniture/carpet/composite wood are common sources.',
         standard:'OSHA Formaldehyde Standard 29 CFR 1910.1048' })
@@ -54,9 +54,9 @@ export function generateSamplingPlan(zones, bldg) {
     }
     if (d.tv && +d.tv > STD.c.tvoc.con && !(d.hc && +d.hc > STD.c.hcho.niosh)) {
       plan.push({ zone:zName, type:'VOC Speciation', priority:'medium',
-        hypothesis:'Elevated TVOCs ('+d.tv+' ug/m3) by PID — speciation needed',
+        hypothesis:'Elevated TVOCs ('+d.tv+' ug/m3) by PID - speciation needed',
         method:'TO-17 sorbent tube or SUMMA canister (TO-15) for full VOC profile',
-        controls:'Outdoor control. PID cannot identify individual compounds — lab analysis required.',
+        controls:'Outdoor control. PID cannot identify individual compounds - lab analysis required.',
         standard:'EPA Compendium Methods TO-15 / TO-17' })
     }
     if (d.co && +d.co > 5) {
@@ -76,7 +76,7 @@ export function generateSamplingPlan(zones, bldg) {
     // Data center: gaseous corrosion screening → coupon deployment
     if (d.zone_subtype === 'data_hall' && d.gaseous_corrosion && (d.gaseous_corrosion.includes('G2') || d.gaseous_corrosion.includes('G3') || d.gaseous_corrosion.includes('GX'))) {
       plan.push({ zone:zName, type:'Reactivity Coupon Deployment', priority:d.gaseous_corrosion.includes('G3')||d.gaseous_corrosion.includes('GX')?'critical':'high',
-        hypothesis:'Screening indicators consistent with elevated gaseous corrosion risk — definitive G-class requires coupon data',
+        hypothesis:'Screening indicators consistent with elevated gaseous corrosion risk - definitive G-class requires coupon data',
         method:'ANSI/ISA 71.04 copper + silver reactivity coupons. 30-day passive exposure. Minimum 3 locations: hot-aisle return, cold-aisle supply, intake plenum near OA damper.',
         controls:'Outdoor control coupon at OA intake. Document HVAC filter type and service date.',
         standard:'ANSI/ISA 71.04-2013 §5 · ASHRAE TC 9.9 Datacom Series Book 8' })
@@ -92,10 +92,10 @@ export function generateSamplingPlan(zones, bldg) {
   })
   const outdoorGaps = []
   if (zones.some(z=>z.mi&&z.mi!=='None') && !plan.some(p=>p.controls?.includes('Outdoor control')))
-    outdoorGaps.push('Bioaerosol outdoor control sample not yet planned — required for species comparison')
+    outdoorGaps.push('Bioaerosol outdoor control sample not yet planned - required for species comparison')
   if (zones.some(z=>z.pm) && !zones.some(z=>z.pmo))
-    outdoorGaps.push('Outdoor PM2.5 not measured — needed to determine if indoor elevation is building-related or ambient')
+    outdoorGaps.push('Outdoor PM2.5 not measured - needed to determine if indoor elevation is building-related or ambient')
   if (zones.some(z=>z.tv) && !zones.some(z=>z.tvo))
-    outdoorGaps.push('Outdoor TVOC baseline not measured — cannot confirm indoor sources vs. ambient contribution')
+    outdoorGaps.push('Outdoor TVOC baseline not measured - cannot confirm indoor sources vs. ambient contribution')
   return { plan, outdoorGaps }
 }

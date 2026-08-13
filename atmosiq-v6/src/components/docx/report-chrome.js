@@ -79,8 +79,8 @@ export function buildReportFooter({ clientName, title, sectionRelativeTotal = tr
   const left = title
     ? [title, 'Confidential', clientName ? `Prepared for ${clientName}` : null].filter(Boolean).join('   ·   ')
     : clientName
-      ? `CONFIDENTIAL — Prepared for ${clientName}`
-      : 'CONFIDENTIAL — For client use only'
+      ? `CONFIDENTIAL - Prepared for ${clientName}`
+      : 'CONFIDENTIAL - For client use only'
   return new Footer({
     children: [new Paragraph({
       tabStops: [{ type: TabStopType.RIGHT, position: CONTENT_WIDTH_DXA }],

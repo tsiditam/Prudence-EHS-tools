@@ -168,7 +168,7 @@ export function validateAssessment(assessment) {
     const facilityName = building.fn || building.name || ''
     if (facilityName && String(requestedBy).trim() === String(facilityName).trim()) {
       addDismissible('requested_by_facility', 'ps_recipient_name', 'Requested-by is the facility name',
-        'Requested-by is set to the facility name with no person attached. Buildings do not request reports — capture the requester\'s name.', LOC.recipientName)
+        'Requested-by is set to the facility name with no person attached. Buildings do not request reports - capture the requester\'s name.', LOC.recipientName)
     }
   }
 
@@ -198,7 +198,7 @@ export function validateAssessment(assessment) {
     if (zoneHasOccupantDenominator(zones[i])) continue
     const zoneName = zoneScore?.zoneName || zones[i]?.zn || `zone ${i + 1}`
     addDismissible(`occupant_denom_${zoneName}`, 'ac', 'Occupant denominator missing',
-      `Zone "${zoneName}" reports occupant symptoms but no occupant denominator was recorded — set "How many affected?" (the affected count) to complete the affected-of-total figure.`, LOC.zoneOccupants(zoneName))
+      `Zone "${zoneName}" reports occupant symptoms but no occupant denominator was recorded - set "How many affected?" (the affected count) to complete the affected-of-total figure.`, LOC.zoneOccupants(zoneName))
   }
 
   // Assessor name placeholder — DISMISSIBLE
@@ -228,7 +228,7 @@ export function validateAssessment(assessment) {
       .map(([k]) => k)
 
     if (mode.id === 'FULL_ASSESSMENT' && insufficient.length > 0) {
-      warnings.push(`Zone "${z.zn || i + 1}": ${insufficient.join(', ')} — insufficient data for FULL_ASSESSMENT. Report will render with reduced confidence; affected categories will be flagged in the audit trail.`)
+      warnings.push(`Zone "${z.zn || i + 1}": ${insufficient.join(', ')} - insufficient data for FULL_ASSESSMENT. Report will render with reduced confidence; affected categories will be flagged in the audit trail.`)
     }
     if (suff._overall < 0.5) {
       warnings.push(`Zone "${z.zn || i + 1}": overall data sufficiency at ${Math.round(suff._overall * 100)}%.`)
@@ -312,5 +312,5 @@ function deriveAction(finding, zone, severity) {
   if (t.includes('occupant') || t.includes('symptom')) return `${zone}: Document affected occupants and symptom patterns using NIOSH IEQ questionnaire or equivalent structured instrument.`
   if (t.includes('temperature') || t.includes('thermal')) return `${zone}: Verify thermostat setpoints and HVAC zoning for this area.`
   if (t.includes('humidity')) return `${zone}: Evaluate humidity control. Check for moisture sources.`
-  return `${zone}: Address ${severity} finding — ${finding.t.slice(0, 80)}.`
+  return `${zone}: Address ${severity} finding - ${finding.t.slice(0, 80)}.`
 }

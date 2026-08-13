@@ -57,7 +57,7 @@ export function evaluateSamplingAdequacy(sampling: SamplingContext): SamplingAde
   }
   // Unknown/other
   else {
-    rationale.push(`Sample type '${sampleType}' with context '${ctx}' — supports hypothesis only.`)
+    rationale.push(`Sample type '${sampleType}' with context '${ctx}' - supports hypothesis only.`)
   }
 
   return { forConclusion, forScreening, forHypothesis, rationale }

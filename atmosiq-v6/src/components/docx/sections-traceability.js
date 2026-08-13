@@ -35,7 +35,7 @@ export function buildEvidenceTraceabilityMatrix(graphContext) {
 
   const out = [
     p(
-      'Each flagged screening finding is traced to the field evidence that supports or conflicts with it and to the standards it references. Relationships are derived from the deterministic scoring graph — the same basis used elsewhere in this report — and support, but do not confirm, interpretation. Standards shown as "screening reference" are used to gauge screening adequacy and are not health or compliance limits.',
+      'Each flagged screening finding is traced to the field evidence that supports or conflicts with it and to the standards it references. Relationships are derived from the deterministic scoring graph - the same basis used elsewhere in this report - and support, but do not confirm, interpretation. Standards shown as "screening reference" are used to gauge screening adequacy and are not health or compliance limits.',
       { size: 20, color: COLORS.sub, align: AlignmentType.JUSTIFIED, after: 200 },
     ),
     buildTable(

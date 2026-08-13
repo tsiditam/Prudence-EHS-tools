@@ -38,7 +38,7 @@ export const CIH_REQUIRED_LIMITATION =
 export const PRE_ASSESSMENT_MEMO_NOTICE =
   'This memo does not constitute an indoor air quality evaluation. The data collected during this visit is insufficient to support professional findings under generally accepted industrial hygiene practice.'
 
-export const DRAFT_WATERMARK = 'DRAFT — NOT FOR DISTRIBUTION'
+export const DRAFT_WATERMARK = 'DRAFT - NOT FOR DISTRIBUTION'
 
 export const DRAFT_COVER_NOTICE =
   'This draft has not been finalized and should not be distributed as a professional opinion.'

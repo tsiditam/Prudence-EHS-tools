@@ -53,9 +53,9 @@ export function buildMonitoringReportDocument(model, opts = {}) {
   })
 
   return new Document({
-    creator: 'AtmosFlow — Prudence EHS',
+    creator: 'AtmosFlow - Prudence EHS',
     title: `${(model && model.title) || 'Indoor Environmental Monitoring Report'}${
-      model && model.cover && model.cover.site ? ` — ${model.cover.site}` : ''
+      model && model.cover && model.cover.site ? ` - ${model.cover.site}` : ''
     }`,
     description: `Indoor Environmental Monitoring Report (${MONITORING_REPORT_VERSION})`,
     styles: DOCX_STYLES,

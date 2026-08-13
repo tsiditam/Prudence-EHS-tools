@@ -103,7 +103,7 @@ export function buildReadinessVerdict(assessment) {
 
   let summary
   if (status === 'ready') {
-    summary = `Ready for sign-off — ${confidence.high + confidence.medium + confidence.low + confidence.qualitative_only} findings, no blockers.`
+    summary = `Ready for sign-off - ${confidence.high + confidence.medium + confidence.low + confidence.qualitative_only} findings, no blockers.`
   } else if (status === 'gaps') {
     const parts = []
     if (gaps.length > 0) parts.push(`${gaps.length} defensibility gap${gaps.length === 1 ? '' : 's'}`)

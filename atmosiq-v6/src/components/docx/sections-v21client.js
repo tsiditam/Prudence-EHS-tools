@@ -93,7 +93,7 @@ function formatLongDate(iso) {
 const REVIEW_STATUS_LABEL = {
   draft_pending_professional_review: 'Draft — Pending Professional Review',
   reviewed_by_qualified_professional: 'Reviewed by Qualified Professional',
-  final_issued_to_client: 'Final — Issued to Client',
+  final_issued_to_client: 'Final - Issued to Client',
 }
 
 const p = (text, opts = {}) => new Paragraph({
@@ -131,7 +131,7 @@ const heading3 = (text) => new Paragraph({
 
 function actionLine(action) {
   const priority = PRIORITY_LABEL[action.priority] || action.priority
-  const std = action.standardReference ? ` — ${action.standardReference}` : ''
+  const std = action.standardReference ? ` - ${action.standardReference}` : ''
   return `${priority} (${action.timeframe}): ${action.action}${std}`
 }
 
@@ -656,7 +656,7 @@ function buildAppendices(report, options = {}) {
     }
   }
   if (ap.appendixC || hasCapturedPhotos(capturedPhotos)) {
-    out.push(...heading2(ap.appendixC?.title || 'Appendix C — Photographic Documentation'))
+    out.push(...heading2(ap.appendixC?.title || 'Appendix C - Photographic Documentation'))
     if (ap.appendixC?.description) out.push(p(ap.appendixC.description, { align: AlignmentType.JUSTIFIED }))
     // v2.5 §5 — photo.caption is already formatted as
     // "Photo N: <zone or Building> — <text>" by the engine. The
@@ -689,7 +689,7 @@ function buildAppendices(report, options = {}) {
     const lines = Array.isArray(ap.appendixD.displayLines) && ap.appendixD.displayLines.length > 0
       ? ap.appendixD.displayLines
       : (ap.appendixD.citations || []).map(c =>
-          `${c.source}${c.edition && c.edition !== 'current' ? ` (${c.edition})` : ''}${c.authority ? ` — ${c.authority}` : ''}`,
+          `${c.source}${c.edition && c.edition !== 'current' ? ` (${c.edition})` : ''}${c.authority ? ` - ${c.authority}` : ''}`,
         )
     for (const line of lines) {
       out.push(bullet(line))
@@ -972,7 +972,7 @@ function buildRecommendedSamplingPlan(report) {
       for (const s of h.suggestedSampling) {
         out.push(new Paragraph({
           children: [
-            new TextRun({ text: `${s.parameter} — `, font: FONTS.body, size: 18, bold: true, color: SLATE }),
+            new TextRun({ text: `${s.parameter} - `, font: FONTS.body, size: 18, bold: true, color: SLATE }),
             new TextRun({ text: s.method, font: FONTS.body, size: 18, color: COLORS.body }),
             new TextRun({ text: `. ${s.rationale}`, font: FONTS.body, size: 18, italics: true, color: SLATE_BODY }),
           ],
@@ -1135,7 +1135,7 @@ function buildAssessmentIndexAppendix(idx) {
   if (!isIaqScoreVisible()) return []
   const out = [
     new Paragraph({ children: [new PageBreak()] }),
-    ...heading2('Appendix — Assessment Index (Informational Only)'),
+    ...heading2('Appendix - Assessment Index (Informational Only)'),
     p(idx.disclaimer, { italics: true, color: COLORS.sub }),
   ]
   // Flat list — keeps the appendix simple and avoids the validators tripping
@@ -1191,7 +1191,7 @@ export function buildDocumentControl(report) {
     ['Prepared by', preparedBy],
     ['Reviewed by', reviewedBy],
     ['Platform / engine version', report.engineVersion || '—'],
-    ['Distribution', 'CONFIDENTIAL — For client use only'],
+    ['Distribution', 'CONFIDENTIAL - For client use only'],
   ]
   const w1 = Math.floor(TOTAL_WIDTH_DXA * 0.32)
   return [
@@ -1294,7 +1294,7 @@ export function buildDataGapsSection(dataGaps) {
  */
 export function buildRelianceLimitation(warnings) {
   if (!Array.isArray(warnings) || warnings.length === 0) return []
-  const out = [...heading2('Limitations on Reliance — Identified Data Gaps')]
+  const out = [...heading2('Limitations on Reliance - Identified Data Gaps')]
   out.push(p(
     'The following gaps were identified in the evidence supporting this assessment. '
     + 'This report is issued so the measured data and observations are available for use and '
@@ -1397,7 +1397,7 @@ export function buildClientDocx(result, options = {}) {
   if (Array.isArray(result.dataGapWarnings) && result.dataGapWarnings.length > 0) {
     tocEntries = spliceTocEntry(
       tocEntries,
-      { anchorId: 'reliance-limitation', title: 'Limitations on Reliance — Identified Data Gaps', level: 1 },
+      { anchorId: 'reliance-limitation', title: 'Limitations on Reliance - Identified Data Gaps', level: 1 },
       { before: /Scope/i },
     )
   }

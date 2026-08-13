@@ -131,21 +131,21 @@ describe('buildCalibrationAppendix', () => {
 describe('renderCalibrationStatus', () => {
   it('renders Current with remaining days', () => {
     const status = renderCalibrationStatus(daysAgo(100), 'Factory', NOW)
-    expect(status).toMatch(/^Current — \d+ days remaining$/)
+    expect(status).toMatch(/^Current - \d+ days remaining$/)
   })
 
   it('renders EXPIRED with overdue days', () => {
     const status = renderCalibrationStatus(daysAgo(CAL_VALIDITY_DAYS + 5), 'Factory', NOW)
-    expect(status).toMatch(/^EXPIRED — 5 days overdue$/)
+    expect(status).toMatch(/^EXPIRED - 5 days overdue$/)
   })
 
   it('renders EXPIRING within the warn window', () => {
     const status = renderCalibrationStatus(daysAgo(CAL_VALIDITY_DAYS - 10), 'Factory', NOW)
-    expect(status).toMatch(/^EXPIRING — 10 days remaining$/)
+    expect(status).toMatch(/^EXPIRING - 10 days remaining$/)
   })
 
   it('falls back to "Date not recorded" when no date but status known', () => {
     const status = renderCalibrationStatus(null, 'Factory', NOW)
-    expect(status).toBe('Factory — date not recorded')
+    expect(status).toBe('Factory - date not recorded')
   })
 })

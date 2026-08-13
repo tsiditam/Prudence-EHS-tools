@@ -58,7 +58,7 @@ function aiProvenanceBanner() {
         children: [
           new Paragraph({
             children: [new TextRun({
-              text: 'AI-ASSISTED NARRATIVE — VERIFY BEFORE ISSUE',
+              text: 'AI-ASSISTED NARRATIVE - VERIFY BEFORE ISSUE',
               font: FONTS.body, size: 22, bold: true, color: SEV_COLORS.critical,
             })],
             spacing: { after: 80 },
@@ -146,7 +146,7 @@ export function buildCoverPage(ctx) {
   children.push(p(`Report Date: ${ctx.reportDate}`, { align: AlignmentType.CENTER, size: 22, color: COLORS.sub, after: 60 }))
   children.push(p(`Assessor: ${ctx.assessor}`, { align: AlignmentType.CENTER, size: 22, color: COLORS.sub, after: 60 }))
   children.push(p(`Report ID: ${ctx.reportId}`, { align: AlignmentType.CENTER, size: 22, color: COLORS.sub, after: 60 }))
-  children.push(p('Version: 1.0  |  Status: Draft — Pending Professional Review', { align: AlignmentType.CENTER, size: 20, color: COLORS.muted, after: 600 }))
+  children.push(p('Version: 1.0  |  Status: Draft - Pending Professional Review', { align: AlignmentType.CENTER, size: 20, color: COLORS.muted, after: 600 }))
 
   // Optional PE / CIH seal — small credential mark above the
   // confidential footer. The seal IS the professional accountability
@@ -156,7 +156,7 @@ export function buildCoverPage(ctx) {
   const sealPara = brandedImageParagraph(ctx.peSeal, 100, 100, 200)
   if (sealPara) children.push(sealPara)
 
-  children.push(p('CONFIDENTIAL — FOR CLIENT USE ONLY', { align: AlignmentType.CENTER, size: 18, bold: true, color: COLORS.muted, after: 0 }))
+  children.push(p('CONFIDENTIAL - FOR CLIENT USE ONLY', { align: AlignmentType.CENTER, size: 18, bold: true, color: COLORS.muted, after: 0 }))
 
   return {
     // v2.5.1 — explicit Letter portrait + 1-inch margins so the cover

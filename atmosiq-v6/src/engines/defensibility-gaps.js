@@ -98,7 +98,7 @@ function ruleMissingOutdoorCo2(assessment) {
       why:
         'Indoor CO₂ was recorded without a paired outdoor baseline. The diagnostic ' +
         'indicator for under-ventilation is the indoor-outdoor differential, not the ' +
-        'absolute number — interpretation without a baseline carries reduced ' +
+        'absolute number - interpretation without a baseline carries reduced ' +
         'evidentiary weight (ASHRAE 62.1-2025 §7.2.2; Persily 2021).',
     },
   ]
@@ -142,7 +142,7 @@ function ruleMissingHvacStatus(assessment) {
       why:
         'Indoor CO₂ readings were taken without recording the building HVAC ' +
         'system type (presurvey.ht). Without operating-status context the ' +
-        'CO₂ value can\'t be tied back to ventilation performance — a ' +
+        'CO₂ value can\'t be tied back to ventilation performance - a ' +
         'reviewer can\'t reconstruct whether the system was running normally ' +
         'or not.',
     },
@@ -250,7 +250,7 @@ function ruleQualitativeOnlyPropagated(assessment) {
       severity: 'info',
       count,
       why:
-        'These findings are flagged qualitative-only — they were derived from ' +
+        'These findings are flagged qualitative-only - they were derived from ' +
         'instruments that aren\'t in the accuracy database or are missing a ' +
         'calibration record. The flag is informational, not a blocker, but the ' +
         'rendered report carries it forward into each finding\'s presentation.',

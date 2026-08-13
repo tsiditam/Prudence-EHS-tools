@@ -84,7 +84,7 @@ export function moldReportChildren(result, meta = {}) {
     ['Prepared for', meta.preparedFor || '—'],
     ['Prepared by', meta.preparedBy || '—'],
     ['Date', meta.date || '—'],
-    ['Method', 'IICRC S520 — screening (mold engine v' + (result?.version || '—') + ')'],
+    ['Method', 'IICRC S520 - screening (mold engine v' + (result?.version || '—') + ')'],
   ]))
 
   // Per-zone classification.

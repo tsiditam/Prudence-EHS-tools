@@ -30,7 +30,7 @@ export const MIN_DIFFERENTIAL_PPM = 50
 
 // One-line provenance string for captions / footnotes.
 export const VENTILATION_CITATION =
-  'Steady-state mass-balance with G = 0.0084 cfm/person (sedentary adult, 1.2 met). Per ASHRAE 62.1-2019 Appendix C; Persily 2017. Estimate only — verify with a balometer measurement at the OA diffuser for compliance documentation.'
+  'Steady-state mass-balance with G = 0.0084 cfm/person (sedentary adult, 1.2 met). Per ASHRAE 62.1-2019 Appendix C; Persily 2017. Estimate only - verify with a balometer measurement at the OA diffuser for compliance documentation.'
 
 /**
  * Estimate outdoor-air delivery (cfm/person) from indoor & outdoor CO₂.
@@ -43,7 +43,7 @@ export function calcCfmPerPerson(co2Indoor, co2Outdoor) {
   if (!Number.isFinite(cs) || !Number.isFinite(co)) return null
   const delta = cs - co
   if (delta < MIN_DIFFERENTIAL_PPM) {
-    return { error: `CO₂ differential too small (<${MIN_DIFFERENTIAL_PPM} ppm). Mass-balance estimate is unreliable below this threshold — use a direct airflow measurement.` }
+    return { error: `CO₂ differential too small (<${MIN_DIFFERENTIAL_PPM} ppm). Mass-balance estimate is unreliable below this threshold - use a direct airflow measurement.` }
   }
   const vo = (G_CFM_PER_PERSON * 1e6) / delta
   if (!Number.isFinite(vo) || vo <= 0) return null

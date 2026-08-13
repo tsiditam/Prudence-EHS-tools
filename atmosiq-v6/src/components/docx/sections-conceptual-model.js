@@ -38,13 +38,13 @@ export function buildConceptualSiteModelSection(causalChains) {
 
   const out = [
     p(
-      'Each screening hypothesis below is expressed as a source → pathway → receptor chain with its supporting evidence and a confidence rating, following standard indoor-air-quality investigation logic. Confidence reflects the weight of available screening evidence — not a statistical probability — and no chain is a confirmed cause: each names what would change the conclusion. This section is interpretive context for the reviewing industrial hygienist and is not a regulatory exposure determination or compliance verdict.',
+      'Each screening hypothesis below is expressed as a source → pathway → receptor chain with its supporting evidence and a confidence rating, following standard indoor-air-quality investigation logic. Confidence reflects the weight of available screening evidence - not a statistical probability - and no chain is a confirmed cause: each names what would change the conclusion. This section is interpretive context for the reviewing industrial hygienist and is not a regulatory exposure determination or compliance verdict.',
       { size: 20, color: COLORS.sub, align: AlignmentType.JUSTIFIED, after: 200 },
     ),
   ]
 
   chains.forEach((c, i) => {
-    const heading = `${i + 1}. ${c.type || 'Screening hypothesis'}${c.zone ? ` — ${c.zone}` : ''}`
+    const heading = `${i + 1}. ${c.type || 'Screening hypothesis'}${c.zone ? ` - ${c.zone}` : ''}`
     out.push(p(heading, { heading: HeadingLevel.HEADING_3 }))
 
     const rows = [

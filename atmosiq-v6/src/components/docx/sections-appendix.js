@@ -10,8 +10,8 @@ import { p } from './paragraphs'
 
 export function buildAppendixB(ctx) {
   const children = [
-    p('Appendix B — Transparent Scoring Summary', { heading: HeadingLevel.HEADING_2 }),
-    p('This report applies a deterministic scoring methodology against published occupational and environmental health standards. The composite score uses a priority-weighted mean across assessed zones, with mission-critical zones carrying additional weight. If any zone scores Critical (<40), the composite equals the worst zone score — ensuring a single failing area cannot be masked by otherwise acceptable conditions. The building confidence rating reflects the lowest-confidence zone assessed. All category weights, thresholds, and overrides are fixed and published — no AI judgment is applied in scoring.', { size: 18, color: COLORS.muted, after: 160 }),
+    p('Appendix B - Transparent Scoring Summary', { heading: HeadingLevel.HEADING_2 }),
+    p('This report applies a deterministic scoring methodology against published occupational and environmental health standards. The composite score uses a priority-weighted mean across assessed zones, with mission-critical zones carrying additional weight. If any zone scores Critical (<40), the composite equals the worst zone score - ensuring a single failing area cannot be masked by otherwise acceptable conditions. The building confidence rating reflects the lowest-confidence zone assessed. All category weights, thresholds, and overrides are fixed and published - no AI judgment is applied in scoring.', { size: 18, color: COLORS.muted, after: 160 }),
   ]
 
   // Scoring methodology table
@@ -63,7 +63,7 @@ export function buildFooter(ctx) {
   return [
     new Paragraph({
       children: [
-        new TextRun({ text: `${ctx.firmName} — ${ctx.firmAddress}`, font: FONTS.body, size: 16, color: COLORS.light }),
+        new TextRun({ text: `${ctx.firmName} - ${ctx.firmAddress}`, font: FONTS.body, size: 16, color: COLORS.light }),
       ],
       alignment: AlignmentType.CENTER,
       spacing: { before: 400, after: 40 },
