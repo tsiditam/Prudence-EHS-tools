@@ -12,10 +12,9 @@
  */
 
 import { Document, Packer } from 'docx'
-import { DOCX_STYLES } from './styles'
 import { BODY_SECTION_PROPERTIES, LETTER_BODY_PAGE } from './page-setup'
 import { reportSectionAttachments } from './report-chrome'
-import { monitoringReportChildren } from './sections-monitoring'
+import { monitoringReportChildren, MONITORING_DOCX_STYLES } from './sections-monitoring'
 import { buildMonitoringReportModel, MONITORING_REPORT_VERSION } from '../../utils/monitoringReportModel'
 import { renderMonitoringCharts, renderSparklines } from '../../utils/monitoringChart'
 import { primaryDataset } from '../../utils/monitoringSession'
@@ -58,7 +57,7 @@ export function buildMonitoringReportDocument(model, opts = {}) {
       model && model.cover && model.cover.site ? ` — ${model.cover.site}` : ''
     }`,
     description: `Indoor Environmental Monitoring Report (${MONITORING_REPORT_VERSION})`,
-    styles: DOCX_STYLES,
+    styles: MONITORING_DOCX_STYLES,
     sections: [
       {
         properties: { ...BODY_SECTION_PROPERTIES, page: { ...LETTER_BODY_PAGE, pageNumbers: { start: 1 } } },
