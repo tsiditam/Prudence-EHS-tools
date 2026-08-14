@@ -1,5 +1,5 @@
 /**
- * AtmosFlow DOCX — Indoor Environmental Monitoring Report.
+ * AtmosFlow DOCX — Indoor Air Quality Monitoring Report.
  *
  * The presentation half of the report pipeline. Everything about WHAT the
  * report says — section order, which sections appear, the numbers, the
@@ -882,7 +882,7 @@ export function buildCoverSection(model) {
     new Paragraph({
       children: [
         new TextRun({
-          text: 'INDOOR ENVIRONMENTAL MONITORING',
+          text: 'INDOOR AIR QUALITY MONITORING',
           bold: true,
           size: TYPE.eyebrow,
           color: ACCENT,
@@ -897,9 +897,10 @@ export function buildCoverSection(model) {
     // the report.
     new Paragraph({
       children: [new TextRun({ text: model.title, bold: true, size: TYPE.title, color: INK, font: FONT_SANS, characterSpacing: TRACK.title })],
-      spacing: { after: 60 },
+      spacing: { after: model.subtitle ? 60 : GAP.base },
     }),
-    p(model.subtitle, { color: MUTED, size: TYPE.h2, after: GAP.base }),
+    // Subtitle is optional — a null subtitle renders nothing (no empty gap).
+    ...(model.subtitle ? [p(model.subtitle, { color: MUTED, size: TYPE.h2, after: GAP.base })] : []),
   )
 
   // Site identity, stacked rather than run together: the building leads, the
@@ -932,14 +933,10 @@ export function buildCoverSection(model) {
     out.push(metaGrid(facts, 3))
   }
 
-  // The at-a-glance panel closes the cover. It comes LAST rather than first
-  // because a reader needs to know whose building and which dates before a
-  // column of statuses means anything — but it is the thing they leave with.
-  const overview = overviewCard(model && model.overview)
-  if (overview) {
-    out.push(p('', { after: GAP.loose, size: 8 }))
-    out.push(overview)
-  }
+  // The cover's "OVERALL MONITORING SUMMARY" at-a-glance panel was removed by
+  // product decision — the parameter sections carry each status, so the cover
+  // stays clean. `model.overview` and `overviewCard()` are retained (still
+  // unit-tested and available) but no longer rendered here.
 
   return { title: model.title, children: out }
 }

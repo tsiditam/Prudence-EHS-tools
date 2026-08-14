@@ -3,7 +3,7 @@
  * Copyright (c) 2026 Prudence Safety & Environmental Consulting, LLC
  * All rights reserved.
  *
- * monitoringReportModel — the Indoor Environmental Monitoring Report as pure
+ * monitoringReportModel — the Indoor Air Quality Monitoring Report as pure
  * data, one step before it becomes a document.
  *
  * The report is built in two layers on purpose:
@@ -475,8 +475,8 @@ export function buildMonitoringReportModel(session, opts = {}) {
   const model = {
     version: MONITORING_REPORT_VERSION,
     edition,
-    title: 'Indoor Environmental Monitoring Report',
-    subtitle: 'Monitoring Summary',
+    title: 'Indoor Air Quality Monitoring Report',
+    subtitle: null,
     // The site offset every formatted time in this model was rendered at, so
     // a downstream renderer (the figures) labels its axis the same way rather
     // than re-deriving it and disagreeing with the tables.
