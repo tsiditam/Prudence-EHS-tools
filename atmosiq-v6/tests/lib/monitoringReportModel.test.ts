@@ -533,7 +533,9 @@ describe('the screening-only boundary', () => {
     expect(all).toMatch(/not as a health-based exposure limit/i)
 
     expect(scan(all)).toEqual([])
-    expect(scan(model.statementNote)).toEqual([])
+    // The per-parameter statement note was removed; the boundary lives only
+    // in §Limitations now.
+    expect(model.statementNote).toBeNull()
   })
 
   it('never repeats itself in the colophon', () => {

@@ -589,11 +589,11 @@ export function buildMonitoringReportModel(session, opts = {}) {
 
     limitations: LIMITATIONS,
 
-    // The sentence that follows every parameter statement. Fixed prose: it is
-    // the boundary between reporting a measurement and interpreting it, and
-    // must not vary with the data.
-    statementNote:
-      'Values are reported for screening and documentation; interpretation should be reviewed by a qualified indoor air quality professional.',
+    // Removed by product decision: the per-parameter screening/interpretation
+    // sentence duplicated the §Limitations boundary. That language now lives
+    // once, in `limitations`, so the parameter sections stay uncluttered. The
+    // renderer skips a null note.
+    statementNote: null,
 
     metadata: [
       {

@@ -124,8 +124,8 @@ const TYPE = {
   coverFact: 21, // 10.5 pt — the cover's meta values
 }
 
-/** Body line height 1.45 (spec) → docx line units (240 = single). */
-const BODY_LINE = Math.round(1.45 * 240)
+/** Body line height (tightened from 1.45 for a denser report) → docx units. */
+const BODY_LINE = Math.round(1.3 * 240)
 
 /**
  * Document-level defaults for the monitoring report — Open Sans, so any run
@@ -136,7 +136,7 @@ export const MONITORING_DOCX_STYLES = {
   default: {
     document: {
       run: { font: FONT_SANS, size: TYPE.body, color: BODY },
-      paragraph: { spacing: { after: 120, line: BODY_LINE } },
+      paragraph: { spacing: { after: 70, line: BODY_LINE } },
     },
   },
 }
@@ -144,7 +144,7 @@ export const MONITORING_DOCX_STYLES = {
 // Vertical rhythm. Named rather than sprinkled, because "premium reports have
 // more whitespace than you think they need" is only true if the amounts are
 // consistent — irregular gaps read as mistakes, not generosity.
-const GAP = { tight: 100, base: 200, loose: 340, section: 620 }
+const GAP = { tight: 70, base: 130, loose: 220, section: 400 }
 
 /**
  * Status tones — a four-step visual scale in FIVE colours.
@@ -449,7 +449,7 @@ export function overviewCard(items) {
         columnSpan: 2,
         shading: { type: ShadingType.CLEAR, fill: WASH },
         borders: { ...noBorders, bottom: hair(HAIR_2) },
-        margins: { top: 190, bottom: 150, left: 240, right: 240 },
+        margins: { top: 130, bottom: 110, left: 240, right: 240 },
       }),
     ],
   })
@@ -596,7 +596,7 @@ export function summaryStripTable(tiles) {
                 right: i === tiles.length - 1 ? noBorder : hair(),
               },
               // Generous padding is what makes a table row read as a card.
-              margins: { top: 210, bottom: 210, left: i === 0 ? 240 : 170, right: 170 },
+              margins: { top: 140, bottom: 140, left: i === 0 ? 240 : 170, right: 170 },
             }),
         ),
       }),
