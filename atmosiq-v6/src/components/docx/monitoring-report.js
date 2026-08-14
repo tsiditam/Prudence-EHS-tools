@@ -1,5 +1,5 @@
 /**
- * AtmosFlow — Indoor Environmental Monitoring Report generator.
+ * AtmosFlow — Indoor Air Quality Monitoring Report generator.
  *
  * The standalone Logger Studio deliverable: a report produced from logger
  * data alone, with no assessment, no engine run, and no composite score.
@@ -42,7 +42,7 @@ export function buildMonitoringReportDocument(model, opts = {}) {
   const chrome = reportSectionAttachments({
     firm: opts.firm || 'Prudence EHS',
     clientName: opts.clientName || (model && model.cover && model.cover.preparedFor) || '',
-    title: (model && model.title) || 'Indoor Environmental Monitoring Report',
+    title: (model && model.title) || 'Indoor Air Quality Monitoring Report',
     // The facts that repeat on every page, so a sheet on its own still says
     // what it belongs to.
     ribbon: (model && model.ribbon) || [],
@@ -53,10 +53,10 @@ export function buildMonitoringReportDocument(model, opts = {}) {
 
   return new Document({
     creator: 'AtmosFlow — Prudence EHS',
-    title: `${(model && model.title) || 'Indoor Environmental Monitoring Report'}${
+    title: `${(model && model.title) || 'Indoor Air Quality Monitoring Report'}${
       model && model.cover && model.cover.site ? ` — ${model.cover.site}` : ''
     }`,
-    description: `Indoor Environmental Monitoring Report (${MONITORING_REPORT_VERSION})`,
+    description: `Indoor Air Quality Monitoring Report (${MONITORING_REPORT_VERSION})`,
     styles: MONITORING_DOCX_STYLES,
     sections: [
       {

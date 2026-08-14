@@ -77,7 +77,7 @@ describe('section assembly', () => {
   it('builds the body in report order', () => {
     const { body } = buildMonitoringSections(model())
     const titles = body.map((s) => s.title)
-    expect(titles[0]).toBe('Indoor Environmental Monitoring Report')
+    expect(titles[0]).toBe('Indoor Air Quality Monitoring Report')
     expect(titles).toEqual(
       expect.arrayContaining([
         'Monitoring objective',
