@@ -60,7 +60,7 @@ import {
 import { COLORS } from './styles'
 import { CONTENT_WIDTH_DXA } from './page-setup'
 import { base64ToUint8Array, inferImageType, isImageDataUrl } from './images'
-import { CHART_SIZE, SPARK_SIZE } from '../../utils/monitoringChart'
+import { CHART_SIZE } from '../../utils/monitoringChart'
 
 /**
  * The report's palette. Neutrals come from the shared report tokens so the
@@ -605,48 +605,6 @@ export function summaryStripTable(tiles) {
 }
 
 /**
- * The sparkline that sits under the strip: the SHAPE of the series.
- *
- * A mean says where the readings sat; it cannot say whether they were steady
- * or the midpoint of something swinging. The mark is deliberately unlabelled
- * and unscaled — the figure two inches below is where a value should be read.
- */
-function sparkRow(dataUrl) {
-  if (!isImageDataUrl(dataUrl)) return null
-  try {
-    return new Table({
-      width: { size: CONTENT_WIDTH_DXA, type: WidthType.DXA },
-      columnWidths: [CONTENT_WIDTH_DXA],
-      rows: [
-        new TableRow({
-          children: [
-            new TableCell({
-              children: [
-                new Paragraph({
-                  children: [
-                    new ImageRun({
-                      data: base64ToUint8Array(dataUrl),
-                      transformation: { width: SPARK_W, height: SPARK_H },
-                      type: inferImageType(dataUrl),
-                    }),
-                  ],
-                  spacing: { after: 0 },
-                }),
-              ],
-              borders: { ...noBorders, bottom: hair() },
-              margins: { top: 120, bottom: 120, left: 240, right: 240 },
-              verticalAlign: 'center',
-            }),
-          ],
-        }),
-      ],
-    })
-  } catch {
-    return null // an unreadable mark must not abort the report
-  }
-}
-
-/**
  * The parameter card — header, strip, figure, statement and insights inside
  * one hairline rule.
  *
@@ -839,10 +797,6 @@ function tickRow(text) {
 // The figure, sized to the card's inner width. Height follows the chart's own
 // aspect so a change to the canvas never silently stretches the image.
 const IMG_W = 570
-// The sparkline prints at its drawing size — it is a mark, not a figure, and
-// scaling it up would invite reading values off it.
-const SPARK_W = SPARK_SIZE.width
-const SPARK_H = SPARK_SIZE.height
 const IMG_H = Math.round((IMG_W * CHART_SIZE.height) / CHART_SIZE.width)
 const CARD_PAD = { left: 200, right: 200 }
 
@@ -1058,9 +1012,6 @@ export function buildParameterSection(entry, num) {
 
   const strip = summaryStripTable(entry.strip)
   if (strip) card.push(strip)
-
-  const spark = sparkRow(entry.spark)
-  if (spark) card.push(spark)
 
   if (isImageDataUrl(entry.chart)) {
     try {

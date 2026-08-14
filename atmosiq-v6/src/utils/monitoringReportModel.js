@@ -370,7 +370,6 @@ export function buildMonitoringReportModel(session, opts = {}) {
 
   const events = arr(s.events)
   const charts = obj(opts.charts)
-  const sparklines = obj(opts.sparklines)
 
   const occupancy = arr(s.occupancySchedule)
   const covProbe = params.length ? statsByParam[params[0]] && statsByParam[params[0]].coverage : null
@@ -411,9 +410,6 @@ export function buildMonitoringReportModel(session, opts = {}) {
         statement: parameterStatement(param, stats, refShape, { units }),
         insights: monitoringInsights(param, stats, refShape, { points, events, utcOffsetMin, units }),
         chart: charts[param] || null,
-        // The series' shape, for the summary strip: a mean tells you where the
-        // readings sat, not whether they were steady or swinging around it.
-        spark: sparklines[param] || null,
         stats,
       }
       entry.caption = figureCaption(entry, {
