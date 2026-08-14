@@ -125,7 +125,7 @@ const TYPE = {
 }
 
 /** Body line height (tightened from 1.45 for a denser report) → docx units. */
-const BODY_LINE = Math.round(1.3 * 240)
+const BODY_LINE = Math.round(1.22 * 240)
 
 /**
  * Document-level defaults for the monitoring report — Open Sans, so any run
@@ -136,7 +136,7 @@ export const MONITORING_DOCX_STYLES = {
   default: {
     document: {
       run: { font: FONT_SANS, size: TYPE.body, color: BODY },
-      paragraph: { spacing: { after: 70, line: BODY_LINE } },
+      paragraph: { spacing: { after: 50, line: BODY_LINE } },
     },
   },
 }
@@ -144,7 +144,7 @@ export const MONITORING_DOCX_STYLES = {
 // Vertical rhythm. Named rather than sprinkled, because "premium reports have
 // more whitespace than you think they need" is only true if the amounts are
 // consistent — irregular gaps read as mistakes, not generosity.
-const GAP = { tight: 70, base: 130, loose: 220, section: 400 }
+const GAP = { tight: 50, base: 100, loose: 150, section: 280 }
 
 /**
  * Status tones — a four-step visual scale in FIVE colours.
@@ -176,7 +176,7 @@ const p = (text, opts = {}) =>
         font: FONT_SANS,
       }),
     ],
-    spacing: { after: opts.after ?? 120, before: opts.before ?? 0, line: opts.line ?? BODY_LINE },
+    spacing: { after: opts.after ?? 90, before: opts.before ?? 0, line: opts.line ?? BODY_LINE },
     alignment: opts.align,
     indent: opts.indent,
   })
@@ -228,7 +228,7 @@ export function sectionHeading(num, title, status) {
   children.push(new TextRun({ text: title, size: TYPE.h2, color: INK, font: FONT_SANS_SEMI, characterSpacing: TRACK.heading }))
   return new Paragraph({
     children,
-    spacing: { before: GAP.section, after: 200 },
+    spacing: { before: GAP.section, after: 140 },
     border: { bottom: hair() },
   })
 }
@@ -1010,7 +1010,7 @@ export function buildReferenceSection(model, num) {
     p('Each parameter is compared to the screening reference selected for this monitoring session.', {
       color: MUTED,
       size: TYPE.small,
-      after: 160,
+      after: 110,
     }),
     dataTable(
       ['Parameter', 'Reference profile', 'Screening value', 'Source'],
@@ -1026,7 +1026,7 @@ export function buildReferenceSection(model, num) {
 
   // Framing that must travel with the reference wherever it is cited.
   const notes = [...new Set(rows.map((r) => r.note).filter(Boolean))]
-  notes.forEach((n) => out.push(p(n, { italics: true, color: MUTED, size: TYPE.fine, before: 130 })))
+  notes.forEach((n) => out.push(p(n, { italics: true, color: MUTED, size: TYPE.fine, before: 100 })))
 
   return { title: 'Screening reference values', children: out }
 }
@@ -1171,8 +1171,8 @@ export function buildLimitationsSection(model, num) {
     title: 'Limitations',
     children: [
       sectionHeading(num, 'Limitations'),
-      ...items.map((t) => p(t, { size: TYPE.fine, color: BODY, after: 120 })),
-      ...conditional.map((t) => p(t, { size: TYPE.fine, color: BODY, after: 120 })),
+      ...items.map((t) => p(t, { size: TYPE.fine, color: BODY, after: 80 })),
+      ...conditional.map((t) => p(t, { size: TYPE.fine, color: BODY, after: 80 })),
     ],
   }
 }
@@ -1187,7 +1187,7 @@ export function buildEventsAppendix(model) {
       p('Events annotated by the assessor during the monitoring period. Corresponding markers (▲) are shown on the parameter figures.', {
         color: MUTED,
         size: TYPE.small,
-        after: 160,
+        after: 110,
       }),
       dataTable(
         ['Timestamp', 'Event', 'Notes'],
@@ -1205,7 +1205,7 @@ export function buildRawStatisticsAppendix(model) {
   return {
     title: 'Raw statistics',
     children: [
-      p('Descriptive statistics for each monitored parameter.', { color: MUTED, size: TYPE.small, after: 160 }),
+      p('Descriptive statistics for each monitored parameter.', { color: MUTED, size: TYPE.small, after: 110 }),
       dataTable(
         ['Parameter', 'Unit', 'Mean', 'Median', 'Min', 'Max', 'Std dev', '95th', 'n', 'Coverage'],
         rows.map((r) => [

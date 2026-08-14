@@ -453,24 +453,11 @@ export function buildMonitoringReportModel(session, opts = {}) {
     calIntegrity.status === 'expired_before_period' ||
     calIntegrity.status === 'lapsed_mid_period'
 
-  // No outdoor baseline was captured, yet a parameter whose interpretation
-  // leans on an indoor/outdoor differential is present. The report states the
-  // absence so a reader does not assume the differential was evaluated — the
-  // CO₂ ventilation comparison and the PM2.5 indoor/outdoor ratio both need a
-  // paired outdoor reference the session did not collect.
-  const hasCo2 = params.includes('co2')
-  const hasPm25 = params.includes('pm25')
-  const outdoorBaselineNote =
-    !outdoor && (hasCo2 || hasPm25)
-      ? 'No outdoor (background) reference measurements were collected for this monitoring session. ' +
-        `Without a paired outdoor baseline, ${[
-          hasCo2 ? 'the CO₂ ventilation comparison (ASHRAE 62.1 / Persily 2021)' : null,
-          hasPm25 ? 'the PM2.5 indoor/outdoor ratio' : null,
-        ]
-          .filter(Boolean)
-          .join(' and ')} could not be calculated; these parameters are interpreted on an ` +
-        'absolute-concentration basis only.'
-      : null
+  // Removed by product decision: the no-outdoor-baseline note was dropped
+  // along with the §Limitations screening caveats. The outdoor baseline still
+  // gates the CO₂ differential profile above; its absence simply omits that
+  // comparison rather than printing a note about it.
+  const outdoorBaselineNote = null
 
   const model = {
     version: MONITORING_REPORT_VERSION,
@@ -630,7 +617,4 @@ export function buildMonitoringReportModel(session, opts = {}) {
  */
 export const LIMITATIONS = [
   'This report presents measured indoor environmental data compared to commonly referenced screening values selected by the assessor. It is provided for screening and documentation purposes.',
-  'This report does not constitute a compliance or regulatory determination, a health assessment, or a professional opinion on causation, and it is not a substitute for evaluation by a qualified indoor air quality professional.',
-  'Carbon dioxide is presented as an indicator of ventilation adequacy per occupant, not as a health-based exposure limit.',
-  'Measurements represent the conditions present at the monitored location during the stated monitoring period only, and may not represent conditions at other locations or times.',
 ]

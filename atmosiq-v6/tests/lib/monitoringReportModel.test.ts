@@ -242,8 +242,8 @@ describe('reference selection reaches the report', () => {
     expect(co2Action.statement).toContain(String(STD.v.co2.act).replace(/\B(?=(\d{3})+(?!\d))/g, ','))
   })
 
-  it('carries the CO₂ ventilation-indicator framing into the reference table', () => {
-    expect(build().referenceRows.find((r: any) => r.param === 'co2')!.note).toMatch(/not a health limit/i)
+  it('no longer carries the CO₂ ventilation-indicator framing into the reference table (removed 2026-08)', () => {
+    expect(build().referenceRows.find((r: any) => r.param === 'co2')!.note).toBeNull()
   })
 
   it('labels reference rows for a reader, not with raw parameter keys', () => {
@@ -262,11 +262,13 @@ describe('defensibility', () => {
     expect(build().calibrationNote).toBeNull()
   })
 
-  it('always carries the screening-only limitations', () => {
+  it('carries the screening-and-documentation limitation statement', () => {
+    // The compliance/health-determination and CO₂ ventilation-indicator
+    // caveats were removed by product decision (2026-08).
     const model = build()
     expect(model.limitations).toEqual(LIMITATIONS)
-    expect(model.limitations.join(' ')).toMatch(/not constitute a compliance or regulatory determination/i)
-    expect(model.limitations.join(' ')).toMatch(/ventilation adequacy/i)
+    expect(model.limitations.join(' ')).toMatch(/screening and documentation purposes/i)
+    expect(model.limitations.join(' ')).not.toMatch(/not constitute a compliance or regulatory determination/i)
   })
 
   it('passes the banned-language scanner across every generated string', () => {
@@ -451,30 +453,17 @@ describe('below-detection-limit flagging (screening floor)', () => {
 })
 
 describe('outdoor baseline absence', () => {
-  it('notes the missing outdoor baseline when CO₂/PM2.5 are present', () => {
-    // The fixture monitors CO₂ with no outdoor dataset.
+  it('no longer prints an outdoor-baseline note (removed by product decision 2026-08)', () => {
+    // The fixture monitors CO₂ with no outdoor dataset; the note that used to
+    // flag that was removed along with the §Limitations screening caveats.
     const model = build()
-    expect(model.outdoorBaselineNote).toMatch(/no outdoor .*reference measurements/i)
-    expect(model.outdoorBaselineNote).toMatch(/ventilation comparison/i)
-    expect(scan(model.outdoorBaselineNote)).toEqual([])
+    expect(model.outdoorBaselineNote).toBeNull()
     // It does NOT mutate the fixed standing limitations set.
     expect(model.limitations).toEqual(LIMITATIONS)
   })
 
-  it('stays silent when an outdoor dataset was captured', () => {
+  it('stays null when an outdoor dataset was captured', () => {
     const model = build({ datasets: [{ ...dataset(), role: 'indoor' }, { ...dataset(), role: 'outdoor' }] })
-    expect(model.outdoorBaselineNote).toBeNull()
-  })
-
-  it('stays silent when no differential-dependent parameter is monitored', () => {
-    const tempOnly = {
-      fileName: 't.csv',
-      params: ['temp'],
-      units: { temp: '°F' },
-      points: [{ t: T0, temp: 72 }, { t: T0 + 600_000, temp: 73 }],
-      summary: { count: 2, start: T0, end: T0 + 600_000 },
-    }
-    const model = build({ datasets: [{ ...tempOnly, role: 'indoor' }] })
     expect(model.outdoorBaselineNote).toBeNull()
   })
 })
@@ -514,27 +503,22 @@ describe('figure captions', () => {
   })
 })
 
-describe('the screening-only boundary', () => {
-  it('is stated once, in §Limitations, and stated completely', () => {
-    // The foot-of-report notice was removed; §Limitations is now the only
-    // place this language appears. So it has to carry ALL of it — this test
-    // is what stops the claims quietly narrowing to whatever the section
-    // happens to say after a future edit.
+describe('the §Limitations statement', () => {
+  it('states the screening-and-documentation purpose and passes the scanner', () => {
+    // The compliance/health-determination and CO₂ ventilation-indicator
+    // caveats were removed by product decision (2026-08). §Limitations now
+    // carries only the screening-and-documentation purpose statement.
     const model = build()
     expect(model.disclaimer).toBeUndefined()
 
     const all = model.limitations.join(' ')
     expect(all).toMatch(/screening and documentation purposes/i)
-    expect(all).toMatch(/not constitute a compliance or regulatory determination/i)
-    expect(all).toMatch(/health assessment/i)
-    expect(all).toMatch(/professional opinion on causation/i)
-    expect(all).toMatch(/not a substitute for evaluation by a qualified indoor air quality professional/i)
-    expect(all).toMatch(/ventilation adequacy/i)
-    expect(all).toMatch(/not as a health-based exposure limit/i)
+    // The removed clauses must not creep back in.
+    expect(all).not.toMatch(/not constitute a compliance or regulatory determination/i)
+    expect(all).not.toMatch(/health-based exposure limit/i)
 
     expect(scan(all)).toEqual([])
-    // The per-parameter statement note was removed; the boundary lives only
-    // in §Limitations now.
+    // The per-parameter statement note was removed earlier; nothing restores it.
     expect(model.statementNote).toBeNull()
   })
 
@@ -610,11 +594,11 @@ describe('PM10 as a reported parameter', () => {
     expect(pm.stats.pctAbove).toBeGreaterThan(0)
   })
 
-  it('carries the NAAQS form caveat into the report’s reference table', () => {
+  it('no longer carries the NAAQS form caveat into the report’s reference table (removed 2026-08)', () => {
     const row = model().referenceRows.find((r: any) => r.param === 'pm10')!
     expect(row.label).toBe('PM10')
     expect(row.value).toBe('150 µg/m³')
-    expect(row.note).toMatch(/screening reference only/i)
+    expect(row.note).toBeNull()
   })
 
   it('says nothing a measurement cannot support', () => {
