@@ -94,6 +94,7 @@ const WASH = 'F7F9FA' // the subtle grey a card sits on
  */
 const FONT_SANS = 'Open Sans'
 const FONT_SANS_SEMI = 'Open Sans SemiBold' // weight 600 — a distinct family name in OOXML
+const FONT_SANS_LIGHT = 'Open Sans Light'   // weight 300 — the editorial big-number hero face
 const FONT_MONO = 'JetBrains Mono'
 
 /**
@@ -118,7 +119,7 @@ const TYPE = {
   data: 17, //   8.5 pt — data utility (JetBrains Mono)· 400
   label: 13, //  6.5 pt — label / eyebrow             · 700, track +1.3, upper
   eyebrow: 13, // 6.5 pt — alias of label
-  figure: 30, //  15 pt — stat value                  · 700
+  figure: 36, //  18 pt — stat value (editorial hero) · Light 300
   paramName: 26, // 13 pt — parameter card header
   coverFact: 21, // 10.5 pt — the cover's meta values
 }
@@ -143,7 +144,7 @@ export const MONITORING_DOCX_STYLES = {
 // Vertical rhythm. Named rather than sprinkled, because "premium reports have
 // more whitespace than you think they need" is only true if the amounts are
 // consistent — irregular gaps read as mistakes, not generosity.
-const GAP = { tight: 90, base: 180, loose: 300, section: 520 }
+const GAP = { tight: 100, base: 200, loose: 340, section: 620 }
 
 /**
  * Status tones — a four-step visual scale in FIVE colours.
@@ -565,12 +566,16 @@ export function summaryStripTable(tiles) {
                 new Paragraph({ children: [keyRun(t.label)], spacing: { after: 70 } }),
                 new Paragraph({
                   children: [
+                    // Editorial hero number: big and LIGHT (Open Sans Light).
+                    // Emphasis (a reading over reference) is carried by colour,
+                    // not weight, so the strip stays calm and modern. Compact
+                    // tiles keep the regular face at the smaller size.
                     new TextRun({
                       text: String(t.value),
-                      bold: true,
+                      bold: false,
                       size: t.compact ? TYPE.paramName : TYPE.figure,
                       color: t.emphasis ? TONES.warn.text : INK,
-                      font: FONT_SANS,
+                      font: t.compact ? FONT_SANS : FONT_SANS_LIGHT,
                     }),
                     ...(t.unit
                       ? [
