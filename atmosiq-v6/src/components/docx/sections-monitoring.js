@@ -57,7 +57,7 @@ import {
   WidthType,
   ShadingType,
 } from 'docx'
-import { FONTS, COLORS } from './styles'
+import { COLORS } from './styles'
 import { CONTENT_WIDTH_DXA } from './page-setup'
 import { base64ToUint8Array, inferImageType, isImageDataUrl } from './images'
 import { CHART_SIZE, SPARK_SIZE } from '../../utils/monitoringChart'
@@ -80,28 +80,71 @@ const HAIR_2 = 'E2E6EB'
 const WASH = 'F7F9FA' // the subtle grey a card sits on
 
 /**
- * Type scale, in half-points, derived from the reviewed design's ratios
- * rather than its pixel values — a 940 px screen mockup and a 6.5 in column
- * are different measures, and copying px to pt would set the whole document
- * a third too large.
+ * Type system — Logger Report v1.1 (spec Part 3b). ONE primary family,
+ * Open Sans, across the whole report; JetBrains Mono only for the
+ * "data utility" role (serials, ISO timestamps, reference values, section
+ * numbers, SHA-256 hashes — anything requiring character alignment). Both
+ * are SIL OFL 1.1. The interim Aptos / Newsreader / DM Mono stack (and the
+ * earlier Cambria / Franklin Gothic / Consolas one) are retired here.
+ *
+ * Named in one place so the export reads every font choice from a token,
+ * not a scattered literal. Neither family ships with Word, so the .docx
+ * must EMBED them (fontTable.xml) or be delivered as PDF — that packaging
+ * step is tracked separately; this module only assigns the faces.
+ */
+const FONT_SANS = 'Open Sans'
+const FONT_SANS_SEMI = 'Open Sans SemiBold' // weight 600 — a distinct family name in OOXML
+const FONT_SANS_LIGHT = 'Open Sans Light'   // weight 300 — the editorial big-number hero face
+const FONT_MONO = 'JetBrains Mono'
+
+/**
+ * Tracking (letter-spacing) in twips (1/20 pt). The spec expresses tracking
+ * in points; ×20 → twips. (Figma is the real source for the unit; absent it,
+ * points is the defensible reading of values like +1.2 / −0.5.)
+ */
+const TRACK = { title: -10, part: 24, heading: 4, label: 26, data: 0 } // −0.5 / +1.2 / +0.2 / +1.3 pt
+
+/**
+ * Type scale in half-points (docx `size` = pt × 2), set to the Part 3b table.
+ * Open Sans has a large x-height and sets visually larger than the retired
+ * serif at the same nominal size, so body is 10 pt (not 10.5) with 1.45 line.
  */
 const TYPE = {
-  title: 64, //  32 pt — the report title, given room to lead
-  h2: 24, //  12 pt — section headings
-  body: 20, //  10 pt — running text
+  title: 60, //  30 pt — report title (cover)        · 700, track −0.5
+  part: 19, //   9.5 pt — part header                 · 700, track +1.2, upper
+  h2: 25, //    12.5 pt — section heading             · 600 SemiBold, track +0.2
+  body: 20, //    10 pt — running text                · 400, line 1.45
   small: 19, //  9.5 pt — intros, table body, card values
-  fine: 17, //  8.5 pt — captions
-  label: 15, //  7.5 pt — uppercase keys
-  eyebrow: 16, //  8 pt
-  figure: 36, //  18 pt — summary strip values, the number you read first
-  paramName: 26, //  13 pt — parameter card header
-  coverFact: 21, //  10.5 pt — the cover's meta values
+  fine: 17, //   8.5 pt — caption / footnote          · 400 italic
+  data: 17, //   8.5 pt — data utility (JetBrains Mono)· 400
+  label: 13, //  6.5 pt — label / eyebrow             · 700, track +1.3, upper
+  eyebrow: 13, // 6.5 pt — alias of label
+  figure: 36, //  18 pt — stat value (editorial hero) · Light 300
+  paramName: 26, // 13 pt — parameter card header
+  coverFact: 21, // 10.5 pt — the cover's meta values
+}
+
+/** Body line height 1.45 (spec) → docx line units (240 = single). */
+const BODY_LINE = Math.round(1.45 * 240)
+
+/**
+ * Document-level defaults for the monitoring report — Open Sans, so any run
+ * that does not name a face inherits the report's primary family rather than
+ * the shared consultant-report default (Aptos). Scoped to this report only.
+ */
+export const MONITORING_DOCX_STYLES = {
+  default: {
+    document: {
+      run: { font: FONT_SANS, size: TYPE.body, color: BODY },
+      paragraph: { spacing: { after: 120, line: BODY_LINE } },
+    },
+  },
 }
 
 // Vertical rhythm. Named rather than sprinkled, because "premium reports have
 // more whitespace than you think they need" is only true if the amounts are
 // consistent — irregular gaps read as mistakes, not generosity.
-const GAP = { tight: 90, base: 180, loose: 300, section: 520 }
+const GAP = { tight: 100, base: 200, loose: 340, section: 620 }
 
 /**
  * Status tones — a four-step visual scale in FIVE colours.
@@ -130,10 +173,10 @@ const p = (text, opts = {}) =>
         bold: !!opts.bold,
         color: opts.color,
         size: opts.size ?? TYPE.body,
-        font: FONTS.body,
+        font: FONT_SANS,
       }),
     ],
-    spacing: { after: opts.after ?? 120, before: opts.before ?? 0 },
+    spacing: { after: opts.after ?? 120, before: opts.before ?? 0, line: opts.line ?? BODY_LINE },
     alignment: opts.align,
     indent: opts.indent,
   })
@@ -165,22 +208,24 @@ export function sectionHeading(num, title, status) {
   const children = []
   if (num != null) {
     children.push(
+      // Section number — a "data utility" figure, so JetBrains Mono.
       new TextRun({
         text: ` ${String(num).padStart(2, '0')} `,
         bold: true,
-        size: TYPE.label + 2,
+        size: TYPE.data,
         color: ACCENT,
-        font: FONTS.body,
+        font: FONT_MONO,
         shading: { type: ShadingType.CLEAR, fill: ACCENT_TINT },
       }),
-      new TextRun({ text: '   ', size: TYPE.h2, font: FONTS.body }),
+      new TextRun({ text: '   ', size: TYPE.h2, font: FONT_SANS }),
     )
   }
   if (status) {
     const tone = TONES[status.tone] || TONES.warn
-    children.push(new TextRun({ text: '● ', bold: true, size: TYPE.h2, color: tone.dot, font: FONTS.body }))
+    children.push(new TextRun({ text: '● ', bold: true, size: TYPE.h2, color: tone.dot, font: FONT_SANS }))
   }
-  children.push(new TextRun({ text: title, bold: true, size: TYPE.h2, color: INK, font: FONTS.body }))
+  // Section heading — Open Sans SemiBold (600), not Bold (spec Part 3b).
+  children.push(new TextRun({ text: title, size: TYPE.h2, color: INK, font: FONT_SANS_SEMI, characterSpacing: TRACK.heading }))
   return new Paragraph({
     children,
     spacing: { before: GAP.section, after: 200 },
@@ -188,14 +233,15 @@ export function sectionHeading(num, title, status) {
   })
 }
 
-/** Small uppercase key — the label above a value in a meta grid or a card. */
+/** Small uppercase key — the label / eyebrow role (700, +1.3 tracking). */
 const keyRun = (text) =>
   new TextRun({
     text: String(text || '').toUpperCase(),
     bold: true,
     size: TYPE.label,
     color: FAINT,
-    font: FONTS.body,
+    font: FONT_SANS,
+    characterSpacing: TRACK.label,
   })
 
 /**
@@ -228,7 +274,7 @@ export function metaGrid(pairs, cols = 3) {
                           bold: true,
                           size: TYPE.small,
                           color: INK,
-                          font: FONTS.body,
+                          font: FONT_SANS,
                         }),
                       ],
                       spacing: { after: 0 },
@@ -323,7 +369,7 @@ export function insightsPanel(items, inset = 0) {
   return accentPanel([
     new Paragraph({
       children: [
-        new TextRun({ text: 'KEY OBSERVATIONS', bold: true, size: TYPE.label, color: ACCENT, font: FONTS.body }),
+        new TextRun({ text: 'KEY OBSERVATIONS', bold: true, size: TYPE.label, color: ACCENT, font: FONT_SANS }),
       ],
       spacing: { after: 170 },
     }),
@@ -336,10 +382,10 @@ export function insightsPanel(items, inset = 0) {
       return [
         new Paragraph({
           children: [
-            new TextRun({ text: '▪  ', bold: true, size: TYPE.label, color: ACCENT_2, font: FONTS.body }),
-            new TextRun({ text: split.lead, bold: true, size: TYPE.small, color: INK, font: FONTS.body }),
+            new TextRun({ text: '▪  ', bold: true, size: TYPE.label, color: ACCENT_2, font: FONT_SANS }),
+            new TextRun({ text: split.lead, bold: true, size: TYPE.small, color: INK, font: FONT_SANS }),
             ...(split.rest
-              ? [new TextRun({ text: ` ${split.rest}`, size: TYPE.small, color: BODY, font: FONTS.body })]
+              ? [new TextRun({ text: ` ${split.rest}`, size: TYPE.small, color: BODY, font: FONT_SANS })]
               : []),
           ],
           indent: { left: 260, hanging: 260 },
@@ -365,9 +411,9 @@ export function statusChip(status, align = AlignmentType.RIGHT) {
     children: [
       // The dot carries the tone at full strength; the tinted pill behind the
       // label would be too pale on its own to read across a room.
-      new TextRun({ text: '  ● ', bold: true, size: TYPE.eyebrow, color: tone.dot, font: FONTS.body,
+      new TextRun({ text: '  ● ', bold: true, size: TYPE.eyebrow, color: tone.dot, font: FONT_SANS,
         shading: { type: ShadingType.CLEAR, fill: tone.fill } }),
-      new TextRun({ text: `${status.label}  `, bold: true, size: TYPE.eyebrow, color: tone.text, font: FONTS.body,
+      new TextRun({ text: `${status.label}  `, bold: true, size: TYPE.eyebrow, color: tone.text, font: FONT_SANS,
         shading: { type: ShadingType.CLEAR, fill: tone.fill } }),
     ],
     alignment: align,
@@ -396,7 +442,7 @@ export function overviewCard(items) {
       new TableCell({
         children: [new Paragraph({
           children: [new TextRun({
-            text: 'OVERALL MONITORING SUMMARY', bold: true, size: TYPE.label, color: ACCENT, font: FONTS.body,
+            text: 'OVERALL MONITORING SUMMARY', bold: true, size: TYPE.label, color: ACCENT, font: FONT_SANS,
           })],
           spacing: { after: 0 },
         })],
@@ -420,15 +466,15 @@ export function overviewCard(items) {
       children: [
         cell([new Paragraph({
           children: [
-            new TextRun({ text: '● ', bold: true, size: TYPE.body, color: tone.dot, font: FONTS.body }),
-            new TextRun({ text: r.label, size: TYPE.body, color: INK, font: FONTS.body }),
+            new TextRun({ text: '● ', bold: true, size: TYPE.body, color: tone.dot, font: FONT_SANS }),
+            new TextRun({ text: r.label, size: TYPE.body, color: INK, font: FONT_SANS }),
           ],
           spacing: { after: 0 },
         })]),
         new TableCell({
           children: [new Paragraph({
             children: [new TextRun({
-              text: r.status.label, bold: true, size: TYPE.small, color: tone.text, font: FONTS.body,
+              text: r.status.label, bold: true, size: TYPE.small, color: tone.text, font: FONT_SANS,
             })],
             alignment: AlignmentType.RIGHT,
             spacing: { after: 0 },
@@ -459,11 +505,11 @@ function parameterHead(entry) {
   const left = [
     new Paragraph({
       children: [
-        new TextRun({ text: entry.shortLabel || entry.label, bold: true, size: TYPE.paramName, color: INK, font: FONTS.body }),
+        new TextRun({ text: entry.shortLabel || entry.label, bold: true, size: TYPE.paramName, color: INK, font: FONT_SANS }),
         ...(entry.headMeta
           ? [
-              new TextRun({ text: '   ', size: TYPE.small, font: FONTS.body }),
-              new TextRun({ text: entry.headMeta, size: TYPE.fine, color: MUTED, font: FONTS.body }),
+              new TextRun({ text: '   ', size: TYPE.small, font: FONT_SANS }),
+              new TextRun({ text: entry.headMeta, size: TYPE.fine, color: MUTED, font: FONT_SANS }),
             ]
           : []),
       ],
@@ -520,17 +566,21 @@ export function summaryStripTable(tiles) {
                 new Paragraph({ children: [keyRun(t.label)], spacing: { after: 70 } }),
                 new Paragraph({
                   children: [
+                    // Editorial hero number: big and LIGHT (Open Sans Light).
+                    // Emphasis (a reading over reference) is carried by colour,
+                    // not weight, so the strip stays calm and modern. Compact
+                    // tiles keep the regular face at the smaller size.
                     new TextRun({
                       text: String(t.value),
-                      bold: true,
+                      bold: false,
                       size: t.compact ? TYPE.paramName : TYPE.figure,
                       color: t.emphasis ? TONES.warn.text : INK,
-                      font: FONTS.body,
+                      font: t.compact ? FONT_SANS : FONT_SANS_LIGHT,
                     }),
                     ...(t.unit
                       ? [
-                          new TextRun({ text: ' ', size: TYPE.fine, font: FONTS.body }),
-                          new TextRun({ text: t.unit, size: TYPE.fine, color: MUTED, font: FONTS.body }),
+                          new TextRun({ text: ' ', size: TYPE.fine, font: FONT_SANS }),
+                          new TextRun({ text: t.unit, size: TYPE.fine, color: MUTED, font: FONT_SANS }),
                         ]
                       : []),
                   ],
@@ -646,7 +696,7 @@ export function dataTable(headers, rows, widths) {
         new TableCell({
           children: [new Paragraph({
             children: [new TextRun({
-              text: String(h || '').toUpperCase(), bold: true, size: TYPE.label, color: ACCENT, font: FONTS.body,
+              text: String(h || '').toUpperCase(), bold: true, size: TYPE.label, color: ACCENT, font: FONT_SANS,
             })],
             spacing: { after: 0 },
           })],
@@ -667,12 +717,14 @@ export function dataTable(headers, rows, widths) {
             children: [
               new Paragraph({
                 children: [
+                  // `mono` marks a data-utility cell (serial, timestamp,
+                  // reference value, hash) — JetBrains Mono for alignment.
                   new TextRun({
                     text: String(spec.text ?? '—'),
                     bold: !!spec.bold,
-                    size: TYPE.small,
+                    size: spec.mono ? TYPE.data : TYPE.small,
                     color: spec.muted ? MUTED : INK,
-                    font: FONTS.body,
+                    font: spec.mono ? FONT_MONO : FONT_SANS,
                   }),
                 ],
                 spacing: { after: 0 },
@@ -716,7 +768,7 @@ function definitionCard(title, rows, width) {
   const children = [
     new Paragraph({
       children: [
-        new TextRun({ text: String(title).toUpperCase(), bold: true, size: TYPE.label, color: MUTED, font: FONTS.body }),
+        new TextRun({ text: String(title).toUpperCase(), bold: true, size: TYPE.label, color: MUTED, font: FONT_SANS }),
       ],
       spacing: { after: 140 },
     }),
@@ -731,7 +783,7 @@ function definitionCard(title, rows, width) {
               new TableCell({
                 children: [
                   new Paragraph({
-                    children: [new TextRun({ text: r.label, size: TYPE.fine, color: MUTED, font: FONTS.body })],
+                    children: [new TextRun({ text: r.label, size: TYPE.fine, color: MUTED, font: FONT_SANS })],
                     spacing: { after: 0 },
                   }),
                 ],
@@ -743,7 +795,7 @@ function definitionCard(title, rows, width) {
                 children: [
                   new Paragraph({
                     children: [
-                      new TextRun({ text: String(r.value ?? '—'), bold: true, size: TYPE.fine, color: INK, font: FONTS.body }),
+                      new TextRun({ text: String(r.value ?? '—'), bold: true, size: TYPE.fine, color: INK, font: FONT_SANS }),
                     ],
                     alignment: AlignmentType.RIGHT,
                     spacing: { after: 0 },
@@ -773,9 +825,9 @@ function definitionCard(title, rows, width) {
 function tickRow(text) {
   return new Paragraph({
     children: [
-      new TextRun({ text: '✓', bold: true, size: TYPE.small, color: ACCENT_2, font: FONTS.body }),
-      new TextRun({ text: '\t', font: FONTS.body }),
-      new TextRun({ text, size: TYPE.body, color: BODY, font: FONTS.body }),
+      new TextRun({ text: '✓', bold: true, size: TYPE.small, color: ACCENT_2, font: FONT_SANS }),
+      new TextRun({ text: '\t', font: FONT_SANS }),
+      new TextRun({ text, size: TYPE.body, color: BODY, font: FONT_SANS }),
     ],
     // Hanging indent so a wrapped line aligns under the text, not the tick.
     indent: { left: 340, hanging: 340 },
@@ -816,7 +868,7 @@ export function buildCoverSection(model) {
             bold: true,
             size: TYPE.label,
             color: TONES.warn.text,
-            font: FONTS.body,
+            font: FONT_SANS,
             shading: { type: ShadingType.CLEAR, fill: TONES.warn.fill },
           }),
         ],
@@ -834,7 +886,7 @@ export function buildCoverSection(model) {
           bold: true,
           size: TYPE.eyebrow,
           color: ACCENT,
-          font: FONTS.body,
+          font: FONT_SANS,
         }),
       ],
       spacing: { before: 0, after: 110 },
@@ -844,7 +896,7 @@ export function buildCoverSection(model) {
     // (Calibri Light, blue), which is why the title did not match the rest of
     // the report.
     new Paragraph({
-      children: [new TextRun({ text: model.title, bold: true, size: TYPE.title, color: INK, font: FONTS.body })],
+      children: [new TextRun({ text: model.title, bold: true, size: TYPE.title, color: INK, font: FONT_SANS, characterSpacing: TRACK.title })],
       spacing: { after: 60 },
     }),
     p(model.subtitle, { color: MUTED, size: TYPE.h2, after: GAP.base }),
@@ -854,10 +906,10 @@ export function buildCoverSection(model) {
   // street address sits under it as context.
   if (c.site || c.address) {
     const runs = []
-    if (c.site) runs.push(new TextRun({ text: c.site, bold: true, size: TYPE.coverFact, color: INK, font: FONTS.body }))
+    if (c.site) runs.push(new TextRun({ text: c.site, bold: true, size: TYPE.coverFact, color: INK, font: FONT_SANS }))
     if (c.address) {
       runs.push(new TextRun({
-        text: c.address, size: TYPE.body, color: MUTED, font: FONTS.body, break: c.site ? 1 : 0,
+        text: c.address, size: TYPE.body, color: MUTED, font: FONT_SANS, break: c.site ? 1 : 0,
       }))
     }
     out.push(new Paragraph({ children: runs, spacing: { after: GAP.loose } }))
@@ -968,7 +1020,7 @@ export function buildReferenceSection(model, num) {
       rows.map((r) => [
         { text: r.label || r.param, bold: true },
         { text: r.profile },
-        { text: r.value },
+        { text: r.value, mono: true },
         { text: r.source || '—', muted: true },
       ]),
       [18, 22, 20, 40],
@@ -1031,12 +1083,12 @@ export function buildParameterSection(entry, num) {
       card.push(
         new Paragraph({
           children: [
-            new TextRun({ text: `Figure ${entry.figureNumber}.`, bold: true, size: TYPE.fine, color: BODY, font: FONTS.body }),
+            new TextRun({ text: `Figure ${entry.figureNumber}.`, bold: true, size: TYPE.fine, color: BODY, font: FONT_SANS }),
             new TextRun({
               text: ` ${stripFigurePrefix(entry.caption, entry.figureNumber)}`,
               size: TYPE.fine,
               color: MUTED,
-              font: FONTS.body,
+              font: FONT_SANS,
             }),
           ],
           indent: CARD_PAD,
@@ -1053,9 +1105,9 @@ export function buildParameterSection(entry, num) {
     card.push(
       new Paragraph({
         children: [
-          new TextRun({ text: entry.statement, bold: true, size: TYPE.small, color: INK, font: FONTS.body }),
+          new TextRun({ text: entry.statement, bold: true, size: TYPE.small, color: INK, font: FONT_SANS }),
           ...(entry.statementNote
-            ? [new TextRun({ text: ` ${entry.statementNote}`, size: TYPE.small, color: BODY, font: FONTS.body })]
+            ? [new TextRun({ text: ` ${entry.statementNote}`, size: TYPE.small, color: BODY, font: FONT_SANS })]
             : []),
         ],
         indent: CARD_PAD,
@@ -1071,7 +1123,7 @@ export function buildParameterSection(entry, num) {
     card.push(
       new Paragraph({
         children: [
-          new TextRun({ text: entry.detectionNote, bold: true, size: TYPE.small, color: TONES.review.text, font: FONTS.body }),
+          new TextRun({ text: entry.detectionNote, bold: true, size: TYPE.small, color: TONES.review.text, font: FONT_SANS }),
         ],
         indent: CARD_PAD,
         spacing: { before: GAP.tight, after: GAP.loose },
@@ -1142,7 +1194,7 @@ export function buildEventsAppendix(model) {
       }),
       dataTable(
         ['Timestamp', 'Event', 'Notes'],
-        rows.map((r) => [{ text: r.time || '—' }, { text: r.label || '—', bold: true }, { text: r.note || '—', muted: true }]),
+        rows.map((r) => [{ text: r.time || '—', mono: true }, { text: r.label || '—', bold: true }, { text: r.note || '—', muted: true }]),
         [22, 24, 54],
       ),
     ],
@@ -1162,14 +1214,14 @@ export function buildRawStatisticsAppendix(model) {
         rows.map((r) => [
           { text: r.label, bold: true },
           { text: r.unit, muted: true },
-          { text: r.mean },
-          { text: r.median },
-          { text: r.min },
-          { text: r.max },
-          { text: r.stdDev },
-          { text: r.p95 },
-          { text: r.count },
-          { text: r.coverage },
+          { text: r.mean, mono: true },
+          { text: r.median, mono: true },
+          { text: r.min, mono: true },
+          { text: r.max, mono: true },
+          { text: r.stdDev, mono: true },
+          { text: r.p95, mono: true },
+          { text: r.count, mono: true },
+          { text: r.coverage, mono: true },
         ]),
         [17, 8, 9, 9, 8, 9, 9, 8, 9, 14],
       ),
