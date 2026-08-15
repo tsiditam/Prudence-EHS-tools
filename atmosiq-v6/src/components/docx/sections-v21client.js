@@ -601,9 +601,12 @@ function buildResultsSection(report) {
   const out = [...heading2(r.title || 'Results')]
   for (const sub of r.subsections) {
     out.push(heading3(sub.heading))
-    if (sub.standardsBackground) {
-      out.push(p(sub.standardsBackground, { align: AlignmentType.JUSTIFIED }))
-    }
+    // The textbook standards-background narrative (regulatory history,
+    // PELs, historical thresholds, citations) is intentionally omitted from
+    // the client Results section — it belongs in Appendix D (Standards and
+    // Citations), not restated in full before every result. The measurement
+    // summary is the actual finding the client needs here; interpretation
+    // follows in Findings.
     if (sub.measurementSummary) {
       out.push(p(sub.measurementSummary, { align: AlignmentType.JUSTIFIED }))
     }
