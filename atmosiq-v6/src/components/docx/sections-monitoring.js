@@ -102,7 +102,11 @@ const FONT_MONO = 'JetBrains Mono'
  * in points; ×20 → twips. (Figma is the real source for the unit; absent it,
  * points is the defensible reading of values like +1.2 / −0.5.)
  */
-const TRACK = { title: -10, part: 24, heading: 4, label: 26, data: 0 } // −0.5 / +1.2 / +0.2 / +1.3 pt
+// Tracking on the small uppercase labels was dialled back (was +1.3 pt): with
+// so many of them — PREPARED BY, MEAN, LOGGING INTERVAL — the wide spacing had
+// become a motif rather than hierarchy. `labelLong` takes a longer label (e.g.
+// LOGGING INTERVAL) tighter still, since tracking accumulates with length.
+const TRACK = { title: -10, part: 20, heading: 4, label: 16, labelLong: 10, data: 0 } // −0.5 / +1.0 / +0.2 / +0.8 (+0.5 long) pt
 
 /**
  * Type scale in half-points (docx `size` = pt × 2), set to the Part 3b table.
@@ -179,6 +183,11 @@ const p = (text, opts = {}) =>
     spacing: { after: opts.after ?? 90, before: opts.before ?? 0, line: opts.line ?? BODY_LINE },
     alignment: opts.align,
     indent: opts.indent,
+    // Pagination: keepNext binds this paragraph to the block that follows it
+    // (a heading to its section, an intro to its card); keepLines stops the
+    // paragraph itself splitting across a page.
+    keepNext: opts.keepNext || undefined,
+    keepLines: opts.keepLines || undefined,
   })
 
 const noBorder = { style: 'none', size: 0, color: 'FFFFFF' }
@@ -230,19 +239,27 @@ export function sectionHeading(num, title, status) {
     children,
     spacing: { before: GAP.section, after: 140 },
     border: { bottom: hair() },
+    // A heading never sits alone at the foot of a page — it stays with the
+    // block it introduces.
+    keepNext: true,
   })
 }
 
-/** Small uppercase key — the label / eyebrow role (700, +1.3 tracking). */
-const keyRun = (text) =>
-  new TextRun({
-    text: String(text || '').toUpperCase(),
+/** Small uppercase key — the label / eyebrow role (700, light tracking). */
+const keyRun = (text) => {
+  const str = String(text || '').toUpperCase()
+  // Long labels get less letter-spacing: tracking is per-gap, so it reads as
+  // heavier the more characters a label has.
+  const track = str.length > 10 ? TRACK.labelLong : TRACK.label
+  return new TextRun({
+    text: str,
     bold: true,
     size: TYPE.label,
     color: FAINT,
     font: FONT_SANS,
-    characterSpacing: TRACK.label,
+    characterSpacing: track,
   })
+}
 
 /**
  * A meta grid: small uppercase label above a bold value, `cols` across.
@@ -523,6 +540,7 @@ function parameterHead(entry) {
     columnWidths: widths,
     rows: [
       new TableRow({
+        cantSplit: true,
         children: [
           new TableCell({
             children: left,
@@ -559,6 +577,9 @@ export function summaryStripTable(tiles) {
     columnWidths: tiles.map(() => width),
     rows: [
       new TableRow({
+        // The KPI card is never split across a page — if it does not fit in
+        // the space left, the whole strip moves to the next page.
+        cantSplit: true,
         children: tiles.map(
           (t, i) =>
             new TableCell({
@@ -618,6 +639,13 @@ function parameterCard(children) {
     columnWidths: [CONTENT_WIDTH_DXA],
     rows: [
       new TableRow({
+        // The whole card is one indivisible object: heading → strip → figure →
+        // caption → interpretation → observations stay together on one page.
+        // If the card does not fit in the space left, Word moves the entire
+        // card to the next page rather than splitting it mid-parameter. (A card
+        // taller than a full page degrades gracefully — Word still splits what
+        // cannot fit anywhere.)
+        cantSplit: true,
         children: [
           new TableCell({
             children,
@@ -801,11 +829,31 @@ const IMG_H = Math.round((IMG_W * CHART_SIZE.height) / CHART_SIZE.width)
 const CARD_PAD = { left: 200, right: 200 }
 
 /**
- * Cover: accent eyebrow, title, subtitle, site line, meta grid.
+ * A short accent rule — the report's one brand mark on the cover. A borderless
+ * empty paragraph whose bottom border is shortened by a right indent, so the
+ * accent bar is a FIXED small width rather than the full text column, and it is
+ * a paragraph (no leading table at the top of the document body). `w` is the
+ * bar's width in twips, `weight` its thickness in eighths of a point.
+ */
+function accentRule(w = 1300, weight = 16, color = ACCENT) {
+  return new Paragraph({
+    children: [new TextRun({ text: '', size: 2, font: FONT_SANS })],
+    border: { bottom: { style: 'single', size: weight, color, space: 1 } },
+    indent: { right: Math.max(0, CONTENT_WIDTH_DXA - w) },
+    spacing: { after: 90, line: 20 },
+  })
+}
+
+/**
+ * Cover: brand rule, accent eyebrow, title, monitoring period, site line,
+ * meta grid.
  *
  * The report opens on its own title rather than on a brand block. Firm
  * identity is carried by the running header, where it repeats on every page
- * without competing with the title for the top of page one.
+ * without competing with the title for the top of page one. The title reads as
+ * a two-part hierarchy — the domain (INDOOR AIR QUALITY) as an eyebrow over the
+ * deliverable (Monitoring Report) as the hero line — rather than one long
+ * repetitive string.
  */
 export function buildCoverSection(model) {
   const c = (model && model.cover) || {}
@@ -832,27 +880,49 @@ export function buildCoverSection(model) {
     )
   }
 
+  // The hero line is the deliverable alone — "Monitoring Report" — with the
+  // domain lifted into the eyebrow above it, so the cover is not the same words
+  // twice. Derived from the title (strip a leading "Indoor Air Quality ") so it
+  // stays in step if the title is ever changed, with a plain fallback.
+  const heroTitle = String(model.title || 'Monitoring Report').replace(/^\s*indoor air quality\s+/i, '') || 'Monitoring Report'
+  // The monitoring period, promoted to a prominent secondary line under the
+  // title (it also remains in the meta grid below for reference).
+  const coverPeriod =
+    c.period || (c.periodStart && c.periodEnd ? `${c.periodStart} – ${c.periodEnd}` : null)
+
   out.push(
+    // The report's one brand mark: a short accent rule above the eyebrow.
+    accentRule(),
     new Paragraph({
       children: [
         new TextRun({
-          text: 'INDOOR AIR QUALITY MONITORING',
+          text: 'INDOOR AIR QUALITY',
           bold: true,
           size: TYPE.eyebrow,
           color: ACCENT,
           font: FONT_SANS,
+          characterSpacing: TRACK.label,
         }),
       ],
-      spacing: { before: 0, after: 110 },
+      spacing: { before: 90, after: 90 },
     }),
     // Built from explicit runs rather than HeadingLevel.TITLE: Word's built-in
     // Title style overrides the document theme with its own face and colour
     // (Calibri Light, blue), which is why the title did not match the rest of
     // the report.
     new Paragraph({
-      children: [new TextRun({ text: model.title, bold: true, size: TYPE.title, color: INK, font: FONT_SANS, characterSpacing: TRACK.title })],
-      spacing: { after: model.subtitle ? 60 : GAP.base },
+      children: [new TextRun({ text: heroTitle, bold: true, size: TYPE.title, color: INK, font: FONT_SANS, characterSpacing: TRACK.title })],
+      spacing: { after: coverPeriod ? 70 : (model.subtitle ? 60 : GAP.base) },
     }),
+    // The monitoring period as a prominent secondary element.
+    ...(coverPeriod
+      ? [
+          new Paragraph({
+            children: [new TextRun({ text: coverPeriod, size: 30, color: ACCENT, font: FONT_SANS_SEMI })],
+            spacing: { after: GAP.base },
+          }),
+        ]
+      : []),
     // Subtitle is optional — a null subtitle renders nothing (no empty gap).
     ...(model.subtitle ? [p(model.subtitle, { color: MUTED, size: TYPE.h2, after: GAP.base })] : []),
   )
@@ -1004,7 +1074,10 @@ export function buildParameterSection(entry, num) {
   out.push(
     p(
       `The following section summarizes measured ${entry.midLabel || entry.label} over the monitoring period and compares the observations to the selected screening reference.`,
-      { color: MUTED, size: TYPE.small, after: GAP.base },
+      // keepNext binds the intro (and, through the heading's own keepNext, the
+      // heading) to the parameter card that follows, so the two never strand at
+      // the foot of a page above a card that starts on the next one.
+      { color: MUTED, size: TYPE.small, after: GAP.base, keepNext: true, keepLines: true },
     ),
   )
 
@@ -1060,6 +1133,7 @@ export function buildParameterSection(entry, num) {
         ],
         indent: CARD_PAD,
         spacing: { before: isImageDataUrl(entry.chart) ? 0 : GAP.loose, after: GAP.loose },
+        keepLines: true,
       }),
     )
   }
