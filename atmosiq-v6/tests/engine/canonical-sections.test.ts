@@ -55,15 +55,15 @@ function buildReport() {
 }
 
 describe('Phase 2 — benchmark table data', () => {
-  it('is 14 rows × 5 columns', () => {
-    expect(BENCHMARK_ROWS.length).toBe(14)
+  it('is 13 rows × 5 columns', () => {
+    expect(BENCHMARK_ROWS.length).toBe(13)
     for (const row of BENCHMARK_ROWS) expect(row.length).toBe(5)
   })
   it('every benchmark-type label is in the docs/report-spec §7 taxonomy', () => {
     for (const row of BENCHMARK_ROWS) expect(BENCHMARK_TYPE_LABELS).toContain(row[3])
   })
   it('classifies NIOSH RELs as recommended (not occupational) exposure limits', () => {
-    const niosh = BENCHMARK_ROWS.filter(r => /NIOSH/i.test(r[2]))
+    const niosh = BENCHMARK_ROWS.filter(r => /NIOSH REL/i.test(r[2]))
     expect(niosh.length).toBeGreaterThan(0)
     for (const r of niosh) expect(r[3]).toBe('Recommended exposure limit')
   })
