@@ -68,12 +68,16 @@ import { CHART_SIZE } from '../../utils/monitoringChart'
  * teal from the reviewed design (deep enough to print cleanly, quiet enough
  * not to read as marketing).
  */
-const ACCENT = '0E7490'
+// A handful of these are `export`ed (additive, safe) so a sibling report that
+// reuses this design system — e.g. the AtmosFlow assessment report in
+// sections-atmosflow.js — can build bespoke bits (a body meta grid, a labelled
+// run) in the same visual language rather than re-deriving the tokens.
+export const ACCENT = '0E7490'
 const ACCENT_2 = '0891B2'
 const ACCENT_TINT = 'F4FAFB'
-const INK = COLORS.text
-const BODY = '3A424E' // lighter than COLORS.body: body text recedes, headings lead
-const MUTED = '6B7480'
+export const INK = COLORS.text
+export const BODY = '3A424E' // lighter than COLORS.body: body text recedes, headings lead
+export const MUTED = '6B7480'
 const FAINT = '9AA3AE'
 const HAIR = 'EEF1F4' // softer rules — fewer borders competing for attention
 const HAIR_2 = 'E2E6EB'
@@ -113,7 +117,7 @@ const TRACK = { title: -10, part: 20, heading: 4, label: 16, labelLong: 10, data
  * Open Sans has a large x-height and sets visually larger than the retired
  * serif at the same nominal size, so body is 10 pt (not 10.5) with 1.45 line.
  */
-const TYPE = {
+export const TYPE = {
   title: 60, //  30 pt — report title (cover)        · 700, track −0.5
   part: 19, //   9.5 pt — part header                 · 700, track +1.2, upper
   h2: 25, //    12.5 pt — section heading             · 600 SemiBold, track +0.2
@@ -168,7 +172,7 @@ const TONES = {
   review: { text: 'A62121', fill: 'FDEFEF', dot: 'DC2626' },
 }
 
-const p = (text, opts = {}) =>
+export const p = (text, opts = {}) =>
   new Paragraph({
     children: [
       new TextRun({
