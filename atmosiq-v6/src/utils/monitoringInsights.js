@@ -332,12 +332,26 @@ export function parameterStatement(param, stats, reference, opts = {}) {
     if (stats.pctAbove === 0) {
       return `${subject} remained below the selected screening reference (${refText}) throughout the monitoring period.`
     }
-    return `${subject} remained below the selected screening reference (${refText}) during ${pctWhole(100 - stats.pctAbove)} of logged measurements.`
+    // ANY exceedance is stated as an exceedance. Framing a screening-reference
+    // exceedance as "remained below … during X%" reads as minimization to a
+    // reviewer and contradicts the section's own status chip — a 93.5%-above
+    // ("remained below during 7%") or a 48%-above ("remained below during 52%")
+    // sentence under a "Review Suggested" chip is exactly the kind of thing that
+    // draws a hard question. The exceedance carries the strip's own one-decimal
+    // "% Above" precision.
+    return `${subject} exceeded the selected screening reference (${refText}) during ${pct(stats.pctAbove)} of logged measurements.`
   }
 
   if (isNum(stats.pctInBand)) {
     if (stats.pctInBand === 100) {
       return `${subject} remained within the selected comfort range (${refText}) throughout the monitoring period.`
+    }
+    // Same principle for a comfort band: when most of the period was OUTSIDE the
+    // range, lead with that rather than the minority in-band fraction. A minor
+    // excursion keeps the "remained within during X%" frame, which agrees with a
+    // "Within Reference" chip.
+    if (stats.pctInBand < 50) {
+      return `${subject} fell outside the selected comfort range (${refText}) during ${pct(100 - stats.pctInBand)} of the monitoring period.`
     }
     return `${subject} remained within the selected comfort range (${refText}) during ${pctWhole(stats.pctInBand)} of the monitoring period.`
   }
