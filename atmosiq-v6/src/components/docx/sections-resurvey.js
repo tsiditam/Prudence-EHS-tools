@@ -37,18 +37,24 @@ function tierColor(tier) {
  */
 export function buildResurveySchedule(opts = {}) {
   const recommendations = opts.recommendationsRegister || opts.recs || {}
-  const schedule = computeResurveySchedule({
-    recommendations,
-    assessmentDate: opts.assessmentDate,
-  })
+  const schedule = computeResurveySchedule({ recommendations })
+  // Re-survey timing is anchored to completion of corrective actions, not
+  // a fixed calendar date: an absolute "target date" pinned to the
+  // assessment date is prescriptive and usually wrong, because the right
+  // trigger is when remediation is done. When there are no active actions,
+  // fall back to a routine confirmation interval.
+  const hasActions =
+    schedule.counts.immediate + schedule.counts.shortTerm + schedule.counts.furtherEvaluation > 0
+  const timingValue = hasActions
+    ? `Approximately ${schedule.cadence.label} after completion of corrective actions`
+    : `Within ${schedule.cadence.label} (routine confirmation)`
   return [
     p('Re-survey Schedule', { heading: HeadingLevel.HEADING_2 }),
     p(schedule.rationale, { size: 22, color: COLORS.sub, align: AlignmentType.JUSTIFIED, after: 200 }),
     buildTable(
       [{ text: 'Item', width: 45 }, { text: 'Value', width: 55 }],
       [
-        ['Recommended interval', { text: schedule.cadence.label, bold: true, color: tierColor(schedule.cadence.tier) }],
-        ['Target re-survey date', schedule.dueDate || 'To be set on issuance'],
+        ['Recommended timing', { text: timingValue, bold: true, color: tierColor(schedule.cadence.tier) }],
         ['Immediate-priority items', `${schedule.counts.immediate}`],
         ['Short-term items', `${schedule.counts.shortTerm}`],
         ['Further-evaluation items', `${schedule.counts.furtherEvaluation}`],
@@ -56,7 +62,7 @@ export function buildResurveySchedule(opts = {}) {
       ],
     ),
     p(
-      'The target date above is a screening-level guidance window. A qualified industrial hygienist should adjust the interval based on remediation timelines, occupant complaints, seasonal factors, and any material change in building use or HVAC operation.',
+      'The re-survey should be triggered by completion of the priority corrective actions rather than a fixed calendar date. A qualified industrial hygienist should adjust the interval based on remediation timelines, occupant complaints, seasonal factors, and any material change in building use or HVAC operation.',
       { size: 18, color: COLORS.muted, italics: true, after: 200 },
     ),
   ]

@@ -112,7 +112,7 @@ export function synthesizeZone(zone: ZoneScore): ZoneSynthesis {
     return {
       template: 'sick-building',
       narrative:
-        'The combination of an occupant symptom cluster, the report that symptoms improve when away from the building, and the indoor environmental observations documented above is consistent with a building-related contributor to occupant complaints. This synthesis does not establish causation; confirmatory investigation, including structured symptom mapping and targeted contaminant or airflow follow-up, is recommended before drawing definitive conclusions.',
+        'Reported occupant symptoms showed a spatial and temporal pattern that warrants consideration alongside the indoor environmental observations documented above. The information collected during this assessment is insufficient to determine whether the reported symptoms are building-related. Confirmatory investigation, including structured symptom mapping and targeted contaminant or airflow follow-up, is recommended before drawing any conclusion about building-relatedness.',
     }
   }
 

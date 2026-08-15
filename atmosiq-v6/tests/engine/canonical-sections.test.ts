@@ -55,15 +55,15 @@ function buildReport() {
 }
 
 describe('Phase 2 — benchmark table data', () => {
-  it('is 14 rows × 5 columns', () => {
-    expect(BENCHMARK_ROWS.length).toBe(14)
+  it('is 13 rows × 5 columns', () => {
+    expect(BENCHMARK_ROWS.length).toBe(13)
     for (const row of BENCHMARK_ROWS) expect(row.length).toBe(5)
   })
   it('every benchmark-type label is in the docs/report-spec §7 taxonomy', () => {
     for (const row of BENCHMARK_ROWS) expect(BENCHMARK_TYPE_LABELS).toContain(row[3])
   })
   it('classifies NIOSH RELs as recommended (not occupational) exposure limits', () => {
-    const niosh = BENCHMARK_ROWS.filter(r => /NIOSH/i.test(r[2]))
+    const niosh = BENCHMARK_ROWS.filter(r => /NIOSH REL/i.test(r[2]))
     expect(niosh.length).toBeGreaterThan(0)
     for (const r of niosh) expect(r[3]).toBe('Recommended exposure limit')
   })
@@ -142,9 +142,14 @@ describe('Phase 2 — rendered DOCX', () => {
     const buf = await Packer.toBuffer(doc)
     const zip = await JSZip.loadAsync(buf)
     const xml = await zip.file('word/document.xml')!.async('string')
-    for (const t of ['Document Control', 'Standards, Guidelines, and Benchmark Types', 'Instrument Accuracy and Calibration', 'Conclusions', 'Data Gaps and Limitations on Interpretation', 'Disclaimer', 'Certification']) {
+    for (const t of ['Document Control', 'Standards, Guidelines, and Benchmark Types', 'Instrument Accuracy and Calibration', 'Conclusions', 'Limitations', 'Certification']) {
       expect(xml).toContain(t)
     }
+    // The Data Gaps and Disclaimer sections are merged into the single
+    // "Limitations" section: their content still renders, but no longer
+    // under separate headings.
+    expect(xml).toContain(DATA_GAPS_INTRO)
+    expect(xml).not.toContain('Data Gaps and Limitations on Interpretation')
     expect(xml).toContain('CO2 plus-minus 3 percent')
     expect(xml).toContain('ASHRAE 62.1-2025')
     expect(xml).toContain('Occupational exposure limit')

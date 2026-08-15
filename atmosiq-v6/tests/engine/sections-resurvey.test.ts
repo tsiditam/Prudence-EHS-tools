@@ -38,17 +38,27 @@ describe('buildResurveySchedule', () => {
     const allText = children.map(flatten).join(' ')
     expect(allText).toMatch(/Re-survey Schedule/)
     expect(allText).toMatch(/30 days/)
-    expect(allText).toMatch(/June 18, 2026/)
+    // No fixed calendar date: timing is anchored to remediation completion.
+    expect(allText).toMatch(/after completion of corrective actions/)
+    expect(allText).not.toMatch(/\b\w+ \d{1,2}, 20\d\d\b/) // no absolute due date
     expect(allText).toMatch(/qualified industrial hygienist/i)
   })
 
-  it('renders "To be set on issuance" when assessment date is missing', () => {
+  it('anchors timing to corrective-action completion regardless of assessment date', () => {
     const children = buildResurveySchedule({
       recommendationsRegister: { immediate: [{}] },
       assessmentDate: undefined,
     })
     const allText = children.map(flatten).join(' ')
-    expect(allText).toMatch(/To be set on issuance/)
+    expect(allText).toMatch(/after completion of corrective actions/)
+  })
+
+  it('uses routine-confirmation wording when there are no active actions', () => {
+    const children = buildResurveySchedule({
+      recommendationsRegister: { immediate: [], shortTerm: [], furtherEvaluation: [], longTermOptional: [] },
+    })
+    const allText = children.map(flatten).join(' ')
+    expect(allText).toMatch(/routine confirmation/i)
   })
 
   it('accepts the legacy ctx.recs shape via opts.recs', () => {

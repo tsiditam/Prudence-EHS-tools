@@ -21,7 +21,6 @@ import { buildTechnicalHeader, buildScopeConditions, buildInstrumentation, build
 import { buildClientDocx } from './docx/sections-v21client'
 import { buildLabResultsAppendix } from './docx/sections-lab-results'
 import { buildSensorGraphsAppendix } from './docx/sections-sensor'
-import { buildMethodologyCurrency } from './docx/sections-methodology-currency'
 import { buildConceptualSiteModelSection } from './docx/sections-conceptual-model'
 import { buildParameterExplainers, buildReportedConcernsSection, buildFindingsConfidenceRegister } from './docx/sections-cih-reasoning'
 import { buildEvidenceTraceabilityMatrix } from './docx/sections-traceability'
@@ -323,6 +322,32 @@ function buildInstrumentAccuracyInfo(presurvey) {
   }
 }
 
+/**
+ * Build just the engine ClientReport result for an assessment — the same
+ * meta → score → renderClientReport pipeline buildConsultantDocument uses,
+ * stopping at the model. The editorial-review pass uses this to build a digest
+ * of cuttable content whose ids match EXACTLY what the DOCX renders, so an
+ * approved cut resolves to a real, renderer-honored suppression. Read-only:
+ * it does not mutate the engine or the assessment.
+ */
+export function getConsultantReportResult(data) {
+  const meta = deriveAssessmentMeta({
+    profile: data.profile,
+    presurvey: data.presurvey,
+    building: data.building,
+    assessmentDate: data.ts ? data.ts.slice(0, 10) : undefined,
+  })
+  const score = legacyToAssessmentScore(
+    data.zoneScores || [],
+    data.comp || null,
+    data.zones || [],
+    { meta, presurvey: data.presurvey, building: data.building },
+  )
+  return renderClientReport(score, {
+    includeAssessmentIndexAppendix: !!data.includeAssessmentIndexAppendix,
+  })
+}
+
 async function buildConsultantDocument(ctx, data) {
   // v2.1 path: bridge legacy scoring data → AssessmentScore → ClientReport
   // → docx. CIH-defensible deliverable.
@@ -374,10 +399,13 @@ async function buildConsultantDocument(ctx, data) {
   // the fact, so they share the section heading style, sit in the right
   // position, get continuous appendix letters (after the engine's
   // Appendix F), and register in the Table of Contents:
-  //   • Standards Currency — methodology-currency body section documenting
-  //     references NOT in the deterministic scoring path (ASHRAE 241-2023,
-  //     EPA PM2.5 annual NAAQS 2024, ACGIH TLV 2025). Renders after
-  //     Limitations/Professional Judgment. Engine-sacred respected.
+  //   • (Removed) Standards Currency — the methodology-currency body
+  //     section described AtmosFlow's internal scoring engine ("scores the
+  //     assessment against the standards manifest", "deterministic scoring
+  //     path"). That is implementation/QA detail, not client-report content,
+  //     so it is no longer included in the consultant deliverable. The
+  //     builder (sections-methodology-currency.js) is retained for the
+  //     professional-review interface but is not rendered into the report.
   //   • Laboratory Analytical Results — closes the CoC loop when the
   //     assessor imported analytical CSV results (→ Appendix G).
   //   • Environmental Evidence Graphs — report-ready IAQ timelines the
@@ -405,7 +433,7 @@ async function buildConsultantDocument(ctx, data) {
       ]
     : []
   const supplemental = {
-    bodySections: [buildMethodologyCurrency(), ...cihSections].filter(Boolean),
+    bodySections: [...cihSections].filter(Boolean),
     appendices: [
       buildLabResultsAppendix(data.labResults),
       buildSensorGraphsAppendix(data.sensorData),
@@ -416,6 +444,8 @@ async function buildConsultantDocument(ctx, data) {
     supplemental,
     dataGaps: deriveScientificDataGaps(data),
     instrumentAccuracy: buildInstrumentAccuracyInfo(data.presurvey),
+    // Human-approved editorial cuts from the review pass (may be absent).
+    editorialSuppressions: data.editorialSuppressions,
   })
 
   // Free-tier watermark: pass watermarkConfig from caller (e.g. resolved

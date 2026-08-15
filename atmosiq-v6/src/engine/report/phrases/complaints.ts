@@ -40,9 +40,12 @@ export const COMPLAINTS_PHRASES: Partial<Record<ConditionType, PhraseLibraryEntr
       'Symptom clustering was identified informally and has not been confirmed through epidemiological analysis.',
       'Spatial clustering alone does not establish causation.',
     ],
+    // The ATSDR occupant-risk-communication action was removed: it is
+    // disproportionate to a routine commercial IAQ screening, where no
+    // hazardous release requiring community risk communication has been
+    // identified. A structured symptom survey is the proportionate step.
     defaultRecommendedActions: [
       { priority: 'short_term', timeframe: '7–30 days', action: 'Conduct structured symptom survey with spatial mapping of affected and unaffected occupants.' },
-      { priority: 'short_term', timeframe: '7–30 days', action: 'Implement occupant risk communication plan per ATSDR guidance.' },
     ],
   },
 

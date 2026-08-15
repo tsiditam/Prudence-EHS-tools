@@ -28,8 +28,8 @@ export const BENCHMARK_TABLE_HEADERS = [
 ]
 
 export const BENCHMARK_ROWS = [
-  ['CO₂ (differential)', 'Δ700 ppm above outdoor', 'ASHRAE 62.1-2025', 'Ventilation screening benchmark', 'Indicator of outdoor air adequacy'],
-  ['CO₂ (absolute)', '1000 ppm concern / 1500 ppm action', 'ASHRAE 62.1-2025', 'Ventilation screening benchmark', 'Screening thresholds for ventilation assessment'],
+  ['CO₂ (differential)', 'Δ700 ppm above outdoor', 'ASHRAE 62.1-2025 (ventilation basis)', 'Ventilation screening benchmark', 'Indicator of outdoor-air adequacy'],
+  ['CO₂ (absolute)', '~1,000 ppm screening indicator', 'NIOSH ventilation screening (~1,000 ppm)', 'Ventilation screening benchmark', 'Screening indicator for ventilation assessment'],
   ['Temperature (summer)', '73-79°F optimal, 67-82°F range', 'ASHRAE 55-2023', 'Thermal comfort criterion', 'Comfort evaluation, not health standard'],
   ['Temperature (winter)', '68.5-74°F optimal, 68.5-76°F range', 'ASHRAE 55-2023', 'Thermal comfort criterion', 'Comfort evaluation, not health standard'],
   ['Relative Humidity', '30-60%', 'ASHRAE 55-2023', 'Comfort / moisture indicator', 'Comfort + mold risk screening'],
@@ -40,8 +40,7 @@ export const BENCHMARK_ROWS = [
   ['HCHO (OSHA PEL)', '0.75 ppm TWA', '29 CFR 1910.1048', 'Occupational exposure limit', 'Regulatory limit'],
   ['HCHO (OSHA AL)', '0.5 ppm', '29 CFR 1910.1048', 'Occupational exposure limit', 'Action level trigger'],
   ['HCHO (NIOSH)', '0.016 ppm', 'NIOSH REL', 'Recommended exposure limit', 'Recommended exposure limit'],
-  ['TVOCs (concern)', '500 µg/m³', 'AIHA/ACGIH', 'Internal concern threshold', 'Investigation trigger, not legal limit'],
-  ['TVOCs (acute)', '3000 µg/m³', 'AIHA/ACGIH', 'Internal concern threshold', 'Acute concern trigger'],
+  ['TVOCs', 'No regulatory exposure limit', 'Mølhave 1991 (advisory ranges)', 'Screening indicator', 'Source-investigation indicator, not a compliance limit'],
 ]
 
 // Allowed benchmark-type labels (docs/report-spec/07 taxonomy).
@@ -52,14 +51,14 @@ export const BENCHMARK_TYPE_LABELS = [
   'Ventilation screening benchmark',
   'Thermal comfort criterion',
   'Comfort / moisture indicator',
-  'Internal concern threshold',
+  'Screening indicator',
 ]
 
 export const BENCHMARK_INTRO =
   'The following published standards, guidelines, and benchmark types frame the screening-level evaluation in this report. Benchmark types carry different regulatory, health, and investigative weight and are not interchangeable. This table is presented in full for every assessment.'
 
 export const BENCHMARK_FOOTNOTE =
-  'Benchmark types carry different legal and technical weight. Occupational exposure limits are enforceable workplace standards. Public health guidelines are health-based recommendations. Comfort criteria address thermal acceptability. Screening benchmarks and internal concern thresholds are investigative triggers used for prioritization, not compliance determination.'
+  'Benchmark types carry different legal and technical weight. Occupational exposure limits are enforceable workplace standards. Public health guidelines are health-based recommendations. Comfort criteria address thermal acceptability. Ventilation and screening indicators are investigative triggers used for prioritization, not compliance determination.'
 
 // ── Disclaimer (standalone, distinct from the Limitations section) ──
 

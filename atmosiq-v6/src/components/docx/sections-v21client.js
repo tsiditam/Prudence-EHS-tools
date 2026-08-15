@@ -19,6 +19,7 @@ import { buildResurveySchedule } from './sections-resurvey'
 import { sectionHeading2 } from './headings'
 import { assembleSupplementalSections, mergeSupplementalTocEntries } from './sections-supplemental'
 import { isIaqScoreVisible } from '../../utils/featureFlags'
+import { makeSuppressionIndex } from '../../utils/editorialSuppressions'
 import {
   BENCHMARK_TABLE_HEADERS, BENCHMARK_ROWS, BENCHMARK_INTRO, BENCHMARK_FOOTNOTE,
   DISCLAIMER_PARAGRAPHS, CONCLUSIONS_CLOSING, certificationStatement, FIRM_NAME,
@@ -345,7 +346,7 @@ function buildSamplingMethodologyDocx(report) {
   return out
 }
 
-function buildExecutiveSummary(report) {
+function buildExecutiveSummary(report, suppress) {
   // v2.2 visual upgrade — Label:Value metadata list (no banded grid),
   // opinion call-out, narrative blocks. The Findings block renders
   // findings grouped by domain with bold lead terms; empty groups
@@ -393,7 +394,14 @@ function buildExecutiveSummary(report) {
     out.push(buildExecBlock('Summary of Findings', summary.observations.map(o => bullet(o))))
   }
   if (summary.recommendations && summary.recommendations.length > 0) {
-    out.push(buildExecBlock('Recommendations', summary.recommendations.map(a => bullet(actionLine(a)))))
+    // Honor editorial cuts: a recommendation the reviewer suppressed must not
+    // resurface in the executive-summary highlight list.
+    const recs = summary.recommendations.filter(
+      (a) => !(suppress && suppress.has({ kind: 'recommendation', priority: a.priority, action: a.action })),
+    )
+    if (recs.length > 0) {
+      out.push(buildExecBlock('Recommendations', recs.map(a => bullet(actionLine(a)))))
+    }
   }
   return out
 }
@@ -595,19 +603,27 @@ function buildBuildingContext(report) {
 // v2.4 §2 — Results section: per-parameter standards-anchored prose
 // subsections. Renders between Sampling Methodology and Building and
 // System Context.
-function buildResultsSection(report) {
+function buildResultsSection(report, suppress) {
   const r = report.resultsSection
   if (!r || !Array.isArray(r.subsections) || r.subsections.length === 0) return []
   const out = [...heading2(r.title || 'Results')]
+  let rendered = 0
   for (const sub of r.subsections) {
+    if (suppress && suppress.has({ kind: 'resultsSubsection', heading: sub.heading })) continue
+    rendered += 1
     out.push(heading3(sub.heading))
-    if (sub.standardsBackground) {
-      out.push(p(sub.standardsBackground, { align: AlignmentType.JUSTIFIED }))
-    }
+    // The textbook standards-background narrative (regulatory history,
+    // PELs, historical thresholds, citations) is intentionally omitted from
+    // the client Results section — it belongs in Appendix D (Standards and
+    // Citations), not restated in full before every result. The measurement
+    // summary is the actual finding the client needs here; interpretation
+    // follows in Findings.
     if (sub.measurementSummary) {
       out.push(p(sub.measurementSummary, { align: AlignmentType.JUSTIFIED }))
     }
   }
+  // If every subsection was cut editorially, omit the empty Results heading.
+  if (rendered === 0) return []
   return out
 }
 
@@ -774,21 +790,65 @@ function buildSimpleTable(headers, rows, opts = {}) {
 // (no header, no body, no TOC entry) when the engine signals
 // rendered=false. The omittedReason was already appended to Scope of
 // Work in client.ts. We render nothing here.
-function buildBuildingConditionsSection(report) {
+function buildBuildingConditionsSection(report, recIndex, suppress) {
   const section = report.buildingAndSystemConditions
   if (!section || !section.rendered) return []
+  const findings = (section.findings || []).filter(
+    (f) => !(suppress && suppress.has({ kind: 'finding', findingId: f.findingId })),
+  )
+  if (findings.length === 0) return []
   const out = [...heading2('Building and System Conditions')]
-  for (const f of (section.findings || [])) {
-    out.push(...buildInlineFindingDocx(f))
+  for (const f of findings) {
+    out.push(...buildInlineFindingDocx(f, recIndex, suppress))
   }
   return out
 }
 
+// Remove editorially-suppressed recommendations from the register BEFORE the
+// IDs are assigned, so the Register and the per-finding cross-references
+// agree and a cut recommendation disappears from both.
+function filterRegisterForSuppression(register, suppress) {
+  if (!register || !suppress || suppress.size === 0) return register
+  const filterList = (list) => (list || []).filter(
+    (a) => !suppress.has({ kind: 'recommendation', priority: a.priority, action: a.action }),
+  )
+  return {
+    ...register,
+    immediate: filterList(register.immediate),
+    shortTerm: filterList(register.shortTerm),
+    furtherEvaluation: filterList(register.furtherEvaluation),
+    longTermOptional: filterList(register.longTermOptional),
+  }
+}
+
+// Assign stable display IDs (R-01, R-02, …) to every recommendation in the
+// register, in render order (immediate → short term → further evaluation →
+// long term). Findings cross-reference these IDs instead of repeating the
+// full action text, so each recommendation is stated in full exactly once.
+// Keyed by action text, which is unique per register row (the register is
+// the deduped union of all findings' actions).
+function buildRecIndex(register) {
+  const idOf = new Map()
+  if (!register) return { idOf }
+  const groups = [register.immediate, register.shortTerm, register.furtherEvaluation, register.longTermOptional]
+  let n = 0
+  for (const list of groups) {
+    for (const a of (list || [])) {
+      if (!a || typeof a.action !== 'string' || idOf.has(a.action)) continue
+      n += 1
+      idOf.set(a.action, `R-${String(n).padStart(2, '0')}`)
+    }
+  }
+  return { idOf }
+}
+
 // v2.3 §5 — Zone section. Findings render as RenderedFinding blocks.
 // Empty zones render exactly the prescribed single sentence.
-function buildZoneSections(report) {
+function buildZoneSections(report, recIndex, suppress) {
   const out = [...heading2('Zone Findings')]
   for (const zone of report.zoneSections) {
+    // A reviewer can cut an entire zone section editorially.
+    if (suppress && suppress.has({ kind: 'zone', zoneId: zone.zoneId })) continue
     out.push(heading3(zone.zoneName))
     if (zone.zoneDescription) {
       out.push(p(zone.zoneDescription, { size: 22, color: COLORS.body }))
@@ -796,7 +856,9 @@ function buildZoneSections(report) {
     if (zone.samplingSummary) {
       out.push(p(zone.samplingSummary, { size: 20, color: COLORS.sub, italics: true }))
     }
-    const findings = zone.findings || []
+    const findings = (zone.findings || []).filter(
+      (f) => !(suppress && suppress.has({ kind: 'finding', findingId: f.findingId })),
+    )
     if (findings.length === 0) {
       out.push(p(
         'No conditions warranting elevated concern were identified in this zone within the stated limitations.',
@@ -805,7 +867,7 @@ function buildZoneSections(report) {
       continue
     }
     for (const f of findings) {
-      out.push(...buildInlineFindingDocx(f))
+      out.push(...buildInlineFindingDocx(f, recIndex, suppress))
     }
     if (zone.interpretation) {
       out.push(p('Interpretation', { bold: true, size: 20, color: COLORS.sub, after: 60 }))
@@ -821,7 +883,7 @@ function buildZoneSections(report) {
  * inline Limitations sublist (italic, indented) → Recommended
  * actions sublist. 12pt below the block before the next finding.
  */
-function buildInlineFindingDocx(rf) {
+function buildInlineFindingDocx(rf, recIndex, suppress) {
   if (!rf) return []
   const out = []
   out.push(p(rf.narrative || '', { align: AlignmentType.JUSTIFIED, after: 80 }))
@@ -834,11 +896,18 @@ function buildInlineFindingDocx(rf) {
       spacing: { after: 80 },
     }))
   }
-  if (rf.limitations && rf.limitations.length > 0) {
+  // Drop the generic "instrument not in the manufacturer-certified accuracy
+  // database" line from the client report: it is software-QA terminology
+  // that reads as boilerplate under every qualitative finding. The
+  // measurement-basis caveats live in the consolidated Limitations section.
+  const findingLimitations = (rf.limitations || []).filter(
+    (l) => typeof l === 'string' && !/accuracy database/i.test(l),
+  )
+  if (findingLimitations.length > 0) {
     out.push(p('Limitations of this finding:', {
       italics: true, bold: true, size: 18, color: SLATE, after: 40,
     }))
-    for (const l of rf.limitations) {
+    for (const l of findingLimitations) {
       out.push(new Paragraph({
         children: [new TextRun({
           text: l, font: FONTS.body, size: 18, italics: true, color: COLORS.sub,
@@ -849,15 +918,39 @@ function buildInlineFindingDocx(rf) {
       }))
     }
   }
+  // Cross-reference recommendations by their Register ID instead of
+  // repeating the full action text under every finding. The full text is
+  // stated once, in the Recommendations Register. Any action not found in
+  // the register (should not happen) falls back to inline text so nothing
+  // is silently dropped.
   if (rf.recommendedActions && rf.recommendedActions.length > 0) {
-    out.push(p('Recommended actions:', {
-      bold: true, size: 18, color: SLATE, after: 40,
-    }))
+    const idOf = recIndex && recIndex.idOf
+    const ids = []
+    const unmatched = []
     for (const a of rf.recommendedActions) {
+      // Skip recommendations the reviewer cut editorially — they are gone
+      // from the register too, so neither cross-reference nor fall back.
+      if (suppress && suppress.has({ kind: 'recommendation', priority: a.priority, action: a.action })) continue
+      const id = idOf && idOf.get(a.action)
+      if (id) ids.push(id)
+      else unmatched.push(a)
+    }
+    if (ids.length > 0) {
+      const label = ids.length === 1 ? 'Recommendation' : 'Recommendations'
       out.push(new Paragraph({
-        children: [new TextRun({
-          text: actionLine(a), font: FONTS.body, size: 20, color: COLORS.body,
-        })],
+        children: [
+          new TextRun({ text: 'Recommended actions: ', font: FONTS.body, size: 18, bold: true, color: SLATE }),
+          new TextRun({
+            text: `See ${label} ${ids.join(', ')} in the Recommendations Register.`,
+            font: FONTS.body, size: 18, italics: true, color: COLORS.sub,
+          }),
+        ],
+        spacing: { after: 40 },
+      }))
+    }
+    for (const a of unmatched) {
+      out.push(new Paragraph({
+        children: [new TextRun({ text: actionLine(a), font: FONTS.body, size: 20, color: COLORS.body })],
         bullet: { level: 0 },
         indent: { left: 360 },
         spacing: { after: 40 },
@@ -930,19 +1023,22 @@ function buildPotentialContributingFactors(report) {
 }
 
 /**
- * v2.6 §5 — Recommended Sampling Plan section.
+ * v2.6 §5 — Recommended Follow-Up Evaluation section.
  *
  * Renders one block per Hypothesis. Each block contains the
  * confidence-tier language, the basis (free-form observation
  * strings that triggered the hypothesis), and the suggested
- * sampling parameter / method / rationale list.
+ * follow-up parameter / method / rationale list.
  *
- * Section is omitted entirely when no hypothesis fired.
+ * Titled "Recommended Follow-Up Evaluation" rather than "Sampling Plan":
+ * these are the follow-up evaluations a finding warrants, not an
+ * automatically generated investigation protocol. Section is omitted
+ * entirely when no hypothesis fired.
  */
 function buildRecommendedSamplingPlan(report) {
   const plan = report.recommendedSamplingPlan || []
   if (plan.length === 0) return []
-  const out = [...heading2('Recommended Sampling Plan')]
+  const out = [...heading2('Recommended Follow-Up Evaluation')]
   for (const h of plan) {
     out.push(new Paragraph({
       children: [
@@ -997,11 +1093,11 @@ function tierLabel(tier) {
   }
 }
 
-function buildRecommendationsRegister(report) {
+function buildRecommendationsRegister(register, recIndex) {
   // v2.2 visual upgrade — table form with Priority / Timeframe /
   // Action / Reference columns. Priority group rows separate the
   // priority tiers (cyan-tinted band rows within the table).
-  const reg = report.recommendationsRegister
+  const reg = register
   const groups = [
     ['Immediate', reg.immediate],
     ['Short term', reg.shortTerm],
@@ -1010,10 +1106,10 @@ function buildRecommendationsRegister(report) {
   ].filter(([, list]) => list.length > 0)
   if (groups.length === 0) return []
 
-  return [...heading2('Recommendations Register'), buildRecommendationsTable(groups)]
+  return [...heading2('Recommendations Register'), buildRecommendationsTable(groups, recIndex)]
 }
 
-function buildRecommendationsTable(groups) {
+function buildRecommendationsTable(groups, recIndex) {
   // v2.5.1 — explicit column widths summing to TOTAL_WIDTH_DXA so
   // the table fills the 6.5-inch Letter content area. Action gets
   // the lion's share since action text is the longest column.
@@ -1083,7 +1179,12 @@ function buildRecommendationsTable(groups) {
         children: [
           bodyCell(PRIORITY_LABEL[a.priority] || a.priority, COL_PRIORITY, { bold: true, color: CYAN_DARK }),
           bodyCell(a.timeframe, COL_TIMEFRAME),
-          bodyCell(a.action, COL_ACTION),
+          bodyCell(
+            (recIndex && recIndex.idOf.get(a.action))
+              ? `${recIndex.idOf.get(a.action)}  ${a.action}`
+              : a.action,
+            COL_ACTION,
+          ),
           bodyCell(a.standardReference || '—', COL_REF, { italics: true, color: COLORS.sub }),
         ],
       }))
@@ -1098,10 +1199,21 @@ function buildRecommendationsTable(groups) {
   })
 }
 
-function buildLimitations(report) {
+// A single, consolidated Limitations section. The report previously
+// carried three overlapping back-of-report liability sections —
+// "Limitations and Professional Judgment", "Data Gaps and Limitations on
+// Interpretation", and a standalone "Disclaimer" — that largely repeated
+// each other. They are merged here into one "Limitations" section so the
+// reader meets the screening-only boundary, the data gaps, and the
+// reliance terms in one place. buildDataGapsSection / buildDisclaimer now
+// return their body content without their own heading so they fold in
+// cleanly.
+function buildLimitations(report, dataGaps) {
   return [
-    ...heading2('Limitations and Professional Judgment'),
+    ...heading2('Limitations'),
     p(report.limitationsAndProfessionalJudgment),
+    ...buildDataGapsSection(dataGaps),
+    ...buildDisclaimer(),
   ]
 }
 
@@ -1261,13 +1373,13 @@ export function buildConclusions(report) {
   return out
 }
 
-// Data Gaps and Limitations on Interpretation — scientific gaps
-// derived from the assessment (passed via options.dataGaps). No-op
-// when the list is empty.
+// Scientific data gaps derived from the assessment (passed via
+// options.dataGaps). No-op when the list is empty. Returns body content
+// only (no heading) — it is folded into the consolidated Limitations
+// section by buildLimitations rather than standing as its own section.
 export function buildDataGapsSection(dataGaps) {
   if (!Array.isArray(dataGaps) || dataGaps.length === 0) return []
-  const out = [...heading2('Data Gaps and Limitations on Interpretation')]
-  out.push(p(DATA_GAPS_INTRO, { size: 20, color: COLORS.sub }))
+  const out = [p(DATA_GAPS_INTRO, { size: 20, color: COLORS.sub })]
   for (const g of dataGaps) out.push(bullet(g))
   return out
 }
@@ -1313,9 +1425,11 @@ export function buildRelianceLimitation(warnings) {
   return out
 }
 
-// Disclaimer — standalone, distinct from the Limitations section.
+// Disclaimer paragraphs — reliance terms. Returns body content only (no
+// heading); folded into the consolidated Limitations section by
+// buildLimitations rather than standing as its own section.
 export function buildDisclaimer() {
-  const out = [...heading2('Disclaimer')]
+  const out = []
   for (const para of DISCLAIMER_PARAGRAPHS) out.push(p(para, { size: 20, color: COLORS.sub }))
   return out
 }
@@ -1368,6 +1482,16 @@ export function buildClientDocx(result, options = {}) {
   }
   const report = result.report
   const photos = options.photos || {}
+  // Editorial suppressions — human-approved cuts from the editorial-review
+  // pass. The engine model is unchanged; the renderer simply omits the
+  // approved content. Absent/empty => nothing suppressed.
+  const suppress = makeSuppressionIndex(options.editorialSuppressions)
+  // Filter the register by any suppressed recommendations FIRST, then assign
+  // the stable recommendation IDs (R-01…) from the filtered register so the
+  // Register and the per-finding cross-references agree and a cut
+  // recommendation vanishes from both.
+  const filteredRegister = filterRegisterForSuppression(report.recommendationsRegister, suppress)
+  const recIndex = buildRecIndex(filteredRegister)
   // Cover notice. Appended to (not replacing) any existing draft notice
   // so a draft with data gaps states both.
   const gapCount = Array.isArray(result.dataGapWarnings) ? result.dataGapWarnings.length : 0
@@ -1408,11 +1532,13 @@ export function buildClientDocx(result, options = {}) {
     tocEntries = spliceTocEntry(tocEntries, { anchorId: 'instrument-accuracy', title: 'Instrument Accuracy and Calibration', level: 1 }, { after: /Sampling Methodology/i })
   }
   tocEntries = spliceTocEntry(tocEntries, { anchorId: 'conclusions', title: 'Conclusions', level: 1 }, { before: /Recommendations Register/i })
-  tocEntries = spliceTocEntry(tocEntries, { anchorId: 'disclaimer', title: 'Disclaimer', level: 1 }, { after: /Limitations and Professional Judgment/i })
-  // Data Gaps sits between Limitations and Disclaimer (when present).
-  if (Array.isArray(options.dataGaps) && options.dataGaps.length > 0) {
-    tocEntries = spliceTocEntry(tocEntries, { anchorId: 'data-gaps', title: 'Data Gaps and Limitations on Interpretation', level: 1 }, { after: /Limitations and Professional Judgment/i })
-  }
+  // The Disclaimer and Data Gaps sections were merged into the single
+  // "Limitations" section, so they no longer get their own TOC entries.
+  // Rename the engine's "Limitations and Professional Judgment" TOC entry
+  // to match the consolidated heading.
+  tocEntries = tocEntries.map((e) =>
+    /Limitations and Professional Judgment/i.test(e.title) ? { ...e, title: 'Limitations' } : e,
+  )
   tocEntries = spliceTocEntry(tocEntries, { anchorId: 'certification', title: 'Certification', level: 1 }, { before: /^Appendix / })
 
   const main = [
@@ -1424,15 +1550,15 @@ export function buildClientDocx(result, options = {}) {
     ...buildDocumentControl(report),
     ...buildTableOfContents(report, tocEntries),
     ...buildMethodologyDisclosure(report),
-    ...buildExecutiveSummary(report),
+    ...buildExecutiveSummary(report, suppress),
     ...buildScope(report),
     ...buildSamplingMethodologyDocx(report),
     ...buildInstrumentAccuracyNote(options.instrumentAccuracy),
     ...buildBenchmarksSection(),
-    ...buildResultsSection(report),
+    ...buildResultsSection(report, suppress),
     ...buildBuildingContext(report),
-    ...buildBuildingConditionsSection(report),
-    ...buildZoneSections(report),
+    ...buildBuildingConditionsSection(report, recIndex, suppress),
+    ...buildZoneSections(report, recIndex, suppress),
     // v2.6 §5 — Potential Contributing Factors and Recommended
     // Sampling Plan slot in between Zone Findings and the
     // Recommendations Register. Each is a no-op when the
@@ -1442,21 +1568,20 @@ export function buildClientDocx(result, options = {}) {
     // Conclusions sit after the findings/discussion and before the
     // Recommendations Register, mirroring the canonical report flow.
     ...buildConclusions(report),
-    ...buildRecommendationsRegister(report),
+    ...buildRecommendationsRegister(filteredRegister, recIndex),
     // Re-survey schedule — sits between the Recommendations Register
     // and Limitations so the reader knows when to expect the next
     // assessment before they read the limitations + signatory block.
     // Engine-sacred: schedule logic lives in src/engines/ (plural);
     // src/engine/ (the TypeScript engine) is untouched.
     ...buildResurveySchedule({
-      recommendationsRegister: report.recommendationsRegister,
+      recommendationsRegister: filteredRegister,
       assessmentDate: report.cover?.date,
     }),
-    ...buildLimitations(report),
-    // Data Gaps — scientific gaps derived from the assessment.
-    ...buildDataGapsSection(options.dataGaps),
-    // Disclaimer — standalone legal block, distinct from Limitations.
-    ...buildDisclaimer(),
+    // Consolidated Limitations — professional judgment + scientific data
+    // gaps + reliance/disclaimer terms in a single section (previously
+    // three overlapping sections).
+    ...buildLimitations(report, options.dataGaps),
     // Standards Currency (and any future body-level supplemental section)
     // sits after Limitations/Professional Judgment and before the Signatory
     // + appendices, matching its TOC position.

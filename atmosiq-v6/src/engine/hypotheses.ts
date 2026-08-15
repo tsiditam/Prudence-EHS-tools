@@ -239,8 +239,11 @@ const SAMPLING_BIOAEROSOL: ReadonlyArray<SamplingRecommendation> = [
   },
   {
     parameter: 'Bulk material sampling for confirmation',
-    method: 'Direct microscopy or qPCR (ERMI) on bulk substrate',
-    rationale: 'Viability and species-level characterization where remediation scope depends on species (e.g. Stachybotrys chartarum).',
+    // qPCR (ERMI) removed: ERMI is a research-derived index not suited to
+    // routine commercial IAQ investigations. Direct microscopy answers the
+    // species question where remediation scope depends on it.
+    method: 'Direct microscopy on bulk substrate',
+    rationale: 'Species-level characterization where remediation scope depends on species (e.g. Stachybotrys chartarum).',
   },
 ]
 
@@ -341,6 +344,14 @@ function hypothesisParticulate(input: HypothesisInput): Hypothesis | null {
   const fc = str(input.buildingData, 'fc')
   if (hasFilterIssue(fc)) basis.push(`HVAC filter condition: "${fc}".`)
   if (basis.length === 0) return null
+  // ISO 14644 particle-count sampling is only relevant when a cleanroom or
+  // data-center cleanliness classification is actually in scope. For an
+  // ordinary commercial office it is noise, so gate it on the data-center
+  // scope flag rather than emitting it for every particulate finding.
+  const isClassifiedCleanSpace = input.zonesData.some((z) => isDataCenterSpace(z))
+  const suggestedSampling = isClassifiedCleanSpace
+    ? SAMPLING_PARTICULATE
+    : SAMPLING_PARTICULATE.filter((s) => !/ISO 14644/.test(s.method))
   return {
     id: makeId('hyp_particulate', basis.join('|')),
     name: 'Particulate amplification or filter failure',
@@ -353,7 +364,7 @@ function hypothesisParticulate(input: HypothesisInput): Hypothesis | null {
       'hvac_filter_loaded',
       'hvac_filter_below_recommended_class',
     ]),
-    suggestedSampling: SAMPLING_PARTICULATE,
+    suggestedSampling,
     cihConfidenceTier: tierFromIndicatorCount(basis.length),
   }
 }
