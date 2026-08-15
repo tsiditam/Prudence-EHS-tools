@@ -23,6 +23,7 @@ import {
   proseNameTitle,
   formatDateRange,
   formatGeneratedAt,
+  formatGeneratedDate,
   parameterStatement,
   monitoringInsights,
   datasetHighlights,
@@ -365,12 +366,23 @@ describe('cover date formatting', () => {
     expect(formatDateRange(undefined as never, undefined as never)).toBeNull()
   })
 
-  it('stamps generation legibly, and in UTC', () => {
-    expect(formatGeneratedAt('2026-07-31T14:20:00.000Z')).toBe('2026-07-31 14:20 UTC')
-    expect(formatGeneratedAt('2026-01-05T04:07:00.000Z')).toBe('2026-01-05 04:07 UTC')
+  it('stamps generation in a normal, local format with the real zone abbreviation', () => {
+    // Same instant, the generator's own zone — and DST is handled by the
+    // platform: EDT in summer, EST in winter, never a fixed guess.
+    expect(formatGeneratedAt('2026-07-31T14:20:00.000Z', { timeZone: 'America/New_York' })).toBe('7-31-2026, 10:20 AM EDT')
+    expect(formatGeneratedAt('2026-01-05T04:07:00.000Z', { timeZone: 'America/New_York' })).toBe('1-4-2026, 11:07 PM EST')
+    expect(formatGeneratedAt('2026-07-31T14:20:00.000Z', { timeZone: 'UTC' })).toBe('7-31-2026, 2:20 PM UTC')
     // An unparseable stamp is passed through rather than turned into a lie.
     expect(formatGeneratedAt('not a date')).toBe('not a date')
     expect(formatGeneratedAt(null as never)).toBeNull()
+  })
+
+  it('gives the generation date alone in the same local, numeric form', () => {
+    expect(formatGeneratedDate('2026-07-31T14:20:00.000Z', { timeZone: 'America/New_York' })).toBe('7-31-2026')
+    // 04:07 UTC on the 5th is still the 4th at a US-Eastern (winter) clock.
+    expect(formatGeneratedDate('2026-01-05T04:07:00.000Z', { timeZone: 'America/New_York' })).toBe('1-4-2026')
+    expect(formatGeneratedDate('not a date')).toBe('not a date')
+    expect(formatGeneratedDate(null as never)).toBeNull()
   })
 })
 

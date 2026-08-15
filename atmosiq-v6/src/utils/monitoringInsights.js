@@ -193,18 +193,78 @@ export function formatDateRange(startMs, endMs, opts = {}) {
 }
 
 /**
- * A generation timestamp in the report's own format — "2026-08-01 00:20 UTC".
+ * Break a timestamp into its calendar/clock parts in a given IANA time zone,
+ * using the platform's own zone database — so daylight time is handled
+ * correctly (EDT in summer, EST in winter) and the abbreviation is the real
+ * one for that date, not a fixed guess.
  *
- * Deliberately UTC and deliberately unambiguous: this line exists so two
- * copies of a report can be told apart, which an ISO string with a trailing
- * "Z" and three decimal places does less legibly than it looks.
+ * `timeZone` omitted → the host's local zone. In the browser that is the
+ * machine generating the report, which is exactly whose clock the generation
+ * stamp should read from.
  */
-export function formatGeneratedAt(iso) {
-  const ms = typeof iso === 'string' && iso ? Date.parse(iso) : NaN
-  if (!isNum(ms)) return typeof iso === 'string' ? iso : null
-  const d = new Date(ms)
-  const two = (n) => String(n).padStart(2, '0')
-  return `${d.getUTCFullYear()}-${two(d.getUTCMonth() + 1)}-${two(d.getUTCDate())} ${two(d.getUTCHours())}:${two(d.getUTCMinutes())} UTC`
+function zonedParts(ms, timeZone) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: timeZone || undefined,
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+    timeZoneName: 'short',
+  }).formatToParts(new Date(ms))
+  const g = (t) => (parts.find((p) => p.type === t) || {}).value || ''
+  return {
+    month: g('month'),
+    day: g('day'),
+    year: g('year'),
+    hour: g('hour'),
+    minute: g('minute'),
+    period: (g('dayPeriod') || '').toUpperCase(),
+    zone: g('timeZoneName'),
+  }
+}
+
+/**
+ * The generation date, in the generator's local zone — "8-15-2026".
+ *
+ * This is the date the report was produced, so it reads from the clock of the
+ * machine that produced it (or an explicit `timeZone`), not the monitoring
+ * site's offset.
+ */
+export function formatGeneratedDate(iso, opts = {}) {
+  const ms = typeof iso === 'string' && iso ? Date.parse(iso) : isNum(iso) ? iso : NaN
+  if (!isNum(ms)) return typeof iso === 'string' ? iso || null : null
+  try {
+    const p = zonedParts(ms, opts.timeZone)
+    return `${p.month}-${p.day}-${p.year}`
+  } catch {
+    const d = new Date(ms)
+    return `${d.getUTCMonth() + 1}-${d.getUTCDate()}-${d.getUTCFullYear()}`
+  }
+}
+
+/**
+ * A generation timestamp in a normal, local format — "8-15-2026, 9:16 PM EDT".
+ *
+ * Date and time as a reader expects them, in the time zone the report was
+ * generated in, with the real zone abbreviation for that date. Still
+ * unambiguous enough to tell two copies of a report apart — the point of the
+ * stamp — without reading as a machine string.
+ */
+export function formatGeneratedAt(iso, opts = {}) {
+  const ms = typeof iso === 'string' && iso ? Date.parse(iso) : isNum(iso) ? iso : NaN
+  if (!isNum(ms)) return typeof iso === 'string' ? iso || null : null
+  try {
+    const p = zonedParts(ms, opts.timeZone)
+    return `${p.month}-${p.day}-${p.year}, ${p.hour}:${p.minute} ${p.period}${p.zone ? ` ${p.zone}` : ''}`
+  } catch {
+    // Fallback: UTC, unambiguous, if the platform lacks zone data.
+    const d = new Date(ms)
+    const two = (n) => String(n).padStart(2, '0')
+    const h = d.getUTCHours() % 12 || 12
+    return `${d.getUTCMonth() + 1}-${d.getUTCDate()}-${d.getUTCFullYear()}, ${h}:${two(d.getUTCMinutes())} ${d.getUTCHours() >= 12 ? 'PM' : 'AM'} UTC`
+  }
 }
 
 /** Site-local hour (0–23) for a timestamp, without host-timezone dependency. */

@@ -73,6 +73,8 @@ function session(over: any = {}) {
 const build = (over: any = {}, opts: any = {}) =>
   buildMonitoringReportModel(session(over), {
     generatedAt: '2026-07-31T14:20:00.000Z',
+    // Pin the generation zone so the date/time stamp is deterministic in CI.
+    timeZone: 'America/New_York',
     datasetHash: 'a19dd790c8f4',
     softwareVersion: '6.0.0',
     ...opts,
@@ -144,8 +146,9 @@ describe('the assembled report', () => {
     expect(model.cover.preparedBy).toBe('T. Tamakloe, CSP')
     expect(model.cover.periodStart).toBeTruthy()
     expect(model.cover.duration).toMatch(/h/)
-    // A report DATE carries no time of day.
-    expect(model.cover.reportDate).toBe('Jul 31, 2026')
+    // A report DATE carries no time of day, in the generator's local zone
+    // (14:20 UTC is 10:20 EDT, still the 31st).
+    expect(model.cover.reportDate).toBe('7-31-2026')
     // The cover lists what was measured in the compact form, so the row reads
     // as a set of symbols rather than a wrapped line of full names.
     expect(model.cover.parameters).toEqual(['CO₂', 'Temp'])
@@ -193,8 +196,9 @@ describe('the assembled report', () => {
     expect(meta['Software']).toBe('AtmosFlow 6.0.0')
     expect(meta['Report version']).toContain(MONITORING_REPORT_VERSION)
     expect(meta['Report version']).toContain('Client Edition')
-    // Generated is legible, not a raw ISO string with milliseconds.
-    expect(meta['Generated']).toBe('2026-07-31 14:20 UTC')
+    // Generated is legible and local — normal date/time with the real zone
+    // abbreviation, not a raw UTC machine string.
+    expect(meta['Generated']).toBe('7-31-2026, 10:20 AM EDT')
   })
 
   it('uses one statistics pass, so the strip and the prose cannot disagree', () => {

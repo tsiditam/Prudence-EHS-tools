@@ -48,6 +48,7 @@ import {
   formatDateOnly,
   formatDateRange,
   formatGeneratedAt,
+  formatGeneratedDate,
 } from './monitoringInsights'
 import { CAL_VALIDITY_DAYS } from './instrumentRegistry'
 import { resolveReferences, referenceTableRows, referenceValueLabel } from './referenceProfiles'
@@ -339,6 +340,9 @@ export function figureCaption(entry, opts = {}) {
  * @param {string} [opts.edition='client']
  * @param {Record<string,string>} [opts.charts] param → chart image data URL
  * @param {string} [opts.generatedAt] ISO timestamp
+ * @param {string} [opts.timeZone] IANA zone the report is generated in (e.g.
+ *   'America/New_York'); the generation date and time render in it. Defaults
+ *   to the host's local zone.
  * @param {string} [opts.datasetHash]
  * @param {string} [opts.softwareVersion]
  * @returns {object} the report model
@@ -485,7 +489,10 @@ export function buildMonitoringReportModel(session, opts = {}) {
       preparedFor: str(obj(s.client).preparedFor),
       preparedBy: [str(obj(s.assessor).name), str(obj(s.assessor).credentials)].filter(Boolean).join(', '),
       company: str(obj(s.assessor).company) || str(obj(s.assessor).firm),
-      reportDate: opts.generatedAt ? formatDateOnly(Date.parse(opts.generatedAt), { utcOffsetMin }) : null,
+      // The report date is WHEN the report was produced, so it reads from the
+      // generator's local zone — not the monitoring site's offset (which
+      // belongs to the data, not the issuance).
+      reportDate: opts.generatedAt ? formatGeneratedDate(opts.generatedAt, { timeZone: str(opts.timeZone) || undefined }) : null,
       // The cover states the period as one compact range; the exact bounds
       // stay available as `periodStart` / `periodEnd` for any caller that
       // needs them to the minute.
@@ -617,7 +624,7 @@ export function buildMonitoringReportModel(session, opts = {}) {
         value: `AtmosFlow Logger Report ${MONITORING_REPORT_VERSION} · ${technical ? 'Technical' : 'Client'} Edition`,
       },
       { label: 'Software', value: str(opts.softwareVersion) ? `AtmosFlow ${str(opts.softwareVersion)}` : '—' },
-      { label: 'Generated', value: formatGeneratedAt(str(opts.generatedAt)) || '—' },
+      { label: 'Generated', value: formatGeneratedAt(str(opts.generatedAt), { timeZone: str(opts.timeZone) || undefined }) || '—' },
       {
         label: 'Dataset SHA-256',
         // The hash is only meaningful next to what it covers, so the reading
