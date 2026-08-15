@@ -639,7 +639,7 @@ export function buildMonitoringReportModel(session, opts = {}) {
       note: str(e.note),
     })),
 
-    limitations: LIMITATIONS,
+    limitations: buildLimitations(params, references),
 
     // Removed by product decision: the per-parameter screening/interpretation
     // sentence duplicated the §Limitations boundary. That language now lives
@@ -675,11 +675,68 @@ export function buildMonitoringReportModel(session, opts = {}) {
   return model
 }
 
+// The always-present limitation clauses — fixed prose the platform's
+// screening-only positioning rests on. Every report carries these.
+const LIMITATION_PURPOSE =
+  'This report presents measured indoor environmental data compared to commonly referenced screening values selected by the assessor. It is provided for screening and documentation purposes.'
+const LIMITATION_SPATIAL =
+  'Results represent conditions at the instrument location during the times sampled and may not represent other areas of the building or different occupancy, HVAC, weather, or operating conditions.'
+const LIMITATION_MEASUREMENT_BASE =
+  'Measurements are subject to instrument accuracy, calibration status, sensor response, detection limits, and environmental interferences.'
+// Note: "adverse health effects" rather than the submitted "health risk" —
+// "health risk" is a platform-banned tone term (see api/_banned-language.js);
+// the negated form here carries the same meaning and passes the scanner.
+const LIMITATION_FIXED_LOCATION =
+  'This was fixed-location monitoring, not breathing-zone sampling. Results should be interpreted alongside occupancy, HVAC operation, outdoor conditions, and building activities, and do not by themselves establish sources, causation, exposure, or adverse health effects. Compound-specific sampling may be warranted where results or site conditions indicate.'
+
+// Per-sensor measurement caveats — appended to the measurement paragraph ONLY
+// for parameters the report actually contains, so a report never disclaims a
+// sensor it did not use.
+const LIMITATION_MEASUREMENT_NOTE = {
+  tvoc: 'TVOC represents an aggregate sensor response and does not identify or quantify individual compounds.',
+  pm25: 'PM2.5 is measured by light scattering using assumed particle properties and may over-respond at elevated humidity.',
+  co2: 'CO₂ informs occupancy and air-exchange patterns but does not by itself establish ventilation adequacy.',
+}
+
+// The screening-reference caveat (only when the report compares to references),
+// plus the occupational-limit sentence (only when an OSHA PEL / NIOSH REL was
+// the selected reference for some parameter — otherwise it disclaims a
+// reference type the report never used).
+const LIMITATION_REFERENCES =
+  'The screening references shown are used for interpretation only. They are not exposure limits or compliance criteria, and where a reference specifies an averaging period, comparison against individual logger readings is not equivalent to how compliance with that value would be determined.'
+const LIMITATION_OCCUPATIONAL =
+  'Occupational exposure limits shown were developed for adult workers in industrial settings and are not benchmarks for general indoor environments.'
+const OCCUPATIONAL_PROFILE_IDS = new Set(['osha-pel', 'niosh-rel'])
+
 /**
- * Standing limitations. Fixed prose, not generated: this is the language the
- * platform's screening-only positioning rests on, so it must not vary with
- * the data.
+ * The §Limitations clauses for THIS report. The purpose, spatial and
+ * fixed-location clauses are standing; the per-sensor measurement notes and the
+ * reference/occupational caveats are conditional on the parameters and
+ * references actually present, so the section never disclaims a sensor or a
+ * reference type the report did not use.
+ *
+ * @param {string[]} params parameters present in the dataset
+ * @param {Record<string, object>} references resolved reference per parameter
+ * @returns {string[]} the ordered limitation paragraphs
  */
-export const LIMITATIONS = [
-  'This report presents measured indoor environmental data compared to commonly referenced screening values selected by the assessor. It is provided for screening and documentation purposes.',
-]
+export function buildLimitations(params = [], references = {}) {
+  const has = (p) => arr(params).includes(p)
+  const out = [LIMITATION_PURPOSE, LIMITATION_SPATIAL]
+
+  // Measurement paragraph: the base sentence, then only the sensors present.
+  const measurement = [LIMITATION_MEASUREMENT_BASE]
+  if (has('tvoc')) measurement.push(LIMITATION_MEASUREMENT_NOTE.tvoc)
+  if (has('pm25')) measurement.push(LIMITATION_MEASUREMENT_NOTE.pm25)
+  if (has('co2')) measurement.push(LIMITATION_MEASUREMENT_NOTE.co2)
+  out.push(measurement.join(' '))
+
+  // Reference paragraph: only when the report actually compares to references.
+  const resolved = Object.values(obj(references)).filter((r) => r && (isNum(r.limit) || r.band))
+  if (resolved.length) {
+    const occupational = resolved.some((r) => OCCUPATIONAL_PROFILE_IDS.has(r && r.profileId))
+    out.push(occupational ? `${LIMITATION_REFERENCES} ${LIMITATION_OCCUPATIONAL}` : LIMITATION_REFERENCES)
+  }
+
+  out.push(LIMITATION_FIXED_LOCATION)
+  return out
+}

@@ -90,19 +90,43 @@ describe('formatters', () => {
 })
 
 describe('parameterStatement', () => {
-  it('states the share of readings below an upper reference', () => {
+  it('leads with the exceedance whenever any reading was above the reference', () => {
+    // 2 of 10 above 1,000 → the sentence states the exceedance, not a
+    // reassuring "remained below during 80%" that contradicts the status chip.
     const st = parameterStats(pts([500, 600, 1200, 1400, 500, 500, 500, 500, 500, 500]), 'co2', {
       reference: { limit: 1000 },
     })
-    const s = parameterStatement('co2', st, { limit: 1000 })
-    expect(s).toBe(
-      'Carbon dioxide concentrations remained below the selected screening reference (1,000 ppm) during 80% of logged measurements.',
+    expect(parameterStatement('co2', st, { limit: 1000 })).toBe(
+      'Carbon dioxide concentrations exceeded the selected screening reference (1,000 ppm) during 20% of logged measurements.',
     )
   })
 
-  it('says "throughout" rather than "100%" when never exceeded', () => {
+  it('states a MAJORITY exceedance as an exceedance, at one-decimal precision', () => {
+    // The reviewer's case: a mostly-above result must never read as "remained
+    // below during 7%". 15 of 16 above → the exceedance leads.
+    const st = parameterStats(pts([10, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20], 'hcho'), 'hcho', {
+      reference: { limit: 16 },
+    })
+    const s = parameterStatement('hcho', st, { limit: 16 })!
+    expect(s).toMatch(/^Formaldehyde concentrations exceeded the selected screening reference \(16 ppb\) during /)
+    expect(s).not.toContain('remained below')
+    // one-decimal share, matching the "% Above" strip tile
+    expect(s).toMatch(/during \d+(\.\d)?% of logged measurements\.$/)
+  })
+
+  it('says "throughout" rather than "0%" when never exceeded', () => {
     const st = parameterStats(pts([400, 450, 500]), 'co2', { reference: { limit: 1000 } })
-    expect(parameterStatement('co2', st, { limit: 1000 })).toMatch(/throughout the monitoring period\.$/)
+    expect(parameterStatement('co2', st, { limit: 1000 })).toMatch(/remained below .*throughout the monitoring period\.$/)
+  })
+
+  it('leads with the out-of-band share when the band was mostly exceeded', () => {
+    // Mostly outside a 68–76 band → "fell outside", not "remained within during X%".
+    const st = parameterStats(pts([80, 82, 84, 81, 83, 66, 72, 85, 86, 84], 'temp'), 'temp', {
+      reference: { band: [68, 76] },
+    })
+    const s = parameterStatement('temp', st, { band: [68, 76] })!
+    expect(s).toMatch(/^Temperature fell outside the selected comfort range \(68–76 °F\) during /)
+    expect(s).not.toContain('remained within')
   })
 
   it('uses comfort-range wording for a banded parameter', () => {

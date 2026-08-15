@@ -13,7 +13,7 @@ import {
   statusFor,
   summaryStrip,
   MONITORING_REPORT_VERSION,
-  LIMITATIONS,
+  buildLimitations,
   loggingLabel,
   intervalLabel,
   calibrationLabel,
@@ -267,12 +267,10 @@ describe('defensibility', () => {
   })
 
   it('carries the screening-and-documentation limitation statement', () => {
-    // The compliance/health-determination and CO₂ ventilation-indicator
-    // caveats were removed by product decision (2026-08).
     const model = build()
-    expect(model.limitations).toEqual(LIMITATIONS)
-    expect(model.limitations.join(' ')).toMatch(/screening and documentation purposes/i)
-    expect(model.limitations.join(' ')).not.toMatch(/not constitute a compliance or regulatory determination/i)
+    const all = model.limitations.join(' ')
+    expect(all).toMatch(/screening and documentation purposes/i)
+    expect(all).not.toMatch(/not constitute a compliance or regulatory determination/i)
   })
 
   it('passes the banned-language scanner across every generated string', () => {
@@ -462,8 +460,8 @@ describe('outdoor baseline absence', () => {
     // flag that was removed along with the §Limitations screening caveats.
     const model = build()
     expect(model.outdoorBaselineNote).toBeNull()
-    // It does NOT mutate the fixed standing limitations set.
-    expect(model.limitations).toEqual(LIMITATIONS)
+    // The limitations are unaffected — still the standing purpose statement.
+    expect(model.limitations.join(' ')).toMatch(/screening and documentation purposes/i)
   })
 
   it('stays null when an outdoor dataset was captured', () => {
@@ -536,22 +534,56 @@ describe('figure captions', () => {
 })
 
 describe('the §Limitations statement', () => {
-  it('states the screening-and-documentation purpose and passes the scanner', () => {
-    // The compliance/health-determination and CO₂ ventilation-indicator
-    // caveats were removed by product decision (2026-08). §Limitations now
-    // carries only the screening-and-documentation purpose statement.
-    const model = build()
+  it('states the screening purpose plus the spatial, measurement and reference caveats, and passes the scanner', () => {
+    const model = build() // fixture monitors CO₂ + temperature
     expect(model.disclaimer).toBeUndefined()
 
     const all = model.limitations.join(' ')
     expect(all).toMatch(/screening and documentation purposes/i)
-    // The removed clauses must not creep back in.
+    // Spatial/temporal representativeness + the measurement base clause.
+    expect(all).toMatch(/conditions at the instrument location during the times sampled/i)
+    expect(all).toMatch(/instrument accuracy, calibration status, sensor response, detection limits/i)
+    // Only the sensors present get their measurement note — CO₂ yes, TVOC/PM2.5 no.
+    expect(all).toMatch(/CO₂ informs occupancy and air-exchange patterns but does not by itself establish ventilation adequacy/i)
+    expect(all).not.toMatch(/TVOC represents an aggregate sensor response/i)
+    expect(all).not.toMatch(/PM2\.5 is measured by light scattering/i)
+    // The reference caveat appears (references are compared), but the
+    // occupational-limit sentence does NOT — no OSHA/NIOSH reference was selected.
+    expect(all).toMatch(/screening references shown are used for interpretation only/i)
+    expect(all).not.toMatch(/Occupational exposure limits shown were developed for adult workers/i)
+    // Fixed-location interpretation clause.
+    expect(all).toMatch(/fixed-location monitoring, not breathing-zone sampling/i)
+    expect(all).toMatch(/do not by themselves establish sources, causation, exposure, or adverse health effects/i)
+    // The compliance/health-determination framing stays out.
     expect(all).not.toMatch(/not constitute a compliance or regulatory determination/i)
     expect(all).not.toMatch(/health-based exposure limit/i)
 
     expect(scan(all)).toEqual([])
-    // The per-parameter statement note was removed earlier; nothing restores it.
     expect(model.statementNote).toBeNull()
+  })
+
+  it('includes a sensor note only when that sensor is present, and the occupational caveat only for an OSHA/NIOSH reference', () => {
+    // CO₂ present, TVOC/PM2.5 absent → only the CO₂ note.
+    const co2Only = buildLimitations(['co2', 'temp'], { co2: { limit: 1000, profileId: 'ashrae-advisory' } }).join(' ')
+    expect(co2Only).toMatch(/CO₂ informs occupancy/i)
+    expect(co2Only).not.toMatch(/TVOC represents/i)
+    expect(co2Only).not.toMatch(/PM2\.5 is measured/i)
+    expect(co2Only).not.toMatch(/Occupational exposure limits/i)
+
+    // TVOC + PM2.5 present → both notes; a NIOSH REL reference → occupational caveat.
+    const full = buildLimitations(['pm25', 'tvoc', 'hcho'], {
+      pm25: { limit: 35, profileId: 'epa' },
+      hcho: { limit: 16, profileId: 'niosh-rel' },
+    }).join(' ')
+    expect(full).toMatch(/TVOC represents an aggregate sensor response/i)
+    expect(full).toMatch(/PM2\.5 is measured by light scattering/i)
+    expect(full).not.toMatch(/CO₂ informs occupancy/i) // no CO₂ in this report
+    expect(full).toMatch(/Occupational exposure limits shown were developed for adult workers/i)
+
+    // No references at all → no reference paragraph.
+    const noRefs = buildLimitations(['temp'], {}).join(' ')
+    expect(noRefs).not.toMatch(/screening references shown are used for interpretation/i)
+    expect(noRefs).not.toMatch(/Occupational exposure limits/i)
   })
 
   it('never repeats itself in the colophon', () => {

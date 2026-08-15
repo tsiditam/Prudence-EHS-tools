@@ -124,9 +124,14 @@ const PM25_ACTION = {
 const PROFILES = {
   co2: [
     {
+      // 1,000 ppm is a widely-used indoor-CO₂ ventilation-adequacy screening
+      // indicator (NIOSH IEQ guidance), NOT an ASHRAE 62.1 value — current
+      // 62.1 sets no CO₂ number, and CO₂ indexes ventilation per occupant, not
+      // a health/contaminant limit (Persily 2021). The earlier "ASHRAE 62.1"
+      // attribution here was flagged twice in peer review.
       id: 'ashrae-advisory',
       label: 'Screening advisory (1,000 ppm)',
-      source: 'NIOSH screening tier / ASHRAE 62.1 ventilation context',
+      source: 'NIOSH indoor-ventilation screening indicator (~1,000 ppm)',
       resolve: () => ({ limit: STD.v.co2.con }),
     },
     {
