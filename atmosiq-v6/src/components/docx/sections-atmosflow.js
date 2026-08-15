@@ -34,6 +34,7 @@ import {
   MUTED,
   ACCENT,
   TYPE,
+  FONT_SANS,
 } from './sections-monitoring'
 import { makeSuppressionIndex } from '../../utils/editorialSuppressions'
 
@@ -79,8 +80,8 @@ function subHeading(text) {
 function labelledLine(label, value) {
   return new Paragraph({
     children: [
-      new TextRun({ text: `${label} `, bold: true, size: TYPE.small, color: INK, font: 'Open Sans' }),
-      new TextRun({ text: String(value ?? ''), size: TYPE.small, color: BODY, font: 'Open Sans' }),
+      new TextRun({ text: `${label} `, bold: true, size: TYPE.small, color: INK, font: FONT_SANS }),
+      new TextRun({ text: String(value ?? ''), size: TYPE.small, color: BODY, font: FONT_SANS }),
     ],
     spacing: { after: 90, line: Math.round(1.22 * 240) },
   })
@@ -194,8 +195,8 @@ function buildExecutiveSummary(report, num, suppress) {
     for (const a of recs.slice(0, 6)) {
       out.push(new Paragraph({
         children: [
-          new TextRun({ text: '▪  ', bold: true, size: TYPE.label, color: ACCENT, font: 'Open Sans' }),
-          new TextRun({ text: actionLine(a), size: TYPE.small, color: BODY, font: 'Open Sans' }),
+          new TextRun({ text: '▪  ', bold: true, size: TYPE.label, color: ACCENT, font: FONT_SANS }),
+          new TextRun({ text: actionLine(a), size: TYPE.small, color: BODY, font: FONT_SANS }),
         ],
         indent: { left: 260, hanging: 260 },
         spacing: { after: 80 },

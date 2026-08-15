@@ -96,7 +96,7 @@ const WASH = 'F7F9FA' // the subtle grey a card sits on
  * must EMBED them (fontTable.xml) or be delivered as PDF — that packaging
  * step is tracked separately; this module only assigns the faces.
  */
-const FONT_SANS = 'Open Sans'
+export const FONT_SANS = 'Open Sans'
 const FONT_SANS_SEMI = 'Open Sans SemiBold' // weight 600 — a distinct family name in OOXML
 const FONT_SANS_LIGHT = 'Open Sans Light'   // weight 300 — the editorial big-number hero face
 const FONT_MONO = 'JetBrains Mono'
