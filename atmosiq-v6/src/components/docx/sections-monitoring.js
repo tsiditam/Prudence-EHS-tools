@@ -60,7 +60,7 @@ import {
 import { COLORS } from './styles'
 import { CONTENT_WIDTH_DXA } from './page-setup'
 import { base64ToUint8Array, inferImageType, isImageDataUrl } from './images'
-import { CHART_SIZE, SPARK_SIZE } from '../../utils/monitoringChart'
+import { CHART_SIZE } from '../../utils/monitoringChart'
 
 /**
  * The report's palette. Neutrals come from the shared report tokens so the
@@ -102,7 +102,11 @@ const FONT_MONO = 'JetBrains Mono'
  * in points; ×20 → twips. (Figma is the real source for the unit; absent it,
  * points is the defensible reading of values like +1.2 / −0.5.)
  */
-const TRACK = { title: -10, part: 24, heading: 4, label: 26, data: 0 } // −0.5 / +1.2 / +0.2 / +1.3 pt
+// Tracking on the small uppercase labels was dialled back (was +1.3 pt): with
+// so many of them — PREPARED BY, MEAN, LOGGING INTERVAL — the wide spacing had
+// become a motif rather than hierarchy. `labelLong` takes a longer label (e.g.
+// LOGGING INTERVAL) tighter still, since tracking accumulates with length.
+const TRACK = { title: -10, part: 20, heading: 4, label: 16, labelLong: 10, data: 0 } // −0.5 / +1.0 / +0.2 / +0.8 (+0.5 long) pt
 
 /**
  * Type scale in half-points (docx `size` = pt × 2), set to the Part 3b table.
@@ -124,8 +128,8 @@ const TYPE = {
   coverFact: 21, // 10.5 pt — the cover's meta values
 }
 
-/** Body line height 1.45 (spec) → docx line units (240 = single). */
-const BODY_LINE = Math.round(1.45 * 240)
+/** Body line height (tightened from 1.45 for a denser report) → docx units. */
+const BODY_LINE = Math.round(1.22 * 240)
 
 /**
  * Document-level defaults for the monitoring report — Open Sans, so any run
@@ -136,7 +140,7 @@ export const MONITORING_DOCX_STYLES = {
   default: {
     document: {
       run: { font: FONT_SANS, size: TYPE.body, color: BODY },
-      paragraph: { spacing: { after: 120, line: BODY_LINE } },
+      paragraph: { spacing: { after: 50, line: BODY_LINE } },
     },
   },
 }
@@ -144,7 +148,7 @@ export const MONITORING_DOCX_STYLES = {
 // Vertical rhythm. Named rather than sprinkled, because "premium reports have
 // more whitespace than you think they need" is only true if the amounts are
 // consistent — irregular gaps read as mistakes, not generosity.
-const GAP = { tight: 100, base: 200, loose: 340, section: 620 }
+const GAP = { tight: 50, base: 100, loose: 150, section: 280 }
 
 /**
  * Status tones — a four-step visual scale in FIVE colours.
@@ -176,9 +180,14 @@ const p = (text, opts = {}) =>
         font: FONT_SANS,
       }),
     ],
-    spacing: { after: opts.after ?? 120, before: opts.before ?? 0, line: opts.line ?? BODY_LINE },
+    spacing: { after: opts.after ?? 90, before: opts.before ?? 0, line: opts.line ?? BODY_LINE },
     alignment: opts.align,
     indent: opts.indent,
+    // Pagination: keepNext binds this paragraph to the block that follows it
+    // (a heading to its section, an intro to its card); keepLines stops the
+    // paragraph itself splitting across a page.
+    keepNext: opts.keepNext || undefined,
+    keepLines: opts.keepLines || undefined,
   })
 
 const noBorder = { style: 'none', size: 0, color: 'FFFFFF' }
@@ -228,21 +237,29 @@ export function sectionHeading(num, title, status) {
   children.push(new TextRun({ text: title, size: TYPE.h2, color: INK, font: FONT_SANS_SEMI, characterSpacing: TRACK.heading }))
   return new Paragraph({
     children,
-    spacing: { before: GAP.section, after: 200 },
+    spacing: { before: GAP.section, after: 140 },
     border: { bottom: hair() },
+    // A heading never sits alone at the foot of a page — it stays with the
+    // block it introduces.
+    keepNext: true,
   })
 }
 
-/** Small uppercase key — the label / eyebrow role (700, +1.3 tracking). */
-const keyRun = (text) =>
-  new TextRun({
-    text: String(text || '').toUpperCase(),
+/** Small uppercase key — the label / eyebrow role (700, light tracking). */
+const keyRun = (text) => {
+  const str = String(text || '').toUpperCase()
+  // Long labels get less letter-spacing: tracking is per-gap, so it reads as
+  // heavier the more characters a label has.
+  const track = str.length > 10 ? TRACK.labelLong : TRACK.label
+  return new TextRun({
+    text: str,
     bold: true,
     size: TYPE.label,
     color: FAINT,
     font: FONT_SANS,
-    characterSpacing: TRACK.label,
+    characterSpacing: track,
   })
+}
 
 /**
  * A meta grid: small uppercase label above a bold value, `cols` across.
@@ -449,7 +466,7 @@ export function overviewCard(items) {
         columnSpan: 2,
         shading: { type: ShadingType.CLEAR, fill: WASH },
         borders: { ...noBorders, bottom: hair(HAIR_2) },
-        margins: { top: 190, bottom: 150, left: 240, right: 240 },
+        margins: { top: 130, bottom: 110, left: 240, right: 240 },
       }),
     ],
   })
@@ -523,6 +540,7 @@ function parameterHead(entry) {
     columnWidths: widths,
     rows: [
       new TableRow({
+        cantSplit: true,
         children: [
           new TableCell({
             children: left,
@@ -551,14 +569,21 @@ function parameterHead(entry) {
  * `emphasis` tiles (time above / % above a reference) take the warn colour so
  * the exposure figures carry from across the page.
  */
-export function summaryStripTable(tiles) {
+export function summaryStripTable(tiles, opts = {}) {
   if (!tiles || !tiles.length) return null
   const width = Math.floor(CONTENT_WIDTH_DXA / tiles.length)
+  // Inside a parameter card the strip carries a bottom hairline to divide it
+  // from the figure below; standalone (dataset integrity) that rule would
+  // double up against the card's own border, so it is dropped.
+  const cellBottom = opts.bottomBorder === false ? noBorder : hair()
   return new Table({
     width: { size: CONTENT_WIDTH_DXA, type: WidthType.DXA },
     columnWidths: tiles.map(() => width),
     rows: [
       new TableRow({
+        // The KPI card is never split across a page — if it does not fit in
+        // the space left, the whole strip moves to the next page.
+        cantSplit: true,
         children: tiles.map(
           (t, i) =>
             new TableCell({
@@ -590,60 +615,18 @@ export function summaryStripTable(tiles) {
               width: { size: width, type: WidthType.DXA },
               borders: {
                 ...noBorders,
-                bottom: hair(),
+                bottom: cellBottom,
                 // Hairline dividers between tiles, none on the outer edges —
                 // the card's own border closes those sides.
                 right: i === tiles.length - 1 ? noBorder : hair(),
               },
               // Generous padding is what makes a table row read as a card.
-              margins: { top: 210, bottom: 210, left: i === 0 ? 240 : 170, right: 170 },
+              margins: { top: 140, bottom: 140, left: i === 0 ? 240 : 170, right: 170 },
             }),
         ),
       }),
     ],
   })
-}
-
-/**
- * The sparkline that sits under the strip: the SHAPE of the series.
- *
- * A mean says where the readings sat; it cannot say whether they were steady
- * or the midpoint of something swinging. The mark is deliberately unlabelled
- * and unscaled — the figure two inches below is where a value should be read.
- */
-function sparkRow(dataUrl) {
-  if (!isImageDataUrl(dataUrl)) return null
-  try {
-    return new Table({
-      width: { size: CONTENT_WIDTH_DXA, type: WidthType.DXA },
-      columnWidths: [CONTENT_WIDTH_DXA],
-      rows: [
-        new TableRow({
-          children: [
-            new TableCell({
-              children: [
-                new Paragraph({
-                  children: [
-                    new ImageRun({
-                      data: base64ToUint8Array(dataUrl),
-                      transformation: { width: SPARK_W, height: SPARK_H },
-                      type: inferImageType(dataUrl),
-                    }),
-                  ],
-                  spacing: { after: 0 },
-                }),
-              ],
-              borders: { ...noBorders, bottom: hair() },
-              margins: { top: 120, bottom: 120, left: 240, right: 240 },
-              verticalAlign: 'center',
-            }),
-          ],
-        }),
-      ],
-    })
-  } catch {
-    return null // an unreadable mark must not abort the report
-  }
 }
 
 /**
@@ -660,6 +643,13 @@ function parameterCard(children) {
     columnWidths: [CONTENT_WIDTH_DXA],
     rows: [
       new TableRow({
+        // The whole card is one indivisible object: heading → strip → figure →
+        // caption → interpretation → observations stay together on one page.
+        // If the card does not fit in the space left, Word moves the entire
+        // card to the next page rather than splitting it mid-parameter. (A card
+        // taller than a full page degrades gracefully — Word still splits what
+        // cannot fit anywhere.)
+        cantSplit: true,
         children: [
           new TableCell({
             children,
@@ -839,19 +829,35 @@ function tickRow(text) {
 // The figure, sized to the card's inner width. Height follows the chart's own
 // aspect so a change to the canvas never silently stretches the image.
 const IMG_W = 570
-// The sparkline prints at its drawing size — it is a mark, not a figure, and
-// scaling it up would invite reading values off it.
-const SPARK_W = SPARK_SIZE.width
-const SPARK_H = SPARK_SIZE.height
 const IMG_H = Math.round((IMG_W * CHART_SIZE.height) / CHART_SIZE.width)
 const CARD_PAD = { left: 200, right: 200 }
 
 /**
- * Cover: accent eyebrow, title, subtitle, site line, meta grid.
+ * A short accent rule — the report's one brand mark on the cover. A borderless
+ * empty paragraph whose bottom border is shortened by a right indent, so the
+ * accent bar is a FIXED small width rather than the full text column, and it is
+ * a paragraph (no leading table at the top of the document body). `w` is the
+ * bar's width in twips, `weight` its thickness in eighths of a point.
+ */
+function accentRule(w = 1300, weight = 16, color = ACCENT) {
+  return new Paragraph({
+    children: [new TextRun({ text: '', size: 2, font: FONT_SANS })],
+    border: { bottom: { style: 'single', size: weight, color, space: 1 } },
+    indent: { right: Math.max(0, CONTENT_WIDTH_DXA - w) },
+    spacing: { after: 90, line: 20 },
+  })
+}
+
+/**
+ * Cover: brand rule, accent eyebrow, title, monitoring period, site line,
+ * meta grid.
  *
  * The report opens on its own title rather than on a brand block. Firm
  * identity is carried by the running header, where it repeats on every page
- * without competing with the title for the top of page one.
+ * without competing with the title for the top of page one. The title reads as
+ * a two-part hierarchy — the domain (INDOOR AIR QUALITY) as an eyebrow over the
+ * deliverable (Monitoring Report) as the hero line — rather than one long
+ * repetitive string.
  */
 export function buildCoverSection(model) {
   const c = (model && model.cover) || {}
@@ -878,27 +884,49 @@ export function buildCoverSection(model) {
     )
   }
 
+  // The hero line is the deliverable alone — "Monitoring Report" — with the
+  // domain lifted into the eyebrow above it, so the cover is not the same words
+  // twice. Derived from the title (strip a leading "Indoor Air Quality ") so it
+  // stays in step if the title is ever changed, with a plain fallback.
+  const heroTitle = String(model.title || 'Monitoring Report').replace(/^\s*indoor air quality\s+/i, '') || 'Monitoring Report'
+  // The monitoring period, promoted to a prominent secondary line under the
+  // title (it also remains in the meta grid below for reference).
+  const coverPeriod =
+    c.period || (c.periodStart && c.periodEnd ? `${c.periodStart} – ${c.periodEnd}` : null)
+
   out.push(
+    // The report's one brand mark: a short accent rule above the eyebrow.
+    accentRule(),
     new Paragraph({
       children: [
         new TextRun({
-          text: 'INDOOR AIR QUALITY MONITORING',
+          text: 'INDOOR AIR QUALITY',
           bold: true,
           size: TYPE.eyebrow,
           color: ACCENT,
           font: FONT_SANS,
+          characterSpacing: TRACK.label,
         }),
       ],
-      spacing: { before: 0, after: 110 },
+      spacing: { before: 90, after: 90 },
     }),
     // Built from explicit runs rather than HeadingLevel.TITLE: Word's built-in
     // Title style overrides the document theme with its own face and colour
     // (Calibri Light, blue), which is why the title did not match the rest of
     // the report.
     new Paragraph({
-      children: [new TextRun({ text: model.title, bold: true, size: TYPE.title, color: INK, font: FONT_SANS, characterSpacing: TRACK.title })],
-      spacing: { after: model.subtitle ? 60 : GAP.base },
+      children: [new TextRun({ text: heroTitle, bold: true, size: TYPE.title, color: INK, font: FONT_SANS, characterSpacing: TRACK.title })],
+      spacing: { after: coverPeriod ? 70 : (model.subtitle ? 60 : GAP.base) },
     }),
+    // The monitoring period as a prominent secondary element.
+    ...(coverPeriod
+      ? [
+          new Paragraph({
+            children: [new TextRun({ text: coverPeriod, size: 30, color: ACCENT, font: FONT_SANS_SEMI })],
+            spacing: { after: GAP.base },
+          }),
+        ]
+      : []),
     // Subtitle is optional — a null subtitle renders nothing (no empty gap).
     ...(model.subtitle ? [p(model.subtitle, { color: MUTED, size: TYPE.h2, after: GAP.base })] : []),
   )
@@ -1010,7 +1038,7 @@ export function buildReferenceSection(model, num) {
     p('Each parameter is compared to the screening reference selected for this monitoring session.', {
       color: MUTED,
       size: TYPE.small,
-      after: 160,
+      after: 110,
     }),
     dataTable(
       ['Parameter', 'Reference profile', 'Screening value', 'Source'],
@@ -1026,7 +1054,7 @@ export function buildReferenceSection(model, num) {
 
   // Framing that must travel with the reference wherever it is cited.
   const notes = [...new Set(rows.map((r) => r.note).filter(Boolean))]
-  notes.forEach((n) => out.push(p(n, { italics: true, color: MUTED, size: TYPE.fine, before: 130 })))
+  notes.forEach((n) => out.push(p(n, { italics: true, color: MUTED, size: TYPE.fine, before: 100 })))
 
   return { title: 'Screening reference values', children: out }
 }
@@ -1050,7 +1078,10 @@ export function buildParameterSection(entry, num) {
   out.push(
     p(
       `The following section summarizes measured ${entry.midLabel || entry.label} over the monitoring period and compares the observations to the selected screening reference.`,
-      { color: MUTED, size: TYPE.small, after: GAP.base },
+      // keepNext binds the intro (and, through the heading's own keepNext, the
+      // heading) to the parameter card that follows, so the two never strand at
+      // the foot of a page above a card that starts on the next one.
+      { color: MUTED, size: TYPE.small, after: GAP.base, keepNext: true, keepLines: true },
     ),
   )
 
@@ -1058,9 +1089,6 @@ export function buildParameterSection(entry, num) {
 
   const strip = summaryStripTable(entry.strip)
   if (strip) card.push(strip)
-
-  const spark = sparkRow(entry.spark)
-  if (spark) card.push(spark)
 
   if (isImageDataUrl(entry.chart)) {
     try {
@@ -1109,6 +1137,7 @@ export function buildParameterSection(entry, num) {
         ],
         indent: CARD_PAD,
         spacing: { before: isImageDataUrl(entry.chart) ? 0 : GAP.loose, after: GAP.loose },
+        keepLines: true,
       }),
     )
   }
@@ -1146,13 +1175,27 @@ function stripFigurePrefix(caption, num) {
   return text.startsWith(prefix) ? text.slice(prefix.length).trim() : text
 }
 
-/** Dataset integrity — coverage, gaps, cadence. */
+/**
+ * Dataset integrity — readings, coverage, gaps, longest gap, cadence.
+ *
+ * Presented as metric tiles in the same KPI-strip language as the parameter
+ * cards, bounded by the same hairline card, so the page reads as continuous
+ * with the parameter sections: the report is checking the dataset, not just
+ * plotting it.
+ */
 export function buildDataQualitySection(model, num) {
-  const rows = (model && model.dataQuality) || []
-  if (!rows.length) return null
+  const tiles = (model && model.dataQuality) || []
+  if (!tiles.length) return null
+  const strip = summaryStripTable(tiles, { bottomBorder: false })
+  if (!strip) return null
   return {
     title: 'Dataset integrity',
-    children: [sectionHeading(num, 'Dataset integrity'), metaGrid(rows, 3)],
+    children: [
+      sectionHeading(num, 'Dataset integrity'),
+      // Word needs a paragraph after the nested strip table inside the card;
+      // the tiny trailing paragraph supplies it (and the card's inner gap).
+      parameterCard([strip, p('', { after: 0, size: 2 })]),
+    ],
   }
 }
 
@@ -1171,8 +1214,8 @@ export function buildLimitationsSection(model, num) {
     title: 'Limitations',
     children: [
       sectionHeading(num, 'Limitations'),
-      ...items.map((t) => p(t, { size: TYPE.fine, color: BODY, after: 120 })),
-      ...conditional.map((t) => p(t, { size: TYPE.fine, color: BODY, after: 120 })),
+      ...items.map((t) => p(t, { size: TYPE.fine, color: BODY, after: 80 })),
+      ...conditional.map((t) => p(t, { size: TYPE.fine, color: BODY, after: 80 })),
     ],
   }
 }
@@ -1187,7 +1230,7 @@ export function buildEventsAppendix(model) {
       p('Events annotated by the assessor during the monitoring period. Corresponding markers (▲) are shown on the parameter figures.', {
         color: MUTED,
         size: TYPE.small,
-        after: 160,
+        after: 110,
       }),
       dataTable(
         ['Timestamp', 'Event', 'Notes'],
@@ -1205,7 +1248,7 @@ export function buildRawStatisticsAppendix(model) {
   return {
     title: 'Raw statistics',
     children: [
-      p('Descriptive statistics for each monitored parameter.', { color: MUTED, size: TYPE.small, after: 160 }),
+      p('Descriptive statistics for each monitored parameter.', { color: MUTED, size: TYPE.small, after: 110 }),
       dataTable(
         ['Parameter', 'Unit', 'Mean', 'Median', 'Min', 'Max', 'Std dev', '95th', 'n', 'Coverage'],
         rows.map((r) => [

@@ -95,17 +95,20 @@ describe('unit projection', () => {
   })
 })
 
-describe('framing that must survive selection', () => {
-  it('carries the CO₂ ventilation-indicator note on every CO₂ profile', () => {
+describe('framing notes', () => {
+  it('no longer carries the CO₂ ventilation-indicator caveat (removed 2026-08)', () => {
     profilesFor('co2').forEach((p) => {
-      expect(p.note, `missing note on co2/${p.id}`).toMatch(/not a health limit/i)
+      expect(p.note, `unexpected note on co2/${p.id}`).toBeNull()
     })
   })
 
-  it('carries the Mølhave advisory caveat on every TVOC profile, including "none"', () => {
-    profilesFor('tvoc').forEach((p) => {
-      expect(p.note, `missing note on tvoc/${p.id}`).toMatch(/no consensus health limit/i)
+  it('no longer carries the Mølhave advisory caveat on the Mølhave TVOC profiles', () => {
+    ;['molhave', 'molhave-action', 'none'].forEach((id) => {
+      const p = profilesFor('tvoc').find((x) => x.id === id)!
+      expect(p.note, `unexpected note on tvoc/${id}`).toBeNull()
     })
+    // The WELL performance target keeps its own certification-target note.
+    expect(profilesFor('tvoc').find((x) => x.id === 'well')!.note).toBeTruthy()
   })
 
   it('names a citable source for every profile that sets a value', () => {
@@ -163,7 +166,7 @@ describe('resolveReferences + table rows', () => {
     expect(rows.map((r) => r.param).sort()).toEqual(['co2', 'pm25', 'rh'])
     expect(rows.find((r) => r.param === 'pm25')!.value).toBe(`${STD.c.pm25.who} µg/m³`)
     expect(rows.find((r) => r.param === 'rh')!.value).toBe(`${STD.t.rh.min}–${STD.t.rh.max} %`)
-    expect(rows.find((r) => r.param === 'co2')!.note).toMatch(/not a health limit/i)
+    expect(rows.find((r) => r.param === 'co2')!.note).toBeNull()
   })
 
   it('omits a parameter whose reference could not be resolved', () => {
@@ -251,15 +254,10 @@ describe('PM10', () => {
     expect(STD.c.pm10.who).toBeGreaterThan(STD.c.pm25.who)
   })
 
-  it('carries the NAAQS form caveat on every EPA particulate profile', () => {
-    // A NAAQS is an ambient standard with a statistical form evaluated over
-    // years of regulatory monitoring. Comparing one indoor session to the
-    // number is a screening comparison, and the profile has to say so or the
-    // report implies a determination it never made.
+  it('no longer carries the NAAQS form caveat on the EPA particulate profiles (removed 2026-08)', () => {
     ;['pm25', 'pm10'].forEach((param) => {
       const epa = profilesFor(param).find((p) => p.id === 'epa')!
-      expect(epa.note, `missing NAAQS caveat on ${param}/epa`).toMatch(/screening reference only/i)
-      expect(epa.note).toMatch(/ambient-air/i)
+      expect(epa.note, `unexpected note on ${param}/epa`).toBeNull()
     })
   })
 
@@ -307,10 +305,10 @@ describe('TVOC in the unit the instrument logged', () => {
     expect(referenceTableRows({ tvoc: ppb })[0].value).toMatch(/^\d+ ppb$/)
   })
 
-  it('carries the Mølhave caveat whichever unit is in play', () => {
+  it('resolves a usable Mølhave value whichever unit is in play (caveat note removed 2026-08)', () => {
     ;['ppb', 'ppm', 'µg/m³', 'mg/m³'].forEach((unit) => {
       const r = resolveReference('tvoc', 'molhave', { unit })!
-      expect(r.note, `missing caveat in ${unit}`).toMatch(/no consensus health limit/i)
+      expect(r.note, `unexpected caveat in ${unit}`).toBeNull()
       expect(r.limit, `unusable limit in ${unit}`).toBeGreaterThan(0)
     })
   })

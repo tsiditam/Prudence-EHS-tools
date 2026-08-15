@@ -25,12 +25,12 @@
  * behind it — which is the point. Adding a new published value means adding
  * it to the manifest with its citation, not inventing it here.
  *
- * ── Framing that must survive selection ────────────────────────────────
- * Some references carry a caveat that is not optional. CO₂ is a
- * ventilation-adequacy indicator, never a health limit; TVOC's Mølhave value
- * is an advisory tier with no consensus health basis. Those notes ride on the
- * resolved profile so they reach the report no matter which profile is
- * chosen.
+ * ── Framing notes ──────────────────────────────────────────────────────
+ * Some references still carry a framing note (WHO guidelines, annual-mean
+ * guidelines, WELL certification targets) that rides on the resolved profile
+ * and reaches the report's reference table. The CO₂ ventilation-indicator,
+ * TVOC-advisory, and NAAQS ambient-standard caveats were removed by product
+ * decision (2026-08).
  */
 
 import { STD } from '../constants/standards'
@@ -42,19 +42,6 @@ const norm = (u) => String(u || '').toLowerCase()
 const isPpm = (u) => norm(u).includes('ppm')
 const isMg = (u) => /mg/.test(norm(u))
 
-// Framing that must accompany a reference wherever it appears. Kept verbatim
-// from the resolver that already owns this language so the two cannot drift.
-const CO2_NOTE =
-  'CO₂ indexes ventilation per occupant (ASHRAE 62.1 / Persily 2021), not a health limit.'
-const TVOC_NOTE =
-  'TVOC has no consensus health limit; the Mølhave 1991 value is a multifactorial-exposure advisory tier defined as 500 µg/m³, shown here converted to the logged unit on an isobutylene-equivalent basis — any ppb figure is a unit conversion of that µg/m³ tier, not a separately published ppb limit.'
-// A NAAQS is an ambient-air standard with a statistical FORM — a percentile
-// or exceedance count averaged over three years of regulatory monitoring —
-// and it applies outdoors. Comparing one indoor monitoring session to the
-// number is a screening comparison, not the standard's own test, and saying
-// so is the difference between a reference and an implied determination.
-const PM_NAAQS_NOTE =
-  'US EPA NAAQS are ambient-air standards evaluated over multi-year monitoring records; comparison here is a screening reference only, not an application of the standard.'
 // An annual-mean guideline (WHO annual, EPA annual PM2.5) is, by construction,
 // an average over a year. A monitoring session of hours or days cannot evaluate
 // it — the comparison is a screening reference against the guideline LEVEL, not
@@ -87,21 +74,18 @@ const PROFILES = {
       id: 'ashrae-advisory',
       label: 'Screening advisory (1,000 ppm)',
       source: 'NIOSH screening tier / ASHRAE 62.1 ventilation context',
-      note: CO2_NOTE,
       resolve: () => ({ limit: STD.v.co2.con }),
     },
     {
       id: 'action-tier',
       label: 'Action tier (1,500 ppm)',
       source: 'NIOSH screening action tier',
-      note: CO2_NOTE,
       resolve: () => ({ limit: STD.v.co2.act }),
     },
     {
       id: 'outdoor-differential',
       label: 'Outdoor differential (+700 ppm)',
       source: `${STD.v.ref} / Persily 2021 ventilation surrogate`,
-      note: CO2_NOTE,
       requires: 'outdoorBaseline',
       // Referenced against the measured outdoor baseline, not a fixed number:
       // the whole point of the differential is that it follows outdoor air.
@@ -113,7 +97,7 @@ const PROFILES = {
   ],
 
   pm25: [
-    { id: 'epa', label: 'EPA 24-hour', source: 'US EPA NAAQS', note: PM_NAAQS_NOTE, resolve: () => ({ limit: STD.c.pm25.epa }) },
+    { id: 'epa', label: 'EPA 24-hour', source: 'US EPA NAAQS', resolve: () => ({ limit: STD.c.pm25.epa }) },
     { id: 'who', label: 'WHO 24-hour (2021)', source: 'WHO Global Air Quality Guidelines 2021', note: WHO_NOTE, resolve: () => ({ limit: STD.c.pm25.who }) },
     { id: 'epa-annual', label: 'EPA annual (2024)', source: 'US EPA NAAQS (2024 revision; 89 FR 16202)', note: PM_ANNUAL_NOTE, resolve: () => ({ limit: STD.c.pm25.epaAnnual }) },
     { id: 'who-annual', label: 'WHO annual (2021)', source: 'WHO Global Air Quality Guidelines 2021', note: `${WHO_NOTE} ${PM_ANNUAL_NOTE}`, resolve: () => ({ limit: STD.c.pm25.whoAnnual }) },
@@ -121,7 +105,7 @@ const PROFILES = {
   ],
 
   pm10: [
-    { id: 'epa', label: 'EPA 24-hour', source: 'US EPA NAAQS', note: PM_NAAQS_NOTE, resolve: () => ({ limit: STD.c.pm10.epa }) },
+    { id: 'epa', label: 'EPA 24-hour', source: 'US EPA NAAQS', resolve: () => ({ limit: STD.c.pm10.epa }) },
     { id: 'who', label: 'WHO 24-hour (2021)', source: 'WHO Global Air Quality Guidelines 2021', note: WHO_NOTE, resolve: () => ({ limit: STD.c.pm10.who }) },
     { id: 'who-annual', label: 'WHO annual (2021)', source: 'WHO Global Air Quality Guidelines 2021', note: `${WHO_NOTE} ${PM_ANNUAL_NOTE}`, resolve: () => ({ limit: STD.c.pm10.whoAnnual }) },
     { id: 'well', label: 'WELL v2 performance', source: 'WELL Building Standard v2 (A01)', note: WELL_NOTE, resolve: () => ({ limit: STD.c.pm10.well }) },
@@ -139,14 +123,12 @@ const PROFILES = {
       id: 'molhave',
       label: 'Mølhave advisory (500 µg/m³)',
       source: 'Mølhave 1991',
-      note: TVOC_NOTE,
       resolve: (ctx) => ({ limit: round(tvocToUnit(STD.c.tvoc.con, ctx && ctx.unit), isPpm(ctx && ctx.unit) ? 2 : 0) }),
     },
     {
       id: 'molhave-action',
       label: 'Mølhave action tier (3,000 µg/m³)',
       source: 'Mølhave 1991',
-      note: TVOC_NOTE,
       resolve: (ctx) => ({ limit: round(tvocToUnit(STD.c.tvoc.act, ctx && ctx.unit), isPpm(ctx && ctx.unit) ? 2 : 0) }),
     },
     {
@@ -162,7 +144,7 @@ const PROFILES = {
     // Offered deliberately: with no consensus health limit, an assessor may
     // reasonably choose to chart TVOC without any reference line rather than
     // imply one exists.
-    { id: 'none', label: 'No reference line', source: null, note: TVOC_NOTE, resolve: () => ({}) },
+    { id: 'none', label: 'No reference line', source: null, resolve: () => ({}) },
   ],
 
   hcho: [

@@ -16,7 +16,7 @@ import { BODY_SECTION_PROPERTIES, LETTER_BODY_PAGE } from './page-setup'
 import { reportSectionAttachments } from './report-chrome'
 import { monitoringReportChildren, MONITORING_DOCX_STYLES } from './sections-monitoring'
 import { buildMonitoringReportModel, MONITORING_REPORT_VERSION } from '../../utils/monitoringReportModel'
-import { renderMonitoringCharts, renderSparklines } from '../../utils/monitoringChart'
+import { renderMonitoringCharts } from '../../utils/monitoringChart'
 import { primaryDataset } from '../../utils/monitoringSession'
 
 /** File name for a generated report — safe for every OS. */
@@ -98,17 +98,13 @@ export function attachMonitoringCharts(model, session, opts = {}) {
     width: opts.chartWidth,
     height: opts.chartHeight,
   })
-  // The strip's sparklines come from the same pass, so a report can never end
-  // up with figures but no shape marks (or the reverse).
-  const sparks = renderSparklines(params, points)
-  if (!Object.keys(charts).length && !Object.keys(sparks).length) return model
+  if (!Object.keys(charts).length) return model
 
   return {
     ...model,
     parameters: model.parameters.map((p) => ({
       ...p,
       chart: charts[p.param] || p.chart || null,
-      spark: sparks[p.param] || p.spark || null,
     })),
   }
 }
