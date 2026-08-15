@@ -322,6 +322,32 @@ function buildInstrumentAccuracyInfo(presurvey) {
   }
 }
 
+/**
+ * Build just the engine ClientReport result for an assessment — the same
+ * meta → score → renderClientReport pipeline buildConsultantDocument uses,
+ * stopping at the model. The editorial-review pass uses this to build a digest
+ * of cuttable content whose ids match EXACTLY what the DOCX renders, so an
+ * approved cut resolves to a real, renderer-honored suppression. Read-only:
+ * it does not mutate the engine or the assessment.
+ */
+export function getConsultantReportResult(data) {
+  const meta = deriveAssessmentMeta({
+    profile: data.profile,
+    presurvey: data.presurvey,
+    building: data.building,
+    assessmentDate: data.ts ? data.ts.slice(0, 10) : undefined,
+  })
+  const score = legacyToAssessmentScore(
+    data.zoneScores || [],
+    data.comp || null,
+    data.zones || [],
+    { meta, presurvey: data.presurvey, building: data.building },
+  )
+  return renderClientReport(score, {
+    includeAssessmentIndexAppendix: !!data.includeAssessmentIndexAppendix,
+  })
+}
+
 async function buildConsultantDocument(ctx, data) {
   // v2.1 path: bridge legacy scoring data → AssessmentScore → ClientReport
   // → docx. CIH-defensible deliverable.

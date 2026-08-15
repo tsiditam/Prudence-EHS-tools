@@ -107,6 +107,7 @@ import PendingSyncIndicator from './PendingSyncIndicator'
 import OfflineBanner from './OfflineBanner'
 import JasperWatchPanel from './JasperWatchPanel'
 import ReadinessPanel from './ReadinessPanel'
+import EditorialReviewPanel from './EditorialReviewPanel'
 import EvidenceMap from './EvidenceMap'
 import DesktopSidebar, { SIDEBAR_W } from './desktop/DesktopSidebar'
 import { isKnowledgeGraphEnabled, isMoldModuleEnabled, isIaqScoreVisible } from '../utils/featureFlags'
@@ -2263,6 +2264,20 @@ export default function MobileApp() {
     } catch { /* keep the optimistic UI even if persistence fails */ }
   }
 
+  // Save the editorial cuts the reviewing professional approved. `record` is a
+  // normalized editorialSuppressions object, or null to clear. Optimistic +
+  // persisted, mirroring the logger-include save above. The renderer reads
+  // editorialSuppressions on the next export; the engine/data are untouched.
+  const applyEditorialSuppressions = async (record) => {
+    if (!viewRpt?.id) return
+    const next = record || null
+    setViewRpt({ ...viewRpt, editorialSuppressions: next })
+    try {
+      const base = await STO.get(viewRpt.id)
+      if (base) await STO.set(viewRpt.id, { ...base, editorialSuppressions: next, ua: new Date().toISOString() })
+    } catch { /* keep the optimistic UI even if persistence fails */ }
+  }
+
   // Jump from a Readiness blocker straight to the field that fixes it.
   // Client / contact / instrument blockers live in the Assessment Details
   // step (Q_DETAILS); occupant-denominator and photo blockers are zone-scoped
@@ -2678,6 +2693,17 @@ export default function MobileApp() {
             onFeedback={()=>openFeedback('Findings & readiness')}
             onFix={archived ? (viewRpt?.id ? resumeAndFix : undefined) : fixBlocker}
           />
+        )}
+
+        {rTab==='readiness' && viewRpt?.id && zoneScores && zoneScores.length > 0 && (
+          <div style={{ marginTop: 18, paddingTop: 18, borderTop: '1px solid var(--border)' }}>
+            <EditorialReviewPanel
+              reportData={{ profile, presurvey, building: bldg, zones, zoneScores, comp, ts: viewRpt?.ts }}
+              existingSuppressions={viewRpt?.editorialSuppressions || null}
+              extraFacts={{ spaceUses: zones.map(z => z && (z.su || z.space)).filter(Boolean) }}
+              onApply={applyEditorialSuppressions}
+            />
+          </div>
         )}
 
         {rTab==='logger' && <LoggerGraphsTab sensorData={loggerSd} editable onToggleInclude={archived ? toggleArchivedLoggerInclude : toggleLoggerInclude} />}
