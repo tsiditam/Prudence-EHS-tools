@@ -316,10 +316,22 @@ export function figureCaption(entry, opts = {}) {
   const parts = [`Figure ${entry.figureNumber}. ${entry.shortLabel} over the monitoring period.`]
 
   const ref = entry.reference
+  const st = obj(entry.stats)
   if (ref && ref.band) {
     parts.push(`Shaded band = ${referenceValueLabel(ref)} comfort range.`)
+    // The amber legend is earned only when some reading actually fell outside
+    // the band — otherwise it describes a colour the figure never draws.
+    if (isNum(st.pctInBand) && st.pctInBand < 100) parts.push('Amber trace = readings outside the band.')
   } else if (ref && isNum(ref.limit)) {
     parts.push(`Dashed line = ${referenceValueLabel(ref)} screening reference.`)
+    if (isNum(st.pctAbove) && st.pctAbove > 0) {
+      const redDrawn = isNum(ref.actionLimit) && isNum(st.max) && st.max >= ref.actionLimit
+      parts.push(
+        redDrawn
+          ? 'Amber trace = readings above the reference; red = above the action tier.'
+          : 'Amber trace = readings above the reference.',
+      )
+    }
   }
 
   const marks = []

@@ -31,6 +31,12 @@ export const CHART_COLORS = {
   muted: '#6B7480', // axis labels — darker than the old #8A929E, so they read
   hair: '#EEF1F4', // gridlines — softer, so they recede behind the data
   line: '#0891B2',
+  // Conditional trace colours. The line stays teal in range; the span above the
+  // selected reference (or outside the comfort band) turns amber; a span above a
+  // defined higher action tier turns red. The colour encodes each READING
+  // against the reference — the status chip carries the parameter-level verdict.
+  excursion: '#D97706', // above the selected reference / outside the band
+  action: '#DC2626', //    above a defined higher action/review tier
   fillTop: 'rgba(8,145,178,0.16)',
   fillBottom: 'rgba(8,145,178,0.01)',
   band: 'rgba(15,23,42,0.035)',
@@ -147,6 +153,54 @@ function dayTicks(t0, t1, utcOffsetMin) {
 }
 
 /**
+ * The values a trace is split at so each span can be coloured against the
+ * selected reference: a band's two edges, or an upper limit (plus a higher
+ * action tier where one is defined). Sorted ascending.
+ */
+function traceThresholds(spec) {
+  if (Array.isArray(spec.band) && isNum(spec.band[0]) && isNum(spec.band[1])) {
+    return [spec.band[0], spec.band[1]].sort((a, b) => a - b)
+  }
+  if (isNum(spec.limit)) {
+    return [spec.limit, isNum(spec.actionLimit) ? spec.actionLimit : null].filter(isNum).sort((a, b) => a - b)
+  }
+  return []
+}
+
+/**
+ * The colour a reading of value `v` takes: teal in range, amber for an
+ * excursion (above the upper reference, or outside the comfort band), red above
+ * a defined higher action tier. One spike therefore colours only its own span,
+ * never the whole trace — the amber "% above" of the strip and this amber span
+ * tell the same story.
+ */
+function traceColor(v, spec, C) {
+  if (Array.isArray(spec.band) && isNum(spec.band[0]) && isNum(spec.band[1])) {
+    return v < spec.band[0] || v > spec.band[1] ? C.excursion : C.line
+  }
+  if (isNum(spec.limit)) {
+    if (isNum(spec.actionLimit) && v >= spec.actionLimit) return C.action
+    if (v >= spec.limit) return C.excursion
+    return C.line
+  }
+  return C.line
+}
+
+/** Fractions in (0,1) where a segment from value `va` to `vb` crosses each
+ * threshold, so the line can change colour exactly on the reference, not at the
+ * next logged point. Sorted ascending. */
+function segmentCuts(va, vb, thresholds) {
+  const cuts = []
+  for (const t of thresholds) {
+    if ((va < t && vb > t) || (va > t && vb < t)) {
+      const f = (t - va) / (vb - va)
+      if (f > 0 && f < 1) cuts.push(f)
+    }
+  }
+  return cuts.sort((a, b) => a - b)
+}
+
+/**
  * Draw one parameter's figure.
  *
  * @param {CanvasRenderingContext2D} ctx
@@ -155,6 +209,8 @@ function dayTicks(t0, t1, utcOffsetMin) {
  * @param {number} [spec.width] CSS pixels
  * @param {number} [spec.height] CSS pixels
  * @param {number} [spec.limit] upper screening reference
+ * @param {number} [spec.actionLimit] a higher action/review tier, where one is
+ *   defined; readings above it draw red. Omitted → no red span.
  * @param {number[]} [spec.band] comfort range [lo, hi]
  * @param {string} [spec.referenceLabel]
  * @param {{start:number,end:number}[]} [spec.occupancy]
@@ -288,15 +344,31 @@ export function drawMonitoringChart(ctx, spec = {}) {
   ctx.fillStyle = grad
   ctx.fill()
 
-  // Trend line
-  ctx.beginPath()
-  ctx.moveTo(X(pts[0].t), Y(pts[0].v))
-  pts.forEach((p) => ctx.lineTo(X(p.t), Y(p.v)))
-  ctx.strokeStyle = C.line
+  // Trend line, coloured per reading against the selected reference: teal in
+  // range, amber across an excursion, red above a defined action tier. Each
+  // segment is split exactly where it crosses a threshold, so only the
+  // out-of-range span changes colour — a lone spike never tints the whole
+  // trace, and a mostly-out-of-range series reads as mostly amber.
+  const thresholds = traceThresholds(spec)
   ctx.lineWidth = STROKE.trend
   ctx.lineJoin = 'round'
   ctx.lineCap = 'round'
-  ctx.stroke()
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i]
+    const b = pts[i + 1]
+    const stops = [0, ...segmentCuts(a.v, b.v, thresholds), 1]
+    for (let s = 0; s < stops.length - 1; s++) {
+      const f0 = stops[s]
+      const f1 = stops[s + 1]
+      const va = a.v + (b.v - a.v) * f0
+      const vb = a.v + (b.v - a.v) * f1
+      ctx.strokeStyle = traceColor((va + vb) / 2, spec, C)
+      ctx.beginPath()
+      ctx.moveTo(X(a.t + (b.t - a.t) * f0), Y(va))
+      ctx.lineTo(X(a.t + (b.t - a.t) * f1), Y(vb))
+      ctx.stroke()
+    }
+  }
 
   // Annotated events — a dashed rule and a caret, labelled above the plot.
   ;(spec.events || []).forEach((e) => {
@@ -333,7 +405,9 @@ export function drawMonitoringChart(ctx, spec = {}) {
   pts.forEach((p) => { if (p.v > peak.v) peak = p })
   const px = X(peak.t)
   const py = Y(peak.v)
-  ctx.fillStyle = C.line
+  // The peak dot takes the colour of its own span — amber (or red) when the
+  // maximum is itself an excursion, so the most-cited point reads true.
+  ctx.fillStyle = traceColor(peak.v, spec, C)
   ctx.beginPath()
   ctx.arc(px, py, 3.4, 0, Math.PI * 2)
   ctx.fill()
@@ -487,6 +561,7 @@ export function renderMonitoringCharts(params, points, opts = {}) {
     const url = renderMonitoringChart({
       points: series,
       limit: ref.limit,
+      actionLimit: ref.actionLimit,
       band: ref.band,
       referenceLabel: ref.band
         ? `${ref.band[0]}–${ref.band[1]} ${entry.unit || ''}`.trim()

@@ -85,7 +85,7 @@ export function attachMonitoringCharts(model, session, opts = {}) {
   const params = (model.parameters || []).map((p) => ({
     param: p.param,
     unit: p.unit,
-    reference: p.reference ? { limit: p.reference.limit, band: p.reference.band } : null,
+    reference: p.reference ? { limit: p.reference.limit, actionLimit: p.reference.actionLimit, band: p.reference.band } : null,
   }))
   if (!params.length) return model
 

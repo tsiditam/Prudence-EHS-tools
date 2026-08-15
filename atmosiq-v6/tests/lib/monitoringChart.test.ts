@@ -19,17 +19,23 @@ const MIN = 60_000
 
 /** Records every call, so a drawing routine can be asserted without a canvas. */
 function stubCtx() {
-  const calls: { fn: string; args: unknown[] }[] = []
+  const calls: { fn: string; args: unknown[]; color?: unknown }[] = []
   const rec = (fn: string) => (...args: unknown[]) => { calls.push({ fn, args }) }
   const ctx: Record<string, unknown> = {
     calls,
     text: () => calls.filter((c) => c.fn === 'fillText').map((c) => String(c.args[0])),
+    // The colour of each stroke, in draw order — for asserting conditional
+    // trace colouring against the reference.
+    strokeColors: () => calls.filter((c) => c.fn === 'stroke').map((c: any) => c.color),
     createLinearGradient: () => ({ addColorStop() {} }),
   }
   for (const fn of [
-    'clearRect', 'fillRect', 'beginPath', 'moveTo', 'lineTo', 'closePath', 'fill', 'stroke',
+    'clearRect', 'fillRect', 'beginPath', 'moveTo', 'lineTo', 'closePath', 'fill',
     'arc', 'setLineDash', 'fillText', 'scale',
   ]) ctx[fn] = rec(fn)
+  // stroke/fill record the active style so trace colours can be asserted.
+  ctx.stroke = (...args: unknown[]) => calls.push({ fn: 'stroke', args, color: ctx.strokeStyle })
+  ctx.fill = (...args: unknown[]) => calls.push({ fn: 'fill', args, color: ctx.fillStyle })
   return ctx as any
 }
 
@@ -156,6 +162,35 @@ describe('drawMonitoringChart', () => {
     const ctx = stubCtx()
     drawMonitoringChart(ctx, { points: series(40, () => 500), events: [{ t: T0 - 5 * 86_400_000, label: 'Before' }] })
     expect(ctx.text()).not.toContain('Before')
+  })
+
+  it('colours only the above-reference span amber, not the whole trace', () => {
+    const ctx = stubCtx()
+    // A flat 450 series with one spike to 1789 over a 1000 limit.
+    drawMonitoringChart(ctx, { points: series(40, (i) => (i === 20 ? 1789 : 450)), limit: 1000 })
+    const colors = ctx.strokeColors()
+    const teal = colors.filter((c: string) => c === '#0891B2').length
+    const amber = colors.filter((c: string) => c === '#D97706').length
+    // Most of the trace is in range (teal); the excursion is present but small.
+    expect(teal).toBeGreaterThan(amber)
+    expect(amber).toBeGreaterThan(0)
+    // No action tier defined → no red.
+    expect(colors).not.toContain('#DC2626')
+  })
+
+  it('turns the span red above a defined action tier', () => {
+    const ctx = stubCtx()
+    drawMonitoringChart(ctx, { points: series(40, (i) => (i === 20 ? 1789 : 450)), limit: 1000, actionLimit: 1500 })
+    expect(ctx.strokeColors()).toContain('#DC2626') // the peak crosses 1500
+  })
+
+  it('colours out-of-band readings amber but leaves in-band teal', () => {
+    const ctx = stubCtx()
+    // Oscillates in and out of a 68–76 comfort band.
+    drawMonitoringChart(ctx, { points: series(40, (i) => (i % 2 === 0 ? 72 : 82)), band: [68, 76] })
+    const colors = ctx.strokeColors()
+    expect(colors).toContain('#0891B2') // in-band teal
+    expect(colors).toContain('#D97706') // out-of-band amber
   })
 
   it('day labels do not depend on the host timezone', () => {

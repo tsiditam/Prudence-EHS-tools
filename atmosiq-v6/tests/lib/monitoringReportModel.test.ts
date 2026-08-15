@@ -505,6 +505,31 @@ describe('figure captions', () => {
     expect(none).toBe('Figure 3. CO₂ over the monitoring period.')
     expect(figureCaption(null as never, {})).toBe('')
   })
+
+  it('explains the amber trace only when a reading actually crossed the reference', () => {
+    // No excursion → no amber legend (it would describe a colour never drawn).
+    expect(
+      figureCaption({ ...base, reference: { limit: 1000, unit: 'ppm' }, stats: { pctAbove: 0 } }, {}),
+    ).not.toContain('Amber')
+    // Some readings above → the amber legend is earned.
+    expect(
+      figureCaption({ ...base, reference: { limit: 1000, unit: 'ppm' }, stats: { pctAbove: 4.2 } }, {}),
+    ).toContain('Amber trace = readings above the reference.')
+    // A defined higher action tier the max reaches → the red legend too.
+    expect(
+      figureCaption(
+        { ...base, reference: { limit: 1000, unit: 'ppm', actionLimit: 1500 }, stats: { pctAbove: 4.2, max: 1789 } },
+        {},
+      ),
+    ).toContain('red = above the action tier')
+    // Band: amber legend only when time fell outside the band.
+    expect(
+      figureCaption({ ...base, shortLabel: 'Temp', reference: { band: [68, 76], unit: '°F' }, stats: { pctInBand: 100 } }, {}),
+    ).not.toContain('Amber')
+    expect(
+      figureCaption({ ...base, shortLabel: 'Temp', reference: { band: [68, 76], unit: '°F' }, stats: { pctInBand: 88 } }, {}),
+    ).toContain('Amber trace = readings outside the band.')
+  })
 })
 
 describe('the §Limitations statement', () => {
