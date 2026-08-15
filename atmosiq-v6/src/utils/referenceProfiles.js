@@ -31,6 +31,34 @@
  * and reaches the report's reference table. The CO₂ ventilation-indicator,
  * TVOC-advisory, and NAAQS ambient-standard caveats were removed by product
  * decision (2026-08).
+ *
+ * ── Higher action tier (the figure's RED span) ─────────────────────────
+ * A resolved reference MAY one day carry an `actionLimit` — the value above
+ * which the figure draws its trace red rather than amber. It is deliberately
+ * absent from every profile here, and adding one is not a cosmetic change:
+ *
+ *   A red tier is a SEPARATE, authoritative, higher-level criterion — not a
+ *   multiple of the screening reference. `threshold + averaging period +
+ *   source + applicability` must travel together; a concentration alone must
+ *   never turn a reading red. Red means "a distinct higher criterion was
+ *   reached", which is a stronger claim than the "Review Suggested" status.
+ *
+ * Per parameter, for the Client (IAQ screening) edition:
+ *   • Temperature / RH — NO red. ASHRAE 55 is a thermal-comfort standard, not
+ *     a health-action ladder; "farther outside the band" is not a severity.
+ *   • CO₂ — NO red here. 1,000 ppm is a ventilation-per-occupant indicator;
+ *     higher occupational CO₂ limits are a different exposure context and
+ *     belong to an occupational-IH module, not this one.
+ *   • TVOC — NO red. There is no defensible universal TVOC concentration
+ *     ladder across buildings, mixtures and instruments.
+ *   • PM2.5 — a legitimate candidate: EPA defines progressively higher 24-hour
+ *     categories. But the logger records short-interval readings, so a tier
+ *     may only be assigned from the correct AVERAGING WINDOW (a rolling 24-hour
+ *     mean), never a single 60-minute reading — that averaging engine is not
+ *     built yet, so no red tier ships.
+ *   • HCHO — possible only if a SECOND authoritative criterion with the right
+ *     averaging period is explicitly selected; never automatic from the NIOSH
+ *     REL line.
  */
 
 import { STD } from '../constants/standards'
@@ -60,6 +88,27 @@ const WHO_NOTE =
 const WELL_NOTE =
   'WELL Building Standard v2 (feature A01) thresholds are green-building certification performance targets, not health-based regulatory limits; confirm against the current WELL v2 documentation before relying on them.'
 
+const HOUR_MS = 3_600_000
+const DAY_MS = 86_400_000
+
+// A higher ("red") ACTION tier a profile may carry — a SEPARATE authoritative
+// criterion with its own averaging window, evaluated on a rolling mean (never a
+// single reading) and drawn only where it sits above the selected screening
+// reference. See the header note for why only CO and PM2.5 get one, and why
+// Temp/RH/CO₂/TVOC do not. `windowMs` is the criterion's averaging period.
+const CO_ACTION = {
+  limit: STD.c.co.who1h, // WHO 2010 1-hour CO guideline (35 mg/m³ ≈ 30 ppm)
+  windowMs: HOUR_MS,
+  source: 'WHO 2010 IAQ Guidelines — 1-hour CO',
+  label: 'WHO 1-hour acute',
+}
+const PM25_ACTION = {
+  limit: STD.c.pm25.epaUnhealthy, // EPA AQI 24-hour "Unhealthy" lower bound
+  windowMs: DAY_MS,
+  source: 'US EPA AQI — 24-hour "Unhealthy" category',
+  label: 'EPA Unhealthy (24-hour)',
+}
+
 /**
  * The catalogue. Each profile declares how to resolve its value in the logged
  * unit; the resolver returns `{ limit }` or `{ band }` (never both).
@@ -67,6 +116,10 @@ const WELL_NOTE =
  * `requires: 'outdoorBaseline'` marks a profile the report can only compute
  * when an outdoor dataset was captured — it is offered but not selectable
  * without one.
+ *
+ * `action` marks a profile that also carries a defensible higher acute tier
+ * (the figure's red span). It rides on the resolved reference; the figure
+ * evaluates it on a rolling mean over `action.windowMs`.
  */
 const PROFILES = {
   co2: [
@@ -97,8 +150,8 @@ const PROFILES = {
   ],
 
   pm25: [
-    { id: 'epa', label: 'EPA 24-hour', source: 'US EPA NAAQS', resolve: () => ({ limit: STD.c.pm25.epa }) },
-    { id: 'who', label: 'WHO 24-hour (2021)', source: 'WHO Global Air Quality Guidelines 2021', note: WHO_NOTE, resolve: () => ({ limit: STD.c.pm25.who }) },
+    { id: 'epa', label: 'EPA 24-hour', source: 'US EPA NAAQS', action: PM25_ACTION, resolve: () => ({ limit: STD.c.pm25.epa }) },
+    { id: 'who', label: 'WHO 24-hour (2021)', source: 'WHO Global Air Quality Guidelines 2021', note: WHO_NOTE, action: PM25_ACTION, resolve: () => ({ limit: STD.c.pm25.who }) },
     { id: 'epa-annual', label: 'EPA annual (2024)', source: 'US EPA NAAQS (2024 revision; 89 FR 16202)', note: PM_ANNUAL_NOTE, resolve: () => ({ limit: STD.c.pm25.epaAnnual }) },
     { id: 'who-annual', label: 'WHO annual (2021)', source: 'WHO Global Air Quality Guidelines 2021', note: `${WHO_NOTE} ${PM_ANNUAL_NOTE}`, resolve: () => ({ limit: STD.c.pm25.whoAnnual }) },
     { id: 'well', label: 'WELL v2 performance', source: 'WELL Building Standard v2 (A01)', note: WELL_NOTE, resolve: () => ({ limit: STD.c.pm25.well }) },
@@ -112,10 +165,15 @@ const PROFILES = {
   ],
 
   co: [
-    { id: 'epa-naaqs', label: 'EPA NAAQS 8-hour', source: 'US EPA NAAQS', resolve: () => ({ limit: STD.c.co.epa }) },
+    // The 9-ppm ambient/green-building references sit below the WHO 1-hour
+    // acute guideline, so the red tier is a genuinely higher criterion for
+    // them. The occupational 8-hour references (NIOSH 35 / OSHA 50) already sit
+    // at or above it, so they carry no red tier — a higher acute span would
+    // invert the hierarchy.
+    { id: 'epa-naaqs', label: 'EPA NAAQS 8-hour', source: 'US EPA NAAQS', action: CO_ACTION, resolve: () => ({ limit: STD.c.co.epa }) },
     { id: 'niosh-rel', label: 'NIOSH REL', source: 'NIOSH Pocket Guide', resolve: () => ({ limit: STD.c.co.niosh }) },
     { id: 'osha-pel', label: 'OSHA PEL', source: '29 CFR 1910.1000', resolve: () => ({ limit: STD.c.co.osha }) },
-    { id: 'well', label: 'WELL v2 performance', source: 'WELL Building Standard v2 (A01)', note: WELL_NOTE, resolve: () => ({ limit: STD.c.co.well }) },
+    { id: 'well', label: 'WELL v2 performance', source: 'WELL Building Standard v2 (A01)', note: WELL_NOTE, action: CO_ACTION, resolve: () => ({ limit: STD.c.co.well }) },
   ],
 
   tvoc: [
@@ -232,6 +290,20 @@ export function resolveReference(param, profileId, ctx = {}) {
   // to explain itself.
   const unavailable = !limit && !band && !!profile.requires ? profile.requires : null
 
+  // The higher acute ("red") tier rides on the resolved reference, but ONLY
+  // when it sits genuinely above the selected screening reference. That guard
+  // is what keeps a WHO 1-hour CO tier from appearing under an occupational
+  // 8-hour PEL, where it would invert the hierarchy rather than escalate it.
+  const action =
+    profile.action && isNum(profile.action.limit) && isNum(limit) && profile.action.limit > limit
+      ? {
+          limit: profile.action.limit,
+          windowMs: profile.action.windowMs,
+          source: profile.action.source || null,
+          label: profile.action.label || null,
+        }
+      : null
+
   return {
     param,
     profileId: profile.id,
@@ -240,6 +312,7 @@ export function resolveReference(param, profileId, ctx = {}) {
     note: profile.note || null,
     limit,
     band,
+    action,
     unit: (ctx && ctx.unit) || '',
     unavailable,
   }

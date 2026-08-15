@@ -17,6 +17,8 @@
  * be exercised without a DOM; only `renderMonitoringChart` needs a canvas.
  */
 
+import { trailingMeans } from './monitoringStats'
+
 const isNum = (v) => v != null && Number.isFinite(v)
 
 /**
@@ -31,6 +33,12 @@ export const CHART_COLORS = {
   muted: '#6B7480', // axis labels — darker than the old #8A929E, so they read
   hair: '#EEF1F4', // gridlines — softer, so they recede behind the data
   line: '#0891B2',
+  // Conditional trace colours. The line stays teal in range; the span above the
+  // selected reference (or outside the comfort band) turns amber; a span above a
+  // defined higher action tier turns red. The colour encodes each READING
+  // against the reference — the status chip carries the parameter-level verdict.
+  excursion: '#D97706', // above the selected reference / outside the band
+  action: '#DC2626', //    above a defined higher action/review tier
   fillTop: 'rgba(8,145,178,0.16)',
   fillBottom: 'rgba(8,145,178,0.01)',
   band: 'rgba(15,23,42,0.035)',
@@ -48,6 +56,19 @@ export const CHART_COLORS = {
  * decoration — the difference between a chart and a logger screenshot.
  */
 const STROKE = { trend: 1.35, reference: 1.8, grid: 1, event: 1 }
+
+/**
+ * The area-fill gradient for each trace colour, keyed by that colour so the
+ * fill under a span always matches the line above it — teal, amber and red
+ * regions read as one object, not a line floating over a mismatched wash. Same
+ * top→bottom fade as the original single fill; excursion fills sit a hair
+ * stronger so they register without shouting.
+ */
+const TRACE_FILL = {
+  [CHART_COLORS.line]: ['rgba(8,145,178,0.16)', 'rgba(8,145,178,0.012)'],
+  [CHART_COLORS.excursion]: ['rgba(217,119,6,0.18)', 'rgba(217,119,6,0.015)'],
+  [CHART_COLORS.action]: ['rgba(220,38,38,0.18)', 'rgba(220,38,38,0.015)'],
+}
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
@@ -147,6 +168,97 @@ function dayTicks(t0, t1, utcOffsetMin) {
 }
 
 /**
+ * The colour of a reading: teal in range, amber for a screening excursion
+ * (raw value above the upper reference, or outside the comfort band), red for
+ * the acute action tier — the ROLLING mean `r` over the criterion's window at
+ * or above `actionLimit`. Red is drawn only where the action tier genuinely
+ * sits above the screening reference; a raw spike alone never turns red, and a
+ * single reading never does, because `r` is a windowed mean (null until
+ * covered).
+ */
+function traceColor(v, r, spec, C) {
+  if (Array.isArray(spec.band) && isNum(spec.band[0]) && isNum(spec.band[1])) {
+    return v < spec.band[0] || v > spec.band[1] ? C.excursion : C.line
+  }
+  if (isNum(spec.limit)) {
+    if (isNum(spec.actionLimit) && spec.actionLimit > spec.limit && isNum(r) && r >= spec.actionLimit) return C.action
+    if (v >= spec.limit) return C.excursion
+    return C.line
+  }
+  return C.line
+}
+
+/** The values the RAW trace and the ROLLING mean are each split at, so a colour
+ * change lands exactly on a crossing. `onV` are crossed by the reading itself
+ * (band edges / screening limit); `onR` by the windowed mean (action tier). */
+function thresholdSets(spec) {
+  if (Array.isArray(spec.band) && isNum(spec.band[0]) && isNum(spec.band[1])) {
+    return { onV: [spec.band[0], spec.band[1]], onR: [] }
+  }
+  const onV = isNum(spec.limit) ? [spec.limit] : []
+  const onR =
+    isNum(spec.limit) && isNum(spec.actionLimit) && spec.actionLimit > spec.limit ? [spec.actionLimit] : []
+  return { onV, onR }
+}
+
+/** Fraction in (0,1) where a linear a→b crosses `t`, or null. */
+function crossFraction(a, b, t) {
+  if ((a < t && b > t) || (a > t && b < t)) {
+    const f = (t - a) / (b - a)
+    if (f > 0 && f < 1) return f
+  }
+  return null
+}
+
+/**
+ * Split the trace into contiguous single-colour RUNS. Each point carries its
+ * raw value `v` and (optionally) its rolling mean `r`; a run boundary is
+ * inserted wherever the reading crosses the reference OR the rolling mean
+ * crosses the action tier, so line and fill change colour exactly on the
+ * crossing. Grouping consecutive same-colour edges lets each run draw as one
+ * continuous region — clean boundaries, no antialias seams inside a run.
+ *
+ * Returns `[{ color, verts: [{t, v}, …] }]` in draw order; verts carry the raw
+ * value (the line's y-position), while colour reflects both v and r.
+ */
+function coloredRuns(pts, spec, C) {
+  const { onV, onR } = thresholdSets(spec)
+  const runs = []
+  const interp = (a, b, f) => a + (b - a) * f
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i]
+    const b = pts[i + 1]
+    const bothR = isNum(a.r) && isNum(b.r)
+    const fracs = []
+    for (const t of onV) {
+      const f = crossFraction(a.v, b.v, t)
+      if (f != null) fracs.push(f)
+    }
+    if (bothR) {
+      for (const t of onR) {
+        const f = crossFraction(a.r, b.r, t)
+        if (f != null) fracs.push(f)
+      }
+    }
+    fracs.sort((x, y) => x - y)
+    const stops = [0, ...fracs, 1]
+    for (let s = 0; s < stops.length - 1; s++) {
+      const f0 = stops[s]
+      const f1 = stops[s + 1]
+      const mid = (f0 + f1) / 2
+      const rMid = bothR ? interp(a.r, b.r, mid) : isNum(a.r) ? a.r : isNum(b.r) ? b.r : null
+      const color = traceColor(interp(a.v, b.v, mid), rMid, spec, C)
+      const v0 = { t: interp(a.t, b.t, f0), v: interp(a.v, b.v, f0) }
+      const v1 = { t: interp(a.t, b.t, f1), v: interp(a.v, b.v, f1) }
+      const last = runs[runs.length - 1]
+      if (last && last.color === color) last.verts.push(v1)
+      else runs.push({ color, verts: [v0, v1] })
+    }
+  }
+  return runs
+}
+
+/**
  * Draw one parameter's figure.
  *
  * @param {CanvasRenderingContext2D} ctx
@@ -155,6 +267,11 @@ function dayTicks(t0, t1, utcOffsetMin) {
  * @param {number} [spec.width] CSS pixels
  * @param {number} [spec.height] CSS pixels
  * @param {number} [spec.limit] upper screening reference
+ * @param {number} [spec.actionLimit] a higher acute action tier, where one is
+ *   defined; the trace draws red where its ROLLING MEAN over `actionWindowMs`
+ *   reaches it. Omitted (or no window) → no red span.
+ * @param {number} [spec.actionWindowMs] the action tier's averaging window
+ *   (e.g. 1 h for CO, 24 h for PM2.5). Required for a red span.
  * @param {number[]} [spec.band] comfort range [lo, hi]
  * @param {string} [spec.referenceLabel]
  * @param {{start:number,end:number}[]} [spec.occupancy]
@@ -275,28 +392,59 @@ export function drawMonitoringChart(ctx, spec = {}) {
     }
   }
 
-  // Area fill under the trend
-  const grad = ctx.createLinearGradient(0, y0, 0, y1)
-  grad.addColorStop(0, C.fillTop)
-  grad.addColorStop(1, C.fillBottom)
-  ctx.beginPath()
-  ctx.moveTo(X(pts[0].t), Y(pts[0].v))
-  pts.forEach((p) => ctx.lineTo(X(p.t), Y(p.v)))
-  ctx.lineTo(X(t1), y1)
-  ctx.lineTo(X(t0), y1)
-  ctx.closePath()
-  ctx.fillStyle = grad
-  ctx.fill()
-
-  // Trend line
-  ctx.beginPath()
-  ctx.moveTo(X(pts[0].t), Y(pts[0].v))
-  pts.forEach((p) => ctx.lineTo(X(p.t), Y(p.v)))
-  ctx.strokeStyle = C.line
+  // Trace and its area fill, coloured together per reading against the selected
+  // reference: teal in range, amber across a screening excursion, red where the
+  // acute action tier is reached. Each run is split exactly where it crosses a
+  // threshold, so only the out-of-range span changes colour — a lone spike
+  // colours only its own span (never the whole trace), and a mostly-out-of-
+  // range series (HCHO at ~99% above) reads as mostly amber. The fill under a
+  // span matches its line, so an excursion reads as a coloured region, not a
+  // colour floating over a mismatched teal wash.
+  //
+  // The red action tier is evaluated on a ROLLING MEAN over the criterion's
+  // window (`actionWindowMs`), not the raw reading, so a single short-interval
+  // spike cannot trip a 1-hour (CO) or 24-hour (PM2.5) category; a dataset
+  // shorter than the window never reddens at all.
+  const rolling =
+    isNum(spec.limit) && isNum(spec.actionLimit) && spec.actionLimit > spec.limit && isNum(spec.actionWindowMs)
+      ? trailingMeans(pts, spec.actionWindowMs)
+      : null
+  const colorPts = rolling ? pts.map((p, i) => ({ t: p.t, v: p.v, r: rolling[i] })) : pts
+  const runs = coloredRuns(colorPts, spec, C)
+  const gradCache = {}
+  const gradFor = (color) => {
+    if (!gradCache[color]) {
+      const [top, bot] = TRACE_FILL[color] || TRACE_FILL[C.line]
+      const g = ctx.createLinearGradient(0, y0, 0, y1)
+      g.addColorStop(0, top)
+      g.addColorStop(1, bot)
+      gradCache[color] = g
+    }
+    return gradCache[color]
+  }
+  const tracePath = (run) => {
+    ctx.moveTo(X(run.verts[0].t), Y(run.verts[0].v))
+    for (let i = 1; i < run.verts.length; i++) ctx.lineTo(X(run.verts[i].t), Y(run.verts[i].v))
+  }
+  // Fills first, so the coloured lines sit crisply on top.
+  runs.forEach((run) => {
+    ctx.beginPath()
+    tracePath(run)
+    ctx.lineTo(X(run.verts[run.verts.length - 1].t), y1)
+    ctx.lineTo(X(run.verts[0].t), y1)
+    ctx.closePath()
+    ctx.fillStyle = gradFor(run.color)
+    ctx.fill()
+  })
   ctx.lineWidth = STROKE.trend
   ctx.lineJoin = 'round'
   ctx.lineCap = 'round'
-  ctx.stroke()
+  runs.forEach((run) => {
+    ctx.beginPath()
+    tracePath(run)
+    ctx.strokeStyle = run.color
+    ctx.stroke()
+  })
 
   // Annotated events — a dashed rule and a caret, labelled above the plot.
   ;(spec.events || []).forEach((e) => {
@@ -329,11 +477,15 @@ export function drawMonitoringChart(ctx, spec = {}) {
   })
 
   // The maximum, labelled — the single most-cited point on the figure.
-  let peak = pts[0]
-  pts.forEach((p) => { if (p.v > peak.v) peak = p })
+  let peakIdx = 0
+  for (let i = 1; i < pts.length; i++) if (pts[i].v > pts[peakIdx].v) peakIdx = i
+  const peak = pts[peakIdx]
   const px = X(peak.t)
   const py = Y(peak.v)
-  ctx.fillStyle = C.line
+  // The peak dot takes the colour of its own span — amber, or red when the
+  // rolling mean at the maximum is itself in the action tier — so the
+  // most-cited point reads true.
+  ctx.fillStyle = traceColor(peak.v, rolling ? rolling[peakIdx] : null, spec, C)
   ctx.beginPath()
   ctx.arc(px, py, 3.4, 0, Math.PI * 2)
   ctx.fill()
@@ -487,6 +639,8 @@ export function renderMonitoringCharts(params, points, opts = {}) {
     const url = renderMonitoringChart({
       points: series,
       limit: ref.limit,
+      actionLimit: ref.actionLimit,
+      actionWindowMs: ref.actionWindowMs,
       band: ref.band,
       referenceLabel: ref.band
         ? `${ref.band[0]}–${ref.band[1]} ${entry.unit || ''}`.trim()

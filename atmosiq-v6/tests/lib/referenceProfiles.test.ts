@@ -67,6 +67,42 @@ describe('values come from the standards manifest', () => {
   })
 })
 
+describe('the acute action tier (the figure’s red span)', () => {
+  it('rides on the CO 9-ppm references, keyed to the WHO 1-hour guideline over a 1-hour window', () => {
+    for (const id of ['epa-naaqs', 'well']) {
+      const r = resolveReference('co', id, { unit: 'ppm' })!
+      expect(r.action, `co/${id} action`).toBeTruthy()
+      expect(r.action!.limit).toBe(STD.c.co.who1h)
+      expect(r.action!.windowMs).toBe(3_600_000)
+      expect(r.action!.source).toMatch(/WHO/)
+    }
+  })
+
+  it('is NOT offered on the occupational CO references, where it would sit below the selected limit', () => {
+    // NIOSH 35 / OSHA 50 already exceed the WHO 1-hour tier (30), so a higher
+    // acute span would invert the hierarchy — the guard drops it.
+    expect(resolveReference('co', 'niosh-rel', { unit: 'ppm' })!.action).toBeNull()
+    expect(resolveReference('co', 'osha-pel', { unit: 'ppm' })!.action).toBeNull()
+  })
+
+  it('rides on the 24-hour PM2.5 references, keyed to the EPA Unhealthy category over a 24-hour window', () => {
+    for (const id of ['epa', 'who']) {
+      const r = resolveReference('pm25', id, { unit: 'µg/m³' })!
+      expect(r.action, `pm25/${id} action`).toBeTruthy()
+      expect(r.action!.limit).toBe(STD.c.pm25.epaUnhealthy)
+      expect(r.action!.windowMs).toBe(86_400_000)
+    }
+  })
+
+  it('is NOT offered on the annual PM2.5 references or on parameters without a defensible tier', () => {
+    expect(resolveReference('pm25', 'epa-annual', { unit: 'µg/m³' })!.action).toBeNull()
+    expect(resolveReference('pm25', 'well', { unit: 'µg/m³' })!.action).toBeNull()
+    expect(resolveReference('co2', 'ashrae-advisory', { unit: 'ppm' })!.action).toBeNull()
+    expect(resolveReference('tvoc', 'molhave', { unit: 'ppb' })!.action).toBeNull()
+    expect(resolveReference('temp', 'ashrae-comfort', { unit: '°F', ts: Date.UTC(2026, 6, 15) })!.action).toBeNull()
+  })
+})
+
 describe('unit projection', () => {
   it('projects the TVOC advisory into the unit the data was logged in', () => {
     const ugm3 = resolveReference('tvoc', 'molhave', { unit: 'µg/m³' })!

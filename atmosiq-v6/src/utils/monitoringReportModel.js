@@ -32,7 +32,7 @@
  * in either direction.
  */
 
-import { parameterStats } from './monitoringStats'
+import { parameterStats, trailingMeans } from './monitoringStats'
 import {
   parameterStatement,
   monitoringInsights,
@@ -316,10 +316,25 @@ export function figureCaption(entry, opts = {}) {
   const parts = [`Figure ${entry.figureNumber}. ${entry.shortLabel} over the monitoring period.`]
 
   const ref = entry.reference
+  const st = obj(entry.stats)
   if (ref && ref.band) {
     parts.push(`Shaded band = ${referenceValueLabel(ref)} comfort range.`)
+    // The amber legend is earned only when some reading actually fell outside
+    // the band — otherwise it describes a colour the figure never draws.
+    if (isNum(st.pctInBand) && st.pctInBand < 100) parts.push('Amber trace = readings outside the band.')
   } else if (ref && isNum(ref.limit)) {
     parts.push(`Dashed line = ${referenceValueLabel(ref)} screening reference.`)
+    if (isNum(st.pctAbove) && st.pctAbove > 0) {
+      // The red clause is earned only when the acute tier is actually reached
+      // (rolling mean over its window), and it names the criterion so the
+      // stronger claim is attributed, not implied.
+      const action = ref.action
+      parts.push(
+        entry.actionTierReached && action
+          ? `Amber trace = readings above the reference; red = ${action.label || 'acute action tier'} (${action.source || 'defined higher criterion'}).`
+          : 'Amber trace = readings above the reference.',
+      )
+    }
   }
 
   const marks = []
@@ -427,6 +442,20 @@ export function buildMonitoringReportModel(session, opts = {}) {
         insights: monitoringInsights(param, stats, refShape, { points, events, utcOffsetMin, units }),
         chart: charts[param] || null,
         stats,
+      }
+      // Whether the acute action tier (the figure's red span) is genuinely
+      // reached: the rolling mean over the criterion's window at or above its
+      // limit, with the window covered. Computed here so the caption only
+      // promises red when the figure actually draws it — the same averaging the
+      // figure uses, from one shared helper.
+      entry.actionTierReached = false
+      if (ref && ref.action && isNum(ref.action.limit) && isNum(ref.action.windowMs)) {
+        const series = points
+          .filter((pt) => pt && isNum(pt.t) && isNum(pt[param]))
+          .map((pt) => ({ t: pt.t, v: pt[param] }))
+        entry.actionTierReached =
+          series.length >= 2 &&
+          trailingMeans(series, ref.action.windowMs).some((m) => isNum(m) && m >= ref.action.limit)
       }
       entry.caption = figureCaption(entry, {
         hasOccupancy: occupancy.length > 0,

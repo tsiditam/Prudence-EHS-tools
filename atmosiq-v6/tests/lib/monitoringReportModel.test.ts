@@ -505,6 +505,34 @@ describe('figure captions', () => {
     expect(none).toBe('Figure 3. CO₂ over the monitoring period.')
     expect(figureCaption(null as never, {})).toBe('')
   })
+
+  it('explains the amber trace only when a reading actually crossed the reference', () => {
+    // No excursion → no amber legend (it would describe a colour never drawn).
+    expect(
+      figureCaption({ ...base, reference: { limit: 1000, unit: 'ppm' }, stats: { pctAbove: 0 } }, {}),
+    ).not.toContain('Amber')
+    // Some readings above → the amber legend is earned.
+    expect(
+      figureCaption({ ...base, reference: { limit: 1000, unit: 'ppm' }, stats: { pctAbove: 4.2 } }, {}),
+    ).toContain('Amber trace = readings above the reference.')
+    // A defined action tier that is actually REACHED (rolling mean) → the red
+    // legend too, naming the criterion and its source.
+    const withAction = {
+      ...base,
+      reference: { limit: 1000, unit: 'ppm', action: { limit: 1500, label: 'WHO 1-hour acute', source: 'WHO 2010' } },
+      stats: { pctAbove: 4.2 },
+    }
+    expect(figureCaption({ ...withAction, actionTierReached: true }, {})).toContain('red = WHO 1-hour acute (WHO 2010)')
+    // Defined but NOT reached → no red clause (it would describe a span never drawn).
+    expect(figureCaption({ ...withAction, actionTierReached: false }, {})).not.toContain('red =')
+    // Band: amber legend only when time fell outside the band.
+    expect(
+      figureCaption({ ...base, shortLabel: 'Temp', reference: { band: [68, 76], unit: '°F' }, stats: { pctInBand: 100 } }, {}),
+    ).not.toContain('Amber')
+    expect(
+      figureCaption({ ...base, shortLabel: 'Temp', reference: { band: [68, 76], unit: '°F' }, stats: { pctInBand: 88 } }, {}),
+    ).toContain('Amber trace = readings outside the band.')
+  })
 })
 
 describe('the §Limitations statement', () => {

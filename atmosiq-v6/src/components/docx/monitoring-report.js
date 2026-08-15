@@ -85,7 +85,15 @@ export function attachMonitoringCharts(model, session, opts = {}) {
   const params = (model.parameters || []).map((p) => ({
     param: p.param,
     unit: p.unit,
-    reference: p.reference ? { limit: p.reference.limit, band: p.reference.band } : null,
+    reference: p.reference
+      ? {
+          limit: p.reference.limit,
+          band: p.reference.band,
+          // Flatten the resolved acute action tier into what the figure reads.
+          actionLimit: p.reference.action ? p.reference.action.limit : null,
+          actionWindowMs: p.reference.action ? p.reference.action.windowMs : null,
+        }
+      : null,
   }))
   if (!params.length) return model
 

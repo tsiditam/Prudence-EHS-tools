@@ -19,17 +19,31 @@ const MIN = 60_000
 
 /** Records every call, so a drawing routine can be asserted without a canvas. */
 function stubCtx() {
-  const calls: { fn: string; args: unknown[] }[] = []
+  const calls: { fn: string; args: unknown[]; color?: unknown }[] = []
   const rec = (fn: string) => (...args: unknown[]) => { calls.push({ fn, args }) }
+  const gradients: string[][] = []
   const ctx: Record<string, unknown> = {
     calls,
     text: () => calls.filter((c) => c.fn === 'fillText').map((c) => String(c.args[0])),
-    createLinearGradient: () => ({ addColorStop() {} }),
+    // The colour of each stroke, in draw order — for asserting conditional
+    // trace colouring against the reference.
+    strokeColors: () => calls.filter((c) => c.fn === 'stroke').map((c: any) => c.color),
+    // The stop colours of every gradient built — the area fills use one per
+    // trace colour, so this asserts the fill follows the line.
+    gradientColors: () => gradients.map((s) => s.join(' ')),
+    createLinearGradient: () => {
+      const stops: string[] = []
+      gradients.push(stops)
+      return { addColorStop: (_o: number, c: string) => stops.push(c) }
+    },
   }
   for (const fn of [
-    'clearRect', 'fillRect', 'beginPath', 'moveTo', 'lineTo', 'closePath', 'fill', 'stroke',
+    'clearRect', 'fillRect', 'beginPath', 'moveTo', 'lineTo', 'closePath', 'fill',
     'arc', 'setLineDash', 'fillText', 'scale',
   ]) ctx[fn] = rec(fn)
+  // stroke/fill record the active style so trace colours can be asserted.
+  ctx.stroke = (...args: unknown[]) => calls.push({ fn: 'stroke', args, color: ctx.strokeStyle })
+  ctx.fill = (...args: unknown[]) => calls.push({ fn: 'fill', args, color: ctx.fillStyle })
   return ctx as any
 }
 
@@ -156,6 +170,87 @@ describe('drawMonitoringChart', () => {
     const ctx = stubCtx()
     drawMonitoringChart(ctx, { points: series(40, () => 500), events: [{ t: T0 - 5 * 86_400_000, label: 'Before' }] })
     expect(ctx.text()).not.toContain('Before')
+  })
+
+  it('colours only the above-reference span amber, not the whole trace', () => {
+    const ctx = stubCtx()
+    // A flat 450 series with one spike to 1789 over a 1000 limit.
+    drawMonitoringChart(ctx, { points: series(40, (i) => (i === 20 ? 1789 : 450)), limit: 1000 })
+    const colors = ctx.strokeColors()
+    const teal = colors.filter((c: string) => c === '#0891B2').length
+    const amber = colors.filter((c: string) => c === '#D97706').length
+    // Most of the trace is in range (teal); the excursion is present but small.
+    expect(teal).toBeGreaterThan(amber)
+    expect(amber).toBeGreaterThan(0)
+    // No action tier defined → no red.
+    expect(colors).not.toContain('#DC2626')
+    // The fill follows the line: both a teal and an amber fill gradient exist.
+    const grads = ctx.gradientColors()
+    expect(grads.some((g: string) => g.includes('8,145,178'))).toBe(true) // teal fill
+    expect(grads.some((g: string) => g.includes('217,119,6'))).toBe(true) // amber fill
+  })
+
+  it('keeps a fully in-range series entirely teal — line and fill', () => {
+    const ctx = stubCtx()
+    drawMonitoringChart(ctx, { points: series(40, () => 450), limit: 1000 })
+    expect(ctx.strokeColors()).not.toContain('#D97706')
+    expect(ctx.gradientColors().some((g: string) => g.includes('217,119,6'))).toBe(false)
+  })
+
+  it('turns red only where the ROLLING mean reaches the action tier', () => {
+    const ctx = stubCtx()
+    const HOUR = 60 * MIN
+    // 10-min spacing; second half SUSTAINED at 1789 for well over the 1-hour
+    // window, so its rolling mean reaches the 1500 action tier.
+    drawMonitoringChart(ctx, {
+      points: series(60, (i) => (i < 30 ? 450 : 1789)),
+      limit: 1000,
+      actionLimit: 1500,
+      actionWindowMs: HOUR,
+    })
+    const colors = ctx.strokeColors()
+    expect(colors).toContain('#D97706') // amber on the way up
+    expect(colors).toContain('#DC2626') // red once the 1-hour mean is sustained
+    expect(ctx.gradientColors().some((g: string) => g.includes('220,38,38'))).toBe(true) // red fill too
+  })
+
+  it('does NOT turn red on a single spike, however high (averaging guard)', () => {
+    const ctx = stubCtx()
+    const HOUR = 60 * MIN
+    // One 5000 reading among 450s: raw is an excursion (amber) but the 1-hour
+    // mean never reaches 1500, so nothing reddens.
+    drawMonitoringChart(ctx, {
+      points: series(60, (i) => (i === 40 ? 5000 : 450)),
+      limit: 1000,
+      actionLimit: 1500,
+      actionWindowMs: HOUR,
+    })
+    const colors = ctx.strokeColors()
+    expect(colors).toContain('#D97706') // the spike is amber
+    expect(colors).not.toContain('#DC2626') // but never red
+  })
+
+  it('never reddens a dataset shorter than the action window', () => {
+    const ctx = stubCtx()
+    const DAY = 24 * 60 * MIN
+    // Sustained 80 (well above a 55 action tier) but only ~10 hours of data
+    // against a 24-hour window: no point has a full window, so no red.
+    drawMonitoringChart(ctx, {
+      points: series(60, () => 80),
+      limit: 35,
+      actionLimit: 55,
+      actionWindowMs: DAY,
+    })
+    expect(ctx.strokeColors()).not.toContain('#DC2626')
+  })
+
+  it('colours out-of-band readings amber but leaves in-band teal', () => {
+    const ctx = stubCtx()
+    // Oscillates in and out of a 68–76 comfort band.
+    drawMonitoringChart(ctx, { points: series(40, (i) => (i % 2 === 0 ? 72 : 82)), band: [68, 76] })
+    const colors = ctx.strokeColors()
+    expect(colors).toContain('#0891B2') // in-band teal
+    expect(colors).toContain('#D97706') // out-of-band amber
   })
 
   it('day labels do not depend on the host timezone', () => {

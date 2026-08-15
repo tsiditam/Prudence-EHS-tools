@@ -54,6 +54,34 @@ export function mean(values) {
 }
 
 /**
+ * Trailing mean of each point's value over `windowMs` ending at that point, or
+ * `null` where a full window of data does not precede the point.
+ *
+ * This is the averaging step an acute, WINDOWED criterion (a 1-hour or 24-hour
+ * category) must be evaluated on: a category with an averaging period may only
+ * be assigned from the mean over that period, never a single short-interval
+ * reading. A point whose trailing window is not fully covered by data returns
+ * `null`, so a dataset shorter than the window can never satisfy the criterion.
+ * Operates on `[{ t, v }]` ascending points; returns one entry per point.
+ */
+export function trailingMeans(points, windowMs) {
+  const n = (points || []).length
+  const out = new Array(n).fill(null)
+  if (!isNum(windowMs) || windowMs <= 0 || !n) return out
+  let lo = 0
+  let sum = 0
+  for (let i = 0; i < n; i++) {
+    sum += points[i].v
+    while (points[lo].t < points[i].t - windowMs) {
+      sum -= points[lo].v
+      lo++
+    }
+    if (points[i].t - points[0].t >= windowMs) out[i] = sum / (i - lo + 1)
+  }
+  return out
+}
+
+/**
  * Nearest-rank percentile (see conventions above).
  * @param {number[]} values
  * @param {number} p percentile in 0–100

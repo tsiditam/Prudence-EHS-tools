@@ -20,6 +20,7 @@ import {
   hourOfDayProfile,
   occupancySplit,
   parameterStats,
+  trailingMeans,
   GAP_FACTOR,
 } from '../../src/utils/monitoringStats.js'
 
@@ -39,6 +40,40 @@ describe('mean', () => {
   it('returns null for an empty sample', () => {
     expect(mean([])).toBeNull()
     expect(mean(null as never)).toBeNull()
+  })
+})
+
+describe('trailingMeans — windowed average with a coverage guard', () => {
+  const P = (vals: number[], stepMin: number, start = T0) =>
+    vals.map((v, i) => ({ t: start + i * stepMin * MIN, v }))
+
+  it('returns null until a full window of data precedes the point', () => {
+    // 10-minute spacing, 60-minute window → covered only from the 7th point on
+    // (index 6, where t - t0 = 60 min).
+    const out = trailingMeans(P([1, 2, 3, 4, 5, 6, 7], 10), 60 * MIN)
+    expect(out.slice(0, 6).every((m) => m === null)).toBe(true)
+    expect(out[6]).not.toBeNull()
+  })
+
+  it('averages exactly the readings inside the trailing window', () => {
+    // Constant 80 → the trailing mean, once covered, is 80.
+    const out = trailingMeans(P(Array(12).fill(80), 10), 60 * MIN)
+    expect(out[11]).toBe(80)
+    // A single 500 among 80s stays well under a mean, per the averaging guard.
+    const spike = P(Array(12).fill(80), 10)
+    spike[11] = { ...spike[11], v: 500 }
+    // window at the last point = the 7 points [t-60min, t]: six 80s + one 500.
+    expect(trailingMeans(spike, 60 * MIN)[11]).toBeCloseTo((6 * 80 + 500) / 7, 6)
+  })
+
+  it('never covers a window longer than the dataset', () => {
+    const out = trailingMeans(P(Array(20).fill(80), 10), 24 * 60 * MIN) // 24h window, ~3h data
+    expect(out.every((m) => m === null)).toBe(true)
+  })
+
+  it('is null-safe on empty or bad input', () => {
+    expect(trailingMeans([], 60 * MIN)).toEqual([])
+    expect(trailingMeans(P([1, 2, 3], 10), 0)).toEqual([null, null, null])
   })
 })
 
