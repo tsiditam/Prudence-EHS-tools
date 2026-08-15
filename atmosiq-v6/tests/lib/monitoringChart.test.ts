@@ -197,10 +197,51 @@ describe('drawMonitoringChart', () => {
     expect(ctx.gradientColors().some((g: string) => g.includes('217,119,6'))).toBe(false)
   })
 
-  it('turns the span red above a defined action tier', () => {
+  it('turns red only where the ROLLING mean reaches the action tier', () => {
     const ctx = stubCtx()
-    drawMonitoringChart(ctx, { points: series(40, (i) => (i === 20 ? 1789 : 450)), limit: 1000, actionLimit: 1500 })
-    expect(ctx.strokeColors()).toContain('#DC2626') // the peak crosses 1500
+    const HOUR = 60 * MIN
+    // 10-min spacing; second half SUSTAINED at 1789 for well over the 1-hour
+    // window, so its rolling mean reaches the 1500 action tier.
+    drawMonitoringChart(ctx, {
+      points: series(60, (i) => (i < 30 ? 450 : 1789)),
+      limit: 1000,
+      actionLimit: 1500,
+      actionWindowMs: HOUR,
+    })
+    const colors = ctx.strokeColors()
+    expect(colors).toContain('#D97706') // amber on the way up
+    expect(colors).toContain('#DC2626') // red once the 1-hour mean is sustained
+    expect(ctx.gradientColors().some((g: string) => g.includes('220,38,38'))).toBe(true) // red fill too
+  })
+
+  it('does NOT turn red on a single spike, however high (averaging guard)', () => {
+    const ctx = stubCtx()
+    const HOUR = 60 * MIN
+    // One 5000 reading among 450s: raw is an excursion (amber) but the 1-hour
+    // mean never reaches 1500, so nothing reddens.
+    drawMonitoringChart(ctx, {
+      points: series(60, (i) => (i === 40 ? 5000 : 450)),
+      limit: 1000,
+      actionLimit: 1500,
+      actionWindowMs: HOUR,
+    })
+    const colors = ctx.strokeColors()
+    expect(colors).toContain('#D97706') // the spike is amber
+    expect(colors).not.toContain('#DC2626') // but never red
+  })
+
+  it('never reddens a dataset shorter than the action window', () => {
+    const ctx = stubCtx()
+    const DAY = 24 * 60 * MIN
+    // Sustained 80 (well above a 55 action tier) but only ~10 hours of data
+    // against a 24-hour window: no point has a full window, so no red.
+    drawMonitoringChart(ctx, {
+      points: series(60, () => 80),
+      limit: 35,
+      actionLimit: 55,
+      actionWindowMs: DAY,
+    })
+    expect(ctx.strokeColors()).not.toContain('#DC2626')
   })
 
   it('colours out-of-band readings amber but leaves in-band teal', () => {

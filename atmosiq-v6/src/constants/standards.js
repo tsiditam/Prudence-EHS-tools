@@ -116,7 +116,11 @@ export const STD = {
     // `well` is the WELL Building Standard v2 (feature A01) CO performance
     // threshold, 9 ppm — a green-building certification target, not a
     // regulatory limit (see WELL_NOTE in referenceProfiles.js).
-    co:   { osha: 50,   niosh: 35,    epa: 9,  well: 9 },
+    // `who1h` is the WHO 2010 Indoor Air Quality Guidelines short-term CO
+    // guideline: 35 mg/m³ over 1 hour ≈ 30 ppm (health-based ACUTE criterion
+    // with a 1-hour averaging period — distinct from the 8-hour references
+    // above). Used only as the higher action tier over a 1-hour rolling mean.
+    co:   { osha: 50,   niosh: 35,    epa: 9,  well: 9,  who1h: 30 },
     hcho: { osha: 0.75, niosh: 0.016, al: 0.5, epaRfc: 0.008, who: 0.081 },
     // Particulates, µg/m³. The `epa`/`who` entries are on a 24-HOUR basis so
     // a given size fraction is directly comparable; `epaAnnual`/`whoAnnual`
@@ -128,6 +132,11 @@ export const STD = {
     //   pm25.epaAnnual   9 — EPA primary ANNUAL NAAQS (2024; 89 FR 16202)
     //   pm25.whoAnnual   5 — WHO 2021 AQG, annual mean
     //   pm25.well       15 — WELL v2 (A01) performance target
+    //   pm25.epaUnhealthy 55.5 — lower bound of the EPA AQI 24-hour
+    //     "Unhealthy" category (the band above "Unhealthy for Sensitive
+    //     Groups", 35.5–55.4). A 24-HOUR category: used only as the higher
+    //     action tier evaluated on a 24-hour rolling mean, never a single
+    //     short-interval reading.
     //   pm10.epa       150 — EPA 24-hour NAAQS (40 CFR 50.6)
     //   pm10.who        45 — WHO 2021 AQG, 24-hour mean
     //   pm10.whoAnnual  15 — WHO 2021 AQG, annual mean
@@ -136,7 +145,7 @@ export const STD = {
     // averaged over three years) that a single monitoring session cannot
     // evaluate. The form caveat travels with the profile, not with the
     // number — see PM_NAAQS_NOTE in referenceProfiles.js.
-    pm25: { epa: 35,    who: 15,   epaAnnual: 9,  whoAnnual: 5,  well: 15 },
+    pm25: { epa: 35,    who: 15,   epaAnnual: 9,  whoAnnual: 5,  well: 15,  epaUnhealthy: 55.5 },
     pm10: { epa: 150,   who: 45,   whoAnnual: 15, well: 50 },
     // TVOC `con` is 500 µg/m³ — the Mølhave 1991 multifactorial-exposure
     // advisory tier (≈219 ppb isobutylene-equiv). Advisory only: TVOC has

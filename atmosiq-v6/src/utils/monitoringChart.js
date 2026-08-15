@@ -17,6 +17,8 @@
  * be exercised without a DOM; only `renderMonitoringChart` needs a canvas.
  */
 
+import { trailingMeans } from './monitoringStats'
+
 const isNum = (v) => v != null && Number.isFinite(v)
 
 /**
@@ -166,79 +168,92 @@ function dayTicks(t0, t1, utcOffsetMin) {
 }
 
 /**
- * The values a trace is split at so each span can be coloured against the
- * selected reference: a band's two edges, or an upper limit (plus a higher
- * action tier where one is defined). Sorted ascending.
+ * The colour of a reading: teal in range, amber for a screening excursion
+ * (raw value above the upper reference, or outside the comfort band), red for
+ * the acute action tier — the ROLLING mean `r` over the criterion's window at
+ * or above `actionLimit`. Red is drawn only where the action tier genuinely
+ * sits above the screening reference; a raw spike alone never turns red, and a
+ * single reading never does, because `r` is a windowed mean (null until
+ * covered).
  */
-function traceThresholds(spec) {
-  if (Array.isArray(spec.band) && isNum(spec.band[0]) && isNum(spec.band[1])) {
-    return [spec.band[0], spec.band[1]].sort((a, b) => a - b)
-  }
-  if (isNum(spec.limit)) {
-    return [spec.limit, isNum(spec.actionLimit) ? spec.actionLimit : null].filter(isNum).sort((a, b) => a - b)
-  }
-  return []
-}
-
-/**
- * The colour a reading of value `v` takes: teal in range, amber for an
- * excursion (above the upper reference, or outside the comfort band), red above
- * a defined higher action tier. One spike therefore colours only its own span,
- * never the whole trace — the amber "% above" of the strip and this amber span
- * tell the same story.
- */
-function traceColor(v, spec, C) {
+function traceColor(v, r, spec, C) {
   if (Array.isArray(spec.band) && isNum(spec.band[0]) && isNum(spec.band[1])) {
     return v < spec.band[0] || v > spec.band[1] ? C.excursion : C.line
   }
   if (isNum(spec.limit)) {
-    if (isNum(spec.actionLimit) && v >= spec.actionLimit) return C.action
+    if (isNum(spec.actionLimit) && spec.actionLimit > spec.limit && isNum(r) && r >= spec.actionLimit) return C.action
     if (v >= spec.limit) return C.excursion
     return C.line
   }
   return C.line
 }
 
-/** Fractions in (0,1) where a segment from value `va` to `vb` crosses each
- * threshold, so the line can change colour exactly on the reference, not at the
- * next logged point. Sorted ascending. */
-function segmentCuts(va, vb, thresholds) {
-  const cuts = []
-  for (const t of thresholds) {
-    if ((va < t && vb > t) || (va > t && vb < t)) {
-      const f = (t - va) / (vb - va)
-      if (f > 0 && f < 1) cuts.push(f)
-    }
+/** The values the RAW trace and the ROLLING mean are each split at, so a colour
+ * change lands exactly on a crossing. `onV` are crossed by the reading itself
+ * (band edges / screening limit); `onR` by the windowed mean (action tier). */
+function thresholdSets(spec) {
+  if (Array.isArray(spec.band) && isNum(spec.band[0]) && isNum(spec.band[1])) {
+    return { onV: [spec.band[0], spec.band[1]], onR: [] }
   }
-  return cuts.sort((a, b) => a - b)
+  const onV = isNum(spec.limit) ? [spec.limit] : []
+  const onR =
+    isNum(spec.limit) && isNum(spec.actionLimit) && spec.actionLimit > spec.limit ? [spec.actionLimit] : []
+  return { onV, onR }
+}
+
+/** Fraction in (0,1) where a linear a→b crosses `t`, or null. */
+function crossFraction(a, b, t) {
+  if ((a < t && b > t) || (a > t && b < t)) {
+    const f = (t - a) / (b - a)
+    if (f > 0 && f < 1) return f
+  }
+  return null
 }
 
 /**
- * Split the trace into contiguous single-colour RUNS, inserting a vertex at
- * every reference crossing so each run lies wholly in one colour band. Grouping
- * consecutive same-colour edges (rather than drawing each logged segment
- * separately) lets a run's line AND its fill draw as one continuous region —
- * clean colour boundaries at the crossings, no antialias seams inside a run.
+ * Split the trace into contiguous single-colour RUNS. Each point carries its
+ * raw value `v` and (optionally) its rolling mean `r`; a run boundary is
+ * inserted wherever the reading crosses the reference OR the rolling mean
+ * crosses the action tier, so line and fill change colour exactly on the
+ * crossing. Grouping consecutive same-colour edges lets each run draw as one
+ * continuous region — clean boundaries, no antialias seams inside a run.
  *
- * Returns `[{ color, verts: [{t, v}, …] }]` in draw order.
+ * Returns `[{ color, verts: [{t, v}, …] }]` in draw order; verts carry the raw
+ * value (the line's y-position), while colour reflects both v and r.
  */
 function coloredRuns(pts, spec, C) {
-  const th = traceThresholds(spec)
-  const verts = [{ t: pts[0].t, v: pts[0].v }]
+  const { onV, onR } = thresholdSets(spec)
+  const runs = []
+  const interp = (a, b, f) => a + (b - a) * f
   for (let i = 0; i < pts.length - 1; i++) {
     const a = pts[i]
     const b = pts[i + 1]
-    for (const f of segmentCuts(a.v, b.v, th)) {
-      verts.push({ t: a.t + (b.t - a.t) * f, v: a.v + (b.v - a.v) * f })
+    const bothR = isNum(a.r) && isNum(b.r)
+    const fracs = []
+    for (const t of onV) {
+      const f = crossFraction(a.v, b.v, t)
+      if (f != null) fracs.push(f)
     }
-    verts.push({ t: b.t, v: b.v })
-  }
-  const runs = []
-  for (let i = 0; i < verts.length - 1; i++) {
-    const color = traceColor((verts[i].v + verts[i + 1].v) / 2, spec, C)
-    const last = runs[runs.length - 1]
-    if (last && last.color === color) last.verts.push(verts[i + 1])
-    else runs.push({ color, verts: [verts[i], verts[i + 1]] })
+    if (bothR) {
+      for (const t of onR) {
+        const f = crossFraction(a.r, b.r, t)
+        if (f != null) fracs.push(f)
+      }
+    }
+    fracs.sort((x, y) => x - y)
+    const stops = [0, ...fracs, 1]
+    for (let s = 0; s < stops.length - 1; s++) {
+      const f0 = stops[s]
+      const f1 = stops[s + 1]
+      const mid = (f0 + f1) / 2
+      const rMid = bothR ? interp(a.r, b.r, mid) : isNum(a.r) ? a.r : isNum(b.r) ? b.r : null
+      const color = traceColor(interp(a.v, b.v, mid), rMid, spec, C)
+      const v0 = { t: interp(a.t, b.t, f0), v: interp(a.v, b.v, f0) }
+      const v1 = { t: interp(a.t, b.t, f1), v: interp(a.v, b.v, f1) }
+      const last = runs[runs.length - 1]
+      if (last && last.color === color) last.verts.push(v1)
+      else runs.push({ color, verts: [v0, v1] })
+    }
   }
   return runs
 }
@@ -252,8 +267,11 @@ function coloredRuns(pts, spec, C) {
  * @param {number} [spec.width] CSS pixels
  * @param {number} [spec.height] CSS pixels
  * @param {number} [spec.limit] upper screening reference
- * @param {number} [spec.actionLimit] a higher action/review tier, where one is
- *   defined; readings above it draw red. Omitted → no red span.
+ * @param {number} [spec.actionLimit] a higher acute action tier, where one is
+ *   defined; the trace draws red where its ROLLING MEAN over `actionWindowMs`
+ *   reaches it. Omitted (or no window) → no red span.
+ * @param {number} [spec.actionWindowMs] the action tier's averaging window
+ *   (e.g. 1 h for CO, 24 h for PM2.5). Required for a red span.
  * @param {number[]} [spec.band] comfort range [lo, hi]
  * @param {string} [spec.referenceLabel]
  * @param {{start:number,end:number}[]} [spec.occupancy]
@@ -375,14 +393,24 @@ export function drawMonitoringChart(ctx, spec = {}) {
   }
 
   // Trace and its area fill, coloured together per reading against the selected
-  // reference: teal in range, amber across a screening excursion, red above a
-  // defined higher action tier. Each run is split exactly where it crosses a
+  // reference: teal in range, amber across a screening excursion, red where the
+  // acute action tier is reached. Each run is split exactly where it crosses a
   // threshold, so only the out-of-range span changes colour — a lone spike
   // colours only its own span (never the whole trace), and a mostly-out-of-
   // range series (HCHO at ~99% above) reads as mostly amber. The fill under a
   // span matches its line, so an excursion reads as a coloured region, not a
   // colour floating over a mismatched teal wash.
-  const runs = coloredRuns(pts, spec, C)
+  //
+  // The red action tier is evaluated on a ROLLING MEAN over the criterion's
+  // window (`actionWindowMs`), not the raw reading, so a single short-interval
+  // spike cannot trip a 1-hour (CO) or 24-hour (PM2.5) category; a dataset
+  // shorter than the window never reddens at all.
+  const rolling =
+    isNum(spec.limit) && isNum(spec.actionLimit) && spec.actionLimit > spec.limit && isNum(spec.actionWindowMs)
+      ? trailingMeans(pts, spec.actionWindowMs)
+      : null
+  const colorPts = rolling ? pts.map((p, i) => ({ t: p.t, v: p.v, r: rolling[i] })) : pts
+  const runs = coloredRuns(colorPts, spec, C)
   const gradCache = {}
   const gradFor = (color) => {
     if (!gradCache[color]) {
@@ -449,13 +477,15 @@ export function drawMonitoringChart(ctx, spec = {}) {
   })
 
   // The maximum, labelled — the single most-cited point on the figure.
-  let peak = pts[0]
-  pts.forEach((p) => { if (p.v > peak.v) peak = p })
+  let peakIdx = 0
+  for (let i = 1; i < pts.length; i++) if (pts[i].v > pts[peakIdx].v) peakIdx = i
+  const peak = pts[peakIdx]
   const px = X(peak.t)
   const py = Y(peak.v)
-  // The peak dot takes the colour of its own span — amber (or red) when the
-  // maximum is itself an excursion, so the most-cited point reads true.
-  ctx.fillStyle = traceColor(peak.v, spec, C)
+  // The peak dot takes the colour of its own span — amber, or red when the
+  // rolling mean at the maximum is itself in the action tier — so the
+  // most-cited point reads true.
+  ctx.fillStyle = traceColor(peak.v, rolling ? rolling[peakIdx] : null, spec, C)
   ctx.beginPath()
   ctx.arc(px, py, 3.4, 0, Math.PI * 2)
   ctx.fill()
@@ -610,6 +640,7 @@ export function renderMonitoringCharts(params, points, opts = {}) {
       points: series,
       limit: ref.limit,
       actionLimit: ref.actionLimit,
+      actionWindowMs: ref.actionWindowMs,
       band: ref.band,
       referenceLabel: ref.band
         ? `${ref.band[0]}–${ref.band[1]} ${entry.unit || ''}`.trim()

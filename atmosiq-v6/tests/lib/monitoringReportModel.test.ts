@@ -515,13 +515,16 @@ describe('figure captions', () => {
     expect(
       figureCaption({ ...base, reference: { limit: 1000, unit: 'ppm' }, stats: { pctAbove: 4.2 } }, {}),
     ).toContain('Amber trace = readings above the reference.')
-    // A defined higher action tier the max reaches → the red legend too.
-    expect(
-      figureCaption(
-        { ...base, reference: { limit: 1000, unit: 'ppm', actionLimit: 1500 }, stats: { pctAbove: 4.2, max: 1789 } },
-        {},
-      ),
-    ).toContain('red = above the action tier')
+    // A defined action tier that is actually REACHED (rolling mean) → the red
+    // legend too, naming the criterion and its source.
+    const withAction = {
+      ...base,
+      reference: { limit: 1000, unit: 'ppm', action: { limit: 1500, label: 'WHO 1-hour acute', source: 'WHO 2010' } },
+      stats: { pctAbove: 4.2 },
+    }
+    expect(figureCaption({ ...withAction, actionTierReached: true }, {})).toContain('red = WHO 1-hour acute (WHO 2010)')
+    // Defined but NOT reached → no red clause (it would describe a span never drawn).
+    expect(figureCaption({ ...withAction, actionTierReached: false }, {})).not.toContain('red =')
     // Band: amber legend only when time fell outside the band.
     expect(
       figureCaption({ ...base, shortLabel: 'Temp', reference: { band: [68, 76], unit: '°F' }, stats: { pctInBand: 100 } }, {}),
