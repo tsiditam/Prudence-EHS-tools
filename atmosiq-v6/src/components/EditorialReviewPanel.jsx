@@ -90,7 +90,7 @@ function SuggestionCard({ suggestion, approved, onToggle }) {
   )
 }
 
-export default function EditorialReviewPanel({ reportData, existingSuppressions, onApply, extraFacts, canPersist = true }) {
+export default function EditorialReviewPanel({ reportData, existingSuppressions, onApply, extraFacts, saved = true }) {
   const [status, setStatus] = useState('idle') // idle | loading | ready | error | applied
   const [suggestions, setSuggestions] = useState([])
   const [approved, setApproved] = useState(() => new Set())
@@ -263,23 +263,23 @@ export default function EditorialReviewPanel({ reportData, existingSuppressions,
               onToggle={() => toggle(s.target)}
             />
           ))}
-          {!canPersist && (
+          {!saved && (
             <div style={{ fontSize: 12, color: SUB, lineHeight: 1.5, margin: '4px 0 10px' }}>
-              Save this report to apply cuts — approved cuts attach to the saved report and take effect on its next Word export.
+              This report isn’t saved — approved cuts apply to the Word export you generate now. Save the report to keep them across sessions.
             </div>
           )}
           <button
             type="button"
             onClick={apply}
-            disabled={approvedCount === 0 || !canPersist}
+            disabled={approvedCount === 0}
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
               width: '100%', minHeight: 44, padding: '12px 16px', marginTop: 6,
-              background: (approvedCount === 0 || !canPersist) ? 'var(--surface)' : 'var(--accent-fill)',
-              color: (approvedCount === 0 || !canPersist) ? DIM : 'var(--on-accent-fill)',
-              border: (approvedCount === 0 || !canPersist) ? `1px solid ${BORDER}` : 'none',
+              background: approvedCount === 0 ? 'var(--surface)' : 'var(--accent-fill)',
+              color: approvedCount === 0 ? DIM : 'var(--on-accent-fill)',
+              border: approvedCount === 0 ? `1px solid ${BORDER}` : 'none',
               borderRadius: 10, fontSize: 14, fontWeight: 700, fontFamily: 'inherit',
-              cursor: (approvedCount === 0 || !canPersist) ? 'default' : 'pointer', WebkitTapHighlightColor: 'transparent',
+              cursor: approvedCount === 0 ? 'default' : 'pointer', WebkitTapHighlightColor: 'transparent',
             }}
           >
             {approvedCount === 0 ? 'Select cuts to apply' : `Apply ${approvedCount} cut${approvedCount === 1 ? '' : 's'}`}
