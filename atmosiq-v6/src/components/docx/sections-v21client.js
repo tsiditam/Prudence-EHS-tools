@@ -19,6 +19,7 @@ import { buildResurveySchedule } from './sections-resurvey'
 import { sectionHeading2 } from './headings'
 import { assembleSupplementalSections, mergeSupplementalTocEntries } from './sections-supplemental'
 import { isIaqScoreVisible } from '../../utils/featureFlags'
+import { makeSuppressionIndex } from '../../utils/editorialSuppressions'
 import {
   BENCHMARK_TABLE_HEADERS, BENCHMARK_ROWS, BENCHMARK_INTRO, BENCHMARK_FOOTNOTE,
   DISCLAIMER_PARAGRAPHS, CONCLUSIONS_CLOSING, certificationStatement, FIRM_NAME,
@@ -345,7 +346,7 @@ function buildSamplingMethodologyDocx(report) {
   return out
 }
 
-function buildExecutiveSummary(report) {
+function buildExecutiveSummary(report, suppress) {
   // v2.2 visual upgrade — Label:Value metadata list (no banded grid),
   // opinion call-out, narrative blocks. The Findings block renders
   // findings grouped by domain with bold lead terms; empty groups
@@ -393,7 +394,14 @@ function buildExecutiveSummary(report) {
     out.push(buildExecBlock('Summary of Findings', summary.observations.map(o => bullet(o))))
   }
   if (summary.recommendations && summary.recommendations.length > 0) {
-    out.push(buildExecBlock('Recommendations', summary.recommendations.map(a => bullet(actionLine(a)))))
+    // Honor editorial cuts: a recommendation the reviewer suppressed must not
+    // resurface in the executive-summary highlight list.
+    const recs = summary.recommendations.filter(
+      (a) => !(suppress && suppress.has({ kind: 'recommendation', priority: a.priority, action: a.action })),
+    )
+    if (recs.length > 0) {
+      out.push(buildExecBlock('Recommendations', recs.map(a => bullet(actionLine(a)))))
+    }
   }
   return out
 }
@@ -595,11 +603,14 @@ function buildBuildingContext(report) {
 // v2.4 §2 — Results section: per-parameter standards-anchored prose
 // subsections. Renders between Sampling Methodology and Building and
 // System Context.
-function buildResultsSection(report) {
+function buildResultsSection(report, suppress) {
   const r = report.resultsSection
   if (!r || !Array.isArray(r.subsections) || r.subsections.length === 0) return []
   const out = [...heading2(r.title || 'Results')]
+  let rendered = 0
   for (const sub of r.subsections) {
+    if (suppress && suppress.has({ kind: 'resultsSubsection', heading: sub.heading })) continue
+    rendered += 1
     out.push(heading3(sub.heading))
     // The textbook standards-background narrative (regulatory history,
     // PELs, historical thresholds, citations) is intentionally omitted from
@@ -611,6 +622,8 @@ function buildResultsSection(report) {
       out.push(p(sub.measurementSummary, { align: AlignmentType.JUSTIFIED }))
     }
   }
+  // If every subsection was cut editorially, omit the empty Results heading.
+  if (rendered === 0) return []
   return out
 }
 
@@ -777,14 +790,35 @@ function buildSimpleTable(headers, rows, opts = {}) {
 // (no header, no body, no TOC entry) when the engine signals
 // rendered=false. The omittedReason was already appended to Scope of
 // Work in client.ts. We render nothing here.
-function buildBuildingConditionsSection(report, recIndex) {
+function buildBuildingConditionsSection(report, recIndex, suppress) {
   const section = report.buildingAndSystemConditions
   if (!section || !section.rendered) return []
+  const findings = (section.findings || []).filter(
+    (f) => !(suppress && suppress.has({ kind: 'finding', findingId: f.findingId })),
+  )
+  if (findings.length === 0) return []
   const out = [...heading2('Building and System Conditions')]
-  for (const f of (section.findings || [])) {
-    out.push(...buildInlineFindingDocx(f, recIndex))
+  for (const f of findings) {
+    out.push(...buildInlineFindingDocx(f, recIndex, suppress))
   }
   return out
+}
+
+// Remove editorially-suppressed recommendations from the register BEFORE the
+// IDs are assigned, so the Register and the per-finding cross-references
+// agree and a cut recommendation disappears from both.
+function filterRegisterForSuppression(register, suppress) {
+  if (!register || !suppress || suppress.size === 0) return register
+  const filterList = (list) => (list || []).filter(
+    (a) => !suppress.has({ kind: 'recommendation', priority: a.priority, action: a.action }),
+  )
+  return {
+    ...register,
+    immediate: filterList(register.immediate),
+    shortTerm: filterList(register.shortTerm),
+    furtherEvaluation: filterList(register.furtherEvaluation),
+    longTermOptional: filterList(register.longTermOptional),
+  }
 }
 
 // Assign stable display IDs (R-01, R-02, …) to every recommendation in the
@@ -810,9 +844,11 @@ function buildRecIndex(register) {
 
 // v2.3 §5 — Zone section. Findings render as RenderedFinding blocks.
 // Empty zones render exactly the prescribed single sentence.
-function buildZoneSections(report, recIndex) {
+function buildZoneSections(report, recIndex, suppress) {
   const out = [...heading2('Zone Findings')]
   for (const zone of report.zoneSections) {
+    // A reviewer can cut an entire zone section editorially.
+    if (suppress && suppress.has({ kind: 'zone', zoneId: zone.zoneId })) continue
     out.push(heading3(zone.zoneName))
     if (zone.zoneDescription) {
       out.push(p(zone.zoneDescription, { size: 22, color: COLORS.body }))
@@ -820,7 +856,9 @@ function buildZoneSections(report, recIndex) {
     if (zone.samplingSummary) {
       out.push(p(zone.samplingSummary, { size: 20, color: COLORS.sub, italics: true }))
     }
-    const findings = zone.findings || []
+    const findings = (zone.findings || []).filter(
+      (f) => !(suppress && suppress.has({ kind: 'finding', findingId: f.findingId })),
+    )
     if (findings.length === 0) {
       out.push(p(
         'No conditions warranting elevated concern were identified in this zone within the stated limitations.',
@@ -829,7 +867,7 @@ function buildZoneSections(report, recIndex) {
       continue
     }
     for (const f of findings) {
-      out.push(...buildInlineFindingDocx(f, recIndex))
+      out.push(...buildInlineFindingDocx(f, recIndex, suppress))
     }
     if (zone.interpretation) {
       out.push(p('Interpretation', { bold: true, size: 20, color: COLORS.sub, after: 60 }))
@@ -845,7 +883,7 @@ function buildZoneSections(report, recIndex) {
  * inline Limitations sublist (italic, indented) → Recommended
  * actions sublist. 12pt below the block before the next finding.
  */
-function buildInlineFindingDocx(rf, recIndex) {
+function buildInlineFindingDocx(rf, recIndex, suppress) {
   if (!rf) return []
   const out = []
   out.push(p(rf.narrative || '', { align: AlignmentType.JUSTIFIED, after: 80 }))
@@ -890,6 +928,9 @@ function buildInlineFindingDocx(rf, recIndex) {
     const ids = []
     const unmatched = []
     for (const a of rf.recommendedActions) {
+      // Skip recommendations the reviewer cut editorially — they are gone
+      // from the register too, so neither cross-reference nor fall back.
+      if (suppress && suppress.has({ kind: 'recommendation', priority: a.priority, action: a.action })) continue
       const id = idOf && idOf.get(a.action)
       if (id) ids.push(id)
       else unmatched.push(a)
@@ -1052,11 +1093,11 @@ function tierLabel(tier) {
   }
 }
 
-function buildRecommendationsRegister(report, recIndex) {
+function buildRecommendationsRegister(register, recIndex) {
   // v2.2 visual upgrade — table form with Priority / Timeframe /
   // Action / Reference columns. Priority group rows separate the
   // priority tiers (cyan-tinted band rows within the table).
-  const reg = report.recommendationsRegister
+  const reg = register
   const groups = [
     ['Immediate', reg.immediate],
     ['Short term', reg.shortTerm],
@@ -1441,10 +1482,16 @@ export function buildClientDocx(result, options = {}) {
   }
   const report = result.report
   const photos = options.photos || {}
-  // Stable recommendation IDs (R-01…) shared between the Register and the
-  // per-finding cross-references, so each recommendation is stated in full
-  // exactly once (in the Register) and findings point to it by number.
-  const recIndex = buildRecIndex(report.recommendationsRegister)
+  // Editorial suppressions — human-approved cuts from the editorial-review
+  // pass. The engine model is unchanged; the renderer simply omits the
+  // approved content. Absent/empty => nothing suppressed.
+  const suppress = makeSuppressionIndex(options.editorialSuppressions)
+  // Filter the register by any suppressed recommendations FIRST, then assign
+  // the stable recommendation IDs (R-01…) from the filtered register so the
+  // Register and the per-finding cross-references agree and a cut
+  // recommendation vanishes from both.
+  const filteredRegister = filterRegisterForSuppression(report.recommendationsRegister, suppress)
+  const recIndex = buildRecIndex(filteredRegister)
   // Cover notice. Appended to (not replacing) any existing draft notice
   // so a draft with data gaps states both.
   const gapCount = Array.isArray(result.dataGapWarnings) ? result.dataGapWarnings.length : 0
@@ -1503,15 +1550,15 @@ export function buildClientDocx(result, options = {}) {
     ...buildDocumentControl(report),
     ...buildTableOfContents(report, tocEntries),
     ...buildMethodologyDisclosure(report),
-    ...buildExecutiveSummary(report),
+    ...buildExecutiveSummary(report, suppress),
     ...buildScope(report),
     ...buildSamplingMethodologyDocx(report),
     ...buildInstrumentAccuracyNote(options.instrumentAccuracy),
     ...buildBenchmarksSection(),
-    ...buildResultsSection(report),
+    ...buildResultsSection(report, suppress),
     ...buildBuildingContext(report),
-    ...buildBuildingConditionsSection(report, recIndex),
-    ...buildZoneSections(report, recIndex),
+    ...buildBuildingConditionsSection(report, recIndex, suppress),
+    ...buildZoneSections(report, recIndex, suppress),
     // v2.6 §5 — Potential Contributing Factors and Recommended
     // Sampling Plan slot in between Zone Findings and the
     // Recommendations Register. Each is a no-op when the
@@ -1521,14 +1568,14 @@ export function buildClientDocx(result, options = {}) {
     // Conclusions sit after the findings/discussion and before the
     // Recommendations Register, mirroring the canonical report flow.
     ...buildConclusions(report),
-    ...buildRecommendationsRegister(report, recIndex),
+    ...buildRecommendationsRegister(filteredRegister, recIndex),
     // Re-survey schedule — sits between the Recommendations Register
     // and Limitations so the reader knows when to expect the next
     // assessment before they read the limitations + signatory block.
     // Engine-sacred: schedule logic lives in src/engines/ (plural);
     // src/engine/ (the TypeScript engine) is untouched.
     ...buildResurveySchedule({
-      recommendationsRegister: report.recommendationsRegister,
+      recommendationsRegister: filteredRegister,
       assessmentDate: report.cover?.date,
     }),
     // Consolidated Limitations — professional judgment + scientific data

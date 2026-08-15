@@ -418,6 +418,8 @@ async function buildConsultantDocument(ctx, data) {
     supplemental,
     dataGaps: deriveScientificDataGaps(data),
     instrumentAccuracy: buildInstrumentAccuracyInfo(data.presurvey),
+    // Human-approved editorial cuts from the review pass (may be absent).
+    editorialSuppressions: data.editorialSuppressions,
   })
 
   // Free-tier watermark: pass watermarkConfig from caller (e.g. resolved
