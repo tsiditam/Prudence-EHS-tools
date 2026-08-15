@@ -774,19 +774,40 @@ function buildSimpleTable(headers, rows, opts = {}) {
 // (no header, no body, no TOC entry) when the engine signals
 // rendered=false. The omittedReason was already appended to Scope of
 // Work in client.ts. We render nothing here.
-function buildBuildingConditionsSection(report) {
+function buildBuildingConditionsSection(report, recIndex) {
   const section = report.buildingAndSystemConditions
   if (!section || !section.rendered) return []
   const out = [...heading2('Building and System Conditions')]
   for (const f of (section.findings || [])) {
-    out.push(...buildInlineFindingDocx(f))
+    out.push(...buildInlineFindingDocx(f, recIndex))
   }
   return out
 }
 
+// Assign stable display IDs (R-01, R-02, …) to every recommendation in the
+// register, in render order (immediate → short term → further evaluation →
+// long term). Findings cross-reference these IDs instead of repeating the
+// full action text, so each recommendation is stated in full exactly once.
+// Keyed by action text, which is unique per register row (the register is
+// the deduped union of all findings' actions).
+function buildRecIndex(register) {
+  const idOf = new Map()
+  if (!register) return { idOf }
+  const groups = [register.immediate, register.shortTerm, register.furtherEvaluation, register.longTermOptional]
+  let n = 0
+  for (const list of groups) {
+    for (const a of (list || [])) {
+      if (!a || typeof a.action !== 'string' || idOf.has(a.action)) continue
+      n += 1
+      idOf.set(a.action, `R-${String(n).padStart(2, '0')}`)
+    }
+  }
+  return { idOf }
+}
+
 // v2.3 §5 — Zone section. Findings render as RenderedFinding blocks.
 // Empty zones render exactly the prescribed single sentence.
-function buildZoneSections(report) {
+function buildZoneSections(report, recIndex) {
   const out = [...heading2('Zone Findings')]
   for (const zone of report.zoneSections) {
     out.push(heading3(zone.zoneName))
@@ -805,7 +826,7 @@ function buildZoneSections(report) {
       continue
     }
     for (const f of findings) {
-      out.push(...buildInlineFindingDocx(f))
+      out.push(...buildInlineFindingDocx(f, recIndex))
     }
     if (zone.interpretation) {
       out.push(p('Interpretation', { bold: true, size: 20, color: COLORS.sub, after: 60 }))
@@ -821,7 +842,7 @@ function buildZoneSections(report) {
  * inline Limitations sublist (italic, indented) → Recommended
  * actions sublist. 12pt below the block before the next finding.
  */
-function buildInlineFindingDocx(rf) {
+function buildInlineFindingDocx(rf, recIndex) {
   if (!rf) return []
   const out = []
   out.push(p(rf.narrative || '', { align: AlignmentType.JUSTIFIED, after: 80 }))
@@ -834,11 +855,18 @@ function buildInlineFindingDocx(rf) {
       spacing: { after: 80 },
     }))
   }
-  if (rf.limitations && rf.limitations.length > 0) {
+  // Drop the generic "instrument not in the manufacturer-certified accuracy
+  // database" line from the client report: it is software-QA terminology
+  // that reads as boilerplate under every qualitative finding. The
+  // measurement-basis caveats live in the consolidated Limitations section.
+  const findingLimitations = (rf.limitations || []).filter(
+    (l) => typeof l === 'string' && !/accuracy database/i.test(l),
+  )
+  if (findingLimitations.length > 0) {
     out.push(p('Limitations of this finding:', {
       italics: true, bold: true, size: 18, color: SLATE, after: 40,
     }))
-    for (const l of rf.limitations) {
+    for (const l of findingLimitations) {
       out.push(new Paragraph({
         children: [new TextRun({
           text: l, font: FONTS.body, size: 18, italics: true, color: COLORS.sub,
@@ -849,15 +877,36 @@ function buildInlineFindingDocx(rf) {
       }))
     }
   }
+  // Cross-reference recommendations by their Register ID instead of
+  // repeating the full action text under every finding. The full text is
+  // stated once, in the Recommendations Register. Any action not found in
+  // the register (should not happen) falls back to inline text so nothing
+  // is silently dropped.
   if (rf.recommendedActions && rf.recommendedActions.length > 0) {
-    out.push(p('Recommended actions:', {
-      bold: true, size: 18, color: SLATE, after: 40,
-    }))
+    const idOf = recIndex && recIndex.idOf
+    const ids = []
+    const unmatched = []
     for (const a of rf.recommendedActions) {
+      const id = idOf && idOf.get(a.action)
+      if (id) ids.push(id)
+      else unmatched.push(a)
+    }
+    if (ids.length > 0) {
+      const label = ids.length === 1 ? 'Recommendation' : 'Recommendations'
       out.push(new Paragraph({
-        children: [new TextRun({
-          text: actionLine(a), font: FONTS.body, size: 20, color: COLORS.body,
-        })],
+        children: [
+          new TextRun({ text: 'Recommended actions: ', font: FONTS.body, size: 18, bold: true, color: SLATE }),
+          new TextRun({
+            text: `See ${label} ${ids.join(', ')} in the Recommendations Register.`,
+            font: FONTS.body, size: 18, italics: true, color: COLORS.sub,
+          }),
+        ],
+        spacing: { after: 40 },
+      }))
+    }
+    for (const a of unmatched) {
+      out.push(new Paragraph({
+        children: [new TextRun({ text: actionLine(a), font: FONTS.body, size: 20, color: COLORS.body })],
         bullet: { level: 0 },
         indent: { left: 360 },
         spacing: { after: 40 },
@@ -997,7 +1046,7 @@ function tierLabel(tier) {
   }
 }
 
-function buildRecommendationsRegister(report) {
+function buildRecommendationsRegister(report, recIndex) {
   // v2.2 visual upgrade — table form with Priority / Timeframe /
   // Action / Reference columns. Priority group rows separate the
   // priority tiers (cyan-tinted band rows within the table).
@@ -1010,10 +1059,10 @@ function buildRecommendationsRegister(report) {
   ].filter(([, list]) => list.length > 0)
   if (groups.length === 0) return []
 
-  return [...heading2('Recommendations Register'), buildRecommendationsTable(groups)]
+  return [...heading2('Recommendations Register'), buildRecommendationsTable(groups, recIndex)]
 }
 
-function buildRecommendationsTable(groups) {
+function buildRecommendationsTable(groups, recIndex) {
   // v2.5.1 — explicit column widths summing to TOTAL_WIDTH_DXA so
   // the table fills the 6.5-inch Letter content area. Action gets
   // the lion's share since action text is the longest column.
@@ -1083,7 +1132,12 @@ function buildRecommendationsTable(groups) {
         children: [
           bodyCell(PRIORITY_LABEL[a.priority] || a.priority, COL_PRIORITY, { bold: true, color: CYAN_DARK }),
           bodyCell(a.timeframe, COL_TIMEFRAME),
-          bodyCell(a.action, COL_ACTION),
+          bodyCell(
+            (recIndex && recIndex.idOf.get(a.action))
+              ? `${recIndex.idOf.get(a.action)}  ${a.action}`
+              : a.action,
+            COL_ACTION,
+          ),
           bodyCell(a.standardReference || '—', COL_REF, { italics: true, color: COLORS.sub }),
         ],
       }))
@@ -1381,6 +1435,10 @@ export function buildClientDocx(result, options = {}) {
   }
   const report = result.report
   const photos = options.photos || {}
+  // Stable recommendation IDs (R-01…) shared between the Register and the
+  // per-finding cross-references, so each recommendation is stated in full
+  // exactly once (in the Register) and findings point to it by number.
+  const recIndex = buildRecIndex(report.recommendationsRegister)
   // Cover notice. Appended to (not replacing) any existing draft notice
   // so a draft with data gaps states both.
   const gapCount = Array.isArray(result.dataGapWarnings) ? result.dataGapWarnings.length : 0
@@ -1446,8 +1504,8 @@ export function buildClientDocx(result, options = {}) {
     ...buildBenchmarksSection(),
     ...buildResultsSection(report),
     ...buildBuildingContext(report),
-    ...buildBuildingConditionsSection(report),
-    ...buildZoneSections(report),
+    ...buildBuildingConditionsSection(report, recIndex),
+    ...buildZoneSections(report, recIndex),
     // v2.6 §5 — Potential Contributing Factors and Recommended
     // Sampling Plan slot in between Zone Findings and the
     // Recommendations Register. Each is a no-op when the
@@ -1457,7 +1515,7 @@ export function buildClientDocx(result, options = {}) {
     // Conclusions sit after the findings/discussion and before the
     // Recommendations Register, mirroring the canonical report flow.
     ...buildConclusions(report),
-    ...buildRecommendationsRegister(report),
+    ...buildRecommendationsRegister(report, recIndex),
     // Re-survey schedule — sits between the Recommendations Register
     // and Limitations so the reader knows when to expect the next
     // assessment before they read the limitations + signatory block.
