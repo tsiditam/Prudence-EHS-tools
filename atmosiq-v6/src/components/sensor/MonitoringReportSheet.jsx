@@ -197,6 +197,9 @@ export default function MonitoringReportSheet({ data, occupancyWindows = [], eve
       const { fileName } = await generateMonitoringReport(session, {
         edition,
         generatedAt: new Date().toISOString(),
+        // The zone the report is generated in, so its date/time stamp reads in
+        // the local clock (e.g. "9:16 PM EST") rather than UTC.
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         datasetHash: shortHash(hash),
         softwareVersion: APP_VERSION,
         firm: assessor.firm || undefined,
