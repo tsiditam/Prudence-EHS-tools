@@ -670,15 +670,27 @@ function parameterCard(children) {
  * the consultant report. This document has its own reviewed visual system,
  * and the two should be free to differ without either having to bend.
  */
-export function dataTable(headers, rows, widths) {
+export function dataTable(headers, rows, widths, opts = {}) {
   const cols = headers.length
   const colWidths =
     widths && widths.length === cols
       ? widths.map((w) => Math.round((w / 100) * CONTENT_WIDTH_DXA))
       : Array.from({ length: cols }, () => Math.floor(CONTENT_WIDTH_DXA / cols))
 
-  // A tinted header band rather than a rule: it separates the header from the
-  // data without adding another line to a page that is trying to have fewer.
+  // Two treatments from one builder:
+  //  • card (default) — the report's KPI-card language: a subtle grey header
+  //    band, hairline row separators, generous padding, a hairline frame, cells
+  //    vertically centred. This is what a client-facing table (Screening
+  //    reference values) uses so it reads as a designed element, not a Word
+  //    table.
+  //  • zebra — alternating wash, no separators or frame, for a wide technical
+  //    table (raw statistics) where banding tracks a row across many columns
+  //    better than a hairline does.
+  const zebra = opts.zebra === true
+
+  // A grey header band rather than the accent tint: quieter, and it reads as
+  // structure rather than decoration. The label takes the same tracked
+  // uppercase treatment as the KPI-card keys.
   const headerRow = new TableRow({
     tableHeader: true,
     children: headers.map(
@@ -686,21 +698,24 @@ export function dataTable(headers, rows, widths) {
         new TableCell({
           children: [new Paragraph({
             children: [new TextRun({
-              text: String(h || '').toUpperCase(), bold: true, size: TYPE.label, color: ACCENT, font: FONT_SANS,
+              text: String(h || '').toUpperCase(), bold: true, size: TYPE.label, color: MUTED, font: FONT_SANS, characterSpacing: TRACK.label,
             })],
             spacing: { after: 0 },
           })],
           width: { size: colWidths[i], type: WidthType.DXA },
-          shading: { type: ShadingType.CLEAR, fill: ACCENT_TINT },
-          borders: noBorders,
-          margins: { top: 130, bottom: 130, left: i === 0 ? 200 : 140, right: 140 },
+          shading: { type: ShadingType.CLEAR, fill: WASH },
+          borders: zebra ? noBorders : { ...noBorders, bottom: hair(HAIR_2) },
+          margins: { top: 140, bottom: 140, left: i === 0 ? 200 : 150, right: 150 },
+          verticalAlign: 'center',
         }),
     ),
   })
 
   const bodyRows = rows.map(
-    (row, r) =>
-      new TableRow({
+    (row, r) => {
+      const last = r === rows.length - 1
+      return new TableRow({
+        cantSplit: true,
         children: row.map((cell, i) => {
           const spec = cell && typeof cell === 'object' && !Array.isArray(cell) ? cell : { text: cell }
           return new TableCell({
@@ -721,21 +736,25 @@ export function dataTable(headers, rows, widths) {
               }),
             ],
             width: { size: colWidths[i], type: WidthType.DXA },
-            // Alternating wash instead of row rules — the eye tracks a band
-            // across a wide table more reliably than it tracks a hairline,
-            // and it removes one more border from the page.
-            shading: r % 2 === 1 ? { type: ShadingType.CLEAR, fill: WASH } : undefined,
-            borders: noBorders,
-            margins: { top: 150, bottom: 150, left: i === 0 ? 200 : 140, right: 140 },
+            shading: zebra && r % 2 === 1 ? { type: ShadingType.CLEAR, fill: WASH } : undefined,
+            // Card treatment: a hairline under each row but the last (the frame
+            // closes that one). Zebra treatment: no separators, banding does
+            // the work.
+            borders: zebra ? noBorders : { ...noBorders, bottom: last ? noBorder : hair() },
+            margins: { top: zebra ? 150 : 170, bottom: zebra ? 150 : 170, left: i === 0 ? 200 : 150, right: 150 },
+            verticalAlign: 'center',
           })
         }),
-      }),
+      })
+    },
   )
 
   return new Table({
     width: { size: CONTENT_WIDTH_DXA, type: WidthType.DXA },
     columnWidths: colWidths,
-    borders: { ...noBorders, insideHorizontal: noBorder, insideVertical: noBorder },
+    borders: zebra
+      ? { ...noBorders, insideHorizontal: noBorder, insideVertical: noBorder }
+      : { top: hair(HAIR_2), bottom: hair(HAIR_2), left: hair(HAIR_2), right: hair(HAIR_2), insideHorizontal: noBorder, insideVertical: noBorder },
     rows: [headerRow, ...bodyRows],
   })
 }
@@ -812,7 +831,7 @@ function definitionCard(title, rows, width) {
 }
 
 /** A highlight row: an accent tick, then the fact. */
-function tickRow(text) {
+function tickRow(text, keepNext = false) {
   return new Paragraph({
     children: [
       new TextRun({ text: '✓', bold: true, size: TYPE.small, color: ACCENT_2, font: FONT_SANS }),
@@ -823,6 +842,11 @@ function tickRow(text) {
     indent: { left: 340, hanging: 340 },
     tabStops: [{ type: 'left', position: 340 }],
     spacing: { after: 110 },
+    // keepNext chains each row to the next (and, via the heading's own
+    // keepNext, to the heading) so §03 never breaks across a page — if the
+    // block does not fit, the whole of it moves to the next page.
+    keepNext: keepNext || undefined,
+    keepLines: true,
   })
 }
 
@@ -916,33 +940,36 @@ export function buildCoverSection(model) {
     // the report.
     new Paragraph({
       children: [new TextRun({ text: heroTitle, bold: true, size: TYPE.title, color: INK, font: FONT_SANS, characterSpacing: TRACK.title })],
-      spacing: { after: coverPeriod ? 70 : (model.subtitle ? 60 : GAP.base) },
+      spacing: { after: c.site || c.address || coverPeriod || model.subtitle ? 90 : GAP.base },
     }),
-    // The monitoring period as a prominent secondary element.
-    ...(coverPeriod
-      ? [
-          new Paragraph({
-            children: [new TextRun({ text: coverPeriod, size: 30, color: ACCENT, font: FONT_SANS_SEMI })],
-            spacing: { after: GAP.base },
-          }),
-        ]
-      : []),
-    // Subtitle is optional — a null subtitle renders nothing (no empty gap).
-    ...(model.subtitle ? [p(model.subtitle, { color: MUTED, size: TYPE.h2, after: GAP.base })] : []),
   )
 
-  // Site identity, stacked rather than run together: the building leads, the
-  // street address sits under it as context.
+  // Property / location leads the secondary block: the site a reader is
+  // holding the report about matters more to them than the date alone, so it
+  // sits directly under the title, above the period, and carries more weight.
   if (c.site || c.address) {
     const runs = []
-    if (c.site) runs.push(new TextRun({ text: c.site, bold: true, size: TYPE.coverFact, color: INK, font: FONT_SANS }))
+    if (c.site) runs.push(new TextRun({ text: c.site, bold: true, size: 28, color: INK, font: FONT_SANS }))
     if (c.address) {
       runs.push(new TextRun({
         text: c.address, size: TYPE.body, color: MUTED, font: FONT_SANS, break: c.site ? 1 : 0,
       }))
     }
-    out.push(new Paragraph({ children: runs, spacing: { after: GAP.loose } }))
+    out.push(new Paragraph({ children: runs, spacing: { after: coverPeriod || model.subtitle ? 50 : GAP.base } }))
   }
+
+  // The monitoring period, a step quieter than the property above it.
+  if (coverPeriod) {
+    out.push(
+      new Paragraph({
+        children: [new TextRun({ text: coverPeriod, size: TYPE.h2, color: ACCENT, font: FONT_SANS_SEMI })],
+        spacing: { after: GAP.base },
+      }),
+    )
+  }
+
+  // Subtitle is optional — a null subtitle renders nothing (no empty gap).
+  if (model.subtitle) out.push(p(model.subtitle, { color: MUTED, size: TYPE.h2, after: GAP.base }))
 
   const facts = [
     { label: 'Prepared for', value: c.preparedFor },
@@ -1021,7 +1048,12 @@ export function buildHighlightsSection(model, num) {
   if (!items.length) return null
   return {
     title: 'Key dataset highlights',
-    children: [sectionHeading(num, 'Key dataset highlights'), ...items.map((i) => tickRow(i.text))],
+    // Every row but the last keeps with the next, so the heading and all ticks
+    // travel together to whichever page holds them.
+    children: [
+      sectionHeading(num, 'Key dataset highlights'),
+      ...items.map((i, idx) => tickRow(i.text, idx < items.length - 1)),
+    ],
   }
 }
 
@@ -1041,7 +1073,7 @@ export function buildReferenceSection(model, num) {
       after: 110,
     }),
     dataTable(
-      ['Parameter', 'Reference profile', 'Screening value', 'Source'],
+      ['Parameter', 'Reference', 'Value', 'Source'],
       rows.map((r) => [
         { text: r.label || r.param, bold: true },
         { text: r.profile },
@@ -1264,6 +1296,9 @@ export function buildRawStatisticsAppendix(model) {
           { text: r.coverage, mono: true },
         ]),
         [17, 8, 9, 9, 8, 9, 9, 8, 9, 14],
+        // Ten columns: banding tracks a row across the width better than a
+        // hairline, so this technical table keeps the zebra treatment.
+        { zebra: true },
       ),
     ],
   }
