@@ -172,6 +172,18 @@ export function loggingLabel(sec) {
   return `${Math.round(sec)}-sec logging`
 }
 
+/**
+ * The logging cadence as a compact tile value ("15 min", "30 sec") — the
+ * abbreviated form the dataset-integrity metric tiles use, where the spelled-
+ * out "15 minutes" would wrap out of a narrow tile.
+ */
+function intervalTileLabel(sec) {
+  if (!isNum(sec) || sec <= 0) return '—'
+  if (sec < 60) return `${Math.round(sec)} sec`
+  const min = sec / 60
+  return Number.isInteger(min) ? `${min} min` : `${Math.round(sec)} sec`
+}
+
 /** The same cadence written out, for the instrument spec table. */
 export function intervalLabel(sec) {
   if (!isNum(sec) || sec <= 0) return null
@@ -554,13 +566,34 @@ export function buildMonitoringReportModel(session, opts = {}) {
     referenceRows: referenceTableRows(references).map((r) => ({ ...r, label: proseName(r.param) })),
     parameters,
 
+    // Presented as metric tiles in the same visual language as the parameter
+    // KPI strips (label above, figure below): counts and coverage as the big
+    // editorial figure, the compound duration/cadence values a step smaller
+    // (`compact`), and a gap flagged in the warn colour (`emphasis`) — so the
+    // page reads as continuous with the parameter cards and shows the report is
+    // checking the dataset, not merely plotting it.
     dataQuality: cov
       ? [
-          { label: 'Readings', value: isNum(cov.n) ? String(cov.n) : '—' },
-          { label: 'Coverage', value: isNum(cov.coveragePct) ? `${Math.round(cov.coveragePct * 10) / 10}%` : '—' },
-          { label: 'Gaps', value: isNum(cov.gapCount) ? String(cov.gapCount) : '—' },
-          { label: 'Longest gap', value: isNum(cov.longestGapSec) ? durationLabel(cov.longestGapSec) : 'None' },
-          { label: 'Logging interval', value: isNum(cov.intervalSec) ? intervalLabel(cov.intervalSec) : '—' },
+          { label: 'Readings', value: isNum(cov.n) ? cov.n.toLocaleString('en-US') : '—', unit: '' },
+          {
+            label: 'Coverage',
+            value: isNum(cov.coveragePct) ? String(Math.round(cov.coveragePct * 10) / 10) : '—',
+            unit: isNum(cov.coveragePct) ? '%' : '',
+          },
+          {
+            label: 'Gaps',
+            value: isNum(cov.gapCount) ? String(cov.gapCount) : '—',
+            unit: '',
+            emphasis: isNum(cov.gapCount) && cov.gapCount > 0,
+          },
+          {
+            label: 'Longest gap',
+            value: isNum(cov.longestGapSec) && cov.longestGapSec > 0 ? durationLabel(cov.longestGapSec) : 'None',
+            unit: '',
+            compact: true,
+            emphasis: isNum(cov.longestGapSec) && cov.longestGapSec > 0,
+          },
+          { label: 'Logging interval', value: intervalTileLabel(cov.intervalSec), unit: '', compact: true },
         ]
       : [],
 

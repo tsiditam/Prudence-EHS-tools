@@ -569,9 +569,13 @@ function parameterHead(entry) {
  * `emphasis` tiles (time above / % above a reference) take the warn colour so
  * the exposure figures carry from across the page.
  */
-export function summaryStripTable(tiles) {
+export function summaryStripTable(tiles, opts = {}) {
   if (!tiles || !tiles.length) return null
   const width = Math.floor(CONTENT_WIDTH_DXA / tiles.length)
+  // Inside a parameter card the strip carries a bottom hairline to divide it
+  // from the figure below; standalone (dataset integrity) that rule would
+  // double up against the card's own border, so it is dropped.
+  const cellBottom = opts.bottomBorder === false ? noBorder : hair()
   return new Table({
     width: { size: CONTENT_WIDTH_DXA, type: WidthType.DXA },
     columnWidths: tiles.map(() => width),
@@ -611,7 +615,7 @@ export function summaryStripTable(tiles) {
               width: { size: width, type: WidthType.DXA },
               borders: {
                 ...noBorders,
-                bottom: hair(),
+                bottom: cellBottom,
                 // Hairline dividers between tiles, none on the outer edges —
                 // the card's own border closes those sides.
                 right: i === tiles.length - 1 ? noBorder : hair(),
@@ -1171,13 +1175,27 @@ function stripFigurePrefix(caption, num) {
   return text.startsWith(prefix) ? text.slice(prefix.length).trim() : text
 }
 
-/** Dataset integrity — coverage, gaps, cadence. */
+/**
+ * Dataset integrity — readings, coverage, gaps, longest gap, cadence.
+ *
+ * Presented as metric tiles in the same KPI-strip language as the parameter
+ * cards, bounded by the same hairline card, so the page reads as continuous
+ * with the parameter sections: the report is checking the dataset, not just
+ * plotting it.
+ */
 export function buildDataQualitySection(model, num) {
-  const rows = (model && model.dataQuality) || []
-  if (!rows.length) return null
+  const tiles = (model && model.dataQuality) || []
+  if (!tiles.length) return null
+  const strip = summaryStripTable(tiles, { bottomBorder: false })
+  if (!strip) return null
   return {
     title: 'Dataset integrity',
-    children: [sectionHeading(num, 'Dataset integrity'), metaGrid(rows, 3)],
+    children: [
+      sectionHeading(num, 'Dataset integrity'),
+      // Word needs a paragraph after the nested strip table inside the card;
+      // the tiny trailing paragraph supplies it (and the card's inner gap).
+      parameterCard([strip, p('', { after: 0, size: 2 })]),
+    ],
   }
 }
 
