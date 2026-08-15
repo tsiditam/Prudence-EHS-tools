@@ -2695,12 +2695,16 @@ export default function MobileApp() {
           />
         )}
 
-        {rTab==='readiness' && viewRpt?.id && zoneScores && zoneScores.length > 0 && (
+        {/* Editorial review — gated exactly like the readiness panel above
+            (rTab only), so it renders whenever the Review tab does; the panel
+            itself handles empty data and a not-yet-saved report gracefully. */}
+        {rTab==='readiness' && (
           <div style={{ marginTop: 18, paddingTop: 18, borderTop: '1px solid var(--border)' }}>
             <EditorialReviewPanel
               reportData={{ profile, presurvey, building: bldg, zones, zoneScores, comp, ts: viewRpt?.ts }}
               existingSuppressions={viewRpt?.editorialSuppressions || null}
-              extraFacts={{ spaceUses: zones.map(z => z && (z.su || z.space)).filter(Boolean) }}
+              extraFacts={{ spaceUses: (zones||[]).map(z => z && (z.su || z.space)).filter(Boolean) }}
+              canPersist={!!viewRpt?.id}
               onApply={applyEditorialSuppressions}
             />
           </div>
