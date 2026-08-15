@@ -55,6 +55,19 @@ export const CHART_COLORS = {
  */
 const STROKE = { trend: 1.35, reference: 1.8, grid: 1, event: 1 }
 
+/**
+ * The area-fill gradient for each trace colour, keyed by that colour so the
+ * fill under a span always matches the line above it — teal, amber and red
+ * regions read as one object, not a line floating over a mismatched wash. Same
+ * top→bottom fade as the original single fill; excursion fills sit a hair
+ * stronger so they register without shouting.
+ */
+const TRACE_FILL = {
+  [CHART_COLORS.line]: ['rgba(8,145,178,0.16)', 'rgba(8,145,178,0.012)'],
+  [CHART_COLORS.excursion]: ['rgba(217,119,6,0.18)', 'rgba(217,119,6,0.015)'],
+  [CHART_COLORS.action]: ['rgba(220,38,38,0.18)', 'rgba(220,38,38,0.015)'],
+}
+
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 /**
@@ -201,6 +214,36 @@ function segmentCuts(va, vb, thresholds) {
 }
 
 /**
+ * Split the trace into contiguous single-colour RUNS, inserting a vertex at
+ * every reference crossing so each run lies wholly in one colour band. Grouping
+ * consecutive same-colour edges (rather than drawing each logged segment
+ * separately) lets a run's line AND its fill draw as one continuous region —
+ * clean colour boundaries at the crossings, no antialias seams inside a run.
+ *
+ * Returns `[{ color, verts: [{t, v}, …] }]` in draw order.
+ */
+function coloredRuns(pts, spec, C) {
+  const th = traceThresholds(spec)
+  const verts = [{ t: pts[0].t, v: pts[0].v }]
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i]
+    const b = pts[i + 1]
+    for (const f of segmentCuts(a.v, b.v, th)) {
+      verts.push({ t: a.t + (b.t - a.t) * f, v: a.v + (b.v - a.v) * f })
+    }
+    verts.push({ t: b.t, v: b.v })
+  }
+  const runs = []
+  for (let i = 0; i < verts.length - 1; i++) {
+    const color = traceColor((verts[i].v + verts[i + 1].v) / 2, spec, C)
+    const last = runs[runs.length - 1]
+    if (last && last.color === color) last.verts.push(verts[i + 1])
+    else runs.push({ color, verts: [verts[i], verts[i + 1]] })
+  }
+  return runs
+}
+
+/**
  * Draw one parameter's figure.
  *
  * @param {CanvasRenderingContext2D} ctx
@@ -331,44 +374,49 @@ export function drawMonitoringChart(ctx, spec = {}) {
     }
   }
 
-  // Area fill under the trend
-  const grad = ctx.createLinearGradient(0, y0, 0, y1)
-  grad.addColorStop(0, C.fillTop)
-  grad.addColorStop(1, C.fillBottom)
-  ctx.beginPath()
-  ctx.moveTo(X(pts[0].t), Y(pts[0].v))
-  pts.forEach((p) => ctx.lineTo(X(p.t), Y(p.v)))
-  ctx.lineTo(X(t1), y1)
-  ctx.lineTo(X(t0), y1)
-  ctx.closePath()
-  ctx.fillStyle = grad
-  ctx.fill()
-
-  // Trend line, coloured per reading against the selected reference: teal in
-  // range, amber across an excursion, red above a defined action tier. Each
-  // segment is split exactly where it crosses a threshold, so only the
-  // out-of-range span changes colour — a lone spike never tints the whole
-  // trace, and a mostly-out-of-range series reads as mostly amber.
-  const thresholds = traceThresholds(spec)
+  // Trace and its area fill, coloured together per reading against the selected
+  // reference: teal in range, amber across a screening excursion, red above a
+  // defined higher action tier. Each run is split exactly where it crosses a
+  // threshold, so only the out-of-range span changes colour — a lone spike
+  // colours only its own span (never the whole trace), and a mostly-out-of-
+  // range series (HCHO at ~99% above) reads as mostly amber. The fill under a
+  // span matches its line, so an excursion reads as a coloured region, not a
+  // colour floating over a mismatched teal wash.
+  const runs = coloredRuns(pts, spec, C)
+  const gradCache = {}
+  const gradFor = (color) => {
+    if (!gradCache[color]) {
+      const [top, bot] = TRACE_FILL[color] || TRACE_FILL[C.line]
+      const g = ctx.createLinearGradient(0, y0, 0, y1)
+      g.addColorStop(0, top)
+      g.addColorStop(1, bot)
+      gradCache[color] = g
+    }
+    return gradCache[color]
+  }
+  const tracePath = (run) => {
+    ctx.moveTo(X(run.verts[0].t), Y(run.verts[0].v))
+    for (let i = 1; i < run.verts.length; i++) ctx.lineTo(X(run.verts[i].t), Y(run.verts[i].v))
+  }
+  // Fills first, so the coloured lines sit crisply on top.
+  runs.forEach((run) => {
+    ctx.beginPath()
+    tracePath(run)
+    ctx.lineTo(X(run.verts[run.verts.length - 1].t), y1)
+    ctx.lineTo(X(run.verts[0].t), y1)
+    ctx.closePath()
+    ctx.fillStyle = gradFor(run.color)
+    ctx.fill()
+  })
   ctx.lineWidth = STROKE.trend
   ctx.lineJoin = 'round'
   ctx.lineCap = 'round'
-  for (let i = 0; i < pts.length - 1; i++) {
-    const a = pts[i]
-    const b = pts[i + 1]
-    const stops = [0, ...segmentCuts(a.v, b.v, thresholds), 1]
-    for (let s = 0; s < stops.length - 1; s++) {
-      const f0 = stops[s]
-      const f1 = stops[s + 1]
-      const va = a.v + (b.v - a.v) * f0
-      const vb = a.v + (b.v - a.v) * f1
-      ctx.strokeStyle = traceColor((va + vb) / 2, spec, C)
-      ctx.beginPath()
-      ctx.moveTo(X(a.t + (b.t - a.t) * f0), Y(va))
-      ctx.lineTo(X(a.t + (b.t - a.t) * f1), Y(vb))
-      ctx.stroke()
-    }
-  }
+  runs.forEach((run) => {
+    ctx.beginPath()
+    tracePath(run)
+    ctx.strokeStyle = run.color
+    ctx.stroke()
+  })
 
   // Annotated events — a dashed rule and a caret, labelled above the plot.
   ;(spec.events || []).forEach((e) => {

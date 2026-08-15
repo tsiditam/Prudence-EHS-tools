@@ -31,6 +31,34 @@
  * and reaches the report's reference table. The CO₂ ventilation-indicator,
  * TVOC-advisory, and NAAQS ambient-standard caveats were removed by product
  * decision (2026-08).
+ *
+ * ── Higher action tier (the figure's RED span) ─────────────────────────
+ * A resolved reference MAY one day carry an `actionLimit` — the value above
+ * which the figure draws its trace red rather than amber. It is deliberately
+ * absent from every profile here, and adding one is not a cosmetic change:
+ *
+ *   A red tier is a SEPARATE, authoritative, higher-level criterion — not a
+ *   multiple of the screening reference. `threshold + averaging period +
+ *   source + applicability` must travel together; a concentration alone must
+ *   never turn a reading red. Red means "a distinct higher criterion was
+ *   reached", which is a stronger claim than the "Review Suggested" status.
+ *
+ * Per parameter, for the Client (IAQ screening) edition:
+ *   • Temperature / RH — NO red. ASHRAE 55 is a thermal-comfort standard, not
+ *     a health-action ladder; "farther outside the band" is not a severity.
+ *   • CO₂ — NO red here. 1,000 ppm is a ventilation-per-occupant indicator;
+ *     higher occupational CO₂ limits are a different exposure context and
+ *     belong to an occupational-IH module, not this one.
+ *   • TVOC — NO red. There is no defensible universal TVOC concentration
+ *     ladder across buildings, mixtures and instruments.
+ *   • PM2.5 — a legitimate candidate: EPA defines progressively higher 24-hour
+ *     categories. But the logger records short-interval readings, so a tier
+ *     may only be assigned from the correct AVERAGING WINDOW (a rolling 24-hour
+ *     mean), never a single 60-minute reading — that averaging engine is not
+ *     built yet, so no red tier ships.
+ *   • HCHO — possible only if a SECOND authoritative criterion with the right
+ *     averaging period is explicitly selected; never automatic from the NIOSH
+ *     REL line.
  */
 
 import { STD } from '../constants/standards'

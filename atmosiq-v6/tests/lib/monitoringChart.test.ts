@@ -21,13 +21,21 @@ const MIN = 60_000
 function stubCtx() {
   const calls: { fn: string; args: unknown[]; color?: unknown }[] = []
   const rec = (fn: string) => (...args: unknown[]) => { calls.push({ fn, args }) }
+  const gradients: string[][] = []
   const ctx: Record<string, unknown> = {
     calls,
     text: () => calls.filter((c) => c.fn === 'fillText').map((c) => String(c.args[0])),
     // The colour of each stroke, in draw order — for asserting conditional
     // trace colouring against the reference.
     strokeColors: () => calls.filter((c) => c.fn === 'stroke').map((c: any) => c.color),
-    createLinearGradient: () => ({ addColorStop() {} }),
+    // The stop colours of every gradient built — the area fills use one per
+    // trace colour, so this asserts the fill follows the line.
+    gradientColors: () => gradients.map((s) => s.join(' ')),
+    createLinearGradient: () => {
+      const stops: string[] = []
+      gradients.push(stops)
+      return { addColorStop: (_o: number, c: string) => stops.push(c) }
+    },
   }
   for (const fn of [
     'clearRect', 'fillRect', 'beginPath', 'moveTo', 'lineTo', 'closePath', 'fill',
@@ -176,6 +184,17 @@ describe('drawMonitoringChart', () => {
     expect(amber).toBeGreaterThan(0)
     // No action tier defined → no red.
     expect(colors).not.toContain('#DC2626')
+    // The fill follows the line: both a teal and an amber fill gradient exist.
+    const grads = ctx.gradientColors()
+    expect(grads.some((g: string) => g.includes('8,145,178'))).toBe(true) // teal fill
+    expect(grads.some((g: string) => g.includes('217,119,6'))).toBe(true) // amber fill
+  })
+
+  it('keeps a fully in-range series entirely teal — line and fill', () => {
+    const ctx = stubCtx()
+    drawMonitoringChart(ctx, { points: series(40, () => 450), limit: 1000 })
+    expect(ctx.strokeColors()).not.toContain('#D97706')
+    expect(ctx.gradientColors().some((g: string) => g.includes('217,119,6'))).toBe(false)
   })
 
   it('turns the span red above a defined action tier', () => {
