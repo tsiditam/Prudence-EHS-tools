@@ -4194,8 +4194,11 @@ export default function MobileApp() {
       )}
 
       {/* ── Report Type Picker — bottom sheet ──────────────────────
-          Mobile-first soft-glass sheet. Two deliverables: the
-          Consultant Report (DOCX) and the AtmosFlow Report (PDF). */}
+          Mobile-first soft-glass sheet. The AtmosFlow report now exports
+          as the editable Word (DOCX) report — no PDF, no draft watermark.
+          NOTE: both cards currently generate the same consultant DOCX;
+          pending a product decision on whether to keep one card or make
+          the AtmosFlow card the full consultant + technical suite. */}
       {docxPicker && (
         <BottomSheet title="Generate Report" onClose={()=>setDocxPicker(false)} ariaLabel="Choose report format">
           <div style={{fontSize:13,color:SUB,margin:'4px 0 16px',lineHeight:1.55}}>Choose which report to generate.</div>
@@ -4204,9 +4207,9 @@ export default function MobileApp() {
               <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:3}}>Consultant Report</div>
               <div style={{fontSize:12,color:SUB,lineHeight:1.55}}>Modern editorial Word layout — serif headings, clean tables, navy zone bars. Executive summary, interpretation, and recommendations for client delivery.</div>
             </GlassCard>
-            <GlassCard onClick={()=>{setDocxPicker(false);handleExport('pdf','atmosflow')}} dense style={{padding:'14px 16px'}}>
-              <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:3}}>AtmosFlow Report (PDF)</div>
-              <div style={{fontSize:12,color:SUB,lineHeight:1.55}}>The fixed AtmosFlow IAQ report — cover, executive summary, findings-at-a-glance, measurement results, per-parameter interpretation, logger charts, recommendations, QA/QC, limitations, and appendices. Carries a draft watermark until you mark it final; a report sent for professional review is signed by the reviewer.</div>
+            <GlassCard onClick={()=>{setDocxPicker(false);handleExport('docx','consultant')}} dense style={{padding:'14px 16px'}}>
+              <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:3}}>AtmosFlow Report (Word)</div>
+              <div style={{fontSize:12,color:SUB,lineHeight:1.55}}>The AtmosFlow IAQ report as an editable Word document for client delivery — executive summary, interpretation, and recommendations. No draft watermark.</div>
             </GlassCard>
           </div>
           <div style={{marginTop:14}}>
