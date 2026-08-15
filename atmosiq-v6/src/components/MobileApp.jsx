@@ -763,6 +763,11 @@ export default function MobileApp() {
   const [selZone, setSelZone] = useState(0)
 
   const [viewRpt, setViewRpt] = useState(null)
+  // Editorial cuts approved for the currently-viewed report. Held in session
+  // state so they apply to the report's export even when the report is not
+  // saved (e.g. a demo). Hydrated from a saved report's stored cuts on open,
+  // and reset when the viewed report changes.
+  const [editorialCuts, setEditorialCuts] = useState(null)
   const [reportOpenError, setReportOpenError] = useState(null)
   const [currentIncident, setCurrentIncident] = useState(null)
   const [delConf, setDelConf] = useState(null)
@@ -1009,7 +1014,7 @@ export default function MobileApp() {
         setCurrentSiteId(site.id)
         setZones([{}]); setCurZone(0); setQsqi(0); setDqi(0); setZqi(0)
         setPhotos({}); setPhotoOverrides({}); setSensorData(null); setFloorPlan(null)
-        setZoneScores([]); setComp(null); setOshaResult(null); setRecs(null)
+        setZoneScores([]); setComp(null); setOshaResult(null); setRecs(null); setEditorialCuts(null)
         setNarrative(null); setSamplingPlan(null); setCausalChains([])
         trackEvent('site_link_hydrated', { site_id: site.id, prior_report: !!prior })
         setView('quickstart')
@@ -1038,7 +1043,7 @@ export default function MobileApp() {
   // "Go home" — the consultant home is the Projects landing; FM home stays
   // the dashboard. Used by every exit-to-home flow so the two modes don't
   // fork at each call site.
-  const goHome = () => { setView(homeView(userMode)); setViewRpt(null) }
+  const goHome = () => { setView(homeView(userMode)); setViewRpt(null); setEditorialCuts(null) }
 
   // Sustained "liquid-glass" press for the header glass controls (hamburger,
   // kebab, back pill). While held, the control grows and a cyan glow blooms;
@@ -1317,7 +1322,7 @@ export default function MobileApp() {
     // Pre-bind to the originating Project when launched from its workspace.
     setPresurvey(psFill); setBldg(assessmentSeed ? { name: assessmentSeed.name, address: assessmentSeed.address } : {}); setAssessmentSeed(null); setQsqi(0); setDqi(0); setSensorData(null)
     setZones([{}]); setCurZone(0); setZqi(0); setPhotos({}); setEquipment([])
-    setZoneScores([]); setComp(null); setOshaResult(null); setRecs(null); setNarrative(null); setSamplingPlan(null); setCausalChains([])
+    setZoneScores([]); setComp(null); setOshaResult(null); setRecs(null); setNarrative(null); setSamplingPlan(null); setCausalChains([]); setEditorialCuts(null)
     setView('quickstart')
   }
 
@@ -1666,7 +1671,7 @@ export default function MobileApp() {
     // the included charts from their data points here — a self-contained-SVG
     // raster that every export (DOCX, AtmosFlow PDF, Web) then embeds.
     const sensorDataForReport = await ensureLoggerChartImages(sensorData)
-    const reportData = { building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, escalationTriggers: esc, floorPlan, sensorData: sensorDataForReport, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, editorialSuppressions: viewRpt?.editorialSuppressions || null, assessmentContext, reportStyle }
+    const reportData = { building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, escalationTriggers: esc, floorPlan, sensorData: sensorDataForReport, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, editorialSuppressions: editorialCuts || viewRpt?.editorialSuppressions || null, assessmentContext, reportStyle }
     trackEvent('report_exported', { format: docxType || format, facility: bldg.fn || '', score: comp?.tot, zones: zones.length, has_narrative: !!narrative, photos: Object.values(filteredPhotos).flat().length })
 
     try {
@@ -1753,7 +1758,7 @@ export default function MobileApp() {
       profile, draftId,
       calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null,
     })
-    const reportData = { building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, floorPlan, sensorData, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, editorialSuppressions: viewRpt?.editorialSuppressions || null, ts: viewRpt?.ts, assessmentContext }
+    const reportData = { building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, floorPlan, sensorData, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, editorialSuppressions: editorialCuts || viewRpt?.editorialSuppressions || null, ts: viewRpt?.ts, assessmentContext }
     let blob, fileName
     try {
       const built = await getConsultantDocxBlob(reportData)
@@ -1804,7 +1809,7 @@ export default function MobileApp() {
       profile, draftId,
       calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null,
     })
-    const reportData = { building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, floorPlan, sensorData, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, editorialSuppressions: viewRpt?.editorialSuppressions || null, ts: viewRpt?.ts, assessmentContext }
+    const reportData = { building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, floorPlan, sensorData, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, editorialSuppressions: editorialCuts || viewRpt?.editorialSuppressions || null, ts: viewRpt?.ts, assessmentContext }
     const built = await getConsultantDocxBlob(reportData)
     // Size pre-check. The DOCX is uploaded to Storage and attached to the
     // review email by the server; keep it under a cap that leaves the
@@ -1942,7 +1947,7 @@ export default function MobileApp() {
     }
     setReportOpenError(null)
     trackEvent('report_viewed', { report_id: meta.id, facility: meta.facility || '', score: meta.score })
-    setViewRpt(rpt); setPresurvey(rpt.presurvey||{}); setBldg(rpt.building||rpt.bldg||{}); setZones(rpt.zones||[]); setEquipment(rpt.equipment||[])
+    setViewRpt(rpt); setEditorialCuts(rpt.editorialSuppressions || null); setPresurvey(rpt.presurvey||{}); setBldg(rpt.building||rpt.bldg||{}); setZones(rpt.zones||[]); setEquipment(rpt.equipment||[])
     setPhotos(rpt.photos||{}); setPhotoOverrides(rpt.photoOverrides||{}); setFloorPlan(rpt.floorPlan||null); setZoneScores(rpt.zoneScores||[]); setComp(rpt.comp||rpt.composite)
     setOshaResult(rpt.oshaEvals?.[0]||rpt.osha||null); setRecs(rpt.recs||null)
     setSamplingPlan(rpt.samplingPlan||null); setCausalChains(rpt.causalChains||[])
@@ -2264,18 +2269,22 @@ export default function MobileApp() {
     } catch { /* keep the optimistic UI even if persistence fails */ }
   }
 
-  // Save the editorial cuts the reviewing professional approved. `record` is a
-  // normalized editorialSuppressions object, or null to clear. Optimistic +
-  // persisted, mirroring the logger-include save above. The renderer reads
-  // editorialSuppressions on the next export; the engine/data are untouched.
+  // Apply the editorial cuts the reviewing professional approved. `record` is
+  // a normalized editorialSuppressions object, or null to clear. Cuts always
+  // take effect on the current report's export (held in session state that the
+  // export reportData reads); they are ALSO persisted to storage when the
+  // report is saved (has an id), so they survive across sessions. The
+  // engine/data are never mutated.
   const applyEditorialSuppressions = async (record) => {
-    if (!viewRpt?.id) return
     const next = record || null
-    setViewRpt({ ...viewRpt, editorialSuppressions: next })
-    try {
-      const base = await STO.get(viewRpt.id)
-      if (base) await STO.set(viewRpt.id, { ...base, editorialSuppressions: next, ua: new Date().toISOString() })
-    } catch { /* keep the optimistic UI even if persistence fails */ }
+    setEditorialCuts(next)
+    if (viewRpt?.id) {
+      setViewRpt({ ...viewRpt, editorialSuppressions: next })
+      try {
+        const base = await STO.get(viewRpt.id)
+        if (base) await STO.set(viewRpt.id, { ...base, editorialSuppressions: next, ua: new Date().toISOString() })
+      } catch { /* keep the optimistic UI even if persistence fails */ }
+    }
   }
 
   // Jump from a Readiness blocker straight to the field that fixes it.
@@ -2702,9 +2711,9 @@ export default function MobileApp() {
           <div style={{ marginTop: 18, paddingTop: 18, borderTop: '1px solid var(--border)' }}>
             <EditorialReviewPanel
               reportData={{ profile, presurvey, building: bldg, zones, zoneScores, comp, ts: viewRpt?.ts }}
-              existingSuppressions={viewRpt?.editorialSuppressions || null}
+              existingSuppressions={editorialCuts || viewRpt?.editorialSuppressions || null}
               extraFacts={{ spaceUses: (zones||[]).map(z => z && (z.su || z.space)).filter(Boolean) }}
-              canPersist={!!viewRpt?.id}
+              saved={!!viewRpt?.id}
               onApply={applyEditorialSuppressions}
             />
           </div>
