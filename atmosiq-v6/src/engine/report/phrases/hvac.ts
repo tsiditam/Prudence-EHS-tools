@@ -68,7 +68,7 @@ export const HVAC_PHRASES: Partial<Record<ConditionType, PhraseLibraryEntry>> = 
   hvac_drain_pan_microbial_reservoir: {
     conditionType: 'hvac_drain_pan_microbial_reservoir',
     intentTemplate:
-      'Standing water or biological growth was observed in the HVAC condensate drain pan. This condition creates a potential microbial reservoir and should be addressed. Legionella risk should be evaluated per ASHRAE Standard 188 if a Water Management Program is not in place.',
+      'Standing water or biological growth was observed in the HVAC condensate drain pan. This condition creates a potential microbial reservoir and should be addressed by cleaning the drain pan and associated components, correcting drainage or slope deficiencies contributing to standing water, and evaluating the source of the standing water.',
     bannedAlternatives: ['Legionella confirmed', 'hazardous biological condition', 'unsafe HVAC system'],
     definitiveConclusionRequires: ['laboratory_speciation'],
     causationSupportRequires: ['laboratory_speciation'],
@@ -76,9 +76,15 @@ export const HVAC_PHRASES: Partial<Record<ConditionType, PhraseLibraryEntry>> = 
     defaultLimitations: [
       'Microbial identification was not performed. Visual observation alone cannot determine species or pathogenicity.',
     ],
+    // The automatic Legionella / ASHRAE 188 escalation and the automatic
+    // EPA-registered-biocide instruction were removed: a soiled condensate
+    // pan does not by itself establish a recognized Legionella exposure
+    // pathway, and biocide selection is a maintenance decision, not a
+    // screening finding. Cleaning + drainage correction is the defensible
+    // recommendation; Legionella evaluation belongs only where system
+    // characteristics actually warrant it.
     defaultRecommendedActions: [
-      { priority: 'immediate', timeframe: '0–7 days', action: 'Clean drain pan, treat with EPA-registered biocide, and verify proper slope and condensate disposal.' },
-      { priority: 'short_term', timeframe: '7–30 days', action: 'Evaluate Legionella risk per ASHRAE Standard 188. Consider water sampling if building lacks a Water Management Program.', standardReference: 'ASHRAE Standard 188' },
+      { priority: 'immediate', timeframe: '0–7 days', action: 'Clean the condensate drain pan and associated components in accordance with manufacturer recommendations and applicable HVAC maintenance procedures; correct drainage and slope deficiencies contributing to standing water.' },
     ],
   },
 }

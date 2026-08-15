@@ -982,19 +982,22 @@ function buildPotentialContributingFactors(report) {
 }
 
 /**
- * v2.6 §5 — Recommended Sampling Plan section.
+ * v2.6 §5 — Recommended Follow-Up Evaluation section.
  *
  * Renders one block per Hypothesis. Each block contains the
  * confidence-tier language, the basis (free-form observation
  * strings that triggered the hypothesis), and the suggested
- * sampling parameter / method / rationale list.
+ * follow-up parameter / method / rationale list.
  *
- * Section is omitted entirely when no hypothesis fired.
+ * Titled "Recommended Follow-Up Evaluation" rather than "Sampling Plan":
+ * these are the follow-up evaluations a finding warrants, not an
+ * automatically generated investigation protocol. Section is omitted
+ * entirely when no hypothesis fired.
  */
 function buildRecommendedSamplingPlan(report) {
   const plan = report.recommendedSamplingPlan || []
   if (plan.length === 0) return []
-  const out = [...heading2('Recommended Sampling Plan')]
+  const out = [...heading2('Recommended Follow-Up Evaluation')]
   for (const h of plan) {
     out.push(new Paragraph({
       children: [
