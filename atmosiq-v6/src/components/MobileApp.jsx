@@ -83,7 +83,7 @@ import { ensureLoggerChartImages } from '../utils/loggerChartImages'
 // after redeploy (the missing-chunk request returned the SPA HTML fallback).
 // Bundling the docx renderer into the main chunk eliminates that failure
 // mode for the most common user action — exporting a report.
-import { generateDocx, generateConsultantOnly, generateTechnicalOnly, getConsultantDocxBlob, getNarrativeDocxBlob } from './DocxReport'
+import { generateDocx, generateConsultantOnly, generateTechnicalOnly, generateAtmosFlowOnly, getConsultantDocxBlob, getNarrativeDocxBlob } from './DocxReport'
 import { DEMO_CLEAN_PRESURVEY, DEMO_CLEAN_BUILDING, DEMO_CLEAN_ZONES, DEMO_CLEAN_EQUIPMENT } from '../constants/demoDataClean'
 import { DEMO_FM_PRESURVEY, DEMO_FM_BUILDING, DEMO_FM_ZONES } from '../constants/demoDataFM'
 import { DEMO_FINDINGS_PRESURVEY, DEMO_FINDINGS_BUILDING, DEMO_FINDINGS_ZONES, DEMO_FINDINGS_EQUIPMENT } from '../constants/demoDataFindings'
@@ -1684,7 +1684,8 @@ export default function MobileApp() {
         const label = docxType === 'technical' ? 'Writing your technical report' : 'Writing your consultant report'
         setGenWriting({ label, durationMs: ms })
         await new Promise(res => setTimeout(res, ms))
-        if (docxType === 'consultant' || docxType === 'consultant_cih') await generateConsultantOnly(reportData)
+        if (docxType === 'atmosflow') await generateAtmosFlowOnly(reportData)
+        else if (docxType === 'consultant' || docxType === 'consultant_cih') await generateConsultantOnly(reportData)
         else if (docxType === 'technical') await generateTechnicalOnly(reportData)
         else await generateDocx(reportData)
       } else if (format === 'pdf') {
@@ -4220,7 +4221,7 @@ export default function MobileApp() {
               <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:3}}>Consultant Report</div>
               <div style={{fontSize:12,color:SUB,lineHeight:1.55}}>Modern editorial Word layout — serif headings, clean tables, navy zone bars. Executive summary, interpretation, and recommendations for client delivery.</div>
             </GlassCard>
-            <GlassCard onClick={()=>{setDocxPicker(false);handleExport('docx','consultant')}} dense style={{padding:'14px 16px'}}>
+            <GlassCard onClick={()=>{setDocxPicker(false);handleExport('docx','atmosflow')}} dense style={{padding:'14px 16px'}}>
               <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:3}}>AtmosFlow Report (Word)</div>
               <div style={{fontSize:12,color:SUB,lineHeight:1.55}}>The AtmosFlow IAQ report as an editable Word document for client delivery — executive summary, interpretation, and recommendations. No draft watermark.</div>
             </GlassCard>
