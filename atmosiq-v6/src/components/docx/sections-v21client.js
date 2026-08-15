@@ -1098,10 +1098,21 @@ function buildRecommendationsTable(groups) {
   })
 }
 
-function buildLimitations(report) {
+// A single, consolidated Limitations section. The report previously
+// carried three overlapping back-of-report liability sections —
+// "Limitations and Professional Judgment", "Data Gaps and Limitations on
+// Interpretation", and a standalone "Disclaimer" — that largely repeated
+// each other. They are merged here into one "Limitations" section so the
+// reader meets the screening-only boundary, the data gaps, and the
+// reliance terms in one place. buildDataGapsSection / buildDisclaimer now
+// return their body content without their own heading so they fold in
+// cleanly.
+function buildLimitations(report, dataGaps) {
   return [
-    ...heading2('Limitations and Professional Judgment'),
+    ...heading2('Limitations'),
     p(report.limitationsAndProfessionalJudgment),
+    ...buildDataGapsSection(dataGaps),
+    ...buildDisclaimer(),
   ]
 }
 
@@ -1261,13 +1272,13 @@ export function buildConclusions(report) {
   return out
 }
 
-// Data Gaps and Limitations on Interpretation — scientific gaps
-// derived from the assessment (passed via options.dataGaps). No-op
-// when the list is empty.
+// Scientific data gaps derived from the assessment (passed via
+// options.dataGaps). No-op when the list is empty. Returns body content
+// only (no heading) — it is folded into the consolidated Limitations
+// section by buildLimitations rather than standing as its own section.
 export function buildDataGapsSection(dataGaps) {
   if (!Array.isArray(dataGaps) || dataGaps.length === 0) return []
-  const out = [...heading2('Data Gaps and Limitations on Interpretation')]
-  out.push(p(DATA_GAPS_INTRO, { size: 20, color: COLORS.sub }))
+  const out = [p(DATA_GAPS_INTRO, { size: 20, color: COLORS.sub })]
   for (const g of dataGaps) out.push(bullet(g))
   return out
 }
@@ -1313,9 +1324,11 @@ export function buildRelianceLimitation(warnings) {
   return out
 }
 
-// Disclaimer — standalone, distinct from the Limitations section.
+// Disclaimer paragraphs — reliance terms. Returns body content only (no
+// heading); folded into the consolidated Limitations section by
+// buildLimitations rather than standing as its own section.
 export function buildDisclaimer() {
-  const out = [...heading2('Disclaimer')]
+  const out = []
   for (const para of DISCLAIMER_PARAGRAPHS) out.push(p(para, { size: 20, color: COLORS.sub }))
   return out
 }
@@ -1408,11 +1421,13 @@ export function buildClientDocx(result, options = {}) {
     tocEntries = spliceTocEntry(tocEntries, { anchorId: 'instrument-accuracy', title: 'Instrument Accuracy and Calibration', level: 1 }, { after: /Sampling Methodology/i })
   }
   tocEntries = spliceTocEntry(tocEntries, { anchorId: 'conclusions', title: 'Conclusions', level: 1 }, { before: /Recommendations Register/i })
-  tocEntries = spliceTocEntry(tocEntries, { anchorId: 'disclaimer', title: 'Disclaimer', level: 1 }, { after: /Limitations and Professional Judgment/i })
-  // Data Gaps sits between Limitations and Disclaimer (when present).
-  if (Array.isArray(options.dataGaps) && options.dataGaps.length > 0) {
-    tocEntries = spliceTocEntry(tocEntries, { anchorId: 'data-gaps', title: 'Data Gaps and Limitations on Interpretation', level: 1 }, { after: /Limitations and Professional Judgment/i })
-  }
+  // The Disclaimer and Data Gaps sections were merged into the single
+  // "Limitations" section, so they no longer get their own TOC entries.
+  // Rename the engine's "Limitations and Professional Judgment" TOC entry
+  // to match the consolidated heading.
+  tocEntries = tocEntries.map((e) =>
+    /Limitations and Professional Judgment/i.test(e.title) ? { ...e, title: 'Limitations' } : e,
+  )
   tocEntries = spliceTocEntry(tocEntries, { anchorId: 'certification', title: 'Certification', level: 1 }, { before: /^Appendix / })
 
   const main = [
@@ -1452,11 +1467,10 @@ export function buildClientDocx(result, options = {}) {
       recommendationsRegister: report.recommendationsRegister,
       assessmentDate: report.cover?.date,
     }),
-    ...buildLimitations(report),
-    // Data Gaps — scientific gaps derived from the assessment.
-    ...buildDataGapsSection(options.dataGaps),
-    // Disclaimer — standalone legal block, distinct from Limitations.
-    ...buildDisclaimer(),
+    // Consolidated Limitations — professional judgment + scientific data
+    // gaps + reliance/disclaimer terms in a single section (previously
+    // three overlapping sections).
+    ...buildLimitations(report, options.dataGaps),
     // Standards Currency (and any future body-level supplemental section)
     // sits after Limitations/Professional Judgment and before the Signatory
     // + appendices, matching its TOC position.

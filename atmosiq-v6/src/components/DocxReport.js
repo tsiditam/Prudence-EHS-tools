@@ -21,7 +21,6 @@ import { buildTechnicalHeader, buildScopeConditions, buildInstrumentation, build
 import { buildClientDocx } from './docx/sections-v21client'
 import { buildLabResultsAppendix } from './docx/sections-lab-results'
 import { buildSensorGraphsAppendix } from './docx/sections-sensor'
-import { buildMethodologyCurrency } from './docx/sections-methodology-currency'
 import { buildConceptualSiteModelSection } from './docx/sections-conceptual-model'
 import { buildParameterExplainers, buildReportedConcernsSection, buildFindingsConfidenceRegister } from './docx/sections-cih-reasoning'
 import { buildEvidenceTraceabilityMatrix } from './docx/sections-traceability'
@@ -374,10 +373,13 @@ async function buildConsultantDocument(ctx, data) {
   // the fact, so they share the section heading style, sit in the right
   // position, get continuous appendix letters (after the engine's
   // Appendix F), and register in the Table of Contents:
-  //   • Standards Currency — methodology-currency body section documenting
-  //     references NOT in the deterministic scoring path (ASHRAE 241-2023,
-  //     EPA PM2.5 annual NAAQS 2024, ACGIH TLV 2025). Renders after
-  //     Limitations/Professional Judgment. Engine-sacred respected.
+  //   • (Removed) Standards Currency — the methodology-currency body
+  //     section described AtmosFlow's internal scoring engine ("scores the
+  //     assessment against the standards manifest", "deterministic scoring
+  //     path"). That is implementation/QA detail, not client-report content,
+  //     so it is no longer included in the consultant deliverable. The
+  //     builder (sections-methodology-currency.js) is retained for the
+  //     professional-review interface but is not rendered into the report.
   //   • Laboratory Analytical Results — closes the CoC loop when the
   //     assessor imported analytical CSV results (→ Appendix G).
   //   • Environmental Evidence Graphs — report-ready IAQ timelines the
@@ -405,7 +407,7 @@ async function buildConsultantDocument(ctx, data) {
       ]
     : []
   const supplemental = {
-    bodySections: [buildMethodologyCurrency(), ...cihSections].filter(Boolean),
+    bodySections: [...cihSections].filter(Boolean),
     appendices: [
       buildLabResultsAppendix(data.labResults),
       buildSensorGraphsAppendix(data.sensorData),

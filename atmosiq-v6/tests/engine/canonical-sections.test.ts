@@ -142,9 +142,14 @@ describe('Phase 2 — rendered DOCX', () => {
     const buf = await Packer.toBuffer(doc)
     const zip = await JSZip.loadAsync(buf)
     const xml = await zip.file('word/document.xml')!.async('string')
-    for (const t of ['Document Control', 'Standards, Guidelines, and Benchmark Types', 'Instrument Accuracy and Calibration', 'Conclusions', 'Data Gaps and Limitations on Interpretation', 'Disclaimer', 'Certification']) {
+    for (const t of ['Document Control', 'Standards, Guidelines, and Benchmark Types', 'Instrument Accuracy and Calibration', 'Conclusions', 'Limitations', 'Certification']) {
       expect(xml).toContain(t)
     }
+    // The Data Gaps and Disclaimer sections are merged into the single
+    // "Limitations" section: their content still renders, but no longer
+    // under separate headings.
+    expect(xml).toContain(DATA_GAPS_INTRO)
+    expect(xml).not.toContain('Data Gaps and Limitations on Interpretation')
     expect(xml).toContain('CO2 plus-minus 3 percent')
     expect(xml).toContain('ASHRAE 62.1-2025')
     expect(xml).toContain('Occupational exposure limit')
