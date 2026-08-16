@@ -10,6 +10,14 @@
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/(.*)", "destination": "/" }
   ],
+  "functions": {
+    "api/report-pdf.js": { "maxDuration": 60, "memory": 2048 },
+    "api/cron-portfolio-digest.ts": { "maxDuration": 300 },
+    "api/cron-calibration-expiry.ts": { "maxDuration": 120 },
+    "api/cron-email-queue-processor.ts": { "maxDuration": 120 },
+    "api/cron-monthly-credit-grant.ts": { "maxDuration": 120 },
+    "api/cron-free-tier-reset.ts": { "maxDuration": 60 }
+  },
   "crons": [
     { "path": "/api/cron-free-tier-reset",       "schedule": "0 0 * * *" },
     { "path": "/api/cron-monthly-credit-grant",  "schedule": "0 0 1 * *" },

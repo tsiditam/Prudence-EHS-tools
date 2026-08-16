@@ -49,11 +49,16 @@ function makeMockSupabase(profiles: ProfileFixture[], queueSeed: QueueRow[] = []
   let nextId = (queue.length || 0) + 1
   const inserts: QueueRow[] = []
   const updates: Array<{ ids: number[]; patch: Partial<QueueRow> }> = []
+  const captured: { orFilter?: string } = {}
 
   function profilesChain() {
     const ctx: { range?: [number, number] } = {}
     const chain: Record<string, unknown> = {
       select() { return chain },
+      // Server-side narrowing added for scale — the mock records it and then
+      // returns the fixtures unfiltered, so the JS-logic assertions are
+      // unaffected while a dedicated test can check the predicate.
+      or(expr: string) { captured.orFilter = expr; return chain },
       range(from: number, to: number) {
         ctx.range = [from, to]
         return Promise.resolve({ data: profiles.slice(from, to + 1), error: null })
@@ -107,7 +112,7 @@ function makeMockSupabase(profiles: ProfileFixture[], queueSeed: QueueRow[] = []
   }
 
   return {
-    state: { queue, inserts, updates },
+    state: { queue, inserts, updates, captured },
     from(table: string) {
       if (table === 'profiles')    return profilesChain()
       if (table === 'email_queue') return emailQueueChain()
@@ -237,6 +242,24 @@ describe('cron-calibration-expiry — opt-out + filters', () => {
     activeMock = makeMockSupabase([profile])
     const r = await runCalibrationExpiryScan(NOW)
     expect(r.enqueued).toBe(0)
+  })
+})
+
+describe('cron-calibration-expiry — server-side narrowing (scale)', () => {
+  it('filters profiles to cal_date <= now - (VALIDITY - WARN) days', async () => {
+    const profile: ProfileFixture = {
+      id: 'u1',
+      iaq_meter: 'TSI 7575',
+      iaq_cal_date: daysAgoIso(CAL_VALIDITY_DAYS - 5),
+      pid_meter: null, pid_cal_date: null,
+      email_preferences: null,
+    }
+    activeMock = makeMockSupabase([profile])
+    await runCalibrationExpiryScan(NOW)
+    const cutoff = new Date(NOW.getTime() - (CAL_VALIDITY_DAYS - CAL_WARN_DAYS) * 86400000)
+      .toISOString()
+      .slice(0, 10)
+    expect(activeMock!.state.captured.orFilter).toBe(`iaq_cal_date.lte.${cutoff},pid_cal_date.lte.${cutoff}`)
   })
 })
 

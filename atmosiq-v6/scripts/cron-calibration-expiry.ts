@@ -20,6 +20,8 @@
 import { createClient } from '@supabase/supabase-js'
 import {
   getCalibrationBannerState,
+  CAL_VALIDITY_DAYS,
+  CAL_WARN_DAYS,
   type CalibrationBannerState,
 } from '../lib/calibration/banner-state'
 import {
@@ -81,16 +83,23 @@ export async function runCalibrationExpiryScan(
   // keeps this query cheap as the user base grows.
   let scanned = 0
   let from = 0
-  // We intentionally don't filter the SELECT to "expiring soon" rows —
-  // the date arithmetic happens in JS using getCalibrationBannerState
-  // so the cron and the dashboard banner read the same logic.
-  // For very large tables, swap to a server-side filter on
-  // iaq_cal_date <= NOW() - (CAL_VALIDITY_DAYS - CAL_WARN_DAYS) days.
+  // Server-side narrowing: only a calibration older than
+  // (CAL_VALIDITY_DAYS - CAL_WARN_DAYS) days can be within the warn window or
+  // already expired — everything newer is comfortably current and would be
+  // skipped in JS anyway. Filtering here turns a full-table scan into an index
+  // range scan; getCalibrationBannerState still runs per instrument for the
+  // exact kind, so behavior is unchanged (rows excluded here would have
+  // produced no email). A NULL cal_date fails `.lte` and is excluded — correct,
+  // since a missing date yields 'unrecorded', which this cron never emails.
+  const cutoff = new Date(now.getTime() - (CAL_VALIDITY_DAYS - CAL_WARN_DAYS) * 86400000)
+    .toISOString()
+    .slice(0, 10)
   for (;;) {
     const to = from + BATCH_SIZE - 1
     const { data, error } = await supabase
       .from('profiles')
       .select('id, iaq_meter, iaq_cal_date, pid_meter, pid_cal_date, email_preferences')
+      .or(`iaq_cal_date.lte.${cutoff},pid_cal_date.lte.${cutoff}`)
       .range(from, to)
     if (error) {
       errors.push(`profiles select failed: ${error.message}`)
