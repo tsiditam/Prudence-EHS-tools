@@ -4210,11 +4210,12 @@ export default function MobileApp() {
       )}
 
       {/* ── Report Type Picker — bottom sheet ──────────────────────
-          Mobile-first soft-glass sheet. The AtmosFlow report now exports
-          as the editable Word (DOCX) report — no PDF, no draft watermark.
-          NOTE: both cards currently generate the same consultant DOCX;
-          pending a product decision on whether to keep one card or make
-          the AtmosFlow card the full consultant + technical suite. */}
+          Mobile-first soft-glass sheet. Two DISTINCT deliverables:
+          "Consultant Report" → generateConsultantOnly (the CIH v2.1
+          ClientReport layout, downloads AtmosFlow-Consultant-Report-…),
+          and "AtmosFlow Report (Word)" → generateAtmosFlowOnly (the Figma
+          AtmosFlow layout, downloads AtmosFlow-Report-…). Different content
+          AND different file names, so the two never collide on disk. */}
       {docxPicker && (
         <BottomSheet title="Generate Report" onClose={()=>setDocxPicker(false)} ariaLabel="Choose report format">
           <div style={{fontSize:13,color:SUB,margin:'4px 0 16px',lineHeight:1.55}}>Choose which report to generate.</div>
