@@ -257,7 +257,10 @@ async function generateConsultantDocx(ctx, data) {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `AtmosFlow-Report-${ctx.facilityName}.docx`
+  // Distinct from the AtmosFlow report's file name (AtmosFlow-Report-…):
+  // both used to download as the same name, so the two different documents
+  // were indistinguishable on disk and one masked the other.
+  a.download = `AtmosFlow-Consultant-Report-${ctx.facilityName}.docx`
   a.style.display = 'none'
   document.body.appendChild(a)
   a.click()
@@ -635,7 +638,8 @@ export async function getConsultantDocxBlob(data) {
   const blob = await Packer.toBlob(doc)
   return {
     blob,
-    fileName: `AtmosFlow-Report-${ctx.facilityName}.docx`,
+    // Distinct from the AtmosFlow report — see generateConsultantDocx.
+    fileName: `AtmosFlow-Consultant-Report-${ctx.facilityName}.docx`,
   }
 }
 
