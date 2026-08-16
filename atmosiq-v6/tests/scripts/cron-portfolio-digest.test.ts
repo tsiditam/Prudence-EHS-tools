@@ -41,6 +41,7 @@ function makeMockSupabase(profiles: ProfileFixture[], audit: AuditFixture[], que
   const queue: QueueRow[] = [...queueSeed]
   let nextId = (queue.length || 0) + 1
   const inserts: QueueRow[] = []
+  const counters = { auditQueries: 0 }
 
   function profilesChain() {
     const ctx: { lte?: string; range?: [number, number] } = {}
@@ -59,19 +60,28 @@ function makeMockSupabase(profiles: ProfileFixture[], audit: AuditFixture[], que
   }
 
   function auditChain() {
-    const ctx: { filters: Record<string, string>; gte?: string; lt?: string; limit?: number } = { filters: {} }
+    // Matches the BATCHED query: .select().in('actor_id',[]).in('action',[])
+    //   .gte().lt().order().range(from,to)
+    const ctx: { inActor?: string[]; inAction?: string[]; gte?: string; lt?: string } = {}
     const chain: Record<string, unknown> = {
       select() { return chain },
-      eq(col: string, val: string) { ctx.filters[col] = val; return chain },
+      in(col: string, vals: string[]) {
+        if (col === 'actor_id') ctx.inActor = vals
+        else if (col === 'action') ctx.inAction = vals
+        return chain
+      },
       gte(_col: string, val: string) { ctx.gte = val; return chain },
       lt(_col: string, val: string) { ctx.lt = val; return chain },
       order() { return chain },
-      limit(n: number) {
-        ctx.limit = n
-        let out = audit.filter(a => Object.entries(ctx.filters).every(([k, v]) => (a as unknown as Record<string, string>)[k] === v))
+      range(from: number, to: number) {
+        let out = audit.filter(a =>
+          (!ctx.inActor || ctx.inActor.includes(a.actor_id)) &&
+          (!ctx.inAction || ctx.inAction.includes(a.action)),
+        )
         if (ctx.gte) out = out.filter(a => new Date(a.created_at).getTime() >= new Date(ctx.gte!).getTime())
         if (ctx.lt)  out = out.filter(a => new Date(a.created_at).getTime() <  new Date(ctx.lt!).getTime())
-        return Promise.resolve({ data: out.slice(0, n), error: null })
+        out = out.sort((x, y) => new Date(y.created_at).getTime() - new Date(x.created_at).getTime())
+        return Promise.resolve({ data: out.slice(from, to + 1), error: null })
       },
     }
     return chain
@@ -107,10 +117,10 @@ function makeMockSupabase(profiles: ProfileFixture[], audit: AuditFixture[], que
   }
 
   return {
-    state: { queue, inserts },
+    state: { queue, inserts, counters },
     from(table: string) {
       if (table === 'profiles')    return profilesChain()
-      if (table === 'audit_log')   return auditChain()
+      if (table === 'audit_log')   { counters.auditQueries++; return auditChain() }
       if (table === 'email_queue') return emailQueueChain()
       throw new Error('unexpected table: ' + table)
     },
@@ -213,6 +223,47 @@ describe('cron-portfolio-digest — happy paths', () => {
     const r = await runPortfolioDigestEnqueue(NOW)
     expect(r.skipped_ineligible).toBe(1)
     expect(r.enqueued).toBe(0)
+  })
+})
+
+describe('cron-portfolio-digest — batched audit fetch (no N+1)', () => {
+  it('queries audit_log ONCE per profile page, not once per user', async () => {
+    const profiles: ProfileFixture[] = ['u1', 'u2', 'u3'].map(id => ({
+      id, created_at: '2025-01-01T00:00:00Z', email_preferences: null,
+    }))
+    const audit: AuditFixture[] = profiles.flatMap(p => [
+      finalize(p.id, '2026-04-10T10:00:00Z', `${p.id}-a`),
+      finalize(p.id, '2026-05-15T10:00:00Z', `${p.id}-b`),
+    ])
+    activeMock = makeMockSupabase(profiles, audit)
+    const r = await runPortfolioDigestEnqueue(NOW)
+    expect(r.ok).toBe(true)
+    expect(r.enqueued).toBe(3)
+    // The fix: one batched audit query for the whole page (was 3 — one per user).
+    expect(activeMock!.state.counters.auditQueries).toBe(1)
+    // Each user's stats are still computed correctly from the grouped rows.
+    for (const ins of activeMock!.state.inserts) {
+      expect(ins.payload!.assessments_finalized).toBe(2)
+      expect(ins.payload!.distinct_sites).toBe(2)
+    }
+  })
+
+  it('excludes opted-out users from the audit batch', async () => {
+    const profiles: ProfileFixture[] = [
+      { id: 'u1', created_at: '2025-01-01T00:00:00Z', email_preferences: null },
+      { id: 'u2', created_at: '2025-01-01T00:00:00Z', email_preferences: { portfolio_digest: false } },
+    ]
+    const audit: AuditFixture[] = [
+      finalize('u1', '2026-04-10T10:00:00Z'),
+      finalize('u1', '2026-05-15T10:00:00Z'),
+      finalize('u2', '2026-04-10T10:00:00Z'),
+      finalize('u2', '2026-05-15T10:00:00Z'),
+    ]
+    activeMock = makeMockSupabase(profiles, audit)
+    const r = await runPortfolioDigestEnqueue(NOW)
+    expect(r.skipped_opt_out).toBe(1)
+    expect(r.enqueued).toBe(1)
+    expect(activeMock!.state.inserts[0].user_id).toBe('u1')
   })
 })
 

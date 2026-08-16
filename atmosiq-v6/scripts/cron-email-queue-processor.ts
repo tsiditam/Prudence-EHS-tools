@@ -20,7 +20,16 @@ import { getTemplate, type UserContext } from '../lib/email-sequences'
 
 const FROM = process.env.RESEND_FROM_ADDRESS || 'support@prudenceehs.com'
 const RESEND_API = 'https://api.resend.com/emails'
-const BATCH_SIZE = 100
+// Drain more per 15-minute tick than the old 100 (400/hr) so a daily reminder
+// burst across a large user base doesn't back up for hours. maxDuration is set
+// to 120s for this function in vercel.json, comfortably covering 200 throttled
+// sends.
+const BATCH_SIZE = 200
+// Proactively stay under Resend's per-second send limit (~10/s on paid tiers)
+// rather than bursting into a 429. ~9 sends/sec.
+const DEFAULT_SEND_INTERVAL_MS = 110
+
+const sleep = (ms: number) => (ms > 0 ? new Promise<void>((res) => setTimeout(res, ms)) : Promise.resolve())
 
 export interface ProcessorResult {
   ok: boolean
@@ -44,7 +53,10 @@ interface ProfileRow {
   plan?: string
 }
 
-export async function runEmailQueueProcessor(now: Date = new Date()): Promise<ProcessorResult> {
+export async function runEmailQueueProcessor(
+  now: Date = new Date(),
+  opts: { sendIntervalMs?: number; batchSize?: number } = {},
+): Promise<ProcessorResult> {
   const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
   const resendKey = process.env.RESEND_API_KEY
@@ -52,8 +64,10 @@ export async function runEmailQueueProcessor(now: Date = new Date()): Promise<Pr
 
   const supabase = createClient(url, key)
   const errors: string[] = []
+  const batchSize = opts.batchSize ?? BATCH_SIZE
+  const sendIntervalMs = opts.sendIntervalMs ?? DEFAULT_SEND_INTERVAL_MS
 
-  // Fetch up to BATCH_SIZE due rows.
+  // Fetch up to batchSize due rows.
   const { data: dueRows, error: selErr } = await supabase
     .from('email_queue')
     .select('id, user_id, template_id, payload')
@@ -61,7 +75,7 @@ export async function runEmailQueueProcessor(now: Date = new Date()): Promise<Pr
     .is('sent_at', null)
     .is('canceled_at', null)
     .order('scheduled_for', { ascending: true })
-    .limit(BATCH_SIZE)
+    .limit(batchSize)
 
   if (selErr) return { ok: false, scanned: 0, sent: 0, skipped: 0, errors: [selErr.message] }
   if (!dueRows || dueRows.length === 0) {
@@ -94,6 +108,7 @@ export async function runEmailQueueProcessor(now: Date = new Date()): Promise<Pr
 
   let sent = 0
   let skipped = 0
+  let realSends = 0
 
   for (const row of rows) {
     const tpl = getTemplate(row.template_id)
@@ -131,6 +146,10 @@ export async function runEmailQueueProcessor(now: Date = new Date()): Promise<Pr
       continue
     }
 
+    // Throttle between real sends to stay under Resend's per-second cap.
+    if (realSends > 0) await sleep(sendIntervalMs)
+    realSends++
+
     try {
       const resp = await fetch(RESEND_API, {
         method: 'POST',
@@ -145,6 +164,15 @@ export async function runEmailQueueProcessor(now: Date = new Date()): Promise<Pr
           text: rendered.text,
         }),
       })
+      // Rate limited: stop the batch rather than hammering. The remaining rows
+      // still have sent_at IS NULL, so the next 15-minute tick drains them —
+      // this is idempotent backoff, not a lost email.
+      if (resp.status === 429) {
+        const retryAfter = resp.headers?.get?.('retry-after')
+        skipped++
+        errors.push(`row=${row.id}: resend 429 (rate limited)${retryAfter ? `, retry-after=${retryAfter}s` : ''}; backing off — ${rows.length - realSends} row(s) deferred to next run`)
+        break
+      }
       if (!resp.ok) {
         const body = await resp.text()
         skipped++

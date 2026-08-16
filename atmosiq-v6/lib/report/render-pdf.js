@@ -613,9 +613,18 @@ function imgData(d) {
 // PNGs (e.g. 1×1 placeholders). Return a usable Buffer only when the image
 // looks real; otherwise null → caller draws a placeholder / skips. Real
 // Logger Studio charts and field photos pass.
+// Cap a single decoded image at 12 MB. All photos for a report are held in
+// memory at once during the two-pass render; without a cap, a handful of
+// oversized base64 payloads (a client bug, or a hostile one) can push the
+// serverless function past its memory limit and crash the whole render. A
+// normal field photo or Logger chart is well under this; an image over it is
+// skipped (caller draws a placeholder), which is strictly better than an OOM.
+const MAX_IMAGE_BYTES = 12 * 1024 * 1024
+
 function safeImageBuf(d) {
   const buf = imgData(d)
   if (!Buffer.isBuffer(buf) || buf.length < 100) return null
+  if (buf.length > MAX_IMAGE_BYTES) return null
   // PNG: read IHDR width/height (bytes 16–24) and require sane dimensions.
   if (buf.length > 24 && buf[0] === 0x89 && buf[1] === 0x50) {
     const w = buf.readUInt32BE(16), h = buf.readUInt32BE(20)

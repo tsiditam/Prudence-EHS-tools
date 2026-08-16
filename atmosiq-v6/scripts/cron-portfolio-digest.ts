@@ -37,9 +37,15 @@ import {
 import { enqueuePortfolioDigest } from '../lib/email-triggers'
 
 const BATCH_SIZE = 500
-// Cap how many audit_log rows we pull per user — a power user with
+// Cap how many audit_log rows we keep per user — a power user with
 // hundreds of events per quarter still fits comfortably under 1k.
 const AUDIT_ROWS_PER_USER = 5000
+// The only actions computeDigestStats counts. Filtering the audit fetch to
+// these keeps the batched query small and is result-equivalent (rows of other
+// actions were discarded by the stats function anyway).
+const COUNTED_ACTIONS = ['assessment_finalized', 'report_exported', 'engine_ran']
+// Page size for the batched audit fetch (stays under PostgREST's row cap).
+const AUDIT_PAGE = 1000
 
 export interface CronDigestResult {
   ok: boolean
@@ -107,6 +113,46 @@ export async function runPortfolioDigestEnqueue(
     const rows = (data || []) as ProfileRow[]
     if (rows.length === 0) break
 
+    // ONE audit_log fetch for the whole page instead of one query PER user.
+    // The per-user version was an N+1 that became ~5000 sequential round-trips
+    // at scale (a single-invocation timeout risk). We fetch the two-quarter
+    // window for every non-opted-out user in the page in a paginated batch,
+    // filtered to the counted actions, then group in JS.
+    const activeIds = rows.filter(p => p.email_preferences?.portfolio_digest !== false).map(p => p.id)
+    const auditByUser = new Map<string, AuditRow[]>()
+    if (activeIds.length) {
+      let offset = 0
+      for (;;) {
+        const { data: auditRows, error: auditErr } = await supabase
+          .from('audit_log')
+          .select('actor_id, action, created_at, target_id, details')
+          .in('actor_id', activeIds)
+          .in('action', COUNTED_ACTIONS)
+          .gte('created_at', yearBefore.start.toISOString())
+          .lt('created_at', justEnded.end.toISOString())
+          .order('created_at', { ascending: false })
+          .range(offset, offset + AUDIT_PAGE - 1)
+        if (auditErr) {
+          errors.push(`audit_log batch select failed: ${auditErr.message}`)
+          return {
+            ok: false, scanned, enqueued,
+            skipped_ineligible: skippedIneligible,
+            skipped_opt_out: skippedOptOut,
+            skipped_existing: skippedExisting,
+            errors,
+          }
+        }
+        const batch = (auditRows || []) as Array<AuditRow & { actor_id: string }>
+        for (const a of batch) {
+          const list = auditByUser.get(a.actor_id) || []
+          if (list.length < AUDIT_ROWS_PER_USER) list.push(a)
+          auditByUser.set(a.actor_id, list)
+        }
+        if (batch.length < AUDIT_PAGE) break
+        offset += AUDIT_PAGE
+      }
+    }
+
     for (const profile of rows) {
       scanned++
       const optOut = profile.email_preferences?.portfolio_digest === false
@@ -115,21 +161,8 @@ export async function runPortfolioDigestEnqueue(
         continue
       }
 
-      // Pull this user's audit_log rows across BOTH quarters.
-      const { data: auditRows, error: auditErr } = await supabase
-        .from('audit_log')
-        .select('action, created_at, target_id, details')
-        .eq('actor_id', profile.id)
-        .gte('created_at', yearBefore.start.toISOString())
-        .lt('created_at', justEnded.end.toISOString())
-        .order('created_at', { ascending: false })
-        .limit(AUDIT_ROWS_PER_USER)
-      if (auditErr) {
-        errors.push(`audit_log select for ${profile.id} failed: ${auditErr.message}`)
-        continue
-      }
       const stats = computeDigestStats({
-        rows: (auditRows || []) as AuditRow[],
+        rows: auditByUser.get(profile.id) || [],
         quarter: justEnded,
         prior: yearBefore,
         account_created_at: profile.created_at,
