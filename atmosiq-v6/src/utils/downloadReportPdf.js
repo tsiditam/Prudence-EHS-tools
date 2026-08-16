@@ -11,16 +11,29 @@
  */
 
 import { assembleRenderModel } from '../report/reportModel'
+import { supabase } from './supabaseClient'
 
 export async function downloadReportPdf(reportData, opts = {}) {
   const model = assembleRenderModel(reportData, opts)
+  // The render endpoint now requires a valid Supabase session (it used to
+  // accept any request). Attach the bearer token.
+  let token = null
+  if (supabase) {
+    try {
+      const { data } = await supabase.auth.getSession()
+      token = data && data.session && data.session.access_token
+    } catch { /* no session — the request will 401 and surface below */ }
+  }
   const res = await fetch('/api/report-pdf', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: {
+      'content-type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     body: JSON.stringify({ model }),
   })
   if (!res.ok) {
-    let msg = `Report generation failed (${res.status})`
+    let msg = res.status === 401 ? 'Please sign in again to generate the report.' : `Report generation failed (${res.status})`
     try {
       const j = await res.json()
       if (j.error === 'banned_language') msg = `Report blocked: unsupported language detected${j.hits && j.hits[0] ? ` ("${j.hits[0].term}")` : ''}. Edit the narrative and retry.`

@@ -39,6 +39,9 @@ const PER_DAY_LIMIT = 100
 const FREE_TIER_DAILY_CAP = 5
 const ANTHROPIC_MODEL = 'claude-sonnet-4-6'
 const MAX_TOKENS = 1200
+// Reject oversized image payloads before the upstream vision call. A field
+// photo is well under 8 MB; anything larger is a client bug or abuse.
+const MAX_IMAGE_BYTES = 8 * 1024 * 1024
 const COST_INPUT_PER_M = 3
 const COST_OUTPUT_PER_M = 15
 
@@ -279,8 +282,13 @@ async function handler(req, res) {
   if (!image || typeof image !== 'string') {
     return res.status(400).json({ error: 'Missing image (data URL) in request body' })
   }
-  if (!parseImageDataUrl(image)) {
+  const parsedImage = parseImageDataUrl(image)
+  if (!parsedImage) {
     return res.status(400).json({ error: 'image must be a base64 data URL with mime type image/jpeg, image/png, or image/webp' })
+  }
+  // Decoded bytes ≈ base64 length × 3/4. Reject oversized payloads up front.
+  if (Math.floor((parsedImage.data.length * 3) / 4) > MAX_IMAGE_BYTES) {
+    return res.status(413).json({ error: 'image too large (max 8 MB)' })
   }
 
   let response

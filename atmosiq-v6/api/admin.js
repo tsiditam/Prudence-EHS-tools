@@ -11,6 +11,7 @@
  */
 
 const { createClient } = require('@supabase/supabase-js')
+const crypto = require('crypto')
 const { auditLog } = require('./_audit')
 
 let _supabaseClient = null
@@ -22,9 +23,19 @@ function getSupabase() {
   return createClient(url, key)
 }
 
+// Timing-safe bearer compare. Length is checked first (timingSafeEqual throws
+// on unequal-length buffers). TODO(claude): a single shared static admin
+// secret with no per-admin identity or rotation is a bigger design gap — a
+// per-user `is_admin` JWT claim would replace this. Tracked for a follow-up.
+function safeBearer(header, secret) {
+  const a = Buffer.from(String(header || ''))
+  const b = Buffer.from(`Bearer ${secret}`)
+  return a.length === b.length && crypto.timingSafeEqual(a, b)
+}
+
 module.exports = async function handler(req, res) {
   const adminSecret = process.env.ADMIN_SECRET
-  if (!adminSecret || req.headers.authorization !== `Bearer ${adminSecret}`) {
+  if (!adminSecret || !safeBearer(req.headers.authorization, adminSecret)) {
     return res.status(401).json({ error: 'Unauthorized' })
   }
 

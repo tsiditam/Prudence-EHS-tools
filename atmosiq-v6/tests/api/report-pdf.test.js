@@ -4,10 +4,23 @@
  * banned-language guard (no compliance/causation claim can reach a PDF), and
  * a successful render returning application/pdf bytes.
  */
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { createRequire } from 'node:module'
 const require = createRequire(import.meta.url)
 const handler = require('../../api/report-pdf.js')
+
+// The endpoint now verifies the Supabase JWT. Inject a mock that accepts
+// 'good-token' and rejects everything else.
+beforeEach(() => {
+  handler.__test.setSupabase({
+    auth: {
+      getUser: async (token) =>
+        token === 'good-token'
+          ? { data: { user: { id: 'u1' } }, error: null }
+          : { data: { user: null }, error: { message: 'invalid token' } },
+    },
+  })
+})
 
 function mockRes() {
   return {
@@ -17,6 +30,8 @@ function mockRes() {
   }
 }
 const run = async (req) => { const res = mockRes(); await handler(req, res); return res }
+// Authenticated request helper.
+const authed = (req) => ({ ...req, headers: { authorization: 'Bearer good-token', ...(req.headers || {}) } })
 
 const goodModel = {
   meta: { coverRows: [['Facility', 'X']], firm: 'PSEC', reportId: 'AIQ-OK01' },
@@ -30,13 +45,23 @@ describe('POST /api/report-pdf', () => {
     expect(res.statusCode).toBe(405)
   })
 
+  it('401 when no bearer token', async () => {
+    const res = await run({ method: 'POST', body: { model: goodModel } })
+    expect(res.statusCode).toBe(401)
+  })
+
+  it('401 when the token is invalid', async () => {
+    const res = await run({ method: 'POST', headers: { authorization: 'Bearer nope' }, body: { model: goodModel } })
+    expect(res.statusCode).toBe(401)
+  })
+
   it('400 when no model', async () => {
-    const res = await run({ method: 'POST', body: {} })
+    const res = await run(authed({ method: 'POST', body: {} }))
     expect(res.statusCode).toBe(400)
   })
 
   it('renders application/pdf for a clean model', async () => {
-    const res = await run({ method: 'POST', body: { model: goodModel } })
+    const res = await run(authed({ method: 'POST', body: { model: goodModel } }))
     expect(res.statusCode).toBe(200)
     expect(res.headers['content-type']).toBe('application/pdf')
     expect(Buffer.isBuffer(res.body)).toBe(true)
@@ -45,7 +70,7 @@ describe('POST /api/report-pdf', () => {
 
   it('422-blocks banned language in AtmosFlow-AUTHORED narrative', async () => {
     const bad = { ...goodModel, execSummary: 'The elevated CO2 was caused by the HVAC system and the building is noncompliant with OSHA.' }
-    const res = await run({ method: 'POST', body: { model: bad } })
+    const res = await run(authed({ method: 'POST', body: { model: bad } }))
     expect(res.statusCode).toBe(422)
     const j = JSON.parse(res.body)
     expect(j.error).toBe('banned_language')
@@ -61,7 +86,7 @@ describe('POST /api/report-pdf', () => {
       findings: { intro: 'Findings.', rows: [{ z: 'A', sev: 'elevated', conf: 'Moderate', f: 'Screening indicators consistent with elevated risk of G2 or worse; verification requires reactivity coupons. Possible violation of design intent noted.' }] },
       recommendations: { immediate: ['Correct to avoid a potential violation of the building O&M intent.'], shortTerm: [], mediumTerm: [] },
     }
-    const res = await run({ method: 'POST', body: { model: m } })
+    const res = await run(authed({ method: 'POST', body: { model: m } }))
     expect(res.statusCode).toBe(200)
     expect(res.headers['content-type']).toBe('application/pdf')
   })
