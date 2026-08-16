@@ -9,6 +9,7 @@
  */
 
 import { runMonthlyCreditGrant } from '../scripts/cron-monthly-credit-grant'
+import { requireCronSecret } from './_cron-auth'
 
 interface VercelLikeReq {
   method?: string
@@ -24,14 +25,7 @@ export default async function handler(req: VercelLikeReq, res: VercelLikeRes) {
   if (req.method && req.method !== 'POST' && req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
-  const expected = process.env.CRON_SECRET
-  if (expected) {
-    const auth = req.headers?.authorization
-    const header = Array.isArray(auth) ? auth[0] : auth
-    if (header !== `Bearer ${expected}`) {
-      return res.status(401).json({ error: 'Unauthorized' })
-    }
-  }
+  if (!requireCronSecret(req, res)) return
 
   const result = await runMonthlyCreditGrant()
   if (!result.ok) return res.status(500).json(result as unknown as Record<string, unknown>)

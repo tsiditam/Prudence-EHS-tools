@@ -20,6 +20,40 @@
 
 const { renderReportPdf } = require('../lib/report/render-pdf.js')
 const { scan } = require('./_banned-language.js')
+const { createClient } = require('@supabase/supabase-js')
+
+// Cap the raw request body (self-hosted Express path; Vercel already enforces
+// its own ~4.5 MB limit). Report models can embed photos, so this is generous.
+const MAX_BODY_BYTES = 8 * 1024 * 1024
+
+// Auth client, lazily built and test-injectable. Verifies the caller's Supabase
+// JWT — this endpoint previously accepted ANY request, letting an unauthenticated
+// caller drive unmetered server-side rendering.
+let _supabase = null
+function getSupabase() {
+  if (_supabase) return _supabase
+  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY
+  if (!url || !key) return null
+  _supabase = createClient(url, key)
+  return _supabase
+}
+
+async function requireUser(req, res) {
+  const raw = (req.headers && (req.headers.authorization || req.headers.Authorization)) || ''
+  const token = String(raw).replace(/^Bearer\s+/i, '').trim()
+  if (!token) { json(res, 401, { error: 'unauthorized' }); return null }
+  const supabase = getSupabase()
+  if (!supabase) { json(res, 500, { error: 'server_not_configured' }); return null }
+  try {
+    const { data, error } = await supabase.auth.getUser(token)
+    if (error || !data || !data.user) { json(res, 401, { error: 'unauthorized' }); return null }
+    return data.user
+  } catch {
+    json(res, 401, { error: 'unauthorized' })
+    return null
+  }
+}
 
 // Flatten the AUTHORED narrative for the language scan.
 //
@@ -53,7 +87,12 @@ async function readBody(req) {
   if (req.body && typeof req.body === 'object') return req.body
   if (typeof req.body === 'string') { try { return JSON.parse(req.body) } catch { return null } }
   const chunks = []
-  for await (const c of req) chunks.push(c)
+  let total = 0
+  for await (const c of req) {
+    total += c.length
+    if (total > MAX_BODY_BYTES) throw Object.assign(new Error('payload_too_large'), { _tooLarge: true })
+    chunks.push(c)
+  }
   if (!chunks.length) return null
   try { return JSON.parse(Buffer.concat(chunks).toString('utf8')) } catch { return null }
 }
@@ -66,8 +105,16 @@ function json(res, code, obj) {
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return json(res, 405, { error: 'method_not_allowed' })
+  const user = await requireUser(req, res)
+  if (!user) return
+  let body
   try {
-    const body = await readBody(req)
+    body = await readBody(req)
+  } catch (e) {
+    if (e && e._tooLarge) return json(res, 413, { error: 'payload_too_large' })
+    return json(res, 400, { error: 'bad_request' })
+  }
+  try {
     const model = body && body.model
     if (!model || typeof model !== 'object') return json(res, 400, { error: 'model_required' })
 
@@ -87,4 +134,8 @@ module.exports = async function handler(req, res) {
   }
 }
 
-module.exports.__test = { collectProse }
+module.exports.__test = {
+  collectProse,
+  setSupabase(mock) { _supabase = mock },
+  reset() { _supabase = null },
+}
