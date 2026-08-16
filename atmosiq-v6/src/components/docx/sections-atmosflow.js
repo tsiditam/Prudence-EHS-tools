@@ -360,7 +360,7 @@ function buildCover(meta) {
     }),
   )
   out.push(p(`by ${meta.firm || 'Prudence Safety & Environmental Consulting, LLC'}`, { size: 21, color: MUTED, after: 460 }))
-  out.push(p(meta.reportTitle || 'Screening-Level IAQ Assessment Report', { size: 30, bold: true, color: INK, after: 80 }))
+  out.push(p(meta.reportTitle || 'Indoor Air Quality Assessment Report', { size: 30, bold: true, color: INK, after: 80 }))
   if (meta.coverSubtitle) out.push(p(meta.coverSubtitle, { size: 21, italics: true, color: MUTED, after: 420 }))
 
   const banner = statusBanner(meta.coverStatusChip || meta.headerLabel)
@@ -409,7 +409,7 @@ export function atmosFlowReportChildren(model) {
     c.push(...label('Findings at a glance'))
     c.push(
       table(
-        ['Parameter', 'Site range', 'Reference basis', 'Screening outcome'],
+        ['Parameter', 'Site range', 'Reference basis', 'Outcome'],
         rows.map((r) => [r.parameter, r.range, r.basis, sev(r.outcome).label]),
         [2660, 1380, 3160, 2160],
         { cellSpec: (r, ci) => (ci === 3 ? { bold: true, color: sev(rows[r].outcome).color } : { bold: ci === 0 }) },
@@ -458,9 +458,9 @@ export function atmosFlowReportChildren(model) {
     if (M.severityLegendNote) c.push(caption(M.severityLegendNote))
   }
 
-  // Overall screening statement.
+  // Overall statement.
   if (M.overallStatement) {
-    c.push(...label('Overall screening statement'))
+    c.push(...label('Overall statement'))
     c.push(body(M.overallStatement, { after: 0 }))
   }
 
@@ -542,7 +542,7 @@ export function atmosFlowReportChildren(model) {
       const rows = M.findings.rows
       c.push(
         table(
-          ['Zone', 'Severity', 'Conf.', 'Screening finding'],
+          ['Zone', 'Severity', 'Conf.', 'Finding'],
           rows.map((r) => [fmt(r.z), sev(r.sev).label, fmt(r.conf), fmt(r.f)]),
           [1605, 1442, 1088, 5225],
           { cellSpec: (r, ci) => (ci === 1 ? { bold: true, color: sev(rows[r].sev).color } : { bold: ci === 0 }) },
@@ -752,7 +752,7 @@ export function buildAtmosFlowDoc(model, opts = {}) {
   return new Document({
     creator: opts.creator || 'AtmosFlow — Prudence EHS',
     title: meta.docTitle || 'AtmosFlow — Indoor Air Quality Assessment',
-    description: opts.description || 'Screening-Level IAQ Assessment Report',
+    description: opts.description || 'Indoor Air Quality Assessment Report',
     styles: ATMOSFLOW_STYLES,
     numbering: ATMOSFLOW_NUMBERING,
     sections: atmosFlowSections(model),

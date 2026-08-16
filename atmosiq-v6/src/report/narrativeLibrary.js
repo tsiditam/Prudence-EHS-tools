@@ -73,14 +73,14 @@ export const OBSERVED = {
 }
 
 // ── Fixed blocks ───────────────────────────────────────────────────
-export const SEVERITY_LEGEND_NOTE = 'Acceptable: within recognized screening references. Advisory: monitor / investigate source. Elevated: corrective action recommended. Priority: prompt action recommended.'
+export const SEVERITY_LEGEND_NOTE = 'Acceptable: within recognized references. Advisory: monitor / investigate source. Elevated: corrective action recommended. Priority: prompt action recommended.'
 
-export const REFERENCE_FRAMEWORK = 'Outcomes are screened against recognized consensus and regulatory references: ASHRAE 62.1 (ventilation, used as an indicator basis for CO2 — not a CO2 contaminant limit), ASHRAE 55 (thermal comfort), US EPA NAAQS (CO and PM2.5), OSHA PELs (29 CFR 1910.1000), and the Mølhave (1991) advisory tiers for TVOC. References are used to contextualize screening readings, not to render compliance determinations.'
+export const REFERENCE_FRAMEWORK = 'Outcomes are compared against recognized consensus and regulatory references: ASHRAE 62.1 (ventilation, used as an indicator basis for CO2 — not a CO2 contaminant limit), ASHRAE 55 (thermal comfort), US EPA NAAQS (CO and PM2.5), OSHA PELs (29 CFR 1910.1000), and the Mølhave (1991) advisory tiers for TVOC. References are used to contextualize readings, not to render compliance determinations.'
 
-export const ABOUT_ATMOSFLOW = 'AtmosFlow is a screening-only IAQ assessment platform: it captures field observations and direct-reading measurements, screens them against recognized references, and assembles a consultant-grade, defensible report for review by a qualified industrial hygienist or EHS professional. It identifies risk indicators and produces prioritized follow-up — it does not make regulatory classifications or compliance determinations. Learn more at atmosflow.net.'
+export const ABOUT_ATMOSFLOW = 'AtmosFlow is an IAQ assessment platform: it captures field observations and direct-reading measurements, compares them against recognized references, and assembles a consultant-grade, defensible report for review by a qualified industrial hygienist or EHS professional. It identifies risk indicators and produces prioritized follow-up — it does not make regulatory classifications or compliance determinations. Learn more at atmosflow.net.'
 
 export const LIMITATIONS_BASE = [
-  'This assessment is screening-level. Findings are based on direct-reading instrumentation captured during a single assessment window and reflect conditions on the assessment date only. No laboratory-analyzed integrated samples, microbial sampling, or destructive investigation were performed unless specifically noted. Direct-reading TVOC and PM2.5 are non-specific indicators and do not identify individual compounds or establish toxicological significance. This report does not constitute a regulatory exposure determination, an OSHA compliance certification, or a medical evaluation, and should not be relied upon as such.',
+  'Findings are based on direct-reading instrumentation captured during a single assessment window and reflect conditions on the assessment date only. No laboratory-analyzed integrated samples, microbial sampling, or destructive investigation were performed unless specifically noted. Direct-reading TVOC and PM2.5 are non-specific indicators and do not identify individual compounds or establish toxicological significance. This report does not constitute a regulatory exposure determination, an OSHA compliance certification, or a medical evaluation, and should not be relied upon as such.',
 ]
 
 // Methodology bullets default (when instrument details are sparse).

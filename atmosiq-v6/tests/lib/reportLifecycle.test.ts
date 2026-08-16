@@ -254,7 +254,7 @@ describe('labels and limitation text', () => {
     expect(statusLabel(SCREENING, FINAL)).toBe('Final')
     expect(statusLabel(SCREENING, DRAFT)).toBe('Draft')
     expect(profileLabel(COMPLIANCE)).toBe('Compliance Assessment')
-    expect(profileLabel(undefined)).toBe('Screening Assessment')
+    expect(profileLabel(undefined)).toBe('IAQ Assessment')
   })
 
   it('carries the limitation statement verbatim on screening reports', () => {

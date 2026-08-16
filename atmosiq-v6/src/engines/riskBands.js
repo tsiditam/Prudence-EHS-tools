@@ -76,8 +76,8 @@ export const ASSESSMENT_MODES = {
     produces: 'SCREENING_SNAPSHOT',
     requiresInstruments: false,
     emitsComposite: false,
-    reportHeader: 'IAQ SCREENING SNAPSHOT',
-    disclaimer: 'SCREENING ONLY — NOT A COMPLIANCE ASSESSMENT',
+    reportHeader: 'IAQ ASSESSMENT SNAPSHOT',
+    disclaimer: 'NOT A COMPLIANCE ASSESSMENT',
   },
   WALKTHROUGH: {
     id: 'WALKTHROUGH',

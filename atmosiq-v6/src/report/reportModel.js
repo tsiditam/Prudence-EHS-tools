@@ -166,12 +166,12 @@ export function buildQaQc(presurvey = {}) {
   ]
 }
 
-/** Standard screening limitations + project-specific additions. */
+/** Standard limitations + project-specific additions. */
 export function buildLimitations(data) {
   const base = [
-    'Screening-level evaluation reflecting conditions on the assessment date only.',
+    'Reflects conditions on the assessment date only.',
     'Not a regulatory exposure determination, OSHA compliance certification, or medical evaluation.',
-    'Direct-reading instruments are screening tools; TVOC and PM2.5 are non-specific indicators.',
+    'Direct-reading instruments are indicative tools; TVOC and PM2.5 are non-specific indicators.',
   ]
   const extra = []
   const hasLogger = !!(data.sensorData && data.sensorData.graphs && Object.values(data.sensorData.graphs).some(g => g && g.include))
@@ -219,7 +219,7 @@ export function buildReportModel(data = {}, opts = {}) {
 
   return {
     reportMeta: {
-      reportTitle: 'Indoor Air Quality — Screening Summary',
+      reportTitle: 'Indoor Air Quality Assessment Report',
       facilityName: bldg.fn || 'Facility',
       address: bldg.fl || '',
       scope: (zones.length ? `${zones.length} area${zones.length === 1 ? '' : 's'}` : ''),
@@ -441,7 +441,7 @@ export function assembleRenderModel(data = {}, opts = {}) {
   const imageCharts = rd.charts.filter(c => c.type === 'image')
   const src = (data.sensorData && data.sensorData.fileName) || null
   const loggerImages = imageCharts.length ? {
-    disclaimer: 'The following timelines were generated from uploaded sensor logger data for screening and documentation purposes. Interpretation should be reviewed by a qualified IAQ professional; AtmosFlow does not make compliance determinations.',
+    disclaimer: 'The following timelines were generated from uploaded sensor logger data for documentation and interpretation purposes. Interpretation should be reviewed by a qualified IAQ professional; AtmosFlow does not make compliance determinations.',
     dataSource: src ? `Data source: ${src}` : null,
     images: imageCharts.map(c => ({ title: c.title, imageDataUrl: c.imageDataUrl, caption: c.caption })),
   } : null
@@ -508,13 +508,13 @@ export function assembleRenderModel(data = {}, opts = {}) {
   return {
     meta: {
       docTitle: `AtmosFlow — IAQ Assessment Report — ${meta.facilityName}`,
-      reportTitle: 'Screening-Level IAQ Assessment Report',
+      reportTitle: 'Indoor Air Quality Assessment Report',
       coverSubtitle: 'Direct-reading evaluation of carbon dioxide, comfort, and particulate / VOC indicators',
       coverRows: [
         ['Facility', meta.facilityName], ['Address', meta.address || '—'], ['Scope', meta.scope || `${rd.projectSummary.numberOfZones} area(s)`],
         ['Assessment date', meta.assessmentDate], ['Assessor of record', `${meta.assessorName}${meta.assessorCredentials ? `, ${meta.assessorCredentials}` : ''}`], ['Report ID', reportId],
       ],
-      coverFooter: 'Screening-level evaluation — not a regulatory exposure determination, OSHA compliance certification, or medical evaluation.',
+      coverFooter: 'Not a regulatory exposure determination, OSHA compliance certification, or medical evaluation.',
       firm, brandColor: meta.brandColor,
       // Carried onto the assembled model so downstream consumers (the
       // PDF renderer, the UI status badge, the client portal) read the
