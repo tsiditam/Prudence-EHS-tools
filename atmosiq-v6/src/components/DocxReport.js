@@ -19,8 +19,8 @@ import { markdownToDocx } from './docx/markdownToDocx'
 import { buildFooter } from './docx/sections-appendix'
 import { buildTechnicalHeader, buildScopeConditions, buildInstrumentation, buildBenchmarksUsed, buildResults, buildFlaggedIndicators, buildAnalystNotes, buildLimitationsCompact } from './docx/sections-technical'
 import { buildClientDocx } from './docx/sections-v21client'
-import { atmosFlowReportChildren } from './docx/sections-atmosflow'
-import { MONITORING_DOCX_STYLES } from './docx/sections-monitoring'
+import { buildAtmosFlowDoc } from './docx/sections-atmosflow'
+import { assembleRenderModel } from '../report/reportModel'
 import { buildLabResultsAppendix } from './docx/sections-lab-results'
 import { buildSensorGraphsAppendix } from './docx/sections-sensor'
 import { buildConceptualSiteModelSection } from './docx/sections-conceptual-model'
@@ -509,53 +509,28 @@ async function buildConsultantDocument(ctx, data) {
 }
 
 /**
- * Build the AtmosFlow assessment DOCX — the consultant assessment CONTENT
- * rendered in the Logger Studio / monitoring report's visual system.
+ * Build the AtmosFlow assessment DOCX — the EDITABLE, WATERMARK-FREE Word
+ * deliverable, built 1:1 to the AtmosFlow Figma design.
  *
- * Same model pipeline as the consultant report (getConsultantReportResult →
- * the engine ClientReport), but the section builders come from
- * sections-atmosflow.js (which reuses the monitoring design primitives) and the
- * document uses MONITORING_DOCX_STYLES + the shared report chrome. One section
- * (cover children lead the body), so the footer page total is NUMPAGES.
+ * The RENDER MODEL is assembled here exactly as the PDF client path does
+ * (src/utils/downloadReportPdf.js): `assembleRenderModel(data, opts)` from
+ * src/report/reportModel.js — so every value (facility, ranges, findings,
+ * recommendations, signature, chrome) comes from the real assessment. `mode`
+ * is left as the default ('draft') — it is NEVER 'sample', a marketing
+ * artifact. The Word document never draws a diagonal watermark regardless of
+ * the report's status; that is the whole point of the editable deliverable.
  *
- * Editorial suppressions are honored (passed through to atmosFlowReportChildren),
- * so the editorial-review "Apply cuts" feature works for this report too.
+ * The document (Open Sans face, spectrum cover bar, teal section labels, page
+ * geometry, running header/footer, numbering) is fully owned by
+ * sections-atmosflow.js via `buildAtmosFlowDoc(model)`.
+ *
+ * Editorial suppressions do NOT apply here: the render-model carries no engine
+ * findingIds, so there is nothing to suppress against. (Editorial suppression
+ * remains on the Consultant Report, sections-v21client.js.)
  */
 export async function buildAtmosFlowDocument(data) {
-  const result = getConsultantReportResult(data)
-  const report = result && result.report
-  const meta = (report && report.meta) || {}
-  const facility = (report && report.cover && report.cover.facility) || meta.siteName || 'Facility'
-
-  const children = report
-    ? atmosFlowReportChildren(report, { editorialSuppressions: data.editorialSuppressions })
-    : []
-
-  const chrome = reportSectionAttachments({
-    firm: meta.issuingFirm?.name || 'Prudence EHS',
-    projectNumber: meta.projectNumber,
-    clientName: meta.transmittalRecipient?.organization
-      || meta.transmittalRecipient?.fullName
-      || facility,
-    title: 'Indoor Air Quality Assessment Report',
-    // ONE section, so the page total is NUMPAGES (SECTIONPAGES would render an
-    // empty total in readers that never resolve the field).
-    sectionRelativeTotal: false,
-  })
-
-  return new Document({
-    creator: 'AtmosFlow — Prudence EHS',
-    title: `IAQ Assessment Report — ${facility}`,
-    description: 'Indoor Air Quality Assessment Report',
-    styles: MONITORING_DOCX_STYLES,
-    sections: [
-      {
-        properties: { ...BODY_SECTION_PROPERTIES, page: { ...LETTER_BODY_PAGE, pageNumbers: { start: 1 } } },
-        children,
-        ...chrome,
-      },
-    ],
-  })
+  const model = assembleRenderModel(data || {})
+  return buildAtmosFlowDoc(model)
 }
 
 /**
