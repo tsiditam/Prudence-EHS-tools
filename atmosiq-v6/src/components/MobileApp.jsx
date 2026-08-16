@@ -611,6 +611,8 @@ export default function MobileApp() {
   const [userMode, setUserMode] = useState(getMode())
   const [needsModeSelect, setNeedsModeSelect] = useState(false)
   const [profileChecked, setProfileChecked] = useState(false)
+  // True while the portfolio-summary Word export is being built.
+  const [portfolioBusy, setPortfolioBusy] = useState(false)
   // True while the saved-profile picker / editor is open (reached from the
   // Account screen). Decouples that flow from the legacy 'dash' view so it
   // returns to the correct home (projects for IH/CSP) after a profile is
@@ -4692,9 +4694,46 @@ export default function MobileApp() {
               removed. The clickable draft-icon in the empty-state
               card below is now the start-an-assessment affordance
               within the Reports tab; the Home tab also offers it. */}
-          <div style={{marginBottom:20}}>
-            <div style={{...V3.T.h1, marginBottom:4}}>Reports</div>
-            <div style={V3.T.bodyDim}>Drafts and finalized deliverables · {((index.drafts||[]).length + (index.reports||[]).length)} total</div>
+          <div style={{marginBottom:20,display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12}}>
+            <div>
+              <div style={{...V3.T.h1, marginBottom:4}}>Reports</div>
+              <div style={V3.T.bodyDim}>Drafts and finalized deliverables · {((index.drafts||[]).length + (index.reports||[]).length)} total</div>
+            </div>
+            {/* Portfolio Summary — a practice-level Word rollup of every
+                finalized assessment (risk-band distribution, per-site status,
+                overdue reassessments, calibration). Aggregates the same index
+                the dashboard reads; lazily imports the docx builder so it
+                stays off the initial bundle. */}
+            {((index.reports||[]).length + (index.drafts||[]).length) > 0 && (
+              <button
+                onClick={async () => {
+                  if (portfolioBusy) return
+                  setPortfolioBusy(true)
+                  try {
+                    const sites = (await STO.getSites?.()) || []
+                    const { generatePortfolioReport } = await import('./docx/portfolio-report')
+                    await generatePortfolioReport({
+                      reports: index.reports || [],
+                      drafts: index.drafts || [],
+                      sites,
+                      profile: profile || {},
+                      firm: (profile && profile.firm) || 'Prudence EHS',
+                    })
+                    try { trackEvent('portfolio_report_exported', { assessments: (index.reports||[]).length, sites: sites.length }) } catch { /* analytics best-effort */ }
+                  } catch (e) {
+                    // eslint-disable-next-line no-console
+                    console.error('portfolio report failed', e)
+                  } finally {
+                    setPortfolioBusy(false)
+                  }
+                }}
+                className="af-glass-control"
+                style={{flexShrink:0,display:'inline-flex',alignItems:'center',gap:8,padding:'9px 14px',borderRadius:V3.R.md,cursor:portfolioBusy?'default':'pointer',fontFamily:'inherit',fontSize:13,fontWeight:600,color:'var(--accent)',opacity:portfolioBusy?0.6:1,WebkitTapHighlightColor:'transparent'}}
+              >
+                <I n="download" s={15} c="var(--accent)" w={1.7} />
+                {portfolioBusy ? 'Building…' : 'Portfolio Summary'}
+              </button>
+            )}
           </div>
 
           {/* ── Drafts / In Progress ──────────────────────────────── */}
