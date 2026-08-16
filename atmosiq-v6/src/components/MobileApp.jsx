@@ -12,6 +12,7 @@ import * as Sentry from '@sentry/react'
 import { createPortal } from 'react-dom'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import STO from '../utils/storage'
+import { resolveFinalizeTarget } from '../utils/finalizeTarget'
 import Profiles from '../utils/profiles'
 import Storage from '../utils/cloudStorage'
 import { supabase, trackEvent } from '../utils/supabaseClient'
@@ -1550,8 +1551,11 @@ export default function MobileApp() {
     // duplicate. A brand-new assessment gets a fresh rpt- id and its source
     // draft is retired. Either way the id is dropped from the drafts list so a
     // finalized report never also lingers as a draft.
-    const reuseId = draftId && (index.reports || []).some(r => r.id === draftId)
-    const rid = reuseId ? draftId : ('rpt-' + Date.now())
+    const { rid } = resolveFinalizeTarget({
+      currentId: draftId,
+      reportIds: (index.reports || []).map(r => r.id),
+      newId: 'rpt-' + Date.now(),
+    })
     // PR 1: stamp the report with the bound site_id when present
     // (deep-link hydration or a previous "Save site" finalize).
     // siteLink.findMostRecentReportForSite uses this on the next round.
@@ -1560,6 +1564,14 @@ export default function MobileApp() {
     await STO.addReportToIndex({ id:rid, ts:report.ts, facility:bldg.fn, score:composite?.tot })
     await STO.removeFromIndex(rid, 'dft')
     if (draftId && draftId !== rid) { await STO.del(draftId); await STO.removeFromIndex(draftId, 'dft') }
+    // Advance the session pointer to the finalized report. Without this,
+    // draftId kept pointing at the now-retired draft id, so a follow-up
+    // finalize in the SAME session — e.g. right after fixing a readiness
+    // blocker on the results screen — failed the reuse check above and minted
+    // a second rpt- record. That was the multiple-reports-per-project bug: the
+    // in-session fix path never matched, only the leave-and-reopen path (via
+    // resumeAndFix → resumeDraft) did.
+    setDraftId(rid)
     await refreshIndex()
     // Sync to cloud
     if (supabase) {
@@ -4210,11 +4222,12 @@ export default function MobileApp() {
       )}
 
       {/* ── Report Type Picker — bottom sheet ──────────────────────
-          Mobile-first soft-glass sheet. The AtmosFlow report now exports
-          as the editable Word (DOCX) report — no PDF, no draft watermark.
-          NOTE: both cards currently generate the same consultant DOCX;
-          pending a product decision on whether to keep one card or make
-          the AtmosFlow card the full consultant + technical suite. */}
+          Mobile-first soft-glass sheet. Two DISTINCT deliverables:
+          "Consultant Report" → generateConsultantOnly (the CIH v2.1
+          ClientReport layout, downloads AtmosFlow-Consultant-Report-…),
+          and "AtmosFlow Report (Word)" → generateAtmosFlowOnly (the Figma
+          AtmosFlow layout, downloads AtmosFlow-Report-…). Different content
+          AND different file names, so the two never collide on disk. */}
       {docxPicker && (
         <BottomSheet title="Generate Report" onClose={()=>setDocxPicker(false)} ariaLabel="Choose report format">
           <div style={{fontSize:13,color:SUB,margin:'4px 0 16px',lineHeight:1.55}}>Choose which report to generate.</div>
