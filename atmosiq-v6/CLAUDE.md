@@ -453,13 +453,13 @@ on this codebase. Watch for them.
 - UI redesign (separate plan; result tabs / demo cards / bottom nav
   redesigned in commit `c1ed1c8`, broader UI system pass deferred)
 - Mold module: the **foundation has landed** — a parallel, deterministic
-  screening engine (`src/engines/mold/*`, IICRC S520 water Category +
-  remediation Condition + comparative indoor/outdoor spore screening),
+  assessment engine (`src/engines/mold/*`, IICRC S520 water Category +
+  remediation Condition + comparative indoor/outdoor spore analysis),
   `src/constants/moldStandards.js`, `src/types/mold.ts`, the intake schema
   (`src/constants/moldQuestions.js`) + demo (`demoDataMold.js`), and a read-only
   result surface `src/components/MoldScreeningView.jsx` that **mirrors the IAQ
   result tabs** (reuses `AssessmentSegmentedPillNav`: Findings / Conditions /
-  Spores / Review). Like the IAQ module, the screening basis + limitation live
+  Spores / Review). Like the IAQ module, the assessment basis + limitation live
   in the Review tab and the report (Basis and limitations), NOT a banner, with a
   per-finding "Professional review recommended" flag; there is also a
   `/dev/mold-screening` preview. **Live as a Beta**: `MOLD_KILL_SWITCH` lifted
@@ -469,14 +469,14 @@ on this codebase. Watch for them.
   EARLY-RETURNS the isolated `src/components/MoldModeScreen.jsx` (home → intake →
   result) when `userMode==='mold'` && the flag is on — so the IAQ shell/nav never
   mounts in mold mode and IH/FM are untouched. Entered from Settings →
-  *Assessment mode → Mold screening (Beta)*; exits back to IH. Docs:
+  *Assessment mode → Mold assessment (Beta)*; exits back to IH. Docs:
   `docs/MOLD_MODULE.md`;
-  gates: `npm run test:mold` / `accept:mold`. Screening only — no health
-  verdict, categorical severity, every finding requires professional review.
+  gates: `npm run test:mold` / `accept:mold`. No health verdict —
+  categorical severity, every finding requires professional review.
   Assessments **persist** — `STO.get/save/deleteMoldAssessment`
   (`KEYS.moldAssessments`), a local collection like incidents, kept OUT of the
   IAQ reports/drafts index; the record stores the captured INPUT and the result
-  is re-derived on open. A screening produces a standalone **DOCX report**
+  is re-derived on open. An assessment produces a standalone **DOCX report**
   (`src/components/docx/sections-mold.js` + `mold-report.js`, reusing the shared
   report chrome; `MoldModeScreen` dynamic-imports `generateMoldReport`). **Still
   out of scope** (next increment): **cloud sync** of mold assessments (local-only
@@ -521,7 +521,7 @@ Run tests after any change to `src/engine/`, `src/engines/`, `src/components/doc
     `tests/api/jasper-disclaimer.test.ts` stops them drifting.
   Both were reworded off "IH Review Required" — that phrase stamped
   every report and every chat answer as pending review, which was the
-  problem the report lifecycle set out to fix. The screening-only
+  problem the report lifecycle set out to fix. The liability
   boundary does NOT rest on either label: in the report it is the
   limitation statement, and in chat the required "## Defensibility note"
   section.
