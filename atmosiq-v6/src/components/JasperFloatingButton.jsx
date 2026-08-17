@@ -4,7 +4,7 @@
  * All rights reserved.
  *
  * JasperFloatingButton — the AtmosFlow AI launcher, detached from the
- * bottom dock and floated against the right edge of the page.
+ * bottom dock and free to sit anywhere on screen.
  *
  *   • Liquid-glass circular pill (matches AtmosFlowFloatingDock material),
  *     dark glass in dark mode, white capsule in light mode.
@@ -12,12 +12,48 @@
  *     scrolling up, shrinks while scrolling down so it stays out of the
  *     way while reading, then grows back. Calms under reduced-motion.
  *   • Breathing accent glow so the assistant reads as "alive".
+ *   • Draggable anywhere in the viewport. It rests at the bottom-right
+ *     until the user moves it; from then on the chosen spot is remembered
+ *     (localStorage) and re-clamped on resize so a rotation or a smaller
+ *     window can never strand it off-screen.
  */
 import { useEffect, useRef, useState } from 'react'
 import JasperBrainIcon from './JasperBrainIcon'
+import { KEYS } from '../utils/storageKeys'
 
-// How far the button can be dragged up/down from its resting spot (~1cm).
-const DRAG_RANGE = 38
+// Keep-on-screen inset used when clamping a dragged position.
+const EDGE_MARGIN = 8
+// Pointer travel (px) that turns a tap into a drag, so moving the button
+// never also opens the assistant.
+const DRAG_THRESHOLD = 4
+
+// Position is read/written synchronously: STO is async, and awaiting it
+// would paint the button at the default corner first and jump afterwards.
+function readStoredPos() {
+  try {
+    const raw = window.localStorage.getItem(KEYS.jasperButtonPos)
+    if (!raw) return null
+    const p = JSON.parse(raw)
+    if (p && Number.isFinite(p.x) && Number.isFinite(p.y)) return { x: p.x, y: p.y }
+  } catch { /* private mode / quota / malformed — fall back to the anchor */ }
+  return null
+}
+
+function writeStoredPos(pos) {
+  try { window.localStorage.setItem(KEYS.jasperButtonPos, JSON.stringify(pos)) } catch { /* no-op */ }
+}
+
+/** Hold a position inside the viewport, whatever the button's current size. */
+export function clampToViewport(pos, size, vw, vh) {
+  // On a viewport narrower than the button plus both margins the max bound
+  // falls below the min; Math.max wins that tie and keeps it visible.
+  const maxX = Math.max(EDGE_MARGIN, vw - size - EDGE_MARGIN)
+  const maxY = Math.max(EDGE_MARGIN, vh - size - EDGE_MARGIN)
+  return {
+    x: Math.min(Math.max(EDGE_MARGIN, pos.x), maxX),
+    y: Math.min(Math.max(EDGE_MARGIN, pos.y), maxY),
+  }
+}
 
 if (typeof document !== 'undefined' && !document.getElementById('jfb-style')) {
   const s = document.createElement('style')
@@ -54,32 +90,76 @@ export default function JasperFloatingButton({ onClick, active, label = 'AtmosFl
   const size = shrunk ? 46 : 60
   const glyph = shrunk ? 17 : 22
 
-  // Vertical drag: let the user nudge the button up/down by ~1cm (≈38px) each
-  // way. We track a translateY offset and clamp it. A small move threshold
-  // distinguishes a drag from a tap so dragging doesn't fire onClick.
-  const [dragY, setDragY] = useState(0)
-  const drag = useRef({ active: false, startY: 0, startOffset: 0, moved: false })
+  // Free placement. `pos` is null until the user drags: that keeps the
+  // original bottom-right anchor (and its safe-area math) as the resting
+  // state, and only switches to absolute left/top once a spot is chosen.
+  const [pos, setPos] = useState(readStoredPos)
+  // `size` is read inside pointer/resize handlers that are registered once,
+  // so mirror it in a ref rather than resubscribing on every shrink/grow.
+  const sizeRef = useRef(size)
+  sizeRef.current = size
+
+  // A stored spot can be off-screen after a rotation or a window resize —
+  // re-clamp rather than leaving the launcher unreachable.
+  useEffect(() => {
+    const onResize = () => {
+      setPos((cur) => (cur ? clampToViewport(cur, sizeRef.current, window.innerWidth, window.innerHeight) : cur))
+    }
+    window.addEventListener('resize', onResize)
+    window.addEventListener('orientationchange', onResize)
+    return () => {
+      window.removeEventListener('resize', onResize)
+      window.removeEventListener('orientationchange', onResize)
+    }
+  }, [])
+
+  // Grab offset keeps the button under the exact point that was pressed,
+  // instead of snapping its corner to the pointer on the first move.
+  const drag = useRef({ active: false, grabX: 0, grabY: 0, startX: 0, startY: 0, moved: false })
   const onPointerDown = (e) => {
-    drag.current = { active: true, startY: e.clientY, startOffset: dragY, moved: false }
+    const r = e.currentTarget.getBoundingClientRect()
+    drag.current = {
+      active: true,
+      grabX: e.clientX - r.left,
+      grabY: e.clientY - r.top,
+      startX: e.clientX,
+      startY: e.clientY,
+      moved: false,
+    }
     try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* no-op */ }
   }
   const onPointerMove = (e) => {
     const d = drag.current
     if (!d.active) return
-    const dy = e.clientY - d.startY
-    if (Math.abs(dy) > 4) d.moved = true
-    const next = Math.max(-DRAG_RANGE, Math.min(DRAG_RANGE, d.startOffset + dy))
-    setDragY(next)
+    if (!d.moved) {
+      const travel = Math.hypot(e.clientX - d.startX, e.clientY - d.startY)
+      if (travel <= DRAG_THRESHOLD) return   // still a tap — don't detach from the anchor
+      d.moved = true
+    }
+    setPos(clampToViewport(
+      { x: e.clientX - d.grabX, y: e.clientY - d.grabY },
+      sizeRef.current, window.innerWidth, window.innerHeight,
+    ))
   }
   const endDrag = (e) => {
+    const wasDragging = drag.current.active && drag.current.moved
     drag.current.active = false
     try { e.currentTarget.releasePointerCapture(e.pointerId) } catch { /* no-op */ }
+    // Persist only a deliberate move, so a stray tap never rewrites the spot.
+    if (wasDragging) setPos((cur) => { if (cur) writeStoredPos(cur); return cur })
   }
   const handleClick = (e) => {
     // Suppress the tap action if the pointer was dragged.
     if (drag.current.moved) { e.preventDefault(); return }
     onClick?.(e)
   }
+
+  // Placed: absolute viewport coordinates. Unplaced: the original anchor,
+  // floating above the bottom dock (mobile) or near the bottom-right edge
+  // (desktop), clearing the safe-area inset.
+  const placement = pos
+    ? { left: pos.x, top: pos.y }
+    : { right: 16, bottom: `calc(env(safe-area-inset-bottom, 0px) + ${bottomOffset}px)` }
 
   return (
     <button
@@ -95,10 +175,7 @@ export default function JasperFloatingButton({ onClick, active, label = 'AtmosFl
       aria-pressed={active || undefined}
       style={{
         position: 'fixed',
-        right: 16,
-        // Float above the bottom dock (mobile) or near the bottom-right edge
-        // (desktop, where there is no dock), clearing the safe-area inset.
-        bottom: `calc(env(safe-area-inset-bottom, 0px) + ${bottomOffset}px)`,
+        ...placement,
         zIndex: 101,
         width: size,
         height: size,
@@ -115,12 +192,11 @@ export default function JasperFloatingButton({ onClick, active, label = 'AtmosFl
         backdropFilter: 'blur(14px) saturate(200%)',
         WebkitBackdropFilter: 'blur(14px) saturate(200%)',
         boxShadow: '0 8px 28px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.45), inset 0 -1px 1px rgba(0,0,0,0.10)',
-        // Drag offset (clamped ±~1cm). Size still animates; the drag follows
-        // the pointer instantly.
-        transform: `translateY(${dragY}px)`,
+        // Only size animates. left/top are deliberately untransitioned so the
+        // button tracks the pointer exactly instead of easing behind it.
         transition: 'width 280ms cubic-bezier(.22,1,.36,1), height 280ms cubic-bezier(.22,1,.36,1)',
         WebkitTapHighlightColor: 'transparent',
-        // Vertical drag needs the browser to NOT claim the gesture for scroll.
+        // Dragging needs the browser to NOT claim the gesture for scroll/pan.
         touchAction: 'none',
       }}
     >
