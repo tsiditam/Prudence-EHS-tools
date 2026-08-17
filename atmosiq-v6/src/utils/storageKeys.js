@@ -54,6 +54,11 @@ export const KEYS = {
   projects: 'atmosflow:projects',    // Project / Site Folders
   premiumOverride: 'atmosflow:premiumOverride',
   instruments: 'atmosflow:instruments',
+  // { x, y } viewport position of the AtmosFlow AI launcher once the user
+  // has dragged it. Absent = the default bottom-right anchor. Read
+  // synchronously by JasperFloatingButton (not through STO) so the button
+  // paints in place instead of jumping after an async resolve.
+  jasperButtonPos: 'atmosflow:jasperButtonPos',
   labCsvTemplates: 'atmosflow:lab_csv_templates',
   // Saved mold screening assessments (mold userMode). A single local array,
   // stored + read via STO.get/saveMold/deleteMoldAssessment — deliberately its
