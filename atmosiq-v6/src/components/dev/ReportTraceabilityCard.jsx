@@ -41,7 +41,7 @@ export default function ReportTraceabilityCard({ zones, zoneScores, causalChains
         <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 640 }}>
           <thead>
             <tr>
-              <th style={{ ...TH, width: '28%' }}>Screening finding</th>
+              <th style={{ ...TH, width: '28%' }}>Finding</th>
               <th style={{ ...TH, width: '24%' }}>Supporting evidence</th>
               <th style={{ ...TH, width: '14%' }}>Conflicting evidence</th>
               <th style={{ ...TH, width: '24%' }}>Standard referenced</th>

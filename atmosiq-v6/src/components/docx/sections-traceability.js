@@ -40,7 +40,7 @@ export function buildEvidenceTraceabilityMatrix(graphContext) {
     ),
     buildTable(
       [
-        { text: 'Screening finding', width: 30 },
+        { text: 'Finding', width: 30 },
         { text: 'Supporting evidence', width: 22 },
         { text: 'Conflicting evidence', width: 14 },
         { text: 'Standard referenced', width: 22 },

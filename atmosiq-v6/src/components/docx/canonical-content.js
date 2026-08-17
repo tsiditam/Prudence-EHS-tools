@@ -55,7 +55,7 @@ export const BENCHMARK_TYPE_LABELS = [
 ]
 
 export const BENCHMARK_INTRO =
-  'The following published standards, guidelines, and benchmark types frame the screening-level evaluation in this report. Benchmark types carry different regulatory, health, and investigative weight and are not interchangeable. This table is presented in full for every assessment.'
+  'The following published standards, guidelines, and benchmark types frame the evaluation in this report. Benchmark types carry different regulatory, health, and investigative weight and are not interchangeable. This table is presented in full for every assessment.'
 
 export const BENCHMARK_FOOTNOTE =
   'Benchmark types carry different legal and technical weight. Occupational exposure limits are enforceable workplace standards. Public health guidelines are health-based recommendations. Comfort criteria address thermal acceptability. Ventilation and screening indicators are investigative triggers used for prioritization, not compliance determination.'
@@ -63,16 +63,16 @@ export const BENCHMARK_FOOTNOTE =
 // ── Disclaimer (standalone, distinct from the Limitations section) ──
 
 export const DISCLAIMER_PARAGRAPHS = [
-  'This report presents screening-level indoor air quality observations prepared for the named client and project. It does not constitute a comprehensive industrial hygiene exposure assessment, a medical or health evaluation, or a determination of regulatory compliance.',
-  'Direct-reading measurements are point-in-time values collected at the locations and times noted and may not represent worst-case, average, or typical conditions. Findings are screening-level indicators that support prioritization and further evaluation; they do not establish exposure, causation, or building-relatedness.',
+  'This report presents indoor air quality observations prepared for the named client and project. It does not constitute a comprehensive industrial hygiene exposure assessment, a medical or health evaluation, or a determination of regulatory compliance.',
+  'Direct-reading measurements are point-in-time values collected at the locations and times noted and may not represent worst-case, average, or typical conditions. Findings are indicators that support prioritization and further evaluation; they do not establish exposure, causation, or building-relatedness.',
   'Reliance on this report by any party other than the named client, or for any purpose other than that stated herein, is at that party’s own risk. This report should be read in its entirety and in the context of the professional judgment, limitations, and benchmark classifications described herein.',
-  `${FIRM_NAME} prepared this screening report under the professional standard of care applicable to screening-level indoor air quality assessments.`,
+  `${FIRM_NAME} prepared this report under the professional standard of care applicable to indoor air quality assessments.`,
 ]
 
 // ── Conclusions closing line ──
 
 export const CONCLUSIONS_CLOSING =
-  'These conclusions are screening-level and reflect conditions observed during a single site visit. They are presented as professional judgment to support prioritization and further evaluation, and are not exposure, health, or regulatory-compliance determinations.'
+  'These conclusions reflect conditions observed during a single site visit. They are presented as professional judgment to support prioritization and further evaluation, and are not exposure, health, or regulatory-compliance determinations.'
 
 // ── Data gaps and limitations on interpretation (scientific) ──
 // Client-facing scientific gaps derived from the assessment itself
@@ -80,7 +80,7 @@ export const CONCLUSIONS_CLOSING =
 // blockers from src/engines/validation.js.
 
 export const DATA_GAPS_INTRO =
-  'The following data gaps and limitations on interpretation apply to this screening-level assessment. They are listed so the reader can weigh the findings appropriately and identify where additional investigation would strengthen the basis for decisions.'
+  'The following data gaps and limitations on interpretation apply to this assessment. They are listed so the reader can weigh the findings appropriately and identify where additional investigation would strengthen the basis for decisions.'
 
 export const DATA_GAP_MESSAGES = {
   hcho: 'Formaldehyde (HCHO) was not measured. Screening-level direct-reading values are preliminary; a quantitative exposure assessment requires validated sampling (for example, NIOSH Method 2016 or an equivalent method).',
@@ -111,7 +111,7 @@ export function certificationStatement(opts = {}) {
   const firm = opts.firm || FIRM_NAME
 
   const paras = [
-    `This indoor air quality screening assessment was conducted, and this report prepared, under the professional judgment of ${assessor}${assessorSuffix} on behalf of ${firm}. The observations and screening-level measurements presented reflect conditions at the time and locations assessed.`,
+    `This indoor air quality assessment was conducted, and this report prepared, under the professional judgment of ${assessor}${assessorSuffix} on behalf of ${firm}. The observations and measurements presented reflect conditions at the time and locations assessed.`,
   ]
 
   if (opts.reviewStatus === 'final_issued_to_client' && reviewer) {
@@ -122,7 +122,7 @@ export function certificationStatement(opts = {}) {
     paras.push('This report is issued for professional review and requires review by a qualified professional before external reliance.')
   }
 
-  paras.push('This is a screening-level assessment. It does not represent a comprehensive industrial hygiene exposure assessment or a determination of regulatory compliance, and it should be interpreted together with the limitations and benchmark classifications described in this report.')
+  paras.push('This assessment does not represent a comprehensive industrial hygiene exposure assessment or a determination of regulatory compliance, and it should be interpreted together with the limitations and benchmark classifications described in this report.')
 
   return paras
 }

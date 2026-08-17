@@ -59,7 +59,7 @@ export function renderLoggerGraphsSectionHtml(graphs, opts = {}) {
     </figure>`).join('')
   return `
   <h2 class="pg-break" id="environmental-evidence-graphs">Environmental Evidence Graphs</h2>
-  <p style="font-size:11px;color:#475569;margin-bottom:12px;line-height:1.5;">The following timelines were generated from uploaded sensor logger data for screening and documentation purposes. Interpretation should be reviewed by a qualified IAQ professional; AtmosFlow does not make compliance determinations.</p>
+  <p style="font-size:11px;color:#475569;margin-bottom:12px;line-height:1.5;">The following timelines were generated from uploaded sensor logger data for documentation and interpretation purposes. Interpretation should be reviewed by a qualified IAQ professional; AtmosFlow does not make compliance determinations.</p>
   ${source}
   ${figures}`
 }

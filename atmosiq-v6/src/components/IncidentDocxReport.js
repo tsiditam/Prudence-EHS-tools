@@ -207,7 +207,7 @@ function buildSections(incident, profile) {
     spacing: { before: 320, after: 80 },
     children: [new TextRun({
       ...FONT, size: 18, italics: true, color: '666666',
-      text: 'This is a screening-level incident record documenting an indoor air event as reported by site personnel. It is not an exposure assessment, regulatory determination, or substitute for professional industrial-hygiene evaluation. For health concerns or emergencies, contact qualified medical and emergency services.',
+      text: 'This incident record documents an indoor air event as reported by site personnel. It is not an exposure assessment, regulatory determination, or substitute for professional industrial-hygiene evaluation. For health concerns or emergencies, contact qualified medical and emergency services.',
     })],
   }))
 

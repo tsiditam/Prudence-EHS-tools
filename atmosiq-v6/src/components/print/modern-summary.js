@@ -188,12 +188,12 @@ export function generateModernSummaryHTML(data, opts = {}) {
   <div class="band">
     <div class="firm">${esc(firm)}</div>
     <div class="wm">AtmosFlow</div>
-    <div style="font-size:10pt;opacity:.92;margin-top:2px">Indoor Air Quality — Screening Summary</div>
+    <div style="font-size:10pt;opacity:.92;margin-top:2px">Indoor Air Quality Summary</div>
   </div>
 
   <div class="title">Indoor Air Quality Summary</div>
-  <div class="subtitle">A plain-language screening overview of the conditions we measured.</div>
-  <span class="chip-status">Screening summary · for client review</span>
+  <div class="subtitle">A plain-language overview of the conditions we measured.</div>
+  <span class="chip-status">For client review</span>
 
   <div class="card">
     <table class="meta"><tbody>
@@ -220,7 +220,7 @@ export function generateModernSummaryHTML(data, opts = {}) {
 
   ${paramRows.length ? `
   <h2>Findings at a Glance</h2>
-  <table class="t"><thead><tr><th>Parameter</th><th style="width:110px">Site range</th><th style="width:180px">Reference basis</th><th style="width:110px">Screening outcome</th></tr></thead><tbody>
+  <table class="t"><thead><tr><th>Parameter</th><th style="width:110px">Site range</th><th style="width:180px">Reference basis</th><th style="width:110px">Outcome</th></tr></thead><tbody>
     ${paramRows.map(p => `<tr><td>${esc(p.label)}</td><td>${esc(p.range)} ${esc(p.unit)}</td><td style="color:var(--faint)">${esc(p.basis)}</td><td>${outcomeChip(p.outcome)}</td></tr>`).join('')}
   </tbody></table>
   <p style="font-size:8.5pt;color:var(--faint)">Outcomes are screening indicators (threshold comparison against recognized references), not compliance determinations.</p>
@@ -261,12 +261,12 @@ export function generateModernSummaryHTML(data, opts = {}) {
 
   <h2>Good to Know</h2>
   <div class="note">
-    This is a screening-level summary of conditions observed on the assessment date. It is not a regulatory exposure determination, an OSHA compliance certification, or a medical evaluation. Direct-reading values are indicators that may vary with occupancy and operation; where something is flagged, the recommended next step is verification before any major investment. The full consultant report contains the detailed methodology, references, and professional review.
+    This summary reflects conditions observed on the assessment date. It is not a regulatory exposure determination, an OSHA compliance certification, or a medical evaluation. Direct-reading values are indicators that may vary with occupancy and operation; where something is flagged, the recommended next step is verification before any major investment. The full consultant report contains the detailed methodology, references, and professional review.
   </div>
 
   <div class="footer">
     ${esc(firm)} · Report ${esc(reportId)} · Generated ${now}<br>
-    Prepared with AtmosFlow — screening summary for client review.
+    Prepared with AtmosFlow — summary for client review.
   </div>
 
 </body></html>`

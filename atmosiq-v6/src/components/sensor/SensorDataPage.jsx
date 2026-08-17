@@ -723,7 +723,7 @@ export default function SensorDataPage({ value, onChange, onBack, reports = [], 
               </ul>
             )}
             <div style={{ ...V3.T.captionDim, marginTop: 12, lineHeight: 1.5 }}>
-              Graphs are provided for screening and documentation purposes. Interpretation should be reviewed by a qualified IAQ professional. AtmosFlow does not make compliance determinations.
+              Graphs are provided for documentation and interpretation purposes. Interpretation should be reviewed by a qualified IAQ professional. AtmosFlow does not make compliance determinations.
             </div>
           </GlassCard>
 

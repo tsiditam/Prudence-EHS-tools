@@ -123,7 +123,7 @@ export default function LoggerGraphsTab({ sensorData, editable = false, onToggle
         </GlassCard>
       ))}
       <div style={{ ...V3.T.captionDim, padding: '12px 4px 2px', lineHeight: 1.5, borderTop: `1px solid ${BORDER}` }}>
-        Graphs are provided for screening and documentation purposes. Interpretation should be reviewed by a qualified IAQ professional. AtmosFlow does not make compliance determinations.
+        Graphs are provided for documentation and interpretation purposes. Interpretation should be reviewed by a qualified IAQ professional. AtmosFlow does not make compliance determinations.
       </div>
     </div>
   )
