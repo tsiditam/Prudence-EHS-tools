@@ -120,7 +120,7 @@ export function buildReportedConcernsSection(presurvey, zones, zoneScores) {
       [
         { text: 'Reported concern', width: 40 },
         { text: 'Where / context', width: 24 },
-        { text: 'Screening evidence', width: 36 },
+        { text: 'Evidence', width: 36 },
       ],
       rows.map(r => [
         { text: r.concern, size: 20 },
@@ -164,7 +164,7 @@ export function buildFindingsConfidenceRegister(zoneScores) {
     buildTable(
       [
         { text: 'Zone', width: 14 },
-        { text: 'Screening finding', width: 44 },
+        { text: 'Finding', width: 44 },
         { text: 'Severity', width: 12 },
         { text: 'Reference', width: 18 },
         { text: 'Zone data confidence', width: 12 },

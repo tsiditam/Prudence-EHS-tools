@@ -15,19 +15,19 @@ import {
 describe('Verbatim Paragraphs — exact content', () => {
   it('transmittal matches spec §11', () => {
     expect(TRANSMITTAL_PARAGRAPH).toBe(
-      'This evaluation was conducted using a combination of visual inspection, screening-level measurements, and HVAC system review. Where direct measurement or laboratory analysis was not performed, findings are considered preliminary and intended to guide further investigation.'
+      'This evaluation was conducted using a combination of visual inspection, measurements, and HVAC system review. Where direct measurement or laboratory analysis was not performed, findings are considered preliminary and intended to guide further investigation.'
     )
   })
 
   it('scope matches spec §11', () => {
     expect(SCOPE_PARAGRAPH).toBe(
-      'This evaluation utilized screening-level instruments and observational methods. These methods are appropriate for identifying potential IAQ concerns but are not a substitute for comprehensive industrial hygiene sampling where required.'
+      'This evaluation utilized direct-reading instruments and observational methods. These methods are appropriate for identifying potential IAQ concerns but are not a substitute for comprehensive industrial hygiene sampling where required.'
     )
   })
 
   it('limitations matches spec §11', () => {
     expect(LIMITATIONS_PARAGRAPH).toBe(
-      'This report is based on conditions observed during a single site visit and may not reflect temporal, seasonal, or operational variability. Screening-level measurements are not a substitute for full industrial hygiene exposure assessment. Where conclusions are based on observation or limited data, they are presented as professional judgment rather than definitive determinations.'
+      'This report is based on conditions observed during a single site visit and may not reflect temporal, seasonal, or operational variability. These measurements are not a substitute for full industrial hygiene exposure assessment. Where conclusions are based on observation or limited data, they are presented as professional judgment rather than definitive determinations.'
     )
   })
 

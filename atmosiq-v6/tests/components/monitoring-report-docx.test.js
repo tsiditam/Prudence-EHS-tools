@@ -83,7 +83,7 @@ describe('section assembly', () => {
         'Monitoring objective',
         'Location & instrument',
         'Key dataset highlights',
-        'Screening reference values',
+        'Reference values',
         // Parameter sections take the formal heading: the quantity in full,
         // with its symbol, so a reader who knows only one of the two finds it.
         'Carbon dioxide (CO₂)',
@@ -131,7 +131,7 @@ describe('section assembly', () => {
     const titles = body.map((s) => s.title)
     expect(titles).not.toContain('Monitoring objective')
     expect(titles).not.toContain('Key dataset highlights')
-    expect(titles).not.toContain('Screening reference values')
+    expect(titles).not.toContain('Reference values')
     expect(appendices).toEqual([]) // no events, no technical appendix
     // The disclaimers still ship — they are not conditional on data.
     expect(titles).toContain('Limitations')
@@ -183,7 +183,7 @@ describe('parameter section', () => {
     // A caption that explains occupancy shading on a chart with no marked
     // occupancy teaches the reader to distrust the captions.
     const withMarks = model().parameters.find((x) => x.param === 'co2')
-    expect(withMarks.caption).toContain('Dashed line = 1,000 ppm screening reference')
+    expect(withMarks.caption).toContain('Dashed line = 1,000 ppm reference')
     expect(withMarks.caption).toContain('logged events (Appendix A)')
 
     const bare = buildMonitoringReportModel(
@@ -339,8 +339,8 @@ describe('key observations', () => {
     const cases = [
       'Highest concentration recorded on Jul 17, 8:10 AM (1,789 ppm).',
       'Overnight readings (22:00–05:00) averaged 595 ppm.',
-      'Readings were above the selected screening reference for 19 h 30 m.',
-      'The selected screening reference was not exceeded during the monitoring period.',
+      'Readings were above the selected reference for 19 h 30 m.',
+      'The selected reference was not exceeded during the monitoring period.',
     ]
     cases.forEach((text) => {
       const { lead, rest } = splitObservation(text)

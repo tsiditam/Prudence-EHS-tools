@@ -1009,7 +1009,7 @@ function renderRecommendedSamplingPlan(plan) {
   const tier = (t) => {
     switch (t) {
       case 'validated_defensible': return 'validated, defensible'
-      case 'provisional_screening_level': return 'provisional, screening-level'
+      case 'provisional_screening_level': return 'provisional'
       case 'qualitative_only': return 'qualitative only'
       case 'insufficient_data': return 'insufficient data'
       default: return t || ''

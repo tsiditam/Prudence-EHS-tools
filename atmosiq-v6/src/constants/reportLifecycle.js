@@ -160,7 +160,7 @@ export function profileLabel(profile) {
   switch (profile) {
     case REPORT_PROFILES.PROFESSIONAL: return 'Professional Assessment'
     case REPORT_PROFILES.COMPLIANCE: return 'Compliance Assessment'
-    default: return 'Screening Assessment'
+    default: return 'IAQ Assessment'
   }
 }
 

@@ -256,7 +256,7 @@ function capObservationalSeverity(conditionType: string, sev: Severity): Severit
 const QUALITATIVE_QUALIFIER = ' (qualitative — not for regulatory comparison)'
 const NUM_UNIT_REGEX = /\d+(?:\.\d+)?\s*(?:µg\/m³|mg\/m³|ppm|ppb|°F|°C|%)/
 const QUALITATIVE_LIMITATION =
-  'Finding derived from instrument(s) not in the manufacturer-certified accuracy database; values are qualitative screening only and not suitable for regulatory exposure comparison or compliance determination.'
+  'Finding derived from instrument(s) not in the manufacturer-certified accuracy database; values are qualitative only and not suitable for regulatory exposure comparison or compliance determination.'
 
 function appendQualitativeQualifier(text: string): string {
   if (text.includes('(qualitative —')) return text
@@ -426,7 +426,7 @@ function inferEvidenceBasis(
   _zone: ZoneData,
 ): EvidenceBasis {
   let kind: EvidenceBasisKind = 'screening_grab'
-  let rationale = 'Direct-reading screening measurement collected during walkthrough.'
+  let rationale = 'Direct-reading measurement collected during walkthrough.'
 
   if (conditionType.startsWith('hvac_') || conditionType === 'apparent_microbial_growth' ||
       conditionType === 'objectionable_odor' || conditionType === 'possible_corrosive_environment' ||
@@ -444,15 +444,15 @@ function inferEvidenceBasis(
     // explicit chain-of-custody. Keep at screening_continuous to be conservative;
     // the validator will still permit phrase library content but block PEL claims.
     kind = 'screening_continuous'
-    rationale = 'Direct-reading continuous measurement; not an OSHA 8-hour TWA. Bridge does not promote screening data to documented TWA without chain-of-custody evidence.'
+    rationale = 'Direct-reading continuous measurement; not an OSHA 8-hour TWA. Bridge does not promote direct-reading data to documented TWA without chain-of-custody evidence.'
   } else if (conditionType === 'tvoc_screening_elevated' || conditionType === 'hcho_screening_elevated' ||
              conditionType === 'co_screening_elevated' || conditionType === 'pm_screening_elevated') {
     kind = 'screening_continuous'
-    rationale = 'Direct-reading screening measurement collected during walkthrough.'
+    rationale = 'Direct-reading measurement collected during walkthrough.'
   } else if (conditionType.startsWith('temperature_') || conditionType.startsWith('humidity_') ||
              conditionType.startsWith('ventilation_')) {
     kind = 'screening_continuous'
-    rationale = 'Direct-reading screening measurement collected during walkthrough.'
+    rationale = 'Direct-reading measurement collected during walkthrough.'
   }
 
   const citationRefs = f.std ? [f.std] : []
@@ -476,7 +476,7 @@ function inferSamplingAdequacy(
       forConclusion: false,
       forScreening: false,
       forHypothesis: true,
-      rationale: ['Visual or olfactory observation supports hypothesis and presence-of screening only.'],
+      rationale: ['Visual or olfactory observation supports hypothesis and presence only.'],
     }
   }
   if (evidenceKind === 'screening_continuous' || evidenceKind === 'screening_grab') {
@@ -484,7 +484,7 @@ function inferSamplingAdequacy(
       forConclusion: false,
       forScreening: true,
       forHypothesis: true,
-      rationale: ['Screening-level measurement supports inference at screening confidence; not adequate for definitive conclusion.'],
+      rationale: ['Direct-reading measurement supports inference at provisional confidence; not adequate for definitive conclusion.'],
     }
   }
   if (evidenceKind === 'documented_8hr_twa' || evidenceKind === 'laboratory_speciation') {
@@ -507,7 +507,7 @@ function makeInstrumentAccuracyOutcome(): InstrumentAccuracyOutcome {
   return {
     checked: false,
     withinNoiseFloor: false,
-    note: 'Instrument accuracy was not evaluated during legacy bridging. Findings treated as screening-level until instrument context is supplied.',
+    note: 'Instrument accuracy was not evaluated during legacy bridging. Findings treated as provisional until instrument context is supplied.',
   }
 }
 
@@ -531,7 +531,7 @@ function inferFindingConfidence(
 
 function deriveThresholdSourceFromPhrase(actions: ReadonlyArray<RecommendedAction>): string {
   const action = actions.find(a => a.standardReference)
-  return action?.standardReference ?? 'AtmosFlow Engine v2.1 (consensus screening reference)'
+  return action?.standardReference ?? 'AtmosFlow Engine v2.1 (consensus reference)'
 }
 
 function extractObserved(

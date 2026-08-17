@@ -4,7 +4,7 @@ export const VENTILATION_PHRASES: Partial<Record<ConditionType, PhraseLibraryEnt
   ventilation_co2_only: {
     conditionType: 'ventilation_co2_only',
     intentTemplate:
-      'CO₂ results were within the screening range; however, ventilation assessment confidence is limited because outdoor air delivery (CFM at the terminal) was not directly measured.',
+      'CO₂ results were within the reference range; however, ventilation assessment confidence is limited because outdoor air delivery (CFM at the terminal) was not directly measured.',
     bannedAlternatives: [
       'ventilation is adequate',
       'ventilation meets ASHRAE 62.1',

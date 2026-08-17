@@ -34,8 +34,8 @@ describe('IICRC S520 classifications', () => {
 })
 
 describe('screening framing (defensibility)', () => {
-  it('the disclaimer is screening-only and defers interpretation to a professional', () => {
-    expect(MOLD_SCREENING_DISCLAIMER).toMatch(/screening only/i)
+  it('the disclaimer flags further evaluation and defers interpretation to a professional', () => {
+    expect(MOLD_SCREENING_DISCLAIMER).toMatch(/warranting further evaluation/i)
     expect(MOLD_SCREENING_DISCLAIMER).toMatch(/qualified professional/i)
     expect(MOLD_SCREENING_DISCLAIMER).not.toMatch(/\b(safe to occupy|compliant|acceptable exposure)\b/i)
   })

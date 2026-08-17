@@ -363,7 +363,7 @@ function drawCover() {
   doc.fillColor(ACCENT_TINT).font('Helvetica').fontSize(12.5).text('Indoor Air Quality Assessment', MARGIN, 94)
   doc.fillColor(ACCENT_TINT).font('Helvetica').fontSize(9).text(`by ${meta.firm || 'Prudence Safety & Environmental Consulting, LLC'}`, MARGIN, 116)
 
-  doc.fillColor(SLATE).font('Helvetica-Bold').fontSize(23).text(meta.reportTitle || 'Screening-Level IAQ Assessment Report', MARGIN, 214, { width: CONTENT_W })
+  doc.fillColor(SLATE).font('Helvetica-Bold').fontSize(23).text(meta.reportTitle || 'Indoor Air Quality Assessment Report', MARGIN, 214, { width: CONTENT_W })
   doc.fillColor(SOFT).font('Helvetica').fontSize(12).text(meta.coverSubtitle || '', MARGIN, doc.y + 4, { width: CONTENT_W })
   doc.moveDown(0.5)
   if (meta.coverStatusChip) chip(meta.coverStatusChip, FAINT, MARGIN, doc.y + 4, Math.min(260, 12 + meta.coverStatusChip.length * 5.4))
@@ -383,7 +383,7 @@ function drawCover() {
   }
   doc.save().rect(MARGIN, 596, CONTENT_W, 0.75).fill(RULE).restore()
   doc.fillColor(SOFT).font('Helvetica').fontSize(8.5).text(
-    meta.coverFooter || 'Screening-level evaluation — not a regulatory exposure determination, OSHA compliance certification, or medical evaluation.',
+    meta.coverFooter || 'Not a regulatory exposure determination, OSHA compliance certification, or medical evaluation.',
     MARGIN, 608, { width: CONTENT_W, align: 'center' },
   )
 }
@@ -401,7 +401,7 @@ function buildContent() {
         { label: 'Parameter', width: 118, render: r => ({ t: r.parameter, bold: true }) },
         { label: 'Site range', width: 96, render: r => r.range },
         { label: 'Reference basis', width: 150, render: r => r.basis },
-        { label: 'Screening outcome', width: 96, render: r => ({ t: (SEV[r.outcome] || SEV.ok).label, color: (SEV[r.outcome] || SEV.ok).color, bold: true }) },
+        { label: 'Outcome', width: 96, render: r => ({ t: (SEV[r.outcome] || SEV.ok).label, color: (SEV[r.outcome] || SEV.ok).color, bold: true }) },
       ],
       M.findingsAtGlance, { fontSize: 9, rowH: 26 },
     )
@@ -421,7 +421,7 @@ function buildContent() {
     doc.x = MARGIN; doc.moveDown(0.6)
   }
 
-  if (M.overallStatement) { h2('Overall Screening Statement'); p(M.overallStatement) }
+  if (M.overallStatement) { h2('Overall Statement'); p(M.overallStatement) }
 
   if (M.scope && (M.scope.paras || M.scope.text)) {
     doc.addPage()
@@ -509,7 +509,7 @@ function buildContent() {
           { label: 'Zone', width: 52, key: 'z' },
           { label: 'Severity', width: 62, render: r => ({ t: (SEV[r.sev] || SEV.ok).label, color: (SEV[r.sev] || SEV.ok).color, bold: true }) },
           { label: 'Conf.', width: 52, key: 'conf' },
-          { label: 'Screening finding', width: 304, key: 'f' },
+          { label: 'Finding', width: 304, key: 'f' },
         ],
         M.findings.rows, { fontSize: 9, rowH: 30 },
       )
@@ -521,7 +521,7 @@ function buildContent() {
         [
           { label: 'Reported concern', width: 150, key: 'c' },
           { label: 'Potential pathway', width: 130, key: 'pw' },
-          { label: 'Screening evidence', width: 190, render: r => ({ t: r.e, color: r.color || INK }) },
+          { label: 'Evidence', width: 190, render: r => ({ t: r.e, color: r.color || INK }) },
         ],
         M.reportedConcerns.rows, { fontSize: 8.5, rowH: 30 },
       )

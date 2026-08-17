@@ -184,7 +184,7 @@ export function assemblePortfolioModel(input = {}) {
     hasAttention,
     isEmpty: reports.length === 0 && drafts.length === 0,
     limitations: [
-      'This portfolio summary aggregates screening-level IAQ assessments completed in AtmosFlow for internal practice management and client-portfolio review. Each site’s individual assessment report — with its measurements, findings, and limitations — remains the authoritative record.',
+      'This portfolio summary aggregates IAQ assessments completed in AtmosFlow for internal practice management and client-portfolio review. Each site’s individual assessment report — with its measurements, findings, and limitations — remains the authoritative record.',
     ],
   }
 }

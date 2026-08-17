@@ -75,7 +75,7 @@ export const OPINION_TIER_LANGUAGE: Record<ProfessionalOpinionTier, string> = {
   no_significant_concerns_identified:
     'No significant indoor air quality concerns were identified during this assessment within the stated limitations.',
   conditions_warrant_monitoring:
-    'Conditions warrant ongoing monitoring. Findings are based on screening-level evaluation and should be re-evaluated under representative operational conditions.',
+    'Conditions warrant ongoing monitoring. Findings should be re-evaluated under representative operational conditions.',
   conditions_warrant_further_investigation:
     'Conditions warrant further investigation. Confirmatory sampling and/or laboratory analysis is recommended before definitive conclusions are drawn.',
   conditions_warrant_corrective_action:
@@ -86,7 +86,7 @@ export const CONFIDENCE_TIER_LANGUAGE: Record<CIHConfidenceTier, string> = {
   validated_defensible:
     'Supported by direct measurement or documented evidence collected per recognized methodology.',
   provisional_screening_level:
-    'Findings are preliminary and based on screening-level data; not a substitute for full industrial hygiene exposure assessment.',
+    'Findings are preliminary; not a substitute for full industrial hygiene exposure assessment.',
   qualitative_only:
     'Findings are based on observations and require confirmatory evaluation.',
   insufficient_data:

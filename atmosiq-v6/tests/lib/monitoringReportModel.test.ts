@@ -269,7 +269,7 @@ describe('defensibility', () => {
   it('carries the screening-and-documentation limitation statement', () => {
     const model = build()
     const all = model.limitations.join(' ')
-    expect(all).toMatch(/screening and documentation purposes/i)
+    expect(all).toMatch(/documentation and interpretation purposes/i)
     expect(all).not.toMatch(/not constitute a compliance or regulatory determination/i)
   })
 
@@ -461,7 +461,7 @@ describe('outdoor baseline absence', () => {
     const model = build()
     expect(model.outdoorBaselineNote).toBeNull()
     // The limitations are unaffected — still the standing purpose statement.
-    expect(model.limitations.join(' ')).toMatch(/screening and documentation purposes/i)
+    expect(model.limitations.join(' ')).toMatch(/documentation and interpretation purposes/i)
   })
 
   it('stays null when an outdoor dataset was captured', () => {
@@ -475,7 +475,7 @@ describe('figure captions', () => {
 
   it('names the reference in the form the figure draws it', () => {
     expect(figureCaption({ ...base, reference: { limit: 1000, unit: 'ppm' } }, {})).toBe(
-      'Figure 3. CO₂ over the monitoring period. Dashed line = 1,000 ppm screening reference.',
+      'Figure 3. CO₂ over the monitoring period. Dashed line = 1,000 ppm reference.',
     )
     expect(
       figureCaption({ ...base, shortLabel: 'Temp', reference: { band: [68, 76], unit: '°F' } }, {}),
@@ -539,7 +539,7 @@ describe('the §Limitations statement', () => {
     expect(model.disclaimer).toBeUndefined()
 
     const all = model.limitations.join(' ')
-    expect(all).toMatch(/screening and documentation purposes/i)
+    expect(all).toMatch(/documentation and interpretation purposes/i)
     // Spatial/temporal representativeness + the measurement base clause.
     expect(all).toMatch(/conditions at the instrument location during the times sampled/i)
     expect(all).toMatch(/instrument accuracy, calibration status, sensor response, detection limits/i)
@@ -549,7 +549,7 @@ describe('the §Limitations statement', () => {
     expect(all).not.toMatch(/PM2\.5 is measured by light scattering/i)
     // The reference caveat appears (references are compared), but the
     // occupational-limit sentence does NOT — no OSHA/NIOSH reference was selected.
-    expect(all).toMatch(/screening references shown are used for interpretation only/i)
+    expect(all).toMatch(/references shown are used for interpretation only/i)
     expect(all).not.toMatch(/Occupational exposure limits shown were developed for adult workers/i)
     // Fixed-location interpretation clause.
     expect(all).toMatch(/fixed-location monitoring, not breathing-zone sampling/i)
@@ -582,7 +582,7 @@ describe('the §Limitations statement', () => {
 
     // No references at all → no reference paragraph.
     const noRefs = buildLimitations(['temp'], {}).join(' ')
-    expect(noRefs).not.toMatch(/screening references shown are used for interpretation/i)
+    expect(noRefs).not.toMatch(/references shown are used for interpretation/i)
     expect(noRefs).not.toMatch(/Occupational exposure limits/i)
   })
 

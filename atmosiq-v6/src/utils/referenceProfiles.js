@@ -75,12 +75,12 @@ const isMg = (u) => /mg/.test(norm(u))
 // it — the comparison is a screening reference against the guideline LEVEL, not
 // a determination against the guideline as written.
 const PM_ANNUAL_NOTE =
-  'This is an annual-mean air quality guideline; a short monitoring session cannot evaluate an annual average, so comparison here is a screening reference against the guideline level only, not an application of the standard.'
+  'This is an annual-mean air quality guideline; a short monitoring session cannot evaluate an annual average, so comparison here is a reference against the guideline level only, not an application of the standard.'
 // WHO Global Air Quality Guidelines are health-based recommendations, not US
 // regulatory standards — worth stating so a WHO comparison is not read as a
 // compliance test.
 const WHO_NOTE =
-  'WHO Global Air Quality Guidelines (2021) are health-based recommendations, not US regulatory standards; comparison here is a screening reference.'
+  'WHO Global Air Quality Guidelines (2021) are health-based recommendations, not US regulatory standards; comparison here is a reference.'
 // WELL v2 thresholds are green-building certification performance targets, not
 // health-based regulatory limits, and WELL is revised by periodic addenda — so
 // the value should be confirmed against the current WELL v2 documentation
@@ -131,7 +131,7 @@ const PROFILES = {
       // attribution here was flagged twice in peer review.
       id: 'ashrae-advisory',
       label: 'Screening advisory (1,000 ppm)',
-      source: 'NIOSH indoor-ventilation screening indicator (~1,000 ppm)',
+      source: 'NIOSH indoor-ventilation indicator (~1,000 ppm)',
       resolve: () => ({ limit: STD.v.co2.con }),
     },
     {

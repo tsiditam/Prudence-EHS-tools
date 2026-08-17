@@ -38,14 +38,14 @@ const LABEL = { fontSize: 10, color: DIM, textTransform: 'uppercase', letterSpac
 // none exists — a mold "risk score" would imply a health verdict.
 const SEVERITY = {
   elevated_indicator: { c: DANGER, l: 'Elevated indicator' },
-  screening_indicator: { c: WARN, l: 'Screening indicator' },
+  screening_indicator: { c: WARN, l: 'Indicator' },
   observation: { c: SUB, l: 'Observation' },
 }
 const CATEGORY_LABEL = {
   water_damage: 'Water damage',
   moisture: 'Moisture',
   visible_growth: 'Visible growth',
-  spore_screening: 'Spore screening',
+  spore_screening: 'Spore analysis',
   hvac: 'HVAC',
 }
 // Domain SVG icons per finding category (the app's line-icon set), matching how
@@ -94,7 +94,7 @@ function labelFor(zones, zoneId) {
 }
 
 function FindingsTab({ findings, zones }) {
-  if (!findings.length) return <Empty>No screening indicators raised.</Empty>
+  if (!findings.length) return <Empty>No indicators raised.</Empty>
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       {findings.map((f) => {
@@ -206,7 +206,7 @@ export default function MoldScreeningView({ result, zones = [] }) {
   const [tab, setTab] = useState('findings')
 
   if (!result || !Array.isArray(result.findings)) {
-    return <Empty>No mold screening result to display.</Empty>
+    return <Empty>No mold assessment result to display.</Empty>
   }
 
   const { findings, conditions = [], waterCategories = [], sporeScreening = [], limitations = [], standardsCited = [], disclaimer } = result
@@ -214,7 +214,7 @@ export default function MoldScreeningView({ result, zones = [] }) {
   const sporeByZone = new Map(sporeScreening.map((s) => [s.zoneId, s]))
 
   return (
-    <section aria-label="Mold screening result" style={{ display: 'flex', flexDirection: 'column' }}>
+    <section aria-label="Mold assessment result" style={{ display: 'flex', flexDirection: 'column' }}>
       {/* No persistent banner — the assessment's basis + limitations live in the
           Review tab (and the report), the same way the IAQ module carries them.
           Per-finding "Professional review recommended" is the always-visible cue. */}

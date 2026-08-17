@@ -207,7 +207,7 @@ function SampleExcerpt() {
             Indoor-outdoor differential range: 180–815 ppm.
           </p>
           <p style={{ margin: 0, fontSize: 12, color: PALETTE.dim, fontStyle: 'italic' }}>
-            Confidence tier: <span style={{ color: PALETTE.accent }}>provisional screening level</span>.
+            Confidence tier: <span style={{ color: PALETTE.accent }}>provisional</span>.
           </p>
         </div>
         <a
@@ -275,8 +275,7 @@ function BuiltFor() {
       </ul>
       <p style={{ marginTop: 18, fontSize: 13, color: PALETTE.dim, lineHeight: 1.7 }}>
         <strong style={{ color: PALETTE.text }}>Not for:</strong> regulatory exposure
-        assessments requiring 8-hour TWA sampling or laboratory analysis. AtmosFlow is
-        screening-level by design.
+        assessments requiring 8-hour TWA sampling or laboratory analysis.
       </p>
     </section>
   )

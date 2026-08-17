@@ -227,7 +227,7 @@ export function buildCalibrationAppendix(presurvey, opts = {}) {
   if (anyExpired) {
     qaNotes.push(
       'One or more instruments listed below are PAST calibration validity. '
-      + 'Measurements obtained with those instruments should be treated as screening-only, '
+      + 'Measurements obtained with those instruments should be treated as qualitative only, '
       + 'and any conclusion resting on them re-confirmed with an instrument within validity.',
     )
   } else if (anyExpiring) {

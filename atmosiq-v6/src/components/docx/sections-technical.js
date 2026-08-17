@@ -309,7 +309,7 @@ export function buildLimitationsCompact(ctx) {
     : 'Requires CIH review and sign-off before any external distribution.'
   return [
     p('Limitations & IH Review', { heading: HeadingLevel.HEADING_2 }),
-    p('Screening-level only: identifies risk indicators against published benchmarks — not a compliance determination, certified measurement, or professional opinion.', { size: 16, color: COLORS.sub, after: 40 }),
+    p('Identifies risk indicators against published benchmarks — not a compliance determination, certified measurement, or professional opinion.', { size: 16, color: COLORS.sub, after: 40 }),
     p('Point-in-time data; uncalibrated instruments or documented data gaps reduce defensibility.', { size: 16, color: COLORS.sub, after: 40 }),
     new Paragraph({
       spacing: { after: 60 },

@@ -421,7 +421,7 @@ export function generateLegacyPrintHTML(data) {
   <tr><td style="font-size:10px;">NIOSH RELs (Pocket Guide)</td><td style="font-size:10px;color:#5C6F7E;">Recommended exposure limit — advisory</td><td style="font-size:10px;">CO (35 ppm TWA), Formaldehyde (0.016 ppm)</td></tr>
 
   <tr><td colspan="3" style="font-size:9px;font-weight:700;color:#1B2A41;background:#F3F4F6;padding:6px 10px;text-transform:uppercase;letter-spacing:0.5px;">Consensus Standards</td></tr>
-  <tr><td style="font-size:10px;">ASHRAE 62.1-2025</td><td style="font-size:10px;color:#5C6F7E;">Ventilation consensus standard</td><td style="font-size:10px;">Outdoor air rates (Table 6.2.2.1), CO₂ as ventilation screening indicator</td></tr>
+  <tr><td style="font-size:10px;">ASHRAE 62.1-2025</td><td style="font-size:10px;color:#5C6F7E;">Ventilation consensus standard</td><td style="font-size:10px;">Outdoor air rates (Table 6.2.2.1), CO₂ as ventilation indicator</td></tr>
   <tr><td style="font-size:10px;">ASHRAE 55-2023</td><td style="font-size:10px;color:#5C6F7E;">Thermal comfort consensus standard</td><td style="font-size:10px;">Temperature and humidity comfort ranges</td></tr>
   ${bldg.ft?.includes('Data Center') ? '<tr><td style="font-size:10px;">ANSI/ISA 71.04-2013</td><td style="font-size:10px;color:#5C6F7E;">Gaseous corrosion consensus standard</td><td style="font-size:10px;">G1/G2/G3/GX classification for electronic equipment environments</td></tr><tr><td style="font-size:10px;">ISO 14644-1:2015</td><td style="font-size:10px;color:#5C6F7E;">Cleanroom particle classification</td><td style="font-size:10px;">ISO Class 5–8 particle count limits</td></tr>' : ''}
 
@@ -430,7 +430,7 @@ export function generateLegacyPrintHTML(data) {
   <tr><td style="font-size:10px;">WHO Air Quality Guidelines (2021)</td><td style="font-size:10px;color:#5C6F7E;">Population health guideline — advisory</td><td style="font-size:10px;">PM2.5 (15 µg/m³)</td></tr>
 
   <tr><td colspan="3" style="font-size:9px;font-weight:700;color:#1B2A41;background:#F3F4F6;padding:6px 10px;text-transform:uppercase;letter-spacing:0.5px;">Advisory Screening Benchmarks</td></tr>
-  <tr><td style="font-size:10px;">CO₂ differential (700 ppm)</td><td style="font-size:10px;color:#5C6F7E;">Ventilation screening benchmark — not a regulatory limit</td><td style="font-size:10px;">Sedentary-office bioeffluent perception threshold per ASHRAE Position Document on Indoor CO₂ (2022). CO₂ is a ventilation indicator, not an IAQ contaminant.</td></tr>
+  <tr><td style="font-size:10px;">CO₂ differential (700 ppm)</td><td style="font-size:10px;color:#5C6F7E;">Ventilation benchmark — not a regulatory limit</td><td style="font-size:10px;">Sedentary-office bioeffluent perception threshold per ASHRAE Position Document on Indoor CO₂ (2022). CO₂ is a ventilation indicator, not an IAQ contaminant.</td></tr>
   <tr><td style="font-size:10px;">TVOC concern (500 µg/m³)</td><td style="font-size:10px;color:#5C6F7E;">Internal concern threshold — no regulatory limit exists for total VOCs</td><td style="font-size:10px;">Screening trigger for source investigation; Mølhave (1991) advisory</td></tr>
   <tr><td style="font-size:10px;">RH 30–60%</td><td style="font-size:10px;color:#5C6F7E;">Comfort and moisture-control benchmark</td><td style="font-size:10px;">Comfort evaluation and mold risk screening per ASHRAE 55</td></tr>
   </tbody></table>
@@ -769,7 +769,7 @@ export function generateLegacyPrintHTML(data) {
   <table style="margin-bottom:12px;"><thead><tr><th style="width:15%;">Severity</th><th style="width:85%;">Definition</th></tr></thead><tbody>
     <tr><td style="font-weight:700;color:#B91C1C;">Critical</td><td style="font-size:10px;">Measurement exceeds a regulatory occupational exposure limit (OSHA PEL), immediate health/safety hazard identified, or system failure creating imminent risk. Requires immediate corrective action (0–48 hours).</td></tr>
     <tr><td style="font-weight:700;color:#C2410C;">High</td><td style="font-size:10px;">Measurement exceeds a recommended exposure limit (NIOSH REL) or consensus standard threshold, or physical condition creates significant risk of adverse outcome. Requires short-term corrective action (1–4 weeks).</td></tr>
-    <tr><td style="font-weight:700;color:#A16207;">Medium</td><td style="font-size:10px;">Measurement approaches a concern threshold or screening indicator is elevated. Condition warrants investigation and targeted improvement. Requires medium-term action (1–3 months).</td></tr>
+    <tr><td style="font-weight:700;color:#A16207;">Medium</td><td style="font-size:10px;">Measurement approaches a concern threshold or indicator is elevated. Condition warrants investigation and targeted improvement. Requires medium-term action (1–3 months).</td></tr>
     <tr><td style="font-weight:700;color:#0E7490;">Low</td><td style="font-size:10px;">Minor observation or measurement near boundary of acceptable range. No immediate action required; include in routine monitoring.</td></tr>
     <tr><td style="font-weight:700;color:#15803D;">Pass</td><td style="font-size:10px;">Parameter within acceptable range per applicable standard. No action required.</td></tr>
     <tr><td style="font-weight:700;color:#475569;">Info</td><td style="font-size:10px;">Contextual information, data gap notation, or supplementary observation. Not a scored finding.</td></tr>

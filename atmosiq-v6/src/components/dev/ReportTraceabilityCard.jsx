@@ -41,7 +41,7 @@ export default function ReportTraceabilityCard({ zones, zoneScores, causalChains
         <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 640 }}>
           <thead>
             <tr>
-              <th style={{ ...TH, width: '28%' }}>Screening finding</th>
+              <th style={{ ...TH, width: '28%' }}>Finding</th>
               <th style={{ ...TH, width: '24%' }}>Supporting evidence</th>
               <th style={{ ...TH, width: '14%' }}>Conflicting evidence</th>
               <th style={{ ...TH, width: '24%' }}>Standard referenced</th>
@@ -62,7 +62,7 @@ export default function ReportTraceabilityCard({ zones, zoneScores, causalChains
         </table>
       </div>
       <div style={{ padding: '10px 12px', fontSize: 11, color: DIM, fontStyle: 'italic', borderTop: `1px solid ${BORDER_SUBTLE}` }}>
-        Every finding above requires industrial-hygienist review before remedial action. This matrix records the screening basis; it is not a determination of cause or compliance.
+        Every finding above requires industrial-hygienist review before remedial action. This matrix records the evidentiary basis; it is not a determination of cause or compliance.
       </div>
     </div>
   )

@@ -284,7 +284,7 @@ const REQUIRED_STATEMENTS: ReadonlyArray<{
   description: string
 }> = [
   {
-    fragment: 'visual inspection, screening-level measurements, and HVAC system review',
+    fragment: 'visual inspection, measurements, and HVAC system review',
     field: 'methodologyDisclosure',
     description: 'Methodology Disclosure paragraph (§11)',
   },

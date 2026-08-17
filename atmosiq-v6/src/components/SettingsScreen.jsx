@@ -102,7 +102,7 @@ export default function SettingsScreen({ onNavigate, onActivateAdmin, adminActiv
           Gated by the staged flag, so it only appears on preview / opt-in. */}
       {isMoldModuleEnabled() && (
         <Group title="Assessment mode">
-          <Row first label="Mold screening (Beta)" sub="Moisture & mold screening — IICRC S520" action={() => onNavigate?.('mold')} />
+          <Row first label="Mold assessment (Beta)" sub="Moisture & mold assessment — IICRC S520" action={() => onNavigate?.('mold')} />
         </Group>
       )}
 

@@ -97,7 +97,7 @@ describe('parameterStatement', () => {
       reference: { limit: 1000 },
     })
     expect(parameterStatement('co2', st, { limit: 1000 })).toBe(
-      'Carbon dioxide concentrations exceeded the selected screening reference (1,000 ppm) during 20% of logged measurements.',
+      'Carbon dioxide concentrations exceeded the selected reference (1,000 ppm) during 20% of logged measurements.',
     )
   })
 
@@ -108,7 +108,7 @@ describe('parameterStatement', () => {
       reference: { limit: 16 },
     })
     const s = parameterStatement('hcho', st, { limit: 16 })!
-    expect(s).toMatch(/^Formaldehyde concentrations exceeded the selected screening reference \(16 ppb\) during /)
+    expect(s).toMatch(/^Formaldehyde concentrations exceeded the selected reference \(16 ppb\) during /)
     expect(s).not.toContain('remained below')
     // one-decimal share, matching the "% Above" strip tile
     expect(s).toMatch(/during \d+(\.\d)?% of logged measurements\.$/)
@@ -168,7 +168,7 @@ describe('monitoringInsights', () => {
 
   it('reports the duration above the reference', () => {
     const above = insights.find((i) => i.id === 'time-above')!
-    expect(above.text).toMatch(/above the selected screening reference for \d+ h( \d+ m)?\./)
+    expect(above.text).toMatch(/above the selected reference for \d+ h( \d+ m)?\./)
   })
 
   it('states the occupied/unoccupied difference as a difference', () => {
@@ -191,7 +191,7 @@ describe('monitoringInsights', () => {
     const calm = parameterStats(pts([400, 450, 500]), 'co2', { reference: { limit: 1000 } })
     const out = monitoringInsights('co2', calm, { limit: 1000 })
     expect(out.find((i) => i.id === 'time-above')!.text).toBe(
-      'The selected screening reference was not exceeded during the monitoring period.',
+      'The selected reference was not exceeded during the monitoring period.',
     )
   })
 
@@ -227,7 +227,7 @@ describe('datasetHighlights', () => {
 
   it('states plainly when a parameter never exceeded its reference', () => {
     expect(hl.find((h) => h.id === 'within-pm25')!.text).toBe(
-      'PM2.5 did not exceed the selected screening reference at any point during monitoring.',
+      'PM2.5 did not exceed the selected reference at any point during monitoring.',
     )
   })
 

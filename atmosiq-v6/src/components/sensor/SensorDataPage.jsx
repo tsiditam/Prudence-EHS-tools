@@ -174,7 +174,7 @@ function ThresholdBanner({ items }) {
     <GlassCard style={{ marginTop: 14 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 15, fontWeight: 700, color: V3.DANGER, fontFamily: 'var(--font-mono)' }}>{items.length}</span>
-        <span style={{ ...V3.T.bodyStrong }}>parameter{items.length === 1 ? '' : 's'} above a screening reference</span>
+        <span style={{ ...V3.T.bodyStrong }}>parameter{items.length === 1 ? '' : 's'} above a reference</span>
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 8 }}>
         {items.map((it) => (
@@ -723,7 +723,7 @@ export default function SensorDataPage({ value, onChange, onBack, reports = [], 
               </ul>
             )}
             <div style={{ ...V3.T.captionDim, marginTop: 12, lineHeight: 1.5 }}>
-              Graphs are provided for screening and documentation purposes. Interpretation should be reviewed by a qualified IAQ professional. AtmosFlow does not make compliance determinations.
+              Graphs are provided for documentation and interpretation purposes. Interpretation should be reviewed by a qualified IAQ professional. AtmosFlow does not make compliance determinations.
             </div>
           </GlassCard>
 
@@ -783,7 +783,7 @@ export default function SensorDataPage({ value, onChange, onBack, reports = [], 
                 <div style={{ ...V3.T.bodyStrong, marginTop: 6 }}>Indoor Environmental Monitoring Report</div>
                 <div style={{ ...V3.T.captionDim, marginTop: 4, lineHeight: 1.5 }}>
                   A report from this logger data alone — summary statistics, figures, the event log and your
-                  selected screening references. No assessment or score required.
+                  selected references. No assessment or score required.
                 </div>
                 <TactileButton variant="primary" fullWidth size="md" disabled={!data.hasTimestamps}
                   onClick={() => setIemrOpen(true)}

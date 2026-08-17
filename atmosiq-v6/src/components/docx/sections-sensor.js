@@ -40,7 +40,7 @@ export function buildSensorGraphsAppendix(sensorData) {
 
   const out = []
   out.push(p(
-    'The following timelines were generated from uploaded sensor logger data for screening and documentation purposes. Interpretation should be reviewed by a qualified IAQ professional; AtmosFlow does not make compliance determinations.',
+    'The following timelines were generated from uploaded sensor logger data for documentation and interpretation purposes. Interpretation should be reviewed by a qualified IAQ professional; AtmosFlow does not make compliance determinations.',
     { italics: true, color: '595959', after: 200 },
   ))
   if (src.fileName) {

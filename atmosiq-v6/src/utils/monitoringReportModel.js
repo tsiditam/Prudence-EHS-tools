@@ -323,7 +323,7 @@ export function figureCaption(entry, opts = {}) {
     // the band — otherwise it describes a colour the figure never draws.
     if (isNum(st.pctInBand) && st.pctInBand < 100) parts.push('Amber trace = readings outside the band.')
   } else if (ref && isNum(ref.limit)) {
-    parts.push(`Dashed line = ${referenceValueLabel(ref)} screening reference.`)
+    parts.push(`Dashed line = ${referenceValueLabel(ref)} reference.`)
     if (isNum(st.pctAbove) && st.pctAbove > 0) {
       // The red clause is earned only when the acute tier is actually reached
       // (rolling mean over its window), and it names the criterion so the
@@ -463,7 +463,7 @@ export function buildMonitoringReportModel(session, opts = {}) {
       })
       entry.belowDetection = belowDetection
       entry.detectionNote = belowDetection
-        ? `${proseNameTitle(param)} readings across the monitoring period fall at or below a conservative screening detection floor (a generic screening floor, not the instrument's published limit of detection); treat these values as qualitative only and confirm against the instrument's stated detection limit before reporting them as measured concentrations.`
+        ? `${proseNameTitle(param)} readings across the monitoring period fall at or below a conservative detection floor (a generic floor, not the instrument's published limit of detection); treat these values as qualitative only and confirm against the instrument's stated detection limit before reporting them as measured concentrations.`
         : null
       return entry
     })
@@ -678,7 +678,7 @@ export function buildMonitoringReportModel(session, opts = {}) {
 // The always-present limitation clauses — fixed prose the platform's
 // screening-only positioning rests on. Every report carries these.
 const LIMITATION_PURPOSE =
-  'This report presents measured indoor environmental data compared to commonly referenced screening values selected by the assessor. It is provided for screening and documentation purposes.'
+  'This report presents measured indoor environmental data compared to commonly referenced values selected by the assessor. It is provided for documentation and interpretation purposes.'
 const LIMITATION_SPATIAL =
   'Results represent conditions at the instrument location during the times sampled and may not represent other areas of the building or different occupancy, HVAC, weather, or operating conditions.'
 const LIMITATION_MEASUREMENT_BASE =
@@ -703,7 +703,7 @@ const LIMITATION_MEASUREMENT_NOTE = {
 // the selected reference for some parameter — otherwise it disclaims a
 // reference type the report never used).
 const LIMITATION_REFERENCES =
-  'The screening references shown are used for interpretation only. They are not exposure limits or compliance criteria, and where a reference specifies an averaging period, comparison against individual logger readings is not equivalent to how compliance with that value would be determined.'
+  'The references shown are used for interpretation only. They are not exposure limits or compliance criteria, and where a reference specifies an averaging period, comparison against individual logger readings is not equivalent to how compliance with that value would be determined.'
 const LIMITATION_OCCUPATIONAL =
   'Occupational exposure limits shown were developed for adult workers in industrial settings and are not benchmarks for general indoor environments.'
 const OCCUPATIONAL_PROFILE_IDS = new Set(['osha-pel', 'niosh-rel'])

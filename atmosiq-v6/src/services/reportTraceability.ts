@@ -27,7 +27,7 @@ const join = (arr?: string[]) => (arr && arr.length ? arr.join('; ') : '—')
 // Annotate a standard with its screening framing so a reference can never be
 // read as a health/compliance limit (CO2 / ASHRAE 62.1).
 export const standardCell = (s: { label: string; is_health_limit: boolean }) =>
-  s.is_health_limit ? s.label : `${s.label} (screening reference — not a health limit)`
+  s.is_health_limit ? s.label : `${s.label} (reference — not a health limit)`
 
 /** One row per finding: its supporting/conflicting evidence, framed standards,
  * severity, and the engine's categorical confidence. */

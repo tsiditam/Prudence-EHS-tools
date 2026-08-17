@@ -270,7 +270,7 @@ export default function AccountSettings({
         <p style={{ color: PALETTE.sub, fontSize: 13, lineHeight: 1.6, margin: 0 }}>
           When enabled, anonymized excerpts of your AtmosFlow AI
           conversations may be used to improve Jasper's accuracy on
-          indoor air quality screening. Facility names and personal
+          indoor air quality assessment. Facility names and personal
           identifiers are scrubbed before analysis. You can turn this
           off at any time; turning it off stops future use but does
           not retroactively remove past contributions from completed

@@ -66,7 +66,7 @@ describe('ReportStatusBadge', () => {
   it('can append the profile for lists that mix report types', () => {
     render(<ReportStatusBadge status={FINAL} profile={SCREENING} showProfile />)
     expect(screen.getByTestId('report-status-badge').textContent)
-      .toMatch(/Screening Assessment/)
+      .toMatch(/IAQ Assessment/)
   })
 
   it('never renders the old blanket stamp, in any combination', () => {

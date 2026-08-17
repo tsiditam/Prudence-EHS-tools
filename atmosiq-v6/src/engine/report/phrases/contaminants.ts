@@ -20,13 +20,13 @@ export const CONTAMINANTS_PHRASES: Partial<Record<ConditionType, PhraseLibraryEn
   co_screening_elevated: {
     conditionType: 'co_screening_elevated',
     intentTemplate:
-      'Carbon monoxide was detected at levels that warrant further investigation. Screening-level measurements are not equivalent to a formal exposure assessment.',
+      'Carbon monoxide was detected at levels that warrant further investigation. These measurements are not equivalent to a formal exposure assessment.',
     bannedAlternatives: ['CO exceeds OSHA PEL', 'CO violation', 'unsafe CO levels'],
     definitiveConclusionRequires: ['documented_8hr_twa'],
     causationSupportRequires: ['documented_8hr_twa'],
     regulatoryConclusionRequires: ['documented_8hr_twa'],
     defaultLimitations: [
-      'CO measurement was a screening-level grab or short-duration reading, not an 8-hour TWA as required for OSHA PEL comparison.',
+      'CO measurement was a grab or short-duration reading, not an 8-hour TWA as required for OSHA PEL comparison.',
     ],
     defaultRecommendedActions: [
       { priority: 'short_term', timeframe: '7–30 days', action: 'Investigate potential combustion sources. Consider continuous CO monitoring during occupied hours.' },
@@ -69,14 +69,14 @@ export const CONTAMINANTS_PHRASES: Partial<Record<ConditionType, PhraseLibraryEn
   tvoc_screening_elevated: {
     conditionType: 'tvoc_screening_elevated',
     intentTemplate:
-      'Total volatile organic compounds (TVOCs) were elevated during screening. TVOC is a screening indicator only — no regulatory limit exists for total VOCs, and TVOC measurement does not identify individual compounds. TO-17 speciation is recommended if source investigation is warranted.',
+      'Total volatile organic compounds (TVOCs) were elevated. TVOC is an indicator only — no regulatory limit exists for total VOCs, and TVOC measurement does not identify individual compounds. TO-17 speciation is recommended if source investigation is warranted.',
     bannedAlternatives: ['TVOC exceeds limit', 'VOC violation', 'unsafe VOC levels', 'toxic VOCs confirmed'],
     definitiveConclusionRequires: ['laboratory_speciation'],
     causationSupportRequires: ['laboratory_speciation'],
     regulatoryConclusionRequires: [],
     defaultLimitations: [
       'TVOC is measured by PID and represents total ionizable compounds. Individual compound identification requires TO-17 thermal desorption GC/MS.',
-      'Mølhave (1991) TVOC tiers are advisory screening benchmarks, not regulatory limits.',
+      'Mølhave (1991) TVOC tiers are advisory benchmarks, not regulatory limits.',
     ],
     defaultRecommendedActions: [
       { priority: 'short_term', timeframe: '7–30 days', action: 'Collect sorbent tube samples for TO-17 speciation (thermal desorption GC/MS) to identify individual VOC compounds.', standardReference: 'EPA TO-17' },
@@ -102,7 +102,7 @@ export const CONTAMINANTS_PHRASES: Partial<Record<ConditionType, PhraseLibraryEn
   pm_screening_elevated: {
     conditionType: 'pm_screening_elevated',
     intentTemplate:
-      'PM2.5 mass concentration was elevated relative to outdoor conditions or expected indoor levels. This is a screening-level observation and does not constitute a formal particulate assessment.',
+      'PM2.5 mass concentration was elevated relative to outdoor conditions or expected indoor levels. This observation does not constitute a formal particulate assessment.',
     bannedAlternatives: ['PM2.5 exceeds standard', 'PM violation', 'hazardous particulate levels'],
     definitiveConclusionRequires: ['screening_continuous'],
     causationSupportRequires: ['screening_continuous'],
@@ -124,7 +124,7 @@ export const CONTAMINANTS_PHRASES: Partial<Record<ConditionType, PhraseLibraryEn
     causationSupportRequires: [],
     regulatoryConclusionRequires: [],
     defaultLimitations: [
-      'Indoor/outdoor PM2.5 ratio is a screening indicator. Source identification requires additional investigation.',
+      'Indoor/outdoor PM2.5 ratio is an indicator. Source identification requires additional investigation.',
     ],
     defaultRecommendedActions: [
       { priority: 'short_term', timeframe: '7–30 days', action: 'Identify and mitigate indoor particulate sources. Review filtration and housekeeping practices.' },

@@ -1086,7 +1086,7 @@ function buildRecommendedSamplingPlan(report) {
 function tierLabel(tier) {
   switch (tier) {
     case 'validated_defensible': return 'validated, defensible'
-    case 'provisional_screening_level': return 'provisional, screening-level'
+    case 'provisional_screening_level': return 'provisional'
     case 'qualitative_only': return 'qualitative only'
     case 'insufficient_data': return 'insufficient data'
     default: return tier || ''
@@ -1411,7 +1411,7 @@ export function buildRelianceLimitation(warnings) {
     'The following gaps were identified in the evidence supporting this assessment. '
     + 'This report is issued so the measured data and observations are available for use and '
     + 'so the gaps below can be addressed; until they are, the findings should be relied on '
-    + 'accordingly and treated as screening-level only.',
+    + 'accordingly and treated as preliminary only.',
     // Same amber-red the draft notice and memo notice use, so the
     // three most serious statements in the document read as one voice.
     { size: 20, color: NOTICE_COLOR, bold: true, after: 120 },

@@ -2418,7 +2418,7 @@ export default function MobileApp() {
       // causal-attribution layer (keeps the screening framing defensible).
       if (causalChains[0]?.type) return causalChains[0].type
       if (expertDriver) return `${expertDriver}`
-      return 'Screening-level assessment complete'
+      return 'Assessment complete'
     })()
 
     return (
@@ -2800,7 +2800,6 @@ export default function MobileApp() {
                   <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginBottom:18}}>
                     <div style={{display:'flex',alignItems:'baseline',gap:8,flexWrap:'wrap'}}>
                       <div style={V3.T.h3}>Professional Assessment</div>
-                      <div style={{...V3.T.captionDim, fontStyle:'italic'}}>(Screening-Level)</div>
                     </div>
                     <I n="help" s={13} c={V3.TEXT_MUTED} w={1.6} />
                   </div>
@@ -2838,7 +2837,7 @@ export default function MobileApp() {
                     <div style={{minWidth:0,flex:1}}>
                       <div style={V3.T.captionDim}>Overall assessment</div>
                       <div style={{...V3.T.body, marginTop:3, lineHeight:'19px'}}>{(() => {
-                        if (comp.tot < 30) return 'Screening-level indicators point to significant concerns across multiple factors; targeted investigation and corrective action are recommended.'
+                        if (comp.tot < 30) return 'Indicators point to significant concerns across multiple factors; targeted investigation and corrective action are recommended.'
                         if (comp.tot < 50) return 'Multiple contributing factors detected; targeted intervention warranted.'
                         if (comp.tot < 70) return 'Conditions trending outside accepted range; targeted improvements recommended.'
                         return 'Conditions consistent with expected baseline; continue routine monitoring.'
@@ -4454,7 +4453,7 @@ export default function MobileApp() {
                   <div style={{...V3.T.h1, fontFamily:SERIF, fontWeight:700, marginBottom:6}}>Ready to start a survey?</div>
                   <div style={{...V3.T.bodyDim, fontFamily:SERIF, fontWeight:400, maxWidth:560, marginBottom:20}}>
                     Capture field observations, instrument readings, and zone notes.
-                    AtmosFlow organizes them into a screening-level professional
+                    AtmosFlow organizes them into a professional
                     assessment with severity, confidence, and recommended actions.
                   </div>
                   {/* Two compact pills side by side — ~25% smaller than the
