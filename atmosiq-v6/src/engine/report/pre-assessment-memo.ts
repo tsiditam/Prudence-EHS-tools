@@ -47,7 +47,7 @@ export function evaluateRefusalTriggers(score: AssessmentScore): RefusalTrigger[
   )
   triggers.push({
     id: 'confidence_collapse',
-    description: 'No findings with validated or provisional screening confidence exist across the entire assessment.',
+    description: 'No findings with validated or provisional confidence exist across the entire assessment.',
     fired: !hasAnyScreeningOrBetter && score.zones.some(z => z.categories.flatMap(c => c.findings).length > 0),
   })
 

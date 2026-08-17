@@ -28,19 +28,19 @@ export const BENCHMARK_TABLE_HEADERS = [
 ]
 
 export const BENCHMARK_ROWS = [
-  ['CO₂ (differential)', 'Δ700 ppm above outdoor', 'ASHRAE 62.1-2025 (ventilation basis)', 'Ventilation screening benchmark', 'Indicator of outdoor-air adequacy'],
-  ['CO₂ (absolute)', '~1,000 ppm screening indicator', 'NIOSH ventilation screening (~1,000 ppm)', 'Ventilation screening benchmark', 'Screening indicator for ventilation assessment'],
+  ['CO₂ (differential)', 'Δ700 ppm above outdoor', 'ASHRAE 62.1-2025 (ventilation basis)', 'Ventilation benchmark', 'Indicator of outdoor-air adequacy'],
+  ['CO₂ (absolute)', '~1,000 ppm indicator', 'NIOSH ventilation screening (~1,000 ppm)', 'Ventilation benchmark', 'Indicator for ventilation assessment'],
   ['Temperature (summer)', '73-79°F optimal, 67-82°F range', 'ASHRAE 55-2023', 'Thermal comfort criterion', 'Comfort evaluation, not health standard'],
   ['Temperature (winter)', '68.5-74°F optimal, 68.5-76°F range', 'ASHRAE 55-2023', 'Thermal comfort criterion', 'Comfort evaluation, not health standard'],
   ['Relative Humidity', '30-60%', 'ASHRAE 55-2023', 'Comfort / moisture indicator', 'Comfort + mold risk screening'],
-  ['PM2.5 (EPA)', '35 µg/m³ (24-hr)', 'EPA NAAQS', 'Public health ambient guideline', 'Screening comparison, not occupational limit'],
-  ['PM2.5 (WHO)', '15 µg/m³', 'WHO AQG', 'Public health ambient guideline', 'More conservative screening benchmark'],
+  ['PM2.5 (EPA)', '35 µg/m³ (24-hr)', 'EPA NAAQS', 'Public health ambient guideline', 'Comparison, not occupational limit'],
+  ['PM2.5 (WHO)', '15 µg/m³', 'WHO AQG', 'Public health ambient guideline', 'More conservative benchmark'],
   ['CO (OSHA)', '50 ppm TWA', '29 CFR 1910.1000', 'Occupational exposure limit', 'Regulatory ceiling for workplace'],
   ['CO (NIOSH)', '35 ppm TWA', 'NIOSH REL', 'Recommended exposure limit', 'Recommended exposure limit'],
   ['HCHO (OSHA PEL)', '0.75 ppm TWA', '29 CFR 1910.1048', 'Occupational exposure limit', 'Regulatory limit'],
   ['HCHO (OSHA AL)', '0.5 ppm', '29 CFR 1910.1048', 'Occupational exposure limit', 'Action level trigger'],
   ['HCHO (NIOSH)', '0.016 ppm', 'NIOSH REL', 'Recommended exposure limit', 'Recommended exposure limit'],
-  ['TVOCs', 'No regulatory exposure limit', 'Mølhave 1991 (advisory ranges)', 'Screening indicator', 'Source-investigation indicator, not a compliance limit'],
+  ['TVOCs', 'No regulatory exposure limit', 'Mølhave 1991 (advisory ranges)', 'Indicator', 'Source-investigation indicator, not a compliance limit'],
 ]
 
 // Allowed benchmark-type labels (docs/report-spec/07 taxonomy).
@@ -48,17 +48,17 @@ export const BENCHMARK_TYPE_LABELS = [
   'Occupational exposure limit',
   'Recommended exposure limit',
   'Public health ambient guideline',
-  'Ventilation screening benchmark',
+  'Ventilation benchmark',
   'Thermal comfort criterion',
   'Comfort / moisture indicator',
-  'Screening indicator',
+  'Indicator',
 ]
 
 export const BENCHMARK_INTRO =
   'The following published standards, guidelines, and benchmark types frame the evaluation in this report. Benchmark types carry different regulatory, health, and investigative weight and are not interchangeable. This table is presented in full for every assessment.'
 
 export const BENCHMARK_FOOTNOTE =
-  'Benchmark types carry different legal and technical weight. Occupational exposure limits are enforceable workplace standards. Public health guidelines are health-based recommendations. Comfort criteria address thermal acceptability. Ventilation and screening indicators are investigative triggers used for prioritization, not compliance determination.'
+  'Benchmark types carry different legal and technical weight. Occupational exposure limits are enforceable workplace standards. Public health guidelines are health-based recommendations. Comfort criteria address thermal acceptability. Ventilation and other indicators are investigative triggers used for prioritization, not compliance determination.'
 
 // ── Disclaimer (standalone, distinct from the Limitations section) ──
 
@@ -83,12 +83,12 @@ export const DATA_GAPS_INTRO =
   'The following data gaps and limitations on interpretation apply to this assessment. They are listed so the reader can weigh the findings appropriately and identify where additional investigation would strengthen the basis for decisions.'
 
 export const DATA_GAP_MESSAGES = {
-  hcho: 'Formaldehyde (HCHO) was not measured. Screening-level direct-reading values are preliminary; a quantitative exposure assessment requires validated sampling (for example, NIOSH Method 2016 or an equivalent method).',
+  hcho: 'Formaldehyde (HCHO) was not measured. Direct-reading values are preliminary; a quantitative exposure assessment requires validated sampling (for example, NIOSH Method 2016 or an equivalent method).',
   co: 'Carbon monoxide (CO) was not measured at the assessed locations.',
   tvoc: 'Total volatile organic compounds (TVOCs) were not screened. TVOC screening does not identify specific compounds and does not substitute for laboratory speciation.',
   outdoor: 'Outdoor (ambient) reference readings were not captured. Indoor/outdoor comparison supports building-attribution screening and was not available for this assessment.',
   continuous: 'Measurements are point-in-time direct readings. Continuous monitoring was not deployed, so reported values may not represent worst-case, average, or typical conditions.',
-  lab: 'Laboratory analytical sampling and speciation were not performed. Screening-level results identify indicators for prioritization and further evaluation, not specific contaminants or exposures.',
+  lab: 'Laboratory analytical sampling and speciation were not performed. Results identify indicators for prioritization and further evaluation, not specific contaminants or exposures.',
 }
 
 // ── Instrument accuracy + calibration note ──

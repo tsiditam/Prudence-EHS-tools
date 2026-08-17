@@ -1070,8 +1070,8 @@ export function buildReferenceSection(model, num) {
   if (!rows.length) return null
 
   const out = [
-    sectionHeading(num, 'Screening reference values'),
-    p('Each parameter is compared to the screening reference selected for this monitoring session.', {
+    sectionHeading(num, 'Reference values'),
+    p('Each parameter is compared to the reference selected for this monitoring session.', {
       color: MUTED,
       size: TYPE.small,
       after: 110,
@@ -1092,7 +1092,7 @@ export function buildReferenceSection(model, num) {
   const notes = [...new Set(rows.map((r) => r.note).filter(Boolean))]
   notes.forEach((n) => out.push(p(n, { italics: true, color: MUTED, size: TYPE.fine, before: 100 })))
 
-  return { title: 'Screening reference values', children: out }
+  return { title: 'Reference values', children: out }
 }
 
 /**
@@ -1113,7 +1113,7 @@ export function buildParameterSection(entry, num) {
   // `midLabel` keeps acronyms intact ("PM2.5", not "pm2.5").
   out.push(
     p(
-      `The following section summarizes measured ${entry.midLabel || entry.label} over the monitoring period and compares the observations to the selected screening reference.`,
+      `The following section summarizes measured ${entry.midLabel || entry.label} over the monitoring period and compares the observations to the selected reference.`,
       // keepNext binds the intro (and, through the heading's own keepNext, the
       // heading) to the parameter card that follows, so the two never strand at
       // the foot of a page above a card that starts on the next one.

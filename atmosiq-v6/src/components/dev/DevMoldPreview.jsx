@@ -34,7 +34,7 @@ export default function DevMoldPreview() {
       <div style={{ maxWidth: 760, margin: '0 auto' }}>
         <div style={{ marginBottom: 16 }}>
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.6px', textTransform: 'uppercase', color: 'var(--warn)' }}>Non-production preview</div>
-          <h1 style={{ fontSize: 20, fontWeight: 700, margin: '6px 0 4px' }}>Mold screening — built from the demo assessment</h1>
+          <h1 style={{ fontSize: 20, fontWeight: 700, margin: '6px 0 4px' }}>Mold assessment — built from the demo assessment</h1>
           <p style={{ fontSize: 12, color: 'var(--sub)', lineHeight: 1.5, margin: 0 }}>
             The built-in mold demo run through the real screening engine (IICRC S520 water Category + remediation
             Condition, comparative indoor/outdoor spore screening). Screening only — no health verdict. This route

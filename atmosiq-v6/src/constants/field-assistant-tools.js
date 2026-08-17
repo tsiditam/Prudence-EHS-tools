@@ -307,7 +307,7 @@ function parseVisionResponse(data) {
     citations: clampArr(parsed && parsed.citations).slice(0, 4),
     disclaimers:
       clampStr(parsed && parsed.disclaimers) ||
-      'Screening-level visual analysis only. AI cannot make species ID or final remediation determinations. Must be reviewed by a qualified industrial hygienist before client distribution.',
+      'Visual analysis only. AI cannot make species ID or final remediation determinations. Must be reviewed by a qualified industrial hygienist before client distribution.',
     ih_review_required: true,
     model: VISION_MODEL,
     generated_at: new Date().toISOString(),

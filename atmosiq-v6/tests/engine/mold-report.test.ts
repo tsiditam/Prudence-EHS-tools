@@ -30,7 +30,7 @@ describe('mold report rows', () => {
   it('findingRows — categorical severities + summaries, no health-verdict language', () => {
     const rows = findingRows(result, zones)
     expect(rows.length).toBe(result.findings.length)
-    expect(flat(rows)).toMatch(/Elevated indicator|Screening indicator/)
+    expect(flat(rows)).toMatch(/Elevated indicator|Indicator/)
     expect(flat(rows)).not.toMatch(BANNED)
   })
   it('sporeRows — comparative outcomes', () => {
@@ -58,6 +58,6 @@ describe('mold report document', () => {
     expect(buf[0]).toBe(0x50)
   })
   it('file name is filesystem-safe', () => {
-    expect(moldReportFileName({ site: 'Break Room / A' })).toBe('AtmosFlow-Mold-Screening-Report-Break-Room-A.docx')
+    expect(moldReportFileName({ site: 'Break Room / A' })).toBe('AtmosFlow-Mold-Assessment-Report-Break-Room-A.docx')
   })
 })

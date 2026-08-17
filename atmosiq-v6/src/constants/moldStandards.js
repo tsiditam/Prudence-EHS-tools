@@ -41,7 +41,7 @@ export const MOLD_SOURCES = {
 // positioning depends on this text not drifting; the report and the engine both
 // import it rather than re-authoring the sentence.
 export const MOLD_SCREENING_DISCLAIMER =
-  'Screening only. Mold indicators identify conditions warranting further ' +
+  'Mold indicators identify conditions warranting further ' +
   'evaluation; they are not a determination of occupant health risk, ' +
   'contamination extent, or clearance. Classification and interpretation must ' +
   'be confirmed by a qualified professional.'

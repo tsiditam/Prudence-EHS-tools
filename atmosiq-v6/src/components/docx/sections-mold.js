@@ -18,8 +18,8 @@ import { sectionHeading2 } from './headings'
 import { buildTable, kvTable } from './tables'
 import { MOLD_SCREENING_DISCLAIMER, NO_HEALTH_LIMIT_NOTE } from '../../constants/moldStandards'
 
-const SEV = { elevated_indicator: 'Elevated indicator', screening_indicator: 'Screening indicator', observation: 'Observation' }
-const CAT = { water_damage: 'Water damage', moisture: 'Moisture', visible_growth: 'Visible growth', spore_screening: 'Spore screening', hvac: 'HVAC' }
+const SEV = { elevated_indicator: 'Elevated indicator', screening_indicator: 'Indicator', observation: 'Observation' }
+const CAT = { water_damage: 'Water damage', moisture: 'Moisture', visible_growth: 'Visible growth', spore_screening: 'Spore analysis', hvac: 'HVAC' }
 const SPORE = {
   'possible-amplification-indicator': 'Possible amplification indicator',
   'consistent-with-normal-ecology': 'Consistent with normal ecology',
@@ -78,13 +78,13 @@ export function moldReportChildren(result, meta = {}) {
   const children = []
 
   // Title + meta.
-  children.push(p(meta.title || 'Mold Screening Report', { bold: true, size: 40, after: 80 }))
+  children.push(p(meta.title || 'Mold Assessment Report', { bold: true, size: 40, after: 80 }))
   children.push(kvTable([
     ['Site', meta.site || '—'],
     ['Prepared for', meta.preparedFor || '—'],
     ['Prepared by', meta.preparedBy || '—'],
     ['Date', meta.date || '—'],
-    ['Method', 'IICRC S520 — screening (mold engine v' + (result?.version || '—') + ')'],
+    ['Method', 'IICRC S520 — assessment (mold engine v' + (result?.version || '—') + ')'],
   ]))
 
   // Per-zone classification.
@@ -92,7 +92,7 @@ export function moldReportChildren(result, meta = {}) {
   if (cRows.length) {
     children.push(sectionHeading2('Per-area classification (IICRC S520)'))
     children.push(buildTable(
-      [{ text: 'Area', width: 25 }, { text: 'Condition', width: 30 }, { text: 'Water category', width: 25 }, { text: 'Spore screening', width: 20 }],
+      [{ text: 'Area', width: 25 }, { text: 'Condition', width: 30 }, { text: 'Water category', width: 25 }, { text: 'Spore analysis', width: 20 }],
       cRows,
     ))
   }
@@ -105,15 +105,15 @@ export function moldReportChildren(result, meta = {}) {
       [{ text: 'Severity', width: 20 }, { text: 'Category', width: 18 }, { text: 'Area', width: 20 }, { text: 'Finding', width: 42 }],
       fRows,
     ))
-    children.push(p('Each finding is a screening indicator recommended for qualified-professional review; none is a determination of occupant health risk, contamination extent, or clearance.', { italics: true, size: 18, after: 80 }))
+    children.push(p('Each finding is an indicator recommended for qualified-professional review; none is a determination of occupant health risk, contamination extent, or clearance.', { italics: true, size: 18, after: 80 }))
   } else {
-    children.push(p('No screening indicators were raised.'))
+    children.push(p('No indicators were raised.'))
   }
 
   // Spore screening.
   const sRows = sporeRows(result, zones)
   if (sRows.length) {
-    children.push(sectionHeading2('Comparative spore screening'))
+    children.push(sectionHeading2('Comparative spore analysis'))
     children.push(buildTable(
       [{ text: 'Area', width: 22 }, { text: 'Outcome', width: 30 }, { text: 'Indicator genera indoors', width: 26 }, { text: 'Indoor > outdoor', width: 22 }],
       sRows,

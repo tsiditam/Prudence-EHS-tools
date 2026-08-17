@@ -37,7 +37,7 @@ describe('traceabilityRows', () => {
   })
 
   it('annotates a framed standard as a screening reference, not a limit', () => {
-    expect(rows[0].standards).toMatch(/ASHRAE 62\.1-2025 \(screening reference — not a health limit\)/)
+    expect(rows[0].standards).toMatch(/ASHRAE 62\.1-2025 \(reference — not a health limit\)/)
   })
 
   it('surfaces the engine confidence verbatim and a dash when no conflict', () => {

@@ -16,7 +16,7 @@ describe('MoldModeScreen', () => {
   it('renders the mold home with screening-only framing and entry points', () => {
     render(<MoldModeScreen onExit={() => {}} />)
     expect(screen.getByText('Mold Assessment')).toBeTruthy()
-    expect(screen.getByText(/New mold screening/)).toBeTruthy()
+    expect(screen.getByText(/New mold assessment/)).toBeTruthy()
     expect(screen.getByText(/Open the demo assessment/)).toBeTruthy()
     expect(screen.getByText(/Method — IICRC S520/)).toBeTruthy()
   })
@@ -30,10 +30,10 @@ describe('MoldModeScreen', () => {
 
   it('runs an intake assessment end to end', () => {
     render(<MoldModeScreen onExit={() => {}} />)
-    fireEvent.click(screen.getByText(/New mold screening/))
+    fireEvent.click(screen.getByText(/New mold assessment/))
     expect(screen.getByText('Assessment context')).toBeTruthy()
     expect(screen.getByText('Area 1')).toBeTruthy()
-    fireEvent.click(screen.getByText(/Run screening/))
+    fireEvent.click(screen.getByText(/Run assessment/))
     expect(screen.getByText(/Edit inputs/)).toBeTruthy() // reached the result stage
   })
 

@@ -319,7 +319,7 @@ export default function MonitoringReportSheet({ data, occupancyWindows = [], eve
 
           {choosable.length > 0 && (
             <div>
-              <div style={LBL}>Screening references</div>
+              <div style={LBL}>References</div>
               <div style={{ fontSize: 11, color: 'var(--dim)', marginBottom: 10, lineHeight: 1.5 }}>
                 The yardstick each parameter is measured against. This choice drives the reference line, the percentage above, and the wording.
               </div>
@@ -329,7 +329,7 @@ export default function MonitoringReportSheet({ data, occupancyWindows = [], eve
                     <div style={{ fontSize: 12, color: 'var(--sub)', marginBottom: 4 }}>{proseName(param)}</div>
                     <Select
                       value={refs[param] || ''} onChange={(e) => setRefs({ ...refs, [param]: e.target.value })}
-                      style={SEL} aria-label={`Screening reference for ${proseName(param)}`}
+                      style={SEL} aria-label={`Reference for ${proseName(param)}`}
                     >
                       {options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
                     </Select>

@@ -26,7 +26,7 @@ export const FAQ_SECTIONS = [
       },
       {
         q: 'Does AtmosFlow replace an industrial hygienist?',
-        a: 'No. AtmosFlow is screening-only. It surfaces risk indicators, identifies data gaps, and produces sampling plans, but a qualified professional must interpret findings, sign reports, and make any compliance or causation determinations. AtmosFlow is positioned as a tool for professionals, not a substitute for them.',
+        a: 'No. AtmosFlow surfaces risk indicators, identifies data gaps, and produces sampling plans, but a qualified professional must interpret findings, sign reports, and make any compliance or causation determinations. AtmosFlow is positioned as a tool for professionals, not a substitute for them.',
       },
       {
         q: 'What does AtmosFlow cost?',
@@ -161,7 +161,7 @@ export const FAQ_SECTIONS = [
     items: [
       {
         q: 'What can AtmosFlow not determine?',
-        a: 'AtmosFlow does not make compliance determinations, regulatory classifications, definitive causation calls, or medical conclusions. It does not diagnose sick building syndrome, building-related illness, or specific health effects. Those determinations require licensed-professional sign-off based on the screening output.',
+        a: 'AtmosFlow does not make compliance determinations, regulatory classifications, definitive causation calls, or medical conclusions. It does not diagnose sick building syndrome, building-related illness, or specific health effects. Those determinations require licensed-professional sign-off based on the assessment output.',
       },
       {
         q: 'Does AtmosFlow diagnose sick building syndrome?',

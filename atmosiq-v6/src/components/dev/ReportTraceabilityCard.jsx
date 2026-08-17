@@ -62,7 +62,7 @@ export default function ReportTraceabilityCard({ zones, zoneScores, causalChains
         </table>
       </div>
       <div style={{ padding: '10px 12px', fontSize: 11, color: DIM, fontStyle: 'italic', borderTop: `1px solid ${BORDER_SUBTLE}` }}>
-        Every finding above requires industrial-hygienist review before remedial action. This matrix records the screening basis; it is not a determination of cause or compliance.
+        Every finding above requires industrial-hygienist review before remedial action. This matrix records the evidentiary basis; it is not a determination of cause or compliance.
       </div>
     </div>
   )

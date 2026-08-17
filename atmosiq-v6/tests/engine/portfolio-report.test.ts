@@ -57,8 +57,8 @@ describe('portfolio report DOCX', () => {
     // Attention: overdue reassessment + expired calibration.
     expect(xml).toContain('Overdue reassessments')
     expect(xml.toLowerCase()).toContain('calibration')
-    // Screening scope carried once.
-    expect(xml.toLowerCase()).toContain('screening')
+    // Scope statement carried once.
+    expect(xml.toLowerCase()).toContain('authoritative record')
   })
 
   it('carries no watermark', async () => {

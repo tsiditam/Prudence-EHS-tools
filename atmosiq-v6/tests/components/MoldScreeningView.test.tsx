@@ -55,6 +55,6 @@ describe('MoldScreeningView', () => {
 
   it('renders an empty state when there is no result', () => {
     render(<MoldScreeningView result={null} />)
-    expect(screen.getByText(/No mold screening result/i)).toBeTruthy()
+    expect(screen.getByText(/No mold assessment result/i)).toBeTruthy()
   })
 })

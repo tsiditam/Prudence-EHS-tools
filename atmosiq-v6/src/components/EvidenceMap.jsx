@@ -161,7 +161,7 @@ export default function EvidenceMap({ zones, zoneScores, causalChains, recs, ass
                     <span style={{ fontSize: 13, color: TEXT, fontWeight: 600, lineHeight: 1.4 }}>{s.label}</span>
                     {!s.is_health_limit && (
                       <span style={{ fontSize: 9, color: ACCENT, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', padding: '2px 7px', border: `1px solid ${ACCENT}40`, borderRadius: 4 }}>
-                        Screening reference — not a health limit
+                        Reference — not a health limit
                       </span>
                     )}
                   </div>

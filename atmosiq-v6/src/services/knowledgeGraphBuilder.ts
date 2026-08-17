@@ -248,14 +248,14 @@ const STANDARD_FRAMING: Array<{ match: RegExp; key: string; framing: KGStandardF
     match: /isa\s*71\.04/i, key: 'isa_71_04',
     framing: {
       standard: 'ANSI/ISA 71.04-2013', role: 'gaseous_corrosion_screening', is_health_limit: false,
-      framing: 'Used as a screening reference for gaseous corrosion severity. Definitive G-class classification requires coupon deployment; no health limit is implied.',
+      framing: 'Used as a reference for gaseous corrosion severity. Definitive G-class classification requires coupon deployment; no health limit is implied.',
     },
   },
   {
     match: /iso\s*14644/i, key: 'iso_14644_1',
     framing: {
       standard: 'ISO 14644-1:2015', role: 'particle_cleanliness_screening', is_health_limit: false,
-      framing: 'Referenced as a particle-cleanliness screening benchmark. ISO Class cannot be determined from walkthrough data; no health limit is implied.',
+      framing: 'Referenced as a particle-cleanliness benchmark. ISO Class cannot be determined from walkthrough data; no health limit is implied.',
     },
   },
   {
@@ -275,7 +275,7 @@ export function standardFor(std: string): KGModelStandard {
     key: slug(std), label: std,
     framing: {
       standard: std, role: 'screening_reference', is_health_limit: false,
-      framing: 'Referenced as a screening benchmark, not a health or compliance limit.',
+      framing: 'Referenced as a benchmark, not a health or compliance limit.',
     },
   }
 }

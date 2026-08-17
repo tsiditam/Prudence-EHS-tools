@@ -26,7 +26,7 @@ export const WHAT_IS = {
   co: 'Carbon monoxide is a colorless, odorless gas formed by incomplete combustion — vehicle exhaust, gas-fired appliances, and generators. Because it is an acute hazard that reduces the blood’s ability to carry oxygen, even low indoor readings are screened to rule out combustion sources migrating into occupied space.',
   tempRh: 'Dry-bulb temperature and relative humidity together define the thermal environment, which is the single most common driver of occupant comfort complaints. Relative humidity also affects air quality: sustained high humidity can support microbial growth, while very low humidity contributes to dryness and irritation. Both are screened against the ASHRAE 55 comfort envelope.',
   pm25: 'PM2.5 refers to airborne particles 2.5 micrometers and smaller — fine enough to be inhaled deep into the lungs. Indoor sources include cooking, printing, and outdoor particles drawn in through the ventilation system. It is measured as an indicator of particulate exposure and of how effectively the building’s air filtration is performing.',
-  tvoc: 'Total volatile organic compounds (TVOC) is a combined measure of the many gas-phase chemicals that off-gas from furnishings, finishes, adhesives, cleaning products, and office equipment. It is a non-specific screening indicator — it does not identify individual compounds — but elevated readings often accompany odor or irritation complaints and point to a source worth investigating.',
+  tvoc: 'Total volatile organic compounds (TVOC) is a combined measure of the many gas-phase chemicals that off-gas from furnishings, finishes, adhesives, cleaning products, and office equipment. It is a non-specific indicator — it does not identify individual compounds — but elevated readings often accompany odor or irritation complaints and point to a source worth investigating.',
 }
 
 // ── Severity-keyed "observed" templates (filled from Report Model) ──
@@ -38,7 +38,7 @@ export const OBSERVED = {
   co2(s, outcome) {
     const base = `Observed: indoor CO2 ranged ${r2(s)} (site mean ${s.mean} ${s.unit}). ASHRAE 62.1 prescribes ventilation rates rather than a CO2 limit; an indoor-to-outdoor differential above roughly 700 ppm is commonly used as an indicator that outdoor-air delivery may be low relative to occupant load.`
     if (outcome === 'elevated') return base + ` The peak of ${s.max} ppm is consistent with possible under-ventilation at peak occupancy. This is an indicator, not a measured ventilation rate; occupant density, room volume, and supply airflow were not measured, so it is a screening hypothesis pending airflow / BAS / TAB verification.`
-    if (outcome === 'advisory') return base + ' One or more zones read above typical office background and may warrant additional monitoring; the readings are screening indicators, not measured ventilation rates.'
+    if (outcome === 'advisory') return base + ' One or more zones read above typical office background and may warrant additional monitoring; the readings are indicators, not measured ventilation rates.'
     return base + ' Concentrations remained within the ventilation-indicator range during the assessment window.'
   },
   co(s, outcome) {
@@ -97,12 +97,12 @@ export function buildExecSummary({ firm, facility, date, numberOfZones, purpose,
   const purposeBit = purpose ? ` in response to ${String(purpose).toLowerCase()}` : ''
   const outcomeBit = flaggedCount > 0
     ? `The assessment flagged ${flaggedCount} screening item${flaggedCount === 1 ? '' : 's'} for follow-up; each finding below carries a confidence rating and the verification it would need.`
-    : 'No conditions were flagged above the screening references during the assessment window.'
+    : 'No conditions were flagged above the references during the assessment window.'
   return `On ${date}, ${firm} conducted a screening-level indoor air quality (IAQ) assessment of ${facility}${purposeBit}. The assessment combined direct-reading instrument measurements with visual inspection and occupant interviews${scopeBit} during normal occupied-hours operation. Its purpose is to characterize ventilation adequacy, thermal comfort, and common airborne indicators, and to prioritize follow-up where conditions warrant. ${outcomeBit} This is a screening evaluation; results reflect conditions observed during the assessment window and are interpreted in light of the limitations herein.`
 }
 
 export function buildOverallStatement({ flaggedCount, elevatedZones }) {
-  if (!flaggedCount) return 'All screened parameters were within recognized screening references during the assessment window. Routine operation and periodic re-screening are appropriate; no corrective action is indicated at this time.'
+  if (!flaggedCount) return 'All screened parameters were within recognized references during the assessment window. Routine operation and periodic re-screening are appropriate; no corrective action is indicated at this time.'
   const z = elevatedZones && elevatedZones.length ? ` Conditions of note were concentrated in ${elevatedZones.join(', ')}.` : ''
   return `Most areas presented acceptable ventilation, comfort, and air-quality indicators, with ${flaggedCount} item${flaggedCount === 1 ? '' : 's'} flagged for follow-up.${z} Each flagged item carries a confidence rating and the verification it would require; recommended actions follow a verify-before-invest ladder.`
 }

@@ -178,7 +178,7 @@ describe('calibration is never silently absent', () => {
 describe('reference selection', () => {
   it('offers a yardstick per parameter that has more than one', () => {
     open()
-    expect(screen.getByLabelText(/Screening reference for Carbon dioxide/i)).toBeTruthy()
+    expect(screen.getByLabelText(/Reference for Carbon dioxide/i)).toBeTruthy()
   })
 
   it('renders nothing at all rather than an empty sheet with no data', () => {

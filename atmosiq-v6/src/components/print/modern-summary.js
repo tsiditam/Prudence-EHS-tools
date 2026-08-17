@@ -223,7 +223,7 @@ export function generateModernSummaryHTML(data, opts = {}) {
   <table class="t"><thead><tr><th>Parameter</th><th style="width:110px">Site range</th><th style="width:180px">Reference basis</th><th style="width:110px">Outcome</th></tr></thead><tbody>
     ${paramRows.map(p => `<tr><td>${esc(p.label)}</td><td>${esc(p.range)} ${esc(p.unit)}</td><td style="color:var(--faint)">${esc(p.basis)}</td><td>${outcomeChip(p.outcome)}</td></tr>`).join('')}
   </tbody></table>
-  <p style="font-size:8.5pt;color:var(--faint)">Outcomes are screening indicators (threshold comparison against recognized references), not compliance determinations.</p>
+  <p style="font-size:8.5pt;color:var(--faint)">Outcomes are indicators (threshold comparison against recognized references), not compliance determinations.</p>
   ` : ''}
 
   ${co2Bars.length > 1 ? `

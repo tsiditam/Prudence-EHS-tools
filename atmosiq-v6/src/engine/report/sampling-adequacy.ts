@@ -35,12 +35,12 @@ export function evaluateSamplingAdequacy(sampling: SamplingContext): SamplingAde
   // Continuous short-duration or momentary while occupied
   else if (sampleType === 'continuous' && (temporalCoverage === 'short_duration' || temporalCoverage === 'momentary') && (ctx === 'occupied' || ctx === 'typical_operation' || ctx === 'peak_occupancy')) {
     forScreening = true
-    rationale.push('Continuous short-duration sampling while occupied supports screening-level inference.')
+    rationale.push('Continuous short-duration sampling while occupied supports preliminary inference.')
   }
   // Grab sample occupied multi-point
   else if (sampleType === 'grab' && (ctx === 'occupied' || ctx === 'typical_operation') && spatialCoverage === 'multi_point') {
     forScreening = true
-    rationale.push('Grab samples at multiple occupied locations support screening-level inference.')
+    rationale.push('Grab samples at multiple occupied locations support preliminary inference.')
   }
   // Grab sample single-point or unknown
   else if (sampleType === 'grab') {
@@ -49,7 +49,7 @@ export function evaluateSamplingAdequacy(sampling: SamplingContext): SamplingAde
   // Visual observation
   else if (sampleType === 'visual_observation') {
     // Categorical presence (e.g., "mold is present") can support screening for presence-of
-    rationale.push('Visual observation supports hypothesis and presence-of screening only.')
+    rationale.push('Visual observation supports hypothesis generation and confirmation of presence only.')
   }
   // Occupant feedback
   else if (sampleType === 'occupant_feedback') {

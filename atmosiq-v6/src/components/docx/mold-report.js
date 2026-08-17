@@ -22,7 +22,7 @@ export function moldReportFileName(meta = {}, ext = 'docx') {
     .trim()
     .replace(/\s+/g, '-')
     .slice(0, 60) || 'Mold'
-  return `AtmosFlow-Mold-Screening-Report-${site}.${ext}`
+  return `AtmosFlow-Mold-Assessment-Report-${site}.${ext}`
 }
 
 /**
@@ -32,7 +32,7 @@ export function moldReportFileName(meta = {}, ext = 'docx') {
  * @param {object} [meta] title / site / preparedFor / preparedBy / date / zones / firm
  */
 export function buildMoldReportDocument(result, meta = {}) {
-  const title = meta.title || 'Mold Screening Report'
+  const title = meta.title || 'Mold Assessment Report'
   const version = (result && result.version) || MOLD_ENGINE_VERSION
   const chrome = reportSectionAttachments({
     firm: meta.firm || 'Prudence EHS',
@@ -45,7 +45,7 @@ export function buildMoldReportDocument(result, meta = {}) {
   return new Document({
     creator: 'AtmosFlow — Prudence EHS',
     title: `${title}${meta.site ? ` — ${meta.site}` : ''}`,
-    description: `Mold Screening Report (mold engine v${version})`,
+    description: `Mold Assessment Report (mold engine v${version})`,
     styles: DOCX_STYLES,
     sections: [
       {

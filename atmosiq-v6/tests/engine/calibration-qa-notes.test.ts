@@ -96,7 +96,7 @@ describe('what the notes do say', () => {
   it('tells the reader what to do about an expired instrument', () => {
     const text = textFor(daysAgo(400))
     expect(text).toMatch(/PAST calibration validity/)
-    expect(text).toMatch(/screening-only/i)
+    expect(text).toMatch(/qualitative only/i)
     expect(text).toMatch(/re-confirmed with an instrument within validity/i)
   })
 
@@ -165,7 +165,7 @@ describe('the acknowledgement adds disclosure and removes none', () => {
   it('leaves the expired-instrument warning in place', () => {
     const withAck = (build(daysAgo(400), ACK).appendixE?.qaNotes || []).join(' ')
     expect(withAck).toMatch(/PAST calibration validity/)
-    expect(withAck).toMatch(/screening-only/i)
+    expect(withAck).toMatch(/qualitative only/i)
   })
 
   it('leaves the unrecorded-calibration data-gap pointer in place', () => {

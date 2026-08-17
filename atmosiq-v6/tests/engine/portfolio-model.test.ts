@@ -129,7 +129,7 @@ describe('assemblePortfolioModel — edges', () => {
   it('carries exactly one scope statement, not repeated boilerplate', () => {
     const m = assemblePortfolioModel(baseInput())
     expect(m.limitations).toHaveLength(1)
-    expect(m.limitations[0].toLowerCase()).toContain('screening')
+    expect(m.limitations[0].toLowerCase()).toContain('authoritative record')
   })
 
   it('links reports to the same site by record site_id even when names differ', () => {

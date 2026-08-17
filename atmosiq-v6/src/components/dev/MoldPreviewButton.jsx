@@ -15,7 +15,7 @@ export default function MoldPreviewButton() {
   return (
     <a
       href="/dev/mold-screening"
-      aria-label="Open mold screening preview"
+      aria-label="Open mold assessment preview"
       style={{
         position: 'fixed',
         left: 'calc(14px + env(safe-area-inset-left))',

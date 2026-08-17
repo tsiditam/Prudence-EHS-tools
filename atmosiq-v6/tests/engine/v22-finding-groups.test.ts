@@ -78,7 +78,7 @@ describe('v2.2 finding-groups — domain mapping', () => {
   })
 
   it('Lead terms are reader-friendly (not raw ConditionType)', () => {
-    expect(getLeadTerm('pm_screening_elevated')).toBe('PM2.5 (screening-level)')
+    expect(getLeadTerm('pm_screening_elevated')).toBe('PM2.5')
     expect(getLeadTerm('humidity_above_comfort_upper_bound')).toBe('Relative humidity')
     expect(getLeadTerm('possible_corrosive_environment')).toBe('Corrosive environment indicators')
   })
@@ -102,7 +102,7 @@ describe('v2.2 finding-groups — groupFindingsByDomain', () => {
     expect(result.length).toBe(1)
     expect(result[0].groupName).toBe('Air Quality Indicators')
     expect(result[0].observations.length).toBe(1)
-    expect(result[0].observations[0].leadTerm).toBe('PM2.5 (screening-level)')
+    expect(result[0].observations[0].leadTerm).toBe('PM2.5')
   })
 
   it('Multiple findings of same conditionType in same group → one observation (dedup)', () => {

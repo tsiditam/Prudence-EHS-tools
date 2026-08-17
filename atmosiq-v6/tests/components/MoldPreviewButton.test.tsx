@@ -13,7 +13,7 @@ afterEach(cleanup)
 describe('MoldPreviewButton', () => {
   it('links to the mold preview route with an accessible label', () => {
     render(<MoldPreviewButton />)
-    const link = screen.getByLabelText('Open mold screening preview') as HTMLAnchorElement
+    const link = screen.getByLabelText('Open mold assessment preview') as HTMLAnchorElement
     expect(link.getAttribute('href')).toBe('/dev/mold-screening')
     expect(link.textContent).toMatch(/Mold Preview/)
   })

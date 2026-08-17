@@ -171,7 +171,7 @@ export default function MoldModeScreen({ onExit, profile }) {
       const { generateMoldReport } = await import('./docx/mold-report')
       const site = deriveTitle(zones).replace(/^Mold — /, '')
       await generateMoldReport(result, {
-        title: 'Mold Screening Report',
+        title: 'Mold Assessment Report',
         site,
         preparedBy: profile?.assessorName || profile?.name || '',
         preparedFor: presurvey?.mps_prepared_for || '',
@@ -186,7 +186,7 @@ export default function MoldModeScreen({ onExit, profile }) {
   if (stage === 'home') {
     return (
       <div style={{ paddingTop: 16, paddingBottom: 120, maxWidth: 820, margin: '0 auto' }}>
-        <Header onExit={onExit} sub="Moisture & mold screening — IICRC S520. Screening only." />
+        <Header onExit={onExit} sub="Moisture & mold assessment — IICRC S520." />
         <GlassCard style={{ marginTop: 16 }}>
           <div style={{ ...V3.T.micro }}>Method — IICRC S520</div>
           <div style={{ ...V3.T.bodyDim, marginTop: 6, lineHeight: 1.5 }}>
@@ -196,7 +196,7 @@ export default function MoldModeScreen({ onExit, profile }) {
           </div>
         </GlassCard>
         <TactileButton variant="primary" size="lg" fullWidth onClick={startNew} icon={<I n="findings" s={16} c="#FFFFFF" />} style={{ marginTop: 16 }}>
-          New mold screening
+          New mold assessment
         </TactileButton>
         <div style={{ marginTop: 12 }}>
           <GhostButton onClick={runDemo} style={{ width: '100%', justifyContent: 'center' }}>Open the demo assessment</GhostButton>
@@ -277,10 +277,10 @@ export default function MoldModeScreen({ onExit, profile }) {
       </div>
 
       <TactileButton variant="primary" size="lg" fullWidth onClick={runIntake} icon={<I n="search" s={16} c="#FFFFFF" />} style={{ marginTop: 16 }}>
-        Run screening
+        Run assessment
       </TactileButton>
       <div style={{ ...V3.T.captionDim, marginTop: 10, lineHeight: 1.5, textAlign: 'center', color: DIM }}>
-        Spore-trap lab results are added separately; screening runs on the observations above.
+        Spore-trap lab results are added separately; the assessment runs on the observations above.
       </div>
     </div>
   )

@@ -281,7 +281,7 @@ describe('occupancySplit', () => {
   })
 })
 
-describe('parameterStats — upper screening reference', () => {
+describe('parameterStats — upper reference', () => {
   // 10 one-minute readings; 3 above the 1000 ppm reference.
   const p = pts([500, 600, 700, 1200, 1400, 1100, 800, 600, 500, 500])
   const st = parameterStats(p, 'co2', { reference: { limit: 1000 } })!

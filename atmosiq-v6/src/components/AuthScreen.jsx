@@ -337,7 +337,7 @@ export default function AuthScreen({ onAuth }) {
   // the default login view, "CREATE YOUR ACCOUNT" or "RESET YOUR
   // PASSWORD" on the alt modes.
   const tagline = mode === 'login'
-    ? 'FIELD-GRADE INDOOR AIR QUALITY SCREENING INTELLIGENCE PLATFORM'
+    ? 'FIELD-GRADE INDOOR AIR QUALITY INTELLIGENCE PLATFORM'
     : mode === 'register' ? 'CREATE YOUR ACCOUNT' : 'RESET YOUR PASSWORD'
   const cta = mode === 'login'
     ? { label: loading ? 'Signing in…' : 'Sign In', onClick: handleLogin }

@@ -330,7 +330,7 @@ export function parameterStatement(param, stats, reference, opts = {}) {
 
   if (isNum(stats.pctAbove)) {
     if (stats.pctAbove === 0) {
-      return `${subject} remained below the selected screening reference (${refText}) throughout the monitoring period.`
+      return `${subject} remained below the selected reference (${refText}) throughout the monitoring period.`
     }
     // ANY exceedance is stated as an exceedance. Framing a screening-reference
     // exceedance as "remained below … during X%" reads as minimization to a
@@ -339,7 +339,7 @@ export function parameterStatement(param, stats, reference, opts = {}) {
     // sentence under a "Review Suggested" chip is exactly the kind of thing that
     // draws a hard question. The exceedance carries the strip's own one-decimal
     // "% Above" precision.
-    return `${subject} exceeded the selected screening reference (${refText}) during ${pct(stats.pctAbove)} of logged measurements.`
+    return `${subject} exceeded the selected reference (${refText}) during ${pct(stats.pctAbove)} of logged measurements.`
   }
 
   if (isNum(stats.pctInBand)) {
@@ -414,9 +414,9 @@ export function monitoringInsights(param, stats, reference, opts = {}) {
   // 3. Time above / outside the selected reference — or its explicit absence.
   if (isNum(stats.pctAbove)) {
     if (stats.timeAboveSec === 0 || stats.pctAbove === 0) {
-      out.push({ id: 'time-above', text: 'The selected screening reference was not exceeded during the monitoring period.' })
+      out.push({ id: 'time-above', text: 'The selected reference was not exceeded during the monitoring period.' })
     } else if (isNum(stats.timeAboveSec)) {
-      out.push({ id: 'time-above', text: `Readings were above the selected screening reference for ${formatDuration(stats.timeAboveSec)}.` })
+      out.push({ id: 'time-above', text: `Readings were above the selected reference for ${formatDuration(stats.timeAboveSec)}.` })
     }
   } else if (isNum(stats.pctInBand)) {
     if (stats.timeOutsideSec === 0 || stats.pctInBand === 100) {
@@ -495,9 +495,9 @@ export function datasetHighlights(blocks, opts = {}) {
     const name = proseName(b.param)
     if (isNum(b.stats.pctAbove)) {
       if (b.stats.pctAbove === 0) {
-        out.push({ id: `within-${b.param}`, text: `${name} did not exceed the selected screening reference at any point during monitoring.` })
+        out.push({ id: `within-${b.param}`, text: `${name} did not exceed the selected reference at any point during monitoring.` })
       } else {
-        out.push({ id: `within-${b.param}`, text: `${name} remained below the selected screening reference for ${pct(100 - b.stats.pctAbove)} of monitoring.` })
+        out.push({ id: `within-${b.param}`, text: `${name} remained below the selected reference for ${pct(100 - b.stats.pctAbove)} of monitoring.` })
       }
     } else if (isNum(b.stats.pctInBand)) {
       out.push({ id: `within-${b.param}`, text: `${name} remained within the selected comfort range for ${pct(b.stats.pctInBand)} of the monitoring period.` })

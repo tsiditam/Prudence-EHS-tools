@@ -5,10 +5,17 @@
 AtmosFlow is an IAQ (indoor air quality) assessment SaaS platform built by
 Prudence Safety & Environmental Consulting, LLC (PSEC). It produces
 consultant-grade IAQ reports for industrial hygienists and EHS
-professionals. The platform is positioned as **screening-only** — it
-identifies risk indicators and produces sampling plans but never makes
-definitive regulatory classifications or compliance determinations.
-Maintain that positioning in any code, copy, or documentation you generate.
+professionals. The platform identifies risk indicators and produces
+sampling plans; it does not make definitive regulatory classifications,
+compliance determinations, or medical/causation calls without
+licensed-professional sign-off. Maintain that substantive boundary in
+any code, copy, or documentation you generate — but do **NOT** reintroduce
+"screening", "screening-level", or "screening-only" as a label, tagline,
+banner, chip, or repeated caveat. That branding was deliberately stripped
+from the reports and the platform (2026-08): the boundary now lives in a
+single reworded limitation statement ("not a regulatory / compliance /
+medical determination") plus the over-claim guardrail in
+`api/_banned-language.js` — not in repeated "screening" labeling.
 
 Live at atmosflow.net. Engine version is currently **2.9** (v2.9 changed report-issuance
 gating from refuse-to-issue to issue-with-warnings; see the engine
@@ -139,10 +146,14 @@ Read these directories first when investigating any task:
 - **No functional regressions.** This is a production SaaS. If a fix
   risks breaking adjacent functionality, stop and surface the concern
   before proceeding.
-- **Respect the screening-only positioning.** Do not generate code,
-  copy, or report content that claims compliance certification,
-  professional opinion (without licensed-professional sign-off), or
-  definitive causation. The MSA recital language depends on this.
+- **Respect the liability boundary (without the "screening" label).**
+  Do not generate code, copy, or report content that claims compliance
+  certification, professional opinion (without licensed-professional
+  sign-off), or definitive causation. The MSA recital language depends on
+  this. Enforce it through the substantive limitation statement and the
+  `api/_banned-language.js` over-claim guardrail — NOT by adding
+  "screening" / "screening-level" / "screening-only" labels or repeated
+  caveats, which were removed platform-wide in 2026-08.
 - **Preserve calibration gating.** The instrument-calibration gate is a
   competitive moat and a litigation defense. Do not bypass or weaken it.
   Described precisely, because the report appendix asserts this to

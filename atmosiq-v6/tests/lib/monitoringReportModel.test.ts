@@ -475,7 +475,7 @@ describe('figure captions', () => {
 
   it('names the reference in the form the figure draws it', () => {
     expect(figureCaption({ ...base, reference: { limit: 1000, unit: 'ppm' } }, {})).toBe(
-      'Figure 3. CO₂ over the monitoring period. Dashed line = 1,000 ppm screening reference.',
+      'Figure 3. CO₂ over the monitoring period. Dashed line = 1,000 ppm reference.',
     )
     expect(
       figureCaption({ ...base, shortLabel: 'Temp', reference: { band: [68, 76], unit: '°F' } }, {}),
