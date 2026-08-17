@@ -58,16 +58,39 @@ const components = {
   pre: (props) => (
     <pre style={{ margin: '8px 0', padding: '10px 12px', background: 'var(--raised)', borderRadius: 8, overflowX: 'auto', fontSize: 13 }} {...props} />
   ),
+  // The wrapper is the scroll container, so a table wider than the surface
+  // scrolls sideways instead of crushing its columns. `width: '100%'` used
+  // to pin the table to the container: a six-column benchmark table on a
+  // phone left ~50px per column, and the break-word the chat surface
+  // inherits down then broke headers one character per line. `minWidth:
+  // '100%'` keeps a narrow table filling the surface; `width: 'auto'` lets
+  // a wide one exceed it and engage the scroll that was always there.
   table: (props) => (
-    <div style={{ overflowX: 'auto', margin: '8px 0' }}>
-      <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 13 }} {...props} />
+    <div style={{
+      overflowX: 'auto',
+      maxWidth: '100%',
+      margin: '8px 0',
+      WebkitOverflowScrolling: 'touch',
+      // Sideways drag stays in the table — it must not chain out to the
+      // sheet, which reads a horizontal swipe as a dismiss.
+      overscrollBehaviorX: 'contain',
+    }}>
+      <table style={{ borderCollapse: 'collapse', width: 'auto', minWidth: '100%', fontSize: 13 }} {...props} />
     </div>
   ),
+  // Headers never wrap: each one sets its column's floor width, which is
+  // what pushes a genuinely wide table into the scroll container rather
+  // than letting the columns collapse to fit.
   th: (props) => (
-    <th style={{ ...T.bodyStrong, fontSize: 13, textAlign: 'left', padding: '6px 8px', borderBottom: '1px solid var(--border)' }} {...props} />
+    <th style={{ ...T.bodyStrong, fontSize: 13, textAlign: 'left', padding: '6px 8px', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap', wordBreak: 'normal' }} {...props} />
   ),
+  // Cells wrap at word boundaries. `wordBreak: 'normal'` overrides the
+  // break-word inherited from the chat message style — that rule is right
+  // for prose but not inside a narrow column, where it splits "Parameter"
+  // and "19.57" mid-token. overflowWrap still rescues a single word too
+  // long for its column.
   td: (props) => (
-    <td style={{ ...T.body, fontSize: 13, padding: '6px 8px', borderBottom: '1px solid var(--border)', verticalAlign: 'top' }} {...props} />
+    <td style={{ ...T.body, fontSize: 13, padding: '6px 8px', borderBottom: '1px solid var(--border)', verticalAlign: 'top', wordBreak: 'normal', overflowWrap: 'break-word' }} {...props} />
   ),
   hr: (props) => <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '12px 0' }} {...props} />,
 }
