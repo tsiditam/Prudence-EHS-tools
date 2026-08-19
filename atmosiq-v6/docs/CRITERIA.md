@@ -133,6 +133,38 @@ The link is by id and nothing enforces it at the type level, so
 `tests/engine/criteria.test.ts` walks every linked profile and asserts its
 criterion exists and its citation matches.
 
+## The complement: criteria we chose NOT to apply
+
+`src/engines/contextualStandards.js` is the other half of the registry. The
+registry says which criteria produced findings; that file says which published
+criteria a reader might reasonably have expected, and why they were not used.
+It renders as the report's **Additional Criteria Considered** section
+(`src/components/docx/sections-methodology-currency.js`), after Limitations.
+
+Three entries today: ASHRAE 241-2023 (ECAi is a different target from 62.1
+outdoor-air rates), the 2024 annual PM2.5 NAAQS and the WHO annual guideline
+(annual means, which one visit cannot establish), and the ACGIH TLVs (a
+separate consensus series from the OSHA PELs and NIOSH RELs used here).
+
+Two rules keep it honest, both enforced by
+`tests/engine/contextual-standards.test.ts`:
+
+1. **An entry may not claim a criterion is unapplied when the registry applies
+   it.** The test greps every registry `source` for the subjects claimed
+   absent. Add an ACGIH criterion to `criteria.js` and the test fails until
+   the corresponding entry is rewritten or removed. This guard exists because
+   the file told clients the annual PM2.5 NAAQS was "not currently integrated
+   into the deterministic scoring path" and went on saying it after
+   `pm25_epa_annual` was added — nothing compared the two lists.
+2. **It describes criteria, not AtmosFlow.** Vocabulary like "scoring engine"
+   or "standards manifest" is asserted against. Prose of that kind is why the
+   section was cut from the deliverable in `048f6d4`; it returned in 2026-08
+   rewritten as criteria-selection rationale addressed to the reader.
+
+Entries are scoped by `appliesWhen` to the parameters actually measured, so a
+comfort-only walkthrough renders no section at all rather than three
+irrelevant notes.
+
 ## Known remaining work
 - **PM2.5 and thermal comparisons are deliberately not ladders.** PM carries
   outdoor-conditional deduction weights, a data-hall branch, and an

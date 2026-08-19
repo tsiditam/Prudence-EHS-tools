@@ -1,37 +1,50 @@
 /**
- * AtmosFlow DOCX Report — Standards Currency section
+ * Prudence Safety & Environmental Consulting, LLC
+ * Copyright (c) 2026 Prudence Safety & Environmental Consulting, LLC
+ * All rights reserved.
  *
- * Renders a small "Standards Currency" section that documents the
- * bibliographic references NOT integrated into AtmosFlow's
- * deterministic scoring engine — the layer that lets a reviewing IH
- * see explicitly what's IN scoring vs what's available as additional
- * context. Sits between the Limitations + Professional Judgment
- * section and the appendices in the consultant DOCX.
+ * AtmosFlow DOCX Report — "Additional Criteria Considered".
  *
- * Source of truth: src/engines/contextualStandards.js
- * (CONTEXTUAL_STANDARDS array). Each entry contributes a heading 3
- * + citation row + rationale paragraph.
+ * Back-matter section naming the published criteria a reader could
+ * reasonably expect to see applied to this data but which were not the
+ * basis of any finding, each with the reason and with what would make it
+ * worth evaluating. It sits after Limitations, before the signatory and
+ * appendices — where a reviewer looks for reference material.
  *
- * Engine-sacred audit: this section reads only from src/engines/
- * (plural, orchestration layer); the underlying scoring constants
- * in STD remain unchanged.
+ * Source of truth: `src/engines/contextualStandards.js`. Each entry
+ * contributes a sub-heading + citation line + rationale paragraph.
+ *
+ * Title history: this rendered as "Standards Currency" until 2026-08.
+ * The name described the maintenance concern (are our references
+ * current?) rather than the reader's question (why this criterion and
+ * not that one?), and the section's prose described AtmosFlow's own
+ * scoring internals — which is why it was pulled from the deliverable
+ * in commit 048f6d4. Both are fixed: the prose is now criteria-selection
+ * rationale addressed to the reader, and the heading says what the
+ * section is. The builder keeps its original export name because the
+ * acceptance gate and the module path pin it.
  */
 
-import { Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx'
-import { FONTS, COLORS } from './styles'
+import { HeadingLevel, AlignmentType } from 'docx'
+import { COLORS } from './styles'
 import { getContextualStandards } from '../../engines/contextualStandards.js'
 
 import { p } from './paragraphs'
 
+/** Section heading, rendered by the supplemental pipeline (not here). */
+export const ADDITIONAL_CRITERIA_TITLE = 'Additional Criteria Considered'
+
 /**
- * Build the Standards Currency section.
+ * Build the Additional Criteria Considered section.
  *
- * @param {object} [ctx]  forwarded to getContextualStandards for
- *                        any future conditional rendering
- * @returns {{title: string, children: Array}|null} body-section descriptor
- *   (no heading; the consultant pipeline renders the shared section
- *   heading and places it after Limitations/Professional Judgment) — null
- *   when there are no contextual standards to render.
+ * @param {{parameters?: Set<string>|Array<string>}} [ctx]  measured-parameter
+ *   scope, forwarded to getContextualStandards. Omit to render the full
+ *   reference set (see that function for the scoping rule).
+ * @returns {{title: string, children: Array}|null} body-section descriptor —
+ *   no heading of its own; the consultant pipeline renders the shared
+ *   section heading and places it after Limitations. Null when the
+ *   assessment engages none of the entries, so nothing is rendered, no
+ *   TOC entry is created, and no empty heading is left behind.
  */
 export function buildMethodologyCurrency(ctx) {
   const entries = getContextualStandards(ctx)
@@ -39,7 +52,7 @@ export function buildMethodologyCurrency(ctx) {
 
   const out = [
     p(
-      'AtmosFlow scores the assessment against the standards manifest summarized in Appendix D and the deterministic thresholds documented in the engine version note. Several adjacent or recently-revised standards are NOT integrated into the deterministic scoring path but are referenced here so the reviewing industrial hygienist can consider them in context. None of the items below alter the scoring outcomes presented in the body of this report.',
+      'The criteria used for each parameter are identified with the corresponding result and listed in Appendix D. The published criteria below were considered and are not the basis of any finding in this report. They are recorded here with the reason, so that the choice of criterion is visible rather than implicit, and so a reviewer can see what a different scope of work would have compared against.',
       { size: 20, color: COLORS.sub, align: AlignmentType.JUSTIFIED, after: 200 },
     ),
   ]
@@ -50,5 +63,5 @@ export function buildMethodologyCurrency(ctx) {
     out.push(p(entry.rationale, { size: 20, color: COLORS.body, align: AlignmentType.JUSTIFIED, after: 160 }))
   }
 
-  return { title: 'Standards Currency', children: out }
+  return { title: ADDITIONAL_CRITERIA_TITLE, children: out }
 }
