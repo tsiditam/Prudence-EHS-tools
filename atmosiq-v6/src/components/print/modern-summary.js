@@ -22,6 +22,7 @@
  */
 
 import { actionLine } from '../../utils/recFormatting'
+import { resolveVerdict } from '../../utils/assessmentVerdict'
 import { summarizeParameters, peakCo2ByZone } from '../../report/reportModel'
 import { isIaqScoreVisible } from '../../utils/featureFlags'
 
@@ -54,10 +55,17 @@ const EXPLAINERS = [
   { keys: ['tv', 'tvoc'], label: 'Total VOCs (TVOC)', text: 'A combined, non-specific reading of gases that off-gas from furnishings, cleaning products, and equipment. It flags that a source is present and worth investigating — it does not identify a specific chemical or a health risk on its own.' },
 ]
 
-function snapshotLine(tot) {
-  if (tot == null) return 'This screening summarizes the conditions observed during the assessment.'
-  if (tot >= 70) return 'Most areas screened within expected ranges, with a few spots flagged for a closer look.'
-  if (tot >= 50) return 'Some areas showed conditions worth attention; targeted follow-up is recommended below.'
+// Takes the whole context, not just the score: a critical finding leaves the
+// composite >= 70, so scoring alone once described it as "within expected
+// ranges". "Screening" is also gone as a label per docs/REPORTING_VOICE.md.
+function snapshotLine(ctx) {
+  const { comp, zoneScores, escalationTriggers } = ctx || {}
+  if (comp?.tot == null && !(zoneScores || []).length) {
+    return 'This summary describes the conditions observed during the assessment.'
+  }
+  const { severity } = resolveVerdict({ comp, zoneScores, escalationTriggers })
+  if (severity === 'pass') return 'Most areas were within expected ranges, with a few spots flagged for a closer look.'
+  if (severity === 'medium') return 'Some areas showed conditions worth attention; targeted follow-up is recommended below.'
   return 'Several areas showed conditions that warrant prompt attention, summarized below.'
 }
 
@@ -210,7 +218,7 @@ export function generateModernSummaryHTML(data, opts = {}) {
     <div class="snap">
       ${showScore && comp ? `<div class="score"><b>${comp.tot}</b><span>of 100</span></div>` : ''}
       <div style="flex:1;min-width:220px">
-        <p style="color:var(--ink);font-weight:500;margin-bottom:6px">${snapshotLine(comp ? comp.tot : null)}</p>
+        <p style="color:var(--ink);font-weight:500;margin-bottom:6px">${snapshotLine({ comp, zoneScores, escalationTriggers: data.escalationTriggers })}</p>
         <div style="font-size:9.5pt;color:var(--faint)">
           ${zones.length} area${zones.length === 1 ? '' : 's'} screened${showScore && comp && comp.risk ? ` · overall: <strong style="color:var(--accent-dk)">${esc(comp.risk)}</strong>` : ''}${findings.length ? ` · ${findings.length} item${findings.length === 1 ? '' : 's'} flagged` : ' · no items flagged'}
         </div>

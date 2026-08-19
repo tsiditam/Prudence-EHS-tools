@@ -185,7 +185,7 @@ function pickStr(...vals) {
  * `generateTechnicalOnly` / `getConsultantDocxBlob`.
  */
 export function buildContext(data) {
-  const { building, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos, floorPlan, version, standardsManifest, assessmentContext } = data
+  const { building, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos, floorPlan, version, standardsManifest, assessmentContext, escalationTriggers } = data
   const bldg = building || {}
   const now = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
   const assessDate = data.ts ? new Date(data.ts).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : now
@@ -209,6 +209,8 @@ export function buildContext(data) {
     presurvey: presurvey || {},
     zones: zones || [],
     zoneScores: zoneScores || [],
+    // Needed by the shared verdict so DOCX triage matches the app.
+    escalationTriggers: escalationTriggers || [],
     zoneCount: (zones || []).length,
     zoneNames: (zones || []).map(z => z.zn || 'Unnamed zone'),
     comp,

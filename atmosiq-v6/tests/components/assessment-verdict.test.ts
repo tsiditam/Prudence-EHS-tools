@@ -107,3 +107,32 @@ describe('hasAnyAction covers every tier', () => {
     expect(hasAnyAction(null, null, null)).toBe(false)
   })
 })
+
+describe('app and report cannot disagree', () => {
+  // The report surfaces branch on verdict.severity now, not comp.tot. These
+  // pin the mapping each of them relies on, so a future edit that reverts one
+  // surface to raw scoring fails here.
+  it('a passing composite with a critical finding is not "pass" on any surface', () => {
+    const v = resolveVerdict({ comp: { tot: 78 }, zoneScores: [zone('critical', 'pass')] })
+    // PrintReport p2 / sections-core riskDesc take the acceptable branch only
+    // on 'pass'; sections-technical triages P4 — Routine only on 'pass'.
+    expect(v.severity).not.toBe('pass')
+  })
+
+  it('maps cleanly onto the three-way prose branches every report uses', () => {
+    const sev = (tot: number) => resolveVerdict({ comp: { tot }, zoneScores: [zone('pass')] }).severity
+    expect(sev(85)).toBe('pass')     // "within acceptable ranges"
+    expect(sev(60)).toBe('medium')   // "moderate concerns"
+    expect(sev(45)).toBe('high')     // "significant concerns"
+    expect(sev(20)).toBe('critical') // "significant concerns" + P1
+  })
+
+  it('an escalation trigger alone reaches the report triage', () => {
+    const v = resolveVerdict({
+      comp: { tot: 95 },
+      zoneScores: [zone('pass')],
+      escalationTriggers: [{ rule: 'mold_condition_3', severity: 'critical' }],
+    })
+    expect(v.severity).toBe('critical')  // P1 — Critical, not P4 — Routine
+  })
+})
