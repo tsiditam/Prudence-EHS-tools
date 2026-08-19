@@ -15,6 +15,8 @@
  */
 
 import { legacyToAssessmentScore, deriveAssessmentMeta } from '../engine/bridge'
+import { formatAssessmentDate, resolveAssessmentDate } from '../utils/assessmentDate'
+import { resolveVerdict } from '../utils/assessmentVerdict'
 import { renderClientReport } from '../engine/report/client'
 import { generateClientReportHTML, generateModernClientReportHTML } from './print/client-html'
 import { generateModernSummaryHTML } from './print/modern-summary'
@@ -82,6 +84,11 @@ export function generatePrintHTML(data, opts = {}) {
 
 export function generateLegacyPrintHTML(data) {
   const { building, presurvey, zones, zoneScores, comp, oshaResult, recs: rawRecs, samplingPlan, causalChains, narrative, profile, photos, standardsManifest, userMode, escalationTriggers } = data
+  // One verdict, shared with the app (utils/assessmentVerdict.js). The
+  // composite alone could rate a critical finding as "acceptable ranges",
+  // because a critical finding zeroes its category but leaves the other four
+  // intact and the weighted mean stays >= 70.
+  const verdict = resolveVerdict({ comp, zoneScores, escalationTriggers })
   // Engine v2.8.0 — recs are now RecommendationAction objects. The
   // legacy print template expects flat strings, so flatten upfront so
   // the rest of the function (which is multi-hundred-line legacy HTML
@@ -104,7 +111,9 @@ export function generateLegacyPrintHTML(data) {
   })) : null
   const bldg = building || {}
   const now = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
-  const assessDate = data.ts ? new Date(data.ts).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : now
+  // The date the survey was CONDUCTED, not the day the report was finalized.
+  // Shared resolver so this report, the DOCX and scoring all answer alike.
+  const assessDate = formatAssessmentDate(data) || now
   const reportId = data.id || `AIQ-${Date.now().toString(36).toUpperCase().slice(-6)}`
   const assessor = profile?.name || presurvey?.ps_assessor || 'Assessor'
   const ver = data.version || '6.0.0'
@@ -268,7 +277,7 @@ export function generateLegacyPrintHTML(data) {
       <span style="font-size:28px;font-weight:800;font-family:Cambria,serif;color:${scoreColor(comp.tot)};">${comp.tot}</span>
     </div>
     <div style="font-size:22px;font-weight:700;color:${scoreColor(comp.tot)};">${comp.tot >= 80 ? 'Low Risk' : comp.tot >= 60 ? 'Moderate' : comp.tot >= 40 ? 'High Risk' : 'Critical'}</div>
-    <p style="font-size:13px;color:#475569;max-width:500px;margin:12px auto;line-height:1.7;">${comp.tot >= 70 ? 'The air quality in this building appears to be within acceptable ranges based on the measurements taken.' : comp.tot >= 50 ? 'Some air quality concerns were identified that may benefit from attention. See recommended actions below.' : 'Significant air quality concerns were identified. Corrective action is recommended.'}</p>
+    <p style="font-size:13px;color:#475569;max-width:500px;margin:12px auto;line-height:1.7;">${verdict.severity === 'pass' ? 'The air quality in this building appears to be within acceptable ranges based on the measurements taken.' : verdict.severity === 'medium' ? 'Some air quality concerns were identified that may benefit from attention. See recommended actions below.' : 'Significant air quality concerns were identified. Corrective action is recommended.'}</p>
     ${(escalationTriggers || []).length > 0 ? `
     <div style="background:#FEF2F2;border:2px solid #FECACA;border-radius:8px;padding:14px 20px;margin:16px auto;max-width:460px;text-align:left;">
       <div style="font-size:13px;font-weight:700;color:#B91C1C;margin-bottom:6px;">⚠ Professional Evaluation Required</div>
@@ -353,9 +362,9 @@ export function generateLegacyPrintHTML(data) {
     const hasZoneComplaints = (zoneScores||[]).some(zs => zs.cats.some(c => c.l === 'Complaints' && c.r.some(r => r.sev === 'critical' || r.sev === 'high' || r.sev === 'medium')))
     const complaintNote = hasZoneComplaints ? ' Note: While no formal complaints were filed prior to this assessment, occupant symptom reports were documented during the site walkthrough. See zone findings for details.' : ''
     const p1 = `An indoor air quality assessment was conducted at ${esc(bldg.fn) || 'the subject facility'} on ${assessDate}, encompassing ${(zones||[]).length} zone${(zones||[]).length !== 1 ? 's' : ''}${presurvey?.ps_reason ? ` in response to ${presurvey.ps_reason.toLowerCase()}` : ''}. The assessment included direct-reading instrument measurements, visual inspection, HVAC system evaluation, and occupant complaint documentation.${complaintNote}`
-    const p2 = comp?.tot >= 70
+    const p2 = verdict.severity === 'pass'
       ? `Available evidence supports that conditions observed during the assessment window are broadly consistent with applicable occupancy standards. The composite score of ${comp.tot}/100 reflects acceptable conditions across the majority of evaluated zones, with localized areas warranting targeted follow-up as detailed in the zone findings below.`
-      : comp?.tot >= 50
+      : verdict.severity === 'medium'
         ? `Conditions observed during the assessment window suggest moderate indoor air quality concerns. The composite score of ${comp.tot}/100 reflects a weighted evaluation across five categories, with ${worstCat2 ? `${worstCat2.l} (${worstCat2.s}/${worstCat2.mx}) identified as the primary area of concern` : 'multiple categories showing room for improvement'}. Targeted investigation is recommended in the areas identified below.`
         : `Conditions observed during the assessment window indicate significant indoor air quality concerns that would warrant prioritized remediation. The composite score of ${comp?.tot || '—'}/100 reflects deficiencies across multiple evaluation categories${worstCat2 ? `, with ${worstCat2.l} (${worstCat2.s}/${worstCat2.mx}) representing the most acute concern` : ''}. The findings and recommendations in this report are intended to support a structured corrective action process.`
     const hasDataGaps = (zoneScores||[]).some(zs => zs.partialScore)
@@ -465,7 +474,7 @@ export function generateLegacyPrintHTML(data) {
       <div style="font-size:9px;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;margin-top:2px;">${m.l}</div>
     </div>`).join('')}
   </div>
-  <p style="font-size:11px;color:#475569;margin-bottom:16px;">Conditions observed during the assessment window suggest ${comp.tot >= 70 ? 'overall acceptable indoor air quality, with localized areas that may warrant targeted follow-up as detailed in the zone sections below.' : comp.tot >= 50 ? 'moderate indoor air quality concerns across one or more zones. Targeted investigation and corrective action would be warranted in the areas identified below.' : 'significant indoor air quality concerns that would warrant prioritized remediation as detailed in the zone sections and recommendations register below.'} The composite score of <strong>${comp.tot}/100</strong> reflects a weighted evaluation across ventilation, contaminant levels, HVAC system conditions, occupant complaints, and environmental factors.</p>
+  <p style="font-size:11px;color:#475569;margin-bottom:16px;">Conditions observed during the assessment window suggest ${verdict.severity === 'pass' ? 'overall acceptable indoor air quality, with localized areas that may warrant targeted follow-up as detailed in the zone sections below.' : verdict.severity === 'medium' ? 'moderate indoor air quality concerns across one or more zones. Targeted investigation and corrective action would be warranted in the areas identified below.' : 'significant indoor air quality concerns that would warrant prioritized remediation as detailed in the zone sections and recommendations register below.'} The composite score of <strong>${comp.tot}/100</strong> reflects a weighted evaluation across ventilation, contaminant levels, HVAC system conditions, occupant complaints, and environmental factors.</p>
   ` : ''}
 
   <!-- ═══ ZONE-BY-ZONE FINDINGS ═══ -->

@@ -13,6 +13,7 @@
  */
 
 import { Document, Packer, Paragraph, TextRun, AlignmentType, HeadingLevel } from 'docx'
+import { formatAssessmentDate, resolveAssessmentDate } from '../utils/assessmentDate'
 import { BODY_SECTION_PROPERTIES, LETTER_BODY_PAGE } from './docx/page-setup'
 import { DOCX_STYLES } from './docx/styles'
 import { markdownToDocx } from './docx/markdownToDocx'
@@ -24,6 +25,8 @@ import { assembleRenderModel } from '../report/reportModel'
 import { buildLabResultsAppendix } from './docx/sections-lab-results'
 import { buildSensorGraphsAppendix } from './docx/sections-sensor'
 import { buildConceptualSiteModelSection } from './docx/sections-conceptual-model'
+import { buildMethodologyCurrency } from './docx/sections-methodology-currency'
+import { measuredParameters } from '../engines/contextualStandards'
 import { buildParameterExplainers, buildReportedConcernsSection, buildFindingsConfidenceRegister } from './docx/sections-cih-reasoning'
 import { buildEvidenceTraceabilityMatrix } from './docx/sections-traceability'
 import { buildGraphContext } from '../../lib/context/graphContext'
@@ -185,10 +188,12 @@ function pickStr(...vals) {
  * `generateTechnicalOnly` / `getConsultantDocxBlob`.
  */
 export function buildContext(data) {
-  const { building, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos, floorPlan, version, standardsManifest, assessmentContext } = data
+  const { building, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos, floorPlan, version, standardsManifest, assessmentContext, escalationTriggers } = data
   const bldg = building || {}
   const now = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
-  const assessDate = data.ts ? new Date(data.ts).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : now
+  // The date the survey was CONDUCTED, not the day the report was finalized.
+  // Shared resolver so this report, the DOCX and scoring all answer alike.
+  const assessDate = formatAssessmentDate(data) || now
 
   // Normalized identity fields from the connectivity layer (when
   // present). The builder already applies the same precedence rules
@@ -209,6 +214,8 @@ export function buildContext(data) {
     presurvey: presurvey || {},
     zones: zones || [],
     zoneScores: zoneScores || [],
+    // Needed by the shared verdict so DOCX triage matches the app.
+    escalationTriggers: escalationTriggers || [],
     zoneCount: (zones || []).length,
     zoneNames: (zones || []).map(z => z.zn || 'Unnamed zone'),
     comp,
@@ -340,7 +347,7 @@ export function getConsultantReportResult(data) {
     profile: data.profile,
     presurvey: data.presurvey,
     building: data.building,
-    assessmentDate: data.ts ? data.ts.slice(0, 10) : undefined,
+    assessmentDate: resolveAssessmentDate(data) || undefined,
   })
   const score = legacyToAssessmentScore(
     data.zoneScores || [],
@@ -360,7 +367,7 @@ async function buildConsultantDocument(ctx, data) {
     profile: data.profile,
     presurvey: data.presurvey,
     building: data.building,
-    assessmentDate: data.ts ? data.ts.slice(0, 10) : undefined,
+    assessmentDate: resolveAssessmentDate(data) || undefined,
   })
   let score = legacyToAssessmentScore(
     data.zoneScores || [],
@@ -404,13 +411,20 @@ async function buildConsultantDocument(ctx, data) {
   // the fact, so they share the section heading style, sit in the right
   // position, get continuous appendix letters (after the engine's
   // Appendix F), and register in the Table of Contents:
-  //   • (Removed) Standards Currency — the methodology-currency body
-  //     section described AtmosFlow's internal scoring engine ("scores the
-  //     assessment against the standards manifest", "deterministic scoring
-  //     path"). That is implementation/QA detail, not client-report content,
-  //     so it is no longer included in the consultant deliverable. The
-  //     builder (sections-methodology-currency.js) is retained for the
-  //     professional-review interface but is not rendered into the report.
+  //   • Additional Criteria Considered — published criteria a reader could
+  //     expect to see applied to this data that were NOT the basis of any
+  //     finding, each with the reason (→ after Limitations). Scoped to the
+  //     parameters actually measured, so an assessment with no particulate
+  //     data carries no particulate note and the section disappears
+  //     entirely when it would engage nothing.
+  //     History: this rendered as "Standards Currency" and was REMOVED in
+  //     048f6d4 because its prose described AtmosFlow's own scoring
+  //     internals ("standards manifest", "deterministic scoring path") —
+  //     implementation detail, not client content. It returns having been
+  //     rewritten as criteria-selection rationale addressed to the reader;
+  //     the objection was to the prose, not to the subject, and "why 35
+  //     µg/m³ and not 9" is a question the report otherwise invites and
+  //     leaves unanswered.
   //   • Laboratory Analytical Results — closes the CoC loop when the
   //     assessor imported analytical CSV results (→ Appendix G).
   //   • Environmental Evidence Graphs — report-ready IAQ timelines the
@@ -438,7 +452,10 @@ async function buildConsultantDocument(ctx, data) {
       ]
     : []
   const supplemental = {
-    bodySections: [...cihSections].filter(Boolean),
+    bodySections: [
+      ...cihSections,
+      buildMethodologyCurrency({ parameters: measuredParameters(data.zones) }),
+    ].filter(Boolean),
     appendices: [
       buildLabResultsAppendix(data.labResults),
       buildSensorGraphsAppendix(data.sensorData),

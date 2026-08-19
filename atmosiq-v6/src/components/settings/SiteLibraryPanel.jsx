@@ -7,20 +7,31 @@
  * saved sites, editing the name/address, pausing or resuming
  * re-assessment reminders, and deleting a site outright.
  *
- * Mounted alongside ReportTemplatesPanel in Settings. Reads / writes
- * /api/sites; refreshes the StorageContext.sites cache after every
- * write so the dashboard / SaveSitePrompt can read fresh state.
+ * Mounted in the Settings "Sites" group. Reads / writes /api/sites and
+ * refreshes the StorageContext.sites cache after every write, so the
+ * dashboard and SaveSitePrompt read fresh state without a second fetch.
  *
- * The per-site cadence picker is intentionally NOT exposed in PR 1
- * (the column ships in migration 017 so a future PR can add the
- * UI without a schema change).
+ * This is the ONLY surface where a user can act on a site. Sites are
+ * created for them — SaveSitePrompt writes one at finalize — and the
+ * re-assessment cron emails against `next_due_at`. While this panel sat
+ * unmounted, that loop ran with no way to rename, pause or delete
+ * anything in it. Do not unmount it without also disabling the writer
+ * and the reminder.
+ *
+ * Not exposed here: the per-site reassessment cadence. The column exists
+ * (migration 017, `reassessment_interval_months`, default 12) and the API
+ * clamps and honours it, so a picker is additive when the need appears —
+ * every site currently runs on the 12-month default.
  */
 
 import { useEffect, useState } from 'react'
 import * as V3 from '../../styles/tokens'
 import { useStorage } from '../../contexts/StorageContext'
 
-const CARD = 'var(--card)'
+// The panel mounts INSIDE a Settings <Group>, whose container is already
+// painted --card. Per-site cards use --surface so they read as rows nested
+// in that group rather than as a second card of the same colour.
+const CARD = 'var(--surface)'
 const BORDER = 'var(--border)'
 const TEXT = 'var(--text)'
 const SUB = 'var(--sub)'

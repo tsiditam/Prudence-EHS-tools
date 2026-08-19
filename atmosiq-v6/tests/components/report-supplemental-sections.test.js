@@ -2,7 +2,7 @@
  * Supplemental report sections — placement, lettering, and TOC sync.
  *
  * Regression for the "report structure getting out of hand" review: the
- * lab-results / sensor-graph appendices and the Standards Currency note used
+ * lab-results / sensor-graph appendices and the Additional Criteria Considered note used
  * to be appended after buildClientDocx ran — so they were missing from the
  * Table of Contents, mis-lettered (or unlettered), and rendered after the
  * footer. These pin the corrected behavior.
@@ -41,7 +41,7 @@ describe('assembleSupplementalSections', () => {
   it('letters supplemental appendices continuously after the last engine appendix (G, H)', () => {
     const supp = assembleSupplementalSections(
       {
-        bodySections: [{ title: 'Standards Currency', children: ['intro'] }],
+        bodySections: [{ title: 'Additional Criteria Considered', children: ['intro'] }],
         appendices: [
           { title: 'Laboratory Analytical Results', children: ['lab'] },
           { title: 'Environmental Evidence Graphs', children: ['graph'] },
@@ -55,8 +55,8 @@ describe('assembleSupplementalSections', () => {
       'Appendix G — Laboratory Analytical Results',
       'Appendix H — Environmental Evidence Graphs',
     ])
-    expect(supp.bodyChildren[0]).toEqual({ __heading: 'Standards Currency' })
-    expect(supp.bodyTocEntries[0].title).toBe('Standards Currency')
+    expect(supp.bodyChildren[0]).toEqual({ __heading: 'Additional Criteria Considered' })
+    expect(supp.bodyTocEntries[0].title).toBe('Additional Criteria Considered')
   })
 
   it('skips sections that have no children (so absent data consumes no letter)', () => {
@@ -87,13 +87,13 @@ describe('mergeSupplementalTocEntries', () => {
 
   it('inserts body entries after Limitations and appendix entries after the last appendix', () => {
     const supp = {
-      bodyTocEntries: [{ title: 'Standards Currency', level: 1 }],
+      bodyTocEntries: [{ title: 'Additional Criteria Considered', level: 1 }],
       appendixTocEntries: [{ title: 'Appendix G — Laboratory Analytical Results', level: 1 }],
     }
     expect(mergeSupplementalTocEntries(ENGINE, supp).map((e) => e.title)).toEqual([
       'Executive Summary',
       'Limitations and Professional Judgment',
-      'Standards Currency',
+      'Additional Criteria Considered',
       'Appendix A — Per-Zone Measurement Tabulation',
       'Appendix F — Glossary',
       'Appendix G — Laboratory Analytical Results',
@@ -124,7 +124,7 @@ describe('buildClientDocx end-to-end with supplemental sections', () => {
   }
   const sensorData = { fileName: 'qtrak.csv', summary: { count: 100, start: Date.now() - 3600000, end: Date.now() }, graphs: { co2: { include: true, imageDataUrl: PNG, title: 'CO₂ Over Time', series: ['CO₂'] } } }
 
-  it('lists Standards Currency + Appendix G/H in the TOC and renders them in the body', async () => {
+  it('lists Additional Criteria Considered + Appendix G/H in the TOC and renders them in the body', async () => {
     const result = buildReport()
     const supplemental = {
       bodySections: [buildMethodologyCurrency()].filter(Boolean),
@@ -134,19 +134,19 @@ describe('buildClientDocx end-to-end with supplemental sections', () => {
     const text = main.map(flatten).join(' ')
 
     // Each appears at least twice: once in the TOC, once as the section heading.
-    expect((text.match(/Standards Currency/g) || []).length).toBeGreaterThanOrEqual(2)
+    expect((text.match(/Additional Criteria Considered/g) || []).length).toBeGreaterThanOrEqual(2)
     expect((text.match(/Appendix G — Laboratory Analytical Results/g) || []).length).toBeGreaterThanOrEqual(2)
     expect((text.match(/Appendix H — Environmental Evidence Graphs/g) || []).length).toBeGreaterThanOrEqual(2)
 
-    // Ordering: Standards Currency precedes Appendix G which precedes Appendix H.
-    expect(text.lastIndexOf('Standards Currency')).toBeLessThan(text.lastIndexOf('Appendix G — Laboratory Analytical Results'))
+    // Ordering: Additional Criteria Considered precedes Appendix G which precedes Appendix H.
+    expect(text.lastIndexOf('Additional Criteria Considered')).toBeLessThan(text.lastIndexOf('Appendix G — Laboratory Analytical Results'))
     expect(text.lastIndexOf('Appendix G — Laboratory Analytical Results')).toBeLessThan(text.lastIndexOf('Appendix H — Environmental Evidence Graphs'))
   })
 
   it('omits supplemental sections entirely when no data is attached', () => {
     const { main } = buildClientDocx(buildReport(), { supplemental: { bodySections: [], appendices: [] } })
     const text = main.map(flatten).join(' ')
-    expect(text).not.toMatch(/Standards Currency/)
+    expect(text).not.toMatch(/Additional Criteria Considered/)
     expect(text).not.toMatch(/Laboratory Analytical Results/)
     expect(text).not.toMatch(/Environmental Evidence Graphs/)
   })

@@ -4,6 +4,7 @@
  */
 
 import { Paragraph, TextRun, HeadingLevel, AlignmentType, SectionType, PageBreak, ImageRun, Table, TableRow, TableCell, WidthType, ShadingType, BorderStyle } from 'docx'
+import { resolveVerdict } from '../../utils/assessmentVerdict'
 import { FONTS, COLORS, SEV_COLORS, scoreColor, riskLabel } from './styles'
 import { buildTable, kvTable, borderlessLayoutTable, dataCell, headerCell } from './tables'
 import { markdownToDocx } from './markdownToDocx'
@@ -203,9 +204,12 @@ export function buildExecutiveSummary(ctx) {
 
     const p1 = `${criticalPrefix}An indoor air quality assessment was conducted at ${ctx.facilityName} on ${ctx.assessDate}, encompassing ${ctx.zoneCount} zone${ctx.zoneCount !== 1 ? 's' : ''}${ctx.reason ? ` in response to ${ctx.reason.toLowerCase()}` : ''}. The assessment included direct-reading instrument measurements, visual inspection, HVAC system evaluation, and occupant complaint documentation.`
 
-    const riskDesc = ctx.comp.tot >= 70
+    // Shared verdict — see PrintReport for why the composite alone is not
+    // enough to call conditions acceptable.
+    const coreVerdict = resolveVerdict({ comp: ctx.comp, zoneScores: ctx.zoneScores, escalationTriggers: ctx.escalationTriggers })
+    const riskDesc = coreVerdict.severity === 'pass'
       ? 'Available evidence supports that conditions observed during the assessment window are broadly consistent with applicable occupancy standards, with localized areas warranting targeted follow-up as noted in the zone findings below.'
-      : ctx.comp.tot >= 50
+      : coreVerdict.severity === 'medium'
         ? `Conditions observed during the assessment window suggest moderate indoor air quality concerns. The composite score of ${ctx.comp.tot}/100 reflects a weighted evaluation across five categories, with ${worstCat ? `${worstCat.l} (${worstCat.s}/${worstCat.mx}) identified as the primary area of concern` : 'multiple categories showing room for improvement'}.`
         : `Conditions observed during the assessment window indicate significant indoor air quality concerns that would warrant prioritized remediation. The composite score of ${ctx.comp.tot}/100 reflects deficiencies across multiple evaluation categories${worstCat ? `, with ${worstCat.l} (${worstCat.s}/${worstCat.mx}) representing the most acute concern` : ''}.`
 

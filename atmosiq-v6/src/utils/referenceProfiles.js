@@ -62,6 +62,7 @@
  */
 
 import { STD } from '../constants/standards'
+import { CRITERIA } from '../constants/criteria'
 import { paramReference, tvocToUnit, hchoToUnit } from './sensorThresholds'
 
 const isNum = (v) => v != null && Number.isFinite(v)
@@ -155,18 +156,18 @@ const PROFILES = {
   ],
 
   pm25: [
-    { id: 'epa', label: 'EPA 24-hour', source: 'US EPA NAAQS', action: PM25_ACTION, resolve: () => ({ limit: STD.c.pm25.epa }) },
-    { id: 'who', label: 'WHO 24-hour (2021)', source: 'WHO Global Air Quality Guidelines 2021', note: WHO_NOTE, action: PM25_ACTION, resolve: () => ({ limit: STD.c.pm25.who }) },
-    { id: 'epa-annual', label: 'EPA annual (2024)', source: 'US EPA NAAQS (2024 revision; 89 FR 16202)', note: PM_ANNUAL_NOTE, resolve: () => ({ limit: STD.c.pm25.epaAnnual }) },
-    { id: 'who-annual', label: 'WHO annual (2021)', source: 'WHO Global Air Quality Guidelines 2021', note: `${WHO_NOTE} ${PM_ANNUAL_NOTE}`, resolve: () => ({ limit: STD.c.pm25.whoAnnual }) },
-    { id: 'well', label: 'WELL v2 performance', source: 'WELL Building Standard v2 (A01)', note: WELL_NOTE, resolve: () => ({ limit: STD.c.pm25.well }) },
+    { id: 'epa', label: 'EPA 24-hour', criterionId: 'pm25_epa_24h', action: PM25_ACTION, resolve: () => ({ limit: STD.c.pm25.epa }) },
+    { id: 'who', label: 'WHO 24-hour (2021)', criterionId: 'pm25_who_24h', note: WHO_NOTE, action: PM25_ACTION, resolve: () => ({ limit: STD.c.pm25.who }) },
+    { id: 'epa-annual', label: 'EPA annual (2024)', criterionId: 'pm25_epa_annual', note: PM_ANNUAL_NOTE, resolve: () => ({ limit: STD.c.pm25.epaAnnual }) },
+    { id: 'who-annual', label: 'WHO annual (2021)', criterionId: 'pm25_who_annual', note: `${WHO_NOTE} ${PM_ANNUAL_NOTE}`, resolve: () => ({ limit: STD.c.pm25.whoAnnual }) },
+    { id: 'well', label: 'WELL v2 performance', criterionId: 'pm25_well', note: WELL_NOTE, resolve: () => ({ limit: STD.c.pm25.well }) },
   ],
 
   pm10: [
-    { id: 'epa', label: 'EPA 24-hour', source: 'US EPA NAAQS', resolve: () => ({ limit: STD.c.pm10.epa }) },
-    { id: 'who', label: 'WHO 24-hour (2021)', source: 'WHO Global Air Quality Guidelines 2021', note: WHO_NOTE, resolve: () => ({ limit: STD.c.pm10.who }) },
-    { id: 'who-annual', label: 'WHO annual (2021)', source: 'WHO Global Air Quality Guidelines 2021', note: `${WHO_NOTE} ${PM_ANNUAL_NOTE}`, resolve: () => ({ limit: STD.c.pm10.whoAnnual }) },
-    { id: 'well', label: 'WELL v2 performance', source: 'WELL Building Standard v2 (A01)', note: WELL_NOTE, resolve: () => ({ limit: STD.c.pm10.well }) },
+    { id: 'epa', label: 'EPA 24-hour', criterionId: 'pm10_epa_24h', resolve: () => ({ limit: STD.c.pm10.epa }) },
+    { id: 'who', label: 'WHO 24-hour (2021)', criterionId: 'pm10_who_24h', note: WHO_NOTE, resolve: () => ({ limit: STD.c.pm10.who }) },
+    { id: 'who-annual', label: 'WHO annual (2021)', criterionId: 'pm10_who_annual', note: `${WHO_NOTE} ${PM_ANNUAL_NOTE}`, resolve: () => ({ limit: STD.c.pm10.whoAnnual }) },
+    { id: 'well', label: 'WELL v2 performance', criterionId: 'pm10_well', note: WELL_NOTE, resolve: () => ({ limit: STD.c.pm10.well }) },
   ],
 
   co: [
@@ -175,10 +176,10 @@ const PROFILES = {
     // them. The occupational 8-hour references (NIOSH 35 / OSHA 50) already sit
     // at or above it, so they carry no red tier — a higher acute span would
     // invert the hierarchy.
-    { id: 'epa-naaqs', label: 'EPA NAAQS 8-hour', source: 'US EPA NAAQS', action: CO_ACTION, resolve: () => ({ limit: STD.c.co.epa }) },
-    { id: 'niosh-rel', label: 'NIOSH REL', source: 'NIOSH Pocket Guide', resolve: () => ({ limit: STD.c.co.niosh }) },
-    { id: 'osha-pel', label: 'OSHA PEL', source: '29 CFR 1910.1000', resolve: () => ({ limit: STD.c.co.osha }) },
-    { id: 'well', label: 'WELL v2 performance', source: 'WELL Building Standard v2 (A01)', note: WELL_NOTE, action: CO_ACTION, resolve: () => ({ limit: STD.c.co.well }) },
+    { id: 'epa-naaqs', label: 'EPA NAAQS 8-hour', criterionId: 'co_epa_naaqs_8h', action: CO_ACTION, resolve: () => ({ limit: STD.c.co.epa }) },
+    { id: 'niosh-rel', label: 'NIOSH REL', criterionId: 'co_niosh_rel', resolve: () => ({ limit: STD.c.co.niosh }) },
+    { id: 'osha-pel', label: 'OSHA PEL', criterionId: 'co_osha_pel', resolve: () => ({ limit: STD.c.co.osha }) },
+    { id: 'well', label: 'WELL v2 performance', criterionId: 'co_well', note: WELL_NOTE, action: CO_ACTION, resolve: () => ({ limit: STD.c.co.well }) },
   ],
 
   tvoc: [
@@ -245,16 +246,31 @@ function customBand(ctx) {
 
 /** Profiles offered for a parameter (empty when it has no published value). */
 export function profilesFor(param) {
-  return (PROFILES[param] || []).map(({ id, label, source, note, requires, custom }) => ({
-    id, label, source, note: note || null, requires: requires || null, custom: custom || null,
+  // Citation resolves the same way here as in resolveReference — the selector
+  // list shows the source too, and reading profile.source directly left it
+  // undefined for every profile linked to a criterion.
+  return (PROFILES[param] || []).map((profile) => ({
+    id: profile.id,
+    label: profile.label,
+    source: citationFor(param, profile),
+    note: profile.note || null,
+    requires: profile.requires || null,
+    custom: profile.custom || null,
   }))
 }
+
 
 /** The profile selected when the assessor expresses no preference. */
 export function defaultProfileId(param) {
   const list = PROFILES[param]
   return list && list.length ? list[0].id : null
 }
+
+/**
+ * The raw catalogue, for tests that verify the criterion links resolve.
+ * Not part of the public surface — consumers use profilesFor/resolveReference.
+ */
+export const __PROFILES_FOR_TEST = PROFILES
 
 /** Every parameter that offers a selectable reference. */
 export function parametersWithProfiles() {
@@ -272,12 +288,37 @@ export function parametersWithProfiles() {
  * @param {number} [ctx.ts] a timestamp in the period (temperature is seasonal)
  * @param {number} [ctx.outdoorBaseline] mean outdoor value, for differentials
  * @param {number[]} [ctx.custom] [lo, hi] for a custom band
- * @returns {{param, profileId, label, source, note, limit, band, unit,
+ * @returns {{param, profileId, label, source, note, limit, band, action, unit,
  *   unavailable}|null} null when the parameter offers no profiles.
  *   `unavailable` is set when the chosen profile needs data that is absent
  *   (e.g. an outdoor differential with no outdoor baseline) — the report then
  *   omits the comparison rather than inventing a reference.
+ *   `action` is the higher acute tier when the profile carries one AND it sits
+ *   above the selected reference; null otherwise. It was added after this
+ *   annotation was first written and omitted here, and because TypeScript
+ *   honours JSDoc over the inferred literal, every `.action` read in
+ *   tests/lib/referenceProfiles.test.ts was a type error — the whole of the
+ *   BUILD-01 typecheck failure. Keep this list in step with the return.
  */
+/**
+ * The citation for a profile, from its linked criterion.
+ *
+ * A profile owns SELECTION and unit projection; the criterion owns what the
+ * threshold means, including its source. Profiles used to restate the citation
+ * locally, which was two places to update and two places to drift — they had
+ * not drifted (both were verified against the same primary sources) but the
+ * registry is the single place now.
+ *
+ * Profiles with no published threshold behind them — a custom band, "no
+ * reference line", the ASHRAE comfort bands — legitimately declare their own
+ * and are returned unchanged.
+ */
+function citationFor(param, profile) {
+  if (!profile.criterionId) return profile.source || null
+  const c = (CRITERIA[param] || []).find((x) => x.id === profile.criterionId)
+  return (c && c.source) || profile.source || null
+}
+
 export function resolveReference(param, profileId, ctx = {}) {
   const list = PROFILES[param]
   if (!list || !list.length) return null
@@ -313,7 +354,7 @@ export function resolveReference(param, profileId, ctx = {}) {
     param,
     profileId: profile.id,
     label: profile.label,
-    source: profile.source || null,
+    source: citationFor(param, profile),
     note: profile.note || null,
     limit,
     band,

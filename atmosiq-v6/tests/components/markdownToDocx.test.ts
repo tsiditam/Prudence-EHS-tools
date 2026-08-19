@@ -32,7 +32,7 @@ const SAMPLE = [
   '| --- | --- | --- |',
   '| Under-ventilation | CO2 decay test | OA rate at reference |',
   '',
-  'AI-assisted narrative — verify before issue; screening output, not a compliance determination or causation finding.',
+  'AI-assisted narrative — verify before issue; not a regulatory, compliance, or medical determination.',
 ].join('\n')
 
 describe('markdownToDocx', () => {

@@ -18,6 +18,7 @@
  */
 
 import { Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle } from 'docx'
+import { resolveVerdict } from '../../utils/assessmentVerdict'
 import { FONTS, COLORS, SEV_COLORS, scoreColor, riskLabel } from './styles'
 import { isIaqScoreVisible } from '../../utils/featureFlags'
 import { buildTable, kvTable } from './tables'
@@ -257,12 +258,20 @@ export function buildFlaggedIndicators(ctx) {
 // ── 7. Analyst Notes (internal-only) — candid triage / follow-up / priority ──
 export function buildAnalystNotes(ctx) {
   const tot = ctx.comp ? ctx.comp.tot : null
-  const priority = tot == null ? 'P3 — Review (no composite)'
-    : tot < 30 ? 'P1 — Critical'
-    : tot < 50 ? 'P2 — High'
-    : tot < 70 ? 'P3 — Moderate'
+  // Triage priority follows the shared verdict, so a critical finding cannot
+  // be triaged P4 — Routine on the strength of a passing composite.
+  const techVerdict = resolveVerdict({ comp: ctx.comp, zoneScores: ctx.zoneScores, escalationTriggers: ctx.escalationTriggers })
+  const sev = techVerdict.severity
+  const priority = tot == null && sev === 'pass' ? 'P3 — Review (no composite)'
+    : sev === 'critical' ? 'P1 — Critical'
+    : sev === 'high' ? 'P2 — High'
+    : sev === 'medium' ? 'P3 — Moderate'
     : 'P4 — Routine'
-  const priColor = tot == null ? COLORS.muted : tot < 30 ? RED : tot < 50 ? AMBER : tot < 70 ? (SEV_COLORS.medium || AMBER) : (SEV_COLORS.pass || COLORS.body)
+  const priColor = tot == null && sev === 'pass' ? COLORS.muted
+    : sev === 'critical' ? RED
+    : sev === 'high' ? AMBER
+    : sev === 'medium' ? (SEV_COLORS.medium || AMBER)
+    : (SEV_COLORS.pass || COLORS.body)
 
   const zs = ctx.zoneScores || []
   const worstZone = zs.length
@@ -279,13 +288,13 @@ export function buildAnalystNotes(ctx) {
     ? `${worstZone.zoneName} drives the assessment${showScore ? ` (composite ${worstZone.tot ?? '—'}/100${worstCat ? `; weakest category ${worstCat.l} at ${worstCat.s}/${worstCat.mx}` : ''})` : worstCat ? ` (weakest area: ${worstCat.l})` : ''}. ${critHigh} critical/high indicator${critHigh !== 1 ? 's' : ''} flagged.`
     : 'No zones with data — capture field measurements before triage.'
 
-  const followUp = tot == null
+  const followUp = tot == null && sev === 'pass'
     ? 'Schedule a field visit to capture baseline measurements before drawing conclusions.'
-    : tot < 50
+    : (sev === 'critical' || sev === 'high')
       ? 'Recommend confirmatory sampling and an HVAC engineering review within ~5 business days; flag for IH callback.'
-      : tot < 70
+      : sev === 'medium'
         ? 'Targeted improvements; re-survey on the next monitoring cycle.'
-        : 'Within screening range; continue routine monitoring.'
+        : 'Within expected range; continue routine monitoring.'
 
   return [
     p('Analyst Notes (Internal Only)', { heading: HeadingLevel.HEADING_2 }),

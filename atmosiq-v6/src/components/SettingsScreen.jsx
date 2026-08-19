@@ -13,6 +13,7 @@ import { VER, BUILD_SHA } from '../constants/standards'
 import { mix } from '../utils/theme'
 import * as V3 from '../styles/tokens'
 import { Group, Row, ExceptionPill } from './settings/SettingsList'
+import SiteLibraryPanel from './settings/SiteLibraryPanel'
 import { isMoldModuleEnabled } from '../utils/featureFlags'
 
 // Theme tokens. These are CSS-variable references defined in
@@ -168,7 +169,21 @@ export default function SettingsScreen({ onNavigate, onActivateAdmin, adminActiv
         <Row label="Take the product tour" sub="A 60-second walkthrough of AtmosFlow's features" action={() => onNavigate?.('tour')} />
       </Group>
 
-      {/* Sites + Report Templates sections removed per product call. */}
+      {/* ── Sites ── The site library is the only management surface for
+          records the app creates on its own: SaveSitePrompt writes a site
+          at finalize, and the re-assessment cron emails against it. Without
+          this panel a user could accumulate sites and receive reminders for
+          them with no way to rename, pause or delete any of it — which is
+          what shipped while this section was unmounted. Report Templates
+          (settings/ReportTemplatesPanel.jsx) is still built-but-unmounted
+          alongside it; left alone deliberately, since nothing writes a
+          template without the user asking. */}
+      <Group title="Sites">
+        <div style={{padding:'14px 16px'}}>
+          <SiteLibraryPanel />
+        </div>
+      </Group>
+
 
       {/* ── Legal ── */}
       <Group title="Legal">

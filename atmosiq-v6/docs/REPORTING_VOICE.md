@@ -87,11 +87,11 @@ findings, which is exposure-limit framing applied to a screening value.
 | Jasper chat | `src/constants/field-assistant-prompt.js` | **Largely conforms** — already instructs a direct working read, no deflection, plain active voice |
 | Parameter results prose | `src/engine/report/parameter-prose/*.ts` | **Conforms.** Summaries rewritten; standards background relocated to Appendix D |
 | Per-finding limitations | `src/engine/report/phrases/*.ts` | **Conforms.** Evidentiary limitations stay inline; standards framing moved to Appendix D |
-| Verbatim report paragraphs | `src/engine/report/templates.ts` | **Engine-sacred** — scope / limitations / methodology blocks |
-| Scoring finding text | `src/engines/scoring.js` | **Engine-sacred** (named explicitly in CLAUDE.md) |
+| Verbatim report paragraphs | `src/engine/report/templates.ts` | **Editorial layer** — scope / limitations / methodology blocks. Was listed here as "engine-sacred"; CLAUDE.md's two-layer rule (2026-08) puts verbatim paragraphs in the editorial layer, changeable like any other code |
+| Scoring finding text | `src/engines/scoring.js` | **Determinism core** — changing it changes what the engine concludes, so it needs product sign-off |
 | Print report | `src/components/PrintReport.jsx` | Non-conforming, editable |
 | Lifecycle copy | `src/constants/reportLifecycle.js` | Non-conforming, editable |
-| AI narrative | `api/narrative.js`, `src/engines/narrative.js` | Editable |
+| AI narrative | `src/engines/narrative.js` (the prompt; `api/narrative.js` is a proxy) | **Conforms** — rewritten 2026-08 to Finding → Significance → Action; see below |
 
 ## The architectural tension
 
@@ -159,6 +159,37 @@ benchmarks" is exactly what stops a reader treating the benchmark as an indoor
 regulatory limit — rule 11 wants that sentence kept. The rule is now explicit:
 **where relocating would empty an entry, the first limitation is material after
 all and stays inline.** Pinned by `tests/engine/reporting-voice.test.ts`.
+
+### AI narrative
+
+The narrative layer is the one surface where the prose is written by a model,
+so the prompt in `src/engines/narrative.js` *is* the implementation. A CIH
+review of a live narrative (Summani Plaza, 2026-08) found the engine selected
+and ranked the findings correctly and then communicated them badly. The
+failures were all voice failures, and each one is now an instruction:
+
+| Defect in the reviewed narrative | Correction |
+|---|---|
+| Opened *"Zone 1 presents three converging indicators that warrant prompt CIH review"* | Lead with the conclusion in plain language. No opening on a count, a score, a severity label, or a review request |
+| PM2.5 bullet carried I/O ratio, an unnamed threshold, a NAAQS comparison and pathway speculation at once | Plain-language claim first, numbers after; never stack the analytical steps into one sentence |
+| *"the threshold the screening literature associates with…"* | A comparison value comes from the manifest or is not stated. An indoor-vs-outdoor comparison needs no threshold at all |
+| *"compound-level characterization by TO-17 GC/MS is needed"* | A named analytical method is a conditional escalation after source identification is attempted, never the opening step |
+| *"flags this assessment as having high OSHA defensibility relevance per the platform's logic"* | Boundary 4: never describe AtmosFlow, its logic, scores or classifications. `oshaDefensibility` was also removed from the payload — the model cannot report what it is not given |
+| *"Temperature (78 °F) and RH (45 %) fall within ASHRAE 55-2023 ranges"* | Comfort is not settled by two spot readings. Say those conditions did not identify a notable condition |
+
+The output shape is two sections, **Overall Finding** then **Recommended Next
+Steps**, and the second distinguishes *further investigation* from *corrective
+action* — recommending a control for a source nobody has found yet is the
+error that produced "deploy interim portable HEPA units".
+
+Ratios, criteria, tiers and methodological qualification are not lost; they
+belong in the report's own results tables and technical sections, which is
+where the reader looks for them.
+
+Pinned by `tests/engine/narrative-prompt.test.ts`. Those are assertions about
+instructions, not about model output — they prove the instruction preventing
+each known failure is still present, not that any given narrative reads well.
+The rendered text is separately guarded by `api/_banned-language.js`.
 
 ### Review note
 

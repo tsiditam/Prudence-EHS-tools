@@ -19,7 +19,7 @@ describe('scoreZone', () => {
     expect(result.cats).toHaveLength(5)
   })
 
-  it('returns Critical for a zone with CO above OSHA PEL', () => {
+  it('returns Critical for a zone with CO above the OSHA PEL value', () => {
     const zone = { zn: 'Boiler Room', co: '60', pm: '5' }
     const bldg = { hm: 'Unknown' }
     const result = scoreZone(zone, bldg)
@@ -27,16 +27,31 @@ describe('scoreZone', () => {
     expect(contCat.s).toBe(0)
     const coFinding = contCat.r.find(r => r.t.includes('CO') && r.t.includes('OSHA'))
     expect(coFinding.sev).toBe('critical')
-    expect(coFinding.std).toBe('OSHA')
+    // Asserted as a substring, not an exact match: the citation now carries
+    // the regulation rather than just the agency, and 'osha' is what
+    // bridge/classify.ts keys on.
+    expect(coFinding.std).toContain('OSHA')
+    expect(coFinding.std).toContain('1910.1000')
+    // The PEL is an 8-hour TWA and this is a grab reading — the finding must
+    // say so rather than assert a bare exceedance.
+    expect(coFinding.t).toMatch(/8-hour time-weighted average/)
   })
 
-  it('flags high CO2 as ventilation deficiency', () => {
+  it('flags high CO2 as ventilation deficiency — capped at high, never critical', () => {
     const zone = { co2: '1600' }
     const bldg = { hm: 'Within 6 months' }
     const result = scoreZone(zone, bldg)
     const ventCat = result.cats.find(c => c.l === 'Ventilation')
+    // The category still zeroes — the ventilation deficiency is real.
     expect(ventCat.s).toBe(0)
-    expect(ventCat.r[0].sev).toBe('critical')
+    // But CO2 indexes outdoor-air delivery per occupant; it is not a
+    // contaminant measure, and no concentration of it alone is a critical
+    // finding. This was `critical` until 2026-08, which rated a stuffy
+    // meeting room the same as a hydrogen reading at 25% of the LEL — and
+    // since the verdict layer escalates the whole assessment on any critical
+    // finding, that reached the report's triage priority.
+    // Enforced by the criterion class, not by a literal here.
+    expect(ventCat.r[0].sev).toBe('high')
   })
 
   it('scores HVAC maintenance concern', () => {
@@ -101,7 +116,9 @@ describe('scoreZone', () => {
     const hchoFinding = contCat.r.find(r => r.t.includes('Formaldehyde'))
     expect(hchoFinding).toBeDefined()
     expect(hchoFinding.sev).toBe('critical')
-    expect(hchoFinding.std).toBe('29 CFR 1910.1048')
+    // Substring, not exact: the criterion registry cites the specific
+    // paragraph (…(c)(1) for the PEL) rather than the standard as a whole.
+    expect(hchoFinding.std).toContain('1910.1048')
   })
 
   it('flags PM2.5 above EPA standard', () => {
@@ -236,12 +253,16 @@ describe('calcVent', () => {
     expect(result.pp).toBe(8)
   })
 
-  it('calculates classroom ventilation (EPA TfS 15 cfm/person)', () => {
-    // classroom: pp=15, ps=0.12
+  it('calculates classroom ventilation on the ASHRAE 62.1 code basis', () => {
+    // classroom: pp=10, ps=0.12 — ASHRAE 62.1 Table 6.2.2.1, age 9 plus.
+    // Was 15 cfm/person (EPA Tools for Schools guidance) until 2026-08, which
+    // this table is not: scoring reports its value as the "ASHRAE 62.1
+    // minimum", so a code-compliant classroom was reported non-compliant.
+    // The EPA target is surfaced separately by buildingProfiles.
     const result = calcVent('classroom', 800, 30)
-    expect(result.pOA).toBe(450) // 15 * 30
+    expect(result.pOA).toBe(300) // 10 * 30
     expect(result.aOA).toBeCloseTo(96, 1) // 0.12 * 800
-    expect(result.tot).toBeCloseTo(546, 1)
+    expect(result.tot).toBeCloseTo(396, 1)
   })
 })
 

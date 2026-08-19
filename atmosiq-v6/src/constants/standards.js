@@ -91,7 +91,21 @@ export const STD = {
     co2: { base: 420, diff: 700, con: 1000, act: 1500 },
     oa: {
       office:        { pp: 5,   ps: 0.06 },
-      classroom:     { pp: 15,  ps: 0.12 },
+      // ASHRAE 62.1 Table 6.2.2.1, Classrooms (age 9 plus). This table IS the
+      // code basis: scoring.js reads it as `req` and reports "below ASHRAE
+      // 62.1 minimum (req)", and `cfm < req * 0.5` is a critical finding.
+      //
+      // It held 15 until 2026-08 — EPA IAQ Tools for Schools guidance, which
+      // traces to the superseded 62-1989. That is a real and more protective
+      // figure, but it is not what this field means, and putting it here
+      // manufactured false non-compliance: a classroom at 12 cfm/person was
+      // reported "below ASHRAE 62.1 minimum" when 12 exceeds the actual
+      // minimum of 10, and a school at 7 was rated critical rather than high.
+      //
+      // The EPA target is not lost — buildingProfiles.js emits it as its own
+      // lower-severity finding for classrooms between the two figures, so a
+      // code-compliant school that falls short of the guidance still surfaces.
+      classroom:     { pp: 10,  ps: 0.12 },
       retail:        { pp: 7.5, ps: 0.12 },
       healthcare:    { pp: 5,   ps: 0.06 },
       lab:           { pp: 10,  ps: 0.18 },
@@ -111,7 +125,12 @@ export const STD = {
   c: {
     // ppm unless noted. `epa` on CO is the EPA NAAQS 8-hour primary
     // standard (9 ppm). hcho `epaRfc` is the EPA IRIS chronic inhalation
-    // reference concentration (~8 ppb ≈ 0.0098 mg/m³) and `who` is the
+    // reference concentration from the FINAL August 2024 IRIS Toxicological
+    // Review: 7 µg/m³. Stored in ppm as 0.0057, which round-trips to
+    // 7.00 µg/m³ through hchoToUnit (MW 30.03, molar volume 24.45 @ 25 °C);
+    // 0.006 would overstate it by 5%. The previous 0.008 predated the final
+    // assessment. NOTE: distinct from the ATSDR chronic MRL (0.003 ppm) —
+    // different agency, different criterion; do not conflate. `who` is the
     // WHO 30-minute guideline (0.081 ppm ≈ 0.1 mg/m³, formaldehyde).
     // `well` is the WELL Building Standard v2 (feature A01) CO performance
     // threshold, 9 ppm — a green-building certification target, not a
@@ -120,8 +139,17 @@ export const STD = {
     // guideline: 35 mg/m³ over 1 hour ≈ 30 ppm (health-based ACUTE criterion
     // with a 1-hour averaging period — distinct from the 8-hour references
     // above). Used only as the higher action tier over a 1-hour rolling mean.
-    co:   { osha: 50,   niosh: 35,    epa: 9,  well: 9,  who1h: 30 },
-    hcho: { osha: 0.75, niosh: 0.016, al: 0.5, epaRfc: 0.008, who: 0.081 },
+    // `who24h` is the WHO 2010 indoor 24-hour CO guideline: 7 mg/m³ ≈ 6 ppm.
+    // The lowest published indoor criterion, used as the point at which CO is
+    // above typical indoor background and a source should be noted.
+    // `ceiling` is the NIOSH CO ceiling, 200 ppm — a ceiling is by definition
+    // not to be exceeded at any time, so unlike the TWAs above it a single
+    // reading CAN evaluate it. See constants/criteria.js.
+    co:   { osha: 50,   niosh: 35,    epa: 9,  well: 9,  who1h: 30, who24h: 6, ceiling: 200 },
+    // `stel` is the OSHA 15-minute short-term exposure limit, 2 ppm
+    // (29 CFR 1910.1048(c)(2)) — a short-duration criterion, which is the kind
+    // a walkthrough reading can most nearly speak to.
+    hcho: { osha: 0.75, niosh: 0.016, al: 0.5, epaRfc: 0.0057, who: 0.081, stel: 2 },
     // Particulates, µg/m³. The `epa`/`who` entries are on a 24-HOUR basis so
     // a given size fraction is directly comparable; `epaAnnual`/`whoAnnual`
     // are the ANNUAL-mean guidelines (a short session cannot evaluate an
