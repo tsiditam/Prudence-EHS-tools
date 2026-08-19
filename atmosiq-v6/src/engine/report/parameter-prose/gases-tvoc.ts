@@ -21,12 +21,13 @@ export const TVOC_PROSE: ParameterProse = {
   ],
   summaryTemplate(range) {
     if (range.count === 0) return 'Total volatile organic compounds were not measured during this assessment.'
-    const within = range.withinStandards
-      ? 'were within typical office background ranges per Mølhave (1991) tiers'
-      : 'were elevated relative to typical office background ranges per Mølhave (1991) tiers. No regulatory limit exists for total VOCs; confirmatory speciation per EPA Method TO-17 (sorbent tube sampling, thermal desorption GC/MS) is recommended when source investigation is warranted'
-    const elevatedClause = !range.withinStandards && range.elevatedInZones && range.elevatedInZones.length > 0
-      ? ` Elevated values were recorded in ${range.elevatedInZones.join(', ')}; per-zone values are presented in Appendix A.`
+    const head = `Total VOCs ranged from ${range.low} to ${range.high} ${range.unit}, averaging ${range.average} ${range.unit}.`
+    if (range.withinStandards) {
+      return `${head} Concentrations are within typical office background per the Mølhave (1991) tiers.`
+    }
+    const zones = range.elevatedInZones && range.elevatedInZones.length > 0
+      ? ` Elevated in ${range.elevatedInZones.join(', ')}; per-zone values are in Appendix A.`
       : ''
-    return `Total VOC concentrations recorded during the survey ranged from ${range.low} ${range.unit} to ${range.high} ${range.unit}, averaging ${range.average} ${range.unit}, and ${within}.${elevatedClause}`
+    return `${head} Concentrations are above typical office background per the Mølhave (1991) tiers. TVOC is a non-specific sum; speciate per EPA Method TO-17 to identify the source.${zones}`
   },
 }

@@ -629,7 +629,6 @@ function renderResultsSection(rs) {
   if (!rs || !Array.isArray(rs.subsections) || rs.subsections.length === 0) return ''
   const subs = rs.subsections.map(sub => `
     <h3>${esc(sub.heading)}</h3>
-    ${sub.standardsBackground ? `<p>${esc(sub.standardsBackground)}</p>` : ''}
     ${sub.measurementSummary ? `<p>${esc(sub.measurementSummary)}</p>` : ''}
   `).join('')
   return `<h2 id="results">${esc(rs.title || 'Results')}</h2>${subs}`
@@ -684,6 +683,20 @@ function renderAppendices(ap) {
   if (ap.appendixD) {
     out.push(`<h2 id="appendix-d">${esc(ap.appendixD.title)}</h2>`)
     if (ap.appendixD.description) out.push(`<p>${esc(ap.appendixD.description)}</p>`)
+    // Reporting-voice rule 10 — per-parameter standards background,
+    // relocated here from Results. Matches the DOCX appendix.
+    for (const entry of ap.appendixD.parameterBackground || []) {
+      out.push(`<h3>${esc(entry.heading)}</h3>`)
+      out.push(`<p>${esc(entry.prose)}</p>`)
+    }
+    // Voice rules 4 and 10 — matches the DOCX appendix.
+    const ctx = ap.appendixD.technicalContext || []
+    if (ctx.length > 0) {
+      out.push('<h3>Interpretation Notes</h3>')
+      out.push('<ul>')
+      for (const line of ctx) out.push(`<li>${esc(line)}</li>`)
+      out.push('</ul>')
+    }
     // v2.5 §2 — prefer pre-formatted displayLines. Fall back to the
     // legacy citation list for backward compat.
     const lines = Array.isArray(ap.appendixD.displayLines) && ap.appendixD.displayLines.length > 0

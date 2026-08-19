@@ -23,15 +23,19 @@ export const PARTICULATES_PROSE: ParameterProse = {
     if (range.count === 0) {
       return 'PM2.5 was not measured during this assessment.'
     }
-    const within = range.withinStandards
-      ? 'were within applicable regulatory standards and industry guidelines'
-      : 'were elevated relative to applicable regulatory standards and industry guidelines'
-    const elevatedClause = !range.withinStandards && range.elevatedInZones && range.elevatedInZones.length > 0
-      ? ` Elevated values were recorded in ${range.elevatedInZones.join(', ')}; per-zone values are presented in Appendix A.`
+    const head = `PM2.5 ranged from ${range.low} to ${range.high} ${range.unit}, averaging ${range.average} ${range.unit}.`
+    const outdoor = range.outdoorReference !== undefined
+      ? ` Outdoor reference was ${range.outdoorReference} ${range.unit}.`
       : ''
-    const ioClause = range.outdoorReference !== undefined
-      ? ` Outdoor PM2.5 reference for the day of survey was ${range.outdoorReference} ${range.unit}.`
+    if (range.withinStandards) {
+      return `${head}${outdoor} Concentrations are within the 35 µg/m³ 24-hour screening benchmark, with no indication of an indoor particulate source.`
+    }
+    const zones = range.elevatedInZones && range.elevatedInZones.length > 0
+      ? ` Elevated in ${range.elevatedInZones.join(', ')}; per-zone values are in Appendix A.`
       : ''
-    return `PM2.5 mass concentrations recorded during the survey ranged from ${range.low} ${range.unit} to ${range.high} ${range.unit}, averaging ${range.average} ${range.unit}, and ${within}.${ioClause}${elevatedClause}`
+    const indoorSource = range.outdoorReference !== undefined && range.high > range.outdoorReference
+      ? ' Indoor concentrations exceed outdoor, pointing to an indoor source or inadequate filtration.'
+      : ''
+    return `${head}${outdoor} Concentrations exceed the 35 µg/m³ 24-hour screening benchmark.${indoorSource}${zones}`
   },
 }

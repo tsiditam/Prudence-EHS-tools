@@ -406,9 +406,31 @@ export interface AppendixCPhoto {
  * citations actually invoked in this report. Engine version line is
  * recorded here (and ONLY here) per §7.
  */
+/**
+ * Reporting-voice rule 10 — technical context belongs in the reference
+ * section, not restated inside every finding. One entry per parameter
+ * actually measured, carrying the standards history and framing that
+ * used to open each Results subsection.
+ */
+export interface ParameterBackgroundEntry {
+  readonly heading: string
+  readonly prose: string
+}
+
 export interface AppendixD {
   readonly title: string
   readonly description: string
+  /**
+   * Standards background for each measured parameter, relocated out of
+   * the Results section. Empty when no parameter was measured.
+   */
+  readonly parameterBackground: ReadonlyArray<ParameterBackgroundEntry>
+  /**
+   * Voice rules 4 and 10 — standards framing and definitional context for
+   * the condition types that actually fired, collected once here instead of
+   * repeated under every finding. Deduped, order-stable.
+   */
+  readonly technicalContext: ReadonlyArray<string>
   readonly citations: ReadonlyArray<Citation>
   /**
    * v2.5 §2 — pre-formatted bibliography lines, one per citation,

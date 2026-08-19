@@ -76,6 +76,8 @@ export const CONTAMINANTS_PHRASES: Partial<Record<ConditionType, PhraseLibraryEn
     regulatoryConclusionRequires: [],
     defaultLimitations: [
       'TVOC is measured by PID and represents total ionizable compounds. Individual compound identification requires TO-17 thermal desorption GC/MS.',
+    ],
+    technicalContext: [
       'Mølhave (1991) TVOC tiers are advisory benchmarks, not regulatory limits.',
     ],
     defaultRecommendedActions: [
@@ -175,6 +177,8 @@ export const CONTAMINANTS_PHRASES: Partial<Record<ConditionType, PhraseLibraryEn
     regulatoryConclusionRequires: [],
     defaultLimitations: [
       'Odor assessment is qualitative and subjective. Odor detection thresholds vary among individuals.',
+    ],
+    technicalContext: [
       'The presence of an odor does not necessarily indicate a health hazard.',
     ],
     defaultRecommendedActions: [

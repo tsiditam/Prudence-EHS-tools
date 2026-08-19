@@ -698,6 +698,20 @@ function buildAppendices(report, options = {}) {
   if (ap.appendixD) {
     out.push(...heading2(ap.appendixD.title))
     if (ap.appendixD.description) out.push(p(ap.appendixD.description, { align: AlignmentType.JUSTIFIED }))
+    // Reporting-voice rule 10 — the per-parameter standards background,
+    // relocated here from the Results section so findings stay readable
+    // and the technical basis is still on the record, once each.
+    for (const entry of ap.appendixD.parameterBackground || []) {
+      out.push(heading3(entry.heading))
+      out.push(p(entry.prose, { align: AlignmentType.JUSTIFIED }))
+    }
+    // Voice rules 4 and 10 — standards framing for the conditions that
+    // fired, stated once here rather than under every finding.
+    const ctx = ap.appendixD.technicalContext || []
+    if (ctx.length > 0) {
+      out.push(heading3('Interpretation Notes'))
+      for (const line of ctx) out.push(bullet(line))
+    }
     // v2.5 §2 — prefer pre-formatted displayLines (organization
     // abbreviations expanded, sorted, deduped). Fall back to legacy
     // citations array for backward compat with consumers that still

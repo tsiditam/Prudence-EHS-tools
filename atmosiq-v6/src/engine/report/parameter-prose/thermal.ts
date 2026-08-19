@@ -20,13 +20,14 @@ export const TEMPERATURE_PROSE: ParameterProse = {
   ],
   summaryTemplate(range) {
     if (range.count === 0) return 'Temperature was not measured during this assessment.'
-    const within = range.withinStandards
-      ? 'were within the ASHRAE 55-2020 comfort range for typical office activity'
-      : 'were outside the ASHRAE 55-2020 comfort range for typical office activity'
-    const elevatedClause = !range.withinStandards && range.elevatedInZones && range.elevatedInZones.length > 0
-      ? ` Out-of-range values were recorded in ${range.elevatedInZones.join(', ')}; per-zone values are presented in Appendix A.`
+    const head = `Temperature ranged from ${range.low}${range.unit} to ${range.high}${range.unit}, averaging ${range.average}${range.unit}.`
+    if (range.withinStandards) {
+      return `${head} Conditions are within the ASHRAE 55 comfort range for typical office activity.`
+    }
+    const zones = range.elevatedInZones && range.elevatedInZones.length > 0
+      ? ` Out of range in ${range.elevatedInZones.join(', ')}; per-zone values are in Appendix A.`
       : ''
-    return `Temperature recorded during the survey ranged from ${range.low}${range.unit} to ${range.high}${range.unit}, averaging ${range.average}${range.unit}, and ${within}.${elevatedClause}`
+    return `${head} Conditions are outside the ASHRAE 55 comfort range for typical office activity, which commonly drives comfort complaints.${zones}`
   },
 }
 
@@ -39,12 +40,13 @@ export const RH_PROSE: ParameterProse = {
   ],
   summaryTemplate(range) {
     if (range.count === 0) return 'Relative humidity was not measured during this assessment.'
-    const within = range.withinStandards
-      ? 'were within the recommended comfort range of 30 to 60 percent'
-      : 'were outside the recommended comfort range of 30 to 60 percent'
-    const elevatedClause = !range.withinStandards && range.elevatedInZones && range.elevatedInZones.length > 0
-      ? ` Out-of-range values were recorded in ${range.elevatedInZones.join(', ')}; per-zone values are presented in Appendix A.`
+    const head = `Relative humidity ranged from ${range.low}${range.unit} to ${range.high}${range.unit}, averaging ${range.average}${range.unit}.`
+    if (range.withinStandards) {
+      return `${head} Conditions are within the recommended 30 to 60 percent range.`
+    }
+    const zones = range.elevatedInZones && range.elevatedInZones.length > 0
+      ? ` Out of range in ${range.elevatedInZones.join(', ')}; per-zone values are in Appendix A.`
       : ''
-    return `Relative humidity recorded during the survey ranged from ${range.low}${range.unit} to ${range.high}${range.unit}, averaging ${range.average}${range.unit}, and ${within}.${elevatedClause}`
+    return `${head} Conditions are outside the recommended 30 to 60 percent range. Sustained humidity above 60 percent supports microbial amplification; below 30 percent drives mucosal irritation complaints.${zones}`
   },
 }

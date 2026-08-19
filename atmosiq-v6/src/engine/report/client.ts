@@ -15,9 +15,11 @@ import type {
   AppendixA, AppendixAMeasurementRow,
   AppendixB, AppendixBInstrumentRow, AppendixBZoneRow,
   AppendixC, AppendixD, AppendixE, AppendixECalibrationRow, AppendixF,
+  ParameterBackgroundEntry,
 } from './types'
 import type { ParameterKey, ParameterRangeSet } from './parameter-ranges'
 import { lookupParameterProse } from './parameter-prose'
+import { lookupPhrase } from './phrases'
 import { ENGINE_VERSION } from '../types/citation'
 import { evaluateSiteOpinion, OPINION_TIER_LANGUAGE, CONFIDENCE_TIER_LANGUAGE } from './professional-opinion'
 // buildPreAssessmentMemo is intentionally NOT imported here: since v2.9
@@ -500,6 +502,8 @@ export function renderClientReport(
   const appendixDStub: AppendixD = {
     title: 'APPENDIX D — Standards and Citations',
     description: '',
+    parameterBackground: [],
+    technicalContext: [],
     citations: [],
     displayLines: [],
     engineVersionLine: '',
@@ -605,6 +609,8 @@ export function renderClientReport(
   })
   const appendixD: AppendixD = {
     title: 'APPENDIX D — Standards and Citations',
+    parameterBackground: buildParameterBackground(parameterRanges),
+    technicalContext: collectTechnicalContext(significantFindings),
     description:
       'Authoritative regulatory, consensus-standard, peer-reviewed, and manufacturer references invoked in this report. Each entry below is the canonical bibliographic reference for an in-text citation appearing in Results subsections, findings, or recommended actions. The engine-version footer at the bottom of this appendix is the single canonical record of the platform build that produced this report.',
     citations: collectedCitations.map(c => ({
@@ -766,6 +772,42 @@ function dedupZoneLimitations(findings: ReadonlyArray<RenderedFinding>): Readonl
 const PARAMETER_ORDER: ReadonlyArray<ParameterKey> = [
   'co2', 'co', 'hcho', 'tvoc', 'pm25', 'pm10', 'temperature', 'rh',
 ]
+
+/**
+ * Reporting-voice rule 10 — the standards history that used to open every
+ * Results subsection. It is emitted once, in Appendix D, for the parameters
+ * actually measured, so a reader who wants the ASHRAE / OSHA / peer-reviewed
+ * framing can find it without it interrupting each finding.
+ */
+/**
+ * Voice rules 4 and 10 — pull the standards framing off every condition type
+ * that actually fired. Deduped in first-seen order so Appendix D reads in the
+ * order the reader met the findings, and only ever mentions conditions the
+ * assessment actually raised.
+ */
+function collectTechnicalContext(findings: ReadonlyArray<Finding>): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const f of findings) {
+    for (const line of lookupPhrase(f.conditionType).technicalContext || []) {
+      if (seen.has(line)) continue
+      seen.add(line)
+      out.push(line)
+    }
+  }
+  return out
+}
+
+function buildParameterBackground(ranges: ParameterRangeSet): ParameterBackgroundEntry[] {
+  const out: ParameterBackgroundEntry[] = []
+  for (const key of PARAMETER_ORDER) {
+    const range = ranges[key]
+    if (!range || range.count === 0) continue
+    const prose = lookupParameterProse(key)
+    out.push({ heading: prose.parameter, prose: prose.standardsBackground })
+  }
+  return out
+}
 
 function buildResultsSection(ranges: ParameterRangeSet): ResultsSection | undefined {
   const subsections: ParameterSubsection[] = []
