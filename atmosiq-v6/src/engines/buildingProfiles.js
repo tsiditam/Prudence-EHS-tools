@@ -121,7 +121,7 @@ export const BUILDING_PROFILES = {
   SCHOOL_K12: {
     id: 'school_k12',
     label: 'School (K-12)',
-    additionalStandards: ['EPA IAQ Tools for Schools Action Kit', 'ASHRAE 62.1-2025 (15 cfm/person classrooms)'],
+    additionalStandards: ['EPA IAQ Tools for Schools Action Kit (15 cfm/person classrooms)', 'ASHRAE 62.1-2025 (10 cfm/person + 0.12 cfm/ft² classrooms, age 9 plus)'],
     zoneSubtypes: [
       { id: 'classroom', label: 'Classroom' },
       { id: 'gymnasium', label: 'Gymnasium' },
@@ -137,8 +137,11 @@ export const BUILDING_PROFILES = {
     rhOverrides: { default: { min: 30, max: 60, label: 'ASHRAE 55' } },
     contextFindings: [
       { condition: (z) => z.zone_subtype === 'classroom',
-        text: 'Classroom outdoor air minimum per EPA Tools for Schools: 15 cfm/person. Verify OA damper is open and design OA delivery rate is documented.',
-        sev: 'medium', std: 'EPA TfS; ASHRAE 62.1-2025' },
+        // 15 cfm/person is EPA guidance; ASHRAE 62.1 Table 6.2.2.1 gives
+        // 10 cfm/person + 0.12 cfm/ft² for classrooms age 9 plus. Naming both
+        // separately, because they differ and the adopted code is usually 62.1.
+        text: 'Classroom outdoor air: EPA Tools for Schools guidance is 15 cfm/person; ASHRAE 62.1 requires 10 cfm/person plus 0.12 cfm/ft². Verify the OA damper is open and the design OA delivery rate is documented against whichever basis the jurisdiction has adopted.',
+        sev: 'medium', std: 'EPA IAQ Tools for Schools; ASHRAE 62.1-2025 Table 6.2.2.1' },
       { condition: (z) => z.zone_subtype === 'classroom' && z.co2 && +z.co2 > 800,
         text: 'CO₂ exceeds 800 ppm in classroom. Per EPA Tools for Schools, elevated CO₂ correlates with reduced cognitive performance and increased absenteeism in students.',
         sev: 'high', std: 'EPA TfS; Petersen et al. 2016' },

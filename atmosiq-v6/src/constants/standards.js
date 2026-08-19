@@ -91,6 +91,15 @@ export const STD = {
     co2: { base: 420, diff: 700, con: 1000, act: 1500 },
     oa: {
       office:        { pp: 5,   ps: 0.06 },
+      // 15 cfm/person is EPA IAQ Tools for Schools guidance, NOT current
+      // ASHRAE 62.1 — Table 6.2.2.1 gives Classrooms (age 9 plus) as
+      // 10 cfm/person + 0.12 cfm/ft². EPA's figure traces to ASHRAE 62-1989,
+      // which 62.1 has since superseded. The value is retained deliberately
+      // (it is the more protective school target and EPA still publishes it);
+      // what must not happen is citing it AS ASHRAE 62.1. See the note in
+      // engines/buildingProfiles.js. TODO(product): decide whether schools
+      // should be judged against the adopted code basis (62.1, typically what
+      // a jurisdiction enforces) or this guidance target — they differ by 50%.
       classroom:     { pp: 15,  ps: 0.12 },
       retail:        { pp: 7.5, ps: 0.12 },
       healthcare:    { pp: 5,   ps: 0.06 },
@@ -111,7 +120,12 @@ export const STD = {
   c: {
     // ppm unless noted. `epa` on CO is the EPA NAAQS 8-hour primary
     // standard (9 ppm). hcho `epaRfc` is the EPA IRIS chronic inhalation
-    // reference concentration (~8 ppb ≈ 0.0098 mg/m³) and `who` is the
+    // reference concentration from the FINAL August 2024 IRIS Toxicological
+    // Review: 7 µg/m³. Stored in ppm as 0.0057, which round-trips to
+    // 7.00 µg/m³ through hchoToUnit (MW 30.03, molar volume 24.45 @ 25 °C);
+    // 0.006 would overstate it by 5%. The previous 0.008 predated the final
+    // assessment. NOTE: distinct from the ATSDR chronic MRL (0.003 ppm) —
+    // different agency, different criterion; do not conflate. `who` is the
     // WHO 30-minute guideline (0.081 ppm ≈ 0.1 mg/m³, formaldehyde).
     // `well` is the WELL Building Standard v2 (feature A01) CO performance
     // threshold, 9 ppm — a green-building certification target, not a
@@ -121,7 +135,7 @@ export const STD = {
     // with a 1-hour averaging period — distinct from the 8-hour references
     // above). Used only as the higher action tier over a 1-hour rolling mean.
     co:   { osha: 50,   niosh: 35,    epa: 9,  well: 9,  who1h: 30 },
-    hcho: { osha: 0.75, niosh: 0.016, al: 0.5, epaRfc: 0.008, who: 0.081 },
+    hcho: { osha: 0.75, niosh: 0.016, al: 0.5, epaRfc: 0.0057, who: 0.081 },
     // Particulates, µg/m³. The `epa`/`who` entries are on a 24-HOUR basis so
     // a given size fraction is directly comparable; `epaAnnual`/`whoAnnual`
     // are the ANNUAL-mean guidelines (a short session cannot evaluate an
