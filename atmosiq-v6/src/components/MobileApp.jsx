@@ -18,6 +18,7 @@ import Storage from '../utils/cloudStorage'
 import { supabase, trackEvent } from '../utils/supabaseClient'
 import Backup from '../utils/backup'
 import { groupActions } from '../utils/recFormatting'
+import { resolvePrimaryDriver } from '../utils/primaryDriver'
 import { getCalibrationBannerState, loadInstruments, isOutOfCal } from '../utils/instrumentRegistry'
 import {
   buildCalibrationAcknowledgement, validateJustification, MAX_JUSTIFICATION_LEN,
@@ -2393,16 +2394,18 @@ export default function MobileApp() {
     const worstCat = zs?.cats?.reduce((a, b) => ((a.s/a.mx) < (b.s/b.mx) ? a : b)) || null
     const complaintCat = zs?.cats?.find(c => c.l === 'Complaints')
     const hasComplaints = complaintCat && complaintCat.r.some(r => r.sev === 'critical' || r.sev === 'high')
-    // Primary driver is the worst NON-complaints category (complaints are a symptom, not a driver)
-    const driverCat = zs?.cats?.filter(c => c.l !== 'Complaints').reduce((a, b) => ((a.s/a.mx) < (b.s/b.mx) ? a : b), zs.cats[0]) || worstCat
+    // Primary driver is the worst NON-complaints category (complaints are a
+    // symptom, not a driver). Selection AND the severity gate live in
+    // src/utils/primaryDriver.js so they are unit-testable — see the module
+    // header for why the gate exists.
+    const driver = resolvePrimaryDriver(zs?.cats)
+    const driverCat = driver.category || worstCat
     const riskLabel = comp.tot < 30 ? 'Critical indoor air quality concern' : comp.tot < 50 ? 'Significant indoor air quality concern' : comp.tot < 70 ? 'Moderate indoor air quality concern' : 'Conditions within acceptable range'
     const actionLabel = comp.tot < 30 ? 'Immediate corrective action recommended' : comp.tot < 50 ? 'Targeted investigation and corrective action warranted' : comp.tot < 70 ? 'Targeted improvements recommended' : 'Continue routine monitoring'
     // Expert summary — IH-grade reasoning (complaints are pattern, not driver)
-    const driverMap = {Ventilation:'Ventilation inadequacy',Contaminants:'Elevated contaminant exposure',HVAC:'HVAC system deficiency',Environment:'Environmental condition exceedance'}
-    const causeMap = {Ventilation:'Insufficient outdoor air delivery or poor air distribution',Contaminants:'Proximity to emission sources with inadequate dilution ventilation',HVAC:'Deferred maintenance or mechanical system degradation',Environment:'Thermal or moisture conditions outside recognized comfort standards'}
-    const expertDriver = driverCat ? (driverMap[driverCat.l] || driverCat.l + ' deficiency') : null
+    const expertDriver = driver.label
     const expertComplaint = hasComplaints ? 'Occupant symptoms reported' : null
-    const expertCause = causalChains[0] ? causalChains[0].rootCause : (driverCat ? (causeMap[driverCat.l] || 'Contributing factors require further investigation') : null)
+    const expertCause = causalChains[0] ? causalChains[0].rootCause : driver.cause
 
     // ── v3 derivations for the redesigned hero / panels ──
     // Severity headline distilled from comp.tot. Pulled out of the
@@ -2417,6 +2420,12 @@ export default function MobileApp() {
       // causal-attribution layer (keeps the screening framing defensible).
       if (causalChains[0]?.type) return causalChains[0].type
       if (expertDriver) return `${expertDriver}`
+      // Scored, and nothing rose to a finding. Voice rule 6 — a normal
+      // measurement is not automatically a finding; rule 7 — when conditions
+      // are normal, say so plainly.
+      if (driver.scored) return 'No significant findings identified'
+      // Nothing was scored at all. That is a data gap, not a clean result, so
+      // it must not read as reassurance.
       return 'Assessment complete'
     })()
 
@@ -2852,7 +2861,7 @@ export default function MobileApp() {
                     <div style={{display:'flex',alignItems:'flex-start',gap:8}}>
                       <I n="chart" s={14} c={confTone} w={1.7} />
                       <div style={{minWidth:0}}>
-                        <div style={V3.T.captionDim}>Confidence</div>
+                        <div style={V3.T.captionDim}>Measurement confidence</div>
                         <div style={{...V3.T.bodyStrong, color:confTone, marginTop:2}}>{measConf?.overall || 'Pending'}</div>
                       </div>
                     </div>
