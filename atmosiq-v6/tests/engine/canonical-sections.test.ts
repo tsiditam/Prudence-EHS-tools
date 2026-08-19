@@ -163,10 +163,10 @@ describe('Phase 2 — section builders', () => {
   it('each builder returns a non-empty node array', () => {
     const r = buildReport().report
     expect(buildDocumentControl(r).length).toBeGreaterThan(0)
-    // "Criteria Applied" is per-assessment now: one row per measured
-    // parameter, resolved from the criterion the engine applied. With no
-    // zones there is nothing that was measured and nothing to cite, so the
-    // section correctly renders nothing.
+    // buildBenchmarksSection still WORKS — it is simply no longer composed
+    // into the consultant deliverable (product decision, 2026-08). Kept
+    // exercised here so the builder does not rot while unrendered; whether it
+    // reaches the report is asserted in omitted-consultant-sections.test.ts.
     expect(buildBenchmarksSection().length).toBe(0)
     expect(buildBenchmarksSection(FIXTURE_ZONES, FIXTURE_ZONE_SCORES).length).toBeGreaterThan(0)
     expect(buildConclusions(r).length).toBeGreaterThan(0)
@@ -209,7 +209,7 @@ describe('Phase 2 — rendered DOCX', () => {
     const buf = await Packer.toBuffer(doc)
     const zip = await JSZip.loadAsync(buf)
     const xml = await zip.file('word/document.xml')!.async('string')
-    for (const t of ['Document Control', 'Criteria Applied', 'Instrument Accuracy and Calibration', 'Conclusions', 'Limitations', 'Certification']) {
+    for (const t of ['Document Control', 'Instrument Accuracy and Calibration', 'Conclusions', 'Limitations', 'Certification']) {
       expect(xml).toContain(t)
     }
     // The Data Gaps and Disclaimer sections are merged into the single
@@ -219,14 +219,10 @@ describe('Phase 2 — rendered DOCX', () => {
     expect(xml).not.toContain('Data Gaps and Limitations on Interpretation')
     expect(xml).toContain('CO2 plus-minus 3 percent')
     expect(xml).toContain('ASHRAE 62.1-2025')
-    // The table now carries ONE criterion per measured parameter, so which
-    // benchmark-type labels appear depends on what was measured. The fixture
-    // has CO₂ (ventilation indicator), CO (ambient guideline), PM2.5, and the
-    // two comfort bands. What must hold is that every type rendered is in the
-    // §7 taxonomy — asserted exhaustively in applied-references.test.ts — and
-    // that the taxonomy note the table relies on still renders with it.
-    expect(xml).toContain('Ventilation benchmark')
-    expect(xml).toContain('Thermal comfort criterion')
-    expect(xml).toContain('Benchmark types carry different legal and technical weight')
+    // The Criteria Applied table is no longer part of the consultant
+    // deliverable, so its benchmark-type labels and taxonomy note are not
+    // expected here. Absence is asserted in omitted-consultant-sections.
+    expect(xml).not.toContain('Criteria Applied')
+    expect(xml).not.toContain('Benchmark types carry different legal and technical weight')
   })
 })

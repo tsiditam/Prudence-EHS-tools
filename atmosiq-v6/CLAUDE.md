@@ -116,7 +116,7 @@ Read these directories first when investigating any task:
   readiness diagnostic, smoke test, password-reset verification, Stripe
   setup, cron implementations, sample-report PDF generator.
 - `scripts/acceptance/` — JSON acceptance configs:
-  `prod-ready.json` (23 criteria), `pricing-rollout.json` (19),
+  `prod-ready.json` (59 criteria), `pricing-rollout.json` (19),
   `go-live.json` (21), and the legacy v2.X engine configs.
 - `tests/` — Vitest:
   - `tests/engine/` — engine logic + report rendering tests (.ts)
@@ -358,15 +358,30 @@ When working on report generation:
 - **Journal citations must be verified.** Title, journal, volume,
   issue, pages, year — all from primary sources. Flag unverified
   entries with TODO and exclude from generated reports.
-- **One criterion per parameter in the report.** The **Criteria Applied**
-  table lists each measured parameter once, citing the criterion the
-  conclusion rests on: the one behind the governing finding where there is
-  one, otherwise the default reference the reading cleared
-  (`src/components/docx/applied-references.js`). Never source that citation
-  from a fixed per-parameter default alone — the Logger Studio temperature
-  default resolves ASHRAE 55's *acceptable* range while the engine also flags
-  the tighter *optimal* band, so a fixed reference contradicts the finding
-  beside it. `docs/CRITERIA.md` has the detail.
+- **The consultant report carries no standards sections.** Five were removed
+  in 2026-08 after a CIH review found the report overbuilt for the work
+  behind it: the Appendix D standards register, **Criteria Applied** (was
+  "Standards, Guidelines, and Benchmark Types"), **Additional Criteria
+  Considered** (was "Standards Currency"), **Potential Contributing
+  Factors**, and **Appendix F — Glossary**. Each restated in a dedicated
+  section something the report already says where it matters; a reviewer
+  reads the standards off the findings and the Appendix D background, which
+  is the convention in this field.
+
+  The builders are all retained and still unit-tested — this is a
+  composition decision, reversible by re-adding one line each — but nothing
+  renders them. `tests/engine/omitted-consultant-sections.test.ts` and
+  `no-standards-register.test.ts` fail if any returns, and they check the
+  table of contents as well as the body: a removal that deletes only the
+  section leaves the contents page pointing at nothing, which is how
+  "Standards, Guidelines, and Benchmark Types" survived its own rename.
+
+  `applied-references.js` (one criterion per parameter, resolved from what
+  the engine applied) is unrendered but intact; `docs/CRITERIA.md` explains
+  it. If it is ever restored, do NOT source its citation from a fixed
+  per-parameter default — the Logger Studio temperature default resolves
+  ASHRAE 55's *acceptable* range while the engine flags the tighter *optimal*
+  band, so a fixed reference contradicts the finding beside it.
 - **A threshold travels with its averaging period, class and source.**
   `src/constants/criteria.js` is the registry; `docs/CRITERIA.md` explains
   it. Never compare a measured value against a bare number from `STD` —
@@ -382,7 +397,7 @@ Three feature-level acceptance configs gate completion claims:
 
 | Gate | Script | Criteria |
 |---|---|---|
-| Production readiness (Group A) | `npm run accept:prod-ready` | 23 |
+| Production readiness (Group A) | `npm run accept:prod-ready` | 59 |
 | Pricing rollout (Group B) | `npm run accept:pricing-rollout` | 19 |
 | Go-live experience (Group C) | `npm run accept:go-live` | 21 |
 

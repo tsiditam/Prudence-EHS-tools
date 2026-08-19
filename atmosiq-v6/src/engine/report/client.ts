@@ -633,7 +633,7 @@ export function renderClientReport(
     parameterBackground: buildParameterBackground(parameterRanges),
     technicalContext: collectTechnicalContext(significantFindings),
     description:
-      'Background on the criteria used in this report: what each one is, the body that issues it, and the weight it carries. The criterion applied to each parameter is identified with its result in Criteria Applied and in the finding it produced; this appendix explains those choices rather than restating them. The engine-version footer below is the canonical record of the platform build that produced this report.',
+      'Background on the criteria used in this report: what each one is, the body that issues it, and the weight it carries. Each criterion is named with the finding it produced and in the Results discussion for its parameter; this appendix explains those choices rather than restating them. The engine-version footer below is the canonical record of the platform build that produced this report.',
     citations: collectedCitations.map(c => ({
       source: c.source,
       authority: c.authority,

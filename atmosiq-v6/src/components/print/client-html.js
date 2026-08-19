@@ -583,7 +583,7 @@ function generateFullClientHTML(report, options, styles = PAGE_STYLES) {
 
   ${report.transmittalLetter ? renderTransmittalLetter(report.transmittalLetter) : `<h2>Transmittal</h2><div class="verbatim">${esc(report.transmittal)}</div>`}
 
-  ${report.tableOfContents ? renderTableOfContents(report.tableOfContents) : ''}
+  ${report.tableOfContents ? renderTableOfContents(stripOmittedToc(report.tableOfContents)) : ''}
 
   ${report.methodologyDisclosure ? `<h2 id="methodology-disclosure">Methodology Disclosure</h2><div class="verbatim">${esc(report.methodologyDisclosure)}</div>` : ''}
 
@@ -605,7 +605,6 @@ function generateFullClientHTML(report, options, styles = PAGE_STYLES) {
   <h2 id="zone-findings">Zone Findings</h2>
   ${report.zoneSections.map(renderZoneSection).join('')}
 
-  ${renderPotentialContributingFactors(report.potentialContributingFactors)}
   ${renderRecommendedSamplingPlan(report.recommendedSamplingPlan)}
 
   ${renderRecommendationsRegister(report.recommendationsRegister)}
@@ -720,17 +719,8 @@ function renderAppendices(ap) {
       out.push('</ul>')
     }
   }
-  if (ap.appendixF) {
-    out.push(`<h2 id="appendix-f">${esc(ap.appendixF.title)}</h2>`)
-    if (ap.appendixF.description) out.push(`<p>${esc(ap.appendixF.description)}</p>`)
-    if (Array.isArray(ap.appendixF.entries) && ap.appendixF.entries.length > 0) {
-      out.push('<dl>')
-      for (const e of ap.appendixF.entries) {
-        out.push(`<dt>${esc(e.term)}</dt><dd>${esc(e.definition)}</dd>`)
-      }
-      out.push('</dl>')
-    }
-  }
+  // Appendix F (Glossary) is deliberately NOT rendered — same product
+  // decision as the DOCX renderer (2026-08). Kept on the model.
   return out.join('\n')
 }
 
@@ -978,6 +968,17 @@ function renderInlineFinding(rf) {
  * v2.6 §5 — Potential Contributing Factors HTML section.
  * Omitted entirely when no chains exist.
  */
+// Sections the consultant deliverable does not render (product decision,
+// 2026-08). Their TOC entries go with them, or the contents page lists a
+// section that is not in the document.
+const OMITTED_TOC_ANCHORS = new Set(['potential-contributing-factors', 'appendix-f'])
+function stripOmittedToc(toc) {
+  // `toc` is { title, entries }, not a bare array.
+  if (!toc || !Array.isArray(toc.entries)) return toc
+  return { ...toc, entries: toc.entries.filter((e) => !OMITTED_TOC_ANCHORS.has(e && e.anchorId)) }
+}
+
+// eslint-disable-next-line no-unused-vars
 function renderPotentialContributingFactors(factors) {
   if (!Array.isArray(factors) || factors.length === 0) return ''
   const blocks = factors.map(f => {

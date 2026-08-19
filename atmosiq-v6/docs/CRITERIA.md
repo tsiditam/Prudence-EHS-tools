@@ -133,13 +133,21 @@ The link is by id and nothing enforces it at the type level, so
 `tests/engine/criteria.test.ts` walks every linked profile and asserts its
 criterion exists and its citation matches.
 
-## One criterion per parameter in the report
+## One criterion per parameter (built, not currently rendered)
 
-The consultant report's **Criteria Applied** table lists each measured
-parameter once, with the single criterion it was evaluated against — the
-shape the Indoor Environmental Monitoring Report has always used. It replaced
-a table that printed every criterion the platform knows (seven for CO alone),
-leaving the reader to work out which one the assessment rested on.
+> **Status:** the **Criteria Applied** table was removed from the consultant
+> deliverable in 2026-08, along with the standards register and the other
+> standards sections — the report now names its criteria in the findings and
+> the Appendix D background instead. `applied-references.js` and its tests
+> are retained and green; re-composing the section is one line in
+> `sections-v21client.js`. The rest of this section describes how it works,
+> and the traps to avoid if it is restored.
+
+The table lists each measured parameter once, with the single criterion it
+was evaluated against — the shape the Indoor Environmental Monitoring Report
+has always used. It replaced a table that printed every criterion the
+platform knows (seven for CO alone), leaving the reader to work out which one
+the assessment rested on.
 
 `src/components/docx/applied-references.js` resolves it:
 

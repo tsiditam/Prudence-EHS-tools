@@ -68,14 +68,17 @@ describe('no standards register in the rendered report', () => {
     expect(xml).not.toContain('Standards and Citations')
   })
 
-  it('still names each criterion where it is actually used', async () => {
-    // Removing the catalogue must not remove the standards from the report:
-    // they belong beside the results and the findings.
+  it('still names the standards where they are actually used', async () => {
+    // This is the assertion that keeps the removals honest. The register
+    // went, and so did the Criteria Applied table (2026-08) — so the report
+    // now carries its standards in the findings themselves and in the
+    // Appendix D background. If a future cut removes those too, the report
+    // stops citing anything and this fails.
     const xml = await renderText()
-    expect(xml).toContain('Criteria Applied')
     expect(xml).toContain('Criteria Background')
     expect(xml).toMatch(/OSHA|1910\.1000/)
     expect(xml).toMatch(/ASHRAE 55/)
+    expect(xml).toMatch(/NIOSH|EPA/)
   })
 
   it('keeps the engine-version footer, which was not part of the register', async () => {

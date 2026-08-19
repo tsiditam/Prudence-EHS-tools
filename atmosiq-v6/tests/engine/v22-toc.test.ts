@@ -115,25 +115,46 @@ describe('v2.2 §5 — Table of Contents on ClientReport', () => {
 })
 
 describe('v2.2 §5 — HTML rendering', () => {
-  it('Includes <nav class="toc"> with all TOC entries', () => {
+  // These used to walk the MODEL's TOC entries and assert each one rendered.
+  // That stopped being the right assertion once the consultant deliverable
+  // began omitting sections the engine still models (Appendix F, Potential
+  // Contributing Factors): the model is a superset of what this report
+  // prints. What must hold is that the RENDERED contents page and the
+  // rendered body agree with each other — no listed section missing from the
+  // body, no omitted section still listed.
+  const OMITTED = ['appendix-f', 'potential-contributing-factors']
+  const tocAnchors = (html: string): string[] =>
+    [...html.matchAll(/<a href="#([^"]+)"/g)].map((m) => m[1])
+
+  it('Includes <nav class="toc"> and lists at least the core sections', () => {
     const result = buildScore()
     if (result.kind !== 'report') return
     const html = generateClientReportHTML(result)
     expect(html).toContain('<nav class="toc"')
     expect(html).toContain('Table of Contents')
-    for (const entry of result.report.tableOfContents.entries) {
-      expect(html).toContain(`href="#${entry.anchorId}"`)
-      expect(html).toContain(entry.title)
+    const anchors = tocAnchors(html)
+    expect(anchors.length).toBeGreaterThan(5)
+    for (const core of ['executive-summary', 'results', 'zone-findings', 'recommendations-register']) {
+      expect(anchors, `missing core TOC entry ${core}`).toContain(core)
     }
   })
 
-  it('Each anchorId in TOC has a matching <h2 id="..."> in the body', () => {
+  it('Every anchor the TOC lists has a matching id in the body', () => {
     const result = buildScore()
     if (result.kind !== 'report') return
     const html = generateClientReportHTML(result)
-    for (const entry of result.report.tableOfContents.entries) {
-      // Anchor must be an actual id="..." somewhere in the HTML.
-      expect(html).toContain(`id="${entry.anchorId}"`)
+    for (const anchorId of tocAnchors(html)) {
+      expect(html, `TOC lists #${anchorId} but the body has no such id`).toContain(`id="${anchorId}"`)
+    }
+  })
+
+  it('Omitted sections appear in neither the TOC nor the body', () => {
+    const result = buildScore()
+    if (result.kind !== 'report') return
+    const html = generateClientReportHTML(result)
+    for (const anchorId of OMITTED) {
+      expect(tocAnchors(html), `${anchorId} still listed in the TOC`).not.toContain(anchorId)
+      expect(html, `${anchorId} still rendered in the body`).not.toContain(`id="${anchorId}"`)
     }
   })
 

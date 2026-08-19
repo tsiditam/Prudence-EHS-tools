@@ -748,21 +748,11 @@ function buildAppendices(report, options = {}) {
       }
     }
   }
-  if (ap.appendixF) {
-    out.push(...heading2(ap.appendixF.title))
-    if (ap.appendixF.description) out.push(p(ap.appendixF.description, { align: AlignmentType.JUSTIFIED }))
-    if (Array.isArray(ap.appendixF.entries) && ap.appendixF.entries.length > 0) {
-      for (const e of ap.appendixF.entries) {
-        out.push(new Paragraph({
-          children: [
-            new TextRun({ text: `${e.term}: `, bold: true, font: FONTS.body, size: 22, color: SLATE }),
-            new TextRun({ text: e.definition, font: FONTS.body, size: 22, color: SLATE_BODY }),
-          ],
-          spacing: { after: 80 },
-        }))
-      }
-    }
-  }
+  // Appendix F (Glossary) is deliberately NOT rendered in the consultant
+  // deliverable (product decision, 2026-08). The engine still builds
+  // `appendixF` and it stays on the model for other consumers; its TOC entry
+  // is dropped in buildClientDocx so the contents page cannot list a section
+  // the document does not contain.
   return out
 }
 
@@ -1562,12 +1552,18 @@ export function buildClientDocx(result, options = {}) {
       { before: /Scope/i },
     )
   }
-  tocEntries = spliceTocEntry(tocEntries, { anchorId: 'benchmarks', title: 'Criteria Applied', level: 1 }, { after: /Sampling Methodology/i })
   // Instrument Accuracy sits between Sampling Methodology and Benchmarks
   // (when present).
   if (options.instrumentAccuracy && options.instrumentAccuracy.iaqName) {
     tocEntries = spliceTocEntry(tocEntries, { anchorId: 'instrument-accuracy', title: 'Instrument Accuracy and Calibration', level: 1 }, { after: /Sampling Methodology/i })
   }
+  // Sections the consultant deliverable does not render (product decision,
+  // 2026-08). Filtering their TOC entries here — beside the removals
+  // themselves — is what stops the contents page listing a section that is
+  // not in the document, which is exactly how "Standards, Guidelines, and
+  // Benchmark Types" survived in the TOC after the section was renamed.
+  const OMITTED_TOC_ANCHORS = new Set(['potential-contributing-factors', 'appendix-f'])
+  tocEntries = tocEntries.filter((e) => !OMITTED_TOC_ANCHORS.has(e.anchorId))
   tocEntries = spliceTocEntry(tocEntries, { anchorId: 'conclusions', title: 'Conclusions', level: 1 }, { before: /Recommendations Register/i })
   // The Disclaimer and Data Gaps sections were merged into the single
   // "Limitations" section, so they no longer get their own TOC entries.
@@ -1591,16 +1587,18 @@ export function buildClientDocx(result, options = {}) {
     ...buildScope(report),
     ...buildSamplingMethodologyDocx(report),
     ...buildInstrumentAccuracyNote(options.instrumentAccuracy),
-    ...buildBenchmarksSection(options.zones, options.zoneScores, { assessmentDate: options.assessmentDate }),
     ...buildResultsSection(report, suppress),
     ...buildBuildingContext(report),
     ...buildBuildingConditionsSection(report, recIndex, suppress),
     ...buildZoneSections(report, recIndex, suppress),
-    // v2.6 §5 — Potential Contributing Factors and Recommended
-    // Sampling Plan slot in between Zone Findings and the
-    // Recommendations Register. Each is a no-op when the
-    // corresponding engine pass produced no output.
-    ...buildPotentialContributingFactors(report),
+    // v2.6 §5 — Recommended Sampling Plan slots in between Zone Findings
+    // and the Recommendations Register; a no-op when the engine pass
+    // produced no output.
+    //
+    // Potential Contributing Factors is NOT rendered in the consultant
+    // deliverable (product decision, 2026-08). The engine still projects it
+    // and it remains on the model for other consumers; see
+    // stripClientSections below for the matching TOC filter.
     ...buildRecommendedSamplingPlan(report),
     // Conclusions sit after the findings/discussion and before the
     // Recommendations Register, mirroring the canonical report flow.
