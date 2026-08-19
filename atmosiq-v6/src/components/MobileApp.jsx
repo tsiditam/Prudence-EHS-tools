@@ -2411,7 +2411,6 @@ export default function MobileApp() {
     const sevPillTone = comp.tot < 30 ? V3.SEVERITY.critical : comp.tot < 50 ? V3.SEVERITY.high : comp.tot < 70 ? V3.SEVERITY.medium : V3.SEVERITY.pass
     const sevPillLabel = comp.tot < 30 ? 'Critical Concern' : comp.tot < 50 ? 'Significant Concern' : comp.tot < 70 ? 'Moderate Concern' : 'Within Acceptable Range'
     const confTone = measConf?.overall === 'High' ? V3.CONFIDENCE.high : measConf?.overall === 'Low' ? V3.CONFIDENCE.low : V3.CONFIDENCE.medium
-    const confLabel = measConf?.overall ? `${measConf.overall} Confidence` : 'Confidence Pending'
     const headline = (() => {
       // Name the screening indicator, not a likelihood on the attribution —
       // confidence/likelihood belongs to the measurement layer, not the
@@ -2540,12 +2539,16 @@ export default function MobileApp() {
                   </div>
                 )}
                 <div style={{minWidth:0,flex:1}}>
-                  {/* Badges — severity + measurement confidence. The severity
-                      band pill is part of the scoring feature, so it is gated
-                      with the composite score; the confidence badge is not. */}
+                  {/* Severity band only. The measurement-confidence badge used
+                      to sit here too, directly above the diagnosis headline —
+                      which read as confidence in the FINDING. It is neither:
+                      evalMeasurementConfidence scores how many parameters were
+                      captured, so "High Confidence" above "Ventilation
+                      inadequacy" asserted certainty about a conclusion it knows
+                      nothing about. It now appears only in the Professional
+                      Assessment panel, where it is labelled and in context. */}
                   <div style={{display:'flex',gap:8,marginBottom:10,flexWrap:'wrap'}}>
                     {IAQ_SCORE_VISIBLE && <StatusPill tone={sevPillTone}>{sevPillLabel}</StatusPill>}
-                    {measConf && <StatusPill tone={confTone}>{confLabel}</StatusPill>}
                   </div>
                   {/* Serif diagnosis — the screening indicator named in the
                       editorial serif (matches the prototype's Lora .diag). */}
