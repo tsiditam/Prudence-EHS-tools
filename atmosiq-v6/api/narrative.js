@@ -74,7 +74,13 @@ async function checkRateLimits(supabase, userId, plan, now = Date.now()) {
   const oneMinAgo = new Date(now - 60_000).toISOString()
   const oneDayAgo = new Date(now - 24 * 60 * 60_000).toISOString()
 
-  const minuteCount = await countRowsSince(supabase, userId, oneMinAgo)
+  // Both windows are counted in parallel: they are independent queries and
+  // only the decision below needs both. In series this cost an extra
+  // round trip on the critical path of every generation.
+  const [minuteCount, dayCount] = await Promise.all([
+    countRowsSince(supabase, userId, oneMinAgo),
+    countRowsSince(supabase, userId, oneDayAgo),
+  ])
   if (minuteCount >= PER_MINUTE_LIMIT) {
     const oldest = await findOldestSince(supabase, userId, oneMinAgo)
     const retryAt = oldest ? new Date(oldest).getTime() + 60_000 : now + 60_000
@@ -82,7 +88,6 @@ async function checkRateLimits(supabase, userId, plan, now = Date.now()) {
     return { ok: false, scope: 'per_minute', retry_after: retryAfter }
   }
 
-  const dayCount = await countRowsSince(supabase, userId, oneDayAgo)
   if (plan === 'free' && dayCount >= FREE_TIER_DAILY_CAP) {
     return { ok: false, scope: 'free_tier_daily', retry_after: 24 * 60 * 60 }
   }
@@ -112,7 +117,9 @@ async function callAnthropic(apiKey, system, payload) {
       system,
       messages: [{
         role: 'user',
-        content: `Based ONLY on this data, write a professional IAQ findings narrative:\n\n${JSON.stringify(payload, null, 2)}`,
+        // Compact, not pretty-printed. The indentation was ~2,300 of the
+      // ~5,900 characters sent and bought the model nothing.
+      content: `Based ONLY on this data, write a professional IAQ findings narrative:\n\n${JSON.stringify(payload)}`,
       }],
     }),
   })
@@ -209,22 +216,28 @@ async function handler(req, res) {
   const outputTokens = data.usage && typeof data.usage.output_tokens === 'number' ? data.usage.output_tokens : null
   const cost = estimateCost(inputTokens, outputTokens)
 
-  try {
-    await supabase.from('narrative_generations').insert({
-      user_id: user.id,
-      input_tokens: inputTokens,
-      output_tokens: outputTokens,
-      estimated_cost_usd: cost,
-    })
-  } catch (err) {
-    console.error('[narrative] failed to record generation:', err && err.message)
-  }
-
+  // Usage row and audit entry are both bookkeeping, and they were awaited
+  // one after the other with the finished narrative already in hand — two
+  // round trips the assessor spent staring at a spinner. They run together
+  // now. Still awaited, not fire-and-forget: the serverless runtime can
+  // freeze the instance the moment the response is sent, which would drop
+  // the usage row the rate limiter counts and the audit entry.
+  //
   // Renamed `narrative.generate` → `narrative_generated` (connectivity
   // PR D EventName allowlist). No external consumer reads the old
   // string today; the new name lines up with KNOWN_EVENTS so the
   // event-spine vocabulary is consistent across browser + server.
-  await auditLog({
+  const recordUsage = supabase.from('narrative_generations').insert({
+    user_id: user.id,
+    input_tokens: inputTokens,
+    output_tokens: outputTokens,
+    estimated_cost_usd: cost,
+  }).then(
+    () => {},
+    (err) => console.error('[narrative] failed to record generation:', err && err.message),
+  )
+
+  const recordAudit = auditLog({
     action: 'narrative_generated',
     actor_id: user.id,
     actor_email: user.email,
@@ -240,7 +253,9 @@ async function handler(req, res) {
       style_flag_count: styleFlags.length,
     },
     req,
-  })
+  }).catch((err) => console.error('[narrative] audit log failed:', err && err.message))
+
+  await Promise.all([recordUsage, recordAudit])
 
   return res.status(200).json({
     narrative: text,

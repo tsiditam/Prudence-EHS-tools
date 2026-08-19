@@ -191,6 +191,29 @@ instructions, not about model output — they prove the instruction preventing
 each known failure is still present, not that any given narrative reads well.
 The rendered text is separately guarded by `api/_banned-language.js`.
 
+### Narrative register: plain English
+
+The AI narrative is written in the register of a New York Times news story
+explaining a technical subject — not dumbed down, but understandable on one
+read by a building owner with no industrial-hygiene training. The prompt asks
+for short sentences (15–20 words), plain words where the plain word is just
+as true, a term explained the first time it is used, and every number given
+something to measure against ("45 µg/m³ indoors against 2 outdoors — roughly
+twenty times higher"). It names the consultant tics to cut: "it should be
+noted", "in order to", "prior to", "with respect to", "utilise".
+
+Two things plain language explicitly does NOT license, both pinned by
+`tests/engine/narrative-prompt.test.ts`:
+
+1. **Simplifying away a boundary.** "may indicate" cannot become "shows";
+   "not identified" cannot become "not present". A boundary breach dressed
+   as clarity is still a boundary breach.
+2. **Dropping a number to make a sentence flow.** The measurements are the
+   evidence.
+
+Length moved from 180–280 words to 150–250. Simpler prose is shorter prose,
+and shorter output is also faster to generate.
+
 ### Review note
 
 The evidentiary-vs-context split is an editorial judgment applied to
