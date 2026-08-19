@@ -151,11 +151,11 @@ drain-pan action regroups.
 
 Constraints on the fix:
 
-- `src/engines/scoring.js` is engine-sacred and re-exports `genRecs` from
-  `scoring-legacy.js` (line 309). **`scoring-legacy.js` is where the logic
-  actually lives, and CLAUDE.md's sacred rule names `scoring.js` but not
-  `scoring-legacy.js`.** Resolve that ambiguity with the author before editing
-  either — do not assume the rule stops at the filename it names.
+- `scoring.js` re-exports `genRecs` from `scoring-legacy.js` (line 309), so
+  that is where the logic actually lives. **Both are named in the determinism
+  core** under CLAUDE.md's two-layer engine rule (revised 2026-08), which
+  closed the earlier ambiguity: equipment resolution decides which
+  recommendations fire, so changing it needs product sign-off.
 - Prefer resolving the chain in a pure helper *outside* the scoring modules and
   passing the flattened result in, leaving `genRecs`'s input contract unchanged.
 - `tests/engine/hvac-equipment-dedup.test.ts` is the regression guard; its eight
@@ -180,8 +180,10 @@ treat a failing snapshot as the consumer-breaking change it is.
 
 ## Open decisions
 
-- **Sacred-rule boundary** — does the `scoring.js` prohibition extend to
-  `scoring-legacy.js`? Phase 3 cannot start without an answer.
+- ~~**Sacred-rule boundary**~~ — *resolved 2026-08.* The two-layer engine rule
+  names `scoring-legacy.js` in the determinism core alongside `scoring.js`.
+  Phase 3 changes what recommendations fire, so it is core work needing
+  sign-off — not blocked, but not a free edit either.
 - **Flag posture** — Phases 1–2 deliver most of their value through KG surfaces,
   which are off in production and desktop-only. Reaching users is a flag
   decision, not a follow-up.
