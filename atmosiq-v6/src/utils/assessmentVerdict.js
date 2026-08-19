@@ -39,6 +39,9 @@ export const ATTENTION_SEVERITIES = ['critical', 'high', 'medium']
 
 const RANK = { pass: 0, low: 0, medium: 1, high: 2, critical: 3 }
 const BY_RANK = ['pass', 'medium', 'high', 'critical']
+// Reverse lookup that preserves `low` — BY_RANK maps rank 0 to 'pass', which
+// is right for a verdict band and wrong for naming a finding's own severity.
+const BY_RANK_FULL = ['low', 'medium', 'high', 'critical']
 
 export function isFinding(row) {
   return !!row && FINDING_SEVERITIES.includes(row.sev)
@@ -60,14 +63,33 @@ export function countFindings(zoneScores) {
   return out
 }
 
-/** Worst finding severity present, or null. */
+/**
+ * The Complaints category is capped when it escalates the verdict.
+ *
+ * Occupant symptom reports are `occupant_report_anecdotal` evidence. A cluster
+ * is urgent and must stay visible — but a self-reported symptom cannot make a
+ * BUILDING CONDITION critical, and the engine's permission flags exist to stop
+ * exactly that inference. Scoring rates 6+ occupants reporting symptoms as
+ * `critical`, which the verdict layer then propagated to the whole assessment
+ * and to the report's P1 triage — contradicting the codebase's own principle,
+ * honoured by driverCat, that complaints are a symptom and not a driver.
+ *
+ * Capped rather than excluded: a symptom cluster still raises the verdict to
+ * `high`, so it cannot be quietly dropped either.
+ */
+const COMPLAINT_CATEGORY = 'Complaints'
+const COMPLAINT_MAX = 'high'
+
+/** Worst finding severity present, or null. Complaints are capped. */
 export function worstFindingSeverity(zoneScores) {
   let worst = null
   for (const z of zoneScores || []) {
     for (const c of z?.cats || []) {
+      const cap = c?.l === COMPLAINT_CATEGORY ? RANK[COMPLAINT_MAX] : Infinity
       for (const r of c?.r || []) {
         if (!isFinding(r)) continue
-        if (worst === null || RANK[r.sev] > RANK[worst]) worst = r.sev
+        const rank = Math.min(RANK[r.sev] ?? 0, cap)
+        if (worst === null || rank > RANK[worst]) worst = BY_RANK_FULL[rank]
       }
     }
   }

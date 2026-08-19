@@ -91,16 +91,21 @@ export const STD = {
     co2: { base: 420, diff: 700, con: 1000, act: 1500 },
     oa: {
       office:        { pp: 5,   ps: 0.06 },
-      // 15 cfm/person is EPA IAQ Tools for Schools guidance, NOT current
-      // ASHRAE 62.1 — Table 6.2.2.1 gives Classrooms (age 9 plus) as
-      // 10 cfm/person + 0.12 cfm/ft². EPA's figure traces to ASHRAE 62-1989,
-      // which 62.1 has since superseded. The value is retained deliberately
-      // (it is the more protective school target and EPA still publishes it);
-      // what must not happen is citing it AS ASHRAE 62.1. See the note in
-      // engines/buildingProfiles.js. TODO(product): decide whether schools
-      // should be judged against the adopted code basis (62.1, typically what
-      // a jurisdiction enforces) or this guidance target — they differ by 50%.
-      classroom:     { pp: 15,  ps: 0.12 },
+      // ASHRAE 62.1 Table 6.2.2.1, Classrooms (age 9 plus). This table IS the
+      // code basis: scoring.js reads it as `req` and reports "below ASHRAE
+      // 62.1 minimum (req)", and `cfm < req * 0.5` is a critical finding.
+      //
+      // It held 15 until 2026-08 — EPA IAQ Tools for Schools guidance, which
+      // traces to the superseded 62-1989. That is a real and more protective
+      // figure, but it is not what this field means, and putting it here
+      // manufactured false non-compliance: a classroom at 12 cfm/person was
+      // reported "below ASHRAE 62.1 minimum" when 12 exceeds the actual
+      // minimum of 10, and a school at 7 was rated critical rather than high.
+      //
+      // The EPA target is not lost — buildingProfiles.js emits it as its own
+      // lower-severity finding for classrooms between the two figures, so a
+      // code-compliant school that falls short of the guidance still surfaces.
+      classroom:     { pp: 10,  ps: 0.12 },
       retail:        { pp: 7.5, ps: 0.12 },
       healthcare:    { pp: 5,   ps: 0.06 },
       lab:           { pp: 10,  ps: 0.18 },
@@ -137,8 +142,14 @@ export const STD = {
     // `who24h` is the WHO 2010 indoor 24-hour CO guideline: 7 mg/m³ ≈ 6 ppm.
     // The lowest published indoor criterion, used as the point at which CO is
     // above typical indoor background and a source should be noted.
-    co:   { osha: 50,   niosh: 35,    epa: 9,  well: 9,  who1h: 30, who24h: 6 },
-    hcho: { osha: 0.75, niosh: 0.016, al: 0.5, epaRfc: 0.0057, who: 0.081 },
+    // `ceiling` is the NIOSH CO ceiling, 200 ppm — a ceiling is by definition
+    // not to be exceeded at any time, so unlike the TWAs above it a single
+    // reading CAN evaluate it. See constants/criteria.js.
+    co:   { osha: 50,   niosh: 35,    epa: 9,  well: 9,  who1h: 30, who24h: 6, ceiling: 200 },
+    // `stel` is the OSHA 15-minute short-term exposure limit, 2 ppm
+    // (29 CFR 1910.1048(c)(2)) — a short-duration criterion, which is the kind
+    // a walkthrough reading can most nearly speak to.
+    hcho: { osha: 0.75, niosh: 0.016, al: 0.5, epaRfc: 0.0057, who: 0.081, stel: 2 },
     // Particulates, µg/m³. The `epa`/`who` entries are on a 24-HOUR basis so
     // a given size fraction is directly comparable; `epaAnnual`/`whoAnnual`
     // are the ANNUAL-mean guidelines (a short session cannot evaluate an

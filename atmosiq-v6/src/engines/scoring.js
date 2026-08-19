@@ -4,6 +4,11 @@
  */
 
 import { STD } from '../constants/standards'
+import { evaluateCriteria, capSeverity } from '../constants/criteria'
+
+// A walkthrough reading is a grab sample. Named once so the criterion layer's
+// determinative/indicative logic reads explicitly rather than by default.
+const EVIDENCE_BASIS_WALKTHROUGH = 'screening_grab'
 import { evaluateCategorySufficiency, evaluateAllSufficiency } from './sufficiency'
 import { getRiskBand, getConfidenceLevel } from './riskBands'
 import { getBuildingProfile, getRHOverride, getTempOverride, getACHOverride, getProfileContextFindings } from './buildingProfiles'
@@ -63,13 +68,13 @@ export function scoreZone(z, bldg) {
     normalizedFrom = tot
     tot = Math.round((tot / availableMax) * 100)
   }
-  // Data hall screening findings — walkthrough indicators, not definitive classifications
+  // Data hall walkthrough findings — indicators, not definitive classifications
   if (d.zone_subtype === 'data_hall') {
     if (d.gaseous_corrosion && (d.gaseous_corrosion.includes('G3') || d.gaseous_corrosion.includes('GX'))) {
-      cats.find(c => c.l === 'Contaminants')?.r.push({ t: 'Screening indicators consistent with elevated risk of G2 or worse environment per ANSI/ISA 71.04-2013 methodology. Gaseous corrosion severity is professional judgment based on visual/olfactory indicators — not instrument measurement. Definitive classification requires 30-day passive copper+silver reactivity coupon deployment per the standard.', std: 'ANSI/ISA 71.04-2013 (screening)', sev: 'medium' })
+      cats.find(c => c.l === 'Contaminants')?.r.push({ t: 'Walkthrough indicators consistent with elevated risk of G2 or worse environment per ANSI/ISA 71.04-2013 methodology. Gaseous corrosion severity is professional judgment based on visual/olfactory indicators — not instrument measurement. Definitive classification requires 30-day passive copper+silver reactivity coupon deployment per the standard.', std: 'ANSI/ISA 71.04-2013 (walkthrough basis)', sev: 'medium' })
     }
     if (d.iso_class === 'ISO Class 8') {
-      cats.find(c => c.l === 'Contaminants')?.r.push({ t: 'Particle conditions observed during walkthrough may indicate elevated particulate levels. ISO Class cannot be determined from walkthrough data alone. Definitive classification per ISO 14644-1:2015 requires particle counter deployment at standard size thresholds (≥0.5 µm, ≥1 µm, ≥5 µm).', std: 'ISO 14644-1:2015 (screening)', sev: 'medium' })
+      cats.find(c => c.l === 'Contaminants')?.r.push({ t: 'Particle conditions observed during walkthrough may indicate elevated particulate levels. ISO Class cannot be determined from walkthrough data alone. Definitive classification per ISO 14644-1:2015 requires particle counter deployment at standard size thresholds (≥0.5 µm, ≥1 µm, ≥5 µm).', std: 'ISO 14644-1:2015 (walkthrough basis)', sev: 'medium' })
     }
   }
   // Category lookups for overrides
@@ -159,11 +164,18 @@ function scoreVent(d, achOverride) {
   } else if (d.co2) {
     const v = +d.co2, o = d.co2o ? +d.co2o : STD.v.co2.base, df = v - o
     const hasOutdoor = !!d.co2o
-    if (v > STD.v.co2.act)                              { s = 0;  r.push({ t: 'CO₂ ' + v + ' ppm — severely elevated, indicating significant ventilation inadequacy. ' + co2Caveat, std: co2Ref, sev: 'critical' }) }
+    // CO₂ indexes outdoor-air delivery per occupant; it is not a contaminant
+    // measure, and no concentration of it alone is a critical finding. The cap
+    // comes from the criterion class rather than a literal here, so this branch
+    // cannot drift back to `critical` — which it was, rating a stuffy meeting
+    // room the same as a hydrogen reading at 25% of the lower explosive limit.
+    // Since the verdict layer escalates the whole assessment on any critical
+    // finding, that miscalibration reached the report's triage priority.
+    if (v > STD.v.co2.act)                              { s = 0;  r.push({ t: 'CO₂ ' + v + ' ppm — severely elevated, indicating significant ventilation inadequacy. ' + co2Caveat, std: co2Ref, sev: capSeverity('critical', 'ventilation_indicator') }) }
     else if (df > STD.v.co2.diff || v > STD.v.co2.con) { s = 10; r.push({ t: 'CO₂ ' + v + ' ppm (Δ' + df + ' ppm above outdoor) — ventilation rate appears inadequate for occupant load. ' + co2Caveat, std: co2Ref, sev: 'high' }) }
     else if (hasOutdoor ? df > 500 : v > 800)           { s = 20; r.push({ t: 'CO₂ ' + v + ' ppm' + (hasOutdoor ? ' (Δ' + df + ' ppm above outdoor ' + o + ')' : '') + ' — ventilation approaching concern for sedentary occupancy. ' + co2Caveat, std: co2Ref, sev: 'medium' }) }
     else if (!hasOutdoor && v > 800)                    { s = 20; r.push({ t: 'CO₂ ' + v + ' ppm — approaching concern (no outdoor baseline for differential). ' + co2Caveat, std: co2Ref, sev: 'low' }) }
-    else r.push({ t: 'CO₂ ' + v + ' ppm' + (hasOutdoor ? ' (Δ' + df + ' ppm)' : '') + ' — within screening range for ventilation adequacy. ' + co2Caveat, std: co2Ref, sev: 'pass' })
+    else r.push({ t: 'CO₂ ' + v + ' ppm' + (hasOutdoor ? ' (Δ' + df + ' ppm)' : '') + ' — within the reference range for ventilation adequacy. ' + co2Caveat, std: co2Ref, sev: 'pass' })
     r.push({ t: 'Ventilation scored from CO₂ only — Limited Confidence. CO₂ is a ventilation indicator and should not be interpreted as a contaminant measurement.', sev: 'info' })
   } else {
     let f = 0
@@ -185,7 +197,7 @@ function scoreCont(d) {
   if (d.pm) {
     const v = +d.pm, ho = !!d.pmo
     if (isDataHall) {
-      if (v > 10) { dd += ho ? 6 : 4; r.push({ t: 'Indoor PM2.5 mass concentration of ' + v + ' µg/m³ measured during walkthrough. Elevated relative to typical data hall MERV-filtered conditions (<10 µg/m³).' + (ho ? '' : ' Without concurrent outdoor PM2.5 measurement, indoor elevation cannot be attributed to building sources.') + ' Particle count data at ISO 14644-1 size thresholds not captured; ISO Class cannot be determined from mass measurement alone.', std:'ISO 14644-1:2015 (screening)', sev:'medium' }) }
+      if (v > 10) { dd += ho ? 6 : 4; r.push({ t: 'Indoor PM2.5 mass concentration of ' + v + ' µg/m³ measured during walkthrough. Elevated relative to typical data hall MERV-filtered conditions (<10 µg/m³).' + (ho ? '' : ' Without concurrent outdoor PM2.5 measurement, indoor elevation cannot be attributed to building sources.') + ' Particle count data at ISO 14644-1 size thresholds not captured; ISO Class cannot be determined from mass measurement alone.', std:'ISO 14644-1:2015 (walkthrough basis)', sev:'medium' }) }
     } else {
       if (v > STD.c.pm25.epa)      { dd += ho ? 12 : 8; r.push({ t: 'PM2.5 ' + v + ' µg/m³ — exceeds EPA 24-hr standard' + (ho?'':' (no outdoor baseline)'), std:'EPA NAAQS', sev:'high' }) }
       else if (v > STD.c.pm25.who) { dd += ho ? 6  : 4; r.push({ t: 'PM2.5 ' + v + ' µg/m³ — exceeds WHO guideline' + (ho?'':' (no outdoor baseline)'), std:'WHO AQG', sev:'medium' }) }
@@ -197,51 +209,35 @@ function scoreCont(d) {
       else r.push({ t: 'Indoor/outdoor PM2.5 ratio: ' + ioRatio + ' (≤1.0 — no significant indoor source)', sev: 'pass' })
     }
   }
-  if (d.co) {
-    const v = +d.co
-    // CO is measured here as a grab or short-duration reading. Occupational
-    // limits (OSHA PEL, NIOSH REL) are 8-hour+ TWAs and CANNOT be evaluated
-    // from one, so the text below says "the value of" rather than asserting
-    // an exceedance of the limit itself.
-    //
-    // The lower two tiers are the indoor criteria, and they are the ones that
-    // matter in a building investigation: an office at 15 ppm is a combustion
-    // source until proven otherwise, but sits far below every occupational
-    // limit. Before 2026-08 nothing fired below 35 ppm and that reading
-    // produced no finding at all.
-    //
-    // `std` strings are load-bearing: src/engine/bridge/classify.ts routes CO
-    // findings by matching 'osha'/'niosh' in std or text, falling through to
-    // co_screening_elevated for anything else. Keep OSHA/NIOSH on the top two
-    // tiers so their classification is unchanged.
-    if (v > STD.c.co.osha) {
-      dd += 25
-      r.push({ t: 'CO ' + v + ' ppm — above the OSHA PEL value of ' + STD.c.co.osha + ' ppm, which is an 8-hour TWA. A short-duration reading cannot establish TWA compliance, but a level this high indicates an active combustion source. Investigate immediately.', std: 'OSHA 29 CFR 1910.1000 Table Z-1', sev: 'critical' })
-    } else if (v > STD.c.co.niosh) {
-      dd += 12
-      r.push({ t: 'CO ' + v + ' ppm — above the NIOSH REL value of ' + STD.c.co.niosh + ' ppm (a 10-hour TWA). Identify and correct the combustion source.', std: 'NIOSH REL', sev: 'high' })
-    } else if (v > STD.c.co.who1h) {
-      dd += 12
-      r.push({ t: 'CO ' + v + ' ppm — above the WHO 1-hour indoor guideline of 35 mg/m³ (≈' + STD.c.co.who1h + ' ppm), a health-based acute criterion. Identify and correct the combustion source.', std: 'WHO Guidelines for Indoor Air Quality (2010)', sev: 'high' })
-    } else if (v > STD.c.co.epa) {
-      dd += 6
-      r.push({ t: 'CO ' + v + ' ppm — above the EPA 8-hour NAAQS of ' + STD.c.co.epa + ' ppm, applied here as an indoor reference. Indoor CO at this level indicates a combustion source or an infiltration pathway from one; identify and correct it.', std: '40 CFR 50.8', sev: 'medium' })
-    } else if (v > STD.c.co.who24h) {
-      dd += 2
-      r.push({ t: 'CO ' + v + ' ppm — above the WHO 24-hour indoor guideline of 7 mg/m³ (≈' + STD.c.co.who24h + ' ppm) and above typical indoor background. Note the likely source (fuel-fired appliance, attached garage, loading dock, flue) and re-check under normal operation.', std: 'WHO Guidelines for Indoor Air Quality (2010)', sev: 'low' })
-    }
-  }
-  if (d.hc) {
-    const v = +d.hc
-    if (v > STD.c.hcho.osha)       { dd += 25; r.push({ t: 'Formaldehyde ' + v + ' ppm — above the OSHA PEL value of ' + STD.c.hcho.osha + ' ppm, which is an 8-hour TWA. A short-duration reading cannot establish TWA compliance; confirm with NIOSH Method 2016 integrated sampling.', std:'29 CFR 1910.1048', sev:'critical' }) }
-    else if (v > STD.c.hcho.al)    { dd += 12; r.push({ t: 'Formaldehyde ' + v + ' ppm — above the OSHA action level value of ' + STD.c.hcho.al + ' ppm, which is an 8-hour TWA. Confirm with integrated sampling before treating it as an exposure determination.', std:'29 CFR 1910.1048', sev:'high' }) }
-    else if (v > STD.c.hcho.niosh) { dd += 6;  r.push({ t: 'Formaldehyde ' + v + ' ppm — exceeds NIOSH REL Ceiling (' + STD.c.hcho.niosh + ' ppm, health-protective recommendation) but below OSHA Action Level (' + STD.c.hcho.al + ' ppm) and PEL (' + STD.c.hcho.osha + ' ppm TWA). This is not a regulatory violation.', std:'NIOSH REL; 29 CFR 1910.1048', sev:'medium' }) }
+  // CO and formaldehyde evaluate through the shared criterion registry
+  // (constants/criteria.js), which carries each threshold's averaging period,
+  // class and citation. Severity, the finding sentence and the caveat about
+  // what a grab reading can settle all derive from the criterion — they are no
+  // longer literals repeated at each branch, which is how the averaging-period
+  // caveat came to be present on one branch and missing from the two above it.
+  //
+  // `std` is load-bearing: src/engine/bridge/classify.ts routes findings by
+  // matching 'osha'/'niosh' in std or text, falling through to the screening
+  // condition type. Criterion sources carry those tokens where the old strings
+  // did, so classification is unchanged — pinned by tests.
+  const DEDUCTION_BY_SEVERITY = { critical: 25, high: 12, medium: 6, low: 2 }
+  for (const [field, parameter, label] of [['co', 'co', 'CO'], ['hc', 'hcho', 'Formaldehyde']]) {
+    if (!d[field]) continue
+    const hit = evaluateCriteria(parameter, +d[field], EVIDENCE_BASIS_WALKTHROUGH)
+    if (!hit) continue
+    dd += DEDUCTION_BY_SEVERITY[hit.severity] ?? 0
+    r.push({ t: label + ' ' + hit.statement, std: hit.criterion.source, sev: hit.severity })
   }
   if (d.tv) {
-    const v = +d.tv, ho = !!d.tvo
-    const tvocCaveat = ' TVOC is a screening indicator only — no regulatory limit exists for total VOCs and TVOC measurement does not identify individual compounds that drive toxicological assessment. TO-17 speciation (thermal desorption GC/MS) is the appropriate analytical method for compound identification. Mølhave (1991) tiers are advisory.'
-    if (v > STD.c.tvoc.act)      { dd += ho?15:10; r.push({ t:'TVOCs '+v+' µg/m³ — significantly elevated. TO-17 speciation recommended to identify individual compounds.'+tvocCaveat, sev:'high' }) }
-    else if (v > STD.c.tvoc.con) { dd += ho?7:5;   r.push({ t:'TVOCs '+v+' µg/m³ — elevated. Consider TO-17 speciation if source investigation warranted.'+tvocCaveat, sev:'medium' }) }
+    // Deduction stays outdoor-aware — an elevated reading with an outdoor
+    // baseline to compare against is worth more than one without. Severity,
+    // wording and citation come from the criterion.
+    const hit = evaluateCriteria('tvoc', +d.tv, EVIDENCE_BASIS_WALKTHROUGH)
+    if (hit) {
+      const outdoorAware = !!d.tvo
+      dd += hit.severity === 'high' ? (outdoorAware ? 15 : 10) : (outdoorAware ? 7 : 5)
+      r.push({ t: 'TVOCs ' + hit.statement, std: hit.criterion.source, sev: hit.severity })
+    }
   }
   if (d.op === 'Strong / overpowering')    { dd += 10; r.push({ t:'Strong odor: '+((d.ot||[]).join(', ')||'?'), sev:'high' }) }
   else if (d.op === 'Moderate persistent') { dd += 5;  r.push({ t:'Moderate odor', sev:'medium' }) }

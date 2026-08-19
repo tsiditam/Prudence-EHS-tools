@@ -52,15 +52,15 @@ describe('averaging time is stated honestly', () => {
     // The old text was "CO 60 ppm — EXCEEDS OSHA PEL", which the phrase
     // library itself lists as a banned alternative for co_screening_elevated.
     expect(t).not.toMatch(/EXCEEDS OSHA PEL/)
-    expect(t).toMatch(/8-hour TWA/)
-    expect(t).toMatch(/cannot establish TWA compliance/i)
+    expect(t).toMatch(/8-hour time-weighted average/)
+    expect(t).toMatch(/cannot establish compliance with this averaging period/i)
   })
 
   it('says the same for formaldehyde', () => {
     const z = scoreZone({ zn: 'Z', su: 'office', hc: '1.0', pm: '5' }, {})
     const f = (z.cats.find((c: any) => c.l === 'Contaminants')?.r || [])
       .find((x: any) => String(x.t).startsWith('Formaldehyde'))
-    expect(f.t).toMatch(/8-hour TWA/)
+    expect(f.t).toMatch(/8-hour time-weighted average/)
     expect(f.t).not.toMatch(/— exceeds OSHA PEL$/)
   })
 })

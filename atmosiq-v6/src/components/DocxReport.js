@@ -13,6 +13,7 @@
  */
 
 import { Document, Packer, Paragraph, TextRun, AlignmentType, HeadingLevel } from 'docx'
+import { formatAssessmentDate, resolveAssessmentDate } from '../utils/assessmentDate'
 import { BODY_SECTION_PROPERTIES, LETTER_BODY_PAGE } from './docx/page-setup'
 import { DOCX_STYLES } from './docx/styles'
 import { markdownToDocx } from './docx/markdownToDocx'
@@ -188,7 +189,9 @@ export function buildContext(data) {
   const { building, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos, floorPlan, version, standardsManifest, assessmentContext, escalationTriggers } = data
   const bldg = building || {}
   const now = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
-  const assessDate = data.ts ? new Date(data.ts).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : now
+  // The date the survey was CONDUCTED, not the day the report was finalized.
+  // Shared resolver so this report, the DOCX and scoring all answer alike.
+  const assessDate = formatAssessmentDate(data) || now
 
   // Normalized identity fields from the connectivity layer (when
   // present). The builder already applies the same precedence rules
@@ -342,7 +345,7 @@ export function getConsultantReportResult(data) {
     profile: data.profile,
     presurvey: data.presurvey,
     building: data.building,
-    assessmentDate: data.ts ? data.ts.slice(0, 10) : undefined,
+    assessmentDate: resolveAssessmentDate(data) || undefined,
   })
   const score = legacyToAssessmentScore(
     data.zoneScores || [],
@@ -362,7 +365,7 @@ async function buildConsultantDocument(ctx, data) {
     profile: data.profile,
     presurvey: data.presurvey,
     building: data.building,
-    assessmentDate: data.ts ? data.ts.slice(0, 10) : undefined,
+    assessmentDate: resolveAssessmentDate(data) || undefined,
   })
   let score = legacyToAssessmentScore(
     data.zoneScores || [],

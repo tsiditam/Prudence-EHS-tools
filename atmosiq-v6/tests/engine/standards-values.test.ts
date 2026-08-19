@@ -16,13 +16,15 @@ describe('ventilation rates — ASHRAE 62.1 Table 6.2.2.1', () => {
     expect(STD.v.oa.office).toEqual({ pp: 5, ps: 0.06 })
   })
 
-  it('classroom carries the EPA Tools for Schools figure, not the ASHRAE one', () => {
-    // Deliberate and worth stating plainly: 15 cfm/person is EPA IAQ Tools
-    // for Schools guidance. ASHRAE 62.1 Table 6.2.2.1 gives 10 cfm/person +
-    // 0.12 cfm/ft² for classrooms age 9 plus — EPA's figure traces to the
-    // superseded 62-1989. The two differ by 50%, so whichever is used must
-    // be cited as its own source and never as the other.
-    expect(STD.v.oa.classroom).toEqual({ pp: 15, ps: 0.12 })
+  it('classroom carries the ASHRAE code basis, because that is what this field means', () => {
+    // scoring.js reads STD.v.oa as `req` and reports "below ASHRAE 62.1
+    // minimum (req)"; cfm < req * 0.5 is critical. Holding EPA Tools for
+    // Schools' 15 cfm/person here reported a classroom at 12 as below the
+    // ASHRAE minimum, when 12 exceeds the actual minimum of 10.
+    //
+    // The EPA target is not lost: buildingProfiles emits it as its own
+    // low-severity finding for classrooms between 10 and 15 cfm/person.
+    expect(STD.v.oa.classroom).toEqual({ pp: 10, ps: 0.12 })
   })
 })
 

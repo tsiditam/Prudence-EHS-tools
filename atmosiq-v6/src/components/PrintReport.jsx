@@ -15,6 +15,7 @@
  */
 
 import { legacyToAssessmentScore, deriveAssessmentMeta } from '../engine/bridge'
+import { formatAssessmentDate, resolveAssessmentDate } from '../utils/assessmentDate'
 import { resolveVerdict } from '../utils/assessmentVerdict'
 import { renderClientReport } from '../engine/report/client'
 import { generateClientReportHTML, generateModernClientReportHTML } from './print/client-html'
@@ -110,7 +111,9 @@ export function generateLegacyPrintHTML(data) {
   })) : null
   const bldg = building || {}
   const now = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
-  const assessDate = data.ts ? new Date(data.ts).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : now
+  // The date the survey was CONDUCTED, not the day the report was finalized.
+  // Shared resolver so this report, the DOCX and scoring all answer alike.
+  const assessDate = formatAssessmentDate(data) || now
   const reportId = data.id || `AIQ-${Date.now().toString(36).toUpperCase().slice(-6)}`
   const assessor = profile?.name || presurvey?.ps_assessor || 'Assessor'
   const ver = data.version || '6.0.0'

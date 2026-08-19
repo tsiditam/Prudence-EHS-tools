@@ -249,7 +249,8 @@ describe('scoreZone HVAC integration', () => {
     const result = scoreZone(zone, bldg)
     const vent = result.cats.find(c => c.l === 'Ventilation')
     expect(vent.s).toBe(0)
-    expect(vent.r[0].sev).toBe('critical')
+    // CO2 is capped at `high` by its criterion class — see constants/criteria.js.
+    expect(vent.r[0].sev).toBe('high')
 
     // Complaints
     const compCat = result.cats.find(c => c.l === 'Complaints')

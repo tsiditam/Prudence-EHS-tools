@@ -11,6 +11,11 @@
  */
 
 export const Q_PRESURVEY = [
+  // Survey date — the day the walkthrough was conducted, which is NOT
+  // necessarily the day the report is finalized. Drives the report's stated
+  // assessment date and the ASHRAE 55 thermal-comfort season, so a survey
+  // finalized in a later month is still scored against the day it happened.
+  { id:'ps_survey_date',         sec:'Assessor',      q:'Date of survey',                       t:'date', req:1, ic:'📆' },
   // Assessor
   { id:'ps_assessor',            sec:'Assessor',      q:'Assessor name and credentials',        t:'text', req:1, ic:'👤', ph:'e.g. J. Smith, CIH, CSP' },
   { id:'ps_assessor_certs',      sec:'Assessor',      q:'Certifications and licenses held',     t:'multi',       ic:'🎓', opts:['CIH','CIH-in-Training','CSP','CHMM','ACAC CIEC','ACAC CMC','ACAC CMI','Other'] },

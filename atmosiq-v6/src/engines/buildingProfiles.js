@@ -136,12 +136,19 @@ export const BUILDING_PROFILES = {
     additionalFields: {},
     rhOverrides: { default: { min: 30, max: 60, label: 'ASHRAE 55' } },
     contextFindings: [
-      { condition: (z) => z.zone_subtype === 'classroom',
-        // 15 cfm/person is EPA guidance; ASHRAE 62.1 Table 6.2.2.1 gives
-        // 10 cfm/person + 0.12 cfm/ft² for classrooms age 9 plus. Naming both
-        // separately, because they differ and the adopted code is usually 62.1.
-        text: 'Classroom outdoor air: EPA Tools for Schools guidance is 15 cfm/person; ASHRAE 62.1 requires 10 cfm/person plus 0.12 cfm/ft². Verify the OA damper is open and the design OA delivery rate is documented against whichever basis the jurisdiction has adopted.',
-        sev: 'medium', std: 'EPA IAQ Tools for Schools; ASHRAE 62.1-2025 Table 6.2.2.1' },
+      // No measured rate: state both bases so the assessor knows what to
+      // verify against. ASHRAE 62.1 is the code basis scoring evaluates;
+      // EPA Tools for Schools is the more protective guidance target.
+      { condition: (z) => z.zone_subtype === 'classroom' && !z.cfm_person,
+        text: 'Classroom outdoor air was not measured. ASHRAE 62.1 requires 10 cfm/person plus 0.12 cfm/ft² for classrooms age 9 plus; EPA Tools for Schools guidance is 15 cfm/person. Verify the OA damper is open and the design delivery rate is documented against the basis the jurisdiction has adopted.',
+        sev: 'medium', std: 'ASHRAE 62.1-2025 Table 6.2.2.1; EPA IAQ Tools for Schools' },
+      // Measured, meets code, short of guidance. Its own finding at its own
+      // severity — the guidance figure is not lost by scoring against code,
+      // and a code-compliant school is no longer reported non-compliant.
+      { condition: (z) => z.zone_subtype === 'classroom' && z.cfm_person
+          && +z.cfm_person >= 10 && +z.cfm_person < 15,
+        text: 'Classroom outdoor air delivery meets the ASHRAE 62.1 minimum of 10 cfm/person but falls below the 15 cfm/person target in EPA IAQ Tools for Schools. This is a guidance shortfall, not a code deficiency; the EPA figure is the more protective basis for classrooms and is worth meeting where the system allows.',
+        sev: 'low', std: 'EPA IAQ Tools for Schools' },
       { condition: (z) => z.zone_subtype === 'classroom' && z.co2 && +z.co2 > 800,
         text: 'CO₂ exceeds 800 ppm in classroom. Per EPA Tools for Schools, elevated CO₂ correlates with reduced cognitive performance and increased absenteeism in students.',
         sev: 'high', std: 'EPA TfS; Petersen et al. 2016' },

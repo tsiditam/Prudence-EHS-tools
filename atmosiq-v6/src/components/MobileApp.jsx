@@ -20,6 +20,7 @@ import Backup from '../utils/backup'
 import { groupActions } from '../utils/recFormatting'
 import { resolvePrimaryDriver } from '../utils/primaryDriver'
 import { resolveVerdict, countFindings, hasAnyAction } from '../utils/assessmentVerdict'
+import { resolveAssessmentDate } from '../utils/assessmentDate'
 import { getCalibrationBannerState, loadInstruments, isOutOfCal } from '../utils/instrumentRegistry'
 import {
   buildCalibrationAcknowledgement, validateJustification, MAX_JUSTIFICATION_LEN,
@@ -1501,17 +1502,16 @@ export default function MobileApp() {
       outdoorFields.forEach(f => { if (!z[f] && outdoorValues[f]) fill[f] = outdoorValues[f] })
       return Object.keys(fill).length > 0 ? { ...z, ...fill } : z
     })
-    // scoreZone reads an optional `assessmentDate` off the building object and
-    // falls back to now. Nothing is passed here yet: a draft carries only `ua`
-    // (last-saved), not a survey date, so there is no honest value to supply.
-    // Capturing one is an intake change — see TODO below. For a live
-    // walkthrough, which is what this path is once finalized reports are
-    // guarded out, "now" IS the assessment date and the fallback is correct.
-    // TODO(product): capture a survey date at intake so a draft resumed across
-    // a season boundary is scored against the day the work was done.
-    const zScores = zonesWithOutdoor.map(z => scoreZone(z, bldg))
+    // The survey date rides in on the building object (scoreZone merges
+    // { ...bldg, ...zone }), so a draft resumed after a month boundary is
+    // still scored against the day the walkthrough happened rather than the
+    // day it was reopened. Absent an entered date this is a live walkthrough
+    // and comfortSeason's fallback to now is correct.
+    const surveyDate = resolveAssessmentDate({ presurvey })
+    const scoringBldg = surveyDate ? { ...bldg, assessmentDate: surveyDate } : bldg
+    const zScores = zonesWithOutdoor.map(z => scoreZone(z, scoringBldg))
     const composite = compositeScore(zScores)
-    const worst = zonesWithOutdoor.reduce((w, z) => (!w || scoreZone(z, bldg).tot < scoreZone(w, bldg).tot) ? z : w, zonesWithOutdoor[0])
+    const worst = zonesWithOutdoor.reduce((w, z) => (!w || scoreZone(z, scoringBldg).tot < scoreZone(w, scoringBldg).tot) ? z : w, zonesWithOutdoor[0])
     const osha = evalOSHA({...bldg, ...worst}, composite?.tot || 0)
     const recommendations = genRecs(zScores, bldg, { zones: zonesWithOutdoor, equipment })
     const sp = generateSamplingPlan(zonesWithOutdoor, bldg)

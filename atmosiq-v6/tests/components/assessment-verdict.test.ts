@@ -136,3 +136,47 @@ describe('app and report cannot disagree', () => {
     expect(v.severity).toBe('critical')  // P1 — Critical, not P4 — Routine
   })
 })
+
+describe('complaints are a symptom, not a driver', () => {
+  const withComplaints = (sev: string) => [{
+    cats: [
+      { l: 'Ventilation', r: [{ t: 'ok', sev: 'pass' }] },
+      { l: 'Complaints', r: [{ t: '6-10 occupants reporting symptoms', sev }] },
+    ],
+  }]
+
+  it('caps a complaints-only critical at high', () => {
+    // Scoring rates 6+ occupants reporting symptoms as `critical`. That is an
+    // occupant report, not a measurement, and it must not make the BUILDING
+    // CONDITION critical or drive the report to P1 triage.
+    const v = resolveVerdict({ comp: { tot: 85 }, zoneScores: withComplaints('critical') })
+    expect(v.severity).toBe('high')
+    expect(v.escalatedBy).toBe('finding')
+  })
+
+  it('still lets a symptom cluster raise the verdict — capped, not ignored', () => {
+    expect(resolveVerdict({ comp: { tot: 92 }, zoneScores: withComplaints('critical') }).severity)
+      .not.toBe('pass')
+  })
+
+  it('leaves a measured critical in another category at critical', () => {
+    const zs = [{
+      cats: [
+        { l: 'Contaminants', r: [{ t: 'CO', sev: 'critical' }] },
+        { l: 'Complaints', r: [{ t: 'symptoms', sev: 'critical' }] },
+      ],
+    }]
+    expect(resolveVerdict({ comp: { tot: 85 }, zoneScores: zs }).severity).toBe('critical')
+  })
+
+  it('counts complaint findings in the totals regardless of the cap', () => {
+    // The cap governs escalation only. The finding is still a finding.
+    expect(countFindings(withComplaints('critical')).total).toBe(1)
+    expect(countFindings(withComplaints('critical')).attention).toBe(1)
+  })
+
+  it('preserves a low complaint severity rather than promoting it', () => {
+    expect(worstFindingSeverity(withComplaints('low'))).toBe('low')
+    expect(worstFindingSeverity(withComplaints('medium'))).toBe('medium')
+  })
+})
