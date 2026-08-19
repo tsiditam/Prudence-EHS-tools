@@ -713,18 +713,19 @@ function buildAppendices(report, options = {}) {
       out.push(heading3('Interpretation Notes'))
       for (const line of ctx) out.push(bullet(line))
     }
-    // v2.5 §2 — prefer pre-formatted displayLines (organization
-    // abbreviations expanded, sorted, deduped). Fall back to legacy
-    // citations array for backward compat with consumers that still
-    // synthesize Citations directly.
-    const lines = Array.isArray(ap.appendixD.displayLines) && ap.appendixD.displayLines.length > 0
-      ? ap.appendixD.displayLines
-      : (ap.appendixD.citations || []).map(c =>
-          `${c.source}${c.edition && c.edition !== 'current' ? ` (${c.edition})` : ''}${c.authority ? ` — ${c.authority}` : ''}`,
-        )
-    for (const line of lines) {
-      out.push(bullet(line))
-    }
+    // The STANDARDS REGISTER — a ~22-line bibliographic catalogue of every
+    // standard invoked — is deliberately NOT rendered (product decision,
+    // 2026-08). Each criterion is already named where it is used: beside its
+    // result in Criteria Applied, in the finding it produced, and in the
+    // background prose above. A reviewer can read the standards off the
+    // report itself, which is how consultant reports in this field are
+    // normally written; the catalogue restated them a third time.
+    //
+    // `appendixD.citations` and `displayLines` are still POPULATED by the
+    // citation walker and remain part of the model as the audit record of
+    // what the report cited — see collectCitations in client.ts and
+    // tests/engine/appendix-d-citation-walk.test.ts. Not rendering them is a
+    // presentation decision, not a decision to stop tracking.
     if (ap.appendixD.engineVersionLine) {
       out.push(p(ap.appendixD.engineVersionLine, { italics: true, size: 18, color: COLORS.light, before: 200 }))
     }
@@ -1561,7 +1562,7 @@ export function buildClientDocx(result, options = {}) {
       { before: /Scope/i },
     )
   }
-  tocEntries = spliceTocEntry(tocEntries, { anchorId: 'benchmarks', title: 'Standards, Guidelines, and Benchmark Types', level: 1 }, { after: /Sampling Methodology/i })
+  tocEntries = spliceTocEntry(tocEntries, { anchorId: 'benchmarks', title: 'Criteria Applied', level: 1 }, { after: /Sampling Methodology/i })
   // Instrument Accuracy sits between Sampling Methodology and Benchmarks
   // (when present).
   if (options.instrumentAccuracy && options.instrumentAccuracy.iaqName) {

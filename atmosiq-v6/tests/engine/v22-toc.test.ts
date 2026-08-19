@@ -79,7 +79,7 @@ describe('v2.2 §5 — Table of Contents on ClientReport', () => {
       'Appendix A — Per-Zone Measurement Tabulation',
       'Appendix B — Sampling Locations and Methodology',
       'Appendix C — Photo Documentation',
-      'Appendix D — Standards and Citations',
+      'Appendix D — Criteria Background',
       'Appendix E — Quality Assurance and Calibration',
       'Appendix F — Glossary',
     ])

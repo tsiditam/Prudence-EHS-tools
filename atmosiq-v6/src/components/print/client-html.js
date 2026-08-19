@@ -697,18 +697,10 @@ function renderAppendices(ap) {
       for (const line of ctx) out.push(`<li>${esc(line)}</li>`)
       out.push('</ul>')
     }
-    // v2.5 §2 — prefer pre-formatted displayLines. Fall back to the
-    // legacy citation list for backward compat.
-    const lines = Array.isArray(ap.appendixD.displayLines) && ap.appendixD.displayLines.length > 0
-      ? ap.appendixD.displayLines
-      : (ap.appendixD.citations || []).map(c =>
-          `${c.source}${c.edition && c.edition !== 'current' ? ` (${c.edition})` : ''}${c.authority ? ` — ${c.authority}` : ''}`,
-        )
-    if (lines.length > 0) {
-      out.push('<ul class="citations">')
-      for (const line of lines) out.push(`<li>${esc(line)}</li>`)
-      out.push('</ul>')
-    }
+    // The STANDARDS REGISTER is deliberately not rendered — see the same
+    // note in sections-v21client.js. Each criterion is already named where
+    // it is used; the catalogue restated them a third time. The citation
+    // walker still populates appendixD.citations as the audit record.
     if (ap.appendixD.engineVersionLine) {
       out.push(`<p class="engine-version">${esc(ap.appendixD.engineVersionLine)}</p>`)
     }

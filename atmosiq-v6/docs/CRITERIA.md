@@ -180,6 +180,21 @@ The technical/QA report keeps the fuller table (`benchmarkRowsFor`), narrowed
 to the parameters measured. Different audience, same generated rows — depth
 differs, the numbers cannot.
 
+### No standards register
+
+Appendix D used to close with a bibliographic catalogue of every standard
+invoked. It is gone (product decision, 2026-08) and the appendix is now
+**Criteria Background** — background prose and interpretation notes only.
+
+Each criterion is already named three places a reader will look: beside its
+result in Criteria Applied, in the finding it produced, and in that
+background prose. The catalogue was a fourth statement of the same thing.
+
+The citation walker still runs and still populates `appendixD.citations`, so
+the audit record of what a report cited is intact — only the printing
+stopped. `tests/engine/no-standards-register.test.ts` fails if a register
+reappears in the rendered DOCX.
+
 ## The complement: criteria we chose NOT to apply
 
 `src/engines/contextualStandards.js` is the other half of the registry. The

@@ -300,9 +300,21 @@ patterns are non-negotiable — but they are a floor to clear, not a target to
 aim at. Clearing them does not make a report good; it makes it publishable.
 When working on report generation:
 
-- **Citation tracker.** Every body-text reference to a standard
-  registers with the tracker. Appendix D includes only registered
-  standards. No automated standards dump.
+- **Citation tracker.** Every body-text reference to a standard registers
+  with the tracker (`src/engine/report/citation-tracker.ts`), and the walker
+  still populates `appendixD.citations` / `displayLines` as the audit record
+  of what a report cited.
+
+  **The register is no longer RENDERED** (product decision, 2026-08). Appendix
+  D used to close with a ~22-line bibliographic catalogue; it is now
+  "Appendix D — Criteria Background" and carries the per-parameter background
+  prose and interpretation notes only. Each criterion is already named where
+  it is used — beside its result in **Criteria Applied**, in the finding it
+  produced, and in that background prose — so the catalogue stated it a third
+  time. A reviewer reads the standards off the report, which is how
+  consultant reports in this field are normally written. Do not reintroduce a
+  standards list; `tests/engine/no-standards-register.test.ts` fails if one
+  reappears in the DOCX. Tracking is unchanged — only printing stopped.
 - **Qualitative-only propagation.** Findings derived from instruments
   not in the accuracy database inherit a `qualitative_only: true` flag
   that propagates to every rendered output of that finding.
@@ -346,6 +358,15 @@ When working on report generation:
 - **Journal citations must be verified.** Title, journal, volume,
   issue, pages, year — all from primary sources. Flag unverified
   entries with TODO and exclude from generated reports.
+- **One criterion per parameter in the report.** The **Criteria Applied**
+  table lists each measured parameter once, citing the criterion the
+  conclusion rests on: the one behind the governing finding where there is
+  one, otherwise the default reference the reading cleared
+  (`src/components/docx/applied-references.js`). Never source that citation
+  from a fixed per-parameter default alone — the Logger Studio temperature
+  default resolves ASHRAE 55's *acceptable* range while the engine also flags
+  the tighter *optimal* band, so a fixed reference contradicts the finding
+  beside it. `docs/CRITERIA.md` has the detail.
 - **A threshold travels with its averaging period, class and source.**
   `src/constants/criteria.js` is the registry; `docs/CRITERIA.md` explains
   it. Never compare a measured value against a bare number from `STD` —

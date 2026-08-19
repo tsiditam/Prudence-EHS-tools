@@ -521,7 +521,7 @@ export function renderClientReport(
   // build a preliminary report with a stub Appendix D, run the
   // walker, then replace Appendix D with the populated version.
   const appendixDStub: AppendixD = {
-    title: 'APPENDIX D — Standards and Citations',
+    title: 'APPENDIX D — Criteria Background',
     description: '',
     parameterBackground: [],
     technicalContext: [],
@@ -574,7 +574,7 @@ export function renderClientReport(
     { anchorId: 'appendix-a', title: 'Appendix A — Per-Zone Measurement Tabulation', level: 1 },
     { anchorId: 'appendix-b', title: 'Appendix B — Sampling Locations and Methodology', level: 1 },
     { anchorId: 'appendix-c', title: 'Appendix C — Photo Documentation', level: 1 },
-    { anchorId: 'appendix-d', title: 'Appendix D — Standards and Citations', level: 1 },
+    { anchorId: 'appendix-d', title: 'Appendix D — Criteria Background', level: 1 },
     { anchorId: 'appendix-e', title: 'Appendix E — Quality Assurance and Calibration', level: 1 },
     { anchorId: 'appendix-f', title: 'Appendix F — Glossary', level: 1 },
   ]
@@ -629,11 +629,11 @@ export function renderClientReport(
     proseCitations,
   })
   const appendixD: AppendixD = {
-    title: 'APPENDIX D — Standards and Citations',
+    title: 'APPENDIX D — Criteria Background',
     parameterBackground: buildParameterBackground(parameterRanges),
     technicalContext: collectTechnicalContext(significantFindings),
     description:
-      'Authoritative regulatory, consensus-standard, peer-reviewed, and manufacturer references invoked in this report. Each entry below is the canonical bibliographic reference for an in-text citation appearing in Results subsections, findings, or recommended actions. The engine-version footer at the bottom of this appendix is the single canonical record of the platform build that produced this report.',
+      'Background on the criteria used in this report: what each one is, the body that issues it, and the weight it carries. The criterion applied to each parameter is identified with its result in Criteria Applied and in the finding it produced; this appendix explains those choices rather than restating them. The engine-version footer below is the canonical record of the platform build that produced this report.',
     citations: collectedCitations.map(c => ({
       source: c.source,
       authority: c.authority,
