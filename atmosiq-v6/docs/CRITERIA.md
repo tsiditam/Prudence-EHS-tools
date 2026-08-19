@@ -133,6 +133,76 @@ The link is by id and nothing enforces it at the type level, so
 `tests/engine/criteria.test.ts` walks every linked profile and asserts its
 criterion exists and its citation matches.
 
+## One criterion per parameter (built, not currently rendered)
+
+> **Status:** the **Criteria Applied** table was removed from the consultant
+> deliverable in 2026-08, along with the standards register and the other
+> standards sections — the report now names its criteria in the findings and
+> the Appendix D background instead. `applied-references.js` and its tests
+> are retained and green; re-composing the section is one line in
+> `sections-v21client.js`. The rest of this section describes how it works,
+> and the traps to avoid if it is restored.
+
+The table lists each measured parameter once, with the single criterion it
+was evaluated against — the shape the Indoor Environmental Monitoring Report
+has always used. It replaced a table that printed every criterion the
+platform knows (seven for CO alone), leaving the reader to work out which one
+the assessment rested on.
+
+`src/components/docx/applied-references.js` resolves it:
+
+| The engine | The citation |
+|---|---|
+| flagged the parameter | the criterion behind the **most severe** finding, read from `parameter-verdicts.ts` |
+| flagged nothing | the parameter's **default reference profile** — the yardstick it cleared |
+
+Contradiction-free by construction. A cleared reading cleared *every*
+criterion including the default, so "within" is true of both; a flagged
+reading cites the thing it exceeded.
+
+**Why not simply use the Logger Studio default.** Because the two disagree,
+in the same way Results and Zone Findings used to disagree about 72 °F:
+
+- **Temperature** — the Logger default resolves the ASHRAE 55 *acceptable*
+  range (67–82 °F); `scoreEnv` also flags the tighter seasonal *optimal* band
+  (73–79 °F in summer). Printing 67–82 beside a finding on a 72 °F reading
+  says the reading is inside the band it was flagged against.
+- **CO** — the Logger default is the EPA 8-hour NAAQS at 9 ppm; the registry
+  ladder reaches the WHO 24-hour indoor guideline at 6 ppm. A 7 ppm reading
+  is flagged while a fixed 9 ppm reference says it is under the bar.
+
+Two things to know when touching this:
+
+1. **Pass the unit.** `resolveReference` *projects* a published value into the
+   unit it is given, so omitting `ctx.unit` is not "no unit" — it is a silent
+   conversion. TVOC's 500 µg/m³ came back as `218` (ppb, via isobutylene
+   molecular weight) before `REPORT_UNIT` was supplied.
+2. **Benchmark type comes from the criterion CLASS**, shared with the full
+   table via `CLASS_PRESENTATION`. Profiles with no registry criterion behind
+   them (the comfort bands, CO₂'s ventilation indicators) fall back to
+   `BAND_PRESENTATION`; without that they rendered a bare "Indicator", so the
+   same parameter could be a "Ventilation benchmark" when flagged and an
+   "Indicator" when not.
+
+The technical/QA report keeps the fuller table (`benchmarkRowsFor`), narrowed
+to the parameters measured. Different audience, same generated rows — depth
+differs, the numbers cannot.
+
+### No standards register
+
+Appendix D used to close with a bibliographic catalogue of every standard
+invoked. It is gone (product decision, 2026-08) and the appendix is now
+**Criteria Background** — background prose and interpretation notes only.
+
+Each criterion is already named three places a reader will look: beside its
+result in Criteria Applied, in the finding it produced, and in that
+background prose. The catalogue was a fourth statement of the same thing.
+
+The citation walker still runs and still populates `appendixD.citations`, so
+the audit record of what a report cited is intact — only the printing
+stopped. `tests/engine/no-standards-register.test.ts` fails if a register
+reappears in the rendered DOCX.
+
 ## The complement: criteria we chose NOT to apply
 
 `src/engines/contextualStandards.js` is the other half of the registry. The

@@ -22,8 +22,9 @@ export const TVOC_PROSE: ParameterProse = {
   summaryTemplate(range) {
     if (range.count === 0) return 'Total volatile organic compounds were not measured during this assessment.'
     const head = `Total VOCs ranged from ${range.low} to ${range.high} ${range.unit}, averaging ${range.average} ${range.unit}.`
+    if (range.withinStandards === null) return head
     if (range.withinStandards) {
-      return `${head} Concentrations are within typical office background per the Mølhave (1991) tiers.`
+      return `${head} Concentrations are within typical office background per the Mølhave (1991) tiers, and no VOC condition was identified in any zone measured.`
     }
     const zones = range.elevatedInZones && range.elevatedInZones.length > 0
       ? ` Elevated in ${range.elevatedInZones.join(', ')}; per-zone values are in Appendix A.`

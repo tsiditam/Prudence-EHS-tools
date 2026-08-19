@@ -292,11 +292,32 @@ export function renderClientReport(
   // v2.3 §2 — only mention the Building and System Conditions section
   // when it actually renders; otherwise the no-building fixture's
   // narrative would name a section it doesn't have.
-  const resultsNarrative = significantFindings.length > 0
-    ? (buildingActiveFindings.length > 0
-        ? `Screening-level observations identified conditions that warrant further evaluation. Detailed findings are presented in the zone-specific sections and the Recommendations Register. Per-parameter measurement ranges and comparisons against applicable regulatory standards and industry guidelines are summarized in the Results section. Building-level conditions affecting the HVAC system are summarized in the Building and System Conditions section.`
-        : `Screening-level observations identified conditions that warrant further evaluation. Detailed findings are presented in the zone-specific sections and the Recommendations Register. Per-parameter measurement ranges and comparisons against applicable regulatory standards and industry guidelines are summarized in the Results section.`)
-    : `Screening-level observations did not identify conditions warranting further evaluation within the stated limitations. Per-parameter measurement ranges are summarized in the Results section.`
+  //
+  // This paragraph and the Overall Professional Opinion are two statements
+  // about the same evidence, and they disagreed in an issued report: the
+  // summary opened "No significant indoor air quality concerns were
+  // identified" and this paragraph, two paragraphs later, said observations
+  // "identified conditions that warrant further evaluation". Both were
+  // reachable at once — the opinion tier ignores a `low` finding, this
+  // sentence counted every non-pass finding — and the reader was left to
+  // pick one. The opinion tier is authoritative; this paragraph now states
+  // the hierarchy underneath it instead of forming a second verdict.
+  //
+  // ("Screening-level" also went with it. The label was stripped
+  // platform-wide in 2026-08 and this sentence was still shipping it.)
+  const sectionPointers = buildingActiveFindings.length > 0
+    ? ` Detailed findings are presented in the zone-specific sections and the Recommendations Register. Per-parameter measurement ranges and the criteria they were compared against are summarized in the Results section. Building-level conditions affecting the HVAC system are summarized in the Building and System Conditions section.`
+    : ` Detailed findings are presented in the zone-specific sections and the Recommendations Register. Per-parameter measurement ranges and the criteria they were compared against are summarized in the Results section.`
+
+  const resultsNarrative =
+    significantFindings.length === 0
+      ? `This assessment did not identify conditions warranting further evaluation within the stated limitations. Per-parameter measurement ranges are summarized in the Results section.`
+      : siteOpinion === 'no_significant_concerns_identified'
+        // Observations exist, none rises to a concern. Saying so in that
+        // order is the whole point: it neither implies the assessment found
+        // nothing nor implies it found something requiring action.
+        ? `No conditions of concern were identified during this assessment. Individual observations were recorded and are discussed below.${sectionPointers}`
+        : `Conditions warranting further evaluation were identified.${sectionPointers}`
 
   // Observations: dedup the top significant findings to 3-6 entries by
   // distinct conditionType. Preserve order by first appearance. Uses
@@ -500,7 +521,7 @@ export function renderClientReport(
   // build a preliminary report with a stub Appendix D, run the
   // walker, then replace Appendix D with the populated version.
   const appendixDStub: AppendixD = {
-    title: 'APPENDIX D — Standards and Citations',
+    title: 'APPENDIX D — Criteria Background',
     description: '',
     parameterBackground: [],
     technicalContext: [],
@@ -553,7 +574,7 @@ export function renderClientReport(
     { anchorId: 'appendix-a', title: 'Appendix A — Per-Zone Measurement Tabulation', level: 1 },
     { anchorId: 'appendix-b', title: 'Appendix B — Sampling Locations and Methodology', level: 1 },
     { anchorId: 'appendix-c', title: 'Appendix C — Photo Documentation', level: 1 },
-    { anchorId: 'appendix-d', title: 'Appendix D — Standards and Citations', level: 1 },
+    { anchorId: 'appendix-d', title: 'Appendix D — Criteria Background', level: 1 },
     { anchorId: 'appendix-e', title: 'Appendix E — Quality Assurance and Calibration', level: 1 },
     { anchorId: 'appendix-f', title: 'Appendix F — Glossary', level: 1 },
   ]
@@ -608,11 +629,11 @@ export function renderClientReport(
     proseCitations,
   })
   const appendixD: AppendixD = {
-    title: 'APPENDIX D — Standards and Citations',
+    title: 'APPENDIX D — Criteria Background',
     parameterBackground: buildParameterBackground(parameterRanges),
     technicalContext: collectTechnicalContext(significantFindings),
     description:
-      'Authoritative regulatory, consensus-standard, peer-reviewed, and manufacturer references invoked in this report. Each entry below is the canonical bibliographic reference for an in-text citation appearing in Results subsections, findings, or recommended actions. The engine-version footer at the bottom of this appendix is the single canonical record of the platform build that produced this report.',
+      'Background on the criteria used in this report: what each one is, the body that issues it, and the weight it carries. Each criterion is named with the finding it produced and in the Results discussion for its parameter; this appendix explains those choices rather than restating them. The engine-version footer below is the canonical record of the platform build that produced this report.',
     citations: collectedCitations.map(c => ({
       source: c.source,
       authority: c.authority,
@@ -924,7 +945,7 @@ function buildAppendixE(meta: ClientReport['meta']): AppendixE {
     qaNotes: [
       'Field instruments were checked against ambient outdoor reference at the start of the survey day.',
       'Where outdoor reference measurements are missing for a parameter, the outdoor differential analysis is omitted from the corresponding Results subsection.',
-      'Measurement uncertainty associated with direct-reading instruments is documented in Appendix B and applied throughout the screening-level interpretation.',
+      'Measurement uncertainty associated with direct-reading instruments is documented in Appendix B and carried through the interpretation of every value reported here.',
     ],
   }
 }

@@ -116,7 +116,7 @@ Read these directories first when investigating any task:
   readiness diagnostic, smoke test, password-reset verification, Stripe
   setup, cron implementations, sample-report PDF generator.
 - `scripts/acceptance/` — JSON acceptance configs:
-  `prod-ready.json` (23 criteria), `pricing-rollout.json` (19),
+  `prod-ready.json` (59 criteria), `pricing-rollout.json` (19),
   `go-live.json` (21), and the legacy v2.X engine configs.
 - `tests/` — Vitest:
   - `tests/engine/` — engine logic + report rendering tests (.ts)
@@ -300,9 +300,21 @@ patterns are non-negotiable — but they are a floor to clear, not a target to
 aim at. Clearing them does not make a report good; it makes it publishable.
 When working on report generation:
 
-- **Citation tracker.** Every body-text reference to a standard
-  registers with the tracker. Appendix D includes only registered
-  standards. No automated standards dump.
+- **Citation tracker.** Every body-text reference to a standard registers
+  with the tracker (`src/engine/report/citation-tracker.ts`), and the walker
+  still populates `appendixD.citations` / `displayLines` as the audit record
+  of what a report cited.
+
+  **The register is no longer RENDERED** (product decision, 2026-08). Appendix
+  D used to close with a ~22-line bibliographic catalogue; it is now
+  "Appendix D — Criteria Background" and carries the per-parameter background
+  prose and interpretation notes only. Each criterion is already named where
+  it is used — beside its result in **Criteria Applied**, in the finding it
+  produced, and in that background prose — so the catalogue stated it a third
+  time. A reviewer reads the standards off the report, which is how
+  consultant reports in this field are normally written. Do not reintroduce a
+  standards list; `tests/engine/no-standards-register.test.ts` fails if one
+  reappears in the DOCX. Tracking is unchanged — only printing stopped.
 - **Qualitative-only propagation.** Findings derived from instruments
   not in the accuracy database inherit a `qualitative_only: true` flag
   that propagates to every rendered output of that finding.
@@ -346,6 +358,30 @@ When working on report generation:
 - **Journal citations must be verified.** Title, journal, volume,
   issue, pages, year — all from primary sources. Flag unverified
   entries with TODO and exclude from generated reports.
+- **The consultant report carries no standards sections.** Five were removed
+  in 2026-08 after a CIH review found the report overbuilt for the work
+  behind it: the Appendix D standards register, **Criteria Applied** (was
+  "Standards, Guidelines, and Benchmark Types"), **Additional Criteria
+  Considered** (was "Standards Currency"), **Potential Contributing
+  Factors**, and **Appendix F — Glossary**. Each restated in a dedicated
+  section something the report already says where it matters; a reviewer
+  reads the standards off the findings and the Appendix D background, which
+  is the convention in this field.
+
+  The builders are all retained and still unit-tested — this is a
+  composition decision, reversible by re-adding one line each — but nothing
+  renders them. `tests/engine/omitted-consultant-sections.test.ts` and
+  `no-standards-register.test.ts` fail if any returns, and they check the
+  table of contents as well as the body: a removal that deletes only the
+  section leaves the contents page pointing at nothing, which is how
+  "Standards, Guidelines, and Benchmark Types" survived its own rename.
+
+  `applied-references.js` (one criterion per parameter, resolved from what
+  the engine applied) is unrendered but intact; `docs/CRITERIA.md` explains
+  it. If it is ever restored, do NOT source its citation from a fixed
+  per-parameter default — the Logger Studio temperature default resolves
+  ASHRAE 55's *acceptable* range while the engine flags the tighter *optimal*
+  band, so a fixed reference contradicts the finding beside it.
 - **A threshold travels with its averaging period, class and source.**
   `src/constants/criteria.js` is the registry; `docs/CRITERIA.md` explains
   it. Never compare a measured value against a bare number from `STD` —
@@ -361,7 +397,7 @@ Three feature-level acceptance configs gate completion claims:
 
 | Gate | Script | Criteria |
 |---|---|---|
-| Production readiness (Group A) | `npm run accept:prod-ready` | 23 |
+| Production readiness (Group A) | `npm run accept:prod-ready` | 59 |
 | Pricing rollout (Group B) | `npm run accept:pricing-rollout` | 19 |
 | Go-live experience (Group C) | `npm run accept:go-live` | 21 |
 

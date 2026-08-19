@@ -9,7 +9,22 @@
  * engine's scoring path. Parameter ranges are a presentational concern
  * derived from the same input data the scoring engine consumes; they
  * do not feed scoring.
+ *
+ * 2026-08: this file used to compute `withinStandards` and
+ * `elevatedInZones` from its OWN hardcoded thresholds — a second,
+ * invisible threshold engine that knew nothing about `STD`, the criterion
+ * registry, the comfort season, or the building-profile overrides. It
+ * disagreed with the real engine on a live report, which said both
+ * "within the ASHRAE 55 comfort range" and "outside typical comfort
+ * ranges defined by ASHRAE 55" about the same 72 °F reading.
+ *
+ * Both judgements now come from `deriveParameterVerdicts`, which reads
+ * what the engine actually concluded. Ranges are arithmetic; verdicts are
+ * interpretation; this file does the first and reads the second. Do not
+ * reintroduce a threshold here — see parameter-verdicts.ts.
  */
+
+import { deriveParameterVerdicts, type LegacyZoneScoreLike, type ParameterVerdictSet } from './parameter-verdicts'
 
 export type ParameterKey =
   | 'co2'
@@ -72,27 +87,33 @@ export interface LegacyZone {
 
 /**
  * Compute per-parameter ranges across an array of legacy zone-data
- * objects. The withinStandards judgement is computed against the
- * applicable threshold for that parameter:
- *   co2: 700 ppm differential above outdoor (if outdoor available),
- *        else 1000 ppm absolute as a sedentary-office screening cap
- *   co: 9 ppm 8-hour TWA (ASHRAE 62.1) — conservative
- *   hcho: 0.1 ppm screening trigger (NIOSH REL ceiling = 0.016 ppm,
- *         but direct-reading instruments are ±0.02 ppm so the
- *         meaningful screening trigger is ~0.1 ppm)
- *   tvoc: 500 µg/m³ (Mølhave 1991 advisory)
- *   pm25: 35 µg/m³ (EPA NAAQS 24-hour)
- *   pm10: 150 µg/m³ (EPA NAAQS 24-hour)
- *   temperature: 68–78°F (ASHRAE 55 office comfort)
- *   rh: 30–60% (ASHRAE 55 office comfort, NYC DOHMH mold cap)
+ * objects.
+ *
+ * `withinStandards` and `elevatedInZones` are NOT computed here. They are
+ * read from the engine's own findings via `deriveParameterVerdicts`, so
+ * the Results prose can never disagree with the Zone Findings about the
+ * same measurement. See parameter-verdicts.ts for why.
+ *
+ * @param zones       legacy zone intake records
+ * @param zoneScores  the engine's per-zone scores. Omit only in unit tests
+ *                    that exercise the arithmetic alone: without them no
+ *                    interpretation exists, so `withinStandards` is null
+ *                    and the prose makes no within/outside claim.
  */
-export function computeParameterRanges(zones: ReadonlyArray<LegacyZone>): ParameterRangeSet {
+export function computeParameterRanges(
+  zones: ReadonlyArray<LegacyZone>,
+  zoneScores?: ReadonlyArray<LegacyZoneScoreLike>,
+): ParameterRangeSet {
   const result: ParameterRangeSet = {}
+  // Absent zoneScores there is no engine verdict to read, and this file is
+  // forbidden from inventing one.
+  const verdicts: ParameterVerdictSet | null = zoneScores
+    ? deriveParameterVerdicts(zoneScores, zones as ReadonlyArray<{ zn?: unknown }>)
+    : null
 
   for (const param of Object.keys(LEGACY_FIELD) as ParameterKey[]) {
     const fields = LEGACY_FIELD[param]
     const values: number[] = []
-    const elevatedInZones: string[] = []
 
     for (const zone of zones) {
       let raw: unknown
@@ -106,8 +127,6 @@ export function computeParameterRanges(zones: ReadonlyArray<LegacyZone>): Parame
       const num = typeof raw === 'number' ? raw : parseFloat(String(raw))
       if (!Number.isFinite(num)) continue
       values.push(num)
-      const zoneName = zone.zn || 'Unnamed zone'
-      if (isElevated(param, num, zones)) elevatedInZones.push(zoneName)
     }
 
     if (values.length === 0) continue
@@ -127,7 +146,12 @@ export function computeParameterRanges(zones: ReadonlyArray<LegacyZone>): Parame
       }
     }
 
-    const withinStandards = computeWithinStandards(param, { low, high, average, outdoor: outdoorReference })
+    const verdict = verdicts ? verdicts[param] : undefined
+    // A measured parameter the engine flagged nowhere is within range —
+    // silence from the engine is a verdict, not an absence of one. Null
+    // only when no engine output was supplied at all.
+    const withinStandards = verdicts ? !(verdict?.hasFinding ?? false) : null
+    const elevatedInZones = verdict?.zones ?? []
 
     result[param] = {
       low: round2(low),
@@ -136,60 +160,12 @@ export function computeParameterRanges(zones: ReadonlyArray<LegacyZone>): Parame
       unit: PARAMETER_UNIT[param],
       count: values.length,
       withinStandards,
-      elevatedInZones: elevatedInZones.length > 0 ? elevatedInZones : undefined,
+      elevatedInZones: elevatedInZones.length > 0 ? elevatedInZones.slice() : undefined,
       outdoorReference: outdoorReference !== undefined ? round2(outdoorReference) : undefined,
     }
   }
 
   return result
-}
-
-function isElevated(param: ParameterKey, value: number, zones: ReadonlyArray<LegacyZone>): boolean {
-  switch (param) {
-    case 'co2': {
-      // Elevated relative to outdoor differential (>700 ppm above outdoor)
-      // OR absolute >1000 ppm if no outdoor baseline.
-      const outdoor = readNumberFromZones(zones, 'co2o')
-      if (outdoor !== null) return value - outdoor > 700
-      return value > 1000
-    }
-    case 'co': return value > 9
-    case 'hcho': return value > 0.1
-    case 'tvoc': return value > 500
-    case 'pm25': return value > 35
-    case 'pm10': return value > 150
-    case 'temperature': return value < 68 || value > 78
-    case 'rh': return value < 30 || value > 60
-  }
-}
-
-function computeWithinStandards(
-  param: ParameterKey,
-  stats: { low: number; high: number; average: number; outdoor?: number },
-): boolean {
-  switch (param) {
-    case 'co2': {
-      const cap = stats.outdoor !== undefined ? stats.outdoor + 700 : 1000
-      return stats.high <= cap
-    }
-    case 'co': return stats.high <= 9
-    case 'hcho': return stats.high <= 0.1
-    case 'tvoc': return stats.high <= 500
-    case 'pm25': return stats.high <= 35
-    case 'pm10': return stats.high <= 150
-    case 'temperature': return stats.low >= 68 && stats.high <= 78
-    case 'rh': return stats.low >= 30 && stats.high <= 60
-  }
-}
-
-function readNumberFromZones(zones: ReadonlyArray<LegacyZone>, field: string): number | null {
-  for (const z of zones) {
-    const raw = z[field]
-    if (raw === undefined || raw === '') continue
-    const num = typeof raw === 'number' ? raw : parseFloat(String(raw))
-    if (Number.isFinite(num)) return num
-  }
-  return null
 }
 
 function round2(n: number): number {

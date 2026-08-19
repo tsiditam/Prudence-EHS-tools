@@ -131,7 +131,11 @@ const PROFILES = {
       // a health/contaminant limit (Persily 2021). The earlier "ASHRAE 62.1"
       // attribution here was flagged twice in peer review.
       id: 'ashrae-advisory',
-      label: 'Screening advisory (1,000 ppm)',
+      // "Screening advisory" until 2026-08 — the label reached the consultant
+      // report through the Criteria Applied table and reintroduced a word
+      // stripped platform-wide. "Ventilation advisory" is also the more
+      // accurate name: 1,000 ppm indexes outdoor-air delivery per occupant.
+      label: 'Ventilation advisory (1,000 ppm)',
       source: 'NIOSH indoor-ventilation indicator (~1,000 ppm)',
       resolve: () => ({ limit: STD.v.co2.con }),
     },
@@ -186,12 +190,14 @@ const PROFILES = {
     {
       id: 'molhave',
       label: 'Mølhave advisory (500 µg/m³)',
+      criterionId: 'tvoc_molhave_concern',
       source: 'Mølhave 1991',
       resolve: (ctx) => ({ limit: round(tvocToUnit(STD.c.tvoc.con, ctx && ctx.unit), isPpm(ctx && ctx.unit) ? 2 : 0) }),
     },
     {
       id: 'molhave-action',
       label: 'Mølhave action tier (3,000 µg/m³)',
+      criterionId: 'tvoc_molhave_action',
       source: 'Mølhave 1991',
       resolve: (ctx) => ({ limit: round(tvocToUnit(STD.c.tvoc.act, ctx && ctx.unit), isPpm(ctx && ctx.unit) ? 2 : 0) }),
     },
@@ -212,10 +218,10 @@ const PROFILES = {
   ],
 
   hcho: [
-    { id: 'niosh-rel', label: 'NIOSH REL', source: 'NIOSH Pocket Guide', resolve: (ctx) => ({ limit: round(hchoToUnit(STD.c.hcho.niosh, ctx && ctx.unit), isPpm(ctx && ctx.unit) ? 3 : (isMg(ctx && ctx.unit) ? 3 : 1)) }) },
-    { id: 'epa-rfc', label: 'EPA IRIS RfC (chronic)', source: 'US EPA IRIS', resolve: (ctx) => ({ limit: round(hchoToUnit(STD.c.hcho.epaRfc, ctx && ctx.unit), isPpm(ctx && ctx.unit) ? 3 : (isMg(ctx && ctx.unit) ? 3 : 1)) }) },
-    { id: 'who-30min', label: 'WHO 30-minute', source: 'WHO indoor air quality guidelines', resolve: (ctx) => ({ limit: round(hchoToUnit(STD.c.hcho.who, ctx && ctx.unit), isPpm(ctx && ctx.unit) ? 3 : (isMg(ctx && ctx.unit) ? 3 : 1)) }) },
-    { id: 'osha-pel', label: 'OSHA PEL', source: '29 CFR 1910.1048', resolve: (ctx) => ({ limit: round(hchoToUnit(STD.c.hcho.osha, ctx && ctx.unit), isPpm(ctx && ctx.unit) ? 3 : (isMg(ctx && ctx.unit) ? 3 : 1)) }) },
+    { id: 'niosh-rel', label: 'NIOSH REL', criterionId: 'hcho_niosh_rel', source: 'NIOSH Pocket Guide', resolve: (ctx) => ({ limit: round(hchoToUnit(STD.c.hcho.niosh, ctx && ctx.unit), isPpm(ctx && ctx.unit) ? 3 : (isMg(ctx && ctx.unit) ? 3 : 1)) }) },
+    { id: 'epa-rfc', label: 'EPA IRIS RfC (chronic)', criterionId: 'hcho_epa_rfc', source: 'US EPA IRIS', resolve: (ctx) => ({ limit: round(hchoToUnit(STD.c.hcho.epaRfc, ctx && ctx.unit), isPpm(ctx && ctx.unit) ? 3 : (isMg(ctx && ctx.unit) ? 3 : 1)) }) },
+    { id: 'who-30min', label: 'WHO 30-minute', criterionId: 'hcho_who_30min', source: 'WHO indoor air quality guidelines', resolve: (ctx) => ({ limit: round(hchoToUnit(STD.c.hcho.who, ctx && ctx.unit), isPpm(ctx && ctx.unit) ? 3 : (isMg(ctx && ctx.unit) ? 3 : 1)) }) },
+    { id: 'osha-pel', label: 'OSHA PEL', criterionId: 'hcho_osha_pel', source: '29 CFR 1910.1048', resolve: (ctx) => ({ limit: round(hchoToUnit(STD.c.hcho.osha, ctx && ctx.unit), isPpm(ctx && ctx.unit) ? 3 : (isMg(ctx && ctx.unit) ? 3 : 1)) }) },
   ],
 
   temp: [
@@ -288,8 +294,8 @@ export function parametersWithProfiles() {
  * @param {number} [ctx.ts] a timestamp in the period (temperature is seasonal)
  * @param {number} [ctx.outdoorBaseline] mean outdoor value, for differentials
  * @param {number[]} [ctx.custom] [lo, hi] for a custom band
- * @returns {{param, profileId, label, source, note, limit, band, action, unit,
- *   unavailable}|null} null when the parameter offers no profiles.
+ * @returns {{param, profileId, criterionId, label, source, note, limit, band,
+ *   action, unit, unavailable}|null} null when the parameter offers no profiles.
  *   `unavailable` is set when the chosen profile needs data that is absent
  *   (e.g. an outdoor differential with no outdoor baseline) — the report then
  *   omits the comparison rather than inventing a reference.
@@ -353,6 +359,12 @@ export function resolveReference(param, profileId, ctx = {}) {
   return {
     param,
     profileId: profile.id,
+    // The criterion registry entry behind this profile, when it has one.
+    // Consumers that need the criterion's CLASS (and therefore how much
+    // weight it carries — enforceable limit vs guideline vs indicator) can
+    // resolve it without string-matching the citation. Null for the bands
+    // and custom ranges that have no registry entry.
+    criterionId: profile.criterionId || null,
     label: profile.label,
     source: citationFor(param, profile),
     note: profile.note || null,

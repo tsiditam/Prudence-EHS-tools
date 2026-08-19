@@ -37,6 +37,7 @@ import { evaluatePermissions } from '../report/permissions'
 import { evaluateZoneOpinion } from '../report/professional-opinion'
 import { classifyCondition } from './classify'
 import { computeParameterRanges, type LegacyZone } from '../report/parameter-ranges'
+import type { LegacyZoneScoreLike } from '../report/parameter-verdicts'
 import { deriveCausalChains } from '../causal-chains'
 import { deriveHypotheses } from '../hypotheses'
 
@@ -78,7 +79,15 @@ export function legacyToAssessmentScore(
   // v2.4 §2 — compute per-parameter range/average summaries from the
   // legacy zone-data so the renderer's Results section can emit
   // standards-anchored prose without re-walking the raw fields.
-  const parameterRanges = computeParameterRanges(zonesData as unknown as ReadonlyArray<LegacyZone>)
+  //
+  // The zone scores are passed so `withinStandards` reads the engine's own
+  // findings instead of re-deriving them from a second set of thresholds.
+  // That duplication is what let one report call the same 72 °F reading
+  // both within and outside the ASHRAE 55 comfort range.
+  const parameterRanges = computeParameterRanges(
+    zonesData as unknown as ReadonlyArray<LegacyZone>,
+    legacyZoneScores as unknown as ReadonlyArray<LegacyZoneScoreLike>,
+  )
 
   // v2.6 §2 + §3 — invoke the diagnostic-reasoning passes so the
   // resulting AssessmentScore carries populated causalChains and

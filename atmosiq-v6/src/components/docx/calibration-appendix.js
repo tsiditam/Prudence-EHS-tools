@@ -57,7 +57,7 @@ import { acknowledgementNotes } from '../../utils/calibrationAcknowledgement'
  *   "Current — 287 days remaining"
  *   "EXPIRING — 12 days remaining"
  *   "EXPIRED — 31 days overdue"
- *   "Date not recorded"
+ *   "Date not recorded"      (missing OR unparseable — never NaN)
  *
  * @param {string|null|undefined} calDate    ISO date string from presurvey.ps_inst_*_cal
  * @param {string|null|undefined} calStatus  human-readable status string (Current / Factory / etc.)
@@ -65,16 +65,25 @@ import { acknowledgementNotes } from '../../utils/calibrationAcknowledgement'
  * @returns {string}
  */
 export function renderCalibrationStatus(calDate, calStatus, now = new Date()) {
-  if (!calDate) {
+  // An unparseable date is a MISSING date, not a date to do arithmetic on.
+  // Without this the subtraction below yields NaN and the appendix printed
+  // "Current — NaN days remaining" — twice — in an issued client report.
+  // "Current" was doubly wrong there: nothing had been validated at all.
+  const parsed = calDate ? new Date(calDate) : null
+  const usable = parsed && !Number.isNaN(parsed.getTime()) ? parsed : null
+  if (!usable) {
     return calStatus && calStatus !== 'Unknown' && calStatus !== 'Not recorded'
       ? `${calStatus} — date not recorded`
       : 'Date not recorded'
   }
   const banner = getCalibrationBannerState('meter', calDate, now)
   if (!banner) {
-    const daysSince = Math.floor((now.getTime() - new Date(calDate).getTime()) / 86400000)
+    const daysSince = Math.floor((now.getTime() - usable.getTime()) / 86400000)
     const remaining = CAL_VALIDITY_DAYS - daysSince
-    return `Current — ${remaining} days remaining`
+    // A calibration dated in the future would otherwise report more days of
+    // validity than the interval grants. Clamp rather than print it.
+    if (!Number.isFinite(remaining) || remaining <= 0) return 'Date not recorded'
+    return `Current — ${Math.min(remaining, CAL_VALIDITY_DAYS)} days remaining`
   }
   if (banner.kind === 'expired') {
     return `EXPIRED — ${Math.abs(banner.daysToExpiry)} days overdue`

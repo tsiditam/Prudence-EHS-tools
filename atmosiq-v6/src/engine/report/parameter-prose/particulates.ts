@@ -27,8 +27,19 @@ export const PARTICULATES_PROSE: ParameterProse = {
     const outdoor = range.outdoorReference !== undefined
       ? ` Outdoor reference was ${range.outdoorReference} ${range.unit}.`
       : ''
+    if (range.withinStandards === null) return `${head}${outdoor}`
     if (range.withinStandards) {
-      return `${head}${outdoor} Concentrations are within the 35 µg/m³ 24-hour benchmark, with no indication of an indoor particulate source.`
+      // Was: "…within the 35 µg/m³ 24-hour benchmark, with no indication of
+      // an indoor particulate source." A spot reading cannot be compared to
+      // a 24-hour average, and absence of a source is more than the data
+      // shows. The indoor/outdoor relationship is the informative part and
+      // is what a reader can act on.
+      const comparison = range.outdoorReference !== undefined
+        ? range.high > range.outdoorReference
+          ? ' Indoor concentrations were modestly above the outdoor reference at the time of measurement.'
+          : ' Indoor concentrations were at or below the outdoor reference at the time of measurement.'
+        : ''
+      return `${head}${outdoor}${comparison} No particulate condition was identified in any zone measured. Comparison against the 24-hour criteria in Appendix D would require measurement over that period.`
     }
     const zones = range.elevatedInZones && range.elevatedInZones.length > 0
       ? ` Elevated in ${range.elevatedInZones.join(', ')}; per-zone values are in Appendix A.`

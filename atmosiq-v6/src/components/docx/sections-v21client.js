@@ -20,8 +20,9 @@ import { sectionHeading2 } from './headings'
 import { assembleSupplementalSections, mergeSupplementalTocEntries } from './sections-supplemental'
 import { isIaqScoreVisible } from '../../utils/featureFlags'
 import { makeSuppressionIndex } from '../../utils/editorialSuppressions'
+import { deriveAppliedReferences } from './applied-references'
 import {
-  BENCHMARK_TABLE_HEADERS, BENCHMARK_ROWS, BENCHMARK_INTRO, BENCHMARK_FOOTNOTE,
+  BENCHMARK_FOOTNOTE, APPLIED_REFERENCES_INTRO,
   DISCLAIMER_PARAGRAPHS, CONCLUSIONS_CLOSING, certificationStatement, FIRM_NAME,
   DATA_GAPS_INTRO, INSTRUMENT_ACCURACY_NOTE,
 } from './canonical-content'
@@ -712,18 +713,19 @@ function buildAppendices(report, options = {}) {
       out.push(heading3('Interpretation Notes'))
       for (const line of ctx) out.push(bullet(line))
     }
-    // v2.5 §2 — prefer pre-formatted displayLines (organization
-    // abbreviations expanded, sorted, deduped). Fall back to legacy
-    // citations array for backward compat with consumers that still
-    // synthesize Citations directly.
-    const lines = Array.isArray(ap.appendixD.displayLines) && ap.appendixD.displayLines.length > 0
-      ? ap.appendixD.displayLines
-      : (ap.appendixD.citations || []).map(c =>
-          `${c.source}${c.edition && c.edition !== 'current' ? ` (${c.edition})` : ''}${c.authority ? ` — ${c.authority}` : ''}`,
-        )
-    for (const line of lines) {
-      out.push(bullet(line))
-    }
+    // The STANDARDS REGISTER — a ~22-line bibliographic catalogue of every
+    // standard invoked — is deliberately NOT rendered (product decision,
+    // 2026-08). Each criterion is already named where it is used: beside its
+    // result in Criteria Applied, in the finding it produced, and in the
+    // background prose above. A reviewer can read the standards off the
+    // report itself, which is how consultant reports in this field are
+    // normally written; the catalogue restated them a third time.
+    //
+    // `appendixD.citations` and `displayLines` are still POPULATED by the
+    // citation walker and remain part of the model as the audit record of
+    // what the report cited — see collectCitations in client.ts and
+    // tests/engine/appendix-d-citation-walk.test.ts. Not rendering them is a
+    // presentation decision, not a decision to stop tracking.
     if (ap.appendixD.engineVersionLine) {
       out.push(p(ap.appendixD.engineVersionLine, { italics: true, size: 18, color: COLORS.light, before: 200 }))
     }
@@ -746,21 +748,11 @@ function buildAppendices(report, options = {}) {
       }
     }
   }
-  if (ap.appendixF) {
-    out.push(...heading2(ap.appendixF.title))
-    if (ap.appendixF.description) out.push(p(ap.appendixF.description, { align: AlignmentType.JUSTIFIED }))
-    if (Array.isArray(ap.appendixF.entries) && ap.appendixF.entries.length > 0) {
-      for (const e of ap.appendixF.entries) {
-        out.push(new Paragraph({
-          children: [
-            new TextRun({ text: `${e.term}: `, bold: true, font: FONTS.body, size: 22, color: SLATE }),
-            new TextRun({ text: e.definition, font: FONTS.body, size: 22, color: SLATE_BODY }),
-          ],
-          spacing: { after: 80 },
-        }))
-      }
-    }
-  }
+  // Appendix F (Glossary) is deliberately NOT rendered in the consultant
+  // deliverable (product decision, 2026-08). The engine still builds
+  // `appendixF` and it stays on the model for other consumers; its TOC entry
+  // is dropped in buildClientDocx so the contents page cannot list a section
+  // the document does not contain.
   return out
 }
 
@@ -1351,18 +1343,39 @@ export function buildInstrumentAccuracyNote(info) {
   return out
 }
 
-// Standards, Guidelines, and Benchmark Types — hardcoded per
-// docs/report-spec §4; always rendered in full.
-export function buildBenchmarksSection() {
-  // Proportional widths (sum = content width): Parameter / Benchmark /
-  // Source / Type / Purpose. Keeps the Purpose column from cramping.
+// Standards, Guidelines, and Benchmark Types — generated from the criterion
+// registry (canonical-content.js) and narrowed to the parameters this
+// assessment actually measured. It used to print the full library on every
+// report, which on a two-zone walkthrough buried the three criteria that
+// mattered under every one the engine knows.
+export function buildBenchmarksSection(zones, zoneScores, opts = {}) {
+  // One reference per parameter, resolved from what the engine actually
+  // applied. See applied-references.js — the previous table listed every
+  // criterion the platform knows (seven for CO alone), leaving the reader
+  // to work out which one the assessment rested on.
+  const applied = zones ? deriveAppliedReferences(zones, zoneScores, opts) : []
+  if (applied.length === 0) return []
+
   const W = TOTAL_WIDTH_DXA
-  const w = [Math.round(W * 0.17), Math.round(W * 0.22), Math.round(W * 0.16), Math.round(W * 0.19)]
+  const w = [Math.round(W * 0.17), Math.round(W * 0.21), Math.round(W * 0.16), Math.round(W * 0.19)]
   w.push(W - w[0] - w[1] - w[2] - w[3])
+
+  const rows = applied.map((r) => [r.label, r.reference, r.value, r.type, r.source])
+
+  // A parameter whose reading cleared its reference and one whose finding
+  // rests on a different rung of the same ladder are different statements,
+  // and the reader should not have to infer which is which.
+  const anyApplied = applied.some((r) => r.basis === 'applied')
+  const notes = applied.filter((r) => r.note).map((r) => `${r.label}: ${r.note}`)
+
   return [
-    ...heading2('Standards, Guidelines, and Benchmark Types'),
-    p(BENCHMARK_INTRO, { size: 20, color: COLORS.sub }),
-    buildSimpleTable(BENCHMARK_TABLE_HEADERS, BENCHMARK_ROWS, { columnWidths: w }),
+    ...heading2('Criteria Applied'),
+    p(APPLIED_REFERENCES_INTRO, { size: 20, color: COLORS.sub }),
+    buildSimpleTable(['Parameter', 'Criterion', 'Value', 'Benchmark Type', 'Source'], rows, { columnWidths: w }),
+    ...(anyApplied
+      ? [p('Where a finding was identified, the criterion listed is the one that finding rests on. Where no finding was identified, it is the criterion the measurements were compared against and cleared.', { italics: true, size: 18, color: COLORS.muted })]
+      : [p('No finding was identified for the parameters above; each criterion listed is the one the measurements were compared against and cleared.', { italics: true, size: 18, color: COLORS.muted })]),
+    ...notes.map((n) => p(n, { size: 18, color: COLORS.muted })),
     p(BENCHMARK_FOOTNOTE, { italics: true, size: 18, color: COLORS.muted }),
   ]
 }
@@ -1539,12 +1552,18 @@ export function buildClientDocx(result, options = {}) {
       { before: /Scope/i },
     )
   }
-  tocEntries = spliceTocEntry(tocEntries, { anchorId: 'benchmarks', title: 'Standards, Guidelines, and Benchmark Types', level: 1 }, { after: /Sampling Methodology/i })
   // Instrument Accuracy sits between Sampling Methodology and Benchmarks
   // (when present).
   if (options.instrumentAccuracy && options.instrumentAccuracy.iaqName) {
     tocEntries = spliceTocEntry(tocEntries, { anchorId: 'instrument-accuracy', title: 'Instrument Accuracy and Calibration', level: 1 }, { after: /Sampling Methodology/i })
   }
+  // Sections the consultant deliverable does not render (product decision,
+  // 2026-08). Filtering their TOC entries here — beside the removals
+  // themselves — is what stops the contents page listing a section that is
+  // not in the document, which is exactly how "Standards, Guidelines, and
+  // Benchmark Types" survived in the TOC after the section was renamed.
+  const OMITTED_TOC_ANCHORS = new Set(['potential-contributing-factors', 'appendix-f'])
+  tocEntries = tocEntries.filter((e) => !OMITTED_TOC_ANCHORS.has(e.anchorId))
   tocEntries = spliceTocEntry(tocEntries, { anchorId: 'conclusions', title: 'Conclusions', level: 1 }, { before: /Recommendations Register/i })
   // The Disclaimer and Data Gaps sections were merged into the single
   // "Limitations" section, so they no longer get their own TOC entries.
@@ -1568,16 +1587,18 @@ export function buildClientDocx(result, options = {}) {
     ...buildScope(report),
     ...buildSamplingMethodologyDocx(report),
     ...buildInstrumentAccuracyNote(options.instrumentAccuracy),
-    ...buildBenchmarksSection(),
     ...buildResultsSection(report, suppress),
     ...buildBuildingContext(report),
     ...buildBuildingConditionsSection(report, recIndex, suppress),
     ...buildZoneSections(report, recIndex, suppress),
-    // v2.6 §5 — Potential Contributing Factors and Recommended
-    // Sampling Plan slot in between Zone Findings and the
-    // Recommendations Register. Each is a no-op when the
-    // corresponding engine pass produced no output.
-    ...buildPotentialContributingFactors(report),
+    // v2.6 §5 — Recommended Sampling Plan slots in between Zone Findings
+    // and the Recommendations Register; a no-op when the engine pass
+    // produced no output.
+    //
+    // Potential Contributing Factors is NOT rendered in the consultant
+    // deliverable (product decision, 2026-08). The engine still projects it
+    // and it remains on the model for other consumers; see
+    // stripClientSections below for the matching TOC filter.
     ...buildRecommendedSamplingPlan(report),
     // Conclusions sit after the findings/discussion and before the
     // Recommendations Register, mirroring the canonical report flow.

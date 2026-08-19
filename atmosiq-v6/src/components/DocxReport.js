@@ -25,8 +25,6 @@ import { assembleRenderModel } from '../report/reportModel'
 import { buildLabResultsAppendix } from './docx/sections-lab-results'
 import { buildSensorGraphsAppendix } from './docx/sections-sensor'
 import { buildConceptualSiteModelSection } from './docx/sections-conceptual-model'
-import { buildMethodologyCurrency } from './docx/sections-methodology-currency'
-import { measuredParameters } from '../engines/contextualStandards'
 import { buildParameterExplainers, buildReportedConcernsSection, buildFindingsConfidenceRegister } from './docx/sections-cih-reasoning'
 import { buildEvidenceTraceabilityMatrix } from './docx/sections-traceability'
 import { buildGraphContext } from '../../lib/context/graphContext'
@@ -411,20 +409,12 @@ async function buildConsultantDocument(ctx, data) {
   // the fact, so they share the section heading style, sit in the right
   // position, get continuous appendix letters (after the engine's
   // Appendix F), and register in the Table of Contents:
-  //   • Additional Criteria Considered — published criteria a reader could
-  //     expect to see applied to this data that were NOT the basis of any
-  //     finding, each with the reason (→ after Limitations). Scoped to the
-  //     parameters actually measured, so an assessment with no particulate
-  //     data carries no particulate note and the section disappears
-  //     entirely when it would engage nothing.
-  //     History: this rendered as "Standards Currency" and was REMOVED in
-  //     048f6d4 because its prose described AtmosFlow's own scoring
-  //     internals ("standards manifest", "deterministic scoring path") —
-  //     implementation detail, not client content. It returns having been
-  //     rewritten as criteria-selection rationale addressed to the reader;
-  //     the objection was to the prose, not to the subject, and "why 35
-  //     µg/m³ and not 9" is a question the report otherwise invites and
-  //     leaves unanswered.
+  //   • (Removed) Additional Criteria Considered — the criteria-selection
+  //     note is no longer rendered in the consultant deliverable (product
+  //     decision, 2026-08, alongside the standards register and the
+  //     benchmark table). `buildMethodologyCurrency` and
+  //     `src/engines/contextualStandards.js` are retained and tested but
+  //     have no render site; delete them if that stays true.
   //   • Laboratory Analytical Results — closes the CoC loop when the
   //     assessor imported analytical CSV results (→ Appendix G).
   //   • Environmental Evidence Graphs — report-ready IAQ timelines the
@@ -454,7 +444,6 @@ async function buildConsultantDocument(ctx, data) {
   const supplemental = {
     bodySections: [
       ...cihSections,
-      buildMethodologyCurrency({ parameters: measuredParameters(data.zones) }),
     ].filter(Boolean),
     appendices: [
       buildLabResultsAppendix(data.labResults),
@@ -463,6 +452,11 @@ async function buildConsultantDocument(ctx, data) {
   }
   const { cover, main } = buildClientDocx(result, {
     photos: data.photos || ctx.photos || {},
+    // Drives the "Criteria Applied" table: one reference per parameter,
+    // resolved from the criterion the engine actually applied.
+    zones: data.zones || [],
+    zoneScores: data.zoneScores || [],
+    assessmentDate: resolveAssessmentDate(data) || undefined,
     supplemental,
     dataGaps: deriveScientificDataGaps(data),
     instrumentAccuracy: buildInstrumentAccuracyInfo(data.presurvey),
