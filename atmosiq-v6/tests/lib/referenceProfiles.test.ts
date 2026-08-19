@@ -320,7 +320,9 @@ describe('PM10', () => {
     const rows = referenceTableRows(resolveReferences(['pm10'], { pm10: 'epa' }, { units: { pm10: 'µg/m³' } }))
     expect(rows).toHaveLength(1)
     expect(rows[0].value).toBe('150 µg/m³')
-    expect(rows[0].source).toBe('US EPA NAAQS')
+    // The citation now resolves from the criterion registry, which names the
+    // regulation and the averaging period rather than just the agency.
+    expect(rows[0].source).toBe('40 CFR 50.6 — EPA National Ambient Air Quality Standard, PM10, 24-hour')
   })
 })
 

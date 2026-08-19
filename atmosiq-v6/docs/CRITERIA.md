@@ -116,17 +116,24 @@ and missing from the two above it. Adding a criterion cannot reintroduce that.
 |---|---|
 | `engines/scoring.js` | `evaluateCriteria` for CO and formaldehyde; `capSeverity` for CO₂ |
 | `utils/assessmentVerdict.js` | Severity ranks feed the shared verdict |
-| `utils/referenceProfiles.js` | Logger Studio's per-parameter reference selection — **not yet migrated**, see below |
+| `utils/referenceProfiles.js` | Logger Studio's per-parameter reference selection. Profiles link by `criterionId` and resolve their citation from the registry |
+
+## Division of responsibility with `referenceProfiles`
+
+A **profile** owns *selection* — which yardstick the assessor picks for a
+parameter — and *unit projection* into whatever the logger recorded. A
+**criterion** owns what the threshold means, including its citation.
+
+Profiles carry a `criterionId` and resolve `source` from the registry, so
+Logger Studio and the walkthrough cite identically. Profiles with no published
+threshold behind them (a custom band, "no reference line", the ASHRAE comfort
+bands) legitimately declare their own and are left alone.
+
+The link is by id and nothing enforces it at the type level, so
+`tests/engine/criteria.test.ts` walks every linked profile and asserts its
+criterion exists and its citation matches.
 
 ## Known remaining work
-
-- **`referenceProfiles.js` still declares its own `source` and `note` strings
-  per profile.** It predates this registry and reasons the same way (it already
-  carries `windowMs` averaging periods and rejects occupational CO₂ limits as
-  "a different exposure context"). Those declarations should resolve from
-  `CRITERIA` so Logger Studio and the walkthrough cite identically. They do not
-  currently conflict — both were verified against the same primary sources —
-  but they are two places to update instead of one.
 - **PM2.5 and thermal comparisons are deliberately not ladders.** PM carries
   outdoor-conditional deduction weights, a data-hall branch, and an
   indoor/outdoor ratio — comparative logic, not a flat threshold ladder.

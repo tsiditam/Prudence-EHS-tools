@@ -7,7 +7,9 @@
  * instead of minting a second one.
  */
 import { describe, it, expect } from 'vitest'
-// @ts-expect-error — JS module without types
+// finalizeTarget.js carries JSDoc types, so this import resolves cleanly and
+// needs no @ts-expect-error — one was present and unused, which is itself an
+// error under the project's typecheck settings.
 import { resolveFinalizeTarget } from '../../src/utils/finalizeTarget'
 
 describe('resolveFinalizeTarget', () => {

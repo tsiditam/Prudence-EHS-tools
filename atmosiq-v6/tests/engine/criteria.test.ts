@@ -7,6 +7,8 @@
 import { describe, it, expect } from 'vitest'
 // @ts-expect-error — JS module without TS types
 import { evaluateCriteria, capSeverity, allCriteria, AVERAGING, CRITERION_CLASS, CRITERIA } from '../../src/constants/criteria'
+// @ts-expect-error — JS module without TS types
+import { profilesFor, parametersWithProfiles, __PROFILES_FOR_TEST as RAW_PROFILES } from '../../src/utils/referenceProfiles'
 
 const sev = (p: string, v: number, basis?: string) => evaluateCriteria(p, v, basis)?.severity ?? null
 const id = (p: string, v: number, basis?: string) => evaluateCriteria(p, v, basis)?.criterion.id ?? null
@@ -139,5 +141,39 @@ describe('registry integrity', () => {
     expect(evaluateCriteria('co', NaN)).toBeNull()
     expect(evaluateCriteria('co', undefined as never)).toBeNull()
     expect(evaluateCriteria('nope', 5)).toBeNull()
+  })
+})
+
+describe('referenceProfiles resolves its citations from the registry', () => {
+  it('every linked profile finds its criterion', () => {
+    // The link is by id and nothing enforces it at the type level, so a
+    // renamed criterion would silently fall back to the profile's own source
+    // — or to null, now that the local declarations are gone.
+    for (const param of parametersWithProfiles()) {
+      for (const p of profilesFor(param)) {
+        const raw = (RAW_PROFILES[param] || []).find((x: any) => x.id === p.id)
+        if (!raw?.criterionId) continue
+        const found = (CRITERIA[param] || []).find((c: any) => c.id === raw.criterionId)
+        expect(found, `${param}/${p.id} → ${raw.criterionId} not in CRITERIA`).toBeTruthy()
+        expect(p.source).toBe(found.source)
+      }
+    }
+  })
+
+  it('leaves profiles with no published threshold declaring their own', () => {
+    // Custom bands and "no reference line" are not published thresholds and
+    // legitimately have no criterion behind them.
+    const custom = profilesFor('temp').find((p: any) => p.id === 'custom')
+    expect(custom).toBeTruthy()
+    expect(custom.source).toBe('Assessor-defined')
+  })
+
+  it('names a source for every profile that resolves a value', () => {
+    for (const param of parametersWithProfiles()) {
+      for (const p of profilesFor(param)) {
+        if (p.id === 'none') continue
+        expect(p.source, `no source for ${param}/${p.id}`).toBeTruthy()
+      }
+    }
   })
 })
