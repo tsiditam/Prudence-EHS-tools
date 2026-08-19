@@ -146,6 +146,23 @@ describe('client-facing prose', () => {
     }
   })
 
+  it('explains what was NOT applied without asserting what the assessment did', () => {
+    // The ASHRAE 241 entry originally opened "Ventilation in this assessment
+    // was evaluated against ASHRAE 62.1-2025 outdoor-air rates". No report
+    // this entry renders into contains an Rp/Ra calculation, breathing-zone
+    // or system outdoor airflow, or a measured outdoor-air fraction — and
+    // where airflow was not captured the engine reaches ventilation through
+    // a CO2 indicator. An entry here says why a criterion was not used; it
+    // is not a place to describe the work performed.
+    for (const claim of [
+      /in this assessment was evaluated against/i,
+      /we (measured|evaluated|calculated|determined)/i,
+      /this assessment (measured|evaluated|calculated|determined)/i,
+    ]) {
+      expect(allProse, `over-claim: ${claim}`).not.toMatch(claim)
+    }
+  })
+
   it('does not reintroduce the retired "screening" label', () => {
     expect(allProse.toLowerCase()).not.toContain('screening')
   })

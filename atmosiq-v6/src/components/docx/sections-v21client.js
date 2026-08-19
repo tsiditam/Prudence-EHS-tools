@@ -21,7 +21,7 @@ import { assembleSupplementalSections, mergeSupplementalTocEntries } from './sec
 import { isIaqScoreVisible } from '../../utils/featureFlags'
 import { makeSuppressionIndex } from '../../utils/editorialSuppressions'
 import {
-  BENCHMARK_TABLE_HEADERS, BENCHMARK_ROWS, BENCHMARK_INTRO, BENCHMARK_FOOTNOTE,
+  BENCHMARK_TABLE_HEADERS, BENCHMARK_ROWS, BENCHMARK_INTRO, BENCHMARK_FOOTNOTE, benchmarkRowsFor,
   DISCLAIMER_PARAGRAPHS, CONCLUSIONS_CLOSING, certificationStatement, FIRM_NAME,
   DATA_GAPS_INTRO, INSTRUMENT_ACCURACY_NOTE,
 } from './canonical-content'
@@ -1351,9 +1351,14 @@ export function buildInstrumentAccuracyNote(info) {
   return out
 }
 
-// Standards, Guidelines, and Benchmark Types — hardcoded per
-// docs/report-spec §4; always rendered in full.
-export function buildBenchmarksSection() {
+// Standards, Guidelines, and Benchmark Types — generated from the criterion
+// registry (canonical-content.js) and narrowed to the parameters this
+// assessment actually measured. It used to print the full library on every
+// report, which on a two-zone walkthrough buried the three criteria that
+// mattered under every one the engine knows.
+export function buildBenchmarksSection(zones) {
+  const rows = zones ? benchmarkRowsFor(zones) : BENCHMARK_ROWS
+  if (rows.length === 0) return []
   // Proportional widths (sum = content width): Parameter / Benchmark /
   // Source / Type / Purpose. Keeps the Purpose column from cramping.
   const W = TOTAL_WIDTH_DXA
@@ -1362,7 +1367,7 @@ export function buildBenchmarksSection() {
   return [
     ...heading2('Standards, Guidelines, and Benchmark Types'),
     p(BENCHMARK_INTRO, { size: 20, color: COLORS.sub }),
-    buildSimpleTable(BENCHMARK_TABLE_HEADERS, BENCHMARK_ROWS, { columnWidths: w }),
+    buildSimpleTable(BENCHMARK_TABLE_HEADERS, rows, { columnWidths: w }),
     p(BENCHMARK_FOOTNOTE, { italics: true, size: 18, color: COLORS.muted }),
   ]
 }
@@ -1568,7 +1573,7 @@ export function buildClientDocx(result, options = {}) {
     ...buildScope(report),
     ...buildSamplingMethodologyDocx(report),
     ...buildInstrumentAccuracyNote(options.instrumentAccuracy),
-    ...buildBenchmarksSection(),
+    ...buildBenchmarksSection(options.zones),
     ...buildResultsSection(report, suppress),
     ...buildBuildingContext(report),
     ...buildBuildingConditionsSection(report, recIndex, suppress),

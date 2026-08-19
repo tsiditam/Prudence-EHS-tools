@@ -65,7 +65,7 @@ const CITATION_DATA_CENTER: Citation = {
 }
 
 const CITATION_THERMAL_BALANCE: Citation = {
-  source: 'ASHRAE Standard 55-2020 §5.3 Thermal Environmental Conditions for Human Occupancy + AABC/NEBB Total System Balance Procedural Standards',
+  source: 'ASHRAE Standard 55-2023 §5.3 Thermal Environmental Conditions for Human Occupancy + AABC/NEBB Total System Balance Procedural Standards',
   authority: 'consensus',
   edition: '2020',
   organization: 'ASHRAE',

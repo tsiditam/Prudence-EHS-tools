@@ -22,7 +22,7 @@ import { resolveVerdict } from '../../utils/assessmentVerdict'
 import { FONTS, COLORS, SEV_COLORS, scoreColor, riskLabel } from './styles'
 import { isIaqScoreVisible } from '../../utils/featureFlags'
 import { buildTable, kvTable } from './tables'
-import { BENCHMARK_ROWS } from './canonical-content'
+import { benchmarkRowsFor } from './canonical-content'
 
 const p = (text, opts = {}) => new Paragraph({
   children: [new TextRun({ text, font: FONTS.body, size: opts.size || 20, color: opts.color || COLORS.sub, bold: opts.bold, italics: opts.italics })],
@@ -110,24 +110,12 @@ export function buildInstrumentation(ctx) {
 }
 
 // ── 4. Benchmarks Used → T3 (only the parameters actually measured) ──
-const benchParam = (label) =>
-  label.startsWith('CO₂') ? 'co2' :
-  label.startsWith('Temperature') ? 'tf' :
-  label.startsWith('Relative Humidity') ? 'rh' :
-  label.startsWith('PM2.5') ? 'pm' :
-  label.startsWith('CO (') ? 'co' :
-  label.startsWith('HCHO') ? 'hc' :
-  label.startsWith('TVOC') ? 'tv' : null
-
+// The row→field mapping and the filter live in canonical-content.js and are
+// shared with the client report, which had drifted into printing the full
+// table while this one filtered.
 export function buildBenchmarksUsed(ctx) {
   const children = [p('Benchmarks Used', { heading: HeadingLevel.HEADING_2 })]
-  const measured = new Set()
-  ;(ctx.zones || []).forEach(z => {
-    if (z.co2) measured.add('co2'); if (z.tf) measured.add('tf'); if (z.rh) measured.add('rh')
-    if (z.pm) measured.add('pm'); if (z.tv) measured.add('tv'); if (z.co) measured.add('co'); if (z.hc) measured.add('hc')
-  })
-  const rows = BENCHMARK_ROWS
-    .filter(r => measured.has(benchParam(r[0])))
+  const rows = benchmarkRowsFor(ctx.zones)
     .map(r => [
       { text: r[0], size: 16, bold: true },
       { text: r[1], size: 16 },

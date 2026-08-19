@@ -23,8 +23,17 @@ export const CO_PROSE: ParameterProse = {
   summaryTemplate(range) {
     if (range.count === 0) return 'Carbon monoxide was not measured during this assessment.'
     const head = `Carbon monoxide ranged from ${range.low} to ${range.high} ${range.unit}, averaging ${range.average} ${range.unit}.`
+    // No within/outside claim when the engine supplied no verdict.
+    if (range.withinStandards === null) return head
     if (range.withinStandards) {
-      return `${head} Concentrations are within the 9 ppm indoor reference, with no indication of a combustion source.`
+      // Was: "…within the 9 ppm indoor reference, with no indication of a
+      // combustion source." Two problems. The threshold was restated here
+      // even though the criterion registry owns it (and its lowest indoor
+      // tier is 6 ppm, not 9, so the sentence could contradict the finding
+      // it summarised). And absence of a source is not what a spot reading
+      // shows — a combustion source that was not firing, or not venting
+      // toward the sampled location, produces exactly this result.
+      return `${head} No elevated carbon monoxide was identified in any zone measured. These are single time-point readings that characterise the locations and times sampled; they do not establish that no combustion source is present.`
     }
     const zones = range.elevatedInZones && range.elevatedInZones.length > 0
       ? ` Elevated in ${range.elevatedInZones.join(', ')}; per-zone values are in Appendix A.`

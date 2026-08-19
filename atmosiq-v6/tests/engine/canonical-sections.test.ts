@@ -9,6 +9,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
+import { allCriteria } from '../../src/constants/criteria.js'
 import { Document, Packer, SectionType } from 'docx'
 import JSZip from 'jszip'
 import { renderClientReport } from '../../src/engine/report/client'
@@ -22,7 +23,7 @@ import {
 } from '../../src/components/docx/sections-v21client.js'
 import { DOCX_STYLES } from '../../src/components/docx/styles.js'
 import {
-  BENCHMARK_ROWS, BENCHMARK_TYPE_LABELS, BENCHMARK_INTRO, BENCHMARK_FOOTNOTE,
+  BENCHMARK_ROWS, BENCHMARK_TYPE_LABELS, BENCHMARK_INTRO, BENCHMARK_FOOTNOTE, benchmarkRowsFor,
   DISCLAIMER_PARAGRAPHS, CONCLUSIONS_CLOSING, certificationStatement,
   DATA_GAP_MESSAGES, DATA_GAPS_INTRO, INSTRUMENT_ACCURACY_NOTE,
 } from '../../src/components/docx/canonical-content.js'
@@ -55,17 +56,67 @@ function buildReport() {
 }
 
 describe('Phase 2 — benchmark table data', () => {
-  it('is 13 rows × 5 columns', () => {
-    expect(BENCHMARK_ROWS.length).toBe(13)
+  // Row count is no longer a fixed number: the contaminant and ventilation
+  // rows are generated from the criterion registry, so adding a criterion
+  // adds a row. What must hold is the SHAPE and the classification rules.
+  it('is 5 columns wide, and covers every registry criterion plus the thermal bands', () => {
     for (const row of BENCHMARK_ROWS) expect(row.length).toBe(5)
+    expect(BENCHMARK_ROWS.length).toBe(allCriteria().length + 3)
+    for (const row of BENCHMARK_ROWS) for (const cell of row) expect(String(cell).trim().length).toBeGreaterThan(0)
   })
+
   it('every benchmark-type label is in the docs/report-spec §7 taxonomy', () => {
     for (const row of BENCHMARK_ROWS) expect(BENCHMARK_TYPE_LABELS).toContain(row[3])
   })
-  it('classifies NIOSH RELs as recommended (not occupational) exposure limits', () => {
-    const niosh = BENCHMARK_ROWS.filter(r => /NIOSH REL/i.test(r[2]))
+
+  it('never presents a NIOSH advisory value as an enforceable limit', () => {
+    const niosh = BENCHMARK_ROWS.filter(r => /NIOSH/i.test(r[2]) && !/OSHA|CFR/i.test(r[2]))
     expect(niosh.length).toBeGreaterThan(0)
-    for (const r of niosh) expect(r[3]).toBe('Recommended exposure limit')
+    for (const r of niosh) {
+      expect(r[3], `${r[0]} type`).toBe('Recommended exposure limit')
+      // The Purpose column has to agree with the Type column — a row
+      // reading "Recommended exposure limit / Enforceable workplace limit"
+      // contradicts itself, which the first generated draft did.
+      expect(r[4], `${r[0]} purpose`).not.toMatch(/enforceable/i)
+    }
+  })
+
+  it('does not attribute the 700 ppm CO₂ differential to ASHRAE 62.1 as a limit', () => {
+    // The shipped table read: "CO₂ (differential) | Δ700 ppm above outdoor |
+    // ASHRAE 62.1-2025 (ventilation basis)". No current ASHRAE standard sets
+    // an indoor CO₂ limit; the figure comes from a since-removed informative
+    // appendix (Persily 2021). CLAUDE.md lists this as an anti-pattern.
+    const co2 = BENCHMARK_ROWS.filter(r => String(r[0]).startsWith('CO₂'))
+    expect(co2.length).toBeGreaterThan(0)
+    for (const r of co2) {
+      expect(r[3]).toBe('Ventilation benchmark')
+      if (/ASHRAE 62\.1/i.test(String(r[2]))) {
+        expect(String(r[2]), 'an ASHRAE 62.1 CO₂ cite must carry the Persily correction').toMatch(/Persily/i)
+      }
+    }
+  })
+
+  it('states an averaging period for every time-averaged criterion', () => {
+    // "CO (OSHA) | 50 ppm TWA" gave no averaging period and called it a
+    // "Regulatory ceiling for workplace". A PEL is an 8-hour TWA; a ceiling
+    // is a different thing entirely.
+    const timeAveraged = BENCHMARK_ROWS.filter(r => /TWA|NAAQS|STEL|guideline/i.test(String(r[0]) + String(r[2])))
+    expect(timeAveraged.length).toBeGreaterThan(0)
+    for (const r of timeAveraged) {
+      expect(String(r[1]), `${r[0]} benchmark cell`).toMatch(/\((ceiling|instantaneous|\d+-(minute|hour)|annual|8-hour TWA|10-hour TWA)\)/)
+    }
+    for (const r of BENCHMARK_ROWS) {
+      expect(String(r[4]), `${r[0]} purpose`).not.toMatch(/regulatory ceiling/i)
+    }
+  })
+
+  it('narrows to the criteria a given assessment actually used', () => {
+    const rows = benchmarkRowsFor([{ zn: 'Z1', co2: '800', tf: '72' }])
+    expect(rows.length).toBeGreaterThan(0)
+    expect(rows.length).toBeLessThan(BENCHMARK_ROWS.length)
+    const params = new Set(rows.map(r => String(r[0]).split(' (')[0]))
+    expect([...params].sort()).toEqual(['CO₂', 'Temperature'])
+    expect(benchmarkRowsFor([])).toEqual([])
   })
 })
 

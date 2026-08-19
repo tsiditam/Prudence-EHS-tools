@@ -37,12 +37,22 @@ export const CO2_PROSE: ParameterProse = {
     const diff = range.outdoorReference !== undefined
       ? ` Outdoor reference was ${range.outdoorReference} ${range.unit}, an indoor differential of ${(range.low - range.outdoorReference).toFixed(0)} to ${(range.high - range.outdoorReference).toFixed(0)} ${range.unit}.`
       : ''
+    if (range.withinStandards === null) return `${head}${diff}`
     if (range.withinStandards) {
-      return `${head}${diff} Concentrations are within the 700 ppm differential reference, with no evidence of occupant-related accumulation.`
+      // Was: "…within the 700 ppm differential reference, with no evidence
+      // of occupant-related accumulation." That framed a removed informative
+      // appendix as a criterion to pass, which is the exact error Persily
+      // 2021 addresses — no current ASHRAE standard sets an indoor CO2
+      // limit. The differential is reported and characterised; it is not
+      // scored against a quasi-compliance line.
+      const reading = range.outdoorReference !== undefined
+        ? ' The indoor-to-outdoor differential is consistent with outdoor-air delivery keeping pace with occupancy at the time of measurement.'
+        : ' Without a concurrent outdoor reading the differential cannot be established, so this reflects the absolute concentration only.'
+      return `${head}${diff}${reading} CO₂ indexes outdoor-air delivery per occupant; it is not a contaminant measurement.`
     }
     const zones = range.elevatedInZones && range.elevatedInZones.length > 0
       ? ` Elevated in ${range.elevatedInZones.join(', ')}; per-zone values are in Appendix A.`
       : ''
-    return `${head}${diff} Concentrations exceed the 700 ppm differential reference, indicating outdoor-air delivery is not keeping pace with occupancy. Verify supply airflow and outdoor-air fraction at the air handler.${zones}`
+    return `${head}${diff} The differential is large enough to indicate outdoor-air delivery is not keeping pace with occupancy. Verify supply airflow and outdoor-air fraction at the air handler. CO₂ indexes ventilation per occupant and is not itself a contaminant measurement.${zones}`
   },
 }

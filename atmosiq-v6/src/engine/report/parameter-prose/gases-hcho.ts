@@ -23,8 +23,9 @@ export const HCHO_PROSE: ParameterProse = {
   summaryTemplate(range) {
     if (range.count === 0) return 'Formaldehyde was not measured during this assessment.'
     const head = `Formaldehyde ranged from ${range.low} to ${range.high} ${range.unit}, averaging ${range.average} ${range.unit}.`
+    if (range.withinStandards === null) return head
     if (range.withinStandards) {
-      return `${head} Concentrations are within typical indoor background.`
+      return `${head} Concentrations are within typical indoor background, and no formaldehyde condition was identified in any zone measured.`
     }
     const zones = range.elevatedInZones && range.elevatedInZones.length > 0
       ? ` Elevated in ${range.elevatedInZones.join(', ')}; per-zone values are in Appendix A.`

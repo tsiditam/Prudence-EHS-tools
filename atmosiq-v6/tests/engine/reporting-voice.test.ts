@@ -63,13 +63,49 @@ describe('reporting voice — parameter summaries', () => {
   it('states a normal result plainly, with no exposure-limit framing', () => {
     const summary = PARAMETER_PROSE.co2.summaryTemplate(NORMAL as never)
 
-    expect(summary).toContain('within the 700 ppm differential reference')
-    expect(summary).toContain('no evidence of occupant-related accumulation')
+    // Was: asserts "within the 700 ppm differential reference" and "no
+    // evidence of occupant-related accumulation". A CIH review rejected
+    // both. The first treats a figure from a REMOVED informative appendix
+    // as a line to pass — the error Persily 2021 exists to correct, and one
+    // CLAUDE.md already lists as an anti-pattern. The second claims absence
+    // of accumulation rather than reporting the differential measured.
+    expect(summary).toContain('differential')
+    expect(summary).not.toMatch(/within the 700 ppm differential reference/)
+    expect(summary).not.toMatch(/no evidence of occupant-related accumulation/)
+    // CO2 must still be framed as a ventilation index, not a contaminant.
+    expect(summary).toMatch(/not a contaminant measurement/)
     // Voice rule 11 — an OSHA PEL is an occupational exposure limit and has
-    // no business framing a routine indoor screening value.
+    // no business framing a routine indoor value.
     expect(summary).not.toMatch(/OSHA|PEL|5,000/)
-    // Voice rule 9 — no reflexive hedging on a normal result.
-    expect(summary).not.toMatch(/at the time of measurement|should not be|does not necessarily/i)
+    // Voice rule 9 — no reflexive hedging. "should not be" / "does not
+    // necessarily" add nothing to a normal result and stay banned.
+    expect(summary).not.toMatch(/should not be|does not necessarily/i)
+  })
+
+  it('keeps the temporal qualifier where it changes what the reader may conclude', () => {
+    // Voice rule 9 previously banned "at the time of measurement" outright,
+    // as reflexive hedging. On a clean result that reads on absence of a
+    // SOURCE it is not hedging — it is the difference between "nothing was
+    // detected while we were there" and "nothing is there". A CIH review
+    // flagged exactly that over-reach ("with no indication of a combustion
+    // source" from a single 1 ppm CO reading), so the qualifier is required
+    // where the sentence would otherwise imply a source conclusion.
+    //
+    // The governing principle is unchanged: qualify only where the
+    // qualification changes how the reader should understand or act on the
+    // result. Here it does.
+    const co = PARAMETER_PROSE.co.summaryTemplate({
+      low: 1, high: 1, average: 1, unit: 'ppm', count: 4, withinStandards: true,
+    } as never)
+    expect(co).not.toMatch(/no indication of a combustion source/)
+    expect(co).toMatch(/single time-point readings/i)
+
+    const pm = PARAMETER_PROSE.pm25.summaryTemplate({
+      low: 6, high: 7, average: 6.5, unit: 'µg/m³', count: 4,
+      withinStandards: true, outdoorReference: 6,
+    } as never)
+    expect(pm).not.toMatch(/no indication of an indoor particulate source/)
+    expect(pm).toMatch(/at the time of measurement/)
   })
 
   it('does not recite standards history inside the summary', () => {

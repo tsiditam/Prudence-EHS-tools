@@ -72,6 +72,15 @@ const PARAM = {
  *     effective May 6 2024; primary annual standard lowered from 12 to
  *     9 µg/m³. The 24-hour standard is unchanged at 35 µg/m³.
  *   - ACGIH, "2025 TLVs and BEIs", Cincinnati OH, 2025.
+ *
+ * Note on the ASHRAE 241 entry: its first draft opened "Ventilation in this
+ * assessment was evaluated against ASHRAE 62.1-2025 outdoor-air rates". A CIH
+ * review of a live report caught that as an over-claim — the report contained
+ * no Rp/Ra calculation, no breathing-zone or system outdoor airflow, and no
+ * measured outdoor-air fraction, and the engine reaches its ventilation view
+ * through a CO2 indicator whenever airflow was not captured. An entry here
+ * explains why a criterion was NOT applied; it must not assert what the
+ * assessment did.
  */
 export const CONTEXTUAL_STANDARDS = Object.freeze([
   Object.freeze({
@@ -79,7 +88,7 @@ export const CONTEXTUAL_STANDARDS = Object.freeze([
     citation: 'ANSI/ASHRAE Standard 241-2023, Control of Infectious Aerosols.',
     summary: 'Infectious-aerosol control (ASHRAE 241)',
     rationale:
-      'Ventilation in this assessment was evaluated against ASHRAE 62.1-2025 outdoor-air rates — the consensus basis for acceptable indoor air quality under ordinary occupancy. ASHRAE 241-2023 sets a different and generally more demanding target, Equivalent Clean Airflow per occupant (ECAi), sized for infectious-aerosol control while a building is operating in an infection-risk management mode. That mode was not the basis of this assessment, so ECAi targets were not applied. Where occupant density, a vulnerable population, or an active infection-control program makes it relevant — healthcare, congregate care, schools — ECAi should be evaluated on its own terms; meeting 62.1 outdoor-air rates does not imply meeting it.',
+      'ASHRAE 241-2023 sets Equivalent Clean Airflow per occupant (ECAi), a ventilation, filtration and air-cleaning target sized for infectious-aerosol control while a building is operating in an infection-risk management mode. That mode was not the basis of this assessment, so ECAi targets were not applied. ECAi is generally more demanding than the outdoor-air rates in ASHRAE 62.1, and meeting those rates does not imply meeting it. Where occupant density, a vulnerable population, or an active infection-control program makes it relevant — healthcare, congregate care, schools — ECAi should be evaluated on its own terms, which requires measured outdoor-air delivery rather than an indicator such as carbon dioxide.',
     appliesWhen: (params) => params.has(PARAM.co2),
   }),
   Object.freeze({

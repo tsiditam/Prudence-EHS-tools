@@ -463,6 +463,8 @@ async function buildConsultantDocument(ctx, data) {
   }
   const { cover, main } = buildClientDocx(result, {
     photos: data.photos || ctx.photos || {},
+    // Narrows the benchmark table to the criteria this assessment used.
+    zones: data.zones || [],
     supplemental,
     dataGaps: deriveScientificDataGaps(data),
     instrumentAccuracy: buildInstrumentAccuracyInfo(data.presurvey),

@@ -292,11 +292,32 @@ export function renderClientReport(
   // v2.3 §2 — only mention the Building and System Conditions section
   // when it actually renders; otherwise the no-building fixture's
   // narrative would name a section it doesn't have.
-  const resultsNarrative = significantFindings.length > 0
-    ? (buildingActiveFindings.length > 0
-        ? `Screening-level observations identified conditions that warrant further evaluation. Detailed findings are presented in the zone-specific sections and the Recommendations Register. Per-parameter measurement ranges and comparisons against applicable regulatory standards and industry guidelines are summarized in the Results section. Building-level conditions affecting the HVAC system are summarized in the Building and System Conditions section.`
-        : `Screening-level observations identified conditions that warrant further evaluation. Detailed findings are presented in the zone-specific sections and the Recommendations Register. Per-parameter measurement ranges and comparisons against applicable regulatory standards and industry guidelines are summarized in the Results section.`)
-    : `Screening-level observations did not identify conditions warranting further evaluation within the stated limitations. Per-parameter measurement ranges are summarized in the Results section.`
+  //
+  // This paragraph and the Overall Professional Opinion are two statements
+  // about the same evidence, and they disagreed in an issued report: the
+  // summary opened "No significant indoor air quality concerns were
+  // identified" and this paragraph, two paragraphs later, said observations
+  // "identified conditions that warrant further evaluation". Both were
+  // reachable at once — the opinion tier ignores a `low` finding, this
+  // sentence counted every non-pass finding — and the reader was left to
+  // pick one. The opinion tier is authoritative; this paragraph now states
+  // the hierarchy underneath it instead of forming a second verdict.
+  //
+  // ("Screening-level" also went with it. The label was stripped
+  // platform-wide in 2026-08 and this sentence was still shipping it.)
+  const sectionPointers = buildingActiveFindings.length > 0
+    ? ` Detailed findings are presented in the zone-specific sections and the Recommendations Register. Per-parameter measurement ranges and the criteria they were compared against are summarized in the Results section. Building-level conditions affecting the HVAC system are summarized in the Building and System Conditions section.`
+    : ` Detailed findings are presented in the zone-specific sections and the Recommendations Register. Per-parameter measurement ranges and the criteria they were compared against are summarized in the Results section.`
+
+  const resultsNarrative =
+    significantFindings.length === 0
+      ? `This assessment did not identify conditions warranting further evaluation within the stated limitations. Per-parameter measurement ranges are summarized in the Results section.`
+      : siteOpinion === 'no_significant_concerns_identified'
+        // Observations exist, none rises to a concern. Saying so in that
+        // order is the whole point: it neither implies the assessment found
+        // nothing nor implies it found something requiring action.
+        ? `No conditions of concern were identified during this assessment. Individual observations were recorded and are discussed below.${sectionPointers}`
+        : `Conditions warranting further evaluation were identified.${sectionPointers}`
 
   // Observations: dedup the top significant findings to 3-6 entries by
   // distinct conditionType. Preserve order by first appearance. Uses
@@ -924,7 +945,7 @@ function buildAppendixE(meta: ClientReport['meta']): AppendixE {
     qaNotes: [
       'Field instruments were checked against ambient outdoor reference at the start of the survey day.',
       'Where outdoor reference measurements are missing for a parameter, the outdoor differential analysis is omitted from the corresponding Results subsection.',
-      'Measurement uncertainty associated with direct-reading instruments is documented in Appendix B and applied throughout the screening-level interpretation.',
+      'Measurement uncertainty associated with direct-reading instruments is documented in Appendix B and carried through the interpretation of every value reported here.',
     ],
   }
 }

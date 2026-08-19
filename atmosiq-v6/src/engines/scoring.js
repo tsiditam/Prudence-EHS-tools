@@ -152,7 +152,7 @@ function scoreVent(d, achOverride) {
     else if (cfm === req)     { s = 20; r.push({ t: `OA delivery ${cfm} cfm/person — at ASHRAE 62.1 minimum (${req}). Area component (Ra×Az) not captured — ventilation calc incomplete.`, std: 'ASHRAE 62.1-2025', sev: 'medium' }) }
     else if (cfm < req * 1.2) { s = 20; r.push({ t: `OA delivery ${cfm} cfm/person — marginally above minimum (${req})`, std: 'ASHRAE 62.1-2025', sev: 'medium' }) }
     else                      { r.push({ t: `OA delivery ${cfm} cfm/person — exceeds ASHRAE 62.1 minimum (${req})`, std: 'ASHRAE 62.1-2025', sev: 'pass' }) }
-    if (d.co2) r.push({ t: `CO₂ ${d.co2} ppm (confirmatory ventilation indicator). ${co2Caveat}`, std: co2Ref, sev: 'info' })
+    if (d.co2) r.push({ t: `CO₂ ${d.co2} ppm (confirmatory ventilation indicator). ${co2Caveat}`, std: co2Ref, sev: 'info', p: 'co2' })
   } else if (d.ach) {
     const ach = +d.ach, achMin = achOverride?.min || ((d.su === 'healthcare' || d.su === 'lab') ? 6 : 4)
     const achStd = achOverride?.label || 'CDC/ASHRAE 170'
@@ -160,7 +160,7 @@ function scoreVent(d, achOverride) {
     else if (ach < achMin)  { s = 12; r.push({ t: `ACH ${ach} — below minimum (${achMin})`, std: achStd, sev: 'high' }) }
     else if (ach === achMin){ s = 20; r.push({ t: `ACH ${ach} — at minimum (${achMin})`, std: achStd, sev: 'medium' }) }
     else                    { r.push({ t: `ACH ${ach} — meets or exceeds minimum (${achMin})`, std: achStd, sev: 'pass' }) }
-    if (d.co2) r.push({ t: `CO₂ ${d.co2} ppm (confirmatory ventilation indicator). ${co2Caveat}`, std: co2Ref, sev: 'info' })
+    if (d.co2) r.push({ t: `CO₂ ${d.co2} ppm (confirmatory ventilation indicator). ${co2Caveat}`, std: co2Ref, sev: 'info', p: 'co2' })
   } else if (d.co2) {
     const v = +d.co2, o = d.co2o ? +d.co2o : STD.v.co2.base, df = v - o
     const hasOutdoor = !!d.co2o
@@ -171,11 +171,11 @@ function scoreVent(d, achOverride) {
     // room the same as a hydrogen reading at 25% of the lower explosive limit.
     // Since the verdict layer escalates the whole assessment on any critical
     // finding, that miscalibration reached the report's triage priority.
-    if (v > STD.v.co2.act)                              { s = 0;  r.push({ t: 'CO₂ ' + v + ' ppm — severely elevated, indicating significant ventilation inadequacy. ' + co2Caveat, std: co2Ref, sev: capSeverity('critical', 'ventilation_indicator') }) }
-    else if (df > STD.v.co2.diff || v > STD.v.co2.con) { s = 10; r.push({ t: 'CO₂ ' + v + ' ppm (Δ' + df + ' ppm above outdoor) — ventilation rate appears inadequate for occupant load. ' + co2Caveat, std: co2Ref, sev: 'high' }) }
-    else if (hasOutdoor ? df > 500 : v > 800)           { s = 20; r.push({ t: 'CO₂ ' + v + ' ppm' + (hasOutdoor ? ' (Δ' + df + ' ppm above outdoor ' + o + ')' : '') + ' — ventilation approaching concern for sedentary occupancy. ' + co2Caveat, std: co2Ref, sev: 'medium' }) }
-    else if (!hasOutdoor && v > 800)                    { s = 20; r.push({ t: 'CO₂ ' + v + ' ppm — approaching concern (no outdoor baseline for differential). ' + co2Caveat, std: co2Ref, sev: 'low' }) }
-    else r.push({ t: 'CO₂ ' + v + ' ppm' + (hasOutdoor ? ' (Δ' + df + ' ppm)' : '') + ' — within the reference range for ventilation adequacy. ' + co2Caveat, std: co2Ref, sev: 'pass' })
+    if (v > STD.v.co2.act)                              { s = 0;  r.push({ t: 'CO₂ ' + v + ' ppm — severely elevated, indicating significant ventilation inadequacy. ' + co2Caveat, std: co2Ref, sev: capSeverity('critical', 'ventilation_indicator'), p: 'co2' }) }
+    else if (df > STD.v.co2.diff || v > STD.v.co2.con) { s = 10; r.push({ t: 'CO₂ ' + v + ' ppm (Δ' + df + ' ppm above outdoor) — ventilation rate appears inadequate for occupant load. ' + co2Caveat, std: co2Ref, sev: 'high', p: 'co2' }) }
+    else if (hasOutdoor ? df > 500 : v > 800)           { s = 20; r.push({ t: 'CO₂ ' + v + ' ppm' + (hasOutdoor ? ' (Δ' + df + ' ppm above outdoor ' + o + ')' : '') + ' — ventilation approaching concern for sedentary occupancy. ' + co2Caveat, std: co2Ref, sev: 'medium', p: 'co2' }) }
+    else if (!hasOutdoor && v > 800)                    { s = 20; r.push({ t: 'CO₂ ' + v + ' ppm — approaching concern (no outdoor baseline for differential). ' + co2Caveat, std: co2Ref, sev: 'low', p: 'co2' }) }
+    else r.push({ t: 'CO₂ ' + v + ' ppm' + (hasOutdoor ? ' (Δ' + df + ' ppm)' : '') + ' — within the reference range for ventilation adequacy. ' + co2Caveat, std: co2Ref, sev: 'pass', p: 'co2' })
     r.push({ t: 'Ventilation scored from CO₂ only — Limited Confidence. CO₂ is a ventilation indicator and should not be interpreted as a contaminant measurement.', sev: 'info' })
   } else {
     let f = 0
@@ -197,16 +197,16 @@ function scoreCont(d) {
   if (d.pm) {
     const v = +d.pm, ho = !!d.pmo
     if (isDataHall) {
-      if (v > 10) { dd += ho ? 6 : 4; r.push({ t: 'Indoor PM2.5 mass concentration of ' + v + ' µg/m³ measured during walkthrough. Elevated relative to typical data hall MERV-filtered conditions (<10 µg/m³).' + (ho ? '' : ' Without concurrent outdoor PM2.5 measurement, indoor elevation cannot be attributed to building sources.') + ' Particle count data at ISO 14644-1 size thresholds not captured; ISO Class cannot be determined from mass measurement alone.', std:'ISO 14644-1:2015 (walkthrough basis)', sev:'medium' }) }
+      if (v > 10) { dd += ho ? 6 : 4; r.push({ t: 'Indoor PM2.5 mass concentration of ' + v + ' µg/m³ measured during walkthrough. Elevated relative to typical data hall MERV-filtered conditions (<10 µg/m³).' + (ho ? '' : ' Without concurrent outdoor PM2.5 measurement, indoor elevation cannot be attributed to building sources.') + ' Particle count data at ISO 14644-1 size thresholds not captured; ISO Class cannot be determined from mass measurement alone.', std:'ISO 14644-1:2015 (walkthrough basis)', sev:'medium', p:'pm25' }) }
     } else {
-      if (v > STD.c.pm25.epa)      { dd += ho ? 12 : 8; r.push({ t: 'PM2.5 ' + v + ' µg/m³ — exceeds EPA 24-hr standard' + (ho?'':' (no outdoor baseline)'), std:'EPA NAAQS', sev:'high' }) }
-      else if (v > STD.c.pm25.who) { dd += ho ? 6  : 4; r.push({ t: 'PM2.5 ' + v + ' µg/m³ — exceeds WHO guideline' + (ho?'':' (no outdoor baseline)'), std:'WHO AQG', sev:'medium' }) }
+      if (v > STD.c.pm25.epa)      { dd += ho ? 12 : 8; r.push({ t: 'PM2.5 ' + v + ' µg/m³ — exceeds EPA 24-hr standard' + (ho?'':' (no outdoor baseline)'), std:'EPA NAAQS', sev:'high', p:'pm25' }) }
+      else if (v > STD.c.pm25.who) { dd += ho ? 6  : 4; r.push({ t: 'PM2.5 ' + v + ' µg/m³ — exceeds WHO guideline' + (ho?'':' (no outdoor baseline)'), std:'WHO AQG', sev:'medium', p:'pm25' }) }
     }
     if (ho && +d.pmo > 0) {
       const ioRatio = Math.round((v / +d.pmo) * 100) / 100
-      if (ioRatio > 2) r.push({ t: 'Indoor/outdoor PM2.5 ratio: ' + ioRatio + ' (>2.0 indicates significant indoor particulate source)', std: 'Chen & Zhao, Atmospheric Environment 2011', sev: 'medium' })
-      else if (ioRatio > 1) r.push({ t: 'Indoor/outdoor PM2.5 ratio: ' + ioRatio + ' (>1.0 indicates indoor contribution)', std: 'Chen & Zhao, Atmospheric Environment 2011', sev: 'info' })
-      else r.push({ t: 'Indoor/outdoor PM2.5 ratio: ' + ioRatio + ' (≤1.0 — no significant indoor source)', sev: 'pass' })
+      if (ioRatio > 2) r.push({ t: 'Indoor/outdoor PM2.5 ratio: ' + ioRatio + ' (>2.0 indicates significant indoor particulate source)', std: 'Chen & Zhao, Atmospheric Environment 2011', sev: 'medium', p:'pm25' })
+      else if (ioRatio > 1) r.push({ t: 'Indoor/outdoor PM2.5 ratio: ' + ioRatio + ' (>1.0 indicates indoor contribution)', std: 'Chen & Zhao, Atmospheric Environment 2011', sev: 'info', p:'pm25' })
+      else r.push({ t: 'Indoor/outdoor PM2.5 ratio: ' + ioRatio + ' (≤1.0 — no significant indoor source)', sev: 'pass', p:'pm25' })
     }
   }
   // CO and formaldehyde evaluate through the shared criterion registry
@@ -226,7 +226,7 @@ function scoreCont(d) {
     const hit = evaluateCriteria(parameter, +d[field], EVIDENCE_BASIS_WALKTHROUGH)
     if (!hit) continue
     dd += DEDUCTION_BY_SEVERITY[hit.severity] ?? 0
-    r.push({ t: label + ' ' + hit.statement, std: hit.criterion.source, sev: hit.severity })
+    r.push({ t: label + ' ' + hit.statement, std: hit.criterion.source, sev: hit.severity, p: parameter })
   }
   if (d.tv) {
     // Deduction stays outdoor-aware — an elevated reading with an outdoor
@@ -236,7 +236,7 @@ function scoreCont(d) {
     if (hit) {
       const outdoorAware = !!d.tvo
       dd += hit.severity === 'high' ? (outdoorAware ? 15 : 10) : (outdoorAware ? 7 : 5)
-      r.push({ t: 'TVOCs ' + hit.statement, std: hit.criterion.source, sev: hit.severity })
+      r.push({ t: 'TVOCs ' + hit.statement, std: hit.criterion.source, sev: hit.severity, p: 'tvoc' })
     }
   }
   if (d.op === 'Strong / overpowering')    { dd += 10; r.push({ t:'Strong odor: '+((d.ot||[]).join(', ')||'?'), sev:'high' }) }
@@ -338,8 +338,8 @@ function scoreEnv(d, rhOverride, tempOverride) {
     const tOMax = tempOverride?.oMax ?? STD.t.temp[ssn].oMax
     const tLabel = tempOverride?.label || 'ASHRAE 55'
     const tStd = tempOverride ? tempOverride.label : STD.t.ref
-    if (t < tMin || t > tMax)        { dd += 5; r.push({ t:'Temperature '+t+'°F — outside '+tMin+'–'+tMax+'°F range (per '+tLabel+')', std:tStd, sev:'high' }) }
-    else if (t < tOMin || t > tOMax) { dd += 2; r.push({ t:'Temperature '+t+'°F — outside optimal '+tOMin+'–'+tOMax+'°F (per '+tLabel+')', std:tStd, sev:'low' }) }
+    if (t < tMin || t > tMax)        { dd += 5; r.push({ t:'Temperature '+t+'°F — outside '+tMin+'–'+tMax+'°F range (per '+tLabel+')', std:tStd, sev:'high', p:'temperature' }) }
+    else if (t < tOMin || t > tOMax) { dd += 2; r.push({ t:'Temperature '+t+'°F — outside optimal '+tOMin+'–'+tOMax+'°F (per '+tLabel+')', std:tStd, sev:'low', p:'temperature' }) }
   } else if (d.tc === 'Too hot' || d.tc === 'Too cold') { dd += 4; r.push({ t:'Thermal discomfort: '+d.tc.toLowerCase(), sev:'medium' }) }
   // RH scoring with building-profile override (e.g., data_hall: 20-60%)
   const rhMin = rhOverride?.min ?? STD.t.rh.min
@@ -347,7 +347,7 @@ function scoreEnv(d, rhOverride, tempOverride) {
   const rhLabel = rhOverride?.label || 'recommended range'
   if (d.rh) {
     const v = +d.rh
-    if (v < rhMin || v > rhMax) { dd += 4; r.push({ t:'RH '+v+'% — outside '+rhMin+'–'+rhMax+'% '+rhLabel, std: rhOverride ? rhOverride.label : STD.t.ref, sev:v>70||v<20?'high':'medium' }) }
+    if (v < rhMin || v > rhMax) { dd += 4; r.push({ t:'RH '+v+'% — outside '+rhMin+'–'+rhMax+'% '+rhLabel, std: rhOverride ? rhOverride.label : STD.t.ref, sev:v>70||v<20?'high':'medium', p:'rh' }) }
   } else if (d.hp === 'Too humid / stuffy' || d.hp === 'Too dry') { dd += 3; r.push({ t:'Humidity concern: '+d.hp.toLowerCase(), sev:'medium' }) }
   if (d.wd === 'Extensive damage')  { dd += 15; r.push({ t:'Extensive water damage', sev:'critical' }) }
   else if (d.wd === 'Active leak')  { dd += 10; r.push({ t:'Active water intrusion', sev:'high' }) }
