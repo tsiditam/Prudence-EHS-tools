@@ -199,13 +199,42 @@ function scoreCont(d) {
   }
   if (d.co) {
     const v = +d.co
-    if (v > STD.c.co.osha)       { dd += 25; r.push({ t: 'CO ' + v + ' ppm — EXCEEDS OSHA PEL', std:'OSHA', sev:'critical' }) }
-    else if (v > STD.c.co.niosh) { dd += 12; r.push({ t: 'CO ' + v + ' — exceeds NIOSH REL', std:'NIOSH', sev:'high' }) }
+    // CO is measured here as a grab or short-duration reading. Occupational
+    // limits (OSHA PEL, NIOSH REL) are 8-hour+ TWAs and CANNOT be evaluated
+    // from one, so the text below says "the value of" rather than asserting
+    // an exceedance of the limit itself.
+    //
+    // The lower two tiers are the indoor criteria, and they are the ones that
+    // matter in a building investigation: an office at 15 ppm is a combustion
+    // source until proven otherwise, but sits far below every occupational
+    // limit. Before 2026-08 nothing fired below 35 ppm and that reading
+    // produced no finding at all.
+    //
+    // `std` strings are load-bearing: src/engine/bridge/classify.ts routes CO
+    // findings by matching 'osha'/'niosh' in std or text, falling through to
+    // co_screening_elevated for anything else. Keep OSHA/NIOSH on the top two
+    // tiers so their classification is unchanged.
+    if (v > STD.c.co.osha) {
+      dd += 25
+      r.push({ t: 'CO ' + v + ' ppm — above the OSHA PEL value of ' + STD.c.co.osha + ' ppm, which is an 8-hour TWA. A short-duration reading cannot establish TWA compliance, but a level this high indicates an active combustion source. Investigate immediately.', std: 'OSHA 29 CFR 1910.1000 Table Z-1', sev: 'critical' })
+    } else if (v > STD.c.co.niosh) {
+      dd += 12
+      r.push({ t: 'CO ' + v + ' ppm — above the NIOSH REL value of ' + STD.c.co.niosh + ' ppm (a 10-hour TWA). Identify and correct the combustion source.', std: 'NIOSH REL', sev: 'high' })
+    } else if (v > STD.c.co.who1h) {
+      dd += 12
+      r.push({ t: 'CO ' + v + ' ppm — above the WHO 1-hour indoor guideline of 35 mg/m³ (≈' + STD.c.co.who1h + ' ppm), a health-based acute criterion. Identify and correct the combustion source.', std: 'WHO Guidelines for Indoor Air Quality (2010)', sev: 'high' })
+    } else if (v > STD.c.co.epa) {
+      dd += 6
+      r.push({ t: 'CO ' + v + ' ppm — above the EPA 8-hour NAAQS of ' + STD.c.co.epa + ' ppm, applied here as an indoor reference. Indoor CO at this level indicates a combustion source or an infiltration pathway from one; identify and correct it.', std: '40 CFR 50.8', sev: 'medium' })
+    } else if (v > STD.c.co.who24h) {
+      dd += 2
+      r.push({ t: 'CO ' + v + ' ppm — above the WHO 24-hour indoor guideline of 7 mg/m³ (≈' + STD.c.co.who24h + ' ppm) and above typical indoor background. Note the likely source (fuel-fired appliance, attached garage, loading dock, flue) and re-check under normal operation.', std: 'WHO Guidelines for Indoor Air Quality (2010)', sev: 'low' })
+    }
   }
   if (d.hc) {
     const v = +d.hc
-    if (v > STD.c.hcho.osha)       { dd += 25; r.push({ t: 'Formaldehyde ' + v + ' ppm — exceeds OSHA PEL', std:'29 CFR 1910.1048', sev:'critical' }) }
-    else if (v > STD.c.hcho.al)    { dd += 12; r.push({ t: 'Formaldehyde ' + v + ' ppm — exceeds OSHA action level', std:'29 CFR 1910.1048', sev:'high' }) }
+    if (v > STD.c.hcho.osha)       { dd += 25; r.push({ t: 'Formaldehyde ' + v + ' ppm — above the OSHA PEL value of ' + STD.c.hcho.osha + ' ppm, which is an 8-hour TWA. A short-duration reading cannot establish TWA compliance; confirm with NIOSH Method 2016 integrated sampling.', std:'29 CFR 1910.1048', sev:'critical' }) }
+    else if (v > STD.c.hcho.al)    { dd += 12; r.push({ t: 'Formaldehyde ' + v + ' ppm — above the OSHA action level value of ' + STD.c.hcho.al + ' ppm, which is an 8-hour TWA. Confirm with integrated sampling before treating it as an exposure determination.', std:'29 CFR 1910.1048', sev:'high' }) }
     else if (v > STD.c.hcho.niosh) { dd += 6;  r.push({ t: 'Formaldehyde ' + v + ' ppm — exceeds NIOSH REL Ceiling (' + STD.c.hcho.niosh + ' ppm, health-protective recommendation) but below OSHA Action Level (' + STD.c.hcho.al + ' ppm) and PEL (' + STD.c.hcho.osha + ' ppm TWA). This is not a regulatory violation.', std:'NIOSH REL; 29 CFR 1910.1048', sev:'medium' }) }
   }
   if (d.tv) {

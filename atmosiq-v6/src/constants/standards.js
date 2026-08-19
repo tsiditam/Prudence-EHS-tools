@@ -134,7 +134,10 @@ export const STD = {
     // guideline: 35 mg/m³ over 1 hour ≈ 30 ppm (health-based ACUTE criterion
     // with a 1-hour averaging period — distinct from the 8-hour references
     // above). Used only as the higher action tier over a 1-hour rolling mean.
-    co:   { osha: 50,   niosh: 35,    epa: 9,  well: 9,  who1h: 30 },
+    // `who24h` is the WHO 2010 indoor 24-hour CO guideline: 7 mg/m³ ≈ 6 ppm.
+    // The lowest published indoor criterion, used as the point at which CO is
+    // above typical indoor background and a source should be noted.
+    co:   { osha: 50,   niosh: 35,    epa: 9,  well: 9,  who1h: 30, who24h: 6 },
     hcho: { osha: 0.75, niosh: 0.016, al: 0.5, epaRfc: 0.0057, who: 0.081 },
     // Particulates, µg/m³. The `epa`/`who` entries are on a 24-HOUR basis so
     // a given size fraction is directly comparable; `epaAnnual`/`whoAnnual`

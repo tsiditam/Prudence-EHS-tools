@@ -19,7 +19,7 @@ describe('scoreZone', () => {
     expect(result.cats).toHaveLength(5)
   })
 
-  it('returns Critical for a zone with CO above OSHA PEL', () => {
+  it('returns Critical for a zone with CO above the OSHA PEL value', () => {
     const zone = { zn: 'Boiler Room', co: '60', pm: '5' }
     const bldg = { hm: 'Unknown' }
     const result = scoreZone(zone, bldg)
@@ -27,7 +27,14 @@ describe('scoreZone', () => {
     expect(contCat.s).toBe(0)
     const coFinding = contCat.r.find(r => r.t.includes('CO') && r.t.includes('OSHA'))
     expect(coFinding.sev).toBe('critical')
-    expect(coFinding.std).toBe('OSHA')
+    // Asserted as a substring, not an exact match: the citation now carries
+    // the regulation rather than just the agency, and 'osha' is what
+    // bridge/classify.ts keys on.
+    expect(coFinding.std).toContain('OSHA')
+    expect(coFinding.std).toContain('1910.1000')
+    // The PEL is an 8-hour TWA and this is a grab reading — the finding must
+    // say so rather than assert a bare exceedance.
+    expect(coFinding.t).toMatch(/8-hour TWA/)
   })
 
   it('flags high CO2 as ventilation deficiency', () => {
