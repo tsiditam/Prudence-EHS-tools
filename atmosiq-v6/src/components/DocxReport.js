@@ -463,8 +463,11 @@ async function buildConsultantDocument(ctx, data) {
   }
   const { cover, main } = buildClientDocx(result, {
     photos: data.photos || ctx.photos || {},
-    // Narrows the benchmark table to the criteria this assessment used.
+    // Drives the "Criteria Applied" table: one reference per parameter,
+    // resolved from the criterion the engine actually applied.
     zones: data.zones || [],
+    zoneScores: data.zoneScores || [],
+    assessmentDate: resolveAssessmentDate(data) || undefined,
     supplemental,
     dataGaps: deriveScientificDataGaps(data),
     instrumentAccuracy: buildInstrumentAccuracyInfo(data.presurvey),

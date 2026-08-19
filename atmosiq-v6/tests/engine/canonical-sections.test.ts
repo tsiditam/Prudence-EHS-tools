@@ -45,8 +45,11 @@ const PRESURVEY = {
   ps_inst_iaq_cal_status: 'Calibrated',
 }
 
+const FIXTURE_ZONES = [{ zn: 'Z1', su: 'office', co2: '1300', co2o: '420', tf: '79', rh: '68', pm: '12', co: '2' }]
+const FIXTURE_ZONE_SCORES = FIXTURE_ZONES.map((z) => scoreZone(z, {}))
+
 function buildReport() {
-  const zone = { zn: 'Z1', su: 'office', co2: '1300', co2o: '420', tf: '79', rh: '68', pm: '12' }
+  const zone = { zn: 'Z1', su: 'office', co2: '1300', co2o: '420', tf: '79', rh: '68', pm: '12', co: '2' }
   const lz = scoreZone(zone, {})
   const cs = compositeScore([lz])
   const score = legacyToAssessmentScore([lz] as any, cs as any, [zone] as any, { meta: META, presurvey: PRESURVEY })
@@ -70,10 +73,16 @@ describe('Phase 2 — benchmark table data', () => {
   })
 
   it('never presents a NIOSH advisory value as an enforceable limit', () => {
+    // The invariant is that a NIOSH-only citation is never labelled an
+    // ENFORCEABLE limit — not that every NIOSH citation is an exposure
+    // limit. The CO2 ventilation indicators cite NIOSH IEQ guidance and are
+    // correctly typed "Ventilation benchmark"; forcing them to
+    // "Recommended exposure limit" would call a ventilation index an
+    // exposure limit, which is the error in the other direction.
     const niosh = BENCHMARK_ROWS.filter(r => /NIOSH/i.test(r[2]) && !/OSHA|CFR/i.test(r[2]))
     expect(niosh.length).toBeGreaterThan(0)
     for (const r of niosh) {
-      expect(r[3], `${r[0]} type`).toBe('Recommended exposure limit')
+      expect(r[3], `${r[0]} type`).not.toBe('Occupational exposure limit')
       // The Purpose column has to agree with the Type column — a row
       // reading "Recommended exposure limit / Enforceable workplace limit"
       // contradicts itself, which the first generated draft did.
@@ -154,7 +163,12 @@ describe('Phase 2 — section builders', () => {
   it('each builder returns a non-empty node array', () => {
     const r = buildReport().report
     expect(buildDocumentControl(r).length).toBeGreaterThan(0)
-    expect(buildBenchmarksSection().length).toBeGreaterThan(0)
+    // "Criteria Applied" is per-assessment now: one row per measured
+    // parameter, resolved from the criterion the engine applied. With no
+    // zones there is nothing that was measured and nothing to cite, so the
+    // section correctly renders nothing.
+    expect(buildBenchmarksSection().length).toBe(0)
+    expect(buildBenchmarksSection(FIXTURE_ZONES, FIXTURE_ZONE_SCORES).length).toBeGreaterThan(0)
     expect(buildConclusions(r).length).toBeGreaterThan(0)
     expect(buildDisclaimer().length).toBeGreaterThan(0)
     expect(buildCertification(r).length).toBeGreaterThan(0)
@@ -179,6 +193,8 @@ describe('Phase 2 — rendered DOCX', () => {
   it('contains the new section headings, TOC titles, and benchmark content', async () => {
     const result = buildReport()
     const { cover, main } = buildClientDocx(result, {
+      zones: FIXTURE_ZONES,
+      zoneScores: FIXTURE_ZONE_SCORES,
       dataGaps: [DATA_GAP_MESSAGES.outdoor, DATA_GAP_MESSAGES.lab],
       instrumentAccuracy: {
         iaqName: 'TSI Q-Trak 7575', iaqAccuracy: 'CO2 plus-minus 3 percent',
@@ -193,7 +209,7 @@ describe('Phase 2 — rendered DOCX', () => {
     const buf = await Packer.toBuffer(doc)
     const zip = await JSZip.loadAsync(buf)
     const xml = await zip.file('word/document.xml')!.async('string')
-    for (const t of ['Document Control', 'Standards, Guidelines, and Benchmark Types', 'Instrument Accuracy and Calibration', 'Conclusions', 'Limitations', 'Certification']) {
+    for (const t of ['Document Control', 'Criteria Applied', 'Instrument Accuracy and Calibration', 'Conclusions', 'Limitations', 'Certification']) {
       expect(xml).toContain(t)
     }
     // The Data Gaps and Disclaimer sections are merged into the single
@@ -203,7 +219,14 @@ describe('Phase 2 — rendered DOCX', () => {
     expect(xml).not.toContain('Data Gaps and Limitations on Interpretation')
     expect(xml).toContain('CO2 plus-minus 3 percent')
     expect(xml).toContain('ASHRAE 62.1-2025')
-    expect(xml).toContain('Occupational exposure limit')
-    expect(xml).toContain('Recommended exposure limit')
+    // The table now carries ONE criterion per measured parameter, so which
+    // benchmark-type labels appear depends on what was measured. The fixture
+    // has CO₂ (ventilation indicator), CO (ambient guideline), PM2.5, and the
+    // two comfort bands. What must hold is that every type rendered is in the
+    // §7 taxonomy — asserted exhaustively in applied-references.test.ts — and
+    // that the taxonomy note the table relies on still renders with it.
+    expect(xml).toContain('Ventilation benchmark')
+    expect(xml).toContain('Thermal comfort criterion')
+    expect(xml).toContain('Benchmark types carry different legal and technical weight')
   })
 })

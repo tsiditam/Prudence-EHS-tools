@@ -20,8 +20,9 @@ import { sectionHeading2 } from './headings'
 import { assembleSupplementalSections, mergeSupplementalTocEntries } from './sections-supplemental'
 import { isIaqScoreVisible } from '../../utils/featureFlags'
 import { makeSuppressionIndex } from '../../utils/editorialSuppressions'
+import { deriveAppliedReferences } from './applied-references'
 import {
-  BENCHMARK_TABLE_HEADERS, BENCHMARK_ROWS, BENCHMARK_INTRO, BENCHMARK_FOOTNOTE, benchmarkRowsFor,
+  BENCHMARK_FOOTNOTE, APPLIED_REFERENCES_INTRO,
   DISCLAIMER_PARAGRAPHS, CONCLUSIONS_CLOSING, certificationStatement, FIRM_NAME,
   DATA_GAPS_INTRO, INSTRUMENT_ACCURACY_NOTE,
 } from './canonical-content'
@@ -1356,18 +1357,34 @@ export function buildInstrumentAccuracyNote(info) {
 // assessment actually measured. It used to print the full library on every
 // report, which on a two-zone walkthrough buried the three criteria that
 // mattered under every one the engine knows.
-export function buildBenchmarksSection(zones) {
-  const rows = zones ? benchmarkRowsFor(zones) : BENCHMARK_ROWS
-  if (rows.length === 0) return []
-  // Proportional widths (sum = content width): Parameter / Benchmark /
-  // Source / Type / Purpose. Keeps the Purpose column from cramping.
+export function buildBenchmarksSection(zones, zoneScores, opts = {}) {
+  // One reference per parameter, resolved from what the engine actually
+  // applied. See applied-references.js — the previous table listed every
+  // criterion the platform knows (seven for CO alone), leaving the reader
+  // to work out which one the assessment rested on.
+  const applied = zones ? deriveAppliedReferences(zones, zoneScores, opts) : []
+  if (applied.length === 0) return []
+
   const W = TOTAL_WIDTH_DXA
-  const w = [Math.round(W * 0.17), Math.round(W * 0.22), Math.round(W * 0.16), Math.round(W * 0.19)]
+  const w = [Math.round(W * 0.17), Math.round(W * 0.21), Math.round(W * 0.16), Math.round(W * 0.19)]
   w.push(W - w[0] - w[1] - w[2] - w[3])
+
+  const rows = applied.map((r) => [r.label, r.reference, r.value, r.type, r.source])
+
+  // A parameter whose reading cleared its reference and one whose finding
+  // rests on a different rung of the same ladder are different statements,
+  // and the reader should not have to infer which is which.
+  const anyApplied = applied.some((r) => r.basis === 'applied')
+  const notes = applied.filter((r) => r.note).map((r) => `${r.label}: ${r.note}`)
+
   return [
-    ...heading2('Standards, Guidelines, and Benchmark Types'),
-    p(BENCHMARK_INTRO, { size: 20, color: COLORS.sub }),
-    buildSimpleTable(BENCHMARK_TABLE_HEADERS, rows, { columnWidths: w }),
+    ...heading2('Criteria Applied'),
+    p(APPLIED_REFERENCES_INTRO, { size: 20, color: COLORS.sub }),
+    buildSimpleTable(['Parameter', 'Criterion', 'Value', 'Benchmark Type', 'Source'], rows, { columnWidths: w }),
+    ...(anyApplied
+      ? [p('Where a finding was identified, the criterion listed is the one that finding rests on. Where no finding was identified, it is the criterion the measurements were compared against and cleared.', { italics: true, size: 18, color: COLORS.muted })]
+      : [p('No finding was identified for the parameters above; each criterion listed is the one the measurements were compared against and cleared.', { italics: true, size: 18, color: COLORS.muted })]),
+    ...notes.map((n) => p(n, { size: 18, color: COLORS.muted })),
     p(BENCHMARK_FOOTNOTE, { italics: true, size: 18, color: COLORS.muted }),
   ]
 }
@@ -1573,7 +1590,7 @@ export function buildClientDocx(result, options = {}) {
     ...buildScope(report),
     ...buildSamplingMethodologyDocx(report),
     ...buildInstrumentAccuracyNote(options.instrumentAccuracy),
-    ...buildBenchmarksSection(options.zones),
+    ...buildBenchmarksSection(options.zones, options.zoneScores, { assessmentDate: options.assessmentDate }),
     ...buildResultsSection(report, suppress),
     ...buildBuildingContext(report),
     ...buildBuildingConditionsSection(report, recIndex, suppress),

@@ -49,11 +49,37 @@ import type { ParameterKey } from './parameter-ranges'
 /** Severities the engine uses to say "evaluated, nothing to report". */
 const NON_FINDING_SEVERITIES: ReadonlySet<string> = new Set(['pass', 'info'])
 
+/** Worst first. The governing finding for a parameter is the most severe. */
+const SEVERITY_RANK: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1 }
+
+/**
+ * The criterion or band the engine actually applied when it flagged a
+ * parameter — carried so the report can cite ONE reference per parameter
+ * without re-deriving which one governed. `cid` names a criterion in
+ * `src/constants/criteria.js`; `band` is used instead for temperature and
+ * relative humidity, which are seasonal/profile bands rather than a
+ * criterion ladder and are deliberately not in the registry.
+ */
+export interface AppliedBasis {
+  readonly cid?: string
+  readonly band?: readonly [number, number]
+  readonly bandUnit?: string
+  readonly bandLabel?: string
+  readonly source?: string
+  readonly severity: string
+}
+
 export interface ParameterVerdict {
   /** At least one actionable finding was emitted for this parameter. */
   readonly hasFinding: boolean
   /** Zone names carrying one, in zone order, de-duplicated. */
   readonly zones: ReadonlyArray<string>
+  /**
+   * The basis of the most severe finding. Absent when nothing was flagged —
+   * the report then cites the parameter's default reference, which the
+   * reading cleared.
+   */
+  readonly governing?: AppliedBasis
 }
 
 export type ParameterVerdictSet = Partial<Record<ParameterKey, ParameterVerdict>>
@@ -61,6 +87,11 @@ export type ParameterVerdictSet = Partial<Record<ParameterKey, ParameterVerdict>
 interface LegacyFinding {
   readonly p?: unknown
   readonly sev?: unknown
+  readonly cid?: unknown
+  readonly std?: unknown
+  readonly band?: unknown
+  readonly bandUnit?: unknown
+  readonly bandLabel?: unknown
 }
 interface LegacyCategory {
   readonly r?: ReadonlyArray<LegacyFinding>
@@ -84,7 +115,7 @@ export function deriveParameterVerdicts(
   zoneScores: ReadonlyArray<LegacyZoneScoreLike> | undefined,
   zonesData: ReadonlyArray<ZoneDataLike> = [],
 ): ParameterVerdictSet {
-  const out: Record<string, { hasFinding: boolean; zones: string[] }> = {}
+  const out: Record<string, { hasFinding: boolean; zones: string[]; governing?: AppliedBasis }> = {}
 
   ;(zoneScores || []).forEach((zs, i) => {
     const name = typeof zs?.zoneName === 'string' && zs.zoneName
@@ -98,13 +129,36 @@ export function deriveParameterVerdicts(
         if (NON_FINDING_SEVERITIES.has(String(f.sev))) continue
         entry.hasFinding = true
         if (!entry.zones.includes(name)) entry.zones.push(name)
+
+        const sev = String(f.sev)
+        const rank = SEVERITY_RANK[sev] ?? 0
+        const currentRank = entry.governing ? (SEVERITY_RANK[entry.governing.severity] ?? 0) : -1
+        // Strictly greater: the FIRST zone to reach the worst severity wins,
+        // so the citation is stable under zone reordering.
+        if (rank > currentRank) {
+          const band = Array.isArray(f.band) && f.band.length === 2 && f.band.every((n) => typeof n === 'number')
+            ? ([f.band[0], f.band[1]] as [number, number])
+            : undefined
+          entry.governing = Object.freeze({
+            severity: sev,
+            ...(typeof f.cid === 'string' && f.cid ? { cid: f.cid } : {}),
+            ...(band ? { band } : {}),
+            ...(typeof f.bandUnit === 'string' ? { bandUnit: f.bandUnit } : {}),
+            ...(typeof f.bandLabel === 'string' ? { bandLabel: f.bandLabel } : {}),
+            ...(typeof f.std === 'string' ? { source: f.std } : {}),
+          })
+        }
       }
     }
   })
 
   const frozen: Record<string, ParameterVerdict> = {}
   for (const [k, v] of Object.entries(out)) {
-    frozen[k] = Object.freeze({ hasFinding: v.hasFinding, zones: Object.freeze(v.zones.slice()) })
+    frozen[k] = Object.freeze({
+      hasFinding: v.hasFinding,
+      zones: Object.freeze(v.zones.slice()),
+      ...(v.governing ? { governing: v.governing } : {}),
+    })
   }
   return frozen as ParameterVerdictSet
 }

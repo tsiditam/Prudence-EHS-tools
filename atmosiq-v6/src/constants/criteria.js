@@ -485,6 +485,16 @@ export const CRITERIA = {
     }),
   ],
 
+  // Attribution note: 1,000 / 1,500 ppm are ABSOLUTE indoor CO2 indicators
+  // from NIOSH IEQ guidance, not ASHRAE 62.1 values — current 62.1 sets no
+  // indoor CO2 number, and CO2 indexes ventilation per occupant rather than
+  // a contaminant (Persily 2021). These two cited "ASHRAE 62.1 differential
+  // methodology", which conflated them with the Δ700-above-outdoor figure
+  // (STD.v.co2.diff) from a since-removed informative appendix. The same
+  // mis-attribution had already been corrected in utils/referenceProfiles.js,
+  // where the comment records it being flagged twice in peer review; the two
+  // modules now cite the figure identically. CLAUDE.md lists the ASHRAE-62.1-
+  // as-CO2-limit framing as an anti-pattern.
   co2: [
     criterion({
       id: 'co2_action',
@@ -494,7 +504,7 @@ export const CRITERIA = {
       averaging: 'instantaneous',
       class: 'ventilation_indicator',
       severity: 'critical',   // capped to `high` by the class — see capSeverity
-      source: 'ASHRAE 62.1 differential methodology; Persily, ASHRAE Journal 63(2):74–75 (2021)',
+      source: 'NIOSH indoor-ventilation indicator (~1,000 ppm); Persily, ASHRAE Journal 63(2):74–75 (2021)',
       action: 'Verify supply airflow and outdoor-air fraction at the air handler.',
     }),
     criterion({
@@ -505,7 +515,7 @@ export const CRITERIA = {
       averaging: 'instantaneous',
       class: 'ventilation_indicator',
       severity: 'high',
-      source: 'ASHRAE 62.1 differential methodology; Persily, ASHRAE Journal 63(2):74–75 (2021)',
+      source: 'NIOSH indoor-ventilation indicator (~1,000 ppm); Persily, ASHRAE Journal 63(2):74–75 (2021)',
       action: 'Verify outdoor-air delivery against the occupant load.',
     }),
   ],

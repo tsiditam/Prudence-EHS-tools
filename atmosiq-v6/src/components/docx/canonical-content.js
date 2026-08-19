@@ -50,7 +50,7 @@ export const BENCHMARK_TABLE_HEADERS = [
 // Criterion class → the docs/report-spec §7 benchmark-type label and the
 // one-line "purpose in report". The class already encodes the weight a
 // criterion carries, so this is a rename, not a second judgement.
-const CLASS_PRESENTATION = {
+export const CLASS_PRESENTATION = {
   physical_hazard:       ['Occupational exposure limit', 'Acute hazard threshold'],
   regulatory_oel:        ['Occupational exposure limit', 'Enforceable workplace limit'],
   health_indoor:         ['Public health ambient guideline', 'Health-based indoor guideline'],
@@ -66,8 +66,8 @@ const CLASS_PRESENTATION = {
 // because that is where they sit. The taxonomy wins for the label — and the
 // PURPOSE column has to move with it, or a row reads "Recommended exposure
 // limit / Enforceable workplace limit" and contradicts itself.
-const isRecommendedNotEnforceable = (source) => /NIOSH/i.test(source) && !/OSHA|CFR/i.test(source)
-const RECOMMENDED = ['Recommended exposure limit', 'Advisory occupational value, not a regulatory limit']
+export const isRecommendedNotEnforceable = (source) => /NIOSH/i.test(source) && !/OSHA|CFR/i.test(source)
+export const RECOMMENDED_PRESENTATION = ['Recommended exposure limit', 'Advisory occupational value, not a regulatory limit']
 
 const PARAMETER_LABEL = {
   co: 'CO', hcho: 'HCHO', pm25: 'PM2.5', pm10: 'PM10', tvoc: 'TVOCs', co2: 'CO₂',
@@ -77,7 +77,7 @@ function criterionRows() {
   return allCriteria().map((c) => {
     let [typeLabel, purpose] = CLASS_PRESENTATION[c.class] || ['Indicator', 'Investigative indicator']
     if (isRecommendedNotEnforceable(c.source) && typeLabel === 'Occupational exposure limit') {
-      ;[typeLabel, purpose] = RECOMMENDED
+      ;[typeLabel, purpose] = RECOMMENDED_PRESENTATION
     }
     const period = c.averagingLabel && c.averagingLabel !== 'instantaneous'
       ? ` (${c.averagingLabel})`
@@ -117,6 +117,26 @@ export const BENCHMARK_TYPE_LABELS = [
 
 export const BENCHMARK_INTRO =
   'The following published criteria frame the evaluation in this report. They carry different regulatory, health, and investigative weight and are not interchangeable, and each is stated with the averaging period it is defined over — a criterion defined as an 8-hour or 24-hour average cannot be settled by a single reading.'
+
+// Benchmark type for references with no registry criterion behind them: the
+// comfort BANDS (seasonal ranges, deliberately not a threshold ladder — see
+// docs/CRITERIA.md "Known remaining work"), and CO2's ventilation
+// indicators, whose 1,000/1,500 ppm figures are NIOSH indoor-ventilation
+// indicators rather than criteria in their own right.
+//
+// Without this a row fell through to a bare "Indicator", so the same
+// parameter could be labelled "Ventilation benchmark" when a finding rested
+// on it and "Indicator" when it did not — the table disagreeing with itself
+// about what kind of thing CO2 is.
+export const BAND_PRESENTATION = {
+  co2: ['Ventilation benchmark', 'Indicator of outdoor-air delivery per occupant'],
+  temperature: ['Thermal comfort criterion', 'Comfort evaluation, not a health standard'],
+  rh: ['Comfort / moisture indicator', 'Comfort and moisture indicator'],
+  tvoc: ['Indicator', 'Source-investigation indicator, not a compliance limit'],
+}
+
+export const APPLIED_REFERENCES_INTRO =
+  'Each parameter below is listed with the single published criterion it was evaluated against in this assessment, together with the averaging period that criterion is defined over. A criterion defined as an 8-hour, 24-hour or annual average cannot be settled by a single reading. Background on each criterion, including its standing and the weight it carries, is in Appendix D.'
 
 export const BENCHMARK_FOOTNOTE =
   'Benchmark types carry different legal and technical weight. Occupational exposure limits are enforceable workplace standards. Public health guidelines are health-based recommendations. Comfort criteria address thermal acceptability. Ventilation and other indicators are investigative triggers used for prioritization, not compliance determination.'
