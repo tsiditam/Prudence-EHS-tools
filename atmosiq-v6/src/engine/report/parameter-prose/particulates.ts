@@ -28,7 +28,7 @@ export const PARTICULATES_PROSE: ParameterProse = {
       ? ` Outdoor reference was ${range.outdoorReference} ${range.unit}.`
       : ''
     if (range.withinStandards) {
-      return `${head}${outdoor} Concentrations are within the 35 µg/m³ 24-hour screening benchmark, with no indication of an indoor particulate source.`
+      return `${head}${outdoor} Concentrations are within the 35 µg/m³ 24-hour benchmark, with no indication of an indoor particulate source.`
     }
     const zones = range.elevatedInZones && range.elevatedInZones.length > 0
       ? ` Elevated in ${range.elevatedInZones.join(', ')}; per-zone values are in Appendix A.`
@@ -36,6 +36,6 @@ export const PARTICULATES_PROSE: ParameterProse = {
     const indoorSource = range.outdoorReference !== undefined && range.high > range.outdoorReference
       ? ' Indoor concentrations exceed outdoor, pointing to an indoor source or inadequate filtration.'
       : ''
-    return `${head}${outdoor} Concentrations exceed the 35 µg/m³ 24-hour screening benchmark.${indoorSource}${zones}`
+    return `${head}${outdoor} Concentrations exceed the 35 µg/m³ 24-hour benchmark.${indoorSource}${zones}`
   },
 }
