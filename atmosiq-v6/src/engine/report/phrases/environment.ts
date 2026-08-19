@@ -11,6 +11,8 @@ export const ENVIRONMENT_PHRASES: Partial<Record<ConditionType, PhraseLibraryEnt
     regulatoryConclusionRequires: [],
     defaultLimitations: [
       'ASHRAE 55 is a comfort consensus standard, not a health-based or regulatory limit.',
+    ],
+    technicalContext: [
       'Comfort interpretation depends on activity level, clothing, and individual physiology.',
     ],
     defaultRecommendedActions: [
@@ -42,6 +44,8 @@ export const ENVIRONMENT_PHRASES: Partial<Record<ConditionType, PhraseLibraryEnt
     regulatoryConclusionRequires: [],
     defaultLimitations: [
       'RH was measured at a single point in time. Sustained RH duration is critical for microbial amplification risk assessment.',
+    ],
+    technicalContext: [
       'Continuous RH logging over 14+ days is recommended to characterize excursion frequency.',
     ],
     defaultRecommendedActions: [

@@ -22,12 +22,13 @@ export const HCHO_PROSE: ParameterProse = {
   ],
   summaryTemplate(range) {
     if (range.count === 0) return 'Formaldehyde was not measured during this assessment.'
-    const within = range.withinStandards
-      ? 'were within expected ranges and well below the OSHA Action Level of 0.5 ppm'
-      : 'were elevated relative to the trigger applied for this evaluation. Direct-reading instruments have specificity limitations near the NIOSH REL; confirmatory NIOSH Method 2016 (DNPH cartridge) integrated sampling is recommended where formal exposure assessment is warranted'
-    const elevatedClause = !range.withinStandards && range.elevatedInZones && range.elevatedInZones.length > 0
-      ? ` Elevated values were recorded in ${range.elevatedInZones.join(', ')}; per-zone values are presented in Appendix A.`
+    const head = `Formaldehyde ranged from ${range.low} to ${range.high} ${range.unit}, averaging ${range.average} ${range.unit}.`
+    if (range.withinStandards) {
+      return `${head} Concentrations are within typical indoor background.`
+    }
+    const zones = range.elevatedInZones && range.elevatedInZones.length > 0
+      ? ` Elevated in ${range.elevatedInZones.join(', ')}; per-zone values are in Appendix A.`
       : ''
-    return `Formaldehyde concentrations recorded during the survey ranged from ${range.low} ${range.unit} to ${range.high} ${range.unit}, averaging ${range.average} ${range.unit}, and ${within}.${elevatedClause}`
+    return `${head} Concentrations are above typical indoor background. Direct-reading instruments lose specificity in this range; confirm with NIOSH Method 2016 (DNPH cartridge) sampling to characterise the source.${zones}`
   },
 }

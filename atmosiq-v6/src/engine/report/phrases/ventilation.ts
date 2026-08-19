@@ -16,6 +16,8 @@ export const VENTILATION_PHRASES: Partial<Record<ConditionType, PhraseLibraryEnt
     regulatoryConclusionRequires: [],
     defaultLimitations: [
       'Outdoor air delivery was inferred from CO₂ surrogate methodology, not measured directly.',
+    ],
+    technicalContext: [
       'ASHRAE 62.1 compliance requires measured supply airflow and outdoor-air fraction at the air handler.',
     ],
     defaultRecommendedActions: [
@@ -42,6 +44,8 @@ export const VENTILATION_PHRASES: Partial<Record<ConditionType, PhraseLibraryEnt
     regulatoryConclusionRequires: ['documented_8hr_twa'],
     defaultLimitations: [
       'Ventilation adequacy was assessed using CO₂ as a surrogate indicator, not direct airflow measurement.',
+    ],
+    technicalContext: [
       'CO₂ is a ventilation effectiveness indicator, not an air quality contaminant (Persily, ASHRAE Journal 2021).',
     ],
     defaultRecommendedActions: [

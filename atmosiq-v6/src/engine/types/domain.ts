@@ -150,7 +150,21 @@ export interface PhraseLibraryEntry {
   readonly definitiveConclusionRequires: ReadonlyArray<EvidenceBasisKind>
   readonly causationSupportRequires: ReadonlyArray<EvidenceBasisKind>
   readonly regulatoryConclusionRequires: ReadonlyArray<EvidenceBasisKind>
+  /**
+   * Evidentiary limitations — what was or was not measured, and the
+   * instrument or method constraints that bear on it. These are material:
+   * they change how a reader should act on the finding, so they render
+   * inline beneath it.
+   */
   readonly defaultLimitations: ReadonlyArray<string>
+  /**
+   * Reporting-voice rules 4 and 10 — standards framing and definitional
+   * context (what a benchmark is, what a parameter cannot establish on its
+   * own). True and worth stating, but it does not change the action a
+   * reader should take, and restating it under every finding buries the
+   * finding. Collected once into Appendix D instead of rendering inline.
+   */
+  readonly technicalContext?: ReadonlyArray<string>
   readonly defaultRecommendedActions: ReadonlyArray<RecommendedAction>
 }
 

@@ -17,6 +17,13 @@ single reworded limitation statement ("not a regulatory / compliance /
 medical determination") plus the over-claim guardrail in
 `api/_banned-language.js` — not in repeated "screening" labeling.
 
+**What it optimises for.** Helping a qualified professional run an
+investigation and communicate what they found, clearly enough that a client
+or facility stakeholder can act on it. Defensibility is a property the
+platform maintains, not the thing it is for. It was the defining trait
+through 2026-08 and is no longer; see the working principles below and
+`docs/REPORTING_VOICE.md`.
+
 Live at atmosflow.net. Engine version is currently **2.9** (v2.9 changed report-issuance
 gating from refuse-to-issue to issue-with-warnings; see the engine
 override note under Working principles).
@@ -146,14 +153,21 @@ Read these directories first when investigating any task:
 - **No functional regressions.** This is a production SaaS. If a fix
   risks breaking adjacent functionality, stop and surface the concern
   before proceeding.
-- **Respect the liability boundary (without the "screening" label).**
-  Do not generate code, copy, or report content that claims compliance
-  certification, professional opinion (without licensed-professional
-  sign-off), or definitive causation. The MSA recital language depends on
-  this. Enforce it through the substantive limitation statement and the
-  `api/_banned-language.js` over-claim guardrail — NOT by adding
-  "screening" / "screening-level" / "screening-only" labels or repeated
-  caveats, which were removed platform-wide in 2026-08.
+- **Defensibility is a floor, not the product.** AtmosFlow still must not
+  claim compliance certification, professional opinion without licensed
+  sign-off, or causation the evidence does not support — the MSA recitals
+  depend on it, and the permission flags plus `api/_banned-language.js`
+  enforce it. That floor holds.
+
+  What changed in 2026-08 is its status: it is no longer the trait the
+  product is built around. The platform is judged on whether it helps a
+  professional investigate and communicate. So do not reach for a caveat,
+  hedge, disclaimer, or label defensively — the boundary lives in the
+  substantive limitation statement and the guardrails, not in repeated
+  qualification. Where caution and clarity conflict on routine material,
+  clarity wins; `docs/REPORTING_VOICE.md` is the governing style. (Same
+  reasoning that stripped "screening" labeling platform-wide — do NOT
+  reintroduce it.)
 - **Preserve calibration gating.** The instrument-calibration gate is a
   competitive moat and a litigation defense. Do not bypass or weaken it.
   Described precisely, because the report appendix asserts this to
@@ -196,33 +210,47 @@ Read these directories first when investigating any task:
     records who accepted it and on what reasoning; that is all. See
     `tests/engine/calibration-qa-notes.test.ts` and
     `tests/lib/calibrationAcknowledgement.test.ts`.
-- **The engine is sacred.** Do not modify any file under `src/engine/`
-  or `src/engines/scoring.js`. Do not change scoring logic, threshold
-  constants, or scoring contracts. If you think the engine needs to
-  change to complete a task, you have misunderstood the task — stop
-  and report.
+- **The engine has two layers, and only one of them is fixed.** The split
+  matters because the old absolute rule ("do not modify anything under
+  `src/engine/`") was read as *don't touch anything the engine renders* —
+  which put report wording out of reach and turned every clarity fix into a
+  governance question.
 
-  **One override has been granted (2026-08, engine v2.9.0).** Report
-  ISSUANCE gating changed: a fired data-gap trigger no longer returns a
-  Pre-Assessment Memo INSTEAD of the report. `renderClientReport` now
-  always issues the full report and carries the fired triggers on the
-  result as `dataGapWarnings`, rendered as a cover notice plus a
-  "Limitations on Reliance — Identified Data Gaps" section before the
-  findings. Product rationale: withholding the deliverable does not
-  improve the data — it leaves the assessor with nothing to hand a
-  client and nothing showing what to fix.
+  **Determinism core — changes need explicit product sign-off.** Scoring
+  math (`src/engines/scoring.js`, `scoring-legacy.js`), threshold constants
+  (`src/constants/standards.js`), the scoring contracts and finding shapes
+  in `src/engine/types/`, and the permission-flag logic deciding what a
+  narrative may assert. These determine **what the engine concludes**.
+  Changing them changes numbers and conclusions, and the reproducibility of
+  already-issued reports rests on them. Ask first, and say what moves.
 
-  Scope of the override, so it is not read wider than it is: it touched
-  `report/client.ts` (guard clause → warnings) and `report/types.ts`
-  (result shape). Scoring, thresholds, contracts and trigger LOGIC are
-  unchanged — `evaluateRefusalTriggers` and `shouldRefuseToIssue` still
-  evaluate exactly as before, and `shouldRefuseToIssue` still reports
-  `refuse: true`; nothing acts on it as a refusal any more. The name is
-  historical. `buildPreAssessmentMemo` is retained, exported and tested,
-  but is never produced automatically. Covered by
-  `tests/engine/data-gap-warning.test.ts`; the trigger logic itself is
-  still covered by `tests/engine/refusal-to-issue.test.ts`, which was
-  not modified.
+  **Editorial layer — change it like any other code.** Phrase wording
+  (`src/engine/report/phrases/`), parameter prose
+  (`src/engine/report/parameter-prose/`), the verbatim paragraphs in
+  `templates.ts`, section ordering, and where a limitation renders. These
+  determine **how a conclusion is communicated**. Communication is a product
+  concern, not a compliance artifact; improving it needs no special
+  dispensation. Tests and the acceptance gates are the check.
+
+  **The decision test:** would the change alter what the engine concludes
+  from the same inputs? If yes, it is core — ask. If it only changes how
+  that conclusion reads, it is editorial — make it well, and let the tests
+  catch regressions.
+
+  Two guardrails survive intact in both layers, because neither is about
+  caution for its own sake: the **banned-term list** with its permission
+  flags (`cih-validation.ts` + the `api/_banned-language.js` mirror, kept in
+  sync by `banned-language-parity.test.ts`), and **AI provenance
+  labelling**. Nothing in the editorial layer requires "confirmed", "caused
+  by", or "noncompliant", so clarity work never needs to weaken them.
+
+  *History: this replaced an absolute "the engine is sacred" prohibition in
+  2026-08, after it required two one-off overrides in quick succession —
+  v2.9.0 report issuance, then the reporting-voice change. Both were
+  editorial under the rule above. Needing an exception for routine wording
+  changes was the signal the line had been drawn in the wrong place. The
+  v2.9.0 issuance change is described under Defensibility primitives; the
+  voice change in `docs/REPORTING_VOICE.md`.*
 
 ## Assessment context (connectivity layer)
 
@@ -267,7 +295,10 @@ strings outside that source.
 
 ## Defensibility primitives
 
-When working on report generation, these patterns are non-negotiable:
+The floor described in the working principles, stated concretely. These
+patterns are non-negotiable — but they are a floor to clear, not a target to
+aim at. Clearing them does not make a report good; it makes it publishable.
+When working on report generation:
 
 - **Citation tracker.** Every body-text reference to a standard
   registers with the tracker. Appendix D includes only registered
@@ -369,8 +400,9 @@ on this codebase. Watch for them.
    branch. Use date-stable inputs that satisfy BOTH ranges
    (e.g. `tf: '73'` is inside summer's 73–79 AND winter's 68.5–74).
    The seasonality heuristic itself is imprecise — May is spring, not
-   summer — but fixing it is engine-scope and off-limits per the
-   "engine is sacred" rule.
+   summer. Fixing it is determinism-core work (it changes which findings
+   fire), so it needs product sign-off rather than being off-limits
+   outright — see the two-layer engine rule above.
 
 4. **No extension-less `.ts` imports from a `.js` file on the API
    path.** PR #297 (commit `fcfe774`) shipped this line in

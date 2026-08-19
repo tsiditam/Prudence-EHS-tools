@@ -22,12 +22,13 @@ export const CO_PROSE: ParameterProse = {
   ],
   summaryTemplate(range) {
     if (range.count === 0) return 'Carbon monoxide was not measured during this assessment.'
-    const within = range.withinStandards
-      ? 'were within the ASHRAE 62.1 reference of 9 ppm and well below the OSHA PEL of 50 ppm'
-      : 'were elevated relative to the ASHRAE 62.1 reference of 9 ppm. Documented determination of OSHA PEL or NIOSH REL compliance requires 8-hour TWA sampling, which was not performed during this assessment'
-    const elevatedClause = !range.withinStandards && range.elevatedInZones && range.elevatedInZones.length > 0
-      ? ` Elevated values were recorded in ${range.elevatedInZones.join(', ')}; per-zone values are presented in Appendix A.`
+    const head = `Carbon monoxide ranged from ${range.low} to ${range.high} ${range.unit}, averaging ${range.average} ${range.unit}.`
+    if (range.withinStandards) {
+      return `${head} Concentrations are within the 9 ppm indoor reference, with no indication of a combustion source.`
+    }
+    const zones = range.elevatedInZones && range.elevatedInZones.length > 0
+      ? ` Elevated in ${range.elevatedInZones.join(', ')}; per-zone values are in Appendix A.`
       : ''
-    return `Carbon monoxide concentrations recorded during the survey ranged from ${range.low} ${range.unit} to ${range.high} ${range.unit}, averaging ${range.average} ${range.unit}, and ${within}.${elevatedClause}`
+    return `${head} Concentrations exceed the 9 ppm indoor reference. Identify and correct the combustion source. Occupational exposure determination requires 8-hour TWA sampling, which was not performed during this assessment.${zones}`
   },
 }

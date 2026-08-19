@@ -33,15 +33,16 @@ export const CO2_PROSE: ParameterProse = {
   ],
   summaryTemplate(range) {
     if (range.count === 0) return 'Carbon dioxide was not measured during this assessment.'
-    const outdoorClause = range.outdoorReference !== undefined
-      ? ` Outdoor CO₂ reference for the day of survey was ${range.outdoorReference} ${range.unit}, producing an indoor differential range of ${(range.low - range.outdoorReference).toFixed(0)} to ${(range.high - range.outdoorReference).toFixed(0)} ${range.unit} above outdoor.`
+    const head = `Carbon dioxide ranged from ${range.low} to ${range.high} ${range.unit}, averaging ${range.average} ${range.unit}.`
+    const diff = range.outdoorReference !== undefined
+      ? ` Outdoor reference was ${range.outdoorReference} ${range.unit}, an indoor differential of ${(range.low - range.outdoorReference).toFixed(0)} to ${(range.high - range.outdoorReference).toFixed(0)} ${range.unit}.`
       : ''
-    const within = range.withinStandards
-      ? 'were within the ASHRAE 62.1 reference of 700 ppm above outdoor (or 1,000 ppm absolute when no outdoor reference was available) and well below the OSHA PEL of 5,000 ppm'
-      : 'exceeded the ASHRAE 62.1 reference of 700 ppm above outdoor (or 1,000 ppm absolute when no outdoor reference was available), suggesting outdoor-air delivery may be below the rate required for the observed occupancy. The values remained well below the OSHA PEL of 5,000 ppm 8-hour TWA'
-    const elevatedClause = !range.withinStandards && range.elevatedInZones && range.elevatedInZones.length > 0
-      ? ` Elevated values were recorded in ${range.elevatedInZones.join(', ')}; per-zone values are presented in Appendix A.`
+    if (range.withinStandards) {
+      return `${head}${diff} Concentrations are within the 700 ppm differential reference, with no evidence of occupant-related accumulation.`
+    }
+    const zones = range.elevatedInZones && range.elevatedInZones.length > 0
+      ? ` Elevated in ${range.elevatedInZones.join(', ')}; per-zone values are in Appendix A.`
       : ''
-    return `Carbon dioxide concentrations recorded during the survey ranged from ${range.low} ${range.unit} to ${range.high} ${range.unit}, averaging ${range.average} ${range.unit}, and ${within}.${outdoorClause}${elevatedClause}`
+    return `${head}${diff} Concentrations exceed the 700 ppm differential reference, indicating outdoor-air delivery is not keeping pace with occupancy. Verify supply airflow and outdoor-air fraction at the air handler.${zones}`
   },
 }

@@ -16,6 +16,8 @@ export const COMPLAINTS_PHRASES: Partial<Record<ConditionType, PhraseLibraryEntr
     regulatoryConclusionRequires: [],
     defaultLimitations: [
       'Reported symptoms were collected informally and not through a validated symptom-survey instrument.',
+    ],
+    technicalContext: [
       'Causation between building conditions and symptoms cannot be established from anecdotal report alone.',
     ],
     defaultRecommendedActions: [
@@ -38,6 +40,8 @@ export const COMPLAINTS_PHRASES: Partial<Record<ConditionType, PhraseLibraryEntr
     regulatoryConclusionRequires: [],
     defaultLimitations: [
       'Symptom clustering was identified informally and has not been confirmed through epidemiological analysis.',
+    ],
+    technicalContext: [
       'Spatial clustering alone does not establish causation.',
     ],
     // The ATSDR occupant-risk-communication action was removed: it is
