@@ -306,9 +306,34 @@ function scoreComp(d) {
   return { s, mx: 15, l: 'Complaints', r }
 }
 
+/**
+ * Thermal-comfort season for the ASHRAE 55 band.
+ *
+ * Approximating clothing insulation by calendar month is imprecise — May is
+ * spring — but the imprecision was never the hazard. Reading the CLOCK was:
+ * summer optimal is 73–79°F and winter 68.5–74°F, so a 76°F reading passes in
+ * one and fails in the other. A report re-scored in November applied the
+ * winter band to a survey done in October, and the same data produced a
+ * different report depending on the day it was rendered.
+ *
+ * The date now travels with the assessment. Callers pass the survey date;
+ * omitting it falls back to now, which is correct for a live walkthrough and
+ * is the only case where "today" IS the assessment date.
+ *
+ * @param {string|Date} [assessmentDate] when the assessment was conducted
+ */
+export function comfortSeason(assessmentDate) {
+  let d = assessmentDate ? new Date(assessmentDate) : new Date()
+  if (Number.isNaN(d.getTime())) d = new Date()   // unparseable → behave as live
+  const m = d.getMonth()
+  return m >= 4 && m <= 9 ? 'summer' : 'winter'
+}
+
 function scoreEnv(d, rhOverride, tempOverride) {
   let dd = 0, r = []
-  const ssn = new Date().getMonth() >= 4 && new Date().getMonth() <= 9 ? 'summer' : 'winter'
+  // `d` is { ...bldg, ...zone }, so the date rides in on the building object
+  // without changing any scoreZone call site.
+  const ssn = comfortSeason(d.assessmentDate)
   if (d.tf) {
     const t = +d.tf
     const tMin = tempOverride?.min ?? STD.t.temp[ssn].min

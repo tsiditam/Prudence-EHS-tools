@@ -1477,6 +1477,21 @@ export default function MobileApp() {
   }
 
   const runScoring = () => {
+    // A FINALIZED report is a record, not a live recomputation. Re-scoring one
+    // would apply today's thermal-comfort season to a survey done months ago,
+    // and handleExport builds its DOCX from component state — so the exported
+    // document would differ from the one that was issued, silently.
+    //
+    // This is reachable: the actions menu renders on view==='report', offers
+    // "Map zones on floor plan", and SpatialMap's onClose calls runScoring.
+    // Guarding here rather than at that one call site, so any future entry
+    // point is covered too.
+    if (viewRpt) {
+      return {
+        zScores: zoneScores, composite: comp, osha: oshaResult, recommendations: recs,
+        sp: samplingPlan, cc: causalChains, mold: moldResults, mc: measConf,
+      }
+    }
     // Propagate outdoor baselines — one outdoor reading per parameter applies to all zones
     const outdoorFields = ['co2o', 'tfo', 'rho', 'pmo', 'tvo']
     const outdoorValues = {}
@@ -1486,6 +1501,14 @@ export default function MobileApp() {
       outdoorFields.forEach(f => { if (!z[f] && outdoorValues[f]) fill[f] = outdoorValues[f] })
       return Object.keys(fill).length > 0 ? { ...z, ...fill } : z
     })
+    // scoreZone reads an optional `assessmentDate` off the building object and
+    // falls back to now. Nothing is passed here yet: a draft carries only `ua`
+    // (last-saved), not a survey date, so there is no honest value to supply.
+    // Capturing one is an intake change — see TODO below. For a live
+    // walkthrough, which is what this path is once finalized reports are
+    // guarded out, "now" IS the assessment date and the fallback is correct.
+    // TODO(product): capture a survey date at intake so a draft resumed across
+    // a season boundary is scored against the day the work was done.
     const zScores = zonesWithOutdoor.map(z => scoreZone(z, bldg))
     const composite = compositeScore(zScores)
     const worst = zonesWithOutdoor.reduce((w, z) => (!w || scoreZone(z, bldg).tot < scoreZone(w, bldg).tot) ? z : w, zonesWithOutdoor[0])

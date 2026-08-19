@@ -391,18 +391,28 @@ on this codebase. Watch for them.
    for the established shape. New API tests should follow the same
    pattern, not reinvent the mocking strategy.
 
-3. **Engine season detection is calendar-based and date-fragile.**
-   `src/engines/scoring.js:282` uses `new Date().getMonth()` to choose
+3. **Engine season detection is calendar-based — now date-injectable.**
+   `comfortSeason(assessmentDate)` in `src/engines/scoring.js` chooses
    summer (May–October: optimal 73–79°F) vs winter (November–April:
-   optimal 68.5–74°F). Test inputs on the boundary (e.g. `tf: '72'`)
-   produce different findings depending on the day the test runs:
-   `'pass'` / `'info'` in the winter branch, `'low'` in the summer
-   branch. Use date-stable inputs that satisfy BOTH ranges
-   (e.g. `tf: '73'` is inside summer's 73–79 AND winter's 68.5–74).
-   The seasonality heuristic itself is imprecise — May is spring, not
-   summer. Fixing it is determinism-core work (it changes which findings
-   fire), so it needs product sign-off rather than being off-limits
-   outright — see the two-layer engine rule above.
+   optimal 68.5–74°F). `scoreEnv` reads it off `d.assessmentDate`, which
+   rides in on the building object, and falls back to now when absent.
+
+   **Tests should pin a date** (`scoreZone(zone, { assessmentDate:
+   '2026-07-15' })`) rather than hunting for date-stable inputs. The old
+   advice — use `tf: '73'` because it satisfies both bands — is no longer
+   necessary, though existing tests using it are still fine.
+
+   It used to read the clock directly, which meant a report re-scored in
+   November applied the winter band to an October survey: the same data
+   produced a different report depending on the day it was rendered.
+   Finalized reports are additionally guarded (`runScoring` early-returns
+   when `viewRpt` is set), because `handleExport` builds its DOCX from
+   component state.
+
+   Still open: a DRAFT carries only `ua` (last-saved), not a survey date,
+   so nothing is passed on that path and it still falls back to now. The
+   calendar heuristic itself is also imprecise — May is spring — and
+   clothing insulation, not month, is what ASHRAE 55 actually keys on.
 
 4. **No extension-less `.ts` imports from a `.js` file on the API
    path.** PR #297 (commit `fcfe774`) shipped this line in
