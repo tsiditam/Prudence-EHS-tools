@@ -19,6 +19,7 @@ import { supabase, trackEvent } from '../utils/supabaseClient'
 import Backup from '../utils/backup'
 import { groupActions } from '../utils/recFormatting'
 import { resolvePrimaryDriver } from '../utils/primaryDriver'
+import { resolveVerdict, countFindings, hasAnyAction } from '../utils/assessmentVerdict'
 import { getCalibrationBannerState, loadInstruments, isOutOfCal } from '../utils/instrumentRegistry'
 import {
   buildCalibrationAcknowledgement, validateJustification, MAX_JUSTIFICATION_LEN,
@@ -2400,8 +2401,19 @@ export default function MobileApp() {
     // header for why the gate exists.
     const driver = resolvePrimaryDriver(zs?.cats)
     const driverCat = driver.category || worstCat
-    const riskLabel = comp.tot < 30 ? 'Critical indoor air quality concern' : comp.tot < 50 ? 'Significant indoor air quality concern' : comp.tot < 70 ? 'Moderate indoor air quality concern' : 'Conditions within acceptable range'
-    const actionLabel = comp.tot < 30 ? 'Immediate corrective action recommended' : comp.tot < 50 ? 'Targeted investigation and corrective action warranted' : comp.tot < 70 ? 'Targeted improvements recommended' : 'Continue routine monitoring'
+    // #4 — escalation used to be evaluated ONLY on the export path, so the
+    // screen could say "continue routine monitoring" beside a report warning
+    // about a combustion source. Evaluate it here too and feed the verdict.
+    // KNOWN GAP: complaints/history are still passed empty because the
+    // complaint store is not loaded on this screen, so the medical-attention
+    // and complaint-cluster rules cannot fire from here.
+    const screenEscalations = evaluateEscalation({ zones, comp, moldResults }, [], [])
+    // One verdict for every surface. The composite is a floor, never a
+    // ceiling: a critical finding or an escalation trigger raises it, and no
+    // score can soften it. See utils/assessmentVerdict.js.
+    const verdict = resolveVerdict({ comp, zoneScores, escalationTriggers: screenEscalations })
+    const riskLabel = verdict.riskLabel
+    const actionLabel = verdict.actionLabel
     // Expert summary — IH-grade reasoning (complaints are pattern, not driver)
     const expertDriver = driver.label
     const expertComplaint = hasComplaints ? 'Occupant symptoms reported' : null
@@ -2411,8 +2423,8 @@ export default function MobileApp() {
     // Severity headline distilled from comp.tot. Pulled out of the
     // legacy riskLabel string so the hero can render a tight 3-word
     // headline plus a sentence of supporting prose.
-    const sevPillTone = comp.tot < 30 ? V3.SEVERITY.critical : comp.tot < 50 ? V3.SEVERITY.high : comp.tot < 70 ? V3.SEVERITY.medium : V3.SEVERITY.pass
-    const sevPillLabel = comp.tot < 30 ? 'Critical Concern' : comp.tot < 50 ? 'Significant Concern' : comp.tot < 70 ? 'Moderate Concern' : 'Within Acceptable Range'
+    const sevPillTone = V3.SEVERITY[verdict.severity]
+    const sevPillLabel = verdict.label
     const confTone = measConf?.overall === 'High' ? V3.CONFIDENCE.high : measConf?.overall === 'Low' ? V3.CONFIDENCE.low : V3.CONFIDENCE.medium
     const headline = (() => {
       // Name the screening indicator, not a likelihood on the attribution —
@@ -2420,9 +2432,12 @@ export default function MobileApp() {
       // causal-attribution layer (keeps the screening framing defensible).
       if (causalChains[0]?.type) return causalChains[0].type
       if (expertDriver) return `${expertDriver}`
-      // Scored, and nothing rose to a finding. Voice rule 6 — a normal
-      // measurement is not automatically a finding; rule 7 — when conditions
-      // are normal, say so plainly.
+      // Nothing rose to a driver. Say which of the two clean cases it is —
+      // "No significant findings" printed above a header reading "1 finding"
+      // is its own contradiction, so a low-only result gets its own wording.
+      if (driver.scored && verdict.findings.total > 0) return 'Minor observations only'
+      // Voice rule 6 — a normal measurement is not automatically a finding;
+      // rule 7 — when conditions are normal, say so plainly.
       if (driver.scored) return 'No significant findings identified'
       // Nothing was scored at all. That is a data gap, not a clean result, so
       // it must not read as reassurance.
@@ -2466,7 +2481,7 @@ export default function MobileApp() {
               the Phase-2 collapsing-nav work. */}
           {(() => {
             const zonesCount = (zoneScores||[]).length
-            const findingsCount = (zoneScores||[]).reduce((n,z)=>n+(z.cats||[]).reduce((m,c)=>m+(c.r||[]).filter(r=>r.sev==='critical'||r.sev==='high'||r.sev==='medium'||r.sev==='low').length,0),0)
+            const findingsCount = countFindings(zoneScores).total
             return (
               <div style={{display:'flex',alignItems:'center',gap:9,marginTop:12,fontSize:13,color:SUB,flexWrap:'wrap',fontFamily:'var(--font-mono)'}}>
                 <span style={{display:'inline-flex',alignItems:'center',gap:6,color:V3.STATUS.ready,fontWeight:600}}>
@@ -2565,10 +2580,7 @@ export default function MobileApp() {
                 </div>
               </div>
               <div style={{...V3.T.bodyDim, lineHeight:'20px', marginTop:12}}>
-                {comp.tot < 30 ? 'Building-related symptom cluster identified. Immediate corrective action recommended.'
-                  : comp.tot < 50 ? 'Targeted investigation and corrective action warranted.'
-                  : comp.tot < 70 ? 'Targeted improvements recommended; conditions trending outside accepted range.'
-                  : 'Conditions within acceptable range; continue routine monitoring.'}
+                {verdict.prose}
               </div>
               {/* Footer — the composite number now lives in the ring above, so
                   the footer carries the zone denominator + the drill-in to the
@@ -2625,11 +2637,27 @@ export default function MobileApp() {
                     if (text) items.push({ k: `imm-${idx}`, text })
                   })
                 }
+                // Escalations outrank everything else on this card.
+                for (const t of screenEscalations.slice(0, 3 - items.length)) {
+                  if (t?.rationale) items.push({ k: `esc-${t.rule}`, text: t.rationale })
+                }
                 if (samplingPlan?.plan?.length > 0 && items.length < 3) {
                   items.push({ k: 'samp', text: `Targeted confirmatory sampling (${samplingPlan.plan.length} analytical method${samplingPlan.plan.length>1?'s':''})` })
                 }
                 if (items.length === 0) {
-                  return <div style={V3.T.bodyDim}>No immediate actions identified. Continue routine monitoring and re-assess on the next cycle.</div>
+                  // Only claim there is nothing to do once EVERY tier is
+                  // empty. Checking `imm` alone put "No immediate actions
+                  // identified. Continue routine monitoring" directly above a
+                  // "View all actions" link to the engineering and
+                  // administrative recommendations it had just denied.
+                  const anythingToDo = hasAnyAction(recs, samplingPlan, screenEscalations)
+                  return (
+                    <div style={V3.T.bodyDim}>
+                      {anythingToDo
+                        ? 'No immediate actions identified. Engineering, administrative and monitoring recommendations are listed under all actions.'
+                        : 'No actions identified. Continue routine monitoring and re-assess on the next cycle.'}
+                    </div>
+                  )
                 }
                 return items.map(({ k, text }) => (
                   <div key={k} style={{display:'flex',alignItems:'flex-start',gap:10}}>
@@ -2862,7 +2890,13 @@ export default function MobileApp() {
                       <I n="chart" s={14} c={confTone} w={1.7} />
                       <div style={{minWidth:0}}>
                         <div style={V3.T.captionDim}>Measurement confidence</div>
-                        <div style={{...V3.T.bodyStrong, color:confTone, marginTop:2}}>{measConf?.overall || 'Pending'}</div>
+                        {/* comp.confidence — the WORST zone's confidence, which
+                            is what PrintReport prints under this same label.
+                            measConf.overall counts how many parameters were
+                            captured; showing that here made the app and the
+                            report disagree while claiming to measure the same
+                            thing. measConf still drives its own advisory below. */}
+                        <div style={{...V3.T.bodyStrong, color:confTone, marginTop:2}}>{comp?.confidence || measConf?.overall || 'Pending'}</div>
                       </div>
                     </div>
                     <div style={{display:'flex',alignItems:'flex-start',gap:8}}>
@@ -3006,7 +3040,7 @@ export default function MobileApp() {
                 </div>
                 {zoneScores.map((z, i) => {
                   const isFocus = selZone === i
-                  const findingCount = (z.cats || []).reduce((acc, c) => acc + (c.r?.length || 0), 0)
+                  const findingCount = countFindings([z]).total
                   return (
                     <button key={i} onClick={()=>setSelZone(i)} style={{display:'grid',gridTemplateColumns: isTablet ? '2fr 1fr 1fr 1.4fr' : '2fr 1fr 1.4fr', gap:12, padding:'12px 8px', alignItems:'center', textAlign:'left', background: isFocus ? V3.RAISED : 'transparent', border:'none', borderTop: i === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`, cursor:'pointer', fontFamily:'inherit', borderRadius: isFocus ? V3.R.sm : 0, width:'100%'}}>
                       <div style={{minWidth:0}}>
