@@ -2891,7 +2891,13 @@ export default function MobileApp() {
                       <div style={V3.iconBox(V3.TEXT_SECONDARY)}><I n="person" s={15} c={V3.TEXT_SECONDARY} w={1.8} /></div>
                       <div style={{minWidth:0,flex:1}}>
                         <div style={V3.T.captionDim}>Likely contributing cause</div>
-                        <div style={{...V3.T.body, marginTop:3, lineHeight:'19px'}}>{expertCause.length > 140 ? expertCause.slice(0, 137) + '…' : expertCause}</div>
+                        {/* The cause is stated in full. It used to be sliced at 137 characters
+                            and suffixed with an ellipsis, which cut the sentence mid-word
+                            ("...is a common c…") and left the reader without the one thing
+                            the row exists to say. The cause strings in causalChains.js are
+                            written short — the cause only, with the remedy left to the
+                            recommendations — so there is nothing here to clamp. */}
+                        <div style={{...V3.T.body, marginTop:3, lineHeight:'19px'}}>{expertCause}</div>
                       </div>
                     </div>
                   )}
