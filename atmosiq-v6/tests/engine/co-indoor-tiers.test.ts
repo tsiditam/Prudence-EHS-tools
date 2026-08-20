@@ -7,6 +7,7 @@
  * thresholds were roughly four times too high to see it.
  */
 import { describe, it, expect } from 'vitest'
+import { allCriteria } from '../../src/constants/criteria.js'
 // @ts-expect-error — JS module without TS types
 import { scoreZone } from '../../src/engines/scoring'
 // @ts-expect-error — JS module without TS types
@@ -24,7 +25,18 @@ describe('indoor CO tiers', () => {
     expect(f).toHaveLength(1)
     expect(f[0].sev).toBe('medium')
     expect(f[0].t).toMatch(/EPA 8-hour NAAQS of 9 ppm/)
-    expect(f[0].t).toMatch(/combustion source|infiltration/i)
+    // The combustion-source prompt used to be appended to the finding text,
+    // because buildStatement carried the criterion's `action`. A finding
+    // states what was measured; what to do about it is a recommendation and
+    // the app and the report each render those in their own section. The
+    // action still exists on the criterion — asserted below, at its source.
+    expect(f[0].t).not.toMatch(/combustion source|Identify|Compare against/i)
+    expect(f[0].cid).toBe('co_epa_naaqs_8h')
+  })
+
+  it('keeps the follow-up advice on the criterion, not in the finding', () => {
+    const criterion: any = allCriteria().find((c: any) => c.id === 'co_epa_naaqs_8h')
+    expect(criterion.action).toMatch(/combustion source|infiltration/i)
   })
 
   it('notes a reading above indoor background but below the NAAQS', () => {

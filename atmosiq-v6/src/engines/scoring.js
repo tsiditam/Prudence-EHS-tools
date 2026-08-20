@@ -71,10 +71,10 @@ export function scoreZone(z, bldg) {
   // Data hall walkthrough findings — indicators, not definitive classifications
   if (d.zone_subtype === 'data_hall') {
     if (d.gaseous_corrosion && (d.gaseous_corrosion.includes('G3') || d.gaseous_corrosion.includes('GX'))) {
-      cats.find(c => c.l === 'Contaminants')?.r.push({ t: 'Walkthrough indicators consistent with elevated risk of G2 or worse environment per ANSI/ISA 71.04-2013 methodology. Gaseous corrosion severity is professional judgment based on visual/olfactory indicators — not instrument measurement. Definitive classification requires 30-day passive copper+silver reactivity coupon deployment per the standard.', std: 'ANSI/ISA 71.04-2013 (walkthrough basis)', sev: 'medium' })
+      cats.find(c => c.l === 'Contaminants')?.r.push({ t: 'Walkthrough indicators consistent with elevated risk of G2 or worse environment per ANSI/ISA 71.04-2013 methodology. Gaseous corrosion severity is professional judgment based on visual/olfactory indicators, not instrument measurement, and cannot be classified to a G-level from walkthrough observation alone.', std: 'ANSI/ISA 71.04-2013 (walkthrough basis)', sev: 'medium' })
     }
     if (d.iso_class === 'ISO Class 8') {
-      cats.find(c => c.l === 'Contaminants')?.r.push({ t: 'Particle conditions observed during walkthrough may indicate elevated particulate levels. ISO Class cannot be determined from walkthrough data alone. Definitive classification per ISO 14644-1:2015 requires particle counter deployment at standard size thresholds (≥0.5 µm, ≥1 µm, ≥5 µm).', std: 'ISO 14644-1:2015 (walkthrough basis)', sev: 'medium' })
+      cats.find(c => c.l === 'Contaminants')?.r.push({ t: 'Particle conditions observed during walkthrough may indicate elevated particulate levels. ISO Class cannot be determined from walkthrough data alone.', std: 'ISO 14644-1:2015 (walkthrough basis)', sev: 'medium' })
     }
   }
   // Category lookups for overrides
@@ -197,7 +197,7 @@ function scoreCont(d) {
   if (d.pm) {
     const v = +d.pm, ho = !!d.pmo
     if (isDataHall) {
-      if (v > 10) { dd += ho ? 6 : 4; r.push({ t: 'Indoor PM2.5 mass concentration of ' + v + ' µg/m³ measured during walkthrough. Elevated relative to typical data hall MERV-filtered conditions (<10 µg/m³).' + (ho ? '' : ' Without concurrent outdoor PM2.5 measurement, indoor elevation cannot be attributed to building sources.') + ' Particle count data at ISO 14644-1 size thresholds not captured; ISO Class cannot be determined from mass measurement alone.', std:'ISO 14644-1:2015 (walkthrough basis)', sev:'medium', p:'pm25' }) }
+      if (v > 10) { dd += ho ? 6 : 4; r.push({ t: 'Indoor PM2.5 mass concentration of ' + v + ' µg/m³ measured during walkthrough. Elevated relative to typical data hall MERV-filtered conditions (<10 µg/m³).' + (ho ? '' : ' Without concurrent outdoor PM2.5 measurement, indoor elevation cannot be attributed to building sources.') + ' ISO Class cannot be determined from a mass measurement alone.', std:'ISO 14644-1:2015 (walkthrough basis)', sev:'medium', p:'pm25' }) }
     } else {
       if (v > STD.c.pm25.epa)      { dd += ho ? 12 : 8; r.push({ t: 'PM2.5 ' + v + ' µg/m³ — exceeds EPA 24-hr standard' + (ho?'':' (no outdoor baseline)'), std:'EPA NAAQS', sev:'high', p:'pm25', cid:'pm25_epa_24h' }) }
       else if (v > STD.c.pm25.who) { dd += ho ? 6  : 4; r.push({ t: 'PM2.5 ' + v + ' µg/m³ — exceeds WHO guideline' + (ho?'':' (no outdoor baseline)'), std:'WHO AQG', sev:'medium', p:'pm25', cid:'pm25_who_24h' }) }
@@ -245,9 +245,9 @@ function scoreCont(d) {
   // Mold indicators
   if (d.mi && d.mi !== 'None' && d.mi !== 'Suspected discoloration') {
     const moldJurisdiction = ' Consult applicable state and local regulations for jurisdiction-specific mold remediation requirements.'
-    if (d.mi.includes('Extensive')) { dd += 15; r.push({ t:'Extensive visible mold ('+d.mi+') — IICRC S520 Condition 3 likely. EPA Mold Remediation Level III or higher. Professional remediation contractor required.'+moldJurisdiction, std:'IICRC S520; EPA Mold Remediation', sev:'critical' }) }
-    else if (d.mi.includes('Moderate')) { dd += 10; r.push({ t:'Moderate visible mold ('+d.mi+') — IICRC S520 Condition 2 likely. EPA Level II (10–30 sq ft). Trained personnel with PPE (N95, gloves, eye protection) required.'+moldJurisdiction, std:'IICRC S520; EPA Mold Remediation', sev:'high' }) }
-    else if (d.mi.includes('Small')) { dd += 5; r.push({ t:'Small area mold ('+d.mi+') — IICRC S520 Condition 1 or 2. EPA Level I (<10 sq ft). Trained maintenance staff with PPE may perform cleanup.'+moldJurisdiction, std:'IICRC S520; EPA Mold Remediation', sev:'medium' }) }
+    if (d.mi.includes('Extensive')) { dd += 15; r.push({ t:'Extensive visible mold ('+d.mi+') — IICRC S520 Condition 3 likely. EPA Mold Remediation Level III or higher.'+moldJurisdiction, std:'IICRC S520; EPA Mold Remediation', sev:'critical' }) }
+    else if (d.mi.includes('Moderate')) { dd += 10; r.push({ t:'Moderate visible mold ('+d.mi+') — IICRC S520 Condition 2 likely. EPA Level II (10–30 sq ft).'+moldJurisdiction, std:'IICRC S520; EPA Mold Remediation', sev:'high' }) }
+    else if (d.mi.includes('Small')) { dd += 5; r.push({ t:'Small area mold ('+d.mi+') — IICRC S520 Condition 1 or 2. EPA Level I (<10 sq ft).'+moldJurisdiction, std:'IICRC S520; EPA Mold Remediation', sev:'medium' }) }
   }
   // Battery room H₂ hazard-atmosphere assessment (parallel to IAQ scoring)
   if (d.zone_subtype === 'battery_room' && d.h2_ppm) {

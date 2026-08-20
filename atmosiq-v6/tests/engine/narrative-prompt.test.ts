@@ -90,6 +90,44 @@ describe('narrative prompt — boundaries that produced the worst sentence', () 
   })
 })
 
+describe('narrative prompt — plain-English register', () => {
+  it('sets a newspaper register, not a consultant one', () => {
+    expect(P).toMatch(/New York Times/)
+    expect(P).toMatch(/building owner with no industrial-hygiene training/)
+  })
+
+  it('asks for short sentences and plain words', () => {
+    expect(P).toMatch(/Short sentences/)
+    expect(P).toMatch(/15 to 20 words/)
+    expect(P).toMatch(/Plain words over technical ones/)
+  })
+
+  it('requires a term to be explained on first use', () => {
+    expect(P).toMatch(/Explain a term the first time/)
+    expect(P).toMatch(/Never leave an acronym unexplained on first use/)
+  })
+
+  it('requires a number to be given something to measure against', () => {
+    expect(P).toMatch(/Give a number something to measure against/)
+    expect(P).toMatch(/A bare figure does not/)
+  })
+
+  it('names the consultant tics to cut', () => {
+    for (const tic of ['it should be noted', 'in order to', 'utilise', 'prior to', 'with respect to']) {
+      expect(P, `should name "${tic}"`).toContain(tic)
+    }
+  })
+
+  // Plain language is a style instruction, not a licence to weaken a claim.
+  // "may indicate" -> "shows" would be a boundary breach dressed as clarity.
+  it('forbids simplifying away a boundary or dropping a measurement', () => {
+    expect(P).toMatch(/Do not simplify away a boundary/)
+    expect(P).toMatch(/"may indicate" cannot become "shows"/)
+    expect(P).toMatch(/"not identified" cannot become "not present"/)
+    expect(P).toMatch(/do not drop a number to make a sentence read more smoothly/)
+  })
+})
+
 describe('narrative prompt — surviving guardrails', () => {
   it('keeps the causation and regulatory-classification bans', () => {
     expect(P).toMatch(/Never state or imply causation/)

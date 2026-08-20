@@ -18,12 +18,12 @@ export function buildCausalChains(zones, bldg, zoneScores) {
   zoneScores.forEach((zs, i) => {
     const z = zones[i] || {}, d = { ...bldg, ...z }, zName = zs.zoneName
 
-    // Occupant-complaint pattern fires environmental screening hypotheses
+    // Occupant-complaint pattern fires environmental hypotheses
     // from complaints alone. The platform screens building conditions only —
     // it never characterizes occupant health, so no SBS / building-related-
     // illness language appears in any output. Symptom characterization
     // requires an occupant survey + medical/occupational-health input and is
-    // outside this screening's scope.
+    // outside this assessment's scope.
     const sbsDetected = detectSBSPattern(d)
     if (sbsDetected && !chains.some(c => c.zone === zName && c.type.includes('Ventilation'))) {
       const ev = []
@@ -31,13 +31,18 @@ export function buildCausalChains(zones, bldg, zoneScores) {
       if (d.sr === 'Yes — clear pattern') ev.push('Symptoms resolve when away from building')
       if (d.cc === 'Yes — this zone') ev.push('Symptom clustering in this zone')
       if ((d.sy||[]).length) ev.push('Reported: ' + d.sy.join(', '))
-      chains.push({ zone: zName, type: 'Ventilation Deficiency (Screening)',
-        rootCause: 'Occupant complaints were reported in this zone. As an environmental screening hypothesis, insufficient outdoor-air delivery is a common contributor and warrants investigation of ventilation rates and outdoor-air damper operation. This screening evaluates building conditions only and does not characterize occupant health.',
+      // rootCause states the CAUSE only. What to do about it — check
+      // ventilation rates, check damper operation — is a recommendation, and
+      // the recommendations register and the actions list both carry it. It
+      // used to be appended here, which made the cause too long for its card
+      // and got it truncated mid-word in the app.
+      chains.push({ zone: zName, type: 'Ventilation Deficiency (Hypothesis)',
+        rootCause: 'Occupant complaints were reported in this zone. Insufficient outdoor-air delivery is a common contributor to complaint patterns of this kind.',
         evidence: ev, confidence: ev.length >= 3 ? 'Strong' : 'Moderate' })
-      chains.push({ zone: zName, type: 'Microbial / Bioaerosol (Screening)',
-        rootCause: 'Hidden moisture or microbial amplification cannot be ruled out without moisture mapping and bioaerosol sampling.',
+      chains.push({ zone: zName, type: 'Microbial / Bioaerosol (Hypothesis)',
+        rootCause: 'Concealed moisture or microbial amplification behind finishes remains possible; a walkthrough cannot see it.',
         evidence: [...ev, 'Hypothesis — requires confirmatory investigation'], confidence: 'Possible' })
-      chains.push({ zone: zName, type: 'VOC Source (Screening)',
+      chains.push({ zone: zName, type: 'VOC Source (Hypothesis)',
         rootCause: 'New materials, cleaning products, or adjacent processes may be contributing VOCs not captured by walkthrough.',
         evidence: [...ev, 'Hypothesis — requires TVOC/speciation sampling'], confidence: 'Possible' })
     }
@@ -92,18 +97,18 @@ export function buildCausalChains(zones, bldg, zoneScores) {
       if (d.path_pressure === 'Negative (draws in)') ev.push('Zone under negative pressure')
       chains.push({ zone: zName, type: 'Cross-Contamination Pathway', rootCause: 'Air pathway allowing contaminant migration from adjacent source', evidence: ev, confidence: ev.length >= 2 ? 'Moderate' : 'Possible' })
     }
-    // Data center: Gaseous Corrosion Risk (screening hypothesis)
+    // Data center: Gaseous Corrosion Risk (hypothesis)
     if (d.zone_subtype === 'data_hall') {
       const hasCorrosion = d.gaseous_corrosion && (d.gaseous_corrosion.includes('G2') || d.gaseous_corrosion.includes('G3') || d.gaseous_corrosion.includes('GX'))
       const hasHighRH = d.rh && +d.rh > 60
       if (hasCorrosion && hasHighRH) {
-        const ev = [`Screening indicators consistent with elevated gaseous corrosion risk (assessor-selected: ${d.gaseous_corrosion})`, `Relative humidity: ${d.rh}% (exceeds ASHRAE TC 9.9 A1/A2 upper bound of 60%)`]
+        const ev = [`Walkthrough indicators consistent with elevated gaseous corrosion risk (assessor-selected: ${d.gaseous_corrosion})`, `Relative humidity: ${d.rh}% (exceeds ASHRAE TC 9.9 A1/A2 upper bound of 60%)`]
         if (d.dp_temp) ev.push(`Dew point: ${d.dp_temp}°F`)
         if (d.pm) ev.push(`PM2.5 mass: ${d.pm} µg/m³ (elevated if >10 for MERV-filtered data hall)`)
-        chains.push({ zone: zName, type: 'Gaseous Corrosion Risk (Screening)', rootCause: 'Elevated humidity combined with screening indicators of gaseous contamination creates conditions consistent with accelerated creep corrosion risk on circuit board surfaces. Definitive G-class determination requires 30-day passive copper+silver reactivity coupon deployment per ANSI/ISA 71.04-2013.', evidence: ev, confidence: 'Low (screening-only data)', refutableBy: 'Coupon results returning G1 (<300 Å Cu, <200 Å Ag per month). Particle count data showing ISO Class within target. Outdoor air screening showing no upwind sulfur sources.', std: 'ANSI/ISA 71.04-2013 (screening); ASHRAE TC 9.9' })
+        chains.push({ zone: zName, type: 'Gaseous Corrosion Risk (Hypothesis)', rootCause: 'Elevated humidity combined with walkthrough indicators of gaseous contamination creates conditions consistent with accelerated creep corrosion on circuit board surfaces.', evidence: ev, confidence: 'Low (walkthrough data only)', refutableBy: 'Coupon results returning G1 (<300 Å Cu, <200 Å Ag per month). Particle count data showing ISO Class within target. Outdoor air sampling showing no upwind sulfur sources.', std: 'ANSI/ISA 71.04-2013 (walkthrough basis); ASHRAE TC 9.9' })
       }
       if (hasCorrosion && !hasHighRH) {
-        chains.push({ zone: zName, type: 'Gaseous Contamination Concern (Screening)', rootCause: 'Screening indicators suggest gaseous corrosion environment may exceed G1 (mild). Source investigation recommended — evaluate outdoor air ingress, gas-phase filter media condition, and adjacent-space process changes.', evidence: [`Screening indicator: ${d.gaseous_corrosion} (assessor-selected, not coupon-measured)`, 'RH currently within ASHRAE TC 9.9 control range'], confidence: 'Low (screening-only data)', refutableBy: 'Coupon results returning G1 (<300 Å Cu, <200 Å Ag per month).', std: 'ANSI/ISA 71.04-2013 (screening)' })
+        chains.push({ zone: zName, type: 'Gaseous Contamination Concern (Hypothesis)', rootCause: 'Walkthrough indicators suggest the gaseous corrosion environment may exceed G1 (mild).', evidence: [`Walkthrough indicator: ${d.gaseous_corrosion} (assessor-selected, not coupon-measured)`, 'RH currently within ASHRAE TC 9.9 control range'], confidence: 'Low (walkthrough data only)', refutableBy: 'Coupon results returning G1 (<300 Å Cu, <200 Å Ag per month).', std: 'ANSI/ISA 71.04-2013 (walkthrough basis)' })
       }
     }
   })

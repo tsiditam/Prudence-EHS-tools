@@ -581,7 +581,18 @@ export function buildStatement(c, value, determinative, indicative) {
       ? ' A short-duration reading is indicative but not determinative for this averaging period.'
       : ' A short-duration reading cannot establish compliance with this averaging period.'
   }
-  return `${head}${period}.${basis} ${c.action}`
+  // `c.action` is deliberately NOT appended. A finding states what was
+  // measured and against which criterion; what to DO about it belongs to the
+  // recommendations, which the report and the app both render in their own
+  // sections. Carrying it here printed the recommendation twice and made the
+  // finding card unreadable — "TVOCs 560 µg/m³ — elevated. Consider TO-17
+  // speciation if source investigation is warranted." in a list whose whole
+  // job is to say what was found.
+  //
+  // The evidentiary caveat above (`basis`) stays: it is a property of the
+  // measurement, not advice — it says what this reading can and cannot
+  // settle, which changes how the finding itself should be read.
+  return `${head}${period}.${basis}`.trimEnd()
 }
 
 /** Every criterion, flattened — for documentation and report appendices. */
