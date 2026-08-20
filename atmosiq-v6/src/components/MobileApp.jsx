@@ -18,6 +18,7 @@ import Storage from '../utils/cloudStorage'
 import { supabase, trackEvent } from '../utils/supabaseClient'
 import Backup from '../utils/backup'
 import { groupActions } from '../utils/recFormatting'
+import { describeAssessmentBasis } from '../utils/assessmentBasis'
 import { resolvePrimaryDriver } from '../utils/primaryDriver'
 import { resolveVerdict, countFindings, hasAnyAction } from '../utils/assessmentVerdict'
 import { resolveAssessmentDate } from '../utils/assessmentDate'
@@ -2931,8 +2932,13 @@ export default function MobileApp() {
                     <div style={{display:'flex',alignItems:'flex-start',gap:8}}>
                       <I n="shield" s={14} c={V3.TEXT_SECONDARY} w={1.7} />
                       <div style={{minWidth:0}}>
-                        <div style={V3.T.captionDim}>Assessment type</div>
-                        <div style={{...V3.T.body, marginTop:2}}>Screening <span style={V3.T.captionDim}>(Non-compliance)</span></div>
+                        {/* Was a hardcoded "Screening (Non-compliance)" chip —
+                            the retired label, and the same for four spot readings
+                            as for a logger deployment with lab results. It states
+                            the evidence behind the assessment now, which is both a
+                            fact and the thing a reader actually wants here. */}
+                        <div style={V3.T.captionDim}>Assessment basis</div>
+                        <div style={{...V3.T.body, marginTop:2}}>{describeAssessmentBasis({ sensorData, labResults: viewRpt?.labResults })}</div>
                       </div>
                     </div>
                   </div>
