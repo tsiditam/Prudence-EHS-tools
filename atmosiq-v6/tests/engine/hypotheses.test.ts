@@ -102,30 +102,42 @@ describe('v2.6 §3 — hypothesis Rule 3 (VOC source)', () => {
     expect(h!.suggestedSampling.some(s => s.parameter.includes('TVOC'))).toBe(true)
   })
 
-  // This previously asserted that a below-3 intensity must NOT fire the
-  // rule. That gate never operated: `oi` is not a field in questions.js —
-  // the schema records odor strength as `op`, a four-option choice — so
-  // `num(z, 'oi')` was null for every real assessment and the rule fired
-  // on any odor with a type selected. The assertion held only for a
-  // synthetic shape the app cannot produce.
+  // A faint, intermittent odor does not carry a speciation
+  // recommendation. `scoreEnv` emits a finding for "Moderate persistent"
+  // and above and nothing for a faint one, so a rule that recommended
+  // TO-17 and GC/MS off the faint case had the two layers disagreeing
+  // about one observation — with the more expensive recommendation
+  // hanging on the weaker signal.
   //
-  // Firing on reported odor is therefore the SHIPPED behaviour, and it is
-  // preserved here rather than narrowed: narrowing would silently drop the
-  // VOC differential out of reports that carry it today. Whether a faint,
-  // intermittent odor should drive a speciation recommendation at all is a
-  // product call, not one to make inside a defect fix.
-  it('fires on a weak odor, and says the strength is below the persistent threshold', () => {
+  // History worth keeping: this gate was written years ago against `oi`,
+  // a numeric field that is not in questions.js and never has been. It
+  // therefore never operated, and the rule fired on any odor at all. The
+  // fix that made `op` readable deliberately preserved that firing rather
+  // than narrowing it inside a defect fix; the narrowing is this change,
+  // made on its own.
+  it('does not fire on a faint odor', () => {
+    const result = deriveHypotheses({
+      zonesData: [{ zn: 'Office', ot: ['Chemical'], op: 'Faint / intermittent' }],
+      buildingData: {},
+      findings: NO_FINDINGS,
+    })
+    expect(result.some(h => h.name === 'VOC source or off-gassing')).toBe(false)
+  })
+
+  it('does not fire below the threshold on the legacy numeric field either', () => {
     const result = deriveHypotheses({
       zonesData: [{ zn: 'Office', ot: ['Solvent'], oi: 2 }],
       buildingData: {},
       findings: NO_FINDINGS,
     })
-    const h = result.find(x => x.name === 'VOC source or off-gassing')
-    expect(h).toBeDefined()
-    expect(h!.basis[0]).toMatch(/below the persistent threshold/)
+    expect(result.some(h => h.name === 'VOC source or off-gassing')).toBe(false)
   })
 
-  it('fires on odor present without strength recorded, and says so', () => {
+  // The gate is on strength, not on the presence of the field. An
+  // unrecorded strength is a hole in the record, not evidence the odor was
+  // weak — losing the differential over a field nobody filled in would be
+  // a silent loss.
+  it('still fires when strength was never recorded', () => {
     const result = deriveHypotheses({
       zonesData: [{ zn: 'Office', ot: ['Musty / Earthy'] }],
       buildingData: {},
@@ -134,6 +146,21 @@ describe('v2.6 §3 — hypothesis Rule 3 (VOC source)', () => {
     const h = result.find(x => x.name === 'VOC source or off-gassing')
     expect(h).toBeDefined()
     expect(h!.basis[0]).toMatch(/strength not recorded/)
+  })
+
+  it('agrees with scoreEnv about which odors are worth reporting', () => {
+    // scoring.js emits a finding for 'Strong / overpowering' (high) and
+    // 'Moderate persistent' (medium), and nothing below. The hypothesis
+    // rule fires on exactly that set.
+    const fires = (op: string) => deriveHypotheses({
+      zonesData: [{ zn: 'Office', ot: ['Chemical'], op }],
+      buildingData: {},
+      findings: NO_FINDINGS,
+    }).some(h => h.name === 'VOC source or off-gassing')
+    expect(fires('Strong / overpowering')).toBe(true)
+    expect(fires('Moderate persistent')).toBe(true)
+    expect(fires('Faint / intermittent')).toBe(false)
+    expect(fires('None')).toBe(false)
   })
 
   // The schema field, which the rule could not previously read.
@@ -147,13 +174,12 @@ describe('v2.6 §3 — hypothesis Rule 3 (VOC source)', () => {
     expect(h.basis[0]).toMatch(/^Objectionable odor reported/)
     expect(h.basis[0]).not.toMatch(/not recorded/)
 
-    const faint = deriveHypotheses({
-      zonesData: [{ zn: 'Office', op: 'Faint / intermittent', ot: ['Chemical'] }],
+    const moderate = deriveHypotheses({
+      zonesData: [{ zn: 'Office', op: 'Moderate persistent', ot: ['Chemical'] }],
       buildingData: {},
       findings: NO_FINDINGS,
     })
-    expect(faint.find(x => x.name === 'VOC source or off-gassing')!.basis[0])
-      .toMatch(/below the persistent threshold/)
+    expect(moderate.some(x => x.name === 'VOC source or off-gassing')).toBe(true)
   })
 
   // `ot` is a conditional follow-up in the wizard. scoreEnv emits a

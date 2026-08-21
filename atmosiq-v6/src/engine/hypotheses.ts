@@ -144,6 +144,19 @@ const hasOdor = (ot: ReadonlyArray<string>): boolean =>
  * The mapping matches how `scoreEnv` grades the same field — moderate
  * persistent and above is what it treats as a finding worth reporting.
  */
+/**
+ * The strength at or above which an odor warrants speciation.
+ *
+ * Set to match `scoreEnv`, which emits a finding for "Moderate
+ * persistent" and "Strong / overpowering" and nothing at all for a faint
+ * intermittent odor. A recommendation to run TO-17 sorbent tubes and
+ * GC/MS is a real cost and a real day of someone's time; hanging it on an
+ * odor the scoring engine does not consider worth a finding put the two
+ * layers in disagreement about the same observation, and put the more
+ * expensive recommendation on the weaker signal.
+ */
+const ODOR_PERSISTENT_THRESHOLD = 3
+
 const ODOR_INTENSITY_BY_OPTION: Readonly<Record<string, number>> = {
   'None': 0,
   'Faint / intermittent': 1,
@@ -367,17 +380,20 @@ function hypothesisVoc(input: HypothesisInput): Hypothesis | null {
     // Two layers disagreeing about one observation is the thing this
     // codebase keeps paying for.
     if (!odorReported(z)) continue
-    const ot = arr(z, 'ot')
     const intensity = odorIntensity(z)
+    // A faint, intermittent odor does not carry a speciation
+    // recommendation. An UNRECORDED strength still does: that is a gap in
+    // the record, not evidence the odor was weak, and dropping the
+    // differential over a field nobody filled in would lose it silently.
+    if (intensity !== null && intensity < ODOR_PERSISTENT_THRESHOLD) continue
+    const ot = arr(z, 'ot')
     const name = zoneName(z)
     const types = ot.length ? ` (types: ${ot.join(', ')})` : ' (type not classified)'
-    if (intensity !== null && intensity >= 3) {
-      basis.push(`Objectionable odor reported in ${name}${types}.`)
-    } else if (intensity === null) {
-      basis.push(`Odor reported in ${name} (strength not recorded)${types}.`)
-    } else {
-      basis.push(`Odor reported in ${name} below the persistent threshold${types}.`)
-    }
+    basis.push(
+      intensity === null
+        ? `Odor reported in ${name} (strength not recorded)${types}.`
+        : `Objectionable odor reported in ${name}${types}.`,
+    )
   }
   if (basis.length === 0) return null
   return {

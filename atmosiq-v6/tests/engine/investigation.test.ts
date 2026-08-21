@@ -173,6 +173,49 @@ describe('invents nothing', () => {
     expect(state.hypotheses.some((h) => h.name === 'Bioaerosol amplification')).toBe(true)
   })
 
+  it('keeps a mapped chain whose differential did not fire', () => {
+    // The two engines trigger on different things. buildCausalChains
+    // raises VOC and bioaerosol pathways off a complaint pattern alone,
+    // while the §3 rules want an odor or a moisture indicator — so a
+    // chain can have a root cause and no hypothesis to attach it to.
+    // Bucketed by rule and never read back, it used to vanish: the app's
+    // Pathways tab showed "VOC Source (Hypothesis)" while the
+    // investigation state mentioned nothing about VOCs at all.
+    const zones: Zone[] = [{
+      zn: 'Suite 200', op: 'Faint / intermittent', ot: ['Chemical'], co2: '1450',
+      cx: 'Yes — complaints reported', sy: ['Headache', 'Eye irritation'],
+      sr: 'Yes — clear pattern', cc: 'Yes — this zone', ac: '6',
+    }]
+    const zoneScores = zones.map((z) => scoreZone(z, {}))
+    const chains = buildCausalChains(zones, {}, zoneScores)
+    const state = investigate(zones)
+
+    // Precondition: the app shows a VOC pathway and the §3 rule is silent.
+    expect(chains.some((c: any) => c.type === 'VOC Source (Hypothesis)')).toBe(true)
+    expect(state.hypotheses.some((h) => h.ruleKey === 'hyp_voc')).toBe(false)
+
+    // Every chain the app shows survives the trip, under a hypothesis or
+    // under its own label.
+    const surfaced = new Set([
+      ...state.hypotheses.flatMap((h) => h.rootCauses),
+      ...state.additionalConsiderations.map((c) => c.rootCause),
+    ])
+    for (const c of chains as any[]) {
+      expect(surfaced.has(c.rootCause), `chain "${c.type}" disappeared from the investigation`).toBe(true)
+    }
+    expect(state.additionalConsiderations.map((c) => c.label)).toContain('VOC Source (Hypothesis)')
+  })
+
+  it('does not duplicate a chain that a fired differential already carries', () => {
+    const zones: Zone[] = [{ zn: 'Suite 200', co2: '1450', sa: 'Weak / reduced', sy: ['Headache'] }]
+    const state = investigate(zones)
+    const vent = state.hypotheses.find((h) => h.ruleKey === 'hyp_ventilation')!
+    expect(vent.rootCauses.length).toBeGreaterThan(0)
+    for (const rc of vent.rootCauses) {
+      expect(state.additionalConsiderations.some((c) => c.rootCause === rc)).toBe(false)
+    }
+  })
+
   it('surfaces an unmapped chain verbatim rather than attributing it to a differential', () => {
     const state = deriveInvestigation({
       zonesData: [{ zn: 'A', co2: '1450' }],

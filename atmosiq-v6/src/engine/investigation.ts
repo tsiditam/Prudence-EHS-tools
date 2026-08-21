@@ -641,14 +641,25 @@ export function deriveInvestigation(input: InvestigationInput): InvestigationSta
   // Causal chains, bucketed onto the differential each describes.
   const rootCausesByRule = new Map<HypothesisRuleKey, string[]>()
   const additionalConsiderations: InvestigationState['additionalConsiderations'][number][] = []
+  const addConsideration = (label: string, rootCause: string, zone: string | null): void => {
+    if (additionalConsiderations.some((c) => c.label === label && c.rootCause === rootCause)) return
+    additionalConsiderations.push({ label, rootCause, zone })
+  }
+  // Chains that DO map to a differential, held until we know which
+  // differentials actually fired.
+  const mappedChains: Array<{
+    rule: HypothesisRuleKey; label: string; rootCause: string; zone: string | null
+  }> = []
   for (const chain of input.causalChains ?? []) {
     const type = asString(chain.type)
     const rootCause = asString(chain.rootCause)
     if (!type || !rootCause) continue
+    const zone = asString(chain.zone) || null
     const rule = Object.prototype.hasOwnProperty.call(CHAIN_TYPE_TO_RULE, type)
       ? CHAIN_TYPE_TO_RULE[type]
       : undefined
     if (rule) {
+      mappedChains.push({ rule, label: type, rootCause, zone })
       const list = rootCausesByRule.get(rule) ?? []
       if (!list.includes(rootCause)) list.push(rootCause)
       rootCausesByRule.set(rule, list)
@@ -657,9 +668,7 @@ export function deriveInvestigation(input: InvestigationInput): InvestigationSta
       // added since this map was written) land here. Surfacing it verbatim
       // is the safe failure: the assessor still sees it, and nothing is
       // silently attributed to a differential it does not describe.
-      if (!additionalConsiderations.some((c) => c.label === type && c.rootCause === rootCause)) {
-        additionalConsiderations.push({ label: type, rootCause, zone: asString(chain.zone) || null })
-      }
+      addConsideration(type, rootCause, zone)
     }
   }
 
@@ -696,6 +705,21 @@ export function deriveInvestigation(input: InvestigationInput): InvestigationSta
       cihConfidenceTier: h.cihConfidenceTier,
       rootCauses: Object.freeze(rootCauses.slice(0, MAX_ROOT_CAUSES_PER_HYPOTHESIS)),
     })
+  }
+
+  // A chain can describe a differential that did not fire. The two engines
+  // trigger on different things — `buildCausalChains` raises a VOC and a
+  // bioaerosol pathway off a complaint pattern alone, while the §3 rules
+  // want an odor or a moisture indicator — so the chain has a root cause
+  // and no hypothesis to attach it to. Bucketed by rule and never read
+  // back, it vanished: the app's Pathways tab showed "VOC Source
+  // (Hypothesis)" while the investigation state mentioned nothing about
+  // VOCs at all. Anything the app displays has to survive the trip here,
+  // under its own label if it has nowhere else to go.
+  const firedRules = new Set(assembled.map((h) => h.ruleKey))
+  for (const c of mappedChains) {
+    if (firedRules.has(c.rule)) continue
+    addConsideration(c.label, c.rootCause, c.zone)
   }
 
   // Rank: measurement status, then how many independent indicators the §3
