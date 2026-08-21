@@ -34,20 +34,22 @@
  * would make this a second opinion.
  */
 
-import { Q_ZONE, Q_BUILDING, Q_DETAILS, SENSOR_FIELDS } from './questions.js'
+import { getField, SCOPE_ZONE, SCOPE_BUILDING } from './field-registry.js'
 
 /**
  * Scope decides which record the value lands in. `zone` writes the active
  * zone; `building` writes the building record, which `scoreZone` merges
  * into every zone. Getting this wrong writes a value the engine reads from
- * the other shape and never sees.
+ * the other shape and never sees — so scope is READ from the registry
+ * rather than restated here, and the allowlist below only says which
+ * fields Jasper may touch.
  */
-export const SCOPE_ZONE = 'zone'
-export const SCOPE_BUILDING = 'building'
+export { SCOPE_ZONE, SCOPE_BUILDING }
 
 /**
- * The allowlist. Ordered by how an assessor would think of them rather
- * than by schema order.
+ * The allowlist — which fields Jasper may propose writing. Scope is NOT
+ * declared here; it is read from the registry. Ordered by how an assessor
+ * would think of them rather than by schema order.
  *
  * Deliberately excluded, and why:
  *   • zn / sf / oc / su — zone identity and geometry. Setup, not
@@ -101,25 +103,6 @@ const WRITABLE = [
   { id: 'hm', scope: SCOPE_BUILDING },
 ]
 
-// Schema lookup. Later sources do not override earlier ones, so a field
-// defined in more than one questionnaire keeps its first definition —
-// they are the same field, and Q_ZONE / Q_BUILDING are the canonical
-// homes. SENSOR_FIELDS is shaped differently (label + u, no opts) and is
-// normalised on the way in.
-const SCHEMA = new Map()
-for (const f of SENSOR_FIELDS) {
-  SCHEMA.set(f.id, { label: f.label, kind: 'number', unit: f.u || null, opts: null })
-}
-for (const q of [...Q_ZONE, ...Q_BUILDING, ...Q_DETAILS]) {
-  if (SCHEMA.has(q.id)) continue
-  SCHEMA.set(q.id, {
-    label: (q.q || q.id).replace(/\?$/, ''),
-    kind: q.t === 'num' ? 'number' : q.t === 'multi' ? 'multi' : 'choice',
-    unit: q.u || null,
-    opts: Array.isArray(q.opts) && q.opts.length ? q.opts.slice() : null,
-  })
-}
-
 /**
  * The resolved catalog: schema truth joined to the allowlist. Frozen —
  * a consumer that mutates it would be editing the assessment vocabulary
@@ -127,21 +110,24 @@ for (const q of [...Q_ZONE, ...Q_BUILDING, ...Q_DETAILS]) {
  */
 export const OBSERVABLE_FIELDS = Object.freeze(
   WRITABLE.map((w) => {
-    const schema = SCHEMA.get(w.id)
-    if (!schema) {
-      // A field in the allowlist that questions.js does not define. Left
-      // as an explicit marker rather than dropped so the test that pins
-      // the catalog against the schema fails loudly instead of the field
-      // quietly disappearing from what Jasper can record.
+    const contract = getField(w.id)
+    if (!contract) {
+      // In the allowlist, declared by no schema. Left as an explicit
+      // marker rather than dropped, so the registry test fails loudly
+      // instead of the field quietly disappearing from what Jasper can
+      // record.
       return Object.freeze({ id: w.id, scope: w.scope, label: w.id, kind: 'unknown', unit: null, opts: null })
     }
     return Object.freeze({
-      id: w.id,
-      scope: w.scope,
-      label: schema.label,
-      kind: schema.kind,
-      unit: schema.unit,
-      opts: schema.opts ? Object.freeze(schema.opts) : null,
+      id: contract.id,
+      // Scope comes from the registry, not from the line above. The
+      // allowlist says WHICH fields are writable; the registry says where
+      // each one lives, and only one of those is a judgement call.
+      scope: contract.scope,
+      label: contract.label,
+      kind: contract.kind,
+      unit: contract.unit,
+      opts: contract.opts,
       ...(w.min !== undefined ? { min: w.min } : {}),
       ...(w.max !== undefined ? { max: w.max } : {}),
     })

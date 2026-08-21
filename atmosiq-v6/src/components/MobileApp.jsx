@@ -31,6 +31,7 @@ import { getRiskBand } from '../engines/riskBands'
 import { getSubscriptionBannerState, BILLING_MODE } from '../utils/subscriptionState'
 import { VER, STANDARDS_MANIFEST } from '../constants/standards'
 import { Q_PRESURVEY, Q_BUILDING, Q_ZONE, Q_QUICKSTART, Q_DETAILS, SENSOR_FIELDS } from '../constants/questions'
+import { BUILDING_SCOPED_IDS } from '../constants/field-registry'
 import { scoreZone, compositeScore, evalOSHA, calcVent, genRecs, evalMold, evalMeasurementConfidence } from '../engines/scoring'
 import { generateSamplingPlan } from '../engines/sampling'
 import { buildCausalChains } from '../engines/causalChains'
@@ -563,6 +564,9 @@ function ReportWritingOverlay({ label, durationMs }) {
     document.body
   )
 }
+
+/** Membership test for setQSField's routing. Built once at module load. */
+const BUILDING_SCOPED_ID_SET = new Set(BUILDING_SCOPED_IDS)
 
 export default function MobileApp() {
   const { isTablet, isTabletLand, isDesktop } = useMediaQuery()
@@ -1149,9 +1153,14 @@ export default function MobileApp() {
 
   // Merge quick start data into both presurvey and bldg depending on field prefix
   const mergedData = useMemo(() => ({ ...presurvey, ...bldg }), [presurvey, bldg])
+  // Building fields go to bldg, pre-survey fields go to presurvey. The
+  // routing set comes from the field registry rather than a literal list
+  // here: this was one of six places that independently decided which
+  // field names live where, and a field added to Q_BUILDING but forgotten
+  // in this array would have been written into the pre-survey record,
+  // where the engines never look for it.
   const setQSField = useCallback((id, v) => {
-    // Building fields go to bldg, pre-survey fields go to presurvey
-    if (['fn','fl','ft','ht','sa','ba','rn','hm','fm','fc','od','dp','bld_pressure','bld_exhaust','bld_intake_proximity','wx_temp','wx_rh','wx_sky','wx_precip','wx_wind','wx_notes'].includes(id)) {
+    if (BUILDING_SCOPED_ID_SET.has(id)) {
       setBldg(p => ({...p, [id]: v}))
     } else {
       setPresurvey(p => ({...p, [id]: v}))
