@@ -678,7 +678,7 @@
     },
     {
       "id": "JASPER-L2-TOOL-USE",
-      "label": "Field Assistant (Jasper) Layer-2 tool use \u2014 primary-source IAQ knowledge base wired into the agent loop",
+      "label": "Field Assistant (Jasper) Layer-2 tool use — primary-source IAQ knowledge base wired into the agent loop",
       "checks": [
         {
           "type": "file_exists",
@@ -749,7 +749,7 @@
     },
     {
       "id": "JASPER-L3-CORPUS-SEARCH",
-      "label": "Field Assistant (Jasper) Layer-3 corpus search \u2014 TF-IDF retrieval over curated IAQ standards corpus",
+      "label": "Field Assistant (Jasper) Layer-3 corpus search — TF-IDF retrieval over curated IAQ standards corpus",
       "checks": [
         {
           "type": "file_exists",
@@ -809,7 +809,7 @@
     },
     {
       "id": "JASPER-L4-VISION-TOOL",
-      "label": "Field Assistant (Jasper) Layer-4 vision tool \u2014 multimodal photo analysis wired into the agent loop",
+      "label": "Field Assistant (Jasper) Layer-4 vision tool — multimodal photo analysis wired into the agent loop",
       "checks": [
         {
           "type": "grep_matches",
@@ -864,7 +864,7 @@
     },
     {
       "id": "JASPER-L4-VISION-UI",
-      "label": "Field Assistant (Jasper) Layer-4 vision UI \u2014 photo attach + send wired through the hook",
+      "label": "Field Assistant (Jasper) Layer-4 vision UI — photo attach + send wired through the hook",
       "checks": [
         {
           "type": "grep_matches",
@@ -1151,7 +1151,7 @@
     },
     {
       "id": "API-JS-IMPORT-GUARDRAIL",
-      "label": "Lint-time guardrail blocks .js \u2192 .ts imports on the API path",
+      "label": "Lint-time guardrail blocks .js → .ts imports on the API path",
       "checks": [
         {
           "type": "file_exists",
@@ -1911,114 +1911,599 @@
     },
     {
       "id": "IAQ-INVESTIGATION-AGENT",
-      "label": "IAQ investigation agent wired end-to-end (engine \u2192 context \u2192 Jasper tool \u2192 chat card)",
+      "label": "IAQ investigation agent wired end-to-end (engine → context → Jasper tool → chat card)",
       "checks": [
-        { "type": "file_exists", "path": "src/engine/investigation.ts" },
-        { "type": "file_exists", "path": "tests/engine/investigation.test.ts" },
-        { "type": "file_exists", "path": "tests/api/jasper-investigation.test.ts" },
-        { "type": "grep_matches", "pattern": "export function deriveInvestigation", "paths": ["src/engine/investigation.ts"] },
-        { "type": "grep_matches", "pattern": "export const HYPOTHESIS_RULE_KEYS", "paths": ["src/engine/hypotheses.ts"] },
-        { "type": "grep_matches", "pattern": "investigation = deriveInvestigation\\(\\{", "paths": ["lib/context/buildAssessmentContext.ts"] },
-        { "type": "grep_matches", "pattern": "readonly investigation: InvestigationState \\| null", "paths": ["lib/context/types.ts"] },
-        { "type": "grep_matches", "pattern": "name: 'assess_investigation'", "paths": ["src/constants/field-assistant-tools.js"] },
-        { "type": "grep_matches", "pattern": "name === 'assess_investigation'", "paths": ["src/constants/field-assistant-tools.js"] },
-        { "type": "grep_matches", "pattern": "writeSse\\(res, 'investigation_state'", "paths": ["api/field-assistant.ts"] },
-        { "type": "grep_matches", "pattern": "frame.event === 'investigation_state'", "paths": ["src/hooks/useFieldAssistant.js"] },
-        { "type": "grep_matches", "pattern": "<InvestigationCard", "paths": ["src/components/FieldAssistant.jsx"] },
-        { "type": "grep_matches", "pattern": "# Investigation protocol", "paths": ["src/constants/field-assistant-prompt.js"] },
-        { "type": "grep_excludes", "pattern": "parseFloat|parseInt|Number\\(", "paths": ["src/engine/investigation.ts"] }
+        {
+          "type": "file_exists",
+          "path": "src/engine/investigation.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/engine/investigation.test.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/api/jasper-investigation.test.ts"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "export function deriveInvestigation",
+          "paths": [
+            "src/engine/investigation.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "export const HYPOTHESIS_RULE_KEYS",
+          "paths": [
+            "src/engine/hypotheses.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "investigation = deriveInvestigation\\(\\{",
+          "paths": [
+            "lib/context/buildAssessmentContext.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "readonly investigation: InvestigationState \\| null",
+          "paths": [
+            "lib/context/types.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "name: 'assess_investigation'",
+          "paths": [
+            "src/constants/field-assistant-tools.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "name === 'assess_investigation'",
+          "paths": [
+            "src/constants/field-assistant-tools.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "writeSse\\(res, 'investigation_state'",
+          "paths": [
+            "api/field-assistant.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "frame.event === 'investigation_state'",
+          "paths": [
+            "src/hooks/useFieldAssistant.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "<InvestigationCard",
+          "paths": [
+            "src/components/FieldAssistant.jsx"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "# Investigation protocol",
+          "paths": [
+            "src/constants/field-assistant-prompt.js"
+          ]
+        },
+        {
+          "type": "grep_excludes",
+          "pattern": "parseFloat|parseInt|Number\\(",
+          "paths": [
+            "src/engine/investigation.ts"
+          ]
+        }
       ]
     },
     {
       "id": "OBSERVATION-WRITE-LOOP",
       "label": "Jasper can record a structured observation that moves the engine (investigation loop closes)",
       "checks": [
-        { "type": "file_exists", "path": "src/constants/observable-fields.js" },
-        { "type": "file_exists", "path": "tests/constants/observable-fields.test.ts" },
-        { "type": "grep_matches", "pattern": "from './field-registry.js'", "paths": ["src/constants/observable-fields.js"] },
-        { "type": "grep_matches", "pattern": "from './questions.js'", "paths": ["src/constants/field-registry.js"] },
-        { "type": "grep_matches", "pattern": "export function validateObservation", "paths": ["src/constants/observable-fields.js"] },
-        { "type": "grep_matches", "pattern": "'record_zone_observation'", "paths": ["src/constants/field-assistant-tools.js"] },
-        { "type": "grep_matches", "pattern": "actionType === 'record_zone_observation'", "paths": ["src/constants/field-assistant-tools.js"] },
-        { "type": "grep_matches", "pattern": "action.type === 'record_zone_observation'", "paths": ["src/components/MobileApp.jsx"] },
-        { "type": "grep_matches", "pattern": "setPendingRescore", "paths": ["src/components/MobileApp.jsx"], "minCount": 2 },
-        { "type": "grep_matches", "pattern": "RECORDABLE_FIELDS_BLOCK", "paths": ["src/constants/field-assistant-prompt.js"], "minCount": 2 },
-        { "type": "grep_matches", "pattern": "# Recording what the assessor tells you", "paths": ["src/constants/field-assistant-prompt.js"] },
-        { "type": "grep_excludes", "pattern": "zone\\.nt\\b", "paths": ["src/components/MobileApp.jsx"] }
+        {
+          "type": "file_exists",
+          "path": "src/constants/observable-fields.js"
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/constants/observable-fields.test.ts"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "from './field-registry.js'",
+          "paths": [
+            "src/constants/observable-fields.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "from './questions.js'",
+          "paths": [
+            "src/constants/field-registry.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "export function validateObservation",
+          "paths": [
+            "src/constants/observable-fields.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "'record_zone_observation'",
+          "paths": [
+            "src/constants/field-assistant-tools.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "actionType === 'record_zone_observation'",
+          "paths": [
+            "src/constants/field-assistant-tools.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "action.type === 'record_zone_observation'",
+          "paths": [
+            "src/components/MobileApp.jsx"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "setPendingRescore",
+          "paths": [
+            "src/components/MobileApp.jsx"
+          ],
+          "minCount": 2
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "RECORDABLE_FIELDS_BLOCK",
+          "paths": [
+            "src/constants/field-assistant-prompt.js"
+          ],
+          "minCount": 2
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "# Recording what the assessor tells you",
+          "paths": [
+            "src/constants/field-assistant-prompt.js"
+          ]
+        },
+        {
+          "type": "grep_excludes",
+          "pattern": "zone\\.nt\\b",
+          "paths": [
+            "src/components/MobileApp.jsx"
+          ]
+        }
       ]
     },
     {
       "id": "FIELD-CONTRACT-REGISTRY",
       "label": "Field contract registry reconciles every field-name declaration and blocks dead / mis-scoped engine reads",
       "checks": [
-        { "type": "file_exists", "path": "src/constants/field-registry.js" },
-        { "type": "file_exists", "path": "tests/constants/field-registry.test.ts" },
-        { "type": "grep_matches", "pattern": "export const FIELD_REGISTRY", "paths": ["src/constants/field-registry.js"] },
-        { "type": "grep_matches", "pattern": "export const BUILDING_SCOPED_IDS", "paths": ["src/constants/field-registry.js"] },
-        { "type": "grep_matches", "pattern": "export const KNOWN_UNRESOLVED_READS", "paths": ["src/constants/field-registry.js"] },
-        { "type": "grep_matches", "pattern": "import \\{ BUILDING_PROFILES \\} from '../engines/buildingProfiles.js'", "paths": ["src/constants/field-registry.js"] },
-        { "type": "grep_matches", "pattern": "BUILDING_SCOPED_ID_SET.has\\(id\\)", "paths": ["src/components/MobileApp.jsx"] },
-        { "type": "grep_excludes", "pattern": "\\['fn','fl','ft','ht','sa'", "paths": ["src/components/MobileApp.jsx"] },
-        { "type": "grep_matches", "pattern": "from './field-registry.js'", "paths": ["src/constants/observable-fields.js"] },
-        { "type": "grep_excludes", "pattern": "from './questions.js'", "paths": ["src/constants/observable-fields.js"] }
+        {
+          "type": "file_exists",
+          "path": "src/constants/field-registry.js"
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/constants/field-registry.test.ts"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "export const FIELD_REGISTRY",
+          "paths": [
+            "src/constants/field-registry.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "export const BUILDING_SCOPED_IDS",
+          "paths": [
+            "src/constants/field-registry.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "export const KNOWN_UNRESOLVED_READS",
+          "paths": [
+            "src/constants/field-registry.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "import \\{ BUILDING_PROFILES \\} from '../engines/buildingProfiles.js'",
+          "paths": [
+            "src/constants/field-registry.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "BUILDING_SCOPED_ID_SET.has\\(id\\)",
+          "paths": [
+            "src/components/MobileApp.jsx"
+          ]
+        },
+        {
+          "type": "grep_excludes",
+          "pattern": "\\['fn','fl','ft','ht','sa'",
+          "paths": [
+            "src/components/MobileApp.jsx"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "from './field-registry.js'",
+          "paths": [
+            "src/constants/observable-fields.js"
+          ]
+        },
+        {
+          "type": "grep_excludes",
+          "pattern": "from './questions.js'",
+          "paths": [
+            "src/constants/observable-fields.js"
+          ]
+        }
       ]
     },
     {
       "id": "CLAIM-PROVENANCE",
       "label": "Every quantity a finding states is traceable to an input, a published threshold, or the applied band",
       "checks": [
-        { "type": "file_exists", "path": "src/engine/report/provenance.ts" },
-        { "type": "file_exists", "path": "tests/engine/provenance.test.ts" },
-        { "type": "grep_matches", "pattern": "export function deriveClaimProvenance", "paths": ["src/engine/report/provenance.ts"] },
-        { "type": "grep_matches", "pattern": "export function ungroundedQuantities", "paths": ["src/engine/report/provenance.ts"] },
-        { "type": "grep_matches", "pattern": "export function untaggedQuantitativeClaims", "paths": ["src/engine/report/provenance.ts"] },
-        { "type": "grep_matches", "pattern": "from '../../constants/field-registry.js'", "paths": ["src/engine/report/provenance.ts"] },
-        { "type": "grep_matches", "pattern": "would catch a fabricated quantity", "paths": ["tests/engine/provenance.test.ts"] },
-        { "type": "grep_matches", "pattern": "would catch a silent unit conversion", "paths": ["tests/engine/provenance.test.ts"] },
-        { "type": "grep_matches", "pattern": "would catch a band the engine did not apply", "paths": ["tests/engine/provenance.test.ts"] }
+        {
+          "type": "file_exists",
+          "path": "src/engine/report/provenance.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/engine/provenance.test.ts"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "export function deriveClaimProvenance",
+          "paths": [
+            "src/engine/report/provenance.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "export function ungroundedQuantities",
+          "paths": [
+            "src/engine/report/provenance.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "export function untaggedQuantitativeClaims",
+          "paths": [
+            "src/engine/report/provenance.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "from '../../constants/field-registry.js'",
+          "paths": [
+            "src/engine/report/provenance.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "would catch a fabricated quantity",
+          "paths": [
+            "tests/engine/provenance.test.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "would catch a silent unit conversion",
+          "paths": [
+            "tests/engine/provenance.test.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "would catch a band the engine did not apply",
+          "paths": [
+            "tests/engine/provenance.test.ts"
+          ]
+        }
       ]
     },
     {
       "id": "INVESTIGATION-READINESS-GAPS",
       "label": "Readiness reports explanations the assessment left live and never measured against",
       "checks": [
-        { "type": "file_exists", "path": "src/engines/investigation-gaps.js" },
-        { "type": "file_exists", "path": "tests/engine/investigation-gaps.test.ts" },
-        { "type": "grep_matches", "pattern": "export function detectInvestigationGaps", "paths": ["src/engines/investigation-gaps.js"] },
-        { "type": "grep_matches", "pattern": "detectInvestigationGaps\\(assessment.investigation\\)", "paths": ["src/engines/readiness-verdict.js"] },
-        { "type": "grep_matches", "pattern": "differential_unresolved", "paths": ["src/engines/investigation-gaps.js", "src/components/ReadinessPanel.jsx"], "minCount": 2 },
-        { "type": "grep_matches", "pattern": "untested_differential", "paths": ["src/engines/investigation-gaps.js", "src/components/ReadinessPanel.jsx"], "minCount": 2 },
-        { "type": "grep_matches", "pattern": "investigation,", "paths": ["lib/context/buildAssessmentContext.ts"] },
-        { "type": "grep_matches", "pattern": "investigation: readinessInvestigation", "paths": ["src/components/MobileApp.jsx"] },
-        { "type": "grep_matches", "pattern": "export const PARAMETER_LABEL", "paths": ["src/engine/investigation.ts"] }
+        {
+          "type": "file_exists",
+          "path": "src/engines/investigation-gaps.js"
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/engine/investigation-gaps.test.ts"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "export function detectInvestigationGaps",
+          "paths": [
+            "src/engines/investigation-gaps.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "detectInvestigationGaps\\(assessment.investigation\\)",
+          "paths": [
+            "src/engines/readiness-verdict.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "differential_unresolved",
+          "paths": [
+            "src/engines/investigation-gaps.js",
+            "src/components/ReadinessPanel.jsx"
+          ],
+          "minCount": 2
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "untested_differential",
+          "paths": [
+            "src/engines/investigation-gaps.js",
+            "src/components/ReadinessPanel.jsx"
+          ],
+          "minCount": 2
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "investigation,",
+          "paths": [
+            "lib/context/buildAssessmentContext.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "investigation: readinessInvestigation",
+          "paths": [
+            "src/components/MobileApp.jsx"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "export const PARAMETER_LABEL",
+          "paths": [
+            "src/engine/investigation.ts"
+          ]
+        }
       ]
     },
     {
       "id": "RECOMMENDATION-CONTRACT",
       "label": "Recommendations are traceable, folded by intent, grounded in recorded data, decisive, and not a copy of the sampling plan",
       "checks": [
-        { "type": "file_exists", "path": "src/engine/report/recommendations.ts" },
-        { "type": "file_exists", "path": "tests/engine/recommendations.test.ts" },
-        { "type": "grep_matches", "pattern": "export function buildRecommendationRegister", "paths": ["src/engine/report/recommendations.ts"] },
-        { "type": "grep_matches", "pattern": "export function findHedges", "paths": ["src/engine/report/recommendations.ts"] },
-        { "type": "grep_matches", "pattern": "const SEQUENTIAL_INTENTS", "paths": ["src/engine/report/recommendations.ts"] },
-        { "type": "grep_matches", "pattern": "const PRECONDITIONS", "paths": ["src/engine/report/recommendations.ts"] },
-        { "type": "grep_matches", "pattern": "buildRecommendationRegister\\(", "paths": ["src/engine/report/client.ts"] },
-        { "type": "grep_excludes", "pattern": "const allActions = dedupActions", "paths": ["src/engine/report/client.ts"] },
-        { "type": "grep_excludes", "pattern": "Consider TVOC/speciation sampling|Evaluate feasibility of upgrading|if occupant complaints are persistent|in zones where symptom", "paths": ["src/engine/report/phrases"] }
+        {
+          "type": "file_exists",
+          "path": "src/engine/report/recommendations.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/engine/recommendations.test.ts"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "export function buildRecommendationRegister",
+          "paths": [
+            "src/engine/report/recommendations.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "export function findHedges",
+          "paths": [
+            "src/engine/report/recommendations.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "const SEQUENTIAL_INTENTS",
+          "paths": [
+            "src/engine/report/recommendations.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "const PRECONDITIONS",
+          "paths": [
+            "src/engine/report/recommendations.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "buildRecommendationRegister\\(",
+          "paths": [
+            "src/engine/report/client.ts"
+          ]
+        },
+        {
+          "type": "grep_excludes",
+          "pattern": "const allActions = dedupActions",
+          "paths": [
+            "src/engine/report/client.ts"
+          ]
+        },
+        {
+          "type": "grep_excludes",
+          "pattern": "Consider TVOC/speciation sampling|Evaluate feasibility of upgrading|if occupant complaints are persistent|in zones where symptom",
+          "paths": [
+            "src/engine/report/phrases"
+          ]
+        }
       ]
     },
     {
       "id": "ZONE-SCOPED-DIFFERENTIALS",
       "label": "An explanation is judged only in the zones that raised it — a clean zone cannot clear a dirty one",
       "checks": [
-        { "type": "grep_matches", "pattern": "readonly triggerZones: ReadonlyArray<string>", "paths": ["src/engine/types/domain.ts"] },
-        { "type": "grep_matches", "pattern": "triggerZones: t.triggerZones\\(input.zonesData\\)", "paths": ["src/engine/hypotheses.ts"], "minCount": 6 },
-        { "type": "grep_matches", "pattern": "class Trigger", "paths": ["src/engine/hypotheses.ts"] },
-        { "type": "grep_matches", "pattern": "const scopeFor =", "paths": ["src/engine/investigation.ts"] },
-        { "type": "grep_matches", "pattern": "scopeFor\\(h.triggerZones\\)", "paths": ["src/engine/investigation.ts"] },
-        { "type": "grep_excludes", "pattern": "const ranges = computeParameterRanges\\(zonesData, input.zoneScores\\)", "paths": ["src/engine/investigation.ts"] },
-        { "type": "grep_matches", "pattern": "does not clear a mouldy basement with a clean floor", "paths": ["tests/engine/investigation.test.ts"] }
+        {
+          "type": "grep_matches",
+          "pattern": "readonly triggerZones: ReadonlyArray<string>",
+          "paths": [
+            "src/engine/types/domain.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "triggerZones: t.triggerZones\\(input.zonesData\\)",
+          "paths": [
+            "src/engine/hypotheses.ts"
+          ],
+          "minCount": 6
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "class Trigger",
+          "paths": [
+            "src/engine/hypotheses.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "const scopeFor =",
+          "paths": [
+            "src/engine/investigation.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "scopeFor\\(h.triggerZones\\)",
+          "paths": [
+            "src/engine/investigation.ts"
+          ]
+        },
+        {
+          "type": "grep_excludes",
+          "pattern": "const ranges = computeParameterRanges\\(zonesData, input.zoneScores\\)",
+          "paths": [
+            "src/engine/investigation.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "does not clear a mouldy basement with a clean floor",
+          "paths": [
+            "tests/engine/investigation.test.ts"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "PM25-CRITERION-REGISTRY",
+      "label": "PM2.5 is compared through the criterion registry, and no criterion is evaluated against a period no evidence basis can settle",
+      "checks": [
+        {
+          "type": "grep_matches",
+          "pattern": "evaluateCriteria\\('pm25'",
+          "paths": [
+            "src/engines/scoring.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "const PM25_DEDUCTION_BY_SEVERITY",
+          "paths": [
+            "src/engines/scoring.js"
+          ]
+        },
+        {
+          "type": "grep_excludes",
+          "pattern": "std: 'EPA NAAQS'|'EPA NAAQS'",
+          "paths": [
+            "src/engines/scoring.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "determinativeFrom.length === 0 && avg.indicativeFrom.length === 0",
+          "paths": [
+            "src/constants/criteria.js"
+          ]
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/engine/pm25-criteria.test.ts"
+        },
+        {
+          "type": "npm_script_passes",
+          "script": "test",
+          "args": [
+            "--",
+            "tests/engine/pm25-criteria.test.ts"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "EVIDENCE-BASIS-FROM-MEASUREMENT",
+      "label": "A finding's evidence basis is derived from how the measurement was recorded, and no template asserts evidence the assessment did not collect",
+      "checks": [
+        {
+          "type": "grep_matches",
+          "pattern": "const MEASUREMENT_BASIS",
+          "paths": [
+            "src/engine/bridge/legacy.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "function measurementBasis",
+          "paths": [
+            "src/engine/bridge/legacy.ts"
+          ]
+        },
+        {
+          "type": "grep_excludes",
+          "pattern": "supported by continuous monitoring",
+          "paths": [
+            "src/engine/report/phrases"
+          ]
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/engine/evidence-basis.test.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/engine/phrase-evidence-claims.test.ts"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "covers every meas_duration option the questionnaire offers",
+          "paths": [
+            "tests/engine/evidence-basis.test.ts"
+          ]
+        },
+        {
+          "type": "npm_script_passes",
+          "script": "test",
+          "args": [
+            "--",
+            "tests/engine/evidence-basis.test.ts",
+            "tests/engine/phrase-evidence-claims.test.ts"
+          ]
+        }
       ]
     }
   ]

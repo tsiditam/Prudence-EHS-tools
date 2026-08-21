@@ -194,13 +194,42 @@ function scoreVent(d, achOverride) {
 function scoreCont(d) {
   let dd = 0, r = []
   const isDataHall = d.zone_subtype === 'data_hall'
+  // Preserved from the literal ladder this replaced: an elevated PM2.5 with a
+  // concurrent outdoor reading behind it counted for more than one without,
+  // because the comparison is what separates a building source from ambient
+  // air. Expressed as a factor so the severity weighting lives in one place.
+  const PM25_DEDUCTION_BY_SEVERITY = { critical: 25, high: 12, medium: 6, low: 2 }
+  const PM25_NO_OUTDOOR_FACTOR = 2 / 3
   if (d.pm) {
     const v = +d.pm, ho = !!d.pmo
     if (isDataHall) {
       if (v > 10) { dd += ho ? 6 : 4; r.push({ t: 'Indoor PM2.5 mass concentration of ' + v + ' µg/m³ measured during walkthrough. Elevated relative to typical data hall MERV-filtered conditions (<10 µg/m³).' + (ho ? '' : ' Without concurrent outdoor PM2.5 measurement, indoor elevation cannot be attributed to building sources.') + ' ISO Class cannot be determined from a mass measurement alone.', std:'ISO 14644-1:2015 (walkthrough basis)', sev:'medium', p:'pm25' }) }
     } else {
-      if (v > STD.c.pm25.epa)      { dd += ho ? 12 : 8; r.push({ t: 'PM2.5 ' + v + ' µg/m³ — exceeds EPA 24-hr standard' + (ho?'':' (no outdoor baseline)'), std:'EPA NAAQS', sev:'high', p:'pm25', cid:'pm25_epa_24h' }) }
-      else if (v > STD.c.pm25.who) { dd += ho ? 6  : 4; r.push({ t: 'PM2.5 ' + v + ' µg/m³ — exceeds WHO guideline' + (ho?'':' (no outdoor baseline)'), std:'WHO AQG', sev:'medium', p:'pm25', cid:'pm25_who_24h' }) }
+      // PM2.5 evaluates through the shared criterion registry, the same way
+      // CO, formaldehyde and TVOC do. It was the last parameter still
+      // comparing against literals lifted out of STD, and it showed: the
+      // finding read "PM2.5 38 µg/m³ — exceeds EPA 24-hr standard" from an
+      // instantaneous reading, with none of the averaging-period caveat that
+      // the registry gives every other analyte. A grab reading cannot
+      // establish a 24-hour mean, and saying so is not a hedge — it is what
+      // the measurement can and cannot settle.
+      //
+      // Severity, the sentence and the citation now all come from the
+      // criterion. The deduction stays outdoor-aware: an elevated reading
+      // with a concurrent outdoor value to compare against is worth more
+      // than one without, which is a property of the evidence rather than of
+      // the threshold.
+      const hit = evaluateCriteria('pm25', v, EVIDENCE_BASIS_WALKTHROUGH)
+      if (hit) {
+        dd += (PM25_DEDUCTION_BY_SEVERITY[hit.severity] ?? 0) * (ho ? 1 : PM25_NO_OUTDOOR_FACTOR)
+        r.push({
+          t: 'PM2.5 ' + hit.statement + (ho ? '' : ' No concurrent outdoor reading was taken, so the indoor elevation cannot be separated from ambient infiltration.'),
+          std: hit.criterion.source,
+          sev: hit.severity,
+          p: 'pm25',
+          cid: hit.criterion.id,
+        })
+      }
     }
     if (ho && +d.pmo > 0) {
       const ioRatio = Math.round((v / +d.pmo) * 100) / 100

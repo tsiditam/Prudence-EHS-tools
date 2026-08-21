@@ -88,7 +88,7 @@ export const CONTAMINANTS_PHRASES: Partial<Record<ConditionType, PhraseLibraryEn
   pm_above_naaqs_documented: {
     conditionType: 'pm_above_naaqs_documented',
     intentTemplate:
-      'PM2.5 mass concentration exceeded the EPA NAAQS 24-hour standard during the assessment period. This finding is supported by continuous monitoring with outdoor baseline comparison.',
+      'PM2.5 mass concentration was above the EPA 24-hour NAAQS at the time of measurement. The NAAQS is a 24-hour average and an ambient standard applied here as an indoor benchmark; a reading taken during the assessment cannot establish a 24-hour mean.',
     bannedAlternatives: [],
     definitiveConclusionRequires: ['screening_continuous'],
     causationSupportRequires: ['screening_continuous'],

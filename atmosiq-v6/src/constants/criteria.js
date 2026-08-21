@@ -539,6 +539,22 @@ export function evaluateCriteria(parameter, value, evidenceBasis = 'screening_gr
   for (const c of list) {
     if (!Number.isFinite(c.value) || value <= c.value) continue
     const avg = AVERAGING[c.averaging]
+    // A criterion whose averaging period no evidence basis can speak to is
+    // not evaluable from a survey — by the registry's own declaration, not
+    // by a judgement made here. `annual` carries
+    // `determinativeFrom: []` AND `indicativeFrom: []`, and every annual
+    // criterion's own action text says the same thing: "An annual mean
+    // cannot be evaluated from a short survey; noted for long-term
+    // monitoring context."
+    //
+    // Firing one anyway is the averaging-period category error this whole
+    // module exists to prevent, just at the other end of the ladder: a
+    // clean office at PM2.5 6 µg/m³ produced a finding reading "above the
+    // WHO annual guideline of 5 µg/m³" from a two-minute reading. The
+    // criteria stay in the registry — they are real published values and
+    // the report cites them in its reference tables — but they cannot
+    // produce a finding from a walkthrough.
+    if (avg && avg.determinativeFrom.length === 0 && avg.indicativeFrom.length === 0) continue
     const determinative = !!avg && avg.determinativeFrom.includes(evidenceBasis)
     const indicative = !!avg && avg.indicativeFrom.includes(evidenceBasis)
     // Severity is the CONDITION's significance and does not move with the
