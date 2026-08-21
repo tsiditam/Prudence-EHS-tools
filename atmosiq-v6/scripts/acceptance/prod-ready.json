@@ -1992,6 +1992,21 @@
         { "type": "grep_matches", "pattern": "investigation: readinessInvestigation", "paths": ["src/components/MobileApp.jsx"] },
         { "type": "grep_matches", "pattern": "export const PARAMETER_LABEL", "paths": ["src/engine/investigation.ts"] }
       ]
+    },
+    {
+      "id": "RECOMMENDATION-CONTRACT",
+      "label": "Recommendations are traceable, folded by intent, grounded in recorded data, decisive, and not a copy of the sampling plan",
+      "checks": [
+        { "type": "file_exists", "path": "src/engine/report/recommendations.ts" },
+        { "type": "file_exists", "path": "tests/engine/recommendations.test.ts" },
+        { "type": "grep_matches", "pattern": "export function buildRecommendationRegister", "paths": ["src/engine/report/recommendations.ts"] },
+        { "type": "grep_matches", "pattern": "export function findHedges", "paths": ["src/engine/report/recommendations.ts"] },
+        { "type": "grep_matches", "pattern": "const SEQUENTIAL_INTENTS", "paths": ["src/engine/report/recommendations.ts"] },
+        { "type": "grep_matches", "pattern": "const PRECONDITIONS", "paths": ["src/engine/report/recommendations.ts"] },
+        { "type": "grep_matches", "pattern": "buildRecommendationRegister\\(", "paths": ["src/engine/report/client.ts"] },
+        { "type": "grep_excludes", "pattern": "const allActions = dedupActions", "paths": ["src/engine/report/client.ts"] },
+        { "type": "grep_excludes", "pattern": "Consider TVOC/speciation sampling|Evaluate feasibility of upgrading|if occupant complaints are persistent|in zones where symptom", "paths": ["src/engine/report/phrases"] }
+      ]
     }
   ]
 }

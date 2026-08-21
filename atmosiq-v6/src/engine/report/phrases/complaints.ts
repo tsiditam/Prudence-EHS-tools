@@ -70,7 +70,7 @@ export const COMPLAINTS_PHRASES: Partial<Record<ConditionType, PhraseLibraryEntr
       'Multiple confounding factors (weather, commute, psychosocial) may influence symptom patterns.',
     ],
     defaultRecommendedActions: [
-      { priority: 'short_term', timeframe: '7–30 days', action: 'Prioritize ventilation and source investigation in zones where symptom resolution pattern is reported.' },
+      { priority: 'short_term', timeframe: '7–30 days', action: 'Investigate outdoor-air delivery and contaminant sources in the zones named in this report before pursuing other lines of enquiry.' },
     ],
   },
 }

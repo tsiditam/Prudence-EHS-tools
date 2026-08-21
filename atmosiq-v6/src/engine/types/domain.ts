@@ -340,6 +340,14 @@ export interface AssessmentScore {
    */
   readonly legacyZonesData?: unknown
   /**
+   * The raw building record, carried beside `legacyZonesData` for the
+   * same reason: a consumer sometimes needs a field the typed shape does
+   * not model. The recommendations register reads it to check a
+   * precondition — telling a client to upgrade to MERV 13 is only sound
+   * when somebody recorded what is installed.
+   */
+  readonly legacyBuilding?: unknown
+  /**
    * v2.5 §5 — optional photo set documented during the assessment.
    * Consumed by the Appendix C builder. Type opaque to avoid
    * coupling the engine domain to the report layer; the bridge or
