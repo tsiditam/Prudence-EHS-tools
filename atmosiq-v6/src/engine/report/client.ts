@@ -41,6 +41,7 @@ import {
 import { groupFindingsByDomain, getShortStatement, getLeadTerm } from './finding-groups'
 import { synthesizeZone } from './synthesis'
 import { validateReportContent } from './cih-validation'
+import { buildRecommendationRegister, toPriorityGroups } from './recommendations'
 import { buildAppendixC, type AssessmentPhoto } from './appendix-c'
 import {
   collectCitations,
@@ -241,7 +242,28 @@ export function renderClientReport(
   // v2.2 §1c — Recommendations register deduplicated by (action+ref)
   // tuple. Preserves order by first appearance. Computed up here so
   // the executive summary can reference the same deduped list.
-  const allActions = dedupActions(allFindings.flatMap(f => f.recommendedActions))
+  // The recommendations register — folded by intent, grounded against
+  // recorded data, and stripped of hedges. See recommendations.ts for
+  // why a dedup keyed on exact action text produced fifteen rows for a
+  // two-zone office, four of them about filtration.
+  //
+  // Computed before `recommendedSamplingPlan` is known, so the sampling
+  // fold is decided from the same condition the plan renders on: a
+  // hypothesis fired. A pointer to a section that is not there would be
+  // worse than a repeated instruction.
+  const hasSamplingPlan = (score.hypotheses ?? []).length > 0
+  const registerResult = buildRecommendationRegister(
+    allFindings,
+    { building: (score.legacyBuilding ?? undefined) as Record<string, unknown> | undefined },
+    hasSamplingPlan,
+  )
+  const registerGroups = toPriorityGroups(registerResult)
+  const allActions: ReadonlyArray<RecommendedAction> = [
+    ...registerGroups.immediate,
+    ...registerGroups.shortTerm,
+    ...registerGroups.furtherEvaluation,
+    ...registerGroups.longTermOptional,
+  ]
 
   // CIH defensibility §1 — overview MUST NOT include quantified
   // condition counts. "11 conditions warranting attention" reads as
@@ -433,12 +455,7 @@ export function renderClientReport(
     ? score.hypotheses
     : undefined
 
-  const recommendationsRegister: RecommendationsRegister = {
-    immediate: allActions.filter(a => a.priority === 'immediate'),
-    shortTerm: allActions.filter(a => a.priority === 'short_term'),
-    furtherEvaluation: allActions.filter(a => a.priority === 'further_evaluation'),
-    longTermOptional: allActions.filter(a => a.priority === 'long_term'),
-  }
+  const recommendationsRegister: RecommendationsRegister = registerGroups
 
   // Signatory block
   const signatoryBlock: SignatoryBlock = {
@@ -742,7 +759,11 @@ function dedupActions(actions: ReadonlyArray<RecommendedAction>): ReadonlyArray<
   const seen = new Set<string>()
   const out: RecommendedAction[] = []
   for (const a of actions) {
-    const key = `${a.action} ${a.standardReference ?? ''}`
+    // JSON rather than a delimiter character. This used a literal NUL
+    // byte, which made `grep` classify the whole file as binary — so
+    // every grep-based guard over the report pipeline's main module
+    // silently matched nothing, including the acceptance gate.
+    const key = JSON.stringify([a.action, a.standardReference ?? ''])
     if (seen.has(key)) continue
     seen.add(key)
     out.push(a)

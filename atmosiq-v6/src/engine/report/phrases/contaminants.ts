@@ -29,7 +29,7 @@ export const CONTAMINANTS_PHRASES: Partial<Record<ConditionType, PhraseLibraryEn
       'CO measurement was a grab or short-duration reading, not an 8-hour TWA as required for OSHA PEL comparison.',
     ],
     defaultRecommendedActions: [
-      { priority: 'short_term', timeframe: '7–30 days', action: 'Investigate potential combustion sources. Consider continuous CO monitoring during occupied hours.' },
+      { priority: 'short_term', timeframe: '7–30 days', action: 'Investigate potential combustion sources — attached garage, loading dock, boiler room, and any fuel-fired appliance. Log CO continuously through an occupied cycle.' },
     ],
   },
 
@@ -182,7 +182,7 @@ export const CONTAMINANTS_PHRASES: Partial<Record<ConditionType, PhraseLibraryEn
       'The presence of an odor does not necessarily indicate a health hazard.',
     ],
     defaultRecommendedActions: [
-      { priority: 'short_term', timeframe: '7–30 days', action: 'Investigate odor source. Consider TVOC/speciation sampling if source is not readily identifiable.' },
+      { priority: 'short_term', timeframe: '7–30 days', action: 'Trace the odor to its source, working from the areas of greatest intensity toward the suspected origin.' },
     ],
   },
 

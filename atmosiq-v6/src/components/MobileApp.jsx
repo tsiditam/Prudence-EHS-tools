@@ -31,6 +31,8 @@ import { getRiskBand } from '../engines/riskBands'
 import { getSubscriptionBannerState, BILLING_MODE } from '../utils/subscriptionState'
 import { VER, STANDARDS_MANIFEST } from '../constants/standards'
 import { Q_PRESURVEY, Q_BUILDING, Q_ZONE, Q_QUICKSTART, Q_DETAILS, SENSOR_FIELDS } from '../constants/questions'
+import { BUILDING_SCOPED_IDS } from '../constants/field-registry'
+import { deriveInvestigation } from '../engine/investigation'
 import { scoreZone, compositeScore, evalOSHA, calcVent, genRecs, evalMold, evalMeasurementConfidence } from '../engines/scoring'
 import { generateSamplingPlan } from '../engines/sampling'
 import { buildCausalChains } from '../engines/causalChains'
@@ -563,6 +565,9 @@ function ReportWritingOverlay({ label, durationMs }) {
     document.body
   )
 }
+
+/** Membership test for setQSField's routing. Built once at module load. */
+const BUILDING_SCOPED_ID_SET = new Set(BUILDING_SCOPED_IDS)
 
 export default function MobileApp() {
   const { isTablet, isTabletLand, isDesktop } = useMediaQuery()
@@ -1149,9 +1154,14 @@ export default function MobileApp() {
 
   // Merge quick start data into both presurvey and bldg depending on field prefix
   const mergedData = useMemo(() => ({ ...presurvey, ...bldg }), [presurvey, bldg])
+  // Building fields go to bldg, pre-survey fields go to presurvey. The
+  // routing set comes from the field registry rather than a literal list
+  // here: this was one of six places that independently decided which
+  // field names live where, and a field added to Q_BUILDING but forgotten
+  // in this array would have been written into the pre-survey record,
+  // where the engines never look for it.
   const setQSField = useCallback((id, v) => {
-    // Building fields go to bldg, pre-survey fields go to presurvey
-    if (['fn','fl','ft','ht','sa','ba','rn','hm','fm','fc','od','dp','bld_pressure','bld_exhaust','bld_intake_proximity','wx_temp','wx_rh','wx_sky','wx_precip','wx_wind','wx_notes'].includes(id)) {
+    if (BUILDING_SCOPED_ID_SET.has(id)) {
       setBldg(p => ({...p, [id]: v}))
     } else {
       setPresurvey(p => ({...p, [id]: v}))
@@ -1219,6 +1229,45 @@ export default function MobileApp() {
       const next = [...prev]; next[curZone] = {...(next[curZone]||{}), [id]:v}; return next
     })
   }, [curZone, OUTDOOR_SENSOR_IDS, setZones])
+  // The investigation state behind the Readiness panel's gap list.
+  // buildAssessmentContext derives its own from the same inputs; both
+  // call one pure function, so they agree by construction and a test
+  // pins that rather than trusting it.
+  const readinessInvestigation = useMemo(() => {
+    if (!Array.isArray(zones) || zones.length === 0) return null
+    try {
+      return deriveInvestigation({
+        zonesData: zones,
+        buildingData: bldg || {},
+        zoneScores: Array.isArray(zoneScores) ? zoneScores : undefined,
+        samplingPlan: samplingPlan || null,
+        causalChains: Array.isArray(causalChains) ? causalChains : null,
+      })
+    } catch {
+      return null
+    }
+  }, [zones, bldg, zoneScores, samplingPlan, causalChains])
+
+  // Bumped when an accepted Jasper write lands, so the engine re-runs
+  // against the record as it now stands. A counter rather than a boolean:
+  // two writes accepted in quick succession are two rescores, and a
+  // boolean already true would swallow the second.
+  const [pendingRescore, setPendingRescore] = useState(0)
+  useEffect(() => {
+    if (pendingRescore === 0) return
+    runScoring()
+    // Depends on the counter ALONE, deliberately.
+    //
+    // The write and this bump are set in the same handler, so React
+    // applies both before the effect runs and the closure here already
+    // sees the updated zones and building. Adding them to the dependency
+    // list would not make it fresher — it would make it non-terminating:
+    // runScoring() ends with setZones(zonesWithOutdoor), and that .map()
+    // returns a new array identity on every call, so `zones` would change
+    // on every run and re-trigger this effect forever.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingRescore])
+
   // Land a pending Readiness "Fix" on the exact zone question once we've
   // navigated to that zone and its visible-question list is built. '__photo__'
   // targets the first photo-capable question; otherwise we match the field id.
@@ -2777,6 +2826,12 @@ export default function MobileApp() {
               presurvey, building: bldg, client: bldg && bldg.client ? bldg.client : {},
               zones, zoneScores, recs, photos, photoOverrides,
               profile: profile ? { name: profile.name } : null,
+              // The readiness verdict reads this to report explanations
+              // left live and never measured against. Supplied here as
+              // well as in buildAssessmentContext so the panel and the
+              // context cannot show different gap sets for one
+              // assessment — same pure function, same inputs.
+              investigation: readinessInvestigation,
             }}
             onFeedback={()=>openFeedback('Findings & readiness')}
             onFix={archived ? (viewRpt?.id ? resumeAndFix : undefined) : fixBlocker}
@@ -5078,24 +5133,70 @@ export default function MobileApp() {
               setVoicePrefill(null)
               return true
             }
+            if (action.type === 'record_zone_observation') {
+              // The write that closes the investigation loop. Everything
+              // else Jasper can propose leaves the engine where it was.
+              //
+              // A FINALIZED report is a record, not a live assessment.
+              // runScoring() already refuses to recompute one; writing a
+              // value into it would edit an issued document's inputs while
+              // its scores stayed frozen, which is worse than refusing.
+              if (viewRpt) return false
+              const fieldId = action.field
+              if (!fieldId || action.value === undefined || action.value === null) return false
+              if (action.scope === 'building') {
+                setBldg((p) => ({ ...p, [fieldId]: action.value }))
+              } else {
+                // Zone scope goes through setZF, the same writer the
+                // walkthrough uses — which is what propagates an outdoor
+                // baseline (co2o / pmo / tvo / tfo / rho) to every zone
+                // instead of stranding it on the one that happened to be
+                // open. A direct setZones here would have written it to
+                // one zone and left the rest scoring against nothing.
+                if (!zones[curZone]) return false
+                setZF(fieldId, action.value)
+              }
+              // Rescore, or the write is only half of the loop: the raw
+              // value would update while zoneScores — which is what
+              // deriveParameterVerdicts reads, and therefore what the
+              // investigation calls evidence — kept the verdicts from
+              // before the reading existed. Jasper would then be handed a
+              // state that had not moved and would say so.
+              //
+              // Deferred to an effect rather than called here: runScoring
+              // closes over `zones` and `bldg`, and the setState above has
+              // not been applied yet, so calling it now would score the
+              // record as it was a moment ago.
+              setPendingRescore((n) => n + 1)
+              return true
+            }
             if (action.type === 'add_zone_note') {
               const noteText = (action.note_text || '').trim()
               if (!noteText) return false
-              // Append to the current zone's notes field. If
-              // there's no current zone (e.g. user is on the
-              // dashboard), reject — the model shouldn't have
-              // proposed this. The notes field on a zone is
-              // `nt` per the wizard schema; append with a
-              // newline separator if there's existing content.
+              // Append to the current zone's notes field. If there's no
+              // current zone (e.g. the user is on the dashboard), reject —
+              // the model shouldn't have proposed this.
+              //
+              // The field is `znt` (Q_ZONE, "Zone observations / notes").
+              // This wrote `nt` for its whole life, which is not in the
+              // schema and which nothing reads: every note an assessor
+              // accepted went into a key the wizard does not render and
+              // the report does not print. `znt` is at least the field the
+              // walkthrough shows back to them.
+              //
+              // Note the standing limitation either way: no engine reads
+              // free text. A note records an observation for a human; it
+              // does not move a score, a finding, or a differential. That
+              // is what record_zone_observation is for.
               const zoneIdx = curZone
               const zone = zones[zoneIdx]
               if (!zone) return false
-              const prevNotes = zone.nt || ''
+              const prevNotes = zone.znt || ''
               const nextNotes = prevNotes
                 ? `${prevNotes}\n${noteText}`
                 : noteText
               const nextZones = zones.slice()
-              nextZones[zoneIdx] = { ...zone, nt: nextNotes }
+              nextZones[zoneIdx] = { ...zone, znt: nextNotes }
               setZones(nextZones)
               return true
             }

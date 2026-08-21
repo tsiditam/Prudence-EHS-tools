@@ -81,7 +81,7 @@ export const ENVIRONMENT_PHRASES: Partial<Record<ConditionType, PhraseLibraryEnt
       'Low humidity is a comfort concern, not a regulatory violation. ASHRAE 55 does not set a minimum humidity limit.',
     ],
     defaultRecommendedActions: [
-      { priority: 'further_evaluation', timeframe: '30–90 days', action: 'Evaluate humidification options if occupant complaints are persistent.' },
+      { priority: 'further_evaluation', timeframe: '30–90 days', action: 'Assess humidification capacity against the space volume and the outdoor design condition.' },
     ],
   },
 

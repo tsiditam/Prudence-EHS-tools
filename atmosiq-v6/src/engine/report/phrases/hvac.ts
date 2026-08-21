@@ -45,7 +45,7 @@ export const HVAC_PHRASES: Partial<Record<ConditionType, PhraseLibraryEntry>> = 
       'Filter MERV rating was reported or estimated visually; laboratory testing of filter efficiency was not performed.',
     ],
     defaultRecommendedActions: [
-      { priority: 'short_term', timeframe: '7–30 days', action: 'Evaluate feasibility of upgrading to MERV 13 or higher filtration. Verify system static pressure capacity.', standardReference: 'ASHRAE 62.1-2025' },
+      { priority: 'short_term', timeframe: '7–30 days', action: 'Upgrade to MERV 13 or higher filtration, verifying static pressure capacity at the air handler before specifying the filter.', standardReference: 'ASHRAE 62.1-2025' },
     ],
   },
 

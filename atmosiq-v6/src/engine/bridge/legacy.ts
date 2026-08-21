@@ -114,6 +114,7 @@ export function legacyToAssessmentScore(
     meta: ctx.meta,
     parameterRanges,
     legacyZonesData: zonesData,
+    legacyBuilding: ctx.building ?? {},
     causalChains,
     hypotheses,
   }

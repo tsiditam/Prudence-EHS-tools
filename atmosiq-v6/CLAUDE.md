@@ -382,6 +382,40 @@ When working on report generation:
   per-parameter default — the Logger Studio temperature default resolves
   ASHRAE 55's *acceptable* range while the engine flags the tighter *optimal*
   band, so a fixed reference contradicts the finding beside it.
+- **Every layer must say the same thing about the same data.** The report is
+  assembled by layers that each used to form their own opinion — the legacy
+  scorer, the bridge, the professional-opinion rollup, the phrase library,
+  the parameter prose, the renderers. Every contradiction this codebase has
+  shipped came from one of them deciding something the others did not know.
+
+  Three rules, each learned from a shipped defect:
+
+  1. **A phrase template may not assert a verdict.** `ventilation_co2_only`
+     opened "CO₂ results were within the reference range" whatever the
+     reading — in an entry whose own `bannedAlternatives` forbid "CO₂ below
+     standard". A template states the CONDITION or the LIMITATION; whether
+     the reading is acceptable is the engine's answer, not the template's.
+  2. **`classify.ts` routes on severity and structured fields, never on
+     finding prose.** `matches` is `includes`, so the token `inadequate`
+     never matched the worst CO₂ tier's own word `inadequacy`, and the
+     medium tier's "approaching concern" matched nothing. Both fell into the
+     within-range template while the tier between them classified correctly.
+     Rewording a finding must never change how it is classified.
+  3. **The opinion rollup weighs findings; it does not count them.** Tiers
+     come from `tierForFinding` (severity, raised by documented evidence) and
+     the zone takes the max. The old rules required "2+ provisional
+     findings", so ONE high-severity finding matched nothing and produced
+     "No significant indoor air quality concerns were identified". Two
+     properties are asserted in `professional-opinion.test.ts` and must
+     hold: **count-invariance** (one finding and ten identical ones agree)
+     and **monotonicity in confidence** (better evidence never lowers the
+     tier — a visual observation once outranked an instrument measurement).
+
+  `tests/engine/cross-layer-consistency.test.ts` is the backstop. It renders
+  real consultant reports across a fixture matrix and asserts the layers
+  agree with each other and with the engine — not that any layer is right on
+  its own. It is verified to fail when each fix is reverted; keep it that
+  way, and add a fixture whenever a new contradiction is found.
 - **A threshold travels with its averaging period, class and source.**
   `src/constants/criteria.js` is the registry; `docs/CRITERIA.md` explains
   it. Never compare a measured value against a bare number from `STD` —

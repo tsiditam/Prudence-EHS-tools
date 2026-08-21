@@ -170,6 +170,16 @@ export function useFieldAssistant() {
   // actual execution via the onAction callback that
   // FieldAssistant passes through.
   const [proposedActions, setProposedActions] = useState([])
+  // Investigation states emitted by the assess_investigation tool. Each
+  // entry is the payload of one `investigation_state` SSE event:
+  //   { id, stage, rationale, hypotheses[], discriminating_tests[],
+  //     open_questions[], next_step }
+  // The chat renders the latest one as a card beside Jasper's answer, so
+  // the assessor sees the same reasoning the model was handed rather than
+  // a paraphrase of it. Only the most recent survives: the state is
+  // derived fresh on each call, and a stale copy above it in the
+  // transcript is a contradiction waiting to be read.
+  const [investigations, setInvestigations] = useState([])
   // Rendered DOCX deliverables emitted by the generate_report tool.
   // Each entry: { id, template_id, template_name, file_name,
   //   size_bytes, base64, tokens_filled, tokens_empty, tokens_unknown,
@@ -214,6 +224,7 @@ export function useFieldAssistant() {
     setActiveTool(null)
     setProposedActions([])
     setRenderedReports([])
+    setInvestigations([])
   }, [])
 
   const markReportDownloaded = useCallback((id) => {
@@ -302,11 +313,17 @@ export function useFieldAssistant() {
       })))
       setConversationId(id)
       setError(null)
-      // Clear any photos staged for a brand-new chat; resuming an
-      // existing conversation shouldn't carry over half-attached
-      // photos from a different mental session.
+      // Clear anything staged for a brand-new chat; resuming an existing
+      // conversation shouldn't carry over half-attached photos from a
+      // different mental session — nor an action card, a download, or an
+      // investigation card belonging to a different assessment. An
+      // investigation names differentials for one site; left on screen
+      // beside another site's transcript it is simply wrong.
       photosRef.current = []
       setAttachedPhotos([])
+      setProposedActions([])
+      setRenderedReports([])
+      setInvestigations([])
       return true
     } catch (err) {
       console.warn('[useFieldAssistant] loadConversation failed:', err && err.message)
@@ -758,6 +775,22 @@ export function useFieldAssistant() {
                 { id, action, summary, status: 'pending' },
               ])
             }
+          } else if (frame.event === 'investigation_state') {
+            const data = frame.data || {}
+            if (typeof data.stage === 'string' && data.stage) {
+              const id = data.id || (typeof crypto !== 'undefined' && crypto.randomUUID
+                ? `inv-${crypto.randomUUID().slice(0, 8)}`
+                : `inv-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`)
+              setInvestigations([{
+                id,
+                stage: data.stage,
+                rationale: typeof data.rationale === 'string' ? data.rationale : '',
+                hypotheses: Array.isArray(data.hypotheses) ? data.hypotheses : [],
+                discriminating_tests: Array.isArray(data.discriminating_tests) ? data.discriminating_tests : [],
+                open_questions: Array.isArray(data.open_questions) ? data.open_questions : [],
+                next_step: data.next_step && typeof data.next_step === 'object' ? data.next_step : null,
+              }])
+            }
           } else if (frame.event === 'render_proposed') {
             // generate_report dispatcher resolved which template to
             // render. The docx render itself lives in a separate
@@ -922,6 +955,7 @@ export function useFieldAssistant() {
     activeTool,
     proposedActions,
     renderedReports,
+    investigations,
     sendMessage,
     stop,
     reset,

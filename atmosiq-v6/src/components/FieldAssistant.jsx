@@ -320,7 +320,14 @@ function describeTool(tool) {
   if (!tool) return null
   const name = tool.name || ''
   const input = tool.input || {}
-  if (name === 'search_iaq_corpus' || name === 'search_corpus' || name === 'lookup_corpus') {
+  if (name === 'assess_investigation') {
+    return 'Reviewing the investigation…'
+  }
+  if (name === 'lookup_exposure_limit' || name === 'lookup_sampling_method' || name === 'lookup_health_effects') {
+    const a = typeof input.analyte === 'string' ? input.analyte.slice(0, 40) : ''
+    return a ? `Looking up ${a}…` : 'Looking up the analyte…'
+  }
+  if (name === 'search_standards_corpus' || name === 'search_iaq_corpus' || name === 'search_corpus' || name === 'lookup_corpus') {
     const q = typeof input.query === 'string' ? input.query.slice(0, 60) : ''
     return q ? `Searching standards for "${q}"…` : 'Searching the standards corpus…'
   }
@@ -552,6 +559,120 @@ function readIntroFlag() {
 }
 
 /**
+ * Human-readable stage labels. The engine's stage names are precise but
+ * written for code; these are what an assessor reads on the card.
+ */
+const INVESTIGATION_STAGE_LABEL = {
+  no_assessment: 'No assessment loaded',
+  no_active_differential: 'Nothing to test',
+  screening: 'Screening',
+  differential: 'Two explanations open',
+  converging: 'Narrowing',
+  concluded: 'Settled',
+}
+
+const HYPOTHESIS_STATUS_LABEL = {
+  supported_by_measurement: 'Measurements support it',
+  mixed_measurement_support: 'Measurements are split',
+  untested: 'Not measured yet',
+  not_supported_by_measurement: 'Measured, nothing flagged',
+}
+
+/**
+ * Inline investigation card — rendered when Jasper has called
+ * assess_investigation. It shows the engine's own reading: where the
+ * investigation stands, which explanations are live and how the
+ * measurements bear on each, and the one next step.
+ *
+ * Why a card and not just prose: the model writes the conversation, but
+ * the differentials and their status are the ENGINE's, and a card
+ * rendered straight from the tool payload cannot drift from them the way
+ * a paraphrase can. Everything here is read from the event — nothing is
+ * re-derived, re-ordered, or re-worded on the client.
+ */
+function InvestigationCard({ state }) {
+  const hyps = Array.isArray(state.hypotheses) ? state.hypotheses : []
+  const next = state.next_step || null
+  const stageLabel = INVESTIGATION_STAGE_LABEL[state.stage] || 'Investigation'
+  return (
+    <div className="jasper-msg-in" style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 12 }}>
+      <div style={{
+        maxWidth: '90%',
+        padding: '12px 14px',
+        borderRadius: 14,
+        background: SURFACE,
+        border: `1px solid ${BORDER}`,
+      }}>
+        <div style={{
+          fontSize: 10, color: 'var(--accent)', fontWeight: 700,
+          letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 4,
+        }}>
+          Investigation · {stageLabel}
+        </div>
+        {state.rationale && (
+          <div style={{ fontSize: 13, color: TEXT, lineHeight: 1.5, marginBottom: hyps.length ? 10 : 0 }}>
+            {state.rationale}
+          </div>
+        )}
+
+        {hyps.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: next ? 10 : 0 }}>
+            {hyps.map((h) => (
+              <div
+                key={h.id}
+                style={{
+                  padding: '7px 9px',
+                  borderRadius: 8,
+                  background: CARD,
+                  border: h.leading
+                    ? '1px solid color-mix(in srgb, var(--accent) 36%, transparent)'
+                    : `1px solid ${BORDER}`,
+                }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: TEXT, lineHeight: 1.35 }}>
+                    {h.name}
+                  </span>
+                  {h.leading && (
+                    <span style={{
+                      fontSize: 9, fontWeight: 700, letterSpacing: '0.4px',
+                      textTransform: 'uppercase', color: 'var(--accent)',
+                    }}>
+                      Leading
+                    </span>
+                  )}
+                </div>
+                <div style={{ fontSize: 11, color: DIM, lineHeight: 1.45, marginTop: 2 }}>
+                  {HYPOTHESIS_STATUS_LABEL[h.status] || h.status}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {next && (
+          <div style={{
+            padding: '9px 10px', borderRadius: 8,
+            background: mix('accent', 6),
+            border: '1px solid color-mix(in srgb, var(--accent) 24%, transparent)',
+          }}>
+            <div style={{
+              fontSize: 9, fontWeight: 700, letterSpacing: '0.4px',
+              textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 3,
+            }}>
+              Next step
+            </div>
+            <div style={{ fontSize: 13, color: TEXT, lineHeight: 1.45 }}>{next.action}</div>
+            {next.why && (
+              <div style={{ fontSize: 11, color: SUB, lineHeight: 1.5, marginTop: 4 }}>{next.why}</div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/**
  * Inline agentic-action card. Rendered in the chat when Jasper
  * has called the propose_action tool. Three visual states:
  *   - pending:  "Add note to Zone A1" + [Reject] [Apply] buttons
@@ -565,10 +686,13 @@ function readIntroFlag() {
 function ActionCard({ action, summary, status, onAccept, onReject }) {
   const isPending = status === 'pending'
   const isAccepted = status === 'accepted'
+  const isRecord = action?.type === 'record_zone_observation'
   const glyph =
     action?.type === 'navigate'
       ? 'M9 18l6-6-6-6' // chevron-right
-      : 'M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7 M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z' // pencil-square
+      : isRecord
+        ? 'M9 11l3 3L22 4 M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11' // clipboard-check
+        : 'M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7 M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z' // pencil-square
   return (
     <div className="jasper-msg-in" style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 12 }}>
       <div style={{
@@ -602,11 +726,35 @@ function ActionCard({ action, summary, status, onAccept, onReject }) {
               fontSize: 10, color: 'var(--accent)', fontWeight: 700,
               letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 2,
             }}>
-              {isAccepted ? 'Applied' : status === 'rejected' ? 'Rejected' : 'Proposed action'}
+              {isAccepted
+                ? (isRecord ? 'Recorded' : 'Applied')
+                : status === 'rejected' ? 'Rejected'
+                  : isRecord ? 'Record this observation' : 'Proposed action'}
             </div>
             <div style={{ fontSize: 14, color: TEXT, lineHeight: 1.4, fontWeight: 600 }}>
-              {summary || (action?.type === 'navigate' ? 'Open a screen' : 'Add a note')}
+              {summary || (action?.type === 'navigate' ? 'Open a screen' : isRecord ? 'Record an observation' : 'Add a note')}
             </div>
+            {/* The write is shown field-by-value rather than as prose. It
+                is going into the assessor's evidence record, and they are
+                the one signing it — what lands has to be legible before
+                they tap, not paraphrased into a sentence. */}
+            {isRecord && action.field_label && (
+              <div style={{
+                fontSize: 12, lineHeight: 1.5, marginTop: 6,
+                padding: '8px 10px', background: CARD, border: `1px solid ${BORDER}`,
+                borderRadius: 8,
+              }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
+                  <span style={{ color: DIM }}>{action.field_label}</span>
+                  <span style={{ color: TEXT, fontWeight: 600 }}>{action.display_value}</span>
+                </div>
+                <div style={{ color: DIM, marginTop: 4, fontSize: 11 }}>
+                  {action.scope === 'building'
+                    ? 'Applies to the whole building'
+                    : `Applies to ${action.zone_label || 'the zone you have open'}`}
+                </div>
+              </div>
+            )}
             {action?.type === 'add_zone_note' && action.note_text && (
               <div style={{
                 fontSize: 12, color: SUB, lineHeight: 1.5, marginTop: 6,
@@ -631,7 +779,7 @@ function ActionCard({ action, summary, status, onAccept, onReject }) {
                 fontFamily: 'inherit', minHeight: 36,
                 WebkitTapHighlightColor: 'transparent',
               }}>
-              Reject
+              {isRecord ? "Don't record" : 'Reject'}
             </button>
             <button
               type="button"
@@ -644,7 +792,7 @@ function ActionCard({ action, summary, status, onAccept, onReject }) {
                 fontFamily: 'inherit', minHeight: 36, letterSpacing: '-0.1px',
                 WebkitTapHighlightColor: 'transparent',
               }}>
-              Apply
+              {isRecord ? 'Record' : 'Apply'}
             </button>
           </div>
         )}
@@ -788,6 +936,7 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
     activeTool,
     proposedActions,
     renderedReports,
+    investigations,
     sendMessage,
     stop,
     attachPhoto,
@@ -1788,6 +1937,15 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
               }}
               onReject={() => markActionRejected(p.id)}
             />
+          ))}
+
+          {/* Investigation card — assess_investigation tool result,
+              rendered from the tool payload rather than parsed out of
+              Jasper's prose, so the card and the answer are two views
+              of one object and cannot disagree. Only the latest is
+              kept; the state is re-derived on every call. */}
+          {investigations.map((inv) => (
+            <InvestigationCard key={inv.id} state={inv} />
           ))}
 
           {/* Rendered-report download cards — generate_report tool

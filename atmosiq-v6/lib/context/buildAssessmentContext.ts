@@ -30,6 +30,10 @@ import { ENGINE_VERSION } from '../../src/version.js'
 import { resolveLifecycle } from '../../src/constants/reportLifecycle.js'
 import { normalizeAcknowledgement } from '../../src/utils/calibrationAcknowledgement.js'
 import { buildReadinessVerdict } from '../../src/engines/readiness-verdict.js'
+import {
+  deriveInvestigation,
+  type CausalChainLike, type InvestigationState, type SamplingPlanLike,
+} from '../../src/engine/investigation'
 import { summarizeLoggerForContext } from '../jasper/logger-context-summary'
 import type {
   AssessmentContext,
@@ -141,6 +145,28 @@ export function buildAssessmentContext(state: RawAssessmentState): AssessmentCon
   const composite = s.comp ?? s.composite ?? null
   const hasEngineOutputs = composite != null
 
+  // Where the investigation stands. Derived BEFORE the readiness verdict
+  // because the verdict reads it: an explanation left live and never
+  // measured against is a defensibility gap, and only this state knows
+  // which those are. See the note at the original derivation site below —
+  // moved up here, unchanged, purely for ordering.
+  let investigation: InvestigationState | null = null
+  if (zones.length > 0) {
+    try {
+      investigation = deriveInvestigation({
+        zonesData: zones,
+        buildingData: building,
+        zoneScores: Array.isArray(s.zoneScores) ? s.zoneScores : undefined,
+        samplingPlan: (s.samplingPlan as SamplingPlanLike | null | undefined) ?? null,
+        causalChains: Array.isArray(s.causalChains)
+          ? (s.causalChains as ReadonlyArray<CausalChainLike>)
+          : null,
+      })
+    } catch {
+      investigation = null
+    }
+  }
+
   // Readiness verdict — only meaningful once the engine has scored.
   // Mirrors the gating MobileApp.jsx applies today (comp present).
   let readiness_verdict: ReadinessVerdict | null = null
@@ -158,6 +184,7 @@ export function buildAssessmentContext(state: RawAssessmentState): AssessmentCon
         photoOverrides: s.photoOverrides,
         confidence: s.confidence,
         profile: s.profile ? { name: (s.profile as Record<string, unknown>).name } : null,
+        investigation,
       }) as ReadinessVerdict
     } catch {
       readiness_verdict = null
@@ -253,5 +280,6 @@ export function buildAssessmentContext(state: RawAssessmentState): AssessmentCon
         }
       : null,
     calibration_acknowledgement,
+    investigation,
   }
 }

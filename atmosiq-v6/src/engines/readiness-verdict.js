@@ -11,7 +11,10 @@
  *      blockers + soft warnings, exists since v2.7
  *   2. detectDefensibilityGaps() from defensibility-gaps.js — 6 soft
  *      evidentiary-context gaps that reduce defensibility under review
- *   3. confidenceCounts() — count of findings per confidence tier
+ *   3. detectInvestigationGaps() from investigation-gaps.js — explanations
+ *      the assessment left live and never measured against. The question a
+ *      per-category completeness check cannot ask.
+ *   4. confidenceCounts() — count of findings per confidence tier
  *
  * Engine-sacred boundary: this file imports validation.js (an existing
  * inspector, not a scoring path) and the new defensibility-gaps.js.
@@ -27,6 +30,7 @@
 
 import { validateAssessment } from './validation'
 import { detectDefensibilityGaps } from './defensibility-gaps'
+import { detectInvestigationGaps } from './investigation-gaps'
 
 function confidenceCounts(assessment) {
   const counts = { high: 0, medium: 0, low: 0, qualitative_only: 0 }
@@ -95,7 +99,17 @@ export function buildReadinessVerdict(assessment) {
   }
 
   const gate = validateAssessment(assessment)
-  const gaps = detectDefensibilityGaps(assessment)
+  // Two gap streams, one shape. detectDefensibilityGaps asks whether the
+  // evidence around a finding is documented; detectInvestigationGaps asks
+  // whether the explanations the report did not choose were ever tested.
+  // The second reads `assessment.investigation`, the state
+  // `deriveInvestigation()` produces — supplied by the caller rather than
+  // derived here, so this file keeps its promise not to compute anything
+  // the engine has already decided. Absent, it contributes nothing.
+  const gaps = [
+    ...detectDefensibilityGaps(assessment),
+    ...detectInvestigationGaps(assessment.investigation),
+  ]
   const confidence = confidenceCounts(assessment)
   const dismissible = gate.dismissibleBlockers || []
   const status = deriveStatus({ canFinalize: gate.canFinalize, gaps, dismissible })

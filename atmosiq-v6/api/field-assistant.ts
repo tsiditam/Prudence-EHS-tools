@@ -276,12 +276,25 @@ function buildSystemBlocks(
   photoIndex: Array<{ id: string; label: string | null }> = [],
   attachmentIndex: Array<{ name: string; kind: string }> = [],
 ) {
+  // The investigation state is deliberately withheld from this block and
+  // served by the `assess_investigation` tool instead. It is the one part
+  // of the context that carries reasoning rather than data — differentials,
+  // evidence, the next step — and a model that reads reasoning in its
+  // preamble paraphrases it from memory three turns later. Behind a tool
+  // it has to be fetched, so what the assessor is told traces to what the
+  // engine currently derives. It also keeps ~1.5k tokens off every turn.
+  const { investigation, ...contextForPrompt } =
+    (context ?? {}) as Record<string, unknown> & { investigation?: unknown }
   const baseContext = context
     ? `Current assessor context (passed at request time, do not assume any other state):\n${JSON.stringify(
-        context,
+        contextForPrompt,
         null,
         2,
-      )}`
+      )}${
+        investigation
+          ? '\n\nAn investigation state has been derived for this assessment (live explanations, the evidence for and against each, the test that would separate them, and the next step). It is NOT reproduced here — call assess_investigation to read it.'
+          : ''
+      }`
     : 'No assessment context provided — the assessor is asking a general question.'
   const photoBlock =
     photoIndex.length > 0
@@ -656,6 +669,27 @@ async function runAgentLoop(
           id: block.id,
           action: (result as any).action,
           summary: (result as any).summary || '',
+        })
+      }
+      // Side-channel SSE event for assess_investigation. Mirrors
+      // proposed_action: the tool result already went back to the model,
+      // and this carries the same object to the client so the chat can
+      // render the investigation as a card — stage, the live
+      // differentials, the next step — instead of the UI re-parsing it
+      // out of the model's prose and getting a different reading.
+      if (
+        block.name === 'assess_investigation'
+        && result
+        && (result as any).status === 'ok'
+      ) {
+        writeSse(res, 'investigation_state', {
+          id: block.id,
+          stage: (result as any).stage,
+          rationale: (result as any).rationale || '',
+          hypotheses: (result as any).hypotheses || [],
+          discriminating_tests: (result as any).discriminating_tests || [],
+          open_questions: (result as any).open_questions || [],
+          next_step: (result as any).next_step || null,
         })
       }
       // Side-channel SSE event for generate_report results. The

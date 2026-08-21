@@ -71,6 +71,24 @@ const num = (z: Readonly<Record<string, unknown>>, key: string): number | null =
 
 const zoneName = (z: Readonly<Record<string, unknown>>): string => str(z, 'zn') || 'Unnamed zone'
 
+/**
+ * ── On where a field lives ────────────────────────────────────
+ * The zone-data shape these rules read looks like the MERGED record
+ * `scoreZone` builds (`{...buildingData, ...zone}`), but every caller of
+ * `deriveHypotheses` passes raw `zonesData` with `buildingData` alongside
+ * — see bridge/legacy.ts and engine/index.ts. A field captured once for
+ * the whole building therefore never appears on a zone record.
+ *
+ * That silently disabled two of the three ventilation triggers: `sa`
+ * (supply air delivery) and `od` (outdoor-air damper) are Q_BUILDING
+ * fields, so "Weak / reduced" airflow and a damper stuck at minimum
+ * contributed nothing and the ventilation differential fired on
+ * neurological symptoms alone. `hypothesisBioaerosol` and
+ * `hypothesisParticulate` had already worked around it for `dp` and `fc`
+ * by reading buildingData outside the zone loop, which is also the shape
+ * that keeps the confidence tier honest — see hypothesisVentilation.
+ */
+
 // ── Pattern detectors ─────────────────────────────────────────
 
 const NEUROLOGICAL_SYMPTOMS: ReadonlyArray<string> = [
@@ -110,6 +128,55 @@ const hasFilterIssue = (fc: string): boolean => {
 
 const hasOdor = (ot: ReadonlyArray<string>): boolean =>
   ot.some(o => o !== '' && o !== 'None' && o !== 'No odor')
+
+/**
+ * Odor strength on a 0–4 scale, from whichever field carries it.
+ *
+ * `oi` is a numeric intensity this rule was written against. It is not in
+ * `Q_ZONE` and never has been — the schema records odor strength as `op`,
+ * a four-option choice. So `num(z, 'oi')` returned null for every real
+ * assessment and the intensity branch below was unreachable: a strong,
+ * overpowering odor and a faint intermittent one produced the identical
+ * basis line, "intensity not recorded".
+ *
+ * `oi` is still honoured when present so fixtures and any caller passing
+ * the merged numeric shape keep working; `op` is what the app supplies.
+ * The mapping matches how `scoreEnv` grades the same field — moderate
+ * persistent and above is what it treats as a finding worth reporting.
+ */
+/**
+ * The strength at or above which an odor warrants speciation.
+ *
+ * Set to match `scoreEnv`, which emits a finding for "Moderate
+ * persistent" and "Strong / overpowering" and nothing at all for a faint
+ * intermittent odor. A recommendation to run TO-17 sorbent tubes and
+ * GC/MS is a real cost and a real day of someone's time; hanging it on an
+ * odor the scoring engine does not consider worth a finding put the two
+ * layers in disagreement about the same observation, and put the more
+ * expensive recommendation on the weaker signal.
+ */
+const ODOR_PERSISTENT_THRESHOLD = 3
+
+const ODOR_INTENSITY_BY_OPTION: Readonly<Record<string, number>> = {
+  'None': 0,
+  'Faint / intermittent': 1,
+  'Moderate persistent': 3,
+  'Strong / overpowering': 4,
+}
+
+const odorIntensity = (z: Readonly<Record<string, unknown>>): number | null => {
+  const legacy = num(z, 'oi')
+  if (legacy !== null) return legacy
+  const op = str(z, 'op')
+  return op in ODOR_INTENSITY_BY_OPTION ? ODOR_INTENSITY_BY_OPTION[op] : null
+}
+
+/** True when odor was reported at all, by type list or by strength. */
+const odorReported = (z: Readonly<Record<string, unknown>>): boolean => {
+  if (hasOdor(arr(z, 'ot'))) return true
+  const intensity = odorIntensity(z)
+  return intensity !== null && intensity > 0
+}
 
 const hasVisibleDust = (vd: string): boolean => {
   const t = vd.toLowerCase()
@@ -199,14 +266,26 @@ const SAMPLING_VENTILATION: ReadonlyArray<SamplingRecommendation> = [
 
 function hypothesisVentilation(input: HypothesisInput): Hypothesis | null {
   const basis: string[] = []
+  // Zone-scoped triggers first: one line per zone that shows the pattern.
   for (const z of input.zonesData) {
-    const sa = str(z, 'sa')
-    const sy = arr(z, 'sy')
-    const od = str(z, 'od')
     const name = zoneName(z)
-    if (hasWeakSupplyAir(sa)) basis.push(`Weak or absent supply airflow observed in ${name}.`)
+    const sy = arr(z, 'sy')
     if (hasNeurologicalSymptoms(sy)) basis.push(`Neurological symptom pattern reported in ${name} (${sy.join(', ')}).`)
-    if (hasCompromisedDamper(od)) basis.push(`Outdoor-air damper compromised in ${name}: "${od}".`)
+    if (hasWeakSupplyAir(str(z, 'sa'))) basis.push(`Weak or absent supply airflow observed in ${name}.`)
+    if (hasCompromisedDamper(str(z, 'od'))) basis.push(`Outdoor-air damper compromised in ${name}: "${str(z, 'od')}".`)
+  }
+  // Building-scoped triggers once. `sa` and `od` are captured for the whole
+  // building, so emitting them per zone would turn ONE observation into N
+  // basis lines and let `tierFromIndicatorCount` read a single damper
+  // reading in a five-zone survey as multiple independent indicators.
+  // Confidence has to count observations, not zones.
+  const buildingSa = str(input.buildingData, 'sa')
+  const buildingOd = str(input.buildingData, 'od')
+  if (hasWeakSupplyAir(buildingSa) && !input.zonesData.some(z => hasWeakSupplyAir(str(z, 'sa')))) {
+    basis.push(`Supply air delivery for the building was reported as "${buildingSa}".`)
+  }
+  if (hasCompromisedDamper(buildingOd) && !input.zonesData.some(z => hasCompromisedDamper(str(z, 'od')))) {
+    basis.push(`Outdoor-air damper compromised at the air handler: "${buildingOd}".`)
   }
   if (basis.length === 0) return null
   return {
@@ -294,15 +373,27 @@ const SAMPLING_VOC: ReadonlyArray<SamplingRecommendation> = [
 function hypothesisVoc(input: HypothesisInput): Hypothesis | null {
   const basis: string[] = []
   for (const z of input.zonesData) {
+    // Odor strength alone is enough to fire. `ot` (odor type) is a
+    // conditional follow-up in the wizard, so a strong odor the assessor
+    // did not stop to classify used to fire nothing here — while
+    // `scoreEnv` emitted a high-severity finding for the same reading.
+    // Two layers disagreeing about one observation is the thing this
+    // codebase keeps paying for.
+    if (!odorReported(z)) continue
+    const intensity = odorIntensity(z)
+    // A faint, intermittent odor does not carry a speciation
+    // recommendation. An UNRECORDED strength still does: that is a gap in
+    // the record, not evidence the odor was weak, and dropping the
+    // differential over a field nobody filled in would lose it silently.
+    if (intensity !== null && intensity < ODOR_PERSISTENT_THRESHOLD) continue
     const ot = arr(z, 'ot')
-    const oi = num(z, 'oi')
     const name = zoneName(z)
-    if (hasOdor(ot) && oi !== null && oi >= 3) {
-      basis.push(`Objectionable odor reported in ${name} at intensity ${oi}/5 (types: ${ot.join(', ')}).`)
-    } else if (hasOdor(ot) && oi === null) {
-      // Odor present without intensity recorded — half-strength signal.
-      basis.push(`Odor reported in ${name} (intensity not recorded; types: ${ot.join(', ')}).`)
-    }
+    const types = ot.length ? ` (types: ${ot.join(', ')})` : ' (type not classified)'
+    basis.push(
+      intensity === null
+        ? `Odor reported in ${name} (strength not recorded)${types}.`
+        : `Objectionable odor reported in ${name}${types}.`,
+    )
   }
   if (basis.length === 0) return null
   return {
@@ -436,6 +527,45 @@ function hypothesisAtmosphericCorrosion(input: HypothesisInput): Hypothesis | nu
     suggestedSampling: SAMPLING_CORROSION,
     cihConfidenceTier: tierFromIndicatorCount(basis.length),
   }
+}
+
+// ── Rule keys ─────────────────────────────────────────────────
+
+/**
+ * The id prefix each rule stamps onto the hypotheses it emits. `makeId`
+ * appends `_<hash>` to one of these, so the prefix survives as a stable
+ * identity for the RULE even though the id itself varies with the
+ * triggering observations.
+ *
+ * Downstream reasoning (src/engine/investigation.ts) keys its parameter
+ * and sampling maps off these, so a rule can be renamed in prose without
+ * breaking the mapping — and a NEW rule that forgets to register a key
+ * fails `hypothesis-rule-keys` in tests/engine/investigation.test.ts
+ * rather than silently dropping out of the differential.
+ */
+export const HYPOTHESIS_RULE_KEYS = [
+  'hyp_ventilation',
+  'hyp_bioaerosol',
+  'hyp_voc',
+  'hyp_particulate',
+  'hyp_combustion',
+  'hyp_corrosion',
+] as const
+
+export type HypothesisRuleKey = typeof HYPOTHESIS_RULE_KEYS[number]
+
+const RULE_KEY_SET: ReadonlySet<string> = new Set(HYPOTHESIS_RULE_KEYS)
+
+/**
+ * Recover the rule key from a hypothesis id. Returns null when the id was
+ * not produced by a registered rule — callers treat that as "not one of
+ * ours" rather than guessing.
+ */
+export function ruleKeyOf(h: { readonly id: string }): HypothesisRuleKey | null {
+  const cut = h.id.lastIndexOf('_')
+  if (cut <= 0) return null
+  const prefix = h.id.slice(0, cut)
+  return RULE_KEY_SET.has(prefix) ? (prefix as HypothesisRuleKey) : null
 }
 
 // ── Public entry point ────────────────────────────────────────

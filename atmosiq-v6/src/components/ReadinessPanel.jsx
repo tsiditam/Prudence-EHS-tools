@@ -217,6 +217,8 @@ function humanizeKind(kind) {
     mold_concern_without_moisture: 'Mold indicator without moisture context',
     recommendation_without_location: 'Recommendation missing location',
     qualitative_only_propagated:   'Qualitative-only findings',
+    differential_unresolved:       'Competing explanations unresolved',
+    untested_differential:         'Explanation never measured against',
   }[kind] || kind
 }
 
