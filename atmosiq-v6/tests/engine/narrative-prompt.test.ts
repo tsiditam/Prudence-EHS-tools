@@ -128,6 +128,71 @@ describe('narrative prompt — plain-English register', () => {
   })
 })
 
+describe('narrative prompt — length contract', () => {
+  // The prompt is what governs narrative length, not api/narrative.js's
+  // max_tokens: the old instruction asked for "about 150 to 250 words"
+  // while the API allowed roughly 600 words, so the ceiling was never
+  // reached and raising it alone did nothing. Nothing pinned this section
+  // before — every one of these strings could have been rewritten with
+  // the whole suite staying green.
+  it('asks for the long-form target, not the old short one', () => {
+    expect(P).toMatch(/about 600 to 900 words/)
+    expect(P).not.toMatch(/150 to 250 words/)
+    expect(P).not.toMatch(/shorter is better if it is still complete/)
+  })
+
+  // Length has to be earned by coverage. Without this, a word target is
+  // an instruction to pad, and padding in this prompt means hedges —
+  // which is how an over-claim gets in past a reader's attention.
+  it('forbids reaching the target by padding', () => {
+    expect(P).toMatch(/That is a target, not a quota/)
+    expect(P).toMatch(/never from restating a point, narrating your reasoning, or stacking qualifications/)
+    expect(P).toMatch(/a shorter narrative is the correct answer/)
+  })
+
+  // The four budgets that bound length independently of the word count.
+  // Any one of them left at its old value would bind first and the word
+  // target would be unreachable.
+  it('raises the per-item budgets that would otherwise bind first', () => {
+    expect(P).not.toMatch(/at most three, most significant first/)
+    expect(P).toMatch(/Cover every condition the assessment actually found/)
+
+    expect(P).not.toMatch(/Keep each condition to two or three sentences/)
+    expect(P).toMatch(/usually four to eight sentences/)
+
+    expect(P).not.toMatch(/did NOT drive a finding, in one sentence, together/)
+    expect(P).toMatch(/Close the section with a short paragraph on the parameters that did NOT drive a finding/)
+
+    expect(P).not.toMatch(/at most about three bullets/)
+    expect(P).toMatch(/Bullets only in Recommended Next Steps, one action each/)
+  })
+
+  // Reasoning at length is not the same as reporting at length. The
+  // original instruction existed because the model narrated its own
+  // exposure-science workup into a client narrative.
+  it('still bars showing the workup, at any length', () => {
+    expect(P).toMatch(/Do NOT put that workup in the output/)
+    expect(P).toMatch(/Show the conclusion, not the derivation/)
+    expect(P).toMatch(/Writing at length does not license showing the workup/)
+  })
+
+  // The extra room has to reach the recommendations too. Without this,
+  // a raised word target lands entirely in Overall Finding and the
+  // section the reader acts on stays a bare list.
+  it('asks recommendations to carry their purpose', () => {
+    expect(P).toMatch(/what finding it would establish or rule out/)
+    expect(P).toMatch(/A one-line instruction with no stated purpose is not actionable/)
+    expect(P).toMatch(/not licence to write a method/)
+  })
+
+  // Two sections, no more. Extra length must not become extra headings —
+  // the narrative renders inside surfaces that expect this exact shape.
+  it('keeps the structure fixed while the depth grows', () => {
+    expect(P).toMatch(/The two bold section labels above and no others/)
+    expect(P).toMatch(/No tables, no other headings/)
+  })
+})
+
 describe('narrative prompt — surviving guardrails', () => {
   it('keeps the causation and regulatory-classification bans', () => {
     expect(P).toMatch(/Never state or imply causation/)
