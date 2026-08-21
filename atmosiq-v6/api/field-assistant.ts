@@ -40,7 +40,7 @@ import { FIELD_ASSISTANT_TOOLS, dispatchTool } from '../src/constants/field-assi
 import { scrubPii } from '../lib/sentry.js'
 import { auditLog } from './_audit.js'
 import { hasUnlimitedUsage } from '../lib/unlimited-usage.js'
-import { lintJasperOutput, checkUnbackedThresholds, looksLikeThresholdQuestion, withThresholdVerifyNote, buildRevisionInstruction, SAFE_FALLBACK } from './_jasper-lint.js'
+import { lintJasperOutput, checkUnbackedThresholds, looksLikeThresholdQuestion, withThresholdVerifyNote, buildRevisionInstruction, finalizeJasperAnswer, SAFE_FALLBACK } from './_jasper-lint.js'
 
 // ── Quota / model / pricing ────────────────────────────────────────
 const PER_MINUTE_LIMIT = 15
@@ -55,10 +55,23 @@ const COST_OUTPUT_PER_M = 15
 const COST_CACHE_READ_PER_M = 0.3
 const COST_CACHE_WRITE_PER_M = 3.75
 
-// Raised from 800 → 1800: real four-section answers were truncating
-// mid-sentence in "Recommended next steps". Output bills at $15/M, so the
-// extra ~1000-token headroom adds at most ~$0.015 per turn worst case.
-const MAX_OUTPUT_TOKENS = 1800
+// Raised 800 → 1800 → 8000. Each raise had the same cause and the 1800
+// one only moved the failure to a bigger answer: asked to draft a full
+// IAQ report from the loaded assessment, Jasper produced scope,
+// background, HVAC description, environmental conditions and half of the
+// contaminant discussion, then stopped mid-sentence at ~1,750 tokens
+// with the recommendations, limitations and sign-off never written.
+//
+// This is a CEILING, not a spend. It bills only what is produced, so a
+// normal four-section triage answer (~600 tokens) costs exactly what it
+// did before; only the answers that genuinely need the room reach for
+// it. A full report lands around 4,000-5,000 tokens, and the worst case
+// here is ~$0.12 at $15/M.
+//
+// Raising it does not make truncation acceptable, only rarer — see
+// finalizeJasperAnswer, which now tells the assessor when it happened
+// instead of handing them a report that merely looks finished.
+const MAX_OUTPUT_TOKENS = 8000
 const MAX_USER_MESSAGE_LEN = 4000
 const TITLE_TRUNCATE_LEN = 80
 // Cap conversation history sent to the model. Going further back hurts
@@ -1282,7 +1295,19 @@ async function handler(req: VercelLikeRequest, res: VercelLikeResponse): Promise
     (tc) => tc.name === 'lookup_exposure_limit' || tc.name === 'search_standards_corpus',
   )
   const safety = await enforceJasperOutputSafety(apiKey, systemBlocks, result, res, retrievalUsed)
-  const finalText = safety.finalText
+  // Final shape, after the safety pass and before anything is persisted:
+  // flag the answer if the model was cut off, and guarantee the
+  // AI-provenance line. `stop_reason` was already being captured here —
+  // it went to the audit log and nowhere the assessor could see it, so a
+  // report that stopped mid-sentence reached them looking complete.
+  const truncated = result.stopReason === 'max_tokens'
+  const finalText = finalizeJasperAnswer(safety.finalText, { truncated })
+  // The raw text streamed as it was generated, so anything added here has
+  // to be pushed to the already-rendered bubble. Compare against the
+  // trailing-trimmed original: finalize normalises trailing whitespace,
+  // and a stray newline is not a reason to redraw every answer.
+  if (finalText !== safety.finalText.replace(/\s+$/, '')) writeSse(res, 'replace', { text: finalText })
+  if (truncated) console.warn('[field-assistant] answer truncated at max_tokens:', MAX_OUTPUT_TOKENS)
   // Fold retry token usage into the totals so cost + ledger reflect reality.
   const totalInputTokens = (result.inputTokens || 0) + safety.extraInput
   const totalOutputTokens = (result.outputTokens || 0) + safety.extraOutput
@@ -1416,6 +1441,7 @@ export const __test = {
   MAX_HISTORY_TURNS,
   MAX_USER_MESSAGE_LEN,
   MAX_TOOL_ROUNDS,
+  MAX_OUTPUT_TOKENS,
   setSupabase(mock: unknown) {
     _supabase = mock as SupabaseClient
   },

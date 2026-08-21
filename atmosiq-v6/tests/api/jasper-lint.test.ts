@@ -12,7 +12,10 @@ import * as lintNs from '../../api/_jasper-lint.js'
 const {
   lintJasperOutput, checkUnbackedThresholds, SAFE_FALLBACK, buildRevisionInstruction,
   looksLikeThresholdQuestion, withThresholdVerifyNote, THRESHOLD_VERIFY_NOTE, AI_DISCLAIMER_LINE,
+  finalizeJasperAnswer, TRUNCATION_NOTICE,
 } = lintNs as unknown as {
+    finalizeJasperAnswer: (t: string, opts?: { truncated?: boolean }) => string
+    TRUNCATION_NOTICE: string
     lintJasperOutput: (t: string) => Array<{ term: string }>
     checkUnbackedThresholds: (t: string, opts?: { retrievalUsed?: boolean }) => Array<{ term: string }>
     SAFE_FALLBACK: string
@@ -173,5 +176,74 @@ describe('withThresholdVerifyNote', () => {
     const out = withThresholdVerifyNote('Per OSHA, the PEL is 50 ppm.')
     expect(out).toContain(THRESHOLD_VERIFY_NOTE)
     expect(out.trim().endsWith(AI_DISCLAIMER_LINE)).toBe(true)
+  })
+})
+
+/**
+ * finalizeJasperAnswer — the last thing that touches an answer.
+ *
+ * Two guarantees that nothing made before:
+ *
+ *   1. A truncated answer says so. `max_tokens` is a hard stop, not a
+ *      summariser — the model is cut mid-word and the transport reports
+ *      success. A drafted IAQ report reached an assessor ending on
+ *      "the indoor-to-outdoor ratio of 19.57 is far above", with the
+ *      recommendations and sign-off simply absent, and nothing marked it.
+ *   2. The AI-provenance line is always last. It used to be appended in
+ *      exactly one place — withThresholdVerifyNote — which runs only on
+ *      an unbacked-threshold hit, so a clean answer that omitted the line
+ *      shipped without it.
+ */
+describe('finalizeJasperAnswer', () => {
+  const D = AI_DISCLAIMER_LINE
+
+  it('appends the provenance line to an answer that lacks it', () => {
+    expect(finalizeJasperAnswer('Filters are MERV 8.')).toBe(`Filters are MERV 8.\n\n${D}`)
+  })
+
+  it('does not double it on an answer that already ends with it', () => {
+    const already = `Filters are MERV 8.\n\n${D}`
+    expect(finalizeJasperAnswer(already)).toBe(already)
+    // SAFE_FALLBACK ends with the line, and finalize runs after the
+    // safety pass — re-finalising must be inert.
+    expect(finalizeJasperAnswer(SAFE_FALLBACK)).toBe(SAFE_FALLBACK)
+    expect((finalizeJasperAnswer(SAFE_FALLBACK).match(/AI-assisted response/g) || []).length).toBe(1)
+  })
+
+  it('flags a truncated answer above the provenance line, not below it', () => {
+    const out = finalizeJasperAnswer('...ratio of 19.57 is far above', { truncated: true })
+    expect(out).toContain('reached the model’s output limit')
+    expect(out.indexOf(TRUNCATION_NOTICE)).toBeLessThan(out.indexOf(D))
+    // The SPA styles the trailing line; the disclaimer stays trailing.
+    expect(out.endsWith(D)).toBe(true)
+  })
+
+  it('keeps the truncated work rather than retracting it', () => {
+    // The partial answer is the useful part — an assessor can ask for
+    // the rest. Replacing it with a notice would throw away real output
+    // that was already paid for.
+    const out = finalizeJasperAnswer('## 5.1 PM2.5\n\nThe ratio of 19.57 is far above', { truncated: true })
+    expect(out).toContain('## 5.1 PM2.5')
+    expect(out).toContain('The ratio of 19.57 is far above')
+  })
+
+  it('moves the notice above a disclaimer the model already wrote', () => {
+    const out = finalizeJasperAnswer(`Partial answer.\n\n${D}`, { truncated: true })
+    expect(out).toBe(`Partial answer.\n\n${TRUNCATION_NOTICE}\n\n${D}`)
+  })
+
+  it('is idempotent under a second truncated pass', () => {
+    const once = finalizeJasperAnswer('Partial.', { truncated: true })
+    const twice = finalizeJasperAnswer(once, { truncated: true })
+    expect(twice).toBe(once)
+  })
+
+  it('says nothing extra when the answer was not truncated', () => {
+    expect(finalizeJasperAnswer('Done.')).not.toContain('output limit')
+  })
+
+  it('survives an empty or non-string answer without emitting a bare notice', () => {
+    expect(finalizeJasperAnswer('')).toBe(D)
+    expect(finalizeJasperAnswer(undefined as any)).toBe(D)
   })
 })

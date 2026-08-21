@@ -353,7 +353,13 @@ describe('field-assistant handler', () => {
     expect(userTurns.length).toBe(1)
     expect(userTurns[0].content).toContain('CO2 ventilation')
     expect(assistantTurns.length).toBe(1)
-    expect(assistantTurns[0].content).toBe('OK.')
+    // The answer body is persisted as written, with the AI-provenance
+    // line guaranteed on the end. What is stored has to match what the
+    // assessor was shown, provenance included — this used to be 'OK.'
+    // alone, because the line was only ever appended on the unbacked-
+    // threshold path and a mock (or a model) that omitted it kept the
+    // omission all the way into field_assistant_messages.
+    expect(assistantTurns[0].content).toBe('OK.\n\nAI-assisted response — verify before use.')
   })
 
   it('creates a new conversation when conversation_id is null', async () => {
@@ -546,14 +552,25 @@ describe('field-assistant tool-use', () => {
 // event; only the clean / fallback text is ever persisted.
 
 describe('field-assistant output linter', () => {
-  it('does not retry or emit replace for a clean answer', async () => {
+  it('does not retry a clean answer, and changes only its provenance line', async () => {
     // beforeEach mock streams 'OK.' which is clean.
     const { res, captured } = makeRes()
     await fnHandler(makeReq({ message: 'What is CO2 ventilation?' }), res as any)
     const events = sseEvents(captured)
-    expect(events.some((e) => e.event === 'replace')).toBe(false)
+
+    // No retry: the linter did not trip, so nothing was regenerated.
+    expect(lastAuditDetails()?.lint?.retried).toBeFalsy()
+    expect(lastAuditDetails()?.lint?.fallback_used).toBeFalsy()
+
+    // A `replace` now fires for a second reason — the provenance line is
+    // guaranteed on every answer, and this mock omits it. It must add
+    // that and nothing else: the answer body is untouched.
+    const replaces = events.filter((e) => e.event === 'replace')
+    expect(replaces.length).toBe(1)
+    expect(replaces[0].data.text).toBe('OK.\n\nAI-assisted response — verify before use.')
+
     const assistant = messages.find((m) => m.role === 'assistant')
-    expect(assistant?.content).toBe('OK.')
+    expect(assistant?.content).toBe('OK.\n\nAI-assisted response — verify before use.')
   })
 
   it('lints a causation answer, retries at temp 0, and persists only the clean text', async () => {
@@ -724,5 +741,92 @@ describe('field-assistant threshold handling', () => {
     const det = lastAuditDetails()
     expect(det?.lint?.threshold_caveat).toBe(true)
     expect(det?.lint?.fallback_used).toBe(false)
+  })
+})
+
+/**
+ * Long answers: the output ceiling, and telling the truth when it bites.
+ *
+ * Asked to draft a full IAQ report from the loaded assessment, Jasper
+ * produced scope, background, HVAC description, environmental conditions
+ * and half the contaminant discussion, then stopped mid-sentence — "the
+ * indoor-to-outdoor ratio of 19.57 is far above" — with recommendations,
+ * limitations and sign-off never written. It hit MAX_OUTPUT_TOKENS at
+ * 1800. Nothing said so: `stop_reason` went to the audit log, the
+ * transport reported success, and the assessor got a report that looked
+ * finished.
+ *
+ * The ceiling is raised so a report fits. These tests pin the part that
+ * matters more — that being cut off is now visible, whatever the ceiling.
+ */
+describe('field-assistant long answers', () => {
+  function truncatedStreamEvents(text: string) {
+    return [
+      `event: message_start\ndata: ${JSON.stringify({
+        type: 'message_start',
+        message: { usage: { input_tokens: 100, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 } },
+      })}\n\n`,
+      `event: content_block_delta\ndata: ${JSON.stringify({
+        type: 'content_block_delta',
+        delta: { type: 'text_delta', text },
+      })}\n\n`,
+      `event: message_delta\ndata: ${JSON.stringify({
+        type: 'message_delta',
+        delta: { stop_reason: 'max_tokens' },
+        usage: { output_tokens: t.MAX_OUTPUT_TOKENS },
+      })}\n\n`,
+    ]
+  }
+
+  // The cut-off report, as it actually arrived.
+  const CUT_OFF = '## 5.1 PM2.5 — Key Finding\n\nThe indoor-to-outdoor ratio of 19.57 is far above'
+
+  it('clears what a full report needs, with headroom', () => {
+    // A drafted report runs ~4,000-5,000 output tokens. 1800 cut one off
+    // partway through section 5 of nine.
+    expect(t.MAX_OUTPUT_TOKENS).toBeGreaterThanOrEqual(5000)
+  })
+
+  it('tells the assessor when the answer was cut off', async () => {
+    t.setFetch(((_url: string, _init: any) =>
+      Promise.resolve(makeStreamingResponse(truncatedStreamEvents(CUT_OFF)))) as any)
+    const { res, captured } = makeRes()
+    await fnHandler(makeReq({ message: 'Draft the full report.' }), res as any)
+
+    const replace = sseEvents(captured).filter((e) => e.event === 'replace')
+    expect(replace.length, 'a truncated answer must be corrected in place').toBe(1)
+    const text = replace[replace.length - 1].data.text as string
+    expect(text).toContain('reached the model’s output limit')
+    // The work already produced is kept — the notice annotates the
+    // answer, it does not retract it.
+    expect(text).toContain('19.57 is far above')
+    expect(text.trimEnd().endsWith('AI-assisted response — verify before use.')).toBe(true)
+  })
+
+  it('says nothing extra when the answer finished on its own', async () => {
+    const { res, captured } = makeRes()
+    await fnHandler(makeReq({ message: 'What is ASHRAE 62.1?' }), res as any)
+    const all = sseEvents(captured)
+      .filter((e) => e.event === 'replace')
+      .map((e) => e.data.text as string)
+      .join('')
+    expect(all).not.toContain('reached the model’s output limit')
+  })
+
+  // The provenance line was appended in exactly one place — the unbacked
+  // threshold path — so a clean answer that simply did not emit it
+  // shipped without it, and a truncated answer never reaches its own
+  // last line at all. The uploaded report draft had no such line.
+  it('guarantees the AI-provenance line on an answer that omitted it', async () => {
+    t.setFetch(((_url: string, _init: any) =>
+      Promise.resolve(makeStreamingResponse(defaultStreamEvents('Filters are MERV 8.')))) as any)
+    const { res, captured } = makeRes()
+    await fnHandler(makeReq({ message: 'What filter is installed?' }), res as any)
+
+    const replace = sseEvents(captured).filter((e) => e.event === 'replace')
+    expect(replace.length).toBe(1)
+    const text = replace[0].data.text as string
+    expect(text.trimEnd().endsWith('AI-assisted response — verify before use.')).toBe(true)
+    expect((text.match(/AI-assisted response — verify before use\./g) || []).length).toBe(1)
   })
 })
