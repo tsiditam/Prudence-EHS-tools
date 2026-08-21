@@ -202,6 +202,19 @@ describe('field-assistant role prompt — report drafting', () => {
     expect(block.toLowerCase()).not.toContain('screening')
   })
 
+  // The first draft titled itself "Summani Plaza — Zone 1 Screening
+  // Assessment" and called itself a "screening assessment" three more
+  // times. Dropping the "Assessment Mode: Screening" metadata line did
+  // not stop that — the label has to be barred, not just left out of the
+  // field list. "Screening" was stripped platform-wide in 2026-08.
+  it('bars the report from labelling itself "screening"', () => {
+    expect(P).toMatch(/Do not label the report or the assessment "screening"/)
+    expect(P).toMatch(/not in the title, not in the metadata block, not in the scope paragraph/)
+    // …and says what to do instead, so the boundary is not simply lost.
+    expect(P).toMatch(/State the limitation substantively instead, once, in section 1/)
+    expect(P).toMatch(/Repeating a label is not the same as stating a boundary/)
+  })
+
   it('restates the hard rules that a long draft is most likely to drift past', () => {
     expect(P).toMatch(/invent no measurement, record, or citation/)
     expect(P).toMatch(/state a numeric limit only from a tool result this turn/)
