@@ -260,6 +260,21 @@ export interface Hypothesis {
    * "Respiratory symptoms reported by 4 occupants").
    */
   readonly basis: ReadonlyArray<string>
+  /**
+   * Zone names whose observations raised this hypothesis — the zones the
+   * explanation is ABOUT.
+   *
+   * Without it a differential is site-wide, and downstream reasoning
+   * clears one zone with another zone's data: a basement with visible
+   * mold and an active leak reported "nothing to investigate" because a
+   * clean top floor had normal humidity. A parameter bears on an
+   * explanation only where the explanation was raised.
+   *
+   * A building-level trigger (drain pan, filter condition, damper at the
+   * air handler) genuinely applies everywhere, so a hypothesis raised
+   * that way lists every zone.
+   */
+  readonly triggerZones: ReadonlyArray<string>
   readonly relatedFindingIds: ReadonlyArray<FindingId>
   readonly suggestedSampling: ReadonlyArray<SamplingRecommendation>
   /** Confidence in the hypothesis itself (not in any finding). */

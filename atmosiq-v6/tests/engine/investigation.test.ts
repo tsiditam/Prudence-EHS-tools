@@ -262,29 +262,45 @@ describe('reads the engine\'s verdict rather than re-deriving one', () => {
     }
   })
 
-  it('does not let the site-wide range stand in for the flagged reading', () => {
+  // These exercise `flaggedStatement` across more than one zone, which
+  // now happens only for a BUILDING-wide trigger — a loaded filter feeds
+  // every zone, so every zone's PM is evidence about it. A zone-scoped
+  // differential sees one zone and says so, which is the point of the
+  // scoping and is covered separately.
+  it('does not let the range across zones stand in for the flagged reading', () => {
     // Two zones measured, one flagged. The cleared zone's value must not
     // appear inside a sentence that says the engine flagged it.
-    const zones: Zone[] = [
-      { zn: 'Clean room', co2: '420' },
-      { zn: 'Suite 200', co2: '1450', sa: 'Weak / reduced' },
-    ]
-    const state = investigate(zones)
-    const vent = state.hypotheses.find((h) => h.ruleKey === 'hyp_ventilation')!
-    const flagged = vent.evidence.find((e) => e.source === 'measurement' && e.direction === 'supports')!
+    const state = investigate(
+      [{ zn: 'Clean room', pm: '4', pmo: '9' }, { zn: 'Suite 200', pm: '38', pmo: '9' }],
+      { fc: 'Heavily loaded' },
+    )
+    const particulate = state.hypotheses.find((h) => h.ruleKey === 'hyp_particulate')!
+    const flagged = particulate.evidence.find((e) => e.source === 'measurement' && e.direction === 'supports')!
     expect(flagged.statement).toContain('Suite 200')
     expect(flagged.statement).toMatch(/Across the 2 zones measured/)
-    expect(flagged.statement).not.toMatch(/flagged carbon dioxide in Suite 200 at 420/)
+    expect(flagged.statement).not.toMatch(/flagged PM2\.5 in Suite 200 at 4/)
   })
 
   it('says so plainly when every zone measured was flagged', () => {
+    const state = investigate(
+      [{ zn: 'A', pm: '38', pmo: '9' }, { zn: 'B', pm: '41', pmo: '9' }],
+      { fc: 'Heavily loaded' },
+    )
+    const particulate = state.hypotheses.find((h) => h.ruleKey === 'hyp_particulate')!
+    const flagged = particulate.evidence.find((e) => e.source === 'measurement' && e.direction === 'supports')!
+    expect(flagged.statement).toMatch(/in all 2 zones measured/)
+  })
+
+  it('a zone-scoped differential names only its own zone', () => {
     const state = investigate([
-      { zn: 'A', co2: '1450', sa: 'Weak / reduced' },
-      { zn: 'B', co2: '1600' },
+      { zn: 'Clean room', co2: '420' },
+      { zn: 'Suite 200', co2: '1450', sa: 'Weak / reduced' },
     ])
     const vent = state.hypotheses.find((h) => h.ruleKey === 'hyp_ventilation')!
+    expect(vent.zones).toEqual(['Suite 200'])
     const flagged = vent.evidence.find((e) => e.source === 'measurement' && e.direction === 'supports')!
-    expect(flagged.statement).toMatch(/in all 2 zones measured/)
+    expect(flagged.statement).toMatch(/flagged carbon dioxide in Suite 200 at 1450 ppm/)
+    expect(flagged.statement, 'the clean room is not part of this explanation').not.toContain('420')
   })
 
   it('treats a measured parameter with no finding as measured, not untested', () => {
@@ -315,6 +331,114 @@ describe('reads the engine\'s verdict rather than re-deriving one', () => {
     const vent = state.hypotheses.find((h) => h.ruleKey === 'hyp_ventilation')!
     expect(vent.status).toBe('untested')
     expect(vent.evidence.every((e) => e.source !== 'measurement')).toBe(true)
+  })
+})
+
+// ── Zone scoping ──────────────────────────────────────────────────────
+
+describe('an explanation is judged only where it was raised', () => {
+  /**
+   * The defect this exists for. A basement with moderate visible mould
+   * and an active leak, humidity never measured there. A clean top floor
+   * with RH 40%. Site-wide ranges reported:
+   *
+   *   stage: no_active_differential
+   *   bioaerosol: not_supported_by_measurement, untestedParameters: []
+   *   [opposes] Measured relative humidity at 40 % carried no finding,
+   *             so it does not support this explanation.
+   *   nextStep: none
+   *
+   * A measurement bears on an explanation only where the explanation was
+   * raised. Anything else clears one zone with another zone's data.
+   */
+  const SPLIT: Zone[] = [
+    { zn: 'Basement', su: 'office', sf: '900', oc: '2',
+      mi: 'Moderate (10-100 sq ft)', wd: 'Active leak', sy: ['Cough'] },
+    { zn: 'Top floor', su: 'office', sf: '3000', oc: '20',
+      rh: '40', tf: '73', co2: '600', co2o: '430' },
+  ]
+
+  it('does not clear a mouldy basement with a clean floor\'s humidity', () => {
+    const state = investigate(SPLIT)
+    const bio = state.hypotheses.find((h) => h.ruleKey === 'hyp_bioaerosol')!
+    expect(bio, 'mould and an active leak must raise the bioaerosol differential').toBeDefined()
+    expect(bio.status).toBe('untested')
+    expect(bio.untestedParameters).toContain('rh')
+    expect(
+      bio.evidence.filter((e) => e.source === 'measurement'),
+      'no measurement was taken in the zone this explanation is about',
+    ).toEqual([])
+  })
+
+  it('reports which zones raised it', () => {
+    const bio = investigate(SPLIT).hypotheses.find((h) => h.ruleKey === 'hyp_bioaerosol')!
+    expect(bio.zones).toEqual(['Basement'])
+  })
+
+  it('does not report the assessment as having nothing to investigate', () => {
+    const state = investigate(SPLIT)
+    expect(state.stage).not.toBe('no_active_differential')
+    expect(state.nextStep, 'a mouldy basement has a next step').not.toBeNull()
+  })
+
+  it('names the zone in the open question rather than asking about the site', () => {
+    const state = investigate(SPLIT)
+    const q = state.openQuestions.find((x) => x.id === 'untested_rh')!
+    expect(q, 'the humidity gap in the basement is the open question').toBeDefined()
+    expect(q.question).toContain('Basement')
+    expect(q.question, 'asking about the site is the wrong question').not.toMatch(/anywhere on site/)
+  })
+
+  it('still uses a reading taken in the zone that raised it', () => {
+    // The scoping must not go the other way and ignore a real measurement.
+    const measured: Zone[] = [
+      { zn: 'Basement', su: 'office', sf: '900', oc: '2',
+        mi: 'Moderate (10-100 sq ft)', wd: 'Active leak', sy: ['Cough'], rh: '72' },
+      { zn: 'Top floor', su: 'office', sf: '3000', oc: '20', rh: '40', tf: '73' },
+    ]
+    const bio = investigate(measured).hypotheses.find((h) => h.ruleKey === 'hyp_bioaerosol')!
+    expect(bio.status).toBe('supported_by_measurement')
+    expect(bio.untestedParameters).not.toContain('rh')
+    expect(bio.evidence.some((e) => e.source === 'measurement' && e.direction === 'supports')).toBe(true)
+  })
+
+  it('clears an explanation when the reading in ITS zone is clean', () => {
+    const clean: Zone[] = [
+      { zn: 'Basement', su: 'office', sf: '900', oc: '2',
+        mi: 'Moderate (10-100 sq ft)', wd: 'Active leak', sy: ['Cough'], rh: '42' },
+    ]
+    const bio = investigate(clean).hypotheses.find((h) => h.ruleKey === 'hyp_bioaerosol')!
+    expect(bio.status).toBe('not_supported_by_measurement')
+    expect(bio.evidence.some((e) => e.direction === 'opposes')).toBe(true)
+  })
+
+  it('treats a building-level trigger as applying to every zone', () => {
+    // A loaded filter feeds the whole building; it is not a one-zone
+    // problem, so PM measured anywhere is evidence about it.
+    const state = investigate(
+      [{ zn: 'A', su: 'office', sf: '2400', oc: '18', pm: '38', pmo: '9' },
+       { zn: 'B', su: 'office', sf: '1200', oc: '6' }],
+      { fc: 'Heavily loaded' },
+    )
+    const particulate = state.hypotheses.find((h) => h.ruleKey === 'hyp_particulate')!
+    expect([...particulate.zones].sort()).toEqual(['A', 'B'])
+    expect(particulate.status).toBe('supported_by_measurement')
+  })
+
+  it('scopes the discriminating test to the zones of the differential it belongs to', () => {
+    const state = investigate(SPLIT)
+    for (const t of state.discriminatingTests) {
+      if (t.source !== 'hypothesis_sampling') continue
+      const owner = state.hypotheses.find((h) => h.name === t.between[0])!
+      const ranges = computeParameterRanges(
+        SPLIT.filter((z) => owner.zones.includes(String(z.zn))),
+        SPLIT.filter((z) => owner.zones.includes(String(z.zn))).map((z) => scoreZone(z, {})),
+      )
+      const param = (Object.keys(__testing.PARAMETER_METHOD) as ParameterKey[])
+        .find((p) => __testing.PARAMETER_METHOD[p] === t.method)!
+      const r = ranges[param]
+      expect(!r || r.count === 0, `${param} was already measured in ${owner.zones.join(', ')}`).toBe(true)
+    }
   })
 })
 

@@ -2007,6 +2007,19 @@
         { "type": "grep_excludes", "pattern": "const allActions = dedupActions", "paths": ["src/engine/report/client.ts"] },
         { "type": "grep_excludes", "pattern": "Consider TVOC/speciation sampling|Evaluate feasibility of upgrading|if occupant complaints are persistent|in zones where symptom", "paths": ["src/engine/report/phrases"] }
       ]
+    },
+    {
+      "id": "ZONE-SCOPED-DIFFERENTIALS",
+      "label": "An explanation is judged only in the zones that raised it — a clean zone cannot clear a dirty one",
+      "checks": [
+        { "type": "grep_matches", "pattern": "readonly triggerZones: ReadonlyArray<string>", "paths": ["src/engine/types/domain.ts"] },
+        { "type": "grep_matches", "pattern": "triggerZones: t.triggerZones\\(input.zonesData\\)", "paths": ["src/engine/hypotheses.ts"], "minCount": 6 },
+        { "type": "grep_matches", "pattern": "class Trigger", "paths": ["src/engine/hypotheses.ts"] },
+        { "type": "grep_matches", "pattern": "const scopeFor =", "paths": ["src/engine/investigation.ts"] },
+        { "type": "grep_matches", "pattern": "scopeFor\\(h.triggerZones\\)", "paths": ["src/engine/investigation.ts"] },
+        { "type": "grep_excludes", "pattern": "const ranges = computeParameterRanges\\(zonesData, input.zoneScores\\)", "paths": ["src/engine/investigation.ts"] },
+        { "type": "grep_matches", "pattern": "does not clear a mouldy basement with a clean floor", "paths": ["tests/engine/investigation.test.ts"] }
+      ]
     }
   ]
 }

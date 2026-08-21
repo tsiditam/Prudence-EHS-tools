@@ -198,6 +198,41 @@ const hasCorrosionIndicator = (z: Readonly<Record<string, unknown>>): boolean =>
   return false
 }
 
+/**
+ * Accumulates the basis lines a rule produces alongside the zones that
+ * produced them, so a hypothesis knows what it is ABOUT and not merely
+ * why it fired.
+ *
+ * `buildingWide` is set when a building-level observation raised the
+ * hypothesis. Those apply everywhere by their nature — a drain pan
+ * feeding every zone is not a basement problem — so the trigger set
+ * becomes every zone rather than none.
+ */
+class Trigger {
+  readonly basis: string[] = []
+  private readonly zones = new Set<string>()
+  private buildingWide = false
+
+  /** Record an observation made IN a zone. */
+  inZone(zone: string, line: string): void {
+    this.basis.push(line)
+    this.zones.add(zone)
+  }
+
+  /** Record an observation made about the building as a whole. */
+  forBuilding(line: string): void {
+    this.basis.push(line)
+    this.buildingWide = true
+  }
+
+  get fired(): boolean { return this.basis.length > 0 }
+
+  triggerZones(all: ReadonlyArray<Readonly<Record<string, unknown>>>): string[] {
+    if (this.buildingWide) return all.map(zoneName)
+    return [...this.zones]
+  }
+}
+
 // ── Confidence tiering ────────────────────────────────────────
 
 const tierFromIndicatorCount = (count: number): CIHConfidenceTier => {
@@ -265,14 +300,14 @@ const SAMPLING_VENTILATION: ReadonlyArray<SamplingRecommendation> = [
 ]
 
 function hypothesisVentilation(input: HypothesisInput): Hypothesis | null {
-  const basis: string[] = []
+  const t = new Trigger()
   // Zone-scoped triggers first: one line per zone that shows the pattern.
   for (const z of input.zonesData) {
     const name = zoneName(z)
     const sy = arr(z, 'sy')
-    if (hasNeurologicalSymptoms(sy)) basis.push(`Neurological symptom pattern reported in ${name} (${sy.join(', ')}).`)
-    if (hasWeakSupplyAir(str(z, 'sa'))) basis.push(`Weak or absent supply airflow observed in ${name}.`)
-    if (hasCompromisedDamper(str(z, 'od'))) basis.push(`Outdoor-air damper compromised in ${name}: "${str(z, 'od')}".`)
+    if (hasNeurologicalSymptoms(sy)) t.inZone(name, `Neurological symptom pattern reported in ${name} (${sy.join(', ')}).`)
+    if (hasWeakSupplyAir(str(z, 'sa'))) t.inZone(name, `Weak or absent supply airflow observed in ${name}.`)
+    if (hasCompromisedDamper(str(z, 'od'))) t.inZone(name, `Outdoor-air damper compromised in ${name}: "${str(z, 'od')}".`)
   }
   // Building-scoped triggers once. `sa` and `od` are captured for the whole
   // building, so emitting them per zone would turn ONE observation into N
@@ -282,16 +317,18 @@ function hypothesisVentilation(input: HypothesisInput): Hypothesis | null {
   const buildingSa = str(input.buildingData, 'sa')
   const buildingOd = str(input.buildingData, 'od')
   if (hasWeakSupplyAir(buildingSa) && !input.zonesData.some(z => hasWeakSupplyAir(str(z, 'sa')))) {
-    basis.push(`Supply air delivery for the building was reported as "${buildingSa}".`)
+    t.forBuilding(`Supply air delivery for the building was reported as "${buildingSa}".`)
   }
   if (hasCompromisedDamper(buildingOd) && !input.zonesData.some(z => hasCompromisedDamper(str(z, 'od')))) {
-    basis.push(`Outdoor-air damper compromised at the air handler: "${buildingOd}".`)
+    t.forBuilding(`Outdoor-air damper compromised at the air handler: "${buildingOd}".`)
   }
-  if (basis.length === 0) return null
+  if (!t.fired) return null
+  const basis = t.basis
   return {
     id: makeId('hyp_ventilation', basis.join('|')),
     name: 'Inadequate outdoor-air ventilation',
     basis,
+    triggerZones: t.triggerZones(input.zonesData),
     relatedFindingIds: findingIdsFor(input.findings, [
       'ventilation_inadequate_outdoor_air',
       'ventilation_co2_only',
@@ -327,23 +364,25 @@ const SAMPLING_BIOAEROSOL: ReadonlyArray<SamplingRecommendation> = [
 ]
 
 function hypothesisBioaerosol(input: HypothesisInput): Hypothesis | null {
-  const basis: string[] = []
+  const t = new Trigger()
   for (const z of input.zonesData) {
     const mi = str(z, 'mi')
     const wd = str(z, 'wd')
     const sy = arr(z, 'sy')
     const name = zoneName(z)
-    if (hasMoldIndicator(mi)) basis.push(`Visible or apparent microbial growth in ${name}: "${mi}".`)
-    if (hasWaterDamage(wd)) basis.push(`Water damage indicator in ${name}: "${wd}".`)
-    if (hasRespiratorySymptoms(sy)) basis.push(`Respiratory symptom pattern reported in ${name} (${sy.filter(s => RESPIRATORY_SYMPTOMS.includes(s)).join(', ')}).`)
+    if (hasMoldIndicator(mi)) t.inZone(name, `Visible or apparent microbial growth in ${name}: "${mi}".`)
+    if (hasWaterDamage(wd)) t.inZone(name, `Water damage indicator in ${name}: "${wd}".`)
+    if (hasRespiratorySymptoms(sy)) t.inZone(name, `Respiratory symptom pattern reported in ${name} (${sy.filter(s => RESPIRATORY_SYMPTOMS.includes(s)).join(', ')}).`)
   }
   const dp = str(input.buildingData, 'dp')
-  if (hasDrainPanIssue(dp)) basis.push(`HVAC drain pan condition: "${dp}".`)
-  if (basis.length === 0) return null
+  if (hasDrainPanIssue(dp)) t.forBuilding(`HVAC drain pan condition: "${dp}".`)
+  if (!t.fired) return null
+  const basis = t.basis
   return {
     id: makeId('hyp_bioaerosol', basis.join('|')),
     name: 'Bioaerosol amplification',
     basis,
+    triggerZones: t.triggerZones(input.zonesData),
     relatedFindingIds: findingIdsFor(input.findings, [
       'apparent_microbial_growth',
       'active_or_historical_water_damage',
@@ -371,7 +410,7 @@ const SAMPLING_VOC: ReadonlyArray<SamplingRecommendation> = [
 ]
 
 function hypothesisVoc(input: HypothesisInput): Hypothesis | null {
-  const basis: string[] = []
+  const t = new Trigger()
   for (const z of input.zonesData) {
     // Odor strength alone is enough to fire. `ot` (odor type) is a
     // conditional follow-up in the wizard, so a strong odor the assessor
@@ -389,17 +428,19 @@ function hypothesisVoc(input: HypothesisInput): Hypothesis | null {
     const ot = arr(z, 'ot')
     const name = zoneName(z)
     const types = ot.length ? ` (types: ${ot.join(', ')})` : ' (type not classified)'
-    basis.push(
+    t.inZone(name,
       intensity === null
         ? `Odor reported in ${name} (strength not recorded)${types}.`
         : `Objectionable odor reported in ${name}${types}.`,
     )
   }
-  if (basis.length === 0) return null
+  if (!t.fired) return null
+  const basis = t.basis
   return {
     id: makeId('hyp_voc', basis.join('|')),
     name: 'VOC source or off-gassing',
     basis,
+    triggerZones: t.triggerZones(input.zonesData),
     relatedFindingIds: findingIdsFor(input.findings, [
       'tvoc_screening_elevated',
       'hcho_screening_elevated',
@@ -427,14 +468,15 @@ const SAMPLING_PARTICULATE: ReadonlyArray<SamplingRecommendation> = [
 ]
 
 function hypothesisParticulate(input: HypothesisInput): Hypothesis | null {
-  const basis: string[] = []
+  const t = new Trigger()
   for (const z of input.zonesData) {
     const vd = str(z, 'vd')
-    if (hasVisibleDust(vd)) basis.push(`Visible dust observed in ${zoneName(z)}.`)
+    if (hasVisibleDust(vd)) t.inZone(zoneName(z), `Visible dust observed in ${zoneName(z)}.`)
   }
   const fc = str(input.buildingData, 'fc')
-  if (hasFilterIssue(fc)) basis.push(`HVAC filter condition: "${fc}".`)
-  if (basis.length === 0) return null
+  if (hasFilterIssue(fc)) t.forBuilding(`HVAC filter condition: "${fc}".`)
+  if (!t.fired) return null
+  const basis = t.basis
   // ISO 14644 particle-count sampling is only relevant when a cleanroom or
   // data-center cleanliness classification is actually in scope. For an
   // ordinary commercial office it is noise, so gate it on the data-center
@@ -447,6 +489,7 @@ function hypothesisParticulate(input: HypothesisInput): Hypothesis | null {
     id: makeId('hyp_particulate', basis.join('|')),
     name: 'Particulate amplification or filter failure',
     basis,
+    triggerZones: t.triggerZones(input.zonesData),
     relatedFindingIds: findingIdsFor(input.findings, [
       'pm_screening_elevated',
       'pm_above_naaqs_documented',
@@ -471,18 +514,20 @@ const SAMPLING_COMBUSTION: ReadonlyArray<SamplingRecommendation> = [
 ]
 
 function hypothesisCombustion(input: HypothesisInput): Hypothesis | null {
-  const basis: string[] = []
+  const t = new Trigger()
   for (const z of input.zonesData) {
     const sy = arr(z, 'sy')
     if (hasNeurologicalSymptoms(sy)) {
-      basis.push(`Neurological symptom pattern reported in ${zoneName(z)} (${sy.filter(s => NEUROLOGICAL_SYMPTOMS.includes(s)).join(', ')}). Combustion-source CO infiltration is a recognized differential.`)
+      t.inZone(zoneName(z), `Neurological symptom pattern reported in ${zoneName(z)} (${sy.filter(s => NEUROLOGICAL_SYMPTOMS.includes(s)).join(', ')}). Combustion-source CO infiltration is a recognized differential.`)
     }
   }
-  if (basis.length === 0) return null
+  if (!t.fired) return null
+  const basis = t.basis
   return {
     id: makeId('hyp_combustion', basis.join('|')),
     name: 'Combustion source or carbon monoxide infiltration',
     basis,
+    triggerZones: t.triggerZones(input.zonesData),
     relatedFindingIds: findingIdsFor(input.findings, [
       'co_screening_elevated', 'co_above_pel_documented',
     ]),
@@ -507,20 +552,22 @@ const SAMPLING_CORROSION: ReadonlyArray<SamplingRecommendation> = [
 ]
 
 function hypothesisAtmosphericCorrosion(input: HypothesisInput): Hypothesis | null {
-  const basis: string[] = []
+  const t = new Trigger()
   for (const z of input.zonesData) {
     if (!isDataCenterSpace(z)) continue
     if (hasCorrosionIndicator(z)) {
       const gc = str(z, 'gaseous_corrosion')
       const note = gc ? ` (assessor-selected indicator: ${gc})` : ''
-      basis.push(`Data-center zone "${zoneName(z)}" with corrosion indicators present${note}.`)
+      t.inZone(zoneName(z), `Data-center zone "${zoneName(z)}" with corrosion indicators present${note}.`)
     }
   }
-  if (basis.length === 0) return null
+  if (!t.fired) return null
+  const basis = t.basis
   return {
     id: makeId('hyp_corrosion', basis.join('|')),
     name: 'Atmospheric corrosion (data-center / electronics)',
     basis,
+    triggerZones: t.triggerZones(input.zonesData),
     relatedFindingIds: findingIdsFor(input.findings, [
       'possible_corrosive_environment',
     ]),
