@@ -119,3 +119,98 @@ describe('field-assistant role prompt — human-voice style', () => {
     expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain('Invent nothing')
   })
 })
+
+/**
+ * The report-drafting layout.
+ *
+ * Asked to draft a report, Jasper picked its section numbering fresh each
+ * time — a draft came back as "1. SCOPE AND PURPOSE / 2. BACKGROUND AND
+ * REASON FOR ASSESSMENT / 3. BUILDING AND HVAC DESCRIPTION / …" and then
+ * stopped before it reached any recommendations at all. The layout is now
+ * fixed in the prompt, and section 6 is the part that must always be
+ * written.
+ *
+ * These are assertions about instructions, not model output — they can
+ * only prove the instruction is still there, which is the thing a later
+ * edit would silently drop.
+ */
+describe('field-assistant role prompt — report drafting', () => {
+  const P = FIELD_ASSISTANT_ROLE_PROMPT
+
+  const HEADINGS = [
+    '# INDOOR AIR QUALITY INVESTIGATION REPORT',
+    '## 1. SCOPE AND PURPOSE',
+    '## 2. BACKGROUND AND REASON FOR ASSESSMENT',
+    '## 3. BUILDING AND HVAC DESCRIPTION',
+    '## 4. ENVIRONMENTAL CONDITIONS',
+    '## 5. CONTAMINANT MEASUREMENTS',
+    '## 6. RECOMMENDATIONS',
+  ]
+
+  it('carries a report-drafting mode distinct from the four-section shape', () => {
+    expect(P).toContain('# Drafting a report')
+    // The default for ordinary questions is untouched — the report layout
+    // applies only when a report is what was asked for.
+    expect(P).toContain('## Assessment context')
+    expect(P).toContain('## Recommended next steps')
+  })
+
+  it('fixes every heading, in order', () => {
+    let cursor = -1
+    for (const h of HEADINGS) {
+      const at = P.indexOf(h)
+      expect(at, `prompt should carry "${h}"`).toBeGreaterThan(-1)
+      expect(at, `"${h}" should come after the heading before it`).toBeGreaterThan(cursor)
+      cursor = at
+    }
+  })
+
+  it('skips a section it has no data for rather than inventing one', () => {
+    expect(P).toMatch(/Skip any section you have no data for rather than inventing content/)
+    expect(P).toMatch(/omit a line you do not have rather than writing "N\/A" or guessing/)
+  })
+
+  // The reason this work exists: the draft that prompted it never reached
+  // recommendations. Every other section may be dropped for want of data;
+  // this one may not.
+  it('makes section 6 unskippable, with its three tiers', () => {
+    expect(P).toMatch(/except section 6, which is always written/)
+    expect(P).toMatch(/Always written; never skipped, never left for later, and never trailed off mid-list/)
+    for (const tier of ['**Immediate (0–7 days)**', '**Short term (7–30 days)**', '**Medium term (30–90 days)**']) {
+      expect(P, `should name the tier ${tier}`).toContain(tier)
+    }
+  })
+
+  it('attributes the recommendations to the assistant, not the engine', () => {
+    // Product decision: Jasper writes its own rather than restating the
+    // engine's. That makes provenance the guardrail — a reader must not
+    // mistake a drafted list for the scored artifact.
+    expect(P).toMatch(/These are your own drafted recommendations, not the engine's/)
+  })
+
+  it('keeps investigation ahead of intervention in the drafted recommendations', () => {
+    expect(P).toMatch(/recommend a control only where the evidence identifies the thing being corrected/)
+    expect(P).toMatch(/named laboratory method a conditional escalation rather than the opening step/)
+  })
+
+  it('does not put a "Screening" mode label in the report header', () => {
+    // The uploaded draft carried "Assessment Mode: Screening". That
+    // labelling was stripped platform-wide in 2026-08 and must not come
+    // back through a report template.
+    const block = P.slice(P.indexOf('# Drafting a report'), P.indexOf('## 1. SCOPE AND PURPOSE'))
+    expect(block).not.toMatch(/Assessment Mode/)
+    expect(block.toLowerCase()).not.toContain('screening')
+  })
+
+  it('restates the hard rules that a long draft is most likely to drift past', () => {
+    expect(P).toMatch(/invent no measurement, record, or citation/)
+    expect(P).toMatch(/state a numeric limit only from a tool result this turn/)
+    expect(P).toMatch(/make no compliance, causation, or medical determination/)
+  })
+
+  it('tells a draft that cannot fit to name what is outstanding', () => {
+    // The ceiling is 8000 tokens now, but a marker beats a cliff: an
+    // answer that stops mid-sentence reads as finished.
+    expect(P).toMatch(/name the sections still outstanding at the end rather than stopping mid-sentence/)
+  })
+})
