@@ -21,6 +21,7 @@
  */
 
 import { STD } from '../constants/standards'
+import { parsePhotoKey, photoCaption } from '../utils/photoIndex.js'
 import { actionLine } from '../utils/recFormatting'
 import * as NL from './narrativeLibrary'
 import {
@@ -269,7 +270,6 @@ const REF_BASIS = {
   'US EPA NAAQS': 'National Ambient Air Quality Standards. CO 9 ppm (8-hr); PM2.5 35 µg/m³ (24-hr). Outdoor/population standards, cited for context.',
   'OSHA PELs (29 CFR 1910.1000)': 'Permissible Exposure Limits. CO PEL 50 ppm (8-hr TWA); CO2 PEL 5,000 ppm (industrial context).',
 }
-const titleCaseKey = (k) => String(k).replace(/^z\d+-/, '').replace(/[_-]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 
 /**
  * Document chrome — header, watermark, cover chip, footer, disclaimer.
@@ -488,7 +488,36 @@ export function assembleRenderModel(data = {}, opts = {}) {
   let photos = null
   const pObj = data.photos || {}
   const pItems = []
-  Object.keys(pObj).forEach(k => (pObj[k] || []).forEach(ph => { if (ph && ph.src && pItems.length < 8) pItems.push({ title: titleCaseKey(k), sub: '', imageDataUrl: ph.src }) }))
+  // Photos are keyed `z{zoneIndex}-{fieldId}`. The caption used to be that key
+  // run through a title-caser, which stripped the zone prefix and rendered a
+  // zone-3 mould photo as literally "Mi" — a field code, in a client report.
+  // `photoCaption` resolves the label from FIELD_REGISTRY, and thus from the
+  // question the assessor actually answered, and names the zone.
+  //
+  // Ordered by zone, then by the order the photo questions appear in the
+  // walkthrough, so the appendix reads as a walk through the building rather
+  // than in whatever order the keys happened to land.
+  const PHOTO_FIELD_ORDER = ['wd', 'mi', 'dp']
+  Object.keys(pObj)
+    .map((k) => ({ k, parsed: parsePhotoKey(k) }))
+    .filter((e) => e.parsed)
+    .sort((a, b) => (a.parsed.zoneIndex - b.parsed.zoneIndex)
+      || (PHOTO_FIELD_ORDER.indexOf(a.parsed.fieldId) - PHOTO_FIELD_ORDER.indexOf(b.parsed.fieldId))
+      || a.parsed.fieldId.localeCompare(b.parsed.fieldId))
+    .forEach(({ k }) => (pObj[k] || []).forEach(ph => {
+      if (!ph || !ph.src || pItems.length >= 8) return
+      // `sub` stays deterministic on purpose. The photo's AI analysis is NOT
+      // rendered here: it is model-authored prose, and the DOCX AI-provenance
+      // banner (`aiProvenanceBanner`, sections-core.js) has had no production
+      // importer since the consultant report was removed. Putting AI text into
+      // a client report before the label that marks it renders is the defect
+      // this codebase keeps re-learning.
+      pItems.push({
+        title: photoCaption(k, data.zones) || k,
+        sub: ph.ts ? new Date(ph.ts).toLocaleString() : '',
+        imageDataUrl: ph.src,
+      })
+    }))
   if (pItems.length) photos = { intro: 'Field photographs captured during the assessment.', items: pItems }
   else photos = { intro: 'No project photographs were uploaded.', items: [] }
 

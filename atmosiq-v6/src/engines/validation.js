@@ -37,6 +37,7 @@
  */
 
 import { ASSESSMENT_MODES } from './riskBands'
+import { zoneHasPhotos } from '../utils/photoIndex.js'
 import { evaluateAllSufficiency } from './sufficiency'
 
 const NOT_SPECIFIED_PATTERNS = /^(not specified|n\/a|na|none|tbd|todo)$/i
@@ -90,11 +91,6 @@ function zoneHasOccupantDenominator(zone) {
   return present(total) && present(affected)
 }
 
-function zoneHasPhotos(photos, zoneName) {
-  if (!photos || typeof photos !== 'object') return false
-  const list = photos[zoneName]
-  return Array.isArray(list) && list.length > 0
-}
 
 function zoneHasPhotoOverride(overrides, zoneName) {
   if (!overrides || typeof overrides !== 'object') return false
@@ -176,13 +172,17 @@ export function validateAssessment(assessment) {
   const photos = assessment.photos || {}
   const overrides = assessment.photoOverrides || {}
   const photoBlockedZones = new Set()
-  for (const zs of zoneScores) {
-    const zoneName = zs.zoneName || ''
+  // Photos are keyed by zone INDEX (`z0-wd`); the override map is keyed by zone
+  // NAME. Both are read the way they are written — see src/utils/photoIndex.js
+  // for why that asymmetry needs a named module.
+  for (let i = 0; i < zoneScores.length; i++) {
+    const zs = zoneScores[i]
+    const zoneName = zs?.zoneName || ''
     if (!zoneName) continue
     const zoneFindings = (zs.cats || []).flatMap(c => c.r || [])
     const hasCriticalOrHigh = zoneFindings.some(f => f.sev === 'critical' || f.sev === 'high')
     if (!hasCriticalOrHigh) continue
-    if (zoneHasPhotos(photos, zoneName)) continue
+    if (zoneHasPhotos(photos, i)) continue
     if (zoneHasPhotoOverride(overrides, zoneName)) continue
     photoBlockedZones.add(zoneName)
   }

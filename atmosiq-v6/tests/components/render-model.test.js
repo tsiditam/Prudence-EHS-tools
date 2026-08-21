@@ -82,3 +82,42 @@ describe('narrativeLibrary', () => {
     expect(NL.OBSERVED.co2(s, 'acceptable')).toMatch(/within the ventilation-indicator range/i)
   })
 })
+
+describe('photo appendix captions', () => {
+  const PHOTOS = {
+    'z1-mi': [{ src: 'data:image/jpeg;base64,AAAA', ts: 1755000000000 }],
+    'z0-wd': [{ src: 'data:image/jpeg;base64,BBBB', ts: 1755000001000 }],
+  }
+
+  it('captions a photo with the question it answers and its zone, not the field code', () => {
+    // The caption used to be `titleCaseKey('z1-mi')` — literally "Mi".
+    const m = assembleRenderModel(demoData({ photos: PHOTOS }), { mode: 'draft' })
+    const titles = m.photos.items.map((p) => p.title)
+    expect(titles).toHaveLength(2)
+    for (const t of titles) {
+      expect(t).not.toMatch(/^(Mi|Wd|Dp)$/)
+      expect(t).toContain('—')
+      expect(t.length).toBeGreaterThan(6)
+    }
+  })
+
+  it('orders the appendix by zone so it reads as a walk through the building', () => {
+    const m = assembleRenderModel(demoData({ photos: PHOTOS }), { mode: 'draft' })
+    const zoneNames = DEMO_ZONES.map((z) => z.zn)
+    const idx = m.photos.items.map((p) => zoneNames.findIndex((n) => p.title.includes(n)))
+    expect(idx).toEqual([...idx].sort((a, b) => a - b))
+  })
+
+  it('does not put the photo AI analysis into the report', () => {
+    // Model-authored prose must not enter a client deliverable while the DOCX
+    // AI-provenance banner has no render site. See src/report/reportModel.js.
+    const withAnalysis = {
+      'z0-wd': [{
+        src: 'data:image/jpeg;base64,AAAA', ts: 1755000000000,
+        aiAnalysis: { observed: 'UNIQUE_AI_SENTINEL_TEXT', confidence: 'medium' },
+      }],
+    }
+    const m = assembleRenderModel(demoData({ photos: withAnalysis }), { mode: 'draft' })
+    expect(JSON.stringify(m)).not.toContain('UNIQUE_AI_SENTINEL_TEXT')
+  })
+})

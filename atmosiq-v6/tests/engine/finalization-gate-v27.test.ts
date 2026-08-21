@@ -44,7 +44,7 @@ function makeAssessmentWithFullData(overrides: Record<string, any> = {}) {
       zoneName: 'Zone 1',
       cats: [{ l: 'Complaints', r: [{ t: 'Occupant headache symptoms reported', sev: 'medium' }] }],
     }],
-    photos: { 'Zone 1': [{ id: 'p1' }] },
+    photos: { 'z0-wd': [{ src: 'data:image/jpeg;base64,AAAA', ts: 1 }] },
     recs: { imm: [], eng: [], adm: [], mon: [] },
     confidence: 'Medium',
     ...overrides,

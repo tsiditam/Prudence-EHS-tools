@@ -131,6 +131,20 @@ export interface OpenQuestion {
   readonly whyItMatters: string
   /** Names of the differentials this question is blocking. */
   readonly blocks: ReadonlyArray<string>
+  /**
+   * The legacy field ids that would answer this question, resolved through the
+   * SAME `LEGACY_FIELD` map the ranges use.
+   *
+   * Exposed so a caller can turn a question into the field to ask for without
+   * re-deriving the mapping. A second copy of it is how a parameter ends up
+   * reported as untested in one place and within range in another — the defect
+   * `parameter-ranges.ts` already documents on this map.
+   *
+   * Empty when the question is not about a single measurable field: the
+   * outdoor-baseline gaps come verbatim from the sampling plan and name a
+   * comparison, not a field.
+   */
+  readonly fields: ReadonlyArray<string>
 }
 
 export interface NextStep {
@@ -593,6 +607,7 @@ function buildOpenQuestions(
       question: `Has ${PARAMETER_LABEL[param]} been measured${where}?`,
       whyItMatters: PARAMETER_MEANING[param],
       blocks: entry.names,
+      fields: LEGACY_FIELD[param],
     })
   }
 
@@ -607,6 +622,7 @@ function buildOpenQuestions(
       whyItMatters:
         'Carbon dioxide is a surrogate for outdoor-air delivery, not a measurement of it. Without airflow at the terminal the ventilation finding stays indirect and cannot be compared to a design rate.',
       blocks: [ventilation.name],
+      fields: ['cfm_person', 'ach'],
     })
   }
 
@@ -617,6 +633,7 @@ function buildOpenQuestions(
       whyItMatters:
         'Without a paired outdoor reading an indoor elevation cannot be attributed to the building rather than to ambient air.',
       blocks: [],
+      fields: [],
     })
   }
 

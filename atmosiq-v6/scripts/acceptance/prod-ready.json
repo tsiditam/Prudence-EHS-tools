@@ -2573,6 +2573,91 @@
           ]
         }
       ]
+    },
+    {
+      "id": "ASSESSOR-RECORD-LEGIBLE",
+      "label": "Everything the assessor collects is readable by the model and correct in the report: photo keys parsed once, free text carried, photo analysis carried, captions resolved from the questionnaire",
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": "src/utils/photoIndex.js"
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/engine/photo-index.test.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/lib/assessment-context-narrative.test.ts"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "zoneHasPhotos\\(photos, i\\)",
+          "paths": [
+            "src/engines/validation.js"
+          ]
+        },
+        {
+          "type": "grep_excludes",
+          "pattern": "photos\\[zoneName\\]",
+          "paths": [
+            "src/engines/validation.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "photoCaption\\(k, data.zones\\)",
+          "paths": [
+            "src/report/reportModel.js"
+          ]
+        },
+        {
+          "type": "grep_excludes",
+          "pattern": "titleCaseKey",
+          "paths": [
+            "src/report/reportModel.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "narrative_inputs",
+          "paths": [
+            "lib/context/types.ts",
+            "lib/context/buildAssessmentContext.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "function buildNarrativeInputs",
+          "paths": [
+            "lib/context/buildAssessmentContext.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "control === 'ta'",
+          "paths": [
+            "lib/context/buildAssessmentContext.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "fields: LEGACY_FIELD\\[param\\]",
+          "paths": [
+            "src/engine/investigation.ts"
+          ]
+        },
+        {
+          "type": "npm_script_passes",
+          "script": "test",
+          "args": [
+            "--",
+            "tests/engine/photo-index.test.ts",
+            "tests/lib/assessment-context-narrative.test.ts",
+            "tests/lib/buildAssessmentContext.test.ts"
+          ]
+        }
+      ]
     }
   ]
 }
