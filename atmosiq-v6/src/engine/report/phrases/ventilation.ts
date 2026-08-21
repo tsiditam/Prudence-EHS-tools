@@ -4,7 +4,12 @@ export const VENTILATION_PHRASES: Partial<Record<ConditionType, PhraseLibraryEnt
   ventilation_co2_only: {
     conditionType: 'ventilation_co2_only',
     intentTemplate:
-      'CO₂ results were within the reference range; however, ventilation assessment confidence is limited because outdoor air delivery (CFM at the terminal) was not directly measured.',
+      // States the LIMITATION, which is this entry's job, and no verdict on
+      // the reading. It previously opened "CO₂ results were within the
+      // reference range" — a conclusion baked into a template, asserted
+      // whatever the value was, in an entry whose own bannedAlternatives
+      // forbid "CO₂ below standard". It banned the claim and made it.
+      'Ventilation was assessed using carbon dioxide as a surrogate indicator. Outdoor-air delivery (CFM at the terminal) was not measured directly, so confidence in the ventilation assessment is limited.',
     bannedAlternatives: [
       'ventilation is adequate',
       'ventilation meets ASHRAE 62.1',

@@ -26,6 +26,13 @@ function makeZone(findings: Finding[]): ZoneScore {
   }
 }
 
+const TIER_ORDER_FOR_TEST: Record<string, number> = {
+  no_significant_concerns_identified: 0,
+  conditions_warrant_monitoring: 1,
+  conditions_warrant_further_investigation: 2,
+  conditions_warrant_corrective_action: 3,
+}
+
 describe('Professional Opinion — zone-level rollup', () => {
   it('Rule 1: validated_defensible + critical → corrective_action', () => {
     const zone = makeZone([makeFinding('critical', 'validated_defensible')])
@@ -55,9 +62,69 @@ describe('Professional Opinion — zone-level rollup', () => {
     expect(evaluateZoneOpinion(zone)).toBe('conditions_warrant_further_investigation')
   })
 
-  it('Rule 4: single provisional high → NOT further_investigation', () => {
+  // This test previously asserted the OPPOSITE — that a single provisional
+  // high finding must NOT reach further_investigation. That was the bug
+  // written down as a requirement: the old "2+" rule meant one such finding
+  // matched nothing and fell through to no_significant_concerns, so a room
+  // at CO₂ 2,500 ppm was reported as having no significant concerns.
+  it('a single provisional high finding still warrants further investigation', () => {
     const zone = makeZone([makeFinding('high', 'provisional_screening_level')])
-    expect(evaluateZoneOpinion(zone)).not.toBe('conditions_warrant_further_investigation')
+    expect(evaluateZoneOpinion(zone)).toBe('conditions_warrant_further_investigation')
+  })
+
+  describe('properties that make the tiers non-contradictory', () => {
+    const SEVERITIES = ['critical', 'high', 'medium', 'low'] as const
+    const CONFIDENCES = [
+      'insufficient_data', 'qualitative_only', 'provisional_screening_level', 'validated_defensible',
+    ] as const
+
+    // Volume is not severity. If N identical findings could outrank one,
+    // then splitting a finding in two would change the verdict.
+    it('is count-invariant — one finding and ten identical ones agree', () => {
+      for (const sev of SEVERITIES) {
+        for (const conf of CONFIDENCES) {
+          const one = evaluateZoneOpinion(makeZone([makeFinding(sev, conf)]))
+          const ten = evaluateZoneOpinion(makeZone(Array.from({ length: 10 }, () => makeFinding(sev, conf))))
+          expect(ten, `${sev}/${conf}: 1 gave ${one}, 10 gave ${ten}`).toBe(one)
+        }
+      }
+    })
+
+    // Better evidence must never produce a weaker verdict. It did: one
+    // qualitative_only high reached monitoring while one
+    // provisional_screening_level high reached no_significant_concerns, so
+    // an observation outranked a measurement.
+    it('is monotonic in confidence — better evidence never lowers the tier', () => {
+      for (const sev of SEVERITIES) {
+        let previous = -1
+        for (const conf of CONFIDENCES) {
+          const rank = TIER_ORDER_FOR_TEST[evaluateZoneOpinion(makeZone([makeFinding(sev, conf)]))]
+          expect(rank, `${sev}: ${conf} ranked below a weaker confidence tier`).toBeGreaterThanOrEqual(previous)
+          previous = rank
+        }
+      }
+    })
+
+    // Severity is the primary axis: a worse finding never yields a milder
+    // verdict than a lesser one at the same confidence.
+    it('is monotonic in severity', () => {
+      for (const conf of CONFIDENCES) {
+        const ranks = [...SEVERITIES].reverse().map(
+          (sev) => TIER_ORDER_FOR_TEST[evaluateZoneOpinion(makeZone([makeFinding(sev, conf)]))])
+        for (let i = 1; i < ranks.length; i++) {
+          expect(ranks[i], `${conf}: severity order broken`).toBeGreaterThanOrEqual(ranks[i - 1])
+        }
+      }
+    })
+
+    it('never reports a significant finding as no concerns', () => {
+      for (const sev of ['critical', 'high', 'medium'] as const) {
+        for (const conf of CONFIDENCES) {
+          expect(evaluateZoneOpinion(makeZone([makeFinding(sev, conf)])),
+            `${sev}/${conf} was reported as no concerns`).not.toBe('no_significant_concerns_identified')
+        }
+      }
+    })
   })
 
   it('Rule 5: qualitative_only + medium → monitoring', () => {

@@ -57,7 +57,7 @@ export function classifyCondition(
 
   switch (category) {
     case 'Ventilation':
-      return classifyVentilation(text, std, zone)
+      return classifyVentilation(text, std, zone, finding.sev)
     case 'Contaminants':
       return classifyContaminants(text, std, zone, isDataHall)
     case 'HVAC':
@@ -69,7 +69,32 @@ export function classifyCondition(
   }
 }
 
-function classifyVentilation(text: string, _std: string, zone: ZoneContext): ConditionType {
+/**
+ * Ventilation routing keys on SEVERITY, not on wording.
+ *
+ * It used to match substrings, and the CO₂ ladder defeated it in a way no
+ * one would spot by reading either file alone. `matches` is
+ * `haystack.includes(needle)`, so the token 'inadequate' does not match the
+ * worst tier's own sentence — "severely elevated, indicating significant
+ * ventilation inadequac**y**" — and the medium tier says "approaching
+ * concern", which matches no token at all. Both fell through to
+ * `ventilation_co2_only`, whose template then reported them as within
+ * range. The result was an inversion: 1,180 ppm classified correctly while
+ * 2,500 ppm and 900 ppm both rendered "CO₂ results were within the
+ * reference range". The FM demo shipped with one zone flagged Elevated in
+ * Results and "within the reference range" in Zone Findings.
+ *
+ * The engine has already decided whether this reading is a problem — that
+ * is what `sev` is. Reading its prose to re-derive the same answer was a
+ * second opinion, and the wrong one. Severity is now the only input, so no
+ * rewording of a finding can change how it is classified.
+ */
+function classifyVentilation(
+  text: string,
+  _std: string,
+  zone: ZoneContext,
+  sev: string | undefined,
+): ConditionType {
   const hasCfm = zone.cfm_person !== undefined && zone.cfm_person !== ''
   const hasAch = zone.ach !== undefined && zone.ach !== ''
   const hasCo2 = zone.co2 !== undefined && zone.co2 !== ''
@@ -78,19 +103,14 @@ function classifyVentilation(text: string, _std: string, zone: ZoneContext): Con
     return 'ventilation_observational_only'
   }
 
-  if (matches(text, ['oa delivery', 'ach ', 'below', 'critically below', 'inadequate', 'minimum', 'marginally above'])) {
-    if (hasCfm || hasAch) return 'ventilation_inadequate_outdoor_air'
-    if (hasCo2) return 'ventilation_inadequate_outdoor_air'
-  }
+  // `pass` / `info` are the engine's way of saying "evaluated, nothing to
+  // report", so they take the limitation template; anything actionable
+  // takes the inadequate-outdoor-air one.
+  const isSignificant = sev !== 'pass' && sev !== 'info'
 
-  if (matches(text, ['co₂', 'co2'])) {
-    if (hasCfm || hasAch) return 'ventilation_co2_only'
-    if (hasCo2) return 'ventilation_co2_only'
+  if (hasCfm || hasAch || hasCo2) {
+    return isSignificant ? 'ventilation_inadequate_outdoor_air' : 'ventilation_co2_only'
   }
-
-  // Pass / info default — surface the limitation that we measured CO₂ surrogate, not airflow
-  if (hasCfm || hasAch) return 'ventilation_inadequate_outdoor_air'
-  if (hasCo2) return 'ventilation_co2_only'
   return 'ventilation_observational_only'
 }
 
