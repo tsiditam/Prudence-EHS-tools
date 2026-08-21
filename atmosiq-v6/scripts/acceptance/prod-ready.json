@@ -1928,6 +1928,23 @@
         { "type": "grep_matches", "pattern": "# Investigation protocol", "paths": ["src/constants/field-assistant-prompt.js"] },
         { "type": "grep_excludes", "pattern": "parseFloat|parseInt|Number\\(", "paths": ["src/engine/investigation.ts"] }
       ]
+    },
+    {
+      "id": "OBSERVATION-WRITE-LOOP",
+      "label": "Jasper can record a structured observation that moves the engine (investigation loop closes)",
+      "checks": [
+        { "type": "file_exists", "path": "src/constants/observable-fields.js" },
+        { "type": "file_exists", "path": "tests/constants/observable-fields.test.ts" },
+        { "type": "grep_matches", "pattern": "import \\{ Q_ZONE, Q_BUILDING, Q_DETAILS, SENSOR_FIELDS \\} from './questions.js'", "paths": ["src/constants/observable-fields.js"] },
+        { "type": "grep_matches", "pattern": "export function validateObservation", "paths": ["src/constants/observable-fields.js"] },
+        { "type": "grep_matches", "pattern": "'record_zone_observation'", "paths": ["src/constants/field-assistant-tools.js"] },
+        { "type": "grep_matches", "pattern": "actionType === 'record_zone_observation'", "paths": ["src/constants/field-assistant-tools.js"] },
+        { "type": "grep_matches", "pattern": "action.type === 'record_zone_observation'", "paths": ["src/components/MobileApp.jsx"] },
+        { "type": "grep_matches", "pattern": "setPendingRescore", "paths": ["src/components/MobileApp.jsx"], "minCount": 2 },
+        { "type": "grep_matches", "pattern": "RECORDABLE_FIELDS_BLOCK", "paths": ["src/constants/field-assistant-prompt.js"], "minCount": 2 },
+        { "type": "grep_matches", "pattern": "# Recording what the assessor tells you", "paths": ["src/constants/field-assistant-prompt.js"] },
+        { "type": "grep_excludes", "pattern": "zone\\.nt\\b", "paths": ["src/components/MobileApp.jsx"] }
+      ]
     }
   ]
 }

@@ -33,6 +33,7 @@ import {
   lookupHealthEffects,
   listAnalytes,
 } from './iaq-knowledge-base.js'
+import { validateObservation, formatObservation, describeObservableFields } from './observable-fields.js'
 import { searchCorpus } from '../utils/corpus-search.js'
 import { summarizeCorpus } from './standards-corpus.js'
 // NOTE: the docxtemplater-backed renderer (lib/report-templates/render.ts)
@@ -155,15 +156,24 @@ export const FIELD_ASSISTANT_TOOLS = [
   {
     name: 'propose_action',
     description:
-      "Propose a user-confirmable action to the assessor. Use this whenever the user asks Jasper to DO something in the app — navigate to a screen, add a note to a zone, or otherwise mutate app state — rather than just asking a question. The tool does NOT execute the action server-side: it returns a structured proposal that the client renders as an inline action card with Accept / Reject buttons. The user retains final control. Examples that should trigger this tool: \"take me to the actions tab\", \"open settings\", \"show me the results\", \"add a note to this zone that the HVAC was running loud\", \"jot down that the carpet smelled musty\". For pure information questions (\"what does ASHRAE 62.1 say about CO₂?\") DO NOT use this tool — answer with text. After calling this tool, follow up with a short one-line acknowledgement ('I've drafted that — tap Accept to apply.'). NEVER invent measurements, occupant counts, severity ratings, or scores; this tool only carries the literal user request.",
+      "Propose a user-confirmable action to the assessor. Use this whenever the user asks Jasper to DO something in the app — record something they observed, navigate to a screen, add a note — rather than just asking a question. The tool does NOT execute the action server-side: it returns a structured proposal the client renders as an inline card with Accept / Reject buttons. The user retains final control.\n\nMOST IMPORTANT USE — record_zone_observation. When the assessor reports a reading or a condition (\"CO2 is 1450 in here\", \"the damper is stuck at minimum\", \"there's standing water in the drain pan\", \"I'm seeing about 20 square feet of growth on the north wall\"), propose recording it. This is the ONLY way what they tell you reaches the engine: a note is free text that nothing scores, so an observation left as a note changes no finding and no differential. Recording it re-runs the engine, and the investigation state moves. Prefer it over add_zone_note for anything that maps to a recordable field; fall back to add_zone_note only for context that fits no field.\n\nFor pure information questions (\"what does ASHRAE 62.1 say about CO₂?\") DO NOT use this tool — answer with text. After calling it, follow up with one short line ('I've drafted that — tap Accept to apply.'). NEVER invent a value: carry only what the assessor actually said. If they were vague about a number, ask rather than rounding one into the record.",
     input_schema: {
       type: 'object',
       properties: {
         action_type: {
           type: 'string',
-          enum: ['navigate', 'add_zone_note'],
+          enum: ['navigate', 'add_zone_note', 'record_zone_observation'],
           description:
-            'Which action to propose. "navigate" routes to a screen via setView. "add_zone_note" appends free-text to the current zone\'s notes field.',
+            'Which action to propose. "record_zone_observation" writes a validated reading or condition into the assessment record, which is what the engine reads. "navigate" routes to a screen. "add_zone_note" appends free text to the current zone\'s notes — visible to the assessor, but read by no engine.',
+        },
+        field: {
+          type: 'string',
+          description:
+            'For action_type=record_zone_observation: the field id to write. Must be one of the ids in the recordable-fields catalog in your system prompt. An id outside that catalog is rejected.',
+        },
+        value: {
+          description:
+            'For action_type=record_zone_observation: the value. A number for readings (the bare figure, no unit). For choice fields, one of the field\'s allowed values, spelled as the catalog lists it. For multi-select fields, an array of allowed values. Matching is case-insensitive but the value itself must be one the field defines — a close paraphrase is rejected rather than guessed at.',
         },
         target: {
           type: 'string',
@@ -184,7 +194,7 @@ export const FIELD_ASSISTANT_TOOLS = [
         zone_label: {
           type: 'string',
           description:
-            'Optional human-readable zone label for the action card. If not supplied, the client uses the current zone from context.',
+            'Optional human-readable zone label for the action card. If not supplied, the client uses the current zone from context. Zone-scoped values are always written to the zone the assessor currently has open — this label is for display, so if they mean a different zone, navigate there first.',
         },
         summary: {
           type: 'string',
@@ -566,7 +576,7 @@ export async function dispatchTool(name, input, ctx = {}) {
       // the same payload to the client via a `proposed_action`
       // SSE event (see api/field-assistant.ts) so the chat UI
       // can render the card while the agent finishes its turn.
-      const allowed = new Set(['navigate', 'add_zone_note'])
+      const allowed = new Set(['navigate', 'add_zone_note', 'record_zone_observation'])
       const actionType = input && typeof input.action_type === 'string' ? input.action_type : ''
       if (!allowed.has(actionType)) {
         return {
@@ -591,6 +601,34 @@ export async function dispatchTool(name, input, ctx = {}) {
         if (input.tab_target && allowedTabs.has(input.tab_target)) {
           action.tab_target = input.tab_target
         }
+      } else if (actionType === 'record_zone_observation') {
+        // The one action that moves the engine. Validation happens HERE,
+        // before the proposal is ever shown, so the assessor is never
+        // offered an Accept button for a value the engine would not act
+        // on — `mi: 'lots of mold'` would sit in the record looking
+        // recorded while `scoreZone`'s `.includes('Extensive')` matched
+        // nothing. A rejection goes back to the model as a correctable
+        // message naming the allowed values.
+        const check = validateObservation(
+          input && input.field,
+          input ? input.value : undefined,
+        )
+        if (!check.ok) {
+          return {
+            status: 'rejected',
+            reason: check.error,
+            message: check.message,
+            ...(check.allowed ? { allowed_values: check.allowed } : {}),
+          }
+        }
+        action.field = check.field.id
+        action.value = check.value
+        action.scope = check.field.scope
+        action.field_label = check.field.label
+        action.display_value = formatObservation(check.field, check.value)
+        if (typeof input.zone_label === 'string' && input.zone_label.trim()) {
+          action.zone_label = input.zone_label.slice(0, 200)
+        }
       } else if (actionType === 'add_zone_note') {
         const noteText = input && typeof input.note_text === 'string' ? input.note_text : ''
         if (!noteText.trim()) {
@@ -607,7 +645,9 @@ export async function dispatchTool(name, input, ctx = {}) {
       }
       const summary = input && typeof input.summary === 'string' && input.summary.trim()
         ? input.summary.slice(0, 200)
-        : `Proposed ${actionType}`
+        : actionType === 'record_zone_observation'
+          ? `Record ${action.field_label}: ${action.display_value}`
+          : `Proposed ${actionType}`
       return {
         status: 'proposed',
         action,
@@ -616,7 +656,9 @@ export async function dispatchTool(name, input, ctx = {}) {
         // proposal in its follow-up text. The model should NOT
         // assume the action has been applied — it should tell the
         // user to tap Accept.
-        message: 'Action proposed. The user will see an Accept / Reject card and decide.',
+        message: actionType === 'record_zone_observation'
+          ? 'Write proposed. The assessor will see an Accept / Reject card. Nothing has been recorded yet, and the investigation state has NOT moved — do not describe the differential as having changed. Tell them what accepting would settle, and stop there.'
+          : 'Action proposed. The user will see an Accept / Reject card and decide.',
       }
     }
 

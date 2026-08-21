@@ -12,6 +12,7 @@
 import { describe, it, expect } from 'vitest'
 
 import { FIELD_ASSISTANT_TOOLS, dispatchTool } from '../../src/constants/field-assistant-tools.js'
+import { OBSERVABLE_FIELDS } from '../../src/constants/observable-fields.js'
 import { FIELD_ASSISTANT_ROLE_PROMPT } from '../../src/constants/field-assistant-prompt.js'
 import { buildJasperContext } from '../../lib/context/buildJasperContext'
 import { deriveInvestigation } from '../../src/engine/investigation'
@@ -189,6 +190,39 @@ describe('the prompt contract', () => {
     const section = FIELD_ASSISTANT_ROLE_PROMPT.split('# Investigation protocol')[1].split('\n# ')[0]
     expect(section).toMatch(/propose_action/i)
     expect(section).toMatch(/Do not keep your own running list of hypotheses between turns/i)
+  })
+
+  it('carries the recording protocol', () => {
+    expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain('# Recording what the assessor tells you')
+  })
+
+  it('says plainly that a note does not reach the engine', () => {
+    const section = FIELD_ASSISTANT_ROLE_PROMPT.split('# Recording what the assessor tells you')[1].split('\n# ')[0]
+    expect(section).toMatch(/no engine reads a note/i)
+    expect(section).toMatch(/A note is the fallback, not the default/i)
+  })
+
+  it('forbids inventing a value and forbids retrying a rejected one', () => {
+    const section = FIELD_ASSISTANT_ROLE_PROMPT.split('# Recording what the assessor tells you')[1].split('\n# ')[0]
+    expect(section).toMatch(/Do not round one into an evidence record/i)
+    expect(section).toMatch(/do not retry with a different guess/i)
+  })
+
+  it('forbids claiming the state moved before the assessor accepts', () => {
+    const section = FIELD_ASSISTANT_ROLE_PROMPT.split('# Recording what the assessor tells you')[1].split('\n# ')[0]
+    expect(section).toMatch(/Nothing is recorded until they tap/i)
+    expect(section).toMatch(/do not re-run assess_investigation in the same turn/i)
+  })
+
+  it('lists every recordable field with its allowed values, generated from the schema', () => {
+    for (const f of OBSERVABLE_FIELDS as any[]) {
+      expect(FIELD_ASSISTANT_ROLE_PROMPT, `${f.id} missing from the prompt catalog`).toContain(`${f.id} — ${f.label}`)
+      if (f.opts) {
+        for (const o of f.opts) {
+          expect(FIELD_ASSISTANT_ROLE_PROMPT, `${f.id} option "${o}" missing from the prompt`).toContain(o)
+        }
+      }
+    }
   })
 
   it('tells the model to stand down when nothing is loaded', () => {

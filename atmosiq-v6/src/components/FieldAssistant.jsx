@@ -686,10 +686,13 @@ function InvestigationCard({ state }) {
 function ActionCard({ action, summary, status, onAccept, onReject }) {
   const isPending = status === 'pending'
   const isAccepted = status === 'accepted'
+  const isRecord = action?.type === 'record_zone_observation'
   const glyph =
     action?.type === 'navigate'
       ? 'M9 18l6-6-6-6' // chevron-right
-      : 'M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7 M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z' // pencil-square
+      : isRecord
+        ? 'M9 11l3 3L22 4 M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11' // clipboard-check
+        : 'M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7 M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z' // pencil-square
   return (
     <div className="jasper-msg-in" style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 12 }}>
       <div style={{
@@ -723,11 +726,35 @@ function ActionCard({ action, summary, status, onAccept, onReject }) {
               fontSize: 10, color: 'var(--accent)', fontWeight: 700,
               letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 2,
             }}>
-              {isAccepted ? 'Applied' : status === 'rejected' ? 'Rejected' : 'Proposed action'}
+              {isAccepted
+                ? (isRecord ? 'Recorded' : 'Applied')
+                : status === 'rejected' ? 'Rejected'
+                  : isRecord ? 'Record this observation' : 'Proposed action'}
             </div>
             <div style={{ fontSize: 14, color: TEXT, lineHeight: 1.4, fontWeight: 600 }}>
-              {summary || (action?.type === 'navigate' ? 'Open a screen' : 'Add a note')}
+              {summary || (action?.type === 'navigate' ? 'Open a screen' : isRecord ? 'Record an observation' : 'Add a note')}
             </div>
+            {/* The write is shown field-by-value rather than as prose. It
+                is going into the assessor's evidence record, and they are
+                the one signing it — what lands has to be legible before
+                they tap, not paraphrased into a sentence. */}
+            {isRecord && action.field_label && (
+              <div style={{
+                fontSize: 12, lineHeight: 1.5, marginTop: 6,
+                padding: '8px 10px', background: CARD, border: `1px solid ${BORDER}`,
+                borderRadius: 8,
+              }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
+                  <span style={{ color: DIM }}>{action.field_label}</span>
+                  <span style={{ color: TEXT, fontWeight: 600 }}>{action.display_value}</span>
+                </div>
+                <div style={{ color: DIM, marginTop: 4, fontSize: 11 }}>
+                  {action.scope === 'building'
+                    ? 'Applies to the whole building'
+                    : `Applies to ${action.zone_label || 'the zone you have open'}`}
+                </div>
+              </div>
+            )}
             {action?.type === 'add_zone_note' && action.note_text && (
               <div style={{
                 fontSize: 12, color: SUB, lineHeight: 1.5, marginTop: 6,
@@ -752,7 +779,7 @@ function ActionCard({ action, summary, status, onAccept, onReject }) {
                 fontFamily: 'inherit', minHeight: 36,
                 WebkitTapHighlightColor: 'transparent',
               }}>
-              Reject
+              {isRecord ? "Don't record" : 'Reject'}
             </button>
             <button
               type="button"
@@ -765,7 +792,7 @@ function ActionCard({ action, summary, status, onAccept, onReject }) {
                 fontFamily: 'inherit', minHeight: 36, letterSpacing: '-0.1px',
                 WebkitTapHighlightColor: 'transparent',
               }}>
-              Apply
+              {isRecord ? 'Record' : 'Apply'}
             </button>
           </div>
         )}

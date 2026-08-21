@@ -102,22 +102,135 @@ describe('v2.6 §3 — hypothesis Rule 3 (VOC source)', () => {
     expect(h!.suggestedSampling.some(s => s.parameter.includes('TVOC'))).toBe(true)
   })
 
-  it('does not fire on odor with intensity below 3', () => {
+  // This previously asserted that a below-3 intensity must NOT fire the
+  // rule. That gate never operated: `oi` is not a field in questions.js —
+  // the schema records odor strength as `op`, a four-option choice — so
+  // `num(z, 'oi')` was null for every real assessment and the rule fired
+  // on any odor with a type selected. The assertion held only for a
+  // synthetic shape the app cannot produce.
+  //
+  // Firing on reported odor is therefore the SHIPPED behaviour, and it is
+  // preserved here rather than narrowed: narrowing would silently drop the
+  // VOC differential out of reports that carry it today. Whether a faint,
+  // intermittent odor should drive a speciation recommendation at all is a
+  // product call, not one to make inside a defect fix.
+  it('fires on a weak odor, and says the strength is below the persistent threshold', () => {
     const result = deriveHypotheses({
       zonesData: [{ zn: 'Office', ot: ['Solvent'], oi: 2 }],
       buildingData: {},
       findings: NO_FINDINGS,
     })
-    expect(result.some(h => h.name === 'VOC source or off-gassing')).toBe(false)
+    const h = result.find(x => x.name === 'VOC source or off-gassing')
+    expect(h).toBeDefined()
+    expect(h!.basis[0]).toMatch(/below the persistent threshold/)
   })
 
-  it('fires on odor present without intensity recorded (half-strength signal)', () => {
+  it('fires on odor present without strength recorded, and says so', () => {
     const result = deriveHypotheses({
       zonesData: [{ zn: 'Office', ot: ['Musty / Earthy'] }],
       buildingData: {},
       findings: NO_FINDINGS,
     })
-    expect(result.some(h => h.name === 'VOC source or off-gassing')).toBe(true)
+    const h = result.find(x => x.name === 'VOC source or off-gassing')
+    expect(h).toBeDefined()
+    expect(h!.basis[0]).toMatch(/strength not recorded/)
+  })
+
+  // The schema field, which the rule could not previously read.
+  it('reads odor strength from `op`, the field the wizard actually writes', () => {
+    const strong = deriveHypotheses({
+      zonesData: [{ zn: 'Office', op: 'Strong / overpowering', ot: ['Chemical'] }],
+      buildingData: {},
+      findings: NO_FINDINGS,
+    })
+    const h = strong.find(x => x.name === 'VOC source or off-gassing')!
+    expect(h.basis[0]).toMatch(/^Objectionable odor reported/)
+    expect(h.basis[0]).not.toMatch(/not recorded/)
+
+    const faint = deriveHypotheses({
+      zonesData: [{ zn: 'Office', op: 'Faint / intermittent', ot: ['Chemical'] }],
+      buildingData: {},
+      findings: NO_FINDINGS,
+    })
+    expect(faint.find(x => x.name === 'VOC source or off-gassing')!.basis[0])
+      .toMatch(/below the persistent threshold/)
+  })
+
+  // `ot` is a conditional follow-up in the wizard. scoreEnv emits a
+  // high-severity finding for a strong odor whether or not the assessor
+  // stopped to classify it; the hypothesis rule now agrees.
+  it('fires on a strong odor even when no type was classified', () => {
+    const result = deriveHypotheses({
+      zonesData: [{ zn: 'Office', op: 'Strong / overpowering' }],
+      buildingData: {},
+      findings: NO_FINDINGS,
+    })
+    const h = result.find(x => x.name === 'VOC source or off-gassing')
+    expect(h).toBeDefined()
+    expect(h!.basis[0]).toMatch(/type not classified/)
+  })
+
+  it('stays silent when no odor was reported', () => {
+    const result = deriveHypotheses({
+      zonesData: [{ zn: 'Office', op: 'None' }],
+      buildingData: {},
+      findings: NO_FINDINGS,
+    })
+    expect(result.some(h => h.name === 'VOC source or off-gassing')).toBe(false)
+  })
+})
+
+describe('v2.6 §3 — building-level fields reach the rules that read them', () => {
+  // sa and od are Q_BUILDING fields. deriveHypotheses is called with raw
+  // zonesData everywhere, so reading them off the zone returned '' for
+  // every real assessment and the ventilation rule fired on neurological
+  // symptoms alone.
+  it('fires ventilation on building-level weak supply air', () => {
+    const result = deriveHypotheses({
+      zonesData: [{ zn: 'Suite 200' }],
+      buildingData: { sa: 'Weak / reduced' },
+      findings: NO_FINDINGS,
+    })
+    const h = result.find(x => x.name === 'Inadequate outdoor-air ventilation')
+    expect(h).toBeDefined()
+    expect(h!.basis.join(' ')).toMatch(/Supply air delivery for the building/)
+  })
+
+  it('fires ventilation on a building-level compromised damper', () => {
+    const result = deriveHypotheses({
+      zonesData: [{ zn: 'Suite 200' }],
+      buildingData: { od: 'Stuck / inoperable' },
+      findings: NO_FINDINGS,
+    })
+    const h = result.find(x => x.name === 'Inadequate outdoor-air ventilation')
+    expect(h).toBeDefined()
+    expect(h!.basis.join(' ')).toMatch(/damper compromised at the air handler/)
+  })
+
+  // One building-level observation is one indicator, however many zones
+  // the survey covers. Counting it per zone would let a single damper
+  // reading reach provisional_screening_level on its own.
+  it('counts a building-level observation once, not once per zone', () => {
+    const fiveZones = ['A', 'B', 'C', 'D', 'E'].map(zn => ({ zn }))
+    const result = deriveHypotheses({
+      zonesData: fiveZones,
+      buildingData: { sa: 'Weak / reduced' },
+      findings: NO_FINDINGS,
+    })
+    const h = result.find(x => x.name === 'Inadequate outdoor-air ventilation')!
+    expect(h.basis).toHaveLength(1)
+    expect(h.cihConfidenceTier).toBe('qualitative_only')
+  })
+
+  it('prefers a per-zone value over the building default and scopes it to that zone', () => {
+    const result = deriveHypotheses({
+      zonesData: [{ zn: 'Suite 200', sa: 'No airflow detected' }],
+      buildingData: { sa: 'Weak / reduced' },
+      findings: NO_FINDINGS,
+    })
+    const h = result.find(x => x.name === 'Inadequate outdoor-air ventilation')!
+    expect(h.basis).toHaveLength(1)
+    expect(h.basis[0]).toMatch(/Weak or absent supply airflow observed in Suite 200/)
   })
 })
 
