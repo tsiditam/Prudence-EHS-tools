@@ -165,6 +165,28 @@ export const CRITERION_CLASS = {
     label: 'building-certification performance target',
     maxSeverity: 'medium',
     framing: 'A voluntary building-certification performance target, not a regulatory limit or a health-based guideline.',
+    // OPT-IN ONLY — `evaluateCriteria` never applies this class on its own.
+    //
+    // A certification target measures a building against a scheme the
+    // owner chose to pursue. If they have not pursued it, the comparison
+    // answers a question nobody asked, and a finding citing WELL v2 in an
+    // investigation commissioned for occupant complaints reads as padding
+    // — which is what a CIH review of a live report called it.
+    //
+    // Two of the three WELL criteria could never fire anyway: `co_well`
+    // (9 ppm) and `pm25_well` (15 µg/m³) sit at or below criteria above
+    // them in their worst-first ladders, so a higher tier always matched
+    // first. They were dead entries carrying a citation that would never
+    // appear beside a finding. Only `pm10_well` was reachable.
+    //
+    // They are NOT deleted: `referenceProfiles.js` offers WELL v2 as a
+    // selectable Logger Studio reference, and that is a legitimate opt-in
+    // — an assessor picks it BECAUSE the client is pursuing certification,
+    // and the profile resolves its citation from this registry so Logger
+    // Studio and the walkthrough cite identically. The rule is about who
+    // decides: the assessor may apply a certification target, the engine
+    // may not apply one unbidden.
+    autoApplied: false,
   },
   advisory: {
     id: 'advisory',
@@ -555,6 +577,11 @@ export function evaluateCriteria(parameter, value, evidenceBasis = 'screening_gr
     // the report cites them in its reference tables — but they cannot
     // produce a finding from a walkthrough.
     if (avg && avg.determinativeFrom.length === 0 && avg.indicativeFrom.length === 0) continue
+    // A class marked `autoApplied: false` is opt-in: reachable when an
+    // assessor selects it (see `referenceProfiles.js`), never applied by
+    // the engine on its own. Same shape as the rule above — the registry
+    // declares the exclusion, this function does not decide it.
+    if (CRITERION_CLASS[c.class] && CRITERION_CLASS[c.class].autoApplied === false) continue
     const determinative = !!avg && avg.determinativeFrom.includes(evidenceBasis)
     const indicative = !!avg && avg.indicativeFrom.includes(evidenceBasis)
     // Severity is the CONDITION's significance and does not move with the

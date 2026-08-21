@@ -133,6 +133,71 @@ like a combustion hazard.
 | `ventilation_indicator` | **high** | Indexes outdoor-air delivery per occupant; not a contaminant limit |
 | `advisory` | medium | Literature benchmark; no regulatory limit exists |
 
+## A citation must earn its place
+
+A citation belongs in the deliverable only if removing it would change what
+the reader **does** or **believes**. Four jobs qualify:
+
+1. It is the yardstick a number was compared against.
+2. It is the authority for a recommended action.
+3. It is a **method** someone has to order.
+4. It forecloses a specific misreading.
+
+Anything else is furniture, and furniture reads as padding to the reviewer you
+most want to convince. A rendered two-zone report with every parameter flagged
+put roughly fifteen distinct authorities in front of a client for one office
+walkthrough. The same CIH review that cut five whole sections from this report
+was reacting to the same problem one level up.
+
+Cut in 2026-08, each with the test it failed:
+
+| Cut | Why |
+|---|---|
+| ACGIH TLV (CO) | A **third** parallel occupational limit beside the REL and the PEL, driving no criterion — the report named a limit it never used. Also ACGIH-copyrighted and licensed, and ACGIH states the TLVs are not for adoption as standards. |
+| OSH Act §5(a)(1) | An enforcement hook. Invoking it edges toward the compliance determination the platform states it does not make. |
+| OSHA 1989 vacated-rule history | Regulatory history. The conclusion it supported — practice acts on 35, not 50 — is still stated, without the litigation narrative. |
+| Seifert (1990) | A second citation for the same background range Mølhave already supports, and Mølhave's are the tiers actually applied. |
+| NYC DOHMH | A second humidity number (65 %) beside the ASHRAE 55 bound (60 %) the engine applies, and a municipal document cited as a national benchmark — tagged `edition: 'current'` for something unrevised since 2008. |
+
+Kept, because each passes: the OSHA PELs, the NIOSH RELs, ASHRAE 55 and 62.1,
+the EPA NAAQS, Mølhave, Persily, IICRC S520, and every sampling **method**
+(NIOSH 2016 / 0800, EPA TO-17, and the ACGIH *Bioaerosols* guidance in
+`sampling.js` — methodology, not an exposure limit, and it tells the reader
+what to order). The specialty-occupancy standards (ISO 14644-1, NFPA 855,
+IEEE 1635, ANSI/ISA 71.04, ASHRAE TC 9.9) are already occupancy-conditional
+and fire only for the buildings they apply to.
+
+`tests/engine/citation-discipline.test.ts` asserts both directions — the cut
+ones stay cut and the load-bearing ones stay present — against the exported
+prose objects rather than the file text, so the comments recording *why* each
+was cut do not trip it.
+
+## Certification targets are opt-in
+
+`CRITERION_CLASS.certification_target` carries `autoApplied: false`, and
+`evaluateCriteria` skips any class declaring it. Same shape as the
+non-evaluable-period rule above: the registry declares the exclusion and the
+function does not decide it.
+
+A certification target measures a building against a scheme its owner chose to
+pursue. If they have not pursued it, the comparison answers a question nobody
+asked — and a finding citing WELL v2 in an investigation commissioned for
+occupant complaints reads as padding.
+
+Two of the three WELL criteria could never have fired anyway: `co_well` (9 ppm)
+ties `co_epa_naaqs_8h` and `pm25_well` (15 µg/m³) ties `pm25_who_24h`, so a tier
+above matched first in each worst-first ladder. `pm10_well` was ordered
+reachable, but nothing evaluates PM10 — `scoring.js` calls `evaluateCriteria`
+for `pm25`, `co`, `hcho` and `tvoc` only. **Removing them from the ladder
+changed no score and no finding.**
+
+They are **not deleted**. `referenceProfiles.js` offers WELL v2 as a selectable
+Logger Studio reference, and that is a legitimate opt-in — an assessor picks it
+*because* the client is pursuing certification, and the profile resolves its
+citation from this registry so Logger Studio and the walkthrough cite
+identically. The rule is about **who decides**: the assessor may apply a
+certification target, the engine may not apply one unbidden.
+
 ## Severity does not move with averaging period
 
 These are different questions, and conflating them re-breaks the gap the

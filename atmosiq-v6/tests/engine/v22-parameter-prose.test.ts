@@ -4,7 +4,7 @@
  * Validates:
  *   1. Every supported parameter has a PARAMETER_PROSE entry.
  *   2. Each entry's standardsBackground is at least 4 sentences and
- *      cites OSHA/NIOSH/EPA/ACGIH/ASHRAE as applicable.
+ *      cites the authorities that actually drove a criterion.
  *   3. Each entry has a non-empty applicableStandards array.
  *   4. The summaryTemplate produces grammatical English when called
  *      with sample inputs (within-standards, elevated, no-data).
@@ -59,11 +59,37 @@ describe('v2.2 §8 — standardsBackground prose quality', () => {
     expect(entry.standardsBackground).toMatch(/Persily/i)
   })
 
-  it('CO prose cites OSHA PEL, NIOSH REL, ACGIH TLV', () => {
+  it('CO prose cites the OSHA PEL and the NIOSH REL', () => {
     const entry = PARAMETER_PROSE.co
     expect(entry.standardsBackground).toMatch(/OSHA/i)
     expect(entry.standardsBackground).toMatch(/NIOSH/i)
-    expect(entry.standardsBackground).toMatch(/ACGIH/i)
+  })
+
+  it('CO prose does NOT cite a third parallel occupational limit', () => {
+    // This assertion was inverted in 2026-08. It used to REQUIRE the ACGIH
+    // TLV, which is how a third parallel OEL for a single reading — TLV 25,
+    // REL 35, PEL 50 — stayed in a client deliverable that applies none of
+    // them as a criterion: `criteria.js` has no ACGIH entry, so the report
+    // named a limit it never used.
+    //
+    // The TLVs are also ACGIH-copyrighted and licensed, and ACGIH states
+    // they are not intended for adoption as standards; reproducing values
+    // in a commercial report should be a deliberate decision.
+    //
+    // `contextualStandards.js` still explains that the TLVs are a separate
+    // consensus series this assessment did not apply. That is the honest
+    // place for it — naming a criterion you did NOT use, and why.
+    const entry = PARAMETER_PROSE.co
+    expect(entry.standardsBackground).not.toMatch(/ACGIH|Threshold Limit Value/i)
+    expect(entry.applicableStandards.some((c) => /ACGIH/i.test(c.source))).toBe(false)
+  })
+
+  it('CO prose carries no General Duty Clause enforcement hook', () => {
+    // Invoking OSH Act 5(a)(1) edges toward the compliance determination
+    // the platform states it does not make, and no finding rested on it.
+    const entry = PARAMETER_PROSE.co
+    expect(entry.standardsBackground).not.toMatch(/General Duty|5\(a\)\(1\)/i)
+    expect(entry.applicableStandards.some((c) => /General Duty|5\(a\)\(1\)/i.test(c.source))).toBe(false)
   })
 
   it('HCHO prose cites OSHA 29 CFR 1910.1048 and NIOSH 2016 method', () => {

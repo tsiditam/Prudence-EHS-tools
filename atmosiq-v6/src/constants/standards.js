@@ -40,7 +40,7 @@ export const STANDARDS_MANIFEST = {
   'IICRC S520': '2024',
   'NIOSH Pocket Guide RELs': 'current',
   'EPA NAAQS': '2024',
-  'WELL Building Standard v2': 'Q3 2024 (IAQ features A01/V01 — advisory comfort/ventilation reference, not a regulatory limit)',
+  'WELL Building Standard v2': 'Q3 2024 (IAQ features A01/V01 — OPT-IN only: an assessor-selectable Logger Studio reference, never applied by the engine on its own; see certification_target in criteria.js)',
   'Molhave TVOC tiers': '1991 (advisory only)',
   'ANSI/ISA 71.04': '2013',
   'ISO 14644-1': '2015',

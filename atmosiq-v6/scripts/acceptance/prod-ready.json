@@ -2505,6 +2505,60 @@
           ]
         }
       ]
+    },
+    {
+      "id": "CITATION-DISCIPLINE",
+      "label": "Every citation in the deliverable is a yardstick, an authority for an action, a method, or forecloses a misreading — nothing is cited that drove nothing",
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": "tests/engine/citation-discipline.test.ts"
+        },
+        {
+          "type": "grep_excludes",
+          "pattern": "_BACKGROUND = .*(ACGIH|Threshold Limit Value|General Duty|Seifert|DOHMH|vacated)",
+          "paths": [
+            "src/engine/report/parameter-prose"
+          ]
+        },
+        {
+          "type": "grep_excludes",
+          "pattern": "source: '.*(ACGIH|Threshold Limit Value|General Duty|Seifert|DOHMH)",
+          "paths": [
+            "src/engine/report/parameter-prose"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "autoApplied: false",
+          "paths": [
+            "src/constants/criteria.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "CRITERION_CLASS\\[c.class\\].autoApplied === false",
+          "paths": [
+            "src/constants/criteria.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "OPT-IN only",
+          "paths": [
+            "src/constants/standards.js"
+          ]
+        },
+        {
+          "type": "npm_script_passes",
+          "script": "test",
+          "args": [
+            "--",
+            "tests/engine/citation-discipline.test.ts",
+            "tests/engine/v22-parameter-prose.test.ts"
+          ]
+        }
+      ]
     }
   ]
 }
