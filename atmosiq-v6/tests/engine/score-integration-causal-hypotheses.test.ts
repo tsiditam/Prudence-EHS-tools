@@ -96,12 +96,6 @@ describe('v2.6 §4 — score() integration', () => {
     }
   })
 
-  it('canonical input emits the data-center cleanliness chain (specialty)', () => {
-    const result = score(buildCanonicalInput())
-    const dc = result.causalChains.find(c => c.id === 'chain_data_center_corrosion')
-    expect(dc).toBeDefined()
-  })
-
   it('canonical input emits the inadequate-outdoor-air chain (general)', () => {
     const result = score(buildCanonicalInput())
     expect(result.causalChains.find(c => c.id === 'chain_inadequate_outdoor_air')).toBeDefined()
@@ -114,9 +108,11 @@ describe('v2.6 §4 — score() integration', () => {
     expect(result.causalChains.find(c => c.id === 'chain_moisture_microbial')).toBeDefined()
   })
 
-  it('canonical input emits the corrosion + ventilation hypotheses', () => {
+  it('canonical input emits the ventilation hypothesis', () => {
+    // Was "corrosion + ventilation". The atmospheric-corrosion rule went
+    // with the data-center module in 2026-08; ventilation is the general
+    // rule the canonical fixture is really exercising here.
     const result = score(buildCanonicalInput())
-    expect(result.hypotheses.find(h => h.name.includes('Atmospheric corrosion'))).toBeDefined()
     expect(result.hypotheses.find(h => h.name.includes('ventilation'))).toBeDefined()
   })
 

@@ -39,7 +39,7 @@ export const FAQ_SECTIONS = [
     items: [
       {
         q: 'Which standards does AtmosFlow reference?',
-        a: 'The methodology references ASHRAE 62.1 (ventilation), ASHRAE 55 (thermal comfort), OSHA PELs, NIOSH RELs, EPA NAAQS, WHO air quality guidelines, and AIHA guidance. For data center work, the engine also references ANSI/ISA 71.04, ISO 14644-1, ASHRAE TC 9.9, IEEE 1635, and NFPA 855.',
+        a: 'The methodology references ASHRAE 62.1 (ventilation), ASHRAE 55 (thermal comfort), OSHA PELs, NIOSH RELs, EPA NAAQS, WHO air quality guidelines, and AIHA guidance.',
       },
       {
         q: 'Is AtmosFlow certified by ASHRAE, OSHA, or any standards body?',

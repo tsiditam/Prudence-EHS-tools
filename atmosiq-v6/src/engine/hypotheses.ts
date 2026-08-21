@@ -183,20 +183,6 @@ const hasVisibleDust = (vd: string): boolean => {
   return t.includes('yes') || t.includes('visible') || t.includes('dust observed') || t.includes('heavy')
 }
 
-const isDataCenterSpace = (z: Readonly<Record<string, unknown>>): boolean => {
-  const subtype = str(z, 'zone_subtype').toLowerCase()
-  if (subtype === 'data_hall' || subtype.includes('data')) return true
-  const name = str(z, 'zn').toLowerCase()
-  return name.includes('data hall') || name.includes('data center') || name.includes('server room')
-}
-
-const hasCorrosionIndicator = (z: Readonly<Record<string, unknown>>): boolean => {
-  const gc = str(z, 'gaseous_corrosion').toUpperCase()
-  if (gc.includes('G2') || gc.includes('G3') || gc.includes('GX')) return true
-  const obs = str(z, 'observation_corrosion') || str(z, 'corrosion_notes')
-  if (obs && obs.length > 0) return true
-  return false
-}
 
 /**
  * Accumulates the basis lines a rule produces alongside the zones that
@@ -460,11 +446,6 @@ const SAMPLING_PARTICULATE: ReadonlyArray<SamplingRecommendation> = [
     method: 'Optical aerosol monitor (e.g. TSI DustTrak DRX) with gravimetric verification per NIOSH 0600 if challenged',
     rationale: 'Quantify indoor-to-outdoor ratio to confirm amplification or filter bypass; gravimetric required for regulatory comparison.',
   },
-  {
-    parameter: 'Particle counts at ISO size thresholds',
-    method: 'Calibrated particle counter; ISO 14644-1:2015 Annex B sample plan',
-    rationale: 'Required when cleanroom or data-center cleanliness classification is in scope.',
-  },
 ]
 
 function hypothesisParticulate(input: HypothesisInput): Hypothesis | null {
@@ -477,14 +458,6 @@ function hypothesisParticulate(input: HypothesisInput): Hypothesis | null {
   if (hasFilterIssue(fc)) t.forBuilding(`HVAC filter condition: "${fc}".`)
   if (!t.fired) return null
   const basis = t.basis
-  // ISO 14644 particle-count sampling is only relevant when a cleanroom or
-  // data-center cleanliness classification is actually in scope. For an
-  // ordinary commercial office it is noise, so gate it on the data-center
-  // scope flag rather than emitting it for every particulate finding.
-  const isClassifiedCleanSpace = input.zonesData.some((z) => isDataCenterSpace(z))
-  const suggestedSampling = isClassifiedCleanSpace
-    ? SAMPLING_PARTICULATE
-    : SAMPLING_PARTICULATE.filter((s) => !/ISO 14644/.test(s.method))
   return {
     id: makeId('hyp_particulate', basis.join('|')),
     name: 'Particulate amplification or filter failure',
@@ -494,11 +467,10 @@ function hypothesisParticulate(input: HypothesisInput): Hypothesis | null {
       'pm_screening_elevated',
       'pm_above_naaqs_documented',
       'pm_indoor_amplification_screening',
-      'particle_screening_only',
       'hvac_filter_loaded',
       'hvac_filter_below_recommended_class',
     ]),
-    suggestedSampling,
+    suggestedSampling: SAMPLING_PARTICULATE,
     cihConfidenceTier: tierFromIndicatorCount(basis.length),
   }
 }
@@ -536,46 +508,6 @@ function hypothesisCombustion(input: HypothesisInput): Hypothesis | null {
   }
 }
 
-// ── Hypothesis 6 — Atmospheric corrosion (data center) ───────
-
-const SAMPLING_CORROSION: ReadonlyArray<SamplingRecommendation> = [
-  {
-    parameter: 'Copper and silver reactivity coupons (30-day passive)',
-    method: 'ANSI/ISA 71.04-2013 environmental classification methodology',
-    rationale: 'Classify the gaseous corrosion environment as G1 (mild), G2 (moderate), G3 (harsh), or GX (severe). Required for IT-equipment warranty compliance in OEM data-hall specifications.',
-  },
-  {
-    parameter: 'Gaseous contaminant speciation',
-    method: 'Passive badge sampling for H₂S, SO₂, NO_x, Cl₂',
-    rationale: 'Identify the controlling corrosive species so the source can be traced (outdoor air ingress vs. internal cleaning chemistry vs. process gas leak).',
-  },
-]
-
-function hypothesisAtmosphericCorrosion(input: HypothesisInput): Hypothesis | null {
-  const t = new Trigger()
-  for (const z of input.zonesData) {
-    if (!isDataCenterSpace(z)) continue
-    if (hasCorrosionIndicator(z)) {
-      const gc = str(z, 'gaseous_corrosion')
-      const note = gc ? ` (assessor-selected indicator: ${gc})` : ''
-      t.inZone(zoneName(z), `Data-center zone "${zoneName(z)}" with corrosion indicators present${note}.`)
-    }
-  }
-  if (!t.fired) return null
-  const basis = t.basis
-  return {
-    id: makeId('hyp_corrosion', basis.join('|')),
-    name: 'Atmospheric corrosion (data-center / electronics)',
-    basis,
-    triggerZones: t.triggerZones(input.zonesData),
-    relatedFindingIds: findingIdsFor(input.findings, [
-      'possible_corrosive_environment',
-    ]),
-    suggestedSampling: SAMPLING_CORROSION,
-    cihConfidenceTier: tierFromIndicatorCount(basis.length),
-  }
-}
-
 // ── Rule keys ─────────────────────────────────────────────────
 
 /**
@@ -596,7 +528,6 @@ export const HYPOTHESIS_RULE_KEYS = [
   'hyp_voc',
   'hyp_particulate',
   'hyp_combustion',
-  'hyp_corrosion',
 ] as const
 
 export type HypothesisRuleKey = typeof HYPOTHESIS_RULE_KEYS[number]
@@ -623,7 +554,6 @@ const RULES: ReadonlyArray<(input: HypothesisInput) => Hypothesis | null> = [
   hypothesisVoc,
   hypothesisParticulate,
   hypothesisCombustion,
-  hypothesisAtmosphericCorrosion,
 ]
 
 /**
@@ -652,8 +582,6 @@ export const __testing = {
   hypothesisVoc,
   hypothesisParticulate,
   hypothesisCombustion,
-  hypothesisAtmosphericCorrosion,
-  isDataCenterSpace,
   hasNeurologicalSymptoms,
   hasRespiratorySymptoms,
 }

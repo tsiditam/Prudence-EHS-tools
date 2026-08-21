@@ -188,6 +188,16 @@ function buildRegistry() {
   )
 }
 
+/**
+ * The builder, re-exported for the one test that must prove the registry
+ * DERIVES from `BUILDING_PROFILES.additionalFields` rather than carrying a
+ * fixed list. That test used to assert the six data-center field ids by
+ * name; with that profile gone no profile declares any additional fields,
+ * so the only way to keep the assertion honest is to inject one and
+ * rebuild. Not part of the public surface — consumers read FIELD_REGISTRY.
+ */
+export const __buildRegistryForTest = buildRegistry
+
 /** Every declared assessment field, sorted by id. */
 export const FIELD_REGISTRY = buildRegistry()
 
@@ -252,17 +262,6 @@ export const KNOWN_UNRESOLVED_READS = Object.freeze([
     read_by: 'src/engine/hypotheses.ts',
     reason:
       'Legacy numeric odor intensity, kept as an accepted alias so fixtures and any caller passing the merged numeric shape keep working. The schema field is `op`, which the rule now reads. Deliberate, not a defect.',
-  }),
-  Object.freeze({
-    field: 'observation_corrosion',
-    read_by: 'src/engine/hypotheses.ts',
-    reason:
-      'hasCorrosionIndicator falls back to this and to corrosion_notes when gaseous_corrosion is absent. Neither is declared in any schema, so the fallback is unreachable and the corrosion differential rests on gaseous_corrosion alone.',
-  }),
-  Object.freeze({
-    field: 'corrosion_notes',
-    read_by: 'src/engine/hypotheses.ts',
-    reason: 'Second half of the same unreachable fallback as observation_corrosion.',
   }),
   Object.freeze({
     field: 'pm10',

@@ -29,7 +29,6 @@ describe('storageKeys', () => {
     expect(KEYS.userMode).toBe('atmosflow:userMode')
     expect(KEYS.buildings).toBe('atmosflow:buildings')
     expect(KEYS.projects).toBe('atmosflow:projects')
-    expect(KEYS.premiumOverride).toBe('atmosflow:premiumOverride')
     expect(KEYS.instruments).toBe('atmosflow:instruments')
     expect(KEYS.labCsvTemplates).toBe('atmosflow:lab_csv_templates')
   })

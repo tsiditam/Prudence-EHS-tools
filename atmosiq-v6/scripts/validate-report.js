@@ -160,8 +160,6 @@ check('Scoring schema disclosed', () => {
   // Check if category weights are disclosed
   const schemas = []
   if (text.match(/Ventilation.*\/\s*25/)) schemas.push('default')
-  if (text.match(/Ventilation.*\/\s*15/)) schemas.push('data_hall')
-  if (text.match(/HVAC.*\/\s*30/)) schemas.push('data_hall')
   if (text.match(/HVAC.*\/\s*20/)) schemas.push('default')
 
   const uniqueSchemas = [...new Set(schemas)]

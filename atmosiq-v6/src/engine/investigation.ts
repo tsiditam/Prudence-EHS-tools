@@ -229,7 +229,6 @@ const RULE_PARAMETERS: Record<HypothesisRuleKey, ReadonlyArray<ParameterKey>> = 
   hyp_voc: ['tvoc', 'hcho'],
   hyp_particulate: ['pm25'],
   hyp_combustion: ['co'],
-  hyp_corrosion: ['rh'],
 }
 
 /**
@@ -245,8 +244,6 @@ const CHAIN_TYPE_TO_RULE: Readonly<Record<string, HypothesisRuleKey | null>> = {
   'Moisture / Biological': 'hyp_bioaerosol',
   'VOC Source (Hypothesis)': 'hyp_voc',
   'Chemical Exposure': 'hyp_voc',
-  'Gaseous Corrosion Risk (Hypothesis)': 'hyp_corrosion',
-  'Gaseous Contamination Concern (Hypothesis)': 'hyp_corrosion',
   'Cross-Contamination Pathway': null,
 }
 
@@ -263,8 +260,6 @@ const SAMPLING_TYPE_TO_RULE: Readonly<Record<string, HypothesisRuleKey>> = {
   'VOC Speciation': 'hyp_voc',
   'Sewer Gas': 'hyp_voc',
   'Combustion Gas': 'hyp_combustion',
-  'Reactivity Coupon Deployment': 'hyp_corrosion',
-  'ISO 14644-1 Particle Count': 'hyp_particulate',
 }
 
 /**

@@ -96,7 +96,6 @@ const INTENT_BY_CONDITION: Record<ConditionType, RecommendationIntent> = {
   pm_screening_elevated: 'filtration_class',
 
   pm_indoor_amplification_screening: 'particulate_source_control',
-  particle_screening_only: 'particulate_source_control',
 
   co_above_pel_documented: 'combustion_source',
   co_screening_elevated: 'combustion_source',
@@ -115,12 +114,10 @@ const INTENT_BY_CONDITION: Record<ConditionType, RecommendationIntent> = {
   humidity_below_comfort_lower_bound: 'humidity_addition',
 
   temperature_outside_comfort: 'thermal_comfort',
-  temperature_low_data_center: 'thermal_comfort',
 
   hvac_maintenance_overdue: 'hvac_service',
   hvac_drain_pan_microbial_reservoir: 'hvac_service',
 
-  possible_corrosive_environment: 'corrosion_control',
 
   occupant_symptoms_anecdotal: 'occupant_survey',
   occupant_cluster_anecdotal: 'occupant_survey',

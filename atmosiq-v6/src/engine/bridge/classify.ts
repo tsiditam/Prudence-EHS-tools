@@ -16,7 +16,6 @@ export interface LegacyFinding {
 }
 
 export interface ZoneContext {
-  zone_subtype?: string
   cfm_person?: string | number
   ach?: string | number
   co2?: string | number
@@ -53,13 +52,11 @@ export function classifyCondition(
 ): ConditionType {
   const text = finding.t || ''
   const std = (finding.std || '').toLowerCase()
-  const isDataHall = zone.zone_subtype === 'data_hall'
-
   switch (category) {
     case 'Ventilation':
       return classifyVentilation(text, std, zone, finding.sev)
     case 'Contaminants':
-      return classifyContaminants(text, std, zone, isDataHall)
+      return classifyContaminants(text, std, zone)
     case 'HVAC':
       return classifyHVAC(text, std, zone)
     case 'Complaints':
@@ -118,7 +115,6 @@ function classifyContaminants(
   text: string,
   std: string,
   zone: ZoneContext,
-  isDataHall: boolean,
 ): ConditionType {
   if (matches(text, ['multiple contaminant exceedance'])) return 'co_above_pel_documented'
 
@@ -144,20 +140,10 @@ function classifyContaminants(
     if (matches(text, ['epa naaqs', 'naaqs']) || std.includes('naaqs')) return 'pm_above_naaqs_documented'
     return 'pm_screening_elevated'
   }
-  if (matches(text, ['indoor pm2.5 mass concentration', 'indoor pm']) && isDataHall) {
-    return 'pm_screening_elevated'
-  }
-  if (matches(text, ['particle count', 'particle conditions', 'iso class', 'iso 14644']) || std.includes('iso 14644')) {
-    return 'particle_screening_only'
-  }
 
   if (matches(text, ['mold', 'iicrc s520', 'fungal', 'microbial growth'])) return 'apparent_microbial_growth'
 
   if (matches(text, ['odor'])) return 'objectionable_odor'
-
-  if (matches(text, ['gaseous corrosion', 'corrosion', 'ansi/isa 71.04', 'g2 ', 'g3 ', 'corrosive']) || std.includes('isa 71.04')) {
-    return 'possible_corrosive_environment'
-  }
 
   // Fallback when category is Contaminants but text is generic (e.g., "No contaminant concerns")
   // Use the broadest screening intent that won't lie about the data. tvoc_screening_elevated
@@ -201,16 +187,11 @@ function classifyEnvironment(
   zone: ZoneContext,
   _sev: LegacyFinding['sev'],
 ): ConditionType {
-  const isDataHall = zone.zone_subtype === 'data_hall'
-
   if (matches(text, ['water damage', 'water staining', 'water intrusion', 'active leak', 'historical water', 'old staining'])) {
     return 'active_or_historical_water_damage'
   }
 
-  if (matches(text, ['temperature'])) {
-    if (isDataHall) return 'temperature_low_data_center'
-    return 'temperature_outside_comfort'
-  }
+  if (matches(text, ['temperature'])) return 'temperature_outside_comfort'
   if (matches(text, ['thermal discomfort', 'too hot', 'too cold'])) return 'temperature_outside_comfort'
 
   if (matches(text, ['rh ', 'humidity', 'relative humidity', 'humid', 'dry'])) {

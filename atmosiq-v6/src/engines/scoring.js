@@ -13,9 +13,12 @@ import { evaluateCategorySufficiency, evaluateAllSufficiency } from './sufficien
 import { getRiskBand, getConfidenceLevel } from './riskBands'
 import { getBuildingProfile, getRHOverride, getTempOverride, getACHOverride, getProfileContextFindings } from './buildingProfiles'
 
-// Zone-specific weights: data_hall uses equipment-focused weighting
+// Zone-specific category weights. `data_hall` carried the only override —
+// equipment-focused weighting that zeroed Complaints — and went with the
+// data-center module in 2026-08. The map is kept rather than inlined: it is
+// the extension point for the next occupancy that needs one, and collapsing
+// it would make re-adding one a structural change instead of a data change.
 const ZONE_WEIGHTS = {
-  data_hall: { Ventilation: 15, Contaminants: 40, HVAC: 30, Complaints: 0, Environment: 15 },
   default:   { Ventilation: 25, Contaminants: 25, HVAC: 20, Complaints: 15, Environment: 15 },
 }
 
@@ -68,15 +71,6 @@ export function scoreZone(z, bldg) {
     normalizedFrom = tot
     tot = Math.round((tot / availableMax) * 100)
   }
-  // Data hall walkthrough findings — indicators, not definitive classifications
-  if (d.zone_subtype === 'data_hall') {
-    if (d.gaseous_corrosion && (d.gaseous_corrosion.includes('G3') || d.gaseous_corrosion.includes('GX'))) {
-      cats.find(c => c.l === 'Contaminants')?.r.push({ t: 'Walkthrough indicators consistent with elevated risk of G2 or worse environment per ANSI/ISA 71.04-2013 methodology. Gaseous corrosion severity is professional judgment based on visual/olfactory indicators, not instrument measurement, and cannot be classified to a G-level from walkthrough observation alone.', std: 'ANSI/ISA 71.04-2013 (walkthrough basis)', sev: 'medium' })
-    }
-    if (d.iso_class === 'ISO Class 8') {
-      cats.find(c => c.l === 'Contaminants')?.r.push({ t: 'Particle conditions observed during walkthrough may indicate elevated particulate levels. ISO Class cannot be determined from walkthrough data alone.', std: 'ISO 14644-1:2015 (walkthrough basis)', sev: 'medium' })
-    }
-  }
   // Category lookups for overrides
   const contCat = cats.find(c => c.l === 'Contaminants')
   const hvacCat = cats.find(c => c.l === 'HVAC')
@@ -99,14 +93,12 @@ export function scoreZone(z, bldg) {
   return { tot, risk: band.label, rc: band.color, cats, zoneName: z.zn || 'Zone', partialScore: cats.some(c => c.status === 'INSUFFICIENT' || c.status === 'DATA_GAP'), confidence, sufficiency: suff, zoneSubtype: d.zone_subtype, weights, normalizedFrom, availableMax, insufficientCats, hvacAdminGap: hvacCat?.adminGap || false }
 }
 
-// Zone-type priority weights for composite calculation
-// Mission-critical zones carry more weight than support spaces
+// Zone-type priority weights for composite calculation. Every named entry
+// was a data-center zone subtype (data_hall 1.5, battery_room 1.3,
+// noc_office 1.0, mechanical 0.8, office 0.8) and went with that module in
+// 2026-08, so every zone now weighs the same in the composite. Kept as a map
+// for the same reason as ZONE_WEIGHTS above.
 const ZONE_PRIORITY_WEIGHTS = {
-  data_hall: 1.5,
-  battery_room: 1.3,
-  noc_office: 1.0,
-  mechanical: 0.8,
-  office: 0.8,
   default: 1.0,
 }
 
@@ -193,7 +185,6 @@ function scoreVent(d, achOverride) {
 
 function scoreCont(d) {
   let dd = 0, r = []
-  const isDataHall = d.zone_subtype === 'data_hall'
   // Preserved from the literal ladder this replaced: an elevated PM2.5 with a
   // concurrent outdoor reading behind it counted for more than one without,
   // because the comparison is what separates a building source from ambient
@@ -202,34 +193,30 @@ function scoreCont(d) {
   const PM25_NO_OUTDOOR_FACTOR = 2 / 3
   if (d.pm) {
     const v = +d.pm, ho = !!d.pmo
-    if (isDataHall) {
-      if (v > 10) { dd += ho ? 6 : 4; r.push({ t: 'Indoor PM2.5 mass concentration of ' + v + ' µg/m³ measured during walkthrough. Elevated relative to typical data hall MERV-filtered conditions (<10 µg/m³).' + (ho ? '' : ' Without concurrent outdoor PM2.5 measurement, indoor elevation cannot be attributed to building sources.') + ' ISO Class cannot be determined from a mass measurement alone.', std:'ISO 14644-1:2015 (walkthrough basis)', sev:'medium', p:'pm25' }) }
-    } else {
-      // PM2.5 evaluates through the shared criterion registry, the same way
-      // CO, formaldehyde and TVOC do. It was the last parameter still
-      // comparing against literals lifted out of STD, and it showed: the
-      // finding read "PM2.5 38 µg/m³ — exceeds EPA 24-hr standard" from an
-      // instantaneous reading, with none of the averaging-period caveat that
-      // the registry gives every other analyte. A grab reading cannot
-      // establish a 24-hour mean, and saying so is not a hedge — it is what
-      // the measurement can and cannot settle.
-      //
-      // Severity, the sentence and the citation now all come from the
-      // criterion. The deduction stays outdoor-aware: an elevated reading
-      // with a concurrent outdoor value to compare against is worth more
-      // than one without, which is a property of the evidence rather than of
-      // the threshold.
-      const hit = evaluateCriteria('pm25', v, EVIDENCE_BASIS_WALKTHROUGH)
-      if (hit) {
-        dd += (PM25_DEDUCTION_BY_SEVERITY[hit.severity] ?? 0) * (ho ? 1 : PM25_NO_OUTDOOR_FACTOR)
-        r.push({
-          t: 'PM2.5 ' + hit.statement + (ho ? '' : ' No concurrent outdoor reading was taken, so the indoor elevation cannot be separated from ambient infiltration.'),
-          std: hit.criterion.source,
-          sev: hit.severity,
-          p: 'pm25',
-          cid: hit.criterion.id,
-        })
-      }
+    // PM2.5 evaluates through the shared criterion registry, the same way
+    // CO, formaldehyde and TVOC do. It was the last parameter still
+    // comparing against literals lifted out of STD, and it showed: the
+    // finding read "PM2.5 38 µg/m³ — exceeds EPA 24-hr standard" from an
+    // instantaneous reading, with none of the averaging-period caveat that
+    // the registry gives every other analyte. A grab reading cannot
+    // establish a 24-hour mean, and saying so is not a hedge — it is what
+    // the measurement can and cannot settle.
+    //
+    // Severity, the sentence and the citation now all come from the
+    // criterion. The deduction stays outdoor-aware: an elevated reading
+    // with a concurrent outdoor value to compare against is worth more
+    // than one without, which is a property of the evidence rather than of
+    // the threshold.
+    const hit = evaluateCriteria('pm25', v, EVIDENCE_BASIS_WALKTHROUGH)
+    if (hit) {
+      dd += (PM25_DEDUCTION_BY_SEVERITY[hit.severity] ?? 0) * (ho ? 1 : PM25_NO_OUTDOOR_FACTOR)
+      r.push({
+        t: 'PM2.5 ' + hit.statement + (ho ? '' : ' No concurrent outdoor reading was taken, so the indoor elevation cannot be separated from ambient infiltration.'),
+        std: hit.criterion.source,
+        sev: hit.severity,
+        p: 'pm25',
+        cid: hit.criterion.id,
+      })
     }
     if (ho && +d.pmo > 0) {
       const ioRatio = Math.round((v / +d.pmo) * 100) / 100
@@ -277,14 +264,6 @@ function scoreCont(d) {
     if (d.mi.includes('Extensive')) { dd += 15; r.push({ t:'Extensive visible mold ('+d.mi+') — IICRC S520 Condition 3 likely. EPA Mold Remediation Level III or higher.'+moldJurisdiction, std:'IICRC S520; EPA Mold Remediation', sev:'critical' }) }
     else if (d.mi.includes('Moderate')) { dd += 10; r.push({ t:'Moderate visible mold ('+d.mi+') — IICRC S520 Condition 2 likely. EPA Level II (10–30 sq ft).'+moldJurisdiction, std:'IICRC S520; EPA Mold Remediation', sev:'high' }) }
     else if (d.mi.includes('Small')) { dd += 5; r.push({ t:'Small area mold ('+d.mi+') — IICRC S520 Condition 1 or 2. EPA Level I (<10 sq ft).'+moldJurisdiction, std:'IICRC S520; EPA Mold Remediation', sev:'medium' }) }
-  }
-  // Battery room H₂ hazard-atmosphere assessment (parallel to IAQ scoring)
-  if (d.zone_subtype === 'battery_room' && d.h2_ppm) {
-    const h2 = +d.h2_ppm
-    if (h2 >= 20000)      { dd += 25; r.push({ t:'H₂ '+h2+' ppm — exceeds IEEE 1635 absolute ceiling (2% / 20,000 ppm). Immediate evacuation and ventilation required.', std:'IEEE 1635; NFPA 855', sev:'critical' }) }
-    else if (h2 >= 10000) { dd += 20; r.push({ t:'H₂ '+h2+' ppm — exceeds 25% LEL (10,000 ppm). Evacuate and investigate ventilation failure.', std:'IEEE 1635; NFPA 855', sev:'critical' }) }
-    else if (h2 >= 4000)  { dd += 12; r.push({ t:'H₂ '+h2+' ppm — exceeds 10% LEL (4,000 ppm). Enhanced monitoring and ventilation controls required.', std:'IEEE 1635; NFPA 855', sev:'high' }) }
-    else if (h2 > 0)      { dd += 3;  r.push({ t:'H₂ '+h2+' ppm — detectable but below 10% LEL. Continue monitoring.', std:'IEEE 1635', sev:'low' }) }
   }
   // Multiple Contaminant Exceedance: multiple Tier 1 contaminants exceeding OSHA PEL
   let tier1Count = 0
@@ -370,7 +349,7 @@ function scoreEnv(d, rhOverride, tempOverride) {
     if (t < tMin || t > tMax)        { dd += 5; r.push({ t:'Temperature '+t+'°F — outside '+tMin+'–'+tMax+'°F range (per '+tLabel+')', std:tStd, sev:'high', p:'temperature', band:[tMin,tMax], bandUnit:'°F', bandLabel:tLabel+' acceptable range' }) }
     else if (t < tOMin || t > tOMax) { dd += 2; r.push({ t:'Temperature '+t+'°F — outside optimal '+tOMin+'–'+tOMax+'°F (per '+tLabel+')', std:tStd, sev:'low', p:'temperature', band:[tOMin,tOMax], bandUnit:'°F', bandLabel:tLabel+' optimal band ('+ssn+')' }) }
   } else if (d.tc === 'Too hot' || d.tc === 'Too cold') { dd += 4; r.push({ t:'Thermal discomfort: '+d.tc.toLowerCase(), sev:'medium' }) }
-  // RH scoring with building-profile override (e.g., data_hall: 20-60%)
+  // RH scoring with building-profile override where the occupancy defines one
   const rhMin = rhOverride?.min ?? STD.t.rh.min
   const rhMax = rhOverride?.max ?? STD.t.rh.max
   const rhLabel = rhOverride?.label || 'recommended range'

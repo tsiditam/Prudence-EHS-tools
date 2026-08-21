@@ -25,7 +25,7 @@ import { DOCX_STYLES } from '../../src/components/docx/styles.js'
 import type { AssessmentMeta } from '../../src/engine/types/domain'
 
 const META: AssessmentMeta = {
-  siteName: 'Hizinburg Data Center — Building 2',
+  siteName: 'Hizinburg Corporate Center — Building 2',
   siteAddress: '8100 Gateway Blvd, Newark, NJ 07102',
   assessmentDate: '2026-04-29',
   preparingAssessor: { fullName: 'Tsidi Tamakloe', credentials: ['CIH', 'CSP'] },
@@ -86,8 +86,8 @@ async function docxBufferToText(buf: Buffer): Promise<string> {
 function buildCanonicalScore() {
   const zones = [
     {
-      zn: 'Data Hall A — Primary',
-      su: 'office', zone_subtype: 'data_hall',
+      zn: 'Open Office A — Primary',
+      su: 'office',
       co2: '1180', co2o: '420', tf: '74', rh: '52', pm: '12',
     },
     {
@@ -116,7 +116,7 @@ function buildCanonicalScore() {
 function buildNoBuildingScore() {
   const zones = [
     {
-      zn: 'Data Hall A',
+      zn: 'Open Office A',
       su: 'office',
       co2: '1300', co2o: '420', tf: '74', rh: '52', pm: '12',
     },

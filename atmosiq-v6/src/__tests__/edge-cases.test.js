@@ -147,17 +147,6 @@ describe('Override interactions', () => {
     expect(result.tot).toBeLessThanOrEqual(40)
   })
 
-  it('data_hall zone type with suppressed Complaints', () => {
-    const zone = { zn: 'DC1', zone_subtype: 'data_hall', co2: '400', tf: '72', rh: '45', pm: '5', co: '2', cx: 'No complaints' }
-    const bldg = { hm: 'Within 6 months', fc: 'Clean' }
-    const result = scoreZone(zone, bldg)
-    const complaints = result.cats.find(c => c.l === 'Complaints')
-    expect(complaints.status).toBe('SUPPRESSED')
-    expect(complaints.s).toBe(0)
-    // Total should still be valid
-    expect(result.tot).not.toBeNaN()
-    expect(Number.isFinite(result.tot)).toBe(true)
-  })
 })
 
 // ── 5. compositeScore edge cases ──────────────────────────────────────────

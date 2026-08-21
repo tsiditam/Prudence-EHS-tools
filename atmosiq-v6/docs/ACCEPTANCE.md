@@ -25,7 +25,7 @@ This is composed of two scripts:
 1. `npm run render:acceptance` — renders two `.docx` fixture reports
    and extracts each to a side-by-side `.txt` file via JSZip. The
    fixtures live at `/tmp/acceptance-report.docx[.txt]` (canonical
-   3-zone Hizinburg-style data center fixture with HVAC findings and
+   3-zone Hizinburg-style commercial fixture with HVAC findings and
    sick-building pattern) and `/tmp/acceptance-report-no-building.docx
    [.txt]` (zone-only, no HVAC findings).
 2. `node scripts/acceptance-check.mjs --config scripts/acceptance/v2.4.json`

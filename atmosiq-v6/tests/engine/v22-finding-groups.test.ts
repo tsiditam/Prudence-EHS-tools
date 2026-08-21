@@ -61,10 +61,6 @@ describe('v2.2 finding-groups — domain mapping', () => {
     expect(getFindingGroup('pm_screening_elevated')).toBe('Air Quality Indicators')
   })
 
-  it('Corrosion → Corrosion Indicators', () => {
-    expect(getFindingGroup('possible_corrosive_environment')).toBe('Corrosion Indicators')
-  })
-
   it('HVAC drain pan → HVAC System', () => {
     expect(getFindingGroup('hvac_drain_pan_microbial_reservoir')).toBe('HVAC System')
   })
@@ -80,7 +76,7 @@ describe('v2.2 finding-groups — domain mapping', () => {
   it('Lead terms are reader-friendly (not raw ConditionType)', () => {
     expect(getLeadTerm('pm_screening_elevated')).toBe('PM2.5')
     expect(getLeadTerm('humidity_above_comfort_upper_bound')).toBe('Relative humidity')
-    expect(getLeadTerm('possible_corrosive_environment')).toBe('Corrosive environment indicators')
+    expect(getLeadTerm('objectionable_odor')).toBe('Objectionable odor')
   })
 })
 

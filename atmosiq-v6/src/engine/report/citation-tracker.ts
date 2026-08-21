@@ -82,11 +82,6 @@ const STANDARD_DETECTION_PATTERNS: ReadonlyArray<readonly [string, ReadonlyArray
   ['NIOSH Pocket Guide RELs', [/NIOSH/i, /\bREL\b/i]],
   ['EPA NAAQS', [/EPA[\s-]*NAAQS/i, /National\s*Ambient\s*Air\s*Quality\s*Standards/i]],
   ['Molhave TVOC tiers', [/M[øo]lhave/i, /TVOC[\s-]*tiers?/i]],
-  ['ANSI/ISA 71.04', [/(?:ANSI\/)?ISA[\s-]*71\.04/i]],
-  ['ISO 14644-1', [/ISO[\s-]*14644(?:-1)?/i]],
-  ['ASHRAE TC 9.9', [/ASHRAE[\s-]*TC[\s-]*9\.9/i, /Thermal\s*Guidelines\s*for\s*Data\s*Processing/i]],
-  ['IEEE 1635 / ASHRAE Guideline 21', [/IEEE[\s-]*1635/i, /ASHRAE[\s-]*Guideline[\s-]*21/i]],
-  ['NFPA 855', [/NFPA[\s-]*855/i]],
 ]
 
 /**

@@ -38,14 +38,6 @@ const CONDITIONAL_BANS: ReadonlyArray<ConditionalBan> = [
     terms: ['high risk', 'elevated risk', 'critical risk'],
     requiredPermission: 'regulatoryConclusionAllowed',
   },
-  {
-    terms: ['ISO Class 8 confirmed', 'fails ISO 14644'],
-    requiredPermission: 'definitiveConclusionAllowed',
-  },
-  {
-    terms: ['G2 environment', 'G3 environment', 'corrosive atmosphere confirmed'],
-    requiredPermission: 'definitiveConclusionAllowed',
-  },
 ]
 
 export class BannedTermViolation extends Error {

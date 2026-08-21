@@ -193,22 +193,6 @@ export function genRecs(zoneScores, bldg, opts = {}) {
       pushZone('adm', zs.zoneName, 'Document loss and remediation scope for insurance notification.')
       pushZone('mon', zs.zoneName, 'Establish re-occupancy and clearance criteria. Post-remediation verification required before returning to normal operations.')
     }
-    // Data-center–specific recommendations remain zone-scoped per the
-    // "v2.8 keep zone-scoped" list (coupons / particle counters are
-    // deployed in named zones, not on a single piece of equipment).
-    if (zs.zoneSubtype === 'data_hall') {
-      const hasCorrosionRisk = zs.cats.some(c => c.r.some(r => r.t.includes('corrosion risk') || r.t.includes('71.04')))
-      const hasParticleRisk = zs.cats.some(c => c.r.some(r => r.t.includes('ISO 14644') || r.t.includes('ISO Class')))
-      if (hasCorrosionRisk || hasParticleRisk) {
-        pushZone('imm', zs.zoneName, 'Notify facility engineering and equipment owners of elevated environmental risk per screening assessment.')
-        pushZone('imm', zs.zoneName, 'Visually inspect installed equipment for surface corrosion indicators (silver tarnish, copper discoloration, creep corrosion on PCBs). Photograph and document findings.')
-        pushZone('eng', zs.zoneName, 'Verify outdoor air damper position and operation. Confirm gas-phase filter media is within service life per manufacturer specification.')
-        pushZone('eng', zs.zoneName, 'Consider suspending new equipment installations in affected zone if visual corrosion indicators are confirmed during inspection.')
-      }
-      if (hasCorrosionRisk) pushZone('eng', zs.zoneName, 'Deploy ANSI/ISA 71.04-compliant copper+silver reactivity coupons for 30-day passive exposure. Minimum 3 locations: hot-aisle return, cold-aisle supply, intake plenum near OA damper.')
-      if (hasParticleRisk) pushZone('eng', zs.zoneName, 'Deploy calibrated particle counter at ISO 14644-1 size thresholds (≥0.5 µm, ≥1 µm, ≥5 µm). Sampling per ISO 14644-1:2015 §B.')
-      if (hasCorrosionRisk || hasParticleRisk) pushZone('eng', zs.zoneName, 'Conduct outdoor air quality screening at OA intake. Document upwind contamination sources within 1 mile and coordinate with prevailing wind direction.')
-    }
     // Data-gap-driven (HVAC gap is equipment-scoped; the rest are
     // zone-scoped because they're about taking measurements in the
     // zone, not servicing a piece of equipment).

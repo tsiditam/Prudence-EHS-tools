@@ -576,7 +576,6 @@ The two engines are complementary:
 | `chain_moisture_microbial` | (mold OR water damage) + amplification-range humidity, OR drain-pan reservoir | ASHRAE Position Document on Mold and Dampness + EPA Mold Remediation |
 | `chain_filter_particulate` | filter loading or under-spec class + any indoor PM elevation | ASHRAE 62.1-2022 §6.2.1.4 + ASHRAE Position Document on Filtration |
 | `chain_sick_building` | symptoms-resolve-away + at least one high/critical severity finding | NIOSH HHE Program — Building-Related Illness Methodology |
-| `chain_data_center_corrosion` | data-center zone + (PM elevation OR corrosive environment) | ISO 14644-1:2015 + ANSI/ISA 71.04-2013 + ASHRAE TC 9.9 |
 | `chain_thermal_comfort` | ≥2 thermal/humidity excursions + at least one complaint | ASHRAE 55-2020 §5.3 + AABC/NEBB Total System Balance |
 
 `causationSupported` is set per rule:
@@ -597,7 +596,6 @@ The two engines are complementary:
 | VOC source or off-gassing | objectionable odor present + intensity ≥ 3 (or odor without intensity) | EPA TO-17 sorbent tube, NIOSH 2016 DNPH cartridge |
 | Particulate amplification or filter failure | visible dust OR HVAC filter loaded | optical PM (DustTrak), ISO 14644-1 particle counts |
 | Combustion source / CO infiltration | neurological symptom pattern | continuous CO data-logger (1-min resolution) |
-| Atmospheric corrosion (data-center) | data-center zone + corrosion indicator | ANSI/ISA 71.04-2013 Cu+Ag coupons, gaseous contaminant speciation |
 
 Confidence tiering is indicator-count based: 1 indicator →
 `qualitative_only`; 2+ independent indicators →

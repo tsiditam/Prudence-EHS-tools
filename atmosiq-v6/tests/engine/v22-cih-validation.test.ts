@@ -152,46 +152,6 @@ describe('CIH validation — §6 results redundancy', () => {
   })
 })
 
-describe('CIH validation — §8 corrosion language', () => {
-  it('Detects the legacy "professional judgment based on visual/olfactory" phrase', () => {
-    // v2.3 — limitations now attach inline to findings via
-    // RenderedFinding.limitations. Inject the banned phrase into
-    // a zone finding's inline limitations to verify the validator
-    // sweeps that surface.
-    const report = buildReport()
-    const tampered: ClientReport = {
-      ...report,
-      zoneSections: report.zoneSections.map((z, i) => i === 0
-        ? {
-            ...z,
-            findings: z.findings.length > 0
-              ? z.findings.map((f, j) => j === 0
-                  ? {
-                      ...f,
-                      limitations: [
-                        'Gaseous corrosion severity is professional judgment based on visual/olfactory indicators — not instrument measurement.',
-                      ],
-                    }
-                  : f)
-              : [{
-                  findingId: 'F-INJECT' as any,
-                  conditionType: 'possible_corrosive_environment' as any,
-                  narrative: 'Synthetic finding for test',
-                  limitations: [
-                    'Gaseous corrosion severity is professional judgment based on visual/olfactory indicators — not instrument measurement.',
-                  ],
-                  recommendedActions: [],
-                  confidenceTierLanguage: 'qualitative',
-                }],
-          }
-        : z),
-    }
-    const v = validateReportContent(tampered)
-    expect(v.passed).toBe(false)
-    expect(v.blockingIssues.some(s => s.includes('§8'))).toBe(true)
-  })
-})
-
 describe('CIH validation — §9 recommendation cap', () => {
   it('Warns when Executive Summary has more than 5 recommendations', () => {
     const report = buildReport()

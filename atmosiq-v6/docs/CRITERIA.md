@@ -163,9 +163,13 @@ Kept, because each passes: the OSHA PELs, the NIOSH RELs, ASHRAE 55 and 62.1,
 the EPA NAAQS, Mølhave, Persily, IICRC S520, and every sampling **method**
 (NIOSH 2016 / 0800, EPA TO-17, and the ACGIH *Bioaerosols* guidance in
 `sampling.js` — methodology, not an exposure limit, and it tells the reader
-what to order). The specialty-occupancy standards (ISO 14644-1, NFPA 855,
-IEEE 1635, ANSI/ISA 71.04, ASHRAE TC 9.9) are already occupancy-conditional
-and fire only for the buildings they apply to.
+what to order).
+
+*The specialty-occupancy standards — ISO 14644-1, NFPA 855, IEEE 1635,
+ANSI/ISA 71.04 and ASHRAE TC 9.9 — were kept at that point on the grounds that
+they were occupancy-conditional and fired only for the buildings they applied
+to. They were removed days later along with the whole data-center module, which
+was the only thing that used them. See "The data-center module" below.*
 
 `tests/engine/citation-discipline.test.ts` asserts both directions — the cut
 ones stay cut and the load-bearing ones stay present — against the exported
@@ -367,17 +371,53 @@ irrelevant notes.
   are migrated.
 
   *PM2.5 was on this list until 2026-08, on the reasoning that its
-  outdoor-conditional weighting and data-hall branch were comparative logic
+  outdoor-conditional weighting and (then-extant) data-hall branch were
+  comparative logic
   rather than a flat ladder. That conflated two separable things. The
   **threshold comparison** — which criterion a reading trips, what it is called,
   what may be asserted from a walkthrough — is an ordinary ladder and now lives
   in the registry. The **deduction weight** is scoring math and stayed in
   `scoring.js`, keyed off the criterion's severity
   (`PM25_DEDUCTION_BY_SEVERITY`) with the no-outdoor-reading factor applied on
-  top. The data-hall branch and the indoor/outdoor ratio finding are a
-  different comparison against a different reference and are untouched.
+  top. The indoor/outdoor ratio finding is a different comparison against a
+  different reference and is untouched. (The data-hall branch was left alone
+  at the time; it was removed outright with the data-center module days later.)
   The cost of the delay was a literal ladder in scoring code that had drifted:
   it cited "EPA NAAQS" as a bare string with no averaging period, so a single
   walkthrough reading was compared to a 24-hour standard and stated without the
   caveat every registry-generated statement carries — the same defect class as
   `CO — EXCEEDS OSHA PEL`, in the one parameter still outside the registry.*
+
+## The data-center module (removed)
+
+The `DATA_CENTER` building profile and everything specific to it were removed in
+2026-08 at the product owner's direction. What went:
+
+| Layer | Removed |
+|---|---|
+| Profile | `BUILDING_PROFILES.DATA_CENTER` — zone subtypes (`data_hall`, `noc_office`, `battery_room`, `mechanical`), the six additional fields (`gaseous_corrosion`, `iso_class`, `dp_temp`, `h2_monitoring`, `h2_ppm`, `exhaust_cfm_sqft`), the TC 9.9 temperature and static-control overrides, and the battery-room NFPA 855 / IEEE 1635 context findings |
+| Intake | `Data Center` as a facility type, its `premiumOpts` gate, the premium bottom sheet and its enterprise sales CTA, `isEnterprise`, `isPremiumOpt`, and the `premiumOverride` localStorage escape hatch |
+| Scoring | the `data_hall` category weights and the zone priority weights, the ISA-71.04 and ISO-14644 walkthrough findings, the data-hall PM2.5 branch, and the battery-room H₂ ladder |
+| Reasoning | causal-chain Rule 5 (data-center corrosion), hypothesis Rule 6 (atmospheric corrosion), and the two data-center sampling-plan entries |
+| Report | condition types `particle_screening_only`, `possible_corrosive_environment` and `temperature_low_data_center`, with their phrase entries, finding groups, lead terms and recommendation intents; `DATA_CENTER_CONTEXT_PARAGRAPH`; the §8 corrosion validation check |
+| Standards | ANSI/ISA 71.04-2013, ISO 14644-1:2015, ASHRAE TC 9.9, IEEE 1635 / ASHRAE Guideline 21, NFPA 855 — from the manifest, the citation tracker, the knowledge graph, the instrument registry and the settings screen |
+
+Three consequences worth knowing, because none is obvious from the diff:
+
+1. **Category suppression is now unreachable.** A category is suppressed when
+   its zone weight is `0`, and `data_hall`'s `Complaints: 0` was the only zero
+   in `ZONE_WEIGHTS`. The mechanism and the bridge's `SUPPRESSED → suppressed`
+   mapping are intact and still tested — against a constructed fixture, since
+   no profile can produce one any more. Adding a zero weight re-activates it.
+2. **No profile declares `additionalFields`.** `DATA_CENTER` was the only one.
+   The field registry still derives them, and `field-registry.test.ts` proves
+   that by injecting a probe field and rebuilding rather than asserting names
+   that no longer exist.
+3. **Two `KNOWN_UNRESOLVED_READS` resolved themselves.** `observation_corrosion`
+   and `corrosion_notes` were the unreachable half of `hasCorrosionIndicator`,
+   which is gone. The list is down from five entries to three.
+
+Deliberately kept: `SITE_TYPES` in `projectStore.js` still offers "Data Center"
+as a project label. That is filing metadata for organising work, not the engine
+facility type — a consultant can still have a data-center client; they just get
+standard IAQ treatment rather than a specialty module.

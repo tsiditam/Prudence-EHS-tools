@@ -42,11 +42,6 @@ export const STANDARDS_MANIFEST = {
   'EPA NAAQS': '2024',
   'WELL Building Standard v2': 'Q3 2024 (IAQ features A01/V01 — OPT-IN only: an assessor-selectable Logger Studio reference, never applied by the engine on its own; see certification_target in criteria.js)',
   'Molhave TVOC tiers': '1991 (advisory only)',
-  'ANSI/ISA 71.04': '2013',
-  'ISO 14644-1': '2015',
-  'ASHRAE TC 9.9': '2011',
-  'IEEE 1635 / ASHRAE Guideline 21': 'current',
-  'NFPA 855': '2026',
   // Move 5 — methodology currency layer. Bibliographic only — these
   // standards are NOT integrated into STD scoring thresholds (engine
   // is sacred); they appear in the report's Standards Currency

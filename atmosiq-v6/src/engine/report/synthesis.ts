@@ -55,7 +55,6 @@ const CONTAMINANT_TYPES = new Set([
   'pm_above_naaqs_documented',
   'pm_screening_elevated',
   'pm_indoor_amplification_screening',
-  'particle_screening_only',
 ])
 
 const MOISTURE_TYPES = new Set([
@@ -69,12 +68,10 @@ const PARTICULATE_TYPES = new Set([
   'pm_screening_elevated',
   'pm_above_naaqs_documented',
   'pm_indoor_amplification_screening',
-  'particle_screening_only',
 ])
 
 const THERMAL_TYPES = new Set([
   'temperature_outside_comfort',
-  'temperature_low_data_center',
   'humidity_above_comfort_upper_bound',
   'humidity_below_comfort_lower_bound',
 ])

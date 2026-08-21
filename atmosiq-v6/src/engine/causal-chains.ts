@@ -57,13 +57,6 @@ const CITATION_NIOSH_HHE: Citation = {
   organization: 'NIOSH',
 }
 
-const CITATION_DATA_CENTER: Citation = {
-  source: 'ISO 14644-1:2015 Cleanroom Particle Classification + ANSI/ISA 71.04-2013 Environmental Conditions for Process Measurement and Control Systems + ASHRAE TC 9.9 Thermal Guidelines for Data Processing Environments',
-  authority: 'consensus',
-  edition: '2015/2013',
-  organization: 'ISO',
-}
-
 const CITATION_THERMAL_BALANCE: Citation = {
   source: 'ASHRAE Standard 55-2023 §5.3 Thermal Environmental Conditions for Human Occupancy + AABC/NEBB Total System Balance Procedural Standards',
   authority: 'consensus',
@@ -106,12 +99,6 @@ const PM_CONDITIONS: ReadonlySet<ConditionType> = new Set([
   'pm_indoor_amplification_screening',
 ])
 
-const DATA_CENTER_PARTICULATE_CONDITIONS: ReadonlySet<ConditionType> = new Set([
-  'pm_screening_elevated',
-  'pm_indoor_amplification_screening',
-  'particle_screening_only',
-  'possible_corrosive_environment',
-])
 
 const THERMAL_COMFORT_CONDITIONS: ReadonlySet<ConditionType> = new Set([
   'temperature_outside_comfort',
@@ -143,19 +130,6 @@ const collectZoneIds = (findings: ReadonlyArray<Finding>): ReadonlyArray<ZoneId>
 const ids = (findings: ReadonlyArray<Finding>): ReadonlyArray<Finding['id']> =>
   findings.map(f => f.id)
 
-const isDataCenterZone = (zone: ZoneScore): boolean => {
-  // Detect data-center zones by name heuristic. Legacy zone-data
-  // carries `zone_subtype: 'data_hall'`; the v2.1+ ZoneScore only
-  // exposes the zoneName, so we match on common naming patterns.
-  const n = (zone.zoneName || '').toLowerCase()
-  return n.includes('data hall')
-    || n.includes('data center')
-    || n.includes('data centre')
-    || n.includes('server room')
-    || n.includes('noc')
-    || n.includes('battery room')
-    || n.includes('mer ')
-}
 
 // ── Chain rules ───────────────────────────────────────────────
 
@@ -287,32 +261,7 @@ function ruleSickBuilding(
 }
 
 /**
- * Rule 5 — Data-center cleanliness / corrosion concern (specialty).
- * Triggers when at least one zone is data-center coded AND a PM or
- * corrosive environment finding is present.
- */
-function ruleDataCenterCorrosion(
-  zones: ReadonlyArray<ZoneScore>,
-  findings: ReadonlyArray<Finding>,
-): CausalChain | null {
-  const hasDataCenterZone = zones.some(isDataCenterZone)
-  if (!hasDataCenterZone) return null
-  const dcFindings = matching(findings, DATA_CENTER_PARTICULATE_CONDITIONS)
-  if (dcFindings.length === 0) return null
-  return {
-    id: 'chain_data_center_corrosion',
-    name: 'Data-center cleanliness and atmospheric corrosion concern',
-    relatedFindingIds: ids(dcFindings),
-    rootCause:
-      'In data-center environments, indoor particulate elevation and gaseous corrosion indicators warrant a coordinated cleanliness and atmospheric-corrosion evaluation. ISO 14644-1 particle classification and ANSI/ISA 71.04-2013 reactivity coupon analysis are the appropriate confirmatory paths; thermal and humidity excursions interpreted via ASHRAE TC 9.9 should be assessed in parallel.',
-    causationSupported: false,
-    contributingZones: collectZoneIds(dcFindings),
-    citation: CITATION_DATA_CENTER,
-  }
-}
-
-/**
- * Rule 6 — Thermal comfort cluster. Triggers when at least two
+ * Rule 5 — Thermal comfort cluster. Triggers when at least two
  * thermal/humidity comfort excursions co-occur with at least one
  * occupant complaint.
  */
@@ -345,7 +294,6 @@ const RULES: ReadonlyArray<
   ruleMoistureMicrobial,
   ruleFilterParticulate,
   ruleSickBuilding,
-  ruleDataCenterCorrosion,
   ruleThermalComfortCluster,
 ]
 
@@ -380,7 +328,5 @@ export const __testing = {
   ruleMoistureMicrobial,
   ruleFilterParticulate,
   ruleSickBuilding,
-  ruleDataCenterCorrosion,
   ruleThermalComfortCluster,
-  isDataCenterZone,
 }

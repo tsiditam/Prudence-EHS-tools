@@ -214,8 +214,6 @@ const SEVERITY_DEDUCTION: Record<Severity, number> = {
 const OBSERVATIONAL_CONDITION_TYPES: ReadonlySet<string> = new Set([
   'apparent_microbial_growth',
   'objectionable_odor',
-  'possible_corrosive_environment',
-  'particle_screening_only',
   'hvac_maintenance_overdue',
   'hvac_filter_loaded',
   'hvac_filter_below_recommended_class',
@@ -526,8 +524,7 @@ function inferEvidenceBasis(
   let rationale = instrumentRationale
 
   if (conditionType.startsWith('hvac_') || conditionType === 'apparent_microbial_growth' ||
-      conditionType === 'objectionable_odor' || conditionType === 'possible_corrosive_environment' ||
-      conditionType === 'particle_screening_only' || conditionType === 'active_or_historical_water_damage') {
+      conditionType === 'objectionable_odor' || conditionType === 'active_or_historical_water_damage') {
     kind = 'visual_olfactory_screening'
     rationale = 'Visual or olfactory observation captured during walkthrough; no laboratory or instrument confirmation.'
   } else if (conditionType.startsWith('occupant_') || conditionType === 'symptoms_resolve_away_from_building') {

@@ -2370,7 +2370,7 @@
           "paths": [
             "src/engine/hypotheses.ts"
           ],
-          "minCount": 6
+          "minCount": 5
         },
         {
           "type": "grep_matches",
@@ -2556,6 +2556,69 @@
             "--",
             "tests/engine/citation-discipline.test.ts",
             "tests/engine/v22-parameter-prose.test.ts"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "NO-DATA-CENTER-MODULE",
+      "label": "The data-center specialty module and its five standards are absent from every layer they used to reach",
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": "tests/engine/no-data-center-module.test.ts"
+        },
+        {
+          "type": "grep_excludes",
+          "pattern": "(DATA_CENTER|data_hall|battery_room|noc_office|gaseous_corrosion|iso_class|h2_ppm|exhaust_cfm_sqft) *:|'(data_hall|battery_room|noc_office|gaseous_corrosion|iso_class|h2_ppm|exhaust_cfm_sqft)'",
+          "paths": [
+            "src/engines/buildingProfiles.js",
+            "src/engines/sampling.js",
+            "src/engines/causalChains.js",
+            "src/engines/scoring-legacy.js",
+            "src/engines/scoring.js"
+          ]
+        },
+        {
+          "type": "grep_excludes",
+          "pattern": "'Data Center'|premiumOpts",
+          "paths": [
+            "src/constants/questions.js"
+          ]
+        },
+        {
+          "type": "grep_excludes",
+          "pattern": "ISA 71\\.04|ISO 14644|TC 9\\.9|IEEE 1635|NFPA 855|Guideline 21",
+          "paths": [
+            "src/constants/standards.js",
+            "src/engine/report/citation-tracker.ts",
+            "src/engine/report/phrases",
+            "src/engine/report/parameter-prose",
+            "src/services/knowledgeGraphBuilder.ts",
+            "src/utils/instrumentRegistry.js"
+          ]
+        },
+        {
+          "type": "grep_excludes",
+          "pattern": "particle_screening_only|possible_corrosive_environment|temperature_low_data_center|hyp_corrosion|chain_data_center",
+          "paths": [
+            "src/engine"
+          ]
+        },
+        {
+          "type": "grep_excludes",
+          "pattern": "showPremiumGate|isPremiumOpt|isEnterprise|premiumOverride",
+          "paths": [
+            "src/components/MobileApp.jsx",
+            "src/utils/storageKeys.js"
+          ]
+        },
+        {
+          "type": "npm_script_passes",
+          "script": "test",
+          "args": [
+            "--",
+            "tests/engine/no-data-center-module.test.ts"
           ]
         }
       ]

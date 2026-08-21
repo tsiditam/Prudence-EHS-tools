@@ -132,23 +132,6 @@ describe('classifyCondition — Contaminants', () => {
     expect(c).toBe('objectionable_odor')
   })
 
-  it('data hall ISO Class 8 screening → particle_screening_only', () => {
-    const c = classifyCondition(
-      { t: 'Particle conditions observed during walkthrough may indicate elevated particulate levels. ISO Class cannot be determined…', sev: 'medium', std: 'ISO 14644-1:2015 (screening)' },
-      'Contaminants',
-      { zone_subtype: 'data_hall', iso_class: 'ISO Class 8' },
-    )
-    expect(c).toBe('particle_screening_only')
-  })
-
-  it('data hall gaseous corrosion screening → possible_corrosive_environment', () => {
-    const c = classifyCondition(
-      { t: 'Screening indicators consistent with elevated risk of G2 or worse environment per ANSI/ISA 71.04-2013', sev: 'medium', std: 'ANSI/ISA 71.04-2013 (screening)' },
-      'Contaminants',
-      { zone_subtype: 'data_hall' },
-    )
-    expect(c).toBe('possible_corrosive_environment')
-  })
 })
 
 describe('classifyCondition — HVAC', () => {
@@ -284,10 +267,25 @@ describe('legacyToAssessmentScore — status and confidence mapping', () => {
   })
 
   it('SUPPRESSED legacy category → v2.1 status "suppressed"', () => {
-    // data_hall sets Complaints weight to 0 → suppressed
-    const lz = scoreZone({ zn: 'DC1', su: 'office', zone_subtype: 'data_hall', co2: '600' }, {})
+    // The bridge mapping, exercised directly on a suppressed category.
+    //
+    // This used to reach it through `zone_subtype: 'data_hall'`, whose
+    // ZONE_WEIGHTS entry set Complaints to 0. That was the ONLY zero
+    // weight in the table, and it went with the data-center module in
+    // 2026-08 — so no profile currently produces a suppressed category
+    // and the scorer can no longer be driven into this state from real
+    // input. The bridge mapping is still live code and still worth
+    // pinning, so the fixture is now constructed rather than scored:
+    // if a future occupancy adds a zero weight, the mapping it lands on
+    // is already covered.
+    const lz: any = scoreZone({ zn: 'Z1', su: 'office', co2: '600' }, {})
+    const complaintsCat = lz.cats.find((c: any) => c.l === 'Complaints')
+    expect(complaintsCat, 'no Complaints category to suppress').toBeTruthy()
+    complaintsCat.status = 'SUPPRESSED'
+    complaintsCat.s = 0
+
     const cs = compositeScore([lz])
-    const score = legacyToAssessmentScore([lz], cs, [{ zone_subtype: 'data_hall' } as any], { meta: META })
+    const score = legacyToAssessmentScore([lz], cs, [{} as any], { meta: META })
     const complaints = score.zones[0].categories.find(c => c.category === 'Complaints')
     expect(complaints?.status).toBe('suppressed')
   })

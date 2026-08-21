@@ -120,9 +120,6 @@ export default function SettingsScreen({ onNavigate, onActivateAdmin, adminActiv
               <span style={{fontSize:8}}>▶</span> Data center standards
             </summary>
             <div style={{display:'flex',flexWrap:'wrap',gap:4,marginTop:6}}>
-              {['ANSI/ISA 71.04-2013','ISO 14644-1:2015','ASHRAE TC 9.9','IEEE 1635','NFPA 855'].map(s => (
-                <span key={s} style={{padding:'4px 8px',borderRadius:4,background:mix('dim', 6),border:`1px solid ${mix('dim', 12)}`,fontSize:9,fontWeight:600,color:DIM,fontFamily:"var(--font-mono)",letterSpacing:'0.2px'}}>{s}</span>
-              ))}
             </div>
           </details>
           <div style={{fontSize:10,color:DIM,marginTop:10,lineHeight:1.5}}>Scoring informed by, not certified by, these standards. Thresholds update with each app release.</div>

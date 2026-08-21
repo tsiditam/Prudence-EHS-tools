@@ -108,7 +108,7 @@ export function inferOrganization(source: string): CitationOrganization {
   if (/\bepa\b|naaqs|\bto-17\b|method to-17|mold remediation in schools/.test(s)) return 'EPA'
   if (/ashrae|tc 9\.9/.test(s)) return 'ASHRAE'
   if (/\bwho\b|world health organization/.test(s)) return 'WHO'
-  if (/\biso\b|iso 14644|iso 17025/.test(s)) return 'ISO'
+  if (/\biso\b|iso 17025/.test(s)) return 'ISO'
   if (/\bansi\b|ansi\/isa/.test(s)) return 'ANSI'
   if (/\baiha\b/.test(s)) return 'AIHA'
   if (/\babih\b/.test(s)) return 'ABIH'

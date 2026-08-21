@@ -4,75 +4,18 @@
  * ACH overrides, and context findings per building type.
  *
  * Every facility type offered in questions.js has a profile here.
+ *
+ * The DATA_CENTER profile was removed in 2026-08 along with the whole
+ * data-center specialty module — the ISA-71.04 gaseous-corrosion and
+ * ISO 14644-1 particle-class fields, the ASHRAE TC 9.9 thermal and
+ * static-control overrides, the battery-room NFPA 855 / IEEE 1635
+ * hydrogen findings, and the `data_hall` scoring branches. `Data Center`
+ * is no longer offered as a facility type, so `getBuildingProfile`
+ * returns null for one and the assessment scores as an unprofiled
+ * building. See docs/CRITERIA.md.
  */
 
 export const BUILDING_PROFILES = {
-  DATA_CENTER: {
-    id: 'data_center',
-    label: 'Data Center',
-    additionalStandards: ['ANSI/ISA 71.04-2013 (Gaseous Corrosion)', 'ISO 14644-1 (Cleanroom Particle Counts)'],
-    zoneSubtypes: [
-      { id: 'data_hall', label: 'Data Hall / Server Room' },
-      { id: 'noc_office', label: 'NOC / Operations Center' },
-      { id: 'battery_room', label: 'Battery Room' },
-      { id: 'mechanical', label: 'Mechanical Room' },
-      { id: 'office', label: 'Office / Administrative' },
-    ],
-    suppressFields: {
-      data_hall: ['cx', 'ac', 'sy', 'sr', 'cc', 'tc', 'hp'],
-      mechanical: ['cx', 'ac', 'sy', 'sr', 'cc', 'tc', 'hp'],
-      battery_room: ['tc', 'hp'],
-    },
-    additionalFields: {
-      data_hall: [
-        { id: 'gaseous_corrosion', sec: 'Data Center', q: 'ISA-71.04 gaseous corrosion classification?', t: 'ch', ic: '⚗️',
-          opts: ['G1 — Mild', 'G2 — Moderate', 'G3 — Harsh', 'GX — Severe', 'Not assessed'],
-          ref: 'ANSI/ISA 71.04-2013' },
-        { id: 'dp_temp', sec: 'Data Center', q: 'Dew point temperature?', t: 'num', ic: '💧', u: '°F',
-          ph: 'e.g. 42', ref: 'ASHRAE TC 9.9: 41.9–59°F recommended' },
-        { id: 'iso_class', sec: 'Data Center', q: 'ISO 14644-1 particle count class?', t: 'ch', ic: '🔬',
-          opts: ['ISO Class 5', 'ISO Class 6', 'ISO Class 7', 'ISO Class 8', 'Not assessed'],
-          ref: 'ISO 14644-1:2015' },
-      ],
-      battery_room: [
-        { id: 'h2_monitoring', sec: 'Battery Room', q: 'Hydrogen monitoring in place?', t: 'ch', ic: '⚠️',
-          opts: ['Yes — continuous monitor', 'Yes — periodic checks', 'No', 'Unknown'],
-          ref: 'IEEE 1635; NFPA 855' },
-        { id: 'h2_ppm', sec: 'Battery Room', q: 'Hydrogen concentration (if measured)?', t: 'num', sk: 1, ic: '⚠️', u: 'ppm',
-          ph: 'e.g. 500', ref: 'H₂ LEL = 40,000 ppm (4% vol); IEEE 1635 ceiling = 2% (20,000 ppm)' },
-        { id: 'exhaust_cfm_sqft', sec: 'Battery Room', q: 'Exhaust rate?', t: 'num', ic: '💨', u: 'cfm/sq ft',
-          ph: 'e.g. 1.0', ref: 'IEEE 1635: minimum 1 cfm/sq ft continuous' },
-      ],
-    },
-    rhOverrides: {
-      data_hall: { min: 20, max: 60, label: 'Static control range (ASHRAE TC 9.9)' },
-      default: { min: 30, max: 60, label: 'ASHRAE 55 comfort range' },
-    },
-    tempOverrides: {
-      data_hall: { min: 64.4, max: 80.6, oMin: 64.4, oMax: 80.6, label: 'ASHRAE TC 9.9 A1 envelope' },
-    },
-    contextFindings: [
-      { condition: (z) => z.zone_subtype === 'noc_office' || z.zone_subtype === 'office',
-        text: 'Verify NOC/office zones have dedicated outdoor air, not return from data hall.',
-        sev: 'medium', std: 'ASHRAE 62.1' },
-      { condition: (z) => z.zone_subtype === 'battery_room',
-        text: 'Battery room: verify hydrogen monitoring and ventilation per IEEE 1635/ASHRAE Guideline 21 and NFPA 855. Minimum 1 cfm/sq ft continuous exhaust.',
-        sev: 'high', std: 'IEEE 1635; NFPA 855' },
-      { condition: (z) => z.zone_subtype === 'battery_room' && z.h2_monitoring === 'No',
-        text: 'No hydrogen monitoring installed. NFPA 855 requires continuous gas detection for stationary battery installations. Recommend immediate installation of H₂ detector with alarm at 25% LEL (10,000 ppm).',
-        sev: 'critical', std: 'NFPA 855 §11.1.2' },
-      { condition: (z) => z.zone_subtype === 'battery_room' && z.exhaust_cfm_sqft && +z.exhaust_cfm_sqft < 1,
-        text: 'Battery room exhaust rate below IEEE 1635 minimum of 1 cfm/sq ft continuous. Inadequate ventilation increases hydrogen accumulation risk.',
-        sev: 'high', std: 'IEEE 1635 §6.3' },
-      { condition: (z) => z.zone_subtype === 'data_hall' && z.gaseous_corrosion && z.gaseous_corrosion.includes('G3'),
-        text: 'Visual and olfactory indicators suggest possible sulfur-bearing contamination in the data hall environment. Sources warranting investigation include outdoor air ingress, gas-phase filter media age and condition, and recent process changes in adjacent spaces. Elevated risk of equipment corrosion damage warrants definitive assessment via 30-day reactivity coupon deployment.',
-        sev: 'high', std: 'ANSI/ISA 71.04-2013 (screening)' },
-      { condition: (z) => z.zone_subtype === 'data_hall' && z.gaseous_corrosion && z.gaseous_corrosion.includes('GX'),
-        text: 'Screening indicators suggest severe gaseous contamination risk. Investigate sulfur-bearing sources including outdoor air ingress, gas-phase filtration failure, and adjacent-space process changes. Equipment corrosion damage risk is significant. Definitive classification requires 30-day passive copper+silver reactivity coupon deployment per ANSI/ISA 71.04-2013.',
-        sev: 'high', std: 'ANSI/ISA 71.04-2013 (screening)' },
-    ],
-  },
-
   HEALTHCARE: {
     id: 'healthcare',
     label: 'Healthcare',
@@ -358,7 +301,6 @@ export const BUILDING_PROFILES = {
 
 export function getBuildingProfile(buildingType) {
   const n = (buildingType || '').toLowerCase().replace(/[\s\/]/g, '_')
-  if (n.includes('data') && n.includes('center')) return BUILDING_PROFILES.DATA_CENTER
   if (n.includes('healthcare') || n.includes('hospital') || n.includes('clinic')) return BUILDING_PROFILES.HEALTHCARE
   if (n.includes('school') || n.includes('education') || n.includes('university')) return BUILDING_PROFILES.SCHOOL_K12
   if (n.includes('office') && !n.includes('mixed')) return BUILDING_PROFILES.COMMERCIAL_OFFICE

@@ -119,28 +119,6 @@ describe('inferCitationsFromContext — Meridian-equivalent context', () => {
   })
 })
 
-describe('inferCitationsFromContext — data-center context', () => {
-  it('registers data-center standards when scope is data center', () => {
-    const dcCtx = {
-      zoneScores: [
-        {
-          zoneName: 'Data Hall A',
-          cats: [
-            { l: 'Environment', r: [{ t: 'Temperature outside ASHRAE TC 9.9 recommended envelope', sev: 'medium' }] },
-            { l: 'Contaminants', r: [{ t: 'Corrosion class per ANSI/ISA 71.04', sev: 'info' }] },
-          ],
-        },
-      ],
-      recs: { imm: [], eng: [], adm: [], mon: [] },
-      samplingPlan: { plan: [], outdoorGaps: [] },
-      standardsManifest: STANDARDS_MANIFEST,
-    }
-    const r = inferCitationsFromContext(dcCtx)
-    expect(r.inBody.has('ASHRAE TC 9.9')).toBe(true)
-    expect(r.inBody.has('ANSI/ISA 71.04')).toBe(true)
-  })
-})
-
 describe('inferCitationsFromContext — future-method partition', () => {
   it('registers a sampling-only standard as futureMethodOnly', () => {
     const ctx = {

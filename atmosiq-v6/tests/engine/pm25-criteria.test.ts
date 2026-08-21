@@ -143,13 +143,3 @@ describe('a criterion no survey can speak to does not produce a finding', () => 
   })
 })
 
-describe('the data-hall path is untouched', () => {
-  it('keeps its MERV-filtered expectation rather than the ambient ladder', () => {
-    const zs = scoreZone(
-      { ...BASE, zone_subtype: 'data_hall', su: 'data_center', pm: '14', pmo: '9' }, {},
-    ) as unknown as { cats: Array<{ r: Array<Record<string, string>> }> }
-    const f = zs.cats.flatMap((c) => c.r).find((x) => x.p === 'pm25' && String(x.t).includes('data hall'))
-    expect(f, 'a data hall is judged against its own cleanliness expectation').toBeTruthy()
-    expect(f!.std).toContain('ISO 14644-1')
-  })
-})

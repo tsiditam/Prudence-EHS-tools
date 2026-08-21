@@ -70,7 +70,7 @@ export function buildReportDigest(report) {
 
 /**
  * Compact case facts so the reviewer-agent can judge relevance to THIS
- * investigation (e.g. drop ISO 14644 when no cleanroom/data-center scope).
+ * investigation (e.g. drop a criterion the assessment never applied).
  * `extra` supplies facts the ClientReport does not carry (space use, scope
  * flags) from the raw assessment.
  */

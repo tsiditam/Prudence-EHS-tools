@@ -73,7 +73,10 @@ const EVIDENCE_ASSERTIONS: ReadonlyArray<{ readonly pattern: RegExp; readonly wh
 
 describe('no template asserts evidence the assessment might not have', () => {
   it('found the phrase library — a silent scan would pass vacuously', () => {
-    expect(ENTRIES.length).toBeGreaterThanOrEqual(29)
+    // 29 before the data-center module was removed in 2026-08, which took
+    // particle_screening_only, possible_corrosive_environment and
+    // temperature_low_data_center with it.
+    expect(ENTRIES.length).toBeGreaterThanOrEqual(26)
     for (const e of ENTRIES) expect(e.intentTemplate.length).toBeGreaterThan(20)
   })
 
