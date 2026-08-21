@@ -3,7 +3,6 @@ import {
   TRANSMITTAL_PARAGRAPH,
   SCOPE_PARAGRAPH,
   LIMITATIONS_PARAGRAPH,
-  DATA_CENTER_CONTEXT_PARAGRAPH,
   ASSESSMENT_INDEX_DISCLAIMER,
   CIH_REQUIRED_LIMITATION,
   PRE_ASSESSMENT_MEMO_NOTICE,
@@ -31,11 +30,6 @@ describe('Verbatim Paragraphs — exact content', () => {
     )
   })
 
-  it('data center context matches spec §11', () => {
-    expect(DATA_CENTER_CONTEXT_PARAGRAPH).toBe(
-      'Data center environments may operate outside typical office comfort ranges due to equipment cooling and reliability requirements. Observations should be interpreted within this operational context per ASHRAE TC 9.9 Thermal Guidelines.'
-    )
-  })
 
   it('assessment index disclaimer matches spec §12', () => {
     expect(ASSESSMENT_INDEX_DISCLAIMER).toBe(
@@ -46,7 +40,7 @@ describe('Verbatim Paragraphs — exact content', () => {
   it('all verbatim paragraphs are non-empty strings', () => {
     const paragraphs = [
       TRANSMITTAL_PARAGRAPH, SCOPE_PARAGRAPH, LIMITATIONS_PARAGRAPH,
-      DATA_CENTER_CONTEXT_PARAGRAPH, ASSESSMENT_INDEX_DISCLAIMER,
+      ASSESSMENT_INDEX_DISCLAIMER,
       CIH_REQUIRED_LIMITATION, PRE_ASSESSMENT_MEMO_NOTICE,
       DRAFT_WATERMARK, DRAFT_COVER_NOTICE, COVER_METHODOLOGY_LINE,
     ]

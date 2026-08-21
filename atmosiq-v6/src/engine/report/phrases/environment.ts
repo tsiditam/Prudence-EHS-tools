@@ -20,20 +20,6 @@ export const ENVIRONMENT_PHRASES: Partial<Record<ConditionType, PhraseLibraryEnt
     ],
   },
 
-  temperature_low_data_center: {
-    conditionType: 'temperature_low_data_center',
-    intentTemplate:
-      'Measured temperature was outside typical comfort ranges defined by ASHRAE 55; however, data center operational requirements (ASHRAE TC 9.9 thermal guidelines) may justify temperature ranges outside ASHRAE 55 occupant comfort zones.',
-    bannedAlternatives: ['outside ASHRAE 55', 'high-risk thermal condition', 'noncompliant temperature'],
-    definitiveConclusionRequires: [],
-    causationSupportRequires: [],
-    regulatoryConclusionRequires: [],
-    defaultLimitations: [
-      'Comfort interpretation depends on intended occupancy and clothing assumptions; data centers operate to equipment-reliability targets, not occupant comfort.',
-    ],
-    defaultRecommendedActions: [],
-  },
-
   humidity_microbial_amplification_range: {
     conditionType: 'humidity_microbial_amplification_range',
     intentTemplate:

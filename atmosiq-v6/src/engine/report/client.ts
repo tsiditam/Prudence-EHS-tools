@@ -29,7 +29,7 @@ import { evaluateSiteOpinion, OPINION_TIER_LANGUAGE, CONFIDENCE_TIER_LANGUAGE } 
 import { shouldRefuseToIssue } from './pre-assessment-memo'
 import {
   TRANSMITTAL_PARAGRAPH, SCOPE_PARAGRAPH, LIMITATIONS_PARAGRAPH,
-  DATA_CENTER_CONTEXT_PARAGRAPH, ASSESSMENT_INDEX_DISCLAIMER,
+  ASSESSMENT_INDEX_DISCLAIMER,
   CIH_REQUIRED_LIMITATION, DRAFT_WATERMARK, DRAFT_COVER_NOTICE,
   COVER_METHODOLOGY_LINE, METHODOLOGY_DISCLOSURE_PARAGRAPH,
   buildTransmittalBody, buildTransmittalSubject, buildTransmittalSalutation,
@@ -476,8 +476,6 @@ export function renderClientReport(
 
   // CIH-required limitation check
   const hasCIHRequiredFindings = allFindings.some(f =>
-    f.conditionType === 'possible_corrosive_environment' ||
-    f.conditionType === 'particle_screening_only' ||
     f.conditionType === 'apparent_microbial_growth' ||
     f.definitiveConclusionAllowed
   )

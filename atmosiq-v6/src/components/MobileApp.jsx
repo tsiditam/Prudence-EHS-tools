@@ -176,8 +176,6 @@ pressFeedback.style = {
   transition: 'transform 120ms cubic-bezier(0.34,1.4,0.64,1), opacity 120ms ease-out',
 }
 const BETA_MODE = true // Set to false when ready to go live — re-enables all premium gates
-const isEnterprise = (profile) => BETA_MODE || profile?.plan === 'team' || profile?.plan === 'enterprise' || !!localStorage.getItem(KEYS.premiumOverride)
-const isPremiumOpt = (q, opt) => q.premiumOpts && q.premiumOpts.includes(opt)
 const fD = ts => ts ? new Date(ts).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : ''
 const sv = sev => ({critical:{c:'#EF4444',bg:'#EF444418',l:'CRITICAL'},high:{c:'#FB923C',bg:'#FB923C18',l:'HIGH'},medium:{c:'#FBBF24',bg:'#FBBF2418',l:'MEDIUM'},low:{c:'#38BDF8',bg:'#38BDF815',l:'LOW'},pass:{c:'#22C55E',bg:'#22C55E15',l:'PASS'},info:{c:'#94A3B8',bg:'#94A3B815',l:'INFO'}}[sev]||{c:'#94A3B8',bg:'#94A3B815',l:''})
 const badge = (risk,rc) => <span style={{padding:'6px 16px',background:`${rc}18`,border:`1px solid ${rc}35`,borderRadius:20,fontSize:13,fontWeight:700,color:rc}}>{risk}</span>
@@ -751,7 +749,6 @@ export default function MobileApp() {
   }, [])
 
   const [showPhotoSelect, setShowPhotoSelect] = useState(false)
-  const [showPremiumGate, setShowPremiumGate] = useState(false)
   // Replayable feature tour. Auto-shows once for returning users on the
   // dashboard; new users (isNew) get the welcome/profile-setup flow
   // first, so the tour waits until that's behind them. Always replayable
@@ -847,8 +844,7 @@ export default function MobileApp() {
   // the page below tap-unreachable. document.body escapes that.
   const menuButtonRef = useRef(null)
   // Home menu sub-mode. 'main' shows the canonical menu items; 'demos'
-  // shows the demo picker (Office Building / Data Center / FM Sample
-  // Check). Consolidates what was three separate flat menu entries
+  // shows the demo picker. Consolidates what was three separate flat menu entries
   // into one "Demos" entry with a sub-list, reducing menu height and
   // making the "load fake data to explore the app" affordance more
   // discoverable as a category. Reset to 'main' whenever the menu
@@ -1193,22 +1189,22 @@ export default function MobileApp() {
     setView('details')
   }, [applyInstrument, dtVis, setDqi, setView])
   const zData = zones[curZone] || {}
-  const dcProfile = useMemo(() => getBuildingProfile(bldg.ft), [bldg.ft])
+  const buildingProfile = useMemo(() => getBuildingProfile(bldg.ft), [bldg.ft])
   const zoneSubtype = zData.zone_subtype || null
-  const suppressedIds = useMemo(() => dcProfile?.suppressFields?.[zoneSubtype] || [], [dcProfile, zoneSubtype])
-  const additionalQs = useMemo(() => dcProfile?.additionalFields?.[zoneSubtype] || [], [dcProfile, zoneSubtype])
+  const suppressedIds = useMemo(() => buildingProfile?.suppressFields?.[zoneSubtype] || [], [buildingProfile, zoneSubtype])
+  const additionalQs = useMemo(() => buildingProfile?.additionalFields?.[zoneSubtype] || [], [buildingProfile, zoneSubtype])
   const zVis = useMemo(() => {
     // Build base question list: standard zone questions + profile additional fields
     let qs = Q_ZONE.map(q => {
       // Populate zone_subtype options from building profile
-      if (q.profileDynamic && q.id === 'zone_subtype' && dcProfile?.zoneSubtypes?.length) {
-        return { ...q, opts: dcProfile.zoneSubtypes.map(st => st.label), _subtypeMap: dcProfile.zoneSubtypes }
+      if (q.profileDynamic && q.id === 'zone_subtype' && buildingProfile?.zoneSubtypes?.length) {
+        return { ...q, opts: buildingProfile.zoneSubtypes.map(st => st.label), _subtypeMap: buildingProfile.zoneSubtypes }
       }
       return q
     })
     // Filter: hide profileDynamic questions when no profile, apply conditional logic, suppress fields
     qs = qs.filter(q => {
-      if (q.profileDynamic && (!dcProfile || !dcProfile.zoneSubtypes?.length)) return false
+      if (q.profileDynamic && (!buildingProfile || !buildingProfile.zoneSubtypes?.length)) return false
       if (suppressedIds.includes(q.id)) return false
       if (!q.cond) return true
       if (q.cond.eq && zData[q.cond.f] !== q.cond.eq) return false
@@ -1218,7 +1214,7 @@ export default function MobileApp() {
     // Inject additional fields from profile at end
     if (additionalQs.length > 0) qs = [...qs, ...additionalQs]
     return qs
-  }, [zData, bldg.ft, dcProfile, suppressedIds, additionalQs])
+  }, [zData, bldg.ft, buildingProfile, suppressedIds, additionalQs])
   // Outdoor sensor readings are a site-wide baseline, captured once (only the
   // first zone shows them). Writing one applies it to EVERY zone so scoring and
   // the report see the outdoor value regardless of which zone is active.
@@ -1580,10 +1576,6 @@ export default function MobileApp() {
   }
 
   const finishAssessment = async (bypassCalWarning, acknowledgement) => {
-    // Backend validation: prevent Data Center save without Enterprise tier
-    if (bldg.ft === 'Data Center' && !isEnterprise(profile)) {
-      setShowPremiumGate(true); return
-    }
     // Instrument metadata check — warn if missing
     if (!bypassCalWarning) {
       const missing = []
@@ -2264,7 +2256,7 @@ export default function MobileApp() {
               />
             </div>
           </div>}
-          {q.t==='ch'&&q.opts&&<div style={{display:'flex',flexDirection:'column',gap:8}}>{q.opts.map((o,i)=>{const stMap=q._subtypeMap;const storedVal=stMap?stMap.find(st=>st.label===o)?.id||o:o;const sel=stMap?(data[q.id]===storedVal):(o==='Other'?isOtherChoice(q.opts,data[q.id]):(data[q.id]===o));const locked=isPremiumOpt(q,o)&&!isEnterprise(profile);return(<button key={o} onClick={()=>{if(locked){haptic('light');setShowPremiumGate(true);return}haptic('light');if(o==='Other'&&q.other){setField(q.id,'Other')}else{setField(q.id,storedVal);setTimeout(goNext,250)}}} style={{padding:'16px 20px',textAlign:'left',background:sel?`${mix('accent', 7)}`:locked?`${CARD}`:`${CARD}`,border:`1.5px solid ${sel?ACCENT:BORDER}`,borderRadius:14,color:sel?ACCENT:locked?DIM:TEXT,fontSize:16,fontFamily:'inherit',fontWeight:500,cursor:'pointer',display:'flex',alignItems:'center',gap:14,minHeight:54,animation:`fadeUp .3s ${i*.04}s cubic-bezier(.22,1,.36,1) both`}}><div style={{width:24,height:24,borderRadius:'50%',border:`2px solid ${sel?ACCENT:BORDER}`,background:sel?ACCENT:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{sel&&<I n="check" s={12} c={ON_ACCENT} />}</div><span style={{flex:1}}>{o}</span>{locked&&<span style={{fontSize:9,fontWeight:700,padding:'2px 8px',borderRadius:4,background:'#F9731615',color:'#F97316',letterSpacing:'0.3px'}}>PREMIUM</span>}</button>)})}
+          {q.t==='ch'&&q.opts&&<div style={{display:'flex',flexDirection:'column',gap:8}}>{q.opts.map((o,i)=>{const stMap=q._subtypeMap;const storedVal=stMap?stMap.find(st=>st.label===o)?.id||o:o;const sel=stMap?(data[q.id]===storedVal):(o==='Other'?isOtherChoice(q.opts,data[q.id]):(data[q.id]===o));return(<button key={o} onClick={()=>{haptic('light');if(o==='Other'&&q.other){setField(q.id,'Other')}else{setField(q.id,storedVal);setTimeout(goNext,250)}}} style={{padding:'16px 20px',textAlign:'left',background:sel?`${mix('accent', 7)}`:`${CARD}`,border:`1.5px solid ${sel?ACCENT:BORDER}`,borderRadius:14,color:sel?ACCENT:TEXT,fontSize:16,fontFamily:'inherit',fontWeight:500,cursor:'pointer',display:'flex',alignItems:'center',gap:14,minHeight:54,animation:`fadeUp .3s ${i*.04}s cubic-bezier(.22,1,.36,1) both`}}><div style={{width:24,height:24,borderRadius:'50%',border:`2px solid ${sel?ACCENT:BORDER}`,background:sel?ACCENT:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{sel&&<I n="check" s={12} c={ON_ACCENT} />}</div><span style={{flex:1}}>{o}</span></button>)})}
             {q.other&&isOtherChoice(q.opts,data[q.id])&&<input type="text" value={data[q.id]==='Other'?'':data[q.id]} onChange={e=>setField(q.id,e.target.value||'Other')} placeholder="Describe space use..." autoFocus style={{width:'100%',padding:'16px 20px',background:CARD,border:`1.5px solid ${ACCENT}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:'inherit',outline:'none',boxSizing:'border-box',marginTop:4}} />}
           </div>}
           {q.t==='multi'&&q.opts&&(()=>{const arr=data[q.id]||[];const exclusiveSel=arr.find(isExclusiveMultiOpt)||null;return(<div style={{display:'flex',flexWrap:'wrap',gap:8}}>{q.opts.map((o,i)=>{const optExclusive=isExclusiveMultiOpt(o);
@@ -4124,46 +4116,6 @@ export default function MobileApp() {
 
       {/* ── Feature tour — replayable walkthrough overlay ───────── */}
       {showTour && <FeatureTour onClose={closeTour} />}
-
-      {/* ── Premium Gate — bottom sheet ─────────────────────────── */}
-      {showPremiumGate && (
-        <BottomSheet
-          title="Unlock mission-critical IAQ features"
-          onClose={()=>setShowPremiumGate(false)}
-          maxWidth={420}
-          ariaLabel="Data Center module, premium gate"
-        >
-          <div style={{...V3.T.bodyDim, margin:'4px 0 14px', lineHeight:1.65}}>
-            The Data Center module activates specialized analytical logic for ASHRAE TC 9.9 thermal ranges and ANSI/ISA-71.04 corrosion tracking. Required for documenting compliance in facilities with high-value hardware and mission-critical uptime requirements.
-          </div>
-          <div style={{...GLASS.subtle, padding:'14px 16px', borderRadius:RADII.md, marginBottom:18}}>
-            <div style={{display:'flex',flexDirection:'column',gap:8,fontSize:12,color:V3.TEXT_SECONDARY,lineHeight:1.5}}>
-              <div style={{display:'flex',alignItems:'center',gap:8}}><span style={{color:ACCENT,fontWeight:700}}>✓</span> ISA-71.04 gaseous corrosion classification</div>
-              <div style={{display:'flex',alignItems:'center',gap:8}}><span style={{color:ACCENT,fontWeight:700}}>✓</span> ISO 14644-1 particle count tracking</div>
-              <div style={{display:'flex',alignItems:'center',gap:8}}><span style={{color:ACCENT,fontWeight:700}}>✓</span> ASHRAE TC 9.9 thermal envelope scoring</div>
-              <div style={{display:'flex',alignItems:'center',gap:8}}><span style={{color:ACCENT,fontWeight:700}}>✓</span> Creep corrosion risk pattern analysis</div>
-              <div style={{display:'flex',alignItems:'center',gap:8}}><span style={{color:ACCENT,fontWeight:700}}>✓</span> Zone-specific equipment-focused weighting</div>
-            </div>
-          </div>
-          <div style={{display:'flex',gap:10,flexDirection:'column'}}>
-            <a
-              href="mailto:support@prudenceehs.com?subject=Data Center Module — Enterprise Inquiry"
-              style={{
-                display:'flex',alignItems:'center',justifyContent:'center',gap:8,
-                padding:'15px 0', minHeight:48,
-                background:'#F97316', color:'#000', fontSize:14, fontWeight:700,
-                borderRadius:RADII.md, textDecoration:'none', fontFamily:'inherit',
-                boxShadow:'inset 0 1px 0 rgba(255,255,255,0.18), 0 8px 18px rgba(249,115,22,0.30)',
-                WebkitTapHighlightColor:'transparent',
-              }}>
-              Contact sales
-            </a>
-            <TactileButton variant="ghost" fullWidth onClick={()=>setShowPremiumGate(false)}>
-              Back
-            </TactileButton>
-          </div>
-        </BottomSheet>
-      )}
 
       {/* Feedback sheet — opened from the menu (global) or a contextual
           Flag trigger (AI narrative, findings). v0 sends via mailto. */}

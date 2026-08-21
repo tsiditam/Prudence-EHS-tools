@@ -310,37 +310,6 @@ describe('v2.6 §3 — hypothesis Rule 5 (combustion / CO)', () => {
 
 // ── Rule 6 — Atmospheric corrosion (data center) ─────────────
 
-describe('v2.6 §3 — hypothesis Rule 6 (atmospheric corrosion)', () => {
-  it('fires on data-center zone with G2/G3 indicator', () => {
-    const result = deriveHypotheses({
-      zonesData: [{ zn: 'Data Hall A', zone_subtype: 'data_hall', gaseous_corrosion: 'G2 (moderate)' }],
-      buildingData: {},
-      findings: NO_FINDINGS,
-    })
-    const h = result.find(x => x.name.includes('Atmospheric corrosion'))
-    expect(h).toBeDefined()
-    expect(h!.suggestedSampling.some(s => s.method.includes('ANSI/ISA 71.04'))).toBe(true)
-  })
-
-  it('does not fire on data-center zone without corrosion indicator', () => {
-    const result = deriveHypotheses({
-      zonesData: [{ zn: 'Data Hall A', zone_subtype: 'data_hall' }],
-      buildingData: {},
-      findings: NO_FINDINGS,
-    })
-    expect(result.some(h => h.name.includes('Atmospheric corrosion'))).toBe(false)
-  })
-
-  it('does not fire on non-data-center zone with corrosion indicator', () => {
-    const result = deriveHypotheses({
-      zonesData: [{ zn: 'Lobby', gaseous_corrosion: 'G2' }],
-      buildingData: {},
-      findings: NO_FINDINGS,
-    })
-    expect(result.some(h => h.name.includes('Atmospheric corrosion'))).toBe(false)
-  })
-})
-
 // ── Confidence tiering ───────────────────────────────────────
 
 describe('v2.6 §3 — hypothesis confidence tiering', () => {

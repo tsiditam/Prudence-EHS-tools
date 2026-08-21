@@ -26,9 +26,6 @@ export const SCOPE_PARAGRAPH =
 export const LIMITATIONS_PARAGRAPH =
   'This report is based on conditions observed during a single site visit and may not reflect temporal, seasonal, or operational variability. These measurements are not a substitute for full industrial hygiene exposure assessment. Where conclusions are based on observation or limited data, they are presented as professional judgment rather than definitive determinations.'
 
-export const DATA_CENTER_CONTEXT_PARAGRAPH =
-  'Data center environments may operate outside typical office comfort ranges due to equipment cooling and reliability requirements. Observations should be interpreted within this operational context per ASHRAE TC 9.9 Thermal Guidelines.'
-
 export const ASSESSMENT_INDEX_DISCLAIMER =
   'This index is a proprietary prioritization tool used to guide evaluation and recommendations. It is not a measure of exposure risk, health risk, or regulatory compliance.'
 

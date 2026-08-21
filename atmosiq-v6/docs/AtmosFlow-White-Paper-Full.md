@@ -45,7 +45,7 @@ Key capabilities:
 - TVOC instrument discipline (PID lamp energy, calibration gas required)
 - Measurement confidence badges (High / Moderate / Low / Insufficient)
 - SBS pattern detection from complaint data alone
-- Building-type profiles (data center, healthcare, school — scaffolded)
+- Building-type profiles (healthcare, school — scaffolded)
 - Dual-mode operation (IH professional / Facility Manager)
 - DOCX and PDF export
 
@@ -547,7 +547,7 @@ When any trigger fires, the user is routed to a neutral IH directory (random rot
 ### Phase 3: Expansion
 
 - FM mode marketing to commercial property management firms (BOMA, IFMA channels)
-- Building-type profiles expanded (healthcare, education, data center)
+- Building-type profiles expanded (healthcare, education)
 - Integration APIs for EHS management platforms
 - Multi-product bundling with RegLens, OSHAready, HydroScan
 

@@ -45,7 +45,7 @@ Key capabilities:
 - TVOC instrument discipline (PID lamp energy, calibration gas required)
 - Measurement confidence badges (High / Moderate / Low / Insufficient)
 - SBS pattern detection from complaint data alone
-- Building-type profiles (data center, healthcare, school — scaffolded)
+- Building-type profiles (healthcare, school — scaffolded)
 - Dual-mode operation (IH professional / Facility Manager)
 - DOCX and PDF export
 

@@ -228,46 +228,6 @@ describe('v2.6 §2 — causal chain Rule 4 (sick-building pattern)', () => {
 
 // ── Rule 5 — Data-center cleanliness/corrosion ───────────────
 
-describe('v2.6 §2 — causal chain Rule 5 (data-center corrosion)', () => {
-  it('fires on data-center zone + PM screening elevated', () => {
-    const findings = [f('pm_screening_elevated')]
-    const zones = [zone('Data Hall A')]
-    const chains = deriveCausalChains(zones, findings)
-    const chain = chains.find(c => c.id === 'chain_data_center_corrosion')
-    expect(chain).toBeDefined()
-    expect(chain!.citation.source).toMatch(/ISO 14644/)
-  })
-
-  it('fires on data-center zone + corrosive environment finding', () => {
-    const findings = [f('possible_corrosive_environment')]
-    const zones = [zone('Server Room')]
-    const chains = deriveCausalChains(zones, findings)
-    expect(chains.find(c => c.id === 'chain_data_center_corrosion')).toBeDefined()
-  })
-
-  it('does not fire when no zone is data-center coded', () => {
-    const findings = [f('pm_screening_elevated'), f('possible_corrosive_environment')]
-    const chains = deriveCausalChains([zone('Office Lobby')], findings)
-    expect(chains.find(c => c.id === 'chain_data_center_corrosion')).toBeUndefined()
-  })
-
-  it('causationSupported is always false (confirmatory-path chain)', () => {
-    // Per §2 Rule 5 the data-center chain triggers on
-    // pm_screening_elevated / pm_indoor_amplification_screening /
-    // particle_screening_only / possible_corrosive_environment.
-    // Even with pm_indoor_amplification at definitive confidence,
-    // the chain refuses to claim causation — the corrosion path
-    // requires lab coupon analysis to establish G-class.
-    const findings = [
-      f('pm_indoor_amplification_screening', { definitiveConclusionAllowed: true }),
-    ]
-    const chains = deriveCausalChains([zone('Data Hall B')], findings)
-    const chain = chains.find(c => c.id === 'chain_data_center_corrosion')
-    expect(chain).toBeDefined()
-    expect(chain!.causationSupported).toBe(false)
-  })
-})
-
 // ── Rule 6 — Thermal comfort cluster ──────────────────────────
 
 describe('v2.6 §2 — causal chain Rule 6 (thermal comfort cluster)', () => {
@@ -337,16 +297,28 @@ describe('v2.6 §2 — deriveCausalChains orchestrator', () => {
   })
 
   it('a single finding can participate in multiple chains', () => {
-    // PM elevated supports both filter-failure chain and (with a
-    // data-center zone) the data-center cleanliness chain.
+    // `hvac_filter_loaded` is in HVAC_AIRFLOW_CONDITIONS (Rule 1) and in
+    // FILTER_CONDITIONS (Rule 3), so one finding legitimately belongs to
+    // two chains at once. This used to be shown with the data-center
+    // cleanliness chain, which went with that module in 2026-08; the
+    // property it asserts is a property of the orchestrator, not of the
+    // data-center rule, so it is re-pinned on an overlap that survives.
+    const shared = f('hvac_filter_loaded')
     const findings = [
-      f('hvac_filter_loaded'),
+      f('ventilation_inadequate_outdoor_air'),
+      shared,
+      f('occupant_symptoms_anecdotal'),
       f('pm_screening_elevated'),
     ]
-    const chains = deriveCausalChains([zone('Data Hall A')], findings)
+    const chains = deriveCausalChains([zone('Open Office A')], findings)
     const ids = chains.map(c => c.id)
+    expect(ids).toContain('chain_inadequate_outdoor_air')
     expect(ids).toContain('chain_filter_particulate')
-    expect(ids).toContain('chain_data_center_corrosion')
+
+    // The shared finding is claimed by BOTH — that is the actual property.
+    const claiming = chains.filter(c => c.relatedFindingIds.includes(shared.id))
+    expect(claiming.map(c => c.id).sort())
+      .toEqual(['chain_filter_particulate', 'chain_inadequate_outdoor_air'])
   })
 
   it('dedupes by chain id (a rule never emits twice for the same input)', () => {

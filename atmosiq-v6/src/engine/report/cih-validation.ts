@@ -17,7 +17,6 @@
  *   §5  Building/system "no findings" wording must qualify
  *   §6  Results section must not just repeat the Opinion
  *   §7  Numbering artifacts (1. 1. 1.) blocked
- *   §8  Risky corrosion language replaced
  *   §9  Recommendations cap at 5 in Executive Summary
  *   §10 Tone violations — banned terms without permission
  *   §11 Required limitation/methodology/sampling statements
@@ -272,11 +271,6 @@ const QUANTIFIED_COUNT_PATTERNS: ReadonlyArray<RegExp> = [
   /\b\d+\s+conditions?\s+(?:were|was)\s+observed/i,
 ]
 
-/** Patterns that indicate a previous version's risky corrosion phrase leaked through. */
-const BLOCKED_CORROSION_PATTERNS: ReadonlyArray<RegExp> = [
-  /Gaseous corrosion severity is professional judgment based on visual\/olfactory indicators/i,
-]
-
 /** Required verbatim statements that MUST appear in every client report. */
 const REQUIRED_STATEMENTS: ReadonlyArray<{
   fragment: string
@@ -309,8 +303,6 @@ export function validateReportContent(report: ClientReport): ReportValidation {
   checkBuildingContradiction(report, issues)
   // §6 — Results vs Overall Opinion redundancy
   checkResultsRedundancy(report, issues)
-  // §8 — Risky corrosion language
-  checkBlockedCorrosionLanguage(report, issues)
   // §9 — Recommendation cap
   checkRecommendationCount(report, issues)
   // §10 — Tone bans across rendered prose
@@ -449,26 +441,6 @@ function checkResultsRedundancy(report: ClientReport, issues: ValidationIssue[])
       recommendedFix:
         'Replace Results narrative with a reference to the per-zone sections and Recommendations Register.',
     })
-  }
-}
-
-function checkBlockedCorrosionLanguage(report: ClientReport, issues: ValidationIssue[]): void {
-  // Walk every limitation list + observation list to catch the
-  // legacy phrase wherever it might be embedded.
-  const surfaces = collectAllProseSurfaces(report)
-  for (const { field, text } of surfaces) {
-    for (const pat of BLOCKED_CORROSION_PATTERNS) {
-      if (pat.test(text)) {
-        issues.push({
-          category: '§8 Risky corrosion language',
-          severity: 'blocking',
-          location: field,
-          message: 'Blocked corrosion phrase detected in client-facing prose.',
-          recommendedFix:
-            'Replace with: "Gaseous corrosion potential was evaluated qualitatively based on visual and contextual indicators. Confirmatory testing is required for classification under ANSI/ISA 71.04."',
-        })
-      }
-    }
   }
 }
 

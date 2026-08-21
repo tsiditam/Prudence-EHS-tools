@@ -88,7 +88,7 @@ export const CONTAMINANTS_PHRASES: Partial<Record<ConditionType, PhraseLibraryEn
   pm_above_naaqs_documented: {
     conditionType: 'pm_above_naaqs_documented',
     intentTemplate:
-      'PM2.5 mass concentration exceeded the EPA NAAQS 24-hour standard during the assessment period. This finding is supported by continuous monitoring with outdoor baseline comparison.',
+      'PM2.5 mass concentration was above the EPA 24-hour NAAQS at the time of measurement. The NAAQS is a 24-hour average and an ambient standard applied here as an indoor benchmark; a reading taken during the assessment cannot establish a 24-hour mean.',
     bannedAlternatives: [],
     definitiveConclusionRequires: ['screening_continuous'],
     causationSupportRequires: ['screening_continuous'],
@@ -133,22 +133,6 @@ export const CONTAMINANTS_PHRASES: Partial<Record<ConditionType, PhraseLibraryEn
     ],
   },
 
-  particle_screening_only: {
-    conditionType: 'particle_screening_only',
-    intentTemplate:
-      'Particle conditions warrant further evaluation. ISO 14644-1 cleanroom classification cannot be determined without particle count testing at the applicable size thresholds and a sample plan per ISO 14644-1 Annex A.',
-    bannedAlternatives: ['the space does not meet ISO requirements', 'ISO Class 8 confirmed', 'fails ISO 14644'],
-    definitiveConclusionRequires: ['laboratory_speciation'],
-    causationSupportRequires: [],
-    regulatoryConclusionRequires: [],
-    defaultLimitations: [
-      'ISO 14644-1 classification requires a formal particle-count sample plan; this assessment did not include such measurements.',
-    ],
-    defaultRecommendedActions: [
-      { priority: 'short_term', timeframe: '7–30 days', action: 'Deploy calibrated particle counter at ISO 14644-1 size thresholds (≥0.5 µm, ≥1 µm, ≥5 µm). Sample plan per ISO 14644-1:2015 Annex B.', standardReference: 'ISO 14644-1:2015' },
-    ],
-  },
-
   apparent_microbial_growth: {
     conditionType: 'apparent_microbial_growth',
     intentTemplate:
@@ -183,25 +167,6 @@ export const CONTAMINANTS_PHRASES: Partial<Record<ConditionType, PhraseLibraryEn
     ],
     defaultRecommendedActions: [
       { priority: 'short_term', timeframe: '7–30 days', action: 'Trace the odor to its source, working from the areas of greatest intensity toward the suspected origin.' },
-    ],
-  },
-
-  possible_corrosive_environment: {
-    conditionType: 'possible_corrosive_environment',
-    intentTemplate:
-      'Field observations suggest conditions that may be consistent with environments associated with increased corrosion potential. Confirmatory testing per ANSI/ISA 71.04-2013 is recommended.',
-    bannedAlternatives: ['elevated corrosion risk', 'G2 environment', 'G3 environment', 'corrosive atmosphere confirmed'],
-    definitiveConclusionRequires: ['laboratory_speciation'],
-    causationSupportRequires: [],
-    regulatoryConclusionRequires: [],
-    defaultLimitations: [
-      'No gas-phase contaminant measurements were collected.',
-      'No copper/silver reactivity coupons were deployed.',
-      'No laboratory analysis was performed.',
-      'Gaseous corrosion potential was evaluated qualitatively based on visual and contextual indicators. Confirmatory testing is required for classification under ANSI/ISA 71.04.',
-    ],
-    defaultRecommendedActions: [
-      { priority: 'short_term', timeframe: '7–30 days', action: 'Deploy ANSI/ISA 71.04-compliant copper and silver reactivity coupons for 30-day passive exposure.', standardReference: 'ANSI/ISA 71.04-2013' },
     ],
   },
 }

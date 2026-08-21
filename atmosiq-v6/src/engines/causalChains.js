@@ -97,20 +97,6 @@ export function buildCausalChains(zones, bldg, zoneScores) {
       if (d.path_pressure === 'Negative (draws in)') ev.push('Zone under negative pressure')
       chains.push({ zone: zName, type: 'Cross-Contamination Pathway', rootCause: 'Air pathway allowing contaminant migration from adjacent source', evidence: ev, confidence: ev.length >= 2 ? 'Moderate' : 'Possible' })
     }
-    // Data center: Gaseous Corrosion Risk (hypothesis)
-    if (d.zone_subtype === 'data_hall') {
-      const hasCorrosion = d.gaseous_corrosion && (d.gaseous_corrosion.includes('G2') || d.gaseous_corrosion.includes('G3') || d.gaseous_corrosion.includes('GX'))
-      const hasHighRH = d.rh && +d.rh > 60
-      if (hasCorrosion && hasHighRH) {
-        const ev = [`Walkthrough indicators consistent with elevated gaseous corrosion risk (assessor-selected: ${d.gaseous_corrosion})`, `Relative humidity: ${d.rh}% (exceeds ASHRAE TC 9.9 A1/A2 upper bound of 60%)`]
-        if (d.dp_temp) ev.push(`Dew point: ${d.dp_temp}°F`)
-        if (d.pm) ev.push(`PM2.5 mass: ${d.pm} µg/m³ (elevated if >10 for MERV-filtered data hall)`)
-        chains.push({ zone: zName, type: 'Gaseous Corrosion Risk (Hypothesis)', rootCause: 'Elevated humidity combined with walkthrough indicators of gaseous contamination creates conditions consistent with accelerated creep corrosion on circuit board surfaces.', evidence: ev, confidence: 'Low (walkthrough data only)', refutableBy: 'Coupon results returning G1 (<300 Å Cu, <200 Å Ag per month). Particle count data showing ISO Class within target. Outdoor air sampling showing no upwind sulfur sources.', std: 'ANSI/ISA 71.04-2013 (walkthrough basis); ASHRAE TC 9.9' })
-      }
-      if (hasCorrosion && !hasHighRH) {
-        chains.push({ zone: zName, type: 'Gaseous Contamination Concern (Hypothesis)', rootCause: 'Walkthrough indicators suggest the gaseous corrosion environment may exceed G1 (mild).', evidence: [`Walkthrough indicator: ${d.gaseous_corrosion} (assessor-selected, not coupon-measured)`, 'RH currently within ASHRAE TC 9.9 control range'], confidence: 'Low (walkthrough data only)', refutableBy: 'Coupon results returning G1 (<300 Å Cu, <200 Å Ag per month).', std: 'ANSI/ISA 71.04-2013 (walkthrough basis)' })
-      }
-    }
   })
   return chains
 }

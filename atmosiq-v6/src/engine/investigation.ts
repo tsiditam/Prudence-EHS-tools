@@ -100,6 +100,8 @@ export interface InvestigationHypothesis {
   readonly status: HypothesisEvidenceStatus
   /** True for the single highest-ranked differential; absent on ties. */
   readonly leading: boolean
+  /** The zones whose observations raised this explanation. */
+  readonly zones: ReadonlyArray<string>
   readonly evidence: ReadonlyArray<InvestigationEvidence>
   readonly supportCount: number
   readonly opposeCount: number
@@ -206,6 +208,13 @@ const MAX_OBSERVATIONS_PER_HYPOTHESIS = 2
 const MAX_DISCRIMINATING_TESTS = 2
 const MAX_OPEN_QUESTIONS = 5
 const MAX_ROOT_CAUSES_PER_HYPOTHESIS = 2
+/**
+ * Zone names an open question spells out before it starts counting
+ * instead. A readability cap on a list, not a threshold on anything —
+ * the no-magnitude guard in the test reads comparisons, so this is named
+ * rather than written inline.
+ */
+const MAX_NAMED_ZONES_IN_QUESTION = 3
 
 // ── Rule → evidence mapping ───────────────────────────────────────────
 
@@ -220,7 +229,6 @@ const RULE_PARAMETERS: Record<HypothesisRuleKey, ReadonlyArray<ParameterKey>> = 
   hyp_voc: ['tvoc', 'hcho'],
   hyp_particulate: ['pm25'],
   hyp_combustion: ['co'],
-  hyp_corrosion: ['rh'],
 }
 
 /**
@@ -236,8 +244,6 @@ const CHAIN_TYPE_TO_RULE: Readonly<Record<string, HypothesisRuleKey | null>> = {
   'Moisture / Biological': 'hyp_bioaerosol',
   'VOC Source (Hypothesis)': 'hyp_voc',
   'Chemical Exposure': 'hyp_voc',
-  'Gaseous Corrosion Risk (Hypothesis)': 'hyp_corrosion',
-  'Gaseous Contamination Concern (Hypothesis)': 'hyp_corrosion',
   'Cross-Contamination Pathway': null,
 }
 
@@ -254,8 +260,6 @@ const SAMPLING_TYPE_TO_RULE: Readonly<Record<string, HypothesisRuleKey>> = {
   'VOC Speciation': 'hyp_voc',
   'Sewer Gas': 'hyp_voc',
   'Combustion Gas': 'hyp_combustion',
-  'Reactivity Coupon Deployment': 'hyp_corrosion',
-  'ISO 14644-1 Particle Count': 'hyp_particulate',
 }
 
 /**
@@ -413,7 +417,9 @@ interface Assembled {
 function assembleEvidence(
   ruleKey: HypothesisRuleKey,
   hypothesis: Hypothesis,
+  /** Ranges computed over the hypothesis's OWN zones, never the site. */
   ranges: ParameterRangeSet,
+  /** The same subset, for telling "never measured" from "measured, clear". */
   zonesData: ReadonlyArray<LegacyZone>,
   rootCauses: ReadonlyArray<string>,
 ): Assembled {
@@ -496,7 +502,8 @@ function assembleEvidence(
 function buildDiscriminatingTests(
   a: InvestigationHypothesis,
   b: InvestigationHypothesis,
-  ranges: ParameterRangeSet,
+  /** Ranges per hypothesis id — a test is about the owner's zones. */
+  rangesById: ReadonlyMap<string, ParameterRangeSet>,
   planByRule: ReadonlyMap<HypothesisRuleKey, SamplingPlanItemLike[]>,
 ): DiscriminatingTest[] {
   const setA = new Set(RULE_PARAMETERS[a.ruleKey])
@@ -509,7 +516,7 @@ function buildDiscriminatingTests(
   ]) {
     for (const param of ownerSet) {
       if (otherSet.has(param)) continue
-      const range = ranges[param]
+      const range = rangesById.get(owner.id)?.[param]
       const measured = !!range && range.count > 0 && range.withinStandards !== null
       if (measured) continue
       if (out.length >= MAX_DISCRIMINATING_TESTS) break
@@ -561,20 +568,31 @@ function buildOpenQuestions(
 
   // A live differential nobody has measured against is the sharpest kind
   // of open question: the investigation cannot close while it stands.
-  const byParameter = new Map<ParameterKey, string[]>()
+  const byParameter = new Map<ParameterKey, { names: string[]; zones: Set<string> }>()
   for (const h of live) {
     for (const param of h.untestedParameters) {
-      const names = byParameter.get(param) ?? []
-      names.push(h.name)
-      byParameter.set(param, names)
+      const entry = byParameter.get(param) ?? { names: [], zones: new Set<string>() }
+      entry.names.push(h.name)
+      for (const z of h.zones) entry.zones.add(z)
+      byParameter.set(param, entry)
     }
   }
-  for (const [param, names] of byParameter) {
+  for (const [param, entry] of byParameter) {
+    // Name the zones. "Has relative humidity been measured anywhere on
+    // site?" is the wrong question — the answer can be yes while the
+    // zone that raised the explanation still has no reading, which is
+    // exactly how a clean floor used to clear a mouldy basement.
+    const named = entry.zones.size
+    const where = named === 0
+      ? ''
+      : named <= MAX_NAMED_ZONES_IN_QUESTION
+        ? ` in ${[...entry.zones].join(', ')}`
+        : ` in the ${named} zones that raised it`
     out.push({
       id: `untested_${param}`,
-      question: `Has ${PARAMETER_LABEL[param]} been measured anywhere on site?`,
+      question: `Has ${PARAMETER_LABEL[param]} been measured${where}?`,
       whyItMatters: PARAMETER_MEANING[param],
-      blocks: names,
+      blocks: entry.names,
     })
   }
 
@@ -637,7 +655,37 @@ export function deriveInvestigation(input: InvestigationInput): InvestigationSta
   if (zonesData.length === 0) return EMPTY_STATE
 
   const buildingData = input.buildingData ?? {}
-  const ranges = computeParameterRanges(zonesData, input.zoneScores)
+  const zoneScores = input.zoneScores
+
+  /**
+   * Parameter verdicts computed over ONE hypothesis's zones.
+   *
+   * Site-wide ranges were the original mistake and a serious one: a
+   * basement with visible mold and an active leak reported "nothing to
+   * investigate" because a clean top floor had normal humidity. The
+   * bioaerosol differential came back `not_supported_by_measurement`
+   * with `untestedParameters: []`, claiming a reading had been taken
+   * where none had. A measurement bears on an explanation only where the
+   * explanation was raised.
+   */
+  const scopeFor = (zones: ReadonlyArray<string>): {
+    ranges: ParameterRangeSet; zonesData: ReadonlyArray<LegacyZone>
+  } => {
+    const wanted = new Set(zones)
+    const idx: number[] = []
+    zonesData.forEach((z, i) => {
+      const name = typeof z?.zn === 'string' && z.zn ? z.zn : `Zone ${i + 1}`
+      if (wanted.has(name)) idx.push(i)
+    })
+    // A hypothesis whose trigger zones cannot be matched back — a legacy
+    // record, a renamed zone — falls back to the whole site rather than
+    // to nothing. Too wide is a weaker check; empty would silently mark
+    // every parameter untested and manufacture open questions.
+    if (idx.length === 0) return { ranges: computeParameterRanges(zonesData, zoneScores), zonesData }
+    const subset = idx.map((i) => zonesData[i])
+    const subsetScores = zoneScores ? idx.map((i) => zoneScores[i]).filter(Boolean) : undefined
+    return { ranges: computeParameterRanges(subset, subsetScores), zonesData: subset }
+  }
 
   // The differentials. Findings are passed empty: the §3 rules read
   // observations, and `relatedFindingIds` is the only field that would
@@ -694,17 +742,22 @@ export function deriveInvestigation(input: InvestigationInput): InvestigationSta
 
   // Assemble one entry per differential.
   const assembled: InvestigationHypothesis[] = []
+  /** Each hypothesis's own ranges, for the discriminating test below. */
+  const scopedRanges = new Map<string, ParameterRangeSet>()
   for (const h of hypotheses) {
     const ruleKey = ruleKeyOf(h)
     if (!ruleKey) continue
     const rootCauses = rootCausesByRule.get(ruleKey) ?? []
-    const a = assembleEvidence(ruleKey, h, ranges, zonesData, rootCauses)
+    const scope = scopeFor(h.triggerZones)
+    scopedRanges.set(h.id as string, scope.ranges)
+    const a = assembleEvidence(ruleKey, h, scope.ranges, scope.zonesData, rootCauses)
     assembled.push({
       id: h.id as string,
       ruleKey,
       name: h.name,
       status: a.status,
       leading: false,
+      zones: Object.freeze([...h.triggerZones]),
       evidence: Object.freeze(a.evidence),
       supportCount: a.supportCount,
       opposeCount: a.opposeCount,
@@ -760,7 +813,7 @@ export function deriveInvestigation(input: InvestigationInput): InvestigationSta
 
   const live = ranked.filter((h) => LIVE_STATUSES.has(h.status))
   const discriminatingTests = live.length >= 2
-    ? buildDiscriminatingTests(live[0], live[1], ranges, planByRule)
+    ? buildDiscriminatingTests(live[0], live[1], scopedRanges, planByRule)
     : []
   const openQuestions = buildOpenQuestions(ranked, zonesData, input.samplingPlan?.outdoorGaps ?? [])
 

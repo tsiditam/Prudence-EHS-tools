@@ -31,6 +31,8 @@ import {
   Q_PRESURVEY, Q_QUICKSTART, Q_DETAILS, Q_BUILDING, Q_ZONE, SENSOR_FIELDS,
 } from '../../src/constants/questions.js'
 import { OBSERVABLE_FIELDS } from '../../src/constants/observable-fields.js'
+import { BUILDING_PROFILES } from '../../src/engines/buildingProfiles.js'
+import { __buildRegistryForTest as buildFieldRegistry } from '../../src/constants/field-registry.js'
 
 const SRC = (rel: string) => fs.readFileSync(path.join(process.cwd(), rel), 'utf8')
 const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
@@ -129,12 +131,60 @@ describe('the registry reconciles every place a field name is declared', () => {
   })
 
   it('declares the fields a building profile adds to a zone', () => {
-    // These live in buildingProfiles.js, a second schema questions.js
-    // knows nothing about. Missing them is why earlier passes over this
-    // codebase concluded gaseous_corrosion was undeclared.
-    for (const id of ['gaseous_corrosion', 'iso_class', 'dp_temp', 'h2_ppm', 'h2_monitoring', 'exhaust_cfm_sqft']) {
+    // buildingProfiles.js is a SECOND zone schema that questions.js knows
+    // nothing about. Missing it is why earlier passes over this codebase
+    // concluded `gaseous_corrosion` was an undeclared field.
+    //
+    // This used to enumerate the six data-center fields by name. That
+    // profile was removed in 2026-08 and no profile currently declares
+    // any `additionalFields`, so the assertion is made against whatever
+    // the profiles actually carry — and the empty case is asserted
+    // explicitly rather than passing vacuously. Add a profile field and
+    // this starts checking it without being edited; if the derivation
+    // ever stops reading buildingProfiles, the empty branch is the only
+    // thing standing between that and a silently incomplete registry,
+    // which is why `derivesFromBuildingProfiles` below exists too.
+    const declared: string[] = []
+    for (const profile of Object.values(BUILDING_PROFILES as Record<string, {
+      additionalFields?: Record<string, Array<{ id: string }>>
+    }>)) {
+      for (const list of Object.values(profile?.additionalFields || {})) {
+        for (const q of list) declared.push(q.id)
+      }
+    }
+    for (const id of declared) {
       expect(getField(id), `${id} is declared by a building profile`).toBeTruthy()
       expect(getField(id)!.scope).toBe(SCOPE_ZONE)
+    }
+    if (declared.length === 0) {
+      expect(
+        Object.keys(BUILDING_PROFILES).length,
+        'no profiles at all — the derivation has lost its source',
+      ).toBeGreaterThan(0)
+    }
+  })
+
+  it('derives profile fields from buildingProfiles rather than a fixed list', () => {
+    // The guard that keeps the test above from going quietly vacuous now
+    // that no profile declares additionalFields: inject one and the
+    // registry must pick it up.
+    const profiles = BUILDING_PROFILES as Record<string, {
+      additionalFields?: Record<string, Array<Record<string, unknown>>>
+    }>
+    const key = Object.keys(profiles)[0]
+    const target = profiles[key]
+    const original = target.additionalFields
+    try {
+      target.additionalFields = {
+        __probe: [{ id: '__probe_field', sec: 'Probe', q: 'Probe?', t: 'num' }],
+      }
+      const rebuilt = buildFieldRegistry()
+      expect(
+        rebuilt.some((f) => f.id === '__probe_field'),
+        'the registry does not read BUILDING_PROFILES.additionalFields',
+      ).toBe(true)
+    } finally {
+      target.additionalFields = original
     }
   })
 

@@ -214,8 +214,6 @@ const SEVERITY_DEDUCTION: Record<Severity, number> = {
 const OBSERVATIONAL_CONDITION_TYPES: ReadonlySet<string> = new Set([
   'apparent_microbial_growth',
   'objectionable_odor',
-  'possible_corrosive_environment',
-  'particle_screening_only',
   'hvac_maintenance_overdue',
   'hvac_filter_loaded',
   'hvac_filter_below_recommended_class',
@@ -430,40 +428,119 @@ function deriveTitle(f: LegacyFinding, conditionType: string): string {
   return t.slice(0, 77).trimEnd() + '…'
 }
 
+/**
+ * Measurement types the assessor can record, mapped to what they are.
+ *
+ * `meas_duration` is a Q_ZONE field the walkthrough already collects. Only
+ * "Continuous logging" is continuous monitoring; everything else — a spot
+ * check, a five-minute average — is a grab reading however long the
+ * assessor stood there.
+ */
+/**
+ * How the assessor recorded each zone's instrument readings.
+ *
+ * Every instrument-read condition used to be hardcoded to
+ * `screening_continuous` with the rationale "Direct-reading measurement
+ * collected during walkthrough" — a sentence that describes a grab
+ * reading while labelling it continuous. `pm_above_naaqs_documented`
+ * carried it further and told the reader the finding was "supported by
+ * continuous monitoring" when a single spot check was all anyone took.
+ *
+ * The zone record has known the answer all along: `meas_duration`. The
+ * `zone` parameter was passed to `inferEvidenceBasis` and never read.
+ *
+ * `evaluatePermissions` blocked the downstream claims either way — only
+ * `documented_8hr_twa` and `laboratory_speciation` unlock definitive,
+ * causal or regulatory language — so the mislabel never opened the
+ * compliance gate. It was still the report describing evidence it did
+ * not have.
+ *
+ * The split is instantaneous vs. integrated, which is the distinction
+ * `EvidenceBasisKind` actually draws. A 15-minute average is a logged
+ * series, so calling it a grab reading is the same defect pointing the
+ * other way — and it costs something real: `AVERAGING.min15` is
+ * determinative from a continuous basis and only indicative from a grab
+ * one, so a recorded STEL average would have been downgraded to
+ * "indicative" against the STEL it was taken to evaluate.
+ *
+ * Keys are the verbatim `meas_duration` options from `questions.js`.
+ * `evidence-basis.test.ts` asserts this table covers every one of them,
+ * so adding an option to the questionnaire cannot silently fall through
+ * to the unrecorded default.
+ */
+const MEASUREMENT_BASIS: Readonly<Record<string, { kind: EvidenceBasisKind; rationale: string }>> =
+  Object.freeze({
+    'Spot check (instantaneous)': {
+      kind: 'screening_grab',
+      rationale:
+        'Direct-reading measurement collected during walkthrough; a single instantaneous reading, not a logged series.',
+    },
+    '5-minute average': {
+      kind: 'screening_continuous',
+      rationale:
+        'Direct-reading measurement integrated over a 5-minute average during the walkthrough.',
+    },
+    '15-minute average': {
+      kind: 'screening_continuous',
+      rationale:
+        'Direct-reading measurement integrated over a 15-minute average during the walkthrough.',
+    },
+    '1-hour average': {
+      kind: 'screening_continuous',
+      rationale:
+        'Direct-reading measurement integrated over a 1-hour average during the walkthrough.',
+    },
+    'Continuous logging': {
+      kind: 'screening_continuous',
+      rationale: 'Continuous direct-reading measurement logged across the assessment period.',
+    },
+  })
+
+/**
+ * What the assessor recorded when `meas_duration` is absent. Treated as a
+ * grab reading and said so plainly: an unrecorded measurement type is not
+ * evidence of a logged series, and the field is skippable, so this is the
+ * common case on legacy records rather than an edge case.
+ */
+const UNRECORDED_MEASUREMENT: { kind: EvidenceBasisKind; rationale: string } = Object.freeze({
+  kind: 'screening_grab',
+  rationale:
+    'Direct-reading measurement collected during walkthrough; the measurement type was not recorded, so it is treated as a single reading rather than a logged series.',
+})
+
+function measurementBasis(zone: ZoneData): { kind: EvidenceBasisKind; rationale: string } {
+  const recorded = String((zone as Record<string, unknown>)?.meas_duration ?? '')
+  return MEASUREMENT_BASIS[recorded] ?? UNRECORDED_MEASUREMENT
+}
+
 function inferEvidenceBasis(
   conditionType: string,
   f: LegacyFinding,
-  _zone: ZoneData,
+  zone: ZoneData,
 ): EvidenceBasis {
-  let kind: EvidenceBasisKind = 'screening_grab'
-  let rationale = 'Direct-reading measurement collected during walkthrough.'
+  const { kind: instrumentKind, rationale: instrumentRationale } = measurementBasis(zone)
+
+  let kind: EvidenceBasisKind = instrumentKind
+  let rationale = instrumentRationale
 
   if (conditionType.startsWith('hvac_') || conditionType === 'apparent_microbial_growth' ||
-      conditionType === 'objectionable_odor' || conditionType === 'possible_corrosive_environment' ||
-      conditionType === 'particle_screening_only' || conditionType === 'active_or_historical_water_damage') {
+      conditionType === 'objectionable_odor' || conditionType === 'active_or_historical_water_damage') {
     kind = 'visual_olfactory_screening'
     rationale = 'Visual or olfactory observation captured during walkthrough; no laboratory or instrument confirmation.'
   } else if (conditionType.startsWith('occupant_') || conditionType === 'symptoms_resolve_away_from_building') {
     kind = 'occupant_report_anecdotal'
     rationale = 'Occupant statements collected informally during the assessment, not via a structured survey instrument.'
-  } else if (conditionType === 'pm_above_naaqs_documented' || conditionType === 'pm_indoor_amplification_screening') {
-    kind = 'screening_continuous'
-    rationale = 'Continuous direct-reading PM2.5 measurement collected during walkthrough.'
   } else if (conditionType === 'co_above_pel_documented' || conditionType === 'hcho_above_pel_documented') {
-    // The bridge cannot promote a screening-grab to a documented 8hr TWA without
-    // explicit chain-of-custody. Keep at screening_continuous to be conservative;
-    // the validator will still permit phrase library content but block PEL claims.
-    kind = 'screening_continuous'
-    rationale = 'Direct-reading continuous measurement; not an OSHA 8-hour TWA. Bridge does not promote direct-reading data to documented TWA without chain-of-custody evidence.'
-  } else if (conditionType === 'tvoc_screening_elevated' || conditionType === 'hcho_screening_elevated' ||
-             conditionType === 'co_screening_elevated' || conditionType === 'pm_screening_elevated') {
-    kind = 'screening_continuous'
-    rationale = 'Direct-reading measurement collected during walkthrough.'
-  } else if (conditionType.startsWith('temperature_') || conditionType.startsWith('humidity_') ||
-             conditionType.startsWith('ventilation_')) {
-    kind = 'screening_continuous'
-    rationale = 'Direct-reading measurement collected during walkthrough.'
+    // The bridge cannot promote a direct reading to a documented 8-hour TWA
+    // without chain-of-custody, whether or not it was logged. The basis stays
+    // whatever the instrument actually produced; `evaluatePermissions` blocks
+    // the PEL claim from either.
+    kind = instrumentKind
+    rationale = `${instrumentRationale} Not an OSHA 8-hour TWA: the bridge does not promote direct-reading data to a documented TWA without chain-of-custody evidence.`
   }
+  // Every other instrument-read condition — PM, TVOC, HCHO, CO, temperature,
+  // humidity, ventilation — keeps `instrumentKind`, which reflects what the
+  // assessor recorded rather than what the condition type is called.
 
   const citationRefs = f.std ? [f.std] : []
   return { kind, rationale, citationRefs }

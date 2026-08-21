@@ -128,7 +128,11 @@ describe('scoreZone', () => {
     const contCat = result.cats.find(c => c.l === 'Contaminants')
     const pmFinding = contCat.r.find(r => r.t.includes('PM2.5'))
     expect(pmFinding.sev).toBe('high')
-    expect(pmFinding.std).toBe('EPA NAAQS')
+    // Substring, not exact: the criterion registry cites the specific
+    // NAAQS paragraph rather than the standard as a whole. The criterion
+    // id is the stable contract — the citation text belongs to the registry.
+    expect(pmFinding.cid).toBe('pm25_epa_24h')
+    expect(pmFinding.std).toContain('50.18')
   })
 
   it('flags extensive visible mold', () => {

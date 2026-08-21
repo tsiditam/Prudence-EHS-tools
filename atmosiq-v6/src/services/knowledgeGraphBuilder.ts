@@ -245,20 +245,6 @@ const STANDARD_FRAMING: Array<{ match: RegExp; key: string; framing: KGStandardF
     },
   },
   {
-    match: /isa\s*71\.04/i, key: 'isa_71_04',
-    framing: {
-      standard: 'ANSI/ISA 71.04-2013', role: 'gaseous_corrosion_screening', is_health_limit: false,
-      framing: 'Used as a reference for gaseous corrosion severity. Definitive G-class classification requires coupon deployment; no health limit is implied.',
-    },
-  },
-  {
-    match: /iso\s*14644/i, key: 'iso_14644_1',
-    framing: {
-      standard: 'ISO 14644-1:2015', role: 'particle_cleanliness_screening', is_health_limit: false,
-      framing: 'Referenced as a particle-cleanliness benchmark. ISO Class cannot be determined from walkthrough data; no health limit is implied.',
-    },
-  },
-  {
     match: /niosh/i, key: 'niosh_rel',
     framing: {
       standard: 'NIOSH REL', role: 'advisory_exposure_reference', is_health_limit: false,

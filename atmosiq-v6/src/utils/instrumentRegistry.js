@@ -36,8 +36,6 @@ export const SENSOR_TYPES = [
   { id: 'particle_counter', label: 'Particle Counter', measures: ['pm'] },
   { id: 'pid', label: 'Photoionization Detector (PID)', measures: ['tv'] },
   { id: 'hcho_meter', label: 'Formaldehyde Meter', measures: ['hc'] },
-  { id: 'iso_particle', label: 'ISO-Certified Laser Particle Counter', measures: ['iso_class'], iso14644: true },
-  { id: 'corrosion_coupon', label: 'Corrosion Coupon / Reactivity Monitor', measures: ['gaseous_corrosion'] },
   { id: 'thermal_camera', label: 'Thermal Imaging Camera', measures: [] },
   { id: 'moisture_meter', label: 'Moisture Meter', measures: [] },
   { id: 'anemometer', label: 'Anemometer / Airflow Meter', measures: ['cfm_person', 'ach'] },
@@ -131,12 +129,6 @@ export function getCalWarning(instrument) {
     return `Non-Defensible: Out of calibration (${days} days since last cal)`
   }
   return null
-}
-
-export function isISO14644Certified(instrument) {
-  if (!instrument) return false
-  const stype = SENSOR_TYPES.find(s => s.id === instrument.sensorType)
-  return stype?.iso14644 === true
 }
 
 export function getInstrumentsForMeasurement(measurementId) {

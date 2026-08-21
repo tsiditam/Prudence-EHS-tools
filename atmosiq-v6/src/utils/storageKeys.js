@@ -52,7 +52,6 @@ export const KEYS = {
   userMode: 'atmosflow:userMode',    // 'ih' | 'fm'
   buildings: 'atmosflow:buildings',  // FM portfolio
   projects: 'atmosflow:projects',    // Project / Site Folders
-  premiumOverride: 'atmosflow:premiumOverride',
   instruments: 'atmosflow:instruments',
   // { x, y } viewport position of the AtmosFlow AI launcher once the user
   // has dragged it. Absent = the default bottom-right anchor. Read

@@ -38,10 +38,8 @@ export type ConditionType =
   | 'pm_above_naaqs_documented'
   | 'pm_screening_elevated'
   | 'pm_indoor_amplification_screening'
-  | 'particle_screening_only'
   | 'apparent_microbial_growth'
   | 'objectionable_odor'
-  | 'possible_corrosive_environment'
   | 'hvac_maintenance_overdue'
   | 'hvac_filter_loaded'
   | 'hvac_filter_below_recommended_class'
@@ -51,7 +49,6 @@ export type ConditionType =
   | 'occupant_cluster_anecdotal'
   | 'symptoms_resolve_away_from_building'
   | 'temperature_outside_comfort'
-  | 'temperature_low_data_center'
   | 'humidity_microbial_amplification_range'
   | 'humidity_above_comfort_upper_bound'
   | 'humidity_below_comfort_lower_bound'
@@ -260,6 +257,21 @@ export interface Hypothesis {
    * "Respiratory symptoms reported by 4 occupants").
    */
   readonly basis: ReadonlyArray<string>
+  /**
+   * Zone names whose observations raised this hypothesis — the zones the
+   * explanation is ABOUT.
+   *
+   * Without it a differential is site-wide, and downstream reasoning
+   * clears one zone with another zone's data: a basement with visible
+   * mold and an active leak reported "nothing to investigate" because a
+   * clean top floor had normal humidity. A parameter bears on an
+   * explanation only where the explanation was raised.
+   *
+   * A building-level trigger (drain pan, filter condition, damper at the
+   * air handler) genuinely applies everywhere, so a hypothesis raised
+   * that way lists every zone.
+   */
+  readonly triggerZones: ReadonlyArray<string>
   readonly relatedFindingIds: ReadonlyArray<FindingId>
   readonly suggestedSampling: ReadonlyArray<SamplingRecommendation>
   /** Confidence in the hypothesis itself (not in any finding). */

@@ -58,12 +58,6 @@ export interface ZoneData {
   path_crosstalk?: string
   path_crosstalk_source?: string
   // DC specific
-  gaseous_corrosion?: string
-  dp_temp?: string
-  iso_class?: string
-  h2_monitoring?: string
-  h2_ppm?: string
-  exhaust_cfm_sqft?: string
   // Measurement metadata
   meas_time?: string
   meas_occ?: string

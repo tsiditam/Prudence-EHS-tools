@@ -60,6 +60,64 @@ comparison and which make it **indicative**. The vocabulary is the engine's own
 A **ceiling is determinative from a grab reading** — that is what a ceiling
 means. This is the entry that makes the previously-missing criteria expressible.
 
+The empty `annual` row is load-bearing, not a gap waiting to be filled. No
+evidence basis this platform can collect settles an annual mean, and none makes
+one indicative either, so `evaluateCriteria` **skips any criterion whose period
+admits no basis at all** rather than comparing against it and hedging in prose.
+The check is on the period, not a list of criterion ids, so it covers
+`pm25_epa_annual`, `pm25_who_annual`, `pm10_who_annual` and `hcho_epa_rfc`
+together, and covers the next one added without being edited.
+
+The failure it prevents is not hypothetical: a clean office at PM2.5 6 µg/m³
+sits above the WHO annual guideline of 5, and the ladder — worst-first, first
+match wins — would have told that client it was above a WHO guideline on the
+strength of one walkthrough reading. A caveat sentence after the claim does not
+undo the claim. The registry declares those criteria because they exist and are
+worth naming; `contextualStandards.js` is where the reader is told why they
+were not applied, and that entry now describes what the code does rather than
+happening to agree with it.
+
+## Where the evidence basis comes from
+
+The table above is only as good as the basis handed to it, and that basis is
+derived, not declared. `inferEvidenceBasis` in `src/engine/bridge/legacy.ts`
+reads the zone's `meas_duration` — the walkthrough's "Measurement type?"
+question — through `MEASUREMENT_BASIS`, which maps every option the
+questionnaire offers:
+
+| Recorded | Basis |
+|---|---|
+| *(not recorded)* | `screening_grab` |
+| Spot check (instantaneous) | `screening_grab` |
+| 5-minute / 15-minute / 1-hour average | `screening_continuous` |
+| Continuous logging | `screening_continuous` |
+
+The split is **instantaneous vs. integrated**, which is the distinction
+`EvidenceBasisKind` draws. Both directions matter: calling a spot check
+continuous claims monitoring nobody did, and calling a recorded 15-minute
+average a grab reading downgrades a STEL comparison from determinative to
+indicative against the very period it was taken to evaluate.
+
+Two things this deliberately does not do. It does not promote a direct reading
+to `documented_8hr_twa` however long it was logged — a PEL claim needs chain of
+custody, and `evaluatePermissions` blocks it regardless. And it does not treat
+an absent `meas_duration` as a spot check: the field is skippable, so unrecorded
+is the common case on legacy records, and the rationale says the type was not
+recorded rather than asserting something about the record that is not there.
+
+`tests/engine/evidence-basis.test.ts` reads the option list off `questions.js`
+and asserts each one produces a distinct rationale, so adding an option to the
+questionnaire cannot silently fall through to the unrecorded default.
+
+*Every instrument-read condition was hardcoded to `screening_continuous` until
+2026-08, with the rationale "Direct-reading measurement collected during
+walkthrough" — a sentence describing a grab reading while labelling it
+continuous. `pm_above_naaqs_documented` carried it into client-facing prose
+("supported by continuous monitoring"). The zone parameter was already being
+passed to `inferEvidenceBasis` and never read. The permission gate was never
+fooled, so no compliance claim was unlocked; the report was describing evidence
+it did not have, which is its own problem.*
+
 ## Criterion classes
 
 `class` bounds severity. This is what stops a ventilation indicator being rated
@@ -74,6 +132,75 @@ like a combustion hazard.
 | `comfort_consensus` | medium | Thermal comfort; not health-based or regulatory |
 | `ventilation_indicator` | **high** | Indexes outdoor-air delivery per occupant; not a contaminant limit |
 | `advisory` | medium | Literature benchmark; no regulatory limit exists |
+
+## A citation must earn its place
+
+A citation belongs in the deliverable only if removing it would change what
+the reader **does** or **believes**. Four jobs qualify:
+
+1. It is the yardstick a number was compared against.
+2. It is the authority for a recommended action.
+3. It is a **method** someone has to order.
+4. It forecloses a specific misreading.
+
+Anything else is furniture, and furniture reads as padding to the reviewer you
+most want to convince. A rendered two-zone report with every parameter flagged
+put roughly fifteen distinct authorities in front of a client for one office
+walkthrough. The same CIH review that cut five whole sections from this report
+was reacting to the same problem one level up.
+
+Cut in 2026-08, each with the test it failed:
+
+| Cut | Why |
+|---|---|
+| ACGIH TLV (CO) | A **third** parallel occupational limit beside the REL and the PEL, driving no criterion — the report named a limit it never used. Also ACGIH-copyrighted and licensed, and ACGIH states the TLVs are not for adoption as standards. |
+| OSH Act §5(a)(1) | An enforcement hook. Invoking it edges toward the compliance determination the platform states it does not make. |
+| OSHA 1989 vacated-rule history | Regulatory history. The conclusion it supported — practice acts on 35, not 50 — is still stated, without the litigation narrative. |
+| Seifert (1990) | A second citation for the same background range Mølhave already supports, and Mølhave's are the tiers actually applied. |
+| NYC DOHMH | A second humidity number (65 %) beside the ASHRAE 55 bound (60 %) the engine applies, and a municipal document cited as a national benchmark — tagged `edition: 'current'` for something unrevised since 2008. |
+
+Kept, because each passes: the OSHA PELs, the NIOSH RELs, ASHRAE 55 and 62.1,
+the EPA NAAQS, Mølhave, Persily, IICRC S520, and every sampling **method**
+(NIOSH 2016 / 0800, EPA TO-17, and the ACGIH *Bioaerosols* guidance in
+`sampling.js` — methodology, not an exposure limit, and it tells the reader
+what to order).
+
+*The specialty-occupancy standards — ISO 14644-1, NFPA 855, IEEE 1635,
+ANSI/ISA 71.04 and ASHRAE TC 9.9 — were kept at that point on the grounds that
+they were occupancy-conditional and fired only for the buildings they applied
+to. They were removed days later along with the whole data-center module, which
+was the only thing that used them. See "The data-center module" below.*
+
+`tests/engine/citation-discipline.test.ts` asserts both directions — the cut
+ones stay cut and the load-bearing ones stay present — against the exported
+prose objects rather than the file text, so the comments recording *why* each
+was cut do not trip it.
+
+## Certification targets are opt-in
+
+`CRITERION_CLASS.certification_target` carries `autoApplied: false`, and
+`evaluateCriteria` skips any class declaring it. Same shape as the
+non-evaluable-period rule above: the registry declares the exclusion and the
+function does not decide it.
+
+A certification target measures a building against a scheme its owner chose to
+pursue. If they have not pursued it, the comparison answers a question nobody
+asked — and a finding citing WELL v2 in an investigation commissioned for
+occupant complaints reads as padding.
+
+Two of the three WELL criteria could never have fired anyway: `co_well` (9 ppm)
+ties `co_epa_naaqs_8h` and `pm25_well` (15 µg/m³) ties `pm25_who_24h`, so a tier
+above matched first in each worst-first ladder. `pm10_well` was ordered
+reachable, but nothing evaluates PM10 — `scoring.js` calls `evaluateCriteria`
+for `pm25`, `co`, `hcho` and `tvoc` only. **Removing them from the ladder
+changed no score and no finding.**
+
+They are **not deleted**. `referenceProfiles.js` offers WELL v2 as a selectable
+Logger Studio reference, and that is a legitimate opt-in — an assessor picks it
+*because* the client is pursuing certification, and the profile resolves its
+citation from this registry so Logger Studio and the walkthrough cite
+identically. The rule is about **who decides**: the assessor may apply a
+certification target, the engine may not apply one unbidden.
 
 ## Severity does not move with averaging period
 
@@ -114,7 +241,7 @@ and missing from the two above it. Adding a criterion cannot reintroduce that.
 
 | Consumer | Uses |
 |---|---|
-| `engines/scoring.js` | `evaluateCriteria` for CO and formaldehyde; `capSeverity` for CO₂ |
+| `engines/scoring.js` | `evaluateCriteria` for CO, formaldehyde and PM2.5; `capSeverity` for CO₂ |
 | `utils/assessmentVerdict.js` | Severity ranks feed the shared verdict |
 | `utils/referenceProfiles.js` | Logger Studio's per-parameter reference selection. Profiles link by `criterionId` and resolve their citation from the registry |
 
@@ -236,10 +363,61 @@ comfort-only walkthrough renders no section at all rather than three
 irrelevant notes.
 
 ## Known remaining work
-- **PM2.5 and thermal comparisons are deliberately not ladders.** PM carries
-  outdoor-conditional deduction weights, a data-hall branch, and an
-  indoor/outdoor ratio — comparative logic, not a flat threshold ladder.
-  Thermal is a band (min/max) rather than a ladder. Forcing either into the
-  registry's shape would be a worse abstraction, not a more consistent one.
-  Their severities sit within their class caps, so nothing is currently
-  mis-rated. CO, formaldehyde, TVOC and the CO₂ cap are migrated.
+- **Thermal comparison is deliberately not a ladder.** Thermal is a band
+  (min/max), seasonal, and keyed on a comfort model rather than a threshold
+  sequence. Forcing it into the registry's shape would be a worse abstraction,
+  not a more consistent one. Its severities sit within the `comfort_consensus`
+  cap, so nothing is mis-rated. CO, formaldehyde, TVOC, PM2.5 and the CO₂ cap
+  are migrated.
+
+  *PM2.5 was on this list until 2026-08, on the reasoning that its
+  outdoor-conditional weighting and (then-extant) data-hall branch were
+  comparative logic
+  rather than a flat ladder. That conflated two separable things. The
+  **threshold comparison** — which criterion a reading trips, what it is called,
+  what may be asserted from a walkthrough — is an ordinary ladder and now lives
+  in the registry. The **deduction weight** is scoring math and stayed in
+  `scoring.js`, keyed off the criterion's severity
+  (`PM25_DEDUCTION_BY_SEVERITY`) with the no-outdoor-reading factor applied on
+  top. The indoor/outdoor ratio finding is a different comparison against a
+  different reference and is untouched. (The data-hall branch was left alone
+  at the time; it was removed outright with the data-center module days later.)
+  The cost of the delay was a literal ladder in scoring code that had drifted:
+  it cited "EPA NAAQS" as a bare string with no averaging period, so a single
+  walkthrough reading was compared to a 24-hour standard and stated without the
+  caveat every registry-generated statement carries — the same defect class as
+  `CO — EXCEEDS OSHA PEL`, in the one parameter still outside the registry.*
+
+## The data-center module (removed)
+
+The `DATA_CENTER` building profile and everything specific to it were removed in
+2026-08 at the product owner's direction. What went:
+
+| Layer | Removed |
+|---|---|
+| Profile | `BUILDING_PROFILES.DATA_CENTER` — zone subtypes (`data_hall`, `noc_office`, `battery_room`, `mechanical`), the six additional fields (`gaseous_corrosion`, `iso_class`, `dp_temp`, `h2_monitoring`, `h2_ppm`, `exhaust_cfm_sqft`), the TC 9.9 temperature and static-control overrides, and the battery-room NFPA 855 / IEEE 1635 context findings |
+| Intake | `Data Center` as a facility type, its `premiumOpts` gate, the premium bottom sheet and its enterprise sales CTA, `isEnterprise`, `isPremiumOpt`, and the `premiumOverride` localStorage escape hatch |
+| Scoring | the `data_hall` category weights and the zone priority weights, the ISA-71.04 and ISO-14644 walkthrough findings, the data-hall PM2.5 branch, and the battery-room H₂ ladder |
+| Reasoning | causal-chain Rule 5 (data-center corrosion), hypothesis Rule 6 (atmospheric corrosion), and the two data-center sampling-plan entries |
+| Report | condition types `particle_screening_only`, `possible_corrosive_environment` and `temperature_low_data_center`, with their phrase entries, finding groups, lead terms and recommendation intents; `DATA_CENTER_CONTEXT_PARAGRAPH`; the §8 corrosion validation check |
+| Standards | ANSI/ISA 71.04-2013, ISO 14644-1:2015, ASHRAE TC 9.9, IEEE 1635 / ASHRAE Guideline 21, NFPA 855 — from the manifest, the citation tracker, the knowledge graph, the instrument registry and the settings screen |
+
+Three consequences worth knowing, because none is obvious from the diff:
+
+1. **Category suppression is now unreachable.** A category is suppressed when
+   its zone weight is `0`, and `data_hall`'s `Complaints: 0` was the only zero
+   in `ZONE_WEIGHTS`. The mechanism and the bridge's `SUPPRESSED → suppressed`
+   mapping are intact and still tested — against a constructed fixture, since
+   no profile can produce one any more. Adding a zero weight re-activates it.
+2. **No profile declares `additionalFields`.** `DATA_CENTER` was the only one.
+   The field registry still derives them, and `field-registry.test.ts` proves
+   that by injecting a probe field and rebuilding rather than asserting names
+   that no longer exist.
+3. **Two `KNOWN_UNRESOLVED_READS` resolved themselves.** `observation_corrosion`
+   and `corrosion_notes` were the unreachable half of `hasCorrosionIndicator`,
+   which is gone. The list is down from five entries to three.
+
+Deliberately kept: `SITE_TYPES` in `projectStore.js` still offers "Data Center"
+as a project label. That is filing metadata for organising work, not the engine
+facility type — a consultant can still have a data-center client; they just get
+standard IAQ treatment rather than a specialty module.
