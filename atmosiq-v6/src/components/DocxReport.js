@@ -2,156 +2,33 @@
  * AtmosFlow DOCX Report — Entry Point
  *
  * Builds two Word documents from assessment data:
- * 1. Consultant report (CIH-defensible client deliverable; v2.1 engine path)
+ * 1. AtmosFlow report (the client deliverable; `assembleRenderModel` →
+ *    sections-atmosflow)
  * 2. Technical report (structured findings, score matrix, data gaps; legacy
  *    operator-facing path)
  *
- * Phase 3: the consultant path was switched from the legacy section
- * builders to a v2.1 ClientReport pipeline (bridge → renderClientReport →
- * sections-v21client). Technical DOCX intentionally remains on the legacy
- * path because it is operator-facing, not client-facing.
+ * The **consultant report was removed in 2026-08** at the product owner's
+ * direction — it had accumulated too many defects to keep as a deliverable.
+ * It was the v2.1 ClientReport path (bridge → renderClientReport →
+ * sections-v21client) and one of two parallel client deliverables; the
+ * AtmosFlow report is the survivor and was already the one behind both PDF
+ * paths. Share and peer review now attach the AtmosFlow DOCX.
+ *
+ * `renderClientReport` and `src/engine/report/` are DELIBERATELY RETAINED —
+ * PrintReport.jsx renders the HTML print view from them and the investigation
+ * agent shares several of their modules — but this file no longer imports
+ * them. Only the DOCX deliverable went. See docs/CRITERIA.md.
  */
 
 import { Document, Packer, Paragraph, TextRun, AlignmentType, HeadingLevel } from 'docx'
-import { formatAssessmentDate, resolveAssessmentDate } from '../utils/assessmentDate'
-import { BODY_SECTION_PROPERTIES, LETTER_BODY_PAGE } from './docx/page-setup'
+import { formatAssessmentDate } from '../utils/assessmentDate'
+import { BODY_SECTION_PROPERTIES } from './docx/page-setup'
 import { DOCX_STYLES } from './docx/styles'
 import { markdownToDocx } from './docx/markdownToDocx'
 import { buildFooter } from './docx/sections-appendix'
 import { buildTechnicalHeader, buildScopeConditions, buildInstrumentation, buildBenchmarksUsed, buildResults, buildFlaggedIndicators, buildAnalystNotes, buildLimitationsCompact } from './docx/sections-technical'
-import { buildClientDocx } from './docx/sections-v21client'
 import { buildAtmosFlowDoc } from './docx/sections-atmosflow'
 import { assembleRenderModel } from '../report/reportModel'
-import { buildLabResultsAppendix } from './docx/sections-lab-results'
-import { buildSensorGraphsAppendix } from './docx/sections-sensor'
-import { buildConceptualSiteModelSection } from './docx/sections-conceptual-model'
-import { buildParameterExplainers, buildReportedConcernsSection, buildFindingsConfidenceRegister } from './docx/sections-cih-reasoning'
-import { buildEvidenceTraceabilityMatrix } from './docx/sections-traceability'
-import { buildGraphContext } from '../../lib/context/graphContext'
-import { buildCalibrationAppendix } from './docx/calibration-appendix'
-import { legacyToAssessmentScore, deriveAssessmentMeta } from '../engine/bridge'
-import { renderClientReport } from '../engine/report/client'
-import { watermarkSectionAttachments, buildCoverNoticeParagraph } from './docx/watermark'
-import { reportSectionAttachments } from './docx/report-chrome'
-import { DATA_GAP_MESSAGES } from './docx/canonical-content'
-import { getCalibrationBannerState } from '../utils/instrumentRegistry'
-
-/**
- * Merge the calibration mapper's appendices B + E into a ClientReport.
- *
- * ── Why this is a MERGE and not a fallback ─────────────────────────
- *
- * This layer used to read `existing.appendixE || appendixE` on the
- * belief — stated in its own header, and encoded in
- * `tests/engine/calibration-appendix-augment.test.ts` via a fake engine
- * result that omitted both — that the engine declares appendix B/E but
- * never populates them. It populates BOTH, unconditionally
- * (`buildAppendixB` / `buildAppendixE` in src/engine/report/client.ts).
- *
- * So the fallback never fired, and every note the mapper produced was
- * dead in the issued document: the validity statement, the expired-
- * instrument warning, the unrecorded-calibration data-gap pointer, and
- * the calibration acknowledgement. Reading a generated DOCX is what
- * surfaced it; no assertion could, because the assertions supplied an
- * engine result that did not resemble the real one.
- *
- * ── What each side contributes ─────────────────────────────────────
- *
- * The engine's appendices carry structure the mapper does not have:
- * appendix B's per-zone sampling table, and the house-style headings.
- * The mapper carries everything DERIVED FROM THE DATA: the rendered
- * calibration status ("EXPIRED — 31 days overdue", "Date not
- * recorded" — the engine prints a bare em-dash), the state-dependent QA
- * notes, and the acknowledgement.
- *
- * Two specific overrides, both about truthfulness rather than taste:
- *
- *   • Appendix E's DESCRIPTION. The engine's constant reads
- *     "Calibration was verified to be within manufacturer
- *     specification at the time of survey." AtmosFlow verifies no such
- *     thing — it records a date the assessor typed, and prints that
- *     sentence even when no date exists at all. Claiming a control that
- *     was never applied is the exact failure `calibration-appendix.js`
- *     and `tests/engine/calibration-qa-notes.test.ts` exist to prevent.
- *   • Instrument STATUS cells. "Date not recorded" tells a reader
- *     something; "—" reads as a formatting artifact.
- *
- * QA notes are unioned, engine-first: its three notes are generic and
- * true statements about field method, and the mapper's are the
- * data-derived ones that must follow them.
- *
- * The engine is untouched — this is the rendering-augmentation layer
- * the mapper has always lived in.
- *
- * `calibrationAcknowledgement` — the record left when the assessor
- * finalized past the calibration interrupt — flows through to appendix
- * E's QA notes. It is threaded here rather than read from `presurvey`
- * because it is a decision ABOUT the presurvey, not part of it: the
- * presurvey can be edited afterwards; the acknowledgement must not be.
- */
-export function augmentWithCalibrationAppendices(result, presurvey, opts = {}) {
-  if (!result || result.kind === 'pre_assessment_memo' || !result.report) return result
-  const { appendixB, appendixE } = buildCalibrationAppendix(presurvey, {
-    calibrationAcknowledgement: opts.calibrationAcknowledgement,
-  })
-  if (!appendixB && !appendixE) return result
-  const existing = result.report.appendix || {}
-  return {
-    ...result,
-    report: {
-      ...result.report,
-      appendix: {
-        ...existing,
-        appendixB: mergeAppendixB(existing.appendixB, appendixB),
-        appendixE: mergeAppendixE(existing.appendixE, appendixE),
-      },
-    },
-  }
-}
-
-/** Union preserving order, first occurrence wins. */
-function unionNotes(...lists) {
-  const seen = new Set()
-  const out = []
-  for (const list of lists) {
-    for (const note of Array.isArray(list) ? list : []) {
-      const key = String(note || '').trim()
-      if (!key || seen.has(key)) continue
-      seen.add(key)
-      out.push(note)
-    }
-  }
-  return out
-}
-
-function mergeAppendixB(engine, mapped) {
-  if (!engine) return mapped || undefined
-  if (!mapped) return engine
-  return {
-    ...engine,
-    // Mapper rows carry the rendered calibration status; engine rows
-    // carry a bare em-dash. Same instruments either way — both derive
-    // from the same presurvey fields via the same two slots.
-    instrumentRows: mapped.instrumentRows?.length ? mapped.instrumentRows : engine.instrumentRows,
-    // Only the engine builds the per-zone sampling table.
-    zoneRows: engine.zoneRows?.length ? engine.zoneRows : mapped.zoneRows,
-  }
-}
-
-function mergeAppendixE(engine, mapped) {
-  if (!engine) return mapped || undefined
-  if (!mapped) return engine
-  return {
-    ...engine,
-    // See the header: the engine's constant asserts a verification that
-    // never happens.
-    description: mapped.description || engine.description,
-    calibrationRecords: mapped.calibrationRecords?.length
-      ? mapped.calibrationRecords
-      : engine.calibrationRecords,
-    qaNotes: unionNotes(engine.qaNotes, mapped.qaNotes),
-  }
-}
 
 function pickStr(...vals) {
   for (const v of vals) {
@@ -182,8 +59,8 @@ function pickStr(...vals) {
  *
  * @internal Exported only for the parity test
  * (`tests/components/DocxReport-context.test.ts`). Production
- * callers go through `generateDocx` / `generateConsultantOnly` /
- * `generateTechnicalOnly` / `getConsultantDocxBlob`.
+ * callers go through `generateAtmosFlowOnly` / `getAtmosFlowDocxBlob` /
+ * `generateTechnicalOnly`.
  */
 export function buildContext(data) {
   const { building, presurvey, zones, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos, floorPlan, version, standardsManifest, assessmentContext, escalationTriggers } = data
@@ -256,300 +133,13 @@ export function buildContext(data) {
   }
 }
 
-async function generateConsultantDocx(ctx, data) {
-  const doc = await buildConsultantDocument(ctx, data)
-  const blob = await Packer.toBlob(doc)
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  // Distinct from the AtmosFlow report's file name (AtmosFlow-Report-…):
-  // both used to download as the same name, so the two different documents
-  // were indistinguishable on disk and one masked the other.
-  a.download = `AtmosFlow-Consultant-Report-${ctx.facilityName}.docx`
-  a.style.display = 'none'
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  setTimeout(() => URL.revokeObjectURL(url), 5000)
-}
-
-/**
- * Build the consultant DOCX as a `docx` Document. Same content
- * pipeline as generateConsultantDocx, factored out so callers that
- * need the blob (e.g. handleShare → navigator.share) can avoid the
- * download-as-side-effect.
- */
-/**
- * Derive client-facing SCIENTIFIC data gaps from the assessment itself
- * (what was not measured / not available) — distinct from the internal
- * readiness blockers in src/engines/validation.js. Returns an ordered
- * list of plain-language gap statements (canonical, linter-clean).
- */
-function deriveScientificDataGaps(data) {
-  const zones = Array.isArray(data?.zones) ? data.zones : []
-  const anyZoneHas = (key) => zones.some(z => z && String(z[key] ?? '').trim() !== '')
-  const gaps = []
-  if (!anyZoneHas('hc')) gaps.push(DATA_GAP_MESSAGES.hcho)
-  if (!anyZoneHas('co')) gaps.push(DATA_GAP_MESSAGES.co)
-  if (!anyZoneHas('tv')) gaps.push(DATA_GAP_MESSAGES.tvoc)
-  const hasOutdoor = ['co2o', 'tfo', 'rho', 'pmo', 'tvo'].some(anyZoneHas)
-  if (!hasOutdoor) gaps.push(DATA_GAP_MESSAGES.outdoor)
-  const hasSensor = Array.isArray(data?.sensorData) ? data.sensorData.length > 0 : !!data?.sensorData
-  if (!hasSensor) gaps.push(DATA_GAP_MESSAGES.continuous)
-  const lab = data?.labResults
-  const hasLab = Array.isArray(lab) ? lab.length > 0 : (lab && typeof lab === 'object' ? Object.keys(lab).length > 0 : false)
-  if (!hasLab) gaps.push(DATA_GAP_MESSAGES.lab)
-  return gaps
-}
-
-/**
- * Build the DOCX-layer instrument accuracy/calibration note input from
- * presurvey data. Reuses getCalibrationBannerState (the live calibration
- * gate helper) for the staleness line — no threshold is duplicated here.
- * Returns null when no primary IAQ instrument was recorded.
- */
-function buildInstrumentAccuracyInfo(presurvey) {
-  const ps = presurvey || {}
-  const name = ps.ps_inst_iaq
-  if (!name) return null
-  const calDate = ps.ps_inst_iaq_cal || null
-  const banner = getCalibrationBannerState(name, calDate)
-  let calibrationLine
-  if (!calDate) calibrationLine = `${name} calibration date not recorded.`
-  else if (banner && banner.kind === 'expired') calibrationLine = `${banner.message} (as of the report date).`
-  else if (banner && banner.kind === 'expiring') calibrationLine = `${banner.message}.`
-  else calibrationLine = `${name} calibration is current as of the report date.`
-  return {
-    iaqName: name,
-    iaqSerial: ps.ps_inst_iaq_serial || '',
-    iaqAccuracy: ps.ps_inst_iaq_accuracy || '',
-    calDate,
-    calStatus: ps.ps_inst_iaq_cal_status || '',
-    calibrationLine,
-    pidName: ps.ps_inst_pid || '',
-    pidAccuracy: ps.ps_inst_pid_accuracy || '',
-    pidCalStatus: ps.ps_inst_pid_cal || '',
-  }
-}
-
-/**
- * Build just the engine ClientReport result for an assessment — the same
- * meta → score → renderClientReport pipeline buildConsultantDocument uses,
- * stopping at the model. The editorial-review pass uses this to build a digest
- * of cuttable content whose ids match EXACTLY what the DOCX renders, so an
- * approved cut resolves to a real, renderer-honored suppression. Read-only:
- * it does not mutate the engine or the assessment.
- */
-export function getConsultantReportResult(data) {
-  const meta = deriveAssessmentMeta({
-    profile: data.profile,
-    presurvey: data.presurvey,
-    building: data.building,
-    assessmentDate: resolveAssessmentDate(data) || undefined,
-  })
-  const score = legacyToAssessmentScore(
-    data.zoneScores || [],
-    data.comp || null,
-    data.zones || [],
-    { meta, presurvey: data.presurvey, building: data.building },
-  )
-  return renderClientReport(score, {
-    includeAssessmentIndexAppendix: !!data.includeAssessmentIndexAppendix,
-  })
-}
-
-async function buildConsultantDocument(ctx, data) {
-  // v2.1 path: bridge legacy scoring data → AssessmentScore → ClientReport
-  // → docx. CIH-defensible deliverable.
-  const meta = deriveAssessmentMeta({
-    profile: data.profile,
-    presurvey: data.presurvey,
-    building: data.building,
-    assessmentDate: resolveAssessmentDate(data) || undefined,
-  })
-  let score = legacyToAssessmentScore(
-    data.zoneScores || [],
-    data.comp || null,
-    data.zones || [],
-    { meta, presurvey: data.presurvey, building: data.building },
-  )
-
-  // ── The IH score-override path was REMOVED (engine v2.9) ────────
-  //
-  // It existed to bypass the engine's refusal-to-issue: it mutated the
-  // score so the refusal triggers stopped firing, and a cover notice
-  // recorded what had been overridden. Since v2.9 the engine does not
-  // refuse — it always issues, carrying the fired triggers as
-  // `dataGapWarnings` rendered on the cover and under "Limitations on
-  // Reliance".
-  //
-  // That makes the old mechanism not merely unused but WRONG. Flipping
-  // `hasCalibrationRecords` (its calibration branch) would stop trigger
-  // 4 firing, which would now DELETE a real data gap from the issued
-  // report rather than disclose it. There is no longer anything to
-  // bypass, and suppressing a disclosure is the opposite of the intent.
-  //
-  // What the assessor actually needs — a record when they proceed past
-  // the calibration interrupt — is served by the calibration
-  // ACKNOWLEDGEMENT (src/utils/calibrationAcknowledgement.js), which
-  // adds an audit artifact instead of removing a warning.
-  const engineResult = renderClientReport(score, {
-    includeAssessmentIndexAppendix: !!data.includeAssessmentIndexAppendix,
-  })
-  // Augment with calibration appendices B + E. The engine declares both as
-  // optional readonly fields but does not populate them today; this layer
-  // fills them from presurvey data and preserves engine output if a future
-  // engine version starts emitting them itself. No engine files modified.
-  const result = augmentWithCalibrationAppendices(engineResult, data.presurvey, {
-    calibrationAcknowledgement: data.calibrationAcknowledgement,
-  })
-
-  // Supplemental sections are folded into the canonical model by
-  // buildClientDocx (sections-supplemental.js) rather than appended after
-  // the fact, so they share the section heading style, sit in the right
-  // position, get continuous appendix letters (after the engine's
-  // Appendix F), and register in the Table of Contents:
-  //   • (Removed) Additional Criteria Considered — the criteria-selection
-  //     note is no longer rendered in the consultant deliverable (product
-  //     decision, 2026-08, alongside the standards register and the
-  //     benchmark table). `buildMethodologyCurrency` and
-  //     `src/engines/contextualStandards.js` are retained and tested but
-  //     have no render site; delete them if that stays true.
-  //   • Laboratory Analytical Results — closes the CoC loop when the
-  //     assessor imported analytical CSV results (→ Appendix G).
-  //   • Environmental Evidence Graphs — report-ready IAQ timelines the
-  //     assessor flagged on the Sensor Data screen (→ Appendix H).
-  // Each builder returns null when it has nothing to render.
-  // The "CIH reasoning" report style (data.reportStyle === 'cih') adds four
-  // body sections, all derived from data the engine already emits (no
-  // engine edits): parameter explainers, the reported-concerns → evidence
-  // map, the Conceptual Site Model (source → pathway → receptor chains from
-  // causalChains), and a findings register carrying the engine's per-zone
-  // data confidence. Standard style omits all four.
-  const cihSections = data.reportStyle === 'cih'
-    ? [
-        buildParameterExplainers(data.zones),
-        buildReportedConcernsSection(data.presurvey, data.zones, data.zoneScores),
-        buildConceptualSiteModelSection(data.causalChains),
-        buildFindingsConfidenceRegister(data.zoneScores),
-        // Evidence Traceability Matrix (§17): finding -> evidence -> standard
-        // chain of custody, derived from the same knowledge-graph projection
-        // the Evidence Map UI and Jasper read. Null when no flagged findings.
-        buildEvidenceTraceabilityMatrix(buildGraphContext({
-          id: data.id, zones: data.zones, zoneScores: data.zoneScores,
-          causalChains: data.causalChains, recs: data.recs,
-        })),
-      ]
-    : []
-  const supplemental = {
-    bodySections: [
-      ...cihSections,
-    ].filter(Boolean),
-    appendices: [
-      buildLabResultsAppendix(data.labResults),
-      buildSensorGraphsAppendix(data.sensorData),
-    ].filter(Boolean),
-  }
-  const { cover, main } = buildClientDocx(result, {
-    photos: data.photos || ctx.photos || {},
-    // Drives the "Criteria Applied" table: one reference per parameter,
-    // resolved from the criterion the engine actually applied.
-    zones: data.zones || [],
-    zoneScores: data.zoneScores || [],
-    assessmentDate: resolveAssessmentDate(data) || undefined,
-    supplemental,
-    dataGaps: deriveScientificDataGaps(data),
-    instrumentAccuracy: buildInstrumentAccuracyInfo(data.presurvey),
-    // Human-approved editorial cuts from the review pass (may be absent).
-    editorialSuppressions: data.editorialSuppressions,
-  })
-
-  // Free-tier watermark: pass watermarkConfig from caller (e.g. resolved
-  // from the user's profile.plan upstream). When tier === 'free', adds
-  // header on every page, footer on every page, and a notice on the
-  // cover. Paid tier gets no header/footer/notice.
-  const watermarkConfig = data.watermarkConfig || null
-  const sectionWatermark = watermarkSectionAttachments(watermarkConfig)
-  const coverNotice = buildCoverNoticeParagraph(watermarkConfig)
-
-  const coverChildren = [
-    ...(cover.children || []),
-    ...(coverNotice ? [coverNotice] : []),
-  ]
-
-  // Formal running header/footer (firm · project no. / "Confidential —
-  // Prepared for {client}" · Page X of Y). Used as the BASE of the body
-  // merge so the free-tier watermark attachments still take precedence
-  // for their slots when present (their whole-object spread replaces
-  // this chrome). Paid reports — which previously had
-  // no running header/footer — get the formal chrome.
-  const reportChrome = reportSectionAttachments({
-    firm: meta.issuingFirm?.name,
-    projectNumber: meta.projectNumber,
-    clientName: meta.transmittalRecipient?.organization
-      || meta.transmittalRecipient?.fullName
-      || ctx.facilityName,
-  })
-
-  // Cover keeps only the watermark attachments (no formal running
-  // chrome on the title page); the body gets the chrome with the
-  // watermark layered on top.
-  const coverAttachments = {
-    ...sectionWatermark,
-  }
-  const bodyAttachments = {
-    ...reportChrome,
-    ...sectionWatermark,
-  }
-
-  return new Document({
-    creator: 'AtmosFlow — Prudence EHS',
-    title: `IAQ Assessment Report — ${ctx.facilityName}`,
-    description: 'Indoor Air Quality Assessment Report',
-    styles: DOCX_STYLES,
-    sections: [
-      { ...cover, children: coverChildren, ...coverAttachments },
-      {
-        // v2.5.1 — explicit Letter portrait + 1-inch margins so the
-        // body fills the 6.5-inch content area on US Letter paper.
-        // Restart page numbering at 1 for the body so the cover (its own
-        // section) is not counted in the "Page X of Y" footer.
-        properties: { ...BODY_SECTION_PROPERTIES, page: { ...LETTER_BODY_PAGE, pageNumbers: { start: 1 } } },
-        children: main,
-        ...bodyAttachments,
-      },
-    ],
-  })
-}
-
-/**
- * Build the AtmosFlow assessment DOCX — the EDITABLE, WATERMARK-FREE Word
- * deliverable, built 1:1 to the AtmosFlow Figma design.
- *
- * The RENDER MODEL is assembled here exactly as the PDF client path does
- * (src/utils/downloadReportPdf.js): `assembleRenderModel(data, opts)` from
- * src/report/reportModel.js — so every value (facility, ranges, findings,
- * recommendations, signature, chrome) comes from the real assessment. `mode`
- * is left as the default ('draft') — it is NEVER 'sample', a marketing
- * artifact. The Word document never draws a diagonal watermark regardless of
- * the report's status; that is the whole point of the editable deliverable.
- *
- * The document (Open Sans face, spectrum cover bar, teal section labels, page
- * geometry, running header/footer, numbering) is fully owned by
- * sections-atmosflow.js via `buildAtmosFlowDoc(model)`.
- *
- * Editorial suppressions do NOT apply here: the render-model carries no engine
- * findingIds, so there is nothing to suppress against. (Editorial suppression
- * remains on the Consultant Report, sections-v21client.js.)
- */
 export async function buildAtmosFlowDocument(data) {
   const model = assembleRenderModel(data || {})
   return buildAtmosFlowDoc(model)
 }
 
 /**
- * Generate and download the AtmosFlow assessment DOCX. Mirrors
- * generateConsultantDocx's download side-effect.
+ * Generate and download the AtmosFlow assessment DOCX.
  */
 export async function generateAtmosFlowOnly(data) {
   const ctx = buildContext(data)
@@ -620,52 +210,11 @@ async function generateTechnicalDocx(ctx) {
   setTimeout(() => URL.revokeObjectURL(url), 5000)
 }
 
-export async function generateDocx(data) {
-  const ctx = buildContext(data)
-  await generateConsultantDocx(ctx, data)
-  await generateTechnicalDocx(ctx)
-}
-
-export async function generateConsultantOnly(data) {
-  const ctx = buildContext(data)
-  await generateConsultantDocx(ctx, data)
-}
-
 export async function generateTechnicalOnly(data) {
   const ctx = buildContext(data)
   await generateTechnicalDocx(ctx)
 }
 
-/**
- * Build the full consultant DOCX and return it as a Blob without
- * triggering a download. Used by the result-screen Share button so
- * the assessor can hand off the same file the Word export produces
- * via navigator.share() (iOS Files, Mail, Slack, etc.) rather than
- * a side-of-the-road HTML print preview.
- */
-export async function getConsultantDocxBlob(data) {
-  const ctx = buildContext(data)
-  const doc = await buildConsultantDocument(ctx, data)
-  const blob = await Packer.toBlob(doc)
-  return {
-    blob,
-    // Distinct from the AtmosFlow report — see generateConsultantDocx.
-    fileName: `AtmosFlow-Consultant-Report-${ctx.facilityName}.docx`,
-  }
-}
-
-/**
- * Build a lightweight narrative-only DOCX (no cover ladder, no
- * appendices, no per-zone tables — just the AI-generated findings
- * narrative as a clean, shareable Word document with a header that
- * pins the facility and assessor and the same "Professional review
- * required" advisory the in-app view shows). Used by the Share
- * narrative button on the Narrative result tab.
- *
- * Kept structurally simple so it fits in messaging apps (small file
- * size, no embedded images) and reads as a draft for the reviewing
- * IH rather than as a finalized deliverable.
- */
 export async function getNarrativeDocxBlob({ facility, narrative, profile, ts }) {
   const facilityName = (facility && (typeof facility === 'string' ? facility : facility.fn)) || 'Assessment'
   const dateStr = ts ? new Date(ts).toLocaleDateString() : new Date().toLocaleDateString()

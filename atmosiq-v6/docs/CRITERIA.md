@@ -262,13 +262,12 @@ criterion exists and its citation matches.
 
 ## One criterion per parameter (built, not currently rendered)
 
-> **Status:** the **Criteria Applied** table was removed from the consultant
-> deliverable in 2026-08, along with the standards register and the other
-> standards sections — the report now names its criteria in the findings and
-> the Appendix D background instead. `applied-references.js` and its tests
-> are retained and green; re-composing the section is one line in
-> `sections-v21client.js`. The rest of this section describes how it works,
-> and the traps to avoid if it is restored.
+> **Status: DELETED.** The **Criteria Applied** table was removed from the
+> consultant deliverable in 2026-08, and `applied-references.js` was deleted
+> outright later that month when the consultant report itself was removed
+> (see "The consultant report (removed)" below). Nothing renders or builds it.
+> This section is kept as the design record: what the table was for, and the
+> traps to avoid if anything like it is built for the AtmosFlow report.
 
 The table lists each measured parameter once, with the single criterion it
 was evaluated against — the shape the Indoor Environmental Monitoring Report
@@ -421,3 +420,64 @@ Deliberately kept: `SITE_TYPES` in `projectStore.js` still offers "Data Center"
 as a project label. That is filing metadata for organising work, not the engine
 facility type — a consultant can still have a data-center client; they just get
 standard IAQ treatment rather than a specialty module.
+
+## The consultant report (removed)
+
+The consultant DOCX deliverable was removed in 2026-08 at the product owner's
+direction — it had accumulated too many defects to keep shipping.
+
+It was **one of two parallel client deliverables**, and the other one survives:
+
+| | Consultant report (removed) | AtmosFlow report (survives) |
+|---|---|---|
+| Pipeline | bridge → `renderClientReport` → `sections-v21client` | `assembleRenderModel` → `sections-atmosflow` |
+| File name | `AtmosFlow-Consultant-Report-…` | `AtmosFlow-Report-…` |
+| PDF paths | never used it | already used it, client and server |
+
+Removed with it, because each rendered only there: `sections-supplemental`,
+`sections-resurvey`, `applied-references`, `sections-methodology-currency`,
+`calibration-appendix`, `sections-lab-results`, `sections-sensor`,
+`sections-conceptual-model`, `sections-cih-reasoning`, `sections-traceability`,
+and the `reportStyle === 'cih'` flag that gated the last two.
+
+**Share and peer review now attach the AtmosFlow DOCX.** Both called
+`getConsultantDocxBlob`; the return shape is identical, so the change is the
+one call each.
+
+### Three consequences, all accepted deliberately
+
+1. **The calibration record and the acknowledgement no longer appear in any
+   deliverable.** They lived in the consultant report's Appendix B and the
+   Appendix E QA notes. The acknowledgement is still built at the interrupt,
+   still persisted to `assessments.calibration_acknowledgement`, and still
+   emitted append-only to `audit_log` — only the client-facing disclosure
+   ended. The finalization gate itself is untouched.
+2. **The editorial-review feature is gone end to end** — the panel, the
+   `api/report-editorial-review` endpoint, `editorialSuppressions.js`,
+   `editorialReviewDigest.js`, and the read/write mapping in
+   `supabaseStorage.js`. Only the consultant renderer honoured a suppression;
+   `sections-atmosflow.js` reads none, because its render model carries no
+   engine `findingId` to suppress against. Keeping the panel would have
+   shipped an AI proposal + human approval flow that changed no output.
+   The `editorial_suppressions` DB column is left alone — legacy rows keep
+   their data, nothing reads it.
+3. **The honesty guards went with it.** `cross-layer-consistency`,
+   `no-standards-register`, `omitted-consultant-sections`, `canonical-sections`,
+   `v22-docx-aesthetics`, `v22-toc` and `cih-report-integration` all rendered
+   the consultant DOCX. **The AtmosFlow report has never been held to any of
+   them** and is now the only client deliverable. Porting them was offered and
+   deferred; it is the obvious next piece of work. Note in particular that
+   `sections-atmosflow.js` renders an "Appendix A — Standards & References",
+   which is the standards register `no-standards-register.test.ts` existed to
+   keep out of the consultant report.
+
+`renderClientReport` and `src/engine/report/` are **retained** — `PrintReport.jsx`
+renders the HTML print view from them, and the investigation agent shares
+`provenance.ts`, `recommendations.ts` and `parameter-ranges.ts`. Roughly twenty
+suites still exercise that pipeline. Only the DOCX deliverable went.
+
+Also removed: the legacy v2.3–v2.6 acceptance configs and the two fixture
+renderers that fed them. Every `rendered_*` check in those configs read a
+consultant DOCX rendered to `/tmp`, so none of them could run again.
+`tests/engine/no-consultant-report.test.ts` and the `NO-CONSULTANT-REPORT`
+acceptance criterion keep the removal from creeping back one helper at a time.

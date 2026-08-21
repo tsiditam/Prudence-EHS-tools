@@ -20,7 +20,6 @@ import * as Sentry from '@sentry/react'
 import { compactPhotos, expandPhotos, purgeAssessmentPhotos } from './photoCompaction'
 import { resolveLifecycle, toLegacyStatus } from '../constants/reportLifecycle'
 import { normalizeAcknowledgement } from './calibrationAcknowledgement'
-import { normalizeEditorialSuppressions } from './editorialSuppressions'
 
 /**
  * Lifecycle for a cloud row, tolerant of rows written before migration
@@ -107,9 +106,6 @@ export function fromCloudRow(a) {
       calibrationAcknowledgement: normalizeAcknowledgement(
         a.calibration_acknowledgement ?? a.payload.calibrationAcknowledgement,
       ),
-      editorialSuppressions: normalizeEditorialSuppressions(
-        a.editorial_suppressions ?? a.payload.editorialSuppressions,
-      ),
       photos: a.photos ?? a.payload.photos ?? {},
       ts: a.updated_at ?? a.payload.ts,
     }
@@ -144,10 +140,6 @@ export function fromCloudRow(a) {
   // "the cloud has nothing to say", not "there was no acknowledgement".
   const ack = normalizeAcknowledgement(a.calibration_acknowledgement)
   if (ack) out.calibrationAcknowledgement = ack
-  // Same "absent means the cloud has nothing to say" discipline as the
-  // acknowledgement above — never push a null over a local suppressions set.
-  const supp = normalizeEditorialSuppressions(a.editorial_suppressions)
-  if (supp) out.editorialSuppressions = supp
   return out
 }
 
@@ -518,10 +510,6 @@ const SupaStorage = {
             // the true statement, not a missing value.
             calibration_acknowledgement:
               normalizeAcknowledgement(assessment.calibrationAcknowledgement) || null,
-            // Editorial cuts the reviewing professional approved. Null when
-            // none were applied.
-            editorial_suppressions:
-              normalizeEditorialSuppressions(assessment.editorialSuppressions) || null,
             facility_name: assessment.building?.fn || assessment.bldg?.fn,
             facility_address: assessment.building?.fl || assessment.bldg?.fl,
             presurvey: assessment.presurvey || {},

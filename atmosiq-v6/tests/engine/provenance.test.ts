@@ -14,7 +14,6 @@
  * guard nothing. `1450 ppm` and `72°F` are assertions; `S520` is a name.
  */
 import { describe, it, expect } from 'vitest'
-import JSZip from 'jszip'
 
 import {
   deriveClaimProvenance, ungroundedQuantities, extractQuantities, groundingSet,
@@ -25,7 +24,6 @@ import { computeParameterRanges } from '../../src/engine/report/parameter-ranges
 import { getField } from '../../src/constants/field-registry.js'
 import { scoreZone, compositeScore } from '../../src/engines/scoring.js'
 import { buildCausalChains } from '../../src/engines/causalChains.js'
-import { getConsultantDocxBlob } from '../../src/components/DocxReport.js'
 
 type Zone = Record<string, any>
 
@@ -263,47 +261,3 @@ describe('what counts as a quantity', () => {
 
 // ── The rendered artifact ─────────────────────────────────────────────
 
-describe('the report states the measurements it was given', () => {
-  it('parameter prose agrees with computeParameterRanges, figure for figure', async () => {
-    // Where the 72°F contradiction lived. The prose is generated from the
-    // ranges; this asserts the document actually says what they hold, so
-    // a renderer cannot drift back to computing its own.
-    const zones = FIXTURES[0].zones
-    const zoneScores = zones.map((z) => scoreZone(z, BUILDING))
-    const { blob } = await getConsultantDocxBlob({
-      building: BUILDING, presurvey: PRESURVEY, zones, zoneScores,
-      comp: compositeScore(zoneScores),
-      causalChains: buildCausalChains(zones, BUILDING, zoneScores),
-      profile: { name: 'J. Smith, CIH' }, photos: {}, version: '6.0.0', userMode: 'ih',
-    })
-    const zip = await JSZip.loadAsync(Buffer.from(await blob.arrayBuffer()))
-    const xml = await zip.file('word/document.xml')!.async('string')
-    const text = xml.split('</w:p>')
-      .map((p) => (p.match(/<w:t[^>]*>([^<]*)<\/w:t>/g) || []).map((t) => t.replace(/<[^>]+>/g, '')).join(''))
-      .filter(Boolean).join('\n')
-
-    const ranges = computeParameterRanges(zones, zoneScores)
-    const PROSE_LABEL: Record<string, string> = {
-      co2: 'Carbon dioxide', pm25: 'PM2.5', tvoc: 'Total VOCs',
-      hcho: 'Formaldehyde', temperature: 'Temperature', rh: 'Relative humidity',
-    }
-    let checked = 0
-    for (const [param, label] of Object.entries(PROSE_LABEL)) {
-      const range = (ranges as any)[param]
-      if (!range) continue
-      const line = text.split('\n').find((l) => l.startsWith(`${label} ranged from`))
-      if (!line) continue
-      checked += 1
-      const stated = (line.match(/\d+(?:\.\d+)?/g) || []).map(Number)
-      for (const figure of [range.low, range.high, range.average]) {
-        expect(stated, `${label}: the report does not state ${figure}, which the ranges hold`)
-          .toContain(figure)
-      }
-      if (range.outdoorReference !== undefined) {
-        expect(line, `${label}: outdoor reference missing from the prose`)
-          .toContain(String(range.outdoorReference))
-      }
-    }
-    expect(checked, 'no parameter prose was found to check').toBeGreaterThan(3)
-  }, 60000)
-})

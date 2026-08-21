@@ -62,7 +62,7 @@ Read these directories first when investigating any task:
   `LandingPage.jsx`, `AuthScreen.jsx`, `SettingsScreen.jsx`,
   `AdminDashboard.jsx`, `DocxReport.js`.
 - `src/components/docx/` — DOCX section builders
-  (sections-core, sections-v21client, sections-recommendations, etc.).
+  (sections-core, sections-atmosflow, sections-recommendations, etc.).
 - `src/components/pricing/` — Pricing UI: `PricingSheet.jsx`, `tiers.js`.
 - `components/onboarding/FirstAssessmentTour.tsx` (root, not under src/)
   — first-assessment guided tour. The TSX components for onboarding,
@@ -358,30 +358,40 @@ When working on report generation:
 - **Journal citations must be verified.** Title, journal, volume,
   issue, pages, year — all from primary sources. Flag unverified
   entries with TODO and exclude from generated reports.
-- **The consultant report carries no standards sections.** Five were removed
-  in 2026-08 after a CIH review found the report overbuilt for the work
-  behind it: the Appendix D standards register, **Criteria Applied** (was
-  "Standards, Guidelines, and Benchmark Types"), **Additional Criteria
-  Considered** (was "Standards Currency"), **Potential Contributing
-  Factors**, and **Appendix F — Glossary**. Each restated in a dedicated
-  section something the report already says where it matters; a reviewer
-  reads the standards off the findings and the Appendix D background, which
-  is the convention in this field.
+- **The consultant report was REMOVED in 2026-08.** It had accumulated too
+  many defects to keep shipping. It was one of two parallel client
+  deliverables; the **AtmosFlow report** (`assembleRenderModel` →
+  `sections-atmosflow.js`) is the survivor and is now the only client DOCX.
+  Share and peer review attach it. `renderClientReport` and
+  `src/engine/report/` are retained — PrintReport.jsx and the investigation
+  agent use them — but no DOCX renders them. Full account, including three
+  accepted consequences, in docs/CRITERIA.md.
 
-  The builders are all retained and still unit-tested — this is a
-  composition decision, reversible by re-adding one line each — but nothing
-  renders them. `tests/engine/omitted-consultant-sections.test.ts` and
-  `no-standards-register.test.ts` fail if any returns, and they check the
-  table of contents as well as the body: a removal that deletes only the
-  section leaves the contents page pointing at nothing, which is how
-  "Standards, Guidelines, and Benchmark Types" survived its own rename.
+  *Historical, and the reason several sections below are described as
+  "removed" rather than "never built":* five standards sections had already
+  been cut from that report in 2026-08 after a CIH review found it overbuilt
+  — the Appendix D standards register, **Criteria Applied**, **Additional
+  Criteria Considered**, **Potential Contributing Factors**, and **Appendix F
+  — Glossary**.
 
-  `applied-references.js` (one criterion per parameter, resolved from what
-  the engine applied) is unrendered but intact; `docs/CRITERIA.md` explains
-  it. If it is ever restored, do NOT source its citation from a fixed
-  per-parameter default — the Logger Studio temperature default resolves
-  ASHRAE 55's *acceptable* range while the engine flags the tighter *optimal*
-  band, so a fixed reference contradicts the finding beside it.
+  Those builders, and the tests that kept them out
+  (`omitted-consultant-sections`, `no-standards-register`), were deleted with
+  the report in the removal above — along with `applied-references.js`,
+  `sections-supplemental.js`, `sections-resurvey.js` and the rest of the
+  consultant-only section set.
+
+  **Carry the lesson to the surviving report.** `sections-atmosflow.js`
+  renders an "Appendix A — Standards & References", which is exactly the
+  standards register `no-standards-register.test.ts` existed to keep out of a
+  deliverable. Nothing currently stops it. If that register is reconsidered,
+  note the trap the old guard caught: check the table of contents as well as
+  the body — a removal that deletes only the section leaves the contents page
+  pointing at nothing, which is how "Standards, Guidelines, and Benchmark
+  Types" survived its own rename. And if a one-criterion-per-parameter table
+  is ever built again, do NOT source its citation from a fixed per-parameter
+  default — the Logger Studio temperature default resolves ASHRAE 55's
+  *acceptable* range while the engine flags the tighter *optimal* band, so a
+  fixed reference contradicts the finding beside it.
 - **Every layer must say the same thing about the same data.** The report is
   assembled by layers that each used to form their own opinion — the legacy
   scorer, the bridge, the professional-opinion rollup, the phrase library,
@@ -411,11 +421,15 @@ When working on report generation:
      and **monotonicity in confidence** (better evidence never lowers the
      tier — a visual observation once outranked an instrument measurement).
 
-  `tests/engine/cross-layer-consistency.test.ts` is the backstop. It renders
-  real consultant reports across a fixture matrix and asserts the layers
-  agree with each other and with the engine — not that any layer is right on
-  its own. It is verified to fail when each fix is reverted; keep it that
-  way, and add a fixture whenever a new contradiction is found.
+  **The backstop is currently missing.** `cross-layer-consistency.test.ts`
+  rendered real *consultant* reports across a fixture matrix and asserted the
+  layers agreed with each other and with the engine. The consultant report was
+  removed in 2026-08 (see below) and that test went with it. The three rules
+  above still hold and are still individually tested, but nothing now renders
+  the surviving deliverable and checks the layers against each other.
+  **Re-establishing that on the AtmosFlow report is the highest-value open
+  work in this area** — see docs/CRITERIA.md, "The consultant report
+  (removed)".
 - **A threshold travels with its averaging period, class and source.**
   `src/constants/criteria.js` is the registry; `docs/CRITERIA.md` explains
   it. Never compare a measured value against a bare number from `STD` —
