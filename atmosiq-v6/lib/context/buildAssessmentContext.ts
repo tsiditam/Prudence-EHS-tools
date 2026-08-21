@@ -145,6 +145,28 @@ export function buildAssessmentContext(state: RawAssessmentState): AssessmentCon
   const composite = s.comp ?? s.composite ?? null
   const hasEngineOutputs = composite != null
 
+  // Where the investigation stands. Derived BEFORE the readiness verdict
+  // because the verdict reads it: an explanation left live and never
+  // measured against is a defensibility gap, and only this state knows
+  // which those are. See the note at the original derivation site below —
+  // moved up here, unchanged, purely for ordering.
+  let investigation: InvestigationState | null = null
+  if (zones.length > 0) {
+    try {
+      investigation = deriveInvestigation({
+        zonesData: zones,
+        buildingData: building,
+        zoneScores: Array.isArray(s.zoneScores) ? s.zoneScores : undefined,
+        samplingPlan: (s.samplingPlan as SamplingPlanLike | null | undefined) ?? null,
+        causalChains: Array.isArray(s.causalChains)
+          ? (s.causalChains as ReadonlyArray<CausalChainLike>)
+          : null,
+      })
+    } catch {
+      investigation = null
+    }
+  }
+
   // Readiness verdict — only meaningful once the engine has scored.
   // Mirrors the gating MobileApp.jsx applies today (comp present).
   let readiness_verdict: ReadinessVerdict | null = null
@@ -162,6 +184,7 @@ export function buildAssessmentContext(state: RawAssessmentState): AssessmentCon
         photoOverrides: s.photoOverrides,
         confidence: s.confidence,
         profile: s.profile ? { name: (s.profile as Record<string, unknown>).name } : null,
+        investigation,
       }) as ReadinessVerdict
     } catch {
       readiness_verdict = null
@@ -174,29 +197,6 @@ export function buildAssessmentContext(state: RawAssessmentState): AssessmentCon
     logger_data_summary = summarizeLoggerForContext(s.sensorData as never)
   } catch {
     logger_data_summary = null
-  }
-
-  // Where the investigation stands. Derived here rather than stored so
-  // every consumer of this context reads the same reasoning the engine
-  // supports right now — an agent that keeps its own hypothesis list is an
-  // agent that eventually contradicts the report. Defensive for the same
-  // reason the readiness verdict is: a partial draft must not break the
-  // context that the chat assistant depends on.
-  let investigation: InvestigationState | null = null
-  if (zones.length > 0) {
-    try {
-      investigation = deriveInvestigation({
-        zonesData: zones,
-        buildingData: building,
-        zoneScores: Array.isArray(s.zoneScores) ? s.zoneScores : undefined,
-        samplingPlan: (s.samplingPlan as SamplingPlanLike | null | undefined) ?? null,
-        causalChains: Array.isArray(s.causalChains)
-          ? (s.causalChains as ReadonlyArray<CausalChainLike>)
-          : null,
-      })
-    } catch {
-      investigation = null
-    }
   }
 
   const lifecycle = resolveLifecycle(s as Record<string, unknown>)

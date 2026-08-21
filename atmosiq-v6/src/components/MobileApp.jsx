@@ -32,6 +32,7 @@ import { getSubscriptionBannerState, BILLING_MODE } from '../utils/subscriptionS
 import { VER, STANDARDS_MANIFEST } from '../constants/standards'
 import { Q_PRESURVEY, Q_BUILDING, Q_ZONE, Q_QUICKSTART, Q_DETAILS, SENSOR_FIELDS } from '../constants/questions'
 import { BUILDING_SCOPED_IDS } from '../constants/field-registry'
+import { deriveInvestigation } from '../engine/investigation'
 import { scoreZone, compositeScore, evalOSHA, calcVent, genRecs, evalMold, evalMeasurementConfidence } from '../engines/scoring'
 import { generateSamplingPlan } from '../engines/sampling'
 import { buildCausalChains } from '../engines/causalChains'
@@ -1228,6 +1229,25 @@ export default function MobileApp() {
       const next = [...prev]; next[curZone] = {...(next[curZone]||{}), [id]:v}; return next
     })
   }, [curZone, OUTDOOR_SENSOR_IDS, setZones])
+  // The investigation state behind the Readiness panel's gap list.
+  // buildAssessmentContext derives its own from the same inputs; both
+  // call one pure function, so they agree by construction and a test
+  // pins that rather than trusting it.
+  const readinessInvestigation = useMemo(() => {
+    if (!Array.isArray(zones) || zones.length === 0) return null
+    try {
+      return deriveInvestigation({
+        zonesData: zones,
+        buildingData: bldg || {},
+        zoneScores: Array.isArray(zoneScores) ? zoneScores : undefined,
+        samplingPlan: samplingPlan || null,
+        causalChains: Array.isArray(causalChains) ? causalChains : null,
+      })
+    } catch {
+      return null
+    }
+  }, [zones, bldg, zoneScores, samplingPlan, causalChains])
+
   // Bumped when an accepted Jasper write lands, so the engine re-runs
   // against the record as it now stands. A counter rather than a boolean:
   // two writes accepted in quick succession are two rescores, and a
@@ -2806,6 +2826,12 @@ export default function MobileApp() {
               presurvey, building: bldg, client: bldg && bldg.client ? bldg.client : {},
               zones, zoneScores, recs, photos, photoOverrides,
               profile: profile ? { name: profile.name } : null,
+              // The readiness verdict reads this to report explanations
+              // left live and never measured against. Supplied here as
+              // well as in buildAssessmentContext so the panel and the
+              // context cannot show different gap sets for one
+              // assessment — same pure function, same inputs.
+              investigation: readinessInvestigation,
             }}
             onFeedback={()=>openFeedback('Findings & readiness')}
             onFix={archived ? (viewRpt?.id ? resumeAndFix : undefined) : fixBlocker}

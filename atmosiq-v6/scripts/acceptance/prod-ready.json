@@ -1977,6 +1977,21 @@
         { "type": "grep_matches", "pattern": "would catch a silent unit conversion", "paths": ["tests/engine/provenance.test.ts"] },
         { "type": "grep_matches", "pattern": "would catch a band the engine did not apply", "paths": ["tests/engine/provenance.test.ts"] }
       ]
+    },
+    {
+      "id": "INVESTIGATION-READINESS-GAPS",
+      "label": "Readiness reports explanations the assessment left live and never measured against",
+      "checks": [
+        { "type": "file_exists", "path": "src/engines/investigation-gaps.js" },
+        { "type": "file_exists", "path": "tests/engine/investigation-gaps.test.ts" },
+        { "type": "grep_matches", "pattern": "export function detectInvestigationGaps", "paths": ["src/engines/investigation-gaps.js"] },
+        { "type": "grep_matches", "pattern": "detectInvestigationGaps\\(assessment.investigation\\)", "paths": ["src/engines/readiness-verdict.js"] },
+        { "type": "grep_matches", "pattern": "differential_unresolved", "paths": ["src/engines/investigation-gaps.js", "src/components/ReadinessPanel.jsx"], "minCount": 2 },
+        { "type": "grep_matches", "pattern": "untested_differential", "paths": ["src/engines/investigation-gaps.js", "src/components/ReadinessPanel.jsx"], "minCount": 2 },
+        { "type": "grep_matches", "pattern": "investigation,", "paths": ["lib/context/buildAssessmentContext.ts"] },
+        { "type": "grep_matches", "pattern": "investigation: readinessInvestigation", "paths": ["src/components/MobileApp.jsx"] },
+        { "type": "grep_matches", "pattern": "export const PARAMETER_LABEL", "paths": ["src/engine/investigation.ts"] }
+      ]
     }
   ]
 }

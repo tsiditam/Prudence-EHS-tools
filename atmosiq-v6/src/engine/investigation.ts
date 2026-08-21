@@ -258,8 +258,15 @@ const SAMPLING_TYPE_TO_RULE: Readonly<Record<string, HypothesisRuleKey>> = {
   'ISO 14644-1 Particle Count': 'hyp_particulate',
 }
 
-/** Reader-facing parameter names. Editorial — no threshold semantics. */
-const PARAMETER_LABEL: Record<ParameterKey, string> = {
+/**
+ * Reader-facing parameter names. Editorial — no threshold semantics.
+ *
+ * Exported because the readiness gaps quote untested parameters back to
+ * the assessor, and "the measurement that bears on it — co — was not
+ * taken" is an internal key leaking into a sentence a professional reads.
+ * One label map, not two.
+ */
+export const PARAMETER_LABEL: Record<ParameterKey, string> = {
   co2: 'carbon dioxide',
   co: 'carbon monoxide',
   hcho: 'formaldehyde',

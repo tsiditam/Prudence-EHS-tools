@@ -47,7 +47,12 @@ export interface ReadinessBlockerDetail {
   readonly severity?: string
 }
 
-/** Defensibility gap surfaced by detectDefensibilityGaps(). */
+/**
+ * A gap surfaced by detectDefensibilityGaps() or detectInvestigationGaps().
+ * One shape for both streams: the first asks whether the evidence around a
+ * finding is documented, the second whether the explanations the report did
+ * not choose were ever tested.
+ */
 export interface DefensibilityGap {
   readonly kind?: string
   readonly severity?: string
