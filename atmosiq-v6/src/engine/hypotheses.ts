@@ -438,6 +438,45 @@ function hypothesisAtmosphericCorrosion(input: HypothesisInput): Hypothesis | nu
   }
 }
 
+// ── Rule keys ─────────────────────────────────────────────────
+
+/**
+ * The id prefix each rule stamps onto the hypotheses it emits. `makeId`
+ * appends `_<hash>` to one of these, so the prefix survives as a stable
+ * identity for the RULE even though the id itself varies with the
+ * triggering observations.
+ *
+ * Downstream reasoning (src/engine/investigation.ts) keys its parameter
+ * and sampling maps off these, so a rule can be renamed in prose without
+ * breaking the mapping — and a NEW rule that forgets to register a key
+ * fails `hypothesis-rule-keys` in tests/engine/investigation.test.ts
+ * rather than silently dropping out of the differential.
+ */
+export const HYPOTHESIS_RULE_KEYS = [
+  'hyp_ventilation',
+  'hyp_bioaerosol',
+  'hyp_voc',
+  'hyp_particulate',
+  'hyp_combustion',
+  'hyp_corrosion',
+] as const
+
+export type HypothesisRuleKey = typeof HYPOTHESIS_RULE_KEYS[number]
+
+const RULE_KEY_SET: ReadonlySet<string> = new Set(HYPOTHESIS_RULE_KEYS)
+
+/**
+ * Recover the rule key from a hypothesis id. Returns null when the id was
+ * not produced by a registered rule — callers treat that as "not one of
+ * ours" rather than guessing.
+ */
+export function ruleKeyOf(h: { readonly id: string }): HypothesisRuleKey | null {
+  const cut = h.id.lastIndexOf('_')
+  if (cut <= 0) return null
+  const prefix = h.id.slice(0, cut)
+  return RULE_KEY_SET.has(prefix) ? (prefix as HypothesisRuleKey) : null
+}
+
 // ── Public entry point ────────────────────────────────────────
 
 const RULES: ReadonlyArray<(input: HypothesisInput) => Hypothesis | null> = [

@@ -33,6 +33,7 @@
  *     lib/jasper/logger-context-summary.ts.
  */
 
+import type { InvestigationState } from '../../src/engine/investigation'
 import type { LoggerContextSummary } from '../jasper/logger-context-summary'
 import type { KGContext } from '../../src/types/knowledgeGraph'
 
@@ -194,6 +195,15 @@ export interface AssessmentContext {
   readonly readiness_verdict: ReadinessVerdict | null
   readonly report_draft_state: ReportDraftState | null
   readonly calibration_acknowledgement: CalibrationAcknowledgementSummary | null
+  /**
+   * Where the investigation stands — which explanations are live, what
+   * evidence bears on each, which test would separate the leaders, and the
+   * single next step. Derived fresh on every build by
+   * `deriveInvestigation()` from the outputs already in this context; it is
+   * never stored or carried forward, so it cannot drift away from what the
+   * engine concluded. Null before any zone exists.
+   */
+  readonly investigation: InvestigationState | null
 }
 
 /**

@@ -30,6 +30,10 @@ import { ENGINE_VERSION } from '../../src/version.js'
 import { resolveLifecycle } from '../../src/constants/reportLifecycle.js'
 import { normalizeAcknowledgement } from '../../src/utils/calibrationAcknowledgement.js'
 import { buildReadinessVerdict } from '../../src/engines/readiness-verdict.js'
+import {
+  deriveInvestigation,
+  type CausalChainLike, type InvestigationState, type SamplingPlanLike,
+} from '../../src/engine/investigation'
 import { summarizeLoggerForContext } from '../jasper/logger-context-summary'
 import type {
   AssessmentContext,
@@ -172,6 +176,29 @@ export function buildAssessmentContext(state: RawAssessmentState): AssessmentCon
     logger_data_summary = null
   }
 
+  // Where the investigation stands. Derived here rather than stored so
+  // every consumer of this context reads the same reasoning the engine
+  // supports right now — an agent that keeps its own hypothesis list is an
+  // agent that eventually contradicts the report. Defensive for the same
+  // reason the readiness verdict is: a partial draft must not break the
+  // context that the chat assistant depends on.
+  let investigation: InvestigationState | null = null
+  if (zones.length > 0) {
+    try {
+      investigation = deriveInvestigation({
+        zonesData: zones,
+        buildingData: building,
+        zoneScores: Array.isArray(s.zoneScores) ? s.zoneScores : undefined,
+        samplingPlan: (s.samplingPlan as SamplingPlanLike | null | undefined) ?? null,
+        causalChains: Array.isArray(s.causalChains)
+          ? (s.causalChains as ReadonlyArray<CausalChainLike>)
+          : null,
+      })
+    } catch {
+      investigation = null
+    }
+  }
+
   const lifecycle = resolveLifecycle(s as Record<string, unknown>)
 
   // snake_case here, camelCase in the storage shape: the context is a
@@ -253,5 +280,6 @@ export function buildAssessmentContext(state: RawAssessmentState): AssessmentCon
         }
       : null,
     calibration_acknowledgement,
+    investigation,
   }
 }

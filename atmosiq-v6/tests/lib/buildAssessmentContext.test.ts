@@ -118,6 +118,7 @@ const EXPECTED_TOP_KEYS = [
   'meta', 'project', 'building', 'zones', 'walkthrough_findings',
   'logger_data_summary', 'photos', 'engine_outputs',
   'readiness_verdict', 'report_draft_state', 'calibration_acknowledgement',
+  'investigation',
 ].sort()
 
 /**
@@ -147,6 +148,9 @@ describe('buildAssessmentContext', () => {
     expect(ctx.photos).toEqual([])
     expect(ctx.engine_outputs).toBeNull()
     expect(ctx.readiness_verdict).toBeNull()
+    // No zones means no investigation — not an empty one. An empty
+    // investigation object would read as "we looked and found nothing".
+    expect(ctx.investigation).toBeNull()
     expect(ctx.logger_data_summary).toBeNull()
     expect(ctx.report_draft_state).toBeNull()
     expect(ctx.calibration_acknowledgement).toBeNull()

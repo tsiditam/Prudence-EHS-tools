@@ -17,6 +17,9 @@
  *   • search_standards_corpus — L3: TF-IDF over the curated standards corpus
  *   • analyze_photo          — L4: multimodal photo analysis via Anthropic
  *     vision, using the same screening-only prompt as /api/photo-analyze
+ *   • assess_investigation   — L5: reads the investigation state the client
+ *     derived (src/engine/investigation.ts) — live differentials, the
+ *     evidence bearing on each, the discriminating test, the next step
  *
  * Engine-sacred constraint:
  *   No imports from src/engine/ or src/engines/. The vision tool calls
@@ -190,6 +193,16 @@ export const FIELD_ASSISTANT_TOOLS = [
         },
       },
       required: ['action_type', 'summary'],
+    },
+  },
+  {
+    name: 'assess_investigation',
+    description:
+      "Read the current state of the IAQ investigation for the assessment the assessor has open. Returns: which explanations (differentials) are still live and how the measurements bear on each, the single test that would separate the two leaders, what is still unknown, and the one next step worth taking. Call this FIRST whenever the assessor asks what is going on, what is causing this, what they should do next, what else it could be, whether they can leave the site, or whether they have enough to write the report — and before naming any explanation for an assessment. The differentials come from the deterministic engine: report the ones this tool returns and do NOT introduce, rename, merge, or rank explanations of your own. The tool takes no arguments; it reads the loaded assessment. Returns status:no_assessment when nothing is loaded, in which case answer as a general IAQ question instead.",
+    input_schema: {
+      type: 'object',
+      properties: {},
+      required: [],
     },
   },
   {
@@ -423,6 +436,9 @@ Return the JSON object specified in your system prompt.`
  *   - anthropicApiKey: string                  — for analyze_photo
  *   - fetchFn: typeof fetch                    — for analyze_photo
  *   - recordVisionUsage?: (usage) => void      — optional ledger hook
+ *   - supabase, userId                         — for generate_report
+ *   - assessmentContext                        — for assess_investigation;
+ *     the client-built context whose `investigation` field is read as-is
  */
 export async function dispatchTool(name, input, ctx = {}) {
   try {
@@ -601,6 +617,46 @@ export async function dispatchTool(name, input, ctx = {}) {
         // assume the action has been applied — it should tell the
         // user to tap Accept.
         message: 'Action proposed. The user will see an Accept / Reject card and decide.',
+      }
+    }
+
+    if (name === 'assess_investigation') {
+      // Read-only projection of an object the CLIENT derived, in the same
+      // pass that built the rest of the context. Nothing is computed here
+      // and nothing may be: src/engine/investigation.ts is the one place
+      // that decides what the investigation currently supports, and a
+      // second derivation on the server would be a second opinion.
+      //
+      // This dispatcher also cannot import it — the file is TypeScript and
+      // this module is plain ESM on the Vercel runtime, the same boundary
+      // documented for the docx renderer at the top of this file.
+      const ctxAssessment = ctx && ctx.assessmentContext
+      const state = ctxAssessment && typeof ctxAssessment === 'object'
+        ? ctxAssessment.investigation
+        : null
+      if (!state || typeof state !== 'object' || state.stage === 'no_assessment') {
+        return {
+          status: 'no_assessment',
+          message:
+            'No scored assessment is loaded, so there is no investigation to report on. Answer the assessor as a general IAQ question, and do not describe an investigation state, differentials, or a next step as if one existed.',
+        }
+      }
+      return {
+        status: 'ok',
+        stage: state.stage,
+        rationale: state.rationale,
+        hypotheses: state.hypotheses,
+        discriminating_tests: state.discriminatingTests,
+        open_questions: state.openQuestions,
+        next_step: state.nextStep,
+        additional_considerations: state.additionalConsiderations,
+        usage_rules: [
+          'The hypotheses array is the complete set of live explanations. Do not add one, rename one, or drop one.',
+          'A hypothesis with status "untested" has not been measured against — say so rather than implying it has been ruled out.',
+          'A hypothesis with status "not_supported_by_measurement" was measured against and the engine flagged nothing; it is weakened, not disproven, because the measurement was a single point in time.',
+          'Report next_step as the one thing worth doing next, and say what its result would settle.',
+          'stage is the engine\'s reading of where the investigation stands. Do not describe it as concluded unless stage is "concluded".',
+        ],
       }
     }
 

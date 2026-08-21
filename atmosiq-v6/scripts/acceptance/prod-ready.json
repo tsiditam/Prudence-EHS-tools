@@ -1908,6 +1908,26 @@
           "path": "tests/components/MonitoringReportSheet.test.tsx"
         }
       ]
+    },
+    {
+      "id": "IAQ-INVESTIGATION-AGENT",
+      "label": "IAQ investigation agent wired end-to-end (engine \u2192 context \u2192 Jasper tool \u2192 chat card)",
+      "checks": [
+        { "type": "file_exists", "path": "src/engine/investigation.ts" },
+        { "type": "file_exists", "path": "tests/engine/investigation.test.ts" },
+        { "type": "file_exists", "path": "tests/api/jasper-investigation.test.ts" },
+        { "type": "grep_matches", "pattern": "export function deriveInvestigation", "paths": ["src/engine/investigation.ts"] },
+        { "type": "grep_matches", "pattern": "export const HYPOTHESIS_RULE_KEYS", "paths": ["src/engine/hypotheses.ts"] },
+        { "type": "grep_matches", "pattern": "investigation = deriveInvestigation\\(\\{", "paths": ["lib/context/buildAssessmentContext.ts"] },
+        { "type": "grep_matches", "pattern": "readonly investigation: InvestigationState \\| null", "paths": ["lib/context/types.ts"] },
+        { "type": "grep_matches", "pattern": "name: 'assess_investigation'", "paths": ["src/constants/field-assistant-tools.js"] },
+        { "type": "grep_matches", "pattern": "name === 'assess_investigation'", "paths": ["src/constants/field-assistant-tools.js"] },
+        { "type": "grep_matches", "pattern": "writeSse\\(res, 'investigation_state'", "paths": ["api/field-assistant.ts"] },
+        { "type": "grep_matches", "pattern": "frame.event === 'investigation_state'", "paths": ["src/hooks/useFieldAssistant.js"] },
+        { "type": "grep_matches", "pattern": "<InvestigationCard", "paths": ["src/components/FieldAssistant.jsx"] },
+        { "type": "grep_matches", "pattern": "# Investigation protocol", "paths": ["src/constants/field-assistant-prompt.js"] },
+        { "type": "grep_excludes", "pattern": "parseFloat|parseInt|Number\\(", "paths": ["src/engine/investigation.ts"] }
+      ]
     }
   ]
 }

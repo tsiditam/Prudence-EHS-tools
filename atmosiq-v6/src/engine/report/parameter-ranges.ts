@@ -49,8 +49,14 @@ export interface ParameterRange {
 
 export type ParameterRangeSet = Partial<Record<ParameterKey, ParameterRange>>
 
-// Legacy zone-data field name(s) per parameter, in order of preference.
-const LEGACY_FIELD: Record<ParameterKey, ReadonlyArray<string>> = {
+/**
+ * Legacy zone-data field name(s) per parameter, in order of preference.
+ * Exported so `src/engine/investigation.ts` can tell "measured and clear"
+ * apart from "never measured" using the SAME field mapping the ranges use.
+ * A second copy of this map is how a parameter ends up reported as
+ * untested in one place and within range in another.
+ */
+export const LEGACY_FIELD: Record<ParameterKey, ReadonlyArray<string>> = {
   co2: ['co2'],
   co: ['co'],
   hcho: ['hc'],
