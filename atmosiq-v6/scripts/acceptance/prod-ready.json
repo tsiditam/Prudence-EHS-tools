@@ -1962,6 +1962,21 @@
         { "type": "grep_matches", "pattern": "from './field-registry.js'", "paths": ["src/constants/observable-fields.js"] },
         { "type": "grep_excludes", "pattern": "from './questions.js'", "paths": ["src/constants/observable-fields.js"] }
       ]
+    },
+    {
+      "id": "CLAIM-PROVENANCE",
+      "label": "Every quantity a finding states is traceable to an input, a published threshold, or the applied band",
+      "checks": [
+        { "type": "file_exists", "path": "src/engine/report/provenance.ts" },
+        { "type": "file_exists", "path": "tests/engine/provenance.test.ts" },
+        { "type": "grep_matches", "pattern": "export function deriveClaimProvenance", "paths": ["src/engine/report/provenance.ts"] },
+        { "type": "grep_matches", "pattern": "export function ungroundedQuantities", "paths": ["src/engine/report/provenance.ts"] },
+        { "type": "grep_matches", "pattern": "export function untaggedQuantitativeClaims", "paths": ["src/engine/report/provenance.ts"] },
+        { "type": "grep_matches", "pattern": "from '../../constants/field-registry.js'", "paths": ["src/engine/report/provenance.ts"] },
+        { "type": "grep_matches", "pattern": "would catch a fabricated quantity", "paths": ["tests/engine/provenance.test.ts"] },
+        { "type": "grep_matches", "pattern": "would catch a silent unit conversion", "paths": ["tests/engine/provenance.test.ts"] },
+        { "type": "grep_matches", "pattern": "would catch a band the engine did not apply", "paths": ["tests/engine/provenance.test.ts"] }
+      ]
     }
   ]
 }
