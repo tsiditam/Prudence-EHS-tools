@@ -2472,17 +2472,16 @@ export default function MobileApp() {
     // One verdict for every surface, raised by what was found: a finding or
     // an escalation trigger. See utils/assessmentVerdict.js.
     const verdict = resolveVerdict({ zoneScores, escalationTriggers: screenEscalations })
-    const riskLabel = verdict.riskLabel
-    const actionLabel = verdict.actionLabel
     // Expert summary — IH-grade reasoning (complaints are pattern, not driver)
     const expertDriver = driver.label
     const expertComplaint = hasComplaints ? 'Occupant symptoms reported' : null
     const expertCause = causalChains[0] ? causalChains[0].rootCause : driver.cause
 
     // ── v3 derivations for the redesigned hero / panels ──
-    // Severity headline from the one verdict. Pulled out of the legacy
-    // riskLabel string so the hero can render a tight 3-word headline plus a
-    // sentence of supporting prose.
+    // Severity headline from the one verdict — a tight headline plus a
+    // sentence of supporting prose. `verdict.riskLabel` and
+    // `verdict.actionLabel` were read into locals here and then never used;
+    // resolveVerdict still returns both for the report surfaces.
     const sevPillTone = V3.SEVERITY[verdict.severity]
     const sevPillLabel = verdict.label
     const confTone = measConf?.overall === 'High' ? V3.CONFIDENCE.high : measConf?.overall === 'Low' ? V3.CONFIDENCE.low : V3.CONFIDENCE.medium
@@ -2590,20 +2589,20 @@ export default function MobileApp() {
             recommended next steps drawn from recs.imm so the assessor
             sees the call-to-action without scrolling. */}
         <div style={{display:'grid',gridTemplateColumns:isTablet?'minmax(0,1.4fr) minmax(0,1fr)':'minmax(0,1fr)',gap:RHYTHM.base,marginBottom:RHYTHM.base}}>
-          {/* Composite hero — soft-glass card with severity-railed top
-              edge, layered shadow, and meniscus highlight. Padding is
-              zero on the wrapper because the hero composes three
-              vertical zones (intro, denominator line, optional
-              advisory) each with their own padding rhythm. */}
-          {/* ── Assessment card — the v3 "acard" lead card from the
-              AtmosFlow Redesign v3 prototype: a severity-tinted gradient
-              surface carrying the badges, a serif diagnosis line, the
-              supporting screening sentence, and a footer score readout
-              (composite indicator + thin severity bar). The composite
-              stays a screening indicator — the serif diagnosis keeps the
-              "(Screening)" framing and the bar is labelled /100, not a
-              compliance verdict. Tapping the footer drills into the
-              per-zone / per-category breakdown. ── */}
+          {/* ── Assessment card — the lead card. Padding is zero on the
+              wrapper because the card composes three vertical zones
+              (intro, denominator line, optional advisory), each with its
+              own padding rhythm.
+
+              It carried a footer score readout — a composite indicator and
+              a thin severity bar labelled /100 — beside the serif line.
+              Both went with the score; the footer now shows the zone
+              denominator and drills into the per-zone breakdown.
+
+              This card is the ONE place the verdict is stated. Anything
+              below it explains the verdict or lists what was found; if a
+              second surface starts restating the conclusion, that is the
+              duplication this comment exists to prevent. ── */}
           <GlassCard style={{
             padding:0,
             // Flat card surface — no severity-tinted glow. The colored outline
@@ -2931,21 +2930,21 @@ export default function MobileApp() {
                       </div>
                     </div>
                   )}
-                  <div style={{padding:'14px 0 0',borderTop:`1px solid ${V3.BORDER_SUBTLE}`,display:'flex',gap:10,alignItems:'flex-start'}}>
-                    <div style={V3.iconBox(V3.TEXT_SECONDARY)}><I n="notes" s={15} c={V3.TEXT_SECONDARY} w={1.8} /></div>
-                    <div style={{minWidth:0,flex:1}}>
-                      <div style={V3.T.captionDim}>Overall assessment</div>
-                      {/* A 30/50/70 ladder over `comp.tot` stood here — a seventh
-                          set of thresholds, and the only one that survived the
-                          composite's removal, because it reads a field that is
-                          simply gone: every comparison against `undefined` is
-                          false, so it fell through to "consistent with expected
-                          baseline" for an assessment with critical findings in
-                          it. The one verdict already says this, in the same four
-                          registers, from what was found. */}
-                      <div style={{...V3.T.body, marginTop:3, lineHeight:'19px'}}>{verdict.prose}</div>
-                    </div>
-                  </div>
+                  {/* An "Overall assessment" row stood here. It ran a 30/50/70
+                      ladder over `comp.tot` — a seventh set of thresholds, and
+                      the only one to survive the composite's removal, because it
+                      read a field that is simply gone: every comparison against
+                      `undefined` is false, so it fell through to "consistent
+                      with expected baseline" for an assessment with critical
+                      findings in it.
+
+                      Pointing it at `verdict.prose` fixed the fallthrough and
+                      created a worse problem — the identical sentence rendered
+                      twice on one scroll, once in the hero card above and again
+                      here. The verdict is stated ONCE, at the top. This panel
+                      carries the reasoning behind it (driver, complaint pattern,
+                      contributing cause, confidence, basis), not a second copy
+                      of the conclusion. */}
                   <div style={V3.divider()} />
                   <div style={{display:'grid',gridTemplateColumns:'minmax(0,1fr) minmax(0,1fr)',gap:16}}>
                     <div style={{display:'flex',alignItems:'flex-start',gap:8}}>
@@ -2977,11 +2976,11 @@ export default function MobileApp() {
                 </div>
 
                 {/* Key Indicator.
-                    Title row left + score right (matches the reference
-                    target proportions). Score takes mono numerals at
-                    32 px so it reads as the dominant value, with the
-                    concern label tinted to the same severity tone
-                    underneath. Gauge bar runs full width below. ── */}
+                    Title row left, the worst zone's category right. A 32 px
+                    mono percentage and a full-width gauge bar sat on that
+                    right-hand side, both of them the category's share of its
+                    points; the severity-tinted concern label is what is left,
+                    over the category's own findings. ── */}
                 <div style={V3.panel()}>
                   <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:16,flexWrap:'wrap'}}>
                     <div style={V3.T.h3}>Key Indicator</div>
@@ -3009,7 +3008,7 @@ export default function MobileApp() {
                       <div style={{...V3.T.body, marginTop:4, lineHeight:'20px'}}>{keyDesc}</div>
                     </>
                   ) : (
-                    <div style={V3.T.bodyDim}>No category scored yet. Capture field data to surface the worst-zone indicator.</div>
+                    <div style={V3.T.bodyDim}>No category assessed yet. Capture field data to surface the worst-zone indicator.</div>
                   )}
                 </div>
               </div>

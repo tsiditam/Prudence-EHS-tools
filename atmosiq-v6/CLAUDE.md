@@ -607,10 +607,34 @@ claimed to be their single source of truth — and the two published
 composite formulas contradicted each other.
 
 What replaced it is a **census**: how many findings, at what severity,
-in which zone. Deliberately not a verdict. `ProfessionalOpinionTier`
-(`src/engine/report/professional-opinion.ts`) survives untouched and has
-no score dependency, but it is a four-state rollup and is the most
-likely candidate to quietly become the new rating — watch it.
+in which zone.
+
+**Two verdict rollups survive, and that is deliberate — do not remove
+them as "leftover scoring".** `resolveVerdict`
+(`src/utils/assessmentVerdict.js`, four states: Critical Concern /
+Significant Concern / Moderate Concern / Within Acceptable Range) and
+`ProfessionalOpinionTier`
+(`src/engine/report/professional-opinion.ts`, four tiers). Neither has
+any score dependency; both predate the removal and were untouched by it.
+They were reviewed on their own merits after the removal shipped and
+kept, on the reasoning that a consultant deliverable is supposed to carry
+a professional's conclusion — the platform stopped RATING buildings, it
+did not stop concluding.
+
+They do read like a rating, which is the trap: the first report off the
+v3.0 build showed "Minor observations only / Conditions within acceptable
+range" and was reasonably mistaken for the score coming back. Two rules
+follow, both learned there:
+
+  1. **The verdict is stated ONCE per surface**, in the lead card. The
+     panels below it explain the verdict or list what was found; none of
+     them restates the conclusion. The same sentence rendered twice on
+     one scroll is what made the app look like it was still scoring.
+  2. **No numeric ladder may reappear behind either rollup.** The last
+     one — a 30/50/70 over `comp.tot` in the results panel — outlived
+     the composite by reading a field that no longer exists, so every
+     comparison was false and it silently printed the cleanest verdict
+     in the system over an assessment with critical findings.
 
 Stored scores are NOT deleted. The Supabase `score` / `composite` /
 `zone_scores` columns and the localStorage report index keep their data;
