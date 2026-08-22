@@ -10,6 +10,7 @@ import STO from './storage'
 import { APP_VERSION } from '../version'
 import { KEYS } from './storageKeys'
 import { countFindings, worstFindingSeverity } from './assessmentVerdict'
+import { isAbandonedDraft } from './draftContent'
 
 const TRASH_KEY = KEYS.trash
 const TRASH_TTL_DAYS = 30
@@ -132,6 +133,36 @@ const Backup = {
   },
 
   // ── Soft Delete (30-day recovery) ──
+  /**
+   * Retire drafts that were never actually started.
+   *
+   * The autosave used to persist an assessment 1.2s after "New Assessment"
+   * was tapped, before anything had been entered, and nothing ever pruned
+   * the result — so every abandoned start left a permanent "Untitled" row.
+   * `hasDraftContent` now stops new ones; this clears the ones already
+   * accumulated.
+   *
+   * Soft delete, not `del`: these are recoverable from Trash for 30 days
+   * like any other removal, because "we decided this was empty" is a
+   * judgement the assessor gets to overrule. Runs once per session.
+   *
+   * @returns {Promise<number>} how many were retired
+   */
+  async pruneAbandonedDrafts() {
+    const idx = await STO.getIndex()
+    let pruned = 0
+    for (const d of [...(idx.drafts || [])]) {
+      if (!d || !d.id) continue
+      const body = await STO.get(d.id)
+      // A missing body is an orphaned index row from an interrupted write;
+      // softDelete prunes the index entry for it either way.
+      if (body && !isAbandonedDraft(body)) continue
+      await this.softDelete(d.id, d.facility || 'Untitled', 'dft')
+      pruned++
+    }
+    return pruned
+  },
+
   async softDelete(id, name, type) {
     const data = await STO.get(id)
 

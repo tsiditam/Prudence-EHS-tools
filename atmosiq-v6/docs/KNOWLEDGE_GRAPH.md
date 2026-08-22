@@ -56,7 +56,7 @@ therefore enforced by Postgres RLS on `assessments.user_id`, not in app code.
 | Builder | `src/services/knowledgeGraphBuilder.ts` | **Pure, deterministic** projector + adapter. Version-stamped, entity-key keyed, sorted output. Defensive: any non-array engine input degrades to empty, never throws |
 | Service | `src/services/knowledgeGraphService.ts` | RLS-scoped reads + the single `service_role` rebuild path via `kg_rebuild` |
 | Report rows | `src/services/reportTraceability.ts` | Pure `traceabilityRows()` shared by the DOCX section and the on-screen card |
-| Jasper context | `lib/context/graphContext.ts` | `buildGraphContext()` summarizes the graph per finding; attached as `knowledge_graph` on the Jasper context (client-side; stays out of the `/api/field-assistant` bundle) |
+| Jasper context | `lib/context/graphContext.ts` | `buildGraphContext()` summarizes the graph per finding. **No longer attached to the Jasper context** — see "Detached from Jasper" below. Still client-side and still out of the `/api/field-assistant` bundle. |
 
 ### The builder is two layers
 
@@ -239,3 +239,51 @@ Evidence Traceability Matrix) can be regenerated with `npm run render:kg-sample`
   library, if the hand-rolled SVG layout proves limiting on dense assessments.
 - **Live-LLM eval scenarios** for the graph grounding (the `jasper-eval`
   harness) — the grounding itself is pinned offline by golden fixtures.
+
+## Detached from Jasper (2026-08)
+
+`buildJasperContext` attached the projection as `knowledge_graph` on every
+request. That call was never gated, while the KG *surface* is
+(`isKnowledgeGraphEnabled` is off on the production host), so the projection
+shipped inside the uncached context block, in production, for a feature no
+user could open. Measured on a real context, as actually serialised
+(`JSON.stringify(ctx, null, 2)`):
+
+| Zones | With projection | Without | Saved |
+|---|---|---|---|
+| 2 | 12k tokens/turn | 8k | ~33% |
+| 8 | 39k tokens/turn | 27k | ~31% |
+
+Every Jasper turn pays that, and the block is re-sent in full each turn by
+design (it is kept last so the cached prefix stays byte-identical).
+
+**What it was carrying.** `contradicted_by` — the evidence arguing *against*
+a finding — is the one thing the projection had that nothing else in the
+context does. The machinery is complete and proven: `projectGraph` emits
+`CONTRADICTS_FINDING` edges and `summarizeGraph` resolves them, asserted in
+`tests/lib/graphContext.test.ts`. **What is missing is a producer.** The
+mapping from engine state (`knowledgeGraphBuilder.ts`) sets
+`supportsFindings` at four sites and `contradictsFindings` at none, so the
+only thing that has ever populated it is a hand-written `KGModel` in that
+test. In every projection built from a real assessment the array is empty.
+
+`supported_by` is `findingsInCat` — every finding in the same category, a
+join the context already carries. The rest was a third serialisation of the
+findings (already under `engine_outputs` and `walkthrough_findings`).
+
+**The grounding rules did not go with it.** The projection carried five
+inline, and losing them silently was the real risk in this change — three
+restate over-claims the platform works hardest to prevent (CO₂ is not a
+limit; confidence is categorical; a conflict is surfaced, never suppressed).
+Four now live in `FIELD_ASSISTANT_ROLE_PROMPT` under **"Reading the engine's
+findings"**, which is strictly better placement: the prompt is a
+`cache_control: ephemeral` block, so they are sent once per session instead
+of re-sent every turn. The fifth was an instruction about `contradicted_by`
+— written for a capability that was never built.
+
+**To re-attach:** populate `contradictsFindings` from something real first —
+a measurement that undercuts the finding it sits beside, an I/O ratio that
+argues against an indoor source. Re-attaching an empty projection buys
+nothing and costs a third of every turn. Nothing else changed: the builder,
+the service, migration 023, the Evidence tab and the dev traceability card
+are untouched.

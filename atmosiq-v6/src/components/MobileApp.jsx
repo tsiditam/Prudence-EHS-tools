@@ -13,6 +13,7 @@ import { createPortal } from 'react-dom'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import STO from '../utils/storage'
 import { resolveFinalizeTarget } from '../utils/finalizeTarget'
+import { hasDraftContent, isAbandonedDraft } from '../utils/draftContent'
 import Profiles from '../utils/profiles'
 import Storage from '../utils/cloudStorage'
 import { supabase, trackEvent } from '../utils/supabaseClient'
@@ -1122,6 +1123,11 @@ export default function MobileApp() {
   const saveRef = useRef(null)
   useEffect(() => {
     if (!['quickstart','zone','details'].includes(view) || !draftId) return
+    // Don't persist an assessment that hasn't been started. This fired 1.2s
+    // after "New Assessment" with `bldg` still `{}`, so backing out left an
+    // "Untitled" draft row forever — and nothing ever pruned one. See
+    // utils/draftContent.js for why `presurvey` is not part of the test.
+    if (!hasDraftContent({ bldg, zones, equipment, photos, sensorData, floorPlan })) return
     if (saveRef.current) clearTimeout(saveRef.current)
     saveRef.current = setTimeout(async () => {
       // Merge over the existing stored body. When a finalized report is
@@ -1393,9 +1399,29 @@ export default function MobileApp() {
     setSamplingPlan(sp); setCausalChains(cc); setMoldResults(mold); setMeasConf(mc); setSelZone(0); setRTab('overview'); setNarrative(null); setView('results')
   }
 
+  /**
+   * Load an assessment into the editor. Returns false when it could not be
+   * loaded, and the caller MUST respect that — see resumeAndFix.
+   *
+   * This used to be a bare `STO.get` with `if (!d) return`: no cloud
+   * fallback, no error, no signal to the caller. On a device without the
+   * body in localStorage (a second device, cleared storage, an eviction)
+   * it silently did nothing while the caller carried on into edit mode
+   * with `draftId` still pointing at the previous assessment — so the
+   * finalize either minted a duplicate report or, worse, overwrote
+   * whichever report `draftId` happened to hold.
+   */
   const resumeDraft = async (id) => {
-    const d = await STO.get(id)
-    if (!d) return
+    let d = await STO.get(id)
+    if (!d && supabase) {
+      try {
+        const remote = await Storage.getRemoteAssessment(id)
+        if (remote) { d = remote; try { await STO.set(id, remote) } catch { /* quota */ } }
+      } catch (e) {
+        try { Sentry.captureException(e, { extra: { where: 'resumeDraft.remote', id } }) } catch { /* noop */ }
+      }
+    }
+    if (!d) return false
     trackEvent('draft_resumed', { draft_id: id, facility: d.bldg?.fn || d.building?.fn || '' })
     setDraftId(d.id); setPresurvey(d.presurvey||{}); setBldg(d.bldg||d.building||{}); setZones(d.zones||[{}]); setEquipment(d.equipment||[]); setPhotos(d.photos||{}); setPhotoOverrides(d.photoOverrides||{}); setFloorPlan(d.floorPlan||null); setSensorData(d.sensorData||null)
     setCurrentSiteId(d.site_id || null)  // PR 1: inherit site binding if the draft carries one
@@ -1404,6 +1430,7 @@ export default function MobileApp() {
     if (!d.bldg?.fn && !d.building?.fn) setView('quickstart')
     else if (d.zones?.length > 0 && d.zones[0]?.zn) setView('zone')
     else setView('quickstart')
+    return true
   }
 
   // Logger Studio → report. Writes converted sensor-log averages into a
@@ -1693,7 +1720,7 @@ export default function MobileApp() {
     consumeCredit(3, 'narrative')
     trackEvent('narrative_requested', { facility: bldg.fn || '', findings: comp?.findings?.total })
     setNarrativeLoading(true)
-    const text = await generateNarrative(bldg, zones, zoneScores, recs)
+    const text = await generateNarrative(bldg, zones, zoneScores, recs, presurvey)
     setNarrative(text); setNarrativeLoading(false)
     if (text) trackEvent('narrative_generated', { word_count: text.split(/\s+/).length })
   }
@@ -2029,7 +2056,15 @@ export default function MobileApp() {
       rpt = local
       if (!isRenderableReport(rpt) && supabase) {
         const remote = await Storage.getRemoteAssessment(meta.id)
-        if (isRenderableReport(remote) || (!rpt && remote)) rpt = remote
+        if (isRenderableReport(remote) || (!rpt && remote)) {
+          rpt = remote
+          // Actually heal local, which this block has claimed to do since it
+          // was written but never did. It only healed the VIEW, so the body
+          // stayed missing on this device and every later `STO.get` for it
+          // failed again — including resumeDraft's, which is how tapping
+          // "Fix" could silently fail and finalize into a brand-new report.
+          try { await STO.set(meta.id, rpt) } catch { /* quota — the view still works */ }
+        }
       }
     } catch (e) {
       try { Sentry.captureException(e, { extra: { where: 'openReport.fetch', id: meta?.id } }) } catch { /* noop */ }
@@ -2400,7 +2435,19 @@ export default function MobileApp() {
   const resumeAndFix = async (blocker) => {
     const id = viewRpt?.id
     if (id) {
-      await resumeDraft(id)
+      // Entering the editor without the report loaded is what produced the
+      // duplicates: draftId stayed on the previous assessment, so the
+      // re-finalize did not recognise this report and minted a new one.
+      // Stay put and say so instead.
+      const loaded = await resumeDraft(id)
+      if (!loaded) {
+        setReportOpenError({
+          name: 'ReportNotFound',
+          message: `"${viewRpt?.facility || viewRpt?.building?.fn || id}" could not be opened for editing on this device. Check your connection and try again — the report itself is unchanged.`,
+          stack: '',
+        })
+        return
+      }
       setViewRpt(null)
     }
     fixBlocker(blocker)

@@ -3,7 +3,7 @@
  * Index management, draft/report CRUD, trash operations.
  */
 
-import { createContext, useContext, useState, useCallback, useMemo } from 'react'
+import { createContext, useContext, useState, useCallback, useMemo, useEffect } from 'react'
 import STO from '../utils/storage'
 import Backup from '../utils/backup'
 
@@ -19,6 +19,24 @@ export function StorageProvider({ children }) {
   const refreshIndex = useCallback(async () => {
     setIndex(await STO.getIndex())
   }, [])
+
+  // One-time cleanup per session, for installs that already carry the rows
+  // two index bugs left behind. `getIndex` self-heals the double-listing
+  // (an id in both `reports` and `drafts`); this retires the drafts that
+  // were never started. Both are recoverable — the prune soft-deletes.
+  // Failure here must never stop the app rendering its report list.
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const pruned = await Backup.pruneAbandonedDrafts()
+        if (!cancelled && pruned > 0) await refreshIndex()
+      } catch (e) {
+        console.warn('Draft cleanup skipped:', e && e.message)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [refreshIndex])
 
   const refreshSites = useCallback(async (next) => {
     // Optional `next` arg lets callers atomically pass the just-fetched

@@ -394,5 +394,4 @@ export type JasperContext = AssessmentContext & {
    * framed standards, pathways, recommendations, and missing data. Null
    * before the engine has produced zone scores. Derived, never authored.
    */
-  readonly knowledge_graph: KGContext | null
 }
