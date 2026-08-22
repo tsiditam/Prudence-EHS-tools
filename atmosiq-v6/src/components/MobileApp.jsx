@@ -1720,7 +1720,7 @@ export default function MobileApp() {
     consumeCredit(3, 'narrative')
     trackEvent('narrative_requested', { facility: bldg.fn || '', findings: comp?.findings?.total })
     setNarrativeLoading(true)
-    const text = await generateNarrative(bldg, zones, zoneScores, recs)
+    const text = await generateNarrative(bldg, zones, zoneScores, recs, presurvey)
     setNarrative(text); setNarrativeLoading(false)
     if (text) trackEvent('narrative_generated', { word_count: text.split(/\s+/).length })
   }

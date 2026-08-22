@@ -13,6 +13,7 @@
 import { SENSOR_FIELDS } from '../constants/questions'
 import { STANDARDS_MANIFEST, STD } from '../constants/standards'
 import { supabase } from '../utils/supabaseClient'
+import { buildNarrativeInputs } from '../../lib/context/buildAssessmentContext'
 
 // Narrative system prompt. This layer does narrative + extraction ONLY;
 // the deterministic scoring engine owns every threshold, score, and
@@ -96,6 +97,17 @@ Order the work the way an investigator would: HVAC filtration and cleanliness, b
 
 Give each step enough for the reader to act on it: what to examine or do, where, and what finding it would establish or rule out. A one-line instruction with no stated purpose is not actionable. This is not licence to write a method — the purpose is one clause, not a paragraph.
 
+# The assessor's notes are observations, not conclusions
+The input may carry an "assessorNotes" object — what the person on site typed during the walkthrough, as zone notes and as answers to free-text questions. It is the only part of the input in the assessor's own words, and it carries what the structured fields cannot: which room, which material, what it smelled like, when it started, what the occupants said, what had already been tried.
+
+Use it to know WHAT TO COVER and to name specifics the readings alone cannot. Four limits, and they are absolute:
+- **A note is an observation, never a measurement.** It cannot establish a concentration, a rate, an area, or a duration. If a note gives a number, it is what the assessor was told or estimated — attribute it that way ("the facility manager reported...", "the assessor estimated...") or leave it out. It never becomes a finding on its own and never gets compared to a criterion.
+- **The assessor's inference is not your conclusion.** Notes are written fast, in the field, and often speculate — "probably the AHU", "this is what's making them sick". Carry the OBSERVATION and drop the inference. Boundaries 2 and 3 apply to everything you write regardless of how the input phrased it: a note asserting a cause does not license you to assert one, and repeating the assessor's causal claim is still a causal claim.
+- **Never quote a note verbatim.** Write what it tells the reader in your own register. A field note is shorthand for the person who wrote it, not prose for the client.
+- **Silence in the notes means nothing.** An empty note is not evidence that a zone was fine. Do not treat the absence of a remark as a negative finding.
+
+A note that conflicts with a measurement is not resolved by picking one. Report the measurement, and say the assessor recorded something different — a disagreement between what was seen and what was measured is exactly the kind of thing the reader needs to know.
+
 # Comfort parameters are not settled by two numbers
 Thermal comfort under ASHRAE 55 depends on clothing insulation, metabolic rate, mean radiant temperature, and air speed as well as air temperature and humidity — none of which a spot temperature and RH reading establish. Never write that temperature and RH "fall within ASHRAE 55 ranges", "meet ASHRAE 55", or "are compliant". Write that those conditions did not identify a notable condition during the assessment. The same restraint applies to any parameter whose criterion is an average over a period the assessment did not cover.
 
@@ -126,7 +138,7 @@ Cite a standard or numeric value ONLY if it appears in the supplied standardsMan
  * Generates an AI narrative via the serverless proxy at /api/narrative.
  * The Anthropic API key never leaves the server.
  */
-export async function generateNarrative(bldg, zones, zoneScores, recs) {
+export async function generateNarrative(bldg, zones, zoneScores, recs, presurvey) {
   const system = REASONING_SYSTEM_PROMPT
   const payload = {
     facility: bldg.fn, location: bldg.fl, type: bldg.ft, hvac: bldg.ht, hvacMaintenance: bldg.hm,
@@ -156,6 +168,27 @@ export async function generateNarrative(bldg, zones, zoneScores, recs) {
       measurements: zones[i] ? Object.fromEntries(SENSOR_FIELDS.filter(sf=>zones[i][sf.id]).map(sf=>[sf.label, zones[i][sf.id]+' '+sf.u])) : {},
     })),
     recommendations: recs,
+  }
+  // What the assessor actually wrote on site. Collected, budgeted and typed
+  // since `4ffca8e` — and read by nothing, so the model drafting the
+  // client's report had never seen a word of it. See the prompt section
+  // "The assessor's notes are observations, not conclusions" for the four
+  // limits on how it may be used; the output lint (scanBannedLanguage) is
+  // the backstop, unchanged.
+  //
+  // Omitted entirely when there is nothing to send, rather than shipped as
+  // an empty object: an `assessorNotes: {}` in the payload reads to the
+  // model as "the assessor wrote nothing", which is a claim, and the
+  // prompt's fourth limit says silence means nothing.
+  try {
+    const prose = buildNarrativeInputs(presurvey || {}, bldg || {}, zones || [])
+    if (prose.zone_notes.length > 0 || prose.fields.length > 0) {
+      payload.assessorNotes = prose
+    }
+  } catch (e) {
+    // The narrative is worth more than the notes. A failure to derive prose
+    // must never cost the assessor the whole draft.
+    console.warn('Assessor notes omitted from narrative payload:', e && e.message)
   }
   try {
     const headers = { 'Content-Type': 'application/json' }

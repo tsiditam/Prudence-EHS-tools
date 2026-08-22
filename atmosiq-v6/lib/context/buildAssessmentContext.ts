@@ -184,8 +184,14 @@ function buildPhotoIndex(
  * textarea question is picked up without editing this file. Single-line `text`
  * fields are excluded on purpose: they are names, addresses and serial numbers
  * — identity, already carried under `project` and `meta`.
+ *
+ * Exported because the AI narrative needs the same derivation. It used to
+ * build its payload from the structured findings alone, so the model writing
+ * the client's report had never seen a word the assessor typed on site. One
+ * derivation, two consumers — a second copy would drift the moment a
+ * textarea question was added.
  */
-function buildNarrativeInputs(
+export function buildNarrativeInputs(
   presurvey: Record<string, unknown>,
   building: Record<string, unknown>,
   zones: Array<Record<string, unknown>>,
