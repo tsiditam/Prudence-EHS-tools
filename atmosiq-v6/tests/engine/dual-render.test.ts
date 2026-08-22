@@ -55,24 +55,23 @@ describe('Dual Render — Internal Report', () => {
   const score = makeScore()
   const internal = renderInternalReport(score)
 
-  it('contains siteScore', () => {
-    expect(internal.siteScore).toBe(52)
-  })
-
-  it('contains siteTier', () => {
-    expect(internal.siteTier).toBe('Moderate')
-  })
+  // `siteScore` and `siteTier` were asserted here. Both went with the
+  // 100-point score; the internal report's remaining job is to carry the
+  // things the client report must not — raw severity, permissions and
+  // the triage queue.
 
   it('contains severityInternal on findings', () => {
     const f = internal.zones[0].categories[0].findings[0]
     expect(f.severityInternal).toBe('high')
-    expect(f.deductionInternal).toBe(12)
     expect(f.titleInternal).toBe('CO screening elevated')
   })
 
-  it('contains prioritization queue', () => {
+  it('contains prioritization queue, ranked by severity rather than points', () => {
     expect(internal.prioritizationQueue.length).toBeGreaterThan(0)
-    expect(internal.prioritizationQueue[0].deduction).toBe(12)
+    // Was `deduction === 12`, the point value the bridge invented for a
+    // high-severity finding. The rank is the severity itself.
+    expect(internal.prioritizationQueue[0].severityRank).toBe(3)
+    expect(internal.prioritizationQueue[0].priority).toBeGreaterThan(0)
   })
 
   it('contains permissions on findings', () => {
@@ -154,13 +153,14 @@ describe('Dual Render — Assessment Index Appendix', () => {
     }
   })
 
-  it('assessment index included when option set', () => {
-    const result = renderClientReport(score, { includeAssessmentIndexAppendix: true })
+  it('no longer offers an assessment-index appendix to opt into', () => {
+    // The appendix was a per-zone composite/tier table behind
+    // `includeAssessmentIndexAppendix`. Passing the old option must be
+    // inert rather than resurrect anything.
+    const result = renderClientReport(score, { includeAssessmentIndexAppendix: true } as never)
     if (result.kind === 'report') {
-      const idx = result.report.appendix.assessmentIndexInformationalOnly
-      expect(idx).toBeDefined()
-      expect(idx!.disclaimer).toBe(ASSESSMENT_INDEX_DISCLAIMER)
-      expect(idx!.siteScore).toBe(52)
+      expect((result.report.appendix as never as Record<string, unknown>).assessmentIndexInformationalOnly).toBeUndefined()
+      expect(result.report.tableOfContents.entries.some(e => e.anchorId === 'appendix-assessment-index')).toBe(false)
     }
   })
 })
@@ -170,14 +170,13 @@ describe('Dual Render — same input, different outputs', () => {
   const internal = renderInternalReport(score)
   const clientResult = renderClientReport(score)
 
-  it('internal has numeric scores, client does not', () => {
-    expect(internal.siteScore).toBe(52)
-    if (clientResult.kind === 'report') {
-      const clientJson = JSON.stringify(clientResult.report)
-      // siteScore should not appear as a field
-      expect(clientJson).not.toContain('"siteScore"')
-      expect(clientJson).not.toContain('"rawScore"')
-      expect(clientJson).not.toContain('"cappedScore"')
+  it('neither report carries a numeric score — the client never did, and now nor does the internal one', () => {
+    for (const json of [JSON.stringify(internal), clientResult.kind === 'report' ? JSON.stringify(clientResult.report) : '{}']) {
+      expect(json).not.toContain('"siteScore"')
+      expect(json).not.toContain('"siteTier"')
+      expect(json).not.toContain('"rawScore"')
+      expect(json).not.toContain('"cappedScore"')
+      expect(json).not.toContain('"deductionInternal"')
     }
   })
 

@@ -72,8 +72,13 @@ export function buildCausalChains(zones, bldg, zoneScores, opts = {}) {
     }
 
     // Ventilation deficiency chain (measurement-based)
+    // A ventilation problem worth chaining. This was `ventScore.s <= 15`
+    // — the category having lost 10 of its 25 points — which is the same
+    // question asked in the currency of a score that no longer exists.
+    // A high or critical ventilation finding IS the deficiency; the
+    // points were only ever a proxy for it.
     const ventScore = zs.cats.find(c => c.l === 'Ventilation')
-    const hasVentIssue = ventScore && ventScore.s !== null && ventScore.s <= 15
+    const hasVentIssue = !!ventScore?.r?.some(r => r.sev === 'high' || r.sev === 'critical')
     const hasSymptomsRelated = d.cx === 'Yes — complaints reported' && d.sr === 'Yes — clear pattern'
     const hasDamperIssue = d.od === 'Closed / minimum' || d.od === 'Stuck / inoperable'
     const hasWeakFlow = d.sa === 'Weak / reduced' || d.sa === 'No airflow detected'

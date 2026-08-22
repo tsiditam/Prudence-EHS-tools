@@ -2332,10 +2332,11 @@
         },
         {
           "type": "grep_matches",
-          "pattern": "const PM25_DEDUCTION_BY_SEVERITY",
+          "pattern": "No concurrent outdoor reading was taken",
           "paths": [
             "src/engines/scoring.js"
-          ]
+          ],
+          "_comment": "Was `const PM25_DEDUCTION_BY_SEVERITY` — the outdoor-aware deduction table, which went with the 100-point score. The property it guarded is that a PM2.5 reading taken WITHOUT a paired outdoor value is qualified as such: the deduction expressed that numerically, the finding now says it outright."
         },
         {
           "type": "grep_excludes",

@@ -476,7 +476,6 @@ const SupaStorage = {
         id: assessment.id,
         ts: assessment.ts || new Date().toISOString(),
         facility: assessment.building?.fn || assessment.bldg?.fn,
-        score: assessment.comp?.tot || assessment.composite?.tot,
       })
     } else {
       await STO.addDraftToIndex({
@@ -523,8 +522,7 @@ const SupaStorage = {
             sampling_plan: assessment.samplingPlan,
             causal_chains: assessment.causalChains,
             narrative: assessment.narrative,
-            score: assessment.comp?.tot || assessment.composite?.tot,
-            risk: assessment.comp?.risk || assessment.composite?.risk,
+                risk: assessment.comp?.risk || assessment.composite?.risk,
             // Lossless app-shape snapshot — preserves fields the flattened
             // columns drop (equipment, floorPlan, sensorData, labResults,
             // standardsManifest). fromCloudRow prefers this on the way down.
@@ -673,7 +671,7 @@ const SupaStorage = {
           await STO.set(a.id, { ...(existing || {}), ...norm, photos })
         }
         // Rebuild local index
-        const reports = assessments.filter(a => a.status === 'complete').map(a => ({ id: a.id, ts: a.updated_at, facility: a.facility_name, score: a.score }))
+        const reports = assessments.filter(a => a.status === 'complete').map(a => ({ id: a.id, ts: a.updated_at, facility: a.facility_name, findings: a.findings ?? null, attention: a.attention ?? null }))
         const drafts = assessments.filter(a => a.status === 'draft').map(a => ({ id: a.id, facility: a.facility_name, ua: a.updated_at }))
         await STO.saveIndex({ reports, drafts })
       }

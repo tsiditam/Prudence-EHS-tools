@@ -20,7 +20,7 @@ import { describe, it, expect } from 'vitest'
 import { ENGINE_VERSION } from '../../src/engine/types/citation'
 import { renderClientReport } from '../../src/engine/report/client'
 import { legacyToAssessmentScore } from '../../src/engine/bridge/legacy'
-import { scoreZone, compositeScore } from '../../src/engines/scoring'
+import { scoreZone, summarizeAssessment } from '../../src/engines/scoring'
 import { TRANSMITTAL_PARAGRAPH } from '../../src/engine/report/templates'
 import type { AssessmentMeta } from '../../src/engine/types/domain'
 
@@ -52,7 +52,7 @@ function buildScore() {
   ]
   const bldg = { hm: 'Within 6 months', fc: 'Light dust' }
   const lzs = zones.map(z => scoreZone(z, bldg))
-  const cs = compositeScore(lzs)
+  const cs = summarizeAssessment(lzs)
   // Presurvey carries calibration record so the defensibility check
   // doesn't trigger the refusal-to-issue memo path.
   const presurvey = {

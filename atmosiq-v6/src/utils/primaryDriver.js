@@ -45,13 +45,22 @@ export function warrantsAttention(category) {
   return !!category?.r?.some(r => ATTENTION_SEVERITIES.includes(r.sev))
 }
 
-/** The relatively lowest-scoring non-complaints category, or null. */
+const SEV_RANK = { critical: 4, high: 3, medium: 2, low: 1 }
+
+/**
+ * The non-complaints category carrying the worst finding, or null.
+ *
+ * This was the lowest score RATIO (`c.s / c.mx`). The two answers differ:
+ * a category can lose most of its points to several medium findings while
+ * another holds one critical, and the ratio picks the first. The driver
+ * is meant to name what is actually driving the assessment.
+ */
 export function selectDriverCategory(cats) {
   if (!Array.isArray(cats) || cats.length === 0) return null
-  const ratio = (c) => (c && c.mx ? c.s / c.mx : Infinity)
+  const worstSev = (c) => (c?.r || []).reduce((w, r) => Math.max(w, SEV_RANK[r.sev] || 0), 0)
   const nonComplaint = cats.filter(c => c.l !== 'Complaints')
   if (nonComplaint.length === 0) return null
-  return nonComplaint.reduce((a, b) => (ratio(a) < ratio(b) ? a : b))
+  return nonComplaint.reduce((a, b) => (worstSev(a) >= worstSev(b) ? a : b))
 }
 
 /**

@@ -38,7 +38,7 @@ import {
 } from '../../src/constants/pressurizationStandards'
 import { pressurizationRecommendations } from '../../src/engines/pressurization'
 import { buildCausalChains } from '../../src/engines/causalChains'
-import { scoreZone, compositeScore, genRecs } from '../../src/engines/scoring'
+import { scoreZone, summarizeAssessment, genRecs } from '../../src/engines/scoring'
 import { CONTROL_TIER, CONTROL_HIERARCHY_SOURCE } from '../../src/constants/pressurizationStandards'
 import { isWithinNoiseFloor } from '../../src/engine/instruments/accuracy'
 import { scanProseForBannedLanguage } from '../../src/engine/report/cih-validation'
@@ -116,12 +116,12 @@ describe('pressurization is structurally isolated from the score', () => {
       { ...BUILDING, bld_press_design: '0.02', bld_press_design_units: 'in. w.c.' },
     ]
     const baseline = scored(zones, BUILDING)
-    const baselineComposite = compositeScore(baseline)
+    const baselineComposite = summarizeAssessment(baseline)
     for (const bldg of answers) {
       const result = scored(zones, bldg)
       expect(result.map((z: any) => z.tot)).toEqual(baseline.map((z: any) => z.tot))
       expect(result.map((z: any) => z.confidence)).toEqual(baseline.map((z: any) => z.confidence))
-      expect(compositeScore(result)?.tot).toEqual(baselineComposite?.tot)
+      expect(summarizeAssessment(result)?.tot).toEqual(baselineComposite?.tot)
     }
   })
 

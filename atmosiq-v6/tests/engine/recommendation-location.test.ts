@@ -12,7 +12,7 @@ import { describe, it, expect } from 'vitest'
 // @ts-expect-error — JS module without TS types
 import { parseRecLocation } from '../../src/components/docx/sections-recommendations.js'
 // @ts-expect-error — JS module without TS types
-import { genRecs, scoreZone, compositeScore } from '../../src/engines/scoring.js'
+import { genRecs, scoreZone, summarizeAssessment } from '../../src/engines/scoring.js'
 import { DEMO_FINDINGS_BUILDING as DEMO_BUILDING, DEMO_FINDINGS_ZONES as DEMO_ZONES } from '../../src/constants/demoDataFindings'
 
 describe('parseRecLocation — legacy string-array path', () => {
@@ -57,7 +57,7 @@ describe('parseRecLocation — legacy string-array path', () => {
 describe('genRecs on the findings demo — every Immediate rec has location', () => {
   it('all Immediate recommendations parse to a non-empty location', () => {
     const zoneScores = (DEMO_ZONES as any[]).map((z: any) => scoreZone(z, DEMO_BUILDING))
-    compositeScore(zoneScores) // side-effect-free composite call
+    summarizeAssessment(zoneScores) // side-effect-free composite call
     // v2.8.0 — genRecs returns RecommendationAction[] objects per
     // bucket. The legacy parseRecLocation helper is retained for
     // back-compat of pre-2.8 stored reports, but new actions carry

@@ -20,7 +20,7 @@ import Backup from '../utils/backup'
 import { groupActions } from '../utils/recFormatting'
 import { describeAssessmentBasis } from '../utils/assessmentBasis'
 import { resolvePrimaryDriver } from '../utils/primaryDriver'
-import { resolveVerdict, countFindings, hasAnyAction } from '../utils/assessmentVerdict'
+import { resolveVerdict, countFindings, hasAnyAction, worstZoneIndex, worstFindingSeverity } from '../utils/assessmentVerdict'
 import { resolveAssessmentDate } from '../utils/assessmentDate'
 import { getCalibrationBannerState, loadInstruments, isOutOfCal } from '../utils/instrumentRegistry'
 import {
@@ -32,7 +32,7 @@ import { VER, STANDARDS_MANIFEST } from '../constants/standards'
 import { Q_PRESURVEY, Q_BUILDING, Q_ZONE, Q_QUICKSTART, Q_DETAILS, SENSOR_FIELDS } from '../constants/questions'
 import { BUILDING_SCOPED_IDS } from '../constants/field-registry'
 import { deriveInvestigation } from '../engine/investigation'
-import { scoreZone, compositeScore, evalOSHA, calcVent, genRecs, evalMold, evalMeasurementConfidence } from '../engines/scoring'
+import { scoreZone, summarizeAssessment, evalOSHA, calcVent, genRecs, evalMold, evalMeasurementConfidence } from '../engines/scoring'
 import { generateSamplingPlan } from '../engines/sampling'
 import { buildCausalChains } from '../engines/causalChains'
 import { generateNarrative } from '../engines/narrative'
@@ -50,11 +50,9 @@ import AnimatedPageTransition from './ui/AnimatedPageTransition'
 import FeedbackSheet from './ui/FeedbackSheet'
 import FeedbackButton from './ui/FeedbackButton'
 import StatusPill from './ui/StatusPill'
-import ScoreRing from './ScoreRing'
 import TactileButton from './ui/TactileButton'
 import BottomSheet from './ui/BottomSheet'
 import Loading from './Loading'
-import CountUp from './ui/CountUp'
 import PhotoCapture from './PhotoCapture'
 import CollaboratorsBar from './CollaboratorsBar'
 import SensorScreen from './SensorScreen'
@@ -115,7 +113,7 @@ import JasperWatchPanel from './JasperWatchPanel'
 import ReadinessPanel from './ReadinessPanel'
 import EvidenceMap from './EvidenceMap'
 import DesktopSidebar, { SIDEBAR_W } from './desktop/DesktopSidebar'
-import { isKnowledgeGraphEnabled, isMoldModuleEnabled, isIaqScoreVisible } from '../utils/featureFlags'
+import { isKnowledgeGraphEnabled, isMoldModuleEnabled } from '../utils/featureFlags'
 import MoldModeScreen from './MoldModeScreen'
 
 // Knowledge Graph Evidence tab is staged behind a flag — on for preview/
@@ -126,7 +124,6 @@ const KG_EVIDENCE_ENABLED = isKnowledgeGraphEnabled()
 // hidden; `?score=1` restores per-browser. The engine still computes the score
 // internally (findings, severity colour, sorting, persistence all unaffected);
 // this governs display only. Resolved once at module load like KG above.
-const IAQ_SCORE_VISIBLE = isIaqScoreVisible()
 import { buildJasperContext } from '../../lib/context/buildJasperContext'
 import { buildAssessmentContext } from '../../lib/context/buildAssessmentContext'
 import { emitEvent } from '../../lib/events/emit'
@@ -1384,9 +1381,9 @@ export default function MobileApp() {
     trackEvent('assessment_mode_selected', { mode: 'demo', demoType: pick, userMode })
     setBldg(demoBldg); setZones(demoZones); setPresurvey(demoPre); setPhotos({}); setEquipment(demoEq || [])
     const zScores = demoZones.map(z => scoreZone(z, demoBldg))
-    const composite = compositeScore(zScores)
-    const worst = demoZones.reduce((w, z) => (!w || scoreZone(z, demoBldg).tot < scoreZone(w, demoBldg).tot) ? z : w, demoZones[0])
-    const osha = evalOSHA({...demoBldg, ...worst}, composite?.tot || 0)
+    const composite = summarizeAssessment(zScores)
+    const worst = demoZones[worstZoneIndex(zScores)]
+    const osha = evalOSHA({...demoBldg, ...worst})
     const recommendations = genRecs(zScores, demoBldg, { zones: demoZones, equipment: demoEq || [] })
     const sp = generateSamplingPlan(demoZones, demoBldg)
     const cc = buildCausalChains(demoZones, demoBldg, zScores)
@@ -1462,7 +1459,7 @@ export default function MobileApp() {
     await STO.set(reportId, { ...base, id: reportId, sensorData, ua })
     // Refresh the matching index entry's timestamp without moving it between lists.
     if ((index.drafts || []).some(d => d.id === reportId)) await STO.addDraftToIndex({ id: reportId, facility, ua })
-    else if ((index.reports || []).some(r => r.id === reportId)) await STO.addReportToIndex({ id: reportId, ts: base.ts || ua, facility, score: base.comp?.tot ?? base.composite?.tot ?? base.score })
+    else if ((index.reports || []).some(r => r.id === reportId)) await STO.addReportToIndex({ id: reportId, ts: base.ts || ua, facility, ...indexFindings(base.zoneScores) })
     await refreshIndex()
     trackEvent('logger_graphs_applied', { report_id: reportId })
     return { ok: true, facility }
@@ -1551,9 +1548,11 @@ export default function MobileApp() {
     const surveyDate = resolveAssessmentDate({ presurvey })
     const scoringBldg = surveyDate ? { ...bldg, assessmentDate: surveyDate } : bldg
     const zScores = zonesWithOutdoor.map(z => scoreZone(z, scoringBldg))
-    const composite = compositeScore(zScores)
-    const worst = zonesWithOutdoor.reduce((w, z) => (!w || scoreZone(z, scoringBldg).tot < scoreZone(w, scoringBldg).tot) ? z : w, zonesWithOutdoor[0])
-    const osha = evalOSHA({...bldg, ...worst}, composite?.tot || 0)
+    const composite = summarizeAssessment(zScores)
+    // The zone carrying the worst finding. This used to re-run scoreZone
+    // twice per comparison to find the lowest-SCORING zone.
+    const worst = zonesWithOutdoor[worstZoneIndex(zScores)]
+    const osha = evalOSHA({...bldg, ...worst})
     const recommendations = genRecs(zScores, bldg, { zones: zonesWithOutdoor, equipment })
     const sp = generateSamplingPlan(zonesWithOutdoor, bldg)
     const cc = buildCausalChains(zonesWithOutdoor, bldg, zScores)
@@ -1565,7 +1564,7 @@ export default function MobileApp() {
     emitEvent('engine_ran', {
       target_id: draftId || null,
       target_type: 'assessment',
-      details: { score: composite?.tot ?? null, band: composite?.band ?? null, zones: zonesWithOutdoor.length },
+      details: { findings: composite?.findings?.total ?? null, attention: composite?.findings?.attention ?? null, zones: zonesWithOutdoor.length },
     })
     return { zScores, composite, osha, recommendations, sp, cc, mold, mc }
   }
@@ -1603,8 +1602,8 @@ export default function MobileApp() {
     }
     const { zScores, composite, osha, recommendations, sp, cc } = runScoring()
     setSelZone(0); setNarrative(null)
-    trackEvent('score_generated', { composite: composite?.tot, avg: composite?.avg, worst: composite?.worst, risk: composite?.risk, osha_flag: !!osha?.flag, confidence: osha?.conf || 'unknown', data_gaps: (osha?.gaps||[]).length })
-    trackEvent('assessment_completed', { zones: zones.length, score: composite?.tot, facility: bldg.fn || 'unknown', has_causal_chains: cc.length > 0, sampling_recommendations: sp?.plan?.length || 0 })
+    trackEvent('engine_completed', { zones: composite?.count, findings: composite?.findings?.total, attention: composite?.findings?.attention, osha_flag: !!osha?.flag, confidence: osha?.conf || 'unknown', data_gaps: (osha?.gaps||[]).length })
+    trackEvent('assessment_completed', { zones: zones.length, findings: composite?.findings?.total, facility: bldg.fn || 'unknown', has_causal_chains: cc.length > 0, sampling_recommendations: sp?.plan?.length || 0 })
     haptic('success')
     setMilestone({icon:'chart',title:'Assessment Complete',sub:`Scoring ${zones.length} zone${zones.length>1?'s':''}...`})
     setTimeout(() => { setMilestone(null); setRTab('overview'); setView('results') }, 1600)
@@ -1623,7 +1622,7 @@ export default function MobileApp() {
     // siteLink.findMostRecentReportForSite uses this on the next round.
     const report = { id:rid, ts:new Date().toISOString(), ver:VER, presurvey, building:bldg, zones, equipment, photos, floorPlan, sensorData, zoneScores:zScores, comp:composite, oshaEvals:[osha], recs:recommendations, samplingPlan:sp, causalChains:cc, standardsManifest:STANDARDS_MANIFEST, site_id: currentSiteId || null, calibrationAcknowledgement }
     await STO.set(rid, report)
-    await STO.addReportToIndex({ id:rid, ts:report.ts, facility:bldg.fn, score:composite?.tot })
+    await STO.addReportToIndex({ id:rid, ts:report.ts, facility:bldg.fn, ...indexFindings(zScores) })
     await STO.removeFromIndex(rid, 'dft')
     if (draftId && draftId !== rid) { await STO.del(draftId); await STO.removeFromIndex(draftId, 'dft') }
     // Advance the session pointer to the finalized report. Without this,
@@ -1637,7 +1636,7 @@ export default function MobileApp() {
     await refreshIndex()
     // Sync to cloud
     if (supabase) {
-      try { await Storage.saveAssessment({ ...report, status: 'complete', facility_name: bldg.fn, score: composite?.tot, risk: composite?.risk }) }
+      try { await Storage.saveAssessment({ ...report, status: 'complete', facility_name: bldg.fn }) }
       catch (e) { console.warn('Cloud sync deferred:', e.message) }
     }
 
@@ -1669,7 +1668,6 @@ export default function MobileApp() {
         target_type: 'assessment',
         details: {
           site_id: currentSiteId,
-          score: composite?.tot ?? null,
           zones: zones.length,
           facility_name: bldg.fn || null,
           // Habit-loop PR 5: lets /api/events schedule the
@@ -1693,7 +1691,7 @@ export default function MobileApp() {
   const requestNarrative = async () => {
     if (!PAYWALL_DISABLED && credits < 3) { setShowPricing(true); return }
     consumeCredit(3, 'narrative')
-    trackEvent('narrative_requested', { facility: bldg.fn || '', score: comp?.tot })
+    trackEvent('narrative_requested', { facility: bldg.fn || '', findings: comp?.findings?.total })
     setNarrativeLoading(true)
     const text = await generateNarrative(bldg, zones, zoneScores, recs)
     setNarrative(text); setNarrativeLoading(false)
@@ -1745,7 +1743,7 @@ export default function MobileApp() {
     // raster that every export (DOCX, AtmosFlow PDF, Web) then embeds.
     const sensorDataForReport = await ensureLoggerChartImages(sensorData)
     const reportData = { building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, escalationTriggers: esc, floorPlan, sensorData: sensorDataForReport, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, assessmentContext }
-    trackEvent('report_exported', { format: docxType || format, facility: bldg.fn || '', score: comp?.tot, zones: zones.length, has_narrative: !!narrative, photos: Object.values(filteredPhotos).flat().length })
+    trackEvent('report_exported', { format: docxType || format, facility: bldg.fn || '', findings: comp?.findings?.total, zones: zones.length, has_narrative: !!narrative, photos: Object.values(filteredPhotos).flat().length })
 
     try {
       if (format === 'docx') {
@@ -1779,7 +1777,7 @@ export default function MobileApp() {
       emitEvent('report_exported', {
         target_id: draftId || null,
         target_type: 'assessment',
-        details: { format: docxType || format, score: comp?.tot ?? null, zones: zones.length },
+        details: { format: docxType || format, findings: comp?.findings?.total ?? null, zones: zones.length },
       })
     } catch (e) {
       console.error('Export failed:', e)
@@ -1841,7 +1839,7 @@ export default function MobileApp() {
       alert('Could not prepare report for sharing: ' + ((e && e.message) || 'Unknown error'))
       return
     }
-    trackEvent('report_shared', { facility: bldg.fn || '', score: comp?.tot, format: 'docx' })
+    trackEvent('report_shared', { facility: bldg.fn || '', findings: comp?.findings?.total, format: 'docx' })
     const file = new File([blob], fileName, { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' })
     if (navigator.share && navigator.canShare?.({ files: [file] })) {
       try { await navigator.share({ title, files: [file] }) } catch { /* user cancelled */ }
@@ -1992,6 +1990,23 @@ export default function MobileApp() {
     setView('project-detail')
   }
 
+  /**
+   * What the report INDEX carries about a finalized report.
+   *
+   * The index used to carry `score` — the composite — which drove the
+   * report list's sort order, the dashboard band pills, search results
+   * and the whole portfolio roll-up. It now carries the finding census,
+   * which is what those surfaces were reaching for through the number.
+   *
+   * Records written before this change keep their `score` key; nothing
+   * reads it, and it is left in place rather than migrated so an issued
+   * report's own record stays as it was issued.
+   */
+  const indexFindings = (zScores) => {
+    const c = countFindings(zScores || [])
+    return { findings: c.total, attention: c.attention, worstSeverity: worstFindingSeverity(zScores || []) }
+  }
+
   // A finalized report needs at least one zone assessment to render. A
   // local body missing them is unusable for the report view (e.g. it was
   // overwritten by a draft-shape autosave, or never fully persisted).
@@ -2025,7 +2040,7 @@ export default function MobileApp() {
       return
     }
     setReportOpenError(null)
-    trackEvent('report_viewed', { report_id: meta.id, facility: meta.facility || '', score: meta.score })
+    trackEvent('report_viewed', { report_id: meta.id, facility: meta.facility || '', findings: meta.findings })
     setViewRpt(rpt); setPresurvey(rpt.presurvey||{}); setBldg(rpt.building||rpt.bldg||{}); setZones(rpt.zones||[]); setEquipment(rpt.equipment||[])
     setPhotos(rpt.photos||{}); setPhotoOverrides(rpt.photoOverrides||{}); setFloorPlan(rpt.floorPlan||null); setZoneScores(rpt.zoneScores||[]); setComp(rpt.comp||rpt.composite)
     setOshaResult(rpt.oshaEvals?.[0]||rpt.osha||null); setRecs(rpt.recs||null)
@@ -2047,8 +2062,12 @@ export default function MobileApp() {
     if (hSearch) { const q = hSearch.toLowerCase(); l = l.filter(r => (r.facility||'').toLowerCase().includes(q)) }
     if (hSort === 'newest') l.sort((a,b) => new Date(b.ts)-new Date(a.ts))
     else if (hSort === 'oldest') l.sort((a,b) => new Date(a.ts)-new Date(b.ts))
-    else if (hSort === 'score-low') l.sort((a,b) => (a.score||0)-(b.score||0))
-    else l.sort((a,b) => (b.score||0)-(a.score||0))
+    // Sorted by composite until the score was removed. Findings-first is
+    // the same intent: put the assessments with the most to act on at the
+    // top. Legacy records carry no count, so they sort as zero rather
+    // than jumping the queue.
+    else if (hSort === 'findings-low') l.sort((a,b) => (a.findings||0)-(b.findings||0))
+    else l.sort((a,b) => (b.findings||0)-(a.findings||0))
     return l
   }, [index.reports, hSearch, hSort])
 
@@ -2406,7 +2425,7 @@ export default function MobileApp() {
             <div style={{...V3.T.h1, marginBottom: 4}}>{facilityName}</div>
             {ts && <div style={{...V3.T.bodyDim, marginBottom: 16}}>Created {ts}</div>}
             <div style={{...V3.T.body, color: V3.TEXT_SECONDARY}}>
-              This report contains no scoring data. No zone measurements have been recorded. The engine has rendered a pre-assessment memo for planning use. Open the source assessment to add measurements and generate a full scored report.
+              This report contains no zone assessments. No zone measurements have been recorded. The engine has rendered a pre-assessment memo for planning use. Open the source assessment to add measurements and generate a full report.
             </div>
           </GlassCard>
           {hasNarrative && (
@@ -2595,15 +2614,10 @@ export default function MobileApp() {
             boxShadow:`0 4px 14px rgba(0,0,0,0.35)`,
           }}>
             <div style={{padding:'18px 20px'}}>
-              {/* Score + situational summary. The animated ScoreRing carries
-                  the composite (severity-toned) on the left; the badges and
-                  serif diagnosis sit beside it. */}
+              {/* Situational summary. An animated ScoreRing carrying the
+                  composite sat to the left of this until the score was
+                  removed; the serif diagnosis it flanked now leads. */}
               <div style={{display:'flex',gap:16,alignItems:'center'}}>
-                {IAQ_SCORE_VISIBLE && (
-                  <div style={{flexShrink:0}} aria-hidden="true">
-                    <ScoreRing value={comp.tot} color={sevPillTone} size={isTablet?120:104} />
-                  </div>
-                )}
                 <div style={{minWidth:0,flex:1}}>
                   {/* Severity band only. The measurement-confidence badge used
                       to sit here too, directly above the diagnosis headline —
@@ -2613,9 +2627,6 @@ export default function MobileApp() {
                       inadequacy" asserted certainty about a conclusion it knows
                       nothing about. It now appears only in the Professional
                       Assessment panel, where it is labelled and in context. */}
-                  <div style={{display:'flex',gap:8,marginBottom:10,flexWrap:'wrap'}}>
-                    {IAQ_SCORE_VISIBLE && <StatusPill tone={sevPillTone}>{sevPillLabel}</StatusPill>}
-                  </div>
                   {/* Serif diagnosis — the screening indicator named in the
                       editorial serif (matches the prototype's Lora .diag). */}
                   <div style={{fontFamily:SERIF, fontSize:18, fontWeight:600, lineHeight:'24px', color:V3.TEXT_PRIMARY, textWrap:'pretty'}}>{headline}</div>
@@ -2624,20 +2635,19 @@ export default function MobileApp() {
               <div style={{...V3.T.bodyDim, lineHeight:'20px', marginTop:12}}>
                 {verdict.prose}
               </div>
-              {/* Footer — the composite number now lives in the ring above, so
-                  the footer carries the zone denominator + the drill-in to the
+              {/* Footer — the zone denominator plus the drill-in to the
                   per-zone / per-category breakdown. FM mode keeps a plain count. */}
               {userMode !== 'fm' ? (
                 <button
                   onClick={()=>{
                     haptic('light')
-                    supabase && trackEvent('score_breakdown_open', { source: 'hero_score' })
+                    supabase && trackEvent('findings_breakdown_open', { source: 'hero' })
                     setRTab('overview')
                     let reduce = false
                     try { reduce = typeof window!=='undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches } catch { reduce = false }
                     setTimeout(()=>{ document.getElementById('result-zones-anchor')?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' }) }, 60)
                   }}
-                  aria-label={IAQ_SCORE_VISIBLE ? `Composite indicator ${comp.tot} of 100. View the per-zone score breakdown.` : 'View the per-zone findings breakdown.'}
+                  aria-label="View the per-zone findings breakdown."
                   {...pressFeedback('soft')}
                   style={{display:'flex',alignItems:'center',gap:8,marginTop:14,paddingTop:14,width:'100%',cursor:'pointer',fontFamily:'inherit',textAlign:'left',background:'none',border:'none',borderTop:`1px solid ${V3.BORDER_SUBTLE}`,...pressFeedback.style}}>
                   <span style={{flex:1,...V3.T.captionDim}}>{comp.count} {comp.count===1?'zone':'zones'} assessed</span>
@@ -2845,9 +2855,20 @@ export default function MobileApp() {
           // logic mirrors line 940 above and picks the worst non-
           // complaint category.
           const keyCat = driverCat || zs.cats?.[0]
-          const keyPct = keyCat && keyCat.s !== null ? Math.round((keyCat.s / keyCat.mx) * 100) : null
-          const keyTone = keyPct === null ? V3.TEXT_TERTIARY : keyPct < 30 ? V3.SEVERITY.critical : keyPct < 50 ? V3.SEVERITY.high : keyPct < 70 ? V3.SEVERITY.medium : V3.SEVERITY.pass
-          const keyConcernLabel = keyPct === null ? 'Insufficient Data' : keyPct < 30 ? 'Critical Concern' : keyPct < 50 ? 'High Concern' : keyPct < 70 ? 'Moderate Concern' : 'Within Range'
+          // Tone and label came from the category's percentage of its
+          // points (30/50/70). They now come from the worst finding in
+          // that category, which is what the percentage was tracking.
+          const keySev = keyCat && !keyCat.status ? worstFindingSeverity([{ cats: [keyCat] }]) : null
+          const keyTone = keyCat?.status ? V3.TEXT_TERTIARY
+            : keySev === 'critical' ? V3.SEVERITY.critical
+              : keySev === 'high' ? V3.SEVERITY.high
+                : keySev === 'medium' ? V3.SEVERITY.medium
+                  : V3.SEVERITY.pass
+          const keyConcernLabel = keyCat?.status ? 'Insufficient Data'
+            : keySev === 'critical' ? 'Critical Concern'
+              : keySev === 'high' ? 'High Concern'
+                : keySev === 'medium' ? 'Moderate Concern'
+                  : 'Within Range'
           const keyDescMap = {
             Ventilation: 'CO₂ and outdoor-air delivery indicators inform ventilation effectiveness, not air quality contamination.',
             Contaminants: 'Combined exposure indicators across particulate, VOC, and other measured contaminants.',
@@ -2973,27 +2994,14 @@ export default function MobileApp() {
                           </div>
                           <div style={{...V3.T.bodyStrong, fontSize:17, lineHeight:'22px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{keyCat.l}</div>
                         </div>
+                        {/* A 32pt category percentage, its label and a 0–100
+                            gauge sat here. All three were the category's share
+                            of its points. The category's own findings are
+                            listed below, which is what the gauge summarized. */}
                         <div style={{textAlign:'right',flexShrink:0}}>
-                          {IAQ_SCORE_VISIBLE && (
-                            <div style={{display:'flex',alignItems:'baseline',gap:1,justifyContent:'flex-end'}}>
-                              <span style={{fontFamily:'var(--font-mono)', fontSize:32, lineHeight:'34px', fontWeight:600, color:keyTone, letterSpacing:'-0.5px'}}>{keyPct ?? '—'}</span>
-                              {keyPct !== null && <span style={{...V3.N.sm, fontSize:13, color:V3.TEXT_TERTIARY}}>/100</span>}
-                            </div>
-                          )}
-                          {IAQ_SCORE_VISIBLE && <div style={{...V3.T.caption, color:keyTone, marginTop:2, textAlign:'right'}}>{keyConcernLabel}</div>}
+                          <div style={{...V3.T.caption, color:keyTone, textAlign:'right'}}>{keyConcernLabel}</div>
                         </div>
                       </div>
-                      {IAQ_SCORE_VISIBLE && keyPct !== null && (
-                        <>
-                          <div style={{...V3.gaugeTrack, height:8}}>
-                            <div style={{...V3.gaugeDot(keyPct, keyTone), top:-5, width:16, height:16}} />
-                          </div>
-                          <div style={{display:'flex',justifyContent:'space-between',marginTop:8,...V3.N.sm, fontSize:11}}>
-                            <span>0</span>
-                            <span>100</span>
-                          </div>
-                        </>
-                      )}
                       <div style={V3.divider()} />
                       <div style={V3.T.captionDim}>Why this matters</div>
                       <div style={{...V3.T.body, marginTop:4, lineHeight:'20px'}}>{keyDesc}</div>
@@ -3079,7 +3087,7 @@ export default function MobileApp() {
                 <div style={{display:'grid',gridTemplateColumns: isTablet ? '2fr 1fr 1fr 1.4fr' : '2fr 1fr 1.4fr', gap:12, padding:'8px 8px', borderBottom:`1px solid ${V3.BORDER_DEFAULT}`}}>
                   <div style={V3.T.micro}>Zone</div>
                   {isTablet && <div style={V3.T.micro}>Findings</div>}
-                  <div style={{...V3.T.micro, textAlign:'right'}}>{IAQ_SCORE_VISIBLE ? 'Score' : 'Findings'}</div>
+                  <div style={{...V3.T.micro, textAlign:'right'}}>Findings</div>
                   <div style={{...V3.T.micro, textAlign:'right'}}>Status</div>
                 </div>
                 {zoneScores.map((z, i) => {
@@ -3093,17 +3101,9 @@ export default function MobileApp() {
                       </div>
                       {isTablet && <div style={{...V3.N.md, color:V3.TEXT_SECONDARY}}>{findingCount}</div>}
                       <div style={{textAlign:'right'}}>
-                        {IAQ_SCORE_VISIBLE ? (
-                          <>
-                            <span style={{...V3.N.md, color:z.rc}}><CountUp value={z.tot} /></span>
-                            <span style={V3.N.sm}>/100</span>
-                          </>
-                        ) : (
-                          <span style={{...V3.T.captionDim}}>{findingCount} {findingCount===1?'finding':'findings'}</span>
-                        )}
+                        <span style={{...V3.T.captionDim}}>{findingCount} {findingCount===1?'finding':'findings'}</span>
                       </div>
                       <div style={{textAlign:'right',display:'flex',justifyContent:'flex-end',alignItems:'center',gap:8}}>
-                        {IAQ_SCORE_VISIBLE && <span style={V3.pill(z.rc)}>{z.risk}</span>}
                         <span style={{color:V3.TEXT_TERTIARY,fontSize:13}}>›</span>
                       </div>
                     </button>
@@ -3122,28 +3122,27 @@ export default function MobileApp() {
               <div key={selZone} className="fa-zone-in" style={{display:isTablet?'grid':'flex',gridTemplateColumns:isTablet?'1fr 1fr':'none',flexDirection:'column',gap:10}}>
                 <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 16px',background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.md}}>
                   <div style={{...V3.T.bodyStrong}}>{zs.zoneName}</div>
-                  {IAQ_SCORE_VISIBLE && (userMode === 'fm' ? (
-                    <span style={V3.pill(zs.rc)}>{zs.risk}</span>
-                  ) : (
-                    <div style={{display:'flex',alignItems:'baseline',gap:2}}>
-                      <span style={{...V3.N.lg, color:zs.rc, fontSize:22, lineHeight:'26px'}}>{zs.tot}</span>
-                      <span style={V3.N.sm}>/100</span>
-                    </div>
-                  ))}
                 </div>
           {zs.cats.map((cat,ci)=>{
-            if (cat.s === null || cat.status === 'DATA_GAP' || cat.status === 'INSUFFICIENT') {
+            if (cat.status === 'DATA_GAP' || cat.status === 'INSUFFICIENT') {
               return(
                 <div key={cat.l} style={{padding:'14px 18px',background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.md}}>
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                     <span style={V3.T.bodyStrong}>{cat.l}</span>
-                    <span style={V3.pill(V3.TEXT_TERTIARY)}>{IAQ_SCORE_VISIBLE ? 'Not Scored' : 'No data'}</span>
+                    <span style={V3.pill(V3.TEXT_TERTIARY)}>No data</span>
                   </div>
                   <div style={{...V3.T.captionDim, marginTop:6}}>Data gap: documentation not provided for this category</div>
                 </div>
               )
             }
-            const pct=Math.round((cat.s/cat.mx)*100);const bc=pct>=80?'#22C55E':pct>=60?'#FBBF24':pct>=40?'#FB923C':'#EF4444';const pctLabel=pct>=80?'Within range':pct>=60?'Moderate concern':pct>=40?'Significant concern':'Critical concern';const fmLabel=pct>=70?'Pass':pct>=40?'Needs attention':'Action needed';const fmColor=pct>=70?'#22C55E':pct>=40?'#FBBF24':'#EF4444';const SEV_RANK={critical:0,high:1,medium:2,low:3,info:4,pass:5};const findings=cat.r.filter(r => !(r.sev === 'pass' && pct < 70)).sort((a,b)=>(SEV_RANK[a.sev]??9)-(SEV_RANK[b.sev]??9));return(
+            // The category card's score, percentage label, FM pass/fail
+            // chip and progress bar were all functions of `cat.s / cat.mx`.
+            // The `pass` findings it hid below 70% are now hidden when the
+            // category has anything more serious to show — the same intent,
+            // expressed against the findings rather than the points.
+            const SEV_RANK={critical:0,high:1,medium:2,low:3,info:4,pass:5};
+            const catHasConcern = cat.r.some(r => r.sev==='critical'||r.sev==='high'||r.sev==='medium');
+            const findings=cat.r.filter(r => !(r.sev === 'pass' && catHasConcern)).sort((a,b)=>(SEV_RANK[a.sev]??9)-(SEV_RANK[b.sev]??9));return(
             <div key={cat.l} style={{padding:'16px 18px',background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.md}}>
               {/* Category header — single row, mono score + concern
                   text inline, with a thin progress bar below. Replaces
@@ -3151,18 +3150,8 @@ export default function MobileApp() {
                   printed the cat label and used two micro headings. */}
               <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',gap:12,marginBottom:userMode==='fm'?12:8}}>
                 <div style={{...V3.T.bodyStrong, fontSize:15}}>{cat.l}</div>
-                {IAQ_SCORE_VISIBLE && (userMode === 'fm' ? (
-                  <span style={V3.pill(fmColor)}>{cat.s===null?'No data':fmLabel}</span>
-                ) : (
-                  <div style={{display:'flex',alignItems:'baseline',gap:6}}>
-                    <span style={{...V3.N.md, color:bc, fontSize:15}}><CountUp value={cat.s} /><span style={{color:V3.TEXT_TERTIARY, fontWeight:500}}>/{cat.mx}</span></span>
-                    <span style={V3.T.captionDim}>· {pctLabel}</span>
-                  </div>
-                ))}
+                <span style={V3.T.captionDim}>{findings.length} {findings.length===1?'finding':'findings'}</span>
               </div>
-              {IAQ_SCORE_VISIBLE && userMode !== 'fm' && <div style={{height:3,background:V3.BORDER_DEFAULT,borderRadius:2,overflow:'hidden',marginBottom:14}}>
-                <div style={{height:'100%',width:`${pct}%`,background:bc,borderRadius:2,transition:'width .8s ease'}} />
-              </div>}
               {/* Findings are sorted most-severe-first and the per-row
                   severity text pill (HIGH/MEDIUM/CRITICAL/INFO) is replaced
                   by a small colour-coded dot — less label noise, easier to
@@ -4828,7 +4817,7 @@ export default function MobileApp() {
               </div>
             </div>
             <select value={hSort} onChange={e=>setHSort(e.target.value)} style={{padding:'12px 14px',background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.md,color:V3.TEXT_SECONDARY,fontSize:13,fontFamily:'inherit',outline:'none',minHeight:44,cursor:'pointer'}}>
-              <option value="newest">Newest</option><option value="oldest">Oldest</option><option value="score-low">Score ↑</option><option value="score-high">Score ↓</option>
+              <option value="newest">Newest</option><option value="oldest">Oldest</option><option value="findings-high">Most findings</option><option value="findings-low">Fewest findings</option>
             </select>
           </div>
           {fReports.length === 0 ? (

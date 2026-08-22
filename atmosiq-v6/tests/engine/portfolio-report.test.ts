@@ -21,9 +21,9 @@ function fixture(): any {
     now: NOW,
     firm: 'Prudence EHS',
     reports: [
-      { id: 'r1', ts: '2026-08-10', facility: 'Harborview Center', score: 88 },
-      { id: 'r2', ts: '2026-06-15', facility: 'Midtown Tower', score: 45 },
-      { id: 'r3', ts: '2026-05-01', facility: 'Dock 9 Warehouse', score: 30 },
+      { id: 'r1', ts: '2026-08-10', facility: 'Harborview Center', findings: 1, attention: 0, worstSeverity: 'low' },
+      { id: 'r2', ts: '2026-06-15', facility: 'Midtown Tower', findings: 4, attention: 2, worstSeverity: 'high' },
+      { id: 'r3', ts: '2026-05-01', facility: 'Dock 9 Warehouse', findings: 6, attention: 4, worstSeverity: 'critical' },
     ],
     drafts: [{ id: 'd1', facility: 'Old Draft', ua: '2026-06-01' }],
     sites: [{ id: 's1', name: 'Midtown Tower', next_due_at: '2026-07-01', reassessment_interval_months: 12 }],
@@ -39,15 +39,16 @@ async function renderXml(input: any): Promise<string> {
 }
 
 describe('portfolio report DOCX', () => {
-  it('renders the title, KPIs, risk bands, sites, attention queue, and one limitation', async () => {
+  it('renders the title, KPIs, severity distribution, sites, attention queue, and one limitation', async () => {
     const xml = await renderXml(fixture())
     expect(xml).toContain('IAQ Portfolio Summary')
     expect(xml).toContain('Prudence EHS')
     // KPI row headers.
     expect(xml).toContain('Assessments')
     expect(xml).toContain('Distinct sites')
+    expect(xml).toContain('Findings')
     // Section headings.
-    expect(xml).toContain('Risk distribution')
+    expect(xml).toContain('Findings distribution')
     expect(xml).toContain('Portfolio by site')
     expect(xml).toContain('Needs attention')
     expect(xml).toContain('Basis &amp; limitations')

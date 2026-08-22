@@ -17,7 +17,7 @@ import { describe, it, expect } from 'vitest'
 import { groupFindingsByDomain, getFindingGroup, getLeadTerm } from '../../src/engine/report/finding-groups'
 import { renderClientReport } from '../../src/engine/report/client'
 import { legacyToAssessmentScore } from '../../src/engine/bridge/legacy'
-import { scoreZone, compositeScore } from '../../src/engines/scoring'
+import { scoreZone, summarizeAssessment } from '../../src/engines/scoring'
 import type { AssessmentMeta, Finding, FindingId, ZoneId } from '../../src/engine/types/domain'
 
 const META: AssessmentMeta = {
@@ -163,7 +163,7 @@ describe('v2.2 finding-groups — end-to-end through ClientReport', () => {
       pm: '12',                   // pass
     }
     const lz = scoreZone(zone, {})
-    const cs = compositeScore([lz])
+    const cs = summarizeAssessment([lz])
     const score = legacyToAssessmentScore([lz] as any, cs as any, [zone] as any, { meta: META, presurvey: PRESURVEY })
     const result = renderClientReport(score)
     if (result.kind !== 'report') return
@@ -183,7 +183,7 @@ describe('v2.2 finding-groups — end-to-end through ClientReport', () => {
       co2: '600', co2o: '420', tf: '73', rh: '45', pm: '5',
     }
     const lz = scoreZone(zone, {})
-    const cs = compositeScore([lz])
+    const cs = summarizeAssessment([lz])
     const score = legacyToAssessmentScore([lz] as any, cs as any, [zone] as any, { meta: META, presurvey: PRESURVEY })
     const result = renderClientReport(score)
     if (result.kind !== 'report') return

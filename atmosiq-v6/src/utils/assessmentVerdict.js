@@ -64,6 +64,25 @@ export function countFindings(zoneScores) {
 }
 
 /**
+ * Index of the zone carrying the worst finding, or 0 when there are none.
+ *
+ * Callers used to find this with `reduce((a, b) => a.tot < b.tot ? a : b)`
+ * — the lowest-scoring zone. With no score, the zone that matters is the
+ * one holding the most severe finding. Ties go to the first, so the
+ * answer is stable for a given input.
+ */
+export function worstZoneIndex(zoneScores) {
+  let best = 0
+  let bestRank = -1
+  ;(zoneScores || []).forEach((z, i) => {
+    const sev = worstFindingSeverity([z])
+    const rank = sev ? RANK[sev] ?? -1 : -1
+    if (rank > bestRank) { bestRank = rank; best = i }
+  })
+  return best
+}
+
+/**
  * The category label carrying the worst finding across all zones, or null.
  *
  * Replaces "the category with the lowest score ratio" (`a.s / a.mx`),

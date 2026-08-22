@@ -20,7 +20,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { assembleRenderModel } from '../../src/report/reportModel.js'
-import { scoreZone, compositeScore } from '../../src/engines/scoring.js'
+import { scoreZone, summarizeAssessment } from '../../src/engines/scoring.js'
 import { DEMO_FINDINGS_BUILDING as DEMO_BUILDING, DEMO_FINDINGS_ZONES as DEMO_ZONES, DEMO_FINDINGS_PRESURVEY as DEMO_PRESURVEY } from '../../src/constants/demoDataFindings'
 import {
   REPORT_PROFILES, REPORT_STATUS, REPORT_PROFILE_VALUES, REPORT_STATUS_VALUES,
@@ -34,7 +34,7 @@ function demoData() {
   const zoneScores = (DEMO_ZONES as any[]).map((z) => scoreZone(z, DEMO_BUILDING))
   return {
     building: DEMO_BUILDING, presurvey: DEMO_PRESURVEY, zones: DEMO_ZONES, zoneScores,
-    comp: compositeScore(zoneScores),
+    comp: summarizeAssessment(zoneScores),
     recs: { imm: [], eng: [], adm: [], mon: [] },
     profile: { name: 'John Smith', certs: ['CIH', 'CSP'], firm: 'PSEC' },
     id: 'AIQ-DEMO', ts: '2026-06-10',

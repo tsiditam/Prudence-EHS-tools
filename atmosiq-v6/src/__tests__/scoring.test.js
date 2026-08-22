@@ -1,5 +1,18 @@
+/**
+ * The assessment engine's core behaviour.
+ *
+ * The `compositeScore` describe block went with the 100-point score, and
+ * every `.tot` / `.risk` / `cat.s` assertion elsewhere in this file went
+ * with it. What each of those was really pinning — that a CO reading
+ * above the PEL produces a critical finding with the right citation and
+ * averaging caveat, that CO2 is capped at high, that unknown maintenance
+ * is a data gap rather than a deficiency — is asserted on the findings
+ * themselves, where it was always observable.
+ */
+
 import { describe, it, expect } from 'vitest'
-import { scoreZone, compositeScore, evalOSHA, calcVent, genRecs } from '../engines/scoring'
+import { countFindings } from '../utils/assessmentVerdict'
+import { scoreZone, summarizeAssessment, evalOSHA, calcVent, genRecs } from '../engines/scoring'
 
 // Engine v2.8.0 — genRecs returns RecommendationAction[] objects per
 // bucket instead of legacy "ZoneName: text" strings. txt() flattens
@@ -9,14 +22,16 @@ const txt = (r) => typeof r === 'string' ? r : (r?.text || '')
 // ── scoreZone ──────────────────────────────────────────────────────────────
 
 describe('scoreZone', () => {
-  it('scores a zone with full data as Low Risk', () => {
+  it('assesses a zone with full data and finds nothing to act on', () => {
     const zone = { zn: 'Lobby', co2: '450', tf: '72', rh: '45', pm: '5', co: '2', tv: '100', hc: '0.01', vd: 'None', cx: 'No complaints', cfm_person: '15', ach: '6', sa: 'Normal' }
     const bldg = { hm: 'Within 6 months', fc: 'Clean' }
     const result = scoreZone(zone, bldg)
-    expect(result.tot).toBeGreaterThanOrEqual(80)
-    expect(result.risk).toBe('Low Risk')
     expect(result.zoneName).toBe('Lobby')
     expect(result.cats).toHaveLength(5)
+    // Was `tot >= 80` / 'Low Risk'. The observable property is that a
+    // well-run zone produces no finding warranting attention.
+    expect(countFindings([result]).attention).toBe(0)
+    expect(result.assessedCats.length).toBeGreaterThan(0)
   })
 
   it('returns Critical for a zone with CO above the OSHA PEL value', () => {
@@ -24,7 +39,6 @@ describe('scoreZone', () => {
     const bldg = { hm: 'Unknown' }
     const result = scoreZone(zone, bldg)
     const contCat = result.cats.find(c => c.l === 'Contaminants')
-    expect(contCat.s).toBe(0)
     const coFinding = contCat.r.find(r => r.t.includes('CO') && r.t.includes('OSHA'))
     expect(coFinding.sev).toBe('critical')
     // Asserted as a substring, not an exact match: the citation now carries
@@ -42,9 +56,7 @@ describe('scoreZone', () => {
     const bldg = { hm: 'Within 6 months' }
     const result = scoreZone(zone, bldg)
     const ventCat = result.cats.find(c => c.l === 'Ventilation')
-    // The category still zeroes — the ventilation deficiency is real.
-    expect(ventCat.s).toBe(0)
-    // But CO2 indexes outdoor-air delivery per occupant; it is not a
+    // The deficiency is real, and CO2 indexes outdoor-air delivery per occupant; it is not a
     // contaminant measure, and no concentration of it alone is a critical
     // finding. This was `critical` until 2026-08, which rated a stuffy
     // meeting room the same as a hydrogen reading at 25% of the LEL — and
@@ -54,13 +66,13 @@ describe('scoreZone', () => {
     expect(ventCat.r[0].sev).toBe('high')
   })
 
-  it('scores HVAC maintenance concern', () => {
+  it('reports overdue HVAC maintenance as a medium finding', () => {
     const zone = { zn: 'Office' }
     const bldg = { hm: 'Over 12 months' }
     const result = scoreZone(zone, bldg)
     const hvacCat = result.cats.find(c => c.l === 'HVAC')
-    expect(hvacCat.s).toBeLessThanOrEqual(15)
     expect(hvacCat.r[0].sev).toBe('medium')
+    expect(hvacCat.r[0].t).toMatch(/overdue/i)
   })
 
   it('treats unknown HVAC maintenance as data gap, not deficiency', () => {
@@ -85,7 +97,7 @@ describe('scoreZone', () => {
     expect(hvacCat.r.every(r => !r.t.includes('SYSTEM FAILURE'))).toBe(true)
   })
 
-  it('scores complaints with affected occupants', () => {
+  it('reports complaints with affected occupants', () => {
     const zone = {
       zn: 'Open Office',
       cx: 'Yes — complaints reported',
@@ -95,7 +107,6 @@ describe('scoreZone', () => {
     const bldg = { hm: 'Within 6 months' }
     const result = scoreZone(zone, bldg)
     const compCat = result.cats.find(c => c.l === 'Complaints')
-    expect(compCat.s).toBe(0)
     expect(compCat.r[0].sev).toBe('critical')
   })
 
@@ -104,7 +115,6 @@ describe('scoreZone', () => {
     const bldg = { hm: 'Within 6 months' }
     const result = scoreZone(zone, bldg)
     const envCat = result.cats.find(c => c.l === 'Environment')
-    expect(envCat.s).toBe(0)
     expect(envCat.r.some(r => r.sev === 'critical')).toBe(true)
   })
 
@@ -146,91 +156,109 @@ describe('scoreZone', () => {
   })
 })
 
-// ── compositeScore ─────────────────────────────────────────────────────────
+// ── summarizeAssessment ────────────────────────────────────────────────────
+//
+// This was `describe('compositeScore')`: a weighted mean, a worst-zone
+// override, and the band a given total classified into. What replaces it
+// rolls zones up without ranking them.
 
-describe('compositeScore', () => {
-  it('returns null for empty array', () => {
-    expect(compositeScore([])).toBeNull()
+describe('summarizeAssessment', () => {
+  const zoneWith = (findings) => ({
+    cats: [{ l: 'Contaminants', r: findings }],
+    confidence: 'High',
+    partialScore: false,
+    insufficientCats: [],
   })
 
-  it('computes weighted mean when no Critical zones (AIHA strategy)', () => {
-    const scores = [{ tot: 90 }, { tot: 60 }]
-    const result = compositeScore(scores)
-    expect(result.avg).toBe(75)
-    expect(result.worst).toBe(60)
-    expect(result.tot).toBe(75)
+  it('returns null for an empty array', () => {
+    expect(summarizeAssessment([])).toBeNull()
+  })
+
+  it('counts findings across zones without averaging them', () => {
+    const result = summarizeAssessment([
+      zoneWith([{ t: 'a', sev: 'critical' }, { t: 'b', sev: 'low' }]),
+      zoneWith([{ t: 'c', sev: 'medium' }]),
+    ])
     expect(result.count).toBe(2)
-    expect(result.logic).toBe('weighted-mean-of-zones')
+    expect(result.findings.total).toBe(3)
+    expect(result.findings.attention).toBe(2)
+    expect(result.findings.bySeverity).toEqual({ critical: 1, high: 0, medium: 1, low: 1 })
   })
 
-  it('classifies Low Risk at 85+', () => {
-    const scores = [{ tot: 95 }, { tot: 90 }]
-    const result = compositeScore(scores)
-    expect(result.risk).toBe('Low Risk')
+  it('takes the LOWEST zone confidence — a building is not better understood than its least-measured zone', () => {
+    const high = { ...zoneWith([]), confidence: 'High' }
+    const low = { ...zoneWith([]), confidence: 'Low' }
+    expect(summarizeAssessment([high, low]).confidence).toBe('Low')
+    expect(summarizeAssessment([high, high]).confidence).toBe('High')
   })
 
-  it('classifies Critical below 50 and uses worst-zone override', () => {
-    const scores = [{ tot: 30 }, { tot: 20 }]
-    const result = compositeScore(scores)
-    expect(result.risk).toBe('Critical')
-    expect(result.logic).toBe('worst-zone-override')
-    expect(result.tot).toBe(20)
+  it('reports partial data when any zone left a category unassessed', () => {
+    const partial = { ...zoneWith([]), partialScore: true, insufficientCats: ['HVAC'] }
+    expect(summarizeAssessment([zoneWith([]), partial]).partialData).toBe(true)
+    expect(summarizeAssessment([zoneWith([])]).partialData).toBe(false)
   })
 
-  it('single zone returns that zone score', () => {
-    const scores = [{ tot: 80 }]
-    const result = compositeScore(scores)
-    expect(result.tot).toBe(80)
+  it('a single zone summarizes to that zone', () => {
+    const result = summarizeAssessment([zoneWith([{ t: 'a', sev: 'high' }])])
+    expect(result.count).toBe(1)
+    expect(result.findings.total).toBe(1)
   })
 })
 
-// ── evalOSHA ───────────────────────────────────────────────────────────────
-
 describe('evalOSHA', () => {
-  it('flags documented complaints with hazard indicators', () => {
-    const d = { cx: 'Yes — complaints reported' }
-    const result = evalOSHA(d, 60)
+  it('flags documented complaints WITH a concurrent hazard indicator', () => {
+    // The rule used to fire on complaints plus a composite under 70.
+    // Callers passed `composite?.tot || 0`, so a missing composite scored
+    // zero and it fired by default — on the assessments with the least
+    // evidence behind them. It now needs an actual concurrent indicator.
+    const d = { cx: 'Yes — complaints reported', co: '55' }
+    const result = evalOSHA(d)
     expect(result.flag).toBe(true)
     expect(result.fl.some(f => f.includes('complaint') || f.includes('Documented'))).toBe(true)
   })
 
-  it('does not flag when no complaints and good score', () => {
+  it('does not flag complaints on their own', () => {
+    const result = evalOSHA({ cx: 'Yes — complaints reported' })
+    expect(result.fl.some(f => f.includes('Documented complaint'))).toBe(false)
+  })
+
+  it('does not flag when there are no complaints and nothing measured', () => {
     const d = { cx: 'No' }
-    const result = evalOSHA(d, 90)
+    const result = evalOSHA(d)
     expect(result.flag).toBe(false)
     expect(result.fl).toHaveLength(0)
   })
 
   it('flags CO above OSHA PEL', () => {
     const d = { co: '55' }
-    const result = evalOSHA(d, 80)
+    const result = evalOSHA(d)
     expect(result.flag).toBe(true)
     expect(result.fl.some(f => f.includes('CO'))).toBe(true)
   })
 
   it('flags formaldehyde above OSHA PEL', () => {
     const d = { hc: '1.0' }
-    const result = evalOSHA(d, 80)
+    const result = evalOSHA(d)
     expect(result.flag).toBe(true)
     expect(result.fl.some(f => f.toLowerCase().includes('formaldehyde'))).toBe(true)
   })
 
   it('flags water/mold indicators', () => {
     const d = { wd: 'Active leak' }
-    const result = evalOSHA(d, 80)
+    const result = evalOSHA(d)
     expect(result.flag).toBe(true)
     expect(result.fl.some(f => f.toLowerCase().includes('water') || f.toLowerCase().includes('mold'))).toBe(true)
   })
 
   it('reports confidence level for data-rich assessment', () => {
     const d = { co2: '600', tf: '72', rh: '45', pm: '5', co: '2', cx: 'No complaints', hm: 'Within 6 months', fc: 'Clean' }
-    const result = evalOSHA(d, 80)
+    const result = evalOSHA(d)
     expect(['High', 'Medium']).toContain(result.conf)
   })
 
   it('identifies data gaps when no instrument data', () => {
     const d = { hm: 'Unknown' }
-    const result = evalOSHA(d, 80)
+    const result = evalOSHA(d)
     expect(result.gaps).toContain('No instrument data')
     expect(result.gaps).toContain('HVAC maintenance unknown')
   })

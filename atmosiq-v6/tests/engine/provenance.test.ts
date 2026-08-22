@@ -22,7 +22,7 @@ import {
 } from '../../src/engine/report/provenance'
 import { computeParameterRanges } from '../../src/engine/report/parameter-ranges'
 import { getField } from '../../src/constants/field-registry.js'
-import { scoreZone, compositeScore } from '../../src/engines/scoring.js'
+import { scoreZone, summarizeAssessment } from '../../src/engines/scoring.js'
 import { buildCausalChains } from '../../src/engines/causalChains.js'
 
 type Zone = Record<string, any>

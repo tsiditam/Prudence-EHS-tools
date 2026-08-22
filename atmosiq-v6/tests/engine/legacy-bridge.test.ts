@@ -4,7 +4,7 @@ import { classifyCondition } from '../../src/engine/bridge/classify'
 import { renderClientReport } from '../../src/engine/report/client'
 import { renderInternalReport } from '../../src/engine/report/internal'
 import { assertNoInternalFields } from '../../src/engine/report/validators'
-import { scoreZone, compositeScore } from '../../src/engines/scoring'
+import { scoreZone, summarizeAssessment } from '../../src/engines/scoring'
 import { DEMO_FINDINGS_PRESURVEY as DEMO_PRESURVEY, DEMO_FINDINGS_BUILDING as DEMO_BUILDING, DEMO_FINDINGS_ZONES as DEMO_ZONES } from '../../src/constants/demoDataFindings'
 import type { AssessmentMeta } from '../../src/engine/types/domain'
 
@@ -251,44 +251,33 @@ describe('classifyCondition — Environment', () => {
 // ── Bridge — Status / Confidence / Tier Mapping ──
 
 describe('legacyToAssessmentScore — status and confidence mapping', () => {
-  it('legacy "Critical" risk → v2.1 Tier "Critical"', () => {
-    const lz = scoreZone({ zn: 'Z1', su: 'office', co2: '2500' }, {}) // way above threshold
-    const cs = compositeScore([lz])
+  it('a severe reading produces a severe FINDING, where it used to produce a Tier', () => {
+    // Was: legacy risk 'Critical' → v2.1 Tier 'Critical', on both the
+    // zone and the site. Tiers were bands over the score and went with
+    // it. The reading still speaks for itself.
+    const lz = scoreZone({ zn: 'Z1', su: 'office', co2: '2500' }, {})
+    const cs = summarizeAssessment([lz])
     const score = legacyToAssessmentScore([lz], cs, [{ co2: '2500' } as any], { meta: META })
-    expect(score.zones[0].tier).toBe('Critical')
-    expect(score.siteTier).toBe('Critical')
+    const findings = score.zones[0].categories.flatMap(c => c.findings)
+    expect(findings.some(f => f.severityInternal === 'high' || f.severityInternal === 'critical')).toBe(true)
+    expect(score).not.toHaveProperty('siteTier')
+    expect(score.zones[0]).not.toHaveProperty('tier')
   })
 
   it('insufficient zone confidence maps to insufficient_data', () => {
     const lz = scoreZone({ zn: 'Z1', su: 'office' }, {}) // no data at all
-    const cs = compositeScore([lz])
+    const cs = summarizeAssessment([lz])
     const score = legacyToAssessmentScore([lz], cs, [{} as any], { meta: META })
     expect(score.confidenceBand).toBe('insufficient_data')
   })
 
-  it('SUPPRESSED legacy category → v2.1 status "suppressed"', () => {
-    // The bridge mapping, exercised directly on a suppressed category.
-    //
-    // This used to reach it through `zone_subtype: 'data_hall'`, whose
-    // ZONE_WEIGHTS entry set Complaints to 0. That was the ONLY zero
-    // weight in the table, and it went with the data-center module in
-    // 2026-08 — so no profile currently produces a suppressed category
-    // and the scorer can no longer be driven into this state from real
-    // input. The bridge mapping is still live code and still worth
-    // pinning, so the fixture is now constructed rather than scored:
-    // if a future occupancy adds a zero weight, the mapping it lands on
-    // is already covered.
-    const lz: any = scoreZone({ zn: 'Z1', su: 'office', co2: '600' }, {})
-    const complaintsCat = lz.cats.find((c: any) => c.l === 'Complaints')
-    expect(complaintsCat, 'no Complaints category to suppress').toBeTruthy()
-    complaintsCat.status = 'SUPPRESSED'
-    complaintsCat.s = 0
-
-    const cs = compositeScore([lz])
-    const score = legacyToAssessmentScore([lz], cs, [{} as any], { meta: META })
-    const complaints = score.zones[0].categories.find(c => c.category === 'Complaints')
-    expect(complaints?.status).toBe('suppressed')
-  })
+  // 'SUPPRESSED legacy category → v2.1 status "suppressed"' stood here.
+  // The status existed for a category whose ZONE_WEIGHTS entry was zero —
+  // only ever `data_hall`'s Complaints, which left with the data-center
+  // module in 2026-08. The weights table itself has now gone with the
+  // score, so no input can produce a suppressed category and the mapping
+  // it tested no longer exists. The test had already been reduced to a
+  // hand-constructed fixture for want of a real one.
 })
 
 // ── Bridge — Finding Shape (29 fields) ──
@@ -297,7 +286,7 @@ describe('legacyToAssessmentScore — Finding shape', () => {
   it('every Finding has all 29 v2.1 domain fields populated', () => {
     const zone = { zn: 'Z1', su: 'office', co2: '1180', co: '2', tv: '680', hc: '0.022', tf: '77', rh: '62', wd: 'Old staining', mi: 'Small (< 10 sq ft)', cx: 'Yes — complaints reported', ac: '3-5', sy: ['Headache'], cc: 'Yes — this zone', sr: 'Yes — clear pattern', op: 'Moderate persistent', dp: 'Standing water', fc: 'Heavily loaded', hm: 'Over 12 months', od: 'Closed / minimum', sa: 'Weak / reduced' }
     const lz = scoreZone(zone, {})
-    const cs = compositeScore([lz])
+    const cs = summarizeAssessment([lz])
     const score = legacyToAssessmentScore([lz], cs, [zone as any], { meta: META })
     const findings = score.zones[0].categories.flatMap(c => c.findings)
     expect(findings.length).toBeGreaterThan(0)
@@ -316,7 +305,6 @@ describe('legacyToAssessmentScore — Finding shape', () => {
       expect(typeof f.severityInternal).toBe('string')
       expect(typeof f.titleInternal).toBe('string')
       expect(typeof f.observationInternal).toBe('string')
-      expect(typeof f.deductionInternal).toBe('number')
       expect(typeof f.conditionType).toBe('string')
       expect(typeof f.confidenceTier).toBe('string')
       expect(typeof f.definitiveConclusionAllowed).toBe('boolean')
@@ -344,7 +332,7 @@ describe('legacyToAssessmentScore — Finding shape', () => {
   it('CO above OSHA PEL — Finding has regulatoryConclusionAllowed=false (screening-grade evidence)', () => {
     const zone = { zn: 'Z1', su: 'office', co: '60' }
     const lz = scoreZone(zone, {})
-    const cs = compositeScore([lz])
+    const cs = summarizeAssessment([lz])
     const score = legacyToAssessmentScore([lz], cs, [zone as any], { meta: META })
     const coFinding = score.zones[0].categories
       .find(c => c.category === 'Contaminants')!.findings
@@ -362,7 +350,7 @@ describe('legacyToAssessmentScore — Finding shape', () => {
 describe('legacyToAssessmentScore — defensibility flags', () => {
   it('all flags true with calibrated instrument and CIH assessor', () => {
     const lz = scoreZone({ zn: 'Z1', su: 'office', co2: '900' }, {})
-    const cs = compositeScore([lz])
+    const cs = summarizeAssessment([lz])
     const score = legacyToAssessmentScore([lz], cs, [{ co2: '900' } as any], {
       meta: META,
       presurvey: { ps_inst_iaq_cal: '2026-01-15', ps_inst_iaq_cal_status: 'Calibrated within manufacturer spec' } as any,
@@ -376,7 +364,7 @@ describe('legacyToAssessmentScore — defensibility flags', () => {
 
   it('non-CIH/CSP/PE assessor → hasQualifiedAssessor=false', () => {
     const lz = scoreZone({ zn: 'Z1', su: 'office', co2: '900' }, {})
-    const cs = compositeScore([lz])
+    const cs = summarizeAssessment([lz])
     const score = legacyToAssessmentScore([lz], cs, [{ co2: '900' } as any], { meta: META_NO_CIH })
     expect(score.defensibilityFlags.hasQualifiedAssessor).toBe(false)
     expect(score.defensibilityFlags.overallDefensible).toBe(false)
@@ -384,7 +372,7 @@ describe('legacyToAssessmentScore — defensibility flags', () => {
 
   it('no measurements → hasInstrumentData=false', () => {
     const lz = scoreZone({ zn: 'Z1', su: 'office' }, {})
-    const cs = compositeScore([lz])
+    const cs = summarizeAssessment([lz])
     const score = legacyToAssessmentScore([lz], cs, [{} as any], { meta: META })
     expect(score.defensibilityFlags.hasInstrumentData).toBe(false)
   })
@@ -395,7 +383,7 @@ describe('legacyToAssessmentScore — defensibility flags', () => {
 describe('legacyToAssessmentScore — round-trip through renderers', () => {
   function buildDemoScore() {
     const lzs = DEMO_ZONES.map((z: any) => scoreZone(z, DEMO_BUILDING))
-    const cs = compositeScore(lzs)
+    const cs = summarizeAssessment(lzs)
     return legacyToAssessmentScore(lzs as any, cs as any, DEMO_ZONES as any, {
       meta: META,
       presurvey: DEMO_PRESURVEY as any,
@@ -436,7 +424,7 @@ describe('legacyToAssessmentScore — round-trip through renderers', () => {
 
   it('site siteScore matches legacy composite tot', () => {
     const lzs = DEMO_ZONES.map((z: any) => scoreZone(z, DEMO_BUILDING))
-    const cs = compositeScore(lzs)
+    const cs = summarizeAssessment(lzs)
     const score = legacyToAssessmentScore(lzs as any, cs as any, DEMO_ZONES as any, { meta: META })
     expect(score.siteScore).toBe((cs as any).tot)
   })
@@ -456,16 +444,16 @@ describe('legacyToAssessmentScore — round-trip through renderers', () => {
 // ── Edge Cases ──
 
 describe('legacyToAssessmentScore — edge cases', () => {
-  it('empty zone array → site siteScore null and zero zones', () => {
+  it('empty zone array → zero zones, and no site-level score to be null', () => {
     const score = legacyToAssessmentScore([], null, [], { meta: META })
-    expect(score.siteScore).toBeNull()
     expect(score.zones.length).toBe(0)
+    expect(score).not.toHaveProperty('siteScore')
   })
 
   it('zone with all-pass findings → non-empty findings, severities all pass/info', () => {
     const zone = { zn: 'Z1', su: 'office', co2: '650', co2o: '420', tf: '73', rh: '45', pm: '8' }
     const lz = scoreZone(zone, {})
-    const cs = compositeScore([lz])
+    const cs = summarizeAssessment([lz])
     const score = legacyToAssessmentScore([lz], cs, [zone as any], { meta: META })
     const findings = score.zones[0].categories.flatMap(c => c.findings)
     expect(findings.length).toBeGreaterThan(0)
@@ -477,7 +465,7 @@ describe('legacyToAssessmentScore — edge cases', () => {
   it('all-pass zone yields professionalOpinion = no_significant_concerns_identified', () => {
     const zone = { zn: 'Z1', su: 'office', co2: '650', co2o: '420', tf: '73', rh: '45', pm: '8' }
     const lz = scoreZone(zone, {})
-    const cs = compositeScore([lz])
+    const cs = summarizeAssessment([lz])
     const score = legacyToAssessmentScore([lz], cs, [zone as any], { meta: META })
     expect(score.zones[0].professionalOpinion).toBe('no_significant_concerns_identified')
   })
@@ -485,7 +473,7 @@ describe('legacyToAssessmentScore — edge cases', () => {
   it('pass-severity finding gets qualitative_only or provisional_screening_level confidence', () => {
     const zone = { zn: 'Z1', su: 'office', co2: '650', co2o: '420' }
     const lz = scoreZone(zone, {})
-    const cs = compositeScore([lz])
+    const cs = summarizeAssessment([lz])
     const score = legacyToAssessmentScore([lz], cs, [zone as any], { meta: META })
     const passFinding = score.zones[0].categories.flatMap(c => c.findings).find(f => f.severityInternal === 'pass')
     if (passFinding) {

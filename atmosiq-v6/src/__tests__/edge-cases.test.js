@@ -1,37 +1,56 @@
+/**
+ * Edge cases in the assessment engine.
+ *
+ * Two describe blocks went with the 100-point score — "Normalization
+ * edge cases" and "compositeScore edge cases" — along with the numeric
+ * halves of the override tests. They asserted that a score never
+ * exceeded 100, never divided by zero, and landed on the right side of a
+ * band boundary: properties of arithmetic that no longer runs.
+ *
+ * Everything else stays, because none of it was ever about the number.
+ * Malformed input must not crash the engine, a critical finding must not
+ * be hidden behind a data gap, and sufficiency must treat odd field
+ * values predictably.
+ */
+
 import { describe, it, expect } from 'vitest'
-import { scoreZone, compositeScore, genRecs } from '../engines/scoring'
-import { evaluateCategorySufficiency, evaluateAllSufficiency } from '../engines/sufficiency'
+import { scoreZone, summarizeAssessment, genRecs } from '../engines/scoring'
+import { evaluateCategorySufficiency } from '../engines/sufficiency'
 
 // ── 1. All categories empty — total null ──────────────────────────────────
 
 describe('All categories empty or insufficient', () => {
   it('completely empty zone data', () => {
     const result = scoreZone({}, {})
-    expect(result.tot).not.toBeNaN()
-    // All cats should be INSUFFICIENT or DATA_GAP
+    // Every category reports why it could not be assessed, rather than
+    // silently reporting nothing.
     result.cats.forEach(c => {
-      expect([null, 0]).toContain(c.s) // s is null (INSUFF/DATA_GAP) or 0
+      expect(['INSUFFICIENT', 'DATA_GAP']).toContain(c.status)
+      expect(c.reason).toBeTruthy()
     })
+    expect(result.partialScore).toBe(true)
   })
 
-  it('all categories INSUFFICIENT/DATA_GAP → tot is null, not NaN', () => {
-    // No required fields met for any category
+  it('names every unassessed category', () => {
     const result = scoreZone({ zn: 'Empty' }, {})
-    // tot should be null when no scorable categories
-    if (result.tot !== null) {
-      expect(result.tot).not.toBeNaN()
-      expect(Number.isFinite(result.tot)).toBe(true)
-    }
+    expect(result.insufficientCats.length).toBe(result.cats.length)
+    expect(result.assessedCats).toEqual([])
   })
 
-  it('compositeScore with all-null zones', () => {
-    const zones = [
-      { tot: null, cats: [] },
-      { tot: null, cats: [] },
-    ]
-    const result = compositeScore(zones)
-    expect(result.tot).toBeNull()
-    expect(result.risk).toBe('Insufficient Data')
+  it('summarizes a set of zones that produced no findings', () => {
+    const result = summarizeAssessment([
+      { cats: [], confidence: 'Insufficient', partialScore: true, insufficientCats: ['Ventilation'] },
+      { cats: [], confidence: 'Insufficient', partialScore: true, insufficientCats: ['Ventilation'] },
+    ])
+    expect(result.count).toBe(2)
+    expect(result.findings.total).toBe(0)
+    expect(result.confidence).toBe('Insufficient')
+    expect(result.partialData).toBe(true)
+  })
+
+  it('summarizes nothing as null, not as an empty assessment', () => {
+    expect(summarizeAssessment([])).toBeNull()
+    expect(summarizeAssessment(null)).toBeNull()
   })
 })
 
@@ -41,76 +60,47 @@ describe('Malformed input data', () => {
   it('non-numeric CO2 does not crash', () => {
     const result = scoreZone({ co2: 'abc', tf: '72', rh: '45' }, { hm: 'Within 6 months' })
     expect(result).toBeDefined()
-    expect(result.tot).not.toBeNaN()
     const vent = result.cats.find(c => c.l === 'Ventilation')
-    expect(Number.isFinite(vent.s) || vent.s === null).toBe(true)
+    // A garbage reading must not become a finding that states it.
+    expect(vent.r.every(r => !String(r.t).includes('abc'))).toBe(true)
   })
 
   it('empty string measurements', () => {
     const result = scoreZone({ co2: '', tf: '', rh: '', pm: '', co: '' }, { hm: '' })
     expect(result).toBeDefined()
-    expect(result.tot === null || Number.isFinite(result.tot)).toBe(true)
+    expect(result.cats).toHaveLength(5)
   })
 
   it('negative measurement values', () => {
     const result = scoreZone({ co2: '-100', tf: '-10', rh: '-5', pm: '-1', co: '-1' }, { hm: 'Within 6 months' })
     expect(result).toBeDefined()
-    // Scores should never be negative
-    result.cats.forEach(c => {
-      if (c.s !== null) expect(c.s).toBeGreaterThanOrEqual(0)
-    })
+    // Every finding still carries a severity the rest of the engine can read.
+    result.cats.forEach(c => c.r.forEach(r => {
+      expect(['critical', 'high', 'medium', 'low', 'pass', 'info']).toContain(r.sev)
+    }))
   })
 
   it('extremely large measurement values', () => {
     const result = scoreZone({ co2: '99999', tf: '999', rh: '999', pm: '9999', co: '9999' }, { hm: 'Within 6 months' })
     expect(result).toBeDefined()
-    result.cats.forEach(c => {
-      if (c.s !== null) {
-        expect(c.s).toBeGreaterThanOrEqual(0)
-        expect(c.s).toBeLessThanOrEqual(c.mx)
-      }
-    })
+    result.cats.forEach(c => c.r.forEach(r => {
+      expect(['critical', 'high', 'medium', 'low', 'pass', 'info']).toContain(r.sev)
+    }))
   })
 
   it('zero values for all measurements', () => {
     const result = scoreZone({ co2: '0', tf: '0', rh: '0', pm: '0', co: '0' }, { hm: 'Within 6 months' })
     expect(result).toBeDefined()
-    expect(result.tot).not.toBeNaN()
+    expect(result.cats).toHaveLength(5)
   })
 })
 
-// ── 3. Normalization edge cases ───────────────────────────────────────────
+// "Normalization edge cases" stood here — a score never exceeding 100, a
+// zero availableMax not dividing by zero, and a score landing on the
+// right side of a band boundary (40 / 60 / 80). All three were about
+// arithmetic that no longer runs.
 
-describe('Normalization edge cases', () => {
-  it('single scorable category does not produce >100', () => {
-    // Only complaints scorable (cx provided), everything else insufficient
-    const result = scoreZone({ cx: 'No complaints' }, {})
-    if (result.tot !== null) {
-      expect(result.tot).toBeLessThanOrEqual(100)
-      expect(result.tot).toBeGreaterThanOrEqual(0)
-    }
-  })
-
-  it('availableMax=0 does not cause division by zero', () => {
-    // This shouldn't happen in practice, but test defensively
-    // All categories DATA_GAP or INSUFFICIENT → scorable is empty → tot is null
-    const result = scoreZone({}, {})
-    expect(result.tot === null || Number.isFinite(result.tot)).toBe(true)
-  })
-
-  it('score exactly at risk band boundary (40, 60, 80)', () => {
-    // These are boundary values between risk bands
-    const zones40 = [{ tot: 40 }]
-    const zones60 = [{ tot: 60 }]
-    const zones80 = [{ tot: 80 }]
-    // Should not crash or produce unexpected bands
-    expect(compositeScore(zones40).risk).toBeDefined()
-    expect(compositeScore(zones60).risk).toBeDefined()
-    expect(compositeScore(zones80).risk).toBeDefined()
-  })
-})
-
-// ── 4. Override interaction conflicts ─────────────────────────────────────
+// ── 3. Override interactions ──────────────────────────────────────────────
 
 describe('Override interactions', () => {
   it('gate5 + synergistic both firing simultaneously', () => {
@@ -121,14 +111,16 @@ describe('Override interactions', () => {
     }
     const bldg = { hm: 'Within 6 months', fc: 'Clean' }
     const result = scoreZone(zone, bldg)
-    // synergistic caps at 39, gate5 caps at 40 → min(39, 40) = 39
-    expect(result.tot).toBeLessThanOrEqual(39)
-    expect(result.risk).toBe('Critical')
-    // Both overrides should be present in findings
+    // Both conditions are structural flags, and both survived the score
+    // that used to cap on them (synergistic at 39, gate5 at 40).
     const contCat = result.cats.find(c => c.l === 'Contaminants')
     const hvacCat = result.cats.find(c => c.l === 'HVAC')
     expect(contCat.synergistic).toBe(true)
     expect(hvacCat.gate5).toBe(true)
+    // And each one still states itself as a critical finding, which is
+    // what the cap was expressing numerically.
+    expect(contCat.r.some(r => r.sev === 'critical')).toBe(true)
+    expect(hvacCat.r.some(r => r.sev === 'critical')).toBe(true)
   })
 
   it('gate5 forces category to be scored even with zero sufficiency', () => {
@@ -137,53 +129,22 @@ describe('Override interactions', () => {
     const zone = { zn: 'Z1', sa: 'No airflow detected', tf: '72', rh: '45', cx: 'No complaints' }
     const result = scoreZone(zone, {})
     const hvac = result.cats.find(c => c.l === 'HVAC')
-    // Must NOT be DATA_GAP — critical findings must be visible
+    // Must NOT be DATA_GAP — a critical finding cannot be hidden behind
+    // an incomplete record. This is the property the whole test exists
+    // for, and it is unchanged by the score's removal.
     expect(hvac.status).not.toBe('DATA_GAP')
-    expect(hvac.s).toBe(0)
     expect(hvac.gate5).toBe(true)
-    // Critical finding must be accessible
     expect(hvac.r.some(r => r.sev === 'critical')).toBe(true)
-    // Zone total must be capped by gate5
-    expect(result.tot).toBeLessThanOrEqual(40)
   })
 
 })
 
-// ── 5. compositeScore edge cases ──────────────────────────────────────────
+// "compositeScore edge cases" stood here: a mix of null and scored
+// zones, a single zone at 0, a single zone at 100, and 100 zones not
+// crashing. summarizeAssessment's own edge cases are covered in the
+// first describe block above.
 
-describe('compositeScore edge cases', () => {
-  it('mix of null and scored zones', () => {
-    const zones = [
-      { tot: 80, confidence: 'High' },
-      { tot: null, confidence: 'Low' },
-    ]
-    const result = compositeScore(zones)
-    expect(result.tot).toBe(80) // only 1 scorable zone
-    expect(result.partialComposite).toBe(true)
-    expect(result.count).toBe(2)
-  })
-
-  it('single zone with tot=0', () => {
-    const result = compositeScore([{ tot: 0 }])
-    expect(result.tot).toBe(0)
-    expect(result.risk).toBe('Critical')
-  })
-
-  it('single zone with tot=100', () => {
-    const result = compositeScore([{ tot: 100 }])
-    expect(result.tot).toBe(100)
-    expect(result.risk).toBe('Low Risk')
-  })
-
-  it('100 zones does not crash', () => {
-    const zones = Array.from({ length: 100 }, (_, i) => ({ tot: 50 + (i % 50) }))
-    const result = compositeScore(zones)
-    expect(result).toBeDefined()
-    expect(Number.isFinite(result.tot)).toBe(true)
-  })
-})
-
-// ── 6. genRecs with unusual finding structures ────────────────────────────
+// ── 4. genRecs edge cases ─────────────────────────────────────────────────
 
 describe('genRecs edge cases', () => {
   it('empty cats array', () => {

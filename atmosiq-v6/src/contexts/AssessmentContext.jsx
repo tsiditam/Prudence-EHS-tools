@@ -6,7 +6,8 @@
 
 import { createContext, useContext, useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import STO from '../utils/storage'
-import { scoreZone, compositeScore, evalOSHA, genRecs, evalMeasurementConfidence, evalMold } from '../engines/scoring'
+import { scoreZone, summarizeAssessment, evalOSHA, genRecs, evalMeasurementConfidence, evalMold } from '../engines/scoring'
+import { worstZoneIndex } from '../utils/assessmentVerdict'
 import { generateSamplingPlan } from '../engines/sampling'
 import { buildCausalChains } from '../engines/causalChains'
 import { STANDARDS_MANIFEST } from '../constants/standards'
@@ -82,9 +83,12 @@ export function AssessmentProvider({ children }) {
       return Object.keys(fill).length > 0 ? { ...z, ...fill } : z
     })
     const zScores = zonesWithOutdoor.map(z => scoreZone(z, bldg))
-    const composite = compositeScore(zScores)
-    const worst = zonesWithOutdoor.reduce((w, z) => (!w || scoreZone(z, bldg).tot < scoreZone(w, bldg).tot) ? z : w, zonesWithOutdoor[0])
-    const osha = evalOSHA({...bldg, ...worst}, composite?.tot || 0)
+    const composite = summarizeAssessment(zScores)
+    // The zone carrying the worst finding. This used to re-run scoreZone
+    // twice per comparison to find the LOWEST-SCORING zone — O(n²) calls
+    // into the engine for a number that no longer exists.
+    const worst = zonesWithOutdoor[worstZoneIndex(zScores)]
+    const osha = evalOSHA({...bldg, ...worst})
     const recommendations = genRecs(zScores, bldg, { zones: zonesWithOutdoor, equipment })
     const sp = generateSamplingPlan(zonesWithOutdoor, bldg)
     const cc = buildCausalChains(zonesWithOutdoor, bldg, zScores)

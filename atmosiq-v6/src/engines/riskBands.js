@@ -1,55 +1,25 @@
 /**
- * AtmosFlow Risk Bands — Single Source of Truth
- * Every label, color, severity, and band in the app derives from here.
- * No string literals for risk labels anywhere else in the codebase.
+ * AtmosFlow — assessment modes and data-confidence levels.
+ *
+ * This file was "Risk Bands — Single Source of Truth" through v2.9. The
+ * bands went with the 100-point score; see the note below.
  */
 
-export const RISK_BANDS = [
-  { min: 80, max: 100, id: 'LOW',      label: 'Low Risk',  color: '#15803D', bg: '#15803D12', severity: 1 },
-  { min: 60, max: 79,  id: 'MODERATE', label: 'Moderate',  color: '#A16207', bg: '#A1620712', severity: 2 },
-  { min: 40, max: 59,  id: 'HIGH',     label: 'High Risk', color: '#C2410C', bg: '#C2410C12', severity: 3 },
-  { min: 0,  max: 39,  id: 'CRITICAL', label: 'Critical',  color: '#B91C1C', bg: '#B91C1C12', severity: 4 },
-]
-
-const INSUFFICIENT_BAND = { id: 'INSUFFICIENT', label: 'Insufficient Data', color: '#6B7380', bg: '#6B738012', severity: 0 }
-
-export function getRiskBand(score) {
-  if (score === null || score === undefined) return INSUFFICIENT_BAND
-  return RISK_BANDS.find(b => score >= b.min && score <= b.max) || RISK_BANDS[RISK_BANDS.length - 1]
-}
-
-export const SEVERITY_TO_BAND = {
-  critical: 'CRITICAL',
-  high: 'HIGH',
-  medium: 'MODERATE',
-  low: 'LOW',
-  info: 'LOW',
-  pass: 'LOW',
-}
-
-export function findingsToBand(findings) {
-  let worst = 0
-  for (const f of findings) {
-    const bandId = SEVERITY_TO_BAND[f.sev] || 'LOW'
-    const band = RISK_BANDS.find(b => b.id === bandId)
-    if (band && band.severity > worst) worst = band.severity
-  }
-  return RISK_BANDS.find(b => b.severity === worst) || RISK_BANDS[0]
-}
-
-// `deriveFMSummary` lived here: an FM-mode headline + next-steps block
-// that blended the composite band with a findings band and emitted an
-// override message quoting the composite number. It went with the score.
-// It had no callers at the time of removal — the FM result surface reads
-// `resolveVerdict` (src/utils/assessmentVerdict.js), which answers the
-// same question from findings and escalation triggers.
+// RISK_BANDS, getRiskBand, INSUFFICIENT_BAND, SEVERITY_TO_BAND and
+// findingsToBand lived here, under a header claiming this file was the
+// "Single Source of Truth — no string literals for risk labels anywhere
+// else in the codebase". It was not: six band ladders existed, with
+// four different sets of thresholds, and they disagreed. All of them are
+// gone with the score.
+//
+// What is left is data CONFIDENCE, which was never a band over a score:
+// it is a statement about how complete the record is.
 
 export const ASSESSMENT_MODES = {
   SCREENING: {
     id: 'SCREENING',
     produces: 'SCREENING_SNAPSHOT',
     requiresInstruments: false,
-    emitsComposite: false,
     reportHeader: 'IAQ ASSESSMENT SNAPSHOT',
     disclaimer: 'NOT A COMPLIANCE ASSESSMENT',
   },
@@ -57,7 +27,6 @@ export const ASSESSMENT_MODES = {
     id: 'WALKTHROUGH',
     produces: 'WALKTHROUGH_REPORT',
     requiresInstruments: true,
-    emitsComposite: true,
     reportHeader: 'IAQ WALKTHROUGH REPORT',
     disclaimer: null,
   },
@@ -66,7 +35,6 @@ export const ASSESSMENT_MODES = {
     produces: 'IAQ_ASSESSMENT_REPORT',
     requiresInstruments: true,
     requiresCalibration: true,
-    emitsComposite: true,
     reportHeader: 'IAQ ASSESSMENT REPORT',
     disclaimer: null,
   },

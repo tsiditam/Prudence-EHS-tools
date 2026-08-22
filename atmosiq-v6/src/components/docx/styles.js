@@ -52,13 +52,11 @@ export const SEV_COLORS = {
   info: '475569',
 }
 
-export function scoreColor(s) {
-  return s >= 70 ? '15803D' : s >= 50 ? 'A16207' : 'B91C1C'
-}
+// `scoreColor` and `riskLabel` lived here — two more band ladders (70/50
+// and 80/60/40) that agreed with neither each other nor riskBands.js.
+// They went with the score. Severity colours live in SEV_COLORS above,
+// which has one definition.
 
-export function riskLabel(s) {
-  return s >= 80 ? 'Low Risk' : s >= 60 ? 'Moderate' : s >= 40 ? 'High Risk' : 'Critical'
-}
 
 export const DOCX_STYLES = {
   default: {

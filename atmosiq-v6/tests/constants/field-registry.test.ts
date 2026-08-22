@@ -93,7 +93,7 @@ const NOT_FIELDS = new Set([
   // Date methods, reached through d.assessmentDate.getTime()
   'getTime', 'getMonth', 'getDate', 'getFullYear',
   // Properties of the ZONE SCORE object, which scoreZone returns and
-  // compositeScore then reads. Not intake fields: `zoneSubtype` is the
+  // summarizeAssessment then reads. Not intake fields: `zoneSubtype` is the
   // camelCase copy scoreZone makes of the `zone_subtype` field, and
   // reading it off a score is correct.
   'confidence', 'zoneName', 'cats', 'tot', 'band', 'criterion', 'statement',

@@ -12,7 +12,7 @@
 import { describe, it, expect } from 'vitest'
 import { legacyToAssessmentScore } from '../../src/engine/bridge/legacy'
 import { renderClientReport } from '../../src/engine/report/client'
-import { scoreZone, compositeScore } from '../../src/engines/scoring'
+import { scoreZone, summarizeAssessment } from '../../src/engines/scoring'
 import type { AssessmentMeta } from '../../src/engine/types/domain'
 
 const META: AssessmentMeta = {
@@ -45,7 +45,7 @@ function buildMultiZoneScore() {
   ]
   const bldg = { hm: 'Over 12 months', fc: 'Heavily loaded' }
   const lzs = zones.map(z => scoreZone(z, bldg))
-  const cs = compositeScore(lzs)
+  const cs = summarizeAssessment(lzs)
   return {
     zones,
     bldg,
@@ -100,7 +100,7 @@ describe('v2.2 §1c — recommendations register dedup', () => {
     // unique action text per (action,ref) tuple.
     const zone = { zn: 'Z1', su: 'office', co2: '850', co2o: '420', tf: '74', rh: '52', pm: '12', mi: 'Small (< 10 sq ft)', wd: 'Active leak' }
     const lz = scoreZone(zone, {})
-    const cs = compositeScore([lz])
+    const cs = summarizeAssessment([lz])
     const score = legacyToAssessmentScore([lz], cs, [zone as any], { meta: META, presurvey: PRESURVEY })
     const result = renderClientReport(score)
     if (result.kind !== 'report') throw new Error('Expected report')

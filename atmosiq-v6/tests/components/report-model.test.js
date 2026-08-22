@@ -10,7 +10,7 @@ import {
   buildReportModel, summarizeParameters, zoneRows, peakCo2ByZone,
   collectFindings, recommendationsByTimeframe, buildQaQc, buildLimitations,
 } from '../../src/report/reportModel'
-import { scoreZone, compositeScore } from '../../src/engines/scoring.js'
+import { scoreZone, summarizeAssessment } from '../../src/engines/scoring.js'
 import { DEMO_FINDINGS_BUILDING as DEMO_BUILDING, DEMO_FINDINGS_ZONES as DEMO_ZONES, DEMO_FINDINGS_PRESURVEY as DEMO_PRESURVEY } from '../../src/constants/demoDataFindings'
 
 const Z = [
@@ -76,7 +76,7 @@ describe('qaQc / limitations', () => {
 
 describe('buildReportModel (integration with demo data)', () => {
   const zoneScores = DEMO_ZONES.map(z => scoreZone(z, DEMO_BUILDING))
-  const comp = compositeScore(zoneScores)
+  const comp = summarizeAssessment(zoneScores)
   const model = buildReportModel({
     building: DEMO_BUILDING, presurvey: DEMO_PRESURVEY, zones: DEMO_ZONES, zoneScores, comp,
     recs: { imm: ['Verify outdoor-air supply.'], eng: [], adm: [], mon: [] },

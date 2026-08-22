@@ -9,7 +9,7 @@
 import { describe, it, expect } from 'vitest'
 import { renderClientReport } from '../../src/engine/report/client'
 import { legacyToAssessmentScore } from '../../src/engine/bridge/legacy'
-import { scoreZone, compositeScore } from '../../src/engines/scoring'
+import { scoreZone, summarizeAssessment } from '../../src/engines/scoring'
 import type { AssessmentMeta } from '../../src/engine/types/domain'
 
 const META: AssessmentMeta = {
@@ -39,7 +39,7 @@ describe('v2.3 §6 — per-zone limitations dedup', () => {
       tv: '1500',       // TVOC elevated
     }
     const lz = scoreZone(zone, {})
-    const cs = compositeScore([lz])
+    const cs = summarizeAssessment([lz])
     const score = legacyToAssessmentScore([lz] as any, cs as any, [zone] as any, { meta: META, presurvey: PRESURVEY })
     const result = renderClientReport(score)
     if (result.kind !== 'report') return
@@ -67,7 +67,7 @@ describe('v2.3 §6 — per-zone limitations dedup', () => {
     const zoneB = { zn: 'B', su: 'office', co2: '900', co2o: '420', pm: '50' }
     const lzA = scoreZone(zoneA, {})
     const lzB = scoreZone(zoneB, {})
-    const cs = compositeScore([lzA, lzB])
+    const cs = summarizeAssessment([lzA, lzB])
     const score = legacyToAssessmentScore([lzA, lzB] as any, cs as any, [zoneA, zoneB] as any, { meta: META, presurvey: PRESURVEY })
     const result = renderClientReport(score)
     if (result.kind !== 'report') return

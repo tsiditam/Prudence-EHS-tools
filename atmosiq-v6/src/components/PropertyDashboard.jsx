@@ -7,7 +7,6 @@ import { useState, useEffect } from 'react'
 import { I } from './Icons'
 import { FM_TRAFFIC_LIGHT } from '../constants/terminology'
 import { mix } from '../utils/theme'
-import { isIaqScoreVisible } from '../utils/featureFlags'
 import { KEYS, complaintsKey } from '../utils/storageKeys'
 
 const BG = 'var(--bg)', CARD = 'var(--card)', BORDER = 'var(--border)', ACCENT = 'var(--accent)'
@@ -22,6 +21,19 @@ function saveBuildings(b) { localStorage.setItem(STORAGE_KEY, JSON.stringify(b))
 
 function loadComplaints(buildingId) {
   try { return JSON.parse(localStorage.getItem(complaintsKey(buildingId)) || '[]') } catch { return [] }
+}
+
+/**
+ * Worst finding severity → the FM traffic-light key. The labels are the
+ * facility-manager vocabulary (`FM_TRAFFIC_LIGHT` in terminology.js) and
+ * are unchanged; only what selects them moved from a score band to the
+ * finding itself.
+ */
+const SEVERITY_TO_LIGHT = {
+  critical: 'Critical',
+  high: 'High Risk',
+  medium: 'Moderate',
+  low: 'Low Risk',
 }
 
 export default function PropertyDashboard({ onBack, onNavigate, assessmentIndex }) {
@@ -54,8 +66,11 @@ export default function PropertyDashboard({ onBack, onNavigate, assessmentIndex 
     const complaints = loadComplaints(b.id)
     const openComplaints = complaints.filter(c => c.status === 'open' || c.status === 'investigating').length
     const daysSince = lastReport ? Math.floor((Date.now() - new Date(lastReport.ts).getTime()) / 86400000) : null
-    const risk = lastReport?.score >= 80 ? 'Low Risk' : lastReport?.score >= 60 ? 'Moderate' : lastReport?.score >= 40 ? 'High Risk' : lastReport?.score != null ? 'Critical' : null
-    return { ...b, lastReport, risk, openComplaints, daysSince, score: lastReport?.score }
+    // Was a band ladder over the last report's score (80/60/40) — a
+    // seventh set of thresholds. The traffic light now reflects the worst
+    // finding recorded at that property.
+    const risk = SEVERITY_TO_LIGHT[lastReport?.worstSeverity] ?? null
+    return { ...b, lastReport, risk, openComplaints, daysSince, findings: lastReport?.findings, attention: lastReport?.attention }
   })
 
   const filtered = filter === 'all' ? enriched
@@ -65,13 +80,14 @@ export default function PropertyDashboard({ onBack, onNavigate, assessmentIndex 
     : enriched
 
   const totalComplaints = enriched.reduce((s, b) => s + b.openComplaints, 0)
-  const avgScore = enriched.filter(b => b.score != null).length > 0
-    ? Math.round(enriched.filter(b => b.score != null).reduce((s, b) => s + b.score, 0) / enriched.filter(b => b.score != null).length)
-    : null
+  // Was the mean score across properties. Averaging a rating over a
+  // portfolio told you less the more properties it covered.
+  const counted = enriched.filter(b => b.findings != null)
+  const needAttention = counted.reduce((s, b) => s + (b.attention || 0), 0)
 
   const exportCSV = () => {
-    const headers = ['Building', 'Address', 'Last Check', 'Score', 'Risk', 'Open Complaints', 'Days Since Check']
-    const rows = enriched.map(b => [b.name, b.address, b.lastReport?.ts || '—', b.score ?? '—', b.risk || '—', b.openComplaints, b.daysSince ?? '—'])
+    const headers = ['Building', 'Address', 'Last Check', 'Findings', 'Worst finding', 'Open Complaints', 'Days Since Check']
+    const rows = enriched.map(b => [b.name, b.address, b.lastReport?.ts || '—', b.findings ?? '—', b.risk || '—', b.openComplaints, b.daysSince ?? '—'])
     const csv = [headers, ...rows].map(r => r.map(v => `"${(v ?? '').toString().replace(/"/g, '""')}"`).join(',')).join('\n')
     const blob = new Blob([csv], { type: 'text/csv' })
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'portfolio-summary.csv'; a.click()
@@ -93,8 +109,8 @@ export default function PropertyDashboard({ onBack, onNavigate, assessmentIndex 
           <div style={{ fontSize: 9, color: SUB, marginTop: 2 }}>Properties</div>
         </div>
         <div style={{ padding: 12, background: CARD, border: `1px solid ${BORDER}`, borderRadius: 8, textAlign: 'center' }}>
-          <div style={{ fontSize: 18, fontWeight: 700, color: avgScore != null ? (avgScore >= 70 ? SUCCESS : avgScore >= 50 ? WARN : DANGER) : DIM, fontFamily: "var(--font-mono)" }}>{avgScore ?? '—'}</div>
-          <div style={{ fontSize: 9, color: SUB, marginTop: 2 }}>Avg Score</div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: counted.length === 0 ? DIM : needAttention > 0 ? DANGER : SUCCESS, fontFamily: "var(--font-mono)" }}>{counted.length === 0 ? '—' : needAttention}</div>
+          <div style={{ fontSize: 9, color: SUB, marginTop: 2 }}>Need Action</div>
         </div>
         <div style={{ padding: 12, background: CARD, border: `1px solid ${BORDER}`, borderRadius: 8, textAlign: 'center' }}>
           <div style={{ fontSize: 18, fontWeight: 700, color: totalComplaints > 0 ? WARN : SUCCESS, fontFamily: "var(--font-mono)" }}>{totalComplaints}</div>
@@ -136,7 +152,7 @@ export default function PropertyDashboard({ onBack, onNavigate, assessmentIndex 
             </div>
             {b.address && <div style={{ fontSize: 10, color: DIM, marginBottom: 6 }}>{b.address}</div>}
             <div style={{ display: 'flex', gap: 12, fontSize: 10, color: SUB }}>
-              {isIaqScoreVisible() && b.score != null && <span>Score: {b.score}</span>}
+              {b.findings != null && <span>{b.findings} finding{b.findings === 1 ? '' : 's'}</span>}
               {b.openComplaints > 0 && <span style={{ color: WARN }}>{b.openComplaints} open complaints</span>}
               {b.daysSince != null && <span>{b.daysSince > 90 ? <span style={{ color: WARN }}>Overdue ({b.daysSince}d)</span> : `${b.daysSince}d ago`}</span>}
             </div>

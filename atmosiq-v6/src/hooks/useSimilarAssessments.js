@@ -29,7 +29,7 @@ export function useSimilarAssessments(currentAssessment) {
   const [state, setState] = useState({
     loading: true,
     error: null,
-    patterns: { matchCount: 0, averageScore: null, commonImmediateActions: [], moldRate: null, facilityTypeLabel: null },
+    patterns: { matchCount: 0, averageFindings: null, commonImmediateActions: [], moldRate: null, facilityTypeLabel: null },
     matches: [],
     currentFeatures: { facilityType: null, yearBuilt: null, hvacType: null, triggerReason: null, waterHistory: null },
     pastCount: 0,

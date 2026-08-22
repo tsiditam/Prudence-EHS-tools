@@ -42,14 +42,31 @@ const T_ENG = CONTROL_TIER.ENGINEERING
 const T_ADM = CONTROL_TIER.ADMINISTRATIVE
 const T_NONE = null
 
-export function evalOSHA(d, tot) {
+/**
+ * OSHA-relevance flags.
+ *
+ * Every flag below reads a raw measurement against a published limit,
+ * with one exception that used to read the composite: a complaint
+ * pattern flagged only when the score fell under 70. That rule is gone,
+ * and its removal is a small improvement rather than a loss — callers
+ * passed `composite?.tot || 0`, so a missing composite scored 0 and the
+ * rule fired by DEFAULT, on exactly the assessments that had the least
+ * evidence behind them.
+ *
+ * A complaint pattern with concurrent hazard indicators is now what it
+ * says: complaints reported, alongside at least one other flag raised by
+ * a measurement.
+ */
+export function evalOSHA(d) {
   const fl = []
-  if (d.cx === 'Yes — complaints reported' && tot < 70) fl.push('Documented complaint pattern with concurrent hazard indicators')
   if (d.co2 && +d.co2 > STD.v.co2.con) fl.push('Ventilation-related concern pattern')
   if (d.wd === 'Active leak' || d.wd === 'Extensive damage' || (d.mi && !['None','Suspected discoloration'].includes(d.mi))) fl.push('Water/mold indicators present')
   if (d.sr === 'Yes — clear pattern' && (d.ac === 'More than 10' || d.ac === '6-10')) fl.push('Building-related symptom pattern — widespread')
   if (d.co && +d.co > STD.c.co.osha) fl.push('CO measurement above OSHA PEL threshold')
   if (d.hc && +d.hc > STD.c.hcho.osha) fl.push('Formaldehyde measurement above OSHA PEL threshold')
+  if (d.cx === 'Yes — complaints reported' && fl.length > 0) {
+    fl.unshift('Documented complaint pattern with concurrent hazard indicators')
+  }
   const suff = evaluateAllSufficiency(d)
   const conf = getConfidenceLevel(suff._overall || 0)
   const gaps = []

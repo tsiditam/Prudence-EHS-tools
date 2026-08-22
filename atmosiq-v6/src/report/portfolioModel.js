@@ -2,16 +2,22 @@
  * AtmosFlow — Portfolio Summary model.
  *
  * A PURE aggregator that rolls the dashboard's per-assessment signals up into
- * a practice / book-of-work view: how many assessments and sites, the
- * distribution of risk bands, a per-site status table, and an "attention
+ * a practice / book-of-work view: how many assessments and sites, what was
+ * found across them, a per-site status table, and an "attention
  * queue" (overdue reassessments, calibration status, stale drafts). It is the
  * portfolio-level sibling of `assembleRenderModel` — same model-first shape, so
  * a DOCX or PDF renderer only lays out what this returns and never re-derives.
  *
  * Deterministic and side-effect-free: pass `now` to pin the clock (tests do),
  * and it reuses the single sources of truth the rest of the app reads —
- * `getRiskBand` for score→band and `getCalibrationBannerState` for instrument
- * currency — so the report can never drift from the dashboard.
+ * the report index's own finding counts and `getCalibrationBannerState` for
+ * instrument currency — so the report can never drift from the dashboard.
+ *
+ * It was built on the risk band: an "Avg composite" KPI, a band column and a
+ * band-distribution histogram. All three are now finding counts. A report
+ * finalized before the score was removed carries no count, so it contributes
+ * nothing to the totals and shows a dash in its row — the honest rendering,
+ * since nothing recomputes an old assessment.
  *
  * Positioning: this is an internal practice-management / client-portfolio
  * summary of SCREENING assessments. It carries ONE plain scope statement (in
@@ -19,7 +25,6 @@
  * record. It makes no new cross-site determination or causation.
  */
 
-import { getRiskBand, RISK_BANDS } from '../engines/riskBands'
 import { getCalibrationBannerState } from '../utils/instrumentRegistry'
 
 const DAY = 86400000
@@ -37,10 +42,23 @@ function fmtDate(v) {
   return d ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'
 }
 
-/** Worst band first (CRITICAL → LOW), with INSUFFICIENT last — the order the
- * distribution and the site table both sort by. */
-const BANDS_WORST_FIRST = [...RISK_BANDS].sort((a, b) => b.severity - a.severity)
-const INSUFFICIENT = getRiskBand(null)
+/** Severity order, worst first — how the distribution and site table sort. */
+const SEVERITY_ROWS = [
+  { id: 'critical', label: 'Critical', color: '#B91C1C', rank: 4 },
+  { id: 'high', label: 'High', color: '#B91C1C', rank: 3 },
+  { id: 'medium', label: 'Medium', color: '#A16207', rank: 2 },
+  { id: 'low', label: 'Low', color: '#64748B', rank: 1 },
+  { id: 'none', label: 'No findings', color: '#15803D', rank: 0 },
+]
+const SEVERITY_BY_ID = Object.fromEntries(SEVERITY_ROWS.map((b) => [b.id, b]))
+const UNASSESSED = { id: 'unassessed', label: 'Not recorded', color: '#6B7380', rank: -1 }
+/** The severity row for a report-index entry, or UNASSESSED for a legacy one. */
+const severityRow = (r) => {
+  if (r.worstSeverity) return SEVERITY_BY_ID[r.worstSeverity] || UNASSESSED
+  if (num(r.findings) === 0) return SEVERITY_BY_ID.none
+  if (num(r.findings) === null) return UNASSESSED
+  return SEVERITY_BY_ID.low
+}
 
 /**
  * Build the portfolio summary model.
@@ -101,8 +119,9 @@ export function assemblePortfolioModel(input = {}) {
 
   const siteRows = [...groups.values()]
     .map((g) => {
-      const score = g.latest ? num(g.latest.score) : null
-      const band = getRiskBand(score)
+      const findings = g.latest ? num(g.latest.findings) : null
+      const attention = g.latest ? num(g.latest.attention) : null
+      const band = g.latest ? severityRow(g.latest) : UNASSESSED
       const daysSince = g.latestTs ? daysBetween(now, g.latestTs) : null
       const site = matchSite(g)
       const due = site ? reassessmentStatus(site, now) : null
@@ -111,35 +130,40 @@ export function assemblePortfolioModel(input = {}) {
         assessments: g.count,
         lastAssessed: g.latestTs ? fmtDate(g.latestTs) : '—',
         daysSince,
-        score,
+        findings,
+        attention,
         band: { id: band.id, label: band.label, color: band.color },
-        severity: band.severity,
+        severity: band.rank,
         reassessment: due,
       }
     })
     .sort((a, b) => b.severity - a.severity || (b.daysSince ?? -1) - (a.daysSince ?? -1) || a.facility.localeCompare(b.facility))
 
   // ── KPIs ──────────────────────────────────────────────────────────────────
-  const scores = reports.map((r) => num(r.score)).filter((n) => n !== null)
-  const avgScore = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null
+  const counted = reports.map((r) => num(r.findings)).filter((n) => n !== null)
+  const totalFindings = counted.reduce((a, b) => a + b, 0)
+  const totalAttention = reports.map((r) => num(r.attention)).filter((n) => n !== null).reduce((a, b) => a + b, 0)
   const distinctSites = groups.size
   const priorFinalized = num(input.priorFinalized)
   const kpis = {
     assessmentsFinalized: reports.length,
     distinctSites,
     draftsInProgress: drafts.length,
-    scoredCount: scores.length,
-    avgScore,
-    avgScoreBand: avgScore === null ? null : (() => { const b = getRiskBand(avgScore); return { id: b.id, label: b.label, color: b.color } })(),
+    assessedCount: counted.length,
+    totalFindings: counted.length ? totalFindings : null,
+    totalAttention: counted.length ? totalAttention : null,
     priorFinalized,
     deltaFinalized: priorFinalized === null ? null : reports.length - priorFinalized,
   }
 
-  // ── Risk-band distribution (worst first, INSUFFICIENT last) ────────────────
+  // ── Distribution by worst severity found (worst first) ────────────────────
   const counts = new Map()
-  for (const r of reports) counts.set(getRiskBand(num(r.score)).id, (counts.get(getRiskBand(num(r.score)).id) || 0) + 1)
+  for (const r of reports) {
+    const row = severityRow(r)
+    counts.set(row.id, (counts.get(row.id) || 0) + 1)
+  }
   const total = reports.length || 1
-  const riskDistribution = [...BANDS_WORST_FIRST, INSUFFICIENT]
+  const riskDistribution = [...SEVERITY_ROWS, UNASSESSED]
     .map((b) => {
       const count = counts.get(b.id) || 0
       return { id: b.id, label: b.label, color: b.color, count, pct: Math.round((count / total) * 100) }

@@ -8,7 +8,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { legacyToAssessmentScore } from '../../src/engine/bridge/legacy'
-import { scoreZone, compositeScore } from '../../src/engines/scoring'
+import { scoreZone, summarizeAssessment } from '../../src/engines/scoring'
 import { PHRASE_LIBRARY } from '../../src/engine/report/phrases/index'
 import type { AssessmentMeta } from '../../src/engine/types/domain'
 
@@ -40,7 +40,7 @@ describe('v2.3 §1 — Finding.limitations populated from phrase library', () =>
     }
     const bldg = { hm: 'Over 12 months', fc: 'Heavily loaded', dp: 'Standing water' }
     const lz = scoreZone(zone, bldg)
-    const cs = compositeScore([lz])
+    const cs = summarizeAssessment([lz])
     const score = legacyToAssessmentScore([lz] as any, cs as any, [{ ...zone, ...bldg }] as any, { meta: META })
 
     const findings = score.zones.flatMap(z => z.categories.flatMap(c => c.findings))
@@ -85,7 +85,7 @@ describe('v2.3 §1 — Finding.limitations populated from phrase library', () =>
     }
     const bldg = { hm: 'Over 12 months', fc: 'Heavily loaded' }
     const lz = scoreZone(zone, bldg)
-    const cs = compositeScore([lz])
+    const cs = summarizeAssessment([lz])
     const score = legacyToAssessmentScore([lz] as any, cs as any, [{ ...zone, ...bldg }] as any, { meta: META })
 
     const significantByCategory = new Map<string, boolean>()

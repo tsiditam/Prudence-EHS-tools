@@ -49,10 +49,20 @@ export function evaluateEscalation(assessment, complaints, history) {
     }
   }
 
-  // Critical tier on 2+ consecutive assessments of same area
+  // A critical finding on 2+ consecutive assessments of the same area.
+  //
+  // This read the historical RISK BAND ('Critical'), which pre-removal
+  // records still carry and new ones never will. It reads the finding
+  // severity instead, and falls back to the stored band so a pair of
+  // legacy records still fires the rule — the history is the whole point
+  // of a consecutive-assessment trigger, and it is the one place a
+  // stored band is still the best evidence available.
   if (history && history.length >= 2) {
     const lastTwo = history.slice(0, 2)
-    if (lastTwo.every(h => h.risk === 'Critical' || (h.comp?.risk || h.composite?.risk) === 'Critical')) {
+    const wasCritical = (h) => (h.zoneScores || []).some(
+      z => (z.cats || []).some(c => (c.r || []).some(r => r.sev === 'critical')),
+    ) || h.risk === 'Critical' || (h.comp?.risk || h.composite?.risk) === 'Critical'
+    if (lastTwo.every(wasCritical)) {
       triggers.push({ rule: 'consecutive_critical', severity: 'critical', rationale: 'Critical air quality on two or more consecutive assessments. Professional investigation strongly recommended.' })
     }
   }
