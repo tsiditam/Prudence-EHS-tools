@@ -17,7 +17,6 @@
 
 import { validateClientReport } from '../../engine/report/validators'
 import { renderLoggerGraphsSectionHtml } from './logger-graphs-html'
-import { isIaqScoreVisible } from '../../utils/featureFlags'
 
 const esc = (str) => {
   if (str === null || str === undefined) return ''
@@ -618,7 +617,6 @@ function generateFullClientHTML(report, options, styles = PAGE_STYLES) {
 
   ${renderAppendices(report.appendix)}
 
-  ${report.appendix.assessmentIndexInformationalOnly ? renderAssessmentIndexAppendix(report.appendix.assessmentIndexInformationalOnly) : ''}
 </body>
 </html>`
 }
@@ -1096,19 +1094,9 @@ function renderSignatoryBlock(sig) {
   </div>`
 }
 
-function renderAssessmentIndexAppendix(idx) {
-  // The Assessment Index appendix is entirely composite scores + tiers; when
-  // the score display is off, omit the whole appendix.
-  if (!isIaqScoreVisible()) return ''
-  return `<div class="pg-break"></div>
-    <h2 id="appendix-assessment-index">Appendix — Assessment Index (Informational Only)</h2>
-    <p><em>${esc(idx.disclaimer)}</em></p>
-    <table>
-      <tr><th>Zone</th><th>Index</th><th>Tier</th></tr>
-      ${idx.zoneScores.map(z => `<tr><td>${esc(z.zoneName)}</td><td>${z.composite}</td><td>${esc(z.tier)}</td></tr>`).join('')}
-      <tr><td><strong>Site</strong></td><td><strong>${idx.siteScore}</strong></td><td><strong>${esc(idx.siteTier)}</strong></td></tr>
-    </table>`
-}
+// renderAssessmentIndexAppendix lived here — a per-zone composite/tier
+// table that already returned '' whenever the score display was off. The
+// score is gone, so it renders nothing under every condition.
 
 function generateMemoHTML(memo, reasons) {
   return `<!DOCTYPE html>

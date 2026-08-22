@@ -18,9 +18,8 @@
  */
 
 import { Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle } from 'docx'
-import { resolveVerdict } from '../../utils/assessmentVerdict'
-import { FONTS, COLORS, SEV_COLORS, scoreColor, riskLabel } from './styles'
-import { isIaqScoreVisible } from '../../utils/featureFlags'
+import { resolveVerdict, worstZoneIndex, worstFindingCategory } from '../../utils/assessmentVerdict'
+import { FONTS, COLORS, SEV_COLORS } from './styles'
 import { buildTable, kvTable } from './tables'
 import { benchmarkRowsFor } from './canonical-content'
 
@@ -139,40 +138,11 @@ export function buildBenchmarksUsed(ctx) {
 export function buildResults(ctx) {
   const children = [p('Results', { heading: HeadingLevel.HEADING_2 })]
 
-  // 5a. Per-zone category score matrix (score-display gated; the figure panel
-  // below and the rest of the technical section still render regardless).
-  if (isIaqScoreVisible()) {
-  const matrixRows = (ctx.zoneScores || []).map(zs => {
-    const cols = [{ text: zs.zoneName, bold: true, size: 18 }]
-    zs.cats.forEach(cat => {
-      if (cat.s === null || cat.status === 'DATA_GAP' || cat.status === 'INSUFFICIENT') {
-        cols.push({ text: '—', size: 18, color: COLORS.muted, align: AlignmentType.CENTER })
-      } else if (cat.status === 'SUPPRESSED') {
-        cols.push({ text: 'N/A', size: 18, color: COLORS.muted, align: AlignmentType.CENTER })
-      } else {
-        cols.push({ text: `${cat.s}/${cat.mx}`, size: 18, bold: true, color: scoreColor(Math.round((cat.s / cat.mx) * 100)), align: AlignmentType.CENTER })
-      }
-    })
-    cols.push({ text: zs.tot !== null ? `${zs.tot}` : '—', size: 18, bold: true, color: zs.tot !== null ? scoreColor(zs.tot) : COLORS.muted, align: AlignmentType.CENTER })
-    cols.push({ text: zs.tot !== null ? riskLabel(zs.tot) : 'No data', size: 16, color: zs.tot !== null ? scoreColor(zs.tot) : COLORS.muted })
-    return cols
-  })
-  if (matrixRows.length === 0) {
-    children.push(p('No zones scored.', { italics: true, color: COLORS.muted }))
-  } else {
-    children.push(buildTable(
-      [
-        { text: 'Zone', width: 22 }, { text: 'Vent', width: 9 }, { text: 'Cont', width: 9 },
-        { text: 'HVAC', width: 9 }, { text: 'Comp', width: 9 }, { text: 'Env', width: 9 },
-        { text: 'Total', width: 9 }, { text: 'Risk', width: 14 },
-      ],
-      matrixRows
-    ))
-    if (ctx.comp) {
-      children.push(p(`Composite ${ctx.comp.tot}/100 (${ctx.comp.risk}). Confidence: ${ctx.confidence}.`, { size: 16, color: COLORS.muted, after: 160 }))
-    }
-  }
-  }
+  // 5a. A per-zone category score matrix stood here (Vent / Cont / HVAC /
+  // Comp / Env as `n/max`, then Total and Risk), behind the score-display
+  // gate. Both the matrix and the gate went with the score. The figure
+  // panel below and the rest of the technical section are unchanged, and
+  // the per-zone findings they carry are what the matrix was summarizing.
 
   // 5b. Compact figure panel — per-zone indoor / outdoor / delta readings.
   const figRows = []
@@ -245,38 +215,38 @@ export function buildFlaggedIndicators(ctx) {
 
 // ── 7. Analyst Notes (internal-only) — candid triage / follow-up / priority ──
 export function buildAnalystNotes(ctx) {
-  const tot = ctx.comp ? ctx.comp.tot : null
-  // Triage priority follows the shared verdict, so a critical finding cannot
-  // be triaged P4 — Routine on the strength of a passing composite.
-  const techVerdict = resolveVerdict({ comp: ctx.comp, zoneScores: ctx.zoneScores, escalationTriggers: ctx.escalationTriggers })
+  // Nothing was assessed at all — distinct from "assessed and clean",
+  // which is what `sev === 'pass'` alone cannot tell you. Was
+  // `ctx.comp.tot == null`.
+  const unassessed = !(ctx.zoneScores || []).length
+  // Triage priority follows the shared verdict, so a critical finding
+  // cannot be triaged P4 — Routine.
+  const techVerdict = resolveVerdict({ zoneScores: ctx.zoneScores, escalationTriggers: ctx.escalationTriggers })
   const sev = techVerdict.severity
-  const priority = tot == null && sev === 'pass' ? 'P3 — Review (no composite)'
+  const priority = unassessed && sev === 'pass' ? 'P3 — Review (nothing assessed)'
     : sev === 'critical' ? 'P1 — Critical'
     : sev === 'high' ? 'P2 — High'
     : sev === 'medium' ? 'P3 — Moderate'
     : 'P4 — Routine'
-  const priColor = tot == null && sev === 'pass' ? COLORS.muted
+  const priColor = unassessed && sev === 'pass' ? COLORS.muted
     : sev === 'critical' ? RED
     : sev === 'high' ? AMBER
     : sev === 'medium' ? (SEV_COLORS.medium || AMBER)
     : (SEV_COLORS.pass || COLORS.body)
 
   const zs = ctx.zoneScores || []
-  const worstZone = zs.length
-    ? zs.reduce((a, b) => (a.tot == null ? b : b.tot == null ? a : (a.tot <= b.tot ? a : b)))
-    : null
-  const worstCat = worstZone
-    ? (worstZone.cats || []).filter(c => c.s != null && c.mx).reduce((a, b) => (!a ? b : ((a.s / a.mx) <= (b.s / b.mx) ? a : b)), null)
-    : null
+  // The zone driving the assessment, and the category driving that zone.
+  // Both were lowest-score lookups; both are now worst-finding lookups.
+  const worstZone = zs.length ? zs[worstZoneIndex(zs)] : null
+  const worstCat = worstZone ? worstFindingCategory([worstZone]) : null
   let critHigh = 0
   zs.forEach(z => z.cats.forEach(c => c.r.forEach(r => { if (r.sev === 'critical' || r.sev === 'high') critHigh++ })))
 
-  const showScore = isIaqScoreVisible()
   const triage = worstZone
-    ? `${worstZone.zoneName} drives the assessment${showScore ? ` (composite ${worstZone.tot ?? '—'}/100${worstCat ? `; weakest category ${worstCat.l} at ${worstCat.s}/${worstCat.mx}` : ''})` : worstCat ? ` (weakest area: ${worstCat.l})` : ''}. ${critHigh} critical/high indicator${critHigh !== 1 ? 's' : ''} flagged.`
+    ? `${worstZone.zoneName} drives the assessment${worstCat ? ` (weakest area: ${worstCat})` : ''}. ${critHigh} critical/high indicator${critHigh !== 1 ? 's' : ''} flagged.`
     : 'No zones with data — capture field measurements before triage.'
 
-  const followUp = tot == null && sev === 'pass'
+  const followUp = unassessed && sev === 'pass'
     ? 'Schedule a field visit to capture baseline measurements before drawing conclusions.'
     : (sev === 'critical' || sev === 'high')
       ? 'Recommend confirmatory sampling and an HVAC engineering review within ~5 business days; flag for IH callback.'

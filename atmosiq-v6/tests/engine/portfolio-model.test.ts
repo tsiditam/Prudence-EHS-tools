@@ -1,8 +1,16 @@
 /**
  * Portfolio Summary model — the pure aggregator behind the portfolio report.
  *
- * Deterministic (clock injected via `now`); reuses getRiskBand and
- * getCalibrationBannerState so the report can't drift from the dashboard.
+ * Deterministic (clock injected via `now`); reuses the report index's own
+ * finding counts and getCalibrationBannerState so the report can't drift
+ * from the dashboard.
+ *
+ * The fixtures carried a `score` per report and the assertions were about
+ * risk bands. Both went with the 100-point score: a report-index entry now
+ * carries `findings` / `attention` / `worstSeverity`, and the roll-up
+ * groups by worst severity found. One fixture keeps only a `score` on
+ * purpose — a report finalized before the removal, which must degrade to
+ * "not recorded" rather than break the report.
  */
 import { describe, it, expect } from 'vitest'
 // @ts-expect-error — JS module without types
@@ -15,11 +23,11 @@ function baseInput(): any {
     now: NOW,
     firm: 'Prudence EHS',
     reports: [
-      { id: 'r1', ts: '2026-08-10', facility: 'Harborview Center', score: 88 }, // LOW
-      { id: 'r2', ts: '2026-07-01', facility: 'Harborview Center', score: 72 }, // MODERATE (older, same site)
-      { id: 'r3', ts: '2026-06-15', facility: 'Midtown Tower', score: 45 }, //     HIGH
-      { id: 'r4', ts: '2026-05-01', facility: 'Dock 9 Warehouse', score: 30 }, //  CRITICAL
-      { id: 'r5', ts: '2026-04-01', facility: 'Annex B', score: null }, //         INSUFFICIENT
+      { id: 'r1', ts: '2026-08-10', facility: 'Harborview Center', findings: 1, attention: 0, worstSeverity: 'low' },
+      { id: 'r2', ts: '2026-07-01', facility: 'Harborview Center', findings: 3, attention: 1, worstSeverity: 'medium' }, // older, same site
+      { id: 'r3', ts: '2026-06-15', facility: 'Midtown Tower', findings: 4, attention: 2, worstSeverity: 'high' },
+      { id: 'r4', ts: '2026-05-01', facility: 'Dock 9 Warehouse', findings: 6, attention: 4, worstSeverity: 'critical' },
+      { id: 'r5', ts: '2026-04-01', facility: 'Annex B', score: 55 }, // pre-removal record: a score, no counts
     ],
     drafts: [
       { id: 'd1', facility: 'New Site', ua: '2026-08-14' }, // fresh
@@ -29,15 +37,17 @@ function baseInput(): any {
 }
 
 describe('assemblePortfolioModel — KPIs', () => {
-  it('counts assessments, distinct sites, drafts, and averages only scored reports', () => {
+  it('counts assessments, distinct sites, drafts, and totals only the reports that carry counts', () => {
     const m = assemblePortfolioModel(baseInput())
     expect(m.kpis.assessmentsFinalized).toBe(5)
     // Harborview appears twice → 4 distinct sites.
     expect(m.kpis.distinctSites).toBe(4)
     expect(m.kpis.draftsInProgress).toBe(2)
-    expect(m.kpis.scoredCount).toBe(4) // the null score is excluded
-    expect(m.kpis.avgScore).toBe(Math.round((88 + 72 + 45 + 30) / 4)) // 59
-    expect(m.kpis.avgScoreBand.id).toBe('HIGH')
+    // The pre-removal record contributes nothing rather than a zero —
+    // it is unknown, not empty.
+    expect(m.kpis.assessedCount).toBe(4)
+    expect(m.kpis.totalFindings).toBe(1 + 3 + 4 + 6)
+    expect(m.kpis.totalAttention).toBe(0 + 1 + 2 + 4)
   })
 
   it('computes a delta against a prior period when given', () => {
@@ -51,14 +61,13 @@ describe('assemblePortfolioModel — KPIs', () => {
 })
 
 describe('assemblePortfolioModel — risk distribution', () => {
-  it('buckets each report by its band, worst first, dropping empty bands', () => {
+  it('buckets each report by its worst finding, worst first, dropping empty rows', () => {
     const m = assemblePortfolioModel(baseInput())
     const ids = m.riskDistribution.map((r: any) => r.id)
-    // Worst-first ordering, INSUFFICIENT last; MODERATE present (r2), LOW present (r1).
-    expect(ids).toEqual(['CRITICAL', 'HIGH', 'MODERATE', 'LOW', 'INSUFFICIENT'])
+    expect(ids).toEqual(['critical', 'high', 'medium', 'low', 'unassessed'])
     const byId = Object.fromEntries(m.riskDistribution.map((r: any) => [r.id, r.count]))
-    expect(byId).toEqual({ CRITICAL: 1, HIGH: 1, MODERATE: 1, LOW: 1, INSUFFICIENT: 1 })
-    expect(m.riskDistribution.find((r: any) => r.id === 'CRITICAL').pct).toBe(20)
+    expect(byId).toEqual({ critical: 1, high: 1, medium: 1, low: 1, unassessed: 1 })
+    expect(m.riskDistribution.find((r: any) => r.id === 'critical').pct).toBe(20)
   })
 })
 
@@ -67,16 +76,23 @@ describe('assemblePortfolioModel — per-site rollup', () => {
     const m = assemblePortfolioModel(baseInput())
     const harbor = m.siteRows.find((r: any) => r.facility === 'Harborview Center')
     expect(harbor.assessments).toBe(2)
-    // Latest is r1 (2026-08-10, score 88 → LOW), not the older 72.
-    expect(harbor.score).toBe(88)
-    expect(harbor.band.id).toBe('LOW')
+    // Latest is r1 (2026-08-10, one low finding), not the older r2.
+    expect(harbor.findings).toBe(1)
+    expect(harbor.band.id).toBe('low')
     expect(harbor.daysSince).toBe(6)
   })
 
-  it('sorts worst band first, then most days since', () => {
+  it('sorts worst finding first, then most days since', () => {
     const m = assemblePortfolioModel(baseInput())
-    expect(m.siteRows[0].facility).toBe('Dock 9 Warehouse') // CRITICAL
-    expect(m.siteRows[0].band.id).toBe('CRITICAL')
+    expect(m.siteRows[0].facility).toBe('Dock 9 Warehouse')
+    expect(m.siteRows[0].band.id).toBe('critical')
+  })
+
+  it('a report finalized before the score was removed shows as not recorded', () => {
+    const m = assemblePortfolioModel(baseInput())
+    const annex = m.siteRows.find((r: any) => r.facility === 'Annex B')
+    expect(annex.findings).toBeNull()
+    expect(annex.band.id).toBe('unassessed')
   })
 })
 
@@ -121,7 +137,7 @@ describe('assemblePortfolioModel — edges', () => {
     const m = assemblePortfolioModel({ now: NOW, reports: [], drafts: [] })
     expect(m.isEmpty).toBe(true)
     expect(m.kpis.assessmentsFinalized).toBe(0)
-    expect(m.kpis.avgScore).toBeNull()
+    expect(m.kpis.totalFindings).toBeNull()
     expect(m.riskDistribution).toEqual([])
     expect(m.siteRows).toEqual([])
   })
@@ -136,8 +152,8 @@ describe('assemblePortfolioModel — edges', () => {
     const input = {
       now: NOW,
       reports: [
-        { id: 'r1', ts: '2026-08-10', facility: 'Harborview', score: 80 },
-        { id: 'r2', ts: '2026-08-01', facility: 'Harborview Corporate Center', score: 60 },
+        { id: 'r1', ts: '2026-08-10', facility: 'Harborview', findings: 4, attention: 0, worstSeverity: 'low' },
+        { id: 'r2', ts: '2026-08-01', facility: 'Harborview Corporate Center', findings: 3, attention: 0, worstSeverity: 'low' },
       ],
       records: { r1: { site_id: 'SITE-1' }, r2: { site_id: 'SITE-1' } },
     }

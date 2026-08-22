@@ -4,8 +4,8 @@
  */
 
 import { Paragraph, TextRun, HeadingLevel, AlignmentType, SectionType, PageBreak, ImageRun, Table, TableRow, TableCell, WidthType, ShadingType, BorderStyle } from 'docx'
-import { resolveVerdict } from '../../utils/assessmentVerdict'
-import { FONTS, COLORS, SEV_COLORS, scoreColor, riskLabel } from './styles'
+import { resolveVerdict, countFindings, worstFindingCategory } from '../../utils/assessmentVerdict'
+import { FONTS, COLORS, SEV_COLORS } from './styles'
 import { buildTable, kvTable, borderlessLayoutTable, dataCell, headerCell } from './tables'
 import { markdownToDocx } from './markdownToDocx'
 import { base64ToUint8Array, inferImageType, isImageDataUrl } from './images'
@@ -172,17 +172,22 @@ export function buildExecutiveSummary(ctx) {
     p('Executive Summary', { heading: HeadingLevel.HEADING_2 }),
   ]
 
-  if (ctx.comp) {
-    // Score summary table
+  // What was found, counted. Not a rating: the reader gets the census and
+  // the findings themselves, and forms their own view. The rows are
+  // suppressed when zero so a clean assessment does not print four
+  // zeroes to say nothing was found.
+  const census = countFindings(ctx.zoneScores)
+  if (ctx.zoneScores?.length) {
+    const rows = [['Zones assessed', `${ctx.zoneScores.length}`]]
+    if (census.bySeverity.critical) rows.push(['Critical findings', { text: `${census.bySeverity.critical}`, bold: true, color: SEV_COLORS.critical }])
+    if (census.bySeverity.high) rows.push(['High-severity findings', { text: `${census.bySeverity.high}`, bold: true, color: SEV_COLORS.high }])
+    if (census.bySeverity.medium) rows.push(['Medium-severity findings', `${census.bySeverity.medium}`])
+    if (census.bySeverity.low) rows.push(['Low-severity findings', `${census.bySeverity.low}`])
+    if (!census.total) rows.push(['Findings', 'None identified'])
+    rows.push(['Confidence', ctx.confidence])
     children.push(buildTable(
       [{ text: 'Metric', width: 50 }, { text: 'Value', width: 50 }],
-      [
-        ['Composite score', { text: `${ctx.comp.tot}/100`, bold: true, color: scoreColor(ctx.comp.tot) }],
-        ['Average zone score', `${ctx.comp.avg}/100`],
-        ['Worst zone score', { text: `${ctx.comp.worst}/100`, color: scoreColor(ctx.comp.worst) }],
-        ['Zones assessed', `${ctx.comp.count}`],
-        ['Confidence', ctx.confidence],
-      ]
+      rows,
     ))
     children.push(p('', { after: 120 }))
   }
@@ -194,9 +199,14 @@ export function buildExecutiveSummary(ctx) {
     // Render the AI narrative's markdown (headings / bullets / tables)
     // into real docx blocks rather than a single flat paragraph.
     children.push(...markdownToDocx(ctx.narrative, { color: COLORS.sub }))
-  } else if (ctx.comp) {
-    const worst = ctx.zoneScores?.reduce((a, b) => a.tot < b.tot ? a : b, ctx.zoneScores[0])
-    const worstCat = worst?.cats?.reduce((a, b) => (a.s / a.mx) < (b.s / b.mx) ? a : b)
+  } else if (ctx.zoneScores?.length) {
+    // The category carrying the worst finding. This used to be the
+    // category with the lowest score RATIO (`a.s / a.mx`), which is a
+    // different question — a category can lose most of its points to
+    // several medium findings while another holds a single critical one.
+    // Naming the area of concern by what was actually found is both more
+    // accurate and the only version that survives without the numbers.
+    const worstCat = worstFindingCategory(ctx.zoneScores)
 
     const hasGate5 = ctx.zoneScores?.some(zs => zs.cats?.some(c => c.gate5))
     const hasSynergistic = ctx.zoneScores?.some(zs => zs.cats?.some(c => c.synergistic))
@@ -206,12 +216,15 @@ export function buildExecutiveSummary(ctx) {
 
     // Shared verdict — see PrintReport for why the composite alone is not
     // enough to call conditions acceptable.
-    const coreVerdict = resolveVerdict({ comp: ctx.comp, zoneScores: ctx.zoneScores, escalationTriggers: ctx.escalationTriggers })
+    const coreVerdict = resolveVerdict({ zoneScores: ctx.zoneScores, escalationTriggers: ctx.escalationTriggers })
+    const countPhrase = census.attention === 1
+      ? 'One finding warrants attention'
+      : `${census.attention} findings warrant attention`
     const riskDesc = coreVerdict.severity === 'pass'
       ? 'Available evidence supports that conditions observed during the assessment window are broadly consistent with applicable occupancy standards, with localized areas warranting targeted follow-up as noted in the zone findings below.'
       : coreVerdict.severity === 'medium'
-        ? `Conditions observed during the assessment window suggest moderate indoor air quality concerns. The composite score of ${ctx.comp.tot}/100 reflects a weighted evaluation across five categories, with ${worstCat ? `${worstCat.l} (${worstCat.s}/${worstCat.mx}) identified as the primary area of concern` : 'multiple categories showing room for improvement'}.`
-        : `Conditions observed during the assessment window indicate significant indoor air quality concerns that would warrant prioritized remediation. The composite score of ${ctx.comp.tot}/100 reflects deficiencies across multiple evaluation categories${worstCat ? `, with ${worstCat.l} (${worstCat.s}/${worstCat.mx}) representing the most acute concern` : ''}.`
+        ? `Conditions observed during the assessment window suggest moderate indoor air quality concerns. ${countPhrase}${worstCat ? `, with ${worstCat} identified as the primary area of concern` : ''}.`
+        : `Conditions observed during the assessment window indicate significant indoor air quality concerns that would warrant prioritized remediation. ${countPhrase}${worstCat ? `, with ${worstCat} representing the most acute concern` : ''}.`
 
     const immRecs = ctx.recs?.imm || []
     const immText = (r) => (typeof r === 'string') ? r : (r?.text || '')

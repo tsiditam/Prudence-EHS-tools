@@ -24,7 +24,6 @@
 import { actionLine } from '../../utils/recFormatting'
 import { resolveVerdict } from '../../utils/assessmentVerdict'
 import { summarizeParameters, peakCo2ByZone } from '../../report/reportModel'
-import { isIaqScoreVisible } from '../../utils/featureFlags'
 
 // Screening-outcome palette (matches the sample design + reportModel tiers).
 const OUTCOME_TONE = { acceptable: '#15803D', advisory: '#B45309', elevated: '#C2410C' }
@@ -55,15 +54,17 @@ const EXPLAINERS = [
   { keys: ['tv', 'tvoc'], label: 'Total VOCs (TVOC)', text: 'A combined, non-specific reading of gases that off-gas from furnishings, cleaning products, and equipment. It flags that a source is present and worth investigating — it does not identify a specific chemical or a health risk on its own.' },
 ]
 
-// Takes the whole context, not just the score: a critical finding leaves the
-// composite >= 70, so scoring alone once described it as "within expected
-// ranges". "Screening" is also gone as a label per docs/REPORTING_VOICE.md.
+// Reads the findings and the escalation triggers. It used to also read
+// the composite, which was the defect: a critical finding left the
+// composite >= 70, so the score alone once described it as "within
+// expected ranges". "Screening" is also gone as a label per
+// docs/REPORTING_VOICE.md.
 function snapshotLine(ctx) {
-  const { comp, zoneScores, escalationTriggers } = ctx || {}
-  if (comp?.tot == null && !(zoneScores || []).length) {
+  const { zoneScores, escalationTriggers } = ctx || {}
+  if (!(zoneScores || []).length) {
     return 'This summary describes the conditions observed during the assessment.'
   }
-  const { severity } = resolveVerdict({ comp, zoneScores, escalationTriggers })
+  const { severity } = resolveVerdict({ zoneScores, escalationTriggers })
   if (severity === 'pass') return 'Most areas were within expected ranges, with a few spots flagged for a closer look.'
   if (severity === 'medium') return 'Some areas showed conditions worth attention; targeted follow-up is recommended below.'
   return 'Several areas showed conditions that warrant prompt attention, summarized below.'
@@ -144,10 +145,8 @@ export function generateModernSummaryHTML(data, opts = {}) {
   const ps = data.presurvey || {}
   const zones = data.zones || []
   const zoneScores = data.zoneScores || []
-  const comp = data.comp || null
-  // Composite score + risk band are display-gated (default hidden). Findings,
-  // parameters, and recommendations still render regardless.
-  const showScore = isIaqScoreVisible()
+  // The composite score panel and risk band that stood here were
+  // display-gated (default hidden) before being removed with the score.
   const profile = data.profile || {}
   const accent = opts.brandColor || profile.brandColor || '#0E7490'
   const firm = profile.firm || 'Prudence Safety & Environmental Consulting, LLC'
@@ -216,11 +215,10 @@ export function generateModernSummaryHTML(data, opts = {}) {
   <h2>At a Glance</h2>
   <div class="card accent">
     <div class="snap">
-      ${showScore && comp ? `<div class="score"><b>${comp.tot}</b><span>of 100</span></div>` : ''}
       <div style="flex:1;min-width:220px">
-        <p style="color:var(--ink);font-weight:500;margin-bottom:6px">${snapshotLine({ comp, zoneScores, escalationTriggers: data.escalationTriggers })}</p>
+        <p style="color:var(--ink);font-weight:500;margin-bottom:6px">${snapshotLine({ zoneScores, escalationTriggers: data.escalationTriggers })}</p>
         <div style="font-size:9.5pt;color:var(--faint)">
-          ${zones.length} area${zones.length === 1 ? '' : 's'} screened${showScore && comp && comp.risk ? ` · overall: <strong style="color:var(--accent-dk)">${esc(comp.risk)}</strong>` : ''}${findings.length ? ` · ${findings.length} item${findings.length === 1 ? '' : 's'} flagged` : ' · no items flagged'}
+          ${zones.length} area${zones.length === 1 ? '' : 's'} assessed${findings.length ? ` · ${findings.length} item${findings.length === 1 ? '' : 's'} flagged` : ' · no items flagged'}
         </div>
       </div>
     </div>

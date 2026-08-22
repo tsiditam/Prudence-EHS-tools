@@ -20,7 +20,7 @@
 import { describe, it, expect } from 'vitest'
 import { renderClientReport } from '../../src/engine/report/client'
 import { legacyToAssessmentScore } from '../../src/engine/bridge/legacy'
-import { scoreZone, compositeScore } from '../../src/engines/scoring'
+import { scoreZone, summarizeAssessment } from '../../src/engines/scoring'
 import { generateClientReportHTML } from '../../src/components/print/client-html'
 import type { AssessmentMeta } from '../../src/engine/types/domain'
 
@@ -48,7 +48,7 @@ function buildScore() {
   // Three HVAC findings: maintenance overdue + filter loaded + drain pan
   const bldg = { hm: 'Over 12 months', fc: 'Heavily loaded', dp: 'Bio growth observed' }
   const lzs = zones.map(z => scoreZone(z, bldg))
-  const cs = compositeScore(lzs)
+  const cs = summarizeAssessment(lzs)
   return legacyToAssessmentScore(
     lzs as any,
     cs as any,

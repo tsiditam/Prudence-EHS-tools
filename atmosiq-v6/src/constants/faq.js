@@ -18,7 +18,7 @@ export const FAQ_SECTIONS = [
     items: [
       {
         q: 'What is AtmosFlow?',
-        a: 'AtmosFlow is a structured indoor air quality (IAQ) assessment platform built for industrial hygienists, EHS professionals, and IAQ consultants. It captures field walkthrough data, scores findings against published standards, and produces a report-ready deliverable before you leave the building.',
+        a: 'AtmosFlow is a structured indoor air quality (IAQ) assessment platform built for industrial hygienists, EHS professionals, and IAQ consultants. It captures field walkthrough data, evaluates it against published standards, and produces a report-ready deliverable before you leave the building.',
       },
       {
         q: 'Is AtmosFlow only for Certified Industrial Hygienists?',
@@ -77,27 +77,27 @@ export const FAQ_SECTIONS = [
     ],
   },
   {
-    title: 'Scoring and Confidence',
+    title: 'Findings and Confidence',
     items: [
       {
-        q: 'How does AtmosFlow score an assessment?',
-        a: 'AtmosFlow uses a 100-point deterministic scoring model across five categories:\n\n• Ventilation adequacy — 25 points\n• Contaminant exposure risk — 25 points\n• HVAC condition and maintenance — 20 points\n• Occupant complaints and symptoms — 15 points\n• Environmental conditions — 15 points\n\nEach category has its own deterministic deduction rules tied to specific observations, measurements, and reference standards. Identical inputs produce identical outputs.',
+        q: 'How does AtmosFlow evaluate an assessment?',
+        a: 'AtmosFlow evaluates each recorded measurement and observation against a published criterion — an OSHA PEL, a NIOSH REL, an ASHRAE range, an EPA NAAQS, an IICRC classification — and produces a finding carrying that criterion, the value observed, and a severity. Identical inputs produce identical findings.\n\nIt does not produce a rating. A report leads with what was found and how much of it warrants attention, ordered by severity, so the reader is looking at the conditions rather than at a number standing in for them.',
       },
       {
-        q: 'How is the building composite score calculated?',
-        a: 'When multiple zones are assessed, AtmosFlow uses a worst-zone-override approach to prevent severe deficiencies from being averaged away.\n\nIf any zone scores in the Critical band (below 40), the composite equals the worst zone\'s score.\n\nOtherwise, the composite is a priority-weighted mean of zone scores, weighted by occupancy type. Critical infrastructure zones (data halls, battery rooms) carry higher weight; mechanical-only spaces carry less. Standard office and default zones are unweighted.\n\nThis ensures a high-risk zone cannot be hidden by better-performing areas.',
+        q: 'Why doesn\'t AtmosFlow give my building a score?',
+        a: 'It used to — a 100-point composite across five weighted categories, with a worst-zone override and a Low / Moderate / High / Critical band.\n\nIt was removed because a single number could not be explained in a sentence. It was simultaneously a weighted mean, an override, a normalization against whatever data happened to be collected, and a severity cap; two buildings could reach the same score for entirely different reasons, and a client who received a 68 had no way to act on it. What a professional and a building owner both need is what was found and where.',
       },
       {
-        q: 'What do the risk classifications mean?',
-        a: 'AtmosFlow classifies composite scores as:\n\n• 80–100 — Low Risk\n• 60–79 — Moderate\n• 40–59 — High Risk\n• Below 40 — Critical (requires immediate professional review)\n\nThese bands support professional interpretation; they do not replace it.',
+        q: 'How are findings prioritized without a score?',
+        a: 'By severity, which comes from the criterion each finding was evaluated against rather than from a rating applied afterward. A carbon monoxide reading above the OSHA PEL is critical because of what the PEL is; visible mold over 30 square feet is critical because of what IICRC S520 says about it.\n\nRecommendations are separately tiered by urgency (Immediate / Short-Term / Long-Term) and, under the OSHA 3430 control hierarchy, by kind — source management, engineering control, or administrative control.',
       },
       {
         q: 'What is "measurement confidence"?',
-        a: 'Every finding carries a confidence level reflecting how complete the underlying data is. Missing photos, missing calibration records, or instruments outside the accuracy database degrade confidence. Findings derived from uncalibrated or out-of-database instruments propagate a "qualitative-only" flag through every rendered output.',
+        a: 'Every finding carries a confidence level reflecting how complete the underlying data is. Missing photos, missing calibration records, or instruments outside the accuracy database degrade confidence. Findings derived from uncalibrated or out-of-database instruments propagate a "qualitative-only" flag through every rendered output.\n\nConfidence describes the EVIDENCE, not the building. It never becomes a rating of the site.',
       },
       {
-        q: 'Is the scoring deterministic or AI-driven?',
-        a: 'Scoring is fully deterministic. Identical inputs produce identical outputs. No AI is involved in the score, the risk classification, or the recommendation severity. AI is used only for narrative drafting, and that output is clearly labeled as AI-assisted so you can verify it before issuing.',
+        q: 'Is the evaluation deterministic or AI-driven?',
+        a: 'Fully deterministic. Identical inputs produce identical findings, severities and recommendations. No AI is involved in evaluating a measurement against a criterion, in assigning severity, or in setting recommendation priority. AI is used only for narrative drafting, and that output is clearly labeled as AI-assisted so you can verify it before issuing.',
       },
     ],
   },
@@ -109,8 +109,8 @@ export const FAQ_SECTIONS = [
         a: 'AtmosFlow surfaces mold and moisture findings as a separate parallel-panel finding with IICRC S520 condition framing (Condition 1 / 2 / 3). Microbial assessment requires its own response framework — area-based response tiers, professional condition determination, and remediation referral — that the platform supports through structured questions and qualified-professional referral language.',
       },
       {
-        q: 'Does mold affect the numeric IAQ score?',
-        a: 'Yes — partially. Mold and moisture findings deduct points from the Contaminants category (which has a 25-point maximum), so they do influence the composite score. AtmosFlow also surfaces mold as a separate parallel-panel finding with its own IICRC S520 condition framing, because microbial assessment requires its own response framework that a numeric deduction alone cannot capture.',
+        q: 'How does mold appear in an IAQ assessment?',
+        a: 'As a finding in its own right, carrying its IICRC S520 condition framing (Condition 1 / 2 / 3) and the observed extent. It used to also deduct points from a 25-point Contaminants category; there are no points now, and the finding says what was seen and against which classification.',
       },
       {
         q: 'Does AtmosFlow interpret spore counts?',
@@ -123,7 +123,7 @@ export const FAQ_SECTIONS = [
     items: [
       {
         q: 'What does an AtmosFlow report contain?',
-        a: 'A finalized report includes a transmittal letter, scope and limitations, methodology, zone-by-zone findings with photos, the deterministic score breakdown, tiered recommendations (Immediate / Short-Term / Long-Term), a sampling plan when warranted, ventilation analysis, and an appendix of cited standards (only standards actually referenced in the body — no automated standards dump).',
+        a: 'A finalized report includes a transmittal letter, scope and limitations, methodology, zone-by-zone findings with photos, tiered recommendations (Immediate / Short-Term / Long-Term), a sampling plan when warranted, ventilation analysis, and an appendix of cited standards (only standards actually referenced in the body — no automated standards dump).',
       },
       {
         q: 'In what format are reports produced?',
@@ -144,11 +144,11 @@ export const FAQ_SECTIONS = [
     items: [
       {
         q: 'Is AtmosFlow an "AI tool"?',
-        a: 'No. AtmosFlow is a deterministic scoring and reporting platform with optional AI-assisted narrative drafting. The score, the risk classification, the recommendations, the sampling plan, and the causal chains are all generated by deterministic engines — not AI.',
+        a: 'No. AtmosFlow is a deterministic assessment and reporting platform with optional AI-assisted narrative drafting. The findings, their severity, the recommendations, the sampling plan, and the causal chains are all generated by deterministic engines — not AI.',
       },
       {
         q: 'What does the AI actually do?',
-        a: 'AI is used to draft professional narrative text from the deterministic engine\'s output. The AI describes what the engine found; it does not invent findings, change scores, or add recommendations. AI-generated narrative is labeled as AI-assisted, and the qualified professional signs the report, not the AI.',
+        a: 'AI is used to draft professional narrative text from the deterministic engine\'s output. The AI describes what the engine found; it does not invent findings, change severities, or add recommendations. AI-generated narrative is labeled as AI-assisted, and the qualified professional signs the report, not the AI.',
       },
       {
         q: 'Can the AI add findings the engine didn\'t identify?',

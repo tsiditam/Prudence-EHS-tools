@@ -13,22 +13,32 @@ import {
 
 const zone = (...sev: string[]) => ({ cats: [{ l: 'X', r: sev.map(s => ({ t: 't', sev: s })) }] })
 
-describe('the composite is a floor, never a ceiling', () => {
-  it('a critical finding overrides a passing composite', () => {
-    // A CO reading over the OSHA PEL zeroes Contaminants but leaves the other
-    // four categories intact, so the zone lands in MODERATE and the composite
-    // stays >= 70. professional-opinion.ts calls that "corrective action";
-    // the card used to call it "within acceptable range".
-    const v = resolveVerdict({ comp: { tot: 78 }, zoneScores: [zone('critical', 'pass')] })
+// This block was named "the composite is a floor, never a ceiling", and every
+// case passed a `comp: { tot: N }`. The floor went with the composite in
+// v3.0; the block is re-pinned rather than deleted, because the property it
+// was protecting is the one that mattered and still holds: a finding or a
+// trigger decides the verdict, and nothing softens either.
+//
+// One case DID change, and it is kept below as its own test rather than
+// quietly dropped: `tot: 12` with no findings used to be Critical on the
+// strength of the number alone. It is now `pass`. That is the whole of the
+// behaviour change, and it only ever fires for an assessment with nothing to
+// point at.
+describe('the verdict rests on what was found', () => {
+  it('a critical finding decides the verdict', () => {
+    // A CO reading over the OSHA PEL. professional-opinion.ts calls that
+    // "corrective action"; the card used to call it "within acceptable
+    // range", because the composite over the other four categories stayed
+    // above 70.
+    const v = resolveVerdict({ zoneScores: [zone('critical', 'pass')] })
     expect(v.severity).toBe('critical')
     expect(v.label).toBe('Critical Concern')
     expect(v.escalatedBy).toBe('finding')
     expect(v.prose).not.toMatch(/within acceptable range/i)
   })
 
-  it('an escalation trigger overrides a passing composite', () => {
+  it('an escalation trigger decides the verdict on its own', () => {
     const v = resolveVerdict({
-      comp: { tot: 92 },
       zoneScores: [zone('pass')],
       escalationTriggers: [{ rule: 'combustion_byproducts', severity: 'critical' }],
     })
@@ -36,13 +46,23 @@ describe('the composite is a floor, never a ceiling', () => {
     expect(v.escalatedBy).toBe('escalation')
   })
 
-  it('a good score never softens a bad finding, and a bad score is never softened', () => {
-    expect(resolveVerdict({ comp: { tot: 12 }, zoneScores: [zone('pass')] }).severity).toBe('critical')
-    expect(resolveVerdict({ comp: { tot: 99 }, zoneScores: [zone('high')] }).severity).toBe('high')
+  it('a stale composite on a pre-v3.0 record changes nothing', () => {
+    // Legacy records still carry `comp`. Passing one must not resurrect the
+    // band — the argument is not read, and the finding decides.
+    const legacy: any = { comp: { tot: 12 }, zoneScores: [zone('high')] }
+    expect(resolveVerdict(legacy).severity).toBe('high')
+    expect(resolveVerdict({ ...legacy, comp: { tot: 99 } }).severity).toBe('high')
+  })
+
+  it('nothing found is nothing found — the floor is gone', () => {
+    // Under the composite this was `critical` on the number alone, with no
+    // finding and no trigger behind it. It is the one verdict that moved.
+    expect(resolveVerdict({ zoneScores: [zone('pass')] } as any).severity).toBe('pass')
+    expect(resolveVerdict({ comp: { tot: 12 }, zoneScores: [zone('pass')] } as any).severity).toBe('pass')
   })
 
   it('a low finding alone does not move the verdict', () => {
-    const v = resolveVerdict({ comp: { tot: 85 }, zoneScores: [zone('low', 'pass')] })
+    const v = resolveVerdict({ zoneScores: [zone('low', 'pass')] })
     expect(v.severity).toBe('pass')
     expect(v.escalatedBy).toBeNull()
     // ...but it is still a finding, so the headline must not deny it.
@@ -75,13 +95,13 @@ describe('one definition of "finding"', () => {
 
 describe('partial data never reads as a clean bill of health', () => {
   it('flags an incomplete composite', () => {
-    expect(hasPartialData([zone('pass')], { partialComposite: true })).toBe(true)
-    expect(hasPartialData([{ ...zone('pass'), insufficientCats: ['HVAC'] }], {})).toBe(true)
-    expect(hasPartialData([zone('pass')], {})).toBe(false)
+    expect(hasPartialData([{ ...zone('pass'), partialScore: true }])).toBe(true)
+    expect(hasPartialData([{ ...zone('pass'), insufficientCats: ['HVAC'] }])).toBe(true)
+    expect(hasPartialData([zone('pass')])).toBe(false)
   })
 
   it('appends a data-gap caveat to otherwise reassuring prose', () => {
-    const v = resolveVerdict({ comp: { tot: 88, partialComposite: true }, zoneScores: [zone('pass')] })
+    const v = resolveVerdict({ zoneScores: [{ ...zone('pass'), partialScore: true }] })
     expect(v.severity).toBe('pass')
     expect(v.prose).toMatch(/incomplete data/i)
     expect(v.partialData).toBe(true)
@@ -109,27 +129,28 @@ describe('hasAnyAction covers every tier', () => {
 })
 
 describe('app and report cannot disagree', () => {
-  // The report surfaces branch on verdict.severity now, not comp.tot. These
-  // pin the mapping each of them relies on, so a future edit that reverts one
-  // surface to raw scoring fails here.
-  it('a passing composite with a critical finding is not "pass" on any surface', () => {
-    const v = resolveVerdict({ comp: { tot: 78 }, zoneScores: [zone('critical', 'pass')] })
+  // The report surfaces branch on verdict.severity. These pin the mapping
+  // each of them relies on, so a future edit that reverts one surface to
+  // deriving its own answer fails here.
+  it('a critical finding is not "pass" on any surface', () => {
+    const v = resolveVerdict({ zoneScores: [zone('critical', 'pass')] })
     // PrintReport p2 / sections-core riskDesc take the acceptable branch only
     // on 'pass'; sections-technical triages P4 — Routine only on 'pass'.
     expect(v.severity).not.toBe('pass')
   })
 
-  it('maps cleanly onto the three-way prose branches every report uses', () => {
-    const sev = (tot: number) => resolveVerdict({ comp: { tot }, zoneScores: [zone('pass')] }).severity
-    expect(sev(85)).toBe('pass')     // "within acceptable ranges"
-    expect(sev(60)).toBe('medium')   // "moderate concerns"
-    expect(sev(45)).toBe('high')     // "significant concerns"
-    expect(sev(20)).toBe('critical') // "significant concerns" + P1
+  it('maps cleanly onto the prose branches every report uses', () => {
+    // Was a sweep over composite values (85/60/45/20). The same four
+    // branches, reached the way they are reached now — by severity.
+    const sev = (s: string) => resolveVerdict({ zoneScores: [zone(s)] }).severity
+    expect(sev('low')).toBe('pass')       // "within acceptable ranges"
+    expect(sev('medium')).toBe('medium')  // "moderate concerns"
+    expect(sev('high')).toBe('high')      // "significant concerns"
+    expect(sev('critical')).toBe('critical') // "significant concerns" + P1
   })
 
   it('an escalation trigger alone reaches the report triage', () => {
     const v = resolveVerdict({
-      comp: { tot: 95 },
       zoneScores: [zone('pass')],
       escalationTriggers: [{ rule: 'mold_condition_3', severity: 'critical' }],
     })
@@ -149,13 +170,13 @@ describe('complaints are a symptom, not a driver', () => {
     // Scoring rates 6+ occupants reporting symptoms as `critical`. That is an
     // occupant report, not a measurement, and it must not make the BUILDING
     // CONDITION critical or drive the report to P1 triage.
-    const v = resolveVerdict({ comp: { tot: 85 }, zoneScores: withComplaints('critical') })
+    const v = resolveVerdict({ zoneScores: withComplaints('critical') })
     expect(v.severity).toBe('high')
     expect(v.escalatedBy).toBe('finding')
   })
 
   it('still lets a symptom cluster raise the verdict — capped, not ignored', () => {
-    expect(resolveVerdict({ comp: { tot: 92 }, zoneScores: withComplaints('critical') }).severity)
+    expect(resolveVerdict({ zoneScores: withComplaints('critical') }).severity)
       .not.toBe('pass')
   })
 
@@ -166,7 +187,7 @@ describe('complaints are a symptom, not a driver', () => {
         { l: 'Complaints', r: [{ t: 'symptoms', sev: 'critical' }] },
       ],
     }]
-    expect(resolveVerdict({ comp: { tot: 85 }, zoneScores: zs }).severity).toBe('critical')
+    expect(resolveVerdict({ zoneScores: zs }).severity).toBe('critical')
   })
 
   it('counts complaint findings in the totals regardless of the cap', () => {

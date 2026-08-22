@@ -87,6 +87,29 @@ export interface BuildingData {
   bld_pressure?: string
   bld_exhaust?: string[]
   bld_intake_proximity?: string[]
+  // ── Building pressurization (mechanism module) ──
+  //
+  // Captured on the building record and deliberately OUTSIDE the scored
+  // parameters: pressurization explains findings, it is never itself
+  // scored. See src/engines/pressurization.js and the isolation test in
+  // tests/engine/pressurization.test.ts.
+  //
+  // `bld_press_door` supersedes `bld_pressure` above, which conflated
+  // the observation ("air pulls in") with the conclusion ("negative").
+  // The old field is retained and still read as a fallback so
+  // pre-module assessments do not read as unevaluated.
+  bld_press_door?: string
+  bld_press_method?: string
+  bld_press_door_behavior?: string
+  bld_press_dp_measured?: string
+  /** Signed. Negative = interior below outdoor. Canonicalized to Pa by the engine. */
+  bld_press_dp?: string
+  bld_press_dp_units?: string
+  bld_press_dp_location?: string
+  /** USER-ENTERED design intent from the building's O&M docs — never a standard. */
+  bld_press_design?: string
+  bld_press_design_units?: string
+  bld_press_design_src?: string
   [key: string]: unknown
 }
 
@@ -100,6 +123,17 @@ export interface PresurveyData {
   ps_inst_iaq_cal_status?: string
   ps_inst_pid?: string
   ps_inst_pid_cal?: string
+  // Differential-pressure meter — the same ps_inst_* envelope as the IAQ
+  // meter and the PID, plus `res` (resolution), which the pressurization
+  // module needs to tell an indeterminate reading from a neutral one.
+  ps_inst_press?: string
+  ps_inst_press_serial?: string
+  ps_inst_press_accuracy?: string
+  ps_inst_press_acc_units?: string
+  ps_inst_press_res?: string
+  ps_inst_press_res_units?: string
+  ps_inst_press_cal?: string
+  ps_inst_press_cal_status?: string
   ps_inst_other?: string
   ps_reason?: string
   ps_complaint_narrative?: string
@@ -116,50 +150,54 @@ export interface Finding {
   std?: string
 }
 
+/**
+ * A category's assessment. `s` / `mx` / `capped` / `origMx` / `suppressed`
+ * carried the 100-point score and went with it; `r` — the findings — is
+ * and always was the payload.
+ */
 export interface CategoryScore {
-  s: number | null
-  mx: number
   l: string
   r: Finding[]
   gate5?: boolean
   adminGap?: boolean
   synergistic?: boolean
-  status?: 'SUPPRESSED' | 'INSUFFICIENT' | 'DATA_GAP'
+  status?: 'INSUFFICIENT' | 'DATA_GAP'
   reason?: string
-  capped?: boolean
   sufficiency?: SufficiencyResult
-  suppressed?: boolean
-  origMx?: number
 }
 
 export interface ZoneScore {
-  tot: number | null
-  risk: string
-  rc: string
   cats: CategoryScore[]
   zoneName: string
+  /**
+   * A category went unassessed. Named `partialScore` before the score was
+   * removed and kept that way deliberately: it is read by four renderers
+   * and by hasPartialData(), and it never meant "the score is partial".
+   */
   partialScore: boolean
   confidence: string
   sufficiency: Record<string, SufficiencyResult>
   zoneSubtype?: string
-  weights: Record<string, number>
-  normalizedFrom: number | null
-  availableMax: number
   insufficientCats: string[]
+  assessedCats: string[]
   hvacAdminGap: boolean
 }
 
-export interface CompositeScore {
-  tot: number | null
-  avg: number | null
-  worst: number | null
-  risk: string
-  rc: string
+/**
+ * The site-level roll-up, from `summarizeAssessment`. Replaces
+ * `CompositeScore`, which carried the 0-100 composite, the zone average,
+ * the worst zone, a risk band and the name of the rule that produced
+ * them.
+ */
+export interface AssessmentSummary {
   count: number
-  logic: string
-  rationale: string
-  partialComposite: boolean
+  findings: {
+    total: number
+    attention: number
+    bySeverity: { critical: number; high: number; medium: number; low: number }
+  }
   confidence: string
+  partialData: boolean
 }
 
 export interface SufficiencyResult {
@@ -168,7 +206,8 @@ export interface SufficiencyResult {
   present: string[]
   missing: string[]
   isInsufficient: boolean
-  maxAwardable: number
+  unmetOptional?: string[]
+  capReason?: string | null
   reason: string | null
 }
 
@@ -281,7 +320,7 @@ export interface Report {
   photos: Record<string, PhotoEntry[]>
   floorPlan?: string | null
   zoneScores: ZoneScore[]
-  comp: CompositeScore
+  comp: AssessmentSummary
   oshaEvals: OSHAResult[]
   recs: Recommendations
   samplingPlan: SamplingPlan

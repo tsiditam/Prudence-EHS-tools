@@ -16,21 +16,15 @@ export function renderInternalReport(score: AssessmentScore): InternalReport {
   const zones: InternalZoneReport[] = score.zones.map(z => ({
     zoneId: z.zoneId,
     zoneName: z.zoneName,
-    composite: z.composite,
-    tier: z.tier,
     confidence: z.confidence,
     categories: z.categories.map(c => ({
       category: c.category,
-      rawScore: c.rawScore,
-      cappedScore: c.cappedScore,
-      maxScore: c.maxScore,
       status: c.status,
       findings: c.findings.map(f => ({
         id: f.id,
         severityInternal: f.severityInternal,
         titleInternal: f.titleInternal,
         observationInternal: f.observationInternal,
-        deductionInternal: f.deductionInternal,
         conditionType: f.conditionType,
         confidenceTier: f.confidenceTier,
         permissions: {
@@ -50,16 +44,24 @@ export function renderInternalReport(score: AssessmentScore): InternalReport {
     insufficient_data: 0.25,
   }
 
+  // Triage order: how serious the finding is, weighted by how well the
+  // evidence supports it. This used to multiply the finding's DEDUCTION
+  // by the same confidence weight — the deduction being a point value the
+  // bridge invented, since the legacy engine only reported category
+  // totals. Severity is the thing that was always being approximated.
+  const severityRank: Record<string, number> = {
+    critical: 4, high: 3, medium: 2, low: 1, pass: 0, info: 0,
+  }
   const prioritizationQueue: PrioritizationEntry[] = score.zones.flatMap(z =>
     z.categories.flatMap(c =>
       c.findings
-        .filter(f => f.deductionInternal > 0)
+        .filter(f => (severityRank[f.severityInternal] || 0) > 0)
         .map(f => ({
           findingId: f.id,
           zone: z.zoneName,
-          deduction: f.deductionInternal,
+          severityRank: severityRank[f.severityInternal] || 0,
           confidence: f.confidenceTier,
-          priority: f.deductionInternal * (confWeight[f.confidenceTier] || 0.5),
+          priority: (severityRank[f.severityInternal] || 0) * (confWeight[f.confidenceTier] || 0.5),
         }))
     )
   ).sort((a, b) => b.priority - a.priority)
@@ -87,8 +89,6 @@ export function renderInternalReport(score: AssessmentScore): InternalReport {
     engineVersion: ENGINE_VERSION,
     generatedAt: Date.now(),
     meta: score.meta,
-    siteScore: score.siteScore,
-    siteTier: score.siteTier,
     confidenceValue: score.confidenceValue,
     confidenceBand: score.confidenceBand,
     defensibilityFlags: score.defensibilityFlags,

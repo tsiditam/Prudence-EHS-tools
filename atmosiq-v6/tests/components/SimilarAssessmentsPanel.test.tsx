@@ -33,7 +33,7 @@ function baseState(overrides: Record<string, unknown> = {}) {
   return {
     loading: false,
     error: null,
-    patterns: { matchCount: 0, averageScore: null, commonImmediateActions: [], moldRate: null, facilityTypeLabel: null },
+    patterns: { matchCount: 0, averageFindings: null, commonImmediateActions: [], moldRate: null, facilityTypeLabel: null },
     matches: [],
     currentFeatures: { facilityType: null, yearBuilt: null, hvacType: null, triggerReason: null, waterHistory: null },
     pastCount: 0,
@@ -76,7 +76,7 @@ describe('SimilarAssessmentsPanel', () => {
       pastCount: 12,
       patterns: {
         matchCount: 3,
-        averageScore: 68,
+        averageFindings: 4,
         commonImmediateActions: [
           { action: 'Inspect supply diffuser drip pan', count: 3 },
           { action: 'Replace MERV 8 filter with MERV 13', count: 2 },
@@ -85,9 +85,9 @@ describe('SimilarAssessmentsPanel', () => {
         facilityTypeLabel: 'Commercial Office',
       },
       matches: [
-        { id: 'B-1', score: 0.95, summary: { facilityName: 'Liberty Plaza', score: 72, composedAt: '2026-04-15', immediateCount: 2, moldDetected: false } },
-        { id: 'B-2', score: 0.78, summary: { facilityName: 'Capitol Building', score: 65, composedAt: '2026-03-01', immediateCount: 1, moldDetected: true } },
-        { id: 'B-3', score: 0.55, summary: { facilityName: 'East Wing', score: 70, composedAt: '2026-02-10', immediateCount: 0, moldDetected: false } },
+        { id: 'B-1', score: 0.95, summary: { facilityName: 'Liberty Plaza', findings: 4, composedAt: '2026-04-15', immediateCount: 2, moldDetected: false } },
+        { id: 'B-2', score: 0.78, summary: { facilityName: 'Capitol Building', findings: 3, composedAt: '2026-03-01', immediateCount: 1, moldDetected: true } },
+        { id: 'B-3', score: 0.55, summary: { facilityName: 'East Wing', findings: 4, composedAt: '2026-02-10', immediateCount: 0, moldDetected: false } },
       ],
       currentFeatures: { facilityType: 'Commercial Office' },
     }))
@@ -112,14 +112,14 @@ describe('SimilarAssessmentsPanel', () => {
       pastCount: 5,
       patterns: {
         matchCount: 2,
-        averageScore: 85,
+        averageFindings: 5,
         commonImmediateActions: [],
         moldRate: 0,
         facilityTypeLabel: 'Healthcare',
       },
       matches: [
-        { id: 'X', score: 0.9, summary: { facilityName: 'Clinic A', score: 85, composedAt: '2026-01-01', immediateCount: 0, moldDetected: false } },
-        { id: 'Y', score: 0.85, summary: { facilityName: 'Clinic B', score: 85, composedAt: '2026-01-15', immediateCount: 0, moldDetected: false } },
+        { id: 'X', score: 0.9, summary: { facilityName: 'Clinic A', findings: 4, composedAt: '2026-01-01', immediateCount: 0, moldDetected: false } },
+        { id: 'Y', score: 0.85, summary: { facilityName: 'Clinic B', findings: 4, composedAt: '2026-01-15', immediateCount: 0, moldDetected: false } },
       ],
     }))
     render(<SimilarAssessmentsPanel currentAssessment={{}} />)
@@ -131,8 +131,8 @@ describe('SimilarAssessmentsPanel', () => {
     const onOpen = vi.fn()
     useSimilarAssessments.mockReturnValue(baseState({
       pastCount: 5,
-      patterns: { matchCount: 1, averageScore: 70, commonImmediateActions: [], moldRate: 0, facilityTypeLabel: null },
-      matches: [{ id: 'CLICKABLE-1', score: 0.8, summary: { facilityName: 'Click Me', score: 70, composedAt: '2026-01-01', immediateCount: 1, moldDetected: false } }],
+      patterns: { matchCount: 1, averageFindings: 4, commonImmediateActions: [], moldRate: 0, facilityTypeLabel: null },
+      matches: [{ id: 'CLICKABLE-1', score: 0.8, summary: { facilityName: 'Click Me', findings: 4, composedAt: '2026-01-01', immediateCount: 1, moldDetected: false } }],
     }))
     render(<SimilarAssessmentsPanel currentAssessment={{}} onOpenPastAssessment={onOpen} />)
     const card = screen.getByText('Click Me').closest('button')
@@ -144,8 +144,8 @@ describe('SimilarAssessmentsPanel', () => {
   it('renders match cards as non-clickable divs when no onOpenPastAssessment is provided', () => {
     useSimilarAssessments.mockReturnValue(baseState({
       pastCount: 5,
-      patterns: { matchCount: 1, averageScore: 70, commonImmediateActions: [], moldRate: 0, facilityTypeLabel: null },
-      matches: [{ id: 'X', score: 0.8, summary: { facilityName: 'No Click', score: 70, composedAt: '2026-01-01', immediateCount: 0, moldDetected: false } }],
+      patterns: { matchCount: 1, averageFindings: 4, commonImmediateActions: [], moldRate: 0, facilityTypeLabel: null },
+      matches: [{ id: 'X', score: 0.8, summary: { facilityName: 'No Click', findings: 4, composedAt: '2026-01-01', immediateCount: 0, moldDetected: false } }],
     }))
     render(<SimilarAssessmentsPanel currentAssessment={{}} />)
     expect(screen.getByText('No Click').closest('button')).toBeNull()

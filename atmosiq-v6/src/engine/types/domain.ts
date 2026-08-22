@@ -182,7 +182,6 @@ export interface Finding {
   readonly severityInternal: Severity
   readonly titleInternal: string
   readonly observationInternal: string
-  readonly deductionInternal: number
 
   // CIH-defensibility fields
   readonly conditionType: ConditionType
@@ -206,11 +205,9 @@ export interface Finding {
 
 export interface CategoryScore {
   readonly category: CategoryName
-  readonly rawScore: number
-  readonly cappedScore: number
-  readonly maxScore: number
-  readonly status: 'scored' | 'insufficient' | 'data_gap' | 'suppressed'
+  readonly status: 'scored' | 'insufficient' | 'data_gap'
   readonly findings: ReadonlyArray<Finding>
+  /** Data completeness for this category, 0-1. Never a score. */
   readonly sufficiencyRatio: number
 }
 
@@ -219,8 +216,6 @@ export interface CategoryScore {
 export interface ZoneScore {
   readonly zoneId: ZoneId
   readonly zoneName: string
-  readonly composite: number | null
-  readonly tier: Tier | null
   readonly confidence: CIHConfidenceTier
   readonly categories: ReadonlyArray<CategoryScore>
   readonly professionalOpinion: ProfessionalOpinionTier
@@ -320,8 +315,6 @@ export interface AssessmentInput {
 // ── Assessment Score ──
 
 export interface AssessmentScore {
-  readonly siteScore: number | null
-  readonly siteTier: Tier | null
   readonly zones: ReadonlyArray<ZoneScore>
   readonly confidenceValue: number
   readonly confidenceBand: CIHConfidenceTier

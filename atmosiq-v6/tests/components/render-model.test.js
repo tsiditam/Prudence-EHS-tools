@@ -9,7 +9,7 @@ import { describe, it, expect } from 'vitest'
 import { createRequire } from 'node:module'
 import { assembleRenderModel } from '../../src/report/reportModel.js'
 import * as NL from '../../src/report/narrativeLibrary.js'
-import { scoreZone, compositeScore } from '../../src/engines/scoring.js'
+import { scoreZone, summarizeAssessment } from '../../src/engines/scoring.js'
 import { buildCausalChains } from '../../src/engines/causalChains.js'
 import { DEMO_FINDINGS_BUILDING as DEMO_BUILDING, DEMO_FINDINGS_ZONES as DEMO_ZONES, DEMO_FINDINGS_PRESURVEY as DEMO_PRESURVEY } from '../../src/constants/demoDataFindings'
 const require = createRequire(import.meta.url)
@@ -17,7 +17,7 @@ const { scan } = require('../../api/_banned-language.js')
 
 function demoData(extra) {
   const zoneScores = DEMO_ZONES.map(z => scoreZone(z, DEMO_BUILDING))
-  const comp = compositeScore(zoneScores)
+  const comp = summarizeAssessment(zoneScores)
   const causalChains = buildCausalChains(DEMO_ZONES, DEMO_BUILDING, zoneScores)
   return {
     building: DEMO_BUILDING, presurvey: DEMO_PRESURVEY, zones: DEMO_ZONES, zoneScores, comp, causalChains,

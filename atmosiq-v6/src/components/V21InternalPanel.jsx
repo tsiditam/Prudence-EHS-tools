@@ -17,7 +17,6 @@ import { legacyToAssessmentScore, deriveAssessmentMeta } from '../engine/bridge'
 import { renderInternalReport } from '../engine/report/internal'
 import { ENGINE_VERSION } from '../version'
 import { mix } from '../utils/theme'
-import { isIaqScoreVisible } from '../utils/featureFlags'
 
 const SURFACE = 'var(--surface)'
 const CARD = 'var(--card)'
@@ -134,8 +133,6 @@ export default function V21InternalPanel({
       <div style={{ padding: 12, background: CARD, border: `1px solid ${BORDER}`, borderRadius: 10, marginBottom: 12 }}>
         <Section label="Site rollup">
           <Grid>
-            {isIaqScoreVisible() && <Stat label="Site score" value={report.siteScore ?? '—'} suffix={report.siteScore != null ? '/100' : ''} />}
-            {isIaqScoreVisible() && <Stat label="Tier" value={report.siteTier ?? '—'} />}
             <Stat label="Confidence" value={CONFIDENCE_LABEL[report.confidenceBand]} />
             <Stat label="Engine" value={report.engineVersion} mono />
           </Grid>
@@ -170,8 +167,8 @@ export default function V21InternalPanel({
                 </span>
                 <span style={{
                   padding: '1px 6px', fontSize: 9, fontWeight: 700, borderRadius: 3,
-                  background: `${tierColor(p.deduction)}15`, color: tierColor(p.deduction),
-                }}>−{p.deduction}</span>
+                  background: `${severityRankColor(p.severityRank)}15`, color: severityRankColor(p.severityRank),
+                }}>{SEVERITY_RANK_LABEL[p.severityRank] || '—'}</span>
                 <span style={{ fontSize: 9, color: DIM, fontFamily: "var(--font-mono), monospace", minWidth: 50, textAlign: 'right' }}>
                   p={p.priority.toFixed(1)}
                 </span>
@@ -189,13 +186,6 @@ export default function V21InternalPanel({
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
                 <span style={{ fontSize: 12, fontWeight: 700, color: TEXT }}>{z.zoneName}</span>
                 <span style={{ fontSize: 10, color: DIM, fontFamily: "var(--font-mono), monospace" }}>{z.zoneId}</span>
-                {isIaqScoreVisible() && <span style={{ marginLeft: 'auto', fontSize: 11, color: TEXT, fontFamily: "var(--font-mono), monospace" }}>
-                  {z.composite ?? '—'}{z.composite != null ? '/100' : ''}
-                </span>}
-                {isIaqScoreVisible() && <span style={{
-                  padding: '1px 6px', fontSize: 9, fontWeight: 700, borderRadius: 3,
-                  background: `${tierColorByLabel(z.tier)}18`, color: tierColorByLabel(z.tier),
-                }}>{z.tier ?? 'N/A'}</span>}
               </div>
               <div style={{ fontSize: 10, color: SUB, marginBottom: 8 }}>
                 {CONFIDENCE_LABEL[z.confidence]}
@@ -311,7 +301,6 @@ function FindingRow({ f, category }) {
         <span style={{ fontSize: 9, color: DIM, fontFamily: "var(--font-mono), monospace" }}>
           {category} · {f.conditionType}
         </span>
-        <span style={{ marginLeft: 'auto', fontSize: 9, color: DIM }}>−{f.deductionInternal}</span>
       </div>
       <div style={{ fontSize: 11, color: TEXT, lineHeight: 1.35 }}>{f.titleInternal}</div>
       <div style={{ marginTop: 4, display: 'flex', gap: 8, fontSize: 9, color: DIM, flexWrap: 'wrap' }}>
@@ -341,21 +330,16 @@ function findingTitleFromQueue(score, findingId) {
   return findingId
 }
 
-function tierColor(deduction) {
-  if (deduction >= 12) return DANGER
-  if (deduction >= 7) return '#FB923C'
-  if (deduction >= 3) return WARN
-  return SUB
-}
+// The triage queue used to rank by a per-finding DEDUCTION and colour by
+// how many points it cost (12 / 7 / 3). It ranks by severity now, so the
+// colour follows severity too.
+const SEVERITY_RANK_LABEL = { 4: 'CRITICAL', 3: 'HIGH', 2: 'MEDIUM', 1: 'LOW' }
 
-function tierColorByLabel(tier) {
-  switch (tier) {
-    case 'Critical': return DANGER
-    case 'High Risk': return '#FB923C'
-    case 'Moderate': return WARN
-    case 'Low Risk': return SUCCESS
-    default: return SUB
-  }
+function severityRankColor(rank) {
+  if (rank >= 4) return DANGER
+  if (rank >= 3) return '#FB923C'
+  if (rank >= 2) return WARN
+  return SUB
 }
 
 function statusColor(status) {

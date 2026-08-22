@@ -10,7 +10,7 @@ import { describe, it, expect } from 'vitest'
 import { validateReportContent } from '../../src/engine/report/cih-validation'
 import { renderClientReport } from '../../src/engine/report/client'
 import { legacyToAssessmentScore } from '../../src/engine/bridge/legacy'
-import { scoreZone, compositeScore } from '../../src/engines/scoring'
+import { scoreZone, summarizeAssessment } from '../../src/engines/scoring'
 import type { AssessmentMeta } from '../../src/engine/types/domain'
 import type { ClientReport } from '../../src/engine/report/types'
 
@@ -36,7 +36,7 @@ function buildReport(): ClientReport {
     co2: '1300', co2o: '420', tf: '79', rh: '68', pm: '12',
   }
   const lz = scoreZone(zone, {})
-  const cs = compositeScore([lz])
+  const cs = summarizeAssessment([lz])
   const score = legacyToAssessmentScore([lz] as any, cs as any, [zone] as any, { meta: META, presurvey: PRESURVEY })
   const result = renderClientReport(score)
   if (result.kind !== 'report') throw new Error('Expected report')
@@ -47,7 +47,7 @@ describe('CIH validation — clean report passes', () => {
   it('renderClientReport on a normal fixture produces clientFacingSafe=true', () => {
     const zone = { zn: 'Z1', su: 'office', co2: '1300', co2o: '420', tf: '79', rh: '68', pm: '12' }
     const lz = scoreZone(zone, {})
-    const cs = compositeScore([lz])
+    const cs = summarizeAssessment([lz])
     const score = legacyToAssessmentScore([lz] as any, cs as any, [zone] as any, { meta: META, presurvey: PRESURVEY })
     const result = renderClientReport(score)
     if (result.kind !== 'report') throw new Error('Expected report')
@@ -182,7 +182,7 @@ describe('CIH validation — §9 recommendation cap', () => {
       wd: 'Active leak',
     }
     const lz = scoreZone(zone, {})
-    const cs = compositeScore([lz])
+    const cs = summarizeAssessment([lz])
     const score = legacyToAssessmentScore([lz] as any, cs as any, [zone] as any, { meta: META, presurvey: PRESURVEY })
     const result = renderClientReport(score)
     if (result.kind !== 'report') return
@@ -350,7 +350,7 @@ describe('CIH validation — integration', () => {
   it('renderClientReport attaches validation to the result envelope', () => {
     const zone = { zn: 'Z1', su: 'office', co2: '900', co2o: '420', tf: '74', rh: '52', pm: '12' }
     const lz = scoreZone(zone, {})
-    const cs = compositeScore([lz])
+    const cs = summarizeAssessment([lz])
     const score = legacyToAssessmentScore([lz] as any, cs as any, [zone] as any, { meta: META, presurvey: PRESURVEY })
     const result = renderClientReport(score)
     if (result.kind !== 'report') return
@@ -368,7 +368,7 @@ describe('CIH validation — integration', () => {
   it('Default-rendered report has no quantified counts in overview', () => {
     const zone = { zn: 'Z1', su: 'office', co2: '1300', co2o: '420', tf: '74', rh: '52' }
     const lz = scoreZone(zone, {})
-    const cs = compositeScore([lz])
+    const cs = summarizeAssessment([lz])
     const score = legacyToAssessmentScore([lz] as any, cs as any, [zone] as any, { meta: META, presurvey: PRESURVEY })
     const result = renderClientReport(score)
     if (result.kind !== 'report') return
@@ -381,7 +381,7 @@ describe('CIH validation — integration', () => {
   it('v2.3 — Building section is omitted when no building findings exist; scope of work carries the omittedReason sentence', () => {
     const zone = { zn: 'Z1', su: 'office', co2: '600', co2o: '420', tf: '72', rh: '45', pm: '5' }
     const lz = scoreZone(zone, {})
-    const cs = compositeScore([lz])
+    const cs = summarizeAssessment([lz])
     const score = legacyToAssessmentScore([lz] as any, cs as any, [zone] as any, { meta: META, presurvey: PRESURVEY })
     const result = renderClientReport(score)
     if (result.kind !== 'report') return

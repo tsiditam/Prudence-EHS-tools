@@ -514,21 +514,10 @@ export function renderClientReport(
   const appendixE = buildAppendixE(metaForAppendixB)
   const appendixF = buildAppendixF()
 
-  // Appendix — full structured shape built below in §3 wiring.
-  // Until §3 lands, keep the v2.2 backward-compat shape (legacy
-  // appendix object) so existing consumers continue to work.
-  const legacyAppendixIndex = options.includeAssessmentIndexAppendix
-    ? {
-        disclaimer: ASSESSMENT_INDEX_DISCLAIMER,
-        siteScore: score.siteScore ?? 0,
-        siteTier: score.siteTier ?? 'N/A',
-        zoneScores: score.zones.map(z => ({
-          zoneName: z.zoneName,
-          composite: z.composite ?? 0,
-          tier: z.tier ?? 'N/A',
-        })),
-      }
-    : undefined
+  // The "Assessment Index (Informational Only)" appendix stood here. It
+  // was a table of per-zone composites and tiers plus a site row — the
+  // score, printed one last time behind an opt-in flag. Nothing is left
+  // of it to render.
   // v2.5 §2 — Appendix D citation walker runs after the rest of the
   // report skeleton is composed so it can scan every Citation
   // attached to parameter prose, instrument specs, finding
@@ -546,7 +535,6 @@ export function renderClientReport(
   }
   const appendix: ClientReportAppendix = {
     standardsManifest: [],
-    ...(legacyAppendixIndex ? { assessmentIndexInformationalOnly: legacyAppendixIndex } : {}),
     appendixA,
     appendixB,
     appendixC,
@@ -593,13 +581,6 @@ export function renderClientReport(
     { anchorId: 'appendix-e', title: 'Appendix E — Quality Assurance and Calibration', level: 1 },
     { anchorId: 'appendix-f', title: 'Appendix F — Glossary', level: 1 },
   ]
-  if (options.includeAssessmentIndexAppendix) {
-    tocEntries.push({
-      anchorId: 'appendix-assessment-index',
-      title: 'Appendix — Assessment Index (Informational Only)',
-      level: 1,
-    })
-  }
   const tableOfContents: TableOfContents = {
     title: 'Table of Contents',
     entries: tocEntries,

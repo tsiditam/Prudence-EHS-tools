@@ -12,14 +12,14 @@ import { describe, it, expect } from 'vitest'
 import { Packer } from 'docx'
 import JSZip from 'jszip'
 // @ts-expect-error — JS module without types
-import { scoreZone, compositeScore } from '../../src/engines/scoring.js'
+import { scoreZone, summarizeAssessment } from '../../src/engines/scoring.js'
 // @ts-expect-error — JS module without types
 import { buildAtmosFlowDocument } from '../../src/components/DocxReport'
 
 function buildFixture(): any {
   const zone = { zn: 'Zone 1', zt: 'Open office', co2: '1300', co: '2', tf: '75', rh: '55', pm: '12', tv: '300' }
   const lz = scoreZone(zone, {})
-  const cs = compositeScore([lz])
+  const cs = summarizeAssessment([lz])
   return {
     building: { fn: 'Test Site', fl: '123 Test St', ft: 'Office', ht: 'VAV air handler' },
     presurvey: {

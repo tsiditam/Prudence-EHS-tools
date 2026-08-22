@@ -54,7 +54,7 @@ export type { HypothesisInput } from './hypotheses'
 import { renderInternalReport } from './report/internal'
 import { renderClientReport } from './report/client'
 import { legacyToAssessmentScore } from './bridge/legacy'
-import { scoreZone, compositeScore } from '../engines/scoring'
+import { scoreZone, summarizeAssessment } from '../engines/scoring'
 import { deriveCausalChains } from './causal-chains'
 import { deriveHypotheses } from './hypotheses'
 import type { AssessmentInput, AssessmentScore } from './types/domain'
@@ -80,11 +80,11 @@ import type { AssessmentInput, AssessmentScore } from './types/domain'
 export function score(input: AssessmentInput): AssessmentScore {
   const buildingData = input.buildingData ?? {}
   const legacyZoneScores = input.zonesData.map(z => scoreZone(z, buildingData))
-  const composite = compositeScore(legacyZoneScores)
+  const summary = summarizeAssessment(legacyZoneScores)
   const merged = input.zonesData.map(z => ({ ...z, ...buildingData }))
   const base = legacyToAssessmentScore(
     legacyZoneScores as any,
-    composite as any,
+    summary as any,
     merged as any,
     {
       meta: input.meta,

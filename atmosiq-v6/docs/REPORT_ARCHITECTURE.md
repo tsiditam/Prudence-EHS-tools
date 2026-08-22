@@ -15,7 +15,7 @@ The narrative layer (AI or template) may only use language that the engine has e
 ## Dual Render Modes
 
 ### `report.internal(score)` → InternalReport
-The operator dashboard. Contains numeric scores, severity labels, deductions, tier classifications, prioritization queues, and defensibility flags. Used for:
+The operator dashboard. Contains internal severity labels, the severity-ranked prioritization queue, and defensibility flags. (It carried numeric scores, deductions and tier classifications until engine v3.0 removed the 100-point composite.) Used for:
 - Internal triage and prioritization
 - Demo and sales presentations
 - Engineering/maintenance action planning
@@ -28,7 +28,7 @@ The CIH-defensible client deliverable. Returns a discriminated union:
 - `{ kind: 'pre_assessment_memo', memo: PreAssessmentMemo, reasons: [...] }` — when data is insufficient
 
 The client report:
-- Contains NO numeric scores, severity labels, or tier classifications
+- Contains NO severity labels or internal classifications. Numeric scores do not exist anywhere as of v3.0
 - Uses `ProfessionalOpinionTier` for qualitative judgment
 - Every finding sentence comes from the phrase library (no free-text)
 - Includes verbatim transmittal, scope, and limitations paragraphs

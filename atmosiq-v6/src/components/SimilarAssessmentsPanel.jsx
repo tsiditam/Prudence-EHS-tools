@@ -14,7 +14,7 @@
  *      of the way until the assessor has built up a corpus.
  *
  *   2. MATCHES FOUND (matchCount > 0): renders the aggregate
- *      pattern summary (avg score across similar past assessments,
+ *      pattern summary (common recommendations across similar past assessments,
  *      common immediate-priority recs, mold-detection rate) + a
  *      short list of the top match cards.
  *
@@ -31,7 +31,6 @@
  */
 
 import { useSimilarAssessments } from '../hooks/useSimilarAssessments'
-import { isIaqScoreVisible } from '../utils/featureFlags'
 
 const CARD = 'var(--card)'
 const BORDER = 'var(--border)'
@@ -41,12 +40,8 @@ const SUB = 'var(--sub)'
 const DIM = 'var(--dim)'
 const SURFACE = 'var(--surface)'
 
-function scoreColor(score) {
-  if (typeof score !== 'number') return DIM
-  if (score >= 70) return '#15803D'
-  if (score >= 50) return '#A16207'
-  return '#B91C1C'
-}
+// `scoreColor` lived here — an eighth band ladder (70/50) over the
+// composite. It went with the score.
 
 function formatDate(iso) {
   if (!iso) return ''
@@ -54,6 +49,7 @@ function formatDate(iso) {
   if (Number.isNaN(d.getTime())) return ''
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
+
 
 export default function SimilarAssessmentsPanel({ currentAssessment, onOpenPastAssessment }) {
   const { loading, patterns, matches, pastCount, error, currentFeatures } = useSimilarAssessments(currentAssessment)
@@ -104,19 +100,9 @@ export default function SimilarAssessmentsPanel({ currentAssessment, onOpenPastA
             findings. Compare with caution; every building is different.
           </div>
 
-          {/* Pattern summary chips — avg score, common recs, mold rate */}
+          {/* Pattern summary chips — common recs, mold rate. An "Avg
+              score" chip led this row until the composite was removed. */}
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-            {isIaqScoreVisible() && patterns.averageScore !== null && (
-              <div
-                title="Average composite score across the similar past assessments"
-                style={{ padding: '4px 10px', borderRadius: 999, background: SURFACE, border: `1px solid ${BORDER}`, fontSize: 11, color: TEXT }}
-              >
-                Avg score{' '}
-                <strong style={{ color: scoreColor(patterns.averageScore) }}>
-                  {patterns.averageScore}/100
-                </strong>
-              </div>
-            )}
             {typeof patterns.moldRate === 'number' && patterns.moldRate > 0 && (
               <div
                 title="Mold detected in this many of the similar past assessments"
@@ -149,7 +135,6 @@ export default function SimilarAssessmentsPanel({ currentAssessment, onOpenPastA
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {matches.slice(0, 3).map((m) => {
               const facility = m.summary && m.summary.facilityName
-              const score = m.summary && m.summary.score
               const date = m.summary && formatDate(m.summary.composedAt)
               const immCount = m.summary && m.summary.immediateCount
               const similarityPct = Math.round(m.score * 100)
@@ -183,9 +168,6 @@ export default function SimilarAssessmentsPanel({ currentAssessment, onOpenPastA
                     </div>
                   </div>
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    {isIaqScoreVisible() && typeof score === 'number' && (
-                      <div style={{ fontSize: 12, fontWeight: 700, color: scoreColor(score) }}>{score}/100</div>
-                    )}
                     <div style={{ fontSize: 9, color: ACCENT, fontFamily: 'var(--font-mono)' }}>
                       {similarityPct}% match
                     </div>

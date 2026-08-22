@@ -13,7 +13,7 @@
 import { describe, it, expect } from 'vitest'
 import { renderClientReport } from '../../src/engine/report/client'
 import { legacyToAssessmentScore } from '../../src/engine/bridge/legacy'
-import { scoreZone, compositeScore } from '../../src/engines/scoring'
+import { scoreZone, summarizeAssessment } from '../../src/engines/scoring'
 import { generateClientReportHTML } from '../../src/components/print/client-html.js'
 import type { AssessmentMeta } from '../../src/engine/types/domain'
 
@@ -40,7 +40,7 @@ describe('v2.3 §5 — empty zone single sentence', () => {
   // the test ran in May (summer branch).
   const zone = { zn: 'Quiet', su: 'office', co2: '550', co2o: '420', tf: '73', rh: '45', pm: '5', tv: '50' }
   const lz = scoreZone(zone, {})
-  const cs = compositeScore([lz])
+  const cs = summarizeAssessment([lz])
   const score = legacyToAssessmentScore([lz] as any, cs as any, [zone] as any, { meta: META, presurvey: PRESURVEY })
   const result = renderClientReport(score)
 

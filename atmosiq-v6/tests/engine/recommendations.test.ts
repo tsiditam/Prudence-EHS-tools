@@ -17,7 +17,7 @@ import {
   buildRecommendationRegister, toPriorityGroups, findHedges, __testing,
   type RecommendationIntent,
 } from '../../src/engine/report/recommendations'
-import { scoreZone, compositeScore } from '../../src/engines/scoring.js'
+import { scoreZone, summarizeAssessment } from '../../src/engines/scoring.js'
 import { buildCausalChains } from '../../src/engines/causalChains.js'
 import { generateSamplingPlan } from '../../src/engines/sampling.js'
 import * as CONTAMINANTS from '../../src/engine/report/phrases/contaminants'

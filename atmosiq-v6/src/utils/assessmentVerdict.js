@@ -20,8 +20,20 @@
  *   • Insufficient categories were flagged by the engine and ignored by the
  *     UI, so partial data read as clean.
  *
- * The rule here: the composite is a FLOOR, never a ceiling. A verdict can be
- * escalated by a finding or a trigger; it can never be softened by a score.
+ * The rule here USED to be "the composite is a FLOOR, never a ceiling": the
+ * verdict started at the composite's band and could only be raised from
+ * there. Engine v3.0 removed the composite, and with it the floor. A verdict
+ * now starts at `pass` and is raised by what was FOUND — a finding, or an
+ * escalation trigger.
+ *
+ * That is a real change and it moves in one direction only: an assessment
+ * whose composite happened to land under 70 but that produced nothing above
+ * a `low` finding now reads "Within Acceptable Range" where it once read
+ * "Moderate Concern". A verdict can only move DOWN, never up, and only for
+ * an assessment that had nothing to point at. Nothing that was found gets
+ * quieter; a floor derived from a number nobody could explain stopped
+ * speaking. See `tests/components/assessment-verdict.test.ts`, whose first
+ * describe block is named for the rule this replaced.
  *
  * Contact: tsidi@prudenceehs.com
  */
@@ -64,6 +76,53 @@ export function countFindings(zoneScores) {
 }
 
 /**
+ * Index of the zone carrying the worst finding, or 0 when there are none.
+ *
+ * Callers used to find this with `reduce((a, b) => a.tot < b.tot ? a : b)`
+ * — the lowest-scoring zone. With no score, the zone that matters is the
+ * one holding the most severe finding. Ties go to the first, so the
+ * answer is stable for a given input.
+ */
+export function worstZoneIndex(zoneScores) {
+  let best = 0
+  let bestRank = -1
+  ;(zoneScores || []).forEach((z, i) => {
+    const sev = worstFindingSeverity([z])
+    const rank = sev ? RANK[sev] ?? -1 : -1
+    if (rank > bestRank) { bestRank = rank; best = i }
+  })
+  return best
+}
+
+/**
+ * The category label carrying the worst finding across all zones, or null.
+ *
+ * Replaces "the category with the lowest score ratio" (`a.s / a.mx`),
+ * which the report used to name as the primary area of concern. That was
+ * a different question from the one it claimed to answer: a category can
+ * lose most of its points to several medium findings while another holds
+ * a single critical one, and the ratio names the first. What a reader
+ * wants is where the worst thing found is.
+ *
+ * Ties go to the first category encountered, so the answer is stable for
+ * a given input rather than dependent on iteration order.
+ */
+export function worstFindingCategory(zoneScores) {
+  let best = null
+  let bestRank = -1
+  for (const z of zoneScores || []) {
+    for (const c of z?.cats || []) {
+      for (const r of c?.r || []) {
+        if (!isFinding(r)) continue
+        const rank = RANK[r.sev] ?? -1
+        if (rank > bestRank) { bestRank = rank; best = c.l }
+      }
+    }
+  }
+  return best
+}
+
+/**
  * The Complaints category is capped when it escalates the verdict.
  *
  * Occupant symptom reports are `occupant_report_anecdotal` evidence. A cluster
@@ -96,18 +155,15 @@ export function worstFindingSeverity(zoneScores) {
   return worst
 }
 
-/** True when any zone or category was scored on incomplete data. */
-export function hasPartialData(zoneScores, comp) {
-  if (comp?.partialComposite) return true
+/**
+ * True when any zone or category was assessed on incomplete data.
+ *
+ * Took a second `comp` argument and short-circuited on its
+ * `partialComposite` flag. Both are gone: the zones carry the same fact
+ * first-hand, and a pre-v3.0 record's flag is not a source this reads.
+ */
+export function hasPartialData(zoneScores) {
   return (zoneScores || []).some(z => z?.partialScore || (z?.insufficientCats || []).length > 0)
-}
-
-function bandSeverity(tot) {
-  if (typeof tot !== 'number') return 'pass'
-  if (tot < 30) return 'critical'
-  if (tot < 50) return 'high'
-  if (tot < 70) return 'medium'
-  return 'pass'
 }
 
 const LABELS = {
@@ -141,26 +197,29 @@ const RISK = {
 /**
  * Resolve one verdict for the whole assessment.
  *
+ * Two inputs, both of them things that were observed: the worst finding
+ * recorded in any zone, and the escalation triggers. A third — the composite
+ * band — was removed in v3.0; see the header for what that changed.
+ *
  * @returns {{severity, label, prose, actionLabel, riskLabel, escalatedBy, findings, partialData}}
- *   `escalatedBy` names what raised the verdict above the composite band —
- *   'finding' or 'escalation' — or null when the band stood on its own.
+ *   `escalatedBy` names what raised the verdict above `pass` — 'finding' or
+ *   'escalation' — or null when nothing did.
  */
-export function resolveVerdict({ comp, zoneScores, escalationTriggers } = {}) {
-  const fromBand = bandSeverity(comp?.tot)
+export function resolveVerdict({ zoneScores, escalationTriggers } = {}) {
   const worstFinding = worstFindingSeverity(zoneScores)
   const fromFinding = worstFinding ? bandSeverityFromFinding(worstFinding) : 'pass'
   const fromTrigger = triggerSeverity(escalationTriggers)
 
-  let severity = fromBand
+  let severity = 'pass'
   let escalatedBy = null
   if (RANK[fromFinding] > RANK[severity]) { severity = fromFinding; escalatedBy = 'finding' }
   if (RANK[fromTrigger] > RANK[severity]) { severity = fromTrigger; escalatedBy = 'escalation' }
 
-  const partialData = hasPartialData(zoneScores, comp)
+  const partialData = hasPartialData(zoneScores)
   let prose = PROSE[severity]
   if (partialData) {
     // Never let an incomplete assessment read as a clean bill of health.
-    prose += ' Some categories were scored on incomplete data — see the data gaps noted in the report.'
+    prose += ' Some categories were assessed on incomplete data — see the data gaps noted in the report.'
   }
 
   return {

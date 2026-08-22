@@ -253,7 +253,13 @@ export function buildAssessmentContext(state: RawAssessmentState): AssessmentCon
   const zones = Array.isArray(s.zones) ? s.zones : []
   const curZone = typeof s.curZone === 'number' ? s.curZone : -1
   const composite = s.comp ?? s.composite ?? null
-  const hasEngineOutputs = composite != null
+  // Has the engine run? This used to be `composite != null`, which made a
+  // computed composite the proxy for "the engine produced outputs". With
+  // no composite computed, that proxy answers `false` forever — and the
+  // readiness verdict below, plus the `engine_outputs` flag every
+  // downstream consumer reads, would silently switch off. Zone
+  // assessments are the actual evidence that the engine ran.
+  const hasEngineOutputs = Array.isArray(s.zoneScores) && s.zoneScores.length > 0
 
   // Where the investigation stands. Derived BEFORE the readiness verdict
   // because the verdict reads it: an explanation left live and never
@@ -277,8 +283,8 @@ export function buildAssessmentContext(state: RawAssessmentState): AssessmentCon
     }
   }
 
-  // Readiness verdict — only meaningful once the engine has scored.
-  // Mirrors the gating MobileApp.jsx applies today (comp present).
+  // Readiness verdict — only meaningful once the engine has assessed the
+  // zones. Mirrors the gating MobileApp.jsx applies today.
   let readiness_verdict: ReadinessVerdict | null = null
   if (hasEngineOutputs) {
     try {

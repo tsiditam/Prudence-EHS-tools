@@ -101,49 +101,16 @@ export const KG_KILL_SWITCH = false
 export const MOLD_KILL_SWITCH = false
 
 // ── Visible IAQ score / risk band ───────────────────────────────────────────
-// Controls whether the composite IAQ score (0–100) and the risk band
-// (Low / Moderate / High / Critical) are SHOWN to users, in the app result
-// surfaces and in generated reports. The scoring ENGINE is unaffected — it
-// still computes internally so findings, severity colouring, sorting, and
-// recommendations keep working; this flag governs display only.
-export const IAQ_SCORE_STORAGE_KEY = 'af.iaqScore'
-
-/**
- * Default visibility of the IAQ composite score + risk band.
- *
- * `false` — the scoring feature is HIDDEN everywhere by default. Findings,
- * recommendations, evidence and confidence still render; only the 0–100 number
- * and the Low/Moderate/High/Critical grade are suppressed. This is a display
- * decision, fully reversible: flip this constant to `true` to restore the score
- * globally, or use `?score=1` (sticky per-browser) to show it for a demo and
- * `?score=0` to hide it again — no redeploy.
- */
-export const IAQ_SCORE_VISIBLE_DEFAULT = false
-
-/**
- * Whether the IAQ composite score + risk band should be displayed. Resolution:
- *   1. URL ?score=1/0 → persisted, then applied
- *   2. localStorage 'af.iaqScore' = '1' | '0'
- *   3. default: IAQ_SCORE_VISIBLE_DEFAULT (hidden)
- * Pure + injectable; every storage access guarded for SSR / privacy-mode.
- * @param {object} [env] { search?, storage? } injection seam for tests.
- * @returns {boolean}
- */
-export function isIaqScoreVisible(env = {}) {
-  const search = env.search ?? (typeof window !== 'undefined' ? window.location.search : '')
-  const storage = env.storage !== undefined ? env.storage : safeLocalStorage()
-  const fromUrl = readFlagParam(search, 'score')
-  if (fromUrl !== null) {
-    try { storage && storage.setItem(IAQ_SCORE_STORAGE_KEY, fromUrl ? '1' : '0') } catch { /* ignore */ }
-    return fromUrl
-  }
-  try {
-    const saved = storage && storage.getItem(IAQ_SCORE_STORAGE_KEY)
-    if (saved === '1') return true
-    if (saved === '0') return false
-  } catch { /* storage blocked — fall through to default */ }
-  return IAQ_SCORE_VISIBLE_DEFAULT
-}
+//
+// `IAQ_SCORE_STORAGE_KEY`, `IAQ_SCORE_VISIBLE_DEFAULT` and
+// `isIaqScoreVisible()` lived here. The flag hid the composite score and
+// the risk band from every surface, defaulting to hidden since 2026-08,
+// with `?score=1` as a per-browser escape hatch for demos.
+//
+// It is gone because there is nothing left to toggle: the engine no
+// longer computes a score or a band, so every branch it guarded now
+// reads a field that does not exist. A flag whose "on" state renders
+// `undefined` is worse than no flag.
 
 /** True when the host is the live production domain. */
 export function isProdHost(hostname) {

@@ -14,7 +14,7 @@
 import { describe, it, expect } from 'vitest'
 import { renderClientReport } from '../../src/engine/report/client'
 import { legacyToAssessmentScore } from '../../src/engine/bridge/legacy'
-import { scoreZone, compositeScore } from '../../src/engines/scoring'
+import { scoreZone, summarizeAssessment } from '../../src/engines/scoring'
 import { generateClientReportHTML } from '../../src/components/print/client-html.js'
 import type { AssessmentMeta } from '../../src/engine/types/domain'
 
@@ -34,7 +34,7 @@ const PRESURVEY = {
 describe('v2.3 §2 Fixture A — no building-scoped findings', () => {
   const zone = { zn: 'Z1', su: 'office', co2: '1500', co2o: '420', tf: '74', rh: '52', pm: '12' }
   const lz = scoreZone(zone, {})
-  const cs = compositeScore([lz])
+  const cs = summarizeAssessment([lz])
   const score = legacyToAssessmentScore([lz] as any, cs as any, [zone] as any, { meta: META, presurvey: PRESURVEY })
   const result = renderClientReport(score)
   if (result.kind !== 'report') throw new Error('Expected report')
@@ -77,7 +77,7 @@ describe('v2.3 §2 Fixture B — HVAC findings present', () => {
   const zone = { zn: 'Z1', su: 'office', co2: '900', co2o: '420', tf: '74', rh: '52', pm: '12' }
   const bldg = { hm: 'Over 12 months', fc: 'Heavily loaded' }
   const lz = scoreZone(zone, bldg)
-  const cs = compositeScore([lz])
+  const cs = summarizeAssessment([lz])
   const score = legacyToAssessmentScore([lz] as any, cs as any, [{ ...zone, ...bldg }] as any, { meta: META, presurvey: PRESURVEY })
   const result = renderClientReport(score)
   if (result.kind !== 'report') throw new Error('Expected report')

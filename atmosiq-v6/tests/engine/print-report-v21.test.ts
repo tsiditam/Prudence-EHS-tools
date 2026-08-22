@@ -11,7 +11,7 @@ import { generatePrintHTML, generateLegacyPrintHTML } from '../../src/components
 import { generateClientReportHTML } from '../../src/components/print/client-html.js'
 import { legacyToAssessmentScore, deriveAssessmentMeta } from '../../src/engine/bridge'
 import { renderClientReport } from '../../src/engine/report/client'
-import { scoreZone, compositeScore } from '../../src/engines/scoring'
+import { scoreZone, summarizeAssessment } from '../../src/engines/scoring'
 import { DEMO_FINDINGS_PRESURVEY as DEMO_PRESURVEY, DEMO_FINDINGS_BUILDING as DEMO_BUILDING, DEMO_FINDINGS_ZONES as DEMO_ZONES } from '../../src/constants/demoDataFindings'
 import {
   TRANSMITTAL_PARAGRAPH, SCOPE_PARAGRAPH, LIMITATIONS_PARAGRAPH,
@@ -20,7 +20,7 @@ import {
 
 function buildPrintData() {
   const zoneScores = DEMO_ZONES.map((z: any) => scoreZone(z, DEMO_BUILDING))
-  const comp = compositeScore(zoneScores)
+  const comp = summarizeAssessment(zoneScores)
   return {
     building: DEMO_BUILDING,
     presurvey: DEMO_PRESURVEY,
@@ -121,7 +121,7 @@ describe('Phase 3 — generatePrintHTML on insufficient data returns memo, not r
     // Empty zone with no data should trigger refusal-to-issue.
     const zone = { zn: 'Empty Zone', su: 'office' }
     const lz = scoreZone(zone, {})
-    const cs = compositeScore([lz])
+    const cs = summarizeAssessment([lz])
     const html = generatePrintHTML({
       building: { fn: 'Test Site', fl: '123 Test St' },
       presurvey: { ps_assessor: 'Test' },
@@ -162,7 +162,7 @@ describe('Phase 3 — legacy print path remains available for fallback', () => {
 describe('Phase 3 — generateClientReportHTML directly', () => {
   const score = (() => {
     const zoneScores = DEMO_ZONES.map((z: any) => scoreZone(z, DEMO_BUILDING))
-    const comp = compositeScore(zoneScores)
+    const comp = summarizeAssessment(zoneScores)
     const meta = deriveAssessmentMeta({
       profile: { name: 'J. Smith', certs: ['CIH'], firm: 'PSEC' },
       presurvey: DEMO_PRESURVEY,

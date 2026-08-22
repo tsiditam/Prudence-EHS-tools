@@ -39,6 +39,20 @@ export const Q_PRESURVEY = [
   { id:'ps_inst_pid',            sec:'Instruments',   q:'PID / VOC meter (if used)?',           t:'combo', sk:1, ic:'🧪', ph:'Or type your own...', opts:['RAE Systems MiniRAE 3000','RAE Systems ppbRAE 3000','RAE Systems MultiRAE','Ion Science Tiger','Ion Science Tiger XT','Ion Science Cub','Honeywell ToxiRAE Pro PID','RKI Instruments Eagle 2','MSA Altair 5X PID','Dräger X-am 8000','Baseline piD-TECH eVx','Mocon Baseline VOC-TRAQ II','Other'] },
   { id:'ps_inst_pid_accuracy',   sec:'Instruments',   q:'PID stated accuracy / range?',         t:'text', sk:1,  ic:'🎯', ph:'e.g. ±10% · 0–15,000 ppb' },
   { id:'ps_inst_pid_cal',        sec:'Instruments',   q:'PID calibration status?',              t:'ch',   sk:1,  ic:'✅', opts:['Bump-tested and calibrated','Bump-tested only','Not calibrated','N/A'] },
+  // Differential-pressure instrument. Reuses the ps_inst_* envelope
+  // (model / serial / accuracy / calibration) rather than declaring a
+  // parallel instrument shape; `resolution` is the one attribute the
+  // family did not already carry, and the pressurization module needs
+  // it because a reading whose magnitude sits inside the instrument's
+  // own uncertainty is INDETERMINATE, not neutral.
+  { id:'ps_inst_press',          sec:'Instruments',   q:'Differential pressure meter (if used)?', t:'combo', sk:1, ic:'🌀', ph:'Or type your own...', opts:['Dwyer Series 475 Mark III','Dwyer Magnehelic 2000','TSI DP-CALC 5825','Testo 510i','Testo 512','Retrotec DM32','The Energy Conservatory DG-1000','Fluke 922','Extech HD755','Setra Model 264','Other'], cond:{f:'bld_press_dp_measured',eq:'Yes — differential pressure measured'} },
+  { id:'ps_inst_press_serial',   sec:'Instruments',   q:'Pressure meter serial number?',          t:'text', sk:1, ic:'🔢', ph:'Instrument serial number', cond:{f:'bld_press_dp_measured',eq:'Yes — differential pressure measured'} },
+  { id:'ps_inst_press_accuracy', sec:'Instruments',   q:'Pressure meter stated accuracy (± value)?', t:'num', sk:1, ic:'🎯', ph:'e.g. 1.0', ref:'Manufacturer spec. A reading smaller than this cannot establish a direction.', cond:{f:'bld_press_dp_measured',eq:'Yes — differential pressure measured'} },
+  { id:'ps_inst_press_acc_units',sec:'Instruments',   q:'Accuracy units?',                        t:'ch',   sk:1, ic:'📏', opts:['Pa','in. w.c.'], cond:{f:'bld_press_dp_measured',eq:'Yes — differential pressure measured'} },
+  { id:'ps_inst_press_res',      sec:'Instruments',   q:'Pressure meter resolution?',             t:'num',  sk:1, ic:'🔬', ph:'e.g. 0.1', cond:{f:'bld_press_dp_measured',eq:'Yes — differential pressure measured'} },
+  { id:'ps_inst_press_res_units',sec:'Instruments',   q:'Resolution units?',                      t:'ch',   sk:1, ic:'📏', opts:['Pa','in. w.c.'], cond:{f:'bld_press_dp_measured',eq:'Yes — differential pressure measured'} },
+  { id:'ps_inst_press_cal',      sec:'Instruments',   q:'Pressure meter last calibration date?',  t:'date', sk:1, ic:'🔧', cond:{f:'bld_press_dp_measured',eq:'Yes — differential pressure measured'} },
+  { id:'ps_inst_press_cal_status',sec:'Instruments',  q:'Pressure meter calibration status',      t:'ch',   sk:1, ic:'✅', opts:['Calibrated within manufacturer spec','Calibrated — overdue for recertification','Field-zeroed only','Not calibrated','Unknown'], cond:{f:'bld_press_dp_measured',eq:'Yes — differential pressure measured'} },
   { id:'ps_inst_other',          sec:'Instruments',   q:'Other instruments used?',              t:'ta',   sk:1,  ic:'🛠️', ph:'Moisture meter, thermal camera, smoke pencil, etc.' },
   // Trigger
   { id:'ps_reason',              sec:'Trigger Event', q:'What triggered this investigation?',   t:'ch',   req:1, ic:'🎯', opts:['Occupant complaint(s)','Routine / scheduled assessment','Post-renovation / construction','Water intrusion event','Odor event','Regulatory requirement','Due diligence / pre-lease','Insurance / litigation','Other'] },
@@ -111,6 +125,38 @@ export const Q_DETAILS = [
   { id:'fc',  sec:'HVAC Details',      q:'Filter condition?',          t:'ch',  sk:1, ic:'🔍', opts:['Clean / Recent','Moderately loaded','Heavily loaded','Damaged / Bypass','Not accessible'] },
   { id:'od',  sec:'HVAC Details',      q:'Outdoor air damper?',        t:'ch',  sk:1, ic:'🚪', opts:['Open — proper','Closed / minimum','Stuck / inoperable','Not accessible','Unknown'] },
   { id:'dp',  sec:'HVAC Details',      q:'Condensate drain pan?',      t:'ch',  sk:1, ic:'🪣', opts:['Clean — draining','Standing water','Bio growth observed','Not accessible'], photo:1 },
+  // ── Building pressurization ────────────────────────────────────────
+  //
+  // A MECHANISM section, not a scored one. Nothing here carries points:
+  // negative pressurization explains other findings (indoor PM above
+  // outdoor, elevated RH tracking outdoor RH, odors from a loading dock
+  // or adjacent tenant, envelope water/vapor intrusion, combustion gases
+  // with no indoor source) by drawing unconditioned outdoor air through
+  // the envelope instead of the filtered supply path.
+  //
+  // The qualitative questions are asked ALWAYS and need no instrument —
+  // OSHA 3430-04 (2011) anchors the expectation directionally ("air
+  // comes out of the building when exterior doors are opened"), and no
+  // consensus standard sets a numeric value, so there is deliberately no
+  // pass/fail number anywhere in this section. See
+  // src/constants/pressurizationStandards.js.
+  //
+  // Placed after HVAC because the answer is usually a consequence of the
+  // supply/exhaust balance recorded just above it.
+  { id:'bld_press_door',        sec:'Pressurization', q:'Exterior door test — which way does air flow?', t:'ch', sk:1, ic:'🚪', opts:['Air flows OUT of the building','Air flows IN to the building','Neutral / indeterminate','Not tested'], ref:'OSHA 3430-04 (2011) expects air OUT — advisory and directional; there is no numeric standard for building static pressure.', photo:1 },
+  { id:'bld_press_method',      sec:'Pressurization', q:'How was the direction observed?',               t:'ch', sk:1, ic:'💨', opts:['Smoke pencil','Tissue / ribbon','Felt by hand','Not tested'], cond:{f:'bld_press_door',ne:'Not tested'} },
+  { id:'bld_press_door_behavior',sec:'Pressurization',q:'Door-closing behavior?',                        t:'ch', sk:1, ic:'🔁', opts:['Doors pull shut hard','Doors resist closing','Normal','Not observed'], ref:'Corroborating observation only.' },
+  { id:'bld_press_dp_measured', sec:'Pressurization', q:'Was a differential pressure reading taken?',    t:'ch', sk:1, ic:'📐', opts:['Yes — differential pressure measured','No — no instrument available'] },
+  { id:'bld_press_dp',          sec:'Pressurization', q:'Differential pressure, interior vs outdoors?',  t:'num', sk:1, ic:'🌀', ph:'e.g. -3.5', ref:'Signed: NEGATIVE = interior below outdoor (air drawn in); POSITIVE = interior above outdoor. Stored canonically in pascals.', cond:{f:'bld_press_dp_measured',eq:'Yes — differential pressure measured'} },
+  { id:'bld_press_dp_units',    sec:'Pressurization', q:'Reading units?',                                t:'ch', sk:1, ic:'📏', opts:['Pa','in. w.c.'], cond:{f:'bld_press_dp_measured',eq:'Yes — differential pressure measured'} },
+  { id:'bld_press_dp_location', sec:'Pressurization', q:'Reference location for the reading?',           t:'text', sk:1, ic:'📍', ph:'e.g. Main lobby vestibule, north stairwell', cond:{f:'bld_press_dp_measured',eq:'Yes — differential pressure measured'} },
+  // Design intent, when the O&M documents state one. USER-ENTERED — it
+  // describes what this building was designed to do, and it is labelled
+  // that way wherever it renders. It is never treated as a standard and
+  // the engine never evaluates the reading against it.
+  { id:'bld_press_design',      sec:'Pressurization', q:'Design pressurization target from O&M documents?', t:'num', sk:1, ic:'📄', ph:'Leave blank if not documented', ref:'User-entered design intent for THIS building — not a standard, and not a criterion this assessment evaluates against.' },
+  { id:'bld_press_design_units',sec:'Pressurization', q:'Design target units?',                          t:'ch', sk:1, ic:'📏', opts:['Pa','in. w.c.'] },
+  { id:'bld_press_design_src',  sec:'Pressurization', q:'Where is that design target documented?',       t:'text', sk:1, ic:'🗂️', ph:'e.g. Sequence of Operations, Rev C, sheet M-601' },
   // Airflow paths are captured per-zone (Q_ZONE → Airflow: zone pressure +
   // cross-contamination), not at the building level here, to avoid asking the
   // same thing twice.
@@ -142,6 +188,20 @@ export const Q_DETAILS = [
   { id:'ps_inst_iaq_accuracy',   sec:'Instruments',   q:'Stated accuracy (manufacturer spec)?', t:'text', sk:1,  ic:'🎯', ph:'e.g. CO₂ ±3% · Temp ±0.5°F · RH ±3%' },
   { id:'ps_inst_iaq_cal',        sec:'Instruments',   q:'Last factory/field calibration date?', t:'date', sk:1,  ic:'🔧' },
   { id:'ps_inst_iaq_cal_status', sec:'Instruments',   q:'Calibration status',                   t:'ch',   sk:1,  ic:'✅', opts:['Calibrated within manufacturer spec','Calibrated — overdue for recertification','Field-zeroed only','Not calibrated','Unknown'] },
+  // Differential-pressure instrument. Reuses the ps_inst_* envelope
+  // (model / serial / accuracy / calibration) rather than declaring a
+  // parallel instrument shape; `resolution` is the one attribute the
+  // family did not already carry, and the pressurization module needs
+  // it because a reading whose magnitude sits inside the instrument's
+  // own uncertainty is INDETERMINATE, not neutral.
+  { id:'ps_inst_press',          sec:'Instruments',   q:'Differential pressure meter (if used)?', t:'combo', sk:1, ic:'🌀', ph:'Or type your own...', opts:['Dwyer Series 475 Mark III','Dwyer Magnehelic 2000','TSI DP-CALC 5825','Testo 510i','Testo 512','Retrotec DM32','The Energy Conservatory DG-1000','Fluke 922','Extech HD755','Setra Model 264','Other'], cond:{f:'bld_press_dp_measured',eq:'Yes — differential pressure measured'} },
+  { id:'ps_inst_press_serial',   sec:'Instruments',   q:'Pressure meter serial number?',          t:'text', sk:1, ic:'🔢', ph:'Instrument serial number', cond:{f:'bld_press_dp_measured',eq:'Yes — differential pressure measured'} },
+  { id:'ps_inst_press_accuracy', sec:'Instruments',   q:'Pressure meter stated accuracy (± value)?', t:'num', sk:1, ic:'🎯', ph:'e.g. 1.0', ref:'Manufacturer spec. A reading smaller than this cannot establish a direction.', cond:{f:'bld_press_dp_measured',eq:'Yes — differential pressure measured'} },
+  { id:'ps_inst_press_acc_units',sec:'Instruments',   q:'Accuracy units?',                        t:'ch',   sk:1, ic:'📏', opts:['Pa','in. w.c.'], cond:{f:'bld_press_dp_measured',eq:'Yes — differential pressure measured'} },
+  { id:'ps_inst_press_res',      sec:'Instruments',   q:'Pressure meter resolution?',             t:'num',  sk:1, ic:'🔬', ph:'e.g. 0.1', cond:{f:'bld_press_dp_measured',eq:'Yes — differential pressure measured'} },
+  { id:'ps_inst_press_res_units',sec:'Instruments',   q:'Resolution units?',                      t:'ch',   sk:1, ic:'📏', opts:['Pa','in. w.c.'], cond:{f:'bld_press_dp_measured',eq:'Yes — differential pressure measured'} },
+  { id:'ps_inst_press_cal',      sec:'Instruments',   q:'Pressure meter last calibration date?',  t:'date', sk:1, ic:'🔧', cond:{f:'bld_press_dp_measured',eq:'Yes — differential pressure measured'} },
+  { id:'ps_inst_press_cal_status',sec:'Instruments',  q:'Pressure meter calibration status',      t:'ch',   sk:1, ic:'✅', opts:['Calibrated within manufacturer spec','Calibrated — overdue for recertification','Field-zeroed only','Not calibrated','Unknown'], cond:{f:'bld_press_dp_measured',eq:'Yes — differential pressure measured'} },
 ]
 
 export const Q_BUILDING = [
@@ -157,6 +217,38 @@ export const Q_BUILDING = [
   { id:'sa',  sec:'HVAC',            q:'Supply air delivery?',                     t:'ch',   req:1, ic:'💨', opts:['Normal airflow','Weak / reduced','No airflow detected','Not assessed'] },
   { id:'od',  sec:'HVAC',            q:'Outdoor air damper?',                      t:'ch',   sk:1,  ic:'🚪', opts:['Open — proper','Closed / minimum','Stuck / inoperable','Not accessible','Unknown'] },
   { id:'dp',  sec:'HVAC',            q:'Condensate drain pan?',                    t:'ch',   sk:1,  ic:'🪣', opts:['Clean — draining','Standing water','Bio growth observed','Not accessible'], photo:1 },
+  // ── Building pressurization ────────────────────────────────────────
+  //
+  // A MECHANISM section, not a scored one. Nothing here carries points:
+  // negative pressurization explains other findings (indoor PM above
+  // outdoor, elevated RH tracking outdoor RH, odors from a loading dock
+  // or adjacent tenant, envelope water/vapor intrusion, combustion gases
+  // with no indoor source) by drawing unconditioned outdoor air through
+  // the envelope instead of the filtered supply path.
+  //
+  // The qualitative questions are asked ALWAYS and need no instrument —
+  // OSHA 3430-04 (2011) anchors the expectation directionally ("air
+  // comes out of the building when exterior doors are opened"), and no
+  // consensus standard sets a numeric value, so there is deliberately no
+  // pass/fail number anywhere in this section. See
+  // src/constants/pressurizationStandards.js.
+  //
+  // Placed after HVAC because the answer is usually a consequence of the
+  // supply/exhaust balance recorded just above it.
+  { id:'bld_press_door',        sec:'Pressurization', q:'Exterior door test — which way does air flow?', t:'ch', sk:1, ic:'🚪', opts:['Air flows OUT of the building','Air flows IN to the building','Neutral / indeterminate','Not tested'], ref:'OSHA 3430-04 (2011) expects air OUT — advisory and directional; there is no numeric standard for building static pressure.', photo:1 },
+  { id:'bld_press_method',      sec:'Pressurization', q:'How was the direction observed?',               t:'ch', sk:1, ic:'💨', opts:['Smoke pencil','Tissue / ribbon','Felt by hand','Not tested'], cond:{f:'bld_press_door',ne:'Not tested'} },
+  { id:'bld_press_door_behavior',sec:'Pressurization',q:'Door-closing behavior?',                        t:'ch', sk:1, ic:'🔁', opts:['Doors pull shut hard','Doors resist closing','Normal','Not observed'], ref:'Corroborating observation only.' },
+  { id:'bld_press_dp_measured', sec:'Pressurization', q:'Was a differential pressure reading taken?',    t:'ch', sk:1, ic:'📐', opts:['Yes — differential pressure measured','No — no instrument available'] },
+  { id:'bld_press_dp',          sec:'Pressurization', q:'Differential pressure, interior vs outdoors?',  t:'num', sk:1, ic:'🌀', ph:'e.g. -3.5', ref:'Signed: NEGATIVE = interior below outdoor (air drawn in); POSITIVE = interior above outdoor. Stored canonically in pascals.', cond:{f:'bld_press_dp_measured',eq:'Yes — differential pressure measured'} },
+  { id:'bld_press_dp_units',    sec:'Pressurization', q:'Reading units?',                                t:'ch', sk:1, ic:'📏', opts:['Pa','in. w.c.'], cond:{f:'bld_press_dp_measured',eq:'Yes — differential pressure measured'} },
+  { id:'bld_press_dp_location', sec:'Pressurization', q:'Reference location for the reading?',           t:'text', sk:1, ic:'📍', ph:'e.g. Main lobby vestibule, north stairwell', cond:{f:'bld_press_dp_measured',eq:'Yes — differential pressure measured'} },
+  // Design intent, when the O&M documents state one. USER-ENTERED — it
+  // describes what this building was designed to do, and it is labelled
+  // that way wherever it renders. It is never treated as a standard and
+  // the engine never evaluates the reading against it.
+  { id:'bld_press_design',      sec:'Pressurization', q:'Design pressurization target from O&M documents?', t:'num', sk:1, ic:'📄', ph:'Leave blank if not documented', ref:'User-entered design intent for THIS building — not a standard, and not a criterion this assessment evaluates against.' },
+  { id:'bld_press_design_units',sec:'Pressurization', q:'Design target units?',                          t:'ch', sk:1, ic:'📏', opts:['Pa','in. w.c.'] },
+  { id:'bld_press_design_src',  sec:'Pressurization', q:'Where is that design target documented?',       t:'text', sk:1, ic:'🗂️', ph:'e.g. Sequence of Operations, Rev C, sheet M-601' },
   { id:'bld_pressure',        sec:'Airflow Paths',  q:'Building pressurization?',              t:'ch',   sk:1, ic:'🌀', opts:['Positive (air pushes out)','Negative (air pulls in)','Neutral','Variable / unknown','Not assessed'] },
   { id:'bld_exhaust',         sec:'Airflow Paths',  q:'Exhaust systems present?',              t:'multi',sk:1, ic:'🔃', opts:['Restroom exhaust','Kitchen / break room hood','Lab fume hoods','Server room exhaust','Parking garage exhaust','Loading dock exhaust','Janitor closet exhaust','None identified'] },
   { id:'bld_intake_proximity',sec:'Airflow Paths',  q:'OA intake proximity to sources?',       t:'multi',sk:1, ic:'⚠️', opts:['Near loading dock','Near parking garage','Near exhaust outlet','Near dumpster / waste','Near cooling tower','Near traffic / roadway','Clear of sources','Not assessed'] },

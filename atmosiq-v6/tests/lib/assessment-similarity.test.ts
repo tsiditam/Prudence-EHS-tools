@@ -27,7 +27,7 @@ function makeAssessment(overrides: Record<string, unknown> = {}) {
     ts: '2026-04-01',
     building: { fn: 'Test Tower', ft: 'Commercial Office', ba: 2005, ht: 'Central AHU — VAV' },
     presurvey: { ps_reason: 'Occupant complaint(s)', ps_water_history: 'No known history' },
-    comp: { tot: 78 },
+    comp: { findings: { total: 3, attention: 1, bySeverity: { critical: 0, high: 1, medium: 0, low: 2 } } },
     recs: { imm: [{ text: 'Inspect supply diffuser drip pan' }] },
     moldResults: { detected: false },
     ...overrides,
@@ -134,7 +134,7 @@ describe('summarizePastAssessment', () => {
     expect(summary).not.toBeNull()
     expect(summary!.facilityName).toBe('Test Tower')
     expect(summary!.facilityType).toBe('Commercial Office')
-    expect(summary!.score).toBe(78)
+    expect(summary!.findings).toBe(3)
     expect(summary!.immediateActions).toEqual(['Inspect supply diffuser drip pan'])
     expect(summary!.immediateCount).toBe(1)
     expect(summary!.moldDetected).toBe(false)
@@ -164,27 +164,30 @@ describe('aggregatePatterns', () => {
   it('emits an empty summary when there are zero matches', () => {
     const out = aggregatePatterns(extractFeatures(makeAssessment()), [])
     expect(out.matchCount).toBe(0)
-    expect(out.averageScore).toBeNull()
+    expect(out.averageFindings).toBeNull()
     expect(out.commonImmediateActions).toEqual([])
     expect(out.moldRate).toBeNull()
   })
 
-  it('computes the average composite score across matches', () => {
+  it('computes the average finding count across matches', () => {
+    // Was the average composite. The advisory question is unchanged —
+    // what did assessments like this one turn up? — but the answer no
+    // longer ranks the buildings against each other.
     const matches = [
-      { summary: { score: 80, immediateActions: [], moldDetected: false } },
-      { summary: { score: 60, immediateActions: [], moldDetected: false } },
-      { summary: { score: 70, immediateActions: [], moldDetected: false } },
+      { summary: { findings: 8, immediateActions: [], moldDetected: false } },
+      { summary: { findings: 6, immediateActions: [], moldDetected: false } },
+      { summary: { findings: 7, immediateActions: [], moldDetected: false } },
     ]
     const out = aggregatePatterns(extractFeatures(makeAssessment()), matches as never)
-    expect(out.averageScore).toBe(70)
+    expect(out.averageFindings).toBe(7)
   })
 
   it('surfaces recommendations repeated across ≥ 2 matches', () => {
     const matches = [
-      { summary: { score: 70, immediateActions: ['Inspect drip pan', 'Replace filter'], moldDetected: false } },
-      { summary: { score: 65, immediateActions: ['Inspect drip pan'], moldDetected: false } },
-      { summary: { score: 75, immediateActions: ['Replace filter'], moldDetected: false } },
-      { summary: { score: 60, immediateActions: ['One-off action'], moldDetected: false } },
+      { summary: { findings: 4, immediateActions: ['Inspect drip pan', 'Replace filter'], moldDetected: false } },
+      { summary: { findings: 3, immediateActions: ['Inspect drip pan'], moldDetected: false } },
+      { summary: { findings: 4, immediateActions: ['Replace filter'], moldDetected: false } },
+      { summary: { findings: 3, immediateActions: ['One-off action'], moldDetected: false } },
     ]
     const out = aggregatePatterns(extractFeatures(makeAssessment()), matches as never)
     const actions = out.commonImmediateActions.map((a: { action: string; count: number }) => a.action)
@@ -195,10 +198,10 @@ describe('aggregatePatterns', () => {
 
   it('reports mold-detection rate across matches', () => {
     const matches = [
-      { summary: { score: 70, immediateActions: [], moldDetected: true } },
-      { summary: { score: 70, immediateActions: [], moldDetected: true } },
-      { summary: { score: 70, immediateActions: [], moldDetected: false } },
-      { summary: { score: 70, immediateActions: [], moldDetected: false } },
+      { summary: { findings: 4, immediateActions: [], moldDetected: true } },
+      { summary: { findings: 4, immediateActions: [], moldDetected: true } },
+      { summary: { findings: 4, immediateActions: [], moldDetected: false } },
+      { summary: { findings: 4, immediateActions: [], moldDetected: false } },
     ]
     const out = aggregatePatterns(extractFeatures(makeAssessment()), matches as never)
     expect(out.moldRate).toBe(50)

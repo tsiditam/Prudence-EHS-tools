@@ -259,6 +259,14 @@ const CHAIN_TYPE_TO_RULE: Readonly<Record<string, HypothesisRuleKey | null>> = {
   'VOC Source (Hypothesis)': 'hyp_voc',
   'Chemical Exposure': 'hyp_voc',
   'Cross-Contamination Pathway': null,
+  // Both pressurization chains describe a PATHWAY — how outdoor air
+  // reaches the space — rather than a differential about what is in it.
+  // They are surfaced verbatim under `additionalConsiderations`, which
+  // is the right place for the consolidating one in particular: it
+  // exists to say that several differentials already in the report may
+  // share an explanation, so forcing it into one of them would undo it.
+  'Building Pressurization (Mechanism)': null,
+  'Building Pressurization — Not Evaluated': null,
 }
 
 /**

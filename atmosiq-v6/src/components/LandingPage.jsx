@@ -14,7 +14,6 @@ import { useState } from 'react'
 import BlueprintBG from './BlueprintBG'
 import AirflowMotion from './AirflowMotion'
 import { I } from './Icons'
-import ScoreRing from './ScoreRing'
 import { useInView } from '../hooks/useInView'
 import { useCounter } from '../hooks/useCounter'
 import { FAQ_SECTIONS } from '../constants/faq'
@@ -248,7 +247,7 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
             marginBottom: dk ? 36 : 24,
             letterSpacing: '0.005em',
           }}>
-            The IAQ assessment platform that turns your field walkthrough into a structured, scored, report-ready deliverable — before you leave the building.
+            The IAQ assessment platform that turns your field walkthrough into a structured, standards-cited, report-ready deliverable — before you leave the building.
           </p>
 
           {/* Trust line */}
@@ -377,7 +376,7 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
               letterSpacing: '-0.035em',
               margin: 0,
             }}>
-              AtmosFlow <span style={warmGradient}>closes that gap</span> —{dk ? <br /> : ' '}structured assessment, scored findings, report-ready output.
+              AtmosFlow <span style={warmGradient}>closes that gap</span> —{dk ? <br /> : ' '}structured assessment, cited findings, report-ready output.
             </p>
           </>
         )}
@@ -441,15 +440,20 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
             <div style={{ position: 'absolute', bottom: -80, right: -80, width: 350, height: 350, borderRadius: '50%', background: 'radial-gradient(circle, rgba(139,92,246,0.05) 0%, transparent 70%)', pointerEvents: 'none' }} />
 
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: dk ? 64 : 28, flexWrap: 'wrap' }}>
-              <div style={reveal(inView, 0.2)}>
-                <ScoreRing value={inView ? 62 : 0} color="#FB923C" size={dk ? 190 : 130} />
+              {/* A live-animating ScoreRing counting to 62 sat here, over
+                  "Composite: 62/100". The product no longer produces a
+                  score, so the sample now shows what an assessment
+                  actually returns: the findings, worst first. */}
+              <div style={{ ...reveal(inView, 0.2), textAlign: dk ? 'left' : 'center', maxWidth: 300 }}>
+                <div style={{ ...display, fontSize: dk ? 64 : 44, fontWeight: 700, color: '#FB923C', letterSpacing: '-0.03em', lineHeight: 1 }}>3</div>
+                <div style={{ fontSize: 13, color: C.sub, ...mono, marginTop: 6 }}>findings warrant attention</div>
               </div>
               <div style={{ ...reveal(inView, 0.4), textAlign: dk ? 'left' : 'center', maxWidth: 420 }}>
                 <div style={{ fontSize: 10, color: C.gold, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 10, fontWeight: 600 }}>Meridian Business Park — 3 Zones</div>
-                <div style={{ ...display, fontSize: dk ? 30 : 22, fontWeight: 700, color: '#FB923C', marginBottom: 8, letterSpacing: '-0.02em' }}>High Risk — Review Recommended</div>
-                <div style={{ fontSize: 14, color: C.sub, ...mono, marginBottom: 16 }}>Composite: 62/100 · 3 conditions noted · Sampling needed</div>
+                <div style={{ ...display, fontSize: dk ? 30 : 22, fontWeight: 700, color: '#FB923C', marginBottom: 8, letterSpacing: '-0.02em' }}>Corrective Action Recommended</div>
+                <div style={{ fontSize: 14, color: C.sub, ...mono, marginBottom: 16 }}>2 high · 1 medium · sampling needed</div>
                 <div style={{ fontSize: 14, color: C.sub, lineHeight: 1.75, marginBottom: 24 }}>
-                  Elevated CO₂ with closed dampers. Active moisture intrusion. Multiple symptomatic occupants. See how the platform scores, links causes, and generates the sampling plan — all from field data.
+                  Elevated CO₂ with closed dampers. Active moisture intrusion. Multiple symptomatic occupants. See how the platform cites the criteria, links causes, and generates the sampling plan — all from field data.
                 </div>
                 <button onClick={() => { const el = document.getElementById('install-section'); if (el) el.scrollIntoView({ behavior: 'smooth' }) }} style={{
                   padding: '13px 30px',
@@ -678,7 +682,7 @@ export default function LandingPage({ onStartNew, onStartDemo, isDesktop }) {
                 Ready to see{dk ? <br /> : ' '}what structured looks like?
               </h2>
               <p style={{ fontSize: 15, color: C.sub, marginBottom: 24, maxWidth: 460, margin: '0 auto 24px', lineHeight: 1.7 }}>
-                Run a full assessment on your next site visit. Guided workflow, scored findings, and a report ready for review — all from your phone.
+                Run a full assessment on your next site visit. Guided workflow, cited findings, and a report ready for review — all from your phone.
               </p>
               <p style={{ fontSize: 12, color: C.dim, marginBottom: 32, ...mono }}>
                 Free during beta · No app store · Works offline

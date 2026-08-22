@@ -19,7 +19,7 @@
 import { describe, it, expect } from 'vitest'
 
 import { legacyToAssessmentScore, deriveAssessmentMeta } from '../../src/engine/bridge'
-import { scoreZone, compositeScore } from '../../src/engines/scoring.js'
+import { scoreZone, summarizeAssessment } from '../../src/engines/scoring.js'
 import { Q_ZONE } from '../../src/constants/questions.js'
 
 type Zone = Record<string, unknown>
@@ -42,7 +42,7 @@ function findings(zone: Zone): Finding[] {
     profile: { name: 'J. Smith, CIH', certs: ['CIH'] }, presurvey: PRESURVEY, building: BUILDING,
   } as never)
   const score = legacyToAssessmentScore(
-    zoneScores as never, compositeScore(zoneScores) as never, zones as never,
+    zoneScores as never, summarizeAssessment(zoneScores) as never, zones as never,
     { meta, presurvey: PRESURVEY, building: BUILDING } as never,
   ) as unknown as { zones: Array<{ categories: Array<{ findings: Finding[] }> }> }
   return score.zones.flatMap((z) => z.categories.flatMap((c) => c.findings))

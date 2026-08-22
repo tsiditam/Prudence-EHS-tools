@@ -13,7 +13,7 @@
 import { describe, it, expect } from 'vitest'
 import { legacyToAssessmentScore } from '../../src/engine/bridge/legacy'
 import { renderClientReport } from '../../src/engine/report/client'
-import { scoreZone, compositeScore } from '../../src/engines/scoring'
+import { scoreZone, summarizeAssessment } from '../../src/engines/scoring'
 import type { AssessmentMeta } from '../../src/engine/types/domain'
 
 const META: AssessmentMeta = {
@@ -42,7 +42,7 @@ describe('Pass/info findings do not produce recommended actions', () => {
       co2: '520', co2o: '420', tf: '72', rh: '45', pm: '5',
     }
     const lz = scoreZone(zone, {})
-    const cs = compositeScore([lz])
+    const cs = summarizeAssessment([lz])
     const score = legacyToAssessmentScore([lz] as any, cs as any, [zone] as any, { meta: META, presurvey: PRESURVEY })
 
     // Every finding the bridge produced should be either pass/info
@@ -79,7 +79,7 @@ describe('Pass/info findings do not produce recommended actions', () => {
       tf: '72', rh: '45',       // pass
     }
     const lz = scoreZone(zone, {})
-    const cs = compositeScore([lz])
+    const cs = summarizeAssessment([lz])
     const score = legacyToAssessmentScore([lz] as any, cs as any, [zone] as any, { meta: META, presurvey: PRESURVEY })
 
     const findings = score.zones[0].categories.flatMap(c => c.findings)
@@ -109,7 +109,7 @@ describe('Pass/info findings do not produce recommended actions', () => {
     const zone = { zn: 'Z1', su: 'office', co2: '600', co2o: '420', tf: '72', rh: '50', pm: '5' }
     const bldg = { hm: 'Within 6 months' } // pass
     const lz = scoreZone(zone, bldg)
-    const cs = compositeScore([lz])
+    const cs = summarizeAssessment([lz])
     const score = legacyToAssessmentScore([lz] as any, cs as any, [{ ...zone, ...bldg }] as any, { meta: META, presurvey: PRESURVEY })
 
     const result = renderClientReport(score)

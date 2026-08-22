@@ -43,16 +43,22 @@ function kpiRow(k) {
   const headers = [
     { text: 'Assessments', width: 25 },
     { text: 'Distinct sites', width: 25 },
-    { text: 'Avg composite', width: 25 },
+    { text: 'Findings', width: 25 },
     { text: 'Drafts in progress', width: 25 },
   ]
   const delta = k.deltaFinalized === null || k.deltaFinalized === undefined ? '' : ` (${k.deltaFinalized >= 0 ? '+' : ''}${k.deltaFinalized} vs prior)`
-  const avgTxt = k.avgScore === null ? '—' : `${k.avgScore}${k.avgScoreBand ? ` · ${k.avgScoreBand.label}` : ''}`
-  const avgColor = k.avgScoreBand ? hex(k.avgScoreBand.color) : COLORS.text
+  // "Avg composite" stood here. Averaging a score across a book of work
+  // said less the more sites it covered — two buildings at 60 and 90 are
+  // not one building at 75. A count of what was found does not average
+  // away.
+  const findingsTxt = k.totalFindings === null || k.totalFindings === undefined
+    ? '—'
+    : `${k.totalFindings}${k.totalAttention ? ` · ${k.totalAttention} need action` : ''}`
+  const findingsColor = k.totalAttention ? hex('#B91C1C') : COLORS.text
   const row = [
     { text: `${k.assessmentsFinalized}${delta}`, bold: true, size: 26, color: COLORS.text },
     { text: String(k.distinctSites), bold: true, size: 26, color: COLORS.text },
-    { text: avgTxt, bold: true, size: 26, color: avgColor },
+    { text: findingsTxt, bold: true, size: 26, color: findingsColor },
     { text: String(k.draftsInProgress), bold: true, size: 26, color: COLORS.text },
   ]
   return buildTable(headers, [row])
@@ -61,7 +67,7 @@ function kpiRow(k) {
 function riskTable(dist) {
   if (!dist || !dist.length) return []
   const headers = [
-    { text: 'Risk band', width: 50 },
+    { text: 'Worst finding', width: 50 },
     { text: 'Assessments', width: 25, align: CENTER },
     { text: 'Share', width: 25, align: CENTER },
   ]
@@ -70,7 +76,7 @@ function riskTable(dist) {
     { text: String(d.count), align: CENTER },
     { text: `${d.pct}%`, align: CENTER },
   ])
-  return [sectionHeading2('Risk distribution'), buildTable(headers, rows)]
+  return [sectionHeading2('Findings distribution'), buildTable(headers, rows)]
 }
 
 function siteTable(rows) {
@@ -79,15 +85,15 @@ function siteTable(rows) {
     { text: 'Site', width: 28 },
     { text: 'Assess.', width: 10, align: CENTER },
     { text: 'Last assessed', width: 17 },
-    { text: 'Score', width: 10, align: CENTER },
-    { text: 'Risk', width: 15 },
+    { text: 'Findings', width: 10, align: CENTER },
+    { text: 'Worst', width: 15 },
     { text: 'Reassessment', width: 20 },
   ]
   const body = rows.map((r) => [
     { text: r.facility, bold: true },
     { text: String(r.assessments), align: CENTER },
     { text: r.lastAssessed },
-    { text: r.score === null || r.score === undefined ? '—' : String(r.score), align: CENTER },
+    { text: r.findings === null || r.findings === undefined ? '—' : String(r.findings), align: CENTER },
     { text: r.band.label, bold: true, color: hex(r.band.color) },
     { text: r.reassessment ? r.reassessment.label : '—', size: 18 },
   ])
@@ -130,7 +136,7 @@ export function portfolioReportChildren(model) {
   const out = [...titleBlock(model.meta || {})]
   if (model.isEmpty) {
     out.push(
-      p('No assessments have been finalized yet. Once you finalize assessments in AtmosFlow, this summary rolls them up by site and risk band.', { color: COLORS.sub, after: 200 }),
+      p('No assessments have been finalized yet. Once you finalize assessments in AtmosFlow, this summary rolls them up by site and by what was found.', { color: COLORS.sub, after: 200 }),
     )
     out.push(...limitationsBlock(model.limitations))
     return out

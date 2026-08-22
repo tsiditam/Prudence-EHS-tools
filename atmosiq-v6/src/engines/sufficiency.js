@@ -1,38 +1,42 @@
 /**
- * AtmosFlow Sufficiency Engine — v2.3
+ * AtmosFlow Sufficiency Engine — v3.0
+ *
  * Every category declares required inputs. Sufficiency is computed
- * BEFORE scoring, not after. Fail closed: missing data → INSUFFICIENT.
+ * BEFORE the category is assessed. Fail closed: missing data →
+ * INSUFFICIENT.
+ *
+ * Sufficiency is about DATA COMPLETENESS — how much of what a category
+ * needs was actually recorded. It survived the removal of the 100-point
+ * score intact, minus the points: `maxPoints`, `maxAwardable` and the
+ * "Score capped" reason went with the arithmetic they served. What a
+ * category still reports is what is present, what is missing, and
+ * whether that is enough to assess it.
  */
 
 const CATEGORY_REQUIREMENTS = {
   Ventilation: {
-    maxPoints: 25,
     required: { co2: 'CO₂ reading', cfm_person: 'OA cfm/person or damper status' },
     optional: { ach: 'Air changes per hour', sa: 'Supply airflow' },
     minSufficiencyForScoring: 0.5,
     altRequired: { od: 'OA damper status' },
   },
   Contaminants: {
-    maxPoints: 25,
     required: { pm: 'PM2.5 reading', co: 'CO reading' },
     optional: { tv: 'TVOC reading', hc: 'Formaldehyde reading', vd: 'Visible dust' },
     minSufficiencyForScoring: 0.5,
   },
   HVAC: {
-    maxPoints: 20,
     required: {},
     optional: { hm: 'Last HVAC maintenance', fc: 'Filter condition' },
     minSufficiencyForScoring: 0,
   },
   Complaints: {
-    maxPoints: 15,
     required: { cx: 'Complaint status' },
     optional: { ac: 'Affected occupant count', sr: 'Symptom resolution pattern', cc: 'Clustering', sy: 'Symptom list' },
     minSufficiencyForScoring: 1.0,
     skipOptionalWhen: { cx: ['No complaints'] },
   },
   Environment: {
-    maxPoints: 15,
     required: { tf: 'Temperature', rh: 'Relative humidity' },
     optional: {},
     minSufficiencyForScoring: 1.0,
@@ -89,13 +93,12 @@ export function evaluateCategorySufficiency(categoryName, zoneData) {
   const reqSufficiency = reqKeys.length > 0 ? reqMet / reqKeys.length : 1
   const isInsufficient = reqSufficiency < spec.minSufficiencyForScoring
 
-  // When sufficiency < 1 but the category is still scorable, the score is
-  // capped by *optional* inputs that weren't captured (not a missing
-  // requirement). Surface those so a capped category never reads as
-  // "capped with no stated reason" in the structured output. Additive:
-  // does not change sufficiency, maxAwardable, or `reason` semantics.
+  // Which optional inputs were not captured. This used to be phrased as
+  // "Score capped: …" because the missing inputs capped the category's
+  // points. There are no points; what is left is the fact itself, which
+  // is what a reader needed either way.
   const capReason = (!isInsufficient && sufficiency < 1 && unmetOptional.length)
-    ? `Score capped: optional inputs not captured (${unmetOptional.join(', ')})`
+    ? `Optional inputs not captured: ${unmetOptional.join(', ')}`
     : null
 
   return {
@@ -105,28 +108,33 @@ export function evaluateCategorySufficiency(categoryName, zoneData) {
     missing,
     unmetOptional,
     isInsufficient,
-    maxAwardable: isInsufficient ? 0 : Math.round(sufficiency * spec.maxPoints),
     reason: isInsufficient ? `Missing required inputs: ${missing.join(', ')}` : null,
     capReason,
   }
 }
 
+/**
+ * `_overall` is the mean data completeness across categories, and it
+ * drives the assessment's confidence label.
+ *
+ * It used to be weighted by each category's max points (25/25/20/15/15).
+ * With the points gone the weighting has nothing to express — and it was
+ * never obvious why an incomplete Ventilation record should count more
+ * toward CONFIDENCE than an incomplete Environment one. Completeness is
+ * completeness. The mean is now unweighted, which shifts `_overall` by a
+ * few percent either way on a mixed record; `getConfidenceLevel` bands
+ * at 0.85 / 0.6 / 0.3, so a borderline assessment can move one band.
+ */
 export function evaluateAllSufficiency(zoneData) {
   const results = {}
-  let totalWeight = 0, weightedSum = 0
-  for (const cat of Object.keys(CATEGORY_REQUIREMENTS)) {
-    const spec = CATEGORY_REQUIREMENTS[cat]
+  const cats = Object.keys(CATEGORY_REQUIREMENTS)
+  let sum = 0
+  for (const cat of cats) {
     results[cat] = evaluateCategorySufficiency(cat, zoneData)
-    totalWeight += spec.maxPoints
-    weightedSum += results[cat].sufficiency * spec.maxPoints
+    sum += results[cat].sufficiency
   }
-  results._overall = totalWeight > 0 ? weightedSum / totalWeight : 0
+  results._overall = cats.length > 0 ? sum / cats.length : 0
   return results
-}
-
-export function getMaxAwardable(categoryName, zoneData) {
-  const s = evaluateCategorySufficiency(categoryName, zoneData)
-  return s.isInsufficient ? null : s.maxAwardable
 }
 
 export { CATEGORY_REQUIREMENTS }

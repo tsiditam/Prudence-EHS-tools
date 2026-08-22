@@ -12,6 +12,14 @@ import { KEYS } from '../utils/storageKeys'
 
 const STORAGE_KEY = KEYS.userMode
 
+// `composite` ('Composite Score' / 'Overall Air Quality'), the four
+// `risk*` band labels and `noScoreExplainer` were removed with the
+// 100-point score. The explainer in particular had become marketing for
+// a feature that no longer exists: "When you measure, we score. When you
+// observe, we document and flag."
+//
+// Severity labels are NOT here and never were — they belong to the
+// findings, and the findings survive.
 export const TERMINOLOGY = {
   ih: {
     assessment: 'Assessment',
@@ -19,7 +27,6 @@ export const TERMINOLOGY = {
     zones: 'Zones',
     samplingPlan: 'Sampling Plan',
     causalChain: 'Causal Chain Analysis',
-    composite: 'Composite Score',
     // FINDING-level escalation: this particular finding warrants a
     // professional look. Distinct from the report's lifecycle status
     // (src/constants/reportLifecycle.js) and from the AI-provenance
@@ -39,10 +46,6 @@ export const TERMINOLOGY = {
     buildingContext: 'Building and Complaint Context',
     scopeMethods: 'Scope and Methodology',
     limitations: 'Limitations and Professional Judgment',
-    riskLow: 'Low Risk',
-    riskModerate: 'Moderate',
-    riskHigh: 'High Risk',
-    riskCritical: 'Critical',
     confidenceHigh: 'High Confidence',
     confidenceModerate: 'Moderate Confidence',
     confidenceLow: 'Limited Confidence',
@@ -56,7 +59,6 @@ export const TERMINOLOGY = {
     zones: 'Areas',
     samplingPlan: 'Recommended Next Steps',
     causalChain: 'Likely Causes',
-    composite: 'Overall Air Quality',
     findingReview: 'Professional Review Recommended',
     report: 'Air Quality Report',
     findings: 'What We Found',
@@ -71,14 +73,9 @@ export const TERMINOLOGY = {
     buildingContext: 'Building Information',
     scopeMethods: 'What Was Checked',
     limitations: 'Important Notes',
-    riskLow: 'Low Risk',
-    riskModerate: 'Watch',
-    riskHigh: 'Action Required',
-    riskCritical: 'Critical',
     confidenceHigh: 'High Confidence',
     confidenceModerate: 'Moderate Confidence',
     confidenceLow: 'Low Confidence',
-    noScoreExplainer: 'AtmosFlow does not generate scores from observational data alone. When you measure, we score. When you observe, we document and flag. This is a deliberate design choice to ensure every AtmosFlow score is defensible.',
     meterPrompt: 'What are you using to measure the air?',
     deviceLabel: 'Device',
     calibrationLabel: 'Device Status',

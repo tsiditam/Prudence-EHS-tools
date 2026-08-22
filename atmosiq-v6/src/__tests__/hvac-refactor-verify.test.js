@@ -1,5 +1,17 @@
+/**
+ * The sufficiency denominators, and the engine behaviour that rests on
+ * them.
+ *
+ * Written as `maxAwardable` assertions — `round(sufficiency * maxPoints)`
+ * — because points were how sufficiency was observable. The points are
+ * gone; the DENOMINATOR is the property this file exists to protect (2
+ * fields for HVAC, 4 for Ventilation, 5 for Contaminants), and it is now
+ * asserted on `sufficiency` directly, which is both the real quantity
+ * and free of the rounding the old numbers had to account for.
+ */
+
 import { describe, it, expect } from 'vitest'
-import { scoreZone, compositeScore, genRecs } from '../engines/scoring'
+import { scoreZone, summarizeAssessment, genRecs } from '../engines/scoring'
 import { evaluateCategorySufficiency, evaluateAllSufficiency } from '../engines/sufficiency'
 
 // Engine v2.8.0 — coerce action objects | legacy strings to plain text.
@@ -8,39 +20,36 @@ const txt = (r) => typeof r === 'string' ? r : (r?.text || '')
 // ── Sufficiency Engine — HVAC category ────────────────────────────────────
 
 describe('HVAC sufficiency after refactor', () => {
-  it('HVAC with zero fields → scorable, maxAwardable=0', () => {
+  it('HVAC with zero fields → assessable, sufficiency=0', () => {
     const r = evaluateCategorySufficiency('HVAC', {})
     expect(r.isInsufficient).toBe(false)       // never insufficient (minSufficiency=0)
     expect(r.reqSufficiency).toBe(1)            // no required fields → 1
     expect(r.sufficiency).toBe(0)               // 0 of 2 optional met
-    expect(r.maxAwardable).toBe(0)              // round(0 * 20) = 0
     expect(r.missing).toHaveLength(0)           // nothing is "missing" (all optional)
   })
 
-  it('HVAC with only hm=Unknown → sufficiency=1/2, maxAwardable=10', () => {
+  it('HVAC with only hm=Unknown → sufficiency=1/2', () => {
     const r = evaluateCategorySufficiency('HVAC', { hm: 'Unknown' })
     expect(r.isInsufficient).toBe(false)
     expect(r.sufficiency).toBeCloseTo(1/2, 4)
-    expect(r.maxAwardable).toBe(10)             // round(0.5 * 20) = 10
   })
 
-  it('HVAC with only hm=Within 6 months → sufficiency=1/2, maxAwardable=10', () => {
+  it('HVAC with only hm=Within 6 months → sufficiency=1/2', () => {
     const r = evaluateCategorySufficiency('HVAC', { hm: 'Within 6 months' })
     expect(r.isInsufficient).toBe(false)
-    expect(r.maxAwardable).toBe(10)
+    expect(r.sufficiency).toBeCloseTo(1 / 2, 4)
   })
 
-  it('HVAC with hm + fc → sufficiency=1.0, maxAwardable=20 (full credit)', () => {
+  it('HVAC with hm + fc → sufficiency=1.0 (complete record)', () => {
     const r = evaluateCategorySufficiency('HVAC', { hm: 'Within 6 months', fc: 'Clean' })
     expect(r.sufficiency).toBe(1)
-    expect(r.maxAwardable).toBe(20)
   })
 
   it('gate5 fields (sa, dp, fm, od) do not affect HVAC sufficiency', () => {
     const withoutGate5 = evaluateCategorySufficiency('HVAC', { hm: 'Within 6 months' })
     const withGate5 = evaluateCategorySufficiency('HVAC', { hm: 'Within 6 months', sa: 'Normal', dp: 'Dry', fm: 'MERV 13', od: 'Open' })
     expect(withoutGate5.sufficiency).toBe(withGate5.sufficiency)
-    expect(withoutGate5.maxAwardable).toBe(withGate5.maxAwardable)
+    expect(withoutGate5.sufficiency).toBe(withGate5.sufficiency)
   })
 
   it('non-HVAC categories still require their required fields', () => {
@@ -57,26 +66,25 @@ describe('Ventilation sufficiency', () => {
     const without = evaluateCategorySufficiency('Ventilation', { co2: '500', cfm_person: '15' })
     const withBP = evaluateCategorySufficiency('Ventilation', { co2: '500', cfm_person: '15', bld_pressure: '0.02' })
     expect(without.sufficiency).toBe(withBP.sufficiency)
-    expect(without.maxAwardable).toBe(withBP.maxAwardable)
+    expect(without.sufficiency).toBe(withBP.sufficiency)
   })
 
-  it('co2 only → maxAwardable=6 (not 5 with old 5-field denominator)', () => {
+  it('co2 only → sufficiency=1/4 (not 1/5 with the old denominator)', () => {
     // co2 meets 1 of 2 required, reqSufficiency=0.5 → not insufficient
-    // sufficiency = 1/4 = 0.25, maxAwardable = round(0.25 * 25) = 6
     const r = evaluateCategorySufficiency('Ventilation', { co2: '500' })
     expect(r.isInsufficient).toBe(false)
-    expect(r.maxAwardable).toBe(6)
+    expect(r.sufficiency).toBeCloseTo(1 / 4, 4)
   })
 
-  it('co2 + cfm_person → maxAwardable=13 (2 of 4)', () => {
+  it('co2 + cfm_person → sufficiency=2/4', () => {
     const r = evaluateCategorySufficiency('Ventilation', { co2: '500', cfm_person: '15' })
-    expect(r.maxAwardable).toBe(13)
+    expect(r.sufficiency).toBeCloseTo(2 / 4, 4)
   })
 
-  it('all scoring fields → maxAwardable=25', () => {
+  it('all ventilation fields → sufficiency=1', () => {
     const r = evaluateCategorySufficiency('Ventilation', { co2: '500', cfm_person: '15', ach: '6', sa: 'Normal' })
     expect(r.sufficiency).toBe(1)
-    expect(r.maxAwardable).toBe(25)
+    expect(r.sufficiency).toBe(1)
   })
 })
 
@@ -85,20 +93,20 @@ describe('Contaminants sufficiency', () => {
     const without = evaluateCategorySufficiency('Contaminants', { pm: '5', co: '2' })
     const withExtra = evaluateCategorySufficiency('Contaminants', { pm: '5', co: '2', mi: 'None', od_smell: 'None' })
     expect(without.sufficiency).toBe(withExtra.sufficiency)
-    expect(without.maxAwardable).toBe(withExtra.maxAwardable)
+    expect(without.sufficiency).toBe(withExtra.sufficiency)
   })
 
-  it('pm + co only → maxAwardable=10 (not 7 with old 7-field denominator)', () => {
+  it('pm + co only → sufficiency=2/5 (not 2/7 with the old denominator)', () => {
     const r = evaluateCategorySufficiency('Contaminants', { pm: '5', co: '2' })
     expect(r.isInsufficient).toBe(false)
-    // 2 req of 2 + 0 opt of 3 = 2/5 = 0.4, maxAwardable = round(0.4 * 25) = 10
-    expect(r.maxAwardable).toBe(10)
+    // 2 required of 2, 0 optional of 3 → 2/5
+    expect(r.sufficiency).toBeCloseTo(2 / 5, 4)
   })
 
-  it('pm + co + tv + hc + vd → maxAwardable=25 (full credit)', () => {
+  it('pm + co + tv + hc + vd → sufficiency=1 (complete record)', () => {
     const r = evaluateCategorySufficiency('Contaminants', { pm: '5', co: '2', tv: '100', hc: '0.01', vd: 'None' })
     expect(r.sufficiency).toBe(1)
-    expect(r.maxAwardable).toBe(25)
+    expect(r.sufficiency).toBe(1)
   })
 })
 
@@ -178,12 +186,17 @@ describe('scoreHVAC scoring paths', () => {
     expect(finding.t).not.toContain('biological concern')
   })
 
-  it('gate5 cap finding uses professional language', () => {
+  it('the gate5 finding uses professional language and describes the condition', () => {
     const { cat } = hvac({ sa: 'No airflow detected' }, { hm: 'Within 6 months' })
-    const capFinding = cat.r.find(r => r.t.includes('active physical deficiency caps'))
-    expect(capFinding).toBeDefined()
-    expect(capFinding.t).toContain('Critical HVAC Condition Identified')
-    expect(capFinding.t).not.toContain('HVAC System Integrity Override')
+    // Two findings mention the condition: the airflow observation that
+    // tripped it, and the gate's own summary. This is the summary.
+    const gateFinding = cat.r.find(r => r.t.startsWith('Critical HVAC Condition Identified:'))
+    expect(gateFinding).toBeDefined()
+    // The sentence used to end "…caps category at 30%", describing what
+    // the condition did to the score rather than what it is.
+    expect(gateFinding.t).not.toMatch(/caps category|30%/)
+    expect(gateFinding.t).toContain('active physical deficiency')
+    expect(gateFinding.t).not.toContain('HVAC System Integrity Override')
   })
 
   it('no forbidden language in any HVAC finding text', () => {
@@ -208,13 +221,15 @@ describe('scoreHVAC scoring paths', () => {
 // ── scoreZone integration ─────────────────────────────────────────────────
 
 describe('scoreZone HVAC integration', () => {
-  it('gate5 still caps zone total at 40', () => {
+  it('gate5 fires and states itself as a critical finding', () => {
     const zone = { zn: 'Z1', co2: '450', tf: '72', rh: '45', pm: '5', co: '2', sa: 'No airflow detected' }
     const bldg = { hm: 'Within 6 months', cx: 'No complaints' }
     const result = scoreZone(zone, bldg)
-    expect(result.tot).toBeLessThanOrEqual(40)
     const hvac = result.cats.find(c => c.l === 'HVAC')
     expect(hvac.gate5).toBe(true)
+    // Was `result.tot <= 40` — the cap. The condition the cap expressed
+    // is the critical finding itself, which is what a reader acts on.
+    expect(hvac.r.some(r => r.sev === 'critical')).toBe(true)
   })
 
   it('adminGap reduces confidence from High to Medium', () => {
@@ -238,8 +253,8 @@ describe('scoreZone HVAC integration', () => {
     expect(synFinding.t).not.toContain('SYNERGISTIC')
     expect(synFinding.t).not.toContain('TOXICITY')
     expect(synFinding.t).toContain('Immediate Follow-Up Sampling Required')
-    // synergistic override caps at 39
-    expect(result.tot).toBeLessThanOrEqual(39)
+    expect(synFinding.sev).toBe('critical')
+    expect(contCat.synergistic).toBe(true)
   })
 
   it('non-HVAC categories are NOT affected by refactor', () => {
@@ -248,7 +263,6 @@ describe('scoreZone HVAC integration', () => {
     const bldg = { hm: 'Within 6 months' }
     const result = scoreZone(zone, bldg)
     const vent = result.cats.find(c => c.l === 'Ventilation')
-    expect(vent.s).toBe(0)
     // CO2 is capped at `high` by its criterion class — see constants/criteria.js.
     expect(vent.r[0].sev).toBe('high')
 
@@ -258,53 +272,58 @@ describe('scoreZone HVAC integration', () => {
 
     // Environment
     const envCat = result.cats.find(c => c.l === 'Environment')
-    expect(envCat.s).not.toBeNull()
+    expect(envCat.status).toBeUndefined()
   })
 
-  it('missing HVAC data is excluded from total (DATA_GAP), not scored as 0/20', () => {
+  it('missing HVAC data is reported as a DATA_GAP, not as a deficiency', () => {
     const zone = { zn: 'Z1', co2: '450', tf: '72', rh: '45', pm: '5', co: '2', cx: 'No complaints' }
     const bldg = {}  // no HVAC data
     const result = scoreZone(zone, bldg)
     const hvac = result.cats.find(c => c.l === 'HVAC')
-    expect(hvac.s).toBeNull()
     expect(hvac.status).toBe('DATA_GAP')
-    // HVAC excluded from available max (80, not 100)
-    expect(result.availableMax).toBe(80)
-    // Score is normalized up from 4 scorable categories, not dragged down by 0/20 HVAC
-    expect(result.normalizedFrom).not.toBeNull()
     expect(result.insufficientCats).toContain('HVAC')
+    expect(result.assessedCats).not.toContain('HVAC')
+    // Was also `availableMax === 80` and `normalizedFrom !== null` — the
+    // normalization that stopped an unassessed category from dragging the
+    // score down. With no score, an unassessed category is simply named
+    // as unassessed, which is what the normalization was protecting.
+    expect(hvac.r.some(r => r.sev === 'critical' || r.sev === 'high')).toBe(false)
   })
 
-  it('zone with full data + missing HVAC normalizes correctly', () => {
-    // Provide enough data for non-HVAC categories to score well
+  it('a missing HVAC record does not make the rest of the zone look worse', () => {
     const zone = { zn: 'Z1', cfm_person: '15', co2: '450', tf: '72', rh: '45', pm: '5', co: '2', tv: '100', cx: 'No complaints' }
     const bldg = {}  // no HVAC data
     const result = scoreZone(zone, bldg)
-    // With high-sufficiency non-HVAC data + HVAC excluded → should normalize to reasonable score
-    expect(result.risk).not.toBe('Critical')
-    expect(result.availableMax).toBe(80) // HVAC excluded
+    expect(result.insufficientCats).toEqual(['HVAC'])
+    expect(result.assessedCats.length).toBe(4)
+    // No finding anywhere claims a deficiency the data cannot support.
+    const flagged = result.cats.flatMap(c => c.r).filter(r => r.sev === 'critical' || r.sev === 'high')
+    expect(flagged).toEqual([])
   })
 
-  it('hm=Unknown scores HVAC at 10/20 (not 3/20), total stays Moderate', () => {
+  it('hm=Unknown is an administrative gap, not a physical deficiency', () => {
     // User's live scenario: good readings everywhere, HVAC maintenance = Unknown
     const zone = { zn: 'Daycare', co2: '500', tf: '73', rh: '42', pm: '4', co: '1', cx: 'No complaints' }
     const bldg = { hm: 'Unknown' }
     const result = scoreZone(zone, bldg)
     const hvac = result.cats.find(c => c.l === 'HVAC')
-    // With 2-field sufficiency model: hm=1/2 → maxAwardable=10, raw=20, capped to 10
-    expect(hvac.s).toBe(10)
     expect(hvac.adminGap).toBe(true)
-    // Total should be reasonable, not dragged down to High Risk
-    expect(result.risk).not.toBe('Critical')
+    expect(hvac.gate5).toBeFalsy()
+    // The distinction the old 10/20-not-3/20 assertion was drawing: an
+    // unknown maintenance history reduces confidence, it does not assert
+    // a physical problem.
+    expect(hvac.r.some(r => r.sev === 'critical' || r.sev === 'high')).toBe(false)
+    expect(hvac.r.some(r => r.t.includes('Data Gap'))).toBe(true)
   })
 
-  it('hm + fc gives full HVAC credit when no deficiencies', () => {
+  it('hm + fc records a complete HVAC picture with nothing flagged', () => {
     const zone = { zn: 'Z1', co2: '500', tf: '73', rh: '42', pm: '4', co: '1', cx: 'No complaints' }
     const bldg = { hm: 'Within 6 months', fc: 'Clean' }
     const result = scoreZone(zone, bldg)
     const hvac = result.cats.find(c => c.l === 'HVAC')
-    // hm + fc = 2/2 sufficiency → maxAwardable=20, no deductions → score=20
-    expect(hvac.s).toBe(20)
+    expect(hvac.sufficiency.sufficiency).toBe(1)
+    expect(hvac.adminGap).toBeFalsy()
+    expect(hvac.r.every(r => r.sev === 'pass' || r.sev === 'info')).toBe(true)
   })
 })
 
@@ -392,24 +411,25 @@ describe('genRecs with refactored HVAC', () => {
   })
 })
 
-// ── compositeScore is completely unaffected ────────────────────────────────
+// ── summarizeAssessment is unaffected by the HVAC sufficiency model ────────
 
-describe('compositeScore unchanged', () => {
-  it('still returns null for empty array', () => {
-    expect(compositeScore([])).toBeNull()
+describe('summarizeAssessment unchanged', () => {
+  const zone = (findings, extra = {}) => ({
+    cats: [{ l: 'HVAC', r: findings }],
+    confidence: 'High', partialScore: false, insufficientCats: [], ...extra,
   })
 
-  it('still uses weighted mean when no Critical zones', () => {
-    const scores = [{ tot: 90 }, { tot: 80 }]
-    const result = compositeScore(scores)
-    expect(result.logic).toBe('weighted-mean-of-zones')
-    expect(result.avg).toBe(85)
+  it('still returns null for an empty array', () => {
+    expect(summarizeAssessment([])).toBeNull()
   })
 
-  it('still uses worst-zone-override when a zone is Critical', () => {
-    const scores = [{ tot: 90 }, { tot: 30 }]
-    const result = compositeScore(scores)
-    expect(result.logic).toBe('worst-zone-override')
-    expect(result.tot).toBe(30)
+  it('counts across zones regardless of how HVAC sufficiency resolved', () => {
+    const result = summarizeAssessment([
+      zone([{ t: 'a', sev: 'high' }]),
+      zone([], { insufficientCats: ['HVAC'], partialScore: true }),
+    ])
+    expect(result.count).toBe(2)
+    expect(result.findings.total).toBe(1)
+    expect(result.partialData).toBe(true)
   })
 })

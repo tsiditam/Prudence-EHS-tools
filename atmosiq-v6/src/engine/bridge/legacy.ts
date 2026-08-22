@@ -1,21 +1,16 @@
 /**
  * AtmosFlow v2.1 Bridge — Legacy Scoring → AssessmentScore
  *
- * Adapts output from src/engines/scoring.js (`scoreZone`, `compositeScore`)
+ * Adapts output from src/engines/scoring.js (`scoreZone`, `summarizeAssessment`)
  * into the v2.1 `AssessmentScore` shape consumed by `report.client()` and
  * `report.internal()`.
  *
  * Design notes:
  *  - The legacy engine is the source of truth for category scores, deductions,
- *    severity, sufficiency status, and tier mapping. The bridge does not
- *    re-score; it tags each legacy finding with a v2.1 ConditionType, looks
- *    up the phrase library for approved narrative, and runs the engine's
- *    permission evaluator to derive defensibility flags.
- *  - Per-finding `deductionInternal` is derived from severity (since the
- *    legacy engine reports total category deduction, not per-finding). The
- *    bridge attempts to match the category total when severity-based math
- *    aligns; otherwise it preserves severity ordering for the prioritization
- *    queue without overstating deduction.
+ *    severity and sufficiency status. The bridge tags each legacy finding
+ *    with a v2.1 ConditionType, looks up the phrase library for approved
+ *    narrative, and runs the engine's permission evaluator to derive
+ *    defensibility flags.
  *  - Confidence/tier mapping is conservative: legacy 'Medium' confidence maps
  *    to 'provisional_screening_level' (the v2.1 tier that allows screening
  *    inferences but blocks definitive language).
@@ -23,13 +18,13 @@
 
 import type {
   AssessmentScore, AssessmentMeta, ZoneScore as V21ZoneScore, CategoryScore as V21CategoryScore,
-  Finding, FindingId, ZoneId, CategoryName, Tier, Severity,
+  Finding, FindingId, ZoneId, CategoryName, Severity,
   CIHConfidenceTier, EvidenceBasis, EvidenceBasisKind,
   SamplingAdequacyEvaluation, InstrumentAccuracyOutcome, RecommendedAction,
   DefensibilityFlags, ProfessionalOpinionTier,
 } from '../types/domain'
 import type {
-  ZoneScore as LegacyZoneScore, CompositeScore as LegacyComposite,
+  ZoneScore as LegacyZoneScore, AssessmentSummary as LegacySummary,
   CategoryScore as LegacyCategoryScore, Finding as LegacyFinding, ZoneData, BuildingData, PresurveyData,
 } from '../../types/assessment'
 import { lookupPhrase } from '../report/phrases/index'
@@ -55,7 +50,7 @@ export interface BridgeOptions {
 
 export function legacyToAssessmentScore(
   legacyZoneScores: ReadonlyArray<LegacyZoneScore>,
-  legacyComposite: LegacyComposite | null,
+  legacySummary: LegacySummary | null,
   zonesData: ReadonlyArray<ZoneData>,
   ctx: BridgeContext,
   options: BridgeOptions = {},
@@ -70,9 +65,7 @@ export function legacyToAssessmentScore(
     return mapZone(lz, zoneData, zoneId, nextFindingId)
   })
 
-  const siteScore = legacyComposite?.tot ?? null
-  const siteTier = mapTier(legacyComposite?.risk ?? null, siteScore)
-  const confidenceBand = mapConfidence(legacyComposite?.confidence ?? deriveWorstZoneConfidence(zones))
+  const confidenceBand = mapConfidence(legacySummary?.confidence ?? deriveWorstZoneConfidence(zones))
   const confidenceValue = mapConfidenceValue(confidenceBand)
   const defensibilityFlags = computeDefensibilityFlags(zones, zonesData, ctx)
 
@@ -105,8 +98,6 @@ export function legacyToAssessmentScore(
   })
 
   return {
-    siteScore,
-    siteTier,
     zones,
     confidenceValue,
     confidenceBand,
@@ -131,14 +122,10 @@ function mapZone(
   const categories: V21CategoryScore[] = lz.cats.map(cat =>
     mapCategory(cat, zoneData, zoneId, nextFindingId),
   )
-  const composite = lz.tot
-  const tier = mapTier(lz.risk, lz.tot)
   const confidence = mapConfidence(lz.confidence)
   const zoneScore: V21ZoneScore = {
     zoneId,
     zoneName: lz.zoneName || 'Zone',
-    composite,
-    tier,
     confidence,
     categories,
     professionalOpinion: 'no_significant_concerns_identified', // placeholder, computed below
@@ -167,9 +154,7 @@ function mapCategory(
 ): V21CategoryScore {
   const category = CATEGORY_NAME_MAP[cat.l] ?? 'Environment'
   const status = mapCategoryStatus(cat)
-  const rawScoreNum = cat.s ?? 0
-  const cappedScoreNum = cat.capped ? Math.min(cat.s ?? 0, cat.mx) : rawScoreNum
-  const sufficiencyRatio = cat.sufficiency?.sufficiency ?? (cat.s !== null ? 1 : 0)
+  const sufficiencyRatio = cat.sufficiency?.sufficiency ?? (cat.status ? 0 : 1)
 
   const findings: Finding[] = (cat.r ?? [])
     .filter(f => f.t && f.t.trim().length > 0)
@@ -177,9 +162,6 @@ function mapCategory(
 
   return {
     category,
-    rawScore: rawScoreNum,
-    cappedScore: cappedScoreNum,
-    maxScore: cat.mx,
     status,
     findings,
     sufficiencyRatio,
@@ -187,7 +169,6 @@ function mapCategory(
 }
 
 function mapCategoryStatus(cat: LegacyCategoryScore): V21CategoryScore['status'] {
-  if (cat.suppressed || cat.status === 'SUPPRESSED') return 'suppressed'
   if (cat.status === 'INSUFFICIENT') return 'insufficient'
   if (cat.status === 'DATA_GAP') return 'data_gap'
   return 'scored'
@@ -195,14 +176,9 @@ function mapCategoryStatus(cat: LegacyCategoryScore): V21CategoryScore['status']
 
 // ── Finding Mapping ──
 
-const SEVERITY_DEDUCTION: Record<Severity, number> = {
-  critical: 15,
-  high: 10,
-  medium: 5,
-  low: 2,
-  pass: 0,
-  info: 0,
-}
+// SEVERITY_DEDUCTION lived here: a per-finding point value the bridge
+// invented because the legacy engine only reported category totals. It
+// was a second opinion about a number that no longer exists.
 
 // v2.2 §1a — observational ConditionTypes whose `severityInternal` MUST be
 // capped at 'high'. Critical is reserved for measured exceedances of
@@ -282,7 +258,7 @@ function appendQualitativeQualifier(text: string): string {
  * Returns null when zone data lacks the indoor or outdoor PM2.5
  * measurement, so callers fall back to the static phrase template.
  *
- * Tier interpretation thresholds:
+ * Interpretation thresholds:
  *   I/O ≤ 1.0       — no indoor source
  *   1.0 < I/O ≤ 2.0 — indoor source likely, monitoring recommended
  *   I/O > 2.0       — significant indoor source, investigation warranted
@@ -392,7 +368,6 @@ function mapFinding(
     severityInternal: cappedSeverity,
     titleInternal: deriveTitle(legacyF, conditionType),
     observationInternal: legacyF.t,
-    deductionInternal: SEVERITY_DEDUCTION[cappedSeverity],
     conditionType,
     confidenceTier,
     definitiveConclusionAllowed: false,
@@ -714,21 +689,10 @@ function reverseConfidence(tier: CIHConfidenceTier): string {
   }
 }
 
-function mapTier(legacy: string | null | undefined, score: number | null | undefined): Tier | null {
-  if (score === null || score === undefined) return null
-  if (!legacy) return null
-  // Legacy emits the same labels we use, but defensively map known synonyms.
-  switch (legacy) {
-    case 'Critical': return 'Critical'
-    case 'High Risk': return 'High Risk'
-    case 'Moderate': return 'Moderate'
-    case 'Low Risk': return 'Low Risk'
-  }
-  if (score < 40) return 'Critical'
-  if (score < 60) return 'High Risk'
-  if (score < 80) return 'Moderate'
-  return 'Low Risk'
-}
+// mapTier lived here — legacy risk label to v2.1 Tier, with a numeric
+// fallback ladder (<40 / <60 / <80) that was a SIXTH set of band
+// thresholds, agreeing with none of the other five. It went with the
+// bands.
 
 function computeDefensibilityFlags(
   zones: ReadonlyArray<V21ZoneScore>,
@@ -739,7 +703,14 @@ function computeDefensibilityFlags(
     !!(z.co2 || z.pm || z.co || z.hc || z.tv || z.tf || z.rh || z.cfm_person || z.ach),
   )
   const hasCalibrationRecords = !!(ctx.presurvey?.['ps_inst_iaq_cal'] || ctx.presurvey?.['ps_inst_iaq_cal_status'])
-  const hasSufficientZoneCoverage = zones.length > 0 && zones.every(z => z.composite !== null)
+  // Every zone actually produced a category assessment. This was
+  // `z.composite !== null` — a defensibility flag resting on score
+  // nullability, which with no composite computed would answer `false`
+  // for every assessment ever run. A zone is covered when its categories
+  // were evaluated, which is the thing the flag was always standing in
+  // for: `null` composite meant "no category could be scored".
+  const hasSufficientZoneCoverage = zones.length > 0
+    && zones.every(z => z.categories.some(c => c.status === 'scored'))
   const assessorCerts = ctx.meta.preparingAssessor.credentials.map(c => c.toUpperCase())
   const hasQualifiedAssessor = ['CIH', 'CSP', 'PE', 'ROH'].some(c => assessorCerts.includes(c))
   const overallDefensible = hasInstrumentData && hasCalibrationRecords && hasSufficientZoneCoverage && hasQualifiedAssessor

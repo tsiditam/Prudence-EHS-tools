@@ -80,25 +80,34 @@ describe('PM2.5 carries the averaging caveat every other analyte gets', () => {
     expect(threshold('20')!.sev).toBe('medium')
   })
 
-  it('still weights the deduction by whether an outdoor reading exists', () => {
+  it('still distinguishes a reading with a paired outdoor value from one without', () => {
     // Preserved from the literal ladder: a reading with a concurrent
     // outdoor value behind it counts for more, because the comparison is
     // what separates a building source from ambient air.
-    const withOutdoor = scoreZone({ ...BASE, pm: '38', pmo: '9' }, {}) as unknown as { tot: number }
-    const without = scoreZone({ ...BASE, pm: '38' }, {}) as unknown as { tot: number }
-    expect(without.tot).toBeGreaterThan(withOutdoor.tot)
+    // Was: the deduction was two-thirds for a reading with no outdoor
+    // comparison, so the zone scored HIGHER without one. With no
+    // deduction to weight, the distinction is stated in the finding —
+    // where a reader can act on it, rather than inferring it from a
+    // number that moved.
+    const withOutdoor: any = scoreZone({ ...BASE, pm: '38', pmo: '9' }, {})
+    const without: any = scoreZone({ ...BASE, pm: '38' }, {})
+    const pmOf = (z: any) => z.cats.find((c: any) => c.l === 'Contaminants').r.find((r: any) => r.p === 'pm25')
+    expect(pmOf(without).t).toMatch(/No concurrent outdoor reading was taken/)
+    expect(pmOf(withOutdoor).t).not.toMatch(/No concurrent outdoor reading/)
+    // The finding itself is the same severity either way — the evidence
+    // differs, not the reading.
+    expect(pmOf(without).sev).toBe(pmOf(withOutdoor).sev)
   })
 
-  it('says so when no outdoor reading was taken', () => {
-    const zs = scoreZone({ ...BASE, pm: '38' }, {}) as unknown as { cats: Array<{ r: Array<Record<string, string>> }> }
-    const f = zs.cats.flatMap((c) => c.r).find((x) => x.cid === 'pm25_epa_24h')!
-    expect(f.t).toContain('No concurrent outdoor reading was taken')
-  })
-
-  it('moves the score with the reading', () => {
-    const at = (pm: string) => (scoreZone({ ...BASE, pm, pmo: '9' }, {}) as unknown as { tot: number }).tot
-    expect(at('4')).toBeGreaterThan(at('20'))
-    expect(at('20')).toBeGreaterThan(at('38'))
+  it('moves the FINDING with the reading', () => {
+    // Was `at('4') > at('20') > at('38')` on the zone score.
+    const sevAt = (pm: string) => {
+      const z: any = scoreZone({ ...BASE, pm, pmo: '9' }, {})
+      return z.cats.find((c: any) => c.l === 'Contaminants').r.find((r: any) => r.p === 'pm25')?.sev ?? 'pass'
+    }
+    const rank: Record<string, number> = { pass: 0, info: 0, low: 1, medium: 2, high: 3, critical: 4 }
+    expect(rank[sevAt('38')]).toBeGreaterThan(rank[sevAt('20')])
+    expect(rank[sevAt('20')]).toBeGreaterThanOrEqual(rank[sevAt('4')])
   })
 })
 

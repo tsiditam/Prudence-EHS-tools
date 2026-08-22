@@ -7,17 +7,40 @@
 import { useState, useRef } from 'react'
 import { I } from './Icons'
 import { mix } from '../utils/theme'
-import { isIaqScoreVisible } from '../utils/featureFlags'
+import { countFindings, worstFindingSeverity } from '../utils/assessmentVerdict'
 
 const CARD = 'var(--card)', BORDER = 'var(--border)', ACCENT = 'var(--accent)'
 const TEXT = 'var(--text)', SUB = 'var(--sub)', DIM = 'var(--dim)', BG = 'var(--bg)'
 
-const PIN_COLORS = { critical: 'var(--danger)', high: '#FB923C', moderate: 'var(--warn)', low: 'var(--success)' }
-function pinColor(score) {
-  if (score === null || score === undefined) return DIM
-  if (score < 50) return PIN_COLORS.critical
-  if (score < 80) return PIN_COLORS.moderate
-  return PIN_COLORS.low
+const PIN_COLORS = { critical: 'var(--danger)', high: '#FB923C', medium: 'var(--warn)', low: 'var(--success)' }
+
+/**
+ * Pin colour from the worst finding recorded in a zone.
+ *
+ * This was a band ladder over the zone score (<50 / <80), a third set of
+ * thresholds that agreed with neither riskBands.js nor the print report.
+ * A pin now carries the severity of what was actually found there.
+ */
+function pinColor(zoneScore) {
+  if (!zoneScore) return DIM
+  const worst = worstFindingSeverity([zoneScore])
+  if (!worst) return PIN_COLORS.low
+  return PIN_COLORS[worst] || DIM
+}
+
+/**
+ * A single finding's own colour.
+ *
+ * The rule that fed this list a NUMBER (`f.sev === 'critical' ? 0 : ...`)
+ * survived the band removal by one line: it re-encoded severity as a score
+ * so it could ask the old ladder, and after the ladder went it silently
+ * coloured critical findings grey. A severity is already the answer.
+ */
+
+/** Finding count for a zone — what the pin displays. */
+function pinCount(zoneScore) {
+  if (!zoneScore) return null
+  return countFindings([zoneScore]).total
 }
 
 export default function SpatialMap({ zones, zoneScores, floorPlan, onUpdateZone, onUploadFloorPlan, onClose }) {
@@ -123,8 +146,9 @@ export default function SpatialMap({ zones, zoneScores, floorPlan, onUpdateZone,
             {/* Pins */}
             {zones.map((z, zi) => {
               if (z.mapX == null || z.mapY == null) return null
-              const score = zoneScores?.[zi]?.tot
-              const color = pinColor(score)
+              const zs = zoneScores?.[zi]
+              const color = pinColor(zs)
+              const count = pinCount(zs)
               return (
                 <div
                   key={zi}
@@ -132,7 +156,7 @@ export default function SpatialMap({ zones, zoneScores, floorPlan, onUpdateZone,
                   style={{ position: 'absolute', left: `${z.mapX}%`, top: `${z.mapY}%`, transform: 'translate(-50%, -100%)', cursor: 'pointer', zIndex: 10 }}
                 >
                   <div style={{ width: 24, height: 24, borderRadius: '50%', background: color, border: '2px solid #fff', boxShadow: `0 2px 8px ${color}80`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <span style={{ fontSize: 9, fontWeight: 800, color: '#fff', fontFamily: "var(--font-mono)" }}>{score ?? '?'}</span>
+                    <span style={{ fontSize: 9, fontWeight: 800, color: '#fff', fontFamily: "var(--font-mono)" }}>{count ?? '?'}</span>
                   </div>
                   <div style={{ width: 0, height: 0, borderLeft: '6px solid transparent', borderRight: '6px solid transparent', borderTop: `8px solid ${color}`, margin: '-1px auto 0' }} />
                 </div>
@@ -154,11 +178,11 @@ export default function SpatialMap({ zones, zoneScores, floorPlan, onUpdateZone,
         <div style={{ padding: 14, background: CARD, border: `1px solid ${BORDER}`, borderRadius: 10, marginBottom: 12 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: TEXT }}>{zones[selectedPin]?.zn}</div>
-            {isIaqScoreVisible() && <span style={{ fontSize: 18, fontWeight: 800, color: pinColor(zoneScores[selectedPin].tot), fontFamily: "var(--font-mono)" }}>{zoneScores[selectedPin].tot}/100</span>}
+            <span style={{ fontSize: 18, fontWeight: 800, color: pinColor(zoneScores[selectedPin]), fontFamily: "var(--font-mono)" }}>{pinCount(zoneScores[selectedPin])}</span>
           </div>
           <div style={{ fontSize: 10, color: DIM, marginBottom: 8 }}>Top Risk Factors</div>
           {getTopFindings(selectedPin).map((f, i) => (
-            <div key={i} style={{ fontSize: 11, color: SUB, marginBottom: 4, paddingLeft: 10, borderLeft: `2px solid ${pinColor(f.sev === 'critical' ? 0 : f.sev === 'high' ? 50 : 80)}` }}>{f.t}</div>
+            <div key={i} style={{ fontSize: 11, color: SUB, marginBottom: 4, paddingLeft: 10, borderLeft: `2px solid ${PIN_COLORS[f.sev] || DIM}` }}>{f.t}</div>
           ))}
           {getTopFindings(selectedPin).length === 0 && <div style={{ fontSize: 11, color: DIM, fontStyle: 'italic' }}>No significant findings</div>}
           <div style={{ display: 'flex', gap: 12, marginTop: 10 }}>
@@ -175,10 +199,10 @@ export default function SpatialMap({ zones, zoneScores, floorPlan, onUpdateZone,
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {unmapped.map((z, i) => {
               const zi = zones.indexOf(z)
-              const score = zoneScores?.[zi]?.tot
+              const zs = zoneScores?.[zi]
               return (
                 <button key={zi} onClick={() => setDragging(zi)} style={{ padding: '6px 14px', borderRadius: 20, background: dragging === zi ? `${mix('accent', 13)}` : CARD, border: `1px solid ${dragging === zi ? ACCENT : BORDER}`, color: dragging === zi ? ACCENT : TEXT, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: pinColor(score) }} />
+                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: pinColor(zs) }} />
                   {z.zn || `Zone ${zi + 1}`}
                 </button>
               )
@@ -187,17 +211,23 @@ export default function SpatialMap({ zones, zoneScores, floorPlan, onUpdateZone,
         </div>
       )}
 
-      {/* Legend */}
+      {/* Legend. Read "Low Risk (80-100) / Moderate (50-79) / Critical
+          (<50)" — a fourth band ladder, in a legend for pins that had
+          already stopped being coloured by score, and one of whose three
+          swatches (`PIN_COLORS.moderate`) never existed and rendered
+          transparent. A pin now shows the worst finding severity in the
+          zone and the count of findings, so the legend names those. */}
       <div style={{ padding: 12, background: CARD, border: `1px solid ${BORDER}`, borderRadius: 8 }}>
-        <div style={{ fontSize: 10, fontWeight: 600, color: DIM, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>AIHA Risk Thresholds</div>
-        <div style={{ display: 'flex', gap: 16, fontSize: 10, color: SUB }}>
-          {[{ c: PIN_COLORS.low, l: 'Low Risk (80–100)' }, { c: PIN_COLORS.moderate, l: 'Moderate (50–79)' }, { c: PIN_COLORS.critical, l: 'Critical (<50)' }].map(item => (
+        <div style={{ fontSize: 10, fontWeight: 600, color: DIM, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>Pin colour — worst finding in the zone</div>
+        <div style={{ display: 'flex', gap: 16, fontSize: 10, color: SUB, flexWrap: 'wrap' }}>
+          {[{ c: PIN_COLORS.critical, l: 'Critical' }, { c: PIN_COLORS.high, l: 'High' }, { c: PIN_COLORS.medium, l: 'Medium' }, { c: PIN_COLORS.low, l: 'Low or none' }].map(item => (
             <div key={item.l} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <div style={{ width: 8, height: 8, borderRadius: '50%', background: item.c }} />
               {item.l}
             </div>
           ))}
         </div>
+        <div style={{ fontSize: 10, color: DIM, marginTop: 6 }}>The number on a pin is how many findings were recorded in that zone.</div>
       </div>
 
       {/* Skip notice */}

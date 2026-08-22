@@ -117,7 +117,7 @@ export function summarizePastAssessment(assessment) {
     facilityName: bldg.fn || 'Untitled site',
     facilityType: bldg.ft || null,
     composedAt,
-    score: typeof composite.tot === 'number' ? composite.tot : null,
+    findings: composite.findings && typeof composite.findings.total === 'number' ? composite.findings.total : null,
     immediateActions: immText,
     immediateCount: immRaw.length,
     moldDetected: !!(assessment.moldResults && assessment.moldResults.detected),
@@ -133,18 +133,21 @@ export function aggregatePatterns(currentFeatures, similarMatches) {
   if (matches.length === 0) {
     return {
       matchCount: 0,
-      averageScore: null,
+      averageFindings: null,
       commonImmediateActions: [],
       moldRate: null,
       facilityTypeLabel: currentFeatures && currentFeatures.facilityType,
     }
   }
 
-  const scores = matches
-    .map(m => m.summary && typeof m.summary.score === 'number' ? m.summary.score : null)
-    .filter(s => s !== null)
-  const averageScore = scores.length > 0
-    ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
+  // Was the mean composite across similar assessments. A mean finding
+  // count answers the same advisory question — "what did assessments
+  // like this one turn up?" — without ranking the buildings.
+  const counts = matches
+    .map(m => (m.summary && typeof m.summary.findings === 'number' ? m.summary.findings : null))
+    .filter(n => n !== null)
+  const averageFindings = counts.length > 0
+    ? Math.round(counts.reduce((a, b) => a + b, 0) / counts.length)
     : null
 
   const actionCounts = new Map()
@@ -167,7 +170,7 @@ export function aggregatePatterns(currentFeatures, similarMatches) {
 
   return {
     matchCount: matches.length,
-    averageScore,
+    averageFindings,
     commonImmediateActions,
     moldRate,
     facilityTypeLabel: currentFeatures && currentFeatures.facilityType,

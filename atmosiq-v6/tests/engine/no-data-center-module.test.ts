@@ -114,18 +114,21 @@ describe('the data-center reasoning is gone', () => {
       co2: '900', tf: '74', rh: '52', pm: '14', pmo: '9', co: '2',
     }
     const zs = scoreZone(legacy, { hm: 'Within 6 months' }) as unknown as {
-      tot: number | null
       cats: Array<{ l: string; status?: string; r: Array<{ t: string; std?: string }> }>
+      assessedCats: string[]
     }
-    expect(Number.isFinite(zs.tot)).toBe(true)
+    // Was `Number.isFinite(zs.tot)`. The zone is still assessed as an
+    // ordinary zone; there is simply no total to check.
+    expect(zs.assessedCats.length).toBeGreaterThan(0)
 
     const all = zs.cats.flatMap((c) => c.r).map((r) => `${r.t} ${r.std ?? ''}`).join(' ')
     for (const std of DC_STANDARDS) {
       expect(all, `a legacy zone still produced a ${std} finding`).not.toContain(std)
     }
     expect(all).not.toContain('H₂')
-    // And no category is suppressed — data_hall's Complaints:0 was the only
-    // zero weight in the table, so nothing reaches SUPPRESSED any more.
+    // And no category is suppressed — data_hall's Complaints:0 was the
+    // only zero weight in the table, and the table itself went with the
+    // score, so nothing can reach SUPPRESSED at all.
     expect(zs.cats.some((c) => c.status === 'SUPPRESSED')).toBe(false)
   })
 

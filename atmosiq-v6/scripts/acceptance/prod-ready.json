@@ -2332,10 +2332,11 @@
         },
         {
           "type": "grep_matches",
-          "pattern": "const PM25_DEDUCTION_BY_SEVERITY",
+          "pattern": "No concurrent outdoor reading was taken",
           "paths": [
             "src/engines/scoring.js"
-          ]
+          ],
+          "_comment": "Was `const PM25_DEDUCTION_BY_SEVERITY` — the outdoor-aware deduction table, which went with the 100-point score. The property it guarded is that a PM2.5 reading taken WITHOUT a paired outdoor value is qualified as such: the deduction expressed that numerically, the finding now says it outright."
         },
         {
           "type": "grep_excludes",
@@ -2471,8 +2472,95 @@
       ]
     },
     {
+      "id": "NO-COMPOSITE-SCORE",
+      "label": "The 100-point composite, its category weights and every risk band are absent from every layer they reached",
+      "_comment": "Modelled on MOLD-UI-NO-HEALTH-VERDICT: an exclusion pair plus the positive assertion of what replaced it. The patterns match CODE SHAPES (an export declaration, a constant assignment, an object key) because every file involved carries a comment recording what was removed from it, and that record must not be what fails the gate. Band-ladder detection needs comment stripping and so lives in tests/engine/no-scoring.test.ts, which this criterion runs.",
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": "tests/engine/no-scoring.test.ts"
+        },
+        {
+          "type": "grep_excludes",
+          "pattern": "export +(function|const) +(compositeScore|getRiskBand|findingsToBand|deriveFMSummary|getZoneWeights|getMaxAwardable|isIaqScoreVisible|scoreColor|riskLabel|bandSeverity)\\b",
+          "paths": [
+            "src/engines",
+            "src/engine",
+            "src/utils",
+            "src/report",
+            "src/components"
+          ]
+        },
+        {
+          "type": "grep_excludes",
+          "pattern": "(RISK_BANDS|SEVERITY_TO_BAND|INSUFFICIENT_BAND|ZONE_WEIGHTS|DEDUCTION_BY_SEVERITY|IAQ_SCORE_VISIBLE_DEFAULT|IAQ_SCORE_STORAGE_KEY|emitsComposite) *(=|:)",
+          "paths": [
+            "src/engines",
+            "src/engine",
+            "src/utils",
+            "src/report",
+            "src/components",
+            "src/constants"
+          ]
+        },
+        {
+          "type": "grep_excludes",
+          "pattern": "(siteScore|siteTier|rawScore|cappedScore|maxScore|deductionInternal|partialComposite|normalizedFrom|availableMax|maxAwardable|capReason) *:",
+          "paths": [
+            "src/engines",
+            "src/engine",
+            "src/utils",
+            "src/report",
+            "src/components",
+            "api"
+          ]
+        },
+        {
+          "type": "grep_excludes",
+          "pattern": "score: (comp|composite|assessment\\.comp)",
+          "paths": [
+            "src/utils/backup.js",
+            "src/utils/supabaseStorage.js",
+            "src/components/MobileApp.jsx"
+          ],
+          "_comment": "The report index and the cloud row stop WRITING a score. Their columns and their existing data are deliberately kept."
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "export function summarizeAssessment",
+          "paths": [
+            "src/engines/scoring.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "export function countFindings",
+          "paths": [
+            "src/utils/assessmentVerdict.js"
+          ]
+        },
+        {
+          "type": "constant_equals",
+          "path": "src/version.js",
+          "name": "ENGINE_VERSION",
+          "value": "3.0.0",
+          "_comment": "A MAJOR bump: the same inputs no longer produce the same conclusions."
+        },
+        {
+          "type": "npm_script_passes",
+          "script": "test",
+          "args": [
+            "--",
+            "tests/engine/no-scoring.test.ts",
+            "tests/components/assessment-verdict.test.ts"
+          ]
+        }
+      ]
+    },
+    {
       "id": "NO-DATA-CENTER-MODULE",
       "label": "The data-center specialty module and its five standards are absent from every layer they used to reach",
+      "_comment": "This criterion once had a hole: grep_excludes returned ok when NONE of its paths existed, so deleting a watched file made its own removal-guard silently pass. Fixed in the runner (see the note above grepMatches in acceptance-check.mjs) rather than here, because every exclusion criterion had it.",
       "checks": [
         {
           "type": "file_exists",

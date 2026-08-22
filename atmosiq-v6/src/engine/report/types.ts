@@ -19,7 +19,6 @@ export type { FindingGroup, FindingObservation, FindingGroupName } from './findi
 // ── Client Report ──
 
 export interface ClientRenderOptions {
-  readonly includeAssessmentIndexAppendix?: boolean
   readonly draftWatermark?: boolean
 }
 
@@ -333,7 +332,6 @@ export interface SignatoryBlock {
 export interface ClientReportAppendix {
   readonly rawMeasurementSnapshot?: ReadonlyArray<MeasurementRow>
   readonly standardsManifest: ReadonlyArray<Citation>
-  readonly assessmentIndexInformationalOnly?: AssessmentIndexAppendix
   // v2.4 §3 — six structured appendices
   readonly appendixA?: AppendixA
   readonly appendixB?: AppendixB
@@ -483,13 +481,6 @@ export interface MeasurementRow {
   readonly unit: string
 }
 
-export interface AssessmentIndexAppendix {
-  readonly disclaimer: string
-  readonly siteScore: number
-  readonly siteTier: string
-  readonly zoneScores: ReadonlyArray<{ zoneName: string; composite: number; tier: string }>
-}
-
 // ── Pre-Assessment Memo ──
 
 export interface PreAssessmentMemo {
@@ -510,8 +501,6 @@ export interface InternalReport {
   readonly engineVersion: string
   readonly generatedAt: number
   readonly meta: AssessmentMeta
-  readonly siteScore: number | null
-  readonly siteTier: Tier | null
   readonly confidenceValue: number
   readonly confidenceBand: CIHConfidenceTier
   readonly defensibilityFlags: DefensibilityFlags
@@ -536,17 +525,12 @@ export interface InternalReport {
 export interface InternalZoneReport {
   readonly zoneId: string
   readonly zoneName: string
-  readonly composite: number | null
-  readonly tier: Tier | null
   readonly confidence: CIHConfidenceTier
   readonly categories: ReadonlyArray<InternalCategoryReport>
 }
 
 export interface InternalCategoryReport {
   readonly category: CategoryName
-  readonly rawScore: number
-  readonly cappedScore: number
-  readonly maxScore: number
   readonly status: string
   readonly findings: ReadonlyArray<InternalFindingReport>
 }
@@ -556,7 +540,6 @@ export interface InternalFindingReport {
   readonly severityInternal: Severity
   readonly titleInternal: string
   readonly observationInternal: string
-  readonly deductionInternal: number
   readonly conditionType: string
   readonly confidenceTier: CIHConfidenceTier
   readonly permissions: {
@@ -566,10 +549,17 @@ export interface InternalFindingReport {
   }
 }
 
+/**
+ * One finding's place in the internal triage queue.
+ *
+ * `deduction` — the points the finding cost — is replaced by
+ * `severityRank`. The queue's purpose is unchanged: order findings by how
+ * serious they are, weighted by how well the evidence supports them.
+ */
 export interface PrioritizationEntry {
   readonly findingId: string
   readonly zone: string
-  readonly deduction: number
+  readonly severityRank: number
   readonly confidence: CIHConfidenceTier
   readonly priority: number
 }
