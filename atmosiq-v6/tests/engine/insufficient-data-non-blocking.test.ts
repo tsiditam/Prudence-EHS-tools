@@ -37,7 +37,7 @@ function baseAssessment(overrides: Record<string, any> = {}) {
       zoneName: 'Zone 1',
       cats: [{ l: 'Ventilation', r: [{ t: 'Visual inspection only — no instrument data', sev: 'low' }] }],
     }],
-    photos: { 'Zone 1': [{ id: 'p1' }] },
+    photos: { 'z0-wd': [{ src: 'data:image/jpeg;base64,AAAA', ts: 1 }] },
     recs: { imm: [], eng: [], adm: [], mon: [] },
     confidence: 'Medium',
     ...overrides,

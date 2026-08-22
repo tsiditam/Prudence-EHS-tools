@@ -12,13 +12,11 @@
  * the report already has.
  */
 import { describe, it, expect } from 'vitest'
-import JSZip from 'jszip'
 
 import {
   buildRecommendationRegister, toPriorityGroups, findHedges, __testing,
   type RecommendationIntent,
 } from '../../src/engine/report/recommendations'
-import { getConsultantDocxBlob } from '../../src/components/DocxReport.js'
 import { scoreZone, compositeScore } from '../../src/engines/scoring.js'
 import { buildCausalChains } from '../../src/engines/causalChains.js'
 import { generateSamplingPlan } from '../../src/engines/sampling.js'
@@ -295,64 +293,6 @@ describe('confirmatory sampling belongs to the sampling plan', () => {
 })
 
 // ── The rendered artifact ─────────────────────────────────────────────
-
-describe('the report a client receives', () => {
-  it('is decisive and not padded', async () => {
-    const building: Record<string, string> = {
-      fn: 'Register Tower', fl: '1 Test St', ft: 'Commercial Office', ht: 'Central AHU — VAV',
-      sa: 'Weak / reduced', od: 'Closed / minimum', fc: 'Heavily loaded', ba: '1994',
-    }
-    const zones: Array<Record<string, unknown>> = [
-      { zn: 'Suite 200', su: 'office', sf: '2400', oc: '18', co2: '1450', co2o: '430', tf: '72', rh: '52',
-        pm: '38', pmo: '9', co: '2', tv: '620', hc: '0.02', vd: 'Airborne haze', wd: 'Old staining',
-        mi: 'Small (< 10 sq ft)', op: 'Moderate persistent', ot: ['Musty / Earthy'],
-        cx: 'Yes — complaints reported', sy: ['Headache', 'Cough'], sr: 'Yes — clear pattern',
-        ac: '6-10', cc: 'Yes — this zone' },
-      { zn: 'Suite 210', su: 'conference', sf: '600', oc: '8', co2: '980', co2o: '430', tf: '73', rh: '51', pm: '11', pmo: '9' },
-    ]
-    const zoneScores = zones.map((z) => scoreZone(z, building))
-    const { blob } = await getConsultantDocxBlob({
-      building, presurvey: { ps_assessor: 'J. Smith, CIH', ps_survey_date: '2026-08-14' },
-      zones, zoneScores, comp: compositeScore(zoneScores),
-      causalChains: buildCausalChains(zones, building, zoneScores),
-      samplingPlan: generateSamplingPlan(zones, building),
-      profile: { name: 'J. Smith, CIH' }, photos: {}, version: '6.0.0', userMode: 'ih',
-    })
-    const zip = await JSZip.loadAsync(Buffer.from(await blob.arrayBuffer()))
-    const xml = await zip.file('word/document.xml')!.async('string')
-    const text = xml.split('</w:p>')
-      .map((p) => (p.match(/<w:t[^>]*>([^<]*)<\/w:t>/g) || []).map((t) => t.replace(/<[^>]+>/g, '')).join(''))
-      .filter(Boolean).join('\n')
-
-    const recs = text.split('\n').filter((l) => /^R-\d+ /.test(l))
-    // Fifteen before this change, four of them about filtration.
-    expect(recs.length, `register is padded:\n${recs.join('\n')}`).toBeLessThanOrEqual(12)
-    expect(recs.length).toBeGreaterThan(4)
-
-    // No two rows prescribe the same act.
-    const upgrades = recs.filter((r) => /MERV|filtration adequacy|filter housing/i.test(r))
-    expect(upgrades.length, `filtration is stated more than once:\n${upgrades.join('\n')}`).toBeLessThanOrEqual(2)
-
-    // Every row is an instruction.
-    for (const r of recs) {
-      expect(findHedges(r), `hedge in a shipped recommendation: ${r}`).toEqual([])
-    }
-
-    // Sampling is referenced, not restated per analyte.
-    expect(recs.filter((r) => /^R-\d+ +Collect /.test(r))).toHaveLength(0)
-    expect(text).toContain('Recommended Sampling Plan')
-    expect(recs.some((r) => /Recommended Sampling Plan/.test(r))).toBe(true)
-
-    // The precondition holds: no filter rating was recorded on this
-    // fixture, so the report must not specify an upgrade.
-    expect(text).not.toMatch(/R-\d+ +Upgrade filtration to MERV 13/)
-    expect(recs.some((r) => /Establish the installed filter rating/.test(r))).toBe(true)
-
-    // The sequence survived.
-    expect(recs.some((r) => /Arrest active water intrusion/.test(r))).toBe(true)
-    expect(recs.some((r) => /Remediate damaged materials/.test(r))).toBe(true)
-  }, 60000)
-})
 
 // ── Shape ─────────────────────────────────────────────────────────────
 

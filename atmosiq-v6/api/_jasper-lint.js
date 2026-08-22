@@ -306,8 +306,55 @@ const SAFE_FALLBACK = [
   AI_DISCLAIMER_LINE,
 ].join('\n')
 
+// ── Final assembly: truncation + provenance ────────────────────────────
+// Two things every answer needs that nothing guaranteed before.
+//
+// 1. TRUNCATION. `max_tokens` is a hard stop, not a summariser: the model
+//    is cut off mid-word and the transport reports success. A long answer
+//    — a drafted report especially — arrives looking finished, ending on
+//    a half sentence the reader has to notice for themselves. The API
+//    tells us this happened (`stop_reason === 'max_tokens'`); until now
+//    the handler recorded that in the audit log and told nobody.
+//
+// 2. THE PROVENANCE LINE. It was appended in exactly one place —
+//    withThresholdVerifyNote — which runs only when an unbacked threshold
+//    is found. A clean answer that simply did not emit the line shipped
+//    without it, and a truncated answer never reaches its own last line
+//    by definition. Both are the cases where the label matters most.
+const TRUNCATION_NOTICE =
+  '_This answer reached the model’s output limit and stops mid-thought — it is incomplete, and anything below the cut is missing rather than omitted on purpose. Ask for the remaining sections, or ask for a long report one section at a time._'
+
+/**
+ * Put the answer in its final shape: truncation flagged if it happened,
+ * and the AI-provenance line last, always.
+ *
+ * Both notices sit ABOVE the disclaimer, because the SPA styles the
+ * trailing line and the disclaimer has to stay trailing. Idempotent —
+ * SAFE_FALLBACK already ends with the line, and re-finalising must not
+ * stack a second copy.
+ *
+ * @param {string} text
+ * @param {{ truncated?: boolean }} [opts]
+ * @returns {string}
+ */
+function finalizeJasperAnswer(text, opts) {
+  const truncated = !!(opts && opts.truncated)
+  const raw = typeof text === 'string' ? text.replace(/\s+$/, '') : ''
+  let body = raw
+  if (body.endsWith(AI_DISCLAIMER_LINE)) {
+    body = body.slice(0, body.length - AI_DISCLAIMER_LINE.length).replace(/\s+$/, '')
+  }
+  const parts = []
+  if (body) parts.push(body)
+  if (truncated && !body.includes(TRUNCATION_NOTICE)) parts.push(TRUNCATION_NOTICE)
+  parts.push(AI_DISCLAIMER_LINE)
+  return parts.join('\n\n')
+}
+
 module.exports = {
   AI_DISCLAIMER_LINE,
+  TRUNCATION_NOTICE,
+  finalizeJasperAnswer,
   lintJasperOutput,
   checkUnbackedThresholds,
   looksLikeThresholdQuestion,

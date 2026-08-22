@@ -90,7 +90,7 @@ import { ensureLoggerChartImages } from '../utils/loggerChartImages'
 // after redeploy (the missing-chunk request returned the SPA HTML fallback).
 // Bundling the docx renderer into the main chunk eliminates that failure
 // mode for the most common user action — exporting a report.
-import { generateDocx, generateConsultantOnly, generateTechnicalOnly, generateAtmosFlowOnly, getConsultantDocxBlob, getNarrativeDocxBlob } from './DocxReport'
+import { generateTechnicalOnly, generateAtmosFlowOnly, getAtmosFlowDocxBlob, getNarrativeDocxBlob } from './DocxReport'
 import { DEMO_CLEAN_PRESURVEY, DEMO_CLEAN_BUILDING, DEMO_CLEAN_ZONES, DEMO_CLEAN_EQUIPMENT } from '../constants/demoDataClean'
 import { DEMO_FM_PRESURVEY, DEMO_FM_BUILDING, DEMO_FM_ZONES } from '../constants/demoDataFM'
 import { DEMO_FINDINGS_PRESURVEY, DEMO_FINDINGS_BUILDING, DEMO_FINDINGS_ZONES, DEMO_FINDINGS_EQUIPMENT } from '../constants/demoDataFindings'
@@ -114,7 +114,6 @@ import PendingSyncIndicator from './PendingSyncIndicator'
 import OfflineBanner from './OfflineBanner'
 import JasperWatchPanel from './JasperWatchPanel'
 import ReadinessPanel from './ReadinessPanel'
-import EditorialReviewPanel from './EditorialReviewPanel'
 import EvidenceMap from './EvidenceMap'
 import DesktopSidebar, { SIDEBAR_W } from './desktop/DesktopSidebar'
 import { isKnowledgeGraphEnabled, isMoldModuleEnabled, isIaqScoreVisible } from '../utils/featureFlags'
@@ -776,7 +775,6 @@ export default function MobileApp() {
   // state so they apply to the report's export even when the report is not
   // saved (e.g. a demo). Hydrated from a saved report's stored cuts on open,
   // and reset when the viewed report changes.
-  const [editorialCuts, setEditorialCuts] = useState(null)
   const [reportOpenError, setReportOpenError] = useState(null)
   const [currentIncident, setCurrentIncident] = useState(null)
   const [delConf, setDelConf] = useState(null)
@@ -799,7 +797,6 @@ export default function MobileApp() {
   // so instruments added in Settings mid-session show up at the entry
   // points (localStorage read is cheap).
   useEffect(() => { setSavedInstruments(loadInstruments()) }, [view, calWarning])
-  const [docxPicker, setDocxPicker] = useState(false)
   // Logger Studio → "Send graphs to a report" target picker
   const [graphTargetOpen, setGraphTargetOpen] = useState(false)
   const [hSearch, setHSearch] = useState('')
@@ -1174,7 +1171,6 @@ export default function MobileApp() {
     setQSField('ps_inst_iaq_cal', inst.lastCalDate || '')
     setQSField('ps_inst_iaq_cal_status', mapInstrumentCalStatus(inst))
   }, [setQSField])
-
 
   const qsVis = useMemo(() => Q_QUICKSTART.filter(q => { if (!q.cond) return true; if (q.cond.eq && mergedData[q.cond.f] !== q.cond.eq) return false; if (q.cond.ne && mergedData[q.cond.f] === q.cond.ne) return false; return true }), [mergedData])
   const dtVis = useMemo(() => Q_DETAILS.filter(q => { if (!q.cond) return true; if (q.cond.eq && mergedData[q.cond.f] !== q.cond.eq) return false; if (q.cond.ne && mergedData[q.cond.f] === q.cond.ne) return false; return true }), [mergedData])
@@ -1743,16 +1739,13 @@ export default function MobileApp() {
       profile, draftId,
       calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null,
     })
-    // 'consultant_cih' is the Consultant report in the CIH-reasoning style:
-    // same pipeline, plus a Conceptual Site Model section (reportStyle flag).
-    const reportStyle = docxType === 'consultant_cih' ? 'cih' : undefined
     // Guarantee every "Include in report" logger timeline carries a usable PNG
     // before any format embeds it. The on-screen capture is unreliable on iOS
     // Safari (and the results-tab toggle never captured at all), so re-render
     // the included charts from their data points here — a self-contained-SVG
     // raster that every export (DOCX, AtmosFlow PDF, Web) then embeds.
     const sensorDataForReport = await ensureLoggerChartImages(sensorData)
-    const reportData = { building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, escalationTriggers: esc, floorPlan, sensorData: sensorDataForReport, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, editorialSuppressions: editorialCuts || viewRpt?.editorialSuppressions || null, assessmentContext, reportStyle }
+    const reportData = { building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, escalationTriggers: esc, floorPlan, sensorData: sensorDataForReport, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, assessmentContext }
     trackEvent('report_exported', { format: docxType || format, facility: bldg.fn || '', score: comp?.tot, zones: zones.length, has_narrative: !!narrative, photos: Object.values(filteredPhotos).flat().length })
 
     try {
@@ -1760,15 +1753,13 @@ export default function MobileApp() {
         // Play the pen-writing animation for a fixed beat before the file is
         // produced — longer for the narrative consultant report, shorter for
         // the structured technical report.
-        const WRITE_MS = { consultant: 15000, technical: 12000 }
+        const WRITE_MS = { technical: 12000 }
         const ms = WRITE_MS[docxType] || 15000
-        const label = docxType === 'technical' ? 'Writing your technical report' : 'Writing your consultant report'
+        const label = docxType === 'technical' ? 'Writing your technical report' : 'Writing your report'
         setGenWriting({ label, durationMs: ms })
         await new Promise(res => setTimeout(res, ms))
-        if (docxType === 'atmosflow') await generateAtmosFlowOnly(reportData)
-        else if (docxType === 'consultant' || docxType === 'consultant_cih') await generateConsultantOnly(reportData)
-        else if (docxType === 'technical') await generateTechnicalOnly(reportData)
-        else await generateDocx(reportData)
+        if (docxType === 'technical') await generateTechnicalOnly(reportData)
+        else await generateAtmosFlowOnly(reportData)
       } else if (format === 'pdf') {
         // Fixed AtmosFlow PDF report — the exact sample design, real data.
         // Built model client-side, laid out by the shared pdfkit renderer
@@ -1840,10 +1831,10 @@ export default function MobileApp() {
       profile, draftId,
       calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null,
     })
-    const reportData = { building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, floorPlan, sensorData, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, editorialSuppressions: editorialCuts || viewRpt?.editorialSuppressions || null, ts: viewRpt?.ts, assessmentContext }
+    const reportData = { building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, floorPlan, sensorData, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, ts: viewRpt?.ts, assessmentContext }
     let blob, fileName
     try {
-      const built = await getConsultantDocxBlob(reportData)
+      const built = await getAtmosFlowDocxBlob(reportData)
       blob = built.blob
       fileName = built.fileName
     } catch (e) {
@@ -1891,8 +1882,8 @@ export default function MobileApp() {
       profile, draftId,
       calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null,
     })
-    const reportData = { building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, floorPlan, sensorData, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, editorialSuppressions: editorialCuts || viewRpt?.editorialSuppressions || null, ts: viewRpt?.ts, assessmentContext }
-    const built = await getConsultantDocxBlob(reportData)
+    const reportData = { building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, floorPlan, sensorData, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, ts: viewRpt?.ts, assessmentContext }
+    const built = await getAtmosFlowDocxBlob(reportData)
     // Size pre-check. The DOCX is uploaded to Storage and attached to the
     // review email by the server; keep it under a cap that leaves the
     // outbound email (base64 adds ~33%) safely below Resend's ~40 MB limit.
@@ -2029,7 +2020,7 @@ export default function MobileApp() {
     }
     setReportOpenError(null)
     trackEvent('report_viewed', { report_id: meta.id, facility: meta.facility || '', score: meta.score })
-    setViewRpt(rpt); setEditorialCuts(rpt.editorialSuppressions || null); setPresurvey(rpt.presurvey||{}); setBldg(rpt.building||rpt.bldg||{}); setZones(rpt.zones||[]); setEquipment(rpt.equipment||[])
+    setViewRpt(rpt); setPresurvey(rpt.presurvey||{}); setBldg(rpt.building||rpt.bldg||{}); setZones(rpt.zones||[]); setEquipment(rpt.equipment||[])
     setPhotos(rpt.photos||{}); setPhotoOverrides(rpt.photoOverrides||{}); setFloorPlan(rpt.floorPlan||null); setZoneScores(rpt.zoneScores||[]); setComp(rpt.comp||rpt.composite)
     setOshaResult(rpt.oshaEvals?.[0]||rpt.osha||null); setRecs(rpt.recs||null)
     setSamplingPlan(rpt.samplingPlan||null); setCausalChains(rpt.causalChains||[])
@@ -2105,7 +2096,6 @@ export default function MobileApp() {
     }
     persistMode('ih'); setUserMode('ih')
   }
-
 
   // ── Question renderer (shared across quick start, zone, details) ──
   const renderQuestion = (q, data, setField, qIdx, visQs, goNext, goPrev, goTo, onFinish, finishLabel, secs, extraTop) => {
@@ -2307,7 +2297,6 @@ export default function MobileApp() {
     )
   }
 
-
   // Toggle a logger graph's report inclusion from the results Logger tab.
   // Mirrors Logger Studio's "Include in report" switch but operates on the
   // live sensorData state, which is what report generation reads — so dropping
@@ -2349,24 +2338,6 @@ export default function MobileApp() {
       const base = await STO.get(viewRpt.id)
       if (base) await STO.set(viewRpt.id, { ...base, sensorData: nextSd, ua: new Date().toISOString() })
     } catch { /* keep the optimistic UI even if persistence fails */ }
-  }
-
-  // Apply the editorial cuts the reviewing professional approved. `record` is
-  // a normalized editorialSuppressions object, or null to clear. Cuts always
-  // take effect on the current report's export (held in session state that the
-  // export reportData reads); they are ALSO persisted to storage when the
-  // report is saved (has an id), so they survive across sessions. The
-  // engine/data are never mutated.
-  const applyEditorialSuppressions = async (record) => {
-    const next = record || null
-    setEditorialCuts(next)
-    if (viewRpt?.id) {
-      setViewRpt({ ...viewRpt, editorialSuppressions: next })
-      try {
-        const base = await STO.get(viewRpt.id)
-        if (base) await STO.set(viewRpt.id, { ...base, editorialSuppressions: next, ua: new Date().toISOString() })
-      } catch { /* keep the optimistic UI even if persistence fails */ }
-    }
   }
 
   // Jump from a Readiness blocker straight to the field that fixes it.
@@ -2828,21 +2799,6 @@ export default function MobileApp() {
             onFeedback={()=>openFeedback('Findings & readiness')}
             onFix={archived ? (viewRpt?.id ? resumeAndFix : undefined) : fixBlocker}
           />
-        )}
-
-        {/* Editorial review — gated exactly like the readiness panel above
-            (rTab only), so it renders whenever the Review tab does; the panel
-            itself handles empty data and a not-yet-saved report gracefully. */}
-        {rTab==='readiness' && (
-          <div style={{ marginTop: 18, paddingTop: 18, borderTop: '1px solid var(--border)' }}>
-            <EditorialReviewPanel
-              reportData={{ profile, presurvey, building: bldg, zones, zoneScores, comp, ts: viewRpt?.ts }}
-              existingSuppressions={editorialCuts || viewRpt?.editorialSuppressions || null}
-              extraFacts={{ spaceUses: (zones||[]).map(z => z && (z.su || z.space)).filter(Boolean) }}
-              saved={!!viewRpt?.id}
-              onApply={applyEditorialSuppressions}
-            />
-          </div>
         )}
 
         {rTab==='logger' && <LoggerGraphsTab sensorData={loggerSd} editable onToggleInclude={archived ? toggleArchivedLoggerInclude : toggleLoggerInclude} />}
@@ -3436,7 +3392,6 @@ export default function MobileApp() {
     )
   }
 
-
   // ── Trash view (inline component) ──
   const TrashView = ({ onRecover, onDelete }) => {
     const [items, setItems] = useState([])
@@ -3838,7 +3793,7 @@ export default function MobileApp() {
         const onResults = view==='results' || view==='report'
         const close = closeActions
         const items = onResults ? [
-          { label:'Generate reports',         icon:'notes',    onClick:()=>setDocxPicker(true) },
+          { label:'Generate reports',         icon:'notes',    onClick:()=>handleExport('docx','atmosflow') },
           { label:'Share',                    icon:'send',     onClick:()=>handleShare() },
           { label:'Send for peer review',     icon:'check',    onClick:()=>{ setActionsOpen(false); setPeerReviewOpen(true) } },
           { label:'Map zones on floor plan',  icon:'bldg',     onClick:()=>setView('spatial') },
@@ -4308,32 +4263,6 @@ export default function MobileApp() {
         </BottomSheet>
       )}
 
-      {/* ── Report Type Picker — bottom sheet ──────────────────────
-          Mobile-first soft-glass sheet. Two DISTINCT deliverables:
-          "Consultant Report" → generateConsultantOnly (the CIH v2.1
-          ClientReport layout, downloads AtmosFlow-Consultant-Report-…),
-          and "AtmosFlow Report (Word)" → generateAtmosFlowOnly (the Figma
-          AtmosFlow layout, downloads AtmosFlow-Report-…). Different content
-          AND different file names, so the two never collide on disk. */}
-      {docxPicker && (
-        <BottomSheet title="Generate Report" onClose={()=>setDocxPicker(false)} ariaLabel="Choose report format">
-          <div style={{fontSize:13,color:SUB,margin:'4px 0 16px',lineHeight:1.55}}>Choose which report to generate.</div>
-          <div style={{display:'flex',flexDirection:'column',gap:10}}>
-            <GlassCard onClick={()=>{setDocxPicker(false);handleExport('docx','consultant')}} dense style={{padding:'14px 16px'}}>
-              <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:3}}>Consultant Report</div>
-              <div style={{fontSize:12,color:SUB,lineHeight:1.55}}>Modern editorial Word layout — serif headings, clean tables, navy zone bars. Executive summary, interpretation, and recommendations for client delivery.</div>
-            </GlassCard>
-            <GlassCard onClick={()=>{setDocxPicker(false);handleExport('docx','atmosflow')}} dense style={{padding:'14px 16px'}}>
-              <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:3}}>AtmosFlow Report (Word)</div>
-              <div style={{fontSize:12,color:SUB,lineHeight:1.55}}>The AtmosFlow IAQ report as an editable Word document for client delivery — executive summary, interpretation, and recommendations. No draft watermark.</div>
-            </GlassCard>
-          </div>
-          <div style={{marginTop:14}}>
-            <TactileButton variant="ghost" fullWidth onClick={()=>setDocxPicker(false)}>Cancel</TactileButton>
-          </div>
-        </BottomSheet>
-      )}
-
       {genWriting && <ReportWritingOverlay label={genWriting.label} durationMs={genWriting.durationMs} />}
 
       {graphTargetOpen && (() => {
@@ -4626,7 +4555,6 @@ export default function MobileApp() {
             </div>
           )
         })()}
-
 
         {view==='quickstart'&&qscq&&renderQuestion(qscq,mergedData,setQSField,qsqi,qsVis,()=>{if(qsqi<qsVis.length-1)setQsqi(qsqi+1)},()=>{if(qsqi>0)setQsqi(qsqi-1)},(i)=>setQsqi(Math.max(0,Math.min(i,qsVis.length-1))),finishQuickStart,'→ HVAC Equipment',qsSecs)}
 

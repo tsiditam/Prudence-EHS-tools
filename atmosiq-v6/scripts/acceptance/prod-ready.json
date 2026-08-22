@@ -285,7 +285,7 @@
     },
     {
       "id": "LAB-RESULTS-IMPORT",
-      "label": "Lab Results CSV import + Appendix G renderer",
+      "label": "Lab Results CSV import wired into the sampling forms and the assessment record",
       "checks": [
         {
           "type": "file_exists",
@@ -294,17 +294,6 @@
         {
           "type": "file_exists",
           "path": "src/components/LabResultsImport.jsx"
-        },
-        {
-          "type": "file_exists",
-          "path": "src/components/docx/sections-lab-results.js"
-        },
-        {
-          "type": "grep_matches",
-          "pattern": "buildLabResultsAppendix",
-          "paths": [
-            "src/components/DocxReport.js"
-          ]
         },
         {
           "type": "grep_matches",
@@ -323,39 +312,6 @@
         {
           "type": "file_exists",
           "path": "tests/lib/lab-results-parser.test.ts"
-        },
-        {
-          "type": "file_exists",
-          "path": "tests/engine/lab-results-appendix.test.ts"
-        }
-      ]
-    },
-    {
-      "id": "RESURVEY-SCHEDULE",
-      "label": "Re-survey Schedule section is rendered in the consultant DOCX",
-      "checks": [
-        {
-          "type": "file_exists",
-          "path": "src/engines/resurveySchedule.js"
-        },
-        {
-          "type": "file_exists",
-          "path": "src/components/docx/sections-resurvey.js"
-        },
-        {
-          "type": "grep_matches",
-          "pattern": "buildResurveySchedule",
-          "paths": [
-            "src/components/docx/sections-v21client.js"
-          ]
-        },
-        {
-          "type": "file_exists",
-          "path": "tests/engine/resurvey-schedule.test.ts"
-        },
-        {
-          "type": "file_exists",
-          "path": "tests/engine/sections-resurvey.test.ts"
         }
       ]
     },
@@ -468,13 +424,6 @@
           ]
         },
         {
-          "type": "grep_matches",
-          "pattern": "AI-PROPOSED",
-          "paths": [
-            "src/components/docx/sections-v21client.js"
-          ]
-        },
-        {
           "type": "file_exists",
           "path": "tests/api/photo-analyze.test.ts"
         },
@@ -521,40 +470,8 @@
       ]
     },
     {
-      "id": "CALIBRATION-APPENDIX-MAPPER",
-      "label": "Calibration appendix B+E mapper exists and is wired into DocxReport",
-      "checks": [
-        {
-          "type": "file_exists",
-          "path": "src/components/docx/calibration-appendix.js"
-        },
-        {
-          "type": "grep_matches",
-          "pattern": "buildCalibrationAppendix",
-          "paths": [
-            "src/components/DocxReport.js"
-          ]
-        },
-        {
-          "type": "grep_matches",
-          "pattern": "augmentWithCalibrationAppendices",
-          "paths": [
-            "src/components/DocxReport.js"
-          ]
-        },
-        {
-          "type": "file_exists",
-          "path": "tests/engine/calibration-appendix.test.ts"
-        },
-        {
-          "type": "file_exists",
-          "path": "tests/engine/calibration-appendix-augment.test.ts"
-        }
-      ]
-    },
-    {
       "id": "CALIBRATION-ACKNOWLEDGEMENT",
-      "label": "Finalizing past the calibration interrupt records a written, auditable justification",
+      "label": "Finalizing past the calibration interrupt records a written justification to the DB and the audit log",
       "checks": [
         {
           "type": "file_exists",
@@ -591,13 +508,6 @@
           "pattern": "calibration_acknowledgement",
           "paths": [
             "src/utils/supabaseStorage.js"
-          ]
-        },
-        {
-          "type": "grep_matches",
-          "pattern": "acknowledgementNotes",
-          "paths": [
-            "src/components/docx/calibration-appendix.js"
           ]
         },
         {
@@ -2619,6 +2529,132 @@
           "args": [
             "--",
             "tests/engine/no-data-center-module.test.ts"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "NO-CONSULTANT-REPORT",
+      "label": "The consultant DOCX deliverable and the editorial-suppression feature are absent; share and peer review attach the AtmosFlow report",
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": "tests/engine/no-consultant-report.test.ts"
+        },
+        {
+          "type": "grep_excludes",
+          "pattern": "getConsultantDocxBlob|generateConsultantOnly|getConsultantReportResult|augmentWithCalibrationAppendices",
+          "paths": [
+            "src/components/DocxReport.js",
+            "src/components/MobileApp.jsx"
+          ]
+        },
+        {
+          "type": "grep_excludes",
+          "pattern": "editorialSuppressions|editorial_suppressions",
+          "paths": [
+            "src/components/MobileApp.jsx",
+            "src/utils/supabaseStorage.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "getAtmosFlowDocxBlob",
+          "paths": [
+            "src/components/MobileApp.jsx"
+          ]
+        },
+        {
+          "type": "npm_script_passes",
+          "script": "test",
+          "args": [
+            "--",
+            "tests/engine/no-consultant-report.test.ts"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ASSESSOR-RECORD-LEGIBLE",
+      "label": "Everything the assessor collects is readable by the model and correct in the report: photo keys parsed once, free text carried, photo analysis carried, captions resolved from the questionnaire",
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": "src/utils/photoIndex.js"
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/engine/photo-index.test.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/lib/assessment-context-narrative.test.ts"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "zoneHasPhotos\\(photos, i\\)",
+          "paths": [
+            "src/engines/validation.js"
+          ]
+        },
+        {
+          "type": "grep_excludes",
+          "pattern": "photos\\[zoneName\\]",
+          "paths": [
+            "src/engines/validation.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "photoCaption\\(k, data.zones\\)",
+          "paths": [
+            "src/report/reportModel.js"
+          ]
+        },
+        {
+          "type": "grep_excludes",
+          "pattern": "titleCaseKey",
+          "paths": [
+            "src/report/reportModel.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "narrative_inputs",
+          "paths": [
+            "lib/context/types.ts",
+            "lib/context/buildAssessmentContext.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "function buildNarrativeInputs",
+          "paths": [
+            "lib/context/buildAssessmentContext.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "control === 'ta'",
+          "paths": [
+            "lib/context/buildAssessmentContext.ts"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "fields: LEGACY_FIELD\\[param\\]",
+          "paths": [
+            "src/engine/investigation.ts"
+          ]
+        },
+        {
+          "type": "npm_script_passes",
+          "script": "test",
+          "args": [
+            "--",
+            "tests/engine/photo-index.test.ts",
+            "tests/lib/assessment-context-narrative.test.ts",
+            "tests/lib/buildAssessmentContext.test.ts"
           ]
         }
       ]

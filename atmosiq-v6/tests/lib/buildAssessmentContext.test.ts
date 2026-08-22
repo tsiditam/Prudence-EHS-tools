@@ -116,7 +116,8 @@ function fullState() {
 
 const EXPECTED_TOP_KEYS = [
   'meta', 'project', 'building', 'zones', 'walkthrough_findings',
-  'logger_data_summary', 'photos', 'engine_outputs',
+  'logger_data_summary', 'narrative_inputs',
+  'photos', 'engine_outputs',
   'readiness_verdict', 'report_draft_state', 'calibration_acknowledgement',
   'investigation',
 ].sort()
@@ -215,8 +216,8 @@ describe('buildAssessmentContext', () => {
   it('summarizes zones with current-zone flag', () => {
     const ctx = buildAssessmentContext(fullState())
     expect(ctx.zones).toEqual([
-      { index: 0, id: 'A1', label: 'Front Office', use: 'Office', is_current: true },
-      { index: 1, id: 'A2', label: 'Conference', use: 'Conference', is_current: false },
+      { index: 0, id: 'A1', label: 'Front Office', use: 'Office', is_current: true, notes: null },
+      { index: 1, id: 'A2', label: 'Conference', use: 'Conference', is_current: false, notes: null },
     ])
   })
 
@@ -237,11 +238,14 @@ describe('buildAssessmentContext', () => {
     expect(high.qualitative_only).toBe(false)
   })
 
-  it('builds a photo index of {id, label, count} with no bytes, skipping empty groups', () => {
+  it('builds a photo index with identity and analysis, no bytes, skipping empty groups', () => {
     const ctx = buildAssessmentContext(fullState())
+    // zone_index / field_id come from the `z{n}-{field}` key; field_label from
+    // FIELD_REGISTRY. `mold` and `hvac` are not declared questions, so the
+    // label resolves null — the index still says which zone the photo is in.
     expect(ctx.photos).toEqual([
-      { id: 'z0-mold', label: 'corner staining', count: 2 },
-      { id: 'z1-hvac', label: 'supply diffuser', count: 1 },
+      { id: 'z0-mold', label: 'corner staining', count: 2, zone_index: 0, field_id: 'mold', field_label: null, analysis: null },
+      { id: 'z1-hvac', label: 'supply diffuser', count: 1, zone_index: 1, field_id: 'hvac', field_label: null, analysis: null },
     ])
     // The 'z0-empty' group (length 0) is omitted.
     expect(ctx.photos.find((p) => p.id === 'z0-empty')).toBeUndefined()

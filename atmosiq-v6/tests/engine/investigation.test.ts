@@ -14,6 +14,7 @@ import path from 'node:path'
 import { describe, it, expect } from 'vitest'
 
 import { deriveInvestigation, __testing, type InvestigationState } from '../../src/engine/investigation'
+import { isDeclaredField, KNOWN_UNRESOLVED_READS } from '../../src/constants/field-registry.js'
 import { deriveHypotheses, ruleKeyOf, HYPOTHESIS_RULE_KEYS } from '../../src/engine/hypotheses'
 import { computeParameterRanges, type ParameterKey } from '../../src/engine/report/parameter-ranges'
 import { scoreZone } from '../../src/engines/scoring'
@@ -645,5 +646,61 @@ describe('output hygiene', () => {
     const strings = src.match(/'[^'\n]{12,}'/g) || []
     const minted = strings.filter((s) => /screening/i.test(s) && !/provisional_screening_level|_screening_|screening_/.test(s))
     expect(minted, `investigation.ts mints a "screening" label: ${minted.join(' | ')}`).toEqual([])
+  })
+})
+
+describe('open questions name the field that would answer them', () => {
+  // Exposed so the guided-walkthrough planner can turn a question into the
+  // field to ask for. It must resolve through the SAME LEGACY_FIELD map the
+  // ranges use — a second copy is how a parameter gets reported as untested
+  // in one place and within range in another.
+  // A spread wide enough to reach all three question shapes: an untested
+  // parameter, the ventilation-not-quantified case, and the sampling plan's
+  // outdoor-baseline gaps.
+  const FIXTURES: Array<[Zone[], Zone]> = [
+    [[{ zn: 'A', sy: ['Headache'] }], {}],
+    [[{ zn: 'A', mi: 'Moderate (10-100 sq ft)', rh: '' }], {}],
+    [[{ zn: 'A', co2: '1600', co2o: '420', sy: ['Fatigue'] }], { sa: 'Weak / reduced' }],
+    [[{ zn: 'A', op: 'Moderate persistent', ot: ['Chemical / solvent'] }], {}],
+    [[{ zn: 'A', vd: 'Yes — visible dust' }], { fc: 'Heavily loaded' }],
+    [[{ zn: 'Basement', mi: 'Extensive (>100 sq ft)' }, { zn: 'Top floor', rh: '45' }], {}],
+  ]
+
+  const everyOpenQuestion = () => {
+    const seen: Array<{ id: string; fields: readonly string[] }> = []
+    for (const [zones, bldg] of FIXTURES) {
+      for (const q of investigate(zones, bldg).openQuestions) {
+        seen.push({ id: q.id, fields: q.fields })
+      }
+    }
+    return seen
+  }
+
+  it('produces open questions across the fixture matrix', () => {
+    // Guards the guard: the assertions below pass vacuously on an empty list.
+    expect(everyOpenQuestion().length).toBeGreaterThan(0)
+  })
+
+  it('every named field is one the schema declares, or a known unresolved read', () => {
+    const known = new Set(KNOWN_UNRESOLVED_READS.map((e: { field: string }) => e.field))
+    for (const q of everyOpenQuestion()) {
+      for (const f of q.fields) {
+        expect(
+          isDeclaredField(f) || known.has(f),
+          `open question "${q.id}" names field "${f}", which no questionnaire declares`,
+        ).toBe(true)
+      }
+    }
+  })
+
+  it('a measurement question names at least one field; an outdoor-gap question names none', () => {
+    for (const q of everyOpenQuestion()) {
+      if (q.id.startsWith('untested_') || q.id === 'ventilation_not_quantified') {
+        expect(q.fields.length, `${q.id} should name the field that answers it`).toBeGreaterThan(0)
+      }
+      if (q.id.startsWith('outdoor_gap_')) {
+        expect(q.fields, `${q.id} names a comparison, not a field`).toEqual([])
+      }
+    }
   })
 })

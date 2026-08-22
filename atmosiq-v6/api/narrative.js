@@ -109,10 +109,14 @@ async function callAnthropic(apiKey, system, payload) {
     },
     body: JSON.stringify({
       model: ANTHROPIC_MODEL,
-      // The narrative is a short screening summary (~100-180 words); the
-      // deep reasoning lives in the Jasper chat, not the report. Keep a
-      // modest ceiling so the summary stays concise and can't balloon.
-      max_tokens: 800,
+      // Raised from 800 -> 3000 when the prompt's length target moved to
+      // ~600-900 words. The prompt is what governs length (see
+      // "# Formatting and length" in REASONING_SYSTEM_PROMPT); this
+      // ceiling only decides whether a long draft finishes its sentence.
+      // 900 words is ~1,200 tokens, so 3000 is deliberate slack: a cap
+      // that clips is worse than a short narrative, because it ends
+      // mid-recommendation and the assessor cannot tell it was truncated.
+      max_tokens: 3000,
       temperature: 0.7,
       system,
       messages: [{

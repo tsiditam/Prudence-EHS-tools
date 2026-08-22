@@ -93,6 +93,15 @@ export interface ZoneSummary {
   readonly label: string | null
   readonly use: string | null
   readonly is_current: boolean
+  /**
+   * The assessor's own note for this zone (`znt`), truncated.
+   *
+   * No engine reads free text — a note records an observation for a human, it
+   * does not move a score, a finding or a differential. That is exactly why it
+   * has to be carried here: it is the one thing the assessor wrote in their own
+   * words, and the only consumer that could use it could not see it.
+   */
+  readonly notes: string | null
 }
 
 /** One finding rolled up for context — severity + title + location. */
@@ -104,11 +113,62 @@ export interface FindingSummary {
   readonly qualitative_only: boolean
 }
 
-/** Photo index entry — id + label + count, never the image bytes. */
+/** What the photo-analysis endpoint concluded about one image. */
+export interface PhotoAnalysisSummary {
+  readonly observed: string | null
+  readonly concerns: ReadonlyArray<string>
+  readonly probable_iaq_class: string | null
+  readonly confidence: string | null
+}
+
+/** Photo index entry — identity + analysis, never the image bytes. */
 export interface PhotoIndexEntry {
   readonly id: string
   readonly label: string | null
   readonly count: number
+  /** Parsed from the `z{index}-{field}` key. Null if the key is malformed. */
+  readonly zone_index: number | null
+  readonly field_id: string | null
+  /** The question that prompted the photo, resolved from FIELD_REGISTRY. */
+  readonly field_label: string | null
+  /**
+   * Analysis of the FIRST image in the group, when one was run.
+   *
+   * `recommended_actions` and `citations` are deliberately dropped. The
+   * endpoint returns both, but a second recommender beside the engine is how a
+   * report ends up advising two different things, and the citation tracker owns
+   * which standards a report may name. What survives is what the model saw, not
+   * what it thinks should be done about it.
+   */
+  readonly analysis: PhotoAnalysisSummary | null
+}
+
+/** One free-text answer, carried so the model can read what was written. */
+export interface NarrativeInput {
+  readonly field_id: string
+  readonly label: string
+  readonly scope: string
+  readonly text: string
+}
+
+/**
+ * Everything the assessor wrote in prose.
+ *
+ * Derived from FIELD_REGISTRY by control type (`ta`), not from a hand-kept
+ * list — add a textarea question to `questions.js` and it is carried here
+ * without editing this file. Single-line `text` fields are excluded: they hold
+ * names, addresses and serials, which are identity, already carried elsewhere,
+ * and not observation.
+ */
+export interface NarrativeInputs {
+  readonly fields: ReadonlyArray<NarrativeInput>
+  readonly zone_notes: ReadonlyArray<{
+    readonly zone_index: number
+    readonly zone_label: string | null
+    readonly text: string
+  }>
+  /** True when any value was cut to fit the budget. Never silently false. */
+  readonly truncated: boolean
 }
 
 /** Engine-computed outputs, passed through unchanged from the engine. */
@@ -196,6 +256,8 @@ export interface AssessmentContext {
   readonly walkthrough_findings: readonly FindingSummary[]
   readonly logger_data_summary: LoggerContextSummary | null
   readonly photos: readonly PhotoIndexEntry[]
+  /** Free text the assessor wrote. See NarrativeInputs. */
+  readonly narrative_inputs: NarrativeInputs
   readonly engine_outputs: EngineOutputs | null
   readonly readiness_verdict: ReadinessVerdict | null
   readonly report_draft_state: ReportDraftState | null

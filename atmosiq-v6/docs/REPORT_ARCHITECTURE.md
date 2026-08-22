@@ -274,10 +274,16 @@ subsection emits two paragraphs:
 | E | `AppendixE` | Quality assurance & instrument calibration records (+ the calibration acknowledgement, when one exists) |
 | F | `AppendixF` | Glossary of terms and abbreviations |
 
-Renderers live in `src/components/docx/sections-v21client.js`
-(`buildAppendices`) and `src/components/print/client-html.js`
-(`renderAppendices`). Both anchor the appendices with stable
-`appendix-{a..f}` ids so the TOC links work in the HTML viewer.
+**The DOCX renderer for these appendices is gone.**
+`src/components/docx/sections-v21client.js` (`buildAppendices`) was deleted in
+2026-08 with the consultant report — see docs/CRITERIA.md, "The consultant
+report (removed)". `renderClientReport` still PRODUCES this appendix model,
+and `src/components/print/client-html.js` (`renderAppendices`) still renders it
+for the HTML print view, anchoring `appendix-{a..f}` ids so the TOC links work.
+The surviving DOCX (`sections-atmosflow.js`) has its own, shorter appendix set
+(A Standards & References, B About AtmosFlow, C Site Photographs) and does not
+read this model — so appendix E's calibration records and acknowledgement no
+longer reach any Word deliverable.
 
 ### §4 Per-zone synthesis module
 

@@ -25,7 +25,7 @@ function fullyCleanAssessment(overrides: Record<string, any> = {}) {
     },
     zones: [{ zn: 'Zone 1', co2: '850', co2o: '420', meas_conditions: 'Yes — normal operations' }],
     zoneScores: [{ zoneName: 'Zone 1', cats: [{ l: 'Vent', r: [{ t: 'CO2 normal', sev: 'low' }] }] }],
-    photos: { 'Zone 1': [{ id: 'p1' }] },
+    photos: { 'z0-wd': [{ src: 'data:image/jpeg;base64,AAAA', ts: 1 }] },
     recs: { imm: [], eng: [], adm: [], mon: [] },
     confidence: 'Medium',
     ...overrides,

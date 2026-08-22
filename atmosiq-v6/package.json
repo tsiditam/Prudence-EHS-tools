@@ -26,12 +26,6 @@
     "test:mold": "vitest run tests/engine/mold-engine.test.ts tests/engine/mold-standards.test.ts tests/engine/mold-intake.test.ts tests/engine/mold-report.test.ts tests/lib/moldFeatureFlags.test.ts tests/lib/moldStorage.test.ts tests/components/MoldScreeningView.test.tsx tests/components/MoldPreviewButton.test.tsx tests/components/MoldModeScreen.test.tsx",
     "accept:mold": "node scripts/acceptance-check.mjs --config scripts/acceptance/mold.json",
     "render:kg-sample": "RENDER_KG_SAMPLE=1 vitest run scripts/dev/render-kg-traceability-sample.test.ts",
-    "render:acceptance": "VITEST_RENDER_FIXTURES=1 vitest run scripts/render-acceptance-fixture.test.ts",
-    "render:acceptance:v2.3": "VITEST_RENDER_FIXTURES=1 vitest run scripts/acceptance/render-acceptance-fixture.test.ts",
-    "accept:v2.3": "node scripts/acceptance/run-v23.mjs",
-    "accept:v2.4": "npm run render:acceptance && node scripts/acceptance-check.mjs --config scripts/acceptance/v2.4.json",
-    "accept:v2.5": "npm run render:acceptance && node scripts/acceptance-check.mjs --config scripts/acceptance/v2.5.json",
-    "accept:v2.6": "npm run render:acceptance && node scripts/acceptance-check.mjs --config scripts/acceptance/v2.6.json",
     "db:migrate": "node scripts/db-migrate.mjs",
     "db:migrate:status": "node scripts/db-migrate.mjs --dry-run"
   },

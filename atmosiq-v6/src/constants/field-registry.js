@@ -120,6 +120,15 @@ function contractFromQuestion(q, source) {
     label: (q.q || q.id).replace(/\?$/, ''),
     scope: scopeOf(q.id),
     kind: KIND_BY_CONTROL[q.t] || 'text',
+    /**
+     * The raw wizard control. `kind` collapses `ta` and `text` into one value,
+     * which is right for validation and wrong for anything that needs to tell
+     * a paragraph from a name: `ps_complaint_narrative` and
+     * `ps_recipient_name` are both `kind: 'text'`. Consumers that carry free
+     * narrative to a model filter on `control === 'ta'`, so a new textarea
+     * question is picked up without editing them.
+     */
+    control: q.t || 'text',
     opts,
     unit: q.u || null,
     /**
