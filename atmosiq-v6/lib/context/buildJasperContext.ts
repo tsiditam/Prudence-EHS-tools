@@ -31,7 +31,6 @@
  */
 
 import { buildAssessmentContext } from './buildAssessmentContext'
-import { buildGraphContext } from './graphContext'
 import type { JasperContext, JasperContextInput } from './types'
 
 /**
@@ -101,9 +100,42 @@ export function buildJasperContext(state: JasperContextInput): JasperContext {
     project_workspace: state.project_workspace ?? null,
     projects_index: state.projects_index ?? null,
 
-    // Scoped knowledge-graph projection (KG stage 2, §16). Derived from the
-    // engine outputs already on state; null on pre-engine drafts. Defensive
-    // by construction — buildGraphContext never throws.
-    knowledge_graph: buildGraphContext(state as Record<string, unknown>),
+    // A scoped knowledge-graph projection (`knowledge_graph`, KG stage 2 §16)
+    // was attached here. Removed from the Jasper context — NOT deleted; see
+    // graphContext.ts, still built for the Evidence tab and the dev
+    // traceability card.
+    //
+    // Why it stopped riding along: this call was never gated, while the KG
+    // surface is (`isKnowledgeGraphEnabled` is off on the production host).
+    // So the projection shipped in every uncached context block, in
+    // production, for a feature no user could open — measured at roughly
+    // 60% of the per-turn payload (4k of 8k tokens at 2 zones, 15k of 25k at
+    // 8). Nobody chose that pairing; the flag governs the UI and the payload
+    // was wired around it.
+    //
+    // What it carried that nothing else did was `contradicted_by` — the
+    // evidence arguing AGAINST a finding. The machinery for it is complete
+    // and proven: `projectGraph` emits CONTRADICTS_FINDING edges and
+    // `summarizeGraph` resolves them, asserted in graphContext.test.ts. What
+    // is missing is a PRODUCER. The mapping from engine state
+    // (knowledgeGraphBuilder.ts) sets `supportsFindings` at four sites and
+    // `contradictsFindings` at none, so the only thing that has ever
+    // populated it is a hand-written KGModel in that test, and the array is
+    // empty in every projection built from a real assessment.
+    //
+    // `supported_by` is `findingsInCat` — every finding in the same
+    // category, which is a category join the context already carries, not
+    // evidence linkage. The remainder was a third serialisation of the
+    // findings (they are already under engine_outputs and walkthrough_findings).
+    //
+    // Its five grounding rules were the real loss and did not go with it:
+    // four are now in FIELD_ASSISTANT_ROLE_PROMPT under "Reading the
+    // engine's findings", where the CACHED prefix carries them once per
+    // session rather than the uncached block re-sending them every turn. The
+    // fifth was an instruction about `contradicted_by`, written for a
+    // capability that was never built.
+    //
+    // To restore this: populate `contradictsFindings` from something real
+    // first. Re-attaching an empty projection buys nothing and costs 60%.
   }
 }

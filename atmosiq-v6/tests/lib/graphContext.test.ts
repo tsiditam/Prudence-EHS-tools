@@ -12,6 +12,7 @@ import { buildGraphContext, summarizeGraph } from '../../lib/context/graphContex
 import { buildJasperContext } from '../../lib/context/buildJasperContext'
 import { projectGraph } from '../../src/services/knowledgeGraphBuilder'
 import type { KGModel } from '../../src/types/knowledgeGraph'
+import { FIELD_ASSISTANT_ROLE_PROMPT as PROMPT } from '../../src/constants/field-assistant-prompt'
 
 // A realistic post-engine state slice: one zone with a non-pass ventilation
 // finding (carrying an ASHRAE 62.1 std), a causal chain, and a recommendation.
@@ -89,13 +90,44 @@ describe('summarizeGraph surfaces engine-flagged contradictions', () => {
   })
 })
 
-describe('buildJasperContext integration', () => {
-  it('attaches knowledge_graph when engine outputs are present', () => {
-    const jc = buildJasperContext(engineState as never)
-    expect(jc.knowledge_graph).not.toBeNull()
-    expect(jc.knowledge_graph!.findings.length).toBe(1)
+describe('the projection does not ride in the Jasper context', () => {
+  // These two pinned the opposite: that buildJasperContext attaches
+  // `knowledge_graph`. It did — unconditionally, while the KG SURFACE is
+  // gated off on the production host, so the projection shipped in every
+  // uncached context block for a feature no user could open. ~60% of the
+  // per-turn payload. Re-pinned rather than deleted, because the attachment
+  // returning is the regression to catch.
+  it('carries no knowledge_graph key', () => {
+    const jc = buildJasperContext(engineState as never) as unknown as Record<string, unknown>
+    expect('knowledge_graph' in jc).toBe(false)
   })
-  it('leaves knowledge_graph null on a bare draft', () => {
-    expect(buildJasperContext({ zones: [{ zid: 'A1' }] } as never).knowledge_graph).toBeNull()
+
+  it('still carries the engine outputs the graph was derived FROM', () => {
+    // The findings did not go anywhere — the third copy of them did.
+    const jc = buildJasperContext(engineState as never) as unknown as Record<string, unknown>
+    expect(jc.engine_outputs).toBeTruthy()
+    expect(jc.walkthrough_findings).toBeTruthy()
+  })
+
+  it('the grounding rules survived the detachment, in the cached prompt', () => {
+    // The projection carried five of them inline. Losing them silently was
+    // the real risk in removing it: three restate over-claims the platform
+    // works hardest to prevent. They are now in the cached system prefix,
+    // which also means they are sent once per session instead of every turn.
+    expect(PROMPT).toMatch(/Confidence is CATEGORICAL/)
+    expect(PROMPT).toMatch(/never a contaminant limit, an exposure limit, or a health threshold/)
+    expect(PROMPT).toMatch(/A conflicting signal is SURFACED, never suppressed/)
+    expect(PROMPT).toMatch(/never invent a relationship the engine did not derive/)
+  })
+})
+
+describe('the projection itself is intact for the surfaces that use it', () => {
+  // Detached from Jasper, NOT deleted: the Evidence tab and the dev
+  // traceability card still build it, and step 2 (populating
+  // contradictsFindings) depends on all of this still working.
+  it('still builds from engine state', () => {
+    const ctx = buildGraphContext(engineState)
+    expect(ctx).not.toBeNull()
+    expect(ctx!.findings.length).toBe(1)
   })
 })
