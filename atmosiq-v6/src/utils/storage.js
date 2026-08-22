@@ -35,18 +35,59 @@ const STO = {
       return Object.keys(localStorage).filter(k => k.startsWith(prefix))
     } catch { return [] }
   },
+  // ── The index invariant: ONE id, ONE list ────────────────────────────
+  //
+  // `reports` and `drafts` are disjoint. Nothing enforced that, and the
+  // consequence was visible on the dashboard: tapping "Fix" on a finalized
+  // report points draftId at the report's own `rpt-` id, and 1.2s later the
+  // autosave called addDraftToIndex with it. Each writer deduplicated only
+  // within its OWN list, so the id sat in both — one assessment, two cards,
+  // and counted twice in "N total" and the nav badge (both are
+  // drafts.length + reports.length).
+  //
+  // The rule is enforced here rather than at the three call sites, because
+  // two of the three got it wrong and the third (applyGraphsToReport) had
+  // to hand-roll "refresh it without moving it between lists". A call site
+  // should not have to know the invariant to avoid breaking it.
   async getIndex() {
-    return await this.get(KEYS.index) || { reports: [], drafts: [] }
+    const idx = await this.get(KEYS.index) || { reports: [], drafts: [] }
+    idx.reports = Array.isArray(idx.reports) ? idx.reports : []
+    idx.drafts = Array.isArray(idx.drafts) ? idx.drafts : []
+    // Self-heal an index already corrupted by the above. The report wins:
+    // it is the finalized state of the same record, and the draft row was
+    // never a separate assessment. Written back only when something
+    // actually changed — getIndex is called on every refresh.
+    const reportIds = new Set(idx.reports.map(r => r && r.id))
+    const cleaned = idx.drafts.filter(d => d && !reportIds.has(d.id))
+    if (cleaned.length !== idx.drafts.length) {
+      idx.drafts = cleaned
+      await this.saveIndex(idx)
+    }
+    return idx
   },
   async saveIndex(idx) { return await this.set(KEYS.index, idx) },
   async addReportToIndex(meta) {
     const idx = await this.getIndex()
     idx.reports = idx.reports.filter(r => r.id !== meta.id)
     idx.reports.unshift(meta)
+    // Finalizing promotes a draft to a report; it never leaves one behind.
+    idx.drafts = idx.drafts.filter(d => d.id !== meta.id)
     await this.saveIndex(idx)
   },
   async addDraftToIndex(meta) {
     const idx = await this.getIndex()
+    // A finalized report being edited stays a REPORT. The autosave still
+    // needs to run (the body is what it is protecting), so this is not an
+    // error — it refreshes the report's own row instead of minting a draft
+    // one. Facility is carried across so renaming the site mid-fix is not
+    // silently dropped; ts and the finding census belong to the finalize
+    // and are left alone.
+    const existingReport = idx.reports.find(r => r.id === meta.id)
+    if (existingReport) {
+      if (meta.facility) existingReport.facility = meta.facility
+      await this.saveIndex(idx)
+      return
+    }
     idx.drafts = idx.drafts.filter(d => d.id !== meta.id)
     idx.drafts.unshift(meta)
     await this.saveIndex(idx)

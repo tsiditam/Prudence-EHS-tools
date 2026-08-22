@@ -13,6 +13,7 @@ import { createPortal } from 'react-dom'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import STO from '../utils/storage'
 import { resolveFinalizeTarget } from '../utils/finalizeTarget'
+import { hasDraftContent, isAbandonedDraft } from '../utils/draftContent'
 import Profiles from '../utils/profiles'
 import Storage from '../utils/cloudStorage'
 import { supabase, trackEvent } from '../utils/supabaseClient'
@@ -1122,6 +1123,11 @@ export default function MobileApp() {
   const saveRef = useRef(null)
   useEffect(() => {
     if (!['quickstart','zone','details'].includes(view) || !draftId) return
+    // Don't persist an assessment that hasn't been started. This fired 1.2s
+    // after "New Assessment" with `bldg` still `{}`, so backing out left an
+    // "Untitled" draft row forever — and nothing ever pruned one. See
+    // utils/draftContent.js for why `presurvey` is not part of the test.
+    if (!hasDraftContent({ bldg, zones, equipment, photos, sensorData, floorPlan })) return
     if (saveRef.current) clearTimeout(saveRef.current)
     saveRef.current = setTimeout(async () => {
       // Merge over the existing stored body. When a finalized report is
