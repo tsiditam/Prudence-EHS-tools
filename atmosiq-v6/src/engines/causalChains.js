@@ -12,8 +12,32 @@
 
 import { STD } from '../constants/standards'
 import { detectSBSPattern } from './scoring'
+import { evaluatePressurization, findCoOccurringMechanisms, shouldConsolidate } from './pressurization'
+import { consolidatedMechanismStatement, notEvaluatedStatement } from './pressurizationNarrative'
+import {
+  PRESSURIZATION_REVIEW_LABEL, ZONE_PRESSURE,
+  NEGATIVE_PRESSURE_SHORT, NOT_EVALUATED_SHORT,
+} from '../constants/pressurizationStandards'
 
-export function buildCausalChains(zones, bldg, zoneScores) {
+// Chain `type` labels are written as INLINE LITERALS at every push site
+// below, including the two pressurization ones. That is not styling:
+// `tests/engine/investigation.test.ts` greps this file for quoted chain
+// labels and fails if one is missing from CHAIN_TYPE_TO_RULE in
+// src/engine/investigation.ts. Hoisting a label into a constant would
+// make it invisible to that scan, and the two files would be free to
+// drift — which is the defect the guard exists to catch.
+
+/**
+ * @param {Array}  zones       Zone records.
+ * @param {Object} bldg        Building record.
+ * @param {Array}  zoneScores  scoreZone() output, one per zone.
+ * @param {Object} [opts]
+ * @param {Object} [opts.presurvey]  Pre-survey record — carries the
+ *   differential-pressure instrument envelope (ps_inst_press_*). Optional:
+ *   without it the pressurization mechanism degrades to qualitative, which
+ *   is the correct reading of an assessment that recorded no instrument.
+ */
+export function buildCausalChains(zones, bldg, zoneScores, opts = {}) {
   const chains = []
   zoneScores.forEach((zs, i) => {
     const z = zones[i] || {}, d = { ...bldg, ...z }, zName = zs.zoneName
@@ -98,5 +122,115 @@ export function buildCausalChains(zones, bldg, zoneScores) {
       chains.push({ zone: zName, type: 'Cross-Contamination Pathway', rootCause: 'Air pathway allowing contaminant migration from adjacent source', evidence: ev, confidence: ev.length >= 2 ? 'Moderate' : 'Possible' })
     }
   })
+
+  // ── Pressurization: the consolidating mechanism ─────────────────────
+  //
+  // Runs AFTER the per-zone rules, and it is the only rule here that
+  // reasons across zones, because the condition it describes is a
+  // property of the building rather than of a room.
+  //
+  // What it does that the rules above do not: where several of the
+  // observations it can explain are present at once, it emits ONE
+  // statement instead of leaving the reader to notice that four
+  // separate findings share an explanation. That is the whole value —
+  // a report listing elevated particulate, elevated humidity, an odor
+  // and envelope moisture as four unrelated items has buried the fact
+  // that one test-and-balance evaluation bears on all four.
+  //
+  // It never replaces the individual findings. They stay where they
+  // are, scored as they were; this adds the connection between them.
+  const pressurization = evaluatePressurization({ bldg, zones, presurvey: opts.presurvey })
+
+  // Collect the explainable observations across every zone, deduped by
+  // KIND. Two zones with elevated particulate are one kind of thing the
+  // mechanism explains, not two — counting them twice would let a
+  // single observation repeated across a floor trip consolidation on
+  // its own.
+  const byKind = new Map()
+  zoneScores.forEach((zs, i) => {
+    const d = { ...bldg, ...(zones[i] || {}) }
+    for (const hit of findCoOccurringMechanisms(d)) {
+      const existing = byKind.get(hit.key)
+      if (existing) { existing.zoneNames.push(zs.zoneName); continue }
+      byKind.set(hit.key, { ...hit, zoneNames: [zs.zoneName] })
+    }
+  })
+  const hits = [...byKind.values()]
+
+  if (shouldConsolidate(pressurization, hits)) {
+    // Name the zone only when the observations sit in exactly one; with
+    // several, naming one of them would misdescribe the rest.
+    const zoneNames = [...new Set(hits.flatMap(h => h.zoneNames))]
+    const namedZone = zoneNames.length === 1 ? zoneNames[0] : null
+    const evidence = hits.map(h => h.detail.charAt(0).toUpperCase() + h.detail.slice(1))
+    if (pressurization.quantitative.present) {
+      evidence.unshift('Differential pressure ' + pressurization.quantitative.rawValue + ' ' + pressurization.quantitative.rawUnits + ' (interior vs outdoors)')
+    } else {
+      evidence.unshift('Exterior door test: air flows inward')
+    }
+    for (const zoneName of pressurization.zonesNegative) {
+      evidence.push(zoneName + ' negative relative to the adjacent space')
+    }
+    evidence.push('Review status: ' + PRESSURIZATION_REVIEW_LABEL)
+    chains.push({
+      zone: namedZone || 'Building-wide',
+      scope: 'building',
+      type: 'Building Pressurization (Mechanism)',
+      // `rootCause` states the condition and stops — it renders in a
+      // fixed card, and a paragraph there gets clipped mid-word (the
+      // defect findings-state-the-finding.test.ts exists to prevent).
+      // The reasoning, the list of what it explains and the follow-up
+      // live in `mechanismStatement`, which the report renders in full.
+      rootCause: NEGATIVE_PRESSURE_SHORT,
+      mechanismStatement: consolidatedMechanismStatement(pressurization, hits, namedZone),
+      evidence,
+      // Capped at Moderate by construction. A walkthrough cannot
+      // establish that the mechanism IS the explanation, only that it
+      // is available and would account for what was seen; "Strong"
+      // would overstate every version of this chain.
+      confidence: pressurization.qualitativeOnly ? 'Possible' : 'Moderate',
+      mechanism: true,
+      consolidates: hits.map(h => h.key),
+      reviewLabel: PRESSURIZATION_REVIEW_LABEL,
+    })
+  } else if (!pressurization.evaluated) {
+    // Silence is not an acceptable output. An assessment that says
+    // nothing about pressurization reads, to a client, as one that
+    // ruled infiltration out — so the absence is stated as explicitly
+    // as a finding would be.
+    chains.push({
+      zone: 'Building-wide',
+      scope: 'building',
+      type: 'Building Pressurization — Not Evaluated',
+      rootCause: NOT_EVALUATED_SHORT,
+      mechanismStatement: notEvaluatedStatement(pressurization),
+      evidence: [
+        'No exterior-door airflow observation recorded',
+        'No differential-pressure measurement recorded',
+        'Review status: ' + PRESSURIZATION_REVIEW_LABEL,
+      ],
+      confidence: 'Possible',
+      mechanism: true,
+      notEvaluated: true,
+      reviewLabel: PRESSURIZATION_REVIEW_LABEL,
+    })
+  }
+
   return chains
 }
+
+/**
+ * The pressurization assessment on its own, for consumers that need the
+ * mechanism without the chain list (the result surface, the report's
+ * building section, the recommendations register).
+ *
+ * Exported from here rather than re-derived at each call site so every
+ * consumer sees the same evaluation of the same record.
+ */
+export function buildPressurization(zones, bldg, presurvey) {
+  return evaluatePressurization({ bldg, zones, presurvey })
+}
+
+// Re-exported so a consumer reading chains does not need to know which
+// module owns the zone-pressure vocabulary.
+export { ZONE_PRESSURE }

@@ -43,6 +43,7 @@ const SRC = (rel: string) => fs.readFileSync(path.join(process.cwd(), rel), 'utf
 const CONSUMER_SOURCES = [
   'src/engines/scoring.js',
   'src/engines/causalChains.js',
+  'src/engines/pressurization.js',
   'src/engines/sampling.js',
   'src/engines/escalation.js',
   'src/engine/hypotheses.ts',

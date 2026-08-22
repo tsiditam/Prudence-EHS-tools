@@ -15,6 +15,32 @@
 import { STD } from '../constants/standards'
 import { getConfidenceLevel } from './riskBands'
 import { evaluateAllSufficiency } from './sufficiency'
+import { CONTROL_TIER } from '../constants/pressurizationStandards'
+import { pressurizationRecommendations } from './pressurization'
+
+// ── OSHA 3430 control hierarchy ──
+//
+// Every emitted action carries `controlTier`, so a report can group
+// remedies by WHAT THEY DO rather than only by when they are due. The
+// existing buckets answer urgency (imm / eng / adm / mon) and are not a
+// hierarchy: an Immediate action can be source management (arrest the
+// leak) or engineering (restore airflow), and the bucket cannot tell
+// you which.
+//
+// The tier is declared AT EACH EMIT SITE, never inferred from the
+// action's wording. Routing on prose is what let `matches` = includes
+// mis-classify the CO₂ tiers in classify.ts; rewording an action must
+// not silently move it between tiers.
+//
+// `null` is a deliberate fourth state, not an omission: a data-gap
+// action ("obtain ventilation measurements") is an INVESTIGATION step,
+// not a control, and the hierarchy has no honest slot for it. Forcing
+// it into administrative_control would claim the assessment had
+// recommended a control it did not.
+const T_SOURCE = CONTROL_TIER.SOURCE_MANAGEMENT
+const T_ENG = CONTROL_TIER.ENGINEERING
+const T_ADM = CONTROL_TIER.ADMINISTRATIVE
+const T_NONE = null
 
 export function evalOSHA(d, tot) {
   const fl = []
@@ -56,15 +82,15 @@ export function calcVent(su, sf, oc) {
 // Scope is declared on the rule, not inferred at runtime — engine
 // stays deterministic.
 const EQ_RULES = {
-  drainpan_immediate: { bucket: 'imm', text: 'Address drain pan condition immediately. Evaluate for microbial growth.' },
-  drainpan_clean: { bucket: 'imm', text: 'Clean drain pan, treat with EPA-registered biocide, and verify proper slope and condensate disposal.' },
-  legionella_188: { bucket: 'eng', text: 'Evaluate drain pan for Legionella risk per ASHRAE Standard 188. If building lacks a Water Management Program, consider Legionella sampling given active occupant respiratory symptoms.' },
-  oa_damper: { bucket: 'eng', text: 'Evaluate outdoor air delivery rate and verify OA damper position within 24–72 hours.' },
-  filter_replace_imm: { bucket: 'imm', text: 'Replace air filters immediately. Inspect filter housing for bypass or damage.' },
-  filter_replace_high: { bucket: 'eng', text: 'Replace or service air filters. Inspect filter housing for bypass or damage.' },
-  comprehensive_hvac_overdue: { bucket: 'eng', text: 'Schedule comprehensive HVAC inspection within 24–72 hours when occupant symptoms are active.' },
-  comprehensive_hvac_high: { bucket: 'eng', text: 'Schedule comprehensive HVAC inspection.' },
-  comprehensive_hvac_assessment: { bucket: 'eng', text: 'Conduct comprehensive HVAC system assessment — inspect filter condition, measure supply airflow, and evaluate drain pan and condensate management.' },
+  drainpan_immediate: { bucket: 'imm', tier: T_SOURCE, text: 'Address drain pan condition immediately. Evaluate for microbial growth.' },
+  drainpan_clean: { bucket: 'imm', tier: T_SOURCE, text: 'Clean drain pan, treat with EPA-registered biocide, and verify proper slope and condensate disposal.' },
+  legionella_188: { bucket: 'eng', tier: T_ADM, text: 'Evaluate drain pan for Legionella risk per ASHRAE Standard 188. If building lacks a Water Management Program, consider Legionella sampling given active occupant respiratory symptoms.' },
+  oa_damper: { bucket: 'eng', tier: T_ENG, text: 'Evaluate outdoor air delivery rate and verify OA damper position within 24–72 hours.' },
+  filter_replace_imm: { bucket: 'imm', tier: T_ENG, text: 'Replace air filters immediately. Inspect filter housing for bypass or damage.' },
+  filter_replace_high: { bucket: 'eng', tier: T_ENG, text: 'Replace or service air filters. Inspect filter housing for bypass or damage.' },
+  comprehensive_hvac_overdue: { bucket: 'eng', tier: T_ADM, text: 'Schedule comprehensive HVAC inspection within 24–72 hours when occupant symptoms are active.' },
+  comprehensive_hvac_high: { bucket: 'eng', tier: T_ADM, text: 'Schedule comprehensive HVAC inspection.' },
+  comprehensive_hvac_assessment: { bucket: 'eng', tier: T_NONE, text: 'Conduct comprehensive HVAC system assessment — inspect filter condition, measure supply airflow, and evaluate drain pan and condensate management.' },
 }
 
 // Build a zone-name → list-of-equipment-IDs map. Equipment IDs are
@@ -99,6 +125,9 @@ function buildZoneEquipmentMap(zones, equipment) {
  * @param {Object} [opts]
  * @param {Array} [opts.zones]      Original ZoneData[] (carries zid + servingEquipmentIds).
  * @param {Array} [opts.equipment]  HvacEquipment[] captured during walkthrough.
+ * @param {Object} [opts.pressurization]  evaluatePressurization() output.
+ *   Optional; when inward airflow was observed or measured, its
+ *   engineering remedies join the `eng` bucket.
  * @returns {{imm: RecommendationAction[], eng, adm, mon}}
  */
 export function genRecs(zoneScores, bldg, opts = {}) {
@@ -115,20 +144,25 @@ export function genRecs(zoneScores, bldg, opts = {}) {
     if (!triggers[ruleKey]) triggers[ruleKey] = new Set()
     triggers[ruleKey].add(zoneName)
   }
-  const pushZone = (bucket, zoneName, text) => {
+  // `tier` is required at every call site — see the control-hierarchy
+  // note above. It is a positional argument rather than an options
+  // object so that omitting it is a visible hole in the diff.
+  const pushZone = (bucket, zoneName, text, tier) => {
     buckets[bucket].push({
       scope: 'zone',
       text,
+      controlTier: tier,
       zoneId: zoneName,
       zoneName,
       affectedZoneIds: [zoneName],
       affectedZoneNames: [zoneName],
     })
   }
-  const pushBuilding = (bucket, text, affectedZoneNames = []) => {
+  const pushBuilding = (bucket, text, affectedZoneNames = [], tier) => {
     buckets[bucket].push({
       scope: 'building',
       text,
+      controlTier: tier,
       affectedZoneIds: affectedZoneNames,
       affectedZoneNames,
     })
@@ -137,18 +171,18 @@ export function genRecs(zoneScores, bldg, opts = {}) {
   zoneScores.forEach(zs => {
     zs.cats.forEach(c => c.r.forEach(r => {
       if (r.sev === 'critical') {
-        if (r.t.includes('CO ')) pushZone('imm', zs.zoneName, 'Immediately evacuate and investigate combustion source.')
-        if (r.t.includes('ormaldehyde')) pushZone('imm', zs.zoneName, 'Implement exposure controls per 29 CFR 1910.1048.')
+        if (r.t.includes('CO ')) pushZone('imm', zs.zoneName, 'Immediately evacuate and investigate combustion source.', T_SOURCE)
+        if (r.t.includes('ormaldehyde')) pushZone('imm', zs.zoneName, 'Implement exposure controls per 29 CFR 1910.1048.', T_ENG)
         // No supply airflow / no filtration are intrinsically building-scoped
         // — the HVAC service request is about the system, not a single zone.
         // We still record the originating zone(s) in affectedZoneNames so the
         // Immediate action carries its provenance (the dedup phase below
         // merges these when the same system action surfaces from several zones).
-        if (r.t.includes('No supply airflow')) pushBuilding('imm', 'Request immediate HVAC service to restore airflow.', [zs.zoneName])
-        if (r.t.includes('No filtration') || r.t.includes('no filter')) pushBuilding('imm', 'Request immediate HVAC service — no filtration installed.', [zs.zoneName])
+        if (r.t.includes('No supply airflow')) pushBuilding('imm', 'Request immediate HVAC service to restore airflow.', [zs.zoneName], T_ENG)
+        if (r.t.includes('No filtration') || r.t.includes('no filter')) pushBuilding('imm', 'Request immediate HVAC service — no filtration installed.', [zs.zoneName], T_ENG)
         if (r.t.includes('Drain pan')) trigger('drainpan_immediate', zs.zoneName)
-        if (r.t.includes('water') || r.t.includes('leak')) pushZone('imm', zs.zoneName, 'Arrest water intrusion. Assess materials within 48 hours.')
-        if (r.t.toLowerCase().includes('occupant') && r.t.includes('symptom')) pushZone('imm', zs.zoneName, 'Document symptom patterns using NIOSH IEQ questionnaire or equivalent structured instrument. Evaluate ventilation immediately.')
+        if (r.t.includes('water') || r.t.includes('leak')) pushZone('imm', zs.zoneName, 'Arrest water intrusion. Assess materials within 48 hours.', T_SOURCE)
+        if (r.t.toLowerCase().includes('occupant') && r.t.includes('symptom')) pushZone('imm', zs.zoneName, 'Document symptom patterns using NIOSH IEQ questionnaire or equivalent structured instrument. Evaluate ventilation immediately.', T_ADM)
       }
       if (r.sev === 'high' || r.sev === 'medium') {
         if (r.t.includes('maintenance') && r.t.includes('overdue')) trigger('comprehensive_hvac_overdue', zs.zoneName)
@@ -158,12 +192,12 @@ export function genRecs(zoneScores, bldg, opts = {}) {
         // PM filtration upgrade is a building-wide spec change (MERV
         // class) that applies system-wide regardless of which zone
         // surfaced the finding.
-        if (r.t.includes('PM')) pushBuilding('eng', 'Upgrade filtration to MERV 13+. Evaluate filter housing for bypass.')
+        if (r.t.includes('PM')) pushBuilding('eng', 'Upgrade filtration to MERV 13+. Evaluate filter housing for bypass.', [], T_ENG)
         if (r.t.includes('maintenance')) trigger('comprehensive_hvac_high', zs.zoneName)
         if (r.t.includes('ilter condition') || r.t.includes('filtration')) trigger('filter_replace_high', zs.zoneName)
-        if (r.t.includes('Temperature') || r.t.includes('comfort range')) pushZone('eng', zs.zoneName, 'Evaluate thermostat settings and HVAC zoning for thermal comfort.')
-        if (r.t.includes('occupant') || r.t.includes('symptom')) pushZone('adm', zs.zoneName, 'Document affected occupants using NIOSH IEQ questionnaire or equivalent structured symptom instrument.')
-        if (r.t.includes('resolve')) pushZone('adm', zs.zoneName, 'Building-related symptom pattern — investigate ventilation and source pathways.')
+        if (r.t.includes('Temperature') || r.t.includes('comfort range')) pushZone('eng', zs.zoneName, 'Evaluate thermostat settings and HVAC zoning for thermal comfort.', T_ENG)
+        if (r.t.includes('occupant') || r.t.includes('symptom')) pushZone('adm', zs.zoneName, 'Document affected occupants using NIOSH IEQ questionnaire or equivalent structured symptom instrument.', T_ADM)
+        if (r.t.includes('resolve')) pushZone('adm', zs.zoneName, 'Building-related symptom pattern — investigate ventilation and source pathways.', T_ADM)
       }
     }))
     // Pattern-driven recs (water / mold / drain pan / filter / pressure / symptom cluster)
@@ -173,25 +207,25 @@ export function genRecs(zoneScores, bldg, opts = {}) {
     const hasSymptomCluster = zs.cats.some(c => c.l === 'Complaints' && c.r.some(r => r.sev === 'critical' || r.sev === 'high'))
     const hasFilterIssue = zs.cats.some(c => c.r.some(r => r.t.toLowerCase().includes('filter') && (r.sev === 'high' || r.sev === 'critical')))
     const hasNegPressure = zs.cats.some(c => c.r.some(r => r.t.includes('Negative') || r.t.includes('negative')))
-    if (hasWater) pushZone('imm', zs.zoneName, 'Repair water intrusion source. Assess affected materials within 48 hours per IICRC S500.')
+    if (hasWater) pushZone('imm', zs.zoneName, 'Repair water intrusion source. Assess affected materials within 48 hours per IICRC S500.', T_SOURCE)
     if (hasMold) {
-      pushZone('eng', zs.zoneName, 'Remediate visible mold per IICRC S520 / EPA Mold Remediation in Schools and Commercial Buildings. For areas <10 sq ft (Level I), trained maintenance staff with PPE (N95, gloves, eye protection) may perform cleanup.')
-      pushZone('eng', zs.zoneName, 'Post-remediation verification per IICRC S520 — visual clearance and clearance air sampling before reoccupancy.')
+      pushZone('eng', zs.zoneName, 'Remediate visible mold per IICRC S520 / EPA Mold Remediation in Schools and Commercial Buildings. For areas <10 sq ft (Level I), trained maintenance staff with PPE (N95, gloves, eye protection) may perform cleanup.', T_SOURCE)
+      pushZone('eng', zs.zoneName, 'Post-remediation verification per IICRC S520 — visual clearance and clearance air sampling before reoccupancy.', T_ADM)
     }
     if (hasDrainPan) {
       trigger('drainpan_clean', zs.zoneName)
       trigger('legionella_188', zs.zoneName)
     }
     if (hasFilterIssue) trigger('filter_replace_imm', zs.zoneName)
-    if (hasNegPressure) pushZone('eng', zs.zoneName, 'Correct building pressurization. Negative pressure draws contaminants from adjacent spaces and outdoor sources. Evaluate exhaust/supply balance.')
+    if (hasNegPressure) pushZone('eng', zs.zoneName, 'Correct building pressurization. Negative pressure draws contaminants from adjacent spaces and outdoor sources. Evaluate exhaust/supply balance.', T_ENG)
     if (hasSymptomCluster) {
-      pushZone('imm', zs.zoneName, 'Deploy portable HEPA filtration units in affected occupied areas as interim measure.')
-      pushZone('adm', zs.zoneName, 'Implement occupant risk communication plan per ATSDR guidance. Notify affected occupants of assessment findings and planned corrective actions.')
-      pushZone('adm', zs.zoneName, 'Evaluate feasibility of temporary relocation for symptomatic occupants until corrective actions are verified effective.')
+      pushZone('imm', zs.zoneName, 'Deploy portable HEPA filtration units in affected occupied areas as interim measure.', T_ENG)
+      pushZone('adm', zs.zoneName, 'Implement occupant risk communication plan per ATSDR guidance. Notify affected occupants of assessment findings and planned corrective actions.', T_ADM)
+      pushZone('adm', zs.zoneName, 'Evaluate feasibility of temporary relocation for symptomatic occupants until corrective actions are verified effective.', T_ADM)
     }
     if (hasMold || hasWater) {
-      pushZone('adm', zs.zoneName, 'Document loss and remediation scope for insurance notification.')
-      pushZone('mon', zs.zoneName, 'Establish re-occupancy and clearance criteria. Post-remediation verification required before returning to normal operations.')
+      pushZone('adm', zs.zoneName, 'Document loss and remediation scope for insurance notification.', T_ADM)
+      pushZone('mon', zs.zoneName, 'Establish re-occupancy and clearance criteria. Post-remediation verification required before returning to normal operations.', T_ADM)
     }
     // Data-gap-driven (HVAC gap is equipment-scoped; the rest are
     // zone-scoped because they're about taking measurements in the
@@ -199,9 +233,9 @@ export function genRecs(zoneScores, bldg, opts = {}) {
     zs.cats.forEach(c => {
       if (c.status === 'INSUFFICIENT' || c.status === 'DATA_GAP' || (c.capped && c.sufficiency?.sufficiency < 0.4)) {
         if (c.l === 'HVAC') trigger('comprehensive_hvac_assessment', zs.zoneName)
-        if (c.l === 'Ventilation') pushZone('eng', zs.zoneName, 'Obtain ventilation measurements (CO₂ differential, outdoor air delivery rate) to complete the assessment.')
-        if (c.l === 'Contaminants') pushZone('eng', zs.zoneName, 'Collect air quality measurements (PM2.5, CO) to establish contaminant baseline.')
-        if (c.l === 'Environment') pushZone('eng', zs.zoneName, 'Measure temperature and relative humidity to evaluate thermal comfort conditions.')
+        if (c.l === 'Ventilation') pushZone('eng', zs.zoneName, 'Obtain ventilation measurements (CO₂ differential, outdoor air delivery rate) to complete the assessment.', T_NONE)
+        if (c.l === 'Contaminants') pushZone('eng', zs.zoneName, 'Collect air quality measurements (PM2.5, CO) to establish contaminant baseline.', T_NONE)
+        if (c.l === 'Environment') pushZone('eng', zs.zoneName, 'Measure temperature and relative humidity to evaluate thermal comfort conditions.', T_NONE)
       }
     })
   })
@@ -235,6 +269,7 @@ export function genRecs(zoneScores, bldg, opts = {}) {
         equipmentId: eqId,
         equipmentLabel: eqLabel(eqId),
         text: def.text,
+        controlTier: def.tier,
         affectedZoneIds: affected,
         affectedZoneNames: affected,
       })
@@ -243,14 +278,24 @@ export function genRecs(zoneScores, bldg, opts = {}) {
       buckets[def.bucket].push({
         scope: 'building',
         text: `HVAC equipment not yet identified — ${def.text}`,
+        controlTier: def.tier,
         affectedZoneIds: unmapped,
         affectedZoneNames: unmapped,
       })
     }
   }
 
+  // ── Pressurization remedies ──
+  // Engineering controls, authored in the module that owns the
+  // mechanism. Appended rather than re-derived here: genRecs does not
+  // know how to read a door test, and should not learn — the
+  // every-layer-says-the-same-thing rule.
+  for (const action of pressurizationRecommendations(opts.pressurization)) {
+    buckets.eng.push(action)
+  }
+
   // ── Building-scoped tail ──
-  if (bldg.hm === 'Unknown') pushBuilding('adm', 'Establish preventive HVAC maintenance schedule.')
+  if (bldg.hm === 'Unknown') pushBuilding('adm', 'Establish preventive HVAC maintenance schedule.', [], T_ADM)
   // Monitoring wording depends on whether the screening surfaced any actual
   // deficiency. "Verify corrective action effectiveness" only fits when there
   // is a corrective action to verify — i.e. a critical/high/medium finding
@@ -261,7 +306,7 @@ export function genRecs(zoneScores, bldg, opts = {}) {
     (zs.cats || []).some(c => (c.r || []).some(r => r.sev === 'critical' || r.sev === 'high' || r.sev === 'medium')))
   pushBuilding('mon', hasDeficiency
     ? 'Conduct periodic reassessment to verify corrective action effectiveness.'
-    : 'Conduct periodic baseline reassessment to confirm conditions remain within screening ranges; no corrective actions are currently indicated.')
+    : 'Conduct periodic baseline reassessment to confirm conditions remain within screening ranges; no corrective actions are currently indicated.', [], T_ADM)
 
   // Dedup within each bucket — key off scope, equipment/zone id, and text.
   // When duplicates collapse (e.g. a building/system action surfaced from

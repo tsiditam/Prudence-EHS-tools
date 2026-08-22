@@ -49,6 +49,12 @@ const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\
 const ENGINES: ReadonlyArray<{ file: string; shape: 'merged' | 'raw' }> = [
   { file: 'src/engines/scoring.js', shape: 'merged' },
   { file: 'src/engines/causalChains.js', shape: 'merged' },
+  // The pressurization module's co-occurrence detectors read the merged
+  // record; its capture functions read the building and pre-survey
+  // records through their own locals (`b.`, `p.`), which this scan does
+  // not reach. Listed anyway so the detector fields — the ones that
+  // decide whether the mechanism consolidates — are covered.
+  { file: 'src/engines/pressurization.js', shape: 'merged' },
   { file: 'src/engines/sampling.js', shape: 'merged' },
   { file: 'src/engines/escalation.js', shape: 'raw' },
   { file: 'src/engine/hypotheses.ts', shape: 'raw' },
@@ -209,6 +215,16 @@ describe('the registry reconciles every place a field name is declared', () => {
     const shipped = [
       'fn', 'fl', 'ft', 'ht', 'sa', 'ba', 'rn', 'hm', 'fm', 'fc', 'od', 'dp',
       'bld_pressure', 'bld_exhaust', 'bld_intake_proximity',
+      // Building pressurization module. Building-scoped for the same
+      // reason bld_pressure is: the mechanism is a property of the
+      // building, and scoreZone merges the building record into every
+      // zone. Note that being IN this record is not the same as being
+      // scored — nothing here reaches the composite, which
+      // tests/engine/pressurization.test.ts asserts directly.
+      'bld_press_door', 'bld_press_method', 'bld_press_door_behavior',
+      'bld_press_dp_measured', 'bld_press_dp', 'bld_press_dp_units',
+      'bld_press_dp_location',
+      'bld_press_design', 'bld_press_design_units', 'bld_press_design_src',
       'wx_temp', 'wx_rh', 'wx_sky', 'wx_precip', 'wx_wind', 'wx_notes',
     ]
     expect([...BUILDING_SCOPED_IDS].sort()).toEqual([...shipped].sort())
