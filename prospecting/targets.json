@@ -1,0 +1,14 @@
+{
+  "window_days": 7,
+  "new_leads": 15,
+  "qualified_leads": 5,
+  "tier_a_standing": 12,
+  "_why": [
+    "The white paper's phase-1 goal is 100 IH professionals in three months.",
+    "5 qualified leads a week clears that with room for the ones that go cold.",
+    "tier_a_standing is a floor on the board, not a cumulative count: when it",
+    "drops the agent sources more; when it holds, the agent re-verifies old",
+    "evidence instead of adding volume. Raising these numbers raises effort,",
+    "not standards — the scoring rubric is what decides quality."
+  ]
+}
