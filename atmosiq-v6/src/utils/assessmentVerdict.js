@@ -64,6 +64,34 @@ export function countFindings(zoneScores) {
 }
 
 /**
+ * The category label carrying the worst finding across all zones, or null.
+ *
+ * Replaces "the category with the lowest score ratio" (`a.s / a.mx`),
+ * which the report used to name as the primary area of concern. That was
+ * a different question from the one it claimed to answer: a category can
+ * lose most of its points to several medium findings while another holds
+ * a single critical one, and the ratio names the first. What a reader
+ * wants is where the worst thing found is.
+ *
+ * Ties go to the first category encountered, so the answer is stable for
+ * a given input rather than dependent on iteration order.
+ */
+export function worstFindingCategory(zoneScores) {
+  let best = null
+  let bestRank = -1
+  for (const z of zoneScores || []) {
+    for (const c of z?.cats || []) {
+      for (const r of c?.r || []) {
+        if (!isFinding(r)) continue
+        const rank = RANK[r.sev] ?? -1
+        if (rank > bestRank) { bestRank = rank; best = c.l }
+      }
+    }
+  }
+  return best
+}
+
+/**
  * The Complaints category is capped when it escalates the verdict.
  *
  * Occupant symptom reports are `occupant_report_anecdotal` evidence. A cluster

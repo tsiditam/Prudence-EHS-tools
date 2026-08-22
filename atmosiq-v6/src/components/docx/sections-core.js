@@ -4,7 +4,7 @@
  */
 
 import { Paragraph, TextRun, HeadingLevel, AlignmentType, SectionType, PageBreak, ImageRun, Table, TableRow, TableCell, WidthType, ShadingType, BorderStyle } from 'docx'
-import { resolveVerdict, countFindings, isFinding } from '../../utils/assessmentVerdict'
+import { resolveVerdict, countFindings, worstFindingCategory } from '../../utils/assessmentVerdict'
 import { FONTS, COLORS, SEV_COLORS } from './styles'
 import { buildTable, kvTable, borderlessLayoutTable, dataCell, headerCell } from './tables'
 import { markdownToDocx } from './markdownToDocx'
@@ -19,29 +19,6 @@ const bullet = (text, opts = {}) => new Paragraph({
   bullet: { level: 0 },
   spacing: { after: 60 },
 })
-
-/**
- * The category label carrying the worst finding across all zones, or null.
- *
- * Severity ranks against the same ladder the verdict layer uses; ties go
- * to the first category encountered, which keeps the output stable for a
- * given input rather than depending on object key order.
- */
-const SEV_RANK = { low: 0, medium: 1, high: 2, critical: 3 }
-function worstFindingCategory(zoneScores) {
-  let best = null
-  let bestRank = -1
-  for (const z of zoneScores || []) {
-    for (const c of z?.cats || []) {
-      for (const r of c?.r || []) {
-        if (!isFinding(r)) continue
-        const rank = SEV_RANK[r.sev] ?? -1
-        if (rank > bestRank) { bestRank = rank; best = c.l }
-      }
-    }
-  }
-  return best
-}
 
 const numbered = (text, idx) => new Paragraph({
   children: [new TextRun({ text: `${idx + 1}. ${text}`, font: FONTS.body, size: 20, color: COLORS.sub })],

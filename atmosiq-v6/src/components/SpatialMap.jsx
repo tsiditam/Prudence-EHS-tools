@@ -7,17 +7,31 @@
 import { useState, useRef } from 'react'
 import { I } from './Icons'
 import { mix } from '../utils/theme'
-import { isIaqScoreVisible } from '../utils/featureFlags'
+import { countFindings, worstFindingSeverity } from '../utils/assessmentVerdict'
 
 const CARD = 'var(--card)', BORDER = 'var(--border)', ACCENT = 'var(--accent)'
 const TEXT = 'var(--text)', SUB = 'var(--sub)', DIM = 'var(--dim)', BG = 'var(--bg)'
 
-const PIN_COLORS = { critical: 'var(--danger)', high: '#FB923C', moderate: 'var(--warn)', low: 'var(--success)' }
-function pinColor(score) {
-  if (score === null || score === undefined) return DIM
-  if (score < 50) return PIN_COLORS.critical
-  if (score < 80) return PIN_COLORS.moderate
-  return PIN_COLORS.low
+const PIN_COLORS = { critical: 'var(--danger)', high: '#FB923C', medium: 'var(--warn)', low: 'var(--success)' }
+
+/**
+ * Pin colour from the worst finding recorded in a zone.
+ *
+ * This was a band ladder over the zone score (<50 / <80), a third set of
+ * thresholds that agreed with neither riskBands.js nor the print report.
+ * A pin now carries the severity of what was actually found there.
+ */
+function pinColor(zoneScore) {
+  if (!zoneScore) return DIM
+  const worst = worstFindingSeverity([zoneScore])
+  if (!worst) return PIN_COLORS.low
+  return PIN_COLORS[worst] || DIM
+}
+
+/** Finding count for a zone — what the pin displays. */
+function pinCount(zoneScore) {
+  if (!zoneScore) return null
+  return countFindings([zoneScore]).total
 }
 
 export default function SpatialMap({ zones, zoneScores, floorPlan, onUpdateZone, onUploadFloorPlan, onClose }) {
@@ -123,8 +137,9 @@ export default function SpatialMap({ zones, zoneScores, floorPlan, onUpdateZone,
             {/* Pins */}
             {zones.map((z, zi) => {
               if (z.mapX == null || z.mapY == null) return null
-              const score = zoneScores?.[zi]?.tot
-              const color = pinColor(score)
+              const zs = zoneScores?.[zi]
+              const color = pinColor(zs)
+              const count = pinCount(zs)
               return (
                 <div
                   key={zi}
@@ -132,7 +147,7 @@ export default function SpatialMap({ zones, zoneScores, floorPlan, onUpdateZone,
                   style={{ position: 'absolute', left: `${z.mapX}%`, top: `${z.mapY}%`, transform: 'translate(-50%, -100%)', cursor: 'pointer', zIndex: 10 }}
                 >
                   <div style={{ width: 24, height: 24, borderRadius: '50%', background: color, border: '2px solid #fff', boxShadow: `0 2px 8px ${color}80`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <span style={{ fontSize: 9, fontWeight: 800, color: '#fff', fontFamily: "var(--font-mono)" }}>{score ?? '?'}</span>
+                    <span style={{ fontSize: 9, fontWeight: 800, color: '#fff', fontFamily: "var(--font-mono)" }}>{count ?? '?'}</span>
                   </div>
                   <div style={{ width: 0, height: 0, borderLeft: '6px solid transparent', borderRight: '6px solid transparent', borderTop: `8px solid ${color}`, margin: '-1px auto 0' }} />
                 </div>
@@ -154,7 +169,7 @@ export default function SpatialMap({ zones, zoneScores, floorPlan, onUpdateZone,
         <div style={{ padding: 14, background: CARD, border: `1px solid ${BORDER}`, borderRadius: 10, marginBottom: 12 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: TEXT }}>{zones[selectedPin]?.zn}</div>
-            {isIaqScoreVisible() && <span style={{ fontSize: 18, fontWeight: 800, color: pinColor(zoneScores[selectedPin].tot), fontFamily: "var(--font-mono)" }}>{zoneScores[selectedPin].tot}/100</span>}
+            <span style={{ fontSize: 18, fontWeight: 800, color: pinColor(zoneScores[selectedPin]), fontFamily: "var(--font-mono)" }}>{pinCount(zoneScores[selectedPin])}</span>
           </div>
           <div style={{ fontSize: 10, color: DIM, marginBottom: 8 }}>Top Risk Factors</div>
           {getTopFindings(selectedPin).map((f, i) => (
@@ -175,10 +190,10 @@ export default function SpatialMap({ zones, zoneScores, floorPlan, onUpdateZone,
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {unmapped.map((z, i) => {
               const zi = zones.indexOf(z)
-              const score = zoneScores?.[zi]?.tot
+              const zs = zoneScores?.[zi]
               return (
                 <button key={zi} onClick={() => setDragging(zi)} style={{ padding: '6px 14px', borderRadius: 20, background: dragging === zi ? `${mix('accent', 13)}` : CARD, border: `1px solid ${dragging === zi ? ACCENT : BORDER}`, color: dragging === zi ? ACCENT : TEXT, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: pinColor(score) }} />
+                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: pinColor(zs) }} />
                   {z.zn || `Zone ${zi + 1}`}
                 </button>
               )

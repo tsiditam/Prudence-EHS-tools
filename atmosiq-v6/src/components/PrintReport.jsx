@@ -16,7 +16,7 @@
 
 import { legacyToAssessmentScore, deriveAssessmentMeta } from '../engine/bridge'
 import { formatAssessmentDate, resolveAssessmentDate } from '../utils/assessmentDate'
-import { resolveVerdict } from '../utils/assessmentVerdict'
+import { resolveVerdict, countFindings, worstFindingCategory, worstFindingSeverity, isFinding } from '../utils/assessmentVerdict'
 import { renderClientReport } from '../engine/report/client'
 import { generateClientReportHTML, generateModernClientReportHTML } from './print/client-html'
 import { generateModernSummaryHTML } from './print/modern-summary'
@@ -89,6 +89,15 @@ export function generateLegacyPrintHTML(data) {
   // because a critical finding zeroes its category but leaves the other four
   // intact and the weighted mean stays >= 70.
   const verdict = resolveVerdict({ comp, zoneScores, escalationTriggers })
+  // What was found, counted — the headline where the composite score and
+  // its risk band used to be. A census describes; a score ranks, and the
+  // ranking is what nobody could explain.
+  const census = countFindings(zoneScores)
+  const censusHeadline = census.total === 0
+    ? 'No findings identified'
+    : census.attention === 0
+      ? `${census.total} finding${census.total === 1 ? '' : 's'} recorded`
+      : `${census.attention} of ${census.total} finding${census.total === 1 ? '' : 's'} warrant${census.attention === 1 ? 's' : ''} attention`
   // Engine v2.8.0 — recs are now RecommendationAction objects. The
   // legacy print template expects flat strings, so flatten upfront so
   // the rest of the function (which is multi-hundred-line legacy HTML
@@ -123,8 +132,12 @@ export function generateLegacyPrintHTML(data) {
   const firmEmail = profile?.email || 'support@prudenceehs.com'
 
   const sevColor = (sev) => ({ critical:'#B91C1C', high:'#C2410C', medium:'#A16207', low:'#1B2A41', pass:'#15803D', info:'#475569' }[sev] || '#475569')
-  const scoreColor = (s) => s >= 70 ? '#15803D' : s >= 50 ? '#A16207' : '#B91C1C'
-  const riskLabel = (s) => s >= 80 ? 'Low Risk' : s >= 60 ? 'Moderate' : s >= 40 ? 'High Risk' : 'Critical'
+  // `scoreColor` and `riskLabel` lived here — local re-implementations of
+  // the band ladder with thresholds (70/50 and 80/60/40) that matched
+  // neither each other nor riskBands.js. Colour now comes from a
+  // finding's own severity, which has one definition.
+  const SEV_HEX = { critical: '#B91C1C', high: '#B91C1C', medium: '#A16207', low: '#64748B' }
+  const SEV_ORDER = { low: 0, medium: 1, high: 2, critical: 3 }
   const confLabel = oshaResult?.conf || 'Not evaluated'
 
   const catRows = (cats) => cats.map(cat => {
@@ -146,13 +159,18 @@ export function generateLegacyPrintHTML(data) {
         <td style="padding:8px 12px;font-family:Cambria,serif;font-size:11px;color:#94A3B8;text-align:right;border-bottom:1px solid #F1F5F9;">—</td>
       </tr>`
     }
-    const pct = Math.round((cat.s / cat.mx) * 100)
+    // A category row used to be a score, a proportional bar and a
+    // percentage. All three answered "how many points did this category
+    // keep", which the reader has no use for. What is left is what the
+    // category found.
+    const catFindings = (cat.r || []).filter(isFinding)
+    const worstSev = catFindings.reduce((w, r) => (SEV_ORDER[r.sev] > SEV_ORDER[w] ? r.sev : w), 'low')
     return `
       <tr>
         <td style="padding:8px 12px;font-weight:600;font-size:12px;border-bottom:1px solid #F1F5F9;">${cat.l}</td>
-        <td style="padding:8px 12px;font-family:Cambria,serif;font-size:12px;text-align:center;border-bottom:1px solid #F1F5F9;">${cat.s}/${cat.mx}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #F1F5F9;"><div style="height:6px;background:#F1F5F9;border-radius:3px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:${pct>=70?'#15803D':pct>=50?'#A16207':'#B91C1C'};border-radius:3px;"></div></div></td>
-        <td style="padding:8px 12px;font-family:Cambria,serif;font-size:11px;color:${scoreColor(pct)};text-align:right;border-bottom:1px solid #F1F5F9;">${pct}%</td>
+        <td style="padding:8px 12px;font-family:Cambria,serif;font-size:12px;text-align:center;border-bottom:1px solid #F1F5F9;">${catFindings.length || '—'}</td>
+        <td style="padding:8px 12px;font-size:11px;color:#475569;border-bottom:1px solid #F1F5F9;">${catFindings.length ? catFindings.slice(0, 2).map(r => esc(r.t)).join('; ') : 'No findings identified'}</td>
+        <td style="padding:8px 12px;font-size:11px;font-weight:600;color:${catFindings.length ? SEV_HEX[worstSev] : '#94A3B8'};text-align:right;border-bottom:1px solid #F1F5F9;">${catFindings.length ? worstSev.toUpperCase() : '—'}</td>
       </tr>`
   }).join('')
 
@@ -191,9 +209,6 @@ export function generateLegacyPrintHTML(data) {
     .cover-meta strong { color: #1B2A41; font-weight: 600; }
     .def-panel { padding: 14px 18px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; margin-bottom: 20px; font-size: 10px; color: #64748B; }
     .def-panel td { padding: 3px 0; border: none; font-size: 10px; }
-    .score-box { text-align: center; padding: 20px; border: 1px solid #E2E8F0; border-radius: 6px; margin-bottom: 16px; }
-    .score-num { font-size: 42px; font-weight: 800; letter-spacing: -2px; }
-    .risk-badge { display: inline-block; padding: 3px 12px; border-radius: 3px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
     .zone-card { border: 1px solid #E2E8F0; border-radius: 6px; padding: 20px; margin-bottom: 24px; page-break-inside: avoid; }
     .chain-card { padding: 14px 18px; border: 1px solid #E2E8F0; border-radius: 6px; margin-bottom: 10px; page-break-inside: avoid; }
     .evidence-item { font-size: 11px; padding: 3px 0 3px 14px; border-left: 2px solid #CBD5E1; margin-bottom: 3px; color: #475569; }
@@ -234,7 +249,7 @@ export function generateLegacyPrintHTML(data) {
     <p><strong>Re: Indoor Air Quality Assessment Report</strong></p>
     <p>${esc(firmName)} was retained to conduct an indoor air quality assessment at ${esc(bldg.fn) || 'the subject facility'}${presurvey?.ps_reason ? ` in response to ${presurvey.ps_reason.toLowerCase()}` : ''}. This report presents the findings, analysis, and recommendations resulting from our assessment conducted on ${assessDate}.</p>
     <p>The assessment encompassed ${(zones||[]).length} zone${(zones||[]).length !== 1 ? 's' : ''} and included direct-reading instrumentation, visual inspection, HVAC system evaluation, and occupant complaint documentation. Findings are referenced against published ASHRAE, OSHA, NIOSH, EPA, and WHO standards as identified in the attached standards manifest.</p>
-    <p>Detailed findings, scored evaluations, and tiered recommendations are presented in the body of this report.${comp ? ` The composite assessment score of ${comp.tot}/100 (${comp.risk}) reflects conditions observed across ${(zones||[]).length} assessed zone${(zones||[]).length !== 1 ? 's' : ''}.` : ''} Priority corrective actions, where applicable, are summarized in the Executive Summary.</p>
+    <p>Detailed findings, evaluations against the cited criteria, and tiered recommendations are presented in the body of this report.${(zoneScores||[]).length ? ` ${censusHeadline} across ${(zones||[]).length} assessed zone${(zones||[]).length !== 1 ? 's' : ''}.` : ''} Priority corrective actions, where applicable, are summarized in the Executive Summary.</p>
     <p>This report is intended for the sole use of the addressee and should not be distributed without written authorization from PSEC. The conclusions herein are based on conditions observed at the time of assessment and should be interpreted in context with professional judgment. We remain available for follow-up consultation, additional sampling, or clarification of any findings.</p>
     <p style="margin-top:24px;">Respectfully submitted,</p>
     <p style="margin-top:16px;"><strong>${esc(assessor)}</strong><br>${(profile?.certs||[]).join(', ') || ''}<br>${esc(firmName)}<br>${esc(firmEmail)} | ${esc(firmPhone)}</p>
@@ -255,29 +270,21 @@ export function generateLegacyPrintHTML(data) {
     })()}
   </div>
 
-  ${userMode === 'fm' && reportTemplate === 'observational_only' ? `
-  <!-- ═══ FM OBSERVATIONAL-ONLY HEADER ═══ -->
-  <div style="text-align:center;padding:40px 0 30px;border-bottom:1px solid #E2E8F0;margin-bottom:24px;">
-    <div style="font-size:22px;font-weight:700;color:#0F172A;">Observational Assessment — No Score Generated</div>
-    <p style="font-size:12px;color:#475569;max-width:500px;margin:12px auto;line-height:1.7;">This assessment documents observed conditions and occupant reports. It does not produce a numeric air quality score. Where conditions warrant, professional evaluation is recommended below.</p>
-    <p style="font-size:10px;color:#94A3B8;max-width:460px;margin:8px auto;line-height:1.6;font-style:italic;">AtmosFlow does not generate scores from observational data alone. When you measure, we score. When you observe, we document and flag.</p>
-    ${(escalationTriggers || []).length > 0 ? `
-    <div style="background:#FEF2F2;border:2px solid #FECACA;border-radius:8px;padding:14px 20px;margin:16px auto;max-width:460px;text-align:left;">
-      <div style="font-size:13px;font-weight:700;color:#B91C1C;margin-bottom:6px;">⚠ Professional Evaluation Required</div>
-      ${escalationTriggers.map(t => `<div style="font-size:11px;color:#7F1D1D;margin-bottom:4px;">• ${t.rationale}</div>`).join('')}
-    </div>` : ''}
-    <p style="font-size:10px;color:#94A3B8;margin-top:20px;">For quantitative air quality measurement, contact a credentialed industrial hygiene professional or consider adding instrumentation to your assessment protocol.</p>
-  </div>
-  ` : ''}
-
-  ${userMode === 'fm' && comp && reportTemplate !== 'observational_only' ? `
+  ${userMode === 'fm' ? `
   <!-- ═══ FM SUMMARY LAYER ═══ -->
+  <!--
+    One header, where there were two. The split was between an
+    "observational only" assessment (no score) and a measured one (score
+    ring): the same building, described two different ways depending on
+    whether a number could be produced for it. With no score to produce,
+    what is left is what was found — which is what both branches were
+    reaching for.
+  -->
   <div style="text-align:center;padding:40px 0 30px;border-bottom:1px solid #E2E8F0;margin-bottom:24px;">
-    <div style="width:80px;height:80px;border-radius:50%;background:${comp.tot >= 70 ? '#22C55E15' : comp.tot >= 50 ? '#FBBF2415' : comp.tot >= 40 ? '#FB923C15' : '#EF444415'};border:3px solid ${scoreColor(comp.tot)};display:inline-flex;align-items:center;justify-content:center;margin-bottom:16px;">
-      <span style="font-size:28px;font-weight:800;font-family:Cambria,serif;color:${scoreColor(comp.tot)};">${comp.tot}</span>
-    </div>
-    <div style="font-size:22px;font-weight:700;color:${scoreColor(comp.tot)};">${comp.tot >= 80 ? 'Low Risk' : comp.tot >= 60 ? 'Moderate' : comp.tot >= 40 ? 'High Risk' : 'Critical'}</div>
-    <p style="font-size:13px;color:#475569;max-width:500px;margin:12px auto;line-height:1.7;">${verdict.severity === 'pass' ? 'The air quality in this building appears to be within acceptable ranges based on the measurements taken.' : verdict.severity === 'medium' ? 'Some air quality concerns were identified that may benefit from attention. See recommended actions below.' : 'Significant air quality concerns were identified. Corrective action is recommended.'}</p>
+    <div style="font-size:22px;font-weight:700;color:#0F172A;">${censusHeadline}</div>
+    <p style="font-size:13px;color:#475569;max-width:500px;margin:12px auto;line-height:1.7;">${verdict.severity === 'pass' ? 'The conditions measured and observed during this assessment appear to be within acceptable ranges.' : verdict.severity === 'medium' ? 'Some air quality concerns were identified that may benefit from attention. See recommended actions below.' : 'Significant air quality concerns were identified. Corrective action is recommended.'}</p>
+    ${reportTemplate === 'observational_only' ? `
+    <p style="font-size:10px;color:#94A3B8;max-width:460px;margin:8px auto;line-height:1.6;font-style:italic;">This assessment documents observed conditions and occupant reports without instrument measurements. Where conditions warrant, professional evaluation is recommended below.</p>` : ''}
     ${(escalationTriggers || []).length > 0 ? `
     <div style="background:#FEF2F2;border:2px solid #FECACA;border-radius:8px;padding:14px 20px;margin:16px auto;max-width:460px;text-align:left;">
       <div style="font-size:13px;font-weight:700;color:#B91C1C;margin-bottom:6px;">⚠ Professional Evaluation Required</div>
@@ -309,9 +316,6 @@ export function generateLegacyPrintHTML(data) {
   <h2>Executive Summary</h2>
 
   ${comp ? (() => {
-    const worstZone = zoneScores?.reduce((a, b) => a.tot < b.tot ? a : b, zoneScores[0])
-    const scoredCatsWZ = worstZone?.cats?.filter(c => c.s !== null && c.status !== 'SUPPRESSED') || []
-    const worstCat = scoredCatsWZ.length > 0 ? scoredCatsWZ.reduce((a, b) => (a.s/a.mx) < (b.s/b.mx) ? a : b) : null
     const hasGate5 = zoneScores?.some(zs => zs.cats?.some(c => c.gate5))
     const hasSynergistic = zoneScores?.some(zs => zs.cats?.some(c => c.synergistic))
     const allFindings = (zoneScores||[]).flatMap(zs => zs.cats.flatMap(c => c.r.filter(r => r.sev !== 'pass' && r.sev !== 'info').map(r => ({ ...r, zone: zs.zoneName, cat: c.l }))))
@@ -320,31 +324,33 @@ export function generateLegacyPrintHTML(data) {
 
     return `
     <!-- Executive Summary Dashboard -->
+    <!--
+      The score panel and the composite table stood here: a 36pt numeral
+      "out of 100", a risk-band chip, and six rows explaining how the
+      number was reached (zone average, worst zone, composite logic).
+      Five of those six rows described the arithmetic rather than the
+      building. What replaces them is the census and the two facts a
+      reader actually needs alongside it — how much was assessed, and
+      how far the measurements can be trusted.
+    -->
     <div style="display:flex;gap:16px;margin-bottom:20px;">
       <div style="flex:0 0 120px;text-align:center;padding:20px 16px;border:1px solid #D1D5DB;border-radius:6px;">
-        <div style="font-size:36px;font-weight:800;font-family:Cambria,serif;color:${scoreColor(comp.tot)};letter-spacing:-2px;">${comp.tot}</div>
-        <div style="font-size:9px;color:#5C6F7E;margin-top:2px;">out of 100</div>
-        <div style="display:inline-block;padding:3px 10px;border-radius:3px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;background:${scoreColor(comp.tot)}12;color:${scoreColor(comp.tot)};margin-top:8px;">${comp.risk || riskLabel(comp.tot)}</div>
+        <div style="font-size:36px;font-weight:800;font-family:Cambria,serif;color:${census.attention ? '#B91C1C' : '#15803D'};letter-spacing:-2px;">${census.total}</div>
+        <div style="font-size:9px;color:#5C6F7E;margin-top:2px;">finding${census.total === 1 ? '' : 's'}</div>
+        ${census.attention ? `<div style="display:inline-block;padding:3px 10px;border-radius:3px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;background:#B91C1C12;color:#B91C1C;margin-top:8px;">${census.attention} need${census.attention === 1 ? 's' : ''} action</div>` : ''}
       </div>
       <div style="flex:1;">
         <table style="width:100%;margin-bottom:8px;"><tbody>
-          <tr><td style="padding:4px 0;border:none;font-size:11px;color:#5C6F7E;width:140px;">Composite score</td><td style="padding:4px 0;border:none;font-size:11px;font-weight:700;color:#1B2A41;">${comp.tot}/100 (${comp.risk})</td></tr>
-          <tr><td style="padding:4px 0;border:none;font-size:11px;color:#5C6F7E;">Zone average</td><td style="padding:4px 0;border:none;font-size:11px;font-weight:600;">${comp.avg}/100</td></tr>
-          <tr><td style="padding:4px 0;border:none;font-size:11px;color:#5C6F7E;">Worst zone</td><td style="padding:4px 0;border:none;font-size:11px;font-weight:600;color:${scoreColor(comp.worst)};">${worstZone?.zoneName || '—'} (${comp.worst}/100)</td></tr>
-          <tr><td style="padding:4px 0;border:none;font-size:11px;color:#5C6F7E;">Zones assessed</td><td style="padding:4px 0;border:none;font-size:11px;font-weight:600;">${comp.count}</td></tr>
-          <tr><td style="padding:4px 0;border:none;font-size:11px;color:#5C6F7E;">Measurement confidence</td><td style="padding:4px 0;border:none;font-size:11px;font-weight:600;">${comp.confidence || confLabel}</td></tr>
-          <tr><td style="padding:4px 0;border:none;font-size:11px;color:#5C6F7E;">Composite logic</td><td style="padding:4px 0;border:none;font-size:11px;font-weight:500;color:#5C6F7E;">${comp.logic === 'worst-zone-override' ? 'worst-zone Critical override (Critical zone present)' : 'Priority-weighted mean of zones'}</td></tr>
+          ${census.bySeverity.critical ? `<tr><td style="padding:4px 0;border:none;font-size:11px;color:#5C6F7E;width:140px;">Critical findings</td><td style="padding:4px 0;border:none;font-size:11px;font-weight:700;color:#B91C1C;">${census.bySeverity.critical}</td></tr>` : ''}
+          ${census.bySeverity.high ? `<tr><td style="padding:4px 0;border:none;font-size:11px;color:#5C6F7E;width:140px;">High severity</td><td style="padding:4px 0;border:none;font-size:11px;font-weight:700;color:#B91C1C;">${census.bySeverity.high}</td></tr>` : ''}
+          ${census.bySeverity.medium ? `<tr><td style="padding:4px 0;border:none;font-size:11px;color:#5C6F7E;width:140px;">Medium severity</td><td style="padding:4px 0;border:none;font-size:11px;font-weight:600;">${census.bySeverity.medium}</td></tr>` : ''}
+          ${census.bySeverity.low ? `<tr><td style="padding:4px 0;border:none;font-size:11px;color:#5C6F7E;width:140px;">Low severity</td><td style="padding:4px 0;border:none;font-size:11px;font-weight:600;">${census.bySeverity.low}</td></tr>` : ''}
+          ${census.total === 0 ? `<tr><td style="padding:4px 0;border:none;font-size:11px;color:#5C6F7E;width:140px;">Findings</td><td style="padding:4px 0;border:none;font-size:11px;font-weight:600;">None identified</td></tr>` : ''}
+          <tr><td style="padding:4px 0;border:none;font-size:11px;color:#5C6F7E;">Zones assessed</td><td style="padding:4px 0;border:none;font-size:11px;font-weight:600;">${(zoneScores || []).length}</td></tr>
+          <tr><td style="padding:4px 0;border:none;font-size:11px;color:#5C6F7E;">Measurement confidence</td><td style="padding:4px 0;border:none;font-size:11px;font-weight:600;">${confLabel}</td></tr>
+          ${verdict.partialData ? `<tr><td style="padding:4px 0;border:none;font-size:11px;color:#5C6F7E;">Data completeness</td><td style="padding:4px 0;border:none;font-size:11px;font-weight:500;color:#5C6F7E;">Some categories assessed on incomplete data — see data gaps</td></tr>` : ''}
         </tbody></table>
       </div>
-    </div>
-
-    <!-- Composite Score Explanation -->
-    <div style="padding:10px 14px;background:#F3F4F6;border:1px solid #D1D5DB;border-radius:4px;margin-bottom:16px;font-size:10px;color:#5C6F7E;line-height:1.6;">
-      <strong style="color:#1B2A41;">Composite Score Explanation:</strong>
-      ${comp.logic === 'worst-zone-override'
-        ? `The composite score of ${comp.tot}/100 reflects the worst-zone override per AtmosFlow deterministic scoring methodology. Because ${worstZone?.zoneName || 'one zone'} scored in the Critical range (${comp.worst}/100), the composite equals the worst zone score rather than the average. This ensures a single area of significant concern cannot be masked by otherwise acceptable conditions elsewhere in the facility.`
-        : `The composite score of ${comp.tot}/100 reflects a priority-weighted mean across ${comp.count} assessed zones. Mission-critical zones (if present) carry additional weight in the calculation. No zones scored in the Critical range, so the worst-zone Critical override was not applied. The score represents a structured prioritization tool — not a compliance determination.`
-      }
     </div>
 
     ${hasGate5 ? '<div style="padding:10px 14px;background:#FEF2F2;border:1px solid #FECACA;border-radius:4px;margin-bottom:16px;font-size:11px;color:#7F1D1D;font-weight:600;">⚠ Critical HVAC Condition Identified: Active moisture or filtration deficiency detected in HVAC system.</div>' : ''}
@@ -354,19 +360,17 @@ export function generateLegacyPrintHTML(data) {
 
   ${narrative ? `
   <div class="narrative">${narrative}</div>
-  <div class="note">This narrative was generated from deterministic scoring output and requires professional review before client distribution.</div>
+  <div class="note">This narrative was generated from the assessment's recorded findings and requires professional review before client distribution.</div>
   ` : (() => {
-    const worstZone2 = zoneScores?.reduce((a, b) => a.tot < b.tot ? a : b, zoneScores[0])
-    const scoredCatsWZ2 = worstZone2?.cats?.filter(c => c.s !== null && c.status !== 'SUPPRESSED') || []
-    const worstCat2 = scoredCatsWZ2.length > 0 ? scoredCatsWZ2.reduce((a, b) => (a.s/a.mx) < (b.s/b.mx) ? a : b) : null
+    const worstCat2 = worstFindingCategory(zoneScores)
     const hasZoneComplaints = (zoneScores||[]).some(zs => zs.cats.some(c => c.l === 'Complaints' && c.r.some(r => r.sev === 'critical' || r.sev === 'high' || r.sev === 'medium')))
     const complaintNote = hasZoneComplaints ? ' Note: While no formal complaints were filed prior to this assessment, occupant symptom reports were documented during the site walkthrough. See zone findings for details.' : ''
     const p1 = `An indoor air quality assessment was conducted at ${esc(bldg.fn) || 'the subject facility'} on ${assessDate}, encompassing ${(zones||[]).length} zone${(zones||[]).length !== 1 ? 's' : ''}${presurvey?.ps_reason ? ` in response to ${presurvey.ps_reason.toLowerCase()}` : ''}. The assessment included direct-reading instrument measurements, visual inspection, HVAC system evaluation, and occupant complaint documentation.${complaintNote}`
     const p2 = verdict.severity === 'pass'
-      ? `Available evidence supports that conditions observed during the assessment window are broadly consistent with applicable occupancy standards. The composite score of ${comp.tot}/100 reflects acceptable conditions across the majority of evaluated zones, with localized areas warranting targeted follow-up as detailed in the zone findings below.`
+      ? `Available evidence supports that conditions observed during the assessment window are broadly consistent with applicable occupancy standards, with localized areas warranting targeted follow-up as detailed in the zone findings below.`
       : verdict.severity === 'medium'
-        ? `Conditions observed during the assessment window suggest moderate indoor air quality concerns. The composite score of ${comp.tot}/100 reflects a weighted evaluation across five categories, with ${worstCat2 ? `${worstCat2.l} (${worstCat2.s}/${worstCat2.mx}) identified as the primary area of concern` : 'multiple categories showing room for improvement'}. Targeted investigation is recommended in the areas identified below.`
-        : `Conditions observed during the assessment window indicate significant indoor air quality concerns that would warrant prioritized remediation. The composite score of ${comp?.tot || '—'}/100 reflects deficiencies across multiple evaluation categories${worstCat2 ? `, with ${worstCat2.l} (${worstCat2.s}/${worstCat2.mx}) representing the most acute concern` : ''}. The findings and recommendations in this report are intended to support a structured corrective action process.`
+        ? `Conditions observed during the assessment window suggest moderate indoor air quality concerns. ${censusHeadline}${worstCat2 ? `, with ${worstCat2} identified as the primary area of concern` : ''}. Targeted investigation is recommended in the areas identified below.`
+        : `Conditions observed during the assessment window indicate significant indoor air quality concerns that would warrant prioritized remediation. ${censusHeadline}${worstCat2 ? `, with ${worstCat2} representing the most acute concern` : ''}. The findings and recommendations in this report are intended to support a structured corrective action process.`
     const hasDataGaps = (zoneScores||[]).some(zs => zs.partialScore)
     const p3 = hasDataGaps ? ' Note: One or more scoring categories could not be fully evaluated due to unavailable documentation. The composite score reflects measured parameters only; confidence has been reduced accordingly. Categories marked as data gaps are not converted into risk findings.' : ''
     const p4 = samplingPlan?.outdoorGaps?.length > 0 ? ' Outdoor baseline measurements were not obtained for all parameters, limiting source attribution for certain findings. See Limitations section for details.' : ''
@@ -465,15 +469,15 @@ export function generateLegacyPrintHTML(data) {
 
   <!-- ═══ OVERALL FINDINGS ═══ -->
   <h2 class="pg-break">Overall Findings Dashboard</h2>
-  ${comp ? `
+  ${(zoneScores || []).length ? `
   <div style="display:flex;gap:12px;margin-bottom:16px;">
-    ${[{l:'Composite',v:comp.tot},{l:'Average',v:comp.avg},{l:'Worst Zone',v:comp.worst}].map(m => `
+    ${[{l:'Findings',v:census.total},{l:'Need action',v:census.attention},{l:'Zones',v:(zoneScores||[]).length}].map(m => `
     <div style="flex:1;text-align:center;padding:12px;border:1px solid #E2E8F0;border-radius:6px;">
-      <div style="font-size:24px;font-weight:800;font-family:Cambria,serif;color:${scoreColor(m.v)};">${m.v}</div>
+      <div style="font-size:24px;font-weight:800;font-family:Cambria,serif;color:${m.l === 'Need action' && m.v ? '#B91C1C' : '#1B2A41'};">${m.v}</div>
       <div style="font-size:9px;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;margin-top:2px;">${m.l}</div>
     </div>`).join('')}
   </div>
-  <p style="font-size:11px;color:#475569;margin-bottom:16px;">Conditions observed during the assessment window suggest ${verdict.severity === 'pass' ? 'overall acceptable indoor air quality, with localized areas that may warrant targeted follow-up as detailed in the zone sections below.' : verdict.severity === 'medium' ? 'moderate indoor air quality concerns across one or more zones. Targeted investigation and corrective action would be warranted in the areas identified below.' : 'significant indoor air quality concerns that would warrant prioritized remediation as detailed in the zone sections and recommendations register below.'} The composite score of <strong>${comp.tot}/100</strong> reflects a weighted evaluation across ventilation, contaminant levels, HVAC system conditions, occupant complaints, and environmental factors.</p>
+  <p style="font-size:11px;color:#475569;margin-bottom:16px;">Conditions observed during the assessment window suggest ${verdict.severity === 'pass' ? 'overall acceptable indoor air quality, with localized areas that may warrant targeted follow-up as detailed in the zone sections below.' : verdict.severity === 'medium' ? 'moderate indoor air quality concerns across one or more zones. Targeted investigation and corrective action would be warranted in the areas identified below.' : 'significant indoor air quality concerns that would warrant prioritized remediation as detailed in the zone sections and recommendations register below.'} ${censusHeadline}, across ventilation, contaminant levels, HVAC system conditions, occupant complaints, and environmental factors.</p>
   ` : ''}
 
   <!-- ═══ ZONE-BY-ZONE FINDINGS ═══ -->
@@ -488,9 +492,12 @@ export function generateLegacyPrintHTML(data) {
           <div style="font-size:10px;color:#64748B;margin-top:2px;">${z.zt || ''} ${z.zo ? `· ${z.zo} occupants` : ''} ${z.za ? `· ${z.za} sq ft` : ''}${z.meas_time ? ` · Assessed at ${z.meas_time}` : ''}</div>
         </div>
         <div style="text-align:right;">
-          <span style="font-family:Cambria,serif;font-size:22px;font-weight:800;color:${scoreColor(zs.tot)};">${zs.tot}</span>
-          <span style="font-size:10px;color:#64748B;">/100</span>
-          <div style="font-size:9px;color:${scoreColor(zs.tot)};font-weight:700;">${zs.risk}</div>
+          ${(() => {
+            const zc = countFindings([zs])
+            return `<span style="font-family:Cambria,serif;font-size:22px;font-weight:800;color:${zc.attention ? '#B91C1C' : '#1B2A41'};">${zc.total}</span>
+          <span style="font-size:10px;color:#64748B;">finding${zc.total === 1 ? '' : 's'}</span>
+          ${zc.attention ? `<div style="font-size:9px;color:#B91C1C;font-weight:700;">${zc.attention} NEED${zc.attention === 1 ? 'S' : ''} ACTION</div>` : ''}`
+          })()}
         </div>
       </div>
       ${/* Observations */(() => {
@@ -556,30 +563,46 @@ export function generateLegacyPrintHTML(data) {
       <table style="margin-bottom:12px;"><thead><tr><th>Category</th><th style="text-align:center;">Score</th><th>Performance</th><th style="text-align:right;">%</th></tr></thead><tbody>${catRows(zs.cats)}</tbody></table>
 
       ${/* Interpretation */(() => {
-        const scored = zs.cats.filter(c => c.s !== null && c.status !== 'SUPPRESSED')
-        if (!scored.length) return '<h3>Interpretation</h3><p style="font-size:11px;color:#94A3B8;font-style:italic;line-height:1.8;">Insufficient data for interpretation. Additional measurements are recommended.</p>'
-        const worst = scored.reduce((a, b) => ((a.s/a.mx) < (b.s/b.mx) ? a : b))
-        const worstPct = Math.round((worst.s / worst.mx) * 100)
-        const openers = [
-          `Conditions observed in this zone are consistent with a ${zs.risk.toLowerCase()} assessment (${zs.tot}/100).`,
-          `Assessment of this zone indicates a ${zs.risk.toLowerCase()} condition, with a composite zone score of ${zs.tot}/100.`,
-          `Field observations and measurements in this zone reflect ${zs.risk.toLowerCase()} indoor air quality conditions (${zs.tot}/100).`,
-          `The evaluation of this zone yields a score of ${zs.tot}/100, characteristic of ${zs.risk.toLowerCase()} conditions.`,
-          `Conditions documented during the walkthrough of this zone are consistent with a ${zs.risk.toLowerCase()} classification (${zs.tot}/100).`,
-        ]
-        const contribs = [
-          `The primary contributing category is ${worst.l} (${worst.s}/${worst.mx}, ${worstPct}%),`,
-          `${worst.l} (${worst.s}/${worst.mx}, ${worstPct}%) is the most significant contributing factor,`,
-          `The category of greatest concern is ${worst.l}, scoring ${worst.s}/${worst.mx} (${worstPct}%),`,
-          `${worst.l} represents the primary area of concern at ${worst.s}/${worst.mx} (${worstPct}%),`,
-        ]
-        const qualifier = worstPct < 50 ? ' which represents a significant concern and would warrant prioritized attention.' : worstPct < 70 ? ' which suggests conditions that may benefit from targeted corrective action.' : ' which is performing within an acceptable range.'
-        const multiLow = scored.filter(c => (c.s/c.mx) < 0.5).length > 1 ? ' Multiple categories scored below 50%, suggesting interrelated contributing factors.' : ''
-        const dataGapNote = zs.insufficientCats?.length ? ` Note: ${zs.insufficientCats.join(', ')} ${zs.insufficientCats.length === 1 ? 'was' : 'were'} not scored due to insufficient data; confidence is reduced accordingly.` : ''
-        const hvacAdminNote = zs.hvacAdminGap ? ' HVAC maintenance history was not available; this reduces assessment confidence but is not scored as a physical deficiency.' : ''
+        // The interpretation used to open on the zone's score and band,
+        // then name the "primary contributing category" by score ratio
+        // and qualify it by percentage. Every number in it described the
+        // arithmetic. It now opens on what was found and names the
+        // category holding the worst of it.
+        const zoneCensus = countFindings([zs])
+        const assessedCats = zs.cats.filter(c => c.status !== 'SUPPRESSED')
+        if (!assessedCats.length) return '<h3>Interpretation</h3><p style="font-size:11px;color:#94A3B8;font-style:italic;line-height:1.8;">Insufficient data for interpretation. Additional measurements are recommended.</p>'
+        const worstCatName = worstFindingCategory([zs])
+        const worstSevInZone = worstFindingSeverity([zs])
+        const openers = zoneCensus.total === 0
+          ? [
+            'No findings were identified in this zone during the assessment.',
+            'The assessment of this zone identified no findings.',
+          ]
+          : [
+            `${zoneCensus.total} finding${zoneCensus.total === 1 ? ' was' : 's were'} recorded in this zone.`,
+            `Assessment of this zone recorded ${zoneCensus.total} finding${zoneCensus.total === 1 ? '' : 's'}.`,
+            `Field observations and measurements in this zone produced ${zoneCensus.total} finding${zoneCensus.total === 1 ? '' : 's'}.`,
+            `The evaluation of this zone documented ${zoneCensus.total} finding${zoneCensus.total === 1 ? '' : 's'}.`,
+          ]
+        const contribs = worstCatName
+          ? [
+            ` The most significant sits under ${worstCatName}`,
+            ` ${worstCatName} carries the most significant of them`,
+            ` The category of greatest concern is ${worstCatName}`,
+            ` ${worstCatName} represents the primary area of concern`,
+          ]
+          : ['']
+        const qualifier = !worstCatName ? ''
+          : worstSevInZone === 'critical' ? ', which would warrant prioritized attention.'
+            : worstSevInZone === 'high' ? ', which would warrant targeted corrective action.'
+              : '.'
+        const multiCat = assessedCats.filter(c => (c.r || []).some(isFinding)).length > 1
+          ? ' Findings appear in more than one category, which can indicate interrelated contributing factors.' : ''
+        const dataGapNote = zs.insufficientCats?.length ? ` Note: ${zs.insufficientCats.join(', ')} ${zs.insufficientCats.length === 1 ? 'was' : 'were'} not assessed due to insufficient data; confidence is reduced accordingly.` : ''
+        const hvacAdminNote = zs.hvacAdminGap ? ' HVAC maintenance history was not available; this reduces assessment confidence but is not itself a physical deficiency.' : ''
         return `
           <h3>Interpretation</h3>
-          <p style="font-size:11px;color:#475569;line-height:1.8;">${openers[zi % openers.length]} ${contribs[zi % contribs.length]}${qualifier}${multiLow}${dataGapNote}${hvacAdminNote}</p>`
+          <p style="font-size:11px;color:#475569;line-height:1.8;">${openers[zi % openers.length]}${zoneCensus.total ? contribs[zi % contribs.length] + qualifier : ''}${multiCat}${dataGapNote}${hvacAdminNote}</p>`
       })()}
 
       ${/* Contributing Factors */(() => {
@@ -611,8 +634,8 @@ export function generateLegacyPrintHTML(data) {
       ${/* Confidence and Missing Data */(() => {
         const zoneConf = zs.confidence || confLabel
         const confExplain = zoneConf === 'Low' || zoneConf === 'Insufficient'
-          ? (zs.insufficientCats?.length ? ` — ${zs.insufficientCats.join(', ')} data not available; score reflects measured parameters only` : ' — limited data available; findings are directional pending follow-up')
-          : zs.tot < 40 ? ' — findings are directional pending follow-up' : ''
+          ? (zs.insufficientCats?.length ? ` — ${zs.insufficientCats.join(', ')} data not available; this assessment reflects the measured parameters only` : ' — limited data available; findings are directional pending follow-up')
+          : ''
         const gaps = oshaResult?.gaps || []
         const insuffGaps = (zs.insufficientCats || []).filter(c => !gaps.some(g => g.toLowerCase().includes(c.toLowerCase())))
         const allGaps = [...gaps, ...insuffGaps.map(c => c + ' documentation unavailable')]
@@ -783,29 +806,34 @@ export function generateLegacyPrintHTML(data) {
     <tr><td style="font-weight:700;color:#475569;">Info</td><td style="font-size:10px;">Contextual information, data gap notation, or supplementary observation. Not a scored finding.</td></tr>
   </tbody></table>
 
-  <h3 style="margin-top:16px;">Zone Score Summary</h3>
+  <h3 style="margin-top:16px;">Zone Findings Summary</h3>
   <table>
-    <thead><tr><th>Zone</th><th style="text-align:center;">Score</th><th style="text-align:center;">Ventilation</th><th style="text-align:center;">Contaminants</th><th style="text-align:center;">HVAC</th><th style="text-align:center;">Complaints</th><th style="text-align:center;">Environment</th><th>Risk Level</th></tr></thead>
+    <thead><tr><th>Zone</th><th style="text-align:center;">Findings</th><th style="text-align:center;">Ventilation</th><th style="text-align:center;">Contaminants</th><th style="text-align:center;">HVAC</th><th style="text-align:center;">Complaints</th><th style="text-align:center;">Environment</th><th>Worst severity</th></tr></thead>
     <tbody>
-    ${(zoneScores||[]).map(zs => `
+    ${(zoneScores||[]).map(zs => {
+      const zc = countFindings([zs])
+      const zWorst = worstFindingSeverity([zs])
+      return `
       <tr>
         <td style="font-weight:600;">${esc(zs.zoneName)}</td>
-        <td style="text-align:center;font-family:Cambria,serif;font-weight:700;color:${scoreColor(zs.tot)};">${zs.tot}</td>
-        ${zs.cats.map(c => `<td style="text-align:center;font-family:Cambria,serif;font-size:10px;${c.s === null ? 'color:#94A3B8;font-style:italic;' : ''}">${c.s !== null ? c.s + '/' + c.mx : '—'}</td>`).join('')}
-        <td style="font-size:10px;font-weight:600;color:${scoreColor(zs.tot)};">${zs.risk}</td>
-      </tr>
-    `).join('')}
-    ${comp ? `
+        <td style="text-align:center;font-family:Cambria,serif;font-weight:700;color:${zc.attention ? '#B91C1C' : '#1B2A41'};">${zc.total}</td>
+        ${zs.cats.map(c => {
+          const n = (c.r || []).filter(isFinding).length
+          return `<td style="text-align:center;font-family:Cambria,serif;font-size:10px;${c.status === 'INSUFFICIENT' || c.status === 'DATA_GAP' ? 'color:#94A3B8;font-style:italic;' : ''}">${c.status === 'INSUFFICIENT' || c.status === 'DATA_GAP' ? '—' : n}</td>`
+        }).join('')}
+        <td style="font-size:10px;font-weight:600;color:${zWorst ? SEV_HEX[zWorst] : '#94A3B8'};">${zWorst ? zWorst.toUpperCase() : 'None'}</td>
+      </tr>`
+    }).join('')}
+    ${(zoneScores||[]).length ? `
     <tr style="background:#F8FAFC;font-weight:700;">
-      <td>Composite</td>
-      <td style="text-align:center;font-family:Cambria,serif;color:${scoreColor(comp.tot)};">${comp.tot}</td>
-      <td colspan="5" style="text-align:center;font-size:10px;color:#64748B;">Avg: ${comp.avg} · Worst: ${comp.worst} · ${comp.logic === 'worst-zone-override' ? 'worst-zone Critical override (Critical zone present)' : 'Priority-weighted mean (no Critical zones)'}</td>
-      <td style="font-size:10px;color:${scoreColor(comp.tot)};">${comp.risk || riskLabel(comp.tot)}</td>
+      <td>All zones</td>
+      <td style="text-align:center;font-family:Cambria,serif;color:${census.attention ? '#B91C1C' : '#1B2A41'};">${census.total}</td>
+      <td colspan="6" style="text-align:center;font-size:10px;color:#64748B;">${census.attention} of ${census.total} warrant attention · ${(zoneScores||[]).length} zone${(zoneScores||[]).length === 1 ? '' : 's'} assessed</td>
     </tr>` : ''}
     </tbody>
   </table>
   <div style="margin-top:8px;font-size:9px;color:#94A3B8;">
-    <strong>Score bands:</strong> 80–100 Low Risk · 60–79 Moderate · 40–59 High Risk · 0–39 Critical
+    A dash marks a category that was not assessed for that zone. Severity comes from the criterion each finding was evaluated against; see the findings tables above for the criterion cited in each case.
   </div>
 
   ${/* Equipment & Calibration Log */(() => {
@@ -834,33 +862,30 @@ export function generateLegacyPrintHTML(data) {
     const mappedZones = (zones||[]).filter(z => z.mapX != null && z.mapY != null)
     if (!mappedZones.length || !data.floorPlan) return ''
     return `
-    <h2 class="pg-break">Spatial Risk Summary</h2>
-    <p style="font-size:11px;color:#475569;margin-bottom:12px;">The following floor plan overlay illustrates zone-level risk distribution across the assessed facility. Pin colors reflect AtmosFlow risk thresholds.</p>
+    <h2 class="pg-break">Spatial Findings Summary</h2>
+    <p style="font-size:11px;color:#475569;margin-bottom:12px;">The following floor plan overlay shows where findings were recorded across the assessed facility. Each pin carries that zone's finding count; colour reflects the worst severity recorded there.</p>
     <div style="position:relative;margin-bottom:16px;border:1px solid #E2E8F0;border-radius:6px;overflow:hidden;">
       <img src="${data.floorPlan}" alt="Floor plan" style="width:100%;display:block;opacity:0.9;" />
       ${mappedZones.map((z, i) => {
         const zi = (zones||[]).indexOf(z)
-        const score = (zoneScores||[])[zi]?.tot
-        const color = score === null ? '#6B7380' : score < 50 ? '#B91C1C' : score < 80 ? '#A16207' : '#15803D'
+        const zs = (zoneScores||[])[zi]
+        const zc = zs ? countFindings([zs]) : null
+        const zWorst = zs ? worstFindingSeverity([zs]) : null
+        const color = !zs ? '#6B7380' : (zWorst ? SEV_HEX[zWorst] : '#15803D')
         return `<div style="position:absolute;left:${z.mapX}%;top:${z.mapY}%;transform:translate(-50%,-100%);">
-          <div style="width:20px;height:20px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 2px 6px ${color}80;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;font-family:Cambria,serif;">${score ?? '?'}</div>
+          <div style="width:20px;height:20px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 2px 6px ${color}80;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;font-family:Cambria,serif;">${zc ? zc.total : '?'}</div>
         </div>`
       }).join('')}
     </div>
-    <div style="display:flex;gap:16px;font-size:9px;color:#64748B;margin-bottom:12px;">
-      <span>● <span style="color:#15803D;">Low Risk (80–100)</span></span>
-      <span>● <span style="color:#A16207;">Moderate (50–79)</span></span>
-      <span>● <span style="color:#B91C1C;">Critical (&lt;50)</span></span>
-    </div>
-    <table><thead><tr><th>Zone</th><th style="text-align:center;">Score</th><th>Risk Level</th><th>Primary Concern</th></tr></thead><tbody>
+    <table><thead><tr><th>Zone</th><th style="text-align:center;">Findings</th><th>Worst severity</th><th>Primary concern</th></tr></thead><tbody>
     ${mappedZones.map((z, i) => {
       const zi = (zones||[]).indexOf(z)
       const zs = (zoneScores||[])[zi]
-      const worst = zs?.cats?.reduce((a, b) => ((a.s/a.mx) < (b.s/b.mx) ? a : b))
-      return `<tr><td style="font-weight:600;">${esc(z.zn) || 'Zone'}</td><td style="text-align:center;font-family:Cambria,serif;font-weight:700;color:${scoreColor(zs?.tot)};">${zs?.tot ?? '—'}</td><td style="font-size:10px;color:${scoreColor(zs?.tot)};">${zs?.risk || '—'}</td><td style="font-size:10px;color:#475569;">${worst?.l || '—'} (${worst?.s ?? '—'}/${worst?.mx ?? '—'})</td></tr>`
+      const zc = zs ? countFindings([zs]) : null
+      const zWorst = zs ? worstFindingSeverity([zs]) : null
+      return `<tr><td style="font-weight:600;">${esc(z.zn) || 'Zone'}</td><td style="text-align:center;font-family:Cambria,serif;font-weight:700;color:${zc?.attention ? '#B91C1C' : '#1B2A41'};">${zc ? zc.total : '—'}</td><td style="font-size:10px;color:${zWorst ? SEV_HEX[zWorst] : '#94A3B8'};">${zWorst ? zWorst.toUpperCase() : 'None'}</td><td style="font-size:10px;color:#475569;">${(zs && worstFindingCategory([zs])) || '—'}</td></tr>`
     }).join('')}
-    </tbody></table>
-    <p style="font-size:9px;color:#94A3B8;margin-top:8px;">Risk thresholds per AtmosFlow scoring methodology. Building composite reflects worst-zone override when any zone is Critical.</p>`
+    </tbody></table>`
   })()}
 
   <!-- ═══ STANDARDS REFERENCE ═══ -->

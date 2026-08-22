@@ -27,7 +27,6 @@ import {
   buildCalibrationAcknowledgement, validateJustification, MAX_JUSTIFICATION_LEN,
 } from '../utils/calibrationAcknowledgement'
 import { extractDocxText, REVIEW_INSTRUCTIONS, REVIEW_CREDIT_COST } from '../utils/reportReview'
-import { getRiskBand } from '../engines/riskBands'
 import { getSubscriptionBannerState, BILLING_MODE } from '../utils/subscriptionState'
 import { VER, STANDARDS_MANIFEST } from '../constants/standards'
 import { Q_PRESURVEY, Q_BUILDING, Q_ZONE, Q_QUICKSTART, Q_DETAILS, SENSOR_FIELDS } from '../constants/questions'
@@ -4531,18 +4530,16 @@ export default function MobileApp() {
                   </div>
                   <div style={sgStack('tight')}>
                     {reports.slice(0, 3).map((r) => {
-                      const band = getRiskBand(r.score ?? null)
                       return (
                         <GlassCard key={r.id} dense onClick={()=>openReport(r)} style={{padding:'14px 16px'}}>
                           <div style={{display:'flex',alignItems:'center',gap:12,minHeight:44}}>
-                            <div style={V3.iconBox(band.color)}>
-                              <I n="report" s={15} c={band.color} w={1.6} />
+                            <div style={V3.iconBox(V3.TEXT_SECONDARY)}>
+                              <I n="report" s={15} c={V3.TEXT_SECONDARY} w={1.6} />
                             </div>
                             <div style={{flex:1,minWidth:0}}>
                               <div style={{...V3.T.bodyStrong, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{r.facility || 'Untitled'}</div>
                               <div style={{...V3.T.captionDim, fontFamily:'var(--font-mono)'}}>{fD(r.ts)}</div>
                             </div>
-                            {IAQ_SCORE_VISIBLE && <StatusPill tone={band.color} dim>{band.label}</StatusPill>}
                             <span style={{color:V3.TEXT_TERTIARY,fontSize:13}}>›</span>
                           </div>
                         </GlassCard>
@@ -4850,17 +4847,15 @@ export default function MobileApp() {
           ) : (
             <div style={{background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.lg,overflow:'hidden'}}>
               {fReports.map((r, i) => {
-                const band = getRiskBand(r.score ?? null)
                 return (
                   <div key={r.id} onClick={()=>openReport(r)} style={{padding:'14px 16px',background:'transparent',borderTop: i === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`,cursor:'pointer',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit'}}>
-                    <div style={V3.iconBox(band.color)}><I n="report" s={15} c={band.color} w={1.6} /></div>
+                    <div style={V3.iconBox(V3.TEXT_SECONDARY)}><I n="report" s={15} c={V3.TEXT_SECONDARY} w={1.6} /></div>
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{...V3.T.bodyStrong, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{r.facility||'Untitled'}</div>
                       <div style={{display:'flex',alignItems:'center',gap:8,marginTop:3}}>
                         <span style={{...V3.T.captionDim, fontFamily:'var(--font-mono)'}}>{fD(r.ts)}</span>
                       </div>
                     </div>
-                    {IAQ_SCORE_VISIBLE && <span style={V3.pill(band.color)}>{band.label}</span>}
                     <button onClick={e=>{e.stopPropagation();setDelConf({id:r.id,name:r.facility,type:'rpt'})}} style={{width:36,height:36,background:'transparent',border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.md,color:V3.TEXT_TERTIARY,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'inherit',flexShrink:0}}>
                       <I n="trash" s={13} c={V3.TEXT_TERTIARY} w={1.4} />
                     </button>

@@ -170,7 +170,7 @@ export function buildLimitations(ctx) {
     'Measurements were obtained using direct-reading instruments and represent point-in-time conditions at the locations sampled. Results are directional and may not represent worst-case or typical conditions.',
     'Areas not accessible during the assessment may present additional conditions not reflected in this report.',
     'HVAC system performance may vary with occupancy load, weather conditions, and operational changes. Ventilation adequacy should be confirmed under peak-occupancy conditions.',
-    'Deterministic scoring is applied against published standards; professional judgment should be exercised in interpretation. Scores reflect a structured snapshot, not a comprehensive compliance determination.',
+    'Findings are evaluated deterministically against the published criteria cited beside each one; professional judgment should be exercised in interpretation. This assessment reflects a structured snapshot, not a comprehensive compliance determination.',
     'Causal pathways identified in this report are based on correlation of observed conditions and available evidence. They do not constitute confirmed root-cause determinations and would warrant targeted follow-up investigation where noted.',
   ]
 
