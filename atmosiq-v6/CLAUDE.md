@@ -636,6 +636,32 @@ follow, both learned there:
      comparison was false and it silently printed the cleanest verdict
      in the system over an assessment with critical findings.
 
+**Data confidence is a third ladder, and it stays too — but for a reason
+that does not generalize.** `getConfidenceLevel` bands at 0.85 / 0.6 /
+0.3 over `sufficiency._overall`. That is a ladder over a number, so it
+gets asked about; the answer is what the number MEANS. It is a
+completeness fraction — the share of expected inputs actually recorded —
+so it can be shown its work (`evaluateCategorySufficiency` returns
+`present` and `missing`), and it says nothing about the building. It
+rates the RECORD, not the site. The composite could claim neither.
+
+Confidence WAS coupled to the score and no longer is: `_overall` used to
+be weighted by the category point caps (25/25/20/15/15), so it silently
+inherited the scoring weight vector. v3.0 made it an unweighted mean.
+The invariant that keeps them apart is asserted in
+`no-scoring.test.ts` — two zones with an identical set of captured
+fields but 1 vs 6 findings must produce the same completeness ratio to
+ten decimal places. **If confidence ever starts moving with severity, it
+has become a rating of the site again.**
+
+The other three confidence mechanisms have never touched the score and
+are not ladders over one: `evalMeasurementConfidence` (counts captured
+parameters), `CIHConfidenceTier` (`validated_defensible` /
+`provisional_screening_level` / `qualitative_only`, from evidence basis —
+and load-bearing for `professional-opinion.ts`'s monotonicity property),
+and the structural demotions in `scoreZone` (`gate5`, `adminGap`,
+insufficient categories).
+
 Stored scores are NOT deleted. The Supabase `score` / `composite` /
 `zone_scores` columns and the localStorage report index keep their data;
 nothing reads them. Dropping a column is irreversible and an issued

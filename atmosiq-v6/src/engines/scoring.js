@@ -260,10 +260,13 @@ function assessCont(d) {
   return { l: 'Contaminants', r, synergistic }
 }
 
-// HVAC scoring: physical hygiene > administrative history (EPA BAQ, CIH best practice)
+// HVAC: physical hygiene > administrative history (EPA BAQ, CIH best practice)
 function assessHVAC(d) {
   let r = [], gate5 = false, adminGap = false
-  // Administrative (lower impact — documentation gaps reduce confidence, not score)
+  // Administrative — a documentation gap is a gap in the RECORD, so it sets
+  // `adminGap` (which caps confidence) rather than raising a finding's
+  // severity. That split predates the score removal and is why confidence
+  // and severity stayed independent through it.
   if (d.hm === 'Within 6 months')     r.push({ t:'HVAC maintenance current', sev:'pass' })
   else if (d.hm === '6-12 months ago'){ r.push({ t:'HVAC maintenance 6–12 months ago', sev:'low' }) }
   else if (d.hm === 'Over 12 months') { r.push({ t:'HVAC maintenance overdue (>12 months)', sev:'medium' }) }

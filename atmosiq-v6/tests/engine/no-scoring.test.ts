@@ -177,8 +177,38 @@ describe('no band ladder has reappeared', () => {
     for (const gone of ['RISK_BANDS', 'getRiskBand', 'findingsToBand', 'SEVERITY_TO_BAND', 'deriveFMSummary']) {
       expect(bands[gone], `riskBands.js resurrected ${gone}`).toBeUndefined()
     }
-    // Confidence survived — it was never a band over a score.
+    // Confidence survived. The claim here used to be "it was never a band
+    // over a score", which is too strong: it IS a four-rung ladder over a
+    // number. The number is a data-completeness fraction, not the
+    // composite, and the one place confidence WAS coupled to the score —
+    // `_overall` weighted by the category point caps — was cut in v3.0.
+    // The property that makes that true is asserted below.
     expect(bands.getConfidenceLevel).toBeTypeOf('function')
+    // The dead second copy of the ladder is gone; see riskBands.js.
+    expect(bands.CONFIDENCE_LEVELS).toBeUndefined()
+  })
+
+  it('confidence rates the record, not the building', () => {
+    // The test that would have caught a re-coupling: two zones with an
+    // IDENTICAL set of captured fields, one benign and one with readings
+    // that produce critical findings. Completeness is the same, so
+    // confidence must be the same. If confidence ever starts moving with
+    // severity, it has become a rating of the site again.
+    const fields = { zn: 'Z', su: 'office', sf: '2000', oc: '10', ac: '6-10', hm: 'Quarterly' }
+    const benign: any = scoreZone({ ...fields, co2: '600', tf: '72', rh: '45', pm: '5', pmo: '4', co: '0' }, BLDG)
+    const severe: any = scoreZone({ ...fields, co2: '2500', tf: '85', rh: '70', pm: '80', pmo: '5', co: '30' }, BLDG)
+
+    expect(countFindings([severe]).total).toBeGreaterThan(countFindings([benign]).total)
+    // Six findings against one, and the completeness ratio is identical to
+    // ten decimal places. Severity does not reach it.
+    expect(severe.sufficiency._overall).toBeCloseTo(benign.sufficiency._overall, 10)
+    expect(severe.confidence).toBe(benign.confidence)
+
+    // ...and the other direction, so the equality above is not just two
+    // values that happen to sit in the same band: dropping captured fields
+    // DOES move the ratio, which is what confidence is supposed to track.
+    const sparse: any = scoreZone({ ...fields, co2: '2500' }, BLDG)
+    expect(sparse.sufficiency._overall).toBeLessThan(severe.sufficiency._overall)
   })
 
   it('the score-visibility flag is gone, along with its escape hatch', async () => {
