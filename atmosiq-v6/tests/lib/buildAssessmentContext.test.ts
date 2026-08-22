@@ -272,11 +272,26 @@ describe('buildAssessmentContext', () => {
     expect(v.confidence).toHaveProperty('qualitative_only')
   })
 
-  it('omits the readiness verdict when the engine has not scored yet', () => {
-    const draftOnly = { ...fullState(), comp: undefined, composite: undefined }
+  it('omits the readiness verdict when the engine has not run yet', () => {
+    // "Has the engine run" was `comp != null` until the composite was
+    // removed. The property under test is unchanged — a draft with no
+    // engine outputs carries no readiness verdict — but the evidence for
+    // it is now the zone assessments, which is what the engine actually
+    // produces.
+    const draftOnly = { ...fullState(), zoneScores: [] }
     const ctx = buildAssessmentContext(draftOnly)
     expect(ctx.readiness_verdict).toBeNull()
     expect(ctx.engine_outputs).toBeNull()
+  })
+
+  it('keeps the readiness verdict for a report that predates the composite removal', () => {
+    // A legacy record carries `comp`; a new one does not. Neither fact
+    // may decide whether the verdict is built — only the zone
+    // assessments, which both carry.
+    const legacy = buildAssessmentContext(fullState())
+    const current = buildAssessmentContext({ ...fullState(), comp: undefined, composite: undefined })
+    expect(legacy.readiness_verdict).not.toBeNull()
+    expect(current.readiness_verdict).not.toBeNull()
   })
 
   it('attaches the Logger Studio summary when sensorData is loaded', () => {

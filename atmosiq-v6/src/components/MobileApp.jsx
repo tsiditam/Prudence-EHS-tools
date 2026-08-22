@@ -1992,10 +1992,17 @@ export default function MobileApp() {
     setView('project-detail')
   }
 
-  // A finalized report needs a composite + at least one zone score to render.
-  // A local body missing them is unusable for the report view (e.g. it was
+  // A finalized report needs at least one zone assessment to render. A
+  // local body missing them is unusable for the report view (e.g. it was
   // overwritten by a draft-shape autosave, or never fully persisted).
-  const isRenderableReport = (r) => !!(r && (r.comp || r.composite) && Array.isArray(r.zoneScores) && r.zoneScores.length > 0)
+  //
+  // This used to also require `r.comp || r.composite`, which made the
+  // presence of a composite the DEFINITION of a valid finalized report.
+  // With no composite computed, that test would have failed every report
+  // ever issued — the guard had quietly become the emptiness check for
+  // the whole report view. Zone assessments are what the view actually
+  // needs, and legacy records carry them unchanged.
+  const isRenderableReport = (r) => !!(r && Array.isArray(r.zoneScores) && r.zoneScores.length > 0)
 
   const openReport = async (meta) => {
     // Read the local body first; if it isn't renderable as a finalized report
@@ -2388,7 +2395,7 @@ export default function MobileApp() {
     // user-facing crash. The engine emits reports without scoring data
     // when no measurements were recorded — these are valid deliverables
     // (the "Pre-Assessment Memo" path documented in CLAUDE.md), not bugs.
-    if (archived && viewRpt && (!comp || !zoneScores.length)) {
+    if (archived && viewRpt && !zoneScores.length) {
       const facilityName = viewRpt.facility || bldg.fn || 'Untitled Assessment'
       const ts = viewRpt.ts ? new Date(viewRpt.ts).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : ''
       const hasNarrative = narrative && typeof narrative === 'string' && narrative.trim().length > 0
@@ -2413,7 +2420,7 @@ export default function MobileApp() {
         </div>
       )
     }
-    if (!comp || !zoneScores.length) return null
+    if (!zoneScores.length) return null
     const zs = zoneScores[selZone]
     // Logger timelines flagged "Include in report". When viewing a saved
     // report the dataset rides on viewRpt; live results use current state.

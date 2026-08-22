@@ -739,7 +739,14 @@ function computeDefensibilityFlags(
     !!(z.co2 || z.pm || z.co || z.hc || z.tv || z.tf || z.rh || z.cfm_person || z.ach),
   )
   const hasCalibrationRecords = !!(ctx.presurvey?.['ps_inst_iaq_cal'] || ctx.presurvey?.['ps_inst_iaq_cal_status'])
-  const hasSufficientZoneCoverage = zones.length > 0 && zones.every(z => z.composite !== null)
+  // Every zone actually produced a category assessment. This was
+  // `z.composite !== null` — a defensibility flag resting on score
+  // nullability, which with no composite computed would answer `false`
+  // for every assessment ever run. A zone is covered when its categories
+  // were evaluated, which is the thing the flag was always standing in
+  // for: `null` composite meant "no category could be scored".
+  const hasSufficientZoneCoverage = zones.length > 0
+    && zones.every(z => z.categories.some(c => c.status === 'scored'))
   const assessorCerts = ctx.meta.preparingAssessor.credentials.map(c => c.toUpperCase())
   const hasQualifiedAssessor = ['CIH', 'CSP', 'PE', 'ROH'].some(c => assessorCerts.includes(c))
   const overallDefensible = hasInstrumentData && hasCalibrationRecords && hasSufficientZoneCoverage && hasQualifiedAssessor

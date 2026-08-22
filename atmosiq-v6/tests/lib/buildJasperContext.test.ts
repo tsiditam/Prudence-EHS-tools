@@ -191,11 +191,19 @@ describe('buildJasperContext', () => {
     expect(ctx.readiness).toBe(ctx.readiness_verdict)
   })
 
-  it('readiness: null when engine has not scored (no comp)', () => {
-    const s = { ...fullState(), comp: undefined, composite: undefined }
+  it('readiness: null when the engine has not run (no zone assessments)', () => {
+    // Was gated on `comp`; the composite no longer exists, and a report
+    // that predates its removal still carries one. Zone assessments are
+    // the evidence that the engine ran.
+    const s = { ...fullState(), zoneScores: [] }
     const ctx = buildJasperContext(s)
     expect(ctx.readiness).toBeNull()
     expect(ctx.readiness_verdict).toBeNull()
+  })
+
+  it('readiness: present without a composite, which no longer gates it', () => {
+    const s = { ...fullState(), comp: undefined, composite: undefined }
+    expect(buildJasperContext(s).readiness).not.toBeNull()
   })
 
   it('logger_studio: is the same object as logger_data_summary (alias)', () => {
