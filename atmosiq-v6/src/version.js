@@ -31,12 +31,18 @@
 export const BUILD_SHA = (typeof __BUILD_SHA__ !== 'undefined' && __BUILD_SHA__) || 'dev'
 
 export const APP_VERSION = '6.0.0-beta'
-// 2.9.0 — report-issuance gating changed: a fired data-gap trigger now
-// issues the FULL report carrying a prominent limitation-on-reliance
-// warning, instead of substituting a Pre-Assessment Memo. Bumped per the
-// "report-finalization gating" rule above; scoring, thresholds and
-// contracts are unchanged.
-export const ENGINE_VERSION = '2.9.0'
+// 3.0.0 — the 100-point composite score was removed. Nothing computes a
+// score, a category weight, a deduction or a risk band. `scoreZone` still
+// produces the findings tree; `summarizeAssessment` replaces
+// `compositeScore` with a finding census.
+//
+// MAJOR, not minor: the same inputs no longer produce the same
+// conclusions. Findings, severities, citations and recommendations are
+// byte-identical to v2.9 — the branch conditions were always raw-data
+// comparisons — but a v2.9 report carries a composite and a risk band
+// that a v3.0 report does not, and the shared verdict lost the composite
+// floor that could raise it above what the findings alone support.
+export const ENGINE_VERSION = '3.0.0'
 export const STANDARDS_MANIFEST_DATE = '2026-04-25'
 
 // Mold screening engine (src/engines/mold/*) — versioned INDEPENDENTLY of the

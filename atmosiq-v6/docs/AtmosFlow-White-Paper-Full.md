@@ -11,7 +11,7 @@ AtmosFlow is a structured indoor air quality (IAQ) assessment platform designed 
 
 The platform is a **software tool** — not sampling hardware. Assessors bring their own instruments (or use consumer-grade monitors in facility manager mode). AtmosFlow provides the workflow, scoring logic, causal analysis, and report generation.
 
-AtmosFlow does not perform sampling. It does not replace professional judgment. It does not determine regulatory compliance. It structures the assessment process so that findings are documented consistently, scored against published reference standards, and presented in a format suitable for professional review.
+AtmosFlow does not perform sampling. It does not replace professional judgment. It does not determine regulatory compliance. It structures the assessment process so that findings are documented consistently, evaluated against published reference standards, and presented in a format suitable for professional review.
 
 ## What AtmosFlow Is Not
 
@@ -27,7 +27,7 @@ A typical IAQ assessment involves 3–4 hours of field work followed by 8–20 h
 AtmosFlow compresses the report preparation phase to near-zero by:
 
 1. **Structuring the field walkthrough** as a guided, one-question-at-a-time flow that captures all required data points
-2. **Scoring findings deterministically** against published ASHRAE, OSHA, NIOSH, EPA, and WHO benchmarks — the same inputs always produce the same scores
+2. **Evaluating findings deterministically** against published ASHRAE, OSHA, NIOSH, EPA, and WHO benchmarks — the same inputs always produce the same findings
 3. **Generating causal pathway hypotheses** by correlating related findings across categories
 4. **Producing a consulting-grade report** with executive summary, zone-by-zone findings, recommendations register, sampling plan, and scoring transparency appendix
 
@@ -39,9 +39,8 @@ Current engine version: **v2.3**
 
 Key capabilities:
 - Sufficiency-aware scoring (missing data → insufficient, not full credit)
-- AIHA worst-zone composite override (Bullock & Ignacio, 2015)
 - Ventilation hierarchy per ASHRAE 62.1-2022 (cfm/person → ACH → CO₂)
-- Mold separated from composite per AIHA 2020 / IICRC S520
+- Mold classified per AIHA 2020 / IICRC S520
 - TVOC instrument discipline (PID lamp energy, calibration gas required)
 - Measurement confidence badges (High / Moderate / Low / Insufficient)
 - SBS pattern detection from complaint data alone
@@ -107,7 +106,7 @@ Several factors converge to create demand:
 AtmosFlow is positioned accordingly:
 - It is a **documentation and prioritization tool**, not a compliance determination engine
 - It references published standards as **benchmarks**, not as compliance thresholds
-- Scores are explicitly labeled as **prioritization tools**, not compliance findings
+- Findings are explicitly labeled as **prioritization inputs**, not compliance determinations
 - Every report states that it supports — but does not replace — professional judgment
 
 This positioning is deliberate and defensible. The value proposition is not "avoid OSHA citations" (which is misleading for IAQ). The value proposition is:
@@ -183,13 +182,12 @@ Deterministic engine evaluates all zone data against 5 categories:
 - Environment (15 points)
 
 ### 4. Analysis
-- Composite score with AIHA worst-zone override
 - Causal pathway hypothesis generation
 - Sampling plan recommendations
 - Tiered action recommendations (immediate, engineering, administrative, monitoring)
 - OSHA-relevant conditions review
 - Measurement confidence assessment
-- IICRC S520 mold condition classification (parallel to composite)
+- IICRC S520 mold condition classification
 
 ### 5. Report Generation
 - PDF (HTML download) or DOCX (Microsoft Word)
@@ -203,7 +201,7 @@ Deterministic engine evaluates all zone data against 5 categories:
 - **Primary:** localStorage (offline-first)
 - **Sync:** Supabase when online (row-level security per user)
 - **Auto-save:** every field change triggers a debounced save
-- **Draft/Report separation:** drafts are in-progress; reports are finalized assessments with scores
+- **Draft/Report separation:** drafts are in-progress; reports are finalized assessments
 
 ### Standards Manifest
 Every assessment embeds a frozen snapshot of the standards versions applied at scoring time. Loading a legacy assessment displays its original manifest, not the current one. This ensures audit traceability when standards are updated.
@@ -237,126 +235,71 @@ STANDARDS_MANIFEST = {
 - Stripe handles all payment processing (no card data stored)
 - Assessment data encrypted at rest via Supabase
 - ToS and Privacy Policy gate before first use
-# AtmosFlow White Paper — Scoring Methodology
+# AtmosFlow White Paper — Assessment Methodology
 
-## Design Principles
+**Prudence Safety & Environmental Consulting, LLC**
 
-1. **Deterministic.** Same inputs always produce the same score. No AI, machine learning, or subjective weighting in the scoring path.
-2. **Reproducible.** Every deduction rule is documented. A reviewer can hand-calculate the same score from the same data.
-3. **Sufficiency-aware.** Missing data produces "Insufficient" — not full credit. The engine fails closed.
-4. **Transparent.** Every report includes Appendix B showing the exact category weights, deduction rules, and composite formula.
+---
 
-## Five Categories
+## Findings, not a rating
 
-| Category | Max Points | Evaluation Basis |
-|----------|-----------|-----------------|
-| Ventilation | 25 | cfm/person vs ASHRAE 62.1, ACH, CO₂ differential, damper status, airflow |
-| Contaminants | 25 | PM2.5 (EPA/WHO), CO (OSHA/NIOSH), HCHO (OSHA/NIOSH), TVOCs, odors, dust |
-| HVAC | 20 | Maintenance recency, filter condition/type, airflow, drain pan |
-| Complaints | 15 | Complaint presence, affected count, symptom patterns, clustering |
-| Environment | 15 | Temperature (ASHRAE 55), humidity, water damage, mold indicators |
+AtmosFlow evaluates each recorded measurement and observation against a
+published criterion — an OSHA PEL, a NIOSH REL, an ASHRAE range, an EPA
+NAAQS, an IICRC classification. The criterion supplies the severity, the
+finding sentence and the citation; the engine supplies the comparison.
+Identical inputs produce identical findings.
 
-## Composite Formula
+A report leads with what was found and how much of it warrants
+attention, ordered by severity.
 
-```
-If any zone scores Critical (< 40):
-  composite = worst zone score (AIHA worst-zone override)
+## The 100-point composite (removed in engine v3.0)
 
-Otherwise:
-  composite = arithmetic mean of all zone scores
-```
+Earlier editions of this paper described a 100-point composite across
+five weighted categories (Ventilation 25, Contaminants 25, HVAC 20,
+Complaints 15, Environment 15), with a worst-zone override and four risk
+bands, and promised readers an Appendix B publishing the weights and the
+formula.
 
-The AIHA worst-zone override follows the exposure assessment strategy principle (Bullock & Ignacio, 2015): worst-case conditions drive the overall assessment when any zone presents critical risk.
+That system was removed. A single number could not be explained in a
+sentence: it was simultaneously a weighted mean, an override, a
+normalization against whatever data happened to be captured, and a
+severity cap. Two buildings could reach the same score for entirely
+different reasons. The clearest evidence that it had stopped cohering is
+that the codebase carried six mutually inconsistent band ladders, and
+this paper and the internal report specification published two
+contradictory composite formulas.
 
-## Risk Bands
+What that section described as the score's virtues — determinism,
+reproducibility, sufficiency-awareness, transparency — were never
+properties of the number. They are properties of the criteria registry
+and the sufficiency model, and both survive unchanged. Appendix B is
+withdrawn along with the formula it published.
 
-| Score | Band | Severity |
-|-------|------|----------|
-| 80–100 | Low Risk | 1 |
-| 60–79 | Moderate | 2 |
-| 40–59 | High Risk | 3 |
-| 0–39 | Critical | 4 |
+## Data sufficiency
 
-A single `getRiskBand()` function is the only source of labels, colors, and severity levels throughout the application. No hardcoded risk labels exist elsewhere.
+Each domain declares the inputs it needs. A domain with too little data
+is reported as INSUFFICIENT or as a DATA GAP, naming what is missing,
+rather than being treated as clean. Missing data reduces stated
+confidence; it never reduces stated concern.
 
-## Sufficiency Model (v2.3)
+A critical finding is never suppressed for want of a complete record: an
+observation made without instruments is still an observation.
 
-Each category declares required and optional inputs. Before scoring, the engine evaluates data sufficiency:
+## Confidence
 
-**Ventilation:** Requires CO₂ reading OR cfm/person OR damper status. Without any → INSUFFICIENT.
+Confidence describes the EVIDENCE — how complete the record is, whether
+the instrument was calibrated, whether it is in the accuracy database.
+Building confidence is the lowest zone confidence, since a building
+cannot be better characterized than its least-measured area. Confidence
+is never a rating of the site.
 
-**Contaminants:** Requires PM2.5 reading AND CO reading. Without both → INSUFFICIENT.
+## Mold
 
-**HVAC:** Requires maintenance history, filter condition, AND supply airflow observation. Min 66% required → INSUFFICIENT.
+Per AIHA *Recognition, Evaluation, and Control of Indoor Mold* (2nd ed.,
+2020) and IICRC S520, visual mold findings are reported with their S520
+condition classification and observed extent. They were previously also
+excluded from the composite; there is no composite to exclude them from.
 
-**Complaints:** Requires complaint status. Single required field → always sufficient if answered.
-
-**Environment:** Requires temperature AND relative humidity. Both required → INSUFFICIENT without.
-
-When a category is INSUFFICIENT:
-- Score = null (not zero, not full credit)
-- Category excluded from composite calculation
-- Composite flagged as `partialComposite: true`
-- Confidence downgraded proportionally
-
-Score capping: a category with 60% data sufficiency cannot exceed 60% of its maximum points, regardless of how clean the captured data is.
-
-## Confidence Model
-
-Computed from weighted sufficiency across all categories:
-
-| Sufficiency | Confidence |
-|-------------|-----------|
-| ≥ 85% | High |
-| 60–84% | Medium |
-| 30–59% | Low |
-| < 30% | Insufficient |
-
-Confidence is a transparency signal. It does NOT modify the composite score.
-
-## Ventilation Hierarchy (v2.0+)
-
-Priority order per ASHRAE 62.1-2022 and Persily (2022):
-
-1. **Primary:** Measured outdoor air delivery (cfm/person) vs ASHRAE 62.1-2022 Table 6.2.2.1 minimum for space type
-2. **Secondary:** Air changes per hour (ACH) vs benchmarks (≥4 office, ≥6 healthcare)
-3. **Tertiary:** CO₂ screening with inline caveat: "CO₂ is a ventilation effectiveness indicator, not a standalone air quality metric per ASHRAE 62.1-2022."
-
-When cfm/person or ACH data is present, CO₂ becomes confirmatory only. CO₂-only ventilation scoring carries a "Limited Confidence" tag.
-
-## Mold Separation (v2.0+)
-
-Per AIHA *Recognition, Evaluation, and Control of Indoor Mold* (2nd ed., 2020) and IICRC S520, visual mold findings are excluded from the composite score. Mold is assessed in a parallel panel using IICRC S520 Conditions:
-
-- Condition 1: Normal fungal ecology
-- Condition 2: Settled spores or contamination, no active growth
-- Condition 3: Active growth present
-
-Mold Condition 2 (≥10 sq ft) or Condition 3 triggers mandatory escalation to a qualified remediation professional.
-
-## TVOC Discipline (v2.0+)
-
-TVOC entry requires PID instrument context:
-- Lamp energy (10.6 / 11.7 / 9.8 eV)
-- Calibration gas reference
-- Response factor
-
-Every TVOC finding includes: "TVOC is a screening indicator only. No EPA, NIOSH, or OSHA regulatory limit exists for total VOCs. For compound identification, sorbent tube sampling per NIOSH Method 2549 is required."
-
-## Benchmark Classification
-
-The platform explicitly distinguishes benchmark types:
-
-| Type | Examples | Legal Weight |
-|------|----------|-------------|
-| Occupational Exposure Limit | OSHA PELs, OSHA Action Levels | Enforceable |
-| Recommended Exposure Limit | NIOSH RELs | Advisory |
-| Public Health Guideline | EPA NAAQS, WHO AQG | Advisory |
-| Ventilation Screening Benchmark | ASHRAE 62.1 CO₂ differential | Investigative |
-| Thermal Comfort Criterion | ASHRAE 55 ranges | Investigative |
-| Internal Concern Threshold | TVOC 500 µg/m³ | Investigative |
-
-The report identifies which type each threshold belongs to, preventing conflation of investigative triggers with enforceable limits.
 # AtmosFlow White Paper — Defensibility Design
 
 ## Why Defensibility Matters
@@ -369,13 +312,13 @@ AtmosFlow is designed from the ground up to produce reports that withstand this 
 
 ### 1. Deterministic Scoring
 
-Every score is computed from fixed rules applied to captured data. There is no AI judgment, no machine learning model, and no subjective weighting in the scoring path. The same inputs always produce the same outputs.
+Every finding is computed from fixed rules applied to captured data. There is no AI judgment, no machine learning model, and no subjective weighting in the evaluation path. The same inputs always produce the same outputs.
 
-The scoring rules are published in every report (Appendix B), so any reviewer can independently verify the score by applying the same rules to the same data.
+Each finding names the criterion it was evaluated against, so any reviewer can independently verify it against the same published source.
 
 ### 2. Standards Version Manifest
 
-Every assessment embeds a frozen snapshot of which standard versions were applied. When ASHRAE publishes an updated edition, the engine version increments and new assessments reference the new standard — but previously scored assessments retain their original manifest.
+Every assessment embeds a frozen snapshot of which standard versions were applied. When ASHRAE publishes an updated edition, the engine version increments and new assessments reference the new standard — but previously issued assessments retain their original manifest.
 
 This prevents the "which version were you using?" challenge in deposition or peer review.
 
@@ -414,7 +357,7 @@ TVOC readings always carry: "screening indicator only — compound-specific iden
 
 ### 7. Confidence Transparency
 
-The measurement confidence badge (High / Moderate / Low / Insufficient) is displayed prominently alongside the composite score but is visually distinct from it. This signals to the reviewer how much weight to place on the numeric result.
+The measurement confidence badge (High / Moderate / Low / Insufficient) is displayed alongside the findings and is visually distinct from their severity. This signals to the reviewer how much weight to place on the result.
 
 A single-point measurement with no temporal context, no occupancy documentation, and no outdoor baseline is labeled "Low Confidence" — regardless of how favorable the reading appears.
 
@@ -449,7 +392,7 @@ Calibration overdue or unknown triggers a warning in the report and caps measure
 ### 10. Assessment Mode Gating
 
 Three assessment modes gate report generation:
-- **Screening:** no numeric composite, no compliance claims, report labeled "SCREENING ONLY"
+- **Screening:** no compliance claims
 - **Walkthrough:** requires minimum instrumentation (CO₂, temp, RH)
 - **Full Assessment:** requires full instrument suite, calibration documentation
 

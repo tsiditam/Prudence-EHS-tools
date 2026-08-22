@@ -131,6 +131,6 @@ describe('v2.5 §2 — Appendix D citation walker', () => {
     // v2.9.0 — sourced from src/version.js's ENGINE_VERSION_TAG so
     // this pin moves with the engine and stays in sync with the rest
     // of the version assertions across the test suite.
-    expect(ENGINE_VERSION_FOOTER).toContain('atmosflow-engine-2.9.0')
+    expect(ENGINE_VERSION_FOOTER).toContain('atmosflow-engine-3.0.0')
   })
 })

@@ -522,7 +522,12 @@ const SupaStorage = {
             sampling_plan: assessment.samplingPlan,
             causal_chains: assessment.causalChains,
             narrative: assessment.narrative,
-                risk: assessment.comp?.risk || assessment.composite?.risk,
+            // A `score` / `risk` pair rode here until v3.0. The columns are
+            // kept and their existing data is untouched — an issued report's
+            // record is the only evidence of what it said — but nothing
+            // writes them any more. The `composite` column now carries the
+            // finding census `summarizeAssessment` returns; it is the same
+            // slot for the same thing, and it is not a rating.
             // Lossless app-shape snapshot — preserves fields the flattened
             // columns drop (equipment, floorPlan, sensorData, labResults,
             // standardsManifest). fromCloudRow prefers this on the way down.

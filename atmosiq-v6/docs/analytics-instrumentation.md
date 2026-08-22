@@ -27,17 +27,17 @@
 | `quickstart_completed` | Building info phase done | `facility` (name only), `building_type` | Low |
 | `zone_added` | Additional zone created | `zone_index` | No |
 | `details_completed` | Optional details finished | `facility` | Low |
-| `score_generated` | Scoring engine runs | `composite`, `avg`, `worst`, `risk`, `osha_flag`, `confidence`, `data_gaps` | No |
-| `assessment_completed` | Full assessment saved | `zones`, `score`, `facility`, `has_causal_chains`, `sampling_recommendations` | Low |
+| `engine_completed` | Assessment engine runs | `zones`, `findings`, `attention`, `osha_flag`, `confidence`, `data_gaps` | No |
+| `assessment_completed` | Full assessment saved | `zones`, `findings`, `facility`, `has_causal_chains`, `sampling_recommendations` | Low |
 
 ### Report & Export
 
 | Event | Trigger | Properties | Sensitive? |
 |-------|---------|-----------|-----------|
-| `report_viewed` | User opens saved report | `report_id`, `facility`, `score` | Low |
-| `narrative_requested` | User requests AI narrative | `facility`, `score` | Low |
+| `report_viewed` | User opens saved report | `report_id`, `facility`, `findings` | Low |
+| `narrative_requested` | User requests AI narrative | `facility`, `findings` | Low |
 | `narrative_generated` | AI narrative returned | `word_count` | No |
-| `report_exported` | PDF export triggered | `facility`, `score`, `zones`, `has_narrative` | Low |
+| `report_exported` | PDF export triggered | `facility`, `findings`, `zones`, `has_narrative` | Low |
 
 ### Draft Management
 
@@ -88,7 +88,7 @@
 
 Definition: An assessment is "report-ready" when:
 1. `assessment_completed` event fires
-2. Score is generated (`score_generated`)
+2. Score is generated (`engine_completed`)
 3. At least 1 zone with measurements exists
 
 Query:
@@ -98,7 +98,7 @@ SELECT
   COUNT(DISTINCT id) AS report_ready_assessments
 FROM analytics_events
 WHERE event_type = 'assessment_completed'
-  AND (event_data->>'score')::int IS NOT NULL
+  AND (event_data->>'findings')::int IS NOT NULL
 GROUP BY 1
 ORDER BY 1 DESC;
 ```
@@ -127,9 +127,9 @@ ORDER BY 1 DESC;
 
 ### 4. Product Value Dashboard
 - Assessments completed per week
-- Average score distribution (histogram from `score_generated.composite`)
-- OSHA flags per assessment (from `score_generated.osha_flag`)
-- Data gaps per assessment (from `score_generated.data_gaps`)
+- Finding-count distribution (histogram from `engine_completed.findings`)
+- OSHA flags per assessment (from `engine_completed.osha_flag`)
+- Data gaps per assessment (from `engine_completed.data_gaps`)
 - Report exports per assessment (report_exported / assessment_completed)
 - Narrative generation rate (narrative_generated / assessment_completed)
 
@@ -146,7 +146,7 @@ ORDER BY 1 DESC;
 ### What we track
 - Product behavior: which features are used, workflow completion rates
 - Workflow state: phase transitions, draft/completion counts
-- Scoring output: composite scores, risk levels, data gap counts
+- Engine output: finding counts by severity, confidence, data gap counts
 - Instrument metadata: meter model names, calibration status
 
 ### What we do NOT track
@@ -173,7 +173,7 @@ ORDER BY 1 DESC;
 
 1. **Signup flow**: Create account → verify `signup_started` and `signup_completed` events in `analytics_events` table
 2. **Profile setup**: Complete profile with instruments → verify `profile_created` and `calibration_date_entered` events
-3. **Assessment lifecycle**: Start → quickstart → zone → complete → verify `assessment_created`, `quickstart_completed`, `score_generated`, `assessment_completed` in sequence
+3. **Assessment lifecycle**: Start → quickstart → zone → complete → verify `assessment_created`, `quickstart_completed`, `engine_completed`, `assessment_completed` in sequence
 4. **Report export**: Export PDF → verify `report_exported` event with correct zone count
 5. **Draft cycle**: Start assessment, leave mid-zone → verify `draft_saved` events; resume → verify `draft_resumed`
 6. **Demo mode**: Run demo → verify `assessment_mode_selected` with mode=demo

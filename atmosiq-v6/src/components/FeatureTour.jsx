@@ -47,7 +47,7 @@ export const FEATURE_TOUR_STEPS = [
   },
   {
     title: 'Review your results',
-    body: 'See a composite score, per-zone risk indicators, recommendations, and a suggested sampling plan. The Readiness panel surfaces any gaps and takes you straight to the field to fix them.',
+    body: 'See what was found in each zone, ordered by severity, with recommendations and a suggested sampling plan. The Readiness panel surfaces any gaps and takes you straight to the field to fix them.',
   },
   {
     title: 'Generate the report & ask Jasper',

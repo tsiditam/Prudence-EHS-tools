@@ -24,9 +24,12 @@ platform maintains, not the thing it is for. It was the defining trait
 through 2026-08 and is no longer; see the working principles below and
 `docs/REPORTING_VOICE.md`.
 
-Live at atmosflow.net. Engine version is currently **2.9** (v2.9 changed report-issuance
-gating from refuse-to-issue to issue-with-warnings; see the engine
-override note under Working principles).
+Live at atmosflow.net. Engine version is currently **3.0** — a MAJOR bump,
+because v3.0 removed the 100-point composite score and every risk band, so
+the same inputs no longer produce the same conclusions. See "The 100-point
+score was removed" below. (v2.9 changed report-issuance gating from
+refuse-to-issue to issue-with-warnings; see the engine override note under
+Working principles.)
 
 ## Stack
 
@@ -83,8 +86,10 @@ Read these directories first when investigating any task:
   - `src/engine/bridge/legacy.ts` — bridge from legacy scoring to
     AssessmentScore
 - `src/engines/` (plural, distinct from src/engine/) — JS engines for
-  scoring, sampling, narrative orchestration. **`scoring.js` is core
-  scoring logic** (off-limits per the standing rule below).
+  assessment, sampling, narrative orchestration. **`scoring.js` is the
+  core finding-generation engine** (determinism core per the standing
+  rule below). It kept its name through the v3.0 score removal; what it
+  produces now is findings, not points.
 - `src/constants/` — `standards.js` (manifest + thresholds),
   `questions.js`, `demoData.js` / `demoDataFM.js` / `demoDataDC.js`.
 - `src/utils/` — `storage.js` (localStorage), `supabaseStorage.js`
@@ -116,7 +121,7 @@ Read these directories first when investigating any task:
   readiness diagnostic, smoke test, password-reset verification, Stripe
   setup, cron implementations, sample-report PDF generator.
 - `scripts/acceptance/` — JSON acceptance configs:
-  `prod-ready.json` (59 criteria), `pricing-rollout.json` (19),
+  `prod-ready.json` (71 criteria), `pricing-rollout.json` (19),
   `go-live.json` (21), and the legacy v2.X engine configs.
 - `tests/` — Vitest:
   - `tests/engine/` — engine logic + report rendering tests (.ts)
@@ -217,7 +222,7 @@ Read these directories first when investigating any task:
   governance question.
 
   **Determinism core — changes need explicit product sign-off.** Scoring
-  math (`src/engines/scoring.js`, `scoring-legacy.js`), threshold constants
+  logic (`src/engines/scoring.js`, `scoring-legacy.js`), threshold constants
   (`src/constants/standards.js`), the scoring contracts and finding shapes
   in `src/engine/types/`, and the permission-flag logic deciding what a
   narrative may assert. These determine **what the engine concludes**.
@@ -445,7 +450,7 @@ Three feature-level acceptance configs gate completion claims:
 
 | Gate | Script | Criteria |
 |---|---|---|
-| Production readiness (Group A) | `npm run accept:prod-ready` | 59 |
+| Production readiness (Group A) | `npm run accept:prod-ready` | 71 |
 | Pricing rollout (Group B) | `npm run accept:pricing-rollout` | 19 |
 | Go-live experience (Group C) | `npm run accept:go-live` | 21 |
 
@@ -581,9 +586,39 @@ on this codebase. Watch for them.
    rate-limit). The user-visible message stays "Server error (500).
    Please try again." — the code is for debugging only.
 
+## The 100-point score was removed (engine v3.0)
+
+Nothing computes a composite score, a category weight, a deduction or a
+risk band. `scoreZone` still produces the findings tree — that was always
+its real job — and `summarizeAssessment` replaced `compositeScore` with a
+finding census, a zone count, confidence and a partial-data flag.
+
+**Do not reintroduce a rating.** `tests/engine/no-scoring.test.ts` and the
+`NO-COMPOSITE-SCORE` acceptance criterion assert the absence at every
+layer it reached, including that a saved assessment still carrying
+`comp` / `zone_scores` / `score` keys is inert.
+
+Why it went, since the reasons constrain what may replace it: the number
+was simultaneously a weighted mean, a worst-zone override, a
+normalization against whatever data was captured, and a severity cap, so
+it could not be explained in a sentence. Six mutually inconsistent band
+ladders existed across the codebase — including inside the file that
+claimed to be their single source of truth — and the two published
+composite formulas contradicted each other.
+
+What replaced it is a **census**: how many findings, at what severity,
+in which zone. Deliberately not a verdict. `ProfessionalOpinionTier`
+(`src/engine/report/professional-opinion.ts`) survives untouched and has
+no score dependency, but it is a four-state rollup and is the most
+likely candidate to quietly become the new rating — watch it.
+
+Stored scores are NOT deleted. The Supabase `score` / `composite` /
+`zone_scores` columns and the localStorage report index keep their data;
+nothing reads them. Dropping a column is irreversible and an issued
+report's record is the only evidence of what it said.
+
 ## Out of scope unless explicitly requested
 
-- Composite scoring math reconciliation (separate workstream)
 - UI redesign (separate plan; result tabs / demo cards / bottom nav
   redesigned in commit `c1ed1c8`, broader UI system pass deferred)
 - Mold module: the **foundation has landed** — a parallel, deterministic

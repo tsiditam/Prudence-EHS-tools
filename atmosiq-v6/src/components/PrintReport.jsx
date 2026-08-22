@@ -84,11 +84,13 @@ export function generatePrintHTML(data, opts = {}) {
 
 export function generateLegacyPrintHTML(data) {
   const { building, presurvey, zones, zoneScores, comp, oshaResult, recs: rawRecs, samplingPlan, causalChains, narrative, profile, photos, standardsManifest, userMode, escalationTriggers } = data
-  // One verdict, shared with the app (utils/assessmentVerdict.js). The
-  // composite alone could rate a critical finding as "acceptable ranges",
-  // because a critical finding zeroes its category but leaves the other four
-  // intact and the weighted mean stays >= 70.
-  const verdict = resolveVerdict({ comp, zoneScores, escalationTriggers })
+  // One verdict, shared with the app (utils/assessmentVerdict.js). It rests
+  // on the worst finding and the escalation triggers — what was observed.
+  // A composite band was the third input until v3.0; it could rate a
+  // critical finding as "acceptable ranges", because a critical finding
+  // zeroed its category and the weighted mean over the other four stayed
+  // above 70.
+  const verdict = resolveVerdict({ zoneScores, escalationTriggers })
   // What was found, counted — the headline where the composite score and
   // its risk band used to be. A census describes; a score ranks, and the
   // ranking is what nobody could explain.

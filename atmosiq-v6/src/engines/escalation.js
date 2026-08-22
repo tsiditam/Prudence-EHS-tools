@@ -7,7 +7,6 @@
 export function evaluateEscalation(assessment, complaints, history) {
   const triggers = []
   const zones = assessment?.zones || []
-  const comp = assessment?.comp || assessment?.composite
   const moldResults = assessment?.moldResults || []
 
   // Mold: IICRC S520 Condition 2 ≥10 sq ft OR any Condition 3

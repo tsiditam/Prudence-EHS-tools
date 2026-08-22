@@ -90,7 +90,7 @@ body(
 );
 
 body(
-  'The platform integrates real-time instrument data with structured building and zone observations, scoring each assessment across five weighted categories against ASHRAE 62.1-2025, ASHRAE 55-2023, OSHA 29 CFR 1910, EPA guidelines, and NIOSH Recommended Exposure Limits. AtmosIQ generates composite risk scores, causal chain analyses, hypothesis-driven sampling plans, OSHA defensibility evaluations, and AI-powered findings narratives.'
+  'The platform integrates real-time instrument data with structured building and zone observations, evaluating each measurement against ASHRAE 62.1-2025, ASHRAE 55-2023, OSHA 29 CFR 1910, EPA guidelines, and NIOSH Recommended Exposure Limits. AtmosIQ generates cited findings, causal chain analyses, hypothesis-driven sampling plans, OSHA defensibility evaluations, and AI-powered findings narratives.'
 );
 
 body(
@@ -137,22 +137,22 @@ bullet('OSHA Defensibility Engine — Compliance gap analysis with confidence sc
 // ── SCORING METHODOLOGY ──
 checkPage();
 doc.addPage();
-heading('Scoring Methodology', 18);
+heading('Assessment Methodology', 18);
 hr();
 
 body(
-  'AtmosIQ employs a 100-point composite scoring system distributed across five weighted categories. Each category is scored independently based on field data and evaluated against applicable standards. The weighting reflects the relative health significance and regulatory importance of each domain.'
+  'AtmosIQ evaluates each recorded measurement and observation against a published criterion and produces a finding carrying that criterion, the value observed, and a severity. Findings are grouped into five domains. Identical inputs produce identical findings; no rating or index is computed.'
 );
 
-subheading('Category Weights');
+subheading('Assessment Domains');
 doc.moveDown(0.2);
 
 const cats = [
-  ['Ventilation (25 points)', 'ASHRAE 62.1-2025 compliance, CO2 differential analysis, outdoor air adequacy, supply airflow assessment'],
-  ['Contaminants (25 points)', 'PM2.5 (EPA/WHO), CO (OSHA/NIOSH), HCHO (OSHA/NIOSH), TVOCs, mold indicators, odor assessment'],
-  ['HVAC Condition (20 points)', 'Maintenance history, filter condition and rating, supply air delivery, condensate drain pan status'],
-  ['Occupant Complaints (15 points)', 'Complaint presence, affected population, symptom resolution pattern, spatial clustering'],
-  ['Environment (15 points)', 'Thermal comfort (ASHRAE 55), relative humidity, water damage assessment, visible environmental conditions'],
+  ['Ventilation', 'ASHRAE 62.1-2025 outdoor-air rates, CO2 differential analysis, supply airflow assessment'],
+  ['Contaminants', 'PM2.5 (EPA/WHO), CO (OSHA/NIOSH), HCHO (OSHA/NIOSH), TVOCs, mold indicators, odor assessment'],
+  ['HVAC Condition', 'Maintenance history, filter condition and rating, supply air delivery, condensate drain pan status'],
+  ['Occupant Complaints', 'Complaint presence, affected population, symptom resolution pattern, spatial clustering'],
+  ['Environment', 'Thermal comfort (ASHRAE 55), relative humidity, water damage assessment, visible environmental conditions'],
 ];
 
 cats.forEach(([title, desc]) => {
@@ -162,17 +162,22 @@ cats.forEach(([title, desc]) => {
   doc.moveDown(0.5);
 });
 
-subheading('Composite Score Calculation');
+subheading('Severity');
 body(
-  'The facility-level composite score is calculated using a weighted average that incorporates worst-zone performance to prevent false confidence from averaging. The formula applies 60% weight to the mean zone score and 40% weight to the worst-performing zone: Composite = (Average x 0.6) + (Worst x 0.4). This ensures that a single critically deficient zone is not masked by acceptable conditions elsewhere in the facility.'
+  'A finding\'s severity comes from the criterion it was evaluated against, not from a rating applied afterward. A carbon monoxide reading above the OSHA permissible exposure limit is critical because of what the limit is; visible mold beyond 30 square feet is critical because of what IICRC S520 says about it. Severity is capped by the criterion\'s class, so an indicator such as CO2 — which indexes outdoor-air delivery rather than contamination — can never reach critical on concentration alone.'
 );
 
-subheading('Risk Classification');
-body('Composite scores map to four risk tiers:');
-bullet('85-100: Low Risk — Conditions meet or exceed applicable standards');
-bullet('70-84: Moderate Risk — Minor deficiencies identified; monitoring recommended');
-bullet('50-69: High Risk — Significant deficiencies requiring engineering or administrative controls');
-bullet('0-49: Critical Risk — Immediate action required; potential regulatory exposure');
+subheading('Site Roll-Up');
+body(
+  'A facility-level summary reports the number of zones assessed, the finding census by severity, whether any domain went unassessed for want of data, and the building confidence — the lowest confidence of any zone assessed, since a building cannot be better characterized than its least-measured area.'
+);
+
+subheading('Recommendation Tiers');
+body('Recommendations are tiered by urgency and, under the OSHA 3430 control hierarchy, by kind:');
+bullet('Immediate — conditions requiring action before normal occupancy resumes');
+bullet('Engineering control — changes to how the building conditions or moves air');
+bullet('Administrative control — procedures, documentation, occupant communication');
+bullet('Monitoring — reassessment and verification of corrective action');
 
 // ── VENTILATION ANALYSIS ──
 checkPage();
@@ -213,7 +218,7 @@ const contaminants = [
   ['Carbon Monoxide (CO)', 'OSHA PEL: 50 ppm (8-hr TWA). NIOSH REL: 35 ppm. Exceedance triggers immediate action recommendations.'],
   ['Formaldehyde (HCHO)', 'OSHA PEL: 0.75 ppm. OSHA Action Level: 0.5 ppm. NIOSH REL: 0.016 ppm. Tiered scoring across all three thresholds.'],
   ['Total VOCs (TVOCs)', 'Concern level: 500 ug/m3. Action level: 3000 ug/m3. PID-measured with outdoor baseline comparison when available.'],
-  ['Mold Indicators', 'Visual assessment scored by extent: suspected discoloration, small (< 10 sq ft), moderate (10-100 sq ft), extensive (> 100 sq ft). All visual mold findings are flagged as unconfirmed pending sampling.'],
+  ['Mold Indicators', 'Visual assessment classified by extent: suspected discoloration, small (< 10 sq ft), moderate (10-100 sq ft), extensive (> 100 sq ft). All visual mold findings are flagged as unconfirmed pending sampling.'],
   ['Odor Assessment', 'Characterized by intensity (faint/intermittent, moderate/persistent, strong/overpowering) and type (chemical, musty, sewage, exhaust, off-gassing, sweet).'],
 ];
 
@@ -236,7 +241,7 @@ body(
 
 subheading('1. Ventilation Deficiency Chain');
 body(
-  'Triggered when ventilation scoring indicates deficiency (score <= 15/25) combined with corroborating evidence: outdoor air damper restriction, weak supply airflow, or occupant symptoms that resolve away from the building. Evidence items are aggregated and confidence is rated as Strong (3+ items), Moderate (2 items), or Possible (1 item).'
+  'Triggered by a high or critical ventilation finding combined with corroborating evidence: outdoor air damper restriction, weak supply airflow, or occupant symptoms that resolve away from the building. Evidence items are aggregated and confidence is rated as Strong (3+ items), Moderate (2 items), or Possible (1 item).'
 );
 
 subheading('2. Moisture / Biological Chain');
@@ -287,7 +292,7 @@ body(
   'The OSHA Defensibility Engine evaluates whether assessment findings could trigger regulatory scrutiny under the General Duty Clause (Section 5(a)(1)) or specific OSHA standards. The evaluation considers:'
 );
 
-bullet('Documented occupant complaints combined with hazard indicator scores below 70');
+bullet('Documented occupant complaints combined with a concurrent measured hazard indicator');
 bullet('Ventilation deficiency (CO2 > 1000 ppm)');
 bullet('Water intrusion or mold indicators');
 bullet('Building-related symptom patterns with widespread affected populations');
@@ -304,11 +309,11 @@ heading('AI Narrative Generation', 18);
 hr();
 
 body(
-  'AtmosIQ integrates AI-powered narrative generation to produce professional findings narratives from assessment data. The system is prompted with the role of an expert CIH and constrained to: describe only what the data shows; never invent scores, thresholds, or standards not provided; write in professional third-person; reference zone names and specific measurements; and limit output to 2-3 paragraphs.'
+  'AtmosIQ integrates AI-powered narrative generation to produce professional findings narratives from assessment data. The system is prompted with the role of an expert CIH and constrained to: describe only what the data shows; never invent findings, thresholds, or standards not provided; write in professional third-person; reference zone names and specific measurements; and limit output to 2-3 paragraphs.'
 );
 
 body(
-  'The narrative engine receives the complete assessment payload including facility information, zone scores, individual findings, measurements, and recommendations. The resulting narrative is suitable for inclusion in client-facing reports with appropriate professional review.'
+  'The narrative engine receives the complete assessment payload including facility information, individual findings, measurements, and recommendations. The resulting narrative is suitable for inclusion in client-facing reports with appropriate professional review.'
 );
 
 // ── STANDARDS FRAMEWORK ──

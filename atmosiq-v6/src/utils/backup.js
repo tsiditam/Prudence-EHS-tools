@@ -9,9 +9,33 @@
 import STO from './storage'
 import { APP_VERSION } from '../version'
 import { KEYS } from './storageKeys'
+import { countFindings, worstFindingSeverity } from './assessmentVerdict'
 
 const TRASH_KEY = KEYS.trash
 const TRASH_TTL_DAYS = 30
+
+/**
+ * Index fields for a restored report.
+ *
+ * Was `score: rpt.comp?.tot || rpt.composite?.tot || rpt.score` — a
+ * three-spelling read of the composite, which after v3.0 resolves to
+ * undefined for anything issued since, so a restored report landed in the
+ * list with no summary at all. The census is derived from the zone
+ * assessments the record already carries.
+ *
+ * A pre-v3.0 backup has no census to derive and keeps its stored `score`
+ * verbatim: the roll-up renders that row as "not recorded", which is
+ * honest, and the record stays as it was issued.
+ */
+function indexSummary(rpt) {
+  const zs = rpt?.zoneScores
+  if (Array.isArray(zs) && zs.length > 0) {
+    const c = countFindings(zs)
+    return { findings: c.total, attention: c.attention, worstSeverity: worstFindingSeverity(zs) }
+  }
+  const legacy = rpt?.score ?? rpt?.comp?.tot ?? rpt?.composite?.tot
+  return legacy == null ? {} : { score: legacy }
+}
 
 const Backup = {
   // ── Full Data Export ──
@@ -85,7 +109,7 @@ const Backup = {
           id: rpt.id,
           ts: rpt.ts || rpt.created_at,
           facility: rpt.building?.fn || rpt.facility_name,
-          score: rpt.comp?.tot || rpt.composite?.tot || rpt.score,
+          ...indexSummary(rpt),
         })
         imported.reports++
       }
@@ -166,7 +190,7 @@ const Backup = {
         id: item.id,
         ts: item.data.ts || item.data.created_at,
         facility: item.data.building?.fn || item.data.facility_name,
-        score: item.data.comp?.tot || item.data.composite?.tot,
+        ...indexSummary(item.data),
       })
     } else {
       await STO.addDraftToIndex({

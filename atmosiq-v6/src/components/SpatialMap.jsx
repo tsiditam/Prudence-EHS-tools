@@ -28,6 +28,15 @@ function pinColor(zoneScore) {
   return PIN_COLORS[worst] || DIM
 }
 
+/**
+ * A single finding's own colour.
+ *
+ * The rule that fed this list a NUMBER (`f.sev === 'critical' ? 0 : ...`)
+ * survived the band removal by one line: it re-encoded severity as a score
+ * so it could ask the old ladder, and after the ladder went it silently
+ * coloured critical findings grey. A severity is already the answer.
+ */
+
 /** Finding count for a zone — what the pin displays. */
 function pinCount(zoneScore) {
   if (!zoneScore) return null
@@ -173,7 +182,7 @@ export default function SpatialMap({ zones, zoneScores, floorPlan, onUpdateZone,
           </div>
           <div style={{ fontSize: 10, color: DIM, marginBottom: 8 }}>Top Risk Factors</div>
           {getTopFindings(selectedPin).map((f, i) => (
-            <div key={i} style={{ fontSize: 11, color: SUB, marginBottom: 4, paddingLeft: 10, borderLeft: `2px solid ${pinColor(f.sev === 'critical' ? 0 : f.sev === 'high' ? 50 : 80)}` }}>{f.t}</div>
+            <div key={i} style={{ fontSize: 11, color: SUB, marginBottom: 4, paddingLeft: 10, borderLeft: `2px solid ${PIN_COLORS[f.sev] || DIM}` }}>{f.t}</div>
           ))}
           {getTopFindings(selectedPin).length === 0 && <div style={{ fontSize: 11, color: DIM, fontStyle: 'italic' }}>No significant findings</div>}
           <div style={{ display: 'flex', gap: 12, marginTop: 10 }}>
@@ -202,17 +211,23 @@ export default function SpatialMap({ zones, zoneScores, floorPlan, onUpdateZone,
         </div>
       )}
 
-      {/* Legend */}
+      {/* Legend. Read "Low Risk (80-100) / Moderate (50-79) / Critical
+          (<50)" — a fourth band ladder, in a legend for pins that had
+          already stopped being coloured by score, and one of whose three
+          swatches (`PIN_COLORS.moderate`) never existed and rendered
+          transparent. A pin now shows the worst finding severity in the
+          zone and the count of findings, so the legend names those. */}
       <div style={{ padding: 12, background: CARD, border: `1px solid ${BORDER}`, borderRadius: 8 }}>
-        <div style={{ fontSize: 10, fontWeight: 600, color: DIM, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>AIHA Risk Thresholds</div>
-        <div style={{ display: 'flex', gap: 16, fontSize: 10, color: SUB }}>
-          {[{ c: PIN_COLORS.low, l: 'Low Risk (80–100)' }, { c: PIN_COLORS.moderate, l: 'Moderate (50–79)' }, { c: PIN_COLORS.critical, l: 'Critical (<50)' }].map(item => (
+        <div style={{ fontSize: 10, fontWeight: 600, color: DIM, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>Pin colour — worst finding in the zone</div>
+        <div style={{ display: 'flex', gap: 16, fontSize: 10, color: SUB, flexWrap: 'wrap' }}>
+          {[{ c: PIN_COLORS.critical, l: 'Critical' }, { c: PIN_COLORS.high, l: 'High' }, { c: PIN_COLORS.medium, l: 'Medium' }, { c: PIN_COLORS.low, l: 'Low or none' }].map(item => (
             <div key={item.l} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <div style={{ width: 8, height: 8, borderRadius: '50%', background: item.c }} />
               {item.l}
             </div>
           ))}
         </div>
+        <div style={{ fontSize: 10, color: DIM, marginTop: 6 }}>The number on a pin is how many findings were recorded in that zone.</div>
       </div>
 
       {/* Skip notice */}

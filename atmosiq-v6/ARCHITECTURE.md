@@ -72,7 +72,6 @@ atmosiq-v6/
 │   │   ├── LandingPage.jsx       # Marketing landing page (desktop only)
 │   │   ├── Loading.jsx           # Animated loading screen
 │   │   ├── Particles.jsx         # Canvas particle background
-│   │   ├── ScoreRing.jsx         # Animated circular score display
 │   │   ├── PhotoCapture.jsx      # Camera capture + photo management
 │   │   ├── SensorScreen.jsx      # Instrument readings input grid
 │   │   └── Icons.jsx             # SVG icon system
@@ -115,8 +114,8 @@ All business logic lives in `engines/`. These are pure functions with no UI depe
 
 ```js
 // Input: raw zone data + building data
-// Output: deterministic score object
-scoreZone(zoneData, buildingData) → { tot, risk, rc, cats, zoneName }
+// Output: deterministic assessment object
+scoreZone(zoneData, buildingData) → { cats, zoneName, confidence, sufficiency, insufficientCats, assessedCats, partialScore }
 ```
 
 This means:
@@ -215,34 +214,51 @@ cond: { f: 'wd', ne: 'None' }
 
 ---
 
-## Scoring Engine
+## Assessment Engine
 
-### 100-Point Scale (5 Categories)
+### Findings, not a score
 
-| Category | Max Points | What It Scores |
-|---|---|---|
-| Ventilation | 25 | CO2 levels, airflow, damper status |
-| Contaminants | 25 | PM2.5, CO, HCHO, TVOCs, mold, odors |
-| HVAC | 20 | Maintenance, filters, airflow, drain pan |
-| Complaints | 15 | Affected count, symptom patterns, clustering |
-| Environment | 15 | Temperature, humidity, water damage |
+Each recorded measurement and observation is evaluated against a
+published criterion from `src/constants/criteria.js` — an OSHA PEL, a
+NIOSH REL, an ASHRAE range, an EPA NAAQS, an IICRC classification. The
+criterion supplies the severity, the finding sentence and the citation;
+the engine supplies the comparison. Identical inputs produce identical
+findings.
 
-### Composite Score
+| Category | What it evaluates |
+|---|---|
+| Ventilation | CO2 levels, airflow, damper status |
+| Contaminants | PM2.5, CO, HCHO, TVOCs, mold, odors |
+| HVAC | Maintenance, filters, airflow, drain pan |
+| Complaints | Affected count, symptom patterns, clustering |
+| Environment | Temperature, humidity, water damage |
 
-```
-Composite = (Average × 0.6) + (Worst Zone × 0.4)
-```
+The categories are how findings are GROUPED. They carry no weights and
+no points.
 
-Worst-zone weighting prevents one bad area from hiding behind good averages.
+### Site roll-up
 
-### Risk Classification
+`summarizeAssessment(zoneAssessments)` returns the zone count, the
+finding census by severity, the building confidence (the lowest zone
+confidence — a building cannot be better understood than its
+least-measured zone), and whether any category went unassessed.
 
-| Score | Risk Level | Color |
-|---|---|---|
-| 85+ | Low Risk | #22D3EE (cyan) |
-| 70-84 | Moderate | #FBBF24 (amber) |
-| 50-69 | High Risk | #FB923C (orange) |
-| <50 | Critical | #EF4444 (red) |
+### The 100-point score (removed)
+
+Through engine v2.9 this section described a 100-point composite: five
+weighted categories (25/25/20/15/15), a per-zone score normalized
+against whatever data was collected, and a site composite with a
+worst-zone override, banded Low Risk / Moderate / High Risk / Critical.
+
+It was removed in v3.0. The number could not be explained in a
+sentence — it was simultaneously a weighted mean, an override, a
+data-sufficiency normalization and a severity cap. The evidence that it
+had stopped being coherent is that six mutually inconsistent band
+ladders existed across the codebase, and the two published formulas (in
+this file and in the white paper) contradicted each other.
+
+Severity, confidence, sufficiency status, causal chains and
+recommendations were never derived from the number and are unchanged.
 
 ### OSHA Defensibility
 
@@ -446,7 +462,7 @@ All interactive elements: **44pt minimum** (Apple HIG compliance).
 
 ```
 src/__tests__/
-├── scoring.test.js    # 29 tests — scoreZone, compositeScore, evalOSHA, calcVent, genRecs
+├── scoring.test.js    # scoreZone, summarizeAssessment, evalOSHA, calcVent, genRecs
 └── sampling.test.js   # 8 tests — sampling plan generation
 ```
 
@@ -455,7 +471,6 @@ src/__tests__/
 - Every scoring category (ventilation, contaminants, HVAC, complaints, environment)
 - Risk classification thresholds
 - OSHA defensibility flags
-- Composite score weighting
 - Ventilation calculations per ASHRAE 62.1
 - Recommendation generation and deduplication
 - Sampling plan triggers (mold, formaldehyde, CO, VOCs, sewer gas)
@@ -500,7 +515,7 @@ npm run test:watch  # Watch mode
    { id, sec, q, t, ic, opts, req, sk, cond, ph, u, ref, photo, ac }
    ```
 
-3. **Build your scoring engine**: Pure functions in `engines/`. Input: raw data. Output: deterministic scores traceable to standards.
+3. **Build your assessment engine**: Pure functions in `engines/`. Input: raw data. Output: deterministic findings traceable to standards.
 
 4. **Define your standards**: Hardcode thresholds in `constants/standards.js`. AI never sets these.
 
@@ -708,13 +723,12 @@ Simple fields:
   {facility_name}  {facility_address}  {facility_type}
   {hvac_type}  {assessment_date}  {report_date}
   {assessor_name}  {assessor_certs}
-  {composite_score}  {composite_risk}  {zone_count}
-  {avg_score}  {worst_score}
+  {finding_count}  {attention_count}  {zone_count}
   {osha_confidence}  {ai_narrative}
 
 Loops (repeat per zone):
   {#zones}
-    Zone: {name} — Score: {score}/100 ({risk})
+    Zone: {name} — {finding_count} findings ({worst_severity})
     {#findings}
       [{severity}] {text} ({standard})
     {/findings}
@@ -764,19 +778,15 @@ function mapAssessmentToTemplate(data) {
       { month:'long', day:'numeric', year:'numeric' }),
     assessor_name: profile?.name || presurvey?.ps_assessor,
     assessor_certs: (profile?.certs || []).join(', '),
-    composite_score: comp?.tot,
-    composite_risk: comp?.risk,
+    finding_count: comp?.findings?.total,
+    attention_count: comp?.findings?.attention,
     zone_count: zoneScores?.length,
-    avg_score: comp?.avg,
-    worst_score: comp?.worst,
     osha_confidence: oshaResult?.conf,
     osha_flagged: oshaResult?.flag,
     osha_flags: oshaResult?.fl || [],
     ai_narrative: narrative || '',
     zones: zoneScores.map(zs => ({
       name: zs.zoneName,
-      score: zs.tot,
-      risk: zs.risk,
       findings: zs.cats.flatMap(c => 
         c.r.filter(r => r.sev !== 'pass' && r.sev !== 'info')
            .map(r => ({ severity: r.sev, text: r.t, standard: r.std || '' }))

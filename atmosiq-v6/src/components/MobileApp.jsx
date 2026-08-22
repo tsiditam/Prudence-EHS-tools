@@ -2468,11 +2468,10 @@ export default function MobileApp() {
     // KNOWN GAP: complaints/history are still passed empty because the
     // complaint store is not loaded on this screen, so the medical-attention
     // and complaint-cluster rules cannot fire from here.
-    const screenEscalations = evaluateEscalation({ zones, comp, moldResults }, [], [])
-    // One verdict for every surface. The composite is a floor, never a
-    // ceiling: a critical finding or an escalation trigger raises it, and no
-    // score can soften it. See utils/assessmentVerdict.js.
-    const verdict = resolveVerdict({ comp, zoneScores, escalationTriggers: screenEscalations })
+    const screenEscalations = evaluateEscalation({ zones, moldResults }, [], [])
+    // One verdict for every surface, raised by what was found: a finding or
+    // an escalation trigger. See utils/assessmentVerdict.js.
+    const verdict = resolveVerdict({ zoneScores, escalationTriggers: screenEscalations })
     const riskLabel = verdict.riskLabel
     const actionLabel = verdict.actionLabel
     // Expert summary — IH-grade reasoning (complaints are pattern, not driver)
@@ -2481,9 +2480,9 @@ export default function MobileApp() {
     const expertCause = causalChains[0] ? causalChains[0].rootCause : driver.cause
 
     // ── v3 derivations for the redesigned hero / panels ──
-    // Severity headline distilled from comp.tot. Pulled out of the
-    // legacy riskLabel string so the hero can render a tight 3-word
-    // headline plus a sentence of supporting prose.
+    // Severity headline from the one verdict. Pulled out of the legacy
+    // riskLabel string so the hero can render a tight 3-word headline plus a
+    // sentence of supporting prose.
     const sevPillTone = V3.SEVERITY[verdict.severity]
     const sevPillLabel = verdict.label
     const confTone = measConf?.overall === 'High' ? V3.CONFIDENCE.high : measConf?.overall === 'Low' ? V3.CONFIDENCE.low : V3.CONFIDENCE.medium
@@ -2936,12 +2935,15 @@ export default function MobileApp() {
                     <div style={V3.iconBox(V3.TEXT_SECONDARY)}><I n="notes" s={15} c={V3.TEXT_SECONDARY} w={1.8} /></div>
                     <div style={{minWidth:0,flex:1}}>
                       <div style={V3.T.captionDim}>Overall assessment</div>
-                      <div style={{...V3.T.body, marginTop:3, lineHeight:'19px'}}>{(() => {
-                        if (comp.tot < 30) return 'Indicators point to significant concerns across multiple factors; targeted investigation and corrective action are recommended.'
-                        if (comp.tot < 50) return 'Multiple contributing factors detected; targeted intervention warranted.'
-                        if (comp.tot < 70) return 'Conditions trending outside accepted range; targeted improvements recommended.'
-                        return 'Conditions consistent with expected baseline; continue routine monitoring.'
-                      })()}</div>
+                      {/* A 30/50/70 ladder over `comp.tot` stood here — a seventh
+                          set of thresholds, and the only one that survived the
+                          composite's removal, because it reads a field that is
+                          simply gone: every comparison against `undefined` is
+                          false, so it fell through to "consistent with expected
+                          baseline" for an assessment with critical findings in
+                          it. The one verdict already says this, in the same four
+                          registers, from what was found. */}
+                      <div style={{...V3.T.body, marginTop:3, lineHeight:'19px'}}>{verdict.prose}</div>
                     </div>
                   </div>
                   <div style={V3.divider()} />
@@ -3880,7 +3882,8 @@ export default function MobileApp() {
             target_type: 'assessment',
             details: {
               site_id: savedSite?.id || null,
-              score: comp?.tot ?? null,
+              findings: comp?.findings?.total ?? null,
+              attention: comp?.findings?.attention ?? null,
               zones: zones.length,
               facility_name: bldg.fn || null,
               sampling_plan_size: (samplingPlan?.plan || []).length,
@@ -3895,7 +3898,8 @@ export default function MobileApp() {
             target_type: 'assessment',
             details: {
               site_id: null,
-              score: comp?.tot ?? null,
+              findings: comp?.findings?.total ?? null,
+              attention: comp?.findings?.attention ?? null,
               zones: zones.length,
               declined_save: true,
               facility_name: bldg.fn || null,
