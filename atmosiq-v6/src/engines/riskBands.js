@@ -37,38 +37,12 @@ export function findingsToBand(findings) {
   return RISK_BANDS.find(b => b.severity === worst) || RISK_BANDS[0]
 }
 
-export function deriveFMSummary(findings, composite, mode) {
-  const compBand = composite ? getRiskBand(composite.tot) : null
-  const findingsBand = findings.length > 0 ? findingsToBand(findings) : null
-  const override = findingsBand && compBand && findingsBand.severity > compBand.severity
-  const finalBand = override ? findingsBand : (compBand || findingsBand || INSUFFICIENT_BAND)
-
-  const headlines = {
-    LOW: 'Conditions appear within acceptable ranges based on available data.',
-    MODERATE: 'Some concerns were identified that may benefit from attention.',
-    HIGH: 'Significant concerns identified. Corrective action is recommended.',
-    CRITICAL: 'Critical concerns identified. Immediate action is recommended.',
-    INSUFFICIENT: 'Insufficient data to determine air quality status.',
-  }
-
-  const nextSteps = {
-    LOW: 'Continue routine monitoring. No immediate corrective actions required at this time.',
-    MODERATE: 'Review the findings below and address identified concerns within 30 days.',
-    HIGH: 'Address the findings below within 7 days. Consider professional evaluation.',
-    CRITICAL: 'Take immediate corrective action. Professional evaluation strongly recommended.',
-    INSUFFICIENT: 'Additional data collection is required before conclusions can be drawn.',
-  }
-
-  return {
-    band: finalBand,
-    label: finalBand.label,
-    color: finalBand.color,
-    headline: headlines[finalBand.id] || headlines.INSUFFICIENT,
-    nextSteps: nextSteps[finalBand.id] || nextSteps.INSUFFICIENT,
-    override,
-    overrideMessage: override ? `Composite score of ${composite?.tot} reflects category averages; however, a ${findingsBand.label.toLowerCase()} finding requires prioritized attention regardless.` : null,
-  }
-}
+// `deriveFMSummary` lived here: an FM-mode headline + next-steps block
+// that blended the composite band with a findings band and emitted an
+// override message quoting the composite number. It went with the score.
+// It had no callers at the time of removal — the FM result surface reads
+// `resolveVerdict` (src/utils/assessmentVerdict.js), which answers the
+// same question from findings and escalation triggers.
 
 export const ASSESSMENT_MODES = {
   SCREENING: {

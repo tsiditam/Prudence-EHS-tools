@@ -126,7 +126,7 @@ Cite a standard or numeric value ONLY if it appears in the supplied standardsMan
  * Generates an AI narrative via the serverless proxy at /api/narrative.
  * The Anthropic API key never leaves the server.
  */
-export async function generateNarrative(bldg, zones, zoneScores, comp, recs) {
+export async function generateNarrative(bldg, zones, zoneScores, recs) {
   const system = REASONING_SYSTEM_PROMPT
   const payload = {
     facility: bldg.fn, location: bldg.fl, type: bldg.ft, hvac: bldg.ht, hvacMaintenance: bldg.hm,
@@ -139,7 +139,11 @@ export async function generateNarrative(bldg, zones, zoneScores, comp, recs) {
     // reporting internal classifications; not supplying them is the
     // stronger guarantee. Do not re-add a field here without asking what
     // the reader would do with it.
-    compositeScore: comp,
+    //
+    // `compositeScore` and the per-zone `score` / `risk` fields below went
+    // the same way, for the same reason and then for a second one: the
+    // model was being handed the exact values Boundary 4 forbids it to
+    // report, and the platform no longer computes them at all.
     // The allowed-values set. The model may cite numeric thresholds /
     // limits / guideline values ONLY if they appear here (prompt §2.1).
     // STANDARDS_MANIFEST = bibliography + editions; STD = the numeric
@@ -147,7 +151,7 @@ export async function generateNarrative(bldg, zones, zoneScores, comp, recs) {
     // PM2.5/TVOC, per-occupancy outdoor-air rates).
     standardsManifest: { bibliography: STANDARDS_MANIFEST, referenceValues: STD },
     zones: zoneScores.map((zs, i) => ({
-      name: zs.zoneName, score: zs.tot, risk: zs.risk,
+      name: zs.zoneName,
       findings: zs.cats.flatMap(c => c.r.filter(r => r.sev!=='pass'&&r.sev!=='info').map(r => ({ text:r.t, severity:r.sev, standard:r.std||null }))),
       measurements: zones[i] ? Object.fromEntries(SENSOR_FIELDS.filter(sf=>zones[i][sf.id]).map(sf=>[sf.label, zones[i][sf.id]+' '+sf.u])) : {},
     })),

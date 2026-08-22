@@ -1696,7 +1696,7 @@ export default function MobileApp() {
     consumeCredit(3, 'narrative')
     trackEvent('narrative_requested', { facility: bldg.fn || '', score: comp?.tot })
     setNarrativeLoading(true)
-    const text = await generateNarrative(bldg, zones, zoneScores, comp, recs)
+    const text = await generateNarrative(bldg, zones, zoneScores, recs)
     setNarrative(text); setNarrativeLoading(false)
     if (text) trackEvent('narrative_generated', { word_count: text.split(/\s+/).length })
   }
