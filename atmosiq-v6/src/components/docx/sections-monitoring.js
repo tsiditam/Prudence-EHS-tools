@@ -170,6 +170,13 @@ const TONES = {
   notice: { text: '8A6206', fill: 'FEF9EC', dot: 'D9A21B' },
   warn: { text: '8A5106', fill: 'FDF3E8', dot: 'C2740B' },
   review: { text: 'A62121', fill: 'FDEFEF', dot: 'DC2626' },
+  // Deliberately grey, and deliberately NOT on the ok→review scale. When the
+  // calibration record cannot vouch for the data there is no position on that
+  // scale to occupy: the readings are neither within a reference nor above
+  // one, because no comparison they support has been established. Colouring
+  // it green would read as a pass and red as a failure; both are claims the
+  // data cannot carry.
+  indeterminate: { text: '52606D', fill: 'F1F4F6', dot: '8A98A5' },
 }
 
 export const p = (text, opts = {}) =>

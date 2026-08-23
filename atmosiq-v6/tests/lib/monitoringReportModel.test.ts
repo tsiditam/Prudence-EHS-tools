@@ -675,3 +675,90 @@ describe('PM10 as a reported parameter', () => {
     strings.forEach((t: string) => expect(scan(t), `banned language in: "${t}"`).toEqual([]))
   })
 })
+
+describe('a calibration that cannot vouch for the data withdraws the comparison', () => {
+  // Reported from a CIH review: the header said calibration was ~10 months
+  // past due, and then every parameter reported at full confidence — badges,
+  // percentages to one decimal, and a 35.1-against-35.0 exceedance call. The
+  // instrument's condition never touched the interpretation.
+  //
+  // calibrationIntegrity() had already derived exactly this and set
+  // qualitativeOnly. Nothing consumed it.
+  const period = { start: Date.UTC(2026, 4, 24), end: Date.UTC(2026, 4, 31) }
+
+  const sessionWith = (calDate: string | null) => ({
+    calibration: calDate ? { date: calDate } : {},
+    instrument: { make: 'Acme', model: 'X1', serial: 'S1' },
+  })
+  const reading = (i: number) => ({
+    t: period.start + i * 3600_000,
+    // Straddles the 35 µg/m³ EPA figure, so a status is genuinely available.
+    pm25: i % 10 === 0 ? 40 : 6,
+  })
+  const pts = Array.from({ length: 168 }, (_, i) => reading(i))
+  const ds = {
+    fileName: 'pm.csv',
+    params: ['pm25'],
+    units: { pm25: 'µg/m³' },
+    points: pts,
+    summary: { count: pts.length, start: pts[0].t, end: pts[pts.length - 1].t },
+  }
+  const build = (calDate: string | null) =>
+    buildMonitoringReportModel(
+      createMonitoringSession({ ...sessionWith(calDate), datasets: [{ ...ds, role: 'indoor' }] }) as never,
+      { dataset: ds } as never,
+    )
+
+  const pm = (m: any) => m.parameters.find((x: any) => x.param === 'pm25')
+
+  it('states a comparison when the calibration covers the period', () => {
+    const m: any = build('2026-05-01')
+    expect(pm(m).status.label).not.toBe('Not Established')
+    expect(pm(m).status.id).not.toBe('indeterminate')
+  })
+
+  it('withdraws it when the calibration expired before the period', () => {
+    const m: any = build('2024-01-01')
+    const st = pm(m).status
+    expect(st.label).toBe('Not Established')
+    expect(st.tone).toBe('indeterminate')
+    // The reason travels with it — a status that simply changed would read
+    // as a different measurement rather than a withdrawn claim.
+    expect(st.reason).toMatch(/does not cover this monitoring period/i)
+  })
+
+  it('withdraws it when the calibration post-dates the data', () => {
+    expect(pm(build('2026-12-01')).status.label).toBe('Not Established')
+  })
+
+  it('keeps the statistics — the numbers are what the instrument recorded', () => {
+    // Only the interpretation withdraws. Deleting the data would be a
+    // different and worse answer: the readings happened.
+    const m: any = build('2024-01-01')
+    expect(pm(m).stats.max).toBe(40)
+    expect(pm(m).stats.mean).toBeGreaterThan(0)
+    expect(pm(m).reference.limit).toBe(35)
+  })
+
+  it('does NOT withdraw when calibration was merely never documented', () => {
+    // qualitativeOnly is true here too, and using it directly would blank
+    // the status on every report that ever omitted the field. Absence is
+    // "we were not told"; an anomaly is "we checked and it does not hold".
+    const m: any = build(null)
+    expect(m.qualitativeOnly).toBe(true)
+    expect(pm(m).status.label).not.toBe('Not Established')
+  })
+
+  it('the withdrawal set and the prominent-alert set are the same set', () => {
+    // They were two independent lists of the same three statuses. One shared
+    // predicate now, so a status added to one cannot be missed by the other.
+    for (const cal of ['2024-01-01', '2026-12-01']) {
+      const m: any = build(cal)
+      expect(m.calibrationAlert).toBe(true)
+      expect(pm(m).status.id).toBe('indeterminate')
+    }
+    const ok: any = build('2026-05-01')
+    expect(ok.calibrationAlert).toBe(false)
+    expect(pm(ok).status.id).not.toBe('indeterminate')
+  })
+})

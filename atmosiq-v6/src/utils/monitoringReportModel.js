@@ -70,8 +70,39 @@ const obj = (v) => (v && typeof v === 'object' ? v : {})
  * Returns null when no reference was resolved — the section then shows the
  * statistics with no status claim at all.
  */
-export function statusFor(stats, reference) {
+export function statusFor(stats, reference, opts = {}) {
   if (!stats || !reference) return null
+
+  // ── When the calibration record cannot vouch for the data ────────────
+  //
+  // A past-due, post-dated or mid-window-lapsed calibration used to be a
+  // DISCLOSURE and nothing more: the header said so, and then every
+  // parameter reported at full confidence with percentages to one decimal
+  // and a 35.1-against-35.0 exceedance call. The instrument's condition
+  // never touched the interpretation.
+  //
+  // `calibrationIntegrity()` already derived exactly this and set
+  // `qualitativeOnly`. Nothing consumed it.
+  //
+  // The status is an INTERPRETATION, so it is what withdraws. The
+  // statistics still print — they are facts about what the instrument
+  // recorded — but "Within Reference" and "Above Reference" are claims
+  // that a reading of known accuracy sat on one side of a threshold, and
+  // an uncalibrated instrument cannot support either. Withholding it beats
+  // widening it: a margin wide enough to be honest would need an accuracy
+  // figure this platform does not have for every device, and inventing one
+  // is the failure the criteria registry exists to prevent.
+  if (opts.qualitativeOnly) {
+    return {
+      id: 'indeterminate',
+      label: 'Not Established',
+      tone: 'indeterminate',
+      reason:
+        'The instrument calibration on record does not cover this monitoring period, '
+        + 'so these readings are reported as recorded but no comparison against the '
+        + 'reference is established.',
+    }
+  }
 
   // TONE is a four-step visual scale; the LABEL stays the locked three-term
   // vocabulary. A reader takes the colour in before the words, so the extra
@@ -226,6 +257,39 @@ export function calibrationLabel(dateStr, referenceIso) {
 const DAY_MS = 86400000
 
 /**
+ * Calibration statuses that withdraw a parameter's reference comparison.
+ *
+ * NOT the same set as `qualitativeOnly`, and the difference is deliberate.
+ * `qualitativeOnly` is also true when calibration was never documented at
+ * all — and this codebase already draws that line elsewhere:
+ * `calibrationAlert` surfaces exactly these three prominently and leaves
+ * 'absent' as a quiet disclosure. The distinction is in CLAUDE.md too: the
+ * engine's calibration data-gap trigger fires on the ABSENCE of a record,
+ * not on an expired one, because they are different failures.
+ *
+ * An ANOMALY is a record that exists and does not cover the data — past
+ * due before the period, lapsed during it, or dated after it. The platform
+ * has looked at the instrument's history and found it cannot vouch for
+ * these readings, which is a positive finding about accuracy.
+ *
+ * ABSENCE is the platform not knowing. That is disclosed, and it does not
+ * blank the comparison — treating "we were not told" the same as "we
+ * checked and it does not hold" would silently void the status on every
+ * report that has ever omitted the field, which is most of them.
+ *
+ * The two lists must stay in step; asserted in the model's tests.
+ */
+const REFERENCE_WITHDRAWING_CAL_STATUSES = [
+  'post_dates_period',
+  'expired_before_period',
+  'lapsed_mid_period',
+]
+
+export function withdrawsReferenceComparison(status) {
+  return REFERENCE_WITHDRAWING_CAL_STATUSES.includes(status)
+}
+
+/**
  * Calibration integrity against the MONITORING PERIOD — the check the report
  * was missing. calibrationLabel() only ever compared the calibration date to
  * report-generation time, so an instrument calibrated AFTER the data was
@@ -368,6 +432,19 @@ export function buildMonitoringReportModel(session, opts = {}) {
   const technical = edition === 'technical'
 
   const dataset = opts.dataset || primaryDataset(s) || {}
+
+  // Hoisted above the parameter loop, which is the whole point of this
+  // change: the calibration verdict has to be known BEFORE each parameter's
+  // status is decided, or it can only ever be a footnote after the fact.
+  // Re-derived once below into `calIntegrity` for the report-level fields;
+  // same call, same inputs, so the two cannot disagree.
+  const calibrationQualitative = withdrawsReferenceComparison(
+    calibrationIntegrity(
+      obj(s.calibration).date,
+      obj(dataset.summary).start,
+      obj(dataset.summary).end,
+    ).status,
+  )
   const points = arr(dataset.points)
   const units = obj(dataset.units)
   const params = arr(dataset.params)
@@ -435,7 +512,11 @@ export function buildMonitoringReportModel(session, opts = {}) {
         // often the instrument sampled.
         headMeta: [unit, logging].filter(Boolean).join(' · '),
         figureNumber: figure,
-        status: statusFor(stats, ref),
+        // Calibration only. `belowDetection` is per-parameter and already
+        // carries its own caveat on the parameter it applies to — folding it
+        // in here would blank the status of every OTHER parameter because
+        // one analyte read below its floor.
+        status: statusFor(stats, ref, { qualitativeOnly: calibrationQualitative }),
         reference: ref,
         strip: summaryStrip(param, stats, ref, units),
         statement: parameterStatement(param, stats, refShape, { units }),
@@ -487,12 +568,13 @@ export function buildMonitoringReportModel(session, opts = {}) {
   // Absence, a future/post-dated record, or a lapse during the window each
   // set a qualitative-only posture and a reader-facing note.
   const calIntegrity = calibrationIntegrity(obj(s.calibration).date, summary.start, summary.end)
+  // Same inputs as `calibrationQualitative` hoisted at the top of this
+  // function; asserted equal by test so a future edit to one path cannot
+  // leave the statuses and the report-level posture disagreeing.
+  /* c8 ignore next */
   // Anomalies (a record that exists but does not cover the data) are surfaced
   // prominently; a plain "not documented" note stays a quiet disclosure.
-  const calibrationAlert =
-    calIntegrity.status === 'post_dates_period' ||
-    calIntegrity.status === 'expired_before_period' ||
-    calIntegrity.status === 'lapsed_mid_period'
+  const calibrationAlert = withdrawsReferenceComparison(calIntegrity.status)
 
   // Removed by product decision: the no-outdoor-baseline note was dropped
   // along with the §Limitations screening caveats. The outdoor baseline still
