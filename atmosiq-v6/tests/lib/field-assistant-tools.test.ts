@@ -20,6 +20,7 @@ describe('FIELD_ASSISTANT_TOOLS schema', () => {
       'list_known_analytes',
       'search_standards_corpus',
       'read_attached_document',
+      'review_attached_document',
       'analyze_photo',
       'propose_action',
       'assess_investigation',
