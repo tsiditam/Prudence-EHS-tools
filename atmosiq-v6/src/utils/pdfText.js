@@ -26,11 +26,32 @@
  * which is the honest answer.
  */
 
-/** Pages read before we stop. A lab report's findings are at the front. */
-export const MAX_PDF_PAGES = 20
+/**
+ * Pages read before we stop.
+ *
+ * Was 20, on the reasoning that "a lab report's findings are at the front".
+ * True of a lab report, and wrong about the document people actually upload
+ * for review: a consultant's IAQ assessment runs 30-60 pages and is shaped
+ * the other way round — scope and method at the front, findings, tables and
+ * recommendations at the back, appendices after that. A real 41-page report
+ * lost pages 21-41, which is the half worth reading.
+ *
+ * 60 covers the realistic range for a full assessment without turning an
+ * accidental drop of a 400-page archive into a locked tab; the character
+ * ceiling below is the real backstop either way.
+ */
+export const MAX_PDF_PAGES = 60
 
-/** Character ceiling across all pages. */
-export const MAX_PDF_CHARS = 60_000
+/**
+ * Character ceiling across all pages.
+ *
+ * Raised with the page cap — 60 pages of dense report text runs past 60k,
+ * and a ceiling that cuts mid-report while the page budget says there was
+ * room is the confusing failure. These bytes never reach the network: the
+ * file is parsed in the browser and thrown away, so the cost is memory and
+ * a few hundred milliseconds, not payload.
+ */
+export const MAX_PDF_CHARS = 120_000
 
 let enginePromise = null
 
@@ -85,6 +106,11 @@ export async function readPdfText(file, opts = {}) {
   const pagesToRead = Math.min(pages, maxPages)
   const out = []
   let chars = 0
+  // Pages actually READ, which is not the same as pages attempted: the loop
+  // stops early on the character ceiling. Reporting the attempt count made
+  // the disclosure overstate what the model had seen, and an honest
+  // truncation notice is the entire value of tracking this.
+  let pagesRead = 0
 
   try {
     for (let i = 1; i <= pagesToRead; i++) {
@@ -100,6 +126,7 @@ export async function readPdfText(file, opts = {}) {
         text += item.hasEOL ? '\n' : ' '
       }
       page.cleanup()
+      pagesRead = i
       const trimmed = text.trim()
       if (trimmed) {
         out.push(trimmed)
@@ -116,7 +143,7 @@ export async function readPdfText(file, opts = {}) {
   return {
     text: joined.slice(0, maxChars),
     pages,
-    pagesRead: pagesToRead,
-    truncated: joined.length > maxChars || pages > pagesToRead,
+    pagesRead,
+    truncated: joined.length > maxChars || pages > pagesRead,
   }
 }

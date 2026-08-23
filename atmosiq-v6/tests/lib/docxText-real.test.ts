@@ -130,6 +130,6 @@ describe('reading a real OOXML document', () => {
 
     expect(digest.truncated).toBe(true)
     // Truncation is stated rather than passed off as the whole document.
-    expect(digestToPrompt(digest)).toContain('truncated')
+    expect(digestToPrompt(digest)).toMatch(/truncated/i)
   })
 })
