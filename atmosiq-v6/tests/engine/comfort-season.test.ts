@@ -35,26 +35,37 @@ describe('comfortSeason', () => {
 })
 
 describe('scoring is stable for a given assessment date', () => {
-  // 76°F sits inside summer optimal (73–79) and outside winter optimal
-  // (68.5–74) — the reading that exposes the drift.
-  const zoneAt = (assessmentDate?: string) =>
-    scoreZone({ zn: 'Z', su: 'office', tf: '76', pm: '5', co: '2' },
+  // Re-pinned when the invented optimal/acceptable ladder was removed. The
+  // bands are now one per season — winter 68–76 °F, summer 73–79 °F — so the
+  // reading that exposes seasonal drift is one INSIDE one band and OUTSIDE
+  // the other. 70 °F is comfortable in winter clothing and cool in summer
+  // clothing, which is the whole reason the standard splits by clo.
+  const zoneAt = (assessmentDate?: string, tf = '76') =>
+    scoreZone({ zn: 'Z', su: 'office', tf, pm: '5', co: '2' },
       assessmentDate ? { assessmentDate } : {})
 
-  const envFindings = (assessmentDate?: string) =>
-    (zoneAt(assessmentDate).cats.find((c: any) => c.l === 'Environment')?.r || [])
+  const envFindings = (assessmentDate?: string, tf?: string) =>
+    (zoneAt(assessmentDate, tf).cats.find((c: any) => c.l === 'Environment')?.r || [])
       .filter((f: any) => String(f.t).startsWith('Temperature'))
 
   it('gives the same answer for a July survey whatever today is', () => {
     const july = envFindings('2026-07-15T12:00:00Z')
     expect(july.map((f: any) => f.sev)).toEqual(envFindings('2026-07-15T12:00:00Z').map((f: any) => f.sev))
-    // 76°F is within the summer band, so no out-of-range temperature finding.
-    expect(july.some((f: any) => f.sev === 'high')).toBe(false)
+    // 76°F is within the summer band (73–79), so no temperature finding at
+    // all. `high` is additionally impossible now: ASHRAE 55 is a comfort
+    // consensus standard and its criterion class caps at `medium`.
+    expect(july).toEqual([])
   })
 
   it('scores the same reading differently in winter — which is why the date must travel', () => {
-    const jan = envFindings('2026-01-15T12:00:00Z')
-    const jul = envFindings('2026-07-15T12:00:00Z')
+    const jan = envFindings('2026-01-15T12:00:00Z', '70')
+    const jul = envFindings('2026-07-15T12:00:00Z', '70')
     expect(JSON.stringify(jan)).not.toBe(JSON.stringify(jul))
+    // Named rather than merely different, so a future band change cannot make
+    // this pass for the wrong reason.
+    expect(jan).toEqual([])
+    expect(jul).toHaveLength(1)
+    expect(jul[0].sev).toBe('medium')
+    expect(jul[0].t).toContain('73–79°F summer')
   })
 })

@@ -81,7 +81,7 @@ describe('paramReference', () => {
     expect(c.band.min).toBeCloseTo(20, 0)
     expect(c.band.max).toBeCloseTo(24, 0)
     // Summer band differs from winter.
-    expect(paramReference('temp', { unit: '°F', ts: summer }).band.max).toBe(82)
+    expect(paramReference('temp', { unit: '°F', ts: summer }).band.max).toBe(79)
   })
 
   it('TVOC → Mølhave in ppb, against isobutylene, with the assumption stated', () => {

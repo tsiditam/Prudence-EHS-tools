@@ -37,8 +37,11 @@ function formatThresholds() {
     if (STD.t.temp) {
       const s = STD.t.temp.summer
       const w = STD.t.temp.winter
-      if (s) lines.push(`  Summer °F: acceptable ${s.min}–${s.max}, optimal ${s.oMin}–${s.oMax}`)
-      if (w) lines.push(`  Winter °F: acceptable ${w.min}–${w.max}, optimal ${w.oMin}–${w.oMax}`)
+      // Operative temperature, and the assumptions are part of the figure —
+      // Jasper must not be able to quote the band without them.
+      if (s) lines.push(`  Summer °F: ${s.min}–${s.max} acceptable (operative temp, ~0.5 clo, 1.0–1.3 met)`)
+      if (w) lines.push(`  Winter °F: ${w.min}–${w.max} acceptable (operative temp, ~1.0 clo, 1.0–1.3 met)`)
+      lines.push('  AtmosFlow measures air temperature only — one of the six variables ASHRAE 55 needs. Outside the band is an indicator, not a determination.')
     }
     if (STD.t.rh) lines.push(`  Relative humidity %: ${STD.t.rh.min}–${STD.t.rh.max}`)
     lines.push('')

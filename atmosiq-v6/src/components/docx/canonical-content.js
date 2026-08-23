@@ -38,6 +38,7 @@
  */
 
 import { allCriteria } from '../../constants/criteria'
+import { STD } from '../../constants/standards'
 
 export const FIRM_NAME = 'Prudence Safety & Environmental Consulting, LLC'
 
@@ -97,8 +98,8 @@ function criterionRows() {
 // depends on clothing, activity, radiant temperature and air speed, none of
 // which a spot temperature/RH reading captures.
 const THERMAL_ROWS = [
-  ['Temperature (summer)', '73–79°F optimal, 67–82°F acceptable', 'ASHRAE 55-2023 (Graphic Comfort Zone Method)', 'Thermal comfort criterion', 'Comfort evaluation, not a health standard'],
-  ['Temperature (winter)', '68.5–74°F optimal, 68.5–76°F acceptable', 'ASHRAE 55-2023 (Graphic Comfort Zone Method)', 'Thermal comfort criterion', 'Comfort evaluation, not a health standard'],
+  ['Temperature (summer)', `${STD.t.temp.summer.min}–${STD.t.temp.summer.max}°F acceptable (operative temp; ~0.5 clo, 1.0–1.3 met)`, 'ASHRAE 55-2023 (Graphic Comfort Zone Method)', 'Thermal comfort criterion', 'Air temperature measured; comfort evaluation, not a determination'],
+  ['Temperature (winter)', `${STD.t.temp.winter.min}–${STD.t.temp.winter.max}°F acceptable (operative temp; ~1.0 clo, 1.0–1.3 met)`, 'ASHRAE 55-2023 (Graphic Comfort Zone Method)', 'Thermal comfort criterion', 'Air temperature measured; comfort evaluation, not a determination'],
   ['Relative Humidity', '30–60%', 'ASHRAE 55-2023', 'Comfort / moisture indicator', 'Comfort and moisture indicator'],
 ]
 

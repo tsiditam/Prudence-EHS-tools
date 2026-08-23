@@ -51,8 +51,11 @@ describe('the survey date is captured at intake', () => {
 
 describe('the date reaches scoring', () => {
   // 76°F: inside the summer band (73–79), outside winter optimal (68.5–74).
+  // 70 °F: inside the winter band (68–76) and below the summer band (73–79).
+  // Was 76, which sat inside BOTH once the invented outer band was removed
+  // and so could no longer tell the seasons apart.
   const tempFindings = (assessmentDate?: string) =>
-    (scoreZone({ zn: 'Z', su: 'office', tf: '76', pm: '5', co: '2' },
+    (scoreZone({ zn: 'Z', su: 'office', tf: '70', pm: '5', co: '2' },
       assessmentDate ? { assessmentDate } : {})
       .cats.find((c: any) => c.l === 'Environment')?.r || [])
       .filter((f: any) => String(f.t).startsWith('Temperature'))
@@ -61,6 +64,8 @@ describe('the date reaches scoring', () => {
     const april = tempFindings('2026-04-28')
     const may = tempFindings('2026-05-02')
     expect(JSON.stringify(april)).not.toBe(JSON.stringify(may))
+    expect(april).toEqual([])          // winter band 68–76
+    expect(may).toHaveLength(1)        // summer band 73–79
   })
 
   it('is stable for the same survey date regardless of when it runs', () => {

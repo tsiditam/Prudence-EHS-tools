@@ -71,10 +71,58 @@ export const STANDARDS_MANIFEST = {
 export const STD = {
   t: {
     ref: 'ASHRAE 55-2023',
+    // ONE band per season, and it is the ACCEPTABLE range. ASHRAE 55 has a
+    // single acceptability criterion — roughly 80% of occupants satisfied —
+    // not a two-tier ladder.
+    //
+    // What stood here until 2026-08 was
+    //   summer: { min: 67, max: 82, oMin: 73, oMax: 79 }
+    //   winter: { min: 68.5, max: 76, oMin: 68.5, oMax: 74 }
+    // an "acceptable" band with a tighter "optimal" band inside it, both
+    // attributed to ASHRAE 55. Neither the 67-82 figure nor the
+    // optimal/acceptable ladder is in the standard, and unlike every other
+    // constant in this file the block carried no provenance comment at all.
+    //
+    // It also contradicted this project's own standards corpus, which states
+    // the acceptable range as ~68-76 F in winter and ~73-79 F in summer.
+    // Jasper cited the corpus; the engine scored against the invented pair;
+    // and the Logger Studio card drew the wide band while the engine flagged
+    // the narrow one. The same 72.6 F reading rendered as comfortably inside
+    // the range on one surface and as a finding on another.
+    //
+    // The figures below are the corpus's. They are the Fahrenheit rounding of
+    // the 20-24 C (winter, ~1.0 clo) and 23-26 C (summer, ~0.5 clo) operative
+    // temperature ranges the Graphic Comfort Zone Method yields for typical
+    // office work.
+    //
+    // THREE QUALIFIERS TRAVEL WITH THESE NUMBERS. State them wherever the
+    // band is stated; a bare number here is how the last version went wrong.
+    //
+    //   1. The assumptions. The graphic method is defined only for metabolic
+    //      rates of 1.0-1.3 met and clothing of 0.5-1.0 clo. Outside those
+    //      bounds the band does not apply.
+    //   2. The quantity. The standard's zone is OPERATIVE temperature -
+    //      roughly the mean of air and mean radiant temperature. AtmosFlow
+    //      measures dry-bulb air temperature, which approximates it and
+    //      diverges near glazing, exterior walls and radiant sources.
+    //   3. What it is not. ASHRAE 55 resolves comfort from six variables: air
+    //      temperature, mean radiant temperature, air speed, humidity,
+    //      metabolic rate and clothing insulation. AtmosFlow captures one of
+    //      the six. A reading outside this band is an indicator worth
+    //      investigating. It is never an ASHRAE 55 determination.
     temp: {
-      summer: { min: 67, max: 82, oMin: 73, oMax: 79 },
-      winter: { min: 68.5, max: 76, oMin: 68.5, oMax: 74 },
+      summer: { min: 73, max: 79 },
+      winter: { min: 68, max: 76 },
     },
+    // NOTE: 30-60% RH is cited to ASHRAE 55 here and in the report's criteria
+    // table, and that attribution is wrong on the same evidence as the
+    // temperature block above: this project's standards corpus records that
+    // ASHRAE 55 sets only an UPPER humidity limit (a humidity ratio of 0.012,
+    // roughly 60-65% RH at comfort temperatures) and dropped its lower limit
+    // in 55-2013. The 30-60% band is a general IAQ rule of thumb from health
+    // and moisture-control guidance, not an ASHRAE 55 comfort requirement.
+    // Left in place deliberately: re-citing it moves what the engine
+    // concludes and is its own scoped change. TODO(claude): re-cite.
     rh: { min: 30, max: 60 },
   },
   v: {

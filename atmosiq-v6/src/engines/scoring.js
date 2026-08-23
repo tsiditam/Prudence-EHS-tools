@@ -332,12 +332,24 @@ function assessEnv(d, rhOverride, tempOverride) {
     const t = +d.tf
     const tMin = tempOverride?.min ?? STD.t.temp[ssn].min
     const tMax = tempOverride?.max ?? STD.t.temp[ssn].max
-    const tOMin = tempOverride?.oMin ?? STD.t.temp[ssn].oMin
-    const tOMax = tempOverride?.oMax ?? STD.t.temp[ssn].oMax
     const tLabel = tempOverride?.label || 'ASHRAE 55'
     const tStd = tempOverride ? tempOverride.label : STD.t.ref
-    if (t < tMin || t > tMax)        { r.push({ t:'Temperature '+t+'°F — outside '+tMin+'–'+tMax+'°F range (per '+tLabel+')', std:tStd, sev:'high', p:'temperature', band:[tMin,tMax], bandUnit:'°F', bandLabel:tLabel+' acceptable range' }) }
-    else if (t < tOMin || t > tOMax) { r.push({ t:'Temperature '+t+'°F — outside optimal '+tOMin+'–'+tOMax+'°F (per '+tLabel+')', std:tStd, sev:'low', p:'temperature', band:[tOMin,tOMax], bandUnit:'°F', bandLabel:tLabel+' optimal band ('+ssn+')' }) }
+    // One comparison, one severity. There used to be two — an outer
+    // "acceptable" band at `high` and an inner "optimal" band at `low` — and
+    // both halves were wrong. ASHRAE 55 states one acceptability criterion,
+    // so the inner tier was inventing a distinction the standard does not
+    // draw; and `high` breaks the ceiling the criterion class already sets,
+    // since `comfort_consensus` caps at `medium` precisely because a comfort
+    // consensus standard is not a health or regulatory limit. See STD.t in
+    // constants/standards.js for the full account and for the three
+    // qualifiers that travel with the band.
+    if (t < tMin || t > tMax) {
+      r.push({
+        t: 'Temperature '+t+'°F — outside the '+tMin+'–'+tMax+'°F '+ssn+' comfort range ('+tLabel+')',
+        std: tStd, sev: 'medium', p: 'temperature',
+        band: [tMin, tMax], bandUnit: '°F', bandLabel: tLabel+' comfort range ('+ssn+')',
+      })
+    }
   } else if (d.tc === 'Too hot' || d.tc === 'Too cold') { r.push({ t:'Thermal discomfort: '+d.tc.toLowerCase(), sev:'medium' }) }
   // RH scoring with building-profile override where the occupancy defines one
   const rhMin = rhOverride?.min ?? STD.t.rh.min
