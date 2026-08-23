@@ -317,6 +317,81 @@ The technical/QA report keeps the fuller table (`benchmarkRowsFor`), narrowed
 to the parameters measured. Different audience, same generated rows — depth
 differs, the numbers cannot.
 
+### Double-entry bookkeeping (how a wrong number gets caught)
+
+Every threshold exists in two independently authored places:
+
+| Ledger | File | Written for |
+|---|---|---|
+| Machine | `constants/criteria.js` | the engine |
+| Prose | `constants/standards-corpus.js` | Jasper's retrieval layer, with primary-source citations |
+
+**Until 2026-08 nothing compared them.** The engine scored temperature against
+an invented 67–82 °F band with a fabricated "optimal" tier while the corpus,
+three directories away, carried the correct 68–76 / 73–79 and had done since
+it was written. It also stated in as many words that ASHRAE 55 "does NOT
+prescribe a lower humidity limit" while eleven surfaces cited ASHRAE 55 for a
+30 % floor. Both ledgers were in the repo. Neither was ever opened beside the
+other.
+
+A corpus entry whose text already states a threshold declares it structurally:
+
+```js
+figures: [
+  { criterionId: 'temp_ashrae55_summer', band: [73, 79], unit: '°F' },
+  // A figure may name its own bibliography entry when it belongs to another
+  // body — epa-pm25-2024-revision states the EPA NAAQS and the stricter WHO
+  // guidelines side by side, and that comparison is why it exists.
+  { criterionId: 'pm25_who_24h', value: 15, unit: 'µg/m³', manifestKey: 'WHO Air Quality Guidelines' },
+],
+```
+
+`figures` is metadata, not content — it links prose that already passed review
+to the registry entry it describes. Writing NEW prose still needs BCSP sign-off.
+
+`tests/engine/standards-reconciliation.test.ts` then enforces:
+
+1. A declared figure matches the registry **exactly**. No tolerance — "close"
+   is how 67 becomes defensible.
+2. Every criterion is documented by a corpus figure **or** named in an explicit
+   gap ledger with a reason. There is no third state.
+3. The gap ledger may only name criteria that exist, so it cannot rot into a
+   list of ghosts that silently excuses everything.
+4. A criterion cannot be both documented and excused.
+5. Every citation names a year, a regulation, a publication or a qualifier —
+   a bare `ASHRAE 55` fails, because that was the shape of both wrong ones.
+
+Verified against all three defect classes: restoring the invented band fails 1
+test, re-citing humidity to ASHRAE 55 fails 2, and adding a new threshold with
+`source: 'Industry practice'` fails 2.
+
+**The gap ledger is a backlog, not an exemption.** Twenty-one criteria are on
+it today — every CO and formaldehyde limit, all of PM10, the CO₂ indicators —
+because no corpus entry states their figures. They are checkable by hand and
+not contradictable, which is exactly the condition temperature and humidity
+were in. It may only shrink.
+
+### No reference line without a criterion
+
+`tests/engine/reference-line-provenance.test.ts` is the general form of the
+per-parameter guards that were each written after a specific figure turned out
+to be wrong. A reference line is the most consequential number the product
+renders — it is what a reading is judged against, it appears on a chart the
+client keeps, and nobody reads it as an opinion. So every one must resolve to
+a criterion, in the criterion's value (any unit projection), under the
+criterion's own citation.
+
+It found two on its first run: the CO₂ profiles drew 1,000 and 1,500 ppm with
+no criterion linked though `co2_concern` / `co2_action` hold exactly those
+numbers; and the TVOC profile labelled "WELL v2 performance (500 µg/m³)" cited
+WELL feature A01 while the corpus files that figure under LEED v4.1 and
+instructs "name it as a green-building/LEED target". The number was right and
+the attribution had nothing behind it.
+
+It also checks the **label**: "Mølhave advisory (500 µg/m³)" states the figure
+in text, where a stale one is invisible to any check that only reads the
+resolved value.
+
 ### Limits and bands
 
 A criterion is one of two shapes:

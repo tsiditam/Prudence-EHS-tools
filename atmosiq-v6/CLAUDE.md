@@ -486,6 +486,26 @@ When working on report generation:
   every file that states the band. Note how it spread — six of the eleven
   surfaces simply read `STD.t.ref` because `rh` sat inside `STD.t`. **A
   constant nested under another's citation inherits it.**
+- **Every published number is double-entered, and a reference line always
+  traces to a criterion.** Thresholds live in two independently authored
+  ledgers — `constants/criteria.js` (machine) and `constants/standards-corpus.js`
+  (prose with primary-source citations) — and until 2026-08 nothing compared
+  them. That is how the engine scored temperature against an invented 67–82 °F
+  band for four months while the corpus three directories away held the
+  correct figures the whole time.
+
+  A corpus entry now declares the thresholds its text states (`figures: [...]`),
+  and `tests/engine/standards-reconciliation.test.ts` requires an exact match,
+  requires every criterion to be documented OR on a visible gap ledger with a
+  reason, and rejects a bare standard name as a citation. Separately,
+  `tests/engine/reference-line-provenance.test.ts` requires every rendered
+  reference line — Logger card, monitoring report, chart legend — to resolve to
+  a criterion in that criterion's value and citation, including the figure
+  quoted in the profile LABEL. Gate: `STANDARDS-DOUBLE-ENTRY`.
+
+  **When you add a threshold**, the work is not done when the number is right.
+  It is done when a second, independently written record says the same thing,
+  or when the gap ledger says why it does not yet.
 - **A threshold travels with its averaging period, class and source.**
   `src/constants/criteria.js` is the registry; `docs/CRITERIA.md` explains
   it. **This rule now has enforcement**

@@ -165,7 +165,13 @@ describe('the equivalence basis is declared once', () => {
     for (const [param, list] of Object.entries(CRITERIA)) {
       for (const c of list as any[]) if (c.equivalenceBasis) withBasis.push(`${param}/${c.id}`)
     }
-    expect(withBasis.sort()).toEqual(['tvoc/tvoc_molhave_action', 'tvoc/tvoc_molhave_concern'])
+    // `tvoc_leed_target` joined in 2026-08 — the 500 µg/m³ green-building
+    // acceptance value, added because the Logger Studio profile was drawing
+    // that line with no criterion behind it. It is a µg/m³ TVOC figure and so
+    // crosses bases exactly like the Mølhave tiers.
+    expect(withBasis.sort()).toEqual([
+      'tvoc/tvoc_leed_target', 'tvoc/tvoc_molhave_action', 'tvoc/tvoc_molhave_concern',
+    ])
   })
 
   it('names a compound the converter actually knows', () => {

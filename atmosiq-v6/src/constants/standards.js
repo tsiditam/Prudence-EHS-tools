@@ -45,6 +45,7 @@ export const STANDARDS_MANIFEST = {
   'EPA Mold, Moisture and Your Home': 'current (keep indoor RH below 60%, ideally 30-50%)',
   'WELL Building Standard v2': 'Q3 2024 (IAQ features A01/V01 — OPT-IN only: an assessor-selectable Logger Studio reference, never applied by the engine on its own; see certification_target in criteria.js)',
   'Molhave TVOC tiers': '1991 (advisory only)',
+  'USGBC LEED v4.1': 'EQ Indoor Air Quality Assessment credit — the 500 ug/m3 TVOC post-construction acceptance value. OPT-IN only, never applied by the engine.',
   // Move 5 — methodology currency layer. Bibliographic only — these
   // standards are NOT integrated into STD scoring thresholds (engine
   // is sacred); they appear in the report's Standards Currency
