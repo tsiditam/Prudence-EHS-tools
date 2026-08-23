@@ -37,6 +37,38 @@ import {
  *   without it the pressurization mechanism degrades to qualitative, which
  *   is the correct reading of an assessment that recorded no instrument.
  */
+/**
+ * A chain's confidence, WEIGHED rather than counted.
+ *
+ * Every chain below used to end in some form of `ev.length >= N`, which asks
+ * how many strings are in an array — not what kind of evidence exists. The
+ * cross-contamination chain showed what that costs: `ev` began with one entry
+ * and `path_crosstalk_source` pushed a second, so typing ANY text at all into
+ * a free-text "source" field — "unknown", "?", a guess — raised the chain from
+ * Possible to Moderate. The field describes the same observation the chain
+ * already rests on; it is not a second, independent line of evidence.
+ *
+ * This is the rule CLAUDE.md already draws for the professional-opinion
+ * rollup — "the opinion rollup weighs findings; it does not count them" —
+ * arriving four months late in the module next door.
+ *
+ * The weighing:
+ *   measured        an instrument reading, or a directly observed physical
+ *                   condition (standing water, visible growth). Something
+ *                   that would still be true if nobody had been asked.
+ *   corroborating   INDEPENDENT lines of support — a second condition, a
+ *                   symptom pattern, a pressure differential. Not a restatement
+ *                   or an elaboration of the observation already counted.
+ *   hypothesisOnly  the chain proposes a mechanism nothing measured.
+ *                   It can never be Strong, whatever else is present.
+ */
+const weighChain = ({ measured = false, corroborating = 0, hypothesisOnly = false }) => {
+  if (hypothesisOnly) return corroborating >= 2 ? 'Moderate' : 'Possible'
+  if (measured && corroborating >= 2) return 'Strong'
+  if (measured || corroborating >= 2) return 'Moderate'
+  return 'Possible'
+}
+
 export function buildCausalChains(zones, bldg, zoneScores, opts = {}) {
   const chains = []
   zoneScores.forEach((zs, i) => {
@@ -51,6 +83,12 @@ export function buildCausalChains(zones, bldg, zoneScores, opts = {}) {
     const sbsDetected = detectSBSPattern(d)
     if (sbsDetected && !chains.some(c => c.zone === zName && c.type.includes('Ventilation'))) {
       const ev = []
+      // Independent corroborations, counted once each — a symptom LIST is one
+      // line of support however many symptoms it names.
+      const sbsCorroboration =
+        (d.sr === 'Yes — clear pattern' ? 1 : 0) +
+        (d.cc === 'Yes — this zone' ? 1 : 0) +
+        ((d.sy || []).length ? 1 : 0)
       if (d.ac) ev.push((d.ac) + ' occupants with symptoms')
       if (d.sr === 'Yes — clear pattern') ev.push('Symptoms resolve when away from building')
       if (d.cc === 'Yes — this zone') ev.push('Symptom clustering in this zone')
@@ -62,7 +100,12 @@ export function buildCausalChains(zones, bldg, zoneScores, opts = {}) {
       // and got it truncated mid-word in the app.
       chains.push({ zone: zName, type: 'Ventilation Deficiency (Hypothesis)',
         rootCause: 'Occupant complaints were reported in this zone. Insufficient outdoor-air delivery is a common contributor to complaint patterns of this kind.',
-        evidence: ev, confidence: ev.length >= 3 ? 'Strong' : 'Moderate' })
+        evidence: ev,
+        // It is labelled "(Hypothesis)" and its rootCause says "is a common
+        // contributor". It reached 'Strong' when four complaint fields were
+        // filled in, which is a count of how much the assessor typed. Nothing
+        // here is measured, so Strong is off the table by construction.
+        confidence: weighChain({ hypothesisOnly: true, corroborating: sbsCorroboration }) })
       chains.push({ zone: zName, type: 'Microbial / Bioaerosol (Hypothesis)',
         rootCause: 'Concealed moisture or microbial amplification behind finishes remains possible; a walkthrough cannot see it.',
         evidence: [...ev, 'Hypothesis — requires confirmatory investigation'], confidence: 'Possible' })
@@ -89,7 +132,10 @@ export function buildCausalChains(zones, bldg, zoneScores, opts = {}) {
       if (hasWeakFlow) ev.push('Supply airflow: ' + d.sa)
       if (hasSymptomsRelated) ev.push((d.ac||'Multiple') + ' occupants with building-related symptoms')
       if (!chains.some(c => c.zone === zName && c.type === 'Ventilation Deficiency'))
-        chains.push({ zone: zName, type: 'Ventilation Deficiency', rootCause: hasDamperIssue ? 'Outdoor air damper restriction limiting fresh air delivery' : 'Inadequate ventilation rate for occupant load', evidence: ev, confidence: ev.length >= 3 ? 'Strong' : ev.length >= 2 ? 'Moderate' : 'Possible' })
+        chains.push({ zone: zName, type: 'Ventilation Deficiency', rootCause: hasDamperIssue ? 'Outdoor air damper restriction limiting fresh air delivery' : 'Inadequate ventilation rate for occupant load', evidence: ev, confidence: weighChain({
+          measured: !!d.co2,
+          corroborating: (hasDamperIssue ? 1 : 0) + (hasWeakFlow ? 1 : 0) + (hasSymptomsRelated ? 1 : 0),
+        }) })
     }
     // Moisture chain
     const hasWater = d.wd === 'Active leak' || d.wd === 'Extensive damage'
@@ -104,7 +150,10 @@ export function buildCausalChains(zones, bldg, zoneScores, opts = {}) {
       if (hasResp) ev.push('Respiratory symptoms reported')
       if (d.rh && +d.rh > 60) ev.push('Indoor RH at ' + d.rh + '%')
       const hasQuantitative = hasWater || hasMold || (d.rh && +d.rh > 65)
-      chains.push({ zone: zName, type: 'Moisture / Biological', rootCause: hasWater ? 'Active water intrusion supporting microbial amplification' : 'Chronic moisture condition with biological growth indicators', evidence: ev, confidence: ev.length >= 4 && hasQuantitative ? 'Strong' : ev.length >= 2 ? 'Moderate' : 'Possible' })
+      chains.push({ zone: zName, type: 'Moisture / Biological', rootCause: hasWater ? 'Active water intrusion supporting microbial amplification' : 'Chronic moisture condition with biological growth indicators', evidence: ev, confidence: weighChain({
+        measured: hasQuantitative,
+        corroborating: (hasMusty ? 1 : 0) + (hasResp ? 1 : 0) + (d.rh && +d.rh > 60 ? 1 : 0),
+      }) })
     }
     // Chemical chain
     const hasSrc = (d.src_internal||[]).length > 0 || (d.src_adjacent||[]).length > 0
@@ -117,14 +166,31 @@ export function buildCausalChains(zones, bldg, zoneScores, opts = {}) {
       if (hasHCHO) ev.push('HCHO at ' + d.hc + ' ppm')
       ev.push('Sources: ' + [...(d.src_internal||[]),...(d.src_adjacent||[])].filter(s => s !== 'None identified').join(', '))
       ev.push('Irritation symptoms reported')
-      chains.push({ zone: zName, type: 'Chemical Exposure', rootCause: 'Contaminant source(s) producing elevated concentrations with correlated symptoms', evidence: ev, confidence: ev.length >= 3 ? 'Strong' : 'Moderate' })
+      chains.push({ zone: zName, type: 'Chemical Exposure', rootCause: 'Contaminant source(s) producing elevated concentrations with correlated symptoms', evidence: ev, confidence: weighChain({
+        measured: !!(hasVOC || hasHCHO),
+        // The guard above already requires an identified source AND correlated
+        // irritation symptoms, so both corroborators are present by
+        // construction. Stated rather than assumed, so a change to the guard
+        // cannot silently change the confidence.
+        corroborating: (hasSrc ? 1 : 0) + (hasIrr ? 1 : 0),
+      }) })
     }
     // Cross-contamination chain
     if (d.path_crosstalk && d.path_crosstalk !== 'None observed' && d.path_crosstalk !== 'Not assessed') {
       const ev = ['Cross-contamination: ' + d.path_crosstalk]
+      // Naming the source ELABORATES the observation already in `ev`; it does
+      // not independently corroborate it. It still belongs in the evidence
+      // list a reader sees — it is useful — but it must not move the tier,
+      // which is exactly what `ev.length >= 2` made it do.
       if (d.path_crosstalk_source) ev.push('Source: ' + d.path_crosstalk_source)
-      if (d.path_pressure === 'Negative (draws in)') ev.push('Zone under negative pressure')
-      chains.push({ zone: zName, type: 'Cross-Contamination Pathway', rootCause: 'Air pathway allowing contaminant migration from adjacent source', evidence: ev, confidence: ev.length >= 2 ? 'Moderate' : 'Possible' })
+      const negativePressure = d.path_pressure === 'Negative (draws in)'
+      if (negativePressure) ev.push('Zone under negative pressure')
+      chains.push({ zone: zName, type: 'Cross-Contamination Pathway', rootCause: 'Air pathway allowing contaminant migration from adjacent source', evidence: ev, confidence: weighChain({
+        // A measured differential is the one thing here that is not somebody's
+        // description of what they saw.
+        measured: negativePressure,
+        corroborating: 0,
+      }) })
     }
   })
 

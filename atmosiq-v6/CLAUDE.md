@@ -428,6 +428,21 @@ When working on report generation:
      and **monotonicity in confidence** (better evidence never lowers the
      tier — a visual observation once outranked an instrument measurement).
 
+     **This rule applies to causal chains too, and did not reach them for four
+     months.** Every chain in `causalChains.js` ended in some form of
+     `ev.length >= N`, which asks how many strings are in an array rather than
+     what kind of evidence exists. In the cross-contamination chain that meant
+     typing anything at all into the free-text `path_crosstalk_source` — even
+     "unknown" — pushed a second string and raised the tier from Possible to
+     Moderate; the field elaborates the observation the chain already rests on
+     and is not independent support. A complaint-only chain labelled
+     "(Hypothesis)" in its own type string could reach **Strong** by having
+     four complaint fields filled in. Both are fixed by `weighChain`, which
+     separates `measured` from `corroborating` and makes Strong unreachable for
+     a hypothesis; `tests/engine/chain-confidence.test.ts` pins it, including
+     monotonicity. Nothing failed when this was corrected, because nothing had
+     ever asserted it.
+
   **The backstop is currently missing.** `cross-layer-consistency.test.ts`
   rendered real *consultant* reports across a fixture matrix and asserted the
   layers agreed with each other and with the engine. The consultant report was
