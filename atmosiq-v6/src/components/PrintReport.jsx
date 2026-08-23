@@ -23,6 +23,7 @@ import { generateModernSummaryHTML } from './print/modern-summary'
 import { extractIncludedLoggerGraphs } from './print/logger-graphs-html'
 import { primaryDataset } from '../utils/sensorParser'
 import { actionLine } from '../utils/recFormatting'
+import { CRITERION_CLASS } from '../constants/criteria'
 
 export function selectReportTemplate(data) {
   const zones = data.zones || []
@@ -142,8 +143,46 @@ export function generateLegacyPrintHTML(data) {
   const SEV_ORDER = { low: 0, medium: 1, high: 2, critical: 3 }
   const confLabel = oshaResult?.conf || 'Not evaluated'
 
+  // ── Appendix B, and why it is derived ─────────────────────────────────
+  //
+  // Appendix B was "Transparent Scoring Summary" until 2026-08 and it outlived
+  // the thing it described by four months. It published the composite formula
+  // (any zone Critical under forty took the worst zone score), the five
+  // category point caps of 25/25/20/15/15, and a 1.5x weight for
+  // "mission-critical zones (e.g., data halls)" — a reference to the
+  // data-center module removed in d89d507, inside a client deliverable,
+  // describing a 100-point score removed in engine v3.0.
+  //
+  // Both guards that exist to prevent exactly this were green.
+  // NO-COMPOSITE-SCORE greps for code shapes; no-scoring.test.ts sweeps this
+  // very file for band ladders. Neither saw it, and the reason is the lesson:
+  // this is an HTML template, so the threshold was written with an escaped
+  // entity instead of a bare angle bracket, and every ladder pattern hunting
+  // for that bracket walked straight past. The guard now decodes entities and
+  // strips HTML comments before matching, and looks for the methodology PROSE
+  // as well as the arithmetic.
+  //
+  // The replacement states what the engine actually does — how a finding gets
+  // its severity — and the ceilings below are READ FROM the criteria registry
+  // rather than restated. A hand-written table is what sat here going stale;
+  // deriving it is what stops the same thing happening to these numbers.
+  const SEV_WORD = { critical: 'Critical', high: 'High', medium: 'Medium', low: 'Low' }
+  const CRITERION_CLASS_ROWS = Object.values(CRITERION_CLASS)
+    .map(c => `
+      <tr>
+        <td style="font-weight:600;font-size:11px;">${esc(c.label.charAt(0).toUpperCase() + c.label.slice(1))}</td>
+        <td style="text-align:center;font-size:10px;font-weight:700;color:${SEV_HEX[c.maxSeverity] || '#475569'};">${esc(SEV_WORD[c.maxSeverity] || c.maxSeverity)}</td>
+        <td style="font-size:10px;color:#475569;">${esc(c.framing)}</td>
+      </tr>`)
+    .join('')
+
   const catRows = (cats) => cats.map(cat => {
-    if (cat.s === null || cat.status === 'INSUFFICIENT' || cat.status === 'DATA_GAP') {
+    // `cat.s === null` led this condition until 2026-08. `s` was the category
+    // score and scoreZone stopped emitting it in v3.0, so the clause read
+    // `undefined === null` — permanently false. It changed nothing only
+    // because the two status checks beside it already covered the case; the
+    // same vestige in MobileApp's data-gap list was NOT so lucky.
+    if (cat.status === 'INSUFFICIENT' || cat.status === 'DATA_GAP') {
       return `
       <tr>
         <td style="padding:8px 12px;font-weight:600;font-size:12px;border-bottom:1px solid #F1F5F9;">${cat.l}</td>
@@ -267,7 +306,7 @@ export function generateLegacyPrintHTML(data) {
       if (recs && ((recs.imm||[]).length || (recs.eng||[]).length || (recs.adm||[]).length || (recs.mon||[]).length)) toc.push('Recommendations Register')
       toc.push('Limitations and Professional Judgment')
       toc.push('Appendix A — Raw Measurement Snapshot')
-      toc.push('Appendix B — Transparent Scoring Summary')
+      toc.push('Appendix B — How Findings Are Classified')
       return toc.map((s,i) => `<p style="font-size:12px;color:#2D3A4A;margin-bottom:4px;">${i+1}. ${s}</p>`).join('')
     })()}
   </div>
@@ -374,7 +413,11 @@ export function generateLegacyPrintHTML(data) {
         ? `Conditions observed during the assessment window suggest moderate indoor air quality concerns. ${censusHeadline}${worstCat2 ? `, with ${worstCat2} identified as the primary area of concern` : ''}. Targeted investigation is recommended in the areas identified below.`
         : `Conditions observed during the assessment window indicate significant indoor air quality concerns that would warrant prioritized remediation. ${censusHeadline}${worstCat2 ? `, with ${worstCat2} representing the most acute concern` : ''}. The findings and recommendations in this report are intended to support a structured corrective action process.`
     const hasDataGaps = (zoneScores||[]).some(zs => zs.partialScore)
-    const p3 = hasDataGaps ? ' Note: One or more scoring categories could not be fully evaluated due to unavailable documentation. The composite score reflects measured parameters only; confidence has been reduced accordingly. Categories marked as data gaps are not converted into risk findings.' : ''
+    // Was: "The composite score reflects measured parameters only; confidence
+    // has been reduced accordingly." There is no composite score to reflect
+    // anything, and a data gap does not reduce a number — it narrows what the
+    // assessment covered, which is what a reader needs told.
+    const p3 = hasDataGaps ? ' Note: One or more assessment categories could not be fully evaluated because the supporting documentation was unavailable. Those categories are reported as data gaps rather than as findings, and the results below describe only the parameters that were measured.' : ''
     const p4 = samplingPlan?.outdoorGaps?.length > 0 ? ' Outdoor baseline measurements were not obtained for all parameters, limiting source attribution for certain findings. See Limitations section for details.' : ''
     return `<p style="font-size:11px;color:#5C6F7E;line-height:1.8;">${p1}</p><p style="font-size:11px;color:#5C6F7E;line-height:1.8;">${p2}${p3}${p4}</p>`
   })()}
@@ -437,7 +480,8 @@ export function generateLegacyPrintHTML(data) {
 
   <tr><td colspan="3" style="font-size:9px;font-weight:700;color:#1B2A41;background:#F3F4F6;padding:6px 10px;text-transform:uppercase;letter-spacing:0.5px;">Consensus Standards</td></tr>
   <tr><td style="font-size:10px;">ASHRAE 62.1-2025</td><td style="font-size:10px;color:#5C6F7E;">Ventilation consensus standard</td><td style="font-size:10px;">Outdoor air rates (Table 6.2.2.1), CO₂ as ventilation indicator</td></tr>
-  <tr><td style="font-size:10px;">ASHRAE 55-2023</td><td style="font-size:10px;color:#5C6F7E;">Thermal comfort consensus standard</td><td style="font-size:10px;">Temperature and humidity comfort ranges</td></tr>
+  <tr><td style="font-size:10px;">ASHRAE 55-2023</td><td style="font-size:10px;color:#5C6F7E;">Thermal comfort consensus standard</td><td style="font-size:10px;">Seasonal operative-temperature comfort range</td></tr>
+  <tr><td style="font-size:10px;">US EPA — Mold, Moisture and Your Home</td><td style="font-size:10px;color:#5C6F7E;">Indoor moisture-control guidance</td><td style="font-size:10px;">Relative humidity practice range</td></tr>
 
   <tr><td colspan="3" style="font-size:9px;font-weight:700;color:#1B2A41;background:#F3F4F6;padding:6px 10px;text-transform:uppercase;letter-spacing:0.5px;">Public Health Guidelines</td></tr>
   <tr><td style="font-size:10px;">EPA NAAQS (2024)</td><td style="font-size:10px;color:#5C6F7E;">Ambient air quality guideline — not an occupational limit</td><td style="font-size:10px;">PM2.5 (35 µg/m³, 24-hr)</td></tr>
@@ -446,7 +490,7 @@ export function generateLegacyPrintHTML(data) {
   <tr><td colspan="3" style="font-size:9px;font-weight:700;color:#1B2A41;background:#F3F4F6;padding:6px 10px;text-transform:uppercase;letter-spacing:0.5px;">Advisory Screening Benchmarks</td></tr>
   <tr><td style="font-size:10px;">CO₂ differential (700 ppm)</td><td style="font-size:10px;color:#5C6F7E;">Ventilation benchmark — not a regulatory limit</td><td style="font-size:10px;">Sedentary-office bioeffluent perception threshold per ASHRAE Position Document on Indoor CO₂ (2022). CO₂ is a ventilation indicator, not an IAQ contaminant.</td></tr>
   <tr><td style="font-size:10px;">TVOC concern (500 µg/m³)</td><td style="font-size:10px;color:#5C6F7E;">Internal concern threshold — no regulatory limit exists for total VOCs</td><td style="font-size:10px;">Screening trigger for source investigation; Mølhave (1991) advisory</td></tr>
-  <tr><td style="font-size:10px;">RH 30–60%</td><td style="font-size:10px;color:#5C6F7E;">Comfort and moisture-control benchmark</td><td style="font-size:10px;">Comfort evaluation and mold risk screening per ASHRAE 55</td></tr>
+  <tr><td style="font-size:10px;">RH 30–60%</td><td style="font-size:10px;color:#5C6F7E;">Comfort and moisture-control benchmark</td><td style="font-size:10px;">Moisture control and comfort (US EPA); not an ASHRAE 55 figure</td></tr>
   </tbody></table>
 
   <p style="font-size:9px;color:#7A8A97;margin-bottom:8px;">Classifications carry different legal and technical weight. Regulatory limits are enforceable workplace standards. Consensus standards represent professional best practice. Public health guidelines are population-level recommendations. Advisory benchmarks are investigative triggers used for prioritization, not compliance determination.</p>
@@ -781,31 +825,29 @@ export function generateLegacyPrintHTML(data) {
     </tbody>
   </table>
   <div style="margin-top:8px;font-size:9px;color:#94A3B8;">
-    <strong>Reference thresholds:</strong> CO₂ differential >700 ppm above outdoor (ASHRAE 62.1) · Temp 68–79°F (ASHRAE 55) · RH 30–60% · PM2.5 &lt;35 µg/m³ (EPA 24-hr) · CO &lt;35 ppm (NIOSH REL) · TVOCs &lt;500 µg/m³ (concern) · HCHO &lt;0.016 ppm (NIOSH REL)
+    <strong>Reference thresholds:</strong> CO₂ differential >700 ppm above outdoor (ASHRAE 62.1) · Temp 68–76°F winter / 73–79°F summer (ASHRAE 55) · RH 30–60% (US EPA moisture control) · PM2.5 &lt;35 µg/m³ (EPA 24-hr) · CO &lt;35 ppm (NIOSH REL) · TVOCs &lt;500 µg/m³ (concern) · HCHO &lt;0.016 ppm (NIOSH REL)
   </div>
 
-  <!-- ═══ APPENDIX B — TRANSPARENT SCORING SUMMARY ═══ -->
-  <h2 class="pg-break">Appendix B — Transparent Scoring Summary</h2>
-  <p style="font-size:10px;color:#64748B;margin-bottom:12px;">AtmosFlow applies a deterministic scoring methodology against published occupational and environmental health standards. The composite score follows the AtmosFlow deterministic scoring methodology: if any zone scores Critical (&lt;40), the composite equals the worst zone score — ensuring a single failing area cannot be masked by otherwise acceptable conditions. When no zones are Critical, the composite reflects a priority-weighted mean where mission-critical zones (e.g., data halls) carry 1.5× weight. The building confidence rating reflects the lowest-confidence zone assessed. All category weights, thresholds, and overrides are fixed and published — no AI judgment is applied in scoring.</p>
-  <table>
-    <thead><tr><th>Category</th><th style="text-align:center;">Max Points</th><th>Evaluation Basis</th></tr></thead>
+  <!-- ═══ APPENDIX B — HOW FINDINGS ARE CLASSIFIED ═══ -->
+  <h2 class="pg-break">Appendix B — How Findings Are Classified</h2>
+  <p style="font-size:10px;color:#64748B;margin-bottom:12px;">AtmosFlow does not rate this building. It evaluates each measured parameter against a published criterion and reports what was found: how many findings, at what severity, in which zone. No composite index, weighted average or risk band is produced, and no AI judgment is applied in classification — every finding below is the output of a fixed comparison between a recorded value and a cited criterion.</p>
+  <h3>What a Finding's Severity Rests On</h3>
+  <p style="font-size:10px;color:#64748B;margin-bottom:8px;">Severity is bounded by the KIND of criterion a value was compared against, so a comfort guideline can never be reported as urgently as an exposure limit. These ceilings are fixed in the criteria registry and applied to every finding.</p>
+  <table style="margin-bottom:12px;">
+    <thead><tr><th style="width:38%;">Criterion type</th><th style="width:14%;text-align:center;">Highest severity it can produce</th><th>What it means</th></tr></thead>
     <tbody>
-      <tr><td style="font-weight:600;">Ventilation</td><td style="text-align:center;font-family:Cambria,serif;">25</td><td style="font-size:10px;color:#475569;">CO₂ differential vs ASHRAE 62.1, outdoor air damper status, supply airflow adequacy, complaint correlation</td></tr>
-      <tr><td style="font-weight:600;">Contaminants</td><td style="text-align:center;font-family:Cambria,serif;">25</td><td style="font-size:10px;color:#475569;">PM2.5 (EPA/WHO), CO (OSHA/NIOSH), HCHO (OSHA/NIOSH), TVOCs, visible mold, odors, visible dust</td></tr>
-      <tr><td style="font-weight:600;">HVAC</td><td style="text-align:center;font-family:Cambria,serif;">20</td><td style="font-size:10px;color:#475569;">Maintenance recency, filter condition/type, airflow adequacy, drain pan condition</td></tr>
-      <tr><td style="font-weight:600;">Complaints</td><td style="text-align:center;font-family:Cambria,serif;">15</td><td style="font-size:10px;color:#475569;">Complaint presence, affected occupant count, symptom pattern clarity, clustering, symptom types</td></tr>
-      <tr><td style="font-weight:600;">Environment</td><td style="text-align:center;font-family:Cambria,serif;">15</td><td style="font-size:10px;color:#475569;">Temperature (ASHRAE 55 summer/winter), relative humidity, water damage indicators, mold indicators</td></tr>
+      ${CRITERION_CLASS_ROWS}
     </tbody>
   </table>
   <h3>Finding Severity Rubric</h3>
-  <p style="font-size:10px;color:#64748B;margin-bottom:8px;">Each finding is assigned a severity level based on the following deterministic criteria. Severity drives recommendation priority and timing.</p>
+  <p style="font-size:10px;color:#64748B;margin-bottom:8px;">Within those ceilings, each finding is assigned a severity on the following deterministic criteria. Severity drives recommendation priority and timing.</p>
   <table style="margin-bottom:12px;"><thead><tr><th style="width:15%;">Severity</th><th style="width:85%;">Definition</th></tr></thead><tbody>
     <tr><td style="font-weight:700;color:#B91C1C;">Critical</td><td style="font-size:10px;">Measurement exceeds a regulatory occupational exposure limit (OSHA PEL), immediate health/safety hazard identified, or system failure creating imminent risk. Requires immediate corrective action (0–48 hours).</td></tr>
-    <tr><td style="font-weight:700;color:#C2410C;">High</td><td style="font-size:10px;">Measurement exceeds a recommended exposure limit (NIOSH REL) or consensus standard threshold, or physical condition creates significant risk of adverse outcome. Requires short-term corrective action (1–4 weeks).</td></tr>
-    <tr><td style="font-weight:700;color:#A16207;">Medium</td><td style="font-size:10px;">Measurement approaches a concern threshold or indicator is elevated. Condition warrants investigation and targeted improvement. Requires medium-term action (1–3 months).</td></tr>
+    <tr><td style="font-weight:700;color:#C2410C;">High</td><td style="font-size:10px;">Measurement exceeds a recommended exposure limit (NIOSH REL), a health-based indoor guideline or an ambient benchmark applied indoors, or a physical condition creates significant risk of adverse outcome. Requires short-term corrective action (1–4 weeks). A comfort or advisory criterion cannot reach this level — see the ceilings above.</td></tr>
+    <tr><td style="font-weight:700;color:#A16207;">Medium</td><td style="font-size:10px;">Measurement approaches a concern threshold, an indicator is elevated, or a comfort, advisory or certification criterion was exceeded. Condition warrants investigation and targeted improvement. Requires medium-term action (1–3 months).</td></tr>
     <tr><td style="font-weight:700;color:#0E7490;">Low</td><td style="font-size:10px;">Minor observation or measurement near boundary of acceptable range. No immediate action required; include in routine monitoring.</td></tr>
     <tr><td style="font-weight:700;color:#15803D;">Pass</td><td style="font-size:10px;">Parameter within acceptable range per applicable standard. No action required.</td></tr>
-    <tr><td style="font-weight:700;color:#475569;">Info</td><td style="font-size:10px;">Contextual information, data gap notation, or supplementary observation. Not a scored finding.</td></tr>
+    <tr><td style="font-weight:700;color:#475569;">Info</td><td style="font-size:10px;">Contextual information, data gap notation, or supplementary observation. Not counted as a finding.</td></tr>
   </tbody></table>
 
   <h3 style="margin-top:16px;">Zone Findings Summary</h3>

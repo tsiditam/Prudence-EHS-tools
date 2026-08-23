@@ -29,6 +29,26 @@
  *   • Keep chunks 80-300 words for retrieval quality. Longer chunks
  *     dilute TF; shorter chunks lose context.
  *
+ * ── `figures`: the second half of a double-entry ledger ───────────────
+ * An entry whose TEXT already states a threshold the engine applies also
+ * declares it structurally, as `figures: [{ criterionId, value | band }]`.
+ *
+ * This is metadata, not content — it links prose that already passed review
+ * to the registry entry it describes, and adds no standards claim of its own.
+ * Writing NEW prose still needs BCSP sign-off under the editing rules above.
+ *
+ * Why it exists: `criteria.js` (machine) and this file (prose) are authored
+ * independently, and until 2026-08 nothing reconciled them. The engine scored
+ * temperature against an invented 67–82 °F band with a fabricated "optimal"
+ * tier while THIS FILE, three directories away, carried the correct 68–76 /
+ * 73–79 and had done all along. Two ledgers disagreed for four months and no
+ * check could see it, because no check compared them.
+ *
+ * `tests/engine/standards-reconciliation.test.ts` now does. A declared figure
+ * must match the registry exactly, and every criterion must either be claimed
+ * here or be named in that test's explicit gap ledger with a reason. A number
+ * can no longer enter the engine unremarked.
+ *
  * Engine-sacred: pure data file. Read-only.
  */
 
@@ -92,6 +112,19 @@ export const STANDARDS_CORPUS = [
   },
   {
     id: 'epa-pm25-2024-revision',
+    // "the 24-hour PM2.5 standard remains at 35 µg/m³", "a reduction of the
+    // primary annual PM2.5 NAAQS from 12 µg/m³ to 9 µg/m³", and "The WHO
+    // Global Air Quality Guidelines (2021) are stricter: 5 µg/m³ annual,
+    // 15 µg/m³ 24-hour".
+    figures: [
+      { criterionId: 'pm25_epa_24h', value: 35, unit: 'µg/m³' },
+      { criterionId: 'pm25_epa_annual', value: 9, unit: 'µg/m³' },
+      // Filed under EPA-NAAQS, but these two figures are WHO's — the entry
+      // states both bodies side by side, which is the point of it. A figure
+      // names its own bibliography entry when it differs from the entry's.
+      { criterionId: 'pm25_who_24h', value: 15, unit: 'µg/m³', manifestKey: 'WHO Air Quality Guidelines' },
+      { criterionId: 'pm25_who_annual', value: 5, unit: 'µg/m³', manifestKey: 'WHO Air Quality Guidelines' },
+    ],
     title: 'EPA PM2.5 Annual NAAQS 2024 revision',
     citation: 'EPA 40 CFR 50.20 (Federal Register Feb 2024)',
     document: 'EPA-NAAQS',
@@ -141,6 +174,18 @@ export const STANDARDS_CORPUS = [
   // ── ASHRAE 55 thermal comfort ────────────────────────────────────
   {
     id: 'ashrae-55-comfort',
+    // The text states both seasonal bands and the correct position on
+    // humidity — that ASHRAE 55 sets only an upper limit, and that the 30–60%
+    // band is EPA/IICRC guidance rather than an ASHRAE requirement. All three
+    // registry entries are covered by prose already here.
+    figures: [
+      { criterionId: 'temp_ashrae55_winter', band: [68, 76], unit: '°F' },
+      { criterionId: 'temp_ashrae55_summer', band: [73, 79], unit: '°F' },
+      // Documented BY the ASHRAE 55 entry — whose text exists partly to say
+      // this band is not ASHRAE's — while cited to EPA. Exactly the case the
+      // per-figure key is for.
+      { criterionId: 'rh_epa_moisture_control', band: [30, 60], unit: '%', manifestKey: 'EPA Mold, Moisture and Your Home' },
+    ],
     title: 'ASHRAE 55 thermal comfort framework',
     citation: 'ASHRAE 55-2023',
     document: 'ASHRAE-55',
@@ -181,6 +226,10 @@ export const STANDARDS_CORPUS = [
   },
   {
     id: 'molhave-tvoc-framework',
+    figures: [
+      { criterionId: 'tvoc_molhave_concern', value: 500, unit: 'µg/m³' },
+      { criterionId: 'tvoc_molhave_action', value: 3000, unit: 'µg/m³' },
+    ],
     title: 'Mølhave TVOC dose-response framework (1991)',
     citation: 'Mølhave, L. (1991) Indoor Air 1(4):357-376',
     document: 'Molhave-1991',

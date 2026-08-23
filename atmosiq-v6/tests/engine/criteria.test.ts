@@ -115,8 +115,31 @@ describe('the ladder resolves worst-first', () => {
 
 describe('registry integrity', () => {
   it('every criterion resolves a finite value from the manifest', () => {
+    // A criterion is a LIMIT (one number) or a BAND (a floor and a ceiling).
+    // Bands arrived with thermal comfort in 2026-08; before that the registry
+    // could only express "value > threshold", which is why temperature and
+    // relative humidity had no entry here at all — and why they were the only
+    // two parameters whose citations were wrong.
     for (const c of allCriteria()) {
-      expect(Number.isFinite(c.value), `${c.id} has no value`).toBe(true)
+      if (c.band) {
+        expect(Number.isFinite(c.band.min), `${c.id} band has no min`).toBe(true)
+        expect(Number.isFinite(c.band.max), `${c.id} band has no max`).toBe(true)
+        expect(c.band.max, `${c.id} band is inverted`).toBeGreaterThan(c.band.min)
+        expect(c.value, `${c.id} is a band and must not also carry a value`).toBeNull()
+      } else {
+        expect(Number.isFinite(c.value), `${c.id} has no value`).toBe(true)
+      }
+    }
+  })
+
+  it('every criterion exposes one uniform accessor, whatever its shape', () => {
+    // The contract that stops a consumer having to branch. `${c.resolve()}`
+    // printed "[object Object] °F" for a band until `valueLabel` existed.
+    for (const c of allCriteria()) {
+      expect(typeof c.resolve, `${c.id}.resolve`).toBe('function')
+      expect(c.valueLabel, `${c.id}.valueLabel`).toBeTruthy()
+      expect(c.valueLabel, `${c.id}.valueLabel is stringified object`).not.toContain('object')
+      expect(Number.isFinite(c.midpoint), `${c.id}.midpoint`).toBe(true)
     }
   })
 

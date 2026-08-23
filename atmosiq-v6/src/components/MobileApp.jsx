@@ -2872,8 +2872,18 @@ export default function MobileApp() {
           const gapItems = []
           if (!presurvey.ps_inst_iaq) gapItems.push('Instrument model not recorded')
           else if (!presurvey.ps_inst_iaq_cal) gapItems.push('Instrument calibration date not recorded')
-          if (zs?.cats?.some(c => c.l === 'Environment' && (c.s === null || c.status === 'DATA_GAP'))) gapItems.push('Humidity / thermal data not logged')
-          if (zs?.cats?.some(c => c.l === 'Ventilation' && (c.s === null || c.status === 'DATA_GAP'))) gapItems.push('Airflow / CO₂ measurement not captured')
+          // `c.s === null` led both of these until 2026-08 and it was the
+          // clause carrying INSUFFICIENT: `s` was the category score, and a
+          // category with too little data to evaluate had a null one. v3.0
+          // deleted `s`, so the clause became `undefined === null` — always
+          // false — and only DATA_GAP survived. DATA_GAP means NO data was
+          // collected; INSUFFICIENT means some was, but not enough to
+          // evaluate. The second case stopped appearing in the gap list
+          // entirely, which is the quieter half of the two and the half a
+          // report is more likely to ship without noticing.
+          const unevaluated = (c) => c.status === 'INSUFFICIENT' || c.status === 'DATA_GAP'
+          if (zs?.cats?.some(c => c.l === 'Environment' && unevaluated(c))) gapItems.push('Humidity / thermal data not logged')
+          if (zs?.cats?.some(c => c.l === 'Ventilation' && unevaluated(c))) gapItems.push('Airflow / CO₂ measurement not captured')
           if (oshaResult?.gaps?.length) oshaResult.gaps.slice(0, 3).forEach(g => gapItems.push(g))
           // De-dupe + cap at 4 visible entries
           const dataGaps = Array.from(new Set(gapItems)).slice(0, 4)

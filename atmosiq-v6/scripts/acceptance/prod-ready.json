@@ -2472,6 +2472,30 @@
       ]
     },
     {
+      "id": "STANDARDS-DOUBLE-ENTRY",
+      "label": "Every published threshold is reconciled against an independent record, and every reference line traces to a criterion",
+      "_comment": "The systemic answer to two fabricated citations. Numbers live in constants/criteria.js (machine) and constants/standards-corpus.js (curated prose with primary-source citations), authored independently. Nothing compared them, so the engine scored temperature against an invented 67-82 F band for four months while the corpus three directories away carried the correct 68-76 / 73-79 and had done all along. standards-reconciliation.test.ts requires a declared figure to match the registry EXACTLY and requires every criterion to be either documented or named in a visible gap ledger with a reason - there is no third state. reference-line-provenance.test.ts requires every rendered reference line to resolve to a criterion, in the criterion's value, under the criterion's citation. Both are run by BUILD-02; these checks assert they exist and are wired, because a guard nobody runs is the failure mode that produced this criterion.",
+      "checks": [
+        { "type": "file_exists", "path": "tests/engine/standards-reconciliation.test.ts" },
+        { "type": "file_exists", "path": "tests/engine/reference-line-provenance.test.ts" },
+        { "type": "file_exists", "path": "tests/engine/criterion-coverage.test.ts" },
+        {
+          "type": "grep_matches",
+          "pattern": "figures: \\[",
+          "paths": ["src/constants/standards-corpus.js"],
+          "minCount": 3,
+          "_comment": "The corpus half of the ledger. Without declared figures the reconciliation has nothing to compare and passes vacuously."
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "resolveBand",
+          "paths": ["src/constants/criteria.js"],
+          "minCount": 2,
+          "_comment": "Band criteria. Temperature and humidity had no registry entry because the registry could only express value > threshold, and they are the only two parameters whose citations were wrong."
+        }
+      ]
+    },
+    {
       "id": "NO-COMPOSITE-SCORE",
       "label": "The 100-point composite, its category weights and every risk band are absent from every layer they reached",
       "_comment": "Modelled on MOLD-UI-NO-HEALTH-VERDICT: an exclusion pair plus the positive assertion of what replaced it. The patterns match CODE SHAPES (an export declaration, a constant assignment, an object key) because every file involved carries a comment recording what was removed from it, and that record must not be what fails the gate. Band-ladder detection needs comment stripping and so lives in tests/engine/no-scoring.test.ts, which this criterion runs.",
@@ -2514,6 +2538,18 @@
             "src/components",
             "api"
           ]
+        },
+        {
+          "type": "grep_excludes",
+          "pattern": ">[^<]*(Transparent Scoring Summary|Max Points|priority-weighted mean|AtmosFlow applies a deterministic scoring methodology)|'Appendix B [^']*Transparent Scoring",
+          "paths": [
+            "src/components",
+            "src/engine",
+            "src/engines",
+            "src/report",
+            "src/utils"
+          ],
+          "_comment": "The methodology PROSE, not just the arithmetic. PrintReport.jsx published 'Appendix B \u2014 Transparent Scoring Summary' \u2014 the composite formula, the 25/25/20/15/15 point caps and a 1.5x weight for data halls \u2014 in a client deliverable for four months after v3.0 removed the score, and every check here stayed green. Two reasons, both now closed: the checks matched code shapes while this was rendered text, and the one guard that did sweep the file (no-scoring.test.ts) hunted for comparison operators that an HTML template writes as &lt; entities. That test now decodes entities and matches prose; this criterion is the independent second pair of eyes, because a single guard that can be blinded is not a guard. The pattern is anchored to a RENDERED shape \u2014 the phrase must follow a '>' inside a tag, or sit in the toc.push string literal \u2014 because the acceptance runner greps raw text with no comment stripping, and every file involved carries a removal record naming the section. Verified both ways before it was wired in: it matches all five of the lines that actually shipped, and none of the removal-record comments that describe them."
         },
         {
           "type": "grep_excludes",

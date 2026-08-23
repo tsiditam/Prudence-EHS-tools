@@ -394,9 +394,11 @@ When working on report generation:
   pointing at nothing, which is how "Standards, Guidelines, and Benchmark
   Types" survived its own rename. And if a one-criterion-per-parameter table
   is ever built again, do NOT source its citation from a fixed per-parameter
-  default — the Logger Studio temperature default resolves ASHRAE 55's
-  *acceptable* range while the engine flags the tighter *optimal* band, so a
-  fixed reference contradicts the finding beside it.
+  default. The trap this warned about was real and has since been fixed at
+  the root: the Logger Studio card drew ASHRAE 55's "acceptable" range while
+  the engine flagged a tighter "optimal" band, so the table contradicted the
+  finding beside it. Both tiers turned out to be invented — see the thermal
+  comfort note below — and there is now one band that every surface reads.
 - **Every layer must say the same thing about the same data.** The report is
   assembled by layers that each used to form their own opinion — the legacy
   scorer, the bridge, the professional-opinion rollup, the phrase library,
@@ -426,6 +428,21 @@ When working on report generation:
      and **monotonicity in confidence** (better evidence never lowers the
      tier — a visual observation once outranked an instrument measurement).
 
+     **This rule applies to causal chains too, and did not reach them for four
+     months.** Every chain in `causalChains.js` ended in some form of
+     `ev.length >= N`, which asks how many strings are in an array rather than
+     what kind of evidence exists. In the cross-contamination chain that meant
+     typing anything at all into the free-text `path_crosstalk_source` — even
+     "unknown" — pushed a second string and raised the tier from Possible to
+     Moderate; the field elaborates the observation the chain already rests on
+     and is not independent support. A complaint-only chain labelled
+     "(Hypothesis)" in its own type string could reach **Strong** by having
+     four complaint fields filled in. Both are fixed by `weighChain`, which
+     separates `measured` from `corroborating` and makes Strong unreachable for
+     a hypothesis; `tests/engine/chain-confidence.test.ts` pins it, including
+     monotonicity. Nothing failed when this was corrected, because nothing had
+     ever asserted it.
+
   **The backstop is currently missing.** `cross-layer-consistency.test.ts`
   rendered real *consultant* reports across a fixture matrix and asserted the
   layers agreed with each other and with the engine. The consultant report was
@@ -435,9 +452,86 @@ When working on report generation:
   **Re-establishing that on the AtmosFlow report is the highest-value open
   work in this area** — see docs/CRITERIA.md, "The consultant report
   (removed)".
+- **A comfort band travels with its assumptions, and ASHRAE 55 has ONE.**
+  `STD.t.temp` is a single acceptable range per season — winter 68–76°F,
+  summer 73–79°F — and `tests/engine/thermal-comfort-band.test.ts` holds it
+  there. It used to be a wide 67–82°F "acceptable" band with a tighter
+  73–79°F "optimal" band inside it, both attributed to ASHRAE 55-2023.
+  Neither the wide figure nor the two-tier ladder is in the standard, the
+  block was the only constant in `standards.js` with no provenance comment,
+  and it contradicted this project's own standards corpus — which already
+  held the right numbers. The engine scored one band, Jasper cited another,
+  and the Logger Studio card drew a third, so a single 72.6°F reading read
+  as in-range on one surface and as a finding on another.
+
+  Three qualifiers travel with the band and must be stated wherever it is:
+  the **assumptions** (1.0–1.3 met, 0.5 clo summer / 1.0 clo winter), the
+  **quantity** (the standard's zone is OPERATIVE temperature; AtmosFlow
+  measures dry-bulb air temperature, which diverges near glazing), and
+  **what it is not** (ASHRAE 55 resolves comfort from six variables and the
+  app captures one, so an out-of-band reading is an indicator, never a
+  determination). Severity is capped at `medium` by
+  `CRITERION_CLASS.comfort_consensus` — the engine used to raise `high`,
+  breaking a ceiling it defines itself.
+
+  **RH 30–60% is not an ASHRAE 55 figure either**, and was cited as one on
+  eleven surfaces until 2026-08. ASHRAE 55 expresses its upper humidity limit
+  as a humidity ratio (0.012 kg/kg) rather than an RH percentage, and it
+  dropped its lower limit in 55-2013 — so the 30% floor was attributed to a
+  standard that does not contain it. The band is US EPA moisture-control
+  guidance (below 60%, ideally 30–50%), it carries its own `STD.t.rh.ref`
+  rather than inheriting `STD.t.ref`, and its two bounds have different
+  rationales: 60% is condensation and microbial-amplification control, 30% is
+  dryness and irritation. `tests/engine/humidity-citation.test.ts` sweeps
+  every file that states the band. Note how it spread — six of the eleven
+  surfaces simply read `STD.t.ref` because `rh` sat inside `STD.t`. **A
+  constant nested under another's citation inherits it.**
+- **Every published number is double-entered, and a reference line always
+  traces to a criterion.** Thresholds live in two independently authored
+  ledgers — `constants/criteria.js` (machine) and `constants/standards-corpus.js`
+  (prose with primary-source citations) — and until 2026-08 nothing compared
+  them. That is how the engine scored temperature against an invented 67–82 °F
+  band for four months while the corpus three directories away held the
+  correct figures the whole time.
+
+  A corpus entry now declares the thresholds its text states (`figures: [...]`),
+  and `tests/engine/standards-reconciliation.test.ts` requires an exact match,
+  requires every criterion to be documented OR on a visible gap ledger with a
+  reason, and rejects a bare standard name as a citation. Separately,
+  `tests/engine/reference-line-provenance.test.ts` requires every rendered
+  reference line — Logger card, monitoring report, chart legend — to resolve to
+  a criterion in that criterion's value and citation, including the figure
+  quoted in the profile LABEL. Gate: `STANDARDS-DOUBLE-ENTRY`.
+
+  **When you add a threshold**, the work is not done when the number is right.
+  It is done when a second, independently written record says the same thing,
+  or when the gap ledger says why it does not yet.
+
+  **And a guard never justifies changing the thing it guards.** The first
+  version of `reference-line-provenance` demanded a criterion for every
+  profile. The TVOC `well` profile has none by design — a decision recorded in
+  `citation-discipline.test.ts` as "the documented pattern for a profile with
+  no registry threshold behind it". Rather than weaken the over-strong rule, a
+  criterion was invented, a manifest entry added, and a user-visible citation
+  changed from WELL to LEED on the claim that the corpus contradicted WELL. It
+  does not; the corpus is silent on WELL for that figure, and silence is not
+  contradiction. All of it was reverted. **Absence of corroboration is not
+  evidence of error, and a rule written today does not outrank a decision
+  documented yesterday.**
 - **A threshold travels with its averaging period, class and source.**
   `src/constants/criteria.js` is the registry; `docs/CRITERIA.md` explains
-  it. Never compare a measured value against a bare number from `STD` —
+  it. **This rule now has enforcement**
+  (`tests/engine/criterion-coverage.test.ts`): every parameter the engine
+  emits a finding for must name a registry criterion, and that criterion must
+  carry an averaging period, a class and a source. It was added after the two
+  parameters that had no entry — temperature and relative humidity — turned
+  out to be the only two whose citations were wrong. They had no entry because
+  the registry could only express `value > threshold` and comfort is a range;
+  **band criteria** (`resolveBand`) closed that in 2026-08. A band declares a
+  scope (`season`) that `evaluateCriteria` will not guess, exposes the same
+  `resolve()` / `valueLabel` / `midpoint` accessors as a limit, and grounds
+  BOTH bounds in `provenance.ts`. Never compare a measured value against a
+  bare number from `STD` —
   an 8-hour TWA compared to a grab reading produces a statement the
   measurement cannot support, which is how `CO — EXCEEDS OSHA PEL` shipped.
   Severity comes from the criterion's CLASS (a ventilation indicator can
@@ -490,14 +584,18 @@ on this codebase. Watch for them.
 
 3. **Engine season detection is calendar-based — now date-injectable.**
    `comfortSeason(assessmentDate)` in `src/engines/scoring.js` chooses
-   summer (May–October: optimal 73–79°F) vs winter (November–April:
-   optimal 68.5–74°F). `scoreEnv` reads it off `d.assessmentDate`, which
+   summer (May–October: **73–79°F**) vs winter (November–April:
+   **68–76°F**). `scoreEnv` reads it off `d.assessmentDate`, which
    rides in on the building object, and falls back to now when absent.
 
-   **Tests should pin a date** (`scoreZone(zone, { assessmentDate:
-   '2026-07-15' })`) rather than hunting for date-stable inputs. The old
-   advice — use `tf: '73'` because it satisfies both bands — is no longer
-   necessary, though existing tests using it are still fine.
+   **Tests MUST pin a date** (`scoreZone(zone, { assessmentDate:
+   '2026-07-15' })`). This stopped being optional in 2026-08: the bands
+   used to be a wide invented 67–82°F "acceptable" range with a tighter
+   "optimal" band inside it, and the outer range was forgiving enough that
+   an unpinned fixture passed in any month. With the real bands only
+   73–76°F satisfies both seasons, so an unpinned test now passes or fails
+   by the month it runs in — `scoring.test.js` and two seasonality tests
+   were all re-pinned for exactly that reason.
 
    It used to read the clock directly, which meant a report re-scored in
    November applied the winter band to an October survey: the same data

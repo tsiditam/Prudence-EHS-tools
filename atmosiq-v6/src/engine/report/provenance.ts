@@ -82,6 +82,12 @@ export interface ClaimProvenance {
   readonly criterionId: string | null
   /** The threshold the criterion resolves to, when it names one. */
   readonly criterionValue: number | null
+  /**
+   * Every threshold the criterion states. One entry for a limit, two for a
+   * band. `criterionValue` is the first of these and is kept for consumers
+   * that only ever needed one.
+   */
+  readonly criterionValues?: readonly number[]
   /** The citation the finding carries. */
   readonly source: string | null
   /** Seasonal / profile band, for the parameters that use one. */
@@ -208,17 +214,33 @@ export interface ProvenanceInput {
   readonly buildingData?: Readonly<Record<string, unknown>>
 }
 
-/** Resolve a criterion's threshold by id, or null when it names none. */
-export function criterionValueById(id: string): number | null {
-  let found: number | null = null
+/**
+ * Resolve a criterion's threshold by id, or null when it names none.
+ *
+ * A criterion is a LIMIT (one number) or a BAND (a floor and a ceiling), and
+ * a band contributes BOTH of its bounds to grounding — the finding sentence
+ * states both ("90 °F — above the ASHRAE 55 summer comfort range of 73–79
+ * °F"), so an ungrounded bound is an ungrounded claim. Returning only one
+ * number would leave the other flagged as unsupported by the very check that
+ * exists to catch invented figures.
+ */
+export function criterionValuesById(id: string): number[] {
+  let found: number[] | null = null
   const walk = (node: unknown, depth = 0): void => {
     if (found !== null || depth > 6 || node == null || typeof node !== 'object') return
     const rec = node as Record<string, unknown>
-    if (rec.id === id && typeof rec.resolve === 'function') {
-      try {
-        const v = (rec.resolve as () => unknown)()
-        if (typeof v === 'number' && Number.isFinite(v)) { found = round2(v); return }
-      } catch { /* unresolvable */ }
+    if (rec.id === id) {
+      const band = rec.band as { min?: unknown; max?: unknown } | null | undefined
+      if (band && typeof band.min === 'number' && typeof band.max === 'number') {
+        found = [round2(band.min), round2(band.max)]
+        return
+      }
+      if (typeof rec.resolve === 'function') {
+        try {
+          const v = (rec.resolve as () => unknown)()
+          if (typeof v === 'number' && Number.isFinite(v)) { found = [round2(v)]; return }
+        } catch { /* unresolvable */ }
+      }
     }
     for (const v of Object.values(rec)) {
       if (Array.isArray(v)) v.forEach((x) => walk(x, depth + 1))
@@ -226,7 +248,17 @@ export function criterionValueById(id: string): number | null {
     }
   }
   walk(CRITERIA)
-  return found
+  return found ?? []
+}
+
+/**
+ * Back-compatible single-value accessor. A band returns its FLOOR, which is
+ * the only defensible single answer — but callers that ground quantities must
+ * use `criterionValuesById`, or the ceiling goes unsupported.
+ */
+export function criterionValueById(id: string): number | null {
+  const vs = criterionValuesById(id)
+  return vs.length ? vs[0] : null
 }
 
 const readField = (
@@ -334,6 +366,7 @@ export function deriveClaimProvenance(input: ProvenanceInput): ClaimProvenance[]
           ),
           criterionId,
           criterionValue: criterionId ? criterionValueById(criterionId) : null,
+          criterionValues: criterionId ? criterionValuesById(criterionId) : [],
           source: typeof raw.std === 'string' && raw.std ? raw.std : null,
           band,
         }))
@@ -375,6 +408,13 @@ export function groundingSet(claim: ClaimProvenance): Set<number> {
   }
 
   if (claim.band) { out.add(round2(claim.band[0])); out.add(round2(claim.band[1])) }
+  // Both bounds of a band, not just the first. The finding sentence prints
+  // both, so grounding only one leaves a real published figure looking
+  // invented to the check that hunts for invented figures.
+  // `|| []` is load-bearing: `criterionValues` arrived with band criteria in
+  // 2026-08, and this function is also handed claims built by hand and claims
+  // deserialised from records written before the field existed.
+  for (const v of claim.criterionValues || []) out.add(v)
   if (claim.criterionValue !== null) out.add(claim.criterionValue)
 
   return out

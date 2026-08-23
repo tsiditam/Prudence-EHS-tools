@@ -266,11 +266,13 @@ function checkTempRh(data) {
         id: 'rh-comfort',
         severity: rh > 70 ? 'warn' : 'info',
         parameter: PARAM.rh,
-        observation: `Relative humidity at ${rh}% — outside ASHRAE 55 range (${STD.t.rh.min}-${STD.t.rh.max}%).`,
+        observation: `Relative humidity at ${rh}% — outside the ${STD.t.rh.min}-${STD.t.rh.max}% moisture-control range.`,
         suggestion: rh > 70
           ? 'High RH (>70%) sustained for >48h supports mold growth on porous surfaces. Check dehumidification, building envelope, and HVAC drain pan.'
           : 'Low RH can drive respiratory discomfort and increased respiratory-virus transmission. Check humidifier operation if present.',
-        reference: 'ASHRAE 55-2023 (RH 30-60%)',
+        // Was 'ASHRAE 55-2023 (RH 30-60%)'. ASHRAE 55 sets no lower humidity
+        // limit at all and its upper limit is a humidity ratio, not 60% RH.
+        reference: `${STD.t.rh.ref} (RH ${STD.t.rh.min}-${STD.t.rh.max}%)`,
       })
     }
   }

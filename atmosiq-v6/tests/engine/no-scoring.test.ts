@@ -114,7 +114,57 @@ describe('no band ladder has reappeared', () => {
   // The alternative, contorting each regex to dodge prose, is how a guard
   // ends up matching nothing.
   const stripComments = (code: string) =>
-    code.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').replace(/([^:])\/\/.*$/gm, '$1')
+    code
+      // HTML comments first. Several files here are HTML templates, and a
+      // removal record inside one is still a removal record.
+      .replace(/<!--[\s\S]*?-->/g, '')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/^\s*\/\/.*$/gm, '')
+      .replace(/([^:])\/\/.*$/gm, '$1')
+
+  /**
+   * Decode the HTML entities that hid a live band ladder for four months.
+   *
+   * `PrintReport.jsx` published "if any zone scores Critical (&lt;40), the
+   * composite equals the worst zone score" in a client deliverable from the
+   * v3.0 removal until 2026-08. Every pattern below hunts for a comparison
+   * operator; in an HTML template that operator is written `&lt;`, so none of
+   * them could see it. The file was IN this sweep the whole time and the
+   * sweep was structurally unable to read it.
+   *
+   * Decoding is not cosmetic here — it is the difference between a guard and
+   * the appearance of one.
+   */
+  const decodeEntities = (code: string) =>
+    code
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&le;/g, '<=')
+      .replace(/&ge;/g, '>=')
+      .replace(/&#x?0*(3c|60);/gi, '<')
+      .replace(/&#x?0*(3e|62);/gi, '>')
+      .replace(/&amp;/g, '&')
+
+  const readable = (file: string) => decodeEntities(stripComments(SRC(file)))
+
+  /**
+   * The methodology PROSE, which is the other half of what went undetected.
+   *
+   * The arithmetic patterns below would not have caught "Max Points" or
+   * "priority-weighted mean" even decoded, because those sentences contain no
+   * comparison at all. A report can describe a scoring system perfectly well
+   * without ever writing an inequality, and that is exactly what shipped.
+   */
+  const METHODOLOGY_PROSE = [
+    /Transparent Scoring Summary/i,
+    /Max Points/i,
+    /composite (score|equals|reflects)/i,
+    /priority-weighted mean/i,
+    /category weights?,/i,
+    /carry 1\.5\s*[x×]\s*weight/i,
+    /deterministic scoring methodology/i,
+    /100-point/i,
+  ]
 
   const LADDER_SHAPES = [
     // A threshold comparison against a stored total or score.
@@ -144,9 +194,43 @@ describe('no band ladder has reappeared', () => {
   ]
 
   it.each(FILES)('%s carries no band ladder', (file) => {
-    const code = stripComments(SRC(file))
+    const code = readable(file)
     for (const shape of LADDER_SHAPES) {
       expect(code, `${file} matches band-ladder shape ${shape}`).not.toMatch(shape)
+    }
+  })
+
+  it.each(FILES)('%s does not describe a scoring methodology', (file) => {
+    const code = readable(file)
+    for (const shape of METHODOLOGY_PROSE) {
+      expect(code, `${file} matches methodology prose ${shape}`).not.toMatch(shape)
+    }
+  })
+
+  it('reads through HTML entities — the gap that let Appendix B survive', () => {
+    // A positive control on the decoder itself, written as the escaped text
+    // that actually shipped. Without this, a decoder that silently stopped
+    // decoding would leave every assertion above green and blind.
+    const asShipped = 'if any zone scores Critical (&lt;40), the composite equals the worst zone score'
+    const decoded = decodeEntities(asShipped)
+    expect(decoded).toContain('(<40)')
+    expect(LADDER_SHAPES.some((sh) => sh.test(decoded)) || METHODOLOGY_PROSE.some((sh) => sh.test(decoded)))
+      .toBe(true)
+    // And prove the raw form is what escaped: no ladder shape matches it.
+    expect(LADDER_SHAPES.some((sh) => sh.test(asShipped))).toBe(false)
+  })
+
+  it('catches the methodology prose that carries no inequality at all', () => {
+    const restored = [
+      '<th>Max Points</th>',
+      'the composite reflects a priority-weighted mean',
+      '<h2>Appendix B — Transparent Scoring Summary</h2>',
+      'AtmosFlow applies a deterministic scoring methodology',
+    ]
+    for (const line of restored) {
+      expect(METHODOLOGY_PROSE.some((sh) => sh.test(line)), `no prose shape caught: ${line}`).toBe(true)
+      // The point of this control: the ARITHMETIC patterns miss all of them.
+      expect(LADDER_SHAPES.some((sh) => sh.test(line)), `a ladder shape unexpectedly caught: ${line}`).toBe(false)
     }
   })
 
@@ -157,6 +241,13 @@ describe('no band ladder has reappeared', () => {
     expect(code).toContain('export function scoreZone')
     expect(code).toContain('export function summarizeAssessment')
     expect(code.length).toBeGreaterThan(4000)
+
+    // And the HTML template it now also has to read. PrintReport is mostly
+    // markup; an over-eager `<!-- ... -->` rule could swallow the document.
+    const html = stripComments(SRC('src/components/PrintReport.jsx'))
+    expect(html).toContain('Appendix B — How Findings Are Classified')
+    expect(html).toContain('export function generatePrintHTML')
+    expect(html.length).toBeGreaterThan(20000)
   })
 
   it('the shapes still catch a ladder that is put back', () => {

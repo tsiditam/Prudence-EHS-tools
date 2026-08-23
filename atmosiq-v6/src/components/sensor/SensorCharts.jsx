@@ -167,7 +167,7 @@ export function TempHumidityChart({ data, hasTs = true, units = {}, palette = DA
       <YAxis yAxisId="rh" orientation="right" domain={[0, 100]} {...axis(pal)} width={44} label={yLabel(pal, '%', { right: true })} />
       {showRefs && (
         <ReferenceArea yAxisId="rh" y1={STD.t.rh.min} y2={STD.t.rh.max} fill={SERIES.rh} fillOpacity={0.07} stroke="none"
-          label={{ value: `${STD.t.rh.min}–${STD.t.rh.max}% · ${STD.t.ref} comfort`, position: 'insideTopRight', fill: pal.axis, fontSize: 9, fontFamily: 'var(--font-sans)' }} />
+          label={{ value: `${STD.t.rh.min}–${STD.t.rh.max}% · moisture-control range`, position: 'insideTopRight', fill: pal.axis, fontSize: 9, fontFamily: 'var(--font-sans)' }} />
       )}
       <Tooltip content={<ChartTooltip hasTs={hasTs} units={units} pal={pal} />} />
       <Legend wrapperStyle={{ fontSize: 11, color: pal.axis, fontFamily: 'var(--font-sans)' }} />
@@ -357,7 +357,7 @@ export const GRAPH_DEFS = [
 // `tvoc` lines only apply to mass-based (µg/m³) series — see TVOCTimelineChart.
 export const REF_LINE_DEFS = [
   { key: 'co2', label: `CO₂ ${STD.v.co2.con} ppm`, std: STD.v.ref, applies: (params) => params.includes('co2') },
-  { key: 'rh', label: `RH ${STD.t.rh.min}–${STD.t.rh.max}%`, std: STD.t.ref, applies: (params) => params.includes('rh') },
+  { key: 'rh', label: `RH ${STD.t.rh.min}–${STD.t.rh.max}%`, std: STD.t.rh.ref, applies: (params) => params.includes('rh') },
   { key: 'pm', label: `PM2.5 EPA/WHO`, std: 'EPA NAAQS / WHO 2021', applies: (params) => params.includes('pm25') },
   { key: 'co', label: `CO OSHA/NIOSH`, std: 'OSHA PEL / NIOSH REL', applies: (params) => params.includes('co') },
   { key: 'tvoc', label: `TVOC Mølhave`, std: 'Mølhave 1991', applies: (params, units) => params.includes('tvoc') && tvocIsMass(units) },

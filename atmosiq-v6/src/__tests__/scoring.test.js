@@ -23,8 +23,13 @@ const txt = (r) => typeof r === 'string' ? r : (r?.text || '')
 
 describe('scoreZone', () => {
   it('assesses a zone with full data and finds nothing to act on', () => {
-    const zone = { zn: 'Lobby', co2: '450', tf: '72', rh: '45', pm: '5', co: '2', tv: '100', hc: '0.01', vd: 'None', cx: 'No complaints', cfm_person: '15', ach: '6', sa: 'Normal' }
-    const bldg = { hm: 'Within 6 months', fc: 'Clean' }
+    // 74°F and a pinned date. Was 72°F with no date, which relied on the
+    // old 67–82°F band being wide enough to hold any reading in any season;
+    // against the real summer band (73–79) it is below range, so the test
+    // would have passed or failed by the month it ran in. Pinning the date is
+    // the standing advice for this engine — see CLAUDE.md pitfall #3.
+    const zone = { zn: 'Lobby', co2: '450', tf: '74', rh: '45', pm: '5', co: '2', tv: '100', hc: '0.01', vd: 'None', cx: 'No complaints', cfm_person: '15', ach: '6', sa: 'Normal' }
+    const bldg = { hm: 'Within 6 months', fc: 'Clean', assessmentDate: '2026-07-15' }
     const result = scoreZone(zone, bldg)
     expect(result.zoneName).toBe('Lobby')
     expect(result.cats).toHaveLength(5)

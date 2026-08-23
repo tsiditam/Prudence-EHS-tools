@@ -26,7 +26,7 @@
  */
 
 import { STD } from '../constants/standards'
-import { evaluateCriteria, capSeverity } from '../constants/criteria'
+import { evaluateCriteria, capSeverity, criterionById } from '../constants/criteria'
 
 // A walkthrough reading is a grab sample. Named once so the criterion layer's
 // determinative/indicative logic reads explicitly rather than by default.
@@ -163,7 +163,7 @@ function assessVent(d, achOverride) {
     // finding, that miscalibration reached the report's triage priority.
     if (v > STD.v.co2.act)                              { r.push({ t: 'CO₂ ' + v + ' ppm — severely elevated, indicating significant ventilation inadequacy. ' + co2Caveat, std: co2Ref, sev: capSeverity('critical', 'ventilation_indicator'), p: 'co2', cid: 'co2_action' }) }
     else if (df > STD.v.co2.diff || v > STD.v.co2.con) { r.push({ t: 'CO₂ ' + v + ' ppm (Δ' + df + ' ppm above outdoor) — ventilation rate appears inadequate for occupant load. ' + co2Caveat, std: co2Ref, sev: 'high', p: 'co2', cid: 'co2_concern' }) }
-    else if (hasOutdoor ? df > 500 : v > 800)           { r.push({ t: 'CO₂ ' + v + ' ppm' + (hasOutdoor ? ' (Δ' + df + ' ppm above outdoor ' + o + ')' : '') + ' — ventilation approaching concern for sedentary occupancy. ' + co2Caveat, std: co2Ref, sev: 'medium', p: 'co2' }) }
+    else if (hasOutdoor ? df > 500 : v > 800)           { r.push({ t: 'CO₂ ' + v + ' ppm' + (hasOutdoor ? ' (Δ' + df + ' ppm above outdoor ' + o + ')' : '') + ' — ventilation approaching concern for sedentary occupancy. ' + co2Caveat, std: co2Ref, sev: 'medium', p: 'co2', cid: 'co2_concern' }) }
     else if (!hasOutdoor && v > 800)                    { r.push({ t: 'CO₂ ' + v + ' ppm — approaching concern (no outdoor baseline for differential). ' + co2Caveat, std: co2Ref, sev: 'low', p: 'co2' }) }
     else r.push({ t: 'CO₂ ' + v + ' ppm' + (hasOutdoor ? ' (Δ' + df + ' ppm)' : '') + ' — within the reference range for ventilation adequacy. ' + co2Caveat, std: co2Ref, sev: 'pass', p: 'co2' })
     r.push({ t: 'Ventilation assessed from CO₂ only — Limited Confidence. CO₂ is a ventilation indicator and should not be interpreted as a contaminant measurement.', sev: 'info' })
@@ -332,24 +332,54 @@ function assessEnv(d, rhOverride, tempOverride) {
     const t = +d.tf
     const tMin = tempOverride?.min ?? STD.t.temp[ssn].min
     const tMax = tempOverride?.max ?? STD.t.temp[ssn].max
-    const tOMin = tempOverride?.oMin ?? STD.t.temp[ssn].oMin
-    const tOMax = tempOverride?.oMax ?? STD.t.temp[ssn].oMax
     const tLabel = tempOverride?.label || 'ASHRAE 55'
     const tStd = tempOverride ? tempOverride.label : STD.t.ref
-    if (t < tMin || t > tMax)        { r.push({ t:'Temperature '+t+'°F — outside '+tMin+'–'+tMax+'°F range (per '+tLabel+')', std:tStd, sev:'high', p:'temperature', band:[tMin,tMax], bandUnit:'°F', bandLabel:tLabel+' acceptable range' }) }
-    else if (t < tOMin || t > tOMax) { r.push({ t:'Temperature '+t+'°F — outside optimal '+tOMin+'–'+tOMax+'°F (per '+tLabel+')', std:tStd, sev:'low', p:'temperature', band:[tOMin,tOMax], bandUnit:'°F', bandLabel:tLabel+' optimal band ('+ssn+')' }) }
+    // The registry criterion for this season. It is the source of the SEVERITY
+    // CEILING and the citation; the band still comes from the override chain
+    // above, because a building profile may narrow it for a specialty
+    // occupancy and the registry does not know about profiles.
+    //
+    // Reading the cap from the registry rather than writing `sev:'medium'`
+    // here is the whole point of bringing temperature into it: this branch
+    // wrote `sev:'high'` for four months while CRITERION_CLASS.comfort_consensus
+    // declared a ceiling of `medium`, and nothing could see the disagreement
+    // because the branch was not governed by a criterion at all.
+    const tCrit = criterionById('temp', `temp_ashrae55_${ssn}`)
+    const tSev = capSeverity('medium', tCrit ? tCrit.class : 'comfort_consensus')
+    // One comparison, one severity. There used to be two — an outer
+    // "acceptable" band at `high` and an inner "optimal" band at `low` — and
+    // both halves were wrong. ASHRAE 55 states one acceptability criterion,
+    // so the inner tier was inventing a distinction the standard does not
+    // draw; and `high` breaks the ceiling the criterion class already sets,
+    // since `comfort_consensus` caps at `medium` precisely because a comfort
+    // consensus standard is not a health or regulatory limit. See STD.t in
+    // constants/standards.js for the full account and for the three
+    // qualifiers that travel with the band.
+    if (t < tMin || t > tMax) {
+      r.push({
+        t: 'Temperature '+t+'°F — outside the '+tMin+'–'+tMax+'°F '+ssn+' comfort range ('+tLabel+')',
+        std: tStd, sev: tSev, p: 'temperature', cid: tCrit ? tCrit.id : null,
+        band: [tMin, tMax], bandUnit: '°F', bandLabel: tLabel+' comfort range ('+ssn+')',
+      })
+    }
   } else if (d.tc === 'Too hot' || d.tc === 'Too cold') { r.push({ t:'Thermal discomfort: '+d.tc.toLowerCase(), sev:'medium' }) }
   // RH scoring with building-profile override where the occupancy defines one
   const rhMin = rhOverride?.min ?? STD.t.rh.min
   const rhMax = rhOverride?.max ?? STD.t.rh.max
+  const rhCrit = criterionById('rh', 'rh_epa_moisture_control')
   const rhLabel = rhOverride?.label || 'recommended range'
   // Reader-facing name for the band, used when the report cites what a
   // humidity finding rests on. `rhLabel` reads as prose mid-sentence but not
   // as a criterion name in a table column.
-  const rhBandLabel = rhOverride?.label || `${STD.t.ref} comfort range`
+  //
+  // The citation is STD.t.rh.ref, NOT STD.t.ref. This band is EPA
+  // moisture-control guidance; it was attributed to ASHRAE 55 until 2026-08
+  // purely because it sat inside the `STD.t` object and inherited its `ref`.
+  // See the note on STD.t.rh in constants/standards.js.
+  const rhBandLabel = rhOverride?.label || 'moisture-control range'
   if (d.rh) {
     const v = +d.rh
-    if (v < rhMin || v > rhMax) { r.push({ t:'RH '+v+'% — outside '+rhMin+'–'+rhMax+'% '+rhLabel, std: rhOverride ? rhOverride.label : STD.t.ref, sev:v>70||v<20?'high':'medium', p:'rh', band:[rhMin,rhMax], bandUnit:'%', bandLabel:rhBandLabel }) }
+    if (v < rhMin || v > rhMax) { r.push({ t:'RH '+v+'% — outside '+rhMin+'–'+rhMax+'% '+rhLabel, std: rhOverride ? rhOverride.label : STD.t.rh.ref, sev: capSeverity(v > 70 || v < 20 ? 'high' : 'medium', rhCrit ? rhCrit.class : 'comfort_consensus'), p:'rh', cid: rhCrit ? rhCrit.id : null, band:[rhMin,rhMax], bandUnit:'%', bandLabel:rhBandLabel }) }
   } else if (d.hp === 'Too humid / stuffy' || d.hp === 'Too dry') { r.push({ t:'Humidity concern: '+d.hp.toLowerCase(), sev:'medium' }) }
   if (d.wd === 'Extensive damage')  { r.push({ t:'Extensive water damage', sev:'critical' }) }
   else if (d.wd === 'Active leak')  { r.push({ t:'Active water intrusion', sev:'high' }) }

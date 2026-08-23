@@ -14,10 +14,12 @@
  * guard nothing. `1450 ppm` and `72°F` are assertions; `S520` is a name.
  */
 import { describe, it, expect } from 'vitest'
+import { STD } from '../../src/constants/standards'
 
 import {
   deriveClaimProvenance, ungroundedQuantities, extractQuantities, groundingSet,
-  untaggedQuantitativeClaims, criterionValueById, __testing,
+  untaggedQuantitativeClaims, criterionValueById,
+  criterionValuesById, __testing,
   type ClaimProvenance,
 } from '../../src/engine/report/provenance'
 import { computeParameterRanges } from '../../src/engine/report/parameter-ranges'
@@ -199,6 +201,20 @@ describe('the provenance record', () => {
       expect(c.criterionValue, `${c.criterionId} resolves to no value`).not.toBeNull()
     }
     expect(criterionValueById('definitely_not_a_criterion')).toBeNull()
+  })
+
+  it('grounds BOTH bounds of a band criterion, not just the floor', () => {
+    // A band finding prints two published numbers — "90 °F — above the ASHRAE
+    // 55 summer comfort range of 73–79 °F". Grounding only one leaves the
+    // other looking invented to the very check that hunts for invented
+    // figures, which is the opposite of what this record is for.
+    const vs = criterionValuesById('temp_ashrae55_summer')
+    expect(vs).toEqual([STD.t.temp.summer.min, STD.t.temp.summer.max])
+
+    // A limit criterion still yields exactly one.
+    expect(criterionValuesById('co_niosh_ceiling')).toHaveLength(1)
+    // And an unknown id yields none rather than throwing.
+    expect(criterionValuesById('definitely_not_a_criterion')).toEqual([])
   })
 
   it('gives every claim a stable id and keeps the engine\'s own sentence', () => {

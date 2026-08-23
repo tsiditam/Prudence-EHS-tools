@@ -244,7 +244,48 @@ export function capSeverity(proposed, criterionClass) {
  *
  * Default is null: no basis is crossed, or crossing it assumes nothing.
  */
-const criterion = (c) => ({ equivalenceBasis: null, ...c, value: c.resolve() })
+const criterion = (c) => ({
+  equivalenceBasis: null,
+  ...c,
+  // A criterion is either a LIMIT (one number, exceeded from below) or a BAND
+  // (a floor and a ceiling, missed from either side).
+  //
+  // Bands arrived late, in 2026-08, and their absence is the whole reason
+  // this file's two worst citation errors were in thermal comfort. Every
+  // parameter governed by this registry travels with a class, an averaging
+  // period and a checkable source, and none of them was wrong. Temperature
+  // and relative humidity had no registry entry — they lived as bare numbers
+  // on `STD.t` — precisely because the registry could only express "value >
+  // threshold" and comfort is a range. So the one shape the registry could
+  // not hold is the one shape that went unaudited: an invented 67-82 F
+  // "acceptable" band with a fabricated "optimal" tier inside it, and a 30-60%
+  // humidity range credited to a standard that sets no lower limit at all.
+  //
+  // CLAUDE.md already stated the rule this violated — "never compare a
+  // measured value against a bare number from STD". The gap was that for
+  // these two parameters there was nowhere else to put the number.
+  ...(c.resolveBand
+    ? {
+        band: c.resolveBand(),
+        value: null,
+        // `resolve` stays callable on every criterion so no consumer has to
+        // branch on the shape before it can read one. It returns the band.
+        resolve: c.resolveBand,
+        // The midpoint, for the one thing a band cannot answer directly: a
+        // consumer that needs A representative value (a test probe, a sort
+        // key). Never rendered — `valueLabel` is what a reader sees.
+        midpoint: (c.resolveBand().min + c.resolveBand().max) / 2,
+      }
+    : { band: null, value: c.resolve(), midpoint: c.resolve() }),
+  // One uniform accessor for "what this criterion equals, as a reader sees
+  // it". Added with bands: `${c.resolve()} ${c.unit}` printed "[object
+  // Object] °F" the moment a criterion stopped being a single number, and
+  // every consumer interpolating a raw resolve() would have had to learn the
+  // difference. They should not have to.
+  valueLabel: c.resolveBand
+    ? `${c.resolveBand().min}–${c.resolveBand().max}`
+    : String(c.resolve()),
+})
 
 export const CRITERIA = {
   co: [
@@ -512,6 +553,62 @@ export const CRITERIA = {
     }),
   ],
 
+  // ── Thermal comfort and moisture ─────────────────────────────────────
+  //
+  // These two arrived in 2026-08 and are the reason `resolveBand` exists.
+  // They were the ONLY parameters the engine evaluated without a registry
+  // entry, and they were the only two whose citations were wrong. That is not
+  // a coincidence: a bare number on STD has nowhere to carry a class, an
+  // averaging period or a source, so nothing could check them and nothing did.
+  //
+  // Temperature is seasonal, so it is two criteria rather than one with a
+  // branch — the season is a property of WHICH criterion applies, exactly as
+  // averaging period is, and `comfortSeason()` selects between them.
+  temp: [
+    criterion({
+      id: 'temp_ashrae55_summer',
+      label: 'ASHRAE 55 summer comfort range',
+      resolveBand: () => ({ min: STD.t.temp.summer.min, max: STD.t.temp.summer.max }),
+      unit: '°F',
+      averaging: 'instantaneous',
+      class: 'comfort_consensus',
+      severity: 'medium',
+      season: 'summer',
+      source: 'ANSI/ASHRAE Standard 55-2023 — Graphic Comfort Zone Method, ~0.5 clo, 1.0–1.3 met',
+      action: 'Review thermostat setpoints, HVAC zoning and airflow distribution for the affected area. ASHRAE 55 resolves comfort from six variables and this assessment measured one, so an out-of-range reading indicates a condition to investigate rather than a determination against the standard.',
+    }),
+    criterion({
+      id: 'temp_ashrae55_winter',
+      label: 'ASHRAE 55 winter comfort range',
+      resolveBand: () => ({ min: STD.t.temp.winter.min, max: STD.t.temp.winter.max }),
+      unit: '°F',
+      averaging: 'instantaneous',
+      class: 'comfort_consensus',
+      severity: 'medium',
+      season: 'winter',
+      source: 'ANSI/ASHRAE Standard 55-2023 — Graphic Comfort Zone Method, ~1.0 clo, 1.0–1.3 met',
+      action: 'Review thermostat setpoints, HVAC zoning and airflow distribution for the affected area. ASHRAE 55 resolves comfort from six variables and this assessment measured one, so an out-of-range reading indicates a condition to investigate rather than a determination against the standard.',
+    }),
+  ],
+
+  rh: [
+    criterion({
+      id: 'rh_epa_moisture_control',
+      label: 'EPA moisture-control range',
+      resolveBand: () => ({ min: STD.t.rh.min, max: STD.t.rh.max }),
+      unit: '%',
+      averaging: 'instantaneous',
+      class: 'comfort_consensus',
+      severity: 'medium',
+      // Its own source, not STD.t.ref. The nesting of `rh` inside `STD.t` is
+      // what made eleven surfaces cite ASHRAE 55 for a band ASHRAE 55 does
+      // not contain — 55 sets its upper humidity limit as a humidity ratio
+      // and dropped its lower limit in 55-2013.
+      source: 'US EPA — Mold, Moisture and Your Home (keep indoor RH below 60%, ideally 30–50%)',
+      action: 'Above 60%, evaluate dehumidification capacity, envelope condensation and HVAC moisture removal; below 30%, assess humidification against the space volume and outdoor design condition. The two bounds do not share a rationale: the upper is moisture and microbial-amplification control, the lower is dryness and irritation.',
+    }),
+  ],
+
   tvoc: [
     criterion({
       id: 'tvoc_molhave_action',
@@ -586,12 +683,29 @@ export const CRITERIA = {
  * @param {number} value            the measured value, in the criterion's unit
  * @param {string} evidenceBasis    an EvidenceBasisKind; defaults to a grab reading
  */
-export function evaluateCriteria(parameter, value, evidenceBasis = 'screening_grab') {
+export function evaluateCriteria(parameter, value, evidenceBasis = 'screening_grab', opts = {}) {
   const list = CRITERIA[parameter]
   if (!Array.isArray(list) || !Number.isFinite(value)) return null
 
   for (const c of list) {
-    if (!Number.isFinite(c.value) || value <= c.value) continue
+    // A criterion may declare the SCOPE it applies in, and a scope the caller
+    // has not named is not a match. Today that is `season`: the two ASHRAE 55
+    // comfort bands overlap (winter 68-76 F, summer 73-79 F), so walking both
+    // makes 79 F "outside the winter band" in July. The registry declares the
+    // scope; this function refuses to guess it.
+    if (c.season && c.season !== opts.season) continue
+    // A BAND criterion is missed from either side; a LIMIT criterion is
+    // exceeded from below. Everything after this point — averaging, opt-in
+    // class exclusion, severity capping, statement generation — is identical,
+    // which is the reason bands belong here rather than in a parallel path in
+    // the engine. That parallel path is exactly what thermal comfort had, and
+    // it is where both of this project's citation errors lived.
+    const band = c.band && Number.isFinite(c.band.min) && Number.isFinite(c.band.max) ? c.band : null
+    if (band) {
+      if (!(value < band.min || value > band.max)) continue
+    } else if (!Number.isFinite(c.value) || value <= c.value) {
+      continue
+    }
     const avg = AVERAGING[c.averaging]
     // A criterion whose averaging period no evidence basis can speak to is
     // not evaluable from a survey — by the registry's own declaration, not
@@ -636,6 +750,11 @@ export function evaluateCriteria(parameter, value, evidenceBasis = 'screening_gr
       determinative,
       indicative,
       statement: buildStatement(c, value, determinative, indicative),
+      // Which side of a band was missed. Null for a limit criterion. The
+      // engine's causal chains and the recommendation layer need this: a room
+      // that is too cold and a room that is too warm want opposite advice,
+      // and a single "outside the range" flag cannot tell them apart.
+      direction: band ? (value < band.min ? 'below' : 'above') : 'above',
     }
   }
   return null
@@ -648,7 +767,14 @@ export function evaluateCriteria(parameter, value, evidenceBasis = 'screening_gr
  */
 export function buildStatement(c, value, determinative, indicative) {
   const avg = AVERAGING[c.averaging]
-  const head = `${value} ${c.unit} — above the ${c.label} of ${c.value} ${c.unit}`
+  const band = c.band && Number.isFinite(c.band.min) && Number.isFinite(c.band.max) ? c.band : null
+  // "outside the X of A-B", not "above" — a band is missed in two directions
+  // and the sentence has to be able to say which. The word `above` hard-coded
+  // into every finding is a small thing that becomes a wrong thing the moment
+  // a floor exists.
+  const head = band
+    ? `${value} ${c.unit} — ${value < band.min ? 'below' : 'above'} the ${c.label} of ${band.min}–${band.max} ${c.unit}`
+    : `${value} ${c.unit} — above the ${c.label} of ${c.value} ${c.unit}`
   const period = avg && avg.id !== 'instantaneous' ? `, which is ${avg.phrase}` : ''
   let basis = ''
   if (!determinative) {
@@ -668,6 +794,19 @@ export function buildStatement(c, value, determinative, indicative) {
   // measurement, not advice — it says what this reading can and cannot
   // settle, which changes how the finding itself should be read.
   return `${head}${period}.${basis}`.trimEnd()
+}
+
+/**
+ * One criterion by parameter and id.
+ *
+ * Exists so a comparison the engine performs itself — a seasonal comfort band
+ * the building profile may narrow, which `evaluateCriteria` therefore cannot
+ * own outright — can still take its severity ceiling and its citation from
+ * the registry instead of restating them. A hand-written `sev:'high'` beside a
+ * class that caps at `medium` is precisely the drift this returns.
+ */
+export function criterionById(parameter, id) {
+  return (CRITERIA[parameter] || []).find((c) => c.id === id) || null
 }
 
 /** Every criterion, flattened — for documentation and report appendices. */

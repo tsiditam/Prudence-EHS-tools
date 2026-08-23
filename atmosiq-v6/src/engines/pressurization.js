@@ -323,7 +323,7 @@ function humidityTrackingOutdoors(d) {
   const outdoor = num(d.rho)
   if (indoor === null || outdoor === null) return null
   if (!(indoor > STD.t.rh.max && outdoor > STD.t.rh.max)) return null
-  return { key: 'rh_elevated_with_outdoor', label: 'the elevated indoor humidity', detail: `indoor RH ${indoor}% with outdoor RH ${outdoor}% (ASHRAE 55-2023 upper comfort bound ${STD.t.rh.max}%)` }
+  return { key: 'rh_elevated_with_outdoor', label: 'the elevated indoor humidity', detail: `indoor RH ${indoor}% with outdoor RH ${outdoor}% (above the ${STD.t.rh.max}% moisture-control bound)` }
 }
 
 /**

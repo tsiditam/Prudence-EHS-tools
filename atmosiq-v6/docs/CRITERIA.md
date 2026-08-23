@@ -317,6 +317,143 @@ The technical/QA report keeps the fuller table (`benchmarkRowsFor`), narrowed
 to the parameters measured. Different audience, same generated rows — depth
 differs, the numbers cannot.
 
+### Double-entry bookkeeping (how a wrong number gets caught)
+
+Every threshold exists in two independently authored places:
+
+| Ledger | File | Written for |
+|---|---|---|
+| Machine | `constants/criteria.js` | the engine |
+| Prose | `constants/standards-corpus.js` | Jasper's retrieval layer, with primary-source citations |
+
+**Until 2026-08 nothing compared them.** The engine scored temperature against
+an invented 67–82 °F band with a fabricated "optimal" tier while the corpus,
+three directories away, carried the correct 68–76 / 73–79 and had done since
+it was written. It also stated in as many words that ASHRAE 55 "does NOT
+prescribe a lower humidity limit" while eleven surfaces cited ASHRAE 55 for a
+30 % floor. Both ledgers were in the repo. Neither was ever opened beside the
+other.
+
+A corpus entry whose text already states a threshold declares it structurally:
+
+```js
+figures: [
+  { criterionId: 'temp_ashrae55_summer', band: [73, 79], unit: '°F' },
+  // A figure may name its own bibliography entry when it belongs to another
+  // body — epa-pm25-2024-revision states the EPA NAAQS and the stricter WHO
+  // guidelines side by side, and that comparison is why it exists.
+  { criterionId: 'pm25_who_24h', value: 15, unit: 'µg/m³', manifestKey: 'WHO Air Quality Guidelines' },
+],
+```
+
+`figures` is metadata, not content — it links prose that already passed review
+to the registry entry it describes. Writing NEW prose still needs BCSP sign-off.
+
+`tests/engine/standards-reconciliation.test.ts` then enforces:
+
+1. A declared figure matches the registry **exactly**. No tolerance — "close"
+   is how 67 becomes defensible.
+2. Every criterion is documented by a corpus figure **or** named in an explicit
+   gap ledger with a reason. There is no third state.
+3. The gap ledger may only name criteria that exist, so it cannot rot into a
+   list of ghosts that silently excuses everything.
+4. A criterion cannot be both documented and excused.
+5. Every citation names a year, a regulation, a publication or a qualifier —
+   a bare `ASHRAE 55` fails, because that was the shape of both wrong ones.
+
+Verified against all three defect classes: restoring the invented band fails 1
+test, re-citing humidity to ASHRAE 55 fails 2, and adding a new threshold with
+`source: 'Industry practice'` fails 2.
+
+**The gap ledger is a backlog, not an exemption.** Twenty-one criteria are on
+it today — every CO and formaldehyde limit, all of PM10, the CO₂ indicators —
+because no corpus entry states their figures. They are checkable by hand and
+not contradictable, which is exactly the condition temperature and humidity
+were in. It may only shrink.
+
+### No reference line without a criterion
+
+`tests/engine/reference-line-provenance.test.ts` is the general form of the
+per-parameter guards that were each written after a specific figure turned out
+to be wrong. A reference line is the most consequential number the product
+renders — it is what a reading is judged against, it appears on a chart the
+client keeps, and nobody reads it as an opinion. So every one must resolve to
+a criterion, in the criterion's value (any unit projection), under the
+criterion's own citation.
+
+It found one on its first run: the CO₂ profiles drew 1,000 and 1,500 ppm with
+no criterion linked, though `co2_concern` / `co2_action` hold exactly those
+numbers. Linking them added no claim — the values already matched.
+
+**The rule is traceability, not linkage**, and the first version of this guard
+got that wrong. It demanded a criterion for every profile, which the TVOC
+`well` profile has none of *by design* — `citation-discipline.test.ts` records
+that as "the documented pattern for a profile with no registry threshold
+behind it". The correct response to a guard flagging a deliberate decision is
+to fix the guard. Instead a criterion was invented to satisfy it and the
+profile's WELL citation was replaced with a LEED one, on the reasoning that
+the corpus "contradicted" WELL. It does not — the corpus entry for that figure
+never mentions WELL, and silence is not contradiction. Reverted in full.
+
+A profile therefore satisfies this guard by linking a criterion **or** by
+declaring its own citation. What fails is a line at a number with neither, and
+the self-sourced profiles are pinned as a named list so the exception cannot
+spread quietly.
+
+It also checks the **label**: "Mølhave advisory (500 µg/m³)" states the figure
+in text, where a stale one is invisible to any check that only reads the
+resolved value.
+
+### Limits and bands
+
+A criterion is one of two shapes:
+
+| Shape | Declares | Matches when | Example |
+|---|---|---|---|
+| **Limit** | `resolve()` → a number | `value > threshold` | CO NIOSH ceiling, 200 ppm |
+| **Band** | `resolveBand()` → `{min, max}` | `value < min` or `value > max` | ASHRAE 55 summer comfort, 73–79 °F |
+
+Bands arrived in 2026-08, and their absence is the reason this project's two
+worst citation errors were both in thermal comfort. Every parameter governed
+by the registry travels with a class, an averaging period and a checkable
+source, and **not one of them was wrong**. Temperature and relative humidity
+had no registry entry at all — they lived as bare numbers on `STD.t` — because
+the registry could only express "value > threshold" and comfort is a range.
+The one shape the registry could not hold is the one shape that went
+unaudited: an invented 67–82 °F "acceptable" band with a fabricated "optimal"
+tier inside it, and a 30–60 % humidity range credited to a standard that sets
+no lower limit at all.
+
+CLAUDE.md already stated the rule this violated — *never compare a measured
+value against a bare number from `STD`*. The gap was that for those two
+parameters there was nowhere else to put the number.
+`tests/engine/criterion-coverage.test.ts` now enforces it: every parameter the
+engine emits a finding for must name a registry criterion, and that criterion
+must carry an averaging period, a class and a source.
+
+Three consequences worth knowing when you add a band:
+
+1. **Every criterion exposes `resolve()`, `valueLabel` and `midpoint`,
+   whatever its shape.** A consumer should never have to branch. `${c.resolve()}`
+   printed `[object Object] °F` the moment a criterion stopped being a single
+   number, which is why `valueLabel` ("73–79") exists and is what renders.
+2. **A band may declare a SCOPE, and a scope the caller has not named is not a
+   match.** Today that is `season`: the two ASHRAE 55 bands overlap (winter
+   68–76, summer 73–79), so walking both makes 79 °F "outside the winter band"
+   in July. Pass `evaluateCriteria(param, value, basis, { season })`.
+3. **Both bounds ground.** A band finding prints two published numbers, so
+   `provenance.ts` returns `criterionValuesById` → `[min, max]`. Grounding only
+   one leaves a real published figure looking invented to the check that exists
+   to catch invented figures.
+
+The engine still owns the temperature comparison itself, because a building
+profile may narrow the band for a specialty occupancy and the registry does not
+know about profiles. What it takes from the registry is the **severity ceiling
+and the citation** — via `criterionById` — which is the part that had drifted:
+`scoreEnv` wrote `sev:'high'` for four months while
+`CRITERION_CLASS.comfort_consensus` declared a ceiling of `medium`, and nothing
+could see the disagreement because the branch was not governed by a criterion.
+
 ### Crossing units: the equivalence basis
 
 A threshold travels with its averaging period, class and source. Units are the

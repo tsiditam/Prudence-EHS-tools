@@ -40,6 +40,9 @@ export const STANDARDS_MANIFEST = {
   'IICRC S520': '2024',
   'NIOSH Pocket Guide RELs': 'current',
   'EPA NAAQS': '2024',
+  // The indoor RH practice range (30-60%). Cited on its own terms because it
+  // is moisture control, not thermal comfort - see the note on STD.t.rh.
+  'EPA Mold, Moisture and Your Home': 'current (keep indoor RH below 60%, ideally 30-50%)',
   'WELL Building Standard v2': 'Q3 2024 (IAQ features A01/V01 — OPT-IN only: an assessor-selectable Logger Studio reference, never applied by the engine on its own; see certification_target in criteria.js)',
   'Molhave TVOC tiers': '1991 (advisory only)',
   // Move 5 — methodology currency layer. Bibliographic only — these
@@ -71,11 +74,81 @@ export const STANDARDS_MANIFEST = {
 export const STD = {
   t: {
     ref: 'ASHRAE 55-2023',
+    // ONE band per season, and it is the ACCEPTABLE range. ASHRAE 55 has a
+    // single acceptability criterion — roughly 80% of occupants satisfied —
+    // not a two-tier ladder.
+    //
+    // What stood here until 2026-08 was
+    //   summer: { min: 67, max: 82, oMin: 73, oMax: 79 }
+    //   winter: { min: 68.5, max: 76, oMin: 68.5, oMax: 74 }
+    // an "acceptable" band with a tighter "optimal" band inside it, both
+    // attributed to ASHRAE 55. Neither the 67-82 figure nor the
+    // optimal/acceptable ladder is in the standard, and unlike every other
+    // constant in this file the block carried no provenance comment at all.
+    //
+    // It also contradicted this project's own standards corpus, which states
+    // the acceptable range as ~68-76 F in winter and ~73-79 F in summer.
+    // Jasper cited the corpus; the engine scored against the invented pair;
+    // and the Logger Studio card drew the wide band while the engine flagged
+    // the narrow one. The same 72.6 F reading rendered as comfortably inside
+    // the range on one surface and as a finding on another.
+    //
+    // The figures below are the corpus's. They are the Fahrenheit rounding of
+    // the 20-24 C (winter, ~1.0 clo) and 23-26 C (summer, ~0.5 clo) operative
+    // temperature ranges the Graphic Comfort Zone Method yields for typical
+    // office work.
+    //
+    // THREE QUALIFIERS TRAVEL WITH THESE NUMBERS. State them wherever the
+    // band is stated; a bare number here is how the last version went wrong.
+    //
+    //   1. The assumptions. The graphic method is defined only for metabolic
+    //      rates of 1.0-1.3 met and clothing of 0.5-1.0 clo. Outside those
+    //      bounds the band does not apply.
+    //   2. The quantity. The standard's zone is OPERATIVE temperature -
+    //      roughly the mean of air and mean radiant temperature. AtmosFlow
+    //      measures dry-bulb air temperature, which approximates it and
+    //      diverges near glazing, exterior walls and radiant sources.
+    //   3. What it is not. ASHRAE 55 resolves comfort from six variables: air
+    //      temperature, mean radiant temperature, air speed, humidity,
+    //      metabolic rate and clothing insulation. AtmosFlow captures one of
+    //      the six. A reading outside this band is an indicator worth
+    //      investigating. It is never an ASHRAE 55 determination.
     temp: {
-      summer: { min: 67, max: 82, oMin: 73, oMax: 79 },
-      winter: { min: 68.5, max: 76, oMin: 68.5, oMax: 74 },
+      summer: { min: 73, max: 79 },
+      winter: { min: 68, max: 76 },
     },
-    rh: { min: 30, max: 60 },
+    // Relative humidity: 30-60%, and it is NOT an ASHRAE 55 figure.
+    //
+    // It was cited to ASHRAE 55-2023 here and on five other surfaces until
+    // 2026-08, and that attribution was wrong twice over. ASHRAE 55 sets only
+    // an UPPER humidity limit - a humidity ratio of 0.012 kg water per kg dry
+    // air, roughly 60-65% RH at comfort temperatures - and it dropped its
+    // LOWER limit in 55-2013, so the standard says nothing whatever about
+    // 30%. This project's own standards corpus already recorded both facts
+    // while every rendering surface said otherwise.
+    //
+    // The band is real and worth keeping; only the source was wrong. It is US
+    // EPA moisture-control guidance: keep indoor RH below 60%, ideally
+    // 30-50%. The two bounds do not share a rationale, which is the reason
+    // this cannot be a "comfort range":
+    //
+    //   60% upper - MOISTURE control. Above it condensation and microbial
+    //               amplification risk rise; the same basis as the IICRC S520
+    //               condition framework. Numerically it also sits just inside
+    //               ASHRAE 55's real upper humidity limit, which is why the
+    //               old citation was misleading rather than absurd.
+    //   30% lower - comfort and irritation. Below it dry-eye and respiratory
+    //               complaints increase. ASHRAE 55 has no such limit.
+    //
+    // `ref` is deliberately its own field rather than inheriting STD.t.ref.
+    // That inheritance is exactly how one wrong word reached the engine
+    // finding, the criteria table, the Logger Studio chart band, the chart
+    // legend, Jasper's corpus and a recommendation's standardReference.
+    rh: {
+      min: 30,
+      max: 60,
+      ref: 'US EPA — Mold, Moisture and Your Home',
+    },
   },
   v: {
     ref: 'ASHRAE 62.1-2025',
