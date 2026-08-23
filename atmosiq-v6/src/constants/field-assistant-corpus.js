@@ -43,7 +43,15 @@ function formatThresholds() {
       if (w) lines.push(`  Winter °F: ${w.min}–${w.max} acceptable (operative temp, ~1.0 clo, 1.0–1.3 met)`)
       lines.push('  AtmosFlow measures air temperature only — one of the six variables ASHRAE 55 needs. Outside the band is an indicator, not a determination.')
     }
-    if (STD.t.rh) lines.push(`  Relative humidity %: ${STD.t.rh.min}–${STD.t.rh.max}`)
+    lines.push('')
+  }
+  // Its own heading, deliberately. Nested under "Thermal comfort — ASHRAE 55"
+  // this line read as an ASHRAE 55 figure, which is how Jasper came to cite
+  // it that way. It is moisture control and has a different source.
+  if (STD.t && STD.t.rh) {
+    lines.push('Relative humidity — ' + STD.t.rh.ref + ':')
+    lines.push(`  ${STD.t.rh.min}–${STD.t.rh.max}% practice range. Above 60% condensation and microbial amplification risk rise; below 30% dryness and irritation complaints increase.`)
+    lines.push('  NOT an ASHRAE 55 figure. ASHRAE 55 sets only an upper humidity limit and dropped its lower limit in 55-2013.')
     lines.push('')
   }
 

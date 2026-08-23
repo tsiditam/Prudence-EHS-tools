@@ -34,7 +34,9 @@ const PARAMS = [
   { key: 'co2', zoneKey: 'co2', label: 'Carbon dioxide (CO2)', unit: 'ppm', basis: 'ASHRAE 62.1 ventilation indicator' },
   { key: 'co', zoneKey: 'co', label: 'Carbon monoxide (CO)', unit: 'ppm', basis: 'US EPA NAAQS / OSHA PEL' },
   { key: 'temperature', zoneKey: 'tf', label: 'Temperature', unit: '°F', basis: 'ASHRAE 55 comfort envelope' },
-  { key: 'relativeHumidity', zoneKey: 'rh', label: 'Relative humidity', unit: '%', basis: 'ASHRAE 55 (30–60%)' },
+  // NOT ASHRAE 55: that standard sets only an upper humidity limit (a
+  // humidity ratio) and no lower one. See STD.t.rh in constants/standards.js.
+  { key: 'relativeHumidity', zoneKey: 'rh', label: 'Relative humidity', unit: '%', basis: 'US EPA moisture control (30–60%)' },
   { key: 'pm25', zoneKey: 'pm', label: 'Fine particulate (PM2.5)', unit: 'µg/m³', basis: 'US EPA NAAQS (context)' },
   { key: 'tvoc', zoneKey: 'tv', label: 'Total VOCs (TVOC)', unit: 'µg/m³', basis: 'Mølhave (1991) advisory' },
 ]
@@ -266,7 +268,8 @@ const OUTCOME_TO_SEV = { acceptable: 'ok', advisory: 'advisory', elevated: 'elev
 const ENGINE_SEV_TO_SEV = { critical: 'priority', high: 'elevated', medium: 'advisory', low: 'ok', pass: 'ok', info: 'ok' }
 const REF_BASIS = {
   'ASHRAE 62.1-2025': 'Ventilation and Acceptable Indoor Air Quality. Ventilation-indicator basis for CO2 (prescribes airflow, not a CO2 limit).',
-  'ASHRAE 55-2023': 'Thermal Environmental Conditions for Human Occupancy. Comfort envelope for temperature and relative humidity.',
+  'ASHRAE 55-2023': 'Thermal Environmental Conditions for Human Occupancy. Seasonal operative-temperature comfort range; it sets no lower humidity limit, so the relative-humidity band is cited separately.',
+  'US EPA — Mold, Moisture and Your Home': 'Indoor moisture-control guidance. Keep relative humidity below 60%, ideally 30–50%.',
   'US EPA NAAQS': 'National Ambient Air Quality Standards. CO 9 ppm (8-hr); PM2.5 35 µg/m³ (24-hr). Outdoor/population standards, cited for context.',
   'OSHA PELs (29 CFR 1910.1000)': 'Permissible Exposure Limits. CO PEL 50 ppm (8-hr TWA); CO2 PEL 5,000 ppm (industrial context).',
 }

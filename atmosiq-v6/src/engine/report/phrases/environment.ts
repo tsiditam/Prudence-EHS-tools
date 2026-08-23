@@ -35,7 +35,7 @@ export const ENVIRONMENT_PHRASES: Partial<Record<ConditionType, PhraseLibraryEnt
       'Continuous RH logging over 14+ days is recommended to characterize excursion frequency.',
     ],
     defaultRecommendedActions: [
-      { priority: 'short_term', timeframe: '7–30 days', action: 'Deploy continuous RH data logger to characterize duration and frequency of humidity excursions above 60%.', standardReference: 'ASHRAE 55-2023' },
+      { priority: 'short_term', timeframe: '7–30 days', action: 'Deploy continuous RH data logger to characterize duration and frequency of humidity excursions above 60%.', standardReference: 'US EPA — Mold, Moisture and Your Home' },
     ],
   },
 
@@ -48,7 +48,7 @@ export const ENVIRONMENT_PHRASES: Partial<Record<ConditionType, PhraseLibraryEnt
     causationSupportRequires: [],
     regulatoryConclusionRequires: [],
     defaultLimitations: [
-      'ASHRAE 55 humidity recommendations are comfort-based, not health-based limits.',
+      'The 60% upper bound is a moisture-control and comfort benchmark (US EPA), not a health-based limit. ASHRAE 55 is not its source: that standard expresses its own upper humidity limit as a humidity ratio, and sets no lower limit.',
     ],
     defaultRecommendedActions: [
       { priority: 'further_evaluation', timeframe: '30–90 days', action: 'Evaluate dehumidification capacity and HVAC moisture removal performance.' },
@@ -64,7 +64,7 @@ export const ENVIRONMENT_PHRASES: Partial<Record<ConditionType, PhraseLibraryEnt
     causationSupportRequires: [],
     regulatoryConclusionRequires: [],
     defaultLimitations: [
-      'Low humidity is a comfort concern, not a regulatory violation. ASHRAE 55 does not set a minimum humidity limit.',
+      'Low humidity is a comfort concern, not a regulatory violation. The 30% lower bound is a comfort and irritation benchmark (US EPA); no consensus standard sets a minimum humidity limit, and ASHRAE 55 dropped its own in 55-2013.',
     ],
     defaultRecommendedActions: [
       { priority: 'further_evaluation', timeframe: '30–90 days', action: 'Assess humidification capacity against the space volume and the outdoor design condition.' },

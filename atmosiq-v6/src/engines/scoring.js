@@ -358,10 +358,15 @@ function assessEnv(d, rhOverride, tempOverride) {
   // Reader-facing name for the band, used when the report cites what a
   // humidity finding rests on. `rhLabel` reads as prose mid-sentence but not
   // as a criterion name in a table column.
-  const rhBandLabel = rhOverride?.label || `${STD.t.ref} comfort range`
+  //
+  // The citation is STD.t.rh.ref, NOT STD.t.ref. This band is EPA
+  // moisture-control guidance; it was attributed to ASHRAE 55 until 2026-08
+  // purely because it sat inside the `STD.t` object and inherited its `ref`.
+  // See the note on STD.t.rh in constants/standards.js.
+  const rhBandLabel = rhOverride?.label || 'moisture-control range'
   if (d.rh) {
     const v = +d.rh
-    if (v < rhMin || v > rhMax) { r.push({ t:'RH '+v+'% — outside '+rhMin+'–'+rhMax+'% '+rhLabel, std: rhOverride ? rhOverride.label : STD.t.ref, sev:v>70||v<20?'high':'medium', p:'rh', band:[rhMin,rhMax], bandUnit:'%', bandLabel:rhBandLabel }) }
+    if (v < rhMin || v > rhMax) { r.push({ t:'RH '+v+'% — outside '+rhMin+'–'+rhMax+'% '+rhLabel, std: rhOverride ? rhOverride.label : STD.t.rh.ref, sev:v>70||v<20?'high':'medium', p:'rh', band:[rhMin,rhMax], bandUnit:'%', bandLabel:rhBandLabel }) }
   } else if (d.hp === 'Too humid / stuffy' || d.hp === 'Too dry') { r.push({ t:'Humidity concern: '+d.hp.toLowerCase(), sev:'medium' }) }
   if (d.wd === 'Extensive damage')  { r.push({ t:'Extensive water damage', sev:'critical' }) }
   else if (d.wd === 'Active leak')  { r.push({ t:'Active water intrusion', sev:'high' }) }

@@ -437,7 +437,8 @@ export function generateLegacyPrintHTML(data) {
 
   <tr><td colspan="3" style="font-size:9px;font-weight:700;color:#1B2A41;background:#F3F4F6;padding:6px 10px;text-transform:uppercase;letter-spacing:0.5px;">Consensus Standards</td></tr>
   <tr><td style="font-size:10px;">ASHRAE 62.1-2025</td><td style="font-size:10px;color:#5C6F7E;">Ventilation consensus standard</td><td style="font-size:10px;">Outdoor air rates (Table 6.2.2.1), CO₂ as ventilation indicator</td></tr>
-  <tr><td style="font-size:10px;">ASHRAE 55-2023</td><td style="font-size:10px;color:#5C6F7E;">Thermal comfort consensus standard</td><td style="font-size:10px;">Temperature and humidity comfort ranges</td></tr>
+  <tr><td style="font-size:10px;">ASHRAE 55-2023</td><td style="font-size:10px;color:#5C6F7E;">Thermal comfort consensus standard</td><td style="font-size:10px;">Seasonal operative-temperature comfort range</td></tr>
+  <tr><td style="font-size:10px;">US EPA — Mold, Moisture and Your Home</td><td style="font-size:10px;color:#5C6F7E;">Indoor moisture-control guidance</td><td style="font-size:10px;">Relative humidity practice range</td></tr>
 
   <tr><td colspan="3" style="font-size:9px;font-weight:700;color:#1B2A41;background:#F3F4F6;padding:6px 10px;text-transform:uppercase;letter-spacing:0.5px;">Public Health Guidelines</td></tr>
   <tr><td style="font-size:10px;">EPA NAAQS (2024)</td><td style="font-size:10px;color:#5C6F7E;">Ambient air quality guideline — not an occupational limit</td><td style="font-size:10px;">PM2.5 (35 µg/m³, 24-hr)</td></tr>
@@ -446,7 +447,7 @@ export function generateLegacyPrintHTML(data) {
   <tr><td colspan="3" style="font-size:9px;font-weight:700;color:#1B2A41;background:#F3F4F6;padding:6px 10px;text-transform:uppercase;letter-spacing:0.5px;">Advisory Screening Benchmarks</td></tr>
   <tr><td style="font-size:10px;">CO₂ differential (700 ppm)</td><td style="font-size:10px;color:#5C6F7E;">Ventilation benchmark — not a regulatory limit</td><td style="font-size:10px;">Sedentary-office bioeffluent perception threshold per ASHRAE Position Document on Indoor CO₂ (2022). CO₂ is a ventilation indicator, not an IAQ contaminant.</td></tr>
   <tr><td style="font-size:10px;">TVOC concern (500 µg/m³)</td><td style="font-size:10px;color:#5C6F7E;">Internal concern threshold — no regulatory limit exists for total VOCs</td><td style="font-size:10px;">Screening trigger for source investigation; Mølhave (1991) advisory</td></tr>
-  <tr><td style="font-size:10px;">RH 30–60%</td><td style="font-size:10px;color:#5C6F7E;">Comfort and moisture-control benchmark</td><td style="font-size:10px;">Comfort evaluation and mold risk screening per ASHRAE 55</td></tr>
+  <tr><td style="font-size:10px;">RH 30–60%</td><td style="font-size:10px;color:#5C6F7E;">Comfort and moisture-control benchmark</td><td style="font-size:10px;">Moisture control and comfort (US EPA); not an ASHRAE 55 figure</td></tr>
   </tbody></table>
 
   <p style="font-size:9px;color:#7A8A97;margin-bottom:8px;">Classifications carry different legal and technical weight. Regulatory limits are enforceable workplace standards. Consensus standards represent professional best practice. Public health guidelines are population-level recommendations. Advisory benchmarks are investigative triggers used for prioritization, not compliance determination.</p>
@@ -781,7 +782,7 @@ export function generateLegacyPrintHTML(data) {
     </tbody>
   </table>
   <div style="margin-top:8px;font-size:9px;color:#94A3B8;">
-    <strong>Reference thresholds:</strong> CO₂ differential >700 ppm above outdoor (ASHRAE 62.1) · Temp 68–79°F (ASHRAE 55) · RH 30–60% · PM2.5 &lt;35 µg/m³ (EPA 24-hr) · CO &lt;35 ppm (NIOSH REL) · TVOCs &lt;500 µg/m³ (concern) · HCHO &lt;0.016 ppm (NIOSH REL)
+    <strong>Reference thresholds:</strong> CO₂ differential >700 ppm above outdoor (ASHRAE 62.1) · Temp 68–76°F winter / 73–79°F summer (ASHRAE 55) · RH 30–60% (US EPA moisture control) · PM2.5 &lt;35 µg/m³ (EPA 24-hr) · CO &lt;35 ppm (NIOSH REL) · TVOCs &lt;500 µg/m³ (concern) · HCHO &lt;0.016 ppm (NIOSH REL)
   </div>
 
   <!-- ═══ APPENDIX B — TRANSPARENT SCORING SUMMARY ═══ -->
@@ -794,7 +795,7 @@ export function generateLegacyPrintHTML(data) {
       <tr><td style="font-weight:600;">Contaminants</td><td style="text-align:center;font-family:Cambria,serif;">25</td><td style="font-size:10px;color:#475569;">PM2.5 (EPA/WHO), CO (OSHA/NIOSH), HCHO (OSHA/NIOSH), TVOCs, visible mold, odors, visible dust</td></tr>
       <tr><td style="font-weight:600;">HVAC</td><td style="text-align:center;font-family:Cambria,serif;">20</td><td style="font-size:10px;color:#475569;">Maintenance recency, filter condition/type, airflow adequacy, drain pan condition</td></tr>
       <tr><td style="font-weight:600;">Complaints</td><td style="text-align:center;font-family:Cambria,serif;">15</td><td style="font-size:10px;color:#475569;">Complaint presence, affected occupant count, symptom pattern clarity, clustering, symptom types</td></tr>
-      <tr><td style="font-weight:600;">Environment</td><td style="text-align:center;font-family:Cambria,serif;">15</td><td style="font-size:10px;color:#475569;">Temperature (ASHRAE 55 summer/winter), relative humidity, water damage indicators, mold indicators</td></tr>
+      <tr><td style="font-weight:600;">Environment</td><td style="text-align:center;font-family:Cambria,serif;">15</td><td style="font-size:10px;color:#475569;">Temperature (ASHRAE 55 seasonal comfort range), relative humidity (US EPA moisture control), water damage indicators, mold indicators</td></tr>
     </tbody>
   </table>
   <h3>Finding Severity Rubric</h3>

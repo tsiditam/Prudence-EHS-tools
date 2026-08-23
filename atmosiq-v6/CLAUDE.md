@@ -459,9 +459,18 @@ When working on report generation:
   `CRITERION_CLASS.comfort_consensus` — the engine used to raise `high`,
   breaking a ceiling it defines itself.
 
-  **Still open:** RH 30–60% is cited to ASHRAE 55 and that attribution is
-  wrong on the same evidence — 55 sets only an upper humidity limit and
-  dropped its lower limit in 55-2013. Marked `TODO(claude)` in place.
+  **RH 30–60% is not an ASHRAE 55 figure either**, and was cited as one on
+  eleven surfaces until 2026-08. ASHRAE 55 expresses its upper humidity limit
+  as a humidity ratio (0.012 kg/kg) rather than an RH percentage, and it
+  dropped its lower limit in 55-2013 — so the 30% floor was attributed to a
+  standard that does not contain it. The band is US EPA moisture-control
+  guidance (below 60%, ideally 30–50%), it carries its own `STD.t.rh.ref`
+  rather than inheriting `STD.t.ref`, and its two bounds have different
+  rationales: 60% is condensation and microbial-amplification control, 30% is
+  dryness and irritation. `tests/engine/humidity-citation.test.ts` sweeps
+  every file that states the band. Note how it spread — six of the eleven
+  surfaces simply read `STD.t.ref` because `rh` sat inside `STD.t`. **A
+  constant nested under another's citation inherits it.**
 - **A threshold travels with its averaging period, class and source.**
   `src/constants/criteria.js` is the registry; `docs/CRITERIA.md` explains
   it. Never compare a measured value against a bare number from `STD` —

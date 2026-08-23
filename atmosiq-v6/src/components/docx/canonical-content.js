@@ -100,7 +100,7 @@ function criterionRows() {
 const THERMAL_ROWS = [
   ['Temperature (summer)', `${STD.t.temp.summer.min}–${STD.t.temp.summer.max}°F acceptable (operative temp; ~0.5 clo, 1.0–1.3 met)`, 'ASHRAE 55-2023 (Graphic Comfort Zone Method)', 'Thermal comfort criterion', 'Air temperature measured; comfort evaluation, not a determination'],
   ['Temperature (winter)', `${STD.t.temp.winter.min}–${STD.t.temp.winter.max}°F acceptable (operative temp; ~1.0 clo, 1.0–1.3 met)`, 'ASHRAE 55-2023 (Graphic Comfort Zone Method)', 'Thermal comfort criterion', 'Air temperature measured; comfort evaluation, not a determination'],
-  ['Relative Humidity', '30–60%', 'ASHRAE 55-2023', 'Comfort / moisture indicator', 'Comfort and moisture indicator'],
+  ['Relative Humidity', `${STD.t.rh.min}–${STD.t.rh.max}%`, STD.t.rh.ref, 'Moisture-control practice range', 'Moisture and comfort indicator, not a health limit'],
 ]
 
 export const BENCHMARK_ROWS = [...criterionRows(), ...THERMAL_ROWS]

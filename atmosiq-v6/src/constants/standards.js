@@ -40,6 +40,9 @@ export const STANDARDS_MANIFEST = {
   'IICRC S520': '2024',
   'NIOSH Pocket Guide RELs': 'current',
   'EPA NAAQS': '2024',
+  // The indoor RH practice range (30-60%). Cited on its own terms because it
+  // is moisture control, not thermal comfort - see the note on STD.t.rh.
+  'EPA Mold, Moisture and Your Home': 'current (keep indoor RH below 60%, ideally 30-50%)',
   'WELL Building Standard v2': 'Q3 2024 (IAQ features A01/V01 — OPT-IN only: an assessor-selectable Logger Studio reference, never applied by the engine on its own; see certification_target in criteria.js)',
   'Molhave TVOC tiers': '1991 (advisory only)',
   // Move 5 — methodology currency layer. Bibliographic only — these
@@ -114,16 +117,38 @@ export const STD = {
       summer: { min: 73, max: 79 },
       winter: { min: 68, max: 76 },
     },
-    // NOTE: 30-60% RH is cited to ASHRAE 55 here and in the report's criteria
-    // table, and that attribution is wrong on the same evidence as the
-    // temperature block above: this project's standards corpus records that
-    // ASHRAE 55 sets only an UPPER humidity limit (a humidity ratio of 0.012,
-    // roughly 60-65% RH at comfort temperatures) and dropped its lower limit
-    // in 55-2013. The 30-60% band is a general IAQ rule of thumb from health
-    // and moisture-control guidance, not an ASHRAE 55 comfort requirement.
-    // Left in place deliberately: re-citing it moves what the engine
-    // concludes and is its own scoped change. TODO(claude): re-cite.
-    rh: { min: 30, max: 60 },
+    // Relative humidity: 30-60%, and it is NOT an ASHRAE 55 figure.
+    //
+    // It was cited to ASHRAE 55-2023 here and on five other surfaces until
+    // 2026-08, and that attribution was wrong twice over. ASHRAE 55 sets only
+    // an UPPER humidity limit - a humidity ratio of 0.012 kg water per kg dry
+    // air, roughly 60-65% RH at comfort temperatures - and it dropped its
+    // LOWER limit in 55-2013, so the standard says nothing whatever about
+    // 30%. This project's own standards corpus already recorded both facts
+    // while every rendering surface said otherwise.
+    //
+    // The band is real and worth keeping; only the source was wrong. It is US
+    // EPA moisture-control guidance: keep indoor RH below 60%, ideally
+    // 30-50%. The two bounds do not share a rationale, which is the reason
+    // this cannot be a "comfort range":
+    //
+    //   60% upper - MOISTURE control. Above it condensation and microbial
+    //               amplification risk rise; the same basis as the IICRC S520
+    //               condition framework. Numerically it also sits just inside
+    //               ASHRAE 55's real upper humidity limit, which is why the
+    //               old citation was misleading rather than absurd.
+    //   30% lower - comfort and irritation. Below it dry-eye and respiratory
+    //               complaints increase. ASHRAE 55 has no such limit.
+    //
+    // `ref` is deliberately its own field rather than inheriting STD.t.ref.
+    // That inheritance is exactly how one wrong word reached the engine
+    // finding, the criteria table, the Logger Studio chart band, the chart
+    // legend, Jasper's corpus and a recommendation's standardReference.
+    rh: {
+      min: 30,
+      max: 60,
+      ref: 'US EPA — Mold, Moisture and Your Home',
+    },
   },
   v: {
     ref: 'ASHRAE 62.1-2025',

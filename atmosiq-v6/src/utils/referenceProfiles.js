@@ -254,7 +254,15 @@ const PROFILES = {
   ],
 
   rh: [
-    { id: 'ashrae-comfort', label: 'ASHRAE comfort range (30–60%)', source: STD.t.ref, resolve: () => ({ band: [STD.t.rh.min, STD.t.rh.max] }) },
+    // Kept its profile id so a saved report's stored selection still resolves;
+    // the LABEL and SOURCE were the wrong part, not the identifier.
+    {
+      id: 'ashrae-comfort',
+      label: `Moisture-control range (${STD.t.rh.min}–${STD.t.rh.max}%)`,
+      source: STD.t.rh.ref,
+      note: 'A moisture-control and comfort practice range, not a thermal comfort criterion: above 60% RH condensation and microbial amplification risk rise, below 30% dryness and irritation complaints increase. ASHRAE 55 sets only an upper humidity limit and no lower one, so it is not the source for this band.',
+      resolve: () => ({ band: [STD.t.rh.min, STD.t.rh.max] }),
+    },
     { id: 'custom', label: 'Custom range', source: 'Assessor-defined', custom: 'band', resolve: (ctx) => customBand(ctx) },
   ],
 }
