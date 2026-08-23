@@ -104,20 +104,29 @@ describe('the acute action tier (the figure’s red span)', () => {
 })
 
 describe('unit projection', () => {
-  it('projects the TVOC advisory into the unit the data was logged in', () => {
+  it('projects the TVOC advisory only into units that mean the same thing', () => {
     const ugm3 = resolveReference('tvoc', 'molhave', { unit: 'µg/m³' })!
     expect(ugm3.limit).toBe(STD.c.tvoc.con)
-    // A ppb-logging instrument must not be compared against a µg/m³ number.
+    // Was: "a ppb-logging instrument must not be compared against a µg/m³
+    // number" — correct, and the fix applied was the wrong one. It converted
+    // the µg/m³ figure into ppb through isobutylene's molecular weight,
+    // which does not restate Mølhave's mixture mass in the PID's units; it
+    // substitutes a different measurand. There is no number to give here.
     const ppb = resolveReference('tvoc', 'molhave', { unit: 'ppb' })!
-    expect(ppb.limit).toBeGreaterThan(0)
-    expect(ppb.limit).not.toBe(ugm3.limit)
+    expect(ppb.limit).toBeNull()
   })
 
-  it('keeps the action tier above the advisory tier in every unit', () => {
-    ;['µg/m³', 'ppb', 'ppm'].forEach((unit) => {
+  it('keeps the action tier above the advisory tier in every unit it resolves in', () => {
+    ;['µg/m³', 'mg/m³'].forEach((unit) => {
       const a = resolveReference('tvoc', 'molhave', { unit })!.limit as number
       const b = resolveReference('tvoc', 'molhave-action', { unit })!.limit as number
       expect(b, `action tier not above advisory in ${unit}`).toBeGreaterThan(a)
+    })
+    // And in the units where neither resolves, the ordering question does
+    // not arise — both are absent, so neither can outrank the other.
+    ;['ppb', 'ppm'].forEach((unit) => {
+      expect(resolveReference('tvoc', 'molhave', { unit })!.limit).toBeNull()
+      expect(resolveReference('tvoc', 'molhave-action', { unit })!.limit).toBeNull()
     })
   })
 
@@ -333,37 +342,65 @@ describe('TVOC in the unit the instrument logged', () => {
     return out
   }
 
-  it('projects the Mølhave value into ppb — the unit a PID usually reports', () => {
-    // 500 µg/m³ isobutylene-referenced ≈ 219 ppb. A ppb-logging instrument is
-    // never compared against the µg/m³ number.
+  // ── The premise these two tests rested on was false ──────────────────
+  //
+  // They pinned that Mølhave's 500 µg/m³ projects into ~219 ppb and that a
+  // usable limit resolves "whichever unit is in play". The arithmetic was
+  // right and the reasoning was careful; the premise was not. 500 µg/m³ is
+  // the MASS of a defined 22-compound chamber mixture, and a PID reports
+  // isobutylene-equivalent response. Converting one into the other through
+  // isobutylene's molecular weight does not restate the reference in the
+  // instrument's units — it swaps what is being measured and then compares
+  // the two as though they were one quantity.
+  //
+  // Re-pinned rather than deleted: the property they protected (a reference
+  // is stated in the reader's unit, consistently with the readings) still
+  // holds wherever the conversion is a scale change.
+
+  it('refuses to project Mølhave into ppb, and says why', () => {
     const ppb = resolveReference('tvoc', 'molhave', { unit: 'ppb' })!
-    expect(ppb.limit).toBeGreaterThan(210)
-    expect(ppb.limit).toBeLessThan(225)
-    expect(ppb.unit).toBe('ppb')
-    expect(referenceTableRows({ tvoc: ppb })[0].value).toMatch(/^\d+ ppb$/)
+    expect(ppb.limit).toBeNull()
+    // The reason must reach the reader. A reference line that simply
+    // vanished is indistinguishable from one nobody selected.
+    expect(ppb.unavailable).toMatch(/mass concentration/i)
+    expect(ppb.note).toMatch(/no valid comparison/i)
   })
 
-  it('resolves a usable Mølhave value whichever unit is in play (caveat note removed 2026-08)', () => {
-    ;['ppb', 'ppm', 'µg/m³', 'mg/m³'].forEach((unit) => {
-      const r = resolveReference('tvoc', 'molhave', { unit })!
-      expect(r.note, `unexpected caveat in ${unit}`).toBeNull()
-      expect(r.limit, `unusable limit in ${unit}`).toBeGreaterThan(0)
-    })
+  it('resolves in mass units, where the conversion is only a change of scale', () => {
+    const ug = resolveReference('tvoc', 'molhave', { unit: 'µg/m³' })!
+    expect(ug.limit).toBe(500)
+    const mg = resolveReference('tvoc', 'molhave', { unit: 'mg/m³' })!
+    // 0.5, not 1. Rounding a mass unit to whole numbers doubled the
+    // reference — a separate defect the measurand work surfaced.
+    expect(mg.limit).toBe(0.5)
+    for (const r of [ug, mg]) expect(r.unavailable).toBeFalsy()
   })
 
-  it('reports the same air the same way, whatever unit it arrived in', () => {
-    // One atmosphere, three units. The share of readings above the reference
-    // is a property of the AIR, so it must not depend on the instrument's
-    // choice of units — that equality is what proves the conversion is
-    // applied to the reference and the readings consistently.
+  it('applies the same refusal to every mass-basis TVOC tier', () => {
+    // Mølhave's action tier and WELL's performance target are the same kind
+    // of figure. A rule that caught only the one that prompted it would let
+    // the next report make the same claim.
+    for (const id of ['molhave-action', 'well']) {
+      const r = resolveReference('tvoc', id, { unit: 'ppb' })!
+      expect(r.limit, `${id} still converts into ppb`).toBeNull()
+      expect(r.unavailable, `${id} gives no reason`).toBeTruthy()
+    }
+  })
+
+  it('reports the same air the same way across units that mean the same thing', () => {
+    // Was "one atmosphere, three units", spanning ppb, µg/m³ and ppm — and
+    // that framing was the error: for a TVOC mixture those are not one
+    // atmosphere described three ways, they are two different measurands.
+    // The property is real and still asserted, over the units where it is
+    // true: µg/m³ and mg/m³ are one quantity at two scales, so the share of
+    // readings above the reference must not depend on which was logged.
     const share = (unit: string, scale: number) => {
       const ref = resolveReference('tvoc', 'molhave', { unit })!
       return parameterStats(tvocPts(unit, scale), 'tvoc', { reference: { limit: ref.limit } })!.pctAbove
     }
-    const inPpb = share('ppb', 1)
-    expect(share('µg/m³', 2.283)).toBeCloseTo(inPpb, 5)
-    expect(share('ppm', 0.001)).toBeCloseTo(inPpb, 5)
-    expect(inPpb).toBeGreaterThan(0)
+    const inUg = share('µg/m³', 2.283)
+    expect(share('mg/m³', 0.002283)).toBeCloseTo(inUg, 5)
+    expect(inUg).toBeGreaterThan(0)
   })
 
   it('states the reference in the reader’s unit, at its own precision', () => {
@@ -372,9 +409,11 @@ describe('TVOC in the unit the instrument logged', () => {
       const st = parameterStats(tvocPts(unit, scale), 'tvoc', { reference: { limit: ref.limit } })!
       return parameterStatement('tvoc', st, { limit: ref.limit }, { units: { tvoc: unit } })!
     }
-    expect(say('ppb', 1)).toMatch(/\(\d+ ppb\)/)
     expect(say('µg/m³', 2.283)).toContain('(500 µg/m³)')
-    // A sub-unit magnitude must not collapse the cited value to "0 ppm".
-    expect(say('ppm', 0.001)).toMatch(/\(0\.2\d? ppm\)/)
+    // A sub-unit magnitude must not collapse the cited value to "0 mg/m³".
+    // This was pinned in ppm, where the reference no longer resolves; mg/m³
+    // is the surviving unit where the same rounding trap exists — and it
+    // caught a real one: 0.5 mg/m³ was being rounded to 1.
+    expect(say('mg/m³', 0.002283)).toContain('(0.5 mg/m³)')
   })
 })

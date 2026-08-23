@@ -214,7 +214,28 @@ export function capSeverity(proposed, criterionClass) {
 // Ordered worst-first per parameter, so evaluation takes the first match.
 // `resolve()` reads STD so a published value is never restated here.
 
-const criterion = (c) => ({ ...c, value: c.resolve() })
+/**
+ * `convertible: false` — the threshold's unit is not a scale, it is a
+ * MEASURAND, and converting it produces a different quantity wearing the
+ * same name.
+ *
+ * A threshold already travels with its averaging period, class and source
+ * because comparing across any of those is a category error. Units are the
+ * fourth: mg/m3 to ug/m3 is a scale change and safe, ug/m3 to ppb is not —
+ * it needs a molecular weight, and that means assuming WHICH COMPOUND was
+ * measured.
+ *
+ * Mølhave's 500 ug/m3 is the mass concentration of a defined 22-compound
+ * chamber mixture. A photoionization detector reports isobutylene-equivalent
+ * response. Converting the tier through isobutylene's molecular weight
+ * (500 x 24.45 / 56.11 = 218 ppb) does not translate the reference into the
+ * sensor's units — it silently swaps what is being measured, and then
+ * compares the two as though they were the same thing.
+ *
+ * Default is `true`: a criterion in ppm/ppb whose analyte is a single named
+ * compound converts fine, because the molecular weight is not an assumption.
+ */
+const criterion = (c) => ({ convertible: true, ...c, value: c.resolve() })
 
 export const CRITERIA = {
   co: [
@@ -485,6 +506,7 @@ export const CRITERIA = {
   tvoc: [
     criterion({
       id: 'tvoc_molhave_action',
+      convertible: false,
       label: 'Mølhave action tier',
       resolve: () => STD.c.tvoc.act,
       unit: 'µg/m³',
@@ -496,6 +518,7 @@ export const CRITERIA = {
     }),
     criterion({
       id: 'tvoc_molhave_concern',
+      convertible: false,
       label: 'Mølhave advisory tier',
       resolve: () => STD.c.tvoc.con,
       unit: 'µg/m³',

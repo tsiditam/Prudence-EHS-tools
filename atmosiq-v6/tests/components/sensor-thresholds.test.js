@@ -84,11 +84,24 @@ describe('paramReference', () => {
     expect(paramReference('temp', { unit: '°F', ts: summer }).band.max).toBe(82)
   })
 
-  it('TVOC → 500 µg/m³ as ~218 ppb when logged in ppb, with Mølhave disclaimer', () => {
+  it('TVOC → no ppb comparison to Mølhave, and the note says why', () => {
+    // Was "~218 ppb". That number came from 500 × 24.45 ÷ 56.11 —
+    // isobutylene's molecular weight — which is what a PID is calibrated
+    // against but NOT what Mølhave's tier measures. Its 500 µg/m³ is the
+    // mass of a defined 22-compound mixture. The conversion swapped the
+    // measurand and the report then compared the two as one quantity.
     const r = paramReference('tvoc', { unit: 'ppb' })
-    expect(r.limit).toBeGreaterThan(210)
-    expect(r.limit).toBeLessThan(225)
+    expect(r.limit).toBeNull()
     expect(r.note).toMatch(/Mølhave 1991/)
+    expect(r.note).toMatch(/different quantity/i)
+    // The tier is still cited — on its own basis, so a reader can go to it.
+    expect(r.refs[0]).toMatch(/500 µg\/m³ \(mass basis\)/)
+  })
+
+  it('TVOC → the tier resolves in mass units, at the right precision', () => {
+    expect(paramReference('tvoc', { unit: 'µg/m³' }).limit).toBe(500)
+    // 0.5, not 1 — whole-number rounding of a mass unit doubled it.
+    expect(paramReference('tvoc', { unit: 'mg/m³' }).limit).toBe(0.5)
   })
 
   it('HCHO → NIOSH REL projected into the logged unit', () => {

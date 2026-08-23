@@ -70,6 +70,8 @@ const round = (v, dp = 0) => (isNum(v) ? Number(v.toFixed(dp)) : null)
 const norm = (u) => String(u || '').toLowerCase()
 const isPpm = (u) => norm(u).includes('ppm')
 const isMg = (u) => /mg/.test(norm(u))
+/** True for the mass units a mass-basis tier converts into safely (scale only). */
+const isMassUnit = (u) => /g\/m/.test(norm(u))
 
 // An annual-mean guideline (WHO annual, EPA annual PM2.5) is, by construction,
 // an average over a year. A monitoring session of hours or days cannot evaluate
@@ -189,27 +191,30 @@ const PROFILES = {
   tvoc: [
     {
       id: 'molhave',
+      massBasis: true,
       label: 'Mølhave advisory (500 µg/m³)',
       criterionId: 'tvoc_molhave_concern',
       source: 'Mølhave 1991',
-      resolve: (ctx) => ({ limit: round(tvocToUnit(STD.c.tvoc.con, ctx && ctx.unit), isPpm(ctx && ctx.unit) ? 2 : 0) }),
+      resolve: (ctx) => ({ limit: round(tvocToUnit(STD.c.tvoc.con, ctx && ctx.unit), isMg(ctx && ctx.unit) ? 3 : 0) }),
     },
     {
       id: 'molhave-action',
+      massBasis: true,
       label: 'Mølhave action tier (3,000 µg/m³)',
       criterionId: 'tvoc_molhave_action',
       source: 'Mølhave 1991',
-      resolve: (ctx) => ({ limit: round(tvocToUnit(STD.c.tvoc.act, ctx && ctx.unit), isPpm(ctx && ctx.unit) ? 2 : 0) }),
+      resolve: (ctx) => ({ limit: round(tvocToUnit(STD.c.tvoc.act, ctx && ctx.unit), isMg(ctx && ctx.unit) ? 3 : 0) }),
     },
     {
       id: 'well',
+      massBasis: true,
       label: 'WELL v2 performance (500 µg/m³)',
       source: 'WELL Building Standard v2 (A01)',
       // Must still carry the "no consensus health limit" TVOC disclaimer (the
       // standing anti-pattern) — WELL's 500 µg/m³ is a certification target, not
       // a health limit.
       note: 'TVOC has no consensus health limit; the WELL Building Standard v2 (A01) 500 µg/m³ figure is a green-building certification performance target, not a health-based limit — confirm against the current WELL v2 documentation.',
-      resolve: (ctx) => ({ limit: round(tvocToUnit(STD.c.tvoc.well, ctx && ctx.unit), isPpm(ctx && ctx.unit) ? 2 : 0) }),
+      resolve: (ctx) => ({ limit: round(tvocToUnit(STD.c.tvoc.well, ctx && ctx.unit), isMg(ctx && ctx.unit) ? 3 : 0) }),
     },
     // Offered deliberately: with no consensus health limit, an assessor may
     // reasonably choose to chart TVOC without any reference line rather than
@@ -340,7 +345,26 @@ export function resolveReference(param, profileId, ctx = {}) {
   // A profile that resolved to nothing while REQUIRING something is a missing
   // input, not a missing standard — the distinction the report needs in order
   // to explain itself.
-  const unavailable = !limit && !band && !!profile.requires ? profile.requires : null
+  let unavailable = !limit && !band && !!profile.requires ? profile.requires : null
+
+  // A third case, distinct from both of those: the reference EXISTS and the
+  // data exists, but the comparison between them does not. A mass-basis TVOC
+  // tier (Mølhave, WELL) is a mass concentration of a defined mixture; data
+  // logged in ppb/ppm is isobutylene-equivalent PID response. Crossing
+  // between them needs a molecular weight, which means assuming which
+  // compound was measured — so `tvocToUnit` returns null rather than the
+  // 218 ppb this used to manufacture. See `convertible` in criteria.js.
+  //
+  // The reason rides on `note` as well as `unavailable` because `note`
+  // renders and `unavailable` currently does not. A reader must not be left
+  // with a reference line that simply vanished.
+  const massBasisUnavailable =
+    !!profile.massBasis && !limit && !!(ctx && ctx.unit) && !isMassUnit(ctx.unit)
+  let note = profile.note || null
+  if (massBasisUnavailable) {
+    unavailable = `${profile.label} is a mass concentration (µg/m³) of a defined VOC mixture. This data is logged in ${ctx.unit} as isobutylene-equivalent response — a different quantity — so no valid comparison to that tier can be made from these readings.`
+    note = note ? `${note} ${unavailable}` : unavailable
+  }
 
   // The higher acute ("red") tier rides on the resolved reference, but ONLY
   // when it sits genuinely above the selected screening reference. That guard
@@ -367,7 +391,7 @@ export function resolveReference(param, profileId, ctx = {}) {
     criterionId: profile.criterionId || null,
     label: profile.label,
     source: citationFor(param, profile),
-    note: profile.note || null,
+    note,
     limit,
     band,
     action,

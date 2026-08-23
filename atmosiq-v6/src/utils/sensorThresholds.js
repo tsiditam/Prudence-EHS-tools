@@ -53,11 +53,26 @@ export function hchoToUnit(ppm, unit) {
 }
 // TVOC published value (µg/m³) → the unit the log used. Exported for the
 // monitoring report's reference profiles (see hchoToUnit above).
+/**
+ * Mølhave's tier in the unit the data was logged in — or null when that
+ * cannot honestly be done.
+ *
+ * mg/m3 and ug/m3 are the same measurand at different scales, so those
+ * convert. ppb and ppm are not: crossing to them needs a molecular weight,
+ * and Mølhave's 500 ug/m3 is the mass of a defined 22-compound mixture with
+ * no single molecular weight to use. This used to reach for isobutylene's
+ * (500 x 24.45 / 56.11 = 218 ppb) because that is what a PID is calibrated
+ * against — but the PID's isobutylene-equivalent response and Mølhave's
+ * mixture mass are different quantities, and the conversion made them look
+ * like one. See `convertible` in constants/criteria.js.
+ *
+ * Returns null rather than a number so a caller cannot accidentally render
+ * a comparison that does not exist. Every caller must handle it.
+ */
 export function tvocToUnit(ugm3, unit) {
   if (isMg(unit)) return ugm3 / 1000
   if (isUg(unit)) return ugm3
-  const ppb = ugm3ToPpb(ugm3, ISOBUTYLENE_MW)
-  return isPpm(unit) ? ppb / 1000 : ppb // ppm or ppb
+  return null
 }
 
 const round = (v, dp = 0) => (v == null ? null : Number(v.toFixed(dp)))
@@ -110,11 +125,25 @@ export function paramReference(param, opts = {}) {
       out.refs = [`OSHA PEL: ${STD.c.co.osha} ppm`, `EPA NAAQS 8-h: ${STD.c.co.epa} ppm`]
       break
     case 'tvoc': {
-      out.limit = round(tvocToUnit(STD.c.tvoc.con, unit), isPpm(unit) ? 2 : 0)
+      const molhave = tvocToUnit(STD.c.tvoc.con, unit)
+      if (molhave == null) {
+        // Logged in ppb/ppm — no comparison to Mølhave is available, and
+        // saying so is the finding. A converted number here would be a
+        // different quantity presented as the same one.
+        out.limit = null
+        out.limitLabel = null
+        out.refs = [`Mølhave advisory: <${STD.c.tvoc.con} µg/m³ (mass basis)`]
+        out.note =
+          `TVOC has no consensus health limit. The Mølhave 1991 advisory tier (${STD.c.tvoc.con} µg/m³) `
+          + 'is the mass concentration of a defined 22-compound mixture; this data is logged as '
+          + 'isobutylene-equivalent response, which is a different quantity. No valid comparison to '
+          + 'that tier can be made from these readings — they are reported in the units recorded.'
+        break
+      }
+      out.limit = round(molhave, isMg(unit) ? 3 : 0)
       out.limitLabel = 'Mølhave advisory'
-      const ppbEquiv = round(ugm3ToPpb(STD.c.tvoc.con, ISOBUTYLENE_MW), 0)
-      out.refs = [`Mølhave advisory: <${STD.c.tvoc.con} µg/m³ (≈${ppbEquiv} ppb)`]
-      out.note = 'TVOC has no consensus health limit; 500 µg/m³ is the Mølhave 1991 multifactorial-exposure advisory tier (isobutylene-referenced).'
+      out.refs = [`Mølhave advisory: <${STD.c.tvoc.con} µg/m³`]
+      out.note = 'TVOC has no consensus health limit; 500 µg/m³ is the Mølhave 1991 multifactorial-exposure advisory tier, on a mass basis.'
       break
     }
     case 'hcho': {
