@@ -394,9 +394,11 @@ When working on report generation:
   pointing at nothing, which is how "Standards, Guidelines, and Benchmark
   Types" survived its own rename. And if a one-criterion-per-parameter table
   is ever built again, do NOT source its citation from a fixed per-parameter
-  default — the Logger Studio temperature default resolves ASHRAE 55's
-  *acceptable* range while the engine flags the tighter *optimal* band, so a
-  fixed reference contradicts the finding beside it.
+  default. The trap this warned about was real and has since been fixed at
+  the root: the Logger Studio card drew ASHRAE 55's "acceptable" range while
+  the engine flagged a tighter "optimal" band, so the table contradicted the
+  finding beside it. Both tiers turned out to be invented — see the thermal
+  comfort note below — and there is now one band that every surface reads.
 - **Every layer must say the same thing about the same data.** The report is
   assembled by layers that each used to form their own opinion — the legacy
   scorer, the bridge, the professional-opinion rollup, the phrase library,
@@ -435,6 +437,31 @@ When working on report generation:
   **Re-establishing that on the AtmosFlow report is the highest-value open
   work in this area** — see docs/CRITERIA.md, "The consultant report
   (removed)".
+- **A comfort band travels with its assumptions, and ASHRAE 55 has ONE.**
+  `STD.t.temp` is a single acceptable range per season — winter 68–76°F,
+  summer 73–79°F — and `tests/engine/thermal-comfort-band.test.ts` holds it
+  there. It used to be a wide 67–82°F "acceptable" band with a tighter
+  73–79°F "optimal" band inside it, both attributed to ASHRAE 55-2023.
+  Neither the wide figure nor the two-tier ladder is in the standard, the
+  block was the only constant in `standards.js` with no provenance comment,
+  and it contradicted this project's own standards corpus — which already
+  held the right numbers. The engine scored one band, Jasper cited another,
+  and the Logger Studio card drew a third, so a single 72.6°F reading read
+  as in-range on one surface and as a finding on another.
+
+  Three qualifiers travel with the band and must be stated wherever it is:
+  the **assumptions** (1.0–1.3 met, 0.5 clo summer / 1.0 clo winter), the
+  **quantity** (the standard's zone is OPERATIVE temperature; AtmosFlow
+  measures dry-bulb air temperature, which diverges near glazing), and
+  **what it is not** (ASHRAE 55 resolves comfort from six variables and the
+  app captures one, so an out-of-band reading is an indicator, never a
+  determination). Severity is capped at `medium` by
+  `CRITERION_CLASS.comfort_consensus` — the engine used to raise `high`,
+  breaking a ceiling it defines itself.
+
+  **Still open:** RH 30–60% is cited to ASHRAE 55 and that attribution is
+  wrong on the same evidence — 55 sets only an upper humidity limit and
+  dropped its lower limit in 55-2013. Marked `TODO(claude)` in place.
 - **A threshold travels with its averaging period, class and source.**
   `src/constants/criteria.js` is the registry; `docs/CRITERIA.md` explains
   it. Never compare a measured value against a bare number from `STD` —
@@ -490,14 +517,18 @@ on this codebase. Watch for them.
 
 3. **Engine season detection is calendar-based — now date-injectable.**
    `comfortSeason(assessmentDate)` in `src/engines/scoring.js` chooses
-   summer (May–October: optimal 73–79°F) vs winter (November–April:
-   optimal 68.5–74°F). `scoreEnv` reads it off `d.assessmentDate`, which
+   summer (May–October: **73–79°F**) vs winter (November–April:
+   **68–76°F**). `scoreEnv` reads it off `d.assessmentDate`, which
    rides in on the building object, and falls back to now when absent.
 
-   **Tests should pin a date** (`scoreZone(zone, { assessmentDate:
-   '2026-07-15' })`) rather than hunting for date-stable inputs. The old
-   advice — use `tf: '73'` because it satisfies both bands — is no longer
-   necessary, though existing tests using it are still fine.
+   **Tests MUST pin a date** (`scoreZone(zone, { assessmentDate:
+   '2026-07-15' })`). This stopped being optional in 2026-08: the bands
+   used to be a wide invented 67–82°F "acceptable" range with a tighter
+   "optimal" band inside it, and the outer range was forgiving enough that
+   an unpinned fixture passed in any month. With the real bands only
+   73–76°F satisfies both seasons, so an unpinned test now passes or fails
+   by the month it runs in — `scoring.test.js` and two seasonality tests
+   were all re-pinned for exactly that reason.
 
    It used to read the clock directly, which meant a report re-scored in
    November applied the winter band to an October survey: the same data
