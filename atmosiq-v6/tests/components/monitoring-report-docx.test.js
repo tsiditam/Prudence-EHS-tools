@@ -18,6 +18,7 @@ import {
   buildReferenceSection,
   buildEventsAppendix,
   buildRawStatisticsAppendix,
+  buildLocationInstrumentSection,
 } from '../../src/components/docx/sections-monitoring'
 import {
   buildMonitoringReportDocument,
@@ -390,5 +391,49 @@ describe('the status colour scale', () => {
     expect(labels[0]).toBe('Within Reference')
     labels.slice(1).forEach((l) => expect(l).toContain('Above Reference'))
     expect(labels[3]).toMatch(/review suggested$/)
+  })
+})
+
+describe('§02 says where the instrument was, or that nobody recorded it', () => {
+  // Reported from a CIH review: "Section 02 is titled 'Location & instrument'
+  // and contains no location." Not a template bug — the location fields are
+  // filtered on non-empty upstream, so a session that never captured one
+  // dropped the card silently. The section rendered under its own heading
+  // with half its content missing, and a reader could not situate a single
+  // number in the report.
+  const sect = (location) =>
+    JSON.stringify(
+      buildLocationInstrumentSection(
+        {
+          location: Object.entries(location || {}).map(([label, value]) => ({ label, value })),
+          instrument: [{ label: 'Instrument', value: 'TSI Q-Trak XP' }],
+        },
+        2,
+      ).children,
+    )
+
+  it('renders the location when one was captured', () => {
+    const text = sect({ Building: 'Meridian Tower', Room: 'Suite 300' })
+    expect(text).toContain('Meridian Tower')
+    expect(text).toContain('Suite 300')
+    expect(text).not.toContain('Not recorded')
+  })
+
+  it('states the gap when none was', () => {
+    // Asserted on the card's CONTENT, not its title: definitionCard titles
+    // do not survive JSON.stringify of the docx tree (neither this card's
+    // nor the instrument card's), so a title assertion would pass or fail
+    // for reasons unrelated to the change.
+    const text = sect(null)
+    expect(text).toContain('Not recorded')
+    // And says what the absence costs the reader, rather than leaving a
+    // blank card to be read as "nothing worth noting".
+    expect(text).toMatch(/cannot be attributed to a specific space/)
+  })
+
+  it('keeps the instrument card either way', () => {
+    for (const loc of [{ Building: 'X' }, null]) {
+      expect(sect(loc)).toContain('TSI Q-Trak XP')
+    }
   })
 })
