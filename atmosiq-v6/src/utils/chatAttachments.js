@@ -313,6 +313,12 @@ export function buildTextDigest(text, fileName, opts = {}) {
     chars: clean.length,
     truncated: clean.length > limit,
     text: clean.slice(0, limit),
+    // The COMPLETE cleaned extraction, for the document store. Deliberately
+    // not read by digestToPrompt: `text` is the bounded prefix that rides
+    // inline, `full` is what a tool fetches a window of on the turn it is
+    // needed. Keeping both on one object is what stops the two drifting —
+    // the prefix is always literally the head of the full text.
+    full: clean,
   }
 }
 

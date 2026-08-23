@@ -132,6 +132,32 @@ export const FIELD_ASSISTANT_TOOLS = [
     },
   },
   {
+    name: 'read_attached_document',
+    description:
+      'Read a window of a document the assessor attached to this conversation — a PDF or Word report, stored in full when it was uploaded. The inline excerpt in the message only covers the START of a document; a consultant\'s IAQ assessment puts scope and method at the front and its findings, tables and recommendations at the BACK, so the excerpt is usually the least useful part. Call this before answering any question about what a document concludes, recommends, or measured. Page through with `offset` — the result reports total length and whether more remains. `search` jumps to the first passage containing a phrase, which is the fastest way to reach a section by its heading ("Recommendations", "Results", "Conclusions", an analyte name, a room number).',
+    input_schema: {
+      type: 'object',
+      properties: {
+        document_id: {
+          type: 'string',
+          description:
+            'The document id from the "Documents stored in this conversation" list. Omit to read the most recently attached document.',
+        },
+        search: {
+          type: 'string',
+          description:
+            'Optional phrase to locate. The window starts shortly before the first match, so the surrounding context comes with it. Case-insensitive. If the phrase is absent the window starts at `offset` and the result says the phrase was not found — which is itself an answer worth reporting.',
+        },
+        offset: {
+          type: 'integer',
+          description: 'Character offset to read from (default 0). Ignored when `search` matches.',
+          minimum: 0,
+        },
+      },
+      required: [],
+    },
+  },
+  {
     name: 'analyze_photo',
     description:
       'Run an Anthropic-vision IAQ screening analysis on a photo the assessor has attached to this conversation. Returns structured screening JSON: observed (what is visible), concerns (1-5 short clauses), probable_iaq_class (hedged tentative classification — never definitive), recommended_actions (next-step sampling / documentation), confidence (low/medium/high), citations (IICRC S520, EPA, ASHRAE — never invented), and a screening-only disclaimer. ALWAYS includes ih_review_required=true. The list of photos available in this conversation appears in the assessor-context block (each with id + label); call analyze_photo(photo_id) referencing one of those IDs. Optional `focus` narrows the model\'s attention (mold | moisture | hvac | ventilation | dust | general). Use this when the assessor asks "what do you see in the photo?", "any concerns with this image?", or attaches a photo and asks for screening interpretation. Returns status:not_found if the photo_id is not in the conversation.',
@@ -450,6 +476,16 @@ Return the JSON object specified in your system prompt.`
  *   - assessmentContext                        — for assess_investigation;
  *     the client-built context whose `investigation` field is read as-is
  */
+/**
+ * Characters returned by one read_attached_document call.
+ *
+ * Sized so a model can read a section and still have room to reason, and so
+ * paging through a 120k-character report takes a bounded number of calls
+ * rather than one enormous one. A tool result is not replayed as history the
+ * way an inline digest is, so this is paid on the turn it is used.
+ */
+export const DOCUMENT_WINDOW_CHARS = 12_000
+
 export async function dispatchTool(name, input, ctx = {}) {
   try {
     if (name === 'lookup_exposure_limit') {
@@ -496,6 +532,72 @@ export async function dispatchTool(name, input, ctx = {}) {
 
     if (name === 'list_known_analytes') {
       return { status: 'ok', analytes: listAnalytes() }
+    }
+
+    if (name === 'read_attached_document') {
+      // Server-side: dispatchTool runs inside /api/field-assistant, so the
+      // store is reachable and the client is not involved.
+      if (!ctx.supabase || !ctx.conversationId || !ctx.userId) {
+        return { ok: false, error: 'no_document_store', message: 'Attached documents are not available in this context.' }
+      }
+      const wanted = input && typeof input.document_id === 'string' ? input.document_id : null
+      let row
+      try {
+        let q = ctx.supabase
+          .from('field_assistant_documents')
+          .select('id, name, kind, pages, pages_read, chars, content')
+          .eq('conversation_id', ctx.conversationId)
+          .eq('user_id', ctx.userId)
+        // No id given means "the one they just attached", which is what a
+        // follow-up question almost always refers to.
+        if (wanted) q = q.eq('id', wanted)
+        const { data } = await q.order('created_at', { ascending: false }).limit(1)
+        row = Array.isArray(data) ? data[0] : null
+      } catch {
+        return { ok: false, error: 'document_read_failed', message: 'Could not read the stored document.' }
+      }
+      if (!row) {
+        return {
+          ok: false,
+          error: 'no_such_document',
+          message: wanted
+            ? `No document with id ${wanted} is attached to this conversation.`
+            : 'No document is attached to this conversation.',
+        }
+      }
+
+      const text = typeof row.content === 'string' ? row.content : ''
+      const phrase = input && typeof input.search === 'string' ? input.search.trim() : ''
+      let start = input && Number.isFinite(input.offset) ? Math.max(0, Math.floor(input.offset)) : 0
+      let searchHit = null
+      if (phrase) {
+        const at = text.toLowerCase().indexOf(phrase.toLowerCase())
+        searchHit = at >= 0
+        // Start a little BEFORE the match: a heading found at the exact
+        // offset would otherwise arrive with none of the section under it,
+        // and the section is what was being looked for.
+        if (at >= 0) start = Math.max(0, at - 200)
+      }
+      const window = text.slice(start, start + DOCUMENT_WINDOW_CHARS)
+      const end = start + window.length
+      return {
+        ok: true,
+        document_id: row.id,
+        name: row.name,
+        pages: row.pages ?? null,
+        pages_read: row.pages_read ?? null,
+        total_chars: text.length,
+        offset: start,
+        next_offset: end < text.length ? end : null,
+        more_remains: end < text.length,
+        // Stated rather than implied: a model that does not know a document
+        // continues past its window will answer as though it does not.
+        note: end < text.length
+          ? `This is characters ${start}-${end} of ${text.length}. Call again with offset ${end} for the next section.`
+          : `This reaches the end of the document (${text.length} characters).`,
+        ...(phrase ? { search: phrase, search_found: searchHit } : {}),
+        text: window,
+      }
     }
 
     if (name === 'search_standards_corpus') {

@@ -154,8 +154,8 @@ describe('the context the agent is handed', () => {
 
 describe('the prompt contract', () => {
   it('counts its tools correctly', () => {
-    expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain('You have nine tools available:')
-    expect(FIELD_ASSISTANT_TOOLS.length).toBe(9)
+    expect(FIELD_ASSISTANT_ROLE_PROMPT).toContain('You have ten tools available:')
+    expect(FIELD_ASSISTANT_TOOLS.length).toBe(10)
   })
 
   it('documents every registered tool by name', () => {
