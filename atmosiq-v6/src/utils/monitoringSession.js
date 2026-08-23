@@ -121,8 +121,13 @@ export function createMonitoringSession(seed = {}) {
     },
 
     // Snapshot — see the header note. Captured, not looked up at render time.
+    // `gas` is the PID span gas as the assessor wrote it ("Isobutylene 100
+    // ppm"). It is part of the calibration record, not the instrument spec,
+    // because it describes what the meter was set against on this survey —
+    // and it decides the molecular weight a µg/m³ TVOC tier is restated
+    // through when the log is in ppb.
     calibration: {
-      date: null, dueDate: null, status: null, capturedAt: null,
+      date: null, dueDate: null, status: null, capturedAt: null, gas: null,
       ...obj(seed.calibration),
     },
 

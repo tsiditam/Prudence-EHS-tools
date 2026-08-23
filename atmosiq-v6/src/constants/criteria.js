@@ -214,7 +214,37 @@ export function capSeverity(proposed, criterionClass) {
 // Ordered worst-first per parameter, so evaluation takes the first match.
 // `resolve()` reads STD so a published value is never restated here.
 
-const criterion = (c) => ({ ...c, value: c.resolve() })
+/**
+ * `equivalenceBasis` — the reference compound a threshold's unit conversion
+ * is made against, for the criteria where crossing units needs one.
+ *
+ * A threshold already travels with its averaging period, class and source
+ * because comparing across any of those is a category error. Units are the
+ * fourth, and they split three ways rather than two:
+ *
+ *   - Within a basis (mg/m3 to ug/m3, ppm to ppb): a decimal prefix shift.
+ *     Exact, assumption-free.
+ *   - Across bases for a single named compound (formaldehyde, CO): needs a
+ *     molecular weight, but that weight is a fact about the analyte, not a
+ *     choice. Also exact.
+ *   - Across bases for a MIXTURE (TVOC): needs a molecular weight the
+ *     mixture does not have, so one is chosen. Mølhave's 500 ug/m3 is the
+ *     mass of a defined 22-compound chamber mixture; a photoionization
+ *     detector reports isobutylene-equivalent response. The conversion
+ *     (500 x 24.45 / 56.11 = 218 ppb) is a real restatement of what the PID
+ *     measures, made against isobutylene — the gas it was calibrated with,
+ *     and the basis its own ug/m3 display already uses.
+ *
+ * Only the third case sets `equivalenceBasis`, and setting it is a
+ * REQUIREMENT, not a permission: `resolveReference` renders the named
+ * compound and the response-factor limitation alongside any value that
+ * crossed. The limitation belongs to the reading in every unit — a PID
+ * logging ug/m3 is no more speciated than one logging ppb — so it is
+ * disclosed, not used to withhold the comparison from half the instruments.
+ *
+ * Default is null: no basis is crossed, or crossing it assumes nothing.
+ */
+const criterion = (c) => ({ equivalenceBasis: null, ...c, value: c.resolve() })
 
 export const CRITERIA = {
   co: [
@@ -485,6 +515,7 @@ export const CRITERIA = {
   tvoc: [
     criterion({
       id: 'tvoc_molhave_action',
+      equivalenceBasis: 'isobutylene',
       label: 'Mølhave action tier',
       resolve: () => STD.c.tvoc.act,
       unit: 'µg/m³',
@@ -496,6 +527,7 @@ export const CRITERIA = {
     }),
     criterion({
       id: 'tvoc_molhave_concern',
+      equivalenceBasis: 'isobutylene',
       label: 'Mølhave advisory tier',
       resolve: () => STD.c.tvoc.con,
       unit: 'µg/m³',

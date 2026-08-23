@@ -132,6 +132,57 @@ export const FIELD_ASSISTANT_TOOLS = [
     },
   },
   {
+    name: 'read_attached_document',
+    description:
+      'Read a window of a document the assessor attached to this conversation — a PDF or Word report, stored in full when it was uploaded. The inline excerpt in the message only covers the START of a document; a consultant\'s IAQ assessment puts scope and method at the front and its findings, tables and recommendations at the BACK, so the excerpt is usually the least useful part. Call this before answering any question about what a document concludes, recommends, or measured. Page through with `offset` — the result reports total length and whether more remains. `search` jumps to the first passage containing a phrase, which is the fastest way to reach a section by its heading ("Recommendations", "Results", "Conclusions", an analyte name, a room number).',
+    input_schema: {
+      type: 'object',
+      properties: {
+        document_id: {
+          type: 'string',
+          description:
+            'The document id from the "Documents stored in this conversation" list. Omit to read the most recently attached document.',
+        },
+        search: {
+          type: 'string',
+          description:
+            'Optional phrase to locate. The window starts shortly before the first match, so the surrounding context comes with it. Case-insensitive. If the phrase is absent the window starts at `offset` and the result says the phrase was not found — which is itself an answer worth reporting.',
+        },
+        offset: {
+          type: 'integer',
+          description: 'Character offset to read from (default 0). Ignored when `search` matches.',
+          minimum: 0,
+        },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'review_attached_document',
+    description:
+      "Review an attached IAQ report the way an industrial hygienist would before relying on it: citations that do not support the claim they are attached to, language overstating what the method can show, regulatory determinations drawn from walkthrough data, and conclusions the report's own numbers do not support. Every issue comes back with the report's own words quoted, and a quote that is not in the document is dropped before you see it. Reviews one window at a time — call again with the returned next_offset to continue through a long report. Use this when the assessor asks you to review, check, critique or sanity-check a report they attached; use read_attached_document instead when they just want to know what it says.",
+    input_schema: {
+      type: 'object',
+      properties: {
+        document_id: {
+          type: 'string',
+          description: 'Document id from the context block. Omit for the most recently attached document.',
+        },
+        focus: {
+          type: 'string',
+          description:
+            'Optional steer for this pass — "the mold section", "whether the CO2 conclusions hold", "citation accuracy". Narrows what the review pays attention to; it does not disable any of the standing checks.',
+        },
+        offset: {
+          type: 'integer',
+          description: 'Character offset to review from (default 0). Use the next_offset from the previous call to continue.',
+          minimum: 0,
+        },
+      },
+      required: [],
+    },
+  },
+  {
     name: 'analyze_photo',
     description:
       'Run an Anthropic-vision IAQ screening analysis on a photo the assessor has attached to this conversation. Returns structured screening JSON: observed (what is visible), concerns (1-5 short clauses), probable_iaq_class (hedged tentative classification — never definitive), recommended_actions (next-step sampling / documentation), confidence (low/medium/high), citations (IICRC S520, EPA, ASHRAE — never invented), and a screening-only disclaimer. ALWAYS includes ih_review_required=true. The list of photos available in this conversation appears in the assessor-context block (each with id + label); call analyze_photo(photo_id) referencing one of those IDs. Optional `focus` narrows the model\'s attention (mold | moisture | hvac | ventilation | dust | general). Use this when the assessor asks "what do you see in the photo?", "any concerns with this image?", or attaches a photo and asks for screening interpretation. Returns status:not_found if the photo_id is not in the conversation.',
@@ -250,6 +301,86 @@ export const FIELD_ASSISTANT_TOOLS = [
 // importing across the JS/CJS boundary in the tool dispatcher would
 // complicate the test surface).
 
+const REVIEW_MODEL = 'claude-sonnet-4-6'
+const REVIEW_MAX_TOKENS = 2000
+
+/**
+ * Characters reviewed in one pass.
+ *
+ * Larger than DOCUMENT_WINDOW_CHARS because a review is its own model call
+ * rather than text added to the chat prompt — the budget is that call's, not
+ * the conversation's. Large enough that a report's findings section and its
+ * recommendations usually land in the same pass, which is what lets the
+ * review notice a recommendation that answers no finding.
+ */
+export const REVIEW_WINDOW_CHARS = 30_000
+
+/**
+ * The reviewer's instructions.
+ *
+ * Derived from the Layer 2 audit prompt in api/pre-review-semantic.js — the
+ * issue classes are the same because the failure modes are the same. Three
+ * things differ, and all three follow from this being SOMEONE ELSE'S report
+ * rather than one the engine produced:
+ *
+ *   1. There is no Layer 1 here. The deterministic checks
+ *      (preReviewValidator.js) read an assessment context: zoneScores,
+ *      recs, labResults. An external PDF has none of that, so nothing has
+ *      pre-filtered the mechanical problems and the reviewer must not
+ *      assume they were caught.
+ *   2. There is no provenance chain. For an AtmosFlow finding the platform
+ *      can trace a quantity to the input it came from. Here the only
+ *      evidence is the document, so every issue must QUOTE it. An issue
+ *      that cannot quote is an issue the reviewer invented.
+ *   3. It reads a WINDOW, not the whole report. Absence inside the window
+ *      is not absence from the document — the recommendations may simply be
+ *      thirty pages further on. Reporting "no recommendations are tied to
+ *      findings" from the methodology section would be worse than silence.
+ */
+const REVIEW_SYSTEM_PROMPT = `You review indoor air quality assessment reports written by OTHER consultants, on behalf of an industrial hygienist deciding whether to rely on one. Surface what a careful reviewer would question, so their time goes to judgment rather than proofreading.
+
+You are reading an EXCERPT of a longer document. Two consequences, and they are absolute:
+
+1. QUOTE, ALWAYS. Every issue you raise must quote the report's own words. You have no other evidence — no measurements, no field record, no engine output, only this text. If you cannot quote it, you cannot claim it. An issue you cannot support with a quotation is one you invented.
+2. ABSENCE PROVES NOTHING. Missing recommendations, missing citations, missing methodology may simply be elsewhere in the document. NEVER raise an issue whose basis is that something is not present in the excerpt. Only raise what the text in front of you actually says.
+
+Look for these issue classes:
+
+CITATION INTEGRITY
+  • A standard cited to support a claim it does not support. ASHRAE 62.1 governs ventilation RATE and contains no indoor CO2 limit — CO2 is a ventilation and occupancy indicator. IICRC S520 covers mold REMEDIATION, not assessment or clearance criteria. Spore counts are not health proof (IOM 2004, ACMT 2025). ASHRAE 55 comfort depends on clothing, metabolic rate, radiant temperature and air speed, so two spot readings do not settle it.
+  • A citation to a standard, section or document number that does not exist.
+  • A numeric limit attributed to a standard that does not contain one.
+
+LANGUAGE INTEGRITY
+  • Words that overstate what the method can support: "proves", "demonstrates", "confirms", "definitive" attached to a causation or health claim.
+  • A regulatory or compliance determination drawn from walkthrough data — an 8-hour PEL cannot be exceeded by a grab reading, and calling a space compliant or non-compliant is a determination, not an observation.
+  • Causation asserted where the evidence supports association.
+  • Mold or spore results framed as evidence of health risk.
+
+INTERNAL CONSISTENCY
+  • A conclusion the report's own stated data does not support, or contradicts.
+  • A severity or urgency that does not match the reading beside it, in either direction.
+  • A number, unit or location that disagrees with the same value elsewhere in the excerpt. Watch units especially: ppb and ug/m3 are different quantities.
+  • A recommendation that contradicts a finding in the same excerpt.
+
+OUTPUT FORMAT — STRICT
+Return ONLY a JSON array. No preamble, no markdown, no code fence. Each issue:
+
+  {
+    "severity": "blocking" | "warning" | "suggestion",
+    "category": "snake_case_identifier",
+    "title": "one line, up to 100 chars",
+    "detail": "1-3 sentences explaining the problem",
+    "quote": "the report's own words, verbatim, that the issue rests on"
+  }
+
+If the excerpt raises nothing, return []. An empty array is a real answer and a common one — a competent report should produce few issues or none. Do not manufacture issues to appear useful.
+
+Severity:
+  blocking    — the citation is factually wrong, a regulatory determination is made from unsupporting data, or the text contradicts itself.
+  warning     — overstated language, a claim needing a citation that carries the wrong one, a severity that does not match the data quoted beside it.
+  suggestion  — framing that a reviewer would soften or a limitation worth stating.`
+
 const VISION_MODEL = 'claude-sonnet-4-6'
 const VISION_MAX_TOKENS = 1200
 
@@ -335,6 +466,104 @@ function parseVisionResponse(data) {
     model: VISION_MODEL,
     generated_at: new Date().toISOString(),
   }
+}
+
+/**
+ * Review one window of an attached report.
+ *
+ * The model's output is not trusted on its own: every issue must carry a
+ * quotation, and each quotation is checked against the source text before
+ * the issue is returned. An issue whose quote is not in the document is
+ * dropped and counted, not passed through — a fabricated quotation is the
+ * one failure that would make this feature worse than useless, because it
+ * is exactly the thing a reviewer would rely on without re-reading.
+ *
+ * Matching is whitespace-normalised. PDF extraction inserts line breaks
+ * mid-sentence, so a model quoting accurately from what it was given can
+ * still differ from the raw text by whitespace alone; requiring an exact
+ * match would drop true quotes and teach nothing.
+ */
+async function reviewDocumentWindow(text, ctx, opts = {}) {
+  if (!ctx || !ctx.anthropicApiKey || !ctx.fetchFn) {
+    return {
+      ok: false,
+      error: 'review_unavailable',
+      message: 'Document review must be invoked through the Field Assistant API handler.',
+    }
+  }
+  const focus = typeof opts.focus === 'string' && opts.focus.trim() ? opts.focus.trim() : null
+  const userText = focus
+    ? `Review this excerpt of an IAQ assessment report. The reviewer asked you to pay particular attention to: ${focus}\n\n---\n${text}`
+    : `Review this excerpt of an IAQ assessment report.\n\n---\n${text}`
+
+  let upstream
+  try {
+    upstream = await ctx.fetchFn('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': ctx.anthropicApiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: REVIEW_MODEL,
+        max_tokens: REVIEW_MAX_TOKENS,
+        // Low but not zero: the task is judgment over prose, and a fully
+        // greedy decode tends to latch onto the first issue class in the
+        // list and report variations of it.
+        temperature: 0.2,
+        system: REVIEW_SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: userText }],
+      }),
+    })
+  } catch (e) {
+    return { ok: false, error: 'review_call_failed', message: (e && e.message) || 'Review request failed.' }
+  }
+  if (!upstream || !upstream.ok) {
+    return { ok: false, error: 'review_call_failed', message: `Review request returned ${upstream && upstream.status}.` }
+  }
+
+  let raw = ''
+  try {
+    const data = await upstream.json()
+    raw = (data.content || []).map((b) => (b && b.type === 'text' ? b.text : '')).join('').trim()
+  } catch {
+    return { ok: false, error: 'review_unreadable', message: 'Review response could not be read.' }
+  }
+
+  // Tolerate a code fence even though the prompt forbids one.
+  const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/)
+  const body = fenced ? fenced[1].trim() : raw
+  let parsed
+  try {
+    parsed = JSON.parse(body)
+  } catch {
+    return { ok: false, error: 'review_unparsable', message: 'Review did not return a JSON array.' }
+  }
+  if (!Array.isArray(parsed)) {
+    return { ok: false, error: 'review_unparsable', message: 'Review did not return a JSON array.' }
+  }
+
+  const norm = (v) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().toLowerCase()
+  const haystack = norm(text)
+  const issues = []
+  let unverified = 0
+  for (const x of parsed) {
+    if (!x || typeof x !== 'object') continue
+    if (typeof x.title !== 'string' || !x.title.trim()) continue
+    const quote = typeof x.quote === 'string' ? x.quote.trim() : ''
+    // The load-bearing check. No quote, or a quote that is not in the
+    // document, and the issue does not exist.
+    if (!quote || !haystack.includes(norm(quote))) { unverified++; continue }
+    issues.push({
+      severity: ['blocking', 'warning', 'suggestion'].includes(x.severity) ? x.severity : 'suggestion',
+      category: typeof x.category === 'string' && x.category ? x.category.slice(0, 60) : 'unspecified',
+      title: x.title.trim().slice(0, 140),
+      detail: typeof x.detail === 'string' ? x.detail.trim().slice(0, 600) : '',
+      quote: quote.slice(0, 400),
+    })
+  }
+  return { ok: true, issues, unverified }
 }
 
 async function analyzePhoto(photo, focus, ctx) {
@@ -450,6 +679,16 @@ Return the JSON object specified in your system prompt.`
  *   - assessmentContext                        — for assess_investigation;
  *     the client-built context whose `investigation` field is read as-is
  */
+/**
+ * Characters returned by one read_attached_document call.
+ *
+ * Sized so a model can read a section and still have room to reason, and so
+ * paging through a 120k-character report takes a bounded number of calls
+ * rather than one enormous one. A tool result is not replayed as history the
+ * way an inline digest is, so this is paid on the turn it is used.
+ */
+export const DOCUMENT_WINDOW_CHARS = 12_000
+
 export async function dispatchTool(name, input, ctx = {}) {
   try {
     if (name === 'lookup_exposure_limit') {
@@ -498,6 +737,72 @@ export async function dispatchTool(name, input, ctx = {}) {
       return { status: 'ok', analytes: listAnalytes() }
     }
 
+    if (name === 'read_attached_document') {
+      // Server-side: dispatchTool runs inside /api/field-assistant, so the
+      // store is reachable and the client is not involved.
+      if (!ctx.supabase || !ctx.conversationId || !ctx.userId) {
+        return { ok: false, error: 'no_document_store', message: 'Attached documents are not available in this context.' }
+      }
+      const wanted = input && typeof input.document_id === 'string' ? input.document_id : null
+      let row
+      try {
+        let q = ctx.supabase
+          .from('field_assistant_documents')
+          .select('id, name, kind, pages, pages_read, chars, content')
+          .eq('conversation_id', ctx.conversationId)
+          .eq('user_id', ctx.userId)
+        // No id given means "the one they just attached", which is what a
+        // follow-up question almost always refers to.
+        if (wanted) q = q.eq('id', wanted)
+        const { data } = await q.order('created_at', { ascending: false }).limit(1)
+        row = Array.isArray(data) ? data[0] : null
+      } catch {
+        return { ok: false, error: 'document_read_failed', message: 'Could not read the stored document.' }
+      }
+      if (!row) {
+        return {
+          ok: false,
+          error: 'no_such_document',
+          message: wanted
+            ? `No document with id ${wanted} is attached to this conversation.`
+            : 'No document is attached to this conversation.',
+        }
+      }
+
+      const text = typeof row.content === 'string' ? row.content : ''
+      const phrase = input && typeof input.search === 'string' ? input.search.trim() : ''
+      let start = input && Number.isFinite(input.offset) ? Math.max(0, Math.floor(input.offset)) : 0
+      let searchHit = null
+      if (phrase) {
+        const at = text.toLowerCase().indexOf(phrase.toLowerCase())
+        searchHit = at >= 0
+        // Start a little BEFORE the match: a heading found at the exact
+        // offset would otherwise arrive with none of the section under it,
+        // and the section is what was being looked for.
+        if (at >= 0) start = Math.max(0, at - 200)
+      }
+      const window = text.slice(start, start + DOCUMENT_WINDOW_CHARS)
+      const end = start + window.length
+      return {
+        ok: true,
+        document_id: row.id,
+        name: row.name,
+        pages: row.pages ?? null,
+        pages_read: row.pages_read ?? null,
+        total_chars: text.length,
+        offset: start,
+        next_offset: end < text.length ? end : null,
+        more_remains: end < text.length,
+        // Stated rather than implied: a model that does not know a document
+        // continues past its window will answer as though it does not.
+        note: end < text.length
+          ? `This is characters ${start}-${end} of ${text.length}. Call again with offset ${end} for the next section.`
+          : `This reaches the end of the document (${text.length} characters).`,
+        ...(phrase ? { search: phrase, search_found: searchHit } : {}),
+        text: window,
+      }
+    }
+
     if (name === 'search_standards_corpus') {
       const query = input && typeof input.query === 'string' ? input.query : ''
       const k = input && typeof input.k === 'number' ? input.k : 3
@@ -531,6 +836,68 @@ export async function dispatchTool(name, input, ctx = {}) {
           text: r.chunk.text,
           relevance: Math.round(r.score * 1000) / 1000,
         })),
+      }
+    }
+
+    if (name === 'review_attached_document') {
+      if (!ctx.supabase || !ctx.conversationId || !ctx.userId) {
+        return { ok: false, error: 'no_document_store', message: 'Attached documents are not available in this context.' }
+      }
+      const wanted = input && typeof input.document_id === 'string' ? input.document_id : null
+      let row
+      try {
+        let q = ctx.supabase
+          .from('field_assistant_documents')
+          .select('id, name, kind, pages, pages_read, chars, content')
+          .eq('conversation_id', ctx.conversationId)
+          .eq('user_id', ctx.userId)
+        if (wanted) q = q.eq('id', wanted)
+        const { data } = await q.order('created_at', { ascending: false }).limit(1)
+        row = Array.isArray(data) ? data[0] : null
+      } catch {
+        return { ok: false, error: 'document_read_failed', message: 'Could not read the stored document.' }
+      }
+      if (!row) {
+        return {
+          ok: false,
+          error: 'no_such_document',
+          message: wanted
+            ? `No document with id ${wanted} is attached to this conversation.`
+            : 'No document is attached to this conversation.',
+        }
+      }
+
+      const text = typeof row.content === 'string' ? row.content : ''
+      const start = input && Number.isFinite(input.offset) ? Math.max(0, Math.floor(input.offset)) : 0
+      const window = text.slice(start, start + REVIEW_WINDOW_CHARS)
+      if (!window.trim()) {
+        return { ok: false, error: 'nothing_to_review', message: `Offset ${start} is past the end of the document.` }
+      }
+      const result = await reviewDocumentWindow(window, ctx, { focus: input && input.focus })
+      if (!result.ok) return result
+
+      const end = start + window.length
+      const moreRemains = end < text.length
+      return {
+        ok: true,
+        document_id: row.id,
+        name: row.name,
+        reviewed_chars: `${start}-${end} of ${text.length}`,
+        more_remains: moreRemains,
+        next_offset: moreRemains ? end : null,
+        issue_count: result.issues.length,
+        issues: result.issues,
+        // Surfaced rather than hidden. A run that dropped several issues for
+        // unverifiable quotes is a run whose remaining output deserves less
+        // weight, and the assessor is the one who should decide that.
+        ...(result.unverified > 0 ? { dropped_unverifiable: result.unverified } : {}),
+        // Two limits the model must carry into whatever it says next.
+        basis: row.pages && row.pages_read && row.pages_read < row.pages
+          ? `Only pages 1-${row.pages_read} of ${row.pages} were extracted from this document; the rest was never read.`
+          : 'Review covers the excerpt named in reviewed_chars only.',
+        instruction: moreRemains
+          ? 'Report these issues, state which part of the report was reviewed, and offer to continue with the rest. Do not characterise the report as a whole from one window.'
+          : 'Report these issues and state that the review covered the extracted text. An empty list means nothing in this text raised a question — say that plainly rather than implying the report is endorsed.',
       }
     }
 

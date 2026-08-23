@@ -14,9 +14,9 @@
  */
 import { STD } from '../constants/standards'
 import { ppbToUgm3, ugm3ToPpb, convertTempValue } from './sensorParser'
+import { convertTvoc, tvocEquivalenceNote, parseCalibrationGas } from './vocConversion'
 
 const HCHO_MW = 30.03
-const ISOBUTYLENE_MW = 56.11
 
 // Overview groups parameters into these sections, in this order.
 export const CATEGORY = [
@@ -53,11 +53,23 @@ export function hchoToUnit(ppm, unit) {
 }
 // TVOC published value (µg/m³) → the unit the log used. Exported for the
 // monitoring report's reference profiles (see hchoToUnit above).
-export function tvocToUnit(ugm3, unit) {
-  if (isMg(unit)) return ugm3 / 1000
-  if (isUg(unit)) return ugm3
-  const ppb = ugm3ToPpb(ugm3, ISOBUTYLENE_MW)
-  return isPpm(unit) ? ppb / 1000 : ppb // ppm or ppb
+/**
+ * Mølhave's tier in the unit the data was logged in.
+ *
+ * mg/m³ and µg/m³ are the same measurand at different scales, so those are
+ * an exact prefix shift. Crossing to ppb/ppm needs a molecular weight, and
+ * TVOC is a mixture with no single one — so the crossing is made against a
+ * named reference compound (isobutylene, the PID calibration gas) and the
+ * assumption is disclosed with the number. `convertTvoc` owns that policy;
+ * see `utils/vocConversion.js` for why it is a disclosure rather than a
+ * refusal, and `tvocEquivalenceNote` for the sentence that must ride along.
+ *
+ * Returns null only for a unit with no recognised basis — a bare
+ * air-quality index, a blank — where there is nothing to convert between.
+ */
+export function tvocToUnit(ugm3, unit, opts = {}) {
+  const conv = convertTvoc(ugm3, 'µg/m³', unit, opts)
+  return conv ? conv.value : null
 }
 
 const round = (v, dp = 0) => (v == null ? null : Number(v.toFixed(dp)))
@@ -71,6 +83,10 @@ const round = (v, dp = 0) => (v == null ? null : Number(v.toFixed(dp)))
  * required advisory disclaimer (TVOC Mølhave / CO₂ ventilation surrogate).
  */
 export function paramReference(param, opts = {}) {
+  // `opts.calibrationGas` — the free-text PID span gas for this survey
+  // (`pid_cal_gas`). It decides which molecular weight the TVOC tier is
+  // restated through, and is named in the note either way. Absent, the
+  // conversion falls back to isobutylene and says that it did.
   const unit = opts.unit || ''
   const out = { category: categoryOf(param), unit, limit: null, limitLabel: null, band: null, refs: [], note: null }
 
@@ -110,11 +126,26 @@ export function paramReference(param, opts = {}) {
       out.refs = [`OSHA PEL: ${STD.c.co.osha} ppm`, `EPA NAAQS 8-h: ${STD.c.co.epa} ppm`]
       break
     case 'tvoc': {
-      out.limit = round(tvocToUnit(STD.c.tvoc.con, unit), isPpm(unit) ? 2 : 0)
+      const calGas = parseCalibrationGas(opts.calibrationGas)
+      const conv = convertTvoc(STD.c.tvoc.con, 'µg/m³', unit, { reference: calGas.key })
+      const baseNote = `TVOC has no consensus health limit; ${STD.c.tvoc.con} µg/m³ is the Mølhave 1991 `
+        + 'multifactorial-exposure advisory tier, on a mass basis.'
+      if (!conv) {
+        // A unit with no basis at all — a bare air-quality index. There is
+        // nothing to convert between, so no reference line is offered.
+        out.limit = null
+        out.limitLabel = null
+        out.refs = [`Mølhave advisory: <${STD.c.tvoc.con} µg/m³ (mass basis)`]
+        out.note = `${baseNote} These readings are logged in ${unit || 'an unrecognised unit'}, which has no `
+          + 'mass or volumetric basis, so no reference line is shown.'
+        break
+      }
+      out.limit = round(conv.value, isMg(unit) ? 3 : 0)
       out.limitLabel = 'Mølhave advisory'
-      const ppbEquiv = round(ugm3ToPpb(STD.c.tvoc.con, ISOBUTYLENE_MW), 0)
-      out.refs = [`Mølhave advisory: <${STD.c.tvoc.con} µg/m³ (≈${ppbEquiv} ppb)`]
-      out.note = 'TVOC has no consensus health limit; 500 µg/m³ is the Mølhave 1991 multifactorial-exposure advisory tier (isobutylene-referenced).'
+      out.refs = [`Mølhave advisory: <${STD.c.tvoc.con} µg/m³`]
+      out.note = conv.crossedBasis
+        ? `${baseNote} Stated here as ${out.limit} ${unit} — ${tvocEquivalenceNote(conv.reference, calGas)}`
+        : baseNote
       break
     }
     case 'hcho': {

@@ -15,7 +15,7 @@ import TactileButton from '../ui/TactileButton'
 import Select from '../ui/Select'
 import STO from '../../utils/storage'
 import { SENSOR_FIELDS } from '../../constants/questions'
-import { SENSOR_PARAMS, sensorAveragesToFields } from '../../utils/sensorParser'
+import { SENSOR_PARAMS, sensorAveragesToFields, parseCalibrationGas } from '../../utils/sensorParser'
 import { mix } from '../../utils/theme'
 import { paramLabel } from './sensorHelpers'
 
@@ -27,13 +27,6 @@ const CHIP = { display: 'inline-flex', alignItems: 'baseline', gap: 5, padding: 
 const SEL = { width: '100%', fontSize: 14, padding: '10px 12px' }
 
 export default function SendToReportSheet({ sensorData, reports = [], currentReportId = null, currentZones = [], onApply, onClose }) {
-  const { fields, details, skipped } = useMemo(
-    () => sensorAveragesToFields(sensorData, { stat: 'mean', tvocRef: 'isobutylene' }),
-    [sensorData]
-  )
-  const hasAverages = details.length > 0
-  const fieldIds = Object.keys(fields)
-
   const initialReport = reports.find((r) => r.id === currentReportId)?.id || reports[0]?.id || ''
   const [reportId, setReportId] = useState(initialReport)
   const [zones, setZones] = useState([])
@@ -63,6 +56,20 @@ export default function SendToReportSheet({ sensorData, reports = [], currentRep
   useEffect(() => { setZoneSel(zones.length ? '0' : 'new') }, [reportId, zones.length])
 
   const targetZone = zoneSel !== 'new' ? zones[Number(zoneSel)] : null
+
+  // A ppb TVOC log converts to the zone's µg/m³ reading field through the
+  // molecular weight of the gas the meter was spanned to — so the averages
+  // are computed against the TARGET zone's recorded `pid_cal_gas`, not a
+  // fixed default. Changing the destination changes the TVOC number, which
+  // is correct: it is a different instrument record.
+  const calGas = parseCalibrationGas(targetZone && targetZone.pid_cal_gas)
+  const { fields, details, skipped } = useMemo(
+    () => sensorAveragesToFields(sensorData, { stat: 'mean', tvocRef: calGas.key }),
+    [sensorData, calGas.key]
+  )
+  const hasAverages = details.length > 0
+  const fieldIds = Object.keys(fields)
+
   const occupied = targetZone ? fieldIds.filter((id) => String(targetZone[id] ?? '').trim() !== '') : []
   const hasConflict = occupied.length > 0
   const willWrite = zoneSel === 'new'

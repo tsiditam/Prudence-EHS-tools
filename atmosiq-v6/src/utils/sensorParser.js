@@ -16,6 +16,7 @@
 import dayjs from 'dayjs'
 import customParseFormat from 'dayjs/plugin/customParseFormat'
 import { splitCsvLine } from './labResultsParser'
+import { convertTvoc, tvocBasis, ugm3ToPpb, HCHO_MW } from './vocConversion'
 
 dayjs.extend(customParseFormat)
 
@@ -205,37 +206,22 @@ export function normalizeForCompare(points, params) {
   return { data, ranges }
 }
 
-// PID reference compounds for the TVOC ppb/ppm → µg/m³ conversion. TVOC is a
-// mixture with no single molecular weight, so mass concentration is expressed
-// relative to a reference compound; PID instruments calibrate to isobutylene
-// by default. The conversion is an explicit, surfaced assumption — never a
-// silent one (the chosen compound is shown wherever a converted value lands).
-export const TVOC_REFERENCES = {
-  isobutylene: { label: 'Isobutylene', mw: 56.11 },
-  toluene:     { label: 'Toluene',     mw: 92.14 },
-}
-// Molar volume of an ideal gas at 25 °C and 1 atm (L/mol).
-const MOLAR_VOLUME_25C = 24.45
-
-// Convert a volumetric mixing ratio (ppb) to mass concentration (µg/m³) for a
-// reference compound of molecular weight `mw` (g/mol). µg/m³ = ppb · MW ÷ Vm.
-export function ppbToUgm3(ppb, mw) {
-  if (ppb == null || !Number.isFinite(ppb) || !Number.isFinite(mw)) return null
-  return (ppb * mw) / MOLAR_VOLUME_25C
-}
-
-// Inverse of ppbToUgm3 — mass concentration (µg/m³) back to ppb for a
-// reference compound. Used for ppb-equivalent display alongside the µg/m³
-// reading field, which stays the canonical (Mølhave-aligned) scored unit.
-export function ugm3ToPpb(ugm3, mw) {
-  if (ugm3 == null || !Number.isFinite(ugm3) || !Number.isFinite(mw) || mw === 0) return null
-  return (ugm3 * MOLAR_VOLUME_25C) / mw
-}
-
-// Formaldehyde (HCHO) molecular weight (g/mol). A single compound, so the
-// ppb ↔ µg/m³ conversion is exact — no reference-compound assumption like
-// TVOC. Used for the analyzer's cross-unit equivalent display.
-export const HCHO_MW = 30.03
+// The volumetric ↔ mass conversion for VOCs lives in one module, in both
+// directions, with the reference-compound policy attached to it — see
+// `utils/vocConversion.js`. Re-exported here because this parser has long
+// been the import site for them and every consumer already points at it.
+export {
+  TVOC_REFERENCES,
+  DEFAULT_TVOC_REFERENCE,
+  tvocReference,
+  parseCalibrationGas,
+  tvocBasis,
+  convertTvoc,
+  tvocEquivalenceNote,
+  ppbToUgm3,
+  ugm3ToPpb,
+  HCHO_MW,
+} from './vocConversion'
 
 // Convert an HCHO value from its source unit to ppb. Single-compound
 // conversion (MW 30.03) — no reference-compound assumption. Used by
@@ -260,11 +246,11 @@ function hchoSourceToPpb(v, sourceUnit) {
  *
  * A PID reports TVOC by volume (ppb / ppm) against a reference compound; a
  * photometric or gravimetric instrument reports it by mass (µg/m³ / mg/m³).
- * Converting BETWEEN those bases requires assuming a response factor —
- * isobutylene, by convention — and that assumption belongs to the reading's
- * interpretation, not to its transcription. Baking it in at parse time would
- * overwrite what the instrument actually measured with an inference, and no
- * downstream consumer could tell the two apart afterwards.
+ * Converting BETWEEN those bases assumes a reference compound, and that
+ * assumption belongs to the reading's interpretation, not to its
+ * transcription. Baking it in at PARSE time would overwrite what the
+ * instrument actually measured with an inference, and no downstream consumer
+ * could tell the two apart afterwards.
  *
  * Contrast HCHO, which normalizes across bases freely: formaldehyde has one
  * molecular weight (30.03), so µg/m³ ↔ ppb is physics, not an assumption.
@@ -274,10 +260,12 @@ function hchoSourceToPpb(v, sourceUnit) {
  * measured, and both put the reading on the scale a reader expects to see it
  * on: "194 ppb", not "0.194 ppm".
  *
- * The reference still travels the other way. `tvocToUnit` projects the
- * Mølhave value INTO whichever canonical unit the data landed in, which is
- * the safe direction: the measurement stays as measured and the published
- * value is the thing that moves.
+ * Crossing bases is allowed, later and explicitly, wherever the result is
+ * labelled with the compound it assumed — `convertTvoc` in
+ * `utils/vocConversion.js` owns that, in both directions: the published
+ * Mølhave value projects INTO the logged unit for charting, and a ppb
+ * reading converts INTO µg/m³ for the engine's `tv` field. What stays fixed
+ * is the stored series: it remains as the instrument recorded it.
  */
 export function tvocCanonicalUnit(sourceUnit) {
   const u = String(sourceUnit || '').toLowerCase()
@@ -329,7 +317,6 @@ export function sensorAveragesToFields(sensorData, opts = {}) {
   if (!stats) return empty
   const units = ds.units || {}
   const params = Array.isArray(ds.params) ? ds.params : []
-  const ref = TVOC_REFERENCES[opts.tvocRef] || TVOC_REFERENCES.isobutylene
   const fields = {}
   const details = []
   const skipped = []
@@ -343,18 +330,18 @@ export function sensorAveragesToFields(sensorData, opts = {}) {
       // `tv` is µg/m³. Fill directly when the log is already mass-based;
       // convert from ppb/ppm via the chosen PID reference compound. Skip
       // anything else (e.g. a unitless air-quality index) rather than guess.
-      const u = String(units.tvoc || '').toLowerCase()
-      let note = ''
-      if (/µg|ug/.test(u)) {
-        // already µg/m³ — no conversion
-      } else if (u.includes('ppm') || u.includes('ppb')) {
-        const isPpm = u.includes('ppm')
-        val = ppbToUgm3(isPpm ? val * 1000 : val, ref.mw)
-        note = `${isPpm ? 'ppm' : 'ppb'}→µg/m³ @ ${ref.label}`
-      } else {
+      const u = String(units.tvoc || '')
+      const conv = convertTvoc(val, u, 'µg/m³', { reference: opts.tvocRef })
+      if (!conv) {
         skipped.push({ param: 'tvoc', reason: `unit "${units.tvoc || 'unknown'}" not convertible to µg/m³` })
         return
       }
+      val = conv.value
+      // The note carries the assumption only when one was made. mg/m³ → µg/m³
+      // assumed nothing, so it must not advertise a reference compound.
+      const note = conv.crossedBasis
+        ? `${u.toLowerCase().includes('ppm') ? 'ppm' : 'ppb'}→µg/m³ @ ${conv.reference.label}`
+        : (tvocBasis(u) === 'mass' && /mg\/m/.test(u.toLowerCase()) ? 'mg/m³→µg/m³' : '')
       const rounded = Number(val.toFixed(0))
       fields.tv = String(rounded)
       details.push({ field: 'tv', param: 'tvoc', value: rounded, n: s.n, note })

@@ -480,6 +480,10 @@ export function useFieldAssistant() {
       kind: result.digest.kind,
       digest: result.digest,
       summary: digestSummaryLine(result.digest),
+      // Kept only when there is genuinely more document than the inline
+      // prefix carries. Storing a copy of text the model already has in
+      // front of it buys a row and a tool call for nothing.
+      storable: result.digest.truncated === true && typeof result.digest.full === 'string',
     }
     attachmentsRef.current = [...attachmentsRef.current, entry]
     setAttachments(attachmentsRef.current)
@@ -654,6 +658,22 @@ export function useFieldAssistant() {
     const attachmentsPayload = filesToSend.length
       ? filesToSend.map((a) => ({ id: a.id, name: a.name, kind: a.kind, text: digestToPrompt(a.digest) }))
       : undefined
+    // The full extraction, for documents the inline prefix does not cover.
+    // Sent ONCE, on the turn the file is attached, and stored server-side so
+    // later turns fetch a window by tool instead of carrying it in history.
+    // Still not the file — the browser did the parsing and this is its text.
+    const documentsPayload = filesToSend.filter((a) => a.storable).length
+      ? filesToSend
+        .filter((a) => a.storable)
+        .map((a) => ({
+          name: a.name,
+          kind: a.digest.kind,
+          pages: a.digest.pages ?? null,
+          pages_read: a.digest.pagesRead ?? null,
+          chars: a.digest.chars,
+          content: a.digest.full,
+        }))
+      : undefined
 
     let res
     try {
@@ -666,6 +686,7 @@ export function useFieldAssistant() {
           context,
           ...(photosPayload ? { photos: photosPayload } : {}),
           ...(attachmentsPayload ? { attachments: attachmentsPayload } : {}),
+          ...(documentsPayload ? { documents: documentsPayload } : {}),
         }),
         signal: ctrl.signal,
       })

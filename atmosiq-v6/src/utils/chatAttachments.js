@@ -82,10 +82,25 @@ export const MAX_DIGEST_CHARS = 4000
  * drop the findings — which is precisely the part someone uploading a
  * report wants read.
  *
- * Still bounded: three documents at this size is ~9k tokens, which sits
- * comfortably against the history cap rather than crowding it out.
+ * Still bounded: three documents at this size is ~13k tokens, which sits
+ * against the history cap rather than crowding it out.
+ *
+ * ── Why this is 16k and not 40k ────────────────────────────────────────
+ *
+ * A digest is concatenated into the USER MESSAGE, which is persisted and
+ * replayed as history for up to MAX_HISTORY_TURNS (20) turns. So an inline
+ * digest is not paid once — it is re-sent on every turn until it trims out.
+ * A 40k-char digest is ~11k tokens re-sent twenty times for one upload,
+ * which is the same class of defect as the knowledge-graph projection that
+ * shipped in every context block for a feature nobody could open.
+ *
+ * The extractor now reads up to 120k characters (utils/pdfText.js), so for
+ * a long report this digest is a PREFIX and says so. Reaching the rest is
+ * a retrieval problem, not a budget problem: the text is stored and fetched
+ * by tool on the turn it is needed, rather than carried on every turn in
+ * case it is.
  */
-export const MAX_DOCUMENT_DIGEST_CHARS = 12_000
+export const MAX_DOCUMENT_DIGEST_CHARS = 16_000
 
 const TEXT_EXT = /\.(txt|md|log)$/i
 const CSV_EXT = /\.(csv|tsv)$/i
@@ -290,9 +305,20 @@ export function buildTextDigest(text, fileName, opts = {}) {
     kind: opts.kind === 'pdf' || opts.kind === 'docx' ? opts.kind : 'text',
     name: fileName || null,
     pages: isNum(opts.pages) ? opts.pages : null,
+    // Pages the extractor actually read. Computed all along and dropped at
+    // the call site, so a 41-page report whose last pages were never opened
+    // rendered as "41 pages … (truncated)" — which reads as "trimmed a bit"
+    // rather than "half of this document was not looked at".
+    pagesRead: isNum(opts.pagesRead) ? opts.pagesRead : null,
     chars: clean.length,
     truncated: clean.length > limit,
     text: clean.slice(0, limit),
+    // The COMPLETE cleaned extraction, for the document store. Deliberately
+    // not read by digestToPrompt: `text` is the bounded prefix that rides
+    // inline, `full` is what a tool fetches a window of on the turn it is
+    // needed. Keeping both on one object is what stops the two drifting —
+    // the prefix is always literally the head of the full text.
+    full: clean,
   }
 }
 
@@ -346,8 +372,25 @@ export function digestToPrompt(digest) {
   } else {
     const label = digest.kind === 'pdf' ? 'PDF' : digest.kind === 'docx' ? 'Word document' : 'document'
     L.push(`[Attached ${label}${name}]`)
-    if (digest.pages) L.push(`${digest.pages} page${digest.pages === 1 ? '' : 's'}`)
-    L.push(digest.truncated ? 'Extracted text (truncated):' : 'Extracted text:')
+    // Say what was NOT read, specifically. "(truncated)" alone reads as a
+    // trimmed tail; a model told "41 pages, first 38 read" can say which
+    // part of the document its answer does not cover — and a reviewer
+    // needs that far more than it needs the extra characters.
+    if (digest.pages) {
+      const unread = isNum(digest.pagesRead) && digest.pagesRead < digest.pages
+        ? ` (pages 1-${digest.pagesRead} read; ${digest.pages - digest.pagesRead} not read)`
+        : ''
+      L.push(`${digest.pages} page${digest.pages === 1 ? '' : 's'}${unread}`)
+    }
+    if (digest.truncated) {
+      L.push(
+        `Extracted text, TRUNCATED — this is the first ${digest.text.length.toLocaleString()} of `
+        + `${digest.chars.toLocaleString()} characters extracted. Anything you say about this document `
+        + `covers only the portion below; say so rather than implying you read all of it.`,
+      )
+    } else {
+      L.push('Extracted text:')
+    }
     L.push(digest.text)
   }
 
@@ -465,14 +508,14 @@ export async function digestForFile(file, deps = {}) {
       if (typeof deps.readPdfText !== 'function') {
         return { ok: false, error: 'PDF reading is unavailable in this context.' }
       }
-      const { text, pages } = await deps.readPdfText(file)
+      const { text, pages, pagesRead } = await deps.readPdfText(file)
       if (!text || !text.trim()) {
         return {
           ok: false,
           error: `No selectable text found in ${name || 'the PDF'}. A scanned document needs OCR first.`,
         }
       }
-      return { ok: true, digest: buildTextDigest(text, name, { kind: 'pdf', pages }) }
+      return { ok: true, digest: buildTextDigest(text, name, { kind: 'pdf', pages, pagesRead }) }
     }
 
     if (kind === 'docx') {

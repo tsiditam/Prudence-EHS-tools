@@ -95,7 +95,26 @@ const MAX_ATTACHMENTS_PER_REQUEST = 3
 // at a fraction of this. Mirrors MAX_DOCUMENT_DIGEST_CHARS in
 // src/utils/chatAttachments.js — the client bounds it first, and this is
 // the backstop against a client that does not.
-const MAX_ATTACHMENT_CHARS = 12_000
+// Ceiling on ONE rendered attachment digest.
+//
+// Must stay >= the client's MAX_DOCUMENT_DIGEST_CHARS (16k) plus the header
+// lines digestToPrompt adds, or a legitimate document is rejected with a
+// 400. It was 12k while the client budget was 12k; raising the client
+// budget without this made every PDF over the old cap a hard failure.
+//
+// Deliberately NOT imported from src/utils/chatAttachments.js: that module
+// pulls the CSV / XLSX / lab parsers, and putting those in the Jasper
+// cold-start path is the documented anti-pattern this whole design exists
+// to avoid (see the header of chatAttachments.js, and the docxtemplater
+// incident in CLAUDE.md). Duplicated on purpose, like AI_DISCLAIMER_LINE,
+// and held in step by tests/api/attachment-budget-parity.test.ts.
+const MAX_ATTACHMENT_CHARS = 20_000
+
+/** Documents stored per request, and the ceiling on one stored document. */
+const MAX_DOCUMENTS_PER_REQUEST = 3
+// Matches MAX_PDF_CHARS in src/utils/pdfText.js — the extractor's own
+// ceiling, so a document that was fully extracted can be fully stored.
+const MAX_DOCUMENT_CHARS = 120_000
 
 interface VercelLikeRequest {
   method?: string
@@ -249,6 +268,45 @@ async function checkRateLimits(
   return { ok: true }
 }
 
+/**
+ * Persist this turn's uploaded documents and return every document in the
+ * conversation, newest first.
+ *
+ * Always returns the full list, not just what arrived: the point of storing
+ * a document is that a LATER turn can reach it, so the model needs to know
+ * about the report attached six turns ago just as much as the one attached
+ * now.
+ *
+ * Never throws. An attached document that fails to store leaves the inline
+ * prefix working exactly as before — degrading to one turn's worth of
+ * reading is a worse answer, not a broken one.
+ */
+async function storeAndListDocuments(
+  supabase: SupabaseClient,
+  conversationId: string,
+  userId: string,
+  incoming: Array<Record<string, unknown>>,
+): Promise<Array<{ id: string; name: string; kind: string; pages: number | null; pages_read: number | null; chars: number }>> {
+  try {
+    if (incoming.length > 0) {
+      await supabase.from('field_assistant_documents').insert(
+        incoming.map((d) => ({ ...d, conversation_id: conversationId, user_id: userId })),
+      )
+    }
+    const { data } = await supabase
+      .from('field_assistant_documents')
+      .select('id, name, kind, pages, pages_read, chars')
+      .eq('conversation_id', conversationId)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(12)
+    return Array.isArray(data) ? data : []
+  } catch (err) {
+    console.warn('[field-assistant] document store unavailable:', err instanceof Error ? err.message : String(err))
+    return []
+  }
+}
+
 async function loadHistory(
   supabase: SupabaseClient,
   conversationId: string,
@@ -288,6 +346,10 @@ function buildSystemBlocks(
   context: RequestContext,
   photoIndex: Array<{ id: string; label: string | null }> = [],
   attachmentIndex: Array<{ name: string; kind: string }> = [],
+  documentIndex: Array<{
+    id: string; name: string; kind: string
+    pages: number | null; pages_read: number | null; chars: number
+  }> = [],
 ) {
   // The investigation state is deliberately withheld from this block and
   // served by the `assess_investigation` tool instead. It is the one part
@@ -329,7 +391,25 @@ function buildSystemBlocks(
             '\n',
           )}\nThese summaries are available for this turn only. Report what the data shows; do not score it, classify it against a compliance threshold, or state a cause.`
       : ''
-  const contextBlock = baseContext + photoBlock + attachmentBlock
+  // Documents stored in THIS conversation, whenever they were attached.
+  // The inline digest above is a bounded prefix; this says the rest exists
+  // and how to reach it. Without this the model has no way to know there is
+  // more document than it can see — and an answer drawn from the first
+  // sixteen thousand characters of a forty-page report, given as though it
+  // covered the whole thing, is the failure this feature exists to prevent.
+  const documentBlock =
+    documentIndex.length > 0
+      ? `\n\nDocuments stored in this conversation, readable in full with read_attached_document:\n${documentIndex
+          .map((d) => {
+            const pages = d.pages ? `, ${d.pages} page${d.pages === 1 ? '' : 's'}` : ''
+            const unread = d.pages && d.pages_read && d.pages_read < d.pages
+              ? ` (only pages 1-${d.pages_read} were extracted)`
+              : ''
+            return `  - id: "${d.id}"  ${d.name} (${d.kind}${pages}, ${d.chars.toLocaleString()} characters extracted)${unread}`
+          })
+          .join('\n')}\nAn inline excerpt covers only the START of a document. Before answering a question about what a document says — especially about findings, recommendations or conclusions, which sit at the BACK of an assessment report — read the relevant part with read_attached_document rather than answering from the excerpt.`
+      : ''
+  const contextBlock = baseContext + photoBlock + attachmentBlock + documentBlock
   return [
     { type: 'text', text: FIELD_ASSISTANT_ROLE_PROMPT, cache_control: { type: 'ephemeral' } },
     { type: 'text', text: STANDARDS_FOR_AGENT, cache_control: { type: 'ephemeral' } },
@@ -578,6 +658,10 @@ interface ToolDispatchContext {
   supabase: SupabaseClient
   userId: string
   assessmentContext: Record<string, unknown> | undefined
+  // read_attached_document scopes its lookup to this thread: a document is
+  // owned by a conversation, and a user with two open threads must not be
+  // able to read one from the other by guessing an id.
+  conversationId: string
 }
 
 async function runAgentLoop(
@@ -1066,6 +1150,12 @@ async function handler(req: VercelLikeRequest, res: VercelLikeResponse): Promise
     context?: RequestContext
     photos?: Array<{ id?: string; dataUrl?: string; label?: string }>
     attachments?: Array<{ id?: string; name?: string; kind?: string; text?: string }>
+    // Full extracted text for documents the inline prefix does not cover.
+    // Sent once, on the turn the file is attached; read later by tool.
+    documents?: Array<{
+      name?: string; kind?: string; pages?: number | null
+      pages_read?: number | null; chars?: number; content?: string
+    }>
   }
   const userMessage = typeof body.message === 'string' ? body.message.trim() : ''
   if (!userMessage) {
@@ -1133,6 +1223,37 @@ async function handler(req: VercelLikeRequest, res: VercelLikeResponse): Promise
   }
   const attachmentText = attachmentTexts.join('\n\n')
 
+  // Full document text, for the attachments whose inline prefix does not
+  // cover them. Validated here and stored once the conversation id exists.
+  const incomingDocuments: Array<{
+    name: string; kind: string; pages: number | null; pages_read: number | null
+    chars: number; content: string
+  }> = []
+  if (Array.isArray(body.documents) && body.documents.length > 0) {
+    if (body.documents.length > MAX_DOCUMENTS_PER_REQUEST) {
+      res.status(400).json({ error: `documents array exceeds ${MAX_DOCUMENTS_PER_REQUEST} entries` })
+      return
+    }
+    for (const d of body.documents) {
+      if (!d || typeof d.content !== 'string' || !d.content.trim()) continue
+      if (d.content.length > MAX_DOCUMENT_CHARS) {
+        res.status(400).json({
+          error: `document ${d.name || ''} exceeds ${MAX_DOCUMENT_CHARS} characters`.trim(),
+        })
+        return
+      }
+      const kind = typeof d.kind === 'string' && ['pdf', 'docx', 'text'].includes(d.kind) ? d.kind : 'text'
+      incomingDocuments.push({
+        name: typeof d.name === 'string' && d.name ? d.name.slice(0, 200) : 'document',
+        kind,
+        pages: Number.isFinite(d.pages) ? Number(d.pages) : null,
+        pages_read: Number.isFinite(d.pages_read) ? Number(d.pages_read) : null,
+        chars: Number.isFinite(d.chars) ? Number(d.chars) : d.content.length,
+        content: d.content,
+      })
+    }
+  }
+
   // Plan lookup (free tier has tighter cap)
   let plan = 'free'
   try {
@@ -1189,6 +1310,13 @@ async function handler(req: VercelLikeRequest, res: VercelLikeResponse): Promise
     res.status(500).json({ error: 'conversation_init_failed', code: 'fa_init_003', detail: msg })
     return
   }
+  // Store this turn's documents and learn what the whole conversation has.
+  // After ensureConversation because a document is keyed to a conversation;
+  // before the system blocks because the index goes into them.
+  const documentIndex = await storeAndListDocuments(
+    supabase, conversationId, user.id, incomingDocuments,
+  )
+
   let history: FaMessageRow[] = []
   if (body.conversation_id) {
     try {
@@ -1246,7 +1374,7 @@ async function handler(req: VercelLikeRequest, res: VercelLikeResponse): Promise
   }
 
   // Call Anthropic and pump the stream (with tool-use loop)
-  const systemBlocks = buildSystemBlocks(body.context, photoIndex, attachmentIndex)
+  const systemBlocks = buildSystemBlocks(body.context, photoIndex, attachmentIndex, documentIndex)
   const initialMessages = buildAnthropicMessages(history, userMessage, attachmentText)
 
   // Collect L4 vision usage so we can write per-photo audit details
@@ -1261,6 +1389,8 @@ async function handler(req: VercelLikeRequest, res: VercelLikeResponse): Promise
     },
     supabase,
     userId: user.id,
+    // read_attached_document resolves against the documents in THIS thread.
+    conversationId,
     assessmentContext:
       (body.context && typeof body.context === 'object'
         ? (body.context as Record<string, unknown>)
@@ -1439,6 +1569,8 @@ export const __test = {
   ANTHROPIC_MODEL,
   GENERATION_TYPE,
   MAX_HISTORY_TURNS,
+  MAX_ATTACHMENT_CHARS,
+  MAX_DOCUMENT_CHARS,
   MAX_USER_MESSAGE_LEN,
   MAX_TOOL_ROUNDS,
   MAX_OUTPUT_TOKENS,

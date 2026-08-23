@@ -231,7 +231,7 @@ describe('digestToPrompt', () => {
   it('marks truncated text as truncated instead of presenting it as whole', () => {
     const d: any = buildTextDigest('y'.repeat(50_000), 'big.txt')
     expect(d.truncated).toBe(true)
-    expect(digestToPrompt(d)).toContain('truncated')
+    expect(digestToPrompt(d)).toMatch(/truncated/i)
   })
 })
 
@@ -298,5 +298,46 @@ describe('digestForFile', () => {
     const r: any = await digestForFile(fakeFile('a.zip', 'application/zip'))
     expect(r.ok).toBe(false)
     expect(r.error).toMatch(/not supported/i)
+  })
+})
+
+describe('a full consultant report, not a lab report', () => {
+  // The ceilings were sized for a lab report ("findings are at the front")
+  // and an AtmosFlow monitoring report (~10k chars). A real third-party IAQ
+  // assessment uploaded for review was 41 pages: pages 21-41 were never
+  // extracted, and what was extracted was cut to 12k with a bare
+  // "(truncated)" that reads as a trimmed tail rather than half a document.
+  it('reads far enough into a 41-page report to reach the findings', async () => {
+    const { MAX_PDF_PAGES, MAX_PDF_CHARS } = await import('../../src/utils/pdfText')
+    expect(MAX_PDF_PAGES).toBeGreaterThanOrEqual(41)
+    // 60 pages of dense report text runs past the old 60k ceiling, and a
+    // char cap that bites while the page budget says there was room is the
+    // confusing failure.
+    expect(MAX_PDF_CHARS).toBeGreaterThanOrEqual(MAX_PDF_PAGES * 1500)
+  })
+
+  it('names the pages it did not read, not just "truncated"', () => {
+    const d = buildTextDigest('x'.repeat(50_000), 'report.pdf', {
+      kind: 'pdf', pages: 41, pagesRead: 38,
+    })
+    const prompt = digestToPrompt(d)
+    expect(prompt).toContain('41 pages')
+    expect(prompt).toContain('pages 1-38 read')
+    expect(prompt).toContain('3 not read')
+  })
+
+  it('tells the model its answer covers only part of the document', () => {
+    const d = buildTextDigest('x'.repeat(50_000), 'report.pdf', { kind: 'pdf', pages: 41, pagesRead: 41 })
+    const prompt = digestToPrompt(d)
+    expect(d.truncated).toBe(true)
+    expect(prompt).toMatch(/covers only the portion below/)
+    // ...and no phantom "not read" clause when every page was read.
+    expect(prompt).not.toContain('not read')
+  })
+
+  it('stays inline-affordable: the digest is replayed as history, not paid once', () => {
+    // MAX_HISTORY_TURNS is 20, and the digest rides in the user message. A
+    // 40k-char digest would be re-sent ~20 times for one upload.
+    expect(MAX_DOCUMENT_DIGEST_CHARS).toBeLessThanOrEqual(20_000)
   })
 })

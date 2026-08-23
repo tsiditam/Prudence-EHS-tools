@@ -170,6 +170,13 @@ const TONES = {
   notice: { text: '8A6206', fill: 'FEF9EC', dot: 'D9A21B' },
   warn: { text: '8A5106', fill: 'FDF3E8', dot: 'C2740B' },
   review: { text: 'A62121', fill: 'FDEFEF', dot: 'DC2626' },
+  // Deliberately grey, and deliberately NOT on the ok→review scale. When the
+  // calibration record cannot vouch for the data there is no position on that
+  // scale to occupy: the readings are neither within a reference nor above
+  // one, because no comparison they support has been established. Colouring
+  // it green would read as a pass and red as a failure; both are claims the
+  // data cannot carry.
+  indeterminate: { text: '52606D', fill: 'F1F4F6', dot: '8A98A5' },
 }
 
 export const p = (text, opts = {}) =>
@@ -1013,7 +1020,10 @@ export function buildObjectiveSection(model, num) {
 export function buildLocationInstrumentSection(model, num) {
   const loc = (model && model.location) || []
   const inst = (model && model.instrument) || []
-  if (!loc.length && !inst.length) return null
+  // Only bail when there is no model at all. A session with an instrument
+  // but no location still renders — and now says the location is missing
+  // rather than quietly showing one card where the design expects two.
+  if (!model || (!loc.length && !inst.length)) return null
 
   const out = [sectionHeading(num, 'Location & instrument')]
 
@@ -1022,7 +1032,26 @@ export function buildLocationInstrumentSection(model, num) {
   // Side by side when both are present; full width when only one is, so a
   // lone card never sits in a half-empty row.
   const width = loc.length && inst.length ? half - 60 : CONTENT_WIDTH_DXA
-  if (loc.length) cards.push(definitionCard('Monitoring location', loc, width))
+  // A location that was never captured is STATED, not omitted. The fields
+  // are filtered on non-empty upstream, so an uncaptured location used to
+  // drop the card silently — leaving a section headed "Location &
+  // instrument" that contained no location, and a report whose every number
+  // a reader could not situate. This platform's own rule elsewhere is that
+  // an unidentified source is a finding rather than an omission; a
+  // monitoring position is the same kind of fact.
+  cards.push(
+    loc.length
+      ? definitionCard('Monitoring location', loc, width)
+      : definitionCard(
+        'Monitoring location',
+        [{
+          label: 'Not recorded',
+          value: 'No building, floor, room or sensor position was captured for this session. '
+            + 'Readings below cannot be attributed to a specific space.',
+        }],
+        width,
+      ),
+  )
   if (inst.length) cards.push(definitionCard('Instrument configuration', inst, width))
 
   const widths = cards.length === 2 ? [half, half] : [CONTENT_WIDTH_DXA]

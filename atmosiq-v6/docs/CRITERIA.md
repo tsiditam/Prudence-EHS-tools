@@ -300,9 +300,12 @@ in the same way Results and Zone Findings used to disagree about 72 °F:
 Two things to know when touching this:
 
 1. **Pass the unit.** `resolveReference` *projects* a published value into the
-   unit it is given, so omitting `ctx.unit` is not "no unit" — it is a silent
-   conversion. TVOC's 500 µg/m³ came back as `218` (ppb, via isobutylene
-   molecular weight) before `REPORT_UNIT` was supplied.
+   unit it is given, so omitting `ctx.unit` is not "no unit" — it is whatever
+   the profile's own default happens to be. TVOC's 500 µg/m³ came back as
+   `218` (ppb, via isobutylene molecular weight) before `REPORT_UNIT` was
+   supplied. TVOC no longer defaults that way — an absent or unrecognised unit
+   now resolves to no reference at all — but HCHO still falls back to ppm, so
+   the rule stands.
 2. **Benchmark type comes from the criterion CLASS**, shared with the full
    table via `CLASS_PRESENTATION`. Profiles with no registry criterion behind
    them (the comfort bands, CO₂'s ventilation indicators) fall back to
@@ -313,6 +316,57 @@ Two things to know when touching this:
 The technical/QA report keeps the fuller table (`benchmarkRowsFor`), narrowed
 to the parameters measured. Different audience, same generated rows — depth
 differs, the numbers cannot.
+
+### Crossing units: the equivalence basis
+
+A threshold travels with its averaging period, class and source. Units are the
+fourth thing it travels with, and they split three ways rather than two:
+
+| Case | Example | Conversion |
+|---|---|---|
+| Within a basis | mg/m³ → µg/m³, ppm → ppb | Decimal prefix shift. Exact. |
+| Across bases, single compound | HCHO ppb ↔ µg/m³ | Needs a molecular weight, but the weight is a fact about the analyte. Exact. |
+| Across bases, a mixture | TVOC ppb ↔ µg/m³ | Needs a molecular weight the mixture does not have, so one is **chosen**. |
+
+Only the third case sets `equivalenceBasis` on the criterion (`'isobutylene'`
+on both Mølhave tiers), and setting it is a requirement rather than a
+permission: `resolveReference` attaches the named compound and the
+response-factor limitation to any value that crossed, and
+`tests/lib/vocConversion.test.ts` fails if a tier crosses without one.
+
+**`equivalenceBasis` is the default, not the answer.** The compound that
+actually applies is the one the meter was spanned to, and the app records it:
+`pid_cal_gas` per zone on an assessment, `calibration.gas` on a monitoring
+session. `parseCalibrationGas` reads it (whole-word matching — "isobutane" is
+not "isobutylene") and returns three states, each licensing a different
+sentence: recognised (a fact about this survey), recorded-but-unweighable
+(isobutylene is used and the note names the mismatch), and not recorded (a
+stated convention). Pass it as `ctx.calibrationGas` / `opts.calibrationGas`;
+a meter spanned to toluene resolves Mølhave at 133 ppb, not 218.
+
+All of it goes through one module, `src/utils/vocConversion.js`, in both
+directions — the published tier projecting into the logged unit, and a logged
+ppb reading converting into the engine's µg/m³ `tv` field.
+
+**Why one module.** The conversion had been implemented in three places under
+three policies. The parse-to-reading path converted, the reference-projection
+path refused to, and a ppb log therefore produced a Mølhave comparison in the
+assessment and no reference line at all in the monitoring report — from the
+same instrument, on the same air. The property that closes it is asserted
+directly: the same series must reach the same verdict whether the data moves
+to the reference or the reference moves to the data.
+
+**Why a disclosure and not a refusal.** The limitation is real — a PID's
+response varies by compound, so its total is indicative rather than
+speciated, and Mølhave's 500 µg/m³ is the mass of a defined 22-compound
+chamber mixture. But that limitation belongs to the READING, and it exists in
+every unit: a PID displaying µg/m³ computed that number from the same
+isobutylene-equivalent response, by the same arithmetic. Withholding the tier
+from ppb-logging meters therefore removed nothing unsound; it removed the
+reference from half the instruments in the field on the basis of a display
+setting, and left the other half comparing against it with no disclosure at
+all. State the assumption, cite EPA Method TO-17 as what would settle it, and
+give both halves the same comparison.
 
 ### No standards register
 
