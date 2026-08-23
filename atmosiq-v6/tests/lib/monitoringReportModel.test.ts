@@ -782,3 +782,37 @@ describe('a calibration that cannot vouch for the data withdraws the comparison'
     expect(pm(ok).status.id).not.toBe('indeterminate')
   })
 })
+
+describe('the PID calibration gas reaches the reference table', () => {
+  // The session is where the span gas is recorded for a monitoring report;
+  // nothing else on that surface knows it. If the model does not pass it into
+  // reference resolution, the TVOC line silently reverts to isobutylene and
+  // the report contradicts its own instrument section.
+  const tvocDataset = () => {
+    const points: any[] = []
+    for (let i = 0; i < 60; i++) points.push({ t: T0 + i * 10 * MIN, tvoc: 400 })
+    return {
+      fileName: 'pid.csv',
+      params: ['tvoc'],
+      units: { tvoc: 'ppb' },
+      points,
+      summary: { count: points.length, start: points[0].t, end: points[points.length - 1].t },
+      quality: { flags: [] },
+    }
+  }
+  const tvocRow = (over: any) =>
+    build({ datasets: [{ ...tvocDataset(), role: 'indoor' }], ...over })
+      .referenceRows.find((r: any) => r.param === 'tvoc')
+
+  it('restates Mølhave through the recorded compound', () => {
+    const row = tvocRow({ calibration: { date: '2026-03-12', gas: 'Toluene 100 ppm' } })
+    expect(row.value).toBe('133 ppb')
+    expect(row.note).toMatch(/toluene-equivalent/i)
+  })
+
+  it('falls back to isobutylene when the session recorded no gas, and says so', () => {
+    const row = tvocRow({ calibration: { date: '2026-03-12' } })
+    expect(row.value).toBe('218 ppb')
+    expect(row.note).toMatch(/was not recorded/i)
+  })
+})

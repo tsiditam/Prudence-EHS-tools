@@ -26,6 +26,7 @@ import {
   parseSensorCsv,
   parseSensorRows,
   sensorAveragesToFields,
+  parseCalibrationGas,
   normalizeSensorData,
   SENSOR_DATA_VERSION,
 } from '../utils/sensorParser'
@@ -87,7 +88,12 @@ function fmt(value, paramId) {
   return Math.round(value).toString()
 }
 
-export default function InstrumentLogImport({ onApply, isCompact }) {
+/**
+ * @param {string} [calibrationGas] the zone's recorded PID span gas
+ *   (`pid_cal_gas`). Decides the molecular weight a ppb TVOC log is converted
+ *   through; absent or unrecognised, the converter falls back to isobutylene.
+ */
+export default function InstrumentLogImport({ onApply, isCompact, calibrationGas }) {
   const fileRef = useRef(null)
   const [filename, setFilename] = useState('')
   const [parsed, setParsed] = useState(null)
@@ -123,7 +129,7 @@ export default function InstrumentLogImport({ onApply, isCompact }) {
         datasets: [{ id: 'primary', role: 'indoor', label: 'Indoor', ...parsedDataset }],
         graphs: {},
       })
-      const { fields: rawFields, details } = sensorAveragesToFields(envelope, { stat: 'mean', tvocRef: 'isobutylene' })
+      const { fields: rawFields, details } = sensorAveragesToFields(envelope, { stat: 'mean', tvocRef: parseCalibrationGas(calibrationGas).key })
       // sensorAveragesToFields hands back display-rounded strings (its
       // primary caller fills text inputs). MobileApp.onApply filters by
       // Number.isFinite before writing into the zone, so coerce to numbers.

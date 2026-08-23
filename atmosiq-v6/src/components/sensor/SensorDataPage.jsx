@@ -24,8 +24,9 @@ import GhostButton from '../ui/GhostButton'
 import Select from '../ui/Select'
 import RoleBadge from '../ui/RoleBadge'
 import InlineError from '../ui/InlineError'
-import { parseSensorRows, SENSOR_PARAMS, convertTvoc, tvocBasis, ppbToUgm3, HCHO_MW, normalizeSensorData, primaryDataset, alignDatasets, sensorAveragesToFields, detectDatasetRole, SENSOR_DATA_VERSION, withDisplayTempUnit } from '../../utils/sensorParser'
+import { parseSensorRows, SENSOR_PARAMS, convertTvoc, tvocBasis, parseCalibrationGas, ppbToUgm3, HCHO_MW, normalizeSensorData, primaryDataset, alignDatasets, sensorAveragesToFields, detectDatasetRole, SENSOR_DATA_VERSION, withDisplayTempUnit } from '../../utils/sensorParser'
 import SendToReportSheet from './SendToReportSheet'
+import Profiles from '../../utils/profiles'
 import MonitoringReportSheet from './MonitoringReportSheet'
 import ProjectSpreadsheetPicker from './ProjectSpreadsheetPicker'
 import { splitCsvLine } from '../../utils/labResultsParser'
@@ -74,11 +75,11 @@ const fmtAvg = (v) => {
 // TVOC cross-unit equivalent (isobutylene-equiv) so both mass- and
 // volume-based readers see a familiar number. µg/m³ stays the canonical
 // scored unit; this line is informational only.
-const tvocEquivLabel = (mean, unit) => {
+const tvocEquivLabel = (mean, unit, calibrationGas) => {
   const basis = tvocBasis(unit)
   if (!basis) return null
   const target = basis === 'mass' ? 'ppb' : 'µg/m³'
-  const conv = convertTvoc(mean, unit, target)
+  const conv = convertTvoc(mean, unit, target, { reference: parseCalibrationGas(calibrationGas).key })
   if (!conv || !conv.reference) return null
   return `≈ ${Math.round(conv.value)} ${target} (${conv.reference.label.toLowerCase()}-equiv)`
 }
@@ -118,16 +119,16 @@ const EXC_TONE = { danger: V3.DANGER, warn: '#FB923C' }
 // tabular numerals, a gauge against the screening reference, the observed
 // range, the reference line(s), and a screening exceedance flag when the
 // values sit above a reference. Screening only — never a determination.
-function ParamCard({ param, stats, unit, points, ts, hchoSourceUnit, tvocSourceUnit }) {
+function ParamCard({ param, stats, unit, points, ts, hchoSourceUnit, tvocSourceUnit, calibrationGas }) {
   const spec = SENSOR_PARAMS.find((s) => s.key === param)
   const color = SERIES[param] || 'var(--accent)'
-  const ref = paramReference(param, { unit, ts })
+  const ref = paramReference(param, { unit, ts, calibrationGas })
   const exc = exceedance(param, stats, ref)
   // TVOC shows its isobutylene equivalent, plus the source unit when the
   // parser shifted the prefix (ppm→ppb, mg/m³→µg/m³) so the reading can be
   // audited against the CSV it came from.
   const equiv = param === 'tvoc'
-    ? [tvocEquivLabel(stats.mean, unit), tvocSourceLabel(stats.mean, tvocSourceUnit)].filter(Boolean).join(' · ')
+    ? [tvocEquivLabel(stats.mean, unit, calibrationGas), tvocSourceLabel(stats.mean, tvocSourceUnit)].filter(Boolean).join(' · ')
       || null
     : param === 'hcho' ? hchoSourceLabel(stats.mean, hchoSourceUnit) : null
   return (
@@ -247,6 +248,20 @@ function AnalyzingCard({ fileName, phase }) {
 }
 
 export default function SensorDataPage({ value, onChange, onBack, reports = [], currentReportId = null, currentProjectId = null, currentZones = [], onApplyAverages }) {
+  // The PID span gas, read off the assessor's saved profile — the same place
+  // the report sheet seeds its own field from, so the reference tick on these
+  // cards and the reference line in the generated report are derived from one
+  // value. A meter spanned to toluene must not gauge against isobutylene here
+  // and toluene there; that split is exactly how this codebase's cross-layer
+  // disagreements have started before.
+  const [calGas, setCalGas] = useState('')
+  useEffect(() => {
+    let cancelled = false
+    Profiles.getActiveProfile().then((p) => {
+      if (!cancelled && p && p.pid_cal_gas) setCalGas(p.pid_cal_gas)
+    })
+    return () => { cancelled = true }
+  }, [])
   const fileRef = useRef(null)
   const [busy, setBusy] = useState(false)
   const [sendOpen, setSendOpen] = useState(false)
@@ -493,10 +508,10 @@ export default function SensorDataPage({ value, onChange, onBack, reports = [], 
   const renderChartBlock = (tab, blockMode) => {
     if (!tab) return null
     if (tab.kind === 'graph') {
-      return <GraphCard def={tab.def} data={data} state={graphsState[tab.def.id] || {}} onState={(patch) => setGraph(tab.def.id, patch)} chartProps={{ showRefs: !!refs[tab.def.refKey], occupancy: occWindows }} mode={blockMode} />
+      return <GraphCard def={tab.def} data={data} state={graphsState[tab.def.id] || {}} onState={(patch) => setGraph(tab.def.id, patch)} chartProps={{ showRefs: !!refs[tab.def.refKey], occupancy: occWindows }} mode={blockMode} calibrationGas={calGas} />
     }
     if (tab.kind === 'multi') {
-      return <MultiParamSection data={data} state={graphsState.multi || {}} onState={(patch) => setGraph('multi', patch)} occupancy={occWindows} mode={blockMode} />
+      return <MultiParamSection data={data} state={graphsState.multi || {}} onState={(patch) => setGraph('multi', patch)} occupancy={occWindows} mode={blockMode} calibrationGas={calGas} />
     }
     if (tab.kind === 'diff' && diff) {
       return (
@@ -509,6 +524,7 @@ export default function SensorDataPage({ value, onChange, onBack, reports = [], 
             onState={(patch) => setGraph('co2-diff', patch)}
             chartProps={{ points: diff.rows, hasTs: true, showRefs: !!refs.co2, occupancy: occWindows }}
             mode={blockMode}
+            calibrationGas={calGas}
           />
           <GlassCard style={{ marginTop: 10 }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
@@ -549,6 +565,7 @@ export default function SensorDataPage({ value, onChange, onBack, reports = [], 
             onState={(patch) => setGraph(`zones-${activeZoneParam}`, patch)}
             chartProps={{ points: zoneOverlay.points, zones: zoneOverlay.zones, param: activeZoneParam, units: zoneOverlay.units, hasTs: true, showRefs: !!refs[activeZoneParam], occupancy: occWindows }}
             mode={blockMode}
+            calibrationGas={calGas}
           />
         </div>
       )
@@ -667,7 +684,7 @@ export default function SensorDataPage({ value, onChange, onBack, reports = [], 
             data.params.forEach((p) => {
               const s = data.summary.stats[p]
               if (!s) return
-              const exc = exceedance(p, s, paramReference(p, { unit: data.units[p] || '', ts: data.summary.start }))
+              const exc = exceedance(p, s, paramReference(p, { unit: data.units[p] || '', ts: data.summary.start, calibrationGas: calGas }))
               if (exc.level) flagged.push({ param: p, label: SENSOR_PARAMS.find((x) => x.key === p)?.label || p })
             })
             return (
@@ -680,7 +697,7 @@ export default function SensorDataPage({ value, onChange, onBack, reports = [], 
                     <div key={cat.id} style={{ marginTop: 16 }}>
                       <div style={{ ...V3.T.micro, color: SUB, marginBottom: 2 }}>{cat.label}</div>
                       {ps.map((p) => (
-                        <ParamCard key={p} param={p} stats={data.summary.stats[p]} unit={data.units[p] || ''} points={data.points.map((pt) => pt[p])} ts={data.summary.start} hchoSourceUnit={data.units.hchoSource} tvocSourceUnit={data.units.tvocSource} />
+                        <ParamCard key={p} param={p} stats={data.summary.stats[p]} unit={data.units[p] || ''} points={data.points.map((pt) => pt[p])} ts={data.summary.start} hchoSourceUnit={data.units.hchoSource} tvocSourceUnit={data.units.tvocSource} calibrationGas={calGas} />
                       ))}
                     </div>
                   )
@@ -853,7 +870,7 @@ const CAP_W = 680, CAP_H = 300
 // Compare up to 3 detected parameters on one normalized timeline. Changing
 // the selection invalidates any captured image (so the report figure always
 // matches the shown selection).
-function MultiParamSection({ data, state, onState, occupancy = [], mode = 'report' }) {
+function MultiParamSection({ data, state, onState, occupancy = [], mode = 'report', calibrationGas }) {
   const selected = (state.params && state.params.length) ? state.params : data.params.slice(0, Math.min(3, data.params.length))
   const labelOf = (k) => SENSOR_PARAMS.find((s) => s.key === k)?.label || k
   const toggleParam = (k) => {
@@ -874,12 +891,12 @@ function MultiParamSection({ data, state, onState, occupancy = [], mode = 'repor
           </Chip>
         ))}
       </div>
-      <GraphCard def={def} data={data} state={state} onState={onState} chartProps={{ params: selected, occupancy }} mode={mode} />
+      <GraphCard def={def} data={data} state={state} onState={onState} chartProps={{ params: selected, occupancy }} mode={mode} calibrationGas={calibrationGas} />
     </div>
   )
 }
 
-function GraphCard({ def, data, state, onState, chartProps = {}, mode = 'report' }) {
+function GraphCard({ def, data, state, onState, chartProps = {}, mode = 'report', calibrationGas }) {
   const hiddenRef = useRef(null)
   const [capture, setCapture] = useState(null) // null | 'include' | 'export' | 'export-svg'
   const [busy, setBusy] = useState(false)
@@ -889,7 +906,7 @@ function GraphCard({ def, data, state, onState, chartProps = {}, mode = 'report'
   // Factual stat row for single-parameter timeline charts. Reuses the
   // Phase-1 screening reference (for % over) and the occupancy windows.
   const statParam = chartPrimaryParam(def.id)
-  const statRef = statParam ? paramReference(statParam, { unit: data.units[statParam] || '', ts: data.summary.start }) : null
+  const statRef = statParam ? paramReference(statParam, { unit: data.units[statParam] || '', ts: data.summary.start, calibrationGas }) : null
   const stats = statParam
     ? chartStats(
         data.points.map((p) => p[statParam]),

@@ -19,11 +19,13 @@
 import { describe, it, expect } from 'vitest'
 import {
   convertTvoc,
+  parseCalibrationGas,
   tvocBasis,
   tvocEquivalenceNote,
   tvocReference,
   TVOC_REFERENCES,
 } from '../../src/utils/vocConversion'
+import { paramReference } from '../../src/utils/sensorThresholds'
 import { resolveReference } from '../../src/utils/referenceProfiles'
 import { sensorAveragesToFields } from '../../src/utils/sensorParser'
 import { CRITERIA } from '../../src/constants/criteria'
@@ -187,5 +189,95 @@ describe('the equivalence basis is declared once', () => {
       expect(ug.note || '', `${id} claims an assumption it did not make`)
         .not.toMatch(/isobutylene-equivalent/i)
     }
+  })
+})
+
+
+describe('parseCalibrationGas', () => {
+  it('reads the compound out of what an assessor actually types', () => {
+    for (const text of ['Isobutylene 100 ppm', 'isobutylene', 'IBE 100ppm', '2-methylpropene']) {
+      expect(parseCalibrationGas(text).key, text).toBe('isobutylene')
+    }
+    expect(parseCalibrationGas('Toluene 10 ppm').key).toBe('toluene')
+    expect(parseCalibrationGas('100 ppm isopropyl alcohol').key).toBe('isopropanol')
+  })
+
+  it('matches whole words, so a neighbouring compound is not mistaken for one', () => {
+    // Isobutane is C4H10 (MW 58.12), not isobutylene (C4H8, 56.11). A
+    // substring test would read "isobutane" as a hit on "ibe"-style aliases
+    // and convert through the wrong weight without ever saying so.
+    const r = parseCalibrationGas('Isobutane 100 ppm')
+    expect(r.key).toBeNull()
+    expect(r.recorded).toBe(true)
+    expect(r.recognised).toBe(false)
+  })
+
+  it('separates "nothing recorded" from "recorded but unknown"', () => {
+    const blank = parseCalibrationGas('   ')
+    expect(blank.recorded).toBe(false)
+    expect(blank.stated).toBe('')
+
+    const unknown = parseCalibrationGas('Freon 12')
+    expect(unknown.recorded).toBe(true)
+    expect(unknown.recognised).toBe(false)
+    expect(unknown.stated).toBe('Freon 12')
+  })
+
+  it('says which of the three it was, in the disclosure', () => {
+    const recognised = tvocEquivalenceNote(TVOC_REFERENCES.toluene, parseCalibrationGas('Toluene 10 ppm'))
+    expect(recognised).toMatch(/recorded for this survey \(Toluene 10 ppm\)/)
+
+    const unknown = tvocEquivalenceNote(TVOC_REFERENCES.isobutylene, parseCalibrationGas('Freon 12'))
+    expect(unknown).toMatch(/Freon 12/)
+    expect(unknown).toMatch(/do not reflect it/i)
+
+    const absent = tvocEquivalenceNote(TVOC_REFERENCES.isobutylene, parseCalibrationGas(''))
+    expect(absent).toMatch(/was not recorded/i)
+  })
+})
+
+describe('the survey’s own calibration gas decides the weight', () => {
+  it('restates the tier through the recorded compound, not the default', () => {
+    const iso = resolveReference('tvoc', 'molhave', { unit: 'ppb' })!
+    const tol = resolveReference('tvoc', 'molhave', { unit: 'ppb', calibrationGas: 'Toluene 100 ppm' })!
+    expect(iso.limit).toBe(218)      // 500 × 24.45 ÷ 56.11
+    expect(tol.limit).toBe(133)      // 500 × 24.45 ÷ 92.14
+    expect(tol.note).toMatch(/toluene-equivalent/i)
+    expect(tol.note).toMatch(/Toluene 100 ppm/)
+  })
+
+  it('changes nothing when the log is already in mass units', () => {
+    // The recorded gas is only a conversion input. It cannot move a tier
+    // that never crosses a basis.
+    const a = resolveReference('tvoc', 'molhave', { unit: 'µg/m³' })!
+    const b = resolveReference('tvoc', 'molhave', { unit: 'µg/m³', calibrationGas: 'Toluene' })!
+    expect(a.limit).toBe(500)
+    expect(b.limit).toBe(500)
+    expect(b.note || '').not.toMatch(/toluene/i)
+  })
+
+  it('falls back to the default for a gas it cannot weigh, and names the mismatch', () => {
+    const r = resolveReference('tvoc', 'molhave', { unit: 'ppb', calibrationGas: 'Freon 12' })!
+    expect(r.limit).toBe(218)
+    expect(r.note).toMatch(/Freon 12/)
+    expect(r.note).toMatch(/do not reflect it/i)
+  })
+
+  it('reaches the Logger Studio cards through the same option', () => {
+    expect(paramReference('tvoc', { unit: 'ppb' }).limit).toBe(218)
+    const tol = paramReference('tvoc', { unit: 'ppb', calibrationGas: 'Toluene 100 ppm' })
+    expect(tol.limit).toBe(133)
+    expect(tol.note).toMatch(/toluene-equivalent/i)
+  })
+
+  it('keeps both paths in agreement once a gas is recorded', () => {
+    // The same property as above, but with the assumption now sourced from
+    // the survey record rather than a default. A wiring that reached one path
+    // and not the other would break here and nowhere else.
+    const mean = 400
+    const ug = convertTvoc(mean, 'ppb', 'µg/m³', { reference: 'toluene' })!.value
+    const limitPpb = resolveReference('tvoc', 'molhave', { unit: 'ppb', calibrationGas: 'Toluene' })!.limit as number
+    expect(ug > STD.c.tvoc.con).toBe(mean > limitPpb)
+    expect(ug > STD.c.tvoc.con).toBe(true)
   })
 })

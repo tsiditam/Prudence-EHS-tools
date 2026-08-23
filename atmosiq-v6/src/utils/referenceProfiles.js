@@ -64,7 +64,7 @@
 import { STD } from '../constants/standards'
 import { CRITERIA } from '../constants/criteria'
 import { paramReference, tvocToUnit, hchoToUnit } from './sensorThresholds'
-import { tvocEquivalenceNote, TVOC_REFERENCES } from './vocConversion'
+import { tvocEquivalenceNote, parseCalibrationGas, TVOC_REFERENCES } from './vocConversion'
 
 const isNum = (v) => v != null && Number.isFinite(v)
 const round = (v, dp = 0) => (isNum(v) ? Number(v.toFixed(dp)) : null)
@@ -73,6 +73,14 @@ const isPpm = (u) => norm(u).includes('ppm')
 const isMg = (u) => /mg/.test(norm(u))
 /** True for the mass units a mass-basis tier converts into safely (scale only). */
 const isMassUnit = (u) => /g\/m/.test(norm(u))
+
+/**
+ * The compound a TVOC tier is restated through, read off the survey's own
+ * calibration record (`ctx.calibrationGas`, the free-text PID span gas).
+ * Undefined when nothing usable was recorded, which lets `convertTvoc` apply
+ * its isobutylene default — the note then says the default was applied.
+ */
+const calGasKey = (ctx) => parseCalibrationGas(ctx && ctx.calibrationGas).key || undefined
 
 // An annual-mean guideline (WHO annual, EPA annual PM2.5) is, by construction,
 // an average over a year. A monitoring session of hours or days cannot evaluate
@@ -196,7 +204,7 @@ const PROFILES = {
       label: 'Mølhave advisory (500 µg/m³)',
       criterionId: 'tvoc_molhave_concern',
       source: 'Mølhave 1991',
-      resolve: (ctx) => ({ limit: round(tvocToUnit(STD.c.tvoc.con, ctx && ctx.unit), isMg(ctx && ctx.unit) ? 3 : 0) }),
+      resolve: (ctx) => ({ limit: round(tvocToUnit(STD.c.tvoc.con, ctx && ctx.unit, { reference: calGasKey(ctx) }), isMg(ctx && ctx.unit) ? 3 : 0) }),
     },
     {
       id: 'molhave-action',
@@ -204,7 +212,7 @@ const PROFILES = {
       label: 'Mølhave action tier (3,000 µg/m³)',
       criterionId: 'tvoc_molhave_action',
       source: 'Mølhave 1991',
-      resolve: (ctx) => ({ limit: round(tvocToUnit(STD.c.tvoc.act, ctx && ctx.unit), isMg(ctx && ctx.unit) ? 3 : 0) }),
+      resolve: (ctx) => ({ limit: round(tvocToUnit(STD.c.tvoc.act, ctx && ctx.unit, { reference: calGasKey(ctx) }), isMg(ctx && ctx.unit) ? 3 : 0) }),
     },
     {
       id: 'well',
@@ -215,7 +223,7 @@ const PROFILES = {
       // standing anti-pattern) — WELL's 500 µg/m³ is a certification target, not
       // a health limit.
       note: 'TVOC has no consensus health limit; the WELL Building Standard v2 (A01) 500 µg/m³ figure is a green-building certification performance target, not a health-based limit — confirm against the current WELL v2 documentation.',
-      resolve: (ctx) => ({ limit: round(tvocToUnit(STD.c.tvoc.well, ctx && ctx.unit), isMg(ctx && ctx.unit) ? 3 : 0) }),
+      resolve: (ctx) => ({ limit: round(tvocToUnit(STD.c.tvoc.well, ctx && ctx.unit, { reference: calGasKey(ctx) }), isMg(ctx && ctx.unit) ? 3 : 0) }),
     },
     // Offered deliberately: with no consensus health limit, an assessor may
     // reasonably choose to chart TVOC without any reference line rather than
@@ -299,6 +307,9 @@ export function parametersWithProfiles() {
  * @param {string} [ctx.unit] the unit the data was logged in
  * @param {number} [ctx.ts] a timestamp in the period (temperature is seasonal)
  * @param {number} [ctx.outdoorBaseline] mean outdoor value, for differentials
+ * @param {string} [ctx.calibrationGas] the survey's free-text PID span gas.
+ *   Decides the molecular weight a TVOC tier is restated through when the
+ *   logged unit is volumetric, and is named in `note` either way.
  * @param {number[]} [ctx.custom] [lo, hi] for a custom band
  * @returns {{param, profileId, criterionId, label, source, note, limit, band,
  *   action, unit, unavailable}|null} null when the parameter offers no profiles.
@@ -367,12 +378,20 @@ export function resolveReference(param, profileId, ctx = {}) {
   // withheld reference leaves a ppb-logging PID with no tier at all while
   // the same instrument set to µg/m³ keeps one, which is a property of the
   // display setting, not of the air. See `utils/vocConversion.js`.
+  //
+  // Which compound is not a constant either. `equivalenceBasis` names the
+  // DEFAULT — the span gas a PID carries unless told otherwise — and the
+  // survey's own calibration record overrides it when one was captured. The
+  // note says which of the two happened, so a converted number is never
+  // grounded in a compound the assessor did not use.
   const equivalenceBasis =
     (criterionFor(param, profile) || {}).equivalenceBasis || profile.equivalenceBasis || null
   let note = profile.note || null
   if (equivalenceBasis && isNum(limit) && !!(ctx && ctx.unit) && !isMassUnit(ctx.unit)) {
+    const calGas = parseCalibrationGas(ctx && ctx.calibrationGas)
+    const used = TVOC_REFERENCES[calGas.key || equivalenceBasis]
     const disclosure = `${profile.label} is published as a mass concentration; stated here in ${ctx.unit}. `
-      + tvocEquivalenceNote(TVOC_REFERENCES[equivalenceBasis])
+      + tvocEquivalenceNote(used, calGas)
     note = note ? `${note} ${disclosure}` : disclosure
   }
 

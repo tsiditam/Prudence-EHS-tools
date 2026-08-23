@@ -12,7 +12,7 @@
 
 import { useState } from 'react'
 import { SENSOR_FIELDS } from '../constants/questions'
-import { SENSOR_PARAMS, TVOC_REFERENCES, convertTvoc, sensorAveragesToFields } from '../utils/sensorParser'
+import { SENSOR_PARAMS, TVOC_REFERENCES, DEFAULT_TVOC_REFERENCE, convertTvoc, parseCalibrationGas, sensorAveragesToFields } from '../utils/sensorParser'
 import { mix } from '../utils/theme'
 
 const paramLabel = (key) => SENSOR_PARAMS.find((p) => p.key === key)?.label || key
@@ -24,7 +24,24 @@ const miniInput = { width: 84, padding: '8px 10px', background: 'var(--card)', b
 export default function SensorScreen({ data, onChange, sensorData, isDesktop, showOutdoor = true }) {
   // TVOC reference compound for ppb/ppm → µg/m³ (shared by the logger
   // auto-fill and the manual converter below the TVOC field).
-  const [tvocRef, setTvocRef] = useState('isobutylene')
+  //
+  // It FOLLOWS the zone's recorded PID span gas (`pid_cal_gas`) rather than
+  // sitting on a hardcoded default: the assessor already told the app which
+  // gas the meter was calibrated to, and converting through a different one
+  // silently contradicts that record. The picker stays, because a recorded
+  // gas can be wrong or absent — but it is an override of a known value now,
+  // not the only input.
+  //
+  // The override is tagged with the gas it was chosen against, so moving to a
+  // zone with a different record drops it instead of carrying one zone's
+  // correction into another's data.
+  const calGas = parseCalibrationGas(data.pid_cal_gas)
+  const [override, setOverride] = useState({ forGas: null, key: null })
+  const tvocRef =
+    (override.forGas === (data.pid_cal_gas || '') ? override.key : null)
+    || calGas.key
+    || DEFAULT_TVOC_REFERENCE
+  const setTvocRef = (key) => setOverride({ forGas: data.pid_cal_gas || '', key })
   const [tvocIn, setTvocIn] = useState({ val: '', unit: 'ppb' })
 
   // Logger averages → reading fields. Empty when no usable log is loaded.
@@ -146,7 +163,13 @@ export default function SensorScreen({ data, onChange, sensorData, isDesktop, sh
                 </button>
               </div>
               <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 8, lineHeight: 1.5 }}>
-                Converts to µg/m³ as {TVOC_REFERENCES[tvocRef].label.toLowerCase()}-equivalent (MW {TVOC_REFERENCES[tvocRef].mw}), at 25 °C / 1 atm. PIDs typically calibrate to isobutylene.
+                Converts to µg/m³ as {TVOC_REFERENCES[tvocRef].label.toLowerCase()}-equivalent (MW {TVOC_REFERENCES[tvocRef].mw}), at 25 °C / 1 atm.
+                {' '}
+                {calGas.recognised
+                  ? `From this zone's recorded calibration gas (${calGas.stated}).`
+                  : calGas.recorded
+                    ? `This zone records "${calGas.stated}", which has no molecular weight here — pick the compound your meter was spanned to.`
+                    : 'No calibration gas recorded for this zone; PIDs typically span to isobutylene.'}
               </div>
             </div>
           )}

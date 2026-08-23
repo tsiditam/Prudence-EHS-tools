@@ -55,13 +55,23 @@ export const MOLAR_VOLUME_25C = 24.45
 export const HCHO_MW = 30.03
 
 /**
- * PID reference compounds for the TVOC volumetric ↔ mass conversion.
- * `mw` is g/mol. Isobutylene is the default because it is the near-universal
- * PID calibration gas.
+ * PID calibration compounds for the TVOC volumetric ↔ mass conversion.
+ * `mw` is g/mol; `aliases` are the names an assessor may write in the
+ * free-text calibration-gas field.
+ *
+ * Isobutylene is the default because it is the near-universal PID span gas.
+ * The rest are here because they are the ones actually seen in the field on
+ * the `pid_cal_gas` intake, and a converter that recognised only two names
+ * would have made that captured field decorative. This is a list of
+ * calibration gases, not of VOCs generally — do not add a compound because
+ * it might be present in the air; add it because a meter is spanned to it.
  */
 export const TVOC_REFERENCES = {
-  isobutylene: { label: 'Isobutylene', mw: 56.11 },
-  toluene:     { label: 'Toluene',     mw: 92.14 },
+  isobutylene: { label: 'Isobutylene', mw: 56.11, aliases: ['isobutylene', 'isobutene', 'iso-butylene', '2-methylpropene', 'ibe'] },
+  toluene:     { label: 'Toluene',     mw: 92.14, aliases: ['toluene', 'methylbenzene'] },
+  benzene:     { label: 'Benzene',     mw: 78.11, aliases: ['benzene'] },
+  hexane:      { label: 'n-Hexane',    mw: 86.18, aliases: ['hexane', 'n-hexane'] },
+  isopropanol: { label: 'Isopropanol', mw: 60.10, aliases: ['isopropanol', 'isopropyl alcohol', '2-propanol', 'ipa'] },
 }
 
 export const DEFAULT_TVOC_REFERENCE = 'isobutylene'
@@ -69,6 +79,43 @@ export const DEFAULT_TVOC_REFERENCE = 'isobutylene'
 /** Resolve a reference-compound key to its entry, falling back to the default. */
 export function tvocReference(key) {
   return TVOC_REFERENCES[key] || TVOC_REFERENCES[DEFAULT_TVOC_REFERENCE]
+}
+
+/**
+ * Read a compound out of the free-text calibration-gas field
+ * (`pid_cal_gas`, "e.g. Isobutylene 100 ppm"; the monitoring session's
+ * `calibration.gas`).
+ *
+ * Returns `{ key, reference, stated, recognised, recorded }`. Three states,
+ * and every caller has to tell them apart because they license different
+ * sentences:
+ *
+ *   recorded:false               nothing was captured. Isobutylene by
+ *                                convention, and the note says it is a
+ *                                convention rather than a record.
+ *   recognised:true              the survey's own span gas. The conversion
+ *                                is grounded in what the meter was set to.
+ *   recorded:true/recognised:false
+ *                                something was written that this module has
+ *                                no molecular weight for. Isobutylene is
+ *                                used so a reference still appears, and the
+ *                                note names what was written so a reader can
+ *                                see the mismatch instead of inheriting it.
+ *
+ * Matching is on whole words: "isobutane" is a different compound from
+ * "isobutylene", and a substring test would happily confuse the two.
+ */
+export function parseCalibrationGas(text) {
+  const stated = String(text == null ? '' : text).trim()
+  if (!stated) {
+    return { key: null, reference: null, stated: '', recognised: false, recorded: false }
+  }
+  const hay = stated.toLowerCase()
+  for (const [key, ref] of Object.entries(TVOC_REFERENCES)) {
+    const hit = ref.aliases.some((a) => new RegExp(`(^|[^a-z0-9-])${a}([^a-z0-9-]|$)`, 'i').test(hay))
+    if (hit) return { key, reference: ref, stated, recognised: true, recorded: true }
+  }
+  return { key: null, reference: null, stated, recognised: false, recorded: true }
 }
 
 // Convert a volumetric mixing ratio (ppb) to mass concentration (µg/m³) for a
@@ -148,14 +195,37 @@ export function convertTvoc(value, fromUnit, toUnit, opts = {}) {
 
 /**
  * The disclosure that must accompany any value `convertTvoc` returned with
- * `crossedBasis: true`. Names the assumption, states what it does and does
- * not support, and gives the next step that would settle it.
+ * `crossedBasis: true`. Names the assumption, says where it came from, states
+ * what it does and does not support, and gives the next step that would
+ * settle it.
+ *
+ * @param {object} [reference] the compound entry actually used
+ * @param {object} [provenance] a `parseCalibrationGas` result, when the
+ *   caller has one. Its three states change the middle clause: a recorded and
+ *   recognised gas is a fact about this survey; a recorded but unrecognised
+ *   one is a mismatch the reader must see; nothing recorded is a convention.
  */
-export function tvocEquivalenceNote(reference = tvocReference()) {
+export function tvocEquivalenceNote(reference = tvocReference(), provenance = null) {
   const r = reference && reference.mw ? reference : tvocReference()
   const name = String(r.label).toLowerCase()
-  return `Converted as ${name}-equivalent (MW ${r.mw}, 25 °C / 1 atm) — the compound photoionization `
-    + 'detectors are calibrated against. PID response varies by compound, so this is an indicative '
-    + 'total, not the speciated mass of the mixture actually present; speciate per EPA Method TO-17 '
-    + 'to identify individual compounds.'
+  const head = `Converted as ${name}-equivalent (MW ${r.mw}, 25 °C / 1 atm)`
+
+  let ground
+  if (provenance && provenance.recognised) {
+    ground = ` — the calibration gas recorded for this survey (${provenance.stated}).`
+  } else if (provenance && provenance.recorded) {
+    // The assessor DID record a span gas and it is not one this conversion
+    // has a weight for. Saying "the compound PIDs are calibrated against"
+    // here would assert the opposite of the record.
+    ground = ` — the default span gas. The calibration gas recorded for this survey (${provenance.stated}) `
+      + 'is not one this conversion carries a molecular weight for, so the mass figures do not reflect '
+      + 'it; confirm the instrument\'s calibration basis before relying on them.'
+  } else {
+    ground = ' — the compound photoionization detectors are conventionally calibrated against. '
+      + 'The calibration gas for this survey was not recorded.'
+  }
+
+  return `${head}${ground} PID response varies by compound, so this is an indicative total, not the `
+    + 'speciated mass of the mixture actually present; speciate per EPA Method TO-17 to identify '
+    + 'individual compounds.'
 }

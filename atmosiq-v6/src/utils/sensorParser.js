@@ -214,6 +214,7 @@ export {
   TVOC_REFERENCES,
   DEFAULT_TVOC_REFERENCE,
   tvocReference,
+  parseCalibrationGas,
   tvocBasis,
   convertTvoc,
   tvocEquivalenceNote,

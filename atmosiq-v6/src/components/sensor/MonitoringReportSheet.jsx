@@ -35,6 +35,7 @@ import SegmentedControl from '../ui/SegmentedControl'
 import Profiles from '../../utils/profiles'
 import { createMonitoringSession, occupiedWindows } from '../../utils/monitoringSession'
 import { profilesFor, defaultProfileId } from '../../utils/referenceProfiles'
+import { parseCalibrationGas } from '../../utils/vocConversion'
 import { generateMonitoringReport } from '../docx/monitoring-report'
 import { hashDataset, shortHash } from '../../utils/datasetHash'
 import { proseName } from '../../utils/monitoringInsights'
@@ -98,7 +99,10 @@ export function buildSessionFromLogger({ data, form, occupancyWindows = [], even
     objective: String(f.objective || '').trim(),
     location: f.location,
     instrument: f.instrument,
-    calibration: { date: String(f.calibrationDate || '').trim() },
+    calibration: {
+      date: String(f.calibrationDate || '').trim(),
+      gas: String(f.calibrationGas || '').trim(),
+    },
     assessor: f.assessor,
     client: f.client,
     referenceProfiles: f.referenceProfiles,
@@ -119,6 +123,7 @@ export default function MonitoringReportSheet({ data, occupancyWindows = [], eve
   const [loc, setLoc] = useState({ building: '', address: '', floor: '', room: '', zone: '', sensorPosition: '' })
   const [inst, setInst] = useState({ make: '', model: '', serial: '', timestampSource: 'Device (local)' })
   const [calDate, setCalDate] = useState('')
+  const [calGas, setCalGas] = useState('')
   const [assessor, setAssessor] = useState({ name: '', credentials: '', firm: '' })
   const [client, setClient] = useState({ preparedFor: '' })
   const [refs, setRefs] = useState({})
@@ -131,6 +136,12 @@ export default function MonitoringReportSheet({ data, occupancyWindows = [], eve
 
   // Parameters that actually offer a choice of yardstick. One that offers a
   // single profile is still resolved — it just isn't worth a picker.
+  // The span gas only bears on TVOC, so the field only appears when TVOC was
+  // logged — an instrument spec nobody can act on is noise on every other
+  // report.
+  const hasTvoc = params.includes('tvoc')
+  const calGasParse = useMemo(() => parseCalibrationGas(calGas), [calGas])
+
   const choosable = useMemo(
     () => params.map((p) => ({ param: p, options: profilesFor(p) })).filter((x) => x.options.length > 1),
     [params],
@@ -160,6 +171,7 @@ export default function MonitoringReportSheet({ data, occupancyWindows = [], eve
         serial: p.iaq_serial || '',
       }))
       setCalDate((c) => c || p.iaq_cal_date || '')
+      setCalGas((g) => g || p.pid_cal_gas || '')
     })
     return () => { cancelled = true }
   }, [])
@@ -168,7 +180,8 @@ export default function MonitoringReportSheet({ data, occupancyWindows = [], eve
     !!profile && (
       (inst.model || '') !== (profile.iaq_meter || '') ||
       (inst.serial || '') !== (profile.iaq_serial || '') ||
-      (calDate || '') !== (profile.iaq_cal_date || '')
+      (calDate || '') !== (profile.iaq_cal_date || '') ||
+      (calGas || '') !== (profile.pid_cal_gas || '')
     )
 
   const generate = async () => {
@@ -188,6 +201,7 @@ export default function MonitoringReportSheet({ data, occupancyWindows = [], eve
           location: loc,
           instrument: inst,
           calibrationDate: calDate,
+          calibrationGas: calGas,
           assessor,
           client,
           referenceProfiles: refs,
@@ -212,6 +226,7 @@ export default function MonitoringReportSheet({ data, occupancyWindows = [], eve
           iaq_meter: inst.model || profile.iaq_meter,
           iaq_serial: inst.serial || profile.iaq_serial,
           iaq_cal_date: calDate || profile.iaq_cal_date,
+          pid_cal_gas: calGas || profile.pid_cal_gas,
         })
       }
       setDone({ fileName })
@@ -287,7 +302,24 @@ export default function MonitoringReportSheet({ data, occupancyWindows = [], eve
                 <input type="text" value={inst.serial} onChange={(e) => setInst({ ...inst, serial: e.target.value })} placeholder="Serial" style={INPUT} />
                 <input type="text" value={calDate} onChange={(e) => setCalDate(e.target.value)} placeholder="Calibration date" style={INPUT} />
               </div>
+              {/* The PID span gas. Not cosmetic provenance: when TVOC was
+                  logged in ppb, this compound's molecular weight is what the
+                  µg/m³ advisory tier is restated through, so a meter spanned
+                  to toluene and one spanned to isobutylene get different
+                  reference lines from the same readings. */}
+              {hasTvoc && (
+                <input type="text" value={calGas} onChange={(e) => setCalGas(e.target.value)} placeholder="PID calibration gas (e.g. Isobutylene 100 ppm)" style={INPUT} />
+              )}
             </div>
+            {hasTvoc && (
+              <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 6, lineHeight: 1.5 }}>
+                {calGasParse.recognised
+                  ? `TVOC references will be stated as ${calGasParse.reference.label.toLowerCase()}-equivalent (MW ${calGasParse.reference.mw}).`
+                  : calGasParse.recorded
+                    ? `"${calGasParse.stated}" is not a compound this conversion carries a molecular weight for — TVOC references will fall back to isobutylene and the report will say so.`
+                    : 'Left blank, TVOC references fall back to isobutylene and the report states that the calibration gas was not recorded.'}
+              </div>
+            )}
             {/* Calibration is never silently absent: if it is left blank the
                 report says so rather than letting a reader assume it was
                 verified. Stated here so that is a choice, not a surprise. */}

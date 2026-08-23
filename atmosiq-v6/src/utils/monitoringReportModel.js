@@ -481,6 +481,11 @@ export function buildMonitoringReportModel(session, opts = {}) {
     ts: dataset.summary && dataset.summary.start,
     outdoorBaseline,
     custom: obj(s.customRanges),
+    // The PID span gas, when the session recorded one. A TVOC tier published
+    // in µg/m³ and read against a ppb log is restated through this compound's
+    // molecular weight; without it the conversion falls back to isobutylene
+    // and the reference note says so.
+    calibrationGas: obj(s.calibration).gas,
   })
 
   // One statistics pass per parameter, shared by every section below so the

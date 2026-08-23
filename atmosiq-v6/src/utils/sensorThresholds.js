@@ -14,7 +14,7 @@
  */
 import { STD } from '../constants/standards'
 import { ppbToUgm3, ugm3ToPpb, convertTempValue } from './sensorParser'
-import { convertTvoc, tvocEquivalenceNote } from './vocConversion'
+import { convertTvoc, tvocEquivalenceNote, parseCalibrationGas } from './vocConversion'
 
 const HCHO_MW = 30.03
 
@@ -83,6 +83,10 @@ const round = (v, dp = 0) => (v == null ? null : Number(v.toFixed(dp)))
  * required advisory disclaimer (TVOC Mølhave / CO₂ ventilation surrogate).
  */
 export function paramReference(param, opts = {}) {
+  // `opts.calibrationGas` — the free-text PID span gas for this survey
+  // (`pid_cal_gas`). It decides which molecular weight the TVOC tier is
+  // restated through, and is named in the note either way. Absent, the
+  // conversion falls back to isobutylene and says that it did.
   const unit = opts.unit || ''
   const out = { category: categoryOf(param), unit, limit: null, limitLabel: null, band: null, refs: [], note: null }
 
@@ -122,7 +126,8 @@ export function paramReference(param, opts = {}) {
       out.refs = [`OSHA PEL: ${STD.c.co.osha} ppm`, `EPA NAAQS 8-h: ${STD.c.co.epa} ppm`]
       break
     case 'tvoc': {
-      const conv = convertTvoc(STD.c.tvoc.con, 'µg/m³', unit)
+      const calGas = parseCalibrationGas(opts.calibrationGas)
+      const conv = convertTvoc(STD.c.tvoc.con, 'µg/m³', unit, { reference: calGas.key })
       const baseNote = `TVOC has no consensus health limit; ${STD.c.tvoc.con} µg/m³ is the Mølhave 1991 `
         + 'multifactorial-exposure advisory tier, on a mass basis.'
       if (!conv) {
@@ -139,7 +144,7 @@ export function paramReference(param, opts = {}) {
       out.limitLabel = 'Mølhave advisory'
       out.refs = [`Mølhave advisory: <${STD.c.tvoc.con} µg/m³`]
       out.note = conv.crossedBasis
-        ? `${baseNote} Stated here as ${out.limit} ${unit} — ${tvocEquivalenceNote(conv.reference)}`
+        ? `${baseNote} Stated here as ${out.limit} ${unit} — ${tvocEquivalenceNote(conv.reference, calGas)}`
         : baseNote
       break
     }

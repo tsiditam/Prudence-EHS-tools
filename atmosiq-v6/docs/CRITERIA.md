@@ -334,6 +334,16 @@ permission: `resolveReference` attaches the named compound and the
 response-factor limitation to any value that crossed, and
 `tests/lib/vocConversion.test.ts` fails if a tier crosses without one.
 
+**`equivalenceBasis` is the default, not the answer.** The compound that
+actually applies is the one the meter was spanned to, and the app records it:
+`pid_cal_gas` per zone on an assessment, `calibration.gas` on a monitoring
+session. `parseCalibrationGas` reads it (whole-word matching — "isobutane" is
+not "isobutylene") and returns three states, each licensing a different
+sentence: recognised (a fact about this survey), recorded-but-unweighable
+(isobutylene is used and the note names the mismatch), and not recorded (a
+stated convention). Pass it as `ctx.calibrationGas` / `opts.calibrationGas`;
+a meter spanned to toluene resolves Mølhave at 133 ppb, not 218.
+
 All of it goes through one module, `src/utils/vocConversion.js`, in both
 directions — the published tier projecting into the logged unit, and a logged
 ppb reading converting into the engine's µg/m³ `tv` field.
