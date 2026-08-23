@@ -317,6 +317,56 @@ The technical/QA report keeps the fuller table (`benchmarkRowsFor`), narrowed
 to the parameters measured. Different audience, same generated rows — depth
 differs, the numbers cannot.
 
+### Limits and bands
+
+A criterion is one of two shapes:
+
+| Shape | Declares | Matches when | Example |
+|---|---|---|---|
+| **Limit** | `resolve()` → a number | `value > threshold` | CO NIOSH ceiling, 200 ppm |
+| **Band** | `resolveBand()` → `{min, max}` | `value < min` or `value > max` | ASHRAE 55 summer comfort, 73–79 °F |
+
+Bands arrived in 2026-08, and their absence is the reason this project's two
+worst citation errors were both in thermal comfort. Every parameter governed
+by the registry travels with a class, an averaging period and a checkable
+source, and **not one of them was wrong**. Temperature and relative humidity
+had no registry entry at all — they lived as bare numbers on `STD.t` — because
+the registry could only express "value > threshold" and comfort is a range.
+The one shape the registry could not hold is the one shape that went
+unaudited: an invented 67–82 °F "acceptable" band with a fabricated "optimal"
+tier inside it, and a 30–60 % humidity range credited to a standard that sets
+no lower limit at all.
+
+CLAUDE.md already stated the rule this violated — *never compare a measured
+value against a bare number from `STD`*. The gap was that for those two
+parameters there was nowhere else to put the number.
+`tests/engine/criterion-coverage.test.ts` now enforces it: every parameter the
+engine emits a finding for must name a registry criterion, and that criterion
+must carry an averaging period, a class and a source.
+
+Three consequences worth knowing when you add a band:
+
+1. **Every criterion exposes `resolve()`, `valueLabel` and `midpoint`,
+   whatever its shape.** A consumer should never have to branch. `${c.resolve()}`
+   printed `[object Object] °F` the moment a criterion stopped being a single
+   number, which is why `valueLabel` ("73–79") exists and is what renders.
+2. **A band may declare a SCOPE, and a scope the caller has not named is not a
+   match.** Today that is `season`: the two ASHRAE 55 bands overlap (winter
+   68–76, summer 73–79), so walking both makes 79 °F "outside the winter band"
+   in July. Pass `evaluateCriteria(param, value, basis, { season })`.
+3. **Both bounds ground.** A band finding prints two published numbers, so
+   `provenance.ts` returns `criterionValuesById` → `[min, max]`. Grounding only
+   one leaves a real published figure looking invented to the check that exists
+   to catch invented figures.
+
+The engine still owns the temperature comparison itself, because a building
+profile may narrow the band for a specialty occupancy and the registry does not
+know about profiles. What it takes from the registry is the **severity ceiling
+and the citation** — via `criterionById` — which is the part that had drifted:
+`scoreEnv` wrote `sev:'high'` for four months while
+`CRITERION_CLASS.comfort_consensus` declared a ceiling of `medium`, and nothing
+could see the disagreement because the branch was not governed by a criterion.
+
 ### Crossing units: the equivalence basis
 
 A threshold travels with its averaging period, class and source. Units are the

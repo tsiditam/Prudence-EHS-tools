@@ -50,7 +50,11 @@ const ADVICE = [
 describe('criterion statements', () => {
   it('never carry the criterion action', () => {
     for (const c of allCriteria() as any[]) {
-      const hit: any = evaluateCriteria(c.parameter, c.resolve() * 1.5 + 1, 'screening_grab')
+      // A band is missed from either side, so the probe that trips a limit
+      // (well above it) has to become "well outside" for a band. Using
+      // resolve() here would multiply an object.
+      const probe = c.band ? c.band.max + 10 : c.midpoint * 1.5 + 1
+      const hit: any = evaluateCriteria(c.parameter, probe, 'screening_grab')
       if (!hit) continue
       expect(hit.statement, `${hit.criterion.id} leaks its action`).not.toContain(hit.criterion.action)
       for (const re of ADVICE) {

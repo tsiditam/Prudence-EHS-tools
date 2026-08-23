@@ -85,7 +85,7 @@ function criterionRows() {
       : ''
     return [
       `${PARAMETER_LABEL[c.parameter] || c.parameter} (${c.label})`,
-      `${c.resolve()} ${c.unit}${period}`,
+      `${c.valueLabel} ${c.unit}${period}`,
       c.source,
       typeLabel,
       purpose,

@@ -473,7 +473,18 @@ When working on report generation:
   constant nested under another's citation inherits it.**
 - **A threshold travels with its averaging period, class and source.**
   `src/constants/criteria.js` is the registry; `docs/CRITERIA.md` explains
-  it. Never compare a measured value against a bare number from `STD` —
+  it. **This rule now has enforcement**
+  (`tests/engine/criterion-coverage.test.ts`): every parameter the engine
+  emits a finding for must name a registry criterion, and that criterion must
+  carry an averaging period, a class and a source. It was added after the two
+  parameters that had no entry — temperature and relative humidity — turned
+  out to be the only two whose citations were wrong. They had no entry because
+  the registry could only express `value > threshold` and comfort is a range;
+  **band criteria** (`resolveBand`) closed that in 2026-08. A band declares a
+  scope (`season`) that `evaluateCriteria` will not guess, exposes the same
+  `resolve()` / `valueLabel` / `midpoint` accessors as a limit, and grounds
+  BOTH bounds in `provenance.ts`. Never compare a measured value against a
+  bare number from `STD` —
   an 8-hour TWA compared to a grab reading produces a statement the
   measurement cannot support, which is how `CO — EXCEEDS OSHA PEL` shipped.
   Severity comes from the criterion's CLASS (a ventilation indicator can
