@@ -14,9 +14,9 @@
  */
 import { STD } from '../constants/standards'
 import { ppbToUgm3, ugm3ToPpb, convertTempValue } from './sensorParser'
+import { convertTvoc, tvocEquivalenceNote } from './vocConversion'
 
 const HCHO_MW = 30.03
-const ISOBUTYLENE_MW = 56.11
 
 // Overview groups parameters into these sections, in this order.
 export const CATEGORY = [
@@ -54,25 +54,22 @@ export function hchoToUnit(ppm, unit) {
 // TVOC published value (µg/m³) → the unit the log used. Exported for the
 // monitoring report's reference profiles (see hchoToUnit above).
 /**
- * Mølhave's tier in the unit the data was logged in — or null when that
- * cannot honestly be done.
+ * Mølhave's tier in the unit the data was logged in.
  *
- * mg/m3 and ug/m3 are the same measurand at different scales, so those
- * convert. ppb and ppm are not: crossing to them needs a molecular weight,
- * and Mølhave's 500 ug/m3 is the mass of a defined 22-compound mixture with
- * no single molecular weight to use. This used to reach for isobutylene's
- * (500 x 24.45 / 56.11 = 218 ppb) because that is what a PID is calibrated
- * against — but the PID's isobutylene-equivalent response and Mølhave's
- * mixture mass are different quantities, and the conversion made them look
- * like one. See `convertible` in constants/criteria.js.
+ * mg/m³ and µg/m³ are the same measurand at different scales, so those are
+ * an exact prefix shift. Crossing to ppb/ppm needs a molecular weight, and
+ * TVOC is a mixture with no single one — so the crossing is made against a
+ * named reference compound (isobutylene, the PID calibration gas) and the
+ * assumption is disclosed with the number. `convertTvoc` owns that policy;
+ * see `utils/vocConversion.js` for why it is a disclosure rather than a
+ * refusal, and `tvocEquivalenceNote` for the sentence that must ride along.
  *
- * Returns null rather than a number so a caller cannot accidentally render
- * a comparison that does not exist. Every caller must handle it.
+ * Returns null only for a unit with no recognised basis — a bare
+ * air-quality index, a blank — where there is nothing to convert between.
  */
-export function tvocToUnit(ugm3, unit) {
-  if (isMg(unit)) return ugm3 / 1000
-  if (isUg(unit)) return ugm3
-  return null
+export function tvocToUnit(ugm3, unit, opts = {}) {
+  const conv = convertTvoc(ugm3, 'µg/m³', unit, opts)
+  return conv ? conv.value : null
 }
 
 const round = (v, dp = 0) => (v == null ? null : Number(v.toFixed(dp)))
@@ -125,25 +122,25 @@ export function paramReference(param, opts = {}) {
       out.refs = [`OSHA PEL: ${STD.c.co.osha} ppm`, `EPA NAAQS 8-h: ${STD.c.co.epa} ppm`]
       break
     case 'tvoc': {
-      const molhave = tvocToUnit(STD.c.tvoc.con, unit)
-      if (molhave == null) {
-        // Logged in ppb/ppm — no comparison to Mølhave is available, and
-        // saying so is the finding. A converted number here would be a
-        // different quantity presented as the same one.
+      const conv = convertTvoc(STD.c.tvoc.con, 'µg/m³', unit)
+      const baseNote = `TVOC has no consensus health limit; ${STD.c.tvoc.con} µg/m³ is the Mølhave 1991 `
+        + 'multifactorial-exposure advisory tier, on a mass basis.'
+      if (!conv) {
+        // A unit with no basis at all — a bare air-quality index. There is
+        // nothing to convert between, so no reference line is offered.
         out.limit = null
         out.limitLabel = null
         out.refs = [`Mølhave advisory: <${STD.c.tvoc.con} µg/m³ (mass basis)`]
-        out.note =
-          `TVOC has no consensus health limit. The Mølhave 1991 advisory tier (${STD.c.tvoc.con} µg/m³) `
-          + 'is the mass concentration of a defined 22-compound mixture; this data is logged as '
-          + 'isobutylene-equivalent response, which is a different quantity. No valid comparison to '
-          + 'that tier can be made from these readings — they are reported in the units recorded.'
+        out.note = `${baseNote} These readings are logged in ${unit || 'an unrecognised unit'}, which has no `
+          + 'mass or volumetric basis, so no reference line is shown.'
         break
       }
-      out.limit = round(molhave, isMg(unit) ? 3 : 0)
+      out.limit = round(conv.value, isMg(unit) ? 3 : 0)
       out.limitLabel = 'Mølhave advisory'
       out.refs = [`Mølhave advisory: <${STD.c.tvoc.con} µg/m³`]
-      out.note = 'TVOC has no consensus health limit; 500 µg/m³ is the Mølhave 1991 multifactorial-exposure advisory tier, on a mass basis.'
+      out.note = conv.crossedBasis
+        ? `${baseNote} Stated here as ${out.limit} ${unit} — ${tvocEquivalenceNote(conv.reference)}`
+        : baseNote
       break
     }
     case 'hcho': {

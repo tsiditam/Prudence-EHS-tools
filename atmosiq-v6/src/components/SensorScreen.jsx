@@ -12,7 +12,7 @@
 
 import { useState } from 'react'
 import { SENSOR_FIELDS } from '../constants/questions'
-import { SENSOR_PARAMS, TVOC_REFERENCES, ppbToUgm3, ugm3ToPpb, sensorAveragesToFields } from '../utils/sensorParser'
+import { SENSOR_PARAMS, TVOC_REFERENCES, convertTvoc, sensorAveragesToFields } from '../utils/sensorParser'
 import { mix } from '../utils/theme'
 
 const paramLabel = (key) => SENSOR_PARAMS.find((p) => p.key === key)?.label || key
@@ -51,8 +51,8 @@ export default function SensorScreen({ data, onChange, sensorData, isDesktop, sh
   const tvocConverted = (() => {
     const v = Number(tvocIn.val)
     if (tvocIn.val === '' || !Number.isFinite(v)) return null
-    const ug = ppbToUgm3(tvocIn.unit === 'ppm' ? v * 1000 : v, TVOC_REFERENCES[tvocRef].mw)
-    return ug == null ? null : Math.round(ug)
+    const conv = convertTvoc(v, tvocIn.unit, 'µg/m³', { reference: tvocRef })
+    return conv == null ? null : Math.round(conv.value)
   })()
 
   // ppb-equivalent of the µg/m³ value currently entered in the TVOC field, so
@@ -60,8 +60,8 @@ export default function SensorScreen({ data, onChange, sensorData, isDesktop, sh
   const tvocPpbEquiv = (() => {
     const v = Number(data.tv)
     if (String(data.tv ?? '').trim() === '' || !Number.isFinite(v)) return null
-    const ppb = ugm3ToPpb(v, TVOC_REFERENCES[tvocRef].mw)
-    return ppb == null ? null : Math.round(ppb)
+    const conv = convertTvoc(v, 'µg/m³', 'ppb', { reference: tvocRef })
+    return conv == null ? null : Math.round(conv.value)
   })()
 
   return (

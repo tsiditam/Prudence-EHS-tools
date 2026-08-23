@@ -64,6 +64,7 @@
 import { STD } from '../constants/standards'
 import { CRITERIA } from '../constants/criteria'
 import { paramReference, tvocToUnit, hchoToUnit } from './sensorThresholds'
+import { tvocEquivalenceNote, TVOC_REFERENCES } from './vocConversion'
 
 const isNum = (v) => v != null && Number.isFinite(v)
 const round = (v, dp = 0) => (isNum(v) ? Number(v.toFixed(dp)) : null)
@@ -191,7 +192,7 @@ const PROFILES = {
   tvoc: [
     {
       id: 'molhave',
-      massBasis: true,
+      equivalenceBasis: 'isobutylene',
       label: 'Mølhave advisory (500 µg/m³)',
       criterionId: 'tvoc_molhave_concern',
       source: 'Mølhave 1991',
@@ -199,7 +200,7 @@ const PROFILES = {
     },
     {
       id: 'molhave-action',
-      massBasis: true,
+      equivalenceBasis: 'isobutylene',
       label: 'Mølhave action tier (3,000 µg/m³)',
       criterionId: 'tvoc_molhave_action',
       source: 'Mølhave 1991',
@@ -207,7 +208,7 @@ const PROFILES = {
     },
     {
       id: 'well',
-      massBasis: true,
+      equivalenceBasis: 'isobutylene',
       label: 'WELL v2 performance (500 µg/m³)',
       source: 'WELL Building Standard v2 (A01)',
       // Must still carry the "no consensus health limit" TVOC disclaimer (the
@@ -326,8 +327,14 @@ export function parametersWithProfiles() {
  */
 function citationFor(param, profile) {
   if (!profile.criterionId) return profile.source || null
-  const c = (CRITERIA[param] || []).find((x) => x.id === profile.criterionId)
+  const c = criterionFor(param, profile)
   return (c && c.source) || profile.source || null
+}
+
+/** The registry entry a profile points at, when it points at one. */
+function criterionFor(param, profile) {
+  if (!profile.criterionId) return null
+  return (CRITERIA[param] || []).find((x) => x.id === profile.criterionId) || null
 }
 
 export function resolveReference(param, profileId, ctx = {}) {
@@ -345,25 +352,28 @@ export function resolveReference(param, profileId, ctx = {}) {
   // A profile that resolved to nothing while REQUIRING something is a missing
   // input, not a missing standard — the distinction the report needs in order
   // to explain itself.
-  let unavailable = !limit && !band && !!profile.requires ? profile.requires : null
+  const unavailable = !limit && !band && !!profile.requires ? profile.requires : null
 
-  // A third case, distinct from both of those: the reference EXISTS and the
-  // data exists, but the comparison between them does not. A mass-basis TVOC
-  // tier (Mølhave, WELL) is a mass concentration of a defined mixture; data
-  // logged in ppb/ppm is isobutylene-equivalent PID response. Crossing
-  // between them needs a molecular weight, which means assuming which
-  // compound was measured — so `tvocToUnit` returns null rather than the
-  // 218 ppb this used to manufacture. See `convertible` in criteria.js.
+  // A TVOC tier published in µg/m³ (Mølhave, WELL) meeting data logged in
+  // ppb is the third case, and it is neither of the two above: the reference
+  // exists, the data exists, and the comparison is available — but only
+  // against a named reference compound, because TVOC is a mixture with no
+  // single molecular weight. Isobutylene is that compound by convention; it
+  // is what the PID was calibrated against and what its own µg/m³ display
+  // already uses internally.
   //
-  // The reason rides on `note` as well as `unavailable` because `note`
-  // renders and `unavailable` currently does not. A reader must not be left
-  // with a reference line that simply vanished.
-  const massBasisUnavailable =
-    !!profile.massBasis && !limit && !!(ctx && ctx.unit) && !isMassUnit(ctx.unit)
+  // So the tier resolves in ppb, and the assumption travels with it on
+  // `note` — which renders — rather than the number being withheld. A
+  // withheld reference leaves a ppb-logging PID with no tier at all while
+  // the same instrument set to µg/m³ keeps one, which is a property of the
+  // display setting, not of the air. See `utils/vocConversion.js`.
+  const equivalenceBasis =
+    (criterionFor(param, profile) || {}).equivalenceBasis || profile.equivalenceBasis || null
   let note = profile.note || null
-  if (massBasisUnavailable) {
-    unavailable = `${profile.label} is a mass concentration (µg/m³) of a defined VOC mixture. This data is logged in ${ctx.unit} as isobutylene-equivalent response — a different quantity — so no valid comparison to that tier can be made from these readings.`
-    note = note ? `${note} ${unavailable}` : unavailable
+  if (equivalenceBasis && isNum(limit) && !!(ctx && ctx.unit) && !isMassUnit(ctx.unit)) {
+    const disclosure = `${profile.label} is published as a mass concentration; stated here in ${ctx.unit}. `
+      + tvocEquivalenceNote(TVOC_REFERENCES[equivalenceBasis])
+    note = note ? `${note} ${disclosure}` : disclosure
   }
 
   // The higher acute ("red") tier rides on the resolved reference, but ONLY

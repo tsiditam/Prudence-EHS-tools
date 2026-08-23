@@ -24,7 +24,7 @@ import GhostButton from '../ui/GhostButton'
 import Select from '../ui/Select'
 import RoleBadge from '../ui/RoleBadge'
 import InlineError from '../ui/InlineError'
-import { parseSensorRows, SENSOR_PARAMS, TVOC_REFERENCES, ppbToUgm3, ugm3ToPpb, HCHO_MW, normalizeSensorData, primaryDataset, alignDatasets, sensorAveragesToFields, detectDatasetRole, SENSOR_DATA_VERSION, withDisplayTempUnit } from '../../utils/sensorParser'
+import { parseSensorRows, SENSOR_PARAMS, convertTvoc, tvocBasis, ppbToUgm3, HCHO_MW, normalizeSensorData, primaryDataset, alignDatasets, sensorAveragesToFields, detectDatasetRole, SENSOR_DATA_VERSION, withDisplayTempUnit } from '../../utils/sensorParser'
 import SendToReportSheet from './SendToReportSheet'
 import MonitoringReportSheet from './MonitoringReportSheet'
 import ProjectSpreadsheetPicker from './ProjectSpreadsheetPicker'
@@ -75,12 +75,12 @@ const fmtAvg = (v) => {
 // volume-based readers see a familiar number. µg/m³ stays the canonical
 // scored unit; this line is informational only.
 const tvocEquivLabel = (mean, unit) => {
-  const mw = TVOC_REFERENCES.isobutylene.mw
-  const u = String(unit || '').toLowerCase()
-  if (/µg|ug/.test(u)) { const ppb = ugm3ToPpb(mean, mw); return ppb == null ? null : `≈ ${Math.round(ppb)} ppb (isobutylene-equiv)` }
-  if (u.includes('ppm')) { const ug = ppbToUgm3(mean * 1000, mw); return ug == null ? null : `≈ ${Math.round(ug)} µg/m³ (isobutylene-equiv)` }
-  if (u.includes('ppb')) { const ug = ppbToUgm3(mean, mw); return ug == null ? null : `≈ ${Math.round(ug)} µg/m³ (isobutylene-equiv)` }
-  return null
+  const basis = tvocBasis(unit)
+  if (!basis) return null
+  const target = basis === 'mass' ? 'ppb' : 'µg/m³'
+  const conv = convertTvoc(mean, unit, target)
+  if (!conv || !conv.reference) return null
+  return `≈ ${Math.round(conv.value)} ${target} (${conv.reference.label.toLowerCase()}-equiv)`
 }
 // Formaldehyde source-unit provenance. After the parser normalizes HCHO to
 // ppb at parse time (see sensorParser.js `hchoSourceToPpb`), the card always

@@ -84,17 +84,27 @@ describe('paramReference', () => {
     expect(paramReference('temp', { unit: '°F', ts: summer }).band.max).toBe(82)
   })
 
-  it('TVOC → no ppb comparison to Mølhave, and the note says why', () => {
-    // Was "~218 ppb". That number came from 500 × 24.45 ÷ 56.11 —
-    // isobutylene's molecular weight — which is what a PID is calibrated
-    // against but NOT what Mølhave's tier measures. Its 500 µg/m³ is the
-    // mass of a defined 22-compound mixture. The conversion swapped the
-    // measurand and the report then compared the two as one quantity.
+  it('TVOC → Mølhave in ppb, against isobutylene, with the assumption stated', () => {
+    // 500 × 24.45 ÷ 56.11 = 218. Isobutylene's molecular weight is what the
+    // PID was calibrated against and what its own µg/m³ display already uses
+    // internally, so this restates the tier on the instrument's own basis
+    // rather than substituting a measurand. What it cannot do is speciate —
+    // and that is true in µg/m³ too, which is why it is disclosed here and
+    // not used to withhold the tier from ppb-logging meters.
     const r = paramReference('tvoc', { unit: 'ppb' })
-    expect(r.limit).toBeNull()
+    expect(r.limit).toBe(218)
     expect(r.note).toMatch(/Mølhave 1991/)
-    expect(r.note).toMatch(/different quantity/i)
-    // The tier is still cited — on its own basis, so a reader can go to it.
+    expect(r.note).toMatch(/isobutylene-equivalent/i)
+    expect(r.note).toMatch(/TO-17/)
+  })
+
+  it('TVOC → a unit with no basis gets no reference line at all', () => {
+    // A bare air-quality index is neither a mass nor a volumetric reading.
+    // There is nothing to convert between, so nothing is offered — and the
+    // note says that, rather than the line silently vanishing.
+    const r = paramReference('tvoc', { unit: 'index' })
+    expect(r.limit).toBeNull()
+    expect(r.note).toMatch(/no mass or volumetric basis/i)
     expect(r.refs[0]).toMatch(/500 µg\/m³ \(mass basis\)/)
   })
 
