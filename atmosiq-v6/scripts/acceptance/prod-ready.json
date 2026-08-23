@@ -2517,6 +2517,18 @@
         },
         {
           "type": "grep_excludes",
+          "pattern": ">[^<]*(Transparent Scoring Summary|Max Points|priority-weighted mean|AtmosFlow applies a deterministic scoring methodology)|'Appendix B [^']*Transparent Scoring",
+          "paths": [
+            "src/components",
+            "src/engine",
+            "src/engines",
+            "src/report",
+            "src/utils"
+          ],
+          "_comment": "The methodology PROSE, not just the arithmetic. PrintReport.jsx published 'Appendix B \u2014 Transparent Scoring Summary' \u2014 the composite formula, the 25/25/20/15/15 point caps and a 1.5x weight for data halls \u2014 in a client deliverable for four months after v3.0 removed the score, and every check here stayed green. Two reasons, both now closed: the checks matched code shapes while this was rendered text, and the one guard that did sweep the file (no-scoring.test.ts) hunted for comparison operators that an HTML template writes as &lt; entities. That test now decodes entities and matches prose; this criterion is the independent second pair of eyes, because a single guard that can be blinded is not a guard. The pattern is anchored to a RENDERED shape \u2014 the phrase must follow a '>' inside a tag, or sit in the toc.push string literal \u2014 because the acceptance runner greps raw text with no comment stripping, and every file involved carries a removal record naming the section. Verified both ways before it was wired in: it matches all five of the lines that actually shipped, and none of the removal-record comments that describe them."
+        },
+        {
+          "type": "grep_excludes",
           "pattern": "score: (comp|composite|assessment\\.comp)",
           "paths": [
             "src/utils/backup.js",
