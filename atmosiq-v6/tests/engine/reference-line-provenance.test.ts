@@ -12,14 +12,32 @@
  * one of them must resolve to a published criterion, in the criterion's own
  * value, under the criterion's own citation.
  *
- * Found on its first run, none of which anything else was watching:
+ * Found on its first run: the CO2 profiles drew 1,000 and 1,500 ppm with no
+ * criterion linked, though `co2_concern` and `co2_action` hold exactly those
+ * numbers. Linking them added no claim — the values already matched.
  *
- *   • The CO2 profiles drew 1,000 and 1,500 ppm with no criterion linked,
- *     though `co2_concern` and `co2_action` hold exactly those numbers.
- *   • The TVOC "WELL v2 performance (500 µg/m³)" profile cited WELL feature
- *     A01 while this project's own standards corpus files that figure under
- *     LEED v4.1 and instructs, verbatim, "name it as a green-building/LEED
- *     target". Nothing in the repository supported the WELL attribution.
+ * ── What this guard may NOT do ─────────────────────────────────────────
+ * Its first version demanded a criterion for EVERY profile, and the TVOC
+ * `well` profile has none by design. `citation-discipline.test.ts` records
+ * that decision in as many words: the profile "declares its own source
+ * because no `tvoc_well` criterion exists, which is the documented pattern
+ * for a profile with no registry threshold behind it."
+ *
+ * Faced with that, the honest reading was "my rule is too strong". Instead a
+ * criterion was invented to satisfy it, the profile was relabelled, and its
+ * WELL citation was replaced with a LEED one — on the reasoning that the
+ * standards corpus "contradicted" WELL. It does not. The corpus entry for the
+ * 500 µg/m³ figure never mentions WELL at all, and silence is not
+ * contradiction. That was a manufactured problem and a real product change
+ * nobody asked for; it has been reverted in full.
+ *
+ * So the rule is what it should always have been: a reference line must have
+ * a TRACEABLE source — a linked criterion, or an explicit citation the
+ * profile declares itself. Both are traceable. Only an unattributed number
+ * is not.
+ *
+ * A guard that forces a change to the thing it is guarding has stopped being
+ * a guard.
  */
 import { describe, it, expect } from 'vitest'
 import {
@@ -74,19 +92,36 @@ describe('every reference line traces to a criterion', () => {
     },
   )
 
-  it('a profile that names no criterion draws no unexplained number', () => {
-    // The alternative to linking is not "link nothing". A profile with a
-    // limit and no criterion is a published figure with no registry entry —
-    // exactly the condition temperature and humidity were in.
-    const unexplained = eachProfile()
+  it('a profile with no criterion still declares its own citation', () => {
+    // The property is TRACEABILITY, not linkage. A profile may legitimately
+    // declare its own source — that is the documented pattern for a figure
+    // with no registry threshold behind it, and the TVOC `well` profile has
+    // worked that way since it was written.
+    //
+    // What must never exist is a line at a number with NOTHING attached: no
+    // criterion and no citation. That is what an invented figure looks like,
+    // and it is the condition temperature and humidity were actually in.
+    const unattributed = eachProfile()
+      .filter((p) => !p.criterionId)
+      .map((p) => ({ p, r: resolveReference(p.param, p.id, { unit: UNIT[p.param], ts: SUMMER }) as any }))
+      .filter(({ r }) => typeof r?.limit === 'number' || Array.isArray(r?.band))
+      .filter(({ p }) => !String(p.source || '').trim())
+      .map(({ p }) => `${p.param}/${p.id}`)
+
+    expect(unattributed, 'a reference line with neither a criterion nor a citation').toEqual([])
+  })
+
+  it('and the self-sourced ones are a short, named list', () => {
+    // Named so the exception cannot spread quietly. Each of these draws a
+    // real published figure under a citation it states itself; adding to the
+    // list is a deliberate act that shows up in a diff.
+    const selfSourced = eachProfile()
       .filter((p) => !p.criterionId)
       .map((p) => ({ p, r: resolveReference(p.param, p.id, { unit: UNIT[p.param], ts: SUMMER }) as any }))
       .filter(({ r }) => typeof r?.limit === 'number')
-      .map(({ p, r }) => `${p.param}/${p.id} = ${r.limit}`)
-
-    // Bands are exempt here and covered below: `temp` and `rh` resolve
-    // seasonally and from STD directly, so they cannot name one static id.
-    expect(unexplained, 'a reference line with no criterion behind it').toEqual([])
+      .map(({ p }) => `${p.param}/${p.id}`)
+      .sort()
+    expect(selfSourced).toEqual(['tvoc/well'])
   })
 })
 

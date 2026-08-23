@@ -219,23 +219,12 @@ const PROFILES = {
     {
       id: 'well',
       equivalenceBasis: 'isobutylene',
-      // Was labelled "WELL v2 performance (500 µg/m³)", sourced to "WELL
-      // Building Standard v2 (A01)". Nothing in this repository supports that
-      // attribution and its own standards corpus contradicts it: the entry
-      // `tvoc-500-green-building-target` files the figure under LEED v4.1's
-      // Indoor Air Quality Assessment credit and instructs, in as many words,
-      // "when citing 500 µg/m³, name it as a green-building/LEED target".
-      //
-      // WELL v2 A01 may well ALSO specify 500 µg/m³ — the three other WELL
-      // criteria in the registry (CO, PM2.5, PM10) cite A01 and are sound. It
-      // is not verified here, and a citation nobody in this repo can check is
-      // the exact shape of the two that turned out to be wrong. So the claim
-      // is narrowed to what the corpus supports rather than resolved by
-      // guesswork; restoring the WELL attribution needs the documentation in
-      // hand. The NUMBER is unchanged — only what it is credited to.
-      criterionId: 'tvoc_leed_target',
-      label: 'Green-building target (500 µg/m³)',
-      note: 'TVOC has no consensus health limit. The 500 µg/m³ figure is a green-building acceptance value used in post-construction air testing (LEED v4/v4.1 EQ), not a health-based limit, and not one of the Mølhave 1991 dose-response tiers.',
+      label: 'WELL v2 performance (500 µg/m³)',
+      source: 'WELL Building Standard v2 (A01)',
+      // Must still carry the "no consensus health limit" TVOC disclaimer (the
+      // standing anti-pattern) — WELL's 500 µg/m³ is a certification target, not
+      // a health limit.
+      note: 'TVOC has no consensus health limit; the WELL Building Standard v2 (A01) 500 µg/m³ figure is a green-building certification performance target, not a health-based limit — confirm against the current WELL v2 documentation.',
       resolve: (ctx) => ({ limit: round(tvocToUnit(STD.c.tvoc.well, ctx && ctx.unit, { reference: calGasKey(ctx) }), isMg(ctx && ctx.unit) ? 3 : 0) }),
     },
     // Offered deliberately: with no consensus health limit, an assessor may

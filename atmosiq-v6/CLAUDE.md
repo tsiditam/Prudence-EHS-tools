@@ -506,6 +506,18 @@ When working on report generation:
   **When you add a threshold**, the work is not done when the number is right.
   It is done when a second, independently written record says the same thing,
   or when the gap ledger says why it does not yet.
+
+  **And a guard never justifies changing the thing it guards.** The first
+  version of `reference-line-provenance` demanded a criterion for every
+  profile. The TVOC `well` profile has none by design — a decision recorded in
+  `citation-discipline.test.ts` as "the documented pattern for a profile with
+  no registry threshold behind it". Rather than weaken the over-strong rule, a
+  criterion was invented, a manifest entry added, and a user-visible citation
+  changed from WELL to LEED on the claim that the corpus contradicted WELL. It
+  does not; the corpus is silent on WELL for that figure, and silence is not
+  contradiction. All of it was reverted. **Absence of corroboration is not
+  evidence of error, and a rule written today does not outrank a decision
+  documented yesterday.**
 - **A threshold travels with its averaging period, class and source.**
   `src/constants/criteria.js` is the registry; `docs/CRITERIA.md` explains
   it. **This rule now has enforcement**

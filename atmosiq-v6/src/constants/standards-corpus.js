@@ -239,9 +239,6 @@ export const STANDARDS_CORPUS = [
   },
   {
     id: 'tvoc-500-green-building-target',
-    figures: [
-      { criterionId: 'tvoc_leed_target', value: 500, unit: 'µg/m³' },
-    ],
     title: 'General / LEED 500 µg/m³ TVOC target (green-building convention)',
     citation: 'USGBC LEED v4.1 EQ "Indoor Air Quality Assessment" credit (air-testing option)',
     document: 'LEED-v4',

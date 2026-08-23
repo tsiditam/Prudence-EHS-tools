@@ -623,30 +623,6 @@ export const CRITERIA = {
       action: 'TVOC is a non-specific sum and identifies no individual compound; speciate per EPA Method TO-17 (thermal desorption GC/MS) to identify the source.',
     }),
     criterion({
-      // Opt-in only (certification_target), like the CO / PM2.5 / PM10 WELL
-      // entries. It exists because the Logger Studio profile drew a 500 µg/m³
-      // line with NO criterion behind it — a published figure with no registry
-      // entry, which is the exact condition temperature and humidity were in
-      // when they turned out to be wrong. The corpus documents this one
-      // explicitly: "the USGBC LEED v4 / v4.1 EQ Indoor Air Quality Assessment
-      // credit lists a maximum TVOC concentration of 500 µg/m³ for the
-      // post-construction air-testing option".
-      //
-      // The profile used to credit this to WELL v2 feature A01. Nothing in
-      // this repository supports that, and the corpus says in as many words:
-      // "when citing 500 µg/m³, name it as a green-building/LEED target".
-      id: 'tvoc_leed_target',
-      equivalenceBasis: 'isobutylene',
-      label: 'LEED green-building target',
-      resolve: () => STD.c.tvoc.well,
-      unit: 'µg/m³',
-      averaging: 'instantaneous',
-      class: 'certification_target',
-      severity: 'medium',
-      source: 'USGBC LEED v4.1 EQ — Indoor Air Quality Assessment credit (air-testing option)',
-      action: 'A post-construction acceptance value for green-building certification, not a health-based limit and not one of the Mølhave dose-response tiers. Relevant only where the project is pursuing the credit.',
-    }),
-    criterion({
       id: 'tvoc_molhave_concern',
       equivalenceBasis: 'isobutylene',
       label: 'Mølhave advisory tier',

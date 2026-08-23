@@ -135,14 +135,6 @@ describe('a certification target is opt-in, never applied by the engine', () => 
     // Only the LINKED ones — the TVOC profile declares its own source
     // because no `tvoc_well` criterion exists, which is the documented
     // pattern for a profile with no registry threshold behind it.
-    //
-    // 2026-08: that TVOC profile no longer cites WELL at all. It was labelled
-    // "WELL v2 performance" and sourced to feature A01, and nothing in this
-    // repository supported it — the standards corpus files the same 500 µg/m³
-    // under LEED v4.1 and says to name it as a green-building target. The
-    // profile ID stays 'well' because it is a PERSISTENCE KEY: saved reports
-    // store the selected profile id, and renaming it would silently fall them
-    // back to the first profile. An id is not a claim; the citation is.
     const linked = well.filter((p) => p.criterionId)
     expect(linked.length, 'no WELL profile still links a criterion').toBeGreaterThan(0)
     const ids = new Set(allCriteria().map((c) => c.id))
@@ -152,31 +144,10 @@ describe('a certification target is opt-in, never applied by the engine', () => 
 
     // And the citation still resolves through the registry, which is the
     // whole reason the criteria are kept rather than deleted.
-    // `profilesFor()` resolves the SOURCE but does not expose `criterionId`,
-    // so the linkage has to come from the raw table. Reading it off the
-    // resolved shape made every profile look unlinked.
-    const linkedIds = new Set(
-      Object.entries(raw).flatMap(([param, ps]) =>
-        ps.filter((x) => x.criterionId).map((x) => `${param}:${x.id}`)),
-    )
     for (const param of parametersWithProfiles() as string[]) {
       for (const p of profilesFor(param) as Array<{ id: string; source?: string }>) {
         if (p.id !== 'well') continue
-        expect(p.source, `profile 'well' for ${param} resolved no citation`).toBeTruthy()
-        // A profile linked to a WELL criterion must cite WELL. The unlinked
-        // TVOC one must cite whatever the corpus actually supports — and must
-        // NOT claim WELL, which is the misattribution this records.
-        // The rule is that a profile cites its CRITERION, and that a criterion
-        // named *_well cites WELL. The profile id is a persistence key and
-        // proves nothing on its own — tvoc/well now links `tvoc_leed_target`
-        // and correctly cites LEED.
-        const cid = raw[param]?.find((x) => x.id === p.id)?.criterionId
-        expect(linkedIds.has(`${param}:${p.id}`), `${param}/well draws a line with no criterion`).toBe(true)
-        const c = allCriteria().find((x) => x.id === cid)!
-        expect(p.source, `${param}/well does not cite its criterion`).toBe(c.source)
-        if (/_well$/.test(String(cid))) {
-          expect(c.source, `${cid} no longer cites WELL`).toMatch(/WELL/i)
-        }
+        expect(p.source, `WELL profile for ${param} resolved no citation`).toMatch(/WELL/i)
       }
     }
   })

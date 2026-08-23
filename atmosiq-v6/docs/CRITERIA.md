@@ -381,12 +381,24 @@ client keeps, and nobody reads it as an opinion. So every one must resolve to
 a criterion, in the criterion's value (any unit projection), under the
 criterion's own citation.
 
-It found two on its first run: the CO₂ profiles drew 1,000 and 1,500 ppm with
-no criterion linked though `co2_concern` / `co2_action` hold exactly those
-numbers; and the TVOC profile labelled "WELL v2 performance (500 µg/m³)" cited
-WELL feature A01 while the corpus files that figure under LEED v4.1 and
-instructs "name it as a green-building/LEED target". The number was right and
-the attribution had nothing behind it.
+It found one on its first run: the CO₂ profiles drew 1,000 and 1,500 ppm with
+no criterion linked, though `co2_concern` / `co2_action` hold exactly those
+numbers. Linking them added no claim — the values already matched.
+
+**The rule is traceability, not linkage**, and the first version of this guard
+got that wrong. It demanded a criterion for every profile, which the TVOC
+`well` profile has none of *by design* — `citation-discipline.test.ts` records
+that as "the documented pattern for a profile with no registry threshold
+behind it". The correct response to a guard flagging a deliberate decision is
+to fix the guard. Instead a criterion was invented to satisfy it and the
+profile's WELL citation was replaced with a LEED one, on the reasoning that
+the corpus "contradicted" WELL. It does not — the corpus entry for that figure
+never mentions WELL, and silence is not contradiction. Reverted in full.
+
+A profile therefore satisfies this guard by linking a criterion **or** by
+declaring its own citation. What fails is a line at a number with neither, and
+the self-sourced profiles are pinned as a named list so the exception cannot
+spread quietly.
 
 It also checks the **label**: "Mølhave advisory (500 µg/m³)" states the figure
 in text, where a stale one is invisible to any check that only reads the
