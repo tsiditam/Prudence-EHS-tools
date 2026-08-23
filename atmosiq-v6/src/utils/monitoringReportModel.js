@@ -22,12 +22,16 @@
  * never a second pipeline — so the two can never disagree about a number.
  *
  * ── Status vocabulary ──────────────────────────────────────────────────
- * Within Reference · Above Reference · Outside Reference · Review Suggested
+ * Within Reference · Above Reference · Outside Reference
+ * (either of the last two may add "— review suggested")
  *
  * Deliberately not "Elevated": that reads as an interpretation of what a
- * measurement means. These four say only where the measurement sat relative
- * to the reference the assessor selected — and "Review Suggested" asks for a
- * professional's eye rather than pronouncing on the result.
+ * measurement means. These say only where the measurement sat relative to
+ * the reference the assessor selected — and "review suggested" asks for a
+ * professional's eye rather than pronouncing on the result. It is a SUFFIX,
+ * never a replacement: a badge that stops saying where the readings sat in
+ * order to ask for review leaves the reader unable to rank it against one
+ * that does.
  * "Outside" (not "Above") is used for comfort bands, which can be breached
  * in either direction.
  */
@@ -109,18 +113,33 @@ export function statusFor(stats, reference, opts = {}) {
   // gradation is worth having — but the words are what the report is held to,
   // and "Elevated" or "Investigation Recommended" would be an interpretation
   // of what a measurement means rather than a statement of where it sat.
+  // ── Why the top tier still says where the readings sat ───────────────
+  //
+  // It used to REPLACE the position with the ask: 0.6% above read "Above
+  // Reference" and 99.4% above read "Review Suggested". A reader cannot
+  // order those — one states a position, the other makes a request — and
+  // "Review Suggested" is the softer-sounding of the two while describing
+  // the far worse condition. The most significant finding in a report was
+  // wearing the gentlest words in the vocabulary.
+  //
+  // The vocabulary was not the problem and is unchanged: "Above Reference"
+  // states where the measurement sat, and "review suggested" asks for a
+  // professional's eye without pronouncing on the result. The fix is that
+  // the ask is now ADDITIVE. Every non-zero case reads "Above Reference",
+  // so severity is recoverable from the words, and the escalating tone plus
+  // the strip's own "% Above" carry the magnitude.
   if (isNum(reference.limit) && isNum(stats.pctAbove)) {
     if (stats.pctAbove === 0) return { id: 'within', label: 'Within Reference', tone: 'ok' }
     if (stats.pctAbove <= 5) return { id: 'above', label: 'Above Reference', tone: 'notice' }
     if (stats.pctAbove <= 15) return { id: 'above', label: 'Above Reference', tone: 'warn' }
-    return { id: 'review', label: 'Review Suggested', tone: 'review' }
+    return { id: 'review', label: 'Above Reference — review suggested', tone: 'review', reviewSuggested: true }
   }
 
   if (reference.band && isNum(stats.pctInBand)) {
     if (stats.pctInBand >= 97) return { id: 'within', label: 'Within Reference', tone: 'ok' }
     if (stats.pctInBand >= 93) return { id: 'outside', label: 'Outside Reference', tone: 'notice' }
     if (stats.pctInBand >= 90) return { id: 'outside', label: 'Outside Reference', tone: 'warn' }
-    return { id: 'review', label: 'Review Suggested', tone: 'review' }
+    return { id: 'review', label: 'Outside Reference — review suggested', tone: 'review', reviewSuggested: true }
   }
 
   return null

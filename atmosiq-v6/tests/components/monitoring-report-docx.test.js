@@ -370,20 +370,25 @@ describe('the status colour scale', () => {
     expect(text).toContain('●')
   })
 
-  it('scales in four steps while the words stay the locked three', () => {
+  it('scales in four tones while every non-zero case states the position', () => {
     const tones = new Set()
-    const labels = new Set()
+    const labels = []
     ;[0, 3, 10, 40].forEach((pctAbove) => {
       const s = statusForProbe(pctAbove)
       tones.add(s.tone)
-      labels.add(s.label)
+      labels.push(s.label)
     })
     expect(tones.size).toBe(4)
     // "Elevated" and "Investigation Recommended" would be interpretations of
     // what a measurement means; these say only where it sat.
-    labels.forEach((l) => {
-      expect(l).not.toMatch(/elevated|investigat/i)
-    })
-    expect([...labels].sort()).toEqual(['Above Reference', 'Review Suggested', 'Within Reference'])
+    labels.forEach((l) => expect(l).not.toMatch(/elevated|investigat/i))
+
+    // Was pinned to three labels, one of which — "Review Suggested" —
+    // REPLACED the position at the top of the scale, so the worst reading
+    // was the only one that did not say where it sat, and it read softer
+    // than the ones that did. The ask is a suffix now.
+    expect(labels[0]).toBe('Within Reference')
+    labels.slice(1).forEach((l) => expect(l).toContain('Above Reference'))
+    expect(labels[3]).toMatch(/review suggested$/)
   })
 })

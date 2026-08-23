@@ -240,11 +240,15 @@ describe('datasetHighlights', () => {
   it('drops a meaningless trailing decimal but keeps a meaningful one', () => {
     // "80%" reads as written; "99.2%" carries information "99%" would lose.
     expect(hl.find((h) => h.id === 'within-temp')!.text).toContain('80%')
+    // Was pinned on the complement — "99.9% below" from 1 reading in 1,000
+    // above. That sentence reports the share ABOVE now, so the precision
+    // rule is asserted on the number actually printed: 0.1%, where dropping
+    // the decimal would round to 0% and read as no exceedance at all.
     const nearly = Array(1000).fill(400)
-    nearly[0] = 1200 // 99.9% below the reference
+    nearly[0] = 1200
     const st = parameterStats(pts(nearly), 'co2', { reference: { limit: 1000 } })
     const out = datasetHighlights([{ param: 'co2', stats: st, reference: { limit: 1000 } }] as never)
-    expect(out.find((h) => h.id === 'within-co2')!.text).toContain('99.9%')
+    expect(out.find((h) => h.id === 'above-co2')!.text).toContain('0.1%')
   })
 
   it('never rounds a percentage up to 100% when the reference WAS exceeded', () => {
@@ -256,8 +260,13 @@ describe('datasetHighlights', () => {
     expect(st!.pctAbove).toBeGreaterThan(0)
 
     const highlight = datasetHighlights([{ param: 'co2', stats: st, reference: { limit: 1000 } }] as never)
-      .find((h) => h.id === 'within-co2')!.text
+      .find((h) => h.id === 'above-co2')!.text
     expect(highlight).not.toContain('100%')
+    // The hazard this test was written for existed only because the
+    // sentence reported the COMPLEMENT — 99.98% below, rounding to 100%.
+    // It now reports the share above, so there is no complement to round
+    // and the whole class of error is gone rather than guarded against.
+    expect(highlight).toMatch(/exceeded the selected reference/)
 
     const statement = parameterStatement('co2', st, { limit: 1000 })!
     expect(statement).not.toContain('100%')

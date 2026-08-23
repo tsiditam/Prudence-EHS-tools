@@ -88,13 +88,33 @@ describe('status vocabulary', () => {
     ;[above, review, within].forEach((s) => expect(s.label).not.toMatch(/elevated/i))
     expect(within.label).toBe('Within Reference')
     expect(above.label).toBe('Above Reference')
-    expect(review.label).toBe('Review Suggested')
+    // Was 'Review Suggested', which REPLACED the position with the ask. The
+    // ask is now a suffix — see the ordering test below for why.
+    expect(review.label).toBe('Above Reference — review suggested')
+    expect(review.reviewSuggested).toBe(true)
+  })
+
+  it('a worse reading never wears gentler words than a better one', () => {
+    // The defect: 0.6% above read "Above Reference" and 99.4% above read
+    // "Review Suggested". A reader cannot rank a position against a
+    // request, and the request is the softer-sounding of the two — so the
+    // most significant finding in a report wore the mildest label in the
+    // vocabulary. Every non-zero case now states the position.
+    const slight = statusFor({ pctAbove: 0.6 } as never, { limit: 35 } as never)!
+    const severe = statusFor({ pctAbove: 99.4 } as never, { limit: 35 } as never)!
+    expect(slight.label).toContain('Above Reference')
+    expect(severe.label).toContain('Above Reference')
+    // ...and the escalation is still legible, in the tone and the suffix.
+    expect(slight.reviewSuggested).toBeFalsy()
+    expect(severe.reviewSuggested).toBe(true)
+    expect(severe.tone).toBe('review')
   })
 
   it('says "Outside" for a comfort band, which can be breached either way', () => {
     expect(statusFor({ pctInBand: 100 } as never, { band: [68, 76] } as never)!.label).toBe('Within Reference')
     expect(statusFor({ pctInBand: 93 } as never, { band: [68, 76] } as never)!.label).toBe('Outside Reference')
-    expect(statusFor({ pctInBand: 50 } as never, { band: [68, 76] } as never)!.label).toBe('Review Suggested')
+    expect(statusFor({ pctInBand: 50 } as never, { band: [68, 76] } as never)!.label)
+      .toBe('Outside Reference — review suggested')
   })
 
   it('claims no status at all when no reference was selected', () => {
@@ -654,7 +674,7 @@ describe('PM10 as a reported parameter', () => {
     const pm = model().parameters.find((x: any) => x.param === 'pm10')!
     expect(pm.reference.limit).toBe(150)
     // Occupied hours sit at 180 µg/m³ — above the EPA screening value.
-    expect(pm.status.label).toBe('Review Suggested')
+    expect(pm.status.label).toBe('Above Reference — review suggested')
     expect(pm.stats.pctAbove).toBeGreaterThan(0)
   })
 

@@ -497,7 +497,19 @@ export function datasetHighlights(blocks, opts = {}) {
       if (b.stats.pctAbove === 0) {
         out.push({ id: `within-${b.param}`, text: `${name} did not exceed the selected reference at any point during monitoring.` })
       } else {
-        out.push({ id: `within-${b.param}`, text: `${name} remained below the selected reference for ${pct(100 - b.stats.pctAbove)} of monitoring.` })
+        // Report the share ABOVE, not the share below. This line used to
+        // say "remained below the selected reference for 0.6% of
+        // monitoring" for a parameter that was above it 99.4% of the time,
+        // under a checkmark identical to the five beside it — the most
+        // significant finding in the report, phrased as reassurance, in the
+        // section a facility manager skims first.
+        //
+        // `parameterStatement` in this same file already forbids exactly
+        // this and says why: framing an exceedance as "remained below …
+        // during X%" reads as minimisation and contradicts the section's
+        // own status chip. The rule was right and this list did not follow
+        // it.
+        out.push({ id: `above-${b.param}`, text: `${name} exceeded the selected reference during ${pct(b.stats.pctAbove)} of monitoring.` })
       }
     } else if (isNum(b.stats.pctInBand)) {
       out.push({ id: `within-${b.param}`, text: `${name} remained within the selected comfort range for ${pct(b.stats.pctInBand)} of the monitoring period.` })
