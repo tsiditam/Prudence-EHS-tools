@@ -117,12 +117,37 @@ off the engine finding via `reportModel.collectFindings`. The retired
 sentence went on shipping from `scoring.js` regardless. Same cross-layer
 shape as the 67–82 °F comfort band.
 
-`tests/engine/drain-pan-no-legionella.test.ts` asserts it at both layers
-and was verified to fail (9 of 14) with the original line restored. The
-`legionella_188` **recommendation** in `genRecs` is unchanged — a
-separate decision, deliberately out of scope. The stale sample report at
-`docs/sample-iaq-consultant-report.html` had the same claim in four
-places and was corrected with it.
+**The recommendation went with it, and carried a worse defect**
+
+`genRecs` fired a matching `legionella_188` action off any finding whose
+text contained "Drain pan":
+
+> Evaluate drain pan for Legionella risk per ASHRAE Standard 188. If
+> building lacks a Water Management Program, consider Legionella sampling
+> **given active occupant respiratory symptoms**.
+
+The closing clause asserts active respiratory symptoms as established
+fact, inside an `if (hasDrainPan)` block, with nothing anywhere checking
+that a single symptom had been recorded. A recommendation may not state a
+fact the assessment did not observe — and deleting only the standard name
+would have left that clause standing, so it is pinned as its own property.
+
+`drainpan_immediate` and `drainpan_clean` still fire, so the condition
+keeps two actions: address it immediately, and clean the pan and verify
+slope and condensate disposal.
+
+**Guards**
+
+`tests/engine/drain-pan-no-legionella.test.ts` asserts across the engine
+finding, `collectFindings` (the layer that reaches the deliverable) and
+`genRecs`. Verified against the restored defects: 9 of 14 fail with the
+original finding, 5 of 20 with the original recommendation. It also pins
+what must REMAIN — removing an over-reaching action must not leave a
+critical condition recommending nothing, which an absence-only guard
+would allow.
+
+The stale sample report at `docs/sample-iaq-consultant-report.html`
+carried the same claim in four places and was corrected with it.
 
 ## Engine v2.8.0 — HVAC equipment-scoped recommendations
 

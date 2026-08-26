@@ -460,8 +460,18 @@ When working on report generation:
      removal comment is a claim that needs a test**: the hvac.ts comment
      asserted an escalation was gone while it was live one directory over.
      `tests/engine/drain-pan-no-legionella.test.ts` now asserts it at both
-     layers. Note what it deliberately leaves alone — `genRecs` still emits
-     the `legionella_188` recommendation, a separate decision not yet taken.
+     layers, and across findings and recommendations alike.
+
+     The recommendation half carried a second defect worth naming on its own:
+     `legionella_188` closed with "consider Legionella sampling **given active
+     occupant respiratory symptoms**" inside an `if (hasDrainPan)` block, with
+     nothing anywhere checking that a symptom had been recorded. **A
+     recommendation may not state a fact the assessment did not observe** —
+     and note that deleting the standard name alone would have left that
+     clause standing, so it is asserted as its own property. The guard also
+     pins what must REMAIN (`drainpan_immediate`, `drainpan_clean`): removing
+     an over-reaching action must not leave a critical condition recommending
+     nothing, which an absence-only guard would happily allow.
 
   **The backstop is currently missing.** `cross-layer-consistency.test.ts`
   rendered real *consultant* reports across a fixture matrix and asserted the

@@ -36,15 +36,28 @@
  * `standards-corpus.js` alike, so the double-entry reconciliation landed in
  * 2026-08 could not see it at all.
  *
- * ── What this guard deliberately does NOT assert ──────────────────────────
- * `genRecs` still emits the `legionella_188` RECOMMENDATION, triggered by any
- * finding whose text contains "Drain pan". That was raised and consciously
- * left in place; removing it is a separate decision that has not been taken.
- * Do not widen this file to cover it — a guard that forces a change to the
- * thing it guards has stopped being a guard.
+ * ── The recommendation, removed second ────────────────────────────────────
+ * `genRecs` kept emitting the `legionella_188` RECOMMENDATION for one commit
+ * after the finding lost its escalation — fired by any finding whose text
+ * contained "Drain pan", nothing more:
+ *
+ *     "Evaluate drain pan for Legionella risk per ASHRAE Standard 188. If
+ *      building lacks a Water Management Program, consider Legionella
+ *      sampling given active occupant respiratory symptoms."
+ *
+ * That closing clause is the worse half. It ASSERTS active respiratory
+ * symptoms as established fact, inside an `if (hasDrainPan)` block with
+ * nothing anywhere checking that a single symptom had been recorded. A
+ * recommendation may not state a fact the assessment did not observe. Both
+ * halves are now asserted here.
+ *
+ * `drainpan_immediate` and `drainpan_clean` still fire, so the condition is
+ * left with two actions rather than none — which is the property the last
+ * describe block pins, because a guard that only checks for absence would be
+ * equally happy with a drain-pan condition that recommended nothing at all.
  */
 import { describe, it, expect } from 'vitest'
-import { scoreZone } from '../../src/engines/scoring'
+import { scoreZone, genRecs } from '../../src/engines/scoring'
 import { collectFindings } from '../../src/report/reportModel'
 import { classifyCondition } from '../../src/engine/bridge/classify'
 
@@ -136,16 +149,58 @@ describe('the deliverable gets the corrected sentence', () => {
   })
 })
 
-describe('no finding anywhere cites ASHRAE 188', () => {
-  it('across every intake combination that mentions a drain pan', () => {
-    // Scoped to FINDINGS. Recommendations are explicitly out of scope — see
-    // the header. If this ever fails, a citation with no manifest entry, no
-    // criterion and no corpus prose behind it has come back.
+/** Every recommendation `genRecs` produces, flattened to plain text. */
+const recTextsFor = (dp: string) => {
+  const recs = genRecs([zoneScoreFor(dp)] as never, BLDG as never) as Record<string, unknown[]>
+  return Object.values(recs)
+    .filter(Array.isArray)
+    .flat()
+    .map((a: any) => (typeof a === 'string' ? a : a?.text || ''))
+}
+
+describe('the recommendations do not escalate either', () => {
+  it.each(TRIPPING)('%s recommends nothing about Legionella or ASHRAE 188', (dp) => {
+    for (const text of recTextsFor(dp)) {
+      expect(text, dp).not.toMatch(/legionella/i)
+      expect(text, dp).not.toMatch(/\b188\b/)
+      expect(text, dp).not.toMatch(/water management program/i)
+    }
+  })
+
+  it.each(TRIPPING)('%s asserts no symptom the assessment never recorded', (dp) => {
+    // The specific defect, stated as its own property because it is the more
+    // dangerous half and would survive a fix that only deleted the standard
+    // name. The zone here has NO symptom fields at all; nothing the engine
+    // emits may claim otherwise.
+    for (const text of recTextsFor(dp)) {
+      expect(text, dp).not.toMatch(/active occupant respiratory symptoms/i)
+    }
+  })
+
+  it.each(TRIPPING)('%s still recommends cleaning the pan', (dp) => {
+    // The counterweight. Removing an over-reaching recommendation must not
+    // leave a critical condition with no action attached — that would be a
+    // worse defect than the one being fixed, and an absence-only guard would
+    // not notice.
+    const texts = recTextsFor(dp)
+    expect(texts.some((t) => /drain pan/i.test(t)), `${dp} lost every drain-pan action`).toBe(true)
+    expect(texts.some((t) => /clean drain pan/i.test(t))).toBe(true)
+    expect(texts.some((t) => /immediately/i.test(t))).toBe(true)
+  })
+})
+
+describe('nothing the engine emits cites ASHRAE 188', () => {
+  it('across every drain-pan intake value, in findings and recommendations alike', () => {
+    // The sweep. If this fails, a citation with no manifest entry, no
+    // criterion and no corpus prose behind it has come back somewhere.
     for (const dp of [...TRIPPING, 'Clean — draining', 'Not accessible']) {
-      const findings = zoneScoreFor(dp).cats.flatMap((c: any) => c.r || [])
-      for (const f of findings) {
+      for (const f of zoneScoreFor(dp).cats.flatMap((c: any) => c.r || [])) {
         expect(String(f.std ?? ''), `${dp}: ${f.t}`).not.toMatch(/188/)
         expect(String(f.t), dp).not.toMatch(/legionella/i)
+      }
+      for (const text of recTextsFor(dp)) {
+        expect(text, dp).not.toMatch(/legionella/i)
+        expect(text, dp).not.toMatch(/\b188\b/)
       }
     }
   })
