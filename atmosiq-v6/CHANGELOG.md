@@ -84,6 +84,46 @@ returned "pass" when none of its paths existed, so deleting a file made
 its own removal-guard silently succeed. An exclusion with nothing left
 to read now fails.
 
+**The drain-pan finding no longer escalates to Legionella / ASHRAE 188**
+
+A condensate drain pan answered as "Standing water" or "Bio growth
+observed" produced a critical finding ending *"Evaluate for Legionella
+risk per ASHRAE Standard 188 if building lacks a Water Management
+Program"*, cited to `ASHRAE 188`. That intake field was the entire
+trigger — no water system, no aerosol-generating equipment, no water
+temperature, no occupant symptom, no building type. ASHRAE 188 scopes
+itself to building water systems with a recognised aerosol transmission
+risk (cooling towers, evaporative condensers, domestic hot water,
+fountains, misters); a low-temperature condensate pan is not one, and a
+visual observation of one does not establish an exposure pathway.
+
+The finding now states the condition and stops: *"Drain pan: standing
+water — Critical Moisture/Hygiene Deficiency. Potential microbial
+reservoir in the condensate pan."* It keeps its `critical` severity and
+its `gate5` structural flag; only the escalation went. It cites nothing,
+because the standards corpus documents no drain-pan threshold — and 43 of
+the 57 findings this engine emits already carry no citation, including
+both of this one's neighbours.
+
+ASHRAE 188 appeared in no ledger — absent from `STANDARDS_MANIFEST`,
+`criteria.js` and `standards-corpus.js` alike — so the double-entry
+reconciliation could not see it.
+
+*How it survived:* the editorial layer had already retired it.
+`phrases/hvac.ts` removed the escalation deliberately and recorded why.
+But that entry governs `renderClientReport` / PrintReport, while the
+AtmosFlow DOCX — the only client deliverable — takes `text: r.t` verbatim
+off the engine finding via `reportModel.collectFindings`. The retired
+sentence went on shipping from `scoring.js` regardless. Same cross-layer
+shape as the 67–82 °F comfort band.
+
+`tests/engine/drain-pan-no-legionella.test.ts` asserts it at both layers
+and was verified to fail (9 of 14) with the original line restored. The
+`legionella_188` **recommendation** in `genRecs` is unchanged — a
+separate decision, deliberately out of scope. The stale sample report at
+`docs/sample-iaq-consultant-report.html` had the same claim in four
+places and was corrected with it.
+
 ## Engine v2.8.0 — HVAC equipment-scoped recommendations
 
 **User-visible change**

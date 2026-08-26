@@ -443,10 +443,30 @@ When working on report generation:
      monotonicity. Nothing failed when this was corrected, because nothing had
      ever asserted it.
 
+  4. **A retirement in the editorial layer does not reach the deliverable.**
+     `phrases/hvac.ts` removed the automatic Legionella / ASHRAE 188
+     escalation from the drain-pan condition, with its reasoning written into
+     the file — a soiled condensate pan does not establish a recognised
+     Legionella exposure pathway. That entry governs `renderClientReport` and
+     PrintReport. It does NOT govern the AtmosFlow DOCX, which is the only
+     client deliverable and which takes `text: r.t` verbatim off the engine
+     finding (`reportModel.collectFindings`). So the sentence one layer had
+     deliberately retired went on shipping to clients off `scoring.js` for
+     four months, and the layer that fixed it had no way to know.
+
+     Two consequences. **A phrase-library change is not a product change**
+     until the engine finding it paraphrases says the same thing — check
+     `collectFindings` before believing wording has been retired. And **a
+     removal comment is a claim that needs a test**: the hvac.ts comment
+     asserted an escalation was gone while it was live one directory over.
+     `tests/engine/drain-pan-no-legionella.test.ts` now asserts it at both
+     layers. Note what it deliberately leaves alone — `genRecs` still emits
+     the `legionella_188` recommendation, a separate decision not yet taken.
+
   **The backstop is currently missing.** `cross-layer-consistency.test.ts`
   rendered real *consultant* reports across a fixture matrix and asserted the
   layers agreed with each other and with the engine. The consultant report was
-  removed in 2026-08 (see below) and that test went with it. The three rules
+  removed in 2026-08 (see below) and that test went with it. The four rules
   above still hold and are still individually tested, but nothing now renders
   the surviving deliverable and checks the layers against each other.
   **Re-establishing that on the AtmosFlow report is the highest-value open

@@ -137,7 +137,10 @@ describe('classifyCondition — Contaminants', () => {
 describe('classifyCondition — HVAC', () => {
   it('drain pan standing water → hvac_drain_pan_microbial_reservoir', () => {
     const c = classifyCondition(
-      { t: 'Drain pan: standing water — Critical Moisture/Hygiene Deficiency', sev: 'critical', std: 'ASHRAE 188' },
+      // No `std`: the finding cites nothing since the ASHRAE 188 escalation
+      // was removed. Classification routes on text and severity, never on the
+      // citation, so dropping it must not change the condition type.
+      { t: 'Drain pan: standing water — Critical Moisture/Hygiene Deficiency', sev: 'critical' },
       'HVAC',
       { dp: 'Standing water' },
     )
