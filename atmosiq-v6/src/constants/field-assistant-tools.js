@@ -267,6 +267,16 @@ export const FIELD_ASSISTANT_TOOLS = [
     },
   },
   {
+    name: 'read_monitoring_report',
+    description:
+      "Read the Indoor Environmental Monitoring Report that was generated from this assessment's Logger Studio data. Returns the report as it was issued: the reference each parameter was compared against and who publishes it, the status the report reached for each, the statistics it printed, the sentences and observations it prints, the calibration position, the dataset-integrity figures, and the limitations it declares. Call this whenever the assessor asks anything about the monitoring report itself — what it shows, what a parameter's status means, why something reads \"Not Established\", which reference was used and why, what the report says about a period or a peak, or what its limitations cover. Prefer this over the logger data summary whenever the question is about the REPORT rather than the raw readings, and over read_attached_document whenever the report in question is this one — this returns the exact model the document was rendered from, so nothing is lost to text extraction. Returns status:no_report when no monitoring report has been generated, in which case say so rather than describing one. Your job with this tool is to EXPLAIN the report, not to review or critique it. The tool takes no arguments.",
+    input_schema: {
+      type: 'object',
+      properties: {},
+      required: [],
+    },
+  },
+  {
     name: 'generate_report',
     description:
       "Render a user-uploaded DOCX report template, filling all {{tokens}} with LITERAL data from the current assessment context. Use this whenever the assessor asks to \"render\", \"generate\", \"make\", or \"build\" a report from one of their saved templates (\"render my Federal template\", \"make me a deliverable using the Acme template\"). The tool does NOT write any prose into the template — it only substitutes registered tokens (client name, facility, finding counts, etc.) with values from the assessment. After a successful render the chat client surfaces an inline Download card and the assessor decides whether to save the file. If the user has no templates saved, the tool returns no_templates_saved and Jasper should point them at Settings → Report Templates. If the name hint matches multiple templates, the tool returns needs_disambiguation and Jasper should ask the user which one. Never invent or paraphrase data — every {{token}} is resolved by the canonical registry.",
@@ -1026,6 +1036,53 @@ export async function dispatchTool(name, input, ctx = {}) {
         message: actionType === 'record_zone_observation'
           ? 'Write proposed. The assessor will see an Accept / Reject card. Nothing has been recorded yet, and the investigation state has NOT moved — do not describe the differential as having changed. Tell them what accepting would settle, and stop there.'
           : 'Action proposed. The user will see an Accept / Reject card and decide.',
+      }
+    }
+
+    if (name === 'read_monitoring_report') {
+      // Same posture as assess_investigation below: a read-only projection of
+      // something the CLIENT derived. lib/jasper/monitoring-report-summary.ts
+      // rebuilt the issued report from the persisted session via
+      // buildMonitoringReportModel — the same pure function the DOCX renderer
+      // calls — so this dispatcher has nothing to compute and must not try.
+      // A second derivation here would be a second opinion about a document
+      // that has already been sent to a client.
+      const ctxAssessment = ctx && ctx.assessmentContext
+      const report = ctxAssessment && typeof ctxAssessment === 'object'
+        ? ctxAssessment.monitoring_report
+        : null
+      if (!report || typeof report !== 'object' || report.present !== true) {
+        return {
+          status: 'no_report',
+          message:
+            'No Indoor Environmental Monitoring Report has been generated from this '
+            + 'assessment. Logger data may still be loaded — if the assessor is asking '
+            + 'about readings rather than a report, answer from the logger data summary '
+            + 'in context. Do not describe a monitoring report, its statuses, or its '
+            + 'limitations as if one existed.',
+        }
+      }
+      return {
+        status: 'ok',
+        report,
+        usage_rules: [
+          // ── The scope decision, stated where it is enforced ────────────
+          'EXPLAIN this report; do not review it. Describe what it says and what its terms mean. Do not grade the report, list what it is missing, or say what the assessor should have done differently — that is not what this tool is for.',
+          'If the assessor asks you directly to critique the report or asks whether something in it is wrong, answer the question honestly, but do not volunteer criticism they did not ask for.',
+          // ── The withheld comparison, which is the easiest misreading ───
+          'When a parameter\'s status is "Not Established", the report deliberately made NO comparison against the reference, because the calibration on record does not cover the monitoring period. The statistics still printed, so a reader skimming numbers can easily believe a comparison was made. Say plainly that none was, and give the status reason. Never describe such a parameter as within, above, or outside its reference.',
+          'When qualitative_only is true this applies to EVERY parameter in the report, not just the one being asked about.',
+          // ── The vocabulary is locked; do not paraphrase it ─────────────
+          'The status labels are the report\'s own locked vocabulary — "Within Reference", "Above Reference", "Outside Reference", each optionally "— review suggested", and "Not Established". Use them as written. Do not substitute "elevated", "high", "safe", "acceptable", "failed", or "compliant": those interpret a measurement, and the report deliberately does not.',
+          '"Outside Reference" is used where the reference is a band that can be breached in either direction. Check whether the reading was below or above before saying which.',
+          // ── Numbers and citations belong to the report ─────────────────
+          'Every number here is one the report printed. Quote them as they are; do not round, recompute, convert units, or derive a new statistic from them.',
+          'Cite a reference only as the report cites it — the reference source is the publisher the assessor selected for that parameter. Do not name a different standard, and do not add one the report does not use.',
+          'pct_above is the share of individual readings above the reference line, and time_above_seconds is how long. Neither is a time-weighted average, so do not describe either as meeting or failing an 8-hour or 24-hour exposure limit.',
+          // ── Absence ───────────────────────────────────────────────────
+          'A parameter absent from this report was not logged. Say it was not measured rather than implying it was measured and found acceptable.',
+          'If truncated is true, some prose was shortened to fit. Say so if the assessor asks for the report\'s exact wording on a point where it was cut.',
+        ],
       }
     }
 

@@ -1716,6 +1716,42 @@
       ]
     },
     {
+      "id": "IEMR-JASPER-READABLE",
+      "label": "Jasper can explain the issued monitoring report from the model it was rendered from",
+      "_comment": "Everything about the report except the readings - the location, the client, the instrument, and above all WHICH reference profile was chosen per parameter - was typed into MonitoringReportSheet and discarded when it closed. So the issued session now rides the sensorData envelope (which already persists to draft, report and cloud) and lib/jasper/monitoring-report-summary.ts re-derives the exact document through buildMonitoringReportModel - the same pure function the DOCX renderer calls. Reading the model beats extracting our own DOCX on every axis: lossless, exact, and cheap. Scope is EXPLAIN, not review: the tool ships usage_rules because neither that nor the locked status vocabulary can be enforced by a data shape. The load-bearing property is that a comparison the report WITHHELD (calibration not covering the period, status Not Established) can never reach Jasper as within/above/outside - the statistics still print, so that is the easiest misreading in the document.",
+      "checks": [
+        { "type": "file_exists", "path": "lib/jasper/monitoring-report-summary.ts" },
+        { "type": "file_exists", "path": "tests/lib/monitoring-report-summary.test.ts" },
+        { "type": "file_exists", "path": "tests/api/read-monitoring-report.test.ts" },
+        { "type": "file_exists", "path": "tests/lib/monitoring-report-persistence.test.ts" },
+        {
+          "type": "grep_matches",
+          "pattern": "read_monitoring_report",
+          "paths": ["src/constants/field-assistant-tools.js", "src/constants/field-assistant-prompt.js"],
+          "_comment": "Registered as a tool AND documented in the prompt. A tool the prompt never mentions is one the model does not reach for."
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "monitoring_report",
+          "paths": ["lib/context/buildAssessmentContext.ts", "lib/context/types.ts"],
+          "_comment": "Wired into the one normalized context every consumer reads, and typed there."
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "monitoringReport",
+          "paths": ["src/utils/sensorParser.js"],
+          "minCount": 2,
+          "_comment": "normalizeSensorData runs on every read of a stored envelope. If it drops the field the report is gone on the next open and nothing else would notice."
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "EXPLAIN this report; do not review it",
+          "paths": ["src/constants/field-assistant-tools.js"],
+          "_comment": "The scope decision, asserted where it is enforced rather than only in a doc."
+        }
+      ]
+    },
+    {
       "id": "IEMR-LOGGER-REPORT",
       "label": "Indoor Environmental Monitoring Report generates from Logger Studio end-to-end",
       "checks": [

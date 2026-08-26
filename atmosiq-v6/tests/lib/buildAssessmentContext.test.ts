@@ -116,7 +116,7 @@ function fullState() {
 
 const EXPECTED_TOP_KEYS = [
   'meta', 'project', 'building', 'zones', 'walkthrough_findings',
-  'logger_data_summary', 'narrative_inputs',
+  'logger_data_summary', 'monitoring_report', 'narrative_inputs',
   'photos', 'engine_outputs',
   'readiness_verdict', 'report_draft_state', 'calibration_acknowledgement',
   'investigation',
@@ -153,6 +153,10 @@ describe('buildAssessmentContext', () => {
     // investigation object would read as "we looked and found nothing".
     expect(ctx.investigation).toBeNull()
     expect(ctx.logger_data_summary).toBeNull()
+    // Logger data without an issued report is not a report. Null, never an
+    // empty projection — an empty one reads as "a report exists and says
+    // nothing", which is the opposite of the truth.
+    expect(ctx.monitoring_report).toBeNull()
     expect(ctx.report_draft_state).toBeNull()
     expect(ctx.calibration_acknowledgement).toBeNull()
   })

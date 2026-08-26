@@ -114,7 +114,7 @@ export function buildSessionFromLogger({ data, form, occupancyWindows = [], even
   })
 }
 
-export default function MonitoringReportSheet({ data, occupancyWindows = [], events = [], onClose }) {
+export default function MonitoringReportSheet({ data, occupancyWindows = [], events = [], onClose, onGenerated }) {
   const params = useMemo(() => (data && Array.isArray(data.params) ? data.params : []), [data])
 
   const [objective, setObjective] = useState(
@@ -208,7 +208,7 @@ export default function MonitoringReportSheet({ data, occupancyWindows = [], eve
         },
       })
 
-      const { fileName } = await generateMonitoringReport(session, {
+      const opts = {
         edition,
         generatedAt: new Date().toISOString(),
         // The zone the report is generated in, so its date/time stamp reads in
@@ -218,7 +218,24 @@ export default function MonitoringReportSheet({ data, occupancyWindows = [], eve
         softwareVersion: APP_VERSION,
         firm: assessor.firm || undefined,
         clientName: client.preparedFor || undefined,
-      })
+      }
+
+      const { fileName } = await generateMonitoringReport(session, opts)
+
+      // Hand the session upward so it persists on the sensorData envelope.
+      // Everything on this sheet except the readings — the location, the
+      // client, the instrument, and above all WHICH reference profile was
+      // chosen per parameter — is typed here and otherwise discarded when the
+      // sheet closes. Without it the issued report cannot be re-derived, and
+      // anything reading it later would have to assume defaults the assessor
+      // may never have picked.
+      //
+      // Stored only after generateMonitoringReport resolves: a session that
+      // never produced a document is not a report, and recording one would
+      // claim a deliverable that does not exist.
+      if (typeof onGenerated === 'function') {
+        onGenerated({ session, opts, fileName, generatedAt: opts.generatedAt })
+      }
 
       if (remember && dirtyVsProfile && profile) {
         await Profiles.save({

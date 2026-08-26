@@ -589,17 +589,32 @@ export function normalizeSensorData(sd) {
       occupancyWindows: Array.isArray(sd.occupancyWindows) ? sd.occupancyWindows : [],
       thresholds: sd.thresholds || { co2: true },
       graphs: sd.graphs || {},
+      // The last Indoor Environmental Monitoring Report issued from this
+      // envelope: { session, opts, fileName, generatedAt }. Named explicitly
+      // rather than left to the spread because its lifecycle matters — it is
+      // what lets the report be re-derived exactly (buildMonitoringReportModel
+      // is pure, so session + opts reproduce the issued document) long after
+      // the sheet that built it closed. Everything else about the report is
+      // typed into that sheet and thrown away.
+      //
+      // Null until a report is generated. Not part of the dataset fingerprint:
+      // hashDataset covers the readings, so re-issuing with a corrected client
+      // name yields the same hash, and storing the session must not change that.
+      monitoringReport: sd.monitoringReport || null,
     }
   }
   // Legacy v1: the object itself is the primary (indoor) dataset, with
   // graphs/thresholds/mapping riding alongside the parsed fields.
-  const { graphs, thresholds, version, datasets, occupancyWindows, ...parsed } = sd
+  // `monitoringReport` is destructured out with them so an envelope that
+  // somehow carries one cannot fold it into the dataset's parsed fields.
+  const { graphs, thresholds, version, datasets, occupancyWindows, monitoringReport, ...parsed } = sd
   return {
     version: SENSOR_DATA_VERSION,
     datasets: [{ id: 'primary', role: 'indoor', label: 'Indoor', ...parsed }],
     occupancyWindows: [],
     thresholds: thresholds || { co2: true },
     graphs: graphs || {},
+    monitoringReport: monitoringReport || null,
   }
 }
 

@@ -192,6 +192,56 @@ false-positive class `NO-COMPOSITE-SCORE` was re-anchored to avoid.
 The stale sample report at `docs/sample-iaq-consultant-report.html`
 carried the Legionella claim in four places and was corrected with it.
 
+**Jasper can explain the monitoring report it generated**
+
+Logger Studio produces an Indoor Environmental Monitoring Report. Jasper
+could discuss the *readings* — `logger_data_summary` has shipped in the
+assessment context for a while — but knew nothing about the *deliverable*:
+which reference the assessor chose per parameter, what status the report
+reached, why something read "Not Established", or what its limitations
+covered. Asked about the document a client was holding, it had nothing.
+
+`read_monitoring_report` closes that. It returns the report as issued.
+
+**It reads the model, not the DOCX.** PR #524 taught Jasper to review an
+attached third-party report by quoting it and verifying every quotation,
+because such a report is text and nothing else. This one is ours:
+`buildMonitoringReportModel(session, opts)` is pure, so the session plus
+its generation options reproduce the issued document exactly. Reading the
+model beats extracting our own file on every axis — lossless where
+extraction drops table structure, exact where a model would re-read a
+rounded number off the page, and cheap where a 40-page parse is not. The
+projection therefore **re-derives nothing**; every value is copied out of
+the model the document was rendered from.
+
+**The session now persists.** Everything on the report sheet except the
+readings — location, client, instrument, and above all which reference
+profile was chosen per parameter — was typed in and discarded when the
+sheet closed. It now rides the `sensorData` envelope, which already
+carries exactly this class of state (`tempDisplay`, `thresholds`,
+`occupancyWindows`) and already persists to the draft, the report record
+and the cloud. No new storage key, no new sync path. Written only after
+generation succeeds: a session that produced no document is not a report.
+
+**Scope is explain, not review.** Jasper says what the report states and
+what its terms mean; it does not grade the deliverable or volunteer what
+is missing. That constraint and the locked status vocabulary cannot be
+enforced by a data shape, so both ship as `usage_rules` on the tool
+result — the `assess_investigation` pattern — and are asserted in tests.
+
+The load-bearing property: **a comparison the report withheld can never
+reach Jasper as a verdict.** When calibration does not cover the
+monitoring period, `statusFor` withdraws the status to "Not Established"
+and the statistics print alone — so a reader skimming numbers assumes a
+comparison was made. The projection carries the withdrawal, and the
+`reason` sentence the document builds but renders nowhere, making Jasper
+the only surface that can tell a reader why.
+
+Guards: `monitoring-report-summary` (22), `read-monitoring-report` (17),
+`monitoring-report-persistence` (6). Verified by inversion — forcing a
+"Within Reference" over a withheld comparison fails 4, dropping the
+envelope field fails 1. Gate: `IEMR-JASPER-READABLE` (prod-ready now 74).
+
 ## Engine v2.8.0 — HVAC equipment-scoped recommendations
 
 **User-visible change**
