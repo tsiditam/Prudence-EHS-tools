@@ -454,13 +454,27 @@ When working on report generation:
      deliberately retired went on shipping to clients off `scoring.js` for
      four months, and the layer that fixed it had no way to know.
 
+     **It happened three times, not once.** `phrases/` carried three written
+     retirements and the engine honoured none of them: the Legionella /
+     ASHRAE 188 escalation and the automatic EPA-registered-biocide
+     instruction (`hvac.ts`), and the ATSDR occupant-risk-communication action
+     (`complaints.ts`). Each surfaced only because somebody happened to read a
+     screenshot, which is not a process.
+
      Two consequences. **A phrase-library change is not a product change**
      until the engine finding it paraphrases says the same thing — check
      `collectFindings` before believing wording has been retired. And **a
      removal comment is a claim that needs a test**: the hvac.ts comment
      asserted an escalation was gone while it was live one directory over.
-     `tests/engine/drain-pan-no-legionella.test.ts` now asserts it at both
-     layers, and across findings and recommendations alike.
+     `tests/engine/editorial-engine-parity.test.ts` closes the class rather
+     than the instances: **no engine finding may contain a
+     `bannedAlternative` of the condition type it classifies to**, checked
+     over a matrix wide enough to fire every branch, plus the union of all
+     bans over every recommendation. That is machine-checkable and needs no
+     comment to keep working. The three named retirements are pinned on top of
+     it, at the engine, at `collectFindings` and in `genRecs`. Gate:
+     `EDITORIAL-ENGINE-PARITY`. `drain-pan-no-legionella.test.ts` keeps the
+     per-condition detail.
 
      The recommendation half carried a second defect worth naming on its own:
      `legionella_188` closed with "consider Legionella sampling **given active

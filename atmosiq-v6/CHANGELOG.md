@@ -136,18 +136,61 @@ would have left that clause standing, so it is pinned as its own property.
 keeps two actions: address it immediately, and clean the pan and verify
 slope and condensate disposal.
 
+**Two more retirements the engine had ignored**
+
+Chasing the Legionella remnant turned up the same defect twice more. In
+each case the phrase library had removed an over-reaching instruction,
+written down why, and the engine kept shipping it:
+
+- **The EPA-registered-biocide instruction** (`drainpan_clean`). Retired
+  by `phrases/hvac.ts` on the reasoning that biocide selection is a
+  maintenance decision, not a screening finding. The assessment observed
+  a pan; it did not evaluate what may lawfully be applied to that
+  equipment, where the condensate discharges, or what the manufacturer
+  permits. The action now reads *"Clean the drain pan and associated
+  components in accordance with manufacturer recommendations and
+  applicable HVAC maintenance procedures; correct drainage and slope
+  deficiencies contributing to standing water."*
+- **The ATSDR occupant-risk-communication action.** Retired by
+  `phrases/complaints.ts` as disproportionate to a routine commercial IAQ
+  assessment with no hazardous release identified — ATSDR guidance
+  addresses public-health responses to contaminated sites. The
+  proportionate step is a structured symptom survey, and the critical and
+  high complaint branches each already emit one as a NIOSH IEQ
+  questionnaire action. Verified on both severity paths before removing
+  it; HEPA filtration and the relocation evaluation are untouched.
+
 **Guards**
 
-`tests/engine/drain-pan-no-legionella.test.ts` asserts across the engine
-finding, `collectFindings` (the layer that reaches the deliverable) and
-`genRecs`. Verified against the restored defects: 9 of 14 fail with the
-original finding, 5 of 20 with the original recommendation. It also pins
-what must REMAIN — removing an over-reaching action must not leave a
-critical condition recommending nothing, which an absence-only guard
-would allow.
+`tests/engine/editorial-engine-parity.test.ts` closes the class instead
+of the three instances. Its general property: **no engine finding may
+contain a `bannedAlternative` of the condition type it classifies to**,
+checked across a zone matrix wide enough to fire every branch in all five
+categories, plus the union of every ban over every recommendation. That
+is machine-checkable and survives without anyone maintaining a comment.
+The three named retirements are pinned on top of it — at the engine, at
+`collectFindings`, and in `genRecs`.
+
+Both files also assert what must REMAIN. An absence-only guard is
+satisfied by an engine that recommends nothing at all, which would be a
+worse defect than any of the three removed. That counterweight earned its
+place immediately: it failed on first run and exposed a fixture using
+`ac: '12'`, which is not one of that field's options and fell through to
+a severity where the block under test never ran.
+
+Verified against each restored defect: 9 of 14 fail with the original
+finding, 5 of 20 with the original recommendation, 3 of 15 with the
+biocide and ATSDR text.
+
+`tests/engine/drain-pan-no-legionella.test.ts` keeps the per-condition
+detail. Acceptance criterion `EDITORIAL-ENGINE-PARITY` gates both. Its
+`grep_excludes` is anchored to a single-quoted string literal rather than
+the bare words: the runner does not strip comments, and the unanchored
+form matched four of this change's own removal records — the same
+false-positive class `NO-COMPOSITE-SCORE` was re-anchored to avoid.
 
 The stale sample report at `docs/sample-iaq-consultant-report.html`
-carried the same claim in four places and was corrected with it.
+carried the Legionella claim in four places and was corrected with it.
 
 ## Engine v2.8.0 — HVAC equipment-scoped recommendations
 

@@ -100,7 +100,15 @@ export function calcVent(su, sf, oc) {
 // stays deterministic.
 const EQ_RULES = {
   drainpan_immediate: { bucket: 'imm', tier: T_SOURCE, text: 'Address drain pan condition immediately. Evaluate for microbial growth.' },
-  drainpan_clean: { bucket: 'imm', tier: T_SOURCE, text: 'Clean drain pan, treat with EPA-registered biocide, and verify proper slope and condensate disposal.' },
+  // The EPA-registered-biocide instruction was removed in 2026-08, alongside
+  // the Legionella escalation below and for the reason `phrases/hvac.ts`
+  // recorded when it retired both: biocide selection is a maintenance
+  // decision, not a screening finding. The assessment observed a pan; it did
+  // not evaluate what may lawfully be applied to that equipment, whether the
+  // condensate discharges somewhere a biocide may not go, or what the
+  // manufacturer permits. Naming a product class the assessor never chose is
+  // the same over-reach as naming a standard the conditions never triggered.
+  drainpan_clean: { bucket: 'imm', tier: T_SOURCE, text: 'Clean the drain pan and associated components in accordance with manufacturer recommendations and applicable HVAC maintenance procedures; correct drainage and slope deficiencies contributing to standing water.' },
   // `legionella_188` was removed in 2026-08, with the finding that produced
   // it. It read "Evaluate drain pan for Legionella risk per ASHRAE Standard
   // 188. If building lacks a Water Management Program, consider Legionella
@@ -247,7 +255,14 @@ export function genRecs(zoneScores, bldg, opts = {}) {
     if (hasNegPressure) pushZone('eng', zs.zoneName, 'Correct building pressurization. Negative pressure draws contaminants from adjacent spaces and outdoor sources. Evaluate exhaust/supply balance.', T_ENG)
     if (hasSymptomCluster) {
       pushZone('imm', zs.zoneName, 'Deploy portable HEPA filtration units in affected occupied areas as interim measure.', T_ENG)
-      pushZone('adm', zs.zoneName, 'Implement occupant risk communication plan per ATSDR guidance. Notify affected occupants of assessment findings and planned corrective actions.', T_ADM)
+      // The ATSDR occupant-risk-communication action was removed in 2026-08.
+      // `phrases/complaints.ts` retired it first and said why: it is
+      // disproportionate to a routine commercial IAQ assessment, where no
+      // hazardous release requiring community risk communication has been
+      // identified. ATSDR guidance addresses public-health responses to
+      // contaminated sites. The proportionate step is a structured symptom
+      // survey, which the critical/medium complaint branches above already
+      // emit as a NIOSH IEQ questionnaire action.
       pushZone('adm', zs.zoneName, 'Evaluate feasibility of temporary relocation for symptomatic occupants until corrective actions are verified effective.', T_ADM)
     }
     if (hasMold || hasWater) {

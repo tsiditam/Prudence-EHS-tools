@@ -184,8 +184,11 @@ describe('the recommendations do not escalate either', () => {
     // not notice.
     const texts = recTextsFor(dp)
     expect(texts.some((t) => /drain pan/i.test(t)), `${dp} lost every drain-pan action`).toBe(true)
-    expect(texts.some((t) => /clean drain pan/i.test(t))).toBe(true)
+    expect(texts.some((t) => /clean the drain pan/i.test(t))).toBe(true)
     expect(texts.some((t) => /immediately/i.test(t))).toBe(true)
+    // And it prescribes no biocide — the other half of what phrases/hvac.ts
+    // retired from this condition. See editorial-engine-parity.test.ts.
+    expect(texts.some((t) => /biocide/i.test(t))).toBe(false)
   })
 })
 

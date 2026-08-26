@@ -2496,6 +2496,28 @@
       ]
     },
     {
+      "id": "EDITORIAL-ENGINE-PARITY",
+      "label": "An over-reaching sentence retired in the phrase library is retired in the engine that actually ships it",
+      "_comment": "src/engine/report/phrases/ decides what may be said about a condition, but it is read by renderClientReport and PrintReport only. The AtmosFlow DOCX - the sole client deliverable since 2026-08 - renders raw text from scoring.js and scoring-legacy.js via reportModel.collectFindings and genRecs. So three retirements were written down, believed, and went on shipping anyway: the automatic Legionella / ASHRAE 188 escalation (fired by one intake dropdown, citing a standard scoped to aerosol-generating water systems, and closing by ASSERTING occupant respiratory symptoms nothing had recorded), the automatic EPA-registered-biocide instruction, and the ATSDR occupant-risk-communication action. Each surfaced only because somebody read a screenshot. editorial-engine-parity.test.ts makes the general property machine-checkable - no engine finding may contain a bannedAlternative of the condition type it classifies to - and pins the three named retirements at the engine, at collectFindings and in genRecs. It also asserts what must REMAIN, because an absence-only guard is satisfied by an engine that recommends nothing at all.",
+      "checks": [
+        { "type": "file_exists", "path": "tests/engine/editorial-engine-parity.test.ts" },
+        { "type": "file_exists", "path": "tests/engine/drain-pan-no-legionella.test.ts" },
+        {
+          "type": "grep_excludes",
+          "pattern": "'[^']*(Legionella|ASHRAE Standard 188|EPA-registered biocide|per ATSDR guidance)",
+          "paths": ["src/engines/scoring.js", "src/engines/scoring-legacy.js"],
+          "_comment": "Anchored to a single-quoted STRING LITERAL, not the bare words. The runner does not strip comments, and both files carry removal records that name Legionella and quote the retired sentence in full - the unanchored form matched 4 of those comment lines, which is the exact false-positive class NO-COMPOSITE-SCORE was already re-anchored to avoid. Verified both ways: 0 hits on the current files, 4 hits on a fixture carrying the original literals. Finding-level and recommendation-level detection lives in the two tests above, which BUILD-02 runs."
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "bannedAlternatives",
+          "paths": ["tests/engine/editorial-engine-parity.test.ts"],
+          "minCount": 2,
+          "_comment": "The general half. Without it this criterion degrades into three string checks that say nothing about the fourth remnant."
+        }
+      ]
+    },
+    {
       "id": "NO-COMPOSITE-SCORE",
       "label": "The 100-point composite, its category weights and every risk band are absent from every layer they reached",
       "_comment": "Modelled on MOLD-UI-NO-HEALTH-VERDICT: an exclusion pair plus the positive assertion of what replaced it. The patterns match CODE SHAPES (an export declaration, a constant assignment, an object key) because every file involved carries a comment recording what was removed from it, and that record must not be what fails the gate. Band-ladder detection needs comment stripping and so lives in tests/engine/no-scoring.test.ts, which this criterion runs.",
