@@ -31,10 +31,15 @@
  *     (the same discipline that fixed the Jasper hot-path bundle).
  *   • `logger_data_summary` reuses the already-capped summary from
  *     lib/jasper/logger-context-summary.ts.
+ *   • `monitoring_report` caps its PROSE against a shared budget and reports
+ *     `truncated` when it bites; the statistics are never cut, because a
+ *     dropped figure would make the projection disagree with the document
+ *     over a number — the one thing it may never do.
  */
 
 import type { InvestigationState } from '../../src/engine/investigation'
 import type { LoggerContextSummary } from '../jasper/logger-context-summary'
+import type { MonitoringReportProjection } from '../jasper/monitoring-report-summary'
 import type { KGContext } from '../../src/types/knowledgeGraph'
 
 /** A single finalization / defensibility blocker or gap detail. */
@@ -255,6 +260,14 @@ export interface AssessmentContext {
   readonly zones: readonly ZoneSummary[]
   readonly walkthrough_findings: readonly FindingSummary[]
   readonly logger_data_summary: LoggerContextSummary | null
+  /**
+   * The issued Indoor Environmental Monitoring Report, re-derived from the
+   * session persisted on the sensorData envelope. Null until one is generated.
+   * `logger_data_summary` describes the readings; this describes the
+   * DELIVERABLE built from them — chosen references, reached statuses, printed
+   * prose, declared limitations.
+   */
+  readonly monitoring_report: MonitoringReportProjection | null
   readonly photos: readonly PhotoIndexEntry[]
   /** Free text the assessor wrote. See NarrativeInputs. */
   readonly narrative_inputs: NarrativeInputs

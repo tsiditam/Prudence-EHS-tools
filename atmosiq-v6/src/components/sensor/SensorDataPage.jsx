@@ -851,6 +851,7 @@ export default function SensorDataPage({ value, onChange, onBack, reports = [], 
           occupancyWindows={occWindows}
           events={(env && env.events) || []}
           onClose={() => setIemrOpen(false)}
+          onGenerated={(report) => onChange({ ...env, monitoringReport: report })}
         />
       )}
 

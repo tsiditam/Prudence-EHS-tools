@@ -443,10 +443,54 @@ When working on report generation:
      monotonicity. Nothing failed when this was corrected, because nothing had
      ever asserted it.
 
+  4. **A retirement in the editorial layer does not reach the deliverable.**
+     `phrases/hvac.ts` removed the automatic Legionella / ASHRAE 188
+     escalation from the drain-pan condition, with its reasoning written into
+     the file — a soiled condensate pan does not establish a recognised
+     Legionella exposure pathway. That entry governs `renderClientReport` and
+     PrintReport. It does NOT govern the AtmosFlow DOCX, which is the only
+     client deliverable and which takes `text: r.t` verbatim off the engine
+     finding (`reportModel.collectFindings`). So the sentence one layer had
+     deliberately retired went on shipping to clients off `scoring.js` for
+     four months, and the layer that fixed it had no way to know.
+
+     **It happened three times, not once.** `phrases/` carried three written
+     retirements and the engine honoured none of them: the Legionella /
+     ASHRAE 188 escalation and the automatic EPA-registered-biocide
+     instruction (`hvac.ts`), and the ATSDR occupant-risk-communication action
+     (`complaints.ts`). Each surfaced only because somebody happened to read a
+     screenshot, which is not a process.
+
+     Two consequences. **A phrase-library change is not a product change**
+     until the engine finding it paraphrases says the same thing — check
+     `collectFindings` before believing wording has been retired. And **a
+     removal comment is a claim that needs a test**: the hvac.ts comment
+     asserted an escalation was gone while it was live one directory over.
+     `tests/engine/editorial-engine-parity.test.ts` closes the class rather
+     than the instances: **no engine finding may contain a
+     `bannedAlternative` of the condition type it classifies to**, checked
+     over a matrix wide enough to fire every branch, plus the union of all
+     bans over every recommendation. That is machine-checkable and needs no
+     comment to keep working. The three named retirements are pinned on top of
+     it, at the engine, at `collectFindings` and in `genRecs`. Gate:
+     `EDITORIAL-ENGINE-PARITY`. `drain-pan-no-legionella.test.ts` keeps the
+     per-condition detail.
+
+     The recommendation half carried a second defect worth naming on its own:
+     `legionella_188` closed with "consider Legionella sampling **given active
+     occupant respiratory symptoms**" inside an `if (hasDrainPan)` block, with
+     nothing anywhere checking that a symptom had been recorded. **A
+     recommendation may not state a fact the assessment did not observe** —
+     and note that deleting the standard name alone would have left that
+     clause standing, so it is asserted as its own property. The guard also
+     pins what must REMAIN (`drainpan_immediate`, `drainpan_clean`): removing
+     an over-reaching action must not leave a critical condition recommending
+     nothing, which an absence-only guard would happily allow.
+
   **The backstop is currently missing.** `cross-layer-consistency.test.ts`
   rendered real *consultant* reports across a fixture matrix and asserted the
   layers agreed with each other and with the engine. The consultant report was
-  removed in 2026-08 (see below) and that test went with it. The three rules
+  removed in 2026-08 (see below) and that test went with it. The four rules
   above still hold and are still individually tested, but nothing now renders
   the surviving deliverable and checks the layers against each other.
   **Re-establishing that on the AtmosFlow report is the highest-value open

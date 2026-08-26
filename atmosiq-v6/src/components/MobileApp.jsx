@@ -1497,7 +1497,7 @@ export default function MobileApp() {
     if (zones.length === 0) setZones([{}])
     // v2.8.0 — capture HVAC equipment before zones so each zone can
     // be mapped to the units serving it. Equipment-scoped recs
-    // (drain pan, filters, OA damper, ASHRAE 188, comprehensive
+    // (drain pan, filters, OA damper, comprehensive
     // HVAC inspection) emit one action per equipment unit instead
     // of duplicating per zone.
     showMilestone('check', 'Quick Start Complete', 'Capture HVAC equipment next', () => { setView('equipment') })

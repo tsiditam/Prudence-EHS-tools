@@ -100,8 +100,29 @@ export function calcVent(su, sf, oc) {
 // stays deterministic.
 const EQ_RULES = {
   drainpan_immediate: { bucket: 'imm', tier: T_SOURCE, text: 'Address drain pan condition immediately. Evaluate for microbial growth.' },
-  drainpan_clean: { bucket: 'imm', tier: T_SOURCE, text: 'Clean drain pan, treat with EPA-registered biocide, and verify proper slope and condensate disposal.' },
-  legionella_188: { bucket: 'eng', tier: T_ADM, text: 'Evaluate drain pan for Legionella risk per ASHRAE Standard 188. If building lacks a Water Management Program, consider Legionella sampling given active occupant respiratory symptoms.' },
+  // The EPA-registered-biocide instruction was removed in 2026-08, alongside
+  // the Legionella escalation below and for the reason `phrases/hvac.ts`
+  // recorded when it retired both: biocide selection is a maintenance
+  // decision, not a screening finding. The assessment observed a pan; it did
+  // not evaluate what may lawfully be applied to that equipment, whether the
+  // condensate discharges somewhere a biocide may not go, or what the
+  // manufacturer permits. Naming a product class the assessor never chose is
+  // the same over-reach as naming a standard the conditions never triggered.
+  drainpan_clean: { bucket: 'imm', tier: T_SOURCE, text: 'Clean the drain pan and associated components in accordance with manufacturer recommendations and applicable HVAC maintenance procedures; correct drainage and slope deficiencies contributing to standing water.' },
+  // `legionella_188` was removed in 2026-08, with the finding that produced
+  // it. It read "Evaluate drain pan for Legionella risk per ASHRAE Standard
+  // 188. If building lacks a Water Management Program, consider Legionella
+  // sampling given active occupant respiratory symptoms." — and fired on any
+  // finding whose text contained "Drain pan", nothing more. Two problems, both
+  // fatal: ASHRAE 188 governs building water systems with a recognised aerosol
+  // transmission pathway (cooling towers, evaporative condensers, domestic hot
+  // water, fountains, misters), which a low-temperature condensate pan is not;
+  // and the closing clause ASSERTED active respiratory symptoms with nothing
+  // anywhere checking that any had been recorded. A recommendation may not
+  // state a fact the assessment did not observe.
+  //
+  // `drainpan_immediate` and `drainpan_clean` still fire, so the condition
+  // keeps two actions. See tests/engine/drain-pan-no-legionella.test.ts.
   oa_damper: { bucket: 'eng', tier: T_ENG, text: 'Evaluate outdoor air delivery rate and verify OA damper position within 24–72 hours.' },
   filter_replace_imm: { bucket: 'imm', tier: T_ENG, text: 'Replace air filters immediately. Inspect filter housing for bypass or damage.' },
   filter_replace_high: { bucket: 'eng', tier: T_ENG, text: 'Replace or service air filters. Inspect filter housing for bypass or damage.' },
@@ -229,15 +250,19 @@ export function genRecs(zoneScores, bldg, opts = {}) {
       pushZone('eng', zs.zoneName, 'Remediate visible mold per IICRC S520 / EPA Mold Remediation in Schools and Commercial Buildings. For areas <10 sq ft (Level I), trained maintenance staff with PPE (N95, gloves, eye protection) may perform cleanup.', T_SOURCE)
       pushZone('eng', zs.zoneName, 'Post-remediation verification per IICRC S520 — visual clearance and clearance air sampling before reoccupancy.', T_ADM)
     }
-    if (hasDrainPan) {
-      trigger('drainpan_clean', zs.zoneName)
-      trigger('legionella_188', zs.zoneName)
-    }
+    if (hasDrainPan) trigger('drainpan_clean', zs.zoneName)
     if (hasFilterIssue) trigger('filter_replace_imm', zs.zoneName)
     if (hasNegPressure) pushZone('eng', zs.zoneName, 'Correct building pressurization. Negative pressure draws contaminants from adjacent spaces and outdoor sources. Evaluate exhaust/supply balance.', T_ENG)
     if (hasSymptomCluster) {
       pushZone('imm', zs.zoneName, 'Deploy portable HEPA filtration units in affected occupied areas as interim measure.', T_ENG)
-      pushZone('adm', zs.zoneName, 'Implement occupant risk communication plan per ATSDR guidance. Notify affected occupants of assessment findings and planned corrective actions.', T_ADM)
+      // The ATSDR occupant-risk-communication action was removed in 2026-08.
+      // `phrases/complaints.ts` retired it first and said why: it is
+      // disproportionate to a routine commercial IAQ assessment, where no
+      // hazardous release requiring community risk communication has been
+      // identified. ATSDR guidance addresses public-health responses to
+      // contaminated sites. The proportionate step is a structured symptom
+      // survey, which the critical/medium complaint branches above already
+      // emit as a NIOSH IEQ questionnaire action.
       pushZone('adm', zs.zoneName, 'Evaluate feasibility of temporary relocation for symptomatic occupants until corrective actions are verified effective.', T_ADM)
     }
     if (hasMold || hasWater) {

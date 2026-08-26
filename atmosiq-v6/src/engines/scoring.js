@@ -275,7 +275,30 @@ function assessHVAC(d) {
   if (d.fc === 'Heavily loaded' || d.fc === 'Damaged / Bypass') { r.push({ t:'Filter condition: '+d.fc.toLowerCase()+' — degraded filtration performance', sev:'high' }) }
   if (d.fm === 'No filter')           { gate5 = true; r.push({ t:'No filtration installed — Major HVAC Deficiency', sev:'critical' }) }
   if (d.sa === 'No airflow detected') { gate5 = true; r.push({ t:'No supply airflow detected — Critical HVAC Condition Identified', sev:'critical' }) }
-  if (d.dp === 'Standing water' || d.dp === 'Bio growth observed') { gate5 = true; r.push({ t:'Drain pan: '+d.dp.toLowerCase()+' — Critical Moisture/Hygiene Deficiency. Evaluate for Legionella risk per ASHRAE Standard 188 if building lacks a Water Management Program.', std:'ASHRAE 188', sev:'critical' }) }
+  // The Legionella / ASHRAE 188 escalation was removed in 2026-08. It fired on
+  // this one intake field and nothing else — no water system, no aerosol
+  // pathway, no symptom, no building type. ASHRAE 188 scopes itself to
+  // building water systems with a recognised aerosol transmission risk
+  // (cooling towers, evaporative condensers, domestic hot water, decorative
+  // fountains, misters); a low-temperature condensate drain pan is not one,
+  // and answering a dropdown does not establish an exposure pathway.
+  //
+  // The phrase library reached this conclusion first and wrote it down —
+  // `phrases/hvac.ts`, hvac_drain_pan_microbial_reservoir. But that entry only
+  // governs renderClientReport / PrintReport, and the AtmosFlow DOCX (the only
+  // client deliverable) takes `text: r.t` straight off this finding
+  // (`report/reportModel.js` collectFindings). So the sentence one layer had
+  // deliberately retired was still the one reaching clients. Same cross-layer
+  // split as the 67–82°F comfort band: two layers, two answers, and the
+  // unaudited one shipped.
+  //
+  // 188 also had no record behind it — absent from STANDARDS_MANIFEST,
+  // criteria.js and standards-corpus.js alike — so the double-entry
+  // reconciliation could not see it. The condition itself is real and keeps
+  // both its severity and its `gate5` flag; only the escalation went. Nothing
+  // replaces the citation: the corpus documents no drain-pan threshold, and a
+  // finding with no citation is honest where an invented one is not.
+  if (d.dp === 'Standing water' || d.dp === 'Bio growth observed') { gate5 = true; r.push({ t:'Drain pan: '+d.dp.toLowerCase()+' — Critical Moisture/Hygiene Deficiency. Potential microbial reservoir in the condensate pan.', sev:'critical' }) }
   // Critical HVAC Condition. The finding used to end "caps category at
   // 30%", which described what the condition did to the SCORE rather
   // than what it is. The condition is unchanged; only the sentence about

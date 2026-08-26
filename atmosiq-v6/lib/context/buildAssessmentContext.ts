@@ -35,6 +35,7 @@ import {
   type CausalChainLike, type InvestigationState, type SamplingPlanLike,
 } from '../../src/engine/investigation'
 import { summarizeLoggerForContext } from '../jasper/logger-context-summary'
+import { summarizeMonitoringReportForContext } from '../jasper/monitoring-report-summary'
 import { parsePhotoKey } from '../../src/utils/photoIndex.js'
 import { FIELD_REGISTRY, getField, SCOPE_PRESURVEY } from '../../src/constants/field-registry.js'
 import type {
@@ -321,6 +322,21 @@ export function buildAssessmentContext(state: RawAssessmentState): AssessmentCon
     logger_data_summary = null
   }
 
+  // The issued monitoring report, if one was generated from this logger data.
+  // Distinct from `logger_data_summary`, which summarizes the READINGS: this
+  // is the DELIVERABLE — the references the assessor chose, the statuses the
+  // report reached, the prose it printed, and the limitations it declared.
+  // Without it Jasper can discuss the data but cannot answer a question about
+  // the document the client is holding.
+  let monitoring_report = null
+  try {
+    monitoring_report = summarizeMonitoringReportForContext(
+      (s.sensorData as Record<string, unknown> | null | undefined)?.monitoringReport,
+    )
+  } catch {
+    monitoring_report = null
+  }
+
   const lifecycle = resolveLifecycle(s as Record<string, unknown>)
 
   // snake_case here, camelCase in the storage shape: the context is a
@@ -382,6 +398,7 @@ export function buildAssessmentContext(state: RawAssessmentState): AssessmentCon
     zones: buildZoneSummaries(zones, curZone),
     walkthrough_findings: rollUpFindings(s.zoneScores, zones),
     logger_data_summary,
+    monitoring_report,
     photos: buildPhotoIndex(s.photos),
     narrative_inputs: buildNarrativeInputs(presurvey, building, zones),
     engine_outputs: hasEngineOutputs

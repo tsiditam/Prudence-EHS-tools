@@ -24,6 +24,7 @@ describe('FIELD_ASSISTANT_TOOLS schema', () => {
       'analyze_photo',
       'propose_action',
       'assess_investigation',
+      'read_monitoring_report',
       'generate_report',
     ])
   })

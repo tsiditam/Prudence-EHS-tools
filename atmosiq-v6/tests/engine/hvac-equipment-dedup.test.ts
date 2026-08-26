@@ -33,7 +33,10 @@ function meridianFixture(equipmentTopology: 'shared-ahu' | 'split-ahu' | 'unmapp
     zoneName,
     cats: [
       // Drain pan critical → triggers drainpan_immediate (equipment) +
-      // drainpan_clean (equipment) + legionella_188 (equipment)
+      // drainpan_clean (equipment). It used to trigger legionella_188 as a
+      // third; that rule was removed in 2026-08 with the ASHRAE 188
+      // escalation. The dedup behaviour this file tests is per-rule, so the
+      // count of rules does not change what it asserts.
       { l: 'HVAC', r: [{ t: 'Drain pan: standing water — Critical', sev: 'critical' }] },
       // Filter issue high → triggers filter_replace_imm + filter_replace_high
       { l: 'HVAC', r: [{ t: 'Filter condition: heavily loaded — High', sev: 'high' }] },
@@ -77,9 +80,13 @@ function meridianFixture(equipmentTopology: 'shared-ahu' | 'split-ahu' | 'unmapp
   return { zoneScores, zones, equipment, bldg: {} }
 }
 
-const drainPanText = 'Clean drain pan, treat with EPA-registered biocide, and verify proper slope and condensate disposal.'
+// The EPA-registered-biocide instruction was removed from this action in
+// 2026-08 — biocide selection is a maintenance decision, not a screening
+// finding. What this file tests is the equipment-scoped DEDUP behaviour, which
+// is per-rule and indifferent to the wording; the string is pinned here only
+// so the assertions have something exact to match on.
+const drainPanText = 'Clean the drain pan and associated components in accordance with manufacturer recommendations and applicable HVAC maintenance procedures; correct drainage and slope deficiencies contributing to standing water.'
 const drainPanImmediateText = 'Address drain pan condition immediately. Evaluate for microbial growth.'
-const ashrae188Text = 'Evaluate drain pan for Legionella risk per ASHRAE Standard 188. If building lacks a Water Management Program, consider Legionella sampling given active occupant respiratory symptoms.'
 const oaDamperText = 'Evaluate outdoor air delivery rate and verify OA damper position within 24–72 hours.'
 const niosh = 'Document affected occupants using NIOSH IEQ questionnaire or equivalent structured symptom instrument.'
 const iicrc500 = 'Repair water intrusion source. Assess affected materials within 48 hours per IICRC S500.'
