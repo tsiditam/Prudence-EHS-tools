@@ -126,6 +126,10 @@ export function generateLegacyPrintHTML(data) {
   // The date the survey was CONDUCTED, not the day the report was finalized.
   // Shared resolver so this report, the DOCX and scoring all answer alike.
   const assessDate = formatAssessmentDate(data) || now
+  // Same contract as src/report/reportModel.js — `data.id` is the record this
+  // export is of, and the timestamp fallback is only for a caller with no
+  // record. Both surfaces must agree, or one document's Report ID contradicts
+  // the other's for the same assessment.
   const reportId = data.id || `AIQ-${Date.now().toString(36).toUpperCase().slice(-6)}`
   const assessor = profile?.name || presurvey?.ps_assessor || 'Assessor'
   const ver = data.version || '6.0.0'

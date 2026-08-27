@@ -242,6 +242,71 @@ Guards: `monitoring-report-summary` (22), `read-monitoring-report` (17),
 "Within Reference" over a withheld comparison fails 4, dropping the
 envelope field fails 1. Gate: `IEMR-JASPER-READABLE` (prod-ready now 74).
 
+**A report keeps one identity across every export**
+
+Both renderers have always honoured `data.id` for the Report ID — and no
+caller ever passed one. So both fell through to
+`AIQ-${Date.now().toString(36)…}` on every export, and the **same report
+regenerated after a typo fix came out bearing a different identity from the
+copy the client already held.** Two documents, one assessment, disagreeing
+about which one they are. The Report ID is what a client quotes back when
+they ring about a document and what a reviewer writes on a finding.
+
+`Date.now()` is a timestamp, not an identity: it changes on re-issue, which
+is precisely when a stable id matters most. The three `reportData` builds —
+export, share, peer-review email — now carry `id: viewRpt?.id || draftId`.
+The fallback stays for a caller with no record behind it at all (the
+marketing sample); what must not happen is a caller that HAS a record still
+landing on it.
+
+Deliberate contrast with `datasetHash`, which fingerprints the READINGS and
+is invariant across re-issue for the opposite reason: it answers *"is this
+the same data"*, where this answers *"is this the same report"*.
+
+**An assessment now has a durable identity**
+
+Record ids are not durable. `resolveFinalizeTarget` mints a fresh
+`rpt-<timestamp>` the first time a `draft-<timestamp>` session finalizes, so
+the id an assessment is known by changes exactly once — at the moment it
+becomes a deliverable. Fine for storage, which is all it was asked to do.
+Useless as a key for anything that must outlive that transition.
+
+`src/billing/assessmentUid.js` adds one that survives draft → finalize →
+re-open → re-finalize, riding alongside the record id rather than replacing
+it. `finalizeTarget.js` is untouched: record ids are load-bearing across six
+`supabaseStorage.js` call sites that split drafts from reports on the
+id/status shape, and the duplicate-reports bug already lives there.
+
+**`deriveLegacyUid` is pure, and that is the whole point.** Every existing
+assessment has no uid. If opening one MINTS instead of DERIVES, the record's
+identity changes on every open — and under per-report pricing, re-downloading
+last month's report would charge for it again, silently, because from the
+code's view it is simply a different assessment. So: existing uid, else
+derive deterministically from the record id, and mint only when there is
+neither. No clock, no randomness, no I/O. Finalize **carries** the uid across
+the id change rather than re-deriving from the new `rpt-` id — one line, and
+the reason the module exists.
+
+Migration 032 adds `assessments.assessment_uid` with `UNIQUE (user_id,
+assessment_uid)`. Nullable, no backfill — a SQL backfill would be a second
+implementation of a function whose entire job is to agree with the first.
+The column exists so the **server** can bind on it: a client-minted uid means
+nothing until a row proves this user owns it. It also rides inside `payload`,
+so the client round-trip works on a project that has not migrated yet — and
+the upsert retry now drops `assessment_uid` alongside `payload` so an
+unapplied migration cannot break all syncing.
+
+Guards: `assessmentUid` (17) pins purity, RFC-4122 shape, collision behaviour
+across consecutive `Date.now()` ids, and the crypto-less PWA fallback;
+`assessmentUid-wiring` (11) pins that finalize carries rather than re-derives,
+that both re-open paths backfill, and that a cloud row without a uid cannot
+blank a local one. Verified by inversion — making `openReport` mint fails the
+re-open guard. `report-id-stability` (8) covers the export identity, including
+a source-level check that all three build sites pass the id.
+
+Neither change is billing. Both are prerequisites for it, and both fix real
+defects on their own.
+
 ## Engine v2.8.0 — HVAC equipment-scoped recommendations
 
 **User-visible change**

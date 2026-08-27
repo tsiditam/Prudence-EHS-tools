@@ -231,6 +231,16 @@ export function buildReportModel(data = {}, opts = {}) {
       assessorName: profile.name || ps.ps_assessor || 'Assessor',
       assessorCredentials: (profile.certs || []).join(', '),
       companyName: profile.firm || 'Prudence Safety & Environmental Consulting, LLC',
+      // The Report ID a client quotes back when they ring about a document.
+      // `data.id` is the record this export is of; the fallback is for a
+      // caller that has no record at all — the marketing sample, a preview.
+      //
+      // Until 2026-08 NO caller passed `id`, so the fallback ran every time
+      // and the SAME report printed a different Report ID on every export.
+      // Regenerate after a typo fix and the client is holding two documents
+      // that disagree about which one they are. `Date.now()` is a timestamp,
+      // not an identity: it changes on re-issue, which is precisely when a
+      // stable id matters most.
       reportId: data.id || `AIQ-${Date.now().toString(36).toUpperCase().slice(-6)}`,
       mode: opts.mode || 'draft', // 'draft' | 'final' | 'sample'
       // Report lifecycle. `mode` above is the legacy switch and is kept
