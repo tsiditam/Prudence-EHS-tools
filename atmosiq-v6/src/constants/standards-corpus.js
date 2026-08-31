@@ -15,7 +15,7 @@
  *     domain (DHHS Pub).
  *   • EPA regulations (40 CFR 50.xxx NAAQS, IRIS) — public domain.
  *   • ATSDR ToxProfiles — public domain.
- *   • ASHRAE 62.1 / 55 / 241, ACGIH TLVs, IICRC S520, Mølhave 1991
+ *   • ASHRAE 62.1 / 55 / 241, ACGIH TLVs, IICRC S520
  *     — copyrighted third-party documents. Each chunk paraphrases
  *     the substance, cites the section/version, and does not quote
  *     proprietary text verbatim.
@@ -224,19 +224,12 @@ export const STANDARDS_CORPUS = [
     tags: ['co2', 'ventilation', 'methodology', 'toxic', 'atsdr', 'screening'],
     text: 'A common misconception treats indoor CO₂ as a toxic contaminant. At IAQ-typical concentrations (400–2000 ppm), CO₂ has no demonstrated acute toxicity in healthy adults. The OSHA PEL (5000 ppm 8-hr TWA) is unlikely to be exceeded in any normally-occupied building. Above approximately 1500 ppm, some studies report decreased cognitive performance, increased drowsiness, and elevated headache rates — but the mechanism is contested. Many researchers attribute these effects to co-varying contaminants (VOCs, bioeffluents, particulates) that accumulate when ventilation is inadequate, with CO₂ acting only as a proxy. The defensible IAQ use of CO₂ is as a ventilation-adequacy indicator: indoor-outdoor differentials >700 ppm during steady-state occupancy suggest under-ventilation per ASHRAE 62.1. When citing CO₂ in screening reports, frame findings as "indicates inadequate outdoor air supply per ASHRAE 62.1" rather than "CO₂ exposure may cause health effects."',
   },
-  {
-    id: 'molhave-tvoc-framework',
-    figures: [
-      { criterionId: 'tvoc_molhave_concern', value: 500, unit: 'µg/m³' },
-      { criterionId: 'tvoc_molhave_action', value: 3000, unit: 'µg/m³' },
-    ],
-    title: 'Mølhave TVOC dose-response framework (1991)',
-    citation: 'Mølhave, L. (1991) Indoor Air 1(4):357-376',
-    document: 'Molhave-1991',
-    year: 1991,
-    tags: ['tvoc', 'voc', 'molhave', 'sbs', 'sick-building', 'screening'],
-    text: 'Lars Mølhave\'s 1991 dose-response framework for Total Volatile Organic Compounds (TVOC) is the most-cited screening benchmark in IAQ work, despite being 30+ years old and non-regulatory. The four-tier construct: (1) below 0.2 mg/m³ (200 µg/m³), comfort range — no expected effects; (2) 0.2–3 mg/m³ (200–3000 µg/m³), multifactorial effects possible — irritation, headache, "stuffy feeling," in combination with other building factors; (3) 3–25 mg/m³ (3000–25000 µg/m³), discomfort and irritation likely, headache and difficulty concentrating; (4) above 25 mg/m³ (>25000 µg/m³), toxic range. These tiers are mass concentrations of a VOC mixture (1 mg/m³ = 1000 µg/m³) and are NOT expressed in ppb; they are also distinct from the general/LEED ~500 µg/m³ green-building TVOC target, which is a building-acceptance benchmark, not a symptom-likelihood tier. The construct is advisory only and based on chamber studies with mixtures of common VOCs. Critical caveats: TVOC measured by PID does not speciate, so health-significant individual VOCs (formaldehyde, benzene, naphthalene) may be present without elevating TVOC; conversely, high TVOC may reflect benign emissions (limonene, terpenes from cleaning products). For any actionable finding, speciate via EPA TO-15 (Summa canister) or TO-17 (sorbent tube) and evaluate each VOC against its OSHA PEL / NIOSH REL / ACGIH TLV.',
-  },
+  // The `molhave-tvoc-framework` entry was removed in 2026-08, with the two
+  // criteria whose figures it declared. The corpus is what Jasper cites from,
+  // so an entry describing a four-tier dose-response construct is a threshold
+  // the assistant will quote whether or not the engine applies one — which is
+  // how those tiers reached client-facing text in the first place. AtmosFlow
+  // now applies no TVOC threshold at all; see criteria.js.
   {
     id: 'tvoc-500-green-building-target',
     title: 'General / LEED 500 µg/m³ TVOC target (green-building convention)',
@@ -244,7 +237,7 @@ export const STANDARDS_CORPUS = [
     document: 'LEED-v4',
     year: 2019,
     tags: ['tvoc', 'voc', '500', 'leed', 'green-building', 'target', 'iaq-acceptance', 'usgbc'],
-    text: 'A TVOC target of 500 µg/m³ is a green-building / general-guidance acceptance value — NOT a health-based exposure limit and NOT one of the 1991 TVOC dose-response tiers. It appears in green-building protocols — e.g. the USGBC LEED v4 / v4.1 EQ "Indoor Air Quality Assessment" credit lists a maximum TVOC concentration of 500 µg/m³ for the post-construction air-testing option used to demonstrate a building is ready for occupancy — and in various national IAQ "target value" guidelines (often in the 300–500 µg/m³ range). It is a building-acceptance benchmark for new or renovated spaces, applied with a defined measurement method (typically EPA TO-15/TO-17 speciated then summed, or a calibrated PID for screening). Do not conflate this 500 µg/m³ figure with the 1991 TVOC dose-response advisory tiers (≈0.2 / 3 / 25 mg/m³, i.e. 200 / 3000 / 25000 µg/m³), which describe symptom likelihood, not building acceptance. When citing 500 µg/m³, name it as a green-building/LEED target and keep units in µg/m³; never express it in ppb.',
+    text: 'A TVOC target of 500 µg/m³ is a green-building / general-guidance acceptance value — NOT a health-based exposure limit and NOT one of the 1991 TVOC dose-response tiers. It appears in green-building protocols — e.g. the USGBC LEED v4 / v4.1 EQ "Indoor Air Quality Assessment" credit lists a maximum TVOC concentration of 500 µg/m³ for the post-construction air-testing option used to demonstrate a building is ready for occupancy — and in various national IAQ "target value" guidelines (often in the 300–500 µg/m³ range). It is a building-acceptance benchmark for new or renovated spaces, applied with a defined measurement method (typically EPA TO-15/TO-17 speciated then summed, or a calibrated PID for screening). Do not conflate this 500 µg/m³ figure with the 1991 TVOC dose-response advisory tiers (≈0.2 / 3 / 25 mg/m³, i.e. 200 / 3000 / 25000 µg/m³), which describe symptom likelihood, not building acceptance. When citing 500 µg/m³, name it as a green-building/LEED target and keep units in µg/m³; never express it in ppb. AtmosFlow itself applies NO TVOC threshold — it measures and reports the value and compares it to nothing — so this figure is background for an assessor who encounters it in a green-building specification, never a basis on which this platform judges a reading.',
   },
   {
     id: 'direct-read-vs-lab',

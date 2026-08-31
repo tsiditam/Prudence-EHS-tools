@@ -89,12 +89,22 @@ describe('lookupExposureLimit', () => {
     expect(r!.epa!.value).toBe(4) // EPA 4 pCi/L action level
   })
 
-  it('TVOC has no regulatory limits but has Mølhave advisory', () => {
+  it('TVOC is a known analyte with no limit under any agency, including "other"', () => {
+    // The `other` list held a Mølhave 1991 row with the four dose-response
+    // tiers until 2026-08. This table backs `lookup_exposure_limit`, and the
+    // assistant may state any numeric advisory tier that came from a tool
+    // result in the same turn — so a row here IS a citable TVOC threshold
+    // whatever the note beside it said.
+    //
+    // TVOC stays a known analyte on purpose. "Not in my reference table" and
+    // "no limit exists for this" are different answers, and only the second
+    // is true; the row's `note` is what carries it.
     const r = lookupExposureLimit('TVOC')
-    expect(r!.osha).toBeNull()
-    expect(r!.niosh).toBeNull()
-    expect(r!.other.length).toBeGreaterThan(0)
-    expect(r!.other[0].citation).toMatch(/Mølhave|Molhave/)
+    expect(r, 'TVOC should still resolve as an analyte').toBeTruthy()
+    for (const k of ['osha', 'niosh', 'acgih', 'epa', 'idlh']) expect(r![k], k).toBeNull()
+    expect(r!.other).toEqual([])
+    expect(JSON.stringify(r)).not.toMatch(/molhave|mølhave/i)
+    expect(r!.note).toMatch(/no consensus health-based exposure limit/i)
   })
 
   it('returns null for unknown analyte', () => {

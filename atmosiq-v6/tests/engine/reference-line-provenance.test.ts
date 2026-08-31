@@ -111,17 +111,31 @@ describe('every reference line traces to a criterion', () => {
     expect(unattributed, 'a reference line with neither a criterion nor a citation').toEqual([])
   })
 
-  it('and the self-sourced ones are a short, named list', () => {
-    // Named so the exception cannot spread quietly. Each of these draws a
-    // real published figure under a citation it states itself; adding to the
-    // list is a deliberate act that shows up in a diff.
+  it('and the self-sourced ones are a short, named list — currently empty', () => {
+    // Named so the exception cannot spread quietly. Each entry draws a real
+    // published figure under a citation it states itself; adding to the list
+    // is a deliberate act that shows up in a diff.
+    //
+    // The list held exactly one member, `tvoc/well`, and it is worth keeping
+    // the history because this guard once got the rule wrong. Its first
+    // version demanded a criterion for EVERY profile, which that profile had
+    // none of by design — and rather than fix the over-strong rule, a
+    // criterion was invented, a manifest entry added, and the profile's WELL
+    // citation swapped for a LEED one on the claim that the corpus
+    // contradicted WELL. The corpus is silent on WELL for that figure, and
+    // silence is not contradiction. All of it was reverted.
+    //
+    // The profile itself was then removed in 2026-08, with every other TVOC
+    // reference. So the list is empty for a reason unrelated to that
+    // argument, and the rule it settled — traceability, not linkage — still
+    // governs the next profile that declares its own citation.
     const selfSourced = eachProfile()
       .filter((p) => !p.criterionId)
       .map((p) => ({ p, r: resolveReference(p.param, p.id, { unit: UNIT[p.param], ts: SUMMER }) as any }))
       .filter(({ r }) => typeof r?.limit === 'number')
       .map(({ p }) => `${p.param}/${p.id}`)
       .sort()
-    expect(selfSourced).toEqual(['tvoc/well'])
+    expect(selfSourced).toEqual([])
   })
 })
 

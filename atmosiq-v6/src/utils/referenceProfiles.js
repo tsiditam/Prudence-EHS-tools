@@ -63,7 +63,7 @@
 
 import { STD } from '../constants/standards'
 import { CRITERIA } from '../constants/criteria'
-import { paramReference, tvocToUnit, hchoToUnit } from './sensorThresholds'
+import { paramReference, hchoToUnit } from './sensorThresholds'
 import { tvocEquivalenceNote, parseCalibrationGas, TVOC_REFERENCES } from './vocConversion'
 
 const isNum = (v) => v != null && Number.isFinite(v)
@@ -74,13 +74,9 @@ const isMg = (u) => /mg/.test(norm(u))
 /** True for the mass units a mass-basis tier converts into safely (scale only). */
 const isMassUnit = (u) => /g\/m/.test(norm(u))
 
-/**
- * The compound a TVOC tier is restated through, read off the survey's own
- * calibration record (`ctx.calibrationGas`, the free-text PID span gas).
- * Undefined when nothing usable was recorded, which lets `convertTvoc` apply
- * its isobutylene default — the note then says the default was applied.
- */
-const calGasKey = (ctx) => parseCalibrationGas(ctx && ctx.calibrationGas).key || undefined
+// `calGasKey` was removed with the TVOC profiles in 2026-08 — the PID span
+// gas only ever mattered for converting a TVOC mass threshold into the unit a
+// logger reported, and there is no TVOC threshold left to convert.
 
 // An annual-mean guideline (WHO annual, EPA annual PM2.5) is, by construction,
 // an average over a year. A monitoring session of hours or days cannot evaluate
@@ -199,39 +195,26 @@ const PROFILES = {
     { id: 'well', label: 'WELL v2 performance', criterionId: 'co_well', note: WELL_NOTE, action: CO_ACTION, resolve: () => ({ limit: STD.c.co.well }) },
   ],
 
-  tvoc: [
-    {
-      id: 'molhave',
-      equivalenceBasis: 'isobutylene',
-      label: 'Mølhave advisory (500 µg/m³)',
-      criterionId: 'tvoc_molhave_concern',
-      source: 'Mølhave 1991',
-      resolve: (ctx) => ({ limit: round(tvocToUnit(STD.c.tvoc.con, ctx && ctx.unit, { reference: calGasKey(ctx) }), isMg(ctx && ctx.unit) ? 3 : 0) }),
-    },
-    {
-      id: 'molhave-action',
-      equivalenceBasis: 'isobutylene',
-      label: 'Mølhave action tier (3,000 µg/m³)',
-      criterionId: 'tvoc_molhave_action',
-      source: 'Mølhave 1991',
-      resolve: (ctx) => ({ limit: round(tvocToUnit(STD.c.tvoc.act, ctx && ctx.unit, { reference: calGasKey(ctx) }), isMg(ctx && ctx.unit) ? 3 : 0) }),
-    },
-    {
-      id: 'well',
-      equivalenceBasis: 'isobutylene',
-      label: 'WELL v2 performance (500 µg/m³)',
-      source: 'WELL Building Standard v2 (A01)',
-      // Must still carry the "no consensus health limit" TVOC disclaimer (the
-      // standing anti-pattern) — WELL's 500 µg/m³ is a certification target, not
-      // a health limit.
-      note: 'TVOC has no consensus health limit; the WELL Building Standard v2 (A01) 500 µg/m³ figure is a green-building certification performance target, not a health-based limit — confirm against the current WELL v2 documentation.',
-      resolve: (ctx) => ({ limit: round(tvocToUnit(STD.c.tvoc.well, ctx && ctx.unit, { reference: calGasKey(ctx) }), isMg(ctx && ctx.unit) ? 3 : 0) }),
-    },
-    // Offered deliberately: with no consensus health limit, an assessor may
-    // reasonably choose to chart TVOC without any reference line rather than
-    // imply one exists.
-    { id: 'none', label: 'No reference line', source: null, resolve: () => ({}) },
-  ],
+  // ── TVOC has no reference profiles, deliberately (2026-08) ──────────
+  //
+  // Three profiles lived here: Mølhave advisory (500 µg/m³), Mølhave action
+  // tier (3,000 µg/m³), and a WELL v2 performance target (500 µg/m³). All
+  // three are gone, along with the criteria behind the first two.
+  //
+  // TVOC is a non-specific sum with no consensus health-based limit, so a
+  // reference LINE on a TVOC chart is a claim the data cannot support: it
+  // invites the reader to judge a reading against a threshold nobody
+  // published. Mølhave's tiers were a research dose-response framework and
+  // WELL's figure a certification target that was never verified against the
+  // current documentation.
+  //
+  // The key is absent rather than empty on purpose — `parametersWithProfiles`
+  // returns `Object.keys(PROFILES)`, so an empty array would still advertise
+  // TVOC as offering a choice of yardstick. `resolveReference` and
+  // `defaultProfileId` both return null for an absent key, which is exactly
+  // the behaviour wanted: the chart draws the series and no line.
+  //
+  // Guarded by tests/engine/no-molhave.test.ts.
 
   hcho: [
     { id: 'niosh-rel', label: 'NIOSH REL', criterionId: 'hcho_niosh_rel', source: 'NIOSH Pocket Guide', resolve: (ctx) => ({ limit: round(hchoToUnit(STD.c.hcho.niosh, ctx && ctx.unit), isPpm(ctx && ctx.unit) ? 3 : (isMg(ctx && ctx.unit) ? 3 : 1)) }) },
@@ -375,25 +358,28 @@ export function resolveReference(param, profileId, ctx = {}) {
   // to explain itself.
   const unavailable = !limit && !band && !!profile.requires ? profile.requires : null
 
-  // A TVOC tier published in µg/m³ (Mølhave, WELL) meeting data logged in
-  // ppb is the third case, and it is neither of the two above: the reference
-  // exists, the data exists, and the comparison is available — but only
-  // against a named reference compound, because TVOC is a mixture with no
-  // single molecular weight. Isobutylene is that compound by convention; it
-  // is what the PID was calibrated against and what its own µg/m³ display
-  // already uses internally.
+  // Mixture-threshold projection. A threshold published as a MASS
+  // concentration meeting data logged in a VOLUME unit is the third
+  // conversion case: the reference exists, the data exists, and the crossing
+  // is available — but only against a named reference compound, because a
+  // mixture has no single molecular weight. `equivalenceBasis` names the
+  // default compound; the survey's own calibration record overrides it when
+  // one was captured, and the note says which of the two happened, so a
+  // converted number is never grounded in a compound the assessor did not
+  // use.
   //
-  // So the tier resolves in ppb, and the assumption travels with it on
-  // `note` — which renders — rather than the number being withheld. A
-  // withheld reference leaves a ppb-logging PID with no tier at all while
-  // the same instrument set to µg/m³ keeps one, which is a property of the
-  // display setting, not of the air. See `utils/vocConversion.js`.
+  // NO PROFILE SETS `equivalenceBasis` TODAY. The only ones that ever did
+  // were the TVOC tiers (Mølhave 500 / 3,000 µg/m³ and the WELL target), and
+  // they were removed in 2026-08 with every other TVOC threshold. The
+  // machinery is kept rather than deleted because the criterion FIELD is kept
+  // — `criteria.js` documents `equivalenceBasis` and
+  // `tests/lib/vocConversion.test.ts` validates any value set on it — and a
+  // field whose behaviour had been deleted would silently do nothing the next
+  // time somebody set it. It stays reachable; nothing reaches it. Do not add
+  // a TVOC profile here to give it a caller.
   //
-  // Which compound is not a constant either. `equivalenceBasis` names the
-  // DEFAULT — the span gas a PID carries unless told otherwise — and the
-  // survey's own calibration record overrides it when one was captured. The
-  // note says which of the two happened, so a converted number is never
-  // grounded in a compound the assessor did not use.
+  // Note this projects a THRESHOLD. Converting a READING between units is a
+  // separate and still-live concern owned by `utils/vocConversion.js`.
   const equivalenceBasis =
     (criterionFor(param, profile) || {}).equivalenceBasis || profile.equivalenceBasis || null
   let note = profile.note || null

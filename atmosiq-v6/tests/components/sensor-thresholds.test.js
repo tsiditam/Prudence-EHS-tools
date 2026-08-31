@@ -84,34 +84,34 @@ describe('paramReference', () => {
     expect(paramReference('temp', { unit: '°F', ts: summer }).band.max).toBe(79)
   })
 
-  it('TVOC → Mølhave in ppb, against isobutylene, with the assumption stated', () => {
-    // 500 × 24.45 ÷ 56.11 = 218. Isobutylene's molecular weight is what the
-    // PID was calibrated against and what its own µg/m³ display already uses
-    // internally, so this restates the tier on the instrument's own basis
-    // rather than substituting a measurand. What it cannot do is speciate —
-    // and that is true in µg/m³ too, which is why it is disclosed here and
-    // not used to withhold the tier from ppb-logging meters.
-    const r = paramReference('tvoc', { unit: 'ppb' })
-    expect(r.limit).toBe(218)
-    expect(r.note).toMatch(/Mølhave 1991/)
-    expect(r.note).toMatch(/isobutylene-equivalent/i)
-    expect(r.note).toMatch(/TO-17/)
+  it('TVOC → no reference line in any unit, and the card says why', () => {
+    // Three tests lived here: the tier restated in ppb against isobutylene
+    // with the assumption disclosed, the mass-unit precision case (0.5 mg/m³,
+    // not 1 — whole-number rounding once doubled it), and the no-basis case
+    // where a bare index unit got no line but still explained itself.
+    //
+    // All three were careful about HOW to state a comparison, and the
+    // comparison itself went in 2026-08: TVOC is a non-specific sum with no
+    // consensus health-based limit, so there is no tier to restate, round or
+    // withhold. What survives is the third test's principle — the line does
+    // not silently vanish, the card says there is nothing to draw.
+    for (const unit of ['ppb', 'ppm', 'µg/m³', 'mg/m³', 'index', '']) {
+      const r = paramReference('tvoc', { unit })
+      expect(r.limit, unit).toBeNull()
+      expect(r.band, unit).toBeNull()
+      expect(r.refs, unit).toEqual([])
+      expect(r.note, unit).toMatch(/no consensus health-based limit/i)
+      expect(r.note, unit).toMatch(/TO-17/)
+    }
   })
 
-  it('TVOC → a unit with no basis gets no reference line at all', () => {
-    // A bare air-quality index is neither a mass nor a volumetric reading.
-    // There is nothing to convert between, so nothing is offered — and the
-    // note says that, rather than the line silently vanishing.
-    const r = paramReference('tvoc', { unit: 'index' })
-    expect(r.limit).toBeNull()
-    expect(r.note).toMatch(/no mass or volumetric basis/i)
-    expect(r.refs[0]).toMatch(/500 µg\/m³ \(mass basis\)/)
-  })
-
-  it('TVOC → the tier resolves in mass units, at the right precision', () => {
-    expect(paramReference('tvoc', { unit: 'µg/m³' }).limit).toBe(500)
-    // 0.5, not 1 — whole-number rounding of a mass unit doubled it.
-    expect(paramReference('tvoc', { unit: 'mg/m³' }).limit).toBe(0.5)
+  it('TVOC → the recorded calibration gas cannot conjure a reference', () => {
+    // `calibrationGas` decided which molecular weight the tier was restated
+    // through. With no tier, it has nothing to weigh — and must not become a
+    // back door that produces one.
+    for (const gas of ['Isobutylene 100 ppm', 'Toluene 100 ppm', 'Freon 12', '']) {
+      expect(paramReference('tvoc', { unit: 'ppb', calibrationGas: gas }).limit, gas).toBeNull()
+    }
   })
 
   it('HCHO → NIOSH REL projected into the logged unit', () => {

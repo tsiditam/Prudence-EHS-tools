@@ -493,7 +493,10 @@ export function generateLegacyPrintHTML(data) {
 
   <tr><td colspan="3" style="font-size:9px;font-weight:700;color:#1B2A41;background:#F3F4F6;padding:6px 10px;text-transform:uppercase;letter-spacing:0.5px;">Advisory Screening Benchmarks</td></tr>
   <tr><td style="font-size:10px;">CO₂ differential (700 ppm)</td><td style="font-size:10px;color:#5C6F7E;">Ventilation benchmark — not a regulatory limit</td><td style="font-size:10px;">Sedentary-office bioeffluent perception threshold per ASHRAE Position Document on Indoor CO₂ (2022). CO₂ is a ventilation indicator, not an IAQ contaminant.</td></tr>
-  <tr><td style="font-size:10px;">TVOC concern (500 µg/m³)</td><td style="font-size:10px;color:#5C6F7E;">Internal concern threshold — no regulatory limit exists for total VOCs</td><td style="font-size:10px;">Screening trigger for source investigation; Mølhave (1991) advisory</td></tr>
+  <!-- A "TVOC concern (500 µg/m³)" row sat here until 2026-08, sourced to
+       Mølhave (1991). It was removed with every other TVOC threshold: a
+       benchmark table is a list of what a reading was compared against, and
+       TVOC is compared against nothing. -->
   <tr><td style="font-size:10px;">RH 30–60%</td><td style="font-size:10px;color:#5C6F7E;">Comfort and moisture-control benchmark</td><td style="font-size:10px;">Moisture control and comfort (US EPA); not an ASHRAE 55 figure</td></tr>
   </tbody></table>
 

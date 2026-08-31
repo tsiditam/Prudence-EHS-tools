@@ -111,7 +111,7 @@ export const FIELD_ASSISTANT_TOOLS = [
   {
     name: 'search_standards_corpus',
     description:
-      'Free-text search over the curated IAQ standards corpus: ASHRAE 62.1 / 55 / 241, OSHA Z-1/Z-2, NIOSH RELs/NMAM methods, EPA NAAQS, IICRC S520 mold framework, IARC carcinogen groups, sampling methodology, defensibility primitives. Returns up to k matching passages each with a primary-source citation. Use this for conceptual or methodological questions where the answer is NOT a single analyte\'s PEL/TLV/method (those use the lookup_* tools). Examples: "what is demand-controlled ventilation", "how is mold condition 3 defined", "chain of custody requirements", "Mølhave TVOC framework", "ASHRAE 241 ECAi". Synthesize the returned passages into the four-section answer format; cite the returned citation strings verbatim.',
+      'Free-text search over the curated IAQ standards corpus: ASHRAE 62.1 / 55 / 241, OSHA Z-1/Z-2, NIOSH RELs/NMAM methods, EPA NAAQS, IICRC S520 mold framework, IARC carcinogen groups, sampling methodology, defensibility primitives. Returns up to k matching passages each with a primary-source citation. Use this for conceptual or methodological questions where the answer is NOT a single analyte\'s PEL/TLV/method (those use the lookup_* tools). Examples: "what is demand-controlled ventilation", "how is mold condition 3 defined", "chain of custody requirements", "why total VOCs have no exposure limit", "ASHRAE 241 ECAi". Synthesize the returned passages into the four-section answer format; cite the returned citation strings verbatim.',
     input_schema: {
       type: 'object',
       properties: {

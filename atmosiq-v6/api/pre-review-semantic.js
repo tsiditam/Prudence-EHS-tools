@@ -69,7 +69,7 @@ LANGUAGE INTEGRITY
   • Words that overstate a screening-level conclusion: "proves", "demonstrates", "definitive", "confirms" — paired with a health-harm or causation claim.
   • Regulatory determinations made from screening data ("exceeds the OSHA PEL" requires sampling, not walk-through).
   • Mold findings that frame spore counts as health risk evidence.
-  • TVOC interpretations that don't cite Mølhave 1991 advisory tiers.
+  • TVOC described as above, below, within, exceeding or meeting any limit, threshold, tier or guideline. No consensus health-based limit exists for total VOCs and AtmosFlow applies none, so a TVOC reading is reported and not scored. (This rule inverted in 2026-08: it used to flag TVOC interpretations that did NOT cite the 1991 advisory tiers.)
 
 INTERNAL CONSISTENCY
   • Zone names in the narrative that don't appear in the zones array.

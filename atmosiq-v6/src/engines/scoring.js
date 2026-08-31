@@ -233,13 +233,17 @@ function assessCont(d) {
     if (!hit) continue
     r.push({ t: label + ' ' + hit.statement, std: hit.criterion.source, sev: hit.severity, p: parameter, cid: hit.criterion.id })
   }
-  if (d.tv) {
-    // Severity, wording and citation come from the criterion.
-    const hit = evaluateCriteria('tvoc', +d.tv, EVIDENCE_BASIS_WALKTHROUGH)
-    if (hit) {
-      r.push({ t: 'TVOCs ' + hit.statement, std: hit.criterion.source, sev: hit.severity, p: 'tvoc', cid: hit.criterion.id })
-    }
-  }
+  // TVOC raises no finding, deliberately (2026-08). The branch that lived here
+  // evaluated the reading against Mølhave's 1991 advisory tiers — the only
+  // basis this platform ever had for judging a TVOC number, and a research
+  // dose-response framework rather than a limit. Both criteria were removed,
+  // so `evaluateCriteria('tvoc', …)` now returns null and the branch could
+  // only ever have been dead code pretending to be a decision.
+  //
+  // The reading is still captured, still charted and still reported. It is
+  // simply not compared to anything, because a non-specific sum with no
+  // consensus health-based limit has nothing to be compared to. Speciation
+  // (EPA TO-17) is what identifies the compounds that would.
   if (d.op === 'Strong / overpowering')    { r.push({ t:'Strong odor: '+((d.ot||[]).join(', ')||'?'), sev:'high' }) }
   else if (d.op === 'Moderate persistent') { r.push({ t:'Moderate odor', sev:'medium' }) }
   if (d.vd === 'Airborne haze' || d.vd === 'Heavy accumulation') { r.push({ t:d.vd, sev:'medium' }) }

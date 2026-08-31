@@ -157,17 +157,22 @@ export function buildCausalChains(zones, bldg, zoneScores, opts = {}) {
     }
     // Chemical chain
     const hasSrc = (d.src_internal||[]).length > 0 || (d.src_adjacent||[]).length > 0
-    const hasVOC = d.tv && +d.tv > STD.c.tvoc.con
+    // A TVOC term (`d.tv > STD.c.tvoc.con`) sat alongside HCHO here until
+    // 2026-08, gated on Mølhave's advisory tier. It went with every other
+    // TVOC threshold. A causal chain is an explanation offered to a reader,
+    // and "the TVOC was elevated" is not one this platform can support
+    // without a limit to call it elevated against. HCHO still drives the
+    // chain — it has a real exposure limit behind it, so the chain now rests
+    // on a measurement that means something.
     const hasHCHO = d.hc && +d.hc > STD.c.hcho.niosh
     const hasIrr = (d.sy||[]).some(s => ['Eye irritation','Headache','Throat irritation'].includes(s))
-    if (hasSrc && (hasVOC || hasHCHO) && hasIrr) {
+    if (hasSrc && hasHCHO && hasIrr) {
       const ev = []
-      if (hasVOC) ev.push('TVOCs at ' + d.tv + ' µg/m³')
-      if (hasHCHO) ev.push('HCHO at ' + d.hc + ' ppm')
+      ev.push('HCHO at ' + d.hc + ' ppm')
       ev.push('Sources: ' + [...(d.src_internal||[]),...(d.src_adjacent||[])].filter(s => s !== 'None identified').join(', '))
       ev.push('Irritation symptoms reported')
       chains.push({ zone: zName, type: 'Chemical Exposure', rootCause: 'Contaminant source(s) producing elevated concentrations with correlated symptoms', evidence: ev, confidence: weighChain({
-        measured: !!(hasVOC || hasHCHO),
+        measured: !!hasHCHO,
         // The guard above already requires an identified source AND correlated
         // irritation symptoms, so both corroborators are present by
         // construction. Stated rather than assumed, so a change to the guard

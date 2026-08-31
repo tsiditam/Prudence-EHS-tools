@@ -218,25 +218,26 @@ export function COTimelineChart({ data, hasTs = true, units = {}, palette = DARK
   return <Shell width={width} height={height}>{inner}</Shell>
 }
 
-// TVOC tiers in STD.c.tvoc are µg/m³ (Mølhave 1991). Loggers often report
-// ppb/ppm, where those values do not apply — so the advisory lines render
-// ONLY when the series unit is mass-based (µg/m³). The timeline still draws
-// for any unit; only the reference lines are unit-gated.
-const tvocIsMass = (units) => /µg|ug/.test(String(units?.tvoc || '').toLowerCase())
-
+// The TVOC chart draws NO reference line, deliberately (2026-08).
+//
+// Two Mølhave tiers (500 and 3,000 µg/m³) rendered here, unit-gated to
+// mass-based series because the figures are µg/m³ and loggers often report
+// ppb. They were removed with every other TVOC threshold: a reference line is
+// the most consequential mark on a chart — it is what a reader judges the
+// trace against — and TVOC is a non-specific sum with no consensus
+// health-based limit to draw.
+//
+// The `showRefs` prop is still accepted so the call site needs no change and
+// every other chart keeps its lines; on this one it has nothing to turn on.
 export function TVOCTimelineChart({ data, hasTs = true, units = {}, palette = DARK_PALETTE, width, height, showRefs = false, occupancy = [] }) {
   const pal = palette
-  const showTiers = showRefs && tvocIsMass(units)
+  void showRefs
   const inner = (w, h) => (
     <LineChart data={data} {...(width ? { width: w, height: h } : {})} margin={{ top: 8, right: 16, bottom: 4, left: 4 }}>
       <CartesianGrid stroke={pal.grid} strokeOpacity={0.5} vertical={false} />
       {occupancyAreas(occupancy)}
       <XAxis {...timeAxis(pal, hasTs)} />
       <YAxis {...axis(pal)} width={54} label={yLabel(pal, units.tvoc || 'ppb')} />
-      {showTiers && [
-        refLine(pal, { key: 'tvoccon', y: STD.c.tvoc.con, color: SERIES.tvoc, opacity: 0.5, label: `Mølhave ${STD.c.tvoc.con} µg/m³ (advisory)` }),
-        refLine(pal, { key: 'tvocact', y: STD.c.tvoc.act, color: SERIES.tvoc, dash: '2 4', opacity: 0.45, label: `Mølhave ${STD.c.tvoc.act} µg/m³ (advisory)` }),
-      ]}
       <Tooltip content={<ChartTooltip hasTs={hasTs} units={units} pal={pal} />} />
       <Line type="monotone" dataKey="tvoc" name="TVOC" stroke={SERIES.tvoc} strokeWidth={2} dot={false} connectNulls isAnimationActive={!width} />
     </LineChart>
@@ -348,17 +349,23 @@ export const GRAPH_DEFS = [
   { id: 'tempRh', title: 'Temperature & Relative Humidity', needs: (p) => p.includes('temp') || p.includes('rh'), series: ['Temperature', 'Relative Humidity'], refKey: 'rh', Chart: TempHumidityChart },
   { id: 'pm', title: 'Particulate Matter (PM2.5 / PM10)', needs: (p) => p.includes('pm25') || p.includes('pm10'), series: ['PM2.5', 'PM10'], refKey: 'pm', Chart: PMTimelineChart },
   { id: 'co', title: 'Carbon Monoxide (CO)', needs: (p) => p.includes('co'), series: ['CO'], refKey: 'co', Chart: COTimelineChart },
-  { id: 'tvoc', title: 'Total VOCs (TVOC)', needs: (p) => p.includes('tvoc'), series: ['TVOC'], refKey: 'tvoc', Chart: TVOCTimelineChart },
+  // No refKey — same as hcho below. The TVOC entry left REF_LINE_DEFS in
+  // 2026-08, so a refKey here would name a catalogue entry that no longer
+  // exists and offer the reader a toggle with nothing behind it.
+  { id: 'tvoc', title: 'Total VOCs (TVOC)', needs: (p) => p.includes('tvoc'), series: ['TVOC'], Chart: TVOCTimelineChart },
   { id: 'hcho', title: 'Formaldehyde Over Time', needs: (p) => p.includes('hcho'), series: ['Formaldehyde'], Chart: HCHOTimelineChart },
 ]
 
 // Reference-line catalogue for the toggle UI: which thresholds key applies
 // to a parameter set, its label, and whether it applies given the units.
-// `tvoc` lines only apply to mass-based (µg/m³) series — see TVOCTimelineChart.
+//
+// TVOC has no entry, deliberately (2026-08). It offered `TVOC Mølhave`,
+// unit-gated to mass-based series; it went with every other TVOC threshold.
+// Absent rather than present-and-never-applicable so the toggle list does not
+// advertise a reference the reader can never turn on.
 export const REF_LINE_DEFS = [
   { key: 'co2', label: `CO₂ ${STD.v.co2.con} ppm`, std: STD.v.ref, applies: (params) => params.includes('co2') },
   { key: 'rh', label: `RH ${STD.t.rh.min}–${STD.t.rh.max}%`, std: STD.t.rh.ref, applies: (params) => params.includes('rh') },
   { key: 'pm', label: `PM2.5 EPA/WHO`, std: 'EPA NAAQS / WHO 2021', applies: (params) => params.includes('pm25') },
   { key: 'co', label: `CO OSHA/NIOSH`, std: 'OSHA PEL / NIOSH REL', applies: (params) => params.includes('co') },
-  { key: 'tvoc', label: `TVOC Mølhave`, std: 'Mølhave 1991', applies: (params, units) => params.includes('tvoc') && tvocIsMass(units) },
 ]

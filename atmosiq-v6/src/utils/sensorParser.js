@@ -262,9 +262,10 @@ function hchoSourceToPpb(v, sourceUnit) {
  *
  * Crossing bases is allowed, later and explicitly, wherever the result is
  * labelled with the compound it assumed — `convertTvoc` in
- * `utils/vocConversion.js` owns that, in both directions: the published
- * Mølhave value projects INTO the logged unit for charting, and a ppb
- * reading converts INTO µg/m³ for the engine's `tv` field. What stays fixed
+ * `utils/vocConversion.js` owns that. Only one direction is live: a ppb
+ * reading converts INTO µg/m³ for the engine's `tv` field. The other —
+ * projecting a published threshold into the logged unit for charting — has
+ * no caller since the TVOC tiers were removed in 2026-08. What stays fixed
  * is the stored series: it remains as the instrument recorded it.
  */
 export function tvocCanonicalUnit(sourceUnit) {

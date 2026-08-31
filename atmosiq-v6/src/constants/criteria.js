@@ -227,13 +227,18 @@ export function capSeverity(proposed, criterionClass) {
  *   - Across bases for a single named compound (formaldehyde, CO): needs a
  *     molecular weight, but that weight is a fact about the analyte, not a
  *     choice. Also exact.
- *   - Across bases for a MIXTURE (TVOC): needs a molecular weight the
- *     mixture does not have, so one is chosen. Mølhave's 500 ug/m3 is the
- *     mass of a defined 22-compound chamber mixture; a photoionization
- *     detector reports isobutylene-equivalent response. The conversion
- *     (500 x 24.45 / 56.11 = 218 ppb) is a real restatement of what the PID
- *     measures, made against isobutylene — the gas it was calibrated with,
- *     and the basis its own ug/m3 display already uses.
+ *   - Across bases for a MIXTURE (e.g. a TVOC sum): needs a molecular weight
+ *     the mixture does not have, so one is chosen. A photoionization detector
+ *     reports isobutylene-equivalent response, so a mass threshold restated
+ *     in ppb is restated against isobutylene — the gas the meter was
+ *     calibrated with, and the basis its own ug/m3 display already uses.
+ *
+ *     NO CRITERION SETS `equivalenceBasis` TODAY. The only two that did were
+ *     the TVOC tiers, removed in 2026-08 along with every other TVOC
+ *     threshold; see the removal record on the CRITERIA table below. The
+ *     field and its projection in utils/referenceProfiles.js are kept so the
+ *     contract stays whole if a mixture threshold is ever added — this is
+ *     documentation of a rule, not of a live comparison.
  *
  * Only the third case sets `equivalenceBasis`, and setting it is a
  * REQUIREMENT, not a permission: `resolveReference` renders the named
@@ -609,32 +614,27 @@ export const CRITERIA = {
     }),
   ],
 
-  tvoc: [
-    criterion({
-      id: 'tvoc_molhave_action',
-      equivalenceBasis: 'isobutylene',
-      label: 'Mølhave action tier',
-      resolve: () => STD.c.tvoc.act,
-      unit: 'µg/m³',
-      averaging: 'instantaneous',
-      class: 'advisory',
-      severity: 'high',
-      source: 'Mølhave (1991) advisory tiers — total VOC, indoor',
-      action: 'TVOC is a non-specific sum and identifies no individual compound; speciate per EPA Method TO-17 (thermal desorption GC/MS) to identify the source.',
-    }),
-    criterion({
-      id: 'tvoc_molhave_concern',
-      equivalenceBasis: 'isobutylene',
-      label: 'Mølhave advisory tier',
-      resolve: () => STD.c.tvoc.con,
-      unit: 'µg/m³',
-      averaging: 'instantaneous',
-      class: 'advisory',
-      severity: 'medium',
-      source: 'Mølhave (1991) advisory tiers — total VOC, indoor',
-      action: 'TVOC is a non-specific sum. Consider EPA Method TO-17 speciation if source investigation is warranted.',
-    }),
-  ],
+  // ── TVOC has no criteria, deliberately (2026-08) ────────────────────
+  //
+  // `tvoc_molhave_concern` (500 µg/m³) and `tvoc_molhave_action`
+  // (3,000 µg/m³) were removed, and with them the only basis on which this
+  // platform judged a TVOC reading. The parameter is now DESCRIPTIVE ONLY:
+  // measured, charted and reported, never compared to anything.
+  //
+  // Why: TVOC is a non-specific sum that identifies no individual compound,
+  // and no consensus health-based limit exists for it. Mølhave's 1991 tiers
+  // were a dose-response framework from a research paper, not a limit — and
+  // applying them produced a severity, a citation and a client-facing finding
+  // as though they were one. The honest position is the one the corpus
+  // already stated: there is nothing to compare a TVOC reading against.
+  //
+  // `evaluateCriteria` returns null for a parameter with no entry, so the
+  // absence of this key IS the behaviour — no branch anywhere needs to test
+  // for it. The reference profiles, the chart lines, the sampling trigger and
+  // the causal-chain gate were removed in the same change; TVOC drives
+  // nothing. Do not reintroduce a tier here without a source that is a limit.
+  //
+  // Guarded by tests/engine/no-molhave.test.ts.
 
   // Attribution note: 1,000 / 1,500 ppm are ABSOLUTE indoor CO2 indicators
   // from NIOSH IEQ guidance, not ASHRAE 62.1 values — current 62.1 sets no

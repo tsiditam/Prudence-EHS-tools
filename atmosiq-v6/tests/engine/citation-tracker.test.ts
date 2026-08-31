@@ -88,12 +88,16 @@ describe('inferCitationsFromContext — Meridian-equivalent context', () => {
     standardsManifest: STANDARDS_MANIFEST,
   }
 
-  it('registers ASHRAE 62.1, ASHRAE 55, WHO, EPA, OSHA, IICRC, Molhave for a commercial office', () => {
+  it('registers ASHRAE 62.1, ASHRAE 55, WHO, EPA, OSHA and IICRC for a commercial office', () => {
     const r = inferCitationsFromContext(meridianCtx)
     expect(r.inBody.has('ASHRAE 62.1')).toBe(true)
     expect(r.inBody.has('WHO Air Quality Guidelines')).toBe(true)
     expect(r.inBody.has('IICRC S520')).toBe(true)
-    expect(r.inBody.has('Molhave TVOC tiers')).toBe(true)
+    // 'Molhave TVOC tiers' was registered here until 2026-08. The tracker
+    // records what a report CITED, and nothing cites it now — the manifest
+    // entry went with the tiers. Asserted as absent so a reintroduction shows
+    // up here rather than in a rendered appendix.
+    expect(r.inBody.has('Molhave TVOC tiers')).toBe(false)
   })
 
   it('does NOT register data-center standards (TC 9.9, NFPA 855, ISA 71.04, ISO 14644-1, IEEE 1635)', () => {
@@ -111,11 +115,13 @@ describe('inferCitationsFromContext — Meridian-equivalent context', () => {
     const r = inferCitationsFromContext(meridianCtx)
     const { bodyManifest, futureMethodManifest } = filterManifestByRegistration(STANDARDS_MANIFEST as any, r)
     const totalRendered = Object.keys(bodyManifest).length + Object.keys(futureMethodManifest).length
-    // STANDARDS_MANIFEST has 13 standards (excluding metadata keys).
-    // The Meridian commercial-office report should filter to roughly
-    // 7-9 entries, well below the original 13.
+    // STANDARDS_MANIFEST held 13 standards (excluding metadata keys) when
+    // this was written; 'Molhave TVOC tiers' left it in 2026-08. The Meridian
+    // commercial-office report should still filter well below that ceiling.
+    // The floor dropped from 4 to 3 with that entry — which is the filter
+    // doing its job, not a regression: one fewer thing to cite.
     expect(totalRendered).toBeLessThan(13)
-    expect(Object.keys(bodyManifest).length).toBeGreaterThanOrEqual(4)
+    expect(Object.keys(bodyManifest).length).toBeGreaterThanOrEqual(3)
   })
 })
 

@@ -323,12 +323,17 @@ const EXPOSURE_LIMITS = {
     niosh: null,
     acgih: null,
     epa: null,
-    other: [
-      { agency: 'Mølhave 1991 (advisory)', value: 0.2, units: 'mg/m³', type: 'Comfort range', duration: 'long-term', citation: 'Mølhave, L. (1991) Volatile Organic Compounds, Indoor Air Quality and Health. Indoor Air 1(4):357-376', note: '<0.2 mg/m³ comfort; 0.2–3 mg/m³ irritation possible; 3–25 mg/m³ irritation + headache; >25 mg/m³ toxic range. ADVISORY ONLY — not regulatory.' },
-    ],
+    // Empty on purpose (2026-08). A Mølhave 1991 row lived here carrying the
+    // four dose-response tiers (0.2 / 3 / 25 mg/m³). This table backs
+    // `lookup_exposure_limit`, and the assistant's prompt permits it to state
+    // any numeric advisory tier that came from a tool result in the same turn
+    // — so a row here IS a citable TVOC threshold, whatever the note beside it
+    // says. AtmosFlow applies no TVOC threshold anywhere; the lookup now
+    // returns the null limits and the note, which is the accurate answer.
+    other: [],
     idlh: null,
     carcinogen: null,
-    note: 'TVOC is a screening proxy, not a regulated value. Speciate to individual compounds (benzene, formaldehyde, etc.) for any regulatory or risk determination.',
+    note: 'No consensus health-based exposure limit exists for total VOCs, and AtmosFlow applies none — a TVOC reading is not compared against a threshold. TVOC is a non-specific sum of photoionizable species that identifies no individual compound. Speciate (EPA Method TO-17, thermal desorption GC/MS) to individual compounds — benzene, formaldehyde, toluene and the rest each carry their own PEL/REL/TLV — for any regulatory or risk determination.',
   },
   benzene: {
     osha: { value: 1, units: 'ppm', type: 'TWA', duration: '8-hour', citation: '29 CFR 1910.1028(c)(1)', note: 'STEL 5 ppm; Action Level 0.5 ppm 8-hr TWA' },
@@ -679,11 +684,17 @@ const HEALTH_EFFECTS = {
     sources: ['EPA PM ISA (2019)'],
   },
   tvoc: {
-    acute: [{ symptom: 'Nonspecific irritation, headache, "stuffy" feeling (Mølhave construct)', threshold: '0.2–3 mg/m³' }],
+    // No threshold on the acute entry, deliberately (2026-08). It read
+    // '0.2–3 mg/m³' sourced to Mølhave 1991 — a dose-response tier reaching
+    // the assistant through the health-effects lookup rather than the limits
+    // table. Nonspecific irritation IS reported in the literature on mixed
+    // VOC exposures; what cannot be stated is the concentration at which a
+    // TVOC sum produces it, because the sum names no compound.
+    acute: [{ symptom: 'Nonspecific irritation, headache and "stuffy" feeling are reported in occupants of buildings with mixed VOC exposures, but cannot be attributed to a TVOC sum or tied to a TVOC concentration — the metric identifies no compound and no consensus health-based limit exists for it', threshold: null }],
     chronic: [{ effect: 'Determined by individual species, not TVOC sum' }],
     targetOrgans: ['Varies by speciation'],
+    sources: ['EPA Method TO-17 (speciation is what produces a compound with a limit behind it)'],
     biomarkers: [],
-    sources: ['Mølhave (1991) Indoor Air 1(4):357-376'],
   },
   benzene: {
     acute: [{ symptom: 'CNS depression at high vapor exposures (>500 ppm)', threshold: 'IDLH 500 ppm' }],

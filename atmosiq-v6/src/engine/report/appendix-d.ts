@@ -117,7 +117,9 @@ export function inferOrganization(source: string): CitationOrganization {
   if (/\bastm\b|astm d/.test(s)) return 'ASTM'
   if (/nyc dohmh|new york city department of health/.test(s)) return 'NYC_DOHMH'
   if (/\baabc\b|\bnebb\b/.test(s)) return 'AABC_NEBB'
-  if (/persily|mølhave|molhave|seifert|chen ?& ?zhao|peer.reviewed|indoor air\b|atmospheric environment/.test(s)) {
+  // mølhave/molhave dropped 2026-08 — no citation reaches this classifier
+  // any more, and a pattern that can never match is a claim that it can.
+  if (/persily|seifert|chen ?& ?zhao|peer.reviewed|indoor air\b|atmospheric environment/.test(s)) {
     return 'PEER_REVIEWED'
   }
   return 'OTHER'

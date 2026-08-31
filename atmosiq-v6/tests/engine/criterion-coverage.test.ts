@@ -45,9 +45,21 @@ describe('no parameter is judged without a criterion', () => {
     co2: { co2: '1800' },
     pm25: { pm: '60' },
     co: { co: '60' },
-    tvoc: { tv: '4000' },
+    // No tvoc row. The rule is "every parameter the engine emits a finding
+    // FOR must name a registry criterion" — and since 2026-08 the engine
+    // emits no TVOC finding at any value, so there is nothing here to
+    // cover. Asserted positively in the test below, because a parameter
+    // silently dropping out of this matrix is exactly how an uncovered one
+    // would hide.
     hcho: { hc: '1.0' },
   }
+
+  it('tvoc is absent from the matrix because it produces no finding, not by oversight', () => {
+    expect(OUT_OF_RANGE.tvoc).toBeUndefined()
+    for (const tv of ['500', '3000', '4000', '25000']) {
+      expect(findingsFor({ tv }).find((f: any) => f.p === 'tvoc'), `tv=${tv}`).toBeUndefined()
+    }
+  })
 
   it.each(Object.entries(OUT_OF_RANGE))(
     '%s produces a finding that names the criterion it was judged against',

@@ -1,5 +1,96 @@
 # AtmosFlow Changelog
 
+## TVOC is no longer judged — the Mølhave advisory tiers are removed
+
+**User-visible change**
+
+A total-VOC reading is still captured, converted between units, charted,
+tabulated and reported. It is no longer compared against anything.
+
+Concretely: no TVOC finding, at any concentration. No reference line on the
+TVOC chart and no reference row in the monitoring report. No "TVOC elevated"
+chip in the field assistant, and no live advisory when a reading crosses 500
+or 3,000 µg/m³. No TVOC-triggered speciation entry in the sampling plan, and
+no TVOC term in the chemical causal chain. In the client DOCX the parameter's
+Basis column reads "No applicable threshold — reported, not judged" and its
+outcome is **Not evaluated** — a distinct token, deliberately not
+*Acceptable*.
+
+**Why**
+
+TVOC is a non-specific sum. A photoionization detector aggregates whatever it
+responds to into one mass-equivalent number and identifies none of it, and no
+regulatory or consensus health-based limit exists for that quantity.
+
+The platform's only basis for judging one was Mølhave (1991) — a chamber-study
+dose-response framework describing how symptom likelihood varied across a
+defined 22-compound mixture. It is not a limit and was never promulgated as
+one, and applying it produced a severity, a citation, a client-facing finding,
+a field advisory, a sampling recommendation and a causal-chain term as though
+it were.
+
+Every surface that carried a tier also carried a disclaimer saying it was
+advisory rather than regulatory. That is the part worth recording: **the
+disclaimer was the delivery mechanism, not the safeguard.** A figure printed
+beside a measured value reads as a limit however it is captioned, so the
+caveat let the tier travel while appearing to be careful about it. The
+platform's own anti-pattern list had it backwards — it REQUIRED the Mølhave
+disclaimer on any TVOC interpretation, which is a rule that mandates the
+comparison it means to qualify.
+
+**What went with them**
+
+The WELL v2 TVOC target (500 µg/m³) too, rather than being kept as the
+parameter's last selectable yardstick. Opt-in does not rescue a figure with no
+health basis behind it, and leaving one reference in place would have made
+"is this reading acceptable" answerable again by a different route.
+
+Also removed: the `molhave-tvoc-framework` corpus entry and the Mølhave row in
+the exposure-limit lookup table (both are what the assistant CITES from, so an
+entry there is a citable threshold whatever the note beside it says), the
+manifest entry, the parameter-prose citation, and the TVOC threshold from the
+sample report shipped in `docs/`.
+
+**What was inverted rather than deleted**
+
+Two rules had to flip, not go. The pre-review linter flagged TVOC
+interpretations that did NOT cite Mølhave; left in place it would have fired
+on every honest sentence and told the assessor to add a reference the platform
+had just deleted. It now flags TVOC described as above, below, within or
+exceeding any limit — and reads "total VOCs" as well as the acronym, because
+that is the label the report itself prints. The same inversion was applied to
+the semantic pre-review prompt and to the CLAUDE.md anti-pattern.
+
+**What deliberately stayed**
+
+- `utils/vocConversion.js`, untouched. A logger reporting ppb feeding an
+  engine field denominated in µg/m³ still has to cross bases correctly and
+  disclose the compound it crossed against. That is a factual question about
+  the air, and it stays one whether or not anything scores the result.
+- The LEED / green-building 500 µg/m³ corpus entry, whose text now states
+  outright that AtmosFlow applies no TVOC threshold. An assessor meets that
+  figure in a specification and needs to know what it is.
+- The renovation/off-gassing TO-17 sampling entry, which fires on a recorded
+  SOURCE rather than a concentration and never needed a threshold to be
+  defensible. Removing an over-reaching trigger must not leave a real one with
+  nothing to say.
+- The `equivalenceBasis` field and its projection, now with no caller. The
+  contract is kept whole so it does not silently do nothing the next time a
+  mixture threshold is added.
+
+**Guard**
+
+`tests/engine/no-molhave.test.ts`, acceptance criterion `NO-TVOC-THRESHOLD`.
+It pins the class rather than the instances: behavioural assertions through
+the real entry points at every tier boundary the removed criteria used, plus a
+sweep of `src/`, `api/` and `lib/` for a TVOC threshold in a rendered position.
+The sweep strips comments first — twenty-odd files now carry removal records
+that name the tiers and quote their figures, and a guard that could not tell a
+record from a shipped string would fail on its own documentation. It also pins
+what must remain, because an absence-only guard is satisfied by deleting too
+much.
+
+
 ## Engine v3.0.0 — the 100-point composite score is removed
 
 **User-visible change**

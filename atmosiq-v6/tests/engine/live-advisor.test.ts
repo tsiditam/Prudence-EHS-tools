@@ -157,24 +157,32 @@ describe('PM2.5 checks', () => {
 })
 
 describe('TVOC checks', () => {
-  it('flags warn at Mølhave action tier (3000 µg/m³)', () => {
-    const out = evaluateLive({ tv: STD.c.tvoc.act })
-    const a = out.find(x => x.id === 'tvoc-action')
-    expect(a).toBeDefined()
-    expect(a!.severity).toBe('warn')
+  // There is no TVOC check. `checkTVOC` compared the reading against
+  // Mølhave's concern (500 µg/m³) and action (3,000 µg/m³) tiers and told the
+  // assessor, in the field, that the value was "at or above" one of them —
+  // a judgement against a limit that does not exist. It went in 2026-08 with
+  // every other TVOC threshold; see tests/engine/no-molhave.test.ts.
+  //
+  // Worth naming what the advisory got RIGHT, because it is the reason this
+  // was a defect rather than merely noise: its advice was to speciate via
+  // EPA TO-15/TO-17, which is sound. Sound advice attached to an unsound
+  // trigger is still an unsound finding, and the advice survives where a
+  // recorded SOURCE warrants it (`sampling.js`).
+
+  it('issues nothing at any TVOC value, across every tier boundary it used', () => {
+    for (const tv of [0, 1, 199, 200, 499, 500, 501, 2999, 3000, 3001, 25000, 99999]) {
+      const out = evaluateLive({ tv })
+      expect(out, `tv=${tv}`).toEqual([])
+    }
   })
 
-  it('flags info at Mølhave concern tier (500 µg/m³)', () => {
-    const out = evaluateLive({ tv: STD.c.tvoc.con })
-    const a = out.find(x => x.id === 'tvoc-concern')
-    expect(a).toBeDefined()
-    expect(a!.severity).toBe('info')
-  })
-
-  it('every TVOC advisory cites Mølhave 1991 (the original advisory-tier paper)', () => {
-    const out = evaluateLive({ tv: 800 })
-    const a = out.find(x => x.parameter === 'tv')
-    expect(a!.reference).toMatch(/Mølhave 1991/)
+  it('a TVOC reading does not alter the advisories other parameters produce', () => {
+    // Fully inert, not merely silent.
+    const base = { co2: 1600, rh: 78 }
+    const without = JSON.stringify(evaluateLive(base))
+    for (const tv of [500, 3000, 25000]) {
+      expect(JSON.stringify(evaluateLive({ ...base, tv })), `tv=${tv}`).toBe(without)
+    }
   })
 })
 
@@ -221,7 +229,7 @@ describe('Multi-rule combination', () => {
       co: 36,            // warn (niosh)
       hc: 0.6,           // warn (al)
       pm: 18,            // info (who)
-      tv: 600,           // info (concern)
+      tv: 600,           // nothing — TVOC raises no advisory (2026-08)
       tf: 86,            // info (out of comfort)
       rh: 78,            // warn (rh-comfort >70)
     })
@@ -231,7 +239,7 @@ describe('Multi-rule combination', () => {
     expect(ids).toContain('co-niosh')
     expect(ids).toContain('hcho-action')
     expect(ids).toContain('pm25-who')
-    expect(ids).toContain('tvoc-concern')
+    expect(ids).not.toContain('tvoc-concern')
     expect(ids).toContain('temp-comfort')
     expect(ids).toContain('rh-comfort')
   })

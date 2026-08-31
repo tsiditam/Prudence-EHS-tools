@@ -28,8 +28,8 @@
  *   warning     — likely a defect the IH should look at. Examples:
  *                 duplicate findings, lab date sanity. Does not block.
  *   suggestion  — defensibility nudge. Examples: ASHRAE 62.1 cited
- *                 as a CO2 contaminant limit, TVOC without Molhave
- *                 disclaimer. Logged but not blocking.
+ *                 as a CO2 contaminant limit, TVOC described as above
+ *                 or below a threshold. Logged but not blocking.
  *
  * Engine-sacred: this validator NEVER modifies the engine output.
  * It only READS the engine's score / findings / recs and reports
@@ -99,11 +99,23 @@ const ANTI_PATTERNS = [
     title: 'Spore count framed as health proof',
     detail: 'IOM 2004 and ACMT 2025 are clear: spore counts are NOT a direct measure of health risk. Reframe as "elevated indicator warranting follow-up" rather than "proves harm".',
   },
+  // The `tvoc-without-molhave` rule was removed in 2026-08 — and it had to
+  // INVERT, not just go. It flagged any TVOC interpretation that did NOT cite
+  // Mølhave; with the tiers removed, no TVOC interpretation cites Mølhave, so
+  // the rule would have fired on every one of them and told the assessor to
+  // add a reference that no longer exists.
+  //
+  // Its replacement is the opposite check: TVOC must not be interpreted
+  // against a threshold at all.
   {
-    id: 'tvoc-without-molhave',
-    pattern: /\btvoc\b(?:(?!molhave|mølhave).)*$/is,
-    title: 'TVOC interpretation without Mølhave 1991 advisory tier',
-    detail: 'TVOC concentrations have no regulatory threshold. Mølhave 1991 advisory tiers are the convention. Add the Mølhave reference when interpreting TVOC.',
+    id: 'tvoc-cited-against-a-threshold',
+    // "total VOCs" as well as "TVOC": that is the label the report itself
+    // prints for the parameter (reportModel PARAMS, the DOCX criteria table,
+    // the parameter prose), so a rule that only knew the acronym would miss
+    // the phrasing the deliverable actually uses.
+    pattern: /\b(?:tvocs?|total\s+vocs?|total\s+volatile\s+organic\s+compounds?)\b[^.]{0,120}\b(?:exceed(?:s|ed|ing)?|above|below|within|meets?|complies?|limit|threshold|guideline|standard)\b/i,
+    title: 'TVOC compared against a threshold',
+    detail: 'TVOC is a non-specific sum with no consensus health-based limit, and AtmosFlow applies none. Report the measured value and what it does not establish; do not describe it as above, below or within any limit. Speciation (EPA Method TO-17) identifies the compounds that have limits.',
   },
 ]
 

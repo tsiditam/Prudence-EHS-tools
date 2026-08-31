@@ -124,7 +124,7 @@ describe('searchCorpus', () => {
 describe('retrieval quality — canonical IAQ queries', () => {
   const cases: Array<{ query: string; expectedTopId: string; label: string }> = [
     { query: 'IICRC mold condition 3', expectedTopId: 'iicrc-s520-conditions', label: 'mold conditions' },
-    { query: 'Mølhave TVOC framework', expectedTopId: 'molhave-tvoc-framework', label: 'Mølhave TVOC' },
+    { query: 'LEED green building TVOC target', expectedTopId: 'tvoc-500-green-building-target', label: 'LEED TVOC target' },
     { query: 'ASHRAE 241 ECAi infection control', expectedTopId: 'ashrae-241-2023', label: 'ASHRAE 241' },
     { query: 'radon EPA action level pCi/L', expectedTopId: 'radon-screening', label: 'radon' },
     { query: 'chain of custody laboratory samples', expectedTopId: 'chain-of-custody', label: 'CoC' },

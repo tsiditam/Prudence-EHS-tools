@@ -214,31 +214,6 @@ function checkPM25(data) {
   return advisories
 }
 
-function checkTVOC(data) {
-  const tv = num(data.tv)
-  if (tv === null) return null
-  if (tv >= STD.c.tvoc.act) {
-    return {
-      id: 'tvoc-action',
-      severity: 'warn',
-      parameter: PARAM.tvoc,
-      observation: `TVOC at ${tv} µg/m³ — at or above Mølhave action tier (${STD.c.tvoc.act} µg/m³).`,
-      suggestion: 'TVOC is advisory only (Mølhave 1991). Confirm with speciated sampling: EPA TO-15 (Summa) or TO-17 (sorbent tube). Survey for solvents, finishes, cleaners.',
-      reference: 'Mølhave 1991 — TVOC advisory tiers',
-    }
-  }
-  if (tv >= STD.c.tvoc.con) {
-    return {
-      id: 'tvoc-concern',
-      severity: 'info',
-      parameter: PARAM.tvoc,
-      observation: `TVOC at ${tv} µg/m³ — at or above Mølhave concern tier (${STD.c.tvoc.con} µg/m³).`,
-      suggestion: 'Mølhave tiers are advisory; speciation tells you which compounds. Worth noting if multiple zones show similar elevation.',
-      reference: 'Mølhave 1991 — TVOC advisory tiers',
-    }
-  }
-  return null
-}
 
 function checkTempRh(data) {
   const tf = num(data.tf)
@@ -301,7 +276,15 @@ export function evaluateLive(data, context = {}) {
     checkOutdoorBaseline,
     checkCO,
     checkHCHO,
-    checkTVOC,
+    // No TVOC check, deliberately (2026-08). `checkTVOC` compared the reading
+    // against Mølhave's concern (500 µg/m³) and action (3,000 µg/m³) tiers and
+    // told the assessor, in the field, that the value was "at or above" one of
+    // them — a judgement against a limit that does not exist. Mølhave 1991 is
+    // a research dose-response framework, not a threshold, and TVOC is a
+    // non-specific sum with no consensus health-based limit. The advice it
+    // carried (speciate via EPA TO-15/TO-17, because a PID cannot identify
+    // compounds) is still offered where a recorded SOURCE warrants it; what
+    // went is the concentration trigger.
     checkTempRh,
     checkPM25,
   ]

@@ -14,7 +14,6 @@
  */
 import { STD } from '../constants/standards'
 import { ppbToUgm3, ugm3ToPpb, convertTempValue } from './sensorParser'
-import { convertTvoc, tvocEquivalenceNote, parseCalibrationGas } from './vocConversion'
 
 const HCHO_MW = 30.03
 
@@ -53,24 +52,13 @@ export function hchoToUnit(ppm, unit) {
 }
 // TVOC published value (µg/m³) → the unit the log used. Exported for the
 // monitoring report's reference profiles (see hchoToUnit above).
-/**
- * Mølhave's tier in the unit the data was logged in.
- *
- * mg/m³ and µg/m³ are the same measurand at different scales, so those are
- * an exact prefix shift. Crossing to ppb/ppm needs a molecular weight, and
- * TVOC is a mixture with no single one — so the crossing is made against a
- * named reference compound (isobutylene, the PID calibration gas) and the
- * assumption is disclosed with the number. `convertTvoc` owns that policy;
- * see `utils/vocConversion.js` for why it is a disclosure rather than a
- * refusal, and `tvocEquivalenceNote` for the sentence that must ride along.
- *
- * Returns null only for a unit with no recognised basis — a bare
- * air-quality index, a blank — where there is nothing to convert between.
- */
-export function tvocToUnit(ugm3, unit, opts = {}) {
-  const conv = convertTvoc(ugm3, 'µg/m³', unit, opts)
-  return conv ? conv.value : null
-}
+// `tvocToUnit` was removed in 2026-08. It converted a TVOC THRESHOLD into
+// whatever unit a logger reported, disclosing the calibration-gas equivalence
+// the crossing assumed. There are no TVOC thresholds left to convert.
+//
+// `convertTvoc` in utils/vocConversion.js is untouched and still converts
+// READINGS — a logger reporting ppb and a card displaying µg/m³ is a live
+// concern regardless of whether anything judges the number.
 
 const round = (v, dp = 0) => (v == null ? null : Number(v.toFixed(dp)))
 
@@ -80,11 +68,12 @@ const round = (v, dp = 0) => (v == null ? null : Number(v.toFixed(dp)))
  *   { category, unit, limit, limitLabel, band, refs, note }
  * `limit` is the primary gauge tick (single-bound params); `band` is the
  * comfort range (temp/rh). `refs` are short display strings; `note` is a
- * required advisory disclaimer (TVOC Mølhave / CO₂ ventilation surrogate).
+ * required advisory disclaimer (CO₂ as a ventilation surrogate; for TVOC,
+ * the statement that no reference is shown and why).
  */
 export function paramReference(param, opts = {}) {
   // `opts.calibrationGas` — the free-text PID span gas for this survey
-  // (`pid_cal_gas`). It decides which molecular weight the TVOC tier is
+  // (`pid_cal_gas`). It decides which molecular weight a mass threshold is
   // restated through, and is named in the note either way. Absent, the
   // conversion falls back to isobutylene and says that it did.
   const unit = opts.unit || ''
@@ -125,29 +114,18 @@ export function paramReference(param, opts = {}) {
       out.limitLabel = 'EPA NAAQS 8-h'
       out.refs = [`OSHA PEL: ${STD.c.co.osha} ppm`, `EPA NAAQS 8-h: ${STD.c.co.epa} ppm`]
       break
-    case 'tvoc': {
-      const calGas = parseCalibrationGas(opts.calibrationGas)
-      const conv = convertTvoc(STD.c.tvoc.con, 'µg/m³', unit, { reference: calGas.key })
-      const baseNote = `TVOC has no consensus health limit; ${STD.c.tvoc.con} µg/m³ is the Mølhave 1991 `
-        + 'multifactorial-exposure advisory tier, on a mass basis.'
-      if (!conv) {
-        // A unit with no basis at all — a bare air-quality index. There is
-        // nothing to convert between, so no reference line is offered.
-        out.limit = null
-        out.limitLabel = null
-        out.refs = [`Mølhave advisory: <${STD.c.tvoc.con} µg/m³ (mass basis)`]
-        out.note = `${baseNote} These readings are logged in ${unit || 'an unrecognised unit'}, which has no `
-          + 'mass or volumetric basis, so no reference line is shown.'
-        break
-      }
-      out.limit = round(conv.value, isMg(unit) ? 3 : 0)
-      out.limitLabel = 'Mølhave advisory'
-      out.refs = [`Mølhave advisory: <${STD.c.tvoc.con} µg/m³`]
-      out.note = conv.crossedBasis
-        ? `${baseNote} Stated here as ${out.limit} ${unit} — ${tvocEquivalenceNote(conv.reference, calGas)}`
-        : baseNote
+    case 'tvoc':
+      // No reference, deliberately (2026-08). This case resolved Mølhave's
+      // 500 µg/m³ advisory tier, converting it into whatever unit the logger
+      // reported and disclosing the calibration-gas equivalence it assumed.
+      // The conversion machinery was careful and the tier behind it was not a
+      // limit — it is a research dose-response framework, and TVOC is a
+      // non-specific sum with no consensus health-based limit.
+      //
+      // The card still shows the reading. It shows no line, no label and no
+      // "refs" list, because there is nothing published to compare against.
+      out.note = 'TVOC is a non-specific sum of photoionizable compounds and identifies no individual substance. No consensus health-based limit exists for it, so no reference is shown. Speciation (EPA Method TO-17) identifies the compounds present.'
       break
-    }
     case 'hcho': {
       out.limit = round(hchoToUnit(STD.c.hcho.niosh, unit), isPpm(unit) ? 3 : (isMg(unit) ? 3 : 1))
       out.limitLabel = 'NIOSH REL'

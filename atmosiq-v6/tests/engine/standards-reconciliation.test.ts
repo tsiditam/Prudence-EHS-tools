@@ -114,7 +114,11 @@ describe('the two ledgers agree', () => {
   })
 
   it('has at least one figure reconciled — the check is not vacuous', () => {
-    expect(corpusFigures.length).toBeGreaterThanOrEqual(9)
+    // Was 9. The two Mølhave TVOC tiers were declared as `figures` on the
+    // corpus entry that went in 2026-08, so the reconcilable set is 7. The
+    // floor exists to stop this check going vacuous, not to pin a count — but
+    // it should only ever move deliberately, so it moves with a note.
+    expect(corpusFigures.length).toBeGreaterThanOrEqual(7)
   })
 })
 
@@ -221,7 +225,10 @@ describe('a citation can be checked by a person', () => {
     'ASHRAE-62.1': 'ASHRAE 62.1',
     'EPA-NAAQS': 'EPA NAAQS',
     'IICRC-S520': 'IICRC S520',
-    'Molhave-1991': 'Molhave TVOC tiers',
+    // 'Molhave-1991' mapped to the manifest entry 'Molhave TVOC tiers' until
+    // 2026-08. Both are gone: the corpus entry that used this document key
+    // was removed with the two criteria whose figures it declared, and the
+    // manifest entry with them. See tests/engine/no-molhave.test.ts.
     'NIOSH-NPG': 'NIOSH Pocket Guide RELs',
     'OSHA-CFR-1910': 'OSHA Z-1 PELs',
     'WHO-NIOSH': 'WHO Air Quality Guidelines',
