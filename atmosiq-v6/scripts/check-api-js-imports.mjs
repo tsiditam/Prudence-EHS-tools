@@ -76,7 +76,22 @@ async function resolveSpec(importerFile, spec) {
   const importerDir = path.dirname(importerFile)
   const base = path.resolve(importerDir, spec)
   if (ANY_KNOWN_EXT_RE.test(spec)) {
-    return (await exists(base)) ? base : null
+    if (await exists(base)) return base
+    // A '.js' specifier that maps to a '.ts' source is the CORRECT TypeScript
+    // ESM convention, not a miss: tsc resolves './x.js' to x.ts at compile
+    // time and emits a real './x.js' for Node. Returning null here stopped the
+    // graph walk dead at every such edge — which, once the API surface was
+    // fixed to use '.js' specifiers, would have made this checker report
+    // "clean" because it could no longer traverse into lib/ or scripts/ at
+    // all. A guard that goes quiet when the code is fixed is worse than no
+    // guard, because the silence reads as proof.
+    const swapped = base.replace(/\.(m?js)$/, '')
+    if (swapped !== base) {
+      for (const ext of ['.ts', '.tsx']) {
+        if (await exists(swapped + ext)) return swapped + ext
+      }
+    }
+    return null
   }
   for (const ext of ['.js', '.mjs', '.jsx', '.json', '.ts', '.tsx']) {
     if (await exists(base + ext)) return base + ext
@@ -105,7 +120,12 @@ async function readImportSpecs(file) {
   const specs = []
   for (const m of src.matchAll(IMPORT_RE)) {
     const lineIdx = src.slice(0, m.index).split('\n').length
-    specs.push({ spec: m[1], line: lineIdx, src })
+    // `import type {...} from` / `export type {...} from` are erased by tsc
+    // and never reach the runtime, so they cannot be a resolution landmine.
+    // Note this is the WHOLE-statement form only: `import { a, type B } from`
+    // still emits a real import for `a` and is checked like any other.
+    const typeOnly = /^\s*(?:import|export)\s+type\s/.test(m[0].replace(/^\n/, ''))
+    specs.push({ spec: m[1], line: lineIdx, src, typeOnly })
   }
   return specs
 }
@@ -166,6 +186,63 @@ export async function findApiJsTsLandmines(rootDir) {
   return landmines
 }
 
+/**
+ * Find every API-reachable file — TypeScript included — with a relative
+ * import that carries no file extension.
+ *
+ * ── Why this exists on top of findApiJsTsLandmines ────────────────────────
+ *
+ * That check asks a narrower question: does a `.js` file import an
+ * extension-less path that resolves to `.ts`? It was written from the PR #297
+ * crash, where the importer happened to be a plain `.js` module, and the
+ * `if (!JS_EXT_RE.test(f)) continue` line encoded that accident as the rule.
+ *
+ * The rule is actually about the RUNTIME, not the importer's extension.
+ * Vercel transpiles each `api/**` entry and traces its imports rather than
+ * bundling them, so what runs is Node ESM — and Node ESM requires an explicit
+ * extension on every relative specifier. A `.ts` file importing
+ * `'../lib/foo'` compiles to a `.js` file importing `'../lib/foo'`, which
+ * throws ERR_MODULE_NOT_FOUND at cold start.
+ *
+ * That is not hypothetical. On 2026-09-01 sixteen such imports were live in
+ * `api/*.ts`, and every function reached through one had been returning a
+ * bare 500 since it was deployed: both report-template endpoints, /api/events,
+ * and five cron handlers — including the email-queue processor, which failed
+ * all 96 of its runs in the preceding week. Nothing detected it. The tests
+ * pass (vitest resolves extension-less TS transparently), the build passes,
+ * typecheck passes, and this guardrail passed because the importers were
+ * `.ts` rather than `.js`.
+ *
+ * The working pattern is already in the codebase and is what a correct fix
+ * looks like: `api/field-assistant.ts` imports `'../lib/sentry.js'` — a `.js`
+ * specifier that TypeScript resolves to `sentry.ts` at compile time and Node
+ * resolves to the emitted `sentry.js` at runtime.
+ *
+ * Type-only statements are exempt because tsc erases them.
+ *
+ * Returns {importer, spec, resolves_to, line} records; empty when clean.
+ */
+export async function findApiExtensionlessImports(rootDir) {
+  const reachable = await collectApiReachable(rootDir)
+  const found = []
+  for (const f of reachable) {
+    const specs = await readImportSpecs(f)
+    for (const { spec, line, typeOnly } of specs) {
+      if (typeOnly) continue
+      if (!spec.startsWith('.')) continue
+      if (ANY_KNOWN_EXT_RE.test(spec)) continue
+      const target = await resolveSpec(f, spec)
+      found.push({
+        importer: path.relative(rootDir, f),
+        spec,
+        resolves_to: target ? path.relative(rootDir, target) : '(unresolved)',
+        line,
+      })
+    }
+  }
+  return found
+}
+
 // CLI entrypoint. We only run the script body when this file was
 // invoked directly by Node (i.e. `process.argv[1]` resolves to this
 // file's URL), NOT when it's imported as a module by the regression
@@ -177,9 +254,37 @@ const invokedDirectly =
   process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])
 if (invokedDirectly) {
   const rootDir = process.cwd()
+
+  // The broader check first: ANY api-reachable relative import without a
+  // file extension breaks Node ESM at cold start, whatever the importer's
+  // own extension is. This is a superset of the .js → .ts landmine below.
+  const bare = await findApiExtensionlessImports(rootDir)
+  if (bare.length > 0) {
+    console.error(
+      `check-api-js-imports: found ${bare.length} api-reachable extension-less relative import${bare.length === 1 ? '' : 's'}.`,
+    )
+    console.error(
+      'Vercel transpiles each api/** entry and traces its imports rather than bundling them, so',
+    )
+    console.error(
+      'what runs is Node ESM — which requires an explicit extension on every relative specifier.',
+    )
+    console.error(
+      "Fix: append '.js' to the specifier. TypeScript resolves './x.js' to x.ts at compile time",
+    )
+    console.error(
+      "and Node resolves it to the emitted x.js at runtime — the pattern api/field-assistant.ts",
+    )
+    console.error("already uses ('../lib/sentry.js').")
+    for (const b of bare) {
+      console.error(`  ${b.importer}:${b.line}  '${b.spec}' → ${b.resolves_to}`)
+    }
+    process.exit(1)
+  }
+
   const landmines = await findApiJsTsLandmines(rootDir)
   if (landmines.length === 0) {
-    console.log('check-api-js-imports: clean (no api-reachable .js → .ts landmines)')
+    console.log('check-api-js-imports: clean (no api-reachable extension-less or .js → .ts imports)')
     process.exit(0)
   }
   console.error(

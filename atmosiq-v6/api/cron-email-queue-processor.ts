@@ -5,8 +5,8 @@
  * Resend. CRON_SECRET-gated.
  */
 
-import { runEmailQueueProcessor } from '../scripts/cron-email-queue-processor'
-import { requireCronSecret } from './_cron-auth'
+import { runEmailQueueProcessor } from '../scripts/cron-email-queue-processor.js'
+import { requireCronSecret } from './_cron-auth.js'
 
 interface VercelLikeReq {
   method?: string

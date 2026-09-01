@@ -33,13 +33,13 @@
  */
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import { KNOWN_EVENTS, type EventName } from '../lib/events/types'
+import { KNOWN_EVENTS, type EventName } from '../lib/events/types.js'
 import {
   enqueueReassessmentReminder,
   enqueueSamplingResultsReminder,
   cancelSamplingResultsReminder,
-} from '../lib/email-triggers'
-import { computeNextDueAt } from './sites'
+} from '../lib/email-triggers.js'
+import { computeNextDueAt } from './sites.js'
 
 /** Lab-results follow-up window: enqueue reminder for finalize + N days. */
 const SAMPLING_RESULTS_REMINDER_DAYS = 14
