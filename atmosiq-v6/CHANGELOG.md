@@ -1,5 +1,51 @@
 # AtmosFlow Changelog
 
+## Fix: mold mode could not be exited on a notched iPhone
+
+**User-visible change**
+
+The exit control on the mold screen is reachable again, and the screen no
+longer renders underneath the iOS status bar.
+
+**What happened**
+
+Mold mode is early-returned by `MobileApp` OUTSIDE the IAQ shell — deliberately,
+so the shell and its nav never mount there. The consequence nobody drew: it
+inherits none of the shell's safe-area handling either. The shell pads its
+fixed header with `env(safe-area-inset-top)` and reserves the space beneath it;
+`MoldModeScreen` had a flat `paddingTop: 16` and no `env()` anywhere in the
+file.
+
+On an iPhone with a notch or Dynamic Island the top inset is roughly 47–59px,
+so the header — including the 36px exit button — rendered under the status bar.
+iOS routes taps in that strip to the system rather than the page, so the only
+way out of mold mode could not be pressed. `userMode` persists in
+localStorage, which a Safari cache clear does not touch, so every launch
+returned to a screen with no reachable exit.
+
+`?mold=0` still recovered it: the flag goes off and `MobileApp`'s "persisted
+mold mode seen with the flag off falls back to IH" branch fires. That escape
+hatch worked and was undiscoverable, which is why it did not help anyone.
+
+**Why the existing test did not catch it**
+
+`MoldModeScreen.test.tsx` already asserted that clicking the control fires
+`onExit`, and it passed throughout. It proves the button is wired; it cannot
+see that the button is not where a finger can reach. jsdom has no notion of a
+status bar.
+
+The new tests assert the property that was actually violated: every stage
+reserves the top inset, the control meets the 44px iOS minimum, and the exit is
+offered from all three stages rather than only from home — a stage rendering no
+exit is the same trap by a different route.
+
+**Fixed**
+
+- One `STAGE` container style across home / intake / result, padding all four
+  safe-area insets.
+- Exit control 36px → 44px.
+
+
 ## Fix: every API function reached through an extension-less import was returning 500
 
 **User-visible change**
