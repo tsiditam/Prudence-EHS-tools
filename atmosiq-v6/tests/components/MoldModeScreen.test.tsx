@@ -44,6 +44,65 @@ describe('MoldModeScreen', () => {
     expect(onExit).toHaveBeenCalled()
   })
 
+  // ── The exit has to be REACHABLE, not merely wired ───────────────────────
+  //
+  // The test above passed the whole time a user was trapped in mold mode on a
+  // real iPhone. It proves the button calls its handler; it cannot see that
+  // the button was rendered underneath the iOS status bar, where taps go to
+  // the system instead of the page.
+  //
+  // Mold mode is early-returned by MobileApp OUTSIDE the IAQ shell — the point
+  // being that the shell and its nav never mount — so it inherits none of the
+  // shell's `env(safe-area-inset-top)` handling and had a flat
+  // `paddingTop: 16`. With a ~47-59px top inset the header sat under the
+  // status bar. `userMode` persists in localStorage, which a Safari cache
+  // clear does not touch, so every launch returned to a screen whose only exit
+  // could not be pressed.
+  //
+  // (`?mold=0` still recovers it — the flag goes off, and MobileApp's
+  // `persisted mold + flag off → fall back to IH` branch fires. That is the
+  // documented escape hatch and it is not discoverable, which is why the exit
+  // being physically reachable is the thing that matters.)
+
+  const stageRoot = (c: HTMLElement) => c.firstElementChild as HTMLElement
+
+  it('reserves the top safe-area inset on every stage', () => {
+    const { container } = render(<MoldModeScreen onExit={() => {}} />)
+
+    // Home.
+    expect(stageRoot(container).style.paddingTop).toContain('safe-area-inset-top')
+
+    // Intake.
+    fireEvent.click(screen.getByText(/New mold assessment/))
+    expect(stageRoot(container).style.paddingTop).toContain('safe-area-inset-top')
+
+    // Result.
+    fireEvent.click(screen.getByText(/Run assessment/))
+    expect(stageRoot(container).style.paddingTop).toContain('safe-area-inset-top')
+  })
+
+  it('gives the exit a 44px tap target — it is the only way out of the mode', () => {
+    const { container } = render(<MoldModeScreen onExit={() => {}} />)
+    const btn = screen.getByLabelText('Exit mold mode') as HTMLButtonElement
+    expect(btn.style.width).toBe('44px')
+    expect(btn.style.height).toBe('44px')
+    void container
+  })
+
+  it('offers the exit from every stage, not just home', () => {
+    // A stage that renders no exit is the same trap by a different route.
+    const onExit = vi.fn()
+    render(<MoldModeScreen onExit={onExit} />)
+
+    fireEvent.click(screen.getByText(/New mold assessment/))
+    fireEvent.click(screen.getByLabelText('Exit mold mode'))
+    expect(onExit, 'intake stage has no exit').toHaveBeenCalledTimes(1)
+
+    fireEvent.click(screen.getByText(/Run assessment/))
+    fireEvent.click(screen.getByLabelText('Exit mold mode'))
+    expect(onExit, 'result stage has no exit').toHaveBeenCalledTimes(2)
+  })
+
   it('saves an assessment, lists it on home, reopens it, and deletes it', async () => {
     render(<MoldModeScreen onExit={() => {}} />)
     fireEvent.click(screen.getByText(/Open the demo assessment/)) // → result
