@@ -8,8 +8,8 @@
  * Wired in vercel.json under "crons".
  */
 
-import { runFreeTierReset } from '../scripts/cron-free-tier-reset'
-import { requireCronSecret } from './_cron-auth'
+import { runFreeTierReset } from '../scripts/cron-free-tier-reset.js'
+import { requireCronSecret } from './_cron-auth.js'
 
 interface VercelLikeReq {
   method?: string

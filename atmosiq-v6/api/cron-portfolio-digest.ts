@@ -10,8 +10,8 @@
  * no-ops because enqueuePortfolioDigest dedupes per (user, quarter).
  */
 
-import { runPortfolioDigestEnqueue } from '../scripts/cron-portfolio-digest'
-import { requireCronSecret } from './_cron-auth'
+import { runPortfolioDigestEnqueue } from '../scripts/cron-portfolio-digest.js'
+import { requireCronSecret } from './_cron-auth.js'
 
 interface VercelLikeReq {
   method?: string

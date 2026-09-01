@@ -30,7 +30,7 @@
  */
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import { getTemplate, type UserContext } from '../lib/email-sequences'
+import { getTemplate, type UserContext } from '../lib/email-sequences.js'
 import { canTransition, resolveLifecycle } from '../src/constants/reportLifecycle.js'
 
 const APP_URL = process.env.RESEND_FROM_ADDRESS ? 'atmosflow.net' : 'atmosflow.net'

@@ -9,7 +9,7 @@
  * trigger after recording the event.
  */
 
-import { templatesForPlan, getTemplate } from './email-sequences'
+import { templatesForPlan, getTemplate } from './email-sequences.js'
 
 export interface SupabaseLike {
   from: (table: string) => any

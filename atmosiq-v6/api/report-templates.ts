@@ -30,7 +30,7 @@
  */
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import { discoverTokens, TemplateRenderError } from '../lib/report-templates/render'
+import { discoverTokens, TemplateRenderError } from '../lib/report-templates/render.js'
 // NOTE: render.ts pulls in docxtemplater + pizzip at module load. This used
 // to be a lazy `await import()` inside handleUpload to keep list/delete cold
 // starts lean — but Vercel's file tracer did not reliably bundle the

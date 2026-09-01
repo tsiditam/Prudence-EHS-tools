@@ -1,5 +1,111 @@
 # AtmosFlow Changelog
 
+## Fix: mold mode could not be exited on a notched iPhone
+
+**User-visible change**
+
+The exit control on the mold screen is reachable again, and the screen no
+longer renders underneath the iOS status bar.
+
+**What happened**
+
+Mold mode is early-returned by `MobileApp` OUTSIDE the IAQ shell — deliberately,
+so the shell and its nav never mount there. The consequence nobody drew: it
+inherits none of the shell's safe-area handling either. The shell pads its
+fixed header with `env(safe-area-inset-top)` and reserves the space beneath it;
+`MoldModeScreen` had a flat `paddingTop: 16` and no `env()` anywhere in the
+file.
+
+On an iPhone with a notch or Dynamic Island the top inset is roughly 47–59px,
+so the header — including the 36px exit button — rendered under the status bar.
+iOS routes taps in that strip to the system rather than the page, so the only
+way out of mold mode could not be pressed. `userMode` persists in
+localStorage, which a Safari cache clear does not touch, so every launch
+returned to a screen with no reachable exit.
+
+`?mold=0` still recovered it: the flag goes off and `MobileApp`'s "persisted
+mold mode seen with the flag off falls back to IH" branch fires. That escape
+hatch worked and was undiscoverable, which is why it did not help anyone.
+
+**Why the existing test did not catch it**
+
+`MoldModeScreen.test.tsx` already asserted that clicking the control fires
+`onExit`, and it passed throughout. It proves the button is wired; it cannot
+see that the button is not where a finger can reach. jsdom has no notion of a
+status bar.
+
+The new tests assert the property that was actually violated: every stage
+reserves the top inset, the control meets the 44px iOS minimum, and the exit is
+offered from all three stages rather than only from home — a stage rendering no
+exit is the same trap by a different route.
+
+**Fixed**
+
+- One `STAGE` container style across home / intake / result, padding all four
+  safe-area insets.
+- Exit control 36px → 44px.
+
+
+## Fix: every API function reached through an extension-less import was returning 500
+
+**User-visible change**
+
+Report template upload works. So do `/api/events` and five cron handlers,
+including the email-queue processor.
+
+**What was broken**
+
+Vercel transpiles each `api/**` entry and traces its imports rather than
+bundling them, so what runs is Node ESM — which requires an explicit file
+extension on every relative specifier. Twenty-four imports in the API graph
+had none, and every function reached through one crashed at cold start with
+`ERR_MODULE_NOT_FOUND` before any handler code ran:
+
+| Route | Impact |
+|---|---|
+| `/api/cron-email-queue-processor` | 96 failed runs in 7 days — every run |
+| `/api/report-templates` | upload, list and delete all 500 |
+| `/api/report-templates-render` | same import, same crash |
+| `/api/events` | failing |
+| 4 other cron handlers | failing on each schedule |
+
+Four of the twenty-four were transitive, in `scripts/` and `lib/` — a grep
+over `api/` alone would have missed them.
+
+**The fix** is the pattern `api/field-assistant.ts` has always used:
+`'../lib/sentry.js'`. TypeScript resolves `'./x.js'` to `x.ts` at compile
+time; Node resolves it to the emitted `x.js` at runtime.
+
+**Why nothing caught it**
+
+Every local surface passes. Vitest resolves extension-less TS transparently,
+the Vite build never touches the API graph, typecheck is satisfied by
+TypeScript's own resolution, and `check-api-js-imports.mjs` — the guardrail
+built for exactly this class after PR #297 — passed because it only inspected
+`.js`/`.mjs` importers. Its `if (!JS_EXT_RE.test(f)) continue` encoded an
+accident of the one crash it was written from as the rule, alongside a comment
+asserting that "TS bundlers handle that fine".
+
+It surfaced when somebody tried to upload a report template.
+
+**The guardrail now states the rule from the runtime's constraint**: no
+API-reachable file may use an extension-less relative import, whatever the
+importer is written in. Type-only statements are exempt, because tsc erases
+them. The narrow PR #297 check is kept — a specific diagnosis is worth more to
+whoever reads the failure than a general one.
+
+**A second defect in the guard itself**
+
+Its `resolveSpec` returned null for a `.js` specifier pointing at a `.ts`
+source — which is the *correct* TypeScript convention. So the moment the API
+surface was fixed to use `.js` specifiers, the graph walk would have stopped
+at every one of those edges and reported "clean" because it could no longer
+see into `lib/` or `scripts/`. A guard that goes quiet when the code is fixed
+is worse than no guard, because the silence reads as proof. Fixed, and the
+walk now reaches 64 files (33 `.js`, 31 `.ts`) rather than stopping at the
+API directory.
+
+
 ## Report templates: reachable, filled, and repeating
 
 **User-visible change**

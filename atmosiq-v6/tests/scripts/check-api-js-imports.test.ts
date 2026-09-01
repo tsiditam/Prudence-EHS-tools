@@ -6,8 +6,8 @@
  *
  *   • API-reachable `.js` file → `.ts` import (the bug) is flagged
  *   • API-reachable `.js` file → `.js` import is NOT flagged
- *   • API-reachable `.ts` file → `.ts` import is NOT flagged
- *     (TS bundlers handle that fine; only the .js importer was a problem)
+ *   • API-reachable `.ts` file → `.ts` import is NOT flagged BY THIS CHECK
+ *     — see the correction below; it is caught by the second one
  *   • Non-API-reachable `.js` file → `.ts` import is NOT flagged
  *     (Vite-bundled SPA code can resolve TS extensions transparently)
  *   • The graph walk follows `.ts` → `.js` → `.ts` chains, so a
@@ -16,6 +16,27 @@
  * Each test builds an isolated fixture tree in a tmp dir, runs the
  * pure `findApiJsTsLandmines(rootDir)` export, and asserts the
  * landmine list.
+ *
+ * ── The assumption in bullet three was wrong (corrected 2026-09-01) ───────
+ *
+ * "TS bundlers handle that fine; only the .js importer was a problem" was
+ * inferred from the one crash this file was written from, and it is not how
+ * the runtime works. Vercel TRANSPILES each api/** entry and traces its
+ * imports rather than bundling them, so what runs is Node ESM — which
+ * requires an explicit extension on every relative specifier, whatever the
+ * importer was written in.
+ *
+ * Twenty-four extension-less imports were live in the API graph, and every
+ * function reached through one had been returning a bare 500 since deploy:
+ * both report-template endpoints, /api/events, and five cron handlers —
+ * the email-queue processor among them, which failed all 96 of its runs in
+ * the preceding week. It surfaced only because somebody tried to upload a
+ * report template and got "Upload failed (500)".
+ *
+ * `findApiExtensionlessImports` is the corrected rule and a superset of the
+ * original. The narrow check is kept: it names the PR #297 shape precisely,
+ * and a specific diagnosis is worth more to whoever reads the failure than a
+ * general one.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
@@ -23,7 +44,10 @@ import { promises as fs } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
-import { findApiJsTsLandmines } from '../../scripts/check-api-js-imports.mjs'
+import {
+  findApiJsTsLandmines,
+  findApiExtensionlessImports,
+} from '../../scripts/check-api-js-imports.mjs'
 
 let root: string
 
@@ -150,5 +174,78 @@ describe('findApiJsTsLandmines', () => {
 
     const landmines = await findApiJsTsLandmines(root)
     expect(landmines).toEqual([])
+  })
+})
+
+describe('findApiExtensionlessImports', () => {
+  it('flags a .ts API entry importing a .ts sibling with no extension', async () => {
+    // The exact shape that took production down: api/report-templates.ts
+    // importing '../lib/report-templates/render'.
+    await write('api/handler.ts', "import { render } from '../lib/render'\n")
+    await write('lib/render.ts', 'export const render = () => 1\n')
+    const found = await findApiExtensionlessImports(root)
+    expect(found).toHaveLength(1)
+    expect(found[0].importer).toBe(path.join('api', 'handler.ts'))
+    expect(found[0].spec).toBe('../lib/render')
+  })
+
+  it('does not flag the same import once it carries .js', async () => {
+    // The working pattern, already used by api/field-assistant.ts:
+    // TypeScript resolves './x.js' to x.ts at compile time, Node resolves it
+    // to the emitted x.js at runtime.
+    await write('api/handler.ts', "import { render } from '../lib/render.js'\n")
+    await write('lib/render.ts', 'export const render = () => 1\n')
+    expect(await findApiExtensionlessImports(root)).toEqual([])
+  })
+
+  it('flags an extension-less import that is transitively reachable', async () => {
+    // Four of the twenty-four were two hops out, in scripts/ and lib/ — a
+    // per-file grep over api/ would have missed every one.
+    await write('api/handler.ts', "import { run } from '../lib/a.js'\n")
+    await write('lib/a.ts', "export { run } from './b'\n")
+    await write('lib/b.ts', 'export const run = () => 1\n')
+    const found = await findApiExtensionlessImports(root)
+    expect(found).toHaveLength(1)
+    expect(found[0].importer).toBe(path.join('lib', 'a.ts'))
+  })
+
+  it('ignores type-only statements, which tsc erases', async () => {
+    // `import type {...} from` never reaches the runtime, so it cannot be a
+    // resolution landmine and flagging it would be a false positive.
+    await write('api/handler.ts', "import type { T } from '../lib/types'\nexport const x: number = 1\n")
+    await write('lib/types.ts', 'export type T = string\n')
+    expect(await findApiExtensionlessImports(root)).toEqual([])
+  })
+
+  it('still flags a mixed import that only marks SOME bindings as types', async () => {
+    // `import { a, type B } from` emits a real import for `a`. This is the
+    // shape api/events.ts and both peer-review handlers actually had.
+    await write('api/handler.ts', "import { KNOWN, type T } from '../lib/types'\n")
+    await write('lib/types.ts', 'export const KNOWN = 1\nexport type T = string\n')
+    expect(await findApiExtensionlessImports(root)).toHaveLength(1)
+  })
+
+  it('leaves bare package specifiers alone', async () => {
+    await write('api/handler.ts', "import Stripe from 'stripe'\nimport { x } from '@supabase/supabase-js'\n")
+    expect(await findApiExtensionlessImports(root)).toEqual([])
+  })
+
+  it('does not reach into SPA code that no api/** entry imports', async () => {
+    // Vite bundles the SPA and resolves extension-less TS transparently, so
+    // the same shape there is not a runtime hazard.
+    await write('api/handler.ts', "export default function h() {}\n")
+    await write('src/components/Thing.jsx', "import { y } from '../utils/y'\n")
+    await write('src/utils/y.ts', 'export const y = 1\n')
+    expect(await findApiExtensionlessImports(root)).toEqual([])
+  })
+
+  it('is a superset of the narrow .js → .ts check', async () => {
+    // Anything the original flags, this flags too — so wiring the broad check
+    // first in the CLI cannot let a PR #297-shaped landmine through.
+    await write('api/handler.ts', "import './mod.js'\n")
+    await write('api/mod.js', "import { t } from '../lib/t'\n")
+    await write('lib/t.ts', 'export const t = 1\n')
+    expect(await findApiJsTsLandmines(root)).toHaveLength(1)
+    expect(await findApiExtensionlessImports(root)).toHaveLength(1)
   })
 })

@@ -79,11 +79,41 @@ function MoldField({ q, answers, onChange }) {
   )
 }
 
+/**
+ * Stage container padding.
+ *
+ * Mold mode is EARLY-RETURNED by MobileApp, outside the IAQ shell — which is
+ * the point (the shell and its nav never mount here), and also means this
+ * screen inherits none of the shell's safe-area handling. The shell pads its
+ * fixed header with `env(safe-area-inset-top)` and reserves the space below
+ * it; this screen had a flat `paddingTop: 16`.
+ *
+ * On an iPhone with a notch or Dynamic Island the top inset is ~47-59px, so
+ * the header — INCLUDING the exit button — rendered underneath the status
+ * bar. iOS routes taps in that strip to the system, not the page, so the only
+ * way out of mold mode could not be tapped. `userMode` persists in
+ * localStorage, which a Safari cache clear does not touch, so every launch
+ * came back to a screen with no reachable exit.
+ *
+ * The bottom inset matters less (the 120px tail already clears the home
+ * indicator) but is added for the same reason: nothing else is going to.
+ */
+const STAGE = {
+  paddingTop: 'calc(16px + env(safe-area-inset-top, 0px))',
+  paddingBottom: 'calc(120px + env(safe-area-inset-bottom, 0px))',
+  paddingLeft: 'env(safe-area-inset-left, 0px)',
+  paddingRight: 'env(safe-area-inset-right, 0px)',
+  maxWidth: 820,
+  margin: '0 auto',
+}
+
 function Header({ onExit, sub }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-      <button onClick={onExit} aria-label="Exit mold mode" style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--card)', border: `1px solid ${BORDER}`, color: SUB, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-        <I n="home" s={17} c={SUB} w={1.8} />
+      {/* 44px, not 36 — the iOS minimum tap target, and this is the only way
+          out of mold mode. */}
+      <button onClick={onExit} aria-label="Exit mold mode" style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--card)', border: `1px solid ${BORDER}`, color: SUB, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <I n="home" s={18} c={SUB} w={1.8} />
       </button>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ ...V3.T.h1, marginBottom: 2 }}>Mold Assessment</div>
@@ -185,7 +215,7 @@ export default function MoldModeScreen({ onExit, profile }) {
   // Home ---------------------------------------------------------------------
   if (stage === 'home') {
     return (
-      <div style={{ paddingTop: 16, paddingBottom: 120, maxWidth: 820, margin: '0 auto' }}>
+      <div style={STAGE}>
         <Header onExit={onExit} sub="Moisture & mold assessment — IICRC S520." />
         <GlassCard style={{ marginTop: 16 }}>
           <div style={{ ...V3.T.micro }}>Method — IICRC S520</div>
@@ -230,7 +260,7 @@ export default function MoldModeScreen({ onExit, profile }) {
   // Result -------------------------------------------------------------------
   if (stage === 'result') {
     return (
-      <div style={{ paddingTop: 16, paddingBottom: 120, maxWidth: 820, margin: '0 auto' }}>
+      <div style={STAGE}>
         <Header onExit={onExit} sub="Assessment result" />
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', margin: '12px 0 16px' }}>
           <TactileButton variant="secondary" size="sm" onClick={save} icon={<I n="check" s={14} c={ACCENT} />}>Save assessment</TactileButton>
@@ -246,7 +276,7 @@ export default function MoldModeScreen({ onExit, profile }) {
 
   // Intake -------------------------------------------------------------------
   return (
-    <div style={{ paddingTop: 16, paddingBottom: 120, maxWidth: 820, margin: '0 auto' }}>
+    <div style={STAGE}>
       <Header onExit={onExit} sub="Capture the moisture / mold observations to screen." />
 
       <GlassCard style={{ marginTop: 16 }}>

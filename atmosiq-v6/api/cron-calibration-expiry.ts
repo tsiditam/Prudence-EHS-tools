@@ -11,8 +11,8 @@
  * because the trigger function dedupes per (user, instrument, cal_date).
  */
 
-import { runCalibrationExpiryScan } from '../scripts/cron-calibration-expiry'
-import { requireCronSecret } from './_cron-auth'
+import { runCalibrationExpiryScan } from '../scripts/cron-calibration-expiry.js'
+import { requireCronSecret } from './_cron-auth.js'
 
 interface VercelLikeReq {
   method?: string

@@ -45,7 +45,7 @@ import {
   SECTION_FIELDS,
   type AssessmentContext,
   type SectionRow,
-} from './token-registry'
+} from './token-registry.js'
 
 export class TemplateRenderError extends Error {
   readonly code: string
